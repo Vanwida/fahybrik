@@ -2,1484 +2,211 @@
 
 <style>
   :root {
-    /* Neutrales sesgados en cálido hacia el naranja de marca — elegidos, no heredados */
-    --ground: #0C0B0A;
-    --raised: #161513;
-    --sunken: #100F0E;
-    --line: #2A2724;
-    --line-soft: #1E1C1A;
-    --ink: #F2EFEC;
-    --ink-dim: #A39C95;
-    --ink-faint: #6E6862;
-
-    --accent: #FF5A1F;
-    --accent-soft: rgba(255, 90, 31, 0.14);
-
-    --ok: #45BE8B;
-    --ok-soft: rgba(69, 190, 139, 0.14);
-    --wait: #D9A03C;
-    --wait-soft: rgba(217, 160, 60, 0.14);
-    --dead: #7A736C;
-    --dead-soft: rgba(122, 115, 108, 0.12);
-
-    --shell: 1120px;
-    --gutter: clamp(20px, 5vw, 56px);
-
+    --ground: #0C0B0A; --raised: #161513; --sunken: #100F0E;
+    --line: #2A2724; --line-soft: #1E1C1A;
+    --ink: #F2EFEC; --ink-dim: #A39C95; --ink-faint: #6E6862;
+    --accent: #FF5A1F; --accent-soft: rgba(255,90,31,0.13);
+    --ok: #45BE8B; --ok-soft: rgba(69,190,139,0.13);
+    --wait: #D9A03C; --wait-soft: rgba(217,160,60,0.13);
+    --dead: #7A736C; --dead-soft: rgba(122,115,108,0.11);
+    --gutter: clamp(18px, 5vw, 52px);
     color-scheme: dark;
   }
-
   @media (prefers-color-scheme: light) {
     :root {
-      --ground: #EFEDEA;
-      --raised: #FFFFFF;
-      --sunken: #E6E3DF;
-      --line: #D2CCC5;
-      --line-soft: #E0DBD5;
-      --ink: #17150F;
-      --ink-dim: #56504A;
-      --ink-faint: #8A837C;
-
-      --accent: #D8410B;
-      --accent-soft: rgba(216, 65, 11, 0.1);
-
-      --ok: #17794F;
-      --ok-soft: rgba(23, 121, 79, 0.1);
-      --wait: #8A5D08;
-      --wait-soft: rgba(138, 93, 8, 0.1);
-      --dead: #7A736C;
-      --dead-soft: rgba(122, 115, 108, 0.1);
-
+      --ground: #EFEDEA; --raised: #FFFFFF; --sunken: #E6E3DF;
+      --line: #D2CCC5; --line-soft: #E3DED8;
+      --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+      --accent: #D8410B; --accent-soft: rgba(216,65,11,0.09);
+      --ok: #17794F; --ok-soft: rgba(23,121,79,0.09);
+      --wait: #8A5D08; --wait-soft: rgba(138,93,8,0.09);
+      --dead: #7A736C; --dead-soft: rgba(122,115,108,0.09);
       color-scheme: light;
     }
   }
-
   :root[data-theme="light"] {
-    --ground: #EFEDEA;
-    --raised: #FFFFFF;
-    --sunken: #E6E3DF;
-    --line: #D2CCC5;
-    --line-soft: #E0DBD5;
-    --ink: #17150F;
-    --ink-dim: #56504A;
-    --ink-faint: #8A837C;
-    --accent: #D8410B;
-    --accent-soft: rgba(216, 65, 11, 0.1);
-    --ok: #17794F;
-    --ok-soft: rgba(23, 121, 79, 0.1);
-    --wait: #8A5D08;
-    --wait-soft: rgba(138, 93, 8, 0.1);
-    --dead: #7A736C;
-    --dead-soft: rgba(122, 115, 108, 0.1);
+    --ground: #EFEDEA; --raised: #FFFFFF; --sunken: #E6E3DF;
+    --line: #D2CCC5; --line-soft: #E3DED8;
+    --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+    --accent: #D8410B; --accent-soft: rgba(216,65,11,0.09);
+    --ok: #17794F; --ok-soft: rgba(23,121,79,0.09);
+    --wait: #8A5D08; --wait-soft: rgba(138,93,8,0.09);
+    --dead: #7A736C; --dead-soft: rgba(122,115,108,0.09);
     color-scheme: light;
   }
-
   :root[data-theme="dark"] {
-    --ground: #0C0B0A;
-    --raised: #161513;
-    --sunken: #100F0E;
-    --line: #2A2724;
-    --line-soft: #1E1C1A;
-    --ink: #F2EFEC;
-    --ink-dim: #A39C95;
-    --ink-faint: #6E6862;
-    --accent: #FF5A1F;
-    --accent-soft: rgba(255, 90, 31, 0.14);
-    --ok: #45BE8B;
-    --ok-soft: rgba(69, 190, 139, 0.14);
-    --wait: #D9A03C;
-    --wait-soft: rgba(217, 160, 60, 0.14);
-    --dead: #7A736C;
-    --dead-soft: rgba(122, 115, 108, 0.12);
+    --ground: #0C0B0A; --raised: #161513; --sunken: #100F0E;
+    --line: #2A2724; --line-soft: #1E1C1A;
+    --ink: #F2EFEC; --ink-dim: #A39C95; --ink-faint: #6E6862;
+    --accent: #FF5A1F; --accent-soft: rgba(255,90,31,0.13);
+    --ok: #45BE8B; --ok-soft: rgba(69,190,139,0.13);
+    --wait: #D9A03C; --wait-soft: rgba(217,160,60,0.13);
+    --dead: #7A736C; --dead-soft: rgba(122,115,108,0.11);
     color-scheme: dark;
   }
 
   body {
-    background: var(--ground);
-    color: var(--ink);
+    background: var(--ground); color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 780px; margin: 0 auto; padding: 0 var(--gutter) 72px; }
+
+  header {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: clamp(34px, 7vw, 56px) 0 26px;
+  }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+  h1 {
+    font-size: clamp(28px, 6vw, 42px); font-style: italic; font-weight: 800;
+    letter-spacing: -0.03em; line-height: 1.02; text-transform: uppercase;
   }
 
-  .shell {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: 0 var(--gutter) 96px;
+  h2 {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--ink-faint);
+    margin: 40px 0 12px;
   }
 
-  /* ── Cabecera ─────────────────────────────────────────────────── */
-
-  .masthead {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    padding: clamp(40px, 8vw, 72px) 0 32px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-  .masthead h1 {
-    font-size: clamp(34px, 7vw, 60px);
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.02;
-    text-transform: uppercase;
-    text-wrap: balance;
-    max-width: 16ch;
-  }
-
-  .standfirst {
-    font-size: clamp(16px, 2.2vw, 19px);
-    color: var(--ink-dim);
-    max-width: 62ch;
-    text-wrap: pretty;
-  }
-
-  .stamp {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
-    font-size: 12px;
-    color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ── Tira de estado ───────────────────────────────────────────── */
-
-  .tally {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1px;
-    background: var(--line-soft);
-    border: 1px solid var(--line-soft);
-    margin: 32px 0 0;
-  }
-
-  .tally div {
-    background: var(--raised);
-    padding: 18px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .tally dt {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
-
-  .tally dd {
-    font-size: 26px;
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .tally .n-ok dd { color: var(--ok); }
-  .tally .n-run dd { color: var(--accent); }
-  .tally .n-wait dd { color: var(--wait); }
-  .tally .n-dead dd { color: var(--dead); }
-
-  /* ── Secciones ────────────────────────────────────────────────── */
-
-  section {
-    padding: 56px 0 0;
-  }
-
-  .band {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  @media (min-width: 900px) {
-    .band {
-      grid-template-columns: 190px 1fr;
-      gap: 40px;
-    }
-  }
-
-  .band > h2 {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    padding-top: 4px;
-  }
-
-  .band-body {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    min-width: 0;
-  }
-
-  .band-body h3,
-  .fold-body h3,
-  .primary-block h3 {
-    font-size: 20px;
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    text-wrap: balance;
-  }
-
-  .band-body p,
-  .fold-body > p,
-  .primary-block > p {
-    max-width: 68ch;
-    color: var(--ink-dim);
-    text-wrap: pretty;
-  }
-
-  .band-body strong,
-  .fold-body strong,
-  .primary-block strong { color: var(--ink); font-weight: 650; }
-
-  /* ── Fichas de entrada ────────────────────────────────────────── */
-
-  .entries {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: var(--line-soft);
-    border: 1px solid var(--line-soft);
-  }
-
-  .entry {
-    background: var(--raised);
-    padding: 20px 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .entry-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 10px 14px;
-  }
-
-  .entry-head h3 { font-size: 17px; }
-
-  .entry p { margin: 0; font-size: 15px; }
-
-  .sha {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: var(--ink-faint);
-    letter-spacing: 0.02em;
-  }
-
-  /* ── Pastillas de estado ──────────────────────────────────────── */
-
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 3px 9px;
-    border-radius: 3px;
-    white-space: nowrap;
-  }
-
-  .pill::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    flex: none;
-  }
-
-  .p-ok { color: var(--ok); background: var(--ok-soft); }
-  .p-run { color: var(--accent); background: var(--accent-soft); }
-  .p-wait { color: var(--wait); background: var(--wait-soft); }
-  .p-dead { color: var(--dead); background: var(--dead-soft); }
-  .p-run::before { animation: pulse 1.9s ease-in-out infinite; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.25; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .p-run::before { animation: none; }
-  }
-
-  /* ── Tabla de fabricantes ─────────────────────────────────────── */
-
-  .scroller {
-    overflow-x: auto;
-    border: 1px solid var(--line-soft);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14.5px;
-    min-width: 640px;
-    background: var(--raised);
-  }
-
-  th, td {
-    text-align: left;
-    padding: 13px 18px;
-    border-bottom: 1px solid var(--line-soft);
-    vertical-align: top;
-  }
-
-  thead th {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    background: var(--sunken);
-    white-space: nowrap;
-  }
-
-  tbody tr:last-child td { border-bottom: none; }
-
-  td.brand {
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-  }
-
-  td.note { color: var(--ink-dim); }
-
-  /* ── Listas ───────────────────────────────────────────────────── */
-
-  ul.plain {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 68ch;
-  }
-
-  ul.plain li {
-    padding-left: 18px;
-    position: relative;
-    color: var(--ink-dim);
-  }
-
-  ul.plain li::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.68em;
-    width: 7px;
-    height: 1px;
-    background: var(--accent);
-  }
-
-  /* ── Bloque de aviso ──────────────────────────────────────────── */
-
-  .callout {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--accent);
-    padding: 20px 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .callout h3 { font-size: 17px; }
-  .callout p { margin: 0; }
-
-  /* ── Secciones plegables ──────────────────────────────────────── */
-
-  details.fold {
-    border-top: 1px solid var(--line);
-  }
-
-  details.fold > summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 20px 0;
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-  }
-
-  details.fold > summary::-webkit-details-marker { display: none; }
-
-  details.fold > summary::before {
-    content: "+";
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--accent);
-    width: 14px;
-    flex: none;
-  }
-
-  details.fold[open] > summary::before { content: "–"; }
-
-  details.fold > summary h2 {
-    font-size: 17px;
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    color: var(--ink);
-  }
-
-  details.fold > summary .hint {
-    font-size: 13px;
-    color: var(--ink-faint);
-    text-wrap: pretty;
-  }
-
-  details.fold > summary:hover h2 { color: var(--accent); }
-
-  details.fold .fold-body {
-    padding: 0 0 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-  }
-
-  @media (min-width: 900px) {
-    details.fold .fold-body { padding-left: 28px; }
-  }
-
-  /* La sección abierta de tareas no lleva el marco plegable */
-  .primary-block { padding: 44px 0 8px; }
-
-  .primary-block > h2 {
-    font-size: clamp(24px, 4vw, 32px);
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  .primary-block > .lede {
-    color: var(--ink-dim);
-    max-width: 66ch;
-    margin-bottom: 26px;
-  }
-
-  /* ── Las dos puertas de Garmin ────────────────────────────────── */
-
-  .doors {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  @media (min-width: 760px) {
-    .doors { grid-template-columns: 1fr 1fr; }
-  }
-
-  .door {
-    border: 1px solid var(--line);
-    background: var(--raised);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .door-top {
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .door-state {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  .door h3 {
-    font-size: 19px;
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-  }
-
-  .door-sub { font-size: 13.5px; color: var(--ink-dim); }
-
-  .door dl {
-    padding: 4px 22px 18px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .door dl > div {
-    display: grid;
-    grid-template-columns: 88px 1fr;
-    gap: 14px;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--line-soft);
-    align-items: start;
-  }
-
-  .door dl > div:last-child { border-bottom: none; }
-
-  .door dt {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    padding-top: 3px;
-  }
-
-  .door dd { font-size: 14.5px; color: var(--ink); }
-
-  .door.shut { opacity: 0.72; }
-  .door.shut .door-state { color: var(--dead); }
-  .door.open { border-color: var(--accent); }
-  .door.open .door-state { color: var(--accent); }
-
-  .verdict {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 20px;
-    background: var(--sunken);
-    border: 1px solid var(--line);
-    font-size: 15px;
-    color: var(--ink);
-  }
-
-  .verdict b { font-weight: 700; }
-
-  /* ── Tareas de Alex ───────────────────────────────────────────── */
-
+  /* ── Lo tuyo ─────────────────────────────────────────────── */
+  .mine { display: flex; flex-direction: column; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
   .task {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    padding: 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    background: var(--raised); padding: 15px 18px;
+    display: flex; gap: 13px; align-items: flex-start;
   }
-
-  .task-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px 14px;
+  .task .dot {
+    flex: none; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); margin-top: 8px;
   }
+  .task .body { flex: 1; min-width: 0; }
+  .task b { display: block; font-size: 15px; font-weight: 650; }
+  .task span { font-size: 13.5px; color: var(--ink-dim); }
+  .task a { color: var(--accent); }
+  .none { background: var(--raised); border: 1px solid var(--line-soft); padding: 15px 18px; font-size: 14.5px; color: var(--ink-dim); }
+  .none b { color: var(--ok); }
 
-  .task-head h3 {
-    font-size: 18px;
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.015em;
+  /* ── Tablero de marcas ───────────────────────────────────── */
+  .board { display: flex; flex-direction: column; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+  .brand { background: var(--raised); padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+  .brand .name { font-size: 15.5px; font-weight: 700; font-style: italic; letter-spacing: -0.01em; min-width: 92px; }
+  .brand .what { flex: 1; min-width: 190px; font-size: 13.5px; color: var(--ink-dim); }
+  .tag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 3px; white-space: nowrap;
   }
+  .t-ok { color: var(--ok); background: var(--ok-soft); }
+  .t-wait { color: var(--wait); background: var(--wait-soft); }
+  .t-dead { color: var(--dead); background: var(--dead-soft); }
 
-  .cost {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
+  /* ── Enlaces a los detalles ──────────────────────────────── */
+  .links { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+  @media (min-width: 620px) { .links { grid-template-columns: 1fr 1fr; } }
+  .links a {
+    background: var(--raised); padding: 15px 18px; text-decoration: none; color: inherit;
+    display: block;
   }
+  .links a:hover { background: var(--sunken); }
+  .links b { display: block; font-size: 14.5px; font-weight: 650; color: var(--accent); }
+  .links span { font-size: 13px; color: var(--ink-faint); }
 
-  .steps {
-    counter-reset: step;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .steps > li {
-    counter-increment: step;
-    display: grid;
-    grid-template-columns: 22px 1fr;
-    gap: 12px;
-    align-items: start;
-    color: var(--ink-dim);
-    min-width: 0;
-  }
-
-  .steps > li::before {
-    content: counter(step);
-    font-size: 11px;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-    background: var(--accent-soft);
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-    border-radius: 3px;
-    margin-top: 2px;
-  }
-
-  .steps li > div { min-width: 0; }
-
-  .copyblock {
-    margin-top: 10px;
-    border: 1px solid var(--line);
-    background: var(--sunken);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .copyblock header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--line);
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
-
-  .copyblock pre {
-    margin: 0;
-    padding: 14px;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12.5px;
-    line-height: 1.65;
-    color: var(--ink);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  button.copy {
-    font: inherit;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: transparent;
-    border: 1px solid var(--accent);
-    border-radius: 3px;
-    padding: 3px 10px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  button.copy:hover { background: var(--accent-soft); }
-  button.copy[data-done="1"] { color: var(--ok); border-color: var(--ok); }
-
-  .warn {
-    border-left: 3px solid var(--wait);
-    background: var(--wait-soft);
-    padding: 12px 16px;
-    font-size: 14.5px;
-    color: var(--ink);
-  }
-
-  .answer {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2px;
-    font-size: 14px;
-  }
-
-  @media (min-width: 620px) {
-    .answer { grid-template-columns: minmax(0, 210px) 1fr; gap: 4px 16px; }
-  }
-
-  .answer dt { color: var(--ink-faint); }
-  .answer dd { color: var(--ink); }
-
-  footer {
-    margin-top: 72px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
-    font-size: 12.5px;
-    color: var(--ink-faint);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-  }
-
-  a { color: var(--accent); text-underline-offset: 3px; }
-  a:focus-visible, :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+  footer { margin-top: 44px; font-size: 12px; color: var(--ink-faint); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 
 <div class="shell">
 
-  <header class="masthead">
-    <div class="eyebrow">Prioridad máxima · 25 jul 2026</div>
-    <h1>El entreno, en la muñeca</h1>
-    <p class="standfirst">
-      Que el atleta se despreocupe del móvil: que el reloj tenga el entreno de hoy. Y donde el
-      fabricante no deje empujarlo, que la app lea de ese dispositivo todo lo que se pueda.
-    </p>
-    <div class="stamp">
-      <span>Rama <span class="sha">feat/zepp-app</span></span>
-      <span>Arriba, lo que necesita tu decisión. Debajo, todo lo demás plegado</span>
-    </div>
+  <header>
+    <div class="eyebrow">El entreno en la muñeca</div>
+    <h1>Relojes</h1>
   </header>
 
-  <dl class="tally">
-    <div class="n-ok"><dt>Construido</dt><dd>13</dd></div>
-    <div class="n-run"><dt>Construyéndose</dt><dd>0</dd></div>
-    <div class="n-wait"><dt>Esperan a Alex</dt><dd>0</dd></div>
-    <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
-  </dl>
-
-    <section class="primary-block">
-    <h2>Tu turno</h2>
-    <p class="lede">Lo único que necesita tu decisión. Todo lo demás va debajo, plegado.</p>
-
-      <p>
-        Nada pendiente hoy. Lo único que queda es el reloj Garmin de la semana que viene, y ahí solo
-        tienes que decirme el modelo.
-      </p>
-
-      <div class="entries" style="background:transparent;border:none;gap:20px">
-
-        <!-- 1 · COROS -->
-        <div class="task" style="border-color:var(--ok)">
-          <div class="task-head">
-            <h3>COROS</h3>
-            <span class="pill p-ok">Enviado el 25 de julio</span>
-          </div>
-          <p style="color:var(--ink-dim);margin:0">
-            Fuera de tu lista. No esperes acuse por correo: los formularios de Feishu no lo mandan.
-            La confirmación real es que aparezca en «View Responses». COROS <strong>no publica
-            plazos</strong> de respuesta, así que el silencio no significa nada.
-          </p>
-          <p style="color:var(--ink-dim);margin:0">
-            Queda pendiente de mi parte dejar vivos el webhook y la URL de estado que declaramos, y
-            mandarles el correo a <a href="mailto:api@coros.com">api@coros.com</a> con la pregunta
-            que desatasca todo: si el envío de entrenos entra en el acceso estándar o necesita
-            acuerdo aparte. El texto está más abajo, listo.
-          </p>
-        </div>
-
-        <!-- 2 · Suunto -->
-        <div class="task" style="border-color:var(--ok)">
-          <div class="task-head">
-            <h3>Suunto</h3>
-            <span class="pill p-ok">Enviado el 25 de julio</span>
-          </div>
-          <p style="color:var(--ink-dim);margin:0">
-            Fuera de tu lista. Firmaste el acuerdo y se envió. Su pantalla confirmó el envío y
-            dijeron que responden <strong>en dos semanas</strong>, que es el único plazo publicado de
-            todos los fabricantes.
-          </p>
-          <p style="color:var(--ink-dim);margin:0">
-            Pedimos dos cosas: acceso a la Cloud API, que es la que trae las guías de entreno, y
-            además la posibilidad de crear apps de reloj. Eso segundo es la misma puerta que Connect
-            IQ en Garmin y nos daría las estaciones de HYROX, que las guías no cubren. Y van tus dos
-            correos como desarrolladores, porque Suunto da una app por correo: con uno solo nos
-            quedaríamos sin entorno de pruebas.
-          </p>
-          <p style="color:var(--ink-dim);margin:0">
-            El código ya está escrito contra su especificación pública, así que cuando llegue la
-            credencial es enchufar y probar.
-          </p>
-        </div>
-
-        <!-- 3 · Garmin -->
-        <div class="task">
-          <div class="task-head">
-            <h3>Garmin: dime el modelo cuando llegue</h3>
-            <span class="pill p-wait">La semana que viene</span>
-            <span class="cost">1 min</span>
-          </div>
-          <p style="color:var(--ink-dim);margin:0">
-            El SDK ya está instalado y <strong>la app del reloj compila</strong>, en doce modelos de
-            las seis familias. No queda nada por tu parte hasta que tengas el reloj delante.
-          </p>
-          <p style="color:var(--ink-dim);margin:0">
-            Cuando lo tengas: dime el modelo, enchúfalo por USB y en quince minutos sabemos si el
-            reproductor de Garmin arranca con los tramos correctos. Es lo único que no se puede
-            simular.
-          </p>
-        </div>
-
-        <!-- 4 · Migración -->
-        <div class="task" style="border-color:var(--ok)">
-          <div class="task-head">
-            <h3>Migración</h3>
-            <span class="pill p-ok">Aplicada</span>
-          </div>
-          <p style="color:var(--ink-dim);margin:0">
-            Suunto y Amazfit ya son orígenes de dato válidos en producción. Sin esto, la primera
-            actividad que llegara de un Suunto se habría perdido. De paso entraron Polar y COROS en
-            la lista de dispositivos, donde también faltaban.
-          </p>
-        </div>
-
-      </div>
-  </section>
-
-  <details class="fold">
-    <summary><h2>Lo que importa</h2><span class="hint">De 1 sesión real a 78, y los 65 que aún faltan</span></summary>
-    <div class="fold-body">
-
-      <div class="callout" style="border-left-color:var(--ok)">
-        <h3>De 1 sesión real a 112</h3>
-        <p>
-          Al empezar el día, el reloj solo sabía leer la gramática nueva, y esa la usa exactamente
-          un segmento de los 143 que hay en producción. Todo lo demás lo miré corriendo el conversor
-          sobre las filas reales de la base de datos, no sobre tests:
-        </p>
-        <div class="scroller">
-          <table>
-            <thead>
-              <tr><th scope="col">Segmentos de carrera que pueden ir al reloj</th><th scope="col">Cuántos</th></tr>
-            </thead>
-            <tbody>
-              <tr><td class="note">Al empezar la sesión</td><td>1 de 143</td></tr>
-              <tr><td class="note">Leyendo también el formato viejo</td><td>78</td></tr>
-              <tr><td class="note">Mirando el tipo de bloque correcto</td><td><strong>112</strong></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          Son <strong>48 sesiones</strong>, 16 de ellas ya asignadas a un atleta.
-        </p>
-        <p>
-          Los 31 que no entran <strong>se rechazan bien</strong>: son simulaciones de HYROX, metcons
-          y un bloque que mezcla correr con bici. En esos, correr es un tramo dentro de otra cosa;
-          mandarlos al reloj como si fueran un entreno de carrera le mentiría al atleta sobre lo que
-          va a hacer.
-        </p>
-      </div>
-
-      <div class="callout" style="border-left-color:var(--ok)">
-        <h3>Y un agujero que encontré por el camino</h3>
-        <p>
-          Al quitar el filtro equivocado quedó a la vista que <strong>el mío no filtraba por
-          modalidad</strong>. Lo medí: <strong>121 segmentos de bici, remo, ski y movilidad</strong>
-          se habrían convertido en «estructuras de carrera» y habrían viajado al reloj como tales.
-          Ahora usa la misma regla que el resto de la app.
-        </p>
-      </div>
-
-      <div class="callout" style="border-left-color:var(--wait)">
-        <h3>Cómo lo descubrimos</h3>
-        <p>
-          Puse un agente a comprobar contra la base de datos de producción cómo compone Pablo sus
-          sesiones de carrera. La respuesta es más gorda que la pregunta:
-          <strong>de los 429 segmentos que hay en producción, exactamente UNO usa la gramática de
-          carrera estructurada</strong> — y ese está sin asignar a nadie. Templates asignados a un
-          atleta que la usen: <strong>cero</strong>.
-        </p>
-        <p>
-          Es decir: construimos la gramática en su día, pero ni Pablo ni el importador han
-          reescrito nada con ella. Todo el contenido real vive en los campos planos de siempre. Un
-          reloj que solo sepa leer la gramática nueva se queda mirando una biblioteca vacía.
-        </p>
-      </div>
-
-      <p>
-        De paso, el mismo barrido tumbó una decisión que habíamos tomado a ciegas. El filtro del
-        Apple Watch exigía que la sesión de carrera fuese <strong>un único ejercicio</strong>. En los
-        datos reales, las sesiones de carrera que el coach ha escrito y asignado a un atleta con un
-        solo ejercicio son <strong>cero</strong>: todas llevan su calentamiento, su bloque principal
-        y su vuelta a la calma. El filtro correcto es «el trabajo principal es carrera», ignorando
-        calentamiento y vuelta — y rechazando solo cuando hay trabajo real intercalado que no es
-        correr, como una simulación HYROX con trineo y wall balls. Ahí sí sería mentir.
-      </p>
-    </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>Hecho</h2><span class="hint">Lo construido y subido, con sus commits</span></summary>
-    <div class="fold-body">
-
-      <div class="entries">
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Zepp nunca pudo funcionar</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">0c4f00b</span>
-          </div>
-          <p>
-            No estaba «construido a falta de enviar»: tenía dos contratos rotos con nuestro propio
-            backend. Leía el token de un campo que no existe, así que con un código <em>válido</em>
-            decía «código incorrecto»; y buscaba los días del plan un nivel por encima de donde
-            están, así que siempre decía «no tienes entreno esta semana». Verificado leyendo los dos
-            lados, no solo la mini-app.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Conceder Apple Salud no sincronizaba nada</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">0c4f00b</span>
-          </div>
-          <p>
-            En el onboarding se marcaba el permiso como dado pero no se arrancaba la sincronización:
-            el atleta concedía y no subía un solo dato hasta reactivarlo en Perfil. Afectaba a todas
-            las altas nuevas. La secuencia estaba además duplicada en Perfil y en el día-1 y faltaba
-            en el onboarding — ahora es una sola función y no puede volver a divergir.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>El modelo neutro de entreno</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">39cce23</span>
-          </div>
-          <p>
-            La bisagra: la estructura del coach ya resuelta por atleta, lista para que cada
-            fabricante la codifique a lo suyo. Es donde viven las dos decisiones de dominio de
-            arriba.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Suunto: guías completas, con tres trampas esquivadas</h3>
-            <span class="pill p-ok">Listo, sin credenciales</span>
-          </div>
-          <p>
-            Empaquetado y cliente de la API, 44 tests. El ZIP lo valida <span class="sha">unzip</span>
-            de verdad, no nuestro propio lector. Tres cosas que habrían pasado la revisión y roto en
-            el reloj:
-          </p>
-          <ul class="plain">
-            <li>
-              El ejemplo oficial de Suunto etiqueta la actividad como <span class="sha">3</span>.
-              Descargando su tabla real, <strong>el 3 es esquí de fondo</strong>: correr es el 1.
-              Copiar el ejemplo habría archivado cada entreno bajo esquí, donde el atleta no lo
-              encuentra nunca.
-            </li>
-            <li>
-              El ritmo va en <strong>metros por segundo</strong>, no en min/km — y eso
-              <strong>invierte la banda</strong>: el ritmo más rápido es el máximo. Cruzarlos daría
-              un objetivo imposible de cumplir. La cadencia va en hercios de revolución, no en
-              pasos por minuto.
-            </li>
-            <li>
-              El reloj no garantiza acentos ni el punto medio que usamos de separador. Sin sanear,
-              «400 m · 3:30/km» llega mutilado a la muñeca.
-            </li>
-          </ul>
-          <p>
-            De regalo: cada tramo prescrito genera su propio lap, así que la ejecución casa con la
-            prescripción sin heurísticas — igual que hicimos con Polar.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>La app Garmin del reloj</h3>
-            <span class="pill p-ok">Compilando</span>
-          </div>
-          <p>
-            Es un <strong>mensajero, no un reproductor</strong>: pide el fichero, deja que el reloj
-            lo guarde y se lo pasa al reproductor nativo de Garmin. Los tramos, los ritmos objetivo,
-            las alertas y la vibración los hace Garmin — no reimplementamos nada de eso, que es
-            justo lo que lo hace bueno.
-          </p>
-          <p>
-            El login no se podía copiar de Zepp: los ajustes de Garmin son declarativos y no admiten
-            un botón que llame a una API. Solución sin inventar nada: el móvil pone el teclado y el
-            reloj hace las dos llamadas que ya tenemos vivas. Y hay recogida de basura — antes de
-            cada descarga borra los entrenos de días pasados, que ataca la raíz del «reloj lleno»
-            que sufrían los usuarios de TrainingPeaks.
-          </p>
-          <p>
-            Ya compila en doce relojes (ver arriba). Lo que sigue sin poder probarse es el guiado en
-            sí: Garmin no simula las apps nativas, así que eso necesita el reloj físico.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Una zona de pulso llegaba al móvil convertida en ritmo</h3>
-            <span class="pill p-ok">Arreglado</span>
-          </div>
-          <p>
-            Este no era de relojes: afectaba a lo que el atleta ve <strong>hoy</strong> en la app. Si
-            el coach prescribía «FC Z4», el sistema lo resolvía por el camino del ritmo y al atleta le
-            salía «4:00-4:14/km». Un ritmo que nadie había prescrito, y con pinta de medido.
-          </p>
-          <p>
-            No se arregla convirtiéndolo a pulsaciones, porque la estructura de datos solo sabe
-            expresar ritmo. Así que ahora no se resuelve y se muestra la etiqueta de la zona, que es
-            lo que el propio módulo ya prometía: nunca un ritmo inventado.
-          </p>
-          <p>
-            La prueba que lo vigila <strong>falla si reintroduzco el bug</strong>. Lo comprobé
-            revirtiéndolo.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Los dispositivos, agrupados por lo que hacen</h3>
-            <span class="pill p-ok">En la app</span>
-          </div>
-          <p>
-            Eran cinco filas seguidas sin ninguna lógica. Ahora son tres grupos, y el título de cada
-            uno es la explicación: <strong>reciben tu entreno</strong> (Apple Watch, Garmin),
-            <strong>solo leen lo que haces</strong> (Apple Salud, Polar) y <strong>en el
-            gimnasio</strong> (remo Concept2).
-          </p>
-          <p>
-            Lo importante no es el orden, es que antes Polar aparecía idéntico a Garmin. A un Garmin
-            le mandas el entreno y a un Polar no: alguien conectaba su Polar esperando que le bajara
-            el plan al reloj y no bajaba nunca. No era un fallo, era una promesa que la pantalla
-            nunca hizo explícita.
-          </p>
-          <p>
-            De paso, la banda de pulso y la cinta no salían por ningún sitio y parecía que faltaban.
-            Ahora se dice dónde están: se buscan al empezar el entreno.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Puedes ver la app entera sin reloj</h3>
-            <span class="pill p-ok">En el simulador</span>
-          </div>
-          <p>
-            Tenías razón en frenarme: nadie instala en la muñeca de otro algo que no ha visto. He
-            compilado una <strong>build de vitrina</strong> que recorre las doce pantallas con solo
-            pulsar: pedir email, código, entreno listo, ya en el reloj, hoy no toca, sin conexión,
-            reloj lleno, incompatible.
-          </p>
-          <p>
-            Vive fuera del repo y no toca la app de verdad. Sirve para que apruebes textos y estados
-            <em>antes</em> de que esto se acerque a un reloj ajeno.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Y arranca en el simulador</h3>
-            <span class="pill p-ok">Probado</span>
-          </div>
-          <p>
-            Cargada en un <strong>Forerunner 165 virtual</strong>. Dibuja y pide vincular la cuenta,
-            que es exactamente el primer estado del diseño: sin sesión no hay entreno que enseñar. Ni
-            pantalla en blanco ni error, que es lo que suele pasar cuando algo así no se ha probado
-            nunca.
-          </p>
-          <p>
-            Para llegar al segundo estado hace falta meterle una sesión y que el servidor esté
-            sirviendo el fichero. Eso va con la prueba del reloj físico.
-          </p>
-          <p>
-            <strong>Capturas no hay:</strong> macOS deniega la captura de pantalla a la terminal. Se
-            arregla dando permiso de Grabación de pantalla en Ajustes del Sistema, y entonces te las
-            genero.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>La app de Garmin ya compila</h3>
-            <span class="pill p-ok">Hecho</span>
-          </div>
-          <p>
-            Instalado el SDK de Garmin y generada la clave de firma. Al pasar por el compilador por
-            primera vez salieron <strong>tres errores</strong> que ninguna revisión a ojo habría
-            cazado: el fichero de build declaraba el idioma con una referencia circular que ni se
-            podía leer (y que sobraba entera, porque el compilador coge los idiomas por convención),
-            la función de arranque estaba mal tipada, y un array sin tipo no dejaba guardar los
-            entrenos descargados.
-          </p>
-          <p>
-            <strong>Compila en doce relojes</strong> de las seis familias, incluidos el 745 y el 945,
-            que son los más justos de memoria y donde más dudaba que cupiera.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Apple Watch: la carrera de hoy en la app nativa</h3>
-            <span class="pill p-ok">Construido</span>
-          </div>
-          <p>
-            Reusa el mismo objetivo con el que auto-avanza nuestro motor, así que muñeca y móvil no
-            pueden discrepar sobre un tramo. La conversión de ritmo a velocidad
-            <strong>invierte la banda</strong> — más rápido es menos segundos pero más metros por
-            segundo — y eso tiene su propio test.
-          </p>
-          <p>
-            Dos negativas deliberadas: una banda con un solo extremo («no más lento de 5:00») no
-            emite alerta, y una zona de pulso derivada de una FCmáx <em>estimada por edad</em>
-            tampoco. En el resto de la app esa estimación va siempre acompañada de un «genérica»;
-            empujarla al reloj perdería ese matiz y parecería medida.
-          </p>
-          <p>
-            La reconciliación firma cada entreno como nuestro, así que al re-sincronizar nunca toca
-            los que haya programado otra app. <strong>667 tests, 0 fallos; build correcto.</strong>
-          </p>
-        </article>
-
+  <h2>Lo tuyo</h2>
+  <div class="mine">
+    <div class="task">
+      <div class="dot"></div>
+      <div class="body">
+        <b>Mandar un correo a COROS</b>
+        <span>
+          Es lo que más desatasca: preguntarles si el envío de entrenos entra en el acceso normal o
+          pide acuerdo aparte. El texto está escrito, solo hay que enviarlo a
+          <a href="mailto:api@coros.com">api@coros.com</a> ·
+          <a href="https://claude.ai/code/artifact/37d6126f-d556-4115-8b3b-bf400ed0a32a">ver texto</a>
+        </span>
       </div>
     </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>Lo siguiente</h2><span class="hint">Lo que queda por hacer y en qué orden</span></summary>
-    <div class="fold-body">
-
-      <p>Todo integrado en la rama y verde. Lo que queda, por orden:</p>
-      <ul class="plain">
-        <li>
-          <strong>Aflojar el filtro del Apple Watch</strong> a «el trabajo principal es carrera».
-        </li>
-        <li>
-          <strong>Dejar vivos el webhook y la URL de estado de COROS</strong> antes de que envíes la
-          solicitud.
-        </li>
-      </ul>
-    </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>Garmin</h2><span class="hint">Por qué podemos, si nos tienen parados</span></summary>
-    <div class="fold-body">
-
-      <h3>Hay dos puertas. Solo una está cerrada</h3>
-      <div class="doors">
-
-        <div class="door shut">
-          <div class="door-top">
-            <div class="door-state">Cerrada · nos tienen parados</div>
-            <h3>API de negocio</h3>
-            <div class="door-sub">Entrar en el sistema de Garmin</div>
-          </div>
-          <dl>
-            <div><dt>Quién entra</dt><dd>Te evalúan como empresa. Eligen a dedo</dd></div>
-            <div><dt>Qué da</dt><dd>El entreno aparece en el calendario del atleta y baja al reloj solo</dd></div>
-            <div><dt>El atleta</dt><dd>No hace nada. Cero fricción</dd></div>
-          </dl>
-        </div>
-
-        <div class="door open">
-          <div class="door-top">
-            <div class="door-state">Abierta · alta libre y gratis</div>
-            <h3>Connect IQ</h3>
-            <div class="door-sub">Su tienda de apps, como la App Store</div>
-          </div>
-          <dl>
-            <div><dt>Quién entra</dt><dd>Cualquier desarrollador. Revisan el contenido, no el negocio</dd></div>
-            <div><dt>Qué da</dt><dd>Una app nuestra dentro del reloj, que baja el entreno y lanza el reproductor nativo</dd></div>
-            <div><dt>El atleta</dt><dd>Se instala la app y la abre para bajar el entreno del día</dd></div>
-          </dl>
-        </div>
-
-      </div>
-
-      <div class="verdict">
-        <span>Misma capacidad, peor experiencia. <b>TrainingPeaks hizo justo esto en 2017</b> y lo retiró cuando por fin le dieron la API oficial. Por eso la solicitud parada sigue mereciendo la pena: el día que entre, el atleta deja de instalar nada.</span>
-      </div>
-
-      <p>
-        <strong>El riesgo:</strong> la revisión de la tienda la hace Garmin y puede decir que no. Leí
-        sus normas enteras buscando una cláusula que lo impidiera y no hay ninguna. Pero es su tienda.
-      </p>
-    </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>Por fabricante</h2><span class="hint">Qué admite cada marca, con fuentes oficiales</span></summary>
-    <div class="fold-body">
-
-      <p>
-        Verificado contra documentación oficial de cada marca, no de memoria. Ocho agentes, con las
-        fuentes citadas.
-      </p>
-      <div class="scroller">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Marca</th>
-              <th scope="col">Empujar el entreno</th>
-              <th scope="col">Vía</th>
-              <th scope="col">Qué hace falta</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="brand">Apple Watch</td>
-              <td><span class="pill p-ok">Sí, nativo</span></td>
-              <td class="note">WorkoutKit — sale en la app Entrenamiento nativa, arriba del todo, con nuestro icono</td>
-              <td class="note">Nada de nadie. Ni entitlement ni aprobación. Tope de 15 entrenos, ventana ±7 días</td>
-            </tr>
-            <tr>
-              <td class="brand">Garmin</td>
-              <td><span class="pill p-ok">Sí</span></td>
-              <td class="note">App Connect IQ propia: el reloj descarga nuestro <span class="sha">.FIT</span> y lanza el reproductor <em>nativo</em> de Garmin</td>
-              <td class="note">No depende de la solicitud que tienen parada. Alta gratis, revisión de store 2–4 días</td>
-            </tr>
-            <tr>
-              <td class="brand">Suunto</td>
-              <td><span class="pill p-ok">Sí</span></td>
-              <td class="note">SuuntoPlus Guides — spec pública y completa, se codifica sin esperar a nadie</td>
-              <td class="note">Formulario de partner. Gratis, dos semanas máximo</td>
-            </tr>
-            <tr>
-              <td class="brand">COROS</td>
-              <td><span class="pill p-wait">Sí, a ciegas</span></td>
-              <td class="note">Funciona hoy con TrainingPeaks, Decathlon y Final Surge — pero el endpoint no está publicado</td>
-              <td class="note">Solicitud. Cambiaron su política el 23 de julio: de «te elegimos» a «cumples requisitos, entras»</td>
-            </tr>
-            <tr>
-              <td class="brand">Polar</td>
-              <td><span class="pill p-dead">No</span></td>
-              <td class="note">Ninguna vía pública. La de TrainingPeaks es un acuerdo privado sin ruta documentada</td>
-              <td class="note">A cambio, la lectura es muy completa — y sus relojes emiten pulso por Bluetooth mientras graban</td>
-            </tr>
-            <tr>
-              <td class="brand">Wahoo</td>
-              <td><span class="pill p-dead">Irrelevante</span></td>
-              <td class="note">API pública y bien documentada, pero descontinuaron el RIVAL</td>
-              <td class="note">No tienen reloj de running en catálogo. Para HYROX no aporta</td>
-            </tr>
-            <tr>
-              <td class="brand">Amazfit / Zepp</td>
-              <td><span class="pill p-wait">Con condiciones</span></td>
-              <td class="note">Mini-app propia. El reloj no tiene internet: sale por la app Zepp del móvil</td>
-              <td class="note">Falta confirmar si en iPhone funciona con la app Zepp en segundo plano. 20 minutos con un reloj real</td>
-            </tr>
-            <tr>
-              <td class="brand">Wear OS</td>
-              <td><span class="pill p-dead">Muerto</span></td>
-              <td class="note">Samsung y Google lo dicen en su propia web</td>
-              <td class="note">No existe hoy ningún Wear OS a la venta que se empareje con iPhone. Fossil salió del negocio</td>
-            </tr>
-            <tr>
-              <td class="brand">Fitbit</td>
-              <td><span class="pill p-dead">Muerto</span></td>
-              <td class="note">Sus relojes actuales nunca soportaron apps de terceros</td>
-              <td class="note">Y Google prohibió instalarlas en la UE en 2024. Barcelona queda fuera</td>
-            </tr>
-          </tbody>
-        </table>
+    <div class="task">
+      <div class="dot"></div>
+      <div class="body">
+        <b>Decirme el modelo del Garmin cuando llegue</b>
+        <span>Y que Gerard confirme que su Kiprun pone «by Coros» en la esfera. Nada más.</span>
       </div>
     </div>
-  </details>
+  </div>
 
-  <details class="fold">
-    <summary><h2>Qué comprar</h2><span class="hint">El reloj más barato de cada marca para probar</span></summary>
-    <div class="fold-body">
-
-      <div class="callout" style="border-left-color:var(--ok)">
-        <h3>El Kiprun de Gerard sirve. COROS no hay que comprarlo</h3>
-        <p>
-          Ese reloj vive en el ecosistema de COROS: se empareja con su app, el firmware lo hace
-          COROS y su servicio técnico lo trata como un reloj propio. Los entrenos estructurados de
-          carrera llegan igual que a un COROS de marca.
-        </p>
-        <p>
-          <strong>Pero que Gerard mire la esfera y confirme que pone «by Coros».</strong> Hay un
-          Kiprun GPS 500 antiguo, sin esa coletilla, que va con la app de Decathlon y no nos sirve
-          para nada. Además fue retirado del mercado, así que si es ese, mejor que lo sepa.
-        </p>
-        <p>
-          Dos límites suyos: <strong>no traga fuerza</strong> ni objetivos de potencia. Para el
-          carril de correr nos vale entero; para las estaciones de HYROX, no.
-        </p>
-      </div>
-
-      <div class="callout">
-        <h3>Si solo compras uno: Forerunner 165 de segunda mano, 145 a 170 €</h3>
-        <p>
-          Es el único barato que ya está en la lista de dispositivos de la app que tenemos escrita.
-          Desbloquea Garmin, que es donde están los atletas de Pablo, sin tocar nada.
-        </p>
-      </div>
-
-      <div class="scroller">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Marca</th>
-              <th scope="col">El más barato que sirve</th>
-              <th scope="col">Nuevo</th>
-              <th scope="col">2ª mano</th>
-              <th scope="col">Por qué ese</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="brand">Garmin</td>
-              <td>Forerunner 165</td>
-              <td>186 a 199 €</td>
-              <td><strong>145 a 200 €</strong></td>
-              <td class="note">Ya está en nuestra lista de dispositivos. Seis veces más memoria que el 55</td>
-            </tr>
-            <tr>
-              <td class="brand">COROS</td>
-              <td><strong>Ninguno</strong>, tenemos el Kiprun</td>
-              <td class="note">Pace 3: 217 a 229 €</td>
-              <td class="note">165 a 205 €</td>
-              <td class="note">Solo si hiciera falta probar fuerza, que el Kiprun no soporta</td>
-            </tr>
-            <tr>
-              <td class="brand">Suunto</td>
-              <td>5 Peak</td>
-              <td class="note">descatalogándose</td>
-              <td><strong>80 a 115 €</strong></td>
-              <td class="note">El más barato con guías estructuradas. Lo más barato de toda la tabla</td>
-            </tr>
-            <tr>
-              <td class="brand">Polar</td>
-              <td>OH1 (sensor de brazo)</td>
-              <td><strong>38 a 58 €</strong></td>
-              <td>25 a 40 €</td>
-              <td class="note">Polar es solo lectura, así que no hace falta reloj: con el sensor basta</td>
-            </tr>
-            <tr>
-              <td class="brand">Amazfit</td>
-              <td>Bip 6</td>
-              <td>69 a 80 €</td>
-              <td class="note">sin verificar</td>
-              <td class="note">Es cuadrado y nuestra mini-app está hecha para redondo. Cambio menor</td>
-            </tr>
-            <tr>
-              <td class="brand">Apple</td>
-              <td>Watch SE 2ª gen</td>
-              <td>269 € (SE 3)</td>
-              <td>~229 €</td>
-              <td class="note">Cualquiera de Series 6 en adelante sirve</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>No compres estos en Wallapop</h3>
-      <ul class="plain">
-        <li><strong>Garmin Swim 2.</strong> Solo admite esferas, ni siquiera apps. Es el error más caro de cometer.</li>
-        <li><strong>Garmin Forerunner 45, 235, 230, vívoactive 1.</strong> Demasiado viejos para nuestra app.</li>
-        <li><strong>Garmin Forerunner 55.</strong> Sí funcionaría, y es 60 € más barato, pero no tiene wifi y hay que rehacer la app para que quepa en su memoria. No compensa.</li>
-        <li><strong>Suunto Run</strong>, pese a ser nuevo: no tiene guías estructuradas.</li>
-        <li><strong>Amazfit Bip 5</strong> (ojo, el <em>Bip 5 Unity</em> sí vale), <strong>Band 7</strong>, <strong>GTR 3</strong>, <strong>GTS 3</strong>. Sistema demasiado antiguo o cerrado.</li>
-        <li><strong>Apple Watch Series 4 y 5.</strong> Se han quedado sin actualizaciones.</li>
-      </ul>
+  <h2>Cómo está cada marca</h2>
+  <div class="board">
+    <div class="brand">
+      <span class="name">Apple Watch</span>
+      <span class="what">El entreno sale en su app nativa. Falta probarlo en un reloj</span>
+      <span class="tag t-ok">Listo</span>
     </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>El diseño</h2><span class="hint">El modelo canónico y la regla de honestidad</span></summary>
-    <div class="fold-body">
-
-      <h3>Un modelo canónico y un codificador por marca</h3>
-      <p>
-        No son ocho integraciones. Garmin quiere un <span class="sha">.FIT</span>, Suunto un
-        <span class="sha">guide.json</span>, Wahoo su <span class="sha">plan.json</span>, Apple un
-        <span class="sha">CustomWorkout</span>, y nuestras apps el JSON nativo. Con una estructura
-        canónica en el centro, <strong>cada marca nueva es un codificador, no un proyecto</strong>.
-      </p>
-
-      <div class="callout">
-        <h3>La regla de honestidad</h3>
-        <p>
-          Las zonas viajan siempre como <strong>banda absoluta</strong> — ritmo en s/km o pulso en
-          ppm — nunca como «Z4». La Z4 de un Garmin sale de <em>su</em> FCmáx, no de la nuestra:
-          mandar el número sería guiar al atleta con una zona que no es la suya.
-        </p>
-        <p>
-          Y lo que el reloj no puede vigilar <strong>no se emite como objetivo</strong>. El RPE es
-          percepción y ningún fabricante lo representa; el tramo va abierto y el dato queda en el
-          nombre del paso. Nunca fabricamos una banda que no hemos resuelto.
-        </p>
-      </div>
-
-      <p>
-        <strong>Fuera de alcance a propósito:</strong> fuerza, EMOM y AMRAP. Ningún formato de
-        fabricante los modela — solo saben de cardio por intervalos. Degradarlos a «diez
-        iteraciones de sesenta segundos con un nombre» pierde repeticiones, carga y rondas: el
-        sistema dejaría de saber qué trabajo se hizo. Esas sesiones se ejecutan enteras en nuestras
-        apps, que sí las entienden.
-      </p>
+    <div class="brand">
+      <span class="name">Garmin</span>
+      <span class="what">App del reloj hecha y compilando. Espera al reloj físico y a publicar</span>
+      <span class="tag t-ok">Listo</span>
     </div>
-  </details>
-
-  <details class="fold">
-    <summary><h2>Riesgos</h2><span class="hint">Lo que puede salir mal y lo que no está verificado</span></summary>
-    <div class="fold-body">
-
-      <ul class="plain">
-        <li>En Garmin el atleta da <strong>dos toques</strong> para lanzar el entreno, no uno: el sistema le pregunta con qué app nativa abrirlo. No es evitable.</li>
-        <li>Hay que manejar el <strong>reloj sin espacio</strong>. Es lo que sufrían los usuarios de TrainingPeaks, que tenían que borrar entrenos viejos a mano.</li>
-        <li>La app del reloj Garmin hace <strong>solo entreno</strong>. Meter readiness o lesiones ahí nos metería en terreno de app médica regulada.</li>
-        <li>En Polar los datos aparecen <strong>cuando el atleta sincroniza</strong>, no cuando termina. No se puede forzar desde fuera, así que ninguna promesa de «aparece solo».</li>
-        <li>
-          En el Apple Watch hay una llamada que solo se puede comprobar con un reloj emparejado: si
-          devolviera que no admite carrera, <strong>no se programaría nada y sin avisar</strong>. Es
-          lo primero que miro en cuanto haya uno delante.
-        </li>
-      </ul>
+    <div class="brand">
+      <span class="name">Suunto</span>
+      <span class="what">Todo escrito. Esperando que nos den permiso</span>
+      <span class="tag t-wait">2 semanas</span>
     </div>
-  </details>
+    <div class="brand">
+      <span class="name">COROS</span>
+      <span class="what">Login hecho. Falta su permiso y el conector de datos</span>
+      <span class="tag t-wait">Sin fecha</span>
+    </div>
+    <div class="brand">
+      <span class="name">Polar</span>
+      <span class="what">Sus entrenos ya llegan. Mandarle el plan es imposible, no lo permiten</span>
+      <span class="tag t-ok">Funciona</span>
+    </div>
+    <div class="brand">
+      <span class="name">Amazfit</span>
+      <span class="what">Sus entrenos ya llegan por Apple Salud. La mini-app está sin publicar</span>
+      <span class="tag t-ok">Funciona</span>
+    </div>
+    <div class="brand">
+      <span class="name">Wear OS · Fitbit</span>
+      <span class="what">No existe ninguno a la venta que funcione con iPhone</span>
+      <span class="tag t-dead">Descartado</span>
+    </div>
+  </div>
 
+  <h2>Lo que hago yo ahora</h2>
+  <div class="board">
+    <div class="brand">
+      <span class="what" style="min-width:auto">Que el móvil sepa que estás corriendo en el Garmin, en vez de seguir diciendo «empezar»</span>
+    </div>
+    <div class="brand">
+      <span class="what" style="min-width:auto">Sacarle más partido a Polar: sueño, HRV y descanso, que hoy no leemos</span>
+    </div>
+    <div class="brand">
+      <span class="what" style="min-width:auto">Publicar la mini-app de Amazfit en su tienda</span>
+    </div>
+  </div>
 
-  <footer>
-    <span>FAHYBRID · registro de trabajo</span>
-    <span>Se actualiza según avanza</span>
-  </footer>
+  <h2>El detalle, si te hace falta</h2>
+  <div class="links">
+    <a href="https://claude.ai/code/artifact/962e666a-6668-4d04-8927-394b889fe605">
+      <b>Las apps de reloj</b>
+      <span>Pantalla a pantalla, antes y durante el entreno</span>
+    </a>
+    <a href="https://claude.ai/code/artifact/1e4f50fa-de18-405c-8e0d-801384a74d0f">
+      <b>Pantalla de dispositivos</b>
+      <span>Ya en la app, agrupada por lo que hace cada uno</span>
+    </a>
+  </div>
+
+  <footer>Se actualiza según avanza · lo técnico vive en FOCUS.md</footer>
 
 </div>
-
-<script>
-  document.querySelectorAll("button.copy").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var src = document.getElementById(btn.dataset.copy);
-      if (!src) return;
-      navigator.clipboard.writeText(src.textContent.trim()).then(
-        function () {
-          btn.textContent = "Copiado";
-          btn.dataset.done = "1";
-          setTimeout(function () {
-            btn.textContent = "Copiar";
-            delete btn.dataset.done;
-          }, 2000);
-        },
-        function () {
-          // El portapapeles puede estar bloqueado; seleccionamos el texto para
-          // que baste con Cmd+C en vez de dejar el botón sin hacer nada.
-          var range = document.createRange();
-          range.selectNodeContents(src);
-          var sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-          btn.textContent = "Selecciona y copia";
-          setTimeout(function () { btn.textContent = "Copiar"; }, 2600);
-        }
-      );
-    });
-  });
-</script>
