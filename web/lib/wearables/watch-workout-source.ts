@@ -211,3 +211,50 @@ export async function listUpcomingRunSessions(athlete_id: bigint): Promise<Upcom
   }
   return out;
 }
+
+// ── Resolución por FECHA (la app del reloj manda su fecha LOCAL) ─────────────
+// `loadRunWatchWorkout` resuelve "hoy" en el servidor, y eso no vale para un
+// reloj: el atleta puede estar en otro huso y su "hoy" no ser el nuestro. Por eso
+// la app Connect IQ manda su propia fecha y aquí se busca contra ella.
+//
+// Devuelve tres estados a propósito, no dos. La app necesita distinguir "hoy no
+// tienes nada" de "hoy tienes fuerza, que no viaja al reloj": si se colapsan,
+// el atleta ve "no hay entreno" un día que sí entrena, o se come un 409 al
+// intentar la descarga. La respuesta honesta se da ANTES de descargar.
+
+export type WatchSessionForDate =
+  | { kind: 'none' }
+  | { kind: 'not_watchable'; title: string }
+  | { kind: 'watchable'; assignment_id: string; title: string };
+
+export async function findWatchSessionForDate(
+  athlete_id: bigint,
+  iso_date: string,
+): Promise<WatchSessionForDate> {
+  // Misma semana que ve la app del atleta, y la siguiente: un reloj por delante
+  // de nuestro huso puede pedir un día que aquí todavía es "mañana".
+  const [thisWeek, nextWeek] = await Promise.all([
+    buildAthleteWeekPlan(athlete_id, 0),
+    buildAthleteWeekPlan(athlete_id, 1),
+  ]);
+
+  for (const week of [thisWeek, nextWeek]) {
+    for (const day of week.days) {
+      if (day.iso_date !== iso_date) continue;
+      if (day.sessions.length === 0) continue;
+
+      const watchable = day.sessions.find((s) => s.modality === WATCHABLE_MODALITY);
+      if (watchable) {
+        return {
+          kind: 'watchable',
+          assignment_id: watchable.assignment_id,
+          title: watchable.title,
+        };
+      }
+      // Hay sesión, pero ninguna es de correr: fuerza, EMOM o AMRAP. Ningún
+      // formato de reloj las representa (ver watch-workout.ts).
+      return { kind: 'not_watchable', title: day.sessions[0]!.title };
+    }
+  }
+  return { kind: 'none' };
+}
