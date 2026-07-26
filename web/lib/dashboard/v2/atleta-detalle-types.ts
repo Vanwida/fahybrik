@@ -4,6 +4,7 @@
 // orchestrator). The DB-touching loader lives in atleta-detalle.ts and re-exports
 // from here.
 
+import type { MessageDTO } from '@/lib/chat/schema';
 import type { V2Status } from '@/components/v2/StatusDot';
 import type {
   AthleteLifecycleStatus,
@@ -160,13 +161,6 @@ export interface DetalleStat {
   tone: 'fg' | 'ok' | 'warn' | 'danger' | 'info';
 }
 
-export interface DetalleChatMessage {
-  id: string;
-  sender_role: 'coach' | 'athlete';
-  body: string | null;
-  created_at: string;
-}
-
 // ── Clasificación (Perfil tab) — the two axes the assignment resolver needs ─────
 // An athlete becomes assignable once BOTH level_id and training_days_per_week are
 // set. This block carries the current values, the algorithmic level suggestion
@@ -245,8 +239,10 @@ export interface V2AthleteDetalle {
   billing: AthleteBilling | null;
   /** Pagos tab (#15): mirrored Stripe invoice history, newest first. Empty = none. */
   invoices: AthleteInvoice[];
-  /** Initial chat messages (role-resolved), newest last; null if thread load failed. */
-  chat: { thread_id: string; messages: DetalleChatMessage[] } | null;
+  /** Primer tramo de la conversación, del más viejo al más nuevo; null si el hilo
+   *  no se pudo cargar. Es el MISMO DTO que devuelve la API y que llega por el
+   *  canal en vivo, adjuntos incluidos — el panel no traduce nada. */
+  chat: { thread_id: string; messages: MessageDTO[] } | null;
   /** Current versioned zone profiles per modality (Ritmos/Zonas tab). Empty = no
    *  test yet. READ from athlete_zone_profiles — the calculator never recomputes. */
   zone_profiles: AthleteZoneProfile[];

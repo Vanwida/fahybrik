@@ -1,41 +1,64 @@
-// Cross-instance chat pub/sub over Postgres LISTEN/NOTIFY.
+// Reparto de mensajes de chat entre instancias, sobre Postgres LISTEN/NOTIFY.
 //
-// Why this exists: the previous in-process `Map` only delivered a new message to
-// SSE streams living in the SAME serverless instance as the POST that created
-// it. On Vercel each request lands on an isolated instance, so a message
-// published by POST /messages was invisible to an SSE stream held open on
-// another instance — only the iOS poll fallback worked.
+// Por qué existe: un `Map` en memoria solo entregaba el mensaje nuevo a los
+// streams SSE vivos en LA MISMA instancia serverless que el POST que lo creó. En
+// Vercel cada petición cae en una instancia aislada, así que un mensaje publicado
+// por POST /messages era invisible para un stream abierto en otra — solo el
+// sondeo de respaldo lo salvaba.
 //
-// Postgres LISTEN/NOTIFY makes delivery cross-instance: every instance LISTENs
-// on one shared channel; publish issues NOTIFY; Postgres fans the notification
-// out to every listening instance, which forwards it to its local SSE streams.
+// LISTEN/NOTIFY lo arregla: cada instancia escucha un canal compartido, publicar
+// emite un NOTIFY, y Postgres lo reparte a todas las que escuchan, que lo pasan a
+// sus streams locales.
 //
-// Neon constraint (verified): the pooled (`-pooler`) endpoint runs PgBouncer in
-// transaction mode and does NOT support session features like LISTEN/NOTIFY. We
-// therefore open a dedicated DIRECT (unpooled) connection for pub/sub — using
-// DATABASE_URL_UNPOOLED when set, otherwise deriving the direct host by stripping
-// the `-pooler` marker. If no direct connection can be established the route
-// degrades to an in-stream DB poll (also cross-instance-safe), never going silent.
+// Restricción de Neon (verificada): el endpoint agrupado (`-pooler`) corre
+// PgBouncer en modo transacción y NO soporta funciones de sesión como
+// LISTEN/NOTIFY. Por eso abrimos una conexión DIRECTA (sin pooler) dedicada —
+// DATABASE_URL_UNPOOLED si está, si no derivando el host directo quitando el
+// marcador `-pooler`. Si no se puede establecer ninguna, la ruta del stream cae a
+// un sondeo interno de la base (también seguro entre instancias) y nunca se queda
+// muda.
+//
+// A QUIÉN LE LLEGA CADA MENSAJE
+// -----------------------------
+// El aviso lleva los DUEÑOS del hilo (coach y atleta) y cada suscriptor filtra
+// por el suyo. NO se suscribe a una lista de hilos: esa lista se resolvía al
+// conectar y dejaba fuera el caso que más importa — el atleta que escribe por
+// primera vez, cuyo hilo NACE después de que el coach abriera la pantalla. Con el
+// filtro por dueño, un hilo nuevo entra sin reconectar.
 
 import postgres from 'postgres';
 import type { Sql } from '@/lib/db';
 
-// Single shared channel. The payload carries ONLY ids (thread + message): chat
-// bodies can be up to 8000 chars (~32 KB UTF-8), which would overflow Postgres'
-// 8000-byte NOTIFY payload cap. The SSE route refetches the full MessageDTO by
-// id so the wire frame stays byte-identical to the REST `message` shape.
+// Canal único. El cuerpo lleva SOLO ids: un mensaje puede tener 8000 caracteres
+// (~32 KB en UTF-8) y reventaría el tope de 8000 bytes del payload de NOTIFY. El
+// stream recompone el DTO completo por id, así que la trama que sale por el cable
+// es idéntica a la que devuelve el REST.
 const CHANNEL = 'chat_message';
 
+/** A quién pertenece una escucha: un coach ve todo lo de su cohorte, un atleta
+ *  solo lo suyo. Los ids son los de `chat_threads` (coaches.id / athletes.id). */
+export type ChatScope =
+  | { role: 'coach'; id: bigint }
+  | { role: 'athlete'; id: bigint };
+
+/** Lo que viaja en el NOTIFY. Claves de una letra porque el payload va justo. */
+type NotifyPayload = {
+  /** thread_id */ t: string;
+  /** message_id */ m: string;
+  /** coach_id */ c: string;
+  /** athlete_id */ a: string;
+};
+
 type LocalSubscriber = {
-  thread_ids: Set<string>;
+  scope: ChatScope;
   deliver: (messageId: string, threadId: string) => void;
 };
 
 type ListenHandle = { unlisten: () => Promise<void> };
 
 type PubsubState = {
-  client: Sql | null; // dedicated DIRECT (unpooled) connection
-  clientResolved: boolean; // we attempted to build the client at least once
+  client: Sql | null; // conexión DIRECTA (sin pooler) dedicada
+  clientResolved: boolean; // ya intentamos construirla al menos una vez
   listenHandle: ListenHandle | null;
   starting: Promise<boolean> | null;
   subscribers: Set<LocalSubscriber>;
@@ -45,8 +68,8 @@ declare global {
   var __fahybrik_chat_pubsub: PubsubState | undefined;
 }
 
-// Stored on globalThis so dev HMR doesn't leak duplicate LISTEN connections or
-// orphan subscriber sets across module re-evaluation.
+// Vive en globalThis para que el HMR de desarrollo no deje conexiones LISTEN
+// duplicadas ni conjuntos de suscriptores huérfanos al recargar el módulo.
 const state: PubsubState =
   globalThis.__fahybrik_chat_pubsub ??
   (globalThis.__fahybrik_chat_pubsub = {
@@ -57,9 +80,9 @@ const state: PubsubState =
     subscribers: new Set(),
   });
 
-// The direct (session-capable) host is the pooled host minus the `-pooler`
-// marker. Prefer an explicit DATABASE_URL_UNPOOLED if provided. Returns null
-// when no usable URL exists (caller then degrades to the in-stream poll).
+// El host directo (con sesión) es el agrupado menos el marcador `-pooler`. Si hay
+// un DATABASE_URL_UNPOOLED explícito, ese manda. Null cuando no hay ninguna URL
+// usable (el llamante cae entonces al sondeo interno).
 function resolveDirectUrl(): string | null {
   const explicit = process.env.DATABASE_URL_UNPOOLED;
   if (explicit && explicit.length > 0) return explicit;
@@ -86,10 +109,10 @@ function getDirectClient(): Sql | null {
   }
   state.client = postgres(url, {
     ssl: 'require',
-    // 1 transient connection for NOTIFY; LISTEN holds its own dedicated one.
+    // 1 conexión transitoria para el NOTIFY; el LISTEN se queda con la suya.
     max: 2,
     idle_timeout: 30,
-    // Fail fast so a bad/unreachable direct host can't hang the SSE handler.
+    // Fallar rápido para que un host directo caído no cuelgue el handler del SSE.
     connect_timeout: 10,
     prepare: false,
     types: { bigint: postgres.BigInt },
@@ -97,31 +120,51 @@ function getDirectClient(): Sql | null {
   return state.client;
 }
 
-function onNotify(payload: string): void {
-  let parsed: { t?: unknown; m?: unknown };
+/** True cuando este aviso le toca a este suscriptor. */
+export function payloadMatchesScope(payload: NotifyPayload, scope: ChatScope): boolean {
+  const owner = scope.role === 'coach' ? payload.c : payload.a;
+  return owner === scope.id.toString();
+}
+
+/** Valida y normaliza el cuerpo del NOTIFY. Null si viene malformado. */
+export function parseNotifyPayload(raw: string): NotifyPayload | null {
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(payload);
+    parsed = JSON.parse(raw);
   } catch {
-    return;
+    return null;
   }
-  const threadId = typeof parsed.t === 'string' ? parsed.t : null;
-  const messageId = typeof parsed.m === 'string' ? parsed.m : null;
-  if (!threadId || !messageId) return;
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const p = parsed as Record<string, unknown>;
+  if (
+    typeof p.t !== 'string' ||
+    typeof p.m !== 'string' ||
+    typeof p.c !== 'string' ||
+    typeof p.a !== 'string'
+  ) {
+    return null;
+  }
+  return { t: p.t, m: p.m, c: p.c, a: p.a };
+}
+
+function onNotify(raw: string): void {
+  const payload = parseNotifyPayload(raw);
+  if (!payload) return;
   for (const sub of state.subscribers) {
-    if (sub.thread_ids.has(threadId)) {
-      try {
-        sub.deliver(messageId, threadId);
-      } catch {
-        // Subscriber bug — skip.
-      }
+    if (!payloadMatchesScope(payload, sub.scope)) continue;
+    try {
+      sub.deliver(payload.m, payload.t);
+    } catch {
+      // Fallo del suscriptor — saltar, no tumbar el reparto de los demás.
     }
   }
 }
 
-// Establish the single instance-wide LISTEN. postgres.js holds one dedicated
-// connection for all listeners and re-issues LISTEN automatically on reconnect,
-// so one call per instance suffices. Idempotent + retryable: a failed attempt
-// resets so the next subscriber retries (transient Neon hiccups self-heal).
+// Establece el LISTEN único de la instancia. postgres.js mantiene una conexión
+// dedicada para todos los escuchantes y reemite el LISTEN al reconectar, así que
+// una llamada por instancia basta. Idempotente y reintentable: un intento fallido
+// se resetea para que el siguiente suscriptor lo vuelva a probar (los cortes
+// transitorios de Neon se curan solos).
 function ensureListening(): Promise<boolean> {
   if (state.listenHandle) return Promise.resolve(true);
   if (state.starting) return state.starting;
@@ -140,28 +183,37 @@ function ensureListening(): Promise<boolean> {
   return state.starting;
 }
 
-// Publish a new message to all instances. Best-effort: the message is already
-// persisted, and the SSE poll fallback / iOS poll still deliver it if NOTIFY
-// fails. Uses the direct connection because the pooled endpoint can't NOTIFY.
-export async function publishMessage(thread_id: bigint, message_id: string): Promise<void> {
+// Publica un mensaje nuevo a todas las instancias. Best-effort: el mensaje ya
+// está guardado, y el sondeo de respaldo del SSE / el de iOS lo entregan igual si
+// el NOTIFY falla. Va por la conexión directa porque la agrupada no puede NOTIFY.
+export async function publishMessage(args: {
+  thread_id: string;
+  message_id: string;
+  coach_id: string;
+  athlete_id: string;
+}): Promise<void> {
   const client = getDirectClient();
   if (!client) return;
-  await client.notify(CHANNEL, JSON.stringify({ t: thread_id.toString(), m: message_id }));
+  const payload: NotifyPayload = {
+    t: args.thread_id,
+    m: args.message_id,
+    c: args.coach_id,
+    a: args.athlete_id,
+  };
+  await client.notify(CHANNEL, JSON.stringify(payload));
 }
 
-// Subscribe the calling SSE stream to its threads. Returns an unsubscribe fn, or
-// null when the LISTEN transport can't be established — the route then falls back
-// to an in-stream DB poll (cross-instance-safe too).
+// Suscribe el stream SSE que llama a todo lo que ese principal puede ver.
+// Devuelve la función para darse de baja, o null cuando no se pudo establecer el
+// transporte LISTEN — la ruta cae entonces al sondeo interno (también seguro
+// entre instancias).
 export async function subscribe(
-  thread_ids: bigint[],
+  scope: ChatScope,
   deliver: (messageId: string, threadId: string) => void,
 ): Promise<(() => void) | null> {
   const ok = await ensureListening();
   if (!ok) return null;
-  const sub: LocalSubscriber = {
-    thread_ids: new Set(thread_ids.map(String)),
-    deliver,
-  };
+  const sub: LocalSubscriber = { scope, deliver };
   state.subscribers.add(sub);
   return () => {
     state.subscribers.delete(sub);

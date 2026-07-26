@@ -25,7 +25,7 @@ import { getLatestReadiness } from '@/lib/dashboard/coach/athlete-daily-readines
 import { listPendingIntake } from '@/lib/coach/intake';
 import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustments';
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
-import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { listThreadsForCoach } from '@/lib/chat/service';
 import {
   daysFromNowToIso,
   type SignalFacts,
@@ -230,7 +230,7 @@ async function loadCoachLevelMaps(
       captureRouteError(err, { route: 'recompute.listPendingMonthlyBlocks' });
       return [];
     }),
-    listThreadsForCoach({ coach_id, client }).catch((err) => {
+    listThreadsForCoach({ coach_id, sql: client }).catch((err) => {
       captureRouteError(err, { route: 'recompute.listThreadsForCoach' });
       return [];
     }),

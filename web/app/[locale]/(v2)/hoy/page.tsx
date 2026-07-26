@@ -8,7 +8,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
 import { listPendingIntake } from '@/lib/coach/intake';
-import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { listThreadsForCoach } from '@/lib/chat/service';
 import { loadCoachInbox, type CoachInbox } from '@/lib/dashboard/coach/inbox';
 import {
   loadActivityToday,

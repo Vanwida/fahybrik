@@ -33,10 +33,8 @@ import { LIFECYCLE_STATUS_LABELS } from '@fahybrid/shared/domain/coach/athlete-l
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
 import { getAthleteReviewState } from '@/lib/citas/reviews';
-import {
-  loadMessages,
-  getOrCreateThread,
-} from '@/lib/dashboard/chat/service';
+import { listMessages, getOrCreateThread } from '@/lib/chat/service';
+import type { MessageDTO } from '@/lib/chat/schema';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
@@ -60,7 +58,6 @@ import {
   type DetalleHeader,
   type DetalleLifecycle,
   type DetalleStat,
-  type DetalleChatMessage,
   type ClasificacionData,
   type TrainingDaysData,
   type V2AthleteDetalle,
@@ -108,7 +105,6 @@ export type {
   AtletaTab,
   DetalleHeader,
   DetalleStat,
-  DetalleChatMessage,
   ClasificacionData,
   ClasificacionLevelOption,
   TrainingDaysData,
@@ -461,22 +457,23 @@ async function loadInitialChat(params: {
   coach_id: number | bigint;
   athlete_id: number;
   client: Sql;
-}): Promise<{ thread_id: string; messages: DetalleChatMessage[] }> {
+}): Promise<{ thread_id: string; messages: MessageDTO[] }> {
   const { thread_id } = await getOrCreateThread({
     coach_id: params.coach_id,
     athlete_id: params.athlete_id,
-    client: params.client,
+    sql: params.client,
   });
-  // loadMessages resolves sender_role from the stored column (migration 0082),
-  // so attribution is correct even when the coach is their own athlete.
-  const raw = await loadMessages({ thread_id, limit: 50, client: params.client });
-  return {
+  // El DTO viaja entero, adjuntos incluidos: es el mismo que sirve la API y el
+  // mismo que llega por el canal en vivo, así que la pantalla no tiene que
+  // reconciliar dos formas distintas del mismo mensaje.
+  //
+  // `listMessages` devuelve del más nuevo al más viejo (pagina hacia atrás); la
+  // conversación se pinta al revés, así que se invierte aquí una vez.
+  const { messages } = await listMessages({
     thread_id,
-    messages: raw.map((m) => ({
-      id: m.id,
-      sender_role: m.sender_role,
-      body: m.body,
-      created_at: m.created_at,
-    })),
-  };
+    cursor: null,
+    limit: 50,
+    sql: params.client,
+  });
+  return { thread_id, messages: messages.slice().reverse() };
 }

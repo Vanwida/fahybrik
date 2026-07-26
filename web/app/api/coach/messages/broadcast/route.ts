@@ -3,10 +3,12 @@
 // SCALE lever: one gesture touches every selected athlete, each in their OWN
 // 1:1 thread (never a group chat — the athlete experience stays personal).
 //
-// Per athlete: getOrCreateThread (idempotent) → sendCoachMessage (its own tx +
-// best-effort notification). Each send is independent (Promise.allSettled) so one
-// failure never blocks the rest; the response reports per-athlete outcome so the
-// client can toast "Enviado a N" and surface the few that failed.
+// Per athlete: getOrCreateThread (idempotent) → sendMessage (the SAME send path
+// as a 1:1 reply, so a broadcast also lands live on the athlete's phone and is
+// indistinguishable from a normal message on their side). Each send is
+// independent (Promise.allSettled) so one failure never blocks the rest; the
+// response reports per-athlete outcome so the client can toast "Enviado a N" and
+// surface the few that failed.
 //
 // Every athlete is validated to belong to the calling coach before any write.
 
@@ -15,8 +17,8 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
-import { COACH_MESSAGE_BODY_MAX } from '@/lib/dashboard/chat/schema';
-import { getOrCreateThread, sendCoachMessage } from '@/lib/dashboard/chat/service';
+import { CHAT_BODY_MAX } from '@/lib/chat/schema';
+import { getOrCreateThread, sendMessage } from '@/lib/chat/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +31,7 @@ const broadcastBodySchema = z.object({
     .array(z.string().regex(/^\d+$/))
     .min(1)
     .max(MAX_RECIPIENTS),
-  body: z.string().trim().min(1, 'Mensaje vacío').max(COACH_MESSAGE_BODY_MAX),
+  body: z.string().trim().min(1, 'Mensaje vacío').max(CHAT_BODY_MAX),
 });
 
 export interface BroadcastResult {
@@ -79,10 +81,11 @@ export async function POST(req: Request): Promise<Response> {
           coach_id: session.coach_id,
           athlete_id: athleteId,
         });
-        await sendCoachMessage({
+        await sendMessage({
           thread_id,
-          coach_user_id: session.user_id,
-          body,
+          sender_user_id: session.user_id,
+          sender_role: 'coach',
+          input: { body },
         });
         return athleteId;
       }),

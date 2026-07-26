@@ -11,7 +11,7 @@
 
 import 'server-only';
 import type { Sql } from '@/lib/db';
-import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { listThreadsForCoach } from '@/lib/chat/service';
 import { fetchAthletesForCoach, type AthleteRow } from '@/lib/dashboard/athletes/list';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import type { V2Status } from '@/components/v2/StatusDot';
@@ -54,7 +54,7 @@ export async function loadMensajesData(params: {
   // Independent loads — a dead roster load degrades context to null, never 500s
   // the screen (the conversations themselves still render).
   const [threadRows, roster] = await Promise.all([
-    listThreadsForCoach({ coach_id: params.coach_id, client: params.client }),
+    listThreadsForCoach({ coach_id: params.coach_id, sql: params.client }),
     fetchAthletesForCoach({ coach_id: params.coach_id, client: params.client }).catch(
       (): AthleteRow[] => [],
     ),

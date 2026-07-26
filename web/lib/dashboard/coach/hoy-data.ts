@@ -27,7 +27,7 @@ import {
 import { presentSignal, tierForSignalSeverity } from '@/lib/dashboard/coach/triage-presentation';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
-import type { CoachThreadSummary } from '@/lib/dashboard/chat/service';
+import type { CoachThreadSummary } from '@/lib/chat/service';
 import type {
   TriageItem,
   TriageSignalItem,

@@ -18,20 +18,17 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import {
+  CHAT_ATTACHMENT_EXTENSIONS,
+  CHAT_ATTACHMENT_MAX_BYTES,
+  fileExtension,
+  type ChatAttachmentKind,
+} from './schema';
 
-const ALLOWED_KIND_TO_EXT: Record<string, string[]> = {
-  voice: ['m4a', 'aac', 'mp3', 'wav'],
-  video: ['mp4', 'mov', 'm4v'],
-  image: ['jpg', 'jpeg', 'png', 'heic', 'webp'],
-  file: ['pdf', 'txt', 'md', 'docx'],
-};
-
-export const MAX_BYTES_BY_KIND: Record<string, number> = {
-  voice: 25 * 1024 * 1024,    // 25MB voice notes
-  video: 200 * 1024 * 1024,   // 200MB video
-  image: 30 * 1024 * 1024,
-  file: 25 * 1024 * 1024,
-};
+// Las listas de extensiones y los topes viven en `./schema` (módulo sin Node) para
+// que la caja de texto del navegador valide con las MISMAS reglas y avise antes de
+// subir, en vez de comerse un 400 sin explicación.
+export { CHAT_ATTACHMENT_MAX_BYTES as MAX_BYTES_BY_KIND };
 
 export type UploadResult = {
   url: string;
@@ -51,8 +48,8 @@ export class UploadError extends Error {
 }
 
 function inferExtension(filename: string, mime: string): string {
-  const dot = filename.lastIndexOf('.');
-  if (dot >= 0) return filename.slice(dot + 1).toLowerCase();
+  const ext = fileExtension(filename);
+  if (ext) return ext;
   if (mime.includes('/')) return mime.split('/')[1]!.toLowerCase();
   return 'bin';
 }
@@ -65,7 +62,7 @@ export async function storeAttachment(args: {
   bytes: Buffer;
 }): Promise<UploadResult> {
   const { athlete_id, kind, filename, mime_type, bytes } = args;
-  const allowed = ALLOWED_KIND_TO_EXT[kind];
+  const allowed = CHAT_ATTACHMENT_EXTENSIONS[kind as ChatAttachmentKind];
   if (!allowed) {
     throw new UploadError('invalid_kind', `Unknown attachment kind: ${kind}`);
   }
@@ -76,7 +73,7 @@ export async function storeAttachment(args: {
       `Extension .${ext} not allowed for ${kind} (allowed: ${allowed.join(', ')})`,
     );
   }
-  const max = MAX_BYTES_BY_KIND[kind] ?? 25 * 1024 * 1024;
+  const max = CHAT_ATTACHMENT_MAX_BYTES[kind as ChatAttachmentKind] ?? 25 * 1024 * 1024;
   if (bytes.length > max) {
     throw new UploadError('too_large', `File exceeds ${kind} limit of ${max} bytes`, 413);
   }

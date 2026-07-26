@@ -1,34 +1,36 @@
 // GET /api/chat/stream
 //
-// Server-Sent Events feed of chat messages for the calling principal.
-// Coach: subscribes to every thread in their cohort. Athlete: subscribes
-// to their single thread. The stream emits one `event: message` frame per
-// new message with the MessageDTO JSON shape (same as the messages POST
-// response). Heartbeat ping every 30s to keep load balancers from
-// closing the connection.
+// Canal de mensajes en vivo (Server-Sent Events) para quien llama. El coach ve
+// todo lo de su cohorte; el atleta, lo suyo. Emite una trama `event: message` por
+// mensaje nuevo con la MISMA forma que devuelve el POST de mensajes, y un latido
+// cada 30s para que ningún balanceador cierre la conexión por inactividad.
 //
-// Delivery is cross-instance via Postgres LISTEN/NOTIFY (see lib/chat/pubsub):
-// the publishing POST may run on a different serverless instance than this open
-// stream. If the LISTEN transport can't be established (no direct/unpooled
-// connection), the handler short-polls the DB in-stream so it stays
-// cross-instance-safe and never goes silent.
+// El reparto es entre instancias vía Postgres LISTEN/NOTIFY (ver lib/chat/pubsub):
+// el POST que publica puede correr en una instancia distinta de la que sostiene
+// este stream abierto. Si no se puede establecer el LISTEN (sin conexión directa
+// disponible), el handler sondea la base desde dentro del propio stream, así que
+// sigue siendo seguro entre instancias y nunca se queda mudo.
 //
-// Clients that can't open EventSource (older iOS WebViews) fall back to
-// polling /api/chat/threads/[athlete_id]/messages.
+// La suscripción es por DUEÑO (coach o atleta), no por una lista de hilos fijada
+// al conectar: un hilo que nace mientras la pantalla está abierta —el atleta que
+// escribe por primera vez— entra sin reconectar.
+//
+// Los clientes que no pueden abrir un EventSource caen a sondear
+// /api/chat/threads/[athlete_id]/messages.
 
 import { sql } from '@/lib/db';
 import { resolveChatPrincipal } from '@/lib/chat/auth';
 import { jsonError } from '@/lib/api/responses';
-import { subscribe } from '@/lib/chat/pubsub';
-import { getMessageById, listNewMessages } from '@/lib/chat/service';
+import { subscribe, type ChatScope } from '@/lib/chat/pubsub';
+import { getMessageById, latestMessageId, listNewMessagesForScope } from '@/lib/chat/service';
 import type { MessageDTO } from '@/lib/chat/schema';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const HEARTBEAT_MS = 30_000;
-// Only used when the LISTEN/NOTIFY transport is unavailable: the handler
-// short-polls the DB so delivery stays cross-instance-safe instead of silent.
+// Solo se usa cuando el transporte LISTEN/NOTIFY no está disponible: el handler
+// sondea la base para que el reparto siga siendo seguro entre instancias.
 const POLL_FALLBACK_MS = 3_000;
 
 export async function GET(req: Request): Promise<Response> {
@@ -37,21 +39,10 @@ export async function GET(req: Request): Promise<Response> {
     return jsonError('unauthorized', 'Coach session or athlete bearer required', 401);
   }
 
-  // Resolve thread ids the principal is allowed to see.
-  let thread_ids: bigint[];
-  if (principal.role === 'coach') {
-    const rows = await sql<{ id: string }[]>`
-      select id::text from chat_threads
-      where coach_id = ${principal.coach_id as unknown as number}
-    `;
-    thread_ids = rows.map((r) => BigInt(r.id));
-  } else {
-    const rows = await sql<{ id: string }[]>`
-      select id::text from chat_threads
-      where athlete_id = ${principal.athlete_id as unknown as number}
-    `;
-    thread_ids = rows.map((r) => BigInt(r.id));
-  }
+  const scope: ChatScope =
+    principal.role === 'coach'
+      ? { role: 'coach', id: principal.coach_id }
+      : { role: 'athlete', id: principal.athlete_id };
 
   const encoder = new TextEncoder();
   const cleanups: Array<() => void> = [];
@@ -64,7 +55,7 @@ export async function GET(req: Request): Promise<Response> {
       try {
         c();
       } catch {
-        // Ignore cleanup errors.
+        // Ignorar errores de limpieza.
       }
     }
   };
@@ -76,38 +67,46 @@ export async function GET(req: Request): Promise<Response> {
         try {
           controller.enqueue(encoder.encode(chunk));
         } catch {
-          // Stream already closed.
+          // El stream ya está cerrado.
         }
       };
       const emitMessage = (msg: MessageDTO) => {
         safeEnqueue(`event: message\ndata: ${JSON.stringify(msg)}\n\n`);
       };
 
-      safeEnqueue(`event: ready\ndata: ${JSON.stringify({ thread_ids: thread_ids.map(String) })}\n\n`);
+      // `ready` confirma la suscripción. Lleva el ámbito (no una lista de hilos):
+      // desde que el reparto filtra por dueño, los hilos que existan AHORA mismo
+      // no cambian lo que este stream va a recibir.
+      safeEnqueue(
+        `event: ready\ndata: ${JSON.stringify({ role: scope.role, id: scope.id.toString() })}\n\n`,
+      );
 
       const heartbeat = setInterval(() => {
         safeEnqueue(`: heartbeat ${Date.now()}\n\n`);
       }, HEARTBEAT_MS);
       cleanups.push(() => clearInterval(heartbeat));
 
-      // Cross-instance-safe DB poll, started ONLY when LISTEN/NOTIFY is
-      // unavailable. Streams only messages created after connect (history is
-      // loaded by the REST endpoint), advancing an exclusive timestamp cursor.
+      // Sondeo de respaldo, seguro entre instancias, arrancado SOLO si el
+      // LISTEN/NOTIFY no está disponible. Emite únicamente lo creado después de
+      // conectar (el histórico lo carga el REST), avanzando un cursor exclusivo.
       const startPollFallback = async () => {
         if (closed) return;
+        // El cursor es un id de mensaje, no una hora: un timestamptz que viaja
+        // como parámetro pierde los microsegundos y el sondeo reenviaría en bucle
+        // lo que ya había mandado. Si la consulta falla, se arranca en 0 y la
+        // primera vuelta descarta el histórico contra lo que ya tiene el cliente.
         let cursor: string;
         try {
-          const rows = await sql<{ now: string }[]>`select now()::text as now`;
-          cursor = rows[0]!.now;
+          cursor = await latestMessageId(sql);
         } catch {
-          cursor = new Date().toISOString();
+          cursor = '0';
         }
         if (closed) return;
         let polling = false;
         const tick = () => {
           if (closed || polling) return;
           polling = true;
-          listNewMessages({ sql, thread_ids, after: cursor })
+          listNewMessagesForScope({ sql, scope, after: cursor })
             .then(({ messages, cursor: next }) => {
               for (const m of messages) emitMessage(m);
               if (next) cursor = next;
@@ -121,10 +120,10 @@ export async function GET(req: Request): Promise<Response> {
         cleanups.push(() => clearInterval(interval));
       };
 
-      // Primary: Postgres LISTEN/NOTIFY (cross-instance). The notify carries
-      // only ids; refetch the full DTO so the wire frame is byte-identical to
-      // the REST `message` shape the iOS client parses.
-      subscribe(thread_ids, (message_id) => {
+      // Vía principal: Postgres LISTEN/NOTIFY (entre instancias). El aviso solo
+      // lleva ids; recomponemos el DTO completo para que la trama sea idéntica a
+      // la forma `message` del REST que parsean los clientes.
+      subscribe(scope, (message_id) => {
         getMessageById(sql, message_id)
           .then((msg) => {
             if (msg) emitMessage(msg);
@@ -151,7 +150,7 @@ export async function GET(req: Request): Promise<Response> {
         try {
           controller.close();
         } catch {
-          // Already closed.
+          // Ya cerrado.
         }
       });
     },

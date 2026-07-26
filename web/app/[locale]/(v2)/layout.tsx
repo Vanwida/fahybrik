@@ -1,7 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { listThreadsForCoach } from '@/lib/chat/service';
 import { countNewLeads } from '@/lib/dashboard/coach/leads';
 import { countUpcomingCallsSoon } from '@/lib/citas/store';
 import { V2Shell } from '@/components/v2/V2Shell';

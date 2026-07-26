@@ -20,7 +20,7 @@ import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { listPendingIntake } from '@/lib/coach/intake';
 import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustments';
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
-import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { listThreadsForCoach } from '@/lib/chat/service';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import {
@@ -162,7 +162,7 @@ export async function loadCoachInbox(params: {
     listPendingWeekAdjustments({ coach_id: params.coach_id, client }),
     listPendingMonthlyBlocksForCoachSafe({ coach_id: params.coach_id, client }),
     listInboxAlerts({ coach_id: params.coach_id, client }),
-    listThreadsForCoach({ coach_id: params.coach_id, client }),
+    listThreadsForCoach({ coach_id: params.coach_id, sql: client }),
   ]);
 
   // Resolve template names for the diff mini-tables in one query.

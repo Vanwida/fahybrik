@@ -21,7 +21,7 @@ import 'server-only';
 // same athlete may also sit in "espera respuesta" (two distinct coach actions).
 
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
-import type { CoachThreadSummary } from '@/lib/dashboard/chat/service';
+import type { CoachThreadSummary } from '@/lib/chat/service';
 import type { CoachInbox, InboxDiffRow } from '@/lib/dashboard/coach/inbox';
 import type { FiredTrigger } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 import { readinessBucket } from '@/lib/dashboard/constants/readiness';
