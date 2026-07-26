@@ -1,7 +1,7 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-25**
+Última actualización: **2026-07-26**
 
 ---
 
@@ -12,6 +12,50 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 El problema de fondo: tenemos tecnología pero no método. Pablo no tiene uno documentado y su referencia es la metodología del entrenador que le entrena a él como atleta — que no es la dirección que queremos. La salida no es discutirle el contenido, es darle un **marco ya decidido y modificable**, para que su trabajo sea corregir en vez de crear.
 
 La tesis de trabajo: *la identidad de un método no está en los ejercicios, está en las reglas*. Los ejercicios los usa todo el mundo; lo que nos hace reconocibles es cómo decidimos, medimos y ajustamos.
+
+---
+
+## Cerrado el 26-jul · El chat, rehecho
+
+Estaba roto de una forma que se veía poco y dolía mucho: había que recargar para
+ver la conversación y los adjuntos no iban. La causa no era ninguna de esas dos
+cosas — eran **dos sistemas de chat distintos**, el de iOS (con tiempo real y
+adjuntos) y el del dashboard (texto plano y sin nada). Se borra el duplicado.
+
+Lo que salió al mirarlo de cerca, todo anterior a hoy:
+
+- **Los adjuntos no se han podido abrir NUNCA.** El proxy redirigía usando
+  `getDownloadUrl(pathname)`, que es síncrona, espera una URL y no acepta token:
+  lanzaba "Invalid URL", el `catch` la mandaba al disco local y salía un 404.
+  Comprobado contra el blob de producción, no supuesto.
+- **El último mensaje jamás se marcaba como leído.** postgres.js recorta a
+  milisegundos los `timestamptz` que van como parámetro; con el corte recortado
+  hacia abajo, el propio mensaje del corte se caía del `<=`. Y paginar hacia atrás
+  se saltaba mensajes por lo mismo. El cursor pasa a ser un id.
+- **Un mensaje del coach desde /mensajes no llegaba al móvil** hasta que el
+  atleta reabría la pantalla: ese camino no publicaba al canal en vivo.
+- **El primer mensaje de un atleta nuevo no llegaba a nadie**: el canal se
+  suscribía a una lista de hilos congelada al conectar, y ese hilo nace después.
+
+Ahora: una sola conexión en vivo por pantalla, foto/vídeo/voz/archivo en los dos
+sentidos (con vista previa antes de enviar, pegar del portapapeles y grabación de
+voz en WAV para que suene también en iOS), acuse de lectura de verdad y la lista
+de conversaciones al día sin recargar.
+
+Verificado en local contra datos reales y una rama de Neon: envío, recepción sin
+tocar la página, adjunto de ida y vuelta byte a byte, `Range` para vídeo, 390/768/1440
+sin desbordes y consola limpia. 1560 tests en verde. Desplegado (31abbae).
+
+Migraciones aplicadas a producción: **0136** (mía, `sender_role` obligatorio) y
+**0137** (de la otra sesión — su código ya estaba committeado consultando
+`baja_scheduled_for` y sin la columna cualquier deploy de la rama dejaba el ciclo
+de vida del atleta en 500).
+
+**Pendiente que dejo anotado:** una clave de idempotencia por mensaje
+(`client_msg_id`) para que un reintento de envío no pueda duplicar. Se hace
+cuando se toque el envío de iOS, y entonces en web e iOS a la vez — adoptarla
+solo en un lado recrearía la asimetría que acabamos de quitar. Ver
+`docs/DECISIONS.md`.
 
 ---
 
