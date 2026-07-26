@@ -5,10 +5,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTRATO ASUMIDO DEL ENDPOINT DEL .FIT  ← RECONCILIAR
 // ─────────────────────────────────────────────────────────────────────────────
-// Lo construye otro agente en web/app/api/wearables/garmin-ciq/. Esto es lo que
+// Vive en web/app/api/athlete/wearables/garmin/. Esto es lo que
 // esta app espera. Si el endpoint acaba distinto, se toca SOLO este bloque.
 //
-// (1)  GET {API_BASE}/api/wearables/garmin-ciq/today?date=YYYY-MM-DD
+// (1)  GET {API_BASE}/api/athlete/wearables/garmin/today?date=YYYY-MM-DD
 //      Cabecera: Authorization: Bearer <session_token de /api/auth/email/verify>
 //      La `date` es la fecha LOCAL del reloj (ver DateUtil): el servidor no
 //      puede adivinar el huso del atleta.
@@ -29,7 +29,7 @@
 //                                                   //   único por día y ≤ 40 caracteres
 //                                                   //   (STEP_NAME_MAX del modelo neutro).
 //        "summary":      "8×400 a 3:35/km · 5,6 km",// una línea para la pantalla
-//        "fit_url":      "https://fahybrid.com/api/wearables/garmin-ciq/fit?..."
+//        "fit_url":      "https://fahybrid.com/api/athlete/wearables/garmin/workout?..."
 //      }
 //
 //      401 → token caducado o revocado (la app borra el token y pide login).

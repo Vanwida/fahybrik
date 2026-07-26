@@ -1,4 +1,4 @@
-// GET /api/wearables/garmin-ciq/today — el contrato que la app Connect IQ lleva
+// GET /api/athlete/wearables/garmin/today — el contrato que la app Connect IQ lleva
 // esperando desde que se escribió.
 //
 // Se simula la frontera de resolución (auth + la fuente) para fijar lo único que
@@ -19,7 +19,7 @@ const { getAthleteSessionFromBearer } = await import('@/lib/auth/athlete-session
 const { findWatchSessionForDate, loadRunWatchWorkout } = await import(
   '@/lib/wearables/watch-workout-source'
 );
-const { GET } = await import('@/app/api/wearables/garmin-ciq/today/route');
+const { GET } = await import('@/app/api/athlete/wearables/garmin/today/route');
 
 const SESSION = { athlete_id: BigInt(7), user_id: BigInt(3) } as unknown as NonNullable<
   Awaited<ReturnType<typeof getAthleteSessionFromBearer>>
@@ -41,7 +41,7 @@ const SERIES: WatchWorkout = {
 
 function req(date: string | null): Request {
   const q = date === null ? '' : `?date=${date}`;
-  return new Request(`https://fahybrid.com/api/wearables/garmin-ciq/today${q}`, {
+  return new Request(`https://fahybrid.com/api/athlete/wearables/garmin/today${q}`, {
     headers: { authorization: 'Bearer t' },
   });
 }

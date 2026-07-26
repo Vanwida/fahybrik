@@ -15,8 +15,8 @@ module Config {
     const PATH_AUTH_VERIFY = "/api/auth/email/verify";
 
     // Entreno del día para reloj Garmin. CONTRATO ASUMIDO — lo construye otro
-    // agente bajo web/app/api/wearables/garmin-ciq/. Ver CONTRATO en Api.mc.
-    const PATH_TODAY = "/api/wearables/garmin-ciq/today";
+    // Vive en web/app/api/athlete/wearables/garmin/today/. Ver CONTRATO en Api.mc.
+    const PATH_TODAY = "/api/athlete/wearables/garmin/today";
 
     const HEADER_AUTH = "Authorization";
     const HEADER_CONTENT_TYPE = "Content-Type";

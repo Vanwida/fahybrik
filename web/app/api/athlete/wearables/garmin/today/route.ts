@@ -1,4 +1,4 @@
-// GET /api/wearables/garmin-ciq/today?date=YYYY-MM-DD   (bearer de atleta)
+// GET /api/athlete/wearables/garmin/today?date=YYYY-MM-DD   (bearer de atleta)
 //
 // El entreno del día para la app Connect IQ del reloj. Es la pieza que la app
 // llevaba esperando: su `Config.mc` declaraba este contrato como "ASUMIDO — lo
