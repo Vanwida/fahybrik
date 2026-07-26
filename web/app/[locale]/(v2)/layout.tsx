@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -6,6 +7,7 @@ import { countNewLeads } from '@/lib/dashboard/coach/leads';
 import { countUpcomingCallsSoon } from '@/lib/citas/store';
 import { V2Shell } from '@/components/v2/V2Shell';
 import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
+import { PushSync } from '@/components/v2/push/PushNotifications';
 import './v2-theme.css';
 
 // v2 route-group layout — the FOUNDATION of the redesign. Lives ALONGSIDE the
@@ -15,6 +17,14 @@ import './v2-theme.css';
 //
 // The pre-paint V2ThemeScript runs before hydration to set data-theme on the
 // root with no flash. The sidebar's Mensajes badge reads the live unread count.
+
+// Identidad PWA SOLO del dashboard: el icono COACH al anclar a la pantalla de
+// inicio. Scoped aquí (no en el layout raíz) para que la web pública conserve
+// la suya.
+export const metadata: Metadata = {
+  icons: { apple: '/brand/fh-coach-180.png' },
+  appleWebApp: { capable: true, title: 'FH Coach', statusBarStyle: 'black-translucent' },
+};
 
 export default async function V2Layout({
   children,
@@ -53,6 +63,9 @@ export default async function V2Layout({
   return (
     <>
       <V2ThemeScript />
+      {/* Headless: registra el SW y refresca la suscripción push de este
+          navegador si ya estaba dada de alta. */}
+      <PushSync />
       <V2Shell
         coach_name={session.full_name}
         coach_email={session.email}

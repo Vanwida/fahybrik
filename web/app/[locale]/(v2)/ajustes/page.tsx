@@ -12,6 +12,7 @@ import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
+import { PushCard } from '@/components/v2/push/PushNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,6 +89,9 @@ export default async function V2AjustesPage({
             </Link>
           </Card>
         </section>
+
+        {/* ── Avisos (Web Push de este dispositivo) ──────────────────────── */}
+        <PushCard />
 
         {/* ── Cuenta ─────────────────────────────────────────────────────── */}
         <section>

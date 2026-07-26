@@ -9,6 +9,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { humanPreview } from '@/lib/chat/schema';
 import type { MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 import { cn } from '@/lib/utils';
 
@@ -182,7 +183,9 @@ function ConversationRow({
                 : 'text-[color:var(--v2-muted)]',
             )}
           >
-            {thread.last_message_body ?? 'Sin mensajes todavía'}
+            {thread.last_message_body != null
+              ? humanPreview(thread.last_message_body)
+              : 'Sin mensajes todavía'}
           </span>
           {unread ? (
             <span

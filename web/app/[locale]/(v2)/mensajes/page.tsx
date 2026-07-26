@@ -13,8 +13,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function V2MensajesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ hilo?: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -26,5 +28,15 @@ export default async function V2MensajesPage({
     () => ({ threads: [], unread_threads: 0 }),
   );
 
-  return <MensajesScreen data={data} coach_name={session.full_name} />;
+  // `?hilo=` es el deeplink de un aviso push: aterriza con ESA conversación
+  // abierta. Un id que no sea del coach simplemente no casa con ningún hilo.
+  const { hilo } = await searchParams;
+
+  return (
+    <MensajesScreen
+      data={data}
+      coach_name={session.full_name}
+      initialThreadId={hilo && /^\d+$/.test(hilo) ? hilo : null}
+    />
+  );
 }

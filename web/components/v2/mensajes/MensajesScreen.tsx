@@ -18,6 +18,9 @@ import { ThreadPanel } from './ThreadPanel';
 import { ContextPanel } from './ContextPanel';
 import type { MessageDTO } from '@/lib/chat/client';
 import type { MensajesData, MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
+import { PushBanner } from '@/components/v2/push/PushNotifications';
+import { attachmentPreview } from '@/lib/chat/schema';
+import { clearAppBadge } from '@/lib/push/client';
 import { cn } from '@/lib/utils';
 
 /** Espera mínima entre relecturas del servidor cuando aparece una conversación
@@ -25,31 +28,54 @@ import { cn } from '@/lib/utils';
  *  primer minuto dispararía una recarga por mensaje. */
 const UNKNOWN_THREAD_REFRESH_MS = 10_000;
 
-/** La vista previa de un mensaje en la lista. Misma regla que aplica el servidor
- *  al cargar la página: el texto, o el tipo de adjunto entre corchetes. */
+/** La vista previa de un mensaje en la lista: el texto, o la etiqueta humana
+ *  del adjunto — la MISMA que usa el push y la que pinta la lista al cargar. */
 function previewOf(message: MessageDTO): string {
   if (message.body && message.body.trim().length > 0) return message.body;
-  return `[${message.attachment_kind ?? 'attach'}]`;
+  return attachmentPreview(message.attachment_kind ?? null);
 }
 
-export function MensajesScreen({ data }: { data: MensajesData; coach_name?: string }) {
+export function MensajesScreen({
+  data,
+  initialThreadId,
+}: {
+  data: MensajesData;
+  coach_name?: string;
+  /** Hilo a abrir al llegar (deeplink `?hilo=` de un aviso push). */
+  initialThreadId?: string | null;
+}) {
   return (
     <ChatLiveProvider>
-      <MensajesBody data={data} />
+      <MensajesBody data={data} initialThreadId={initialThreadId} />
     </ChatLiveProvider>
   );
 }
 
-function MensajesBody({ data }: { data: MensajesData }) {
+function MensajesBody({
+  data,
+  initialThreadId,
+}: {
+  data: MensajesData;
+  initialThreadId?: string | null;
+}) {
   const router = useRouter();
   // Copia local y mutable: abrir un hilo, responder o recibir algo se refleja al
   // instante sin volver al servidor.
   const [threads, setThreads] = useState<MensajesThread[]>(data.threads);
   const [filter, setFilter] = useState<ConvFilter>(data.unread_threads > 0 ? 'unread' : 'all');
   const [activeId, setActiveId] = useState<string | null>(() => {
+    // El deeplink manda: un tap en el aviso del móvil aterriza en SU hilo.
+    const linked = initialThreadId
+      ? data.threads.find((t) => t.thread_id === initialThreadId)
+      : undefined;
     const firstUnread = data.threads.find((t) => t.unread_count > 0);
-    return (firstUnread ?? data.threads[0])?.thread_id ?? null;
+    return (linked ?? firstUnread ?? data.threads[0])?.thread_id ?? null;
   });
+
+  // Estás mirando los mensajes: el globito del icono instalado ya no aplica.
+  useEffect(() => {
+    clearAppBadge();
+  }, []);
   const [contextOpen, setContextOpen] = useState(false);
 
   // El servidor manda: cuando la página se revalida, la lista se rehace con lo
@@ -152,18 +178,23 @@ function MensajesBody({ data }: { data: MensajesData }) {
       >
         <div
           className={cn(
-            'min-h-0 border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
-            active ? 'hidden md:block' : 'block',
+            'flex min-h-0 flex-col border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
+            active ? 'hidden md:flex' : 'flex',
           )}
         >
-          <ConversationList
-            threads={threads}
-            activeId={activeId}
-            filter={filter}
-            unreadCount={unreadCount}
-            onSelect={handleSelect}
-            onFilterChange={setFilter}
-          />
+          <div className="shrink-0 empty:hidden p-2 pb-0">
+            <PushBanner />
+          </div>
+          <div className="min-h-0 flex-1">
+            <ConversationList
+              threads={threads}
+              activeId={activeId}
+              filter={filter}
+              unreadCount={unreadCount}
+              onSelect={handleSelect}
+              onFilterChange={setFilter}
+            />
+          </div>
         </div>
 
         <div className={cn('min-h-0 bg-[color:var(--v2-bg)]', active ? 'block' : 'hidden md:block')}>
