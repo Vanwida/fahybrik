@@ -69,6 +69,12 @@ Aviso de calibración: 6 de los 11 vídeos de HYROX son del mismo creador, así 
 
 ---
 
+## DESPLEGADO EN PRODUCCIÓN (26-jul)
+
+La rama `feat/zepp-app` está en producción, commit `02db046`. Los endpoints de relojes ya responden en fahybrid.com Y app.fahybrid.com: `/api/athlete/wearables/garmin/today|workout|workouts` (401 sin bearer) y `/api/coros/status` (200, la URL que declaramos a COROS). Smoke OK, nada roto.
+
+⚠️ **`fahybrik-demo` YA NO EXISTE.** Un solo proyecto Vercel, `fahybrik-web` (`prj_9Fj582l8dFSGZ2MeC8K1xlGYFVde`), sirve los dos dominios. El id de demo que arrastraban las memorias da `Project not found` y hacía fallar el primer intento de deploy de cada sesión. Corregido en memoria: ver `reference_deploy_produccion`.
+
 ## Hilo paralelo: RELOJES — el entreno en la muñeca (prioridad máxima, 25-jul)
 
 Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
