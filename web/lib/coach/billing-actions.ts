@@ -208,7 +208,7 @@ export async function cancelStripeAtPeriodEnd(
 
 /**
  * UNDO a pending cancellation — the athlete scheduled a baja from the app and then
- * changed their mind before the period elapsed (#13, 0136). Only valid while the
+ * changed their mind before the period elapsed (#13, 0137). Only valid while the
  * subscription is still live; once Stripe has actually deleted it, coming back is a
  * new checkout, not an un-cancel. No-op when unconfigured / no live sub.
  */

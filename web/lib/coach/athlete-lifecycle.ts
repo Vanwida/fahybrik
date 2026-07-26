@@ -106,7 +106,7 @@ export interface BajaAthleteInput {
    *  lifecycle-author slot, 0118) + the audit trail so the banner shows who gave the
    *  baja without touching last_edited_by. Distinct from coach_id. */
   by_user_id?: bigint | null;
-  /** Who is behind the baja. Defaults to 'coach' — the only author before 0136. */
+  /** Who is behind the baja. Defaults to 'coach' — the only author before 0137. */
   by_kind?: 'coach' | 'athlete';
 }
 
@@ -316,7 +316,7 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
           baja_by_user_id = ${input.by_user_id ?? null},
           baja_by_kind = ${byKind},
           -- The scheduled baja has arrived (or the coach got there first): either way
-          -- there is nothing left for the lifecycle cron to apply (0136).
+          -- there is nothing left for the lifecycle cron to apply (0137).
           baja_scheduled_for = null,
           updated_at = now()
       where id = ${input.athlete_id}

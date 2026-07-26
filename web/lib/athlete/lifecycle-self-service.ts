@@ -16,7 +16,7 @@
 //   • THE SCHEDULED BAJA. A coach's baja is immediate. An athlete's is not: between
 //     the tap and the end of the period there can be three weeks ALREADY PAID, and
 //     freezing the plan that day would be charging for nothing. So we stamp
-//     `baja_scheduled_for` (0136), leave them activo, and the lifecycle cron applies
+//     `baja_scheduled_for` (0137), leave them activo, and the lifecycle cron applies
 //     it on the day. Until then, one button takes it back.
 //
 // Dates are box-local (Europe/Madrid): a pause that starts "today" has to mean the

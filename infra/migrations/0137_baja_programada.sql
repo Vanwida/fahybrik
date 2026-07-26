@@ -1,4 +1,4 @@
--- 0136: baja programada — el atleta se da de baja y sigue entrenando hasta el
+-- 0137: baja programada — el atleta se da de baja y sigue entrenando hasta el
 -- último día que tiene pagado.
 --
 -- Hasta ahora la baja solo la daba el coach y era INMEDIATA: `bajaAthlete` ponía
