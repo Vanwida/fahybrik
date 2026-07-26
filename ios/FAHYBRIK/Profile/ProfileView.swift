@@ -740,7 +740,7 @@ struct ProfileView: View {
                 // niveles hacia dentro, y eso nadie lo encuentra solo. Ahora lleva a
                 // las instrucciones.
                 NavigationLink {
-                    GarminSetupView()
+                    GarminSetupView(bearer: bearer)
                 } label: {
                     deviceRowContent(
                         icon: "watch.analog",

@@ -53,4 +53,31 @@ enum WearablesService {
         guard let url = URL(string: resp.url) else { throw APIError.invalidResponse }
         return url
     }
+
+    /// Email y código para vincular la app del reloj Garmin, para enseñárselos al
+    /// atleta en pantalla.
+    ///
+    /// Es el MISMO código que el login por correo y lo consume el mismo endpoint;
+    /// aquí solo se entrega por un canal que ya está autenticado, en vez de por
+    /// email. Eso ahorra el ida y vuelta de ir al reloj a pedirlo y esperar la
+    /// bandeja de entrada.
+    ///
+    /// El email NO se manda: lo pone el servidor desde la sesión. Y cada llamada
+    /// invalida el código anterior, así que solo se pide cuando el atleta lo va a
+    /// usar de verdad.
+    static func garminPairCode(bearer: String) async throws -> GarminPairCode {
+        try await APIClient.shared.post(
+            path: "api/athlete/wearables/garmin/pair-code",
+            body: Empty(),
+            bearer: bearer
+        )
+    }
+}
+
+/// Lo que el atleta tiene que copiar en los ajustes de Garmin Connect.
+struct GarminPairCode: Decodable, Equatable {
+    let email: String
+    let code: String
+    /// ISO-8601. El código caduca; la pantalla lo dice para que no lo guarde.
+    let expiresAt: String
 }
