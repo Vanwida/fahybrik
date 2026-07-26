@@ -734,16 +734,23 @@ struct ProfileView: View {
             ) {
                 appleWatchWorkoutsRow
                 Hairline()
-                // Informativo, sin destino: la app de Garmin para el reloj está
-                // construida pero aún no publicada en su tienda, así que el atleta
-                // todavía no puede activarla desde aquí.
-                deviceRowContent(
-                    icon: "watch.analog",
-                    title: "Garmin",
-                    subtitle: "Se instala en el reloj desde Garmin Connect",
-                    statusText: "pronto",
-                    statusColor: Theme.Color.muted
-                )
+                // Antes era una fila muerta con un subtítulo de una línea. El atleta
+                // instalaba la app en el reloj, esta le pedía vincular, y el camino
+                // se acababa ahí: lo que hay que teclear va en Garmin Connect, TRES
+                // niveles hacia dentro, y eso nadie lo encuentra solo. Ahora lleva a
+                // las instrucciones.
+                NavigationLink {
+                    GarminSetupView()
+                } label: {
+                    deviceRowContent(
+                        icon: "watch.analog",
+                        title: "Garmin",
+                        subtitle: "Cómo poner tu entreno en el reloj",
+                        statusText: "ver cómo",
+                        statusColor: Theme.Color.accentText
+                    )
+                }
+                .buttonStyle(.plain)
             }
 
             deviceGroup(

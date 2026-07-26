@@ -282,6 +282,7 @@
 		B7D324C1A3F68AB0341464FD /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F5AA95A8BE72BFDB602AFC /* ChatService.swift */; };
 		B91F529CCC4946A6F529C9EF /* WorkoutKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B923DDAC30864527B24FD75E /* WorkoutKit.framework */; };
 		B941C8D1CE4EA7D022184C0C /* StrengthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 032FA1B5468960A7CFB64AE1 /* StrengthService.swift */; };
+		B9517700BA0E3FF01CC4A017 /* GarminSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB59B29C6CB1A3F33FA71838 /* GarminSetupView.swift */; };
 		BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */; };
 		BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C0964B0D02FCA8F8C108F8 /* TreadmillLegTests.swift */; };
 		BA93B5DEE762F343B1D53162 /* DoblesTurnTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8860DEF4E97BC37728C70B7 /* DoblesTurnTests.swift */; };
@@ -737,6 +738,7 @@
 		B962CBBF9B74EA92BBCBFFD4 /* InjuriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjuriesView.swift; sourceTree = "<group>"; };
 		B9CA469657CC4F5CB348FCD9 /* MeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeService.swift; sourceTree = "<group>"; };
 		BAF9B84A8FC35C78460E38E5 /* SessionMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMapView.swift; sourceTree = "<group>"; };
+		BB59B29C6CB1A3F33FA71838 /* GarminSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminSetupView.swift; sourceTree = "<group>"; };
 		BB5F4CB42B4E4B39DA7C94CA /* PostWorkoutFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostWorkoutFeedbackTests.swift; sourceTree = "<group>"; };
 		BC4097FB089CB79FC0A55D1B /* PartnerRedeemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerRedeemView.swift; sourceTree = "<group>"; };
 		BDF647B80717E54E6BC417DB /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
@@ -1518,6 +1520,7 @@
 			children = (
 				5C4B6224AB36A77D17B8DC9B /* AppleWatchWorkoutScheduler.swift */,
 				6BA5B5BB4DF75071C056FC68 /* AppleWorkoutMapper.swift */,
+				BB59B29C6CB1A3F33FA71838 /* GarminSetupView.swift */,
 			);
 			path = Wearables;
 			sourceTree = "<group>";
@@ -2043,6 +2046,7 @@
 				A3FB87F57CDB31A5A67839AF /* FreeStrengthBuilder.swift in Sources */,
 				C110138B33B8EB51A4B3E49C /* FreeWorkout.swift in Sources */,
 				00EDA03F2AD29DEB2D23A125 /* FreeWorkoutBuilderView.swift in Sources */,
+				B9517700BA0E3FF01CC4A017 /* GarminSetupView.swift in Sources */,
 				DFAD09ABBBA8E82AED64FD5D /* GoalGapBoard.swift in Sources */,
 				367E19CFF9D503E286D23A3E /* GoalGapService.swift in Sources */,
 				E24C9C8D086D0F7010577DE7 /* GoalPresets.swift in Sources */,
