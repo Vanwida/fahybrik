@@ -15,7 +15,7 @@ Connect IQ, sin acuerdo comercial de por medio.
 
 ```
 ajustes del móvil (email + código)   →  token de sesión (30 días)
-   →  GET /api/wearables/garmin-ciq/today?date=YYYY-MM-DD
+   →  GET /api/athlete/wearables/garmin/today?date=YYYY-MM-DD
    →  GET fit_url                     (el SISTEMA descarga y persiste el .FIT)
    →  PersistedContent.getAppWorkouts()   →  buscar por NOMBRE
    →  workout.toIntent()  →  System.exitTo()
@@ -88,7 +88,7 @@ Un token en Properties saldría en pantalla en la app del móvil. No se hace.
 
 Definido y comentado en **`source/Api.mc`**. Resumen:
 
-**`GET /api/wearables/garmin-ciq/today?date=YYYY-MM-DD`** · `Authorization: Bearer <session_token>`
+**`GET /api/athlete/wearables/garmin/today?date=YYYY-MM-DD`** · `Authorization: Bearer <session_token>`
 
 ```json
 {
@@ -97,7 +97,7 @@ Definido y comentado en **`source/Api.mc`**. Resumen:
   "reason": null,
   "workout_name": "25 jul · 8×400",
   "summary": "8×400 a 3:35/km · 5,6 km",
-  "fit_url": "https://fahybrid.com/api/wearables/garmin-ciq/fit?..."
+  "fit_url": "https://fahybrid.com/api/athlete/wearables/garmin/workout?assignment_id=..."
 }
 ```
 
