@@ -109,32 +109,54 @@ export async function dispatchNotification(input: DispatchInput): Promise<{ id: 
   return { id };
 }
 
-// Convenience: notify the coach for a given athlete. Resolves the coach
-// associated with the athlete via the athletes.coach_id FK.
+/** Quién recibe lo dirigido "al coach": TODOS los miembros activos del
+ *  workspace (Alex, Pablo, Gerard… — cada uno inicia sesión con SU usuario),
+ *  con el usuario legacy del club como respaldo para coaches sin miembros.
+ *
+ *  Sin esto, el aviso iba a `coaches.user_id` — un usuario con el que ya nadie
+ *  inicia sesión en la cuenta unificada — y ningún miembro lo veía jamás, ni
+ *  en push ni en su bandeja. */
+export async function coachRecipientUserIds(sql: Sql, coach_id: bigint): Promise<bigint[]> {
+  const members = await sql<{ user_id: string }[]>`
+    select user_id::text as user_id
+    from coach_members
+    where coach_id = ${coach_id as unknown as number}
+      and removed_at is null
+  `;
+  if (members.length > 0) return members.map((m) => BigInt(m.user_id));
+  const legacy = await sql<{ user_id: string }[]>`
+    select user_id::text as user_id from coaches
+    where id = ${coach_id as unknown as number}
+    limit 1
+  `;
+  return legacy.map((r) => BigInt(r.user_id));
+}
+
+// Convenience: notify the coach for a given athlete. Resolves the coach via
+// athletes.coach_id and fans out to every active member of that workspace.
 export async function notifyCoach(args: {
   sql: Sql;
   athlete_id: bigint;
   type: NotificationType;
   payload: Record<string, unknown>;
   push?: DispatchInput['push'];
-}): Promise<{ id: string } | null> {
+}): Promise<{ ids: string[] } | null> {
   const { sql, athlete_id, type, payload, push } = args;
-  const rows = await sql<{ user_id: string }[]>`
-    select c.user_id::text as user_id
-    from athletes a
-    join coaches c on c.id = a.coach_id
-    where a.id = ${athlete_id as unknown as number}
+  const rows = await sql<{ coach_id: string }[]>`
+    select coach_id::text as coach_id from athletes
+    where id = ${athlete_id as unknown as number}
     limit 1
   `;
   const row = rows[0];
   if (!row) return null;
-  return dispatchNotification({
-    sql,
-    user_id: BigInt(row.user_id),
-    type,
-    payload,
-    push,
-  });
+  const recipients = await coachRecipientUserIds(sql, BigInt(row.coach_id));
+  if (recipients.length === 0) return null;
+  const ids: string[] = [];
+  for (const user_id of recipients) {
+    const { id } = await dispatchNotification({ sql, user_id, type, payload, push });
+    ids.push(id);
+  }
+  return { ids };
 }
 
 export async function notifyAthlete(args: {

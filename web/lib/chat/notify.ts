@@ -2,7 +2,7 @@
 // import cycle between chat publish + APNS dispatch.
 
 import type { Sql } from '@/lib/db';
-import { dispatchNotification } from '@/lib/notifications/dispatch';
+import { coachRecipientUserIds, dispatchNotification } from '@/lib/notifications/dispatch';
 
 export async function notifyOpposite(args: {
   sql: Sql;
@@ -15,7 +15,6 @@ export async function notifyOpposite(args: {
   const rows = await sql<
     {
       coach_id: string;
-      coach_user_id: string;
       athlete_user_id: string;
       coach_name: string;
       athlete_name: string;
@@ -23,7 +22,6 @@ export async function notifyOpposite(args: {
     }[]
   >`
     select t.coach_id::text as coach_id,
-           c.user_id::text as coach_user_id,
            a.user_id::text as athlete_user_id,
            c.full_name as coach_name,
            a.full_name as athlete_name,
@@ -37,9 +35,16 @@ export async function notifyOpposite(args: {
   const ctx = rows[0];
   if (!ctx) return;
 
-  const recipient_user_id = sender_role === 'coach' ? ctx.athlete_user_id : ctx.coach_user_id;
   const senderName = sender_role === 'coach' ? ctx.coach_name : ctx.athlete_name;
   const trimmed = preview.length > 140 ? preview.slice(0, 137) + '…' : preview;
+
+  // Destinatarios: el mensaje del coach va al atleta; el del atleta, a TODOS
+  // los miembros activos del workspace del coach (cada uno entra con SU
+  // usuario — el user_id legacy del club no lo mira nadie).
+  const recipients =
+    sender_role === 'coach'
+      ? [BigInt(ctx.athlete_user_id)]
+      : await coachRecipientUserIds(sql, BigInt(ctx.coach_id));
 
   // Globito del icono. Se llama DESPUÉS de subir los contadores, así que lo
   // leído aquí ya incluye este mensaje. El del coach cuenta CONVERSACIONES con
@@ -56,20 +61,22 @@ export async function notifyOpposite(args: {
     badge = ctx.unread_for_athlete;
   }
 
-  await dispatchNotification({
-    sql,
-    user_id: BigInt(recipient_user_id),
-    type: 'chat_message',
-    payload: {
-      thread_id: thread_id.toString(),
-      sender_role,
-      preview: trimmed,
-    },
-    push: {
-      title: senderName,
-      body: trimmed,
-      deeplink: { kind: 'chat', thread_id: thread_id.toString() },
-      badge,
-    },
-  });
+  for (const recipient_user_id of recipients) {
+    await dispatchNotification({
+      sql,
+      user_id: recipient_user_id,
+      type: 'chat_message',
+      payload: {
+        thread_id: thread_id.toString(),
+        sender_role,
+        preview: trimmed,
+      },
+      push: {
+        title: senderName,
+        body: trimmed,
+        deeplink: { kind: 'chat', thread_id: thread_id.toString() },
+        badge,
+      },
+    });
+  }
 }
