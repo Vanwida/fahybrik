@@ -109,4 +109,8 @@ enum FreeExerciseCatalogAPI {
 struct FreeWorkoutItemPayload: Codable, Equatable {
     let exercise_id: Int
     let prescription: Prescription
+    /// "warmup" | nil (= principal). Opcional → un servidor viejo lo ignora y un
+    /// payload viejo decodifica igual. Marca los ejercicios del calentamiento
+    /// para que el coach los lea como calentamiento, no como trabajo.
+    var part: String? = nil
 }

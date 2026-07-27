@@ -81,6 +81,8 @@ function toJson(value: unknown): JsonParam {
 interface ResolvedSegment {
   exerciseId: number;
   prescriptionForDb: JsonParam;
+  /** 'warmup' → bloque «Calentamiento»; ausente → el principal. */
+  part?: 'warmup';
 }
 
 /** The measured-single-segment input (canonical exercise resolved by slug). */
@@ -94,7 +96,7 @@ interface MeasuredInput {
 /** The item-built input (N exercises resolved by id, modality overridden). */
 interface ItemsInput {
   kind: 'items';
-  items: Array<{ exerciseId: number; prescription: Prescription }>;
+  items: Array<{ exerciseId: number; prescription: Prescription; part?: 'warmup' }>;
 }
 
 export type CreateFreeWorkoutInput = {
@@ -136,10 +138,14 @@ export async function createFreeWorkout(
     const templateId = Number(tplRows[0]!.id);
 
     // 2. The ordered segments (position 1..N) carrying each structured prescription.
-    //    One block (block_position 1) titled with the workout — a free workout is
-    //    one coherent block, whether it's one measured line or N item lines.
+    //    Calentamiento opcional (petición de Alex entrenando): los items marcados
+    //    part='warmup' van a su PROPIO bloque «Calentamiento» (posición 1) y el
+    //    trabajo al bloque 2 — así el coach lee calentar como calentar, nunca como
+    //    trabajo. Sin warmup, todo sigue en un bloque como siempre.
+    const hasWarmup = segments.some((s) => s.part === 'warmup');
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i]!;
+      const isWarm = seg.part === 'warmup';
       await tx`
         insert into template_segments (
           template_id, position, exercise_id, params_json,
@@ -147,7 +153,9 @@ export async function createFreeWorkout(
         )
         values (
           ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
-          1, ${scheme}, ${title}, ${tx.json(seg.prescriptionForDb)}
+          ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${scheme},
+          ${hasWarmup ? (isWarm ? 'Calentamiento' : title) : title},
+          ${tx.json(seg.prescriptionForDb)}
         )
       `;
     }
@@ -245,6 +253,10 @@ async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<
     const prescription: Prescription = exModality
       ? { ...it.prescription, modality: exModality as Modality }
       : it.prescription;
-    return { exerciseId: it.exerciseId, prescriptionForDb: toJson(prescription) };
+    return {
+      exerciseId: it.exerciseId,
+      prescriptionForDb: toJson(prescription),
+      ...(it.part ? { part: it.part } : {}),
+    };
   });
 }

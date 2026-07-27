@@ -106,7 +106,7 @@ struct FreeStrengthItem: Identifiable {
     /// prescribed strength item). The scalar `targetReps`/`loadKg` ride alongside
     /// the prescription so a single-series exercise still primes the fallback rep
     /// flow; a multi-series one drives the per-set table off `prescription.sets`.
-    func segment(order: Int) -> WorkoutSegment {
+    func segment(order: Int, blockTitle: String = "Fuerza", blockPosition: Int = 1) -> WorkoutSegment {
         WorkoutSegment(
             order: order,
             title: exercise.name,
@@ -120,8 +120,8 @@ struct FreeStrengthItem: Identifiable {
             targetZone: nil,
             loadKg: loadKind == .kg ? kg : nil,
             targetRpe: nil,
-            blockTitle: "Fuerza",
-            blockPosition: 1,
+            blockTitle: blockTitle,
+            blockPosition: blockPosition,
             videoUrl: nil,
             prescription: prescription()
         )
@@ -139,6 +139,11 @@ struct FreeStrengthItem: Identifiable {
 @Observable
 final class FreeStrengthDraft {
     var items: [FreeStrengthItem] = []
+    /// Calentamiento OPCIONAL (petición de Alex entrenando): puede llevar
+    /// ejercicios o ir vacío — vacío es solo la fase con su reloj, para que la
+    /// serie 1 sea la serie 1 y no el calentamiento contado como trabajo.
+    var includeWarmup: Bool = false
+    var warmupItems: [FreeStrengthItem] = []
     var titleEdited: String = ""
 
     static let maxTitle = 80
@@ -151,7 +156,14 @@ final class FreeStrengthDraft {
         items.append(FreeStrengthItem(exercise: exercise))
     }
 
-    func remove(_ id: UUID) { items.removeAll { $0.id == id } }
+    func addWarmup(_ exercise: FreeExercise) {
+        warmupItems.append(FreeStrengthItem(exercise: exercise))
+    }
+
+    func remove(_ id: UUID) {
+        items.removeAll { $0.id == id }
+        warmupItems.removeAll { $0.id == id }
+    }
 
     func move(_ id: UUID, by delta: Int) {
         guard let i = items.firstIndex(where: { $0.id == id }) else { return }
@@ -164,14 +176,41 @@ final class FreeStrengthDraft {
     /// REQUIRED for strength (the top-level prescription is omitted).
     func buildItems() -> [FreeWorkoutItemPayload]? {
         guard !items.isEmpty else { return nil }
-        return items.map { FreeWorkoutItemPayload(exercise_id: $0.exercise.id, prescription: $0.prescription()) }
+        let warm = includeWarmup
+            ? warmupItems.map { FreeWorkoutItemPayload(exercise_id: $0.exercise.id, prescription: $0.prescription(), part: "warmup") }
+            : []
+        return warm + items.map { FreeWorkoutItemPayload(exercise_id: $0.exercise.id, prescription: $0.prescription()) }
     }
 
     /// The runnable context: one segment per exercise (positions 1..N line up with
     /// items order for the execution upload) + the `items[]` payload.
     func buildContext() -> FreeWorkoutContext? {
         guard let payloadItems = buildItems() else { return nil }
-        let segments = items.enumerated().map { i, item in item.segment(order: i + 1) }
+        // Calentamiento primero (bloque 1), el trabajo después (bloque 2). Con el
+        // calentamiento incluido pero VACÍO, un único paso manual "Calentamiento"
+        // — calientas, le das a seguir, y empieza la fuerza.
+        var segments: [WorkoutSegment] = []
+        if includeWarmup {
+            if warmupItems.isEmpty {
+                segments.append(WorkoutSegment(
+                    order: 1, title: "Calentamiento", kind: .reps,
+                    templateSegmentId: nil,
+                    targetReps: nil, targetDistanceMeters: nil, targetDurationSeconds: nil,
+                    targetPaceSecondsPerKm: nil, targetPowerWatts: nil, targetZone: nil,
+                    loadKg: nil, targetRpe: nil,
+                    blockTitle: "Calentamiento", blockPosition: 1,
+                    videoUrl: nil, prescription: nil
+                ))
+            } else {
+                for (i, item) in warmupItems.enumerated() {
+                    segments.append(item.segment(order: i + 1, blockTitle: "Calentamiento", blockPosition: 1))
+                }
+            }
+        }
+        let base = segments.count
+        for (i, item) in items.enumerated() {
+            segments.append(item.segment(order: base + i + 1, blockTitle: "Fuerza", blockPosition: includeWarmup ? 2 : 1))
+        }
         let plan = WorkoutPlan(
             id: UUID(),
             name: resolvedTitle,
@@ -230,6 +269,8 @@ struct FreeStrengthBuilderView: View {
 
     @State private var draft = FreeStrengthDraft()
     @State private var showPicker = false
+    /// El picker abierto añade al calentamiento (true) o al principal (false).
+    @State private var pickingForWarmup = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -237,6 +278,7 @@ struct FreeStrengthBuilderView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     stepHeader
+                    warmupSection
                     ForEach(draft.items) { item in
                         FreeStrengthCard(
                             item: bindingFor(item.id),
@@ -261,10 +303,77 @@ struct FreeStrengthBuilderView: View {
             FreeExercisePickerView(
                 bearer: bearer,
                 preferredCategory: "strength",
-                onPick: { ex in draft.add(ex); showPicker = false; Haptics.medium() },
+                onPick: { ex in
+                    if pickingForWarmup { draft.addWarmup(ex) } else { draft.add(ex) }
+                    showPicker = false
+                    Haptics.medium()
+                },
                 onClose: { showPicker = false }
             )
         }
+    }
+
+    // MARK: Calentamiento (opcional, rellenable o vacío — IMG del gym de Alex)
+
+    @ViewBuilder
+    private var warmupSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            Toggle(isOn: $draft.includeWarmup.animation()) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Calentamiento")
+                        .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(draft.includeWarmup
+                         ? (draft.warmupItems.isEmpty ? "Sin ejercicios: solo la fase, con su reloj" : "\(draft.warmupItems.count) ejercicio\(draft.warmupItems.count == 1 ? "" : "s")")
+                         : "Opcional · la serie 1 será la serie 1")
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .tint(Theme.Color.accent)
+            .padding(Theme.Spacing.m)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+
+            if draft.includeWarmup {
+                ForEach(draft.warmupItems) { item in
+                    FreeStrengthCard(
+                        item: bindingForWarmup(item.id),
+                        canMoveUp: false, canMoveDown: false,
+                        onMoveUp: {}, onMoveDown: {},
+                        onRemove: { withAnimation { draft.remove(item.id) }; Haptics.light() }
+                    )
+                }
+                Button {
+                    pickingForWarmup = true
+                    showPicker = true
+                    Haptics.light()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("Ejercicio de calentamiento")
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                            .strokeBorder(Theme.Color.outline, style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func bindingForWarmup(_ id: UUID) -> Binding<FreeStrengthItem> {
+        Binding(
+            get: { draft.warmupItems.first(where: { $0.id == id }) ?? FreeStrengthItem(exercise: FreeExercise(id: 0, name: "", slug: "", category: "strength", modality: nil)) },
+            set: { new in
+                if let i = draft.warmupItems.firstIndex(where: { $0.id == id }) { draft.warmupItems[i] = new }
+            }
+        )
     }
 
     // MARK: Nav bar
@@ -316,6 +425,7 @@ struct FreeStrengthBuilderView: View {
     private var addButton: some View {
         Button {
             Haptics.light()
+            pickingForWarmup = false
             showPicker = true
         } label: {
             HStack(spacing: 8) {

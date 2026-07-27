@@ -27,6 +27,8 @@ const itemSchema = z.object({
   exercise_id: z.number().int().positive(),
   // Validated by validateFreeWorkout (the typed domain parser).
   prescription: z.unknown(),
+  // "warmup" marca los ejercicios del calentamiento opcional; ausente = principal.
+  part: z.enum(['warmup']).optional(),
 });
 
 const freeWorkoutBodySchema = z
@@ -96,7 +98,11 @@ export async function POST(request: Request) {
         : {
             ...base,
             kind: 'items',
-            items: plan.items.map((it) => ({ exerciseId: it.exercise_id, prescription: it.prescription })),
+            items: plan.items.map((it) => ({
+              exerciseId: it.exercise_id,
+              prescription: it.prescription,
+              ...(it.part ? { part: it.part } : {}),
+            })),
           },
     );
 

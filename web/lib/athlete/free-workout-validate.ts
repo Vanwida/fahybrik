@@ -67,6 +67,8 @@ export const MAX_ITEMS = 12;
 export interface FreeWorkoutItem {
   exercise_id: number;
   prescription: Prescription;
+  /** 'warmup' marca el calentamiento opcional; ausente = principal. */
+  part?: 'warmup';
 }
 
 /** The validated plan handed to create-free-workout.ts. `scheme` is the
@@ -85,7 +87,7 @@ export type FreeWorkoutValidation =
 export interface FreeWorkoutRawBody {
   modality: FreeWorkoutModality;
   prescription?: unknown;
-  items?: Array<{ exercise_id: number; prescription?: unknown }>;
+  items?: Array<{ exercise_id: number; prescription?: unknown; part?: 'warmup' }>;
 }
 
 function fail(code: string, message: string, details?: unknown): FreeWorkoutValidation {
@@ -168,7 +170,7 @@ export function validateFreeWorkout(body: FreeWorkoutRawBody): FreeWorkoutValida
       }
     }
 
-    parsedItems.push({ exercise_id: it.exercise_id, prescription: pres });
+    parsedItems.push({ exercise_id: it.exercise_id, prescription: pres, ...(it.part ? { part: it.part } : {}) });
     schemes.push(pres.scheme);
   }
 
