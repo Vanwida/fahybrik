@@ -90,6 +90,8 @@ struct PlanView: View {
     // "Deshacer hecho" is destructive when the server reports the session holds
     // real recorded work — this holds the session awaiting the confirm dialog.
     @State private var undoConfirmTarget: AthleteWeekDaySession? = nil
+    /// Un libre a punto de borrarse DEL TODO (asignación + registro). Solo self-origin.
+    @State private var deleteFreeTarget: AthleteWeekDaySession? = nil
 
     private var effectiveBearer: String? {
         bearer
@@ -171,6 +173,24 @@ struct PlanView: View {
             Button("Cancelar", role: .cancel) { undoConfirmTarget = nil }
         } message: { _ in
             Text("Se borrará lo que registraste y el entreno volverá a pendiente. Esto no se puede deshacer.")
+        }
+        // Borrado TOTAL de un entreno libre — es del atleta, desaparece de verdad
+        // (nunca vuelve como pendiente: esa era la raíz del fantasma de IMG_2389).
+        .confirmationDialog(
+            "¿Borrar este entreno libre?",
+            isPresented: Binding(
+                get: { deleteFreeTarget != nil },
+                set: { if !$0 { deleteFreeTarget = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: deleteFreeTarget
+        ) { session in
+            Button("Borrar del todo", role: .destructive) {
+                confirmDeleteFree(session)
+            }
+            Button("Cancelar", role: .cancel) { deleteFreeTarget = nil }
+        } message: { _ in
+            Text("Lo creaste tú: se borra el entreno y lo registrado. No volverá a aparecer.")
         }
         .task {
             store.activate(bearer: effectiveBearer)
@@ -1087,6 +1107,14 @@ struct PlanView: View {
                     Label("Deshacer hecho", systemImage: "arrow.uturn.backward")
                 }
             }
+            // Un LIBRE es del atleta: se borra del todo, en cualquier estado. Antes
+            // el único deshacer era reset → volvía a PENDIENTE y renacía el fantasma
+            // (IMG_2389). Las del coach no ofrecen esto: se deshacen, no se borran.
+            if session.isSelfOrigin {
+                Button(role: .destructive) { deleteFreeTarget = session } label: {
+                    Label("Borrar entreno libre", systemImage: "trash")
+                }
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 15, weight: .semibold))
@@ -1095,6 +1123,21 @@ struct PlanView: View {
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Corregir estado de \(session.title)")
+    }
+
+    /// Ejecuta el borrado total del libre confirmado y refresca la semana.
+    private func confirmDeleteFree(_ session: AthleteWeekDaySession) {
+        deleteFreeTarget = nil
+        guard let id = Int(session.assignmentId) else { return }
+        Task { @MainActor in
+            do {
+                try await PlanService.deleteFreeSession(assignmentId: id, bearer: effectiveBearer ?? "")
+                Haptics.medium()
+                await store.planMutated()
+            } catch {
+                showActionError("No se pudo borrar el entreno. Inténtalo de nuevo.")
+            }
+        }
     }
 
     /// Drives the destructive "Deshacer" confirm dialog from the awaiting session.

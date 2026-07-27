@@ -351,6 +351,20 @@ enum PlanService {
     /// `.needsConfirmation`, and the caller re-issues with `confirm: true`.
     enum ResetOutcome { case reset, needsConfirmation }
 
+    /// Borrar un entreno LIBRE del todo (asignación + ejecución). Solo sesiones
+    /// self-origin — el servidor rechaza las del coach con `coach_session` (ahí lo
+    /// honesto es deshacer, no borrar). LA REGLA (IMG_2389): un libre nunca es una
+    /// obligación — existe hecho, o no existe; su atleta lo creó y puede borrarlo.
+    static func deleteFreeSession(assignmentId: Int, bearer: String) async throws {
+        struct Body: Encodable { let assignmentId: Int }
+        struct Result: Decodable { let deleted: Bool }
+        let _: Result = try await APIClient.shared.post(
+            path: "api/athlete/plan/session/delete",
+            body: Body(assignmentId: assignmentId),
+            bearer: bearer
+        )
+    }
+
     /// "Deshacer hecho" — reset a completed/partial session back to pendiente and
     /// void its manual execution. `confirm: false` first; if the server reports
     /// real recorded work (409 `needs_confirmation`) the caller asks the athlete
