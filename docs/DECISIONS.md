@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · Las marcas alimentan la predicción, y ningún hueco se rellena con el objetivo
+
+**Decidido:** cuatro cambios en el motor de proyección, todos en `shared/domain` (puro, sin I/O), más el cable que faltaba en el cargador.
+
+1. **`athlete_benchmarks` entra en la predicción.** «Probarme» llevaba escribiéndose desde que salió #Marcas y **ninguna ruta de predicción leía una fila**: un atleta podía cronometrarse un SkiErg 1000 y ver su proyección sin moverse. La jerarquía del lado entrenado queda declarada en un solo sitio (`shared/domain/race-transfer/compute.ts` → `trainedEvidence`): **marca medida > VO₂max del reloj > umbral de zona > ejecuciones**. Se respetan `run_context` (una marca de cinta se usa, pero ensancha la banda) y `source` (`onboarding` y `unknown` se rechazan — la 0139 ya dice que la autodeclarada «nunca cuenta como test real»).
+
+2. **La evidencia envejece de forma continua.** `RECENT_RACE_DAYS` deja de ser un escalón y pasa a ser la **vida media** de una decaída suave (`shared/domain/evidence.ts`). Antes, con una carrera de menos de 180 días los diez tramos salían crudos y el predicho era, al segundo, esa carrera: cinco meses de entreno no lo movían, y luego se movía de golpe. El número que se conserva es el mismo (180) y significa lo mismo (ahí la carrera deja de mandar), así que el chip `observado` de la app instalada no cambia de sentido.
+
+3. **Ningún hueco se cobra al objetivo.** El total era `Σ (predicho ?? PRESUPUESTO)`, y el presupuesto es la meta del atleta repartida en diez. Cuanto menos veíamos, más se acercaba la «predicción» a la meta: a un principiante sin datos de estaciones se le decía que iba bien. Ahora un tramo sin evidencia **no aporta nada y se nombra**; `predicted_total_s` y `gap_s` son **nulos** mientras falte cualquier tramo. Lo mismo en dobles: la fila sigue enseñando el presupuesto (la app la etiqueta «sin datos suficientes» y una barra necesita largo), pero queda fuera del total. Se retira también el respaldo de roxzone al presupuesto, que era la misma trampa con otro nombre.
+
+4. **El factor de competición se pondera por tiempo.** Era una media aritmética de cocientes, así que ocho kilómetros de carrera pesaban lo mismo que una estación de tres minutos y una sola estación rara arrastraba toda la predicción. Ahora cada cociente pesa los segundos que ese tramo cuesta en carrera.
+
+Y, transversal a todo, **cada tramo emite banda y el total un rango** (ley 1 de la spec), más `coverage` (qué parte se desconoce) y `next_inputs` (qué medir para estrecharlo, orden por retorno).
+
+**Constantes nuevas, todas con origen:** el exponente de resistencia de Riegel `k = 1.06` (Riegel, *American Scientist*, 1981) para pasar 500 → 1000 m en ergo, en vez del ×2 que prometía sostener el ritmo de sprint al doble de distancia — se comprueba en test contra la regla publicada de Concept2 (+~5 s/500 m por cada duplicación). Para correr **no hace falta constante nueva**: se reutiliza el Daniels-Gilbert que ya vivía en `shared/domain/running/vdot.ts`, que además hace que el 5K y el Cooper manden sobre el 1 km **sin ninguna tabla de prioridades escrita a mano** — gana la marca menos extrapolada. Las tres anchuras de banda (±3 / ±7 / ±15 %) **no son nuevas**: son la escala de error que el producto ya publicaba en `accuracyLabel` (clavado / muy afinado / afinando), ahora leída desde un único sitio.
+
+**Se descarta / no se hace:** no se inventa una penalización de «carrera comprometida» para quien no tiene carrera previa — no hay dato con el que calibrarla, así que se declara desconocida y **la banda paga por ello**. La composición del rango asume **independencia entre tramos** (suma en cuadratura); es un supuesto declarado, y la métrica de cobertura del bucle predicho-vs-real es justo lo que lo mide (ley 5).
+
+**En consecuencia, no hacer:** no volver a sumar un presupuesto dentro de una predicción — presupuesto significa «lo que pide la meta» y meterlo en el total es dejar que el deseo del atleta prediga su tiempo. No añadir una segunda escala de error ni una segunda curva de envejecimiento: viven en `shared/domain/evidence.ts` y las demás las importan. Y no congelar un snapshot parcial en `race_predictions`: el bucle de calibración lo compararía contra una carrera entera y se mentiría a sí mismo.
+
+**Pendiente de decisión de Alex (bloqueado por datos, no por código):** las cinco estaciones de fuerza y el perfil siguen sin fuente. Comprobado contra producción el 27-jul: **hay 0 carreras `singles` reales con splits** (las 2 que existen son sintéticas); las 8 reales con splits son todas de **dobles**, donde las estaciones se reparten entre dos atletas y por tanto no describen una forma de singles. Además `athletes.weight_kg`, `height_cm` y `body_fat_pct` están **vacías en los 8 atletas**. Con eso no se puede derivar ni un prior por estación ni el signo del peso por estación que pide la spec §05, así que **no se ha fabricado ninguno**. Es la decisión abierta de §10: datos de población, o esperar a las primeras importaciones reales de singles.
+
+---
+
 ## 2026-07-27 · El dato fabricado se marca en columna propia, no en `source` (migración 0142)
 
 **Decidido:** `races` gana `is_synthetic boolean not null default false`. Lo escriben en `true` los tres seeds de demo (`seed_demo_athlete_races`, `seed_demo_race`, `seed_demo_dobles_race`) y lo excluyen las **dos únicas consultas de `races` que cruzan atletas**: el cohorte de singles (`web/lib/athlete/goal-gap.ts`) y el de dobles (`web/lib/athlete/dobles-gap.ts`). Todas las demás lecturas van filtradas por `athlete_id`, así que un atleta de demo sigue viendo lo suyo intacto.
