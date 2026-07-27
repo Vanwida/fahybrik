@@ -75,6 +75,11 @@ async function resolveCoachSession(
         ? sql`u.clerk_user_id = ${by.clerk}`
         : sql`u.id = ${by.uid}`;
 
+  // Deterministic `limit 1`: a human in MORE than one club (or owning more than
+  // one coaches row) always resolves to the same club — the OLDEST membership
+  // (cm.added_at), ids as tie-breaks. Explicit club selection ("which club am I
+  // acting as?") arrives with the door work (obra 2, docs/multi-coach-plan.html);
+  // until then oldest-first is the stable, predictable pick.
   const rows = await sql<CoachSessionRow[]>`
     select
       u.id::text as user_id,
@@ -88,6 +93,7 @@ async function resolveCoachSession(
     left join coaches c_member on c_member.id = cm.coach_id
     left join coaches c_owned on c_owned.user_id = u.id
     where ${predicate} and u.deleted_at is null
+    order by cm.added_at asc nulls last, cm.coach_id asc nulls last, c_owned.id asc nulls last
     limit 1
   `;
   const row = rows[0];
@@ -153,7 +159,6 @@ export async function getCoachSession(): Promise<CoachSession | null> {
   const { userId, sessionId } = await auth();
   if (!userId) {
     if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
       console.warn(`[DEV AUTH BYPASS] getCoachSession → ${DEV_BYPASS_COACH_EMAIL} (solo NODE_ENV=development)`);
       return coachSessionByEmail(DEV_BYPASS_COACH_EMAIL, 'dev-bypass');
     }
