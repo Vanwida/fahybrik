@@ -2,7 +2,19 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import {
+  BOX_TIMEZONE,
+  addDays,
+  isoDateString,
+  mondayOfWeek,
+  parseIsoDate,
+  startOfDayUtc,
+  zonedDayString,
+} from '@fahybrid/shared/domain/dates';
+import type {
+  CheckinContent,
+  CheckinWeekSlot,
+} from './checkin-presentation';
 import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
 import { getOrderAlteredForAthlete } from '@/lib/dashboard/v2/order-altered';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
@@ -37,8 +49,12 @@ export interface AthleteResumen {
   /** Sesiones completadas de la semana en curso — numerador "{done}/{total}". */
   week_completed: number;
   load_label: string | null;
-  checkin_sub_score: number | null;
-  last_checkin_at: string | null;
+  /** «Cómo se encuentra» — the latest check-in, display-anchored in the ATHLETE's
+   *  timezone (days_ago 0 = their today). Null when they've never checked in. */
+  checkin: CheckinContent | null;
+  /** Trailing 7 athlete-local days (ascending, today last); days without a
+   *  check-in ship sub_score null — honest gaps, never zeros. */
+  checkin_week: CheckinWeekSlot[];
 }
 
 export class ResumenError extends Error {
@@ -66,8 +82,8 @@ export async function buildAthleteResumen(params: {
   // (future-scheduled sessions aren't due yet, so they never count as "missed").
   const adhStart = isoDateString(addDays(today, -(ADHERENCE_WINDOW_DAYS - 1)));
 
-  const header = await client<Array<{ id: string; full_name: string }>>`
-    select a.id::text, a.full_name
+  const header = await client<Array<{ id: string; full_name: string; timezone: string | null }>>`
+    select a.id::text, a.full_name, a.timezone
     from athletes a
     where a.id = ${params.athlete_id} and a.coach_id = ${params.coach_id}
     limit 1
@@ -81,13 +97,62 @@ export async function buildAthleteResumen(params: {
   // never a raw '—' where one exists.
   const readiness = await getLatestReadiness({ athlete_id: params.athlete_id, client });
 
-  const checkinRows = await client<Array<{ sub_score: number; recorded_for: string }>>`
-    select sub_score, to_char(recorded_for, 'YYYY-MM-DD') as recorded_for
+  // «Cómo se encuentra»: latest full check-in + the trailing-7-local-days strip.
+  // Day math runs in the ATHLETE's timezone (fallback: box tz) — the same trap
+  // that once made the chat list decide "same day" in the server's zone.
+  const athleteTz = header[0].timezone ?? BOX_TIMEZONE;
+  const localTodayIso = zonedDayString(new Date(), athleteTz);
+  const weekFromIso = isoDateString(addDays(parseIsoDate(localTodayIso), -6));
+
+  const checkinRows = await client<
+    Array<{
+      recorded_for: string;
+      time_label: string;
+      soreness: number | null;
+      mood: number | null;
+      motivation: number | null;
+      fatigue: number | null;
+      sleep_quality: number | null;
+      notes: string | null;
+      sub_score: number;
+      adaptive_flag: string | null;
+    }>
+  >`
+    select
+      to_char(recorded_for, 'YYYY-MM-DD') as recorded_for,
+      to_char(recorded_at at time zone ${athleteTz}, 'HH24:MI') as time_label,
+      soreness::int, mood::int, motivation::int, fatigue::int, sleep_quality::int,
+      notes, sub_score::int, adaptive_flag
     from daily_checkins
     where athlete_id = ${params.athlete_id}
     order by recorded_for desc
     limit 1
   `;
+  const latestCheckin = checkinRows[0] ?? null;
+
+  const weekRows = await client<Array<{ recorded_for: string; sub_score: number }>>`
+    select to_char(recorded_for, 'YYYY-MM-DD') as recorded_for, sub_score::int
+    from daily_checkins
+    where athlete_id = ${params.athlete_id}
+      and recorded_for >= ${weekFromIso}::date
+      and recorded_for <= ${localTodayIso}::date
+  `;
+  const weekByIso = new Map(weekRows.map((r) => [r.recorded_for, r.sub_score]));
+  const checkin_week: CheckinWeekSlot[] = Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(parseIsoDate(weekFromIso), i);
+    const iso = isoDateString(day);
+    // parseIsoDate yields a UTC-midnight Date, so getUTCDay is the calendar
+    // weekday of that ISO date; remap JS 0=Sunday to ISO 1=lunes…7=domingo.
+    const dow = day.getUTCDay() === 0 ? 7 : day.getUTCDay();
+    return { iso, dow, sub_score: weekByIso.get(iso) ?? null };
+  });
+
+  const daysAgo = latestCheckin
+    ? Math.round(
+        (parseIsoDate(localTodayIso).getTime() - parseIsoDate(latestCheckin.recorded_for).getTime()) /
+          86_400_000,
+      )
+    : 0;
 
   // One round-trip covers both windows: the current week (lun-dom) drives the
   // "{done}/{total} esta semana" progress, the trailing 30 days drives adherencia.
@@ -190,7 +255,21 @@ export async function buildAthleteResumen(params: {
     week_scheduled: scheduled,
     week_completed: completed,
     load_label,
-    checkin_sub_score: checkinRows[0]?.sub_score ?? null,
-    last_checkin_at: checkinRows[0]?.recorded_for ?? null,
+    checkin: latestCheckin
+      ? {
+          recorded_for: latestCheckin.recorded_for,
+          time_label: latestCheckin.time_label,
+          days_ago: daysAgo,
+          soreness: latestCheckin.soreness,
+          mood: latestCheckin.mood,
+          motivation: latestCheckin.motivation,
+          fatigue: latestCheckin.fatigue,
+          sleep_quality: latestCheckin.sleep_quality,
+          notes: latestCheckin.notes,
+          sub_score: latestCheckin.sub_score,
+          adaptive_flag: latestCheckin.adaptive_flag,
+        }
+      : null,
+    checkin_week,
   };
 }

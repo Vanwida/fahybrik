@@ -17,6 +17,7 @@ import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
+import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
 import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
@@ -412,6 +413,10 @@ export function PlanTab({
               }
             />
           </div>
+
+          {/* «Cómo se encuentra» — the subjective WHY under the Readiness tile
+              above (mockup docs/design/como-se-encuentra-mockup.html). */}
+          <ComoSeEncuentraPanel checkin={resumen?.checkin ?? null} week={resumen?.checkin_week ?? []} />
 
           <Panel title="Ejecución reciente" bodyClassName="p-0 overflow-hidden">
             {recent.length > 0 ? (
