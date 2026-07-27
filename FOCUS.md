@@ -15,6 +15,24 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · MARCAS — el atleta se prueba cuando quiere (DESPLEGADO web · iOS en verde)
+
+Mockup: → `docs/design/marcas-atleta-mockup.html` · Decisión: → `docs/DECISIONS.md` (27-jul)
+
+**La idea (Alex):** nadie sigue un plan al 100%. El día que el atleta se aburre o se lía, que haya una marca nueva en vez de un hueco de adherencia. Tres puertas, un almacén (`athlete_benchmarks`):
+
+1. **Test del coach** → recalibra el plan (ya existía).
+2. **Probarme** → 6 marcas que la app mide SOLA: 1 km, Cooper 12 min y 5K (GPS o cinta FTMS), remo 500/1.000 y ski 1.000 (PM5). Cero números tecleados; un abandono no guarda nada. Es un entreno libre de un bloque por el motor de siempre — el objetivo del HUD es tu PR («a batir»). NO recalibra: a Pablo le llega «marca nueva» (push a su PWA).
+3. **Registrar** → la 10K/media/maratón de fuera: la actividad ya sincronizada del reloj en un toque (±4% de distancia) o fecha+tiempo a mano.
+
+Reglas duras: catálogo cerrado · **un 5K en cinta jamás bate al de calle** (PR por contexto) · el gemelo de carrera (tu ski fresco vs tu split real, de `station_splits_json`).
+
+**Estado:** mig **0139 APLICADA** (source/run_context/event_name tipadas; backfill honesto: 13 unknown + 5 athlete_test). Web DESPLEGADA y verificada (endpoints 401 sin bearer). iOS BUILD SUCCEEDED: `Marks/` (biblioteca, detalle, registrar), entrada en Perfil › Rendimiento y tarjeta «¿Te pruebas?» solo en días sin nada que hacer. 11 tests de dominio.
+
+**Pendiente:** probar «Probarme» con hardware real (GPS + PM5). La suite de tests de iOS no compila por un test de CHAT de la otra sesión (su refactor en curso) — el target de app sí.
+
+---
+
 ## Cerrado el 27-jul · Adjuntos del chat arreglados de RAÍZ (subida directa prefirmada)
 
 La foto de Alex seguía sin salir del iPhone. Causa raíz, probada contra
