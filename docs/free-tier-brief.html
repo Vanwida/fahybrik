@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID FREE — brief de producto</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171;
+    --r-s:8px; --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 8px}
+  .sub{color:var(--muted);font-size:17px;max-width:640px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:22px;font-weight:800;font-style:italic;letter-spacing:-.01em;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800}
+  h3{font-size:15px;font-weight:700;margin:var(--sp-3) 0 var(--sp-1)}
+  p{margin:0 0 var(--sp-2);color:var(--fg)}
+  p.mut,li.mut{color:var(--muted)}
+  .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px}
+  li{margin-bottom:8px}
+  li::marker{color:var(--accent)}
+  strong{font-weight:700}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-2)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:var(--sp-2)}
+  th{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong)}
+  td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600;white-space:nowrap}
+  .tScroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tScroll table{margin:0}
+  .pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.no{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .fact{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .fact:last-child{border-bottom:0}
+  .fact .st{flex:0 0 92px}
+  .fact code{color:var(--fg)}
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  .phase{display:flex;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
+  .phase:last-child{border-bottom:0}
+  .phase .num{flex:0 0 44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;font-style:italic}
+  .phase h3{margin:2px 0 4px}
+  .phase p{margin:0;font-size:14px;color:var(--muted)}
+  .phase .size{margin-left:auto;flex-shrink:0;font-size:12px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-top:12px}
+  .decision{border-left:3px solid var(--accent);padding:4px 0 4px var(--sp-2);margin-bottom:var(--sp-2)}
+  .decision h3{margin:0 0 4px}
+  .decision p{margin:0;font-size:14.5px;color:var(--muted)}
+  .verdict{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3)}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media (max-width:560px){ .wrap{padding:var(--sp-4) var(--sp-2)} .phase .size{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Brief de producto · Propuesta</p>
+  <h1>FREE — la app abierta como máquina de captación</h1>
+  <p class="sub">Abrir el grabador híbrido conectado (ergos, cintas, calle, fuerza) a cualquier atleta, gratis. Que el mundo HYROX entrene con nosotros antes de pagarnos.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 27 jul 2026</span>
+    <span><b>Estado</b> · para decisión de Alex</span>
+    <span><b>Mockup</b> · docs/design/free-tier-mockup.html</span>
+  </div>
+
+  <h2><span class="n">01</span>La tesis</h2>
+  <p class="lede">La conectividad ya está pagada. PM5, cintas FTMS, GPS, Apple&nbsp;Watch, el motor de entreno en vivo, los benchmarks auto-medidos y el motor de percentiles existen y funcionan en producción. Para un usuario free el coste marginal es ~cero: el BLE corre en su teléfono, no servimos vídeo, y una sesión son filas en Neon. Lo único que lo mantiene cerrado es que todo asume un coach delante.</p>
+  <p>El movimiento: <strong>regalar el grabador y las marcas, cobrar el criterio.</strong> Gratis = registrar, medir y compararte. De pago = que alguien (Pablo hoy, más coaches mañana) decida por ti qué hacer con esos números.</p>
+
+  <h2><span class="n">02</span>El hueco de mercado</h2>
+  <p class="mut">Nadie es dueño de «entreno híbrido con datos de máquina de verdad». Cada competidor cubre un trozo:</p>
+  <div class="tScroll"><table>
+    <tr><th>App</th><th>Qué hace</th><th>Dónde se queda corta</th></tr>
+    <tr><td>Kinomap</td><td>Vídeo-rutas con control FTMS</td><td>UX anticuada, COGS de vídeo, cero fuerza, cero híbrido. Es la referencia que Alex quiere superar.</td></tr>
+    <tr><td>ErgData (Concept2)</td><td>Registro PM5 + logbook oficial</td><td>Mono-máquina, sin carrera ni fuerza, UX utilitaria. Su logbook demuestra que el ranking engancha.</td></tr>
+    <tr><td>Runna / Garmin</td><td>Running con plan</td><td>Solo correr. El 50% de HYROX, no el 100%.</td></tr>
+    <tr><td>Hevy / Strong</td><td>Log de gym social</td><td>Cero cardio conectado, cero ergos, todo tecleado.</td></tr>
+    <tr><td>Trackers de HYROX</td><td>Tiempos de carrera y sims</td><td>No se conectan a ninguna máquina; el dato es manual.</td></tr>
+    <tr><td>Peloton y cía</td><td>Contenido + hardware propio</td><td>Ecosistema cerrado, sin tu gimnasio real.</td></tr>
+  </table></div>
+  <p>Nuestro free ocupa la intersección: <strong>una sesión mezcla calle, cinta, remo, ski y fuerza, con el dato saliendo de la máquina</strong> — que es literalmente cómo se entrena HYROX y nadie lo graba entero.</p>
+
+  <h2><span class="n">03</span>Qué damos gratis — y qué no</h2>
+  <div class="grid2">
+    <div class="card">
+      <span class="pill ok">Gratis</span>
+      <h3>1 · El grabador híbrido</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">Entreno libre por bloques (calle GPS, cinta FTMS, remo/ski PM5, fuerza, metcon) con HUD en vivo y Apple Watch. <em>Ya existe: es el «entreno libre» sin la puerta del coach.</em></p>
+    </div>
+    <div class="card">
+      <span class="pill ok">Gratis</span>
+      <h3>2 · Marcas auto-medidas + PR por contexto</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">El catálogo «Probarme» (1 km, Cooper, 5K, remo 500/1000, ski 1000): la app mide sola, cero números tecleados, y un 5K de cinta jamás bate al de calle. El gancho de credibilidad.</p>
+    </div>
+    <div class="card">
+      <span class="pill ok">Gratis</span>
+      <h3>3 · Rankings con sello de máquina</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">Global y por división (sexo + edad, como HYROX), solo con marcas medidas por dispositivo — el PM5 no miente y el leaderboard no se llena de basura tecleada. Motor de percentiles/histograma ya construido.</p>
+    </div>
+    <div class="card">
+      <span class="pill ok">Gratis</span>
+      <h3>4 · La carrera proyectada, compartible</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">«Tu HYROX proyectado: 1:22» como tarjeta para compartir, calculada desde tus marcas (el motor de predicción existe, hasta en dobles). Este es el loop viral — no los banners.</p>
+    </div>
+    <div class="card">
+      <span class="pill ok">Gratis</span>
+      <h3>5 · Grupos / tu box</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">Ranking entre amigos y compañeros de box. Trae usuarios de tres en tres. (Fase posterior: no bloquea el lanzamiento.)</p>
+    </div>
+    <div class="card" style="border-color:rgba(248,113,113,.25)">
+      <span class="pill no">Nunca gratis</span>
+      <h3>Planes, criterio y profundidad</h3>
+      <p class="mut" style="font-size:14.5px;margin:0">Generación de planes (canibaliza el tier de coach), analítica profunda (readiness, tendencias, zonas finas), y contenido de vídeo (la trampa de COGS de Kinomap). El free registra y compara; <strong>el pago decide y acompaña</strong>.</p>
+    </div>
+  </div>
+  <p style="margin-top:8px">El techo del free es el embudo: cuando el usuario pregunta «¿y ahora qué hago con estos números?», la respuesta es el tier con coach. El upsell vive dentro del producto (tras una marca nueva, tras una semana registrada), no en un paywall de entrada.</p>
+
+  <h2><span class="n">04</span>La costura: atleta sin coach — hechos verificados en el repo</h2>
+  <p class="mut">Todo lo de abajo está comprobado contra el esquema y el código en producción a 27-jul, no de memoria:</p>
+  <div class="card">
+    <div class="fact"><span class="st"><span class="pill ok">Ya listo</span></span><div><code>athletes.coach_id</code> es <strong>nullable desde la migración 0001</strong> (<code>on delete set null</code>). El modelo de datos ya contempla un atleta sin coach; nadie lo usa todavía.</div></div>
+    <div class="fact"><span class="st"><span class="pill ok">Ya listo</span></span><div><code>athletes.sex</code> existe (enum) → la mitad de las divisiones estilo HYROX ya está en el perfil.</div></div>
+    <div class="fact"><span class="st"><span class="pill no">Falta</span></span><div><strong>No hay fecha de nacimiento</strong> en el perfil → las divisiones por edad necesitan columna nueva + pedirla en el onboarding free.</div></div>
+    <div class="fact"><span class="st"><span class="pill no">Falta</span></span><div>El login de atleta es <strong>find-only</strong> («LOGIN NEVER CREATES», verificado en <code>lib/auth/users.ts</code>): hoy nadie puede darse de alta solo. El free invierte esa decisión: <strong>el signup crea cuenta</strong>. Es LA decisión estructural de auth de esta pieza.</div></div>
+    <div class="fact"><span class="st"><span class="pill no">Falta</span></span><div>El ranking devuelve <strong>vacío sin coach</strong> (<code>marks-box.ts:58</code> — <code>if (!me?.coach_id) return new Map()</code>) y filtra por <code>a.coach_id</code>: hay que generalizar el motor a tres alcances (box | división | global) en vez de uno.</div></div>
+    <div class="fact"><span class="st"><span class="pill no">Falta</span></span><div>El catálogo «Probarme» cuelga del coach (<code>coach_calibration_tests</code>): el free necesita un <strong>catálogo de sistema</strong> (las 6 marcas auto-medidas) que exista sin coach. El almacén (<code>athlete_benchmarks</code>) ya es del atleta y no cambia.</div></div>
+    <div class="fact"><span class="st"><span class="pill on">Fuera</span></span><div>Chat, plan semanal, readiness con reglas y tests del coach son <strong>coach-gated y se quedan fuera del free</strong> tal cual — no hay que tocarlos, solo esconderlos con la puerta que ya tienen.</div></div>
+  </div>
+
+  <h2><span class="n">05</span>Secuencia de obra</h2>
+  <div class="card">
+    <div class="phase"><div class="num">1</div><div><h3>La costura</h3><p>Signup free (crea cuenta), perfil con nacimiento, y el barrido de código que asume coach: cada pantalla iOS decide qué enseña cuando <code>coach_id</code> es null. La DB casi no se toca.</p></div><span class="size">media</span></div>
+    <div class="phase"><div class="num">2</div><div><h3>Grabador + marcas</h3><p>El «entreno libre» y «Probarme» abiertos al free con catálogo de sistema. Home free: construir entreno, probarme, tu semana. Aquí ya se puede lanzar en beta.</p></div><span class="size">media</span></div>
+    <div class="phase"><div class="num">3</div><div><h3>Rankings + tarjeta</h3><p>Motor de percentiles generalizado (división/global), sello «medido por máquina», y la tarjeta compartible de carrera proyectada. El loop de crecimiento.</p></div><span class="size">media</span></div>
+    <div class="phase"><div class="num">4</div><div><h3>Grupos y box</h3><p>Amigos, grupos, ranking privado. Y el upsell contextual al tier de coach pulido con datos reales de uso.</p></div><span class="size">pequeña</span></div>
+  </div>
+
+  <h2><span class="n">06</span>Riesgos con nombre</h2>
+  <ul>
+    <li class="mut"><strong style="color:var(--fg)">El zoo FTMS.</strong> Las cintas BLE son el salvaje oeste (ya lo vivimos: la BH i.Concept no acepta control de velocidad). Mitigación: el free LEE máquinas, no las controla; y una lista pública de «probado con» que crece con los usuarios.</li>
+    <li class="mut"><strong style="color:var(--fg)">Foco.</strong> Es una segunda superficie de producto con la metodología a medias y la v1 sin enviar. Mitigación: la fase 1 no empieza hasta que la v1 esté en TestFlight; mientras, todo lo que toquemos respeta la costura.</li>
+    <li class="mut"><strong style="color:var(--fg)">App Store.</strong> El onboarding cambia (alta abierta + salud/HealthKit): revisar la ficha y los textos de review antes de enviar la variante free.</li>
+    <li class="mut"><strong style="color:var(--fg)">Gente en un ranking público.</strong> Moderación de nombres/avatares y opción de competir como anónimo desde el día uno — es barato ahora y carísimo después.</li>
+  </ul>
+
+  <h2><span class="n">07</span>Decisiones abiertas — tuyas</h2>
+  <div class="decision"><h3>Timing</h3><p>Propuesta: diseñar ya (este brief + mockup), construir tras el envío de la v1. ¿O quieres adelantar la fase 1?</p></div>
+  <div class="decision"><h3>El borde exacto del free</h3><p>Propuesta: entrenos y marcas ilimitados gratis; la analítica profunda (tendencias, zonas, readiness) de pago. ¿Ilimitado de verdad o con algún tope?</p></div>
+  <div class="decision"><h3>Rankings al lanzar</h3><p>Propuesta: lanzar solo división (sexo+edad) y global; box/amigos en fase 4. ¿Divisiones por peso también (estilo remo) o sobra?</p></div>
+  <div class="decision"><h3>Nombre del tier</h3><p>«FAHYBRID» a secas para el free y nombre propio para el tier con coach, o al revés. Marca tuya.</p></div>
+
+  <h2><span class="n">08</span>Veredicto</h2>
+  <div class="verdict">
+    <p style="margin:0" class="lede"><strong>Sí, y barato.</strong> El 80% del producto free ya está construido y pagado; lo que falta es una costura de auth/alcance (no una plataforma nueva) y las tres pantallas del loop social. Es la mejor captación posible porque el gancho —datos de máquina de verdad en entreno híbrido— es exactamente lo que ya somos, y cada usuario free hace más valioso el ranking que vendemos con el tier de coach.</p>
+  </div>
+
+  <div class="footer">FAHYBRID · brief interno · el mockup navegable está en <code>docs/design/free-tier-mockup.html</code></div>
+
+</div>
+</body>
+</html>

@@ -28,6 +28,21 @@ streaming/`loading.tsx`.
 
 ---
 
+## En decisión · FREE tier — la app abierta como captación (27-jul)
+
+Idea de Alex: abrir el grabador híbrido conectado (PM5/FTMS/GPS/fuerza) a
+usuarios free estilo Kinomap-pero-bien, con marcas auto-medidas, rankings por
+división con sello «medido por máquina» y la carrera proyectada compartible.
+Brief con la costura verificada contra el repo (`coach_id` ya nullable; falta
+nacimiento; ranking hoy devuelve vacío sin coach; login find-only → el signup
+free CREA cuenta; catálogo Probarme necesita versión de sistema):
+→ `docs/free-tier-brief.html` · Mockup 8 pantallas: →
+`docs/design/free-tier-mockup.html`. Recomendación: diseñar ya, construir
+tras enviar la v1. Esperando el veredicto de Alex (timing, borde del free,
+divisiones, nombre).
+
+---
+
 ## SIGUIENTE TANDA — cola priorizada (27-jul, tarde)
 
 0. **BUG Apple Watch: «siguiente» TERMINA el entreno** (Alex, entrenando en vivo): en un libre de fuerza — un solo segmento por dentro — «siguiente» en el reloj avanza más allá del último segmento y cierra la sesión entera. Dos arreglos: (a) desde el ÚLTIMO segmento, «siguiente» pide confirmación de terminar («¿Terminar el entreno?»), nunca cierra con un toque; (b) cuando no hay siguiente de verdad, el botón no debe leerse como «siguiente». Vive en el motor compartido del watch (FAHYBRIKWatch + PhoneMirrorService). Probarlo con el escenario exacto de Alex.

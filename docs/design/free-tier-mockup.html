@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID FREE — mockup</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --frame:#000; --surface:#141414; --surface-2:#1d1d1d; --border:#262626; --border-strong:#3a3a3a;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#6f6f6f;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.14); --ok:#4ade80;
+    --r-s:10px; --r-m:14px; --r-l:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:56px 24px}
+  .head{max-width:1240px;margin:0 auto 40px}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(28px,4vw,40px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 6px}
+  .head p{color:var(--muted);max-width:620px}
+  .gallery{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:40px 28px}
+  .shot h2{font-size:14px;font-weight:800;font-style:italic;margin:14px 2px 4px}
+  .shot .why{font-size:12.5px;color:var(--faint);margin:0 2px;line-height:1.55}
+  .phone{background:var(--frame);border:1px solid var(--border-strong);border-radius:40px;padding:10px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .screen{background:var(--bg);border-radius:32px;overflow:hidden;display:flex;flex-direction:column;height:660px;position:relative}
+  .status{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 6px;font-size:12px;font-weight:700;color:var(--fg)}
+  .status .pill-cam{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:96px;height:24px;background:#000;border-radius:12px}
+  .body{flex:1;overflow:hidden;padding:10px 16px 0;display:flex;flex-direction:column;gap:12px}
+  .brand{font-weight:800;font-style:italic;letter-spacing:-.02em}
+  .brand .x{color:var(--accent)}
+  .h-lg{font-size:26px;font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.12}
+  .h-md{font-size:17px;font-weight:800;font-style:italic}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .mut{color:var(--muted)} .sm{font-size:12.5px} .xs{font-size:11px}
+  .num{font-variant-numeric:tabular-nums}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:14px}
+  .row{display:flex;align-items:center;gap:10px}
+  .row .sp{margin-left:auto}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#160b04;font-weight:800;border-radius:var(--r-m);padding:14px;font-size:15px}
+  .btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--border-strong);font-weight:700}
+  .btn.dark{background:#f5f5f5;color:#0a0a0a}
+  .chip{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
+  .chip.on{background:var(--accent-soft);border-color:rgba(240,106,42,.5);color:var(--accent)}
+  .dot{width:7px;height:7px;border-radius:99px;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .tag-ok{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--ok);border:1px solid rgba(74,222,128,.4);border-radius:6px;padding:2px 6px}
+  .tag-pr{font-size:11px;font-weight:800;letter-spacing:.08em;color:#160b04;background:var(--accent);border-radius:7px;padding:3px 8px}
+  .tabbar{display:flex;border-top:1px solid var(--border);padding:10px 8px 22px;background:rgba(10,10,10,.96)}
+  .tabbar div{flex:1;text-align:center;font-size:10px;font-weight:700;color:var(--faint)}
+  .tabbar div.on{color:var(--accent)}
+  .tabbar .ico{font-size:19px;display:block;margin-bottom:2px}
+  .hr{height:1px;background:var(--border);margin:2px 0}
+  .bar-h{display:flex;align-items:flex-end;gap:3px;height:64px}
+  .bar-h i{flex:1;background:var(--surface-2);border-radius:3px 3px 0 0}
+  .bar-h i.me{background:var(--accent);box-shadow:0 0 12px rgba(240,106,42,.5)}
+  .prog{height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+  .prog i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  .blockrow{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m)}
+  .blockrow .ic{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .blockrow b{font-size:14px}
+  .blockrow .sub{font-size:12px;color:var(--muted)}
+  .footer{max-width:1240px;margin:48px auto 0;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media (max-width:700px){ body{padding:32px 14px} }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <p class="kicker">FAHYBRID FREE · Mockup · 27 jul 2026</p>
+  <h1>Ocho pantallas: del alta al techo</h1>
+  <p>El recorrido free completo — entra, construye, entrena conectado, marca, compárate, comparte, y choca con el techo que vende el coach. Brief: <b style="color:var(--muted)">docs/free-tier-brief.html</b></p>
+</div>
+
+<div class="gallery">
+
+  <!-- 1 · ONBOARDING -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px">
+          <div>
+            <div class="brand" style="font-size:30px">FAHYBRID<span class="x">.</span></div>
+            <div class="h-lg" style="margin-top:14px">Entrena híbrido.<br>Con datos de verdad.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="row"><span class="dot"></span><span class="sm">Remo, ski y cinta conectados en directo</span></div>
+            <div class="row"><span class="dot"></span><span class="sm">Tus marcas medidas por la máquina, no tecleadas</span></div>
+            <div class="row"><span class="dot"></span><span class="sm">Tu puesto entre miles de atletas híbridos</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:16px">
+          <div class="btn dark"> Continuar con Apple</div>
+          <div class="btn ghost">Continuar con email</div>
+          <div class="xs" style="text-align:center;color:var(--faint)">Gratis. Sin tarjeta. Tus datos son tuyos.</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>1 · El alta abierta</h2>
+    <p class="why">La decisión estructural hecha pantalla: el signup CREA cuenta (hoy el login es find-only). Promesa en tres líneas, cero fricción, cero tarjeta.</p>
+  </div>
+
+  <!-- 2 · HOY FREE -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div>
+          <div class="lbl">Lunes 27 · semana 3</div>
+          <div class="h-lg">Hola, Marc</div>
+        </div>
+        <div class="card" style="background:linear-gradient(135deg,var(--surface),#1d130c);border-color:rgba(240,106,42,.4)">
+          <div class="row"><span class="h-md">Construir entreno</span><span class="sp" style="color:var(--accent);font-weight:800">→</span></div>
+          <div class="sm mut" style="margin-top:4px">Calle, cinta, ergos y fuerza — mézclalos como entrenes hoy.</div>
+        </div>
+        <div class="card">
+          <div class="row"><span class="h-md">¿Te pruebas?</span><span class="sp xs mut">6 marcas</span></div>
+          <div class="sm mut" style="margin-top:4px">Remo 1.000 m — tu última marca tiene 6 semanas.</div>
+          <div class="row" style="margin-top:10px;gap:8px"><span class="chip on">Remo 1.000 m</span><span class="chip">1 km</span><span class="chip">Cooper</span></div>
+        </div>
+        <div class="card">
+          <div class="lbl" style="margin-bottom:8px">Tu semana</div>
+          <div class="row" style="gap:6px">
+            <div style="flex:1;text-align:center"><div class="xs mut">L</div><div style="height:34px;border-radius:8px;background:var(--accent);margin-top:4px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">M</div><div style="height:22px;border-radius:8px;background:var(--accent-soft);margin-top:16px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">X</div><div style="height:40px;border-radius:8px;background:var(--accent);margin-top:-2px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">J</div><div style="height:8px;border-radius:8px;background:var(--surface-2);margin-top:30px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">V</div><div style="height:28px;border-radius:8px;background:var(--accent-soft);margin-top:10px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">S</div><div style="height:8px;border-radius:8px;background:var(--surface-2);margin-top:30px"></div></div>
+            <div style="flex:1;text-align:center"><div class="xs mut">D</div><div style="height:8px;border-radius:8px;background:var(--surface-2);margin-top:30px"></div></div>
+          </div>
+          <div class="xs mut" style="margin-top:8px">3 sesiones · 2 h 40 · 14,2 km equivalentes</div>
+        </div>
+      </div>
+      <div class="tabbar"><div class="on"><span class="ico">⌂</span>Hoy</div><div><span class="ico">◎</span>Marcas</div><div><span class="ico">▤</span>Ranking</div><div><span class="ico">☰</span>Perfil</div></div>
+    </div></div>
+    <h2>2 · Hoy, sin plan y sin culpa</h2>
+    <p class="why">El home free no finge tener un coach: construir, probarse y tu semana. La tarjeta «¿Te pruebas?» hereda la lógica ya construida de días vacíos.</p>
+  </div>
+
+  <!-- 3 · BUILDER -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div class="row"><span class="mut">✕</span><span class="h-md" style="margin:0 auto">Tu entreno</span><span class="xs" style="color:var(--accent);font-weight:800">Guardar</span></div>
+        <div class="blockrow"><div class="ic">🏃</div><div><b>Carrera · calle</b><div class="sub num">5 × 1 km @ 4:30 /km · rec 2:00</div></div><span class="sp mut">⋯</span></div>
+        <div class="blockrow" style="border-color:rgba(240,106,42,.5)"><div class="ic">🚣</div><div><b>Remo PM5</b><div class="sub num">5 × 500 m @ 1:52 /500m · rec 1:30</div></div><span class="sp mut">⋯</span></div>
+        <div class="blockrow"><div class="ic">🏋️</div><div><b>Fuerza · Goblet squat</b><div class="sub num">4 × 12 @ 24 kg · RIR 2 · rec 1:30</div></div><span class="sp mut">⋯</span></div>
+        <div>
+          <div class="lbl" style="margin-bottom:8px">Añadir bloque</div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <span class="chip">Calle</span><span class="chip">Cinta</span><span class="chip on">Remo</span><span class="chip">Ski</span><span class="chip">Fuerza</span><span class="chip">Metcon</span>
+          </div>
+        </div>
+        <div style="margin-top:auto;padding-bottom:14px">
+          <div class="row sm mut" style="justify-content:space-between;padding:0 2px 10px"><span>La sesión suma</span><b class="num" style="color:var(--fg)">7,5 km · ~52 min</b></div>
+          <div class="btn">Empezar entreno</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>3 · El grabador híbrido</h2>
+    <p class="why">Lo que Kinomap no tiene: una sesión que mezcla calle, ergo y fuerza, cada bloque con su prescripción completa (medida + objetivo + descanso). Es el «entreno libre» actual, abierto.</p>
+  </div>
+
+  <!-- 4 · EN VIVO -->
+  <div class="shot">
+    <div class="phone"><div class="screen" style="background:#050505">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div class="row"><span class="dot"></span><span class="xs" style="font-weight:700">PM5 conectado</span><span class="sp xs mut num">Serie 2 / 5</span></div>
+        <div style="text-align:center;margin-top:10px">
+          <div class="lbl">Ritmo /500 m</div>
+          <div class="num" style="font-size:72px;font-weight:800;font-style:italic;letter-spacing:-.03em;line-height:1">1:51<span style="font-size:34px">.4</span></div>
+          <div class="sm" style="color:var(--ok);font-weight:700;margin-top:2px">objetivo 1:52 · vas 0.6 abajo</div>
+        </div>
+        <div class="card" style="margin-top:6px">
+          <div class="row sm" style="justify-content:space-between"><span class="mut">Distancia</span><b class="num">312 / 500 m</b></div>
+          <div class="prog" style="margin-top:8px"><i style="width:62%"></i></div>
+        </div>
+        <div class="row" style="gap:10px">
+          <div class="card" style="flex:1;text-align:center;padding:10px"><div class="lbl">FC</div><div class="num" style="font-size:22px;font-weight:800">168</div><div class="xs mut">Z4</div></div>
+          <div class="card" style="flex:1;text-align:center;padding:10px"><div class="lbl">Palada</div><div class="num" style="font-size:22px;font-weight:800">28</div><div class="xs mut">s/min</div></div>
+          <div class="card" style="flex:1;text-align:center;padding:10px"><div class="lbl">Total</div><div class="num" style="font-size:22px;font-weight:800">14:07</div><div class="xs mut">sesión</div></div>
+        </div>
+        <div style="margin-top:auto;padding-bottom:14px" class="row">
+          <div class="btn ghost" style="flex:1">Pausar</div>
+          <div class="btn" style="flex:2">Siguiente bloque →</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>4 · En vivo, dato de máquina</h2>
+    <p class="why">El HUD que ya existe, en el free: split real del PM5 contra tu objetivo. Aquí nace el sello «medido por máquina» que legitima el ranking. Espejo en Apple Watch.</p>
+  </div>
+
+  <!-- 5 · MARCA NUEVA -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;gap:10px">
+          <div class="lbl">Remo 1.000 m</div>
+          <div class="num" style="font-size:64px;font-weight:800;font-style:italic;letter-spacing:-.03em;line-height:1">3:24<span style="font-size:30px">.8</span></div>
+          <div class="row" style="justify-content:center;gap:8px"><span class="tag-pr">PR</span><span class="tag-ok">MEDIDO POR PM5</span></div>
+          <div class="sm mut">−4,2 s sobre tu marca de hace 6 semanas</div>
+          <div class="card" style="text-align:left;margin-top:14px">
+            <div class="row sm" style="justify-content:space-between"><span class="mut">Ritmo medio</span><b class="num">1:42.4 /500m</b></div>
+            <div class="hr" style="margin:9px 0"></div>
+            <div class="row sm" style="justify-content:space-between"><span class="mut">Parciales</span><b class="num">1:41.1 · 1:43.7</b></div>
+            <div class="hr" style="margin:9px 0"></div>
+            <div class="row sm" style="justify-content:space-between"><span class="mut">FC máx</span><b class="num">182</b></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:14px">
+          <div class="btn">Ver mi puesto en el ranking</div>
+          <div class="btn ghost">Compartir marca</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>5 · La marca, sin teclear nada</h2>
+    <p class="why">El momento de dopamina. La app lo midió sola («Probarme» con catálogo de sistema), el PR respeta el contexto (cinta ≠ calle) y los dos CTAs alimentan los dos loops: ranking y compartir.</p>
+  </div>
+
+  <!-- 6 · RANKING -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div class="h-md">Remo 1.000 m</div>
+        <div class="row" style="gap:8px"><span class="chip on">Mi división</span><span class="chip">Global</span><span class="chip">Amigos</span></div>
+        <div class="card" style="text-align:center;background:linear-gradient(135deg,var(--surface),#1d130c);border-color:rgba(240,106,42,.4)">
+          <div class="lbl">Hombres 30–34 · 12.480 atletas</div>
+          <div style="font-size:40px;font-weight:800;font-style:italic;margin-top:4px">Top 18<span style="font-size:22px">%</span></div>
+          <div class="bar-h" style="margin-top:12px">
+            <i style="height:18%"></i><i style="height:34%"></i><i style="height:58%"></i><i style="height:82%"></i><i style="height:100%"></i><i style="height:86%"></i><i style="height:64%"></i><i class="me" style="height:46%"></i><i style="height:30%"></i><i style="height:16%"></i><i style="height:8%"></i>
+          </div>
+          <div class="row xs mut" style="justify-content:space-between;margin-top:6px"><span>4:20</span><b style="color:var(--accent)">tú · 3:24.8</b><span>2:55</span></div>
+        </div>
+        <div class="card" style="padding:6px 14px">
+          <div class="row" style="padding:9px 0;border-bottom:1px solid var(--border)"><span class="xs mut num" style="width:26px">211</span><b class="sm">Jordi V.</b><span class="tag-ok" style="margin-left:6px">PM5</span><b class="sp num sm">3:21.0</b></div>
+          <div class="row" style="padding:9px 0;border-bottom:1px solid var(--border);background:var(--accent-soft);margin:0 -14px;padding-left:14px;padding-right:14px"><span class="xs num" style="width:26px;color:var(--accent);font-weight:800">224</span><b class="sm">Tú</b><span class="tag-ok" style="margin-left:6px">PM5</span><b class="sp num sm">3:24.8</b></div>
+          <div class="row" style="padding:9px 0"><span class="xs mut num" style="width:26px">225</span><b class="sm">Marina S.</b><span class="tag-ok" style="margin-left:6px">PM5</span><b class="sp num sm">3:25.1</b></div>
+        </div>
+      </div>
+      <div class="tabbar"><div><span class="ico">⌂</span>Hoy</div><div><span class="ico">◎</span>Marcas</div><div class="on"><span class="ico">▤</span>Ranking</div><div><span class="ico">☰</span>Perfil</div></div>
+    </div></div>
+    <h2>6 · El ranking con sello</h2>
+    <p class="why">El motor de percentiles del box, generalizado a división (sexo+edad; requiere pedir nacimiento en el alta) y global. Solo entran marcas medidas por dispositivo: un leaderboard en el que se puede creer.</p>
+  </div>
+
+  <!-- 7 · TARJETA -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div class="h-md">Compartir</div>
+        <div style="border-radius:var(--r-l);overflow:hidden;border:1px solid var(--border-strong);background:linear-gradient(160deg,#131313,#241209)">
+          <div style="padding:22px 20px 18px">
+            <div class="brand" style="font-size:15px">FAHYBRID<span class="x">.</span></div>
+            <div class="lbl" style="margin-top:16px">HYROX proyectado</div>
+            <div class="num" style="font-size:52px;font-weight:800;font-style:italic;letter-spacing:-.03em;line-height:1.05">1:22:40</div>
+            <div class="xs" style="color:var(--accent);font-weight:800;margin-top:4px">TOP 18% · HOMBRES 30–34</div>
+            <div class="hr" style="margin:16px 0;background:var(--border-strong)"></div>
+            <div class="row xs num mut" style="justify-content:space-between"><span>1 km · 3:52</span><span>Remo 1k · 3:24</span><span>Ski 1k · 3:41</span></div>
+            <div class="xs" style="margin-top:14px;color:var(--faint)">calculado con marcas medidas por máquina</div>
+          </div>
+        </div>
+        <div class="sm mut" style="text-align:center">De tus marcas reales al día de carrera — el motor de predicción que ya corre en dobles.</div>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:14px">
+          <div class="btn">Compartir en Instagram</div>
+          <div class="btn ghost">Guardar imagen</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>7 · El loop viral</h2>
+    <p class="why">La tarjeta hace el marketing: una proyección creíble (sale del motor real), con el sello de máquina y la marca. Cada share es un anuncio con prueba social dentro.</p>
+  </div>
+
+  <!-- 8 · TECHO -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div>
+          <div class="lbl">Tras tu 3ª semana registrada</div>
+          <div class="h-lg" style="margin-top:6px">Ya sabes dónde estás.<br><span style="color:var(--accent)">¿Sabes qué toca mañana?</span></div>
+        </div>
+        <div class="card" style="opacity:.55;position:relative">
+          <div class="lbl" style="margin-bottom:8px">Tu semana con coach</div>
+          <div class="row sm" style="justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span>Lun</span><b>Intervalos 5×1 km + remo</b></div>
+          <div class="row sm" style="justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span>Mar</span><b>Fuerza — empuje + core</b></div>
+          <div class="row sm" style="justify-content:space-between;padding:7px 0"><span>Jue</span><b>Sim HYROX 4 estaciones</b></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px">🔒</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="row"><span class="dot"></span><span class="sm">Plan semanal que se adapta a tus marcas</span></div>
+          <div class="row"><span class="dot"></span><span class="sm">Un coach real mirando tus datos</span></div>
+          <div class="row"><span class="dot"></span><span class="sm">Readiness, tendencias y zonas finas</span></div>
+        </div>
+        <div style="margin-top:auto;padding-bottom:14px;display:flex;flex-direction:column;gap:10px">
+          <div class="btn">Entrena con un coach</div>
+          <div class="xs" style="text-align:center;color:var(--faint)">Tu histórico free viaja contigo. Nada se pierde.</div>
+        </div>
+      </div>
+    </div></div>
+    <h2>8 · El techo que vende</h2>
+    <p class="why">El upsell aparece por contexto (semanas registradas, marca estancada), nunca como paywall de entrada. El free registra y compara; el pago decide y acompaña — la frontera del brief, hecha pantalla.</p>
+  </div>
+
+</div>
+
+<div class="footer">FAHYBRID · mockup interno · decisiones abiertas (nombre del tier, borde exacto del free, divisiones) en el brief — <b>docs/free-tier-brief.html</b></div>
+
+</body>
+</html>
