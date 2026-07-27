@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · El Plan del free enseña EVIDENCIA, no una proyección — y lo que falta se dice
+
+**Decidido:** la pestaña Plan de un atleta sin coach (`ios/FAHYBRIK/Plan/FreePlanView.swift`) se construye con lo que HOY es real y nada más: su carrera objetivo con cuenta atrás (`target_race` de `/api/athlete/plan/week`), lo que tiene medido y lo que le falta del catálogo (`/api/athlete/marks`), su historial de HYROX importado (`/api/athlete/races`) y su VO₂ máx del reloj (`/api/athlete/biometrics/trend`, clave `vo2max`). El orden es: primero lo que le damos, después lo que le pedimos. Con CERO evidencia no se ofrece nada de pago.
+
+**Por qué:** el mockup aprobado (`docs/design/free-plan-conversion-mockup.html`) lleva tres bloques que dependen de un modelo que aún no existe — tiempo proyectado, diagnóstico por estación contra su división, y la semana propuesta bloqueada. El predictor actual **no lee `athlete_benchmarks`** (`docs/race-projection-spec.html`, §01 fallo 1) y no hay dataset de referencia por división (§01 fallo 5), así que cualquiera de los tres habría sido un número inventado en la pantalla que sostiene el embudo. Un atleta lo nota a la primera y pierde la confianza en todo lo demás.
+
+**En su sitio:** la tarjeta de carrera dice qué falta para poder proyectar («aún nos faltan tus marcas: …»), nombrando las marcas que él no tiene, con las tres de arranque delante. Y lleva marcado el **punto de extensión** donde entra la proyección cuando el modelo la sirva.
+
+**Se descarta:** pintar el tiempo proyectado con el motor de `goal-gap` actual. Con una carrera reciente devuelve exactamente el tiempo de esa carrera y con huecos los rellena a valor del objetivo — es decir, le diría a un principiante que va justo a su meta.
+
+**En consecuencia, no hacer:** no hardcodear el nombre del coach en el cierre (viene de `coach_name` del payload; para un atleta free es null y la tarjeta queda genérica), y no meter en esta pantalla ningún número que no venga de un endpoint de atleta ya existente — si el dato no está expuesto, se reporta, no se inventa el endpoint.
+
+---
+
 ## 2026-07-27 · El dato fabricado se marca en columna propia, no en `source` (migración 0142)
 
 **Decidido:** `races` gana `is_synthetic boolean not null default false`. Lo escriben en `true` los tres seeds de demo (`seed_demo_athlete_races`, `seed_demo_race`, `seed_demo_dobles_race`) y lo excluyen las **dos únicas consultas de `races` que cruzan atletas**: el cohorte de singles (`web/lib/athlete/goal-gap.ts`) y el de dobles (`web/lib/athlete/dobles-gap.ts`). Todas las demás lecturas van filtradas por `athlete_id`, así que un atleta de demo sigue viendo lo suyo intacto.
