@@ -126,7 +126,10 @@ export async function createFreeAthlete(
   return await client.begin(async (tx) => {
     // Adopción de una cuenta ya existente (carrera con el find-only del caller,
     // o un segundo intento del mismo alta). Reglas anti-takeover arriba.
-    const adopt = async (): Promise<AppleAuthResult | null> => {
+    // 'refused' ≠ null: una cuenta ENCONTRADA pero no adoptable corta el alta
+    // (jamás se inserta encima — email y apple_user_id son únicos en users y el
+    // insert reventaría la constraint en vez de rechazar limpio).
+    const adopt = async (): Promise<AppleAuthResult | 'refused' | null> => {
       let userRow: UserSel | undefined;
 
       if (appleUserId) {
@@ -151,10 +154,10 @@ export async function createFreeAthlete(
         const existing = byEmail[0];
         if (existing) {
           // Email sin verificar → jamás enlazar con una cuenta ajena.
-          if (!canAdoptByEmail) return null;
+          if (!canAdoptByEmail) return 'refused';
           // Apple id ya ligado a OTRA identidad → jamás re-apuntar.
           if (appleUserId && existing.apple_user_id && existing.apple_user_id !== appleUserId) {
-            return null;
+            return 'refused';
           }
           userRow = existing;
         }
@@ -165,7 +168,7 @@ export async function createFreeAthlete(
       const userId = BigInt(userRow.id);
       // Cuenta sin fila de atleta (un coach) → el alta free no la toca.
       const athlete = await selectAthleteByUserId(tx, userId);
-      if (!athlete) return null;
+      if (!athlete) return 'refused';
 
       if (appleUserId && !userRow.apple_user_id) {
         const linked = await tx<UserSel[]>`
@@ -183,11 +186,11 @@ export async function createFreeAthlete(
     };
 
     const adopted = await adopt();
+    if (adopted === 'refused') return null;
     if (adopted) return adopted;
 
-    // Nada que adoptar y sin cuenta que crear encima de un email ajeno sin
-    // verificar → alta nueva de verdad. Si el insert pierde la carrera del
-    // email (do nothing → 0 filas), se re-resuelve por adopción.
+    // Nada que adoptar → alta nueva de verdad. Si el insert pierde la carrera
+    // del email (do nothing → 0 filas), se re-resuelve por adopción.
     const inserted = await tx<UserSel[]>`
       insert into users (email, apple_user_id, role, last_seen_at)
       values (${email}, ${appleUserId}, 'athlete', now())
@@ -195,7 +198,10 @@ export async function createFreeAthlete(
       returning id::text as id, email, apple_user_id, role
     `;
     const newUser = inserted[0];
-    if (!newUser) return await adopt();
+    if (!newUser) {
+      const raced = await adopt();
+      return raced === 'refused' ? null : raced;
+    }
 
     const userId = BigInt(newUser.id);
     const athleteRows = await tx<AthleteSel[]>`
