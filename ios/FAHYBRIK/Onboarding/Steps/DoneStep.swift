@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct DoneStep: View {
+    /// FREE (no coach): nobody is building a plan — the athlete builds their
+    /// first workout. Coached keeps the "plan on its way" framing, agnostic.
+    var hasCoach: Bool = true
     let onEnter: () -> Void
 
     @State private var pulse = false
@@ -26,11 +29,15 @@ struct DoneStep: View {
                         .font(Theme.Typography.headlineL)
                         .foregroundStyle(Theme.Color.foreground)
 
-                    Text("Pablo está armando tu primer plan.")
+                    Text(hasCoach
+                         ? "Tu coach está armando tu primer plan."
+                         : "Tu cuenta está lista.")
                         .font(Theme.Typography.body)
                         .foregroundStyle(Theme.Color.foreground)
 
-                    Text("Lo verás en Today en unos minutos.\nMientras, échale un vistazo a la app.")
+                    Text(hasCoach
+                         ? "Lo verás en Today en unos minutos.\nMientras, échale un vistazo a la app."
+                         : "Construye tu primer entreno desde Inicio.\nCalle, cinta, ergos y fuerza, como entrenes hoy.")
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)

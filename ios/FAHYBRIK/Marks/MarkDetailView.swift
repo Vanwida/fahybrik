@@ -273,8 +273,10 @@ struct MarkDetailView: View {
                     Text(banner.improved ? "Marca nueva · PR" : "Marca guardada")
                         .font(Theme.Typography.bodyEmph)
                         .foregroundStyle(Theme.Color.foreground)
+                    // No delta to show → a neutral line that is true with or
+                    // without a coach (this screen serves both tiers).
                     Text(banner.deltaLabel.map { "\(banner.label) · \($0)" }
-                         ?? "\(banner.label) · Pablo la verá en tu ficha")
+                         ?? "\(banner.label) · guardada en tu ficha")
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                 }

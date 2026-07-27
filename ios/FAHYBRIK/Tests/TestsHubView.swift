@@ -372,7 +372,7 @@ struct TestsHubView: View {
                     .background(Theme.Color.surfaceElevated)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Pablo prepara tus tests")
+                    Text("Tu coach prepara tus tests")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
                     Text("Cuando los programe aparecerán aquí, con tu progreso y tus zonas.")

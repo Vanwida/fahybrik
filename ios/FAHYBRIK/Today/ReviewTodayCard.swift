@@ -14,8 +14,8 @@ import SwiftUI
 struct ReviewTodayCard: View {
     /// Live session bearer (single source of truth, passed from InicioView/AppShell).
     var bearer: String?
-    /// The coach's display name (from the plan payload, e.g. "Pablo García"); the
-    /// card uses the FIRST word. Defaults to "Pablo" (single-coach app) when absent.
+    /// The coach's display name (from the plan payload); the card uses the
+    /// FIRST word. Nil → the generic "tu coach" — NEVER a fabricated name.
     var coachName: String? = nil
 
     @State private var state: AthleteReviewState?
@@ -26,11 +26,12 @@ struct ReviewTodayCard: View {
 
     @Environment(\.openURL) private var openURL
 
-    /// Coach FIRST name for the warm copy; "Pablo" fallback (single-coach reality).
-    private var coach: String {
+    /// Coach FIRST name for the warm copy; nil when the payload carries none —
+    /// the copy then falls back to "tu coach" via `CoachRef`.
+    private var coachFirstName: String? {
         let first = coachName?.split(separator: " ").first.map(String.init)
         let trimmed = first?.trimmingCharacters(in: .whitespaces)
-        return (trimmed?.isEmpty == false) ? trimmed! : "Pablo"
+        return (trimmed?.isEmpty == false) ? trimmed : nil
     }
 
     /// The reserved review to surface (a fresh booking wins over the fetched state).
@@ -51,7 +52,7 @@ struct ReviewTodayCard: View {
             state = await ReviewService.fetchState(bearer: bearer)
         }
         .sheet(isPresented: $showSlotPicker) {
-            ReviewSlotPickerSheet(bearer: bearer, coach: coach) { result in
+            ReviewSlotPickerSheet(bearer: bearer, coachFirstName: coachFirstName) { result in
                 // Booked → reflect the confirmed session immediately.
                 withAnimation(Theme.Motion.reveal) { booked = result.appointment }
             }
@@ -70,7 +71,7 @@ struct ReviewTodayCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.Color.accentText)
                 }
-                Text("\(coach) te propone una revisión")
+                Text("\(CoachRef.start(coachFirstName)) te propone una revisión")
                     .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -97,7 +98,7 @@ struct ReviewTodayCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PressScaleStyle())
-                .accessibilityLabel("Elige tu hueco para la revisión con \(coach)")
+                .accessibilityLabel("Elige tu hueco para la revisión con \(CoachRef.mid(coachFirstName))")
             }
         }
         .accessibilityElement(children: .contain)
@@ -109,7 +110,7 @@ struct ReviewTodayCard: View {
         CardSurface(padding: 18) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    LabelText(text: "Próxima sesión con \(coach)")
+                    LabelText(text: "Próxima sesión con \(CoachRef.mid(coachFirstName))")
                     Spacer(minLength: 8)
                     Image(systemName: "video.fill")
                         .font(.system(size: 13, weight: .semibold))
@@ -153,7 +154,7 @@ struct ReviewTodayCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Unirse a la videollamada con \(coach)")
+            .accessibilityLabel("Unirse a la videollamada con \(CoachRef.mid(coachFirstName))")
         } else {
             HStack(spacing: 6) {
                 Image(systemName: "clock")
@@ -179,7 +180,9 @@ struct ReviewSlotPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var bearer: String?
-    var coach: String
+    /// Coach FIRST name from the plan payload; nil → generic "tu coach" copy —
+    /// never a fabricated name.
+    var coachFirstName: String?
     /// Fires on a successful booking so the card flips to the confirmed session.
     let onBooked: (BookReviewResult) -> Void
 
@@ -228,7 +231,7 @@ struct ReviewSlotPickerSheet: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(coach) te propone una revisión")
+            Text("\(CoachRef.start(coachFirstName)) te propone una revisión")
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
@@ -279,7 +282,7 @@ struct ReviewSlotPickerSheet: View {
         emptyBlock(
             symbol: "calendar.badge.clock",
             title: "Sin huecos ahora mismo",
-            message: "\(coach) te escribirá para cuadrar la llamada."
+            message: "\(CoachRef.start(coachFirstName)) te escribirá para cuadrar la llamada."
         )
         .padding(.top, Theme.Spacing.l)
     }
@@ -419,6 +422,18 @@ struct ReviewSlotPickerSheet: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.xl)
     }
+}
+
+// MARK: - Coach reference copy
+//
+// One source for how the review surfaces name the coach when the payload
+// carries no name: the generic "tu coach", capitalized at sentence start —
+// NEVER a fabricated first name.
+private enum CoachRef {
+    /// Sentence-start reference: "Pablo" / "Tu coach".
+    static func start(_ firstName: String?) -> String { firstName ?? "Tu coach" }
+    /// Mid-sentence reference: "con Pablo" / "con tu coach".
+    static func mid(_ firstName: String?) -> String { firstName ?? "tu coach" }
 }
 
 // MARK: - Slot time pill

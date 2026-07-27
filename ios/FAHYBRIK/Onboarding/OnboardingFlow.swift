@@ -3,6 +3,10 @@ import SwiftUI
 struct OnboardingFlow: View {
     @State private var state = OnboardingState()
     let bearer: String?
+    /// FREE tier switch (athlete without coach). The questionnaire is the same;
+    /// only the welcome/done framing changes — free speaks to the athlete
+    /// directly, coached to the coach relationship (never a hardcoded name).
+    var hasCoach: Bool = true
     let onFinished: () -> Void
 
     var body: some View {
@@ -12,6 +16,7 @@ struct OnboardingFlow: View {
             switch state.currentStepIndex {
             case 0:
                 WelcomeStep(
+                    hasCoach: hasCoach,
                     onStart: { advance() },
                     onResumeLater: {
                         // Persist + exit; user will resume from saved state on next launch.
@@ -109,7 +114,7 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 18:
-                DoneStep(onEnter: finish)
+                DoneStep(hasCoach: hasCoach, onEnter: finish)
                     .transition(stepTransition)
             default:
                 EmptyView()

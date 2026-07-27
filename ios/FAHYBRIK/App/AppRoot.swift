@@ -189,6 +189,7 @@ struct AppRoot: View {
             case .onboarding:
                 OnboardingFlow(
                     bearer: auth.bearer,
+                    hasCoach: auth.hasCoach,
                     onFinished: {
                         auth.finishOnboarding()
                         startHealthKitSync()

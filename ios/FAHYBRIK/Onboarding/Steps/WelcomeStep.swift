@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct WelcomeStep: View {
+    /// FREE (no coach) reframes the pitch to the athlete's own numbers; coached
+    /// speaks to the coach relationship — never a hardcoded name.
+    var hasCoach: Bool = true
     let onStart: () -> Void
     let onResumeLater: () -> Void
 
@@ -16,7 +19,9 @@ struct WelcomeStep: View {
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
 
-                    Text("El siguiente paso es que Pablo conozca tu cuerpo.\nCuanto más sepa, más preciso será tu plan.")
+                    Text(hasCoach
+                         ? "El siguiente paso es que tu coach conozca tu cuerpo.\nCuanto más sepa, más preciso será tu plan."
+                         : "Cuéntanos cómo entrenas.\nCuanto más sepamos, más precisos serán tus números.")
                         .font(Theme.Typography.body)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
