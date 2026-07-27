@@ -15,6 +15,19 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · El dashboard iba a 3-4 s por clic DESDE SIEMPRE — funciones en Washington, DB en Frankfurt
+
+Alex reportó lentitud crónica en cada navegación. Causa raíz: nadie fijó región
+de funciones en Vercel (default `iad1`, EEUU) con Neon en `eu-central-1` — cada
+página paga 8-12 queries en serie y cada una cruzaba el océano (~90-100 ms).
+Fix: `"regions": ["fra1"]` en `web/vercel.json` (mismo datacenter AWS que Neon),
+desplegado y verificado (`x-vercel-id: cdg1::fra1`). Queda anotado (no urgente
+tras el fix): `getCoachSession()` se resuelve 2× por navegación (layout + página,
+sin React `cache()`), y el layout recalcula badges del sidebar en cada clic sin
+streaming/`loading.tsx`.
+
+---
+
 ## Cerrado el 27-jul · EDITOR DE BLOQUES rediseñado (correr) + la regla del ritmo — DESPLEGADO
 
 Mockup aprobado: → `docs/design/editor-bloques-rediseno-mockup.html`
