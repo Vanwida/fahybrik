@@ -9,6 +9,11 @@ import HealthKit
 // Sign out wires through the onSignOut closure provided by AppRoot/TodayView.
 struct ProfileView: View {
     let bearer: String?
+    /// FREE tier switch (athlete without coach). False hides every coach-owned
+    /// surface: the Suscripción row (nothing to pay by design), the coach test
+    /// battery + zones (coach-calibrated), the Metodología section and the
+    /// coach sheet — and reframes injuries + legal copy to the athlete alone.
+    var hasCoach: Bool = true
     let onSignOut: () -> Void
 
     // App appearance override (Auto / Claro / Oscuro). The same persisted value
@@ -127,9 +132,16 @@ struct ProfileView: View {
                         }
 
                         SectionHeader(title: "Rendimiento")
-                        testsCard
+                        // Coach-calibrated surfaces (test battery, derived zones)
+                        // exist only when a coach programs them; the free athlete
+                        // keeps the self-service marks + strength library.
+                        if hasCoach {
+                            testsCard
+                        }
                         marksCard
-                        zonesCard
+                        if hasCoach {
+                            zonesCard
+                        }
                         strengthCard
 
                         SectionHeader(title: "Entreno")
@@ -143,8 +155,12 @@ struct ProfileView: View {
                         SectionHeader(title: "Apariencia")
                         appearanceCard
 
-                        SectionHeader(title: "Metodología")
-                        methodologyCard
+                        // The methodology (microciclos, "Tu coach") is coach
+                        // content — a free athlete has no coach to present.
+                        if hasCoach {
+                            SectionHeader(title: "Metodología")
+                            methodologyCard
+                        }
 
                         SectionHeader(title: "Ayuda")
                         feedbackCard
@@ -334,18 +350,22 @@ struct ProfileView: View {
                 modalityRow
                     .redacted(reason: initialLoadDone ? [] : .placeholder)
                 Hairline()
-                NavigationLink {
-                    SubscriptionView(bearer: bearer)
-                } label: {
-                    SettingValueRow(
-                        label: "Suscripción",
-                        value: subscriptionValue,
-                        valueColor: subscriptionValueColor,
-                        showsChevron: true
-                    )
+                // FREE has no subscription BY DESIGN (nothing to pay, no Stripe
+                // customer) — a "Gestionar" row would open an empty portal and lie.
+                if hasCoach {
+                    NavigationLink {
+                        SubscriptionView(bearer: bearer)
+                    } label: {
+                        SettingValueRow(
+                            label: "Suscripción",
+                            value: subscriptionValue,
+                            valueColor: subscriptionValueColor,
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    Hairline()
                 }
-                .buttonStyle(.plain)
-                Hairline()
                 SettingValueRow(
                     label: "Objetivo",
                     value: goalTypeLabel(identity?.goalType),
@@ -702,7 +722,7 @@ struct ProfileView: View {
     private var strengthCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MyStrengthView(bearer: bearer)
+                MyStrengthView(bearer: bearer, hasCoach: hasCoach)
             } label: {
                 profileRowContent(
                     icon: "dumbbell",
@@ -1286,12 +1306,15 @@ struct ProfileView: View {
     private var injuriesCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                InjuriesView(bearer: bearer, coachName: coachName)
+                InjuriesView(bearer: bearer, coachName: coachName, hasCoach: hasCoach)
             } label: {
                 profileRowContent(
                     icon: "bandage.fill",
                     title: "Molestias y lesiones",
-                    subtitle: "Reporta una molestia y sigue su evolución con tu coach"
+                    // FREE: the athlete's OWN log — no coach follows it.
+                    subtitle: hasCoach
+                        ? "Reporta una molestia y sigue su evolución con tu coach"
+                        : "Registra una molestia y sigue cómo evoluciona"
                 )
             }
             .buttonStyle(.plain)
@@ -1374,7 +1397,9 @@ struct ProfileView: View {
             profileRow(
                 icon: "exclamationmark.bubble",
                 title: "Enviar sugerencia o error",
-                subtitle: "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo, no a tu coach.",
+                subtitle: hasCoach
+                    ? "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo, no a tu coach."
+                    : "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo.",
                 action: { sheet = .feedback }
             )
         }
@@ -1578,7 +1603,7 @@ struct ProfileView: View {
         case .methodology: MethodologySheet()
         case .coach:       CoachSheet(coachName: coachName)
         case .privacy:     LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
-        case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms)
+        case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms(hasCoach: hasCoach))
         case .feedback:    AppFeedbackSheet(bearer: bearer)
         }
     }
@@ -1818,7 +1843,15 @@ private struct LegalSheet: View {
 
 private enum LegalCopy {
     static let privacy = "FAHYBRID procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
-    static let terms = "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+
+    /// FREE has no coach, no methodology ownership and nothing that renews —
+    /// its terms speak to the athlete alone. Coached keeps today's copy.
+    static func terms(hasCoach: Bool) -> String {
+        if hasCoach {
+            return "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+        }
+        return "El uso de FAHYBRID implica aceptar nuestros términos de servicio. Tu cuenta es gratuita y tus datos son tuyos: puedes exportarlos o eliminar tu cuenta cuando quieras desde Perfil.\n\nLa versión completa está disponible en fahybrid.com/terms."
+    }
 }
 
 // MARK: - Export Share Sheet plumbing

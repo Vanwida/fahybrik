@@ -16,6 +16,11 @@ struct BuscarCarreraSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var bearer: String?
+    /// FREE tier switch (athlete without coach). False hides the manual
+    /// fallback ("¿No encuentras tu carrera? Pídesela a tu coach") and its
+    /// request flow — there is no coach curating the calendar for a free
+    /// athlete, so the app must not promise one.
+    var hasCoach: Bool = true
     /// Called after the athlete fixes a target so the caller reloads (countdown).
     let onTargetSet: () -> Void
 
@@ -56,7 +61,9 @@ struct BuscarCarreraSheet: View {
                         searchField
                         filters
                         content
-                        manualFallback
+                        if hasCoach {
+                            manualFallback
+                        }
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
@@ -81,8 +88,11 @@ struct BuscarCarreraSheet: View {
                 // A future objective can't be a pasted PAST result link. When the
                 // race isn't in the official calendar, the athlete asks their coach
                 // to add it — the coach curates the calendar, then it's fixable.
-                SolicitarCarreraView(bearer: bearer) {
-                    dismiss()
+                // COACHED-only: the fallback that raises this is hidden for free.
+                if hasCoach {
+                    SolicitarCarreraView(bearer: bearer) {
+                        dismiss()
+                    }
                 }
             }
         }

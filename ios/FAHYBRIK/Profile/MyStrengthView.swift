@@ -11,6 +11,9 @@ import SwiftUI
 // authoritative number comes back from the backend.
 struct MyStrengthView: View {
     let bearer: String?
+    /// FREE tier switch (athlete without coach) — the register-test note must
+    /// not name a coach that does not exist.
+    var hasCoach: Bool = true
 
     @State private var maxes: [StrengthMaxProfile] = []
     @State private var loading = true
@@ -36,7 +39,7 @@ struct MyStrengthView: View {
             }
         }
         .sheet(isPresented: $showRegister) {
-            RegisterStrengthTestView(bearer: bearer) { await load() }
+            RegisterStrengthTestView(bearer: bearer, hasCoach: hasCoach) { await load() }
         }
         .task { await load() }
     }
@@ -282,6 +285,8 @@ private struct StrengthSparkline: View {
 // parent re-fetches so "Mi fuerza" reflects it.
 struct RegisterStrengthTestView: View {
     let bearer: String?
+    /// FREE: the definitive value is stored by the app, not "tu coach".
+    var hasCoach: Bool = true
     /// Called after a successful save so the host can re-fetch the maxes.
     let onSaved: () async -> Void
 
@@ -417,7 +422,9 @@ struct RegisterStrengthTestView: View {
             Text(estimatePreview ?? "—")
                 .font(.system(size: 28, weight: .heavy, design: .default).italic().monospacedDigit())
                 .foregroundStyle(Theme.Color.accentText)
-            Text("Estimación Epley al momento. Tu coach guarda el valor definitivo (puede usar otra fórmula).")
+            Text(hasCoach
+                 ? "Estimación Epley al momento. Tu coach guarda el valor definitivo (puede usar otra fórmula)."
+                 : "Estimación al momento. El valor definitivo se calcula al guardar.")
                 .scaledFont(12, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.faint)
                 .fixedSize(horizontal: false, vertical: true)

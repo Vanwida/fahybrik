@@ -168,7 +168,7 @@ struct TestBatteryCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     LabelText(text: "Tus tests")
-                    Text("Pablo prepara tu semana")
+                    Text("Tu coach prepara tu semana")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
                     Text("Tus tests de calibración aparecerán aquí cuando los programe.")

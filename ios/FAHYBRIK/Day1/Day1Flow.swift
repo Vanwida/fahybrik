@@ -102,7 +102,7 @@ struct Day1Flow: View {
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
-            Text("Pablo ya tiene tu perfil. Dejamos la app lista en 30 segundos — sin repetir nada de lo que ya nos contaste.")
+            Text("Tu coach ya tiene tu perfil. Dejamos la app lista en 30 segundos, sin repetir nada de lo que ya nos contaste.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 10)
@@ -114,7 +114,7 @@ struct Day1Flow: View {
                             .font(Theme.Typography.headlineS)
                             .foregroundStyle(Theme.Color.foreground)
                         if let d = model.daysPerWeek {
-                            Text("\(d) días por semana con Pablo")
+                            Text("\(d) días por semana con tu coach")
                                 .font(.system(size: 12))
                                 .foregroundStyle(Theme.Color.muted)
                         }
@@ -176,7 +176,7 @@ struct Day1Flow: View {
                 .padding(.top, 8)
             VStack(alignment: .leading, spacing: 11) {
                 whyRow("Sincroniza tus entrenos automáticamente — no los registras a mano.")
-                whyRow("Lee tu FC, sueño y HRV para que Pablo vea tu recuperación real.")
+                whyRow("Lee tu FC, sueño y HRV para que tu coach vea tu recuperación real.")
                 whyRow("Tus ritmos y zonas se calculan solos desde tus datos.")
             }
             .padding(.top, 18)
@@ -240,7 +240,7 @@ struct Day1Flow: View {
                         Text("Los verás en Inicio")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Theme.Color.foreground)
-                        Text("Una tarjeta te dice cuántos llevas y cuáles faltan. Los que ponga Pablo — ni más ni menos.")
+                        Text("Una tarjeta te dice cuántos llevas y cuáles faltan. Los que ponga tu coach, ni más ni menos.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -262,11 +262,11 @@ struct Day1Flow: View {
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
             VStack(alignment: .leading, spacing: 0) {
-                loopRow(1, "Pablo publica tu semana", "Cada domingo tienes tu plan listo en la app.")
+                loopRow(1, "Tu coach publica tu semana", "Cada domingo tienes tu plan listo en la app.")
                 loopConnector
                 loopRow(2, "Entrenas con la app y tu reloj", "La app te guía sesión a sesión; el Apple Watch registra tu FC.")
                 loopConnector
-                loopRow(3, "Pablo ve tus resultados", "Al terminar, todo le llega. Ajusta tu plan según cómo respondes.")
+                loopRow(3, "Tu coach ve tus resultados", "Al terminar, todo le llega. Ajusta tu plan según cómo respondes.")
             }
             .padding(.top, 20)
             Spacer().frame(height: Theme.Spacing.xl)
@@ -287,7 +287,7 @@ struct Day1Flow: View {
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
                 .padding(.top, 18)
-            Text("Pablo está preparando tu primera semana. Te avisamos en cuanto esté.")
+            Text("Tu coach está preparando tu primera semana. Te avisamos en cuanto esté.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)

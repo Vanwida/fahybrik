@@ -16,6 +16,8 @@ import SwiftUI
 // periods you've already opened is instant.
 struct AnalyticsView: View {
     var bearer: String? = nil
+    /// FREE tier switch (athlete without coach) — hides the chat affordance.
+    var hasCoach: Bool = true
 
     @Environment(AppDataStore.self) private var store
 
@@ -94,7 +96,9 @@ struct AnalyticsView: View {
                     .foregroundStyle(Theme.Color.foreground)
             }
             Spacer(minLength: 8)
-            ChatHeaderButton()
+            if hasCoach {
+                ChatHeaderButton()
+            }
         }
         .padding(.top, 2)
         .accessibilityElement(children: .contain)
