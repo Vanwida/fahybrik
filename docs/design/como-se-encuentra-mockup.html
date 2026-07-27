@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo se encuentra — mockup · FAHYBRID coach</title>
+<style>
+  /* ══ Tokens copiados 1:1 de web/app/[locale]/(v2)/v2-theme.css ══ */
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+  .v2-root {
+    --v2-accent: #f06a2a; --v2-accent-press: #d85a20; --v2-accent-fg: #0a0a0a;
+    --v2-font-display: 'Archivo', system-ui, sans-serif;
+    --v2-font-sans: 'Geist', 'SF Pro Text', system-ui, sans-serif;
+    --v2-font-mono: 'Geist Mono', ui-monospace, monospace;
+    --v2-r-xs: 6px; --v2-r-s: 8px; --v2-r-m: 12px; --v2-r-l: 16px; --v2-r-pill: 9999px;
+  }
+  .v2-root[data-theme="dark"] {
+    --v2-bg: #0a0a0a; --v2-surface: #141414; --v2-surface-2: #1a1a1a; --v2-elevated: #1f1f1f;
+    --v2-border: rgba(255,255,255,.08); --v2-border-strong: rgba(255,255,255,.16);
+    --v2-fg: #f5f5f5; --v2-muted: #a1a1a1; --v2-faint: #6e6e6e;
+    --v2-accent-soft: rgba(240,106,42,.14);
+    --v2-ok: #3fc773; --v2-ok-soft: rgba(63,199,115,.14);
+    --v2-warn: #f2a52e; --v2-warn-soft: rgba(242,165,46,.14);
+    --v2-danger: #f2504f; --v2-danger-soft: rgba(242,80,79,.14);
+    --v2-info: #4d9eeb; --v2-info-soft: rgba(77,158,235,.14);
+    --v2-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.4), 0 12px 28px -12px rgba(0,0,0,.7);
+  }
+  .v2-root[data-theme="light"] {
+    --v2-bg: #faf8f4; --v2-surface: #ffffff; --v2-surface-2: #f3efe8; --v2-elevated: #ffffff;
+    --v2-border: rgba(28,25,23,.10); --v2-border-strong: rgba(28,25,23,.18);
+    --v2-fg: #1c1917; --v2-muted: #6b6259; --v2-faint: #9a9089;
+    --v2-accent-soft: rgba(240,106,42,.12);
+    --v2-ok: #1e8e4e; --v2-ok-soft: rgba(30,142,78,.12);
+    --v2-warn: #b06a00; --v2-warn-soft: rgba(176,106,0,.12);
+    --v2-danger: #cc2b2a; --v2-danger-soft: rgba(204,43,42,.10);
+    --v2-info: #1f6fc0; --v2-info-soft: rgba(31,111,192,.10);
+    --v2-shadow-card: 0 1px 2px rgba(28,25,23,.06), 0 10px 24px -14px rgba(28,25,23,.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--v2-bg); color: var(--v2-fg); font-family: var(--v2-font-sans); -webkit-font-smoothing: antialiased; transition: background .2s; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* ── chrome del mockup ── */
+  .mk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+  h1 { font-family: var(--v2-font-display); font-style: italic; font-weight: 900; font-size: clamp(26px, 5vw, 38px); letter-spacing: -.01em; text-transform: uppercase; }
+  h1 em { font-style: italic; color: var(--v2-accent); }
+  .mk-sub { color: var(--v2-muted); font-size: 14px; max-width: 68ch; line-height: 1.55; margin-top: 8px; }
+  .theme-btn { flex: none; margin-top: 6px; border: 1px solid var(--v2-border-strong); background: var(--v2-surface); color: var(--v2-fg); font: 600 12px var(--v2-font-sans); padding: 8px 14px; border-radius: var(--v2-r-pill); cursor: pointer; }
+  h2 { font-family: var(--v2-font-display); font-style: italic; font-weight: 800; text-transform: uppercase; font-size: 17px; letter-spacing: .01em; margin: 44px 0 4px; }
+  h2 .n { color: var(--v2-accent); margin-right: 6px; }
+  .where { color: var(--v2-muted); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+  .where b { color: var(--v2-fg); font-weight: 600; }
+
+  .micro { font: 500 10.5px var(--v2-font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--v2-faint); }
+
+  /* ── contexto: columna derecha del PlanTab ── */
+  .col-ctx { max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-r-m); padding: 10px 12px; }
+  .tile .v { font: 600 20px var(--v2-font-mono); margin-top: 3px; }
+  .ghost { opacity: .45; }
+  .ghost-panel { background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-r-l); padding: 12px 14px; color: var(--v2-faint); font-size: 12px; }
+  .new-tag { display: inline-flex; align-items: center; gap: 6px; font: 700 10.5px var(--v2-font-sans); letter-spacing: .1em; text-transform: uppercase; color: var(--v2-accent); margin-bottom: -6px; }
+  .new-tag::before { content: ''; width: 22px; height: 2px; background: var(--v2-accent); }
+
+  /* ── EL PANEL ── */
+  .panel { background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-r-l); box-shadow: var(--v2-shadow-card); overflow: hidden; }
+  .panel-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--v2-border); }
+  .panel-hd .t { display: flex; flex-direction: column; gap: 1px; }
+  .panel-hd .t .micro { color: var(--v2-faint); }
+  .panel-hd .when { font-size: 12px; color: var(--v2-muted); }
+  .score { font: 600 15px var(--v2-font-mono); padding: 3px 10px; border-radius: var(--v2-r-pill); }
+  .score.ok { color: var(--v2-ok); background: var(--v2-ok-soft); }
+  .score.warn { color: var(--v2-warn); background: var(--v2-warn-soft); }
+  .score.danger { color: var(--v2-danger); background: var(--v2-danger-soft); }
+  .panel-bd { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+
+  .dims { display: flex; flex-direction: column; gap: 8px; }
+  .dim { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; }
+  .dim .lb { font-size: 13px; color: var(--v2-fg); }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 14px; height: 6px; border-radius: 3px; background: var(--v2-surface-2); border: 1px solid var(--v2-border); }
+  .dot.on.ok { background: var(--v2-ok); border-color: transparent; }
+  .dot.on.warn { background: var(--v2-warn); border-color: transparent; }
+  .dot.on.danger { background: var(--v2-danger); border-color: transparent; }
+  .dim .n { font: 500 12px var(--v2-font-mono); color: var(--v2-muted); width: 26px; text-align: right; }
+
+  .notes { border-left: 3px solid var(--v2-border-strong); background: var(--v2-surface-2); border-radius: var(--v2-r-s); padding: 8px 11px; font-size: 12.5px; color: var(--v2-muted); font-style: italic; line-height: 1.5; }
+  .notes b { color: var(--v2-fg); font-style: normal; font-weight: 600; }
+
+  .flag { display: flex; gap: 9px; align-items: flex-start; border: 1px solid var(--v2-danger); background: var(--v2-danger-soft); border-radius: var(--v2-r-m); padding: 9px 11px; }
+  .flag .ic { flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--v2-danger); color: #fff; font: 700 11px/17px var(--v2-font-sans); text-align: center; }
+  .flag .tx { font-size: 12px; line-height: 1.45; color: var(--v2-fg); }
+  .flag .tx span { color: var(--v2-muted); }
+
+  .week { display: flex; align-items: flex-end; gap: 5px; }
+  .week .d { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .week .sq { width: 26px; height: 26px; border-radius: var(--v2-r-xs); background: var(--v2-surface-2); border: 1px solid var(--v2-border); display: grid; place-items: center; font: 500 10px var(--v2-font-mono); color: var(--v2-muted); }
+  .week .sq.ok { background: var(--v2-ok-soft); color: var(--v2-ok); border-color: transparent; }
+  .week .sq.warn { background: var(--v2-warn-soft); color: var(--v2-warn); border-color: transparent; }
+  .week .sq.danger { background: var(--v2-danger-soft); color: var(--v2-danger); border-color: transparent; }
+  .week .sq.today { outline: 1.5px solid var(--v2-border-strong); outline-offset: 1px; }
+  .week .wd { font: 500 9.5px var(--v2-font-sans); color: var(--v2-faint); text-transform: uppercase; }
+
+  .empty { padding: 18px 14px; text-align: center; color: var(--v2-muted); font-size: 12.5px; line-height: 1.5; }
+
+  /* estados en rejilla */
+  .states { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; align-items: start; }
+  .state-lb { margin: 0 0 8px; }
+
+  /* ── roster ── */
+  .roster { border: 1px solid var(--v2-border); border-radius: var(--v2-r-l); background: var(--v2-surface); overflow-x: auto; }
+  .r-grid { display: grid; grid-template-columns: 1.5fr .7fr 1.3fr .8fr .9fr .8fr 24px; gap: 12px; align-items: center; min-width: 780px; padding: 10px 14px; }
+  .r-head { border-bottom: 1px solid var(--v2-border); }
+  .r-row { border-bottom: 1px solid var(--v2-border); }
+  .r-row:last-child { border-bottom: 0; }
+  .r-row.bad { box-shadow: inset 3px 0 0 0 var(--v2-danger); background: color-mix(in srgb, var(--v2-danger) 4%, transparent); }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--v2-surface-2); border: 1px solid var(--v2-border-strong); display: grid; place-items: center; font: 700 11px var(--v2-font-sans); color: var(--v2-muted); flex: none; }
+  .r-name { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13.5px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font: 600 11px var(--v2-font-sans); padding: 2.5px 9px; border-radius: var(--v2-r-pill); background: var(--v2-surface-2); border: 1px solid var(--v2-border); color: var(--v2-muted); width: max-content; }
+  .pill.danger { color: var(--v2-danger); background: var(--v2-danger-soft); border-color: transparent; }
+  .pill.ok { color: var(--v2-ok); background: var(--v2-ok-soft); border-color: transparent; }
+  .pill .mono { font-family: var(--v2-font-mono); }
+  .r-cell { font-size: 12px; color: var(--v2-muted); }
+  .adh { height: 5px; border-radius: 3px; background: var(--v2-surface-2); position: relative; overflow: hidden; min-width: 70px; }
+  .adh i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--v2-ok); }
+  .estado-stack { display: flex; flex-direction: column; gap: 4px; }
+
+  .foot { margin-top: 46px; border-top: 1px solid var(--v2-border); padding-top: 18px; color: var(--v2-muted); font-size: 12.5px; line-height: 1.7; max-width: 76ch; }
+  .foot b { color: var(--v2-fg); font-weight: 600; }
+</style>
+</head>
+<body class="v2-root" data-theme="dark">
+<div class="wrap">
+
+  <div class="mk-head">
+    <div>
+      <h1>Cómo se <em>encuentra</em></h1>
+      <p class="mk-sub">El contenido del check-in diario del atleta, por fin visible para el coach. Dos sitios:
+      el <b>panel</b> en la ficha del atleta (pestaña Plan, columna derecha — donde se decide la sesión de hoy)
+      y el <b>chip</b> en el roster cuando el check-in del día viene en banda de riesgo.</p>
+    </div>
+    <button class="theme-btn" onclick="const r=document.body; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; this.textContent = r.dataset.theme==='dark'?'Ver en claro':'Ver en oscuro'">Ver en claro</button>
+  </div>
+
+  <h2><span class="n">1</span>Dónde va — ficha › Plan, columna derecha</h2>
+  <p class="where">Entre los tiles de estado y «Ejecución reciente». El tile <b>Readiness</b> ya vive ahí:
+  este panel es su porqué subjetivo, con los datos REALES del check-in de Alex de hoy.</p>
+
+  <div class="col-ctx">
+    <div class="tiles ghost">
+      <div class="tile"><div class="micro">Adherencia 30d</div><div class="v">78%</div></div>
+      <div class="tile"><div class="micro">Cumplidas</div><div class="v">3/5</div></div>
+      <div class="tile"><div class="micro">Cumpl. semana</div><div class="v">60%</div></div>
+      <div class="tile"><div class="micro">Readiness</div><div class="v" style="color:var(--v2-danger)">50</div></div>
+    </div>
+
+    <span class="new-tag">Nuevo panel</span>
+    <div class="panel">
+      <div class="panel-hd">
+        <div class="t"><span class="micro">Cómo se encuentra</span><span class="when">Check-in de hoy · 10:22</span></div>
+        <span class="score danger">0</span>
+      </div>
+      <div class="panel-bd">
+        <div class="dims">
+          <div class="dim"><span class="lb">Recuperación muscular</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+          <div class="dim"><span class="lb">Ánimo</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+          <div class="dim"><span class="lb">Motivación</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+          <div class="dim"><span class="lb">Energía</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+          <div class="dim"><span class="lb">Calidad del sueño</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+        </div>
+        <div class="week">
+          <div class="d"><span class="sq">·</span><span class="wd">L</span></div>
+          <div class="d"><span class="sq">·</span><span class="wd">M</span></div>
+          <div class="d"><span class="sq">·</span><span class="wd">X</span></div>
+          <div class="d"><span class="sq">·</span><span class="wd">J</span></div>
+          <div class="d"><span class="sq">·</span><span class="wd">V</span></div>
+          <div class="d"><span class="sq">·</span><span class="wd">S</span></div>
+          <div class="d"><span class="sq danger today">0</span><span class="wd">D</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ghost-panel ghost">Ejecución reciente — (tabla existente, sin cambios)</div>
+  </div>
+
+  <h2><span class="n">2</span>Estados del panel</h2>
+  <p class="where">Todo lo que puede pasar, sin inventar nada: el espejo EXACTO de las 5 preguntas que respondió
+  el atleta (recuperación y energía ya invertidas: 5 = mejor, siempre), su nota literal, la racha de 7 días con
+  huecos honestos, y la bandera adaptativa cuando dispara.</p>
+
+  <div class="states">
+
+    <div>
+      <p class="micro state-lb">Día normal · con nota</p>
+      <div class="panel">
+        <div class="panel-hd">
+          <div class="t"><span class="micro">Cómo se encuentra</span><span class="when">Check-in de hoy · 07:41</span></div>
+          <span class="score ok">72</span>
+        </div>
+        <div class="panel-bd">
+          <div class="dims">
+            <div class="dim"><span class="lb">Recuperación muscular</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot"></i></span><span class="n">4/5</span></div>
+            <div class="dim"><span class="lb">Ánimo</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot"></i></span><span class="n">4/5</span></div>
+            <div class="dim"><span class="lb">Motivación</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i></span><span class="n">5/5</span></div>
+            <div class="dim"><span class="lb">Energía</span><span class="dots"><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot"></i><i class="dot"></i></span><span class="n">3/5</span></div>
+            <div class="dim"><span class="lb">Calidad del sueño</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot"></i></span><span class="n">4/5</span></div>
+          </div>
+          <div class="notes"><b>Nota del atleta:</b> «Gemelo derecho algo cargado del tempo del jueves, por lo demás bien.»</div>
+          <div class="week">
+            <div class="d"><span class="sq ok">76</span><span class="wd">L</span></div>
+            <div class="d"><span class="sq ok">81</span><span class="wd">M</span></div>
+            <div class="d"><span class="sq warn">54</span><span class="wd">X</span></div>
+            <div class="d"><span class="sq">·</span><span class="wd">J</span></div>
+            <div class="d"><span class="sq ok">70</span><span class="wd">V</span></div>
+            <div class="d"><span class="sq ok">74</span><span class="wd">S</span></div>
+            <div class="d"><span class="sq ok today">72</span><span class="wd">D</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="micro state-lb">Banda de riesgo + bandera adaptativa</p>
+      <div class="panel">
+        <div class="panel-hd">
+          <div class="t"><span class="micro">Cómo se encuentra</span><span class="when">Check-in de hoy · 06:58</span></div>
+          <span class="score danger">32</span>
+        </div>
+        <div class="panel-bd">
+          <div class="dims">
+            <div class="dim"><span class="lb">Recuperación muscular</span><span class="dots"><i class="dot on danger"></i><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">2/5</span></div>
+            <div class="dim"><span class="lb">Ánimo</span><span class="dots"><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot"></i><i class="dot"></i></span><span class="n">3/5</span></div>
+            <div class="dim"><span class="lb">Motivación</span><span class="dots"><i class="dot on danger"></i><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">2/5</span></div>
+            <div class="dim"><span class="lb">Energía</span><span class="dots"><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">1/5</span></div>
+            <div class="dim"><span class="lb">Calidad del sueño</span><span class="dots"><i class="dot on danger"></i><i class="dot on danger"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span><span class="n">2/5</span></div>
+          </div>
+          <div class="flag">
+            <span class="ic">!</span>
+            <span class="tx">Check-in en banda de riesgo con sesión exigente hoy y HRV a la baja.
+            <span>La app le ha propuesto cambiar a Z2 · 30′ — decide tú.</span></span>
+          </div>
+          <div class="week">
+            <div class="d"><span class="sq ok">68</span><span class="wd">L</span></div>
+            <div class="d"><span class="sq warn">51</span><span class="wd">M</span></div>
+            <div class="d"><span class="sq warn">47</span><span class="wd">X</span></div>
+            <div class="d"><span class="sq danger">38</span><span class="wd">J</span></div>
+            <div class="d"><span class="sq danger">35</span><span class="wd">V</span></div>
+            <div class="d"><span class="sq warn">44</span><span class="wd">S</span></div>
+            <div class="d"><span class="sq danger today">32</span><span class="wd">D</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="micro state-lb">Sin check-in hoy · el último es viejo</p>
+      <div class="panel">
+        <div class="panel-hd">
+          <div class="t"><span class="micro">Cómo se encuentra</span><span class="when" style="color:var(--v2-warn)">Último check-in hace 3 días</span></div>
+          <span class="score warn" style="opacity:.75">61</span>
+        </div>
+        <div class="panel-bd" style="opacity:.65">
+          <div class="dims">
+            <div class="dim"><span class="lb">Recuperación muscular</span><span class="dots"><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot"></i><i class="dot"></i></span><span class="n">3/5</span></div>
+            <div class="dim"><span class="lb">Ánimo</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot"></i></span><span class="n">4/5</span></div>
+            <div class="dim"><span class="lb">Motivación</span><span class="dots"><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot"></i><i class="dot"></i></span><span class="n">3/5</span></div>
+            <div class="dim"><span class="lb">Energía</span><span class="dots"><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot on warn"></i><i class="dot"></i><i class="dot"></i></span><span class="n">3/5</span></div>
+            <div class="dim"><span class="lb">Calidad del sueño</span><span class="dots"><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot on ok"></i><i class="dot"></i></span><span class="n">4/5</span></div>
+          </div>
+          <div class="week">
+            <div class="d"><span class="sq warn">58</span><span class="wd">L</span></div>
+            <div class="d"><span class="sq warn">61</span><span class="wd">M</span></div>
+            <div class="d"><span class="sq">·</span><span class="wd">X</span></div>
+            <div class="d"><span class="sq">·</span><span class="wd">J</span></div>
+            <div class="d"><span class="sq">·</span><span class="wd">V</span></div>
+            <div class="d"><span class="sq">·</span><span class="wd">S</span></div>
+            <div class="d"><span class="sq today">·</span><span class="wd">D</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="micro state-lb">Nunca ha hecho check-in</p>
+      <div class="panel">
+        <div class="panel-hd">
+          <div class="t"><span class="micro">Cómo se encuentra</span></div>
+        </div>
+        <div class="empty">Sin check-in todavía.<br>El atleta aún no ha registrado ninguno desde la app.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2><span class="n">3</span>Dónde va — roster › columna Estado</h2>
+  <p class="where">Solo aparece cuando el check-in de <b>HOY</b> está en banda de riesgo (sub-score &lt; 40 — el
+  mismo umbral que ya usa la regla adaptativa). Un check-in malo de ayer NO pinta chip: viejo ≠ hoy.</p>
+
+  <div class="roster">
+    <div class="r-grid r-head">
+      <span class="micro">Atleta</span><span class="micro">Nivel</span><span class="micro">Estado</span><span class="micro">Fase</span><span class="micro">Adherencia</span><span class="micro">Últ. registro</span><span></span>
+    </div>
+    <div class="r-grid r-row bad">
+      <span class="r-name"><span class="avatar">A</span>Alex</span>
+      <span class="pill">L3</span>
+      <div class="estado-stack">
+        <span class="pill ok">Activo</span>
+        <span class="pill danger">Check-in <span class="mono">0</span> · hoy</span>
+      </div>
+      <span class="r-cell">Específica S2</span>
+      <div class="adh"><i style="width:78%"></i></div>
+      <span class="r-cell">hace 2 h</span>
+      <span class="r-cell">›</span>
+    </div>
+    <div class="r-grid r-row">
+      <span class="r-name"><span class="avatar">G</span>Gerard</span>
+      <span class="pill">L4</span>
+      <div class="estado-stack"><span class="pill ok">Activo</span></div>
+      <span class="r-cell">Específica S2</span>
+      <div class="adh"><i style="width:91%"></i></div>
+      <span class="r-cell">ayer</span>
+      <span class="r-cell">›</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>Reglas que ya quedan decididas (objetivas, no a votar):</b> las 5 filas espejan EXACTAMENTE las preguntas
+    que respondió el atleta en iOS — recuperación y energía llegan invertidas de la base de datos y aquí se muestran
+    ya giradas (5 = mejor, siempre); la nota se muestra literal, jamás resumida; la racha de 7 días enseña huecos
+    reales (un día sin check-in es un «·», no un cero); «hoy/ayer» se calcula en la zona horaria del atleta;
+    el umbral del chip (&lt;40) es la banda de riesgo que ya usa la regla adaptativa — un solo número en el código.
+    El color nunca es la única señal: cada valor lleva su número. Sin migraciones: todo sale de
+    <b>daily_checkins</b> tal cual existe.
+  </div>
+
+</div>
+</body>
+</html>
