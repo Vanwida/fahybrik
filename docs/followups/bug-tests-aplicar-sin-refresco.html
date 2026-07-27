@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug · Aplicar un test no refresca la vista</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --paper: #faf9f7;
+    --card: #ffffff;
+    --line: #e8e5e0;
+    --accent: #e8590c;
+    --accent-soft: #fff1e8;
+    --ok: #2f7d32;
+    --ok-soft: #edf7ee;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    padding: 48px 20px 80px;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  .tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .meta { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+  h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 32px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  p { margin-bottom: 10px; font-size: 15px; }
+  code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: #f1efeb;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .card.ok { border-left: 3px solid var(--ok); }
+  .card.ok strong:first-child { color: var(--ok); }
+  ol, ul { margin: 0 0 10px 22px; font-size: 15px; }
+  li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 8px 0 4px; }
+  th {
+    text-align: left; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted);
+    padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td code { white-space: normal; word-break: break-all; }
+  .pill {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    background: var(--ok-soft); color: var(--ok);
+    padding: 2px 8px; border-radius: 99px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">Bug anotado · Dashboard</span>
+  <h1>Aplicar un test no refresca la vista</h1>
+  <p class="meta">Reportado por Alex el 27-jul-2026 · Código verificado ese mismo día · Pendiente de arreglar</p>
+
+  <h2>Qué pasa</h2>
+  <p>En el dashboard, en <strong>Tests</strong>, al aplicar un test a un atleta la página no cambia: el atleta no aparece como aplicado y el botón se puede pulsar las veces que quieras. Solo tras recargar la página a mano se ve el estado real.</p>
+
+  <h2>Causa (verificada en el código)</h2>
+  <div class="card">
+    <p>La lista de atletas del panel de aplicar (<code>roster</code>) llega renderizada desde el servidor y <strong>nunca se vuelve a pedir</strong>. Tras el POST de aplicar, el único efecto en la UI es un toast:</p>
+    <ul>
+      <li><code>TestsView.tsx:314</code> · <code>onApplied={(summary) =&gt; setToast(summary)}</code> y nada más. Ni <code>router.refresh()</code> ni actualización del estado local.</li>
+      <li><code>AplicarTestSheet.tsx:64</code> · la preselección de atletas se calcula con <code>last_done_by_test</code>, que se queda con los datos viejos del primer render.</li>
+    </ul>
+  </div>
+  <div class="card ok">
+    <p><strong>Lo que NO está roto:</strong> el servidor es idempotente por día. <code>materializeTestForAthlete</code> reutiliza la sesión si ya existe ese día (<code>reused: true</code>), así que aplicar 20 veces no crea 20 sesiones. <span class="pill">Sin daño en datos</span> El problema es de feedback al coach, no de base de datos.</p>
+  </div>
+
+  <h2>Arreglo propuesto</h2>
+  <ol>
+    <li>Tras un apply con éxito, <strong><code>router.refresh()</code></strong> para que el server component de la página baje el roster fresco (o refetch del roster y actualizar estado local, si se quiere evitar el re-render completo).</li>
+    <li>En el sheet, reflejar el resultado al instante: los atletas recién aplicados pasan a verse como programados (la respuesta del endpoint ya devuelve <code>applied[]</code> con fechas por atleta, hay material de sobra).</li>
+    <li>Deshabilitar el botón mientras el POST está en vuelo, para que el doble clic impaciente no dispare dos peticiones.</li>
+  </ol>
+
+  <h2>Archivos</h2>
+  <table>
+    <tr><th>Archivo</th><th>Papel</th></tr>
+    <tr><td><code>web/components/v2/tests/TestsView.tsx</code></td><td>Dueño del estado. Aquí falta el refresco tras <code>onApplied</code> (línea ~314).</td></tr>
+    <tr><td><code>web/components/v2/tests/AplicarTestSheet.tsx</code></td><td>El panel de aplicar. POST a <code>/api/coach/tests/[id]/apply</code>; preselección con datos viejos.</td></tr>
+    <tr><td><code>web/app/[locale]/(v2)/tests/page.tsx</code></td><td>Server component que carga el <code>roster</code> inicial. <code>router.refresh()</code> lo re-ejecuta.</td></tr>
+    <tr><td><code>web/lib/coach/apply-test.ts</code></td><td>Solo referencia: ya idempotente y devuelve <code>applied[]</code> con todo. No tocar.</td></tr>
+  </table>
+</main>
+</body>
+</html>

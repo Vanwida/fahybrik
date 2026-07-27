@@ -330,6 +330,12 @@ Pantalla de conexiones, comparada con TrainingPeaks: → `docs/design/conexiones
 
 ---
 
+## Bug anotado el 27-jul · Tests del dashboard: aplicar no refresca
+
+Al aplicar un test a un atleta la vista no cambia (solo un toast); se puede aplicar en bucle y únicamente un F5 enseña el estado real. Servidor idempotente por día, cero daño en datos — es solo UI. Diagnóstico y arreglo propuesto: → `docs/followups/bug-tests-aplicar-sin-refresco.html`.
+
+---
+
 ## Pendiente de decisión
 
 - **Nombres de las fases** (Base / Potencia / Ritmo / Pico / Desconexión) — subjetivo, decide Alex.
