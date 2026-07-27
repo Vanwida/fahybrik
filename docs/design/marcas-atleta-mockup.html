@@ -1,0 +1,369 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marcas — el atleta se prueba cuando quiere</title>
+<style>
+  :root{
+    --bg:#0B0B0C; --surface:#141416; --raised:#1C1C1F; --sunken:#080809;
+    --fg:#F5F3F0; --muted:#9A938B; --faint:#6B6258;
+    --accent:#F06A2A; --accent-on:#511900;
+    --ok:#3FC773; --warn:#F2A52E; --info:#4D9EEB; --danger:#E5484D;
+    --hair:rgba(255,255,255,.07); --hair-strong:rgba(255,255,255,.12);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15.5px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:56px 24px 96px}
+
+  header{border-bottom:1px solid var(--hair);padding-bottom:30px;margin-bottom:46px}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 14px}
+  h1{font-size:clamp(30px,5vw,48px);line-height:1.04;margin:0 0 18px;font-style:italic;font-weight:800;letter-spacing:-.02em}
+  .lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+  .lede b{color:var(--fg);font-weight:600}
+
+  dl.rules{display:grid;gap:1px;background:var(--hair);grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    border:1px solid var(--hair);border-radius:var(--r);overflow:hidden;margin:36px 0 0}
+  .rule{background:var(--surface);padding:19px 21px}
+  .rule dt{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+  .rule dd{margin:0;font-size:14px;line-height:1.55;color:var(--muted)}
+  .rule dd b{color:var(--fg);font-weight:600}
+  .rule dt.o{color:var(--accent)}
+
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--faint);
+    margin:64px 0 4px;padding-top:28px;border-top:1px solid var(--hair)}
+  h2:first-of-type{border-top:0;padding-top:0}
+  .sub{color:var(--muted);font-size:15.5px;margin:0 0 32px;max-width:66ch}
+  .sub b{color:var(--fg);font-weight:600}
+
+  .grid{display:grid;gap:36px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+
+  figure{margin:0}
+  .phone{width:100%;max-width:320px;margin:0 auto;border:1px solid var(--hair-strong);border-radius:38px;padding:9px;
+    background:#000;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .screen{background:var(--bg);border-radius:30px;overflow:hidden;min-height:560px;display:flex;flex-direction:column}
+  .navbar{padding:16px 18px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--hair)}
+  .navbar .back{color:var(--accent);font-size:15px}
+  .navbar h3{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em}
+  .body{padding:16px 16px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
+
+  .card{background:var(--surface);border-radius:16px;padding:14px 15px}
+  .card.raised{background:var(--raised)}
+  .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .muted{color:var(--muted)} .small{font-size:13px;line-height:1.45} .tiny{font-size:11.5px;line-height:1.4;color:var(--faint)}
+  .mono{font-family:ui-monospace,"SF Mono",monospace;font-variant-numeric:tabular-nums}
+
+  .row{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--hair)}
+  .row:last-child{border-bottom:0}
+  .bar{width:3px;height:30px;border-radius:2px;flex:none}
+  .b-run{background:#F06A2A} .b-ergo{background:#4D9EEB} .b-race{background:#EE7ACF}
+  .row .name{flex:1;min-width:0}
+  .row .name b{display:block;font-size:14px;font-weight:650}
+  .row .name span{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+  .val{text-align:right}
+  .val b{display:block;font-size:15px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace}
+  .val span{font-size:11px;color:var(--faint)}
+  .up{color:var(--ok)} .down{color:var(--danger)}
+
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:999px}
+  .pill.ok{background:rgba(63,199,115,.14);color:var(--ok)}
+  .pill.acc{background:rgba(240,106,42,.16);color:var(--accent)}
+  .pill.info{background:rgba(77,158,235,.14);color:var(--info)}
+  .pill.off{background:rgba(255,255,255,.07);color:var(--muted)}
+
+  .btn{display:block;width:100%;text-align:center;padding:13px;border-radius:14px;font-size:15px;font-weight:700;border:0}
+  .btn.primary{background:var(--accent);color:var(--accent-on)}
+  .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--hair-strong)}
+  .btn.link{background:none;color:var(--muted);font-weight:550;font-size:13.5px;padding:9px}
+
+  .hero{background:var(--surface);border-radius:16px;padding:18px 16px;text-align:center}
+  .hero .big{font-size:44px;font-weight:800;font-family:ui-monospace,"SF Mono",monospace;letter-spacing:-.02em;line-height:1}
+  .hero .lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+
+  .twin{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:13px;overflow:hidden}
+  .twin>div{background:var(--raised);padding:11px 13px;text-align:center}
+  .twin .tv{font-size:17px;font-weight:750;font-family:ui-monospace,"SF Mono",monospace}
+
+  .spark{display:flex;align-items:flex-end;gap:5px;height:46px;padding:4px 2px 0}
+  .spark i{flex:1;background:rgba(240,106,42,.35);border-radius:3px 3px 0 0}
+  .spark i.last{background:var(--accent)}
+
+  .note{background:rgba(240,106,42,.08);border:1px solid rgba(240,106,42,.22);border-radius:13px;padding:12px 14px;font-size:13px;line-height:1.5}
+  .note.grey{background:rgba(255,255,255,.04);border-color:var(--hair);color:var(--muted)}
+  .note b{color:var(--accent)}
+
+  .seg{display:flex;gap:7px;flex-wrap:wrap}
+  .seg span{font-size:12.5px;padding:7px 12px;border-radius:11px;background:var(--raised);color:var(--muted);border:1px solid transparent}
+  .seg span.on{background:rgba(240,106,42,.14);color:var(--accent);border-color:rgba(240,106,42,.4);font-weight:650}
+
+  .field{background:var(--raised);border-radius:13px;padding:11px 14px}
+  .field .lab{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .field .v{font-size:15px;margin-top:3px;font-weight:600}
+
+  figcaption{margin:18px auto 0;max-width:320px}
+  figcaption .t{font-size:15px;font-weight:650;margin-bottom:6px;letter-spacing:-.01em}
+  figcaption .d{font-size:13.5px;color:var(--muted);line-height:1.55}
+  figcaption .d b{color:var(--fg);font-weight:600}
+  .spacer{flex:1}
+  code{font-family:ui-monospace,"SF Mono",monospace;font-size:.9em;color:var(--accent)}
+
+  @media (max-width:640px){ .wrap{padding:36px 16px 64px} .grid{gap:44px} }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">FAHYBRID · App del atleta</p>
+  <h1>Marcas: pruébate cuando<br>te dé la gana</h1>
+  <p class="lede">Nadie sigue un plan al 100%. El día que el atleta se aburre, se lía o quiere saber si ha mejorado, en vez de un hueco en la adherencia hay <b>una marca nueva en su historial</b>. Todo lo mide la app sola: el GPS para correr, el PM5 por Bluetooth para remo y ski. <b>Cero números tecleados.</b></p>
+
+  <dl class="rules">
+    <div class="rule"><dt class="o">Puerta 1 · Test del coach</dt><dd>Pablo la programa. Al capturar el resultado, <b>recalibra el plan</b> (zonas, ritmos, %1RM). Ya construido.</dd></div>
+    <div class="rule"><dt class="o">Puerta 2 · Probarme (nuevo)</dt><dd>El atleta elige una de las 6 marcas y la hace ya. <b>Registra, celebra el PR, alimenta la progresión.</b> No recalibra: le llega a Pablo como «marca nueva».</dd></div>
+    <div class="rule"><dt class="o">Puerta 3 · Registrar (nuevo)</dt><dd>La 10K del domingo, la media de octubre. <b>No se mide, se registra</b> — a mano o eligiendo la actividad ya sincronizada del reloj.</dd></div>
+    <div class="rule"><dt>Un solo almacén</dt><dd>Las tres puertas caen en el mismo historial. <b>Pablo ve la progresión entera sin hacer nada</b>, con el sello de quién produjo cada número.</dd></div>
+  </dl>
+</header>
+
+<h2>1 · La biblioteca</h2>
+<p class="sub">Seis marcas medibles + las carreras registrables. Cada una con su mejor marca, cuándo, y la flecha de si vas mejor o peor que la anterior.</p>
+
+<div class="grid">
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Tus marcas</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="k" style="margin-bottom:4px">Correr · GPS o cinta</div>
+          <div class="row">
+            <span class="bar b-run"></span>
+            <span class="name"><b>1 km a tope</b><span>hace 3 semanas</span></span>
+            <span class="val"><b>3:52 <i class="up" style="font-style:normal">▾6s</i></b><span>PR</span></span>
+          </div>
+          <div class="row">
+            <span class="bar b-run"></span>
+            <span class="name"><b>Cooper 12 min</b><span>nunca probado</span></span>
+            <span class="val"><b class="muted">—</b></span>
+          </div>
+          <div class="row">
+            <span class="bar b-run"></span>
+            <span class="name"><b>5K</b><span>hace 3 meses · test de Pablo</span></span>
+            <span class="val"><b>21:40</b><span>4:20/km</span></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="k" style="margin-bottom:4px">Ergo · lo mide el PM5</div>
+          <div class="row">
+            <span class="bar b-ergo"></span>
+            <span class="name"><b>Remo 500 m</b><span>hace 6 semanas</span></span>
+            <span class="val"><b>1:38.4</b><span>1:38/500</span></span>
+          </div>
+          <div class="row">
+            <span class="bar b-ergo"></span>
+            <span class="name"><b>Remo 1.000 m</b><span>la estación de carrera</span></span>
+            <span class="val"><b class="muted">—</b></span>
+          </div>
+          <div class="row">
+            <span class="bar b-ergo"></span>
+            <span class="name"><b>Ski 1.000 m</b><span>hace 2 semanas</span></span>
+            <span class="val"><b>3:58 <i class="down" style="font-style:normal">▴4s</i></b></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="k" style="margin-bottom:4px">Carreras · se registran</div>
+          <div class="row">
+            <span class="bar b-race"></span>
+            <span class="name"><b>10K</b><span>Cursa Bombers · abril</span></span>
+            <span class="val"><b>44:10</b><span>4:25/km</span></span>
+          </div>
+          <div class="row">
+            <span class="bar b-race"></span>
+            <span class="name"><b>Media maratón</b><span>nunca registrada</span></span>
+            <span class="val"><b class="muted">—</b></span>
+          </div>
+        </div>
+        <button class="btn link">+ Registrar una carrera</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Tres grupos, tres orígenes, una lista</div>
+      <div class="d">El 5K enseña «test de Pablo» en gris: <b>las marcas del coach y las tuyas viven juntas</b>, con su sello. El «nunca probado» no es un vacío triste — es la invitación. Y las carreras están aquí mismo, no en otra app.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Ski 1.000 m</h3></div>
+      <div class="body">
+        <div class="hero">
+          <div class="lab">Tu mejor marca</div>
+          <div class="big">3:54</div>
+          <div class="tiny" style="margin-top:6px">1:57/500 · hace 5 semanas</div>
+        </div>
+
+        <div class="card">
+          <div class="k" style="margin-bottom:2px">Historial</div>
+          <div class="spark">
+            <i style="height:88%"></i><i style="height:80%"></i><i style="height:84%"></i><i style="height:70%"></i><i style="height:64%"></i><i class="last" style="height:72%"></i>
+          </div>
+          <div class="tiny" style="display:flex;justify-content:space-between"><span>feb</span><span>hoy</span></div>
+        </div>
+
+        <div class="twin">
+          <div><div class="k">En el box</div><div class="tv">3:54</div><div class="tiny">tu PR</div></div>
+          <div><div class="k">En carrera</div><div class="tv">4:10</div><div class="tiny">HYROX Madrid · may</div></div>
+        </div>
+        <div class="note grey">En carrera lo hiciste <b style="color:var(--fg)">16 s más lento</b> que fresco. Normal: llegas con 4 km en las piernas. Ese hueco es lo que entrena tu plan.</div>
+
+        <div class="spacer"></div>
+        <button class="btn primary">Probarme ahora</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">La comparación que nadie más puede enseñar</div>
+      <div class="d">Tu marca fresca contra <b>tu split real de la última carrera</b> — ese dato ya lo tenemos por hyresult. Ningún Concept2 ni Garmin puede juntar los dos lados. Ahí está el porqué de entrenar, dicho con tus propios números.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">✕</span><h3>Ski 1.000 m</h3></div>
+      <div class="body">
+        <div class="card raised" style="text-align:center;padding:22px 16px">
+          <span class="pill info" style="margin-bottom:12px">PM5 conectado · SkiErg</span>
+          <div class="hero" style="background:none;padding:6px 0 0">
+            <div class="lab">A batir</div>
+            <div class="big" style="font-size:38px">3:54</div>
+          </div>
+        </div>
+        <div class="note grey">Dale a empezar en el PM5 y arranca solo. La app lee tiempo, ritmo y paladas del monitor — <b style="color:var(--fg)">no hay que apuntar nada</b>.</div>
+        <div class="card">
+          <div class="k" style="margin-bottom:6px">Cómo cuenta</div>
+          <p class="small muted" style="margin:0">Vale como marca si lo haces a tope y de una. Si lo cortas a medias, no se guarda nada — sin números a medias en tu historial.</p>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn primary">Empezar</button>
+        <button class="btn link">Hoy no, volver</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Probarse = darle a empezar</div>
+      <div class="d">Reusa los motores que ya existen: el de carrera con GPS/cinta y el del PM5 por Bluetooth. <b>No hay pantalla de teclear el resultado</b> — si la marca no la midió la app, no entra por esta puerta (para eso está Registrar).</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>2 · El después</h2>
+<p class="sub">El PR se celebra una vez y bien. Y lo que ve Pablo llega solo, con el sello de que te lo hiciste tú.</p>
+
+<div class="grid">
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><h3></h3></div>
+      <div class="body" style="justify-content:center;text-align:center;gap:16px">
+        <div class="pill ok" style="margin:0 auto">Marca nueva</div>
+        <div>
+          <div class="hero" style="background:none;padding:0">
+            <div class="big" style="font-size:56px">3:49</div>
+          </div>
+          <p class="small muted" style="margin:10px 0 0">Ski 1.000 m · <b class="up" style="font-weight:650">5 s menos</b> que tu mejor marca</p>
+        </div>
+        <div class="twin" style="text-align:center">
+          <div><div class="k">Ritmo</div><div class="tv">1:54/500</div></div>
+          <div><div class="k">Vs carrera</div><div class="tv up">−21 s</div></div>
+        </div>
+        <p class="tiny" style="margin:0">Guardada en tu historial. Pablo la verá en tu ficha.</p>
+        <div class="spacer"></div>
+        <button class="btn primary">Hecho</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Celebrar sin confeti</div>
+      <div class="d">Un PR de verdad no necesita animaciones de casino: necesita <b>el número enorme y contra qué</b>. La línea final cierra el círculo — sabes que tu coach lo ve sin que tengas que mandarle un pantallazo.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">✕</span><h3>Registrar carrera</h3></div>
+      <div class="body">
+        <div>
+          <div class="k" style="margin-bottom:8px">¿Qué distancia?</div>
+          <div class="seg"><span class="on">10K</span><span>Media</span><span>Maratón</span></div>
+        </div>
+
+        <div class="card">
+          <div class="k" style="margin-bottom:6px">De tu reloj · domingo</div>
+          <div class="row" style="border:0;padding:7px 0">
+            <span class="bar b-run"></span>
+            <span class="name"><b>Carrera · 10,02 km</b><span>domingo 9:14 · Garmin</span></span>
+            <span class="val"><b>43:26</b><span>4:20/km</span></span>
+          </div>
+          <button class="btn ghost" style="padding:10px;font-size:13.5px">Usar esta actividad</button>
+        </div>
+
+        <div class="tiny" style="text-align:center">o a mano</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <div class="field"><div class="lab">Fecha</div><div class="v">26 jul</div></div>
+          <div class="field"><div class="lab">Tiempo</div><div class="v">43:26</div></div>
+        </div>
+        <div class="field"><div class="lab">Nombre (opcional)</div><div class="v" style="color:var(--muted);font-weight:400">Cursa del Poblenou</div></div>
+
+        <div class="spacer"></div>
+        <button class="btn primary">Guardar 10K · 43:26</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">La 10K del domingo, sin teclear si no hace falta</div>
+      <div class="d">Si corrió con el reloj, <b>la actividad ya está sincronizada</b> — la elige y listo, con el tiempo real del GPS. El campo manual queda para la carrera de antes de tener la app. Esto hoy no se puede hacer de ninguna manera.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><h3>Hoy</h3></div>
+      <div class="body">
+        <div class="card raised">
+          <div class="k">Domingo</div>
+          <p class="small" style="margin:6px 0 0;font-weight:650;font-size:15px">Día libre</p>
+          <p class="small muted" style="margin:4px 0 0">Descansa. Y si el cuerpo te pide algo…</p>
+        </div>
+        <div class="card" style="border:1px solid rgba(240,106,42,.25)">
+          <div style="display:flex;align-items:center;gap:11px">
+            <span class="bar b-ergo" style="height:34px"></span>
+            <div style="flex:1">
+              <p class="small" style="margin:0;font-weight:650">¿Te pruebas el remo 1.000?</p>
+              <p class="tiny" style="margin:2px 0 0">Nunca lo has hecho · es la estación de carrera · ~4 min</p>
+            </div>
+            <span class="pill acc">Probarme</span>
+          </div>
+        </div>
+        <div class="spacer"></div>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">El hueco se convierte en dato</div>
+      <div class="d">Solo aparece en días libres o sin plan, <b>nunca compite con la sesión del día</b> — probarse en vez de entrenar sería canibalizarse el plan. Sugerencia simple: la marca que nunca has probado o la más vieja. Una tarjeta, no un carrusel.</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>3 · Lo que hay que tocar</h2>
+<p class="sub">Los motores de medir ya existen (correr + PM5). Esto es catálogo, pantallas y una limpieza previa.</p>
+
+<dl class="rules" style="margin-top:0">
+  <div class="rule"><dt>Antes de nada</dt><dd>El origen de cada marca (<code>notes</code> en <code>athlete_benchmarks</code>) es texto libre y ya está sucio («5k en pista», seeds, null). Si el producto se apoya en «quién produjo esto», pasa a <b>columna de verdad</b> (source: coach_test · athlete_test · registered) con backfill.</dd></div>
+  <div class="rule"><dt>Catálogo</dt><dd>Altas nuevas: <code>run_1k</code>, <code>cooper_12min</code> (su valor es distancia, no tiempo), <code>row_500m</code>, <code>row_1k</code>. Ya existen: <code>run_5k</code>, <code>ski_1k</code>, <code>row_2k</code>, <code>run_10k</code>, <code>run_half</code>, <code>run_marathon</code>.</dd></div>
+  <div class="rule"><dt>Probarme</dt><dd>Lanzar el motor de carrera / erg con captura automática y guardado como benchmark al terminar. <b>Abandono = no se guarda nada.</b></dd></div>
+  <div class="rule"><dt>Registrar</dt><dd>La puerta 3: elegir actividad sincronizada (ya llegan por HealthKit/Polar) o fecha+tiempo a mano. Solo distancias de carrera.</dd></div>
+  <div class="rule"><dt>Para Pablo</dt><dd>Nada nuevo que construir: las marcas caen donde ya mira (ficha › Perfil e Histórico). Solo el sello de origen en cada fila, que hoy no se pinta.</dd></div>
+  <div class="rule"><dt>Sin recalibrar</dt><dd>Un auto-test <b>no toca zonas ni %</b>. Si la marca es mejor que la del plan, a Pablo le sale «marca nueva, ¿recalibro?» — un toque. La autoridad del plan es suya.</dd></div>
+</dl>
+
+</div>
