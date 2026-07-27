@@ -43,7 +43,6 @@ import {
   type AthleteLifecycleStatus,
   type PauseReason,
   type PauseRequestedBy,
-  PAUSE_REASONS,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 
 // Re-export the shared contract so lib callers get the type + reasons from one path.
@@ -364,13 +363,15 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
  * cancel_at_period_end and the period has not elapsed, reactivating billing is a
  * Stripe-side concern (webhook / re-subscribe) — deliberately out of scope here.
  */
-export async function reAltaAthlete(input: {
-  athlete_id: bigint;
-  coach_id?: bigint | null;
-}): Promise<ReAltaResult> {
+export async function reAltaAthlete(input: { athlete_id: bigint }): Promise<ReAltaResult> {
+  // The plaza being re-occupied belongs to the ATHLETE's club — read it off the
+  // row (not the caller) so the post-commit capacity check scores the right cap.
+  let athleteCoachId: bigint | null = null;
   await sql.begin(async (tx) => {
-    const rows = await tx<{ lifecycle_status: AthleteLifecycleStatus }[]>`
-      select lifecycle_status from athletes where id = ${input.athlete_id} for update
+    const rows = await tx<
+      { lifecycle_status: AthleteLifecycleStatus; coach_id: bigint | null }[]
+    >`
+      select lifecycle_status, coach_id from athletes where id = ${input.athlete_id} for update
     `;
     const current = rows[0];
     if (!current) throw new LifecycleError('not_found', 'Atleta no encontrado', 404);
@@ -381,6 +382,7 @@ export async function reAltaAthlete(input: {
         409,
       );
     }
+    athleteCoachId = current.coach_id;
     await tx`
       update athletes
       set lifecycle_status = 'activo',
@@ -392,8 +394,9 @@ export async function reAltaAthlete(input: {
     `;
   });
 
-  const cap = await getCapacityState();
-  const over_capacity = cap.max !== null && cap.active > cap.max;
+  // A coachless (free) athlete occupies no club plaza → no cap to exceed.
+  const cap = athleteCoachId !== null ? await getCapacityState(athleteCoachId) : null;
+  const over_capacity = cap !== null && cap.max !== null && cap.active > cap.max;
   return { status: 'activo', over_capacity };
 }
 

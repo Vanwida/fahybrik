@@ -34,8 +34,8 @@ export async function POST(req: Request) {
     return jsonError('invalid_request', 'Cupo no válido', 400, parsed.error.flatten());
   }
 
-  await setMaxAthletes(parsed.data.max_athletes);
-  const max_athletes = await getMaxAthletes();
+  await setMaxAthletes(session.coach_id, parsed.data.max_athletes);
+  const max_athletes = await getMaxAthletes(session.coach_id);
 
   // Raising the cap opens plazas → auto-notify the next in line immediately (FIFO). Defensive:
   // the cap is already persisted, so a release failure must never fail the cupo save.

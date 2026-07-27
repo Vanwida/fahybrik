@@ -33,6 +33,7 @@ import {
   releaseWaitlistToCapacity,
 } from '@/lib/leads/waitlist';
 import { selectNurtureCandidates } from '@/lib/leads/nurture';
+import { funnelCoachId } from '@/lib/leads/funnel-coach';
 import { NURTURE_TOUCHES } from '@fahybrid/shared/domain/leads/nurture';
 import { bookAppointment, CitasError } from '@/lib/citas/store';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
@@ -46,6 +47,9 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   const athleteIds: number[] = [];
   const leadIds: number[] = [];
   const extraCoachUserIds: number[] = [];
+  // The FUNNEL club (lib/leads/funnel-coach.ts) — the one whose cap gates the waitlist.
+  // Resolved in beforeAll (a coach row is ensured there first).
+  let funnelCoach: bigint = BigInt(0);
   let savedMax: number | null = null;
 
   function email(tag: string): string {
@@ -63,11 +67,13 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     return id;
   }
 
-  /** users(athlete) + athletes, NO subscription. Returns the athlete's user id. */
+  /** users(athlete) + athletes ON THE FUNNEL CLUB'S ROSTER (capacity is club-scoped),
+   *  NO subscription. Returns the athlete's user id. */
   async function seedAthleteOnly(): Promise<number> {
     const userId = await seedUser('athlete');
     const a = await sql<{ id: string }[]>`
-      insert into athletes (user_id, full_name) values (${userId}, 'WL Athlete') returning id::text as id
+      insert into athletes (user_id, coach_id, full_name)
+      values (${userId}, ${Number(funnelCoach)}, 'WL Athlete') returning id::text as id
     `;
     athleteIds.push(Number(a[0]!.id));
     return userId;
@@ -149,8 +155,9 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
-    // Single-coach cap lives on the FIRST coach row. Ensure one exists (a fresh branch may
-    // have none), snapshot its cap, and restore it in afterAll so the branch is left intact.
+    // The waitlist is gated by the FUNNEL club's cap. Ensure a coach exists (a fresh
+    // branch may have none), resolve the funnel club, snapshot its cap, and restore it
+    // in afterAll so the branch is left intact.
     const coach = await sql<{ id: string }[]>`select id::text as id from coaches order by id limit 1`;
     if (!coach[0]) {
       const cu = await sql<{ id: string }[]>`
@@ -159,7 +166,8 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
       extraCoachUserIds.push(Number(cu[0]!.id));
       await sql`insert into coaches (user_id, full_name) values (${Number(cu[0]!.id)}, 'WL Coach')`;
     }
-    savedMax = await getMaxAthletes();
+    funnelCoach = (await funnelCoachId(sql))!;
+    savedMax = await getMaxAthletes(funnelCoach);
   });
 
   afterEach(async () => {
@@ -179,7 +187,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   });
 
   afterAll(async () => {
-    await setMaxAthletes(savedMax); // restore the coach's cap
+    await setMaxAthletes(funnelCoach, savedMax); // restore the funnel club's cap
     if (extraCoachUserIds.length) {
       // Deleting the user cascades the coach row we seeded (coaches.user_id on delete cascade).
       await sql`delete from users where id in ${sql(extraCoachUserIds)}`;
@@ -189,34 +197,34 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
   // ── Capacity ─────────────────────────────────────────────────────────────────────
   test('capacity boundary: full at active===max, not full below, uncapped never full', async () => {
-    const base = (await getCapacityState()).active; // pre-existing active athletes on the branch
+    const base = (await getCapacityState(funnelCoach)).active; // pre-existing active athletes on the branch
     await seedActiveAthlete();
     await seedActiveAthlete(); // +2 humans
     const active = base + 2;
 
-    await setMaxAthletes(active);
-    let s = await getCapacityState();
+    await setMaxAthletes(funnelCoach, active);
+    let s = await getCapacityState(funnelCoach);
     expect(s.active).toBe(active);
     expect(s.max).toBe(active);
     expect(s.full).toBe(true);
     expect(s.slots_available).toBe(0);
 
-    await setMaxAthletes(active + 1);
-    s = await getCapacityState();
+    await setMaxAthletes(funnelCoach, active + 1);
+    s = await getCapacityState(funnelCoach);
     expect(s.full).toBe(false);
     expect(s.slots_available).toBe(1);
 
-    await setMaxAthletes(null); // uncapped → waitlist off → never full
-    s = await getCapacityState();
+    await setMaxAthletes(funnelCoach, null); // uncapped → waitlist off → never full
+    s = await getCapacityState(funnelCoach);
     expect(s.max).toBeNull();
     expect(s.full).toBe(false);
     expect(s.slots_available).toBeNull();
   });
 
   test('a dobles pair (one subscription) counts as 2 toward capacity', async () => {
-    const base = (await getCapacityState()).active;
+    const base = (await getCapacityState(funnelCoach)).active;
     await seedDoblesPair();
-    const s = await getCapacityState();
+    const s = await getCapacityState(funnelCoach);
     expect(s.active).toBe(base + 2);
   });
 
@@ -280,14 +288,14 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   // (active/released_pending measured first) and use far-past waitlisted_at so the seeded leads
   // lead the GLOBAL FIFO pool — mirroring the existing capacity tests' clean-branch convention.
   test('releaseWaitlistToCapacity releases (max − active − released_pending) oldest waiting, FIFO', async () => {
-    const { active } = await getCapacityState();
+    const { active } = await getCapacityState(funnelCoach);
     const pending = await countReleasedPending();
     const t = Date.now();
     const oldest = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 400 * DAY_MS) });
     const mid = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 399 * DAY_MS) });
     const newest = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 398 * DAY_MS) });
 
-    await setMaxAthletes(active + pending + 2); // available = max − active − pending = 2
+    await setMaxAthletes(funnelCoach, active + pending + 2); // available = max − active − pending = 2
 
     const res = await releaseWaitlistToCapacity();
     expect(res.released).toBe(2);
@@ -299,22 +307,22 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
   test('releaseWaitlistToCapacity releases nothing when uncapped (max null)', async () => {
     await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
-    await setMaxAthletes(null); // waitlist off
+    await setMaxAthletes(funnelCoach, null); // waitlist off
     const res = await releaseWaitlistToCapacity();
     expect(res.released).toBe(0);
   });
 
   test('releaseWaitlistToCapacity releases nothing when already at/over capacity', async () => {
-    const { active } = await getCapacityState();
+    const { active } = await getCapacityState(funnelCoach);
     const pending = await countReleasedPending();
     await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
-    await setMaxAthletes(active + pending); // available = 0
+    await setMaxAthletes(funnelCoach, active + pending); // available = 0
     const res = await releaseWaitlistToCapacity();
     expect(res.released).toBe(0);
   });
 
   test('a released-pending lead reduces how many are released (no over-release)', async () => {
-    const { active } = await getCapacityState();
+    const { active } = await getCapacityState(funnelCoach);
     const pending = await countReleasedPending();
     const t = Date.now();
     // Two actively-waiting leads…
@@ -328,7 +336,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     });
 
     // Cap gives 2 free slots gross, but the held slot eats 1 → only 1 to give.
-    await setMaxAthletes(active + pending + 2);
+    await setMaxAthletes(funnelCoach, active + pending + 2);
 
     const res = await releaseWaitlistToCapacity();
     expect(res.released).toBe(1); // 2 gross − 1 held = 1

@@ -1,14 +1,16 @@
-// Lead waitlist store (#18). When the coach is at capacity (lib/coach/capacity.ts), a lead
-// that finishes onboarding is stamped `waitlisted_at` (FIFO order) instead of booking a call.
-// The coach later MANUALLY releases a plaza (stamps `waitlist_released_at` + the lead is
-// emailed the booking link). Everything is keyed off the two stamps on `leads` (migration
-// 0102); no per-coach scoping (single-coach launch).
+// Lead waitlist store (#18). When the funnel's club is at capacity (lib/coach/capacity.ts),
+// a lead that finishes onboarding is stamped `waitlisted_at` (FIFO order) instead of booking
+// a call. The coach later MANUALLY releases a plaza (stamps `waitlist_released_at` + the lead
+// is emailed the booking link). Everything is keyed off the two stamps on `leads` (migration
+// 0102); leads have no per-club scoping until obra 3 — the whole queue belongs to the funnel
+// club (lib/leads/funnel-coach.ts).
 //
 // All writes are idempotent so a replayed onboarding-complete / double-click never
 // double-stamps or double-emails.
 
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { getCapacityState } from '@/lib/coach/capacity';
+import { funnelCoachId } from './funnel-coach';
 import { sendWaitlistReleasedEmail } from './waitlist-email';
 import { WAITLIST_RELEASED_TOUCH } from '@fahybrid/shared/domain/leads/nurture';
 
@@ -257,8 +259,13 @@ export async function releaseAndNotifyLead(
  * (api/cron/nurture) as a safety net for slots freed by any other means.
  */
 export async function releaseWaitlistToCapacity(): Promise<{ released: number }> {
+  // Leads have no club column yet, so the waitlist is the FUNNEL club's queue and
+  // it is measured against THAT club's cap (see lib/leads/funnel-coach.ts).
+  const coachId = await funnelCoachId();
+  if (coachId === null) return { released: 0 }; // no club yet → no cap → nothing to release
+
   const [{ active, max }, pendingRows] = await Promise.all([
-    getCapacityState(),
+    getCapacityState(coachId),
     sql<{ n: number }[]>`
       select count(*)::int as n from leads
       where waitlist_released_at is not null

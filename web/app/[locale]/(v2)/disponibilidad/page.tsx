@@ -19,7 +19,7 @@ export default async function DisponibilidadPage({ params }: { params: Promise<{
 
   const [{ windows, exceptions }, maxAthletes] = await Promise.all([
     getAvailability(),
-    getMaxAthletes(),
+    getMaxAthletes(session.coach_id),
   ]);
 
   return (
