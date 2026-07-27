@@ -168,6 +168,7 @@
 		610596CC54A5952B892A2C1F /* PreWorkoutDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507990931B3A77E5786C8A7C /* PreWorkoutDevices.swift */; };
 		61521194155209249C86B59C /* DoblesJointSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A2EC23D32E5331D8B79F64 /* DoblesJointSummaryView.swift */; };
 		61F3EF3E704EE6AC4BBA3247 /* CarrerasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3AD6C948228FDE786C8711 /* CarrerasView.swift */; };
+		63D99760B677F420303C5617 /* DoblesRepartoMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A6B27581F238AFEAE141D1 /* DoblesRepartoMathTests.swift */; };
 		6437FB180625105F8870F449 /* PM5LiveStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E8C5CC0905BCBC48019522 /* PM5LiveStreamView.swift */; };
 		64F824DF2F30A5B370A5FDCC /* EmailAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838D5B43E7B059FE162F00E8 /* EmailAuthService.swift */; };
 		6538BCC26B4637FA0D7AF095 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087517CB7BA486835A805A48 /* AppShell.swift */; };
@@ -752,6 +753,7 @@
 		B7FC72EE3461CB2C3AABBE81 /* FAHYBRIK-Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "FAHYBRIK-Debug.entitlements"; sourceTree = "<group>"; };
 		B923DDAC30864527B24FD75E /* WorkoutKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WorkoutKit.framework; path = System/Library/Frameworks/WorkoutKit.framework; sourceTree = SDKROOT; };
 		B962CBBF9B74EA92BBCBFFD4 /* InjuriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjuriesView.swift; sourceTree = "<group>"; };
+		B9A6B27581F238AFEAE141D1 /* DoblesRepartoMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesRepartoMathTests.swift; sourceTree = "<group>"; };
 		B9CA469657CC4F5CB348FCD9 /* MeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeService.swift; sourceTree = "<group>"; };
 		BAF9B84A8FC35C78460E38E5 /* SessionMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMapView.swift; sourceTree = "<group>"; };
 		BB59B29C6CB1A3F33FA71838 /* GarminSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminSetupView.swift; sourceTree = "<group>"; };
@@ -1417,6 +1419,7 @@
 				F9089B8E40B6C70E41A6050B /* DoblesJointTests.swift */,
 				D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */,
 				A12A56769ECDC19E3A27146E /* DoblesRaceGapTests.swift */,
+				B9A6B27581F238AFEAE141D1 /* DoblesRepartoMathTests.swift */,
 			);
 			path = Dobles;
 			sourceTree = "<group>";
@@ -2335,6 +2338,7 @@
 				94A61F86D7A0AB68E781446C /* DoblesJointTests.swift in Sources */,
 				0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */,
 				C65CF4FAD6FA954D539828A9 /* DoblesRaceGapTests.swift in Sources */,
+				63D99760B677F420303C5617 /* DoblesRepartoMathTests.swift in Sources */,
 				BA93B5DEE762F343B1D53162 /* DoblesTurnTests.swift in Sources */,
 				E9FDDE92B0B19129662FF878 /* FTMSControlSequencerTests.swift in Sources */,
 				E601CA8F67205463A0FC9E2B /* FTMSControlTests.swift in Sources */,

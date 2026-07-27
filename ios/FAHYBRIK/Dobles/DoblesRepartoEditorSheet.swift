@@ -6,18 +6,25 @@ import SwiftUI
 // mueve el predicho conjunto contra el objetivo. Al confirmar guarda con el PUT
 // existente (mismo que la Simulación conjunta) y refresca el board.
 //
-// Recompute (pura, en DoblesRepartoMath): pair_predicted del tramo =
-// share·self_solo + (1−share)·partner_solo; total nuevo = predicho_total −
-// pair_predicted_viejo + pair_predicted_nuevo. Si falta self_solo_s o
-// partner_solo_s no se puede recomputar → slider deshabilitado + nota honesta.
+// La ÚNICA cuenta local es el tramo que se está tocando (DoblesRepartoMath, el
+// espejo de la regla del servidor): pair_predicted = share·self_solo +
+// (1−share)·partner_solo. Todo lo demás se ancla en los números que ya mandó el
+// servidor y sólo se les aplica ESE desplazamiento — total nuevo =
+// predicho_total + Δ, gap nuevo = gap + Δ — así el editor nunca puede contar el
+// gap de otra forma que el board. Si falta self_solo_s o partner_solo_s no se
+// puede previsualizar → slider deshabilitado + nota honesta.
 struct DoblesRepartoEditorSheet: View {
     let segment: DoblesRaceGapSegment
     let partnerName: String
     /// Predicho conjunto actual (segundos) — la base sobre la que se aplica el
     /// cambio de este tramo. Nil si no hay predicho total (no recomputamos total).
     let predictedTotalS: Int?
-    /// Objetivo de la carrera (segundos), o nil → sin gap contra objetivo.
+    /// Objetivo de la carrera (segundos), o nil → sin gap contra objetivo. Sólo
+    /// se usa para saber SI hay objetivo; el número del gap viene en `gapS`.
     let goalS: Int?
+    /// Gap actual del servidor (predicho − objetivo). Nil sin objetivo o sin
+    /// predicho; la previsualización le suma el cambio de este tramo.
+    let gapS: Int?
     var bearer: String?
     /// Se llama tras un guardado correcto para que la sección refresque el board.
     var onSaved: () -> Void
@@ -34,6 +41,7 @@ struct DoblesRepartoEditorSheet: View {
         partnerName: String,
         predictedTotalS: Int?,
         goalS: Int?,
+        gapS: Int?,
         bearer: String? = nil,
         onSaved: @escaping () -> Void
     ) {
@@ -41,6 +49,7 @@ struct DoblesRepartoEditorSheet: View {
         self.partnerName = partnerName
         self.predictedTotalS = predictedTotalS
         self.goalS = goalS
+        self.gapS = gapS
         self.bearer = bearer
         self.onSaved = onSaved
         // Semilla del share: el explícito, o el derivado del carrier (self=1,
@@ -66,19 +75,21 @@ struct DoblesRepartoEditorSheet: View {
         return DoblesRepartoMath.stationPairPredicted(selfShare: share, selfSoloS: s, partnerSoloS: p)
     }
 
-    /// Cambio del tramo respecto al reparto guardado (rojo si suma, verde si resta).
+    /// Cambio del tramo respecto al reparto guardado (rojo si suma, verde si
+    /// resta). Es el ÚNICO desplazamiento que la app introduce: total y gap se
+    /// obtienen sumándoselo a lo que dijo el servidor.
     private var stationDelta: Int? {
         newStationPredicted.map { $0 - segment.pairPredictedS }
     }
 
     private var newTotal: Int? {
-        guard let total = predictedTotalS, let np = newStationPredicted else { return nil }
-        return total - segment.pairPredictedS + np
+        guard let total = predictedTotalS, let d = stationDelta else { return nil }
+        return total + d
     }
 
     private var newGap: Int? {
-        guard let nt = newTotal, let g = goalS else { return nil }
-        return nt - g
+        guard let gap = gapS, let d = stationDelta else { return nil }
+        return gap + d
     }
 
     /// El reparto no ha cambiado respecto a lo guardado (nada que guardar).
