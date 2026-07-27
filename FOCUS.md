@@ -28,18 +28,24 @@ streaming/`loading.tsx`.
 
 ---
 
-## En decisión · FREE tier — la app abierta como captación (27-jul)
+## EN MARCHA · FREE tier — GO de Alex (27-jul)
 
-Idea de Alex: abrir el grabador híbrido conectado (PM5/FTMS/GPS/fuerza) a
-usuarios free estilo Kinomap-pero-bien, con marcas auto-medidas, rankings por
-división con sello «medido por máquina» y la carrera proyectada compartible.
-Brief con la costura verificada contra el repo (`coach_id` ya nullable; falta
-nacimiento; ranking hoy devuelve vacío sin coach; login find-only → el signup
-free CREA cuenta; catálogo Probarme necesita versión de sistema):
-→ `docs/free-tier-brief.html` · Mockup 8 pantallas: →
-`docs/design/free-tier-mockup.html`. Recomendación: diseñar ya, construir
-tras enviar la v1. Esperando el veredicto de Alex (timing, borde del free,
-divisiones, nombre).
+Alex dio luz verde («es una idea de embudo que nos puede traer nuevos
+clientes»). Brief: → `docs/free-tier-brief.html` · Mockup: →
+`docs/design/free-tier-mockup.html`. Modelo confirmado con Alex: mismo
+atleta, con o sin enlace al coach; upgrade = enlazar coach+Stripe con todo
+el histórico; downgrade/baja = aterrizar en free (la baja deja de ser un
+adiós). La UI la decide el servidor con `has_coach` en la sesión: con coach
+entra por el camino de HOY (intocado), sin coach por el home free nuevo.
+
+**Fase 1 lanzada** (agente en worktree aislado): mig 0141 `birth_date`,
+flag `FREE_SIGNUP` (apagado en prod), alta que CREA (email + SIWA) solo con
+flag, `has_coach` en la respuesta de sesión, barrido de endpoints de atleta
+con `coach_id null` + tests de que flag-off = find-only exacto. Defaults
+tomados del brief (free ilimitado; rankings división+global); el NOMBRE del
+tier sigue abierto (decisión de Alex, sin prisa hasta la ficha).
+Después: iOS modo free (home + esconder chat/plan) → Probarme de sistema →
+rankings + tarjeta.
 
 ---
 
