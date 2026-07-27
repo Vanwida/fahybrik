@@ -240,6 +240,24 @@ function HechoChips({ tokens }: { tokens: string[] }) {
   );
 }
 
+// What the coach reads when a session renders no blocks. Three different facts,
+// three different sentences — the one that used to cover all of them ("no tiene
+// plantilla asociada") is false for a cronómetro, which HAS a template and a real
+// session behind it, and reads as breakage instead of as training.
+const NO_BLOCKS_NOTE: Record<CoachSessionDetail['content_state'], string | null> = {
+  blocks: null,
+  clock:
+    'El atleta usó la app como cronómetro y no anotó los movimientos. El formato, el tiempo y el esfuerzo son reales.',
+  no_content: 'La plantilla de este entreno no tiene ejercicios.',
+  no_template: 'Este entreno no tiene plantilla asociada.',
+};
+
+function NoBlocksNote({ state }: { state: CoachSessionDetail['content_state'] }) {
+  const note = NO_BLOCKS_NOTE[state];
+  if (!note) return null;
+  return <p className="py-8 text-center text-xs text-[color:var(--v2-muted)]">{note}</p>;
+}
+
 export function SessionDetailDrawer({
   athleteId,
   assignmentId,
@@ -295,8 +313,10 @@ export function SessionDetailDrawer({
   const complianceSummary = detail?.run_compliance?.summary;
   const showCompliance = (complianceSummary?.total ?? 0) > 0;
 
+  // A session with no renderable blocks still has a name (a clock's IS its shape,
+  // "AMRAP · 12:00"), so fall through to the template name before giving up.
   const title = detail
-    ? detail.display_title ?? detail.workout?.name ?? 'Entreno'
+    ? detail.display_title ?? detail.workout?.name ?? detail.template_name ?? 'Entreno'
     : 'Entreno';
   const statusMeta = detail ? STATUS_META[detail.status] : null;
 
@@ -468,9 +488,7 @@ export function SessionDetailDrawer({
                   </section>
                 ))
               ) : (
-                <p className="py-8 text-center text-xs text-[color:var(--v2-muted)]">
-                  Este entreno no tiene plantilla asociada.
-                </p>
+                <NoBlocksNote state={detail.content_state} />
               )}
 
               {/* Logged segments not matched to a prescribed item */}

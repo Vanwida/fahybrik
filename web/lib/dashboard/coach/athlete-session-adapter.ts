@@ -39,8 +39,26 @@ export interface CoachSessionDetail {
   display_title: string | null;
   /** Free-form coach notes for this assignment (decoded from wa.notes). */
   coach_notes: string | null;
-  /** Template snapshot in logical blocks — null when the assignment has no template. */
+  /** Template snapshot in logical blocks — null when the assignment has no
+   *  template AND when the template resolves to zero renderable blocks (see
+   *  assignment-detail.ts). `content_state` says WHICH, so the drawer never calls
+   *  a real session an error. */
   workout: AssignmentDetailWorkout | null;
+  /** Why `workout` is what it is — the drawer's honest empty state:
+   *   · 'blocks'     — there is content to render.
+   *   · 'clock'      — the athlete ran the app as a box timer and named no
+   *                    movements. A real, complete session; nothing is missing
+   *                    but the movement names, and those were never claimed.
+   *   · 'no_content' — a template exists but carries no exercises.
+   *   · 'no_template'— the assignment points at no template at all. */
+  content_state: 'blocks' | 'clock' | 'no_content' | 'no_template';
+  /** Who authored this session: 'coach' = prescribed, 'self' = the athlete's own
+   *  entreno libre. The coach reads a libre differently from their own plan. */
+  origin: 'coach' | 'self';
+  /** The template's own name. Carried separately from `workout` because a session
+   *  with no renderable blocks still HAS a name — a clock's name is its shape
+   *  ("AMRAP · 12:00") and losing it would leave the drawer titled "Entreno". */
+  template_name: string | null;
   /** Athlete's real data — null until there is an execution. */
   execution: {
     duration_min: number | null;
