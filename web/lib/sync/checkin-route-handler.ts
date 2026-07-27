@@ -13,6 +13,7 @@ import { ingestCheckin } from './checkin';
 import { checkinRequestSchema } from './schema';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { refreshAthleteReadinessToday } from '@/lib/coach/athlete-daily-readiness';
+import { captureRouteError } from '@/lib/observability/capture';
 
 export async function handleCheckinPost(req: Request): Promise<NextResponse> {
   const auth = await getAthleteSessionFromBearer(req.headers.get('authorization'));
@@ -29,6 +30,15 @@ export async function handleCheckinPost(req: Request): Promise<NextResponse> {
 
   const parsed = checkinRequestSchema.safeParse(body);
   if (!parsed.success) {
+    // The iOS client silently drops deterministic 4xx (a poison request would
+    // replay forever), so a validation reject here is INVISIBLE on the device —
+    // the athlete's check-in just never exists server-side. Leave a trace with
+    // the field-level issues (messages only, no submitted values) so a drifted
+    // client schema is caught from logs, not from a coach noticing missing data.
+    captureRouteError(new Error('checkin body failed validation'), {
+      route: 'api/checkins.POST',
+      meta: { field_errors: parsed.error.flatten().fieldErrors },
+    });
     return jsonError('invalid_request', 'Invalid check-in', 400, parsed.error.flatten());
   }
 
