@@ -11,12 +11,13 @@ enum BenchmarkLaunch {
     /// Build the runnable context for a self-testable mark. Returns nil for marks
     /// the app cannot measure (the registrable races) or an unknown erg.
     ///
-    /// `environment` is required for RUN marks (calle/cinta — chosen in the same
-    /// pre-start flow every run uses) and ignored for erg marks.
-    static func context(for mark: MarkView, environment: RunEnvironment?) -> FreeWorkoutContext? {
+    /// Calle/cinta is NOT decided here: the brief's standard pre-start asks it (and
+    /// connects the belt); the save reads the answer from the session. One question.
+    static func context(for mark: MarkView) -> FreeWorkoutContext? {
         guard mark.measuredBy != "registered" else { return nil }
 
         let draft = FreeWorkoutDraft()
+        draft.isBenchmark = true
         draft.titleEdited = mark.label
         draft.format = .continuo
 
@@ -47,35 +48,24 @@ enum BenchmarkLaunch {
         // The pace objective shown by the HUD. A benchmark is an all-out effort, so
         // the most honest target is the athlete's OWN best — "a batir". First attempt
         // (no comparable PR): the modality default stands in; the effort is theirs.
-        if let target = paceTargetSeconds(for: mark, environment: environment) {
+        if let target = paceTargetSeconds(for: mark) {
             draft.targetKind = .pace
             draft.paceSeconds = target
         }
 
         guard var ctx = draft.buildContext() else { return nil }
-        if draft.modality == .run { ctx.runEnvironment = environment }
         ctx.benchmark = BenchmarkTag(
             slug: mark.slug,
-            valueKind: mark.unit == "meters" ? .distance : .time,
-            runContext: draft.modality == .run
-                ? ((environment == .treadmill) ? "treadmill" : "outdoor")
-                : nil
+            valueKind: mark.unit == "meters" ? .distance : .time
         )
         return ctx
     }
 
     /// The PR-derived pace in the DRAFT's unit (run → s/km, erg → s/500m), or nil
     /// when there is no comparable best yet.
-    private static func paceTargetSeconds(for mark: MarkView, environment: RunEnvironment?) -> Int? {
+    private static func paceTargetSeconds(for mark: MarkView) -> Int? {
         guard mark.unit == "seconds", let dist = mark.targetDistanceM, dist > 0 else { return nil }
-        // Run marks: compare within the context being attempted, mirroring the PR rule.
-        let best: MarkResult? = {
-            if mark.group == "run" {
-                return environment == .treadmill ? mark.bestTreadmill : mark.bestOutdoor
-            }
-            return mark.best
-        }()
-        guard let best else { return nil }
+        guard let best = mark.best else { return nil }
         let perUnit = mark.group == "run" ? best.value * 1000 / dist : best.value * 500 / dist
         let rounded = Int(perUnit.rounded())
         return rounded > 0 ? rounded : nil

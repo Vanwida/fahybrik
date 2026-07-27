@@ -214,6 +214,9 @@ struct WorkoutContainer: View {
                         showCapture = true
                     },
                     showCaptureLog: assignmentId?.isEmpty == false,
+                    // #Marcas — a benchmark brief hides the manual paths and hard-gates
+                    // the erg connect: no measurement, no mark.
+                    isBenchmark: freeContext?.benchmark != nil,
                     onClose: onClose
                 )
             case .active:

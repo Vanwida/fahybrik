@@ -244,7 +244,12 @@ struct PostWorkoutSummaryView: View {
             // athlete's record — the mockup's promise, kept here.
             if let tag = free.benchmark, payload.completeness == "full",
                let value = benchmarkValue(tag: tag, segments: payload.segments) {
-                Task { await MarkAttemptAPI.submit(tag: tag, value: value, bearer: bearer) }
+                // Calle/cinta comes from the SESSION (the brief's pre-start stamped
+                // it), so the mark and what the athlete actually did can't diverge.
+                let runContext: String? = free.modalityWire == "run"
+                    ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
+                    : nil
+                Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
             }
             finishAfterSave(records: [])
             return

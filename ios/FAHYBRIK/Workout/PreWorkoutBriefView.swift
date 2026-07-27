@@ -45,6 +45,9 @@ struct PreWorkoutBriefView: View {
     /// Show the capture-log button — only for a REAL assignment (the result must
     /// attribute to one). Hidden for ad-hoc/free sessions.
     var showCaptureLog: Bool = false
+    /// #Marcas — a benchmark attempt: no manual paths (a mark the app didn't
+    /// measure doesn't exist) and the erg gate has no escape.
+    var isBenchmark: Bool = false
     let onClose: () -> Void
 
     // Per-exercise technique video opened in-app from a series row, when present.
@@ -53,6 +56,13 @@ struct PreWorkoutBriefView: View {
     // #8 — a session with running work starts through the full-screen pre-start
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
     @State private var showRunPreStart = false
+
+    // Erg sessions gate the start on a LIVE monitor connection: first you connect,
+    // you confirm the machine, THEN you start — plan, libre and benchmark alike.
+    // Before this gate, "▶ Empezar" fired with the monitor disconnected and the
+    // whole piece ran unmeasured.
+    @State private var pm5 = PM5ConnectionStore.shared
+    @State private var showErgConnect = false
 
     // MARK: - Derived shape
 
@@ -92,6 +102,25 @@ struct PreWorkoutBriefView: View {
     }
 
     private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
+
+    /// The PRINCIPAL work is an erg piece → the monitor measures the session, so
+    /// starting without it makes the whole effort unmeasured. Warmup ergs inside a
+    /// strength day do NOT gate (principal-block selection, same as the subtitle).
+    private var ergIsPrincipal: Bool {
+        switch modality {
+        case "row", "ski", "bike": return true
+        default: return false
+        }
+    }
+
+    /// Human name of the machine for the connect CTA.
+    private var ergMachineWord: String {
+        switch modality {
+        case "ski":  return "el SkiErg"
+        case "bike": return "la bici"
+        default:     return "el remo"
+        }
+    }
 
     /// Devices the SMALL bottom card still offers: the HR strap only. The PM5 has
     /// its first-class connect card at the top and the treadmill lives in the
@@ -826,15 +855,28 @@ struct PreWorkoutBriefView: View {
     //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
-            ExpertPrimaryButton(title: ctaTitle) {
-                if hasRunSegment {
-                    // #8 — running work: the full-screen pre-start sequence decides
-                    // dónde + conexión, then fires `onStart` with the environment.
-                    showRunPreStart = true
-                } else {
-                    onStart(nil)
+            if ergIsPrincipal && !pm5.isConnected {
+                // The gate: the primary action IS connecting. Only a live, confirmed
+                // monitor turns it into "▶ Empezar".
+                ExpertPrimaryButton(title: "Conectar \(ergMachineWord)") {
+                    showErgConnect = true
+                }
+                Text("Primero conecta el monitor: él mide el esfuerzo.")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity)
+            } else {
+                ExpertPrimaryButton(title: ctaTitle) {
+                    if hasRunSegment {
+                        // #8 — running work: the full-screen pre-start sequence decides
+                        // dónde + conexión, then fires `onStart` with the environment.
+                        showRunPreStart = true
+                    } else {
+                        onStart(nil)
+                    }
                 }
             }
+            if !isBenchmark {
             Button(action: { Haptics.light(); onManualLog() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle")
@@ -864,6 +906,7 @@ struct PreWorkoutBriefView: View {
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel("Registrar con una captura de otra app.")
             }
+            } // !isBenchmark — a benchmark has no manual paths: no measurement, no mark.
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.m)
@@ -876,6 +919,11 @@ struct PreWorkoutBriefView: View {
             )
             .ignoresSafeArea()
         )
+        // The erg connect gate: the same scan-and-pick sheet the brief's top card
+        // opens — one journey, whichever door you knock on.
+        .sheet(isPresented: $showErgConnect) {
+            PM5LiveStreamView(store: pm5)
+        }
     }
 
     private var ctaTitle: String {

@@ -191,6 +191,9 @@ enum FreeStep {
 // the runnable `WorkoutPlan` for the engine + the wire payload.
 @Observable
 final class FreeWorkoutDraft {
+    /// #Marcas — a benchmark attempt reuses this exact draft, but it is NOT an
+    /// "entreno libre" to the athlete: every label must say Benchmark.
+    var isBenchmark: Bool = false
     var modality: FreeModality? = nil
     var format: FreeFormat? = nil
 
@@ -323,7 +326,7 @@ final class FreeWorkoutDraft {
             targetZone: zone,
             loadKg: nil,
             targetRpe: nil,
-            blockTitle: "Libre",
+            blockTitle: isBenchmark ? "Benchmark" : "Libre",
             blockPosition: 1,
             videoUrl: nil,
             prescription: prescription
@@ -334,7 +337,7 @@ final class FreeWorkoutDraft {
             name: resolvedTitle,
             format: format.scheme,
             estimatedDurationSeconds: estimatedSeconds,
-            blockContext: "Libre · no prescrito",
+            blockContext: isBenchmark ? "Benchmark · a por tu marca" : "Libre · no prescrito",
             zoneTargets: [],
             equipment: [],
             segments: [segment],
@@ -499,9 +502,8 @@ struct BenchmarkTag {
     enum ValueKind { case time, distance }
     let slug: String
     let valueKind: ValueKind
-    /// "outdoor" | "treadmill" for run marks (the PR is kept per context — a belt
-    /// 5K never beats a street one). Nil for erg marks.
-    let runContext: String?
+    // Calle/cinta is NOT stored here: the brief's pre-start decides it and the
+    // session carries it — the save reads session.runEnvironment. One source.
 }
 
 // MARK: - FreeWorkoutPayload — the FROZEN free-save contract

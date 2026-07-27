@@ -68,8 +68,8 @@ private struct AttemptBody: Encodable {
 enum MarkAttemptAPI {
     static let path = "/api/athlete/marks/attempt"
 
-    static func submit(tag: BenchmarkTag, value: Double, bearer: String?) async {
-        let body = WireBody(slug: tag.slug, value: value, runContext: tag.runContext)
+    static func submit(slug: String, value: Double, runContext: String?, bearer: String?) async {
+        let body = WireBody(slug: slug, value: value, runContext: runContext)
         do {
             try await APIClient.shared.postRaw(path: path, body: body, bearer: bearer)
         } catch {

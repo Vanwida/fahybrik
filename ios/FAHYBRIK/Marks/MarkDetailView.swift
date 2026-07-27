@@ -21,7 +21,6 @@ struct MarkDetailView: View {
     @State private var bestBeforeAttempt: Double? = nil
     @State private var newMarkBanner: (label: String, deltaLabel: String?, improved: Bool)? = nil
 
-    @State private var showRunPreStart = false
     @State private var liveContext: FreeWorkoutContext? = nil
     @State private var showRegister = false
 
@@ -68,17 +67,6 @@ struct MarkDetailView: View {
         .navigationTitle(mark?.label ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        // Run marks: calle/cinta first — the same question every run gets asked.
-        .fullScreenCover(isPresented: $showRunPreStart) {
-            RunPreStartFlow(
-                sessionTitle: mark?.label ?? "",
-                onStart: { environment in
-                    showRunPreStart = false
-                    startAttempt(environment: environment)
-                },
-                onCancel: { showRunPreStart = false }
-            )
-        }
         .fullScreenCover(item: liveBinding) { boxed in
             WorkoutContainer(
                 assignmentId: nil,
@@ -302,13 +290,12 @@ struct MarkDetailView: View {
         if mark.measuredBy == "registered" {
             PrimaryButton(title: "Registrar carrera", enabled: !loading) { showRegister = true }
         } else {
+            // ONE pre-start for everyone, inside the brief: a run mark asks
+            // calle/cinta there (belt connect included) and an erg mark gates on
+            // the monitor connection. Asking here too would ask twice.
             PrimaryButton(title: "Probarme ahora", enabled: !loading) {
                 bestBeforeAttempt = comparableBest(mark)?.value
-                if mark.measuredBy == "run" {
-                    showRunPreStart = true
-                } else {
-                    startAttempt(environment: nil)
-                }
+                startAttempt()
             }
         }
     }
@@ -317,9 +304,8 @@ struct MarkDetailView: View {
         mark.group == "run" ? (mark.bestOutdoor ?? mark.bestTreadmill) : mark.best
     }
 
-    private func startAttempt(environment: RunEnvironment?) {
-        guard let mark, let context = BenchmarkLaunch.context(for: mark, environment: environment)
-        else { return }
+    private func startAttempt() {
+        guard let mark, let context = BenchmarkLaunch.context(for: mark) else { return }
         liveContext = context
     }
 
