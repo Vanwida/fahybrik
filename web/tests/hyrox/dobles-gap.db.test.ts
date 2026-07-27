@@ -153,6 +153,9 @@ describeWithDb('dobles-gap (real DB)', () => {
     expect(board.goal_s).toBe(GOAL);
     expect(typeof board.goal_label).toBe('string');
     expect(typeof board.predicted_total_s).toBe('number');
+    // Las lecturas derivadas van en el wire: la app las pinta, no las rehace.
+    expect(typeof board.gap_s).toBe('number');
+    expect(board.gap_s).toBe(board.predicted_total_s! - GOAL);
     expect(typeof board.partner_name).toBe('string');
     expect(board.partner_name).toBe('Partner');
     expect(typeof board.strategy_last_edited_by).toBe('string'); // coach author
@@ -169,6 +172,8 @@ describeWithDb('dobles-gap (real DB)', () => {
       expect(typeof s.key).toBe('string');
       expect(typeof s.budget_s).toBe('number');
       expect(typeof s.pair_predicted_s).toBe('number');
+      expect(typeof s.delta_s).toBe('number');
+      expect(s.delta_s).toBe(s.pair_predicted_s - s.budget_s);
       expect(Number.isInteger(s.budget_s)).toBe(true);
       expect(['together', 'self', 'partner', 'split']).toContain(s.carrier);
       expect(['observado', 'estimado', 'sin_datos']).toContain(s.tier);

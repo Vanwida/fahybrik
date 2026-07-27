@@ -40,11 +40,12 @@ final class DoblesRaceGapTests: XCTestCase {
       "goal_s": 3900,
       "goal_label": "Sub-65",
       "predicted_total_s": 4020,
+      "gap_s": 120,
       "segments": [
-        { "key": "run-1", "label_es": "Carrera · 1 km", "kind": "run", "station_index": null, "carrier": "together", "self_share": null, "budget_s": 240, "pair_predicted_s": 250, "self_solo_s": null, "partner_solo_s": null, "tier": "observado" },
-        { "key": "ski", "label_es": "SkiErg", "kind": "station", "station_index": 1, "carrier": "split", "self_share": 0.6, "budget_s": 240, "pair_predicted_s": 232, "self_solo_s": 220, "partner_solo_s": 250, "tier": "estimado" },
-        { "key": "sled_push", "label_es": "Sled Push", "kind": "station", "station_index": 2, "carrier": "self", "self_share": 1.0, "budget_s": 150, "pair_predicted_s": 174, "self_solo_s": 174, "partner_solo_s": 190, "tier": "observado" },
-        { "key": "roxzone", "label_es": "RoxZone", "kind": "roxzone", "station_index": null, "carrier": "together", "self_share": null, "budget_s": 360, "pair_predicted_s": 372, "self_solo_s": null, "partner_solo_s": null, "tier": "estimado" }
+        { "key": "run-1", "label_es": "Carrera · 1 km", "kind": "run", "station_index": null, "carrier": "together", "self_share": null, "budget_s": 240, "pair_predicted_s": 250, "delta_s": 10, "self_solo_s": null, "partner_solo_s": null, "tier": "observado" },
+        { "key": "ski", "label_es": "SkiErg", "kind": "station", "station_index": 1, "carrier": "split", "self_share": 0.6, "budget_s": 240, "pair_predicted_s": 232, "delta_s": -8, "self_solo_s": 220, "partner_solo_s": 250, "tier": "estimado" },
+        { "key": "sled_push", "label_es": "Sled Push", "kind": "station", "station_index": 2, "carrier": "self", "self_share": 1.0, "budget_s": 150, "pair_predicted_s": 174, "delta_s": 24, "self_solo_s": 174, "partner_solo_s": 190, "tier": "observado" },
+        { "key": "roxzone", "label_es": "RoxZone", "kind": "roxzone", "station_index": null, "carrier": "together", "self_share": null, "budget_s": 360, "pair_predicted_s": 372, "delta_s": 12, "self_solo_s": null, "partner_solo_s": null, "tier": "estimado" }
       ],
       "coach_tips": ["Salid conservadores el primer km.", "Guillem lidera trineos."],
       "strategy_last_edited_by": "Guillem"
@@ -64,6 +65,8 @@ final class DoblesRaceGapTests: XCTestCase {
         XCTAssertEqual(g.goalS, 3900)
         XCTAssertEqual(g.goalLabel, "Sub-65")
         XCTAssertEqual(g.predictedTotalS, 4020)
+        // El gap del hero llega HECHO del servidor; la app no lo recalcula.
+        XCTAssertEqual(g.gapS, 120)
         XCTAssertEqual(g.strategyLastEditedBy, "Guillem")
         XCTAssertEqual(g.coachTips.count, 2)
 
@@ -80,7 +83,7 @@ final class DoblesRaceGapTests: XCTestCase {
         XCTAssertEqual(ski.partnerSoloS, 250)    // Int
         XCTAssertEqual(ski.tier, "estimado")
         XCTAssertTrue(ski.isEditable)            // station + reparto + índice
-        XCTAssertEqual(ski.deltaS, 232 - 240)    // -8, dentro del objetivo
+        XCTAssertEqual(ski.deltaS, -8)           // del wire, no recalculado
 
         let run = try XCTUnwrap(g.segments.first { $0.key == "run-1" })
         XCTAssertNil(run.stationIndex)
@@ -136,40 +139,29 @@ final class DoblesRaceGapTests: XCTestCase {
         XCTAssertEqual(run.carrierChipText(partnerName: "Guillem"), "JUNTOS")
     }
 
-    // MARK: - Reparto math (live recompute + rounding)
+    // MARK: - Reparto math
 
-    func test_stationPairPredicted_weightedAverage() {
-        // 0.6·300 + 0.4·360 = 180 + 144 = 324
-        XCTAssertEqual(DoblesRepartoMath.stationPairPredicted(selfShare: 0.6, selfSoloS: 300, partnerSoloS: 360), 324)
-        // 50/50 → media exacta
-        XCTAssertEqual(DoblesRepartoMath.stationPairPredicted(selfShare: 0.5, selfSoloS: 300, partnerSoloS: 360), 330)
-    }
+    // La regla del reparto (media ponderada + clamp) y el carrier derivado del
+    // share viven en DoblesRepartoMathTests, clavados contra la tabla que
+    // comparte con el servidor.
 
-    func test_stationPairPredicted_rounds() {
-        // 0.55·301 + 0.45·360 = 165.55 + 162 = 327.55 → 328
-        XCTAssertEqual(DoblesRepartoMath.stationPairPredicted(selfShare: 0.55, selfSoloS: 301, partnerSoloS: 360), 328)
-        // Extremos = el tiempo individual puro
-        XCTAssertEqual(DoblesRepartoMath.stationPairPredicted(selfShare: 1.0, selfSoloS: 220, partnerSoloS: 250), 220)
-        XCTAssertEqual(DoblesRepartoMath.stationPairPredicted(selfShare: 0.0, selfSoloS: 220, partnerSoloS: 250), 250)
-    }
-
-    func test_carrierForShare() {
-        XCTAssertEqual(DoblesRepartoMath.carrier(forShare: 1.0), "self")
-        XCTAssertEqual(DoblesRepartoMath.carrier(forShare: 0.0), "partner")
-        XCTAssertEqual(DoblesRepartoMath.carrier(forShare: 0.5), "split")
-        XCTAssertEqual(DoblesRepartoMath.carrier(forShare: 0.05), "split")
-        XCTAssertEqual(DoblesRepartoMath.carrier(forShare: 0.95), "split")
-    }
-
-    // El total nuevo que muestra el editor: total − viejo + nuevo (swap del tramo).
-    func test_editorTotalRecompute() throws {
+    // La previsualización del editor: se calcula el tramo nuevo y ese
+    // desplazamiento se le suma a lo que dijo el SERVIDOR (total y gap). Nunca se
+    // recalcula el gap por separado, así el editor y el board no pueden discrepar.
+    func test_editorPreview_anclaEnLosNumerosDelServidor() throws {
         let g = try decode(validPayload)
         let ski = try XCTUnwrap(g.segments.first { $0.key == "ski" })
         // Reparto 0.6 → 0.5: nuevo tramo = 0.5·220 + 0.5·250 = 235.
         let newStation = DoblesRepartoMath.stationPairPredicted(selfShare: 0.5, selfSoloS: 220, partnerSoloS: 250)
         XCTAssertEqual(newStation, 235)
-        let newTotal = (g.predictedTotalS ?? 0) - ski.pairPredictedS + newStation
-        XCTAssertEqual(newTotal, 4020 - 232 + 235) // 4023
+
+        let delta = newStation - ski.pairPredictedS // +3
+        XCTAssertEqual(delta, 3)
+        XCTAssertEqual((g.predictedTotalS ?? 0) + delta, 4023)
+        XCTAssertEqual((g.gapS ?? 0) + delta, 123)
+        // Y ese gap previsualizado es el mismo que daría el total contra el
+        // objetivo: las dos rutas coinciden porque el servidor define ambas.
+        XCTAssertEqual((g.gapS ?? 0) + delta, (g.predictedTotalS ?? 0) + delta - (g.goalS ?? 0))
     }
 
     // MARK: - Encode (PUT de una sola estación editada)
