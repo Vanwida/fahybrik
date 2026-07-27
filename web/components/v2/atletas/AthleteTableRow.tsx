@@ -76,6 +76,19 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
             <span className="truncate">Pidió pausa</span>
           </Pill>
         ) : null}
+        {row.checkin_risk_sub != null ? (
+          <Pill
+            tone="danger"
+            variant="soft"
+            className="max-w-full"
+            title="El check-in de HOY viene en banda de riesgo"
+          >
+            <MIcon name="sentiment_dissatisfied" size={11} />
+            <span className="truncate">
+              Check-in <span className="font-mono">{row.checkin_risk_sub}</span>
+            </span>
+          </Pill>
+        ) : null}
       </div>
 
       {/* Fase actual — block span so `truncate` actually clips (an inline span

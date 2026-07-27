@@ -6,6 +6,7 @@
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { rosterStatus, type RosterStatus } from '@/lib/dashboard/v2/atletas-status';
+import { isCheckinRisk } from '@/lib/dashboard/coach/checkin-presentation';
 import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
 
@@ -34,6 +35,10 @@ export interface RosterRow {
   /** The athlete's open injury (#16) for the at-a-glance badge, null when none. The
    *  label + tone are derived at render (injuryBadge) so this stays pure data. */
   injury: { zone: InjuryZone; status: InjuryStatus } | null;
+  /** TODAY's check-in sub-score, only when it sits in the risk band (<40, the
+   *  adaptive-rule band) — drives the «Check-in N · hoy» chip. Null otherwise;
+   *  a bad check-in from yesterday never paints it (viejo ≠ hoy). */
+  checkin_risk_sub: number | null;
 }
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
@@ -69,5 +74,9 @@ export function toRosterRow(a: AthleteRow): RosterRow {
       ? PAUSE_REASON_LABELS[a.pause_request_reason]
       : null,
     injury: a.injury,
+    checkin_risk_sub:
+      a.checkin_today_sub != null && isCheckinRisk(a.checkin_today_sub)
+        ? a.checkin_today_sub
+        : null,
   };
 }

@@ -1,6 +1,12 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, startOfDayInBox, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import {
+  BOX_TIMEZONE,
+  addDays,
+  isoDateString,
+  startOfDayInBox,
+  startOfDayUtc,
+} from '@fahybrid/shared/domain/dates';
 import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
 import {
   loadProgrammingStatusMap,
@@ -85,6 +91,10 @@ export interface AthleteRow {
   /** The most relevant OPEN injury (#16) for the roster badge, null when none open.
    *  activa outranks en_recuperacion; resolved episodes never surface here. */
   injury: { zone: InjuryZone; status: InjuryStatus } | null;
+  /** Sub-score of TODAY's check-in (today resolved in the ATHLETE's timezone),
+   *  null when they haven't checked in today. Yesterday's check-in — however
+   *  bad — never surfaces here: viejo ≠ hoy. Drives the roster risk chip. */
+  checkin_today_sub: number | null;
 }
 
 export async function fetchAthletesForCoach(params: {
@@ -131,6 +141,7 @@ export async function fetchAthletesForCoach(params: {
       pause_request_reason: PauseReason | null;
       injury_zone: InjuryZone | null;
       injury_status: InjuryStatus | null;
+      checkin_today_sub: number | null;
     }>
   >`
     select
@@ -158,7 +169,8 @@ export async function fetchAthletesForCoach(params: {
       op.reason as open_pause_reason,
       pr.reason as pause_request_reason,
       inj.zone as injury_zone,
-      inj.status as injury_status
+      inj.status as injury_status,
+      ck.sub_score as checkin_today_sub
     from athletes a
     left join athlete_levels al on al.id = a.level_id
     left join lateral (
@@ -264,6 +276,16 @@ export async function fetchAthletesForCoach(params: {
       order by (status = 'activa') desc, onset_date desc, id desc
       limit 1
     ) inj on true
+    left join lateral (
+      -- «Cómo se encuentra»: TODAY's check-in sub-score, with "today" resolved in
+      -- the ATHLETE's timezone (fallback box tz) — never the server's zone, so an
+      -- evening check-in doesn't slide to "yesterday" (or the reverse) at UTC edges.
+      select c.sub_score::int as sub_score
+      from daily_checkins c
+      where c.athlete_id = a.id
+        and c.recorded_for = (now() at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
+      limit 1
+    ) ck on true
     where a.coach_id = ${params.coach_id}
       and (${modalityFilter}::text is null or sub.plan_type = ${modalityFilter})
     order by a.full_name asc
@@ -349,6 +371,7 @@ export async function fetchAthletesForCoach(params: {
         r.injury_zone != null && r.injury_status != null
           ? { zone: r.injury_zone, status: r.injury_status }
           : null,
+      checkin_today_sub: r.checkin_today_sub,
       target_race:
         r.target_race_name != null &&
         r.target_race_priority != null &&
