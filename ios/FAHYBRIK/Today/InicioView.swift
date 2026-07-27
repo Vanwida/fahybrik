@@ -295,13 +295,15 @@ struct InicioView: View {
                 onSubmitted: { _, _ in
                     checkinPending = false
                     showCheckin = false
-                    // A check-in changes today's readiness — pull it fresh.
-                    Task { await store.refreshReadiness(force: true) }
                 },
                 onSkipped: {
                     checkinPending = false
                     showCheckin = false
-                }
+                },
+                // A check-in changes today's readiness — but only AFTER the
+                // server ingests it. Refetching on submit raced the POST and
+                // showed the old score ("el check-in no hace nada").
+                onServerSynced: { await store.refreshReadiness(force: true) }
             )
         }
         .sheet(isPresented: $showBuscarCarrera) {
@@ -321,8 +323,8 @@ struct InicioView: View {
                     bearer: effectiveBearer,
                     onCheckinSubmitted: {
                         checkinPending = false
-                        Task { await store.refreshReadiness(force: true) }
-                    }
+                    },
+                    onCheckinServerSynced: { await store.refreshReadiness(force: true) }
                 )
             }
         }

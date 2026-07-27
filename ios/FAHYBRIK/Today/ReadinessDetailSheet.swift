@@ -19,9 +19,13 @@ struct ReadinessDetailSheet: View {
     /// Drives the hero-ring entrance animation. True in the app (gated by
     /// reduce-motion below); snapshots pass false for a deterministic final frame.
     var animateRing: Bool = true
-    /// A check-in submitted from here → the presenter refreshes readiness + clears
-    /// the pending flag (same closure the Inicio check-in uses).
+    /// A check-in submitted from here → the presenter clears the pending flag
+    /// immediately (device-local truth; dismissal never waits on the network).
     let onCheckinSubmitted: () -> Void
+    /// Fires once the server has the check-in — the presenter refetches
+    /// readiness HERE (refetching in `onCheckinSubmitted` raced the in-flight
+    /// POST and pulled the old score). Same contract as CheckinView.
+    var onCheckinServerSynced: () async -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -64,7 +68,8 @@ struct ReadinessDetailSheet: View {
                     showCheckin = false
                     onCheckinSubmitted()
                 },
-                onSkipped: { showCheckin = false }
+                onSkipped: { showCheckin = false },
+                onServerSynced: onCheckinServerSynced
             )
         }
     }

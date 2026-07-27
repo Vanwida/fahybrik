@@ -10,6 +10,12 @@ struct CheckinView: View {
     let bearer: String?
     let onSubmitted: (Int, CheckinSnapshot) -> Void
     let onSkipped: () -> Void
+    /// Fires AFTER the server has ingested (or definitively rejected) the
+    /// check-in — the moment a readiness refetch actually returns the recomputed
+    /// score. `onSubmitted` fires immediately (dismissal must never wait on the
+    /// network); refreshing readiness there raced the in-flight POST and
+    /// re-fetched the OLD score, which read as "el check-in no hace nada".
+    var onServerSynced: () async -> Void = {}
 
     var body: some View {
         ZStack {
@@ -152,9 +158,13 @@ struct CheckinView: View {
                 let snap = answers.snapshot(score: score)
                 CheckinStore.markCompleted(score: score)
                 let bearerCopy = bearer
-                Task { await CheckinAPI.submit(snap, bearer: bearerCopy) }
                 Haptics.success()
                 onSubmitted(score, snap)
+                let synced = onServerSynced
+                Task {
+                    await CheckinAPI.submit(snap, bearer: bearerCopy)
+                    await synced()
+                }
             }
 
             Button(action: {
