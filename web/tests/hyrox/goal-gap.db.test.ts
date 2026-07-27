@@ -8,7 +8,7 @@
  * the real result.
  *
  * SKIPPED unless TEST_DATABASE_URL is set (describeWithDb). Requires migrations
- * through 0121 (race_predictions) + the exercises catalog on the branch.
+ * through 0142 (races.is_synthetic) + the exercises catalog on the branch.
  */
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { buildGoalGap } from '@/lib/athlete/goal-gap';
@@ -194,5 +194,62 @@ describeWithDb('goal-gap (real DB)', () => {
     `;
     const noGoal = await buildGoalGap({ athlete_id: athleteId }, sql);
     expect(noGoal.availability).toBe('no_goal');
+  });
+
+  // 0142 — las carreras sembradas NO son evidencia de población. El cohorte es la
+  // única lectura de `races` que cruza atletas, así que es por donde un tiempo
+  // inventado se cuela en el presupuesto de un atleta real. Aquí hay 6 carreras
+  // completas pegadas al objetivo, todas is_synthetic, con una forma imposible
+  // (roxzone gigante): si el filtro se cayera, el cohorte se activaría y el
+  // presupuesto tomaría esa forma. Con el filtro solo queda la carrera propia.
+  test('el cohorte ignora las carreras sembradas (is_synthetic)', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    const seedFx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx, seedFx);
+
+    // Ventana propia (±10 % de 5400 → 4860..5940): fuera del alcance del resto
+    // de fixtures de la suite, que compiten en torno a 3600.
+    const SYNTH_GOAL = 5400;
+    const SYNTH_ROXZONE = 2000; // absurdo a propósito: delata la contaminación
+    const SYNTH_RUN = 1800;
+    const SYNTH_STATIONS = STATIONS.map((s) => ({ index: s.index, seconds: 200, rank: null }));
+    const SYNTH_RESULT = SYNTH_RUN + 200 * SYNTH_STATIONS.length + SYNTH_ROXZONE; // 5400
+
+    for (let i = 0; i < 6; i++) {
+      await sql`
+        insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+          race_date, result_time_seconds, run_total_seconds, roxzone_seconds,
+          run_splits_json, station_splits_json, status, source, is_synthetic)
+        values (${seedFx.athleteId}, ${`HYROX Sembrada ${i}`}, 'hyrox', 'singles', 'open', 'men', 'tune_up',
+          (current_date - 40), ${SYNTH_RESULT}, ${SYNTH_RUN}, ${SYNTH_ROXZONE},
+          ${sql.json([225, 225, 225, 225, 225, 225, 225, 225])}, ${sql.json(SYNTH_STATIONS)},
+          'completed', 'hyresult_import', true)
+      `;
+    }
+
+    // El atleta real: objetivo en la misma ventana + su propia carrera completa.
+    await sql`
+      insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+        race_date, goal_time_seconds, status, source)
+      values (${fx.athleteId}, 'HYROX Objetivo 90', 'hyrox', 'singles', 'open', 'men', 'target',
+        (current_date + 30), ${SYNTH_GOAL}, 'registered', 'manual')
+    `;
+    await sql`
+      insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+        race_date, result_time_seconds, run_total_seconds, roxzone_seconds,
+        run_splits_json, station_splits_json, status, source)
+      values (${fx.athleteId}, 'HYROX Propia 90', 'hyrox', 'singles', 'open', 'men', 'tune_up',
+        (current_date - 20), ${SYNTH_GOAL}, ${SYNTH_RUN}, ${ROXZONE},
+        ${sql.json([225, 225, 225, 225, 225, 225, 225, 225])}, ${sql.json(stationSplitsJson())},
+        'completed', 'hyrox_import')
+    `;
+
+    const board = await buildGoalGap({ athlete_id: fx.athleteId }, sql);
+
+    // Sin las 6 sembradas no se llega al mínimo de cohorte → manda su carrera.
+    expect(board.budget_source).toBe('tu_carrera');
+    // Y el presupuesto no arrastra la roxzone absurda del dato inventado.
+    const roxzone = board.segments.find((s) => s.slug === 'roxzone');
+    expect(roxzone!.budget_s).toBeLessThan(SYNTH_ROXZONE / 2);
   });
 });
