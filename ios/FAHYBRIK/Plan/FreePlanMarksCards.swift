@@ -91,7 +91,10 @@ struct FreePlanMarksCard: View {
                     if mark.id != measured.last?.id { Hairline().padding(.leading, 16) }
                 }
                 if !missing.isEmpty {
-                    Text("Te faltan por medir")
+                    // NO es una lista de deberes: cada fila dice qué DESBLOQUEA.
+                    // Pedir por pedir, después de que el atleta ya nos haya dado
+                    // sus carreras, es exactamente lo que hacía sorda la pantalla.
+                    Text("Lo que aún no hemos medido")
                         .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.faint)
                         .padding(.horizontal, 16)
@@ -167,26 +170,36 @@ struct FreePlanMarksCard: View {
         NavigationLink {
             MarkDetailView(slug: mark.slug, bearer: bearer, hrMaxSource: hrMaxSource)
         } label: {
-            HStack(spacing: Theme.Spacing.s) {
-                Text(mark.label)
-                    .scaledFont(13, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground.opacity(0.9))
-                    .lineLimit(1)
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mark.label)
+                        .scaledFont(13, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.foreground.opacity(0.9))
+                        .lineLimit(1)
+                    Text(FreePlanCopy.unlocks(mark))
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Spacer(minLength: 8)
-                Text(mark.approxLabel)
+                // "te lleva ~4-5 min": el catálogo manda la DURACIÓN del test, y
+                // suelta al lado del nombre se leía como si fuera SU marca.
+                Text(FreePlanCopy.takesAbout(mark))
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.faint)
                     .lineLimit(1)
+                    .padding(.top, 1)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.Color.faint)
+                    .padding(.top, 2)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(mark.label), aún sin medir. \(mark.approxLabel).")
+        .accessibilityLabel("\(mark.label), aún sin medir. \(FreePlanCopy.unlocks(mark)). \(FreePlanCopy.takesAbout(mark)).")
     }
 
     private func accessibilityLabel(_ mark: MarkView) -> String {
@@ -228,7 +241,30 @@ enum FreePlanCopy {
         case "ski": how = "Con el ski conectado, la app lo mide sola"
         default:    how = "Calle o cinta, la app lo mide sola"
         }
-        return "\(how) · \(mark.approxLabel)"
+        return "\(how) · \(takesAbout(mark))"
+    }
+
+    /// "te lleva ~4-5 min". El catálogo del servidor manda cuánto DURA el test
+    /// (`approx_label`); suelto junto al nombre de la marca se leía como si fuera
+    /// el tiempo del atleta. Una sola frase, aquí, para los dos sitios que lo usan.
+    static func takesAbout(_ mark: MarkView) -> String {
+        // Las distancias que se registran (10 km, media, maratón) no se miden en
+        // la app: su etiqueta ya es una instrucción, no una duración.
+        guard mark.measuredBy != "registered" else { return mark.approxLabel }
+        return "te lleva \(mark.approxLabel)"
+    }
+
+    /// Qué gana el atleta midiéndola. Una marca pendiente NO es una tarea suelta:
+    /// es la pieza que le falta al plan, y se dice cuál.
+    static func unlocks(_ mark: MarkView) -> String {
+        switch mark.erg {
+        case "row": return "Mídelo y tu semana gana la sesión de remo"
+        case "ski": return "Mídelo y tu semana gana la sesión de ski"
+        default: break
+        }
+        return mark.measuredBy == "registered"
+            ? "Apúntala y afinamos los ritmos de tu semana"
+            : "Mídelo y afinamos los ritmos de tu semana"
     }
 
     /// El nombre de la marca tal y como se lee dentro del botón ("Empezar por el 1 km").
