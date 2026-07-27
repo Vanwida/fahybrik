@@ -15,6 +15,40 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · Adjuntos del chat arreglados de RAÍZ (subida directa prefirmada)
+
+La foto de Alex seguía sin salir del iPhone. Causa raíz, probada contra
+producción: **la plataforma corta el body de cualquier función en ~4.5 MB**
+(`FUNCTION_PAYLOAD_TOO_LARGE`) antes de ejecutar una línea nuestra — y los
+adjuntos viajaban `cliente → función → Blob`. El modelo prometía fotos de
+30 MB y vídeos de 200 MB por una tubería que admite 4.5: mal desde la
+concepción, no un bug puntual.
+
+Arreglo (patrón estándar, cero servicios nuevos): el servidor valida y
+**prefirma** una URL de subida (`issueSignedToken` + `presignUrl` del
+`@vercel/blob` que ya usamos) atada a UN pathname, con tope de bytes y
+caducidad; el cliente hace un **PUT plano directo al almacén**. Blob privado y
+proxy autenticado de lectura, sin cambios. Muere la ruta multipart
+(`/api/chat/upload`) y el fallback a disco de desarrollo. Nueva ruta:
+`/api/chat/upload-url`; clientes web e iOS migrados (iOS ya instalado en el
+iPhone de pruebas por cable).
+
+Verificado E2E contra producción con un atleta desechable (borrado después):
+foto de **27.7 MB** enviada desde el compositor del dashboard y servida entera
+por el proxy (4200×3150), y **PUT de 120 MB** (tope vídeo) directo al almacén
+en 12.6 s. El tope firmado se aplica (403 al pasarse), la URL cruda del blob
+sigue siendo privada (403) y cada URL de subida es de un solo uso.
+
+**Herencia del bug, pendiente de decisión de Alex:** auditados los 10 adjuntos
+históricos contra el almacén — 9 son punteros muertos (mensajes 4-63, hilo 260;
+los bytes nunca se guardaron, irrecuperables). ¿Se purgan esas burbujas?
+
+También: el banner "Activar avisos" de /mensajes estrangulaba el texto a una
+palabra por línea (fila única en columna de 300px) → texto a lo ancho y botón
+debajo.
+
+---
+
 ## Cerrado el 27-jul · El dashboard en el bolsillo del coach (PWA + avisos)
 
 Ni Pablo ni Gerard van a vivir pegados al dashboard. Ahora **app.fahybrid.com
