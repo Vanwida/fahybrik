@@ -47,6 +47,65 @@ actor RequestQueue {
         self.fileURL = dir.appendingPathComponent(filename)
     }
 
+    /// Replay window. An entry older than this is dropped instead of replayed:
+    /// days-old wellness/workout submissions landing out of the blue would
+    /// mislead the coach's "what happened this week" more than help it, and any
+    /// genuinely-offline stretch worth recovering (a weekend without signal)
+    /// fits well inside it.
+    private static let maxEntryAge: TimeInterval = 72 * 3600
+
+    /// Re-entrance guard: drain is fired from several places (launch, bearer
+    /// change, foreground) and must never interleave two replay loops.
+    private var draining = false
+
+    /// Replays queued entries FIFO with the CURRENT session bearer (the stored
+    /// one may have rotated or died since capture; a single-athlete device means
+    /// the live token is always the right owner).
+    ///
+    /// This is the missing half of "offline-first": every feature enqueued its
+    /// transient failures "for replay" but nothing ever drained the queue, so
+    /// the file was durable capture with no delivery — data loss with extra
+    /// steps (found 27-jul-2026 while tracing check-ins that never reached the
+    /// server). Outcome per entry:
+    ///   • 2xx → delivered, removed.
+    ///   • deterministic 4xx (not 401) → poison, dropped (replaying forever
+    ///     can't fix a bad request; matches the enqueue-side gate).
+    ///   • 401 → the SESSION is dead, not the entry: stop, keep everything —
+    ///     the next drain after re-auth delivers with the live token.
+    ///   • offline / 5xx / timeout → transient: stop, keep order, retry on the
+    ///     next drain.
+    func drain(bearer: String?) async {
+        guard !draining else { return }
+        draining = true
+        defer { draining = false }
+
+        await loadIfNeeded()
+        while let entry = entries.first {
+            if Date().timeIntervalSince(entry.createdAt) > Self.maxEntryAge {
+                entries.removeFirst()
+                persist()
+                continue
+            }
+            do {
+                try await APIClient.shared.postJSONData(
+                    path: entry.path,
+                    data: entry.bodyJson,
+                    bearer: bearer ?? entry.bearer
+                )
+                entries.removeFirst()
+                persist()
+            } catch {
+                if case APIError.http(let code, _) = error, (400..<500).contains(code) {
+                    if code == 401 { return }
+                    entries.removeFirst()
+                    persist()
+                    continue
+                }
+                return
+            }
+        }
+    }
+
     func enqueue(path: String, body: Data, bearer: String? = nil) async {
         await loadIfNeeded()
         let r = QueuedRequest(

@@ -112,6 +112,27 @@ actor APIClient {
         let _: Empty = try await post(path: path, body: body, bearer: bearer)
     }
 
+    /// POST a pre-encoded JSON body EXACTLY as stored. The offline RequestQueue
+    /// persists the original encoded bytes, so its replay must send them
+    /// verbatim — never re-encode (the in-memory DTO that produced them is
+    /// long gone). Success is any 2xx; the body is ignored.
+    func postJSONData(
+        path: String,
+        data: Data,
+        bearer: String? = nil
+    ) async throws {
+        var req = URLRequest(url: Self.requestURL(path: path))
+        req.httpMethod = "POST"
+        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        req.httpBody = data
+
+        let (respData, http) = try await perform(req)
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(http.statusCode, respData)
+        }
+    }
+
     /// PATCH with a JSON body. Mirrors `post(...)` exactly, differing only in
     /// the HTTP method. Used by the athlete profile-edit flow.
     func patch<TBody: Encodable, TResp: Decodable>(

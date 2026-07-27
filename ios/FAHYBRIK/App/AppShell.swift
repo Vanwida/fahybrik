@@ -35,6 +35,11 @@ struct AppShell: View {
     @Environment(AuthState.self) private var auth
     private var bearer: String? { auth.bearer }
 
+    // Drives the offline-queue drain on return to foreground — captured work
+    // (check-ins, executions, sync batches) must chase connectivity, not wait
+    // for the next cold launch.
+    @Environment(\.scenePhase) private var scenePhase
+
     // The shared, cache-first data layer. Created ONCE here and injected via
     // `.environment` so it survives tab switches — Inicio / Plan / Perfil read
     // their data from it and never re-fetch (or spin) just because their tab was
@@ -94,6 +99,15 @@ struct AppShell: View {
             store.onUnauthorized = { auth.handleUnauthorized() }
             store.activate(bearer: bearer)
             await store.warm()
+            // Deliver whatever the offline queue captured in earlier sessions,
+            // with the live token (see RequestQueue.drain).
+            if bearer != nil {
+                await RequestQueue.shared.drain(bearer: bearer)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, let bearer else { return }
+            Task { await RequestQueue.shared.drain(bearer: bearer) }
         }
         .onAppear {
             handlePushDestination(pushRouter.pendingDestination)
