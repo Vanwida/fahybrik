@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · El alta free CREA cuenta — pero solo detrás de FREE_SIGNUP, y el login sigue siendo find-only
+
+**Decidido:** el signup del tier free invierte la decisión «LOGIN NEVER CREATES» en los dos caminos de atleta (código por email y Sign in with Apple), pero SOLO cuando `FREE_SIGNUP=1` (producción no define la variable → comportamiento actual intacto). La creación vive en UNA función (`web/lib/auth/free-signup.ts#createFreeAthlete`), compartida por ambos caminos: crea `users` + `athletes` con `coach_id` NULL (nullable desde 0001), converge sobre una cuenta existente solo con email PROBADO (buzón que recibió el código, o `email_verified` de Apple), rechaza cuentas sin fila de atleta (un coach jamás recibe una identidad de atleta por el alta free) y jamás re-apunta un `apple_user_id` ajeno. Todas las respuestas que emiten el shape de sesión de atleta (verify, apple, invite/redeem, partner/redeem) llevan ahora `has_coach` (aditivo, derivado de `athletes.coach_id`).
+
+**Se descarta:** la migración `0141_athlete_birth_date.sql`. La fecha de nacimiento YA existe: `athletes.dob date` desde `0001_init.sql:143`, escrita y validada por `PATCH /api/athlete/profile` y leída por iOS. Una columna `birth_date` habría duplicado el concepto con dos fuentes de verdad. Las divisiones por edad del ranking free se derivan de `dob`.
+
+**En consecuencia, no hacer:** no crear ninguna columna nueva de nacimiento; no añadir un segundo camino de creación de atletas fuera de `createFreeAthlete` (las reglas anti-takeover viven ahí); no condicionar `has_coach` al flag (es señal aditiva para todos); y no rellenar `dob`/`sex` con placeholders en el alta — quedan NULL hasta que el atleta los dé en onboarding.
+
+---
+
 ## 2026-07-27 · El check-in del atleta se enseña al coach ESPEJADO y con una sola banda de riesgo
 
 **Decidido:** el contenido del check-in diario (las 5 respuestas, la nota, la bandera adaptativa) se pinta al coach en la ficha del atleta (Plan, bajo el tile de Readiness) y como chip de roster. Tres reglas de dominio, no de estética: (1) **espejado exacto** — soreness y fatigue se almacenan invertidas (5 = peor) pero el atleta respondió preguntas positivas («Recuperación muscular», «Energía»); toda superficie de coach muestra el valor YA girado (5 = mejor, siempre), y la inversión vive en UN sitio (`web/lib/dashboard/coach/checkin-presentation.ts`). (2) **Una sola banda de riesgo** — el umbral del chip (<40) es la MISMA constante que dispara la regla adaptativa de `lib/sync/checkin.ts`; jamás dos números que deriven por separado. (3) **Frescura honesta** — «hoy/ayer/hace N días» se resuelve en la zona horaria del atleta; un check-in viejo se muestra fechado y atenuado, y el chip de roster solo existe para el check-in de HOY (uno malo de ayer no pinta nada); los huecos de la racha de 7 días son huecos, nunca ceros.
