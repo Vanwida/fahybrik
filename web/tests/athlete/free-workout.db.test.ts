@@ -21,7 +21,12 @@ import type { Measure, Prescription } from '@fahybrid/shared/domain/prescription
 import { createFreeWorkout } from '@/lib/athlete/create-free-workout';
 import { loadAthleteExerciseCatalog } from '@/lib/athlete/exercise-catalog';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
-import { makeCoachAndAthlete, makeExercise, type Fixture } from '../utils/db-fixtures';
+import {
+  makeCoachAndAthlete,
+  makeExercise,
+  makeFreeAthlete,
+  type Fixture,
+} from '../utils/db-fixtures';
 
 /** Typed prescription builder — contextual typing narrows the literal unions. */
 const p = (pres: Prescription): Prescription => pres;
@@ -189,6 +194,53 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
     expect(segs.every((s) => s.prescription_json.scheme === 'amrap')).toBe(true);
     // Coherence: every functional movement is stamped modality 'functional'.
     expect(segs.every((s) => s.prescription_json.modality === 'functional')).toBe(true);
+  }, DB_TIMEOUT);
+
+  test('FREE athlete (no coach) saves the libre — athlete-owned instance, zero coach surface', async () => {
+    // Requires migration 0141 (templates_owner_chk) on the branch. Against a
+    // pre-0141 branch this test is RED (templates.coach_id NOT NULL rejects the
+    // insert) — expected until the migration is applied on deploy.
+    const fx = await makeFreeAthlete(sql);
+    cleanups.push(fx.cleanup);
+    // BASE exercise (coach_id null) — the only catalog a coachless athlete sees.
+    const press = await makeExercise({ fx, name: 'Push Press', modality: 'strength', category: 'strength' });
+
+    const result = await createFreeWorkout({
+      athleteId: fx.athleteId,
+      coachId: null,
+      title: 'Libre free',
+      scheme: 'sets',
+      metrics: { perceived_exertion: 6 },
+      kind: 'items',
+      items: [
+        {
+          exerciseId: press,
+          prescription: p({ scheme: 'sets', sets: [{ measure: { kind: 'reps', value: 8 } }] }),
+        },
+      ],
+      sql,
+    });
+
+    // Created exactly like the coached path: self-origin, today, recorded.
+    const asg = await readAssignment(Number(result.assignment_id));
+    expect(asg.origin).toBe('self');
+    expect(asg.status).toBe('completed');
+    expect(asg.scheduled_for).toBe(isoDateString(startOfDayInBox(new Date())));
+
+    // The instance template is ATHLETE-owned: no coach behind it (0141).
+    const tpl = await sql<Array<{ coach_id: string | null; iaid: string | null }>>`
+      select coach_id::text as coach_id, instance_athlete_id::text as iaid
+      from templates where id = ${Number(asg.template_id)} limit 1
+    `;
+    expect(tpl[0]!.coach_id).toBeNull();
+    expect(Number(tpl[0]!.iaid)).toBe(fx.athleteId);
+
+    // Zero notification: no coach → the attention recompute no-ops, so no
+    // workout_libre (nor any) attention row ever appears for this athlete.
+    const attention = await sql<Array<{ n: number }>>`
+      select count(*)::int as n from coach_attention_items where athlete_id = ${fx.athleteId}
+    `;
+    expect(attention[0]!.n).toBe(0);
   }, DB_TIMEOUT);
 
   test('unknown exercise id → exercise_not_found (nothing persisted)', async () => {

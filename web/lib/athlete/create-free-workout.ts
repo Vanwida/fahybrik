@@ -101,7 +101,11 @@ interface ItemsInput {
 
 export type CreateFreeWorkoutInput = {
   athleteId: number;
-  coachId: number;
+  /** Null for a FREE athlete (athletes.coach_id null): the instance template is
+   *  athlete-owned (templates_owner_chk, mig 0141), exercise resolution falls
+   *  back to the BASE catalog (visibleToCoach) and the post-commit attention
+   *  recompute no-ops — there is no coach to surface the libre to. */
+  coachId: number | null;
   title: string;
   /** The `templates.format` to persist — an already-validated scheme. */
   scheme: string;
