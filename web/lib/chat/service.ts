@@ -379,7 +379,7 @@ export async function sendMessage(args: {
       ${input.body ?? null},
       ${input.attachment_url ?? null},
       ${input.attachment_kind ?? null},
-      ${input.attachment_meta ? JSON.stringify(input.attachment_meta) : null}::jsonb
+      ${input.attachment_meta ? client.json(input.attachment_meta) : null}
     )
     returning ${messageColumns(client)}
   `;
