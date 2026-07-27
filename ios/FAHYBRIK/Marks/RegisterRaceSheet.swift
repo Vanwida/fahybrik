@@ -101,10 +101,20 @@ struct RegisterRaceSheet: View {
         }
     }
 
+    /// El identificador interno de la fuente, dicho como lo diría una persona.
+    private func deviceLabel(_ source: String) -> String {
+        switch source.lowercased() {
+        case "healthkit": return "de tu Apple Watch"
+        case "polar": return "de tu Polar"
+        case "garmin": return "de tu Garmin"
+        default: return "de tu reloj"
+        }
+    }
+
     private func candidateSubtitle(_ candidate: RegisterCandidate) -> String {
         var parts: [String] = []
         if let rel = MarkFormat.relative(candidate.startedAt) { parts.append(rel) }
-        if let source = candidate.source, !source.isEmpty { parts.append(source.capitalized) }
+        if let source = candidate.source, !source.isEmpty { parts.append(deviceLabel(source)) }
         return parts.joined(separator: " · ")
     }
 

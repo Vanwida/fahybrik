@@ -25,9 +25,9 @@ struct MarksLibraryView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, Theme.Spacing.xl)
                     } else {
-                        group("Correr · GPS o cinta", items: marks.filter { $0.group == "run" })
-                        group("Ergo · lo mide el PM5", items: marks.filter { $0.group == "ergo" })
-                        group("Carreras · se registran", items: marks.filter { $0.group == "race" })
+                        group("Correr", items: marks.filter { $0.group == "run" })
+                        group("Remo y SkiErg", items: marks.filter { $0.group == "ergo" })
+                        group("Carreras", items: marks.filter { $0.group == "race" })
                     }
                     if let error {
                         Text(error)
@@ -120,7 +120,7 @@ struct MarksLibraryView: View {
     /// mark did not come from the athlete themself.
     private func sublabel(_ mark: MarkView) -> String {
         guard let latest = mark.latest else {
-            return mark.measuredBy == "registered" ? "nunca registrada" : "nunca probado · \(mark.approxLabel)"
+            return mark.measuredBy == "registered" ? "Aún sin tiempo" : "Aún sin marca · \(mark.approxLabel)"
         }
         var parts: [String] = []
         if let rel = MarkFormat.relative(latest.recordedAt) { parts.append(rel) }

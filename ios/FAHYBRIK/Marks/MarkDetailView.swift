@@ -262,9 +262,9 @@ struct MarkDetailView: View {
 
     private func historyTag(_ result: MarkResult) -> String {
         switch result.source {
-        case "coach_test": return "test del coach"
+        case "coach_test": return "test con tu coach"
         case "registered": return result.eventName ?? "carrera registrada"
-        case "onboarding": return "declarado al entrar"
+        case "onboarding": return "de cuando entraste"
         default:
             switch result.runContext {
             case "treadmill": return "en cinta"

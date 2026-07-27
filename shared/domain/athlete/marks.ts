@@ -141,7 +141,7 @@ export const MARKS: readonly MarkSpec[] = [
     target_distance_m: 1000,
     erg: 'row',
     race_station_index: 10, // RowErg is the 5th station → slot 10 of 16
-    approx_label: '~4 min · la estación de carrera',
+    approx_label: '~4 min · como en HYROX',
   },
   {
     slug: BENCH_SKI_1K,
@@ -155,7 +155,7 @@ export const MARKS: readonly MarkSpec[] = [
     target_distance_m: 1000,
     erg: 'ski',
     race_station_index: 2, // SkiErg opens the race → slot 2 of 16
-    approx_label: '~4 min · la estación de carrera',
+    approx_label: '~4 min · como en HYROX',
   },
   // Carreras — not measured by the app: registered after the fact.
   {
@@ -168,7 +168,7 @@ export const MARKS: readonly MarkSpec[] = [
     min_value: 1500, // 25:00
     max_value: 9000, // 2h30
     target_distance_m: 10000,
-    approx_label: 'se registra',
+    approx_label: 'Apúntala cuando la corras',
   },
   {
     slug: BENCH_RUN_HALF,
@@ -180,7 +180,7 @@ export const MARKS: readonly MarkSpec[] = [
     min_value: 3300, // 55:00
     max_value: 16200, // 4h30
     target_distance_m: 21097,
-    approx_label: 'se registra',
+    approx_label: 'Apúntala cuando la corras',
   },
   {
     slug: BENCH_RUN_MARATHON,
@@ -192,7 +192,7 @@ export const MARKS: readonly MarkSpec[] = [
     min_value: 6900, // 1h55
     max_value: 30000, // 8h20
     target_distance_m: 42195,
-    approx_label: 'se registra',
+    approx_label: 'Apúntala cuando la corras',
   },
 ];
 
