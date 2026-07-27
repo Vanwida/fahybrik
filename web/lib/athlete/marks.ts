@@ -18,6 +18,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { notifyCoach } from '@/lib/notifications/dispatch';
+import { loadMarkBoxViews, type MarkBoxView } from '@/lib/athlete/marks-box';
 import {
   MARKS,
   isPersonalBest,
@@ -60,6 +61,9 @@ export interface MarkView {
   history: MarkResultView[];
   /** The race twin (station marks only): the same distance inside their last race. */
   race_twin: { seconds: number; race_name: string; race_date: string } | null;
+  /** Where this mark sits inside the coach's roster (mockup marcas-ranking):
+   *  percentile + anonymous histogram + median gap. null = no comparable pool. */
+  box: MarkBoxView | null;
 }
 
 const HISTORY_CAP = 24;
@@ -69,7 +73,7 @@ export async function loadMarksOverview(
   client: Sql = defaultSql,
 ): Promise<{ marks: MarkView[] }> {
   const slugs = MARKS.map((m) => m.slug);
-  const [rows, twins] = await Promise.all([
+  const [rows, twins, boxViews] = await Promise.all([
     client<
       {
         exercise_slug: string;
@@ -87,6 +91,8 @@ export async function loadMarksOverview(
       order by recorded_at desc
     `,
     loadRaceTwins(athlete_id, client),
+    // Best-effort: the box standing must never take the library down.
+    loadMarkBoxViews({ athlete_id, client }).catch(() => new Map<string, MarkBoxView>()),
   ]);
 
   const bySlug = new Map<string, MarkResultView[]>();
@@ -123,6 +129,7 @@ export async function loadMarksOverview(
       best_treadmill: spec.group === 'run' ? pickBest(spec, history, 'treadmill') : null,
       history,
       race_twin: spec.race_station_index != null ? (twins.get(spec.race_station_index) ?? null) : null,
+      box: boxViews.get(spec.slug) ?? null,
     };
   });
 
