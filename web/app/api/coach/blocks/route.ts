@@ -1,6 +1,6 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { createBlock, listBlocks } from '@/lib/dashboard/coach/blocks';
+import { BlockError, createBlock, listBlocks } from '@/lib/dashboard/coach/blocks';
 import { blockWriteSchema } from '@fahybrid/shared/schema/blocks';
 
 export const runtime = 'nodejs';
@@ -47,6 +47,11 @@ export async function POST(req: Request) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const id = await createBlock(session.coach_id, parsed.data);
-  return jsonOk({ id }, 201);
+  try {
+    const id = await createBlock(session.coach_id, parsed.data);
+    return jsonOk({ id }, 201);
+  } catch (err) {
+    if (err instanceof BlockError) return jsonError(err.code, err.message, err.status);
+    throw err;
+  }
 }

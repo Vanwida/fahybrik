@@ -1,6 +1,7 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import {
+  BlockError,
   getBlockById,
   getBlockExerciseItems,
   updateBlock,
@@ -67,10 +68,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const updated = await updateBlock(session.coach_id, block_id, parsed.data);
-  if (!updated) return jsonError('not_found', 'Bloque no encontrado', 404);
-
-  return jsonOk({ block: updated });
+  try {
+    const updated = await updateBlock(session.coach_id, block_id, parsed.data);
+    if (!updated) return jsonError('not_found', 'Bloque no encontrado', 404);
+    return jsonOk({ block: updated });
+  } catch (err) {
+    if (err instanceof BlockError) return jsonError(err.code, err.message, err.status);
+    throw err;
+  }
 }
 
 // PUT /api/coach/blocks/[id] — FULL replace of a library block: its editable
@@ -99,8 +104,12 @@ export async function PUT(req: Request, ctx: Ctx) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const block = await updateBlockFull(session.coach_id, block_id, parsed.data);
-  if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
-
-  return jsonOk({ block });
+  try {
+    const block = await updateBlockFull(session.coach_id, block_id, parsed.data);
+    if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
+    return jsonOk({ block });
+  } catch (err) {
+    if (err instanceof BlockError) return jsonError(err.code, err.message, err.status);
+    throw err;
+  }
 }

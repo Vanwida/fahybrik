@@ -103,6 +103,30 @@ export function visibleToCoach(client: Client, coachId: bigint | number | null) 
 }
 
 /**
+ * Which of `ids` are NOT visible to this coach — they don't exist, or they are
+ * another coach's PROPIO. Every service that persists a CLIENT-supplied
+ * exercise_id (import synonyms, template segments, block exercises) refuses on
+ * a non-empty result, and turns both causes into the SAME rejection so it never
+ * reveals which. One shared query so the visibility rule is never restated.
+ */
+export async function invisibleExerciseIds(
+  client: Client,
+  coachId: bigint | number | null,
+  ids: Array<number | bigint>,
+): Promise<number[]> {
+  const unique = [...new Set(ids.map((id) => Number(id)))];
+  if (unique.length === 0) return [];
+  const visible = await client<Array<{ id: string }>>`
+    select e.id::text as id
+    from exercises e
+    where e.id = any(${unique}::bigint[])
+      and ${visibleToCoach(client, coachId)}
+  `;
+  const visibleSet = new Set(visible.map((r) => Number(r.id)));
+  return unique.filter((id) => !visibleSet.has(id));
+}
+
+/**
  * The LEFT JOIN that attaches a coach's override to a query exposing the exercise
  * row under alias `e`. `coachId` null → matches nothing and the base values stand.
  * Binds the override under alias `ceo`, which the helpers below read.

@@ -1,7 +1,7 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { joinCoachOverride } from '@/lib/exercises/coach-override';
+import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
 import {
@@ -15,6 +15,44 @@ import {
 } from '@fahybrid/shared/domain/prescription';
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
+
+export class BlockError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'BlockError';
+  }
+}
+
+/**
+ * Gate for CLIENT-supplied exercise ids on block writes (same rule as template
+ * segments / import synonyms): every one must be visible to this coach — base
+ * catalog or their own PROPIO, never another coach's. Nonexistent and foreign
+ * are the SAME rejection.
+ */
+async function assertBlockExercisesVisible(
+  client: AnySql,
+  coach_id: number | bigint,
+  exercises: BlockWrite['exercises'],
+): Promise<void> {
+  const missing = await invisibleExerciseIds(
+    client,
+    coach_id,
+    exercises.map((e) => e.exercise_id),
+  );
+  if (missing.length > 0) {
+    throw new BlockError(
+      'invalid_exercise',
+      missing.length === 1
+        ? '1 ejercicio no existe o no es tuyo.'
+        : `${missing.length} ejercicios no existen o no son tuyos.`,
+      404,
+    );
+  }
+}
 
 // Blocks library (Biblioteca de Bloques) — a coach's reusable training blocks
 // (migration 0037). One block = one concrete prescription stored verbatim,
@@ -361,6 +399,22 @@ export async function updateBlock(
   patch: BlockUpdate,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
+  // Level range guard: min/max_level_id are FKs to athlete_levels, which are
+  // PER-COACH content — a crafted id must never tag a block with another club's
+  // level (same rule as createMonthTemplateWithEmptyWeeks).
+  const levelIds = [...new Set([patch.min_level_id, patch.max_level_id].filter(
+    (v): v is number => v != null,
+  ))];
+  if (levelIds.length > 0) {
+    const owned = await client<Array<{ id: string }>>`
+      select id::text from athlete_levels
+      where coach_id = ${Number(coachId)} and id = any(${levelIds}::bigint[])
+    `;
+    if (owned.length !== levelIds.length) {
+      throw new BlockError('invalid_level', 'El nivel no pertenece a este coach', 400);
+    }
+  }
+
   const assignments = [];
   if (patch.title !== undefined) assignments.push(client`title = ${patch.title}`);
   if (patch.description !== undefined) assignments.push(client`description = ${patch.description}`);
@@ -479,6 +533,7 @@ export async function createBlock(
       returning id::text as id
     `;
     blockId = Number(rows[0]!.id);
+    await assertBlockExercisesVisible(tx, coachId, input.exercises);
     await insertBlockExercises(tx, blockId, input.exercises);
   });
   return blockId;
@@ -545,6 +600,9 @@ export async function updateBlockFull(
     const r = rows[0];
     if (!r) return; // not found → leave updated null; tx commits no-op
     updated = r;
+    // Gate BEFORE the delete: an invalid body must leave the block intact (the
+    // throw rolls the whole tx back, including the field update above).
+    await assertBlockExercisesVisible(tx, coachId, input.exercises);
     await tx`delete from block_exercises where block_id = ${blockId}`;
     await insertBlockExercises(tx, blockId, input.exercises);
   });

@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { joinCoachOverride } from '@/lib/exercises/coach-override';
+import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 import { templateFormat, targetBlock } from '@fahybrid/shared/schema/_primitives';
@@ -312,6 +312,7 @@ export async function createTemplate(params: {
     templateId = rows[0]!.id;
 
     if (body.segments && body.segments.length > 0) {
+      await assertSegmentExercisesVisible(tx, params.coach_id, body.segments);
       await insertSegments(tx, Number(templateId), body.segments);
     }
   });
@@ -388,12 +389,42 @@ export async function updateTemplate(params: {
     `;
 
     if (body.segments !== undefined) {
+      if (body.segments.length > 0) {
+        // Gate BEFORE the delete: an invalid body must leave the template intact.
+        await assertSegmentExercisesVisible(tx, params.coach_id, body.segments);
+      }
       await tx`delete from template_segments where template_id = ${Number(params.template_id)}`;
       if (body.segments.length > 0) {
         await insertSegments(tx, Number(params.template_id), body.segments);
       }
     }
   });
+}
+
+/**
+ * Gate for CLIENT-supplied segment exercise ids (same rule as the import
+ * confirm): every one must be visible to this coach — base catalog or their own
+ * PROPIO, never another coach's. Nonexistent and foreign are the SAME rejection.
+ */
+async function assertSegmentExercisesVisible(
+  client: AnySql,
+  coach_id: number | bigint,
+  segments: TemplateSegmentInput[],
+): Promise<void> {
+  const missing = await invisibleExerciseIds(
+    client,
+    coach_id,
+    segments.map((s) => s.exercise_id),
+  );
+  if (missing.length > 0) {
+    throw new TemplateError(
+      'invalid_exercise',
+      missing.length === 1
+        ? '1 ejercicio no existe o no es tuyo.'
+        : `${missing.length} ejercicios no existen o no son tuyos.`,
+      404,
+    );
+  }
 }
 
 async function insertSegments(
