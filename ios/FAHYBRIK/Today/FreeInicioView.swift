@@ -12,8 +12,12 @@ import SwiftUI
 //   2. ¿TE PRUEBAS? — the existing «Probarme» library (MarksLibraryView),
 //      with the athlete's real mark count / last-mark recency when loaded.
 //   3. TU SEMANA — a 7-day strip of REAL executions from the week payload
-//      (their logged "Libre" sessions), plus today's finished sessions as
-//      reopenable "Hecho hoy" rows.
+//      (their logged "Libre" sessions) that is NAVIGABLE: tapping a day opens
+//      what he trained that day, right under the bars, and each session opens
+//      the detail the coached app already uses (ExecutedWorkoutView for a
+//      finished one, WorkoutContainer for one still pending). Today is the
+//      day selected on arrival — which is why there is no separate "Hecho hoy"
+//      card: it would repeat the same rows twice.
 //
 // Every value is real data or an honest empty state — nothing fabricated.
 struct FreeInicioView: View {
@@ -23,8 +27,14 @@ struct FreeInicioView: View {
     var onOpenTab: ((AppTab) -> Void)? = nil
 
     @State private var showFreeBuilder = false
-    // A finished session tapped from "Hecho hoy" — read-only executed detail.
+    // A finished session tapped in the week — read-only executed detail.
     @State private var executedLaunch: WorkoutLaunch? = nil
+    // A still-pending session tapped in the week — the same brief the coached
+    // app opens to do it.
+    @State private var workoutLaunch: WorkoutLaunch? = nil
+    // The day of the strip the athlete is looking at. Nil = today (the default
+    // on arrival); a tap pins another day.
+    @State private var selectedIso: String? = nil
     // The «Probarme» library, self-loaded for the card's real-data subtitle.
     @State private var marks: [MarkView] = []
     // Drives the one orchestrated staggered reveal of the cards on appear.
@@ -51,10 +61,8 @@ struct FreeInicioView: View {
                             .staggerReveal(revealed, index: 2)
                         marksCard
                             .staggerReveal(revealed, index: 3)
-                        hechoHoySection
-                            .staggerReveal(revealed, index: 4)
                         weekCard
-                            .staggerReveal(revealed, index: 5)
+                            .staggerReveal(revealed, index: 4)
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.s)
@@ -79,13 +87,28 @@ struct FreeInicioView: View {
             )
         }
         .fullScreenCover(item: $executedLaunch) { launch in
-            // Read-only detail of a session already DONE today (what was logged).
+            // Read-only detail of a session already DONE (what was logged).
             ExecutedWorkoutView(
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
                 onClose: { executedLaunch = nil },
                 onStale: { Task { await store.planMutated() } }
+            )
+        }
+        .fullScreenCover(item: $workoutLaunch) { launch in
+            // A session of the week still pending — the same brief/execution flow
+            // the coached Plan opens. Nothing free-specific is re-implemented.
+            WorkoutContainer(
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
+                bearer: bearer,
+                hrMaxSource: identity?.hrMaxSource,
+                onClose: { workoutLaunch = nil },
+                onCompleted: { _ in
+                    workoutLaunch = nil
+                    Task { await store.planMutated() }
+                }
             )
         }
         .onAppear {
@@ -207,7 +230,9 @@ struct FreeInicioView: View {
         if let (mark, result) = latestMark, let rel = MarkFormat.relative(result.recordedAt) {
             return "\(mark.label): tu última marca es de \(rel)."
         }
-        return "Un 1 km, un remo 500… la app lo mide sola y te dice si mejoras."
+        // Aún no ha medido NADA: la línea tiene que leerse como invitación, no
+        // como historial. "Un 1 km, un remo 500…" sonaba a que ya los había hecho.
+        return "Aún no te has medido. Prueba un 1 km o un remo 500: la app lo mide sola."
     }
 
     private var marksCard: some View {
@@ -250,67 +275,24 @@ struct FreeInicioView: View {
         }
     }
 
-    // MARK: - Hecho hoy (today's finished sessions, reopenable)
+    // MARK: - Sessions of a day (shared by the strip's selected-day panel)
 
-    /// Today's FINISHED sessions in slot order — their logged "Libre" workouts.
-    private var completedTodaySessions: [AthleteWeekDaySession] {
-        guard let resp = planWeek,
-              let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso })
-        else { return [] }
-        return today.sessions
-            .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
+    /// The REAL sessions of a day, in slot order (AM before PM).
+    private func sessions(of day: AthleteWeekDay) -> [AthleteWeekDaySession] {
+        day.sessions
+            .filter { !$0.assignmentId.isEmpty }
             .sorted { slotRank($0.slot) < slotRank($1.slot) }
     }
 
-    @ViewBuilder
-    private var hechoHoySection: some View {
-        let done = completedTodaySessions
-        if !done.isEmpty {
-            CardSurface(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Theme.Color.ok)
-                        LabelText(text: "Hecho hoy", color: Theme.Color.ok, size: 12)
-                    }
-                    VStack(spacing: 8) {
-                        ForEach(done) { session in
-                            hechoHoyRow(session)
-                            if session.id != done.last?.id { Hairline().opacity(0.5) }
-                        }
-                    }
-                }
-            }
+    /// Tapping a session routes by STATE — the same single decision point the
+    /// coached Plan uses: finished → what he logged; pending → the brief to do it.
+    private func openSession(_ session: AthleteWeekDaySession) {
+        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
+            executedLaunch = launch
+        } else {
+            workoutLaunch = launch
         }
-    }
-
-    private func hechoHoyRow(_ session: AthleteWeekDaySession) -> some View {
-        let partial = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId) == .partial
-        return Button {
-            Haptics.light()
-            executedLaunch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
-        } label: {
-            HStack(spacing: Theme.Spacing.s) {
-                Circle()
-                    .fill(Theme.Modality.color(session.modality))
-                    .frame(width: 7, height: 7)
-                Text(session.title)
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                Spacer(minLength: Theme.Spacing.s)
-                Image(systemName: partial ? "circle.lefthalf.filled" : "checkmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(partial ? Theme.Color.warning : Theme.Color.ok)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("\(session.title), \(partial ? "parcial" : "completada"). Ver detalle.")
     }
 
     private func slotRank(_ slot: String) -> Int {
@@ -379,16 +361,37 @@ struct FreeInicioView: View {
         return out.string(from: date).uppercased()
     }
 
+    /// The day the panel is showing: the one the athlete pinned, else today.
+    private func selectedDay(in week: AthleteWeekPayload) -> AthleteWeekDay? {
+        let iso = selectedIso ?? week.todayIso
+        return week.days.first { $0.isoDate == iso } ?? week.days.first { $0.isoDate == week.todayIso }
+    }
+
     @ViewBuilder
     private var weekCard: some View {
         if let week = planWeek?.week {
             CardSurface(padding: Theme.Spacing.l) {
                 VStack(alignment: .leading, spacing: 12) {
-                    LabelText(text: "Tu semana")
+                    HStack(alignment: .firstTextBaseline) {
+                        LabelText(text: "Tu semana")
+                        Spacer(minLength: 8)
+                        Text("toca un día")
+                            .scaledFont(10.5, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.faint)
+                            .accessibilityHidden(true)
+                    }
                     HStack(alignment: .bottom, spacing: 6) {
                         ForEach(week.days) { day in
-                            dayColumn(day, isToday: day.isoDate == week.todayIso)
+                            dayColumn(
+                                day,
+                                isToday: day.isoDate == week.todayIso,
+                                isSelected: day.isoDate == (selectedIso ?? week.todayIso)
+                            )
                         }
+                    }
+                    if let day = selectedDay(in: week) {
+                        Hairline()
+                        selectedDayPanel(day, isToday: day.isoDate == week.todayIso)
                     }
                     Text(weekSummaryLine ?? "Aún nada esta semana. Tu primera sesión la construyes tú.")
                         .scaledFont(11.5, relativeTo: .caption)
@@ -396,8 +399,7 @@ struct FreeInicioView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(weekAxLabel)
+            .animation(.easeOut(duration: 0.18), value: selectedIso)
         } else if store.planWeek.hasLoaded || store.planWeek.loadFailed {
             // Loaded empty (brand-new account) or failed with no cache — the
             // honest quiet state; the strip appears with their first session.
@@ -414,17 +416,158 @@ struct FreeInicioView: View {
         // else: cold start mid-load → nothing (no skeleton flash for one card).
     }
 
-    private func dayColumn(_ day: AthleteWeekDay, isToday: Bool) -> some View {
+    private func dayColumn(_ day: AthleteWeekDay, isToday: Bool, isSelected: Bool) -> some View {
         let load = dayLoad(day)
-        return VStack(spacing: 4) {
-            Text(dayLetter(forIso: day.isoDate))
-                .scaledFont(10, weight: isToday ? .heavy : .semibold, relativeTo: .caption2)
-                .foregroundStyle(isToday ? Theme.Color.accentText : Theme.Color.faint)
-            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                .fill(barColor(load))
-                .frame(height: barHeight(load))
+        return Button {
+            Haptics.light()
+            selectedIso = day.isoDate
+        } label: {
+            VStack(spacing: 4) {
+                Text(dayLetter(forIso: day.isoDate))
+                    .scaledFont(10, weight: isToday ? .heavy : .semibold, relativeTo: .caption2)
+                    .foregroundStyle(isToday ? Theme.Color.accentText : Theme.Color.faint)
+                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                    .fill(barColor(load))
+                    .frame(height: barHeight(load))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 3)
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                        .stroke(Theme.Color.accentText, lineWidth: 1.5)
+                        .padding(.horizontal, -3)
+                }
+            }
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(dayAxLabel(day, isToday: isToday))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// "Lunes 21, 1 sesión hecha" — what VoiceOver reads for a day of the strip.
+    private func dayAxLabel(_ day: AthleteWeekDay, isToday: Bool) -> String {
+        var label = isToday ? "Hoy" : dayLongLabel(forIso: day.isoDate)
+        let done = sessions(of: day).filter {
+            SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
+        }.count
+        let total = sessions(of: day).count
+        if total == 0 {
+            label += ", sin entreno"
+        } else if done == total {
+            label += ", \(total) \(total == 1 ? "sesión hecha" : "sesiones hechas")"
+        } else {
+            label += ", \(total) \(total == 1 ? "sesión" : "sesiones"), \(done) \(done == 1 ? "hecha" : "hechas")"
+        }
+        return label
+    }
+
+    // MARK: - El día seleccionado (lo que entrenó ese día)
+
+    @ViewBuilder
+    private func selectedDayPanel(_ day: AthleteWeekDay, isToday: Bool) -> some View {
+        let list = sessions(of: day)
+        // ISO dates compare lexicographically, so a plain string compare tells
+        // past from future without parsing.
+        let isFuture = day.isoDate > (planWeek?.week.todayIso ?? day.isoDate)
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText(
+                text: "\(isToday ? "Hoy" : dayLongLabel(forIso: day.isoDate)) · \(isFuture ? "lo que tienes" : "lo que hiciste")",
+                color: Theme.Color.faint,
+                size: 10.5
+            )
+            if list.isEmpty {
+                Text(emptyDayCopy(isToday: isToday, isFuture: isFuture))
+                    .scaledFont(12.5, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+            } else {
+                VStack(spacing: 7) {
+                    ForEach(list) { session in
+                        daySessionRow(session)
+                        if session.id != list.last?.id { Hairline().opacity(0.5) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func emptyDayCopy(isToday: Bool, isFuture: Bool) -> String {
+        if isToday { return "Aún no has entrenado hoy." }
+        return isFuture ? "Nada programado ese día." : "Ese día no entrenaste."
+    }
+
+    private func daySessionRow(_ session: AthleteWeekDaySession) -> some View {
+        let state = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId)
+        return Button {
+            Haptics.light()
+            openSession(session)
+        } label: {
+            HStack(spacing: Theme.Spacing.s) {
+                Circle()
+                    .fill(Theme.Modality.color(session.modality))
+                    .frame(width: 7, height: 7)
+                Text(session.title)
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                Spacer(minLength: Theme.Spacing.s)
+                if let minutes = session.estDurationMinutes, minutes > 0, state.isFinished {
+                    Text(clockHours(minutes))
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        .foregroundStyle(Theme.Color.faint)
+                }
+                stateGlyph(state)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("\(session.title), \(stateWord(state)). Ver detalle.")
+    }
+
+    @ViewBuilder
+    private func stateGlyph(_ state: SessionMarkState) -> some View {
+        switch state {
+        case .done:
+            Image(systemName: "checkmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.Color.ok)
+        case .partial:
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.Color.warning)
+        case .missed:
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.Color.danger)
+        case .pending:
+            EmptyView()
+        }
+    }
+
+    private func stateWord(_ state: SessionMarkState) -> String {
+        switch state {
+        case .done:    return "completada"
+        case .partial: return "parcial"
+        case .missed:  return "no hecha"
+        case .pending: return "pendiente"
+        }
+    }
+
+    /// "Miércoles 22" — the long ES label of a day of the strip.
+    private func dayLongLabel(forIso iso: String) -> String {
+        let parse = DateFormatter()
+        parse.locale = Locale(identifier: "en_US_POSIX")
+        parse.dateFormat = "yyyy-MM-dd"
+        guard let date = parse.date(from: iso) else { return "Ese día" }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "es_ES")
+        out.dateFormat = "EEEE d"
+        let raw = out.string(from: date)
+        return raw.prefix(1).uppercased() + raw.dropFirst()
     }
 
     private func barColor(_ load: DayLoad) -> Color {
@@ -441,15 +584,5 @@ struct FreeInicioView: View {
         case .pending: return 22
         case .none:    return 8
         }
-    }
-
-    private var weekAxLabel: String {
-        var label = "Tu semana."
-        if let summary = weekSummaryLine {
-            label += " \(summary)."
-        } else {
-            label += " Aún sin sesiones."
-        }
-        return label
     }
 }
