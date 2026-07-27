@@ -377,6 +377,12 @@ final class FreeFunctionalDraft {
 
     /// The runnable context: ONE folded conditioning segment (drives the scheme's
     /// live HUD + score capture) + the per-movement `items[]` (nil for a cronómetro).
+    ///
+    /// A CRONÓMETRO has no items, so its top-level `prescription` carries the
+    /// session instead — the same folded block the engine runs (scheme + rounds /
+    /// cadence / window, no sets). That is what the server persists as the
+    /// session's shape and what colours the day in the plan; without it a bare
+    /// clock would reach the coach as a title and nothing else.
     func buildContext() -> FreeWorkoutContext? {
         guard let f = format else { return nil }
         FreeFunctionalPrefs.remember(self, format: f)
@@ -408,7 +414,9 @@ final class FreeFunctionalDraft {
         return FreeWorkoutContext(
             title: resolvedTitle,
             modalityWire: PrescriptionModality.functional.rawValue,
-            prescription: nil,
+            // Exactly one of the two travels: the movements when they were named,
+            // the bare shape when they weren't.
+            prescription: payloadItems == nil ? foldedPrescription(f, s) : nil,
             items: payloadItems,
             plan: plan
         )

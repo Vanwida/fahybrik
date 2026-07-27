@@ -27,7 +27,7 @@ import {
 //      the workout's scheme (a measured scheme | 'sets' | the shared metcon).
 //   2. N `template_segments` rows in EXECUTION ORDER (position 1..N), one per
 //      exercise line, each carrying its validated Prescription in
-//      `prescription_json`. Two segment shapes feed this uniformly:
+//      `prescription_json`. Three shapes feed this uniformly:
 //        · MEASURED (row|ski|bike|run): exactly ONE segment — the canonical
 //          modality exercise resolved BY SLUG, prescription persisted verbatim.
 //        · ITEM-built (strength|functional): N segments — one per `items[]`
@@ -35,6 +35,14 @@ import {
 //          for modality (mig 0053), so the server OVERRIDES each prescription's
 //          modality with the exercise's before persisting — prescription_json can
 //          never drift from its exercise.
+//        · CLOCK (functional, nothing declared): ZERO segments. A segment needs an
+//          exercise (`template_segments.exercise_id` is NOT NULL) and there is no
+//          honest one to name — inventing a placeholder would put a movement the
+//          athlete never did into their per-exercise analytics. The session's real
+//          shape (scheme + rounds/work/rest/window) is preserved on the template's
+//          `meta_json.prescription`, which is what the week reader uses to colour
+//          the day and time the session. Readers that need EXERCISES (the coach's
+//          per-exercise deep dive) correctly see nothing to analyse.
 //   3. a `workout_assignments` row — `origin = 'self'`, scheduled for today (box
 //      tz), no microcycle (it is not part of the coach's periodization).
 //   4. the EXISTING shared recorder (`recordWorkoutExecution`) writes the
@@ -99,6 +107,15 @@ interface ItemsInput {
   items: Array<{ exerciseId: number; prescription: Prescription; part?: 'warmup' }>;
 }
 
+/** The CLOCK input — a functional format run bare, with no movements named. No
+ *  exercise exists to persist a segment for, so the prescription travels on the
+ *  template's `meta_json` instead of a `template_segments.prescription_json`. */
+interface ClockInput {
+  kind: 'clock';
+  /** The folded block the live engine ran: scheme + structure, never sets. */
+  prescription: Prescription;
+}
+
 export type CreateFreeWorkoutInput = {
   athleteId: number;
   /** Null for a FREE athlete (athletes.coach_id null): the instance template is
@@ -113,7 +130,7 @@ export type CreateFreeWorkoutInput = {
   /** Injectable client so a test can run against an ephemeral branch; the route
    *  omits it and the module pool is used. */
   sql?: Sql;
-} & (MeasuredInput | ItemsInput);
+} & (MeasuredInput | ItemsInput | ClockInput);
 
 export async function createFreeWorkout(
   input: CreateFreeWorkoutInput,
@@ -126,6 +143,14 @@ export async function createFreeWorkout(
   // applied for item-built workouts) BEFORE opening the transaction.
   const segments = await resolveSegments(db, input);
 
+  // The instance template's metadata. A CLOCK has no segments, so its shape (the
+  // scheme + structure the athlete actually ran, and with it the real modality)
+  // would be lost otherwise — it rides here, the same carrier `origin` uses.
+  const metaJson =
+    input.kind === 'clock'
+      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
+      : { origin: SELF_ORIGIN };
+
   const ids = await db.begin(async (tx) => {
     // 1. Instance template (OUT of the coach library via instance_athlete_id).
     const tplRows = await tx<Array<{ id: string }>>`
@@ -135,7 +160,7 @@ export async function createFreeWorkout(
       )
       values (
         ${coachId}, ${title}, ${scheme}::template_format, 'any'::target_block, 1,
-        false, false, ${athleteId}, ${tx.json({ origin: SELF_ORIGIN })}
+        false, false, ${athleteId}, ${tx.json(metaJson)}
       )
       returning id::text as id
     `;
@@ -209,10 +234,13 @@ export async function createFreeWorkout(
  * exercise by slug (prescription verbatim). ITEM-built → each `items[]` exercise
  * by id, with the modality COHERENCE override (mig 0053): the exercise is the
  * single source of truth for modality, so the persisted prescription's modality is
- * set to the exercise's (when it has one). Throws `exercise_not_found` for any
- * unknown slug/id.
+ * set to the exercise's (when it has one). CLOCK → none: no movement was named, so
+ * there is no exercise to resolve and no query to run. Throws `exercise_not_found`
+ * for any unknown slug/id.
  */
 async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<ResolvedSegment[]> {
+  if (input.kind === 'clock') return [];
+
   if (input.kind === 'measured') {
     const slug = FREE_WORKOUT_MODALITY_SLUGS[input.modality];
     // Scoped to what this athlete's coach can see — the canonical modality

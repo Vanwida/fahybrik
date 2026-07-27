@@ -57,6 +57,9 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
     status: 'scheduled',
     display_title: null,
     coach_notes: null,
+    content_state: 'blocks',
+    origin: 'coach',
+    template_name: 'Fuerza base — Tren inferior',
     workout: {
       name: 'Fuerza base — Tren inferior',
       focus: null,

@@ -1,7 +1,7 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-27**
+Última actualización: **2026-07-28**
 
 ---
 
@@ -12,6 +12,44 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 El problema de fondo: tenemos tecnología pero no método. Pablo no tiene uno documentado y su referencia es la metodología del entrenador que le entrena a él como atleta — que no es la dirección que queremos. La salida no es discutirle el contenido, es darle un **marco ya decidido y modificable**, para que su trabajo sea corregir en vez de crear.
 
 La tesis de trabajo: *la identidad de un método no está en los ejercicios, está en las reglas*. Los ejercicios los usa todo el mundo; lo que nos hace reconocibles es cómo decidimos, medimos y ajustamos.
+
+---
+
+## Cerrado el 28-jul · El cronómetro sin movimientos SE GUARDA (era lo único que faltaba)
+
+**Sin desplegar todavía.** Servidor + iOS; **cero migraciones** (la forma viaja en
+`templates.meta_json`, que ya existe y ya lleva el `origin`).
+
+Ayer el arranque en un toque quedó hecho pero la sesión **moría al cerrar**: el
+servidor exigía al menos un ejercicio y el 422 ni siquiera se reintenta. Un
+cronómetro sin movimientos tiene formato, duración y esfuerzo REALES — registrarlo
+es justo lo que nos separa de una app de crono. Decisión tomada y construida.
+
+- **El reloj es una tercera forma, no un caso degenerado.** Un funcional sin ítems
+  manda la prescripción que corrió (esquema + rondas/ciclo/ventana, **sin sets**) y
+  se valida igual de estricto que todo lo demás: esquema metcon obligatorio, y si
+  trae sets se rechaza (declarar contenido y no declararlo a la vez es incoherente).
+  **Fuerza sigue exigiendo ejercicios**: una sesión de hierro son sus levantamientos,
+  ahí no hay reloj que la defina.
+- **Cero segmentos, cero ejercicio inventado.** No hay movimiento honesto que
+  nombrar, así que no se fabrica ninguno — meter un placeholder ensuciaría sus
+  analíticas por ejercicio. La forma se guarda en `meta_json.prescription`.
+- **El plan ya no pinta un FORMATO donde va la modalidad.** `week-plan` leía los
+  segmentos y, sin ellos, caía al formato: la semana decía `modality: 'amrap'`. Ahora
+  el reloj declara `funcional` y su duración exacta cuando el formato la acota
+  (AMRAP = su ventana; EMOM = rondas × ciclo). For Time y Rondas son abiertos: no se
+  inventa duración.
+- **El cajón del coach deja de mentir.** «Este entreno no tiene plantilla asociada»
+  era falso: tiene plantilla, no tiene ítems. Tres estados distintos, tres frases
+  distintas — y el título de la sesión (que ES su forma, «AMRAP · 12:00») ya no se
+  pierde.
+- **La hoja «¿qué hiciste?» sigue ahí y nunca bloquea.** Si la saltas, guardado
+  igual; si la rellenas, los movimientos sustituyen a la forma y cuentan en tus
+  ejercicios. El copy ya no amenaza con que «se queda solo en el reloj».
+
+Verificado: los tests nuevos FALLAN sin el cambio (6 del validador; 3 de la semana
+con el error exacto `expected 'amrap' to be 'functional'`) y pasan con él, contra
+rama Neon real. tsc + eslint + 1737 tests en verde; build de iOS en verde.
 
 ---
 
@@ -39,12 +77,9 @@ contenido. Esa era toda la diferencia.
   como preajuste de la misma estructura. Preajustes en un toque: Al minuto / 45-15
   / Tabata; el EMOM simple no gana ni un toque.
 
-**Bloqueado y pendiente de tu decisión:** el servidor **no acepta un funcional sin
-ítems** (`MIN_ITEMS = 1` → `items_required`, 422 no reintentable). Así que si no
-declaras nada, la sesión no se envía y el copy lo dice en claro en vez de mentir.
-Auditado: técnicamente no se rompe nada, pero informarían mal tres sitios
-(el color del día en el plan, «no tiene plantilla asociada» en el cajón del coach,
-y las analíticas por ejercicio). Detalle y cambio mínimo en `docs/DECISIONS.md`.
+**Desbloqueado el 28-jul** (ver la entrada de arriba): el cronómetro sin movimientos
+ya se guarda. Aquella nota decía que el servidor no lo aceptaba y que el copy lo
+avisaba en claro; ambas cosas dejan de ser ciertas.
 
 **Lo que NO existe y no construí** (avisado, no inventado): un EMOM no tiene conteo
 de repeticiones por ronda. Tabata sí (`rotRepsByRound`) y el AMRAP tiene su ronda

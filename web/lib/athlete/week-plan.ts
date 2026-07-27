@@ -25,6 +25,10 @@ import {
   type RecoverySuggestion,
   type WeekDayKind,
 } from '@fahybrid/shared/schema/program-templates';
+import {
+  safeParsePrescription,
+  type Prescription,
+} from '@fahybrid/shared/domain/prescription';
 import { sql } from '@/lib/db';
 
 export interface AthleteWeekDaySession {
@@ -217,10 +221,12 @@ export async function buildAthleteWeekPlan(
           // core/mobility/other) of the session's PRINCIPAL block (the main work,
           // never the warmup mobility drills or the cooldown stretch). Derived
           // from the template's segments (each line's exercise modality is the
-          // single source of truth; a per-line prescription override wins). This
+          // single source of truth; a per-line prescription override wins), or —
+          // for a segment-less box CLOCK — from the prescription it declared. This
           // is what colors the iOS day dot. Falls back to the workout FORMAT
-          // (amrap/emom/…) only when the template has no readable segments, so the
-          // field is never empty.
+          // (amrap/emom/…) only for a template that states neither, so the field is
+          // never empty. A free workout NEVER reaches that fallback: a format is
+          // not a modality, and here we always know the real one.
           modality: summary?.modality ?? s.template_format,
           status: s.status,
           partner_visibility: s.partner_visibility,
@@ -417,6 +423,15 @@ type TemplateSummary = {
   modality: string | null;
 };
 
+/** A template with NO segments whose `meta_json.prescription` describes the
+ *  session anyway — the box CLOCK written by the entreno libre (see
+ *  create-free-workout.ts). It is the one segment-less template that still knows
+ *  its own modality and, when the format bounds it, its duration. */
+type ClockRow = {
+  template_id: string;
+  prescription: unknown;
+};
+
 type SegmentRow = {
   template_id: string;
   block_position: number | null;
@@ -430,9 +445,10 @@ type SegmentRow = {
 };
 
 // Batched per-template segment aggregation. Returns a map template_id ->
-// derived summary. A template with zero segments is absent from the map (its
-// sessions get null fields). NOTE: `block_position` groups segments into blocks
-// (warmup / metcon / cooldown …); `block_title` names them.
+// derived summary. A template with zero segments and no clock prescription is
+// absent from the map (its sessions get null fields). NOTE: `block_position`
+// groups segments into blocks (warmup / metcon / cooldown …); `block_title`
+// names them.
 async function loadTemplateSummaries(
   templateIds: string[],
 ): Promise<Map<string, TemplateSummary>> {
@@ -490,7 +506,55 @@ async function loadTemplateSummaries(
     out.set(templateId, { est_duration_minutes, blocks_count, short_prescription, modality });
   }
 
+  // CLOCK templates (entreno libre run as a bare box timer): no segments, so the
+  // loop above never saw them, but their `meta_json.prescription` states the
+  // session's real modality and — when the format bounds the clock — its exact
+  // duration. Read ONLY for ids the segment pass left uncovered, so a template can
+  // never be described twice.
+  const uncovered = templateIds.filter((id) => !out.has(id));
+  if (uncovered.length > 0) {
+    const clocks = await sql<ClockRow[]>`
+      select t.id::text as template_id, t.meta_json->'prescription' as prescription
+      from templates t
+      where t.id = any(${uncovered}::bigint[])
+        and t.meta_json ? 'prescription'
+    `;
+    for (const row of clocks) {
+      const parsed = safeParsePrescription(row.prescription);
+      if (!parsed.success) continue;
+      out.set(row.template_id, {
+        est_duration_minutes: clockDurationMinutes(parsed.data),
+        // No segments means nothing to count and nothing to name: the session
+        // title already reads as its shape ("EMOM 10 · cada 1:00").
+        blocks_count: null,
+        short_prescription: null,
+        modality: parsed.data.modality ?? null,
+      });
+    }
+  }
+
   return out;
+}
+
+// A CLOCK's duration, in minutes, when its FORMAT bounds it — and only then:
+//   · amrap  → the window is the session (total_s).
+//   · emom   → rounds × the cycle, and the cycle is work + the explicit change.
+//   · for_time / rounds → open-ended by definition (you finish when you finish),
+//     so there is no duration to state and we state none.
+// Never an estimate: this is the protocol's own arithmetic, not a guess about how
+// long the athlete will take.
+function clockDurationMinutes(p: Prescription): number | null {
+  const seconds = (() => {
+    if (p.scheme === 'amrap') return p.total_s ?? null;
+    if (p.scheme === 'emom') {
+      const cycle = (p.work_s ?? 0) + (p.rest_s ?? 0);
+      const rounds = p.rounds ?? 0;
+      return cycle > 0 && rounds > 0 ? cycle * rounds : null;
+    }
+    return null;
+  })();
+  if (seconds === null || seconds <= 0) return null;
+  return Math.max(1, Math.round(seconds / 60));
 }
 
 // Per-segment modality: a deliberate per-line prescription override wins, else

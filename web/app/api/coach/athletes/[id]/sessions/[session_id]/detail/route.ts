@@ -57,13 +57,33 @@ export async function GET(
   });
   if (!detail) return jsonError('not_found', 'Entreno no encontrado', 404);
 
-  // Coach overrides live encoded in wa.notes (coach_title + free-form body).
-  const notesRows = await sql<Array<{ notes: string | null }>>`
-    select notes from workout_assignments
-    where id = ${Number(parsedSession.data.session_id)}
+  // Coach overrides live encoded in wa.notes (coach_title + free-form body). The
+  // same row carries what the drawer needs to tell an EMPTY session from an
+  // honest one: who authored it, whether a template is attached at all, its name
+  // (a clock's name is its shape) and whether that template is a box CLOCK — the
+  // entreno libre run without naming any movement, which persists its
+  // prescription on `meta_json` precisely because it has no segments.
+  const assignmentRows = await sql<
+    Array<{
+      notes: string | null;
+      origin: 'coach' | 'self';
+      template_id: string | null;
+      template_name: string | null;
+      is_clock: boolean;
+    }>
+  >`
+    select wa.notes,
+           wa.origin::text as origin,
+           wa.template_id::text as template_id,
+           t.name as template_name,
+           coalesce(t.meta_json ? 'prescription', false) as is_clock
+    from workout_assignments wa
+    left join templates t on t.id = wa.template_id
+    where wa.id = ${Number(parsedSession.data.session_id)}
     limit 1
   `;
-  const decoded = decodeCoachAssignmentNotes(notesRows[0]?.notes);
+  const assignmentRow = assignmentRows[0] ?? null;
+  const decoded = decodeCoachAssignmentNotes(assignmentRow?.notes);
 
   // Execution reality (duration + athlete notes; RPE/ended_at already in detail).
   // `id` lets us pull the per-segment actuals the athlete logged for this run.
@@ -98,6 +118,17 @@ export async function GET(
     detail.assignment.perceived_exertion != null ||
     detail.assignment.completed_at != null;
 
+  // Why there is (or isn't) content to render — decided once, here, from the same
+  // row the drawer's copy depends on. Ordered most-informative first.
+  const contentState: CoachSessionDetail['content_state'] =
+    detail.workout != null
+      ? 'blocks'
+      : assignmentRow?.template_id == null
+        ? 'no_template'
+        : assignmentRow.is_clock
+          ? 'clock'
+          : 'no_content';
+
   const payload: CoachSessionDetail = {
     assignment_id: detail.assignment.id,
     iso_date: detail.assignment.scheduled_for,
@@ -105,6 +136,9 @@ export async function GET(
     display_title: decoded.display_title,
     coach_notes: decoded.notes,
     workout: detail.workout,
+    content_state: contentState,
+    origin: assignmentRow?.origin ?? 'coach',
+    template_name: assignmentRow?.template_name ?? null,
     execution: hasExecution
       ? {
           duration_min:
