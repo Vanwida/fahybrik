@@ -284,15 +284,12 @@ struct PostWorkoutSummaryView: View {
         // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
             let payload = buildFreePayload(free)
-            // CONTRACT GATE — POST /api/athlete/workouts/free rejects a functional
-            // workout with no `items` (`items_required`, 422), and a 422 is not
-            // retriable, so RequestQueue drops it. Firing it anyway would show the
-            // athlete a saved session that never existed. Until the contract accepts
-            // a movement-less funcional, a cronómetro nobody described is closed
-            // locally instead of being silently lost on the wire.
-            if !awaitsDeclaration {
-                Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
-            }
+            // Every free session is sent, declared or not: a cronómetro carries its
+            // format, its duration and the effort, which is a real training session
+            // and exactly what a timer app throws away. The contract accepts a
+            // funcional with no items as long as it states the shape it ran, and
+            // `buildFreePayload` always puts one of the two on the wire.
+            Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
             // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
             // Only a FULL finish counts: an abandoned attempt saves the session (the
             // coach still sees the work) but never writes a half number into the
@@ -575,13 +572,18 @@ struct PostWorkoutSummaryView: View {
     // path records, so nothing forks.
     private func buildFreePayload(_ free: FreeWorkoutContext) -> FreeWorkoutPayload {
         let c = executionCore()
+        // Declared up front in the builder, or afterwards here — one field,
+        // whichever arrived.
+        let items = declaredItems ?? free.items
         return FreeWorkoutPayload(
             title: free.title,
             modality: free.modalityWire,
-            prescription: free.prescription,
-            // Declared up front in the builder, or afterwards here — one field,
-            // whichever arrived.
-            items: declaredItems ?? free.items,
+            // EXACTLY ONE of the two, always: with movements the dose lives on each
+            // item, so the block-level prescription would be a second, redundant
+            // description of the same work. Declaring afterwards therefore REPLACES
+            // the clock's shape rather than adding to it.
+            prescription: items == nil ? free.prescription : nil,
+            items: items,
             perceived_exertion: rpe,
             total_duration_seconds: c.totalDuration,
             notes: c.notes,
@@ -763,10 +765,10 @@ struct PostWorkoutSummaryView: View {
                         .foregroundStyle(Theme.Color.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    // Honest, not nagging: the athlete is never trapped here, but we
-                    // don't pretend a session reached the coach when it can't. See
-                    // the contract gate in `handleSave`.
-                    Text("Usaste el crono sin decir qué hacías. Añade los movimientos y el entreno queda guardado; si lo dejas así, se queda solo en el reloj.")
+                    // An invitation, never a warning: the session is already saved
+                    // when this card appears, so the copy offers what naming the
+                    // movements ADDS instead of threatening what it avoids.
+                    Text("El entreno se guarda igual. Si dices qué hiciste, cuenta también en tus ejercicios.")
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
