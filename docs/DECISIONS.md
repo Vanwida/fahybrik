@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 (noche) · En dobles, correr y roxzone son suyos; las estaciones NO. Y el correr es un SUELO, no una medida
+
+**Decidido:** una carrera de equipo (`doubles` / `relay`) aporta como evidencia del atleta individual **solo** su tiempo de carrera a pie (`races.run_total_seconds`, `run_splits_json`) y su roxzone (`races.roxzone_seconds`). Los splits de estación (`station_splits_json`) **no se le atribuyen jamás**. El tiempo final (`result_time_seconds`) es suyo, pero solo se enseña con el formato nombrado al lado. Todo número de correr que salga de una carrera de equipo viaja marcado `partner_bounded` y se presenta como un **suelo** («más lento no vas»), nunca como una medición. Consecuencia directa: **no se emite tendencia de correr sobre carreras de equipo**, ni con veinte carreras.
+
+**Por qué:** en dobles los dos atletas corren los ocho kilómetros y hacen juntos todas las transiciones, pero las estaciones se las reparten — así que un split de estación es de uno de los dos y no sabemos de cuál. Y como corren juntos, el ritmo lo marca el más lento de la pareja. Esto no es teoría: el atleta 72 corrió **dos dobles el mismo día** (14-may-2026), 8 km en **2137 s** con un compañero y en **3162 s** con otro. Diecisiete minutos de diferencia en la misma distancia y el mismo día. Atribuirle cualquiera de los dos como «su ritmo» habría sido mentir; quedarse con el mejor y llamarlo suelo es lo único cierto. Por lo mismo, una «evolución» a través de carreras de equipo mide con quién se apuntó, no cómo está.
+
+**No hacer:** rellenar las estaciones de un free con los splits de su carrera de dobles; usar `result_time_seconds` de dobles sin decir que es de la pareja; calcular tendencias, medias o percentiles de correr mezclando carreras individuales y de equipo.
+
+**Dónde vive:** `shared/domain/free-plan/race-evidence.ts` (puro, con las 6 carreras reales del 72 como fixture en `web/tests/free-plan/race-evidence.test.ts`).
+
+---
+
+## 2026-07-27 (noche) · La semana bloqueada del free: estructura NUESTRA, números SUYOS, y si no hay número no hay fila
+
+**Decidido:** el bloque «Cómo se arregla» de la pestaña Plan del free se construye con una estructura semanal **genérica y propia**, definida en `shared/domain/free-plan/week.ts`: cinco arquetipos (correr con calidad, fuerza, ergo, híbrido/comprometido, tirada larga) que son la anatomía de la prueba —8 km de correr, dos ergos, cinco estaciones de fuerza, todo en fatiga—. **Nunca** se leen `blocks`, `templates`, `microcycles` ni ninguna tabla de contenido del coach. Cada sesión solo aparece si se puede personalizar con datos del atleta: ritmos por Daniels (`shared/domain/running/vdot.ts`) desde su mejor marca, o desde los 8 km de su mejor HYROX, o desde el VO₂ máx del reloj; ergos por Riegel desde su marca de ski/remo; fuerza como porcentaje de su 1RM guardado. **Si un tipo de sesión no se puede personalizar, esa fila no existe** — no se rellena con un valor plausible. Con menos de **2** sesiones personalizables no se manda semana y el cliente no pinta nada.
+
+**Por qué:** la biblioteca de bloques es contenido de Pablo y es justo lo que se está vendiendo; regalarla mataría el tier de pago. Pero el esqueleto de una semana de HYROX no lo posee nadie: es la lista de cosas que la prueba te obliga a entrenar. El valor no está en el esqueleto, está en que los números sean del atleta. Y el relleno es lo único que puede hundir el bloque entero: el día que dos cuentas comparen su «semana» y vean lo mismo, se acabó la credibilidad de la pantalla que sostiene el embudo. Por eso lo difuminado son sesiones REALES desenfocadas, no texto de ejemplo.
+
+**Coeficientes declarados** (ninguno anónimo, ley 4 de `docs/race-projection-spec.html`): 5×1 km a ritmo umbral con 2:00; el híbrido lleva el volumen exacto de la prueba (4 rondas × 25 wall balls + 20 burpees = los 100 y los 80 reales) a ritmo maratón de Daniels; tirada de 60 min a ritmo fácil; ergo 6×500 al split que su marca proyecta para los 1000 de carrera; fuerza 4×6 al 75 % del 1RM (≈ RIR 2 en las tablas de repeticiones máximas), redondeado a 2,5 kg.
+
+**No hacer:** subir el suelo de 2 sesiones sin decidir qué se enseña en su lugar; añadir una sesión «de relleno» para que la semana parezca más llena; mover el castellano de la prescripción al dominio (vive en `FreePlanWeekCopy`, en el cliente, en un solo sitio).
+
+---
+
 ## 2026-07-27 · El Plan del free enseña EVIDENCIA, no una proyección — y lo que falta se dice
 
 **Decidido:** la pestaña Plan de un atleta sin coach (`ios/FAHYBRIK/Plan/FreePlanView.swift`) se construye con lo que HOY es real y nada más: su carrera objetivo con cuenta atrás (`target_race` de `/api/athlete/plan/week`), lo que tiene medido y lo que le falta del catálogo (`/api/athlete/marks`), su historial de HYROX importado (`/api/athlete/races`) y su VO₂ máx del reloj (`/api/athlete/biometrics/trend`, clave `vo2max`). El orden es: primero lo que le damos, después lo que le pedimos. Con CERO evidencia no se ofrece nada de pago.
@@ -21,6 +45,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **Se descarta:** pintar el tiempo proyectado con el motor de `goal-gap` actual. Con una carrera reciente devuelve exactamente el tiempo de esa carrera y con huecos los rellena a valor del objetivo — es decir, le diría a un principiante que va justo a su meta.
 
 **En consecuencia, no hacer:** no hardcodear el nombre del coach en el cierre (viene de `coach_name` del payload; para un atleta free es null y la tarjeta queda genérica), y no meter en esta pantalla ningún número que no venga de un endpoint de atleta ya existente — si el dato no está expuesto, se reporta, no se inventa el endpoint.
+
+> **SUPERADO EN PARTE el 27-jul por la noche** (ver las dos entradas de arriba). La **semana bloqueada YA está construida**, pero no como la describía el mockup: no sale de una proyección ni de un cohorte por división, sino de los ritmos que da el VDOT sobre la evidencia real del atleta, y solo pinta las filas que puede personalizar. Siguen fuera, y por las razones originales, **el tiempo proyectado** y **el diagnóstico por estación contra su división**. El «punto de extensión» de la tarjeta de carrera lo ocupa ahora la comparación objetivo-vs-realidad; la proyección, cuando llegue, entra ahí al lado.
 ## 2026-07-27 · Las marcas alimentan la predicción, y ningún hueco se rellena con el objetivo
 
 **Decidido:** cuatro cambios en el motor de proyección, todos en `shared/domain` (puro, sin I/O), más el cable que faltaba en el cargador.
