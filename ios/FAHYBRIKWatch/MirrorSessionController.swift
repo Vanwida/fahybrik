@@ -122,6 +122,7 @@ final class MirrorSessionController: NSObject {
         guard let session, state == .recording else { return }
         lastSignalAt = Date()
         startWatchdog()
+        requestSyncUntilFirstFrame()
         WatchHaptics.start()
         Task { try? await session.startMirroringToCompanionDevice() }
     }
@@ -160,6 +161,19 @@ final class MirrorSessionController: NSObject {
             if hkPaused { session?.resume(); hkPaused = false }
         default:
             break                       // finished → handled by the end handshake
+        }
+    }
+
+    /// Pide el frame actual al teléfono hasta que llegue el PRIMERO (0,5 s · 2 s ·
+    /// 5 s). Sin esto, una app de watch que arranca en frío con el iPhone ya en
+    /// background se quedaba en 0:00 (IMG_2387): el heartbeat del teléfono es un
+    /// timer y los timers no corren en background; este comando sí lo despierta.
+    private func requestSyncUntilFirstFrame() {
+        for delay in [0.5, 2.0, 5.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.state == .recording, self.frame == nil else { return }
+                self.sendCommand(MirrorWire.CommandKind.sync)
+            }
         }
     }
 

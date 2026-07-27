@@ -45,6 +45,12 @@ enum MirrorWire {
         static let advance = "advance"
         static let pause = "pause"
         static let resume = "resume"
+        /// El watch PIDE el frame actual. Existe porque los timers del iPhone
+        /// mueren en background: si la muñeca se perdió el primer frame (app del
+        /// watch arrancando en frío), sin esto se quedaba en 0:00 hasta que el
+        /// iPhone volvía a foreground (IMG_2387). Un dato entrante por la sesión
+        /// espejo SÍ despierta al teléfono; el timer, no.
+        static let sync = "sync"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in

@@ -239,6 +239,14 @@ final class PhoneMirrorService {
             else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
             else { session.primaryAdvance() }
+        case MirrorWire.CommandKind.sync:
+            // La muñeca pide re-base (arranque en frío / reconexión). Forzar el
+            // envío saltándose la clave estructural — el heartbeat de 5 s no corre
+            // con la app en background, pero ESTE camino sí (el dato nos despierta).
+            let frame = buildFrame(from: session)
+            send(MirrorWire.MessageType.frame, frame)
+            lastSentKey = structuralKey(frame)
+            lastSentAt = Date()
         case MirrorWire.CommandKind.pause:
             if !session.isPaused { session.togglePause() }
         case MirrorWire.CommandKind.resume:
