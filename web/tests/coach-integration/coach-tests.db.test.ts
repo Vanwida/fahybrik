@@ -11,7 +11,7 @@
  */
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
-import { createCoachTest, CoachTestError } from '@/lib/coach/write-coach-test';
+import { createCoachTest, updateCoachTest, CoachTestError } from '@/lib/coach/write-coach-test';
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
@@ -122,6 +122,43 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         sql,
       ),
     ).rejects.toBeInstanceOf(CoachTestError);
+  }, 60000);
+
+  test('scope por club: la batería de cada coach es suya — cross-coach ni lee ni escribe', async () => {
+    const a = await makeCoachAndAthlete(sql);
+    const b = await makeCoachAndAthlete(sql);
+    fixtures.push(a, b);
+    await restoreDefaultTests(a.coachId, sql);
+    await restoreDefaultTests(b.coachId, sql);
+
+    const aTests = await listCoachTests(a.coachId, {}, sql);
+    const target = aTests.find((t) => t.slug === 'tt_5k')!;
+
+    // B intenta editar el test de A por id → null (404 en la ruta), fila INTACTA.
+    const stolen = await updateCoachTest(b.coachId, Number(target.id), { name: 'pisado por B' }, sql);
+    expect(stolen).toBeNull();
+    const untouched = await sql<{ name: string; coach_id: string }[]>`
+      select name, coach_id::text as coach_id from coach_calibration_tests
+      where id = ${Number(target.id)}
+    `;
+    expect(untouched[0]!.name).toBe(target.name);
+    expect(untouched[0]!.coach_id).toBe(String(a.coachId));
+
+    // Caso propio byte a byte: A edita el suyo; el template de contenido sigue
+    // siendo SUYO y de biblioteca (nunca una instancia de atleta).
+    const own = await updateCoachTest(a.coachId, Number(target.id), { name: 'Mi 5K' }, sql);
+    expect(own?.name).toBe('Mi 5K');
+    const tpl = await sql<{ coach_id: string; instance_athlete_id: string | null }[]>`
+      select coach_id::text as coach_id, instance_athlete_id::text as instance_athlete_id
+      from templates where id = ${Number(own!.template_id)}::bigint
+    `;
+    expect(tpl[0]!.coach_id).toBe(String(a.coachId));
+    expect(tpl[0]!.instance_athlete_id).toBeNull();
+
+    // El restore de B (mismos slugs por defecto) jamás pisó los tests de A.
+    const aAgain = await listCoachTests(a.coachId, {}, sql);
+    expect(aAgain.find((t) => t.id === target.id)?.name).toBe('Mi 5K');
+    expect(aAgain).toHaveLength(aTests.length);
   }, 60000);
 
   test('scheduler stamps the FK + agenda dates; bridge calibrates off the mirrored meta_json', async () => {

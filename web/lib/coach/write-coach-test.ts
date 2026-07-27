@@ -289,7 +289,8 @@ export async function updateCoachTest(
         existingTemplateId: templateId,
       });
       await tx`
-        update coach_calibration_tests set template_id = ${templateId} where id = ${tid}
+        update coach_calibration_tests set template_id = ${templateId}
+        where id = ${tid} and coach_id = ${cid}
       `;
       // Replace the normalized result rows (source of truth).
       await tx`delete from coach_test_results where test_id = ${tid}`;

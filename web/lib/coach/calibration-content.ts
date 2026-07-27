@@ -259,12 +259,15 @@ export async function materializeTestContent(
     `;
     templateId = Number(rows[0]!.id);
   } else {
+    // Ownership rides the WRITE too (no check-then-act window after the reuse
+    // check above): only this coach's LIBRARY template, never an instance.
     await tx`
       update templates
       set name = ${params.name}, format = ${params.format}::template_format,
           coach_notes = ${params.protocol}, meta_json = ${tx.json(meta)},
           updated_at = now()
-      where id = ${templateId}::bigint
+      where id = ${templateId}::bigint and coach_id = ${params.coach_id}::bigint
+        and instance_athlete_id is null
     `;
   }
 
