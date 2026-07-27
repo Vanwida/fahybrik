@@ -534,10 +534,11 @@ private struct SetRowView: View {
                     onChange: { session.setSetReps(index, $0) }
                 )
                 if rec.loadPrescribedKg != nil || rec.loadActualKg != nil {
-                    DoubleStepperTile(
-                        label: "Carga", unit: "kg", step: 2.5,
-                        value: rec.loadActualKg ?? rec.loadPrescribedKg,
-                        onChange: { session.setSetLoad(index, $0) }
+                    // Rueda con CASCADA (IMG_2385): cambias esta y la heredan las
+                    // series que faltan; las hechas conservan su peso real.
+                    LiveKgWheelTile(
+                        value: rec.loadActualKg ?? rec.loadPrescribedKg ?? 20,
+                        onChange: { session.setSetLoadCascade(index, $0) }
                     )
                 }
             }
@@ -607,6 +608,37 @@ private struct SetRowView: View {
 
     private func kgString(_ v: Double) -> String {
         v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+    }
+}
+
+// La rueda de carga del editor en vivo: pasos de 2,5 kg, redondeando el valor
+// entrante a la rejilla de discos. "esta y siguientes" dice lo que hace.
+private struct LiveKgWheelTile: View {
+    let value: Double
+    let onChange: (Double) -> Void
+
+    private var units: Binding<Int> {
+        Binding(
+            get: { max(1, Int((value / 2.5).rounded())) },
+            set: { onChange(Double($0) * 2.5) }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            LabelText(text: "Carga · esta y siguientes", size: 10)
+            Picker("Carga", selection: units) {
+                ForEach(1...120, id: \.self) { u in
+                    Text(KgWheel.kgLabel(Double(u) * 2.5))
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .tag(u)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 84)
+            .clipped()
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

@@ -1997,6 +1997,21 @@ final class WorkoutSession {
         registerFirstWorkingSet()
     }
 
+    /// Ajustar la carga EN VIVO con herencia (IMG_2385: "en la siguiente serie
+    /// quiero subir de peso"): fija la carga de `index` y la HEREDAN todas las
+    /// series posteriores aún no hechas ni saltadas. Las hechas conservan su peso
+    /// real — el registro que ve el coach es lo que de verdad se levantó. Solo la
+    /// serie editada se marca confirmada; las herederas siguen pendientes con el
+    /// nuevo objetivo.
+    func setSetLoadCascade(_ index: Int, _ kg: Double?) {
+        setSetLoad(index, kg)
+        guard let value = kg.map({ max(0, $0) }) else { return }
+        for i in setRecords.indices where i > index
+            && !setRecords[i].confirmed && setRecords[i].status != "skipped" {
+            setRecords[i].loadActualKg = value
+        }
+    }
+
     func setSetRPE(_ index: Int, _ rpe: Double?) {
         guard setRecords.indices.contains(index) else { return }
         setRecords[index].rpe = rpe
