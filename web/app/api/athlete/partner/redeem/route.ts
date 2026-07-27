@@ -36,6 +36,8 @@ export interface AcceptingPartnerUser {
   athlete_id: bigint;
   email: string;
   onboarded_at: Date | null;
+  /** null = atleta sin coach (tier free). La respuesta deriva has_coach de aquí. */
+  coach_id: bigint | null;
   /**
    * true only when this call CREATED a brand-new user (unauthenticated +
    * Apple identity that matched no existing account). false when we linked a
@@ -81,24 +83,32 @@ async function ensureAthlete(
   tx: TransactionClient,
   userId: bigint,
   fullName: string | null,
-): Promise<{ athlete_id: bigint; onboarded_at: Date | null }> {
-  const existing = await tx<{ id: string; onboarded_at: Date | null }[]>`
-    select id::text as id, onboarded_at
+): Promise<{ athlete_id: bigint; onboarded_at: Date | null; coach_id: bigint | null }> {
+  const existing = await tx<{ id: string; onboarded_at: Date | null; coach_id: string | null }[]>`
+    select id::text as id, onboarded_at, coach_id::text as coach_id
     from athletes
     where user_id = ${userId}
     limit 1
   `;
   if (existing[0]) {
-    return { athlete_id: BigInt(existing[0].id), onboarded_at: existing[0].onboarded_at };
+    return {
+      athlete_id: BigInt(existing[0].id),
+      onboarded_at: existing[0].onboarded_at,
+      coach_id: existing[0].coach_id == null ? null : BigInt(existing[0].coach_id),
+    };
   }
-  const created = await tx<{ id: string; onboarded_at: Date | null }[]>`
+  const created = await tx<{ id: string; onboarded_at: Date | null; coach_id: string | null }[]>`
     insert into athletes (user_id, full_name)
     values (${userId}, ${fullName?.trim() || 'Athlete'})
-    returning id::text as id, onboarded_at
+    returning id::text as id, onboarded_at, coach_id::text as coach_id
   `;
   const row = created[0];
   if (!row) throw new Error('partner_redeem_athlete_ensure_failed');
-  return { athlete_id: BigInt(row.id), onboarded_at: row.onboarded_at };
+  return {
+    athlete_id: BigInt(row.id),
+    onboarded_at: row.onboarded_at,
+    coach_id: row.coach_id == null ? null : BigInt(row.coach_id),
+  };
 }
 
 /**
@@ -132,6 +142,7 @@ export async function resolveOrCreatePartnerUser(
         athlete_id: athlete.athlete_id,
         email: existing.email,
         onboarded_at: athlete.onboarded_at,
+        coach_id: athlete.coach_id,
         is_new: false,
       } satisfies AcceptingPartnerUser;
     }
@@ -153,16 +164,24 @@ export async function resolveOrCreatePartnerUser(
       athlete_id: athlete.athlete_id,
       email: userRow.email,
       onboarded_at: athlete.onboarded_at,
+      coach_id: athlete.coach_id,
       is_new: true,
     } satisfies AcceptingPartnerUser;
   });
 }
 
-async function loadAthleteOnboardedAt(athleteId: bigint): Promise<Date | null> {
-  const rows = await sql<{ onboarded_at: Date | null }[]>`
-    select onboarded_at from athletes where id = ${athleteId} limit 1
+/** onboarded_at + coach_id del atleta — lo que la respuesta de sesión necesita. */
+async function loadAthleteSessionFacts(
+  athleteId: bigint,
+): Promise<{ onboarded_at: Date | null; coach_id: bigint | null }> {
+  const rows = await sql<{ onboarded_at: Date | null; coach_id: string | null }[]>`
+    select onboarded_at, coach_id::text as coach_id from athletes where id = ${athleteId} limit 1
   `;
-  return rows[0]?.onboarded_at ?? null;
+  const row = rows[0];
+  return {
+    onboarded_at: row?.onboarded_at ?? null,
+    coach_id: row?.coach_id == null ? null : BigInt(row.coach_id),
+  };
 }
 
 function isInvitationLive(invitation: PartnerInvitationRow): boolean {
@@ -218,11 +237,13 @@ export async function POST(req: Request) {
   let isPrivateEmail: boolean | null;
 
   if (bearerSession) {
+    const facts = await loadAthleteSessionFacts(bearerSession.athlete_id);
     accepting = {
       user_id: bearerSession.user_id,
       athlete_id: bearerSession.athlete_id,
       email: bearerSession.email,
-      onboarded_at: await loadAthleteOnboardedAt(bearerSession.athlete_id),
+      onboarded_at: facts.onboarded_at,
+      coach_id: facts.coach_id,
       is_new: false,
     };
     // No Apple identity on the Bearer path → private-relay status is unknown.
@@ -334,5 +355,8 @@ export async function POST(req: Request) {
     email: accepting.email,
     is_private_email: isPrivateEmail,
     onboarded_at: accepting.onboarded_at ? accepting.onboarded_at.toISOString() : null,
+    // Campo ADITIVO (los decoders instalados ignoran claves desconocidas):
+    // false = atleta sin coach (tier free) → la app decide qué superficie enseña.
+    has_coach: accepting.coach_id != null,
   });
 }

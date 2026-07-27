@@ -107,5 +107,8 @@ export async function POST(req: Request) {
     is_private_email: identity.is_private_email,
     full_name: redemption.result.full_name,
     onboarded_at: redemption.result.onboarded_at?.toISOString() ?? null,
+    // Campo ADITIVO (los decoders instalados ignoran claves desconocidas):
+    // false = atleta sin coach (tier free) → la app decide qué superficie enseña.
+    has_coach: redemption.result.coach_id != null,
   });
 }

@@ -255,6 +255,8 @@ export interface RedeemedAthlete {
   email: string;
   full_name: string;
   onboarded_at: Date | null;
+  /** null = atleta sin coach. Aquí siempre viene ligado (la invitación es del coach). */
+  coach_id: bigint | null;
 }
 
 export interface RedeemAthleteInvitationError {
@@ -417,9 +419,9 @@ export async function redeemAthleteInvitation(
     }
 
     const athleteRows = await tx<
-      { id: string; full_name: string; onboarded_at: Date | null }[]
+      { id: string; full_name: string; onboarded_at: Date | null; coach_id: string | null }[]
     >`
-      select id::text as id, full_name, onboarded_at
+      select id::text as id, full_name, onboarded_at, coach_id::text as coach_id
       from athletes
       where id = ${invitation.athlete_id}
       limit 1
@@ -437,6 +439,7 @@ export async function redeemAthleteInvitation(
         email: target.email,
         full_name: athlete.full_name,
         onboarded_at: athlete.onboarded_at,
+        coach_id: athlete.coach_id == null ? null : BigInt(athlete.coach_id),
       },
     } as const;
   });
