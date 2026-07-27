@@ -13,6 +13,7 @@
 import type { Sql } from '@/lib/db';
 import type { CheckinSnapshot } from './schema';
 import { notifyCoach } from '@/lib/notifications/dispatch';
+import { CHECKIN_RISK_SUB_SCORE_MAX } from '@/lib/dashboard/coach/checkin-presentation';
 
 export type CheckinIngestResult = {
   checkin_id: string;
@@ -99,8 +100,9 @@ async function evaluateAdaptive(args: {
   const { sql, athlete_id, snapshot, recorded_for } = args;
 
   // Rule: sub_score must be in the danger band first; if not, skip the
-  // expensive HRV/RPE lookups.
-  if (snapshot.sub_score >= 40) {
+  // expensive HRV/RPE lookups. Same band that paints the roster chip —
+  // single-sourced in checkin-presentation.
+  if (snapshot.sub_score >= CHECKIN_RISK_SUB_SCORE_MAX) {
     return { flag: null, hrv_trend_down: false, planned_rpe_high: false };
   }
 
