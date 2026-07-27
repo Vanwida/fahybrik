@@ -102,12 +102,32 @@ private struct SendBody: Encodable {
     let attachmentMeta: ChatAttachmentMeta?
 }
 
-// POST /api/chat/upload response — { url, mime_type, size_bytes, kind }.
-struct ChatUploadResult: Decodable, Equatable {
+/// What `uploadAttachment` hands back to the send path: the authenticated proxy
+/// URL the message references, plus the confirmed mime/size.
+struct ChatUploadResult: Equatable {
     let url: String
     let mimeType: String
     let sizeBytes: Int
     let kind: String
+}
+
+// POST /api/chat/upload-url response — the server validates the announced file
+// and presigns a direct-to-storage PUT. `uploadUrl` is where the bytes go;
+// `attachmentUrl` is what the message references; `contentType` is the EXACT
+// Content-Type the PUT must declare (it is baked into the signature).
+private struct ChatUploadTarget: Decodable {
+    let uploadUrl: String
+    let attachmentUrl: String
+    let contentType: String
+}
+
+// Mirrors uploadUrlSchema (web/app/api/chat/upload-url/route.ts). The athlete
+// principal derives the folder from the bearer, so no athlete_id is sent.
+private struct UploadUrlBody: Encodable {
+    let kind: String
+    let filename: String
+    let mimeType: String
+    let sizeBytes: Int
 }
 
 private struct ReadBody: Encodable {
@@ -121,8 +141,12 @@ enum ChatService {
     private static let messagesPath = "/api/chat/threads/me/messages"
     private static let readPath = "/api/chat/threads/me/read"
     private static let threadsPath = "/api/chat/threads"
-    // Multipart attachment upload — returns a proxy URL the message then references.
-    private static let uploadPath = "/api/chat/upload"
+    // Presigned attachment upload: ask for a one-shot upload URL, then PUT the
+    // bytes DIRECTLY to storage. They can't travel through our API — the
+    // platform caps any function body at ~4.5 MB (FUNCTION_PAYLOAD_TOO_LARGE),
+    // which is why the old multipart route could never carry a big photo, let
+    // alone a video.
+    private static let uploadUrlPath = "/api/chat/upload-url"
     // Server-Sent Events feed of new messages for the calling principal. The
     // athlete subscribes to their single thread; the server emits one
     // `event: message` per new message (same MessageDTO shape as the REST list)
@@ -171,11 +195,12 @@ enum ChatService {
         return resp.message
     }
 
-    /// Upload an attachment file to /api/chat/upload (multipart: `file` + `kind`
-    /// + `filename`). The multipart envelope is written to a temp file and
-    /// STREAMED via `upload(for:fromFile:)`, so a 200 MB video is never buffered
-    /// in memory. Returns the proxy `url` + server-confirmed size/mime, which the
-    /// caller then references in `sendMessage`.
+    /// Upload an attachment in two steps: ask /api/chat/upload-url for a
+    /// presigned target (the server validates kind/extension/size and pins the
+    /// destination path), then PUT the file DIRECTLY to storage — streamed via
+    /// `upload(for:fromFile:)`, so a 200 MB video is never buffered in memory.
+    /// Returns the proxy `url` + confirmed size/mime, which the caller then
+    /// references in `sendMessage`.
     static func uploadAttachment(
         bearer: String,
         kind: ChatAttachmentKind,
@@ -183,53 +208,35 @@ enum ChatService {
         filename: String,
         mimeType: String
     ) async throws -> ChatUploadResult {
-        let boundary = "Boundary-\(UUID().uuidString)"
-        let bodyFile = try buildMultipartBodyFile(
-            boundary: boundary, kind: kind.rawValue,
-            filename: filename, mimeType: mimeType, payloadURL: fileURL
+        let sizeBytes = (try? FileManager.default
+            .attributesOfItem(atPath: fileURL.path)[.size] as? Int).flatMap { $0 } ?? 0
+
+        // 1. The server validates the announced file and presigns the destination.
+        let target: ChatUploadTarget = try await APIClient.shared.post(
+            path: uploadUrlPath,
+            body: UploadUrlBody(
+                kind: kind.rawValue, filename: filename,
+                mimeType: mimeType, sizeBytes: sizeBytes
+            ),
+            bearer: bearer
         )
-        defer { try? FileManager.default.removeItem(at: bodyFile) }
+        guard let uploadURL = URL(string: target.uploadUrl) else { throw APIError.invalidResponse }
 
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(uploadPath))
-        req.httpMethod = "POST"
-        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-
-        let (data, resp) = try await URLSession.shared.upload(for: req, fromFile: bodyFile)
+        // 2. Bytes go straight to storage. The Content-Type must be EXACTLY the
+        // one the server signed, or storage rejects the PUT.
+        var put = URLRequest(url: uploadURL)
+        put.httpMethod = "PUT"
+        put.setValue(target.contentType, forHTTPHeaderField: "Content-Type")
+        let (data, resp) = try await URLSession.shared.upload(for: put, fromFile: fileURL)
         guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else { throw APIError.http(http.statusCode, data) }
-        return try uploadDecoder.decode(ChatUploadResult.self, from: data)
-    }
 
-    private static let uploadDecoder = APIClient.makeJSONDecoder()
-
-    /// Streams a `multipart/form-data` envelope to a temp file: the `kind` +
-    /// `filename` text fields, then the `file` part with the payload copied in
-    /// 1 MB chunks (never fully in memory). Caller uploads the returned file.
-    private static func buildMultipartBodyFile(
-        boundary: String, kind: String, filename: String, mimeType: String, payloadURL: URL
-    ) throws -> URL {
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("chat-upload-\(UUID().uuidString).multipart")
-        FileManager.default.createFile(atPath: tmp.path, contents: nil)
-        let out = try FileHandle(forWritingTo: tmp)
-        defer { try? out.close() }
-
-        func write(_ s: String) throws { try out.write(contentsOf: Data(s.utf8)) }
-        // Quotes would break the Content-Disposition header.
-        let safeName = filename.replacingOccurrences(of: "\"", with: "")
-
-        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"kind\"\r\n\r\n\(kind)\r\n")
-        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"filename\"\r\n\r\n\(safeName)\r\n")
-        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\nContent-Type: \(mimeType)\r\n\r\n")
-
-        let reader = try FileHandle(forReadingFrom: payloadURL)
-        defer { try? reader.close() }
-        while let chunk = try reader.read(upToCount: 1024 * 1024), !chunk.isEmpty {
-            try out.write(contentsOf: chunk)
-        }
-        try write("\r\n--\(boundary)--\r\n")
-        return tmp
+        return ChatUploadResult(
+            url: target.attachmentUrl,
+            mimeType: target.contentType,
+            sizeBytes: sizeBytes,
+            kind: kind.rawValue
+        )
     }
 
     static var sendPath: String { messagesPath }
