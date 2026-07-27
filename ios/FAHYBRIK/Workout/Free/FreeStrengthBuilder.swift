@@ -415,8 +415,8 @@ private struct FreeStrengthCard: View {
                 label: { $0.labelES }
             )
             if item.loadKind == .kg {
-                FreeStepper(label: "Carga", value: $item.kgUnits,
-                            step: 1, minValue: 1) { kgString(Double($0) * FreeStrengthStep.kgIncrement) + " kg" }
+                // Rueda, no −/+: de 20 a 80 kg en un gesto (petición de Alex en vivo).
+                KgWheel(label: "Carga", units: $item.kgUnits)
             }
             FreeStepper(label: "Descanso", value: $item.restSeconds,
                         step: FreeStrengthStep.restStep, minValue: 0) {

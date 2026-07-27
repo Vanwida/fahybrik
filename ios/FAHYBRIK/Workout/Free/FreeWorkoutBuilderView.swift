@@ -490,6 +490,40 @@ struct FreeBuilderTile: View {
 
 // MARK: - Stepper (−/value/+, mono readout) — the only way to set a number
 
+// KgWheel — la rueda de carga (Alex, entrenando: el −/+ "es súper lento").
+// Pasos de 2,5 kg, el patrón nativo que ya usamos en Registrar carrera: giras y
+// estás en 80 desde 20 en un gesto, no en 24 toques. `units` = kg / 2,5 (el mismo
+// entero que ya guarda el draft, así que el modelo no se entera).
+struct KgWheel: View {
+    let label: String
+    @Binding var units: Int
+    var minUnits: Int = 1          // 2,5 kg
+    var maxUnits: Int = 120        // 300 kg
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: label, size: 11)
+            Picker(label, selection: $units) {
+                ForEach(minUnits...maxUnits, id: \.self) { u in
+                    Text(Self.kgLabel(Double(u) * 2.5))
+                        .font(.system(size: 17, weight: .bold, design: .monospaced))
+                        .tag(u)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 96)
+            .clipped()
+        }
+    }
+
+    /// "82,5 kg" / "80 kg" — coma decimal y sin ,0 de relleno.
+    static func kgLabel(_ v: Double) -> String {
+        let whole = v.truncatingRemainder(dividingBy: 1) == 0
+        let num = whole ? String(Int(v)) : String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",")
+        return num + " kg"
+    }
+}
+
 struct FreeStepper: View {
     let label: String
     @Binding var value: Int
