@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proyección de tiempo HYROX — especificación del modelo</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5vw,42px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.12;margin:10px 0 8px}
+  .sub{color:var(--muted);font-size:17px;max-width:660px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:22px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800}
+  h3{font-size:15.5px;font-weight:800;margin:var(--sp-3) 0 var(--sp-1)}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:9px} li::marker{color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong)}
+  td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tS table{margin:0}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .bug{border-left:3px solid var(--bad);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-3)}
+  .bug h3{margin:0 0 4px;color:var(--fg)}
+  .bug p{margin:0;font-size:14.5px;color:var(--muted)}
+  .keep{border-left:3px solid var(--ok);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-2)}
+  .keep h3{margin:0 0 4px} .keep p{margin:0;font-size:14.5px;color:var(--muted)}
+  .law{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .law h3{margin:0 0 6px;color:var(--accent)}
+  .law p{margin:0;font-size:15px;color:var(--fg)}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;font:13.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);margin-bottom:var(--sp-2);overflow-x:auto}
+  .formula .c{color:var(--faint)}
+  .layer{display:flex;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
+  .layer:last-child{border-bottom:0}
+  .layer .n{flex:0 0 40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic}
+  .layer h3{margin:0 0 3px} .layer p{margin:0;font-size:14px;color:var(--muted)}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media (max-width:560px){ .wrap{padding:var(--sp-4) var(--sp-2)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Especificación del modelo · Para revisión de Alex</p>
+  <h1>Cuánto tardarías en un HYROX</h1>
+  <p class="sub">El número que sostiene todo el embudo del tier free. Si miente, un atleta lo nota a la primera y pierde la confianza en el resto del producto.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 27 jul 2026</span>
+    <span><b>Base</b> · auditoría completa de <code>shared/domain/goal-gap</code>, <code>race-transfer</code>, <code>dobles-gap</code> y el importador</span>
+    <span><b>Estado</b> · propuesta, sin código escrito</span>
+  </div>
+
+  <h2><span class="n">01</span>Qué tenemos hoy — el veredicto</h2>
+
+  <p class="lede">El modelo actual es serio y está bien construido <strong>para la pregunta que responde</strong>: "atleta con coach, con objetivo puesto y carreras a la espalda, ¿dónde está tu gap?". No sirve para la pregunta del embudo: "desconocido sin objetivo y sin carreras, ¿cuánto tardarías?".</p>
+
+  <h3>Lo que se queda (está bien pensado)</h3>
+  <div class="keep"><h3>La descomposición en diez segmentos</h3><p>8 km de carrera + 8 estaciones + roxzone, con índices canónicos. Es la anatomía correcta de la prueba y no se toca.</p></div>
+  <div class="keep"><h3>Los niveles de evidencia declarados</h3><p><em>observado</em> / <em>estimado</em> / <em>sin datos</em>: ningún número aparece sin decir de dónde sale. Es la mejor decisión de diseño del módulo y se mantiene, ampliada.</p></div>
+  <div class="keep"><h3>El snapshot y la revisión predicho-vs-real</h3><p>Cada predicción se congela y luego se compara con lo que pasó de verdad, segmento a segmento. Es la infraestructura de calibración y ya existe: es oro.</p></div>
+  <div class="keep"><h3>El reparto de dobles</h3><p>Correr y roxzone los manda el más lento, las estaciones se reparten. El modelo de pareja es correcto.</p></div>
+
+  <h3>Lo que está roto</h3>
+  <div class="bug"><h3>1 · No lee las marcas. Ninguna.</h3><p>El lado "entrenado" sale de los ritmos de sesiones ejecutadas (<code>segment_executions</code>), no de <code>athlete_benchmarks</code>. Es decir: <strong>«Probarme» no alimenta la predicción</strong>. El bucle entero del free (te mides → ves tu proyección) hoy no existe.</p></div>
+  <div class="bug"><h3>2 · Una carrera reciente congela el número</h3><p>Con un HYROX de menos de 180 días, los diez segmentos salen <em>observado</em> crudos y el predicho es <strong>exactamente el tiempo de esa carrera</strong>. Cinco meses de entrenamiento no lo mueven un segundo. Está fijado en un test.</p></div>
+  <div class="bug"><h3>3 · Los huecos se rellenan con tu objetivo</h3><p>Los segmentos sin datos computan en el total a valor de presupuesto — y el presupuesto sale del objetivo. Para un principiante sin datos de estaciones, la app concluye que va justo a su meta. Le faltarían veinte minutos.</p></div>
+  <div class="bug"><h3>4 · Sin objetivo no hay número</h3><p>Todo cuelga del presupuesto. Pero en el embudo la proyección va <strong>antes</strong> de que exista un objetivo.</p></div>
+  <div class="bug"><h3>5 · El cohorte está muerto y además contaminado</h3><p>Las referencias salen de nuestras propias carreras (una decena) y exigen cinco completas dentro del ±10 % del objetivo: casi nunca se activa. Y entre ellas entran filas sembradas con los splits multiplicados por un factor, marcadas como importadas reales.</p></div>
+  <div class="bug"><h3>6 · Ignora todo lo que sabemos del atleta</h3><p>Peso, altura, sexo, edad, composición, fuerza máxima, VO2máx del reloj, años de experiencia y división: guardado todo, usado nada.</p></div>
+  <div class="bug"><h3>7 · Detalles que muerden</h3><p>El factor de competición es una media sin ponderar de cocientes de magnitudes distintas. El paso de 500 m a 1000 m se hace multiplicando por dos (nadie sostiene el ritmo de 500 el doble de distancia). Y dobles reimplementa la matemática en Swift con un <em>clamp</em> que la versión del servidor no tiene, sin ningún test que compare las dos.</p></div>
+
+  <h2><span class="n">01b</span>Lo que ya está afectando a los atletas de pago — se arregla, no espera</h2>
+  <p class="mut">Estos no son problemas del tier free: son fallos que hoy sufren Pablo y sus atletas. Van con prioridad propia, independientemente de cuándo se construya el modelo nuevo.</p>
+  <div class="tS"><table>
+    <tr><th>Fallo</th><th>A quién afecta hoy</th><th>Arreglo</th></tr>
+    <tr><td>La predicción se congela con una carrera reciente</td><td>Todo atleta con un HYROX de menos de 180 días — entrena meses y su número no se mueve</td><td>Envejecer la evidencia (ley 3)</td></tr>
+    <tr><td>Los segmentos sin datos computan al objetivo</td><td>Atletas sin splits de estaciones: su gap tiende a cero y parece que van bien</td><td>Estimar por perfil/cohorte, nunca por el objetivo (ley 2)</td></tr>
+    <tr><td>Carreras sembradas con splits multiplicados entran en el cohorte</td><td>Contamina en silencio el cálculo de atletas reales</td><td>Excluirlas del conjunto (y de la calibración)</td></tr>
+    <tr><td>El dashboard del coach nunca enseña la predicción</td><td>Pablo: el panel cae siempre al vacío porque el cargador devuelve <code>null</code>; los números que se ven en demo son constantes</td><td>Enchufarlo de verdad o retirar el panel — nada muerto en medio</td></tr>
+    <tr><td>Dobles reimplementa la matemática en Swift</td><td>Parejas de pago: el cliente y el servidor pueden dar números distintos (el <em>clamp</em> solo existe en uno) y ningún test los compara</td><td>Una sola fuente: el servidor manda, iOS pinta</td></tr>
+    <tr><td>El factor de competición promedia magnitudes distintas</td><td>Cualquier atleta con carrera: un cociente de ritmos de carrera pesa igual que uno de una estación funcional</td><td>Ponderar por tiempo del segmento</td></tr>
+  </table></div>
+
+  <h2><span class="n">02</span>Dos preguntas, dos modelos</h2>
+  <div class="tS"><table>
+    <tr><th>Modelo</th><th>Pregunta</th><th>Para quién</th><th>Estado</th></tr>
+    <tr><td>Proyección</td><td>¿Cuánto tardarías hoy en un HYROX?</td><td>Cualquiera, sin objetivo y con pocos datos — el usuario del embudo</td><td><span class="pill on">nuevo</span></td></tr>
+    <tr><td>Gap al objetivo</td><td>Contra tu meta, ¿dónde te falta tiempo?</td><td>Atleta con coach y objetivo</td><td><span class="pill ok">existe · se alimenta del nuevo</span></td></tr>
+  </table></div>
+  <p>La proyección pasa a ser la base: el gap deja de predecir por su cuenta y compara la proyección contra el presupuesto del objetivo. Un único cálculo, dos lecturas.</p>
+
+  <h2><span class="n">03</span>Las cinco leyes del modelo</h2>
+  <div class="law"><h3>1 · Rango, nunca un número solo</h3><p>Se muestra un intervalo con su punto central. Un rango honesto genera más confianza que una precisión falsa, y un atleta con experiencia lo respeta.</p></div>
+  <div class="law"><h3>2 · Ningún hueco se rellena con el objetivo</h3><p>Lo que no se sabe se estima por perfil o por cohorte, marcado como tal, y ensancha el rango. Jamás se toma prestado del deseo del atleta.</p></div>
+  <div class="law"><h3>3 · La evidencia envejece</h3><p>Una carrera de hace cinco meses no es verdad de hoy: pesa menos según pasa el tiempo y se mezcla con la estimación actual. Entrenar tiene que mover el número.</p></div>
+  <div class="law"><h3>4 · Cada coeficiente tiene origen declarado</h3><p>O sale de datos reales, o es un supuesto escrito con su justificación. Ninguna constante anónima en el código.</p></div>
+  <div class="law"><h3>5 · Nada entra si no baja el error</h3><p>Toda variable nueva se valida contra carreras reales con el bucle predicho-vs-real. Si no mejora, fuera.</p></div>
+
+  <h2><span class="n">04</span>Jerarquía de evidencia por segmento</h2>
+  <p class="mut">Para cada uno de los diez segmentos se toma la mejor fuente disponible, en este orden:</p>
+  <div class="tS"><table>
+    <tr><th>#</th><th>Fuente</th><th>Qué es</th><th>Envejece</th></tr>
+    <tr><td>1</td><td>Carrera propia</td><td>Tu split real en un HYROX</td><td>Sí — se mezcla con la estimación según pasan los meses</td></tr>
+    <tr><td>2</td><td>Simulación</td><td>Tu split en una sesión de simulación medida por la app</td><td>Sí</td></tr>
+    <tr><td>3</td><td>Marca medida</td><td>«Probarme»: ergo o carrera, con su penalización de fatiga y contexto</td><td>Sí, más despacio</td></tr>
+    <tr><td>4</td><td>Perfil</td><td>Estimación desde sus rasgos (peso, fuerza, VO2máx, experiencia…)</td><td>No</td></tr>
+    <tr><td>5</td><td>Cohorte</td><td>Típico de su división y nivel</td><td>No</td></tr>
+  </table></div>
+
+  <h2><span class="n">05</span>Cómo se predice cada segmento</h2>
+
+  <h3>Carrera (los 8 km — la mitad de la prueba)</h3>
+  <p>El predictor bueno de ocho kilómetros troceados es el <strong>umbral</strong>, no la velocidad punta: por eso manda el 5K o el Cooper por encima del 1 km, y el VO2máx del reloj cubre a quien aún no se ha probado. Sobre ese ritmo sostenible se aplican dos ajustes.</p>
+  <div class="formula">
+ritmo_carrera = ritmo_umbral × (1 + <span class="c">penalización_comprometida</span>)<br>
+<span class="c">// la penalización baja con: nivel aeróbico, fuerza relativa y experiencia en HYROX</span><br>
+<span class="c">// y se reparte creciente de la vuelta 1 a la 8 (degradación)</span><br>
+run_total = Σ vuelta<sub>i</sub>, i = 1..8
+  </div>
+  <p class="mut">Es el ajuste que hoy no existe cuando el atleta no tiene una carrera previa: sin él, la app predice ocho kilómetros al ritmo de un 1 km fresco, unos diez minutos de fantasía.</p>
+
+  <h3>Ergos (ski y remo)</h3>
+  <p>De su marca del mismo aparato, convirtiendo la distancia con un exponente de resistencia en vez de multiplicando (nadie sostiene el ritmo de 500 durante 1000), más la fatiga de la posición: el ski llega casi fresco, el remo llega después de los burpees.</p>
+  <div class="formula">
+t(1000) = t(500) × 2<sup><span class="c">k</span></sup>   <span class="c">// k &gt; 1, calibrado; nunca × 2 exacto</span><br>
+predicho = t(1000) × factor_fatiga(posición, nivel)
+  </div>
+
+  <h3>Las cinco estaciones de fuerza</h3>
+  <p>Aquí no hay marca posible en el catálogo actual, y son casi el 40 % de la carrera. Se estiman desde los rasgos que físicamente las determinan — y el peso corporal <strong>cambia de signo</strong> según la estación:</p>
+  <div class="tS"><table>
+    <tr><th>Estación</th><th>Lo que la determina</th><th>El peso</th></tr>
+    <tr><td>Trineo empuje</td><td>Fuerza de piernas absoluta, masa, técnica; el suelo del pabellón</td><td>A favor</td></tr>
+    <tr><td>Trineo arrastre</td><td>Cadena posterior, agarre, técnica de cuerda</td><td>A favor</td></tr>
+    <tr><td>Burpees con salto</td><td>Aeróbico + coordinación; penaliza al pesado</td><td>En contra</td></tr>
+    <tr><td>Farmers</td><td>Agarre y resistencia; poca varianza</td><td>Neutro</td></tr>
+    <tr><td>Zancadas con saco</td><td>Fuerza de piernas relativa (la carga es fija para todos)</td><td>En contra vía ratio</td></tr>
+    <tr><td>Wall balls</td><td>Resistencia de hombro y pierna, altura; la de mayor varianza de la prueba</td><td>En contra</td></tr>
+  </table></div>
+  <p><strong>La división entra aquí como variable obligatoria</strong>: los pesos de trineo y saco cambian entre open, pro y dobles, así que el mismo atleta tiene dos tiempos distintos según dónde se apunte.</p>
+
+  <h3>Roxzone (las transiciones)</h3>
+  <p>No se entrena: la manda la experiencia. Se estima por número de carreras disputadas y nivel; un novato regala minutos aquí sin enterarse.</p>
+
+  <h2><span class="n">06</span>Entradas, por capas</h2>
+  <p class="mut">Con 18 carreras propias no se pueden calibrar veinticinco variables: eso no da un modelo listo, da uno sobreajustado. Se entra por capas y cada una debe demostrar que baja el error.</p>
+  <div class="card">
+    <div class="layer"><div class="n">1</div><div><h3>Lo que ya tenemos y manda</h3><p>Sexo, edad, peso, altura, división, experiencia en HYROX, marcas medidas (carrera y ergos), VO2máx del reloj, máximos de fuerza, y las carreras propias. Aquí está la mayor parte de la señal — y hoy el modelo ignora casi todo.</p></div></div>
+    <div class="layer"><div class="n">2</div><div><h3>Barato de añadir</h3><p>Composición corporal por HealthKit (masa magra y grasa: una línea junto a donde ya cogemos el peso; el servidor ya entiende <code>body_fat</code>), y la simulación como sesión que convierte estimaciones en observaciones.</p></div></div>
+    <div class="layer"><div class="n">3</div><div><h3>Requiere decisión</h3><p>Datos de población por división para las curvas de cohorte, y el factor de sede (que captura suelo, calor y altitud sin medirlos: la mediana de los resultados de ese evento ya te lo dice).</p></div></div>
+    <div class="layer"><div class="n">✕</div><div><h3>Fuera de este modelo</h3><p>HRV, sueño, fatiga, nutrición y RPE no predicen tu tiempo dentro de nueve semanas: predicen tu día. Su sitio es el ajuste de la semana de carrera y el aviso de que la progresión no se va a cumplir. Mezclarlos aquí es meter ruido.</p></div></div>
+  </div>
+
+  <h2><span class="n">07</span>Incertidumbre — la parte que nadie hace bien</h2>
+  <p>Cada segmento aporta un valor central y una dispersión que depende de su fuente: un split real de hace tres semanas es casi exacto; una estación estimada desde el perfil de un novato puede irse minutos. El total suma los centros y compone las dispersiones.</p>
+  <div class="formula">
+proyección = [ p25 … p75 ]  con centro destacado<br>
+<span class="c">confianza = f(share del tiempo que viene de evidencia observada)</span>
+  </div>
+  <ul>
+    <li><strong>Se muestra siempre el rango.</strong> "Entre 1:26 y 1:34" con el centro en 1:30.</li>
+    <li><strong>El rango se estrecha con cada marca</strong>, y se le enseña al atleta. Convierte medirse en un juego y nos da datos.</li>
+    <li><strong>Si más del 40 % del tiempo viene de estimaciones de perfil, se dice con letra clara</strong> — y ahí aparece la propuesta de simulación, que es lo que convierte estimación en observación.</li>
+  </ul>
+
+  <h2><span class="n">08</span>Calibración y validación</h2>
+  <ul>
+    <li>Los coeficientes salen del <strong>bucle predicho-vs-real que ya existe</strong>: error por segmento sobre carreras reales, no intuición.</li>
+    <li>Métricas de aceptación: error medio del total, error por segmento, y <strong>cobertura</strong> (qué porcentaje de carreras cae dentro del rango que dimos; si damos p25-p75, debería ser la mitad).</li>
+    <li>Limpieza previa obligatoria: las carreras sembradas con splits escalados <strong>salen del conjunto de calibración</strong> — hoy entran como si fueran importadas reales.</li>
+    <li>Cada versión del modelo queda registrada en el snapshot, así se puede comparar una versión contra otra sobre las mismas carreras.</li>
+  </ul>
+
+  <h2><span class="n">09</span>Lo que hace falta y no está</h2>
+  <div class="tS"><table>
+    <tr><th>Qué</th><th>Por qué</th><th>Coste</th></tr>
+    <tr><td>Conectar marcas → modelo</td><td>Sin esto el free no tiene proyección: es el bucle entero del embudo</td><td>Medio · trabajo nuevo</td></tr>
+    <tr><td>División en el perfil</td><td>Cambia los pesos y por tanto el tiempo</td><td>Bajo</td></tr>
+    <tr><td>Composición corporal</td><td>Separa masa magra de grasa; el peso bruto es una variable pobre</td><td>Bajo · una línea en iOS</td></tr>
+    <tr><td>Datos de población</td><td>Sin ellos, la cohorte de un desconocido es adivinar</td><td><span class="pill warn">decisión de Alex</span></td></tr>
+    <tr><td>Unificar dobles</td><td>Hoy la matemática está duplicada en Swift y puede divergir del servidor</td><td>Bajo</td></tr>
+  </table></div>
+
+  <h2><span class="n">10</span>La decisión que queda abierta</h2>
+  <div class="law">
+    <h3>¿Vamos a por datos de población?</h3>
+    <p>Hoy solo importamos carreras <strong>de nuestros propios atletas</strong>: las dos rutas escriben sobre el atleta que llama y no existe ningún proceso que lea una clasificación entera. Sin población, la estimación de un desconocido descansa en supuestos nuestros; con ella, descansa en miles de carreras reales. Si vamos, lo haría despacio, cacheado y solo para construir estadística agregada por división — nunca para exhibir resultados de terceros.</p>
+  </div>
+
+  <div class="footer">FAHYBRID · especificación interna · deriva de la auditoría del predictor actual (<code>shared/domain/goal-gap</code>, <code>race-transfer</code>, <code>dobles-gap</code>, importador hyresult) · embudo: <code>docs/design/free-plan-conversion-mockup.html</code></div>
+
+</div>
+</body>
+</html>
