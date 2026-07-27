@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan (free) — la pestaña que convierte</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --frame:#000; --surface:#141414; --surface-2:#1d1d1d; --border:#262626; --border-strong:#3a3a3a;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#6f6f6f;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.14); --ok:#4ade80; --warn:#facc15;
+    --r-s:10px; --r-m:14px; --r-l:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:56px 24px}
+  .head{max-width:1240px;margin:0 auto 40px}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(28px,4vw,40px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 6px}
+  .head p{color:var(--muted);max-width:680px}
+  .rule{max-width:1240px;margin:0 auto 36px;padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 var(--r-m) var(--r-m) 0;color:var(--muted);font-size:14.5px}
+  .rule b{color:var(--fg)}
+  .gallery{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:44px 30px}
+  .shot h2{font-size:14px;font-weight:800;font-style:italic;margin:16px 2px 4px}
+  .shot .why{font-size:12.5px;color:var(--faint);margin:0 2px;line-height:1.6}
+  .phone{background:var(--frame);border:1px solid var(--border-strong);border-radius:40px;padding:10px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .screen{background:var(--bg);border-radius:32px;overflow:hidden;display:flex;flex-direction:column;height:700px;position:relative}
+  .status{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 6px;font-size:12px;font-weight:700}
+  .pill-cam{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:96px;height:24px;background:#000;border-radius:12px}
+  .body{flex:1;overflow:hidden;padding:8px 16px 0;display:flex;flex-direction:column;gap:12px}
+  .h-lg{font-size:25px;font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.14}
+  .h-md{font-size:16px;font-weight:800;font-style:italic}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .mut{color:var(--muted)} .sm{font-size:12.5px} .xs{font-size:11px}
+  .num{font-variant-numeric:tabular-nums}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:14px}
+  .card.hot{background:linear-gradient(135deg,var(--surface),#1e1209);border-color:rgba(240,106,42,.4)}
+  .row{display:flex;align-items:center;gap:10px}
+  .row .sp{margin-left:auto}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#160b04;font-weight:800;border-radius:var(--r-m);padding:14px;font-size:15px}
+  .btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--border-strong);font-weight:700}
+  .hr{height:1px;background:var(--border);margin:10px 0}
+  .tabbar{display:flex;border-top:1px solid var(--border);padding:10px 8px 20px;background:rgba(10,10,10,.96)}
+  .tabbar div{flex:1;text-align:center;font-size:10px;font-weight:700;color:var(--faint)}
+  .tabbar div.on{color:var(--accent)}
+  .tabbar .ico{font-size:18px;display:block;margin-bottom:2px}
+  /* barras de estación */
+  .st{margin-bottom:9px}
+  .st .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+  .st .track{height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+  .st .track i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+  .st.weak .track i{background:var(--accent);box-shadow:0 0 10px rgba(240,106,42,.5)}
+  .st .top b{font-weight:700}
+  .st.weak .top b{color:var(--accent)}
+  /* semana bloqueada */
+  .week{position:relative;border-radius:var(--r-m);overflow:hidden}
+  .week .day{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .week .day:last-child{border-bottom:0}
+  .week .day span{width:30px;color:var(--faint);font-size:11.5px;padding-top:1px}
+  .week .day b{font-weight:700}
+  .week .day .p{display:block;font-size:11.5px;color:var(--accent);font-weight:700;margin-top:1px}
+  .blurred{filter:blur(4.5px);opacity:.6;user-select:none}
+  .lockrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-weight:600}
+  .coach{display:flex;align-items:center;gap:12px}
+  .coach .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a2a2a,#3d2416);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;color:var(--accent);flex-shrink:0}
+  .step{display:flex;gap:11px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+  .step:last-child{border-bottom:0}
+  .step .n{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step b{font-size:13.5px}
+  .step .s{display:block;font-size:11.5px;color:var(--muted)}
+  .bars{display:flex;gap:6px;align-items:flex-end}
+  .bars .d{flex:1;text-align:center}
+  .bars .d i{display:block;border-radius:7px;margin-top:4px}
+  .footer{max-width:1240px;margin:48px auto 0;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media (max-width:700px){ body{padding:32px 14px} }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <p class="kicker">FAHYBRID FREE · Plan como superficie de conversión · 27 jul 2026</p>
+  <h1>El free mide. El pago decide.</h1>
+  <p>La pestaña Plan del usuario free no enseña lo que hizo (eso vive en Hoy): enseña <b style="color:var(--fg)">lo que le falta</b>, calculado con sus propios datos, y quién se lo arregla.</p>
+</div>
+
+<div class="rule">
+  <b>La regla que evita que esto sea un anuncio:</b> la pantalla da valor real aunque el usuario no compre nunca — el diagnóstico es suyo, es verdad y es gratis. Solo se bloquea la prescripción. Y con cero datos <b>no se vende nada</b>: se le empuja a medirse, porque vender sin diagnóstico es cuando se nota el vendedor.
+</div>
+
+<div class="gallery">
+
+  <!-- 1 · PLAN FREE — SIN DATOS -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div>
+          <div class="lbl">Plan</div>
+          <div class="h-lg">Primero, saber<br>dónde estás.</div>
+          <p class="sm mut" style="margin-top:8px">Sin números no hay plan que valga. Hazte estas tres y la app te dice exactamente qué te está costando tiempo.</p>
+        </div>
+
+        <div class="card">
+          <div class="step"><div class="n">1</div><div><b>1 km a tope</b><span class="s">Calle o cinta · la app lo mide sola · 4 min</span></div></div>
+          <div class="step"><div class="n">2</div><div><b>Remo 500 m</b><span class="s">Conecta el monitor · 2 min</span></div></div>
+          <div class="step"><div class="n">3</div><div><b>Ski 1.000 m</b><span class="s">Conecta el monitor · 4 min</span></div></div>
+        </div>
+
+        <div class="btn">Empezar por el 1 km</div>
+
+        <div class="card" style="margin-top:2px">
+          <div class="lbl" style="margin-bottom:8px">¿Ya tienes una carrera?</div>
+          <div class="row">
+            <span class="sm">Ponla y calculamos tu tiempo proyectado.</span>
+            <span class="sp" style="color:var(--accent);font-weight:800">+</span>
+          </div>
+        </div>
+
+        <p class="xs" style="color:var(--faint);text-align:center;margin-top:auto;padding-bottom:12px">
+          Tus marcas son tuyas. Sin cuenta de pago, sin tarjeta.
+        </p>
+      </div>
+      <div class="tabbar"><div><span class="ico">⌂</span>Hoy</div><div class="on"><span class="ico">▤</span>Plan</div><div><span class="ico">◎</span>Marcas</div><div><span class="ico">☰</span>Perfil</div></div>
+    </div></div>
+    <h2>1 · Usuario recién llegado — aquí NO se vende</h2>
+    <p class="why">Con cero datos, cualquier oferta se lee como anuncio. La pantalla hace lo único honesto: llevarle a generar sus números, que es gratis y es nuestro producto. El embudo empieza por medir, no por pagar.</p>
+  </div>
+
+  <!-- 2 · PLAN FREE — CON DATOS (LA PANTALLA CLAVE) -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body" style="overflow-y:auto">
+        <div class="card hot">
+          <div class="lbl">Tu carrera</div>
+          <div class="row" style="margin-top:4px;align-items:baseline">
+            <span class="h-md">HYROX Barcelona</span>
+            <span class="sp xs mut num">en 9 semanas</span>
+          </div>
+          <div class="row" style="margin-top:12px;align-items:flex-end">
+            <div><div class="xs mut">Vas por</div><div class="num" style="font-size:27px;font-weight:800;font-style:italic;line-height:1.1">1:28:40</div></div>
+            <div style="margin-left:auto;text-align:right"><div class="xs mut">Tu objetivo</div><div class="num" style="font-size:27px;font-weight:800;font-style:italic;line-height:1.1;color:var(--accent)">1:22:00</div></div>
+          </div>
+          <div class="hr" style="background:rgba(240,106,42,.25)"></div>
+          <div class="sm" style="font-weight:700">Te faltan <span class="num">6:40</span>. Se pueden sacar.</div>
+        </div>
+
+        <div class="card">
+          <div class="lbl" style="margin-bottom:10px">Dónde se te va el tiempo</div>
+          <div class="st"><div class="top"><span>Remo 1.000</span><b>top 18%</b></div><div class="track"><i style="width:82%"></i></div></div>
+          <div class="st"><div class="top"><span>Carrera 1 km</span><b>top 34%</b></div><div class="track"><i style="width:66%"></i></div></div>
+          <div class="st weak"><div class="top"><span>Ski 1.000</span><b>top 61%</b></div><div class="track"><i style="width:39%"></i></div></div>
+          <div class="hr"></div>
+          <p class="sm mut" style="margin:0">Tu <b style="color:var(--fg)">ski</b> es tu eslabón débil: al ritmo de tus rivales de división, ahí se te van <b style="color:var(--accent)">~4 min</b> el día de la carrera.</p>
+        </div>
+
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><span class="h-md">Cómo se arregla</span><span class="sp xs mut">tu semana 1</span></div>
+          <div class="week">
+            <div class="day"><span>LUN</span><div><b>Intervalos 5×1 km</b><em class="p num">@ 4:12 /km · rec 2:00</em></div></div>
+            <div class="day"><span>MAR</span><div><b>Fuerza — empuje + core</b><em class="p num">4 bloques · RIR 2</em></div></div>
+            <div class="day blurred"><span>MIÉ</span><div><b>Ski 6×500 — tu punto débil</b><em class="p num">@ 1:52 /500m · rec 1:30</em></div></div>
+            <div class="day blurred"><span>JUE</span><div><b>Rodaje suave Z2</b><em class="p num">45 min</em></div></div>
+            <div class="day blurred"><span>SÁB</span><div><b>Simulación 4 estaciones</b><em class="p num">con transiciones</em></div></div>
+          </div>
+          <div class="lockrow">🔒 Calculado con tus marcas de hoy</div>
+        </div>
+
+        <div class="card">
+          <div class="coach">
+            <div class="av">PA</div>
+            <div style="min-width:0">
+              <div class="h-md" style="font-size:15px">Pablo Amigo</div>
+              <div class="xs mut">Fabrik Training Club · Barcelona</div>
+            </div>
+          </div>
+          <p class="sm mut" style="margin:10px 0 0">Él ajusta ese plan cada semana con tus datos. Cuéntale tu objetivo en una llamada de 15 minutos.</p>
+        </div>
+
+        <div style="padding-bottom:14px">
+          <div class="btn">Hablar con Pablo</div>
+          <div class="xs" style="text-align:center;color:var(--faint);margin-top:8px">Sin compromiso · elige tú el hueco</div>
+        </div>
+      </div>
+      <div class="tabbar"><div><span class="ico">⌂</span>Hoy</div><div class="on"><span class="ico">▤</span>Plan</div><div><span class="ico">◎</span>Marcas</div><div><span class="ico">☰</span>Perfil</div></div>
+    </div></div>
+    <h2>2 · La pantalla que convierte</h2>
+    <p class="why">Cuatro bloques y un orden que no es casual: <b>su objetivo</b> (deseo), <b>su diagnóstico</b> (problema con nombre y minutos, gratis y verdadero), <b>la solución bloqueada</b> con SUS ritmos (prueba de competencia), y <b>la persona</b>. El botón no dice pagar: dice hablar — a 90-120 €/mes se vende en una conversación, y ese embudo (leads, citas, recordatorios) ya está construido.</p>
+  </div>
+
+  <!-- 3 · HOY — LO HECHO -->
+  <div class="shot">
+    <div class="phone"><div class="screen">
+      <div class="pill-cam"></div>
+      <div class="status"><span>9:41</span><span>􀙇 􀛨</span></div>
+      <div class="body">
+        <div>
+          <div class="lbl">Lunes 27</div>
+          <div class="h-lg">Hola, Marc</div>
+        </div>
+
+        <div class="card hot">
+          <div class="row"><span class="h-md">Construir entreno</span><span class="sp" style="color:var(--accent);font-weight:800">→</span></div>
+          <div class="sm mut" style="margin-top:4px">Calle, cinta, ergos y fuerza — mézclalos como entrenes hoy.</div>
+        </div>
+
+        <div class="card">
+          <div class="row" style="margin-bottom:10px"><span class="lbl">Tu semana</span><span class="sp xs mut">toca un día</span></div>
+          <div class="bars">
+            <div class="d"><div class="xs mut">L</div><i style="height:34px;background:var(--accent)"></i></div>
+            <div class="d"><div class="xs mut">M</div><i style="height:22px;background:var(--accent-soft)"></i></div>
+            <div class="d" style="outline:2px solid var(--accent);outline-offset:3px;border-radius:9px"><div class="xs" style="color:var(--accent);font-weight:800">X</div><i style="height:40px;background:var(--accent)"></i></div>
+            <div class="d"><div class="xs mut">J</div><i style="height:8px;background:var(--surface-2)"></i></div>
+            <div class="d"><div class="xs mut">V</div><i style="height:28px;background:var(--accent-soft)"></i></div>
+            <div class="d"><div class="xs mut">S</div><i style="height:8px;background:var(--surface-2)"></i></div>
+            <div class="d"><div class="xs mut">D</div><i style="height:8px;background:var(--surface-2)"></i></div>
+          </div>
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:6px">Miércoles 22 · lo que hiciste</div>
+          <div class="row" style="padding:7px 0"><span class="sm"><b>Remo 5×500</b></span><span class="sp num sm mut">1:52 medio</span></div>
+          <div class="row" style="padding:7px 0;border-top:1px solid var(--border)"><span class="sm"><b>Fuerza — sentadilla</b></span><span class="sp num sm mut">4×5 · 100 kg</span></div>
+          <div class="row" style="padding:7px 0;border-top:1px solid var(--border)"><span class="xs mut">52 min · RPE 7</span><span class="sp xs" style="color:var(--accent);font-weight:800">Ver detalle →</span></div>
+        </div>
+
+        <div class="card">
+          <div class="row"><span class="h-md">¿Te pruebas?</span><span class="sp xs mut">6 marcas</span></div>
+          <div class="sm mut" style="margin-top:4px">Tu remo 1.000 es de hace 6 semanas. ¿Lo bates?</div>
+        </div>
+      </div>
+      <div class="tabbar"><div class="on"><span class="ico">⌂</span>Hoy</div><div><span class="ico">▤</span>Plan</div><div><span class="ico">◎</span>Marcas</div><div><span class="ico">☰</span>Perfil</div></div>
+    </div></div>
+    <h2>3 · Hoy — aquí sí vive lo hecho</h2>
+    <p class="why">La barra de la semana pasa de decoración a navegación: tocas un día y ves lo que entrenaste, con enlace al detalle (esa pantalla ya existe, la usa la app con coach). Así Plan queda limpio mirando hacia delante. También muere el texto de ejemplo que hoy parece decirte que hiciste un remo 500 sin haberlo hecho.</p>
+  </div>
+
+</div>
+
+<div class="footer">FAHYBRID · mockup interno · deriva de <code>docs/free-tier-brief.html</code> y de la pantalla 8 de <code>docs/design/free-tier-mockup.html</code>, que era un momento puntual y aquí pasa a ser la pestaña — por eso su contenido tiene que ser real y cambiar con los datos del atleta.</div>
+
+</body>
+</html>
