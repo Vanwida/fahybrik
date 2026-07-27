@@ -266,6 +266,82 @@ describe('computeRaceTransfer — evidence tiers', () => {
   });
 });
 
+// ── La marca medida encabeza la jerarquía ─────────────────────────────────────
+describe('computeRaceTransfer — measured marks top the trained hierarchy', () => {
+  /**
+   * THE BUG THIS PINS. «Probarme» wrote to `athlete_benchmarks` from the day
+   * #Marcas shipped and no prediction path read a row of it — an athlete could
+   * time-trial a 1000 m and watch their projection not move. `measured` is that
+   * cable. It has to beat BOTH the calibrated threshold and logged training,
+   * because it is the athlete deliberately finding out what they can hold.
+   */
+  it('a measured mark outranks the zone threshold AND the training efforts', () => {
+    const base = {
+      kind: 'ski' as const,
+      index: 2,
+      race_index: 2,
+      slug: 'ski-erg',
+      label: 'SkiErg 1km',
+      threshold_s: 132,
+      observed: [effort({ value_s: 128 })],
+    };
+    const withoutMark = computeRaceTransfer(input({ race: RACE, stations: [station(base)] })).stations[0]!;
+    expect(withoutMark.trained.value_s).toBe(132);
+    expect(withoutMark.trained.source).toBe('umbral');
+
+    const withMark = computeRaceTransfer(
+      input({
+        race: RACE,
+        stations: [
+          station({
+            ...base,
+            measured: { value_s: 120, source: 'marca', age_days: 7, weakened: false, from_slug: 'ski_1k' },
+          }),
+        ],
+      }),
+    ).stations[0]!;
+    expect(withMark.trained.value_s).toBe(120);
+    expect(withMark.trained.source).toBe('marca');
+    expect(withMark.trained.from_slug).toBe('ski_1k');
+    expect(withMark.trained.age_days).toBe(7);
+    // A mark is a real measurement of a DIFFERENT effort than the race segment,
+    // so it stays 'estimado' — calling it observado would overclaim.
+    expect(withMark.trained.tier).toBe('estimado');
+    // And the cross delta now reads against the mark, not the threshold.
+    expect(withMark.race_seconds).toBe(147.5);
+    expect(withMark.transfer_delta_pct).toBe(23); // (147.5−120)/120 = 22.9
+  });
+
+  it('the watch VO₂max fills in when there is no mark, tagged as itself', () => {
+    const res = computeRaceTransfer(
+      input({
+        stations: [
+          station({
+            kind: 'run',
+            index: 0,
+            race_index: null,
+            slug: 'run',
+            label: 'Carrera a pie',
+            measured: { value_s: 300, source: 'vo2max', age_days: 2, weakened: false, from_slug: null },
+          }),
+        ],
+      }),
+    );
+    expect(res.stations[0]!.trained).toMatchObject({ value_s: 300, source: 'vo2max', tier: 'estimado' });
+  });
+
+  it('training efforts still declare themselves when nothing was measured', () => {
+    const res = computeRaceTransfer(
+      input({
+        stations: [
+          station({ kind: 'functional', index: 16, race_index: 16, slug: 'hyrox-wall-balls', label: 'Wall ball 100', observed: [effort({ value_s: 300 })] }),
+        ],
+      }),
+    );
+    expect(res.stations[0]!.trained).toMatchObject({ source: 'ejecuciones', tier: 'observado' });
+  });
+});
+
 describe('computeRaceTransfer — gates & delta sign', () => {
   it('no race → no_singles_race, trained side still populated, race/delta null', () => {
     const res = computeRaceTransfer(

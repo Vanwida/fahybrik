@@ -129,10 +129,9 @@ interface AthleteSolos {
 }
 
 /**
- * One athlete's solo prediction for the 10 segments, exactly as the singles
- * board computes it (goal-independent: predictSegment uses no budget except the
- * roxzone cohort-typical fallback, which we deliberately skip by passing 0 so a
- * solo roxzone is observado/estimado from the athlete's own race, else sin_datos).
+ * One athlete's solo prediction for the 10 segments, exactly as the singles board
+ * computes it. Goal-independent by construction now: `predictSegment` no longer
+ * takes a budget at all, so no goal can leak into a solo through the roxzone.
  */
 async function buildAthleteSolos(
   athlete_id: bigint,
@@ -151,13 +150,16 @@ async function buildAthleteSolos(
     kind: st.kind,
     trained_value_s: st.trained.value_s,
     race_value_s: st.race_seconds,
+    source: st.trained.source,
+    weakened: st.trained.weakened,
+    from_slug: st.trained.from_slug,
   }));
   const trainedBySlug = new Map<string, TrainedLevel>();
   for (const t of trained) trainedBySlug.set(t.slug, t);
   const factor = personalTransferFactor(trained);
 
   const solos: SoloPrediction[] = segments.map((seg) => {
-    const { predicted_s, tier } = predictSegment(seg, ownRace, trainedBySlug, factor, 0);
+    const { predicted_s, tier } = predictSegment(seg, ownRace, trainedBySlug, factor);
     return { predicted_s, tier };
   });
 

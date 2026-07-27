@@ -13,11 +13,24 @@ import 'server-only';
 // them out; the result carries an honest `only_doubles` gate when that's all the
 // athlete has).
 //
-// TRAINED SIDE — three tiers, best first: `observado` (real segment_executions:
-// run/ski/row by modality → pace; the 6 functional stations by exercise identity
-// → practice duration, split fresh vs fatigued), `estimado` (the zone-profile
-// threshold, run/ski/row only), else `sin_datos`. The station↔exercise map reuses
-// STATION_CATALOGUE — no second mapping.
+// TRAINED SIDE — the hierarchy is declared in `trainedEvidence`
+// (shared/domain/race-transfer/compute); this loader's job is to hand it every
+// source the athlete actually has, best first:
+//
+//   1. MEASURED MARKS (`athlete_benchmarks`) — «Probarme». THIS IS THE CABLE THAT
+//      WAS MISSING: the marks table has existed, and been written to, since #Marcas
+//      shipped, and no prediction path ever read a row of it. An athlete could
+//      time-trial a 1000 m on the SkiErg and watch their projection not move.
+//      Rows arrive raw; domain/athlete/mark-projection converts them (Daniels for
+//      running, Riegel for the ergs) and picks the least-extrapolated one.
+//   2. WATCH VO₂max (`biometric_streams`) — 59 readings in production and, until
+//      now, zero consumers in the prediction. Covers the run for an athlete who
+//      has never timed themselves.
+//   3. ZONE-PROFILE THRESHOLD (run/ski/row only).
+//   4. TRAINING EFFORTS (`segment_executions`) — paces by modality, the 6
+//      functional stations by exercise identity, split fresh vs fatigued.
+//
+// The station↔exercise map reuses STATION_CATALOGUE — no second mapping.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -30,6 +43,14 @@ import {
   type StationTransferInput,
   type TransferUnit,
 } from '@fahybrid/shared/domain/race-transfer';
+import type { MeasuredCapacity } from '@fahybrid/shared/domain/evidence';
+import {
+  projectErgMark,
+  projectRunFromVo2max,
+  projectRunMark,
+  type MarkRow,
+} from '@fahybrid/shared/domain/athlete/mark-projection';
+import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import { STATION_CATALOGUE, type StationEntry } from './station-detail';
 
 export type { RaceTransferResult } from '@fahybrid/shared/domain/race-transfer';
@@ -84,6 +105,19 @@ interface ThresholdRow {
   threshold_s: string;
 }
 
+interface BenchmarkRow {
+  exercise_slug: string;
+  value: string | null;
+  age_days: number | null;
+  source: string;
+  run_context: string | null;
+}
+
+interface Vo2maxRow {
+  value: string | null;
+  age_days: number | null;
+}
+
 function toNum(v: unknown): number | null {
   if (v == null) return null;
   const n = typeof v === 'string' ? Number(v) : (v as number);
@@ -119,36 +153,26 @@ export async function buildRaceTransfer(
 ): Promise<RaceTransferResult> {
   const athleteId = Number(args.athlete_id);
 
-  // ── Competed side: the latest SINGLES race with splits (doubles excluded) ────
-  const raceRows = await client<RaceRow[]>`
-    select id::text as id, name, to_char(race_date, 'YYYY-MM-DD') as race_date,
-      run_splits_json, station_splits_json
-    from races
-    where athlete_id = ${athleteId}
-      and format = 'singles'
-      and source in ('hyrox_import', 'hyresult_import')
-      and station_splits_json is not null
-    order by race_date desc nulls last, id desc
-    limit 1
-  `;
-  const raceRow = raceRows[0] ?? null;
-
-  // Distinguish "no races" from "only doubles" for the honest gate.
-  let onlyDoubles = false;
-  if (!raceRow) {
-    const doublesRows = await client<Array<{ n: number }>>`
-      select count(*)::int as n
+  // ── One round trip ──────────────────────────────────────────────────────────
+  // Every read below is independent of the others, so they go together. It used
+  // to be four sequential awaits; the doubles board builds this cross TWICE (once
+  // per athlete), so the serial latency was paid eight times over on one screen.
+  const markSlugs = MARKS.map((m) => m.slug);
+  const [raceRows, modalityRows, stationRows, thresholdRows, benchmarkRows, vo2maxRows] = await Promise.all([
+    // Competed side: the latest SINGLES race with splits (doubles excluded).
+    client<RaceRow[]>`
+      select id::text as id, name, to_char(race_date, 'YYYY-MM-DD') as race_date,
+        run_splits_json, station_splits_json
       from races
       where athlete_id = ${athleteId}
-        and format <> 'singles'
+        and format = 'singles'
         and source in ('hyrox_import', 'hyresult_import')
         and station_splits_json is not null
-    `;
-    onlyDoubles = (doublesRows[0]?.n ?? 0) > 0;
-  }
-
-  // ── Trained side: modality efforts (run/ski/row → a pace) ────────────────────
-  const modalityRows = await client<ModalityEffortRow[]>`
+      order by race_date desc nulls last, id desc
+      limit 1
+    `,
+    // Trained side: modality efforts (run/ski/row → a pace).
+    client<ModalityEffortRow[]>`
     select
       se.modality,
       (case se.modality
@@ -166,42 +190,116 @@ export async function buildRaceTransfer(
         when 'run' then se.avg_pace_s_per_km
         else se.avg_pace_s_per_500m
       end) is not null
-  `;
+    `,
+    // Trained side: functional station efforts (by station exercise → duration).
+    // Match the movement via exercises.hyrox_station_position (2,3,4,6,7,8 = the 6
+    // functional stations; 1/5 = ski/row are modality-paced above). Duration is the
+    // real segment span; unmeasurable spans are excluded, never fabricated.
+    client<StationEffortRow[]>`
+      select
+        ex.hyrox_station_position as position_station,
+        extract(epoch from (se.ended_at - se.started_at))::text as duration_s,
+        se.context_format,
+        se.prior_work_s,
+        se.position
+      from segment_executions se
+      join workout_executions we on we.id = se.execution_id
+      join exercises ex on ex.id = se.exercise_id
+      where we.athlete_id = ${athleteId}
+        and ex.hyrox_station_position in (2, 3, 4, 6, 7, 8)
+        and se.started_at is not null
+        and se.ended_at is not null
+        and se.ended_at > se.started_at
+    `,
+    // Trained side: zone-profile thresholds (latest per modality).
+    client<ThresholdRow[]>`
+      select distinct on (modality) modality, threshold_s::text as threshold_s
+      from athlete_zone_profiles
+      where athlete_id = ${athleteId} and modality in ('run', 'ski', 'row')
+      order by modality, version desc
+    `,
+    // Trained side: the athlete's MEASURED marks («Probarme»). The provenance
+    // filter (onboarding / unknown are refused) lives in the pure projection, so
+    // this stays a plain read.
+    client<BenchmarkRow[]>`
+      select
+        exercise_slug,
+        value::text as value,
+        (current_date - recorded_at::date)::int as age_days,
+        source,
+        run_context
+      from athlete_benchmarks
+      where athlete_id = ${athleteId}
+        and exercise_slug = any(${markSlugs}::text[])
+      order by recorded_at desc
+    `,
+    // Trained side: the watch's latest VO₂max.
+    client<Vo2maxRow[]>`
+      select
+        value_numeric::text as value,
+        (current_date - recorded_at::date)::int as age_days
+      from biometric_streams
+      where athlete_id = ${athleteId}
+        and metric_type = 'vo2max'
+      order by recorded_at desc
+      limit 1
+    `,
+  ]);
 
-  // ── Trained side: functional station efforts (by station exercise → duration) ─
-  // Match the movement via exercises.hyrox_station_position (2,3,4,6,7,8 = the 6
-  // functional stations; 1/5 = ski/row are modality-paced above). Duration is the
-  // real segment span; unmeasurable spans are excluded, never fabricated.
-  const stationRows = await client<StationEffortRow[]>`
-    select
-      ex.hyrox_station_position as position_station,
-      extract(epoch from (se.ended_at - se.started_at))::text as duration_s,
-      se.context_format,
-      se.prior_work_s,
-      se.position
-    from segment_executions se
-    join workout_executions we on we.id = se.execution_id
-    join exercises ex on ex.id = se.exercise_id
-    where we.athlete_id = ${athleteId}
-      and ex.hyrox_station_position in (2, 3, 4, 6, 7, 8)
-      and se.started_at is not null
-      and se.ended_at is not null
-      and se.ended_at > se.started_at
-  `;
+  const raceRow = raceRows[0] ?? null;
 
-  // ── Trained side: zone-profile thresholds (latest per modality → `estimado`) ─
-  const thresholdRows = await client<ThresholdRow[]>`
-    select distinct on (modality) modality, threshold_s::text as threshold_s
-    from athlete_zone_profiles
-    where athlete_id = ${athleteId} and modality in ('run', 'ski', 'row')
-    order by modality, version desc
-  `;
+  // Distinguish "no races" from "only doubles" for the honest gate. Only asked
+  // when there is no singles race, so it costs nothing in the common case.
+  let onlyDoubles = false;
+  if (!raceRow) {
+    const doublesRows = await client<Array<{ n: number }>>`
+      select count(*)::int as n
+      from races
+      where athlete_id = ${athleteId}
+        and format <> 'singles'
+        and source in ('hyrox_import', 'hyresult_import')
+        and station_splits_json is not null
+    `;
+    onlyDoubles = (doublesRows[0]?.n ?? 0) > 0;
+  }
+
   const thresholdByModality = new Map<PacedModality, number>();
   for (const t of thresholdRows) {
     const v = toNum(t.threshold_s);
     if (v != null && PACED_MODALITIES.includes(t.modality as PacedModality)) {
       thresholdByModality.set(t.modality as PacedModality, v);
     }
+  }
+
+  const marks: MarkRow[] = [];
+  for (const r of benchmarkRows) {
+    const value = toNum(r.value);
+    if (value == null) continue;
+    marks.push({
+      slug: r.exercise_slug,
+      value,
+      age_days: r.age_days,
+      source: r.source,
+      run_context: r.run_context,
+    });
+  }
+
+  // The run's measured level: a timed mark first, the watch only when there is
+  // none — a wrist regression never outranks an effort the athlete chose to make.
+  const vo2maxRow = vo2maxRows[0];
+  const runMeasured: MeasuredCapacity | null =
+    projectRunMark(marks) ??
+    projectRunFromVo2max(toNum(vo2maxRow?.value ?? null), vo2maxRow?.age_days ?? null);
+  const skiMeasured = projectErgMark(marks, 'ski');
+  const rowMeasured = projectErgMark(marks, 'row');
+
+  /** The measured capacity for one cross target, in its native unit. The six
+   *  functional stations have no mark in the catalog — nothing is invented. */
+  function measuredFor(kind: Exclude<StationKind, 'run'> | 'run'): MeasuredCapacity | null {
+    if (kind === 'run') return runMeasured;
+    if (kind === 'ski') return skiMeasured;
+    if (kind === 'row') return rowMeasured;
+    return null;
   }
 
   // Group efforts for O(1) lookup while assembling the station defs.
@@ -234,6 +332,7 @@ export async function buildRaceTransfer(
     race_index: null, // uses the run-lap mean
     observed: modalityEfforts.get('run') ?? [],
     threshold_s: thresholdByModality.get('run') ?? null,
+    measured: measuredFor('run'),
   });
 
   for (const entry of STATION_CATALOGUE) {
@@ -255,6 +354,7 @@ export async function buildRaceTransfer(
       race_index: entry.index,
       observed,
       threshold_s: threshold,
+      measured: measuredFor(kind),
     });
   }
 

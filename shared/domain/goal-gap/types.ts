@@ -18,13 +18,22 @@
 // the rows (the cohort, the athlete's own race, the training × race cross) and
 // hands them in; iOS/web format the numeric output.
 
+import { EVIDENCE_HALF_LIFE_DAYS, type EvidenceSource } from '../evidence';
+
 /** Cohort races needed before a division/gender aggregate is trustworthy. */
 export const MIN_COHORT_RACES = 5;
 
-/** A singles race counts as RECENT (its splits are a live prediction) when it is
- *  younger than this. Older races still inform the estimate (they anchor the
- *  personal transfer factor) but never stand in as the observed prediction. */
-export const RECENT_RACE_DAYS = 180;
+/**
+ * The age at which a race's splits stop outweighing the current estimate — i.e.
+ * the point where the two weigh the same.
+ *
+ * It used to be a CLIFF: under 180 days the ten segments came out of the race raw
+ * and the projected total was, to the second, that race. Five months of training
+ * could not move it. It is now the HALF-LIFE of a continuous decay
+ * (domain/evidence), so the same belief holds — 180 days is where the race stops
+ * dominating — while every week of training moves the number.
+ */
+export const RECENT_RACE_DAYS = EVIDENCE_HALF_LIFE_DAYS;
 
 /** A cohort race matches a goal when its result is within ±this of the goal. */
 export const COHORT_GOAL_TOLERANCE = 0.1;
@@ -42,10 +51,15 @@ export type SegmentKind = 'run' | 'station' | 'roxzone';
 export type BudgetSource = 'cohorte' | 'tu_carrera';
 
 /** How much a segment's PREDICTION is trusted, best first:
- *   · observado — the athlete's own recent (< RECENT_RACE_DAYS) race split.
- *   · estimado  — trained level scaled to a full split × personal race-tax factor
- *                 (or a stale own-race value / cohort typical for roxzone).
- *   · sin_datos — nothing to stand on; no fabricated number. */
+ *   · observado — the athlete's own race split still outweighs the estimate
+ *                 (i.e. it is younger than one half-life).
+ *   · estimado  — a modelled number: a measured mark / threshold / training level
+ *                 scaled to a full split × the personal race-tax factor, or an
+ *                 aged race split that the estimate has caught up with.
+ *   · sin_datos — nothing to stand on; no fabricated number.
+ *
+ * The coarse tier is the WIRE contract the installed app renders. `EvidenceSource`
+ * on the same segment says precisely which evidence produced it. */
 export type PredictionTier = 'observado' | 'estimado' | 'sin_datos';
 
 /** The finer training kind of a cross target, from race-transfer. Drives the
@@ -103,6 +117,13 @@ export interface TrainedLevel {
   /** Competed value in the comparison basis; null when no race split. Feeds the
    *  personal transfer factor (race ÷ trained) where both exist. */
   race_value_s: number | null;
+  /** Which evidence produced `trained_value_s` — carried through from the cross so
+   *  the prediction can band it and name what would sharpen it. */
+  source: EvidenceSource;
+  /** The band widens a notch (treadmill mark, self-reported race). */
+  weakened: boolean;
+  /** The mark slug behind the trained value, when a measured mark produced it. */
+  from_slug: string | null;
 }
 
 /** Everything the pure engine needs; assembled by the web loader. */
@@ -117,29 +138,87 @@ export interface GoalGapInput {
   trained: TrainedLevel[];
 }
 
-/** One segment of the result: its budget (always), its prediction (null only when
- *  sin_datos — never a fabricated 0), and their signed delta. */
+/** One segment of the result: its budget, its prediction (null only when
+ *  sin_datos — never a fabricated number), and their signed delta. */
 export interface SegmentResult {
   slug: string;
   label_es: string;
   kind: SegmentKind;
-  /** Seconds the segment must cost to hit the goal. Always present; the 10 sum to the goal. */
-  budget_s: number;
+  /** Seconds the segment must cost to hit the goal; the 10 sum to the goal.
+   *  Null when no budget could be built — the PREDICTION no longer depends on
+   *  one, so the segments exist either way. */
+  budget_s: number | null;
   /** Predicted seconds; null iff tier === 'sin_datos'. */
   predicted_s: number | null;
   tier: PredictionTier;
-  /** predicted_s − budget_s (positive = over budget = time lost); null iff predicted_s null. */
+  /** Which evidence produced `predicted_s`. */
+  source: EvidenceSource;
+  /** ± half-width of this segment's band, in seconds; null iff sin_datos. */
+  band_s: number | null;
+  /** predicted_s − budget_s (positive = over budget = time lost); null when either side is null. */
   delta_s: number | null;
 }
 
-/** The whole goal-gap read. `budget_source` null (and empty segments) means the
- *  budget could not be built (no cohort and no own race) → the endpoint gates. */
+/** How much of the race the projection can actually account for. */
+export interface CoverageRead {
+  /** Segments carrying a real prediction. */
+  known: number;
+  /** Segments in the skeleton (10). */
+  total: number;
+  /** Slugs with no evidence at all — the honest hole, named. */
+  unknown_slugs: string[];
+  /** true ⇔ every segment is predicted. ONLY then is a race total meaningful. */
+  complete: boolean;
+}
+
+/** One measurement the athlete could supply, and what it would buy them. */
+export interface NextInput {
+  slug: string;
+  label_es: string;
+  /** What to do, in the athlete's words ("Mide tu SkiErg 1000"). */
+  action_es: string;
+  /** Seconds of band this removes. Null when the segment has NO number at all:
+   *  the win there is filling a hole, not narrowing a band, and no honest size
+   *  can be put on it before the athlete measures it. */
+  band_gain_s: number | null;
+}
+
+/** The projection: a centre and a range, always emitted, never gated. */
+export interface ProjectionRead {
+  /** Σ of the predicted segments. When `coverage.complete` this IS the projected
+   *  race time; otherwise it is the time we can account for and NOTHING MORE —
+   *  reading it as a race total would understate by whatever is missing. */
+  known_total_s: number;
+  /** ± half-width around known_total_s, composed from the segments' bands. */
+  band_s: number;
+  low_s: number;
+  high_s: number;
+  /** Share of `known_total_s` backed by the athlete's own race/simulation splits
+   *  (0–100). The spec's "confianza": how much of this is memory vs model. */
+  observed_share_pct: number;
+  /** What to measure next, best return first. */
+  next_inputs: NextInput[];
+}
+
+/** The whole goal-gap read. `budget_source` null means the budget could not be
+ *  built (no cohort and no own race); the PREDICTION side still stands. */
 export interface GoalGapResult {
   budget_source: BudgetSource | null;
   segments: SegmentResult[];
-  /** Σ (predicted_s ?? budget_s): the sin_datos segments are held at BUDGET, i.e.
-   *  "if you hold the plan where we can't see you". Null when no budget. */
+  /**
+   * The projected race time — Σ of the ten segments.
+   *
+   * NULL WHENEVER A SEGMENT IS UNKNOWN. It used to hold those segments at their
+   * BUDGET, which is derived from the athlete's goal: a beginner with no station
+   * data was quietly told their unmeasured stations would land exactly on target,
+   * so the gap collapsed toward zero and the app congratulated them. A number
+   * borrowed from the athlete's wish is worse than no number (ley 2).
+   * `projection.known_total_s` + `coverage` carry the honest partial read.
+   */
   predicted_total_s: number | null;
-  /** predicted_total_s − goal_total_s (positive = predicted to miss the goal). */
+  /** predicted_total_s − goal_total_s (positive = predicted to miss the goal).
+   *  Null exactly when `predicted_total_s` is. */
   gap_s: number | null;
+  coverage: CoverageRead;
+  projection: ProjectionRead;
 }

@@ -15,6 +15,45 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · Predictor: las marcas por fin alimentan la proyección, y deja de mentir en los tres fallos de modelo
+
+**Sin desplegar todavía.** Servidor y dominio; cero iOS, cero migraciones.
+
+- **El cable que faltaba.** «Probarme» escribía en `athlete_benchmarks` y
+  **ninguna ruta de predicción leía una fila**. Ahora la jerarquía del lado
+  entrenado está declarada en un sitio: *marca medida > VO₂max del reloj >
+  umbral > ejecuciones*. Entra también el VO₂max del Apple Watch (59 lecturas
+  en prod, cero consumidores hasta hoy). Correr reutiliza el Daniels-Gilbert
+  que ya estaba en el repo; ergo usa Riegel (`k=1.06`) para 500→1000, nunca ×2.
+- **La evidencia envejece.** Los 180 días dejan de ser un escalón y pasan a ser
+  la vida media de una decaída continua. Antes, una carrera reciente CONGELABA
+  el número; ahora entrenar lo mueve desde la primera semana.
+- **Ningún hueco se cobra al objetivo.** Un tramo sin datos ya no cuesta su
+  presupuesto (= la meta repartida): no aporta nada, se nombra, y el total y el
+  gap van a nulo mientras falte algo. Es el fallo que le decía a un principiante
+  que iba bien.
+- **El factor de competición se pondera por tiempo de tramo**, no por media
+  aritmética de cocientes.
+- **Rango en todo** (ley 1): banda por tramo, rango del total, `coverage` y
+  `next_inputs` («Mide tu SkiErg 1000») — campos ADITIVOS, la app instalada no
+  se entera.
+
+Verificado: 2011 tests en verde (+26), typecheck limpio, lint idéntico al
+baseline, y los suites de DB pasados contra rama Neon propia — incluidos dos
+tests nuevos end-to-end que prueban que una marca mueve la proyección y que un
+novato ya no recibe un total inventado.
+
+**BLOQUEADO por datos, para Alex** — las 5 estaciones de fuerza y el perfil
+siguen sin fuente, y **no se ha fabricado ninguna**. Comprobado contra prod:
+hay **0 carreras singles reales con splits** (las 2 que hay son sintéticas); las
+8 reales son de **dobles**, donde las estaciones van repartidas entre dos y no
+describen una forma de singles. Y `weight_kg` / `height_cm` / `body_fat_pct`
+están **vacías en los 8 atletas**. Sin eso no hay prior por estación ni signo
+del peso (spec §05). Es la decisión abierta de §10: datos de población, o
+esperar a las primeras importaciones reales de singles.
+
+---
+
 ## Cerrado el 27-jul · Predictor: fuera el dato inventado del cohorte, y una sola cuenta en dobles
 
 **DESPLEGADO** (`758770d` READY) y **mig 0142 APLICADA en prod**: 14 filas

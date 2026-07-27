@@ -11,6 +11,15 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'lib/**/*.test.ts'],
     environment: 'node',
     globals: false,
+    // The `.db.test.ts` suites talk to a REAL Neon branch over the network, on a
+    // deliberately single serial connection (tests/utils/test-db.ts pins `max: 1`
+    // because a freshly-woken endpoint resets connections opened in a burst). A
+    // suite that inserts a fixture and reads it back is therefore dozens of
+    // round-trips deep, and vitest's 5 s default is a local-only assumption — the
+    // helper already budgets 30 s just to CONNECT. Matching it here stops honest
+    // suites from failing on latency instead of on behaviour. Pure unit tests
+    // finish in milliseconds and are unaffected.
+    testTimeout: 30_000,
     setupFiles: [resolve(__dirname, 'tests/setup/env.ts')],
   },
   resolve: {

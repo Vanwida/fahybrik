@@ -10,9 +10,11 @@
 //     · split — the station is shared: share·self + (1−share)·partner. In doubles
 //       the two never work a station simultaneously (they alternate / hand off),
 //       so the shared time is the sum of each one's portion, weighted by share.
-//   Any REQUIRED side with no prediction (sin_datos) makes the segment sin_datos;
-//   its pair prediction is then HELD AT BUDGET (identical to the singles total
-//   convention) so the predicted total is always a real, gap-readable number.
+//   Any REQUIRED side with no prediction (sin_datos) makes the segment sin_datos.
+//   Its ROW still shows the budget (the app labels it "sin datos suficientes" and
+//   a bar needs a length), but it is kept OUT of the pair's predicted total —
+//   budget means "what the goal asks", and summing it would pull the total toward
+//   the goal precisely for the pairs with the least evidence.
 //
 //   BUDGET (goal decomposed), fraction source best first:
 //     1. the DOUBLES cohort near the goal (≥ MIN_COHORT_RACES) — real pairs;
@@ -191,12 +193,16 @@ export function computeDoblesGap(input: DoblesGapInput): DoblesGapResult {
   });
 
   const availability = availabilityOf(tiers);
-  // A no_data read predicts nothing real (every segment held at budget) — emit a
-  // null total rather than a fabricated goal-equals-prediction.
-  const predicted_total_s =
-    availability === 'no_data'
-      ? null
-      : resultSegments.reduce((sum, s) => sum + s.pair_predicted_s, 0);
+  // THE PAIR TOTAL, honestly. A sin_datos segment is still shown at budget in its
+  // own row — the app labels it "sin datos suficientes" and the bar needs a length
+  // — but it must NOT be summed into the pair's predicted time: that number comes
+  // from the goal, so adding it up walks the total toward the goal exactly for the
+  // pairs with the least data. Identical rule to the singles total: a race time
+  // exists only when every segment does.
+  const anyUnknown = tiers.some((t) => t === 'sin_datos');
+  const predicted_total_s = anyUnknown
+    ? null
+    : resultSegments.reduce((sum, s) => sum + s.pair_predicted_s, 0);
 
   const goal_s = goal_total_s != null && goal_total_s > 0 ? goal_total_s : null;
 

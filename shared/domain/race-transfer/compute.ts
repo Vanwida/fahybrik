@@ -88,6 +88,10 @@ export function classifyEffort(e: ObservedEffort): 'fresco' | 'fatigado' | null 
 
 const SIN_DATOS: TrainedEvidence = {
   tier: 'sin_datos',
+  source: 'sin_datos',
+  age_days: null,
+  weakened: false,
+  from_slug: null,
   value_s: null,
   unit: null,
   contexto: null,
@@ -95,16 +99,33 @@ const SIN_DATOS: TrainedEvidence = {
 };
 
 /**
- * Build the trained side for one station from its efforts (+ optional threshold).
+ * Build the trained side for one station from its evidence.
  *
- * The HEADLINE reference (value_s → the transfer delta) differs by kind:
- *   · paced (run/ski/row): the calibrated zone-profile THRESHOLD first (strong,
- *     test-derived capacity → tier 'estimado'); else the BEST fresh effort (tier
- *     'observado'); else a gate. The mean is never the headline for a pace.
- *   · functional station: the observed practice mean (fresh, else fatigued).
- * Either way the observed fresco/fatigado efforts + their count always surface as
- * CONTEXT (contexto/n_efforts) whenever a headline exists — they inform, they
- * don't fix the number.
+ * THE HIERARCHY, best first — declared once, here, so no caller has to guess:
+ *
+ *   1. MEASURED MARK (`measured`, source `marca`) — a «Probarme» time trial the
+ *      app measured end to end, re-expressed at race distance. It beats
+ *      everything below because it is the athlete deliberately finding out what
+ *      they can hold, at a known distance, with a clock that didn't blink. This
+ *      is the tier that did not exist before: the marks were being written and
+ *      never read.
+ *   2. WATCH VO₂max (`measured`, source `vo2max`) — same slot, one notch wider:
+ *      still a measurement of the athlete, but a wrist regression rather than an
+ *      effort they chose to make. It exists so someone who has never time-trialled
+ *      anything still gets a running number.
+ *   3. ZONE-PROFILE THRESHOLD (paced kinds) — calibrated capacity, but a model
+ *      parameter rather than a distance the athlete covered.
+ *   4. TRAINING EFFORTS — the best fresh effort for a pace, the practice mean for
+ *      a functional station. Training is done at whatever intensity the session
+ *      called for, so it reads capacity indirectly.
+ *
+ * The tier stays the three-value wire vocabulary (observado | estimado |
+ * sin_datos); `source` carries the finer truth. A measured mark is `estimado`:
+ * it is a real measurement, but of a DIFFERENT effort than the race segment, so
+ * calling it "observado" would overclaim.
+ *
+ * Whatever wins the headline, the observed fresco/fatigado efforts + their count
+ * always surface as CONTEXT — they inform, they don't fix the number.
  */
 function trainedEvidence(st: StationTransferInput): TrainedEvidence {
   const unit = unitFor(st.kind);
@@ -123,12 +144,33 @@ function trainedEvidence(st: StationTransferInput): TrainedEvidence {
   const fatigado_s = aggregateTrained(fatigado, st.kind);
   const contexto = nClassified > 0 ? { fresco_s, fatigado_s } : null;
 
+  // 1–2. A measured capacity outranks everything derived. It arrives already in
+  // this station's native unit, so no conversion happens here.
+  const measured = st.measured;
+  if (measured && measured.value_s > 0) {
+    return {
+      tier: 'estimado',
+      source: measured.source,
+      age_days: measured.age_days,
+      weakened: measured.weakened,
+      from_slug: measured.from_slug,
+      value_s: measured.value_s,
+      unit,
+      contexto,
+      n_efforts: nClassified,
+    };
+  }
+
+  const derived = { age_days: null, weakened: false, from_slug: null } as const;
+
   if (isPaced(st.kind)) {
+    // 3. The calibrated threshold.
     if (st.threshold_s != null && st.threshold_s > 0) {
-      return { tier: 'estimado', value_s: st.threshold_s, unit, contexto, n_efforts: nClassified };
+      return { tier: 'estimado', source: 'umbral', ...derived, value_s: st.threshold_s, unit, contexto, n_efforts: nClassified };
     }
+    // 4. The best fresh training effort.
     if (fresco_s != null) {
-      return { tier: 'observado', value_s: fresco_s, unit, contexto, n_efforts: nClassified };
+      return { tier: 'observado', source: 'ejecuciones', ...derived, value_s: fresco_s, unit, contexto, n_efforts: nClassified };
     }
     // No threshold + no fresh capacity → gate (fatigued-only can't anchor capacity).
     return SIN_DATOS;
@@ -137,7 +179,7 @@ function trainedEvidence(st: StationTransferInput): TrainedEvidence {
   // Functional station: its practice is quality work, so the fresh mean is a fair
   // reference (the fatigued mean when there's no fresh practice).
   if (nClassified > 0) {
-    return { tier: 'observado', value_s: fresco_s ?? fatigado_s, unit, contexto, n_efforts: nClassified };
+    return { tier: 'observado', source: 'ejecuciones', ...derived, value_s: fresco_s ?? fatigado_s, unit, contexto, n_efforts: nClassified };
   }
   return SIN_DATOS;
 }

@@ -9,6 +9,8 @@
 // is exhaustively unit-testable. The web loader fetches the rows and hands them
 // in; iOS/web format the numeric output into display strings.
 
+import type { EvidenceSource, MeasuredCapacity } from '../evidence';
+
 /** Prior-work cut (seconds) that separates a FRESH effort from a FATIGUED one.
  *  A training effort with < this much work before it in the same session (or the
  *  session's very first effort) reads as fresh capacity; ≥ this reads as done
@@ -68,6 +70,13 @@ export interface StationTransferInput {
   observed: ObservedEffort[];
   /** Zone-profile threshold in the station's native unit; null for functional / when absent. */
   threshold_s: number | null;
+  /**
+   * A capacity the athlete MEASURED for this effort, already in the station's
+   * native unit: a «Probarme» mark re-expressed at race distance, or the watch's
+   * VO₂max turned into a pace. Tops the trained-side hierarchy — see
+   * `trainedEvidence`. Absent/null when the athlete has never measured one.
+   */
+  measured?: MeasuredCapacity | null;
 }
 
 export interface RaceTransferInput {
@@ -98,6 +107,20 @@ export interface TrainedContextValues {
 
 export interface TrainedEvidence {
   tier: TransferTier;
+  /**
+   * WHICH evidence produced `value_s`, refining the coarse tier. `marca` and
+   * `vo2max` are the two the cross gained when «Probarme» was finally wired in;
+   * `umbral` / `ejecuciones` are what it always had. The prediction layer turns
+   * this into the segment's band.
+   */
+  source: EvidenceSource;
+  /** Whole days since the evidence was produced; null when undated or derived
+   *  from training (which has no single date). Feeds the band's ageing. */
+  age_days: number | null;
+  /** The band must widen a notch (treadmill mark, self-reported race). */
+  weakened: boolean;
+  /** The mark slug behind `value_s`, when one measured mark produced it. */
+  from_slug: string | null;
   /** The trained reference used for the delta (native unit); null when sin_datos. */
   value_s: number | null;
   /** Unit of value_s + race_seconds; null only when sin_datos. */
