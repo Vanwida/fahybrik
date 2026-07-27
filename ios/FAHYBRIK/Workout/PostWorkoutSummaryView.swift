@@ -238,6 +238,14 @@ struct PostWorkoutSummaryView: View {
         if let free = freeContext {
             let payload = buildFreePayload(free)
             Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
+            // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
+            // Only a FULL finish counts: an abandoned attempt saves the session (the
+            // coach still sees the work) but never writes a half number into the
+            // athlete's record — the mockup's promise, kept here.
+            if let tag = free.benchmark, payload.completeness == "full",
+               let value = benchmarkValue(tag: tag, segments: payload.segments) {
+                Task { await MarkAttemptAPI.submit(tag: tag, value: value, bearer: bearer) }
+            }
             finishAfterSave(records: [])
             return
         }
@@ -524,6 +532,23 @@ struct PostWorkoutSummaryView: View {
             ended_at: c.endedAtISO,
             segments: c.segments
         )
+    }
+
+    // #Marcas — extract the measured value of a benchmark attempt from the SAME
+    // segment DTOs the free save just sent, so the mark and what the coach sees can
+    // never disagree. A benchmark plan is a single work bout, so the work segment is
+    // simply the longest one; a time trial's value is its duration, Cooper's is its
+    // covered distance.
+    private func benchmarkValue(tag: BenchmarkTag, segments: [SegmentExecutionDTO]?) -> Double? {
+        guard let segments, let work = segments.max(by: { $0.duration_seconds < $1.duration_seconds })
+        else { return nil }
+        switch tag.valueKind {
+        case .time:
+            return work.duration_seconds > 0 ? Double(work.duration_seconds) : nil
+        case .distance:
+            guard let d = work.distance_meters, d > 0 else { return nil }
+            return d
+        }
     }
 
     // Map each captured segment lap to the wire DTO. Position-ordered so the

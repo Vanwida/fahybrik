@@ -1037,6 +1037,11 @@ struct InicioView: View {
             )
         } else if hasPlan {
             restCard
+            // #Marcas — the hole becomes a data point. ONLY on a day with nothing
+            // left to do (rest / already done): it must never compete with the
+            // session of the day — testing yourself instead of training would
+            // cannibalise the plan.
+            marksSuggestionCard
         } else if store.planWeek.hasLoaded {
             // Week loaded and there is genuinely no published plan — honest empty.
             CardSurface(padding: 18) {
@@ -1217,6 +1222,37 @@ struct InicioView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.Color.faint)
             }
+        }
+    }
+
+    // #Marcas — one quiet card, not a carousel: an invitation to grab a benchmark
+    // on a day the plan asks nothing. The library decides what to suggest.
+    private var marksSuggestionCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                MarksLibraryView(bearer: effectiveBearer, hrMaxSource: store.identity.value?.hrMaxSource)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "stopwatch")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("¿Te pruebas?")
+                            .scaledFont(15, weight: .heavy, relativeTo: .body, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Un 1 km, un remo 500… y sabes si has mejorado.")
+                            .scaledFont(12, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+                .padding(14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

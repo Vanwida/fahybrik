@@ -485,6 +485,23 @@ struct FreeWorkoutContext {
     /// Nil for non-run modalities (defaulted so the fuerza/funcional builders are
     /// untouched).
     var runEnvironment: RunEnvironment? = nil
+    /// #Marcas — set when this free session IS a benchmark attempt ("Probarme").
+    /// The session runs and saves exactly like any free workout (the coach sees it);
+    /// on a FULL finish the summary ALSO posts the measured value as a mark. Nil for
+    /// every ordinary free workout — the existing builders never touch it.
+    var benchmark: BenchmarkTag? = nil
+}
+
+/// #Marcas — what the post-workout save needs to turn a finished benchmark session
+/// into a mark. `valueKind` decides what the value IS: the work bout's elapsed time
+/// (every time trial) or its covered distance (Cooper — fixed 12 min, meters scored).
+struct BenchmarkTag {
+    enum ValueKind { case time, distance }
+    let slug: String
+    let valueKind: ValueKind
+    /// "outdoor" | "treadmill" for run marks (the PR is kept per context — a belt
+    /// 5K never beats a street one). Nil for erg marks.
+    let runContext: String?
 }
 
 // MARK: - FreeWorkoutPayload — the FROZEN free-save contract

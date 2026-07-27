@@ -128,6 +128,7 @@ struct ProfileView: View {
 
                         SectionHeader(title: "Rendimiento")
                         testsCard
+                        marksCard
                         zonesCard
                         strengthCard
 
@@ -707,6 +708,23 @@ struct ProfileView: View {
                     icon: "dumbbell",
                     title: "Mi fuerza",
                     subtitle: "Tus 1RM por levantamiento · sentadilla, peso muerto, press…"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Marcas (#Marcas — pruébate cuando quieras)
+
+    private var marksCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                MarksLibraryView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+            } label: {
+                profileRowContent(
+                    icon: "stopwatch",
+                    title: "Tus marcas",
+                    subtitle: "Pruébate cuando quieras · 1 km, Cooper, 5K, remo y ski"
                 )
             }
             .buttonStyle(.plain)
