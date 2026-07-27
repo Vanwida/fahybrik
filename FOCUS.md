@@ -59,12 +59,19 @@ según mockup, chat/copy de coach condicionados, ni un «Pablo» hardcodeado.
 Pendiente físico: cable para instalar; cuenta free de prueba para Alex
 (email `+free`) cuando se encienda `FREE_SIGNUP=1`.
 
-**Obra 0 en curso** (agente): puntos 1-4 commiteados en su worktree — el
-cupo era LA FILA DEL COACH RESIDUO id=4 (max 100, verificado en prod;
-inventario de los 6 clubes en el anexo de la auditoría), hilo de chat
-scoped al club, events y bearer-antes-que-cookie. Quedan 5-10. Al fusionar:
-deploy web con `FUNNEL_COACH_ID=60` en Vercel (puente hasta que los leads
-tengan club en la obra del esquema).
+**Obra 0 HECHA y DESPLEGADA** (merge `dbe3e9b`, READY; `FUNNEL_COACH_ID=60`
+puesto en Vercel): los 10 puntos + un bug preexistente de tipos en
+pause-budget. El cupo era LA FILA DEL COACH RESIDUO id=4 (max 100 — ahora
+Pablo ve el cupo real de su club: sin límite hasta que lo ponga); hilo de
+chat scoped al club (transferencia = hilo nuevo, historial invisible e
+intacto); events con dueño; bearer antes que cookie; check-then-act al
+WHERE; gates de visibilidad de ejercicios/niveles (helper DRY compartido
+con el importador); bajas clavadas a su suscripción. 1632 unit + 54 DB en
+rama Neon real, verdes; smoke prod ok (flag-off intacto). Nota: /api/events
+sin auth ya era público ANTES (catálogo de carreras) — no es regresión.
+**Siguiente: instalar iOS por cable + FREE_SIGNUP=1 + cuenta `+free` de
+Alex para la primera prueba real del free; luego obra puerta (alta de club
++ limpieza del residuo coach 4/15 y los demos «Pablo Amigo»).**
 
 ---
 
