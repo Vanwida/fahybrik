@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · Un benchmark solo tiene un objetivo: tu propio récord. Sin récord, NINGUNO
+
+**Decidido:** un benchmark («Probarme») es un esfuerzo a tope, no una prescripción de intensidad. Nadie le dice al atleta a qué ritmo ir: va a lo que pueda y manda el cronómetro. Por tanto:
+
+1. **Con récord** → el objetivo es su propia marca, dicha como tal: el bloque se titula «Benchmark · a batir 3:52» (en la unidad de la marca — tiempo para los contrarrelojes, metros para el Cooper). Los contrarrelojes llevan además el ritmo derivado de ese récord para que el HUD pueda decir en vivo si va por encima o por debajo (correr s/km, ergo s/500 m).
+2. **Sin récord comparable** → **no hay objetivo**. Ni por defecto, ni estimado, ni «a modo orientativo». La prescripción viaja con `target` nulo y ninguna pantalla pinta ritmo.
+3. **El Cooper nunca lleva ritmo**, tenga récord o no: son 12 minutos fijos y la puntuación es la distancia. Su récord sí se enseña («a batir 2800 m»).
+
+**Por qué:** el borrador libre nacía con `paceSeconds = 112` (el ritmo por defecto del REMO, 1:52/500 m) y `BenchmarkLaunch` asignaba `draft.modality` a pelo, saltándose `selectModality()`, que es quien siembra los valores de cada disciplina. Resultado: **todos** los benchmarks sin récord comparable arrancaban con ese 112, y el Cooper lo hacía SIEMPRE (su unidad es metros, así que nunca se calculaba objetivo). En correr se pintaba como **«@ 1:52 /km»** — más rápido que el récord del mundo de 1 km. Además ese ritmo falso se guardaba en la prescripción que ve el coach.
+
+**Cómo queda blindado:** `FreeWorkoutDraft.modality` pasa a `private(set)`. `selectModality()` es la única entrada y siembra el ritmo de la disciplina, así que el arrastre deja de ser posible en cualquier lanzador presente o futuro — lo caza el compilador, no una revisión. Y `FreeWorkoutDraft.targetKind` pasa a opcional: nil = sin objetivo. No hizo falta tocar el contrato con el servidor, `target` ya era opcional en los dos niveles (`shared/domain/prescription/types.ts`) y `validateFreeWorkout` nunca lo exigió.
+
+**En consecuencia, no hacer:** no volver a poner un ritmo «por defecto» en un lanzamiento. Si el dato no existe, la pantalla se calla. Y no asignar `.modality` sobre un borrador: se selecciona, no se asigna.
+
+---
+
 ## 2026-07-27 · El Plan del free enseña EVIDENCIA, no una proyección — y lo que falta se dice
 
 **Decidido:** la pestaña Plan de un atleta sin coach (`ios/FAHYBRIK/Plan/FreePlanView.swift`) se construye con lo que HOY es real y nada más: su carrera objetivo con cuenta atrás (`target_race` de `/api/athlete/plan/week`), lo que tiene medido y lo que le falta del catálogo (`/api/athlete/marks`), su historial de HYROX importado (`/api/athlete/races`) y su VO₂ máx del reloj (`/api/athlete/biometrics/trend`, clave `vo2max`). El orden es: primero lo que le damos, después lo que le pedimos. Con CERO evidencia no se ofrece nada de pago.

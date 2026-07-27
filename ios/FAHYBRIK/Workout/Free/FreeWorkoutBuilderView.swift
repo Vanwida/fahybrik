@@ -262,11 +262,14 @@ struct FreeWorkoutBuilderView: View {
                     }
                 }
 
-                // Objetivo (how hard) — REQUIRED: pace or HR zone.
+                // Objetivo (how hard) — REQUIRED here: an athlete-built bout always
+                // carries one, so the toggle never surfaces the draft's "no
+                // objective" state (that one belongs to a benchmark with no record
+                // to beat, which never opens this builder).
                 FreeKindToggle(
                     title: "Objetivo",
                     options: FreeTargetKind.allCases,
-                    selection: Binding(get: { draft.targetKind }, set: { draft.targetKind = $0 }),
+                    selection: Binding(get: { draft.targetKind ?? .pace }, set: { draft.targetKind = $0 }),
                     label: { $0.labelES }
                 )
                 targetControl
@@ -312,6 +315,8 @@ struct FreeWorkoutBuilderView: View {
             }
         case .hrZone:
             FreeZonePicker(zone: $draft.hrZone)
+        case nil:
+            EmptyView()   // unreachable: the toggle above always leaves an objective
         }
     }
 

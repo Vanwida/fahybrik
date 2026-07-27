@@ -170,6 +170,38 @@ enum FreeTargetKind: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - BenchmarkFraming — how a benchmark attempt states its objective
+//
+// #Marcas — a benchmark is an ALL-OUT effort. There is no coach prescribing "hold
+// 4:00/km" here: the athlete goes as hard as they can and the clock decides. So the
+// ONLY honest objective is the athlete's OWN record ("a batir"), and when there
+// isn't one yet there is NO objective at all — a default number invented by the app
+// would be a lie the HUD then coaches against. (Alex's Cooper attempt shipped with
+// the ROW default, 1:52, painted as "@ 1:52 /km" — faster than the 1 km world
+// record. That is what this type exists to make impossible.)
+enum BenchmarkFraming: Equatable {
+    /// No comparable record yet. Nothing to beat → no objective is shown anywhere.
+    case firstAttempt
+    /// The record to beat, ALREADY formatted in the mark's own unit ("3:52", "2800 m").
+    case toBeat(String)
+
+    /// Block title in the pre-block gate — the athlete's "what am I here for".
+    var blockTitle: String {
+        switch self {
+        case .firstAttempt:   return "Benchmark"
+        case .toBeat(let pr): return "Benchmark · a batir \(pr)"
+        }
+    }
+
+    /// Pedagogical context line on the plan (brief header).
+    var blockContext: String {
+        switch self {
+        case .firstAttempt:   return "Benchmark · tu primera marca"
+        case .toBeat(let pr): return "Benchmark · a batir \(pr)"
+        }
+    }
+}
+
 // MARK: - Steps / increments (named constants — no magic numbers)
 
 enum FreeStep {
@@ -192,9 +224,16 @@ enum FreeStep {
 @Observable
 final class FreeWorkoutDraft {
     /// #Marcas — a benchmark attempt reuses this exact draft, but it is NOT an
-    /// "entreno libre" to the athlete: every label must say Benchmark.
-    var isBenchmark: Bool = false
-    var modality: FreeModality? = nil
+    /// "entreno libre" to the athlete: every label must say Benchmark. Present ⇔
+    /// this draft IS a benchmark, and it carries the record to beat, so the two
+    /// can never disagree.
+    var benchmark: BenchmarkFraming? = nil
+    var isBenchmark: Bool { benchmark != nil }
+
+    /// Read-only on purpose: `selectModality` is the ONLY way in because choosing a
+    /// discipline is also what seeds its pace. Assigning this directly is what left
+    /// the row's 1:52/500m sitting on a running benchmark.
+    private(set) var modality: FreeModality? = nil
     var format: FreeFormat? = nil
 
     var rounds: Int = 5
@@ -205,8 +244,17 @@ final class FreeWorkoutDraft {
     var restSeconds: Int = 90
     var windowSeconds: Int = 600        // AMRAP total window
     var cadenceSeconds: Int = 60        // EMOM "on the minute"
-    var targetKind: FreeTargetKind = .pace
-    var paceSeconds: Int = 112
+    /// The bout's objective, or nil for NO objective. The free builder always sets
+    /// one (its form makes you pick) — an athlete-built bout without a "how hard"
+    /// isn't a prescription. A BENCHMARK is the one legitimate nil: an all-out
+    /// effort with no comparable record has nothing honest to aim at. Both
+    /// `Prescription.target` and `PrescriptionSet.target` are already optional, on
+    /// the wire too (`target: targetSchema.optional()`), so nil needs no contract change.
+    var targetKind: FreeTargetKind? = .pace
+    /// Seconds per the MODALITY's pace unit (run /km, erg /500m). 0 = unseeded:
+    /// there is no such thing as a discipline-free default pace, and every read is
+    /// behind a `modality` guard. `selectModality` seeds the real one.
+    var paceSeconds: Int = 0
     var hrZone: Int = 2
 
     /// The ONLY free-text field in the whole flow. nil → the generated default.
@@ -231,19 +279,22 @@ final class FreeWorkoutDraft {
         }
     }
 
-    private func buildTarget() -> Target {
+    private func buildTarget() -> Target? {
         switch targetKind {
         case .pace:
-            let unit = modality?.resolvedPaceUnit ?? .per500m
-            return .pace(unit: unit, valueS: paceSeconds, minS: nil, maxS: nil)
+            guard let modality, paceSeconds > 0 else { return nil }
+            return .pace(unit: modality.resolvedPaceUnit, valueS: paceSeconds, minS: nil, maxS: nil)
         case .hrZone:
             return .hrZone(value: Double(hrZone), min: nil, max: nil)
+        case nil:
+            return nil
         }
     }
 
     /// The runnable, wire-canonical `Prescription`. nil until modality + format
-    /// are chosen. Every format carries a complete param set + a REQUIRED objetivo
-    /// (pace or HR zone) — an ergo/run bout always has measure × target.
+    /// are chosen. Every format carries a complete param set; the objetivo (pace or
+    /// HR zone) is present for everything the athlete or the coach PRESCRIBES, and
+    /// absent only for a benchmark with no record to beat — see `BenchmarkFraming`.
     func buildPrescription() -> Prescription? {
         guard let modality, let format else { return nil }
         let measure = buildMeasure()
@@ -326,7 +377,7 @@ final class FreeWorkoutDraft {
             targetZone: zone,
             loadKg: nil,
             targetRpe: nil,
-            blockTitle: isBenchmark ? "Benchmark" : "Libre",
+            blockTitle: benchmark?.blockTitle ?? "Libre",
             blockPosition: 1,
             videoUrl: nil,
             prescription: prescription
@@ -337,7 +388,7 @@ final class FreeWorkoutDraft {
             name: resolvedTitle,
             format: format.scheme,
             estimatedDurationSeconds: estimatedSeconds,
-            blockContext: isBenchmark ? "Benchmark · a por tu marca" : "Libre · no prescrito",
+            blockContext: benchmark?.blockContext ?? "Libre · no prescrito",
             zoneTargets: [],
             equipment: [],
             segments: [segment],
@@ -405,12 +456,11 @@ final class FreeWorkoutDraft {
         switch targetKind {
         case .pace:
             guard let modality else { return nil }
-            return PrescriptionRenderer.paceString(
-                .pace(unit: modality.resolvedPaceUnit, valueS: paceSeconds, minS: nil, maxS: nil),
-                isErg: modality.prescription.isErg
-            )
+            return PrescriptionRenderer.paceString(buildTarget(), isErg: modality.prescription.isErg)
         case .hrZone:
             return HRZone(rawValue: hrZone)?.label
+        case nil:
+            return nil
         }
     }
 
