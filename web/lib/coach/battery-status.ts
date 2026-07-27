@@ -74,7 +74,7 @@ export async function loadBatteryStatus(
   const benchRows = await client<{ exercise_slug: string; value: number }[]>`
     select distinct on (exercise_slug) exercise_slug, value::float8 as value
     from athlete_benchmarks
-    where athlete_id = ${athlete_id} and notes in ('coach_test', 'athlete_test')
+    where athlete_id = ${athlete_id} and source in ('coach_test', 'athlete_test')
     order by exercise_slug, recorded_at desc
   `;
   const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));

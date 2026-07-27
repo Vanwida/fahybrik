@@ -37,10 +37,19 @@ export const BENCH_RUN_5K = 'run_5k';
 export const BENCH_RUN_10K = 'run_10k';
 export const BENCH_RUN_HALF = 'run_half';
 export const BENCH_RUN_MARATHON = 'run_marathon';
+// The HYROX repeat unit — the race is 8 of these. Self-testable (#Marcas).
+export const BENCH_RUN_1K = 'run_1k';
+// Cooper: distance covered in a FIXED 12 minutes. The one benchmark whose value
+// is METERS, not seconds — higher is better, benchmarkLowerIsBetter already
+// handles it (only seconds improves downward).
+export const BENCH_COOPER_12MIN = 'cooper_12min';
 
 // ── Ergometer time trials (unit: seconds) ────────────────────────────────────
 export const BENCH_ROW_2K = 'row_2k';
 export const BENCH_SKI_1K = 'ski_1k';
+// The race station distance (1000 m row) and the dirty sprint (#Marcas).
+export const BENCH_ROW_1K = 'row_1k';
+export const BENCH_ROW_500M = 'row_500m';
 
 // ── HYROX best time, by division (unit: seconds) ─────────────────────────────
 export const BENCH_HYROX_OPEN = 'hyrox_open';
@@ -102,6 +111,7 @@ export const BENCHMARK_UNIT_KG = 'kg';
 export const BENCHMARK_UNIT_REPS = 'reps';
 export const BENCHMARK_UNIT_SECONDS = 'seconds';
 export const BENCHMARK_UNIT_BPM = 'bpm';
+export const BENCHMARK_UNIT_METERS = 'meters';
 
 /** Direction of improvement for a benchmark, from its stored unit. Only a TIME
  *  benchmark (seconds) improves DOWNWARD (faster = better); every other unit
@@ -120,8 +130,12 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_RUN_10K]: 'Carrera 10 km',
   [BENCH_RUN_HALF]: 'Media maratón',
   [BENCH_RUN_MARATHON]: 'Maratón',
+  [BENCH_RUN_1K]: '1 km a tope',
+  [BENCH_COOPER_12MIN]: 'Cooper 12 min',
   [BENCH_ROW_2K]: 'Remo 2000 m',
   [BENCH_SKI_1K]: 'SkiErg 1000 m',
+  [BENCH_ROW_1K]: 'Remo 1000 m',
+  [BENCH_ROW_500M]: 'Remo 500 m',
   [BENCH_HYROX_OPEN]: 'HYROX Open',
   [BENCH_HYROX_PRO]: 'HYROX Pro',
   [BENCH_STRICT_PULL_UP_MAX]: 'Dominadas estrictas',
@@ -143,13 +157,15 @@ export function benchmarkLabel(slug: string): string {
 
 /**
  * How a benchmark's value reads, from its stored unit:
- *  · 'time' (seconds) → mm:ss, LOWER is better
- *  · 'reps'           → count, HIGHER is better
- *  · 'load' (kg)      → 1RM in kg, HIGHER is better
+ *  · 'time' (seconds)     → mm:ss, LOWER is better
+ *  · 'reps'               → count, HIGHER is better
+ *  · 'load' (kg)          → 1RM in kg, HIGHER is better
+ *  · 'distance' (meters)  → "2.870 m" (Cooper), HIGHER is better
  */
-export type BenchmarkMetric = 'time' | 'reps' | 'load';
+export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance';
 export function benchmarkMetric(unit: string): BenchmarkMetric {
   if (unit === BENCHMARK_UNIT_KG) return 'load';
   if (unit === BENCHMARK_UNIT_REPS) return 'reps';
+  if (unit === BENCHMARK_UNIT_METERS) return 'distance';
   return 'time';
 }

@@ -20,8 +20,10 @@ export async function recordTestBenchmark(
   event: TestEvent,
 ): Promise<void> {
   const b = benchmarkForTestEvent(event);
+  // `source` is the typed provenance column (0139); `notes` keeps carrying the same
+  // tag as a human-readable trace, exactly as before.
   await client`
-    insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes)
-    values (${event.athlete_id}, ${b.exercise_slug}, ${b.value}, ${b.unit}, ${event.source})
+    insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes, source)
+    values (${event.athlete_id}, ${b.exercise_slug}, ${b.value}, ${b.unit}, ${event.source}, ${event.source})
   `;
 }

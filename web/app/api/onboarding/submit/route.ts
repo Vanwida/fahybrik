@@ -468,12 +468,16 @@ export async function POST(request: Request) {
             value: b.value,
             unit: b.unit,
             notes: BENCHMARK_SOURCE,
+            // Typed provenance (0139): self-declared at onboarding — never counts
+            // as a real test anywhere.
+            source: BENCHMARK_SOURCE,
           })),
           'athlete_id',
           'exercise_slug',
           'value',
           'unit',
           'notes',
+          'source',
         )}
       `;
     }

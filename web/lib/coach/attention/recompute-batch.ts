@@ -183,7 +183,7 @@ export async function loadBatch(
         b.athlete_id, b.recorded_at as ts, b.exercise_slug as slug,
         b.unit as unit, b.value::float as value
       from athlete_benchmarks b
-      where b.notes in ('coach_test', 'athlete_test')
+      where b.source in ('coach_test', 'athlete_test')
       order by b.athlete_id, b.recorded_at desc
     ),
     last_any_test as (

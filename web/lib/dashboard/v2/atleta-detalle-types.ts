@@ -350,6 +350,7 @@ function fmtTime(s: number | null): string | null {
 function fmtMetricValue(value: number, metric: BenchmarkMetric): string {
   if (metric === 'time') return fmtTime(Math.round(value)) ?? EM_DASH;
   if (metric === 'load') return `${Math.round(value)} kg`;
+  if (metric === 'distance') return `${Math.round(value)} m`; // Cooper
   return `${Math.round(value)}`; // reps
 }
 
@@ -359,6 +360,7 @@ function fmtDeltaLabel(delta: number, metric: BenchmarkMetric): string {
   const abs = Math.abs(delta);
   if (metric === 'time') return `${sign}${fmtTime(Math.round(abs)) ?? '0:00'}`;
   if (metric === 'load') return `${sign}${Math.round(abs)} kg`;
+  if (metric === 'distance') return `${sign}${Math.round(abs)} m`;
   return `${sign}${Math.round(abs)}`;
 }
 
