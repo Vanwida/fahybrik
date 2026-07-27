@@ -1,37 +1,29 @@
-// Dónde se guardan los adjuntos del chat.
+// Cómo se suben los adjuntos del chat: DIRECTO del cliente a Vercel Blob.
 //
-// Producción: Vercel Blob. Desarrollo sin token: disco local en
-// /tmp/fahybrik-uploads.
+// El servidor NO toca los bytes. Valida la intención (tipo, extensión, tamaño,
+// propiedad de la carpeta) y prefirma una URL de subida atada a UN pathname
+// concreto, con tope de bytes, content-type fijado y caducidad corta. El cliente
+// (dashboard o iOS) hace un PUT plano de los bytes contra esa URL.
+//
+// POR QUÉ NO PUEDEN PASAR LOS BYTES POR NUESTRA API
+// -------------------------------------------------
+// La plataforma corta el body de cualquier función en ~4.5 MB con
+// FUNCTION_PAYLOAD_TOO_LARGE ANTES de que se ejecute una línea nuestra
+// (verificado el 27-jul contra producción: 2 MB entra, 6 MB no). La versión
+// anterior recibía el fichero por multipart y lo re-subía al almacén: prometía
+// fotos de 30 MB y vídeos de 200 MB por una tubería que admite 4.5. Una foto
+// detallada del iPhone ya no cabía.
 //
 // Cada fichero vive en  chat/<athlete_id>/<yyyy>/<mm>/<uuid>.<ext>
 //
-// Los blobs se suben con `access: 'private'`, así que su URL cruda NO se puede
-// pedir desde fuera y nunca se le entrega a nadie. Lo que se guarda en el mensaje
-// es una URL a nuestro propio proxy autenticado
-// (`/api/chat/attachments/<pathname>`), que comprueba que quien mira pertenece al
-// hilo antes de servir un solo byte.
-//
-// EL IMPORT ES ESTÁTICO, Y NO ES UN DETALLE
-// -----------------------------------------
-// Antes `@vercel/blob` se cargaba con `new Function('m', 'return import(m)')`
-// para que el empaquetador no lo metiera en el grafo. El empaquetador le hizo
-// caso: en el bundle desplegado el paquete NO viajaba, el import reventaba en
-// tiempo de ejecución y un `catch` mudo mandaba el fichero al disco temporal de
-// la función. Ese disco muere con la petición.
-//
-// El resultado era el peor posible: la subida contestaba 201, el mensaje se
-// guardaba con una URL de aspecto correcto, y el fichero no existía en ninguna
-// parte. Verificado el 26-jul contra el almacén de producción: CERO ficheros,
-// con mensajes en la base apuntando a seis. En local nunca se veía porque ahí sí
-// están los `node_modules`.
-//
-// `@vercel/blob` es una dependencia declarada en package.json. Se importa como
-// tal, y si falla, falla a la vista.
+// Los blobs siguen siendo `access: 'private'`: su URL cruda no se puede pedir
+// desde fuera y nunca se le entrega a nadie. Lo que se guarda en el mensaje es
+// una URL a nuestro proxy autenticado (`/api/chat/attachments/<pathname>`), que
+// comprueba que quien mira pertenece al hilo antes de servir un solo byte. La
+// URL prefirmada de subida solo permite `put` sobre ese pathname y muere sola.
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { put } from '@vercel/blob';
+import { issueSignedToken, presignUrl } from '@vercel/blob';
 import {
   CHAT_ATTACHMENT_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_BYTES,
@@ -42,13 +34,19 @@ import {
 // Las listas de extensiones y los topes viven en `./schema` (módulo sin Node) para
 // que la caja de texto del navegador valide con las MISMAS reglas y avise antes de
 // subir, en vez de comerse un 400 sin explicación.
-export { CHAT_ATTACHMENT_MAX_BYTES as MAX_BYTES_BY_KIND };
 
-export type UploadResult = {
-  url: string;
-  size_bytes: number;
-  mime_type: string;
-  kind: string;
+/** Cuánto vive la URL de subida. Lo dimensiona el peor caso legítimo: un vídeo
+ *  de 200 MB saliendo por datos móviles lentos. */
+const UPLOAD_URL_TTL_MS = 30 * 60 * 1000;
+
+export type AttachmentUploadTarget = {
+  /** URL prefirmada contra la que el cliente hace `PUT <bytes>`. */
+  upload_url: string;
+  /** URL del proxy autenticado que el mensaje referencia (la de siempre). */
+  attachment_url: string;
+  /** Content-Type EXACTO que el PUT debe declarar — es el que quedó firmado. */
+  content_type: string;
+  expires_at: string;
 };
 
 export class UploadError extends Error {
@@ -68,18 +66,24 @@ function inferExtension(filename: string, mime: string): string {
   return 'bin';
 }
 
-export async function storeAttachment(args: {
+/**
+ * Valida la subida que el cliente ANUNCIA y devuelve el destino prefirmado.
+ * El tope de bytes queda firmado dentro de la URL: declarar un tamaño pequeño
+ * y subir uno grande no cuela — lo rechaza el almacén, no nosotros.
+ */
+export async function createAttachmentUploadTarget(args: {
   athlete_id: bigint;
   kind: string;
   filename: string;
   mime_type: string;
-  bytes: Buffer;
-}): Promise<UploadResult> {
-  const { athlete_id, kind, filename, mime_type, bytes } = args;
+  size_bytes: number;
+}): Promise<AttachmentUploadTarget> {
+  const { athlete_id, kind, filename, size_bytes } = args;
   const allowed = CHAT_ATTACHMENT_EXTENSIONS[kind as ChatAttachmentKind];
   if (!allowed) {
     throw new UploadError('invalid_kind', `Unknown attachment kind: ${kind}`);
   }
+  const mime_type = args.mime_type.includes('/') ? args.mime_type : 'application/octet-stream';
   const ext = inferExtension(filename, mime_type);
   if (!allowed.includes(ext)) {
     throw new UploadError(
@@ -87,52 +91,58 @@ export async function storeAttachment(args: {
       `Extension .${ext} not allowed for ${kind} (allowed: ${allowed.join(', ')})`,
     );
   }
-  const max = CHAT_ATTACHMENT_MAX_BYTES[kind as ChatAttachmentKind] ?? 25 * 1024 * 1024;
-  if (bytes.length > max) {
+  const max = CHAT_ATTACHMENT_MAX_BYTES[kind as ChatAttachmentKind];
+  if (size_bytes > max) {
     throw new UploadError('too_large', `File exceeds ${kind} limit of ${max} bytes`, 413);
+  }
+
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!blobToken) {
+    // Sin almacén no hay adjuntos, ni en desarrollo: el fallback a disco que
+    // había aquí es lo que enmascaró durante semanas que en producción no se
+    // guardaba nada.
+    throw new UploadError('storage_unavailable', 'Blob storage is not configured', 503);
   }
 
   const id = randomUUID();
   const now = new Date();
-  const path = `chat/${athlete_id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${id}.${ext}`;
+  const pathname = `chat/${athlete_id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${id}.${ext}`;
+  const validUntil = now.getTime() + UPLOAD_URL_TTL_MS;
 
-  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-  if (blobToken) {
-    // Sin red de seguridad a propósito. Si la subida falla, que falle: quien
-    // escribe ve "no se pudo subir" y lo vuelve a intentar. Tragarse el error y
-    // escribir en el disco de la función es lo que hizo que durante semanas los
-    // adjuntos se "enviaran" y no existieran.
-    let stored: { pathname: string };
-    try {
-      stored = await put(path, bytes, {
-        access: 'private',
-        contentType: mime_type,
-        token: blobToken,
-        // Ya va con uuid: sin esto Vercel añade su propio sufijo y el pathname
-        // guardado dejaría de coincidir con el que pide el proxy.
-        addRandomSuffix: false,
-      });
-    } catch (err) {
-      throw new UploadError(
-        'storage_unavailable',
-        `No se pudo guardar el archivo: ${err instanceof Error ? err.message : 'error de almacenamiento'}`,
-        502,
-      );
-    }
+  try {
+    const signed = await issueSignedToken({
+      token: blobToken,
+      pathname,
+      operations: ['put'],
+      validUntil,
+      allowedContentTypes: [mime_type],
+      maximumSizeInBytes: max,
+    });
+    const { presignedUrl } = await presignUrl(signed, {
+      operation: 'put',
+      pathname,
+      access: 'private',
+      validUntil,
+      allowedContentTypes: [mime_type],
+      maximumSizeInBytes: max,
+      // Ya va con uuid: un sufijo del almacén rompería la coincidencia entre el
+      // pathname guardado y el que pide el proxy.
+      addRandomSuffix: false,
+    });
     return {
-      url: attachmentProxyUrl(stored.pathname),
-      size_bytes: bytes.length,
-      mime_type,
-      kind,
+      upload_url: presignedUrl,
+      attachment_url: attachmentProxyUrl(pathname),
+      content_type: mime_type,
+      expires_at: new Date(validUntil).toISOString(),
     };
+  } catch (err) {
+    // Sin red de seguridad a propósito: si el almacén no firma, que se vea.
+    throw new UploadError(
+      'storage_unavailable',
+      `No se pudo preparar la subida: ${err instanceof Error ? err.message : 'error de almacenamiento'}`,
+      502,
+    );
   }
-
-  // Solo desarrollo: sin token no hay almacén, así que se escribe en disco.
-  const root = process.env.UPLOADS_DIR ?? '/tmp/fahybrik-uploads';
-  const dir = join(root, `chat/${athlete_id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}`);
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, `${id}.${ext}`), bytes);
-  return { url: attachmentProxyUrl(path), size_bytes: bytes.length, mime_type, kind };
 }
 
 /** Path prefix of the authenticated attachment proxy endpoint. */

@@ -28,16 +28,9 @@
 // El import de `@vercel/blob` es ESTÁTICO. Cargarlo con `new Function` dejaba el
 // paquete fuera del bundle desplegado y esta ruta contestaba 404 siempre, en
 // silencio. Ver el bloque equivalente en lib/chat/upload.ts.
-//
-// Camino de disco local (solo en desarrollo): sin BLOB_READ_WRITE_TOKEN se sirve
-// el fichero del disco, tras la misma comprobación de propiedad.
 
 import { NextResponse } from 'next/server';
 import { head } from '@vercel/blob';
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { join } from 'node:path';
-import { Readable } from 'node:stream';
 import { jsonError } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { resolveChatPrincipal } from '@/lib/chat/auth';
@@ -126,51 +119,28 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse | Respon
   }
 
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-  if (blobToken) {
-    // `head` resuelve la URL privada del blob y de paso confirma que existe.
-    let blobUrl: string;
-    try {
-      blobUrl = (await head(pathname, { token: blobToken })).url;
-    } catch {
-      // No está en el almacén. Con almacén configurado NO se cae al disco: eso es
-      // lo que enmascaraba el fallo.
-      return jsonError('not_found', 'Attachment not found', 404);
-    }
-    const upstream = await fetch(blobUrl, {
-      headers: buildUpstreamHeaders(req, blobToken),
-      cache: 'no-store',
-    });
-    if (!upstream.ok && upstream.status !== 206) {
-      return jsonError('not_found', 'Attachment not found', 404);
-    }
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: buildDownstreamHeaders(upstream),
-    });
+  if (!blobToken) {
+    // Sin almacén no hay adjuntos, ni en desarrollo. El fallback a disco que
+    // vivía aquí murió con la subida por multipart: ya nada escribe en disco.
+    return jsonError('storage_unavailable', 'Blob storage is not configured', 503);
   }
 
-  // Local-fs dev fallback: stream the file from disk.
+  // `head` resuelve la URL privada del blob y de paso confirma que existe.
+  let blobUrl: string;
   try {
-    const root = process.env.UPLOADS_DIR ?? '/tmp/fahybrik-uploads';
-    const fullPath = join(root, pathname);
-    // Defensive: ensure the resolved path stays under root.
-    if (!fullPath.startsWith(root)) {
-      return jsonError('not_found', 'Attachment not found', 404);
-    }
-    const info = await stat(fullPath);
-    if (!info.isFile()) {
-      return jsonError('not_found', 'Attachment not found', 404);
-    }
-    const nodeStream = createReadStream(fullPath);
-    const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
-    return new Response(webStream, {
-      status: 200,
-      headers: {
-        'content-length': String(info.size),
-        'cache-control': 'private, no-store',
-      },
-    });
+    blobUrl = (await head(pathname, { token: blobToken })).url;
   } catch {
     return jsonError('not_found', 'Attachment not found', 404);
   }
+  const upstream = await fetch(blobUrl, {
+    headers: buildUpstreamHeaders(req, blobToken),
+    cache: 'no-store',
+  });
+  if (!upstream.ok && upstream.status !== 206) {
+    return jsonError('not_found', 'Attachment not found', 404);
+  }
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: buildDownstreamHeaders(upstream),
+  });
 }

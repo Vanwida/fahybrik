@@ -180,24 +180,47 @@ export function prepareAttachment(file: File): PendingAttachment {
   };
 }
 
-/** Sube el fichero y devuelve la URL con la que se referencia en el mensaje. El
- *  `athlete_id` decide la carpeta; el servidor comprueba que sea de la cohorte. */
+/** Sube el fichero y devuelve la URL con la que se referencia en el mensaje.
+ *  Dos pasos: el servidor valida y prefirma (`/api/chat/upload-url`), y los
+ *  bytes van con un PUT DIRECTO al almacén — por nuestra API no caben (la
+ *  plataforma corta el body en ~4.5 MB). El `athlete_id` decide la carpeta;
+ *  el servidor comprueba que sea de la cohorte. */
 export async function uploadAttachment(
   athleteId: string,
   pending: PendingAttachment,
 ): Promise<{ url: string; mime_type: string; size_bytes: number }> {
-  const form = new FormData();
-  form.append('file', pending.file);
-  form.append('kind', pending.kind);
-  form.append('filename', pending.file.name);
-  form.append('athlete_id', athleteId);
-  const res = await fetch('/api/chat/upload', {
+  const res = await fetch('/api/chat/upload-url', {
     method: 'POST',
     credentials: 'include',
-    body: form,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      kind: pending.kind,
+      filename: pending.file.name,
+      mime_type: pending.file.type || undefined,
+      size_bytes: pending.file.size,
+      athlete_id: athleteId,
+    }),
   });
-  if (!res.ok) throw await readError(res, 'No se pudo subir el archivo.');
-  return (await res.json()) as { url: string; mime_type: string; size_bytes: number };
+  if (!res.ok) throw await readError(res, 'No se pudo preparar la subida.');
+  const target = (await res.json()) as {
+    upload_url: string;
+    attachment_url: string;
+    content_type: string;
+  };
+
+  // El Content-Type debe ser EXACTAMENTE el firmado, o el almacén rechaza el PUT.
+  const put = await fetch(target.upload_url, {
+    method: 'PUT',
+    headers: { 'content-type': target.content_type },
+    body: pending.file,
+  });
+  if (!put.ok) {
+    throw new ChatError(
+      'upload_failed',
+      'No se pudo subir el archivo. Revisa la conexión e inténtalo de nuevo.',
+    );
+  }
+  return { url: target.attachment_url, mime_type: target.content_type, size_bytes: pending.file.size };
 }
 
 /** El nombre legible de un adjunto, sacado de su URL. Los ficheros se guardan con
