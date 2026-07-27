@@ -13,6 +13,8 @@ export interface AthleteRow {
   user_id: bigint;
   full_name: string;
   onboarded_at: Date | null;
+  /** null = atleta sin coach (tier free). El login deriva has_coach de aquí. */
+  coach_id: bigint | null;
 }
 
 export interface CoachRow {
@@ -31,10 +33,6 @@ interface AppleIdentity {
    * collision could be used to take over an existing account.
    */
   email_verified: boolean;
-}
-
-interface AppleProfileHints {
-  full_name?: string | null;
 }
 
 export interface AppleAuthResult {
@@ -61,12 +59,14 @@ function rowToAthlete(r: {
   user_id: string;
   full_name: string;
   onboarded_at: Date | null;
+  coach_id: string | null;
 }): AthleteRow {
   return {
     id: BigInt(r.id),
     user_id: BigInt(r.user_id),
     full_name: r.full_name,
     onboarded_at: r.onboarded_at,
+    coach_id: r.coach_id == null ? null : BigInt(r.coach_id),
   };
 }
 
@@ -153,8 +153,10 @@ export async function findAthleteForApple(
       user_id: string;
       full_name: string;
       onboarded_at: Date | null;
+      coach_id: string | null;
     }[]>`
-      select id::text as id, user_id::text as user_id, full_name, onboarded_at
+      select id::text as id, user_id::text as user_id, full_name, onboarded_at,
+             coach_id::text as coach_id
       from athletes
       where user_id = ${userId}
       limit 1
@@ -213,8 +215,10 @@ export async function findAthleteByEmail(email: string): Promise<AppleAuthResult
       user_id: string;
       full_name: string;
       onboarded_at: Date | null;
+      coach_id: string | null;
     }[]>`
-      select id::text as id, user_id::text as user_id, full_name, onboarded_at
+      select id::text as id, user_id::text as user_id, full_name, onboarded_at,
+             coach_id::text as coach_id
       from athletes
       where user_id = ${userId}
       limit 1

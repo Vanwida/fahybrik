@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createEmailLoginCode, sendEmailLoginCode } from '@/lib/auth/email-code';
+import { isFreeSignupEnabled } from '@/lib/auth/free-signup';
 import { reviewAccessGate } from '@/lib/auth/review-access';
 import { findAthleteByEmail } from '@/lib/auth/users';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
@@ -61,8 +62,11 @@ export async function POST(req: Request) {
 
   // Find-only: only issue + send a code when a member account exists. Non-members
   // fall through to the same generic response (no code, no email, no leak).
+  // Con FREE_SIGNUP encendido el alta está abierta: el código se emite IGUAL
+  // para un email sin cuenta (verify la creará al probar el buzón). La respuesta
+  // genérica no cambia en ningún caso → la enumeración sigue siendo imposible.
   const account = await findAthleteByEmail(email);
-  if (account) {
+  if (account || isFreeSignupEnabled()) {
     const { code_plaintext, expires_at } = await createEmailLoginCode(email, { requested_ip: ip });
     await sendEmailLoginCode({ to: email, code: code_plaintext, expires_at });
   }

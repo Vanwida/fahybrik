@@ -34,7 +34,7 @@ const BLOCKED = { allowed: false, remaining: 0, retryAfter: 600, windowStart: ne
 
 const ACCOUNT = {
   user: { id: BigInt(132), email: 'fabregas.scd@gmail.com', apple_user_id: null, role: 'athlete' as const },
-  athlete: { id: BigInt(63), user_id: BigInt(132), full_name: 'Gerard', onboarded_at: null },
+  athlete: { id: BigInt(63), user_id: BigInt(132), full_name: 'Gerard', onboarded_at: null, coach_id: BigInt(60) },
 };
 
 function post(body: unknown): Request {
@@ -52,7 +52,7 @@ const REVIEW_CODE = 'FAHYBRID-REVIEW-7Q2X'; // alphanumeric on purpose (higher e
 
 const REVIEW_ACCOUNT = {
   user: { id: BigInt(900), email: REVIEW_EMAIL, apple_user_id: null, role: 'athlete' as const },
-  athlete: { id: BigInt(901), user_id: BigInt(900), full_name: 'Review FAHYBRID', onboarded_at: null },
+  athlete: { id: BigInt(901), user_id: BigInt(900), full_name: 'Review FAHYBRID', onboarded_at: null, coach_id: BigInt(60) },
 };
 
 beforeEach(() => {
@@ -121,6 +121,7 @@ describe('POST /api/auth/email/verify', () => {
     expect(body.athlete_id).toBe('63');
     expect(body.user_id).toBe('132');
     expect(body.onboarded_at).toBeNull();
+    expect(body.has_coach).toBe(true);
     expect(issueSession).toHaveBeenCalledOnce();
     expect(vi.mocked(issueSession).mock.calls[0][0].audience).toBe(audiences.athlete);
   });
