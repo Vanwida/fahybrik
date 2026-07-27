@@ -13,6 +13,10 @@ struct InjuriesView: View {
     /// Agnostic coach display name (from the athlete's plan payload); nil → the
     /// copy falls back to "tu coach". Never a hardcoded name.
     let coachName: String?
+    /// FREE tier switch (athlete without coach). False reframes the whole
+    /// surface as the athlete's OWN log: no "tu coach ajusta", no coach note —
+    /// registering and following the episode is the value in itself.
+    var hasCoach: Bool = true
 
     @State private var injuries: [AthleteInjury] = []
     @State private var loading = true
@@ -43,7 +47,7 @@ struct InjuriesView: View {
             }
         }
         .sheet(isPresented: $showReport) {
-            ReportInjurySheet(bearer: bearer, coachName: coachName) { await load() }
+            ReportInjurySheet(bearer: bearer, coachName: coachName, hasCoach: hasCoach) { await load() }
         }
         .task { await load() }
     }
@@ -75,7 +79,9 @@ struct InjuriesView: View {
     }
 
     private var intro: some View {
-        Text("Si algo te molesta, repórtalo. \(coachLabel.capitalizedFirst) ajusta tu carga para que entrenes sin arriesgar.")
+        Text(hasCoach
+             ? "Si algo te molesta, repórtalo. \(coachLabel.capitalizedFirst) ajusta tu carga para que entrenes sin arriesgar."
+             : "Si algo te molesta, regístralo. Ver cómo evoluciona te ayuda a ajustar tu carga y entrenar sin arriesgar.")
             .scaledFont(13, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.muted)
             .fixedSize(horizontal: false, vertical: true)
@@ -97,6 +103,7 @@ struct InjuriesView: View {
                                 injury: injury,
                                 bearer: bearer,
                                 coachName: coachName,
+                                hasCoach: hasCoach,
                                 onChanged: { await load() }
                             )
                         } label: {
@@ -188,7 +195,9 @@ struct InjuriesView: View {
                 .scaledFont(16, weight: .bold, relativeTo: .headline)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
-            Text("Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.capitalizedFirst) lo tendrá en cuenta al preparar tu semana.")
+            Text(hasCoach
+                 ? "Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.capitalizedFirst) lo tendrá en cuenta al preparar tu semana."
+                 : "Cuando algo te moleste o te lesiones, regístralo aquí. Así sabes qué arrastras y cómo evoluciona.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
@@ -243,6 +252,8 @@ struct InjuriesView: View {
 private struct ReportInjurySheet: View {
     let bearer: String?
     let coachName: String?
+    /// FREE: the note is the athlete's own record, not a message to a coach.
+    var hasCoach: Bool = true
     let onSaved: () async -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -274,7 +285,7 @@ private struct ReportInjurySheet: View {
                     field(title: "¿Desde cuándo?", required: false) {
                         onsetRow
                     }
-                    field(title: "Cuéntale a \(coachLabel)", required: false) {
+                    field(title: hasCoach ? "Cuéntale a \(coachLabel)" : "Apunta lo que notas", required: false) {
                         NoteEditor(text: $note, placeholder: "Cómo empezó, qué notas, qué lo empeora… (opcional)")
                     }
                     if let errorText { InjuryErrorLine(text: errorText) }
@@ -378,6 +389,8 @@ private struct ReportInjurySheet: View {
 struct InjuryDetailView: View {
     let bearer: String?
     let coachName: String?
+    /// FREE: updates are the athlete's own follow-up, never a note to a coach.
+    let hasCoach: Bool
     let onChanged: () async -> Void
 
     @State private var injury: AthleteInjury
@@ -390,11 +403,13 @@ struct InjuryDetailView: View {
         injury: AthleteInjury,
         bearer: String?,
         coachName: String?,
+        hasCoach: Bool = true,
         onChanged: @escaping () async -> Void
     ) {
         _injury = State(initialValue: injury)
         self.bearer = bearer
         self.coachName = coachName
+        self.hasCoach = hasCoach
         self.onChanged = onChanged
     }
 
@@ -468,7 +483,9 @@ struct InjuryDetailView: View {
                 Text("¿Cómo va?")
                     .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Actualiza el estado o deja una nota para \(coachLabel).")
+                Text(hasCoach
+                     ? "Actualiza el estado o deja una nota para \(coachLabel)."
+                     : "Actualiza el estado o deja una nota.")
                     .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)

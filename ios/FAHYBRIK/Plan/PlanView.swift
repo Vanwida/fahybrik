@@ -27,6 +27,10 @@ import CoreTransferable
 // if the coach hasn't published, we show an honest empty state.
 struct PlanView: View {
     var bearer: String? = nil
+    /// FREE tier switch (athlete without coach). False hides the chat action and
+    /// swaps the coach-flavored empty copy for the athlete-direct free one — a
+    /// free athlete's week fills with the sessions THEY build, nobody publishes it.
+    var hasCoach: Bool = true
 
     // The shared cache-first data layer. The CURRENT week (offset 0) is read from
     // here so a tab switch into Plan renders instantly with no spinner; the
@@ -297,7 +301,9 @@ struct PlanView: View {
                 .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
             }
             historyButton
-            chatButton
+            if hasCoach {
+                chatButton
+            }
         }
         .frame(minHeight: 36)
     }
@@ -1279,13 +1285,17 @@ struct PlanView: View {
                 .foregroundStyle(Theme.Color.muted)
             Text(loadFailed
                  ? "No pudimos cargar tu plan"
-                 : "Tu coach aún no ha publicado tu plan")
+                 : (hasCoach
+                    ? "Tu coach aún no ha publicado tu plan"
+                    : "Tu semana está en blanco"))
                 .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
             Text(loadFailed
                  ? "Revisa tu conexión e inténtalo de nuevo."
-                 : "Cuando tu coach asigne tus sesiones aparecerán aquí, día a día.")
+                 : (hasCoach
+                    ? "Cuando tu coach asigne tus sesiones aparecerán aquí, día a día."
+                    : "Construye un entreno desde Inicio y aparecerá aquí, día a día."))
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)

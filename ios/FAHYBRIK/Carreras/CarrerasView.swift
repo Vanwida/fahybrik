@@ -17,6 +17,9 @@ import SwiftUI
 // only signed deltas use the semantic ok/warning/danger axis.
 struct CarrerasView: View {
     var bearer: String? = nil
+    /// FREE tier switch (athlete without coach) — hides the chat affordance and,
+    /// through BuscarCarreraSheet, the "pídesela a tu coach" request flow.
+    var hasCoach: Bool = true
 
     // The shared, cache-first data layer (cache-first / SWR). Carreras reads its
     // three slices straight from here — exactly like Inicio / Plan / Perfil — so
@@ -110,7 +113,7 @@ struct CarrerasView: View {
             // Reuse the target-race picker (→ FijarObjetivoView); on a successful
             // set we force-refresh the hub + plan so the new objective appears in
             // PRÓXIMAS and Inicio's countdown follows.
-            BuscarCarreraSheet(bearer: effectiveBearer) {
+            BuscarCarreraSheet(bearer: effectiveBearer, hasCoach: hasCoach) {
                 Task { await store.racesMutated() }
             }
         }
@@ -262,7 +265,9 @@ struct CarrerasView: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             // Persistent chat affordance (icon + unread badge) → coach thread.
-            ChatHeaderButton()
+            if hasCoach {
+                ChatHeaderButton()
+            }
         }
         .padding(.top, Theme.Spacing.s)
     }

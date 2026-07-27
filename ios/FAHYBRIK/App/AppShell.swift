@@ -34,6 +34,10 @@ struct AppShell: View {
     // 401-recovery instantly re-scopes the whole tree.
     @Environment(AuthState.self) private var auth
     private var bearer: String? { auth.bearer }
+    /// FREE tier switch (athlete without coach). False flips the shell to the
+    /// free surface: FreeInicioView as home, no chat cover, no chat headers,
+    /// and every coach-flavored row downstream hidden via the same flag.
+    private var hasCoach: Bool { auth.hasCoach }
 
     // Drives the offline-queue drain on return to foreground — captured work
     // (check-ins, executions, sync batches) must chase connectivity, not wait
@@ -59,24 +63,32 @@ struct AppShell: View {
         TabView(selection: $selection) {
             // Inicio is the only root without its own canvas — it relied on the old
             // shell background — so paint the brand canvas behind it here.
-            InicioView(bearer: bearer, onOpenTab: { selection = $0 })
-                .background(Theme.Color.background.ignoresSafeArea())
-                .tag(AppTab.inicio)
-                .tabItem { Label(AppTab.inicio.title, systemImage: AppTab.inicio.symbol) }
+            // COACHED → the verdict home; FREE → the free home (pantalla 2 del
+            // mockup): construir entreno · probarme · tu semana, no coach copy.
+            Group {
+                if hasCoach {
+                    InicioView(bearer: bearer, onOpenTab: { selection = $0 })
+                } else {
+                    FreeInicioView(bearer: bearer, onOpenTab: { selection = $0 })
+                }
+            }
+            .background(Theme.Color.background.ignoresSafeArea())
+            .tag(AppTab.inicio)
+            .tabItem { Label(AppTab.inicio.title, systemImage: AppTab.inicio.symbol) }
 
-            PlanView(bearer: bearer)
+            PlanView(bearer: bearer, hasCoach: hasCoach)
                 .tag(AppTab.plan)
                 .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
 
-            AnalyticsView(bearer: bearer)
+            AnalyticsView(bearer: bearer, hasCoach: hasCoach)
                 .tag(AppTab.analiticas)
                 .tabItem { Label(AppTab.analiticas.title, systemImage: AppTab.analiticas.symbol) }
 
-            CarrerasView(bearer: bearer)
+            CarrerasView(bearer: bearer, hasCoach: hasCoach)
                 .tag(AppTab.carreras)
                 .tabItem { Label(AppTab.carreras.title, systemImage: AppTab.carreras.symbol) }
 
-            ProfileView(bearer: bearer, onSignOut: onSignOut)
+            ProfileView(bearer: bearer, hasCoach: hasCoach, onSignOut: onSignOut)
                 .tag(AppTab.perfil)
                 .tabItem { Label(AppTab.perfil.title, systemImage: AppTab.perfil.symbol) }
         }
@@ -85,7 +97,9 @@ struct AppShell: View {
         // Persistent chat: any main-screen header opens it through this value;
         // it's raised as a full-screen cover that re-injects the store (a custom
         // @Observable environment value does NOT cross the presentation boundary).
-        .environment(\.openChat) { showChat = true }
+        // FREE: there is no coach thread — the opener is a no-op and the cover
+        // can never raise (no header shows the button either).
+        .environment(\.openChat) { if hasCoach { showChat = true } }
         .fullScreenCover(isPresented: $showChat) {
             ChatView(bearer: bearer)
                 .environment(store)
@@ -97,6 +111,8 @@ struct AppShell: View {
             // A dead bearer (401 on any slice) clears the session and routes to
             // login — instead of the SWR engine silently keeping stale cache.
             store.onUnauthorized = { auth.handleUnauthorized() }
+            // FREE: no coach thread exists — the chat slices are never fetched.
+            store.chatEnabled = hasCoach
             store.activate(bearer: bearer)
             await store.warm()
             // Deliver whatever the offline queue captured in earlier sessions,
@@ -127,7 +143,9 @@ struct AppShell: View {
         case .today: selection = .inicio
         case .plan: selection = .plan
         case .profile: selection = .perfil
-        case .chat: showChat = true
+        // FREE never receives chat pushes (no thread); guard anyway so a stray
+        // payload can't raise a dead chat cover.
+        case .chat: if hasCoach { showChat = true }
         }
         pushRouter.pendingDestination = nil
     }

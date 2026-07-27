@@ -107,6 +107,12 @@ final class AppDataStore {
     /// surface (bell dot, coach-note row) agrees.
     var unreadCount: Int { max(0, chatThread.value?.unreadForAthlete ?? 0) }
 
+    /// FREE tier (athlete without coach): there is no coach thread, so the chat
+    /// slices are never fetched — the free surface shows no chat affordance and
+    /// a pointless request (or its error noise) never fires. Set by AppShell
+    /// from AuthState.hasCoach before the first warm.
+    var chatEnabled: Bool = true
+
     /// The bearer this in-memory data belongs to. Slices are cleared / rescoped
     /// when it changes (sign-out, athlete switch) so one athlete never sees
     /// another's cached data.
@@ -213,6 +219,14 @@ final class AppDataStore {
         async let c: Void = refreshChatThread(force: force)
         async let pa: Void = refreshPartner(force: force)
         _ = await (i, p, m, r, sm, ra, c, pa)
+    }
+
+    /// FREE home (no coach): identity + the week — the strip of their own built
+    /// sessions. No readiness / chat / coach-derived slices.
+    func loadFreeHome(force: Bool = false) async {
+        async let i: Void = refreshIdentity(force: force)
+        async let p: Void = refreshPlanWeek(force: force)
+        _ = await (i, p)
     }
 
     /// Plan: the current week + the partner (for the "Con [X]" badges).
@@ -341,6 +355,7 @@ final class AppDataStore {
     }
 
     func refreshChatThread(force: Bool = false) async {
+        guard chatEnabled else { return }
         await revalidate(get: { self.chatThread }, set: { self.chatThread = $0 }, force: force) {
             try await ChatService.fetchThread(bearer: $0)
         }
@@ -349,6 +364,7 @@ final class AppDataStore {
     func refreshChatMessages(force: Bool = false) async {
         // Throwing fetch so a failed revalidation keeps the last good history
         // (SWR / offline-first), instead of nil wiping the cached conversation.
+        guard chatEnabled else { return }
         await revalidate(get: { self.chatMessages }, set: { self.chatMessages = $0 }, force: force) {
             try await ChatService.fetchMessages(bearer: $0)
         }
