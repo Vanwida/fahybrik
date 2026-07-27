@@ -29,12 +29,15 @@ import {
   MIN_COHORT_RACES,
   type BudgetSource,
   type CohortRace,
+  type CoverageRead,
   type OwnRace,
   type PredictionTier,
+  type ProjectionRead,
   type SegmentDef,
   type SegmentKind,
   type TrainedLevel,
 } from '@fahybrid/shared/domain/goal-gap';
+import type { EvidenceSource } from '@fahybrid/shared/domain/evidence';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { buildRaceTransfer } from './race-transfer';
@@ -46,21 +49,56 @@ export interface GoalGapSegmentDTO {
   slug: string;
   label_es: string;
   kind: SegmentKind;
-  budget_s: number;
+  budget_s: number | null;
   predicted_s: number | null;
   tier: PredictionTier;
   delta_s: number | null;
+  // ── Additive (the installed app ignores unknown keys) ──────────────────────
+  /** Which evidence produced `predicted_s` — refines `tier`. */
+  source: EvidenceSource;
+  /** ± half-width of this segment's band, in seconds; null iff sin_datos. */
+  band_s: number | null;
 }
 
 export interface GoalGapDTO {
   availability: 'ok' | 'no_goal' | 'no_target_race' | 'no_data';
   goal: { label: string; total_s: number; race_name: string; race_date: string | null } | null;
+  /**
+   * The projected race time. NULL when any segment has no evidence — it used to
+   * cost those segments at the athlete's own BUDGET, so the gap collapsed toward
+   * zero for exactly the athletes with the least data. `projection` + `coverage`
+   * carry the honest partial read.
+   */
   predicted_total_s: number | null;
   gap_s: number | null;
   budget_source: BudgetSource | null;
   segments: GoalGapSegmentDTO[];
   updated_at: string;
+  // ── Additive ───────────────────────────────────────────────────────────────
+  /** What the projection can account for, and what it cannot. */
+  coverage: CoverageRead;
+  /** Centre + range + what would sharpen it. Emitted even when the board gates. */
+  projection: ProjectionRead;
 }
+
+/** The read when there is nothing to read (no target race / no goal). Honest
+ *  zeros, not absent keys: `coverage` / `projection` are non-optional so every
+ *  consumer can rely on them existing. */
+const EMPTY_READ = {
+  predicted_total_s: null,
+  gap_s: null,
+  budget_source: null,
+  segments: [] as GoalGapSegmentDTO[],
+  coverage: { known: 0, total: 0, unknown_slugs: [], complete: false } as CoverageRead,
+  projection: {
+    known_total_s: 0,
+    band_s: 0,
+    low_s: 0,
+    high_s: 0,
+    observed_share_pct: 0,
+    next_inputs: [],
+  } as ProjectionRead,
+} as const;
 
 // ── Segment skeleton (run, the 8 stations, roxzone) ───────────────────────────
 
@@ -304,10 +342,10 @@ export async function buildGoalGap(
 
   const target = await getTargetRaceRow(athleteId, client);
   if (!target) {
-    return { availability: 'no_target_race', goal: null, predicted_total_s: null, gap_s: null, budget_source: null, segments: [], updated_at };
+    return { availability: 'no_target_race', goal: null, ...EMPTY_READ, updated_at };
   }
   if (target.goal_time_seconds == null || target.goal_time_seconds <= 0) {
-    return { availability: 'no_goal', goal: null, predicted_total_s: null, gap_s: null, budget_source: null, segments: [], updated_at };
+    return { availability: 'no_goal', goal: null, ...EMPTY_READ, updated_at };
   }
 
   const goal = target.goal_time_seconds;
@@ -324,16 +362,14 @@ export async function buildGoalGap(
     kind: st.kind,
     trained_value_s: st.trained.value_s,
     race_value_s: st.race_seconds,
+    source: st.trained.source,
+    weakened: st.trained.weakened,
+    from_slug: st.trained.from_slug,
   }));
 
   const result = computeGoalGap({ goal_total_s: goal, segments, cohort, own_race: ownRace, trained });
 
   const goalDto = { label: goalLabel(goal), total_s: goal, race_name: target.name, race_date: target.race_date };
-
-  if (result.budget_source == null) {
-    // A goal exists but there's nothing to build a budget from yet.
-    return { availability: 'no_data', goal: goalDto, predicted_total_s: null, gap_s: null, budget_source: null, segments: [], updated_at };
-  }
 
   const segmentDtos: GoalGapSegmentDTO[] = result.segments.map((s) => ({
     slug: s.slug,
@@ -343,8 +379,34 @@ export async function buildGoalGap(
     predicted_s: s.predicted_s,
     tier: s.tier,
     delta_s: s.delta_s,
+    source: s.source,
+    band_s: s.band_s,
   }));
 
+  if (result.budget_source == null) {
+    // A goal exists but there's nothing to decompose it with yet. The BOARD still
+    // gates — `availability: 'no_data'` is what the installed app reads, and its
+    // bars need a budget — but the payload no longer throws the work away: the
+    // predictions no longer depend on a budget, so the segments (with a null
+    // `budget_s`), the coverage and the range all travel. That is what lets a
+    // surface without a goal show a range instead of a shrug.
+    return {
+      availability: 'no_data',
+      goal: goalDto,
+      predicted_total_s: null,
+      gap_s: null,
+      budget_source: null,
+      segments: segmentDtos,
+      coverage: result.coverage,
+      projection: result.projection,
+      updated_at,
+    };
+  }
+
+  // The snapshot is the calibration record, so it only freezes a COMPLETE
+  // prediction. Freezing a partial one would later be compared against a full
+  // race result and report a fake accuracy — the loop would be calibrating
+  // against its own hole.
   if (result.predicted_total_s != null) {
     await persistSnapshot(athleteId, target.race_id, goal, result.predicted_total_s, segmentDtos, todayIso, client);
   }
@@ -356,6 +418,8 @@ export async function buildGoalGap(
     gap_s: result.gap_s,
     budget_source: result.budget_source,
     segments: segmentDtos,
+    coverage: result.coverage,
+    projection: result.projection,
     updated_at,
   };
 }

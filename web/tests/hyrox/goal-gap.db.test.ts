@@ -81,7 +81,7 @@ describeWithDb('goal-gap (real DB)', () => {
     expect(board.segments).toHaveLength(10);
 
     // Budget always closes to the goal.
-    const budgetSum = board.segments.reduce((a, s) => a + s.budget_s, 0);
+    const budgetSum = board.segments.reduce((a, s) => a + (s.budget_s ?? 0), 0);
     expect(budgetSum).toBe(GOAL);
 
     // Recent own race → every recorded segment is observado, predicted == the split.
@@ -93,13 +93,22 @@ describeWithDb('goal-gap (real DB)', () => {
     expect(bySlug.get('roxzone')?.tier).toBe('observado');
     expect(bySlug.get('roxzone')?.predicted_s).toBe(ROXZONE);
 
-    // Predicted total = the sum of the observed splits = the race result; gap read.
+    // Every segment is covered by the race → a real race total, and a real gap.
+    expect(board.coverage).toMatchObject({ known: 10, total: 10, complete: true, unknown_slugs: [] });
     expect(board.predicted_total_s).toBe(RESULT);
     expect(board.gap_s).toBe(RESULT - GOAL);
 
+    // Ley 1: the total travels with a range, and this one is narrow — it is all
+    // the athlete's own race clock, three weeks old.
+    expect(board.projection.known_total_s).toBe(RESULT);
+    expect(board.projection.band_s).toBeGreaterThan(0);
+    expect(board.projection.low_s).toBeLessThan(RESULT);
+    expect(board.projection.high_s).toBeGreaterThan(RESULT);
+    expect(board.projection.observed_share_pct).toBe(100);
+
     // delta = predicted − budget per segment.
     for (const s of board.segments) {
-      if (s.predicted_s != null) expect(s.delta_s).toBe(s.predicted_s - s.budget_s);
+      if (s.predicted_s != null && s.budget_s != null) expect(s.delta_s).toBe(s.predicted_s - s.budget_s);
     }
 
     // Snapshot persisted for today.
@@ -176,6 +185,105 @@ describeWithDb('goal-gap (real DB)', () => {
 
     // Worst positive delta → the insight names the sled push.
     expect(review.insight_es).toBe('El Sled push perdió 0:20 más de lo previsto.');
+  });
+
+  /**
+   * LAS MARCAS ALIMENTAN LA PREDICCIÓN — el cable que faltaba.
+   *
+   * `athlete_benchmarks` lleva escribiéndose desde que salió #Marcas y ninguna
+   * ruta de predicción leía una fila. Un atleta podía cronometrarse un SkiErg
+   * 1000 y ver su proyección sin moverse. Aquí: mismo atleta, mismo objetivo,
+   * cero carreras; primero sin marcas (nada que decir) y después con dos marcas
+   * medidas por la app. La proyección tiene que aparecer y venir de ellas.
+   */
+  test('una marca medida entra en la proyección (antes no la leía nadie)', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const athleteId = fx.athleteId;
+
+    await sql`
+      insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+        race_date, goal_time_seconds, status, source)
+      values (${athleteId}, 'HYROX Objetivo Marcas', 'hyrox', 'singles', 'open', 'men', 'target',
+        (current_date + 60), ${GOAL}, 'registered', 'manual')
+    `;
+
+    // Sin marcas y sin carreras: no hay nada que proyectar, y se dice.
+    const before = await buildGoalGap({ athlete_id: athleteId }, sql);
+    expect(before.projection.known_total_s).toBe(0);
+    expect(before.coverage.complete).toBe(false);
+
+    // «Probarme»: un 5K en calle y un SkiErg 1000, medidos por la app.
+    await sql`
+      insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes, source, run_context)
+      values
+        (${athleteId}, 'run_5k', 1200, 'seconds', 'athlete_test', 'athlete_test', 'outdoor'),
+        (${athleteId}, 'ski_1k', 240, 'seconds', 'athlete_test', 'athlete_test', null)
+    `;
+
+    const after = await buildGoalGap({ athlete_id: athleteId }, sql);
+
+    // El bloque de correr y el SkiErg ya tienen número, y viene de las marcas.
+    const bySlug = new Map(after.segments.map((s) => [s.slug, s]));
+    const run = bySlug.get('run')!;
+    const ski = bySlug.get('ski-erg')!;
+    expect(run.source).toBe('marca');
+    expect(ski.source).toBe('marca');
+    expect(run.tier).toBe('estimado');
+    expect(after.coverage.known).toBeGreaterThanOrEqual(2);
+
+    // El SkiErg sale del 1000 m medido: 240 s. Sin factor de competición (no hay
+    // carrera) se usa tal cual.
+    expect(ski.predicted_s).toBe(240);
+    // Los 8 km NO se corren al ritmo del 5K (240 s/km): el modelo los frena.
+    expect(run.predicted_s!).toBeGreaterThan(240 * 8);
+
+    // Se movió de verdad respecto a "no sé nada".
+    expect(after.projection.known_total_s).toBeGreaterThan(before.projection.known_total_s);
+    // Y sigue siendo honesto: faltan las estaciones de fuerza, así que no hay total.
+    expect(after.predicted_total_s).toBeNull();
+    expect(after.coverage.unknown_slugs).toContain('hyrox-wall-balls');
+    // El siguiente paso que se le propone es medible por él mismo.
+    expect(after.projection.next_inputs.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * LEY 2 — ningún hueco se rellena con el objetivo. El atleta tiene meta y un
+   * ritmo de correr, y nada más. El total predicho tiene que ser NULO, no la meta
+   * disfrazada: lo que rompía era que los nueve tramos sin datos costaban su
+   * presupuesto (= la meta repartida) y el gap se iba a cero justo para quien más
+   * lejos estaba.
+   */
+  test('los tramos sin datos no se cobran al objetivo: no hay total ni gap', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const athleteId = fx.athleteId;
+
+    await sql`
+      insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+        race_date, goal_time_seconds, status, source)
+      values (${athleteId}, 'HYROX Objetivo Novato', 'hyrox', 'singles', 'open', 'men', 'target',
+        (current_date + 90), ${GOAL}, 'registered', 'manual')
+    `;
+    await sql`
+      insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes, source, run_context)
+      values (${athleteId}, 'run_5k', 1500, 'seconds', 'athlete_test', 'athlete_test', 'outdoor')
+    `;
+
+    const board = await buildGoalGap({ athlete_id: athleteId }, sql);
+
+    expect(board.predicted_total_s).toBeNull();
+    expect(board.gap_s).toBeNull();
+    expect(board.coverage.complete).toBe(false);
+    // Lo que sí hay está muy lejos del objetivo — que es la verdad.
+    expect(board.projection.known_total_s).toBeLessThan(GOAL);
+
+    // Y no se congela una predicción parcial: el bucle de calibración compararía
+    // un total incompleto contra una carrera entera y se mentiría a sí mismo.
+    const snaps = await sql<Array<{ n: number }>>`
+      select count(*)::int as n from race_predictions where athlete_id = ${athleteId}
+    `;
+    expect(snaps[0]?.n).toBe(0);
   });
 
   test('gates: no target race, then a target without a goal', async () => {
