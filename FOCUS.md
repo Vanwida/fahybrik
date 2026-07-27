@@ -17,6 +17,24 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ## Cerrado el 27-jul · Predictor: fuera el dato inventado del cohorte, y una sola cuenta en dobles
 
+**DESPLEGADO** (`758770d` READY) y **mig 0142 APLICADA en prod**: 14 filas
+marcadas sintéticas (solo las dos cuentas `@demo.fahybrid.local`), 12
+carreras reales intactas. Smoke ok (goal-gap y dobles/race-gap 401 sin
+bearer). Pendiente: cable para instalar iOS con el cambio de dobles.
+
+**Idea de Alex (27-jul, noche) — el SEGUNDO gancho del free: cronómetro
+inteligente de WOD.** Ya tenemos HUD por formato (EMOM con rondas y
+alternancia, AMRAP con contador, For Time, chipper, escalera, simulación) —
+más que cualquier app de timer, porque el nuestro además REGISTRA y lee las
+máquinas. Lo que falta para ganarles: **velocidad de arranque** (ellos
+pitan en dos toques; nosotros pasamos por el constructor). La solución ya
+existe a medias: la **línea rápida** del editor del coach (gramática del
+importador) aplicada al atleta → `EMOM 12 · 10 burpees` en un campo de
+texto. Requisitos no negociables de un timer de box: números legibles a 3 m,
+audio sobre la música, pantalla que no se apaga, convivencia con Spotify,
+reloj. **Por qué importa:** marcas = profundidad 1×/mes; timer = frecuencia
+3×/semana. El embudo necesita los dos.
+
 Dos de los fallos que la spec del predictor (`docs/race-projection-spec.html`, §01b)
 marca como «ya afectan al pago». Ninguno depende del rediseño del modelo.
 
