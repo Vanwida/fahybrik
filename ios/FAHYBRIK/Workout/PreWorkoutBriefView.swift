@@ -55,12 +55,13 @@ struct PreWorkoutBriefView: View {
 
     // #8 — a session with running work starts through the full-screen pre-start
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
+    // The ERG connect sequence deliberately does NOT live here any more: the free
+    // and benchmark paths skip this brief entirely (WorkoutContainer.loadPlan goes
+    // straight to .active), so a brief-level erg gate silently missed them — Alex's
+    // 500 m rower benchmark started unconnected. It is enforced at the ONE choke
+    // point every path crosses: ActiveWorkoutView's pre-block gate. The card above
+    // the blocks (ErgConnectCard) stays as the optional early connect.
     @State private var showRunPreStart = false
-
-    // Erg sessions start through a DEDICATED full-screen connect step (mirror of
-    // the run pre-start): first the connect screen, the athlete accepts THEIR
-    // machine, and only then the piece begins — plan, libre and benchmark alike.
-    @State private var showErgPreStart = false
 
     // MARK: - Derived shape
 
@@ -100,25 +101,6 @@ struct PreWorkoutBriefView: View {
     }
 
     private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
-
-    /// The PRINCIPAL work is an erg piece → the monitor measures the session, so
-    /// starting without it makes the whole effort unmeasured. Warmup ergs inside a
-    /// strength day do NOT gate (principal-block selection, same as the subtitle).
-    private var ergIsPrincipal: Bool {
-        switch modality {
-        case "row", "ski", "bike": return true
-        default: return false
-        }
-    }
-
-    /// Human name of the machine for the connect CTA.
-    private var ergMachineWord: String {
-        switch modality {
-        case "ski":  return "el SkiErg"
-        case "bike": return "la bici"
-        default:     return "el remo"
-        }
-    }
 
     /// Devices the SMALL bottom card still offers: the HR strap only. The PM5 has
     /// its first-class connect card at the top and the treadmill lives in the
@@ -858,10 +840,10 @@ struct PreWorkoutBriefView: View {
                     // #8 — running work: the full-screen pre-start sequence decides
                     // dónde + conexión, then fires `onStart` with the environment.
                     showRunPreStart = true
-                } else if ergIsPrincipal {
-                    // Erg work: connect screen FIRST — never both at once.
-                    showErgPreStart = true
                 } else {
+                    // Erg connect is NOT gated here (the free/benchmark paths never
+                    // see this brief) — ActiveWorkoutView's pre-block gate enforces
+                    // it for every path right before the piece starts.
                     onStart(nil)
                 }
             }
@@ -908,19 +890,6 @@ struct PreWorkoutBriefView: View {
             )
             .ignoresSafeArea()
         )
-        // The erg pre-start: connect → accept YOUR machine → the piece starts.
-        .fullScreenCover(isPresented: $showErgPreStart) {
-            ErgPreStartFlow(
-                sessionTitle: plan.name,
-                machineWord: ergMachineWord,
-                isBenchmark: isBenchmark,
-                onStart: {
-                    showErgPreStart = false
-                    onStart(nil)
-                },
-                onCancel: { showErgPreStart = false }
-            )
-        }
     }
 
     private var ctaTitle: String {

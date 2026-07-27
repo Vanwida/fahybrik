@@ -15,6 +15,23 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · El benchmark del remo arrancaba sin PM5 — la puerta estaba en el sitio equivocado
+
+Alex lo pilló en el box: «Probarme ahora» → EMPEZAR → la pieza corría sin monitor.
+La secuencia de conexión (ErgPreStartFlow) estaba SOLO en el brief del plan, y los
+caminos libre/benchmark se saltan ese brief (`WorkoutContainer.loadPlan` → `.active`).
+Fix de raíz: el gate vive ahora en el punto único que cruzan TODOS los caminos — la
+puerta de bloque del motor (`ActiveWorkoutView.requestBlockStart`): bloque con erg y
+sin monitor → conectar primero (benchmark sin escape); bloque de correr sin
+calle/cinta → pregunta primero (arregla también el benchmark de correr, que nunca
+preguntaba). El brief conserva solo la tarjeta de conexión temprana. **Instalado en
+el iPhone de Alex** (BUILD SUCCEEDED + devicectl install) con todo el lote que
+esperaba cable: los 8 arreglos del gym, el reset del PM5 sucio y el Watch.
+Pendiente de prueba física: remo con 100 m hechos → conectar → debe resetear a la
+pieza programada.
+
+---
+
 ## Cerrado el 27-jul · El dashboard iba a 3-4 s por clic DESDE SIEMPRE — funciones en Washington, DB en Frankfurt
 
 Alex reportó lentitud crónica en cada navegación. Causa raíz: nadie fijó región

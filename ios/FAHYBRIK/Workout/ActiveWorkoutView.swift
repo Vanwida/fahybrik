@@ -25,6 +25,9 @@ struct ActiveWorkoutView: View {
     /// #56 — athlete bearer, used to poll the training partner's live presence for the
     /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.
     var bearer: String? = nil
+    /// #Marcas — this session IS a benchmark attempt: the pre-block erg gate loses
+    /// its manual escape (a mark the monitor didn't measure doesn't exist).
+    var isBenchmark: Bool = false
 
     // #56 — the training partner's live presence (polled ~every 5 s while visible) and
     // the strip's collapse state (remembered for the session).
@@ -44,6 +47,19 @@ struct ActiveWorkoutView: View {
     // and double-fired togglePause → the session silently stuck paused.
     @State private var autoResumeGeneration: Int = 0
     @State private var showPM5Sheet: Bool = false
+    // Pre-block START gates — enforced HERE, the one choke point every launch path
+    // crosses (plan, libre, test, benchmark). Gating only the pre-workout brief was
+    // the bug Alex hit on the rower: the free/benchmark paths SKIP the brief
+    // (WorkoutContainer.loadPlan goes straight to .active), so his 500 m benchmark
+    // started with the PM5 never connected. A run block with no calle/cinta answer
+    // asks first; an erg block with no live monitor connects first.
+    @State private var showRunGate: Bool = false
+    @State private var showErgGate: Bool = false
+    // The follow-up to run AFTER a gate cover finishes dismissing — presenting a
+    // new cover (or starting the count-in) while the old one is mid-dismissal is
+    // the modal-fighting-modal UIKit trap; onDismiss is the safe handoff point.
+    @State private var gateContinuation: GateContinuation? = nil
+    private enum GateContinuation { case checkErg, begin }
     @State private var showSegmentVideo: Bool = false
     // True when opening the technique video actively paused the clock, so we know
     // to resume it when the sheet is dismissed (and not resume a session the
@@ -352,6 +368,31 @@ struct ActiveWorkoutView: View {
         .fullScreenCover(isPresented: $showOutdoor) {
             OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
         }
+        // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
+        // so the next cover / the count-in never fights the dismissing one.
+        .fullScreenCover(isPresented: $showRunGate, onDismiss: { continueAfterRunGate() }) {
+            RunPreStartFlow(
+                sessionTitle: session.plan.name,
+                onStart: { env in
+                    session.runEnvironment = env
+                    gateContinuation = .checkErg
+                    showRunGate = false
+                },
+                onCancel: { showRunGate = false }
+            )
+        }
+        .fullScreenCover(isPresented: $showErgGate, onDismiss: { continueAfterErgGate() }) {
+            ErgPreStartFlow(
+                sessionTitle: session.plan.name,
+                machineWord: ergMachineWord,
+                isBenchmark: isBenchmark,
+                onStart: {
+                    gateContinuation = .begin
+                    showErgGate = false
+                },
+                onCancel: { showErgGate = false }
+            )
+        }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
             if resumeAfterVideo { session.resumeFromVideo() }
@@ -385,7 +426,7 @@ struct ActiveWorkoutView: View {
                 formatLabel: blockFormatLabel(segs),
                 segments: segs,
                 canGoBack: session.canStepBack,
-                onEmpezar: { session.beginBlock() },
+                onEmpezar: { requestBlockStart() },
                 onBack: { requestBack() },
                 onExit: { requestExit() }
             )
@@ -494,6 +535,68 @@ struct ActiveWorkoutView: View {
         case .treadmill: showTreadmill = true
         case .outdoor:   showOutdoor = true
         }
+    }
+
+    // MARK: - Pre-block start gates (run env → erg connect → count-in)
+
+    /// Every EMPEZAR on the block gate lands here — the ONE enforcement point.
+    /// Order: a run block missing the calle/cinta answer asks it first (the answer
+    /// decides which HUD auto-opens); then an erg block with no live monitor runs
+    /// the connect sequence; only then the block's clock starts. Already answered /
+    /// already connected → straight through, no extra screens.
+    private func requestBlockStart() {
+        let segs = upcomingBlockSegments
+        if segs.contains(where: { $0.kind == .running }), session.runEnvironment == nil {
+            showRunGate = true
+        } else if needsErgConnect(segs) {
+            showErgGate = true
+        } else {
+            session.beginBlock()
+        }
+    }
+
+    private var upcomingBlockSegments: [WorkoutSegment] {
+        guard let region = session.currentBlockRegion else { return [] }
+        return session.plan.segments(in: region)
+    }
+
+    /// The block rows/skis/bikes and no monitor is live → connect BEFORE the clock.
+    /// Connecting here programs the piece at once (`onChange(pm5.connectionState)`
+    /// → `attemptProgramPM5`), so the app and the erg start at the same point.
+    private func needsErgConnect(_ segs: [WorkoutSegment]) -> Bool {
+        segs.contains(where: { $0.kind.isErg }) && !pm5.isConnected
+    }
+
+    /// "el remo" / "el SkiErg" / "la bici" for the connect header. The live segment
+    /// collapses row/ski/bike into one erg kind (threading the subtype through is
+    /// the known follow-up), so the word reads from the piece's own title; remo —
+    /// the dominant HYROX erg — is the fallback.
+    private var ergMachineWord: String {
+        let title = upcomingBlockSegments.first(where: { $0.kind.isErg })?.title.lowercased() ?? ""
+        if title.contains("ski") { return "el SkiErg" }
+        if title.contains("bici") || title.contains("bike") || title.contains("assault") || title.contains("echo") {
+            return "la bici"
+        }
+        return "el remo"
+    }
+
+    /// Run gate answered → the same block may still need the erg (a HYROX sim has
+    /// run + row): chain the connect gate, else start. A cancel leaves the athlete
+    /// on the block preview, nothing begun.
+    private func continueAfterRunGate() {
+        guard gateContinuation == .checkErg else { return }
+        gateContinuation = nil
+        if needsErgConnect(upcomingBlockSegments) {
+            showErgGate = true
+        } else {
+            session.beginBlock()
+        }
+    }
+
+    private func continueAfterErgGate() {
+        guard gateContinuation == .begin else { return }
+        gateContinuation = nil
+        session.beginBlock()
     }
 
     // Start phone GPS only on run segments (and only if not denied); stop it

@@ -214,8 +214,10 @@ struct WorkoutContainer: View {
                         showCapture = true
                     },
                     showCaptureLog: assignmentId?.isEmpty == false,
-                    // #Marcas — a benchmark brief hides the manual paths and hard-gates
-                    // the erg connect: no measurement, no mark.
+                    // #Marcas — a benchmark brief hides the manual paths ("Ya lo
+                    // hice"/captura): a mark the app didn't measure doesn't exist.
+                    // (The erg connect is enforced later, at the engine's pre-block
+                    // gate — this brief never even shows for free/benchmark paths.)
                     isBenchmark: freeContext?.benchmark != nil,
                     onClose: onClose
                 )
@@ -266,7 +268,10 @@ struct WorkoutContainer: View {
                             onClose()
                         },
                         hrMaxSource: effectiveHRMaxSource,
-                        bearer: bearer
+                        bearer: bearer,
+                        // #Marcas — the engine's pre-block erg gate drops its manual
+                        // escape for a benchmark (no monitor → no mark to save).
+                        isBenchmark: freeContext?.benchmark != nil
                     )
                     .toolbar(.hidden, for: .tabBar)
                 }

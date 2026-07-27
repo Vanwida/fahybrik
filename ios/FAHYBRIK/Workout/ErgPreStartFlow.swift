@@ -1,9 +1,11 @@
 import SwiftUI
 
 // ErgPreStartFlow — the erg mirror of the run pre-start: a DEDICATED full-screen
-// step between "Empezar" and the live engine. First you connect, you accept YOUR
-// machine ("USAR ESTE PM5"), and ONLY then the piece starts. Plan, libre and
-// benchmark all pass through here.
+// step between "Empezar" and the piece. First you connect, you accept YOUR
+// machine ("USAR ESTE PM5"), and ONLY then the piece starts. Presented by
+// ActiveWorkoutView's pre-block gate — the ONE choke point every launch path
+// crosses (plan, libre, test, benchmark) — never by the pre-workout brief, which
+// the free/benchmark paths skip entirely.
 //
 // Why a sequence and not a gate on the brief's button: Alex, testing the rower —
 // "primero hay una pantalla de conectarse, se acepta la conexión, y una vez se
