@@ -26,7 +26,11 @@ export async function resolveThread(args: {
     if (!t) return null;
     return { thread_id: t.thread_id, athlete_id: principal.athlete_id, coach_id: t.coach_id };
   }
-  // Coach view: must own the cohort the athlete belongs to.
+  // Coach view: must own the cohort the athlete belongs to, AND the thread must
+  // be THIS club's (t.coach_id). A transferred athlete keeps their old club's
+  // thread rows — without the t.coach_id filter the new club would inherit that
+  // history; with it, the lazy-create below opens a FRESH thread instead.
+  // unique (coach_id, athlete_id) on chat_threads makes the `limit 1` exact.
   if (!/^\d+$/.test(athleteIdParam)) return null;
   const athlete_id_num = athleteIdParam;
   const rows = await sql<{ id: string; coach_id: string }[]>`
@@ -35,6 +39,7 @@ export async function resolveThread(args: {
     join athletes a on a.id = t.athlete_id
     where a.id = ${athlete_id_num}::bigint
       and a.coach_id = ${principal.coach_id as unknown as number}
+      and t.coach_id = ${principal.coach_id as unknown as number}
     limit 1
   `;
   if (rows[0]) {
