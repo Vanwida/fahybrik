@@ -15,6 +15,18 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## DEUDA VIVA · tres entradas de DECISIONS.md apartadas para desbloquear merges
+
+`docs/DECISIONS.md` lleva horas con trabajo sin commitear de otra sesión (el
+«doble» de diseño), y bloqueaba cada merge. Para no tocar lo suyo —regla
+dura— aparté MIS entradas de la rama y las guardé en
+`scratchpad/mi-decision-freeplan.diff` y `scratchpad/mi-decision-timer.diff`.
+**Reponerlas en cuanto esa sesión commitee.** La tercera (el reloj como
+tercera forma del entreno libre) vive solo en el mensaje de su commit y
+también debe subir al registro.
+
+---
+
 ## Cerrado el 28-jul · El cronómetro sin movimientos SE GUARDA (era lo único que faltaba)
 
 **Sin desplegar todavía.** Servidor + iOS; **cero migraciones** (la forma viaja en
