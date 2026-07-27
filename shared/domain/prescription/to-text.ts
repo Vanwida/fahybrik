@@ -251,7 +251,15 @@ export function prescriptionToText(p: Prescription): string {
         if (p.total_s !== undefined) work = formatDuration(p.total_s);
         break;
       case 'emom':
-        if (p.work_s !== undefined && p.work_s > 0) work = `${formatDuration(p.work_s)} trabajo`;
+        // A station EMOM reads as its split (45/15), like a Tabata — the transition
+        // is part of the shape, not a separate rest. A plain EMOM keeps naming its
+        // work window alone.
+        if (p.work_s !== undefined && p.work_s > 0) {
+          work =
+            p.rest_s !== undefined && p.rest_s > 0
+              ? `${p.work_s}/${p.rest_s}`
+              : `${formatDuration(p.work_s)} trabajo`;
+        }
         break;
       default:
         break;

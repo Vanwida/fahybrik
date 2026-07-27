@@ -422,7 +422,7 @@ final class PhoneMirrorService {
         let seg = session.currentSegment
         if seg?.isEMOM == true {
             if session.emomCountInRemaining > 0 { return session.emomCountInRemaining }
-            return session.emomIntervalRemaining > 0 ? session.emomIntervalRemaining : nil
+            return session.emomPhaseRemaining > 0 ? session.emomPhaseRemaining : nil
         }
         if session.isConditioningActive, let scheme = seg?.formatScheme {
             if session.condCountInRemaining > 0 { return session.condCountInRemaining }

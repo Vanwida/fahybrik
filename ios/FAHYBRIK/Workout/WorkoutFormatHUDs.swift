@@ -56,12 +56,17 @@ private struct FormatClockHero: View {
     }
 }
 
-/// The WORK / REST banner shown by the rotating formats — a full-width tinted bar
-/// that flips colour with the phase so it reads under effort from across a box.
-private struct WorkRestBanner: View {
+/// The phase banner shown by every two-phase format — a full-width tinted bar that
+/// flips colour with the phase so it reads under effort from across a box. Shared
+/// with the EMOM HUD (an interval EMOM has the same two phases), which is why the
+/// second label is a parameter: a Tabata's off-phase is DESCANSO, a station EMOM's
+/// is CAMBIO (you are moving, not resting).
+struct WorkRestBanner: View {
     let phase: WorkoutSession.RotatingPhase
+    /// What the off-phase is called for this format.
+    var restLabel: String = "DESCANSO"
     var body: some View {
-        Text(phase == .work ? "WORK" : "REST")
+        Text(phase == .work ? "TRABAJO" : restLabel)
             .font(.system(size: 14, weight: .heavy, design: .default).italic())
             .tracking(2.0)
             // `background` token = the high-contrast counterpart of `info` in BOTH
@@ -73,7 +78,7 @@ private struct WorkRestBanner: View {
             .padding(.vertical, 8)
             .background(phase == .work ? Theme.Color.accent : Theme.Color.info)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-            .accessibilityLabel(phase == .work ? "Trabajo" : "Descanso")
+            .accessibilityLabel(phase == .work ? "Trabajo" : restLabel.capitalized)
     }
 }
 
@@ -179,8 +184,12 @@ struct AmrapLiveHUD: View {
             clock
             roundsCounter
             repRow
-            FixedRoundList(title: "La ronda", repeatTag: "se repite",
-                           components: seg?.components ?? [])
+            // A bare box clock declares no round, so there is no list to show — the
+            // athlete gets the timer and the tally, nothing invented.
+            if let seg, seg.hasDeclaredWork {
+                FixedRoundList(title: "La ronda", repeatTag: "se repite",
+                               components: seg.declaredComponents)
+            }
             MetricRow3(cells: [
                 ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
                 ("Reps", "\(session.repsCurrentSegment)", "", Theme.Color.foreground),
@@ -412,18 +421,21 @@ private struct StrikeList: View {
     private var rows: [Row] {
         guard let seg else { return [] }
         if isChipper {
-            return seg.components.map { Row(id: $0.id, label: "\($0.work)  \($0.name)", detail: $0.detail) }
+            return seg.declaredComponents.map { Row(id: $0.id, label: "\($0.work)  \($0.name)", detail: $0.detail) }
         }
         // Per-round rows. A SINGLE-movement For Time shows its work each round
         // ("10 Burpees"); a multi-movement one shows only the movement NAMES — the
         // per-round rep scheme (21-15-9) isn't carried per round, so we never print
         // a rep count that would be wrong for rounds 2+.
+        // A bare box clock has no movements to caption the rounds with — the rounds
+        // themselves are still the point, so they stay strike-able, just unlabelled.
         let total = session.fixedListTotal
+        let declared = seg.declaredComponents
         let detail: String? = {
-            if seg.components.count == 1, let c = seg.components.first {
+            if declared.count == 1, let c = declared.first {
                 return c.work != "—" ? "\(c.work) \(c.name)" : c.name
             }
-            let names = seg.components.map(\.name).joined(separator: " · ")
+            let names = declared.map(\.name).joined(separator: " · ")
             return names.isEmpty ? nil : names
         }()
         return (0..<total).map { Row(id: $0, label: "Ronda \($0 + 1)", detail: detail) }

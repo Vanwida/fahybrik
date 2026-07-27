@@ -199,6 +199,7 @@
 		73A16008EB56CD410128016C /* TestResultCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */; };
 		73DA4A94BE09244002B8CBA3 /* PartnerInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3759759850F8540B6D0AE3 /* PartnerInfoTests.swift */; };
 		744826B811F6C240A856D320 /* AppFeedbackSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AEA23FC45DE304FDE5549E /* AppFeedbackSheet.swift */; };
+		74538EAEA799387CB31D4E4A /* FreeFunctionalPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0215D502CF127B5E8B8D7C4C /* FreeFunctionalPrefs.swift */; };
 		74E8BBD67305FD89985632AB /* CountdownFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF65FA6E589D438BA7910B9C /* CountdownFormatTests.swift */; };
 		75403B6C5D3CEE0942E0337A /* MirrorWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFE8F688C3BC32E9467B89D /* MirrorWireModels.swift */; };
 		76D36BAEF24E73CE738BA07A /* ReviewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2B3772D72A5C9B4A0FD62D /* ReviewService.swift */; };
@@ -338,6 +339,7 @@
 		D36DC146789CC377AE4BF27B /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651101976D586B0953539DF1 /* SafariView.swift */; };
 		D3BD4B831BFA5A414D4E1E77 /* PredichoVsRealView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383A764FED1518A8E1F2F3E7 /* PredichoVsRealView.swift */; };
 		D460715CCB08E141B9E5D365 /* ChatMediaBubbles.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29FB80937D5CF9D42FDE1CA /* ChatMediaBubbles.swift */; };
+		D496FC49833E21BC710F358C /* FreeDeclareMovementsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C3D0E567A7CBA63A116A761 /* FreeDeclareMovementsSheet.swift */; };
 		D4EE440BD9B66D2B2A3D55B5 /* FreePlanEvidenceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79379EE9E32292FAA52C1322 /* FreePlanEvidenceCards.swift */; };
 		D4F22085CDEA174BA3ECBEDC /* PM5DataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9E7A827DE9F843CC7217D82 /* PM5DataParser.swift */; };
 		D4F75F16FAA6EAD2434D93A9 /* DecodingTolerance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF44E434FDCCBC4C3AD2987 /* DecodingTolerance.swift */; };
@@ -479,6 +481,7 @@
 		019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorRunStructureTests.swift; sourceTree = "<group>"; };
 		01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRRecoveryTests.swift; sourceTree = "<group>"; };
 		01C7A66E3732F43A168C63FE /* ContinuousLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousLiveView.swift; sourceTree = "<group>"; };
+		0215D502CF127B5E8B8D7C4C /* FreeFunctionalPrefs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFunctionalPrefs.swift; sourceTree = "<group>"; };
 		0273CDCCC5A00613ECE1E49C /* WatchPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPresence.swift; sourceTree = "<group>"; };
 		032FA1B5468960A7CFB64AE1 /* StrengthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthService.swift; sourceTree = "<group>"; };
 		03B25EFFA504298A215B50AA /* FreeExercisePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeExercisePickerView.swift; sourceTree = "<group>"; };
@@ -660,6 +663,7 @@
 		7A61E54509FB54D27A0E8E66 /* CheckinModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckinModel.swift; sourceTree = "<group>"; };
 		7A88D02F5D94C20D68B19C51 /* StepHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepHeader.swift; sourceTree = "<group>"; };
 		7A9BCAC54B1135B6D52A350D /* LifecycleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleService.swift; sourceTree = "<group>"; };
+		7C3D0E567A7CBA63A116A761 /* FreeDeclareMovementsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDeclareMovementsSheet.swift; sourceTree = "<group>"; };
 		7D1C6D9394CB9C5A94F6D800 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountService.swift; sourceTree = "<group>"; };
 		7DAB7D87F7B2112418BD4516 /* KeychainTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStore.swift; sourceTree = "<group>"; };
@@ -1347,10 +1351,12 @@
 		8E2A090C6522D2409BD40E2E /* Free */ = {
 			isa = PBXGroup;
 			children = (
+				7C3D0E567A7CBA63A116A761 /* FreeDeclareMovementsSheet.swift */,
 				A4D65ADEFCDB677C9B03B055 /* FreeExerciseCatalog.swift */,
 				03B25EFFA504298A215B50AA /* FreeExercisePickerView.swift */,
 				FBD36B08837D7117C3A0CA75 /* FreeFunctionalBuilder.swift */,
 				1CFDED792A7591918E4D4DA2 /* FreeFunctionalBuilderView.swift */,
+				0215D502CF127B5E8B8D7C4C /* FreeFunctionalPrefs.swift */,
 				A37A2F68108ABCB54CAD45E6 /* FreeStrengthBuilder.swift */,
 				CF7992686883AAE7EFFE35F8 /* FreeWorkout.swift */,
 				4C5C36A8715EB1872AD521DC /* FreeWorkoutBuilderView.swift */,
@@ -2094,10 +2100,12 @@
 				0BC4CB79B20EEBAC971122F1 /* FoodScannerView.swift in Sources */,
 				D610A231F29112D8B98A6F6E /* FoodSearchView.swift in Sources */,
 				BCD0C53AEAFF1A7D432E7498 /* Formatters.swift in Sources */,
+				D496FC49833E21BC710F358C /* FreeDeclareMovementsSheet.swift in Sources */,
 				914FDD70869B73509571F320 /* FreeExerciseCatalog.swift in Sources */,
 				4CEE6DD1410F0AA511699962 /* FreeExercisePickerView.swift in Sources */,
 				E38303023222AB0A26947C17 /* FreeFunctionalBuilder.swift in Sources */,
 				77BBEF6F0110567BA6C0D536 /* FreeFunctionalBuilderView.swift in Sources */,
+				74538EAEA799387CB31D4E4A /* FreeFunctionalPrefs.swift in Sources */,
 				57D3394402AD06E63D823021 /* FreeInicioView.swift in Sources */,
 				D4EE440BD9B66D2B2A3D55B5 /* FreePlanEvidenceCards.swift in Sources */,
 				FFC0251BCC6B0587901DC8DD /* FreePlanMarksCards.swift in Sources */,

@@ -99,16 +99,25 @@ struct RotatingLiveView: View {
         session.emomCountInRemaining > 0 ? session.emomCountInRemaining : session.condCountInRemaining
     }
 
+    /// The phase the wrist is showing. An EMOM now carries its own work/transition
+    /// phase (a 45/15 station EMOM), so both engines answer the same question the
+    /// same way instead of the EMOM being hardcoded to "Trabajo".
+    private var phase: WorkoutSession.RotatingPhase {
+        session.currentSegment?.isEMOM == true ? session.emomPhase : session.rotPhase
+    }
+
     private var countdownLabel: String {
         if isCountIn { return "Prepárate" }
-        if let seg = session.currentSegment, seg.isEMOM { return "Trabajo · queda" }
-        return session.rotPhase == .rest ? "Descanso · queda" : "Trabajo · queda"
+        if session.currentSegment?.isEMOM == true {
+            return phase == .rest ? "Cambio · queda" : "Trabajo · queda"
+        }
+        return phase == .rest ? "Descanso · queda" : "Trabajo · queda"
     }
 
     private var countdownText: String {
         if isCountIn { return WatchFormat.countdown(countInRemaining) }
-        if let seg = session.currentSegment, seg.isEMOM {
-            return WatchFormat.countdown(session.emomIntervalRemaining)
+        if session.currentSegment?.isEMOM == true {
+            return WatchFormat.countdown(session.emomPhaseRemaining)
         }
         // Death By / a distance interval bout has no fixed phase clock — show the
         // running bout time instead of a frozen 0.
@@ -119,10 +128,10 @@ struct RotatingLiveView: View {
     private var countdownColor: Color {
         if isCountIn { return WatchTheme.orange }
         let remaining = session.currentSegment?.isEMOM == true
-            ? session.emomIntervalRemaining
+            ? session.emomPhaseRemaining
             : session.rotPhaseRemaining
         if remaining > 0 && remaining <= WatchTheme.urgentThreshold { return WatchTheme.orange }
-        if session.rotPhase == .rest && session.currentSegment?.isEMOM != true { return WatchTheme.zoneGreen }
+        if phase == .rest { return WatchTheme.zoneGreen }
         return WatchTheme.ink
     }
 

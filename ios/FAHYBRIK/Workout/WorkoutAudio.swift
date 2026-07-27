@@ -35,6 +35,7 @@ final class WorkoutAudio {
     private var beepBuffer: AVAudioPCMBuffer?       // top-of-interval "on the minute"
     private var tickBuffer: AVAudioPCMBuffer?       // last-3s countdown ticks
     private var changeBuffer: AVAudioPCMBuffer?     // alternating-movement change
+    private var workEndBuffer: AVAudioPCMBuffer?    // stop working → transition
     private var goBuffer: AVAudioPCMBuffer?         // count-in → start
     private var finishBuffer: AVAudioPCMBuffer?     // EMOM complete
 
@@ -126,6 +127,11 @@ final class WorkoutAudio {
     func playTick() { play(tickBuffer) }
     /// Distinct two-note cue when the movement changes (alternating EMOM).
     func playMovementChange() { play(changeBuffer) }
+    /// STOP WORKING — the end of the work window of an interval cycle (45/15,
+    /// Tabata), when the transition begins. Deliberately the mirror image of the
+    /// movement-change cue (descending, not rising): under effort, "para" and
+    /// "cambia de movimiento" must never sound alike.
+    func playWorkEnd() { play(workEndBuffer) }
     /// Count-in resolved → first interval starts.
     func playGo() { play(goBuffer) }
     /// EMOM complete.
@@ -143,13 +149,14 @@ final class WorkoutAudio {
     private func buildBuffersIfNeeded() {
         guard beepBuffer == nil else { return }
         // A sharp, bright beep for the boundary; a shorter, lower tick for the
-        // count; a rising two-note for a movement change; a clean "go"; a short
-        // descending two-note finish.
-        beepBuffer   = tone(segments: [(1_000, 0.18)])
-        tickBuffer   = tone(segments: [(720, 0.07)])
-        changeBuffer = tone(segments: [(700, 0.10), (1_180, 0.16)])
-        goBuffer     = tone(segments: [(1_320, 0.22)])
-        finishBuffer = tone(segments: [(1_180, 0.14), (760, 0.14), (520, 0.22)])
+        // count; a rising two-note for a movement change; its DESCENDING mirror for
+        // "stop working"; a clean "go"; a short descending three-note finish.
+        beepBuffer    = tone(segments: [(1_000, 0.18)])
+        tickBuffer    = tone(segments: [(720, 0.07)])
+        changeBuffer  = tone(segments: [(700, 0.10), (1_180, 0.16)])
+        workEndBuffer = tone(segments: [(1_180, 0.10), (700, 0.20)])
+        goBuffer      = tone(segments: [(1_320, 0.22)])
+        finishBuffer  = tone(segments: [(1_180, 0.14), (760, 0.14), (520, 0.22)])
     }
 
     /// Render one or more sequential sine segments (frequency Hz, duration s) into

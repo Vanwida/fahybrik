@@ -543,6 +543,19 @@ struct FreeWorkoutContext {
     /// on a FULL finish the summary ALSO posts the measured value as a mark. Nil for
     /// every ordinary free workout — the existing builders never touch it.
     var benchmark: BenchmarkTag? = nil
+
+    /// A FUNCIONAL started as a bare CRONÓMETRO — the athlete picked a format, hit
+    /// Empezar and declared no movements. Derived, not stored: functional + no items
+    /// IS that state, so the two can never disagree. The summary uses it to offer
+    /// the one-tap "¿qué hiciste?" step AFTER the work instead of demanding it before.
+    var awaitsMovementDeclaration: Bool {
+        modalityWire == PrescriptionModality.functional.rawValue && items == nil
+    }
+
+    /// The folded prescription the live engine actually ran — the single source for
+    /// the scheme + block params a post-hoc declaration must reuse, so movements
+    /// named afterwards carry the SAME structure as ones named up front.
+    var ranPrescription: Prescription? { plan.segments.first?.prescription }
 }
 
 /// #Marcas — what the post-workout save needs to turn a finished benchmark session

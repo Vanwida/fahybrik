@@ -935,13 +935,26 @@ struct EmomLiveHUD: View {
     private var plan: EmomPlan? { session.currentSegment?.emomPlan }
     private var isCountIn: Bool { session.emomCountInRemaining > 0 }
     private var isUrgent: Bool {
-        !isCountIn && session.emomIntervalRemaining <= WorkoutSession.emomUrgentThreshold
+        !isCountIn && session.emomPhaseRemaining <= WorkoutSession.emomUrgentThreshold
     }
+    /// True while this EMOM is an INTERVAL (explicit work + transition, e.g. 45/15):
+    /// the phase is then the whole experience, so it gets the banner. A plain EMOM
+    /// has one phase and shows exactly what it always did.
+    private var hasTransition: Bool { plan?.hasTransition == true }
+    private var isTransition: Bool { hasTransition && !isCountIn && session.emomPhase == .rest }
 
     var body: some View {
         VStack(spacing: 12) {
+            if hasTransition, !isCountIn {
+                WorkRestBanner(phase: session.emomPhase, restLabel: "CAMBIO")
+            }
             clockCard
-            workCard
+            // A bare box clock (EMOM started without declaring movements) has no work
+            // to name — the clock IS the session. Showing a card whose only content
+            // is a dash would be noise on the one screen that has to read at 3 m.
+            if session.currentSegment?.hasDeclaredWork == true {
+                workCard
+            }
             metricRow
         }
     }
@@ -960,7 +973,7 @@ struct EmomLiveHUD: View {
                         .contentTransition(.numericText())
                 } else {
                     LabelText(text: intervalLabel, color: Theme.Color.accentText, size: 10)
-                    Text(WorkoutSession.formatElapsed(max(0, session.emomIntervalRemaining)))
+                    Text(WorkoutSession.formatElapsed(max(0, session.emomPhaseRemaining)))
                         .font(Theme.Typography.readoutHero)
                         .monospacedDigit()
                         .foregroundStyle(isUrgent ? Theme.Color.accentText : Theme.Color.foreground)
@@ -981,12 +994,14 @@ struct EmomLiveHUD: View {
         .accessibilityLabel(clockAccessibility)
     }
 
-    // THIS interval's work — movement + measure + intensity, from sets[].
+    // THIS interval's work — movement + measure + intensity, from sets[]. During a
+    // transition it shows the work you are WALKING TO, not the one you just left:
+    // that is the whole reason a station EMOM has a change window.
     private var workCard: some View {
-        let current = plan?.interval(session.emomIntervalIndex)
+        let current = plan?.interval(shownIntervalIndex)
         return CardSurface(padding: Theme.Spacing.m) {
             VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: isCountIn ? "Primer intervalo" : "Este intervalo", color: Theme.Color.accentText, size: 10)
+                LabelText(text: workCardLabel, color: Theme.Color.accentText, size: 10)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     if let w = current?.work, w != "—" {
                         Text(w)
@@ -1037,29 +1052,51 @@ struct EmomLiveHUD: View {
 
     // MARK: derived
 
+    /// What the work card is showing: the first interval before GO, the work you
+    /// are doing now, or — mid-transition — the work waiting on the other side.
+    private var workCardLabel: String {
+        if isCountIn { return "Primer intervalo" }
+        return isTransition ? "Al acabar el cambio" : "Este intervalo"
+    }
+
     private var intervalLabel: String {
-        "Intervalo \(session.emomIntervalIndex + 1) / \(plan?.intervalCount ?? 0)"
+        let n = "Intervalo \(session.emomIntervalIndex + 1) / \(plan?.intervalCount ?? 0)"
+        // During a transition the athlete is no longer working — say so on the clock
+        // itself, not only on the banner.
+        return isTransition ? "Cambio · \(n)" : n
     }
 
     private var cadenceLabel: String {
-        guard let s = plan?.intervalSeconds else { return "" }
-        return "cada \(PrescriptionRenderer.formatRest(s))"
+        guard let plan else { return "" }
+        // A plain EMOM reads as its cadence; an interval reads as its split, which
+        // is the number the athlete is actually pacing against.
+        guard plan.hasTransition else {
+            return "cada \(PrescriptionRenderer.formatRest(plan.intervalSeconds))"
+        }
+        return "\(plan.workSeconds)/\(plan.restSeconds) · cada \(PrescriptionRenderer.formatRest(plan.intervalSeconds))"
+    }
+
+    /// The 0-based interval the work card is describing — the next one while a
+    /// transition runs, the current one otherwise. ONE definition so the card and
+    /// its "Luego" line can never point at different rounds.
+    private var shownIntervalIndex: Int {
+        isTransition ? session.emomIntervalIndex + 1 : session.emomIntervalIndex
     }
 
     // The next movement, ONLY when the EMOM alternates and the upcoming interval
     // is a different movement — so a uniform EMOM never shows a redundant "Luego".
     private var nextMovement: String? {
         guard let plan, plan.isAlternating else { return nil }
-        let n = session.emomIntervalIndex + 1
-        guard let nxt = plan.interval(n),
-              let cur = plan.interval(session.emomIntervalIndex),
+        let shown = shownIntervalIndex
+        guard let nxt = plan.interval(shown + 1),
+              let cur = plan.interval(shown),
               nxt.movement != cur.movement else { return nil }
         return nxt.work != "—" ? "\(nxt.work) · \(nxt.movement)" : nxt.movement
     }
 
     private var clockAccessibility: String {
         if isCountIn { return "Empieza en \(Int(session.emomCountInRemaining.rounded(.up)))" }
-        let secs = Int(session.emomIntervalRemaining.rounded())
+        let secs = Int(session.emomPhaseRemaining.rounded())
         return "\(intervalLabel), quedan \(secs) segundos"
     }
 }

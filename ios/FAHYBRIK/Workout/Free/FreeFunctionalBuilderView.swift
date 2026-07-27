@@ -33,7 +33,7 @@ struct FreeFunctionalBuilderView: View {
                 .padding(.top, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.xxl)
             }
-            if step == .config, draft.canStart { footer }
+            if step == .config { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .sheet(isPresented: $showPicker) {
@@ -110,10 +110,21 @@ struct FreeFunctionalBuilderView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 stepHeader(title: "Configura", subtitle: nil)
                 structuralSteppers(f)
-                Text("Movimientos")
-                    .font(.system(size: 13, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .padding(.top, Theme.Spacing.xs)
+                FreePreviewCard(line: draft.headerLine)
+                HStack(spacing: 6) {
+                    Text("Movimientos")
+                        .font(.system(size: 13, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("opcional")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.Color.muted)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Theme.Color.surfaceElevated)
+                        .clipShape(Capsule())
+                }
+                .padding(.top, Theme.Spacing.xs)
                 ForEach(draft.movements) { m in
                     FreeFunctionalCard(
                         movement: bindingFor(m.id),
@@ -125,10 +136,7 @@ struct FreeFunctionalBuilderView: View {
                     )
                 }
                 addButton
-                if draft.canStart {
-                    titleField
-                    FreePreviewCard(line: draft.headerLine)
-                }
+                titleField
             }
         }
     }
@@ -136,7 +144,7 @@ struct FreeFunctionalBuilderView: View {
     @ViewBuilder
     private func structuralSteppers(_ f: FreeFunctionalFormat) -> some View {
         if f.usesRounds {
-            FreeStepper(label: f.roundsLabel, value: $draft.rounds,
+            FreeStepper(label: draft.roundsLabel, value: $draft.rounds,
                         step: FreeFunctionalStep.roundsStep, minValue: 1) { "\($0)" }
         }
         if f.usesWindow {
@@ -146,9 +154,23 @@ struct FreeFunctionalBuilderView: View {
             }
         }
         if f.usesCadence {
+            cadencePresets
             FreeStepper(label: "Cada", value: $draft.cadenceSeconds,
                         step: FreeFunctionalStep.cadenceStep, minValue: FreeFunctionalStep.cadenceStep) {
                 PrescriptionRenderer.formatRest($0)
+            }
+            // The split only appears once there IS one. "Al minuto" — the default and
+            // the common case — never sees this row, so the simple EMOM keeps its
+            // exact two-stepper form.
+            if draft.transitionSeconds > 0 {
+                FreeStepper(label: "Cambio", value: $draft.transitionSeconds,
+                            step: FreeFunctionalStep.transitionStep, minValue: 0) {
+                    $0 == 0 ? "sin cambio" : "\($0) s"
+                }
+                Text("\(draft.workSeconds) s de trabajo y \(draft.transitionSeconds) s para cambiar. Suena al parar y al arrancar.")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         if f.usesRest {
@@ -161,6 +183,36 @@ struct FreeFunctionalBuilderView: View {
             FreeStepper(label: "Límite de tiempo", value: $draft.capSeconds,
                         step: FreeFunctionalStep.capStep, minValue: 0) {
                 $0 == 0 ? "sin límite" : PrescriptionRenderer.formatClock($0)
+            }
+        }
+    }
+
+    // The three box-clock shapes, one tap each. Tabata is deliberately here and not
+    // in the format grid: 20/10 × 8 is this same work+change cycle with different
+    // numbers, so making it a separate format would fork the model for nothing.
+    private var cadencePresets: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: "Ritmo", size: 11)
+            HStack(spacing: 6) {
+                ForEach(FreeEmomPreset.allCases) { p in
+                    let on = draft.emomPreset == p
+                    Button {
+                        Haptics.light()
+                        draft.apply(p)
+                    } label: {
+                        Text(p.labelES)
+                            .font(.system(size: 13, weight: .heavy, design: .default).italic())
+                            .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.foreground)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(on ? Theme.Color.accent : Theme.Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .accessibilityLabel(p.labelES)
+                    .accessibilityAddTraits(on ? [.isSelected] : [])
+                }
             }
         }
     }
@@ -271,8 +323,12 @@ struct FreeFunctionalBuilderView: View {
 }
 
 // MARK: - Movement card
+//
+// Shared with the post-workout declaration sheet: naming what you did AFTER a
+// cronómetro session must offer the exact same dose control as declaring it before,
+// or the two paths would disagree about what a movement is.
 
-private struct FreeFunctionalCard: View {
+struct FreeFunctionalCard: View {
     @Binding var movement: FreeFunctionalMovement
     let canMoveUp: Bool
     let canMoveDown: Bool
