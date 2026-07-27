@@ -290,6 +290,7 @@
 		B5A50EA95ADB8C363FE24C8F /* BenchmarkLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60621B07C9FCE586B2D5E14B /* BenchmarkLaunch.swift */; };
 		B7D324C1A3F68AB0341464FD /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F5AA95A8BE72BFDB602AFC /* ChatService.swift */; };
 		B91F529CCC4946A6F529C9EF /* WorkoutKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B923DDAC30864527B24FD75E /* WorkoutKit.framework */; };
+		B9306C733ACA9A662B78FFED /* FreePlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B763C5D55286E261B40DA2 /* FreePlanView.swift */; };
 		B941C8D1CE4EA7D022184C0C /* StrengthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 032FA1B5468960A7CFB64AE1 /* StrengthService.swift */; };
 		B9517700BA0E3FF01CC4A017 /* GarminSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB59B29C6CB1A3F33FA71838 /* GarminSetupView.swift */; };
 		BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */; };
@@ -419,6 +420,7 @@
 		FF14F02660C72556385FE6A1 /* AvailabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FB25D4CCAE4A5CB37AA0ED3 /* AvailabilityService.swift */; };
 		FF3A777CE7F3EFDE16504099 /* PlanStationsSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7131BB3114EA2DBDB2B6996C /* PlanStationsSectionTests.swift */; };
 		FF6F5800616EC69BD35C5636 /* ChatMediaPickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86181B490F6E5B2AE9D28EF1 /* ChatMediaPickers.swift */; };
+		FFC0251BCC6B0587901DC8DD /* FreePlanMarksCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = B29B355E416D3E3FE9CD6E06 /* FreePlanMarksCards.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -669,6 +671,7 @@
 		8352F0F5673F2DA172314C9D /* LiveFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveFlowView.swift; sourceTree = "<group>"; };
 		838D5B43E7B059FE162F00E8 /* EmailAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthService.swift; sourceTree = "<group>"; };
 		84984BD832C961ADFCB52D3C /* BLEHeartRateSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEHeartRateSource.swift; sourceTree = "<group>"; };
+		84B763C5D55286E261B40DA2 /* FreePlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreePlanView.swift; sourceTree = "<group>"; };
 		84EDB9C60887329EB4F3CFC1 /* FAHYBRIKWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FAHYBRIKWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85C8A1E55CAF66B6AFB0B949 /* ChecklistLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistLiveView.swift; sourceTree = "<group>"; };
 		86181B490F6E5B2AE9D28EF1 /* ChatMediaPickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMediaPickers.swift; sourceTree = "<group>"; };
@@ -738,6 +741,7 @@
 		B1ED83DDDB3C18387B7E3780 /* PolylineCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylineCodecTests.swift; sourceTree = "<group>"; };
 		B20208738EAA72C5507897FC /* RunLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityWidget.swift; sourceTree = "<group>"; };
 		B262C422F955BA0E6DA89F19 /* DoblesLiveStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveStrip.swift; sourceTree = "<group>"; };
+		B29B355E416D3E3FE9CD6E06 /* FreePlanMarksCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreePlanMarksCards.swift; sourceTree = "<group>"; };
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSControlStrategy.swift; sourceTree = "<group>"; };
 		B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePickerSheet.swift; sourceTree = "<group>"; };
@@ -1148,6 +1152,8 @@
 			children = (
 				15C0C622AB4411D866FA012C /* AssignmentDetail.swift */,
 				93222A913BECABC311537B62 /* ExerciseDetailView.swift */,
+				B29B355E416D3E3FE9CD6E06 /* FreePlanMarksCards.swift */,
+				84B763C5D55286E261B40DA2 /* FreePlanView.swift */,
 				C3A6F6A06597A99FDB74B021 /* PlanService.swift */,
 				6864E864016B47E3286E44BA /* PlanStationsSection.swift */,
 				7977DBCE8367B9C75CC6D124 /* PlanView.swift */,
@@ -2084,6 +2090,8 @@
 				E38303023222AB0A26947C17 /* FreeFunctionalBuilder.swift in Sources */,
 				77BBEF6F0110567BA6C0D536 /* FreeFunctionalBuilderView.swift in Sources */,
 				57D3394402AD06E63D823021 /* FreeInicioView.swift in Sources */,
+				FFC0251BCC6B0587901DC8DD /* FreePlanMarksCards.swift in Sources */,
+				B9306C733ACA9A662B78FFED /* FreePlanView.swift in Sources */,
 				A3FB87F57CDB31A5A67839AF /* FreeStrengthBuilder.swift in Sources */,
 				C110138B33B8EB51A4B3E49C /* FreeWorkout.swift in Sources */,
 				00EDA03F2AD29DEB2D23A125 /* FreeWorkoutBuilderView.swift in Sources */,

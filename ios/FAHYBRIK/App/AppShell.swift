@@ -76,9 +76,19 @@ struct AppShell: View {
             .tag(AppTab.inicio)
             .tabItem { Label(AppTab.inicio.title, systemImage: AppTab.inicio.symbol) }
 
-            PlanView(bearer: bearer, hasCoach: hasCoach)
-                .tag(AppTab.plan)
-                .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
+            // COACHED → the published week. FREE → there is no published week to
+            // show: Plan becomes the athlete's own performance picture (what he
+            // has measured, what's missing, and who turns it into a plan). See
+            // FreePlanView / docs/design/free-plan-conversion-mockup.html.
+            Group {
+                if hasCoach {
+                    PlanView(bearer: bearer, hasCoach: hasCoach)
+                } else {
+                    FreePlanView(bearer: bearer)
+                }
+            }
+            .tag(AppTab.plan)
+            .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
 
             AnalyticsView(bearer: bearer, hasCoach: hasCoach)
                 .tag(AppTab.analiticas)

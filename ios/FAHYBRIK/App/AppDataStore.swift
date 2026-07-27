@@ -229,6 +229,17 @@ final class AppDataStore {
         _ = await (i, p)
     }
 
+    /// FREE plan tab (no coach): identity (HR max for «Probarme»), the week (its
+    /// target race + countdown) and the races hub (whether he already imported a
+    /// HYROX history). Marks and the biometric trend are not slices — the screen
+    /// reads those directly.
+    func loadFreePlan(force: Bool = false) async {
+        async let i: Void = refreshIdentity(force: force)
+        async let p: Void = refreshPlanWeek(force: force)
+        async let r: Void = refreshRacesHub(force: force)
+        _ = await (i, p, r)
+    }
+
     /// Plan: the current week + the partner (for the "Con [X]" badges).
     func loadPlanScreen(force: Bool = false) async {
         async let p: Void = refreshPlanWeek(force: force)
