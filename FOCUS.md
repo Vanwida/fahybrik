@@ -15,6 +15,37 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · Los benchmarks pedían un ritmo imposible (1:52 /km). Muerto de raíz
+
+**Sin desplegar todavía.** Solo iOS; cero servidor, cero migraciones.
+
+Alex lanzó el Cooper 12' en su iPhone y la pantalla le pedía **«@ 1:52 /km»**,
+más rápido que el récord del mundo de 1 km. Salía en todos los benchmarks y
+afectaba también a los atletas de pago.
+
+- **La causa.** El borrador libre nacía con el ritmo por defecto del REMO
+  (112 s = 1:52/500 m) y `BenchmarkLaunch` asignaba `draft.modality` a pelo,
+  saltándose `selectModality()`, que es quien siembra los valores de cada
+  disciplina. Sin récord comparable el 112 se quedaba pegado; en el Cooper
+  pasaba SIEMPRE, porque su unidad es metros y nunca se calcula objetivo.
+- **La regla.** Un benchmark es un esfuerzo a tope: el único objetivo honesto es
+  tu propio récord. Con récord, el bloque dice «Benchmark · a batir 3:52» (o
+  «2800 m» en el Cooper) y los contrarrelojes llevan el ritmo derivado de esa
+  marca. **Sin récord, no hay objetivo** — la pantalla se calla en vez de
+  inventar un número.
+- **Blindado por el compilador.** `FreeWorkoutDraft.modality` es `private(set)`:
+  la única entrada es `selectModality()`, que siembra el ritmo. El arrastre no
+  puede repetirse en ningún lanzador futuro. `targetKind` pasa a opcional; el
+  contrato con el servidor no se toca (`target` ya era opcional en los dos
+  niveles y `validateFreeWorkout` nunca lo exigió).
+
+Verificado: build del simulador en verde; tabla de las 9 marcas del catálogo
+(antes/después, con y sin récord) comprobada contra las funciones reales. El
+ritmo falso ya no se guarda en la prescripción que ve el coach.
+Decisión en `docs/DECISIONS.md`.
+
+---
+
 ## Cerrado el 27-jul · Predictor: las marcas por fin alimentan la proyección, y deja de mentir en los tres fallos de modelo
 
 **Sin desplegar todavía.** Servidor y dominio; cero iOS, cero migraciones.
