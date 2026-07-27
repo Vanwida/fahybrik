@@ -28,6 +28,19 @@ streaming/`loading.tsx`.
 
 ---
 
+## NUEVO MANDATO de Alex (27-jul, tarde) · Multi-coach DE VERDAD antes de que haya gente
+
+Palabras de Alex: el free es la excusa para hacer la app «como debería haber
+sido desde el principio» — hecha para que haya MÁS cuentas de coach, no un
+club con software. Reestructurar bien AHORA, que no hay usuarios y romper es
+gratis; no preocuparse por trabajar más: perfecto para largo plazo.
+**En curso:** 3 agentes auditando en paralelo TODOS los supuestos single-coach
+(backend web · dashboard · iOS+shared), clasificados estructural/superficial/
+ya-correcto/legítimo-de-marca. Con los mapas: diseño de la reestructuración
+(doc + DECISIONS) antes de tocar código.
+
+---
+
 ## EN MARCHA · FREE tier — GO de Alex (27-jul)
 
 Alex dio luz verde («es una idea de embudo que nos puede traer nuevos
