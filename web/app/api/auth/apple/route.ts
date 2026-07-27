@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { verifyAppleIdToken } from '@/lib/auth/apple';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { createFreeAthlete, isFreeSignupEnabled } from '@/lib/auth/free-signup';
 import { audiences, issueSession } from '@/lib/auth/session';
 import { findAthleteForApple } from '@/lib/auth/users';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
@@ -47,11 +48,26 @@ export async function POST(req: Request) {
     return jsonError('apple_token_invalid', message, 401);
   }
 
-  const result = await findAthleteForApple({
+  let result = await findAthleteForApple({
     apple_user_id: identity.apple_user_id,
     email: identity.email,
     email_verified: identity.email_verified,
   });
+
+  // Alta free (solo con FREE_SIGNUP encendido): un Apple ID desconocido crea su
+  // cuenta con los datos del identity token verificado — atleta SIN coach y la
+  // MISMA sesión de siempre. createFreeAthlete rechaza (null) las colisiones
+  // inseguras (email sin verificar sobre cuenta ajena, cuenta de coach) → caen
+  // en el mismo 404 no_account de hoy.
+  if (!result && isFreeSignupEnabled()) {
+    result = await createFreeAthlete({
+      email: identity.email,
+      email_verified: identity.email_verified,
+      apple_user_id: identity.apple_user_id,
+      full_name: parsed.data.full_name ?? null,
+    });
+  }
+
   // Login never provisions membership: an unknown Apple ID (organic download)
   // has no account → 404 no_account. The app routes them to the funnel.
   if (!result) {
@@ -77,5 +93,8 @@ export async function POST(req: Request) {
     is_private_email: identity.is_private_email,
     full_name: result.athlete.full_name,
     onboarded_at: result.athlete.onboarded_at?.toISOString() ?? null,
+    // Campo ADITIVO (los decoders instalados ignoran claves desconocidas):
+    // false = atleta sin coach (tier free) → la app decide qué superficie enseña.
+    has_coach: result.athlete.coach_id != null,
   });
 }

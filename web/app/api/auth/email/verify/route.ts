@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { NextResponse } from 'next/server';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { consumeEmailLoginCode } from '@/lib/auth/email-code';
+import { createFreeAthlete, isFreeSignupEnabled } from '@/lib/auth/free-signup';
 import { constantTimeEqual, reviewAccessGate } from '@/lib/auth/review-access';
 import { audiences, issueSession } from '@/lib/auth/session';
 import { findAthleteByEmail, type AppleAuthResult } from '@/lib/auth/users';
@@ -48,6 +49,9 @@ async function issueAthleteSession(
     email: account.user.email,
     full_name: account.athlete.full_name,
     onboarded_at: account.athlete.onboarded_at?.toISOString() ?? null,
+    // Campo ADITIVO (los decoders instalados ignoran claves desconocidas):
+    // false = atleta sin coach (tier free) → la app decide qué superficie enseña.
+    has_coach: account.athlete.coach_id != null,
   });
 }
 
@@ -128,7 +132,16 @@ export async function POST(req: Request) {
   // The code was valid → the account existed at request time. Re-resolve it
   // authoritatively (find-only) to mint the session. A race that removed the
   // account in between falls back to the same generic invalid_code.
-  const account = await findAthleteByEmail(consumed.email);
+  let account = await findAthleteByEmail(consumed.email);
+
+  // Alta free (solo con FREE_SIGNUP encendido): el código consumido prueba la
+  // propiedad del buzón → crear users + athletes SIN coach y emitir la MISMA
+  // sesión de siempre. createFreeAthlete rechaza (null) los emails de cuentas
+  // no-atleta → cae en el mismo invalid_code genérico de hoy.
+  if (!account && isFreeSignupEnabled()) {
+    account = await createFreeAthlete({ email: consumed.email, email_verified: true });
+  }
+
   if (!account) {
     return invalidCode();
   }
