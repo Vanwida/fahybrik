@@ -102,6 +102,27 @@ Reglas duras: catálogo cerrado · **un 5K en cinta jamás bate al de calle** (P
 
 ---
 
+## Cerrado el 27-jul (2ª ronda) · Los adjuntos NO se veían en la app: el meta iba doble-codificado y iOS descartaba el mensaje entero
+
+Tras la subida prefirmada (abajo), Alex seguía sin ver fotos "desde ningún
+lado al otro" (6ª reincidencia). Reproducido E2E contra producción con bearer
+real de atleta: subida ✓, blob ✓, proxy ✓ — pero `attachment_meta` se
+guardaba como STRING JSON dentro del jsonb (`JSON.stringify` + postgres.js,
+la misma enfermedad de `notifications.payload_json`; 12/12 filas históricas).
+El dashboard lo toleraba; **el decode de iOS fallaba el mensaje ENTERO y el
+descarte silencioso (@LossyArray / SSE nil) hacía desaparecer todo adjunto
+de la app, en ambas direcciones** — por eso los 5 fixes de subida nunca lo
+mataron. Arreglo: `client.json()` en el insert (`60638e6`, DESPLEGADO) +
+migración **0140** de reparación en sitio (APLICADA; las 12 filas ya son
+objetos). Verificado post-deploy: envío nuevo → jsonb object; mensajes de
+prueba borrados; sin cambios en iOS → **no hace falta reinstalar la app**.
+Footgun documentado en memoria; `mass-adjustments.ts` aún usa el idioma malo
+(tablas vacías, latente). Deuda iOS anotada: el drop silencioso de mensajes
+indecodificables y el "no enviado" sin motivo merecen endurecerse en el
+próximo build.
+
+---
+
 ## Cerrado el 27-jul · Adjuntos del chat arreglados de RAÍZ (subida directa prefirmada)
 
 La foto de Alex seguía sin salir del iPhone. Causa raíz, probada contra
