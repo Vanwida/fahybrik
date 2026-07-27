@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID — plan multi-coach</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 8px}
+  .sub{color:var(--muted);font-size:17px;max-width:680px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:22px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800}
+  h3{font-size:15px;font-weight:700;margin:var(--sp-3) 0 var(--sp-1)}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:8px} li::marker{color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-2)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong)}
+  td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  .tScroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  .obra{display:flex;gap:var(--sp-2);padding:var(--sp-3) 0;border-bottom:1px solid var(--border)}
+  .obra:last-child{border-bottom:0}
+  .obra .num{flex:0 0 48px;height:48px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;font-style:italic}
+  .obra h3{margin:2px 0 6px}
+  .obra p{margin:0 0 6px;font-size:14.5px;color:var(--muted)}
+  .obra .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .decision{border-left:3px solid var(--accent);padding:4px 0 4px var(--sp-2);margin-bottom:var(--sp-2)}
+  .decision h3{margin:0 0 4px}
+  .decision p{margin:0 0 6px;font-size:14.5px;color:var(--muted)}
+  .decision .rec{font-size:14.5px;color:var(--fg)}
+  .decision .rec b{color:var(--accent)}
+  .verdict{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3)}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media (max-width:560px){ .wrap{padding:var(--sp-4) var(--sp-2)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Reestructuración · Para decisión de Alex</p>
+  <h1>De «el software de un club» a la plataforma de clubes</h1>
+  <p class="sub">El free obliga a decidir qué somos. Este es el plan para que la app sea multi-coach de verdad — ahora, que no hay usuarios y romper es gratis.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 27 jul 2026</span>
+    <span><b>Base</b> · auditoría de 3 agentes (backend · dashboard · iOS+dominio), ~150 hallazgos con file:line</span>
+    <span><b>Anexo completo</b> · docs/audits/single-coach-audit-27jul2026.html</span>
+  </div>
+
+  <h2><span class="n">01</span>El estado real, en una frase por capa</h2>
+  <div class="tScroll"><table>
+    <tr><th>Capa</th><th>Estado</th><th>Resumen</th></tr>
+    <tr><td>Método (bloques, plantillas, periodización, chat, ejercicios, RAG)</td><td><span class="pill ok">Escala ya</span></td><td>Todo con <code>coach_id</code> en el WHERE. La librería de ejercicios (base + fork por coach) es el patrón de referencia del repo.</td></tr>
+    <tr><td>Negocio (leads, citas, disponibilidad, métricas, waitlist)</td><td><span class="pill bad">Sin tenant</span></td><td>Seis tablas <strong>sin columna de club</strong> — decisión explícita de la era mono-club. Todo lo que cuelga de ellas es global.</td></tr>
+    <tr><td>La puerta</td><td><span class="pill bad">No existe</span></td><td>Es imposible crear un segundo club desde el producto: el form de admin inserta allowlist sin club y el login jamás crea un <code>coaches</code> row.</td></tr>
+    <tr><td>Dinero (Stripe)</td><td><span class="pill warn">Mono-comercio</span></td><td>Una cuenta, precios de Pablo como constantes, MRR = conteo×constante, cero Connect. Funciona para UN comercio; no atribuye por club.</td></tr>
+    <tr><td>Tiempo y voz</td><td><span class="pill warn">Barcelona y Pablo</span></td><td><code>BOX_TIMEZONE='Europe/Madrid'</code> mueve slots, semanas y readiness de TODOS; ~70 strings con «Pablo» en push, emails, ICS y app.</td></tr>
+    <tr><td>iOS</td><td><span class="pill bad">Expulsa al free</span></td><td>El gate exige Stripe activo (y consulta el endpoint legacy sin <code>tier</code>); <code>has_coach</code> no se lee; el chat asume UN hilo con EL coach.</td></tr>
+    <tr><td>Legal</td><td><span class="pill bad">Un responsable</span></td><td>Términos y privacidad nombran a Pablo como responsable de los datos de todo atleta. Falso el día que entre el club #2 — se rehace ANTES de abrir.</td></tr>
+  </table></div>
+  <p class="mut">Matiz que abarata todo: la sesión de coach YA resuelve un <code>coach_id</code> real. La mayoría de fallos de rutas son <strong>fontanería</strong> (el valor está en la mano y no se pasa al WHERE), no arquitectura.</p>
+
+  <h2><span class="n">02</span>El modelo objetivo — cinco principios</h2>
+  <div class="grid2">
+    <div class="card"><h3>1 · Persona ≠ club</h3><p class="mut" style="font-size:14.5px;margin:0"><code>users</code> es la persona; <code>coaches</code> es el club; <code>coach_members</code> (con su rol, que hoy se escribe y nadie lee) une ambos. Ajustes separa «tu perfil» de «la identidad del club»; el webhook de Clerk deja de renombrar el club al editar la persona.</p></div>
+    <div class="card"><h3>2 · Todo dato de negocio lleva club</h3><p class="mut" style="font-size:14.5px;margin:0">leads, citas, disponibilidad, tokens de Google, visitas, notificaciones y suscripciones ganan <code>coach_id</code> y claves únicas por club. La regla: <strong>si una fila puede existir dos veces (una por club), su unique lleva club</strong>.</p></div>
+    <div class="card"><h3>3 · El dinero se atribuye por club</h3><p class="mut" style="font-size:14.5px;margin:0">FAHYBRID sigue siendo el comercio (una cuenta Stripe) pero cada suscripción, precio y métrica sabe de qué club es, y el MRR suma <code>agreed_price_cents</code> reales, no constantes. Connect queda como evolución, no como requisito.</p></div>
+    <div class="card"><h3>4 · El tiempo es del club</h3><p class="mut" style="font-size:14.5px;margin:0"><code>coaches.timezone</code> sustituye a la constante de Barcelona en todo shared/domain (slots, semanas, readiness, formateadores). Un club de México calcula SU medianoche.</p></div>
+    <div class="card"><h3>5 · La marca es FAHYBRID; la voz es del coach</h3><p class="mut" style="font-size:14.5px;margin:0">La app se llama FAHYBRID para todos (sin white-label, es el moat). Pero cada push, email e ICS habla con el nombre, buzón y firma del club del atleta — nunca «Pablo» de fábrica.</p></div>
+    <div class="card"><h3>6 · Sin coach también es un estado válido</h3><p class="mut" style="font-size:14.5px;margin:0">El atleta free (fases 1-2 ya en prod) es ciudadano de primera: entra, registra, marca y compite — y las superficies de coach desaparecen en vez de romperse.</p></div>
+  </div>
+
+  <h2><span class="n">03</span>Las obras, en orden</h2>
+  <div class="card">
+    <div class="obra"><div class="num">0</div><div>
+      <h3>Higiene peligrosa — lo que corrompe o fuga</h3>
+      <p>Las dos escrituras destructivas (guardar cupo pisa al club de menor id; guardar disponibilidad borra TODOS los calendarios), el IDOR del PII de leads, los check-then-act sin dueño en el WHERE, el hilo de chat que un club heredaría de otro, y el token de Google con clave global. Mecánico, testeable, y correcto incluso mono-club.</p>
+      <div class="tags"><span class="pill on">primera</span><span class="pill">web</span><span class="pill">pequeña-media</span></div>
+    </div></div>
+    <div class="obra"><div class="num">1</div><div>
+      <h3>iOS free + multi-coach en el cliente</h3>
+      <p>El gate por <code>tier</code> (y salir del endpoint legacy de suscripción), consumir <code>has_coach</code>, home free (mockup aprobado), chat/coach-superficies condicionales, y los ~12 «Pablo» del cliente leyendo del payload. <strong>Desbloquea lanzar el free</strong> — y es la mitad iOS de esta reestructuración.</p>
+      <div class="tags"><span class="pill on">desbloquea el free</span><span class="pill">iOS</span><span class="pill">media</span></div>
+    </div></div>
+    <div class="obra"><div class="num">2</div><div>
+      <h3>La puerta — que un club pueda nacer</h3>
+      <p>Allowlist con club destino (o «crea el tuyo»), <code>provisionCoachOwner</code> en el login, alta de club con identidad propia (nombre, buzón, timezone), y la sección Equipo en Ajustes leyendo por fin <code>membership_role</code>. Sin esto, nada de lo demás es observable.</p>
+      <div class="tags"><span class="pill">web</span><span class="pill">media</span></div>
+    </div></div>
+    <div class="obra"><div class="num">3</div><div>
+      <h3>El esquema del negocio — el tenant en la base</h3>
+      <p>Migraciones: <code>coach_id</code> en las seis tablas + claves re-scoped (<code>unique(coach_id,email)</code> en leads, <code>unique(coach_id,fecha)</code> en excepciones, <code>unique(coach_id,provider)</code> en Google) + la fontanería de lecturas (badges del layout, métricas, cupo, waitlist, nurturing) pasando el <code>coach_id</code> que la sesión ya tiene.</p>
+      <div class="tags"><span class="pill">web+DB</span><span class="pill">grande</span></div>
+    </div></div>
+    <div class="obra"><div class="num">4</div><div>
+      <h3>El dinero por club</h3>
+      <p><code>subscriptions.coach_id</code>, precios por club (muere <code>TIER_PRICE_EUR</code>), MRR real por <code>agreed_price_cents</code> y divisa, portal y billing scoped, cupón Fundador por club. Connect: decisión aparte, abajo.</p>
+      <div class="tags"><span class="pill">web+DB</span><span class="pill">media</span></div>
+    </div></div>
+    <div class="obra"><div class="num">5</div><div>
+      <h3>El tiempo y la voz</h3>
+      <p><code>coaches.timezone</code> por todo shared/domain; el copy interpolado (pushes «{coach} ha publicado tu plan», los 6 toques de nurturing, ICS con el organizador del club); buzón de avisos por club; umbrales/briefing por coach en vez de constantes de Pablo; /guia parametrizada.</p>
+      <div class="tags"><span class="pill">web+shared+iOS</span><span class="pill">media</span></div>
+    </div></div>
+    <div class="obra"><div class="num">§</div><div>
+      <h3>Legal — en paralelo, antes de abrir</h3>
+      <p>Términos y privacidad: el responsable de los datos del atleta pasa a ser su club (y FAHYBRID el encargado/plataforma). No es código; es la condición para que exista el club #2.</p>
+      <div class="tags"><span class="pill warn">bloquea abrir</span><span class="pill">legal</span></div>
+    </div></div>
+  </div>
+  <p class="mut">Regla de las obras: cada una se entrega completa (código + migraciones aplicadas + tests + deploy), commits pequeños, y el comportamiento del club actual no cambia en ninguna — todo es añadir el scope que ya existía en la sesión.</p>
+
+  <h2><span class="n">04</span>Decisiones abiertas — tuyas</h2>
+  <div class="decision"><h3>Stripe: ¿plataforma-comercio o Connect?</h3>
+    <p>Hoy FAHYBRID cobra y punto (una cuenta). Connect (cada club cobra en SU cuenta, la plataforma comisiona) es lo que exigiría un club externo de verdad.</p>
+    <p class="rec"><b>Recomiendo:</b> plataforma-comercio con atribución por club (obra 4) AHORA; Connect solo cuando el primer club externo lo pida. No construir Connect en vacío.</p></div>
+  <div class="decision"><h3>White-label</h3>
+    <p>La guía ya lo declara: «La app se llama FAHYBRID para tu atleta, y eso no cambia».</p>
+    <p class="rec"><b>Recomiendo:</b> mantenerlo. La marca única es el moat y el free la refuerza; el club vive DENTRO (nombre, voz, colores del avatar), no encima.</p></div>
+  <div class="decision"><h3>Leads públicos: ¿de quién es fahybrid.com?</h3>
+    <p>La landing y /empieza son hoy del club de Pablo (legítimo). Con N clubes, ¿quién recibe un lead de la web pública?</p>
+    <p class="rec"><b>Recomiendo:</b> fahybrid.com sigue siendo de Fabrik hasta nueva orden; cada club nuevo capta por SU página (/c/&lt;slug&gt; con su embudo). El «marketplace» de coaches es un producto futuro, no esta obra.</p></div>
+  <div class="decision"><h3>Orden: ¿free primero o puerta primero?</h3>
+    <p>La obra 1 (iOS) lanza el free tier; las obras 2-4 abren la plataforma a clubes.</p>
+    <p class="rec"><b>Recomiendo:</b> 0 → 1 (free lanzable) → 2 → 3 → 4 → 5, con lo legal en paralelo desde la obra 2. El free trae usuarios mientras construimos la parte de clubes.</p></div>
+
+  <h2><span class="n">05</span>Riesgos con nombre</h2>
+  <ul>
+    <li class="mut"><strong style="color:var(--fg)">La migración 0113 no es re-ejecutable</strong> (marca rejected a todo coach no-fahybrid.com): cualquier réplica de DB o entorno nuevo necesita su sustituta antes del club #2.</li>
+    <li class="mut"><strong style="color:var(--fg)">El scoping retroactivo puede romper el club actual</strong> si una query olvidada asume global: cada obra lleva su batería de «el club de Pablo ve EXACTAMENTE lo mismo que ayer».</li>
+    <li class="mut"><strong style="color:var(--fg)">Los crons seriales</strong> (evaluación semanal con LLM, polar-sync, recompute) ya rozan sus timeouts con UN club: la obra 3 les mete cursor/claim o el club #2 los desborda.</li>
+    <li class="mut"><strong style="color:var(--fg)">El copy es cambio de firma, no find-replace</strong>: ~10 módulos de email/push no reciben hoy ningún contexto de coach — el coste real está en pasarlo, no en escribir el string.</li>
+  </ul>
+
+  <h2><span class="n">06</span>Veredicto</h2>
+  <div class="verdict">
+    <p class="lede" style="margin:0"><strong>Es el momento exacto y el precio es bajo.</strong> La capa difícil (método, chat, ejercicios) ya es multi-coach; lo que falta es una columna en seis tablas, una puerta que no existe, y pasar hacia abajo un <code>coach_id</code> que la sesión ya tiene. Con cero usuarios, cada obra se puede desplegar el día que se termina — y el free sale a la calle en cuanto cierre la obra 1, sin esperar al resto.</p>
+  </div>
+
+  <div class="footer">FAHYBRID · plan interno · inventario completo con file:line en <code>docs/audits/single-coach-audit-27jul2026.html</code> · brief del free: <code>docs/free-tier-brief.html</code></div>
+
+</div>
+</body>
+</html>

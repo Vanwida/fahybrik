@@ -34,10 +34,19 @@ Palabras de Alex: el free es la excusa para hacer la app «como debería haber
 sido desde el principio» — hecha para que haya MÁS cuentas de coach, no un
 club con software. Reestructurar bien AHORA, que no hay usuarios y romper es
 gratis; no preocuparse por trabajar más: perfecto para largo plazo.
-**En curso:** 3 agentes auditando en paralelo TODOS los supuestos single-coach
-(backend web · dashboard · iOS+shared), clasificados estructural/superficial/
-ya-correcto/legítimo-de-marca. Con los mapas: diseño de la reestructuración
-(doc + DECISIONS) antes de tocar código.
+**Auditoría HECHA (~150 hallazgos file:line) y plan DISEÑADO:**
+→ `docs/multi-coach-plan.html` (modelo objetivo en 6 principios + 6 obras +
+4 decisiones de Alex) · inventario completo: →
+`docs/audits/single-coach-audit-27jul2026.html`.
+Titulares: la capa método YA escala; el negocio (leads/citas/métricas) no
+tiene tenant EN EL ESQUEMA; no puede nacer un club #2 desde el producto;
+2 escrituras destruyen datos de otros clubes; iOS expulsa al free (gate por
+Stripe activo contra el endpoint legacy sin `tier`); legal nombra a Pablo
+responsable de todo dato. Orden recomendado: obra 0 (higiene peligrosa) →
+obra 1 (iOS free, LANZA el free) → puerta → esquema → dinero → tiempo/voz,
+con lo legal en paralelo antes de abrir el club #2.
+**Esperando el veredicto de Alex sobre las 4 decisiones del plan** (Stripe
+plataforma-vs-Connect, white-label, leads públicos, orden).
 
 ---
 

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auditoría single-coach — inventario completo (27-jul-2026)</title>
+<style>
+  :root{--bg:#0a0a0a;--surface:#141414;--surface-2:#1c1c1c;--border:#262626;--border-strong:#333;--fg:#f5f5f5;--muted:#a3a3a3;--faint:#737373;--accent:#F06A2A;--ok:#4ade80;--warn:#facc15;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:56px 24px}
+  .wrap{max-width:980px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(26px,4vw,36px);font-weight:800;font-style:italic;margin:8px 0 6px}
+  .sub{color:var(--muted);max-width:680px;margin-bottom:40px}
+  h2{font-size:20px;font-weight:800;font-style:italic;margin:48px 0 12px;color:var(--accent)}
+  h3{font-size:15px;font-weight:800;margin:28px 0 10px}
+  p{margin:0 0 14px;color:var(--muted)}
+  code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--fg)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:18px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-strong)}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{white-space:nowrap;font:12px ui-monospace,Menlo,monospace;color:var(--fg)}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:20px}
+  .tS table{margin:0}
+  .E{color:var(--bad);font-weight:800} .S{color:var(--warn);font-weight:800} .OK{color:var(--ok);font-weight:800} .M{color:var(--faint);font-weight:800}
+  ul{margin:0 0 16px 20px} li{margin-bottom:6px;color:var(--muted)} li b{color:var(--fg)}
+  .note{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:14px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">FAHYBRID · Anexo de auditoría · 27 jul 2026</p>
+  <h1>Inventario single-coach completo</h1>
+  <p class="sub">Los tres mapas de la auditoría (backend web · dashboard · iOS + shared/domain), con file:line. Clasificación: <span class="E">E</span> estructural · <span class="S">S</span> superficial · <span class="OK">OK</span> ya-correcto · <span class="M">M</span> legítimo-de-marca. El plan que se deriva: <code>docs/multi-coach-plan.html</code>.</p>
+
+  <h2>A · Backend web (web/lib + web/app/api)</h2>
+
+  <h3>La puerta — no puede nacer un segundo club</h3>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>lib/dashboard/admin/coaches.ts:82</td><td>addApprovedCoach inserta allowlist SIN coach_id — el coach añadido nunca puede entrar y la UI dice «éxito»</td><td class="E">E</td></tr>
+    <tr><td>lib/auth/allowlist.ts:28</td><td>coach_id null ⇒ denegar; debería significar «crea tu club»</td><td class="E">E</td></tr>
+    <tr><td>lib/auth/users.ts:545</td><td>provisionCoachMember jamás crea coaches row — único provisioner del login</td><td class="E">E</td></tr>
+    <tr><td>lib/auth/users.ts:403</td><td>findOrCreateCoachByClerkUser (sí crea club) deliberadamente fuera del login</td><td class="E">E</td></tr>
+    <tr><td>infra/migrations/0113:99-120</td><td>4 emails @fahybrid.com hardcodeados → club 60; el resto a rejected. NO re-ejecutable</td><td class="E">E</td></tr>
+    <tr><td>lib/auth/roles.ts:71</td><td>grantRole sin llamadores — admin se otorga por SQL a mano</td><td class="E">E</td></tr>
+    <tr><td>lib/dashboard/admin/coaches.ts:96</td><td>requestCoachAccess muerto (0 llamadores) — media UI Aprobar/Rechazar inalcanzable</td><td class="E">E</td></tr>
+  </table></div>
+
+  <h3>Escrituras destructivas y colisiones de clave</h3>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>lib/citas/store.ts:538</td><td>delete from coach_availability SIN WHERE — guardar tu horario borra el de todos</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/capacity.ts:79</td><td>update de cupo con where id=(select … order by id limit 1) — escribe en el club #1</td><td class="E">E</td></tr>
+    <tr><td>lib/citas/google-tokens.ts:18</td><td>token Google con clave provider global — el club #2 sobrescribe al #1</td><td class="E">E</td></tr>
+    <tr><td>lib/citas/store.ts:548</td><td>on conflict (fecha) sobre unique global — bloquear un día lo bloquea para toda la plataforma</td><td class="E">E</td></tr>
+    <tr><td>lib/leads/store.ts:52</td><td>on conflict (email) global — el mismo email no puede ser lead de dos clubes; roba el token</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/attention/recompute.ts:381 (+inbox/snooze:93, bulk:98)</td><td>unique (athlete_id, signal_kind) sin coach — tras transferencia la señal queda del coach viejo</td><td class="E">E</td></tr>
+    <tr><td>lib/leads/nurture.ts:185</td><td>no_contactar global — baja de A silencia a B (RGPD)</td><td class="E">E</td></tr>
+    <tr><td>comp-athletes.ts:288 · lifecycle-self-service.ts:278 · athlete-lifecycle.ts:335</td><td>update subscriptions por user_id sin scope — una baja cancela TODAS</td><td class="E">E</td></tr>
+    <tr><td>lib/dashboard/coach/blocks.ts:408</td><td>slug único global dedupe con Date.now() — colisión entre coaches = 500</td><td class="E">E</td></tr>
+  </table></div>
+
+  <h3>«El coach» por limit 1 · IDOR · fugas de lectura</h3>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>lib/coach/capacity.ts:42,52,66</td><td>cupo y conteo de activos sin scope — todos contra el club #1 / la plataforma</td><td class="E">E</td></tr>
+    <tr><td>lib/citas/store.ts:488</td><td>studio/location por limit 1 — la dirección de un club en los emails de otro</td><td class="E">E</td></tr>
+    <tr><td>lib/auth/coach-session.ts:91</td><td>coach_members limit 1 sin order by — humano en 2 clubes resuelve aleatorio</td><td class="E">E</td></tr>
+    <tr><td>lib/leads/store.ts:221,286 · lib/leads/alta.ts:270</td><td>avanzar/descartar/COBRAR el lead de otro club</td><td class="E">E</td></tr>
+    <tr><td>lib/dashboard/coach/leads.ts:106,286-288,343</td><td>pipeline global + IDOR al PII del lead + contadores globales (badge del layout)</td><td class="E">E</td></tr>
+    <tr><td>lib/citas/store.ts:55-60,300,365 · api/coach/appointments/[id]:79</td><td>agenda única; leer/cancelar la cita de otro club</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/events.ts:173-180,336</td><td>eventos privados visibles y editables entre clubes</td><td class="E">E</td></tr>
+    <tr><td>lib/chat/resolve-thread.ts:32</td><td>no filtra t.coach_id — el club B leería el historial del hilo con A tras transferencia</td><td class="E">E</td></tr>
+    <tr><td>api/coach/levels/[id]:76-88 · write-coach-test.ts:292 · calibration-content.ts:263 · restore-default-tests.ts:63</td><td>check-then-act con la propiedad fuera del WHERE</td><td class="E">E</td></tr>
+    <tr><td>api/devices/test-push:65 · api/admin/races/[event_id]:65</td><td>admin global sin noción de club</td><td class="E">E</td></tr>
+    <tr><td>shared/domain/coach/program-months.ts:118,167,218</td><td>ids de plantilla del cliente sin validar dueño (sequences.ts:208 tiene el patrón bueno)</td><td class="E">E</td></tr>
+    <tr><td>templates.ts:423 · blocks.ts:369,438</td><td>exercise_id / level_id sin gate de visibilidad ni dueño</td><td class="E">E</td></tr>
+    <tr><td>lib/dashboard/coach/metrics.ts:164-413 · analytics/visits.ts:91-118</td><td>/metricas y funnel sin scope (session_reports.coach_id EXISTE y no se usa)</td><td class="E">E</td></tr>
+    <tr><td>lib/leads/waitlist.ts:106,275 · nurture.ts:82-155</td><td>cola y nurturing globales firmando «— Pablo»</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/ai-propose-week-adjustment.ts:437-441</td><td>la IA elige plantilla por id asc sin dueño (tras 0141 puede ganar la de un free)</td><td class="E">E</td></tr>
+    <tr><td>api/events/route.ts:57</td><td>evalúa sesión coach antes que bearer — catálogo sin filtrar a cualquier coach</td><td class="E">E</td></tr>
+  </table></div>
+
+  <h3>Stripe · notificaciones · crons · Clerk</h3>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>lib/stripe/* (config:41, client:32, checkout:34-42, prices:25-29,61, subscriptions:82,146,182, webhook, portal:32)</td><td>una cuenta, precios por env, FUNDADOR global, subscriptions sin coach_id, pendiente por user_id limit 1, portal al customer más antiguo, cero Connect</td><td class="E">E</td></tr>
+    <tr><td>lib/stripe/alta-activation.ts:90</td><td>rechaza todo pago con coach_id null — bloqueante de cualquier pago free futuro</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/billing.ts:35,93,252 · billing-actions.ts:49</td><td>dinero sin scope: pausar/cancelar/repreciar entre clubes; MRR ignora divisa</td><td class="E">E</td></tr>
+    <tr><td>business-metrics.ts:23,66-135</td><td>TIER_PRICE_EUR de Pablo en código; métricas de plataforma como si fueran del club</td><td class="E">E</td></tr>
+    <tr><td>lib/notifications/dispatch.ts:70,122</td><td>notifications sin coach_id; reparte al club entero (sin asignación atleta→persona)</td><td class="E">E</td></tr>
+    <tr><td>lib/notifications/triggers.ts:54-170</td><td>avisa a coaches.user_id legacy (HOY nadie ve check-in saltado/HRV); INNER JOIN descarta al free</td><td class="E">E</td></tr>
+    <tr><td>lifecycle-coach-alerts:30 · leads/email:45 · citas/email:149,176 · meeting:23</td><td>hello@fahybrid.com como buzón/organizador de TODOS los clubes (PII cross-tenant)</td><td class="E">E</td></tr>
+    <tr><td>cron recompute-attention:37 · weekly-evaluation:80-102 · polar-sync:111 · publish-weekly-plans:48</td><td>barridos seriales sin cursor/claim — inanición determinista al crecer</td><td class="E">E</td></tr>
+    <tr><td>api/webhooks/clerk:78,152</td><td>editar el perfil Clerk renombra el CLUB; users.full_name jamás se sincroniza</td><td class="E">E</td></tr>
+  </table></div>
+
+  <h3>Free (coach_id null) · superficial · ya-correcto</h3>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>zone-profile.ts:119 · strength-max.ts:134 · onboarding-zones.ts:75</td><td>zonas y 1RM vacíos en silencio sin coach</td><td class="E">E</td></tr>
+    <tr><td>marks-box.ts:58 · chat/service.ts:177 · push/subscriptions:38 · athletes/list.ts:289 · prices.ts:19 · billing-state.ts:18 · invitations.ts:386</td><td>free invisible: sin ranking, sin hilo, sin push web, en ningún roster, leído como «sin cobro»</td><td class="E">E</td></tr>
+    <tr><td>~30 strings de email/push con «Pablo» (nurture-email, waitlist-email, citas/email, reminder-email, publish-week:115,194…)</td><td>la voz de un club en todos</td><td class="S">S</td></tr>
+    <tr><td>shared/domain/dates.ts:24 · vercel.json:19 (cron sábado UTC) · briefing.ts:40,114 · demo-login:33 · api/coach/events:64 · biblioteca-data:51 · signal-config:45 · methodology/defaults:33 · apns.ts:120 · coach-session:46</td><td>Barcelona/Pablo/es-ES como constantes; datos demo inyectados; bypass dev con email personal</td><td class="S">S</td></tr>
+    <tr><td>exercises/coach-override · rag/retrieve:99 · blocks/templates/sequences/program-* · invitations:190 · broadcast:66 · injuries:194 · mass-adjustments · seed_demo_coaches</td><td>scoping correcto de punta a punta — el patrón a copiar</td><td class="OK">OK</td></tr>
+  </table></div>
+
+  <h2>B · Dashboard web (app/[locale] + components)</h2>
+  <div class="note">Titular: la mitad entrenamiento escala ya; la mitad negocio no tiene tenant EN EL ESQUEMA (decisión explícita en 0092/0093); y no existe forma de crear un segundo club desde el producto.</div>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>(v2)/layout.tsx:57</td><td>badges del sidebar (leads/citas) por funciones SIN coach_id — idénticos para todos los coaches</td><td class="E">E</td></tr>
+    <tr><td>leads/[id]/page.tsx:31 → leads.ts:286</td><td>IDOR al PII completo del lead</td><td class="E">E</td></tr>
+    <tr><td>components/v2/nav.ts:14-24,43-46 · V2MobileNav:29</td><td>sin campo de rol/tier en la nav; grupo Negocio incondicional; /leads en las tabs fijas del móvil</td><td class="E">E</td></tr>
+    <tr><td>coach_members.membership_role</td><td>se escribe (users.ts:563) y NUNCA se lee — owner y contratado indistinguibles (real hoy en club 60)</td><td class="E">E</td></tr>
+    <tr><td>lib/coach/profile.ts:48-89 · CoachProfileForm:210,220</td><td>Ajustes edita la identidad del CLUB creyendo editar la persona («Gerard renombra el club de Pablo»)</td><td class="E">E</td></tr>
+    <tr><td>proxy.ts:38-52</td><td>isProtectedRoute obsoleta: no cubre /leads /pagos /metricas /disponibilidad /biblioteca /mensajes /microciclos /periodizacion /tests /altas /guia (defensa en profundidad, el layout sí redirige)</td><td class="S">S</td></tr>
+    <tr><td>AvailabilityEditor:492 · BookingSlotPicker:433</td><td>fallback vivo «Pablo te escribirá para cuadrar la llamada» sin agenda configurada</td><td class="S">S</td></tr>
+    <tr><td>push de asignación (assign-month:76, assign-sequence:73, advance-sequence:53, doubles assign-sequence:46)</td><td>«Pablo ha publicado tu plan» literal a un móvil real</td><td class="S">S</td></tr>
+    <tr><td>/guia (40 caps)</td><td>~30 secciones genéricas; 9 de negocio con datos de Fabrik (MRR real, precios, «24 de 24», Madrid); 2 frases-decisión: white-label cerrado (02:180) y «un único entrenador» (20:215)</td><td class="S">S</td></tr>
+    <tr><td>session.club_name</td><td>calculado y jamás renderizado — el chrome usa FAHYBRID como identidad del workspace</td><td class="S">S</td></tr>
+    <tr><td>(marketing)/page.tsx + lib/landing/content.ts</td><td>la landing es del club de Pablo — correcto y declarado</td><td class="M">M</td></tr>
+    <tr><td>terms:73 · privacy:119,196,213,360</td><td>Pablo como RESPONSABLE de los datos de todo atleta — legalmente incorrecto con club #2; rehacer ANTES de abrir</td><td class="E">E</td></tr>
+    <tr><td>methodology_groups (0027) + biblioteca-data:51-81</td><td>taxonomía global sembrada de Pablo — decisión: ¿grupos por club?</td><td class="E">E</td></tr>
+  </table></div>
+
+  <h2>C · iOS + shared/domain</h2>
+  <div class="note">Titular: un atleta free no puede ENTRAR en la app (gate por Stripe activo, contra el endpoint legacy sin tier); has_coach no se consume; el chat asume UN hilo con EL coach; ~12 «Pablo» a mano.</div>
+  <div class="tS"><table>
+    <tr><th>Dónde</th><th>Qué</th><th></th></tr>
+    <tr><td>Profile/SubscriptionService.swift:36,72-104,138-141</td><td>llama a /api/stripe/subscription (legacy, sin tier); SubscriptionInfo no decodifica tier; isActiveAccess exige Stripe activo</td><td class="E">E</td></tr>
+    <tr><td>App/AuthState.swift:149-161 · AppRoot.swift:181-186</td><td>gate entero por suscripción; sin rama para free → InviteGateView</td><td class="E">E</td></tr>
+    <tr><td>auth apple/verify (servidor emite has_coach)</td><td>0 hits de has_coach/hasCoach en Swift — la señal no se consume</td><td class="E">E</td></tr>
+    <tr><td>Chat/ChatService.swift:51,158-161 · ChatView.swift:44,715 · AppShell:88-92 + 3 cabeceras</td><td>coachId no opcional; threads.first; compositor siempre; icono de chat en todas partes → hilo muerto para free</td><td class="E">E</td></tr>
+    <tr><td>ProfileView.swift:1356-1364,1696-1821</td><td>«Tu coach», microciclos «de tu coach», CoachSheet y términos («propiedad de tu coach · se renueva mensualmente») fijos</td><td class="E">E</td></tr>
+    <tr><td>InicioView:1052 · ReviewTodayCard:33 · SolicitarCarreraView:170,184 · BuscarCarreraSheet:274 · InjuriesView:78,191,277 · InviteGateView:30 · AppleSignInView:184-189</td><td>empty states, flujos y fallbacks que asumen coach (ReviewTodayCard FABRICA «Pablo»)</td><td class="E">E</td></tr>
+    <tr><td>shared/domain/dates.ts:24,101,183 · citas/slots.ts:90 · athlete-daily-readiness.ts:14</td><td>BOX_TIMEZONE Madrid en slots, semanas y readiness de todos</td><td class="E">E</td></tr>
+    <tr><td>zone-model.ts:101 · zones.ts:359</td><td>throw con 0/parcial zonas — free rompe en vez de degradar</td><td class="E">E</td></tr>
+    <tr><td>intake-pending.ts:21 · programming-status.ts:39 · progress-readiness.ts:167</td><td>free = «intake pendiente» eterno, «plan roto», y 100% de adherencia fabricado (0/0=1)</td><td class="E">E</td></tr>
+    <tr><td>intake-availability.ts:105 · test-battery.ts:42 · strength/exercises.ts:55</td><td>grupos 1..10 de Pablo mapeados; ejercicios anclados por slug global sin scope</td><td class="E">E</td></tr>
+    <tr><td>«Pablo» a mano: Day1Flow:105-290 · WelcomeStep:19 · DoneStep:29 · TestsHubView:375 · TestBatteryCard:171 · MarkDetailView:277 · programming-status.ts:58 · leads/questions.ts:24,274,445</td><td>copy con nombre real</td><td class="S">S</td></tr>
+    <tr><td>umbrales por constante: progress-readiness:46 · weekly-verdict-rules:11 · adherence/bands:73 · run-compliance:61 · completion:14 · pause-budget:27</td><td>la calibración de Pablo como universal</td><td class="S">S</td></tr>
+    <tr><td>ProfileView:39-42 · PlanService:239 · ChatView:283 · Onboarding/ (sin código de club) · watch entero · program-months.ts · signals.ts:123 · goal-gap/ training-load/ execution-merge/ running/ wearables/</td><td>ya agnóstico y coach-free</td><td class="OK">OK</td></tr>
+  </table></div>
+
+  <h3>Preguntas abiertas de la auditoría</h3>
+  <ul>
+    <li><b>Analíticas y Carreras para un free:</b> sin verificar qué devuelven sus endpoints sin plan prescrito (hace falta un atleta real sin coach contra la API).</li>
+    <li><b>Datos vivos:</b> «99 bloques» y «coach 60» vienen de migraciones/comentarios; confirmar contra Neon al ejecutar cada obra.</li>
+    <li><b>Sin barrer:</b> seeds más allá de seed_demo_coaches; nutrición/dobles/import/observability query a query; /guia línea a línea.</li>
+  </ul>
+
+  <p style="margin-top:40px;font-size:13px;color:var(--faint)">Generado por 3 agentes de auditoría en paralelo el 27-jul-2026 · plan derivado: <code>docs/multi-coach-plan.html</code></p>
+</div>
+</body>
+</html>
