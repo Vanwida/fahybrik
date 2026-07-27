@@ -45,8 +45,26 @@ Stripe activo contra el endpoint legacy sin `tier`); legal nombra a Pablo
 responsable de todo dato. Orden recomendado: obra 0 (higiene peligrosa) →
 obra 1 (iOS free, LANZA el free) → puerta → esquema → dinero → tiempo/voz,
 con lo legal en paralelo antes de abrir el club #2.
-**Esperando el veredicto de Alex sobre las 4 decisiones del plan** (Stripe
-plataforma-vs-Connect, white-label, leads públicos, orden).
+Alex ratificó ejecutar con mis recomendaciones (plataforma-comercio, sin
+white-label, fahybrid.com sigue de Fabrik, orden 0→1→puerta→esquema→dinero→
+voz). Listón explícito de Alex: perfecto, mejores prácticas, CERO código
+muerto.
+
+**Obra 1 HECHA y fusionada** (`dd56744`, BUILD SUCCEEDED en el checkout
+fusionado): el free ENTRA — gate por `tier` desde `/api/athlete/subscription`
+(muere `planLabel` muerto del cliente; la ruta legacy `/api/stripe/
+subscription` del servidor se borra TRAS el rollout), `has_coach` persistido
+(default coached → los atletas de Pablo, cero cambio), `FreeInicioView`
+según mockup, chat/copy de coach condicionados, ni un «Pablo» hardcodeado.
+Pendiente físico: cable para instalar; cuenta free de prueba para Alex
+(email `+free`) cuando se encienda `FREE_SIGNUP=1`.
+
+**Obra 0 en curso** (agente): puntos 1-4 commiteados en su worktree — el
+cupo era LA FILA DEL COACH RESIDUO id=4 (max 100, verificado en prod;
+inventario de los 6 clubes en el anexo de la auditoría), hilo de chat
+scoped al club, events y bearer-antes-que-cookie. Quedan 5-10. Al fusionar:
+deploy web con `FUNNEL_COACH_ID=60` en Vercel (puente hasta que los leads
+tengan club en la obra del esquema).
 
 ---
 
