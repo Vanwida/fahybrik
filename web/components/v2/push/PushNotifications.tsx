@@ -89,21 +89,37 @@ export function PushBanner() {
 
   const dismiss = dismissBanner;
 
+  // Vive en la columna de conversaciones (300px): texto arriba a lo ancho y
+  // botón debajo. Todo en una fila estrangulaba el texto a una palabra por línea.
   return (
     <div
       role="status"
-      className="flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:color-mix(in_srgb,var(--v2-accent)_35%,var(--v2-border))] bg-[color:color-mix(in_srgb,var(--v2-accent)_8%,var(--v2-surface))] px-3 py-2.5"
+      className="rounded-[var(--v2-r-m)] border border-[color:color-mix(in_srgb,var(--v2-accent)_35%,var(--v2-border))] bg-[color:color-mix(in_srgb,var(--v2-accent)_8%,var(--v2-surface))] p-3"
     >
-      <MIcon name="notifications_active" size={20} className="shrink-0 text-[color:var(--v2-accent)]" />
-      <div className="min-w-0 flex-1 text-sm">
-        {state === 'available' ? (
-          <span>Entérate al momento cuando un atleta te escriba, sin tener esto abierto.</span>
-        ) : (
-          <span>
-            En iPhone: toca <strong>Compartir</strong> y elige{' '}
-            <strong>Añadir a pantalla de inicio</strong>. Desde ahí podrás recibir avisos.
-          </span>
-        )}
+      <div className="flex items-start gap-2.5">
+        <MIcon
+          name="notifications_active"
+          size={18}
+          className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]"
+        />
+        <p className="min-w-0 flex-1 text-[13px] leading-snug text-[color:var(--v2-fg)]">
+          {state === 'available' ? (
+            'Recibe un aviso cuando un atleta te escriba, aunque el dashboard esté cerrado.'
+          ) : (
+            <>
+              En iPhone: toca <strong>Compartir</strong> → <strong>Añadir a pantalla de inicio</strong>{' '}
+              para poder recibir avisos.
+            </>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Descartar"
+          className="v2-focus -m-1 shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+        >
+          <MIcon name="close" size={16} />
+        </button>
       </div>
       {state === 'available' ? (
         <button
@@ -120,19 +136,11 @@ export function PushBanner() {
               setBusy(false);
             }
           }}
-          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
+          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
         >
           {busy ? 'Activando…' : 'Activar avisos'}
         </button>
       ) : null}
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Descartar"
-        className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-      >
-        <MIcon name="close" size={18} />
-      </button>
     </div>
   );
 }
