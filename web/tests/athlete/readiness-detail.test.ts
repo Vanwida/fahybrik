@@ -91,6 +91,53 @@ describeWithDb('readiness detail contract (real DB)', () => {
     expect(snap!.score).toBeLessThanOrEqual(100);
   });
 
+  test('getAthleteReadinessToday: computes TODAY when the stored latest snapshot is days old', async () => {
+    const sql = fx.sql;
+    const a = fx.athleteId;
+    // The frozen-sheet bug (27-jul-2026): the ONLY stored snapshot is 11 days
+    // old (born mid-first-sync, rhr-only) and nothing ever computed a newer day,
+    // so the athlete sheet showed "Jueves 16 jul · Sueño/HRV: Sin dato aún"
+    // forever while fresh biometrics sat in biometric_streams. The athlete's
+    // own today-read must compute today from the live inputs, not echo the
+    // stale row.
+    await sql`
+      insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score, breakdown_json)
+      values (${a}, '2026-06-04'::date, 98, '{"rhr_component":98,"sleep_target_h":8}'::jsonb)
+    `;
+
+    const snap = await getAthleteReadinessToday({ athlete_id: a, on_date: ON_DATE, client: sql });
+    expect(snap).not.toBeNull();
+    expect(snap!.recorded_for).toBe(TODAY);
+    expect(snap!.breakdown.sleep_component).not.toBeNull();
+    expect(snap!.breakdown.hrv_component).not.toBeNull();
+    expect(snap!.breakdown.rhr_component).not.toBeNull();
+    // And it PERSISTED, so coach surfaces (stored-snapshot readers) see it too.
+    const stored = await sql<Array<{ n: string }>>`
+      select count(*)::text as n from athlete_daily_readiness_snapshots
+      where athlete_id = ${a} and recorded_for = ${TODAY}::date
+    `;
+    expect(stored[0]!.n).toBe('1');
+  });
+
+  test('getAthleteReadinessToday: falls back to the stored latest when today has zero signals', async () => {
+    const sql = fx.sql;
+    const a = fx.athleteId;
+    // No signals at all for today (wipe the seeded ones) — only an old snapshot
+    // remains. The honest answer is that snapshot, dated as the day it was
+    // computed for — never an invented score, never null while history exists.
+    await sql`delete from biometric_streams where athlete_id = ${a}`;
+    await sql`delete from daily_checkins where athlete_id = ${a}`;
+    await sql`
+      insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score, breakdown_json)
+      values (${a}, ${YESTERDAY}::date, 70, '{"sleep_target_h":8}'::jsonb)
+    `;
+
+    const snap = await getAthleteReadinessToday({ athlete_id: a, on_date: ON_DATE, client: sql });
+    expect(snap).not.toBeNull();
+    expect(snap!.recorded_for).toBe(YESTERDAY);
+    expect(snap!.score).toBe(70);
+  });
+
   test('getAthleteReadinessToday: ascending trend + self-heals a legacy today snapshot', async () => {
     const sql = fx.sql;
     const a = fx.athleteId;

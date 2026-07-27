@@ -357,24 +357,22 @@ export async function getReadinessTrend(params: {
 }
 
 /**
- * True when a stored breakdown predates the raw-value enrichment (it has no
- * `sleep_target_h`, which the current compute ALWAYS sets). Used to self-heal
- * today's snapshot on read so the detail sheet gets its references without a
- * backfill migration.
- */
-function isLegacyBreakdown(b: ReadinessBreakdown): boolean {
-  return b.sleep_target_h == null;
-}
-
-/**
- * The athlete's OWN readiness for today — the SAME snapshot `getLatestReadiness`
- * returns (so the Inicio card and the detail sheet can never disagree), plus:
- *   • `trend`  — the last-7-day score series for the sheet's mini chart.
- *   • enriched raw breakdown values — if today's snapshot predates them it is
- *     recomputed ONCE (self-healing, today-only, converges after one read) so the
- *     sheet shows HRV / sleep / RHR values vs their references immediately.
- * The coach readers keep using `getLatestReadiness` untouched (no trend, no forced
- * recompute) — this heavier path is the athlete endpoint's alone.
+ * The athlete's OWN readiness for today — computed FRESH from the live inputs
+ * (biometrics + check-in) on every read, persisted via the compute's upsert so
+ * the stored snapshot coach surfaces read can never lag the athlete's own view,
+ * plus `trend` — the last-7-day score series for the sheet's mini chart.
+ *
+ * Why compute-on-read and not read-the-stored-row: snapshots have no daily
+ * scheduler — a stored row only exists when something computed it. Reading
+ * "latest ≤ today" froze the sheet on whatever day computed last (the 16-jul
+ * frozen-sheet bug: an 11-day-old rhr-only snapshot shown as current while
+ * fresh sleep/HRV sat in biometric_streams). The compute is a handful of
+ * indexed reads + one upsert — fine at athlete-read frequency.
+ *
+ * When today has NO signal at all the compute returns null and we fall back to
+ * the stored latest (dated honestly as the day it was computed for); with no
+ * history either, null → the app's "Sin datos" empty state. The coach batch
+ * readers keep using `getLatestReadiness` untouched.
  */
 export async function getAthleteReadinessToday(params: {
   athlete_id: number | bigint;
@@ -385,29 +383,52 @@ export async function getAthleteReadinessToday(params: {
   const tz = await loadAthleteTimezone(client, params.athlete_id);
   const iso = zonedDayString(params.on_date ?? new Date(), tz);
 
-  let snap = await getLatestReadiness({
-    athlete_id: params.athlete_id,
-    ...(params.on_date ? { on_date: params.on_date } : {}),
-    client,
-  });
-  // Enrich TODAY's snapshot on read if it predates the raw fields — recompute
-  // once (same formula, today-only), so references appear without a backfill.
-  if (snap && snap.recorded_for === iso && isLegacyBreakdown(snap.breakdown)) {
-    try {
-      const fresh = await computeAthleteDailyReadiness({
-        athlete_id: params.athlete_id,
-        recorded_for: iso,
-        timezone: tz,
-        client,
-      });
-      if (fresh) snap = fresh;
-    } catch {
-      // best-effort — keep the stored snapshot if the recompute fails.
-    }
+  let snap: DailyReadinessSnapshot | null = null;
+  try {
+    snap = await computeAthleteDailyReadiness({
+      athlete_id: params.athlete_id,
+      recorded_for: iso,
+      timezone: tz,
+      client,
+    });
+  } catch {
+    // best-effort — fall back to the stored read below.
+  }
+  if (!snap) {
+    snap = await getLatestReadiness({
+      athlete_id: params.athlete_id,
+      ...(params.on_date ? { on_date: params.on_date } : {}),
+      client,
+    });
   }
   if (!snap) return null;
   const trend = await getReadinessTrend({ athlete_id: params.athlete_id, iso, client });
   return { ...snap, trend };
+}
+
+/**
+ * Data-arrival hook: recompute-and-persist TODAY's snapshot (athlete-local day)
+ * after a HealthKit batch or a check-in lands, so stored-snapshot readers (the
+ * coach roster/resumen/attention sweep) reflect the data that just arrived
+ * without waiting for the athlete to open the app. Best-effort by design —
+ * ingest must never fail because scoring did.
+ */
+export async function refreshAthleteReadinessToday(params: {
+  athlete_id: number | bigint;
+  now?: Date;
+  client: Sql;
+}): Promise<void> {
+  try {
+    const tz = await loadAthleteTimezone(params.client, params.athlete_id);
+    await computeAthleteDailyReadiness({
+      athlete_id: params.athlete_id,
+      recorded_for: zonedDayString(params.now ?? new Date(), tz),
+      timezone: tz,
+      client: params.client,
+    });
+  } catch {
+    // best-effort — a scoring hiccup must not break the ingest path.
+  }
 }
 
 /**

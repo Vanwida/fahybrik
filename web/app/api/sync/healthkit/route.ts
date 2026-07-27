@@ -18,6 +18,7 @@ import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
 import { captureRouteError } from '@/lib/observability/capture';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
+import { refreshAthleteReadinessToday } from '@/lib/coach/athlete-daily-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -68,7 +69,16 @@ export async function POST(req: Request): Promise<NextResponse> {
       `;
     }
 
-    // Fire-and-forget: fresh biometrics can clear no_sync / move HRV signals.
+    // The batch may carry last night's sleep / HRV / resting HR — recompute
+    // TODAY's readiness snapshot from it BEFORE responding (awaited: cheap, and
+    // a fire-and-forget can be frozen with the function). Runs after the
+    // timezone upsert above so the overnight windows use the fresh zone. This
+    // is what keeps the athlete sheet and coach surfaces from freezing on the
+    // day of the last compute.
+    await refreshAthleteReadinessToday({ athlete_id: auth.athlete_id });
+
+    // Fire-and-forget: fresh biometrics can clear no_sync / move HRV signals
+    // (and the attention sweep now reads the just-refreshed snapshot).
     void recomputeAthlete({ athlete_id: auth.athlete_id }).catch(() => {});
 
     return jsonOk({ ok: true, result });
