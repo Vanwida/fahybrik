@@ -29,6 +29,9 @@ struct PartnerRedeemResponse: Codable, Equatable {
     let email: String?
     let isPrivateEmail: Bool?
     let onboardedAt: String?
+    /// Wire `has_coach` (additive) — false = athlete without coach (tier FREE).
+    /// Nil on older payloads → treated as coached by AuthState.
+    let hasCoach: Bool?
 
     var bearer: String { sessionToken }
     var onboarding_complete: Bool { onboardedAt != nil }

@@ -31,10 +31,20 @@ final class AuthState {
     /// launch / sign-in so a lapsed athlete gets gated again.
     var accessGated: Bool? = nil
 
+    /// Whether the athlete has a coach (tier COACHED) — `false` = the self-serve
+    /// FREE tier, which flips the app to the free surface (no chat, no coach
+    /// copy, free home). Seeded from the login response (`has_coach`, additive)
+    /// and re-derived from the subscription endpoint's `tier` on every
+    /// `refreshAccess()`, so getting/losing a coach propagates on next launch.
+    /// Persisted; defaults to `true` for sessions saved before the field existed
+    /// (all of them coached) so today's athletes see zero change.
+    var hasCoach: Bool = true
+
     /// AUDIT-B1 — the bearer now lives in the Keychain (KeychainTokenStore); callers that
     /// need it read `KeychainTokenStore.shared.read()`, never UserDefaults.
     private static let athleteKey = "fahybrik.athleteId"
     private static let stageKey = "fahybrik.stage"
+    private static let hasCoachKey = "fahybrik.hasCoach"
     private static func day1Key(_ athleteId: String) -> String { "fahybrik.day1_completed.\(athleteId)" }
     private static func day1StepKey(_ athleteId: String) -> String { "fahybrik.day1_step.\(athleteId)" }
 
@@ -52,6 +62,8 @@ final class AuthState {
         KeychainTokenStore.shared.migrateFromUserDefaults()
         bearer = KeychainTokenStore.shared.read()
         athleteId = d.string(forKey: Self.athleteKey)
+        // Absent key (session saved before the free tier existed) = coached.
+        hasCoach = (d.object(forKey: Self.hasCoachKey) as? Bool) ?? true
         if let raw = d.string(forKey: Self.stageKey) {
             switch raw {
             case "authenticated": stage = .authenticated
@@ -66,6 +78,8 @@ final class AuthState {
         bearer = resp.bearer
         athleteId = resp.athlete_id
         stage = (resp.onboarding_complete == true) ? .authenticated : .onboarding
+        // Additive field: an older server payload omits it → coached (today's app).
+        hasCoach = resp.hasCoach ?? true
         // Access must be (re)checked for the freshly-authenticated session.
         accessGated = nil
         loadDay1()
@@ -87,6 +101,8 @@ final class AuthState {
         self.bearer = bearer
         self.athleteId = athleteId
         stage = .authenticated
+        // The seeded demo athlete is coached; refreshAccess re-derives from tier.
+        hasCoach = true
         accessGated = nil
         loadDay1()
         persist()
@@ -129,6 +145,7 @@ final class AuthState {
         athleteId = nil
         stage = .unauthenticated
         accessGated = nil
+        hasCoach = true
         persist()
     }
 
@@ -139,17 +156,29 @@ final class AuthState {
         accessGated = false
     }
 
-    /// Re-derive the invite-only access gate from the subscription endpoint.
-    /// Active / trialing access ⇒ ungated; everything else ⇒ gated. On a
-    /// network error we fail OPEN (ungated) so a transient outage doesn't lock
-    /// a legitimately-paid athlete out of the app — EXCEPT a 401, which means the
-    /// bearer itself is dead: we clear the session and route to login instead of
-    /// failing open into the app with a token every request will reject.
+    /// Re-derive the access gate from `GET /api/athlete/subscription`.
+    ///
+    /// Decision tree (tier × status → where the athlete lands):
+    ///   • tier "free"                       → ungated, hasCoach=false (free surface)
+    ///   • tier "coached" + active/trialing  → ungated, hasCoach=true (today's app)
+    ///   • tier "coached" + anything else    → gated → InviteGateView
+    ///   • tier absent (old cached payload)  → status-driven, hasCoach untouched
+    ///
+    /// On a network error we fail OPEN (ungated) so a transient outage doesn't
+    /// lock a legitimately-entitled athlete out of the app — EXCEPT a 401, which
+    /// means the bearer itself is dead: we clear the session and route to login
+    /// instead of failing open into the app with a token every request will reject.
     @MainActor
     func refreshAccess() async {
         guard let bearer else { accessGated = true; return }
         do {
             let info = try await SubscriptionService.fetchSubscription(bearer: bearer)
+            // The tier is server truth for the coach link — keep hasCoach fresh so
+            // gaining/losing a coach flips the surface on the next launch.
+            if let tier = info.tier {
+                hasCoach = (tier != "free")
+                persist()
+            }
             accessGated = !info.isActiveAccess
         } catch {
             if case APIError.http(401, _) = error {
@@ -185,6 +214,7 @@ final class AuthState {
         else { KeychainTokenStore.shared.delete() }
         if let athleteId { d.set(athleteId, forKey: Self.athleteKey) }
         else { d.removeObject(forKey: Self.athleteKey) }
+        d.set(hasCoach, forKey: Self.hasCoachKey)
         let raw: String = {
             switch stage {
             case .unauthenticated: return "unauthenticated"

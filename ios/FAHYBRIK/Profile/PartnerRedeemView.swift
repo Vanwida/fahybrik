@@ -130,7 +130,8 @@ struct PartnerRedeemView: View {
             let envelope = AppleAuthResponse(
                 sessionToken: resp.sessionToken,
                 athleteId: resp.athleteId,
-                onboardedAt: resp.onboardedAt
+                onboardedAt: resp.onboardedAt,
+                hasCoach: resp.hasCoach
             )
             self.auth.acceptAppleResponse(envelope)
             onCompleted()

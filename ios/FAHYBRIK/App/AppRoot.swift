@@ -196,7 +196,10 @@ struct AppRoot: View {
                     }
                 )
             case .authenticated:
-                if auth.day1Completed {
+                if auth.day1Completed || !auth.hasCoach {
+                    // Day-1 is the COACHED orientation (your coach has your
+                    // profile, week-1 tests, the coach loop) — a free athlete
+                    // skips it and lands straight on their home.
                     AppShell(onSignOut: { auth.signOut() })
                         .environment(auth)
                 } else {

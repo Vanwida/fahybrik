@@ -16,6 +16,11 @@ struct AppleAuthResponse: Decodable {
     let sessionToken: String
     let athleteId: String
     let onboardedAt: String?
+    /// Wire `has_coach` (additive on every session-minting endpoint: apple,
+    /// email verify, invite + partner redeems). `false` = athlete without a
+    /// coach (tier FREE) → the app shows the free surface. Nil on older server
+    /// payloads → callers default to `true` (coached, today's behaviour).
+    let hasCoach: Bool?
 
     // Adapters for existing call sites
     var bearer: String { sessionToken }
