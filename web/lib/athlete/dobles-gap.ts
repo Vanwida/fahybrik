@@ -179,7 +179,13 @@ function ownRaceToFractionSource(own: OwnRace | null): RaceFractionSource | null
 
 // ── Doubles budget fraction sources ────────────────────────────────────────────
 
-/** The near-goal DOUBLES cohort, division+gender preferred, else doubles-only. */
+/**
+ * The near-goal DOUBLES cohort, division+gender preferred, else doubles-only.
+ *
+ * Reads across ALL athletes — misma regla que el cohorte de singles: las filas
+ * `is_synthetic` (seeds de demo, con los splits de la pareja multiplicados por un
+ * factor) quedan FUERA. Es el cohorte que hoy ya las contaba en producción.
+ */
 async function fetchDoublesCohort(
   goal: number,
   division: string,
@@ -200,6 +206,7 @@ async function fetchDoublesCohort(
     from races
     where format = 'doubles'
       and source in ('hyrox_import', 'hyresult_import')
+      and not is_synthetic
       and station_splits_json is not null
       and result_time_seconds is not null
       and result_time_seconds between ${lo} and ${hi}

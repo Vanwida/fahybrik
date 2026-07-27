@@ -154,12 +154,12 @@ async function ensureJointRaces(coachId: number, eventId: number, athleteIds: nu
       insert into races (
         athlete_id, created_by_coach_id, event_id, name, event_type, format,
         division, gender_category, priority, race_date, location,
-        goal_time_seconds, status
+        goal_time_seconds, status, is_synthetic
       ) values (
         ${athleteId}, ${coachId}, ${eventId}, ${RACE_NAME}, 'hyrox'::race_event_type,
         'doubles'::race_format, ${DIVISION}::race_division, ${GENDER}::race_gender,
         'secondary'::race_priority, ${EVENT_DATE}::date, 'Madrid',
-        ${PAIR_GOAL_SECONDS}, 'registered'::race_status
+        ${PAIR_GOAL_SECONDS}, 'registered'::race_status, true
       )
     `;
     log(`doubles race for athlete ${athleteId} → event ${eventId}, goal ${PAIR_GOAL_SECONDS}s`);

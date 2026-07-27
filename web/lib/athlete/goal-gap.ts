@@ -147,7 +147,14 @@ export function toCohortRace(row: RaceSplitRow): CohortRace | null {
 
 // ── Fetches ───────────────────────────────────────────────────────────────────
 
-/** The near-goal singles cohort, division+gender preferred, else singles-only. */
+/**
+ * The near-goal singles cohort, division+gender preferred, else singles-only.
+ *
+ * Reads across ALL athletes, so it is the one place a fabricated race would
+ * become evidence about somebody else: `is_synthetic` (0142) keeps the demo
+ * seeds — whose splits are copied from a fixture and, for the demo partner,
+ * multiplied by a factor — out of a paying athlete's budget.
+ */
 async function fetchCohort(goal: number, division: string, gender: string, client: Sql): Promise<CohortRace[]> {
   const lo = Math.round(goal * (1 - COHORT_GOAL_TOLERANCE));
   const hi = Math.round(goal * (1 + COHORT_GOAL_TOLERANCE));
@@ -163,6 +170,7 @@ async function fetchCohort(goal: number, division: string, gender: string, clien
     from races
     where format = 'singles'
       and source in ('hyrox_import', 'hyresult_import')
+      and not is_synthetic
       and station_splits_json is not null
       and result_time_seconds is not null
       and result_time_seconds between ${lo} and ${hi}
