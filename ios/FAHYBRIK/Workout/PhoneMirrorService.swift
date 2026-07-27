@@ -341,6 +341,9 @@ final class PhoneMirrorService {
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
             targetZone: seg?.targetZone?.rawValue,
+            // The advance ends everything when there is no block after this one and
+            // we are not parked on a block gate (a gate's advance only STARTS it).
+            isFinalStep: !session.isAwaitingBlockStart && !session.hasBlockAfterCurrent,
             restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
             dobles: dobles,
             beltDistanceM: beltDistanceM,

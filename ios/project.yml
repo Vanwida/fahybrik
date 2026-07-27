@@ -139,10 +139,12 @@ targets:
           - bluetooth-central
         UILaunchScreen:
           UILaunchScreen: {}
+        # PORTRAIT-ONLY on iPhone (IMG_2386): landscape existed by accident and
+        # every accidental layout hid buttons under the edge. The gym-app standard
+        # is deliberate orientation — if a screen ever EARNS landscape (video, a
+        # live HUD), it opts in locally; the app default is portrait.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown

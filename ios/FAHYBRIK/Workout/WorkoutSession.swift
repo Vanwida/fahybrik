@@ -2328,17 +2328,22 @@ final class WorkoutSession {
         else if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
         else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
 
-        // Per-set rest countdown: tick the final 3s, soft cue at zero.
+        // Per-set rest countdown. The zero cue must SURVIVE a distracted athlete
+        // (Alex, mid-workout: "es fácil distraerse") — a single medium tap between
+        // sets in a loud gym is nothing. Now: a heads-up at 10 s, the 3-2-1 ticks,
+        // and an unmissable DOUBLE heavy at zero.
         if restRemainingSeconds > 0 {
             let before = restRemainingSeconds
             let after = before - dt
+            if before > 10.0 && after <= 10.0 { Haptics.medium() } // prepárate
             for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
                 Haptics.light()
             }
             if after <= 0 {
                 restRemainingSeconds = 0
                 restTotalSeconds = 0
-                Haptics.medium()
+                Haptics.heavy()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.heavy() }
             } else {
                 restRemainingSeconds = after
             }

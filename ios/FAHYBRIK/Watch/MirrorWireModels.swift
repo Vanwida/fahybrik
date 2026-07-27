@@ -92,6 +92,11 @@ struct MirrorStateFrame: Codable, Equatable {
     let countdownRemaining: Double?
     /// Target HR zone 1...5 → wrist zone bar + out-of-zone haptic (local HR).
     let targetZone: Int?
+    /// True when the wrist's advance would FINISH the whole session (last segment /
+    /// last block). The watch then shows "Terminar" + a confirmation instead of
+    /// "Siguiente ▸" — a workout must never end from one accidental tap (IMG_2385).
+    /// Optional so an older counterpart decodes frames without it.
+    let isFinalStep: Bool?
     /// Rest overlay countdown, seconds. Present ⇒ the wrist shows the rest banner.
     let restRemaining: Double?
     /// #56 — the current HYROX dobles station's TURN (whose station + the rep reparto),

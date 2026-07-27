@@ -356,16 +356,43 @@ struct MirrorHUDView: View {
 
     // MARK: - Advance button
 
+    /// The FINAL step never ends on one tap (IMG_2385: a free strength session is
+    /// one segment inside, so "Siguiente" closed the whole workout mid-warmup).
+    /// On the last step the button says what it does — "Terminar" — and asks.
+    @State private var confirmingFinish = false
+
     private var advanceButton: some View {
-        BigTapButton(title: advanceTitle) {
-            controller.sendCommand(MirrorWire.CommandKind.advance)
+        let final = isFinalStep
+        return BigTapButton(title: advanceTitle) {
+            if final {
+                confirmingFinish = true
+            } else {
+                controller.sendCommand(MirrorWire.CommandKind.advance)
+            }
         }
+        .confirmationDialog(
+            "¿Terminar el entreno?",
+            isPresented: $confirmingFinish,
+            titleVisibility: .visible
+        ) {
+            Button("Terminar", role: .destructive) {
+                controller.sendCommand(MirrorWire.CommandKind.advance)
+            }
+            Button("Seguir", role: .cancel) { }
+        }
+    }
+
+    private var isFinalStep: Bool {
+        // Only a POSITIVE final flag (new phones send it) and never on a gate —
+        // a gate's advance starts the block, it can't end anything.
+        phase != MirrorWire.Phase.gate && frame?.isFinalStep == true
     }
 
     private var advanceTitle: String {
         if phase == MirrorWire.Phase.gate { return "Empezar ▸" }
         // #56 — the partner's relay station advances the athlete's OWN next station.
         if frame?.dobles?.role == "partner" { return "Relevo ▸" }
+        if isFinalStep { return "Terminar" }
         return "Siguiente ▸"
     }
 
