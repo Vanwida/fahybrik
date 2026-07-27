@@ -330,12 +330,20 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
     await closeCurrentPauseTx(tx, input.athlete_id, todayIso);
 
     // Billing: cancel at period end (do NOT cut access now). Owner-scoped, exactly
-    // like account-deletion — a dobles partner's shared sub is the dobles agent's seam.
+    // like account-deletion — a dobles partner's shared sub is the dobles agent's
+    // seam. Pinned to ONE concrete row (newest active owned by this user), never a
+    // blanket user_id+status sweep — subscriptions carry no club column until
+    // obra 4, so a sweep would cancel every club's subscription at once.
     await tx`
       update subscriptions set cancel_at_period_end = true, updated_at = now()
-      where user_id = ${current.user_id}
-        and status = 'active'
-        and cancel_at_period_end = false
+      where id = (
+        select id from subscriptions
+        where user_id = ${current.user_id}
+          and status = 'active'
+          and cancel_at_period_end = false
+        order by created_at desc
+        limit 1
+      )
     `;
     // #13(dobles): a baja dissolves the athlete's active pair across the 3 axes
     // (training/account/billing) and notifies the surviving partner — inside the
