@@ -4,6 +4,15 @@
 // DB-mirrored (source of truth = `subscriptions`), plus the linked partner (for
 // Dobles) so iOS Profile can render "Plan Dobles · con <partner> · próxima
 // factura DD/MM" without round-tripping to Stripe.
+//
+// `tier` (ADDITIVE, tier free fase 2) is the PRODUCT scope, derived from the
+// coach link (athletes.coach_id) — it does NOT imply payment. 'coached' = a
+// coach runs this athlete's plan and their payment truth stays `subscribed`
+// (the Stripe mirror). 'free' = the self-serve tier, which has NO subscriptions
+// row BY DESIGN: there is nothing to pay, so the absence of a subscription is a
+// legitimate state, never a lapsed one. iOS decides its gate with `tier`;
+// `subscribed:false` alone must not eject a free athlete. The installed app
+// ignores the extra field (Codable), so the shape change is safe.
 
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -22,6 +31,13 @@ export async function GET(req: Request): Promise<Response> {
 
   const sub = await getSubscriptionByUserId(sql, auth.user_id);
   const partner = await loadPartner(auth.user_id, sql);
+
+  // The tier derives from the coach link, never from `subscriptions` (see header).
+  const tierRows = await sql<Array<{ coach_id: string | null }>>`
+    select coach_id::text as coach_id from athletes where id = ${auth.athlete_id} limit 1
+  `;
+  const tier: 'coached' | 'free' = tierRows[0]?.coach_id ? 'coached' : 'free';
+
   const partnerPayload = partner
     ? {
         user_id: partner.user_id.toString(),
@@ -39,6 +55,7 @@ export async function GET(req: Request): Promise<Response> {
       current_period_end: null,
       cancel_at_period_end: false,
       partner: partnerPayload,
+      tier,
     });
   }
 
@@ -49,5 +66,6 @@ export async function GET(req: Request): Promise<Response> {
     current_period_end: sub.current_period_end?.toISOString() ?? null,
     cancel_at_period_end: sub.cancel_at_period_end,
     partner: partnerPayload,
+    tier,
   });
 }

@@ -74,15 +74,17 @@ export async function POST(request: Request) {
   }
   const plan = validation.plan;
 
-  // A libre workout still needs a coach to surface to (the workout_libre signal).
+  // The libre surfaces to the athlete's coach when they HAVE one (the
+  // workout_libre attention signal). A FREE athlete (coach_id null) saves the
+  // same workout with no one to notify — the coach notice is best-effort
+  // accessory, never part of the save contract, so null flows through:
+  // exercise resolution falls back to the BASE catalog (visibleToCoach) and the
+  // attention recompute no-ops without a coach.
   const coachRows = await sql<Array<{ coach_id: string | null }>>`
     select coach_id::text as coach_id from athletes where id = ${athleteId} limit 1
   `;
   const coachIdStr = coachRows[0]?.coach_id ?? null;
-  if (!coachIdStr) {
-    return jsonError('no_coach', 'Athlete has no coach to receive the workout', 422);
-  }
-  const coachId = Number(coachIdStr);
+  const coachId = coachIdStr === null ? null : Number(coachIdStr);
 
   // Execution metrics only (strips title/modality/prescription/items — the metrics
   // schema is non-strict, so re-parsing the validated body keeps exactly the

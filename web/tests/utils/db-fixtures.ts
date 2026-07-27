@@ -122,6 +122,52 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
   return fx;
 }
 
+/** A tier-FREE athlete: no coach behind them (athletes.coach_id null since 0001). */
+export type FreeAthleteFixture = {
+  sql: Sql;
+  athleteId: number;
+  athleteUserId: number;
+  /** Exercise ids created by the fixture (seed BASE rows), removed in teardown. */
+  exerciseIds: number[];
+  cleanup: () => Promise<void>;
+};
+
+/** Create an athlete with NO coach — the free-tier shape. Their libre persists
+ *  athlete-owned instance templates (coach_id null, templates_owner_chk 0141). */
+export async function makeFreeAthlete(sql: Sql): Promise<FreeAthleteFixture> {
+  const athleteUser = await sql<Array<{ id: string }>>`
+    insert into users (email, role) values (${uniq('free') + '@test.local'}, 'athlete')
+    returning id::text
+  `;
+  const athleteUserId = Number(athleteUser[0]!.id);
+  const athlete = await sql<Array<{ id: string }>>`
+    insert into athletes (user_id, coach_id, full_name)
+    values (${athleteUserId}, null, 'Free Athlete')
+    returning id::text
+  `;
+  const athleteId = Number(athlete[0]!.id);
+
+  const fx: FreeAthleteFixture = {
+    sql,
+    athleteId,
+    athleteUserId,
+    exerciseIds: [],
+    cleanup: async () => {
+      // FK-safe order: assignments reference templates, so they go first; the
+      // athlete-owned instance templates (0141) are deleted explicitly even
+      // though the athlete delete would cascade them (0083 on delete cascade).
+      await sql`delete from workout_assignments where athlete_id = ${athleteId}`;
+      await sql`delete from templates where instance_athlete_id = ${athleteId}`;
+      await sql`delete from athletes where id = ${athleteId}`;
+      if (fx.exerciseIds.length > 0) {
+        await sql`delete from exercises where id in ${sql(fx.exerciseIds)}`;
+      }
+      await sql`delete from users where id = ${athleteUserId}`;
+    },
+  };
+  return fx;
+}
+
 /**
  * Insert a microciclo (a week row) directly under an athlete — AGNOSTIC: microcycles
  * now hang off `athlete_id` (no ATR block/macrocycle). Returns its id. Most tests no
@@ -276,7 +322,9 @@ export async function makeMonthTemplate(params: {
  *  seeding BASE rows unchanged. Pass a fixture's `coachId` to seed a PROPIO
  *  exercise owned by that coach (invisible to every other coach). */
 export async function makeExercise(params: {
-  fx: Fixture;
+  /** Only the client + the teardown registry are needed, so a coachless
+   *  FreeAthleteFixture can seed BASE exercises too. */
+  fx: Pick<Fixture, 'sql' | 'exerciseIds'>;
   name?: string;
   slug?: string;
   category?: string;
