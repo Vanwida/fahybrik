@@ -51,8 +51,10 @@ en `docs/DECISIONS.md`.
   como destino del aviso) — **bloquea el grabador free**; hay que abrirlo.
 - `GET /api/athlete/subscription` → `subscribed:false` sin fila → el gate
   de acceso de iOS echará al atleta free: decidir el plan 'free' ahí.
-- «Probarme» (start-calibration 422) y zonas/1RM (409) piden el catálogo y
-  bandas de SISTEMA — fase Probarme-free.
+- «Probarme» free YA FUNCIONA: el catálogo de las 6 marcas es de sistema
+  (`shared/domain/athlete/marks.ts`) y marks/attempt es null-safe — la
+  «fase Probarme-free» no existe. Los 422/409 de calibración y zonas/1RM
+  son la batería DEL COACH, que el free no incluye por diseño.
 - Ranking sin coach = vacío por diseño (fase 3: división/global). Defaults
 tomados del brief (free ilimitado; rankings división+global); el NOMBRE del
 tier sigue abierto (decisión de Alex, sin prisa hasta la ficha).
