@@ -135,6 +135,33 @@ Alex para la primera prueba real del free; luego obra puerta (alta de club
 
 ---
 
+## EN MARCHA · FREE tier — iOS: la pestaña PLAN ya es la de conversión (27-jul, noche)
+
+Construida sobre el mockup aprobado (`docs/design/free-plan-conversion-mockup.html`):
+`FreePlanView` + `FreePlanMarksCards`, gateadas por `hasCoach` en `AppShell`
+(con coach no cambia NADA). Compila en verde; **falta el cable para
+instalarla**.
+
+- **Sin evidencia** (ni marca medida ni carrera importada): primero lo que le
+  damos — su **VO₂ máx del reloj**, que hasta hoy no salía en ninguna pantalla
+  (`/api/athlete/biometrics/trend`) — y después lo que le pedimos: **traerse su
+  historial de HYROX buscándose por nombre** (el importador que ya existía;
+  arriba del todo por criterio de Alex) y, si no ha corrido nunca, las tres de
+  arranque (1 km · remo 500 · ski 1.000) hacia «Probarme». Cero venta aquí.
+- **Con evidencia**: su carrera + cuenta atrás, sus marcas con fecha y lo que
+  le falta, y el cierre con la persona → embudo de cita ya existente.
+- **NO se pinta el tiempo proyectado**: el predictor aún no lee las marcas
+  (`docs/race-projection-spec.html` §01). En su lugar, la línea honesta de qué
+  marcas faltan + punto de extensión marcado en la tarjeta. Fuera por lo mismo
+  el diagnóstico por estación y la semana bloqueada. Decisión en `docs/DECISIONS.md`.
+- **Inicio**: la barra de la semana se toca — un día abre lo que entrenaste ese
+  día, reutilizando el detalle de la app con coach. Y muere el copy que parecía
+  decirte que ya habías hecho un remo 500.
+
+Cero cambios de servidor en esta pieza.
+
+---
+
 ## EN MARCHA · FREE tier — GO de Alex (27-jul)
 
 Alex dio luz verde («es una idea de embudo que nos puede traer nuevos
