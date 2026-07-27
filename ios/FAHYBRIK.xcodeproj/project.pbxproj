@@ -249,6 +249,7 @@
 		9C904732E95B8BC0B8CBAA8F /* AnalyticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B749A0DBEF6E0B4D8DC6AF31 /* AnalyticsModels.swift */; };
 		9CD312B46C63246E5EC96B36 /* AssignmentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0C622AB4411D866FA012C /* AssignmentDetail.swift */; };
 		9CDDABF66481DF4CA5FD9A37 /* PartnerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6391B1CBBCA4894E03594A87 /* PartnerInfo.swift */; };
+		9D18C665CC9FB7C684062243 /* ErgPreStartFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */; };
 		9D57E5FD704B5284F3FAA9CE /* RaceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8A8EC873824DDB5E986596 /* RaceDetailView.swift */; };
 		9E24EFBB5F114D60DF923B04 /* WorkoutRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9039B9DC0EF86C77A91572 /* WorkoutRecoveryTests.swift */; };
 		9FDF8CCDF867678368986C63 /* LiveFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8352F0F5673F2DA172314C9D /* LiveFlowView.swift */; };
@@ -566,6 +567,7 @@
 		45667455CF4B60E1F179236A /* PM5WorkoutCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutCodecTests.swift; sourceTree = "<group>"; };
 		4740D5816CDE34294FE7EDE7 /* Prescription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prescription.swift; sourceTree = "<group>"; };
 		4792F4658F35CB9D30DCE9C4 /* FacilityStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacilityStep.swift; sourceTree = "<group>"; };
+		481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgPreStartFlow.swift; sourceTree = "<group>"; };
 		48AA58BACA7CB602F78F948A /* ReadinessDetailDecodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessDetailDecodeTests.swift; sourceTree = "<group>"; };
 		4970FF0A510C402823DD3A58 /* PM5DataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5DataParserTests.swift; sourceTree = "<group>"; };
 		4A252932F06A936722323061 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
@@ -980,6 +982,7 @@
 				2A06EA29104FF57C45842FFF /* CountdownFormat.swift */,
 				0BB82184D9C692835D4B0507 /* DoblesTurn.swift */,
 				A5A47F3B4D9352A06DFF181D /* DoblesTurnHero.swift */,
+				481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */,
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
 				141E799DEAD09B89E810DA46 /* HRRecovery.swift */,
 				188E789D535F0AB8C94725AE /* ManualEntryControl.swift */,
@@ -2055,6 +2058,7 @@
 				DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */,
 				09A60A290811DB35200D800D /* ErgConnectCard.swift in Sources */,
 				AB9771EA4D3AFF09B6FEA9B9 /* ErgHUDContent.swift in Sources */,
+				9D18C665CC9FB7C684062243 /* ErgPreStartFlow.swift in Sources */,
 				A68764BA54E6F06F78581784 /* EventsModels.swift in Sources */,
 				F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */,
 				F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */,

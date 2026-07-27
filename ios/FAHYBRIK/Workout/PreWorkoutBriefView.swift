@@ -57,12 +57,10 @@ struct PreWorkoutBriefView: View {
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
     @State private var showRunPreStart = false
 
-    // Erg sessions gate the start on a LIVE monitor connection: first you connect,
-    // you confirm the machine, THEN you start — plan, libre and benchmark alike.
-    // Before this gate, "▶ Empezar" fired with the monitor disconnected and the
-    // whole piece ran unmeasured.
-    @State private var pm5 = PM5ConnectionStore.shared
-    @State private var showErgConnect = false
+    // Erg sessions start through a DEDICATED full-screen connect step (mirror of
+    // the run pre-start): first the connect screen, the athlete accepts THEIR
+    // machine, and only then the piece begins — plan, libre and benchmark alike.
+    @State private var showErgPreStart = false
 
     // MARK: - Derived shape
 
@@ -855,25 +853,16 @@ struct PreWorkoutBriefView: View {
     //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
-            if ergIsPrincipal && !pm5.isConnected {
-                // The gate: the primary action IS connecting. Only a live, confirmed
-                // monitor turns it into "▶ Empezar".
-                ExpertPrimaryButton(title: "Conectar \(ergMachineWord)") {
-                    showErgConnect = true
-                }
-                Text("Primero conecta el monitor: él mide el esfuerzo.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(maxWidth: .infinity)
-            } else {
-                ExpertPrimaryButton(title: ctaTitle) {
-                    if hasRunSegment {
-                        // #8 — running work: the full-screen pre-start sequence decides
-                        // dónde + conexión, then fires `onStart` with the environment.
-                        showRunPreStart = true
-                    } else {
-                        onStart(nil)
-                    }
+            ExpertPrimaryButton(title: ctaTitle) {
+                if hasRunSegment {
+                    // #8 — running work: the full-screen pre-start sequence decides
+                    // dónde + conexión, then fires `onStart` with the environment.
+                    showRunPreStart = true
+                } else if ergIsPrincipal {
+                    // Erg work: connect screen FIRST — never both at once.
+                    showErgPreStart = true
+                } else {
+                    onStart(nil)
                 }
             }
             if !isBenchmark {
@@ -919,10 +908,18 @@ struct PreWorkoutBriefView: View {
             )
             .ignoresSafeArea()
         )
-        // The erg connect gate: the same scan-and-pick sheet the brief's top card
-        // opens — one journey, whichever door you knock on.
-        .sheet(isPresented: $showErgConnect) {
-            PM5LiveStreamView(store: pm5)
+        // The erg pre-start: connect → accept YOUR machine → the piece starts.
+        .fullScreenCover(isPresented: $showErgPreStart) {
+            ErgPreStartFlow(
+                sessionTitle: plan.name,
+                machineWord: ergMachineWord,
+                isBenchmark: isBenchmark,
+                onStart: {
+                    showErgPreStart = false
+                    onStart(nil)
+                },
+                onCancel: { showErgPreStart = false }
+            )
         }
     }
 
