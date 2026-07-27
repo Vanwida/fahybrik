@@ -9,7 +9,7 @@
  * doubles goal mirror.
  *
  * SKIPPED unless TEST_DATABASE_URL is set (describeWithDb). Requires migrations
- * through 0123 (coach_guidance) + the exercises catalog on the branch.
+ * through 0142 (races.is_synthetic) + the exercises catalog on the branch.
  */
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { buildDoblesRaceGap } from '@/lib/athlete/dobles-gap';
@@ -153,6 +153,9 @@ describeWithDb('dobles-gap (real DB)', () => {
     expect(board.goal_s).toBe(GOAL);
     expect(typeof board.goal_label).toBe('string');
     expect(typeof board.predicted_total_s).toBe('number');
+    // Las lecturas derivadas van en el wire: la app las pinta, no las rehace.
+    expect(typeof board.gap_s).toBe('number');
+    expect(board.gap_s).toBe(board.predicted_total_s! - GOAL);
     expect(typeof board.partner_name).toBe('string');
     expect(board.partner_name).toBe('Partner');
     expect(typeof board.strategy_last_edited_by).toBe('string'); // coach author
@@ -169,6 +172,8 @@ describeWithDb('dobles-gap (real DB)', () => {
       expect(typeof s.key).toBe('string');
       expect(typeof s.budget_s).toBe('number');
       expect(typeof s.pair_predicted_s).toBe('number');
+      expect(typeof s.delta_s).toBe('number');
+      expect(s.delta_s).toBe(s.pair_predicted_s - s.budget_s);
       expect(Number.isInteger(s.budget_s)).toBe(true);
       expect(['together', 'self', 'partner', 'split']).toContain(s.carrier);
       expect(['observado', 'estimado', 'sin_datos']).toContain(s.tier);
@@ -309,5 +314,59 @@ describeWithDb('dobles-gap (real DB)', () => {
       limit 1
     `;
     expect(stillPartner[0]!.goal).toBe(4200);
+  });
+
+  // 0142 — el cohorte de DOBLES es la otra lectura de `races` que cruza atletas, y
+  // es la que en producción ya contaba carreras sembradas (los splits de la pareja
+  // de demo van multiplicados por un factor). Aquí se siembran 6 dobles completas
+  // pegadas al objetivo con una roxzone imposible: si el filtro se cayera, el
+  // cohorte mandaría y el presupuesto se deformaría con ellas.
+  test('el cohorte de dobles ignora las carreras sembradas (is_synthetic)', async () => {
+    const RACE = {
+      race_id: 999999,
+      name: 'HYROX Test Dobles',
+      race_date: '2026-09-26',
+      division: 'open' as const,
+      gender_category: 'men' as const,
+      goal_time_seconds: GOAL,
+    };
+    const SYNTH_ROXZONE = 1600; // absurdo a propósito
+    const SYNTH_RUN = 1500;
+    const SYNTH_STATIONS = STATIONS.map((s) => ({ index: s.index, seconds: 100, rank: null }));
+    const SYNTH_RESULT = SYNTH_RUN + 100 * SYNTH_STATIONS.length + SYNTH_ROXZONE; // 3900 = GOAL
+
+    const before = await buildDoblesRaceGap(
+      { self_athlete_id: BigInt(athleteA), self_user_id: BigInt(userA), race: RACE },
+      sql,
+    );
+
+    const names: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const name = `HYROX Dobles Sembrada ${i}`;
+      names.push(name);
+      await sql`
+        insert into races (athlete_id, name, event_type, format, division, gender_category, priority,
+          race_date, result_time_seconds, run_total_seconds, roxzone_seconds,
+          run_splits_json, station_splits_json, status, source, is_synthetic)
+        values (${athleteB}, ${name}, 'hyrox', 'doubles', 'open', 'men', 'tune_up',
+          (current_date - 40), ${SYNTH_RESULT}, ${SYNTH_RUN}, ${SYNTH_ROXZONE},
+          ${sql.json([190, 190, 190, 190, 190, 190, 190, 190])}, ${sql.json(SYNTH_STATIONS)},
+          'completed', 'hyresult_import', true)
+      `;
+    }
+
+    try {
+      const after = await buildDoblesRaceGap(
+        { self_athlete_id: BigInt(athleteA), self_user_id: BigInt(userA), race: RACE },
+        sql,
+      );
+      // Mismo presupuesto que antes de sembrar: el dato inventado no entra.
+      const budgetOf = (b: typeof after) => b.segments.map((s) => `${s.key}:${s.budget_s}`).join('|');
+      expect(budgetOf(after)).toBe(budgetOf(before));
+      const roxzone = after.segments.find((s) => s.kind === 'roxzone')!;
+      expect(roxzone.budget_s).toBeLessThan(SYNTH_ROXZONE / 2);
+    } finally {
+      await sql`delete from races where athlete_id = ${athleteB} and name = any(${names})`;
+    }
   });
 });

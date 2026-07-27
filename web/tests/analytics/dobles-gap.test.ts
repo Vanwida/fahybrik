@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   computeDoblesGap,
+  splitStationPrediction,
   type CohortRace,
   type DoblesGapInput,
   type PredictionTier,
@@ -208,5 +210,69 @@ describe('computeDoblesGap — normalization, goal, and availability', () => {
     const res = computeDoblesGap(baseInput({ self_solos: allEmpty, partner_solos: allEmpty }));
     expect(res.availability).toBe('no_data');
     expect(res.predicted_total_s).toBeNull();
+  });
+});
+
+// El servidor manda: la app pinta delta_s y gap_s, no los rehace. Aquí se fija
+// que salen del motor y que cuadran con lo que ya se emite.
+describe('computeDoblesGap — las lecturas derivadas las da el motor', () => {
+  it('delta_s de cada tramo = pair_predicted_s − budget_s', () => {
+    const res = computeDoblesGap(baseInput({ goal_total_s: 3900 }));
+    expect(res.segments).toHaveLength(10);
+    for (const s of res.segments) expect(s.delta_s).toBe(s.pair_predicted_s - s.budget_s);
+  });
+
+  it('gap_s = predicted_total_s − goal_s', () => {
+    const res = computeDoblesGap(baseInput({ goal_total_s: 3900 }));
+    expect(res.gap_s).toBe(res.predicted_total_s! - 3900);
+  });
+
+  it('sin objetivo no hay gap, aunque haya predicho', () => {
+    const res = computeDoblesGap(baseInput({ goal_total_s: null }));
+    expect(res.predicted_total_s).not.toBeNull();
+    expect(res.gap_s).toBeNull();
+  });
+
+  it('sin predicho tampoco hay gap', () => {
+    const segments = makeSegments();
+    const allEmpty = segments.map(() => solo(null, 'sin_datos'));
+    const res = computeDoblesGap(baseInput({ self_solos: allEmpty, partner_solos: allEmpty }));
+    expect(res.predicted_total_s).toBeNull();
+    expect(res.gap_s).toBeNull();
+  });
+});
+
+// La regla del reparto vive AQUÍ y la app la refleja para poder previsualizar el
+// slider sin ida y vuelta al servidor. Los dos lados se clavan contra la MISMA
+// tabla de casos (station-split-cases.json); si alguno se mueve, cae un test en
+// uno de los dos lenguajes. El espejo Swift: DoblesRepartoMathTests.
+describe('splitStationPrediction — la tabla que comparten servidor y app', () => {
+  const cases = JSON.parse(
+    readFileSync(new URL('../../../shared/domain/dobles-gap/station-split-cases.json', import.meta.url), 'utf8'),
+  ) as Array<{ name: string; share: number; self_s: number; partner_s: number; expected_s: number }>;
+
+  it('la tabla no está vacía (un fichero ilegible no puede pasar por verde)', () => {
+    expect(cases.length).toBeGreaterThan(5);
+  });
+
+  for (const c of cases) {
+    it(`${c.name}: share ${c.share} · ${c.self_s}/${c.partner_s} → ${c.expected_s}`, () => {
+      expect(splitStationPrediction(c.share, c.self_s, c.partner_s)).toBe(c.expected_s);
+    });
+  }
+
+  it('el motor usa esa misma regla para un tramo con reparto', () => {
+    for (const c of cases) {
+      // Sólo los shares válidos: el motor los recibe ya acotados por el schema.
+      if (c.share < 0 || c.share > 1) continue;
+      const segments = makeSegments();
+      const self = segments.map(() => solo(c.self_s, 'observado'));
+      const partner = segments.map(() => solo(c.partner_s, 'observado'));
+      const carriers = new Map<number, StationCarrier>([[2, { carrier: 'split', self_share: c.share }]]);
+      const res = computeDoblesGap(
+        baseInput({ goal_total_s: null, self_solos: self, partner_solos: partner, carriers }),
+      );
+      expect(bySlug(res, 'st-2').pair_predicted_s).toBe(c.expected_s);
+    }
   });
 });

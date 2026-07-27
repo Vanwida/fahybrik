@@ -106,6 +106,10 @@ export interface DoblesSegmentResult {
   /** The pair's predicted seconds for this segment. Held at budget_s when the
    *  segment is sin_datos (a required side has no prediction) — mirrors singles. */
   pair_predicted_s: number;
+  /** pair_predicted_s − budget_s: what this segment costs over (or under) the
+   *  goal. Same reading as the singles `delta_s`, and computed HERE so the app
+   *  never re-derives it. */
+  delta_s: number;
   /** Each athlete's solo prediction for this segment; null when sin_datos for
    *  that athlete. Feed the live slider recompute in the app. */
   self_solo_s: number | null;
@@ -119,6 +123,9 @@ export interface DoblesGapResult {
   goal_s: number | null;
   /** Σ pair_predicted_s; null when no_data (nothing to stand on). */
   predicted_total_s: number | null;
+  /** predicted_total_s − goal_s; null without one of the two. Same reading as the
+   *  singles `gap_s` — the app paints it, never recomputes it. */
+  gap_s: number | null;
   budget_source: DoblesBudgetSource | null;
   segments: DoblesSegmentResult[];
 }

@@ -70,17 +70,17 @@ async function main() {
       insert into races (
         athlete_id, created_by_coach_id, name, event_type, format, division,
         gender_category, priority, age_group, race_date, location,
-        goal_time_seconds, result_time_seconds, status
+        goal_time_seconds, result_time_seconds, status, is_synthetic
       ) values
         (
           ${ATHLETE_ID}, ${coachId}, ${TARGET_NAME}, 'hyrox', 'singles', 'open',
           'men', 'target', null, ${targetDate}::date, 'Barcelona',
-          ${TARGET_GOAL_SECONDS}, null, 'registered'
+          ${TARGET_GOAL_SECONDS}, null, 'registered', true
         ),
         (
           ${ATHLETE_ID}, ${coachId}, ${TUNE_UP_NAME}, 'deka', 'singles', 'open',
           'men', 'tune_up', null, ${tuneUpDate}::date, 'Barcelona',
-          null, null, 'registered'
+          null, null, 'registered', true
         )
     `;
 

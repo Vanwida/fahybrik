@@ -14,6 +14,10 @@
  *   - one `races` row per fixture race (athlete_id = demo athlete, created_by =
  *     demo coach). event_id is REMAPPED by event NAME to main's own events (the
  *     demo ids don't exist here); unmatched → NULL (FK is ON DELETE SET NULL).
+ *     Every row is written `is_synthetic = true` (0142): the fixture keeps the
+ *     original `source` ('hyresult_import') so the demo reads like a real import,
+ *     and DEMO_RACES_SCALE fabricates the partner's splits outright — so the flag
+ *     is the only thing keeping this data out of the population cohort.
  *   - its `race_partners` rows (doubles partner names on completed doubles races).
  *
  * IDEMPOTENT: per race, keyed on (athlete_id, name, race_date) — the reference set
@@ -166,7 +170,7 @@ async function main(): Promise<void> {
           run_splits_json, station_splits_json, roxzone_seconds, run_total_seconds, best_run_lap_seconds,
           overall_rank, age_group_rank, field_size, nationality, bib,
           source, source_idp, source_event, source_season, source_url,
-          event_id, imported_at, auto_import_attempts
+          event_id, imported_at, auto_import_attempts, is_synthetic
         ) values (
           ${A}, ${C}, ${r.name},
           ${r.event_type}::race_event_type, ${r.format}::race_format, ${r.division}::race_division,
@@ -178,7 +182,7 @@ async function main(): Promise<void> {
           ${r.roxzone_seconds}, ${r.run_total_seconds}, ${r.best_run_lap_seconds},
           ${r.overall_rank}, ${r.age_group_rank}, ${r.field_size}, ${r.nationality}, ${r.bib},
           ${r.source}, ${r.source_idp}, ${r.source_event}, ${r.source_season}, ${r.source_url},
-          ${eventId}, ${r.source ? sql`now()` : null}, 0
+          ${eventId}, ${r.source ? sql`now()` : null}, 0, true
         )
         returning id::text
       `;

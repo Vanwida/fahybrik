@@ -59,6 +59,28 @@ function segmentCarrier(
   return { carrier: 'split', self_share: sc.self_share };
 }
 
+/**
+ * The pair's seconds for a SHARED station: the two never work it at the same
+ * time (they alternate / hand off), so the cost is each one's portion added up,
+ * weighted by the reader's share.
+ *
+ * THIS IS THE ONE DEFINITION OF THE SPLIT RULE. The app mirrors it locally
+ * (`DoblesRepartoMath.stationPairPredicted`) because the reparto slider has to
+ * preview the effect while the athlete drags it, and a round-trip per step is
+ * not an option. Both sides are pinned to the same table of cases —
+ * `station-split-cases.json` — so a divergence fails a test in one of the two
+ * languages instead of showing the athlete two different numbers.
+ *
+ * `share` is CLAMPED to 0..1: a share is a fraction of one station, and that is
+ * already the rule at the write boundary (dobles-simulation's Zod bound +
+ * normalizeStationSplit). Clamping here too means the rule survives wherever the
+ * value comes from, and matches the app's mirror exactly.
+ */
+export function splitStationPrediction(share: number, self_s: number, partner_s: number): number {
+  const s = Math.min(1, Math.max(0, share));
+  return Math.round(s * self_s + (1 - s) * partner_s);
+}
+
 /** The raw pair prediction for a segment, or null when a required side is
  *  sin_datos (→ the caller holds it at budget). `share` is the reader's share. */
 function rawPairPrediction(
@@ -79,7 +101,7 @@ function rawPairPrediction(
   if (carrier === 'together') value = Math.max(s, p);
   else if (carrier === 'self') value = s;
   else if (carrier === 'partner') value = p;
-  else value = Math.round((share ?? 0.5) * s + (1 - (share ?? 0.5)) * p);
+  else value = splitStationPrediction(share ?? 0.5, s, p);
   return { value, tier };
 }
 
@@ -161,6 +183,7 @@ export function computeDoblesGap(input: DoblesGapInput): DoblesGapResult {
       self_share: carriers[i]!.self_share,
       budget_s,
       pair_predicted_s,
+      delta_s: pair_predicted_s - budget_s,
       self_solo_s: selfSolo[i] ?? null,
       partner_solo_s: partnerSolo[i] ?? null,
       tier: tiers[i]!,
@@ -175,10 +198,13 @@ export function computeDoblesGap(input: DoblesGapInput): DoblesGapResult {
       ? null
       : resultSegments.reduce((sum, s) => sum + s.pair_predicted_s, 0);
 
+  const goal_s = goal_total_s != null && goal_total_s > 0 ? goal_total_s : null;
+
   return {
     availability,
-    goal_s: goal_total_s != null && goal_total_s > 0 ? goal_total_s : null,
+    goal_s,
     predicted_total_s,
+    gap_s: predicted_total_s != null && goal_s != null ? predicted_total_s - goal_s : null,
     budget_source: source,
     segments: resultSegments,
   };

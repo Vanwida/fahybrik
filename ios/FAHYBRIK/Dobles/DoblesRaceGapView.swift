@@ -49,6 +49,7 @@ struct DoblesRaceGapSection: View {
                     partnerName: gap.partnerName ?? "Compañero",
                     predictedTotalS: gap.predictedTotalS,
                     goalS: gap.goalS,
+                    gapS: gap.gapS,
                     bearer: bearer,
                     onSaved: { Task { await load() } }
                 )
@@ -127,10 +128,11 @@ struct DoblesRaceGapSection: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 if let goal = gap.goalS {
-                    // Only show the gap pill when there's a real predicho to compare
-                    // (never a misleading "justo" when the number is "—").
-                    if let pred = gap.predictedTotalS {
-                        gapPill(pred - goal)
+                    // El gap lo da el servidor, y sólo llega cuando hay predicho
+                    // de verdad contra el que comparar (nunca un "justo" engañoso
+                    // con el número en "—").
+                    if let g = gap.gapS {
+                        gapPill(g)
                     }
                     if let label = gap.goalLabel {
                         Text("Objetivo \(label) · \(GoalGapFormat.raceClock(goal))")
@@ -210,10 +212,10 @@ struct DoblesRaceGapSection: View {
                     .foregroundStyle(Theme.Color.foreground)
                 carrierChip(seg, partnerName: partnerName)
                 Spacer(minLength: 8)
-                if seg.deltaS != 0 {
-                    Text(GoalGapFormat.signedDuration(seg.deltaS))
+                if let delta = seg.deltaS, delta != 0 {
+                    Text(GoalGapFormat.signedDuration(delta))
                         .font(.system(size: 11.5, weight: .semibold, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(seg.deltaS > 0 ? Theme.Color.danger : Theme.Color.ok)
+                        .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
                 }
                 Text(GoalGapFormat.raceClock(seg.pairPredictedS))
                     .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
@@ -335,10 +337,10 @@ struct DoblesRaceGapSection: View {
         var parts = [seg.labelEs, whoLabel(seg, partnerName: partnerName)]
         if let caption = seg.tierCaption { parts.append(caption) }
         parts.append("predicho \(GoalGapFormat.raceClock(seg.pairPredictedS))")
-        if seg.deltaS != 0 {
-            parts.append(seg.deltaS > 0
-                ? "\(StatsFormat.duration(Double(seg.deltaS))) sobre el objetivo"
-                : "\(StatsFormat.duration(Double(abs(seg.deltaS)))) bajo el objetivo")
+        if let delta = seg.deltaS, delta != 0 {
+            parts.append(delta > 0
+                ? "\(StatsFormat.duration(Double(delta))) sobre el objetivo"
+                : "\(StatsFormat.duration(Double(abs(delta)))) bajo el objetivo")
         }
         if editable { parts.append("toca para ajustar el reparto") }
         return parts.joined(separator: ", ")

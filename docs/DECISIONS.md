@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · El dato fabricado se marca en columna propia, no en `source` (migración 0142)
+
+**Decidido:** `races` gana `is_synthetic boolean not null default false`. Lo escriben en `true` los tres seeds de demo (`seed_demo_athlete_races`, `seed_demo_race`, `seed_demo_dobles_race`) y lo excluyen las **dos únicas consultas de `races` que cruzan atletas**: el cohorte de singles (`web/lib/athlete/goal-gap.ts`) y el de dobles (`web/lib/athlete/dobles-gap.ts`). Todas las demás lecturas van filtradas por `athlete_id`, así que un atleta de demo sigue viendo lo suyo intacto.
+
+**Por qué:** los seeds escribían con el `source` del fixture (`'hyresult_import'`) y, para la pareja de demo, con todos los splits multiplicados por `DEMO_RACES_SCALE`. Filas inventadas indistinguibles de una importación real, entrando en el presupuesto por tramo de atletas de pago. Comprobado contra producción: para un objetivo de dobles de 65 min el cohorte cogía 12 carreras, **5 de ellas sembradas**; tras el filtro quedan 7 reales — sigue por encima del mínimo de 5, así que la lectura no se degrada.
+
+**Se descarta:** marcarlo con un valor nuevo de `source` (p. ej. `'demo_seed'`). `source` es el **canal de importación**, no la veracidad del dato; cambiarlo habría sacado a los propios atletas de demo de sus lecturas per-atleta (marcas, estación a estación, transferencia, su dobles) y roto la demo. Las dos propiedades son ortogonales y viven en columnas distintas.
+
+**En consecuencia, no hacer:** no escribir una fila de `races` desde un script de siembra sin `is_synthetic = true`; y toda consulta NUEVA que agregue carreras **a través de atletas** (cohorte, calibración predicho-vs-real, estadística de población) nace con `and not is_synthetic`. La spec del predictor ya lo exige para el conjunto de calibración (`docs/race-projection-spec.html`, §08).
+
+---
+
+## 2026-07-27 · En dobles calcula el servidor; la app sólo previsualiza el tramo que se arrastra
+
+**Decidido:** la regla del reparto de una estación vive una vez, en `shared/domain/dobles-gap` (`splitStationPrediction`), **con el share recortado a 0…1**. El endpoint de dobles pasa a emitir también las lecturas derivadas — `delta_s` por tramo y `gap_s` del total — igual que el gap individual, que ya las mandaba. iOS las pinta.
+
+**Por qué:** la aritmética estaba escrita dos veces y con reglas distintas (el clamp existía sólo en Swift), sin ningún test que las comparase; y el hero, las filas y el editor de reparto rehacían restas que el servidor ya sabía hacer. El clamp era el comportamiento correcto — un share es una fracción de UNA estación, y ya es la regla en el borde de escritura (bound de Zod + `normalizeStationSplit`) — así que subirlo al motor no cambia ningún número.
+
+**Se descarta:** pedirle el recomputo al servidor mientras el atleta arrastra el slider (una ida y vuelta por paso no es una UX aceptable). La app conserva **un** espejo local, el del split, y nada más.
+
+**En consecuencia, no hacer:** no añadir más aritmética de dominio en la app — si hace falta un número derivado, lo emite el servidor. Y si algún día se toca la regla del split, se toca en el dominio y se actualiza `shared/domain/dobles-gap/station-split-cases.json`: esa tabla la leen los tests de los dos lenguajes (`tests/analytics/dobles-gap.test.ts` y `DoblesRepartoMathTests`), y es lo que impide que las dos implementaciones vuelvan a separarse en silencio.
+
+---
+
 ## 2026-07-27 · Obra 0 multi-coach: el scope viaja al WHERE, y el funnel se atribuye por config
 
 **Decidido:** toda lectura/escritura de dominio del coach lleva su `coach_id` en el WHERE — muere el patrón «el coach» por `order by id limit 1` (capacity, sesión, eventos, chat, plantillas de recuperación) y el check-then-act (la propiedad viaja DENTRO del WHERE de cada UPDATE, no en un select previo). Los ids que manda el CLIENTE (week_template_ids, exercise_id de segmentos/bloques, min/max_level_id) se validan contra el coach antes de escribir; nonexistente y ajeno reciben la MISMA respuesta. El funnel público (leads/waitlist, sin columna de club hasta la obra 3) se atribuye vía `FUNNEL_COACH_ID` (env) con fallback al pick legacy `min(id)` — resuelto en UN solo sitio (`web/lib/leads/funnel-coach.ts`) que muere cuando `leads` gane `coach_id`. Hallazgo que lo motivó: en producción el `limit 1` apuntaba al coach id=4 (fila de dev, cap=100), no al club real (60) — el cupo que el club editaba en Disponibilidad ni siquiera era el suyo.

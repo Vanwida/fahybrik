@@ -1,0 +1,15 @@
+[
+  { "name": "mitad exacta", "share": 0.5, "self_s": 300, "partner_s": 360, "expected_s": 330 },
+  { "name": "reparto 60/40", "share": 0.6, "self_s": 300, "partner_s": 360, "expected_s": 324 },
+  { "name": "redondeo al alza", "share": 0.55, "self_s": 301, "partner_s": 360, "expected_s": 328 },
+  { "name": "medio segundo justo", "share": 0.5, "self_s": 200, "partner_s": 203, "expected_s": 202 },
+  { "name": "share pleno = tu tiempo", "share": 1, "self_s": 220, "partner_s": 250, "expected_s": 220 },
+  { "name": "share cero = el de tu pareja", "share": 0, "self_s": 220, "partner_s": 250, "expected_s": 250 },
+  { "name": "share por encima de 1 se recorta", "share": 1.4, "self_s": 220, "partner_s": 250, "expected_s": 220 },
+  { "name": "share negativo se recorta", "share": -0.3, "self_s": 220, "partner_s": 250, "expected_s": 250 },
+  { "name": "mismos tiempos, cualquier reparto", "share": 0.3, "self_s": 200, "partner_s": 200, "expected_s": 200 },
+  { "name": "reparto extremo 25/75", "share": 0.25, "self_s": 100, "partner_s": 400, "expected_s": 325 },
+  { "name": "un paso del slider (5%)", "share": 0.05, "self_s": 240, "partner_s": 260, "expected_s": 259 },
+  { "name": "el paso simetrico (95%)", "share": 0.95, "self_s": 240, "partner_s": 260, "expected_s": 241 },
+  { "name": "tiempos largos", "share": 0.35, "self_s": 1234, "partner_s": 987, "expected_s": 1073 }
+]

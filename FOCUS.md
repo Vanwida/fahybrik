@@ -15,6 +15,31 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · Predictor: fuera el dato inventado del cohorte, y una sola cuenta en dobles
+
+Dos de los fallos que la spec del predictor (`docs/race-projection-spec.html`, §01b)
+marca como «ya afectan al pago». Ninguno depende del rediseño del modelo.
+
+**Carreras sembradas contaminando el cohorte.** Los seeds de demo escribían en
+`races` con el `source` del fixture (`hyresult_import`) y, para la pareja, con los
+splits multiplicados por un factor. El cohorte —la única lectura de `races` que
+cruza atletas— las contaba. Comprobado en producción: para un objetivo de dobles
+de 65 min entraban 12 carreras, **5 sembradas**; ahora quedan 7 reales (sigue por
+encima del mínimo, la lectura no se degrada). Columna propia `races.is_synthetic`
+(migración **0142, escrita y probada contra rama Neon, SIN aplicar a producción** —
+lleva el backfill de las 14 filas de cuentas demo).
+
+**Dobles calculaba dos veces.** La regla del reparto estaba en TS y en Swift, con un
+clamp que sólo existía en la app y cero tests que las comparasen; además el hero,
+las filas y el editor rehacían restas que el servidor ya sabía hacer. Ahora la regla
+vive en `shared/domain/dobles-gap` (con el clamp), el endpoint emite `delta_s` y
+`gap_s` como el gap individual, y iOS sólo previsualiza el tramo que se arrastra.
+Los dos lenguajes clavados contra la misma tabla de casos.
+
+Detalle en `docs/DECISIONS.md` (dos entradas del 27-jul).
+
+---
+
 ## Cerrado el 27-jul · El benchmark del remo arrancaba sin PM5 — la puerta estaba en el sitio equivocado
 
 Alex lo pilló en el box: «Probarme ahora» → EMPEZAR → la pieza corría sin monitor.

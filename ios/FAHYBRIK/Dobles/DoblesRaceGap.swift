@@ -10,6 +10,12 @@ import Foundation
 // (`self_solo_s` / `partner_solo_s`) para recomputar el efecto EN VIVO cuando el
 // atleta ajusta el reparto.
 //
+// QUIÉN CALCULA: el servidor. También las lecturas derivadas — `delta_s` de cada
+// tramo y `gap_s` del total — vienen ya hechas, igual que en el gap individual.
+// La app las pinta. Lo ÚNICO que se calcula en local es la previsualización del
+// slider del reparto (DoblesRepartoMath), y contra la misma tabla de casos que
+// el servidor.
+//
 // DECODE: los NÚMEROS son estrictos (Int/Double). Un valor presente del tipo
 // equivocado (p.ej. un id/segundo como string) LANZA y el service devuelve nil —
 // cero fallbacks silenciosos (hubo un bug real por un número que llegó string).
@@ -35,6 +41,9 @@ struct DoblesRaceGap: Codable, Hashable {
     let goalLabel: String?
     /// Predicho conjunto de la pareja (segundos), o nil sin datos suficientes.
     let predictedTotalS: Int?
+    /// Predicho − objetivo, tal cual lo calcula el servidor. Nil si falta uno de
+    /// los dos. La app lo PINTA; no lo rehace (misma regla que el gap individual).
+    let gapS: Int?
     let segments: [DoblesRaceGapSegment]
     let coachTips: [String]
     /// Nombre de quién tocó el reparto por última vez (coach o atleta), o nil.
@@ -54,7 +63,7 @@ struct DoblesRaceGap: Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case availability, raceName, raceDate, partnerName
-        case goalS, goalLabel, predictedTotalS, segments, coachTips, strategyLastEditedBy
+        case goalS, goalLabel, predictedTotalS, gapS, segments, coachTips, strategyLastEditedBy
     }
 
     init(from decoder: Decoder) throws {
@@ -68,6 +77,7 @@ struct DoblesRaceGap: Codable, Hashable {
         goalS = try c.decodeIfPresent(Int.self, forKey: .goalS)
         goalLabel = try c.decodeIfPresent(String.self, forKey: .goalLabel)
         predictedTotalS = try c.decodeIfPresent(Int.self, forKey: .predictedTotalS)
+        gapS = try c.decodeIfPresent(Int.self, forKey: .gapS)
         // Segmentos NO lossy: un tramo malformado hace fallar el payload entero
         // (a propósito — un número corrupto debe verse, no colarse). Ausencia → [].
         segments = try c.decodeIfPresent([DoblesRaceGapSegment].self, forKey: .segments) ?? []
@@ -95,6 +105,10 @@ struct DoblesRaceGapSegment: Codable, Hashable, Identifiable {
     let selfShare: Double?
     let budgetS: Int
     let pairPredictedS: Int
+    /// Predicho − presupuesto del tramo, calculado por el SERVIDOR (nil sólo si
+    /// una respuesta antigua no lo trae; entonces la fila no pinta delta, que es
+    /// mejor que enseñar una cuenta hecha aparte).
+    let deltaS: Int?
     /// Tiempo individual del atleta en ese tramo (segundos), o nil si no hay dato.
     let selfSoloS: Int?
     /// Tiempo individual de la pareja (segundos), o nil si no hay dato.
@@ -114,9 +128,6 @@ extension DoblesRaceGapSegment {
     /// El caso self_solo_s / partner_solo_s nulo se maneja DENTRO del editor
     /// (slider deshabilitado), así que no lo gateamos aquí.
     var isEditable: Bool { isStation && !isTogether && stationIndex != nil }
-
-    /// Delta del tramo = predicho pareja − presupuesto (rojo si te pasas).
-    var deltaS: Int { pairPredictedS - budgetS }
 
     /// Opacidad del relleno de la barra por tier de evidencia (misma escala que el
     /// goal-gap individual: observado sólido, estimado/sin_datos atenuados).
@@ -148,12 +159,22 @@ extension DoblesRaceGapSegment {
 
 // MARK: - Reparto math (pura, testeable)
 
-/// Aritmética del reparto por estación — extraída para poder testear el recomputo
-/// en vivo sin instanciar la vista. El predicho de un tramo con reparto es la
-/// media ponderada de los tiempos individuales por la parte que lleva cada uno.
+/// ESPEJO LOCAL de la regla del reparto. La cuenta la manda el servidor
+/// (`shared/domain/dobles-gap` · `splitStationPrediction`) y esta app la pinta:
+/// lo único que se recalcula aquí es la PREVISUALIZACIÓN del slider del editor,
+/// porque el atleta arrastra y tiene que ver el efecto al instante — una ida y
+/// vuelta por paso no es opción.
+///
+/// Por eso la regla tiene que ser BIT A BIT la misma. Las dos implementaciones
+/// están clavadas contra la misma tabla de casos,
+/// `shared/domain/dobles-gap/station-split-cases.json`, desde
+/// `DoblesRepartoMathTests` (Swift) y `tests/analytics/dobles-gap.test.ts` (TS):
+/// si una de las dos se mueve, cae un test.
 enum DoblesRepartoMath {
     /// pair_predicted del tramo = share·self_solo + (1−share)·partner_solo,
-    /// redondeado al segundo (media al alza a .5).
+    /// redondeado al segundo (media al alza a .5). El share se recorta a 0…1:
+    /// una parte es una fracción de UNA estación, y es la misma regla que aplica
+    /// el servidor al guardar el reparto.
     static func stationPairPredicted(selfShare: Double, selfSoloS: Int, partnerSoloS: Int) -> Int {
         let s = max(0, min(1, selfShare))
         return Int((s * Double(selfSoloS) + (1 - s) * Double(partnerSoloS)).rounded())
