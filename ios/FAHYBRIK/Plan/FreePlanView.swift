@@ -16,15 +16,20 @@ import SwiftUI
 //     ASK: bring your HYROX history in one tap, or measure the three starter
 //     marks. Selling before there is a diagnosis is exactly when the salesman
 //     shows through.
-//   · CON EVIDENCIA — his race + countdown, what he has measured and what he
-//     still hasn't, and the person who turns that into a plan.
+//   · CON EVIDENCIA — first what his own races already PROVE about him, then his
+//     goal against that reality, then the week those numbers buy, and only then
+//     what is still missing and the person who turns it into a plan.
 //
-// DELIBERATELY NOT BUILT YET (the data does not exist today — see
-// docs/race-projection-spec.html): the projected race time, the per-station
-// diagnosis against his division, and the locked proposed week. The predictor
-// does NOT read `athlete_benchmarks`, so any projected time would be a lie.
-// `raceCard` carries the extension point where the projection lands once the
-// prediction model ships.
+// WHAT HIS RACES PROVE, AND WHAT THEY DO NOT: in doubles both athletes run all
+// eight kilometres and travel every transition, so running and roxzone are his.
+// The stations are shared out between the pair, so they are NEVER attributed to
+// him. That rule lives server-side in shared/domain/free-plan, where it is
+// tested; this screen only paints what arrives.
+//
+// The one thing this screen used to get badly wrong: it asked an athlete who had
+// just imported six races with full splits for "tus marcas", ignoring everything
+// he had handed over. Anything we can already compute is given back FIRST; a
+// request comes after it, and only for what is genuinely missing.
 struct FreePlanView: View {
     /// Live session bearer, provided by AppShell (single source of truth).
     var bearer: String? = nil
@@ -41,6 +46,10 @@ struct FreePlanView: View {
     /// His watch VO₂max (`GET /api/athlete/biometrics/trend`). Nil whenever the
     /// backend has no recent real series — then nothing is painted.
     @State private var vo2: BiometricMetricSeries? = nil
+    /// The computed portrait (`GET /api/athlete/free-plan`): what his races
+    /// prove, his goal against them, and the week those numbers buy. Nil while
+    /// loading or when the server had nothing to compute.
+    @State private var freePlan: FreePlanPayload? = nil
 
     @State private var showImport = false
     @State private var showBuscarCarrera = false
@@ -142,18 +151,43 @@ struct FreePlanView: View {
             .staggerReveal(revealed, index: 6)
     }
 
+    // With evidence the order is the mockup's and it is not casual: his goal
+    // (desire), what his own numbers say (the free, true diagnosis), the week
+    // those numbers buy (competence, half of it locked), what is still missing,
+    // and the person.
     @ViewBuilder
     private var withEvidenceContent: some View {
         raceOrObjectiveCard
             .staggerReveal(revealed, index: 0)
-        whatWeKnowCard
+        raceEvidenceCard
             .staggerReveal(revealed, index: 1)
-        marksCard
+        whatWeKnowCard
             .staggerReveal(revealed, index: 2)
-        importCard
+        weekCard
             .staggerReveal(revealed, index: 3)
-        coachCard
+        marksCard
             .staggerReveal(revealed, index: 4)
+        importCard
+            .staggerReveal(revealed, index: 5)
+        coachCard
+            .staggerReveal(revealed, index: 6)
+    }
+
+    /// Lo que sus carreras ya demuestran. Sin carreras no hay tarjeta.
+    @ViewBuilder
+    private var raceEvidenceCard: some View {
+        if let evidence = freePlan?.raceEvidence {
+            FreeRaceEvidenceCard(evidence: evidence)
+        }
+    }
+
+    /// La semana bloqueada. El servidor solo la manda cuando puede personalizar
+    /// al menos dos sesiones con datos suyos; si no, aquí no hay nada.
+    @ViewBuilder
+    private var weekCard: some View {
+        if let week = freePlan?.week, !week.sessions.isEmpty {
+            FreePlanWeekCard(week: week)
+        }
     }
 
     // MARK: - Header (only when there is nothing measured yet)
@@ -216,11 +250,16 @@ struct FreePlanView: View {
                             .foregroundStyle(Theme.Color.accentText)
                     }
                 }
-                // EXTENSION POINT — the projected time ("vas por 1:28:40") and the
-                // per-station diagnosis land HERE once the prediction model reads
-                // the athlete's marks (docs/race-projection-spec.html). Until then
-                // the honest line below names what's missing instead of guessing.
-                if let missing = missingMarksLine {
+                // Su objetivo contra su realidad: la conversación interesante, y
+                // la que faltaba. Solo compara con carreras de la MISMA categoría
+                // (el servidor lo decide); si no hay ninguna comparable, lo dice.
+                if let check = freePlan?.goalCheck {
+                    Hairline().opacity(0.6)
+                    FreeGoalComparison(check: check)
+                } else if let missing = missingMarksLine {
+                    // Sin objetivo y sin nada que comparar, lo honesto es nombrar
+                    // lo que falta. Con carreras importadas esto ya no aparece:
+                    // la tarjeta de arriba le devuelve lo que sí sabemos.
                     Hairline().opacity(0.6)
                     Text(missing)
                         .scaledFont(12.5, relativeTo: .caption)
@@ -262,7 +301,14 @@ struct FreePlanView: View {
     /// "Para decirte cuánto tardarías aún nos faltan…" — the marks he has NOT
     /// measured, straight from the server catalog. Nil when nothing is missing:
     /// we never promise a number we can't compute yet.
+    ///
+    /// ALSO NIL AS SOON AS HIS RACES SAY SOMETHING. Asking for homework from an
+    /// athlete who just handed over six races with splits is how this screen lost
+    /// its credibility the first time. When there is evidence, the evidence card
+    /// leads and the ask moves down to «Tus marcas», where it is justified by
+    /// what it unlocks.
     private var missingMarksLine: String? {
+        guard freePlan?.raceEvidence == nil else { return nil }
         // The three starter marks lead the list: they're the same three doors the
         // screen offers, so the athlete reads ONE story and not two.
         // Deterministic: starter rank first, catalog position as the tie-break
@@ -512,7 +558,15 @@ struct FreePlanView: View {
         async let slices: Void = store.loadFreePlan(force: force)
         async let marks: Void = loadMarks()
         async let bio: Void = loadVO2()
-        _ = await (slices, marks, bio)
+        async let portrait: Void = loadPortrait()
+        _ = await (slices, marks, bio, portrait)
+    }
+
+    /// The computed portrait. Silent on failure: every card it feeds is
+    /// conditional, so a failed fetch degrades to the screen without them rather
+    /// than to an error state over data the athlete never asked for.
+    private func loadPortrait() async {
+        freePlan = try? await FreePlanService.fetch(bearer: bearer)
     }
 
     private func loadMarks() async {

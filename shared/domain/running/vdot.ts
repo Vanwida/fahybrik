@@ -112,6 +112,27 @@ const VDOT_MIN = 25;
 const VDOT_MAX = 90;
 
 /**
+ * The four canonical training paces a given VDOT implies (seconds per km).
+ *
+ * Split out from `computeVdot` because callers increasingly arrive with a VDOT
+ * already in hand — from a watch VO₂max, or read back off a pace the projection
+ * produced — and had no way to reach the paces without inventing a fake effort
+ * to re-derive it from. Returns null outside the plausibility bounds, same
+ * contract as everything else here.
+ */
+export function trainingPacesForVdot(vdot: number | null | undefined): DanielsTrainingPaces | null {
+  if (vdot == null || !Number.isFinite(vdot) || vdot < VDOT_MIN || vdot > VDOT_MAX) return null;
+  const paceAtPct = (fraction: number): number =>
+    Math.round(velocityToSecPerKm(velocityForVo2(vdot * fraction)));
+  return {
+    easy_s_per_km: paceAtPct(PCT_EASY),
+    marathon_s_per_km: paceAtPct(PCT_MARATHON),
+    threshold_s_per_km: paceAtPct(PCT_THRESHOLD),
+    interval_s_per_km: paceAtPct(PCT_INTERVAL),
+  };
+}
+
+/**
  * Compute VDOT + canonical training paces from a single race effort.
  * Returns null when the effort is missing/implausible (so callers emit honest
  * nulls rather than fabricated paces).
@@ -138,18 +159,10 @@ export function computeVdot(effort: RaceEffort | null | undefined): VdotResult |
   const vdot = vo2Demand / pct;
   if (!Number.isFinite(vdot) || vdot < VDOT_MIN || vdot > VDOT_MAX) return null;
 
-  const paceAtPct = (fraction: number): number =>
-    Math.round(velocityToSecPerKm(velocityForVo2(vdot * fraction)));
+  const paces = trainingPacesForVdot(vdot);
+  if (!paces) return null;
 
-  return {
-    vdot: Math.round(vdot * 10) / 10,
-    paces: {
-      easy_s_per_km: paceAtPct(PCT_EASY),
-      marathon_s_per_km: paceAtPct(PCT_MARATHON),
-      threshold_s_per_km: paceAtPct(PCT_THRESHOLD),
-      interval_s_per_km: paceAtPct(PCT_INTERVAL),
-    },
-  };
+  return { vdot: Math.round(vdot * 10) / 10, paces };
 }
 
 /** The standard 5K distance in metres — the benchmark this model is fed. */

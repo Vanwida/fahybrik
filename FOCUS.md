@@ -205,6 +205,53 @@ Alex para la primera prueba real del free; luego obra puerta (alta de club
 
 ---
 
+## Cerrado el 27-jul · FREE tier — el Plan deja de pedir deberes, y llega la semana bloqueada
+
+**Sin desplegar.** Dominio + endpoint nuevo + iOS. Cero migraciones. Con coach
+no cambia nada.
+
+Alex probó la pantalla con el atleta 72 (seis HYROX importados, con splits) y le
+decía *«Para decirte cuánto tardarías aún nos faltan tus marcas»*. Le pedíamos
+deberes ignorando lo que acababa de darnos.
+
+- **Lo que dicen sus carreras** (bloque nuevo, arriba): su mejor tiempo con dónde
+  y cuándo, sus 8 km con su ritmo, y sus transiciones. Para el 72: **1:02:02 en
+  Berlín (may-2025)**, **4:05 /km** y **4:31** de roxzone.
+- **La regla que gobierna el módulo, y que salió del dato real**: el 72 corrió
+  DOS dobles el mismo día, 8 km en **2137 s** con un compañero y en **3162 s**
+  con otro. Correr y roxzone en dobles sí son suyos (los dos corren los 8 km),
+  pero corren JUNTOS: el tiempo lo marca el más lento, así que es un **suelo**,
+  no una medida. Las estaciones se reparten y **no se le atribuyen nunca**. Por
+  eso tampoco se emite tendencia sobre carreras de equipo.
+- **La semana bloqueada** (`«Cómo se arregla»`): estructura NUESTRA y genérica
+  (calidad, fuerza, ergo, híbrido, tirada larga: la anatomía de la prueba), sin
+  tocar `blocks`, `templates` ni `microcycles`. Los números son suyos o la fila
+  no existe. Al 72 le salen **3 filas** (2 a la vista, 1 difuminada) desde sus
+  8 km de Berlín: series 5×1 km a 4:15, híbrido a 4:25 con el volumen real de la
+  prueba, rodaje 60 min a 5:07. Sin marcas de ergo ni 1RM, **esas dos filas no se
+  pintan** — y eso es justo lo que «Tus marcas» le invita a desbloquear.
+- **Su objetivo contra su realidad**: solo compara con carreras de la MISMA
+  categoría. El 72 apunta a **1:10:00 en dobles pro** y ya hizo **1:05:53** en
+  dobles pro: su objetivo se le ha quedado corto. Su 1:02:02 de Berlín NO se usa
+  (era open).
+- **Copy**: «~4-5 min» se leía como su marca cuando es lo que dura el test →
+  «te lleva ~4-5 min». Y cada marca pendiente dice qué desbloquea.
+
+Endpoint nuevo `GET /api/athlete/free-plan` en vez de más campos en `/plan/week`:
+otra pregunta, y no le cobra cuatro lecturas más al atleta de pago. **Trampa
+esquivada**: los cargadores de atleta establecidos llegan al dato vía coach
+(`a.coach_id is not null`), así que con `coach_id` nulo devuelven vacío en
+silencio; estas consultas leen sus filas directas.
+
+52 tests nuevos con las 6 carreras reales del 72 como fixture. Suite web entera
+en verde (1730), iOS compila.
+
+**Dos correcciones de dato al brief:** el 72 tiene **cero** lecturas de `vo2max`
+(las 59 de prod son de los atletas 64 y 67), y el VO₂ máx **ya se pintaba** en
+los dos estados desde la primera versión — no hacía falta tocarlo.
+
+---
+
 ## EN MARCHA · FREE tier — iOS: la pestaña PLAN ya es la de conversión (27-jul, noche)
 
 Construida sobre el mockup aprobado (`docs/design/free-plan-conversion-mockup.html`):
