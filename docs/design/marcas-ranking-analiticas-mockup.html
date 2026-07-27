@@ -1,0 +1,203 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marcas — tu posición en el box, sin nombres</title>
+<style>
+  :root{
+    --bg:#0B0B0C; --surface:#141416; --raised:#1C1C1F; --sunken:#080809;
+    --fg:#F5F3F0; --muted:#9A938B; --faint:#6B6258;
+    --accent:#F06A2A; --accent-on:#511900;
+    --ok:#3FC773; --warn:#F2A52E; --info:#4D9EEB; --danger:#E5484D;
+    --hair:rgba(255,255,255,.07); --hair-strong:rgba(255,255,255,.12);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15.5px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:56px 24px 96px}
+  header{border-bottom:1px solid var(--hair);padding-bottom:30px;margin-bottom:44px}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 14px}
+  h1{font-size:clamp(30px,5vw,46px);line-height:1.05;margin:0 0 18px;font-style:italic;font-weight:800;letter-spacing:-.02em}
+  .lede{font-size:16.5px;color:var(--muted);max-width:64ch;margin:0}
+  .lede b{color:var(--fg);font-weight:600}
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--faint);
+    margin:60px 0 4px;padding-top:26px;border-top:1px solid var(--hair)}
+  h2:first-of-type{border-top:0;padding-top:0}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 28px;max-width:66ch}
+  .sub b{color:var(--fg);font-weight:600}
+
+  .grid{display:grid;gap:36px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+  figure{margin:0}
+  .phone{width:100%;max-width:320px;margin:0 auto;border:1px solid var(--hair-strong);border-radius:38px;padding:9px;
+    background:#000;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .screen{background:var(--bg);border-radius:30px;overflow:hidden;min-height:540px;display:flex;flex-direction:column}
+  .navbar{padding:16px 18px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--hair)}
+  .navbar .back{color:var(--accent);font-size:15px}
+  .navbar h3{margin:0;font-size:16px;font-weight:650}
+  .body{padding:16px;display:flex;flex-direction:column;gap:12px;flex:1}
+  .card{background:var(--surface);border-radius:16px;padding:14px 15px}
+  .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .muted{color:var(--muted)} .small{font-size:13px;line-height:1.45} .tiny{font-size:11.5px;color:var(--faint)}
+  .mono{font-family:ui-monospace,"SF Mono",monospace}
+  .big{font-size:40px;font-weight:800;font-family:ui-monospace,"SF Mono",monospace;letter-spacing:-.02em}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:999px}
+  .pill.acc{background:rgba(240,106,42,.16);color:var(--accent)}
+  .pill.ok{background:rgba(63,199,115,.14);color:var(--ok)}
+
+  /* distribución */
+  .dist{display:flex;align-items:flex-end;gap:2px;height:56px;position:relative;padding-top:6px}
+  .dist i{flex:1;background:rgba(255,255,255,.10);border-radius:2px 2px 0 0}
+  .dist i.me{background:var(--accent)}
+  .dist .youlab{position:absolute;top:-4px;font-size:10px;color:var(--accent);font-weight:700;transform:translateX(-50%)}
+
+  figcaption{margin:18px auto 0;max-width:320px}
+  figcaption .t{font-size:15px;font-weight:650;margin-bottom:6px}
+  figcaption .d{font-size:13.5px;color:var(--muted);line-height:1.55}
+  figcaption .d b{color:var(--fg);font-weight:600}
+
+  dl.rules{display:grid;gap:1px;background:var(--hair);grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    border:1px solid var(--hair);border-radius:var(--r);overflow:hidden;margin:26px 0 0}
+  .rule{background:var(--surface);padding:19px 21px}
+  .rule dt{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+  .rule dd{margin:0;font-size:14px;line-height:1.55;color:var(--muted)}
+  .rule dd b{color:var(--fg);font-weight:600}
+  .spark{display:flex;align-items:flex-end;gap:3px;height:30px}
+  .spark i{flex:1;background:rgba(240,106,42,.35);border-radius:2px 2px 0 0}
+  .spark i.last{background:var(--accent)}
+  .row{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--hair)}
+  .row:last-child{border-bottom:0}
+  @media (max-width:640px){ .wrap{padding:36px 16px 64px} }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">FAHYBRID · Marcas × Analíticas</p>
+  <h1>Tu marca, contra el box.<br>Sin nombres.</h1>
+  <p class="lede">Con ~100 atletas bajo el coach, cada marca gana contexto: <b>«mejor que el 82% del box»</b>. Sin ranking con nombres, sin podio — solo dónde estás tú dentro del grupo con el que entrenas, y cómo te mueves dentro de él. El atleta ve percentil; <b>Pablo ve la distribución con caras</b>, porque para él es herramienta.</p>
+</header>
+
+<h2>1 · En el detalle de la marca</h2>
+<p class="sub">Debajo del PR, la posición. La barra es la distribución real del box (sin nombres) con tu barra encendida.</p>
+
+<div class="grid">
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Remo 500 m</h3></div>
+      <div class="body">
+        <div class="card" style="text-align:center;padding:18px">
+          <div class="k">Tu mejor marca</div>
+          <div class="big">1:38.4</div>
+          <div class="tiny" style="margin-top:4px">1:38/500 · hace 6 semanas</div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <span class="k">En tu box</span>
+            <span class="pill acc">Top 18%</span>
+          </div>
+          <div class="dist">
+            <span class="youlab" style="left:79%">tú</span>
+            <i style="height:18%"></i><i style="height:26%"></i><i style="height:38%"></i><i style="height:52%"></i><i style="height:70%"></i><i style="height:88%"></i><i style="height:74%"></i><i style="height:56%"></i><i class="me" style="height:40%"></i><i style="height:22%"></i><i style="height:12%"></i>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px" class="tiny mono">
+            <span>2:10</span><span>mediana 1:52</span><span>1:25</span>
+          </div>
+          <p class="small muted" style="margin:10px 0 0">Mejor que el <b style="color:var(--fg)">82%</b> de los hombres del box · 47 con marca</p>
+        </div>
+
+        <div class="card">
+          <div class="k" style="margin-bottom:4px">Tu progreso aquí</div>
+          <p class="small muted" style="margin:0">Hace 3 meses estabas en el <b style="color:var(--fg)">50%</b>. Has adelantado a un tercio del box sin que nadie publicara nada.</p>
+        </div>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Percentil, no podio</div>
+      <div class="d">La distribución no tiene nombres ni orden público — <b>solo tu barra encendida</b>. Y la línea de progreso reencuadra la comparación hacia dentro: no «quién te gana», sino <b>a cuánta gente has adelantado tú</b>.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Analíticas</h3></div>
+      <div class="body">
+        <div class="k" style="padding:2px 2px 0">Tus marcas</div>
+        <div class="card" style="padding:6px 15px">
+          <div class="row">
+            <div style="flex:1">
+              <div class="small" style="font-weight:650">Remo 500 m</div>
+              <div class="spark" style="width:90px;margin-top:4px"><i style="height:80%"></i><i style="height:70%"></i><i style="height:55%"></i><i class="last" style="height:40%"></i></div>
+            </div>
+            <div style="text-align:right">
+              <div class="mono" style="font-weight:700">1:38.4</div>
+              <span class="pill acc" style="margin-top:3px">Top 18%</span>
+            </div>
+          </div>
+          <div class="row">
+            <div style="flex:1">
+              <div class="small" style="font-weight:650">1 km a tope</div>
+              <div class="spark" style="width:90px;margin-top:4px"><i style="height:75%"></i><i style="height:60%"></i><i class="last" style="height:50%"></i></div>
+            </div>
+            <div style="text-align:right">
+              <div class="mono" style="font-weight:700">3:52</div>
+              <span class="pill ok" style="margin-top:3px">Top 31%</span>
+            </div>
+          </div>
+          <div class="row">
+            <div style="flex:1">
+              <div class="small" style="font-weight:650">Ski 1000 m</div>
+              <div class="spark" style="width:90px;margin-top:4px"><i style="height:60%"></i><i class="last" style="height:52%"></i></div>
+            </div>
+            <div style="text-align:right">
+              <div class="mono" style="font-weight:700">3:54</div>
+              <span class="pill acc" style="margin-top:3px">Top 24%</span>
+            </div>
+          </div>
+        </div>
+        <p class="tiny" style="padding:0 4px">Comparado con los hombres del box, cada marca en su contexto (calle y cinta aparte).</p>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Las marcas entran en Analíticas</div>
+      <div class="d">Lo que pediste: los benchmarks viven también en la pestaña de analíticas del atleta — <b>progresión propia + posición en el box</b> por marca, de un vistazo.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone" style="max-width:320px"><div class="screen">
+      <div class="navbar"><h3>Pablo · Remo 500</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="k" style="margin-bottom:6px">Distribución del box · hombres</div>
+          <div class="dist">
+            <i style="height:18%"></i><i style="height:26%"></i><i style="height:38%"></i><i style="height:52%"></i><i style="height:70%"></i><i style="height:88%"></i><i style="height:74%"></i><i style="height:56%"></i><i style="height:40%"></i><i style="height:22%"></i><i style="height:12%"></i>
+          </div>
+          <p class="tiny" style="margin-top:8px">47 con marca · mediana 1:52 · el 25% por debajo de 1:44</p>
+        </div>
+        <div class="card" style="padding:8px 15px">
+          <div class="row"><span class="small" style="flex:1">Marc Vidal</span><span class="mono small">1:38.4</span><span class="pill acc">18%</span></div>
+          <div class="row"><span class="small" style="flex:1">Jordi Puig</span><span class="mono small">1:41.0</span><span class="pill acc">24%</span></div>
+          <div class="row"><span class="small" style="flex:1">Ana Ruiz*</span><span class="mono small">1:52.8</span><span class="pill ok">46%</span></div>
+        </div>
+        <p class="tiny" style="padding:0 4px">* en su distribución (mujeres). Pablo ve nombres: para él es herramienta de coaching, no juego.</p>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">El coach ve las caras</div>
+      <div class="d">La misma distribución, con nombres, en el dashboard: <b>quién está donde y quién se mueve</b>. De aquí salen conversaciones de coaching («tu remo está 30 s por detrás de tu carrera») — no de la app del atleta.</div>
+    </figcaption>
+  </figure>
+</div>
+
+<h2>2 · Las reglas</h2>
+<dl class="rules">
+  <div class="rule"><dt>El grupo</dt><dd><b>Los atletas del coach</b> — de momento. La mecánica queda lista para abrirla a toda la plataforma el día que haya más coaches: mismo cálculo, otro pool.</dd></div>
+  <div class="rule"><dt>Comparar comparable</dt><dd>Misma marca + <b>mismo sexo</b> + mismo contexto (cinta y calle nunca se mezclan, ya es regla). Un solo saco desmotiva a media plantilla.</dd></div>
+  <div class="rule"><dt>Sin nombres en la app</dt><dd>Percentil y distribución anónima. <b>Nada de podios ni listas ordenadas</b> en la app del atleta. Los nombres son del coach.</dd></div>
+  <div class="rule"><dt>Arranque honesto</dt><dd>Los primeros días habrá pocas marcas: hasta 10 comparables, la tarjeta dice <b>«a 4 s de la mediana del box»</b> en vez de un percentil que aún no significa nada. Estado de arranque, no driver del diseño.</dd></div>
+  <div class="rule"><dt>Mejor marca por atleta</dt><dd>La distribución usa <b>el mejor comparable de cada uno</b>, no cada intento — si no, el que se testea mucho puebla la curva él solo.</dd></div>
+  <div class="rule"><dt>Dónde se calcula</dt><dd>En el servidor, junto al GET de marcas que ya existe: percentil + histograma + mediana viajan con cada marca. Cero pantallas nuevas de infraestructura.</dd></div>
+</dl>
+
+</div>
