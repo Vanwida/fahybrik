@@ -71,7 +71,7 @@ describeWithDb('gate de visibilidad de ejercicios + nivel del coach (DB real)', 
       coach_id: clubA.coachId,
       payload: {
         name: 'Fuerza A',
-        format: 'strength',
+        format: 'sets',
         segments: [segment(baseEx, 0), segment(propioA, 1)],
       },
       client: sql,
@@ -87,7 +87,7 @@ describeWithDb('gate de visibilidad de ejercicios + nivel del coach (DB real)', 
     await expect(
       createTemplate({
         coach_id: clubA.coachId,
-        payload: { name: 'Robo', format: 'strength', segments: [segment(propioB)] },
+        payload: { name: 'Robo', format: 'sets', segments: [segment(propioB)] },
         client: sql,
       }),
     ).rejects.toMatchObject({ code: 'invalid_exercise', status: 404 });
