@@ -72,12 +72,15 @@ hoy 27-jul = sueño 5,2 h · HRV 45,3 vs base 40,3 · FC 51 → score 70.**
   vio («no me cambia el readiness») era OTRA cosa: la app refrescaba el score
   en paralelo al POST y re-pintaba el viejo — arreglado (`94c42c0`, pendiente
   reinstalar).
-- **Gap descubierto:** el dashboard NO enseña en ningún sitio CÓMO se
-  encuentra el atleta — `checkin_sub_score` se calcula en resumen.ts y no se
-  pinta, y el endpoint coach `readiness-breakdown` está huérfano (cero
-  consumidores). Solo hay señal indirecta («sin check-in ≥48 h») y el score
-  global. Propuesta pendiente de OK: fila «Cómo se encuentra» en la ficha del
-  atleta + chip en roster cuando el check-in del día venga mal.
+- **Gap cerrado (misma tarde): «Cómo se encuentra», CONSTRUIDO y desplegado.**
+  Mockup aprobado (`docs/design/como-se-encuentra-mockup.html`) → panel en la
+  ficha › Plan bajo el tile de Readiness (5 preguntas espejadas del iOS con
+  recuperación/energía ya giradas, nota literal, bandera adaptativa, racha de
+  7 días con huecos honestos, frescura explícita) + chip «Check-in N» en el
+  roster solo cuando el check-in de HOY (zona del atleta) baja de 40 — la
+  MISMA banda que la regla adaptativa, una sola constante. Muere el endpoint
+  huérfano `readiness-breakdown` (cero consumidores). Verificado vivo en
+  local (Playwright, claro+oscuro, 390/768/1440) y con tests reales Neon.
 
 ---
 
