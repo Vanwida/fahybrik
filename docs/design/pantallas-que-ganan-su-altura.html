@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantallas que se ganan su altura — sistema de diseño</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --paper:#ffffff; --wash:#f4f4f5; --line:#e5e5e7; --line-2:#d4d4d8;
+    --mut:#71717a; --faint:#a1a1aa;
+    --accent:#C2410C; --accent-lite:#FDEAE0; --accent-b:#F06A2A;
+    --dark:#0a0a0a; --dark-2:#141414; --dark-line:#262626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#18181b;color:#f4f4f5;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:56px 24px}
+  .wrap{max-width:1280px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-b)}
+  h1{font-size:clamp(28px,4vw,40px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 8px}
+  .sub{color:#a1a1aa;max-width:660px;margin-bottom:44px}
+  h2{font-size:20px;font-weight:800;font-style:italic;margin:56px 0 8px;color:var(--accent-b)}
+  h2 + p{color:#a1a1aa;max-width:720px;margin-bottom:24px}
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:20px}
+  .rule{background:#1f1f23;border:1px solid #2e2e33;border-radius:14px;padding:18px}
+  .rule b{display:block;font-size:14.5px;font-weight:800;margin-bottom:6px}
+  .rule p{font-size:13.5px;color:#a1a1aa;margin:0;line-height:1.6}
+  .rule .n{display:inline-block;font-size:11px;font-weight:800;color:var(--accent-b);letter-spacing:.1em;margin-bottom:8px}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:36px 28px;align-items:start}
+  .shot h3{font-size:14px;font-weight:800;font-style:italic;margin:14px 2px 4px;color:#f4f4f5}
+  .shot .why{font-size:12.5px;color:#8b8b93;margin:0 2px;line-height:1.6}
+  .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-bottom:8px}
+  .tag.bad{background:#3f1d1d;color:#f87171}
+  .tag.good{background:#14321f;color:#4ade80}
+  /* teléfono */
+  .phone{background:#000;border:1px solid #35353a;border-radius:40px;padding:9px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .screen{border-radius:32px;overflow:hidden;height:660px;display:flex;flex-direction:column;position:relative;background:var(--paper);color:var(--ink)}
+  .screen.dk{background:var(--dark);color:#f5f5f5}
+  .status{display:flex;justify-content:space-between;padding:11px 20px 4px;font-size:11.5px;font-weight:700}
+  .nav{display:flex;align-items:center;gap:10px;padding:6px 16px 12px;border-bottom:1px solid var(--line)}
+  .screen.dk .nav{border-color:var(--dark-line)}
+  .nav .bk{width:30px;height:30px;border-radius:50%;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:14px}
+  .screen.dk .nav .bk{background:var(--dark-2)}
+  .nav b{font-size:15px;font-style:italic;font-weight:800;display:block;line-height:1.2}
+  .nav span{font-size:11.5px;color:var(--mut)}
+  .body{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+  .h1s{font-size:24px;font-weight:800;font-style:italic;letter-spacing:-.02em}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+  .card{background:var(--wash);border-radius:14px;padding:14px}
+  .screen.dk .card{background:var(--dark-2);border:1px solid var(--dark-line)}
+  .stepper{display:flex;align-items:center;justify-content:space-between}
+  .stepper .sq{width:44px;height:38px;border-radius:10px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:20px;font-weight:700}
+  .stepper .val{font-size:28px;font-weight:800;font-style:italic}
+  .dashed{border:1.5px dashed var(--accent);border-radius:14px;padding:16px;text-align:center;color:var(--accent);font-weight:800;font-style:italic;background:var(--wash)}
+  .void{flex:1;display:flex;align-items:center;justify-content:center}
+  .voidmark{border:1px dashed #d4d4d8;border-radius:12px;padding:14px 18px;color:#c4c4cc;font-size:12px;text-align:center;line-height:1.6}
+  /* la previsualización: la rejilla del EMOM */
+  .grid10{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+  .grid10 i{aspect-ratio:1;border-radius:9px;background:var(--accent-lite);border:1px solid #f7cdb8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--accent);font-style:italic}
+  .grid10 i.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .bignum{font-size:60px;font-weight:800;font-style:italic;letter-spacing:-.03em;line-height:1}
+  .bigsub{font-size:13px;color:var(--mut);margin-top:2px}
+  .inline-ed{display:flex;align-items:baseline;gap:6px}
+  .inline-ed .u{font-size:15px;color:var(--mut);font-weight:700}
+  .rowline{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .rowline:last-child{border-bottom:0}
+  .chipline{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--wash);color:var(--mut)}
+  .chip.on{background:var(--accent-lite);color:var(--accent)}
+  .foot{padding:12px 16px 22px;border-top:1px solid var(--line);background:#fff}
+  .screen.dk .foot{border-color:var(--dark-line);background:var(--dark)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--accent-b);color:#160b04;font-weight:800;font-style:italic;border-radius:14px;padding:15px;font-size:16px}
+  .btn.ghost{background:transparent;border:1px solid var(--line-2);color:var(--ink);font-weight:700;font-style:normal;font-size:14px;padding:12px;margin-top:8px}
+  .note{background:#1f1f23;border-left:3px solid var(--accent-b);border-radius:0 12px 12px 0;padding:16px 18px;margin:24px 0 0;color:#a1a1aa;font-size:14px;max-width:820px}
+  .note b{color:#f4f4f5}
+  .footer{margin-top:56px;padding-top:20px;border-top:1px solid #2e2e33;font-size:13px;color:#71717a}
+  @media (max-width:700px){ body{padding:32px 14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Sistema de pantallas · 27 jul 2026</p>
+  <h1>Pantallas que se ganan su altura</h1>
+  <p class="sub">El problema no es que falte "estilo": es que apilamos campos desde arriba y nadie decide qué hace la pantalla con el resto. Esto propone la regla, y la enseña en la pantalla que Alex fotografió.</p>
+
+  <h2>Las cuatro reglas</h2>
+  <p>Aplican a toda pantalla nueva. Si una pantalla no cumple las cuatro, no está terminada.</p>
+  <div class="rules">
+    <div class="rule"><span class="n">01</span><b>Toda pantalla tiene un sujeto</b><p>Una sola cosa de la que va. En una de configuración, el sujeto NO son los campos: es el entreno que estás a punto de hacer. El sujeto manda y ocupa.</p></div>
+    <div class="rule"><span class="n">02</span><b>El hueco se gana o no existe</b><p>Tres formas legítimas: el contenido lo llena, el hueco se convierte en previsualización de lo que decides, o el contenido se centra. Alinear arriba y dejar el resto muerto no es una de ellas.</p></div>
+    <div class="rule"><span class="n">03</span><b>La acción vive abajo, siempre visible</b><p>Donde llega el pulgar y sin buscarla. Nunca al final de un scroll, nunca compitiendo con campos.</p></div>
+    <div class="rule"><span class="n">04</span><b>Lo secundario se pliega</b><p>Lo que casi nadie cambia no ocupa sitio: vive tras un toque. Los valores por defecto tienen que ser lo bastante buenos como para empezar sin tocar nada.</p></div>
+  </div>
+
+  <h2>La misma pantalla, antes y después</h2>
+  <p>EMOM del constructor funcional. Mismos datos, misma marca, mismo tema claro que tiene hoy la app.</p>
+
+  <div class="gallery">
+
+    <!-- ANTES -->
+    <div class="shot">
+      <span class="tag bad">Hoy</span>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>23:11</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><div class="bk">‹</div><div><b>Crear funcional</b><span>EMOM</span></div></div>
+        <div class="body">
+          <div class="h1s">Configura</div>
+          <div class="card"><div class="lbl" style="margin-bottom:8px">Minutos</div>
+            <div class="stepper"><div class="sq">−</div><div class="val">10</div><div class="sq">+</div></div></div>
+          <div class="card"><div class="lbl" style="margin-bottom:8px">Cada</div>
+            <div class="stepper"><div class="sq">−</div><div class="val">1:00</div><div class="sq">+</div></div></div>
+          <div style="font-size:15px;font-weight:800;font-style:italic;margin-top:2px">Movimientos</div>
+          <div class="dashed">+ Añadir movimiento</div>
+          <div class="void"><div class="voidmark">60 % de la pantalla<br>sin decir nada</div></div>
+        </div>
+      </div></div>
+      <h3>Antes · un formulario</h3>
+      <p class="why">Dos filas de +/− y un botón punteado. No hay sujeto, no hay acción a la vista (hay que declarar movimientos para poder empezar), y el resto de la altura está muerta. Se lee como una pantalla de ajustes, no como un producto.</p>
+    </div>
+
+    <!-- DESPUÉS -->
+    <div class="shot">
+      <span class="tag good">Propuesta</span>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>23:11</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><div class="bk">‹</div><div><b>EMOM</b><span>funcional</span></div></div>
+        <div class="body">
+          <div style="text-align:center;padding:6px 0 2px">
+            <div class="bignum">10:00</div>
+            <div class="bigsub">10 rondas · una cada minuto</div>
+          </div>
+          <div class="grid10" style="margin-top:4px">
+            <i class="on">1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i><i>10</i>
+          </div>
+          <div class="card" style="margin-top:8px">
+            <div class="rowline"><span class="lbl" style="flex:1">Rondas</span>
+              <div class="inline-ed"><b style="font-size:19px;font-style:italic">10</b><span class="u">min</span></div>
+              <div class="sq" style="width:36px;height:32px;border-radius:9px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700">−</div>
+              <div class="sq" style="width:36px;height:32px;border-radius:9px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700">+</div>
+            </div>
+            <div class="rowline"><span class="lbl" style="flex:1">Cada</span>
+              <div class="inline-ed"><b style="font-size:19px;font-style:italic">1:00</b></div>
+              <div class="sq" style="width:36px;height:32px;border-radius:9px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700">−</div>
+              <div class="sq" style="width:36px;height:32px;border-radius:9px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700">+</div>
+            </div>
+          </div>
+          <div class="chipline" style="margin-top:2px">
+            <span class="chip on">Solo cronómetro</span><span class="chip">+ Añadir movimientos</span>
+          </div>
+          <div style="flex:1"></div>
+        </div>
+        <div class="foot">
+          <div class="btn">Empezar</div>
+          <div class="btn ghost">La última vez: 12 × 1:00</div>
+        </div>
+      </div></div>
+      <h3>Después · una pantalla</h3>
+      <p class="why">El sujeto es el entreno: <b>10:00</b> y las diez rondas dibujadas — ves la forma de lo que vas a hacer y confirmas la configuración de un vistazo, sin leer campos. Los +/− se pliegan a una fila cada uno. Los movimientos pasan a ser opcionales (chip), la acción se ancla abajo y el atajo a lo último que hiciste está donde el pulgar lo encuentra. Cero hueco muerto y arranca en un toque.</p>
+    </div>
+
+    <!-- TERCERA: el mismo sistema en una pantalla oscura -->
+    <div class="shot">
+      <span class="tag good">El mismo sistema</span>
+      <div class="phone"><div class="screen dk">
+        <div class="status"><span>23:14</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><div class="bk">✕</div><div><b>Remo 1.000 m</b><span>benchmark</span></div></div>
+        <div class="body">
+          <div style="text-align:center;padding:14px 0 6px">
+            <div class="lbl">A batir</div>
+            <div class="bignum" style="margin-top:4px">3:30<span style="font-size:26px">.0</span></div>
+            <div class="bigsub">tu récord · hace 6 semanas</div>
+          </div>
+          <div class="card" style="text-align:center">
+            <div class="lbl" style="margin-bottom:8px">Lo que tienes que hacer</div>
+            <div style="font-size:18px;font-weight:800;font-style:italic">1.000 m a tope</div>
+            <div style="font-size:12.5px;color:var(--mut);margin-top:4px">≈ 1:45 /500 m para igualarlo</div>
+          </div>
+          <div class="card">
+            <div class="rowline" style="border-color:var(--dark-line)"><span style="font-size:13.5px">Monitor PM5</span><span style="margin-left:auto;font-size:12.5px;color:#4ade80;font-weight:700">Conectado</span></div>
+            <div class="rowline" style="border-color:var(--dark-line)"><span style="font-size:13.5px">La app lo mide sola</span><span style="margin-left:auto;font-size:12.5px;color:var(--faint)">sin teclear nada</span></div>
+          </div>
+          <div style="flex:1"></div>
+        </div>
+        <div class="foot"><div class="btn">Empezar</div></div>
+      </div></div>
+      <h3>La regla no es de una pantalla, es del sistema</h3>
+      <p class="why">Mismo esqueleto en el benchmark: el sujeto arriba y grande (tu récord a batir, que es la razón por la que estás aquí), lo que necesitas saber en medio, y la acción anclada. Sin récord, el sujeto pasa a ser el esfuerzo («1.000 m a tope») y no se inventa ningún ritmo.</p>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <b>Cómo lo haría, para que no sea pintar pantallas sueltas:</b> primero cerramos <b>cinco arquetipos</b> — configurar, lista, detalle, estado vacío y en vivo — cada uno con su regla de sujeto, de hueco y de dónde vive la acción. Se aprueban aquí, en mockup. Después se aplican pantalla a pantalla, empezando por las que más se usan. Si vamos una a una sin sistema, sale bonito a trozos e inconsistente en conjunto — que es exactamente cómo hemos llegado hasta aquí.
+  </div>
+
+  <div class="note" style="border-left-color:#facc15">
+    <b>Una pregunta antes de seguir:</b> el constructor de entrenos es <b>claro</b> y la pestaña Plan es <b>oscura</b>. ¿Es deliberado (el blanco se lee mejor con luz de gimnasio) o se nos ha ido? La respuesta cambia el sistema entero, así que la necesito antes de definir los arquetipos.
+  </div>
+
+  <div class="footer">FAHYBRID · propuesta de sistema · deriva de las capturas de Alex del 27-jul · marca: negro + naranja Fabrik, tipografía display en itálica</div>
+
+</div>
+</body>
+</html>
