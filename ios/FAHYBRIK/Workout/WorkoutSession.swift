@@ -115,7 +115,15 @@ final class WorkoutSession {
     // cleanly and leaving it tears the timer + audio down.
     var emomCountInRemaining: Double = 0    // 3-2-1 pre-roll; 0 once running
     var emomIntervalIndex: Int = 0          // 0-based interval within the EMOM
-    var emomIntervalRemaining: Double = 0   // count-DOWN within the current interval
+    /// Which half of the cycle is running. A plain EMOM has no transition, so it
+    /// stays `.work` for the whole cycle and behaves exactly as it always has; an
+    /// INTERVAL EMOM (45/15, Tabata) flips to `.rest` for its transition window.
+    /// Same two-phase vocabulary as the rotating engine — one notion of work vs
+    /// change in the whole app.
+    var emomPhase: RotatingPhase = .work
+    /// Count-DOWN remaining in the CURRENT phase (the whole cycle when there is no
+    /// explicit transition).
+    var emomPhaseRemaining: Double = 0
     private(set) var emomCompletedIntervals: Int = 0
     private var emomSegmentIndex: Int? = nil
     private static let countInSeconds: Double = 3
@@ -661,16 +669,21 @@ final class WorkoutSession {
     // (back one step, REOPENING the previous segment / interval), and `jumpTo`
     // (the rail / stepper shortcut — close-then-skip forward, or reopen backward).
 
-    /// The bottom primary button. For an EMOM it advances the INTERVAL (or, on the
-    /// last one, closes the block); for every other format it closes the current
-    /// segment's lap and advances — the classic manual lap, unchanged.
+    /// The bottom primary button. For an EMOM it advances the PHASE — finishing the
+    /// work early lands on the change window (you still have to move to the next
+    /// station), and tapping during the change starts the next round; a plain EMOM
+    /// has no change, so it advances the interval exactly as it always did. This is
+    /// the same behaviour the rotating engine gives "Serie hecha". For every other
+    /// format it closes the current segment's lap and advances — the classic manual
+    /// lap, unchanged.
     func primaryAdvance() {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
         if seg.hasRunStructure {
             runStructurePrimary()
         } else if seg.isEMOM {
             if emomCountInRemaining > 0 { skipCountIn(); return }
-            advanceEMOMInterval(auto: false)
+            guard let plan = seg.emomPlan else { return }
+            rollEMOMPhase(plan)
         } else if seg.isConditioningTimer {
             conditioningPrimary(seg)
         } else {
@@ -721,7 +734,9 @@ final class WorkoutSession {
             Haptics.light()
             emomIntervalIndex -= 1
             emomCompletedIntervals = min(emomCompletedIntervals, emomIntervalIndex)
-            emomIntervalRemaining = Double(seg.emomPlan?.intervalSeconds ?? 60)
+            // Stepping back restarts the round at the top of its WORK phase.
+            emomPhase = .work
+            emomPhaseRemaining = Double(seg.emomPlan?.workSeconds ?? 60)
             WorkoutAudio.shared.playIntervalStart()
             return
         }
@@ -956,7 +971,8 @@ final class WorkoutSession {
         emomSegmentIndex = currentSegmentIndex
         emomIntervalIndex = 0
         emomCompletedIntervals = 0
-        emomIntervalRemaining = Double(plan.intervalSeconds)
+        emomPhase = .work
+        emomPhaseRemaining = Double(plan.workSeconds)
         emomCountInRemaining = Self.countInSeconds
         WorkoutAudio.shared.activate()
         WorkoutAudio.shared.playTick()   // the opening "3" of the 3-2-1 count-in
@@ -967,21 +983,24 @@ final class WorkoutSession {
         emomSegmentIndex = nil
         emomCountInRemaining = 0
         emomIntervalIndex = 0
-        emomIntervalRemaining = 0
+        emomPhase = .work
+        emomPhaseRemaining = 0
         emomCompletedIntervals = 0
     }
 
     private func skipCountIn() {
         guard let plan = currentSegment?.emomPlan else { return }
         emomCountInRemaining = 0
-        emomIntervalRemaining = Double(plan.intervalSeconds)
+        emomPhase = .work
+        emomPhaseRemaining = Double(plan.workSeconds)
         WorkoutAudio.shared.playGo()
         Haptics.medium()
     }
 
-    // Advance to the next EMOM interval, or close the block on the last one.
-    // `auto` = the timer rolled over; otherwise the athlete tapped through.
-    private func advanceEMOMInterval(auto: Bool) {
+    // Advance to the next EMOM interval, or close the block on the last one. Reached
+    // both by the timer rolling over and by the athlete tapping through — the result
+    // is identical either way, so it takes no "was this automatic" flag.
+    private func advanceEMOMInterval() {
         guard let plan = currentSegment?.emomPlan else { return }
         emomCompletedIntervals = max(emomCompletedIntervals, emomIntervalIndex + 1)
         let next = emomIntervalIndex + 1
@@ -993,7 +1012,8 @@ final class WorkoutSession {
         }
         let changed = plan.interval(next)?.movement != plan.interval(emomIntervalIndex)?.movement
         emomIntervalIndex = next
-        emomIntervalRemaining = Double(plan.intervalSeconds)
+        emomPhase = .work
+        emomPhaseRemaining = Double(plan.workSeconds)
         if changed {
             WorkoutAudio.shared.playMovementChange()
             Haptics.heavy()
@@ -1188,7 +1208,10 @@ final class WorkoutSession {
             if rotPhase == .work, let rest = seg.formatRestSeconds {
                 rotPhase = .rest
                 rotPhaseRemaining = Double(rest)
-                WorkoutAudio.shared.playMovementChange()   // distinct rest tone
+                // "Para" — NOT the movement-change tone this used to borrow, which
+                // is the cue for "next round, different movement". Under effort the
+                // two must not sound alike.
+                WorkoutAudio.shared.playWorkEnd()
                 Haptics.heavy()
             } else {
                 advanceRotatingRound(seg: seg)
@@ -2373,10 +2396,10 @@ final class WorkoutSession {
         }
     }
 
-    // Drive the EMOM count-in and per-interval countdown. Fires the count-in
-    // ticks + "go", the last-3s ticks, the top-of-interval beep and the auto-roll
-    // to the next interval (or the block close on the last one). Runs off the same
-    // 0.25s tick as the main clock.
+    // Drive the EMOM count-in and per-PHASE countdown. Fires the count-in ticks +
+    // "go", the last-3s ticks, the end-of-work cue (interval EMOMs only), the
+    // top-of-interval beep and the auto-roll to the next interval (or the block
+    // close on the last one). Runs off the same 0.25s tick as the main clock.
     private func tickEMOM(dt: Double) {
         guard let plan = currentSegment?.emomPlan else { return }
 
@@ -2386,7 +2409,8 @@ final class WorkoutSession {
             emomCountInRemaining = max(0, before - dt)
             if before.rounded(.up) != emomCountInRemaining.rounded(.up) {
                 if emomCountInRemaining <= 0 {
-                    emomIntervalRemaining = Double(plan.intervalSeconds)
+                    emomPhase = .work
+                    emomPhaseRemaining = Double(plan.workSeconds)
                     WorkoutAudio.shared.playGo()
                     Haptics.medium()
                 } else {
@@ -2397,18 +2421,39 @@ final class WorkoutSession {
             return
         }
 
-        // Running interval: count down, tick the final 3 seconds, roll at zero.
-        let before = emomIntervalRemaining
+        // Running phase: count down, tick the final 3 seconds, roll at zero. On an
+        // interval EMOM those ticks now also run into the END OF THE WORK, which is
+        // the whole point of the format — the athlete is warned when to STOP, not
+        // only when to start.
+        let before = emomPhaseRemaining
         let after = before - dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
             WorkoutAudio.shared.playTick()
             Haptics.light()
         }
         if after <= 0 {
-            advanceEMOMInterval(auto: true)   // beep + auto-roll (or close on last)
+            rollEMOMPhase(plan)
         } else {
-            emomIntervalRemaining = after
+            emomPhaseRemaining = after
         }
+    }
+
+    /// A phase hit zero. An INTERVAL EMOM (explicit transition) closes the WORK
+    /// first — the distinct "para" cue + a firm haptic — and only rolls to the next
+    /// round when the transition is spent. A plain EMOM has no transition, so its
+    /// work phase IS the cycle and it rolls straight through exactly as before.
+    private func rollEMOMPhase(_ plan: EmomPlan) {
+        // The LAST work window ends the block — a Rogue clock doesn't make you stand
+        // through a change with nowhere to change to.
+        let isLastRound = emomIntervalIndex + 1 >= plan.intervalCount
+        if plan.hasTransition, emomPhase == .work, !isLastRound {
+            emomPhase = .rest
+            emomPhaseRemaining = Double(plan.restSeconds)
+            WorkoutAudio.shared.playWorkEnd()
+            Haptics.heavy()
+            return
+        }
+        advanceEMOMInterval()   // beep + roll (or close on the last one)
     }
 
     private func persistedSnapshot() -> PersistedWorkoutState {

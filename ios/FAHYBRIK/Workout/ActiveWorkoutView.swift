@@ -439,7 +439,13 @@ struct ActiveWorkoutView: View {
     // blocks have no format line (the title carries them).
     private func blockFormatLabel(_ segments: [WorkoutSegment]) -> String? {
         if let emom = segments.compactMap(\.emomPlan).first {
-            return "EMOM · \(emom.intervalCount) rondas · cada \(PrescriptionRenderer.formatRest(emom.intervalSeconds))"
+            let cycle = "cada \(PrescriptionRenderer.formatRest(emom.intervalSeconds))"
+            // An INTERVAL EMOM leads with its split — "45/15" is what the athlete
+            // is about to pace against, the cycle is the consequence.
+            let shape = emom.hasTransition
+                ? "\(emom.workSeconds)/\(emom.restSeconds) · \(cycle)"
+                : cycle
+            return "EMOM · \(emom.intervalCount) rondas · \(shape)"
         }
         if let wod = segments.compactMap(\.prescription).first(where: { $0.scheme.isWOD }) {
             return PrescriptionRenderer.wodHeader(wod)
@@ -998,6 +1004,12 @@ struct ActiveWorkoutView: View {
         if session.currentSegment?.isEMOM == true {
             // During the post-Empezar 3-2-1, the button SKIPS the count-in.
             if session.emomCountInRemaining > 0 { return "SALTAR" }
+            // Interval EMOM: finishing the work early opens the change window, so
+            // say so — "SIGUIENTE" would promise the next round and deliver a change.
+            if session.currentSegment?.emomPlan?.hasTransition == true,
+               session.emomIntervalsRemaining > 0 {
+                return session.emomPhase == .work ? "HE ACABADO" : "EMPEZAR RONDA"
+            }
             if session.emomIntervalsRemaining > 0 { return "SIGUIENTE" }
             // Last interval: TERMINAR ends the session only on the FINAL block;
             // otherwise it closes the EMOM and opens the next block's preview.
