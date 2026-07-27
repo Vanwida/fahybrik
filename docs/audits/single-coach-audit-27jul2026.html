@@ -144,10 +144,21 @@
     <tr><td>ProfileView:39-42 · PlanService:239 · ChatView:283 · Onboarding/ (sin código de club) · watch entero · program-months.ts · signals.ts:123 · goal-gap/ training-load/ execution-merge/ running/ wearables/</td><td>ya agnóstico y coach-free</td><td class="OK">OK</td></tr>
   </table></div>
 
+  <h3>Datos vivos de prod (verificado contra Neon, 27-jul tarde)</h3>
+  <div class="tS"><table>
+    <tr><th>coaches.id</th><th>Qué es</th><th>Atletas · miembros · templates</th><th>Acción</th></tr>
+    <tr><td>60 «Pablo Amigo»</td><td>EL club real</td><td>3 reales (Gerard, Alex, Pablo) · 3 · 19</td><td>—</td></tr>
+    <tr><td>61 «Pablo Amigo»</td><td>club del atleta de REVIEW App Store (review@fahybrid.com, Jordi Vera)</td><td>1 · 0 · 9</td><td>renombrar («Review») en obra puerta — no borrar</td></tr>
+    <tr><td>62 «Pablo Amigo»</td><td>club demo (Marc Vidal + Guillem Soler, @demo.fahybrid.local)</td><td>2 · 0 · 19</td><td>renombrar («Demo») — no borrar</td></tr>
+    <tr><td>63 «Coach Demo 2»</td><td>club demo 2</td><td>1 · 0 · 0</td><td>—</td></tr>
+    <tr><td>4 «alexsole»</td><td>RESIDUO de desarrollo; era el que ganaba el `order by id limit 1` del cupo (max_athletes=100)</td><td>0 · 0 · <b>69 templates</b></td><td>limpiar en obra puerta TRAS comprobar referencias (assignments → templates)</td></tr>
+    <tr><td>15 «Coach»</td><td>huérfano con 1 miembro colgando</td><td>0 · 1 · 0</td><td>investigar el miembro y limpiar</td></tr>
+  </table></div>
+  <p>Implicación tranquilizadora: el dashboard de Pablo (sesión → club 60) ve exactamente a sus 3 atletas reales; los demás viven aislados en sus clubes fixture. El bug del cupo comparaba contra el max_athletes=100 del residuo (coach 4) — arreglado en obra 0.</p>
+
   <h3>Preguntas abiertas de la auditoría</h3>
   <ul>
     <li><b>Analíticas y Carreras para un free:</b> sin verificar qué devuelven sus endpoints sin plan prescrito (hace falta un atleta real sin coach contra la API).</li>
-    <li><b>Datos vivos:</b> «99 bloques» y «coach 60» vienen de migraciones/comentarios; confirmar contra Neon al ejecutar cada obra.</li>
     <li><b>Sin barrer:</b> seeds más allá de seed_demo_coaches; nutrición/dobles/import/observability query a query; /guia línea a línea.</li>
   </ul>
 
