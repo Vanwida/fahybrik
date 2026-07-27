@@ -37,9 +37,6 @@ struct FreeRaceRef: Decodable, Hashable {
     let format: String
     let division: String?
     let genderCategory: String?
-
-    /// True when the numbers on this race belong to two athletes, not one.
-    var isTeam: Bool { format == "doubles" || format == "relay" }
 }
 
 struct FreeFinishEvidence: Decodable {

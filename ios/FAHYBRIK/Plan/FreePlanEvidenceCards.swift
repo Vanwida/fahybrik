@@ -88,7 +88,7 @@ struct FreeRaceEvidenceCard: View {
                         if let rox = evidence.bestRoxzone { roxzoneRow(rox) }
                     }
                 }
-                if let trend = evidence.runTrend { trendLine(trend) }
+                progressLine
             }
         }
     }
@@ -124,6 +124,14 @@ struct FreeRaceEvidenceCard: View {
                             .foregroundStyle(Theme.Color.faint)
                     }
                 }
+            }
+            // El tiempo de una pareja es suyo, pero no es una medida de él solo.
+            // Decirlo aquí es lo que permite enseñar el número grande sin mentir.
+            if finish.teamResult {
+                Text("Es el tiempo de la pareja. Lo que sí es tuyo solo, debajo.")
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
@@ -177,6 +185,38 @@ struct FreeRaceEvidenceCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// Cómo va su carrera con el tiempo.
+    ///
+    /// El servidor solo manda tendencia cuando hay 3+ carreras INDIVIDUALES: en
+    /// dobles el ritmo lo marca la pareja y una «evolución» mediría con quién se
+    /// apuntó. Sin tendencia se enseñan los dos hechos (su mejor y su último) y
+    /// se dice por qué no los restamos.
+    @ViewBuilder
+    private var progressLine: some View {
+        if let trend = evidence.runTrend {
+            trendLine(trend)
+        } else if let latest = evidence.latestRun,
+                  let best = evidence.bestRun,
+                  latest.race.raceId != best.race.raceId {
+            Text(latestVsBest(latest: latest, best: best))
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func latestVsBest(latest: FreeRunEvidence, best: FreeRunEvidence) -> String {
+        let place = latest.race.location ?? latest.race.name
+        let pace = FreePlanEvidenceCopy.pace(latest.paceSPerKm)
+        if latest.partnerBounded || best.partnerBounded {
+            return "Tu último fue \(pace) en \(place). En dobles el ritmo lo marca la pareja, así que restarle tu mejor no te diría cómo estás."
+        }
+        let gap = abs(Int((latest.paceSPerKm - best.paceSPerKm).rounded()))
+        if gap == 0 { return "Tu último fue \(pace) en \(place), clavado a tu mejor." }
+        let sense = latest.paceSPerKm > best.paceSPerKm ? "más lento" : "más rápido"
+        return "Tu último fue \(pace) en \(place): \(gap) s por kilómetro \(sense) que tu mejor."
     }
 
     private func trendLine(_ trend: FreeRunTrend) -> some View {
