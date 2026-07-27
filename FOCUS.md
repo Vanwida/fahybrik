@@ -15,6 +15,32 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · Readiness descongelado — «¿Cómo llegas hoy?» vivía en el 16 de julio
+
+Alex reportó «no lee sueño ni HRV» con el Apple Watch puesto. Causa raíz: el
+snapshot diario de readiness solo se computaba la PRIMERA vez; después nada
+volvía a computar un día nuevo, y la hoja enseñaba el último guardado como si
+fuera hoy. El suyo nació el 16-jul en plena carrera con su primer sync (el
+sueño entró 9 s DESPUÉS del compute, el HRV 80 s después) → 11 días congelado
+en «FC 51 · resto sin dato» mientras los datos frescos dormían en
+`biometric_streams`. **DESPLEGADO y verificado en prod con sus datos reales:
+hoy 27-jul = sueño 5,2 h · HRV 45,3 vs base 40,3 · FC 51 → score 70.**
+
+- El endpoint del atleta ahora computa y persiste HOY en cada lectura (fallback
+  honesto al último snapshot si hoy no hay señal). Ingesta HealthKit y check-in
+  recomputan antes de responder. Decisión: → `docs/DECISIONS.md` (27-jul).
+- **De paso, dos agujeros gordos:** (1) ningún check-in de dispositivo ha
+  llegado JAMÁS al servidor — los de Jordi/Marc del 9–22 jul fueron sembrados a
+  mano (mismo `created_at`); el «Hecho · hoy» del sheet es estado local y el
+  POST muere en silencio. (2) La RequestQueue del iOS era write-only: siete
+  features encolaban «para replay» y nadie drenaba. Ya drena (FIFO, veneno 4xx
+  fuera, TTL 72 h) — pendiente de que Alex reinstale la app.
+- Falta cazar POR QUÉ muere el POST del check-in en el dispositivo (bearer y
+  Zod verificados OK): tras el próximo check-in de Alex con la app nueva,
+  mirar `daily_checkins` y el log de Vercel (ahora el 400 deja traza).
+
+---
+
 ## Cerrado el 27-jul · MARCAS — el atleta se prueba cuando quiere (DESPLEGADO web · iOS en verde)
 
 Mockup: → `docs/design/marcas-atleta-mockup.html` · Decisión: → `docs/DECISIONS.md` (27-jul)
