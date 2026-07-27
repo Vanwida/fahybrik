@@ -11,7 +11,8 @@
 //   · Reorder → POST   /api/coach/tests/reorder
 //   · Restore → POST   /api/coach/tests/restore-defaults
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useTransition } from 'react';
+import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
@@ -62,6 +63,8 @@ export function TestsView({
   reach?: Record<string, { athletes: number; done: number; pending: number }>;
   roster?: ApplyRosterEntry[];
 }) {
+  const router = useRouter();
+  const [, startRefresh] = useTransition();
   const [tests, setTests] = useState<CoachCalibrationTest[]>(initialTests);
   const [applying, setApplying] = useState<CoachCalibrationTest | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -311,7 +314,12 @@ export function TestsView({
           test={{ id: String(applying.id), name: applying.name }}
           roster={roster}
           onClose={() => setApplying(null)}
-          onApplied={(summary) => setToast(summary)}
+          onApplied={(summary) => {
+            setToast(summary);
+            // Pull the fresh reach + roster down from the server component: without
+            // this the screen keeps yesterday's truth and the coach re-applies blind.
+            startRefresh(() => router.refresh());
+          }}
         />
       ) : null}
 

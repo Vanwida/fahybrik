@@ -174,6 +174,9 @@ export interface RosterForApply {
   /** Last COMPLETED occurrence per test id — the fact that decides whether repeating
    *  it now is worth anything. Missing key = never done it. */
   last_done_by_test: Record<string, string>;
+  /** Earliest still-pending occurrence per test id. The athlete already has this test
+   *  in his plan — applying again stacks a second one. Missing key = nothing pending. */
+  pending_by_test: Record<string, string>;
 }
 
 /**
@@ -186,17 +189,17 @@ export async function loadRosterForApply(
   coach_id: number,
   client: Sql = defaultSql,
 ): Promise<RosterForApply[]> {
-  const [athletes, history] = await Promise.all([
+  const [athletes, history, pending] = await Promise.all([
     client<{ id: string; full_name: string; lifecycle_status: string }[]>`
       select id::text as id, full_name, lifecycle_status::text as lifecycle_status
       from athletes
       where coach_id = ${coach_id} and lifecycle_status <> 'baja'
       order by full_name
     `,
-    client<{ athlete_id: string; test_id: string; last_done: string }[]>`
+    client<{ athlete_id: string; test_id: string; day: string }[]>`
       select wa.athlete_id::text          as athlete_id,
              wa.calibration_test_id::text as test_id,
-             max(wa.scheduled_for)::text  as last_done
+             max(wa.scheduled_for)::text  as day
       from workout_assignments wa
       join athletes a on a.id = wa.athlete_id
       where a.coach_id = ${coach_id}
@@ -204,19 +207,39 @@ export async function loadRosterForApply(
         and wa.status = 'completed'
       group by wa.athlete_id, wa.calibration_test_id
     `,
+    client<{ athlete_id: string; test_id: string; day: string }[]>`
+      select wa.athlete_id::text          as athlete_id,
+             wa.calibration_test_id::text as test_id,
+             min(wa.scheduled_for)::text  as day
+      from workout_assignments wa
+      join athletes a on a.id = wa.athlete_id
+      where a.coach_id = ${coach_id}
+        and wa.calibration_test_id is not null
+        and wa.status not in ('completed', 'skipped')
+      group by wa.athlete_id, wa.calibration_test_id
+    `,
   ]);
 
-  const byAthlete = new Map<string, Record<string, string>>();
-  for (const h of history) {
-    const rec = byAthlete.get(h.athlete_id) ?? {};
-    rec[h.test_id] = h.last_done;
-    byAthlete.set(h.athlete_id, rec);
-  }
+  const doneByAthlete = indexByAthlete(history);
+  const pendingByAthlete = indexByAthlete(pending);
 
   return athletes.map((a) => ({
     athlete_id: a.id,
     full_name: a.full_name,
     lifecycle_status: a.lifecycle_status,
-    last_done_by_test: byAthlete.get(a.id) ?? {},
+    last_done_by_test: doneByAthlete.get(a.id) ?? {},
+    pending_by_test: pendingByAthlete.get(a.id) ?? {},
   }));
+}
+
+function indexByAthlete(
+  rows: { athlete_id: string; test_id: string; day: string }[],
+): Map<string, Record<string, string>> {
+  const byAthlete = new Map<string, Record<string, string>>();
+  for (const r of rows) {
+    const rec = byAthlete.get(r.athlete_id) ?? {};
+    rec[r.test_id] = r.day;
+    byAthlete.set(r.athlete_id, rec);
+  }
+  return byAthlete;
 }

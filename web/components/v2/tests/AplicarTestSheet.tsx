@@ -23,6 +23,7 @@ export interface ApplyRosterEntry {
   full_name: string;
   lifecycle_status: string;
   last_done_by_test: Record<string, string>;
+  pending_by_test: Record<string, string>;
 }
 
 function defaultDate(): string {
@@ -43,6 +44,20 @@ function lastDoneLabel(iso: string | undefined): string {
   return `hace ${Math.round(days / 30)} meses`;
 }
 
+/** "hoy" / "mañana" / "28 jul" — the athlete already has this test waiting on that day. */
+function scheduledLabel(iso: string): string {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (iso === today.toISOString().slice(0, 10)) return 'hoy';
+  if (iso === tomorrow.toISOString().slice(0, 10)) return 'mañana';
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+}
+
 export function AplicarTestSheet({
   test,
   roster,
@@ -60,8 +75,13 @@ export function AplicarTestSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // "Never done" excludes anyone who already has it waiting in his plan: preselecting
+  // him again would stack a second occurrence, which is the loop this shortcut feeds.
   const neverDone = useMemo(
-    () => roster.filter((a) => !a.last_done_by_test[test.id]).map((a) => a.athlete_id),
+    () =>
+      roster
+        .filter((a) => !a.last_done_by_test[test.id] && !a.pending_by_test[test.id])
+        .map((a) => a.athlete_id),
     [roster, test.id],
   );
 
@@ -172,11 +192,17 @@ export function AplicarTestSheet({
                       <span className="flex-1 truncate text-[13.5px] text-[color:var(--v2-fg)]">
                         {a.full_name}
                       </span>
-                      <span className="shrink-0 text-[11.5px] text-[color:var(--v2-faint)]">
-                        {a.lifecycle_status === 'pausado'
-                          ? 'en pausa'
-                          : `último: ${lastDoneLabel(a.last_done_by_test[test.id])}`}
-                      </span>
+                      {a.pending_by_test[test.id] ? (
+                        <span className="shrink-0 text-[11.5px] font-semibold text-[color:var(--v2-accent)]">
+                          programado · {scheduledLabel(a.pending_by_test[test.id]!)}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-[11.5px] text-[color:var(--v2-faint)]">
+                          {a.lifecycle_status === 'pausado'
+                            ? 'en pausa'
+                            : `último: ${lastDoneLabel(a.last_done_by_test[test.id])}`}
+                        </span>
+                      )}
                     </button>
                   );
                 })
