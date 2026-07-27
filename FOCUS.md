@@ -28,6 +28,16 @@ streaming/`loading.tsx`.
 
 ---
 
+## SIGUIENTE TANDA — cola priorizada (27-jul, tarde)
+
+1. **Entreno libre con CALENTAMIENTO opcional** (petición de Alex entrenando en vivo): hoy el libre de fuerza arranca contando como si fuera la primera serie mientras él calienta. Diseño decidido: el builder libre gana una sección «Calentamiento» opcional (espejo de las fases del run-structure) — puede llevar ejercicios o ir VACÍA (solo la fase con su reloj, se salta cuando terminas). El plan generado pasa de un bloque «Libre» a dos («Calentamiento» + el principal) y el motor en vivo YA sabe recorrer bloques: la sesión empieza en calentamiento y la serie 1 es serie 1. Payload: items con parte (warmup|main) — revisar el contrato del free-save antes.
+2. **Probar el fix del PM5 contra el remo físico** (705fe97: desconocido=sucio, terminate siempre salvo "wait to begin"). Escenario exacto: monitor con 100 m rodando → conectar → empezar benchmark → debe resetear a la pieza programada. iPhone al cable para instalar (build lista con la secuencia de conectar del ergo).
+3. **Ranking del box — las pantallas**: el motor ya viaja en el GET de marcas (`box`: percentil, histograma 11 cubos, mediana, percentil de hace 90 días). Falta: tarjeta «En tu box» en el detalle de marca (iOS), sección «Tus marcas» en Analíticas (iOS), y la distribución CON nombres para Pablo (dashboard). Mockup aprobado: `docs/design/marcas-ranking-analiticas-mockup.html`.
+4. **Editor: fuerza y metcon** con el patrón frase + fila abierta + defaults (el run ya está en prod). La tabla de ítems ya es readout; falta la edición inline en vez de la máquina de chips de `PrescriptionFields`, y la línea rápida de fuerza (la gramática ya parsea `5x5 @80% r2'30`; falta resolver ejercicio del catálogo por nombre).
+5. La suite de tests de iOS sigue sin compilar por el test de chat de la otra sesión (ChatUploadResult sin Decodable) — suyo, en curso.
+
+---
+
 ## Cerrado el 27-jul · EDITOR DE BLOQUES rediseñado (correr) + la regla del ritmo — DESPLEGADO
 
 Mockup aprobado: → `docs/design/editor-bloques-rediseno-mockup.html`
