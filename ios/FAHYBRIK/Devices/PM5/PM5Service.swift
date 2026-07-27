@@ -238,7 +238,13 @@ final class PM5Service: NSObject {
         responseAssembler.reset()
         pendingFrames = []
         pendingChunks = []
-        if let ws = sample.workoutState, ws != .waitingToBegin {
+        // UNKNOWN state is DIRTY. Right after connecting, the data stream may not
+        // have delivered workoutState yet (nil) — and that is exactly the moment we
+        // program. The old `if let` skipped the terminate on nil, so a monitor
+        // already rolling (100 m on screen) kept its piece and the app and the erg
+        // lived in different worlds. Only a POSITIVE "waiting to begin" skips the
+        // terminate; terminating an idle monitor is a harmless echo.
+        if sample.workoutState != .waitingToBegin {
             pendingFrames.append(PM5WorkoutCodec.terminateFrame())
         }
         pendingFrames.append(PM5WorkoutCodec.programFrame(for: spec))
