@@ -15,6 +15,23 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · EDITOR DE BLOQUES rediseñado (correr) + la regla del ritmo — DESPLEGADO
+
+Mockup aprobado: → `docs/design/editor-bloques-rediseno-mockup.html`
+
+Alex: el panel era un mal uso del espacio, todo chips, no es lo que el mercado manda. El rediseño, construido para CORRER (el peor caso) y en producción:
+
+- **El cajón de 576px murió**: el editor de bloque es un modal centrado de ~1060px.
+- **Fila-frase**: cada tramo cerrado se lee como lo leerá el atleta ("1 km @ 4:30/km"); un Repetir plegado es UNA línea. Solo se abre el tramo tocado (3-4 campos); inclinación/cadencia detrás de chips.
+- **Línea rápida**: "6x1000 @4:30 r2'" → tramos tipados vía la gramática del importador (`parseNotationCell` + `legacyToStructure`). Test que clava que los ejemplos del placeholder parsean.
+- **Perfil de intensidad** (barras CSS) + **"la sesión suma"** (km · min · km de calidad · % trabajo). El test cazó metros fantasma en recuperación parado — arreglada la aritmética.
+- **Añadir copia el anterior** del mismo tipo y se abre solo.
+- **LA REGLA DEL RITMO** (el extra del running): en el editor POR-ATLETA, al abrir un tramo, sus zonas reales con el marcador de dónde cae el ritmo escrito y la traducción ("4:30 cae en su Z4 · 4:24–4:38"). En la biblioteca no se pinta (no hay atleta). Solo habla cuando el objetivo habla de ritmo — con RPE/FC no se inventa posición.
+
+**Pendiente (siguiente pieza):** fuerza y metcon con el mismo patrón — la tabla de ítems ya es readout de frases; lo que falta es que el ítem abierto edite inline con pocos campos en vez de la máquina de chips de `PrescriptionFields`, y la línea rápida de fuerza ("5x5 @80% r2'30", la gramática ya la parsea; falta resolver el ejercicio del catálogo por nombre). El modelo de datos intacto en todo.
+
+---
+
 ## Cerrado el 27-jul · Readiness descongelado — «¿Cómo llegas hoy?» vivía en el 16 de julio
 
 Alex reportó «no lee sueño ni HRV» con el Apple Watch puesto. Causa raíz: el
