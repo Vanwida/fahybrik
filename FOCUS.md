@@ -35,9 +35,19 @@ hoy 27-jul = sueño 5,2 h · HRV 45,3 vs base 40,3 · FC 51 → score 70.**
   POST muere en silencio. (2) La RequestQueue del iOS era write-only: siete
   features encolaban «para replay» y nadie drenaba. Ya drena (FIFO, veneno 4xx
   fuera, TTL 72 h) — pendiente de que Alex reinstale la app.
-- Falta cazar POR QUÉ muere el POST del check-in en el dispositivo (bearer y
-  Zod verificados OK): tras el próximo check-in de Alex con la app nueva,
-  mirar `daily_checkins` y el log de Vercel (ahora el 400 deja traza).
+- **Actualización (misma mañana):** el check-in de prueba de Alex SÍ entró
+  (primero de un dispositivo en toda la historia; sub_score 0 → el servidor
+  recalculó 70→50). Por qué los anteriores nunca llegaron ya no es
+  reconstruible; la traza del 400 queda armada por si reaparece. Lo que Alex
+  vio («no me cambia el readiness») era OTRA cosa: la app refrescaba el score
+  en paralelo al POST y re-pintaba el viejo — arreglado (`94c42c0`, pendiente
+  reinstalar).
+- **Gap descubierto:** el dashboard NO enseña en ningún sitio CÓMO se
+  encuentra el atleta — `checkin_sub_score` se calcula en resumen.ts y no se
+  pinta, y el endpoint coach `readiness-breakdown` está huérfano (cero
+  consumidores). Solo hay señal indirecta («sin check-in ≥48 h») y el score
+  global. Propuesta pendiente de OK: fila «Cómo se encuentra» en la ficha del
+  atleta + chip en roster cuando el check-in del día venga mal.
 
 ---
 
