@@ -38,12 +38,22 @@ el histórico; downgrade/baja = aterrizar en free (la baja deja de ser un
 adiós). La UI la decide el servidor con `has_coach` en la sesión: con coach
 entra por el camino de HOY (intocado), sin coach por el home free nuevo.
 
-**Fase 1 lanzada** (agente en worktree aislado): flag `FREE_SIGNUP`
-(apagado en prod), alta que CREA (email + SIWA) solo con flag, `has_coach`
-en la respuesta de sesión, barrido de endpoints de atleta con `coach_id
-null` + tests de que flag-off = find-only exacto. SIN migración: el agente
-cazó que `athletes.dob` existe desde la 0001 (el brief lo daba por
-inexistente — corregido); cero esquema nuevo en toda la fase. Defaults
+**Fase 1 HECHA y desplegada dormida** (merge `cf665a6`; prod no define
+`FREE_SIGNUP` → cero cambio de comportamiento): alta que CREA (email +
+SIWA) vía `createFreeAthlete` única con reglas anti-takeover, `has_coach`
+en los 4 emisores del shape de sesión, 16 tests route-level de que flag-off
+= find-only byte a byte (+7 de DB listos, pendientes de rama Neon — TCP
+bloqueado). SIN migración: `athletes.dob` existía desde la 0001. Decisión
+en `docs/DECISIONS.md`.
+
+**El barrido dejó las decisiones de la fase 2 (iOS free), ninguna rompe:**
+- `POST /api/athlete/workouts/free` → 422 `no_coach` (el libre exige coach
+  como destino del aviso) — **bloquea el grabador free**; hay que abrirlo.
+- `GET /api/athlete/subscription` → `subscribed:false` sin fila → el gate
+  de acceso de iOS echará al atleta free: decidir el plan 'free' ahí.
+- «Probarme» (start-calibration 422) y zonas/1RM (409) piden el catálogo y
+  bandas de SISTEMA — fase Probarme-free.
+- Ranking sin coach = vacío por diseño (fase 3: división/global). Defaults
 tomados del brief (free ilimitado; rankings división+global); el NOMBRE del
 tier sigue abierto (decisión de Alex, sin prisa hasta la ficha).
 Después: iOS modo free (home + esconder chat/plan) → Probarme de sistema →
