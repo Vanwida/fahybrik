@@ -78,6 +78,9 @@ export interface DoblesRaceGapSegmentDTO {
   self_share: number | null;
   budget_s: number;
   pair_predicted_s: number;
+  /** pair_predicted_s − budget_s. Lo manda el servidor (igual que el gap
+   *  individual) para que la app no tenga que rehacer ninguna cuenta. */
+  delta_s: number;
   self_solo_s: number | null;
   partner_solo_s: number | null;
   tier: PredictionTier;
@@ -91,6 +94,8 @@ export interface DoblesRaceGapDTO {
   goal_s: number | null;
   goal_label: string | null;
   predicted_total_s: number | null;
+  /** predicted_total_s − goal_s; null sin uno de los dos. */
+  gap_s: number | null;
   segments: DoblesRaceGapSegmentDTO[];
   coach_tips: string[];
   strategy_last_edited_by: string | null;
@@ -331,6 +336,7 @@ export async function buildDoblesRaceGap(
       goal_s: goal,
       goal_label: goal != null ? goalLabel(goal) : null,
       predicted_total_s: null,
+      gap_s: null,
       segments: [],
       coach_tips,
       strategy_last_edited_by: null,
@@ -379,6 +385,7 @@ export async function buildDoblesRaceGap(
     goal_s: result.goal_s,
     goal_label: result.goal_s != null ? goalLabel(result.goal_s) : null,
     predicted_total_s: result.predicted_total_s,
+    gap_s: result.gap_s,
     segments: result.segments.map((s) => ({
       key: s.slug,
       label_es: s.label_es,
@@ -388,6 +395,7 @@ export async function buildDoblesRaceGap(
       self_share: s.self_share,
       budget_s: s.budget_s,
       pair_predicted_s: s.pair_predicted_s,
+      delta_s: s.delta_s,
       self_solo_s: s.self_solo_s,
       partner_solo_s: s.partner_solo_s,
       tier: s.tier,
