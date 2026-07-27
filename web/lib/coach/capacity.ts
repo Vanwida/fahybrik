@@ -1,12 +1,13 @@
-// Coach capacity (#18). Single-coach launch: there is exactly ONE coach row, so nothing
-// here is scoped by coach_id — same shape as lib/citas/store.ts and coach_availability.
-// The cap lives on coaches.max_athletes (migration 0102); null = no limit (waitlist off).
+// Coach capacity (#18), scoped by club: every read/write takes the coach_id the
+// caller already resolved (session, athlete row, or the funnel's club — see
+// lib/leads/funnel-coach.ts). The cap lives on coaches.max_athletes (migration
+// 0102); null = no limit (waitlist off).
 //
-// "Occupied plazas" = distinct HUMANS holding a slot on the roster: an active
-// subscription AND athletes.lifecycle_status in ('activo','pausado') (#13). The
-// lifecycle gate is what frees a plaza on BAJA — a baja athlete may still hold an
-// active subscription (billing cancels only at period end), so subscription alone
-// would keep counting them and never open the slot.
+// "Occupied plazas" = distinct HUMANS of THIS club holding a slot on the roster:
+// an active subscription AND athletes.lifecycle_status in ('activo','pausado')
+// (#13). The lifecycle gate is what frees a plaza on BAJA — a baja athlete may
+// still hold an active subscription (billing cancels only at period end), so
+// subscription alone would keep counting them and never open the slot.
 //
 // A PAUSE holds the plaza (2026-07-26, docs/DECISIONS.md). Pausing stops the billing,
 // so it is capped (4 weeks per rolling year, shared/domain/coach/pause-budget.ts) and
@@ -19,9 +20,6 @@
 // is what the cap caps.
 
 import { sql } from '@/lib/db';
-
-// multi-coach TODO: when the product goes multi-coach, scope every query here by coach_id
-// (athletes.coach_id → subscriptions) and drop the "order by id limit 1" single-coach pick.
 
 export interface CapacityState {
   /** Distinct athletes (humans) holding a plaza right now — activo + pausado. A dobles pair = 2. */
@@ -36,8 +34,8 @@ export interface CapacityState {
   slots_available: number | null;
 }
 
-/** Read the live capacity: how many active athletes vs the single coach's cap. */
-export async function getCapacityState(): Promise<CapacityState> {
+/** Read the live capacity of ONE club: its active athletes vs its cap. */
+export async function getCapacityState(coach_id: number | bigint): Promise<CapacityState> {
   const [activeRows, maxRows] = await Promise.all([
     sql<{ n: number; paused: number }[]>`
       select
@@ -47,9 +45,10 @@ export async function getCapacityState(): Promise<CapacityState> {
       join subscriptions s on (s.user_id = a.user_id or s.partner_user_id = a.user_id)
       where s.status = 'active'
         and a.lifecycle_status in ('activo', 'pausado')
+        and a.coach_id = ${Number(coach_id)}
     `,
     sql<{ max_athletes: number | null }[]>`
-      select max_athletes from coaches order by id limit 1
+      select max_athletes from coaches where id = ${Number(coach_id)} limit 1
     `,
   ]);
   const active = activeRows[0]?.n ?? 0;
@@ -60,22 +59,25 @@ export async function getCapacityState(): Promise<CapacityState> {
   return { active, paused, max, full, slots_available };
 }
 
-/** The single coach's cap (coaches.max_athletes). null = no limit. Backs the Disponibilidad cupo field. */
-export async function getMaxAthletes(): Promise<number | null> {
+/** The club's cap (coaches.max_athletes). null = no limit. Backs the Disponibilidad cupo field. */
+export async function getMaxAthletes(coach_id: number | bigint): Promise<number | null> {
   const rows = await sql<{ max_athletes: number | null }[]>`
-    select max_athletes from coaches order by id limit 1
+    select max_athletes from coaches where id = ${Number(coach_id)} limit 1
   `;
   return rows[0]?.max_athletes ?? null;
 }
 
 /**
- * Set the single coach's cap. The CALLER must Zod-validate `value` (integer >= 0, or null
+ * Set the club's cap. The CALLER must Zod-validate `value` (integer >= 0, or null
  * to remove the limit) before calling — the Disponibilidad page passes the validated cupo
  * field straight through here.
  */
-export async function setMaxAthletes(value: number | null): Promise<void> {
+export async function setMaxAthletes(
+  coach_id: number | bigint,
+  value: number | null,
+): Promise<void> {
   await sql`
     update coaches set max_athletes = ${value}, updated_at = now()
-    where id = (select id from coaches order by id limit 1)
+    where id = ${Number(coach_id)}
   `;
 }

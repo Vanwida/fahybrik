@@ -286,11 +286,15 @@ export async function createCompAthlete(params: {
     let subscriptionId: string | null = null;
     if (billing.kind === 'comp') {
       // Comp: active courtesy sub — only if no active sub exists for this user.
+      // Deterministic pick (newest active) so the reuse pins ONE concrete row;
+      // subscriptions carry no club column until obra 4, so user-level is the
+      // narrowest scope available here.
       const activeSubs = await tx<Array<{ id: string }>>`
         select id::text as id
         from subscriptions
         where user_id = ${userId}
           and status = 'active'
+        order by created_at desc
         limit 1
       `;
       if (activeSubs[0]) {

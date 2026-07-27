@@ -98,16 +98,10 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     const change = rec.proposal.slot_changes[0]!;
     expect(change.date).toBe(NEXT_DAYS[0]);
     expect(String(change.from_template_id)).toBe(String(hardTpl));
-    // The swap target must be a real recovery template (the heuristic picks the
-    // lowest-id template whose name/format matches recovery). Assert by name,
-    // not by a hard-coded id, so the test is independent of seed ordering.
-    expect(change.to_template_id).not.toBeNull();
-    const target = await sql<Array<{ name: string }>>`
-      select name from templates where id = ${Number(change.to_template_id)}
-    `;
-    expect(target[0]!.name.toLowerCase()).toMatch(/recovery|recuper/);
-    // Sanity: our fixture's recovery template is itself a valid candidate.
-    expect(recoveryTpl).toBeGreaterThan(0);
+    // The swap target is THE COACH'S OWN recovery template — the heuristic is
+    // owner-scoped (obra 0), so with exactly one matching template in this
+    // club's library the pick is pinned, not just "some recovery on the branch".
+    expect(String(change.to_template_id)).toBe(String(recoveryTpl));
 
     // Persisted as a real pending proposal row.
     const persisted = await sql<Array<{ status: string; verdict: string }>>`
@@ -115,7 +109,7 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     `;
     expect(persisted[0]!.status).toBe('pending');
     expect(persisted[0]!.verdict).toBe('needs_adjustment');
-  });
+  }, 60000);
 
   test('ok verdict short-circuits to keep without invoking the heuristic swap', async () => {
     const fx: Fixture = await makeCoachAndAthlete(sql);
@@ -136,5 +130,34 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     expect(rec.verdict).toBe('ok');
     expect(rec.proposal.recommendation).toBe('keep');
     expect(rec.proposal.slot_changes).toEqual([]);
-  });
+  }, 60000);
+
+  test('scope por club: la heurística NUNCA propone la plantilla recovery de otro coach', async () => {
+    const fx: Fixture = await makeCoachAndAthlete(sql);
+    const otherClub: Fixture = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup, otherClub.cleanup);
+
+    // El OTRO club tiene recovery; el club del atleta NO.
+    await makeTemplate({ fx: otherClub, name: 'Recovery ajeno' });
+    const hardTpl = await makeTemplate({ fx, name: 'Hard intervals' });
+
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[0]!, status: 'completed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[1]!, status: 'missed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[2]!, status: 'missed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[3]!, status: 'missed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: NEXT_DAYS[0]!, status: 'scheduled', notes: 'slot:am' });
+
+    const rec = await proposeWeekAdjustment({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      week_start: WEEK_START,
+      client: sql,
+    });
+
+    // Va mal, pero sin recovery PROPIO no hay swap: cero cambios y revisión
+    // manual — jamás la plantilla del otro club.
+    expect(rec.verdict).toBe('needs_adjustment');
+    expect(rec.proposal.slot_changes).toEqual([]);
+    expect(rec.proposal.recommendation).toBe('keep');
+  }, 60000);
 });

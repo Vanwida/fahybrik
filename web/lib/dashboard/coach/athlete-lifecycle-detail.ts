@@ -127,7 +127,7 @@ export async function loadAthleteLifecycleDetail(params: {
     select start_date::text as start_date, end_date::text as end_date
     from athlete_pauses
     where athlete_id = ${params.athlete_id}
-      and coalesce(end_date, current_date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}
+      and coalesce(end_date, current_date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}::int
   `;
   const budget = computePauseBudget(spans, todayIso);
 

@@ -71,24 +71,25 @@ export async function PATCH(req: Request, ctx: Ctx) {
     `;
     if (!existing[0]) return jsonError('not_found', 'Nivel no encontrado', 404);
 
-    // Apply only the provided fields
+    // Apply only the provided fields. Ownership rides EVERY write (no
+    // check-then-act window between the select above and these updates).
     if (name !== undefined) {
-      await sql`update athlete_levels set name = ${name} where id = ${level_id}`;
+      await sql`update athlete_levels set name = ${name} where id = ${level_id} and coach_id = ${coach_id}`;
     }
     if (label !== undefined) {
-      await sql`update athlete_levels set label = ${label} where id = ${level_id}`;
+      await sql`update athlete_levels set label = ${label} where id = ${level_id} and coach_id = ${coach_id}`;
     }
     if (description !== undefined) {
-      await sql`update athlete_levels set description = ${description} where id = ${level_id}`;
+      await sql`update athlete_levels set description = ${description} where id = ${level_id} and coach_id = ${coach_id}`;
     }
     if (sort_order !== undefined) {
-      await sql`update athlete_levels set sort_order = ${sort_order} where id = ${level_id}`;
+      await sql`update athlete_levels set sort_order = ${sort_order} where id = ${level_id} and coach_id = ${coach_id}`;
     }
 
     const rows = await sql<LevelRow[]>`
       select id::text, coach_id::text, name, label, description, sort_order
       from athlete_levels
-      where id = ${level_id}
+      where id = ${level_id} and coach_id = ${coach_id}
       limit 1
     `;
 

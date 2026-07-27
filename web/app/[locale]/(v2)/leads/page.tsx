@@ -25,7 +25,7 @@ export default async function V2LeadsPage({ params }: { params: Promise<{ locale
   const [data, upcomingCalls, capacity, waitlist] = await Promise.all([
     listLeadsForCoach(),
     listUpcomingCalls(),
-    getCapacityState().catch(() => null),
+    getCapacityState(session.coach_id).catch(() => null),
     listWaitlist().catch(() => []),
   ]);
 

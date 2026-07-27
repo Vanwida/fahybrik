@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · Obra 0 multi-coach: el scope viaja al WHERE, y el funnel se atribuye por config
+
+**Decidido:** toda lectura/escritura de dominio del coach lleva su `coach_id` en el WHERE — muere el patrón «el coach» por `order by id limit 1` (capacity, sesión, eventos, chat, plantillas de recuperación) y el check-then-act (la propiedad viaja DENTRO del WHERE de cada UPDATE, no en un select previo). Los ids que manda el CLIENTE (week_template_ids, exercise_id de segmentos/bloques, min/max_level_id) se validan contra el coach antes de escribir; nonexistente y ajeno reciben la MISMA respuesta. El funnel público (leads/waitlist, sin columna de club hasta la obra 3) se atribuye vía `FUNNEL_COACH_ID` (env) con fallback al pick legacy `min(id)` — resuelto en UN solo sitio (`web/lib/leads/funnel-coach.ts`) que muere cuando `leads` gane `coach_id`. Hallazgo que lo motivó: en producción el `limit 1` apuntaba al coach id=4 (fila de dev, cap=100), no al club real (60) — el cupo que el club editaba en Disponibilidad ni siquiera era el suyo.
+
+**Se descarta:** hardcodear el id del club del funnel en código (va en env, y es transitorio); y el barrido de `subscriptions` por `user_id+status` en las bajas — se clava a la fila concreta (subscriptions no lleva club hasta la obra 4).
+
+**En consecuencia, no hacer:** no volver a resolver «el coach» de forma implícita en ninguna query nueva (si no hay sesión, la atribución es una decisión explícita, no un `limit 1`); no añadir superficies nuevas que lean cupo/waitlist sin pasar por `funnelCoachId`; y al desplegar, definir `FUNNEL_COACH_ID` con el club real (documentado en `.env.example`).
+
+---
+
 ## 2026-07-27 · La propiedad de un template pasa a ser coach O atleta (migración 0141)
 
 **Decidido:** `templates.coach_id` deja de ser NOT NULL. El dueño de un template es el coach (`coach_id`, biblioteca y contenido suyo) **o** el atleta (`instance_athlete_id`, la instancia per-atleta de 0083) — el check `templates_owner_chk` exige al menos uno. Motivo: el entreno libre persiste como template-instancia + asignación self-origin (modelo cerrado de `create-free-workout.ts`), y un atleta FREE no tiene coach; su instancia no tiene dueño coach y el NOT NULL de 0001 hacía imposible el tier free sin tocar el modelo. La biblioteca no cambia: una fila de biblioteca es `instance_athlete_id is null`, y ahí el check sigue obligando coach.

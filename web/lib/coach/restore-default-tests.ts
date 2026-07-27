@@ -59,7 +59,8 @@ export async function restoreDefaultTests(
 
       let testId: number;
       if (existingRow) {
-        // Refresh + un-archive; keep the coach's sort_order.
+        // Refresh + un-archive; keep the coach's sort_order. Ownership rides the
+        // WRITE (no check-then-act window after the coach-scoped select above).
         await tx`
           update coach_calibration_tests set
             name = ${protocol.label},
@@ -70,7 +71,7 @@ export async function restoreDefaultTests(
             enabled = true,
             archived_at = null,
             updated_at = now()
-          where id = ${Number(existingRow.id)}
+          where id = ${Number(existingRow.id)} and coach_id = ${cid}
         `;
         testId = Number(existingRow.id);
         restored += 1;

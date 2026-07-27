@@ -42,7 +42,11 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
   }
 
   try {
-    const event = await updateEvent({ event_id: id, input: body });
+    const event = await updateEvent({
+      event_id: id,
+      owner: { kind: 'coach', coach_id: coach.coach_id },
+      input: body,
+    });
     return jsonOk({ event });
   } catch (err) {
     if (err instanceof EventsError) {

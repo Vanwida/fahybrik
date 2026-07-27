@@ -10,7 +10,8 @@ import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { upsertLeadComplete } from '@/lib/leads/store';
 import { sendLeadConfirmation, sendLeadNotification } from '@/lib/leads/email';
-import { getCapacityState } from '@/lib/coach/capacity';
+import { getCapacityState, type CapacityState } from '@/lib/coach/capacity';
+import { funnelCoachId } from '@/lib/leads/funnel-coach';
 import { countWaitlist, joinWaitlist } from '@/lib/leads/waitlist';
 import { sendWaitlistJoinedEmail } from '@/lib/leads/waitlist-email';
 
@@ -46,9 +47,14 @@ export async function POST(req: Request) {
 
   // CAPACITY GATE (#18). Only a FRESH lead (status ended up 'nuevo') can be waitlisted — a
   // lead the coach already worked (contactado/agendado/convertido/descartado) keeps its
-  // booking token and is never retroactively waitlisted. `full` = the coach is capped and
-  // at/over the cap right now (uncapped coach → never full → this whole branch is skipped).
-  const capacity = res.status === 'nuevo' ? await getCapacityState() : null;
+  // booking token and is never retroactively waitlisted. `full` = the FUNNEL club (leads
+  // carry no club column until obra 3 — lib/leads/funnel-coach.ts) is capped and at/over
+  // the cap right now (uncapped club → never full → this whole branch is skipped).
+  let capacity: CapacityState | null = null;
+  if (res.status === 'nuevo') {
+    const funnelCoach = await funnelCoachId();
+    capacity = funnelCoach !== null ? await getCapacityState(funnelCoach) : null;
+  }
   if (capacity?.full) {
     const jw = await joinWaitlist(res.id); // idempotent; returns the lead's contact for the email
     // Waitlist-joined email instead of the booking confirmation; internal notify stays.

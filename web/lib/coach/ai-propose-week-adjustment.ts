@@ -326,6 +326,7 @@ export async function proposeWeekAdjustment(params: {
         err instanceof Error ? err.message : err,
       );
       proposal = await buildHeuristicProposal({
+        coach_id: params.coach_id,
         athlete_id: params.athlete_id,
         week_start: nextWeekStart,
         context_pack: evaluation.context_pack,
@@ -335,6 +336,7 @@ export async function proposeWeekAdjustment(params: {
   } else {
     // Sin LLM configurado → heurística (comportamiento actual).
     proposal = await buildHeuristicProposal({
+      coach_id: params.coach_id,
       athlete_id: params.athlete_id,
       week_start: nextWeekStart,
       context_pack: evaluation.context_pack,
@@ -412,6 +414,7 @@ export async function proposeWeekAdjustment(params: {
 }
 
 async function buildHeuristicProposal(params: {
+  coach_id: number | bigint;
   athlete_id: number | bigint;
   week_start: string;
   context_pack: AthleteContextPack;
@@ -434,9 +437,15 @@ async function buildHeuristicProposal(params: {
     order by wa.scheduled_for asc
   `;
 
+  // The swap target is a template of THIS coach's LIBRARY: owner in the WHERE
+  // (never another club's, never a free athlete's instance — 0141 made those
+  // real rows), instances excluded, archived excluded. Lowest id = deterministic.
   const recoveryTpl = await params.client<Array<{ id: string }>>`
     select id::text from templates
-    where format::text = 'recovery' or name ilike '%recovery%' or name ilike '%recuper%'
+    where coach_id = ${params.coach_id as number}
+      and instance_athlete_id is null
+      and archived_at is null
+      and (format::text = 'recovery' or name ilike '%recovery%' or name ilike '%recuper%')
     order by id asc limit 1
   `;
   const recoveryId = recoveryTpl[0]?.id ?? null;

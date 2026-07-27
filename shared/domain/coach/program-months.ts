@@ -116,6 +116,7 @@ export async function listMonthTemplates(params: {
       select wt.focus
       from program_month_weeks mw
       join program_week_templates wt on wt.id = mw.week_template_id
+        and wt.coach_id = m.coach_id
       where mw.month_template_id = m.id
       order by mw.position asc
       limit 1
@@ -165,6 +166,7 @@ export async function getMonthTemplate(params: {
       w.focus as week_focus
     from program_month_weeks mw
     join program_week_templates w on w.id = mw.week_template_id
+      and w.coach_id = ${params.coach_id as number}
     where mw.month_template_id = ${params.id as number}
     order by mw.position
   `;
@@ -184,6 +186,22 @@ export async function upsertMonthTemplate(params: {
   }
   const body: ProgramMonthUpsert = parsed.data;
   const client = params.client;
+
+  // Ownership guard (same pattern as sequences.ts saveSequence): every week
+  // template id the CLIENT sends must belong to this coach — otherwise a crafted
+  // body could mount another club's week inside this coach's microciclo.
+  const weekIds = [...new Set(body.week_template_ids.map((id) => Number(id)))];
+  if (weekIds.length > 0) {
+    const ownedWeeks = await client<Array<{ id: string }>>`
+      select id::text from program_week_templates
+      where coach_id = ${params.coach_id as number} and id = any(${weekIds}::bigint[])
+    `;
+    const ownedSet = new Set(ownedWeeks.map((r) => Number(r.id)));
+    const missing = weekIds.filter((id) => !ownedSet.has(id));
+    if (missing.length > 0) {
+      throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
+    }
+  }
 
   let monthId: string;
   if (params.id) {
@@ -436,6 +454,7 @@ export async function updateMonthTemplate(params: {
       select wt.focus
       from program_month_weeks mw
       join program_week_templates wt on wt.id = mw.week_template_id
+        and wt.coach_id = m.coach_id
       where mw.month_template_id = m.id
       order by mw.position asc
       limit 1

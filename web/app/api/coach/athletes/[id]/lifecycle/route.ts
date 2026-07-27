@@ -108,7 +108,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
         return jsonOk(result);
       }
       case 're_alta': {
-        const result = await reAltaAthlete({ athlete_id: athleteId, coach_id });
+        // The plaza's club is read off the athlete row inside reAltaAthlete;
+        // ownership was already gated above.
+        const result = await reAltaAthlete({ athlete_id: athleteId });
         return jsonOk(result);
       }
     }

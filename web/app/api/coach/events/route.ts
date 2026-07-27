@@ -53,6 +53,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     from_date: parseDate(url.searchParams.get('from_date')),
     to_date: parseDate(url.searchParams.get('to_date')),
     visibility: 'all',
+    // Catalog + THIS club's manual events — never another club's.
+    coach_id: coach.coach_id,
   };
 
   try {

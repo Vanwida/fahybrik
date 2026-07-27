@@ -13,12 +13,14 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { pauseAthlete, bajaAthlete } from '@/lib/coach/athlete-lifecycle';
 import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecycle-detail';
 import { getMaxAthletes, setMaxAthletes } from '@/lib/coach/capacity';
+import { funnelCoachId } from '@/lib/leads/funnel-coach';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 
 describeWithDb('athlete lifecycle authorship (#43, real DB)', () => {
   const sql = getTestSql();
   const fixtures: Fixture[] = [];
+  let funnelCoach: bigint | null = null;
   let savedMax: number | null = null;
 
   /** A coach + athlete, with the coach user given a resolvable name (the author). */
@@ -31,9 +33,13 @@ describeWithDb('athlete lifecycle authorship (#43, real DB)', () => {
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
-    // Uncapped ⇒ releaseWaitlistToCapacity is a no-op (no email/lead side-effects).
-    savedMax = await getMaxAthletes();
-    await setMaxAthletes(null);
+    // Uncap the FUNNEL club (whose cap releaseWaitlistToCapacity reads) ⇒ the release
+    // is a no-op (no email/lead side-effects). Restored in afterAll.
+    funnelCoach = await funnelCoachId();
+    if (funnelCoach !== null) {
+      savedMax = await getMaxAthletes(funnelCoach);
+      await setMaxAthletes(funnelCoach, null);
+    }
   });
 
   afterEach(async () => {
@@ -52,7 +58,7 @@ describeWithDb('athlete lifecycle authorship (#43, real DB)', () => {
   });
 
   afterAll(async () => {
-    await setMaxAthletes(savedMax);
+    if (funnelCoach !== null) await setMaxAthletes(funnelCoach, savedMax);
     await closeTestSql();
   });
 

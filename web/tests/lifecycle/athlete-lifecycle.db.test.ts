@@ -35,12 +35,14 @@ import {
   LifecycleError,
 } from '@/lib/coach/athlete-lifecycle';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { funnelCoachId } from '@/lib/leads/funnel-coach';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeTemplate, makeAssignment, type Fixture } from '../utils/db-fixtures';
 
 describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
   const sql = getTestSql();
   const fixtures: Fixture[] = [];
+  let funnelCoach: bigint | null = null;
   let savedMax: number | null = null;
 
   const todayIso = (): string => isoDateString(startOfDayInBox(new Date()));
@@ -69,10 +71,14 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
-    // Neutralize the waitlist: uncapped ⇒ releaseWaitlistToCapacity is a no-op, so the
-    // lifecycle transitions have no email/lead side-effects. Restored in afterAll.
-    savedMax = await getMaxAthletes();
-    await setMaxAthletes(null);
+    // Neutralize the waitlist: releaseWaitlistToCapacity (fired by bajaAthlete) reads the
+    // FUNNEL club's cap — uncap THAT club so it is a no-op and the lifecycle transitions
+    // have no email/lead side-effects. Restored in afterAll.
+    funnelCoach = await funnelCoachId();
+    if (funnelCoach !== null) {
+      savedMax = await getMaxAthletes(funnelCoach);
+      await setMaxAthletes(funnelCoach, null);
+    }
   });
 
   afterEach(async () => {
@@ -85,7 +91,7 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
   });
 
   afterAll(async () => {
-    await setMaxAthletes(savedMax);
+    if (funnelCoach !== null) await setMaxAthletes(funnelCoach, savedMax);
     await closeTestSql();
   });
 
@@ -123,7 +129,7 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
     expect(lc?.baja_at).not.toBeNull();
     expect(lc?.baja_reason).toBe('otro');
 
-    const realta = await reAltaAthlete({ athlete_id: BigInt(fx.athleteId), coach_id: BigInt(fx.coachId) });
+    const realta = await reAltaAthlete({ athlete_id: BigInt(fx.athleteId) });
     expect(realta.status).toBe('activo');
     expect(realta.over_capacity).toBe(false); // uncapped for this suite
 
@@ -139,9 +145,9 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
 
     // resume / re_alta from activo are illegal
     await expect(resumeAthlete({ athlete_id: BigInt(fx.athleteId) })).rejects.toBeInstanceOf(LifecycleError);
-    await expect(
-      reAltaAthlete({ athlete_id: BigInt(fx.athleteId), coach_id: BigInt(fx.coachId) }),
-    ).rejects.toMatchObject({ code: 'invalid_transition' });
+    await expect(reAltaAthlete({ athlete_id: BigInt(fx.athleteId) })).rejects.toMatchObject({
+      code: 'invalid_transition',
+    });
 
     // pause, then pausing again is illegal
     await pauseAthlete({
@@ -179,48 +185,72 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
   // capped — and what the cap buys is that the slot is still there on the way back.
   // Before that decision this test asserted the opposite; it is the rule that changed,
   // not the code drifting.
-  test('capacity KEEPS paused athletes and drops only baja', async () => {
-    const base = (await getCapacityState()).active;
-
+  test('capacity KEEPS paused athletes and drops only baja — and each club counts ONLY its own', async () => {
+    // Two DIFFERENT clubs (makeCoachAndAthlete creates a fresh coach per fixture), so
+    // scoped counting is exact: a fresh club starts at 0 with no branch noise.
     const paused = await newAthlete();
     await activateSubscription(paused);
     const gone = await newAthlete();
     await activateSubscription(gone);
-    // Both hold an active subscription and are activo → both counted.
-    expect((await getCapacityState()).active).toBe(base + 2);
 
-    // Pause one → still occupying a plaza, and now reported as paused.
+    // Each club sees exactly ITS athlete — never the other club's.
+    expect((await getCapacityState(paused.coachId)).active).toBe(1);
+    expect((await getCapacityState(gone.coachId)).active).toBe(1);
+
+    // Pause one → still occupying a plaza in ITS club, and now reported as paused.
     await pauseAthlete({
       athlete_id: BigInt(paused.athleteId),
       reason: 'lesion',
       requested_by: 'coach',
       coach_id: BigInt(paused.coachId),
     });
-    const withPause = await getCapacityState();
-    expect(withPause.active).toBe(base + 2);
-    expect(withPause.paused).toBeGreaterThanOrEqual(1);
+    const withPause = await getCapacityState(paused.coachId);
+    expect(withPause.active).toBe(1);
+    expect(withPause.paused).toBe(1);
 
-    // Baja the other → excluded (subscription still active until period end).
+    // Baja the other → excluded from ITS club (subscription still active until period
+    // end) — while the first club's count is untouched by the other club's baja.
     await bajaAthlete({ athlete_id: BigInt(gone.athleteId), reason: 'otro', coach_id: BigInt(gone.coachId) });
-    expect((await getCapacityState()).active).toBe(base + 1);
+    expect((await getCapacityState(gone.coachId)).active).toBe(0);
+    expect((await getCapacityState(paused.coachId)).active).toBe(1);
+  });
+
+  test('cupo reads/writes are pinned to the club — never another coach\'s row', async () => {
+    const a = await newAthlete();
+    const b = await newAthlete();
+
+    await setMaxAthletes(a.coachId, 5);
+    expect(await getMaxAthletes(a.coachId)).toBe(5);
+    // The OTHER club's cap is untouched by A's write (fresh coach → null cap).
+    expect(await getMaxAthletes(b.coachId)).toBeNull();
+
+    await setMaxAthletes(b.coachId, 2);
+    expect(await getMaxAthletes(a.coachId)).toBe(5); // still A's own value
+    expect(await getMaxAthletes(b.coachId)).toBe(2);
+
+    // full/slots are computed against the club's OWN cap + roster.
+    await activateSubscription(b);
+    const s = await getCapacityState(b.coachId);
+    expect(s.active).toBe(1);
+    expect(s.max).toBe(2);
+    expect(s.full).toBe(false);
+    expect(s.slots_available).toBe(1);
   });
 
   test('re-alta over a full cap returns over_capacity=true (coach override still commits)', async () => {
     const a = await newAthlete();
     await activateSubscription(a);
-    // Take it to baja so it is currently excluded, then pin the cap at the CURRENT active
-    // count (the athlete no longer in it). Re-alta pushes active over the cap.
+    // Take it to baja so it is currently excluded, then pin the club's cap at 0 (its
+    // active count without this athlete). Re-alta pushes active over the cap.
     await bajaAthlete({ athlete_id: BigInt(a.athleteId), reason: 'otro', coach_id: BigInt(a.coachId) });
-    const activeWhileBaja = (await getCapacityState()).active;
+    const activeWhileBaja = (await getCapacityState(a.coachId)).active;
 
-    await setMaxAthletes(activeWhileBaja); // exactly full without this athlete
-    try {
-      const res = await reAltaAthlete({ athlete_id: BigInt(a.athleteId), coach_id: BigInt(a.coachId) });
-      expect(res.over_capacity).toBe(true); // over the cap, but the transition committed
-      expect(await lifecycleStatus(a)).toBe('activo');
-    } finally {
-      await setMaxAthletes(null); // restore the suite invariant
-    }
+    await setMaxAthletes(a.coachId, activeWhileBaja); // exactly full without this athlete
+    const res = await reAltaAthlete({ athlete_id: BigInt(a.athleteId) });
+    expect(res.over_capacity).toBe(true); // over the cap, but the transition committed
+    expect(await lifecycleStatus(a)).toBe('activo');
+    // No cap restore needed: the cap lives on THIS fixture's coach row, which
+    // fx.cleanup deletes — the funnel club's cap was never touched.
   });
 
   // ── Pause intervals ────────────────────────────────────────────────────────────────

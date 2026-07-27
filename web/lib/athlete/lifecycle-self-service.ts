@@ -246,7 +246,7 @@ export async function scheduleBajaSelf(input: ScheduleBajaInput): Promise<Schedu
     periodEnd !== null &&
     parseIsoDate(periodEnd) > parseIsoDate(todayIso);
 
-  if (!hasRunway) {
+  if (!hasRunway || !sub || !periodEnd) {
     await bajaAthlete({
       athlete_id: input.athlete_id,
       reason: input.reason,
@@ -274,9 +274,11 @@ export async function scheduleBajaSelf(input: ScheduleBajaInput): Promise<Schedu
     `;
     // Mirror it locally too, so the coach's billing panel and the renewal signal both
     // see the cancellation without waiting for the Stripe webhook to come back.
+    // Pinned to the CONCRETE subscription resolved above (never a blanket
+    // user_id+status sweep — subscriptions carry no club column until obra 4).
     await tx`
       update subscriptions set cancel_at_period_end = true, updated_at = now()
-      where user_id = ${input.user_id as unknown as number}
+      where id = ${sub.id as unknown as number}
         and status = 'active'
         and cancel_at_period_end = false
     `;
@@ -315,6 +317,10 @@ export async function cancelScheduledBaja(input: {
     throw new LifecycleError('not_scheduled', 'No tienes ninguna baja programada', 409);
   }
 
+  // The undo un-cancels the same CONCRETE subscription the baja cancelled —
+  // symmetric with scheduleBajaSelf, never a blanket user_id+status sweep.
+  const sub = await getSubscriptionByUserId(sql, input.user_id);
+
   await sql.begin(async (tx) => {
     await tx`
       update athletes
@@ -325,12 +331,14 @@ export async function cancelScheduledBaja(input: {
           updated_at         = now()
       where id = ${input.athlete_id as unknown as number}
     `;
-    await tx`
-      update subscriptions set cancel_at_period_end = false, updated_at = now()
-      where user_id = ${input.user_id as unknown as number}
-        and status = 'active'
-        and cancel_at_period_end = true
-    `;
+    if (sub) {
+      await tx`
+        update subscriptions set cancel_at_period_end = false, updated_at = now()
+        where id = ${sub.id as unknown as number}
+          and status = 'active'
+          and cancel_at_period_end = true
+      `;
+    }
     await recordAudit(tx, {
       entity_type: 'athletes',
       entity_id: input.athlete_id,
