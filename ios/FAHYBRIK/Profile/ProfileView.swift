@@ -722,7 +722,7 @@ struct ProfileView: View {
     private var strengthCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MyStrengthView(bearer: bearer)
+                MyStrengthView(bearer: bearer, hasCoach: hasCoach)
             } label: {
                 profileRowContent(
                     icon: "dumbbell",
