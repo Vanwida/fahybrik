@@ -9,6 +9,7 @@
 export * from './types';
 export * from './budget';
 export * from './predict';
+export * from './next-input';
 export * from './compute';
 export * from './review';
 export * from './label';
