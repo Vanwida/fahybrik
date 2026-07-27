@@ -1,18 +1,25 @@
 'use client';
 
-// RunStructureForm — the STRUCTURED running-workout builder (#61). Evolves the old
-// IntervalsForm from "N × X @ ritmo + descanso" into a full sequence: phases
-// (Calentamiento · Principal · Vuelta), an ordered work/recovery sequence with
-// nested "Repetir ×N", explicit pace zones / pace bands / RPE bands / cadence /
-// incline, and one-tap archetype prefills (Progresivo · Fartlek · Cuestas ·
-// Pirámide). Editing writes both the rich `structure` and the legacy flatten (via
-// prescriptionFromStructure) so the installed iOS app keeps decoding.
+// RunStructureForm — the STRUCTURED running-workout builder (#61), redesigned
+// (editor-bloques mockup): the coach writes ONE LINE the way it's written in the
+// gym ("6x1000 @4:30 r2'") and the importer grammar turns it into typed segments;
+// the block's intensity profile renders as bars; each element reads as a sentence
+// and only the tapped one opens. Editing writes both the rich `structure` and the
+// legacy flatten (via prescriptionFromStructure) so the installed iOS app keeps
+// decoding.
 
 import { useState } from 'react';
 import type { Phase, PhaseRole, Prescription, RunStructure } from '@fahybrid/shared/domain/prescription';
 import { legacyToStructure, prescriptionFromStructure } from '@fahybrid/shared/domain/prescription';
+import { parseNotationCell } from '@fahybrid/shared/domain/import/notation';
 import { cn } from '@/lib/utils';
 import { MIcon } from '@/components/ui/MIcon';
+import {
+  structureBars,
+  structureTotals,
+  totalsSentence,
+  type IntensityBar,
+} from '@/lib/dashboard/v2/run-structure-view';
 import { PhaseEditor } from './PhaseEditor';
 import {
   defaultCooldownElements,
@@ -24,7 +31,7 @@ import {
 import { defaultWorkSegment } from './tree-ops';
 
 // A never-empty starting structure: a single Principal work bout (the coach then
-// picks an archetype or builds the sequence by hand).
+// picks an archetype, types the quick line, or builds the sequence by hand).
 function seedStructure(): RunStructure {
   return [{ role: 'main', elements: [defaultWorkSegment()] }];
 }
@@ -80,10 +87,42 @@ export function RunStructureForm({
     setActiveRole('main');
   };
 
+  /**
+   * The quick line: "6x1000 @4:30 r2'" → typed segments via the SAME grammar the
+   * Excel importer uses, then legacyToStructure lifts the parsed prescription into
+   * structure elements. They land in the PRINCIPAL: replacing it when it is still
+   * the untouched seed, appending otherwise. Returns false when nothing parses —
+   * the input shows the hint and keeps the text for correction.
+   */
+  const applyQuickLine = (text: string): boolean => {
+    const lines = parseNotationCell(text);
+    const typed = lines.find((l) => l.confidence === 'detected');
+    if (!typed) return false;
+    const parsed = legacyToStructure(typed.prescription);
+    const elements = parsed?.find((p) => p.role === 'main')?.elements ?? parsed?.[0]?.elements;
+    if (!elements || elements.length === 0) return false;
+
+    const main = phaseFor('main');
+    const seed = seedStructure()[0]!.elements;
+    const mainIsUntouchedSeed =
+      !!main && JSON.stringify(main.elements) === JSON.stringify(seed);
+    const nextElements = mainIsUntouchedSeed || !main ? elements : [...main.elements, ...elements];
+    commit(sortPhases(structure.map((p) => (p.role === 'main' ? { ...p, elements: nextElements } : p))));
+    setActiveRole('main');
+    return true;
+  };
+
   const active = phaseFor(activeRole) ?? phaseFor('main')!;
+  const totals = structureTotals(structure);
 
   return (
     <div className="space-y-3">
+      {/* The quick line — write it the way it's written in the gym */}
+      <QuickLine onSubmit={applyQuickLine} />
+
+      {/* The block's intensity profile — the two-second sanity check */}
+      <IntensityStrip bars={structureBars(structure)} />
+
       {/* Archetype prefills — one tap fills the Principal */}
       <div className="space-y-1.5">
         <span className="v2-micro">Plantilla del principal</span>
@@ -163,6 +202,88 @@ export function RunStructureForm({
 
       {/* Active phase editor */}
       <PhaseEditor elements={active.elements} onChange={(elements) => setPhaseElements(active.role, elements)} />
+
+      {/* La sesión suma — the coach's mental math, done for him */}
+      <p className="pt-1 text-[11.5px] font-semibold text-[color:var(--v2-faint)]">
+        {totalsSentence(totals)}
+      </p>
+    </div>
+  );
+}
+
+// ── The quick line ────────────────────────────────────────────────────────────
+
+function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
+  const [text, setText] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  const go = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const ok = onSubmit(trimmed);
+    setFailed(!ok);
+    if (ok) setText('');
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-1">
+        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <input
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (failed) setFailed(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              go();
+            }
+          }}
+          placeholder="Escríbelo como siempre: 6x1000 @4:30 r2'"
+          aria-label="Añadir tramos escribiendo la serie"
+          className="v2-focus w-full bg-transparent py-1.5 font-mono text-[13px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={go}
+          disabled={!text.trim()}
+          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-30"
+        >
+          Añadir
+        </button>
+      </div>
+      {failed ? (
+        <p role="alert" className="pl-1 text-[11.5px] text-[color:var(--v2-warn)]">
+          No lo he entendido — prueba como <span className="font-mono">6x1000 @4:30 r2'</span> o{' '}
+          <span className="font-mono">20' Z2</span>. También puedes montarlo abajo.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ── The intensity strip ───────────────────────────────────────────────────────
+
+function IntensityStrip({ bars }: { bars: IntensityBar[] }) {
+  if (bars.length < 2) return null; // a single bout has no profile worth drawing
+  const totalS = bars.reduce((acc, b) => acc + Math.max(1, b.seconds), 0);
+  return (
+    <div
+      aria-hidden
+      className="flex h-14 items-end gap-px overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 pt-2"
+    >
+      {bars.map((b, i) => (
+        <div
+          key={i}
+          className={cn('rounded-t-[2px]', b.kind === 'recovery' ? 'bg-[color:var(--v2-info)]/25' : 'bg-[color:var(--v2-accent)]')}
+          style={{
+            width: `${Math.max(1.2, (Math.max(1, b.seconds) / totalS) * 100)}%`,
+            height: `${Math.round(b.intensity * 100)}%`,
+          }}
+        />
+      ))}
     </div>
   );
 }

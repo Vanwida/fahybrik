@@ -1,15 +1,19 @@
 'use client';
 
-// SegmentRow — one segment (trabajo | recuperación) in the sequence. Line 1: kind
-// + measure + objetivo + row actions. Line 2 (kind-specific): work → optional
-// inclinación / cadencia; recovery → trote/caminar/parado. Fully typed, no free
-// text.
+// SegmentRow — one segment (trabajo | recuperación) in the sequence.
+//
+// REDESIGN (editor-bloques mockup): a row is CLOSED by default and reads as the
+// SENTENCE the athlete will see — "1000 m @ 4:30/km" / "rec 2' parado". Only the
+// row you tap opens, and an open row shows the few controls that matter; incline
+// and cadence stay behind their add-chips. This is what killed the wall of
+// always-on chips the old drawer stacked twelve-high per segment.
 
 import type { RecoveryMode, Segment } from '@fahybrid/shared/domain/prescription';
 import { cn } from '@/lib/utils';
 import { MIcon } from '@/components/ui/MIcon';
 import { NumberCell } from '../../fields';
 import { InlineToggle } from '../form-controls';
+import { segmentSentence } from '@/lib/dashboard/v2/run-structure-view';
 import { MeasureCell, ObjetivoCell } from './segment-controls';
 import { canWrapInRepeat } from './tree-ops';
 
@@ -31,7 +35,17 @@ export interface RowHandlers {
   wrap: (path: number[]) => void;
 }
 
-function IconBtn({ icon, label, onClick, disabled }: { icon: string; label: string; onClick: () => void; disabled?: boolean }) {
+export function IconBtn({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -54,22 +68,70 @@ export function SegmentRow({
   path,
   handlers,
   canRemove = true,
+  open,
+  onOpen,
+  onClose,
 }: {
   segment: Segment;
   path: number[];
   handlers: RowHandlers;
   canRemove?: boolean;
+  /** Exactly one row is open at a time — the PhaseEditor owns the selection. */
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
 }) {
   const isWork = segment.kind === 'work';
+
+  // CLOSED — the sentence, one tap to open. The whole row is the button.
+  if (!open) {
+    return (
+      <div
+        className={cn(
+          'group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-1)] px-3 py-2.5',
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'h-6 w-1 shrink-0 rounded-full',
+            isWork ? 'bg-[color:var(--v2-accent)]' : 'bg-[color:var(--v2-info)] opacity-50',
+          )}
+        />
+        <button
+          type="button"
+          onClick={onOpen}
+          className="v2-focus min-w-0 flex-1 truncate text-left font-mono text-[13.5px] text-[color:var(--v2-fg)]"
+          aria-label={`Editar tramo: ${segmentSentence(segment)}`}
+        >
+          {segmentSentence(segment)}
+        </button>
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
+          <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
+          <IconBtn icon="delete" label="Eliminar" disabled={!canRemove} onClick={() => handlers.remove(path)} />
+        </div>
+        <MIcon name="expand_more" size={16} className="shrink-0 text-[color:var(--v2-faint)]" />
+      </div>
+    );
+  }
+
+  // OPEN — the few controls that matter, everything odd behind add-chips.
   return (
     <div
       className={cn(
-        'rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-1)] p-2.5',
-        'border-l-2',
-        isWork ? 'border-l-[color:var(--v2-accent)]' : 'border-l-[color:var(--v2-border-strong)]',
+        'rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-1)] p-3',
+        'border-[color:var(--v2-accent)]/45',
       )}
     >
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="mb-2.5 flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cn(
+            'h-6 w-1 shrink-0 rounded-full',
+            isWork ? 'bg-[color:var(--v2-accent)]' : 'bg-[color:var(--v2-info)] opacity-50',
+          )}
+        />
         <InlineToggle
           ariaLabel="Tipo de segmento"
           value={segment.kind}
@@ -79,21 +141,25 @@ export function SegmentRow({
           ]}
           onChange={(k) => handlers.toKind(path, k)}
         />
+        <div className="ml-auto flex items-center gap-0.5">
+          <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
+          <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
+          <IconBtn icon="repeat" label="Repetir este segmento" disabled={!canWrapInRepeat(path)} onClick={() => handlers.wrap(path)} />
+          <IconBtn icon="delete" label="Eliminar" disabled={!canRemove} onClick={() => handlers.remove(path)} />
+          <IconBtn icon="expand_less" label="Cerrar" onClick={onClose} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-[9rem] flex-1">
           <MeasureCell measure={segment.measure} onChange={(m) => handlers.setMeasure(path, m)} />
         </div>
         <div className="min-w-[11rem] flex-1">
           <ObjetivoCell target={segment.target} onChange={(t) => handlers.setTarget(path, t)} />
         </div>
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
-          <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
-          <IconBtn icon="repeat" label="Repetir este segmento" disabled={!canWrapInRepeat(path)} onClick={() => handlers.wrap(path)} />
-          <IconBtn icon="delete" label="Eliminar" disabled={!canRemove} onClick={() => handlers.remove(path)} />
-        </div>
       </div>
 
-      {/* Line 2 — kind-specific extras */}
+      {/* Kind-specific extras */}
       {isWork ? (
         <WorkExtras
           segment={segment}

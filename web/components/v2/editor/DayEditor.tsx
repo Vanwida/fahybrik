@@ -730,7 +730,7 @@ function BlockEditorDrawer({
     // El censo del portal lo resuelve solo — aquí no hace falta saber quién hay arriba.
     <ModalPortal onEscape={onClose}>
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm sm:p-8"
       onClick={onClose}
     >
       <div
@@ -738,11 +738,13 @@ function BlockEditorDrawer({
         aria-modal
         aria-label={`Editar bloque ${block.title}`}
         onClick={(e) => e.stopPropagation()}
-        // Width is an ARBITRARY value on purpose: globals.css redefines the spacing
-        // scale with shirt-size names (--spacing-xl: 24px), and Tailwind resolves
-        // --spacing-* before --container-* for max-w-*, so `max-w-xl` would collapse
-        // this drawer to 24px behind the scrim. Never use max-w-{xs,xl} here.
-        className="flex h-full w-full max-w-[576px] flex-col overflow-hidden border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
+        // REDESIGN (editor-bloques mockup): the block editor stops being a 576px
+        // side drawer squeezed into a third of the screen and becomes a wide
+        // CENTERED surface — the screen's job is this edit. Width is an ARBITRARY
+        // value on purpose: globals.css redefines the spacing scale with shirt-size
+        // names (--spacing-xl: 24px) and Tailwind resolves --spacing-* before
+        // --container-* for max-w-*, so `max-w-xl` would collapse it to 24px.
+        className="flex max-h-full w-full max-w-[1060px] flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
       >
         <header className="flex items-center justify-between border-b border-[color:var(--v2-border)] px-5 py-4">
           <h2 className="v2-display text-xl">{block.title || 'Editar bloque'}</h2>
