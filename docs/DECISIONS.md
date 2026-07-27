@@ -10,6 +10,51 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-27 · Un EMOM es un ciclo de TRABAJO + CAMBIO. Y un formato sin movimientos es un cronómetro válido
+
+**Decidido, dos cosas que se sostienen la una a la otra.**
+
+### 1. EMOM e INTERVAL son la misma forma, no dos tipos
+
+Un ciclo es **trabajo + transición**, repetido N veces. Lo único que cambia es si la transición es explícita:
+
+- **EMOM llano («al minuto»)** → `work_s` 60, sin `rest_s`. El ciclo es 60 y el descanso es lo que te sobre dentro del minuto. Nada avisa de cuándo parar, porque no hay un "parar" definido.
+- **Interval de box (Rogue)** → `work_s` 45, `rest_s` 15. El ciclo sigue siendo 60, pero ahora hay un final del trabajo, y el reloj **tiene que avisarlo**.
+- **Tabata** → `work_s` 20, `rest_s` 10, `rounds` 8. La misma estructura con otros números: es un **preajuste**, no un formato aparte.
+
+Esto no se inventó aquí: es la forma que el servidor ya tenía en `shared/domain/prescription/types.ts` (`work_s` = "emom/interval/tabata work window", `rest_s` = "round/interval/tabata rest"), la que usa `block-helpers.ts` para estimar duración (`(work_s + rest_s) * rounds`, para todos los esquemas incluido emom), y la que el editor legacy ya rotulaba «Trabajo (s)» / «Descanso (s)». **iOS era el que iba por libre**, leyendo `work_s` como "la cadencia" y descartando `rest_s`.
+
+`EmomPlan` adopta la forma del servidor: `workSeconds` + `restSeconds`, y `intervalSeconds` pasa a ser el ciclo (su suma).
+
+**Por qué era seguro cambiarlo:** verificado contra producción — CERO filas `emom` con `rest_s` en `template_segments`, `block_exercises` o `segment_executions`. Las únicas dos que existen son `work_s: 60, rounds: 10` sin `rest_s`, así que `60 + 0 = 60` y el ciclo no se mueve ni un segundo. Tampoco existe ninguna fila `tabata`, así que el preajuste no tiene legado que respetar. Donde SÍ vive dato real de trabajo+descanso es en el esquema legacy `interval` (41 filas, 22 con ambos), y ahí ya significaba trabajo+descanso.
+
+**Tabata se guarda como `emom`**, no como `tabata`, y tiene que ser así: `FUNCTIONAL_SCHEMES` del contrato de entreno libre acepta `for_time`, `amrap`, `emom` y `rounds` — no `tabata`. Como la estructura es idéntica, no se pierde nada: 20/10 × 8 en `work_s`/`rest_s`/`rounds` ES un Tabata.
+
+**En consecuencia, no hacer:** no crear un tipo paralelo para los intervalos, ni un esquema `interval` nuevo en iOS. Y no volver a leer `work_s` como "cada cuánto": es la ventana de trabajo, y el "cada cuánto" se deriva sumándole la transición.
+
+### 2. Los movimientos son opcionales para arrancar. Un formato ya es un reloj
+
+Un EMOM de 10 minutos, un AMRAP de 10:00, un For Time y unas Rondas son estructuras **completas y sin ambigüedad por sí solas**. Exigir el contenido antes de dejarte empezar era lo único que nos hacía más lentos que una app de cronómetro, y no compraba nada: el contenido se sabe igual de bien al terminar, y entonces el atleta no tiene prisa.
+
+Los cuatro formatos funcionales admiten arranque vacío. Lo que se declara después se mapea con la MISMA estructura que la sesión corrió, así que un WOD nombrado a posteriori es idéntico en el cable a uno nombrado antes.
+
+**Consecuencia en el HUD:** un segmento sin contenido declarado no es lo mismo que uno descrito con params escalares. `WorkoutSegment.components` no podía distinguirlos (su fallback siempre devuelve una fila), así que se añade `hasDeclaredWork` / `declaredComponents`: un cronómetro pelado no pinta una ronda fantasma de guiones.
+
+### PENDIENTE Y BLOQUEADO: el servidor NO acepta un funcional sin ítems
+
+`web/lib/athlete/free-workout-validate.ts` exige `MIN_ITEMS = 1` y responde `items_required` (422) antes de tocar la base de datos. Un 422 no es reintentable (`RequestQueue.isRetriable` solo reintenta ≥500), así que el cliente lo descarta en silencio: **mandarlo igual le enseñaría al atleta una sesión guardada que nunca existió.** Por eso, de momento, si no declara nada NO se envía nada y el copy lo dice en claro.
+
+Auditado qué haría falta para admitirlo, porque la decisión es de Alex, no mía:
+
+- **Nada se rompe técnicamente.** `record-workout-execution.ts` no cuenta segmentos para nada (el estado sale de `completeness`, que lo declara el cliente), `segments` ya es opcional sin mínimo, y no hay CHECK ni trigger que exija segmentos. Las plantillas de 0 segmentos ya existen y están contempladas: `assignment-detail.ts` las colapsa a `workout: null` a propósito, con test.
+- **Sería la primera asignación con plantilla sin segmentos.** Todos los caminos del coach evitan crearla (`instantiate-program.ts` devuelve null sin ejercicios).
+- **Tres sitios informarían mal, y habría que tocarlos en el mismo movimiento:** (a) `week-plan.ts` mandaría el *formato* en el campo `modality`, dejando el punto del día sin color y la duración a null; (b) el cajón del coach diría «Este entreno no tiene plantilla asociada», que es falso — sí la tiene; (c) los INNER JOIN de `deep-dive-performance.ts` y `athlete-deep-dive.ts` excluirían la sesión de las analíticas por ejercicio (defendible: no hay ejercicio).
+- **Cambio mínimo:** `MIN_ITEMS` y su rama en `free-workout-validate.ts`, más los dos tests que hoy afirman lo contrario (`free-workout-validate.test.ts:95`, `free-workout-route.test.ts:126`). Nada de base de datos, nada de migración.
+
+**En consecuencia, no hacer:** no colar un movimiento fantasma para que pase la validación, y no mandar un payload que sabemos que el servidor rechaza.
+
+---
+
 ## 2026-07-27 · Un benchmark solo tiene un objetivo: tu propio récord. Sin récord, NINGUNO
 
 **Decidido:** un benchmark («Probarme») es un esfuerzo a tope, no una prescripción de intensidad. Nadie le dice al atleta a qué ritmo ir: va a lo que pueda y manda el cronómetro. Por tanto:

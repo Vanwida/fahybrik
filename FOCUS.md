@@ -15,6 +15,49 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 27-jul · El constructor funcional ya es un cronómetro de box (y sabe de intervalos)
+
+**Sin desplegar todavía.** iOS + dos ficheros de `shared/domain`; cero servidor, cero migraciones.
+
+Idea de Alex probando la app: en «Crear funcional → EMOM» los valores por defecto
+ya eran buenos, pero **obligaba a añadir movimientos antes de dejarte empezar**. Una
+app de crono arranca en dos o tres toques; nosotros no arrancábamos hasta declarar
+contenido. Esa era toda la diferencia.
+
+- **Arranque vacío.** Los cuatro formatos (EMOM, AMRAP, For Time, Rondas) son relojes
+  completos por sí solos, así que «Empezar» solo pide formato. **De 6 toques a 4**
+  hasta el primer pitido (uno de los que se van cargaba el catálogo por red).
+- **Preguntar después.** Al cerrar, un paso de un toque para decir qué hiciste, con
+  el mismo selector y la misma tarjeta de dosis del constructor. Lo declarado a
+  posteriori sale idéntico en el cable a lo declarado antes.
+- **Recuerda tus números** por formato. En un box se repite la misma forma toda la
+  semana. Solo estructura, nunca los movimientos.
+- **Modo interval de los Rogue** (ampliación de Alex): trabajo y transición
+  explícitos — 10 rondas de 1 min con 45 s de trabajo y 15 s de cambio. El motor
+  **avisa de cuándo PARAR**, no solo de cuándo empezar (tono nuevo «para» +
+  háptico), el HUD dice TRABAJO / CAMBIO con su cuenta atrás, y Tabata cae solo
+  como preajuste de la misma estructura. Preajustes en un toque: Al minuto / 45-15
+  / Tabata; el EMOM simple no gana ni un toque.
+
+**Bloqueado y pendiente de tu decisión:** el servidor **no acepta un funcional sin
+ítems** (`MIN_ITEMS = 1` → `items_required`, 422 no reintentable). Así que si no
+declaras nada, la sesión no se envía y el copy lo dice en claro en vez de mentir.
+Auditado: técnicamente no se rompe nada, pero informarían mal tres sitios
+(el color del día en el plan, «no tiene plantilla asociada» en el cajón del coach,
+y las analíticas por ejercicio). Detalle y cambio mínimo en `docs/DECISIONS.md`.
+
+**Lo que NO existe y no construí** (avisado, no inventado): un EMOM no tiene conteo
+de repeticiones por ronda. Tabata sí (`rotRepsByRound`) y el AMRAP tiene su ronda
+parcial, pero el EMOM solo registra rondas hechas de N — y como graba UNA vuelta
+para todo el bloque, no hay fila por ronda donde colgar las reps. No es un enganche,
+es una forma de registro nueva.
+
+Verificado: build del simulador en verde; `work_s`/`rest_s` de EMOM comprobados
+contra PRODUCCIÓN (cero filas con `rest_s`, así que el ciclo no se mueve); tsc y
+282 tests de vitest en verde. Decisión en `docs/DECISIONS.md`.
+
+---
+
 ## Cerrado el 27-jul · Los benchmarks pedían un ritmo imposible (1:52 /km). Muerto de raíz
 
 **Sin desplegar todavía.** Solo iOS; cero servidor, cero migraciones.
