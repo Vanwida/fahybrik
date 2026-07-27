@@ -86,7 +86,12 @@ export const WORKOUT_FORMATS = {
     family: 'metcon',
     score: 'pass_fail',
     presentation: 'rotating',
-    params: ['rounds', 'work_s'],
+    // `rest_s` is the EXPLICIT transition of a station EMOM (45 s de trabajo, 15 s
+    // de cambio) — the same work+rest cycle `tabata` and `intervals` already
+    // declare. Omitting it here made the shape unauthorable in the editor even
+    // though the schema, the duration estimate and the live timer all support it;
+    // a plain EMOM simply leaves it empty and the cycle stays the work window.
+    params: ['rounds', 'work_s', 'rest_s'],
   },
   tabata: {
     label: 'Tabata',

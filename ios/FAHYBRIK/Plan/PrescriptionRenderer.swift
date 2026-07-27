@@ -120,7 +120,12 @@ enum PrescriptionRenderer {
         if let load = targetLoad(target), !isPaceOrZone(target) {
             detail.append(load)
         }
-        if let restS = set?.restS ?? p.restS, restS > 0 {
+        // An EMOM's block-level `rest_s` is its TRANSITION, already spelled out by
+        // `wodHeader` as part of the split ("45/15"). Repeating it here as
+        // "descanso 0:15" would report the same 15 seconds twice; a per-SET rest
+        // still shows, because that is a different number.
+        let blockRest = p.scheme == .emom ? nil : p.restS
+        if let restS = set?.restS ?? blockRest, restS > 0 {
             detail.append("descanso \(formatRest(restS))")
         }
         return Line(
@@ -141,8 +146,19 @@ enum PrescriptionRenderer {
             if let cap = p.totalS, cap > 0 { return "AMRAP · \(formatClock(cap))" }
             return "AMRAP"
         case .emom:
+            // `work_s` is the WORK WINDOW, not the cadence (the server's shape — see
+            // EmomPlan). A plain EMOM has no transition, so the window IS the cycle
+            // and this still reads "cada 1:00"; an INTERVAL EMOM leads with its
+            // split, because printing "cada 0:45" for a 45/15 would name a cadence
+            // the timer never runs.
             var parts = ["EMOM"]
-            if let work = p.workS, work > 0 { parts.append("cada \(formatRest(work))") }
+            let work = p.workS ?? 0
+            let transition = p.restS ?? 0
+            if work > 0 {
+                parts.append(transition > 0
+                    ? "\(work)/\(transition) · cada \(formatRest(work + transition))"
+                    : "cada \(formatRest(work))")
+            }
             if let rounds = p.rounds, rounds > 0 { parts.append("\(rounds) rondas") }
             return parts.joined(separator: " · ")
         case .forTime:

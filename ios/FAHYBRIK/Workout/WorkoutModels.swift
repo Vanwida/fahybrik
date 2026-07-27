@@ -248,11 +248,35 @@ struct EmomInterval: Equatable {
 // The full EMOM dosage for one segment, expanded across its N intervals. Built
 // ONCE from the segment's Prescription (the single source of truth) and read by
 // both the session timer and the HUD so there is no second interpretation.
+// EMOM and INTERVAL are ONE shape — a cycle of WORK + TRANSITION, repeated N times
+// — which is exactly how the server already models it (`rounds` / `work_s` /
+// `rest_s`, see shared/domain/prescription/types.ts). The only difference is
+// whether the transition is explicit:
+//   • plain EMOM ("al minuto")  work_s 60, no rest_s  → cycle 60, rest is whatever
+//     the athlete leaves over inside the minute; nothing cues the end of the work.
+//   • box interval (Rogue)      work_s 45, rest_s 15  → cycle 60, and the engine
+//     must cue when to STOP, not only when to start.
+//   • Tabata                    work_s 20, rest_s 10, rounds 8 — the same structure
+//     with different numbers, so it is a PRESET, not another type.
 struct EmomPlan: Equatable {
-    let intervalCount: Int      // N intervals (rounds, or the set count)
-    let intervalSeconds: Int    // cadence — seconds per interval ("on the minute" = 60)
+    let intervalCount: Int      // N cycles (rounds, or the set count)
+    /// The WORK window inside each cycle — the server's `work_s`. For a plain EMOM
+    /// this IS the whole cycle.
+    let workSeconds: Int
+    /// The explicit TRANSITION closing each cycle — the server's `rest_s`. 0 for a
+    /// plain EMOM (implicit rest), > 0 for an interval / Tabata.
+    let restSeconds: Int
     let intervals: [EmomInterval]   // length == intervalCount (rotation expanded)
     let isAlternating: Bool     // the movement changes between intervals
+
+    /// The full cycle — work + transition. This is the "cada 1:00" the athlete
+    /// reads, and it is what `intervalSeconds` has always meant: with no explicit
+    /// transition (every EMOM shipped so far) it still equals `work_s`.
+    var intervalSeconds: Int { workSeconds + restSeconds }
+
+    /// True when the cycle carries an EXPLICIT transition, so the engine cues the
+    /// end of the work and the HUD names the phase. False = plain EMOM, unchanged.
+    var hasTransition: Bool { restSeconds > 0 }
 
     func interval(_ i: Int) -> EmomInterval? {
         guard i >= 0, i < intervals.count else { return nil }
@@ -283,7 +307,12 @@ extension Prescription {
         uniformInterval: () -> EmomInterval?
     ) -> EmomPlan? {
         guard scheme == .emom else { return nil }
-        let cadence = max(1, workS ?? 60)   // default to the minute
+        // The server's shape, adopted verbatim: `work_s` is the WORK window and
+        // `rest_s` the explicit transition. A plain EMOM carries only `work_s` (the
+        // whole minute, defaulting to 60), so the cycle still resolves to exactly
+        // what it always did — every EMOM shipped so far is untouched.
+        let work = max(1, workS ?? 60)
+        let transition = max(0, restS ?? 0)
         let rotationSets = sets ?? []
         // A set's erg convention falls back to the prescription's modality, then
         // the caller's context — matching the original per-segment precedence.
@@ -308,7 +337,8 @@ extension Prescription {
         let expanded = (0..<count).map { rotation[$0 % rotation.count] }
         return EmomPlan(
             intervalCount: count,
-            intervalSeconds: cadence,
+            workSeconds: work,
+            restSeconds: transition,
             intervals: expanded,
             isAlternating: rotation.count > 1
         )
@@ -570,6 +600,23 @@ extension WorkoutSegment {
             ?? prescription.flatMap { PrescriptionRenderer.paceString($0.target, isErg: isErg) }
         return [WorkComponent(id: 0, name: title, work: work, detail: detail)]
     }
+
+    /// True when this segment declares WHAT to do — structured `sets[]`, or a scalar
+    /// measure. FALSE for a bare CLOCK: an entreno libre started as a box timer,
+    /// where the athlete named a format and nothing else.
+    ///
+    /// `components` cannot answer this: its scalar fallback ALWAYS yields one row, so
+    /// a clock with nothing declared comes back as a single "—" line named after the
+    /// segment. That is the row the live lists must not print.
+    var hasDeclaredWork: Bool {
+        if prescription?.sets?.isEmpty == false { return true }
+        return targetReps != nil || targetDistanceMeters != nil
+            || targetCalories != nil || targetDurationSeconds != nil
+    }
+
+    /// `components`, but EMPTY for a bare clock instead of the one-row "—" fallback.
+    /// The live movement lists read this so a cronómetro shows no phantom round.
+    var declaredComponents: [WorkComponent] { hasDeclaredWork ? components : [] }
 
     // ── Block-level conditioning params (read from the folded prescription) ──────
 
@@ -1492,8 +1539,13 @@ extension WorkoutBlock {
         // bug). Per-movement counts would DIFFER (8 vs 7 across 15 alternating
         // minutes), so an equal `rounds` on every item can only be the EMOM total.
         let totalMinutes = items.compactMap { $0.prescription?.rounds }.max()
-        // Cadence ("on the minute" = 60s); `emomPlan` defaults to 60 when absent.
+        // The WORK window ("on the minute" = 60s; `emomPlan` defaults to 60 when
+        // absent) and, when the coach prescribed one, the explicit TRANSITION that
+        // closes each cycle — carried through so a 45/15 station EMOM keeps its
+        // stop cue after the fold. Both come from the items, which all repeat the
+        // block's params identically.
         let cadence = items.compactMap { $0.prescription?.workS }.first
+        let transition = items.compactMap { $0.prescription?.restS }.first
 
         return Prescription(
             scheme: .emom,
@@ -1501,7 +1553,7 @@ extension WorkoutBlock {
             sets: rotation,
             rounds: totalMinutes,
             workS: cadence,
-            restS: nil,
+            restS: transition,
             totalS: nil,
             target: nil,
             note: nil,
