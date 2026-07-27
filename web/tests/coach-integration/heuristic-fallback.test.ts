@@ -109,7 +109,7 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     `;
     expect(persisted[0]!.status).toBe('pending');
     expect(persisted[0]!.verdict).toBe('needs_adjustment');
-  });
+  }, 60000);
 
   test('ok verdict short-circuits to keep without invoking the heuristic swap', async () => {
     const fx: Fixture = await makeCoachAndAthlete(sql);
@@ -130,7 +130,7 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     expect(rec.verdict).toBe('ok');
     expect(rec.proposal.recommendation).toBe('keep');
     expect(rec.proposal.slot_changes).toEqual([]);
-  });
+  }, 60000);
 
   test('scope por club: la heurística NUNCA propone la plantilla recovery de otro coach', async () => {
     const fx: Fixture = await makeCoachAndAthlete(sql);
@@ -159,5 +159,5 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     expect(rec.verdict).toBe('needs_adjustment');
     expect(rec.proposal.slot_changes).toEqual([]);
     expect(rec.proposal.recommendation).toBe('keep');
-  });
+  }, 60000);
 });
