@@ -64,6 +64,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
   try {
     const event = await updateEvent({
       event_id: id,
+      owner: { kind: 'admin' }, // the curator may edit any catalog row
       verified_by_user_id,
       input: eventInput,
     });

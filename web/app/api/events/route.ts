@@ -1,8 +1,8 @@
 // GET /api/events
 //
-// Lists events. Returns:
+// Lists events. The athlete bearer is evaluated BEFORE the coach cookie. Returns:
 //   - For athletes (bearer auth): only events flagged is_visible_to_athletes
-//   - For coaches (cookie session): all events
+//   - For coaches (cookie session): the shared catalog + the club's own events
 //   - For unauthenticated callers: only visible events (treated as athlete view)
 //
 // Query params:
@@ -54,10 +54,11 @@ function parseType(raw: string | null): 'hyrox' | 'crossfit' | 'other' | undefin
 export async function GET(req: Request): Promise<NextResponse> {
   const url = new URL(req.url);
 
-  const coach = await getCoachSession();
-  const athlete = coach
-    ? null
-    : await getAthleteSessionFromBearer(req.headers.get('authorization'));
+  // Bearer FIRST (same precedence as resolveChatPrincipal): a request carrying an
+  // athlete token is the athlete view, full stop — a coach cookie riding the same
+  // request must never widen it to the unfiltered coach catalog.
+  const athlete = await getAthleteSessionFromBearer(req.headers.get('authorization'));
+  const coach = athlete ? null : await getCoachSession();
   const role: 'coach' | 'athlete' = coach ? 'coach' : 'athlete';
 
   const opts: ListEventsOpts = {
@@ -67,6 +68,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     from_date: parseDate(url.searchParams.get('from_date')),
     to_date: parseDate(url.searchParams.get('to_date')),
     visibility: coach ? 'all' : 'visible',
+    // Coach view: shared catalog + THIS club's own events, never another club's.
+    coach_id: coach?.coach_id,
   };
 
   try {

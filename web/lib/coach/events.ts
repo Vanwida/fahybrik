@@ -1,11 +1,11 @@
 // Events service — HYROX + CrossFit competition calendar.
 //
 // Surface:
-//   listCoachEvents(opts)           coach view (Pablo) — sees ALL events
-//   listVisibleEvents(opts)         athlete view — visible-only events
-//   getEvent({ event_id })          single event (no perm filter)
-//   createEvent({ coach_id, input }) Pablo adds a manual event
-//   updateEvent({ coach_id, event_id, input }) edit / toggle visibility
+//   listEvents(opts)                catalog + (with opts.coach_id) the club's own
+//                                   manual events; visibility 'visible' = athlete view
+//   getEvent(event_id)              single event (no perm filter — internal reads)
+//   createEvent({ coach_id, input })            a coach adds a manual event
+//   updateEvent({ event_id, owner, input })     edit / toggle visibility, owner-gated
 //
 // The athlete's TARGET is no longer a separate event-pin row: it lives on the
 // unified `races` spine (priority='target'). target_count below counts athletes
@@ -91,9 +91,29 @@ export interface ListEventsOpts {
   scope?: 'upcoming' | 'past' | 'all';
   // 'visible' returns only is_visible_to_athletes=true. 'all' returns everything.
   visibility?: 'visible' | 'all';
+  // Coach caller: restrict to the shared catalog (created_by_coach_id null) plus
+  // THIS club's own manual events — never another club's. Omit for the athlete
+  // view (visible-only) and for the admin curator (sees everything).
+  coach_id?: number | bigint;
   // Date range filter (ISO YYYY-MM-DD). Inclusive.
   from_date?: string;
   to_date?: string;
+}
+
+/**
+ * Who is mutating an event. Admin (the catalog curator) may touch any row; a
+ * coach may touch the shared catalog and their OWN manual events, never another
+ * club's. The predicate goes INSIDE the WHERE of every mutation (no
+ * check-then-act window).
+ */
+export type EventOwner =
+  | { kind: 'admin' }
+  | { kind: 'coach'; coach_id: number | bigint };
+
+function ownedEventPredicate(client: Sql, owner: EventOwner) {
+  return owner.kind === 'admin'
+    ? client`true`
+    : client`(created_by_coach_id is null or created_by_coach_id = ${Number(owner.coach_id)})`;
 }
 
 function toListItem(row: RawEventRow, today: string): EventListItem {
@@ -147,6 +167,8 @@ export async function listEvents(
   // composition trivial. The narrow date / visibility filters that always
   // apply stay in SQL.
   const onlyVisibleClause = visibility === 'visible';
+  const scopeToCoach = opts.coach_id != null;
+  const coachIdParam = opts.coach_id != null ? Number(opts.coach_id) : 0;
   const rows = await client<RawEventRow[]>`
     select
       e.id::text                                              as id,
@@ -178,6 +200,11 @@ export async function listEvents(
       group by event_id
     ) t on t.event_id = e.id
     where (${onlyVisibleClause}::boolean = false or e.is_visible_to_athletes = true)
+      and (
+        ${scopeToCoach}::boolean = false
+        or e.created_by_coach_id is null
+        or e.created_by_coach_id = ${coachIdParam}
+      )
     order by e.start_date asc nulls last, e.name asc
     limit 1000
   `;
@@ -335,6 +362,9 @@ export async function createEvent(args: {
 
 export async function updateEvent(args: {
   event_id: bigint;
+  /** Who is editing — enforced INSIDE every WHERE (a coach can never touch
+   *  another club's event; a cross-club id reads as not_found). */
+  owner: EventOwner;
   // Owner/admin verification toggle: undefined = leave unchanged, a bigint =
   // mark verified by that user (sets verified_at = now()), null = clear it.
   verified_by_user_id?: bigint | null;
@@ -351,6 +381,19 @@ export async function updateEvent(args: {
   }
   const input: EventUpdateInput = parsed.data;
   const client = args.client ?? defaultSql;
+
+  // Ownership gate FIRST — an event the caller may not edit is a 404, never
+  // disclosed. The same predicate rides every UPDATE below, so there is no
+  // check-then-act window either.
+  const owned = await client<{ ok: boolean }[]>`
+    select true as ok from events
+    where id = ${args.event_id as unknown as number}
+      and ${ownedEventPredicate(client, args.owner)}
+    limit 1
+  `;
+  if (!owned[0]) {
+    throw new EventsError('not_found', 'Evento no encontrado.', 404);
+  }
 
   // Read-modify-write keeps the SQL trivially correct in the face of mixed
   // "leave alone" vs "set to null" semantics. The events table is small
@@ -422,6 +465,7 @@ export async function updateEvent(args: {
       source_ref             = ${next.source_ref},
       updated_at             = now()
     where id = ${args.event_id as unknown as number}
+      and ${ownedEventPredicate(client, args.owner)}
   `;
 
   // Verification is set ONLY when explicitly requested — a plain field edit must
@@ -437,6 +481,7 @@ export async function updateEvent(args: {
         verified_at         = ${verifiedByUserId != null ? new Date() : null},
         updated_at          = now()
       where id = ${args.event_id as unknown as number}
+        and ${ownedEventPredicate(client, args.owner)}
     `;
   }
 
