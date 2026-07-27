@@ -166,9 +166,13 @@ struct AppleSignInView: View {
     }
 }
 
-// Shown when someone signs in with Apple but has no membership (backend 404
-// no_account). Honest: their access is activated by the welcome-email link, and
-// non-members can apply for a spot via the funnel. No commerce (Apple 3.1.3(b)).
+// Shown when someone signs in with Apple but has no account yet (backend 404
+// no_account — the login is find-only while the open free signup is off).
+// HONEST in both worlds: it never claims signing up is impossible, and it
+// never promises a welcome email to someone who was never enrolled. When the
+// server flips to open signup, this 404 stops firing and the same login flow
+// simply enters — no separate registration screen exists or is needed.
+// No commerce (Apple 3.1.3(b)).
 struct NoAccountView: View {
     let onBack: () -> Void
 
@@ -181,12 +185,12 @@ struct NoAccountView: View {
                 Wordmark(size: 32)
 
                 VStack(spacing: Theme.Spacing.m) {
-                    Text("Aún no tienes acceso.")
+                    Text("Aún no tienes cuenta activa.")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Tu acceso se activa con el enlace de tu email de bienvenida. Ábrelo desde este dispositivo para entrar.")
+                    Text("Si tu coach te ha dado de alta, abre el enlace de tu email de bienvenida o entra con ese mismo email. Si aún no tienes plaza, solicítala aquí abajo.")
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
