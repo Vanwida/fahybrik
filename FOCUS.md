@@ -38,10 +38,12 @@ el histórico; downgrade/baja = aterrizar en free (la baja deja de ser un
 adiós). La UI la decide el servidor con `has_coach` en la sesión: con coach
 entra por el camino de HOY (intocado), sin coach por el home free nuevo.
 
-**Fase 1 lanzada** (agente en worktree aislado): mig 0141 `birth_date`,
-flag `FREE_SIGNUP` (apagado en prod), alta que CREA (email + SIWA) solo con
-flag, `has_coach` en la respuesta de sesión, barrido de endpoints de atleta
-con `coach_id null` + tests de que flag-off = find-only exacto. Defaults
+**Fase 1 lanzada** (agente en worktree aislado): flag `FREE_SIGNUP`
+(apagado en prod), alta que CREA (email + SIWA) solo con flag, `has_coach`
+en la respuesta de sesión, barrido de endpoints de atleta con `coach_id
+null` + tests de que flag-off = find-only exacto. SIN migración: el agente
+cazó que `athletes.dob` existe desde la 0001 (el brief lo daba por
+inexistente — corregido); cero esquema nuevo en toda la fase. Defaults
 tomados del brief (free ilimitado; rankings división+global); el NOMBRE del
 tier sigue abierto (decisión de Alex, sin prisa hasta la ficha).
 Después: iOS modo free (home + esconder chat/plan) → Probarme de sistema →
