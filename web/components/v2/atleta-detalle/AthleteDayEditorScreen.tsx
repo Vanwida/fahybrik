@@ -11,11 +11,18 @@ import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 import type { AthleteDayEditorData } from '@/lib/dashboard/coach/athlete-day-editor';
+import { RunZonesProvider } from '@/components/v2/editor/run-zones-context';
 
 export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData }) {
   const multi = data.sessions.length > 1;
 
   return (
+    // La regla del ritmo: this is the ONE surface with a real athlete behind the
+    // editor, so it provides his run bands; the library provides nothing and the
+    // ruler never renders there.
+    <RunZonesProvider
+      value={data.run_zones.length > 0 ? { athlete_name: data.athlete_name.split(' ')[0] ?? data.athlete_name, zones: data.run_zones } : null}
+    >
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
       {/* Header — back to plan + the day being edited */}
       <div className="flex flex-col gap-1.5">
@@ -68,5 +75,6 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
         ))
       )}
     </div>
+    </RunZonesProvider>
   );
 }

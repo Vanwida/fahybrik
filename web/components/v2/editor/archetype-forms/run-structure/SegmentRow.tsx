@@ -14,6 +14,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { NumberCell } from '../../fields';
 import { InlineToggle } from '../form-controls';
 import { segmentSentence } from '@/lib/dashboard/v2/run-structure-view';
+import { PaceRuler } from '../../run-zones-context';
 import { MeasureCell, ObjetivoCell } from './segment-controls';
 import { canWrapInRepeat } from './tree-ops';
 
@@ -158,6 +159,11 @@ export function SegmentRow({
           <ObjetivoCell target={segment.target} onChange={(t) => handlers.setTarget(path, t)} />
         </div>
       </div>
+
+      {/* La regla del ritmo — where this pace lands for THIS athlete. Renders only
+          when the surrounding surface provided zones (per-athlete editor) and the
+          target speaks pace. */}
+      {isWork ? <PaceRuler target={segment.target} /> : null}
 
       {/* Kind-specific extras */}
       {isWork ? (

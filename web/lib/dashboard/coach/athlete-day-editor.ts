@@ -14,6 +14,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { loadSessionEditorModel } from '@/lib/dashboard/v2/editor-data';
+import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import type { SessionEditorModel } from '@/lib/dashboard/v2/editor-types';
 
@@ -54,6 +55,10 @@ export interface AthleteDaySession {
 export interface AthleteDayEditorData {
   athlete_id: string;
   athlete_name: string;
+  /** La regla del ritmo: the athlete's resolved RUN zone bands (slow→fast), so the
+   *  editor can show where a prescribed pace lands in HIS reality. Empty = no run
+   *  test yet → the ruler hides. */
+  run_zones: { code: string; fast_s: number; slow_s: number | null }[];
   iso_date: string;
   /** "Lunes 29 jun" — display label for the day. */
   day_label: string;
@@ -125,9 +130,27 @@ export async function loadAthleteDayEditor(params: {
   const dow = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
   const day_label = `${WEEKDAYS_ES[dow - 1]} ${d.getUTCDate()} ${MONTHS_ES[d.getUTCMonth()]}`;
 
+  // La regla del ritmo: the athlete's resolved run bands. Best-effort — a zones
+  // hiccup must never take the day editor down; the ruler just hides.
+  const run_zones = await loadAthleteZoneProfiles({
+    coach_id: params.coach_id,
+    athlete_id: Number(header[0].id),
+    client,
+  })
+    .then((profiles) => {
+      const run = profiles.find((z) => z.modality === 'run');
+      return (run?.zones_json ?? []).map((z) => ({
+        code: z.code,
+        fast_s: z.fast_s,
+        slow_s: z.slow_s,
+      }));
+    })
+    .catch(() => []);
+
   return {
     athlete_id: header[0].id,
     athlete_name: header[0].full_name,
+    run_zones,
     iso_date: params.iso_date,
     day_label,
     back_href: `/atletas/${header[0].id}?tab=plan`,
