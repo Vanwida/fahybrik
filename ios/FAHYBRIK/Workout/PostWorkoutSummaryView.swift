@@ -75,6 +75,13 @@ struct PostWorkoutSummaryView: View {
     /// RequestQueue; we just skip the celebration this time.
     private static let prCelebrationLookupTimeout: TimeInterval = 6
 
+    // MARK: Cronómetro — the movements declared AFTER the work
+    /// Set once the athlete names what they did in a session started as a bare clock.
+    /// Nil = not declared (yet, or at all — it is never required to leave here).
+    @State private var declaredItems: [FreeWorkoutItemPayload]? = nil
+    @State private var declaredSummary: String? = nil
+    @State private var showDeclareSheet = false
+
     // MANUAL FALLBACK (no wearable). Optional session HR the athlete enters when
     // no strap fed the workout; injected onto every lap that lacks measured HR so
     // a failed wearable never loses the record. Shown only when `!hasHRData`.
@@ -137,6 +144,40 @@ struct PostWorkoutSummaryView: View {
         }
         .onAppear { seedCapturedScore(); renderSummaryCard() }
         .onChange(of: rpe) { _, _ in renderSummaryCard() }
+        .fullScreenCover(isPresented: $showDeclareSheet) {
+            FreeDeclareMovementsSheet(
+                bearer: KeychainTokenStore.shared.read(),
+                headerLine: freeContext.flatMap { $0.ranPrescription.flatMap(PrescriptionRenderer.wodHeader) },
+                onDone: { movements in
+                    applyDeclared(movements)
+                    showDeclareSheet = false
+                },
+                onClose: { showDeclareSheet = false }
+            )
+        }
+    }
+
+    // MARK: - Cronómetro · "¿Qué hiciste?"
+
+    /// True while this summary is closing a session started as a bare box clock and
+    /// the athlete hasn't named the movements yet.
+    private var awaitsDeclaration: Bool {
+        freeContext?.awaitsMovementDeclaration == true && declaredItems == nil
+    }
+
+    /// Turn the declared movements into wire items using the SAME structure the
+    /// session ran (`FreeFunctionalItems`), so a WOD named afterwards is identical
+    /// to one named in the builder.
+    private func applyDeclared(_ movements: [FreeFunctionalMovement]) {
+        guard let ran = freeContext?.ranPrescription, !movements.isEmpty else { return }
+        declaredItems = FreeFunctionalItems.payloads(
+            movements,
+            scheme: ran.scheme,
+            structure: FunctionalStructural(from: ran)
+        )
+        declaredSummary = movements
+            .map { "\($0.doseString) \($0.exercise.name)" }
+            .joined(separator: " · ")
     }
 
     private var summaryContent: some View {
@@ -169,6 +210,12 @@ struct PostWorkoutSummaryView: View {
                     }
                     if showScore {
                         scoreCard
+                    }
+                    // Cronómetro: the clock ran without declared content, so ask for
+                    // it NOW — after the work, when the athlete knows what they did
+                    // and has nothing left to rush.
+                    if freeContext?.awaitsMovementDeclaration == true {
+                        declareMovementsCard
                     }
                     rpeCard
                     // #58 — "Cómo ha ido" feedback to the coach. Only for a
@@ -237,7 +284,15 @@ struct PostWorkoutSummaryView: View {
         // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
             let payload = buildFreePayload(free)
-            Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
+            // CONTRACT GATE — POST /api/athlete/workouts/free rejects a functional
+            // workout with no `items` (`items_required`, 422), and a 422 is not
+            // retriable, so RequestQueue drops it. Firing it anyway would show the
+            // athlete a saved session that never existed. Until the contract accepts
+            // a movement-less funcional, a cronómetro nobody described is closed
+            // locally instead of being silently lost on the wire.
+            if !awaitsDeclaration {
+                Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
+            }
             // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
             // Only a FULL finish counts: an abandoned attempt saves the session (the
             // coach still sees the work) but never writes a half number into the
@@ -524,7 +579,9 @@ struct PostWorkoutSummaryView: View {
             title: free.title,
             modality: free.modalityWire,
             prescription: free.prescription,
-            items: free.items,
+            // Declared up front in the builder, or afterwards here — one field,
+            // whichever arrived.
+            items: declaredItems ?? free.items,
             perceived_exertion: rpe,
             total_duration_seconds: c.totalDuration,
             notes: c.notes,
@@ -684,6 +741,43 @@ struct PostWorkoutSummaryView: View {
                     erg_splits: ergSplitDTOs
                 )
             }
+    }
+
+    // MARK: - Cronómetro · declare what you did (one tap, never required)
+
+    private var declareMovementsCard: some View {
+        CardSurface(padding: Theme.Spacing.m, topAccent: awaitsDeclaration) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    LabelText(text: "Qué hiciste", color: Theme.Color.accentText, size: 10)
+                    Spacer(minLength: 0)
+                    if !awaitsDeclaration {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundStyle(Theme.Color.ok)
+                    }
+                }
+                if let declaredSummary {
+                    Text(declaredSummary)
+                        .font(Theme.Typography.bodyEmph)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    // Honest, not nagging: the athlete is never trapped here, but we
+                    // don't pretend a session reached the coach when it can't. See
+                    // the contract gate in `handleSave`.
+                    Text("Usaste el crono sin decir qué hacías. Añade los movimientos y el entreno queda guardado; si lo dejas así, se queda solo en el reloj.")
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                SecondaryButton(title: awaitsDeclaration ? "Añadir movimientos" : "Editar") {
+                    Haptics.light()
+                    showDeclareSheet = true
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     // MARK: - Header
