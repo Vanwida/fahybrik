@@ -7,9 +7,10 @@
  * ordered template_segments (one per exercise line) + a workout_assignments row
  * (origin='self', today) + a recorded execution — all in ONE transaction. These
  * tests exercise the two ITEM-built shapes (strength set-tables, functional metcon)
- * end to end, and assert the mig-0053 modality COHERENCE override (the exercise is
- * the single source of truth, so the persisted prescription's modality is the
- * exercise's, never the client's).
+ * plus the CLOCK (a functional format run bare, no movements named → zero segments
+ * and the shape on meta_json) end to end, and assert the mig-0053 modality
+ * COHERENCE override (the exercise is the single source of truth, so the persisted
+ * prescription's modality is the exercise's, never the client's).
  *
  * Nothing is mocked (project rule). Each test seeds its own fixtures via
  * makeCoachAndAthlete/makeExercise and tears them down (segments + executions
@@ -194,6 +195,67 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
     expect(segs.every((s) => s.prescription_json.scheme === 'amrap')).toBe(true);
     // Coherence: every functional movement is stamped modality 'functional'.
     expect(segs.every((s) => s.prescription_json.modality === 'functional')).toBe(true);
+  }, DB_TIMEOUT);
+
+  // The box CLOCK: the athlete hit Empezar on an EMOM and never named a movement.
+  // Nothing about that session is missing — the format, the duration and the
+  // effort are all real — so it persists like any other libre, minus the segments
+  // there is no honest exercise for. The shape survives on the template's
+  // meta_json, which is what the week reader colours and times the day with.
+  test('functional CLOCK (no items) persists: zero segments, shape on meta_json, execution recorded', async () => {
+    const fx = await newFixture();
+
+    const clock = p({
+      scheme: 'emom',
+      modality: 'functional',
+      rounds: 10,
+      work_s: 45,
+      rest_s: 15,
+    });
+
+    const result = await createFreeWorkout({
+      athleteId: fx.athleteId,
+      coachId: fx.coachId,
+      title: 'EMOM 10 · 45/15',
+      scheme: 'emom',
+      metrics: { perceived_exertion: 8, total_duration_seconds: 600, completeness: 'full' },
+      kind: 'clock',
+      prescription: clock,
+      sql,
+    });
+
+    const asg = await readAssignment(Number(result.assignment_id));
+    expect(asg.origin).toBe('self');
+    expect(asg.status).toBe('completed');
+    expect(asg.scheduled_for).toBe(isoDateString(startOfDayInBox(new Date())));
+
+    const templateId = Number(asg.template_id);
+    const tpl = await sql<
+      Array<{ format: string; name: string; iaid: string | null; meta_json: Record<string, unknown> }>
+    >`
+      select format::text as format, name, instance_athlete_id::text as iaid, meta_json
+      from templates where id = ${templateId} limit 1
+    `;
+    expect(tpl[0]!.format).toBe('emom');
+    expect(tpl[0]!.name).toBe('EMOM 10 · 45/15');
+    expect(Number(tpl[0]!.iaid)).toBe(fx.athleteId); // still OUT of the coach library
+    // Provenance AND shape: the prescription is the only record of what ran.
+    expect(tpl[0]!.meta_json).toMatchObject({
+      origin: 'self',
+      prescription: { scheme: 'emom', modality: 'functional', rounds: 10, work_s: 45, rest_s: 15 },
+    });
+
+    // No movement was named, so no segment is invented for one.
+    expect(await readSegments(templateId)).toHaveLength(0);
+
+    // The measured reality IS persisted — this is the whole point of saving it.
+    const exec = await sql<Array<{ id: string; secs: number | null; rpe: number | null }>>`
+      select id::text as id, total_duration_seconds as secs, perceived_exertion as rpe
+      from workout_executions where assignment_id = ${Number(result.assignment_id)}
+    `;
+    expect(exec).toHaveLength(1);
+    expect(exec[0]!.secs).toBe(600);
+    expect(exec[0]!.rpe).toBe(8);
   }, DB_TIMEOUT);
 
   test('FREE athlete (no coach) saves the libre — athlete-owned instance, zero coach surface', async () => {

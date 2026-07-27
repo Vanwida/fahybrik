@@ -1,12 +1,22 @@
 // ENTRENO LIBRE — the vocabulary + PURE validation for an athlete's own workout.
 //
-// A free workout targets ONE of two shapes, discriminated by `modality`:
+// A free workout targets ONE of three shapes, discriminated by `modality` and by
+// whether any content was declared:
 //   • a MEASURED discipline (row | ski | bike | run) — ONE top-level
 //     `prescription` on a measured scheme (timed/paced/interval work). Its
 //     canonical exercise is resolved by slug (FREE_WORKOUT_MODALITY_SLUGS).
 //   • an ITEM-built workout (strength | functional) — N exercise `items`, each
 //     with its OWN prescription. Strength items are 'sets' set-tables; functional
 //     items are metcon movements that all share ONE metcon scheme (a WOD).
+//   • a CLOCK (functional, zero items) — the athlete used the app as a box timer.
+//     A metcon FORMAT plus its structural params IS the whole session: an EMOM of
+//     10 × 1:00, an AMRAP of 12:00 and a 5-round circuit are complete, unambiguous
+//     protocols with nothing missing but the movement names. That is a real
+//     training session (format + duration + effort are all measured), so it saves.
+//     It carries the SAME top-level `prescription` the measured path uses — the
+//     folded block the live engine actually ran — with NO sets, because "nothing
+//     declared" means exactly that. Strength has no such shape: a lifting session
+//     is defined ONLY by its lifts, so strength always requires items.
 //
 // This module is DB-free and side-effect-free so the route can validate before
 // touching the database and the unit tests can exercise every branch without a
@@ -59,6 +69,8 @@ export const MEASURED_SCHEMES = [
 export const FUNCTIONAL_SCHEMES = ['for_time', 'amrap', 'emom', 'rounds'] as const;
 
 // ── Item-count bounds (named, not magic) ──────────────────────────────────────
+/** A DECLARED item list is never empty — an item that isn't there isn't an item.
+ *  Zero items is not a short list, it is the CLOCK shape (functional only). */
 export const MIN_ITEMS = 1;
 export const MAX_ITEMS = 12;
 
@@ -75,7 +87,10 @@ export interface FreeWorkoutItem {
  *  `templates.format` to persist (measured scheme | 'sets' | the shared metcon). */
 export type FreeWorkoutPlan =
   | { kind: 'measured'; modality: MeasuredModality; scheme: string; prescription: Prescription }
-  | { kind: 'items'; modality: ItemModality; scheme: string; items: FreeWorkoutItem[] };
+  | { kind: 'items'; modality: ItemModality; scheme: string; items: FreeWorkoutItem[] }
+  // A box CLOCK: a metcon format + its structure, with no movements named. There
+  // is no exercise to hang a segment on, so the shape itself is what persists.
+  | { kind: 'clock'; modality: 'functional'; scheme: string; prescription: Prescription };
 
 export type FreeWorkoutValidation =
   | { ok: true; plan: FreeWorkoutPlan }
@@ -83,7 +98,9 @@ export type FreeWorkoutValidation =
 
 /** The structurally-parsed request body this validator consumes. `prescription`
  *  is optional at every level (a missing one fails validation as invalid, never
- *  crashes) — `z.unknown()` infers optional, so the type mirrors that. */
+ *  crashes) — `z.unknown()` infers optional, so the type mirrors that. It carries
+ *  the whole session for a MEASURED modality and for a functional CLOCK; for an
+ *  item-built workout the dose lives on each item instead. */
 export interface FreeWorkoutRawBody {
   modality: FreeWorkoutModality;
   prescription?: unknown;
@@ -103,6 +120,9 @@ function isMeasured(m: FreeWorkoutModality): m is MeasuredModality {
  * per-modality scheme rules, the per-set measures and the item count. Returns a
  * typed plan on success (schemes resolved, prescriptions parsed) or a
  * request-mappable `{ code, message, details? }` on failure. Never touches the DB.
+ *
+ * Zero items is NOT a degenerate item list: for `functional` it is the CLOCK
+ * shape (see the file header) and for `strength` it stays a rejection.
  */
 export function validateFreeWorkout(body: FreeWorkoutRawBody): FreeWorkoutValidation {
   // ── MEASURED: one top-level prescription on a measured scheme ────────────────
@@ -124,6 +144,15 @@ export function validateFreeWorkout(body: FreeWorkoutRawBody): FreeWorkoutValida
   // ── ITEM-built: strength (sets) | functional (shared metcon) ─────────────────
   const modality = body.modality; // narrowed to ItemModality
   const items = body.items ?? [];
+
+  // ── CLOCK: functional with nothing declared ─────────────────────────────────
+  // The format IS the session. Validation stays strict on everything that is
+  // still knowable — a metcon scheme, a parseable prescription — and only drops
+  // the demand for content that, by definition, was never declared.
+  if (items.length === 0 && modality === 'functional') {
+    return validateClock(body.prescription);
+  }
+
   if (items.length < MIN_ITEMS) {
     return fail('items_required', `A '${modality}' free workout requires at least ${MIN_ITEMS} exercise`);
   }
@@ -188,4 +217,42 @@ export function validateFreeWorkout(body: FreeWorkoutRawBody): FreeWorkoutValida
 
   // Strength: the scheme is always 'sets'.
   return { ok: true, plan: { kind: 'items', modality, scheme: 'sets', items: parsedItems } };
+}
+
+/**
+ * Validate a CLOCK — a functional session run as a bare box timer. What the
+ * athlete DID declare (the format and its structure) is validated exactly as
+ * strictly as anywhere else; what they did not declare (the movements) is
+ * absent, and its absence must be consistent: a prescription carrying `sets`
+ * describes content, so it contradicts a body that declares no items and is
+ * rejected rather than half-persisted.
+ */
+function validateClock(prescription: unknown): FreeWorkoutValidation {
+  if (prescription === undefined || prescription === null) {
+    return fail(
+      'prescription_required',
+      "A 'functional' free workout with no exercises requires the prescription the clock ran (scheme + structure)",
+    );
+  }
+  const parsed = safeParsePrescription(prescription);
+  if (!parsed.success) {
+    return fail('invalid_prescription', 'Invalid prescription', parsed.error.flatten());
+  }
+  const pres = parsed.data;
+  if (!(FUNCTIONAL_SCHEMES as readonly string[]).includes(pres.scheme)) {
+    return fail(
+      'invalid_format',
+      `A functional free workout must use a metcon scheme (got '${pres.scheme}')`,
+    );
+  }
+  if (pres.sets && pres.sets.length > 0) {
+    return fail(
+      'unexpected_sets',
+      'A functional free workout with no exercises must not carry sets — declare the exercises as items instead',
+    );
+  }
+  return {
+    ok: true,
+    plan: { kind: 'clock', modality: 'functional', scheme: pres.scheme, prescription: pres },
+  };
 }

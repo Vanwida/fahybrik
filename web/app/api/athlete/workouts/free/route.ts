@@ -18,7 +18,9 @@ export const dynamic = 'force-dynamic';
 // no prescrito") workout. The body branches on modality:
 //   • MEASURED (row|ski|bike|run): one top-level `prescription` (a measured scheme).
 //   • strength: `items[]` — N exercises, each a 'sets' set-table prescription.
-//   • functional: `items[]` — N exercises sharing ONE metcon scheme (a WOD).
+//   • functional: `items[]` — N exercises sharing ONE metcon scheme (a WOD), or NO
+//     items and one top-level metcon `prescription` — the box CLOCK, a session
+//     whose format and duration are real even though no movement was named.
 // The structured validation (schemes, per-set measures, item counts) lives in the
 // DB-free `validateFreeWorkout` helper; the exercise resolution + persistence in
 // create-free-workout.ts. Execution metrics are merged in unchanged.
@@ -37,9 +39,11 @@ const freeWorkoutBodySchema = z
     modality: z.enum(
       FREE_WORKOUT_MODALITIES as unknown as [FreeWorkoutModality, ...FreeWorkoutModality[]],
     ),
-    // Required for the MEASURED modalities; ignored for strength/functional.
+    // The session's own prescription: required for the MEASURED modalities and
+    // for a functional CLOCK (no items); ignored when items are declared.
     prescription: z.unknown().optional(),
-    // Required for strength/functional (order = execution order); ignored otherwise.
+    // Required for strength and for an item-built functional (order = execution
+    // order); ignored otherwise. Absent/empty on a functional body = the CLOCK.
     items: z.array(itemSchema).optional(),
   })
   .merge(executionMetricsSchema);
@@ -97,15 +101,17 @@ export async function POST(request: Request) {
     const result = await createFreeWorkout(
       plan.kind === 'measured'
         ? { ...base, kind: 'measured', modality: plan.modality, prescription: plan.prescription }
-        : {
-            ...base,
-            kind: 'items',
-            items: plan.items.map((it) => ({
-              exerciseId: it.exercise_id,
-              prescription: it.prescription,
-              ...(it.part ? { part: it.part } : {}),
-            })),
-          },
+        : plan.kind === 'clock'
+          ? { ...base, kind: 'clock', prescription: plan.prescription }
+          : {
+              ...base,
+              kind: 'items',
+              items: plan.items.map((it) => ({
+                exerciseId: it.exercise_id,
+                prescription: it.prescription,
+                ...(it.part ? { part: it.part } : {}),
+              })),
+            },
     );
 
     return jsonOk({
