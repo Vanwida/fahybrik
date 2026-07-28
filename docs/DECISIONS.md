@@ -26,6 +26,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · La FC en reposo se modela una vez — es un agregado del día LOCAL, revisable y tardío
+
+**Decidido:** existe **un solo resolutor** de FC en reposo, `shared/domain/biometrics/resting-hr.ts`, y ningún otro sitio consulta `hr_resting`. La pieza modela **qué ES** el dato, no cómo se consulta, y de ahí salen sus tres propiedades:
+
+1. **Es un agregado del día LOCAL DEL ATLETA.** Se agrupa con `athletes.timezone` de cada uno, no con el huso del box ni con UTC. Verificado contra producción: con el bucket en UTC, **64 de 81 filas caían en el día equivocado**, y el atleta 64 tenía **40 días locales aplastados en 31** — dos jornadas promediadas en una.
+2. **Se revisa en sitio.** Apple reescribe la FC del día (51 → 50 → 52 con el mismo `recorded_at`): **gana la última escrita**, no la media. En 5 días de producción la media mentía.
+3. **Llega tarde y falta días.** `resolveRestingHrOn` devuelve siempre `age_days` / `is_for_day`, **nunca un número pelado**: se enseña la última con su edad, y **solo la del propio día puntúa**.
+
+Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (para que una siesta no cuente como la noche) y no tiene sentido en un agregado diario. Cero lecturas de producción se sellan entre las 18:00 y las 24:00, así que quitarla mueve 0 filas.
+
+**Resultado:** siete lectores que daban **tres valores y dos fechas** distintos del mismo dato ahora dan uno (atleta 64, 28-jul: 52 ppm del 27-jul en los siete).
+
+**Suelo del check-in subjetivo: 7 días** (un microciclo). Llevaba el peso más alto del readiness (0,35) y no caducaba nunca, así que un check-in de marzo seguía diciendo «Recuperado y listo» en julio. El número está calibrado contra el dato: **el hueco máximo entre dos check-ins consecutivos en toda la base es de 2 días**, así que a quien lo usa no le caduca nunca. Al caducar, el peso se redistribuye por la renormalización que ya existía; si no queda ninguna señal, el compute devuelve `null` y sale el vacío honesto.
+
+**La procedencia (`recorded_via`) la escriben los cuatro escritores**, no uno: las ingestas de HealthKit, Garmin y Polar escriben `'imported'`. En el upsert **manda lo que ya hubiera** (`coalesce(workout_executions.recorded_via, excluded.recorded_via)`): una sesión `live` **no se degrada** porque el reloj la sincronice después. `reconcile.ts` no participa — mueve `source` entre garmin y healthkit, y eso cambia el QUÉ midió, no el CÓMO se registró. Las filas viejas se quedan en NULL a propósito (57 de seed): es la respuesta honesta, y por eso no hizo falta migración.
+
+**En consecuencia, no hacer:** no volver a escribir una consulta de `hr_resting` fuera del resolutor; no agrupar biometría diaria por UTC ni por el huso del box; no promediar revisiones del mismo día; no devolver una FC en reposo sin su edad; y no dejar que una sincronización posterior degrade la procedencia de una sesión vivida.
+
+**Dónde vive:** `shared/domain/biometrics/resting-hr.ts`, `shared/domain/db/athlete-timezone.ts` (que además mata dos copias de la búsqueda de huso), `web/lib/biometrics/resting-hr-series.ts`.
+
+---
+
 ## 2026-07-28 · «No se sabe» es un valor de primera clase — tres conceptos dejan de tener defecto plausible
 
 **Decidido:** tres magnitudes que el coach usa para decidir entrenamiento dejan de tener un valor por defecto y pasan a poder ser **nulas**, con el hueco declarado. El patrón que se retira es siempre el mismo: *un defecto plausible ocupa el sitio de «no se sabe», y como es plausible nadie lo detecta*.
