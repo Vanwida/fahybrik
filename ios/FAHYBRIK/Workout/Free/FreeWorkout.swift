@@ -37,12 +37,23 @@ enum FreeModality: String, CaseIterable, Identifiable {
     var wire: String { prescription.rawValue }
 
     /// Live-execution segment kind. The erg trio share the PM5-fed `rowOrSki`
-    /// grid; run gets the distance/pace grid. (Ski/bike collapse onto the row lap
-    /// modality — a known follow-up; the FREE payload's top-level `modality` still
-    /// carries the true discipline so the coach reads it correctly.)
+    /// grid; run gets the distance/pace grid. The kind alone therefore cannot say
+    /// WHICH erg — `ergKind` carries that onto the execution wire.
     var segmentKind: SegmentKind {
         self == .run ? .running : .rowOrSki
     }
+
+    /// #erg-2 — the erg sub-modality the execution record is stamped with:
+    /// "row" | "ski" | "bike", nil for running. `segmentKind` folds the three ergs
+    /// into one live grid, so the kind alone would emit "row" for all three — which
+    /// is how Alex's SkiErg 400 m of 28-jul came to be stored as rowing.
+    ///
+    /// This is the FIRST of the two sources `WorkoutSegment.wireModality` consults,
+    /// and the most direct one here: in a free session the athlete picked the
+    /// machine by hand, so the segment can state which erg it is without anyone
+    /// having to read its prescription back. The plan-built path threads the same
+    /// fact from the exercise catalogue (`ergSubtype`).
+    var ergKind: String? { prescription.isErg ? prescription.rawValue : nil }
 
     var labelES: String {
         switch self {
@@ -380,7 +391,8 @@ final class FreeWorkoutDraft {
             blockTitle: benchmark?.blockTitle ?? "Libre",
             blockPosition: 1,
             videoUrl: nil,
-            prescription: prescription
+            prescription: prescription,
+            ergKind: modality.ergKind
         )
 
         let plan = WorkoutPlan(
