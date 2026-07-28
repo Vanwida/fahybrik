@@ -25,6 +25,53 @@ el mensaje de su commit y debe subir al registro cuando su sesión retome.
 
 ---
 
+## Cerrado el 28-jul · En un For Time la transición es un SUCESO, no un toque
+
+La distinción que ordena el motor, dicha por Alex: **en un EMOM manda el
+RELOJ** — acaba el minuto, acaba la ronda, no hay nada que detectar. **En un
+For Time no hay minuto que te saque**, así que las transiciones son sucesos y
+el suceso lo conoce el propio aparato.
+
+La causa estaba en el plegado: un For Time se colapsaba a UN tramo (el bloque
+entero), pero la biblioteca manda una simulación HYROX como N segmentos
+hermanos, cada uno con su modalidad y su medida y **ninguno con `rounds`** — la
+lista SÍ es la ruta, y el cursor de tachado SÍ sabía por dónde iba. Nunca
+estaba conectado al tramo. Nace el cursor `fixedStation`: si la lista son
+estaciones, **la estación es el tramo**.
+
+- **Entrada, gratis y en la raíz**: la superficie del dispositivo ya se enruta
+  por el tramo, así que al entrar en el remo el ergo se pone delante solo; el
+  PM5 ya se reprograma por clave de tramo, así que el monitor se pone a cero
+  al llegar. El parcial de la estación arranca cuando el monitor se mueve.
+- **Salida por la MEDIDA, no por el movimiento** — una regla, no una lista de
+  casos: metros/calorías los sabe la máquina · segundos los sabe el reloj de la
+  app (sin emparejar nada) · repeticiones no las sabe nadie y ahí se toca.
+- **Un monitor parado NO es una salida.** La prueba es el CRUCE del objetivo,
+  no «la lectura está por encima» — por eso una reconexión a mitad de pieza no
+  la da por hecha ni la reinicia.
+- **Siempre hay salida manual**: el botón grande deja de cerrar el bloque
+  entero y cierra la ESTACIÓN, igual que la línea.
+- **La pizarra**: el reloj del bloque (que es la puntuación) se muda a una
+  franja de contexto y no desaparece nunca; en una estación a pulso el sujeto
+  es el trabajo que tienes delante, sin contador de repeticiones inventado; lo
+  tachado lleva su tiempo real y lo que la máquina midió — **1.014 m se leen
+  1.014**, no se redondean al objetivo.
+- **La transición viaja al reloj**: el espejo leía el título plegado del bloque
+  y decía lo mismo veinte minutos; ahora lee el tramo.
+
+Verificado con banco standalone (52 asserts) sobre los ficheros de dominio
+reales y prescripciones de producción. EMOM, AMRAP, For Time con rondas y el
+5×500 real (exec 179) **no** son rutas y no auto-avanzan.
+
+Y dos de la misma sesión de entreno: **en horizontal la acción ya no se
+recorta** en ningún formato (el trabajo rueda, el botón se ancla) y la **cinta
+deja de pintar controles que no controlan** — velocidad e inclinación se pintan
+solo si la máquina declara que los acepta, juzgadas por separado.
+
+Diseño: `docs/design/vivo-funcional-pizarra-mockup.html`.
+
+---
+
 ## Cerrado el 28-jul · El doble: la app entera vive replicada en la web
 
 **Desplegado en `app.fahybrid.com/es/design`** (puerta ADMIN-ONLY — solo el
