@@ -83,7 +83,10 @@ struct MarkDetailView: View {
                 RegisterRaceSheet(
                     mark: mark,
                     bearer: bearer,
-                    onSaved: { Task { await reloadAfterAttempt() } }
+                    // The server already answered whether this race is a PR; carry
+                    // its verdict instead of guessing from a snapshot this path
+                    // never took (which made EVERY registered race a "Marca nueva").
+                    onSaved: { result in Task { await reloadAfterAttempt(verdict: result) } }
                 )
             }
         }
@@ -322,22 +325,26 @@ struct MarkDetailView: View {
     }
 
     /// After an attempt or a registration: refetch and, if a new result landed,
-    /// celebrate it against the best we snapshotted before starting.
+    /// celebrate it — but only for what it is.
+    ///
+    /// `verdict` is the server's own `is_pr` + previous best, which it computes over
+    /// the athlete's comparable history. When we have it, it decides. `nil` is the
+    /// "Probarme" path, where `bestBeforeAttempt` is a real snapshot taken a second
+    /// before starting: there, no previous best genuinely means first ever.
     @MainActor
-    private func reloadAfterAttempt() async {
+    private func reloadAfterAttempt(verdict: MarkWriteResult? = nil) async {
         let before = mark?.latest
         await load()
         guard let mark, let latest = mark.latest, latest != before else { return }
-        let deltaLabel: String?
+        let previousBest = verdict?.previousBest ?? bestBeforeAttempt
         let improved: Bool
-        if let prev = bestBeforeAttempt,
-           let delta = MarkFormat.delta(mark, from: prev, to: latest.value) {
-            deltaLabel = delta.label
-            improved = delta.improved
+        if let verdict {
+            improved = verdict.isPr
         } else {
-            deltaLabel = nil
-            improved = bestBeforeAttempt == nil // first ever = a PR by definition
+            improved = previousBest.flatMap { MarkFormat.delta(mark, from: $0, to: latest.value)?.improved }
+                ?? (previousBest == nil)   // first ever = a PR by definition
         }
+        let deltaLabel = previousBest.flatMap { MarkFormat.delta(mark, from: $0, to: latest.value)?.label }
         withAnimation(Theme.Motion.reveal) {
             newMarkBanner = (MarkFormat.value(mark, latest.value), deltaLabel, improved)
         }
