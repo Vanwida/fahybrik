@@ -5,6 +5,7 @@ import { computeAcr, computeLoadSeries, summarizeLoad, type DailyTss, type LoadS
 
 export * from './tss';
 export * from './banister';
+export * from './coverage';
 
 // Build a contiguous daily-load series over the requested window.
 // Days with no execution count as 0 so the EWMA properly decays.
@@ -43,15 +44,22 @@ export async function getDailyTssSeries(params: {
     order by 1
   `;
 
-  type DayTotals = { tss: number; known_seconds: number; unknown_seconds: number };
+  type DayTotals = {
+    tss: number;
+    known_seconds: number;
+    unknown_seconds: number;
+    unknown_sessions: number;
+  };
   const byDate = new Map<string, DayTotals>();
   for (const r of rows) {
     const key = isoDateString(r.d);
-    const day = byDate.get(key) ?? { tss: 0, known_seconds: 0, unknown_seconds: 0 };
+    const day =
+      byDate.get(key) ?? { tss: 0, known_seconds: 0, unknown_seconds: 0, unknown_sessions: 0 };
     const seconds = r.duration_seconds;
     const tss = computeTss({ duration_seconds: seconds, rpe: r.rpe });
     if (tss == null) {
       day.unknown_seconds += seconds;
+      day.unknown_sessions += 1;
     } else {
       day.tss += tss;
       day.known_seconds += seconds;
@@ -69,6 +77,7 @@ export async function getDailyTssSeries(params: {
       tss: totals?.tss ?? 0,
       known_seconds: totals?.known_seconds ?? 0,
       unknown_seconds: totals?.unknown_seconds ?? 0,
+      unknown_sessions: totals?.unknown_sessions ?? 0,
     });
   }
   return out;
