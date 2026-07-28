@@ -12,15 +12,26 @@ import HealthKit
 // Two rules govern this file:
 //
 //  1. NEVER TWICE. If the wrist recorded the session it already wrote the
-//     HKWorkout, and its UUID normally comes back through `PhoneMirrorService`.
-//     That relay can lose the race with the summary screen, though, so the
-//     guarantee does NOT rest on it: before writing anything we ask Salud whether
-//     a workout already covers this interval, and if one does we adopt ITS uuid
-//     instead of writing a second copy. Source-independent by design — it also
-//     holds when a third app recorded the same session. Either way the uuid
-//     travels to the backend as `source_workout_ref`, which is exactly the key
-//     the ingest uses to recognise the HealthKit copy of a session it already
-//     has (web/lib/sync/ingest-healthkit.ts).
+//     HKWorkout, so the phone must not write another. `ensureSaved` is therefore
+//     told whether a wrist recorded this session (`wristRecorded`, latched by
+//     `PhoneMirrorService` when the wrist is asked to save) and writes nothing
+//     when it did. That flag is the guarantee.
+//
+//     It did NOT used to be. This file claimed the guarantee rested on the
+//     overlap query below rather than on the wrist's uuid relay, "so it holds
+//     even if the message arrives late". It does not: the wrist finishes its
+//     HKWorkout asynchronously and Watch→phone propagation is a separate,
+//     unbounded sync, so a watch that has not replied yet is also a watch whose
+//     workout is not queryable yet. The relay and the query are the same bet, and
+//     they lost together — the phone wrote a second copy of a session the wrist
+//     had recorded. (Two quieter holes in the same query: `try?` turns any error
+//     into "nothing found", and HealthKit reports a DENIED read as an empty
+//     result, not an error. Neither can be detected from here.)
+//
+//     The uuid — the wrist's, an adopted one, or the one we wrote — travels to
+//     the backend as `source_workout_ref`, which is exactly the key the ingest
+//     uses to recognise the HealthKit copy of a session it already has
+//     (web/lib/sync/ingest-healthkit.ts).
 //
 //  2. NEVER READ BACK OUR OWN NUMBERS. The app's own HealthKit observers watch
 //     heart rate, active energy and distance. Without a guard, every sample we
@@ -121,18 +132,36 @@ enum HealthKitWorkoutWriter {
 
     /// The uuid of the Apple Health workout that represents this session — writing
     /// it first if nobody had. Returns nil when nothing was or could be written
-    /// (no HealthKit, write permission not granted, an empty or inverted interval,
-    /// or a HealthKit failure). NEVER throws: the caller's own save must proceed
-    /// regardless of what Salud does.
-    static func ensureSaved(_ draft: HealthKitWorkoutDraft) async -> String? {
+    /// (a wrist owns the recording, no HealthKit, write permission not granted, an
+    /// empty or inverted interval, or a HealthKit failure). NEVER throws: the
+    /// caller's own save must proceed regardless of what Salud does.
+    ///
+    /// `wristRecorded` — did an Apple Watch record this session and get told to save
+    /// it? When YES this function writes NOTHING, whatever the query below finds.
+    /// See rule 1 in the file header: it is the only guard that does not depend on
+    /// the watch having answered.
+    static func ensureSaved(_ draft: HealthKitWorkoutDraft, wristRecorded: Bool) async -> String? {
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
         guard draft.endedAt > draft.startedAt else { return nil }
 
+        // THE guard. The wrist finishes its HKWorkout asynchronously and Watch→phone
+        // propagation is a separate, unbounded sync, so "the wrist has not answered
+        // yet" and "the wrist's workout is not queryable yet" are the SAME state —
+        // which is why the uuid relay and the overlap query below fail together
+        // rather than covering each other. Only this flag survives that state.
+        //
+        // Cost of being wrong either way is not symmetric: a miss leaves one session
+        // out of Salud, a duplicate double-counts the athlete's rings and energy
+        // forever. The wrist was told to save; let it.
+        if wristRecorded { return nil }
+
         let store = HKHealthStore()
 
-        // Already there? Adopt it. This is the real "never twice" guarantee: the
-        // wrist's uuid relay is a fast path, not a contract, and a session the
-        // watch recorded is in Salud whether or not the message arrived in time.
+        // Already there? Adopt it. Source-independent backstop — it catches a THIRD
+        // app that recorded the same session, and a wrist workout that has already
+        // propagated. It is NOT the never-twice guarantee (`wristRecorded` is): a
+        // denied read returns an empty result rather than an error, so this query
+        // can silently find nothing at all.
         if let existing = await overlappingWorkout(store: store, draft: draft) {
             return existing.uuid.uuidString
         }

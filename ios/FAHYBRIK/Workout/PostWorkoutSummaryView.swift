@@ -295,14 +295,20 @@ struct PostWorkoutSummaryView: View {
             // Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el
             // HKWorkout y nos pasa su uuid; sin reloj no lo escribía NADIE y la
             // sesión no contaba para los anillos — ahora la escribe el teléfono.
-            // `ensureSaved` vuelve a comprobarlo contra Salud, así que un relevo
-            // que llegue tarde tampoco duplica.
+            //
+            // El entreno libre TAMBIÉN se espeja a la muñeca, así que este es
+            // justo el camino donde los dos pueden escribir a la vez. Por eso va
+            // `wristRecorded`: si la muñeca grabó, el teléfono no escribe, haya
+            // llegado su uuid o no. Que el relevo llegue tarde ya no duplica —
+            // antes sí, porque el reloj que aún no ha contestado es el mismo que
+            // el reloj cuyo HKWorkout todavía no se puede consultar.
             let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
+            let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
             Task {
                 var ref = wristRef
                 if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
-                    ref = await HealthKitWorkoutWriter.ensureSaved(draft)
+                    ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
                 }
                 var sent = payload
                 sent.source_workout_ref = ref

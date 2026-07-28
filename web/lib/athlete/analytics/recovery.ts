@@ -21,6 +21,12 @@ import {
   seriesAxis,
 } from './core';
 import { buildLoadCards } from './load';
+import {
+  RESTING_HR_METRIC,
+  loadRestingHrDays,
+} from '@fahybrid/shared/domain/biometrics/resting-hr';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { zonedDayString } from '@fahybrid/shared/domain/dates';
 
 const MIN_DAYS = 4;
 const MIN_BAR = 0.1;
@@ -50,7 +56,11 @@ export async function buildRecoverySection(
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
   const { period } = args;
-  const types = METRICS.map((m) => m.metric_type);
+  // Resting HR is EXCLUDED from the bulk query on purpose — it is a daily aggregate
+  // revised in place, so it needs last-revision-wins on the athlete's local day, not
+  // a UTC-bucketed average of its own superseded revisions. It comes from THE
+  // resolver just below and lands in the same map.
+  const types = METRICS.map((m) => m.metric_type).filter((t) => t !== RESTING_HR_METRIC);
 
   // Daily averages per metric across the period (one round-trip).
   const rows = await client<Array<{ metric_type: string; d: string; v: number | null }>>`
@@ -71,6 +81,20 @@ export async function buildRecoverySection(
     const list = byMetric.get(r.metric_type) ?? [];
     list.push({ d: r.d, v: r.v });
     byMetric.set(r.metric_type, list);
+  }
+
+  const tz = await loadAthleteTimezone(client, athleteId);
+  const restingHrDays = await loadRestingHrDays({
+    athlete_id: athleteId,
+    from_iso: zonedDayString(new Date(period.start_iso), tz),
+    to_iso: zonedDayString(new Date(period.end_iso), tz),
+    client,
+  });
+  if (restingHrDays.length > 0) {
+    byMetric.set(
+      RESTING_HR_METRIC,
+      restingHrDays.map((d) => ({ d: d.on, v: d.bpm })),
+    );
   }
 
   const cards: AnalyticsCard[] = [];

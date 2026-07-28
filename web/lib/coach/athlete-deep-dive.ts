@@ -23,6 +23,10 @@ import {
   isDemoAthleteId,
 } from './deep-dive-demo';
 import { getLatestReadiness } from './athlete-daily-readiness';
+import {
+  loadRestingHrDays,
+  resolveRestingHrOn,
+} from '@fahybrid/shared/domain/biometrics/resting-hr';
 import type {
   AEvent,
   AthleteDeepDive,
@@ -53,6 +57,11 @@ import { joinCoachOverride } from '@/lib/exercises/coach-override';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
+// Resting-HR baseline span: a trailing 60→14-day mean. Excluding the most recent
+// 14 days keeps an acute rise from dragging down the very baseline it is compared
+// against — the same shape as the HRV baseline above it.
+const RHR_BASELINE_FROM_DAYS = 60;
+const RHR_BASELINE_TO_DAYS = 14;
 
 export interface BuildAthleteDeepDiveParams {
   coach_id: bigint | number;
@@ -408,8 +417,6 @@ async function loadReadiness(
       hrv_recent: number | null;
       hrv_baseline: number | null;
       sleep_h: number | null;
-      rhr_recent: number | null;
-      rhr_baseline: number | null;
       recovery: number | null;
     }>
   >`
@@ -429,17 +436,6 @@ async function loadReadiness(
       where athlete_id = ${athlete_id} and metric_type = 'sleep_duration'
         and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
     ),
-    rhr_recent as (
-      select avg(value_numeric)::float as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'hr_resting'
-        and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
-    ),
-    rhr_baseline as (
-      select avg(value_numeric)::float as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'hr_resting'
-        and recorded_at >= ${addDays(now, -60).toISOString()}::timestamptz
-        and recorded_at <  ${addDays(now, -14).toISOString()}::timestamptz
-    ),
     recovery_recent as (
       select avg(value_numeric)::float as v from biometric_streams
       where athlete_id = ${athlete_id} and metric_type = 'recovery'
@@ -449,8 +445,6 @@ async function loadReadiness(
       (select v from hrv_recent)    as hrv_recent,
       (select v from hrv_baseline)  as hrv_baseline,
       (select v from sleep_avg)     as sleep_h,
-      (select v from rhr_recent)    as rhr_recent,
-      (select v from rhr_baseline)  as rhr_baseline,
       (select v from recovery_recent) as recovery
   `;
   const r = rows[0];
@@ -459,11 +453,27 @@ async function loadReadiness(
     r?.hrv_recent != null && r?.hrv_baseline != null
       ? Math.round(r.hrv_recent - r.hrv_baseline)
       : null;
-  const rhr = r?.rhr_recent != null ? Math.round(r.rhr_recent) : null;
-  const rhr_delta =
-    r?.rhr_recent != null && r?.rhr_baseline != null
-      ? Math.round(r.rhr_recent - r.rhr_baseline)
+  // Resting HR through THE resolver over the whole baseline span: the KPI is the
+  // athlete's CURRENT resting HR (the same number the roster and the athlete's own
+  // app show), not a 7-day average that smeared it — and its delta is against the
+  // 60→14-day mean of the daily winners, so a revised day counts once, not twice.
+  const rhrDays = await loadRestingHrDays({
+    athlete_id,
+    from_iso: isoDate(addDays(now, -RHR_BASELINE_FROM_DAYS)),
+    to_iso: isoDate(now),
+    client,
+  });
+  const rhrNow = resolveRestingHrOn(rhrDays, isoDate(now));
+  const rhrBaselineDays = rhrDays.filter(
+    (d) => d.on < isoDate(addDays(now, -RHR_BASELINE_TO_DAYS)),
+  );
+  const rhrBaseline =
+    rhrBaselineDays.length > 0
+      ? rhrBaselineDays.reduce((s, d) => s + d.bpm, 0) / rhrBaselineDays.length
       : null;
+  const rhr = rhrNow != null ? Math.round(rhrNow.bpm) : null;
+  const rhr_delta =
+    rhrNow != null && rhrBaseline != null ? Math.round(rhrNow.bpm - rhrBaseline) : null;
   const sleep_avg_h = r?.sleep_h != null ? round1(r.sleep_h) : null;
   const recovery_pct = r?.recovery != null ? Math.round(r.recovery) : null;
 

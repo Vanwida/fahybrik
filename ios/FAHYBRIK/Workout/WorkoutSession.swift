@@ -368,6 +368,16 @@ final class WorkoutSession {
     /// true for a device-measured tramo with no time box: a 500 m bout starts when
     /// the erg starts, not when the athlete taps.
     var tramoClockArmed: Bool = false
+    /// TRUE while a monitor is actually streaming to us. Set by the live view from
+    /// the PM5 store; the engine never talks to Bluetooth itself.
+    ///
+    /// It gates the arm above, and it must: arming is a BET that a machine will
+    /// report, and the only thing that releases it is a device sample. Pairing the
+    /// PM5 is optional ("Empezar sin monitor · lo apuntas tú"), so with no monitor
+    /// the bet could never be settled — the station sat at 0:00 for its whole
+    /// duration and closed with a recorded zero. With nothing to wait for, the
+    /// clock simply starts when the athlete taps, which is what he expects.
+    var ergConnected: Bool = false
     /// PM5 cumulative distance / calories at tramo entry — the live progress bar's
     /// zero, so serie 2 of a 5×500 starts from 0 m again instead of 1000/500.
     var tramoErgStartDistance: Double? = nil
@@ -1397,9 +1407,12 @@ final class WorkoutSession {
         guard fixedRoundsDone < total else { return }
         // Read the closing window BEFORE the cursor moves — one line later these
         // accessors already answer for the station he is walking into.
+        // `tramoRecordedSeconds`, never the displayed one: a station closed while the
+        // clock is still armed did happen, it just wasn't measured by a monitor, and
+        // saving its 0:00 turns "unmeasured" into "instant".
         fixedRoundSplits.append(FixedStationSplit(
             elapsed: condElapsed,
-            seconds: tramoElapsedSeconds,
+            seconds: tramoRecordedSeconds,
             meters: tramoErgDistanceMeters,
             calories: tramoErgCalories
         ))

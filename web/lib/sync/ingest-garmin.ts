@@ -287,7 +287,7 @@ async function ingestGarminActivity(args: {
     await sql`
       insert into workout_executions (
         assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
-        source, source_workout_ref
+        source, source_workout_ref, recorded_via
       ) values (
         ${rows[0].id}::bigint,
         ${athlete_id as unknown as number},
@@ -295,7 +295,13 @@ async function ingestGarminActivity(args: {
         ${endedAt},
         ${summary.durationInSeconds ?? 0},
         'garmin',
-        ${externalId}
+        ${externalId},
+        -- HOW the record came to exist. This row exists because an activity landed
+        -- in the athlete's Garmin account and the webhook brought it: 'imported'.
+        -- A DIFFERENT question from source above (WHAT apparatus measured it) —
+        -- never conflate them. A session run inside FAHYBRID is written 'live' by
+        -- recordWorkoutExecution and never reaches this insert.
+        'imported'::execution_recording_method
       )
       on conflict (assignment_id) do update
         set started_at = case
@@ -318,6 +324,10 @@ async function ingestGarminActivity(args: {
               when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
               else excluded.source_workout_ref
             end,
+            -- Existing wins: an ingest can only ADD what nobody knew. A session
+            -- already stamped 'live' or 'manual' stays that way — a later device
+            -- sync of the same session does not turn it into an import.
+            recorded_via = coalesce(workout_executions.recorded_via, excluded.recorded_via),
             updated_at = now()
     `;
     executionInserted = true;

@@ -253,6 +253,9 @@ struct ActiveWorkoutView: View {
         .onAppear {
             session.start()
             wireLiveSources()
+            // Seed the monitor flag: the athlete may have paired in the pre-start
+            // gate, before this view existed, and `onChange` only fires on CHANGES.
+            session.ergConnected = pm5.isConnected
             attemptProgramPM5()
             updateRunGPS()
             maybeAutoOpenRunCover()
@@ -344,6 +347,11 @@ struct ActiveWorkoutView: View {
             attemptProgramPM5()
         }
         .onChange(of: pm5.connectionState) { _, _ in
+            // Tell the engine whether a monitor is streaming BEFORE reprogramming:
+            // it decides with this whether a station's clock waits for the machine
+            // or starts on the tap. Without it, a station done on an unpaired erg
+            // sat at 0:00 and saved that zero.
+            session.ergConnected = pm5.isConnected
             // PM5 connected (or reconnected) mid-piece → send it the current erg
             // piece now; the store's per-connection guard makes this idempotent.
             attemptProgramPM5()

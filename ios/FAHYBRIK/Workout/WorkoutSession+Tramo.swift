@@ -206,14 +206,36 @@ extension WorkoutSession {
 
     // MARK: - The tramo's own clock
 
-    /// Seconds INSIDE the current window. Held at zero while the clock is armed
-    /// (waiting for the machine), and frozen at the closed value during a rest —
-    /// so "tiempo" answers "how long is this bout taking", never "how long has the
-    /// whole block been running", which is what it used to answer.
+    /// Wall clock inside the current window, with no display hold — the ONE place
+    /// that expression lives (it used to be written out in four).
+    var tramoWallClockSeconds: Double {
+        Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+    }
+
+    /// Seconds INSIDE the current window, AS DISPLAYED. Held at zero while the clock
+    /// is armed (waiting for the machine — the HUD says "empieza al remar" beside
+    /// it), and frozen at the closed value during a rest — so "tiempo" answers "how
+    /// long is this bout taking", never "how long has the whole block been running",
+    /// which is what it used to answer.
     var tramoElapsedSeconds: Double {
         if isTramoResting, let last = lastTramoElapsedSeconds { return last }
         if tramoClockArmed { return 0 }
-        return Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+        return tramoWallClockSeconds
+    }
+
+    /// Seconds INSIDE the current window, AS RECORDED. Identical to the displayed
+    /// value except while armed, where it gives the real wall clock instead of the
+    /// hold.
+    ///
+    /// The distinction is the whole point: zero-while-armed is an honest thing to
+    /// SHOW ("this hasn't started yet") and a lie to SAVE. A station closed while
+    /// still armed means the monitor never reported work — the athlete did it on an
+    /// unpaired machine, or skipped it — and the truth about that window is how long
+    /// he spent in it, not zero. A recorded zero is worse than a gap: it reads as a
+    /// measurement.
+    var tramoRecordedSeconds: Double {
+        if isTramoResting, let last = lastTramoElapsedSeconds { return last }
+        return tramoWallClockSeconds
     }
 
     /// Erg meters covered INSIDE the current window — the live progress bar's
@@ -290,13 +312,13 @@ extension WorkoutSession {
         // how "tiempo" ended up reporting the block instead of the serie.
         if isTramoResting, !tramoRestLatched {
             tramoRestLatched = true
-            lastTramoElapsedSeconds = Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+            lastTramoElapsedSeconds = tramoWallClockSeconds
             lastTramoHRPeak = tramoHRPeak
         }
         guard tramo.key != tramoKey else { return }
         // Close the outgoing window, unless the rest already froze it.
         if !tramoKey.isEmpty, !tramoRestLatched {
-            lastTramoElapsedSeconds = Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+            lastTramoElapsedSeconds = tramoWallClockSeconds
             lastTramoHRPeak = tramoHRPeak
         }
         tramoRestLatched = false
@@ -308,7 +330,12 @@ extension WorkoutSession {
         // A device-measured window with no time box starts when the MACHINE starts.
         // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
         // has no business running through any of that.
-        tramoClockArmed = tramo.isErg && tramo.boxedSeconds == nil && !isTramoResting
+        //
+        // Only when a monitor is actually connected, though. The arm is released by
+        // a device sample and by nothing else, so arming without one held the clock
+        // at 0:00 for the whole station and recorded that zero — and pairing the PM5
+        // is OPTIONAL. No monitor, nothing to wait for: the clock starts on the tap.
+        tramoClockArmed = tramo.isErg && tramo.boxedSeconds == nil && !isTramoResting && ergConnected
     }
 
     /// Reset the tramo layer wholesale (segment entry / a discarded back-step), so

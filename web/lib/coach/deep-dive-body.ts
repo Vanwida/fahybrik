@@ -8,6 +8,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { isDemoAthleteId } from './deep-dive-demo';
 import { getMarcBody, getDemoBodyFallback } from './deep-dive-body-demo';
 import { AthleteDeepDiveError } from './athlete-deep-dive';
+import { loadRestingHrBodySection } from '@/lib/biometrics/resting-hr-series';
 
 const HRV_DAYS = 90;
 const SLEEP_DAYS = 30;
@@ -173,9 +174,17 @@ export async function buildAthleteBody(params: {
   };
 
   const sleep = await loadSleep(client, numericId, now, SLEEP_DAYS);
-  const rhrDaily = await loadDailyMetric(client, numericId, 'hr_resting', now, RHR_DAYS);
+  // Resting HR comes from THE resolver, never from `loadDailyMetric`: it is a
+  // daily aggregate on the athlete's local calendar, revised in place, so it needs
+  // last-revision-wins per LOCAL day — not a UTC bucket averaged with its own
+  // superseded revisions.
+  const { daily: rhrDaily, last_bpm: lastRhr } = await loadRestingHrBodySection({
+    athlete_id: numericId,
+    now,
+    days: RHR_DAYS,
+    client,
+  });
   const baseline30 = rollingAverage(rhrDaily, 30);
-  const lastRhr = lastNonNull(rhrDaily);
   const baselineNow = lastNonNull(baseline30);
   const trend = baselineNow != null && lastRhr != null ? (lastRhr > baselineNow + 1 ? 'up' : lastRhr < baselineNow - 1 ? 'down' : 'flat') : null;
   const rhr: RhrSection = {
