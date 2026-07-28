@@ -16,7 +16,13 @@
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { ingestExecutionSegments, segmentInputSchema } from '@/lib/sync/ingest-execution-segments';
+import {
+  ingestExecutionSegments,
+  segmentDurationSeconds,
+  segmentInputSchema,
+} from '@/lib/sync/ingest-execution-segments';
+import { deriveExecutionProvenance } from '@fahybrid/shared/domain/execution-merge';
+import { biometricSource, executionRecordingMethod } from '@fahybrid/shared/schema';
 import { polylinePointCount } from '@/lib/sync/polyline';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
@@ -35,13 +41,17 @@ export const executionMetricsSchema = z.object({
   score_time_s: z.number().int().min(0).optional(),
   score_rounds: z.number().int().min(0).optional(),
   score_reps: z.number().int().min(0).optional(),
-  // Provenance of the execution as a whole — the `biometric_source` enum.
-  // 'manual' for a retroactive log the athlete typed in by hand; omitted (→
-  // default 'healthkit') for the live-timer path and older clients. Validated
-  // against the exact enum so a stray string can never reach the column.
-  source: z
-    .enum(['healthkit', 'garmin', 'concept2', 'manual', 'whoop', 'oura', 'polar', 'coros', 'wahoo'])
-    .optional(),
+  // WHICH APPARATUS the numbers came from — the `biometric_source` enum, shared
+  // with the DB type so a stray string can never reach the column. Only a HINT:
+  // when the tramos name a real apparatus, that measured evidence wins (see
+  // `deriveExecutionProvenance`). This is what stops the live path — which sends
+  // 'manual' — from labelling a PM5 session as hand-typed.
+  source: biometricSource.optional(),
+  // HOW the record came to exist: 'live' (run in the app, the engine timed it),
+  // 'manual' (typed in afterwards) or 'imported' (ingested from a third party).
+  // A different question from `source`, and the reason four real live sessions
+  // read as «A mano». Omitted by older clients → derived from the tramos.
+  recorded_via: executionRecordingMethod.optional(),
   // The device workout this structured execution corresponds to — the HKWorkout
   // UUID the watch stamped when it saved the session to HealthKit. Persisted to
   // workout_executions.source_workout_ref so the passive HealthKit ingest can
@@ -130,12 +140,27 @@ export async function recordWorkoutExecution(args: {
   const startedAt = input.started_at ?? new Date().toISOString();
   const endedAt = input.ended_at ?? new Date().toISOString();
 
+  // WHICH apparatus produced the numbers, and HOW the record came to exist —
+  // derived HERE, on the server, from the tramos the client just posted. Never
+  // taken on trust: the live engine declares source='manual' while posting PM5
+  // and treadmill tramos, and believing it is what wrote «A mano» over four real
+  // sessions. The tramos are the evidence; this reads them (mig 0143 + 0144).
+  const provenance = deriveExecutionProvenance({
+    segments: (input.segments ?? []).map((seg) => ({
+      source: seg.source,
+      duration_seconds: segmentDurationSeconds(seg),
+    })),
+    declared_source: input.source ?? null,
+    declared_recorded_via: input.recorded_via ?? null,
+  });
+
   const execRows = await sql<Array<{ id: string }>>`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at,
       total_duration_seconds, perceived_exertion, notes,
       score_time_s, score_rounds, score_reps, source, source_workout_ref,
-      perceived_difficulty, pain_area, pain_note
+      perceived_difficulty, pain_area, pain_note,
+      recorded_via, totals_source, contributing_sources
     )
     values (
       ${assignmentId},
@@ -148,11 +173,14 @@ export async function recordWorkoutExecution(args: {
       ${input.score_time_s ?? null},
       ${input.score_rounds ?? null},
       ${input.score_reps ?? null},
-      ${input.source ?? 'healthkit'}::biometric_source,
+      ${provenance.source}::biometric_source,
       ${input.source_workout_ref ?? null},
       ${input.perceived_difficulty ?? null},
       ${input.pain_area ?? null},
-      ${input.pain_note ?? null}
+      ${input.pain_note ?? null},
+      ${provenance.recorded_via}::execution_recording_method,
+      ${provenance.totals_source}::biometric_source,
+      ${provenance.contributing_sources}::text[]::biometric_source[]
     )
     on conflict (assignment_id) do update set
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
@@ -166,6 +194,16 @@ export async function recordWorkoutExecution(args: {
       perceived_difficulty = coalesce(excluded.perceived_difficulty, workout_executions.perceived_difficulty),
       pain_area = coalesce(excluded.pain_area, workout_executions.pain_area),
       pain_note = coalesce(excluded.pain_note, workout_executions.pain_note),
+      recorded_via = coalesce(excluded.recorded_via, workout_executions.recorded_via),
+      totals_source = coalesce(excluded.totals_source, workout_executions.totals_source),
+      -- UNION, never replace: a second sync can bring a tramo from ANOTHER
+      -- apparatus (the erg arrives after the watch), and the ones already
+      -- recorded did contribute. Aggregated in enum order so the stored array
+      -- matches what the 0144 backfill produces for the same set.
+      contributing_sources = (
+        select coalesce(array_agg(distinct s order by s), '{}'::biometric_source[])
+        from unnest(workout_executions.contributing_sources || excluded.contributing_sources) as s
+      ),
       updated_at = now()
     returning id::text
   `;
