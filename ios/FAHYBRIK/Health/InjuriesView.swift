@@ -293,15 +293,13 @@ private struct ReportInjurySheet: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .anchoredAction {
                 ExpertPrimaryButton(
                     title: saving ? "ENVIANDO…" : "ENVIAR",
                     height: 46,
                     enabled: canSave,
                     action: send
                 )
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.m)
             }
         }
     }
