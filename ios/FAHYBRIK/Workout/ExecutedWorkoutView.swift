@@ -928,8 +928,10 @@ struct ExecutedWorkoutView: View {
         return note.isEmpty ? name : "\(name) · \(note)"
     }
 
-    /// "1,2 km" past a kilometre, plain metres below it.
-    private static func formatDistance(_ meters: Double) -> String {
+    /// "1.01 km" past a kilometre, plain metres below it. The ONE distance
+    /// formatter this screen uses, so the headline and the per-leg rows can
+    /// never state the same distance two different ways.
+    static func formatDistance(_ meters: Double) -> String {
         meters >= 1000 ? String(format: "%.2f km", meters / 1000) : "\(Int(meters.rounded())) m"
     }
 
@@ -995,7 +997,7 @@ struct ExecutedWorkoutView: View {
             }
         }
         if let d = a.distanceMeters, d > 0 {
-            t.append(d >= 1000 ? String(format: "%.1f km", d / 1000) : "\(Int(d)) m")
+            t.append(formatDistance(d))
         }
         if let p = a.avgPaceSPer500m, p > 0 {
             t.append("\(PrescriptionRenderer.formatPace(Int(p)))/500m")
