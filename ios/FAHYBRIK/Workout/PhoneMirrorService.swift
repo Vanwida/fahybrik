@@ -295,8 +295,24 @@ final class PhoneMirrorService {
             let relayWho = seg?.doblesSplit?.partnerName ?? "Tu compañero"
             let relayStation = seg?.doblesSplit?.stationLabel ?? seg?.title ?? "estación"
             let splitLine = seg?.doblesSplit?.liveSplitLine
-            lineTitle = relay ? "\(relayWho) hace \(relayStation)" : seg?.title
-            detailLine = relay ? "Recupera — siguiente: tú" : (splitLine ?? seg?.previewWorkLine)
+            if relay {
+                lineTitle = "\(relayWho) hace \(relayStation)"
+                detailLine = "Recupera — siguiente: tú"
+            } else if session.isStationTramo {
+                // A ROUTE (a For Time / HYROX sim walked station by station). The
+                // folded segment title is every movement of the block joined with
+                // dots and its work line is the block's — both frozen from the first
+                // station to the last, so the wrist would say the same thing for
+                // twenty minutes. The TRAMO says which station he is on and what it
+                // asks for, and it changes the instant he moves — whether he tapped
+                // or the monitor closed the piece for him.
+                let tramo = session.currentTramo
+                lineTitle = tramo.label
+                detailLine = splitLine ?? tramo.workLine
+            } else {
+                lineTitle = seg?.title
+                detailLine = splitLine ?? seg?.previewWorkLine
+            }
         }
 
         // #56 — the current dobles turn (mine/partner/split + rep reparto), so the
