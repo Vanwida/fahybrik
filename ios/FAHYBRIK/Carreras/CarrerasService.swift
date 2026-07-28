@@ -80,19 +80,22 @@ struct RaceIAReport: Codable, Hashable {
     }
 }
 
-/// A station benchmark comparison row (athlete vs division benchmark).
+/// A station benchmark comparison row (athlete vs the field).
 struct StationBenchmark: Codable, Identifiable, Hashable {
     let id: String
     /// Station name, e.g. "Sled Push".
     let station: String
     /// Athlete's time for the station, pre-formatted.
     let time: String?
-    /// Signed delta vs benchmark, pre-formatted "+0:42" / "−0:08".
+    /// Signed delta vs the athlete's trained level, pre-formatted "+0:42" / "−0:08".
     let delta: String?
-    /// Normalized bar fraction 0…1 for the comparison bar.
-    let fraction: Double
-    /// Sign of the delta: "better" | "slightly_worse" | "worse".
-    let severity: String
+    /// Normalized bar fraction 0…1. NIL when the race carries no placing for the
+    /// station: there is then no bar to draw, and drawing one at half height
+    /// would insinuate a position nobody measured.
+    let fraction: Double?
+    /// Field-relative verdict: "better" | "slightly_worse" | "worse". NIL for the
+    /// same reason as `fraction` — the time is still real and still shown.
+    let severity: String?
 }
 
 /// Per-km running split for the pace chart.
@@ -114,6 +117,9 @@ struct CarrerasOverview: Codable, Hashable {
     let ia_report: RaceIAReport?
     // AUDIT-B3 — a malformed row is dropped, not the whole Carreras hub.
     @LossyArray var station_benchmarks: [StationBenchmark]
+    /// Why the station rows carry no comparison bar, when they carry none. Shown
+    /// so the section declares its own gap instead of looking merely thin.
+    let station_comparison_note: String?
     @LossyArray var running_splits: [RunningSplit]
     /// Optional final-pace-drop callout for the per-km chart, e.g.
     /// "Caída de ritmo en los últimos 2 km (+18s/km)".
@@ -129,6 +135,7 @@ struct CarrerasOverview: Codable, Hashable {
         case last_race = "lastRace"
         case ia_report = "iaReport"
         case station_benchmarks = "stationBenchmarks"
+        case station_comparison_note = "stationComparisonNote"
         case running_splits = "runningSplits"
         case pace_drop_note = "paceDropNote"
         case history

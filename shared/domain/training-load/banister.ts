@@ -12,7 +12,21 @@ export const ATL_DECAY_DAYS = 7;
 
 export type DailyTss = {
   date: string;        // YYYY-MM-DD, ascending
+  /** Load from the day's sessions whose intensity WAS known (see tss.ts). */
   tss: number;
+  /**
+   * Executed seconds that day priced into `tss`. Set by the DB reader
+   * (`getDailyTssSeries`); absent when a caller supplies a bare TSS series
+   * (tests, synthetic scenarios) and the Banister math alone is wanted.
+   */
+  known_seconds?: number;
+  /**
+   * Executed seconds that day whose intensity nobody measured or declared, and
+   * which are therefore NOT in `tss`. Carried — not dropped, not defaulted — so
+   * the aggregate can say "esta parte de la carga no se conoce" instead of
+   * hiding the hole behind an invented intensity (docs/CONTRATO-UI.md §7).
+   */
+  unknown_seconds?: number;
 };
 
 export type LoadPoint = {
@@ -48,7 +62,27 @@ export type LoadSummary = {
   acr: number;          // acute:chronic ratio over last 7d / last 28d
   last_7d_tss: number;
   last_28d_tss: number;
+  /** Executed seconds in the chronic (28 d) window that ARE priced into the numbers above. */
+  known_seconds_28d: number;
+  /**
+   * Executed seconds in the same window with no power, no HR and no RPE — real
+   * training the numbers above do NOT include. A consumer that reports load must
+   * be able to declare this hole rather than present a partial reading as whole.
+   */
+  unknown_seconds_28d: number;
 };
+
+/**
+ * Share 0…1 of the chronic window's executed work whose intensity was known —
+ * i.e. how much of the athlete's training the CTL/ATL/TSB/ACR numbers actually
+ * saw. Null when nothing was executed in the window (no work ⇒ no coverage to
+ * report, which is not the same as 0 % coverage).
+ */
+export function loadIntensityCoverage(summary: LoadSummary): number | null {
+  const total = summary.known_seconds_28d + summary.unknown_seconds_28d;
+  if (total <= 0) return null;
+  return summary.known_seconds_28d / total;
+}
 
 // ACR per Gabbett et al. — last-7d sum divided by mean of last-28d daily load.
 // `daily` is ascending; we read from the tail.
@@ -78,5 +112,17 @@ export function summarizeLoad(daily: ReadonlyArray<DailyTss>): LoadSummary {
   const atl = last?.atl ?? 0;
   const tsb = ctl - atl;
   const { acr, last_7d_tss, last_28d_tss } = computeAcr(daily);
-  return { ctl, atl, tsb, acr, last_7d_tss, last_28d_tss };
+  const tail28 = daily.slice(-28);
+  const known_seconds_28d = tail28.reduce((s, d) => s + (d.known_seconds ?? 0), 0);
+  const unknown_seconds_28d = tail28.reduce((s, d) => s + (d.unknown_seconds ?? 0), 0);
+  return {
+    ctl,
+    atl,
+    tsb,
+    acr,
+    last_7d_tss,
+    last_28d_tss,
+    known_seconds_28d,
+    unknown_seconds_28d,
+  };
 }

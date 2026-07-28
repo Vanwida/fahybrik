@@ -40,9 +40,10 @@ const DISPLAY_DAYS = 84; // 12 weeks plotted
 const WARMUP_DAYS = 90; // CTL settle before the plotted window
 const LOAD_WEEKS = 12; // weekly-volume bars
 
-// Honesty gate: below this many RPE-tagged sessions inside the shown window the
-// load story is mostly guessed (the engine falls back to a default intensity when
-// RPE is absent), so we show a "needs_logging" card instead of a soft number.
+// Honesty gate: a session with no RPE contributes NO load at all (the engine
+// stopped defaulting its intensity — see shared/domain/training-load/tss.ts), so
+// below this many RPE-tagged sessions inside the shown window the curve is mostly
+// holes. We show a "needs_logging" card instead of a line drawn through absence.
 const MIN_RPE_SESSIONS = 6;
 
 // Bar/line floor so a real-but-tiny value still renders as a sliver, never 0-height.

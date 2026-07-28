@@ -6,8 +6,19 @@ import { computeAcr, computeLoadSeries, summarizeLoad, type DailyTss, type LoadS
 export * from './tss';
 export * from './banister';
 
-// Build a contiguous daily-TSS series over the requested window.
+// Build a contiguous daily-load series over the requested window.
 // Days with no execution count as 0 so the EWMA properly decays.
+//
+// Priced PER SESSION, not per day: TSS is a per-session quantity, and averaging
+// a day's RPE let an unrated session borrow a rated one's intensity — inventing
+// load twice over. Each execution is priced on its own evidence; the ones with
+// no evidence contribute their duration to `unknown_seconds` and nothing to
+// `tss` (docs/CONTRATO-UI.md §7).
+//
+// `workout_executions` carries duration and RPE only — no HR, no power column
+// exists (verified against production, 28-jul-2026) — so the power/HR modes of
+// computeTss cannot fire from here. When per-session HR/power lands, select it
+// here and computeTss will prefer it automatically.
 export async function getDailyTssSeries(params: {
   athlete_id: number | bigint;
   end_date: Date;
@@ -19,36 +30,46 @@ export async function getDailyTssSeries(params: {
   const start = addDays(end, -(params.days - 1));
 
   const rows = await client<
-    Array<{ d: Date; total_seconds: number | null; rpe: number | null; max_rpe: number | null }>
+    Array<{ d: Date; duration_seconds: number; rpe: number | null }>
   >`
     select
       date_trunc('day', coalesce(we.ended_at, we.started_at, we.created_at) at time zone 'UTC')::date as d,
-      sum(coalesce(we.total_duration_seconds, 0))::int as total_seconds,
-      avg(we.perceived_exertion)::float as rpe,
-      max(we.perceived_exertion)::int as max_rpe
+      coalesce(we.total_duration_seconds, 0)::int as duration_seconds,
+      we.perceived_exertion::int as rpe
     from workout_executions we
     where we.athlete_id = ${params.athlete_id as number}
       and coalesce(we.ended_at, we.started_at, we.created_at) >= ${start.toISOString()}
       and coalesce(we.ended_at, we.started_at, we.created_at) < ${addDays(end, 1).toISOString()}
-    group by 1
     order by 1
   `;
 
-  const byDate = new Map<string, number>();
+  type DayTotals = { tss: number; known_seconds: number; unknown_seconds: number };
+  const byDate = new Map<string, DayTotals>();
   for (const r of rows) {
     const key = isoDateString(r.d);
-    const tss = computeTss({
-      duration_seconds: r.total_seconds ?? 0,
-      rpe: r.rpe ?? r.max_rpe ?? null,
-    });
-    byDate.set(key, (byDate.get(key) ?? 0) + tss);
+    const day = byDate.get(key) ?? { tss: 0, known_seconds: 0, unknown_seconds: 0 };
+    const seconds = r.duration_seconds;
+    const tss = computeTss({ duration_seconds: seconds, rpe: r.rpe });
+    if (tss == null) {
+      day.unknown_seconds += seconds;
+    } else {
+      day.tss += tss;
+      day.known_seconds += seconds;
+    }
+    byDate.set(key, day);
   }
 
   const out: DailyTss[] = [];
   for (let i = 0; i < params.days; i++) {
     const day = addDays(start, i);
     const key = isoDateString(day);
-    out.push({ date: key, tss: byDate.get(key) ?? 0 });
+    const totals = byDate.get(key);
+    out.push({
+      date: key,
+      tss: totals?.tss ?? 0,
+      known_seconds: totals?.known_seconds ?? 0,
+      unknown_seconds: totals?.unknown_seconds ?? 0,
+    });
   }
   return out;
 }

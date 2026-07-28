@@ -4,9 +4,10 @@ import {
   CTL_DECAY_DAYS,
   computeAcr,
   computeLoadSeries,
+  loadIntensityCoverage,
   summarizeLoad,
 } from '@fahybrid/shared/domain/training-load/banister';
-import { computeTss } from '@fahybrid/shared/domain/training-load/tss';
+import { computeTss, intensityFactor } from '@fahybrid/shared/domain/training-load/tss';
 
 describe('computeTss', () => {
   test('one hour at threshold (RPE 9) ≈ 100 TSS', () => {
@@ -35,6 +36,62 @@ describe('computeTss', () => {
       ftp_watts: 250,
     });
     expect(tss).toBeCloseTo(100, 0);
+  });
+});
+
+// LEY DE HONESTIDAD (docs/CONTRATO-UI.md §7) — an unrated session used to be
+// priced at a default IF of 0.65, i.e. ~42 invented TSS per hour, and that
+// number reached the coach's load trends as if it were evidence.
+describe('computeTss · sin intensidad conocida no emite carga', () => {
+  test('an hour of work with no RPE, no HR and no power yields null, not 42', () => {
+    expect(computeTss({ duration_seconds: 3600 })).toBeNull();
+    expect(computeTss({ duration_seconds: 3600, rpe: null })).toBeNull();
+    expect(
+      computeTss({ duration_seconds: 3600, rpe: null, avg_hr: 150, lthr: null }),
+    ).toBeNull();
+  });
+
+  test('a broken RPE is unknown, never a mid-scale guess', () => {
+    expect(computeTss({ duration_seconds: 3600, rpe: Number.NaN })).toBeNull();
+    expect(intensityFactor({ duration_seconds: 3600, rpe: Number.POSITIVE_INFINITY })).toBeNull();
+  });
+
+  test('an out-of-range RPE still clamps to the scale (a 12 is a 10)', () => {
+    expect(computeTss({ duration_seconds: 3600, rpe: 12 })).toBe(
+      computeTss({ duration_seconds: 3600, rpe: 10 }),
+    );
+    expect(computeTss({ duration_seconds: 3600, rpe: 0 })).toBe(
+      computeTss({ duration_seconds: 3600, rpe: 1 }),
+    );
+  });
+
+  test('no duration is no work, whatever the intensity evidence', () => {
+    expect(computeTss({ duration_seconds: 0 })).toBe(0);
+  });
+});
+
+describe('loadIntensityCoverage', () => {
+  test('reports the share of the chronic window we could price', () => {
+    const daily = Array.from({ length: 28 }, (_, i) => ({
+      date: addDays('2026-01-01', i),
+      tss: 60,
+      known_seconds: 3600,
+      unknown_seconds: i === 0 ? 3600 : 0,
+    }));
+    const s = summarizeLoad(daily);
+    expect(s.known_seconds_28d).toBe(28 * 3600);
+    expect(s.unknown_seconds_28d).toBe(3600);
+    expect(loadIntensityCoverage(s)).toBeCloseTo(28 / 29, 5);
+  });
+
+  test('null when nothing was executed — no work is not 0 % coverage', () => {
+    const daily = Array.from({ length: 28 }, (_, i) => ({
+      date: addDays('2026-01-01', i),
+      tss: 0,
+      known_seconds: 0,
+      unknown_seconds: 0,
+    }));
+    expect(loadIntensityCoverage(summarizeLoad(daily))).toBeNull();
   });
 });
 

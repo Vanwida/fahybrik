@@ -283,6 +283,45 @@ struct BenchmarkBarRow: View {
     }
 }
 
+/// The same row as `BenchmarkBarRow` for a station whose placing within the field
+/// is UNKNOWN: label, the athlete's real time, and the personal delta when there
+/// is one — but no bar and no colour verdict. Lives here, beside its sibling, so
+/// no surface is ever tempted to draw a half-full bar to fill the gap
+/// (docs/CONTRATO-UI.md §7).
+struct StationTimeRow: View {
+    let label: String
+    /// Pre-formatted time, e.g. "4:55". Nil when the station has no time.
+    let time: String?
+    /// Pre-formatted signed delta vs the athlete's trained level, e.g. "+0:42".
+    let delta: String?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            // El dato pesa más que su etiqueta (contrato §4): la hora va por
+            // encima de los 12 pt del rótulo, y el delta secundario por debajo.
+            MonoText(
+                text: time ?? "—",
+                size: 13,
+                weight: .bold,
+                color: time == nil ? Theme.Color.faint : Theme.Color.foreground
+            )
+            MonoText(
+                text: delta ?? "—",
+                size: 11,
+                weight: .bold,
+                color: Theme.Color.faint
+            )
+            .frame(width: 44, alignment: .trailing)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(time ?? "sin tiempo")")
+    }
+}
+
 // MARK: - Pace bar chart
 
 /// A row of N vertical bars (per-km splits) with per-bar color. Bars are simple
