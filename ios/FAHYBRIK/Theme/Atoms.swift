@@ -64,6 +64,23 @@ struct HeroNumber: View {
     }
 }
 
+// MARK: - Context strip
+//
+// The thin band that carries "where am I" above a live surface — the erg's
+// "SERIE 2/5 · 500 m remo", a route's "FOR TIME · 3 de 5 · 8:03". One chrome for
+// every live surface that needs one, so two strips on two screens are the same
+// object to the athlete's eye.
+extension View {
+    func stripChrome() -> some View {
+        self
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+    }
+}
+
 // MARK: - Card
 //
 // Instrument-panel card: an elevated near-black face that floats off the canvas

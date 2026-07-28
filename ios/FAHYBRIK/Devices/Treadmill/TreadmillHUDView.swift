@@ -194,18 +194,24 @@ struct TreadmillHUDView: View {
 
     // MARK: - Live HUD
 
+    /// The subject is the athlete's PACE against his objective; under it only what earns
+    /// its place — pulso, zona, y los metros del tramo con su barra. Whatever height is
+    /// left over goes to the subject (the hero centres in it) instead of pooling as a gap
+    /// above the action, which stays anchored at the thumb.
     private var liveHUD: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: Theme.Spacing.m) {
-                legHeader
-                heroCard
-                controlPanel
-                hrAndZoneRow
-                metricsRow
-                goalSection
-                guideReference
+        GeometryReader { geo in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Theme.Spacing.m) {
+                    legHeader
+                    heroSection
+                    controlPanel
+                    hrAndZoneRow
+                    progressSection
+                    guideReference
+                }
+                .padding(.bottom, 4)
+                .frame(minHeight: geo.size.height, alignment: .top)
             }
-            .padding(.bottom, 4)
         }
         .safeAreaInset(edge: .bottom) { controls }
     }
@@ -239,7 +245,7 @@ struct TreadmillHUDView: View {
 
             VStack(spacing: 8) {
                 if model.canControlSpeed {
-                    stepperCard(label: "Velocidad",
+                    stepperCard(label: "Velocidad objetivo",
                                 value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
                                 down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                 }
@@ -258,13 +264,14 @@ struct TreadmillHUDView: View {
         .padding(.vertical, 2)
     }
 
-    /// Under control the hero shows the belt's REAL speed (what the athlete drives); on a
-    /// read-only belt it falls back to live pace (the running metric).
+    /// When the app drives the belt's speed the hero is that speed (it's the dial the
+    /// athlete is turning); otherwise the subject is his pace, the running metric. Either
+    /// way it is the belt's REAL reading, never the target we asked for.
     private var landscapeHero: String {
-        model.controlCapability.canControl ? speedString : heroPace
+        model.canControlSpeed ? speedString : heroPace
     }
     private var landscapeHeroUnit: String {
-        model.controlCapability.canControl ? "km/h · real en la cinta" : "/km · ritmo real"
+        model.canControlSpeed ? "km/h · real en la cinta" : "/km · ritmo real"
     }
     private var landscapeLegLine: String {
         var line = "Tramo \(model.legNumber) de \(model.legTotal)"
@@ -299,16 +306,18 @@ struct TreadmillHUDView: View {
 
     // MARK: - Machine control panel (steppers / read-only note)
 
-    /// Speed + inclination steppers when the belt is controllable; an honest "solo
-    /// datos" note when it isn't. The values shown are the TARGETS we've set — the hero
-    /// above always shows the belt's REAL speed, so the two never silently diverge.
+    /// A stepper per axis THIS machine declared it accepts — speed and incline judged
+    /// separately, so a belt that takes one and refuses the other shows exactly one.
+    /// Nothing at all otherwise: the whole section resolves to an EmptyView so it doesn't
+    /// even leave a spacing gap behind. The values here are the TARGETS we command; the
+    /// belt's own reading lives once, under the hero.
     @ViewBuilder
     private var controlPanel: some View {
-        if model.controlCapability.canControl {
+        if model.canControlSpeed || model.canControlIncline {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     if model.canControlSpeed {
-                        stepperCard(label: "Velocidad",
+                        stepperCard(label: "Velocidad objetivo",
                                     value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
                                     down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                     }
@@ -318,11 +327,9 @@ struct TreadmillHUDView: View {
                                     down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
                     }
                 }
-                // Speed is the athlete's on this belt → one calm line, never a red error.
+                // Half the machine answers to the app and half doesn't → say which.
                 if model.speedIsManual { manualSpeedNote }
             }
-        } else if model.treadmillLink.isLive {
-            readOnlyNote
         }
     }
 
@@ -368,21 +375,6 @@ struct TreadmillHUDView: View {
         .accessibilityLabel(icon == "plus" ? "Subir" : "Bajar")
     }
 
-    private var readOnlyNote: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-            Text("Esta cinta solo envía datos — no permite control desde la app. Ajústala en la máquina.")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
     /// The calm, one-line honest state for a belt whose firmware won't take a speed target
     /// over Bluetooth (the incline stepper stays live beside it). Muted, never a red error —
     /// the athlete sets speed on the console and we keep reading his real pace.
@@ -403,20 +395,22 @@ struct TreadmillHUDView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// PRESCRIBED inclinación / cadencia for a structured leg (#61) — a sober
-    /// reference so the athlete can match the belt. Hidden when the coach set none.
+    /// What the coach PRESCRIBED for this tramo (#61) — inclinación / cadencia. Named as a
+    /// request ("el coach pide") so it can never be misread as the belt's own reading in
+    /// the hero above; nobody sets the belt for the athlete, so this is what he matches by
+    /// hand on the console. Hidden when the coach set none.
     @ViewBuilder
     private var guideReference: some View {
         let parts: [String] = {
             var p: [String] = []
             if let inc = model.prescribedInclinePct, inc > 0 {
-                p.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+                p.append(inc == inc.rounded() ? "inclinación \(Int(inc)) %" : String(format: "inclinación %.1f %%", inc))
             }
-            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) ppm") }
+            if let cad = model.prescribedCadenceSpm { p.append("cadencia \(cad) ppm") }
             return p
         }()
         if !parts.isEmpty {
-            Text(parts.joined(separator: " · "))
+            Text("El coach pide " + parts.joined(separator: " y "))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.Color.muted)
                 .frame(maxWidth: .infinity)
@@ -448,6 +442,16 @@ struct TreadmillHUDView: View {
         return model.currentSegment?.title ?? "Correr"
     }
 
+    /// The screen's subject, centred in whatever height the rest of the stack doesn't need.
+    private var heroSection: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            heroCard
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity)
+    }
+
     @ViewBuilder
     private var heroCard: some View {
         if model.isRecovery {
@@ -476,6 +480,7 @@ struct TreadmillHUDView: View {
                     }
                     .frame(height: 6)
                 }
+                beltReadings
             }
             .frame(maxWidth: .infinity)
         }
@@ -509,6 +514,7 @@ struct TreadmillHUDView: View {
                         }
                     }
                 }
+                beltReadings
             }
             .frame(maxWidth: .infinity)
         }
@@ -516,6 +522,31 @@ struct TreadmillHUDView: View {
             RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
                 .stroke(status == .unknown ? Color.clear : status.color.opacity(0.75), lineWidth: 2)
         )
+    }
+
+    /// What the BELT ITSELF says it is doing, under the pace it produces and nowhere else
+    /// on the screen. Same measurement as the hero in the units of the machine's own dial,
+    /// so the athlete can match the console without a second "velocidad" contradicting the
+    /// first. Absent until the belt sends something — never a row of dashes.
+    @ViewBuilder
+    private var beltReadings: some View {
+        if let line = beltReadingLine {
+            Text(line)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Theme.Color.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.top, 2)
+        }
+    }
+
+    private var beltReadingLine: String? {
+        var parts: [String] = []
+        if let kmh = model.displaySpeedKmh, kmh > 0 {
+            parts.append(String(format: "%.1f km/h en la cinta", kmh))
+        }
+        if let incline = model.liveInclineText { parts.append(incline) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var hrAndZoneRow: some View {
@@ -548,29 +579,26 @@ struct TreadmillHUDView: View {
         }
     }
 
-    private var metricsRow: some View {
-        let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
-        return LazyVGrid(columns: cols, spacing: 8) {
-            ExpertCell(label: "Velocidad", value: speedString, unit: "km/h")
-            ExpertCell(label: model.inclineControlLabel, value: inclineString,
-                       unit: model.inclineControlUnit)
-            ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.legElapsedEffective)), unit: "")
-        }
-    }
-
+    /// Where the athlete is inside this tramo: covered metres against the target with its
+    /// bar, and the tramo clock in the same card — one card answers "how far" and "how
+    /// long", so neither needs a tile of its own. An OPEN leg keeps the card (there is
+    /// still distance and time to show) and simply has no bar to fill.
     @ViewBuilder
-    private var goalSection: some View {
+    private var progressSection: some View {
         if !model.isRecovery {
+            let clock = TreadmillMath.clock(Int(model.legElapsedEffective))
             switch model.currentLeg.goal {
             case let .distance(target):
                 GoalProgress(
                     caption: "Distancia del tramo",
                     primary: distString(model.legDistanceM),
                     secondary: distString(target),
+                    elapsed: clock,
                     fraction: model.progressFraction,
                     complete: model.isComplete
                 )
             case let .time(target):
+                // The primary readout IS the clock here (time remaining), so no second one.
                 GoalProgress(
                     caption: "Tiempo del tramo",
                     primary: TreadmillMath.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
@@ -579,7 +607,14 @@ struct TreadmillHUDView: View {
                     complete: model.isComplete
                 )
             case .open:
-                EmptyView()
+                GoalProgress(
+                    caption: "Llevas en el tramo",
+                    primary: distString(model.legDistanceM),
+                    secondary: nil,
+                    elapsed: clock,
+                    fraction: nil,
+                    complete: false
+                )
             }
         }
     }
@@ -787,9 +822,6 @@ struct TreadmillHUDView: View {
         // speed at 0), so the tile shows the real pace he's running, never a stuck 0.0.
         model.displaySpeedKmh.map { String(format: "%.1f", $0) } ?? "—"
     }
-    /// Percent grade, or the console LEVEL on machines whose incline field isn't a grade
-    /// — the model owns which, so the cell never shows a fabricated "%".
-    private var inclineString: String { model.liveInclineValue }
     private func distString(_ m: Double) -> String {
         m >= 1000 ? String(format: "%.2f km", m / 1000) : "\(Int(m.rounded())) m"
     }

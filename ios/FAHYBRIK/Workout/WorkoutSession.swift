@@ -158,11 +158,11 @@ final class WorkoutSession {
     private var condStartElapsed: Double = 0   // lapElapsedSeconds at GO
     private var condSegmentIndex: Int? = nil
 
-    /// FIXED formats — rounds the athlete has completed (AMRAP rounds, For Time /
-    /// Rounds circuits) and the lap-relative time of each round mark (For Time
-    /// splits). `repsCurrentSegment` carries the AMRAP partial-round rep tally.
+    /// FIXED formats — lines of the checklist the athlete has struck (AMRAP rounds,
+    /// For Time rounds, or the STATIONS of a route) and what each closed line
+    /// measured. `repsCurrentSegment` carries the AMRAP partial-round rep tally.
     var fixedRoundsDone: Int = 0
-    private(set) var fixedRoundSplits: [Double] = []
+    private(set) var fixedRoundSplits: [FixedStationSplit] = []
 
     /// ROTATING formats (Tabata / Intervals / Death By) — the work/rest phase, the
     /// 0-based round index, the count-DOWN remaining in the current phase, and the
@@ -340,6 +340,13 @@ final class WorkoutSession {
     /// The LIVE surfaces read the tramo window below instead.
     var lapErgDistanceMeters: Double? {
         guard let start = lapErgStartDistance, let last = lapErgLastDistance else { return nil }
+        return max(0, last - start)
+    }
+
+    /// Erg calories burned IN THIS SEGMENT'S WINDOW — the calorie twin of
+    /// `lapErgDistanceMeters`, same anchoring, same reason.
+    var lapErgCalories: Int? {
+        guard let start = lapErgStartCalories, let last = lapErgLastCalories else { return nil }
         return max(0, last - start)
     }
 
@@ -1247,6 +1254,11 @@ final class WorkoutSession {
     // Time counts UP and closes when the cap is hit (the capped finish). An open
     // For Time has no deadline → it just counts up until "Hecho".
     private func tickFixed(dt: Double, seg: WorkoutSegment) {
+        // A CLOCK-measured station inside the route ("2 min de bici") ends on its own
+        // seconds — the one station transition that needs no machine, because the
+        // thing that measures it is the clock this tick is already running. Checked
+        // before the block deadline so a station never outlives the cap.
+        advanceStationIfClockGoalMet()
         tickDeadline(dt: dt, seg: seg)
     }
 
@@ -1342,7 +1354,12 @@ final class WorkoutSession {
         case .tabata:                                         tabataAddRep()
         case .intervals:                                      intervalsBoutDone()
         case .deathBy:                                        deathByLogged()
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim: closeConditioningAndAdvance()
+        // A ROUTE closes one STATION at a time: the big button and the active line
+        // do the same thing, and the last station closes the block on its own. Only
+        // a format with nothing smaller than itself to close ends the block outright
+        // — otherwise the biggest button on the screen skipped the rest of the WOD.
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
+            if seg.fixedListIsStations { markRoundDone() } else { closeConditioningAndAdvance() }
         case .steady:                                         closeConditioningAndAdvance()
         default:                                              lap()
         }
@@ -1369,18 +1386,35 @@ final class WorkoutSession {
 
     /// For Time / Chipper / Ladder list strike — records the split, advances the
     /// active line; the LAST item closes the block (the final time).
-    func markRoundDone() {
+    ///
+    /// `auto` = the STATION closed itself because its goal was met (the monitor hit
+    /// the metres, the box ran out) rather than the athlete tapping. Same close, same
+    /// record — only the cue differs, because a transition he did not ask for has to
+    /// announce itself: he is not looking at the phone, he is gasping at a rower.
+    func markRoundDone(auto: Bool = false) {
         guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
         let total = fixedListTotal
         guard fixedRoundsDone < total else { return }
-        fixedRoundSplits.append(condElapsed)
+        // Read the closing window BEFORE the cursor moves — one line later these
+        // accessors already answer for the station he is walking into.
+        fixedRoundSplits.append(FixedStationSplit(
+            elapsed: condElapsed,
+            seconds: tramoElapsedSeconds,
+            meters: tramoErgDistanceMeters,
+            calories: tramoErgCalories
+        ))
         fixedRoundsDone += 1
-        Haptics.medium()
+        if auto { Haptics.cueGo() } else { Haptics.medium() }
         if fixedRoundsDone >= total {
             WorkoutAudio.shared.playFinish()
             closeConditioningAndAdvance()
         } else {
             WorkoutAudio.shared.playIntervalStart()
+            // Open the new window HERE rather than on the next tick, so the station's
+            // clock and its device counters start at the strike and not up to a
+            // quarter of a second into it. Idempotent — the tick's own call is a no-op
+            // once the key is stable.
+            syncTramoIfNeeded()
         }
     }
 
@@ -1788,10 +1822,7 @@ final class WorkoutSession {
         let ergSplits: [PM5Split]? = (usedPM5 && !lapErgSplits.isEmpty) ? lapErgSplits : nil
         // In-window distance delta (PM5 distance is cumulative across the piece).
         let ergDistance: Double? = usedPM5 ? lapErgDistanceMeters : nil
-        let ergCalories: Double? = {
-            guard usedPM5, let start = lapErgStartCalories, let last = lapErgLastCalories else { return nil }
-            return Double(max(0, last - start))
-        }()
+        let ergCalories: Double? = usedPM5 ? lapErgCalories.map(Double.init) : nil
 
         // Distance COVERED (not prescribed): erg in-window delta, else the treadmill
         // BELT's covered meters (indoor run), else phone-GPS covered meters, else the
@@ -2303,6 +2334,12 @@ final class WorkoutSession {
         // The cursor may have moved since the last tick; anchor this sample in the
         // window it actually belongs to before it is counted.
         syncTramoIfNeeded()
+        // What the window had measured BEFORE this sample. The station's automatic
+        // exit fires on the goal being CROSSED, not merely on a reading that sits
+        // past it — which is what keeps a reconnection from closing a piece the
+        // athlete is still in the middle of.
+        let ergMetersBefore = tramoErgDistanceMeters
+        let ergCaloriesBefore = tramoErgCalories
         lapHadPM5 = true
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
         if let w = powerWatts, w > 0 { lapErgPowerSamples.append(Double(w)) }
@@ -2317,9 +2354,12 @@ final class WorkoutSession {
                 lapErgStartDistance = d
             } else if let last = lapErgLastDistance, d < last {
                 lapErgStartDistance = d - (last - (lapErgStartDistance ?? d))
-                // A monitor reset re-zeroes the TRAMO window too — otherwise the
-                // live bar would sit at a negative delta until it caught up.
-                tramoErgStartDistance = d
+                // The TRAMO window re-anchors the SAME way, preserving what this
+                // window had already covered. Re-anchoring it to `d` instead threw
+                // those metres away, so a monitor reset — or a reconnection that
+                // comes back from zero mid-piece — silently sent the athlete back to
+                // 0/1.000 and asked him to row the piece again.
+                tramoErgStartDistance = d - Swift.max(0, last - (tramoErgStartDistance ?? last))
             }
             // The bout's own zero, so serie 2 of a 5×500 starts at 0 m and not at
             // the 1000 m the piece has covered so far.
@@ -2334,7 +2374,7 @@ final class WorkoutSession {
                 lapErgStartCalories = c
             } else if let last = lapErgLastCalories, c < last {
                 lapErgStartCalories = c - (last - (lapErgStartCalories ?? c))
-                tramoErgStartCalories = c
+                tramoErgStartCalories = c - Swift.max(0, last - (tramoErgStartCalories ?? last))
             }
             if tramoErgStartCalories == nil { tramoErgStartCalories = c }
             lapErgLastCalories = c
@@ -2349,6 +2389,11 @@ final class WorkoutSession {
         // The monitor's own average pace (last value wins — it's already the mean
         // over the piece), preferred over our sample mean when persisting.
         if let ap = monitorAvgPaceSecPer500m, ap > 0 { lapErgMonitorAvgPace500 = ap }
+        // LAST, once the window has counted this sample: the machine may have just
+        // finished the station's piece. Only a goal REACHED leaves a station — a
+        // monitor that goes quiet is a rest, not an exit.
+        advanceStationIfMachineGoalMet(beforeMeters: ergMetersBefore,
+                                       beforeCalories: ergCaloriesBefore)
     }
 
     /// Snapshots the PM5's completed splits for the current erg segment. Called

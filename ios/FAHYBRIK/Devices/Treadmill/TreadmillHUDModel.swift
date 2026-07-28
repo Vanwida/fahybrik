@@ -60,8 +60,10 @@ final class TreadmillHUDModel {
     /// What the connected belt lets us drive. `.none` (no controls) on a read-only
     /// machine or in a plain simulator. Seeded from the hub, refreshed on connect.
     private(set) var controlCapability = TreadmillControlCapability.none
-    /// The target we've SET. The HERO number stays `latest.speedKmh` (the belt's REAL
-    /// speed) — target and actual converge, never diverge, which is the whole point.
+    /// The speed the app has COMMANDED. It belongs to the speed stepper and to NOTHING
+    /// else on the screen: it is what we asked the belt for, which is not what the belt is
+    /// doing (`displaySpeedKmh` is). Showing both under the word "velocidad" is how the HUD
+    /// once read "6.0" and "9.6" at the same time and contradicted itself.
     private(set) var targetSpeedKmh: Double = 0
     /// The incline target we've SET, in the unit THIS machine speaks: percent grade on a
     /// spec-clean belt, console LEVEL on the i.Concept family (`inclineIsLevel`). One
@@ -219,7 +221,7 @@ final class TreadmillHUDModel {
         controlCapability = cap
         // Seed the steppers from the belt's ACTUAL reading the first time we learn we
         // can drive it, so they start where the machine already is (sync from the off).
-        if cap.canControl, targetSpeedKmh == 0 {
+        if cap.appMayDrive, targetSpeedKmh == 0 {
             let live = latest.speedKmh ?? 0
             targetSpeedKmh = live > TreadmillConstants.minMovingSpeedKmh ? live : (cap.speed?.min ?? 6.0)
             targetIncline = clampIncline(latest.inclineLevel ?? latest.inclinePct ?? 0)
@@ -244,7 +246,7 @@ final class TreadmillHUDModel {
     /// speed/incline, these ops really are optional in the spec — C.9 / C.10), it never
     /// blocks the run, and a refusal is swallowed into the trace instead of the HUD.
     private func programCurrentLegOnMachine() {
-        guard controlCapability.canControl else { return }
+        guard controlCapability.appMayDrive else { return }
         let key = activeLegKey
         guard !key.isEmpty, programmedLegKey != key else { return }
         switch currentLeg.goal {
@@ -326,18 +328,17 @@ final class TreadmillHUDModel {
 
     // MARK: - Honest capability model (the two INDEPENDENT axes the HUD reads)
 
-    /// The belt lets the app drive BELT MOTION — target speed, start, stop. False on a
-    /// manual-speed machine (its Control Point rejected Set Target Speed as "not supported",
-    /// like the BH i.Concept T01_): the athlete sets speed and starts/stops on the console,
-    /// we read it. A machine that accepts 0x02 keeps the full speed stepper + START/STOP.
-    var canControlSpeed: Bool { controlCapability.canControl && controlCapability.canControlSpeed }
-    /// The app can drive INCLINE (independent of speed — the T01_ obeys 0x03 while rejecting
-    /// 0x02). Drives automatically when a leg prescribes an incline; the stepper stays live.
-    var canControlIncline: Bool { controlCapability.canControl && controlCapability.canControlIncline }
-    /// Connected and controllable, but SPEED is manual: show the honest one-line note and the
-    /// workout-flow controls instead of belt START/STOP. Distinct from a fully read-only belt
-    /// (no control point at all), which gets the broader "solo datos" note.
-    var speedIsManual: Bool { controlCapability.canControl && !controlCapability.canControlSpeed }
+    /// The HUD paints a speed control — the stepper and belt START/STOP — only when this
+    /// machine DECLARED it takes a speed target and hasn't refused one (and the app drives
+    /// machines at all). False today on every belt we've met, so the athlete sets the speed
+    /// on the console and we read what he ran.
+    var canControlSpeed: Bool { controlCapability.offersSpeedControl }
+    /// The same judgment for INCLINE, judged separately: a belt that takes an incline and
+    /// refuses a speed gets exactly one control, not zero and not two.
+    var canControlIncline: Bool { controlCapability.offersInclineControl }
+    /// The app drives the incline but NOT the speed — the one case where the athlete needs
+    /// telling, because half the machine answers to the app and half doesn't.
+    var speedIsManual: Bool { canControlIncline && !canControlSpeed }
 
     /// Nudge the target belt speed by ±1 of the machine's own step (fallback 0.5 km/h).
     func nudgeSpeed(_ direction: Int) {
@@ -373,13 +374,22 @@ final class TreadmillHUDModel {
     /// grade (the i.Concept level IS the percent), so we never hide it behind a bare "Nivel".
     var inclineControlLabel: String { controlCapability.inclineDialect.controlLabel }
     var inclineControlUnit: String { controlCapability.inclineDialect.controlUnit }
+    /// The incline the app has COMMANDED — belongs to the stepper and nowhere else. It is
+    /// what we asked for, not what the belt is doing; the screen must never show it beside
+    /// `liveInclineText` under the same word.
     var inclineControlValue: String {
         inclineIsLevel ? String(Int(targetIncline.rounded())) : String(format: "%.1f", targetIncline)
     }
-    /// The belt's LIVE incline for the metric strip, in the same honest unit.
-    var liveInclineValue: String {
-        if inclineIsLevel { return latest.inclineLevel.map { String(Int($0.rounded())) } ?? "—" }
-        return latest.inclinePct.map { String(format: "%.1f", $0) } ?? "—"
+    /// The incline the belt REPORTS, labelled with its own unit ("Nivel 3" / "Inclinación
+    /// 1.5 %"). nil when the machine sends none — the line then simply isn't drawn, rather
+    /// than a "—" holding space for nothing.
+    var liveInclineText: String? {
+        let value: String? = inclineIsLevel
+            ? latest.inclineLevel.map { String(Int($0.rounded())) }
+            : latest.inclinePct.map { String(format: "%.1f", $0) }
+        guard let value else { return nil }
+        let unit = inclineControlUnit
+        return unit.isEmpty ? "\(inclineControlLabel) \(value)" : "\(inclineControlLabel) \(value) \(unit)"
     }
 
     /// The command that sets the CURRENT incline target on THIS machine — one place

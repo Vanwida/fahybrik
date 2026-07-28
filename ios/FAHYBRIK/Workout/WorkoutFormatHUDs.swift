@@ -369,15 +369,33 @@ struct ForTimeLiveHUD: View {
         return remaining <= 60 && remaining > 0
     }
 
+    /// A ROUTE (the list is the stations, not repeated rounds) and the athlete is on
+    /// a station nothing else measures. Then the subject is the work in front of him
+    /// — the block clock moves to the context strip, because a 72 pt total time next
+    /// to a 14 pt "50 wall balls" tells him the one thing he already knows.
+    private var isStationRoute: Bool { seg?.fixedListIsStations == true && !isCountIn }
+
     var body: some View {
         VStack(spacing: 12) {
-            clock
-            StrikeList(session: session)
-            MetricRow3(cells: [
-                ("Split", lastSplit, "", Theme.Color.foreground),
-                (listUnitLabel, "\(session.fixedRoundsDone)/\(session.fixedListTotal)", "", Theme.Color.foreground),
-                hrCell(session)
-            ])
+            if isStationRoute {
+                ForTimeContextStrip(session: session)
+                StationSubject(session: session)
+                StrikeList(session: session)
+                MetricRow3(cells: [
+                    ("Parcial", lastSplitSeconds, "", Theme.Color.foreground),
+                    ("Estación", "\(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)",
+                     "", Theme.Color.foreground),
+                    hrCell(session)
+                ])
+            } else {
+                clock
+                StrikeList(session: session)
+                MetricRow3(cells: [
+                    ("Split", lastSplit, "", Theme.Color.foreground),
+                    (listUnitLabel, "\(session.fixedRoundsDone)/\(session.fixedListTotal)", "", Theme.Color.foreground),
+                    hrCell(session)
+                ])
+            }
         }
     }
 
@@ -401,9 +419,92 @@ struct ForTimeLiveHUD: View {
     }
 
     private var listUnitLabel: String { seg?.formatScheme == .chipper ? "Estación" : "Ronda" }
+    /// The block clock at the last strike — the classic For Time split.
     private var lastSplit: String {
         guard let s = session.fixedRoundSplits.last else { return "—" }
-        return WorkoutSession.formatElapsed(s)
+        return WorkoutSession.formatElapsed(s.elapsed)
+    }
+    /// How long the LAST STATION took. On a route that is the useful number: the
+    /// cumulative stamp is already the clock in the context strip.
+    private var lastSplitSeconds: String {
+        guard let s = session.fixedRoundSplits.last else { return "—" }
+        return WorkoutSession.formatElapsed(s.seconds)
+    }
+}
+
+/// The permanent context of a route: the format, where he is in it, and the BLOCK
+/// clock. It exists because the block clock is the score of a For Time, so it can
+/// never leave the screen — not when the station becomes the subject, and not when
+/// a monitor takes the screen over on an erg station.
+struct ForTimeContextStrip: View {
+    let session: WorkoutSession
+
+    private var seg: WorkoutSegment? { session.currentSegment }
+    private var cap: Int? { seg?.formatTotalSeconds }
+    /// The final minute of a cap counts DOWN and turns red — the same flip the big
+    /// clock does, kept here so the urgency survives the strip.
+    private var capRemaining: Double? {
+        guard let cap else { return nil }
+        let r = Double(cap) - session.condElapsed
+        return (r <= 60 && r > 0) ? r : nil
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(seg?.formatScheme?.displayName.uppercased() ?? "")
+                .font(.system(size: 10, weight: .heavy)).tracking(1.0)
+                .foregroundStyle(Theme.Color.accentText)
+                .fixedSize()
+            Text("\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.Color.faint)
+                .fixedSize()
+            Spacer(minLength: 6)
+            Text(WorkoutSession.formatElapsed(capRemaining ?? session.condElapsed))
+                .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                .foregroundStyle(capRemaining != nil ? Theme.Color.danger : Theme.Color.foreground)
+                .monospacedDigit()
+        }
+        .stripChrome()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(seg?.formatScheme?.displayName ?? "Formato"), estación \(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal). Tiempo \(WorkoutSession.formatElapsed(session.condElapsed))")
+    }
+}
+
+/// THE SUBJECT of a station nothing measures for him: what he has to do, and how
+/// long he has been on it.
+///
+/// It deliberately shows no rep COUNTER. The app does not know how many wall balls
+/// he has thrown and will not imply that it does — nobody taps a phone fifty times
+/// with a ball in his hands. It knows the clock and which station he is on, because
+/// he says so when he moves. That is the whole of what it claims.
+private struct StationSubject: View {
+    let session: WorkoutSession
+
+    private var tramo: LiveTramo { session.currentTramo }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            LabelText(text: "Ahora", size: 10)
+            Text(tramo.workLine ?? tramo.label)
+                .font(.system(size: 64, weight: .heavy, design: .default).italic())
+                .foregroundStyle(Theme.Color.foreground)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .monospacedDigit()
+            if tramo.workLine != nil {
+                Text(tramo.label)
+                    .font(.system(size: 19, weight: .heavy).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+            }
+            Text("llevas \(WorkoutSession.formatElapsed(session.tramoElapsedSeconds)) en esta estación")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -415,14 +516,17 @@ private struct StrikeList: View {
     let session: WorkoutSession
 
     private var seg: WorkoutSegment? { session.currentSegment }
-    private var isChipper: Bool { seg?.formatScheme == .chipper }
+    /// The list walks the MOVEMENTS once (a chipper, a route) rather than repeating
+    /// rounds. One predicate, on the segment, shared with the engine — the rows and
+    /// the tramo cursor can never disagree about what a line is.
+    private var isStations: Bool { seg?.fixedListIsStations == true }
 
-    // List rows: a Chipper's movements (one pass), else "Ronda k" with the round's
+    // List rows: the movements of a one-pass route, else "Ronda k" with the round's
     // work as detail (the same movement list each round).
     private struct Row: Identifiable { let id: Int; let label: String; let detail: String? }
     private var rows: [Row] {
         guard let seg else { return [] }
-        if isChipper {
+        if isStations {
             return seg.declaredComponents.map { Row(id: $0.id, label: "\($0.work)  \($0.name)", detail: $0.detail) }
         }
         // Per-round rows. A SINGLE-movement For Time shows its work each round
@@ -447,9 +551,11 @@ private struct StrikeList: View {
         CardSurface(padding: 0, topAccent: true) {
             VStack(spacing: 0) {
                 HStack {
-                    LabelText(text: isChipper ? "Estaciones" : "Recorre las rondas", size: 10)
+                    LabelText(text: isStations ? "El entreno" : "Recorre las rondas", size: 10)
                     Spacer()
-                    Text((isChipper ? "recorrer 1 vez" : "marca cada ronda").uppercased())
+                    Text((isStations
+                          ? "\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)"
+                          : "marca cada ronda").uppercased())
                         .font(.system(size: 9, weight: .heavy)).tracking(0.6)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -480,7 +586,17 @@ private struct StrikeList: View {
                     }
                 }
                 Spacer(minLength: 6)
-                Image(systemName: done ? "checkmark.circle.fill" : (active ? "circle" : "circle"))
+                // What this line COST: its real time, and — when a machine measured
+                // it — what the machine actually read. This is the whole reason a
+                // phone beats a whiteboard, and it is honest about overshoot: a
+                // 1.000 m piece closed at 1.014 m reads 1.014 m.
+                if let trail = trailing(row.id, done: done, active: active) {
+                    Text(trail)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(active ? Theme.Color.accentText : Theme.Color.faint)
+                        .lineLimit(1)
+                }
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(done ? Theme.Color.ok : (active ? Theme.Color.accentText : Theme.Color.faint))
             }
@@ -494,6 +610,21 @@ private struct StrikeList: View {
             if done && row.id == session.fixedRoundsDone - 1 { session.unmarkLastRound() }
         })
         .accessibilityLabel("\(row.label), \(done ? "hecho" : (active ? "actual, toca para marcar" : "pendiente"))")
+    }
+
+    /// The trailing number of a line: what a CLOSED one cost (its own time, plus the
+    /// measured work when a machine read it), and how long the ACTIVE one has been
+    /// running. Pending lines say nothing — there is nothing to say yet.
+    private func trailing(_ id: Int, done: Bool, active: Bool) -> String? {
+        if done {
+            guard id < session.fixedRoundSplits.count else { return nil }
+            let s = session.fixedRoundSplits[id]
+            let time = WorkoutSession.formatElapsed(s.seconds)
+            guard let work = s.workLine else { return time }
+            return "\(work) · \(time)"
+        }
+        guard active, session.isStationTramo else { return nil }
+        return WorkoutSession.formatElapsed(session.tramoElapsedSeconds)
     }
 }
 

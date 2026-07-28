@@ -52,11 +52,22 @@ extension WorkoutSession {
                                      index: emomIntervalIndex,
                                      boxedSeconds: plan.workSeconds)
         }
-        // Only a ROTATING conditioning format has an honest per-round cursor. An
-        // AMRAP / For Time is free-order: nothing knows which movement the athlete
-        // is on, so the segment stays the tramo and the device data is shown as a
-        // strip instead of taking over the screen (it would have to lie about the
-        // subject to do otherwise).
+        // A FIXED format authored as a ROUTE (a For Time / HYROX sim / chipper whose
+        // list is its stations) does have an honest per-movement cursor: the strike
+        // cursor. The athlete tells the app he moved on, or — when a machine measures
+        // the station — the machine does. Either way the window is the STATION, so
+        // the device, the clock and the screen follow it like any other tramo.
+        if seg.isConditioningTimer, seg.fixedListIsStations {
+            let station = currentStationIndex
+            return seg.rotationTramo(segmentIndex: i, cursor: .fixedStation(station),
+                                     index: station,
+                                     boxedSeconds: seg.stationBoxSeconds(at: station))
+        }
+        // Only a ROTATING conditioning format has an honest per-round cursor beyond
+        // that. An AMRAP, or a For Time whose list is repeated ROUNDS, is free-order:
+        // nothing knows which movement the athlete is on, so the segment stays the
+        // tramo and the device data is shown as a strip instead of taking over the
+        // screen (it would have to lie about the subject to do otherwise).
         if seg.isConditioningTimer, seg.formatScheme?.presentation == .rotating {
             // The box is the format's FULL work window, never what is left of it —
             // a progress fraction against a shrinking denominator never moves.
@@ -70,6 +81,18 @@ extension WorkoutSession {
         }
         return seg.tramo(segmentIndex: i)
     }
+
+    /// The station the athlete is standing on, clamped to the list. The strike
+    /// cursor IS this — `fixedRoundsDone` counts what is behind him, so it points
+    /// at what is in front of him, and it parks on the last line once the block is
+    /// struck out (the block closes on that same strike, so it is only ever read
+    /// for a frame).
+    var currentStationIndex: Int {
+        Swift.min(Swift.max(0, fixedRoundsDone), Swift.max(0, fixedListTotal - 1))
+    }
+
+    /// True when the current window is a station of a walk-once checklist.
+    var isStationTramo: Bool { currentTramo.isFixedStation }
 
     /// True when a Concept2 monitor is what measures the CURRENT window — the one
     /// test that replaced `currentSegment.kind == .rowOrSki` everywhere it mattered.
@@ -86,6 +109,7 @@ extension WorkoutSession {
         if isExtraWork { return 0 }
         if isRunStructureActive { return runLegIndex }
         if currentSegment?.isEMOM == true { return emomIntervalIndex }
+        if currentSegment?.fixedListIsStations == true { return currentStationIndex }
         if isConditioningActive { return rotRoundIndex }
         return 0
     }
@@ -96,6 +120,7 @@ extension WorkoutSession {
         if isExtraWork { return 1 }
         if isRunStructureActive { return runLegTotal }
         if let plan = currentSegment?.emomPlan { return plan.intervalCount }
+        if currentSegment?.fixedListIsStations == true { return fixedListTotal }
         if isConditioningActive { return Swift.max(1, rotTotalRounds) }
         return 1
     }
@@ -132,6 +157,14 @@ extension WorkoutSession {
         }
         if isConditioningActive, condCountInRemaining <= 0, rotPhaseRemaining > 0 {
             return rotPhaseRemaining
+        }
+        // A CLOCK-measured station ("2 min de bici" inside a For Time). The box is
+        // the station's own duration and the tramo clock is what fills it, so the
+        // countdown is honest with or without a machine on the other end.
+        let tramo = currentTramo
+        if tramo.isFixedStation, let boxed = tramo.boxedSeconds, boxed > 0,
+           condCountInRemaining <= 0 {
+            return Swift.max(0, Double(boxed) - tramoElapsedSeconds)
         }
         return nil
     }
@@ -213,6 +246,37 @@ extension WorkoutSession {
         return nil
     }
 
+    /// The erg work accumulated over the WHOLE segment — every closed window plus
+    /// the one open now — as the athlete reads it ("total 1.500 m").
+    ///
+    /// WHY IT IS NOT A SETTING. Alex asked whether the marker should reset between
+    /// rounds or accumulate, and whether that should be chosen before starting. The
+    /// prescription already answers it: a goal written PER ROUND (500 m each, five
+    /// times) makes the round the thing he is chasing, so the subject is the round
+    /// and the window resets; a goal written as a TOTAL is one window, so the subject
+    /// IS the accumulated. It falls out of the model — nothing to ask, nothing to
+    /// configure, nothing to get wrong.
+    ///
+    /// So both are shown and neither is a decision: the round is the subject, this is
+    /// the secondary line. It answers only when it says something the subject doesn't
+    /// — on a piece that IS the segment the two numbers are the same one, and
+    /// printing it twice is noise. It reads the SAME lap accumulator the execution
+    /// record is built from; there is no parallel counter to fall out of step.
+    var accumulatedErgLine: String? {
+        guard tramoIsErg else { return nil }
+        if let total = lapErgDistanceMeters, total >= 1 {
+            let window = tramoErgDistanceMeters ?? 0
+            guard total - window >= 1 else { return nil }
+            return "total \(Int(total.rounded())) m"
+        }
+        if let total = lapErgCalories, total >= 1 {
+            let window = tramoErgCalories ?? 0
+            guard total - window >= 1 else { return nil }
+            return "total \(total) cal"
+        }
+        return nil
+    }
+
     // MARK: - Entering a tramo
 
     /// Re-anchor every per-window accumulator when the cursor moves. Called from
@@ -282,6 +346,59 @@ extension WorkoutSession {
     /// Track the tramo's HR peak so the rest screen can show a real drop.
     func noteTramoHR(_ bpm: Int) {
         tramoHRPeak = Swift.max(tramoHRPeak ?? 0, bpm)
+    }
+
+    // MARK: - Leaving a station by EVENT
+    //
+    // THE RULE, and the reason it only exists here. In an EMOM the CLOCK takes the
+    // athlete off a round: the minute ends, the round ends, there is nothing to
+    // detect. In a For Time there is no minute to take him off anything — the
+    // transitions are events, and the event is known by whatever MEASURES the
+    // station:
+    //
+    //   · metres / calories  → the machine knows. It says so, and the app moves on.
+    //   · seconds            → the app's own clock knows. Same thing, no pairing.
+    //   · reps               → nobody knows. He taps. The app never pretends.
+    //
+    // It follows the MEASURE, not the movement, so it is one rule for every station
+    // a coach can write instead of a list of special cases. Two things it is
+    // deliberately NOT: a monitor going quiet mid-piece is an athlete catching his
+    // breath, never an exit; and the manual strike never goes away, because a
+    // machine can drop, lie, or simply not be there.
+
+    /// The goal has been REACHED on the machine → close the station and walk on.
+    /// Called from `sampleErg` with the window's measured values from BEFORE this
+    /// sample landed, because the test is that we watched the goal being CROSSED.
+    ///
+    /// That "we saw the crossing" test is what makes a reconnection safe: a monitor
+    /// that comes back mid-piece reports less than the goal and nothing fires, and
+    /// one that comes back having genuinely covered the distance while the phone was
+    /// away fires once — which is correct, those metres were rowed.
+    func advanceStationIfMachineGoalMet(beforeMeters: Double?, beforeCalories: Int?) {
+        let tramo = currentTramo
+        guard tramo.isFixedStation, tramo.isErg else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, condCountInRemaining <= 0 else { return }
+
+        if let target = tramo.targetDistanceMeters, let now = tramoErgDistanceMeters {
+            guard now >= target, (beforeMeters ?? 0) < target else { return }
+            markRoundDone(auto: true)
+            return
+        }
+        if let target = tramo.targetCalories, target > 0, let now = tramoErgCalories {
+            guard now >= target, (beforeCalories ?? 0) < target else { return }
+            markRoundDone(auto: true)
+        }
+    }
+
+    /// The BOX of a clock-measured station ran out → close it and walk on. Called
+    /// from the conditioning tick, so it needs no device at all: a "2 min de bici"
+    /// station ends after two minutes whether or not anything is paired.
+    func advanceStationIfClockGoalMet() {
+        let tramo = currentTramo
+        guard tramo.isFixedStation, let boxed = tramo.boxedSeconds, boxed > 0 else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, condCountInRemaining <= 0 else { return }
+        guard tramoElapsedSeconds >= Double(boxed) else { return }
+        markRoundDone(auto: true)
     }
 }
 

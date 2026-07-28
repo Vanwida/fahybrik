@@ -97,13 +97,29 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     /// so "Compartir diagnóstico" always opens with the CURRENT mode, not the initial one.
     private func noteControlFacts() {
         diag.note(fact: "Familia", capability.profile.label)
-        diag.note(fact: "Velocidad por Bluetooth",
-                  capability.canControlSpeed ? "controlable desde la app"
-                                             : "NO soportada — manual en la consola")
+        diag.note(fact: "Velocidad por Bluetooth", offerSummary(capability.offersSpeedControl,
+                                                               declared: capability.declaresSpeedTarget,
+                                                               refused: !capability.canControlSpeed))
+        diag.note(fact: "Inclinación por Bluetooth", offerSummary(capability.offersInclineControl,
+                                                                 declared: capability.declaresInclineTarget,
+                                                                 refused: !capability.canControlIncline))
         diag.note(fact: "Modo de control", "\(capability.strategy.rung) — \(capability.strategy.label)")
         diag.note(fact: "Bytes que enviaría a 6 km/h",
                   capability.strategy.wireHint.replacingOccurrences(of: "02 F4 01", with: "02 58 02"))
         diag.note(fact: "Inclinación codificada como", capability.inclineDialect.label)
+    }
+
+    /// Why an axis is (not) offered to the athlete, in the order the reasons apply — so the
+    /// shared dump answers "¿por qué no me salen los botones?" without reading the code.
+    private func offerSummary(_ offered: Bool, declared: Bool, refused: Bool) -> String {
+        if offered { return "se ofrece el control en la app" }
+        if !TreadmillControlPolicy.appDrivesMachines {
+            return "la app no maneja máquinas de momento — solo lee"
+        }
+        if !capability.hasControlPoint { return "la cinta no tiene dónde escribir" }
+        if !declared { return "la cinta declara que NO la acepta" }
+        if refused { return "la cinta rechazó el comando — manual en la consola" }
+        return "no disponible"
     }
 
     func startScan() {
@@ -361,14 +377,11 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 where ch.properties.contains(.write) || ch.properties.contains(.writeWithoutResponse):
                 controlPointChar = ch
                 capability.hasControlPoint = true
-                // A WRITABLE CONTROL POINT IS THE WHOLE GATE. We used to wait for the
-                // feature word to tell us which targets are settable, and switch the
-                // controls off when it said none — which is how a lying firmware turned
-                // the app into a read-only display. The machine gets to refuse each
-                // command on its own merits; it does not get to refuse them all in advance.
-                // Speed starts controllable UNLESS this exact machine already proved (last
-                // connection) it rejects 0x02 — then it opens straight into honest manual,
-                // no repeat spam. It re-proves itself on the wire otherwise.
+                // Somewhere to write — necessary, never sufficient. These two say only that
+                // the machine has not REFUSED the op on the wire (speed carries over a
+                // refusal it already proved, so a reconnect doesn't re-spam 0x02). What the
+                // athlete is actually offered also needs the machine's own declaration, read
+                // from 0x2ACC below — see `TreadmillControlCapability.offersSpeedControl`.
                 capability.canControlSpeed = !learnedSpeedUnsupported
                 capability.canControlIncline = true
                 // ORDER MATTERS: the Control Point's CCCD must be configured BEFORE the
@@ -394,13 +407,13 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 break
             }
         }
-        // Once the Fitness Machine's characteristics are enumerated we know whether the
-        // belt is controllable — and that answer is FINAL. It depends only on whether a
-        // writable Control Point exists, so nothing here waits on the feature read; the
-        // athlete gets his controls the moment the machine is enumerated.
+        // Publish what we know the moment the machine is enumerated — the Control Point is
+        // half the answer. The other half (which targets the machine DECLARES it takes)
+        // lands with the 0x2ACC read below and publishes again; until then the capability
+        // declares nothing, which is exactly what "no controls" is built on.
         if service.uuid == TreadmillGATT.fitnessMachineService {
             diag.note(fact: "Punto de control 0x2AD9",
-                      capability.hasControlPoint ? "presente y escribible → SE PUEDE CONTROLAR"
+                      capability.hasControlPoint ? "presente y escribible → hay dónde escribir"
                                                  : "ausente / no escribible → solo lectura")
             noteControlFacts()
             publishCapability()
@@ -462,15 +475,19 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 onMachineEvent?(adapted)
             }
         case TreadmillGATT.fitnessMachineFeature:
-            // A HINT, NEVER A GATE. This word is what used to switch the controls off;
-            // now it only records what the machine CLAIMS and unlocks the two genuinely
-            // optional workout-programming ops (0x0C / 0x0D, spec C.9 / C.10).
+            // THE MACHINE'S OWN DECLARATION of which targets it takes. It is the gate on
+            // what the athlete is offered: we paint a control only for a target the machine
+            // says it accepts. An unreadable word declares nothing, so it offers nothing.
             diag.note(fact: "0x2ACC (Fitness Machine Feature)", Self.hex(data))
             guard let f = FTMSControl.decodeTargetFeatures(data) else {
-                diag.log("0x2ACC llegó con \(data.count) bytes (<8) — ilegible; controlo igual")
+                diag.log("0x2ACC llegó con \(data.count) bytes (<8) — ilegible. La cinta no "
+                         + "declara nada, así que no se ofrece ningún control; los datos se "
+                         + "siguen leyendo igual.")
                 return
             }
             capability.targetFeatureBits = f.raw
+            capability.declaresSpeedTarget = f.speed
+            capability.declaresInclineTarget = f.incline
             capability.canSetTargetDistance = f.targetedDistance
             capability.canSetTargetTime = f.targetedTrainingTime
             diag.note(fact: "Target Setting Features",
@@ -478,11 +495,11 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                              f.raw, f.speed ? "sí" : "NO", f.incline ? "sí" : "NO",
                              f.targetedDistance ? "sí" : "NO", f.targetedTrainingTime ? "sí" : "NO"))
             if !f.speed || !f.incline {
-                diag.log("OJO: la cinta dice NO poder fijar "
+                diag.log("La cinta dice NO poder fijar "
                          + [f.speed ? nil : "velocidad", f.incline ? nil : "inclinación"]
                             .compactMap { $0 }.joined(separator: " ni ")
-                         + ". Lo ignoro a propósito y le mando los comandos igual — muchos "
-                         + "firmwares mienten en este campo. Que conteste ella.")
+                         + ". Le tomo la palabra: ese control no se pinta. Si en el gimnasio "
+                         + "resulta que sí obedece, «Modo de control» manda el comando a mano.")
             }
             publishCapability()
         case TreadmillGATT.supportedSpeedRange:

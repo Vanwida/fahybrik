@@ -71,9 +71,13 @@ final class MockTreadmillSource: TreadmillDataSource, TreadmillControllable {
     private var incline = 1.0
     private var distanceM = 0.0
 
-    /// A Titanium-like range so the steppers behave as they would on a real belt.
+    /// A Titanium-like range so the steppers behave as they would on a real belt. It
+    /// DECLARES both targets — the fully obedient machine we don't have in a gym yet — so
+    /// flipping `TreadmillControlPolicy.appDrivesMachines` brings the whole control surface
+    /// back in the simulator with no other change.
     private let capability = TreadmillControlCapability(
         hasControlPoint: true, canControlSpeed: true, canControlIncline: true,
+        declaresSpeedTarget: true, declaresInclineTarget: true,
         speed: FTMSControl.Range(min: 0.8, max: 25, step: 0.5),
         incline: FTMSControl.Range(min: 0, max: 15, step: 0.5))
 
