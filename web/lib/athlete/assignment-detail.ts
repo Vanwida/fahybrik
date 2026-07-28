@@ -127,9 +127,25 @@ export interface AssignmentDetailExecution {
   score_label: string | null;
   notes: string | null;
   ended_at: string | null;
-  // Provenance of the execution — 'manual' | 'healthkit' | 'garmin' | … (the
-  // biometric_source enum). Lets the UI say "registrado a mano" vs synced.
+  // WHICH APPARATUS the numbers came from — 'concept2' | 'treadmill' | 'gps' |
+  // 'healthkit' | … (the biometric_source enum). NOT how the session was logged:
+  // read `recorded_via` for that. Saying "registrado a mano" off this field is
+  // what made four live PM5/treadmill sessions read as hand-typed.
   source: string | null;
+  // HOW the record came to exist: 'live' (run in the app) | 'manual' (typed in
+  // afterwards) | 'imported' (from a third party). Null for rows written before
+  // migration 0144 and for seed data — honestly "unknown", never a guess.
+  recorded_via: string | null;
+  // EVERY apparatus that contributed to the session, not just the principal one.
+  // Two or more means a genuinely mixed session (erg + treadmill). Empty means no
+  // apparatus measured it — a real fact, so never null.
+  contributing_sources: string[];
+  // Post-workout feedback the athlete gave on finishing (mig 0125). Written since
+  // then and, until now, never returned — so neither the athlete nor the coach
+  // could see it again. Null when the athlete skipped the question.
+  perceived_difficulty: string | null;
+  pain_area: string | null;
+  pain_note: string | null;
   // Honest finish state, derived from the assignment status: 'completed' (ran to
   // the end → green ✓) or 'partial' (terminated early → amber ½).
   completeness: 'completed' | 'partial';
@@ -296,6 +312,13 @@ interface ExecutionRow {
   score_reps?: number | null;
   notes?: string | null;
   source?: string | null;
+  recorded_via?: string | null;
+  // `biometric_source[]` — postgres.js decodes it to a real array; '{}' when no
+  // apparatus contributed. Optional so the pure builder's existing fixtures type.
+  contributing_sources?: string[] | null;
+  perceived_difficulty?: string | null;
+  pain_area?: string | null;
+  pain_note?: string | null;
   // #64 — the outdoor GPS trace (encoded polyline), joined from workout_routes.
   route_polyline?: string | null;
 }
@@ -409,6 +432,11 @@ export async function loadAssignmentDetail(
       we.score_reps              as score_reps,
       we.notes                   as notes,
       we.source::text            as source,
+      we.recorded_via::text      as recorded_via,
+      we.contributing_sources::text[] as contributing_sources,
+      we.perceived_difficulty::text   as perceived_difficulty,
+      we.pain_area::text              as pain_area,
+      we.pain_note                    as pain_note,
       wr.polyline                as route_polyline
     from workout_executions we
     left join workout_routes wr on wr.execution_id = we.id
@@ -563,6 +591,11 @@ function buildExecutionBlock(
     notes: execution?.notes ?? null,
     ended_at: execution?.ended_at ?? null,
     source: execution?.source ?? null,
+    recorded_via: execution?.recorded_via ?? null,
+    contributing_sources: execution?.contributing_sources ?? [],
+    perceived_difficulty: execution?.perceived_difficulty ?? null,
+    pain_area: execution?.pain_area ?? null,
+    pain_note: execution?.pain_note ?? null,
     completeness: status === 'partial' ? 'partial' : 'completed',
     route_polyline: execution?.route_polyline ?? null,
     segments,

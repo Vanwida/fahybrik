@@ -412,6 +412,51 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(noRoute.execution!.route_polyline).toBeNull(); // absent → null, never fabricated
   });
 
+  // The execution block returns what the athlete's session actually holds. Each
+  // of these columns has been WRITTEN for a while and never came back on the
+  // wire, so no surface could show it: the app said «A mano» over a live PM5
+  // session (source alone cannot tell those apart — recorded_via can), and the
+  // post-workout feedback the athlete typed vanished the moment they saved it.
+  it('returns the provenance pair + the post-workout feedback', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-05-27T18:30:00+00:00',
+        perceived_exertion: 7,
+        source: 'concept2',
+        recorded_via: 'live',
+        contributing_sources: ['concept2', 'treadmill'],
+        perceived_difficulty: 'too_hard',
+        pain_area: 'rodilla',
+        pain_note: 'molestia al bajar',
+      },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = result.execution!;
+    expect(e.source).toBe('concept2'); // WHICH apparatus
+    expect(e.recorded_via).toBe('live'); // HOW it was recorded — a different question
+    expect(e.contributing_sources).toEqual(['concept2', 'treadmill']);
+    expect(e.perceived_difficulty).toBe('too_hard');
+    expect(e.pain_area).toBe('rodilla');
+    expect(e.pain_note).toBe('molestia al bajar');
+  });
+
+  it('leaves provenance unknown for pre-0144 rows, and never returns a null roster', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00+00:00', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = result.execution!;
+    expect(e.recorded_via).toBeNull(); // "no se sabe" — honest, never guessed
+    expect(e.contributing_sources).toEqual([]); // a set is empty, never null
+    expect(e.perceived_difficulty).toBeNull();
+    expect(e.pain_area).toBeNull();
+    expect(e.pain_note).toBeNull();
+  });
+
   // ── G1 — zone target resolved to an absolute pace band ────────────────────
   // A run zone profile: threshold 4:00/km (240s); the standard per_km offsets
   // give Z4 = +[0,14] → 4:00–4:14, Z2 = +[28,42] → 4:28–4:42, Z1 = +44 open.

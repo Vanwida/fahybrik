@@ -100,6 +100,7 @@ describe('buildSegmentActuals — erg detail maps onto the flat SegmentActual fi
     emom_rounds_prescribed: null,
     incline_pct: null,
     run_cadence_spm: null,
+    source: null,
     raw_lap_data_json: null,
     ...over,
   });

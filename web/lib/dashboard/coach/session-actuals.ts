@@ -21,6 +21,7 @@
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
+import { parseZoneSeconds, type ZoneSeconds } from '@/lib/execution/zone-seconds';
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -58,6 +59,14 @@ export interface SegmentActual {
   peak_drive_force_lbs: number | null;
   avg_drive_force_lbs: number | null;
   erg_splits: ErgSplitItem[] | null;
+  /** WHICH APPARATUS measured THIS tramo — the raw `segment_executions.source`
+   * token ('pm5', 'treadmill', 'gps', 'healthkit', 'manual', …). The execution's
+   * own `source` is only the principal one, so a mixed session (erg + treadmill)
+   * can only be told apart here. Null for tramos recorded before it was stamped. */
+  source: string | null;
+  /** Seconds in each HR zone over the tramo, folded out of `raw_lap_data_json`.
+   * Null when no HR was measured — never a zero-filled band (see zone-seconds.ts). */
+  zone_seconds: ZoneSeconds | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -82,6 +91,7 @@ export interface SegmentActualRow {
   emom_rounds_prescribed: number | null;  // integer
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
   run_cadence_spm: number | null;         // integer
+  source: string | null;                  // free-text apparatus token
   raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
 }
 
@@ -127,6 +137,8 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
     incline_pct: num(r.incline_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
+    source: r.source ?? null,
+    zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
     ...ergFields(r.raw_lap_data_json),
   }));
 }
@@ -170,6 +182,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       emom_rounds_prescribed    as emom_rounds_prescribed,
       incline_pct               as incline_pct,
       run_cadence_spm           as run_cadence_spm,
+      source                    as source,
       raw_lap_data_json         as raw_lap_data_json
     from segment_executions
     where execution_id = ${executionId}
