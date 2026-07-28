@@ -109,6 +109,21 @@ final class WorkoutSession {
     var isAwaitingBlockStart: Bool = false
     private var hasArmedInitial = false
 
+    /// The prescribed work is DONE and the session is asking whether to close or
+    /// keep going. It is not finished: nothing is saved, the clock is held, and the
+    /// athlete decides. Before this existed the last lap dropped him straight into
+    /// the summary — 28-jul: "cuando acaba el entreno, se tiene que permitir al
+    /// atleta continuar en caso que quiera, en cambio la pantalla pasa directamente
+    /// a finalizar y guardar".
+    var isAwaitingFinishDecision: Bool = false
+    /// True once the athlete chose to keep training past the prescription, so the
+    /// question is asked exactly once and the extra work is never interrupted again.
+    private var finishDecisionMade: Bool = false
+    /// The prescription is DONE and the athlete is still training. Read by the live
+    /// surfaces so they stop showing a series and a goal he has already completed —
+    /// re-offering "SERIE 1/5 · 500 m" after all five is the app inventing work.
+    private(set) var isExtraWork: Bool = false
+
     // MARK: - EMOM interval state
     // Live ONLY while the current segment is an EMOM. `emomSegmentIndex` records
     // which segment owns this state so entering / re-entering re-initialises it
@@ -301,9 +316,11 @@ final class WorkoutSession {
     private var lapErgPowerSamples: [Double] = []
     private var lapErgSpmSamples: [Double] = []
     private var lapErgStartDistance: Double? = nil
-    private var lapErgLastDistance: Double? = nil
+    /// The monitor's LATEST cumulative reading. Internal (not private) because the
+    /// tramo layer lives in its own file and anchors its window against it.
+    private(set) var lapErgLastDistance: Double? = nil
     private var lapErgStartCalories: Int? = nil
-    private var lapErgLastCalories: Int? = nil
+    private(set) var lapErgLastCalories: Int? = nil
     private var lapHadPM5: Bool = false
     // Erg detail (#33): drag / cal-per-hour / drive-force are averaged over the
     // segment; the monitor's own avg pace (last value wins) is preferred over our
@@ -318,11 +335,48 @@ final class WorkoutSession {
     /// Erg meters covered IN THIS SEGMENT'S WINDOW — the PM5's cumulative distance
     /// minus the window's start anchor (the same delta `lap()` records; the raw
     /// counter spans the whole piece, so it would lie on serie 2+). Nil until the
-    /// first PM5 sample of the segment lands. Read by the erg focus HUD.
+    /// first PM5 sample of the segment lands. This is the SAVED window: it spans
+    /// the whole segment, rests included, and is what the execution record carries.
+    /// The LIVE surfaces read the tramo window below instead.
     var lapErgDistanceMeters: Double? {
         guard let start = lapErgStartDistance, let last = lapErgLastDistance else { return nil }
         return max(0, last - start)
     }
+
+    // MARK: - Active tramo window (see LiveTramo + WorkoutSession+Tramo)
+    //
+    // The TRAMO is the window the athlete is inside right now — an EMOM round, an
+    // interval bout, a run leg, or the segment itself when no format subdivides it.
+    // These are the engine-owned accumulators that re-anchor whenever that window
+    // changes. They are deliberately SEPARATE from the `lap*` accumulators above:
+    // the lap is what gets SAVED (segment-wide, unchanged), the tramo is what the
+    // athlete SEES. Touched only by WorkoutSession+Tramo.swift — internal rather
+    // than private solely because Swift scopes `private` to a single file.
+
+    /// Identity of the tramo currently open. Empty before the first entry.
+    var tramoKey: String = ""
+    /// `lapElapsedSeconds` at the moment the tramo opened — the tramo clock's zero.
+    var tramoStartElapsed: Double = 0
+    /// The tramo clock is HELD at zero waiting for the machine to move. Only ever
+    /// true for a device-measured tramo with no time box: a 500 m bout starts when
+    /// the erg starts, not when the athlete taps.
+    var tramoClockArmed: Bool = false
+    /// PM5 cumulative distance / calories at tramo entry — the live progress bar's
+    /// zero, so serie 2 of a 5×500 starts from 0 m again instead of 1000/500.
+    var tramoErgStartDistance: Double? = nil
+    var tramoErgStartCalories: Int? = nil
+    /// How long the tramo that just closed lasted — the number the rest screen
+    /// shows so "tiempo" stops counting the moment the work stops.
+    var lastTramoElapsedSeconds: Double? = nil
+    /// Highest HR seen inside the tramo that just closed. The rest screen turns it
+    /// into real recovery information ("162 → 138"); nil when no HR was streaming.
+    var tramoHRPeak: Int? = nil
+    var lastTramoHRPeak: Int? = nil
+    /// The WORK of this window has ended and its rest is running. Separate from the
+    /// tramo key because a rest belongs to the round that just finished: the clock
+    /// must freeze, but the metres the athlete just covered are still this round's
+    /// and must stay on screen.
+    var tramoRestLatched: Bool = false
 
     // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
     // aggregates (HR / zone / distance / calories) are merged back in when the
@@ -702,7 +756,7 @@ final class WorkoutSession {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
         } else {
-            finish()
+            finishPrescribedWork()
         }
     }
 
@@ -721,7 +775,7 @@ final class WorkoutSession {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
         } else {
-            finish()
+            finishPrescribedWork()
         }
     }
 
@@ -780,6 +834,36 @@ final class WorkoutSession {
         enterOrArm(from: origin)
     }
 
+    /// The prescription just ran out on its own. EVERY natural-completion path goes
+    /// through here instead of straight to `finish()`, so the athlete is asked once
+    /// whether that is the end of his session — the prescribed work is already
+    /// closed into its lap either way, so answering "seguir" costs him nothing and
+    /// answering "terminar" saves exactly what it used to.
+    ///
+    /// The question is asked ONCE per session: after he chooses to keep going, the
+    /// engine never interrupts him again and he closes the session himself.
+    func finishPrescribedWork() {
+        guard !isFinished else { return }
+        guard !finishDecisionMade else { finish(); return }
+        finishDecisionMade = true
+        isAwaitingFinishDecision = true
+        Haptics.cueFinish()
+        WorkoutAudio.shared.playFinish()
+    }
+
+    /// "Seguir entrenando" — the prescribed work stays recorded exactly as it was
+    /// closed; the session simply stays open and the clock runs again. Extra work is
+    /// extra: nothing already logged is reopened or altered.
+    func continueAfterPrescribedWork() {
+        guard isAwaitingFinishDecision else { return }
+        isAwaitingFinishDecision = false
+        isExtraWork = true
+        isPaused = false
+        lastTick = Date()
+        resetTramoWindow()
+        Haptics.cueGo()
+    }
+
     /// End the session and route to the post-workout summary. `completeness` is the
     /// EARNED outcome: `.full` only when the protocol ran to its end (the default,
     /// the happy path); `.partial` when the athlete terminated early ("Terminar y
@@ -788,7 +872,8 @@ final class WorkoutSession {
     /// (ABANDONAR) does NOT come through here: it saves nothing.
     func finish(completeness: WorkoutCompleteness = .full) {
         self.completeness = completeness
-        Haptics.success()
+        isAwaitingFinishDecision = false
+        Haptics.cueFinish()
         // Capture the in-flight conditioning score before the engine is torn down
         // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when
         // the engine already closed itself via `closeConditioningAndAdvance`.
@@ -994,7 +1079,7 @@ final class WorkoutSession {
         emomPhase = .work
         emomPhaseRemaining = Double(plan.workSeconds)
         WorkoutAudio.shared.playGo()
-        Haptics.medium()
+        Haptics.cueGo()
     }
 
     // Advance to the next EMOM interval, or close the block on the last one. Reached
@@ -1006,7 +1091,7 @@ final class WorkoutSession {
         let next = emomIntervalIndex + 1
         if next >= plan.intervalCount {
             WorkoutAudio.shared.playFinish()
-            Haptics.success()
+            Haptics.cueFinish()
             closeEMOMAndAdvance()
             return
         }
@@ -1019,7 +1104,7 @@ final class WorkoutSession {
             Haptics.heavy()
         } else {
             WorkoutAudio.shared.playIntervalStart()
-            Haptics.medium()
+            Haptics.cueGo()
         }
     }
 
@@ -1043,7 +1128,7 @@ final class WorkoutSession {
         clearEMOMState()
         closeCurrentSegmentLap()
         if wasLast {
-            finish()
+            finishPrescribedWork()
         } else {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
@@ -1126,7 +1211,7 @@ final class WorkoutSession {
         condStartElapsed = lapElapsedSeconds
         startRotatingFirstPhase(seg)
         WorkoutAudio.shared.playGo()
-        Haptics.medium()
+        Haptics.cueGo()
     }
 
     private func tickConditioning(dt: Double) {
@@ -1141,10 +1226,10 @@ final class WorkoutSession {
                     condStartElapsed = lapElapsedSeconds      // GO — the format clock starts now
                     startRotatingFirstPhase(seg)
                     WorkoutAudio.shared.playGo()
-                    Haptics.medium()
+                    Haptics.cueGo()
                 } else {
                     WorkoutAudio.shared.playTick()
-                    Haptics.light()
+                    Haptics.cueTick()
                 }
             }
             return
@@ -1173,11 +1258,11 @@ final class WorkoutSession {
         let before = remaining + dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && remaining <= boundary {
             WorkoutAudio.shared.playTick()
-            Haptics.light()
+            Haptics.cueTick()
         }
         if remaining <= 0 {
             WorkoutAudio.shared.playFinish()
-            Haptics.success()
+            Haptics.cueFinish()
             closeConditioningAndAdvance()
         }
     }
@@ -1191,7 +1276,7 @@ final class WorkoutSession {
         let after = before - dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
             WorkoutAudio.shared.playTick()
-            Haptics.light()
+            Haptics.cueTick()
         }
         if after <= 0 {
             rollRotatingPhase(seg: seg, scheme: scheme)
@@ -1212,7 +1297,7 @@ final class WorkoutSession {
                 // is the cue for "next round, different movement". Under effort the
                 // two must not sound alike.
                 WorkoutAudio.shared.playWorkEnd()
-                Haptics.heavy()
+                Haptics.cueStop()
             } else {
                 advanceRotatingRound(seg: seg)
             }
@@ -1226,7 +1311,7 @@ final class WorkoutSession {
         let next = rotRoundIndex + 1
         if next >= total {
             WorkoutAudio.shared.playFinish()
-            Haptics.success()
+            Haptics.cueFinish()
             closeConditioningAndAdvance()
             return
         }
@@ -1237,7 +1322,7 @@ final class WorkoutSession {
             rotRepsByRound += Array(repeating: 0, count: total - rotRepsByRound.count)
         }
         WorkoutAudio.shared.playIntervalStart()   // work tone
-        Haptics.medium()
+        Haptics.cueGo()
     }
 
     private func advanceDeathByMinute() {
@@ -1246,7 +1331,7 @@ final class WorkoutSession {
         rotPhase = .work
         rotPhaseRemaining = Double(seg.formatWorkSeconds ?? 60)
         WorkoutAudio.shared.playIntervalStart()
-        Haptics.medium()
+        Haptics.cueGo()
     }
 
     // The bottom primary button, routed by scheme.
@@ -1272,7 +1357,7 @@ final class WorkoutSession {
         fixedRoundsDone += 1
         repsCurrentSegment = 0
         WorkoutAudio.shared.playIntervalStart()
-        Haptics.medium()
+        Haptics.cueGo()
     }
 
     /// AMRAP partial-round rep tally (+/−1).
@@ -1343,7 +1428,9 @@ final class WorkoutSession {
     func deathByFail() {
         guard isConditioningActive, !isFinished else { return }
         deathByFailed = true
-        Haptics.heavy()
+        // The block ends, but missing the minute is not a win — the STOP cue, never
+        // the finish one.
+        Haptics.cueStop()
         WorkoutAudio.shared.playFinish()
         closeConditioningAndAdvance()
     }
@@ -1382,7 +1469,7 @@ final class WorkoutSession {
         clearConditioning()
         closeCurrentSegmentLap()
         if wasLast {
-            finish()
+            finishPrescribedWork()
         } else {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
@@ -1442,7 +1529,7 @@ final class WorkoutSession {
         runCountInRemaining = 0
         markRunLegStart()
         WorkoutAudio.shared.playGo()
-        Haptics.medium()
+        Haptics.cueGo()
         #if os(iOS)
         AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
         #endif
@@ -1469,7 +1556,7 @@ final class WorkoutSession {
         let next = runLegIndex + 1
         if next >= legs.count {
             WorkoutAudio.shared.playFinish()
-            Haptics.success()
+            Haptics.cueFinish()
             closeRunStructureAndAdvance()
             return
         }
@@ -1478,10 +1565,10 @@ final class WorkoutSession {
         primeRunLeg()
         if kindChanged {
             WorkoutAudio.shared.playMovementChange()   // work↔recovery transition tone
-            Haptics.heavy()
+            Haptics.cueStop()
         } else {
             WorkoutAudio.shared.playIntervalStart()
-            Haptics.medium()
+            Haptics.cueGo()
         }
         #if os(iOS)
         AudioCoach.shared.announceRunLeg(in: self)   // voice the new tramo / recovery (#63, iOS-only)
@@ -1497,7 +1584,7 @@ final class WorkoutSession {
         clearRunStructure()
         closeCurrentSegmentLap()
         if wasLast {
-            finish()
+            finishPrescribedWork()
         } else {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
@@ -1593,13 +1680,13 @@ final class WorkoutSession {
                 if runCountInRemaining <= 0 {
                     markRunLegStart()   // GO — the leg clock + per-leg baselines start now
                     WorkoutAudio.shared.playGo()
-                    Haptics.medium()
+                    Haptics.cueGo()
                     #if os(iOS)
                     AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
                     #endif
                 } else {
                     WorkoutAudio.shared.playTick()
-                    Haptics.light()
+                    Haptics.cueTick()
                 }
             }
             return
@@ -1611,7 +1698,7 @@ final class WorkoutSession {
         let after = before - dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
             WorkoutAudio.shared.playTick()
-            Haptics.light()
+            Haptics.cueTick()
         }
         #if os(iOS)
         AudioCoach.shared.runLegTimeRemaining(after, in: self)   // once-per-leg "10 segundos" (#63, iOS-only)
@@ -1910,6 +1997,7 @@ final class WorkoutSession {
         capturedEmomPrescribed = nil
         dismissRest()
         resetErgAccumulators()
+        resetTramoWindow()
         resetSegmentManualAndGPS()
     }
 
@@ -2154,7 +2242,7 @@ final class WorkoutSession {
             currentSegmentIndex = next
             enterOrArm(from: origin)
         } else {
-            finish()
+            finishPrescribedWork()
         }
     }
 
@@ -2208,7 +2296,13 @@ final class WorkoutSession {
         peakDriveForceLbs: Double? = nil,
         avgDriveForceLbs: Double? = nil
     ) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind.isErg == true else { return }
+        // Gated on the TRAMO, not on the segment: a ski round inside an EMOM is erg
+        // work and its numbers are real, even though the segment that wraps it reads
+        // as strength/reps. That guard was why an EMOM on the erg recorded nothing.
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsErg else { return }
+        // The cursor may have moved since the last tick; anchor this sample in the
+        // window it actually belongs to before it is counted.
+        syncTramoIfNeeded()
         lapHadPM5 = true
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
         if let w = powerWatts, w > 0 { lapErgPowerSamples.append(Double(w)) }
@@ -2223,7 +2317,16 @@ final class WorkoutSession {
                 lapErgStartDistance = d
             } else if let last = lapErgLastDistance, d < last {
                 lapErgStartDistance = d - (last - (lapErgStartDistance ?? d))
+                // A monitor reset re-zeroes the TRAMO window too — otherwise the
+                // live bar would sit at a negative delta until it caught up.
+                tramoErgStartDistance = d
             }
+            // The bout's own zero, so serie 2 of a 5×500 starts at 0 m and not at
+            // the 1000 m the piece has covered so far.
+            if tramoErgStartDistance == nil { tramoErgStartDistance = d }
+            // Real work in this window: the held bout clock starts HERE, not when
+            // the athlete tapped Empezar and walked to the machine.
+            if let anchor = tramoErgStartDistance, d > anchor { releaseArmedTramoClock() }
             lapErgLastDistance = d
         }
         if let c = caloriesKcal {
@@ -2231,9 +2334,14 @@ final class WorkoutSession {
                 lapErgStartCalories = c
             } else if let last = lapErgLastCalories, c < last {
                 lapErgStartCalories = c - (last - (lapErgStartCalories ?? c))
+                tramoErgStartCalories = c
             }
+            if tramoErgStartCalories == nil { tramoErgStartCalories = c }
             lapErgLastCalories = c
         }
+        // A calorie-measured bout on a static machine can produce calories before a
+        // measurable metre: honour power as movement too.
+        if let w = powerWatts, w > 0 { releaseArmedTramoClock() }
         if let df = dragFactor, df > 0 { lapErgDragSamples.append(Double(df)) }
         if let ch = caloriesPerHour, ch > 0 { lapErgCalPerHourSamples.append(Double(ch)) }
         if let pf = peakDriveForceLbs, pf > 0 { lapErgPeakForceSamples.append(pf) }
@@ -2281,6 +2389,9 @@ final class WorkoutSession {
         // source takes over the provenance.
         liveHRBpm = bpm
         lapHRSamples.append(bpm)
+        // The tramo's own peak, so the rest screen can show a REAL drop ("162 → 138")
+        // instead of a bare current value that says nothing about recovering.
+        noteTramoHR(bpm)
         // HRR effort tail — keep the last ~12 s of readings so a test finish can
         // derive hr_end (mean of the final 10 s of effort). Pruned every reading.
         let now = Date()
@@ -2349,7 +2460,7 @@ final class WorkoutSession {
         // The block-preview gate freezes ALL clocks (elapsed, lap, EMOM count-in/
         // countdown) until the athlete taps Empezar; resetting lastTick means the
         // elapsed clock can't jump by the time spent on the preview.
-        guard !isPaused, !isFinished, !isAwaitingBlockStart else {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, !isAwaitingFinishDecision else {
             lastTick = Date()
             return
         }
@@ -2365,23 +2476,27 @@ final class WorkoutSession {
         if currentSegment?.hasRunStructure == true { tickRunStructure(dt: dt) }
         else if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
         else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
+        // AFTER the engines have moved their cursors: if the athlete crossed into a
+        // new work window, re-anchor its clock and its device counters (see
+        // WorkoutSession+Tramo). One call covers all three engines.
+        syncTramoIfNeeded()
 
         // Per-set rest countdown. The zero cue must SURVIVE a distracted athlete
-        // (Alex, mid-workout: "es fácil distraerse") — a single medium tap between
-        // sets in a loud gym is nothing. Now: a heads-up at 10 s, the 3-2-1 ticks,
-        // and an unmissable DOUBLE heavy at zero.
+        // (Alex, mid-workout: "es fácil distraerse") AND a phone lying on the floor:
+        // a heads-up at 10 s, the 3-2-1 ticks, and an unmissable double at zero, all
+        // on the workout cue vocabulary rather than the UI-tap one.
         if restRemainingSeconds > 0 {
             let before = restRemainingSeconds
             let after = before - dt
-            if before > 10.0 && after <= 10.0 { Haptics.medium() } // prepárate
+            if before > 10.0 && after <= 10.0 { Haptics.cueStop() } // prepárate
             for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-                Haptics.light()
+                Haptics.cueTick()
             }
             if after <= 0 {
                 restRemainingSeconds = 0
                 restTotalSeconds = 0
-                Haptics.heavy()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.heavy() }
+                Haptics.cueGo()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.cueGo() }
             } else {
                 restRemainingSeconds = after
             }
@@ -2412,10 +2527,10 @@ final class WorkoutSession {
                     emomPhase = .work
                     emomPhaseRemaining = Double(plan.workSeconds)
                     WorkoutAudio.shared.playGo()
-                    Haptics.medium()
+                    Haptics.cueGo()
                 } else {
                     WorkoutAudio.shared.playTick()
-                    Haptics.light()
+                    Haptics.cueTick()
                 }
             }
             return
@@ -2429,7 +2544,7 @@ final class WorkoutSession {
         let after = before - dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
             WorkoutAudio.shared.playTick()
-            Haptics.light()
+            Haptics.cueTick()
         }
         if after <= 0 {
             rollEMOMPhase(plan)
@@ -2450,7 +2565,7 @@ final class WorkoutSession {
             emomPhase = .rest
             emomPhaseRemaining = Double(plan.restSeconds)
             WorkoutAudio.shared.playWorkEnd()
-            Haptics.heavy()
+            Haptics.cueStop()
             return
         }
         advanceEMOMInterval()   // beep + roll (or close on the last one)

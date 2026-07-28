@@ -303,6 +303,12 @@ targets:
       # (it leans on the iOS-only Theme/Haptics layer).
       - path: FAHYBRIK/Workout/RunEnvironment.swift
       - path: FAHYBRIK/Workout/WorkoutSession.swift
+      # The TRAMO layer — the active work window (EMOM round / interval bout / run
+      # leg) that owns the live clock, the device window and the progress goal.
+      # WorkoutSession's tick and erg sampling call into it, so both files must
+      # compile into the watch alongside the engine. Pure Foundation.
+      - path: FAHYBRIK/Workout/LiveTramo.swift
+      - path: FAHYBRIK/Workout/WorkoutSession+Tramo.swift
       # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
       # delegates here so it rounds like the iPhone (mirror countdown parity).
       - path: FAHYBRIK/Workout/CountdownFormat.swift
