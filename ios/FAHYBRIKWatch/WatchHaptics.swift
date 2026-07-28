@@ -16,4 +16,12 @@ enum Haptics {
     static func heavy()   { play(.stop) }
     static func success() { play(.success) }
     static func error()   { play(.failure) }
+
+    // Workout cues — the shared engine's floor-readable vocabulary. On the wrist
+    // the device is already against the skin, so each maps to the WatchKit type
+    // that carries the same MEANING rather than to a synthesised pattern.
+    static func cueTick()   { play(.click) }
+    static func cueGo()     { play(.start) }
+    static func cueStop()   { play(.stop) }
+    static func cueFinish() { play(.success) }
 }
