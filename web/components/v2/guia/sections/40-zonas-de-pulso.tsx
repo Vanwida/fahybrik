@@ -346,8 +346,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="bad" title="El máximo no es un ancla de entrenamiento">
         <ul>
           <li>
-            <span className="k">Casi nadie lo ha medido.</span> Hoy, en la base de datos, <b>ningún</b>{' '}
-            atleta tiene una FC máxima medida — y llevarla a un máximo real duele y no entrena nada.
+            <span className="k">Casi nadie la ha medido.</span> Llegar a la máxima de verdad exige un
+            esfuerzo maximal que duele y no entrena nada — por eso la inmensa mayoría de las fichas la
+            tienen vacía.
           </li>
           <li>
             <span className="k">Estimarlo por la edad y luego sacar un porcentaje</span> es apilar dos
@@ -425,7 +426,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           title="Su umbral medido, del test"
           detail={
             <>
-              El <b>test de umbral de 30 minutos</b> (la FC media de los últimos 20). Es el único ancla
+              El <b>test de umbral de 30 minutos</b> (la FC media de los últimos 20). Es la única ancla
               que no es una estimación, así que gana siempre que exista. Se guarda como marca del atleta
               y desde ese momento todas sus zonas son <b>reales</b>.
             </>
@@ -620,8 +621,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <b>sus</b> zonas, calculadas con su propia estimación de FC máxima.
         </li>
         <li>
-          Tu <b>tiempo por zona</b> llega con el umbral usado, si era estimado y de dónde salió. Puedes
-          leer un 18 % en Z4 sabiendo <b>sobre qué</b> está calculado.
+          El <b>tiempo por zona</b> que se calcula para tu ficha <b>viaja con su ancla</b>: el umbral
+          usado, si era estimado y de dónde salió. Un «18 % en Z4» nunca queda suelto del número contra
+          el que se midió.
         </li>
       </ul>
 
