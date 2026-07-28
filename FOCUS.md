@@ -15,6 +15,25 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## PENDIENTE de diseño · el Apple Watch, bloque propio (28-jul)
+
+Alex: «el Apple Watch de momento tenemos que mejorar mucho, NO lo programes
+ahora, pero la UI es muy pobre, muy pequeña, debemos trabajarla muchísimo».
+**No tocar todavía.** Va después de las pantallas del móvil, como bloque
+aparte, porque es otro problema de diseño: 40 mm a distancia de brazo, en
+movimiento y sudando — ahí el sujeto es casi lo único que cabe y el resto
+debería ser una segunda página, no letra pequeña alrededor.
+
+Hallazgo al mirarlo (no perderlo): **avanzar de ronda desde la muñeca YA
+funciona.** El canal de vuelta existe (`PhoneMirrorService.applyCommand`,
+`MirrorWire.CommandKind.advance`) y está bien enrutado, incluido el relevo
+de dobles (no apunta el trabajo de la pareja al atleta). El principio de
+`LiveFlowView` también es el correcto: un botón grande que avanza todo,
+cero navegación durante el esfuerzo. Lo que falta es la ejecución visual,
+no la capacidad.
+
+---
+
 ## DEUDA VIVA · queda UNA entrada de DECISIONS.md por subir
 
 La sesión del doble ya commiteó y, al hacerlo, **repuso las dos entradas
