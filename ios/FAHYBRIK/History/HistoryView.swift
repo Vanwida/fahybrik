@@ -12,12 +12,21 @@ struct HistoryView: View {
     @State private var month: AthleteHistoryMonth? = nil
     @State private var loading = true
     @State private var executedTarget: WorkoutLaunch? = nil
+    /// The day (YYYY-MM-DD) the athlete tapped when it held SEVERAL sessions —
+    /// the list below narrows to it so they choose, instead of the calendar
+    /// picking one for them. Nil = showing the whole month.
+    @State private var selectedDay: String? = nil
 
     // Derived (pure)
     private var grid: [CalendarGridCell] { HistoryCalendar.grid(viewed) }
     private var states: [Int: CalendarDayState] { HistoryCalendar.dayStates(month?.days ?? [], in: viewed) }
     private var todayDay: Int? { HistoryCalendar.todayDay(in: viewed) }
-    private var rows: [HistoryListRow] { month.map(HistoryListRow.rows) ?? [] }
+    private var allRows: [HistoryListRow] { month.map(HistoryListRow.rows) ?? [] }
+    /// What the list actually renders: the focused day alone, or the whole month.
+    private var rows: [HistoryListRow] {
+        guard let selectedDay else { return allRows }
+        return allRows.filter { $0.date == selectedDay }
+    }
     private var canForward: Bool { HistoryCalendar.canGoForward(from: viewed) }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
@@ -40,6 +49,9 @@ struct HistoryView: View {
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .task(id: viewed) {
+            // A focus belongs to the month it was set in — carrying it across
+            // navigation would filter the new month down to nothing.
+            selectedDay = nil
             loading = true
             month = await HistoryService.fetch(month: viewed, bearer: bearer)
             loading = false
@@ -142,16 +154,21 @@ struct HistoryView: View {
         case .day(let n):
             let state = states[n] ?? .empty
             let isToday = todayDay == n
+            let isFocused = selectedDay == isoDate(n)
             Button(action: { openDay(n) }) {
                 VStack(spacing: 3) {
                     Text("\(n)")
-                        .font(.system(size: 13, weight: isToday ? .heavy : .medium).monospacedDigit())
+                        .font(.system(size: 13, weight: isToday || isFocused ? .heavy : .medium).monospacedDigit())
                         .foregroundStyle(isToday ? Theme.Color.accentText : Theme.Color.foreground)
                     indicator(for: state)
                         .frame(height: 12)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isFocused ? Theme.Color.surfaceElevated : .clear)
+                )
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(isToday ? Theme.Color.accentText.opacity(0.7) : .clear, lineWidth: 1)
@@ -161,6 +178,7 @@ struct HistoryView: View {
             .buttonStyle(.plain)
             .disabled(!isTappable(state))
             .accessibilityLabel(cellAccessibility(n, state, isToday))
+            .accessibilityAddTraits(isFocused ? .isSelected : [])
         }
     }
 
@@ -189,13 +207,34 @@ struct HistoryView: View {
         return false
     }
 
-    // Open the FIRST session of the tapped day (a two-a-day still lists both below).
+    // Tap a day → open WHAT THE ATHLETE MEANT.
+    //
+    // This used to open `day.sessions.first` unconditionally. On any day with
+    // more than one session that silently opened a DIFFERENT workout than the
+    // one being asked for — and since the detail screen is the same for all of
+    // them, nothing on screen said so. It reads as the app lying about a
+    // session: you tap the day you ran 1 km at RPE 9 and you get the Ski-Erg
+    // logged at 7. One session → open it. Several → never guess: focus the day
+    // in the list below so the athlete picks the one they mean.
+    /// "YYYY-MM-DD" for a day of the viewed month — the key the payload uses.
+    private func isoDate(_ n: Int) -> String {
+        String(format: "%04d-%02d-%02d", viewed.year, viewed.month, n)
+    }
+
     private func openDay(_ n: Int) {
-        let iso = String(format: "%04d-%02d-%02d", viewed.year, viewed.month, n)
+        let iso = isoDate(n)
         guard let day = month?.days.first(where: { $0.date == iso }),
-              let session = day.sessions.first else { return }
+              !day.sessions.isEmpty else { return }
         Haptics.light()
-        executedTarget = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        if day.sessions.count == 1, let only = day.sessions.first {
+            executedTarget = WorkoutLaunch(assignmentId: only.assignmentId, title: only.title)
+            return
+        }
+        // Tapping the focused day again clears the focus (a toggle, so the
+        // athlete is never stuck inside one day with no way back to the month).
+        withAnimation(.easeInOut(duration: 0.15)) {
+            selectedDay = (selectedDay == iso) ? nil : iso
+        }
     }
 
     // MARK: - Legend
@@ -247,12 +286,47 @@ struct HistoryView: View {
             .padding(.top, Theme.Spacing.l)
         } else {
             VStack(spacing: 0) {
+                if selectedDay != nil { focusedDayHeader }
                 ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
                     if idx > 0 { Divider().overlay(Theme.Color.hairline) }
                     listRow(row)
                 }
             }
         }
+    }
+
+    /// Shown when a multi-session day is focused: says WHICH day is on screen and
+    /// gives one obvious way back to the full month. Without it the filtered list
+    /// would look like a month that lost most of its sessions.
+    @ViewBuilder
+    private var focusedDayHeader: some View {
+        if let selectedDay {
+            HStack(spacing: 8) {
+                LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 10)
+                Spacer(minLength: 0)
+                Button(action: {
+                    Haptics.light()
+                    withAnimation(.easeInOut(duration: 0.15)) { self.selectedDay = nil }
+                }) {
+                    Text("Ver el mes")
+                        .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ver todo el mes")
+            }
+            .padding(.vertical, Theme.Spacing.s)
+        }
+    }
+
+    /// "MIÉ 28 JUL · 4 SESIONES" — the focused day and how many it holds.
+    private func focusedDayLabel(_ iso: String) -> String {
+        let count = rows.count
+        let unit = count == 1 ? "sesión" : "sesiones"
+        guard let p = HistoryCalendar.parseISO(iso) else { return "\(count) \(unit)" }
+        let dow = HistoryCalendar.dowAbbrev(iso)
+        let mon = HistoryCalendar.monthAbbrevEs[max(0, min(11, p.month - 1))]
+        return "\(dow) \(p.day) \(mon) · \(count) \(unit)"
     }
 
     private func listRow(_ row: HistoryListRow) -> some View {
