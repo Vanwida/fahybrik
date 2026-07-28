@@ -76,6 +76,13 @@ export type AssignmentStatus = z.infer<typeof assignmentStatus>;
 // 'treadmill' and 'gps' (mig 0143) are not accounts or brands: they are the
 // local apparatus the live engine reads (FTMS treadmill, phone GPS), and
 // `workout_executions.contributing_sources` has to be able to name them.
+//
+// 'suunto' and 'amazfit' (mig 0135) sat in the DB for weeks WITHOUT being here,
+// so both Zod copies rejected a value Postgres accepts. Nothing broke only
+// because no ingestor emits them yet — but their absence also silently shifted
+// every later value's position, which is exactly the invariant the first
+// paragraph depends on. Verified against production: the enum is these thirteen,
+// in this order.
 export const biometricSource = z.enum([
   'healthkit',
   'garmin',
@@ -86,6 +93,8 @@ export const biometricSource = z.enum([
   'polar',
   'coros',
   'wahoo',
+  'suunto',
+  'amazfit',
   'treadmill',
   'gps',
 ]);
