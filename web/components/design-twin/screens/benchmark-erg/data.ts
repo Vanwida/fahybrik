@@ -43,8 +43,8 @@ export const PM5 = {
   dragFactor: 118,
 } as const;
 
-/** FCmáx del atleta de ejemplo (29 años → estimación 220 − edad). */
-export const FC_MAX = 191;
+/** Umbral (LTHR) del atleta de ejemplo — de él salen las zonas, como en la app. */
+export const UMBRAL_BPM = 168;
 
 /** Tiempos del guion, en ms. Uno solo por cosa para poder afinarlos de un vistazo. */
 export const TIEMPOS = {

@@ -8,8 +8,8 @@
 
 import { hrZone } from '../../sim';
 
-/** FCmáx del atleta de ejemplo — de ella salen las zonas (HRZoneClassifier). */
-export const HR_MAX = 190;
+/** Umbral (LTHR) del atleta de ejemplo — de él salen las zonas, como en la app. */
+export const UMBRAL_BPM = 168;
 
 // ---------------------------------------------------------------------------
 // Guion 1 · «Carrera continua»
@@ -80,13 +80,13 @@ export function estadoCarrera(t: number, objetivo: number): EstadoCarrera {
   let segundosEnObjetivo = 0;
   for (let s = 0; s < t; s++) {
     metros += speedAt(s);
-    if (hrZone(bpmAt(s), HR_MAX) === objetivo) segundosEnObjetivo++;
+    if (hrZone(bpmAt(s), UMBRAL_BPM) === objetivo) segundosEnObjetivo++;
   }
   const bpm = Math.round(bpmAt(t));
   const distanciaM = t >= GPS_FIX_S ? metros : null;
   return {
     bpm,
-    zona: hrZone(bpm, HR_MAX),
+    zona: hrZone(bpm, UMBRAL_BPM),
     distanciaM,
     ritmoSecKm: distanciaM && distanciaM > 0 ? Math.round(t / (distanciaM / 1000)) : null,
     pctEnZona: t > 0 ? Math.round((segundosEnObjetivo / t) * 100) : null,

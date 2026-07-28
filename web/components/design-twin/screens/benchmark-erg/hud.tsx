@@ -23,7 +23,7 @@ import {
   SP,
 } from './ui';
 import {
-  FC_MAX,
+  UMBRAL_BPM,
   MARCA,
   SEGUNDO_FINAL,
   TIEMPOS,
@@ -117,7 +117,7 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
   const cal = vivo ? `${caloriasEn(ts)}` : '—';
   const calH = vivo ? `${calPorHoraDesdeVatios(vatiosDesdeRitmo(ritmo))}` : '—';
   const pulso = enPieza ? 118 + Math.round(60 * Math.min(1, ts / 95) ** 0.75) : null;
-  const zona = pulso ? hrZone(pulso, FC_MAX) : null;
+  const zona = pulso ? hrZone(pulso, UMBRAL_BPM) : null;
   const proyeccion =
     vivo && metros > 0 && metros < MARCA.distanciaM
       ? fmtElapsed(ts + (MARCA.distanciaM - metros) * (ritmo / 500))

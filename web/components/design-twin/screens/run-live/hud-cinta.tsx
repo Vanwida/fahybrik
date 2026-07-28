@@ -31,7 +31,7 @@ import {
   CINTA_VELOCIDAD_APRETADA_KMH,
   CINTA_VELOCIDAD_KMH,
   CUENTA_ATRAS_S,
-  FC_MAX,
+  UMBRAL_BPM,
   INCLINACION_PRESCRITA_PCT,
   OBJETIVO_SKM,
   SEGMENTO_TITULO,
@@ -118,7 +118,7 @@ export function HUDCinta({
   const ritmo = corriendo && conDatos && velocidadKmh > 0 && !enRecuperacion ? ritmoDesdeKmh(velocidadKmh) : null;
   const estadoObj = enRecuperacion ? 'sin-juicio' : estadoRitmo(ritmo);
   const bpm = corriendo && conDatos ? pulsoEn(estado.legS + estado.idx * 60) : null;
-  const zona = bpm ? hrZone(bpm, FC_MAX) : null;
+  const zona = bpm ? hrZone(bpm, UMBRAL_BPM) : null;
   const cue = palabraEstadoCinta(estadoObj);
 
   const cabecera = (
