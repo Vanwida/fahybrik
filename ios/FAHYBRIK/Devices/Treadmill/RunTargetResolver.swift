@@ -79,7 +79,8 @@ extension SegmentGoal {
     }
 }
 
-// The age-based HR-zone estimate used to live here (`EstimatedHRZone`). It's now
-// subsumed by the single shared `PersonalHRMax` (Theme/ZoneColors.swift), which
-// resolves the athlete's MEASURED max first and falls back to 220−age — so every
-// surface reads one source instead of this file's age-only estimate.
+// An age-based HR-zone estimate used to live here (`EstimatedHRZone`). There is
+// no client-side zone estimate any more, anywhere: zones are a fraction of the
+// athlete's THRESHOLD, the server resolves them, and the app paints the absolute
+// bands it is given (`HRZoneProfile`, Theme/ZoneColors.swift). No anchor → no
+// zones, rather than a band derived from a max nobody measured.

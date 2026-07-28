@@ -114,8 +114,8 @@ struct DeviceChip: View {
 // MARK: - Zone meter (5 segments)
 
 /// Five stacked segments Z1–Z5; the active zone is lit, the rest dimmed. The
-/// "genérica" qualifier shows ONLY when the zone came from the age+sex estimate
-/// (no measured max) — with the athlete's own FCmáx the zone is personal.
+/// "estimada" qualifier shows ONLY when the THRESHOLD behind the server's bands
+/// was inferred rather than measured — after a threshold test the zone is real.
 struct ZoneMeter: View {
     let zone: HRZone
     var isEstimated: Bool = true
@@ -139,14 +139,14 @@ struct ZoneMeter: View {
                     .font(.system(size: 15, weight: .heavy, design: .default).italic())
                     .foregroundStyle(zone.color)
                 if isEstimated {
-                    Text("genérica")
+                    Text("estimada")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Zona \(zone.label)" + (isEstimated ? ", genérica" : ""))
+        .accessibilityLabel("Zona \(zone.label)" + (isEstimated ? ", estimada" : ""))
     }
 }
 

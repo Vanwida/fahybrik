@@ -552,14 +552,15 @@ final class TreadmillHUDModel {
         }
     }
 
-    /// HR zone from the athlete's resolved max (measured or 220−age). Nil without a
-    /// max or HR — the HUD then hides the zone rather than inventing one.
+    /// The zone the live pulse falls in, against the server's bands. Nil without
+    /// bands or without a pulse — the HUD then hides the zone rather than
+    /// inventing one.
     var liveZone: HRZone? {
         guard let bpm = currentBpm else { return nil }
         return hrZones?.zone(forBpm: bpm)
     }
-    /// True only when the zone comes from the 220−age estimate (label "estimada");
-    /// false when it's the athlete's own measured max.
+    /// True when the THRESHOLD behind the bands was inferred rather than measured
+    /// (label "estimado"); false when it came from the athlete's own test.
     var zoneIsEstimated: Bool { hrZones?.estimated ?? false }
 
     /// Hero judgment: pace targets judge on pace, zone targets on HR zone,

@@ -18,9 +18,9 @@ struct ActiveWorkoutView: View {
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
     var partnerFirstName: String? = nil
-    /// The athlete's resolved max-HR source (measured FCmáx, else 220−age estimate,
-    /// else nil) — the SINGLE input for the HR zone in the treadmill / outdoor HUDs.
-    /// Nil → the HUD shows HR without a zone rather than inventing one.
+    /// The athlete's server-resolved HR bands — the SINGLE input for the zone in
+    /// the treadmill / outdoor HUDs. Nil → the HUD shows the pulse without a zone
+    /// rather than inventing one.
     var hrZones: HRZoneProfile? = nil
     /// #56 — athlete bearer, used to poll the training partner's live presence for the
     /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.

@@ -14,9 +14,9 @@ import WorkoutKit
 //   1. ZONES ARE RESOLVED TO ABSOLUTE BANDS. We never hand a watch "Z4": the watch
 //      would apply ITS OWN Z4, derived from a max HR that is not the one we compute.
 //      A pace zone travels as the backend-resolved s/km band (`ResolvedIntensity`,
-//      the same band the athlete already reads in the app); an HR zone travels as a
-//      bpm band derived from the athlete's OWN measured FCmáx — and NOT AT ALL when
-//      all we have is a 220−age-style estimate (see `heartRateAlert`).
+//      the same band the athlete already reads in the app); an HR zone travels as
+//      the bpm band the SERVER resolved from the athlete's threshold — and NOT AT
+//      ALL when that threshold was itself inferred (see `heartRateAlert`).
 //   2. WHAT THE WATCH CANNOT WATCH IS NOT EMITTED AS A GOAL. RPE is perception; no
 //      manufacturer target represents it. Those tramos go through as OPEN steps with
 //      the prescription preserved in the step NAME — text for the athlete, which

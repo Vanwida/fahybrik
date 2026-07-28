@@ -23,9 +23,9 @@ enum HRZone: Int, CaseIterable, Codable {
 
     // The zone COLORS below are iPhone-only: they resolve through the Theme palette,
     // which is not compiled into the watch target. The watch only ever needs the
-    // zone identity (rawValue / label) + the classifier, so the UI members are
+    // zone identity (rawValue / label) + the server's bands, so the UI members are
     // compiled out there rather than dragging the Theme layer onto the wrist.
-    // `HRZone` itself (and `HRZoneClassifier`) stay fully shared.
+    // `HRZone` itself (and `HRZoneProfile`) stay fully shared.
     #if !os(watchOS)
     // Adaptive per appearance. DARK = the original asset-catalog hexes (pinned to
     // colors_and_type.css, UNCHANGED). LIGHT = the same hue DARKENED so each zone

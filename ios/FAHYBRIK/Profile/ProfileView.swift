@@ -2037,8 +2037,9 @@ struct EditProfileView: View {
             v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
         } ?? "")
         // Seeded from the athlete's saved max HR — this editor is the ONLY entry
-        // point (starts empty for everyone until set here); empty → HR zones use
-        // the 220−age estimate.
+        // point (starts empty for everyone until set here). It is an INPUT the
+        // server may use to derive a threshold when there is no measured one; it
+        // is not itself a zone anchor. Empty and no date of birth → no zones.
         _maxHrText = State(initialValue: identity?.maxHrBpm.map(String.init) ?? "")
 
         _goalType = State(initialValue: identity?.goalType)
@@ -2085,7 +2086,7 @@ struct EditProfileView: View {
                                     .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
                             }
                         }
-                        Text("Tu FC máxima real personaliza las zonas de pulso. Si la dejas vacía, se calculan por tu edad y sexo (marcadas “genérica”). Añade tu fecha de nacimiento para que salgan.")
+                        Text("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
                             .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                             .padding(.horizontal, 4)
