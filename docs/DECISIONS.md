@@ -10,6 +10,91 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · El doble: la app vive replicada en la web, y los mockups sueltos se acaban
+
+**Decidido:** existe una réplica viva de la app del atleta dentro de la web del producto — «el doble» — en `app.fahybrid.com/<locale>/design` (grupo de rutas `(design)`, misma puerta de sesión que el dashboard, `noindex`). Es la herramienta interna de dirección de UX: cada pantalla se toca, gira (vertical/horizontal), cambia de apariencia (claro/oscuro) y SIMULA lo que en el mundo real es asíncrono — el monitor del remo que aparece al escanear, el GPS que tarda, la cuenta atrás del descanso. En el móvil, «pantalla completa» pinta el lienzo 1:1 y la orientación sigue al teléfono físico.
+
+**El contrato de sinceridad:** cada pantalla lleva sello — **espejo** (réplica de Swift shipeado, con sus ficheros fuente listados en el panel), **propuesta** (mockup de algo aún no construido) o **pendiente** (hueco reconocido, card apagada en el índice). El desfase con la app se VE en el índice, no se sospecha.
+
+**La regla de proceso desde hoy:** (1) los mockups nuevos de UX de la app NACEN como pantallas `propuesta` del doble — se acabaron los artifacts y HTML sueltos para UI de la app; (2) cuando un cambio de UX se shippea en Swift, su pantalla espejo se actualiza EN EL MISMO LOTE (y una propuesta construida pasa a espejo); (3) si Theme.swift cambia un token, `web/app/[locale]/(design)/design/twin.css` cambia en el mismo lote.
+
+**Fuente de verdad visual:** `twin.css` transcribe Theme.swift + ZoneColors.swift (ambas apariencias, paleta de modalidades, voz readout mono). El `colors_and_type.css` de mayo se quedó atrás (sin modo claro, sin modalidades, `--accent-on` blanco cuando la app usa #511900) y queda como histórico de artefactos viejos — no usarlo para nada nuevo. Tipografía del doble: pila del sistema (`-apple-system`), no Archivo — en un dispositivo Apple renderiza SF real, idéntico a la app; Archivo sigue siendo el sustituto para artefactos fuera de Apple.
+
+**Qué NO es el doble:** no es QA físico. El BLE real, las físicas de scroll y los caprichos de firmware (el PM5 con una pieza a medias de verdad) solo se prueban en el iPhone. El doble decide UX; el dispositivo decide verdad.
+
+**En consecuencia, no hacer:** no crear mockups de pantallas de la app fuera del doble; no editar `colors_and_type.css` esperando que la app lo lea (la app lee Theme.swift); no enlazar `/design` desde ninguna nav de producto ni quitarle la puerta de sesión.
+
+---
+
+## 2026-07-27 (noche) · En dobles, correr y roxzone son suyos; las estaciones NO. Y el correr es un SUELO, no una medida
+
+**Decidido:** una carrera de equipo (`doubles` / `relay`) aporta como evidencia del atleta individual **solo** su tiempo de carrera a pie (`races.run_total_seconds`, `run_splits_json`) y su roxzone (`races.roxzone_seconds`). Los splits de estación (`station_splits_json`) **no se le atribuyen jamás**. El tiempo final (`result_time_seconds`) es suyo, pero solo se enseña con el formato nombrado al lado. Todo número de correr que salga de una carrera de equipo viaja marcado `partner_bounded` y se presenta como un **suelo** («más lento no vas»), nunca como una medición. Consecuencia directa: **no se emite tendencia de correr sobre carreras de equipo**, ni con veinte carreras.
+
+**Por qué:** en dobles los dos atletas corren los ocho kilómetros y hacen juntos todas las transiciones, pero las estaciones se las reparten — así que un split de estación es de uno de los dos y no sabemos de cuál. Y como corren juntos, el ritmo lo marca el más lento de la pareja. Esto no es teoría: el atleta 72 corrió **dos dobles el mismo día** (14-may-2026), 8 km en **2137 s** con un compañero y en **3162 s** con otro. Diecisiete minutos de diferencia en la misma distancia y el mismo día. Atribuirle cualquiera de los dos como «su ritmo» habría sido mentir; quedarse con el mejor y llamarlo suelo es lo único cierto. Por lo mismo, una «evolución» a través de carreras de equipo mide con quién se apuntó, no cómo está.
+
+**No hacer:** rellenar las estaciones de un free con los splits de su carrera de dobles; usar `result_time_seconds` de dobles sin decir que es de la pareja; calcular tendencias, medias o percentiles de correr mezclando carreras individuales y de equipo.
+
+**Dónde vive:** `shared/domain/free-plan/race-evidence.ts` (puro, con las 6 carreras reales del 72 como fixture en `web/tests/free-plan/race-evidence.test.ts`).
+
+---
+
+## 2026-07-27 (noche) · La semana bloqueada del free: estructura NUESTRA, números SUYOS, y si no hay número no hay fila
+
+**Decidido:** el bloque «Cómo se arregla» de la pestaña Plan del free se construye con una estructura semanal **genérica y propia**, definida en `shared/domain/free-plan/week.ts`: cinco arquetipos (correr con calidad, fuerza, ergo, híbrido/comprometido, tirada larga) que son la anatomía de la prueba —8 km de correr, dos ergos, cinco estaciones de fuerza, todo en fatiga—. **Nunca** se leen `blocks`, `templates`, `microcycles` ni ninguna tabla de contenido del coach. Cada sesión solo aparece si se puede personalizar con datos del atleta: ritmos por Daniels (`shared/domain/running/vdot.ts`) desde su mejor marca, o desde los 8 km de su mejor HYROX, o desde el VO₂ máx del reloj; ergos por Riegel desde su marca de ski/remo; fuerza como porcentaje de su 1RM guardado. **Si un tipo de sesión no se puede personalizar, esa fila no existe** — no se rellena con un valor plausible. Con menos de **2** sesiones personalizables no se manda semana y el cliente no pinta nada.
+
+**Por qué:** la biblioteca de bloques es contenido de Pablo y es justo lo que se está vendiendo; regalarla mataría el tier de pago. Pero el esqueleto de una semana de HYROX no lo posee nadie: es la lista de cosas que la prueba te obliga a entrenar. El valor no está en el esqueleto, está en que los números sean del atleta. Y el relleno es lo único que puede hundir el bloque entero: el día que dos cuentas comparen su «semana» y vean lo mismo, se acabó la credibilidad de la pantalla que sostiene el embudo. Por eso lo difuminado son sesiones REALES desenfocadas, no texto de ejemplo.
+
+**Coeficientes declarados** (ninguno anónimo, ley 4 de `docs/race-projection-spec.html`): 5×1 km a ritmo umbral con 2:00; el híbrido lleva el volumen exacto de la prueba (4 rondas × 25 wall balls + 20 burpees = los 100 y los 80 reales) a ritmo maratón de Daniels; tirada de 60 min a ritmo fácil; ergo 6×500 al split que su marca proyecta para los 1000 de carrera; fuerza 4×6 al 75 % del 1RM (≈ RIR 2 en las tablas de repeticiones máximas), redondeado a 2,5 kg.
+
+**No hacer:** subir el suelo de 2 sesiones sin decidir qué se enseña en su lugar; añadir una sesión «de relleno» para que la semana parezca más llena; mover el castellano de la prescripción al dominio (vive en `FreePlanWeekCopy`, en el cliente, en un solo sitio).
+
+---
+
+## 2026-07-27 · Un EMOM es un ciclo de TRABAJO + CAMBIO. Y un formato sin movimientos es un cronómetro válido
+
+**Decidido, dos cosas que se sostienen la una a la otra.**
+
+### 1. EMOM e INTERVAL son la misma forma, no dos tipos
+
+Un ciclo es **trabajo + transición**, repetido N veces. Lo único que cambia es si la transición es explícita:
+
+- **EMOM llano («al minuto»)** → `work_s` 60, sin `rest_s`. El ciclo es 60 y el descanso es lo que te sobre dentro del minuto. Nada avisa de cuándo parar, porque no hay un "parar" definido.
+- **Interval de box (Rogue)** → `work_s` 45, `rest_s` 15. El ciclo sigue siendo 60, pero ahora hay un final del trabajo, y el reloj **tiene que avisarlo**.
+- **Tabata** → `work_s` 20, `rest_s` 10, `rounds` 8. La misma estructura con otros números: es un **preajuste**, no un formato aparte.
+
+Esto no se inventó aquí: es la forma que el servidor ya tenía en `shared/domain/prescription/types.ts` (`work_s` = "emom/interval/tabata work window", `rest_s` = "round/interval/tabata rest"), la que usa `block-helpers.ts` para estimar duración (`(work_s + rest_s) * rounds`, para todos los esquemas incluido emom), y la que el editor legacy ya rotulaba «Trabajo (s)» / «Descanso (s)». **iOS era el que iba por libre**, leyendo `work_s` como "la cadencia" y descartando `rest_s`.
+
+`EmomPlan` adopta la forma del servidor: `workSeconds` + `restSeconds`, y `intervalSeconds` pasa a ser el ciclo (su suma).
+
+**Por qué era seguro cambiarlo:** verificado contra producción — CERO filas `emom` con `rest_s` en `template_segments`, `block_exercises` o `segment_executions`. Las únicas dos que existen son `work_s: 60, rounds: 10` sin `rest_s`, así que `60 + 0 = 60` y el ciclo no se mueve ni un segundo. Tampoco existe ninguna fila `tabata`, así que el preajuste no tiene legado que respetar. Donde SÍ vive dato real de trabajo+descanso es en el esquema legacy `interval` (41 filas, 22 con ambos), y ahí ya significaba trabajo+descanso.
+
+**Tabata se guarda como `emom`**, no como `tabata`, y tiene que ser así: `FUNCTIONAL_SCHEMES` del contrato de entreno libre acepta `for_time`, `amrap`, `emom` y `rounds` — no `tabata`. Como la estructura es idéntica, no se pierde nada: 20/10 × 8 en `work_s`/`rest_s`/`rounds` ES un Tabata.
+
+**En consecuencia, no hacer:** no crear un tipo paralelo para los intervalos, ni un esquema `interval` nuevo en iOS. Y no volver a leer `work_s` como "cada cuánto": es la ventana de trabajo, y el "cada cuánto" se deriva sumándole la transición.
+
+### 2. Los movimientos son opcionales para arrancar. Un formato ya es un reloj
+
+Un EMOM de 10 minutos, un AMRAP de 10:00, un For Time y unas Rondas son estructuras **completas y sin ambigüedad por sí solas**. Exigir el contenido antes de dejarte empezar era lo único que nos hacía más lentos que una app de cronómetro, y no compraba nada: el contenido se sabe igual de bien al terminar, y entonces el atleta no tiene prisa.
+
+Los cuatro formatos funcionales admiten arranque vacío. Lo que se declara después se mapea con la MISMA estructura que la sesión corrió, así que un WOD nombrado a posteriori es idéntico en el cable a uno nombrado antes.
+
+**Consecuencia en el HUD:** un segmento sin contenido declarado no es lo mismo que uno descrito con params escalares. `WorkoutSegment.components` no podía distinguirlos (su fallback siempre devuelve una fila), así que se añade `hasDeclaredWork` / `declaredComponents`: un cronómetro pelado no pinta una ronda fantasma de guiones.
+
+### PENDIENTE Y BLOQUEADO: el servidor NO acepta un funcional sin ítems
+
+`web/lib/athlete/free-workout-validate.ts` exige `MIN_ITEMS = 1` y responde `items_required` (422) antes de tocar la base de datos. Un 422 no es reintentable (`RequestQueue.isRetriable` solo reintenta ≥500), así que el cliente lo descarta en silencio: **mandarlo igual le enseñaría al atleta una sesión guardada que nunca existió.** Por eso, de momento, si no declara nada NO se envía nada y el copy lo dice en claro.
+
+Auditado qué haría falta para admitirlo, porque la decisión es de Alex, no mía:
+
+- **Nada se rompe técnicamente.** `record-workout-execution.ts` no cuenta segmentos para nada (el estado sale de `completeness`, que lo declara el cliente), `segments` ya es opcional sin mínimo, y no hay CHECK ni trigger que exija segmentos. Las plantillas de 0 segmentos ya existen y están contempladas: `assignment-detail.ts` las colapsa a `workout: null` a propósito, con test.
+- **Sería la primera asignación con plantilla sin segmentos.** Todos los caminos del coach evitan crearla (`instantiate-program.ts` devuelve null sin ejercicios).
+- **Tres sitios informarían mal, y habría que tocarlos en el mismo movimiento:** (a) `week-plan.ts` mandaría el *formato* en el campo `modality`, dejando el punto del día sin color y la duración a null; (b) el cajón del coach diría «Este entreno no tiene plantilla asociada», que es falso — sí la tiene; (c) los INNER JOIN de `deep-dive-performance.ts` y `athlete-deep-dive.ts` excluirían la sesión de las analíticas por ejercicio (defendible: no hay ejercicio).
+- **Cambio mínimo:** `MIN_ITEMS` y su rama en `free-workout-validate.ts`, más los dos tests que hoy afirman lo contrario (`free-workout-validate.test.ts:95`, `free-workout-route.test.ts:126`). Nada de base de datos, nada de migración.
+
+**En consecuencia, no hacer:** no colar un movimiento fantasma para que pase la validación, y no mandar un payload que sabemos que el servidor rechaza.
+
+---
+
 ## 2026-07-27 · Un benchmark solo tiene un objetivo: tu propio récord. Sin récord, NINGUNO
 
 **Decidido:** un benchmark («Probarme») es un esfuerzo a tope, no una prescripción de intensidad. Nadie le dice al atleta a qué ritmo ir: va a lo que pueda y manda el cronómetro. Por tanto:
@@ -37,6 +122,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **Se descarta:** pintar el tiempo proyectado con el motor de `goal-gap` actual. Con una carrera reciente devuelve exactamente el tiempo de esa carrera y con huecos los rellena a valor del objetivo — es decir, le diría a un principiante que va justo a su meta.
 
 **En consecuencia, no hacer:** no hardcodear el nombre del coach en el cierre (viene de `coach_name` del payload; para un atleta free es null y la tarjeta queda genérica), y no meter en esta pantalla ningún número que no venga de un endpoint de atleta ya existente — si el dato no está expuesto, se reporta, no se inventa el endpoint.
+
+> **SUPERADO EN PARTE el 27-jul por la noche** (ver las dos entradas de arriba). La **semana bloqueada YA está construida**, pero no como la describía el mockup: no sale de una proyección ni de un cohorte por división, sino de los ritmos que da el VDOT sobre la evidencia real del atleta, y solo pinta las filas que puede personalizar. Siguen fuera, y por las razones originales, **el tiempo proyectado** y **el diagnóstico por estación contra su división**. El «punto de extensión» de la tarjeta de carrera lo ocupa ahora la comparación objetivo-vs-realidad; la proyección, cuando llegue, entra ahí al lado.
 ## 2026-07-27 · Las marcas alimentan la predicción, y ningún hueco se rellena con el objetivo
 
 **Decidido:** cuatro cambios en el motor de proyección, todos en `shared/domain` (puro, sin I/O), más el cable que faltaba en el cargador.

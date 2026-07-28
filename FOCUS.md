@@ -15,15 +15,41 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
-## DEUDA VIVA · tres entradas de DECISIONS.md apartadas para desbloquear merges
+## DEUDA VIVA · queda UNA entrada de DECISIONS.md por subir
 
-`docs/DECISIONS.md` lleva horas con trabajo sin commitear de otra sesión (el
-«doble» de diseño), y bloqueaba cada merge. Para no tocar lo suyo —regla
-dura— aparté MIS entradas de la rama y las guardé en
-`scratchpad/mi-decision-freeplan.diff` y `scratchpad/mi-decision-timer.diff`.
-**Reponerlas en cuanto esa sesión commitee.** La tercera (el reloj como
-tercera forma del entreno libre) vive solo en el mensaje de su commit y
-también debe subir al registro.
+La sesión del doble ya commiteó y, al hacerlo, **repuso las dos entradas
+apartadas** (dobles/race-evidence, semana bloqueada del free) **y la del
+EMOM/interval** desde los diffs del scratchpad. Queda pendiente la que nunca
+tuvo diff: **el reloj como tercera forma del entreno libre**, que vive solo en
+el mensaje de su commit y debe subir al registro cuando su sesión retome.
+
+---
+
+## Cerrado el 28-jul · El doble: la app entera vive replicada en la web
+
+**Desplegado en `app.fahybrid.com/es/design`** (misma puerta de sesión que el
+dashboard, `noindex`; en el móvil, «Pantalla completa» pinta el lienzo 1:1 y
+gira con el teléfono). Es la herramienta de dirección de UX que pidió Alex: se
+acabaron los mockups sueltos en artifacts y HTML.
+
+- **Marco de iPhone** (isla, barra de estado, rotación vertical/horizontal,
+  claro/oscuro) y **marco de Apple Watch**; tokens 1:1 de Theme.swift en
+  `twin.css` (el `colors_and_type.css` de mayo queda como histórico).
+- **Seis pantallas v1**: benchmark del remo completo (marca → puerta →
+  «Conecta el remo» sin escape → HUD con cara horizontal de monitor), correr
+  calle/cinta (GPS, mapa, autopausa, velocidad manual honesta), dispositivos y
+  relojes, el entreno en la muñeca (watch), marcas (biblioteca+detalle) y el
+  ranking del box como PROPUESTA (mockup aprobado, absorbido).
+- **Simulación determinista** por escenarios con cronología (el PM5 aparece al
+  escanear, el monitor sucio se resetea, el GPS tarda, la autopausa engancha).
+- **Contrato de sinceridad**: cada pantalla sellada espejo (con sus fuentes
+  Swift en el panel) / propuesta / pendiente — el índice ES el inventario.
+- **Regla de proceso** en `CLAUDE.md` + decisión en `docs/DECISIONS.md`
+  (2026-07-28): los mockups nuevos nacen como pantallas propuesta del doble; un
+  cambio de UX shipeado actualiza su espejo en el mismo lote.
+
+Pendiente natural: ir espejando las cards «pendiente» (Hoy, plan semana,
+post-entreno, fuerza/metcon, tests, chat…) a medida que se toque su UX.
 
 ---
 

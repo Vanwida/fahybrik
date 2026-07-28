@@ -1,0 +1,78 @@
+'use client';
+
+// El inventario del doble — la única lista de pantallas.
+//
+// Cada entrada es un módulo bajo ./screens/<id>/ que exporta { meta,
+// escenarios, Screen }. El sello `estado` es el contrato de sinceridad del
+// doble: «espejo» = réplica de Swift shipeado (con sus fuentes), «propuesta» =
+// mockup de lo aún no construido, y PENDIENTES enumera los huecos para que el
+// desfase se VEA en el índice en vez de sospecharse.
+
+import type { TwinEstado, TwinPendiente, TwinScreenModule } from './types';
+
+import * as benchmarkErg from './screens/benchmark-erg';
+import * as runLive from './screens/run-live';
+import * as devices from './screens/devices';
+import * as watchLive from './screens/watch-live';
+import * as marks from './screens/marks';
+import * as rankingBox from './screens/ranking-box';
+
+export const SCREENS: TwinScreenModule[] = [
+  benchmarkErg,
+  runLive,
+  devices,
+  watchLive,
+  marks,
+  rankingBox,
+];
+
+export function getScreen(id: string): TwinScreenModule | undefined {
+  return SCREENS.find((s) => s.meta.id === id);
+}
+
+export const ESTADO_LABEL: Record<TwinEstado, string> = {
+  espejo: 'Espejo de la app',
+  propuesta: 'Propuesta',
+  pendiente: 'Pendiente',
+};
+
+/** Pantallas de la app que aún NO tienen doble — el hueco reconocido. */
+export const PENDIENTES: TwinPendiente[] = [
+  { titulo: 'Hoy', zona: 'Plan y hoy', descripcion: 'La portada diaria: readiness, sesión del día, avisos.' },
+  { titulo: 'Plan de la semana', zona: 'Plan y hoy', descripcion: 'Microciclo con puntos de modalidad y carga.' },
+  { titulo: 'Detalle de sesión', zona: 'Plan y hoy', descripcion: 'La ficha previa: bloques, dosis, el porqué del coach.' },
+  { titulo: 'Resumen post-entreno', zona: 'Entreno en vivo', descripcion: 'Desglose al acabar: laps, zonas, RPE, guardar.' },
+  { titulo: 'HUD de fuerza y metcon', zona: 'Entreno en vivo', descripcion: 'Series, cargas y descansos en vivo (EMOM/AMRAP).' },
+  { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'Montar un libre: modalidad, medida, objetivo.' },
+  { titulo: 'Tests guiados', zona: 'Marcas y tests', descripcion: 'La batería de calibración con instrucciones paso a paso.' },
+  { titulo: 'Chat con el coach', zona: 'Perfil y ajustes', descripcion: 'Hilo, adjuntos y previsualización.' },
+  { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'Alta del atleta: datos, dispositivos, permisos.' },
+  { titulo: 'Dobles en vivo', zona: 'Entreno en vivo', descripcion: 'El relevo con Ana/Marcos: turnos y colores de pareja.' },
+];
+
+/** Mockups históricos (pre-doble) — enlaces de consulta, congelados. */
+export interface ArchivoItem {
+  titulo: string;
+  url?: string;
+  nota?: string;
+  fecha: string; // YYYY-MM-DD
+}
+
+export const ARCHIVO: ArchivoItem[] = [
+  { titulo: 'Marcas — tu posición en el box', url: 'https://claude.ai/code/artifact/95578d56-164f-4f63-b784-bc95d7d7e56e', fecha: '2026-07-27', nota: 'Ya absorbido: pantalla «Ranking del box» (propuesta).' },
+  { titulo: 'El Hoy: el fondo', url: 'https://claude.ai/code/artifact/b99f054a-91e9-4704-b6ea-5bc9a04a424d', fecha: '2026-07-27' },
+  { titulo: 'Relojes — el entreno en la muñeca', url: 'https://claude.ai/code/artifact/37d6126f-d556-4115-8b3b-bf400ed0a32a', fecha: '2026-07-26' },
+  { titulo: 'Las apps de reloj', url: 'https://claude.ai/code/artifact/962e666a-6668-4d04-8927-394b889fe605', fecha: '2026-07-26' },
+  { titulo: 'Pantalla de conexiones', url: 'https://claude.ai/code/artifact/1e4f50fa-de18-405c-8e0d-801384a74d0f', fecha: '2026-07-26' },
+  { titulo: 'Remo / erg — HUD horizontal', url: 'https://claude.ai/code/artifact/5ba73eea-ee45-4666-824b-a16ad49363ac', fecha: '2026-07-19' },
+  { titulo: 'Control de cinta', url: 'https://claude.ai/code/artifact/c485282c-a13a-4745-b2c9-8cc5041501f3', fecha: '2026-07-19' },
+  { titulo: 'Flujo de carrera — ¿dónde corres?', url: 'https://claude.ai/code/artifact/2c678acd-3d33-4058-ad09-00c3e6adb1d0', fecha: '2026-07-19' },
+  { titulo: '3 pantallas de control del atleta', url: 'https://claude.ai/code/artifact/f406dad1-ea6b-42d9-844b-028533bac5c8', fecha: '2026-07-21' },
+  { titulo: 'Tests guiados + benchmarks', url: 'https://claude.ai/code/artifact/a2c86419-5165-487a-a202-7d2b77cf0561', fecha: '2026-07-16' },
+  { titulo: 'Biblioteca — 4 niveles', url: 'https://claude.ai/code/artifact/a1e3827c-d791-4c5d-80e5-73ae76ff7b3a', fecha: '2026-07-16' },
+  { titulo: 'Nav móvil del dashboard', url: 'https://claude.ai/code/artifact/74587566-a943-4fdd-bcc3-8f5b5a0848c8', fecha: '2026-07-16' },
+  { titulo: 'Dobles en vivo + historial', url: 'https://claude.ai/code/artifact/5b5fca80-ada3-435a-8275-11cc55244a0c', fecha: '2026-07-12' },
+  { titulo: 'Wearables — estado y acciones de hoy', url: 'https://claude.ai/code/artifact/ea89aeaf-e237-4f57-9444-4ebdcef09827', fecha: '2026-07-14' },
+  { titulo: 'Ola 2 running: post-entreno, outdoor, reloj', url: 'https://claude.ai/code/artifact/698ada95-95cd-4bdb-855d-4683fbc0c625', fecha: '2026-07-12' },
+  { titulo: 'Mockups HTML del repo', nota: 'docs/design/*.html — quedan como histórico; lo nuevo entra aquí.', fecha: '2026-07-27' },
+];

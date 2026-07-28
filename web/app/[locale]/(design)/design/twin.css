@@ -1,0 +1,277 @@
+/* ==========================================================================
+   El doble — tokens 1:1 de la app iOS.
+   FUENTE DE VERDAD: ios/FAHYBRIK/Theme/Theme.swift + Theme/ZoneColors.swift
+   (NO el colors_and_type.css de mayo, que se quedó sin modo claro, sin paleta
+   de modalidades y sin la voz readout). Si Theme.swift cambia un hex, este
+   fichero cambia en el MISMO lote — es la regla del doble.
+
+   Todo vive bajo .twin-root[data-appearance="dark"|"light"], así el estudio
+   que rodea al marco jamás contamina el lienzo ni al producto.
+
+   Tipografía: pila del SISTEMA (-apple-system) a propósito — en el iPhone/Mac
+   de Alex renderiza SF Pro real, idéntico a la app. Archivo/Geist son los
+   sustitutos para artefactos fuera de Apple; aquí la fidelidad manda.
+   ========================================================================== */
+
+.twin-root {
+  /* ----- familias ----- */
+  --twin-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+  --twin-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ----- sombras (Theme.Shadow: radius=blur, y=offset) ----- */
+  --twin-shadow-card: 0 10px 18px var(--twin-shadow-ink-card);
+  --twin-shadow-card-tight: 0 5px 10px var(--twin-shadow-ink-tight);
+  --twin-shadow-hero: 0 16px 28px var(--twin-shadow-ink-hero);
+
+  /* Safe areas: los fija DeviceFrame según orientación/dispositivo. */
+  --twin-safe-top: 0px;
+  --twin-safe-bottom: 0px;
+  --twin-safe-left: 0px;
+  --twin-safe-right: 0px;
+
+  font-family: var(--twin-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--twin-fg);
+  background: var(--twin-bg);
+}
+
+/* ----- OSCURO: el panel de instrumento original (Theme.swift, lado dark) ----- */
+.twin-root[data-appearance='dark'] {
+  --twin-bg: #0b0b0c;
+  --twin-surface: #141416;
+  --twin-surface-elevated: #1c1c1f;
+  --twin-surface-sunken: #080809;
+
+  --twin-fg: #f5f3f0;
+  --twin-muted: #9a938b;
+  --twin-faint: #6b6258;
+
+  --twin-hairline: rgba(255, 255, 255, 0.07);
+  --twin-hairline-strong: rgba(255, 255, 255, 0.12);
+  --twin-outline: rgba(255, 255, 255, 0.1);
+  --twin-scrim: rgba(0, 0, 0, 0.55);
+
+  --twin-accent: #f06a2a;
+  --twin-accent-press: #d85a20;
+  --twin-accent-on: #511900;
+  --twin-accent-text: #f06a2a;
+
+  --twin-ok: #3fc773;
+  --twin-warning: #f2a52e;
+  --twin-danger: #f23f3f;
+  --twin-info: #4d9eeb;
+  --twin-neutral: #a1a1a1;
+
+  --twin-modality-strength: #b49bee;
+  --twin-modality-functional: #4fd08a;
+  --twin-modality-hyrox: #ee7acf;
+  --twin-modality-support: #3bd0be;
+
+  /* Zonas FC (ZoneColors.swift, lado dark = asset catalog) */
+  --twin-z1: #c7c7c7;
+  --twin-z2: #4d9eeb;
+  --twin-z3: #4dc773;
+  --twin-z4: #f2b833;
+  --twin-z5: #eb4d4d;
+
+  --twin-shadow-ink-card: rgba(0, 0, 0, 0.45);
+  --twin-shadow-ink-tight: rgba(0, 0, 0, 0.35);
+  --twin-shadow-ink-hero: rgba(0, 0, 0, 0.55);
+}
+
+/* ----- CLARO: el set «Cool Clean» (Theme.swift, lado light) ----- */
+.twin-root[data-appearance='light'] {
+  --twin-bg: #ffffff;
+  --twin-surface: #f6f7f9;
+  --twin-surface-elevated: #ffffff;
+  --twin-surface-sunken: #eceef1;
+
+  --twin-fg: #0f1217;
+  --twin-muted: #474d55;
+  --twin-faint: #79808a;
+
+  --twin-hairline: rgba(0, 0, 0, 0.07);
+  --twin-hairline-strong: rgba(0, 0, 0, 0.12);
+  --twin-outline: rgba(0, 0, 0, 0.1);
+  --twin-scrim: rgba(0, 0, 0, 0.4);
+
+  --twin-accent: #f06a2a;
+  --twin-accent-press: #d85a20;
+  --twin-accent-on: #511900;
+  --twin-accent-text: #b5430b;
+
+  --twin-ok: #157a45;
+  --twin-warning: #8a5a00;
+  --twin-danger: #c62f2f;
+  --twin-info: #1f6fcc;
+  --twin-neutral: #6b7177;
+
+  --twin-modality-strength: #6a46b0;
+  --twin-modality-functional: #17834a;
+  --twin-modality-hyrox: #bd2493;
+  --twin-modality-support: #0e7c72;
+
+  --twin-z1: #565c63;
+  --twin-z2: #1a62b5;
+  --twin-z3: #0f6e3c;
+  --twin-z4: #8a5a00;
+  --twin-z5: #bc2a2a;
+
+  --twin-shadow-ink-card: rgba(0, 0, 0, 0.1);
+  --twin-shadow-ink-tight: rgba(0, 0, 0, 0.07);
+  --twin-shadow-ink-hero: rgba(0, 0, 0, 0.14);
+}
+
+/* ==========================================================================
+   Voz tipográfica — Theme.Typography, tracking incluido.
+   Display/headline: cursiva heavy (la voz Fabrik). Readout: mono recto heavy
+   (la voz PM5/reloj de regata). SwiftUI .heavy ≈ 800, .bold ≈ 700.
+   ========================================================================== */
+
+.twin-root .t-display     { font: italic 800 56px/1.0 var(--twin-font-sans); letter-spacing: -0.02em; }
+.twin-root .t-headline-l  { font: italic 800 38px/1.05 var(--twin-font-sans); letter-spacing: -0.01em; }
+.twin-root .t-headline-m  { font: italic 800 28px/1.1 var(--twin-font-sans); letter-spacing: -0.01em; }
+.twin-root .t-headline-s  { font: italic 700 20px/1.2 var(--twin-font-sans); }
+.twin-root .t-body        { font: 400 16px/1.4 var(--twin-font-sans); }
+.twin-root .t-body-emph   { font: 600 16px/1.4 var(--twin-font-sans); }
+.twin-root .t-small       { font: 500 13px/1.4 var(--twin-font-sans); }
+.twin-root .t-caption     { font: 500 12px/1.3 var(--twin-font-sans); }
+.twin-root .t-data-digit  { font: italic 800 36px/1.0 var(--twin-font-sans); font-variant-numeric: tabular-nums; }
+.twin-root .t-data-hero   { font: italic 800 96px/0.95 var(--twin-font-sans); font-variant-numeric: tabular-nums; }
+.twin-root .t-data-label  {
+  font: 600 11px/1.0 var(--twin-font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+/* Readout de instrumento — mono, RECTO, tabular (Theme.Typography.readout*). */
+.twin-root .t-readout-hero  { font: 800 72px/1.0 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-readout-l     { font: 800 48px/1.0 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-readout-m     { font: 700 34px/1.05 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-readout-s     { font: 700 22px/1.1 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-readout-label {
+  font: 600 11px/1.0 var(--twin-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+/* ==========================================================================
+   Recetas universales (espejo de Theme.swift/Atoms.swift). Para átomos más
+   finos, cada pantalla transcribe del Swift que espeja.
+   ========================================================================== */
+
+/* brandSurface(): surface + hairline + radio continuo. */
+.twin-root .tw-card {
+  background: var(--twin-surface);
+  border: 1px solid var(--twin-hairline);
+  border-radius: 14px;
+}
+.twin-root .tw-card-elevated {
+  background: var(--twin-surface-elevated);
+  border: 1px solid var(--twin-hairline);
+  border-radius: 14px;
+  box-shadow: var(--twin-shadow-card);
+}
+
+/* CTA primaria (relleno naranja, glifo marrón #511900 — accentOn). */
+.twin-root .tw-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--twin-accent);
+  color: var(--twin-accent-on);
+  font: italic 800 17px/1 var(--twin-font-sans);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 80ms ease-out, background-color 120ms ease-out;
+}
+.twin-root .tw-btn-primary:active { transform: scale(0.98); background: var(--twin-accent-press); }
+
+.twin-root .tw-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 24px;
+  border: 1px solid var(--twin-outline);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--twin-fg);
+  font: 600 16px/1 var(--twin-font-sans);
+  cursor: pointer;
+}
+.twin-root .tw-btn-secondary:active { background: var(--twin-surface-elevated); }
+
+.twin-root .tw-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--twin-hairline);
+  background: var(--twin-surface);
+  font: 500 13px/1 var(--twin-font-sans);
+}
+
+/* Chip de zona: color + tinte 0.15 del MISMO hue (color-mix evita duplicar hex). */
+.twin-root .tw-zone { --twin-zone: var(--twin-neutral); }
+.twin-root .tw-zone[data-zone='1'] { --twin-zone: var(--twin-z1); }
+.twin-root .tw-zone[data-zone='2'] { --twin-zone: var(--twin-z2); }
+.twin-root .tw-zone[data-zone='3'] { --twin-zone: var(--twin-z3); }
+.twin-root .tw-zone[data-zone='4'] { --twin-zone: var(--twin-z4); }
+.twin-root .tw-zone[data-zone='5'] { --twin-zone: var(--twin-z5); }
+.twin-root .tw-zone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  color: var(--twin-zone);
+  background: color-mix(in srgb, var(--twin-zone) 15%, transparent);
+  font: 600 11px/1 var(--twin-font-sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* instrumentCanvas(): viñeta radial solo en oscuro (en claro ensucia). */
+.twin-root[data-appearance='dark'] .tw-vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.38) 100%);
+}
+
+/* La pantalla del doble ocupa el lienzo y respeta los safe areas del marco. */
+.twin-root .twin-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--twin-bg);
+  color: var(--twin-fg);
+}
+.twin-root .twin-screen-safe {
+  position: absolute;
+  inset: 0;
+  padding: var(--twin-safe-top) var(--twin-safe-right) var(--twin-safe-bottom) var(--twin-safe-left);
+}
+
+/* Scroll interno de pantalla sin barra visible (como iOS). */
+.twin-root .twin-scroll {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.twin-root .twin-scroll::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .twin-root * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
