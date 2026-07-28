@@ -833,7 +833,12 @@ struct ActiveWorkoutView: View {
             // — but if a monitor is streaming under it, its numbers are shown rather
             // than thrown away.
             conditioningHUD
-            if segmentInvolvesErg, pm5.isConnected {
+            // The monitor's live numbers ride under a free-order format because
+            // nothing knows whether he is on the machine, so throwing them away
+            // would lose real data. On a ROUTE the app DOES know — and he is not on
+            // it, or the erg surface would have taken the screen. Leaving the rower's
+            // numbers under "50 wall balls" would read as his current work.
+            if segmentInvolvesErg, pm5.isConnected, !session.isStationTramo {
                 ErgLiveStrip(pm5: pm5)
             }
         } else {
