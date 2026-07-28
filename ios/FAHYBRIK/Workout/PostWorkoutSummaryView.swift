@@ -28,7 +28,10 @@ struct PostWorkoutSummaryView: View {
     var freeContext: FreeWorkoutContext? = nil
     let onSave: () -> Void
 
-    @State private var rpe: Int = 7
+    // Perceived exertion, 1-10. Nil until the athlete taps a number: a pre-filled
+    // RPE would be saved and read back as if they had reported it, so the record
+    // would state an effort nobody ever felt. Never seeded, never defaulted.
+    @State private var rpe: Int? = nil
     @State private var notes: String = ""
     // Total session duration, entered by hand in manual mode (the live timer
     // never ran). For time-scored formats the "Tiempo final" field IS the
@@ -1065,23 +1068,56 @@ struct PostWorkoutSummaryView: View {
     }
 
     // MARK: - RPE
+    //
+    // Starts EMPTY and stays empty until the athlete picks a number — the effort
+    // is theirs to report or not. The pending state is signalled the same way the
+    // declare card signals it: an accent rule on top, an invitation in the copy,
+    // and a check once answered. Nothing here nags: the copy says plainly what
+    // happens if they skip it (the session saves with no RPE, which is the truth
+    // of the record). Tapping the chosen number again clears it, so a stray tap
+    // can't leave an effort behind.
     private var rpeCard: some View {
-        CardSurface(padding: 10) {
+        CardSurface(padding: 10, topAccent: rpe == nil) {
             VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "RPE", size: 9)
+                HStack(spacing: 8) {
+                    LabelText(text: "RPE", size: 9)
+                    Spacer(minLength: 0)
+                    if rpe != nil {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundStyle(Theme.Color.ok)
+                    }
+                }
+                if rpe == nil {
+                    Text("Del 1 (muy suave) al 10 (a tope). Si no lo marcas, se guarda sin RPE.")
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack(spacing: 4) {
                     ForEach(1...10, id: \.self) { n in
-                        Button(action: { rpe = n; Haptics.light() }) {
+                        let selected = rpe == n
+                        Button(action: { rpe = selected ? nil : n; Haptics.light() }) {
                             Text("\(n)")
                                 .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                                .foregroundStyle(rpe == n ? Theme.Color.accentOn : Theme.Color.foreground)
+                                .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
                                 .frame(width: 26, height: 26)
-                                .background(rpe == n ? Theme.Color.accent : Theme.Color.surfaceElevated)
+                                .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
+                                // With nothing chosen the numbers read as empty
+                                // slots waiting for an answer, not as ten options
+                                // already dismissed.
+                                .overlay(
+                                    Circle().stroke(
+                                        rpe == nil ? Theme.Color.hairlineStrong : Color.clear,
+                                        lineWidth: 1
+                                    )
+                                )
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Esfuerzo percibido \(n) de 10")
-                        .accessibilityAddTraits(rpe == n ? .isSelected : [])
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .accessibilityHint(selected ? "Toca otra vez para quitarlo" : "")
                     }
                 }
             }
