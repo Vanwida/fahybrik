@@ -14,7 +14,7 @@
 // flattering default. See docs/CONTRATO-UI.md §7.
 
 import type { Sql } from 'postgres';
-import { getLoadSummary, loadIntensityCoverage } from '../training-load';
+import { LOAD_COVERAGE_MIN, getLoadSummary, loadIntensityCoverage } from '../training-load';
 import { adherencePct } from '../adherence/completion';
 import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 import { getCurrentMicrociclo } from './current-microciclo';
@@ -73,10 +73,9 @@ const ACR_OVERREACH = 1.5; // > 1.5 sustained → high injury risk
 const ACR_UNDERTRAINED = 0.5; // < 0.5 → not enough stimulus to advance
 const TSB_OVERREACH = -25; // very negative → too fatigued
 const BENCHMARK_REGRESSION_PCT = -2.0; // < -2% mean → fitness lost
-// Below this share of intensity-known work in the chronic window, ACR/TSB are
-// reading only part of what the athlete did, and no verdict that depends on
-// "how much did they train" is defensible.
-const LOAD_COVERAGE_MIN = 0.9;
+// LOAD_COVERAGE_MIN is imported, not redeclared: it is a property of a load
+// reading, and this engine must draw the line exactly where the roster and the
+// deep-dive draw it. See shared/domain/training-load/coverage.ts.
 
 export function assessProgressReadiness(input: ProgressReadinessInput): ProgressReadiness {
   const reasons: string[] = [];

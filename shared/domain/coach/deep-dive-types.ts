@@ -9,6 +9,7 @@
 
 import { z } from 'zod';
 import { type AlertReason } from './types';
+import type { LoadCoverage } from '../training-load/coverage';
 
 // Modality categories Pablo cares about — mapped from exercise.category +
 // segment heuristics. See deep-dive helpers.
@@ -65,6 +66,13 @@ export interface KpiCarga {
   z34_pct_7d: number | null;
   polarization_pct: { low: number; mid: number; high: number } | null;
   polarization_warn: boolean;
+  /**
+   * How much of the athlete's executed work these numbers saw, plus the wording
+   * to declare it. When `coverage.allows_verdict` is false, `tsb_label` and
+   * `acr_label` above are NULL on purpose: the numbers stand, the sentence does
+   * not. See shared/domain/training-load/coverage.ts.
+   */
+  coverage: LoadCoverage;
 }
 
 export interface KpiCompliance {
@@ -116,6 +124,16 @@ export interface CtlAtlPoint {
   ctl: number;
   atl: number;
   tsb: number;
+  /**
+   * Executed seconds that day that emitted no load because nobody rated them.
+   * A day like this contributes 0 TSS, so on the curve alone it is
+   * indistinguishable from a rest day and the line sags as if the athlete had
+   * recovered. Carried per point so the chart can MARK the day instead of
+   * drawing through it (docs/CONTRATO-UI.md §7: el hueco no se interpola).
+   */
+  unknown_seconds: number;
+  /** Sessions behind those seconds — what the coach would ask the athlete for. */
+  unknown_sessions: number;
 }
 
 export interface CompliancePoint {

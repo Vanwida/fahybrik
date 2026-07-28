@@ -27,6 +27,13 @@ export type DailyTss = {
    * hiding the hole behind an invented intensity (docs/CONTRATO-UI.md §7).
    */
   unknown_seconds?: number;
+  /**
+   * How many of that day's sessions those `unknown_seconds` came from. Seconds
+   * size the hole in the curve; SESSIONS are what the coach can act on — "pídele
+   * el RPE de 2 sesiones" is a request, "de 47 minutos" is not. Both are needed,
+   * so both are carried.
+   */
+  unknown_sessions?: number;
 };
 
 export type LoadPoint = {
@@ -70,6 +77,8 @@ export type LoadSummary = {
    * be able to declare this hole rather than present a partial reading as whole.
    */
   unknown_seconds_28d: number;
+  /** How many sessions those unpriced seconds came from — the actionable unit. */
+  unknown_sessions_28d: number;
 };
 
 /**
@@ -77,11 +86,21 @@ export type LoadSummary = {
  * i.e. how much of the athlete's training the CTL/ATL/TSB/ACR numbers actually
  * saw. Null when nothing was executed in the window (no work ⇒ no coverage to
  * report, which is not the same as 0 % coverage).
+ *
+ * Consumers that PRESENT load to a human want `readLoadCoverage` (./coverage)
+ * instead: it turns this share into the state, the verdict gate and the wording
+ * the screens must agree on. This bare ratio stays for callers doing their own
+ * thresholding against `LOAD_COVERAGE_MIN`.
  */
 export function loadIntensityCoverage(summary: LoadSummary): number | null {
   const total = summary.known_seconds_28d + summary.unknown_seconds_28d;
   if (total <= 0) return null;
   return summary.known_seconds_28d / total;
+}
+
+/** Executed seconds in the chronic window, priced or not — the athlete's real volume. */
+export function executedSeconds28d(summary: LoadSummary): number {
+  return summary.known_seconds_28d + summary.unknown_seconds_28d;
 }
 
 // ACR per Gabbett et al. — last-7d sum divided by mean of last-28d daily load.
@@ -115,6 +134,7 @@ export function summarizeLoad(daily: ReadonlyArray<DailyTss>): LoadSummary {
   const tail28 = daily.slice(-28);
   const known_seconds_28d = tail28.reduce((s, d) => s + (d.known_seconds ?? 0), 0);
   const unknown_seconds_28d = tail28.reduce((s, d) => s + (d.unknown_seconds ?? 0), 0);
+  const unknown_sessions_28d = tail28.reduce((s, d) => s + (d.unknown_sessions ?? 0), 0);
   return {
     ctl,
     atl,
@@ -124,5 +144,6 @@ export function summarizeLoad(daily: ReadonlyArray<DailyTss>): LoadSummary {
     last_28d_tss,
     known_seconds_28d,
     unknown_seconds_28d,
+    unknown_sessions_28d,
   };
 }

@@ -10,6 +10,7 @@ import {
 
 export * from '@fahybrid/shared/domain/training-load/tss';
 export * from '@fahybrid/shared/domain/training-load/banister';
+export * from '@fahybrid/shared/domain/training-load/coverage';
 export { computeAcr, computeLoadSeries } from '@fahybrid/shared/domain/training-load';
 
 export function getDailyTssSeries(params: {

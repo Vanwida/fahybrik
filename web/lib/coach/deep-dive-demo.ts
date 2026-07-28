@@ -4,6 +4,8 @@
 // from /docs/ux/06-athlete-deep-dive.md and is what we screen-recorded for
 // design sign-off.
 
+import { summarizeLoad } from '@fahybrid/shared/domain/training-load/banister';
+import { readLoadCoverage } from '@fahybrid/shared/domain/training-load/coverage';
 import type {
   AthleteDeepDive,
   ModalityDistribution,
@@ -16,6 +18,24 @@ import type {
 } from './deep-dive-types';
 
 const DEMO_GENERATED_AT = '2026-05-08T08:00:00.000Z';
+
+// The demo athlete rates every session, so his load reading is whole. Derived
+// from the real reader over an all-known window rather than written by hand: a
+// literal here could describe a coverage the engine cannot produce, and this is
+// the payload Pablo sees on his very first athlete.
+const DEMO_LOAD_COVERAGE = readLoadCoverage(
+  summarizeLoad(
+    Array.from({ length: 28 }, (_, i) => ({
+      date: new Date(Date.parse(DEMO_GENERATED_AT) - (27 - i) * 86_400_000)
+        .toISOString()
+        .slice(0, 10),
+      tss: 60,
+      known_seconds: 3600,
+      unknown_seconds: 0,
+      unknown_sessions: 0,
+    })),
+  ),
+);
 
 // Demo microciclo names — plausible coach DATA (agnostic strings, NOT a fixed
 // ACC/TRANS/REAL phase enum). Any string is valid here.
@@ -53,6 +73,8 @@ function buildCtlAtl(
       ctl,
       atl,
       tsb: round1(ctl - atl),
+      unknown_seconds: 0,
+      unknown_sessions: 0,
     });
   }
   return out;
@@ -274,6 +296,7 @@ const MARC: AthleteDeepDive = {
     z34_pct_7d: 68,
     polarization_pct: { low: 78, mid: 8, high: 14 },
     polarization_warn: true,
+    coverage: DEMO_LOAD_COVERAGE,
   },
   compliance: {
     pct_7d: 83,
