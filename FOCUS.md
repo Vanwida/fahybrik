@@ -44,6 +44,43 @@ el mensaje de su commit y debe subir al registro cuando su sesión retome.
 
 ---
 
+## Cerrado el 28-jul · El ergo SÍ sincronizó — lo que fallaba era otra cosa
+
+El «no han empezado sync» de la 173 (ski 400 m) **no era el ergo**. La DB lo
+desmiente: `segment_executions` guarda 400 m en 4 splits de 100, 165,7 W,
+38 paladas/min, `source: pm5`. Eso es telemetría real, no se teclea a mano —
+y sincronizó mejor que la 179 (remo 5×500), que sólo capturó 1 split de 5.
+Lo que no arrancó fue el **pulso** (FC 70/80 en un esprint a 165 W): la 173
+fue lo primero de la mañana y la primera lectura de HealthKit del día llega
+a las 09:28, después de que la pieza terminara a las 08:58. Ya lo arregló
+otra sesión. **Punto cerrado: no perseguir más el ergo.**
+
+**Pero al mirarlo salió un fallo que nadie había reportado: el ski se
+guardaba como remo.** Remo, ski y bici comparten un monitor PM5 y una sola
+rejilla en vivo, así que el `SegmentKind` no puede decir qué máquina fue y
+su cubo por defecto contesta "row". Se guardaba la máquina que **transporta**
+el dato, no la que **entrenó** el atleta. No es cosmético: un ski 1.000 y un
+remo 1.000 son marcas distintas del catálogo, las analíticas por modalidad
+mezclaban dos disciplinas que no se parecen y el predictor transfiere ski y
+remo a la carrera de forma distinta. Arreglado en la raíz — al guardar se
+consultan las dos fuentes que sí lo saben (catálogo, luego prescripción).
+
+**Soltar el aparato ya es parte de cerrar la sesión.** Dentro del entreno ya
+estaba cubierto; el agujero estaba un piso más arriba: quien emparejaba el
+PM5 en el brief y se echaba atrás sin llegar a la vista activa dejaba la
+máquina cogida. `DeviceHub.stopAll()` soltaba cinta y banda pero no el ergo,
+siendo que su propia cabecera prometía «un solo ciclo de vida» para los tres.
+
+**PENDIENTE de decisión de Alex:**
+- **Filas históricas mal guardadas** (ski/bici grabados como remo): hay una
+  sentencia de corrección propuesta y **sin ejecutar** — la ejecuta él.
+- **`exercise_id` sigue NULL** en los tramos de ergo. Enlazarlo pide contrato
+  nuevo: hoy ni `WorkoutSegment` ni `LapRecord` llevan ejercicio, y el ergo
+  libre no tiene ninguno que enlazar (el atleta elige *máquina*, no una fila
+  del catálogo). No se inventó nada.
+
+---
+
 ## Cerrado el 28-jul · En un For Time la transición es un SUCESO, no un toque
 
 La distinción que ordena el motor, dicha por Alex: **en un EMOM manda el
