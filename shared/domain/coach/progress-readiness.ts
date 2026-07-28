@@ -7,9 +7,15 @@
 // auto-promotes; the engine just surfaces a defensible suggestion.
 //
 // Thresholds are Pablo's tuning, carried verbatim from the prior ATR engine.
+//
+// DEFENSIBLE means the evidence exists. Where a signal is missing — nothing was
+// scheduled yet, or part of the executed work has no intensity — the engine
+// holds at LOW confidence and names the gap, instead of filling it with a
+// flattering default. See docs/CONTRATO-UI.md §7.
 
 import type { Sql } from 'postgres';
-import { getLoadSummary } from '../training-load';
+import { getLoadSummary, loadIntensityCoverage } from '../training-load';
+import { adherencePct } from '../adherence/completion';
 import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 import { getCurrentMicrociclo } from './current-microciclo';
 
@@ -17,8 +23,10 @@ export type ProgressRecommendation = 'advance' | 'hold' | 'regress';
 
 export type ProgressFlag =
   | 'compliance_low'
+  | 'compliance_unknown'
   | 'overreaching'
   | 'undertrained'
+  | 'load_partial'
   | 'benchmarks_regressed'
   | 'microciclo_underdone'
   | 'microciclo_complete';
@@ -35,9 +43,26 @@ export type ProgressReadinessInput = {
   week_index: number;
   /** Total weeks of the current microciclo. */
   week_count: number;
-  /** 0..1 — completed assignments / scheduled assignments in current microciclo. */
-  compliance_pct: number;
-  load: { ctl: number; atl: number; tsb: number; acr: number };
+  /**
+   * 0..1 — completed assignments / scheduled assignments in the current
+   * microciclo. NULL when nothing was due yet: with no scheduled work adherence
+   * is UNDEFINED, not perfect. Treating it as 1 handed the coach a 100 %
+   * adherencia (and an "advance" with high confidence) for an athlete who had
+   * not trained at all.
+   */
+  compliance_pct: number | null;
+  load: {
+    ctl: number;
+    atl: number;
+    tsb: number;
+    acr: number;
+    /**
+     * Share 0..1 of the chronic window's executed work whose intensity was
+     * known. Null when nothing was executed. Below LOAD_COVERAGE_MIN the load
+     * numbers are a partial view and the engine says so instead of ruling on it.
+     */
+    intensity_coverage: number | null;
+  };
   /** Mean % change vs pre-microciclo baseline across tracked benchmarks. Null if no data. */
   benchmark_progression_pct: number | null;
 };
@@ -48,6 +73,10 @@ const ACR_OVERREACH = 1.5; // > 1.5 sustained → high injury risk
 const ACR_UNDERTRAINED = 0.5; // < 0.5 → not enough stimulus to advance
 const TSB_OVERREACH = -25; // very negative → too fatigued
 const BENCHMARK_REGRESSION_PCT = -2.0; // < -2% mean → fitness lost
+// Below this share of intensity-known work in the chronic window, ACR/TSB are
+// reading only part of what the athlete did, and no verdict that depends on
+// "how much did they train" is defensible.
+const LOAD_COVERAGE_MIN = 0.9;
 
 export function assessProgressReadiness(input: ProgressReadinessInput): ProgressReadiness {
   const reasons: string[] = [];
@@ -62,7 +91,10 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
     reasons.push(`Microciclo: solo ${input.week_index}/${input.week_count} semanas hechas.`);
   }
 
-  if (input.compliance_pct < COMPLIANCE_MIN) {
+  if (input.compliance_pct == null) {
+    flags.push('compliance_unknown');
+    reasons.push('Adherencia: aún no había sesiones programadas en el microciclo — no se puede medir.');
+  } else if (input.compliance_pct < COMPLIANCE_MIN) {
     flags.push('compliance_low');
     reasons.push(
       `Adherencia ${(input.compliance_pct * 100).toFixed(0)}% por debajo del umbral ${COMPLIANCE_MIN * 100}%.`,
@@ -71,12 +103,26 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
     reasons.push(`Adherencia ${(input.compliance_pct * 100).toFixed(0)}%.`);
   }
 
+  // Load coverage first: it decides which load claims can be made at all.
+  const coverage = input.load.intensity_coverage;
+  const loadPartial = coverage != null && coverage < LOAD_COVERAGE_MIN;
+  if (loadPartial) {
+    flags.push('load_partial');
+    reasons.push(
+      `Solo se conoce la intensidad del ${(coverage * 100).toFixed(0)}% del trabajo: la carga es una lectura parcial.`,
+    );
+  }
+
   if (input.load.acr > ACR_OVERREACH || input.load.tsb < TSB_OVERREACH) {
+    // Sobrecarga survives partial coverage: the load we DID price already clears
+    // the threshold, and unmeasured work can only add more on top.
     flags.push('overreaching');
     reasons.push(
       `Señal de sobrecarga: ACR ${input.load.acr.toFixed(2)} / TSB ${input.load.tsb.toFixed(0)}.`,
     );
-  } else if (input.load.acr < ACR_UNDERTRAINED && input.load.ctl > 0) {
+  } else if (!loadPartial && input.load.acr < ACR_UNDERTRAINED && input.load.ctl > 0) {
+    // "Infraentrenado" is a claim of ABSENCE of stimulus — unclaimable while we
+    // know there is training we could not price.
     flags.push('undertrained');
     reasons.push(`Infraentrenado: ACR ${input.load.acr.toFixed(2)} por debajo de ${ACR_UNDERTRAINED}.`);
   }
@@ -101,6 +147,13 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
   if (flags.includes('overreaching')) {
     recommendation = 'regress';
     confidence = 'high';
+  } else if (flags.includes('compliance_unknown') || flags.includes('load_partial')) {
+    // No adherence evidence, or a load reading with holes in it: there is no
+    // defensible case for progressing. Hold, at LOW confidence so the coach sees
+    // this is an absence of evidence, not a judgement about the athlete. The
+    // reasons above name exactly what is missing.
+    recommendation = 'hold';
+    confidence = 'low';
   } else if (flags.includes('benchmarks_regressed') && flags.includes('microciclo_complete')) {
     recommendation = 'hold';
     confidence = 'medium';
@@ -124,8 +177,9 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
 export type AthleteProgressReadiness = ProgressReadiness & {
   /** Current microciclo NAME (coach data), null when none active. */
   current_microciclo: string | null;
-  load: { ctl: number; atl: number; tsb: number; acr: number };
-  compliance_pct: number;
+  load: { ctl: number; atl: number; tsb: number; acr: number; intensity_coverage: number | null };
+  /** 0..1, or null when nothing was due yet in the microciclo (see the input type). */
+  compliance_pct: number | null;
 };
 
 /**
@@ -162,15 +216,28 @@ export async function assessAthleteProgressReadiness(params: {
       and wa.scheduled_for >= ${current.assignment_start}::date
       and wa.scheduled_for <= ${current.assignment_end}::date
   `;
-  const compliance_pct = complianceRows[0]?.scheduled
-    ? complianceRows[0].completed / complianceRows[0].scheduled
-    : 1;
+  // adherencePct is the SINGLE SOURCE OF TRUTH for this number (shared/domain/
+  // adherence/completion.ts): it already returns null when nothing was due, and
+  // rounds to the same integer percent the roster and /hoy show, so the engine
+  // and the coach's screens can never disagree. Kept here as a 0..1 fraction
+  // because the thresholds above are fractions.
+  const scheduled = complianceRows[0]?.scheduled ?? 0;
+  const completed = complianceRows[0]?.completed ?? 0;
+  const compliancePctInt = adherencePct(scheduled, completed);
+  const compliance_pct = compliancePctInt == null ? null : compliancePctInt / 100;
 
-  const load = await getLoadSummary({
+  const loadSummary = await getLoadSummary({
     athlete_id: params.athlete_id,
     on_date: today,
     client,
   });
+  const load = {
+    ctl: loadSummary.ctl,
+    atl: loadSummary.atl,
+    tsb: loadSummary.tsb,
+    acr: loadSummary.acr,
+    intensity_coverage: loadIntensityCoverage(loadSummary),
+  };
 
   // Benchmark progression — mean % IMPROVEMENT of latest value within this
   // microciclo vs the most recent value before it started, per exercise_slug.
@@ -223,14 +290,14 @@ export async function assessAthleteProgressReadiness(params: {
     week_index: Math.min(current.week_index + weekBoost, current.week_count),
     week_count: current.week_count,
     compliance_pct,
-    load: { ctl: load.ctl, atl: load.atl, tsb: load.tsb, acr: load.acr },
+    load,
     benchmark_progression_pct,
   });
 
   return {
     ...readiness,
     current_microciclo: current.name,
-    load: { ctl: load.ctl, atl: load.atl, tsb: load.tsb, acr: load.acr },
+    load,
     compliance_pct,
   };
 }
