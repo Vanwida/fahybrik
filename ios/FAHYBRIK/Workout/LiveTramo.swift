@@ -30,6 +30,11 @@ struct LiveTramo: Equatable {
         case emomInterval(Int)
         case conditioningRound(Int)
         case runLeg(Int)
+        /// A STATION of a fixed checklist the athlete walks once (a For Time / HYROX
+        /// sim authored as a route, a chipper). Unlike the rotating cursors this one
+        /// is not driven by a clock — it is the strike cursor `fixedRoundsDone`,
+        /// which is the only honest thing the app knows about where he is.
+        case fixedStation(Int)
     }
 
     let segmentIndex: Int
@@ -54,7 +59,16 @@ struct LiveTramo: Equatable {
         case .emomInterval(let i):     return "s\(segmentIndex)-e\(i)"
         case .conditioningRound(let i): return "s\(segmentIndex)-r\(i)"
         case .runLeg(let i):           return "s\(segmentIndex)-l\(i)"
+        case .fixedStation(let i):     return "s\(segmentIndex)-t\(i)"
         }
+    }
+
+    /// True when this window is a station of a walk-once checklist. The one test
+    /// for "the app knows which movement he is on inside a free-order format", so
+    /// the transition can be an EVENT instead of a tap.
+    var isFixedStation: Bool {
+        if case .fixedStation = cursor { return true }
+        return false
     }
 
     /// Measured by a Concept2 monitor (row / ski / bike).
@@ -87,6 +101,71 @@ struct LiveTramo: Equatable {
         guard let measure else { return nil }
         let s = PrescriptionSet.emomWorkString(measure)
         return s == "—" ? nil : s
+    }
+
+    // MARK: - When a station ends by itself
+    //
+    // THE RULE, and why it is pure. In an EMOM the clock takes the athlete off a
+    // round: the minute ends, the round ends, nothing to detect. In a For Time there
+    // is no minute to take him off anything — the transitions are events, and the
+    // event is known by whatever MEASURES the station:
+    //
+    //   · metres / calories  → the machine knows. It says so, and the app moves on.
+    //   · seconds            → the app's own clock knows. Same thing, no pairing.
+    //   · reps               → nobody knows. He taps. The app never pretends.
+    //
+    // It keys off the MEASURE, not the movement, so one rule covers every station a
+    // coach can write instead of a list of special cases. These two are pure
+    // functions of the window and the readings so the rule can be verified on its
+    // own, without a live session — the engine below only supplies the numbers.
+
+    /// True when a machine reading just CROSSED this station's goal.
+    ///
+    /// The test is the CROSSING, not "the reading sits past the goal", and that is
+    /// what makes a reconnection safe: a monitor that comes back mid-piece reports
+    /// less than the goal and nothing fires. A monitor that goes QUIET can never fire
+    /// it either — silence is an athlete catching his breath, and only the goal being
+    /// reached takes him off a station.
+    func closesOnMachineGoal(metersBefore: Double?, metersNow: Double?,
+                             caloriesBefore: Int?, caloriesNow: Int?) -> Bool {
+        guard isFixedStation, isErg else { return false }
+        if let target = targetDistanceMeters, let now = metersNow {
+            return now >= target && (metersBefore ?? 0) < target
+        }
+        if let target = targetCalories, target > 0, let now = caloriesNow {
+            return now >= target && (caloriesBefore ?? 0) < target
+        }
+        return false
+    }
+
+    /// True when a CLOCK-measured station has spent its box ("2 min de bici").
+    /// Needs no device at all — the thing that measures it is the session clock.
+    func closesOnClock(elapsedInTramo: Double) -> Bool {
+        guard isFixedStation, let boxed = boxedSeconds, boxed > 0 else { return false }
+        return elapsedInTramo >= Double(boxed)
+    }
+}
+
+/// One struck line of a FIXED format's checklist — the station (or round) the
+/// athlete just closed, and what it actually measured.
+///
+/// `elapsed` is the BLOCK clock at the strike: the classic For Time split, the
+/// number the score is read off, unchanged. `seconds` is how long that one line
+/// took, which is what the athlete wants back ("el remo me costó 3:48"). The erg
+/// values are kept EXACTLY as measured and never clamped to the goal — a 1.000 m
+/// piece that closes at 1.014 m reads 1.014, because that is what he rowed and a
+/// record that rounds work down to the prescription is not a record.
+struct FixedStationSplit: Equatable {
+    let elapsed: Double
+    let seconds: Double
+    let meters: Double?
+    let calories: Int?
+
+    /// What the monitor measured, as the athlete reads it. nil when nothing was.
+    var workLine: String? {
+        if let m = meters, m >= 1 { return "\(Int(m.rounded())) m" }
+        if let c = calories, c >= 1 { return "\(c) cal" }
+        return nil
     }
 }
 
@@ -132,6 +211,47 @@ extension WorkoutSegment {
         if kind == .running { return true }
         if prescription?.modality == .run { return true }
         return prescription?.sets?.contains { $0.modality == .run } ?? false
+    }
+
+    /// True when a FIXED format's checklist enumerates the MOVEMENTS of a single
+    /// pass — a chipper, a For Time / HYROX sim authored as a route — rather than
+    /// repeated ROUNDS of the same list.
+    ///
+    /// THE discriminator for whether the app honestly knows which movement the
+    /// athlete is on. Authored `rounds` means the list repeats: the app knows the
+    /// round and never the movement inside it, so the segment stays the tramo and
+    /// nothing changes. No `rounds` + a movement list means the list IS the route,
+    /// and the strike cursor is a real per-station cursor — which is what lets the
+    /// device own the transition instead of the athlete's thumb.
+    ///
+    /// AMRAP is excluded on purpose: its list repeats for a whole window and its
+    /// strike counts rounds, not stations. A ONE-movement list is excluded too —
+    /// a single station is a cursor that says nothing the segment didn't already.
+    ///
+    /// Ground truth (28-jul, `template_segments`): a real HYROX simulation ships as
+    /// N sibling segments of one block, each with its own modality and measure and
+    /// no `rounds`; the fold turns them into this exact shape.
+    var fixedListIsStations: Bool {
+        guard let scheme = formatScheme, scheme.presentation == .fixed else { return false }
+        switch scheme {
+        case .chipper:
+            return declaredComponents.count > 1
+        case .forTime, .ladder, .rounds, .hyroxSim:
+            return formatRounds == nil && declaredComponents.count > 1
+        default:
+            return false
+        }
+    }
+
+    /// Seconds a station is boxed to, when its own work is measured BY THE CLOCK
+    /// ("2 min de bici" inside a For Time). The app owns that measurement with no
+    /// machine involved, so the window ends when the seconds are done exactly as an
+    /// EMOM minute does — and, being boxed, its clock runs from entry instead of
+    /// waiting armed for a monitor that may never be paired. nil for every other
+    /// measure: metres, calories and reps do not end on a clock.
+    func stationBoxSeconds(at index: Int) -> Int? {
+        if case let .duration(s)? = rotationSet(at: index)?.measure, s > 0 { return s }
+        return nil
     }
 
     /// The prescription set driving round `index` of a format, cycling the

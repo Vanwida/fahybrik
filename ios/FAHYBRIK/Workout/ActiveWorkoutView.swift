@@ -203,71 +203,22 @@ struct ActiveWorkoutView: View {
                 // stays the focus. Above the HUD, never over the controls.
                 DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
                                 collapsed: $partnerStripCollapsed)
-                if session.currentSegmentIsPartnerRelay {
-                    // #23 — HYROX dobles relay: the PARTNER works this station while
-                    // the athlete recovers (real dobles). Nothing is logged for the
-                    // athlete; "Relevo ▸" advances to their next station.
-                    relaySurface
-                    Spacer(minLength: 0)
-                    relayButton
-                } else if session.currentBlockIsStructural {
-                    // Warmup / cooldown: ONE readable checklist, gated behind a
-                    // single "hecho" button — never per-exercise navigation/logging.
-                    structuralWorkSurface
-                    Spacer(minLength: 0)
-                    primaryButton
+                // THE ACTION IS NEVER NEGOTIABLE. Turned sideways there is barely a
+                // third of the height, and a HUD that does not shrink (the per-set
+                // strength table, a long route) pushed the button off the bottom
+                // edge — the athlete could see his work and not close it. So in
+                // landscape the WORK scrolls and the action is pinned under it, in
+                // every format. Portrait is untouched: the same children, in the
+                // same order, with the same spacing.
+                if isCompactHeight && !surfaceScrollsItself {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 8) { liveSurface }
+                    }
+                    .frame(maxHeight: .infinity)
+                    liveAction
                 } else {
-                    ConnectionStrip(
-                        session: session,
-                        pm5: pm5,
-                        gpsActive: gpsActive,
-                        segmentIsErg: segmentInvolvesErg,
-                        segmentIsRun: isRunSegment,
-                        onTapPM5: { showPM5Sheet = true }
-                    )
-                    // The whole-session segment map earns its row only when there is
-                    // more than one segment AND the current window isn't already
-                    // counting its own series — inside a 20-round EMOM it repeated
-                    // context the format strip already carries, on a screen that had
-                    // no height to spare.
-                    if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
-                        BlockIntervalStrip(
-                            segments: session.plan.segments,
-                            currentIndex: session.currentSegmentIndex,
-                            onTap: { requestJump(to: $0) }
-                        )
-                    }
-                    // #56 — DOBLES turn hero (mine / split): whose station this is,
-                    // the rep reparto + bicolor bar and the "Después:" preview, above
-                    // the work HUD. Carries the coach's pact (replacing the old dim
-                    // split line); nil (hidden) for individual work and the relay.
-                    if let turn = currentDoblesTurn {
-                        DoblesTurnHero(turn: turn, next: nextDoblesTurn,
-                                       compact: true, partnerFallback: partnerFirstName)
-                    }
-                    modalityHUD
-                    if session.currentSegmentIsMetcon {
-                        RxScaledToggle(session: session)
-                    }
-                    // The erg surface fills its own height (see ErgHUDContent), so no
-                    // spacer is pushed under it — that spacer is what left the old
-                    // layout with a dead band in the middle and the bar squashed at
-                    // the bottom. Formats that don't fill still get their slack.
-                    if !isErgSegment {
-                        Spacer(minLength: 0)
-                    }
-                    // Connect is offered whenever an erg belongs to this block, not
-                    // only while its round is live — otherwise a ski EMOM gives the
-                    // athlete no way to pair before the first minute starts.
-                    if segmentInvolvesErg && !pm5.isConnected {
-                        connectPM5CTA
-                    }
-                    if isRunSeriesSegment {
-                        TreadmillEntryButton(action: { showTreadmill = true })
-                        OutdoorEntryButton(action: { showOutdoor = true })
-                    }
-                    nextSegmentChip
-                    bottomControls
+                    liveSurface
+                    liveAction
                 }
             }
             .padding(.horizontal, Theme.Spacing.m)
@@ -882,7 +833,12 @@ struct ActiveWorkoutView: View {
             // — but if a monitor is streaming under it, its numbers are shown rather
             // than thrown away.
             conditioningHUD
-            if segmentInvolvesErg, pm5.isConnected {
+            // The monitor's live numbers ride under a free-order format because
+            // nothing knows whether he is on the machine, so throwing them away
+            // would lose real data. On a ROUTE the app DOES know — and he is not on
+            // it, or the erg surface would have taken the screen. Leaving the rower's
+            // numbers under "50 wall balls" would read as his current work.
+            if segmentInvolvesErg, pm5.isConnected, !session.isStationTramo {
                 ErgLiveStrip(pm5: pm5)
             }
         } else {
@@ -920,6 +876,102 @@ struct ActiveWorkoutView: View {
     private var landscapeAction: some View {
         ExpertActionButton(title: primaryTitle, action: { primaryAction() })
             .frame(height: 96)
+    }
+
+    /// Landscape. Named for what it MEANS (there is almost no height) rather than
+    /// for the orientation, because that is the constraint the layout answers.
+    private var isCompactHeight: Bool { vSizeClass == .compact }
+
+    /// The surface already owns a scroll view of its own (the warm-up / cool-down
+    /// checklist, which can run to a dozen movements and has scrolled since it was
+    /// built). Wrapping it in a second one would put two vertical scrollers on top
+    /// of each other and neither would answer the finger reliably — and it needs no
+    /// help anyway: its own scroller shrinks, so the button below it is already
+    /// pinned in both orientations.
+    private var surfaceScrollsItself: Bool { session.currentBlockIsStructural }
+
+    // THE WORK, and THE ACTION — split so the action can be pinned outside whatever
+    // scrolls. They are two properties instead of one because a landscape screen has
+    // to be able to put a scroll view between them; portrait renders them back to
+    // back inside the same VStack, which is exactly the tree it had before.
+
+    @ViewBuilder
+    private var liveSurface: some View {
+        if session.currentSegmentIsPartnerRelay {
+            // #23 — HYROX dobles relay: the PARTNER works this station while the
+            // athlete recovers (real dobles). Nothing is logged for the athlete;
+            // "Relevo ▸" advances to their next station.
+            relaySurface
+            Spacer(minLength: 0)
+        } else if session.currentBlockIsStructural {
+            // Warmup / cooldown: ONE readable checklist, gated behind a single
+            // "hecho" button — never per-exercise navigation/logging.
+            structuralWorkSurface
+            Spacer(minLength: 0)
+        } else {
+            ConnectionStrip(
+                session: session,
+                pm5: pm5,
+                gpsActive: gpsActive,
+                segmentIsErg: segmentInvolvesErg,
+                segmentIsRun: isRunSegment,
+                onTapPM5: { showPM5Sheet = true }
+            )
+            // The whole-session segment map earns its row only when there is more
+            // than one segment AND the current window isn't already counting its own
+            // series — inside a 20-round EMOM it repeated context the format strip
+            // already carries, on a screen that had no height to spare.
+            if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
+                BlockIntervalStrip(
+                    segments: session.plan.segments,
+                    currentIndex: session.currentSegmentIndex,
+                    onTap: { requestJump(to: $0) }
+                )
+            }
+            // #56 — DOBLES turn hero (mine / split): whose station this is, the rep
+            // reparto + bicolor bar and the "Después:" preview, above the work HUD.
+            // Carries the coach's pact (replacing the old dim split line); nil
+            // (hidden) for individual work and the relay.
+            if let turn = currentDoblesTurn {
+                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
+                               compact: true, partnerFallback: partnerFirstName)
+            }
+            modalityHUD
+            if session.currentSegmentIsMetcon {
+                RxScaledToggle(session: session)
+            }
+            // The erg surface fills its own height (see ErgHUDContent), so no spacer
+            // is pushed under it — that spacer is what left the old layout with a
+            // dead band in the middle and the bar squashed at the bottom. Formats
+            // that don't fill still get their slack. A scroll view gives its content
+            // its natural height, so the spacer has nothing to push against there
+            // and would only add a gap the athlete has to scroll past.
+            if !isErgSegment && !isCompactHeight {
+                Spacer(minLength: 0)
+            }
+            // Connect is offered whenever an erg belongs to this block, not only
+            // while its round is live — otherwise a ski EMOM gives the athlete no
+            // way to pair before the first minute starts.
+            if segmentInvolvesErg && !pm5.isConnected {
+                connectPM5CTA
+            }
+            if isRunSeriesSegment {
+                TreadmillEntryButton(action: { showTreadmill = true })
+                OutdoorEntryButton(action: { showOutdoor = true })
+            }
+            nextSegmentChip
+        }
+    }
+
+    @ViewBuilder
+    private var liveAction: some View {
+        if session.currentSegmentIsPartnerRelay {
+            relayButton
+        } else if session.currentBlockIsStructural {
+            primaryButton
+        } else {
+            bottomControls
+        }
     }
 
     // The "NEXT" chip is silent whenever something else already answers "what
@@ -1126,6 +1178,15 @@ struct ActiveWorkoutView: View {
         case .intervals: return session.rotPhase == .work ? "SERIE HECHA" : "SALTAR DESCANSO"
         case .deathBy:   return "LO LOGRÉ"
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim, .steady:
+            // On a ROUTE the button closes the STATION, so it has to say so — and it
+            // stays available even when the machine is about to close it by itself:
+            // the automatic exit removes a tap, never the athlete's freedom to cut a
+            // piece short, take a broken monitor out of the loop, or move on.
+            if session.currentSegment?.fixedListIsStations == true {
+                let last = session.fixedRoundsDone >= session.fixedListTotal - 1
+                if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
+                return "ESTACIÓN HECHA"
+            }
             return session.isLastSegment ? "TERMINAR" : "HECHO"
         default:         return "SIGUIENTE"
         }

@@ -153,7 +153,13 @@ struct ErgHUDContent: View {
     /// would only repeat the top bar.
     @ViewBuilder
     private var contextStrip: some View {
-        if session.isTramoCountIn {
+        if session.isStationTramo {
+            // A station of a route. The monitor has earned the screen, but the BLOCK
+            // clock is the score of a For Time — it cannot vanish just because the
+            // athlete reached the rower. Same strip the route's own HUD shows, so
+            // arriving at the erg changes the numbers, never the frame.
+            ForTimeContextStrip(session: session)
+        } else if session.isTramoCountIn {
             HStack(spacing: 8) {
                 LabelText(text: "Prepárate", color: Theme.Color.accentText, size: 10)
                 if hasSeries {
@@ -264,10 +270,22 @@ struct ErgHUDContent: View {
                     }
                 }
                 .frame(height: 12)
-                Text(goal.done ? "HECHO" : "TE QUEDAN")
-                    .font(.system(size: 10, weight: .heavy)).tracking(1.2)
-                    .foregroundStyle(goal.done ? Theme.Color.ok : Theme.Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 8) {
+                    Text(goal.done ? "HECHO" : "TE QUEDAN")
+                        .font(.system(size: 10, weight: .heavy)).tracking(1.2)
+                        .foregroundStyle(goal.done ? Theme.Color.ok : Theme.Color.muted)
+                    Spacer(minLength: 0)
+                    // The session's running total alongside the round's own goal. The
+                    // goal above is what he is chasing NOW (the prescription says the
+                    // 500 is per serie); this is everything the monitor has measured
+                    // in this block. Silent when the two are the same number.
+                    if let total = session.accumulatedErgLine {
+                        Text(total)
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Theme.Color.faint)
+                            .lineLimit(1)
+                    }
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -445,14 +463,6 @@ struct ErgHUDContent: View {
     }
 }
 
-// The context strip's chrome, applied identically to both of its states.
-private extension View {
-    func stripChrome() -> some View {
-        self
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-    }
-}
+// `stripChrome()` — the shared context-strip chrome — lives in Theme/Atoms.swift:
+// the erg surface and the route's own strip are the same object on screen, so they
+// are the same modifier in code.

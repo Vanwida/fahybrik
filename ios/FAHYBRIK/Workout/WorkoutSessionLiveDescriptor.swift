@@ -34,6 +34,12 @@ extension WorkoutSession {
             case .fixed:
                 if scheme == .amrap { return "\(fixedRoundsDone) rondas" }
                 let total = fixedListTotal
+                // A ROUTE reads as the POSITION he is standing on, the same number
+                // the phone's strip shows ("ESTACIÓN 2/5"). A repeated-round list
+                // keeps reading as rounds BEHIND him, which is what a round count is.
+                if currentSegment?.fixedListIsStations == true, total > 1 {
+                    return "ESTACIÓN \(min(fixedRoundsDone + 1, total))/\(total)"
+                }
                 if total > 1 { return "\(fixedRoundsDone)/\(total)" }
             default:
                 break

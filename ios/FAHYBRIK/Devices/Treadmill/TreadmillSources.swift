@@ -72,20 +72,51 @@ protocol TreadmillDataSource: ConnectableSource {
     var onSample: ((TreadmillSample) -> Void)? { get set }
 }
 
+/// WHAT THE APP DOES TO MACHINES, AS A PRODUCT DECISION (28-jul-2026).
+///
+/// The app READS the belt and drives NOTHING. It is Alex's call after running on the
+/// only belt we have in a gym: it advertises that it takes a speed target and then
+/// refuses every one, so every stepper we painted was a stepper that did nothing — and
+/// a control that doesn't control is worse than no control at all.
+///
+/// This flips ONLY the surface: whether the athlete is offered controls, and whether the
+/// app writes to a machine on its own. The whole command layer (`FTMSControl`, the
+/// sequencer, the "Modo de control" field-diagnosis sheet) is untouched and still
+/// reachable. The day a belt in front of us obeys, this goes back to `true` and the
+/// controls return exactly as they were — nothing here has to be rewritten.
+enum TreadmillControlPolicy {
+    static let appDrivesMachines = false
+}
+
 /// What THIS connected treadmill lets the app DRIVE — read from the machine itself at
 /// connect time (Fitness Machine Feature + Supported Ranges + a writable Control
 /// Point). We DETECT it, never assume it: a belt that only broadcasts data reports
-/// `canControl == false`, and the UI says so instead of pretending to drive a machine
-/// that will ignore it. Any FTMS treadmill is covered without per-brand code.
+/// `canControl == false`, and the UI simply shows no controls instead of pretending to
+/// drive a machine that will ignore it. Any FTMS treadmill is covered without per-brand
+/// code.
+///
+/// THREE INDEPENDENT FACTS live here, and the UI must never collapse them:
+///   • the machine has somewhere to write at all (`hasControlPoint`);
+///   • it DECLARED it accepts a given target (`declaresSpeedTarget` / `declaresInclineTarget`);
+///   • it has not since REFUSED that target on the wire (`canControlSpeed` / `canControlIncline`).
+/// `offersSpeedControl` / `offersInclineControl` are the only things the HUD reads.
 struct TreadmillControlCapability: Equatable {
     var hasControlPoint: Bool
-    /// TRUE the moment a writable Control Point is found — we never trust the lying Fitness
-    /// Machine Feature bits (his BH i.Concept T01_ advertises Speed-target support yet its
-    /// ack says "not supported", and advertises NO incline-target support yet obeys 0x03).
-    /// Because those acks are garbage, the app IGNORES them and drives the belt anyway
-    /// (qdomyos-zwift does the same), so these stay true whenever there's a control point.
+    /// The target has not been REFUSED on the wire. Both start true the moment a writable
+    /// Control Point is found and only ever go false when the machine proves it rejects
+    /// that op (the sequencer's `onSpeedControlUnsupported`). On their own they are NOT
+    /// permission to paint a control — they only subtract from what the machine declared.
     var canControlSpeed: Bool
     var canControlIncline: Bool
+    /// The machine DECLARED it accepts a speed / inclination target — Target Setting
+    /// Features bits 0 and 1 of the Fitness Machine Feature characteristic (0x2ACC).
+    ///
+    /// This is the machine's own statement and it is what the athlete's controls are gated
+    /// on. Default false, deliberately: a feature word we never read, or one that arrived
+    /// truncated, is the ABSENCE of a statement — and absence is not a yes. A belt that
+    /// says nothing gets no controls.
+    var declaresSpeedTarget = false
+    var declaresInclineTarget = false
     var speed: FTMSControl.Range?     // km/h
     var incline: FTMSControl.Range?   // % — or console LEVELS when `inclineIsLevel`
     /// The machine FAMILY detected from its advertised name. It seeds where the dialect
@@ -106,15 +137,22 @@ struct TreadmillControlCapability: Equatable {
     /// longer let it decide whether the athlete gets controls.
     var targetFeatureBits: UInt32?
 
-    /// TRUE FOR ANY MACHINE WITH A WRITABLE CONTROL POINT.
-    ///
-    /// This deliberately does NOT consult the Fitness Machine Feature bits any more. Those
-    /// bits were the gate here, and on his TM2000 they are the reason the app "solo recoge
-    /// la info": a firmware that reports a zeroed (or truncated) Target Setting Features
-    /// word switched every control off before a single byte was ever written. qdomyos-zwift
-    /// never reads them; neither do we. A belt is read-only only when it has no writable
-    /// Control Point at all — a fact, not a claim.
+    /// THE MACHINE FACT: there is somewhere to write. True for any machine with a writable
+    /// Control Point, false for a belt that only broadcasts. It says nothing about WHICH
+    /// commands the machine takes — that is what the two declarations above are for.
     var canControl: Bool { hasControlPoint }
+
+    /// THE APP FACT: the app may write to this machine at all. Gates the silent writes too
+    /// (programming the tramo onto the machine's own console), not just the steppers.
+    var appMayDrive: Bool { TreadmillControlPolicy.appDrivesMachines && canControl }
+
+    /// THE ONLY TWO THINGS THE HUD READS. A control is painted when — and only when — the
+    /// app drives machines at all, this machine has somewhere to write, it DECLARED it
+    /// takes that exact target, and it has not since refused one. Speed and incline are
+    /// judged separately and never collapse into one boolean: a belt that takes an incline
+    /// and refuses a speed is a real machine, and it gets exactly one control.
+    var offersSpeedControl: Bool { appMayDrive && declaresSpeedTarget && canControlSpeed }
+    var offersInclineControl: Bool { appMayDrive && declaresInclineTarget && canControlIncline }
 
     /// Incline is expressed in console levels, not percent grade, on this machine.
     var inclineIsLevel: Bool { inclineDialect == .level }

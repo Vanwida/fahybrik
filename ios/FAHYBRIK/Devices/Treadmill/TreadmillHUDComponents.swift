@@ -152,43 +152,68 @@ struct ZoneMeter: View {
 
 // MARK: - Goal progress
 
-/// The leg's distance/time progress with a filled bar and a completion flash.
+/// The leg's distance/time progress with a filled bar and a completion flash — and,
+/// optionally, the tramo clock beside it. The clock lives HERE, next to the distance it
+/// belongs to, so the screen never needs a separate "Tiempo" tile repeating it.
 struct GoalProgress: View {
     let caption: String
     let primary: String      // covered distance / remaining time
-    let secondary: String    // target
-    let fraction: Double
+    /// The target. nil on an OPEN leg ("hasta recuperar"): there is nothing to reach, so
+    /// the card shows what's been covered and no "/ x".
+    let secondary: String?
+    /// The tramo clock, drawn as a second readout on the right. nil where the caller
+    /// already shows the time as the primary readout (a time leg).
+    var elapsed: String? = nil
+    /// Progress 0…1, or nil on an open leg — then no bar, rather than an empty one that
+    /// would read as "you haven't started".
+    let fraction: Double?
     let complete: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .lastTextBaseline) {
-                LabelText(text: caption, size: 10)
-                Spacer(minLength: 8)
-                if complete {
-                    Text("COMPLETADO")
-                        .font(.system(size: 11, weight: .heavy, design: .default).italic())
-                        .tracking(0.8)
-                        .foregroundStyle(Theme.Color.ok)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .lastTextBaseline) {
+                        LabelText(text: caption, size: 10)
+                        if complete {
+                            Text("COMPLETADO")
+                                .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                                .tracking(0.8)
+                                .foregroundStyle(Theme.Color.ok)
+                        }
+                    }
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text(primary)
+                            .font(.system(size: 22, weight: .heavy, design: .monospaced).monospacedDigit())
+                            .foregroundStyle(complete ? Theme.Color.ok : Theme.Color.foreground)
+                        if let secondary {
+                            Text("/ \(secondary)")
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(Theme.Color.muted)
+                        }
+                    }
+                }
+                if let elapsed {
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 8) {
+                        LabelText(text: "Tiempo", size: 10)
+                        Text(elapsed)
+                            .font(.system(size: 22, weight: .heavy, design: .monospaced).monospacedDigit())
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
                 }
             }
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(primary)
-                    .font(.system(size: 22, weight: .heavy, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(complete ? Theme.Color.ok : Theme.Color.foreground)
-                Text("/ \(secondary)")
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.Color.surface)
-                    Capsule()
-                        .fill(complete ? Theme.Color.ok : Theme.Color.accent)
-                        .frame(width: max(0, geo.size.width * fraction))
+            if let fraction {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.Color.surface)
+                        Capsule()
+                            .fill(complete ? Theme.Color.ok : Theme.Color.accent)
+                            .frame(width: max(0, geo.size.width * fraction))
+                    }
                 }
+                .frame(height: 8)
             }
-            .frame(height: 8)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -199,5 +224,14 @@ struct GoalProgress: View {
                 .stroke(complete ? Theme.Color.ok.opacity(0.6) : Theme.Color.hairline, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        var parts = [caption, secondary.map { "\(primary) de \($0)" } ?? primary]
+        if let elapsed { parts.append("tiempo \(elapsed)") }
+        if complete { parts.append("completado") }
+        return parts.joined(separator: ", ")
     }
 }
