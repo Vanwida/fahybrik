@@ -27,6 +27,48 @@ también debe subir al registro.
 
 ---
 
+## Cerrado el 28-jul · El registro dejaba de decir la verdad — `source`, el RPE ajeno y el log vacío
+
+**Sin desplegar. Migraciones 0143/0144 escritas y SIN aplicar** (las aplica Alex).
+
+Alex entrenó cuatro sesiones de verdad (ski 400, 1 km, EMOM, remo 5×500) con PM5 y
+cinta conectados, y el registro mentía en tres sitios distintos.
+
+- **`source` hacía dos trabajos.** Decía a la vez de qué APARATO salen los números
+  y CÓMO se registró el entreno, y su tipo (`biometric_source`) solo sabe hablar de
+  aparatos — así que «lo hizo en vivo con la app» no tenía forma de escribirse y el
+  camino libre mandaba `'manual'` a pelo. Ahora `source` conserva su significado (la
+  precedencia entre aparatos de los ingestores depende de él) y nace `recorded_via`
+  (live | manual | imported). `contributing_sources` y `totals_source`, que existían
+  desde 0108 y **nadie escribía**, pasan a llevar los aparatos reales.
+- **El histórico NO se reescribe.** De las 74 filas `manual`, 57 son seed y 1 es un
+  registro tecleado de verdad. El backfill es aditivo y sale de evidencia ya
+  guardada (un registro a mano no graba tramos); las de seed se quedan en NULL,
+  que es la respuesta honesta.
+- **El «RPE 7» no era un fallo de lectura.** Los dos endpoints devuelven 9
+  (verificado ejecutando los loaders reales contra producción). El calendario del
+  historial abría `day.sessions.first`: en un día con cuatro sesiones, tocabas la
+  carrera y se abría el ski. Ahora un día con varias sesiones no adivina — las
+  enfoca abajo y eliges.
+- **El 7 sí se estaba fabricando al GUARDAR:** el selector nacía en 7, así que tres
+  de las cuatro ejecuciones llevan un esfuerzo que Alex nunca eligió. El RPE pasa a
+  ser opcional de verdad y el log dice «sin registrar» en vez de un número de nadie.
+- **El log ya no es un reloj y dos tiles.** El titular es el TRABAJO (rondas de un
+  EMOM, distancia de un remo, tiempo de un For Time), y debajo van FC/potencia/
+  palada/calorías, zonas, tramos con su aparato, parciales, «cómo fue» (RPE +
+  dificultad + molestia, que se guardaban desde #58 y no volvían nunca) y, al final,
+  la procedencia. Cada bloque condicionado a que ESA ejecución tenga el dato.
+
+**Pendiente de decisión de Alex:** el RPE no se puede añadir a posteriori (no hay
+endpoint de edición); hoy si no lo contestas al acabar, se pierde.
+
+**Lead anotado, no perseguido:** cada guardado de entreno libre consume DOS ids de
+`workout_executions` (173, 175, 177, 179 con hueco en medio) mientras la secuencia
+de asignaciones va seguida — apunta a un intento que hace rollback dentro de la
+transacción de `create-free-workout`. No pierde datos; merece una mirada.
+
+---
+
 ## Cerrado el 28-jul · El cronómetro sin movimientos SE GUARDA (era lo único que faltaba)
 
 **Sin desplegar todavía.** Servidor + iOS; **cero migraciones** (la forma viaja en

@@ -106,12 +106,27 @@ struct ExecutedWorkoutView: View {
     }
 
     // MARK: - Content
+    //
+    // The order is the order of the questions the athlete arrives with, not the
+    // order of the columns in the table:
+    //
+    //   1. ¿qué he hecho?      → the headline work + when
+    //   2. ¿qué tal?           → the numbers that judge it (pace, HR, power…)
+    //   3. ¿cómo lo repartí?   → zones, per-leg breakdown, splits
+    //   4. ¿cómo me sentí?     → RPE / difficulty / niggle — the athlete's own read
+    //   5. ¿qué anoté?         → notes
+    //   6. ¿de dónde sale?     → provenance, last: it's a trust stamp, not a stat
+    //
+    // Every section is gated on data that genuinely exists for THIS execution.
+    // Nothing is padded to fill the screen and nothing is invented — a session
+    // with no strap simply has no heart-rate block, and says so nowhere.
     @ViewBuilder
     private func content(_ detail: AssignmentDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 headerCard
-                aggregateTiles
+                if !effortMetrics.isEmpty { effortTiles }
+                if !zoneDistribution.isEmpty { zonesCard }
                 // #64 — the outdoor run's route, when this session was run outside.
                 if let route = execution?.routePolyline, PolylineCodec.pointCount(route) >= 2 {
                     routeMapCard(route)
@@ -124,10 +139,15 @@ struct ExecutedWorkoutView: View {
                 ForEach(ergIntervalSegments) { seg in
                     ergIntervalsCard(seg)
                 }
+                feedbackCard
                 if let notes = execution?.notes, !notes.isEmpty {
                     notesCard(notes)
                 }
-                screenshotEntry
+                provenanceCard
+                // Only offered when there's something it could actually add. On a
+                // session a PM5 already fed, inviting a screenshot of another app
+                // is noise next to better data we already hold.
+                if canEnrichWithScreenshot { screenshotEntry }
             }
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.bottom, Theme.Spacing.xxl)
@@ -147,24 +167,29 @@ struct ExecutedWorkoutView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Header (big time + completeness mark + score)
+    // MARK: - Header — WHAT was done, then how long, then when
+    //
+    // The headline is the number that ANSWERS the session, which is not always
+    // the clock: an AMRAP is its rounds, a For Time its final time, an EMOM the
+    // rounds it survived, a row/ski/run the distance covered. Leading with the
+    // elapsed clock on a 5×500 hides the only figure the athlete cares about.
+    // Duration never disappears — it moves to the supporting line when something
+    // more meaningful takes the headline.
     private var headerCard: some View {
         CardSurface(padding: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Image(systemName: isPartial ? "circle.lefthalf.filled" : "checkmark")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(isPartial ? Theme.Color.warning : Theme.Color.ok)
-                    if let total = execution?.totalDurationSeconds, total > 0 {
-                        HeroNumber(text: WorkoutSession.formatElapsed(Double(total)), size: 34)
-                    } else if let score = execution?.scoreLabel {
-                        HeroNumber(text: score, size: 30)
-                    } else {
-                        Text(isPartial ? "Terminado antes" : "Completado")
-                            .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                            .foregroundStyle(Theme.Color.foreground)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HeroNumber(text: headline.value, size: headline.value.count > 8 ? 28 : 34)
+                        LabelText(text: headline.caption, size: 9)
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
+                }
+                if let support = headlineSupport {
+                    MonoText(text: support, size: 12, color: Theme.Color.muted)
                 }
                 if let when = whenLabel {
                     Text(when)
@@ -175,20 +200,36 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    // MARK: - Aggregate tiles (score · RPE · provenance)
-    private var aggregateTiles: some View {
-        let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
-        return LazyVGrid(columns: cols, spacing: 6) {
-            if let score = execution?.scoreLabel, execution?.totalDurationSeconds != nil {
-                ExpertCell(label: "Resultado", value: score, color: Theme.Color.accentText)
-            }
-            if let rpe = execution?.perceivedExertion {
-                ExpertCell(label: "RPE", value: "\(rpe)", unit: "/10")
-            }
-            if let src = sourceLabel {
-                ExpertCell(label: "Registro", value: src)
-            }
+    /// The headline number + what it is. Falls all the way back to the honest
+    /// "Completado" when the session recorded no figure at all.
+    private var headline: (value: String, caption: String) {
+        if let score = execution?.scoreLabel, !score.isEmpty {
+            return (score, "resultado")
         }
+        if let rounds = emomRounds {
+            return (rounds.prescribed.map { "\(rounds.completed)/\($0)" } ?? "\(rounds.completed)", "rondas")
+        }
+        if let d = totalDistanceMeters, d > 0 {
+            return (Self.formatDistance(d), "distancia")
+        }
+        if let total = execution?.totalDurationSeconds, total > 0 {
+            return (WorkoutSession.formatElapsed(Double(total)), "duración")
+        }
+        return (isPartial ? "Terminado antes" : "Completado", "estado")
+    }
+
+    /// The second line: whatever the headline did NOT already say. Duration is
+    /// kept whenever it isn't the headline, so it is never lost.
+    private var headlineSupport: String? {
+        var parts: [String] = []
+        if headline.caption != "duración", let total = execution?.totalDurationSeconds, total > 0 {
+            parts.append(WorkoutSession.formatElapsed(Double(total)))
+        }
+        if headline.caption != "distancia", let d = totalDistanceMeters, d > 0 {
+            parts.append(Self.formatDistance(d))
+        }
+        if let pace = headlinePace { parts.append(pace) }
+        return parts.isEmpty ? nil : parts.joined(separator: "  ·  ")
     }
 
     // MARK: - Per-segment table (prescrito → hecho)
@@ -204,12 +245,20 @@ struct ExecutedWorkoutView: View {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
                     if idx > 0 { Hairline().opacity(0.5) }
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(row.name)
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.name)
+                                .scaledFont(12, relativeTo: .caption)
+                                .foregroundStyle(Theme.Color.foreground)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            // Which kit measured THIS leg. Only when the session
+                            // used more than one, otherwise it repeats the footer
+                            // on every row for nothing.
+                            if let device = row.device, deviceLabels.count > 1 {
+                                LabelText(text: device, size: 8)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         MonoText(
                             text: row.result,
                             size: 11,
@@ -576,17 +625,314 @@ struct ExecutedWorkoutView: View {
         return f.string(from: date)
     }
 
-    private var sourceLabel: String? {
-        switch execution?.source {
-        case "manual":    return "A mano"
-        case "healthkit": return "Apple"
-        case "garmin":    return "Garmin"
-        case "concept2":  return "PM5"
-        case "polar":     return "Polar"
-        case "coros":     return "Coros"
-        case .some(let s) where !s.isEmpty: return s.capitalized
-        default:          return nil
+    // MARK: - Provenance
+    //
+    // Two different questions, and conflating them is what made this screen lie.
+    // A session run live in the app with a PM5 attached was stored as
+    // source='manual' and shown as "Registro: A mano" — the opposite of what
+    // happened. `recordedVia` answers HOW the record was made; the device names
+    // answer WHERE the numbers came from. Both, or neither, but never one
+    // pretending to be the other.
+
+    /// "Hecho en la app" | "Añadido a mano" | "Importado". Nil on rows written
+    /// before the split, where the honest answer is to say nothing.
+    private var recordedViaLabel: String? {
+        switch execution?.recordedVia {
+        case "live":     return "Hecho en la app"
+        case "manual":   return "Añadido a mano"
+        case "imported": return "Importado"
+        default:         return nil
         }
+    }
+
+    /// Human names for every device that fed this session, de-duplicated and in
+    /// a stable order. Empty when nothing was connected — which the card states
+    /// outright rather than leaving a blank row.
+    private var deviceLabels: [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        // Prefer the execution-level roll-up; fall back to the per-leg sources so
+        // an older payload (rolled up server-side only from mig 0144) still names
+        // the hardware it actually used.
+        let raw = execution?.contributingSources.isEmpty == false
+            ? (execution?.contributingSources ?? [])
+            : (execution?.segments ?? []).compactMap(\.source)
+        for value in raw {
+            guard let name = Self.deviceName(value), seen.insert(name).inserted else { continue }
+            out.append(name)
+        }
+        return out
+    }
+
+    /// One device token → the name the athlete calls it. Returns nil for tokens
+    /// that are NOT devices ("manual", "demo"): those must not appear as kit.
+    private static func deviceName(_ raw: String) -> String? {
+        switch raw {
+        case "concept2", "pm5": return "PM5"
+        case "treadmill":       return "Cinta"
+        case "gps":             return "GPS"
+        case "healthkit":       return "Apple Watch"
+        case "garmin":          return "Garmin"
+        case "polar":           return "Polar"
+        case "coros":           return "Coros"
+        case "wahoo":           return "Wahoo"
+        case "suunto":          return "Suunto"
+        case "whoop":           return "Whoop"
+        case "oura":            return "Oura"
+        case "amazfit":         return "Amazfit"
+        case "manual", "demo":  return nil
+        default:                return raw.capitalized
+        }
+    }
+
+    /// The trust stamp, at the FOOT of the screen: how this got recorded and what
+    /// measured it. Deliberately not a headline tile — provenance is what you
+    /// check when a number surprises you, not what you came to read.
+    @ViewBuilder
+    private var provenanceCard: some View {
+        if recordedViaLabel != nil || !deviceLabels.isEmpty {
+            CardSurface(padding: 10) {
+                VStack(alignment: .leading, spacing: 7) {
+                    LabelText(text: "Registro", size: 9)
+                    if let via = recordedViaLabel {
+                        Text(via)
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                    if deviceLabels.isEmpty {
+                        Text("Sin aparatos conectados: los números son los que anotaste tú.")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(deviceLabels, id: \.self) { name in
+                                Text(name)
+                                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                                    .foregroundStyle(Theme.Color.accentText)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule().fill(Theme.Color.surfaceElevated)
+                                    )
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Aparatos: \(deviceLabels.joined(separator: ", "))")
+                    }
+                }
+            }
+        }
+    }
+
+    /// A screenshot can only ADD something when no device measured the session.
+    /// With a PM5 or a belt already feeding it, the offer is clutter.
+    private var canEnrichWithScreenshot: Bool { deviceLabels.isEmpty }
+
+    // MARK: - Derived metrics (aggregated across the logged legs)
+
+    /// Total metres covered across every leg that measured distance.
+    private var totalDistanceMeters: Double? {
+        let sum = (execution?.segments ?? []).compactMap(\.distanceMeters).reduce(0, +)
+        return sum > 0 ? sum : nil
+    }
+
+    /// The pace of the leg that dominates the session (the longest one), in that
+    /// leg's own convention — /500m for an erg, /km for a run.
+    private var headlinePace: String? {
+        let legs = (execution?.segments ?? [])
+            .sorted { ($0.durationSeconds ?? 0) > ($1.durationSeconds ?? 0) }
+        guard let leg = legs.first else { return nil }
+        if let p = leg.avgPaceSPer500m, p > 0 {
+            return "\(PrescriptionRenderer.formatPace(Int(p.rounded())))/500m"
+        }
+        if let p = leg.avgPaceSPerKm, p > 0 {
+            return "\(PrescriptionRenderer.formatPace(Int(p.rounded())))/km"
+        }
+        return nil
+    }
+
+    /// EMOM rounds actually completed vs prescribed, when this session ran one.
+    /// The single figure that says how an EMOM went, and it was invisible here.
+    private var emomRounds: (completed: Int, prescribed: Int?)? {
+        guard let leg = (execution?.segments ?? []).first(where: { $0.emomRoundsCompleted != nil }),
+              let done = leg.emomRoundsCompleted
+        else { return nil }
+        return (done, leg.emomRoundsPrescribed)
+    }
+
+    private var avgHrBpm: Int? {
+        let values = (execution?.segments ?? []).compactMap(\.avgHr)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / values.count
+    }
+    private var maxHrBpm: Int? { (execution?.segments ?? []).compactMap(\.maxHr).max() }
+
+    private var totalCalories: Double? {
+        let sum = (execution?.segments ?? []).compactMap(\.calories).reduce(0, +)
+        return sum > 0 ? sum : nil
+    }
+
+    private var avgPowerW: Double? {
+        let values = (execution?.segments ?? []).compactMap(\.avgPowerW).filter { $0 > 0 }
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private var avgStrokeRate: Double? {
+        let values = (execution?.segments ?? []).compactMap(\.strokeRateSpm).filter { $0 > 0 }
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    /// The "how did it go" numbers, built ONLY from what was measured. An empty
+    /// array means the block isn't drawn at all — no grid of dashes.
+    private var effortMetrics: [(label: String, value: String, unit: String)] {
+        var out: [(String, String, String)] = []
+        if let hr = avgHrBpm { out.append(("FC media", "\(hr)", "ppm")) }
+        if let hr = maxHrBpm { out.append(("FC máx", "\(hr)", "ppm")) }
+        if let p = avgPowerW { out.append(("Potencia", "\(Int(p.rounded()))", "W")) }
+        if let s = avgStrokeRate { out.append(("Ritmo de palada", "\(Int(s.rounded()))", "s/m")) }
+        if let c = totalCalories { out.append(("Calorías", "\(Int(c.rounded()))", "kcal")) }
+        return out
+    }
+
+    private var effortTiles: some View {
+        let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+        return LazyVGrid(columns: cols, spacing: 6) {
+            ForEach(effortMetrics, id: \.label) { m in
+                ExpertCell(label: m.label, value: m.value, unit: m.unit)
+            }
+        }
+    }
+
+    // MARK: - Heart-rate zones
+    //
+    // The live summary has shown this bar since day one; the log — the surface
+    // you actually revisit — threw it away. Same reading, same colours.
+
+    private var zoneDistribution: [(zone: HRZone, pct: Int)] {
+        var totals: [Int: Int] = [:]
+        for seg in execution?.segments ?? [] {
+            for (key, seconds) in seg.zoneSeconds ?? [:] {
+                guard let n = Int(key.dropFirst()), key.hasPrefix("z"), HRZone(rawValue: n) != nil else { continue }
+                totals[n, default: 0] += seconds
+            }
+        }
+        let total = totals.values.reduce(0, +)
+        guard total > 0 else { return [] }
+        return HRZone.allCases.map { z in (z, Int((Double(totals[z.rawValue] ?? 0) / Double(total) * 100).rounded())) }
+    }
+
+    private var zonesCard: some View {
+        CardSurface(padding: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                LabelText(text: "Zonas", size: 9)
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        ForEach(zoneDistribution, id: \.zone) { z in
+                            Rectangle().fill(z.zone.color)
+                                .frame(width: max(0, geo.size.width * CGFloat(z.pct) / 100))
+                        }
+                    }
+                }
+                .frame(height: 16)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                HStack {
+                    ForEach(zoneDistribution, id: \.zone) { z in
+                        MonoText(text: "\(z.zone.label) \(z.pct)%", size: 9, color: z.zone.color)
+                        if z.zone != .z5 { Spacer() }
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Zonas: " + zoneDistribution.map { "\($0.zone.label) \($0.pct) por ciento" }.joined(separator: ", ")
+            )
+        }
+    }
+
+    // MARK: - "Cómo fue" — the athlete's own read
+    //
+    // RPE, how hard it felt against the prescription, and any niggle. The last
+    // two are collected at save time (#58) and were stored and never shown back.
+    // RPE that was never answered reads "—", never a number nobody chose.
+
+    @ViewBuilder
+    private var feedbackCard: some View {
+        let difficulty = difficultyLabel
+        let pain = painLabel
+        if execution?.perceivedExertion != nil || difficulty != nil || pain != nil {
+            CardSurface(padding: 10) {
+                VStack(alignment: .leading, spacing: 8) {
+                    LabelText(text: "Cómo fue", size: 9)
+                    HStack(alignment: .top, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                MonoText(
+                                    text: execution?.perceivedExertion.map { "\($0)" } ?? "—",
+                                    size: 22,
+                                    weight: .heavy,
+                                    color: execution?.perceivedExertion == nil
+                                        ? Theme.Color.faint : Theme.Color.foreground
+                                )
+                                if execution?.perceivedExertion != nil {
+                                    MonoText(text: "/10", size: 11, color: Theme.Color.muted)
+                                }
+                            }
+                            LabelText(
+                                text: execution?.perceivedExertion == nil ? "RPE · sin registrar" : "RPE",
+                                size: 9
+                            )
+                        }
+                        if let difficulty {
+                            Spacer(minLength: 0)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(difficulty)
+                                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                                    .foregroundStyle(Theme.Color.foreground)
+                                LabelText(text: "Dificultad", size: 9)
+                            }
+                        }
+                    }
+                    if let pain {
+                        Hairline()
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "bandage")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Theme.Color.warning)
+                            Text(pain)
+                                .scaledFont(12, relativeTo: .caption)
+                                .foregroundStyle(Theme.Color.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// #58 difficulty against what was prescribed — read through the SAME enum
+    /// the save form writes, so the wording can never drift between the two.
+    private var difficultyLabel: String? {
+        execution?.perceivedDifficulty.flatMap(PerceivedDifficulty.init(rawValue:))?.label
+    }
+
+    /// The niggle the athlete flagged: area, plus their note when they wrote one.
+    private var painLabel: String? {
+        let area = execution?.painArea?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let note = execution?.painNote?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !area.isEmpty || !note.isEmpty else { return nil }
+        let name = area.isEmpty ? "Molestia" : (PainArea(rawValue: area)?.label ?? area)
+        return note.isEmpty ? name : "\(name) · \(note)"
+    }
+
+    /// "1.01 km" past a kilometre, plain metres below it. The ONE distance
+    /// formatter this screen uses, so the headline and the per-leg rows can
+    /// never state the same distance two different ways.
+    static func formatDistance(_ meters: Double) -> String {
+        meters >= 1000 ? String(format: "%.2f km", meters / 1000) : "\(Int(meters.rounded())) m"
     }
 
     // Join the prescribed items (workout blocks) with the logged actuals by uid,
@@ -612,7 +958,8 @@ struct ExecutedWorkoutView: View {
                             id: item.uid,
                             name: item.exerciseName,
                             result: tokens.isEmpty ? "—" : tokens.joined(separator: " · "),
-                            hasResult: !tokens.isEmpty
+                            hasResult: !tokens.isEmpty,
+                            device: actual?.source.flatMap(Self.deviceName)
                         )
                     )
                 }
@@ -630,7 +977,8 @@ struct ExecutedWorkoutView: View {
                     id: "seg-\(seg.position)",
                     name: Theme.Modality.label(seg.modality),
                     result: tokens.joined(separator: " · "),
-                    hasResult: true
+                    hasResult: true,
+                    device: seg.source.flatMap(Self.deviceName)
                 )
             )
         }
@@ -649,7 +997,7 @@ struct ExecutedWorkoutView: View {
             }
         }
         if let d = a.distanceMeters, d > 0 {
-            t.append(d >= 1000 ? String(format: "%.1f km", d / 1000) : "\(Int(d)) m")
+            t.append(formatDistance(d))
         }
         if let p = a.avgPaceSPer500m, p > 0 {
             t.append("\(PrescriptionRenderer.formatPace(Int(p)))/500m")
@@ -680,5 +1028,7 @@ struct ExecutedWorkoutView: View {
         let name: String
         let result: String
         let hasResult: Bool
+        /// Human name of the kit that measured this leg; nil when none did.
+        var device: String? = nil
     }
 }

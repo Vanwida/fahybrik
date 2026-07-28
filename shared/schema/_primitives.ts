@@ -70,6 +70,19 @@ export type BlockStatus = z.infer<typeof blockStatus>;
 export const assignmentStatus = z.enum(['scheduled', 'completed', 'partial', 'missed', 'skipped']);
 export type AssignmentStatus = z.infer<typeof assignmentStatus>;
 
+// Mirrors the `biometric_source` Postgres enum, IN ITS DECLARATION ORDER — the
+// order matters because Postgres sorts enum arrays by enum position, so
+// `contributing_sources` written here matches one written by SQL (mig 0144).
+// 'treadmill' and 'gps' (mig 0143) are not accounts or brands: they are the
+// local apparatus the live engine reads (FTMS treadmill, phone GPS), and
+// `workout_executions.contributing_sources` has to be able to name them.
+//
+// 'suunto' and 'amazfit' (mig 0135) sat in the DB for weeks WITHOUT being here,
+// so both Zod copies rejected a value Postgres accepts. Nothing broke only
+// because no ingestor emits them yet — but their absence also silently shifted
+// every later value's position, which is exactly the invariant the first
+// paragraph depends on. Verified against production: the enum is these thirteen,
+// in this order.
 export const biometricSource = z.enum([
   'healthkit',
   'garmin',
@@ -80,8 +93,20 @@ export const biometricSource = z.enum([
   'polar',
   'coros',
   'wahoo',
+  'suunto',
+  'amazfit',
+  'treadmill',
+  'gps',
 ]);
 export type BiometricSource = z.infer<typeof biometricSource>;
+
+// Mirrors the `execution_recording_method` Postgres enum (mig 0144). HOW the
+// record came to exist — a different question from `biometric_source`, which
+// says WHICH APPARATUS produced the numbers. A session run in the app with a
+// PM5 is recorded_via='live' AND source='concept2'; conflating the two is what
+// made four real live sessions read as "a mano".
+export const executionRecordingMethod = z.enum(['live', 'manual', 'imported']);
+export type ExecutionRecordingMethod = z.infer<typeof executionRecordingMethod>;
 
 export const biometricMetric = z.enum([
   'hr',

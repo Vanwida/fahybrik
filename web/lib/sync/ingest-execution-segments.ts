@@ -183,8 +183,12 @@ export type SegmentInput = z.infer<typeof segmentInputSchema>;
  * Honest per-segment duration in whole seconds: explicit `duration_seconds`
  * wins; else derive it from explicit started/ended timestamps; else UNKNOWN
  * (null) — we never invent a duration from the execution window.
+ *
+ * Exported because the execution recorder ranks the tramos by this SAME
+ * duration to pick `totals_source` (the longest tramo owns the totals). One
+ * rule, one place: a second definition would let the two disagree.
  */
-function segmentDurationSeconds(seg: SegmentInput): number | null {
+export function segmentDurationSeconds(seg: SegmentInput): number | null {
   if (seg.duration_seconds != null) return seg.duration_seconds;
   if (seg.started_at && seg.ended_at) {
     const d = (new Date(seg.ended_at).getTime() - new Date(seg.started_at).getTime()) / 1000;

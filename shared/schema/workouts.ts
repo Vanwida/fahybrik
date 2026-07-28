@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   assignmentStatus,
   biometricSource,
+  executionRecordingMethod,
   idSchema,
   isoDate,
   isoDateTime,
@@ -113,6 +114,12 @@ export const workoutExecutionSchema = z.object({
   // Every provider that contributed ≥1 value (the fused-state signal: length ≥ 2
   // ⇒ a genuine fusion). Defaults to [] so older selects still parse.
   contributing_sources: z.array(biometricSource).optional().default([]),
+  // HOW the record came to exist (migration 0144) — run in the app, typed in
+  // afterwards, or ingested from a third party. Deliberately SEPARATE from
+  // `source`, which only says which APPARATUS produced the numbers: answering
+  // both with one column is what made live PM5 sessions read as "a mano".
+  // Nullable ("no se sabe") for rows written before 0144 and for seed data.
+  recorded_via: executionRecordingMethod.nullable().optional(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });

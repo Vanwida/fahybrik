@@ -88,5 +88,10 @@ export function fidelityRank(cls: MergeFieldClass, channel: MergeChannel): numbe
 export function channelOfStoredSource(source: BiometricSource): MergeChannel {
   if (source === 'healthkit') return 'device_stream';
   if (source === 'manual') return 'manual';
+  // The two LOCAL apparatus (mig 0143) only ever reach us through our own live
+  // engine, which records structured segments — so they are app_structured, not
+  // a photo of somebody's screen. Without this they would fall into the OCR
+  // bucket below and a real PM5/treadmill session would rank BELOW a screenshot.
+  if (source === 'treadmill' || source === 'gps') return 'app_structured';
   return 'ocr_capture';
 }
