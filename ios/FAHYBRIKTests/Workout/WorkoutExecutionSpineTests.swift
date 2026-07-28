@@ -166,8 +166,60 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertEqual(sets.count, 1)
         XCTAssertEqual(sets[0].tempo, "30X1", "Prescribed tempo must reach set_executions.")
         XCTAssertEqual(sets[0].restS, 90, "Prescribed rest must reach set_executions.")
-        XCTAssertEqual(sets[0].loadActualKg, 100)
         XCTAssertEqual(sets[0].repsActual, 5)
+        // The load is the COACH's until the athlete says otherwise: prescribed 100
+        // is archived as prescribed, and the actual stays unknown.
+        XCTAssertEqual(sets[0].loadPrescribedKg, 100)
+        XCTAssertNil(sets[0].loadActualKg, "An untouched prescribed load is not a load the athlete lifted.")
+        XCTAssertNil(lap.weightUsedKg, "…and it must not reach weight_used_kg either.")
+    }
+
+    func testDeclaredLoadIsRecordedAsUsed() throws {
+        // The other half of the rule: what the athlete DOES declare is recorded, and
+        // the segment reads as manual entry.
+        let set = PrescriptionSet(measure: .reps(5), target: .kg(value: 100, min: nil, max: nil),
+                                  modality: .strength, restS: 90, tempo: nil, note: nil)
+        let rx = Prescription(scheme: .sets, modality: .strength, sets: [set], rounds: nil, workS: nil,
+                              restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Back Squat", kind: .strength, templateSegmentId: 7,
+                                 targetReps: 5, loadKg: 100, blockTitle: "A", blockPosition: 1, prescription: rx)
+        let s = armedSession([seg])
+        s.primeManualLoadIfNeeded()
+        XCTAssertFalse(s.loadConfirmed, "Priming shows a number; it does not declare one.")
+        s.manualLoadKg = 80                     // "hoy he movido 80, no 100"
+        XCTAssertTrue(s.loadConfirmed)
+        s.primaryAdvance()
+
+        let lap = try XCTUnwrap(s.laps.last)
+        XCTAssertEqual(lap.weightUsedKg, 80)
+        XCTAssertEqual(lap.sets?.first?.loadActualKg, 80)
+        XCTAssertEqual(lap.sets?.first?.loadPrescribedKg, 100)
+        XCTAssertEqual(lap.source, "manual")
+    }
+
+    func testMultiSetLoadIsUnknownUntilTouchedAndDeclaredByConfirm() throws {
+        // A 3×5 primes its reps but NOT its loads; "Hecho" (did as written) is the
+        // declaration that turns the prescribed load into the actual one.
+        let one = PrescriptionSet(measure: .reps(5), target: .kg(value: 60, min: nil, max: nil),
+                                  modality: .strength, restS: 60, tempo: nil, note: nil)
+        let rx = Prescription(scheme: .sets, modality: .strength, sets: [one, one, one], rounds: nil,
+                              workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Front Squat", kind: .strength, templateSegmentId: 9,
+                                 targetReps: 5, loadKg: 60, blockTitle: "A", blockPosition: 1, prescription: rx)
+        let s = armedSession([seg])
+        s.primeSetsIfNeeded()
+        XCTAssertEqual(s.setRecords.count, 3)
+        XCTAssertEqual(s.setRecords[0].repsActual, 5, "Reps still prime from the prescription.")
+        XCTAssertTrue(s.setRecords.allSatisfy { $0.loadActualKg == nil }, "Loads do not.")
+
+        s.confirmSet(0)
+        XCTAssertEqual(s.setRecords[0].loadActualKg, 60, "\"Hecho\" declares the prescribed load.")
+        XCTAssertNil(s.setRecords[1].loadActualKg)
+
+        s.primaryAdvance()
+        let lap = try XCTUnwrap(s.laps.last)
+        XCTAssertEqual(lap.weightUsedKg, 60, "The aggregate load is the max DECLARED one.")
     }
 
     func testBodyweightRepsCloseHasNoSyntheticSet() throws {
@@ -212,6 +264,83 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         let s = armedSession([seg])
         s.primaryAdvance()   // erg segment → lap() → close
         XCTAssertEqual(s.laps.last?.modality, "ski")
+    }
+
+    func testMixedErgFoldIsNotSealedWithOneMachine() throws {
+        // Un bloque steady con ski Y remo se pliega en UN segmento. Four layers had
+        // already learned that ski is not row — and the FOLD skipped all four,
+        // stamping the block with the first movement's machine. Ski and row share
+        // one `SegmentKind`, so the test has to be on the MACHINES.
+        let detail = try decode(twoItemBlock(
+            format: "steady",
+            first: (category: "ski_erg", slug: "ski-erg", name: "SkiErg"),
+            second: (category: "rowing", slug: "row-erg", name: "Row")))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertEqual(seg.ergMachines, ["ski", "row"], "The fold keeps BOTH machines.")
+        XCTAssertEqual(seg.wireModality, "other", "A mixed block is neither ski nor row.")
+        // And the per-movement truth survives the fold, minute by minute.
+        XCTAssertEqual(seg.prescription?.sets?.compactMap { $0.modality?.rawValue }, ["ski", "row"])
+
+        let s = armedSession([seg])
+        XCTAssertTrue(s.canEndBlockEarly, "precondition")
+        XCTAssertFalse(s.currentBlockIsStructural, "precondition")
+        s.endBlockEarly()   // a folded conditioning block closes as a block, not a step
+        XCTAssertEqual(s.laps.count, 1, "precondition: the block closed one lap")
+        XCTAssertEqual(s.laps.last?.modality, "other", "…and that is what reaches the coach.")
+    }
+
+    func testHomogeneousErgFoldKeepsItsMachine() throws {
+        // The other half: a two-movement ski block IS ski, and still says so.
+        let detail = try decode(twoItemBlock(
+            format: "steady",
+            first: (category: "ski_erg", slug: "ski-erg", name: "SkiErg"),
+            second: (category: "ski_erg", slug: "ski-erg", name: "SkiErg")))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertEqual(seg.wireModality, "ski")
+    }
+
+    // Two-movement block JSON — the shape every FOLD assertion needs.
+    private func twoItemBlock(format: String,
+                              first: (category: String, slug: String, name: String),
+                              second: (category: String, slug: String, name: String)) -> String {
+        func item(_ uid: String, _ m: (category: String, slug: String, name: String)) -> String {
+            """
+            { "uid": "\(uid)", "exercise_id": "e-\(uid)", "exercise_name": "\(m.name)",
+              "exercise_slug": "\(m.slug)", "exercise_category": "\(m.category)",
+              "exercise_video_url": null, "cues": null,
+              "params_json": { "distance_meters": 1000, "duration_seconds": 600 }, "notes": null }
+            """
+        }
+        return """
+        {
+          "assignment": { "id": "asg1", "athlete_id": "ath1", "scheduled_for": "2026-07-20", "status": "scheduled" },
+          "workout": { "name": "Ergómetros Z2", "blocks": [ { "uid": "b", "title": "Ergómetros Z2",
+            "format": "\(format)", "block_position": 1, "items": [ \(item("i1", first)), \(item("i2", second)) ] } ] } }
+        """
+    }
+
+    // MARK: - TANDA 2 · a Tabata score is declared, never assumed
+
+    private func tabataSegment(rounds: Int) -> WorkoutSegment {
+        let rx = Prescription(scheme: .tabata, modality: nil, sets: nil, rounds: rounds, workS: 20,
+                              restS: 10, totalS: nil, target: nil, note: nil, start: nil, increment: nil)
+        return WorkoutSegment(order: 1, title: "Burpees", kind: .reps, templateSegmentId: 11,
+                              blockTitle: "Tabata", blockPosition: 1, prescription: rx)
+    }
+
+    func testTabataWithoutCountedRepsHasNoRepScore() throws {
+        // Counting reps is optional. An array of zeros used to publish "8 rondas ·
+        // 0 reps (mín.)" for everyone who simply did the eight rounds.
+        let s = armedSession([tabataSegment(rounds: 8)])
+        s.endBlockEarly()
+        XCTAssertNil(s.capturedScoreReps, "No counted round → no min-reps score.")
+    }
+
+    func testTabataRoundsAreTheOnesDone() throws {
+        // Abandoning at the start used to be sealed as the eight rounds prescribed.
+        let s = armedSession([tabataSegment(rounds: 8)])
+        s.endBlockEarly()
+        XCTAssertNil(s.capturedScoreRounds, "Zero rounds completed is not eight.")
     }
 
     // MARK: - ERG-3 · watts target decodes and reaches targetPowerWatts
