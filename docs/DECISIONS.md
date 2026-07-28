@@ -26,6 +26,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · «No se sabe» es un valor de primera clase — tres conceptos dejan de tener defecto plausible
+
+**Decidido:** tres magnitudes que el coach usa para decidir entrenamiento dejan de tener un valor por defecto y pasan a poder ser **nulas**, con el hueco declarado. El patrón que se retira es siempre el mismo: *un defecto plausible ocupa el sitio de «no se sabe», y como es plausible nadie lo detecta*.
+
+**1 · La adherencia sobre cero sesiones programadas es NULA, no 1.** Devolvía adherencia perfecta, y eso subía por la cadena hasta «súbele la carga, confianza alta» en la cola de Pablo sobre alguien que no había entrenado. La verdad ya vivía en `shared/domain/adherence/completion.ts` (`adherencePct`, que ya devolvía null); `progress-readiness.ts` pasa a usarla en vez de tener su propia fórmula. Nulo emite la bandera `compliance_unknown` y el veredicto cae a `hold`/`low` con la razón escrita. Efecto lateral bueno: el redondeo pasa a ser el mismo que el del roster y el de `/hoy`, así que ya no pueden discrepar.
+
+**2 · Una sesión sin intensidad conocida no emite TSS.** El defecto de 0,65 daba ~42 TSS/hora falsos a TODA sesión sin valorar. Y no había nada que enchufar en su lugar: verificado contra el esquema, **`workout_executions` no tiene columna de FC ni de potencia, y no existe LTHR ni FTP en ningún sitio** (`athletes.max_hr_bpm` está a null en los 8). `computeTss` devuelve null y el agregador lleva `unknown_seconds` / `unknown_seconds_28d` y expone `loadIntensityCoverage()`. **El hueco no se interpola.** Segundo defecto encontrado en el mismo sitio: la serie se valoraba con el `avg(RPE)` **del día**, así que una sesión sin valorar heredaba el esfuerzo de la de al lado; ahora se valora por sesión. Sobre el atleta 64: 79,2 → 60,0 TSS en 28 días, un 24 % era fabricado y solo un tercio de eso venía del 0,65.
+
+**3 · Sin rango no hay barra ni veredicto.** La comparación por estación fabricaba un `0.5` con severidad cuando faltaba el rango o el tamaño del campo. Como **`field_size` es NULL en las 33 carreras de producción**, el 100 % de esas barras eran inventadas. `stationFieldReading()` entrega barra **y** veredicto juntos o ninguno. El tiempo y el delta personal se quedan: esos sí son reales.
+
+**Por qué las tres juntas:** son la misma ley (§7 del `docs/CONTRATO-UI.md`) aplicada a los tres sitios donde el dato fabricado llegaba hasta una decisión de entrenamiento.
+
+**En consecuencia, no hacer:** no volver a poner un defecto «razonable» donde falta el dato — ni 1, ni 0,65, ni 0,5; no tapar con interpolación los huecos que ahora aparecen en las curvas de carga; y no calcular adherencia, TSS ni comparación de estación fuera de sus módulos dueños (fue tener dos fórmulas lo que creó las tres divergencias).
+
+**Consecuencia conocida y ACEPTADA:** la tarjeta «Listo para progresar» de `/hoy` enseña a menos gente, y las curvas de carga del coach tienen huecos donde antes había línea continua. Es correcto: esa tarjeta dice literalmente «súbele la carga».
+
+**Pendiente derivado:** el hueco ya viaja en `LoadSummary` pero **`athlete-deep-dive.ts` y `cohort.ts` todavía no lo pintan** — la carga del coach se ve completa aunque tenga agujeros. Falta cerrarlo.
+
+**Dónde vive:** `progress-readiness.ts`, `shared/domain/training-load/{tss,banister,index}.ts`, `web/lib/athlete/race-context.ts`.
+
+---
+
 ## 2026-07-28 · El TRAMO es la unidad del entreno en vivo — y la salida sigue la MEDIDA, no el movimiento
 
 **Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIK/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
