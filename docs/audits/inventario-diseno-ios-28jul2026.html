@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario de diseño — app iOS (28-jul-2026)</title>
+<style>
+  :root{--bg:#0a0a0a;--surface:#141414;--surface-2:#1c1c1c;--border:#262626;--border-strong:#333;--fg:#f5f5f5;--muted:#a3a3a3;--faint:#737373;--accent:#F06A2A;--ok:#4ade80;--warn:#facc15;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:56px 24px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(28px,4vw,40px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 8px}
+  .sub{color:var(--muted);max-width:700px;margin-bottom:20px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--faint);margin-bottom:40px}
+  h2{font-size:21px;font-weight:800;font-style:italic;margin:52px 0 12px;color:var(--accent)}
+  h3{font-size:15.5px;font-weight:800;margin:26px 0 8px}
+  p{margin:0 0 14px;color:var(--muted)} p.lede{font-size:17px;color:var(--fg)}
+  b,strong{color:var(--fg)}
+  ul,ol{margin:0 0 16px 22px} li{margin-bottom:9px;color:var(--muted)} li::marker{color:var(--accent)}
+  code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--fg)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:9px 11px;border-bottom:1px solid var(--border-strong)}
+  td{padding:10px 11px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:700;white-space:nowrap}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:18px}
+  .tS table{margin:0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+  .card.hot{background:linear-gradient(135deg,var(--surface),#1d1209);border-color:rgba(240,106,42,.4)}
+  .card.good{border-left:3px solid var(--ok)}
+  .n{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.1em;margin-bottom:6px}
+  .footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media(max-width:640px){body{padding:32px 14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Auditoría de diseño · 28 jul 2026</p>
+  <h1>Por qué todas las pantallas salen iguales</h1>
+  <p class="sub">Barrido completo de la app iOS del atleta: 74 pantallas, ~120 estados, 284 ficheros. El origen del «huecos enormes, todo arriba, todo del mismo tamaño» que reportó Alex.</p>
+  <div class="meta">
+    <span>Reglas de referencia: <code>docs/design/pantallas-que-ganan-su-altura.html</code></span>
+    <span>Estado: mapa, sin rediseñar</span>
+  </div>
+
+  <h2>El diagnóstico en tres frases</h2>
+  <div class="card hot">
+    <p class="lede" style="margin-bottom:12px"><strong>1 · No es estético, es mecánico: la app no tiene componente de acción anclada ni mecanismo de reparto de altura.</strong></p>
+    <p style="margin:0"><code>.safeAreaInset(edge:.bottom)</code> aparece <strong>6 veces en 284 ficheros</strong>. Las pocas pantallas que anclan lo hacen a mano y de cinco formas distintas. Y hay un <strong>falso ancla</strong> en 5 pantallas de Carreras: un <code>Spacer</code> DENTRO del <code>ScrollView</code>, que no empuja nada — creen tener la acción abajo y la tienen a media pantalla.</p>
+  </div>
+  <div class="card hot">
+    <p class="lede" style="margin-bottom:12px"><strong>2 · <code>CardSurface</code> es el contenedor de todo (172 usos), así que nada puede destacar.</strong></p>
+    <p style="margin:0">Sus únicos diferenciadores son una sombra y una línea de 2px. Cuando 12 tarjetas son la misma losa, el ojo no tiene punto de entrada y la única variable de jerarquía que queda es el cuerpo de letra: por eso Inicio tiene <strong>17 tamaños distintos</strong>.</p>
+  </div>
+  <div class="card good">
+    <p class="lede" style="margin-bottom:12px"><strong>3 · Y la buena: el sistema correcto YA existe dentro del repo, construido y en producción.</strong></p>
+    <p style="margin:0">Cuatro pantallas cumplen las cuatro reglas hoy — <code>OutdoorRunHUDView</code>, <code>BlockPreviewGate</code>, <code>MarkDetailView</code> y <code>RecoveryCaptureView</code>. No hay que inventar el sistema: hay que <strong>extraerlo y propagarlo</strong>.</p>
+  </div>
+
+  <h2>Los patrones que lo explican</h2>
+  <div class="tS"><table>
+    <tr><th>Patrón</th><th>Evidencia</th><th>Efecto</th></tr>
+    <tr><td>Sin acción anclada</td><td>6 <code>safeAreaInset</code> / 284 ficheros; 5 falsos anclas con <code>Spacer</code> dentro del scroll</td><td>El botón vive dentro del scroll en casi toda la app</td></tr>
+    <tr><td>Scaffold que no decide</td><td><code>ScrollView { VStack top-aligned }</code> en ~40 pantallas</td><td>Hueco muerto por defecto. Los 3 mecanismos correctos existen y no se comparten</td></tr>
+    <tr><td>Contenedor universal</td><td><code>CardSurface</code> ×172</td><td>Sujeto y relleno indistinguibles</td></tr>
+    <tr><td>Escala tipográfica ignorada</td><td>Tokens en <code>Theme.swift</code> (display 56, dataDigitHero 96) <strong>sin usar</strong>; heroes reales: 180·112·96·92·88·72·52·48·46·42</td><td>17 tamaños en una pantalla; niveles separados 0,5 pt = ruido, no jerarquía</td></tr>
+    <tr><td>Jerarquía invertida</td><td>Onboarding: etiqueta 16 = valor 16 en los 17 pasos. Plan: «Hoy» 13 pt vs recap 30 pt</td><td><strong>La pregunta pesa más que la respuesta</strong></td></tr>
+    <tr><td><code>private struct</code></td><td><code>FormatClockHero</code> y <code>RotatingWorkCard</code> son privados → el fichero vecino los reescribe</td><td>La cuenta atrás existe en 4 tamaños según dónde estés; 3 steppers, 5 botones primarios</td></tr>
+    <tr><td>Estado vacío roto</td><td><code>RedesignEmptyState</code> ×19 usos, <strong>solo 4 con acción</strong>; ~130 pt pegados al techo</td><td>15 callejones sin salida, uno en el camino feliz</td></tr>
+    <tr><td>Hojas a pantalla completa</td><td>Solo 4 <code>presentationDetents</code> en toda la app</td><td>Un campo de email ocupando un iPhone entero</td></tr>
+    <tr><td>Sin plegado</td><td>La regla 4 aplicada en ~5 sitios</td><td>El campo «Nombre» siempre desplegado ×3 constructores, ~90 pt cada vez</td></tr>
+  </table></div>
+
+  <h2>Orden de ataque — top 12 por uso × gravedad</h2>
+  <div class="tS"><table>
+    <tr><th>#</th><th>Pantalla</th><th>Uso</th><th>Qué está roto</th></tr>
+    <tr><td>1</td><td>InicioView</td><td>diario</td><td>12 tarjetas hermanas, 17 tamaños, tres sujetos empatados; el 44 pt más grande es un contador de días secundario. La acción del día, dentro del scroll</td></tr>
+    <tr><td>2</td><td>StrengthSetsHUD</td><td>diario</td><td>El único HUD sin sujeto: series a 14 pt y lo más grande es el cronómetro mientras haces un 5×5</td></tr>
+    <tr><td>3</td><td>PlanView semana</td><td>diario</td><td>«Hoy» a 13 pt contra el recap a 30 pt, y la fila de hoy en su posición cronológica: un viernes cae bajo el pliegue</td></tr>
+    <tr><td>4</td><td>CheckinView</td><td>diario, auto-presentada</td><td>5 preguntas idénticas sin previsualizar el resultado (se calcula y no se muestra) y el botón tras ~850 pt de scroll</td></tr>
+    <tr><td>5</td><td>AnalyticsView</td><td>semanal</td><td>2-4 «héroes» de 38 pt compitiendo; el vacío son siete tarjetas de negación sin un solo botón</td></tr>
+    <tr><td>6</td><td>FreeInicioView</td><td>diario (tier free)</td><td>~330 pt de contenido en ~750: el «60 % sin decir nada» literal. El sujeto está bien elegido y no ocupa</td></tr>
+    <tr><td>7</td><td>StepShell ×17</td><td>una vez</td><td>Una línea genera hueco muerto en 17 pantallas seguidas del onboarding</td></tr>
+    <tr><td>8</td><td>PostWorkoutSummary</td><td>diario</td><td>El logro a 36 pt contra celdas de FC a 30. <strong>La tarjeta que compartes fuera está mejor diseñada que la que ves tú</strong> (84 pt)</td></tr>
+    <tr><td>9</td><td>Constructor libre 1-2</td><td>semanal</td><td>Rejillas de tiles iguales sin footer; el paso de formato deja ~65 % muerto</td></tr>
+    <tr><td>10</td><td>FreeStrengthBuilder</td><td>semanal</td><td>El estado en el que siempre aterrizas: sin sujeto, sin contenido y sin acción (el footer ni existe)</td></tr>
+    <tr><td>11</td><td>ProfileView</td><td>semanal</td><td>2.452 líneas, ~22 filas con la misma retícula. La pestaña donde el atleta va a verse no le enseña ni un número suyo</td></tr>
+    <tr><td>12</td><td>DoblesSimulation</td><td>semanal</td><td>8 formularios idénticos ≈ 1.200 pt de scroll con la acción detrás de todos</td></tr>
+  </table></div>
+
+  <h2>Las que ya están bien — referencias internas</h2>
+  <ul>
+    <li><b>OutdoorRunHUDView</b> — cumple las cuatro reglas: un sujeto de 72 pt, color de estado en vez de texto, <strong>mapa al 38 % por decisión explícita y comentada</strong> para que manden los números, controles anclados.</li>
+    <li><b>BlockPreviewGate</b> — es el «después» del documento, ya en producción.</li>
+    <li><b>MarkDetailView</b> — es literalmente el tercer mockup del documento («A batir · 3:30»), construido.</li>
+    <li><b>RecoveryCaptureView</b> — un dial, un número, un botón, centrado, cuatro tamaños todos del sistema.</li>
+    <li><b>FreePlanWeekCard</b> — el hueco convertido en previsualización de verdad: desenfoca las sesiones reales en vez de poner un falso.</li>
+    <li><b>MyStrengthView</b> — el patrón a propagar: <strong>el dato pesa más que su etiqueta</strong> (22 pt vs 16). Su hermana <code>MyZonesView</code> tiene los mismos datos a 13 = 13.</li>
+  </ul>
+
+  <h2>El punto ciego del «doble»</h2>
+  <p>Las 6 pantallas replicadas hoy espejan <strong>exactamente la zona mejor diseñada</strong> de la app, y ninguna modela la zona rota. Y lo más importante: <strong>ningún espejo modela un estado VACÍO</strong>, cuando ahí vive el 60 % de los problemas de este inventario — y el vacío es el estado por defecto de un atleta nuevo en Carreras, Dobles, Tests, Analíticas y el Plan free.</p>
+  <p>Sin espejo hoy ni en su lista de pendientes: <b>Analíticas entera</b>, <b>Carreras entera</b>, <b>Perfil y sus hijas</b>, el <b>check-in diario</b> (la pantalla forzada más frecuente de la app), el detalle de readiness, lesiones, historial, la puerta de entrada (auth) y <b>todo el tier free</b>.</p>
+
+  <h2>Cómo se ataca</h2>
+  <ol>
+    <li><b>Cimientos primero</b> — extraer lo que ya funciona: componente de acción anclada, reparto de altura, kit de HUD compartido (dejar de duplicar por culpa de <code>private</code>), estado vacío con salida, y la escala tipográfica que ya existe. <strong>Se arregla una vez y mejoran decenas de pantallas.</strong></li>
+    <li><b>Después, pantalla a pantalla</b> — donde sí hay decisión de diseño: qué es el sujeto y en qué orden va lo demás. Ahí es donde valen los mockups, y nacen en el doble junto a la pantalla real.</li>
+    <li><b>Cada pantalla con su estado vacío</b>, no solo el lleno.</li>
+  </ol>
+
+  <div class="footer">FAHYBRID · auditoría interna · 74 pantallas y ~120 estados barridos · las estimaciones de «pt muertos» son cálculo sobre código, no capturas: los ratios gruesos son fiables, los finos (±50 pt) no.</div>
+
+</div>
+</body>
+</html>
