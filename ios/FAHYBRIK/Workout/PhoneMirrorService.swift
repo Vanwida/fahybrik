@@ -23,6 +23,17 @@ final class PhoneMirrorService {
     /// (the wrist HR is fresher). Never blocks the workout when it stays false.
     private(set) var wristJoined: Bool = false
 
+    /// TRUE from the moment a wrist that WAS recording is told to save, until the
+    /// next session begins. It answers one question: "is there going to be an
+    /// HKWorkout for this session that the phone did not write?"
+    ///
+    /// Sticky on purpose — `wristJoined` goes false the instant the wrist confirms
+    /// OR the grace timeout fires, but the fact that the wrist owns this session's
+    /// HKWorkout outlives both, and the athlete can sit on the summary screen for
+    /// minutes. Reading `wristJoined` there would say "no wrist" and the phone would
+    /// write a second copy.
+    private(set) var wristRecordedWorkout: Bool = false
+
     // Weak so a finished/abandoned WorkoutContainer can deallocate its engine even
     // if a mirrored session lingers until its `ended` reply / grace timeout.
     @ObservationIgnored private weak var session: WorkoutSession?
@@ -85,6 +96,7 @@ final class PhoneMirrorService {
     func begin(session: WorkoutSession, activityKind: String) {
         self.session = session
         endedWorkoutUuid = nil
+        wristRecordedWorkout = false   // one flag per session; the previous one is over
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()   // safety: never begin without the receive handler live
         let config = HKWorkoutConfiguration()
@@ -129,6 +141,10 @@ final class PhoneMirrorService {
     func end(save: Bool) {
         watchLaunchGeneration += 1   // cancel any in-flight launch retries
         guard mirrored != nil else { return }
+        // A wrist WAS recording and we just told it to keep the recording: from here
+        // on, this session's HKWorkout is the wrist's to write. Latched before the
+        // reply so the phone never races it (see `wristRecordedWorkout`).
+        if save { wristRecordedWorkout = true }
         send(MirrorWire.MessageType.end, MirrorEnd(save: save))
         stopFrameLoop()
         endTimeout?.invalidate()
