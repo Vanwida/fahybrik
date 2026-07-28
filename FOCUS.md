@@ -27,6 +27,45 @@ también debe subir al registro.
 
 ---
 
+## Cerrado el 28-jul · CIMIENTOS de diseño iOS — lo que ya funcionaba, extraído y propagado
+
+**Sin desplegar. Solo iOS; cero servidor, cero migraciones.** Reglas:
+`docs/design/pantallas-que-ganan-su-altura.html` · auditoría:
+`docs/audits/inventario-diseno-ios-28jul2026.html`.
+
+Alex: «es simplemente funcional, diseño cero: huecos enormes, todo pusheado
+arriba, todo del mismo tamaño de letra». La auditoría demostró que la causa es
+MECÁNICA, no estética, y que el sistema correcto ya estaba construido en cuatro
+pantallas. Esto lo extrae a `Theme/ScreenScaffold.swift` y lo reparte.
+
+- **`.anchoredAction`** — la acción anclada, una sola, sobre `.safeAreaInset`.
+  De 6 `safeAreaInset` en 284 ficheros y cinco maneras a mano → **16 pantallas**
+  con el mismo componente. Muere el FALSO ANCLA (5 pantallas de Carreras con un
+  `Spacer(minLength:)` dentro del `ScrollView`, que no empuja nada) y el número
+  mágico `.padding(.bottom, 120)` de MarkDetailView.
+- **`CenteredScreen`** — el reparto de altura. El mecanismo existía tres veces
+  sin compartirse; ahora es uno, y además SCROLLA en vez de recortar con texto
+  grande (Day1Flow no tenía un solo ScrollView en 379 líneas).
+- **`RedesignEmptyState` v2** — sale de `CarrerasView.swift`, donde vivía como si
+  fuera privado de una pestaña, y **exige salida**: `exit:` sin valor por defecto.
+  19 usos, 19 salidas (antes 4). Lo gordo: el camino feliz de RaceDetail te pedía
+  fijar un objetivo sin darte botón (nueva `FijarTiempoObjetivoSheet`), y un
+  atleta sin pareja cruzaba CUATRO pantallas de Dobles idénticas sin poder
+  invitar a nadie — encima el predicho dobles decía «pídeselo a tu coach», que
+  nunca fue verdad.
+- **`.compactSheet()`** — hojas de 1-3 campos a media pantalla (había 4
+  `presentationDetents` en toda la app).
+- **Tipografía**: cero medios puntos en la app (67 sitios). Y donde la etiqueta
+  pesaba lo mismo que su dato, manda el dato (MyZonesView, zonas de Analíticas,
+  fila de umbral de Inicio).
+- **Código muerto**: `Today/TodayView.swift` y `Plan/PlanStationsSection.swift`.
+
+**Lo que NO toqué:** la des-privatización del kit de HUD y todo el motor en vivo
+(otro agente). El contenido de cada pantalla —qué es el sujeto y en qué orden va
+lo demás— es la fase siguiente, con mockups aprobados.
+
+---
+
 ## Cerrado el 28-jul · El registro dejaba de decir la verdad — `source`, el RPE ajeno y el log vacío
 
 **Sin desplegar. Migraciones 0143/0144 escritas y SIN aplicar** (las aplica Alex).
