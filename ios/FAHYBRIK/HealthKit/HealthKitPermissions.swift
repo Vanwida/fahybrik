@@ -8,10 +8,17 @@ enum HealthKitPermissions {
     /// unauthorized and therefore silently empty).
     static var readTypes: Set<HKObjectType> { HealthKitSyncService.readTypes }
 
+    /// What the app WRITES: the workout itself plus every quantity
+    /// `HealthKitWorkoutWriter` may attach to it — one source of truth with the
+    /// writer, so a sample can never be written-but-unauthorized (HealthKit drops
+    /// those in silence, which would land the session in Salud with no distance
+    /// and no energy). Previously this was workout + heart rate only, which is
+    /// why nothing but the watch ever wrote a real session.
     static let shareTypes: Set<HKSampleType> = {
-        var s: Set<HKSampleType> = []
-        s.insert(HKObjectType.workoutType())
-        if let t = HKObjectType.quantityType(forIdentifier: .heartRate) { s.insert(t) }
+        var s: Set<HKSampleType> = [HKObjectType.workoutType()]
+        for id in HealthKitWorkoutWriter.writtenQuantityIdentifiers {
+            if let t = HKObjectType.quantityType(forIdentifier: id) { s.insert(t) }
+        }
         return s
     }()
 

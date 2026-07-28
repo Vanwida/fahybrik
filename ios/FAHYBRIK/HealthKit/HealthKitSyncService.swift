@@ -298,7 +298,16 @@ final class HealthKitSyncService {
             do {
                 let result = try await descriptor.result(for: store)
                 let samples = result.addedSamples
-                let dtos: [HKBiometricSampleDTO] = samples.map { s in
+                // Never re-ingest what WE wrote. `HealthKitWorkoutWriter` stamps the
+                // energy / distance / heart-rate samples it attaches to a
+                // phone-recorded workout; without this filter each of them would come
+                // straight back through this observer as if a device had measured it,
+                // and the athlete's active energy would be counted twice. Samples from
+                // the watch app (a different writer) carry no stamp and flow normally.
+                let measured = samples.filter {
+                    $0.metadata?[HealthKitWorkoutWriter.writtenHereKey] == nil
+                }
+                let dtos: [HKBiometricSampleDTO] = measured.map { s in
                     HKBiometricSampleDTO(
                         metric_type: metric,
                         recorded_at: iso.string(from: s.startDate),
