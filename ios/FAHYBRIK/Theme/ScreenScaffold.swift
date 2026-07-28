@@ -58,6 +58,30 @@ extension View {
     }
 }
 
+// MARK: - Compact sheet
+
+extension View {
+    /// Marks a sheet whose content is one to three fields, so it opens at half
+    /// height instead of taking over the whole phone.
+    ///
+    /// A sheet is a QUESTION on top of what you were doing; a full-screen cover
+    /// is a place you go. An email field, a rep count or a split slider is a
+    /// question — and covering the entire screen for one of them both loses the
+    /// context behind it and makes the ask look bigger than it is.
+    ///
+    /// `.large` stays in the set on purpose: the athlete can always pull it up,
+    /// and iOS grows the sheet by itself when a keyboard needs the room. The drag
+    /// indicator is what says "this moves".
+    ///
+    /// Apply to the sheet's CONTENT root (inside the presented view), which is
+    /// where `presentationDetents` is read from.
+    func compactSheet() -> some View {
+        self
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+    }
+}
+
 // MARK: - Height distribution (rule 2 · *centrar*)
 
 /// A screen body that CENTRES in the height its content does not fill — and

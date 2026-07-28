@@ -114,17 +114,19 @@ struct DoblesRepartoEditorSheet: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Theme.Color.danger)
                     }
-                    ExpertPrimaryButton(
-                        title: saving ? "Guardando…" : "Guardar reparto",
-                        height: 50,
-                        enabled: canRecompute && isDirty && !saving
-                    ) {
-                        Task { await save() }
-                    }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.m)
+            }
+            .anchoredAction {
+                ExpertPrimaryButton(
+                    title: saving ? "Guardando…" : "Guardar reparto",
+                    height: 50,
+                    enabled: canRecompute && isDirty && !saving
+                ) {
+                    Task { await save() }
+                }
             }
             .background(Theme.Color.background.ignoresSafeArea())
             .navigationTitle("Reparto")
@@ -136,6 +138,7 @@ struct DoblesRepartoEditorSheet: View {
                 }
             }
         }
+        .compactSheet()
     }
 
     // MARK: - Pieces

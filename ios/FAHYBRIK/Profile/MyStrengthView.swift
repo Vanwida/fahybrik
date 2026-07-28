@@ -323,17 +323,16 @@ struct RegisterStrengthTestView: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .anchoredAction {
                 ExpertPrimaryButton(
                     title: saving ? "GUARDANDO…" : "GUARDAR TEST",
                     height: 46,
                     enabled: canSave,
                     action: save
                 )
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.m)
             }
         }
+        .compactSheet()
     }
 
     // MARK: - Sections

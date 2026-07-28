@@ -45,15 +45,17 @@ struct RegisterRaceSheet: View {
                                 .font(Theme.Typography.small)
                                 .foregroundStyle(Theme.Color.danger)
                         }
-                        PrimaryButton(
-                            title: "Guardar \(mark.label) · \(MarkFormat.clock(manualTotal))",
-                            enabled: !busy && manualTotal > 0
-                        ) {
-                            Task { await save(value: manualTotal, day: date) }
-                        }
                     }
                     .padding(.horizontal, Theme.Spacing.l)
                     .padding(.vertical, Theme.Spacing.l)
+                }
+                .anchoredAction {
+                    PrimaryButton(
+                        title: "Guardar \(mark.label) · \(MarkFormat.clock(manualTotal))",
+                        enabled: !busy && manualTotal > 0
+                    ) {
+                        Task { await save(value: manualTotal, day: date) }
+                    }
                 }
             }
             .navigationTitle("Registrar \(mark.label)")
@@ -65,6 +67,7 @@ struct RegisterRaceSheet: View {
                 }
             }
         }
+        .compactSheet()
         .task { candidates = (try? await MarksService.fetchCandidates(slug: mark.slug, bearer: bearer)) ?? [] }
     }
 
