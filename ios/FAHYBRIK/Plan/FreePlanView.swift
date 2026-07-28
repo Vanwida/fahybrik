@@ -237,13 +237,13 @@ struct FreePlanView: View {
                 }
                 if let category = race.categoryLine {
                     Text(category)
-                        .scaledFont(11.5, relativeTo: .caption2)
+                        .scaledFont(11, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.faint)
                 }
                 if let goal = race.goalTimeFormatted {
                     HStack(alignment: .lastTextBaseline, spacing: 6) {
                         Text("Tu objetivo")
-                            .scaledFont(11.5, relativeTo: .caption2)
+                            .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                         Text(goal)
                             .font(.system(size: 22, weight: .heavy).italic().monospacedDigit())
@@ -262,7 +262,7 @@ struct FreePlanView: View {
                     // la tarjeta de arriba le devuelve lo que sí sabemos.
                     Hairline().opacity(0.6)
                     Text(missing)
-                        .scaledFont(12.5, relativeTo: .caption)
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -381,7 +381,7 @@ struct FreePlanView: View {
                                 .foregroundStyle(Theme.Color.accentText)
                         }
                         Text("Búscate por tu nombre y te traemos tus tiempos, estación por estación, en un toque.")
-                            .scaledFont(12.5, relativeTo: .caption)
+                            .scaledFont(12, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -421,7 +421,7 @@ struct FreePlanView: View {
                     .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Revisa tu conexión e inténtalo de nuevo.")
-                    .scaledFont(12.5, relativeTo: .caption)
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                 Button("Reintentar") {
                     Haptics.light()
@@ -457,7 +457,7 @@ struct FreePlanView: View {
 
     private var freeNote: some View {
         Text("Tus marcas son tuyas. Sin cuenta de pago, sin tarjeta.")
-            .scaledFont(11.5, relativeTo: .caption2)
+            .scaledFont(11, relativeTo: .caption2)
             .foregroundStyle(Theme.Color.faint)
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
@@ -502,13 +502,13 @@ struct FreePlanView: View {
                                 .foregroundStyle(Theme.Color.foreground)
                                 .lineLimit(1)
                             Text("Una llamada de 15 minutos")
-                                .scaledFont(11.5, relativeTo: .caption2)
+                                .scaledFont(11, relativeTo: .caption2)
                                 .foregroundStyle(Theme.Color.faint)
                         }
                         Spacer(minLength: 0)
                     }
                     Text("Estos números son tuyos y son gratis. Lo que cuesta es decidir qué hacer con ellos cada semana: eso lo hace un coach.")
-                        .scaledFont(12.5, relativeTo: .caption)
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -519,7 +519,7 @@ struct FreePlanView: View {
                 openURL(AppLinks.funnel)
             }
             Text("Sin compromiso · eliges tú el hueco")
-                .scaledFont(11.5, relativeTo: .caption2)
+                .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.faint)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)

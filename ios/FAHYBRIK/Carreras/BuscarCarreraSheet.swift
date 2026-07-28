@@ -224,7 +224,16 @@ struct BuscarCarreraSheet: View {
             RedesignEmptyState(
                 symbol: "flag.checkered",
                 title: "Sin carreras",
-                message: "No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas."
+                message: "No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas.",
+                // Two real ways out. Coached: ask the coach to add the race (they
+                // curate the calendar). Free: no coach to ask — so the honest exit
+                // is the filters themselves, cleared in one tap.
+                exit: hasCoach
+                    ? .action(title: "Pedir mi carrera al coach") {
+                        fieldFocused = false
+                        showRequestRace = true
+                    }
+                    : .action(title: "Quitar los filtros") { clearFilters() }
             )
             .padding(.top, Theme.Spacing.l)
         } else {
@@ -232,22 +241,24 @@ struct BuscarCarreraSheet: View {
         }
     }
 
+    /// Back to the widest possible view of the calendar — the way out of a
+    /// no-results state that the athlete narrowed themselves into.
+    private func clearFilters() {
+        Haptics.light()
+        query = ""
+        selectedSeries = nil
+        selectedCountry = nil
+        dateFilter = .any
+        scheduleReload(immediate: true)
+    }
+
     private var errorState: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            RedesignEmptyState(
-                symbol: "wifi.exclamationmark",
-                title: "No pudimos cargar el calendario",
-                message: "Revisa tu conexión e inténtalo de nuevo."
-            )
-            Button {
-                scheduleReload(immediate: true)
-            } label: {
-                Text("Reintentar")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .buttonStyle(PressScaleStyle())
-        }
+        RedesignEmptyState(
+            symbol: "wifi.exclamationmark",
+            title: "No pudimos cargar el calendario",
+            message: "Revisa tu conexión e inténtalo de nuevo.",
+            exit: .action(title: "Reintentar") { scheduleReload(immediate: true) }
+        )
         .padding(.top, Theme.Spacing.l)
     }
 

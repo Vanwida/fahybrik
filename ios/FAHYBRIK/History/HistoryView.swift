@@ -349,7 +349,7 @@ struct HistoryView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(s.title)
-                        .scaledFont(13.5, weight: .semibold, relativeTo: .subheadline)
+                        .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(1)
                     subChips(s)

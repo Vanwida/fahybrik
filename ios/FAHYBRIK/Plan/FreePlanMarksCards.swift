@@ -23,7 +23,7 @@ struct FreePlanStartersCard: View {
         CardSurface(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Si aún no has corrido ninguna, empieza por medirte")
-                    .scaledFont(12.5, relativeTo: .caption)
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 16)
@@ -52,10 +52,10 @@ struct FreePlanStartersCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mark.label)
-                        .scaledFont(13.5, weight: .semibold, relativeTo: .subheadline)
+                        .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.foreground)
                     Text(FreePlanCopy.howItsMeasured(mark))
-                        .scaledFont(11.5, relativeTo: .caption2)
+                        .scaledFont(11, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -139,7 +139,7 @@ struct FreePlanMarksCard: View {
             HStack(spacing: Theme.Spacing.s) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mark.label)
-                        .scaledFont(13.5, weight: .semibold, relativeTo: .subheadline)
+                        .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(1)
                     if let when = mark.best.flatMap({ MarkFormat.relative($0.recordedAt) }) {

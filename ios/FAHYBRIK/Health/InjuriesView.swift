@@ -186,47 +186,37 @@ struct InjuriesView: View {
 
     // MARK: - Empty / error states
 
+    // The empty + error states used to be hand-rolled copies of the shared empty
+    // state whose only way out was a 13pt text link — the same size as the
+    // paragraph above it. They are the shared component now, so the exit is a
+    // real button and the block centres in (and scrolls within) the screen.
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "checkmark.shield")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(Theme.Color.ok)
-            Text("Sin molestias registradas")
-                .scaledFont(16, weight: .bold, relativeTo: .headline)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text(hasCoach
-                 ? "Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.capitalizedFirst) lo tendrá en cuenta al preparar tu semana."
-                 : "Cuando algo te moleste o te lesiones, regístralo aquí. Así sabes qué arrastras y cómo evoluciona.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Button {
-                Haptics.light()
-                showReport = true
-            } label: {
-                Text("Reportar molestia")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .disabled(bearer == nil)
-            .padding(.top, 4)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "checkmark.shield",
+                title: "Sin molestias registradas",
+                message: hasCoach
+                    ? "Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.capitalizedFirst) lo tendrá en cuenta al preparar tu semana."
+                    : "Cuando algo te moleste o te lesiones, regístralo aquí. Así sabes qué arrastras y cómo evoluciona.",
+                exit: .action(title: "Reportar molestia") {
+                    Haptics.light()
+                    showReport = true
+                },
+                // Nothing to report is GOOD news — the shield says so in green.
+                symbolColor: Theme.Color.ok
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     private var errorState: some View {
-        VStack(spacing: 10) {
-            Text("No pudimos cargar tus molestias")
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Button("Reintentar") { Task { await load() } }
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.accentText)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tus molestias",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await load() } }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     // MARK: - Load
@@ -303,15 +293,13 @@ private struct ReportInjurySheet: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .anchoredAction {
                 ExpertPrimaryButton(
                     title: saving ? "ENVIANDO…" : "ENVIAR",
                     height: 46,
                     enabled: canSave,
                     action: send
                 )
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.m)
             }
         }
     }

@@ -134,10 +134,14 @@ private struct NoteBlock<Content: View>: View {
     }
 }
 
-private struct SheetChrome<Content: View>: View {
+/// Shared shell for the lifecycle sheets (pausar, darse de baja): scrolling
+/// content plus ONE anchored action. Both sheets used to hang their destructive
+/// CTA off the tail of the scroll, behind a reason picker and a note.
+private struct SheetChrome<Content: View, Action: View>: View {
     let title: String
     let onClose: () -> Void
     @ViewBuilder let content: Content
+    @ViewBuilder let action: Action
 
     var body: some View {
         NavigationStack {
@@ -150,6 +154,7 @@ private struct SheetChrome<Content: View>: View {
                     .padding(.horizontal, Theme.Spacing.l)
                     .padding(.vertical, Theme.Spacing.l)
                 }
+                .anchoredAction { action }
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -200,6 +205,21 @@ struct PauseSheet: View {
                 Text(error)
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.danger)
+            }
+        } action: {
+            if exhausted {
+                Button("Darme de baja", action: onSwitchToBaja)
+                    .font(Theme.Typography.bodyEmph)
+                    .foregroundStyle(Theme.Color.danger)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            } else {
+                PrimaryButton(
+                    title: buttonTitle,
+                    enabled: !inFlight && !exceedsBudget && cost > 0
+                ) {
+                    Task { await submit() }
+                }
             }
         }
     }
@@ -277,12 +297,6 @@ struct PauseSheet: View {
             bullet("Habla con tu entrenador para congelar el plan y no perder la plaza")
             bullet("O date de baja y vuelve cuando quieras, si hay hueco")
         }
-
-        Button("Darme de baja", action: onSwitchToBaja)
-            .font(Theme.Typography.bodyEmph)
-            .foregroundStyle(Theme.Color.danger)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
     }
 
     private func bullet(_ text: String) -> some View {
@@ -351,35 +365,37 @@ struct BajaSheet: View {
                 bullet("Si quieres borrar tus datos, eso es aparte, en Cuenta")
             }
 
-            Button {
-                Task { await submit() }
-            } label: {
-                Text(confirmTitle)
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Theme.Color.danger.opacity(0.35), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(inFlight)
-
-            // Offered ONCE, quietly, and only when they actually have days left.
-            if state.pause.availableDays >= 7 {
-                Button("Mejor pausar \(state.availableWeeks) semanas", action: onSwitchToPause)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-
             if let error {
                 Text(error)
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.danger)
+            }
+        } action: {
+            VStack(spacing: 0) {
+                Button {
+                    Task { await submit() }
+                } label: {
+                    Text(confirmTitle)
+                        .font(Theme.Typography.bodyEmph)
+                        .foregroundStyle(Theme.Color.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Theme.Color.danger.opacity(0.35), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(inFlight)
+
+                // Offered ONCE, quietly, and only when they actually have days left.
+                if state.pause.availableDays >= 7 {
+                    Button("Mejor pausar \(state.availableWeeks) semanas", action: onSwitchToPause)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
             }
         }
     }

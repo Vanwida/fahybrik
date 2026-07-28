@@ -156,7 +156,12 @@ struct ImportRaceSheet: View {
             RedesignEmptyState(
                 symbol: "person.crop.circle.badge.questionmark",
                 title: "Sin resultados",
-                message: "No encontramos ese nombre. Revisa que esté bien escrito y prueba con tu nombre completo, tal y como aparece en tus resultados de HYROX."
+                message: "No encontramos ese nombre. Revisa que esté bien escrito y prueba con tu nombre completo, tal y como aparece en tus resultados de HYROX.",
+                // The other way in: paste the link of one official result page.
+                exit: .action(title: "Pegar el enlace de una carrera") {
+                    fieldFocused = false
+                    showLinkEntry = true
+                }
             )
             .padding(.top, Theme.Spacing.s)
         }
@@ -439,20 +444,20 @@ private struct ConfirmImportView: View {
                     if let errorText {
                         errorBanner(errorText)
                     }
-
-                    Spacer(minLength: Theme.Spacing.l)
-
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.l)
+            }
+            .anchoredAction {
+                VStack(spacing: Theme.Spacing.s) {
                     confirmButton
-
                     Button("No soy yo") { dismiss() }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.Color.muted)
                         .frame(maxWidth: .infinity)
                         .disabled(importing)
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
             }
         }
         .navigationTitle("¿Eres tú?")

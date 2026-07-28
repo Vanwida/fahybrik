@@ -75,10 +75,10 @@ struct FoodSearchView: View {
                                 .font(.system(size: 12))
                                 .foregroundStyle(Theme.Color.accentText)
                         }
-                        saveButton
                     }
                     .padding(Theme.Spacing.xl)
                 }
+                .anchoredAction { saveButton }
             }
             .navigationTitle(source == .barcode ? "Confirmar producto" : "Añadir alimento")
             .navigationBarTitleDisplayMode(.inline)

@@ -483,7 +483,7 @@ struct InicioView: View {
                         // Phase + position within the plan (agnostic coach data).
                         if let label = macroWeekLabel {
                             Text(label)
-                                .scaledFont(12.5, weight: .semibold, relativeTo: .caption)
+                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
                                 .foregroundStyle(Theme.Color.muted)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
@@ -862,15 +862,18 @@ struct InicioView: View {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     LabelText(text: "Ritmo umbral · Z4", size: 10)
+                    // A gloss, not a subject: it used to render at 13 semibold —
+                    // bigger and heavier than the label naming the row, and the
+                    // same slot the strength row uses for the actual lift name.
                     Text("el que entrena tu plan")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.faint)
                 }
                 Spacer(minLength: 8)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     progressValue(pace, accent: true)
                     Text("/km")
-                        .scaledFont(10.5, weight: .semibold, relativeTo: .caption2)
+                        .scaledFont(10, weight: .semibold, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -942,7 +945,7 @@ struct InicioView: View {
             Image(systemName: improved ? "arrow.down.right" : "arrow.up.right")
                 .font(.system(size: 9, weight: .bold))
             Text("\(improved ? "−" : "+")\(clock(abs(delta)))")
-                .font(.system(size: 10.5, weight: .bold, design: .monospaced).monospacedDigit())
+                .font(.system(size: 10, weight: .bold, design: .monospaced).monospacedDigit())
         }
         .foregroundStyle(improved ? Theme.Color.ok : Theme.Color.danger)
     }
@@ -970,7 +973,7 @@ struct InicioView: View {
                             .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
                             .foregroundStyle(Theme.Color.accentText)
                         Text("/km")
-                            .scaledFont(10.5, weight: .semibold, relativeTo: .caption2)
+                            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }

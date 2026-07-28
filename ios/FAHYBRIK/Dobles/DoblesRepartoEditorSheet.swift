@@ -114,17 +114,19 @@ struct DoblesRepartoEditorSheet: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Theme.Color.danger)
                     }
-                    ExpertPrimaryButton(
-                        title: saving ? "Guardando…" : "Guardar reparto",
-                        height: 50,
-                        enabled: canRecompute && isDirty && !saving
-                    ) {
-                        Task { await save() }
-                    }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.m)
+            }
+            .anchoredAction {
+                ExpertPrimaryButton(
+                    title: saving ? "Guardando…" : "Guardar reparto",
+                    height: 50,
+                    enabled: canRecompute && isDirty && !saving
+                ) {
+                    Task { await save() }
+                }
             }
             .background(Theme.Color.background.ignoresSafeArea())
             .navigationTitle("Reparto")
@@ -136,6 +138,7 @@ struct DoblesRepartoEditorSheet: View {
                 }
             }
         }
+        .compactSheet()
     }
 
     // MARK: - Pieces
@@ -217,7 +220,7 @@ struct DoblesRepartoEditorSheet: View {
 
     private func pill(_ text: String, fg: Color, bg: Color) -> some View {
         Text(text)
-            .font(.system(size: 12.5, weight: .bold, design: .monospaced).monospacedDigit())
+            .font(.system(size: 12, weight: .bold, design: .monospaced).monospacedDigit())
             .foregroundStyle(fg)
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
@@ -238,7 +241,7 @@ struct DoblesRepartoEditorSheet: View {
                     enabled: false
                 )
                 Text(missingDataMessage)
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }

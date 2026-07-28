@@ -121,7 +121,7 @@ struct ReviewTodayCard: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Videollamada · \(review.durationMinutes) min")
-                    .scaledFont(12.5, weight: .semibold, relativeTo: .caption)
+                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                 joinControl(review)
             }

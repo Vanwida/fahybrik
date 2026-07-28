@@ -51,17 +51,14 @@ struct MarkDetailView: View {
                 }
                 .padding(.horizontal, Theme.Spacing.l)
                 .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, 120)
+                .padding(.bottom, Theme.Spacing.l)
             }
-
-            // The one action, pinned where the thumb lives.
-            if let mark {
-                VStack {
-                    Spacer()
-                    ctaButton(mark)
-                        .padding(.horizontal, Theme.Spacing.l)
-                        .padding(.bottom, Theme.Spacing.l)
-                }
+            // The one action, pinned where the thumb lives. Was a ZStack overlay
+            // that floated over the scroll and needed a guessed 120pt of bottom
+            // padding to stop covering the last card. The shared modifier reserves
+            // the exact inset, so the guess is gone.
+            .anchoredAction {
+                if let mark { ctaButton(mark) }
             }
         }
         .navigationTitle(mark?.label ?? "")

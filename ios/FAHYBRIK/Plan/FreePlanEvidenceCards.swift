@@ -106,7 +106,7 @@ struct FreeRaceEvidenceCard: View {
     private func bestFinishBlock(_ finish: FreeFinishEvidence) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Tu mejor tiempo")
-                .scaledFont(11.5, relativeTo: .caption2)
+                .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.muted)
             HStack(alignment: .lastTextBaseline, spacing: 8) {
                 Text(FreePlanEvidenceCopy.time(finish.totalSeconds))
@@ -152,7 +152,7 @@ struct FreeRaceEvidenceCard: View {
                     .foregroundStyle(Theme.Color.faint)
             }
             Text(runNote(run))
-                .scaledFont(11.5, relativeTo: .caption2)
+                .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -180,7 +180,7 @@ struct FreeRaceEvidenceCard: View {
                     .foregroundStyle(Theme.Color.foreground)
             }
             Text("Lo que pierdes yendo de una estación a otra. Tu mejor registro, en \(rox.race.location ?? rox.race.name).")
-                .scaledFont(11.5, relativeTo: .caption2)
+                .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -251,7 +251,7 @@ struct FreeGoalComparison: View {
                 comparison(best: best, delta: delta)
             } else {
                 Text(noComparisonCopy)
-                    .scaledFont(12.5, relativeTo: .caption)
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -272,7 +272,7 @@ struct FreeGoalComparison: View {
                     .foregroundStyle(Theme.Color.foreground)
             }
             Text(verdict(best: best, delta: delta))
-                .scaledFont(12.5, weight: .semibold, relativeTo: .caption)
+                .scaledFont(12, weight: .semibold, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
         }

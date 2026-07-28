@@ -328,7 +328,7 @@ private struct ContributorRow: View {
                 Spacer(minLength: 8)
                 HStack(spacing: 4) {
                     Text(contributor.statusLabel)
-                        .scaledFont(11.5, weight: .semibold, relativeTo: .caption)
+                        .scaledFont(11, weight: .semibold, relativeTo: .caption)
                         .foregroundStyle(contributor.statusColor)
                     if contributor.isAction {
                         Image(systemName: "chevron.right")
@@ -340,11 +340,11 @@ private struct ContributorRow: View {
             if let value = contributor.valueText {
                 HStack(spacing: 5) {
                     Text(value)
-                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced).monospacedDigit())
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
                         .foregroundStyle(Theme.Color.foreground)
                     if let reference = contributor.referenceText {
                         Text("· \(reference)")
-                            .scaledFont(12.5, relativeTo: .caption)
+                            .scaledFont(12, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }

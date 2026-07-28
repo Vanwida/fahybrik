@@ -45,7 +45,7 @@ struct FreePlanWeekCard: View {
                 .foregroundStyle(Theme.Color.foreground)
             Spacer(minLength: 8)
             Text("tu semana")
-                .scaledFont(11.5, relativeTo: .caption2)
+                .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.faint)
         }
     }
@@ -59,11 +59,11 @@ struct FreePlanWeekCard: View {
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text(FreePlanWeekCopy.title(session))
-                    .scaledFont(13.5, weight: .semibold, relativeTo: .subheadline)
+                    .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(FreePlanWeekCopy.detail(session))
-                    .font(.system(size: 11.5, weight: .bold).monospacedDigit())
+                    .font(.system(size: 11, weight: .bold).monospacedDigit())
                     .foregroundStyle(Theme.Color.accentText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -84,7 +84,7 @@ struct FreePlanWeekCard: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 10, weight: .bold))
             Text(FreePlanWeekCopy.basisLine(week))
-                .scaledFont(11.5, weight: .semibold, relativeTo: .caption2)
+                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }

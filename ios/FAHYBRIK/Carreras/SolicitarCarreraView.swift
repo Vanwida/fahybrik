@@ -34,12 +34,16 @@ struct SolicitarCarreraView: View {
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                if sent {
-                    confirmation
-                } else {
-                    form
-                }
+            if sent {
+                // Nothing left to fill: one glyph and two sentences EARN the
+                // screen by centring in it, with the single action anchored.
+                CenteredScreen { confirmation }
+                    .anchoredAction {
+                        ExpertPrimaryButton(title: "HECHO", action: onSent)
+                    }
+            } else {
+                ScrollView { form }
+                    .anchoredAction { submitButton }
             }
         }
         .navigationTitle(sent ? "Solicitud enviada" : "Pedir carrera")
@@ -68,14 +72,10 @@ struct SolicitarCarreraView: View {
             if let errorText {
                 errorBanner(errorText)
             }
-
-            Spacer(minLength: Theme.Spacing.l)
-
-            submitButton
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.l)
-        .padding(.bottom, Theme.Spacing.xxl)
+        .padding(.bottom, Theme.Spacing.l)
     }
 
     private var intro: some View {
@@ -180,7 +180,6 @@ struct SolicitarCarreraView: View {
             Image(systemName: "paperplane.fill")
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(Theme.Color.accentText)
-                .padding(.top, Theme.Spacing.xxl)
             Text("Se lo hemos enviado a tu coach")
                 .scaledFont(19, weight: .heavy, relativeTo: .title3, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
@@ -190,13 +189,8 @@ struct SolicitarCarreraView: View {
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: Theme.Spacing.xl)
-            ExpertPrimaryButton(title: "HECHO") {
-                onSent()
-            }
         }
         .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.bottom, Theme.Spacing.xxl)
         .frame(maxWidth: .infinity)
     }
 

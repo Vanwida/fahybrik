@@ -73,17 +73,20 @@ struct DoblesRaceGapSection: View {
     private func content(_ gap: DoblesRaceGap) -> some View {
         switch gap.availability.lowercased() {
         case "no_pair":
-            RedesignEmptyState(
-                symbol: "person.2",
-                title: "Vincula a tu pareja",
-                message: "Pídele a tu coach que vincule a tu pareja de entreno y verás aquí el predicho conjunto de esta carrera, tramo a tramo."
+            // Was "pídele a tu coach que vincule a tu pareja" — which was never
+            // true: the athlete sends the invitation themselves, by email.
+            DoblesNoPartnerState(
+                message: "Con tu pareja conectada verás aquí el predicho conjunto de esta carrera, tramo a tramo, y podréis repartir las estaciones.",
+                bearer: bearer,
+                onInvited: { Task { await load() } }
             )
             .padding(.top, Theme.Spacing.m)
         case "no_data":
             RedesignEmptyState(
                 symbol: "chart.bar",
                 title: "Aún no hay datos de la pareja",
-                message: "Cuando tú y tu pareja registréis prácticas de estación, aquí aparecerá vuestro predicho conjunto y el reparto por estación."
+                message: "Cuando tú y tu pareja registréis prácticas de estación, aquí aparecerá vuestro predicho conjunto y el reparto por estación.",
+                exit: .explained(note: "Se llena solo con lo que entrenéis los dos.")
             )
             .padding(.top, Theme.Spacing.m)
         default: // ok | partial | desconocido con datos
@@ -141,7 +144,7 @@ struct DoblesRaceGapSection: View {
                     }
                 } else {
                     Text("Sin objetivo fijado para esta carrera.")
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -214,7 +217,7 @@ struct DoblesRaceGapSection: View {
                 Spacer(minLength: 8)
                 if let delta = seg.deltaS, delta != 0 {
                     Text(GoalGapFormat.signedDuration(delta))
-                        .font(.system(size: 11.5, weight: .semibold, design: .monospaced).monospacedDigit())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
                         .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
                 }
                 Text(GoalGapFormat.raceClock(seg.pairPredictedS))
@@ -235,7 +238,7 @@ struct DoblesRaceGapSection: View {
             .frame(height: GoalGapVis.trackHeight)
             if let caption = seg.tierCaption {
                 Text(caption)
-                    .font(.system(size: 10.5, weight: .medium).italic())
+                    .font(.system(size: 10, weight: .medium).italic())
                     .foregroundStyle(Theme.Color.faint)
             }
         }
@@ -290,7 +293,7 @@ struct DoblesRaceGapSection: View {
             parts.append("Toca una estación para ajustar el reparto.")
         }
         return Text(parts.joined(separator: " "))
-            .font(.system(size: 11.5))
+            .font(.system(size: 11))
             .foregroundStyle(Theme.Color.faint)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, Theme.Spacing.xs)
@@ -320,14 +323,12 @@ struct DoblesRaceGapSection: View {
     // MARK: - Error state
 
     private var errorState: some View {
-        VStack(spacing: Theme.Spacing.l) {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar el predicho conjunto",
-                message: "Revisa tu conexión e inténtalo de nuevo."
-            )
-            ExpertPrimaryButton(title: "REINTENTAR") { Task { await load() } }
-        }
+        RedesignEmptyState(
+            symbol: "arrow.clockwise",
+            title: "No pudimos cargar el predicho conjunto",
+            message: "Revisa tu conexión e inténtalo de nuevo.",
+            exit: .action(title: "Reintentar") { Task { await load() } }
+        )
         .padding(.top, Theme.Spacing.m)
     }
 

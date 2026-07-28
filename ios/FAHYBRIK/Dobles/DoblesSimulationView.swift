@@ -68,11 +68,20 @@ struct DoblesSimulationView: View {
                         .padding(.top, Theme.Spacing.xxl)
                 } else if let simulation {
                     content(simulation)
+                } else if partner == nil {
+                    DoblesNoPartnerState(
+                        message: "La simulación es de los dos: con un compañero conectado veréis el reparto de las 8 estaciones, los relevos y la nota táctica.",
+                        bearer: effectiveBearer,
+                        onInvited: { Task { await reload() } }
+                    )
+                    .padding(.top, Theme.Spacing.xl)
+                    .staggerReveal(appear, index: 1)
                 } else {
                     RedesignEmptyState(
                         symbol: "flag.checkered",
                         title: "Sin simulación programada",
-                        message: "Cuando tu coach programe una simulación conjunta verás aquí el reparto de las 8 estaciones, los relevos y la nota táctica."
+                        message: "Cuando tu coach programe una simulación conjunta verás aquí el reparto de las 8 estaciones, los relevos y la nota táctica.",
+                        exit: .explained(note: "La programa tu coach. Aparece aquí en cuanto la publique.")
                     )
                     .padding(.top, Theme.Spacing.xl)
                     .staggerReveal(appear, index: 1)
@@ -86,23 +95,27 @@ struct DoblesSimulationView: View {
         .instrumentCanvas()
         .navigationTitle("Simulación")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: effectiveBearer) {
-            loading = true
-            if let bearer = effectiveBearer {
-                partner = try? await PartnerService.fetchPartner(bearer: bearer)
-                // Coach identity from the athlete week API (same source ProfileView
-                // reads), so the tactical note is attributed to the real coach.
-                if let resp = try? await PlanService.fetchWeek(bearer: bearer),
-                   let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !name.isEmpty {
-                    coachName = name
-                }
+        .task(id: effectiveBearer) { await reload() }
+    }
+
+    /// Partner link + coach identity + the joint simulation. Re-run after an
+    /// invitation so a freshly paired athlete stops seeing the unpaired state.
+    private func reload() async {
+        loading = true
+        if let bearer = effectiveBearer {
+            partner = try? await PartnerService.fetchPartner(bearer: bearer)
+            // Coach identity from the athlete week API (same source ProfileView
+            // reads), so the tactical note is attributed to the real coach.
+            if let resp = try? await PlanService.fetchWeek(bearer: bearer),
+               let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !name.isEmpty {
+                coachName = name
             }
-            simulation = await DoblesService.fetchSimulation(bearer: effectiveBearer)
-            loadEditState(from: simulation)
-            loading = false
-            withAnimation { appear = true }
         }
+        simulation = await DoblesService.fetchSimulation(bearer: effectiveBearer)
+        loadEditState(from: simulation)
+        loading = false
+        withAnimation { appear = true }
     }
 
     /// Seed the editable state from the loaded (reader-centric) simulation.
@@ -198,7 +211,8 @@ struct DoblesSimulationView: View {
             RedesignEmptyState(
                 symbol: "square.split.2x1",
                 title: "Sin reparto de estaciones",
-                message: "El coach aún no ha definido el reparto de las estaciones."
+                message: "El coach aún no ha definido el reparto de las estaciones.",
+                exit: .explained(note: "En cuanto lo defina podréis ajustarlo los dos desde aquí.")
             )
             .padding(.top, Theme.Spacing.l)
             .staggerReveal(appear, index: 2)

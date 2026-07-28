@@ -55,12 +55,19 @@ struct DeleteAccountConfirmView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.Color.danger)
                 }
-                confirmButton
-                cancelButton
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.xxl)
+            .padding(.bottom, Theme.Spacing.l)
+        }
+        // On a destructive screen the way OUT has to be visible without
+        // scrolling. Both actions were the tail of the scroll, i.e. reachable
+        // only after reading past a warning card and two fields.
+        .anchoredAction {
+            VStack(spacing: Theme.Spacing.s) {
+                confirmButton
+                cancelButton
+            }
         }
     }
 

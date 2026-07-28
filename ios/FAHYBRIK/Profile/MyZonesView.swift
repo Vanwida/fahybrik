@@ -118,28 +118,33 @@ struct MyZonesView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
+    /// The row is here for ONE number: the pace range you have to run. "Z4" is a
+    /// tag on it, not a peer — it used to render at the same 13pt as the range
+    /// (bold vs semibold, indistinguishable), so the row read as two equals and
+    /// the eye had nowhere to land. The range now leads at 22pt, the same size
+    /// and role its sibling MyStrengthView gives the 1RM.
     private func zoneRow(_ band: ZoneBand) -> some View {
         HStack(spacing: 12) {
             // Colour swatch from the coach's stored zone hex (agnostic). Falls
             // back to a neutral chip when no colour is stored.
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(Color(zoneHex: band.color) ?? Theme.Color.faint)
-                .frame(width: 4, height: 26)
+                .frame(width: 4, height: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(band.code)
-                    .scaledFont(13, weight: .bold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
+                    .scaledFont(11, weight: .bold, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
                 Text(band.label)
                     .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
+                    .foregroundStyle(Theme.Color.faint)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             Text(band.rangeLabel)
-                .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
+                .font(Theme.Typography.readoutS)
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -150,40 +155,25 @@ struct MyZonesView: View {
     // MARK: - Empty / error states
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "speedometer")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
-            Text("Aún no tienes zonas")
-                .scaledFont(16, weight: .bold, relativeTo: .headline)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Button {
-                showRegister = true
-            } label: {
-                Text("Registrar test")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .padding(.top, 4)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "speedometer",
+                title: "Aún no tienes zonas",
+                message: "Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.",
+                exit: .action(title: "Registrar test") { showRegister = true }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     private var errorState: some View {
-        VStack(spacing: 10) {
-            Text("No pudimos cargar tus zonas")
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-            Button("Reintentar") { Task { await load() } }
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.accentText)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tus zonas",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await load() } }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     // MARK: - Load
@@ -292,17 +282,16 @@ struct RegisterTestView: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .anchoredAction {
                 ExpertPrimaryButton(
                     title: saving ? "GUARDANDO…" : "GUARDAR TEST",
                     height: 46,
                     enabled: canSave,
                     action: save
                 )
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.m)
             }
         }
+        .compactSheet()
     }
 
     private func save() {

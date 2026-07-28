@@ -351,16 +351,12 @@ struct CarrerasView: View {
                     }
                 }
             } else {
-                VStack(spacing: Theme.Spacing.l) {
-                    RedesignEmptyState(
-                        symbol: "target",
-                        title: "Sin objetivos todavía",
-                        message: "Fija tu próxima carrera y verás aquí la cuenta atrás. Tu plan se enfoca en la fecha que elijas."
-                    )
-                    ExpertPrimaryButton(title: "BUSCAR CARRERA") {
-                        showBuscar = true
-                    }
-                }
+                RedesignEmptyState(
+                    symbol: "target",
+                    title: "Sin objetivos todavía",
+                    message: "Fija tu próxima carrera y verás aquí la cuenta atrás. Tu plan se enfoca en la fecha que elijas.",
+                    exit: .action(title: "Buscar carrera") { showBuscar = true }
+                )
                 .padding(.top, Theme.Spacing.s)
             }
         }
@@ -399,16 +395,12 @@ struct CarrerasView: View {
                     LegacyHistorySection(history: overview.history)
                 }
             } else {
-                VStack(spacing: Theme.Spacing.l) {
-                    RedesignEmptyState(
-                        symbol: "flag.checkered",
-                        title: "Aún no hay carreras pasadas",
-                        message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución."
-                    )
-                    ExpertPrimaryButton(title: "IMPORTAR CARRERAS") {
-                        showImport = true
-                    }
-                }
+                RedesignEmptyState(
+                    symbol: "flag.checkered",
+                    title: "Aún no hay carreras pasadas",
+                    message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución.",
+                    exit: .action(title: "Importar carreras") { showImport = true }
+                )
                 .padding(.top, Theme.Spacing.s)
             }
         }
@@ -1014,34 +1006,5 @@ private struct FlowChips: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Shared empty state
-
-/// Honest empty-state scaffold used across the redesign's not-yet-populated
-/// surfaces. A muted SF symbol, a title, and a sentence — never mock data.
-struct RedesignEmptyState: View {
-    let symbol: String
-    let title: String
-    let message: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
-            Text(title)
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text(message)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.l)
-        .accessibilityElement(children: .combine)
     }
 }

@@ -70,15 +70,12 @@ struct FijarObjetivoView: View {
                     if let errorText {
                         errorBanner(errorText)
                     }
-
-                    Spacer(minLength: Theme.Spacing.l)
-
-                    submitButton
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.l)
             }
+            .anchoredAction { submitButton }
         }
         .navigationTitle("Fijar objetivo")
         .navigationBarTitleDisplayMode(.inline)
@@ -164,7 +161,7 @@ struct FijarObjetivoView: View {
             }
 
             Text("El objetivo se traduce en tiempos por estación según cómo reparten la carrera los atletas reales de tu división — no un promedio inventado.")
-                .font(.system(size: 11.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Theme.Color.faint)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -282,6 +279,236 @@ struct FijarObjetivoView: View {
                 submitting = false
                 Haptics.success()
                 onTargetSet()
+            } catch let err as RaceTargetError {
+                submitting = false
+                Haptics.error()
+                errorText = err.message
+            } catch {
+                submitting = false
+                Haptics.error()
+                errorText = RaceTargetError.generic.message
+            }
+        }
+    }
+}
+
+// MARK: - Fijar el tiempo objetivo de una carrera YA fijada
+
+/// "¿A qué vas?" for a race the athlete has ALREADY set as an objective.
+///
+/// `FijarObjetivoView` (above) is the first-time flow: it picks the event AND
+/// its three orthogonal attributes AND the goal time. But an athlete who fixed a
+/// race without a time had no way back in — the race detail told them to set one
+/// and gave them no button. This is that button's destination: the same goal
+/// selector (`GoalPresetGrid` / "Acabarla bien" / exact wheels — one source of
+/// truth, `GoalPresets.swift`) over the race's EXISTING format · division ·
+/// category, which the athlete already chose and is not re-asked for.
+///
+/// It posts to the same `POST /api/athlete/races/target` — the endpoint is
+/// idempotent per event, so re-sending the identical attributes with a goal time
+/// updates the objective in place.
+struct FijarTiempoObjetivoSheet: View {
+    let race: UpcomingRace
+    var bearer: String?
+    /// Called after a successful save so the host re-fetches the goal-gap.
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var goalChoice: GoalChoice?
+    @State private var goalHours: Int
+    @State private var goalMinutes: Int
+    @State private var goalSeconds: Int
+    @State private var submitting = false
+    @State private var errorText: String?
+
+    init(race: UpcomingRace, bearer: String?, onSaved: @escaping () -> Void) {
+        self.race = race
+        self.bearer = bearer
+        self.onSaved = onSaved
+        // Pre-select whatever is stored: an exact rung selects its chip, any other
+        // time drops straight into the wheels already dialled to it.
+        let stored = race.goalTimeSeconds
+        if let preset = GoalPreset.matching(stored) {
+            _goalChoice = State(initialValue: .preset(preset))
+        } else if let stored, stored > 0 {
+            _goalChoice = State(initialValue: .exact)
+        } else {
+            _goalChoice = State(initialValue: nil)
+        }
+        let seconds = stored ?? 0
+        _goalHours = State(initialValue: seconds / 3600)
+        _goalMinutes = State(initialValue: (seconds % 3600) / 60)
+        _goalSeconds = State(initialValue: seconds % 60)
+    }
+
+    private var goalTotalSeconds: Int? {
+        switch goalChoice {
+        case .preset(let preset):
+            return preset.seconds
+        case .exact:
+            let total = goalHours * 3600 + goalMinutes * 60 + goalSeconds
+            return total > 0 ? total : nil
+        case .finish, .none:
+            return nil
+        }
+    }
+
+    /// Nothing chosen yet → nothing to save. "Acabarla bien" IS a choice (it
+    /// clears the clock on purpose), so it stays enabled.
+    private var canSave: Bool { goalChoice != nil && !submitting }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.Color.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                        raceLine
+                        GoalPresetGrid(choice: $goalChoice)
+                        GoalPresetChip(
+                            title: "Acabarla bien",
+                            descriptor: "primera carrera · sin reloj",
+                            selected: goalChoice == .finish
+                        ) {
+                            goalChoice = .finish
+                        }
+                        if case .exact = goalChoice {
+                            exactWheels
+                        } else {
+                            GoalExactLink {
+                                withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                            }
+                        }
+                        if let errorText {
+                            errorBanner(errorText)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.top, Theme.Spacing.l)
+                    .padding(.bottom, Theme.Spacing.l)
+                }
+                .anchoredAction {
+                    ExpertPrimaryButton(
+                        title: submitting ? "GUARDANDO…" : "GUARDAR OBJETIVO",
+                        enabled: canSave,
+                        action: submit
+                    )
+                }
+            }
+            .navigationTitle("¿A qué vas?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                        .tint(Theme.Color.accentText)
+                }
+            }
+        }
+    }
+
+    private var raceLine: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: "TU OBJETIVO EN", color: Theme.Color.accentText)
+            Text(race.name)
+                .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Tu plan y tu analítica se enfocan en esto.")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var exactWheels: some View {
+        HStack(spacing: 8) {
+            wheel(value: $goalHours, range: 0...5, unit: "h")
+            wheel(value: $goalMinutes, range: 0...59, unit: "min")
+            wheel(value: $goalSeconds, range: 0...59, unit: "s")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    }
+
+    private func wheel(value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {
+        VStack(spacing: 2) {
+            Picker("", selection: value) {
+                ForEach(Array(range), id: \.self) { n in
+                    Text(String(format: "%02d", n))
+                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                        .tag(n)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 96)
+            .clipped()
+            LabelText(text: unit, color: Theme.Color.faint, size: 10)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value.wrappedValue) \(unit)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
+            case .decrement: if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
+            default: break
+            }
+        }
+    }
+
+    private func errorBanner(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.danger)
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.dangerTint)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.danger.opacity(0.30), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func submit() {
+        guard !submitting else { return }
+        // The race must carry the calendar event it came from; without it there is
+        // nothing to re-target and we say so instead of failing silently.
+        guard let eventId = race.eventId else {
+            errorText = "Esta carrera no está enlazada al calendario oficial, así que no podemos guardarle un objetivo."
+            return
+        }
+        submitting = true
+        errorText = nil
+        let body = SetTargetRaceBody(
+            eventId: eventId,
+            format: race.format ?? "singles",
+            division: race.division ?? "open",
+            genderCategory: race.genderCategory ?? "men",
+            goalTimeSeconds: goalTotalSeconds
+        )
+        Task { @MainActor in
+            do {
+                _ = try await RaceCalendarService.setTarget(bearer: bearer, body: body)
+                submitting = false
+                Haptics.success()
+                onSaved()
+                dismiss()
             } catch let err as RaceTargetError {
                 submitting = false
                 Haptics.error()

@@ -50,11 +50,20 @@ struct DoblesSharedAnalyticsView: View {
                         .padding(.top, Theme.Spacing.xxl)
                 } else if let analytics {
                     content(analytics)
+                } else if partner == nil {
+                    DoblesNoPartnerState(
+                        message: "El cara a cara necesita a dos: con un compañero conectado veréis vuestras marcas, la conjunta y quién aporta qué.",
+                        bearer: effectiveBearer,
+                        onInvited: { Task { await reload() } }
+                    )
+                    .padding(.top, Theme.Spacing.xl)
+                    .staggerReveal(appear, index: 1)
                 } else {
                     RedesignEmptyState(
                         symbol: "chart.bar.xaxis",
                         title: "Sin analíticas compartidas",
-                        message: "Cuando tú y tu compañero registréis marcas veréis aquí el cara a cara, vuestra marca conjunta y quién aporta qué."
+                        message: "Cuando tú y tu compañero registréis marcas veréis aquí el cara a cara, vuestra marca conjunta y quién aporta qué.",
+                        exit: .explained(note: "Se llena solo con lo que entrenéis los dos.")
                     )
                     .padding(.top, Theme.Spacing.xl)
                     .staggerReveal(appear, index: 1)
@@ -67,15 +76,19 @@ struct DoblesSharedAnalyticsView: View {
         .instrumentCanvas()
         .navigationTitle("Analíticas")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: effectiveBearer) {
-            loading = true
-            if let bearer = effectiveBearer {
-                partner = try? await PartnerService.fetchPartner(bearer: bearer)
-            }
-            analytics = await DoblesService.fetchSharedAnalytics(bearer: effectiveBearer)
-            loading = false
-            withAnimation { appear = true }
+        .task(id: effectiveBearer) { await reload() }
+    }
+
+    /// Partner link + the shared analytics. Re-run after an invitation so a
+    /// freshly paired athlete stops seeing the unpaired state.
+    private func reload() async {
+        loading = true
+        if let bearer = effectiveBearer {
+            partner = try? await PartnerService.fetchPartner(bearer: bearer)
         }
+        analytics = await DoblesService.fetchSharedAnalytics(bearer: effectiveBearer)
+        loading = false
+        withAnimation { appear = true }
     }
 
     // MARK: - Content

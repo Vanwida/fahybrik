@@ -40,6 +40,7 @@ struct PartnerInviteSheet: View {
                 }
             }
         }
+        .compactSheet()
     }
 
     // MARK: - UI
