@@ -43,11 +43,18 @@ struct Day1Flow: View {
         }
     }
 
+    // The progress rail is pinned; each beat centres in what's left. This was a
+    // hand-rolled Spacer/Spacer pair — the shared scaffold does the same thing
+    // and adds the missing scroll, which this 379-line flow never had: every
+    // beat is a headline + two paragraphs + a card + a button, and at large
+    // Dynamic Type the button used to fall off the bottom of the screen.
     private var content: some View {
-        VStack(spacing: 0) {
+        CenteredScreen {
             progressRail
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.xxl)
                 .padding(.bottom, Theme.Spacing.xl)
-            Spacer(minLength: 0)
+        } content: {
             Group {
                 switch beat {
                 case .welcome: welcomeStep
@@ -63,11 +70,9 @@ struct Day1Flow: View {
                 insertion: .move(edge: .trailing).combined(with: .opacity),
                 removal: .move(edge: .leading).combined(with: .opacity)
             ))
-            Spacer(minLength: 0)
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.bottom, Theme.Spacing.xl)
         }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.top, Theme.Spacing.xxl)
-        .padding(.bottom, Theme.Spacing.xl)
         .animation(.spring(response: 0.5, dampingFraction: 0.86), value: stepIndex)
     }
 

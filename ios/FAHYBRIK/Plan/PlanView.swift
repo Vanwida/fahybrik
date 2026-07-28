@@ -258,14 +258,18 @@ struct PlanView: View {
 
     // Wraps a full-screen state (empty / paused) with the persistent header so
     // history + chat never disappear just because there is no plan to show.
-    private func stateWithHeader<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(spacing: 0) {
+    //
+    // The symmetric Spacer/Spacer that used to live here is now `CenteredScreen`
+    // — same result (header pinned, state centred in what's left) plus the part
+    // this was missing: it scrolls instead of clipping when the copy grows at
+    // large Dynamic Type.
+    private func stateWithHeader<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
+        CenteredScreen {
             headerRow
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
-            Spacer(minLength: 0)
+        } content: {
             content()
-            Spacer(minLength: 0)
         }
     }
 

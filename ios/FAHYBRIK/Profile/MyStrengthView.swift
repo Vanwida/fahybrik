@@ -181,41 +181,25 @@ struct MyStrengthView: View {
     // MARK: - Empty / error states
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "dumbbell")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
-            Text("Aún no has registrado tu fuerza")
-                .scaledFont(16, weight: .bold, relativeTo: .headline)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text("Registra un test (peso × repeticiones) y calcularemos tu 1RM al momento.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Button {
-                showRegister = true
-            } label: {
-                Text("Registrar test")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .padding(.top, 4)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "dumbbell",
+                title: "Aún no has registrado tu fuerza",
+                message: "Registra un test (peso × repeticiones) y calcularemos tu 1RM al momento.",
+                exit: .action(title: "Registrar test") { showRegister = true }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     private var errorState: some View {
-        VStack(spacing: 10) {
-            Text("No pudimos cargar tu fuerza")
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-            Button("Reintentar") { Task { await load() } }
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.accentText)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tu fuerza",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await load() } }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     // MARK: - Load

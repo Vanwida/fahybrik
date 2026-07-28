@@ -132,12 +132,15 @@ struct RedesignEmptyState: View {
     let message: String
     /// The way out. Required.
     let exit: EmptyStateExit
+    /// Muted by default. Override only when the emptiness itself carries meaning
+    /// — "sin molestias registradas" is good news, and its shield reads green.
+    var symbolColor: Color = Theme.Color.faint
 
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.system(size: 34, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
+                .foregroundStyle(symbolColor)
             Text(title)
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)

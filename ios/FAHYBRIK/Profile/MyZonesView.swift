@@ -150,40 +150,25 @@ struct MyZonesView: View {
     // MARK: - Empty / error states
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "speedometer")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
-            Text("Aún no tienes zonas")
-                .scaledFont(16, weight: .bold, relativeTo: .headline)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Button {
-                showRegister = true
-            } label: {
-                Text("Registrar test")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .padding(.top, 4)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "speedometer",
+                title: "Aún no tienes zonas",
+                message: "Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.",
+                exit: .action(title: "Registrar test") { showRegister = true }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     private var errorState: some View {
-        VStack(spacing: 10) {
-            Text("No pudimos cargar tus zonas")
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-            Button("Reintentar") { Task { await load() } }
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.accentText)
+        CenteredScreen {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tus zonas",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await load() } }
+            )
         }
-        .padding(.horizontal, Theme.Spacing.xxl)
     }
 
     // MARK: - Load

@@ -37,22 +37,23 @@ struct EmailSignInView: View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
+            // One wordmark, one line of copy and one field: the whole screen is
+            // ~250pt of content. Top-aligned it left the bottom half of the phone
+            // saying nothing; centred, it reads as a door instead of a form.
+            CenteredScreen {
                 closeBar
-                ScrollView {
-                    VStack(spacing: Theme.Spacing.xl) {
-                        Wordmark(size: 32)
-                            .padding(.top, Theme.Spacing.s)
-                        switch phase {
-                        case .email: emailPhase
-                        case .code: codePhase
-                        }
+            } content: {
+                VStack(spacing: Theme.Spacing.xl) {
+                    Wordmark(size: 32)
+                    switch phase {
+                    case .email: emailPhase
+                    case .code: codePhase
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.bottom, Theme.Spacing.xxl)
                 }
-                .scrollDismissesKeyboard(.interactively)
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.vertical, Theme.Spacing.xl)
             }
+            .scrollDismissesKeyboard(.interactively)
         }
         .onAppear { focus = .email }
     }
