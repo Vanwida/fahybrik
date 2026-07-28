@@ -278,16 +278,21 @@ struct RegisterStrengthTestView: View {
 
     @State private var exerciseSlug: String = StrengthService.STRENGTH_LIFTS[0].slug
     @State private var weightKg: Double? = nil
-    @State private var reps: Int = 5
+    /// Starts EMPTY, like the weight beside it. A stepper parked on 5 turned a real
+    /// 100×3 into 100×5 the moment the athlete didn't touch it — 116,7 kg estimated
+    /// instead of 110, and that number governs the strength % of the next plan.
+    @State private var reps: Int? = nil
     @State private var saving = false
     @State private var errorText: String? = nil
 
     private let repsRange = 1...20
-    private var canSave: Bool { (weightKg ?? 0) > 0 && repsRange.contains(reps) && !saving }
+    private var canSave: Bool {
+        (weightKg ?? 0) > 0 && reps.map(repsRange.contains) == true && !saving
+    }
 
     /// "≈ 117 kg" instant Epley preview, or nil until the inputs are valid.
     private var estimatePreview: String? {
-        guard let w = weightKg, w > 0, repsRange.contains(reps) else { return nil }
+        guard let w = weightKg, w > 0, let reps, repsRange.contains(reps) else { return nil }
         let est = StrengthService.estimatedOneRm(weightKg: w, reps: reps)
         let value = est.truncatingRemainder(dividingBy: 1) == 0
             ? String(Int(est))
@@ -376,17 +381,9 @@ struct RegisterStrengthTestView: View {
                 .foregroundStyle(Theme.Color.muted)
             VStack(spacing: 0) {
                 NumberRow(label: "Peso levantado", unit: "kg", value: $weightKg)
-                LabeledRow(label: "Repeticiones") {
-                    HStack(spacing: 10) {
-                        Text("\(reps)")
-                            .font(Theme.Typography.bodyEmph.monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                            .frame(minWidth: 24)
-                        Stepper("", value: $reps, in: repsRange)
-                            .labelsHidden()
-                            .tint(Theme.Color.accent)
-                    }
-                }
+                // The shared row both fields deserve: it has an EMPTY state ("—"),
+                // which a stepper does not.
+                IntRow(label: "Repeticiones", unit: "", value: $reps)
             }
             .brandSurface()
             Text("El peso máximo que moviste y cuántas repeticiones limpias hiciste. Con eso estimamos tu 1RM.")
@@ -417,7 +414,8 @@ struct RegisterStrengthTestView: View {
     // MARK: - Save
 
     private func save() {
-        guard let bearer, let w = weightKg, w > 0, repsRange.contains(reps), !saving else { return }
+        guard let bearer, let w = weightKg, w > 0,
+              let reps, repsRange.contains(reps), !saving else { return }
         saving = true
         errorText = nil
         Task {
