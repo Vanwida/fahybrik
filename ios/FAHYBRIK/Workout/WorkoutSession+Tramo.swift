@@ -1,0 +1,305 @@
+import Foundation
+
+// The TRAMO layer of the live engine — see LiveTramo.swift for why it exists.
+//
+// One idea, applied everywhere: whatever the athlete is inside RIGHT NOW owns the
+// screen, the clock and the device. The three engines (EMOM, rotating conditioning,
+// structured run) each have their own cursor; this file reads whichever one is
+// driving and answers the four questions the live surfaces actually ask:
+//
+//   · what am I doing?            → `currentTramo` (label, modality, measure)
+//   · how far into it am I?       → `tramoErgDistanceMeters`, `tramoElapsedSeconds`
+//   · which round of how many?    → `tramoRoundIndex` / `tramoRoundTotal`
+//   · am I working or resting?    → `isTramoResting`, `tramoRestRemaining`
+//
+// Nothing here writes to the `lap*` accumulators, so the execution record is
+// byte-for-byte what it was before this layer existed.
+extension WorkoutSession {
+
+    // MARK: - What am I doing right now
+
+    /// The active work window. Falls back to the segment when no format
+    /// subdivides it, so every caller has a tramo — never an optional to unwrap.
+    var currentTramo: LiveTramo {
+        guard let seg = currentSegment else {
+            return LiveTramo(segmentIndex: currentSegmentIndex, cursor: .segment,
+                             label: "—", modality: .other, measure: nil, boxedSeconds: nil)
+        }
+        let i = currentSegmentIndex
+        // EXTRA WORK. The prescription finished and the athlete chose to keep going,
+        // so there is no series and no goal any more: showing "SERIE 1/5 · 500 m"
+        // again after he has done all five would be the app inventing a set he was
+        // never given. The window is simply the machine and the clock.
+        if isExtraWork {
+            return LiveTramo(segmentIndex: i, cursor: .segment, label: seg.primaryMovement,
+                             modality: seg.resolvedModality, measure: nil, boxedSeconds: nil)
+        }
+        // A structured run walks its own leg list; its legs already carry measure
+        // and intensity, so the tramo is a projection, not a re-derivation.
+        if isRunStructureActive, let leg = currentRunLeg {
+            return LiveTramo(
+                segmentIndex: i,
+                cursor: .runLeg(runLegIndex),
+                label: leg.isWork ? seg.primaryMovement : "Recuperación",
+                modality: .run,
+                measure: leg.measure.asMeasure,
+                boxedSeconds: leg.measure.durationSeconds
+            )
+        }
+        if seg.isEMOM, let plan = seg.emomPlan {
+            return seg.rotationTramo(segmentIndex: i,
+                                     cursor: .emomInterval(emomIntervalIndex),
+                                     index: emomIntervalIndex,
+                                     boxedSeconds: plan.workSeconds)
+        }
+        // Only a ROTATING conditioning format has an honest per-round cursor. An
+        // AMRAP / For Time is free-order: nothing knows which movement the athlete
+        // is on, so the segment stays the tramo and the device data is shown as a
+        // strip instead of taking over the screen (it would have to lie about the
+        // subject to do otherwise).
+        if seg.isConditioningTimer, seg.formatScheme?.presentation == .rotating {
+            // The box is the format's FULL work window, never what is left of it —
+            // a progress fraction against a shrinking denominator never moves.
+            // A distance bout (a 500 m row) has no work window at all: it ends when
+            // the metres are done, so it stays unboxed and its clock waits for the
+            // machine instead of counting anything down.
+            return seg.rotationTramo(segmentIndex: i,
+                                     cursor: .conditioningRound(rotRoundIndex),
+                                     index: rotRoundIndex,
+                                     boxedSeconds: seg.formatWorkSeconds)
+        }
+        return seg.tramo(segmentIndex: i)
+    }
+
+    /// True when a Concept2 monitor is what measures the CURRENT window — the one
+    /// test that replaced `currentSegment.kind == .rowOrSki` everywhere it mattered.
+    /// A ski round inside an EMOM answers true here and answered false there.
+    var tramoIsErg: Bool { currentTramo.isErg }
+
+    /// True when the current window is running work (belt or street).
+    var tramoIsRun: Bool { currentTramo.isRun }
+
+    // MARK: - Round context, unified across the two rotating engines
+
+    /// 0-based round within the current format, or 0 when the segment isn't one.
+    var tramoRoundIndex: Int {
+        if isExtraWork { return 0 }
+        if isRunStructureActive { return runLegIndex }
+        if currentSegment?.isEMOM == true { return emomIntervalIndex }
+        if isConditioningActive { return rotRoundIndex }
+        return 0
+    }
+
+    /// How many rounds the format runs. 1 = there is no series to count, and the
+    /// surfaces stay silent rather than showing a meaningless "SERIE 1/1".
+    var tramoRoundTotal: Int {
+        if isExtraWork { return 1 }
+        if isRunStructureActive { return runLegTotal }
+        if let plan = currentSegment?.emomPlan { return plan.intervalCount }
+        if isConditioningActive { return Swift.max(1, rotTotalRounds) }
+        return 1
+    }
+
+    /// True while the athlete is BETWEEN work windows — an EMOM change window, a
+    /// Tabata/interval rest, a structured-run recovery leg. The one test the rest
+    /// surface keys off, whichever engine produced it.
+    var isTramoResting: Bool {
+        if isExtraWork { return false }
+        if isRunStructureActive { return !isRunCountIn && !isRunLegWork }
+        if currentSegment?.isEMOM == true {
+            return emomCountInRemaining <= 0 && emomPhase == .rest && emomPhaseRemaining > 0
+        }
+        return rotPhase == .rest && rotPhaseRemaining > 0
+    }
+
+    /// Seconds left of the rest, for the countdown that IS the rest screen.
+    var tramoRestRemaining: Double {
+        if isRunStructureActive { return Swift.max(0, runLegRemaining) }
+        if currentSegment?.isEMOM == true { return Swift.max(0, emomPhaseRemaining) }
+        return Swift.max(0, rotPhaseRemaining)
+    }
+
+    /// Seconds left of the WORK window when the format boxes it (an EMOM minute, a
+    /// Tabata 20 s, a timed run leg). nil when the window ends on work done, not on
+    /// a clock — a 500 m bout has no countdown and must not invent one.
+    var tramoWorkRemaining: Double? {
+        guard !isTramoResting else { return nil }
+        if isRunStructureActive {
+            return runLegRemaining > 0 ? runLegRemaining : nil
+        }
+        if currentSegment?.isEMOM == true, emomCountInRemaining <= 0 {
+            return Swift.max(0, emomPhaseRemaining)
+        }
+        if isConditioningActive, condCountInRemaining <= 0, rotPhaseRemaining > 0 {
+            return rotPhaseRemaining
+        }
+        return nil
+    }
+
+    /// True while ANY engine's 3-2-1 is on screen.
+    var isTramoCountIn: Bool {
+        if isRunStructureActive { return isRunCountIn }
+        if currentSegment?.isEMOM == true { return emomCountInRemaining > 0 }
+        return condCountInRemaining > 0
+    }
+
+    var tramoCountInRemaining: Double {
+        if isRunStructureActive { return Swift.max(0, runCountInRemaining) }
+        if currentSegment?.isEMOM == true { return Swift.max(0, emomCountInRemaining) }
+        return Swift.max(0, condCountInRemaining)
+    }
+
+    /// What the athlete moves to after this window — the second question of every
+    /// rest screen. nil on the last round of the last segment, where "luego" is a lie.
+    var nextTramoLine: String? {
+        let seg = currentSegment
+        let idx = tramoRoundIndex
+        if let plan = seg?.emomPlan, idx + 1 < plan.intervalCount,
+           let nxt = plan.interval(idx + 1) {
+            return nxt.work == "—" ? nxt.movement : "\(nxt.work) · \(nxt.movement)"
+        }
+        if isRunStructureActive, let legs = currentRunLegs, idx + 1 < legs.count {
+            return legs[idx + 1].isWork ? "tramo \(idx + 2)" : "recuperación"
+        }
+        if isConditioningActive, idx + 1 < tramoRoundTotal, let seg {
+            let next = seg.rotationTramo(segmentIndex: currentSegmentIndex,
+                                         cursor: .conditioningRound(idx + 1),
+                                         index: idx + 1, boxedSeconds: nil)
+            if let work = next.workLine { return "\(work) · \(next.label)" }
+            return next.label
+        }
+        return nextSegment?.title
+    }
+
+    // MARK: - The tramo's own clock
+
+    /// Seconds INSIDE the current window. Held at zero while the clock is armed
+    /// (waiting for the machine), and frozen at the closed value during a rest —
+    /// so "tiempo" answers "how long is this bout taking", never "how long has the
+    /// whole block been running", which is what it used to answer.
+    var tramoElapsedSeconds: Double {
+        if isTramoResting, let last = lastTramoElapsedSeconds { return last }
+        if tramoClockArmed { return 0 }
+        return Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+    }
+
+    /// Erg meters covered INSIDE the current window — the live progress bar's
+    /// numerator. Nil until the first sample of the window lands.
+    var tramoErgDistanceMeters: Double? {
+        guard let start = tramoErgStartDistance, let last = lapErgLastDistance else { return nil }
+        return Swift.max(0, last - start)
+    }
+
+    /// Erg calories burned INSIDE the current window, for a calorie-measured bout.
+    var tramoErgCalories: Int? {
+        guard let start = tramoErgStartCalories, let last = lapErgLastCalories else { return nil }
+        return Swift.max(0, last - start)
+    }
+
+    /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether
+    /// the goal is meters, calories or seconds. Nil when the tramo prescribes no
+    /// measurable goal: a bar with no denominator would be decoration, not data.
+    var tramoProgress: Double? {
+        let tramo = currentTramo
+        if let target = tramo.targetDistanceMeters, let covered = tramoErgDistanceMeters {
+            return Swift.min(1, covered / target)
+        }
+        if let target = tramo.targetCalories, target > 0, let covered = tramoErgCalories {
+            return Swift.min(1, Double(covered) / Double(target))
+        }
+        if let boxed = tramo.boxedSeconds, boxed > 0, let remaining = tramoWorkRemaining {
+            return Swift.min(1, Swift.max(0, (Double(boxed) - remaining) / Double(boxed)))
+        }
+        return nil
+    }
+
+    // MARK: - Entering a tramo
+
+    /// Re-anchor every per-window accumulator when the cursor moves. Called from
+    /// the tick AND from `sampleErg`, so a device sample can never be attributed to
+    /// the window it did not happen in. Idempotent: a no-op while the key is stable.
+    func syncTramoIfNeeded() {
+        let tramo = currentTramo
+        // The WORK ended and the rest began. The round has not changed, so the
+        // device window stays anchored (the metres are still this round's), but the
+        // clock freezes HERE — it used to keep running through the rest, which is
+        // how "tiempo" ended up reporting the block instead of the serie.
+        if isTramoResting, !tramoRestLatched {
+            tramoRestLatched = true
+            lastTramoElapsedSeconds = Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+            lastTramoHRPeak = tramoHRPeak
+        }
+        guard tramo.key != tramoKey else { return }
+        // Close the outgoing window, unless the rest already froze it.
+        if !tramoKey.isEmpty, !tramoRestLatched {
+            lastTramoElapsedSeconds = Swift.max(0, lapElapsedSeconds - tramoStartElapsed)
+            lastTramoHRPeak = tramoHRPeak
+        }
+        tramoRestLatched = false
+        tramoKey = tramo.key
+        tramoStartElapsed = lapElapsedSeconds
+        tramoHRPeak = nil
+        tramoErgStartDistance = lapErgLastDistance
+        tramoErgStartCalories = lapErgLastCalories
+        // A device-measured window with no time box starts when the MACHINE starts.
+        // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
+        // has no business running through any of that.
+        tramoClockArmed = tramo.isErg && tramo.boxedSeconds == nil && !isTramoResting
+    }
+
+    /// Reset the tramo layer wholesale (segment entry / a discarded back-step), so
+    /// no stale window survives into new work.
+    func resetTramoWindow() {
+        tramoKey = ""
+        tramoStartElapsed = lapElapsedSeconds
+        tramoClockArmed = false
+        tramoRestLatched = false
+        tramoErgStartDistance = nil
+        tramoErgStartCalories = nil
+        lastTramoElapsedSeconds = nil
+        tramoHRPeak = nil
+        lastTramoHRPeak = nil
+    }
+
+    /// What the monitor measured in the window that just closed, as the athlete
+    /// reads it ("500 m", "18 cal"). Available DURING the rest because the device
+    /// window belongs to the round, not to the phase. nil when nothing was measured
+    /// — the rest screen then simply doesn't show the card.
+    var lastTramoWorkLine: String? {
+        if let m = tramoErgDistanceMeters, m >= 1 { return "\(Int(m.rounded())) m" }
+        if let c = tramoErgCalories, c >= 1 { return "\(c) cal" }
+        return nil
+    }
+
+    /// The machine moved: release the held clock and stamp its real zero. Called
+    /// from `sampleErg` on the first sample that shows actual work.
+    func releaseArmedTramoClock() {
+        guard tramoClockArmed else { return }
+        tramoClockArmed = false
+        tramoStartElapsed = lapElapsedSeconds
+    }
+
+    /// Track the tramo's HR peak so the rest screen can show a real drop.
+    func noteTramoHR(_ bpm: Int) {
+        tramoHRPeak = Swift.max(tramoHRPeak ?? 0, bpm)
+    }
+}
+
+// MARK: - Run leg measure → the shared Measure union
+
+private extension RunSegmentMeasure {
+    /// The structured-run grammar carries its own measure union; the tramo speaks
+    /// the shared one. One conversion, here, rather than a second switch per caller.
+    var asMeasure: Measure? {
+        switch self {
+        case .distance(let m):  return .distance(meters: Double(m))
+        case .duration(let s):  return .duration(seconds: s)
+        case .unknown:          return nil
+        }
+    }
+
+    var durationSeconds: Int? {
+        if case let .duration(s) = self { return s }
+        return nil
+    }
+}

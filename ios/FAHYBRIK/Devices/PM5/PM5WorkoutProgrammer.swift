@@ -20,10 +20,12 @@ import Foundation
 // A pace objective rides along whenever one is prescribed (PaceBoat on the PM5).
 enum PM5WorkoutProgrammer {
 
-    /// The PM5 program for this segment, or nil for non-erg segments (never
-    /// program the monitor from a run or strength piece).
+    /// The PM5 program for this segment, or nil when no part of it touches an erg
+    /// (never program the monitor from a run or strength piece). Gated on
+    /// `involvesErg`, not on the segment kind: a ski/bike EMOM collapses to a
+    /// non-erg kind and would otherwise never reach the monitor at all.
     static func spec(for segment: WorkoutSegment) -> PM5WorkoutSpec? {
-        guard segment.kind.isErg else { return nil }
+        guard segment.involvesErg else { return nil }
         let pace = targetPaceSecPer500m(segment)
         guard let p = segment.prescription else { return scalarSpec(segment, pace: pace) }
 
@@ -42,6 +44,20 @@ enum PM5WorkoutProgrammer {
             // App-driven formats: our engine owns the interval clock (beeps,
             // rotation); the monitor free-runs and records honestly.
             return .justRow(pace: pace)
+        }
+    }
+
+    /// True when the piece we send makes the MONITOR run the whole series itself
+    /// (native work+rest intervals). Then the monitor already zeroes its own split
+    /// counter between bouts, and re-sending the piece on every bout would restart
+    /// the series under the athlete — so the app re-anchors its own window and
+    /// leaves the monitor alone. False for everything the APP clocks (EMOM, Tabata,
+    /// a heterogeneous pyramid, a single piece), where each window has to be sent
+    /// again to get the counter back to zero.
+    static func monitorRunsTheSeries(_ segment: WorkoutSegment) -> Bool {
+        switch spec(for: segment)?.kind {
+        case .distanceIntervals, .timeIntervals, .calorieIntervals: return true
+        default: return false
         }
     }
 

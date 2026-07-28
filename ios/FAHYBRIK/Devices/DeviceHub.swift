@@ -167,17 +167,30 @@ final class DeviceHub {
     /// after the athlete leaves. Idempotent. Deliberately NOT called when the HUD alone
     /// is dismissed (the connection is session-scoped, not screen-scoped).
     func stopAll() {
+        stopTreadmill()
+        stopHeartRate()
+    }
+
+    /// Release the BELT alone. Split out of `stopAll` because the two devices stop
+    /// being useful at different moments: the belt is done the instant the work is,
+    /// while a strap may still be measuring a post-effort recovery window.
+    /// Idempotent.
+    func stopTreadmill() {
         onSample = nil
-        onBpm = nil
         onControlCapability = nil
         onMachineEvent = nil
         onControlResult = nil
         treadmill.stop()
+        treadmillControllable = nil
+        treadmillControl = .none
+    }
+
+    /// Release the HR STRAP alone. Idempotent.
+    func stopHeartRate() {
+        onBpm = nil
         heartRate.stop()
         bleBpm = nil
         hrBatteryPercent = nil
-        treadmillControllable = nil
-        treadmillControl = .none
     }
 
     // MARK: - Source construction (real on device, mock in the simulator)

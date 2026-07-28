@@ -33,10 +33,12 @@ final class PM5ConnectionStore: NSObject {
     /// Sim only: the mock "athlete" waits this long after a programmed piece
     /// before rowing (the monitor's "row to begin" hold, made visible).
     private var mockHoldUntil: Date? = nil
-    /// Once-per-piece guard: the erg segment already sent to the monitor. Reset
-    /// on every fresh connection so a PM5 that (re)connects mid-piece gets the
-    /// piece programmed then.
-    private var programmedSegmentId: UUID? = nil
+    /// Once-per-window guard, reset on every fresh connection so a PM5 that
+    /// (re)connects mid-piece gets the piece programmed then.
+    /// The WORK WINDOW whose piece the monitor currently holds — a segment id for a
+    /// standalone piece, a tramo key for a round inside a format. Changing it is
+    /// what re-sends the piece and re-zeroes the monitor.
+    private var programmedWindowKey: String? = nil
 
     /// True when the erg dropped ON ITS OWN (not because the athlete disconnected).
     /// Nothing recovers it — this exists so the UI can SAY so and offer the list again.
@@ -122,7 +124,7 @@ final class PM5ConnectionStore: NSObject {
         connectedDeviceName = nil
         connectedIdentifier = nil
         programState = .idle
-        programmedSegmentId = nil
+        programmedWindowKey = nil
         #else
         service.disconnect()
         #endif
@@ -153,7 +155,7 @@ final class PM5ConnectionStore: NSObject {
         connectedDeviceName = nil
         connectedIdentifier = nil
         programState = .idle
-        programmedSegmentId = nil
+        programmedWindowKey = nil
         #else
         service.forgetPaired()
         #endif
@@ -174,15 +176,23 @@ final class PM5ConnectionStore: NSObject {
 
     // MARK: - workout programming (ErgData parity)
 
-    /// Send this erg segment's piece to the monitor — once per segment, and again
-    /// only when a fresh connection arrives mid-piece (the guard resets on
-    /// connect). Non-erg segments and unmapped shapes are a no-op: the athlete
-    /// can ALWAYS just row, the monitor programming is never a gate.
-    func programIfNeeded(for segment: WorkoutSegment) {
-        guard isConnected, segment.kind.isErg else { return }
-        guard programmedSegmentId != segment.id else { return }
+    /// Send this erg piece to the monitor. `windowKey` is the WORK WINDOW the piece
+    /// belongs to — the segment when the piece stands alone, the tramo when a format
+    /// subdivides it. When the key changes, the piece is sent again, which is what
+    /// makes the monitor zero its counters and wait for the next first stroke: round
+    /// 3 of an EMOM on the ski starts from 0 m, exactly like round 1 did.
+    ///
+    /// It is deliberately NOT re-sent while the MONITOR is running the series
+    /// itself (native intervals): re-programming mid-piece would restart the whole
+    /// thing under the athlete. See `PM5WorkoutProgrammer.monitorRunsTheSeries`.
+    ///
+    /// Non-erg pieces and unmapped shapes are a no-op: the athlete can ALWAYS just
+    /// row, the monitor programming is never a gate.
+    func programIfNeeded(for segment: WorkoutSegment, windowKey: String) {
+        guard isConnected else { return }
         guard let spec = PM5WorkoutProgrammer.spec(for: segment) else { return }
-        programmedSegmentId = segment.id
+        guard programmedWindowKey != windowKey else { return }
+        programmedWindowKey = windowKey
         #if targetEnvironment(simulator)
         // No BLE on the simulator — accept the program as a success so the whole
         // flow (banner included) is demoable end-to-end.
@@ -233,7 +243,7 @@ final class PM5ConnectionStore: NSObject {
         mockTick = 0
         live = PM5LiveSample()
         splits = []
-        programmedSegmentId = nil   // fresh mock link — same contract as hardware
+        programmedWindowKey = nil   // fresh mock link — same contract as hardware
         programState = .idle
         connectionState = .streaming
         connectedDeviceName = "PM5 Simulator"
@@ -323,7 +333,7 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
         self.expectingDisconnect = false
         // A fresh link starts with a clean monitor — allow the current erg piece
         // to be (re)programmed onto it.
-        self.programmedSegmentId = nil
+        self.programmedWindowKey = nil
     }
 
     func pm5Service(_ service: PM5Service, didReceiveSample sample: PM5LiveSample) {

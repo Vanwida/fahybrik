@@ -95,6 +95,41 @@ transacción de `create-free-workout`. No pierde datos; merece una mirada.
 
 ---
 
+## Cerrado el 28-jul · EL TRAMO MANDA — la pantalla en vivo, rehecha desde la causa
+
+**Sin desplegar.** Solo iOS; cero migraciones. Alex entrenó de verdad (ski, carrera,
+EMOM ski+bike, remo 5×500 → ejecuciones 173/175/177/179) y trajo quince síntomas.
+Eran tres causas.
+
+- **Los dispositivos eran un caso especial del ejercicio suelto.** La app decidía
+  qué medir mirando el SEGMENTO. En el EMOM de ski+bike los dos movimientos
+  colapsan a un kind que no es de ergo, así que no se podía ni conectar el PM5 y
+  no se guardó un solo dato (producción: `modality: "other"`, cero erg). Ahora
+  manda `LiveTramo` — la ventana activa (ronda del EMOM, serie del intervalo,
+  tramo de carrera) con su modalidad, su medida y su objetivo. Vale para cualquier
+  aparato, no solo el PM5.
+- **El reloj medía la sesión, no el tramo.** El tramo tiene reloj propio, se
+  congela al entrar en el descanso, y en un tramo de ergo sin caja de tiempo
+  **arranca cuando el ergo se mueve**, no al pulsar Empezar. Y su ventana de
+  metros se reancla por serie (adiós al 1000/500 de la segunda).
+- **La vista no se ganaba su altura.** El objetivo dice lo que TE QUEDA con una
+  barra que se ve, el hero crece hasta llenar el hueco muerto, el raíl pasa de
+  ocho azulejos ilegibles a tres grandes, y **el descanso es una pantalla con
+  sujeto propio** (cuenta atrás enorme, qué viene, cómo baja tu pulso, cómo fue la
+  serie). Horizontal por fin tiene acción.
+
+También: **hápticos que se notan** con el móvil en el suelo (los generadores se
+soltaban antes de vibrar; y un tick de cuenta atrás era el impacto más flojo de
+iOS), **un pulso de reposo deja de contar como esfuerzo** (el ski salió a 70 ppm y
+121 s en z1 porque el reloj no se unió y colábamos la lectura pasiva de fondo),
+**se puede seguir entrenando al acabar** en vez de caer directo a guardar, y **los
+aparatos se sueltan al terminar**, no al desmontarse la pantalla.
+
+Verificado contra las prescripciones reales de esas sesiones con un banco que
+compila el dominio de verdad: 35 comprobaciones en verde.
+
+---
+
 ## Cerrado el 28-jul · El cronómetro sin movimientos SE GUARDA (era lo único que faltaba)
 
 **Sin desplegar todavía.** Servidor + iOS; **cero migraciones** (la forma viaja en

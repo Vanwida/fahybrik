@@ -937,17 +937,9 @@ struct EmomLiveHUD: View {
     private var isUrgent: Bool {
         !isCountIn && session.emomPhaseRemaining <= WorkoutSession.emomUrgentThreshold
     }
-    /// True while this EMOM is an INTERVAL (explicit work + transition, e.g. 45/15):
-    /// the phase is then the whole experience, so it gets the banner. A plain EMOM
-    /// has one phase and shows exactly what it always did.
-    private var hasTransition: Bool { plan?.hasTransition == true }
-    private var isTransition: Bool { hasTransition && !isCountIn && session.emomPhase == .rest }
 
     var body: some View {
         VStack(spacing: 12) {
-            if hasTransition, !isCountIn {
-                WorkRestBanner(phase: session.emomPhase, restLabel: "CAMBIO")
-            }
             clockCard
             // A bare box clock (EMOM started without declaring movements) has no work
             // to name — the clock IS the session. Showing a card whose only content
@@ -994,11 +986,13 @@ struct EmomLiveHUD: View {
         .accessibilityLabel(clockAccessibility)
     }
 
-    // THIS interval's work — movement + measure + intensity, from sets[]. During a
-    // transition it shows the work you are WALKING TO, not the one you just left:
-    // that is the whole reason a station EMOM has a change window.
+    // THIS interval's work — movement + measure + intensity, from sets[]. The change
+    // window between rounds is not rendered here any more: it is a phase with its
+    // own subject (how long is left, what you are walking TO, how your HR is coming
+    // down) and it has its own screen — see RestSurface, which every engine's rest
+    // now routes to.
     private var workCard: some View {
-        let current = plan?.interval(shownIntervalIndex)
+        let current = plan?.interval(session.emomIntervalIndex)
         return CardSurface(padding: Theme.Spacing.m) {
             VStack(alignment: .leading, spacing: 8) {
                 LabelText(text: workCardLabel, color: Theme.Color.accentText, size: 10)
@@ -1052,18 +1046,14 @@ struct EmomLiveHUD: View {
 
     // MARK: derived
 
-    /// What the work card is showing: the first interval before GO, the work you
-    /// are doing now, or — mid-transition — the work waiting on the other side.
+    /// What the work card is showing: the first interval before GO, else the work
+    /// being done right now. (The change window has its own screen.)
     private var workCardLabel: String {
-        if isCountIn { return "Primer intervalo" }
-        return isTransition ? "Al acabar el cambio" : "Este intervalo"
+        isCountIn ? "Primer intervalo" : "Este intervalo"
     }
 
     private var intervalLabel: String {
-        let n = "Intervalo \(session.emomIntervalIndex + 1) / \(plan?.intervalCount ?? 0)"
-        // During a transition the athlete is no longer working — say so on the clock
-        // itself, not only on the banner.
-        return isTransition ? "Cambio · \(n)" : n
+        "Intervalo \(session.emomIntervalIndex + 1) / \(plan?.intervalCount ?? 0)"
     }
 
     private var cadenceLabel: String {
@@ -1076,18 +1066,11 @@ struct EmomLiveHUD: View {
         return "\(plan.workSeconds)/\(plan.restSeconds) · cada \(PrescriptionRenderer.formatRest(plan.intervalSeconds))"
     }
 
-    /// The 0-based interval the work card is describing — the next one while a
-    /// transition runs, the current one otherwise. ONE definition so the card and
-    /// its "Luego" line can never point at different rounds.
-    private var shownIntervalIndex: Int {
-        isTransition ? session.emomIntervalIndex + 1 : session.emomIntervalIndex
-    }
-
     // The next movement, ONLY when the EMOM alternates and the upcoming interval
     // is a different movement — so a uniform EMOM never shows a redundant "Luego".
     private var nextMovement: String? {
         guard let plan, plan.isAlternating else { return nil }
-        let shown = shownIntervalIndex
+        let shown = session.emomIntervalIndex
         guard let nxt = plan.interval(shown + 1),
               let cur = plan.interval(shown),
               nxt.movement != cur.movement else { return nil }

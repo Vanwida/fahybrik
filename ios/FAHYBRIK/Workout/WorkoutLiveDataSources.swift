@@ -163,6 +163,21 @@ final class LiveHeartRateProvider {
     private let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)
     private let bpmUnit = HKUnit.count().unitDivided(by: .minute())
 
+    /// How old a HealthKit sample may be and still count as a LIVE reading.
+    ///
+    /// This is the difference between two completely different things that arrive
+    /// through the same query. A watch RECORDING a workout writes HR every few
+    /// seconds. A watch that is merely on the wrist writes a passive background
+    /// reading every few minutes, taken at rest — and this query cannot tell them
+    /// apart by type. On 28-jul Alex skied 400 m at 165 W with the watch app never
+    /// joining: the passive readings came through as live HR and the session was
+    /// recorded as avg 70 / max 80 bpm, 121 seconds in zone 1. A resting pulse
+    /// presented as effort is worse than no pulse at all, because the coach's zone
+    /// analytics then treat a hard piece as easy.
+    ///
+    /// 45 s is far beyond any real live cadence and far below the passive one.
+    private static let liveSampleMaxAgeSeconds: TimeInterval = 45
+
     /// Starts an anchored HR query bounded to the workout window. HealthKit never
     /// reveals READ authorization, so this is best-effort: if no wearable is
     /// writing HR, no samples arrive and the HUD simply shows "—" (no fabrication).
@@ -197,6 +212,10 @@ final class LiveHeartRateProvider {
         guard let last = (samples as? [HKQuantitySample])?
             .sorted(by: { $0.endDate < $1.endDate })
             .last else { return }
+        // Only a FRESH sample is a live reading — see `liveSampleMaxAgeSeconds`.
+        // A stale one is the watch's passive background sampling and describes rest,
+        // not the piece being rowed; forwarding it would fabricate training data.
+        guard Date().timeIntervalSince(last.endDate) <= Self.liveSampleMaxAgeSeconds else { return }
         let bpm = Int(last.quantity.doubleValue(for: bpmUnit).rounded())
         guard bpm > 0 else { return }
         Task { @MainActor in

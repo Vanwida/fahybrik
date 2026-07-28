@@ -57,10 +57,12 @@ private struct FormatClockHero: View {
 }
 
 /// The phase banner shown by every two-phase format — a full-width tinted bar that
-/// flips colour with the phase so it reads under effort from across a box. Shared
-/// with the EMOM HUD (an interval EMOM has the same two phases), which is why the
-/// second label is a parameter: a Tabata's off-phase is DESCANSO, a station EMOM's
-/// is CAMBIO (you are moving, not resting).
+/// flips colour with the phase so it reads under effort from across a box.
+///
+/// The STRUCTURED-RUN surface still shows both faces (its recovery legs render in
+/// place, with their own pace guidance). Every other format's rest has moved to a
+/// screen of its own — see RestSurface — so those pass `.work` and only ever wear
+/// the work face.
 struct WorkRestBanner: View {
     let phase: WorkoutSession.RotatingPhase
     /// What the off-phase is called for this format.
@@ -506,14 +508,12 @@ struct TabataLiveHUD: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            if !isCountIn { WorkRestBanner(phase: session.rotPhase) }
+            if !isCountIn { WorkRestBanner(phase: .work) }   // rest has its own screen
             clock
             RotatingWorkCard(
-                label: session.rotPhase == .work ? "Trabajo" : "Descanso",
+                label: "Trabajo",
                 movement: seg?.primaryMovement ?? "—",
-                next: session.rotPhase == .work
-                    ? seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" }
-                    : "Trabajo \(seg?.formatWorkSeconds.map { "\($0)s" } ?? "")"
+                next: seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" }
             )
             if !isCountIn {
                 RepTallyRow(label: "Reps · ronda \(session.rotRoundIndex + 1)",
@@ -560,20 +560,19 @@ struct IntervalsLiveHUD: View {
 
     private var seg: WorkoutSegment? { session.currentSegment }
     private var isCountIn: Bool { session.isCondCountIn }
-    private var isWork: Bool { session.rotPhase == .work }
     private var urgent: Bool {
         !isCountIn && session.rotPhaseRemaining > 0 && session.rotPhaseRemaining <= WorkoutSession.emomUrgentThreshold
     }
 
     var body: some View {
         VStack(spacing: 12) {
-            if !isCountIn { WorkRestBanner(phase: session.rotPhase) }
+            if !isCountIn { WorkRestBanner(phase: .work) }   // rest has its own screen
             clock
             RotatingWorkCard(
-                label: isWork ? "Esta serie" : "Descanso",
+                label: "Esta serie",
                 movement: seg?.primaryMovement ?? "—",
-                work: isWork ? seg?.targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) } : nil,
-                next: isWork ? seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" } : "Siguiente serie"
+                work: seg?.targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) },
+                next: seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" }
             )
             MetricRow3(cells: [
                 ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
@@ -589,11 +588,11 @@ struct IntervalsLiveHUD: View {
             FormatClockHero(caption: "Prepárate",
                             value: "\(Int(session.condCountInRemaining.rounded(.up)))",
                             color: Theme.Color.accentText)
-        } else if isWork && seg?.kind == .running && session.rotPhaseRemaining <= 0 {
+        } else if seg?.kind == .running && session.rotPhaseRemaining <= 0 {
             // Distance-based run bout (no fixed duration): show live pace vs target.
             VStack(spacing: 8) {
                 FormatClockHero(
-                    caption: "Serie \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))",
+                    caption: serieCaption,
                     captionColor: Theme.Color.accentText,
                     value: paceValue, sub: "/km",
                     color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
@@ -602,13 +601,17 @@ struct IntervalsLiveHUD: View {
             }
         } else {
             FormatClockHero(
-                caption: isWork ? "Serie \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))" : "Descanso",
+                caption: serieCaption,
                 captionColor: Theme.Color.accentText,
                 value: WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)),
                 color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
                 urgent: urgent
             )
         }
+    }
+
+    private var serieCaption: String {
+        "Serie \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))"
     }
 
     private var paceValue: String {
