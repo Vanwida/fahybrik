@@ -12,7 +12,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ## 2026-07-28 · El doble: la app vive replicada en la web, y los mockups sueltos se acaban
 
-**Decidido:** existe una réplica viva de la app del atleta dentro de la web del producto — «el doble» — en `app.fahybrid.com/<locale>/design` (grupo de rutas `(design)`, misma puerta de sesión que el dashboard, `noindex`). Es la herramienta interna de dirección de UX: cada pantalla se toca, gira (vertical/horizontal), cambia de apariencia (claro/oscuro) y SIMULA lo que en el mundo real es asíncrono — el monitor del remo que aparece al escanear, el GPS que tarda, la cuenta atrás del descanso. En el móvil, «pantalla completa» pinta el lienzo 1:1 y la orientación sigue al teléfono físico.
+**Decidido:** existe una réplica viva de la app del atleta dentro de la web del producto — «el doble» — en `app.fahybrid.com/<locale>/design` (grupo de rutas `(design)`, puerta **ADMIN-ONLY**: login Clerk en el middleware + rol `admin` de `user_roles` en el layout — hoy, solo Alex; un coach sin ese rol rebota a sign-in —, `noindex`). Es la herramienta interna de dirección de UX: cada pantalla se toca, gira (vertical/horizontal), cambia de apariencia (claro/oscuro) y SIMULA lo que en el mundo real es asíncrono — el monitor del remo que aparece al escanear, el GPS que tarda, la cuenta atrás del descanso. En el móvil, «pantalla completa» pinta el lienzo 1:1 y la orientación sigue al teléfono físico.
 
 **El contrato de sinceridad:** cada pantalla lleva sello — **espejo** (réplica de Swift shipeado, con sus ficheros fuente listados en el panel), **propuesta** (mockup de algo aún no construido) o **pendiente** (hueco reconocido, card apagada en el índice). El desfase con la app se VE en el índice, no se sospecha.
 
@@ -22,7 +22,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Qué NO es el doble:** no es QA físico. El BLE real, las físicas de scroll y los caprichos de firmware (el PM5 con una pieza a medias de verdad) solo se prueban en el iPhone. El doble decide UX; el dispositivo decide verdad.
 
-**En consecuencia, no hacer:** no crear mockups de pantallas de la app fuera del doble; no editar `colors_and_type.css` esperando que la app lo lea (la app lee Theme.swift); no enlazar `/design` desde ninguna nav de producto ni quitarle la puerta de sesión.
+**En consecuencia, no hacer:** no crear mockups de pantallas de la app fuera del doble; no editar `colors_and_type.css` esperando que la app lo lea (la app lee Theme.swift); no enlazar `/design` desde ninguna nav de producto; y no rebajar la puerta a sesión de coach — es la mesa de trabajo de Alex y un coach (Pablo incluido) no debe ver propuestas a medias.
 
 ---
 

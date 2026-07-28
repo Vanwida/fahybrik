@@ -41,8 +41,9 @@ const isProtectedRoute = createRouteMatcher([
   '/:locale/ajustes/:path*',
   '/:locale/metodologia/:path*',
   '/:locale/admin/:path*',
-  // El doble (grupo (design)): herramienta interna de UX — misma puerta que el
-  // dashboard. Su layout re-valida getCoachSession, como hace (v2).
+  // El doble (grupo (design)): herramienta interna de UX. El middleware exige
+  // login Clerk; su layout estrecha después a ADMIN-ONLY (getAdminSession) —
+  // un coach sin rol admin rebota a /sign-in.
   '/:locale/design/:path*',
   // Home del dashboard coach. La movimos a /:locale/hoy: la raíz /:locale es ahora
   // la landing pública de marketing (grupo (marketing)) y NO se protege. Solo /hoy

@@ -27,9 +27,9 @@ el mensaje de su commit y debe subir al registro cuando su sesión retome.
 
 ## Cerrado el 28-jul · El doble: la app entera vive replicada en la web
 
-**Desplegado en `app.fahybrid.com/es/design`** (misma puerta de sesión que el
-dashboard, `noindex`; en el móvil, «Pantalla completa» pinta el lienzo 1:1 y
-gira con el teléfono). Es la herramienta de dirección de UX que pidió Alex: se
+**Desplegado en `app.fahybrid.com/es/design`** (puerta ADMIN-ONLY — solo el
+usuario de Alex; un coach rebota a sign-in —, `noindex`; en el móvil,
+«Pantalla completa» pinta el lienzo 1:1 y gira con el teléfono). Es la herramienta de dirección de UX que pidió Alex: se
 acabaron los mockups sueltos en artifacts y HTML.
 
 - **Marco de iPhone** (isla, barra de estado, rotación vertical/horizontal,
