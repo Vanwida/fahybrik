@@ -163,12 +163,14 @@ struct WorkoutContainer: View {
             }
             await loadPlan()
         }
-        // The ONE teardown point for the shared BLE device layer (cinta + banda).
+        // The ONE teardown point for the shared BLE device layer (cinta + banda + remo).
         // Fires on EVERY exit of the whole flow — brief-back, clean discard, or a
         // saved finish — but NOT when a sub-cover (the treadmill HUD) opens over the
         // active view, so the belt connected in the brief stays live all session and
-        // is released only when the athlete truly leaves. (PM5 keeps its own teardown
-        // in ActiveWorkoutView; this covers the connect-before-start layer.)
+        // is released only when the athlete truly leaves. The active view still
+        // releases the erg + belt the INSTANT the work ends (before the summary, which
+        // is the timing the athlete feels); this is the backstop for the paths that
+        // never reach it — above all backing out of the brief with a monitor paired.
         .onDisappear { DeviceHub.shared.stopAll() }
     }
 

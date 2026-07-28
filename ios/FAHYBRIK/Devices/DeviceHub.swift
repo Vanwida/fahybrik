@@ -162,13 +162,22 @@ final class DeviceHub {
 
     // MARK: - Teardown (the WHOLE workout closed)
 
-    /// Disconnect both devices and forget the live sources — called once, from the
-    /// workout container's teardown, so a lingering belt/strap can't drain the battery
-    /// after the athlete leaves. Idempotent. Deliberately NOT called when the HUD alone
-    /// is dismissed (the connection is session-scoped, not screen-scoped).
+    /// Release EVERY machine this app is holding — belt, strap AND erg — called once,
+    /// from the workout container's teardown, so nothing stays paired after the athlete
+    /// leaves. Idempotent. Deliberately NOT called when the HUD alone is dismissed (the
+    /// connection is session-scoped, not screen-scoped).
+    ///
+    /// The erg belongs here even though `PM5ConnectionStore` owns its link: this file's
+    /// contract is "the three connectable devices live in one shared device layer with
+    /// ONE lifecycle", and that was only true for two of them. The erg was released on
+    /// the ACTIVE view's finish path alone, so an athlete who paired the monitor in the
+    /// pre-workout brief and then backed out — never reaching the active view — left the
+    /// machine claimed behind him. Releasing a machine is never destructive, so the
+    /// backstop is unconditional.
     func stopAll() {
         stopTreadmill()
         stopHeartRate()
+        PM5ConnectionStore.shared.disconnect()
     }
 
     /// Release the BELT alone. Split out of `stopAll` because the two devices stop
