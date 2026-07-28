@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>En vivo · funcional mixto — la pantalla como pizarra</title>
+<style>
+  :root{
+    --bg:#050505; --surface:#131313; --surface-2:#1c1c1c; --border:#282828; --border-2:#3a3a3a;
+    --fg:#f7f7f7; --muted:#a0a0a0; --faint:#6a6a6a;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.14);
+    --rest:#3B82F6; --rest-soft:rgba(59,130,246,.16);
+    --ok:#4ade80;
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#161618;color:#f4f4f5;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:52px 22px}
+  .wrap{max-width:1320px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(27px,4vw,38px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 8px}
+  .sub{color:#a1a1aa;max-width:680px}
+  .wod{display:inline-block;margin:18px 0 34px;padding:12px 16px;background:#1f1f22;border:1px solid #2e2e33;border-radius:12px;font:13.5px/1.7 ui-monospace,Menlo,monospace;color:#d4d4d8}
+  .wod b{color:var(--accent)}
+  h2{font-size:19px;font-weight:800;font-style:italic;margin:46px 0 6px;color:var(--accent)}
+  h2+p{color:#a1a1aa;max-width:760px;margin-bottom:22px}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .shot h3{font-size:13.5px;font-weight:800;font-style:italic;margin:13px 2px 3px;color:#f4f4f5}
+  .shot .why{font-size:12.5px;color:#8b8b93;margin:0 2px;line-height:1.6;max-width:330px}
+  .shot.wide .why{max-width:640px}
+  /* teléfono */
+  .ph{background:#000;border:1px solid #38383d;border-radius:38px;padding:9px;box-shadow:0 22px 55px rgba(0,0,0,.55)}
+  .sc{background:var(--bg);color:var(--fg);border-radius:30px;overflow:hidden;width:312px;height:646px;display:flex;flex-direction:column;position:relative}
+  .ph.land .sc{width:646px;height:312px}
+  .st{display:flex;justify-content:space-between;padding:9px 18px 3px;font-size:11px;font-weight:700;color:#c8c8c8}
+  /* franja de contexto */
+  .ctx{display:flex;align-items:center;gap:9px;padding:7px 15px;border-bottom:1px solid var(--border)}
+  .ctx .tag{font-size:9.5px;font-weight:800;letter-spacing:.12em;color:var(--accent)}
+  .ctx .pos{font-size:10.5px;color:var(--faint);font-weight:700}
+  .ctx .tot{margin-left:auto;font:600 15px/1 ui-monospace,Menlo,monospace;color:var(--fg);font-variant-numeric:tabular-nums}
+  .body{flex:1;display:flex;flex-direction:column;padding:0 15px;overflow:hidden}
+  /* héroe */
+  .hero{text-align:center;padding:12px 0 4px}
+  .hero .lbl{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .hero .num{font:800 108px/1 -apple-system,BlinkMacSystemFont,sans-serif;font-style:italic;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+  .hero .num.sm{font-size:80px}
+  .hero .unit{font-size:26px;font-style:italic;color:var(--muted);font-weight:800}
+  .hero .sub2{font-size:12.5px;color:var(--muted);margin-top:2px}
+  /* barra objetivo */
+  .goal{margin:6px 0 2px}
+  .goal .top{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+  .goal .top b{color:var(--fg);font-variant-numeric:tabular-nums}
+  .goal .track{height:12px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+  .goal .track i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  /* raíl de 3 */
+  .rail{display:flex;gap:7px;margin:9px 0 2px}
+  .rail div{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:8px 4px;text-align:center}
+  .rail .k{font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+  .rail .v{font:800 32px/1.05 -apple-system,sans-serif;font-style:italic;font-variant-numeric:tabular-nums;margin-top:3px}
+  /* pizarra */
+  .wb{margin-top:auto;padding-bottom:8px}
+  .wb .hd{font-size:9.5px;font-weight:800;letter-spacing:.13em;color:var(--faint);text-transform:uppercase;margin-bottom:6px;display:flex}
+  .wb .hd span{margin-left:auto;color:var(--faint)}
+  .wb ol{list-style:none;margin:0;padding:0}
+  .wb li{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;font-size:13.5px;margin-bottom:3px}
+  .wb li .i{width:16px;font-size:10.5px;font-weight:800;color:var(--faint);font-variant-numeric:tabular-nums}
+  .wb li.done{color:var(--faint)}
+  .wb li.done .t{text-decoration:line-through}
+  .wb li.done .i{color:var(--ok)}
+  .wb li.now{background:var(--accent-soft);border:1px solid rgba(240,106,42,.42);font-weight:800}
+  .wb li.now .i{color:var(--accent)}
+  .wb li.next{color:var(--muted)}
+  .wb li .m{margin-left:auto;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .wb li.now .m{color:var(--accent)}
+  .wb li .dev{font-size:8.5px;font-weight:800;letter-spacing:.06em;border:1px solid var(--border-2);border-radius:5px;padding:1px 5px;color:var(--muted)}
+  /* pie */
+  .foot{padding:9px 15px 20px;border-top:1px solid var(--border)}
+  .btn{display:flex;align-items:center;justify-content:center;background:var(--accent);color:#180c04;font-weight:800;font-style:italic;border-radius:14px;padding:17px;font-size:17px;letter-spacing:.02em}
+  .btn.tap{background:var(--surface);border:1.5px solid var(--accent);color:var(--accent);font-size:15px;padding:14px}
+  .btn.rest{background:var(--rest);color:#04122c}
+  /* horizontal */
+  .land .body{flex-direction:row;gap:16px;padding:8px 16px}
+  .land .col-a{flex:1.25;display:flex;flex-direction:column;justify-content:center}
+  .land .col-b{flex:1;display:flex;flex-direction:column;padding-top:4px}
+  .land .hero .num{font-size:112px}
+  .land .foot{padding:8px 16px 12px}
+  /* descanso */
+  .sc.restmode{background:#050a16}
+  .restmode .ctx{border-color:rgba(59,130,246,.3)}
+  .restmode .ctx .tag{color:var(--rest)}
+  .restmode .hero .num{color:var(--rest)}
+  .restmode .goal .track i{background:var(--rest)}
+  .nextup{background:var(--rest-soft);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:11px 13px;margin-top:8px}
+  .nextup .k{font-size:9.5px;font-weight:800;letter-spacing:.13em;color:var(--rest);text-transform:uppercase}
+  .nextup .v{font-size:17px;font-weight:800;font-style:italic;margin-top:3px}
+  .note{background:#1f1f22;border-left:3px solid var(--accent);border-radius:0 12px 12px 0;padding:15px 17px;margin:26px 0 0;color:#a1a1aa;font-size:14px;max-width:900px}
+  .note b{color:#f4f4f5}
+  .note.built{border-left-color:var(--ok)}
+  .footer{margin-top:50px;padding-top:18px;border-top:1px solid #2e2e33;font-size:13px;color:#71717a}
+  @media(max-width:700px){body{padding:30px 12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · En vivo · funcional mixto con dispositivos · 28 jul 2026</p>
+  <h1>La pantalla como pizarra</h1>
+  <p class="sub">Un For Time con remo, bici y movimientos a pulso. Dos capas: el <b style="color:#f4f4f5">sujeto</b> (lo que haces ahora) y la <b style="color:#f4f4f5">pizarra</b> (todo el entreno con tu posición). Lo que cambia es cuál de las dos manda.</p>
+
+  <div class="wod">
+    FOR TIME · cap 20:00<br>
+    <b>1.000 m</b> remo &nbsp;·&nbsp; <b>50</b> wall balls &nbsp;·&nbsp; <b>40</b> burpees &nbsp;·&nbsp; <b>30</b> KB swings &nbsp;·&nbsp; <b>20 cal</b> bici
+  </div>
+
+  <h2>Vertical · el tramo manda</h2>
+  <p>La misma pantalla en tres momentos del mismo entreno. Cambia el sujeto, cambia cuánto sitio ocupa la pizarra, y el reloj total nunca desaparece porque es un For Time.</p>
+
+  <div class="row">
+
+    <!-- A · tramo con dispositivo -->
+    <div class="shot">
+      <div class="ph"><div class="sc">
+        <div class="st"><span>9:41</span><span>􀙇 􀛨</span></div>
+        <div class="ctx"><span class="tag">FOR TIME</span><span class="pos">1 de 5</span><span class="tot">4:12</span></div>
+        <div class="body">
+          <div class="hero">
+            <div class="lbl">Ritmo</div>
+            <div class="num sm">1:52<span class="unit">/500</span></div>
+            <div class="sub2">vas 3 s por debajo de tu 1.000 m</div>
+          </div>
+          <div class="goal">
+            <div class="top"><span>Te quedan</span><b>620 / 1.000 m</b></div>
+            <div class="track"><i style="width:38%"></i></div>
+          </div>
+          <div class="rail">
+            <div><div class="k">vatios</div><div class="v">238</div></div>
+            <div><div class="k">s/min</div><div class="v">28</div></div>
+            <div><div class="k">pulso</div><div class="v">164</div></div>
+          </div>
+          <div class="wb">
+            <div class="hd">Luego <span>4 restantes</span></div>
+            <ol>
+              <li class="next"><span class="i">2</span><span class="t">50 wall balls</span><span class="m">9 kg</span></li>
+              <li class="next"><span class="i">3</span><span class="t">40 burpees</span></li>
+            </ol>
+          </div>
+        </div>
+        <div class="foot"><div class="btn tap">Ya está · siguiente</div></div>
+      </div></div>
+      <h3>A · remando (PM5 conectado)</h3>
+      <p class="why">El dispositivo manda: el sujeto es el ritmo, la barra dice lo que <b>te queda</b> y el raíl son tres números de 32 pt legibles a tres metros. La pizarra se pliega a «lo que viene» porque aquí el monitor se gana el sitio. <b style="color:#4ade80">Esta parte ya está construida.</b></p>
+    </div>
+
+    <!-- B · tramo a pulso -->
+    <div class="shot">
+      <div class="ph"><div class="sc">
+        <div class="st"><span>9:45</span><span>􀙇 􀛨</span></div>
+        <div class="ctx"><span class="tag">FOR TIME</span><span class="pos">2 de 5</span><span class="tot">8:03</span></div>
+        <div class="body">
+          <div class="hero">
+            <div class="lbl">Te faltan</div>
+            <div class="num">23</div>
+            <div class="sub2">wall balls · 9 kg · de 50</div>
+          </div>
+          <div class="goal">
+            <div class="track"><i style="width:54%"></i></div>
+          </div>
+          <div class="wb">
+            <div class="hd">La pizarra <span>2 de 5</span></div>
+            <ol>
+              <li class="done"><span class="i">✓</span><span class="t">1.000 m remo</span><span class="m">3:48</span></li>
+              <li class="now"><span class="i">2</span><span class="t">50 wall balls</span><span class="m">27 / 50</span></li>
+              <li class="next"><span class="i">3</span><span class="t">40 burpees</span></li>
+              <li class="next"><span class="i">4</span><span class="t">30 KB swings</span><span class="m">24 kg</span></li>
+              <li class="next"><span class="i">5</span><span class="t">20 cal bici</span><span class="dev">FTMS</span></li>
+            </ol>
+          </div>
+        </div>
+        <div class="foot"><div class="btn">+ 1 &nbsp;·&nbsp; toca para contar</div></div>
+      </div></div>
+      <h3>B · wall balls (sin dispositivo)</h3>
+      <p class="why">Sin monitor no hay métricas que inventar: el sujeto son <b>las repeticiones que faltan</b>, a 108 pt, y la pizarra entera cabe debajo con tu posición marcada, lo hecho tachado con su tiempo real y lo que viene con su carga. La acción es el propio contador, anclada al pulgar. <b style="color:var(--accent)">Esto es lo que hoy se lee a 14 pt.</b></p>
+    </div>
+
+    <!-- C · descanso -->
+    <div class="shot">
+      <div class="ph"><div class="sc restmode">
+        <div class="st"><span>9:52</span><span>􀙇 􀛨</span></div>
+        <div class="ctx"><span class="tag">CAMBIO</span><span class="pos">3 de 5 hecho</span><span class="tot">14:20</span></div>
+        <div class="body">
+          <div class="hero">
+            <div class="lbl">Cambio de estación</div>
+            <div class="num">0:12</div>
+            <div class="sub2">colócate en la kettlebell</div>
+          </div>
+          <div class="goal"><div class="track"><i style="width:20%"></i></div></div>
+          <div class="nextup">
+            <div class="k">Luego</div>
+            <div class="v">30 KB swings · 24 kg</div>
+          </div>
+          <div class="rail" style="margin-top:9px">
+            <div><div class="k">pulso</div><div class="v" style="color:var(--rest)">148</div></div>
+            <div><div class="k">pico</div><div class="v">181</div></div>
+            <div><div class="k">bajando</div><div class="v">−33</div></div>
+          </div>
+          <div class="wb">
+            <div class="hd">Acabas de hacer</div>
+            <ol><li class="done"><span class="i">✓</span><span class="t">40 burpees</span><span class="m">4:31</span></li></ol>
+          </div>
+        </div>
+        <div class="foot"><div class="btn rest">Saltar el cambio</div></div>
+      </div></div>
+      <h3>C · el cambio (descanso)</h3>
+      <p class="why">El azul deja de ser un tinte y pasa a ser la identidad de la fase: fondo, número y barra. El sujeto es <b>cuánto queda</b>; debajo, <b>qué viene</b> con su carga, y tu pulso <b>bajando desde el pico</b>, que es información de recuperación de verdad. <b style="color:#4ade80">Construido esta tarde</b> — aquí sube a pantalla con la pizarra.</p>
+    </div>
+
+  </div>
+
+  <h2>Horizontal · el móvil en el suelo</h2>
+  <p>A tres metros y sudando, el ancho se aprovecha en dos columnas: el número enorme a la izquierda, la pizarra completa a la derecha. La acción no se pierde nunca — era uno de los fallos que reportaste.</p>
+
+  <div class="row">
+
+    <div class="shot wide">
+      <div class="ph land"><div class="sc land">
+        <div class="ctx"><span class="tag">FOR TIME</span><span class="pos">2 de 5 · wall balls</span><span class="tot">8:03</span></div>
+        <div class="body">
+          <div class="col-a">
+            <div class="hero" style="padding:0">
+              <div class="lbl">Te faltan</div>
+              <div class="num">23</div>
+              <div class="sub2">de 50 · 9 kg</div>
+            </div>
+            <div class="goal" style="margin-top:10px"><div class="track"><i style="width:54%"></i></div></div>
+          </div>
+          <div class="col-b">
+            <div class="wb" style="margin-top:0">
+              <div class="hd">La pizarra <span>2 de 5</span></div>
+              <ol>
+                <li class="done"><span class="i">✓</span><span class="t">1.000 m remo</span><span class="m">3:48</span></li>
+                <li class="now"><span class="i">2</span><span class="t">50 wall balls</span><span class="m">27/50</span></li>
+                <li class="next"><span class="i">3</span><span class="t">40 burpees</span></li>
+                <li class="next"><span class="i">4</span><span class="t">30 KB swings</span><span class="m">24 kg</span></li>
+                <li class="next"><span class="i">5</span><span class="t">20 cal bici</span><span class="dev">FTMS</span></li>
+              </ol>
+            </div>
+            <div class="btn" style="margin-top:auto;padding:13px">+ 1 · contar</div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Horizontal, tramo a pulso · la pizarra por fin cabe entera</h3>
+      <p class="why">Es el formato donde la pizarra brilla: las cinco líneas se leen sin plegar nada, y el número sube a 112 pt. El botón vive en la columna derecha, siempre a la vista.</p>
+    </div>
+
+    <div class="shot wide">
+      <div class="ph land"><div class="sc land">
+        <div class="ctx"><span class="tag">FOR TIME</span><span class="pos">1 de 5 · remo</span><span class="tot">4:12</span></div>
+        <div class="body">
+          <div class="col-a">
+            <div class="hero" style="padding:0">
+              <div class="lbl">Ritmo</div>
+              <div class="num" style="font-size:96px">1:52</div>
+              <div class="sub2">/500 m · 3 s por debajo</div>
+            </div>
+            <div class="goal" style="margin-top:8px">
+              <div class="top"><span>Te quedan</span><b>620 m</b></div>
+              <div class="track"><i style="width:38%"></i></div>
+            </div>
+          </div>
+          <div class="col-b">
+            <div class="rail" style="margin:0 0 8px">
+              <div><div class="k">vatios</div><div class="v">238</div></div>
+              <div><div class="k">s/min</div><div class="v">28</div></div>
+              <div><div class="k">pulso</div><div class="v">164</div></div>
+            </div>
+            <div class="wb" style="margin-top:0">
+              <div class="hd">Luego</div>
+              <ol>
+                <li class="next"><span class="i">2</span><span class="t">50 wall balls</span></li>
+                <li class="next"><span class="i">3</span><span class="t">40 burpees</span></li>
+              </ol>
+            </div>
+            <div class="btn tap" style="margin-top:auto;padding:11px;font-size:14px">Ya está</div>
+          </div>
+        </div>
+      </div></div>
+      <h3>Horizontal, tramo con dispositivo</h3>
+      <p class="why">Mismo esqueleto: el dato del monitor a la izquierda, el raíl y lo que viene a la derecha. La pizarra se pliega otra vez porque el ergo tiene tres métricas que sí importan mientras remas.</p>
+    </div>
+
+  </div>
+
+  <div class="note built">
+    <b>Ya construido y fusionado hoy:</b> la superficie del dispositivo con sus tres estados y su vertical/horizontal, la regla de que manda el tramo activo (vale igual para PM5 y FTMS dentro de cualquier formato), el reloj y los metros por tramo, la barra de 12 px, el raíl de 3 azulejos de 32 pt y el descanso como pantalla con sujeto propio.
+  </div>
+  <div class="note">
+    <b>Lo que propone este mockup y NO está construido:</b> la <b>pizarra</b> — el entreno entero visible con tu posición, lo hecho tachado con su tiempo real y lo que viene con su carga; el sujeto de los tramos <b>a pulso</b> (hoy las repeticiones se leen a 14 pt mientras el reloj total ocupa 72); el contador como acción anclada; y el aprovechamiento del horizontal en dos columnas para los tramos que no son de ergo.
+  </div>
+
+  <div class="footer">FAHYBRID · mockup interno · reglas: <code>docs/design/pantallas-que-ganan-su-altura.html</code> · inventario: <code>docs/audits/inventario-diseno-ios-28jul2026.html</code></div>
+
+</div>
+</body>
+</html>
