@@ -9,21 +9,25 @@ import SwiftUI
 struct RegisterRaceSheet: View {
     let mark: MarkView
     let bearer: String?
-    let onSaved: () -> Void
+    /// The server's verdict on the saved mark (is_pr + previous best) — the host
+    /// celebrates with it instead of inferring a record it can't know.
+    let onSaved: (MarkWriteResult) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var candidates: [RegisterCandidate] = []
     @State private var date = Date()
-    @State private var hours = 0
-    @State private var minutes = 45
-    @State private var seconds = 0
+    /// The race time, in seconds. Starts EMPTY, and nothing can be saved until the
+    /// athlete types it: three wheels parked on 45 min meant whoever didn't touch
+    /// them filed 45:00 as their 10K, and a wheel has no empty position to park on.
+    /// `TimeHourMinSecRow` is the shared piece that does have one.
+    @State private var manualSeconds: Int? = nil
     @State private var eventName = ""
     @State private var busy = false
     @State private var error: String? = nil
 
-    private var manualTotal: Double {
-        Double(hours * 3600 + minutes * 60 + seconds)
+    private var manualTotal: Double? {
+        manualSeconds.map(Double.init).flatMap { $0 > 0 ? $0 : nil }
     }
 
     var body: some View {
@@ -50,11 +54,15 @@ struct RegisterRaceSheet: View {
                     .padding(.vertical, Theme.Spacing.l)
                 }
                 .anchoredAction {
+                    // Until the time is declared the button says what it needs, not a
+                    // fabricated "0:00" — and it stays disabled.
                     PrimaryButton(
-                        title: "Guardar \(mark.label) · \(MarkFormat.clock(manualTotal))",
-                        enabled: !busy && manualTotal > 0
+                        title: manualTotal.map { "Guardar \(mark.label) · \(MarkFormat.clock($0))" }
+                            ?? "Escribe tu tiempo",
+                        enabled: !busy && manualTotal != nil
                     ) {
-                        Task { await save(value: manualTotal, day: date) }
+                        guard let total = manualTotal else { return }
+                        Task { await save(value: total, day: date) }
                     }
                 }
             }
@@ -130,36 +138,14 @@ struct RegisterRaceSheet: View {
                     .font(Theme.Typography.body)
                     .tint(Theme.Color.accentText)
             }
-            CardSurface(padding: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    LabelText(text: "Tiempo")
-                    HStack(spacing: 0) {
-                        wheel($hours, range: 0..<9, label: "h")
-                        wheel($minutes, range: 0..<60, label: "min")
-                        wheel($seconds, range: 0..<60, label: "s")
-                    }
-                    .frame(height: 108)
-                }
+            CardSurface(padding: 0) {
+                TimeHourMinSecRow(label: "Tiempo", seconds: $manualSeconds)
             }
             CardSurface(padding: 14) {
                 TextField("Nombre (opcional) · Cursa del Poblenou", text: $eventName)
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Color.foreground)
             }
-        }
-    }
-
-    private func wheel(_ value: Binding<Int>, range: Range<Int>, label: String) -> some View {
-        HStack(spacing: 4) {
-            Picker(label, selection: value) {
-                ForEach(range, id: \.self) { Text("\($0)").tag($0) }
-            }
-            .pickerStyle(.wheel)
-            .frame(maxWidth: .infinity)
-            .clipped()
-            Text(label)
-                .font(Theme.Typography.caption)
-                .foregroundStyle(Theme.Color.faint)
         }
     }
 
@@ -176,7 +162,7 @@ struct RegisterRaceSheet: View {
         dayFmt.timeZone = TimeZone(identifier: "Europe/Madrid")
         dayFmt.dateFormat = "yyyy-MM-dd"
         do {
-            _ = try await MarksService.register(
+            let result = try await MarksService.register(
                 slug: mark.slug,
                 value: value,
                 date: dayFmt.string(from: day),
@@ -185,7 +171,7 @@ struct RegisterRaceSheet: View {
                     : eventName.trimmingCharacters(in: .whitespacesAndNewlines),
                 bearer: bearer
             )
-            onSaved()
+            onSaved(result)
             dismiss()
         } catch {
             self.error = "No pudimos registrar la carrera. Revisa el tiempo y reintenta."

@@ -21,6 +21,41 @@ struct PersistedWorkoutState: Codable {
     /// = nil`): a snapshot written by an older build decodes nil → recovery discards
     /// it rather than guessing.
     var assignmentId: String? = nil
+
+    // MARK: - Honesty carriers of the IN-FLIGHT segment
+    //
+    // The closed `laps` are already honest — they carry their own prescribed /
+    // actual / confirmed triplet. The segment still open when the app died carried
+    // that state only in memory, so recovery used to resume it blank: the athlete's
+    // 12 reps were replaced by the prescribed 10 on re-entry (`primeRepsIfNeeded`
+    // re-primes when nothing says the segment was already primed) and the session
+    // went on to report as done what nobody had confirmed.
+    //
+    // All optional with a default so a snapshot from an older build still decodes;
+    // a missing carrier means "unknown", and `WorkoutSession.restore` then lets the
+    // normal priming run — assumed, never confirmed.
+
+    /// Whether the athlete had already ENTERED the segment the snapshot froze — i.e.
+    /// whether it had been primed. This is the model's own "estrenar vs reanudar"
+    /// distinction, the same sentinel a back-step uses, and it is what stops
+    /// `primeRepsIfNeeded` from writing the prescription over what was recovered.
+    /// Persisted rather than inferred: a segment reached but never entered must
+    /// still prime on resume, or its lap would record a fabricated 0.
+    var currentSegmentPrimed: Bool? = nil
+    /// Whether the in-flight segment's reps were explicitly touched by the athlete.
+    var repsConfirmed: Bool? = nil
+    /// Whether the athlete explicitly SKIPPED the in-flight segment.
+    var repsSkipped: Bool? = nil
+    /// Per-set strength detail of the in-flight segment (a 5×5 half done).
+    var setRecords: [SetRecord]? = nil
+    /// The load the athlete DECLARED for the in-flight segment (never a primed
+    /// prescription — that one is re-derived from the plan on re-entry).
+    var declaredLoadKg: Double? = nil
+    /// Athlete-entered covered distance for an in-flight run segment (metres).
+    var manualRunDistanceMeters: Double? = nil
+    /// The block-scoped Rx / Scaled choice and its note.
+    var rxScaled: String? = nil
+    var scaledNote: String? = nil
 }
 
 // AUDIT-1 — the honest crash-recovery gate. Pure so the "same assignment + fresh"

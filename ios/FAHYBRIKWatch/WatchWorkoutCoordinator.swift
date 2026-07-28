@@ -142,11 +142,9 @@ final class WatchWorkoutCoordinator {
             hrZones: Self.hrZones(from: payload),
             startedAt: snapshot.startedAt
         )
-        engine.currentSegmentIndex = snapshot.currentSegmentIndex
-        engine.elapsedSeconds = snapshot.elapsedSeconds
-        engine.lapElapsedSeconds = snapshot.lapElapsedSeconds
-        engine.laps = snapshot.laps
-        engine.repsCurrentSegment = snapshot.repsByCurrentSegment
+        // The SAME restore the phone uses — the session owns it, so the wrist can
+        // never resume with a different idea of what the athlete had confirmed.
+        engine.restore(from: snapshot)
         launch(engine: engine, payload: payload)
     }
 

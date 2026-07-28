@@ -762,10 +762,29 @@ struct ExecutedWorkoutView: View {
         return (done, leg.emomRoundsPrescribed)
     }
 
+    /// Session average of a per-leg metric, WEIGHTED BY EACH LEG'S DURATION.
+    ///
+    /// A mean of means says a 3′ calentamiento a 105 counts as much as 40′ de
+    /// principal a 168: 3+40+5 min gave 128 ppm where the session really averaged
+    /// ~157. Σ(valor × segundos) / Σ(segundos) is the only average that matches
+    /// what the athlete's heart did. A leg with no duration carries no weight we can
+    /// trust, so it is left out; if NO leg carries one, the plain mean is all the
+    /// data allows and we say so rather than dropping the metric.
+    private func weightedLegAverage(_ metric: (SegmentActualDTO) -> Double?) -> Double? {
+        let legs = (execution?.segments ?? []).compactMap { seg -> (value: Double, seconds: Double)? in
+            guard let v = metric(seg) else { return nil }
+            return (v, Double(max(0, seg.durationSeconds ?? 0)))
+        }
+        guard !legs.isEmpty else { return nil }
+        let totalSeconds = legs.reduce(0) { $0 + $1.seconds }
+        guard totalSeconds > 0 else {
+            return legs.reduce(0) { $0 + $1.value } / Double(legs.count)
+        }
+        return legs.reduce(0) { $0 + $1.value * $1.seconds } / totalSeconds
+    }
+
     private var avgHrBpm: Int? {
-        let values = (execution?.segments ?? []).compactMap(\.avgHr)
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / values.count
+        weightedLegAverage { $0.avgHr.map(Double.init) }.map { Int($0.rounded()) }
     }
     private var maxHrBpm: Int? { (execution?.segments ?? []).compactMap(\.maxHr).max() }
 
@@ -775,15 +794,11 @@ struct ExecutedWorkoutView: View {
     }
 
     private var avgPowerW: Double? {
-        let values = (execution?.segments ?? []).compactMap(\.avgPowerW).filter { $0 > 0 }
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
+        weightedLegAverage { ($0.avgPowerW ?? 0) > 0 ? $0.avgPowerW : nil }
     }
 
     private var avgStrokeRate: Double? {
-        let values = (execution?.segments ?? []).compactMap(\.strokeRateSpm).filter { $0 > 0 }
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
+        weightedLegAverage { ($0.strokeRateSpm ?? 0) > 0 ? $0.strokeRateSpm : nil }
     }
 
     /// The "how did it go" numbers, built ONLY from what was measured. An empty

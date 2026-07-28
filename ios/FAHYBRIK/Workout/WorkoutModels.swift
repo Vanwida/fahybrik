@@ -196,9 +196,30 @@ struct WorkoutSegment: Codable, Identifiable {
     /// the same resolution the live tramo already trusts to decide whose numbers
     /// own the screen. Runs / strength / stations are untouched: their kind IS the
     /// answer.
+    /// The distinct ERG machines this segment's work touches. One for a plain erg
+    /// segment; SEVERAL for a FOLDED block that mixes them (un AMRAP de ski + remo) —
+    /// the case a single `ergKind` cannot express, and the reason a whole block used
+    /// to be sealed as whatever the first movement happened to be. The
+    /// catalogue-derived `ergKind` answers first (it IS the machine, not a
+    /// declaration); a fold that carries none falls back to its own rotation, which
+    /// holds the per-item modality. Empty for non-erg work.
+    var ergMachines: Set<String> {
+        if let ergKind { return [ergKind] }
+        let declared = prescription?.sets?.compactMap(\.modality).filter(\.isErg) ?? []
+        return Set(declared.map(\.rawValue))
+    }
+
     var wireModality: String {
-        if kind.isErg { return ergKind ?? resolvedModality.rawValue }
-        return kind.modality
+        guard kind.isErg else { return kind.modality }
+        let machines = ergMachines
+        if let only = machines.count == 1 ? machines.first : nil { return only }
+        // MORE than one machine → no single one to name. The per-movement truth is
+        // not lost (it rides in the fold's rotation); what must not happen is the
+        // block being archived as rowing because the ski came first. "other" is the
+        // canonical bucket for work that is no single modality — the same answer a
+        // mixed run+reps WOD already gives.
+        if machines.count > 1 { return "other" }
+        return resolvedModality.rawValue
     }
 
     init(
@@ -1315,9 +1336,11 @@ extension WorkoutPlan {
             // one per segment, not per minute) — omit rather than show a misleading one.
             videoUrl: nil,
             prescription: merged,
-            // #erg-2: a homogeneous all-erg EMOM keeps its subtype; a mixed EMOM (run
-            // + reps) is `.reps` above and has no single erg → nil.
-            ergKind: (kinds.count == 1) ? block.items.first?.ergSubtype : nil
+            // #erg-2: a homogeneous all-erg EMOM keeps its subtype. `kinds.count == 1`
+            // was NOT enough: ski, row and bike share the single `.rowOrSki` kind, so a
+            // ski+bike EMOM passed the test and got sealed as ski. The machine is a
+            // machine, so the test is on the MACHINES — one of them, or none.
+            ergKind: block.singleErgMachine
         )
     }
 
@@ -1340,7 +1363,9 @@ extension WorkoutPlan {
         // A homogeneous single-modality block (a run series, a steady ride) keeps
         // its scalar pace / distance / zone targets so the pace HUD reads them; a
         // mixed WOD carries none (the round list drives the FIXED HUD instead).
-        let principal = (kinds.count == 1) ? block.items.first : nil
+        // "Homogeneous" has to include the MACHINE: a ski+remo Z2 used to borrow the
+        // first movement's 4 km and pace and show them as the whole block's target.
+        let principal = block.isSingleModality ? block.items.first : nil
         let p = principal?.paramsJson
         let distanceMeters: Double? = p?.distanceMeters.map(Double.init) ?? p?.distanceKm.map { $0 * 1000 }
 
@@ -1360,12 +1385,14 @@ extension WorkoutPlan {
             targetRpe: p?.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
-            // One technique video only when the block is a single movement.
-            videoUrl: (kinds.count == 1) ? block.items.first?.exerciseVideoUrl : nil,
+            // One technique video only when the block is a single movement — and a
+            // ski+remo block is two, however much they share a monitor.
+            videoUrl: block.isSingleModality ? block.items.first?.exerciseVideoUrl : nil,
             prescription: merged,
             // #erg-2: a homogeneous erg fold (all-row, all-ski) carries its subtype so
-            // the ONE lap records the right erg; a mixed WOD has no single erg → nil.
-            ergKind: (kinds.count == 1) ? block.items.first?.ergSubtype : nil
+            // the ONE lap records the right erg. A fold that MIXES machines carries
+            // none — see `mergedEmomSegment` for why the kind alone can't tell.
+            ergKind: block.singleErgMachine
         )
     }
 
@@ -1500,6 +1527,28 @@ extension WorkoutItem {
 // separate cards ("15 wallballs then run") — two consumers, one presentation.
 
 extension WorkoutBlock {
+    /// The distinct erg machines ("row" | "ski" | "bike") the block's movements run
+    /// on. Empty for non-erg work, several for a block that mixes them.
+    var ergMachines: Set<String> { Set(items.compactMap(\.ergSubtype)) }
+
+    /// The ONE erg machine this block runs on, or nil when it runs on none — or on
+    /// MORE THAN ONE. Both folds ask this before stamping a machine on the single lap
+    /// they produce: a block with a SkiErg and a RowErg has no single machine, and
+    /// picking the first movement's is how a whole block came to be archived as
+    /// rowing. THE single test, so the two folds cannot drift.
+    var singleErgMachine: String? {
+        let machines = ergMachines
+        return machines.count == 1 ? machines.first : nil
+    }
+
+    /// True when the whole block is ONE movement family AND — for erg work — one
+    /// machine. The test for "the block may borrow this movement's own scalars"
+    /// (pace / distance / zone target, technique video). `segmentKind` alone says
+    /// yes for ski+remo, because the three ergs share a single live grid.
+    var isSingleModality: Bool {
+        Set(items.map(\.segmentKind)).count == 1 && ergMachines.count <= 1
+    }
+
     /// True when this block is an ALTERNATING EMOM: an EMOM (the block's declared
     /// `emom` format, else every item carries an EMOM prescription) with MORE THAN
     /// ONE movement. A single-movement EMOM (one item every minute) and every
@@ -1534,7 +1583,12 @@ extension WorkoutBlock {
                 target: baseSet?.target ?? item.prescription?.target,
                 // Its MODALITY — drives the erg /500m vs run /km pace unit in the HUD.
                 // Per-set, else item-level, else inferred from the exercise category.
-                modality: baseSet?.modality
+                // The catalogue's ERG machine wins: the exercise IS a SkiErg or a
+                // RowErg, and `segmentKind` collapses all three ergs into one bucket
+                // whose fallback string is "row" — which is how a folded ski minute
+                // came out labelled rowing. Non-erg items keep the old precedence.
+                modality: item.ergSubtype.flatMap(PrescriptionModality.init(rawValue:))
+                    ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
                 restS: baseSet?.restS,
@@ -1605,7 +1659,12 @@ extension WorkoutBlock {
             return PrescriptionSet(
                 measure: baseSet?.measure ?? item.scalarMeasure,
                 target: baseSet?.target ?? item.prescription?.target,
-                modality: baseSet?.modality
+                // The catalogue's ERG machine wins: the exercise IS a SkiErg or a
+                // RowErg, and `segmentKind` collapses all three ergs into one bucket
+                // whose fallback string is "row" — which is how a folded ski minute
+                // came out labelled rowing. Non-erg items keep the old precedence.
+                modality: item.ergSubtype.flatMap(PrescriptionModality.init(rawValue:))
+                    ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
                 restS: baseSet?.restS,

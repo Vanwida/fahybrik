@@ -175,7 +175,15 @@ final class WorkoutSession {
     var rotPhase: RotatingPhase = .work
     var rotRoundIndex: Int = 0
     var rotPhaseRemaining: Double = 0
-    private(set) var rotRepsByRound: [Int] = []
+    /// One entry per round; `nil` = the athlete never counted that round. Counting is
+    /// OPTIONAL, so a filled-with-zeros array would publish a Tabata score of 0 reps
+    /// for everyone who just did the eight rounds (see `captureConditioningScore`).
+    private(set) var rotRepsByRound: [Int?] = []
+    /// Rounds actually COMPLETED in the current rotating format — the score's
+    /// numerator. `rotRoundIndex` alone can't answer it: the last round closes the
+    /// block without advancing the cursor, and abandoning at round 3 must not read
+    /// as the eight the coach prescribed.
+    private(set) var rotRoundsCompleted: Int = 0
     var deathByFailed: Bool = false
 
     // MARK: - Structured-run engine (#61) — the native leg cursor
@@ -260,10 +268,22 @@ final class WorkoutSession {
     static let hrSourceStaleSeconds: TimeInterval = 10
 
     /// Athlete-entered actual load for the current strength/sled segment (kg).
-    /// Pre-filled from the prescription on segment entry; the athlete can adjust
-    /// to what they really lifted. This is the PRIMARY strength data when no
-    /// device is present — it overrides the prescribed load in the record.
+    /// Pre-filled from the prescription on segment entry so the HUD shows a
+    /// number to adjust — but a pre-filled value is the COACH's plan, not the
+    /// athlete's data. Only what survives `loadConfirmed` reaches the record.
     var manualLoadKg: Double? = nil
+    /// What `primeManualLoadIfNeeded` wrote into `manualLoadKg` for the current
+    /// segment (nil when nothing was primed). The load counts as DECLARED only
+    /// when it differs from this — the exact rule the reps already follow
+    /// (`repsConfirmed`): an untouched advance is an assumption, not a
+    /// measurement. Reset per segment alongside `manualLoadKg`.
+    private var primedLoadKg: Double? = nil
+    /// TRUE once the athlete moved the load away from the primed prescription —
+    /// the load's twin of `repsConfirmed`. A sentadilla done at 80 kg over a
+    /// prescription of 100 must never read back as "5 × 100 kg", so an
+    /// unconfirmed load is NOT recorded as the load used: the prescription stays
+    /// where it belongs (`SetRecord.loadPrescribedKg`) and the actual stays nil.
+    var loadConfirmed: Bool { manualLoadKg != nil && manualLoadKg != primedLoadKg }
     /// Athlete-entered actual distance for the current run segment (meters), used
     /// only when no GPS/erg distance is captured. Never pre-filled from the
     /// prescription (target ≠ covered) so the recorded distance stays honest.
@@ -519,10 +539,12 @@ final class WorkoutSession {
     /// Total rounds the current ROTATING format runs (Tabata / Intervals), else 0.
     var rotTotalRounds: Int { currentSegment?.formatRounds ?? 0 }
 
-    /// Reps logged so far this Tabata round (the live tally shown on the HUD).
+    /// Reps logged so far this Tabata round (the live tally shown on the HUD). A
+    /// round not yet counted reads 0 — live that IS the running tally, and the
+    /// undeclared/zero distinction only matters when the score is sealed.
     var rotRepsThisRound: Int {
         guard rotRoundIndex >= 0, rotRoundIndex < rotRepsByRound.count else { return 0 }
-        return rotRepsByRound[rotRoundIndex]
+        return rotRepsByRound[rotRoundIndex] ?? 0
     }
 
     /// Death By target for the CURRENT minute = start + increment × roundsCompleted.
@@ -542,11 +564,34 @@ final class WorkoutSession {
         return Int((inZone / total * 100).rounded())
     }
 
-    /// Live covered pace (sec/km) for the current run bout from GPS/manual distance
-    /// over the elapsed bout, or nil when no distance has been measured.
+    /// Seconds per km from covered metres over elapsed seconds. THE one pace
+    /// derivation — the live HUD, the per-leg split and the segment close all read
+    /// it, so the number the athlete sees and the number the coach receives can
+    /// never be two different truths. nil unless both inputs are real.
+    static func paceSecPerKm(meters: Double?, seconds: Double) -> Double? {
+        guard let m = meters, m > 0, seconds > 0 else { return nil }
+        return seconds / (m / 1000.0)
+    }
+
+    /// Live covered pace (sec/km) for the current run bout, or nil when nothing has
+    /// been measured yet.
+    ///
+    /// In a STRUCTURED run (6×800 con trote de vuelta) the bout is the LEG, not the
+    /// segment: measuring over the whole segment folds the recovery jogs into the
+    /// denominator and the HUD read 5:33/km while the athlete was running 3:30 —
+    /// and the lap archived for the coach (`recordRunLegLap`) was already the right
+    /// one. Same window, same baselines, same answer as what gets saved.
     var liveCoveredPaceSecPerKm: Int? {
-        guard let d = liveRunDistanceMeters, d > 0, lapElapsedSeconds > 0 else { return nil }
-        return Int((lapElapsedSeconds / (d / 1000.0)).rounded())
+        let pace: Double?
+        if isRunStructureActive {
+            let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
+            let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
+            let covered = beltDelta > 0 ? beltDelta : gpsDelta
+            pace = Self.paceSecPerKm(meters: covered, seconds: runLegElapsed)
+        } else {
+            pace = Self.paceSecPerKm(meters: liveRunDistanceMeters, seconds: lapElapsedSeconds)
+        }
+        return pace.map { Int($0.rounded()) }
     }
 
     /// EMOM intervals still ahead of the current one (0 on the last interval).
@@ -569,6 +614,7 @@ final class WorkoutSession {
     var currentSegmentHasLiveProgress: Bool {
         lapElapsedSeconds > 3
             || repsConfirmed
+            || loadConfirmed
             || setRecords.contains { $0.confirmed }
             || (lapGpsDistanceMeters ?? 0) > 0
             || lapBeltDistanceMeters > 0
@@ -1172,11 +1218,12 @@ final class WorkoutSession {
         fixedRoundsDone = 0
         fixedRoundSplits = []
         rotRoundIndex = 0
+        rotRoundsCompleted = 0
         rotPhase = .work
         rotPhaseRemaining = 0
         deathByFailed = false
         repsCurrentSegment = 0                          // AMRAP partial-round reps
-        rotRepsByRound = Array(repeating: 0, count: max(1, seg.formatRounds ?? 1))
+        rotRepsByRound = Array(repeating: nil, count: max(1, seg.formatRounds ?? 1))
         WorkoutAudio.shared.activate()
         WorkoutAudio.shared.playTick()                  // opening "3" of the count-in
     }
@@ -1189,6 +1236,7 @@ final class WorkoutSession {
         fixedRoundsDone = 0
         fixedRoundSplits = []
         rotRoundIndex = 0
+        rotRoundsCompleted = 0
         rotPhaseRemaining = 0
         rotPhase = .work
         rotRepsByRound = []
@@ -1335,6 +1383,9 @@ final class WorkoutSession {
     private func advanceRotatingRound(seg: WorkoutSegment) {
         let total = max(1, seg.formatRounds ?? 1)
         let next = rotRoundIndex + 1
+        // Getting here means the round the athlete was in just ended — count it,
+        // including the last one (which closes the block instead of advancing).
+        rotRoundsCompleted = min(next, total)
         if next >= total {
             WorkoutAudio.shared.playFinish()
             Haptics.cueFinish()
@@ -1345,7 +1396,7 @@ final class WorkoutSession {
         rotPhase = .work
         rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
         if rotRepsByRound.count < total {
-            rotRepsByRound += Array(repeating: 0, count: total - rotRepsByRound.count)
+            rotRepsByRound += Array(repeating: nil, count: total - rotRepsByRound.count)
         }
         WorkoutAudio.shared.playIntervalStart()   // work tone
         Haptics.cueGo()
@@ -1446,11 +1497,16 @@ final class WorkoutSession {
     }
 
     /// Tabata per-round rep tally (the classic min-reps score). The bottom "+ Reps"
-    /// adds one; the in-HUD stepper passes ±1 (a real 0 is the floor).
+    /// adds one; the in-HUD stepper passes ±1.
+    ///
+    /// A round starts UNDECLARED (nil), not at 0: counting reps is optional, and a
+    /// round nobody counted is unknown, not a zero. The first tap declares it — from
+    /// there 0 is a legal, real value (you failed the round), reachable with +1 then
+    /// −1. That distinction is what keeps `capturedScoreReps` from inventing a score.
     func tabataAddRep(_ delta: Int = 1) {
         guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
         guard rotRepsByRound.indices.contains(rotRoundIndex) else { return }
-        rotRepsByRound[rotRoundIndex] = max(0, rotRepsByRound[rotRoundIndex] + delta)
+        rotRepsByRound[rotRoundIndex] = max(0, (rotRepsByRound[rotRoundIndex] ?? 0) + delta)
         Haptics.light()
     }
 
@@ -1503,8 +1559,15 @@ final class WorkoutSession {
         case .deathBy:
             capturedScoreRounds = rotRoundIndex          // minutes survived
         case .tabata:
-            capturedScoreRounds = seg.formatRounds
-            capturedScoreReps = rotRepsByRound.isEmpty ? nil : rotRepsByRound.min()
+            // Rounds DONE, never the rounds prescribed: abandoning at round 3 of 8
+            // used to be sealed as 8. The min-reps score exists only when every
+            // round that ran was counted — a minimum over a subset is a lower bound,
+            // not the score, and counting is optional, so most Tabatas have none.
+            capturedScoreRounds = rotRoundsCompleted > 0 ? rotRoundsCompleted : nil
+            let counted = rotRepsByRound.prefix(rotRoundsCompleted)
+            capturedScoreReps = (!counted.isEmpty && counted.allSatisfy { $0 != nil })
+                ? counted.compactMap { $0 }.min()
+                : nil
         default:
             break
         }
@@ -1659,10 +1722,7 @@ final class WorkoutSession {
         let distance: Double? = beltDelta > 0 ? beltDelta : (gpsDelta > 0 ? gpsDelta : nil)
         // Run pace /km from the leg's OWN covered distance + duration — the whole point
         // of per-leg recording. nil without a measured distance (no fabricated pace).
-        let paceKm: Double? = {
-            guard let d = distance, d > 0, dur > 0 else { return nil }
-            return dur / (d / 1000.0)
-        }()
+        let paceKm = Self.paceSecPerKm(meters: distance, seconds: dur)
         // Per-leg HR = the samples logged since this leg's GO.
         let startIdx = Swift.min(runLegHRStartCount, lapHRSamples.count)
         let hrSlice = Array(lapHRSamples[startIdx...])
@@ -1804,6 +1864,9 @@ final class WorkoutSession {
         }
         if let rx = popped.rxScaled { rxScaled = rx }
         if let note = popped.scaledNote { scaledNote = note }
+        // A recorded weight is by construction a DECLARED one, and the reset above
+        // cleared `primedLoadKg`, so restoring it keeps `loadConfirmed` true. A lap
+        // that carried no weight re-primes from the prescription, unconfirmed.
         if let kg = popped.weightUsedKg { manualLoadKg = kg }
         if seg.kind == .running, let d = popped.distanceCoveredMeters {
             manualRunDistanceMeters = d
@@ -1855,14 +1918,18 @@ final class WorkoutSession {
         // duration (km/min). Only when we actually measured a distance; otherwise
         // nil (no fabricated pace from the prescription). The belt's covered meters
         // feed it exactly like GPS/manual do.
-        let avgPaceKm: Double? = {
-            guard seg.kind == .running, let d = beltDistance ?? runDistance, d > 0, lapElapsedSeconds > 0 else { return nil }
-            return lapElapsedSeconds / (d / 1000.0)   // seconds per km
-        }()
+        let avgPaceKm: Double? = seg.kind == .running
+            ? Self.paceSecPerKm(meters: beltDistance ?? runDistance, seconds: lapElapsedSeconds)
+            : nil
 
-        // Load USED (kg) — athlete's manual actual when present, else prescribed.
-        var weight: Double? = (seg.kind == .strength || seg.kind == .sled)
-            ? (manualLoadKg ?? seg.loadKg)
+        // Load USED (kg) — ONLY what the athlete DECLARED. It used to fall back to
+        // `seg.loadKg`, so a sentadilla done at 80 over a prescription of 100 read
+        // back as "5 × 100 kg" and drove the %1RM of the next plan. The prescription
+        // is not lost: it stays in `SetRecord.loadPrescribedKg` (→ set_executions),
+        // where it is labelled as the plan. Untouched → nil, never the plan echoed
+        // back as a measurement.
+        var weight: Double? = (seg.kind == .strength || seg.kind == .sled) && loadConfirmed
+            ? manualLoadKg
             : nil
 
         // Honest reps / strength logging. Three states (done/scaled/skipped) plus
@@ -1890,7 +1957,9 @@ final class WorkoutSession {
                 repsStatusOut = "done"
             }
             repsConfirmedOut = recs.contains { $0.confirmed }
-            // Representative load for the segment aggregate = max ACTUAL load logged.
+            // Representative load for the segment aggregate = max DECLARED load. A
+            // set nobody confirmed carries no actual load (see `primeSetsIfNeeded`),
+            // so an untouched 5×5 no longer publishes the prescription as its weight.
             if let maxLoad = recs.compactMap({ $0.loadActualKg }).max() { weight = maxLoad }
         } else if (seg.kind == .reps || seg.kind == .strength) && !seg.isEMOM && !seg.isConditioningTimer {
             if repsSkipped {
@@ -1924,6 +1993,11 @@ final class WorkoutSession {
         // columns, no split-brain). Skipped / open-score / bodyweight-rep work carries
         // no such detail, so it is left exactly as before. RPE/RIR stay nil (collected
         // only if entered, mirroring the multi-set prime — no single-set RPE UI yet).
+        //
+        // `confirmed` means the athlete TOUCHED this set — the reps OR the load. It
+        // used to carry the reps flag alone, so confirming reps also stamped an
+        // untouched prescribed load as confirmed. Prescribed and actual load keep
+        // their own columns, so a nil actual reads "not declared", never "lifted".
         if seg.kind == .strength, !seg.usesMultiSetStrength, !repsSkipped, !seg.repsAreOpenScore {
             let planned = seg.prescription?.sets?.first
             setRecordsOut = [SetRecord(
@@ -1935,7 +2009,7 @@ final class WorkoutSession {
                 rpe: nil,
                 rir: nil,
                 status: repsStatusOut ?? "done",
-                confirmed: repsConfirmedOut,
+                confirmed: repsConfirmedOut || loadConfirmed,
                 tempo: planned?.tempo,
                 restS: planned?.restS ?? seg.prescription?.restS
             )]
@@ -1970,7 +2044,10 @@ final class WorkoutSession {
         // Source precedence: the most specific real measurement wins. Device
         // movement data (pm5 / gps) > athlete manual entry > HR-only wearable.
         let usedBelt = beltDistance != nil
-        let hasManualEntry = (runDistance != nil) || (manualLoadKg != nil)
+        // A PRIMED load is not an entry: `manualLoadKg` carries the prescription until
+        // the athlete moves it, so testing it non-nil used to stamp every strength
+        // segment as "manual" and hide a real HR-only wearable behind it.
+        let hasManualEntry = (runDistance != nil) || loadConfirmed
         let computedSource: String
         if usedPM5 { computedSource = "pm5" }
         else if usedBelt { computedSource = "treadmill" }
@@ -2053,6 +2130,7 @@ final class WorkoutSession {
     // starts from its own prescription, not the previous segment's values.
     private func resetSegmentManualAndGPS() {
         manualLoadKg = nil
+        primedLoadKg = nil
         manualRunDistanceMeters = nil
         lapGpsDistanceMeters = nil
         lapHadGPS = false
@@ -2065,12 +2143,17 @@ final class WorkoutSession {
     /// the prescription. Called when a segment becomes current so the athlete
     /// only has to adjust, not type from scratch. Idempotent: won't clobber a
     /// value the athlete already edited for this same segment.
+    ///
+    /// The primed value is remembered in `primedLoadKg` so `loadConfirmed` can
+    /// tell "the coach wrote 100" from "the athlete says 100" — priming feeds the
+    /// HUD, it never feeds the record. Mirrors `primeRepsIfNeeded`.
     func primeManualLoadIfNeeded() {
         guard manualLoadKg == nil,
               let seg = currentSegment,
               seg.kind == .strength || seg.kind == .sled,
               let kg = seg.loadKg else { return }
         manualLoadKg = kg
+        primedLoadKg = kg
     }
 
     /// Pre-fills the current segment's reps from the prescription so an untouched
@@ -2088,9 +2171,12 @@ final class WorkoutSession {
         repsCurrentSegment = prescribed
     }
 
-    /// Builds the per-set strength records for a multi-set segment, each defaulting
-    /// to its prescribed reps/load (confirmed=false until touched). Idempotent per
-    /// segment; clears the list for non-multi-set segments.
+    /// Builds the per-set strength records for a multi-set segment. Reps default to
+    /// the prescribed value (confirmed=false until touched — the rep rule); the
+    /// ACTUAL LOAD starts nil, because a load nobody declared is not a load that was
+    /// lifted. The prescription stays visible in `loadPrescribedKg` (the HUD reads it
+    /// for display), and `confirmSet` promotes it to actual on the athlete's tap.
+    /// Idempotent per segment; clears the list for non-multi-set segments.
     func primeSetsIfNeeded() {
         guard setsPrimedSegmentIndex != currentSegmentIndex else { return }
         setsPrimedSegmentIndex = currentSegmentIndex
@@ -2105,7 +2191,7 @@ final class WorkoutSession {
                 repsPrescribed: s.prescribedReps,
                 repsActual: s.prescribedReps,          // default = did as written
                 loadPrescribedKg: s.prescribedLoadKg,
-                loadActualKg: s.prescribedLoadKg,
+                loadActualKg: nil,                     // unknown until the athlete says so
                 rpe: nil,                              // collected only if entered
                 rir: nil,
                 status: "done",                        // assumed until touched/skipped
@@ -2132,9 +2218,17 @@ final class WorkoutSession {
 
     /// Confirm a set "as written" — marks it confirmed, recomputes done/scaled,
     /// and fires the rest timer from its prescribed rest. One tap = did as prescribed.
+    ///
+    /// This tap is the DECLARATION: only here does the prescribed load become the
+    /// actual one. Priming never does it (see `primeSetsIfNeeded`), so a set the
+    /// athlete never touched reaches the coach with `load_actual_kg` null instead
+    /// of echoing the plan back as if it had been measured.
     func confirmSet(_ index: Int) {
         guard setRecords.indices.contains(index) else { return }
         setRecords[index].confirmed = true
+        if setRecords[index].loadActualKg == nil {
+            setRecords[index].loadActualKg = setRecords[index].loadPrescribedKg
+        }
         recomputeSetStatus(index)
         registerFirstWorkingSet()
         startRest(setRecords[index].restS)
@@ -2511,8 +2605,8 @@ final class WorkoutSession {
     /// fabricated pace). The wrist mirror's treadmill glance shows THIS honest covered
     /// average; the phone HUD hero shows the belt's instantaneous pace alongside it.
     var liveBeltPaceSecPerKm: Int? {
-        guard lapBeltDistanceMeters > 0, lapElapsedSeconds > 0 else { return nil }
-        return Int((lapElapsedSeconds / (lapBeltDistanceMeters / 1000.0)).rounded())
+        Self.paceSecPerKm(meters: lapBeltDistanceMeters, seconds: lapElapsedSeconds)
+            .map { Int($0.rounded()) }
     }
 
     /// Live covered distance for the current run segment for HUD display
@@ -2647,8 +2741,60 @@ final class WorkoutSession {
             repsByCurrentSegment: repsCurrentSegment,
             isPaused: isPaused,
             savedAt: Date(),
-            assignmentId: assignmentId
+            assignmentId: assignmentId,
+            // The in-flight segment's honesty carriers travel with it, so a recovered
+            // session resumes what the athlete DECLARED instead of re-priming the
+            // prescription over it. Only the DECLARED load rides along — a primed one
+            // is the plan and is re-derived from the plan on re-entry.
+            currentSegmentPrimed: repsPrimedSegmentIndex == currentSegmentIndex,
+            repsConfirmed: repsConfirmed,
+            repsSkipped: repsSkipped,
+            setRecords: setRecords.isEmpty ? nil : setRecords,
+            declaredLoadKg: loadConfirmed ? manualLoadKg : nil,
+            manualRunDistanceMeters: manualRunDistanceMeters,
+            rxScaled: rxScaled,
+            scaledNote: scaledNote
         )
+    }
+
+    /// Resume from a crash-recovery snapshot. The ONE restore path: it re-seats the
+    /// clock + the closed laps AND the in-flight segment's honesty carriers, marking
+    /// that segment already primed so re-entry can't overwrite the athlete's own
+    /// numbers with the prescription. What the snapshot doesn't know (an older build,
+    /// a carrier that was never set) is left to the normal priming — assumed and
+    /// unconfirmed — never promoted to declared.
+    ///
+    /// Anything the engines cannot rebuild (the round a Tabata died in, the live
+    /// PM5/GPS stream) stays lost rather than guessed: the recovered session starts
+    /// that format from zero instead of claiming rounds nobody finished.
+    func restore(from snapshot: PersistedWorkoutState) {
+        assignmentId = snapshot.assignmentId
+        currentSegmentIndex = snapshot.currentSegmentIndex
+        elapsedSeconds = snapshot.elapsedSeconds
+        lapElapsedSeconds = snapshot.lapElapsedSeconds
+        laps = snapshot.laps
+        repsCurrentSegment = snapshot.repsByCurrentSegment
+        repsConfirmed = snapshot.repsConfirmed ?? false
+        repsSkipped = snapshot.repsSkipped ?? false
+        rxScaled = snapshot.rxScaled
+        scaledNote = snapshot.scaledNote
+        manualRunDistanceMeters = snapshot.manualRunDistanceMeters
+        if let kg = snapshot.declaredLoadKg {
+            manualLoadKg = kg
+            primedLoadKg = nil          // declared, not primed → `loadConfirmed` holds
+        }
+        // "Estrenar vs reanudar" lives HERE, in the same sentinels a back-step uses:
+        // a segment the athlete had already entered is RESUMED (priming is spent, so
+        // it can't overwrite the recovered numbers); one merely reached is STARTED
+        // and primes normally. An older snapshot carries neither → it starts.
+        if snapshot.currentSegmentPrimed == true {
+            repsPrimedSegmentIndex = currentSegmentIndex
+            setsPrimedSegmentIndex = currentSegmentIndex
+        }
+        if let sets = snapshot.setRecords, !sets.isEmpty {
+            setRecords = sets
+            setsPrimedSegmentIndex = currentSegmentIndex
+        }
     }
 
     static func formatElapsed(_ s: Double) -> String {

@@ -101,8 +101,11 @@ struct MirrorStateFrame: Codable, Equatable {
     /// True when the wrist's advance would FINISH the whole session (last segment /
     /// last block). The watch then shows "Terminar" + a confirmation instead of
     /// "Siguiente ▸" — a workout must never end from one accidental tap (IMG_2385).
-    /// Optional so an older counterpart decodes frames without it.
-    let isFinalStep: Bool?
+    /// Optional so an older counterpart decodes frames without it. `var` with a
+    /// default, like every other additive field here — as a defaulted-less `let` it
+    /// broke every existing `MirrorStateFrame(...)` construction, and with it the
+    /// whole iOS test target.
+    var isFinalStep: Bool? = nil
     /// Rest overlay countdown, seconds. Present ⇒ the wrist shows the rest banner.
     let restRemaining: Double?
     /// #56 — the current HYROX dobles station's TURN (whose station + the rep reparto),
