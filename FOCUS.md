@@ -7,9 +7,26 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**Definir la metodología propia de FAHYBRID.**
+**Arreglando el triaje de coherencia** — `docs/audits/triaje-coherencia-28jul2026.html`.
 
-El problema de fondo: tenemos tecnología pero no método. Pablo no tiene uno documentado y su referencia es la metodología del entrenador que le entrena a él como atleta — que no es la dirección que queremos. La salida no es discutirle el contenido, es darle un **marco ya decidido y modificable**, para que su trabajo sea corregir en vez de crear.
+Alex, después de un día entero entrenando con la app y reportando: *«que funcione, que dé todo ok, no significa más que la app carga y no da errores; lo importante es que la app sea útil, que todo lo que hay en pantalla y el orden de las cosas tenga perfecta armonía»*. Tres auditorías cruzadas (contradicciones entre módulos · honestidad del dato · coherencia visual) destaparon el patrón de fondo: **lo honesto está en los módulos NUEVOS y ausente en los VIEJOS**, y casi todo tiene su hermano ya bien resuelto en el mismo fichero.
+
+Lo más caro: **«Z2» no significa lo mismo en el servidor que en el iOS** — fracción del umbral vs fracción de la frecuencia máxima. Con 190 de máxima las bandas son **disjuntas**: estás donde el coach quiere y el HUD te dice que aprietas de más. Decidido: **manda el modelo del servidor** (las zonas se calculan sobre el umbral, que es lo que medimos con los tests y contra lo que prescribe el coach); el iOS deja de calcularlas y pinta las que el servidor persiste.
+
+**Se arregla en cuatro tandas secuenciadas, no en nueve agentes a la vez** — la lección de proceso del 28-jul, con `docs/CONTRATO-UI.md` citado en todo encargo:
+
+1. **Una sola verdad por concepto** *(en curso)* — zonas, frecuencia máxima con marca de estimada, VO₂máx del Cooper por una fórmula, FC en reposo en los seis lectores, procedencia en los cuatro escritores. Va primero porque todo lo demás se apoya en ella.
+2. **Que nada se guarde sin que el atleta lo haya dicho** — los valores por defecto convertidos en marcas, la carga prescrita guardada como real, el récord celebrado sin serlo.
+3. **Que el coach no decida con datos fabricados** *(en curso)* — adherencia sobre cero sesiones, la carga inventada sin RPE, el check-in caducado puntuando, las barras de estación sin rango.
+4. **Que el conjunto se vea como una app** — formateadores únicos y vocabulario del contrato, los cimientos en las pantallas que se los saltaron, el estado de error del resumen.
+
+**En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), y el nombre del tier free.
+
+---
+
+## Pendiente de fondo · La metodología propia
+
+Tenemos tecnología pero no método. Pablo no tiene uno documentado y su referencia es la metodología del entrenador que le entrena a él como atleta — que no es la dirección que queremos. La salida no es discutirle el contenido, es darle un **marco ya decidido y modificable**, para que su trabajo sea corregir en vez de crear.
 
 La tesis de trabajo: *la identidad de un método no está en los ejercicios, está en las reglas*. Los ejercicios los usa todo el mundo; lo que nos hace reconocibles es cómo decidimos, medimos y ajustamos.
 
