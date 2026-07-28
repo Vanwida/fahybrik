@@ -102,6 +102,48 @@ struct LiveTramo: Equatable {
         let s = PrescriptionSet.emomWorkString(measure)
         return s == "—" ? nil : s
     }
+
+    // MARK: - When a station ends by itself
+    //
+    // THE RULE, and why it is pure. In an EMOM the clock takes the athlete off a
+    // round: the minute ends, the round ends, nothing to detect. In a For Time there
+    // is no minute to take him off anything — the transitions are events, and the
+    // event is known by whatever MEASURES the station:
+    //
+    //   · metres / calories  → the machine knows. It says so, and the app moves on.
+    //   · seconds            → the app's own clock knows. Same thing, no pairing.
+    //   · reps               → nobody knows. He taps. The app never pretends.
+    //
+    // It keys off the MEASURE, not the movement, so one rule covers every station a
+    // coach can write instead of a list of special cases. These two are pure
+    // functions of the window and the readings so the rule can be verified on its
+    // own, without a live session — the engine below only supplies the numbers.
+
+    /// True when a machine reading just CROSSED this station's goal.
+    ///
+    /// The test is the CROSSING, not "the reading sits past the goal", and that is
+    /// what makes a reconnection safe: a monitor that comes back mid-piece reports
+    /// less than the goal and nothing fires. A monitor that goes QUIET can never fire
+    /// it either — silence is an athlete catching his breath, and only the goal being
+    /// reached takes him off a station.
+    func closesOnMachineGoal(metersBefore: Double?, metersNow: Double?,
+                             caloriesBefore: Int?, caloriesNow: Int?) -> Bool {
+        guard isFixedStation, isErg else { return false }
+        if let target = targetDistanceMeters, let now = metersNow {
+            return now >= target && (metersBefore ?? 0) < target
+        }
+        if let target = targetCalories, target > 0, let now = caloriesNow {
+            return now >= target && (caloriesBefore ?? 0) < target
+        }
+        return false
+    }
+
+    /// True when a CLOCK-measured station has spent its box ("2 min de bici").
+    /// Needs no device at all — the thing that measures it is the session clock.
+    func closesOnClock(elapsedInTramo: Double) -> Bool {
+        guard isFixedStation, let boxed = boxedSeconds, boxed > 0 else { return false }
+        return elapsedInTramo >= Double(boxed)
+    }
 }
 
 /// One struck line of a FIXED format's checklist — the station (or round) the

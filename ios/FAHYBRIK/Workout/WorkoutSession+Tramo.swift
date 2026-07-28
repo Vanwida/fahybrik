@@ -350,54 +350,36 @@ extension WorkoutSession {
 
     // MARK: - Leaving a station by EVENT
     //
-    // THE RULE, and the reason it only exists here. In an EMOM the CLOCK takes the
-    // athlete off a round: the minute ends, the round ends, there is nothing to
-    // detect. In a For Time there is no minute to take him off anything — the
-    // transitions are events, and the event is known by whatever MEASURES the
-    // station:
-    //
-    //   · metres / calories  → the machine knows. It says so, and the app moves on.
-    //   · seconds            → the app's own clock knows. Same thing, no pairing.
-    //   · reps               → nobody knows. He taps. The app never pretends.
-    //
-    // It follows the MEASURE, not the movement, so it is one rule for every station
-    // a coach can write instead of a list of special cases. Two things it is
-    // deliberately NOT: a monitor going quiet mid-piece is an athlete catching his
-    // breath, never an exit; and the manual strike never goes away, because a
-    // machine can drop, lie, or simply not be there.
+    // The RULE lives on LiveTramo (`closesOnMachineGoal` / `closesOnClock`) as pure
+    // functions of the window and the readings. These two are only the plumbing: the
+    // engine's guards, the numbers, and the one call that closes the station. The
+    // manual strike never goes away — a machine can drop, lie, or simply not be
+    // there, so the automatic exit removes a tap, never the athlete's freedom.
+
+    /// Can this window close itself at all right now? The shared guard: the session
+    /// has to be live and past its count-in for any automatic transition to be real.
+    private var stationCanAutoClose: Bool {
+        !isPaused && !isFinished && !isAwaitingBlockStart && condCountInRemaining <= 0
+    }
 
     /// The goal has been REACHED on the machine → close the station and walk on.
     /// Called from `sampleErg` with the window's measured values from BEFORE this
     /// sample landed, because the test is that we watched the goal being CROSSED.
-    ///
-    /// That "we saw the crossing" test is what makes a reconnection safe: a monitor
-    /// that comes back mid-piece reports less than the goal and nothing fires, and
-    /// one that comes back having genuinely covered the distance while the phone was
-    /// away fires once — which is correct, those metres were rowed.
     func advanceStationIfMachineGoalMet(beforeMeters: Double?, beforeCalories: Int?) {
-        let tramo = currentTramo
-        guard tramo.isFixedStation, tramo.isErg else { return }
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, condCountInRemaining <= 0 else { return }
-
-        if let target = tramo.targetDistanceMeters, let now = tramoErgDistanceMeters {
-            guard now >= target, (beforeMeters ?? 0) < target else { return }
-            markRoundDone(auto: true)
-            return
-        }
-        if let target = tramo.targetCalories, target > 0, let now = tramoErgCalories {
-            guard now >= target, (beforeCalories ?? 0) < target else { return }
-            markRoundDone(auto: true)
-        }
+        guard stationCanAutoClose else { return }
+        guard currentTramo.closesOnMachineGoal(metersBefore: beforeMeters,
+                                               metersNow: tramoErgDistanceMeters,
+                                               caloriesBefore: beforeCalories,
+                                               caloriesNow: tramoErgCalories) else { return }
+        markRoundDone(auto: true)
     }
 
     /// The BOX of a clock-measured station ran out → close it and walk on. Called
     /// from the conditioning tick, so it needs no device at all: a "2 min de bici"
     /// station ends after two minutes whether or not anything is paired.
     func advanceStationIfClockGoalMet() {
-        let tramo = currentTramo
-        guard tramo.isFixedStation, let boxed = tramo.boxedSeconds, boxed > 0 else { return }
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, condCountInRemaining <= 0 else { return }
-        guard tramoElapsedSeconds >= Double(boxed) else { return }
+        guard stationCanAutoClose else { return }
+        guard currentTramo.closesOnClock(elapsedInTramo: tramoElapsedSeconds) else { return }
         markRoundDone(auto: true)
     }
 }
