@@ -117,7 +117,7 @@ struct AnalyticsView: View {
                         withAnimation(.easeInOut(duration: 0.16)) { section = key }
                     } label: {
                         Text(key.navLabel)
-                            .font(.system(size: 12.5, weight: .heavy))
+                            .font(.system(size: 12, weight: .heavy))
                             .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 7)
@@ -237,7 +237,7 @@ struct AnalyticsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText(text: section.navLabel)
                     Text("Aún no hay datos para este periodo.")
-                        .scaledFont(12.5, relativeTo: .footnote)
+                        .scaledFont(12, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }

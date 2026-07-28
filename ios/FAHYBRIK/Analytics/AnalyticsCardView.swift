@@ -40,7 +40,7 @@ struct AnalyticsCardView: View {
                 if let meaning = card.meaning_es, !meaning.isEmpty { MeaningNote(text: meaning) }
                 if let note = card.availability_note, !note.isEmpty, card.meaning_es == nil {
                     Text(note)
-                        .scaledFont(10.5, relativeTo: .caption2)
+                        .scaledFont(10, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.faint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -153,12 +153,12 @@ struct AnalyticsCardView: View {
                 cardLabel
                 if let note = card.availability_note, !note.isEmpty {
                     Text(note)
-                        .scaledFont(12.5, relativeTo: .footnote)
+                        .scaledFont(12, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("Aún no hay datos.")
-                        .scaledFont(12.5, relativeTo: .footnote)
+                        .scaledFont(12, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -239,7 +239,7 @@ private struct MetricRow: View {
         let content = HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.label)
-                    .scaledFont(12.5, weight: .semibold, relativeTo: .footnote)
+                    .scaledFont(12, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 if let sub = row.sub, !sub.isEmpty {
                     Text(sub)
@@ -301,12 +301,12 @@ private struct ZoneBandRow: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Theme.Color.foreground)
             Text(zone.label)
-                .scaledFont(10.5, relativeTo: .caption2)
+                .scaledFont(10, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.muted)
             Spacer(minLength: 8)
             if let value = zone.value {
                 Text(value)
-                    .font(.system(size: 12.5, weight: .bold, design: .monospaced))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.Color.foreground)
             }
         }
@@ -357,19 +357,22 @@ private struct ZoneDistribution: View {
             Circle()
                 .fill(AnalyticsColor.zone(z.color, code: z.code))
                 .frame(width: 8, height: 8)
+            // Label BELOW its data: the km and the share are why this row exists.
+            // It used to be the other way round — the zone name at 11pt in full
+            // foreground next to its own kilometres at 10pt faint.
             Text(z.label)
-                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.foreground)
+                .scaledFont(11, relativeTo: .caption2)
+                .foregroundStyle(Theme.Color.muted)
             Spacer(minLength: 8)
             if let value = z.value {
                 Text(value)
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.Color.faint)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
             }
             if let pct = z.pct {
                 Text("\(Int(pct))%")
-                    .font(.system(size: 11.5, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(Theme.Color.muted)
+                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(Theme.Color.foreground)
                     .frame(minWidth: 38, alignment: .trailing)
             }
             if z.drill != nil {

@@ -180,7 +180,7 @@ struct PredictionReviewCard: View {
 
     private func insightCard(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12.5))
+            .font(.system(size: 12))
             .foregroundStyle(Theme.Color.muted)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)

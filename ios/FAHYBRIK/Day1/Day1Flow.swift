@@ -246,7 +246,7 @@ struct Day1Flow: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Theme.Color.foreground)
                         Text("Una tarjeta te dice cuántos llevas y cuáles faltan. Los que ponga tu coach, ni más ni menos.")
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -317,11 +317,11 @@ struct Day1Flow: View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Color.foreground)
-                Text(detail).font(.system(size: 10.5)).foregroundStyle(Theme.Color.muted)
+                Text(detail).font(.system(size: 10)).foregroundStyle(Theme.Color.muted)
             }
             Spacer()
             Text(status.uppercased())
-                .font(.system(size: 9.5, weight: .bold)).tracking(0.06)
+                .font(.system(size: 9, weight: .bold)).tracking(0.06)
                 .foregroundStyle(available ? Theme.Color.ok : Theme.Color.faint)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background((available ? Theme.Color.ok : Theme.Color.faint).opacity(0.14))
@@ -338,7 +338,7 @@ struct Day1Flow: View {
                 .overlay(Circle().stroke(Theme.Color.accent, lineWidth: 1.5))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.Color.foreground)
-                Text(sub).font(.system(size: 11.5)).foregroundStyle(Theme.Color.muted)
+                Text(sub).font(.system(size: 11)).foregroundStyle(Theme.Color.muted)
             }
         }
     }

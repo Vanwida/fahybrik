@@ -33,7 +33,7 @@ private enum ChartMetric {
     static let barCorner: CGFloat = 3
     static let barSpacing: CGFloat = 5
     static let calloutSize: CGFloat = 11
-    static let axisLabelSize: CGFloat = 9.5
+    static let axisLabelSize: CGFloat = 10
 }
 
 // MARK: - Line series (trend / progression)

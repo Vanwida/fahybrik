@@ -118,28 +118,33 @@ struct MyZonesView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
+    /// The row is here for ONE number: the pace range you have to run. "Z4" is a
+    /// tag on it, not a peer — it used to render at the same 13pt as the range
+    /// (bold vs semibold, indistinguishable), so the row read as two equals and
+    /// the eye had nowhere to land. The range now leads at 22pt, the same size
+    /// and role its sibling MyStrengthView gives the 1RM.
     private func zoneRow(_ band: ZoneBand) -> some View {
         HStack(spacing: 12) {
             // Colour swatch from the coach's stored zone hex (agnostic). Falls
             // back to a neutral chip when no colour is stored.
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(Color(zoneHex: band.color) ?? Theme.Color.faint)
-                .frame(width: 4, height: 26)
+                .frame(width: 4, height: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(band.code)
-                    .scaledFont(13, weight: .bold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
+                    .scaledFont(11, weight: .bold, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
                 Text(band.label)
                     .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
+                    .foregroundStyle(Theme.Color.faint)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             Text(band.rangeLabel)
-                .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
+                .font(Theme.Typography.readoutS)
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

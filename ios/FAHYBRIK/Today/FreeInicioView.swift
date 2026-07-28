@@ -256,7 +256,7 @@ struct FreeInicioView: View {
                             .foregroundStyle(Theme.Color.faint)
                     }
                     Text(marksSubtitle)
-                        .scaledFont(12.5, relativeTo: .caption)
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -376,7 +376,7 @@ struct FreeInicioView: View {
                         LabelText(text: "Tu semana")
                         Spacer(minLength: 8)
                         Text("toca un día")
-                            .scaledFont(10.5, relativeTo: .caption2)
+                            .scaledFont(10, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.faint)
                             .accessibilityHidden(true)
                     }
@@ -394,7 +394,7 @@ struct FreeInicioView: View {
                         selectedDayPanel(day, isToday: day.isoDate == week.todayIso)
                     }
                     Text(weekSummaryLine ?? "Aún nada esta semana. Tu primera sesión la construyes tú.")
-                        .scaledFont(11.5, relativeTo: .caption)
+                        .scaledFont(11, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -407,7 +407,7 @@ struct FreeInicioView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText(text: "Tu semana")
                     Text("Aún nada esta semana. Tu primera sesión la construyes tú.")
-                        .scaledFont(12.5, relativeTo: .caption)
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -475,11 +475,11 @@ struct FreeInicioView: View {
             LabelText(
                 text: "\(isToday ? "Hoy" : dayLongLabel(forIso: day.isoDate)) · \(isFuture ? "lo que tienes" : "lo que hiciste")",
                 color: Theme.Color.faint,
-                size: 10.5
+                size: 10
             )
             if list.isEmpty {
                 Text(emptyDayCopy(isToday: isToday, isFuture: isFuture))
-                    .scaledFont(12.5, relativeTo: .caption)
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
             } else {
                 VStack(spacing: 7) {

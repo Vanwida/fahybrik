@@ -144,7 +144,7 @@ struct DoblesRaceGapSection: View {
                     }
                 } else {
                     Text("Sin objetivo fijado para esta carrera.")
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -217,7 +217,7 @@ struct DoblesRaceGapSection: View {
                 Spacer(minLength: 8)
                 if let delta = seg.deltaS, delta != 0 {
                     Text(GoalGapFormat.signedDuration(delta))
-                        .font(.system(size: 11.5, weight: .semibold, design: .monospaced).monospacedDigit())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
                         .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
                 }
                 Text(GoalGapFormat.raceClock(seg.pairPredictedS))
@@ -238,7 +238,7 @@ struct DoblesRaceGapSection: View {
             .frame(height: GoalGapVis.trackHeight)
             if let caption = seg.tierCaption {
                 Text(caption)
-                    .font(.system(size: 10.5, weight: .medium).italic())
+                    .font(.system(size: 10, weight: .medium).italic())
                     .foregroundStyle(Theme.Color.faint)
             }
         }
@@ -293,7 +293,7 @@ struct DoblesRaceGapSection: View {
             parts.append("Toca una estación para ajustar el reparto.")
         }
         return Text(parts.joined(separator: " "))
-            .font(.system(size: 11.5))
+            .font(.system(size: 11))
             .foregroundStyle(Theme.Color.faint)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, Theme.Spacing.xs)

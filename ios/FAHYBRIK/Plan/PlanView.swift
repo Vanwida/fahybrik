@@ -976,7 +976,7 @@ struct PlanView: View {
                     Image(systemName: "target")
                         .font(.system(size: 9, weight: .semibold))
                     Text("Calibración · fija tus zonas y tu nivel")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .lineLimit(1)
                 }
                 .foregroundStyle(Theme.Color.warning)

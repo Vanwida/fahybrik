@@ -73,7 +73,7 @@ struct GoalGapLegend: View {
             }
             .frame(width: 14, height: 8)
             Text(text)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Theme.Color.muted)
         }
     }
@@ -149,7 +149,7 @@ struct GoalGapBoard: View {
     private func deltaText(_ deltaS: Int?) -> some View {
         if let deltaS, deltaS != 0 {
             Text(GoalGapFormat.signedDuration(deltaS))
-                .font(.system(size: 11.5, weight: .semibold, design: .monospaced).monospacedDigit())
+                .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
                 .foregroundStyle(deltaS > 0 ? Theme.Color.danger : Theme.Color.ok)
         }
     }
@@ -195,7 +195,7 @@ struct GoalGapBoard: View {
 
     private var footer: some View {
         Text("La barra es tu predicho de hoy; la marca punteada, lo que pide tu objetivo, y el tramo rojo, lo que hoy te sobra. Sólido = observado en esfuerzos reales; translúcido = estimado por tu ritmo umbral.")
-            .font(.system(size: 11.5))
+            .font(.system(size: 11))
             .foregroundStyle(Theme.Color.faint)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, Theme.Spacing.xs)

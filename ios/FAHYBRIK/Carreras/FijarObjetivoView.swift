@@ -161,7 +161,7 @@ struct FijarObjetivoView: View {
             }
 
             Text("El objetivo se traduce en tiempos por estación según cómo reparten la carrera los atletas reales de tu división — no un promedio inventado.")
-                .font(.system(size: 11.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Theme.Color.faint)
                 .fixedSize(horizontal: false, vertical: true)
         }

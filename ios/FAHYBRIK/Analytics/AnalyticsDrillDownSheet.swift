@@ -87,7 +87,7 @@ struct AnalyticsDrillDownSheet: View {
                         .foregroundStyle(Theme.Color.foreground)
                     if let sub = r.subtitle_es, !sub.isEmpty {
                         Text(sub)
-                            .scaledFont(11.5, relativeTo: .caption)
+                            .scaledFont(11, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }
@@ -126,7 +126,7 @@ struct AnalyticsDrillDownSheet: View {
                 // Sessions
                 if r.sessions.isEmpty {
                     Text("Sin sesiones en este periodo.")
-                        .scaledFont(12.5, relativeTo: .footnote)
+                        .scaledFont(12, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.muted)
                         .padding(.top, 4)
                 } else {
@@ -201,7 +201,7 @@ private struct SessionRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.title_es)
-                    .scaledFont(12.5, weight: .semibold, relativeTo: .footnote)
+                    .scaledFont(12, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                 if let detail = session.detail_es, !detail.isEmpty {

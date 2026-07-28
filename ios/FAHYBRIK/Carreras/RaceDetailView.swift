@@ -302,7 +302,7 @@ struct RaceDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 LabelText(text: "DESPUÉS DE LA CARRERA")
                 Text("Tu predicho se congela justo antes de la prueba. Cuando importes tu resultado, lo compararás con lo que hiciste de verdad —predicho vs real— para afinar la siguiente.")
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
