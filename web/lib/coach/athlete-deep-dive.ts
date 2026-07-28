@@ -16,6 +16,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
+import { estimateRaceReadiness } from '@fahybrid/shared/domain/coach/race-readiness';
 import {
   computeAcr,
   computeLoadSeries,
@@ -152,7 +153,16 @@ export async function buildAthleteDeepDive(
   const microciclos = await loadMicrociclos(client, numericId);
   const macrocycle = buildMacrocycleRibbon(microciclos, micro);
   const compliance = await loadCompliance(client, numericId, now);
-  const readiness = await loadReadiness(client, numericId, now);
+  // Days with executed work in the last 7, rated or not: showing up is measured
+  // by the clock, so skipping the RPE must not erase the day.
+  const active_days_7d = tssSeries
+    .slice(-7)
+    .filter((p) => (p.known_seconds ?? 0) + (p.unknown_seconds ?? 0) > 0).length;
+  const readiness = await loadReadiness(client, numericId, now, {
+    tsb: load.tsb,
+    coverage: loadCoverage,
+    active_days_7d,
+  });
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
     on_date: now,
@@ -422,6 +432,7 @@ async function loadReadiness(
   client: Sql,
   athlete_id: number,
   now: Date,
+  load: { tsb: number; coverage: LoadCoverage; active_days_7d: number },
 ): Promise<KpiReadiness> {
   const rows = await client<
     Array<{
@@ -492,11 +503,20 @@ async function loadReadiness(
   const mood = await loadLatestCheckinMetric(client, athlete_id, 'mood');
   const fatigue = await loadLatestCheckinMetric(client, athlete_id, 'fatigue');
 
-  // Race readiness composite — same heuristic as cohort.
+  // Race readiness composite — literally the same function the roster calls
+  // (shared/domain/coach/race-readiness.ts), fed from the load reading this page
+  // already computed. It used to be a second copy of the formula here, working
+  // off a THIRD query of the same 90-day series, and the two copies had drifted:
+  // this one could never return null and let a missing TSB score 20 of its 40
+  // freshness points.
   const compliance7 = await loadCompliancePct(client, athlete_id, now, 7);
-  const tsb = (await getCurrentLoadSummary(client, athlete_id, now))?.tsb ?? 0;
-  const sessions7 = await loadCompletedSessionCount(client, athlete_id, now, 7);
-  const race_readiness = estimateRaceReadiness(tsb, compliance7, hrv_delta_ms, sessions7);
+  const race_readiness = estimateRaceReadiness({
+    tsb: load.tsb,
+    compliance_pct: compliance7,
+    hrv_delta_ms,
+    active_days_7d: load.active_days_7d,
+    load_coverage: load.coverage,
+  });
   const daily = await getLatestReadiness({ athlete_id, on_date: now, client });
 
   return {
@@ -557,32 +577,6 @@ async function loadCompliancePct(
   const r = rows[0];
   if (!r || r.scheduled === 0) return null;
   return Math.round((r.completed / r.scheduled) * 100);
-}
-
-async function loadCompletedSessionCount(
-  client: Sql,
-  athlete_id: number,
-  now: Date,
-  days: number,
-): Promise<number> {
-  const rows = await client<Array<{ n: number }>>`
-    select count(*)::int as n
-    from workout_executions we
-    where we.athlete_id = ${athlete_id}
-      and coalesce(we.ended_at, we.started_at, we.created_at)
-            >= ${addDays(now, -days).toISOString()}::timestamptz
-  `;
-  return rows[0]?.n ?? 0;
-}
-
-async function getCurrentLoadSummary(
-  client: Sql,
-  athlete_id: number,
-  now: Date,
-): Promise<{ ctl: number; atl: number; tsb: number } | null> {
-  const series = await getDailyTssSeries({ athlete_id, end_date: now, days: 90, client });
-  const s = summarizeLoad(series);
-  return { ctl: s.ctl, atl: s.atl, tsb: s.tsb };
 }
 
 // ---------------------------------------------------------------------------
@@ -699,24 +693,26 @@ async function loadTrends(
   // 30 days from a cold zero while claiming to "stay consistent with
   // summarizeLoad": on real data that put the chart's CTL at roughly a third of
   // the card's, so the number and the line under it disagreed on screen.
-  const ctlAtl: CtlAtlPoint[] = computeLoadSeries(tssSeries)
-    .slice(-TRENDS_DAYS)
-    .map((p, i) => {
-      // A day where he trained but rated nothing contributes tss 0, so on the
-      // curve alone it is indistinguishable from a rest day and the line sags as
-      // if he had recovered. The hole is NOT interpolated away and NOT hidden —
-      // it is carried per point so the chart can mark that day for what it is
-      // (docs/CONTRATO-UI.md §7).
-      const day = tssSeries[tssSeries.length - TRENDS_DAYS + i];
-      return {
-        iso_date: p.date,
-        ctl: round1(p.ctl),
-        atl: round1(p.atl),
-        tsb: round1(p.tsb),
-        unknown_seconds: day?.unknown_seconds ?? 0,
-        unknown_sessions: day?.unknown_sessions ?? 0,
-      };
-    });
+  // computeLoadSeries is 1:1 with its input, so slicing both the same way keeps
+  // point and day aligned whatever the series length.
+  const plottedLoad = computeLoadSeries(tssSeries).slice(-TRENDS_DAYS);
+  const plottedDays = tssSeries.slice(-TRENDS_DAYS);
+  const ctlAtl: CtlAtlPoint[] = plottedLoad.map((p, i) => {
+    // A day where he trained but rated nothing contributes tss 0, so on the
+    // curve alone it is indistinguishable from a rest day and the line sags as
+    // if he had recovered. The hole is NOT interpolated away and NOT hidden —
+    // it is carried per point so the chart can mark that day for what it is
+    // (docs/CONTRATO-UI.md §7).
+    const day = plottedDays[i];
+    return {
+      iso_date: p.date,
+      ctl: round1(p.ctl),
+      atl: round1(p.atl),
+      tsb: round1(p.tsb),
+      unknown_seconds: day?.unknown_seconds ?? 0,
+      unknown_sessions: day?.unknown_sessions ?? 0,
+    };
+  });
 
   const hrv = await loadDailyMetric(client, athlete_id, 'hrv', now, TRENDS_DAYS);
   const hrvBaselineRows = await client<Array<{ v: number | null }>>`
@@ -1209,19 +1205,6 @@ function computeBanner(input: {
     };
   }
   return null;
-}
-
-function estimateRaceReadiness(
-  tsb: number,
-  compliance: number | null,
-  hrv_delta: number | null,
-  sessions_7d: number,
-): number {
-  const tsbBand = Math.max(0, Math.min(40, ((tsb + 10) / 20) * 40));
-  const compBand = compliance != null ? (compliance / 100) * 30 : 20;
-  const hrvBand = hrv_delta == null ? 10 : Math.max(0, Math.min(20, 10 + hrv_delta));
-  const sesBand = Math.min(10, sessions_7d * 1.5);
-  return Math.round(tsbBand + compBand + hrvBand + sesBand);
 }
 
 // ---------------------------------------------------------------------------

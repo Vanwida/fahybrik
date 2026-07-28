@@ -6,8 +6,8 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
+import { estimateRaceReadiness } from '@fahybrid/shared/domain/coach/race-readiness';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
-import type { LoadCoverage } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
 import {
@@ -324,13 +324,13 @@ async function rollupAthlete(
     next_session,
     last_sync_at,
     sync_minutes_ago,
-    race_readiness: estimateRaceReadiness(
-      load.tsb,
+    race_readiness: estimateRaceReadiness({
+      tsb: load.tsb,
       compliance_pct,
       hrv_delta_ms,
       active_days_7d,
       load_coverage,
-    ),
+    }),
     polarization_pct: null,
     z45_pct_7d: null,
     vo2max: a.vo2max ?? null,
@@ -488,30 +488,6 @@ function computeAlerts(params: {
     });
   }
   return out;
-}
-
-function estimateRaceReadiness(
-  tsb: number,
-  compliance: number | null,
-  hrv_delta: number | null,
-  active_days_7d: number,
-  coverage: LoadCoverage,
-): number | null {
-  // No real signal (no executed days, no HRV, no compliance) → null. We do
-  // NOT invent a ~50 baseline for a data-less athlete; the UI shows "—" instead.
-  if (active_days_7d === 0 && hrv_delta == null && compliance == null) return null;
-  // Freshness carries 40 of the 100 points, and with a hole in the window TSB is
-  // undecidable in BOTH directions (coverage.ts). A score that could be 40
-  // points either way is not a score, so it is withheld rather than shown with
-  // a caveat — the row still carries `load_coverage` to say why.
-  if (!coverage.allows_verdict) return null;
-  // Rough composite — coach-grade rather than research-grade. Fitness band (-10..+10)
-  // contributes 40, compliance 30, HRV 20, days trained 10.
-  const tsbBand = Math.max(0, Math.min(40, ((tsb + 10) / 20) * 40));
-  const compBand = compliance != null ? (compliance / 100) * 30 : 20;
-  const hrvBand = hrv_delta == null ? 10 : Math.max(0, Math.min(20, 10 + hrv_delta));
-  const sesBand = Math.min(10, active_days_7d * 1.5);
-  return Math.round(tsbBand + compBand + hrvBand + sesBand);
 }
 
 function round1(n: number): number {
