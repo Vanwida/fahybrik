@@ -397,12 +397,24 @@ export function computeAttention(cohort: CohortRow[]): WeeklyAttentionItem[] {
       signals.push('Sin sincronizar wearable');
     }
 
+    // Sobreesfuerzo survives a partial reading, on purpose: the work we DID
+    // price already crosses the line, and the sessions we could not price only
+    // added stimulus on top. Erring toward "look at this athlete" is the safe
+    // direction; the claims that get withheld below are the ones that ADD load.
     if (row.tsb != null && row.tsb < -25) {
       signals.push(`TSB ${row.tsb.toFixed(0)} (sobreesfuerzo)`);
       severity = 'critical';
     }
 
     if (signals.length === 0) continue;
+
+    // The gap ANNOTATES an athlete already in the queue; it does not summon one.
+    // Whether "no está valorando sus sesiones" deserves its own attention item is
+    // a call about Pablo's inbox, not about honesty — and honesty only requires
+    // that the load signals above never read as solid when they are not.
+    if (row.load_coverage.state === 'partial' && row.load_coverage.badge_es) {
+      signals.push(`Carga ${row.load_coverage.badge_es}`);
+    }
 
     const recommendation = recommendationFor(row, severity);
 
@@ -436,13 +448,19 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
     if (row.block_week < TRANSITION_WEEK_THRESHOLD) continue;
 
     const compliance = row.compliance_pct ?? 0;
-    const tsb = row.tsb ?? 0;
     const hrvOk = row.hrv_delta_ms == null || row.hrv_delta_ms >= -3;
+    // "Fresco enough to progress" is a claim about the ABSENCE of accumulated
+    // fatigue, and it is exactly the claim a hole in the window cannot support:
+    // a missing recent session makes TSB read fresher than the athlete is. So
+    // freshness has to be POSITIVELY known — no `?? 0` standing in for a TSB
+    // nobody computed, and no verdict on a partial reading.
+    const freshEnough =
+      row.tsb != null && row.tsb >= -5 && row.load_coverage.allows_verdict;
 
     let recommendation: 'advance' | 'hold' | 'regress' = 'hold';
     let confidence: 'high' | 'medium' | 'low' = 'low';
 
-    if (compliance >= 90 && tsb >= -5 && hrvOk) {
+    if (compliance >= 90 && freshEnough && hrvOk) {
       recommendation = 'advance';
       confidence = compliance >= 95 ? 'high' : 'medium';
     } else if (compliance < 70 || (row.hrv_delta_ms != null && row.hrv_delta_ms <= -10)) {
@@ -456,6 +474,9 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
       signals.push(`HRV ${row.hrv_delta_ms >= 0 ? '+' : ''}${row.hrv_delta_ms.toFixed(0)} ms`);
     }
     if (row.tsb != null) signals.push(`TSB ${row.tsb >= 0 ? '+' : ''}${row.tsb.toFixed(0)}`);
+    if (row.load_coverage.state === 'partial' && row.load_coverage.badge_es) {
+      signals.push(`Carga ${row.load_coverage.badge_es}`);
+    }
 
     out.push({
       athlete_id: row.athlete_id,
@@ -483,12 +504,20 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
 export function computeMassAdjustments(cohort: CohortRow[]): MassAdjustmentOpportunity[] {
   const opportunities: MassAdjustmentOpportunity[] = [];
 
-  // Pattern 1: fresh group early in their microciclo (w2-3) → load increase
+  // Pattern 1: fresh group early in their microciclo (w2-3) → load increase.
+  //
+  // This one PUTS MORE LOAD on several athletes at once, so it is the strictest
+  // gate in the file. An athlete only qualifies if his freshness is actually
+  // known: a TSB computed over a holed window reads fresher than he is when the
+  // missing sessions are recent, and `?? 0` used to let an athlete with NO tsb
+  // at all fall through as if he had one. Both are now excluded — a mass "+5 %"
+  // is the last place a plausible default belongs.
   const transFresh = cohort.filter(
     (r) =>
       r.block_week != null && r.block_week >= 2 && r.block_week <= 3 &&
       (r.compliance_pct ?? 0) >= 90 &&
-      (r.tsb ?? 0) >= 5,
+      r.tsb != null && r.tsb >= 5 &&
+      r.load_coverage.allows_verdict,
   );
   if (transFresh.length >= MASS_ADJUSTMENT_MIN_AFFECTED) {
     opportunities.push({
@@ -519,7 +548,9 @@ export function computeMassAdjustments(cohort: CohortRow[]): MassAdjustmentOppor
     }
   }
 
-  // Pattern 3: Cohort-wide overreaching → recovery microcycle
+  // Pattern 3: Cohort-wide overreaching → recovery microcycle. Not gated on
+  // coverage, unlike Pattern 1: this one REMOVES load, and the work we could not
+  // price only pushes the athlete further into the state it is detecting.
   const overreached = cohort.filter((r) => r.tsb != null && r.tsb < -20);
   if (overreached.length >= MASS_ADJUSTMENT_MIN_AFFECTED) {
     opportunities.push({
@@ -682,6 +713,11 @@ function recommendationFor(row: CohortRow, severity: 'critical' | 'warning'): st
     return 'Pausa estructurada · evaluar 1:1';
   }
   if (row.compliance_pct != null && row.compliance_pct < 75) return 'Mensaje 1:1 + revisar plan';
+  // Nothing urgent, but part of his load is invisible: the useful thing to do is
+  // close the gap, not "monitorizar" a curve with holes in it for another week.
+  if (!row.load_coverage.allows_verdict && row.load_coverage.action_es) {
+    return row.load_coverage.action_es;
+  }
   return 'Monitorizar próximos 7d';
 }
 
