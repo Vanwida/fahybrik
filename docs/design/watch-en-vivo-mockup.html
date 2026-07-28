@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Watch en vivo — propuesta</title>
+<style>
+  :root{
+    --bg:#000; --card:#141416; --card-2:#1d1d20; --line:#2a2a2e;
+    --fg:#fff; --muted:#9a9aa0; --faint:#68686e;
+    --accent:#FF7A33; --accent-dim:rgba(255,122,51,.18);
+    --rest:#3B82F6; --rest-dim:rgba(59,130,246,.2);
+    --z1:#8E8E93; --z2:#5AC8FA; --z3:#34C759; --z4:#FFCC00; --z5:#FF3B30;
+    --ok:#30D158;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#161618;color:#f4f4f5;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:52px 22px}
+  .wrap{max-width:1280px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(27px,4vw,38px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 8px}
+  .sub{color:#a1a1aa;max-width:700px;margin-bottom:14px}
+  .rules{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:38px}
+  .rules span{font-size:12px;background:#1f1f22;border:1px solid #2e2e33;border-radius:999px;padding:6px 13px;color:#a1a1aa}
+  .rules b{color:#f4f4f5}
+  h2{font-size:19px;font-weight:800;font-style:italic;margin:46px 0 6px;color:var(--accent)}
+  h2+p{color:#a1a1aa;max-width:780px;margin-bottom:22px}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .shot h3{font-size:13px;font-weight:800;font-style:italic;margin:12px 2px 3px;color:#f4f4f5}
+  .shot .why{font-size:12.5px;color:#8b8b93;margin:0 2px;line-height:1.6;max-width:230px}
+  /* reloj */
+  .w{background:#0a0a0c;border:2px solid #3a3a40;border-radius:46px;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.5);position:relative}
+  .w::after{content:"";position:absolute;right:-5px;top:64px;width:5px;height:34px;background:#3a3a40;border-radius:0 4px 4px 0}
+  .sc{background:var(--bg);width:212px;height:262px;border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:9px 11px 10px;position:relative}
+  .sc.dim{filter:brightness(.42) saturate(.7)}
+  /* franja superior */
+  .top{display:flex;align-items:center;gap:6px;height:16px;flex-shrink:0}
+  .top .rnd{font-size:12px;font-weight:800;color:var(--accent);letter-spacing:.02em}
+  .top .ttl{font-size:11px;color:var(--faint);font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .top .clk{margin-left:auto;font:600 12px ui-monospace,Menlo,monospace;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* héroe */
+  .hero{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:0}
+  .hero .k{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+  .hero .n{font:800 66px/1 -apple-system,sans-serif;font-style:italic;letter-spacing:-.05em;font-variant-numeric:tabular-nums;margin-top:1px}
+  .hero .n.sm{font-size:50px}
+  .hero .n.xs{font-size:40px}
+  .hero .u{font-size:17px;color:var(--muted);font-style:italic;font-weight:800}
+  .hero .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .hero .s.good{color:var(--ok);font-weight:700}
+  .hero .s.bad{color:var(--z5);font-weight:700}
+  /* pulso */
+  .hr{display:flex;align-items:baseline;justify-content:center;gap:5px;padding:5px 0 2px;flex-shrink:0}
+  .hr .h{font-size:13px}
+  .hr .v{font:800 30px/1 -apple-system,sans-serif;font-style:italic;font-variant-numeric:tabular-nums}
+  .hr .z{font-size:10px;font-weight:800;letter-spacing:.06em;border-radius:5px;padding:2px 6px;margin-left:2px}
+  /* acción */
+  .act{flex-shrink:0;background:var(--accent);color:#1a0c02;font-weight:800;font-style:italic;border-radius:13px;padding:12px;text-align:center;font-size:16px;letter-spacing:.02em}
+  .act.rest{background:var(--rest);color:#04122c}
+  .act.ghost{background:var(--card-2);color:var(--fg);border:1px solid var(--line);font-size:14px;padding:10px}
+  .act.stop{background:#3A1113;color:#FF6B6B;border:1px solid #5c1b1f}
+  /* páginas */
+  .dots{display:flex;gap:4px;justify-content:center;padding-top:6px;flex-shrink:0}
+  .dots i{width:5px;height:5px;border-radius:99px;background:#3a3a40}
+  .dots i.on{background:var(--fg)}
+  /* zonas */
+  .zbar{display:flex;height:9px;border-radius:99px;overflow:hidden;margin-bottom:9px}
+  .zrow{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .zrow:last-child{border:0}
+  .zrow .d{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+  .zrow .l{color:var(--muted);font-weight:700}
+  .zrow .t{margin-left:auto;font:700 13px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+  /* lista de series/rondas */
+  .lst{display:flex;flex-direction:column;gap:3px;overflow:hidden}
+  .lst div{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 7px;border-radius:8px;background:var(--card)}
+  .lst div.now{background:var(--accent-dim);border:1px solid rgba(255,122,51,.45);font-weight:800}
+  .lst div.done{color:var(--faint)}
+  .lst div .m{margin-left:auto;font:700 12px ui-monospace,Menlo,monospace}
+  .lst div.done .m{color:var(--ok)}
+  .note{background:#1f1f22;border-left:3px solid var(--accent);border-radius:0 12px 12px 0;padding:15px 17px;margin:30px 0 0;color:#a1a1aa;font-size:14px;max-width:920px}
+  .note b{color:#f4f4f5}
+  .note.warn{border-left-color:#facc15}
+  .footer{margin-top:48px;padding-top:18px;border-top:1px solid #2e2e33;font-size:13px;color:#71717a}
+  @media(max-width:700px){body{padding:30px 12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Apple Watch en vivo · propuesta · 28 jul 2026</p>
+  <h1>Un número, tu pulso, un botón</h1>
+  <p class="sub">El reloj no es un móvil pequeño: son 40 milímetros a distancia de brazo, en movimiento y sudando. Aquí el sujeto es <b style="color:#f4f4f5">casi lo único que cabe</b>, y todo lo demás vive en una página de al lado — no en letra pequeña alrededor.</p>
+  <div class="rules">
+    <span><b>1</b> El sujeto ocupa el centro y se lee de un vistazo</span>
+    <span><b>2</b> El pulso SIEMPRE, con el color de su zona</span>
+    <span><b>3</b> Un solo botón, siempre a la misma altura</span>
+    <span><b>4</b> Lo demás se desliza, no se encoge</span>
+  </div>
+
+  <h2>Página principal · según lo que estés haciendo</h2>
+  <p>Cambia el sujeto y cambia el botón. Todo lo demás —el pulso, la franja de contexto, la altura de la acción— se queda donde está, para que el ojo no tenga que buscar.</p>
+
+  <div class="row">
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="ttl">Correr · cinta</span><span class="clk">12:04</span></div>
+        <div class="hero">
+          <div class="k">Ritmo</div>
+          <div class="n sm">4:32<span class="u">/km</span></div>
+          <div class="s bad">objetivo 4:20 · aprieta</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v">168</span><span class="z" style="background:rgba(255,204,0,.2);color:var(--z4)">Z4</span></div>
+        <div class="act ghost">Vuelta</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>Correr</h3>
+      <p class="why">El ritmo manda y el color dice si vas bien sin leer. Debajo, el pulso con su zona.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="rnd">3/5</span><span class="ttl">Remo 500 m</span><span class="clk">8:21</span></div>
+        <div class="hero">
+          <div class="k">Split</div>
+          <div class="n sm">1:52<span class="u">/500</span></div>
+          <div class="s">quedan 240 m</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v">174</span><span class="z" style="background:rgba(255,59,48,.2);color:var(--z5)">Z5</span></div>
+        <div class="act ghost">Siguiente</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>Ergo (PM5 / FTMS)</h3>
+      <p class="why">La serie que vas, arriba a la izquierda. El split es el sujeto y los metros que quedan, la línea de apoyo.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="rnd">S3/4</span><span class="ttl">Sentadilla</span><span class="clk">14:52</span></div>
+        <div class="hero">
+          <div class="k">Serie 3 de 4</div>
+          <div class="n xs">5 × 100<span class="u">kg</span></div>
+          <div class="s">descanso 90 s al marcar</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v">109</span><span class="z" style="background:rgba(90,200,250,.2);color:var(--z2)">Z2</span></div>
+        <div class="act">Hecho</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>Fuerza</h3>
+      <p class="why">Aquí el sujeto es <b>lo que toca levantar</b>. El botón grande es el que más se usa de toda la app: marcar la serie desde la muñeca en vez de agacharse al móvil.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="rnd">3/10</span><span class="ttl">EMOM · burpees</span><span class="clk">2:38</span></div>
+        <div class="hero">
+          <div class="k">Queda del minuto</div>
+          <div class="n">0:23</div>
+          <div class="s">12 burpees</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v">161</span><span class="z" style="background:rgba(255,204,0,.2);color:var(--z4)">Z4</span></div>
+        <div class="act ghost">Ya está</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>EMOM / rondas</h3>
+      <p class="why">La ronda que vas, siempre arriba. El sujeto es lo que queda del minuto, y debajo lo que tienes que meter dentro.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc" style="background:#04070f">
+        <div class="top"><span class="rnd" style="color:var(--rest)">CAMBIO</span><span class="ttl">3 de 5 hecho</span><span class="clk">9:12</span></div>
+        <div class="hero">
+          <div class="k">Descanso</div>
+          <div class="n" style="color:var(--rest)">0:15</div>
+          <div class="s">luego · 30 KB swings 24 kg</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v" style="color:var(--rest)">148</span><span class="z" style="background:rgba(59,130,246,.22);color:var(--rest)">−33</span></div>
+        <div class="act rest">Saltar</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>Descanso</h3>
+      <p class="why">El azul se apodera de la pantalla. El sujeto es cuánto queda, debajo qué viene, y el pulso enseña <b>cuánto ha bajado desde el pico</b>.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc dim">
+        <div class="top"><span class="rnd">3/10</span><span class="ttl">EMOM</span><span class="clk">2:38</span></div>
+        <div class="hero">
+          <div class="k">Queda del minuto</div>
+          <div class="n">0:23</div>
+          <div class="s">12 burpees</div>
+        </div>
+        <div class="hr"><span class="h">❤︎</span><span class="v">161</span></div>
+        <div class="act ghost">Ya está</div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+      </div></div>
+      <h3>Pantalla atenuada (Always-On)</h3>
+      <p class="why">Con la muñeca abajo el reloj baja el brillo. Por eso el sujeto tiene que aguantar apagado: número gordo y sin depender del color para entenderse.</p>
+    </div>
+
+  </div>
+
+  <h2>Deslizando · lo que no cabe, al lado</h2>
+  <p>Dos páginas más a un dedo de distancia. No se llega por menús: se desliza, como la app de entreno de Apple, que es el gesto que todo el mundo ya conoce.</p>
+
+  <div class="row">
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="ttl">Zonas · 12:04 de esfuerzo</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0">
+          <div class="zbar">
+            <i style="flex:.6;background:var(--z1)"></i><i style="flex:1.4;background:var(--z2)"></i><i style="flex:2.6;background:var(--z3)"></i><i style="flex:5.2;background:var(--z4)"></i><i style="flex:2.2;background:var(--z5)"></i>
+          </div>
+          <div class="zrow"><span class="d" style="background:var(--z5)"></span><span class="l">Z5</span><span class="t">2:14</span></div>
+          <div class="zrow"><span class="d" style="background:var(--z4)"></span><span class="l">Z4</span><span class="t">5:18</span></div>
+          <div class="zrow"><span class="d" style="background:var(--z3)"></span><span class="l">Z3</span><span class="t">2:39</span></div>
+          <div class="zrow"><span class="d" style="background:var(--z2)"></span><span class="l">Z2</span><span class="t">1:26</span></div>
+          <div class="zrow"><span class="d" style="background:var(--z1)"></span><span class="l">Z1</span><span class="t">0:27</span></div>
+        </div>
+        <div class="dots"><i></i><i class="on"></i><i></i></div>
+      </div></div>
+      <h3>Página 2 · zonas</h3>
+      <p class="why">Dónde has estado de verdad, con la barra proporcional arriba. Es la información que el atleta mira <b>entre series</b>, no mientras tira.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="ttl">La sesión</span><span class="clk">3/5</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0">
+          <div class="lst">
+            <div class="done"><span>1.000 m remo</span><span class="m">3:48</span></div>
+            <div class="done"><span>50 wall balls</span><span class="m">2:31</span></div>
+            <div class="now"><span>40 burpees</span><span class="m">1:12</span></div>
+            <div><span>30 KB swings</span></div>
+            <div><span>20 cal bici</span></div>
+          </div>
+        </div>
+        <div class="dots"><i></i><i class="on"></i><i></i></div>
+      </div></div>
+      <h3>Página 2 (alternativa) · la pizarra</h3>
+      <p class="why">Cuando el entreno tiene estaciones, esta página <b>es la pizarra del móvil</b>: lo hecho con su parcial, dónde estás y lo que viene. La de zonas pasa a la 3.</p>
+    </div>
+
+    <div class="shot">
+      <div class="w"><div class="sc">
+        <div class="top"><span class="ttl">Controles</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px">
+          <div class="act ghost" style="padding:13px">Pausar</div>
+          <div class="act ghost" style="padding:13px">Añadir vuelta</div>
+          <div class="act stop" style="padding:13px;font-weight:800;font-style:italic;border-radius:13px">Terminar</div>
+        </div>
+        <div class="dots"><i></i><i></i><i class="on"></i></div>
+      </div></div>
+      <h3>Página 3 · controles</h3>
+      <p class="why">Todo lo que <b>no</b> quieres tocar por accidente vive lejos del botón grande. Terminar pide confirmación, como ya hace ahora.</p>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <b>Lo que ya existe y no hay que construir:</b> el reloj <b>ya puede avanzar de ronda</b> (el canal de vuelta está montado y bien enrutado, incluso el relevo de dobles, que no te apunta el trabajo de tu pareja), y el principio de «un botón grande que avanza todo, cero navegación durante el esfuerzo» ya está escrito en el código. Lo que falla es la ejecución visual: tamaños pequeños, jerarquía plana y todo apretado en una sola página.
+  </div>
+  <div class="note warn">
+    <b>Decisiones que quiero que confirmes antes de construir:</b> ¿la página 2 son las <b>zonas</b> o la <b>pizarra</b> cuando el entreno tiene estaciones (y la otra pasa a la 3)? ¿El botón grande en fuerza marca la serie <b>y</b> arranca el descanso de una, o son dos toques? ¿Y quieres el pulso en color de zona siempre, o solo el número (más legible con la pantalla atenuada)?
+  </div>
+
+  <div class="footer">FAHYBRID · propuesta, NO construido · reglas del sistema: <code>docs/design/pantallas-que-ganan-su-altura.html</code></div>
+
+</div>
+</body>
+</html>
