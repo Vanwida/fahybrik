@@ -119,9 +119,10 @@ final class RunTargetResolverTests: XCTestCase {
         XCTAssertEqual(t.fraction(distanceM: 0, elapsedS: 9999), 1.0) // clamped
     }
 
-    // NOTE: the age-based HR-zone estimate moved from `EstimatedHRZone` to the
-    // single shared `PersonalHRMax` (measured max first, else 220−age). Its
-    // coverage now lives in PersonalHRMaxTests.
+    // NOTE: there is no client-side HR-zone estimate left to cover here. The
+    // server resolves the bands from the athlete's threshold; the app's side of
+    // that contract is covered in AppleWorkoutMapperTests (classification against
+    // the server's bands, and the refusal to invent one).
 
     // MARK: - Fixtures
 

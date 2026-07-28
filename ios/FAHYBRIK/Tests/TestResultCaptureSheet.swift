@@ -422,7 +422,7 @@ struct TestResultCaptureSheet: View {
             // Zones changed → re-fetch the server-resolved profiles so the card
             // shows the REAL new umbral (never a client-side computation).
             if !res.zonesDerived.isEmpty {
-                newZoneProfiles = try? await ZonesService.fetch(bearer: bearer)
+                newZoneProfiles = try? await ZonesService.fetch(bearer: bearer).modalities
             }
         } catch {
             stage = .editing
@@ -435,7 +435,7 @@ struct TestResultCaptureSheet: View {
     /// card simply shows the new umbral without a delta.
     private func snapshotCurrentThresholds() async {
         guard let bearer, preThresholds.isEmpty else { return }
-        guard let profiles = try? await ZonesService.fetch(bearer: bearer) else { return }
+        guard let profiles = try? await ZonesService.fetch(bearer: bearer).modalities else { return }
         preThresholds = Dictionary(
             profiles.compactMap { p in p.thresholdS.map { (p.modality, $0) } },
             uniquingKeysWith: { _, latest in latest }

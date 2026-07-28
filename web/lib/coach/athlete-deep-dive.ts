@@ -17,6 +17,8 @@ import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-micr
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getDailyTssSeries, summarizeLoad, computeAcr } from '@/lib/training-load';
+import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
+import { HR_ANCHOR_LABEL, zoneForBpm } from '@fahybrid/shared/domain/methodology';
 import {
   getDemoDeepDive,
   getDemoFallback,
@@ -49,7 +51,7 @@ import type {
   RecentSession,
   SparkPoint,
   TrendsBlock,
-  ZoneTimePct,
+  ZoneTimeBlock,
 } from './deep-dive-types';
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
 import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
@@ -161,7 +163,9 @@ export async function buildAthleteDeepDive(
     atl: load.atl,
     tsb: load.tsb,
     acr,
-    z34_pct_7d: trends.zone_time.z3 + trends.zone_time.z4,
+    // Null when there are no zones: "he spent 0 % at threshold" and "we cannot
+    // tell what threshold means for him" are different sentences.
+    z34_pct_7d: trends.zone_time ? trends.zone_time.pct.z3 + trends.zone_time.pct.z4 : null,
   });
 
   const alerts = computeAlerts({
@@ -801,33 +805,48 @@ async function loadComplianceSeries(
   return out;
 }
 
-async function loadZoneTime(client: Sql, athlete_id: number, now: Date): Promise<ZoneTimePct> {
-  // Approximation: read raw HR samples last 7d via biometric_streams (metric=hr) +
-  // athlete max_hr from notes. If we can't compute, return zeroes.
-  const rows = await client<Array<{ z: number; n: number }>>`
-    with samples as (
-      select value_numeric::float as hr
-      from biometric_streams
-      where athlete_id = ${athlete_id}
-        and metric_type = 'hr'
-        and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
-    ),
-    classified as (
-      select case
-        when hr < 0.6  * 200 then 1
-        when hr < 0.7  * 200 then 2
-        when hr < 0.8  * 200 then 3
-        when hr < 0.9  * 200 then 4
-        else 5 end as z
-      from samples
-    )
-    select z, count(*)::int as n from classified group by z
+/**
+ * Time in each HR zone over the last 7 days.
+ *
+ * The bands come from `loadAthleteHrZones` — the SAME five the athlete's phone
+ * paints and the watch is alerted on. They used to be computed in the SQL as
+ * percentages of a hardcoded 200 bpm, so every athlete was bucketed against a
+ * maximum nobody had measured and few would have; a 44-year-old's easy run
+ * landed in "Z2" on this screen and in "Z3" on his own phone.
+ *
+ * Null when the athlete has no anchor: they have no zones, so there is no time
+ * in them. Classification happens in TypeScript rather than in the CASE so the
+ * band edges cannot drift from the model.
+ */
+async function loadZoneTime(client: Sql, athlete_id: number, now: Date): Promise<ZoneTimeBlock | null> {
+  const zones = await loadAthleteHrZones(athlete_id, client);
+  if (!zones) return null;
+
+  const rows = await client<Array<{ hr: number }>>`
+    select value_numeric::float as hr
+    from biometric_streams
+    where athlete_id = ${athlete_id}
+      and metric_type::text = 'hr'
+      and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
+      and value_numeric is not null
   `;
-  const total = rows.reduce((s, r) => s + r.n, 0);
-  if (total === 0) return { z2: 0, z3: 0, z4: 0, z5: 0 };
-  const map = new Map(rows.map((r) => [r.z, r.n]));
-  const pct = (z: number) => Math.round(((map.get(z) ?? 0) / total) * 100);
-  return { z2: pct(2), z3: pct(3), z4: pct(4), z5: pct(5) };
+
+  const counts = new Map<number, number>();
+  let total = 0;
+  for (const r of rows) {
+    const z = zoneForBpm(r.hr, zones);
+    if (z == null) continue;
+    counts.set(z, (counts.get(z) ?? 0) + 1);
+    total += 1;
+  }
+
+  const pct = (z: number) => (total > 0 ? Math.round(((counts.get(z) ?? 0) / total) * 100) : 0);
+  return {
+    pct: { z2: pct(2), z3: pct(3), z4: pct(4), z5: pct(5) },
+    lthr_bpm: zones.lthr_bpm,
+    estimated: zones.estimated,
+    source_label: HR_ANCHOR_LABEL[zones.source],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1096,7 +1115,7 @@ export async function appendNote(params: {
 // ---------------------------------------------------------------------------
 
 function buildCarga(input: {
-  ctl: number; atl: number; tsb: number; acr: number; z34_pct_7d: number;
+  ctl: number; atl: number; tsb: number; acr: number; z34_pct_7d: number | null;
 }): KpiCarga {
   return {
     ctl: round1(input.ctl), ctl_trend: 'flat',

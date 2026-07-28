@@ -42,8 +42,26 @@ final class AppleWorkoutMapperTests: XCTestCase {
         RunLeg(segment, phaseRole: role)
     }
 
-    private let measuredMax = HRMaxSource(bpm: 190, isEstimated: false)
-    private let estimatedMax = HRMaxSource(bpm: 190, isEstimated: true)
+    /// A zone profile exactly as the SERVER sends it: absolute bands off a threshold
+    /// of 170 ppm (0.82/0.88/0.89/0.94/0.95/1.02 · LTHR, the %LTHR model).
+    private static func profile(estimated: Bool) -> HRZoneProfile {
+        HRZoneProfile(
+            lthrBpm: 170,
+            estimated: estimated,
+            source: estimated ? "from_age" : "lthr_measured",
+            sourceLabel: estimated ? "Estimado por tu edad" : "Medido en tu test de umbral",
+            zones: [
+                HRZoneBand(zone: 1, code: "Z1", label: "Recuperación", minBpm: nil, maxBpm: 138, rangeLabel: "< 138 ppm"),
+                HRZoneBand(zone: 2, code: "Z2", label: "Aeróbico suave", minBpm: 139, maxBpm: 150, rangeLabel: "139–150 ppm"),
+                HRZoneBand(zone: 3, code: "Z3", label: "Aeróbico intenso", minBpm: 151, maxBpm: 160, rangeLabel: "151–160 ppm"),
+                HRZoneBand(zone: 4, code: "Z4", label: "Umbral", minBpm: 162, maxBpm: 173, rangeLabel: "162–173 ppm"),
+                HRZoneBand(zone: 5, code: "Z5", label: "VO₂ máx", minBpm: 175, maxBpm: 196, rangeLabel: "> 175 ppm"),
+            ]
+        )
+    }
+
+    private let measuredMax = profile(estimated: false)
+    private let estimatedMax = profile(estimated: true)
 
     // MARK: - Pace → speed (the inversion trap)
 
@@ -88,45 +106,48 @@ final class AppleWorkoutMapperTests: XCTestCase {
         XCTAssertNil(AppleWorkoutMapper.closedPaceBand(PaceTarget(single: nil, fastS: nil, slowS: nil)))
     }
 
-    // MARK: - HR zones leave as absolute bpm, and only from a MEASURED max
+    // MARK: - HR zones leave as absolute bpm, and only from a MEASURED threshold
 
-    func testHeartRateZoneResolvesToAnAbsoluteBandFromAMeasuredMax() {
-        // Z4 = 80–90% of max. With a measured 190 that is 152–171 bpm — a number the
-        // watch cannot reinterpret, unlike "Z4".
+    func testHeartRateZoneResolvesToTheServersAbsoluteBand() {
+        // The band is the server's, verbatim — the app does not compute one. A watch
+        // cannot reinterpret 162–173 ppm, unlike "Z4", whose meaning it would derive
+        // from its own FCmáx estimate.
         let alert = AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: measuredMax) as? HeartRateRangeAlert
         let range = try? XCTUnwrap(alert?.target)
-        XCTAssertEqual(range?.lowerBound.value ?? 0, 152, accuracy: 0.5)
-        XCTAssertEqual(range?.upperBound.value ?? 0, 171, accuracy: 0.5)
+        XCTAssertEqual(range?.lowerBound.value ?? 0, 162, accuracy: 0.5)
+        XCTAssertEqual(range?.upperBound.value ?? 0, 173, accuracy: 0.5)
     }
 
-    func testEstimatedMaxEmitsNoHeartRateBand() {
-        // A 220−age-style estimate is a number we made up. Shown in-app it carries a
-        // "genérica" caveat; pushed to the wrist as a hard target it would not — so
-        // it is not pushed at all.
+    func testEstimatedThresholdEmitsNoHeartRateBand() {
+        // An inferred threshold is a number nobody measured. Shown in-app it carries
+        // an "estimado" caveat; pushed to the wrist as a hard target it would not —
+        // so it is not pushed at all.
         XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: estimatedMax))
         XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: nil))
     }
 
-    func testZoneBandsCoverTheWholeScaleWithoutGaps() {
-        // The %HRmax thresholds live once (HRZone.percentOfMax) and feed BOTH the live
-        // classifier and this resolution — one zone's top is the next one's floor.
-        for (lower, upper) in zip(HRZone.allCases, HRZone.allCases.dropFirst()) {
-            XCTAssertEqual(lower.percentOfMax.upperBound, upper.percentOfMax.lowerBound, accuracy: 0.0001)
-        }
-        XCTAssertEqual(HRZoneClassifier.bpmBand(for: .z5, hrMax: 200), 180...200)
-        XCTAssertNil(HRZoneClassifier.bpmBand(for: .z4, hrMax: 0), "no max → no fabricated band")
+    func testTheAppNeverDerivesABandOfItsOwn() {
+        // Z1 has no floor, so it cannot become a two-sided target — and crucially the
+        // app has no formula to invent one with. A zone the server did not send is a
+        // zone the watch does not get.
+        XCTAssertNil(measuredMax.bpmBand(for: .z1), "Z1 is open at the bottom")
+        let empty = HRZoneProfile(
+            lthrBpm: 170, estimated: false, source: "lthr_measured", sourceLabel: "", zones: []
+        )
+        XCTAssertNil(empty.bpmBand(for: .z4), "no band → no fabricated band")
+        XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: empty))
     }
 
-    func testLiveClassifierStillAgreesWithTheThresholds() {
-        // The classifier was rewritten to read percentOfMax; its behaviour must be
-        // byte-for-byte what it was.
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 100, hrMax: 200), .z1) // 50%
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 120, hrMax: 200), .z2) // 60%
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 140, hrMax: 200), .z3) // 70%
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 160, hrMax: 200), .z4) // 80%
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 180, hrMax: 200), .z5) // 90%
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 210, hrMax: 200), .z5) // over max
-        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 150, hrMax: 0), .z1)   // no max
+    func testLiveClassifierReadsTheServersBands() {
+        // The same beat must land in the same zone here and on the server. These are
+        // the bands for a 170 ppm threshold.
+        XCTAssertEqual(measuredMax.zone(forBpm: 100), .z1)
+        XCTAssertEqual(measuredMax.zone(forBpm: 145), .z2)
+        XCTAssertEqual(measuredMax.zone(forBpm: 155), .z3)
+        XCTAssertEqual(measuredMax.zone(forBpm: 170), .z4)
+        XCTAssertEqual(measuredMax.zone(forBpm: 180), .z5)
+        XCTAssertEqual(measuredMax.zone(forBpm: 210), .z5, "above the cap is still Z5")
+        XCTAssertNil(measuredMax.zone(forBpm: 0), "a nonsense reading gets no zone")
     }
 
     // MARK: - RPE is never fabricated into a goal

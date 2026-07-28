@@ -8,7 +8,7 @@ import SwiftUI
 // together, sello included. "Nunca probado" is an invitation, not a sad empty.
 struct MarksLibraryView: View {
     let bearer: String?
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
 
     @State private var marks: [MarkView] = []
     @State private var loading = true
@@ -58,7 +58,7 @@ struct MarksLibraryView: View {
                                 MarkDetailView(
                                     slug: mark.slug,
                                     bearer: bearer,
-                                    hrMaxSource: hrMaxSource
+                                    hrZones: hrZones
                                 )
                             } label: {
                                 row(mark)

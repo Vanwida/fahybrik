@@ -81,7 +81,7 @@ struct FreeInicioView: View {
             // session appears in "Hecho hoy" and the week strip.
             FreeWorkoutBuilderView(
                 bearer: bearer,
-                hrMaxSource: identity?.hrMaxSource,
+                hrZones: identity?.hrZones,
                 onClose: { showFreeBuilder = false },
                 onCompleted: { Task { await store.planMutated() } }
             )
@@ -103,7 +103,7 @@ struct FreeInicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
-                hrMaxSource: identity?.hrMaxSource,
+                hrZones: identity?.hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     workoutLaunch = nil
@@ -238,7 +238,7 @@ struct FreeInicioView: View {
     private var marksCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MarksLibraryView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+                MarksLibraryView(bearer: bearer, hrZones: identity?.hrZones)
             } label: {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {

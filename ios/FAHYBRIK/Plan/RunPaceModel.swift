@@ -11,8 +11,9 @@ import Foundation
 // WorkoutSegment)` / `SegmentGoal.resolve(from:)` (need the segment's scalar
 // extensions) and the belt math (`TreadmillMath.paceSecPerKm` / `advanceDistance`,
 // need `TreadmillConstants`). They extend the SAME types declared here, so the
-// iPhone target compiles unchanged (same symbols, other file). HR-max resolution
-// is now the shared `PersonalHRMax` (Theme/ZoneColors.swift).
+// iPhone target compiles unchanged (same symbols, other file). HR zones are NOT
+// resolved on this side at all: the server sends the absolute bands and the app
+// paints them (`HRZoneProfile`, Theme/ZoneColors.swift).
 
 // MARK: - Clock formatting
 

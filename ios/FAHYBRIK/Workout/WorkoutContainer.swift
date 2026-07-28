@@ -42,20 +42,18 @@ struct WorkoutContainer: View {
     /// (title/modality/prescription + the engine's metrics) instead of the
     /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
     var freeContext: FreeWorkoutContext? = nil
-    /// The athlete's resolved max-HR source (from the cached identity: measured
-    /// FCmáx, else 220−age estimate, else nil) — the SINGLE input for HR zones,
-    /// threaded into the live engine and the treadmill/outdoor HUDs. Explicit param
-    /// because the AppDataStore environment does not cross the fullScreenCover this
-    /// container is presented inside (same reason `bearer` is passed explicitly).
-    var hrMaxSource: HRMaxSource? = nil
-
-    /// The max-HR source every session/HUD in this container actually uses. Safety
-    /// net: a launch path that dropped the profile (as the free builder once did)
-    /// must degrade to GENERIC zones — labeled "genérica" — never to NO zones.
-    /// resolve() with nothing known returns the generic adult default.
-    private var effectiveHRMaxSource: HRMaxSource? {
-        hrMaxSource ?? PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: nil, sex: nil)
-    }
+    /// The athlete's HR zones as the SERVER resolved them (from the cached
+    /// identity), threaded into the live engine and the treadmill/outdoor HUDs.
+    /// Explicit param because the AppDataStore environment does not cross the
+    /// fullScreenCover this container is presented inside (same reason `bearer`
+    /// is passed explicitly).
+    ///
+    /// NIL IS A VALID, EXPECTED STATE: the athlete has no zones yet. There used to
+    /// be a "safety net" here that turned nil into a generic 184 bpm max so the
+    /// bands would always resolve — that net is exactly how a fabricated number
+    /// ended up in the seconds-per-zone the coach reads. A session with no zones
+    /// simply records no zone time, and the HUD shows the pulse without a zone.
+    var hrZones: HRZoneProfile? = nil
 
     enum Phase: Equatable {
         case brief
@@ -182,7 +180,7 @@ struct WorkoutContainer: View {
                     plan: plan,
                     detail: detail,
                     onStart: { runEnv in
-                        let new = WorkoutSession(plan: plan, hrMaxSource: effectiveHRMaxSource)
+                        let new = WorkoutSession(plan: plan, hrZones: hrZones)
                         new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         new.runEnvironment = runEnv       // #8 — auto-open the chosen run HUD
                         session = new
@@ -202,7 +200,7 @@ struct WorkoutContainer: View {
                         // "Ya lo hice": skip ActiveWorkout entirely. Build a session
                         // with NO live laps and jump straight to the summary, which
                         // collects the result by hand and saves source='manual'.
-                        let new = WorkoutSession(plan: plan, hrMaxSource: effectiveHRMaxSource)
+                        let new = WorkoutSession(plan: plan, hrZones: hrZones)
                         session = new
                         manualEntry = true
                         Haptics.medium()
@@ -269,7 +267,7 @@ struct WorkoutContainer: View {
                             session.discardAndClose()
                             onClose()
                         },
-                        hrMaxSource: effectiveHRMaxSource,
+                        hrZones: hrZones,
                         bearer: bearer,
                         // #Marcas — the engine's pre-block erg gate drops its manual
                         // escape for a benchmark (no monitor → no mark to save).
@@ -455,7 +453,7 @@ struct WorkoutContainer: View {
         // brief + the assignment fetch and go straight to the live engine.
         if let free = freeContext {
             loadState = .ready(free.plan, nil)
-            let new = WorkoutSession(plan: free.plan, hrMaxSource: effectiveHRMaxSource)
+            let new = WorkoutSession(plan: free.plan, hrZones: hrZones)
             new.runEnvironment = free.runEnvironment   // #8 — chosen in the free builder
             session = new
             manualEntry = false
@@ -517,7 +515,7 @@ struct WorkoutContainer: View {
                         crashRecoveryPrompt = nil
                     }
                     PrimaryButton(title: "Recuperar") {
-                        let recovered = WorkoutSession(plan: saved.plan, hrMaxSource: effectiveHRMaxSource, startedAt: saved.startedAt)
+                        let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
                         recovered.assignmentId = saved.assignmentId   // AUDIT-1 — the gate ensured it matches
                         recovered.currentSegmentIndex = saved.currentSegmentIndex
                         recovered.elapsedSeconds = saved.elapsedSeconds

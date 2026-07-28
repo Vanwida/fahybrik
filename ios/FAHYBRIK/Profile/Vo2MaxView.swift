@@ -23,7 +23,7 @@ import SwiftUI
 
 struct Vo2MaxView: View {
     let bearer: String?
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
 
     @State private var data: AthleteVo2Max? = nil
     @State private var loading = true
@@ -40,7 +40,7 @@ struct Vo2MaxView: View {
         .navigationTitle("VO₂ máx")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $goToCooper) {
-            MarkDetailView(slug: Self.cooperSlug, bearer: bearer, hrMaxSource: hrMaxSource)
+            MarkDetailView(slug: Self.cooperSlug, bearer: bearer, hrZones: hrZones)
         }
         .task { await load() }
     }

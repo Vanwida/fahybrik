@@ -682,7 +682,7 @@ struct ProfileView: View {
             NavigationLink {
                 TestsHubView(
                     bearer: bearer,
-                    hrMaxSource: identity?.hrMaxSource,
+                    hrZones: identity?.hrZones,
                     onSessionCompleted: { Task { await store.planMutated() } }
                 )
             } label: {
@@ -740,7 +740,7 @@ struct ProfileView: View {
     private var marksCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MarksLibraryView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+                MarksLibraryView(bearer: bearer, hrZones: identity?.hrZones)
             } label: {
                 profileRowContent(
                     icon: "stopwatch",
@@ -761,7 +761,7 @@ struct ProfileView: View {
     private var vo2MaxCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                Vo2MaxView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+                Vo2MaxView(bearer: bearer, hrZones: identity?.hrZones)
             } label: {
                 profileRowContent(
                     icon: "lungs",
@@ -2037,8 +2037,9 @@ struct EditProfileView: View {
             v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
         } ?? "")
         // Seeded from the athlete's saved max HR — this editor is the ONLY entry
-        // point (starts empty for everyone until set here); empty → HR zones use
-        // the 220−age estimate.
+        // point (starts empty for everyone until set here). It is an INPUT the
+        // server may use to derive a threshold when there is no measured one; it
+        // is not itself a zone anchor. Empty and no date of birth → no zones.
         _maxHrText = State(initialValue: identity?.maxHrBpm.map(String.init) ?? "")
 
         _goalType = State(initialValue: identity?.goalType)
@@ -2085,7 +2086,7 @@ struct EditProfileView: View {
                                     .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
                             }
                         }
-                        Text("Tu FC máxima real personaliza las zonas de pulso. Si la dejas vacía, se calculan por tu edad y sexo (marcadas “genérica”). Añade tu fecha de nacimiento para que salgan.")
+                        Text("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
                             .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                             .padding(.horizontal, 4)
@@ -2302,7 +2303,7 @@ struct EditProfileView: View {
     private var parsedMaxHr: Int? {
         guard let d = parseDecimal(maxHrText) else { return nil }
         let i = Int(d.rounded())
-        return (i >= PersonalHRMax.minMeasuredBpm && i <= PersonalHRMax.maxMeasuredBpm) ? i : nil
+        return (i >= AthleteMaxHR.minBpm && i <= AthleteMaxHR.maxBpm) ? i : nil
     }
 
     private var hasBodyRangeWarning: Bool {

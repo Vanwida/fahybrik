@@ -319,7 +319,7 @@ final class AppDataStore {
         // from the athlete's own MEASURED FCmáx, so it needs the same resolved
         // source every other zone surface reads. Nil until identity loads; the
         // encoder then simply emits no HR band, never an invented one.
-        AppleWatchWorkoutScheduler.shared.hrMaxSource = identity.value?.hrMaxSource
+        AppleWatchWorkoutScheduler.shared.hrZones = identity.value?.hrZones
     }
 
     func refreshPlanWeek(force: Bool = false) async {

@@ -396,7 +396,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'aparatos',
     slug: 'zonas-de-pulso',
     title: 'Zonas de pulso personales',
-    blurb: 'La FC máxima real de tu atleta personaliza todas sus zonas; sin dato, se estiman por edad y se etiquetan.',
+    blurb: 'Sus zonas cuelgan del umbral, no de la FC máxima; sin ancla no hay zonas, y la app lo dice.',
     built: true,
   },
 ] as const;

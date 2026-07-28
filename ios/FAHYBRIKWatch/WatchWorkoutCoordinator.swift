@@ -106,12 +106,13 @@ final class WatchWorkoutCoordinator {
     /// the UI lands on the block preview (the athlete taps "Empezar bloque" to run).
     /// Only a SESSION day starts — a rest day never reaches here (its brief has no
     /// button), and the guard makes that structural (the DEBUG autostart seam too).
-    /// Build the engine's HR-max source from the pushed payload. The wire carries
-    /// only the resolved bpm (the phone already picked measured-vs-estimate); the
-    /// wrist never labels "estimada", so the flag is irrelevant here. Nil bpm → no
-    /// zones (the wrist shows HR without a zone, never a fabricated ceiling).
-    private static func hrMaxSource(from payload: WatchTodayPayload) -> HRMaxSource? {
-        payload.athleteHrMax.map { HRMaxSource(bpm: $0, isEstimated: false) }
+    /// The engine's HR zones come straight off the pushed payload — the server's
+    /// bands, verbatim. Nothing is rebuilt here: the wrist used to wrap a bare bpm
+    /// back into a profile and, in doing so, hardcoded `isEstimated: false` on a
+    /// number that was very often an estimate. Nil → no zones, which the engine
+    /// handles by recording no zone time.
+    private static func hrZones(from payload: WatchTodayPayload) -> HRZoneProfile? {
+        payload.athleteHrZones
     }
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
@@ -122,7 +123,7 @@ final class WatchWorkoutCoordinator {
               payload.dayKind == WatchDayKind.session else { return }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
-            hrMaxSource: Self.hrMaxSource(from: payload)
+            hrZones: Self.hrZones(from: payload)
         )
         launch(engine: engine, payload: payload)
     }
@@ -138,7 +139,7 @@ final class WatchWorkoutCoordinator {
         guard phase == .idle, MirrorSessionController.shared.state == .idle else { return }
         let engine = WorkoutSession(
             plan: snapshot.plan,
-            hrMaxSource: Self.hrMaxSource(from: payload),
+            hrZones: Self.hrZones(from: payload),
             startedAt: snapshot.startedAt
         )
         engine.currentSegmentIndex = snapshot.currentSegmentIndex

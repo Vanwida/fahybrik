@@ -22,7 +22,7 @@ import {
   AUTOPAUSA,
   CADENCIA_PRESCRITA_PPM,
   CUENTA_ATRAS_S,
-  FC_MAX,
+  UMBRAL_BPM,
   INCLINACION_PRESCRITA_PCT,
   OBJETIVO_SKM,
   SEGMENTO_TITULO,
@@ -106,7 +106,7 @@ export function HUDCalle({
   const ritmo = corriendo && conFix && !enRecuperacion && !parado ? ritmoCalleSkm(estado.legS) : null;
   const estadoObj = enRecuperacion ? 'sin-juicio' : estadoRitmo(ritmo);
   const bpm = corriendo ? pulsoEn(estado.legS + estado.idx * 60) : null;
-  const zona = bpm ? hrZone(bpm, FC_MAX) : null;
+  const zona = bpm ? hrZone(bpm, UMBRAL_BPM) : null;
 
   const cuerpo = (
     <div

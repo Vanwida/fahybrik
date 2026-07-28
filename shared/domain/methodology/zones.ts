@@ -25,6 +25,7 @@
 // identically. Output is a Target the existing targetSchema (0043) accepts.
 
 import type { Modality, Target } from '../prescription/types';
+import { hrBandFor, resolveHrZones, type HrZone } from './hr-zones';
 import {
   resolveZonesForAthlete,
   findResolvedZone,
@@ -62,11 +63,12 @@ export interface AthleteBenchmarks {
 }
 
 // ── Zone model (spec §5; pace zones extended to 6 — migration 0061) ──────────
-// HR zones stay a 5-zone %LTHR model (an HR target kind is 1-5 in the
-// prescription schema). PACE zones are the 6-zone OFFSET model: every pace zone
-// is an offset band in seconds from the threshold (test) pace, single-sourced as
-// methodology_zones rows. Z6 = Sprint / máxima potencia.
-export type HrZone = 1 | 2 | 3 | 4 | 5;
+// HR zones are the 5-zone %LTHR model, single-sourced in `hr-zones.ts` (the SAME
+// bands the athlete's phone and the coach's analytics paint — see that file's
+// header for why there is exactly one). PACE zones are the 6-zone OFFSET model:
+// every pace zone is an offset band in seconds from the threshold (test) pace,
+// single-sourced as methodology_zones rows. Z6 = Sprint / máxima potencia.
+export type { HrZone };
 export type PaceZone = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface ResolvedTarget {
@@ -77,21 +79,10 @@ export interface ResolvedTarget {
 
 // HYROX run is 8 × 1000 m (spec §5: race pace = goal_time / 8000 m).
 const HYROX_RUN_METERS = 8000;
-// Tanaka HRmax fallback: 208 − 0.7·age (spec writes 207−0.7; Tanaka is 208−0.7,
-// the published value — used so the estimate is the real formula, not a typo).
-const TANAKA_INTERCEPT = 208;
-const TANAKA_SLOPE = 0.7;
-// LTHR fallback from HRmax (spec §5): LTHR ≈ 0.88 · HRmax.
-const LTHR_FROM_HRMAX = 0.88;
 
-// HR zones as fraction of LTHR (spec §5 hr_zone_matrix). [lower, upper] of LTHR.
-const HR_ZONE_FRACTIONS: Record<HrZone, { lo: number; hi: number }> = {
-  1: { lo: 0.0, hi: 0.81 },
-  2: { lo: 0.82, hi: 0.88 },
-  3: { lo: 0.89, hi: 0.94 },
-  4: { lo: 0.95, hi: 1.02 },
-  5: { lo: 1.03, hi: 1.15 }, // open-ended ≥1.03; capped at a sane physiological hi
-};
+// The HR anchor chain (measured LTHR → 0.88·max → 0.88·Tanaka) and the zone
+// fractions live in `hr-zones.ts`. They are NOT duplicated here: this module
+// resolves a coach LABEL, and for the HR axis that means asking the one model.
 
 // ── Standard 6-zone offset bands (the SEEDED default — migration 0061) ───────
 // These are the SAME numbers migration 0061 seeds into methodology_zones, kept
@@ -146,18 +137,6 @@ const BIKE_FTP_FRACTIONS: Record<PaceZone, { lo: number; hi: number }> = {
 const HR_ZONE_Z6_FALLBACK: HrZone = 5;
 
 // ── Anchor derivations ──────────────────────────────────────────────────────
-
-/** Resolve LTHR with the documented fallback chain (spec §5). */
-function resolveLthr(b: AthleteBenchmarks): { lthr: number; estimated: boolean; source: string } | null {
-  if (b.lthr_bpm != null) return { lthr: b.lthr_bpm, estimated: false, source: 'lthr_bpm' };
-  if (b.max_hr_bpm != null)
-    return { lthr: b.max_hr_bpm * LTHR_FROM_HRMAX, estimated: true, source: 'lthr≈0.88·max_hr_bpm' };
-  if (b.age_years != null) {
-    const hrmax = TANAKA_INTERCEPT - TANAKA_SLOPE * b.age_years;
-    return { lthr: hrmax * LTHR_FROM_HRMAX, estimated: true, source: 'lthr≈0.88·Tanaka(age)' };
-  }
-  return null;
-}
 
 /** pace5K in s/km from the run anchors, with fallbacks (spec §5). */
 function resolvePace5kPerKm(b: AthleteBenchmarks): { s_per_km: number; source: string } | null {
@@ -328,18 +307,24 @@ export function parseZoneLabel(raw: string): ZoneLabel | null {
 // ── Target construction ─────────────────────────────────────────────────────
 
 function hrTarget(zone: HrZone, b: AthleteBenchmarks): ResolvedTarget | null {
-  const l = resolveLthr(b);
-  if (!l) {
-    // No HR data at all → return the zone itself; caller decides if usable.
+  // ONE model: the same bands the athlete's phone paints and the coach's
+  // time-in-zone counts against. A watch must never receive a band this file
+  // computed on its own terms.
+  const zones = resolveHrZones(b);
+  if (!zones) {
+    // No anchor at all → return the zone itself; the caller leaves the step open
+    // and keeps the label, rather than inventing a band (watch-workout does).
     return { target: { kind: 'hr_zone', value: zone }, source: 'hr_zone(no_anchor)', estimated: true };
   }
-  const f = HR_ZONE_FRACTIONS[zone];
-  const min = Math.round(l.lthr * f.lo);
-  const max = Math.round(l.lthr * f.hi);
+  const band = hrBandFor(zone, zones);
+  if (!band) return { target: { kind: 'hr_zone', value: zone }, source: 'hr_zone(no_band)', estimated: true };
   // Z1 is open-ended at the bottom → no min bound. exactOptionalPropertyTypes:
   // omit the key entirely rather than set it to undefined.
-  const target: Target = zone === 1 ? { kind: 'hr_bpm', max } : { kind: 'hr_bpm', min, max };
-  return { target, source: l.source, estimated: l.estimated };
+  const target: Target =
+    band.min_bpm == null
+      ? { kind: 'hr_bpm', max: band.max_bpm }
+      : { kind: 'hr_bpm', min: band.min_bpm, max: band.max_bpm };
+  return { target, source: zones.source, estimated: zones.estimated };
 }
 
 /**

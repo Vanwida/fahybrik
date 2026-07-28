@@ -14,10 +14,14 @@ enum WorkoutCompleteness: String {
 @Observable
 final class WorkoutSession {
     let plan: WorkoutPlan
-    /// The athlete's resolved max-HR source (personal measured, else 220−age
-    /// estimate, else nil). Drives `liveZone` + time-in-zone. Nil → no zones
-    /// (we never fabricate a max — previously this was a hardcoded 190).
-    let hrMaxSource: HRMaxSource?
+    /// The athlete's HR zones as the SERVER resolved them (absolute bpm bands off
+    /// their threshold). Drives `liveZone` + time-in-zone.
+    ///
+    /// Nil → NO zones, and the session records no time in them. That is now true
+    /// end to end: this doc used to claim "we never fabricate a max" while the
+    /// only construction path handed the engine a generic 184 bpm, so every
+    /// second-in-zone the coach read was bucketed against a number nobody measured.
+    let hrZones: HRZoneProfile?
     let startedAt: Date
     /// AUDIT-1 — the backend assignment this session logs to, stamped onto the
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
@@ -400,9 +404,9 @@ final class WorkoutSession {
     // segment is re-closed, so a back-step never silently drops recorded work.
     private var reopenedLap: LapRecord? = nil
 
-    init(plan: WorkoutPlan, hrMaxSource: HRMaxSource? = nil, startedAt: Date = Date()) {
+    init(plan: WorkoutPlan, hrZones: HRZoneProfile? = nil, startedAt: Date = Date()) {
         self.plan = plan
-        self.hrMaxSource = hrMaxSource
+        self.hrZones = hrZones
         self.startedAt = startedAt
     }
 
@@ -615,12 +619,12 @@ final class WorkoutSession {
 
     var liveZone: HRZone? {
         guard let bpm = liveHRBpm else { return nil }
-        return PersonalHRMax.zone(forBpm: bpm, source: hrMaxSource)
+        return hrZones?.zone(forBpm: bpm)
     }
 
-    /// True when the live/desglose zones come from the 220−age estimate (label
-    /// them "estimada"); false when driven by the athlete's measured max.
-    var hrZonesEstimated: Bool { hrMaxSource?.isEstimated ?? false }
+    /// True when the THRESHOLD behind these bands was inferred rather than measured
+    /// (label them "estimado"); false when it came from the athlete's own test.
+    var hrZonesEstimated: Bool { hrZones?.estimated ?? false }
 
     func start() {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may

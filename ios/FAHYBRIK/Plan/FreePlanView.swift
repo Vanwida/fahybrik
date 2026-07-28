@@ -58,7 +58,7 @@ struct FreePlanView: View {
     private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
     /// The athlete's resolved max-HR source — every «Probarme» door threads it in
     /// so a live attempt gets his HR zones and not a generic guess.
-    private var hrMaxSource: HRMaxSource? { store.identity.value?.hrMaxSource }
+    private var hrZones: HRZoneProfile? { store.identity.value?.hrZones }
     private var targetRace: AthleteNextRace? { planWeek?.targetRace }
     private var pastRaces: [ImportedRace] { store.racesHub.value?.past ?? [] }
 
@@ -406,7 +406,7 @@ struct FreePlanView: View {
     private var startersCard: some View {
         let steps = starterMarks
         if !steps.isEmpty {
-            FreePlanStartersCard(steps: steps, bearer: bearer, hrMaxSource: hrMaxSource)
+            FreePlanStartersCard(steps: steps, bearer: bearer, hrZones: hrZones)
         } else if marksFailed {
             marksFailedCard
         }
@@ -440,7 +440,7 @@ struct FreePlanView: View {
     private var starterCTA: some View {
         if let first = starterMarks.first {
             NavigationLink {
-                MarkDetailView(slug: first.slug, bearer: bearer, hrMaxSource: hrMaxSource)
+                MarkDetailView(slug: first.slug, bearer: bearer, hrZones: hrZones)
             } label: {
                 Text("Empezar por \(FreePlanCopy.ctaName(first))")
                     .font(.system(size: 16, weight: .heavy).italic())
@@ -476,7 +476,7 @@ struct FreePlanView: View {
                 measured: measuredMarks,
                 missing: missingMarks,
                 bearer: bearer,
-                hrMaxSource: hrMaxSource
+                hrZones: hrZones
             )
         }
     }

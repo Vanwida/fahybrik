@@ -2,12 +2,17 @@
 //
 // Computes the athlete's running deep-dive bundle from EXISTING training data
 // (segment_executions where modality resolves to 'run') plus a Jack-Daniels VDOT
-// derived from their stored `run_5k` benchmark. Output shape mirrors the iOS
+// derived from their measured running marks. Output shape mirrors the iOS
 // `RunningAnalysis` Codable contract (snake_case; pre-formatted display strings).
 //
+// The VDOT comes from `selectRunMark` — the SAME selector the race projection and
+// the free plan read, so the number on Inicio and the number setting the plan's
+// paces are one number. It used to be "the newest run_5k row, whatever its
+// provenance", which put a VDOT on screen off marks the projection refused.
+//
 // HONEST NULLS: anything we cannot measure yet is null / empty, never faked.
-//   • threshold_pace / vo2_estimate / pace_zones → only when a run_5k benchmark
-//     exists (VDOT input). No benchmark → null / [].
+//   • vo2_estimate / pace_zones → only when the athlete has a MEASURED running
+//     mark. No admissible mark → null / [].
 //   • best_1k / weekly_volume_km / splits / progression → from real executions;
 //     empty when the athlete has no run segments.
 //   • training → [] (the session→station linkage isn't a clean single source
@@ -19,7 +24,15 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { computeVdot, RUN_5K_METERS } from '@fahybrid/shared/domain/running/vdot';
+import { trainingPacesForVdot } from '@fahybrid/shared/domain/running/vdot';
+import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
+import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+
+/** The running marks the VDOT can be read off — the catalogue decides, not a
+ *  hand-written list, so a new mark is admissible the day it is added. */
+const RUN_MARK_SLUGS: readonly string[] = MARKS.filter(
+  (m) => m.group === 'run' || m.group === 'race',
+).map((m) => m.slug);
 
 // ── Wire contract (matches iOS RunningAnalysis) ─────────────────────────────
 
@@ -173,23 +186,30 @@ export async function buildRunningAnalysis(
   const athleteId = Number(args.athlete_id);
   const mod = SEG_MODALITY_SQL(client);
 
-  // ── VDOT-derived tiles (threshold / VO₂ / pace zones) ──────────────────────
-  // Source = the athlete's stored run_5k benchmark (seconds), the same canonical
-  // (exercise_slug, unit) the onboarding submit writes.
-  const benchRows = await client<Array<{ value: string }>>`
-    select value::text as value
+  // ── VDOT-derived tiles (VO₂ estimate / pace zones) ─────────────────────────
+  // Source = `selectRunMark`, the one selector. It reads every running mark the
+  // athlete has MEASURED and picks the one that needs the least stretching — the
+  // same winner the plan's paces come from, so Inicio and the plan agree.
+  const markRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
+    select
+      exercise_slug,
+      value::text as value,
+      (current_date - recorded_at::date)::int as age_days,
+      source,
+      run_context
     from athlete_benchmarks
     where athlete_id = ${athleteId}
-      and exercise_slug = 'run_5k'
-      and unit = 'seconds'
+      and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
     order by recorded_at desc
-    limit 1
   `;
-  const fiveKSeconds = benchRows[0] ? num(benchRows[0].value) : null;
-  const vdot =
-    fiveKSeconds != null && fiveKSeconds > 0
-      ? computeVdot({ distance_meters: RUN_5K_METERS, duration_seconds: fiveKSeconds })
-      : null;
+  const runMark = selectRunMark(
+    markRows.flatMap((r) => {
+      const value = num(r.value);
+      if (value == null || !Number.isFinite(value)) return [];
+      return [{ slug: r.exercise_slug, value, age_days: r.age_days, source: r.source, run_context: r.run_context }];
+    }),
+  );
+  const vdotPaces = runMark ? trainingPacesForVdot(runMark.vdot) : null;
 
   // ── 5 km trend (run_5k benchmark history, oldest→newest) ───────────────────
   // The full versioned history of the same canonical (slug, unit) the latest-row
@@ -230,9 +250,9 @@ export async function buildRunningAnalysis(
   let vo2_estimate: string | null = null;
   let pace_zones: RunningPaceZoneDTO[] = [];
 
-  if (vdot) {
-    const p = vdot.paces;
-    vo2_estimate = `${vdot.vdot.toFixed(1)}`;
+  if (runMark && vdotPaces) {
+    const p = vdotPaces;
+    vo2_estimate = `${runMark.vdot.toFixed(1)}`;
     // Map Daniels paces onto the deep-dive's Z2–Z5 rows. Threshold (Z4) is the
     // accented row. Each row shows a small band around the canonical pace so the
     // athlete reads a target range, not a single brittle number.

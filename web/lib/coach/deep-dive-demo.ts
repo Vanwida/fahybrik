@@ -113,7 +113,12 @@ const MARC_TRENDS: TrendsBlock = {
   compliance_pct: 86,
   compliance_done: 26,
   compliance_total: 30,
-  zone_time: { z2: 24, z3: 38, z4: 31, z5: 7 },
+  zone_time: {
+    pct: { z2: 24, z3: 38, z4: 31, z5: 7 },
+    lthr_bpm: 168,
+    estimated: false,
+    source_label: 'Medido en tu test de umbral',
+  },
 };
 
 const MARC_MODALITY: ModalityDistribution = {

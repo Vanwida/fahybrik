@@ -7,7 +7,7 @@
 // that loop — a measured mark, re-expressed as what the athlete would sustain at
 // the distance the RACE actually asks for.
 //
-// TWO CONVERSIONS, TWO PUBLISHED MODELS, ZERO INVENTED CONSTANTS
+// THREE CONVERSIONS, THREE PUBLISHED MODELS, ZERO INVENTED CONSTANTS
 //
 //   Running — Daniels & Gilbert (domain/running/vdot), already in this repo. A
 //     mark of any distance becomes a VDOT, and the VDOT becomes the pace that
@@ -18,14 +18,28 @@
 //   Ergs — a Riegel endurance exponent. A 500 m time doubled is not a 1000 m
 //     time; nobody holds a 500 m pace for twice the distance.
 //
+//   Cooper → VO₂max — Cooper's own regression, a DIFFERENT quantity from the
+//     VDOT above (see `selectCooperVo2max`). It lives here, next to the run
+//     selection, because it must obey the same evidence rule.
+//
 // WHAT IS DELIBERATELY REFUSED: marks whose provenance is `onboarding` (declared
 // at signup, never a measurement — migration 0139 says so in as many words) or
 // `unknown` (historic rows, demo seeds). Same rule as `is_synthetic` for races:
 // a number nobody measured never becomes evidence.
+//
+// THE RULE IS SINGLE-SOURCED HERE. `selectRunMark` / `selectCooperVo2max` are the
+// only two places that decide which rows count and which one wins. Surfaces that
+// read a benchmark straight out of SQL and ranked it themselves is how the app
+// ended up printing a VDOT off a mark the projection refused.
 
 import type { MeasuredCapacity } from '../evidence';
 import { ERG_PACE_UNIT_METERS, ERG_RACE_SPLIT_METERS } from '../race-transfer/types';
-import { paceForRaceDistance, vdotFromEffort, vdotFromWatchVo2max } from '../running/vdot';
+import {
+  paceForRaceDistance,
+  vdotFromEffort,
+  vdotFromWatchVo2max,
+  vo2maxFromCooperMeters,
+} from '../running/vdot';
 import { markBySlug, type MarkSpec } from './marks';
 
 // ── The distances the race asks for ──────────────────────────────────────────
@@ -144,21 +158,38 @@ function betterCandidate<T extends { stretch: number; weakened: boolean; age_day
 // ── Running ──────────────────────────────────────────────────────────────────
 
 /**
- * The athlete's running level for the race's 8 km, from their best-suited mark.
+ * The winning run mark, with everything derived from it. Generic over the row so
+ * a caller that loaded extra columns (a recorded date, a row id) gets its OWN row
+ * back and can read them without this module knowing they exist.
+ */
+export interface SelectedRunMark<T extends MarkRow> {
+  /** The row that won the selection, verbatim. */
+  row: T;
+  /** Its catalog spec — `spec.label` is the athlete-facing name of the mark. */
+  spec: MarkSpec;
+  /** Daniels VDOT implied by the effort (a pace model, NOT a VO₂max — see below). */
+  vdot: number;
+  /** The pace that VDOT sustains over the race's 8 km, seconds per km. */
+  pace_s_per_km: number;
+  /** Belt or self-reported → one notch of confidence. */
+  weakened: boolean;
+}
+
+/**
+ * THE run mark the model trusts most — the single selection rule.
  *
  * Every running mark in the catalog is admissible — 1 km, Cooper, 5 K, and the
  * registered 10 K / half / marathon — because Daniels converts all of them onto
  * the same scale. The one that wins is the one that needs the least stretching.
+ *
+ * This is the ONLY place that decides (a) which rows count as evidence and (b)
+ * which of them wins. Every surface that shows a VDOT or prescribes a pace from
+ * one goes through here, so the number governing the plan and the number on the
+ * athlete's screen cannot be two different numbers — the bug that had Inicio
+ * printing a VDOT off a `unknown`-provenance 5 K the projection refused outright.
  */
-export function projectRunMark(rows: readonly MarkRow[]): ProjectedMark | null {
-  let best: {
-    stretch: number;
-    weakened: boolean;
-    age_days: number | null;
-    outdoor: boolean;
-    pace_s_per_km: number;
-    slug: string;
-  } | null = null;
+export function selectRunMark<T extends MarkRow>(rows: readonly T[]): SelectedRunMark<T> | null {
+  let best: (SelectedRunMark<T> & { stretch: number; age_days: number | null; outdoor: boolean }) | null = null;
 
   for (const row of rows) {
     const spec = markBySlug(row.slug);
@@ -173,26 +204,98 @@ export function projectRunMark(rows: readonly MarkRow[]): ProjectedMark | null {
     if (pace == null) continue;
 
     const candidate = {
-      stretch: extrapolationCost(effort.distance_meters, HYROX_RUN_TOTAL_METERS),
+      row,
+      spec,
+      vdot,
+      pace_s_per_km: pace,
       weakened: isWeakened(row, spec),
+      stretch: extrapolationCost(effort.distance_meters, HYROX_RUN_TOTAL_METERS),
       age_days: row.age_days,
       // A registered road race has no `run_context`; it is street running by
       // definition, so only an explicit treadmill flag loses the tie-break.
       outdoor: row.run_context !== 'treadmill',
-      pace_s_per_km: pace,
-      slug: spec.slug,
     };
     best = best == null ? candidate : betterCandidate(best, candidate);
   }
 
+  return best;
+}
+
+/**
+ * The athlete's running level for the race's 8 km, from their best-suited mark.
+ * A thin read of `selectRunMark` in the shape the cross consumes.
+ */
+export function projectRunMark(rows: readonly MarkRow[]): ProjectedMark | null {
+  const best = selectRunMark(rows);
   if (!best) return null;
   return {
     value_s: best.pace_s_per_km,
     source: 'marca',
-    age_days: best.age_days,
+    age_days: best.row.age_days,
     weakened: best.weakened,
-    from_slug: best.slug,
+    from_slug: best.spec.slug,
   };
+}
+
+// ── Cooper → VO₂max (a DIFFERENT quantity from the VDOT above) ────────────────
+//
+// The Cooper is the one mark that yields BOTH numbers, and they are not the same
+// number. Cooper (1968) fitted the 12-minute distance against VO₂max measured in
+// a lab, so `vo2maxFromCooperMeters` estimates that physiological ceiling
+// directly. Daniels' VDOT is a pace model that happens to share the units: it
+// folds running economy in and, for a 12-minute all-out, reads several points
+// lower. 2800 m is 51.3 as a VO₂max and 43.9 as a VDOT — both correct, of
+// different quantities.
+//
+// So they are kept apart on purpose: the VO₂max can carry the headline next to
+// the watch's reading (same quantity, comparable), the VDOT never can. What is
+// shared is the EVIDENCE RULE — same provenance filter, same freshest-wins
+// tie-break — so the two numbers can at least be talking about the same test.
+
+/** The Cooper row a VO₂max is read off, with the value it implies. */
+export interface SelectedCooper<T extends MarkRow> {
+  row: T;
+  /** ml/kg/min, via Cooper's published regression. */
+  vo2max: number;
+}
+
+/**
+ * THE Cooper the athlete's VO₂max is read from: the most RECENT admissible one,
+ * not the longest.
+ *
+ * VO₂max is a statement about the engine today — it sits beside a 90-day watch
+ * series and a "vs tu media" delta, both of which a personal best from March
+ * would poison. The record lives in Marcas, where "best" is the right question;
+ * here the right question is "what is it now". Same tie-break the run selection
+ * uses, so a Cooper that wins one wins the other.
+ */
+export function selectCooperVo2max<T extends MarkRow>(rows: readonly T[]): SelectedCooper<T> | null {
+  let best: { row: T; vo2max: number; age_days: number | null; weakened: boolean } | null = null;
+
+  for (const row of rows) {
+    const spec = markBySlug(row.slug);
+    if (!usable(row, spec)) continue;
+    if (spec.fixed_duration_s == null) continue; // the Cooper is the only fixed-clock mark
+    const vo2max = vo2maxFromCooperMeters(row.value);
+    if (vo2max == null) continue;
+
+    const candidate = { row, vo2max, age_days: row.age_days, weakened: isWeakened(row, spec) };
+    if (best == null) {
+      best = candidate;
+      continue;
+    }
+    // Same ordering as the run tie-break, minus the (constant) stretch and context
+    // axes: measured over reported, then freshest.
+    if (best.weakened !== candidate.weakened) {
+      best = best.weakened ? candidate : best;
+      continue;
+    }
+    const bestAge = best.age_days ?? Number.POSITIVE_INFINITY;
+    const candAge = candidate.age_days ?? Number.POSITIVE_INFINITY;
+    if (candAge < bestAge) best = candidate;
+  }
+
+  return best ? { row: best.row, vo2max: best.vo2max } : null;
 }
 
 /**

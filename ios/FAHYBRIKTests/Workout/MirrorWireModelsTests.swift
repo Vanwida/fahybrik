@@ -13,7 +13,7 @@ final class MirrorWireModelsTests: XCTestCase {
             phase: phase, blockTitle: "Series", lineTitle: "800 m",
             detailLine: "4:25–4:35 /km", progressText: "TRAMO 1/3",
             sessionElapsed: 42, lapElapsed: 7, countdownRemaining: countdown,
-            targetZone: 2, restRemaining: nil
+            targetZone: 2, isFinalStep: nil, restRemaining: nil
         )
     }
 

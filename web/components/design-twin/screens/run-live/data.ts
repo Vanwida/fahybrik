@@ -22,8 +22,8 @@ export const ETIQUETA_GPS: Record<CalidadGPS, string> = {
 // El bloque de ejemplo — 4×1000 m @ 4:35 /km, descanso 2'
 // ---------------------------------------------------------------------------
 
-/** FCmáx del atleta de ejemplo (PersonalHRMax resuelve la zona contra esto). */
-export const FC_MAX = 190;
+/** Umbral (LTHR) del atleta de ejemplo — el servidor resuelve las zonas contra esto. */
+export const UMBRAL_BPM = 168;
 
 /** Ritmo objetivo del tramo, s/km (PaceTarget.single = 4:35). */
 export const OBJETIVO_SKM = 275;

@@ -3,12 +3,12 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, startOfDayInBox } from '@fahybrid/shared/domain/dates';
-import { BENCH_COOPER_12MIN } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import {
-  RUN_5K_METERS,
-  computeVdot,
-  vo2maxFromCooperMeters,
-} from '@fahybrid/shared/domain/running/vdot';
+  selectCooperVo2max,
+  selectRunMark,
+  type MarkRow,
+} from '@fahybrid/shared/domain/athlete/mark-projection';
 
 // VO₂ MÁX — the athlete's own aerobic number, assembled ONCE, server-side.
 //
@@ -17,26 +17,56 @@ import {
 //
 //   · the WATCH VO₂max (biometric_streams.vo2max), which arrives on its own and
 //     is the number people recognise from Apple and Garmin;
-//   · a VDOT derived from the athlete's own 5 km mark (Daniels), which the
-//     running analysis already surfaces on Inicio.
+//   · a VDOT derived from the athlete's own running mark (Daniels), which the
+//     running analysis already surfaces on Inicio and which sets the paces of
+//     the plan.
 //
 // They are computed differently and will differ. Deciding which one leads in the
 // VIEW would mean deciding it in every view; so the rule lives here, once:
 //
 //   HEADLINE = the watch's, when there is one.
 //   HEADLINE = the Cooper 12 min, when there is no watch — a real MEASUREMENT of
-//              the same quantity (see vo2maxFromCooperMeters), which is exactly
-//              why the empty state can send an athlete without a watch to do one.
+//              the same quantity (Cooper's regression was fitted against VO₂max
+//              measured in a lab), which is exactly why the empty state can send
+//              an athlete without a watch to do one.
 //   VDOT     = never the headline. It is a pace model that shares the units, so
-//              it travels alongside, labelled with where it came from.
+//              it travels alongside, labelled with the mark it came from.
 //
 // They are NEVER averaged. Each carries its own provenance so the athlete can
 // see why two numbers of the same family are not the same number.
+//
+// WHICH MARK EACH ONE READS is NOT decided here. Both go through the selectors in
+// `shared/domain/athlete/mark-projection`, the same ones the race projection and
+// the free plan use — same provenance filter (an `onboarding`/`unknown` row is
+// not evidence), same tie-break. Before that, this module ranked its own rows:
+// it took the LONGEST Cooper while the projection took the freshest, and it took
+// any 5 K at all while the projection refused unmeasured ones. Two numbers of the
+// same name off two different tests is the bug this file exists to prevent.
 
 /** Window the trend covers. VO₂max moves over weeks, so it needs a wide one. */
 const WINDOW_DAYS = 90;
 /** Distinct days with a reading below which a line is noise, not a trend. */
 const MIN_TREND_DAYS = 4;
+
+/** The closed mark catalogue — nothing outside it can be evidence. */
+const MARK_SLUGS: readonly string[] = MARKS.map((m) => m.slug);
+
+/** One `athlete_benchmarks` row as it comes back from SQL (all text/int). */
+type BenchmarkRow = {
+  exercise_slug: string;
+  value: string;
+  age_days: number | null;
+  recorded_on: string;
+  source: string;
+  run_context: string | null;
+};
+
+/**
+ * A `MarkRow` carrying the date the screen shows. The selectors are generic over
+ * the row, so the extra column survives the selection and comes back on the
+ * winner — no second query to find out WHEN the winning mark happened.
+ */
+type DatedMarkRow = MarkRow & { recorded_on: string };
 
 export type Vo2MaxSource = 'watch' | 'cooper';
 
@@ -83,48 +113,46 @@ export async function buildAthleteVo2Max(params: {
     .filter((r): r is { d: string; v: number } => r.v != null)
     .map((r) => ({ iso_date: r.d, value: round1(r.v) }));
 
-  // The athlete's best Cooper: the mark IS the distance covered, and it is the
-  // only higher-is-better mark in the catalogue, so "best" is the maximum.
-  const cooperRows = await client<Array<{ meters: string; recorded_on: string }>>`
-    select value::text as meters, to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
+  // ONE read of the mark catalogue, then the shared selectors decide. The
+  // provenance filter lives in the pure projection, so this stays a plain read —
+  // the same division of labour `race-transfer` already uses.
+  const markRows = await client<BenchmarkRow[]>`
+    select
+      exercise_slug,
+      value::text as value,
+      (current_date - recorded_at::date)::int as age_days,
+      to_char(recorded_at, 'YYYY-MM-DD') as recorded_on,
+      source,
+      run_context
     from athlete_benchmarks
     where athlete_id = ${athleteId}
-      and exercise_slug = ${BENCH_COOPER_12MIN}
-      and unit = 'meters'
-    order by value desc, recorded_at desc
-    limit 1
-  `;
-  const cooper = cooperRows[0]
-    ? {
-        vo2max: vo2maxFromCooperMeters(Number(cooperRows[0].meters)),
-        recorded_on: cooperRows[0].recorded_on,
-      }
-    : null;
-
-  // The 5 km mark → VDOT. The same canonical (slug, unit) the running analysis
-  // reads, and the SAME `computeVdot`, so the two surfaces can never print
-  // different VDOTs for the same athlete.
-  const fiveKRows = await client<Array<{ seconds: string; recorded_on: string }>>`
-    select value::text as seconds, to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
-    from athlete_benchmarks
-    where athlete_id = ${athleteId}
-      and exercise_slug = 'run_5k'
-      and unit = 'seconds'
+      and exercise_slug = any(${MARK_SLUGS}::text[])
     order by recorded_at desc
-    limit 1
   `;
-  const fiveKSeconds = fiveKRows[0] ? Number(fiveKRows[0].seconds) : null;
-  const vdotValue =
-    fiveKSeconds != null && fiveKSeconds > 0
-      ? computeVdot({ distance_meters: RUN_5K_METERS, duration_seconds: fiveKSeconds })?.vdot ?? null
-      : null;
+  const marks: DatedMarkRow[] = markRows.flatMap((r) => {
+    const value = Number(r.value);
+    if (!Number.isFinite(value)) return [];
+    return [
+      {
+        slug: r.exercise_slug,
+        value,
+        age_days: r.age_days,
+        source: r.source,
+        run_context: r.run_context,
+        recorded_on: r.recorded_on,
+      },
+    ];
+  });
+
+  const cooper = selectCooperVo2max(marks);
+  const runMark = selectRunMark(marks);
 
   const latest = series.length ? series[series.length - 1]! : null;
   let headline: AthleteVo2Max['headline'] = null;
   if (latest) {
     headline = { value: latest.value, source: 'watch', measured_on: latest.iso_date };
-  } else if (cooper?.vo2max != null) {
-    headline = { value: cooper.vo2max, source: 'cooper', measured_on: cooper.recorded_on };
+  } else if (cooper) {
+    headline = { value: cooper.vo2max, source: 'cooper', measured_on: cooper.row.recorded_on };
   }
 
   return {
@@ -133,10 +161,16 @@ export async function buildAthleteVo2Max(params: {
     // number without a chart rather than a shape that means nothing.
     series: series.length >= MIN_TREND_DAYS ? series : [],
     baseline: baselineOf(series),
-    vdot:
-      vdotValue != null && fiveKRows[0]
-        ? { value: vdotValue, mark_label: '5 km', recorded_on: fiveKRows[0].recorded_on }
-        : null,
+    // The mark label is the one that actually won, never a hardcoded "5 km": the
+    // athlete has to be able to tell which of their tests this number came from,
+    // and after a Cooper the same test feeds both numbers on this screen.
+    vdot: runMark
+      ? {
+          value: runMark.vdot,
+          mark_label: runMark.spec.label,
+          recorded_on: runMark.row.recorded_on,
+        }
+      : null,
   };
 }
 

@@ -62,8 +62,9 @@ enum TreadmillConstants {
     // (FAHYBRIK/Plan/RunPaceModel.swift) when the pace domain was shared with the
     // watch (#68) — the judging that reads it now lives in both targets.
 
-    // Age-based max-HR estimation lives in `PersonalHRMax.genericMax(age:sex:)`
-    // (Theme/ZoneColors.swift) — the single shared source for HR-max resolution.
+    // There is no max-HR estimation on this side. HR zones are resolved by the
+    // server from the athlete's threshold and arrive as absolute bands
+    // (`HRZoneProfile`, Theme/ZoneColors.swift).
 
     /// A device is considered stale (its chip flips to "reconnecting") if no
     /// notification arrives for this long — covers a silent drop the OS hasn't

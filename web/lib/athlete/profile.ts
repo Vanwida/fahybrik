@@ -8,6 +8,7 @@
 // inside sql.begin() can reuse the same logic.
 
 import { type Sql, type TransactionClient } from '@/lib/db';
+import { buildHrZonesDTO, loadAthleteHrZones, type HrZonesDTO } from './hr-zones';
 
 // ── DTO ──────────────────────────────────────────────────────────────────────
 
@@ -19,9 +20,22 @@ export interface AthleteProfileDTO {
   height_cm: number | null;
   weight_kg: number | null;
   body_fat_pct: number | null;
-  // Measured max HR (bpm). null = never measured → the app falls back to an
-  // age-estimated max. Persisted by PATCH /api/athlete/profile.
+  // Measured max HR (bpm). null = never measured. Persisted by PATCH
+  // /api/athlete/profile. It is an INPUT to the zone model, never a zone anchor
+  // itself — see hr_zones below.
   max_hr_bpm: number | null;
+  /**
+   * The athlete's five HEART-RATE zones, resolved server-side.
+   *
+   * The app does not compute zones. It used to, from a percentage of a max it
+   * invented when the athlete had none, which put its bands on a different
+   * stretch of the dial from the coach's. The server is now the only place they
+   * exist (shared/domain/methodology/hr-zones.ts) and it ships them with the
+   * identity, so the live engine has them before a session can start.
+   *
+   * Null when nothing anchors them — the app then says so and offers the test.
+   */
+  hr_zones: HrZonesDTO | null;
   training_experience_years: number | null;
   primary_discipline: string | null;
   training_days_per_week: number | null;
@@ -69,8 +83,9 @@ function toNumber(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function rowToDTO(row: AthleteRow): AthleteProfileDTO {
+function rowToDTO(row: AthleteRow, hr_zones: HrZonesDTO | null): AthleteProfileDTO {
   return {
+    hr_zones,
     id: row.athlete_id,
     full_name: row.full_name,
     dob: row.dob,
@@ -131,7 +146,10 @@ export async function loadAthleteProfileByUserId(
     limit 1
   `;
   const row = rows[0];
-  return row ? rowToDTO(row) : null;
+  if (!row) return null;
+  // The zones ride along with the identity so the live engine never has to ask
+  // a second time — and so it can never start a session without them.
+  return rowToDTO(row, buildHrZonesDTO(await loadAthleteHrZones(Number(row.athlete_id), client as Sql)));
 }
 
 /**
@@ -168,5 +186,8 @@ export async function loadAthleteProfileById(
     limit 1
   `;
   const row = rows[0];
-  return row ? rowToDTO(row) : null;
+  if (!row) return null;
+  // The zones ride along with the identity so the live engine never has to ask
+  // a second time — and so it can never start a session without them.
+  return rowToDTO(row, buildHrZonesDTO(await loadAthleteHrZones(Number(row.athlete_id), client as Sql)));
 }

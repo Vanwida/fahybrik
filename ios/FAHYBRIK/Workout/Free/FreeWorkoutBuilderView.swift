@@ -13,7 +13,7 @@ struct FreeWorkoutBuilderView: View {
     /// The athlete's resolved max-HR source — threaded into WorkoutContainer so a
     /// FREE workout gets the same personal HR zones as a prescribed one (it was
     /// dropped here, leaving every free session zone-less regardless of profile).
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
     let onClose: () -> Void
     /// Fired after the free workout is saved, so the caller can refresh the plan
     /// (the new self-origin session then appears as a "Libre" row).
@@ -42,7 +42,7 @@ struct FreeWorkoutBuilderView: View {
                 fallbackTitle: ctx.title,
                 bearer: bearer,
                 freeContext: ctx,
-                hrMaxSource: hrMaxSource,
+                hrZones: hrZones,
                 onClose: onClose,
                 onCompleted: { _ in onCompleted(); onClose() }
             )

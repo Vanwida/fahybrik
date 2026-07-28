@@ -207,7 +207,7 @@ struct PlanView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                hrMaxSource: store.identity.value?.hrMaxSource,
+                hrZones: store.identity.value?.hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     workoutLaunch = nil

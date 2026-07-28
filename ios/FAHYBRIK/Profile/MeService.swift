@@ -29,9 +29,20 @@ struct AthleteIdentity: Codable {
     /// Measured/entered max HR (bpm) — the athlete's personal FCmáx. Set ONLY via
     /// the profile editor (the sole entry point; the onboarding threshold value is
     /// discarded, never persisted here). Optional so older /me responses (before the
-    /// backend returned `max_hr_bpm`, mig 0129) decode cleanly; nil (the default for
-    /// everyone until they set it) → HR zones fall back to the 220−age estimate.
+    /// backend returned `max_hr_bpm`, mig 0129) decode cleanly.
+    ///
+    /// It is an INPUT the server uses to derive the threshold when nothing better
+    /// exists. The app does NOT turn it into zones — see `hrZones`.
     let maxHrBpm: Int?
+
+    /// The athlete's five HR zones, RESOLVED BY THE SERVER (`hr_zones`).
+    ///
+    /// The single input every HR-zone surface reads: the live engine, the
+    /// treadmill/outdoor HUDs, the watch encoder and the post-workout desglose.
+    /// Nil means the athlete has no zones yet (nothing anchors them) — surfaces
+    /// say so and offer the threshold test. Nil is NOT a reason to invent one:
+    /// that is precisely the bug this field replaced.
+    let hrZones: HRZoneProfile?
 
     var initials: String {
         let parts = fullName
@@ -55,12 +66,6 @@ struct AthleteIdentity: Codable {
         return comps.year
     }
 
-    /// The athlete's resolved max-HR source — the SINGLE input every HR-zone
-    /// surface reads: the measured `maxHrBpm` when present, else a generic age+sex
-    /// estimate (flagged "genérica"), else nil. See `PersonalHRMax`.
-    var hrMaxSource: HRMaxSource? {
-        PersonalHRMax.resolve(measuredMaxHrBpm: maxHrBpm, age: age, sex: sex)
-    }
 }
 
 struct MeResponse: Decodable {
