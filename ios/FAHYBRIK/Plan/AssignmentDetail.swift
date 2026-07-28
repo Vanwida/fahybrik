@@ -45,8 +45,32 @@ struct ExecutionSummary: Codable, Equatable {
     let scoreLabel: String?
     let notes: String?
     let endedAt: String?
-    /// Provenance — "manual" | "healthkit" | "garmin" | … (biometric_source).
+    /// Which DEVICE the headline numbers came from — "concept2" | "healthkit" |
+    /// "garmin" | "treadmill" | "gps" | … (biometric_source). It does NOT say
+    /// whether the athlete ran the session in the app: that's `recordedVia`.
     let source: String?
+
+    /// HOW the record came to exist: "live" (run in the app, the engine timed
+    /// it), "manual" (typed in afterwards) or "imported" (ingested from another
+    /// service). Nil on rows written before the split (mig 0144) — the UI then
+    /// says nothing rather than guessing.
+    ///
+    /// This exists because `source` alone was answering two questions at once,
+    /// and a live session with a PM5 attached was being filed — and shown — as
+    /// "A mano", which is the opposite of what happened.
+    let recordedVia: String?
+
+    /// EVERY device that fed numbers into this session ("concept2", "treadmill",
+    /// "healthkit"…). Empty = no device took part (a session logged by hand or
+    /// timed with nothing attached), which is real information, not a gap.
+    let contributingSources: [String]
+
+    /// #58 — the athlete's own read on the session, stored since #58 and until
+    /// now never served back: how hard it felt against what was prescribed, and
+    /// any niggle they flagged for the coach.
+    let perceivedDifficulty: String?
+    let painArea: String?
+    let painNote: String?
     /// "completed" (ran to the end → ✓) | "partial" (terminated early → ½).
     let completeness: String
     /// Per-exercise actuals, matched to a prescribed item via `itemUid`. Lossy so
@@ -62,6 +86,8 @@ struct ExecutionSummary: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case executionId, totalDurationSeconds, perceivedExertion, scoreLabel
         case notes, endedAt, source, completeness, segments, routePolyline
+        case recordedVia, contributingSources
+        case perceivedDifficulty, painArea, painNote
     }
 
     // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
@@ -86,6 +112,14 @@ struct ExecutionSummary: Codable, Equatable {
         // one undecodable segment → dropped, never fatal.
         segments = (try c.decodeIfPresent(LossyArray<SegmentActualDTO>.self, forKey: .segments))?.wrappedValue ?? []
         routePolyline = try c.decodeIfPresent(String.self, forKey: .routePolyline)
+        // Provenance split (mig 0144) + the #58 feedback the server now serves
+        // back. All key-optional for the same reason as the fields above: an
+        // older cached snapshot must still open the session, not hard-fail.
+        recordedVia = try c.decodeIfPresent(String.self, forKey: .recordedVia)
+        contributingSources = try c.decodeIfPresent([String].self, forKey: .contributingSources) ?? []
+        perceivedDifficulty = try c.decodeIfPresent(String.self, forKey: .perceivedDifficulty)
+        painArea = try c.decodeIfPresent(String.self, forKey: .painArea)
+        painNote = try c.decodeIfPresent(String.self, forKey: .painNote)
     }
 }
 
@@ -115,6 +149,24 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let inclinePct: Double?
     let runCadenceSpm: Int?
 
+    /// WHICH device produced THIS leg's numbers ("pm5" | "treadmill" | "gps" |
+    /// "healthkit" | "manual" | a vendor). The live engine picks one per lap
+    /// (WorkoutSession's pm5 > treadmill > gps > manual > healthkit precedence),
+    /// so a session that mixed rowing and running can say so leg by leg instead
+    /// of collapsing to one label for the whole workout. Nil on older payloads.
+    let source: String?
+
+    /// EMOM rounds actually completed vs prescribed (#break-1). The athlete who
+    /// got through 10 of 20 needs to SEE that; without it the log shows a
+    /// duration and hides the only number that says how it went.
+    let emomRoundsCompleted: Int?
+    let emomRoundsPrescribed: Int?
+
+    /// Seconds spent in each HR zone over this leg, keyed "z1"…"z5" (from the
+    /// segment's raw_lap_data_json). Nil when no strap fed the session — the
+    /// zone bar then isn't drawn at all rather than showing an empty axis.
+    let zoneSeconds: [String: Int]?
+
     // Erg detail (#33), served back from the segment's raw_lap_data_json. Optional
     // so older payloads (and non-erg segments) decode cleanly; nil → no erg card.
     let dragFactor: Int?
@@ -135,6 +187,7 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case avgPaceSPer500m = "avgPaceSPer500M"
         case avgPaceSPerKm, avgPowerW, strokeRateSpm, avgHr, maxHr, calories
         case inclinePct, runCadenceSpm
+        case source, emomRoundsCompleted, emomRoundsPrescribed, zoneSeconds
         case dragFactor, avgCaloriesPerHour, peakDriveForceLbs, avgDriveForceLbs, ergSplits
     }
 }
