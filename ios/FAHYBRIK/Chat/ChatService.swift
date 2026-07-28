@@ -104,7 +104,7 @@ private struct SendBody: Encodable {
 
 /// What `uploadAttachment` hands back to the send path: the authenticated proxy
 /// URL the message references, plus the confirmed mime/size.
-struct ChatUploadResult: Equatable {
+struct ChatUploadResult: Decodable, Equatable {
     let url: String
     let mimeType: String
     let sizeBytes: Int
