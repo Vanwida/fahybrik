@@ -711,23 +711,29 @@ private struct CarrerasRaceContent: View {
         }
     }
 
-    // Estaciones vs benchmark — a labeled list of BenchmarkBarRow.
+    // Estaciones — a labeled list. A station only gets a comparison bar when the
+    // race actually placed it within the field; otherwise we show its time and
+    // say why there is nothing to compare it to (ley de honestidad del dato).
     private var stationBenchmarks: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             SectionLabel(text: "ESTACIONES VS. BENCHMARK")
             CardSurface(padding: 14) {
-                VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(overview.station_benchmarks) { b in
                         NavigationLink {
                             StationDetailView(station: b.station, bearer: bearer)
                         } label: {
                             HStack(spacing: 10) {
-                                BenchmarkBarRow(
-                                    label: b.station,
-                                    fraction: b.fraction,
-                                    delta: b.delta ?? "—",
-                                    severity: BenchmarkBarRow.Severity(wire: b.severity)
-                                )
+                                if let fraction = b.fraction, let severity = b.severity {
+                                    BenchmarkBarRow(
+                                        label: b.station,
+                                        fraction: fraction,
+                                        delta: b.delta ?? "—",
+                                        severity: BenchmarkBarRow.Severity(wire: severity)
+                                    )
+                                } else {
+                                    StationTimeRow(label: b.station, time: b.time, delta: b.delta)
+                                }
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(Theme.Color.faint)
@@ -735,6 +741,12 @@ private struct CarrerasRaceContent: View {
                             }
                         }
                         .buttonStyle(PressScaleStyle())
+                    }
+                    if let note = overview.station_comparison_note {
+                        Text(note)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

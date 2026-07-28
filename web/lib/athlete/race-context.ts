@@ -9,20 +9,25 @@ import 'server-only';
 // the teammates joined from `race_partners`). See shared/schema/races.ts and
 // ios/FAHYBRIK/Carreras/CarrerasService.swift.
 //
-// The hero summary + per-station benchmarks + running splits stay sourced from
-// the athlete's OFFICIAL single-athlete imports (results.hyrox.com,
-// source = 'hyrox_import', written by lib/hyrox/import.ts) — those carry the
-// per-station ranks + gender field_size the singles deep-dive reads. Team splits
-// are the TEAM's, not the athlete's individual performance, so they never drive
-// that deep-dive. Those sections keep the pre-formatted display-string shape.
+// The hero summary + per-station benchmarks + running splits are sourced from
+// the athlete's SINGLES races, by EITHER import route ('hyrox_import', the
+// legacy single-URL import, or 'hyresult_import', the by-name history import of
+// 0071). What keeps team results out is `format`, not the route: a doubles split
+// is the TEAM's time, not the athlete's individual performance, so it never
+// drives this deep-dive. Those sections keep the pre-formatted display-string
+// shape.
 //
 // HONEST DATA — nothing is faked:
-//   • Empty when the athlete has no imported race yet (last_race null, [] arrays).
+//   • Empty when the athlete has no singles race yet (last_race null, [] arrays).
 //   • standing_label / station fraction+severity derive ONLY from the real HYROX
-//     ranks + field_size. No rank/field → null banner, neutral station bar.
+//     ranks + field_size. No rank/field → null banner AND null bar + null verdict;
+//     `station_comparison_note` then says out loud that there is nothing to
+//     compare against. A bar at half mast is exactly what the honesty law
+//     forbids (docs/CONTRATO-UI.md §7).
 //   • There is NO division-benchmark dataset (migration 0054 stores ranks, not
-//     reference times), so StationBenchmark.delta is null — the comparative signal
-//     IS the station rank within the field, surfaced via fraction + severity.
+//     reference times), so the comparative signal is either the station rank
+//     within the field or, where the athlete has trained evidence, the personal
+//     transfer delta. Never a reference time we made up.
 //   • ia_report is null (import does not generate an IA report).
 //
 // Severity bands + pace formatting mirror lib/athlete/running-analysis.ts. They
@@ -68,8 +73,15 @@ export interface StationBenchmarkDTO {
   station: string;
   time: string | null;
   delta: string | null;
-  fraction: number;
-  severity: Severity;
+  /**
+   * Bar fill 0…1 from the station's placing within the gender field. NULL when
+   * there is no rank or no field size: a half-full bar would insinuate a
+   * position nobody measured (docs/CONTRATO-UI.md §7). The row still carries
+   * `time` and `delta`, which ARE measured.
+   */
+  fraction: number | null;
+  /** Field-relative verdict. NULL for the same reason as `fraction`. */
+  severity: Severity | null;
 }
 
 export interface RunningSplitDTO {
@@ -89,6 +101,12 @@ export interface CarrerasOverviewDTO {
   last_race: RaceResultSummaryDTO | null;
   ia_report: RaceIAReportDTO | null;
   station_benchmarks: StationBenchmarkDTO[];
+  /**
+   * Why the station rows carry no field-relative bar, when they don't. The
+   * section is not silently half-empty: it states that the comparison is not
+   * possible (docs/CONTRATO-UI.md §5). Null when the bars ARE comparable.
+   */
+  station_comparison_note: string | null;
   running_splits: RunningSplitDTO[];
   pace_drop_note: string | null;
   history: RaceHistoryItem[];
@@ -109,12 +127,13 @@ const SEVERITY_SLIGHTLY_WORSE_MAX = 0.1;
 const STATION_PCT_BETTER_MAX = 0.25;
 const STATION_PCT_SLIGHTLY_WORSE_MAX = 0.5;
 
-// Neutral station bar fill + reading when there's no rank/field to compare.
-const STATION_NEUTRAL_FRACTION = 0.5;
-const STATION_NEUTRAL_SEVERITY: Severity = 'slightly_worse';
-
 // Minimum bar height so a near-best km/station still renders a visible bar.
 const MIN_BAR_HEIGHT = 0.15;
+
+// Said out loud when the stations have times but no placing to compare them to.
+// An empty comparison must declare itself, never look like a mediocre result.
+const STATION_NO_COMPARISON_NOTE =
+  'Esta carrera no trae tu puesto por estación, así que no hay comparación con el resto del campo. Los tiempos sí son los tuyos.';
 
 // Hero (`last_race`) date fallback. iOS RaceResultSummary.date is a NON-optional
 // String, so the hero must never send null. An official single-URL import has no
@@ -180,23 +199,38 @@ function lapSeverity(lapSec: number, bestSec: number): Severity {
   return 'worse';
 }
 
-/** Classify a station by its rank percentile within the gender field. */
-function stationSeverity(rank: number | null, field: number | null): Severity {
+/** The field-relative reading of one station: a bar and a verdict, or neither. */
+export type StationFieldReading =
+  | { fraction: number; severity: Severity }
+  | { fraction: null; severity: null };
+
+/**
+ * Place one station within the gender field, from its rank and the field size.
+ * Bar fill grows with the percentile (smaller rank = better placing).
+ *
+ * Without a rank or a field size there is NOTHING: no bar, no verdict — the same
+ * rule `standingLabel` above already applies to the hero banner. It used to
+ * answer "algo peor" with a bar at half mast to a question nobody had the data
+ * to ask, which is the exact shape docs/CONTRATO-UI.md §7 forbids.
+ *
+ * Bar and verdict are returned TOGETHER so a caller cannot end up drawing one
+ * without the other.
+ */
+export function stationFieldReading(
+  rank: number | null,
+  field: number | null,
+): StationFieldReading {
   if (rank == null || field == null || field <= 0 || rank <= 0) {
-    return STATION_NEUTRAL_SEVERITY;
+    return { fraction: null, severity: null };
   }
   const pct = rank / field;
-  if (pct <= STATION_PCT_BETTER_MAX) return 'better';
-  if (pct <= STATION_PCT_SLIGHTLY_WORSE_MAX) return 'slightly_worse';
-  return 'worse';
-}
-
-/** Station bar fill 0…1 from rank percentile (smaller = better placing). */
-function stationFraction(rank: number | null, field: number | null): number {
-  if (rank == null || field == null || field <= 0 || rank <= 0) {
-    return STATION_NEUTRAL_FRACTION;
-  }
-  return Math.max(MIN_BAR_HEIGHT, Math.min(1, rank / field));
+  const severity: Severity =
+    pct <= STATION_PCT_BETTER_MAX
+      ? 'better'
+      : pct <= STATION_PCT_SLIGHTLY_WORSE_MAX
+        ? 'slightly_worse'
+        : 'worse';
+  return { fraction: Math.max(MIN_BAR_HEIGHT, Math.min(1, pct)), severity };
 }
 
 // ── Stored-row → summary ─────────────────────────────────────────────────────
@@ -400,17 +434,25 @@ export async function buildCarrerasOverview(
     .map(toHistoryItem)
     .filter((item): item is RaceHistoryItem => item !== null);
 
-  // Hero summary + per-station benchmarks + running splits stay sourced from the
-  // athlete's OFFICIAL single-athlete imports (results.hyrox.com), which carry
-  // the per-station ranks + gender field_size the singles deep-dive reads. Team
-  // results never drive it (their splits are the team's, not the athlete's).
-  const importRows = rows.filter((r) => r.source === 'hyrox_import');
+  // Hero summary + per-station benchmarks + running splits are the athlete's OWN
+  // performance, so they come from SINGLES imports — either import route. The
+  // filter used to accept `hyrox_import` alone, which is the legacy single-URL
+  // route; everyone whose history came in by name from hyresult (0071) had no
+  // "última carrera" at all. Every sibling reader of this spine (race-transfer,
+  // station-detail, goal-gap, dobles-*) already accepts both, and `format` is
+  // what keeps team results out — a doubles split is the TEAM's time, not the
+  // athlete's, so it must never drive this deep-dive.
+  const importRows = rows.filter(
+    (r) =>
+      (r.source === 'hyrox_import' || r.source === 'hyresult_import') && r.format === 'singles',
+  );
 
   if (importRows.length === 0) {
     return {
       last_race: null,
       ia_report: null,
       station_benchmarks: [],
+      station_comparison_note: null,
       running_splits: [],
       pace_drop_note: null,
       history,
@@ -444,22 +486,30 @@ export async function buildCarrerasOverview(
     // delta = race split − trained level (positive = slower in the race than trained).
     const delta =
       st.seconds != null && trainedFull != null ? signedDeltaStr(st.seconds - trainedFull) : null;
+    const field = stationFieldReading(st.rank, latest.field_size);
     return {
       id: `station_${st.index}`,
       station: HYROX_STATION_LABELS[st.index] ?? `Estación ${st.index}`,
       time: timeStr(st.seconds),
       delta,
-      fraction: stationFraction(st.rank, latest.field_size),
-      severity: stationSeverity(st.rank, latest.field_size),
+      fraction: field.fraction,
+      severity: field.severity,
     };
   });
+  // The section explains itself when NO station could be placed in the field.
+  const station_comparison_note =
+    station_benchmarks.length > 0 && station_benchmarks.every((b) => b.fraction == null)
+      ? STATION_NO_COMPARISON_NOTE
+      : null;
 
   // ── running_splits: the latest race's 8×1 km laps ───────────────────────────
   const runLaps = parseRunSplits(latest.run_splits_json);
   let running_splits: RunningSplitDTO[] = [];
   let pace_drop_note: string | null = null;
 
-  if (runLaps.length > 0) {
+  // `worst > 0` guards an all-zero lap array: zero-second laps are not laps, and
+  // a chart normalized against 0 could only be drawn by inventing a height.
+  if (runLaps.length > 0 && Math.max(...runLaps) > 0) {
     const best = Math.min(...runLaps);
     const worst = Math.max(...runLaps);
     // Bars: taller = slower (per the iOS handoff). Normalize to the slowest lap.
@@ -467,7 +517,7 @@ export async function buildCarrerasOverview(
       id: `k${i + 1}`,
       label: `k${i + 1}`,
       pace: timeStr(lap),
-      height: worst > 0 ? Math.max(MIN_BAR_HEIGHT, Math.min(1, lap / worst)) : STATION_NEUTRAL_FRACTION,
+      height: Math.max(MIN_BAR_HEIGHT, Math.min(1, lap / worst)),
       severity: lapSeverity(lap, best),
     }));
 
@@ -490,6 +540,7 @@ export async function buildCarrerasOverview(
     // state rather than fabricating a weakness summary.
     ia_report: null,
     station_benchmarks,
+    station_comparison_note,
     running_splits,
     pace_drop_note,
     history,
