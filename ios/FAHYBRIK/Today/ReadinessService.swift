@@ -65,10 +65,19 @@ struct ReadinessBreakdown: Codable {
     let hrvMs: Double?
     /// The athlete's 14–60d HRV baseline in ms (the "reference").
     let hrvBaselineMs: Double?
-    /// The resting-HR reading in bpm (the "value"; no personal baseline exists).
+    /// TODAY's resting-HR reading in bpm (the "value"; no personal baseline
+    /// exists). Nil until Apple publishes it — see `rhrLastBpm`.
     let rhrBpm: Double?
     /// The sleep hours that score a full component — the sleep "reference".
     let sleepTargetH: Double?
+    /// The most recent resting HR when today's hasn't landed yet, and the day it
+    /// belongs to (`yyyy-MM-dd`, athlete-local). Apple publishes the daily reading
+    /// hours after the timestamp it carries and skips days the watch was off the
+    /// wrist, so an athlete with weeks of readings would otherwise stare at "sin
+    /// dato aún" every morning. DISPLAY ONLY — it never scored, so the row must
+    /// say so and must not draw a component bar.
+    let rhrLastBpm: Double?
+    let rhrLastOn: String?
 
     /// Whether the morning check-in contributed (the primary signal for athletes
     /// without a connected wearable).

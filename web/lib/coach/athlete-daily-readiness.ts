@@ -7,6 +7,7 @@ import {
   getLatestReadiness as _getLatestReadiness,
   getAthleteReadinessToday as _getAthleteReadinessToday,
   refreshAthleteReadinessToday as _refreshAthleteReadinessToday,
+  refreshAthleteReadinessDays as _refreshAthleteReadinessDays,
   type ReadinessBreakdown,
   type ReadinessTrendPoint,
   type DailyReadinessSnapshot,
@@ -41,12 +42,23 @@ export function getAthleteReadinessToday(params: {
   return _getAthleteReadinessToday({ ...params, client: params.client ?? sql });
 }
 
-/** Data-arrival hook (HealthKit batch / check-in ingest): recompute-and-persist
- *  today's snapshot so stored-snapshot readers see the data that just landed. */
+/** Check-in ingest hook: recompute-and-persist today's snapshot so
+ *  stored-snapshot readers see the check-in that just landed. */
 export function refreshAthleteReadinessToday(params: {
   athlete_id: number | bigint;
   now?: Date;
   client?: Sql;
 }): Promise<void> {
   return _refreshAthleteReadinessToday({ ...params, client: params.client ?? sql });
+}
+
+/** Biometric-batch ingest hook: recompute-and-persist today PLUS every past day
+ *  the arriving samples can still change (resting HR lands hours late). */
+export function refreshAthleteReadinessDays(params: {
+  athlete_id: number | bigint;
+  sample_times?: Date[];
+  now?: Date;
+  client?: Sql;
+}): Promise<void> {
+  return _refreshAthleteReadinessDays({ ...params, client: params.client ?? sql });
 }

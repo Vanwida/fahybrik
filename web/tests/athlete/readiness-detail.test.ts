@@ -10,6 +10,10 @@
  *   2. `getAthleteReadinessToday` returns an ascending 7-day trend AND self-heals
  *      a legacy today-snapshot (one written before enrichment) so the references
  *      appear without a backfill.
+ *   3. The resting-HR rules, all three drawn from what Apple actually delivers
+ *      (28-jul-2026): an afternoon-stamped reading still counts, the newest
+ *      revision of a reading wins, and a day with no reading yet carries the last
+ *      known one for DISPLAY without ever scoring it.
  */
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import {
@@ -175,5 +179,75 @@ describeWithDb('readiness detail contract (real DB)', () => {
     expect(snap!.trend).toBeDefined();
     expect(snap!.trend!.map((p) => p.recorded_for)).toEqual([YESTERDAY, TODAY]);
     expect(snap!.trend![1].score).toBe(snap!.score);
+  });
+
+  test('resting HR: an AFTERNOON-stamped reading still counts for its day', async () => {
+    const sql = fx.sql;
+    const a = fx.athleteId;
+    // Apple stamps the daily resting HR anywhere inside the day it describes — a
+    // real athlete's history has readings at 09:33, 14:32 and 15:19 local, not just
+    // after midnight. Sleep's 14:00 cutoff (which exists so an afternoon nap is not
+    // counted as last night) used to be shared with resting HR and silently threw
+    // those away: the value sat in biometric_streams while the sheet said "sin dato".
+    await sql`delete from biometric_streams where athlete_id = ${a} and metric_type = 'hr_resting'`;
+    // 2026-06-15T13:19Z = 15:19 Madrid (CEST) — past the old cutoff.
+    await sql`
+      insert into biometric_streams (athlete_id, source, metric_type, recorded_at, value_numeric, unit)
+      values (${a}, 'healthkit', 'hr_resting'::biometric_metric, ${new Date('2026-06-15T13:19:14Z')}, 58, 'bpm')
+    `;
+
+    const snap = await computeAthleteDailyReadiness({ athlete_id: a, recorded_for: TODAY, client: sql });
+    expect(snap!.breakdown.rhr_bpm).toBe(58);
+    expect(snap!.breakdown.rhr_component).not.toBeNull();
+    expect(snap!.breakdown.rhr_last_bpm).toBeNull();
+  });
+
+  test('resting HR: the NEWEST revision of the day wins', async () => {
+    const sql = fx.sql;
+    const a = fx.athleteId;
+    // Apple revises the day's resting HR in place through the day: a real athlete
+    // has 51 → 50 → 52 bpm at the IDENTICAL recorded_at. Ordering by recorded_at
+    // alone left the tie to the planner, so the athlete could be shown a value that
+    // had already been superseded.
+    await sql`delete from biometric_streams where athlete_id = ${a} and metric_type = 'hr_resting'`;
+    const at = new Date('2026-06-14T22:01:05Z'); // 00:01 Madrid on the 15th
+    const revisions: Array<[number, string]> = [
+      [51, '2026-06-15T06:51:09Z'],
+      [52, '2026-06-15T15:19:41Z'], // newest write → the truth
+      [50, '2026-06-15T08:01:37Z'],
+    ];
+    for (const [value, writtenAt] of revisions) {
+      await sql`
+        insert into biometric_streams
+          (athlete_id, source, metric_type, recorded_at, value_numeric, unit, created_at)
+        values (${a}, 'healthkit', 'hr_resting'::biometric_metric, ${at}, ${value}, 'bpm', ${new Date(writtenAt)})
+      `;
+    }
+
+    const snap = await computeAthleteDailyReadiness({ athlete_id: a, recorded_for: TODAY, client: sql });
+    expect(snap!.breakdown.rhr_bpm).toBe(52);
+  });
+
+  test('resting HR: a day with no reading carries the last known one WITHOUT scoring it', async () => {
+    const sql = fx.sql;
+    const a = fx.athleteId;
+    // Apple publishes the daily reading hours after the timestamp it carries and
+    // skips days the watch was off the wrist, so "no reading yet" is the normal
+    // morning state, not a broken one. The athlete must still see his number and
+    // how old it is — but it must NOT feed today's score.
+    await sql`delete from biometric_streams where athlete_id = ${a} and metric_type = 'hr_resting'`;
+    await sql`
+      insert into biometric_streams (athlete_id, source, metric_type, recorded_at, value_numeric, unit)
+      values (${a}, 'healthkit', 'hr_resting'::biometric_metric, ${new Date('2026-06-13T04:00:00Z')}, 51, 'bpm')
+    `;
+
+    const snap = await computeAthleteDailyReadiness({ athlete_id: a, recorded_for: TODAY, client: sql });
+    expect(snap!.breakdown.rhr_bpm).toBeNull();
+    expect(snap!.breakdown.rhr_component).toBeNull();
+    expect(snap!.breakdown.rhr_last_bpm).toBe(51);
+    expect(snap!.breakdown.rhr_last_on).toBe('2026-06-13');
+    // The other signals still score, so the day is not empty.
+    expect(snap!.breakdown.hrv_component).not.toBeNull();
+    expect(snap!.score).toBeGreaterThan(0);
   });
 });
