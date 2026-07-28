@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { LoadCoverage } from '../training-load/coverage';
 
 export const ALERT_KINDS = [
   'hrv_crash',
@@ -37,6 +38,14 @@ export interface CohortRow {
   tsb: number | null;
   ctl: number | null;
   atl: number | null;
+  /**
+   * How much of this athlete's executed work the four numbers above actually
+   * saw. Travels WITH them so no surface can show the load without being able
+   * to show what it is missing, and so anything that ranks or acts on load can
+   * refuse to compare a floor against a measurement.
+   * See shared/domain/training-load/coverage.ts.
+   */
+  load_coverage: LoadCoverage;
   next_session: {
     label: string;
     iso_date: string | null;
@@ -51,6 +60,11 @@ export interface CohortRow {
   sleep_avg_7d_h: number | null;
   rhr: number | null;
   days_to_a_event: number | null;
+  /**
+   * Hours actually executed in the last 7 days. Measured duration, so it is
+   * whole regardless of load coverage: knowing HOW LONG someone trained never
+   * required knowing how hard.
+   */
   volume_7d_h: number | null;
   sessions_today: { am: 'done' | 'pending' | null; pm: 'done' | 'pending' | null };
   last_checkin_at: string | null;

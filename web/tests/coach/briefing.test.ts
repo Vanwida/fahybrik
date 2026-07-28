@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { buildBriefing } from '@/lib/coach/briefing';
+import {
+  readLoadCoverage,
+  summarizeLoad,
+} from '@fahybrid/shared/domain/training-load';
 import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
+
+// Built from the real reader over an empty series rather than hand-written:
+// a fabricated coverage literal in a fixture is exactly the kind of plausible
+// default this field exists to kill.
+const NO_WORK_COVERAGE = readLoadCoverage(summarizeLoad([]));
 
 // Real-shaped cohort fixture (is_demo: false) — buildBriefing is pure over a
 // CohortRow[], so we exercise it with honest rows instead of the deleted demo
@@ -19,6 +28,7 @@ function row(overrides: Partial<CohortRow> = {}): CohortRow {
     tsb: null,
     ctl: null,
     atl: null,
+    load_coverage: NO_WORK_COVERAGE,
     next_session: null,
     last_sync_at: null,
     sync_minutes_ago: null,

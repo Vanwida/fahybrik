@@ -6,7 +6,8 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
-import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
+import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
+import type { LoadCoverage } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
 import {
@@ -221,10 +222,23 @@ async function rollupAthlete(
     client,
   });
   const load = summarizeLoad(series);
+  const load_coverage = readLoadCoverage(load);
 
+  // Volume is EXECUTED TIME, and time was measured on every session — including
+  // the ones nobody rated. So it reads the seconds, not the TSS. The previous
+  // `Σ tss / 60` was doubly wrong: it invented hours out of a load score (a
+  // 129-TSS week became "2,2 h" of a real 1,3 h), and it silently dropped every
+  // unrated session, so the one column that could have exposed a coverage hole
+  // was the one that hid it.
   const last7 = series.slice(-7);
-  const volume_7d_h = round1(last7.reduce((s, p) => s + (p.tss > 0 ? p.tss / 60 : 0), 0));
-  const sessions_7d_count = last7.filter((p) => p.tss > 0).length;
+  const volume_7d_h = round1(
+    last7.reduce((s, p) => s + (p.known_seconds ?? 0) + (p.unknown_seconds ?? 0), 0) / 3600,
+  );
+  // Days with executed work, rated or not — a "did he show up" signal, and one
+  // that must not disappear because he skipped the RPE.
+  const active_days_7d = last7.filter(
+    (p) => (p.known_seconds ?? 0) + (p.unknown_seconds ?? 0) > 0,
+  ).length;
   const compliance_pct = await computeCompliance(client, athlete_id_num, now);
 
   const last_sync_at = a.last_sync_at?.toISOString() ?? null;
@@ -306,10 +320,17 @@ async function rollupAthlete(
     tsb: round1(load.tsb),
     ctl: round1(load.ctl),
     atl: round1(load.atl),
+    load_coverage,
     next_session,
     last_sync_at,
     sync_minutes_ago,
-    race_readiness: estimateRaceReadiness(load.tsb, compliance_pct, hrv_delta_ms, sessions_7d_count),
+    race_readiness: estimateRaceReadiness(
+      load.tsb,
+      compliance_pct,
+      hrv_delta_ms,
+      active_days_7d,
+      load_coverage,
+    ),
     polarization_pct: null,
     z45_pct_7d: null,
     vo2max: a.vo2max ?? null,
@@ -473,17 +494,23 @@ function estimateRaceReadiness(
   tsb: number,
   compliance: number | null,
   hrv_delta: number | null,
-  sessions_7d: number,
+  active_days_7d: number,
+  coverage: LoadCoverage,
 ): number | null {
-  // No real signal (no completed sessions, no HRV, no compliance) → null. We do
+  // No real signal (no executed days, no HRV, no compliance) → null. We do
   // NOT invent a ~50 baseline for a data-less athlete; the UI shows "—" instead.
-  if (sessions_7d === 0 && hrv_delta == null && compliance == null) return null;
+  if (active_days_7d === 0 && hrv_delta == null && compliance == null) return null;
+  // Freshness carries 40 of the 100 points, and with a hole in the window TSB is
+  // undecidable in BOTH directions (coverage.ts). A score that could be 40
+  // points either way is not a score, so it is withheld rather than shown with
+  // a caveat — the row still carries `load_coverage` to say why.
+  if (!coverage.allows_verdict) return null;
   // Rough composite — coach-grade rather than research-grade. Fitness band (-10..+10)
-  // contributes 40, compliance 30, HRV 20, sessions completed 10.
+  // contributes 40, compliance 30, HRV 20, days trained 10.
   const tsbBand = Math.max(0, Math.min(40, ((tsb + 10) / 20) * 40));
   const compBand = compliance != null ? (compliance / 100) * 30 : 20;
   const hrvBand = hrv_delta == null ? 10 : Math.max(0, Math.min(20, 10 + hrv_delta));
-  const sesBand = Math.min(10, sessions_7d * 1.5);
+  const sesBand = Math.min(10, active_days_7d * 1.5);
   return Math.round(tsbBand + compBand + hrvBand + sesBand);
 }
 
