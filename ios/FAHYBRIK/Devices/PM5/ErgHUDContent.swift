@@ -1,26 +1,28 @@
 import SwiftUI
 import UIKit
 
-// THE erg work surface — the ONE view the athlete sees for row / ski work, in both
-// orientations. ErgData's information architecture in our brand: meters top-left
-// (goal-aware), the current split /500m as the huge centre hero with media/500 +
-// tiempo beneath, a left rail (s/min · vatios · vatios medios) and a right rail
-// (cal · cal/h · proyección · pulso · drag). During an interval REST the top-left slot
-// becomes the rest countdown and the hero becomes "Intervalo N" with the just-rowed
-// interval's numbers — exactly how ErgData flips its face between work and rest.
-// Read-only: the PM5's resistance is the physical damper, so there are no controls,
-// only a glanceable readout kept in lock-step with the monitor.
+// THE erg work surface — the ONE view the athlete sees for row / ski / bike work,
+// in both orientations, whether the piece stands alone or lives inside a format.
 //
-// ONE VIEW, TWO ARRANGEMENTS. There is no second erg screen and no "ver en grande"
-// cover: the athlete rotates the phone and this same component re-lays itself out
-// (`verticalSizeClass == .compact` → landscape). Portrait stacks meters/hero/rails;
-// landscape puts the rails either side of the hero for the big number.
+// IT IS DRIVEN BY THE TRAMO, NOT BY THE SEGMENT. A 250 m ski round inside an EMOM
+// is erg work and gets this surface; the format it lives in becomes the context
+// strip on top. Before that, the same monitor showed a full HUD when the piece was
+// alone and a generic timer with no erg data at all the moment a format wrapped
+// it — the athlete's numbers appeared and disappeared depending on paperwork.
 //
-// IT ALSO OWNS THE SERIES CONTEXT. An erg interval series (5×500 r1:30) used to be
-// routed to the generic conditioning timer, which knows nothing about a PM5 — the
-// athlete got a 00:00 clock and no erg data at all. That screen is never rendered for
-// erg work now; the context it carried (serie N/total, "esta serie / luego", the rest
-// countdown, the count-in) lives in the `seriesStrip` + the rest state here.
+// WHAT IT SHOWS, AND WHY IN THIS ORDER. Read from three metres, phone on the floor,
+// mid-piece, the questions are: am I on pace → how much is left → which serie is
+// this → how hard am I working. So:
+//   1 context strip   SERIE 2/5 · 500 m remo · luego descanso 1:30
+//   2 goal            what is LEFT (the number that matters mid-piece) + a bar
+//   3 hero            the split /500 m, the biggest thing on the screen
+//   4 work rail       three tiles only: s/min · vatios · pulso
+// Everything else the monitor knows (calorías, cal/h, drag, media, proyección)
+// folds away while working and comes back at rest, when there are eyes for it.
+//
+// ONE VIEW, TWO ARRANGEMENTS. Rotating the phone re-lays this same component out:
+// portrait stacks goal / hero / rail; landscape puts goal and rail either side of
+// a bigger hero. Read-only — the PM5's resistance is the physical damper.
 struct ErgHUDContent: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
@@ -28,27 +30,109 @@ struct ErgHUDContent: View {
     private var isLandscape: Bool { vSizeClass == .compact }
 
     private var live: PM5LiveSample { pm5.live }
+    private var tramo: LiveTramo { session.currentTramo }
 
     var body: some View {
         VStack(spacing: isLandscape ? 8 : Theme.Spacing.m) {
             // Landscape hides the workout chrome so the numbers own the screen —
             // the leg title has to travel with the HUD there.
             if isLandscape { header }
-            seriesStrip
+            contextStrip
             // The programming banner first (it explains a silent monitor better than
             // the generic hint); the no-data hint only when nothing is in flight.
             PM5ProgramBanner(pm5: pm5)
             if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil { noDataHint }
-            if isLandscape { landscapeBody } else { portraitBody }
+            // Three states, three subjects. Counting in: the count. No monitor: the
+            // work you have been given. Working: the split. Each one is the largest
+            // thing on the screen while it is true — a hero showing "—:—" through a
+            // count-in, or through a piece with no machine paired, is a readout
+            // pretending to read something.
+            if session.isTramoCountIn {
+                countInBody
+            } else if !pm5.isConnected {
+                unmeasuredBody
+            } else if isLandscape {
+                landscapeBody
+            } else {
+                portraitBody
+            }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Counting in
+
+    /// The 3-2-1 owns the screen while it runs. The athlete is sitting on the erg
+    /// with his hands on the handle: the only number that exists is the count.
+    private var countInBody: some View {
+        VStack(spacing: 6) {
+            Spacer(minLength: 0)
+            Text("\(Int(session.tramoCountInRemaining.rounded(.up)))")
+                .font(.system(size: isLandscape ? 150 : 190, weight: .heavy, design: .monospaced)
+                    .monospacedDigit())
+                .foregroundStyle(Theme.Color.accentText)
+                .lineLimit(1).minimumScaleFactor(0.4)
+                .contentTransition(.numericText())
+            if let work = tramo.workLine {
+                Text(work.uppercased())
+                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
+                    .tracking(1)
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Empieza en \(Int(session.tramoCountInRemaining.rounded(.up)))")
+    }
+
+    // MARK: - No monitor
+
+    /// No machine paired (or it dropped). The prescription is still true, so THAT is
+    /// the subject: what the athlete has to do. Live figures are simply absent — a
+    /// rail of em-dashes reads as a broken app rather than as an honest silence.
+    /// Meters already covered before a drop are kept: they really happened.
+    private var unmeasuredBody: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            Spacer(minLength: 0)
+            VStack(spacing: 6) {
+                Text(tramo.workLine ?? tramo.label)
+                    .font(.system(size: isLandscape ? 64 : 76, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.4)
+                if tramo.workLine != nil {
+                    Text(tramo.label.uppercased())
+                        .font(.system(size: 15, weight: .heavy)).tracking(1.4)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            if let covered = session.tramoErgDistanceMeters, covered >= 1 {
+                Text("\(Int(covered)) m antes de perder el monitor")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Sin monitor. Puedes hacerlo igual — no se medirá solo.")
+                    .font(.system(size: 13, weight: .medium))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Theme.Color.foreground)
+            .padding(11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.warningTint)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Header (landscape only — portrait has the workout's own top strip)
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text(legLine)
+            Text(tramo.label)
                 .font(.system(size: 12, weight: .heavy, design: .default).italic())
                 .tracking(0.4)
                 .foregroundStyle(Theme.Color.accentText)
@@ -62,29 +146,27 @@ struct ErgHUDContent: View {
         }
     }
 
-    // MARK: - Series context (absorbed from the generic intervals timer)
+    // MARK: - 1 · Context strip (which serie, what work, what follows)
 
-    /// "SERIE 2/5 · ESTA SERIE 500 m · LUEGO descanso 1:30" — one thin line, the
-    /// ErgData way, instead of the old full-screen clock card. Absent for a single
-    /// continuous piece, where there is no series to count.
+    /// "SERIE 2/5 · 500 m remo · luego descanso 1:30" — one thin line. Absent for a
+    /// single continuous piece, where there is no series to count and the strip
+    /// would only repeat the top bar.
     @ViewBuilder
-    private var seriesStrip: some View {
-        if isCountIn {
+    private var contextStrip: some View {
+        if session.isTramoCountIn {
             HStack(spacing: 8) {
                 LabelText(text: "Prepárate", color: Theme.Color.accentText, size: 10)
-                Text("\(Int(session.condCountInRemaining.rounded(.up)))")
-                    .font(.system(size: 15, weight: .heavy, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(Theme.Color.accentText)
+                if hasSeries {
+                    Text("SERIE \(session.tramoRoundIndex + 1)/\(max(1, session.tramoRoundTotal))")
+                        .font(.system(size: 11, weight: .heavy)).tracking(0.8)
+                        .foregroundStyle(Theme.Color.muted)
+                }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .stripChrome()
         } else if hasSeries {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("SERIE \(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))")
+                Text("SERIE \(session.tramoRoundIndex + 1)/\(max(1, session.tramoRoundTotal))")
                     .font(.system(size: 11, weight: .heavy)).tracking(0.8)
                     .foregroundStyle(Theme.Color.accentText)
                     .fixedSize()
@@ -94,99 +176,82 @@ struct ErgHUDContent: View {
                     .lineLimit(1).minimumScaleFactor(0.7)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .stripChrome()
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Serie \(session.rotRoundIndex + 1) de \(max(1, session.rotTotalRounds)). \(prescriptionLine)")
+            .accessibilityLabel("Serie \(session.tramoRoundIndex + 1) de \(max(1, session.tramoRoundTotal)). \(prescriptionLine)")
         }
     }
 
-    /// While working: what this serie is + what follows. While resting: what's next up.
+    /// What this window is + what follows it.
     private var prescriptionLine: String {
-        let seg = session.currentSegment
-        let movement: String? = seg?.primaryMovement
-        let distance: Double? = seg?.targetDistanceMeters
-        // #erg-1: a calorie erg ("20 cal row") carries no distance — fall back to the
-        // calorie target so the work reads "20 cal", not an empty string.
-        let work: String? = distance.flatMap { PrescriptionRenderer.formatDistance($0) }
-            ?? seg?.targetCalories.map { "\($0) cal" }
-        let thisOne = [work, movement].compactMap { $0 }.joined(separator: " ")
-        if isResting {
-            return "Luego · \(thisOne.isEmpty ? "siguiente serie" : thisOne)"
-        }
-        let restSeconds: Int? = seg?.formatRestSeconds ?? nil
+        let thisOne = [tramo.workLine, tramo.label].compactMap { $0 }.joined(separator: " ")
+        let restSeconds: Int? = session.currentSegment?.formatRestSeconds
         let rest: String? = restSeconds.map {
             "luego descanso \(WorkoutSession.formatElapsed(Double($0)))"
         }
         return [thisOne.isEmpty ? nil : thisOne, rest].compactMap { $0 }.joined(separator: " · ")
     }
 
-    // MARK: - Landscape (ErgData face: meters+rail left, hero centre, rail right)
+    // MARK: - Arrangements
 
     private var landscapeBody: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 8) {
-                topLeftSlot
-                leftRail
+                goalBox
                 Spacer(minLength: 0)
             }
-            .frame(width: 172)
+            .frame(width: 190)
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-                heroCard(splitSize: 112, restNameSize: 46)
+                heroCard(splitSize: 132)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
 
             VStack(spacing: 8) {
-                rightRail
+                workRail
                 Spacer(minLength: 0)
             }
-            .frame(width: 150)
+            .frame(width: 128)
         }
         .frame(maxHeight: .infinity)
     }
 
-    // MARK: - Portrait (meters/rest strip above, hero centre, rails as two rows)
-
     private var portraitBody: some View {
         VStack(spacing: Theme.Spacing.m) {
-            topLeftSlot
-            heroCard(splitSize: 92, restNameSize: 40)
-            HStack(spacing: 8) { leftRail }
-            HStack(spacing: 6) { rightRail }
+            goalBox
+            // The hero EARNS the slack: whatever height the screen has left after
+            // the strip, the goal and the rail belongs to the number the athlete is
+            // steering by. This is what used to be dead space above a 4 px bar.
+            heroCard(splitSize: 96)
+                .frame(maxHeight: .infinity)
+            HStack(spacing: 8) { workRail }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Top-left slot (meters while working, rest countdown while resting)
+    // MARK: - 2 · The goal (what is LEFT, plus a bar you can see)
 
+    /// Mid-piece nobody wants "how much have I done"; they want how much is LEFT.
+    /// So the big figure counts DOWN to the tramo's goal and the covered/target
+    /// reads underneath. No goal → no bar and no invented denominator: a single
+    /// honest "metros" readout instead.
     @ViewBuilder
-    private var topLeftSlot: some View {
-        if isResting { restBox } else { metersBox }
-    }
-
-    // Meters toward the SERIE's goal — covered-in-this-window (the session's erg
-    // anchor; the PM5's raw counter is cumulative across the piece, so it would lie
-    // on serie 2+) against the segment's prescribed distance, with a thin progress
-    // bar. No target → plain covered meters. Shared by portrait AND landscape.
-    @ViewBuilder
-    private var metersBox: some View {
-        if let target = targetMeters, target > 0 {
-            let covered = coveredMeters ?? 0
-            let done = covered >= target
-            VStack(spacing: 6) {
-                HStack(alignment: .lastTextBaseline, spacing: 4) {
-                    Text(coveredMeters.map { "\(Int($0))" } ?? "—")
-                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(done ? Theme.Color.ok : Theme.Color.foreground)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                    Text("/ \(Int(target)) m")
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+    private var goalBox: some View {
+        if let goal = goalReadout {
+            VStack(spacing: 7) {
+                HStack(alignment: .lastTextBaseline, spacing: 5) {
+                    Text(goal.remaining)
+                        .font(.system(size: 40, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(goal.done ? Theme.Color.ok : Theme.Color.foreground)
+                        .lineLimit(1).minimumScaleFactor(0.4)
+                    Text(goal.unit)
+                        .font(.system(size: 15, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                    Spacer(minLength: 0)
+                    Text(goal.covered)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1).minimumScaleFactor(0.6)
                 }
@@ -194,85 +259,83 @@ struct ErgHUDContent: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Theme.Color.surfaceSunken)
                         Capsule()
-                            .fill(done ? Theme.Color.ok : Theme.Color.accent)
-                            .frame(width: max(0, geo.size.width * min(1, covered / target)))
+                            .fill(goal.done ? Theme.Color.ok : Theme.Color.accent)
+                            .frame(width: max(0, geo.size.width * goal.fraction))
                     }
                 }
-                .frame(height: 4)
-                Text("METROS")
-                    .font(.system(size: 9, weight: .heavy)).tracking(0.8)
-                    .foregroundStyle(Theme.Color.muted)
+                .frame(height: 12)
+                Text(goal.done ? "HECHO" : "TE QUEDAN")
+                    .font(.system(size: 10, weight: .heavy)).tracking(1.2)
+                    .foregroundStyle(goal.done ? Theme.Color.ok : Theme.Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 14)
             .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
             .background(Theme.Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Metros: \(Int(covered)) de \(Int(target))" + (done ? ", completado" : ""))
+            .accessibilityLabel(goal.done ? "Objetivo completado" : "Te quedan \(goal.remaining) \(goal.unit)")
         } else {
-            railTile(value: coveredMeters.map { "\(Int($0))" } ?? "—", label: "metros", valueSize: 26)
+            railTile(value: coveredMeters.map { "\(Int($0))" } ?? "—", label: "metros", valueSize: 34)
         }
     }
 
-    // Rest countdown in the meters slot — the ErgData move: while resting, the
-    // number that matters top-left is when you row again, not how far you got.
-    private var restBox: some View {
-        VStack(spacing: 4) {
-            Text(WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)))
-                .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.accentText)
-                .lineLimit(1).minimumScaleFactor(0.5)
-            Text("DESCANSO")
-                .font(.system(size: 9, weight: .heavy)).tracking(0.8)
-                .foregroundStyle(Theme.Color.muted)
+    /// The one goal readout, whatever the tramo measures. Distance first (the erg
+    /// case that matters), then calories, then a time box. nil = nothing prescribed.
+    private var goalReadout: (remaining: String, unit: String, covered: String,
+                              fraction: Double, done: Bool)? {
+        if let target = tramo.targetDistanceMeters, let covered = coveredMeters {
+            let left = max(0, target - covered)
+            return ("\(Int(left.rounded()))", "m",
+                    "\(Int(covered)) / \(Int(target)) m",
+                    min(1, covered / target), left <= 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Theme.Color.surface)
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .stroke(Theme.Color.accent.opacity(0.5), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Descanso, quedan \(WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)))")
+        if let target = tramo.targetCalories, let covered = session.tramoErgCalories {
+            let left = max(0, target - covered)
+            return ("\(left)", "cal", "\(covered) / \(target) cal",
+                    min(1, Double(covered) / Double(target)), left <= 0)
+        }
+        if let boxed = tramo.boxedSeconds, boxed > 0, let remaining = session.tramoWorkRemaining {
+            let fraction = min(1, max(0, (Double(boxed) - remaining) / Double(boxed)))
+            return (WorkoutSession.formatElapsed(remaining), "",
+                    "de \(WorkoutSession.formatElapsed(Double(boxed)))",
+                    fraction, remaining <= 0)
+        }
+        return nil
     }
 
-    // MARK: - Hero card (split /500m while working, "Intervalo N" while resting)
+    // MARK: - 3 · Hero (the split — the number you steer by)
 
-    private func heroCard(splitSize: CGFloat, restNameSize: CGFloat) -> some View {
+    private func heroCard(splitSize: CGFloat) -> some View {
         CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
             VStack(spacing: 4) {
-                if isResting {
-                    Text("Intervalo \(session.rotRoundIndex + 1)")
-                        .font(.system(size: restNameSize, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                    if session.rotTotalRounds > 0 {
-                        Text("de \(session.rotTotalRounds)")
-                            .font(Theme.Typography.readoutLabel)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                } else {
-                    LabelText(text: "Split · real", size: 10)
-                    Text(splitString)
-                        .font(.system(size: splitSize, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1).minimumScaleFactor(0.4)
-                    Text("/500m")
-                        .font(Theme.Typography.readoutLabel)
-                        .foregroundStyle(Theme.Color.muted)
-                }
+                LabelText(text: "Split · real", size: 10)
+                Text(splitString)
+                    .font(.system(size: splitSize, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                Text("/500m")
+                    .font(Theme.Typography.readoutLabel)
+                    .foregroundStyle(Theme.Color.muted)
                 Hairline()
                 HStack(spacing: 8) {
-                    subReadout(value: isResting ? restAvgSplitString : avgSplitString,
-                               label: "media /500m")
-                    subReadout(value: isResting ? restTimeString
-                                                : WorkoutSession.formatElapsed(session.lapElapsedSeconds),
-                               label: "tiempo")
+                    subReadout(value: avgSplitString, label: "media /500m")
+                    subReadout(value: WorkoutSession.formatElapsed(session.tramoElapsedSeconds),
+                               label: tramoTimeLabel)
                 }
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The bout clock is labelled for what it is. While it is HELD waiting for the
+    /// first stroke it says so, instead of showing a 00:00 that looks broken — the
+    /// athlete taps Empezar, walks to the erg and sits down, and none of that is
+    /// part of the piece.
+    private var tramoTimeLabel: String {
+        session.tramoClockArmed ? "empieza al remar" : "esta serie"
     }
 
     private func subReadout(value: String, label: String) -> some View {
@@ -285,33 +348,26 @@ struct ErgHUDContent: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(0.6)
                 .foregroundStyle(Theme.Color.muted)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(value)")
     }
 
-    // MARK: - Rails (same tiles work AND rest, like ErgData)
+    // MARK: - 4 · Work rail (three tiles, big enough to read from the floor)
 
+    /// Ritmo, potencia, pulso. That is what changes stroke to stroke and that is
+    /// all. Calorías, cal/h, drag, media and proyección used to sit here as eight
+    /// 21 pt tiles nobody could read mid-piece; they are pre-start / rest data and
+    /// they now live there.
     @ViewBuilder
-    private var leftRail: some View {
-        railTile(value: spm.map { "\($0)" } ?? "—", label: "s/min")
-        railTile(value: watts.map { "\($0)" } ?? "—", label: "vatios", color: Theme.Color.accentText)
-        railTile(value: avgWatts.map { "\($0)" } ?? "—", label: "vatios medios")
-    }
-
-    @ViewBuilder
-    private var rightRail: some View {
-        railTile(value: calories.map { "\($0)" } ?? "—", label: "cal")
-        railTile(value: calPerHour.map { "\($0)" } ?? "—", label: "cal/h")
-        // Only a REAL projection earns a tile: distance target + live pace. No
-        // target (or piece already done) → the tile simply isn't there.
-        if let proj = projectedFinishSeconds {
-            railTile(value: WorkoutSession.formatElapsed(proj), label: "proyección")
-        }
+    private var workRail: some View {
+        railTile(value: spm.map { "\($0)" } ?? "—", label: "s/min", valueSize: 32)
+        railTile(value: watts.map { "\($0)" } ?? "—", label: "vatios",
+                 color: Theme.Color.accentText, valueSize: 32)
         railTile(value: session.liveHRBpm.map { "\($0)" } ?? "—", label: "pulso",
-                 color: session.liveZone?.color ?? Theme.Color.foreground)
-        railTile(value: drag.map { "\($0)" } ?? "—", label: "drag")
+                 color: session.liveZone?.color ?? Theme.Color.foreground, valueSize: 32)
     }
 
     private func railTile(value: String, label: String,
@@ -323,12 +379,12 @@ struct ErgHUDContent: View {
                 .foregroundStyle(color)
                 .lineLimit(1).minimumScaleFactor(0.5)
             Text(label.uppercased())
-                .font(.system(size: 8, weight: .heavy)).tracking(0.7)
+                .font(.system(size: 9, weight: .heavy)).tracking(0.7)
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 9)
+        .padding(.vertical, 11)
         .padding(.horizontal, 4)
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -353,15 +409,9 @@ struct ErgHUDContent: View {
 
     // MARK: - Derived
 
-    /// The session's rotating format clock says we're between series. EMOM and
-    /// continuous pieces never enter it (their `rotPhase` stays `.work`).
-    private var isResting: Bool {
-        session.rotPhase == .rest && session.rotPhaseRemaining > 0
-    }
-    private var isCountIn: Bool { session.isCondCountIn }
-    /// True when this erg segment really is a series worth counting — otherwise the
-    /// strip is silent rather than showing a fake "SERIE 1/1".
-    private var hasSeries: Bool { session.rotTotalRounds > 1 }
+    /// True when this really is a series worth counting — otherwise the strip is
+    /// silent rather than showing a fake "SERIE 1/1".
+    private var hasSeries: Bool { session.tramoRoundTotal > 1 }
 
     private var noLiveData: Bool {
         live.paceSecondsPer500m == nil && live.powerWatts == nil && (live.distanceMeters ?? 0) <= 0
@@ -381,58 +431,28 @@ struct ErgHUDContent: View {
 
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }
     private var spm: Int? { pm5.isConnected ? live.strokeRate : nil }
-    private var calories: Int? { pm5.isConnected ? live.caloriesKcal : nil }
-    private var calPerHour: Int? { pm5.isConnected ? live.caloriesPerHour : nil }
-    private var drag: Int? { pm5.isConnected ? live.dragFactor : nil }
 
-    /// Average watts DERIVED from the monitor's own average pace via Concept2's
-    /// published pace↔power relation: watts = 2.80 / (pace per meter)³, where
-    /// pace-per-meter = (avg split s/500m) / 500. A real transformation of a real
-    /// average — never an invented number; nil until the monitor reports avg pace.
-    private var avgWatts: Int? {
-        guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return nil }
-        let pacePerMeter = p / 500.0
-        return Int((2.80 / pow(pacePerMeter, 3)).rounded())
-    }
+    /// Meters covered IN THIS TRAMO — the bout's own window, so serie 2 of a 5×500
+    /// starts at zero instead of carrying serie 1's metres into its goal. NOT gated
+    /// on the link: metres already covered stay true if the monitor drops.
+    private var coveredMeters: Double? { session.tramoErgDistanceMeters ?? 0 }
 
-    /// Projected FINAL time of the serie: elapsed so far + remaining meters at the
-    /// pace being held (current split, else the monitor's average). Only when the
-    /// segment prescribes a distance, meters are flowing and a pace is live —
-    /// otherwise there is nothing honest to project and the tile is omitted.
-    private var projectedFinishSeconds: Double? {
-        guard pm5.isConnected, let target = targetMeters, target > 0,
-              let covered = coveredMeters, covered < target else { return nil }
-        let pace = [live.paceSecondsPer500m, live.avgPaceSecondsPer500m]
-            .compactMap { $0 }.first { $0 > 0 }
-        guard let p = pace else { return nil }
-        return session.lapElapsedSeconds + (target - covered) * (p / 500.0)
-    }
-
-    /// The just-rowed interval as the MONITOR recorded it (0x37/0x38 split table),
-    /// falling back to the running averages when the PM5 isn't cutting intervals.
-    private var lastSplit: PM5Split? { pm5.isConnected ? pm5.splits.last : nil }
-    private var restAvgSplitString: String {
-        if let p = lastSplit?.avgPaceSecPer500m, p > 0 { return Self.splitClock(p) }
-        return avgSplitString
-    }
-    private var restTimeString: String {
-        if let t = lastSplit?.timeSeconds, t > 0 { return WorkoutSession.formatElapsed(t) }
-        return WorkoutSession.formatElapsed(session.lapElapsedSeconds)
-    }
-
-    /// Meters covered IN THIS WINDOW (the engine's per-segment erg delta). 0 while
-    /// connected but before the first sample lands; nil when not connected.
-    private var coveredMeters: Double? {
-        guard pm5.isConnected else { return nil }
-        return session.lapErgDistanceMeters ?? 0
-    }
-    private var targetMeters: Double? { session.currentSegment?.targetDistanceMeters }
-    private var legLine: String { session.currentSegment?.title ?? "Remo" }
     private var objectiveLine: String? {
-        let seg = session.currentSegment
-        if let d = seg?.targetDistanceMeters { return "\(Int(d)) m" }
-        if let c = seg?.targetCalories { return "\(c) cal" }   // #erg-1
-        if let w = seg?.targetPowerWatts { return "\(w) W" }   // #erg-3 (now reached)
+        if let d = tramo.targetDistanceMeters { return "\(Int(d)) m" }
+        if let c = tramo.targetCalories { return "\(c) cal" }
+        if let w = session.currentSegment?.targetPowerWatts { return "\(w) W" }
         return nil
+    }
+}
+
+// The context strip's chrome, applied identically to both of its states.
+private extension View {
+    func stripChrome() -> some View {
+        self
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 }
