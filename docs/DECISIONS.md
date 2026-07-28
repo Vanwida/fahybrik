@@ -26,6 +26,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · El TRAMO es la unidad del entreno en vivo — y la salida sigue la MEDIDA, no el movimiento
+
+**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIK/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
+
+**Cuándo una lista de movimientos ES una ruta de tramos:** cuando la biblioteca manda N segmentos hermanos sin `rounds` escritas y con más de un movimiento (`fixedStation`), como en la simulación de HYROX (plantillas 446 y 489). Entonces **la estación es el tramo**. Un EMOM, un AMRAP, un For Time con rondas, «100 burpees for time» y un 5×500 **no** son rutas y no auto-avanzan: verificado con banco standalone de 52 asserts sobre prescripciones de producción.
+
+**La regla de salida — es una regla, no una lista de casos:**
+
+- **Metros o calorías** → lo sabe la máquina. Sale al **cruzar** el objetivo (el cruce, no «la lectura está por encima»: así una reconexión a mitad de pieza no da la estación por hecha).
+- **Segundos** → lo sabe el reloj de la app, sin emparejar nada.
+- **Repeticiones** → **no lo sabe nadie**. Ahí se toca, y no se simula un contador.
+
+**Un monitor parado NUNCA saca del tramo**: es alguien recuperando el aliento.
+
+**Por qué:** la app ya sabía por dónde ibas — el cursor de tachado por estación existía y nunca estuvo enchufado al tramo. No había que inventar detección, había que conectar lo que ya estaba. Y `involvesErg` (¿hay que conectar el aparato?) se separa de `tramoIsErg` (¿se enseña ahora?) porque son preguntas distintas: se conecta al empezar la sesión, se enseña solo mientras se rema.
+
+**En consecuencia, no hacer:** no añadir reglas de salida por movimiento («el ski sale cuando…»), que es justo lo que esta regla sustituye; no inventar contadores de repeticiones ni de rondas que la app no puede medir (ley 7 del `docs/CONTRATO-UI.md`); no redondear el parcial de una estación al objetivo — 1.014 m se guardan 1.014; y no leer el título del bloque plegado donde va el tramo (el espejo del reloj lo hacía y enseñaba todos los movimientos unidos por puntos, congelados veinte minutos).
+
+**Dónde vive:** `LiveTramo.swift`, `WorkoutSession+Tramo.swift`, `RestSurface.swift`. Commits `a6d81fd` y `ce96bd4`.
+
+---
+
 ## 2026-07-27 (noche) · En dobles, correr y roxzone son suyos; las estaciones NO. Y el correr es un SUELO, no una medida
 
 **Decidido:** una carrera de equipo (`doubles` / `relay`) aporta como evidencia del atleta individual **solo** su tiempo de carrera a pie (`races.run_total_seconds`, `run_splits_json`) y su roxzone (`races.roxzone_seconds`). Los splits de estación (`station_splits_json`) **no se le atribuyen jamás**. El tiempo final (`result_time_seconds`) es suyo, pero solo se enseña con el formato nombrado al lado. Todo número de correr que salga de una carrera de equipo viaja marcado `partner_bounded` y se presenta como un **suelo** («más lento no vas»), nunca como una medición. Consecuencia directa: **no se emite tendencia de correr sobre carreras de equipo**, ni con veinte carreras.
