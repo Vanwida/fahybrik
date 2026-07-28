@@ -71,7 +71,7 @@ export async function ingestPolarSession(args: {
   await sql`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
-      source, source_workout_ref
+      source, source_workout_ref, recorded_via
     ) values (
       ${assign.id}::bigint,
       ${athlete_id as unknown as number},
@@ -79,7 +79,14 @@ export async function ingestPolarSession(args: {
       ${endedAt},
       ${durationSeconds},
       ${POLAR_SOURCE},
-      ${externalId}
+      ${externalId},
+      -- HOW the record came to exist. This row exists because a session appeared
+      -- in the athlete's Polar account and we pulled it: 'imported'. It is a
+      -- DIFFERENT question from source above (WHAT apparatus measured it), and the
+      -- two must never be conflated. A session the athlete actually ran inside
+      -- FAHYBRID is written 'live' by recordWorkoutExecution and never reaches this
+      -- insert: existsOverlappingExecution returns first.
+      'imported'::execution_recording_method
     )
     on conflict (assignment_id) do update
       set started_at = case
@@ -102,6 +109,10 @@ export async function ingestPolarSession(args: {
             when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
             else excluded.source_workout_ref
           end,
+          -- Existing wins: an ingest can only ADD what nobody knew. A session
+          -- already stamped 'live' or 'manual' stays that way — a later device
+          -- sync of the same session does not turn it into an import.
+          recorded_via = coalesce(workout_executions.recorded_via, excluded.recorded_via),
           updated_at = now()
   `;
 

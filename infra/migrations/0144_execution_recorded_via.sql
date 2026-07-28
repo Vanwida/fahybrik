@@ -19,7 +19,7 @@
 -- LA DECISIÓN
 -- -----------
 -- `source` se queda con el significado (1), que es el que su TIPO ya dice y el
--- que su lógica ya usa: `ingest-healthkit.ts:207` y `reconcile.ts` deciden
+-- que su lógica ya usa: `ingest-healthkit.ts` (linkExecution) y `reconcile.ts` deciden
 -- precedencia entre aparatos con él ("si ya hay garmin, garmin gana"). Cambiarle
 -- el sentido rompería esa fusión multi-fuente.
 --
@@ -49,7 +49,18 @@
 --
 -- `recorded_via` queda NULLABLE a propósito: NULL = «no se sabe» y es la
 -- respuesta honesta para las 57 filas de seed, que no fueron ni vividas ni
--- tecleadas por nadie. Todo lo que escriba la app a partir de ahora lo lleva.
+-- tecleadas por nadie.
+--
+-- CORRECCIÓN (28-jul-2026). Aquí decía «todo lo que escriba la app a partir de
+-- ahora lo lleva», y era FALSO el día que se escribió: de los cuatro sitios que
+-- insertan en `workout_executions`, solo `record-workout-execution.ts` (el motor
+-- en vivo y el registro a mano) rellenaba la columna. Las tres ingestas de
+-- dispositivo — `ingest-healthkit.ts`, `ingest-garmin.ts`, `ingest-polar.ts` —
+-- insertaban con `recorded_via` NULL, así que dos sesiones con la MISMA evidencia
+-- se describían distinto según por dónde hubieran entrado. Las tres escriben ya
+-- 'imported' (y en el upsert manda lo que hubiera: una sesión 'live' no se
+-- degrada porque el reloj la sincronice después). La frase es cierta desde
+-- entonces, no desde esta migración.
 
 begin;
 

@@ -209,7 +209,7 @@ async function linkExecution(args: {
   await sql`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
-      source, source_workout_ref
+      source, source_workout_ref, recorded_via
     ) values (
       ${assign.id}::bigint,
       ${athlete_id as unknown as number},
@@ -217,7 +217,14 @@ async function linkExecution(args: {
       ${endedAt},
       ${Math.round(workout.duration_seconds)},
       'healthkit',
-      ${workout.source_workout_id}
+      ${workout.source_workout_id},
+      -- HOW the record came to exist. This row exists because a workout showed up
+      -- in Apple Health and the sync batch brought it: 'imported'. A DIFFERENT
+      -- question from source above (WHAT apparatus measured it) — never conflate
+      -- them. A session run inside FAHYBRID is written 'live' by
+      -- recordWorkoutExecution, and existsOverlappingExecution stops this path
+      -- before it can restamp it.
+      'imported'::execution_recording_method
     )
     on conflict (assignment_id) do update
       set started_at = case
@@ -240,6 +247,10 @@ async function linkExecution(args: {
             when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
             else excluded.source_workout_ref
           end,
+          -- Existing wins: an ingest can only ADD what nobody knew. A session
+          -- already stamped 'live' or 'manual' stays that way — a later device
+          -- sync of the same session does not turn it into an import.
+          recorded_via = coalesce(workout_executions.recorded_via, excluded.recorded_via),
           updated_at = now()
   `;
 
