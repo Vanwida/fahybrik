@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triaje de coherencia — 28-jul-2026</title>
+<style>
+  :root{--bg:#0a0a0a;--surface:#141414;--surface-2:#1c1c1c;--border:#262626;--border-strong:#333;--fg:#f5f5f5;--muted:#a3a3a3;--faint:#737373;--accent:#F06A2A;--ok:#4ade80;--warn:#facc15;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:52px 22px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(27px,4vw,38px);font-weight:800;font-style:italic;letter-spacing:-.02em;margin:8px 0 8px}
+  .sub{color:var(--muted);max-width:720px;margin-bottom:12px}
+  .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--faint);margin-bottom:34px}
+  h2{font-size:20px;font-weight:800;font-style:italic;margin:48px 0 8px;color:var(--accent)}
+  h2 .t{font-size:12px;font-style:normal;color:var(--faint);font-weight:700;margin-left:8px}
+  h2+p{color:var(--muted);max-width:800px;margin-bottom:18px}
+  h3{font-size:15px;font-weight:800;margin:26px 0 8px}
+  p{margin:0 0 13px;color:var(--muted)} b,strong{color:var(--fg)}
+  code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--fg)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:9px 10px;border-bottom:1px solid var(--border-strong)}
+  td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:700}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
+  .tS table{margin:0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card.hot{background:linear-gradient(135deg,var(--surface),#1e1209);border-color:rgba(240,106,42,.42)}
+  .card.done{border-left:3px solid var(--ok)}
+  .n{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--accent);margin-bottom:5px}
+  .lote{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
+  .lote:last-child{border:0}
+  .lote .b{flex:0 0 42px;height:42px;border-radius:11px;background:rgba(240,106,42,.14);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;font-size:17px}
+  .lote h3{margin:1px 0 4px} .lote p{margin:0;font-size:14px}
+  .footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  @media(max-width:640px){body{padding:30px 13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Triaje de coherencia · 28 jul 2026</p>
+  <h1>Lo que hay que arreglar, en orden</h1>
+  <p class="sub">Consolidación de las tres auditorías de esta noche —contradicciones entre agentes, honestidad del dato y coherencia visual— sin duplicados y ordenado por a quién hace daño.</p>
+  <div class="meta">
+    <span>Origen: 9 agentes trabajando en paralelo <b>sin contrato común</b></span>
+    <span>El contrato ya existe: <code>docs/CONTRATO-UI.md</code></span>
+  </div>
+
+  <div class="card done">
+    <span class="n">YA ARREGLADO ESTA NOCHE</span>
+    <p style="margin:0"><b>El diario de migraciones.</b> Las cinco que apliqué a mano quedaron registradas con la extensión <code>.sql</code> y el runner indexa sin ella: el próximo <code>pnpm migrate</code> habría abortado con un <code>create type</code> duplicado. Corregido y verificado: <b>147 registradas, 0 pendientes</b>. Fallo mío, no de los agentes.</p>
+  </div>
+
+  <h2>1 · Miente sobre el atleta <span class="t">le llega a él o a Pablo, y se decide entrenamiento con ello</span></h2>
+  <p>Ordenado por coste. Casi todos tienen, en el mismo fichero, un hermano que ya lo resuelve bien — eso los hace baratos.</p>
+  <div class="tS"><table>
+    <tr><th>Qué</th><th>El caso concreto</th><th>Dónde</th></tr>
+    <tr><td>Las zonas no significan lo mismo en el servidor y en el reloj</td><td>El servidor las calcula sobre el umbral y el iOS sobre la frecuencia máxima. Con 190 de máxima: servidor Z2 = 137–147, iOS Z2 = 114–133 — <b>bandas disjuntas</b>. A 140 ppm estás donde el coach quiere y la app te dice Z3 y que aprietas de más</td><td><code>zones.ts:88</code> vs <code>ZoneColors.swift:20</code></td></tr>
+    <tr><td>La frecuencia máxima se inventa en 184</td><td>Cuando no hay dato nunca devuelve nulo, y el cable no marca que sea estimada: el «121 s en Z4» que ve Pablo sale de un número que nadie midió. El comentario del motor afirma lo contrario</td><td><code>WorkoutContainer.swift:56</code></td></tr>
+    <tr><td>La carga prescrita se guarda como la real</td><td>Sentadilla hecha a 80 sobre una prescripción de 100 se lee después «5 × 100 kg». Las repeticiones llevan marca de confirmación; la carga no</td><td><code>WorkoutSession.swift:2091, 1847</code></td></tr>
+    <tr><td>Toda carrera registrada se celebra como récord</td><td>Con un 10K de 42:00, registrar 55:00 saca el trofeo «Marca nueva · PR». El servidor manda el dato correcto y la vista lo descarta</td><td><code>MarkDetailView.swift:339</code></td></tr>
+    <tr><td>Dos valores por defecto que se guardan como marcas tuyas</td><td>Registrar carrera nace en 45 min; el 1RM nace en 5 reps, así que 100×3 se guarda como 100×5 → 116,7 kg en vez de 110, y de ahí salen los % del plan</td><td><code>RegisterRaceSheet:19</code> · <code>MyStrengthView:281</code></td></tr>
+    <tr><td>«Adherencia 100 %» sobre quien no ha entrenado</td><td>Cero sesiones programadas da 1 en vez de «no se sabe» → recomendación de <b>subir carga con confianza alta</b> en la cola de Pablo. El módulo dueño del concepto ya devuelve nulo</td><td><code>progress-readiness.ts:165</code></td></tr>
+    <tr><td>Carga de entrenamiento inventada</td><td>Sin RPE, la intensidad cae a 0,65 — y nunca llega potencia ni FC, así que <b>toda</b> sesión sin valorar aporta ~42 TSS/hora falsos a las tendencias del coach</td><td><code>training-load/tss.ts:74</code></td></tr>
+    <tr><td>Un check-in de marzo sigue puntuando en julio</td><td>Sin suelo de fecha y con el peso más alto (0,35), con el chip encendido y leyendo «Recuperado y listo». El mismo fichero acota la FC en reposo a 14 días y solo la enseña</td><td><code>athlete-daily-readiness.ts:187</code></td></tr>
+    <tr><td>El ritmo en vivo miente en las series</td><td>En un 6×800 el denominador incluye los trotes: el HUD dice 5:33/km donde la serie va a 3:30. Y el registro que le llega al coach <b>sí</b> es correcto: dos números del mismo esfuerzo</td><td><code>WorkoutSession.swift:533</code></td></tr>
+    <tr><td>La FC media no pondera por duración</td><td>Calentamiento 3′@105 + principal 40′@168 + vuelta 5′@110: la real es ~157 y la pantalla pinta 128. Igual en potencia y paladas</td><td><code>ExecutedWorkoutView.swift:765</code></td></tr>
+    <tr><td>Ocho estaciones con barra a media asta y veredicto «algo peor»</td><td>Sin rango o sin tamaño de campo se fabrica un 0,5 con severidad. Es exactamente la barra que la ley prohíbe, y la función honesta está al lado</td><td><code>race-context.ts:113</code></td></tr>
+    <tr><td>Quien importó su historial por la vía actual no tiene «última carrera»</td><td>El filtro solo acepta la vía antigua; todos los módulos hermanos aceptan las dos</td><td><code>race-context.ts:407</code></td></tr>
+    <tr><td>Objetivos inventados en el HUD</td><td>Sin RPE prescrito el héroe pinta «Suave» bajo «Esfuerzo objetivo»; y la celda «Media» muestra el ritmo prescrito sin avisar, en otra unidad que la barra de al lado</td><td><code>WorkoutLiveHUDs:100</code> · <code>WorkoutFormatHUDs:881</code></td></tr>
+    <tr><td>El mixto ski+remo se archiva entero como una máquina</td><td>Cuatro agentes arreglaron «el ski se guarda como remo» en cuatro capas y los cuatro se saltaron el plegado: el bloque se sella con la máquina del primer ítem</td><td><code>WorkoutModels.swift:1320, 1368</code></td></tr>
+  </table></div>
+
+  <h2>2 · El vocabulario nuevo no llegó a todos <span class="t">un agente puso la regla, los demás no se enteraron</span></h2>
+  <div class="tS"><table>
+    <tr><th>Qué</th><th>El caso</th></tr>
+    <tr><td>La procedencia llega a 1 de 4 escritores</td><td>Las ingestas de HealthKit, Polar y Garmin no la escriben: dos sesiones con la misma evidencia se describen distinto según por dónde entraron. La migración promete lo contrario</td></tr>
+    <tr><td>La FC en reposo, arreglada en 1 de 6 lectores</td><td>Con el dato real del 27-jul: readiness dice 52, recuperación 51, el cohorte lo que salga. Los dos primeros llegan al atleta el mismo día — y <b>divergen de día</b>, no solo de valor</td></tr>
+    <tr><td>El VO₂máx del mismo Cooper por dos fórmulas</td><td><b>51,3</b> en la pantalla nueva y <b>43,9</b> rigiendo los ritmos del plan. Y cada una elige un Cooper distinto</td></tr>
+    <tr><td>El reloj armado congela una estación en 0:00</td><td>Si no emparejas el PM5 (emparejar es opcional) el reloj nunca se libera: la estación marca 0:00 y su parcial se graba como cero</td></tr>
+    <tr><td>La cinta abre una puerta que tira los datos</td><td>Se ofrece cuando el tramo es de correr, pero el muestreador sigue exigiendo que el segmento lo sea: corres un kilómetro y cada metro se descarta en silencio</td></tr>
+    <tr><td>Salud puede recibir el mismo entreno dos veces</td><td>Los dos guardarraíles fallan a la vez cuando el reloj aún no ha contestado. La cabecera del escritor afirma que la garantía no depende de eso; depende</td></tr>
+  </table></div>
+
+  <h2>3 · No se ve como la misma app <span class="t">de seis pantallas nuevas, solo una usó los cimientos</span></h2>
+  <div class="tS"><table>
+    <tr><th>Qué</th><th>El caso</th></tr>
+    <tr><td>El mismo número con dos separadores</td><td>El VO₂máx sale «42,4» en una pantalla y «42.4» en la de al lado. Y beben de fuentes distintas</td></tr>
+    <tr><td>El pulso: 5 aspectos, 3 nombres, 2 unidades</td><td>Resumen y log, seguidos en el flujo, dicen «Avg HR · bpm» y «FC media · ppm». El resumen es el <b>único sitio en inglés</b> de la app</td></tr>
+    <tr><td>El ritmo con 3 grafías y la duración con 6 formateadores</td><td>Dos grafías del ritmo en el mismo scroll; «5:00» y «05:00» para lo mismo</td></tr>
+    <tr><td>El resumen post-entreno no tiene estado de error</td><td>Todos los caminos cierran la pantalla pase lo que pase con la red: nunca se te dice que el entreno quedó sin guardar</td></tr>
+    <tr><td>Entre el entreno y el resumen la app se parte en dos</td><td>El número cae de 96 a 36 pt, cambia de familia tipográfica y pierde el color de zona. Y <b>el ritmo —el número por el que existe la pantalla en vivo— no aparece en el resumen en ningún tamaño</b></td></tr>
+    <tr><td>Estados vacíos sin salida que sí compilan</td><td>La obligación por tipo solo rige dentro del componente compartido; nueve pantallas lo esquivan escribiendo el vacío a mano</td></tr>
+    <tr><td>La puerta de entrada sin reparto de altura</td><td>Toda la familia de autenticación se quedó sin scroll: con texto grande no se alcanza «Entrar con email», que en dos pantallas es la <b>única</b> acción</td></tr>
+  </table></div>
+
+  <h2>Cómo se ataca — tandas secuenciadas, no nueve agentes a la vez</h2>
+  <div class="card">
+    <div class="lote"><div class="b">1</div><div><h3>Una sola verdad para cada concepto</h3><p>Zonas (un modelo, no dos), frecuencia máxima con marca de estimada, VO₂máx del Cooper por una fórmula, FC en reposo en los seis lectores, procedencia en los cuatro escritores. <b>Va sola y se fusiona antes que nada</b>: todo lo demás se apoya en esto.</p></div></div>
+    <div class="lote"><div class="b">2</div><div><h3>Que nada se guarde sin que el atleta lo haya dicho</h3><p>Los valores por defecto que se convierten en marcas, la carga prescrita guardada como real, el récord celebrado sin serlo, el score del Tabata, la recuperación tras cierre.</p></div></div>
+    <div class="lote"><div class="b">3</div><div><h3>Que el coach no decida con datos fabricados</h3><p>Adherencia sobre cero sesiones, la carga inventada sin RPE, el check-in caducado puntuando, las barras de estación sin rango.</p></div></div>
+    <div class="lote"><div class="b">4</div><div><h3>Que el conjunto se vea como una app</h3><p>Formateadores únicos y vocabulario del contrato, los cimientos en las cinco pantallas que se los saltaron, el estado de error del resumen, y la frontera entre el entreno y el resumen.</p></div></div>
+  </div>
+  <p><b>Regla de proceso, aprendida hoy:</b> lo transversal va en una tanda sola y se fusiona antes de que nadie construya encima; el paralelo solo entre piezas que no comparten vocabulario; y todo encargo de UI cita <code>docs/CONTRATO-UI.md</code> antes de escribir una línea.</p>
+
+  <div class="footer">FAHYBRID · triaje interno · consolida las tres auditorías del 28-jul (contradicciones · honestidad del dato · coherencia visual) · patrón de fondo detectado: lo honesto está en los módulos NUEVOS y ausente en los VIEJOS, y casi todo tiene su hermano bien resuelto al lado</div>
+
+</div>
+</body>
+</html>
