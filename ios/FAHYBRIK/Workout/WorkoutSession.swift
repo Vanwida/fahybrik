@@ -2230,7 +2230,10 @@ final class WorkoutSession {
                 segmentId: first.id,
                 templateSegmentId: first.templateSegmentId,
                 position: first.order,
-                modality: first.kind.modality,
+                // Same single source as a worked lap: identical to `kind.modality`
+                // for everything that is not an erg, and correct for the one case
+                // that differs — a warmup or cooldown done on the ski or the bike.
+                modality: first.wireModality,
                 startedAt: now.addingTimeInterval(-durationSeconds),
                 endedAt: now,
                 durationSeconds: durationSeconds,
