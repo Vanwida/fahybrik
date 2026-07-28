@@ -150,7 +150,7 @@ enum AppleWorkoutMapper {
     static func customWorkout(
         structure: RunStructure,
         name: String,
-        hrMax: HRMaxSource?
+        hrMax: HRZoneProfile?
     ) -> CustomWorkout? {
         guard CustomWorkout.supportsActivity(activity) else { return nil }
 
@@ -210,7 +210,7 @@ enum AppleWorkoutMapper {
     private static func intervalBlocks(
         from elements: [RunElement],
         role: RunPhaseRole,
-        hrMax: HRMaxSource?
+        hrMax: HRZoneProfile?
     ) -> [IntervalBlock] {
         var blocks: [IntervalBlock] = []
         var loose: [IntervalStep] = []
@@ -250,13 +250,13 @@ enum AppleWorkoutMapper {
         return blocks
     }
 
-    private static func intervalStep(for leg: RunLeg, hrMax: HRMaxSource?) -> IntervalStep {
+    private static func intervalStep(for leg: RunLeg, hrMax: HRZoneProfile?) -> IntervalStep {
         IntervalStep(leg.isRecovery ? .recovery : .work, step: step(for: leg, hrMax: hrMax))
     }
 
     // MARK: - Leg → step
 
-    static func step(for leg: RunLeg, hrMax: HRMaxSource?) -> WorkoutStep {
+    static func step(for leg: RunLeg, hrMax: HRZoneProfile?) -> WorkoutStep {
         let goal = supportedGoal(for: leg)
         let (alert, droppedAlertNote) = supportedAlert(for: leg, hrMax: hrMax)
         let label = name(for: leg, extraNotes: droppedAlertNote)
@@ -287,7 +287,7 @@ enum AppleWorkoutMapper {
     /// secondary guide; it must never displace the objetivo.
     private static func supportedAlert(
         for leg: RunLeg,
-        hrMax: HRMaxSource?
+        hrMax: HRZoneProfile?
     ) -> (alert: (any WorkoutAlert)?, notes: [String]) {
         var notes: [String] = []
 
@@ -356,17 +356,20 @@ enum AppleWorkoutMapper {
         return 1000.0 / Double(pace)
     }
 
-    /// An HR zone as an ABSOLUTE bpm band — and ONLY from the athlete's own measured
-    /// FCmáx.
+    /// An HR zone as an ABSOLUTE bpm band, straight from the server's zone profile
+    /// — and ONLY when that profile rests on a MEASURED threshold.
     ///
-    /// When all we have is a generic age-based estimate we emit NO alert. The reason
-    /// is the honesty rule: an estimated band is a number we made up, and pushing it
-    /// to the watch as a hard target strips the "genérica" caveat the app shows
-    /// beside it everywhere else. An estimate is fine for colouring a live reading;
-    /// it is not fine as a prescription the wrist buzzes about.
-    static func heartRateAlert(for zone: HRZone, hrMax: HRMaxSource?) -> (any WorkoutAlert)? {
-        guard let hrMax, !hrMax.isEstimated else { return nil }
-        guard let band = HRZoneClassifier.bpmBand(for: zone, hrMax: hrMax.bpm) else { return nil }
+    /// Two rules, both about honesty. The band is absolute because a watch must
+    /// never receive "Z4": it would apply its OWN Z4, derived from its own FCmáx
+    /// estimate, and the label would silently mean something else. And when the
+    /// threshold behind the band was estimated we emit NO alert at all — an
+    /// estimated band is a number we inferred, and buzzing the wrist about it
+    /// strips the "estimada" caveat the app shows beside it everywhere else. An
+    /// estimate is fine for colouring a live reading; it is not fine as a
+    /// prescription.
+    static func heartRateAlert(for zone: HRZone, hrMax: HRZoneProfile?) -> (any WorkoutAlert)? {
+        guard let hrMax, !hrMax.estimated else { return nil }
+        guard let band = hrMax.bpmBand(for: zone) else { return nil }
         // `WorkoutAlertMetric.countPerMinute` is WorkoutKit's own bpm/spm unit —
         // Foundation's UnitFrequency has no beats-per-minute of its own.
         let bpm = WorkoutAlertMetric.countPerMinute

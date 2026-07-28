@@ -241,7 +241,7 @@ struct InicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                hrMaxSource: store.identity.value?.hrMaxSource,
+                hrZones: store.identity.value?.hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     // A finished session can flip a calibration test's state / land
@@ -269,7 +269,7 @@ struct InicioView: View {
             // refreshed so the new self-origin session appears as a "Libre" row.
             FreeWorkoutBuilderView(
                 bearer: effectiveBearer,
-                hrMaxSource: store.identity.value?.hrMaxSource,
+                hrZones: store.identity.value?.hrZones,
                 onClose: { showFreeBuilder = false },
                 onCompleted: { Task { await store.planMutated() } }
             )
@@ -281,7 +281,7 @@ struct InicioView: View {
         }) {
             TestsHubView(
                 bearer: effectiveBearer,
-                hrMaxSource: store.identity.value?.hrMaxSource,
+                hrZones: store.identity.value?.hrZones,
                 onClose: { showTestsHub = false },
                 onSessionCompleted: {
                     testBatteryNonce += 1
@@ -1235,7 +1235,7 @@ struct InicioView: View {
     private var marksSuggestionCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MarksLibraryView(bearer: effectiveBearer, hrMaxSource: store.identity.value?.hrMaxSource)
+                MarksLibraryView(bearer: effectiveBearer, hrZones: store.identity.value?.hrZones)
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "stopwatch")
@@ -1627,9 +1627,10 @@ struct InicioView: View {
     // Push TODAY to the watch — never a future day. Snapshots the home's already-
     // loaded state (session card + readiness); no duplicate network fetch (readiness
     // from the store, detail from its cache, network only on a cache miss).
-    // `athleteHrMax` carries the athlete's resolved max HR (measured FCmáx, else
-    // 220−age) so the wrist classifies zones off the SAME personal ceiling the
-    // phone does; nil when neither is known (the watch then shows HR without a zone).
+    // `athleteHrZones` carries the athlete's HR bands EXACTLY as the server resolved
+    // them, so the wrist classifies a beat into the same zone the phone does and the
+    // coach reads one number; nil when the athlete has no zones yet (the watch then
+    // shows the pulse without a zone rather than inventing a ceiling).
     //
     // Three cases, from TODAY's sessions only:
     //   1. a pending session today → push it, not done.
@@ -1663,7 +1664,7 @@ struct InicioView: View {
                     dayKind: WatchDayKind.rest,
                     assignmentId: nil, title: nil, focus: nil,
                     estDurationMinutes: nil, intensityLabel: nil, modality: nil,
-                    athleteHrMax: store.identity.value?.hrMaxSource?.bpm, readiness: readiness,
+                    athleteHrZones: store.identity.value?.hrZones, readiness: readiness,
                     isDone: false, doneCompleteness: nil, isDoubles: false,
                     partnerFirstName: nil, partnerVisibility: nil, bearer: bearer
                 )
@@ -1695,7 +1696,7 @@ struct InicioView: View {
                 estDurationMinutes: session.estDurationMinutes,
                 intensityLabel: nil,
                 modality: session.modality,
-                athleteHrMax: store.identity.value?.hrMaxSource?.bpm,
+                athleteHrZones: store.identity.value?.hrZones,
                 readiness: readiness,
                 isDone: isDone,
                 doneCompleteness: doneCompleteness,

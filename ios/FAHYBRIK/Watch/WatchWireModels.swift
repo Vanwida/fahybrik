@@ -33,7 +33,13 @@ struct WatchTodayPayload: Codable, Equatable {
     let estDurationMinutes: Int?
     let intensityLabel: String?
     let activityKind: String?         // "running" | "strength" | "hyrox" | "mixed"; nil on rest days
-    let athleteHrMax: Int?            // for HR-zone classification on the wrist
+    // The athlete's HR zones exactly as the SERVER resolved them. The wrist
+    // classifies against these absolute bands — it never derives its own from a
+    // max, which is how the watch used to tint a pulse one zone away from what
+    // the phone recorded for the same beat. Nil = the athlete has no zones yet;
+    // the wrist then shows the pulse with no zone rather than inventing one.
+    // Optional so an older watch binary still decodes the payload.
+    let athleteHrZones: HRZoneProfile?
     let readinessScore: Int?
     let readinessDelta7d: Int?
     let readinessWorstDriver: String? // e.g. "Sueño 6h 10m" — worst component, human label
@@ -200,7 +206,7 @@ extension WatchTodayPayload {
             estDurationMinutes: estDurationMinutes,
             intensityLabel: intensityLabel,
             activityKind: activityKind,
-            athleteHrMax: athleteHrMax,
+            athleteHrZones: athleteHrZones,
             readinessScore: readinessScore,
             readinessDelta7d: readinessDelta7d,
             readinessWorstDriver: readinessWorstDriver,

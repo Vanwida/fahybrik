@@ -682,7 +682,7 @@ struct ProfileView: View {
             NavigationLink {
                 TestsHubView(
                     bearer: bearer,
-                    hrMaxSource: identity?.hrMaxSource,
+                    hrZones: identity?.hrZones,
                     onSessionCompleted: { Task { await store.planMutated() } }
                 )
             } label: {
@@ -740,7 +740,7 @@ struct ProfileView: View {
     private var marksCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                MarksLibraryView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+                MarksLibraryView(bearer: bearer, hrZones: identity?.hrZones)
             } label: {
                 profileRowContent(
                     icon: "stopwatch",
@@ -761,7 +761,7 @@ struct ProfileView: View {
     private var vo2MaxCard: some View {
         CardSurface(padding: 0) {
             NavigationLink {
-                Vo2MaxView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+                Vo2MaxView(bearer: bearer, hrZones: identity?.hrZones)
             } label: {
                 profileRowContent(
                     icon: "lungs",
@@ -2302,7 +2302,7 @@ struct EditProfileView: View {
     private var parsedMaxHr: Int? {
         guard let d = parseDecimal(maxHrText) else { return nil }
         let i = Int(d.rounded())
-        return (i >= PersonalHRMax.minMeasuredBpm && i <= PersonalHRMax.maxMeasuredBpm) ? i : nil
+        return (i >= AthleteMaxHR.minBpm && i <= AthleteMaxHR.maxBpm) ? i : nil
     }
 
     private var hasBodyRangeWarning: Bool {

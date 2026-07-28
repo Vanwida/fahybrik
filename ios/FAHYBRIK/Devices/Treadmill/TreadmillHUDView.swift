@@ -19,10 +19,10 @@ struct TreadmillHUDView: View {
     /// athlete can mute/unmute the coach without leaving the run.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
-    init(session: WorkoutSession, hrMaxSource: HRMaxSource?) {
+    init(session: WorkoutSession, hrZones: HRZoneProfile?) {
         // The SHARED hub — so a belt connected in the brief is already live here (no
         // re-scan), and the connection outlives this cover being opened/closed.
-        _model = State(initialValue: TreadmillHUDModel(session: session, hrMaxSource: hrMaxSource,
+        _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
                                                        hub: .shared))
     }
 

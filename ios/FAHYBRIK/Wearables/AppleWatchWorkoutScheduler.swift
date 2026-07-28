@@ -207,7 +207,7 @@ final class AppleWatchWorkoutScheduler {
         // The honest filter: strength / EMOM / AMRAP never reach the watch.
         guard case let .eligible(structure, name) = AppleWorkoutMapper.eligibility(of: detail) else { return nil }
 
-        return AppleWorkoutMapper.customWorkout(structure: structure, name: name, hrMax: hrMaxSource)
+        return AppleWorkoutMapper.customWorkout(structure: structure, name: name, hrMax: hrZones)
     }
 
     // MARK: Reconciliation
@@ -308,7 +308,7 @@ final class AppleWatchWorkoutScheduler {
 
     /// The athlete's max-HR source, set by the app once identity is loaded. Only a
     /// MEASURED max ever resolves an HR band for the watch (see the mapper).
-    var hrMaxSource: HRMaxSource?
+    var hrZones: HRZoneProfile?
 
     // MARK: Date helpers
     //

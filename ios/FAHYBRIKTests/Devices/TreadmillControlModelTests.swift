@@ -60,7 +60,7 @@ final class TreadmillControlModelTests: XCTestCase {
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
                                coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let src = FakeControllableTreadmill()
-        let model = TreadmillHUDModel(session: WorkoutSession(plan: plan), hrMaxSource: nil,
+        let model = TreadmillHUDModel(session: WorkoutSession(plan: plan), hrZones: nil,
                                       treadmill: src, hr: FakeHR())
         model.start()
         return (model, src)

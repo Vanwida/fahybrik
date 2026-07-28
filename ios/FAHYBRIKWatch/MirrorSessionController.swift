@@ -39,11 +39,17 @@ final class MirrorSessionController: NSObject {
     /// then offers a local save/discard so a lost phone never traps a live HKWorkout.
     private(set) var isConnectionLost = false
 
-    /// Live HR mapped to its zone for the wrist tint. Uses a fallback HRmax — this
-    /// drives COLOR only; the phone's engine records the true zones against the
-    /// athlete's real max.
+    /// Live HR mapped to its zone for the wrist tint.
+    ///
+    /// Reads the SAME server-resolved bands the phone's engine records against
+    /// (pushed with the day and persisted by `WatchPlanModel`). It used to classify
+    /// against a hardcoded 190 bpm "for colour only", which meant the wrist could
+    /// paint a beat Z3 while the phone filed the same beat as Z2. Nil when the
+    /// athlete has no zones: the wrist shows the pulse with no tint, which is the
+    /// truth, rather than a colour derived from a made-up ceiling.
     var liveZone: HRZone? {
-        liveHR.map { HRZoneClassifier.zone(forBpm: $0, hrMax: Self.zoneTintHRMax) }
+        guard let zones = WatchPlanModel.shared.today?.athleteHrZones else { return nil }
+        return liveHR.flatMap { zones.zone(forBpm: $0) }
     }
 
     // MARK: - Tuning
@@ -54,9 +60,6 @@ final class MirrorSessionController: NSObject {
     /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
     /// faster than the engine needs).
     private static let hrRelayMinInterval: TimeInterval = 1
-    /// Fallback HRmax for the LOCAL zone tint only (mirror of the standalone
-    /// default) — never a recorded value.
-    private static let zoneTintHRMax = 190
     /// Confirmation beat on the "Guardando…" screen before returning to idle.
     private static let savedBeat: Duration = .milliseconds(900)
 

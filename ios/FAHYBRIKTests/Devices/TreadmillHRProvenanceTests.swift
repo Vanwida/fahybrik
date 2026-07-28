@@ -39,7 +39,7 @@ final class TreadmillHRProvenanceTests: XCTestCase {
     private func makeModel() -> (TreadmillHUDModel, FakeHR, WorkoutSession) {
         let s = WorkoutSession(plan: .minimal(title: "Test"))
         let hr = FakeHR()
-        let model = TreadmillHUDModel(session: s, hrMaxSource: nil,
+        let model = TreadmillHUDModel(session: s, hrZones: nil,
                                       treadmill: FakeTreadmill(), hr: hr)
         return (model, hr, s)
     }

@@ -104,7 +104,10 @@ private struct SendBody: Encodable {
 
 /// What `uploadAttachment` hands back to the send path: the authenticated proxy
 /// URL the message references, plus the confirmed mime/size.
-struct ChatUploadResult: Equatable {
+// Decodable is kept (the app builds this value by hand since the move to presigned
+// PUTs, but the wire shape is still asserted in ChatAttachmentTests — dropping the
+// conformance silently broke the whole iOS test target's compilation).
+struct ChatUploadResult: Equatable, Decodable {
     let url: String
     let mimeType: String
     let sizeBytes: Int

@@ -21,7 +21,7 @@ struct ActiveWorkoutView: View {
     /// The athlete's resolved max-HR source (measured FCmáx, else 220−age estimate,
     /// else nil) — the SINGLE input for the HR zone in the treadmill / outdoor HUDs.
     /// Nil → the HUD shows HR without a zone rather than inventing one.
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
     /// #56 — athlete bearer, used to poll the training partner's live presence for the
     /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.
     var bearer: String? = nil
@@ -352,10 +352,10 @@ struct ActiveWorkoutView: View {
             PM5LiveStreamView(store: pm5)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, hrMaxSource: hrMaxSource)
+            TreadmillHUDView(session: session, hrZones: hrZones)
         }
         .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
+            OutdoorRunHUDView(session: session, hrZones: hrZones)
         }
         // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
         // so the next cover / the count-in never fights the dismissing one.

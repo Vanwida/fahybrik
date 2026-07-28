@@ -17,7 +17,7 @@ final class WorkoutSession {
     /// The athlete's resolved max-HR source (personal measured, else 220−age
     /// estimate, else nil). Drives `liveZone` + time-in-zone. Nil → no zones
     /// (we never fabricate a max — previously this was a hardcoded 190).
-    let hrMaxSource: HRMaxSource?
+    let hrZones: HRZoneProfile?
     let startedAt: Date
     /// AUDIT-1 — the backend assignment this session logs to, stamped onto the
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
@@ -390,9 +390,9 @@ final class WorkoutSession {
     // segment is re-closed, so a back-step never silently drops recorded work.
     private var reopenedLap: LapRecord? = nil
 
-    init(plan: WorkoutPlan, hrMaxSource: HRMaxSource? = nil, startedAt: Date = Date()) {
+    init(plan: WorkoutPlan, hrZones: HRZoneProfile? = nil, startedAt: Date = Date()) {
         self.plan = plan
-        self.hrMaxSource = hrMaxSource
+        self.hrZones = hrZones
         self.startedAt = startedAt
     }
 
@@ -605,12 +605,12 @@ final class WorkoutSession {
 
     var liveZone: HRZone? {
         guard let bpm = liveHRBpm else { return nil }
-        return PersonalHRMax.zone(forBpm: bpm, source: hrMaxSource)
+        return hrZones?.zone(forBpm: bpm)
     }
 
     /// True when the live/desglose zones come from the 220−age estimate (label
     /// them "estimada"); false when driven by the athlete's measured max.
-    var hrZonesEstimated: Bool { hrMaxSource?.isEstimated ?? false }
+    var hrZonesEstimated: Bool { hrZones?.estimated ?? false }
 
     func start() {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may

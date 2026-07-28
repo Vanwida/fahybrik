@@ -17,7 +17,7 @@ import SwiftUI
 struct FreePlanStartersCard: View {
     let steps: [MarkView]
     let bearer: String?
-    let hrMaxSource: HRMaxSource?
+    let hrZones: HRZoneProfile?
 
     var body: some View {
         CardSurface(padding: 0) {
@@ -41,7 +41,7 @@ struct FreePlanStartersCard: View {
 
     private func row(index: Int, mark: MarkView) -> some View {
         NavigationLink {
-            MarkDetailView(slug: mark.slug, bearer: bearer, hrMaxSource: hrMaxSource)
+            MarkDetailView(slug: mark.slug, bearer: bearer, hrZones: hrZones)
         } label: {
             HStack(alignment: .top, spacing: 11) {
                 Text("\(index)")
@@ -80,7 +80,7 @@ struct FreePlanMarksCard: View {
     let measured: [MarkView]
     let missing: [MarkView]
     let bearer: String?
-    let hrMaxSource: HRMaxSource?
+    let hrZones: HRZoneProfile?
 
     var body: some View {
         CardSurface(padding: 0) {
@@ -114,7 +114,7 @@ struct FreePlanMarksCard: View {
             LabelText(text: "Tus marcas")
             Spacer(minLength: 8)
             NavigationLink {
-                MarksLibraryView(bearer: bearer, hrMaxSource: hrMaxSource)
+                MarksLibraryView(bearer: bearer, hrZones: hrZones)
             } label: {
                 HStack(spacing: 3) {
                     Text("Todas")
@@ -134,7 +134,7 @@ struct FreePlanMarksCard: View {
 
     private func measuredRow(_ mark: MarkView) -> some View {
         NavigationLink {
-            MarkDetailView(slug: mark.slug, bearer: bearer, hrMaxSource: hrMaxSource)
+            MarkDetailView(slug: mark.slug, bearer: bearer, hrZones: hrZones)
         } label: {
             HStack(spacing: Theme.Spacing.s) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -168,7 +168,7 @@ struct FreePlanMarksCard: View {
 
     private func missingRow(_ mark: MarkView) -> some View {
         NavigationLink {
-            MarkDetailView(slug: mark.slug, bearer: bearer, hrMaxSource: hrMaxSource)
+            MarkDetailView(slug: mark.slug, bearer: bearer, hrZones: hrZones)
         } label: {
             HStack(alignment: .top, spacing: Theme.Spacing.s) {
                 VStack(alignment: .leading, spacing: 2) {

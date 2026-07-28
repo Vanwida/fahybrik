@@ -16,7 +16,7 @@ struct TestsHubView: View {
     let bearer: String?
     /// Athlete's resolved max-HR source, threaded into launched sessions (same
     /// contract as Inicio's launches).
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
     /// Non-nil when presented as a full-screen cover (Inicio) — shows the ✕.
     /// Nil when pushed (Perfil) — the nav bar carries the back affordance.
     var onClose: (() -> Void)? = nil
@@ -65,7 +65,7 @@ struct TestsHubView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
-                hrMaxSource: hrMaxSource,
+                hrZones: hrZones,
                 onClose: {
                     workoutLaunch = nil
                     reloadNonce += 1

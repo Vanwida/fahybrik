@@ -12,7 +12,7 @@ import SwiftUI
 struct MarkDetailView: View {
     let slug: String
     let bearer: String?
-    var hrMaxSource: HRMaxSource? = nil
+    var hrZones: HRZoneProfile? = nil
 
     @State private var mark: MarkView? = nil
     @State private var loading = true
@@ -70,7 +70,7 @@ struct MarkDetailView: View {
                 fallbackTitle: boxed.context.title,
                 bearer: bearer,
                 freeContext: boxed.context,
-                hrMaxSource: hrMaxSource,
+                hrZones: hrZones,
                 onClose: { liveContext = nil },
                 onCompleted: { _ in
                     liveContext = nil

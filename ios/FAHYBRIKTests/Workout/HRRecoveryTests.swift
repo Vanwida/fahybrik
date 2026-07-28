@@ -117,7 +117,7 @@ final class HRRecoveryTests: XCTestCase {
 
     @MainActor
     func testSessionRoutesPostFinishHRIntoTheRecoveryWindowOnly() throws {
-        let session = WorkoutSession(plan: .minimal(title: "Test 5K"), hrMaxSource: nil)
+        let session = WorkoutSession(plan: .minimal(title: "Test 5K"), hrZones: nil)
         session.start()
         session.injectLiveHR(172, source: .strap)      // effort sample → tail
         session.finish()

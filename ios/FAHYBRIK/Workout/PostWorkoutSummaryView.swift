@@ -866,11 +866,13 @@ struct PostWorkoutSummaryView: View {
                 HStack(spacing: 6) {
                     LabelText(text: "Zonas", size: 9)
                     Spacer(minLength: 6)
-                    // The FCmáx these zones were computed against — with the
-                    // "genérica" qualifier when it's the age+sex estimate (not measured).
-                    if let src = session.hrMaxSource {
+                    // The UMBRAL these zones were measured against — with the
+                    // "estimado" qualifier when nobody measured it. The athlete has
+                    // to be able to tell a band built on their own test from one
+                    // inferred from their birthday.
+                    if let src = session.hrZones {
                         MonoText(
-                            text: "FC máx \(src.bpm)" + (src.isEstimated ? " · genérica" : ""),
+                            text: "Umbral \(src.lthrBpm) ppm" + (src.estimated ? " · estimado" : ""),
                             size: 9,
                             color: Theme.Color.muted
                         )
