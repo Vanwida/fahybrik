@@ -15,6 +15,50 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 28-jul · Las tres señales de salud que Alex trajo de entrenar
+
+**Sin desplegar. Cero migraciones.**
+
+**1 · La FC en reposo no se leía — por TRES sitios, no uno.** Contra los datos
+reales del atleta 64 (45 lecturas de `hr_resting`): (a) compartía el corte de
+las 14:00 del sueño, pero es un AGREGADO DIARIO que Apple sella a cualquier
+hora — las lecturas del 3-jul (58 ppm, 15:19) y del 27-jun (54 ppm, 14:32)
+estaban en la base y la app decía «sin dato aún»; (b) Apple REESCRIBE la FC del
+día (51 → 50 → 52 con el mismo `recorded_at`) y no había desempate, así que se
+enseñaba la que devolviese el planner; (c) la lectura llega 6-13 h tarde y falta
+los días sin reloj, y la fila se quedaba vacía en vez de enseñar la última con
+su edad. Y (d) una jornada sólo se recalculaba mientras ERA hoy, así que una FC
+publicada con retraso no entraba nunca en su propio día — la ingesta de
+HealthKit recalcula ahora los días que tocan las muestras que llegan.
+Réplica de solo lectura sobre producción (25-jun → 28-jul): 2 días recuperan su
+lectura, 2 corrigen la revisión, 30 idénticos, 0 regresiones.
+
+**2 · Los entrenos del móvil ya se escriben en Apple Salud.** La app sólo
+escribía desde la muñeca; entrenar sin reloj dejaba la sesión invisible para los
+anillos y para todo el ecosistema de Apple.
+`HealthKit/HealthKitWorkoutWriter.swift` escribe el HKWorkout con tipo de
+actividad de verdad por modalidad (remo→rowing, ski→esquí de fondo, bici, correr,
+fuerza, funcional) y energía/distancia/FC POR TRAMO. Sin duplicar: antes de
+escribir le pregunta a Salud si ya hay un entreno que cubra ese intervalo (solape
+≥50 %) y adopta SU uuid — vale si fue el reloj, si fue otra app o si el relevo
+del reloj llegó tarde. El uuid viaja como `source_workout_ref`, que el camino
+libre tiraba aunque el reloj lo hubiese generado. Y no nos leemos a nosotros
+mismos: lo que escribimos va marcado y el lector lo descarta.
+
+**3 · El VO₂máx existe para el atleta.** Nueva pantalla (Perfil › Rendimiento ›
+«Tu VO₂ máx») con las cuatro reglas de `docs/design/pantallas-que-ganan-su-altura.html`:
+el número a 88 pt como sujeto, la curva de 3 meses, el «Probarme · Cooper 12 min»
+anclado abajo. **La regla de coherencia la decide el servidor**
+(`GET /api/athlete/vo2max`), no la vista: manda el del reloj; sin reloj manda el
+Cooper (su regresión mide esta misma magnitud, por eso el estado vacío tiene
+salida de verdad); el VDOT de las marcas va debajo con su fuente escrita y
+JAMÁS se promedia con el titular.
+
+Pendiente natural: espejar las tres en el doble (la hoja de «Cómo llegas hoy» y
+la pantalla de VO₂máx no tienen aún su pantalla en `(design)`).
+
+---
+
 ## PENDIENTE de diseño · el Apple Watch, bloque propio (28-jul)
 
 Alex: «el Apple Watch de momento tenemos que mejorar mucho, NO lo programes

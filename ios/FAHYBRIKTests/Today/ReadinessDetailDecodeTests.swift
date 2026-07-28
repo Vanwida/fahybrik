@@ -152,7 +152,8 @@ final class ReadinessDetailDecodeTests: XCTestCase {
         let breakdown = ReadinessBreakdown(
             subScore: 60, subScoreWeight: 0.35, hrvComponent: 64,
             sleepHours: 6.6, sleepComponent: 83, rhrComponent: 98, recoveryComponent: nil,
-            hrvMs: 47, hrvBaselineMs: 42, rhrBpm: 51, sleepTargetH: 8
+            hrvMs: 47, hrvBaselineMs: 42, rhrBpm: 51, sleepTargetH: 8,
+            rhrLastBpm: nil, rhrLastOn: nil
         )
         let trend = [
             ("2026-06-26", 72), ("2026-06-27", 68), ("2026-06-28", 80),
@@ -183,7 +184,8 @@ final class ReadinessDetailDecodeTests: XCTestCase {
         let oldBreakdown = ReadinessBreakdown(
             subScore: 60, subScoreWeight: 0.35, hrvComponent: 64,
             sleepHours: 6.6, sleepComponent: 83, rhrComponent: 98, recoveryComponent: nil,
-            hrvMs: nil, hrvBaselineMs: nil, rhrBpm: nil, sleepTargetH: nil
+            hrvMs: nil, hrvBaselineMs: nil, rhrBpm: nil, sleepTargetH: nil,
+            rhrLastBpm: nil, rhrLastOn: nil
         )
         let oldPayload = DailyReadinessPayload(
             score: 65, recordedFor: "2026-07-02", delta7d: nil,

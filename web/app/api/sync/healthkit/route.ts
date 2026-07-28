@@ -18,7 +18,7 @@ import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
 import { captureRouteError } from '@/lib/observability/capture';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
-import { refreshAthleteReadinessToday } from '@/lib/coach/athlete-daily-readiness';
+import { refreshAthleteReadinessDays } from '@/lib/coach/athlete-daily-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,13 +69,17 @@ export async function POST(req: Request): Promise<NextResponse> {
       `;
     }
 
-    // The batch may carry last night's sleep / HRV / resting HR — recompute
-    // TODAY's readiness snapshot from it BEFORE responding (awaited: cheap, and
-    // a fire-and-forget can be frozen with the function). Runs after the
-    // timezone upsert above so the overnight windows use the fresh zone. This
-    // is what keeps the athlete sheet and coach surfaces from freezing on the
-    // day of the last compute.
-    await refreshAthleteReadinessToday({ athlete_id: auth.athlete_id });
+    // The batch may carry last night's sleep / HRV / resting HR — recompute the
+    // readiness snapshots it touches BEFORE responding (awaited: cheap, and a
+    // fire-and-forget can be frozen with the function). Runs after the timezone
+    // upsert above so the overnight windows use the fresh zone. Passing the
+    // sample instants (not just "today") is what lets a resting-HR reading that
+    // Apple publishes hours late still land on the day it belongs to — a day's
+    // snapshot is otherwise only ever recomputed while it IS today.
+    await refreshAthleteReadinessDays({
+      athlete_id: auth.athlete_id,
+      sample_times: parsed.data.batch.samples.map((s) => new Date(s.recorded_at)),
+    });
 
     // Fire-and-forget: fresh biometrics can clear no_sync / move HRV signals
     // (and the attention sweep now reads the just-refreshed snapshot).

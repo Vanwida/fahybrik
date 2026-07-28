@@ -235,6 +235,31 @@ struct ReadinessDetailSheet: View {
         return raw.prefix(1).uppercased() + raw.dropFirst()
     }
 
+    /// How old an athlete-local day is, said the way a person says it: "ayer",
+    /// "anteayer", "hace 4 días". Compared in the device's own calendar, which is
+    /// the athlete's — the ISO day already arrives athlete-local, no tz math.
+    static func relativeDay(_ iso: String) -> String {
+        // Both sides become the UTC-midnight anchor of a WALL date (the reading's,
+        // and the device's today), so the difference is a clean day count with no
+        // timezone arithmetic in the middle.
+        let wall = DateFormatter()
+        wall.locale = Locale(identifier: "en_US_POSIX")
+        wall.dateFormat = "yyyy-MM-dd"
+        wall.timeZone = .current
+        guard let then = isoDate(iso), let now = isoDate(wall.string(from: Date())) else {
+            return "sin fecha"
+        }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let days = cal.dateComponents([.day], from: then, to: now).day ?? 0
+        switch days {
+        case ..<1: return "hoy"
+        case 1: return "ayer"
+        case 2: return "anteayer"
+        default: return "hace \(days) días"
+        }
+    }
+
     /// "−3 vs tu media" / "+4 vs tu media" / "En tu media" — today vs the trend
     /// mean. Nil with fewer than two days (the section is hidden then anyway).
     static func deltaChip(_ points: [ReadinessTrendPoint]) -> String? {
@@ -570,6 +595,21 @@ private struct Contributor: Identifiable {
     private static func restingHR(_ b: ReadinessBreakdown?) -> Contributor {
         let icon = "heart.fill", name = "FC en reposo"
         guard let bpm = b?.rhrBpm else {
+            // Apple publishes the daily resting HR hours after the night it
+            // describes and skips days the watch was off the wrist, so "todavía no
+            // ha llegado la de hoy" is the normal morning state — not "no tienes".
+            // Show the last one WITH its age and WITHOUT a bar: it never scored.
+            if let last = b?.rhrLastBpm, let on = b?.rhrLastOn {
+                let value = "\(Int(last.rounded())) ppm"
+                let age = ReadinessDetailSheet.relativeDay(on)
+                return Contributor(
+                    icon: icon, name: name, valueText: value, referenceText: age,
+                    statusLabel: "Falta la de hoy", statusColor: Theme.Color.muted,
+                    barFraction: nil, barColor: Theme.Color.muted,
+                    isAction: false,
+                    axLabel: "Frecuencia cardíaca en reposo, \(value) de \(age). Falta la de hoy."
+                )
+            }
             return empty(icon: icon, name: name, ax: "Frecuencia cardíaca en reposo, sin dato aún")
         }
         let value = "\(Int(bpm.rounded())) ppm"

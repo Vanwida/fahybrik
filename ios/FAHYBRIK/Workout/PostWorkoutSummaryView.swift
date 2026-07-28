@@ -292,7 +292,22 @@ struct PostWorkoutSummaryView: View {
             // and exactly what a timer app throws away. The contract accepts a
             // funcional with no items as long as it states the shape it ran, and
             // `buildFreePayload` always puts one of the two on the wire.
-            Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
+            // Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el
+            // HKWorkout y nos pasa su uuid; sin reloj no lo escribía NADIE y la
+            // sesión no contaba para los anillos — ahora la escribe el teléfono.
+            // `ensureSaved` vuelve a comprobarlo contra Salud, así que un relevo
+            // que llegue tarde tampoco duplica.
+            let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
+            let treadmill = session.runEnvironment == .treadmill
+            Task {
+                var ref = wristRef
+                if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
+                    ref = await HealthKitWorkoutWriter.ensureSaved(draft)
+                }
+                var sent = payload
+                sent.source_workout_ref = ref
+                await FreeWorkoutAPI.submit(sent, bearer: bearer)
+            }
             // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
             // Only a FULL finish counts: an abandoned attempt saves the session (the
             // coach still sees the work) but never writes a half number into the

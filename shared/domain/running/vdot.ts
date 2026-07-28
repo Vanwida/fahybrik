@@ -245,3 +245,29 @@ export function vdotFromWatchVo2max(vo2max: number | null | undefined): number |
   if (vo2max < VDOT_MIN || vo2max > VDOT_MAX) return null;
   return vo2max;
 }
+
+// The Cooper test: run as far as you can in 12 minutes. Cooper (1968) fitted the
+// distance covered directly against measured VO₂max, and the regression below is
+// the result — the same one every field-test protocol still uses. Metres in,
+// ml/kg/min out.
+//
+// This is why the Cooper matters here: it is the ONE thing an athlete with no
+// compatible watch can do to obtain a real VO₂max instead of an estimate derived
+// from a race pace. It is a MEASUREMENT of the same quantity the watch reports,
+// which is why it can carry the headline; a VDOT never can — VDOT is a pace model
+// that happens to share the units.
+const COOPER_INTERCEPT_METRES = 504.9;
+const COOPER_METRES_PER_VO2 = 44.73;
+
+/**
+ * The VO₂max (ml/kg/min) a Cooper 12-minute distance implies.
+ *
+ * Returns null outside the same plausibility bounds the rest of this module uses,
+ * so a mistyped distance emits nothing rather than an absurd number.
+ */
+export function vo2maxFromCooperMeters(meters: number | null | undefined): number | null {
+  if (meters == null || !Number.isFinite(meters) || meters <= 0) return null;
+  const vo2max = (meters - COOPER_INTERCEPT_METRES) / COOPER_METRES_PER_VO2;
+  if (vo2max < VDOT_MIN || vo2max > VDOT_MAX) return null;
+  return Math.round(vo2max * 10) / 10;
+}

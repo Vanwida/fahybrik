@@ -14,12 +14,34 @@ import {
 const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
 
 // Overnight signals (sleep, resting HR) belong to the readiness of the day the
-// athlete WAKES. iOS keys a night's `sleep_duration` to wake-day local-midnight and
-// Apple writes the daily resting-HR sample just after local midnight, so a window
-// from the previous evening to the early afternoon captures exactly last night —
-// and nothing from the night before. Wall-clock hours in the athlete's own tz.
+// athlete WAKES, so both open the previous local evening. Wall-clock hours in the
+// athlete's own tz.
 const OVERNIGHT_WINDOW_START_HOUR = 18; // previous local day, 18:00
-const OVERNIGHT_WINDOW_END_HOUR = 14; // this local day, 14:00
+
+// SLEEP closes early afternoon: iOS keys a night's `sleep_duration` to wake-day
+// local-midnight, and this cutoff is what stops an afternoon nap being counted as
+// last night.
+const SLEEP_WINDOW_END_HOUR = 14; // this local day, 14:00
+
+// RESTING HR closes at the NEXT local midnight instead — it is a DAILY AGGREGATE,
+// not a morning reading, and Apple stamps it anywhere inside the day it describes
+// (a real athlete's history carries readings at 00:0x, 09:33, 14:32 and 15:19
+// local). Sharing sleep's 14:00 cutoff silently discarded every reading stamped
+// later in the day: two of them sat in `biometric_streams` while the sheet said
+// "sin dato aún" for those days. There is no constant — the boundary IS `dayEnd`.
+
+// How far back a resting-HR reading may still be SHOWN (never scored) when the day
+// itself has none. Apple publishes the daily reading hours after the timestamp it
+// carries and skips days the watch was off the wrist, so a blank row on an athlete
+// with weeks of readings reads as broken instead of as pending. Beyond this it
+// stops being "your resting HR" and becomes history.
+const RHR_LAST_KNOWN_DAYS = 14;
+
+// How many distinct athlete-local days one arriving batch may recompute. A
+// connect-time backfill carries ~30 days at once; the athlete trend and every
+// coach surface only read the last week, so bounding this keeps the ingest
+// request cheap without losing anything anyone actually looks at.
+const MAX_REFRESH_DAYS = 10;
 
 // HRV baseline: a trailing 14–60 local-day average. Excluding the most recent 14
 // days keeps an acute HRV dip from dragging down the very baseline it's compared to.
@@ -51,8 +73,14 @@ export type ReadinessBreakdown = {
   // baseline to expose; sleep's only reference is the target below (no media).
   hrv_ms?: number | null; // the day's mean HRV (the "value")
   hrv_baseline_ms?: number | null; // 14–60d trailing mean (the "reference")
-  rhr_bpm?: number | null; // resting-HR reading (the "value")
+  rhr_bpm?: number | null; // THIS day's resting-HR reading (the "value") — the one that scores
   sleep_target_h?: number | null; // sleep hours that score a full component (the "reference")
+  // When the day has no resting-HR reading yet, the most recent one within
+  // RHR_LAST_KNOWN_DAYS and the athlete-local day it belongs to. DISPLAY ONLY: it
+  // never enters the score, so a surface must render it as what it is ("51 ppm ·
+  // ayer") and never as today's. Both null whenever `rhr_bpm` is set.
+  rhr_last_bpm?: number | null;
+  rhr_last_on?: string | null; // YYYY-MM-DD, athlete-local
 };
 
 export type ReadinessTrendPoint = { recorded_for: string; score: number };
@@ -89,6 +117,8 @@ const EMPTY_BREAKDOWN: ReadinessBreakdown = {
   hrv_baseline_ms: null,
   rhr_bpm: null,
   sleep_target_h: null,
+  rhr_last_bpm: null,
+  rhr_last_on: null,
 };
 
 /**
@@ -140,11 +170,12 @@ export async function computeAthleteDailyReadiness(params: {
   // athlete's timezone (see dates.ts). Passing Date objects binds them as
   // timestamptz, so the `recorded_at >= start and < end` comparison is exact.
   const overnightStart = zonedWallClockToUtc(day, tz, { days: -1, hours: OVERNIGHT_WINDOW_START_HOUR });
-  const overnightEnd = zonedWallClockToUtc(day, tz, { days: 0, hours: OVERNIGHT_WINDOW_END_HOUR });
+  const sleepEnd = zonedWallClockToUtc(day, tz, { days: 0, hours: SLEEP_WINDOW_END_HOUR });
   const dayStart = zonedWallClockToUtc(day, tz, { days: 0, hours: 0 });
   const dayEnd = zonedWallClockToUtc(day, tz, { days: 1, hours: 0 });
   const hrvBaseFrom = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_FROM_DAYS, hours: 0 });
   const hrvBaseTo = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_TO_DAYS, hours: 0 });
+  const rhrLookbackStart = zonedWallClockToUtc(day, tz, { days: -RHR_LAST_KNOWN_DAYS, hours: 0 });
 
   const checkin = await client<Array<{ sub_score: number }>>`
     select sub_score from daily_checkins
@@ -164,7 +195,7 @@ export async function computeAthleteDailyReadiness(params: {
   }
 
   const bio = await client<
-    Array<{ hrv_recent: number | null; hrv_base: number | null; sleep_h: number | null; rhr: number | null; recovery: number | null }>
+    Array<{ hrv_recent: number | null; hrv_base: number | null; sleep_h: number | null; recovery: number | null }>
   >`
     select
       (select avg(value_numeric)::float from biometric_streams
@@ -175,16 +206,34 @@ export async function computeAthleteDailyReadiness(params: {
           and recorded_at >= ${hrvBaseFrom} and recorded_at < ${hrvBaseTo}) as hrv_base,
       (select avg(value_numeric)::float / 3600.0 from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'sleep_duration'
-          and recorded_at >= ${overnightStart} and recorded_at < ${overnightEnd}) as sleep_h,
-      (select value_numeric::float from biometric_streams
-        where athlete_id = ${params.athlete_id as number} and metric_type = 'hr_resting'
-          and recorded_at >= ${overnightStart} and recorded_at < ${overnightEnd}
-        order by recorded_at desc limit 1) as rhr,
+          and recorded_at >= ${overnightStart} and recorded_at < ${sleepEnd}) as sleep_h,
       (select avg(value_numeric)::float from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'recovery'
           and recorded_at >= ${dayStart} and recorded_at < ${dayEnd}) as recovery
   `;
   const b = bio[0];
+
+  // Resting HR — ONE read that answers both questions at once. The newest reading
+  // in [today − RHR_LAST_KNOWN_DAYS, end of today) is THIS day's when it lands at
+  // or after the overnight window opens, and otherwise the most recent one we can
+  // still honestly show. `created_at desc` breaks the tie because Apple REVISES
+  // the day's resting HR in place — a real athlete has 51 → 50 → 52 bpm at the
+  // identical `recorded_at` — and without it the value surfaced was whichever row
+  // the planner happened to return first.
+  const rhrRows = await client<Array<{ bpm: number; recorded_at: Date }>>`
+    select value_numeric::float as bpm, recorded_at
+    from biometric_streams
+    where athlete_id = ${params.athlete_id as number}
+      and metric_type = 'hr_resting'
+      and recorded_at >= ${rhrLookbackStart}
+      and recorded_at < ${dayEnd}
+    order by recorded_at desc, created_at desc
+    limit 1
+  `;
+  const rhrRow = rhrRows[0] ?? null;
+  const rhrAt = rhrRow ? new Date(rhrRow.recorded_at) : null;
+  const rhrIsForThisDay = rhrAt != null && rhrAt.getTime() >= overnightStart.getTime();
+  const rhr = rhrIsForThisDay ? rhrRow!.bpm : null;
 
   const complianceRows = await client<Array<{ scheduled: number; completed: number }>>`
     select
@@ -210,7 +259,7 @@ export async function computeAthleteDailyReadiness(params: {
       ? clampScore(Math.min(100, (b.sleep_h / SLEEP_TARGET_HOURS) * 100))
       : null;
 
-  const rhrComponent = b?.rhr != null ? clampScore(100 - Math.max(0, b.rhr - 50) * 2) : null;
+  const rhrComponent = rhr != null ? clampScore(100 - Math.max(0, rhr - 50) * 2) : null;
 
   const recoveryComponent =
     b?.recovery != null ? clampScore(b.recovery) : null;
@@ -227,8 +276,11 @@ export async function computeAthleteDailyReadiness(params: {
     // scored just above, surfaced (not recomputed).
     hrv_ms: b?.hrv_recent ?? null,
     hrv_baseline_ms: b?.hrv_base ?? null,
-    rhr_bpm: b?.rhr ?? null,
+    rhr_bpm: rhr,
     sleep_target_h: SLEEP_TARGET_HOURS,
+    // Display-only escape hatch for the day the reading hasn't landed yet.
+    rhr_last_bpm: rhrRow && !rhrIsForThisDay ? rhrRow.bpm : null,
+    rhr_last_on: rhrAt && !rhrIsForThisDay ? zonedDayString(rhrAt, tz) : null,
   };
   // NOTE: `compliance` is still computed below as a SCORE MODIFIER, but it's no
   // longer carried in the breakdown DTO — adherence-over-7d is a progression
@@ -407,28 +459,73 @@ export async function getAthleteReadinessToday(params: {
 }
 
 /**
- * Data-arrival hook: recompute-and-persist TODAY's snapshot (athlete-local day)
- * after a HealthKit batch or a check-in lands, so stored-snapshot readers (the
- * coach roster/resumen/attention sweep) reflect the data that just arrived
- * without waiting for the athlete to open the app. Best-effort by design —
- * ingest must never fail because scoring did.
+ * Data-arrival hook: recompute-and-persist every athlete-local day the samples
+ * that just landed can still change — today ALWAYS, plus the day each sample
+ * belongs to (and the day after it, for evening samples, since the overnight
+ * window opens at 18:00). Stored-snapshot readers (coach roster / resumen /
+ * attention sweep, and the athlete's own 7-day trend) then reflect the arrival
+ * without waiting for anyone to open the app.
+ *
+ * Why not today alone: a day's snapshot is only ever recomputed while it IS
+ * today, and resting HR arrives HOURS after the timestamp it carries (observed
+ * on a real athlete: stamped 09:33 local, written at 18:50 and again at 22:48).
+ * A batch carrying yesterday's reading used to leave yesterday's stored snapshot
+ * permanently resting-HR-less, and nothing would ever revisit it.
+ *
+ * Best-effort by design — ingest must never fail because scoring did.
+ */
+export async function refreshAthleteReadinessDays(params: {
+  athlete_id: number | bigint;
+  /** `recorded_at` of the samples that just landed. Empty/omitted → today only. */
+  sample_times?: Date[];
+  now?: Date;
+  client: Sql;
+}): Promise<void> {
+  try {
+    const tz = await loadAthleteTimezone(params.client, params.athlete_id);
+    const today = zonedDayString(params.now ?? new Date(), tz);
+    const days = new Set<string>([today]);
+
+    for (const at of params.sample_times ?? []) {
+      if (Number.isNaN(at.getTime())) continue;
+      const iso = zonedDayString(at, tz);
+      if (iso > today) continue; // a future stamp belongs to no readiness day yet
+      days.add(iso);
+      const eveningOpens = zonedWallClockToUtc(parseIsoDate(iso), tz, {
+        hours: OVERNIGHT_WINDOW_START_HOUR,
+      });
+      if (at.getTime() >= eveningOpens.getTime()) {
+        const next = isoDateString(addDays(parseIsoDate(iso), 1));
+        if (next <= today) days.add(next);
+      }
+    }
+
+    // Newest first, bounded: a 30-day reconnect backfill must not turn one ingest
+    // into 30 recomputes, and nothing anyone reads goes back further than a week.
+    const ordered = Array.from(days).sort().reverse().slice(0, MAX_REFRESH_DAYS);
+    for (const recorded_for of ordered) {
+      await computeAthleteDailyReadiness({
+        athlete_id: params.athlete_id,
+        recorded_for,
+        timezone: tz,
+        client: params.client,
+      });
+    }
+  } catch {
+    // best-effort — a scoring hiccup must not break the ingest path.
+  }
+}
+
+/**
+ * The check-in flavour of the hook above: a check-in only ever moves the day it
+ * was recorded for, so there is nothing else to revisit.
  */
 export async function refreshAthleteReadinessToday(params: {
   athlete_id: number | bigint;
   now?: Date;
   client: Sql;
 }): Promise<void> {
-  try {
-    const tz = await loadAthleteTimezone(params.client, params.athlete_id);
-    await computeAthleteDailyReadiness({
-      athlete_id: params.athlete_id,
-      recorded_for: zonedDayString(params.now ?? new Date(), tz),
-      timezone: tz,
-      client: params.client,
-    });
-  } catch {
-    // best-effort — a scoring hiccup must not break the ingest path.
-  }
+  return refreshAthleteReadinessDays(params);
 }
 
 /**

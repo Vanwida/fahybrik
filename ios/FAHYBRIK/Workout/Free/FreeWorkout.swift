@@ -611,6 +611,13 @@ struct FreeWorkoutPayload: Codable {
     let started_at: String?
     let ended_at: String?
     let segments: [SegmentExecutionDTO]?
+
+    /// UUID of the Apple Health workout that IS this session — the wrist's when the
+    /// watch recorded it, the phone's own when it wrote it (HealthKitWorkoutWriter).
+    /// The backend uses it to recognise the HealthKit-synced copy of a session it
+    /// already has; the free path used to drop it even when the watch had produced
+    /// one. `var` with a default so the memberwise init stays back-compatible.
+    var source_workout_ref: String? = nil
 }
 
 // Offline-first sync for a free workout. Mirrors `WorkoutExecutionAPI`: POST, and
