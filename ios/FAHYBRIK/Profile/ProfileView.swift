@@ -139,6 +139,7 @@ struct ProfileView: View {
                             testsCard
                         }
                         marksCard
+                        vo2MaxCard
                         if hasCoach {
                             zonesCard
                         }
@@ -745,6 +746,27 @@ struct ProfileView: View {
                     icon: "stopwatch",
                     title: "Tus marcas",
                     subtitle: "Pruébate cuando quieras · 1 km, Cooper, 5K, remo y ski"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - VO₂ máx ("Tu motor")
+
+    /// El VO₂ máx llevaba meses llegando del reloj y el atleta no lo veía en
+    /// ninguna pantalla: sólo salía en el análisis corporal del entrenador. Vive
+    /// aquí, junto a las otras cifras que son SUYAS (marcas, zonas, fuerza), y la
+    /// pantalla se encarga de su propio vacío y de su propio error.
+    private var vo2MaxCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                Vo2MaxView(bearer: bearer, hrMaxSource: identity?.hrMaxSource)
+            } label: {
+                profileRowContent(
+                    icon: "lungs",
+                    title: "Tu VO₂ máx",
+                    subtitle: "El techo de tu motor aeróbico · de tu reloj o del Cooper de 12 min"
                 )
             }
             .buttonStyle(.plain)
