@@ -82,18 +82,27 @@ struct ActiveWorkoutView: View {
     /// Drives the erg surface's portrait↔landscape arrangement (`.compact` = landscape).
     @Environment(\.verticalSizeClass) private var vSizeClass
 
-    private var isErgSegment: Bool {
-        session.currentSegment?.kind == .rowOrSki
+    /// Does a Concept2 monitor have anything to do with this segment — now, or in a
+    /// later round of the format it runs? This is the CONNECT question: the athlete
+    /// has to be able to pair the ski before the ski minute arrives, and a ski/bike
+    /// EMOM collapses to a non-erg segment kind, which is precisely why the connect
+    /// button was missing from it (28-jul: "no se puede conectar el pm5").
+    private var segmentInvolvesErg: Bool {
+        session.currentSegment?.involvesErg == true
     }
-    /// Landscape + plain erg work → `ErgHUDContent` takes the whole screen. There is
-    /// no second erg view and no "ver en grande" cover any more: rotating the phone IS
-    /// the gesture, and the SAME component simply re-lays itself out. Excluded:
-    /// EMOM-on-an-erg (its own format HUD), the dobles relay and structural blocks
-    /// (warmup/cooldown checklists), and the pre-block gate, which owns the screen.
+    /// Is an erg measuring what the athlete is doing RIGHT NOW? This is the SCREEN
+    /// question — whose numbers own the surface this second.
+    private var isErgSegment: Bool { session.tramoIsErg }
+    /// Landscape + a device-measured window → that surface takes the whole screen.
+    /// There is no second erg view and no "ver en grande" cover: rotating the phone
+    /// IS the gesture, and the SAME component re-lays itself out. It now includes
+    /// erg work INSIDE a format (a ski EMOM turned sideways used to give a cropped
+    /// generic timer), and the rest, which reads even better big.
+    /// Excluded: the dobles relay, structural blocks (warmup/cooldown checklists)
+    /// and the pre-block gate, which owns the screen.
     private var isErgLandscapeFocus: Bool {
         vSizeClass == .compact
-            && isErgSegment
-            && session.currentSegment?.isEMOM != true
+            && (isErgSegment || (session.isTramoResting && segmentInvolvesErg))
             && !session.currentSegmentIsPartnerRelay
             && !session.currentBlockIsStructural
             && !session.isAwaitingBlockStart
@@ -104,10 +113,13 @@ struct ActiveWorkoutView: View {
     // #60 — a RUN interval series (folded `.intervals` segment). The plain-run
     // treadmill entry lives inside RunLiveHUD, but a series routes to
     // IntervalsLiveHUD, so it needs its own "Correr en cinta" CTA here.
+    // The belt follows the same rule as the monitor: a run round inside ANY format
+    // (an EMOM alternating cinta / burpees) has to be able to reach the belt too.
     private var isRunSeriesSegment: Bool {
         guard let s = session.currentSegment else { return false }
         // A structured run (#61) is a leg sequence on the belt too — offer the CTA.
         return TreadmillLegResolver.isRunSeries(s) || s.hasRunStructure
+            || (session.tramoIsRun && s.kind != .running)
     }
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
@@ -151,19 +163,33 @@ struct ActiveWorkoutView: View {
             // ROTATING work/rest full-bleed colour flip — a subtle wash so the
             // phase reads from across the box even when the phone is on the floor.
             if let flip = rotatingFlipColor {
-                flip.opacity(0.10)
+                flip.opacity(rotatingFlipOpacity)
                     .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 0.3), value: session.rotPhase)
+                    .animation(.easeInOut(duration: 0.3), value: session.isTramoResting)
             }
             if isErgLandscapeFocus {
                 // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
-                // big numbers, so the erg surface owns the screen. The only chrome kept
-                // is `topStrip` (salir / pausa / atrás) — the athlete is never trapped,
-                // which the old full-screen cover couldn't offer either. Everything
-                // else (phase rail, strips, next chip, bottom controls) is portrait's.
-                VStack(spacing: 6) {
-                    topStrip
-                    ErgHUDContent(session: session, pm5: pm5)
+                // big numbers, so the device surface owns the screen. The chrome kept
+                // is `topStrip` (salir / pausa / atrás) so he is never trapped, and —
+                // new — the primary action, anchored bottom-right at a thumb's reach.
+                // Landscape used to have no action at all, so ending a serie meant
+                // rotating the phone back mid-piece: the action lives at the bottom in
+                // BOTH orientations or the rule isn't a rule.
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(spacing: 6) {
+                        topStrip
+                        if session.isTramoResting {
+                            RestSurface(session: session)
+                        } else {
+                            ErgHUDContent(session: session, pm5: pm5)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    VStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        landscapeAction
+                    }
+                    .frame(width: 132)
                 }
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.top, 4)
@@ -195,11 +221,16 @@ struct ActiveWorkoutView: View {
                         session: session,
                         pm5: pm5,
                         gpsActive: gpsActive,
-                        segmentIsErg: isErgSegment,
+                        segmentIsErg: segmentInvolvesErg,
                         segmentIsRun: isRunSegment,
                         onTapPM5: { showPM5Sheet = true }
                     )
-                    if session.plan.segments.count > 1 {
+                    // The whole-session segment map earns its row only when there is
+                    // more than one segment AND the current window isn't already
+                    // counting its own series — inside a 20-round EMOM it repeated
+                    // context the format strip already carries, on a screen that had
+                    // no height to spare.
+                    if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
                         BlockIntervalStrip(
                             segments: session.plan.segments,
                             currentIndex: session.currentSegmentIndex,
@@ -214,20 +245,21 @@ struct ActiveWorkoutView: View {
                         DoblesTurnHero(turn: turn, next: nextDoblesTurn,
                                        compact: true, partnerFallback: partnerFirstName)
                     }
-                    // ErgData parity: the piece is programmed ON the monitor —
-                    // this line narrates it ("enviando…" → "rema para empezar").
-                    // Every other erg format renders it INSIDE `ErgHUDContent` (so it
-                    // travels into landscape too); only EMOM-on-an-erg, which keeps
-                    // its own format HUD, needs it hoisted here.
-                    if isErgSegment, session.currentSegment?.isEMOM == true {
-                        PM5ProgramBanner(pm5: pm5)
-                    }
                     modalityHUD
                     if session.currentSegmentIsMetcon {
                         RxScaledToggle(session: session)
                     }
-                    Spacer(minLength: 0)
-                    if isErgSegment && !pm5.isConnected {
+                    // The erg surface fills its own height (see ErgHUDContent), so no
+                    // spacer is pushed under it — that spacer is what left the old
+                    // layout with a dead band in the middle and the bar squashed at
+                    // the bottom. Formats that don't fill still get their slack.
+                    if !isErgSegment {
+                        Spacer(minLength: 0)
+                    }
+                    // Connect is offered whenever an erg belongs to this block, not
+                    // only while its round is live — otherwise a ski EMOM gives the
+                    // athlete no way to pair before the first minute starts.
+                    if segmentInvolvesErg && !pm5.isConnected {
                         connectPM5CTA
                     }
                     if isRunSeriesSegment {
@@ -259,9 +291,11 @@ struct ActiveWorkoutView: View {
             if exitStep != nil {
                 exitOverlay
             }
+            finishDecisionOverlay
         }
         .animation(.easeInOut(duration: 0.2), value: session.isAwaitingBlockStart)
         .animation(.easeInOut(duration: 0.2), value: exitStep)
+        .animation(.easeInOut(duration: 0.2), value: session.isAwaitingFinishDecision)
         // The whole workout screen ROTATES (mandate: "se voltea la UI y punto") —
         // same opt-in as the treadmill/erg HUD covers; portrait restores on exit.
         .allowsLandscape()
@@ -283,19 +317,17 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             session.stop()
             runGPS.stop()
-            liveHR.stop()
-            // AUDIT-5 — close the PM5 GATT link on workout teardown (like GPS/HR above),
-            // so live erg notifications don't keep draining the battery after the session.
-            // Safe no-op when nothing is connected. Erg segments never open the run-only
-            // full-screen covers, so this fires on a real teardown, not a sub-sheet.
-            pm5.disconnect()
+            // Backstop for every exit that is NOT a finish (abandon, brief-back):
+            // `releaseDevicesOnFinish` already ran on the finish path, and both are
+            // idempotent.
+            releaseDevicesOnFinish()
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .task { await pollPartnerLive() }
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
-                liveHR.stop()
+                releaseDevicesOnFinish()
                 onFinish()
             }
         }
@@ -349,9 +381,15 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.currentSegmentIndex) { _, _ in
             // A new erg piece starts with a clean interval table — the PM5's split
             // numbers can otherwise carry over between pieces in one session.
-            if session.currentSegment?.kind.isErg == true { pm5.resetSplits() }
-            // …and gets programmed onto the monitor (once per piece; the store
-            // guards repeats). Non-erg segments never touch the PM5.
+            if session.currentSegment?.involvesErg == true { pm5.resetSplits() }
+            // …and gets programmed onto the monitor. Non-erg segments never touch it.
+            attemptProgramPM5()
+        }
+        .onChange(of: session.tramoKey) { _, _ in
+            // A NEW WORK WINDOW inside the same segment — round 3 of a ski EMOM,
+            // bout 2 of a 5×500. When the app clocks the series, the piece is sent
+            // again here so the monitor's counter is back at zero for it (Alex:
+            // "cada ronda la app debe mandar el reinicio del pm5").
             attemptProgramPM5()
         }
         .onChange(of: pm5.connectionState) { _, _ in
@@ -493,10 +531,38 @@ struct ActiveWorkoutView: View {
 
     /// Program the CURRENT erg piece on the connected PM5 (ErgData behavior: the
     /// monitor loads the workout and shows "row to begin"; the athlete touches
-    /// nothing). The store guards once-per-piece + re-program on a fresh link.
+    /// nothing).
+    ///
+    /// The window key is what decides when the piece is (re)sent, and therefore when
+    /// the monitor's counter goes back to zero. When the APP clocks the series — an
+    /// EMOM on the ski, a Tabata on the bike — every round is its own window, so
+    /// each round starts the monitor from zero, which is exactly what the athlete
+    /// asked for and what the old once-per-segment guard never did. When the MONITOR
+    /// clocks the series (native intervals), the segment stays the window: re-sending
+    /// would restart the whole piece under him.
     private func attemptProgramPM5() {
-        guard let seg = session.currentSegment, seg.kind.isErg else { return }
-        pm5.programIfNeeded(for: seg)
+        guard let seg = session.currentSegment, seg.involvesErg else { return }
+        let key = PM5WorkoutProgrammer.monitorRunsTheSeries(seg)
+            ? "seg-\(seg.id.uuidString)"
+            : session.currentTramo.key
+        pm5.programIfNeeded(for: seg, windowKey: key)
+    }
+
+    /// Let go of every machine the moment the work ends — before the summary, not
+    /// after it. 28-jul: "al terminar no se desconecta el ergo, hay que soltarlo
+    /// antes de terminar/guardar". The erg was released only when this view left the
+    /// hierarchy, and the treadmill / HR strap not until the whole workout flow
+    /// unwound, so the next athlete at that machine found it still paired.
+    ///
+    /// The ONE exception is a guided test's HR-recovery window: that measurement
+    /// happens AFTER the finish, so the strap has to keep streaming until it closes.
+    /// Everything else goes now.
+    private func releaseDevicesOnFinish() {
+        pm5.disconnect()
+        DeviceHub.shared.stopTreadmill()
+        guard session.hrRecovery == nil else { return }
+        liveHR.stop()
+        DeviceHub.shared.stopHeartRate()
     }
 
     // Hook the optional providers' callbacks into the session. Done once on
@@ -570,7 +636,7 @@ struct ActiveWorkoutView: View {
     /// Connecting here programs the piece at once (`onChange(pm5.connectionState)`
     /// → `attemptProgramPM5`), so the app and the erg start at the same point.
     private func needsErgConnect(_ segs: [WorkoutSegment]) -> Bool {
-        segs.contains(where: { $0.kind.isErg }) && !pm5.isConnected
+        segs.contains(where: { $0.involvesErg }) && !pm5.isConnected
     }
 
     /// "el remo" / "el SkiErg" / "la bici" for the connect header. The live segment
@@ -782,42 +848,53 @@ struct ActiveWorkoutView: View {
         return String(format: "%d:%02d", t / 60, t % 60)
     }
 
-    // Modality-aware HUD. An EMOM segment gets the dedicated interval timer
-    // (count-down + auto-roll + the minute's work) REGARDLESS of its erg/strength
-    // kind; everything else routes by kind exactly as before: erg → split/watts
-    // (Concept2), run → pace/km, strength/reps/sled → reps + load. Single source
-    // of state (session + pm5).
+    // THE ACTIVE TRAMO DECIDES. Whatever window the athlete is inside right now
+    // owns the screen: if a machine measures it, the machine's surface is what they
+    // see, and the format that wraps it becomes the context strip on top. That rule
+    // is what was missing — an EMOM or an interval series used to route to a generic
+    // timer that knows nothing about a PM5, so the same erg showed full data alone
+    // and none at all the moment a format wrapped it.
+    //
+    // Order, and why: a structured run keeps its own leg engine (untouched); a REST
+    // is its own screen whatever produced it; then the device tramo; then the
+    // format; then the plain per-kind grid.
     @ViewBuilder
     private var modalityHUD: some View {
         if session.isRunStructureActive {
             // #61 — a folded run that carries a `structure` runs the native leg
             // cursor (per-bout distance/target/incline), not the rotating machine.
             StructuredRunLiveHUD(session: session)
+        } else if session.isTramoResting {
+            // Work just stopped: the questions changed, so the screen changes. One
+            // surface for every engine that rests (EMOM change window, Tabata /
+            // interval rest) — see RestSurface.
+            RestSurface(session: session)
+        } else if session.tramoIsErg {
+            // Erg work, alone or inside any format.
+            ErgHUDContent(session: session, pm5: pm5)
         } else if session.currentSegment?.isEMOM == true {
             EmomLiveHUD(session: session)
-        } else if session.currentSegment?.kind == .rowOrSki {
-            // ERG WINS OVER THE GENERIC CONDITIONING TIMER. An erg interval series
-            // (5×500 r1:30) IS a conditioning format, so it used to land on
-            // `conditioningHUD` — a 00:00 lap clock that knows nothing about a PM5,
-            // leaving the athlete with no erg data at all. Erg work always gets the
-            // erg surface; it carries the series context itself (serie N/total, the
-            // "esta serie / luego" line, the rest countdown, the count-in).
-            // EMOM is handled above and stays EMOM even on an erg — that HUD is
-            // format-specific and correct.
-            ErgHUDContent(session: session, pm5: pm5)
         } else if session.currentSegment?.isConditioningTimer == true {
             // Conditioning formats route by SCHEME to their dedicated timer (the
             // block-level fold means one segment = one format), regardless of kind.
+            // A free-order format (AMRAP / For Time / Chipper) genuinely does not
+            // know which movement the athlete is on, so the format keeps the subject
+            // — but if a monitor is streaming under it, its numbers are shown rather
+            // than thrown away.
             conditioningHUD
+            if segmentInvolvesErg, pm5.isConnected {
+                ErgLiveStrip(pm5: pm5)
+            }
         } else {
             switch session.currentSegment?.kind {
-            case .rowOrSki:
-                ErgHUDContent(session: session, pm5: pm5)
             case .running:
                 RunLiveHUD(session: session, gpsActive: gpsActive,
                            onTapTreadmill: { showTreadmill = true },
                            onTapOutdoor: { showOutdoor = true })
-            case .strength, .reps, .sled, .none:
+            case .rowOrSki, .strength, .reps, .sled, .none:
+                // `.rowOrSki` can only land here with no erg resolved on the tramo,
+                // which the erg branch above already caught — the reps grid is the
+                // honest floor rather than an erg surface with nothing to show.
                 StrengthLiveHUD(session: session)
             }
         }
@@ -838,9 +915,21 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    /// The primary action, sized for landscape's narrow column. Same action and
+    /// same label as portrait — one behaviour, two arrangements.
+    private var landscapeAction: some View {
+        ExpertActionButton(title: primaryTitle, action: { primaryAction() })
+            .frame(height: 96)
+    }
+
+    // The "NEXT" chip is silent whenever something else already answers "what
+    // comes next" better: the rest screen answers it for the ROUND, and the erg
+    // surface's own context line answers it mid-piece ("luego descanso 2:00"). Two
+    // answers to the same question — one of them about a different scope — is
+    // exactly the clutter that left no room for the numbers.
     @ViewBuilder
     private var nextSegmentChip: some View {
-        if let next = session.nextSegment {
+        if !session.isTramoResting, !isErgSegment, let next = session.nextSegment {
             HStack(spacing: Theme.Spacing.s) {
                 LabelText(text: "NEXT", color: Theme.Color.accentText, size: 10)
                 Text(next.title)
@@ -1074,21 +1163,31 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    // The rotating work/rest wash colour, or nil for non-rotating / count-in / EMOM
-    // (EMOM has its own face). Tabata + Intervals flip orange (work) ↔ blue (rest).
+    // The full-bleed work/rest wash. Blue means "you are not working right now" and
+    // it applies to EVERY engine that rests — an EMOM change window used to get no
+    // wash at all, so the one phase the athlete most needs to recognise from across
+    // the box looked exactly like the work.
     private var rotatingFlipColor: Color? {
         // #61 structured run: the wash flips with the LEG kind, off the leg cursor.
         if session.isRunStructureActive {
             guard !session.isRunCountIn else { return nil }
             return session.isRunLegWork ? Theme.Color.accent : Theme.Color.info
         }
-        guard session.condCountInRemaining <= 0 else { return nil }
+        guard !session.isTramoCountIn else { return nil }
+        if session.isTramoResting { return Theme.Color.info }
         switch session.currentSegment?.formatScheme {
         case .tabata, .intervals:
-            return session.rotPhase == .work ? Theme.Color.accent : Theme.Color.info
+            return Theme.Color.accent
         default:
             return nil
         }
+    }
+
+    /// How hard the wash reads. Work is a hint (the numbers are the message); REST
+    /// is an identity — the athlete has to know he is resting at a glance, from the
+    /// floor, without reading anything. 28-jul: "el azul del descanso, más visible".
+    private var rotatingFlipOpacity: Double {
+        session.isTramoResting ? 0.24 : 0.10
     }
 
     // MARK: - Navigation requests (confirm where the move is destructive)
@@ -1173,6 +1272,47 @@ struct ActiveWorkoutView: View {
     }
 
     private enum ExitStep { case choose, confirmDiscard }
+
+    // The PRESCRIPTION IS DONE overlay. Reaching the end of the plan is a moment,
+    // not a trapdoor: it used to drop the athlete straight into the summary, so a
+    // session he wanted to extend was over before he could say so. The work is
+    // already closed and safe either way; this only asks what he wants to do next.
+    // Terminar is the accent default (it IS the expected answer), Seguir is right
+    // beside it, and the scrim does nothing — this is a real choice, not a dialog
+    // to dismiss by accident.
+    @ViewBuilder
+    private var finishDecisionOverlay: some View {
+        if session.isAwaitingFinishDecision {
+            ZStack {
+                Theme.Color.scrim.ignoresSafeArea()
+                CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                        Text("Has acabado el entreno")
+                            .font(Theme.Typography.headlineM)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Todo lo que has hecho está guardado. Si te apetece seguir, sigue: lo que añadas se suma.")
+                            .font(Theme.Typography.small)
+                            .foregroundStyle(Theme.Color.muted)
+                        ExpertPrimaryButton(title: "Terminar y guardar") { session.finish() }
+                        Button { session.continueAfterPrescribedWork() } label: {
+                            Text("Seguir entrenando")
+                                .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                                .foregroundStyle(Theme.Color.foreground)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(Theme.Color.surfaceElevated)
+                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.m)
+            }
+            .transition(.opacity)
+        }
+    }
 
     // The exit decision overlay (concept §C.2/§C.3). Same scrim + centred card
     // idiom as the pause / confirm modals. Scrim tap = "Seguir" (the safe default).
