@@ -183,11 +183,23 @@ struct WorkoutSegment: Codable, Identifiable {
     /// stay untouched and decode tolerantly.
     var doblesSplit: SegmentDoblesSplit? = nil
 
-    /// The MODALITY string emitted on the execution wire for this segment. Prefers
-    /// the resolved erg sub-modality (`ergKind`: row/ski/bike) so coach analytics can
-    /// separate the three ergs; falls back to the kind's default bucket for runs /
-    /// strength / stations. Single source for the lap's `modality` (#erg-2).
-    var wireModality: String { ergKind ?? kind.modality }
+    /// The MODALITY string emitted on the execution wire for this segment. Single
+    /// source for the lap's `modality` (#erg-2).
+    ///
+    /// The saved modality must be the one the ATHLETE trained, never the one the
+    /// TRANSPORT implies. Row, ski and bike share a single PM5 and a single live
+    /// grid (`SegmentKind.rowOrSki`), so for an erg the kind cannot answer "which
+    /// machine" — and its default bucket answers "row", which is how Alex's SkiErg
+    /// 400 m of 28-jul came to be stored as rowing. Two sources know better and are
+    /// tried in order: `ergKind`, threaded from the exercise catalogue at build
+    /// time, then the prescription's own declared modality via `resolvedModality` —
+    /// the same resolution the live tramo already trusts to decide whose numbers
+    /// own the screen. Runs / strength / stations are untouched: their kind IS the
+    /// answer.
+    var wireModality: String {
+        if kind.isErg { return ergKind ?? resolvedModality.rawValue }
+        return kind.modality
+    }
 
     init(
         id: UUID = UUID(),
