@@ -55,11 +55,20 @@ struct DoblesTrainTogetherView: View {
                         .padding(.top, Theme.Spacing.xxl)
                 } else if let session {
                     content(session)
+                } else if partner == nil {
+                    DoblesNoPartnerState(
+                        message: "Con un compañero conectado veréis aquí la carga de cada uno en la misma sesión, resuelta sobre vuestro propio 1RM.",
+                        bearer: effectiveBearer,
+                        onInvited: { Task { await reload() } }
+                    )
+                    .padding(.top, Theme.Spacing.xl)
+                    .staggerReveal(appear, index: 1)
                 } else {
                     RedesignEmptyState(
                         symbol: "figure.strengthtraining.traditional",
                         title: "Sin sesión conjunta",
-                        message: "Cuando tu coach programe una sesión que podéis hacer juntos verás aquí la carga de cada uno, resuelta sobre vuestro propio 1RM."
+                        message: "Cuando tu coach programe una sesión que podéis hacer juntos verás aquí la carga de cada uno, resuelta sobre vuestro propio 1RM.",
+                        exit: .explained(note: "La programa tu coach. Aparece aquí en cuanto la publique.")
                     )
                     .padding(.top, Theme.Spacing.xl)
                     .staggerReveal(appear, index: 1)
@@ -97,15 +106,19 @@ struct DoblesTrainTogetherView: View {
                 )
             }
         }
-        .task(id: effectiveBearer) {
-            loading = true
-            if let bearer = effectiveBearer {
-                partner = try? await PartnerService.fetchPartner(bearer: bearer)
-            }
-            session = await DoblesService.fetchTrainTogether(sessionId: sessionId, bearer: effectiveBearer)
-            loading = false
-            withAnimation { appear = true }
+        .task(id: effectiveBearer) { await reload() }
+    }
+
+    /// Partner link + the per-athlete resolved session. Re-run after an
+    /// invitation so a freshly paired athlete stops seeing the unpaired state.
+    private func reload() async {
+        loading = true
+        if let bearer = effectiveBearer {
+            partner = try? await PartnerService.fetchPartner(bearer: bearer)
         }
+        session = await DoblesService.fetchTrainTogether(sessionId: sessionId, bearer: effectiveBearer)
+        loading = false
+        withAnimation { appear = true }
     }
 
     // MARK: - Header
@@ -161,7 +174,8 @@ struct DoblesTrainTogetherView: View {
             RedesignEmptyState(
                 symbol: "list.bullet.rectangle",
                 title: "Sin ejercicios",
-                message: "Esta sesión aún no tiene ejercicios prescritos."
+                message: "Esta sesión aún no tiene ejercicios prescritos.",
+                exit: .explained(note: "Los añade tu coach al detallar la sesión.")
             )
             .padding(.top, Theme.Spacing.l)
             .staggerReveal(appear, index: 2)

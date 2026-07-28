@@ -1,5 +1,43 @@
 import SwiftUI
 
+// MARK: - "Sin compañero" — the one empty state the four Dobles screens share
+//
+// A Dobles athlete with no linked partner used to walk through FOUR identical
+// dead ends (plan conectado, entrenar a la vez, simulación, analíticas
+// compartidas) — each one telling them they had no partner, none of them letting
+// them get one. And the pair race-gap told them to *ask their coach*, which was
+// never true: the athlete invites their partner by email themselves
+// (`PartnerService.invitePartner`, the same call ProfileView's invite card makes).
+//
+// So the exit lives here, once. Every Dobles screen that can find itself without
+// a partner renders THIS, and gets the invite sheet with it.
+
+/// The unpaired-Dobles empty state plus its invite sheet. Drop it in wherever a
+/// Dobles surface has nothing to show *because there is no partner yet* — as
+/// opposed to having a partner and no data, which is a different state with a
+/// different (non-)exit.
+struct DoblesNoPartnerState: View {
+    /// Screen-specific promise: what the athlete unlocks once they pair up.
+    let message: String
+    var bearer: String?
+    /// Re-fetch hook — an accepted invitation changes every Dobles surface.
+    var onInvited: () -> Void = {}
+
+    @State private var showInvite = false
+
+    var body: some View {
+        RedesignEmptyState(
+            symbol: "person.2",
+            title: "Aún no tienes compañero",
+            message: message,
+            exit: .action(title: "Invitar a mi compañero") { showInvite = true }
+        )
+        .sheet(isPresented: $showInvite) {
+            PartnerInviteSheet(bearer: bearer) { _ in onInvited() }
+        }
+    }
+}
+
 // Átomos Dobles compartidos entre superficies (la simulación conjunta y el
 // predicho de carrera dobles), para que no se dupliquen y no puedan divergir:
 //   • DoblesShareSlider — el reparto por estación a pasos de 5% (self naranja /

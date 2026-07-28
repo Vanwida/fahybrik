@@ -34,6 +34,8 @@ struct RaceDetailView: View {
 
     @State private var gap: GoalGap? = nil
     @State private var loadingGap = true
+    /// "Fija un tiempo objetivo" → the goal selector for THIS race.
+    @State private var showGoalSheet = false
 
     private var effectiveBearer: String? { bearer }
 
@@ -60,6 +62,11 @@ struct RaceDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showGoalSheet) {
+            FijarTiempoObjetivoSheet(race: race, bearer: effectiveBearer) {
+                Task { await loadGap() }
+            }
+        }
         .task(id: effectiveBearer) {
             // A doubles race self-fetches inside DoblesRaceGapSection; only the
             // individual target race has a goal-gap to fetch here. Everything else
@@ -309,31 +316,36 @@ struct RaceDetailView: View {
     private func availabilityState(_ availability: String) -> some View {
         switch availability.lowercased() {
         case "no_goal":
+            // The happy path's dead end: this told the athlete to fix a goal time
+            // and gave them nowhere to do it. The button opens the same goal
+            // selector over this race's already-chosen format/division/category.
             RedesignEmptyState(
                 symbol: "stopwatch",
                 title: "Fija un tiempo objetivo",
-                message: "Aún no has fijado a qué tiempo vas en esta carrera. Cuando elijas tu objetivo —sub-60, sub-70…— verás aquí tu predicho de hoy y el camino estación a estación."
+                message: "Aún no has fijado a qué tiempo vas en esta carrera. Cuando elijas tu objetivo —sub-60, sub-70…— verás aquí tu predicho de hoy y el camino estación a estación.",
+                exit: .action(title: "Elegir mi objetivo") { showGoalSheet = true }
             )
             .padding(.top, Theme.Spacing.m)
         default: // no_data / no_target_race / unknown → the honest invitation
             RedesignEmptyState(
                 symbol: "chart.bar",
                 title: "Aún no hay datos de tu entreno",
-                message: "Registra prácticas de estación y entrenos y tu camino al objetivo aparece aquí —con tu nivel de hoy contra lo que pide tu meta."
+                message: "Registra prácticas de estación y entrenos y tu camino al objetivo aparece aquí —con tu nivel de hoy contra lo que pide tu meta.",
+                // Nothing to press here: the data comes from training, not from a
+                // button on this screen. Say so instead of leaving a dead end.
+                exit: .explained(note: "Se llena solo: en cuanto entrenes estaciones o corras, el camino aparece aquí.")
             )
             .padding(.top, Theme.Spacing.m)
         }
     }
 
     private var errorState: some View {
-        VStack(spacing: Theme.Spacing.l) {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tu predicho",
-                message: "Revisa tu conexión e inténtalo de nuevo."
-            )
-            ExpertPrimaryButton(title: "REINTENTAR") { Task { await loadGap() } }
-        }
+        RedesignEmptyState(
+            symbol: "arrow.clockwise",
+            title: "No pudimos cargar tu predicho",
+            message: "Revisa tu conexión e inténtalo de nuevo.",
+            exit: .action(title: "Reintentar") { Task { await loadGap() } }
+        )
         .padding(.top, Theme.Spacing.m)
     }
 

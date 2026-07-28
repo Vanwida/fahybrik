@@ -17,6 +17,9 @@ struct StationDetailView: View {
 
     @State private var detail: StationDetail? = nil
     @State private var loading = true
+    /// "Importar mis carreras" from the no-data state — the station's numbers are
+    /// derived from imported HYROX results, so that is the way out of here.
+    @State private var showImport = false
 
     private var effectiveBearer: String? {
         bearer
@@ -47,7 +50,10 @@ struct StationDetailView: View {
                         RedesignEmptyState(
                             symbol: "chart.bar",
                             title: "Sin datos de esta estación",
-                            message: "Cuando registres una carrera con esta estación verás aquí tu tiempo vs benchmark, tu tendencia y la recomendación de tu coach."
+                            message: "Cuando registres una carrera con esta estación verás aquí tu tiempo vs benchmark, tu tendencia y la recomendación de tu coach.",
+                            // The data comes from an imported race — and importing
+                            // is exactly what the athlete can do from here.
+                            exit: .action(title: "Importar mis carreras") { showImport = true }
                         )
                         .padding(.top, Theme.Spacing.m)
                     }
@@ -58,6 +64,15 @@ struct StationDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showImport) {
+            ImportRaceSheet(bearer: effectiveBearer) { _ in
+                Task {
+                    loading = true
+                    detail = await CarrerasService.fetchStationDetail(station: station, bearer: effectiveBearer)
+                    loading = false
+                }
+            }
+        }
         .task(id: effectiveBearer) {
             loading = true
             detail = await CarrerasService.fetchStationDetail(station: station, bearer: effectiveBearer)

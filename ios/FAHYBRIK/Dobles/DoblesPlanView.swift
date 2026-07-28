@@ -67,11 +67,23 @@ struct DoblesPlanView: View {
                             .padding(.top, Theme.Spacing.xxl)
                     } else if let plan {
                         content(plan)
+                    } else if partner == nil {
+                        // No partner LINKED — the athlete can fix this themselves.
+                        DoblesNoPartnerState(
+                            message: "Cuando conectes con tu compañero veréis cada uno vuestro plan, lo que es opcional juntos y la simulación conjunta del sábado.",
+                            bearer: effectiveBearer,
+                            onInvited: { Task { await reload() } }
+                        )
+                        .padding(.top, Theme.Spacing.xl)
+                        .staggerReveal(appear, index: 1)
                     } else {
+                        // Paired, but the connected week has not landed. Nothing to
+                        // press — say who has to publish it and when it shows up.
                         RedesignEmptyState(
-                            symbol: "person.2",
-                            title: "Sin compañero de Dobles",
-                            message: "Cuando conectes con tu compañero veréis cada uno vuestro plan, lo que es opcional juntos y la simulación conjunta del sábado."
+                            symbol: "calendar",
+                            title: "Semana conectada sin publicar",
+                            message: "En cuanto haya semana publicada para los dos veréis aquí cada plan, lo que es opcional juntos y la simulación conjunta.",
+                            exit: .explained(note: "La publica tu coach. No tienes que hacer nada: aparece sola.")
                         )
                         .padding(.top, Theme.Spacing.xl)
                         .staggerReveal(appear, index: 1)
@@ -98,19 +110,23 @@ struct DoblesPlanView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
         }
-        .task(id: effectiveBearer) {
-            loading = true
-            // Partner identity (already shipped) + connected-plan payload (gap).
-            if let bearer = effectiveBearer {
-                partner = try? await PartnerService.fetchPartner(bearer: bearer)
-            }
-            plan = await DoblesService.fetchConnectedPlan(bearer: effectiveBearer)
-            loading = false
-            withAnimation { appear = true }
-            // #56 — the partner's live presence (only when a partner link exists).
-            if partner != nil, case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
-                partnerLive = p
-            }
+        .task(id: effectiveBearer) { await reload() }
+    }
+
+    /// Partner identity (already shipped) + connected-plan payload (gap) + the
+    /// partner's live presence. Re-run after an invitation so the screen stops
+    /// claiming there is no partner the moment there is one.
+    private func reload() async {
+        loading = true
+        if let bearer = effectiveBearer {
+            partner = try? await PartnerService.fetchPartner(bearer: bearer)
+        }
+        plan = await DoblesService.fetchConnectedPlan(bearer: effectiveBearer)
+        loading = false
+        withAnimation { appear = true }
+        // #56 — the partner's live presence (only when a partner link exists).
+        if partner != nil, case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
+            partnerLive = p
         }
     }
 
@@ -178,7 +194,11 @@ struct DoblesPlanView: View {
                 title: showingPartner ? "Plan de \(partnerFirstName) no disponible" : "Semana sin publicar",
                 message: showingPartner
                     ? "Tu compañero aún no ha compartido su semana."
-                    : "Tu coach aún no ha publicado esta semana."
+                    : "Tu coach aún no ha publicado esta semana.",
+                // Genuinely nothing to do from here: it depends on someone else.
+                exit: .explained(note: showingPartner
+                    ? "Cuando la comparta, aparece aquí sin que tengas que hacer nada."
+                    : "Cuando la publique, aparece aquí sin que tengas que hacer nada.")
             )
             .padding(.top, Theme.Spacing.l)
             .staggerReveal(appear, index: 2)

@@ -90,32 +90,36 @@ struct LinkImportView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                     }
 
-                    Spacer(minLength: Theme.Spacing.l)
-
-                    if submitting {
-                        HStack(spacing: 10) {
-                            ProgressView().tint(Theme.Color.accentOn)
-                            Text("Importando…")
-                                .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                                .tracking(1)
-                                .foregroundStyle(Theme.Color.accentOn)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(Theme.Color.accent.opacity(0.7))
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                    } else {
-                        ExpertPrimaryButton(title: "IMPORTAR", enabled: canSubmit) { submit() }
-                    }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.l)
             }
+            .anchoredAction { submitButton }
         }
         .navigationTitle("Pegar enlace")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { fieldFocused = true }
+    }
+
+    @ViewBuilder
+    private var submitButton: some View {
+        if submitting {
+            HStack(spacing: 10) {
+                ProgressView().tint(Theme.Color.accentOn)
+                Text("Importando…")
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .tracking(1)
+                    .foregroundStyle(Theme.Color.accentOn)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(Theme.Color.accent.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .accessibilityLabel("Importando carrera")
+        } else {
+            ExpertPrimaryButton(title: "IMPORTAR", enabled: canSubmit) { submit() }
+        }
     }
 
     private var fieldStroke: Color {
