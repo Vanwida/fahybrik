@@ -16,7 +16,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { computeVdot, RUN_5K_METERS } from '@fahybrid/shared/domain/running/vdot';
+import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
+import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
   type AnalyticsCard,
@@ -36,6 +37,11 @@ import {
 } from './core';
 
 // ── Constants ────────────────────────────────────────────────────────────────
+/** The running marks a VDOT can be read off, straight from the closed catalogue. */
+const RUN_MARK_SLUGS: readonly string[] = MARKS.filter(
+  (m) => m.group === 'run' || m.group === 'race',
+).map((m) => m.slug);
+
 const ONE_KM_MIN_METERS = 800;
 const ONE_KM_MAX_METERS = 1200;
 const THREE_KM_MIN_METERS = 2700;
@@ -122,8 +128,34 @@ export async function buildRunningSection(
     order by recorded_at asc
   `;
   const fiveK = benchRows.map((r) => ({ id: r.id, date: r.recorded_on, seconds: Math.round(num(r.value)) })).filter((r) => r.seconds > 0);
+  /** The newest 5 km — the "progresión 5k" card's current point. NOT the VDOT
+   *  input: that is a different question with a different, stricter answer. */
   const latest5k = fiveK.length ? fiveK[fiveK.length - 1]! : null;
-  const vdot = latest5k ? computeVdot({ distance_meters: RUN_5K_METERS, duration_seconds: latest5k.seconds }) : null;
+
+  // ── VDOT — from the ONE selector, not from "the newest 5 km row" ───────────
+  // The 5 km series above is a distinct concept (test progress) and legitimately
+  // shows every row. The VDOT is the athlete's running LEVEL, and it has to be
+  // the same number the plan prescribes from, so it goes through `selectRunMark`
+  // like every other surface: measured marks only, least-extrapolated wins.
+  const runMarkRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
+    select
+      exercise_slug,
+      value::text as value,
+      (current_date - recorded_at::date)::int as age_days,
+      source,
+      run_context
+    from athlete_benchmarks
+    where athlete_id = ${athleteId}
+      and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
+    order by recorded_at desc
+  `;
+  const runMark = selectRunMark(
+    runMarkRows.flatMap((r) => {
+      const value = num(r.value);
+      if (!Number.isFinite(value)) return [];
+      return [{ slug: r.exercise_slug, value, age_days: r.age_days, source: r.source, run_context: r.run_context }];
+    }),
+  );
 
   // ── Period run segments (one round-trip) ───────────────────────────────────
   const segs = await client<RunSegRow[]>`
@@ -181,9 +213,11 @@ export async function buildRunningSection(
       primary: {
         value: threshold_s ? paceStr(threshold_s) : null,
         unit: '/km · Z4',
-        side: vdot ? { value: vdot.vdot.toFixed(1), label: 'VDOT' } : null,
+        side: runMark ? { value: runMark.vdot.toFixed(1), label: 'VDOT' } : null,
       },
-      meaning_es: '¿A qué ritmo correr cada km? Umbral entrenado del plan; VDOT (Daniels) sobre tu 5k.',
+      meaning_es: runMark
+        ? `¿A qué ritmo correr cada km? Umbral entrenado del plan; VDOT (Daniels) sobre tu ${runMark.spec.label.toLowerCase()}.`
+        : '¿A qué ritmo correr cada km? Umbral entrenado del plan.',
     }),
   );
 
