@@ -26,6 +26,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · Las zonas de pulso se anclan en el UMBRAL, nunca en la frecuencia máxima — y el móvil deja de calcularlas
+
+**Decidido:** existe **un solo modelo de zonas de FC**, `shared/domain/methodology/hr-zones.ts`, y es fracción del **umbral** (Z1 ≤0,81 · Z2 0,82-0,88 · Z3 0,89-0,94 · Z4 0,95-1,02 · Z5 ≥1,03). **Las resuelve el servidor en ppm absolutas y el iOS solo las pinta** — deja de tener su propia clasificación. El ancla se busca por orden de evidencia: **umbral medido → 0,88 × FC máxima medida → 0,88 × Tanaka**. Sin ninguna de las tres **no hay zonas**, y no se inventa un ancla: la pantalla lo dice y ofrece la salida.
+
+**Por qué:** había **TRES** modelos, no dos. Fracción del umbral en el servidor, fracción de la FC máxima en el iOS, y fracción de un **200 clavado a pelo en el SQL** del panel del coach. Con el atleta 64 la Z2 salía **128-137** por un lado y **106-124** por el otro: bandas disjuntas. A 130 ppm el atleta estaba donde el coach quería y su móvil le decía Z3 y que apretaba de más. Y el servidor mandaba SUS zonas al reloj como alerta, así que la contradicción llegaba a la muñeca.
+
+**Muere `PersonalHRMax`.** Su `resolve(nil,nil,nil)` **nunca devolvía nil**: siempre 184. Y era la única vía de construir una sesión, así que **todos** los `zone_seconds` que ha visto Pablo salían de una máxima que nadie midió — **0 de 8 atletas tienen máxima medida**. Lo estimado, cuando existe, viaja **marcado** hasta el coach.
+
+**Cooper y Daniels no eran una fórmula de más.** Miden magnitudes distintas: Cooper estima VO₂máx directo, Daniels estima VDOT. Lo que sobraba eran **dos criterios distintos para elegir qué fila del mismo test coger** (uno el mejor, otro el menos extrapolado y luego el más fresco), y un filtro de `source` que faltaba en uno de los dos. Queda una sola regla de evidencia.
+
+**En consecuencia, no hacer:** no volver a clasificar zonas en el cliente; no anclar zonas en la FC máxima cuando hay umbral; no fabricar un ancla cuando faltan las tres evidencias; y no promediar ni mezclar VO₂máx con VDOT en la misma cifra.
+
+**PENDIENTE, y es una decisión de producto:** **ninguna pantalla escribe hoy un `lthr_bpm` medido.** La cadena lo prefiere y el servidor lo lee, pero no hay UI que lo registre, así que **todo umbral es estimado**. No hay que inventar nada: el test `lthr_30min` ya existe en el seed con ese `output_field` — es conectarlo. También queda abierta una asimetría en `assignment-detail.ts:961`: un objetivo `hr_zone` llega a iOS sin banda mientras al Garmin sí.
+
+**Dónde vive:** `shared/domain/methodology/hr-zones.ts`, `web/lib/athlete/hr-zones.ts`, `ios/FAHYBRIK/Profile/MyZonesView.swift`. La sección 40 del manual vivo (`/guia`) queda reescrita con el modelo bueno.
+
+---
+
 ## 2026-07-28 · La FC en reposo se modela una vez — es un agregado del día LOCAL, revisable y tardío
 
 **Decidido:** existe **un solo resolutor** de FC en reposo, `shared/domain/biometrics/resting-hr.ts`, y ningún otro sitio consulta `hr_resting`. La pieza modela **qué ES** el dato, no cómo se consulta, y de ahí salen sus tres propiedades:
