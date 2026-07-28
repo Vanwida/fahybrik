@@ -1,14 +1,24 @@
 // Training Stress Score (Banister-style).
 //
 // Reference TSS = 100 for one hour at threshold (intensity factor 1.0).
-// We support three estimation modes, in order of preference:
-//   1. HR-based TrIMP-to-TSS conversion (when avg HR + LTHR known)
-//   2. Power-based TSS (when power data + FTP known)
-//   3. RPE × duration fallback (always available)
+// Intensity comes from exactly ONE source, in this order of preference:
+//   1. Power vs FTP  (avg_power_watts + ftp_watts)
+//   2. HR vs LTHR    (avg_hr + lthr)
+//   3. The athlete's own RPE
 //
-// Élite-grade calculations require LTHR/FTP per athlete; until those are
-// captured in athlete_benchmarks (field events tracked separately), the
-// RPE fallback is the operating mode.
+// HONESTIDAD DEL DATO (docs/CONTRATO-UI.md §7) — there is NO fourth mode.
+// A session whose intensity nobody measured or declared does NOT get a default
+// intensity: `computeTss` returns null and the caller carries its duration as
+// unpriced work. The previous default (IF 0.65) turned every unrated session
+// into ~42 TSS per hour of invented load, which fed the coach's fitness/fatigue
+// trends and the progression engine as if it were evidence.
+//
+// Today only mode 3 can ever fire: `workout_executions` stores
+// `total_duration_seconds` and `perceived_exertion` and nothing else — there is
+// no HR column, no power column, and no LTHR/FTP anywhere in the schema
+// (verified against production, 28-jul-2026). Modes 1–2 are the contract for
+// when per-session HR/power lands; they are covered by tests and must not be
+// mistaken for live paths.
 
 export type TssInput = {
   duration_seconds: number;
@@ -26,28 +36,27 @@ const SECONDS_PER_HOUR = 3600;
 // Map RPE 1..10 to a relative intensity factor.
 // 10 = ~1.10 (race effort), 7 = ~0.85 (threshold), 5 = ~0.70 (tempo), 3 = ~0.55 (easy aerobic).
 // Quadratic-ish curve calibrated against Foster session-RPE convention.
-const RPE_TO_IF: Record<number, number> = {
-  1: 0.30,
-  2: 0.45,
-  3: 0.55,
-  4: 0.65,
-  5: 0.70,
-  6: 0.78,
-  7: 0.85,
-  8: 0.93,
-  9: 1.00,
-  10: 1.10,
-};
+const RPE_TO_IF: ReadonlyMap<number, number> = new Map([
+  [1, 0.30],
+  [2, 0.45],
+  [3, 0.55],
+  [4, 0.65],
+  [5, 0.70],
+  [6, 0.78],
+  [7, 0.85],
+  [8, 0.93],
+  [9, 1.00],
+  [10, 1.10],
+]);
 
-function clampRpe(rpe: number): number {
-  if (!Number.isFinite(rpe)) return 5;
-  if (rpe < 1) return 1;
-  if (rpe > 10) return 10;
-  return Math.round(rpe);
-}
-
-function ifFromRpe(rpe: number): number {
-  return RPE_TO_IF[clampRpe(rpe)] ?? 0.7;
+/**
+ * RPE → intensity factor. Null when the value is not a usable RPE (NaN, ±∞):
+ * a broken number is "unknown", never a mid-scale guess.
+ */
+function ifFromRpe(rpe: number): number | null {
+  if (!Number.isFinite(rpe)) return null;
+  const clamped = Math.min(10, Math.max(1, Math.round(rpe)));
+  return RPE_TO_IF.get(clamped) ?? null;
 }
 
 // Karvonen-based HR reserve fraction → IF approximation.
@@ -64,22 +73,32 @@ function ifFromPower(input: TssInput): number | null {
   return avg_power_watts / ftp_watts;
 }
 
-// Effective intensity factor — power > HR > RPE preference.
-export function intensityFactor(input: TssInput): number {
+/**
+ * Effective intensity factor — power > HR > RPE preference.
+ * NULL when none of the three is available: the session's intensity is unknown.
+ */
+export function intensityFactor(input: TssInput): number | null {
   const ifPower = ifFromPower(input);
   if (ifPower != null) return ifPower;
   const ifHr = ifFromHr(input);
   if (ifHr != null) return ifHr;
-  if (input.rpe != null) return ifFromRpe(input.rpe);
-  return 0.65;
+  if (input.rpe == null) return null;
+  return ifFromRpe(input.rpe);
 }
 
-export function computeTss(input: TssInput): number {
+/**
+ * Load for one session.
+ *   • 0    — no duration, so no work was done (nothing to price).
+ *   • null — there IS duration but its intensity is unknown. The caller must
+ *            carry the duration as unpriced work, never substitute a number.
+ */
+export function computeTss(input: TssInput): number | null {
   if (!Number.isFinite(input.duration_seconds) || input.duration_seconds <= 0) {
     return 0;
   }
-  const hours = input.duration_seconds / SECONDS_PER_HOUR;
   const intensity = intensityFactor(input);
+  if (intensity == null) return null;
+  const hours = input.duration_seconds / SECONDS_PER_HOUR;
   // TSS = (sec × NP × IF) / (FTP × 3600) × 100. With NP=FTP×IF this reduces to:
   return Math.max(0, hours * intensity * intensity * 100);
 }
