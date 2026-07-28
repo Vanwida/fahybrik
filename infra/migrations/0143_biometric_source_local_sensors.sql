@@ -21,9 +21,14 @@
 -- Tampoco se inventa `chest_strap`: hoy el pulso llega por HealthKit y `healthkit`
 -- ya lo cubre. Se añade lo que existe, ni un valor de más.
 --
--- ADD VALUE va en su PROPIA migración: Postgres no deja usar un valor de enum
--- recién añadido dentro de la misma transacción que lo añade, y 0144 lo usa para
--- rellenar `contributing_sources`.
+-- NO FUSIONAR ESTA MIGRACIÓN CON LA 0144.
+-- El runner (`infra/scripts/migrate.ts`) envuelve cada migración en UNA
+-- transacción. Postgres 17 sí permite `ALTER TYPE ... ADD VALUE` dentro de una
+-- transacción, pero NO permite USAR el valor recién añadido en esa misma
+-- transacción — y 0144 usa `treadmill`/`gps` para rellenar
+-- `contributing_sources`. Por eso son dos migraciones y no una: juntarlas
+-- fallaría en el momento del backfill, no al crear el tipo.
+-- Sin `begin;`/`commit;` propios: los pone el runner.
 
 alter type biometric_source add value if not exists 'treadmill';
 alter type biometric_source add value if not exists 'gps';
