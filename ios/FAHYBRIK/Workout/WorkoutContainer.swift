@@ -518,12 +518,12 @@ struct WorkoutContainer: View {
                     }
                     PrimaryButton(title: "Recuperar") {
                         let recovered = WorkoutSession(plan: saved.plan, hrMaxSource: effectiveHRMaxSource, startedAt: saved.startedAt)
-                        recovered.assignmentId = saved.assignmentId   // AUDIT-1 — the gate ensured it matches
-                        recovered.currentSegmentIndex = saved.currentSegmentIndex
-                        recovered.elapsedSeconds = saved.elapsedSeconds
-                        recovered.lapElapsedSeconds = saved.lapElapsedSeconds
-                        recovered.laps = saved.laps
-                        recovered.repsCurrentSegment = saved.repsByCurrentSegment
+                        // ONE restore path, owned by the session (AUDIT-1: the gate
+                        // already ensured the assignment matches). Field-by-field
+                        // copying here left the honesty carriers behind — reps
+                        // confirmation, per-set detail, declared load — and the
+                        // segment re-primed itself with the PRESCRIPTION on entry.
+                        recovered.restore(from: saved)
                         session = recovered
                         crashRecoveryPrompt = nil
                         phase = .active
