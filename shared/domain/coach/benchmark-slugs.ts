@@ -75,6 +75,14 @@ export const BENCH_ROW_THRESHOLD = 'row_threshold_s_per_500m';
 export const BENCH_SKI_THRESHOLD = 'ski_threshold_s_per_500m';
 export const BENCH_BIKE_THRESHOLD = 'bike_threshold_s_per_500m';
 
+// ── Threshold HEART RATE (unit: bpm) ─────────────────────────────────────────
+// The lactate-threshold heart rate — the average HR over the last 20 min of a
+// 30-min all-out effort (the `lthr_30min` protocol in the seeded methodology
+// tests, whose `output_field` is this exact name). It is the ANCHOR of the whole
+// heart-rate zone model (shared/domain/methodology/hr-zones.ts): the only anchor
+// that is measured rather than inferred, so it outranks a max HR and an age.
+export const BENCH_LTHR = 'lthr_bpm';
+
 // ── Heart-rate recovery (unit: bpm) ──────────────────────────────────────────
 // The bpm the HR drops in a fixed window after stopping a near-maximal effort —
 // a standard cardiovascular-recovery marker. hrr60 = the drop 60 s after stopping.

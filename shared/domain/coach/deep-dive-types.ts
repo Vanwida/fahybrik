@@ -130,6 +130,25 @@ export interface ZoneTimePct {
   z5: number;
 }
 
+/**
+ * Time-in-zone, WITH the anchor it was measured against.
+ *
+ * The percentages are meaningless without knowing what "Z4" meant for this
+ * athlete, and until 28-jul-2026 they were computed against a 200 bpm max
+ * hardcoded in the SQL — identical for a 20-year-old and a 44-year-old. The
+ * anchor now travels with the number so the coach can see whether it rests on a
+ * measured threshold or on an estimate from a birth date.
+ */
+export interface ZoneTimeBlock {
+  pct: ZoneTimePct;
+  /** The threshold HR (LTHR) the bands are a fraction of. */
+  lthr_bpm: number;
+  /** True when the threshold was inferred rather than measured. */
+  estimated: boolean;
+  /** Athlete-facing explanation of where the anchor came from. */
+  source_label: string;
+}
+
 export interface TrendsBlock {
   ctl_atl_tsb: CtlAtlPoint[];
   hrv: SparkPoint[];
@@ -140,7 +159,10 @@ export interface TrendsBlock {
   compliance_pct: number | null;
   compliance_done: number;
   compliance_total: number;
-  zone_time: ZoneTimePct;
+  /** Null when the athlete has no HR anchor at all — no zones, so no time in
+   *  them. A zero would read as "trained nothing hard", which is a different
+   *  claim entirely. */
+  zone_time: ZoneTimeBlock | null;
 }
 
 export interface PerformanceRow {

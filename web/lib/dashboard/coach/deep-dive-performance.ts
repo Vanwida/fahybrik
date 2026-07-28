@@ -2,14 +2,15 @@
 // series 6m, polarization across multiple windows, running economy, lactate
 // threshold, anaerobic capacity, race-readiness composite history.
 //
-// Ported from web/lib/coach/deep-dive-performance.ts and trimmed: no demo
-// branches (coach dashboard validates numeric id upstream).
+// No demo branches (the coach dashboard validates the numeric id upstream).
 
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
+import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
+import { zoneForBpm, type AthleteHrZones } from '@fahybrid/shared/domain/methodology';
 import { AthleteAnalyticsError } from './deep-dive-body';
 
 export const POLARIZATION_WINDOWS = ['7d', '14d', '28d', '90d'] as const;
@@ -142,13 +143,19 @@ export async function buildAthletePerformance(params: {
     () => loadExerciseSeries(client, params.athlete_id, params.coach_id, now),
     [] as ExerciseTimeSeries[],
   );
+  // The athlete's own HR bands, resolved ONCE and shared by every polarization
+  // read below — the same five the phone paints. Null when nothing anchors them.
+  const hrZones = await safeCall(
+    () => loadAthleteHrZones(params.athlete_id, client),
+    null as AthleteHrZones | null,
+  );
   const polarization_by_window = await Promise.all(
     POLARIZATION_WINDOWS.map((w) =>
-      safeCall(() => loadPolarization(client, params.athlete_id, now, w), zeroPolarization(w)),
+      safeCall(() => loadPolarization(client, params.athlete_id, now, w, hrZones), zeroPolarization(w)),
     ),
   );
   const polarization_history = await safeCall(
-    () => loadPolarizationHistory(client, params.athlete_id, now),
+    () => loadPolarizationHistory(client, params.athlete_id, now, hrZones),
     [] as Array<{ iso_date: string; pct: PolarizationPct }>,
   );
   const running_economy = await safeCall(
@@ -299,39 +306,63 @@ function mapCategory(c: string): ExerciseTimeSeries['category'] {
 // Polarization
 // ---------------------------------------------------------------------------
 
+/**
+ * The three-band polarization split, derived from the athlete's OWN five zones.
+ *
+ *   low  = Z1 + Z2   (below the first threshold — the easy volume)
+ *   mid  = Z3 + Z4   (the "grey zone" between thresholds)
+ *   high = Z5        (above threshold)
+ *
+ * These are the classic three polarization bands expressed in the one zone model
+ * the whole app uses, so the boundaries can never drift from it. They used to be
+ * `hr < 0.7 * 200` and `hr < 0.85 * 200` written into the SQL, which put the
+ * dividing lines at 140 and 170 bpm for every athlete regardless of age or
+ * fitness.
+ */
+function polarizationFrom(samples: readonly number[], zones: AthleteHrZones): PolarizationPct | null {
+  let low = 0;
+  let mid = 0;
+  let high = 0;
+  for (const hr of samples) {
+    const z = zoneForBpm(hr, zones);
+    if (z == null) continue;
+    if (z <= 2) low += 1;
+    else if (z <= 4) mid += 1;
+    else high += 1;
+  }
+  const total = low + mid + high;
+  if (total === 0) return null;
+  return {
+    low: Math.round((low / total) * 100),
+    mid: Math.round((mid / total) * 100),
+    high: Math.round((high / total) * 100),
+  };
+}
+
 async function loadPolarization(
   client: Sql,
   athlete_id: number,
   now: Date,
   window: PolarizationWindow,
+  zones: AthleteHrZones | null,
 ): Promise<PolarizationByWindow> {
+  // No anchor → no zones → no split. Same shape as "no samples": the caller's
+  // `has_real_data` gate already reads an all-zero split as nothing to show.
+  if (!zones) return zeroPolarization(window);
+
   const days = window === '7d' ? 7 : window === '14d' ? 14 : window === '28d' ? 28 : 90;
   const since = addDays(now, -days).toISOString();
-  const rows = await client<Array<{ z: number; n: number }>>`
-    with samples as (
-      select value_numeric::float as hr
-      from biometric_streams
-      where athlete_id = ${athlete_id}
-        and metric_type::text = 'hr'
-        and recorded_at >= ${since}::timestamptz
-    ),
-    classified as (
-      select case
-        when hr < 0.7  * 200 then 1
-        when hr < 0.85 * 200 then 2
-        else 3 end as z
-      from samples
-    )
-    select z, count(*)::int as n from classified group by z
+  const rows = await client<Array<{ hr: number }>>`
+    select value_numeric::float as hr
+    from biometric_streams
+    where athlete_id = ${athlete_id}
+      and metric_type::text = 'hr'
+      and recorded_at >= ${since}::timestamptz
+      and value_numeric is not null
   `;
-  const total = rows.reduce((s, r) => s + r.n, 0);
-  if (total === 0) return zeroPolarization(window);
-  const map = new Map(rows.map((r) => [r.z, r.n]));
-  const pct: PolarizationPct = {
-    low: Math.round(((map.get(1) ?? 0) / total) * 100),
-    mid: Math.round(((map.get(2) ?? 0) / total) * 100),
-    high: Math.round(((map.get(3) ?? 0) / total) * 100),
-  };
+  const pct = polarizationFrom(rows.map((r) => r.hr), zones);
+  if (!pct) return zeroPolarization(window);
+
   const drift =
     Math.abs(pct.low - POLARIZATION_TARGET.low) +
     Math.abs(pct.mid - POLARIZATION_TARGET.mid) +
@@ -347,42 +378,30 @@ async function loadPolarizationHistory(
   client: Sql,
   athlete_id: number,
   now: Date,
+  zones: AthleteHrZones | null,
 ): Promise<Array<{ iso_date: string; pct: PolarizationPct }>> {
+  if (!zones) return [];
   const out: Array<{ iso_date: string; pct: PolarizationPct }> = [];
   for (let i = 11; i >= 0; i--) {
     const end = addDays(now, -i * 7);
     const start = addDays(end, -7);
-    const rows = await client<Array<{ z: number; n: number }>>`
-      with samples as (
-        select value_numeric::float as hr
-        from biometric_streams
-        where athlete_id = ${athlete_id}
-          and metric_type::text = 'hr'
-          and recorded_at >= ${start.toISOString()}::timestamptz
-          and recorded_at <  ${end.toISOString()}::timestamptz
-      ),
-      classified as (
-        select case
-          when hr < 0.7  * 200 then 1
-          when hr < 0.85 * 200 then 2
-          else 3 end as z
-        from samples
-      )
-      select z, count(*)::int as n from classified group by z
+    const rows = await client<Array<{ hr: number }>>`
+      select value_numeric::float as hr
+      from biometric_streams
+      where athlete_id = ${athlete_id}
+        and metric_type::text = 'hr'
+        and recorded_at >= ${start.toISOString()}::timestamptz
+        and recorded_at <  ${end.toISOString()}::timestamptz
+        and value_numeric is not null
     `;
-    const total = rows.reduce((s, r) => s + r.n, 0);
-    if (total === 0) {
+    const pct = polarizationFrom(rows.map((r) => r.hr), zones);
+    if (!pct) {
       out.push({ iso_date: end.toISOString().slice(0, 10), pct: { low: 0, mid: 0, high: 0 } });
       continue;
     }
-    const map = new Map(rows.map((r) => [r.z, r.n]));
     out.push({
       iso_date: end.toISOString().slice(0, 10),
-      pct: {
-        low: Math.round(((map.get(1) ?? 0) / total) * 100),
-        mid: Math.round(((map.get(2) ?? 0) / total) * 100),
-        high: Math.round(((map.get(3) ?? 0) / total) * 100),
-      },
+      pct,
     });
   }
   return out;
