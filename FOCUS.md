@@ -15,6 +15,47 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Cerrado el 28-jul · TANDA 1 del triaje — una sola verdad por concepto
+
+**Sin desplegar. Cero migraciones.** Base de las demás tandas: todo lo que viene
+después se apoya en esto, por eso fue sola.
+Origen: `docs/audits/triaje-coherencia-28jul2026.html`.
+
+**1 · Las zonas de FC ya significan lo mismo en los dos lados.** Había TRES
+modelos: %LTHR en el servidor (el que alimenta al Garmin), %FCmáx en el iOS (el
+HUD en vivo y los `zone_seconds` que lee Pablo) y %FCmáx sobre un **200 clavado
+en el SQL** en las analíticas del coach. Con el atleta 64 (nacido en 1982, sin
+máxima medida) el primero pone Z2 en **128-137 ppm** y el segundo en **106-124**:
+bandas disjuntas. A 130 ppm estaba donde su coach quería y la app le decía Z3.
+**Decisión: manda el umbral, nunca la máxima** — es lo que mide un test y contra
+lo que prescribe el coach; sacar un porcentaje de una máxima estimada por edad
+son dos suposiciones apiladas. El modelo vive una sola vez en
+`shared/domain/methodology/hr-zones.ts`, el servidor lo publica en
+`GET /api/athlete/zones` y con la identidad, y **el iOS dejó de calcular zonas**:
+borrados `percentOfMax`, `HRZoneClassifier` y `PersonalHRMax` entero.
+
+**2 · Se acabó la FC máxima inventada de 184.** `PersonalHRMax.resolve(nil,nil,nil)`
+NUNCA devolvía nil, y era la única vía de construcción de sesión: los segundos por
+zona que le llegan a Pablo salían de un número que nadie midió (0 de 8 atletas
+tienen máxima en la base). Sin ancla ya **no hay zonas**, y lo estimado viaja
+marcado hasta el coach: el resumen dice «Umbral 156 ppm · estimado», el tiempo en
+zona lleva su ancla, y el reloj no recibe alerta si el umbral es estimado.
+
+**3 · El VO₂máx del mismo Cooper por dos fórmulas.** No sobraba ninguna: Cooper
+estima **VO₂máx** (2800 m → 51,3) y Daniels estima **VDOT** (→ 43,9), que es otra
+magnitud aunque comparta unidades. Lo que sí estaba duplicado era **qué fila se
+coge**: la pantalla cogía el Cooper más largo y la proyección el más fresco, y la
+pantalla aceptaba cualquier 5K mientras la proyección rechazaba los que nadie
+midió (el atleta 67 tiene tres `run_5k` con `source='unknown'` y salía un VDOT de
+49,9 en pantalla). Ahora hay **una** regla de evidencia en `mark-projection.ts`.
+
+Pendiente natural: nadie escribe todavía un `lthr_bpm` medido — la cadena de
+anclas lo prefiere, pero no hay UI que lo registre, así que hoy todo umbral es
+estimado. Y si algún día se quiere el histórico de bandas de FC (snapshot como el
+de ritmo), eso sí pediría migración.
+
+---
+
 ## Cerrado el 28-jul · Las tres señales de salud que Alex trajo de entrenar
 
 **Sin desplegar. Cero migraciones.**
