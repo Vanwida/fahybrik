@@ -2,7 +2,12 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { addDays, isoDateString, parseIsoDate, zonedDayString } from '@fahybrid/shared/domain/dates';
+import {
+  RESTING_HR_METRIC,
+  loadRestingHrDays,
+} from '@fahybrid/shared/domain/biometrics/resting-hr';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 
 // Athlete-facing biometric TREND — the "proof you're advancing" signal on Inicio.
 //
@@ -85,9 +90,14 @@ export async function buildAthleteBiometricTrend(params: {
   client?: Sql;
 }): Promise<AthleteBiometricTrend> {
   const client = params.client ?? defaultSql;
-  const now = startOfDayInBox(params.on_date ?? new Date());
-  const startIso = addDays(now, -(TREND_DAYS - 1)).toISOString();
-  const types = METRICS.map((m) => m.metric_type);
+  const tz = await loadAthleteTimezone(client, params.athlete_id);
+  const todayIso = zonedDayString(params.on_date ?? new Date(), tz);
+  const fromIso = isoDateString(addDays(parseIsoDate(todayIso), -(TREND_DAYS - 1)));
+  // Resting HR is EXCLUDED from the bulk query on purpose — it is a daily aggregate
+  // revised in place, so it needs last-revision-wins on the athlete's local day, not
+  // a UTC-bucketed average of its own superseded revisions. It comes from THE
+  // resolver just below and lands in the same map.
+  const types = METRICS.map((m) => m.metric_type).filter((t) => t !== RESTING_HR_METRIC);
 
   // One round-trip: daily averages per metric across the window.
   const rows = await client<Array<{ metric_type: string; d: string; v: number | null }>>`
@@ -99,7 +109,7 @@ export async function buildAthleteBiometricTrend(params: {
       -- metric_type is the biometric_metric ENUM; compare as text so the bound
       -- string[] param matches (enum = text[] has no operator).
       and metric_type::text = any(${types})
-      and recorded_at >= ${startIso}::timestamptz
+      and recorded_at >= ${parseIsoDate(fromIso)}
     group by 1, 2
     order by 1, 2
   `;
@@ -110,6 +120,19 @@ export async function buildAthleteBiometricTrend(params: {
     const list = byMetric.get(r.metric_type) ?? [];
     list.push({ d: r.d, v: r.v });
     byMetric.set(r.metric_type, list);
+  }
+
+  const restingHrDays = await loadRestingHrDays({
+    athlete_id: params.athlete_id,
+    from_iso: fromIso,
+    to_iso: todayIso,
+    client,
+  });
+  if (restingHrDays.length > 0) {
+    byMetric.set(
+      RESTING_HR_METRIC,
+      restingHrDays.map((d) => ({ d: d.on, v: d.bpm })),
+    );
   }
 
   const metrics: BioTrendMetric[] = [];

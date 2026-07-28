@@ -9,6 +9,10 @@ import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/pr
 import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
+import {
+  loadRestingHrOnBatch,
+  type ResolvedRestingHr,
+} from '@fahybrid/shared/domain/biometrics/resting-hr';
 import { SIGNAL_THRESHOLDS } from './signal-config';
 import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
 import { adherenceExclusionSql } from './adherence-pause-filter';
@@ -26,7 +30,6 @@ interface AthleteRow {
   last_sync_at: Date | null;
   hrv_recent: number | null;
   hrv_baseline: number | null;
-  rhr: number | null;
   sleep_avg_7d_h: number | null;
   vo2max: number | null;
   last_checkin_at: Date | null;
@@ -66,12 +69,6 @@ async function loadRealCohort(
         and bs.recorded_at >= ${now.toISOString()}::timestamptz - interval '60 days'
         and bs.recorded_at <  ${now.toISOString()}::timestamptz - interval '14 days'
       group by bs.athlete_id
-    ),
-    rhr_latest as (
-      select distinct on (bs.athlete_id) bs.athlete_id, bs.value_numeric::float as v
-      from biometric_streams bs
-      where bs.metric_type = 'hr_resting'
-      order by bs.athlete_id, bs.recorded_at desc
     ),
     sleep_7d as (
       select bs.athlete_id, avg(bs.value_numeric)::float / 3600.0 as v
@@ -160,7 +157,6 @@ async function loadRealCohort(
       ls.ts                         as last_sync_at,
       hr.v                          as hrv_recent,
       hb.v                          as hrv_baseline,
-      rl.v                          as rhr,
       sl.v                          as sleep_avg_7d_h,
       vo.v                          as vo2max,
       lc.ts                         as last_checkin_at,
@@ -173,7 +169,6 @@ async function loadRealCohort(
     from athletes a
     left join hrv_recent  hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
-    left join rhr_latest  rl on rl.athlete_id = a.id
     left join sleep_7d    sl on sl.athlete_id = a.id
     left join vo2_latest  vo on vo.athlete_id = a.id
     left join last_sync   ls on ls.athlete_id = a.id
@@ -188,9 +183,19 @@ async function loadRealCohort(
     order by a.full_name asc
   `;
 
+  // Resting HR comes from THE resolver, not from a CTE of its own: it is a daily
+  // aggregate on each athlete's local calendar, revised in place, and only shown
+  // while it is recent enough to still describe them. One query for the whole
+  // roster — the roster must never become an N+1.
+  const restingHr = await loadRestingHrOnBatch({
+    athlete_ids: athletes.map((a) => Number(a.athlete_id)),
+    now,
+    client,
+  });
+
   const rows: CohortRow[] = [];
   for (const a of athletes) {
-    rows.push(await rollupAthlete(a, client, now));
+    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null));
   }
   return rows;
 }
@@ -199,6 +204,7 @@ async function rollupAthlete(
   a: AthleteRow,
   client: Sql,
   now: Date,
+  restingHr: ResolvedRestingHr | null,
 ): Promise<CohortRow> {
   const athlete_id_num = Number(a.athlete_id);
 
@@ -309,7 +315,7 @@ async function rollupAthlete(
     vo2max: a.vo2max ?? null,
     vo2max_trend: null,
     sleep_avg_7d_h: a.sleep_avg_7d_h != null ? round1(a.sleep_avg_7d_h) : null,
-    rhr: a.rhr != null ? Math.round(a.rhr) : null,
+    rhr: restingHr != null ? Math.round(restingHr.bpm) : null,
     days_to_a_event,
     volume_7d_h,
     sessions_today,
