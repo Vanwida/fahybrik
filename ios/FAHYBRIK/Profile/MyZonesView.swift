@@ -15,6 +15,9 @@ struct MyZonesView: View {
     let bearer: String?
 
     @State private var modalities: [ZoneModalityProfile] = []
+    /// The five HR bands the SERVER resolved. Nil = no anchor, so no zones — the
+    /// screen says exactly that instead of showing bands off an invented FCmáx.
+    @State private var hr: HRZoneProfile? = nil
     @State private var loading = true
     @State private var failed = false
     @State private var showRegister = false
@@ -50,7 +53,7 @@ struct MyZonesView: View {
                 .tint(Theme.Color.accentText)
         } else if failed {
             errorState
-        } else if modalities.isEmpty {
+        } else if modalities.isEmpty && hr == nil {
             emptyState
         } else {
             ScrollView {
@@ -59,6 +62,7 @@ struct MyZonesView: View {
                     ForEach(modalities) { modality in
                         modalityCard(modality)
                     }
+                    pulseSection
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.l)
@@ -152,6 +156,101 @@ struct MyZonesView: View {
         .accessibilityLabel("\(band.code), \(band.label), \(band.rangeLabel)")
     }
 
+    // MARK: - Pulso
+
+    /// The HR bands, or an honest statement that there are none.
+    ///
+    /// This section is why the app stopped computing zones: it used to show bands
+    /// derived from a max HR that, for every athlete in the database, nobody had
+    /// ever measured. Now it shows what the server resolved from the athlete's
+    /// THRESHOLD — and when there is no threshold to anchor them, it says so and
+    /// points at the test, rather than inventing five plausible-looking numbers.
+    @ViewBuilder
+    private var pulseSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            SectionLabel(text: "Pulso")
+            if let hr {
+                CardSurface(padding: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("Zonas de FC")
+                                    .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+                                    .foregroundStyle(Theme.Color.foreground)
+                                Spacer(minLength: 8)
+                                Text("ppm")
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(Theme.Color.muted)
+                            }
+                            // The anchor, always. A band built on a measured test
+                            // and one inferred from a birthday are not the same
+                            // claim, and the athlete has to be able to tell.
+                            Text("umbral \(hr.lthrBpm) ppm · \(hr.sourceLabel.lowercased())")
+                                .scaledFont(11, relativeTo: .caption2)
+                                .foregroundStyle(hr.estimated ? Theme.Color.warning : Theme.Color.faint)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.top, 13)
+                        .padding(.bottom, 11)
+
+                        ForEach(Array(hr.zones.enumerated()), id: \.element.zone) { idx, band in
+                            if idx > 0 { Hairline() }
+                            hrZoneRow(band)
+                        }
+                    }
+                }
+                if hr.estimated {
+                    Text("Son una estimación mientras no midas tu umbral. Un test de 30 min las ajusta a lo que aguantas de verdad.")
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                CardSurface(padding: Theme.Spacing.l) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Aún no tenemos tus zonas de pulso")
+                            .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Se calculan desde tu umbral, y todavía no lo sabemos. Pon tu fecha de nacimiento o tu FC máxima en el perfil para una primera estimación, o haz el test de umbral para tenerlas de verdad.")
+                            .scaledFont(12, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Same anatomy as `zoneRow`: the NUMBER leads, the code is a tag on it.
+    private func hrZoneRow(_ band: HRZoneBand) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(band.hrZone?.color ?? Theme.Color.faint)
+                .frame(width: 4, height: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(band.code)
+                    .scaledFont(11, weight: .bold, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
+                Text(band.label)
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Text(band.rangeLabel)
+                .font(Theme.Typography.readoutS)
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(band.code), \(band.label), \(band.rangeLabel)")
+    }
+
     // MARK: - Empty / error states
 
     private var emptyState: some View {
@@ -183,7 +282,9 @@ struct MyZonesView: View {
         loading = true
         failed = false
         do {
-            modalities = try await ZonesService.fetch(bearer: bearer)
+            let zones = try await ZonesService.fetch(bearer: bearer)
+            modalities = zones.modalities
+            hr = zones.hr
         } catch {
             failed = true
         }

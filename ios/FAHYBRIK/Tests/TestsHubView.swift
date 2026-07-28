@@ -479,7 +479,7 @@ struct TestsHubView: View {
         } catch {
             if status == nil { failed = true }
         }
-        zones = (try? await zonesReq) ?? zones
+        zones = (try? await zonesReq)?.modalities ?? zones
         zonesLoaded = true
         loading = false
     }

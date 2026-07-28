@@ -17,6 +17,18 @@ import Foundation
 
 struct AthleteZonesResponse: Decodable {
     let modalities: [ZoneModalityProfile]
+    /// The five HEART-RATE bands, resolved server-side (see `HRZoneProfile`).
+    /// Nil = the athlete has no HR zones yet; the screen says so and offers the
+    /// test that creates them. The app never derives them from a max HR.
+    let hr: HRZoneProfile?
+}
+
+/// Both axes of an athlete's zones, as one answer. Kept together because the
+/// screen shows them together and because a caller that got one and not the
+/// other would be describing half the athlete.
+struct AthleteZones {
+    let modalities: [ZoneModalityProfile]
+    let hr: HRZoneProfile?
 }
 
 /// One modality's zone profile (run → /km, row/ski/bike → /500m).
@@ -64,12 +76,13 @@ struct ZoneBand: Decodable, Identifiable {
 }
 
 enum ZonesService {
-    static func fetch(bearer: String) async throws -> [ZoneModalityProfile] {
+    /// Both axes in one call: the pace bands per modality and the HR bands.
+    static func fetch(bearer: String) async throws -> AthleteZones {
         let resp: AthleteZonesResponse = try await APIClient.shared.get(
             path: "api/athlete/zones",
             bearer: bearer
         )
-        return resp.modalities
+        return AthleteZones(modalities: resp.modalities, hr: resp.hr)
     }
 
     /// Self-enter a test result → POST /api/athlete/test-result. The backend
