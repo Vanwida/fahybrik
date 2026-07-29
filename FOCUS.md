@@ -1,26 +1,69 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-28**
+Última actualización: **2026-07-29**
 
 ---
 
 ## En qué estamos ahora
 
-**Arreglando el triaje de coherencia** — `docs/audits/triaje-coherencia-28jul2026.html`.
+**Que la app se vea PENSADA, no volcada** — el encargo de Alex del 29-jul: *«la UI no puede ser una simple UI como la que teníamos, pusheada todo al top sin más, llena de espacios; las views todas tienen que tener su sentido y su diseño pensado para funcionar»*.
 
-Alex, después de un día entero entrenando con la app y reportando: *«que funcione, que dé todo ok, no significa más que la app carga y no da errores; lo importante es que la app sea útil, que todo lo que hay en pantalla y el orden de las cosas tenga perfecta armonía»*. Tres auditorías cruzadas (contradicciones entre módulos · honestidad del dato · coherencia visual) destaparon el patrón de fondo: **lo honesto está en los módulos NUEVOS y ausente en los VIEJOS**, y casi todo tiene su hermano ya bien resuelto en el mismo fichero.
+**La causa raíz, encontrada:** las cuatro reglas de pantalla existían desde el 27-jul y no sirvieron, porque faltaba lo que las hace aplicables. Y `Theme/ScreenScaffold.swift` — repartir el alto, anclar la acción, obligar a que un vacío tenga salida — se commiteó el 28-jul con **212 líneas y CERO llamadas**, adoptándose después por barrios. Las pantallas sin tocar no están mal por descuido: **cada una resolvió el reparto vertical a mano y cada una lo resolvió distinto**. Seis respuestas a la misma pregunta.
 
-Lo más caro: **«Z2» no significa lo mismo en el servidor que en el iOS** — fracción del umbral vs fracción de la frecuencia máxima. Con 190 de máxima las bandas son **disjuntas**: estás donde el coach quiere y el HUD te dice que aprietas de más. Decidido: **manda el modelo del servidor** (las zonas se calculan sobre el umbral, que es lo que medimos con los tests y contra lo que prescribe el coach); el iOS deja de calcularlas y pinta las que el servidor persiste.
+**Lo que se ha cerrado hoy para que no vuelva a pasar:** `docs/CONTRATO-UI.md` §6 (cuatro estrategias de altura · cinco arquetipos · el caso de diseño es el atleta recién dado de alta) y **§9, que la web no tenía** — el contrato se titulaba «— iOS» y por eso el dashboard acumuló 631 tamaños de fuente a mano, 116 de ellos en medios píxeles, ignorando la escala que ya existe en `globals.css`.
 
-**Se arregla en cuatro tandas secuenciadas, no en nueve agentes a la vez** — la lección de proceso del 28-jul, con `docs/CONTRATO-UI.md` citado en todo encargo:
+**En curso:** los arquetipos como pantallas del doble (`/es/design`) para que Alex apruebe la composición antes de tocar Swift · la puerta de entrada (4 de 5 pantallas de auth no scrollean y recortan el botón de email con texto grande) · los bugs de tokens del dashboard · el onboarding que puebla la app.
 
-1. **Una sola verdad por concepto** *(en curso)* — zonas, frecuencia máxima con marca de estimada, VO₂máx del Cooper por una fórmula, FC en reposo en los seis lectores, procedencia en los cuatro escritores. Va primero porque todo lo demás se apoya en ella.
-2. **Que nada se guarde sin que el atleta lo haya dicho** — los valores por defecto convertidos en marcas, la carga prescrita guardada como real, el récord celebrado sin serlo.
-3. **Que el coach no decida con datos fabricados** *(en curso)* — adherencia sobre cero sesiones, la carga inventada sin RPE, el check-in caducado puntuando, las barras de estación sin rango.
-4. **Que el conjunto se vea como una app** — formateadores únicos y vocabulario del contrato, los cimientos en las pantallas que se los saltaron, el estado de error del resumen.
+**Decidido por Alex el 29-jul** (ver `docs/DECISIONS.md`): lo que el atleta declara en el onboarding **puebla su app y la ficha del coach**, marcado, editable y borrable, y lo medido manda sobre lo declarado. Y **sin zonas medidas se generalizan por población**, marcadas y sin puntuar como medidas.
 
-**En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), y el nombre del tier free.
+**En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), el nombre del tier free, y **el modelo de las 5 estaciones de HYROX** (no hay columna, ni slug, ni pantalla — se pregunta en el onboarding y se tira).
+
+---
+
+## Cerrado el 29-jul · El triaje de coherencia, entero
+
+Las cuatro tandas fusionadas y verificadas (iOS BUILD SUCCEEDED · typecheck limpio · ~1.880 tests en verde). Origen: `docs/audits/triaje-coherencia-28jul2026.html`.
+
+**Una sola verdad por concepto.** Las zonas de FC no eran dos modelos sino **tres** — el tercero, un `200` clavado en el SQL del coach. Manda el umbral, el móvil deja de calcularlas, y muere `PersonalHRMax`, cuyo `resolve(nil,nil,nil)` **nunca devolvía nil**: todos los `zone_seconds` que ha visto Pablo salían de un 184 inventado (0 de 8 atletas tienen máxima medida). La FC en reposo caía en el día equivocado en **64 de 81 filas** por agrupar en UTC.
+
+**Que nada se guarde sin que el atleta lo diga.** La carga prescrita dejaba de archivarse como real, el récord de celebrarse sin serlo, y un Tabata abandonado en la ronda 3 de 8 de sellarse como 8. La raíz de la recuperación tras cierre no eran las 9 líneas del modal: era que al entrar al tramo se volvía a rellenar con las prescritas.
+
+**Que el coach no decida con datos fabricados.** El volumen de 7 días no eran horas (`Σ tss/60`, +63 % a un atleta); el gráfico de carga usaba **otro motor** que su propia tarjeta (4,2 bajo un KPI que decía 8,5); el «TSB» de la barra de Rendimiento contenía **TSS**, así que cuanto más entrenabas más «fresco» decía; y su consulta pedía la tabla `training_load`, **que no existe** — el error se tragaba en silencio y la casilla enseñaba «—» a todo el mundo desde siempre. El briefing diario inventaba tres cifras y la ficha de un atleta sin datos servía **los números de Marc con el nombre real encima**.
+
+**Que el conjunto se vea como una app.** El censo real de formateadores era **23 relojes, no 6**; 9 ritmos con 3 grafías; 11 distancias. La cadencia se escribía «ppm», la misma unidad que el pulso y en las mismas pantallas. El reloj escribía los kilos con punto y el móvil con coma.
+
+---
+
+## Cerrado el 29-jul · El umbral, el peldaño «declarado» y la escalera de ritmo
+
+El test de umbral **no existía**: vivía en un seed de `methodology_tests`, tabla vacía que ninguna línea de aplicación consulta. Y no era conectable — los CHECK no admitían ni la medida `hr` ni la calibración `hr_zones`, y si un valor hubiera llegado igual, el puente lo trataba como contrarreloj: **156 ppm se habrían guardado como 156 segundos**. Ese mismo fallo lleva meses shipeado en la recuperación de pulso, que se pinta como un cronómetro.
+
+**La escalera pasa a ser medido → declarado → 0,88 × FC máx → 0,88 × Tanaka**, y `estimated` deja de ser un booleano: ahora hay `confidence` (measured | declared | estimated), porque un sí/no no distingue un test de laboratorio de un cumpleaños — y esa indistinción **es** el mecanismo por el que una estimación se disfraza de medición. `loadHrAnchors` filtraba por fecha y no por procedencia: un declarado de ayer le ganaba a un test de la semana pasada.
+
+**El mapper era UNA función desconectando tres peldaños de la escalera de ritmo.** Por eso 66 y 67 tenían umbral medido y ninguna zona. Arreglado: 66 pasa de 241 estimado a **248 medido**; 67 de 250 a **270**, que es el umbral que él mismo registró.
+
+Migración **0145 aplicada** (aditiva, amplía dos listas CHECK).
+
+---
+
+## Abierto · El onboarding no lo ha recorrido nadie, y tiene 15 agujeros
+
+**0 de 8 atletas han pasado por el onboarding de la app.** Los que figuran como completados lo recibieron del alta web del coach, que lo estampa **para saltarse** los 19 pasos. Así que el dato no se pierde por el camino: el camino no se ha recorrido.
+
+Pero si alguien lo hiciera hoy, **15 respuestas caerían por un agujero del validador**: las 5 estaciones de HYROX, los 5 campos del paso de umbral (incluida la FC máxima, cuya columna existe y está vacía en 8/8), el 1K de remo, el 500 de ski, las horas de sueño, las horas/semana y el tipo de objetivo. Además hay **6 enterrados** (se guardan y no los lee nadie) y **12 mudos** (se leen y ninguna pantalla los pinta). Y **27 columnas que el onboarding escribe no las devuelve ningún endpoint con bearer de atleta**.
+
+El caso que mejor lo resume: el paso de umbral pregunta la FC máxima, el servidor la tira, y luego «Mis zonas» le pide al atleta que **la vuelva a teclear** en Perfil.
+
+---
+
+## Abierto · 29 rutas de API del coach que no llama nadie
+
+Trabajo construido y servido que Pablo no recibe: la **revisión semanal entera**, la tabla de cohorte, el briefing, la bandeja de triaje con acciones en masa y posponer, los ajustes masivos de plan con previsualización y deshacer, la paleta ⌘K, el mensaje a varios atletas, y **la ingesta del método por RAG** — que es el titular del proyecto. Hay hasta un `columns.ts` huérfano que define etiquetas y anchos de una tabla que nunca se construyó.
+
+Ninguna pantalla pinta hoy `load_coverage`, `tsb_label`, `acr_label`, CTL, ATL ni ACR: la decisión de la cobertura vive entera en el DTO. **«Lo computa el módulo» no es «lo ve el coach».**
+
+---
 
 ---
 
