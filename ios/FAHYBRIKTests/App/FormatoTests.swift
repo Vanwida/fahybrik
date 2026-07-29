@@ -116,7 +116,59 @@ final class FormatoTests: XCTestCase {
         XCTAssertEqual(Formato.kg(82.5), "82,5 kg")
     }
 
+    // MARK: - La serie de fuerza (§2.1, canónico nuevo del 29-jul)
+
+    func testLaSerieSeEscribeRepeticionesPorCarga() {
+        // «5 × 100» + «kg», con la unidad aparte para que el sujeto la pinte más
+        // pequeña sin recomponer el string a mano.
+        let s = Formato.serie(reps: 5, cargaKg: 100)
+        XCTAssertEqual(s?.cifra, "5 × 100")
+        XCTAssertEqual(s?.unidad, "kg")
+        XCTAssertEqual(s?.linea, "5 × 100 kg")
+    }
+
+    func testLaSerieLlevaElSignoDeMultiplicarNoLaEquisDelTeclado() {
+        // La «x» del teclado se lee como letra al lado de una cifra («5 x 100»
+        // parece una talla) y cambia de anchura en la monoespaciada.
+        let cifra = try? XCTUnwrap(Formato.serie(reps: 5, cargaKg: 100)?.cifra)
+        XCTAssertEqual(Formato.signoPor, "\u{00D7}")
+        XCTAssertFalse(cifra?.contains("x") ?? true)
+        XCTAssertFalse(cifra?.contains("X") ?? true)
+    }
+
+    func testLaSerieDegradaALoQueSEsabeYNuncaInventaLaOtraMitad() {
+        // Sin repeticiones —el circuito real del coach llega con 30 kg y ninguna—
+        // la serie es la carga sola. Sin carga (peso corporal), las repeticiones.
+        XCTAssertEqual(Formato.serie(reps: nil, cargaKg: 30)?.linea, "30 kg")
+        XCTAssertEqual(Formato.serie(reps: 12, cargaKg: nil)?.linea, "12 reps")
+        // Sin ninguna de las dos NO hay cifra que inventar (§7).
+        XCTAssertNil(Formato.serie(reps: nil, cargaKg: nil))
+    }
+
+    func testLaCargaDeLaSeriePasaPorLaComaEspanola() {
+        XCTAssertEqual(Formato.serie(reps: 3, cargaKg: 82.5)?.cifra, "3 × 82,5")
+    }
+
+    func testSeriesPorRepeticionesEsOtroConceptoYVaPEGADO() {
+        // «4×5» es la dosis de TODA la prescripción y se lee de un vistazo en una
+        // franja; «5 × 100 kg» es el sujeto de la pantalla y respira. Que se
+        // parezcan es justo por lo que tienen que estar los dos aquí.
+        XCTAssertEqual(Formato.dosisDeSeries(series: 4, reps: 5), "4×5")
+        XCTAssertNotEqual(Formato.dosisDeSeries(series: 4, reps: 5),
+                          Formato.serie(reps: 4, cargaKg: nil)?.cifra)
+        // Una sola serie no se anuncia como «1×5»: eso no es una dosis, es un 5.
+        XCTAssertEqual(Formato.dosisDeSeries(series: 1, reps: 5), "5")
+        // Sin repeticiones escritas no hay nada que multiplicar (§7).
+        XCTAssertNil(Formato.dosisDeSeries(series: 4, reps: nil))
+    }
+
     // MARK: - Vocabulario (contrato §3)
+
+    func testElRirSeTraducePorqueElNumeroSoloNoDiceQueHacer() {
+        // El atleta que entra hoy no ha visto la escala nunca.
+        XCTAssertEqual(Vocab.rirTraducido(2), "RIR 2 · deja 2 dentro")
+        XCTAssertEqual(Vocab.rirTraducido(0), "RIR 0 · hasta el fallo")
+    }
 
     func testElPulsoSeLlamaFCYSeMideEnPpm() {
         XCTAssertEqual(Vocab.fc, "FC")
