@@ -261,6 +261,11 @@ targets:
       # (UIKit) is replaced on the wrist by FAHYBRIKWatch/WatchHaptics.swift, and
       # the networking-backed WorkoutExecutionAPI/DoblesExecutionAPI are compiled
       # out under `#if !os(watchOS)` (the watch relays results through the phone).
+      # LA GRAFÍA de todo número y unidad de cara al atleta (contrato §2/§3).
+      # Foundation puro, y compartido a propósito: si el reloj tuviera su propia
+      # copia, muñeca y teléfono volverían a escribir el mismo dato de dos maneras
+      # — que es exactamente de donde salieron «5:00»/«05:00» y «42,4»/«42.4».
+      - path: FAHYBRIK/Theme/Formato.swift
       - path: FAHYBRIK/Watch/WatchWireModels.swift
       - path: FAHYBRIK/Watch/MirrorWireModels.swift
       - path: FAHYBRIK/Plan/Prescription.swift

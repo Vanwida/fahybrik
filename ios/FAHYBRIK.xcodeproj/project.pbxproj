@@ -1051,7 +1051,6 @@
 				F1D6A58D0BC84618327ABEBD /* Plan */,
 				CBF1466FB5CF71EF249B913D /* Profile */,
 				5A6874982C1ED7F1B876724F /* Tests */,
-				21B0E20B0BFE98DDF15233D2 /* Theme */,
 				DD88D7BE9F3EE4272DB953DB /* Today */,
 				F91D6A2B44635065A4575811 /* Wearables */,
 				924E7439EEA2D2CD85EFE7A8 /* Workout */,
@@ -1076,13 +1075,6 @@
 				E2EE83EF9DB5A439E0F56FCC /* Scale1to5Picker.swift */,
 			);
 			path = Checkin;
-			sourceTree = "<group>";
-		};
-		21B0E20B0BFE98DDF15233D2 /* Theme */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Theme;
 			sourceTree = "<group>";
 		};
 		2374DC00008677E0C7E8B888 /* Carreras */ = {

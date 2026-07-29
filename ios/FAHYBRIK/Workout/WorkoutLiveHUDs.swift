@@ -105,7 +105,7 @@ struct RunLiveHUD: View {
             CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
                 CenterMetric(
                     value: isGuidanceOnly ? guidanceHero.value : paceString,
-                    unit: isGuidanceOnly ? "" : "/km",
+                    unit: isGuidanceOnly ? "" : Formato.UnidadRitmo.porKm.rawValue,
                     caption: isGuidanceOnly ? guidanceHero.caption : paceCaption,
                     color: hasLiveDistance ? Theme.Color.accentText : Theme.Color.foreground,
                     hero: true
@@ -117,25 +117,25 @@ struct RunLiveHUD: View {
                 if isGuidanceOnly {
                     // Guidance cells (duration goal + clocks) — real values, no dashes.
                     ExpertCell(label: "Duración", value: seg?.durationGuidance ?? "Libre", unit: "")
-                    ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+                    ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
                     ExpertCell(
-                        label: "HR",
+                        label: Vocab.fc,
                         value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                        unit: "bpm",
+                        unit: Vocab.ppm,
                         color: session.liveZone?.color ?? Theme.Color.foreground
                     )
-                    ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+                    ExpertCell(label: Vocab.total, value: Formato.clock(session.elapsedSeconds, anchoFijo: true), unit: "")
                 } else {
                     ExpertCell(label: distanceLabel, value: distanceString, unit: "")
-                    ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+                    ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
                     ExpertCell(
-                        label: "HR",
+                        label: Vocab.fc,
                         value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                        unit: "bpm",
+                        unit: Vocab.ppm,
                         color: session.liveZone?.color ?? Theme.Color.foreground
                     )
                     ExpertCell(
-                        label: "Zone",
+                        label: "Zona",
                         value: session.currentSegment?.targetZone?.label ?? (session.liveZone?.label ?? "—"),
                         unit: "",
                         color: (session.currentSegment?.targetZone ?? session.liveZone)?.color ?? Theme.Color.foreground
@@ -175,34 +175,40 @@ struct RunLiveHUD: View {
         }
     }
 
-    // Hero pace: live covered pace (distance/elapsed) when GPS is feeding, else
-    // the prescribed target pace. Caption makes the meaning explicit so the
-    // value is never ambiguous.
+    // Hero pace: live covered pace when GPS is feeding, else the prescribed target
+    // pace. Caption makes the meaning explicit so the value is never ambiguous.
+    //
+    // El ritmo sale del MOTOR (`session.liveCoveredPaceSecPerKm`), nunca de una
+    // cuenta propia. Esta vista tenía su copia — distancia del tramo entre tiempo de
+    // la vuelta — y en un 6×800 el denominador se comía los trotes: el HUD decía
+    // 5:33/km mientras el atleta corría a 3:30, y el registro que le llegaba al coach
+    // sí era el bueno. Dos números del mismo esfuerzo. El motor mide sobre la PIERNA
+    // en una serie estructurada, así que lo que se ve y lo que se guarda coinciden.
     private var paceString: String {
-        if hasLiveDistance, let pace = liveCoveredPaceSecPerKm {
-            return TimeMinSecRow.format(Int(pace.rounded()))
+        if hasLiveDistance, let pace = session.liveCoveredPaceSecPerKm {
+            return Formato.ritmoCifras(Double(pace))
         }
-        if let p = session.currentSegment?.targetPaceSecondsPerKm { return TimeMinSecRow.format(p) }
+        if let p = session.currentSegment?.targetPaceSecondsPerKm {
+            return Formato.ritmoCifras(Double(p))
+        }
         return "—:—"
     }
     private var paceCaption: String {
-        if hasLiveDistance { return "Pace · GPS" }
-        return session.currentSegment?.targetPaceSecondsPerKm != nil ? "Pace objetivo" : "Pace"
-    }
-    private var liveCoveredPaceSecPerKm: Double? {
-        guard let d = session.liveRunDistanceMeters, d > 0, session.lapElapsedSeconds > 0 else { return nil }
-        return session.lapElapsedSeconds / (d / 1000.0)
+        if hasLiveDistance { return "\(Vocab.ritmo) · GPS" }
+        return session.currentSegment?.targetPaceSecondsPerKm != nil
+            ? "\(Vocab.ritmo) objetivo" : Vocab.ritmo
     }
 
     // Distance cell shows live covered (GPS) when available, else the target.
-    private var distanceLabel: String { hasLiveDistance ? "Dist" : "Dist Tgt" }
+    // Lo cubierto se escribe con dos decimales (es una medida) y el objetivo con uno
+    // (lo escribió el coach redondo) — misma función, distinta precisión pedida.
+    private var distanceLabel: String { hasLiveDistance ? Vocab.distancia : "Objetivo" }
     private var distanceString: String {
         if hasLiveDistance, let d = session.liveRunDistanceMeters {
-            return d >= 1000 ? String(format: "%.2f km", d / 1000) : "\(Int(d)) m"
+            return Formato.distanciaCubierta(d) ?? "—"
         }
         guard let d = session.currentSegment?.targetDistanceMeters else { return "—" }
-        if d >= 1000 { return String(format: "%.1f km", d / 1000) }
-        return "\(Int(d)) m"
+        return Formato.distancia(d) ?? "—"
     }
 }
 
@@ -261,14 +267,14 @@ struct StrengthLiveHUD: View {
                 } else {
                     ExpertCell(label: "Carga", value: "—", unit: "")
                 }
-                ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+                ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
                 ExpertCell(
-                    label: "HR",
+                    label: Vocab.fc,
                     value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                    unit: "bpm",
+                    unit: Vocab.ppm,
                     color: session.liveZone?.color ?? Theme.Color.foreground
                 )
-                ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+                ExpertCell(label: Vocab.total, value: Formato.clock(session.elapsedSeconds, anchoFijo: true), unit: "")
             }
         }
         .onAppear { primeLoad() }
@@ -438,11 +444,11 @@ struct StrengthSetsHUD: View {
     private var metricRow: some View {
         let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
         return LazyVGrid(columns: cols, spacing: 4) {
-            ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+            ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
             ExpertCell(
-                label: "HR",
+                label: Vocab.fc,
                 value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                unit: "bpm",
+                unit: Vocab.ppm,
                 color: session.liveZone?.color ?? Theme.Color.foreground
             )
         }
@@ -606,9 +612,7 @@ private struct SetRowView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    private func kgString(_ v: Double) -> String {
-        v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
-    }
+    private func kgString(_ v: Double) -> String { Formato.esDecimal(v) }
 }
 
 // La rueda de carga del editor en vivo: pasos de 2,5 kg, redondeando el valor
@@ -655,7 +659,7 @@ private struct RestBanner: View {
                 .tracking(0.6)
                 .foregroundStyle(Theme.Color.foreground)
             Spacer()
-            Text(WorkoutSession.formatElapsed(max(0, session.restRemainingSeconds)))
+            Text(Formato.clock(max(0, session.restRemainingSeconds), anchoFijo: true))
                 .font(.system(size: 18, weight: .heavy, design: .monospaced).monospacedDigit())
                 .foregroundStyle(Theme.Color.accentText)
             Button(action: { session.dismissRest(); Haptics.light() }) {
@@ -751,7 +755,7 @@ private struct DoubleStepperTile: View {
 
     private var display: String {
         guard let v = value else { return "—" }
-        return v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+        return Formato.esDecimal(v)
     }
 
     private func adjust(_ delta: Double) {
@@ -965,7 +969,7 @@ struct EmomLiveHUD: View {
                         .contentTransition(.numericText())
                 } else {
                     LabelText(text: intervalLabel, color: Theme.Color.accentText, size: 10)
-                    Text(WorkoutSession.formatElapsed(max(0, session.emomPhaseRemaining)))
+                    Text(Formato.clock(max(0, session.emomPhaseRemaining), anchoFijo: true))
                         .font(Theme.Typography.readoutHero)
                         .monospacedDigit()
                         .foregroundStyle(isUrgent ? Theme.Color.accentText : Theme.Color.foreground)
@@ -1033,12 +1037,12 @@ struct EmomLiveHUD: View {
     private var metricRow: some View {
         let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
         return LazyVGrid(columns: cols, spacing: 4) {
-            ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+            ExpertCell(label: Vocab.total, value: Formato.clock(session.elapsedSeconds, anchoFijo: true), unit: "")
             ExpertCell(label: "Hechos", value: "\(session.emomCompletedIntervals)/\(plan?.intervalCount ?? 0)", unit: "")
             ExpertCell(
-                label: "HR",
+                label: Vocab.fc,
                 value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                unit: "bpm",
+                unit: Vocab.ppm,
                 color: session.liveZone?.color ?? Theme.Color.foreground
             )
         }
@@ -1290,22 +1294,25 @@ private struct IntervalChip: View {
     private var targetLine: String {
         let seg = segment
         var parts: [String] = []
-        if let d = seg.targetDistanceMeters {
-            parts.append(d >= 1000 ? String(format: "%.1fkm", d / 1000) : "\(Int(d))m")
+        if let d = seg.targetDistanceMeters, let txt = Formato.distancia(d) {
+            parts.append(txt)
         } else if let t = seg.targetDurationSeconds {
-            parts.append(WorkoutSession.formatElapsed(Double(t)))
+            // Prescripción, no cronómetro: sin cero delante.
+            parts.append(Formato.clock(t))
         } else if let r = seg.targetReps {
-            if let kg = seg.loadKg { parts.append("\(r)×\(Int(kg))kg") }
+            if let kg = seg.loadKg { parts.append("\(r)×\(Formato.kg(kg))") }
             else { parts.append("\(r) reps") }
         }
         switch seg.kind {
         case .running:
-            if let p = seg.targetPaceSecondsPerKm { parts.append("\(TimeMinSecRow.format(p))/km") }
+            if let p = seg.targetPaceSecondsPerKm {
+                parts.append(Formato.ritmo(Double(p), .porKm))
+            }
             else if let z = seg.targetZone { parts.append(z.label) }
         case .rowOrSki:
             if let w = seg.targetPowerWatts { parts.append("\(w)W") }
         case .strength, .sled:
-            if seg.targetReps == nil, let kg = seg.loadKg { parts.append("\(Int(kg))kg") }
+            if seg.targetReps == nil, let kg = seg.loadKg { parts.append(Formato.kg(kg)) }
         case .reps:
             break
         }
