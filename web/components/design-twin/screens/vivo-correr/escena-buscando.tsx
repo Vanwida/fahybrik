@@ -15,8 +15,9 @@ import { useState } from 'react';
 import type { TwinAppearance } from '../../types';
 import { fmtClock, useTimeline } from '../../sim';
 import { Card, Display, IconClose, Label, Mono, RoundButton, SP } from '../../kit';
-import { Ambiente, Chip, IconoPulso, IconoSenal, Objetivo } from './atoms';
-import { AccionPrincipal, Cabecera, Escena, useRelojPausable } from './escena';
+import { Ambiente, FranjaAccion } from '../../kit-vivo';
+import { Chip, IconoPulso, IconoSenal, Objetivo } from './atoms';
+import { Cabecera, CapaVivo, MarcoCorrer, useRelojPausable } from './escena';
 import { GUIONES, METROS_SERIE, simular, SIN_TOCAR } from './guion';
 import { OBJETIVO_SERIE } from './formato';
 
@@ -25,6 +26,13 @@ const GUION = GUIONES['gps-buscando'];
 const FIJA_EN_S = 6;
 /** El reloj entra antes que la señal: son dos cosas distintas y se ven distintas. */
 const RELOJ_EN_S = 3;
+
+/**
+ * La acción todavía apagada. `FranjaAccion` no tiene estado inactivo (el §10 no
+ * lo previó), así que aquí se apaga por estilo y el toque no hace nada: sin
+ * señal no se puede empezar, y encenderla sería prometer una medida que no hay.
+ */
+const APAGADA = { opacity: 0.45, cursor: 'default' } as const;
 
 export function EscenaBuscando({
   horizontal,
@@ -70,61 +78,66 @@ export function EscenaBuscando({
   return (
     <>
       <Ambiente zona={null} appearance={appearance} acento={fijada} />
-      <div className="twin-screen-safe">
-        <Escena
-          horizontal={horizontal}
-          cabecera={
-            <Cabecera
-              titulo="8×400"
-              detalle="Antes de empezar"
-              chips={
-                <>
-                  <Chip texto={fijada ? 'Señal' : 'Buscando'} estado={fijada ? 'ok' : 'buscando'}>
-                    <IconoSenal size={10} buscando={!fijada} />
-                  </Chip>
-                  {/* Sin reloj conectado no hay pulso que enseñar, y se ve en el chip. */}
-                  <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
-                    <IconoPulso size={10} />
-                  </Chip>
-                </>
-              }
-              accion={
-                <RoundButton onClick={() => onLog(`${fmtClock(t)} · sales del entreno sin empezar`)} label="Salir">
-                  <IconClose />
-                </RoundButton>
-              }
-            />
-          }
-          sujeto={sujeto}
-          apoyos={
-            <Card padding={SP.m}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
-                  <Label size={10}>Primero</Label>
-                  <span style={{ flex: 1 }} />
-                  <Mono size={13} color="var(--twin-muted)">
-                    1 de 8
-                  </Mono>
+      <CapaVivo
+        marco={
+          <MarcoCorrer
+            horizontal={horizontal}
+            cromo={
+              <Cabecera
+                titulo="8×400"
+                detalle="Antes de empezar"
+                chips={
+                  <>
+                    <Chip texto={fijada ? 'Señal' : 'Buscando'} estado={fijada ? 'ok' : 'buscando'}>
+                      <IconoSenal size={10} buscando={!fijada} />
+                    </Chip>
+                    {/* Sin reloj conectado no hay pulso que enseñar, y se ve en el chip. */}
+                    <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
+                      <IconoPulso size={10} />
+                    </Chip>
+                  </>
+                }
+                accion={
+                  <RoundButton onClick={() => onLog(`${fmtClock(t)} · sales del entreno sin empezar`)} label="Salir">
+                    <IconClose />
+                  </RoundButton>
+                }
+              />
+            }
+            sujeto={sujeto}
+            apoyos={
+              <Card padding={SP.m}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
+                    <Label size={10}>Primero</Label>
+                    <span style={{ flex: 1 }} />
+                    <Mono size={13} color="var(--twin-muted)">
+                      1 de 8
+                    </Mono>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, flexWrap: 'wrap' }}>
+                    <span style={{ font: 'italic 800 20px/1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
+                      {`${METROS_SERIE} m`}
+                    </span>
+                    <Objetivo>{`${OBJETIVO_SERIE.reloj} el 400`}</Objetivo>
+                    <Mono size={12} color="var(--twin-muted)">{`${OBJETIVO_SERIE.ritmo} /km`}</Mono>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, flexWrap: 'wrap' }}>
-                  <span style={{ font: 'italic 800 20px/1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                    {`${METROS_SERIE} m`}
-                  </span>
-                  <Objetivo>{`${OBJETIVO_SERIE.reloj} el 400`}</Objetivo>
-                  <Mono size={12} color="var(--twin-muted)">{`${OBJETIVO_SERIE.ritmo} /km`}</Mono>
-                </div>
-              </div>
-            </Card>
-          }
-          accion={
-            <AccionPrincipal
-              titulo={fijada ? 'EMPEZAR' : 'BUSCANDO SEÑAL'}
-              activo={fijada}
-              onClick={() => onLog(`${fmtClock(t)} · empiezas la serie 1`)}
-            />
-          }
-        />
-      </div>
+              </Card>
+            }
+            accion={
+              <FranjaAccion
+                titulo={fijada ? 'EMPEZAR' : 'BUSCANDO SEÑAL'}
+                /* Aquí nada más puede sacarte de la espera: si no sales tú, no
+                   sales. Por eso al fijar la señal el contorno se rellena. */
+                unicaSalida={fijada}
+                style={fijada ? undefined : APAGADA}
+                onClick={fijada ? () => onLog(`${fmtClock(t)} · empiezas la serie 1`) : () => undefined}
+              />
+            }
+          />
+        }
+      />
     </>
   );
 }

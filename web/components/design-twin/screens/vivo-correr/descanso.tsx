@@ -9,7 +9,8 @@
 // mismo estado con otra máquina delante.
 
 import { Card, Label, Mono, SP } from '../../kit';
-import { BandaZona, Cifra, Drenaje } from './atoms';
+import { Numeral, colorZona } from '../../kit-vivo';
+import { BandaZona, Drenaje } from './atoms';
 import { fmtClock } from '../../sim';
 import { type Foto, type Zona } from './guion';
 import { quedanSegundos } from './formato';
@@ -21,9 +22,7 @@ export function SujetoDescanso({ horizontal, foto }: { horizontal: boolean; foto
   return (
     <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.m }}>
       <Label size={10}>Descanso</Label>
-      <Cifra horizontal={horizontal} tono="var(--twin-fg)">
-        {fmtClock(quedan)}
-      </Cifra>
+      <Numeral horizontal={horizontal}>{fmtClock(quedan)}</Numeral>
       <Drenaje fraccion={foto.tTramo / total} tono="var(--twin-info)" />
     </div>
   );
@@ -42,9 +41,9 @@ export function PulsoQueBaja({ horizontal, ppm, zona }: { horizontal: boolean; p
         <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
           <Label size={10}>Tu pulso</Label>
           <span style={{ flex: 1 }} />
-          <Cifra horizontal={horizontal} escala="media" tono={`var(--twin-z${zona})`} unidad="ppm">
+          <Numeral horizontal={horizontal} escala="segundo" tono={colorZona(zona)} unidad="ppm">
             {ppm}
-          </Cifra>
+          </Numeral>
         </div>
         <BandaZona zona={zona} alto={8} />
       </div>
