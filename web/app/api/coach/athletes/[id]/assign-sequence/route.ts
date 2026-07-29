@@ -7,6 +7,7 @@ import {
 } from '@/lib/dashboard/coach/assign-sequence';
 import { assignSequenceInputSchema } from '@fahybrid/shared/schema/assign-sequence';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+import { planPublishedPush } from '@/lib/notifications/plan-published';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,8 +70,7 @@ export async function POST(
           deep_link: `/plan?week=${result.materialization.start_date}`,
         },
         push: {
-          title: 'Tu plan esta listo',
-          body: 'Pablo ha publicado tu plan de entrenamiento.',
+          ...(await planPublishedPush(sql, BigInt(parsedId.data.id), 'assigned')),
           deeplink: { screen: 'plan', week_start: result.materialization.start_date },
         },
       }).catch(() => undefined);

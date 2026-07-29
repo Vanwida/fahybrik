@@ -7,6 +7,7 @@ import {
 } from '@/lib/dashboard/coach/doubles-pairs';
 import { assignPairSequenceInputSchema } from '@fahybrid/shared/schema/doubles-pairs';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+import { planPublishedPush } from '@/lib/notifications/plan-published';
 import type { AssignSequenceResult } from '@/lib/dashboard/coach/assign-sequence';
 
 export const runtime = 'nodejs';
@@ -42,8 +43,7 @@ async function notifyIfMaterialized(
       deep_link: `/plan?week=${result.materialization.start_date}`,
     },
     push: {
-      title: 'Tu plan esta listo',
-      body: 'Pablo ha publicado tu plan de entrenamiento.',
+      ...(await planPublishedPush(sql, BigInt(athleteId), 'assigned')),
       deeplink: { screen: 'plan', week_start: result.materialization.start_date },
     },
   }).catch(() => undefined);

@@ -21,7 +21,7 @@ export const LEAD_BLOCKS: Record<LeadBlockKey, string> = {
   C: 'Tu entrenamiento hoy',
   D: 'Salud y recuperación',
   E: 'Tus números',
-  F: 'Para tu llamada con Pablo',
+  F: 'Para tu llamada',
   Z: 'Ya casi está',
 };
 
@@ -442,8 +442,8 @@ export const LEAD_QUESTIONS: LeadQuestion[] = [
   { id: 'q-conocido', block: 'F', kind: 'single', key: 'conocido', optionsKey: 'conocido',
     title: '¿Cómo nos has conocido?' },
   { id: 'q-libre', block: 'F', kind: 'textarea', key: 'nota_libre',
-    title: '¿Algo más que Pablo deba saber antes de la llamada?',
-    placeholder: 'Opcional — cuéntale lo que quieras', cta: 'Terminar', optional: true },
+    title: '¿Algo más que debamos saber antes de la llamada?',
+    placeholder: 'Opcional — cuéntanos lo que quieras', cta: 'Terminar', optional: true },
 
   // ── Cierre ──
   { id: 'q-datos', block: 'Z', kind: 'datos', title: 'Un par de datos más' },

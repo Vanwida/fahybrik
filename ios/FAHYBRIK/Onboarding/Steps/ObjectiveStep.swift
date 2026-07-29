@@ -124,7 +124,7 @@ struct AEventManualForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             VStack(spacing: 0) {
-                TextRow(label: "Evento", placeholder: "p.ej. HYROX BCN 2026", value: $state.aEventName)
+                TextRow(label: "Evento", placeholder: "Nombre de la carrera", value: $state.aEventName)
 
                 DateRow(
                     label: "Fecha",

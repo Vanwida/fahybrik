@@ -6,6 +6,7 @@ import {
   advanceSequenceForAthlete,
 } from '@/lib/dashboard/coach/assign-sequence';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+import { planPublishedPush } from '@/lib/notifications/plan-published';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,8 +50,7 @@ export async function POST(
           deep_link: `/plan?week=${result.materialization.start_date}`,
         },
         push: {
-          title: 'Nuevo microciclo listo',
-          body: 'Pablo ha publicado el siguiente bloque de tu plan.',
+          ...(await planPublishedPush(sql, BigInt(parsedId.data.id), 'next_block')),
           deeplink: { screen: 'plan', week_start: result.materialization.start_date },
         },
       }).catch(() => undefined);

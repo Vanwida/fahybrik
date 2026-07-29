@@ -57,7 +57,7 @@ struct SolicitarCarreraView: View {
             intro
             field(
                 label: "CARRERA",
-                placeholder: "Nombre del evento (p.ej. HYROX Valencia)",
+                placeholder: "Nombre del evento",
                 text: $raceName,
                 autocapitalization: .words
             )

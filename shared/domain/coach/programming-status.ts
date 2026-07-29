@@ -55,7 +55,7 @@ export async function getAthleteProgrammingStatus(params: {
         athlete_id: String(params.athlete_id),
         status: 'month_2_pending',
         label: 'Mes siguiente pendiente',
-        detail: 'Pablo debe validar el bloque mensual propuesto',
+        detail: 'Validar el bloque mensual propuesto',
       };
     }
 

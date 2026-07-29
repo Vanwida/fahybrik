@@ -22,6 +22,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+import { planPublishedPush } from '@/lib/notifications/plan-published';
 import { DELIVERY_MODE } from '@/lib/coach/publish-week';
 
 export interface PublishWeeklyPlansResult {
@@ -72,8 +73,7 @@ export async function runPublishWeeklyPlans(params: {
           deep_link: `/plan?week=${weekStart}`,
         },
         push: {
-          title: 'Tu plan de la semana esta listo',
-          body: 'Pablo ha publicado tu plan para la proxima semana.',
+          ...(await planPublishedPush(client, BigInt(row.athlete_id), 'weekly')),
           deeplink: { screen: 'plan', week_start: weekStart },
         },
       });
