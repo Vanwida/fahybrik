@@ -54,6 +54,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-29 · MÉTODO es dato del coach; MECANISMO es código. El censo, y lo que destapa
+
+**Contexto que cambia el listón:** este código se venderá como **FLEXR** a otros entrenadores. Pablo es **nuestro coach de pruebas**, no el destinatario. Queda como **regla Nº0** en `CLAUDE.md`. La pregunta que decide cada caso: ***¿otro entrenador competente lo haría distinto?*** Si sí, es método y nace como **dato con valor por defecto**, nunca como `const`.
+
+**Lo que el censo del 29-jul destapa, y es la quinta vez hoy que aparece el mismo patrón:**
+
+**`coach_methodology` (migración 0048) tiene 37 columnas que son EXACTAMENTE los ajustes de este censo — anclas de zona, gates de HRV/sueño/agujetas, taper, freshness, tono de voz — y tiene CERO filas y se lee UNA sola columna** (`one_rm_estimation`). La capa multi-coach está construida, migrada y desconectada. Igual que `methodology_rules` (0 lectores, sin evaluador), `coach_guidance` (0 uso) y otras seis tablas de la misma migración.
+
+**Tres hallazgos estructurales que no se arreglan con un dato:**
+
+1. **El `sub_score` del check-in lo calcula el iPhone** (`CheckinModel.swift`) y el servidor lo guarda verbatim. Es el componente con más peso del readiness (0,35) y **cambiarlo exige una release de App Store** — y dos versiones de la app escriben números incomparables en la misma columna. Las 5 respuestas crudas ya están en `daily_checkins`, así que **el cálculo se mueve al servidor** (y de paso cierra que hoy se guarda un número del cliente sin validar).
+2. **Hay CUATRO respuestas a «¿cuántas zonas hay?»** — 5 en `prescription/types.ts`, 6 en `methodology-system.ts`, 7 en `workouts.ts` y `templates.ts`, y 3..7 en `coach_methodology.hr_zone_count`. Ningún coach puede cambiar su modelo de zonas sin tocar cinco ficheros.
+3. **Las zonas de FC están clavadas mientras las de RITMO ya son dato por coach** (`methodology_zones`, 36 filas, cableada de punta a punta). Mismo concepto, dos tratamientos opuestos en el mismo repo — y `hr-zones.ts` se autodenomina «la única fuente» mientras `coach_methodology.hr_anchor` existe y se ignora.
+
+**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y **ATR vivo en el schema** (`['ACC','TRANS','REAL']`, enum `atr_block_type`) contradiciendo a las migraciones 0064/0068 que borraron las fases.
+
+**Orden decidido, y el orden importa:** no se puede hacer editable algo que vive en cinco sitios.
+1. **Capa 0 — desduplicar**: un registro en código (`shared/domain/methodology/profile.ts`) con todos los ajustes y **su valor de hoy como default**. Es refactor puro, cero cambio de comportamiento.
+2. **Capa 1 — overrides por coach**: reutilizar `coach_methodology`, con el patrón que YA funciona en `loadCoachOneRmMethod` y `loadCoachZonesForUnit`. **La migración no puede cambiarle el comportamiento a nadie, y no es promesa sino aritmética: la tabla tiene 0 filas, así que todo resolver devuelve el default de código.**
+3. **Capa 2 — editor en `/ajustes`**, incluido el de zonas, que hoy no existe.
+
+**Versionado:** no inventar un «perfil versionado» — reusar el patrón de `athlete_zone_profiles` y **snapshotear el perfil resuelto sobre lo que se persista como evidencia**, para que un veredicto de marzo no se reinterprete con los umbrales de julio.
+
+**En consecuencia, no hacer:** no escribir una constante que huela a metodología sin hacerse la pregunta; no volver a crear un catálogo de fases (0064 lo borró a propósito: **el orden de los microciclos ES la periodización**); y no dar por buena una capa configurable sin comprobar que **alguien la lee**.
+
+---
+
 ## 2026-07-29 · Lo que el atleta declara es SU dato: puebla la app desde el minuto uno
 
 **Decidido (Alex):** todo lo que el atleta responde en el onboarding **se guarda y se enseña** — en su app y en el dashboard del coach — desde que descarga la app, **siempre editable y borrable por él**. Si nos dijo su marca de 10 km, Marcas enseña su 10 km. Y así con todo.
