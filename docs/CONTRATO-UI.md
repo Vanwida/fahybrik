@@ -294,9 +294,17 @@ La tanda del 29-jul (`/es/design/entreno`) acertó la **estructura**: un sujeto 
 
 Los números grandes de una vista en vivo se leen a tres metros, sudando y en movimiento. Van todos con **la misma cara**: la monoespaciada de cifra rachada que ya usan el EMOM y la fuerza. Nada de tres tratamientos distintos para el 139 del pulso, el 0:25 del reloj y el 5×100 de la serie. **Un numeral para toda la app.**
 
-### 10.3 · El sujeto cae siempre a la misma altura
+### 10.3 · El sujeto cae siempre a la misma altura — pero la banda es un ancla, no una caja
 
-En una familia de vistas que se turnan durante el mismo entreno, **el sujeto no puede bailar**: si en una está centrado y en la siguiente 200 pt más abajo, el atleta reencuadra cada vez que cambia el formato. Se fija **una banda del sujeto** y todas las vistas la respetan, sea cual sea el dato que caiga dentro.
+En una familia de vistas que se turnan durante el mismo entreno, **el sujeto no puede bailar**: si en una está centrado y en la siguiente 200 pt más abajo, el atleta reencuadra cada vez que cambia el formato. Todas las vistas respetan **la misma banda del sujeto**.
+
+**Corregido el 29-jul: tres agentes encontraron por separado que esto chocaba con el §6.1.** Una banda de **alto fijo** obliga al sobrante a caer *entre* el sujeto y los apoyos — en el EMOM, que solo tiene la traza de rondas debajo, quedaban ~230 pt de vacío. Es el mismo «se apila y sobra cola» que el §6.1 prohíbe, con la cola en medio en vez de al final.
+
+**La banda ancla el CENTRO ÓPTICO del sujeto, no reserva un alto.** Y el sobrante nunca se acumula en el hueco de debajo:
+
+1. **Primero crecen los apoyos** — es el §6.1 aplicado («el sobrante entra en las filas, nunca en una cola»).
+2. **Si no hay apoyos que crecer, crece el sujeto**, hasta el techo en que deja de leerse cómodo.
+3. **Si aun así sobra, es que a la vista le falta contenido**, no espacio: mira el §10.6, porque casi siempre lo que falta es el trabajo real, que estaba escondido.
 
 ### 10.4 · El sujeto no puede ser un widget entre widgets
 
