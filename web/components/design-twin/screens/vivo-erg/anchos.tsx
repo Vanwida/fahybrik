@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 import { Label, Mono, SP } from '../../kit';
 import { fmtClock, fmtPace500 } from '../../sim';
-import { COLOR_ZONA, zonaDe } from './atomos';
+import { colorZona, zonaDe } from '../../kit-vivo';
 import { MAQUINA_NOMBRE, MEDIDA_UNIDAD, fmtElapsed, objetivoTexto } from './data';
 import type { EstadoErg, Guion } from './motor';
 
@@ -132,7 +132,7 @@ export function DescansoAncho({ e, accion }: { e: EstadoErg; accion?: ReactNode 
         </span>
         {e.pulso != null && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span className="t-readout-m" style={{ color: COLOR_ZONA(zona), transition: 'color 900ms linear' }}>
+            <span className="t-readout-m" style={{ color: colorZona(zona), transition: 'color 900ms linear' }}>
               {e.pulso}
             </span>
             <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>ppm</span>

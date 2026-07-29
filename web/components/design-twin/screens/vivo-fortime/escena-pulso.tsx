@@ -12,11 +12,17 @@
 //   · lo cerrado sí se sabe (lo cerraste tú), y con eso se proyecta
 //   · si el cap muere, la puntuación son las repeticiones cerradas, no el
 //     tiempo — y lo que estabas haciendo se queda sin contar, y se dice.
+//
+// Y de ahí sale también el peso de la acción (§10.5): aquí el toque es lo ÚNICO
+// que puede cerrar una tanda, así que la franja se gana el relleno naranja. En
+// el HYROX, donde el remo cierra la estación al cruzar, va de contorno. El
+// color deja de ser decoración y pasa a decir quién gobierna la transición.
 
 import { useCallback, useState } from 'react';
-import { CTA, Pantalla, SP, SecondaryCTA } from '../../kit';
+import type { TwinAppearance } from '../../types';
 import { COLOR_MODALIDAD, reloj } from '../../datos-reales';
 import { useTimeline } from '../../sim';
+import { BandaSujeto, Fogonazo, FranjaAccion, MarcoVivo, zonaDe } from '../../kit-vivo';
 import {
   CAP_S,
   CERRADAS_CAP,
@@ -25,17 +31,18 @@ import {
   SCORE_APERTURA_PULSO_S,
   TANDAS,
   TOTAL_REPS,
+  fcEn,
   proyeccionS,
   recienSellado,
   repsCerradas,
 } from './data';
-import { Ambiente, Flash, Franja } from './atoms';
-import { Sello, SujetoTrabajo, Trio } from './sujeto';
+import { ContextoFormato, CromoFormato } from './atoms';
+import { LineasSello, SujetoSello, SujetoTrabajo } from './sujeto';
 import { Riel, type Fila } from './ruta';
-import { CaraFormato, NotaLateral, celdaPulso } from './caras';
+import { ACCION_APAISADA, Apoyos, DosCampos, Lienzo, MarcoPlano, NotaLateral, apoyoPulso } from './caras';
 import { useCronoSim } from './crono';
 
-/** Último minuto de cap: la franja se pone naranja y lo dice. */
+/** Último minuto de cap: el contexto se pone naranja y lo dice. */
 const AVISO_CAP_S = 60;
 
 const COLOR = COLOR_MODALIDAD.functional;
@@ -68,10 +75,12 @@ function filasDe(estado: Estado, parcialVivoS: number): Fila[] {
 export function EscenaPulso({
   escenario,
   landscape,
+  appearance,
   onLog,
 }: {
   escenario: string;
   landscape: boolean;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }) {
   const alFilo = escenario === 'cap-encima';
@@ -122,6 +131,7 @@ export function EscenaPulso({
   const filas = filasDe(estado, parcialS);
   const proyeccion = proyeccionS(estado.cerradas);
   const hechas = repsCerradas(estado.cerradas.length);
+  const cap = { totalS: CAP_S, restanteS, urgente: restanteS <= AVISO_CAP_S };
 
   if (acabado || muerto) {
     return (
@@ -131,6 +141,7 @@ export function EscenaPulso({
         hechas={hechas}
         tandasCerradas={estado.cerradas.length}
         landscape={landscape}
+        appearance={appearance}
         onLog={onLog}
       />
     );
@@ -139,6 +150,7 @@ export function EscenaPulso({
   const tanda = TANDAS[estado.activa];
   const sujeto = (
     <SujetoTrabajo
+      horizontal={landscape}
       cifra={String(tanda.reps)}
       titulo={tanda.nombre}
       carga={tanda.carga}
@@ -146,73 +158,73 @@ export function EscenaPulso({
     />
   );
   const lecturas = (
-    <Trio
+    <Apoyos
       celdas={[
-        { label: 'Esta tanda', valor: reloj(parcialS) },
-        { label: 'Cerradas', valor: `${hechas}/${TOTAL_REPS}`, unidad: 'reps' },
-        celdaPulso(parcialS),
+        { etiqueta: 'Esta tanda', valor: reloj(parcialS) },
+        { etiqueta: 'Cerradas', valor: `${hechas}/${TOTAL_REPS}`, pie: 'reps' },
+        apoyoPulso(parcialS),
       ]}
     />
   );
   const proyeccionEl = <Proyeccion segundos={proyeccion} restanteS={restanteS} />;
-  // Sin «ver todas»: seis tandas caben enteras. La hoja aparte existe para la
-  // ruta de 16, donde el riel tendría que comerse al sujeto.
-  const riel = <Riel filas={filas} activo={estado.activa} alto={landscape ? 34 : 40} />;
+  // Sin «ver todas»: no hay hoja aparte (esa existe para la ruta de 16). La
+  // ventana enseña la que cerraste, la que haces y la que viene — que es lo que
+  // cabe en los apoyos sin empujar al sujeto fuera de su banda.
+  const riel = <Riel filas={filas} activo={estado.activa} alto={landscape ? 30 : 34} ventana />;
+
+  const cromo = (
+    <CromoFormato posicion={`Tanda ${estado.activa + 1} de ${TANDAS.length}`} pausado={pausado} onPausa={alternarPausa} />
+  );
+  const contexto = <ContextoFormato scoreS={scoreS} cap={cap} />;
+  // Aquí no mide nadie: el toque es la ÚNICA salida y el relleno se lo gana.
+  const accion = (
+    <FranjaAccion
+      titulo={estado.activa === TANDAS.length - 1 ? 'ÚLTIMA HECHA' : 'TANDA HECHA'}
+      unicaSalida
+      onClick={avanzar}
+    />
+  );
 
   return (
-    <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-      <Ambiente color={COLOR} />
+    <Lienzo zona={zonaDe(fcEn(parcialS))} appearance={appearance}>
       {/* `inicioS` es el crono en el que arrancó la tanda, o sea el del último
           sello: el fogonazo sale de ahí sin guardar nada. */}
-      <Flash activo={recienSellado(scoreS, estado.inicioS)} color={COLOR} />
-      <Pantalla
-        padding={0}
-        gap={0}
-        accion={
-          <div style={{ padding: landscape ? `0 ${SP.m}px ${SP.s}px` : SP.m }}>
-            <CTA
-              title={estado.activa === TANDAS.length - 1 ? 'ÚLTIMA HECHA' : 'TANDA HECHA'}
-              height={landscape ? 64 : 76}
-              onClick={avanzar}
+      <Fogonazo activo={recienSellado(scoreS, estado.inicioS)} />
+      {landscape ? (
+        <MarcoPlano
+          cromo={cromo}
+          contexto={contexto}
+          altoAccion={ACCION_APAISADA}
+          cuerpo={
+            <DosCampos
+              izquierda={<BandaSujeto>{sujeto}</BandaSujeto>}
+              derecha={
+                <>
+                  {lecturas}
+                  {riel}
+                  {proyeccionEl}
+                </>
+              }
             />
-          </div>
-        }
-      >
-        <Franja
-          posicion={`Tanda ${estado.activa + 1} de ${TANDAS.length}`}
-          scoreS={scoreS}
-          cap={{ totalS: CAP_S, restanteS, urgente: restanteS <= AVISO_CAP_S }}
-          pausado={pausado}
-          onPausa={alternarPausa}
-          compacta={landscape}
+          }
+          accion={accion}
         />
-        {/* Aquí NO hay máquina, así que en horizontal tampoco hay cara de
-            monitor: manda el formato, recompuesto a dos campos. */}
-        {landscape ? (
-          <CaraFormato
-            sujeto={
-              <>
-                {sujeto}
-                {lecturas}
-              </>
-            }
-            lateral={
-              <>
-                {riel}
-                {proyeccionEl}
-              </>
-            }
-          />
-        ) : (
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
-            {sujeto}
-            {lecturas}
-            {proyeccionEl}
-            {riel}
-          </div>
-        )}
-      </Pantalla>
-    </div>
+      ) : (
+        <MarcoVivo
+          cromo={cromo}
+          contexto={contexto}
+          sujeto={sujeto}
+          apoyos={
+            <>
+              {lecturas}
+              {proyeccionEl}
+              {riel}
+            </>
+          }
+          accion={accion}
+        />
+      )}
+    </Lienzo>
   );
 }
 
@@ -247,6 +259,7 @@ function Cierre({
   hechas,
   tandasCerradas,
   landscape,
+  appearance,
   onLog,
 }: {
   muerto: boolean;
@@ -254,54 +267,83 @@ function Cierre({
   hechas: number;
   tandasCerradas: number;
   landscape: boolean;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }) {
   const enVuelo = TANDAS[tandasCerradas];
+  const sujeto = muerto ? (
+    <SujetoSello
+      horizontal={landscape}
+      label="Cap"
+      cifra={String(hechas)}
+      unidad={`de ${TOTAL_REPS} reps`}
+      titulo={`Se acabó el cap a los ${reloj(CAP_S)}`}
+    />
+  ) : (
+    <SujetoSello horizontal={landscape} label="Hecho" cifra={reloj(scoreS)} titulo={`${TOTAL_REPS} de ${TOTAL_REPS} reps`} />
+  );
+  const lineas = muerto ? (
+    <LineasSello
+      lineas={[
+        `Cerraste ${tandasCerradas} tandas de ${TANDAS.length}, y ese es tu resultado.`,
+        enVuelo
+          ? `De la que estabas haciendo (${enVuelo.reps} ${enVuelo.nombre}) no se apunta nada: nadie cuenta repeticiones.`
+          : 'De lo último no se apunta nada: nadie cuenta repeticiones.',
+      ]}
+    />
+  ) : (
+    <LineasSello
+      lineas={[
+        `Las ${TANDAS.length} tandas, cerradas por ti.`,
+        `Dentro del cap de ${reloj(CAP_S)} por ${reloj(CAP_S - scoreS)}.`,
+      ]}
+    />
+  );
+  // Con el cap muerto queda algo que hacer, así que hay acción; acabando dentro
+  // del cap no queda nada que declarar y la fila se reserva vacía (§10.3).
+  const accion = muerto ? (
+    <FranjaAccion
+      titulo="APUNTA LAS QUE HICISTE"
+      nota="un campo, un toque"
+      onClick={() => onLog('Un campo, un toque: las repeticiones sueltas de la última tanda')}
+    />
+  ) : undefined;
+
+  const cromo = (
+    <CromoFormato
+      posicion={muerto ? 'Se acabó el cap' : `${TANDAS.length} de ${TANDAS.length}`}
+      pausado={false}
+      onPausa={() => onLog('El bloque ya está cerrado: no hay nada que pausar')}
+    />
+  );
+  const contexto = (
+    <ContextoFormato scoreS={scoreS} cap={{ totalS: CAP_S, restanteS: muerto ? 0 : CAP_S - scoreS, urgente: muerto }} />
+  );
+
+  // El sello NO usa la banda fija del §10.3, y a propósito: la banda existe
+  // para que el sujeto no baile ENTRE FORMATOS que se turnan durante el mismo
+  // entreno, y de aquí ya no se vuelve. Un sello es un bloque único, así que su
+  // estrategia es `centra` (§6.1) — con la banda, el resultado quedaba arriba y
+  // las dos líneas que lo explican caían al fondo con 150 pt de vacío en medio,
+  // que es justo el hueco que el contrato persigue.
   return (
-    <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-      <Ambiente color={muerto ? 'var(--twin-accent)' : COLOR} />
-      <Pantalla padding={0} gap={0}>
-        <Franja
-          posicion={muerto ? 'Se acabó el cap' : `${TANDAS.length} de ${TANDAS.length}`}
-          scoreS={scoreS}
-          cap={{ totalS: CAP_S, restanteS: muerto ? 0 : CAP_S - scoreS, urgente: muerto }}
-          pausado={false}
-          onPausa={() => onLog('El bloque ya está cerrado: no hay nada que pausar')}
-          compacta={landscape}
-        />
-        {muerto ? (
-          <Sello
-            label="Cap"
-            cifra={String(hechas)}
-            unidad={`de ${TOTAL_REPS} reps`}
-            titulo={`Se acabó el cap a los ${reloj(CAP_S)}`}
-            lineas={[
-              `Cerraste ${tandasCerradas} tandas de ${TANDAS.length}, y ese es tu resultado.`,
-              enVuelo
-                ? `De la que estabas haciendo (${enVuelo.reps} ${enVuelo.nombre}) no se apunta nada: nadie cuenta repeticiones.`
-                : 'De lo último no se apunta nada: nadie cuenta repeticiones.',
-            ]}
-            extra={
-              <div style={{ width: 250, marginTop: SP.s }}>
-                <SecondaryCTA
-                  title="Apunta las que hiciste"
-                  onClick={() => onLog('Un campo, un toque: las repeticiones sueltas de la última tanda')}
-                />
-              </div>
-            }
-          />
-        ) : (
-          <Sello
-            label="Hecho"
-            cifra={reloj(scoreS)}
-            titulo={`${TOTAL_REPS} de ${TOTAL_REPS} reps`}
-            lineas={[
-              `Las ${TANDAS.length} tandas, cerradas por ti.`,
-              `Dentro del cap de ${reloj(CAP_S)} por ${reloj(CAP_S - scoreS)}.`,
-            ]}
-          />
-        )}
-      </Pantalla>
-    </div>
+    <Lienzo zona={null} appearance={appearance} acento={!muerto}>
+      <MarcoPlano
+        cromo={cromo}
+        contexto={contexto}
+        altoAccion={landscape ? ACCION_APAISADA : undefined}
+        cuerpo={
+          landscape ? (
+            <DosCampos izquierda={<BandaSujeto>{sujeto}</BandaSujeto>} derecha={lineas} />
+          ) : (
+            <BandaSujeto>
+              {sujeto}
+              <div style={{ marginTop: 12 }}>{lineas}</div>
+            </BandaSujeto>
+          )
+        }
+        accion={accion}
+      />
+    </Lienzo>
   );
 }

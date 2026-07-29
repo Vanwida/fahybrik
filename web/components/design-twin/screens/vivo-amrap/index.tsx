@@ -61,7 +61,7 @@ export const escenarios: TwinEscenario[] = [
   },
 ];
 
-export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
+export function Screen({ escenario, orientation, appearance, onLog }: TwinScreenProps) {
   return (
     <div className="twin-screen-safe">
       {escenario === 'sellado' ? (
@@ -71,12 +71,14 @@ export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
           movimientoEnCurso={MOVIMIENTOS[SELLADO.marcados] ?? null}
           pulsoMaxPpm={PULSO_MAX_PPM}
           orientation={orientation}
+          appearance={appearance}
           onLog={onLog}
         />
       ) : (
         <EscenaViva
           arranque={escenario === 'ultimo-minuto' ? 'ultimo-minuto' : 'en-faena'}
           orientation={orientation}
+          appearance={appearance}
           onLog={onLog}
         />
       )}

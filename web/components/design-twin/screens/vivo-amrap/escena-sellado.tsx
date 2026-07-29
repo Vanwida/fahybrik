@@ -16,11 +16,12 @@
 // arranca en 0 y por eso guardar sin tocarlo es una respuesta válida: se sella
 // «6 rondas y 10 reps», que es verdad, en vez de un 14 fabricado que no lo es.
 
-import { useState } from 'react';
-import type { TwinOrientation } from '../../types';
+import { useState, type ReactNode } from 'react';
+import type { TwinAppearance, TwinOrientation } from '../../types';
 import { CTA, Card, Display, Hairline, Label, Mono, Pantalla, SP } from '../../kit';
 import { UMBRAL, reloj } from '../../datos-reales';
 import { hrZone } from '../../sim';
+import { Ambiente, Numeral } from '../../kit-vivo';
 import {
   VENTANA_S,
   comparaConLaPrimera,
@@ -46,6 +47,7 @@ export interface SelladoProps {
   /** Del reloj. Nulo si no había reloj emparejado: entonces no se pinta. */
   pulsoMaxPpm: number | null;
   orientation: TwinOrientation;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }
 
@@ -55,6 +57,7 @@ export function Sellado({
   movimientoEnCurso,
   pulsoMaxPpm,
   orientation,
+  appearance,
   onLog,
 }: SelladoProps) {
   const [declaradas, setDeclaradas] = useState(0);
@@ -95,10 +98,10 @@ export function Sellado({
     </div>
   );
 
-  // El sujeto cede un escalón en apaisado (72 = `t-readout-hero`) porque el
-  // lienzo mide 381 pt de alto: a 96 el desglose dejaría de caber, y un
-  // marcador sin sus rondas es la mitad de la verdad.
-  const cifra = <Marcador rondas={rondas.length} reps={totalReps} tamano={apaisado ? 72 : 96} />;
+  // El tamaño ya no se declara aquí. `Numeral` escala con SU lienzo, y en
+  // apaisado ese lienzo es la columna izquierda: el marcador cede solo porque
+  // el sitio manda, sin que nadie escriba un 72 a mano (§10.2).
+  const cifra = <Marcador rondas={rondas.length} reps={totalReps} horizontal={apaisado} />;
 
   const bloqueParcial =
     preguntaAbierta && movimientoEnCurso ? (
@@ -127,36 +130,71 @@ export function Sellado({
       // apretón final) y la parcial por la que pregunta la tarjeta de al
       // lado. Un botón de 756 pt de ancho no era más fácil de acertar; solo
       // más caro.
-      <Pantalla>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.m }}>
-          <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.m }}>
-            {cabecera}
-            {/* El sujeto se queda con el hueco que sobre y se centra en él: si
-                aprieta, encoge esto y nunca la acción ni la pregunta. */}
-            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>{cifra}</div>
-            {bloqueParcial}
-            <div style={{ flex: '0 0 auto' }}>{accion}</div>
+      <Lienzo appearance={appearance}>
+        <Pantalla>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.m }}>
+            <div
+              style={{
+                flex: '1 1 auto',
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: SP.m,
+                // El numeral escala con SU lienzo, que aquí es la columna.
+                containerType: 'inline-size',
+              }}
+            >
+              {cabecera}
+              {/* El sujeto se queda con el hueco que sobre y se centra en él: si
+                  aprieta, encoge esto y nunca la acción ni la pregunta. */}
+              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>{cifra}</div>
+              {bloqueParcial}
+              <div style={{ flex: '0 0 auto' }}>{accion}</div>
+            </div>
+            {/* El desglose no se pliega al girar: es lo que da sentido al
+                marcador, y en apaisado hay ancho de sobra para ponerlo al lado
+                en vez de debajo. */}
+            <div style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', gap: SP.m }}>
+              {desglose}
+              {pulso}
+            </div>
           </div>
-          {/* El desglose no se pliega al girar: es lo que da sentido al
-              marcador, y en apaisado hay ancho de sobra para ponerlo al lado
-              en vez de debajo. */}
-          <div style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', gap: SP.m }}>
-            {desglose}
-            {pulso}
-          </div>
-        </div>
-      </Pantalla>
+        </Pantalla>
+      </Lienzo>
     );
   }
 
   return (
-    <Pantalla accion={accion}>
-      {cabecera}
-      {cifra}
-      {bloqueParcial}
-      {desglose}
-      {pulso}
-    </Pantalla>
+    <Lienzo appearance={appearance}>
+      <Pantalla accion={accion}>
+        {cabecera}
+        {cifra}
+        {bloqueParcial}
+        {desglose}
+        {pulso}
+      </Pantalla>
+    </Lienzo>
+  );
+}
+
+/**
+ * El lienzo del sellado.
+ *
+ * SIN tinte de zona, y a propósito (§10.1): la zona es un dato de AHORA y aquí
+ * ya no hay un ahora — el pulso que se enseña es el máximo de lo que pasó. Lo
+ * que sí es verdad es el instante: la bocina cerró la pieza y el marcador está
+ * sobre la mesa, que es exactamente lo que `acento` reserva.
+ *
+ * Abre además el contenedor de consulta del que cuelga la escala del numeral
+ * (§10.2): en retrato es la pantalla entera; en apaisado lo vuelve a abrir la
+ * columna izquierda, porque ahí el marcador cede sitio al desglose.
+ */
+function Lienzo({ appearance, children }: { appearance: TwinAppearance; children: ReactNode }) {
+  return (
+    <div style={{ position: 'relative', height: '100%', containerType: 'size' }}>
+      <Ambiente zona={null} appearance={appearance} acento />
+      <div style={{ position: 'relative', height: '100%' }}>{children}</div>
+    </div>
   );
 }
 
@@ -184,13 +222,11 @@ function Procedencia({
 // El sujeto: el marcador exacto
 // ---------------------------------------------------------------------------
 
-function Marcador({ rondas, reps, tamano }: { rondas: number; reps: number; tamano: 72 | 96 }) {
+function Marcador({ rondas, reps, horizontal }: { rondas: number; reps: number; horizontal: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: '0 0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <Mono size={tamano} weight={800} style={{ lineHeight: 1 }}>
-          {rondas}
-        </Mono>
+        <Numeral horizontal={horizontal}>{rondas}</Numeral>
         <Display size={28}>{palabraRondas(rondas)}</Display>
       </div>
       {reps > 0 && (
@@ -198,9 +234,11 @@ function Marcador({ rondas, reps, tamano }: { rondas: number; reps: number; tama
           <Display size={22} color="var(--twin-muted)">
             y
           </Display>
-          <Mono size={tamano === 96 ? 48 : 34} weight={800} color="var(--twin-accent-text)" style={{ lineHeight: 1 }}>
+          {/* Las reps sueltas son la SEGUNDA mitad del marcador, no un apoyo:
+              van en el peldaño `segundo` del numeral, no en un tamaño suelto. */}
+          <Numeral horizontal={horizontal} escala="segundo" tono="var(--twin-accent-text)">
             {reps}
-          </Mono>
+          </Numeral>
           <Display size={22} color="var(--twin-muted)">
             {palabraReps(reps)}
           </Display>

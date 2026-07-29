@@ -2,6 +2,12 @@
 
 // Los átomos de «vivo-fuerza».
 //
+// Lo que aquí NO se escribe (§10 del CONTRATO-UI): ni el tinte del lienzo, ni
+// el numeral, ni el reparto del alto, ni la acción. Todo eso vive UNA vez en
+// `kit-vivo.tsx` y esta carpeta lo consume. Antes de este lote esta familia
+// tenía cuatro numerales distintos a mano para el mismo hueco — dos de ellos
+// con `vh`, que mide la ventana del navegador y no el teléfono.
+//
 // NOTA para quien integre: `Cabecera` es el mismo cromo que `TopStrip` en
 // `screens/entreno-vivo/piezas.tsx`. Están duplicados porque cada familia de
 // esta tanda escribe solo en su carpeta; el §0 pide que suba a `kit.tsx` en el
@@ -9,8 +15,9 @@
 
 import type { ReactNode } from 'react';
 import { IconCheckCircle, IconChevron, IconClose, Label, Mono, RAD, SP } from '../../kit';
+import { EtiquetaSujeto, Numeral } from '../../kit-vivo';
 import { reloj } from '../../datos-reales';
-import { kg, serieTexto, type Prescripcion, type SerieHecha } from './data';
+import { kg, serie, serieTexto, type Prescripcion, type SerieHecha } from './data';
 
 // ---------------------------------------------------------------------------
 // Cromo
@@ -54,7 +61,7 @@ export function Cabecera({
   onSalir: () => void;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
+    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
       <BotonCromo label="Salir del entreno" onClick={onSalir}>
         <IconClose size={13} />
       </BotonCromo>
@@ -206,73 +213,98 @@ export function RielCircuito({
 // El sujeto — la serie que tienes delante
 // ---------------------------------------------------------------------------
 
+export interface Peldano2 {
+  cifra: string;
+  unidad: string | null;
+}
+
+/** La serie repartida en los dos peldaños del numeral compartido (§10.2/§10.6). */
+export interface DosisSerie {
+  /** El que gobierna la pantalla. */
+  sujeto: Peldano2;
+  /** Lo segundo, cuando existe. */
+  segundo: Peldano2 | null;
+}
+
 /**
- * `gobierna` (§6.1): la cifra escala con el hueco. Si la prescripción no trae
- * medida, el sujeto DEGRADA a lo único que hay (la carga) en vez de romperse
- * o de inventarse unas repeticiones.
+ * La serie, como sujeto de la banda.
+ *
+ * **`5 × 100` es UNA cosa, y así se lee.** Es la prescripción que el atleta
+ * tiene delante: ni «100 kg» con un «5 reps» colgando debajo (eso invierte la
+ * jerarquía — en fuerza se leen las repeticiones y luego la carga) ni dos datos
+ * sueltos que hay que recomponer de cabeza entre serie y serie.
+ *
+ * Hubo un intento de partirla en dos peldaños porque siete avances de la mono a
+ * 125 pt miden 525 sobre un lienzo de 378 y se salían. Pero eso era un fallo del
+ * numeral compartido, no de la fuerza: `Numeral` ya tiene presupuesto de ancho
+ * (kit-vivo) y encoge la cifra larga lo justo para que quepa entera. El arreglo
+ * fue a la raíz, no al caso.
+ *
+ * La degradación se conserva y es del modelo, no del layout: sin carga (peso
+ * corporal) el sujeto son las repeticiones; sin repeticiones —el `Reverse Lunge`
+ * real llega con 30 kg y sin ellas— el sujeto es la carga sola; sin ninguna de
+ * las dos no hay cifra que inventar y manda el nombre (§7).
+ */
+export function dosisEnPeldanos(reps: number | null, cargaKg: number | null): DosisSerie | null {
+  const completa = serie(reps, cargaKg);
+  if (completa) return { sujeto: completa, segundo: null };
+  const carga = serie(null, cargaKg);
+  if (carga) return { sujeto: carga, segundo: null };
+  const repeticiones = serie(reps, null);
+  if (repeticiones) return { sujeto: repeticiones, segundo: null };
+  return null;
+}
+
+/**
+ * El nombre del ejercicio. Es un valor CATEGÓRICO: gana a su etiqueta por peso
+ * y por un escalón de la tipografía de TEXTO, no monoespaciándose (§4). Va a la
+ * misma voz que el nombre de la tarea en `Trabajo` (kit-vivo) para que fuerza y
+ * EMOM digan «qué estás haciendo» con la misma letra.
+ */
+export function NombreEjercicio({ children }: { children: ReactNode }) {
+  return (
+    <span
+      style={{ font: 'italic 800 20px/1.15 var(--twin-font-sans)', letterSpacing: '-0.01em', color: 'var(--twin-fg)' }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * El sujeto de la banda (§10.3): etiqueta, cifra que gobierna, el segundo
+ * peldaño, el nombre y lo que el coach pidió de intensidad.
+ *
+ * No lleva superficie ni reparte alto: de eso se encarga `BandaSujeto`. Antes
+ * era un `flex: 1 1 auto` con su propio `place-items`, y por eso el sujeto caía
+ * a una altura distinta en cada una de las cuatro vistas de esta familia.
  */
 export function Sujeto({
   encima,
-  cifra,
-  unidad,
+  dosis,
   nombre,
   pastilla,
   debajo,
 }: {
   encima: string;
-  cifra: string;
-  unidad: string | null;
+  dosis: DosisSerie;
   nombre: string;
   pastilla?: string;
   debajo?: ReactNode;
 }) {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.s }}>
-        <Label size={10}>{encima}</Label>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, maxWidth: '100%' }}>
-          <span
-            style={{
-              fontFamily: 'var(--twin-font-mono)',
-              fontWeight: 800,
-              // El techo lo pone «5 × 100» a lo ancho del lienzo: siete cifras
-              // en mono a 82 px no caben en 402 pt y el número se partía en dos
-              // líneas dejando el «kg» huérfano en la esquina.
-              fontSize: 'clamp(44px, 10vh, 64px)',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-              fontVariantNumeric: 'tabular-nums',
-              color: 'var(--twin-fg)',
-            }}
-          >
-            {cifra}
-          </span>
-          {unidad && (
-            <span
-              style={{
-                fontFamily: 'var(--twin-font-mono)',
-                fontWeight: 700,
-                fontSize: 22,
-                color: 'var(--twin-muted)',
-              }}
-            >
-              {unidad}
-            </span>
-          )}
-        </div>
-        <span
-          style={{
-            font: 'italic 800 24px/1.1 var(--twin-font-sans)',
-            letterSpacing: '-0.01em',
-            color: 'var(--twin-fg)',
-          }}
-        >
-          {nombre}
-        </span>
-        {pastilla && <span className="tw-pill">{pastilla}</span>}
-        {debajo}
-      </div>
-    </div>
+    <>
+      <EtiquetaSujeto>{encima}</EtiquetaSujeto>
+      <Numeral unidad={dosis.sujeto.unidad ?? undefined}>{dosis.sujeto.cifra}</Numeral>
+      {dosis.segundo && (
+        <Numeral escala="segundo" unidad={dosis.segundo.unidad ?? undefined}>
+          {dosis.segundo.cifra}
+        </Numeral>
+      )}
+      <NombreEjercicio>{nombre}</NombreEjercicio>
+      {pastilla && <span className="tw-pill">{pastilla}</span>}
+      {debajo}
+    </>
   );
 }
 
@@ -282,7 +314,8 @@ export function Sujeto({
  *
  * Entonces el sujeto ES el nombre, y va en la voz de titular (cursiva), no en
  * la de instrumento: el mono es para lo que se compara columna a columna, y un
- * nombre no se compara con nada (§4).
+ * nombre no se compara con nada (§4). El tamaño sale de la escala de twin.css
+ * (`t-display`), no de un clamp escrito aquí.
  */
 export function SujetoNombre({
   encima,
@@ -294,29 +327,11 @@ export function SujetoNombre({
   debajo?: ReactNode;
 }) {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: SP.m,
-          textAlign: 'center',
-        }}
-      >
-        <Label size={10}>{encima}</Label>
-        <span
-          style={{
-            font: 'italic 800 clamp(34px, 8vh, 52px)/1.05 var(--twin-font-sans)',
-            letterSpacing: '-0.01em',
-            color: 'var(--twin-fg)',
-          }}
-        >
-          {nombre}
-        </span>
-        {debajo}
-      </div>
-    </div>
+    <>
+      <EtiquetaSujeto>{encima}</EtiquetaSujeto>
+      <span className="t-display">{nombre}</span>
+      {debajo}
+    </>
   );
 }
 
@@ -406,23 +421,37 @@ export function Hueco({ titulo, texto, accion }: { titulo: string; texto: string
   );
 }
 
-/** La serie que acabas de cerrar, sellada. */
-export function Sello({ titulo, linea, cola }: { titulo: string; linea: string; cola?: string }) {
+/**
+ * Lo que queda del descanso, como GEOMETRÍA: el número dice cuánto y la barra
+ * dice cuánto de lo prescrito. Vive en la franja de contexto, que es la que no
+ * desaparece nunca (§10.3).
+ *
+ * Sustituye al anillo que rodeaba la cuenta atrás: el numeral del §10.2 mide
+ * ~300 pt de ancho y no cabe dentro de un anillo que quepa en la banda. Es la
+ * TERCERA barra de drenaje de la tanda (las otras dos viven en `vivo-correr` y
+ * en `vivo-emom`): su sitio es `kit-vivo`, y así se dice en el informe (§0).
+ */
+export function BarraDescanso({ fraccion, tono }: { fraccion: number; tono: string }) {
   return (
-    <Pie>
-      <span style={{ color: 'var(--twin-ok)', display: 'inline-flex' }}>
-        <IconCheckCircle size={16} />
-      </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-        <Label size={9}>{titulo}</Label>
-        <Mono size={14} weight={700}>
-          {linea}
-        </Mono>
-      </div>
-      {cola && (
-        <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{cola}</span>
-      )}
-    </Pie>
+    <div
+      aria-hidden
+      style={{
+        width: '100%',
+        height: 10,
+        borderRadius: 5,
+        background: 'var(--twin-surface-sunken)',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          height: '100%',
+          width: `${Math.max(0, Math.min(1, fraccion)) * 100}%`,
+          background: tono,
+          transition: 'width 900ms linear, background-color 900ms ease-out',
+        }}
+      />
+    </div>
   );
 }
 
@@ -440,7 +469,7 @@ export function TiraPlan({ p }: { p: Prescripcion }) {
   if (partes.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flex: '0 0 auto' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, width: '100%' }}>
       <Mono size={12} color="var(--twin-muted)">
         {partes.join('  ·  ')}
       </Mono>

@@ -19,25 +19,14 @@ import type { TwinAppearance } from '../../types';
 import { fmtClock } from '../../sim';
 import { Label, Mono, SP } from '../../kit';
 import { esDecimal } from '../../datos-reales';
+import { Ambiente, FranjaAccion, Numeral, colorZona } from '../../kit-vivo';
+import { Apoyos, BotonToque, Chip, Drenaje, IconoCinta, IconoPulso, Objetivo, Pie, Verdad } from './atoms';
 import {
-  Ambiente,
-  Apoyos,
-  BotonToque,
-  Chip,
-  Cifra,
-  Drenaje,
-  IconoCinta,
-  IconoPulso,
-  Objetivo,
-  Pie,
-  Verdad,
-} from './atoms';
-import {
-  AccionPrincipal,
   Aviso,
   Cabecera,
+  CapaVivo,
   Destello,
-  Escena,
+  MarcoCorrer,
   VeloPausa,
   useAnuncio,
   useDestello,
@@ -111,9 +100,9 @@ export function EscenaCinta({
         </div>
       ) : (
         <>
-          <Cifra horizontal={horizontal} unidad="km/h" tono={foto.estimada ? 'var(--twin-warning)' : 'var(--twin-fg)'}>
+          <Numeral horizontal={horizontal} unidad="km/h" tono={foto.estimada ? 'var(--twin-warning)' : 'var(--twin-fg)'}>
             {kmh(foto.velocidadMs)}
-          </Cifra>
+          </Numeral>
           {foto.estimada && (
             <span style={{ font: '600 11px/1 var(--twin-font-sans)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--twin-warning)' }}>
               Lo has dicho tú, no la cinta
@@ -146,95 +135,102 @@ export function EscenaCinta({
   return (
     <>
       <Ambiente zona={foto.zona} appearance={appearance} />
-      <div className="twin-screen-safe">
-        <Escena
-          horizontal={horizontal}
-          cabecera={
-            <Cabecera
-              titulo={descansando ? 'Descanso' : `Serie ${serie.numero} de ${serie.total}`}
-              detalle={descansando ? '2:00 entre series' : '5×1.000 en cinta'}
-              pausado={pausado}
-              onPausa={() => {
-                setPausado((p) => !p);
-                onLog(`${reloj()} · ${pausado ? 'sigues' : 'en pausa'}`);
-              }}
-              chips={
-                <>
-                  <Chip texto={CINTA.nombre} estado={muda ? 'mudo' : 'ok'}>
-                    <IconoCinta size={10} />
-                  </Chip>
-                  <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
-                    <IconoPulso size={10} />
-                  </Chip>
-                </>
-              }
-            />
-          }
-          sujeto={descansando ? <SujetoDescanso horizontal={horizontal} foto={foto} /> : sujetoTrabajo}
-          apoyos={
-            descansando ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
-                <PulsoQueBaja horizontal={horizontal} ppm={foto.ppm} zona={foto.zona} />
-                <Siguiente
-                  titulo={`Serie ${serie.numero} de ${serie.total}`}
-                  objetivo={`1.000 m a ${OBJETIVO_CINTA.velocidad} km/h`}
-                />
-              </div>
-            ) : (
-              <Apoyos
-                horizontal={horizontal}
-                items={[
-                  {
-                    etiqueta: 'Inclinación',
-                    valor: muda ? null : INCLINACION,
-                    unidad: '%',
-                    ausente: 'sin dato',
-                  },
-                  { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo) },
-                  {
-                    etiqueta: 'Pulso',
-                    valor: foto.ppm === null ? null : `${foto.ppm}`,
-                    unidad: 'ppm',
-                    tono: foto.zona ? `var(--twin-z${foto.zona})` : undefined,
-                    ausente: 'sin reloj',
-                  },
-                ]}
-              />
-            )
-          }
-          accion={
-            <AccionPrincipal
-              titulo={descansando ? 'EMPEZAR YA' : 'SERIE HECHA'}
-              onClick={() => {
-                onLog(
-                  descansando
-                    ? `${reloj()} · te saltas lo que queda de descanso`
-                    : `${reloj()} · cierras el mil a mano, con ${distanciaMedida(foto.mTramo)} de ${METROS_CINTA} m`,
-                );
-                setToques((v) => ({ ...v, atajos: [...v.atajos, { t, idx: foto.idx }] }));
-              }}
-            />
-          }
-          velo={
-            pausado ? (
-              <VeloPausa
-                nota={
-                  declarada
-                    ? 'La cinta sigue andando: párala tú en la consola. Aquí no se cuentan metros hasta que vuelvas.'
-                    : 'La cinta sigue andando: párala tú en la consola.'
+      <CapaVivo
+        marco={
+          <MarcoCorrer
+            horizontal={horizontal}
+            cromo={
+              <Cabecera
+                titulo={descansando ? 'Descanso' : `Serie ${serie.numero} de ${serie.total}`}
+                detalle={descansando ? '2:00 entre series' : '5×1.000 en cinta'}
+                pausado={pausado}
+                onPausa={() => {
+                  setPausado((p) => !p);
+                  onLog(`${reloj()} · ${pausado ? 'sigues' : 'en pausa'}`);
+                }}
+                chips={
+                  <>
+                    <Chip texto={CINTA.nombre} estado={muda ? 'mudo' : 'ok'}>
+                      <IconoCinta size={10} />
+                    </Chip>
+                    <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
+                      <IconoPulso size={10} />
+                    </Chip>
+                  </>
                 }
-                onReanudar={() => setPausado(false)}
               />
-            ) : null
-          }
-          sobreimpreso={
-            <>
-              <Aviso anuncio={anuncio} />
-              <Destello hito={hito} />
-            </>
-          }
-        />
-      </div>
+            }
+            sujeto={descansando ? <SujetoDescanso horizontal={horizontal} foto={foto} /> : sujetoTrabajo}
+            apoyos={
+              descansando ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
+                  <PulsoQueBaja horizontal={horizontal} ppm={foto.ppm} zona={foto.zona} />
+                  <Siguiente
+                    titulo={`Serie ${serie.numero} de ${serie.total}`}
+                    objetivo={`1.000 m a ${OBJETIVO_CINTA.velocidad} km/h`}
+                  />
+                </div>
+              ) : (
+                <Apoyos
+                  horizontal={horizontal}
+                  items={[
+                    {
+                      etiqueta: 'Inclinación',
+                      valor: muda ? null : INCLINACION,
+                      unidad: '%',
+                      ausente: 'sin dato',
+                    },
+                    { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo) },
+                    {
+                      etiqueta: 'Pulso',
+                      valor: foto.ppm === null ? null : `${foto.ppm}`,
+                      unidad: 'ppm',
+                      tono: colorZona(foto.zona),
+                      ausente: 'sin reloj',
+                    },
+                  ]}
+                />
+              )
+            }
+            accion={
+              <FranjaAccion
+                titulo={descansando ? 'EMPEZAR YA' : 'SERIE HECHA'}
+                /* El mil lo cierran los metros que canta la cinta; el descanso,
+                   su cuenta atrás. El toque adelanta, no es la única salida —
+                   ni siquiera cuando la cinta calla, porque lo declarado sigue
+                   contando metros y el hito sigue pudiendo llegar. */
+                unicaSalida={false}
+                onClick={() => {
+                  onLog(
+                    descansando
+                      ? `${reloj()} · te saltas lo que queda de descanso`
+                      : `${reloj()} · cierras el mil a mano, con ${distanciaMedida(foto.mTramo)} de ${METROS_CINTA} m`,
+                  );
+                  setToques((v) => ({ ...v, atajos: [...v.atajos, { t, idx: foto.idx }] }));
+                }}
+              />
+            }
+          />
+        }
+        velo={
+          pausado ? (
+            <VeloPausa
+              nota={
+                declarada
+                  ? 'La cinta sigue andando: párala tú en la consola. Aquí no se cuentan metros hasta que vuelvas.'
+                  : 'La cinta sigue andando: párala tú en la consola.'
+              }
+              onReanudar={() => setPausado(false)}
+            />
+          ) : null
+        }
+        sobreimpreso={
+          <>
+            <Aviso anuncio={anuncio} />
+            <Destello hito={hito} />
+          </>
+        }
+      />
     </>
   );
 }

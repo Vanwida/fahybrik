@@ -25,9 +25,6 @@
 // AQUÍ, una sola vez — igual que `CURSOR_HYROX` en el entreno en vivo. Las tres
 // escenas derivan de estas curvas y por eso no pueden contradecirse entre sí.
 
-import { UMBRAL } from '../../datos-reales';
-import { hrZone } from '../../sim';
-
 export type Quien = 'tu' | 'pareja';
 
 /** Un trozo de la pieza remado por alguien, en metros del tramo. */
@@ -211,9 +208,9 @@ export function pulsoRecuperando(tDescansoS: number): number {
   return Math.round(132 + 40 * Math.exp(-Math.max(0, tDescansoS) / 45));
 }
 
-export function zonaDe(ppm: number): 1 | 2 | 3 | 4 | 5 {
-  return hrZone(ppm, UMBRAL.ppm);
-}
+// La zona de un pulso NO se calcula aquí: es `zonaDe` de `kit-vivo`, la misma
+// para las diez vistas en vivo (§10.1). Esta copia local existía desde antes del
+// kit y devolvía siempre una zona, sin el caso «sin pulso» que el §7 exige.
 
 // ---------------------------------------------------------------------------
 // Formato — nada se escribe a mano en las escenas (§2)
@@ -240,16 +237,7 @@ export function ritmoCifras(segundosPor500: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/**
- * Cómo va tu ritmo contra el objetivo del tramo. Devuelve null cuando está
- * dentro de un segundo: fingir una diferencia de medio segundo en un remo sería
- * ruido, no información.
- */
-export function contraObjetivo(
-  s500: number,
-): { texto: string; color: string } | null {
-  const delta = Math.round(s500 - TRAMO.objetivoS500);
-  if (delta === 0) return null;
-  if (delta < 0) return { texto: `${-delta} s por debajo`, color: 'var(--twin-ok)' };
-  return { texto: `${delta} s por encima`, color: 'var(--twin-warning)' };
-}
+// Cómo va tu ritmo contra el objetivo NO se escribe aquí: es `Delta` de
+// `kit-vivo` (§10), que ya dice contra qué compara y pinta el verde de «vas
+// mejor». Había una versión local que devolvía «2 s por encima» con su color a
+// mano, y era la misma lectura escrita por segunda vez.

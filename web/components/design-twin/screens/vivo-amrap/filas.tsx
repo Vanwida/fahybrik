@@ -3,10 +3,21 @@
 // Las filas del round y la franja del pulso: lo que se toca por línea y lo que
 // solo existe si hay reloj. Salen de `atoms.tsx` porque las usan las DOS caras
 // y porque aquel fichero llegó al límite de 500 líneas que fija el proyecto.
+//
+// POR QUÉ PESAN MENOS QUE ANTES (§10.4). Hasta el 29-jul cada fila era una
+// tarjeta maciza con borde de 1 px y superficie opaca, exactamente el mismo
+// aspecto que la caja donde vivía el «5» de las rondas. Cinco cajas apiladas y
+// el sujeto era una más de la lista. Ahora el sujeto ocupa la banda entera y la
+// corona una regla de acento, y estas filas bajan a peso de apoyo: sin borde,
+// superficie translúcida (el tinte de zona tiene que verse DEBAJO, o el
+// ambiente se corta en una línea recta a media pantalla) y la tinta del acento
+// reservada a la fila en curso. Siguen siendo tocables y siguen leyéndose de
+// pie: lo que cambia es que ya no compiten por ser el sujeto.
 
-import { IconCheckCircle, IconHeart, Label, Mono, RAD } from '../../kit';
+import { IconCheckCircle, IconHeart, RAD } from '../../kit';
 import { COLOR_MODALIDAD, UMBRAL } from '../../datos-reales';
 import { hrZone } from '../../sim';
+import { colorZona } from '../../kit-vivo';
 import { lineaMovimiento, type MovimientoAmrap } from './data';
 
 // ---------------------------------------------------------------------------
@@ -51,26 +62,32 @@ export function FilaMovimiento({
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
         width: '100%',
         ...(crece ? { flex: '1 0 auto' } : null),
-        padding: '13px 14px',
+        padding: '10px 12px',
         borderRadius: RAD.m,
-        border: `1px solid ${actual ? 'color-mix(in srgb, var(--twin-accent) 45%, transparent)' : 'var(--twin-hairline)'}`,
-        background: actual ? 'color-mix(in srgb, var(--twin-accent) 10%, var(--twin-surface))' : 'var(--twin-surface)',
+        border: 0,
+        // Translúcida a propósito: el tinte de zona tiene que verse DEBAJO de
+        // los apoyos, igual que en `Apoyo` de kit-vivo.
+        background: actual
+          ? 'color-mix(in srgb, var(--twin-accent) 14%, color-mix(in srgb, var(--twin-surface) 70%, transparent))'
+          : 'color-mix(in srgb, var(--twin-surface) 62%, transparent)',
+        boxShadow: actual ? 'inset 3px 0 0 var(--twin-accent)' : 'none',
         color: 'var(--twin-fg)',
         cursor: 'pointer',
         textAlign: 'left',
-        transition: 'background-color 200ms linear, border-color 200ms linear',
+        transition: 'background-color 200ms linear',
       }}
     >
       <span
         aria-hidden
         style={{
-          width: 10,
-          height: 10,
+          width: 8,
+          height: 8,
           borderRadius: '50%',
           flex: '0 0 auto',
+          marginLeft: actual ? 3 : 0,
           background: hecho ? 'transparent' : COLOR_MODALIDAD[movimiento.modalidad],
           border: hecho ? '1.5px solid var(--twin-faint)' : 'none',
         }}
@@ -79,8 +96,8 @@ export function FilaMovimiento({
         style={{
           flex: 1,
           minWidth: 0,
-          font: `italic ${actual ? 800 : 700} 20px/1.15 var(--twin-font-sans)`,
-          color: hecho ? 'var(--twin-faint)' : 'var(--twin-fg)',
+          font: `italic ${actual ? 800 : 600} 17px/1.15 var(--twin-font-sans)`,
+          color: hecho ? 'var(--twin-faint)' : actual ? 'var(--twin-fg)' : 'var(--twin-muted)',
           textDecoration: hecho ? 'line-through' : 'none',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
@@ -89,10 +106,12 @@ export function FilaMovimiento({
       >
         {lineaMovimiento(movimiento)}
       </span>
+      {/* Lo que va marcando la máquina es TRABAJO, no servicio: va en la voz de
+          instrumento y pesa más que el nombre del movimiento (§10.6, §4). */}
       {medida && (
-        <Mono size={15} weight={700} color="var(--twin-accent-text)">
+        <span className="t-readout-s" style={{ color: 'var(--twin-accent-text)', flex: '0 0 auto' }}>
           {medida}
-        </Mono>
+        </span>
       )}
       {hecho && (
         <span style={{ color: 'var(--twin-ok)', display: 'inline-flex', flex: '0 0 auto' }}>
@@ -124,18 +143,22 @@ export function FranjaPulso({ ppm }: { ppm: number | null }) {
         gap: 10,
         padding: '8px 12px',
         borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
+        background: 'color-mix(in srgb, var(--twin-surface) 62%, transparent)',
         flex: '0 0 auto',
       }}
     >
-      <span style={{ color: `var(--twin-z${zona})`, display: 'inline-flex' }}>
+      <span style={{ color: colorZona(zona), display: 'inline-flex' }}>
         <IconHeart size={13} />
       </span>
-      <Mono size={22} weight={800}>
+      {/* La cifra va del color de su zona — la misma que tiñe el lienzo detrás
+          (§10.1). El chip `Z4` se queda porque nombra la zona; el color solo la
+          insinúa. */}
+      <span className="t-readout-s" style={{ color: colorZona(zona), transition: 'color 600ms linear' }}>
         {ppm}
-      </Mono>
-      <Label size={10}>ppm</Label>
+      </span>
+      <span className="t-readout-label" style={{ color: 'var(--twin-muted)', letterSpacing: '0.1em' }}>
+        ppm
+      </span>
       <span style={{ flex: 1 }} />
       <span className="tw-zone" data-zone={zona}>
         Z{zona}

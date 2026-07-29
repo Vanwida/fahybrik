@@ -20,8 +20,10 @@
 
 import type { ReactNode } from 'react';
 import { IconClose, SP } from '../../kit';
+import type { TwinAppearance } from '../../types';
 import { fmtPace500 } from '../../sim';
-import { Ambiente, Fogonazo, Muescas, Pausa, zonaDe } from './atomos';
+import { Ambiente, Fogonazo, zonaDe } from '../../kit-vivo';
+import { Muescas, Pausa } from './atomos';
 import { CierreAncho, DescansoAncho, EsperaAncha } from './anchos';
 import { CuentaAtras } from './estados';
 import { BICI_SERIE_1, MAQUINA_NOMBRE, fmtElapsed, lecturaViva } from './data';
@@ -39,7 +41,15 @@ import { tituloAccion, useMotorErg, type EstadoErg, type Guion } from './motor';
 /** Alto de la franja de contexto, en pt del lienzo horizontal. */
 const FRANJA_ALTO = 40;
 
-export function CaraMonitor({ guion, onLog }: { guion: Guion; onLog: (linea: string) => void }) {
+export function CaraMonitor({
+  guion,
+  appearance,
+  onLog,
+}: {
+  guion: Guion;
+  appearance: TwinAppearance;
+  onLog: (linea: string) => void;
+}) {
   const e = useMotorErg(guion, onLog);
   const zona = zonaDe(e.pulso);
   const enDescanso = e.fase === 'descanso';
@@ -61,7 +71,7 @@ export function CaraMonitor({ guion, onLog }: { guion: Guion; onLog: (linea: str
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
-      <Ambiente zona={enDescanso ? null : zona} intensidad={16} />
+      <Ambiente zona={enDescanso ? null : zona} appearance={appearance} />
       <Fogonazo activo={e.fogonazo} />
       <div
         style={{
@@ -72,6 +82,10 @@ export function CaraMonitor({ guion, onLog }: { guion: Guion; onLog: (linea: str
           gap: 8,
           padding: `6px ${SP.m}px ${SP.s}px`,
           boxSizing: 'border-box',
+          // La cuenta atrás usa el numeral común, que mide el LIENZO y no la
+          // ventana: aquí no hay `MarcoVivo` que abra el contenedor, así que lo
+          // abre la propia cara (§10.2).
+          containerType: 'size',
         }}
       >
         <Franja e={e} onSalir={() => onLog('salir del entreno desde la cara de monitor')} />

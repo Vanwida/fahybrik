@@ -16,17 +16,9 @@ import { useState } from 'react';
 import type { TwinAppearance } from '../../types';
 import { fmtClock, fmtPaceKm } from '../../sim';
 import { SP } from '../../kit';
-import { Ambiente, Apoyos, BandaZona, Chip, Cifra, IconoPulso, IconoSenal } from './atoms';
-import {
-  AccionPrincipal,
-  Aviso,
-  Cabecera,
-  Escena,
-  VeloPausa,
-  useAnuncio,
-  useEventos,
-  useRelojPausable,
-} from './escena';
+import { Ambiente, FranjaAccion, Numeral, colorZona } from '../../kit-vivo';
+import { Apoyos, BandaZona, Chip, IconoPulso, IconoSenal } from './atoms';
+import { Aviso, Cabecera, CapaVivo, MarcoCorrer, VeloPausa, useAnuncio, useEventos, useRelojPausable } from './escena';
 import { GUIONES, relojSesion, simular, SIN_TOCAR, type Zona, UMBRAL } from './guion';
 import { distanciaMedida } from './formato';
 
@@ -67,9 +59,9 @@ export function EscenaRodaje({
     <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.m }}>
       {/* Sin pulso no hay número que pintar: se dice, no se deja el hueco (§7). */}
       {foto.ppm !== null && (
-        <Cifra horizontal={horizontal} tono={`var(--twin-z${foto.zona ?? 1})`} unidad="ppm">
+        <Numeral horizontal={horizontal} tono={colorZona(foto.zona)} unidad="ppm">
           {foto.ppm}
-        </Cifra>
+        </Numeral>
       )}
       <BandaZona zona={foto.zona} objetivo={ZONA_OBJETIVO} alto={horizontal ? 10 : 14} />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
@@ -94,58 +86,63 @@ export function EscenaRodaje({
   return (
     <>
       <Ambiente zona={foto.zona} appearance={appearance} />
-      <div className="twin-screen-safe">
-        <Escena
-          horizontal={horizontal}
-          cabecera={
-            <Cabecera
-              titulo="Rodaje"
-              detalle={`40:00 en Z${ZONA_OBJETIVO}`}
-              pausado={pausado}
-              onPausa={() => {
-                setPausado((p) => !p);
-                onLog(`${fmtClock(relojSesion(GUION, t))} · ${pausado ? 'sigues' : 'en pausa'}`);
-              }}
-              chips={
-                <>
-                  <Chip texto="Señal" estado="ok">
-                    <IconoSenal size={10} />
-                  </Chip>
-                  <Chip texto="Reloj" estado={foto.ppm === null ? 'buscando' : 'ok'}>
-                    <IconoPulso size={10} />
-                  </Chip>
-                </>
-              }
-            />
-          }
-          sujeto={sujeto}
-          apoyos={
-            <Apoyos
-              horizontal={horizontal}
-              items={[
-                { etiqueta: 'Ritmo', valor: foto.ritmoSkm ? fmtPaceKm(foto.ritmoSkm) : null, unidad: '/km', ausente: 'buscando señal' },
-                { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo), unidad: 'de 40:00' },
-                { etiqueta: 'Distancia', valor: distanciaMedida(foto.mSesion) },
-              ]}
-            />
-          }
-          accion={
-            <AccionPrincipal
-              titulo="TERMINAR RODAJE"
-              onClick={() => onLog(`${fmtClock(relojSesion(GUION, t))} · terminas el rodaje`)}
-            />
-          }
-          velo={
-            pausado ? (
-              <VeloPausa
-                nota="El reloj y los metros están parados. Cuando vuelvas, seguimos donde lo dejaste."
-                onReanudar={() => setPausado(false)}
+      <CapaVivo
+        marco={
+          <MarcoCorrer
+            horizontal={horizontal}
+            cromo={
+              <Cabecera
+                titulo="Rodaje"
+                detalle={`40:00 en Z${ZONA_OBJETIVO}`}
+                pausado={pausado}
+                onPausa={() => {
+                  setPausado((p) => !p);
+                  onLog(`${fmtClock(relojSesion(GUION, t))} · ${pausado ? 'sigues' : 'en pausa'}`);
+                }}
+                chips={
+                  <>
+                    <Chip texto="Señal" estado="ok">
+                      <IconoSenal size={10} />
+                    </Chip>
+                    <Chip texto="Reloj" estado={foto.ppm === null ? 'buscando' : 'ok'}>
+                      <IconoPulso size={10} />
+                    </Chip>
+                  </>
+                }
               />
-            ) : null
-          }
-          sobreimpreso={<Aviso anuncio={anuncio} />}
-        />
-      </div>
+            }
+            sujeto={sujeto}
+            apoyos={
+              <Apoyos
+                horizontal={horizontal}
+                items={[
+                  { etiqueta: 'Ritmo', valor: foto.ritmoSkm ? fmtPaceKm(foto.ritmoSkm) : null, unidad: '/km', ausente: 'buscando señal' },
+                  { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo), unidad: 'de 40:00' },
+                  { etiqueta: 'Distancia', valor: distanciaMedida(foto.mSesion) },
+                ]}
+              />
+            }
+            accion={
+              <FranjaAccion
+                titulo="TERMINAR RODAJE"
+                onClick={() => onLog(`${fmtClock(relojSesion(GUION, t))} · terminas el rodaje`)}
+                /* El rodaje lo cierra el hito de los 40:00, no el toque: aquí la
+                   acción es un atajo, y un atajo no se pinta como la salida. */
+                unicaSalida={false}
+              />
+            }
+          />
+        }
+        velo={
+          pausado ? (
+            <VeloPausa
+              nota="El reloj y los metros están parados. Cuando vuelvas, seguimos donde lo dejaste."
+              onReanudar={() => setPausado(false)}
+            />
+          ) : null
+        }
+        sobreimpreso={<Aviso anuncio={anuncio} />}
+      />
     </>
   );
 }

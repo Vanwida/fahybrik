@@ -1,20 +1,19 @@
 'use client';
 
 // Los átomos propios de «Correr». Todo lo que ya existía se usa del kit
-// compartido (`../../kit`): Card, Label, Mono, Display, CTA, SP, RAD. Aquí solo
-// vive lo que no existe todavía, que es lo que hace distinta a esta pantalla:
+// compartido (`../../kit`): Card, Label, Mono, Display, CTA, SP, RAD. Y el
+// lenguaje del entreno en vivo, del kit del §10 (`../../kit-vivo`): Ambiente,
+// Numeral, MarcoVivo, FranjaAccion. Aquí solo vive lo que es de correr:
 //
-//   Ambiente  — el lienzo ENTERO teñido del color de tu zona, con transición.
 //   BandaZona — las cinco zonas a lo ancho, con tu objetivo señalado.
-//   Cifra     — el dato que gobierna, escalado al lienzo (no al viewport).
 //   Drenaje   — lo que QUEDA del tramo, vaciándose de verdad.
 //   Apoyos    — la fila (o columna) de lecturas de segundo nivel.
 //
-// Si la propuesta se aprueba, `Ambiente`, `BandaZona` y `Drenaje` suben al kit:
-// los va a querer el HUD de remo y el de fuerza igual que este.
+// `Ambiente` y `Cifra` nacieron aquí y YA SUBIERON al kit compartido el 29-jul:
+// son el `Ambiente` y el `Numeral` de `kit-vivo`, y los pintan las diez vistas
+// en vivo. No se vuelven a escribir aquí ni «adaptados a este caso» (§10).
 
-import type { CSSProperties, ReactNode } from 'react';
-import type { TwinAppearance } from '../../types';
+import type { ReactNode } from 'react';
 import { Label, Mono, RAD, SP } from '../../kit';
 import type { Zona } from './guion';
 
@@ -22,72 +21,6 @@ const ZONAS: readonly Zona[] = [1, 2, 3, 4, 5];
 
 /** Radio de píldora. Lo escribe así `.tw-pill` en twin.css; el kit no lo exporta. */
 const PILDORA = 9999;
-
-// ---------------------------------------------------------------------------
-// Ambiente — la zona tiñe el aire, no una tarjeta
-// ---------------------------------------------------------------------------
-
-/**
- * Cuánto color aguanta cada tema. En oscuro el tinte tiene que subir para que
- * se lea a dos metros; en claro, con el mismo porcentaje, el lienzo se
- * emborrona y el texto pierde contraste. Por eso el reparto es por apariencia y
- * no un número único.
- */
-const MEZCLA: Record<TwinAppearance, { centro: number; suelo: number }> = {
-  dark: { centro: 30, suelo: 14 },
-  light: { centro: 17, suelo: 8 },
-};
-
-function capa(color: string, m: { centro: number; suelo: number }): string {
-  return [
-    `radial-gradient(115% 75% at 50% 20%, color-mix(in srgb, ${color} ${m.centro}%, transparent), transparent 70%)`,
-    `linear-gradient(to top, color-mix(in srgb, ${color} ${m.suelo}%, transparent), transparent 45%)`,
-  ].join(', ');
-}
-
-/**
- * Una capa por zona, y solo la viva a opacidad 1: así el cambio de zona se
- * TRANSICIONA (un degradado no interpola de un color a otro; dos capas sí).
- * Cuando no hay pulso no hay zona, y entonces no se tiñe nada: el lienzo queda
- * neutro en vez de fingir una intensidad.
- */
-export function Ambiente({
-  zona,
-  appearance,
-  acento = false,
-}: {
-  zona: Zona | null;
-  appearance: TwinAppearance;
-  /** Tiñe de naranja: se reserva para el instante en que algo se logra. */
-  acento?: boolean;
-}) {
-  const m = MEZCLA[appearance];
-  return (
-    <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-      {ZONAS.map((z) => (
-        <div
-          key={z}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: !acento && zona === z ? 1 : 0,
-            transition: 'opacity 1100ms ease',
-            background: capa(`var(--twin-z${z})`, m),
-          }}
-        />
-      ))}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: acento ? 1 : 0,
-          transition: 'opacity 500ms ease',
-          background: capa('var(--twin-accent)', m),
-        }}
-      />
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // BandaZona — las cinco, a lo ancho, con la tuya encendida
@@ -132,57 +65,6 @@ export function BandaZona({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Cifra — el dato que gobierna
-// ---------------------------------------------------------------------------
-
-/**
- * Escala con el LIENZO (unidades de contenedor), no con el viewport: dentro del
- * marco del doble el alto de la ventana no dice nada del alto del teléfono, y
- * con `vh` el número encogería en un portátil bajo aunque en el móvil hubiera
- * sitio de sobra. En horizontal manda el ancho, que es donde está el aire.
- */
-// Con el lienzo del iPhone 17 Pro (781 pt útiles en vertical, 756 de ancho en
-// horizontal) el 16 % sale a ~125 pt: el número más ancho que se pinta aquí
-// («12,5» con su unidad) cabe justo en los 378 pt de ancho útil, y a 125 pt se
-// lee de pie, a dos metros y con el móvil en el suelo.
-const TAMANOS: Record<'hero' | 'media', Record<'portrait' | 'landscape', string>> = {
-  hero: { portrait: 'clamp(64px, 16cqh, 140px)', landscape: 'clamp(64px, 16cqw, 140px)' },
-  media: { portrait: 'clamp(30px, 7cqh, 56px)', landscape: 'clamp(30px, 7cqw, 56px)' },
-};
-
-export function Cifra({
-  children,
-  horizontal,
-  escala = 'hero',
-  tono = 'var(--twin-fg)',
-  unidad,
-  style,
-}: {
-  children: ReactNode;
-  horizontal: boolean;
-  escala?: 'hero' | 'media';
-  tono?: string;
-  unidad?: string;
-  style?: CSSProperties;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center', ...style }}>
-      <span
-        className="t-readout-hero"
-        style={{ fontSize: TAMANOS[escala][horizontal ? 'landscape' : 'portrait'], color: tono, lineHeight: 0.95 }}
-      >
-        {children}
-      </span>
-      {unidad && (
-        <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>
-          {unidad}
-        </span>
-      )}
     </div>
   );
 }

@@ -3,29 +3,33 @@
 // Las piezas de «El minuto manda». Todas leen tokens: ni un hex, ni un tamaño
 // suelto que no salga de twin.css o del kit (CONTRATO-UI §0 y §4).
 //
-// La pieza que sostiene la tesis es `Drenaje`: el minuto no es un número en una
-// tarjeta, es EL FONDO de la pantalla. A tres metros, con el móvil en el suelo,
-// primero ves cuánta columna queda y de qué color es; los dígitos son la
-// lectura de cerca. Por eso el color del ambiente baña el lienzo entero y no un
-// chip de doce píxeles en una esquina.
+// LO QUE CAMBIÓ CON EL §10: el lienzo lo tiñe LA ZONA DE PULSO, no la fase del
+// minuto. Antes `Drenaje` bañaba la pantalla del color del ambiente —gris,
+// verde o el NARANJA DE MARCA—, y la zona quedaba relegada a un chip de diez
+// píxeles. Eso rompía dos reglas a la vez: el naranja de marca no es un color
+// de dato (§9.1) y la zona es la que tiñe el lienzo en las diez vistas (§10.1).
+//
+// El drenaje sobrevive porque la tesis se sostiene —a tres metros ves cuánta
+// columna queda antes de leer los dígitos—, pero como GEOMETRÍA neutra y por
+// debajo del ambiente. El significado del minuto (faena, tuyo, se acaba) lo
+// dicen el rótulo, el latido del numeral y el fogonazo del cambio.
 
 import type { CSSProperties, ReactNode } from 'react';
 import { IconClose, Label, Mono, RAD, RoundButton, SP } from '../../kit';
+import { EtiquetaSujeto, Numeral, Trabajo } from '../../kit-vivo';
 import { COLOR_MODALIDAD } from '../../datos-reales';
-import type { Ambiente, Tarea } from './data';
+import { dosis, type Ambiente as AmbienteMinuto, type Tarea } from './data';
 
 // ---------------------------------------------------------------------------
-// Los tres movimientos de la pantalla (aquí no hay hoja de estilos donde
+// Los dos movimientos de la pantalla (aquí no hay hoja de estilos donde
 // meterlos, y SMIL no anima cajas). Van con prefijo `vm-` para no pisar nada.
 // El bloque de reducción de movimiento de twin.css los cubre: apunta a
 // `.twin-root *`, y esto vive dentro.
 // ---------------------------------------------------------------------------
 
 const CSS = `
-@keyframes vm-flash { from { opacity: .5 } to { opacity: 0 } }
 @keyframes vm-entra { from { opacity: 0; transform: translateY(8px) scale(1.16) } to { opacity: 1; transform: none } }
 @keyframes vm-late  { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.035) } }
-.vm-flash { animation: vm-flash 320ms ease-out forwards; }
 .vm-entra { animation: vm-entra 300ms cubic-bezier(.16,.84,.44,1) both; }
 .vm-late  { animation: vm-late 1s ease-in-out infinite; }
 `;
@@ -35,7 +39,7 @@ export function EstilosEmom() {
 }
 
 // ---------------------------------------------------------------------------
-// El fondo: la columna del minuto
+// El fondo: la columna del minuto — geometría, no color de dato
 // ---------------------------------------------------------------------------
 
 /**
@@ -43,22 +47,23 @@ export function EstilosEmom() {
  * en un interval el trabajo drena sobre 45 y el cambio sobre 15, porque lo que
  * vives es la fase.
  *
+ * Va en neutro y a media intensidad, DEBAJO del tinte de zona: es un nivel que
+ * baja, no un estado que se colorea. Sin tono propio no hay forma de que nadie
+ * vuelva a colar el naranja de marca como si fuera un dato.
+ *
  * `claveFase` remonta la columna en cada cambio de fase o de ronda. Sin eso, la
  * transición de altura animaría el rellenado hacia arriba durante un segundo
  * entero justo cuando el reloj tiene que ser tajante: el minuto vuelve a estar
  * lleno de golpe, como en un reloj de pared.
  */
-export function Drenaje({
-  fraccion,
-  color,
-  claveFase,
-}: {
-  fraccion: number;
-  color: string;
-  claveFase: string;
-}) {
+export function Drenaje({ fraccion, claveFase }: { fraccion: number; claveFase: string }) {
+  const tono = 'var(--twin-neutral)';
+  const nivel = `${Math.max(0, Math.min(1, fraccion)) * 100}%`;
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {/* La columna, sin canto: su borde superior queda al 2 %, que a ojo no
+          existe. Antes acababa en un filo del 30 % y con el lienzo ya teñido
+          por la zona eso partía la pantalla en DOS fondos distintos. */}
       <div
         key={claveFase}
         style={{
@@ -66,44 +71,28 @@ export function Drenaje({
           left: 0,
           right: 0,
           bottom: 0,
-          height: `${Math.max(0, Math.min(1, fraccion)) * 100}%`,
-          background: `linear-gradient(to top, color-mix(in srgb, ${color} 26%, transparent), color-mix(in srgb, ${color} 5%, transparent))`,
-          transition: 'height 1000ms linear, background 260ms ease-out',
+          height: nivel,
+          background: `linear-gradient(to top, color-mix(in srgb, ${tono} 11%, transparent), color-mix(in srgb, ${tono} 2%, transparent))`,
+          transition: 'height 1000ms linear',
         }}
-      >
-        {/* El filo del nivel va DIFUMINADO, no como una línea de 2 px. La
-            primera versión lo llevaba nítido y a mitad de minuto le cruzaba una
-            raya por encima al número: justo al que hay que leer a tres metros.
-            Difuminado se sigue viendo dónde está el nivel y no corta un glifo. */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 18,
-            background: `linear-gradient(to bottom, color-mix(in srgb, ${color} 48%, transparent), transparent)`,
-          }}
-        />
-      </div>
+      />
+      {/* El nivel se marca con un resplandor CENTRADO en la línea, no con el
+          canto de la columna: se difumina hacia los dos lados, así que se ve
+          dónde va el minuto y no hay ninguna arista que cruce el numeral. */}
+      <div
+        key={`${claveFase}-nivel`}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: nivel,
+          height: 72,
+          marginBottom: -36,
+          background: `linear-gradient(to bottom, transparent, color-mix(in srgb, ${tono} 13%, transparent), transparent)`,
+          transition: 'bottom 1000ms linear',
+        }}
+      />
     </div>
-  );
-}
-
-/** El destello del cambio de minuto: el suceso que se ve sin mirar. */
-export function Flash({ clave, color }: { clave: string; color: string }) {
-  return (
-    <div
-      key={clave}
-      aria-hidden
-      className="vm-flash"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        background: `color-mix(in srgb, ${color} 55%, transparent)`,
-      }}
-    />
   );
 }
 
@@ -133,7 +122,7 @@ export function Chrome({
         alignItems: 'center',
         gap: SP.s,
         flex: '0 0 auto',
-        ...(compacto ? null : { alignSelf: 'stretch' }),
+        ...(compacto ? null : { width: '100%' }),
       }}
     >
       <RoundButton onClick={onSalir} label="Salir del entreno">
@@ -173,8 +162,7 @@ export function Franja({ children }: { children: ReactNode }) {
         display: 'flex',
         alignItems: 'center',
         gap: SP.s,
-        flex: '0 0 auto',
-        minHeight: 26,
+        width: '100%',
         flexWrap: 'wrap',
       }}
     >
@@ -220,116 +208,104 @@ export function puntoDe(t: Tarea): string {
 // ---------------------------------------------------------------------------
 
 /** Lo que dice cada ambiente encima del número. Un rótulo, no una frase. */
-export const ROTULO: Record<Ambiente, string> = {
+export const ROTULO: Record<AmbienteMinuto, string> = {
   faena: 'Queda',
   tuyos: 'Tuyos',
   aviso: 'Se acaba',
   cambio: 'Cambio',
 };
 
+/**
+ * EL MINUTO — el sujeto de la pantalla, en el numeral compartido (§10.2).
+ *
+ * El número va en la tinta normal: quien tiñe el lienzo es la zona, y el color
+ * del sujeto se lo deja al ambiente. Lo que dice en qué punto del minuto estás
+ * es el RÓTULO (queda · tuyos · se acaba · cambio), que sí se colorea, más el
+ * latido de los últimos segundos.
+ *
+ * Antes esto era un `font:` a mano de `clamp(88px, 22vh, 140px)` —con `vh`, que
+ * mide la ventana del navegador y no el teléfono— y un `letterSpacing` que la
+ * voz de instrumento no tiene.
+ */
 export function Hero({
   texto,
-  color,
+  tono,
   rotulo,
   late,
   etiquetaVoz,
+  horizontal = false,
 }: {
   texto: string;
-  color: string;
+  /** El color del RÓTULO: el ambiente del minuto. El numeral no se tiñe. */
+  tono: string;
   rotulo: string;
   late: boolean;
   etiquetaVoz: string;
+  horizontal?: boolean;
 }) {
   return (
     <div
       role="timer"
       aria-label={etiquetaVoz}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
     >
-      <Label size={11} color={color} style={{ letterSpacing: '0.22em' }}>
-        {rotulo}
-      </Label>
-      <span
-        aria-hidden
-        className={late ? 'vm-late' : undefined}
-        style={{
-          fontFamily: 'var(--twin-font-mono)',
-          fontWeight: 800,
-          // El número del box: crece con el lienzo hasta donde sigue cabiendo
-          // entero. «0:19» son 4 avances mono (~2,4 em), así que 140 px ocupan
-          // 336 de los 378 útiles del lienzo del iPhone 17 Pro. Es el tamaño
-          // máximo que se lee a tres metros sin partirse en dos líneas.
-          fontSize: 'clamp(88px, 22vh, 140px)',
-          lineHeight: 1,
-          fontVariantNumeric: 'tabular-nums',
-          letterSpacing: '-0.02em',
-          color,
-        }}
-      >
-        {texto}
-      </span>
+      <EtiquetaSujeto tono={tono}>{rotulo}</EtiquetaSujeto>
+      {/* El latido va en un envoltorio: `Numeral` es del kit y no se le cuelgan
+          clases por dentro. */}
+      <div aria-hidden className={late ? 'vm-late' : undefined}>
+        <Numeral horizontal={horizontal}>{texto}</Numeral>
+      </div>
     </div>
   );
 }
 
 /**
- * La tarea del minuto. Con monitor se lee como una fracción viva («7 / 12 cal»)
- * porque el denominador YA es la prescripción: escribir el 12 dos veces sería
- * ruido. Sin monitor se lee la dosis y nada más, que es todo lo que se sabe.
+ * EL TRABAJO DEL MINUTO — lo segundo más importante de la pantalla (§10.6).
+ *
+ * Vive DENTRO de la banda, pegado al minuto que lo gobierna, y no en un panel
+ * gris aparte más pequeño que el reloj: eso era exactamente lo que el §10.6
+ * nombra como el fallo de libro.
+ *
+ * Dos casos, y la diferencia es de honestidad:
+ *
+ *   la cuenta una MÁQUINA → fracción viva («11 de 12 cal»). El denominador ya
+ *                           es la prescripción; escribir el 12 dos veces sería
+ *                           ruido.
+ *   no la cuenta NADIE    → la DOSIS, que sí se sabe porque la escribió el
+ *                           coach. Lo que no se pinta es cuántas llevas: un
+ *                           contador a cero sería un dato inventado (§7).
  */
-export function TareaGrande({
+export function TrabajoMinuto({
   tarea,
   contador,
   hecha,
   atenuada,
 }: {
   tarea: Tarea;
+  /** Lo que marca el monitor ahora. Nulo = no hay quien cuente. */
   contador: number | null;
   hecha: boolean;
   atenuada: boolean;
 }) {
-  const color = hecha ? 'var(--twin-ok)' : 'var(--twin-fg)';
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 6,
+        gap: 2,
         opacity: atenuada ? 0.45 : 1,
         transition: 'opacity 240ms ease-out',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span
-          aria-hidden
-          style={{ width: 8, height: 8, borderRadius: '50%', background: puntoDe(tarea), flex: '0 0 auto' }}
-        />
-        <span
-          style={{
-            font: 'italic 800 28px/1.1 var(--twin-font-sans)',
-            letterSpacing: '-0.01em',
-            textTransform: 'uppercase',
-            color: 'var(--twin-fg)',
-          }}
-        >
-          {tarea.nombre}
-        </span>
-      </div>
-      {contador === null ? (
-        <Mono size={34} weight={800}>
-          {tarea.cantidad} {tarea.unidad}
-        </Mono>
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <Mono size={40} weight={800} color={color}>
-            {contador}
-          </Mono>
-          <Mono size={22} weight={700} color="var(--twin-muted)">
-            / {tarea.cantidad} {tarea.unidad}
-          </Mono>
-        </div>
-      )}
+      <Trabajo
+        nombre={tarea.nombre}
+        hecho={contador}
+        objetivo={contador === null ? null : tarea.cantidad}
+        unidad={tarea.unidad}
+        tono={hecha ? 'var(--twin-ok)' : 'var(--twin-fg)'}
+      />
+      {contador === null && <Numeral escala="segundo">{dosis(tarea)}</Numeral>}
     </div>
   );
 }
@@ -421,12 +397,18 @@ export function Traza({
 }
 
 // ---------------------------------------------------------------------------
-// El toque de «hecho» — el ÚNICO botón que puede existir en un EMOM
+// El sello del minuto — el estado en el que el toque ya está dado
 // ---------------------------------------------------------------------------
 
-const CAJA_ACCION: CSSProperties = {
+/**
+ * La franja cuando la ronda ya está sellada. Ocupa la MISMA franja que la
+ * acción (§10.3: las filas se reservan) y no pesa más que ella: el toque de
+ * «hecho» lo pinta `FranjaAccion` del kit, y en un EMOM va en contorno porque
+ * quien gobierna la transición es el RELOJ, no tu dedo (§10.5).
+ */
+const CAJA_SELLO: CSSProperties = {
   width: '100%',
-  height: 88,
+  height: '100%',
   borderRadius: RAD.l,
   display: 'flex',
   flexDirection: 'column',
@@ -435,32 +417,25 @@ const CAJA_ACCION: CSSProperties = {
   gap: 3,
 };
 
-export function BotonHecho({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="tw-btn-primary"
-      style={{ ...CAJA_ACCION, font: 'italic 800 26px/1 var(--twin-font-sans)', letterSpacing: '0.08em' }}
-    >
-      HECHO
-      <span style={{ font: '600 11px/1 var(--twin-font-sans)', letterSpacing: '0.1em', opacity: 0.75 }}>
-        SELLA TU TIEMPO DE ESTE MINUTO
-      </span>
-    </button>
-  );
-}
-
 export function SelloHecho({ texto }: { texto: string }) {
   return (
     <div
       style={{
-        ...CAJA_ACCION,
-        background: 'color-mix(in srgb, var(--twin-ok) 16%, transparent)',
+        ...CAJA_SELLO,
+        background: 'color-mix(in srgb, var(--twin-ok) 14%, transparent)',
         border: '1px solid color-mix(in srgb, var(--twin-ok) 45%, transparent)',
       }}
     >
-      <span style={{ font: 'italic 800 22px/1 var(--twin-font-sans)', color: 'var(--twin-ok)' }}>{texto}</span>
+      <span
+        style={{
+          font: 'italic 800 17px/1 var(--twin-font-sans)',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'var(--twin-ok)',
+        }}
+      >
+        {texto}
+      </span>
       <Label size={10} color="var(--twin-muted)">
         Este minuto ya es tuyo
       </Label>

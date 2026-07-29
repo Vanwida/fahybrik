@@ -16,13 +16,14 @@ import { useState } from 'react';
 import type { TwinAppearance } from '../../types';
 import { fmtClock, fmtPaceKm } from '../../sim';
 import { SP } from '../../kit';
-import { Ambiente, Apoyos, Chip, Cifra, Drenaje, IconoPulso, IconoSenal, Pie, Veredicto } from './atoms';
+import { Ambiente, FranjaAccion, Numeral, colorZona } from '../../kit-vivo';
+import { Apoyos, Chip, Drenaje, IconoPulso, IconoSenal, Pie, Veredicto } from './atoms';
 import {
-  AccionPrincipal,
   Aviso,
   Cabecera,
+  CapaVivo,
   Destello,
-  Escena,
+  MarcoCorrer,
   VeloPausa,
   useAnuncio,
   useDestello,
@@ -79,9 +80,9 @@ export function EscenaSeries({
       <span style={{ font: '600 12px/1 var(--twin-font-sans)', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--twin-muted)' }}>
         Te quedan
       </span>
-      <Cifra horizontal={horizontal} unidad="m">
+      <Numeral horizontal={horizontal} unidad="m">
         {metrosQueQuedan(foto.tramo, foto.mTramo)}
-      </Cifra>
+      </Numeral>
       <Drenaje fraccion={fraccion(foto.tramo, foto.tTramo, foto.mTramo)} tono={tono} />
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s, marginTop: SP.xs }}>
         {/* Sin señal no hay ritmo: se dice, no se inventa un número (§7). */}
@@ -89,9 +90,9 @@ export function EscenaSeries({
           <span style={{ font: '600 14px/1 var(--twin-font-sans)', color: 'var(--twin-warning)' }}>Buscando señal</span>
         ) : (
           <>
-            <Cifra horizontal={horizontal} escala="media" tono={tono} unidad="/km">
+            <Numeral horizontal={horizontal} escala="segundo" tono={tono} unidad="/km">
               {fmtPaceKm(foto.ritmoSkm)}
-            </Cifra>
+            </Numeral>
             <span className="t-readout-s" style={{ color: tono, fontSize: 15 }}>
               {`${delta(foto.ritmoSkm, foto.tramo.objetivoSkm ?? RITMO.serie400)} s/km`}
             </span>
@@ -110,86 +111,91 @@ export function EscenaSeries({
   return (
     <>
       <Ambiente zona={foto.zona} appearance={appearance} />
-      <div className="twin-screen-safe">
-        <Escena
-          horizontal={horizontal}
-          cabecera={
-            <Cabecera
-              titulo={descansando ? 'Descanso' : `Serie ${serie.numero} de ${serie.total}`}
-              detalle={descansando ? '90 s entre series' : `8×400 · ${OBJETIVO_SERIE.reloj} el 400`}
-              pausado={pausado}
-              onPausa={() => {
-                setPausado((p) => !p);
-                onLog(`${reloj()} · ${pausado ? 'sigues' : 'en pausa'}`);
-              }}
-              chips={
-                <>
-                  <Chip texto="Señal" estado="ok">
-                    <IconoSenal size={10} />
-                  </Chip>
-                  <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
-                    <IconoPulso size={10} />
-                  </Chip>
-                </>
-              }
-            />
-          }
-          sujeto={descansando ? <SujetoDescanso horizontal={horizontal} foto={foto} /> : sujetoTrabajo}
-          apoyos={
-            descansando ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
-                <PulsoQueBaja horizontal={horizontal} ppm={foto.ppm} zona={foto.zona} />
-                <Siguiente
-                  titulo={`Serie ${serie.numero} de ${serie.total}`}
-                  objetivo={`400 m a ${OBJETIVO_SERIE.reloj}`}
+      <CapaVivo
+        marco={
+          <MarcoCorrer
+            horizontal={horizontal}
+            cromo={
+              <Cabecera
+                titulo={descansando ? 'Descanso' : `Serie ${serie.numero} de ${serie.total}`}
+                detalle={descansando ? '90 s entre series' : `8×400 · ${OBJETIVO_SERIE.reloj} el 400`}
+                pausado={pausado}
+                onPausa={() => {
+                  setPausado((p) => !p);
+                  onLog(`${reloj()} · ${pausado ? 'sigues' : 'en pausa'}`);
+                }}
+                chips={
+                  <>
+                    <Chip texto="Señal" estado="ok">
+                      <IconoSenal size={10} />
+                    </Chip>
+                    <Chip texto={foto.ppm === null ? 'Reloj' : `${foto.ppm}`} estado={foto.ppm === null ? 'buscando' : 'ok'}>
+                      <IconoPulso size={10} />
+                    </Chip>
+                  </>
+                }
+              />
+            }
+            sujeto={descansando ? <SujetoDescanso horizontal={horizontal} foto={foto} /> : sujetoTrabajo}
+            apoyos={
+              descansando ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
+                  <PulsoQueBaja horizontal={horizontal} ppm={foto.ppm} zona={foto.zona} />
+                  <Siguiente
+                    titulo={`Serie ${serie.numero} de ${serie.total}`}
+                    objetivo={`400 m a ${OBJETIVO_SERIE.reloj}`}
+                  />
+                </div>
+              ) : (
+                <Apoyos
+                  horizontal={horizontal}
+                  items={[
+                    { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo) },
+                    {
+                      etiqueta: 'Pulso',
+                      valor: foto.ppm === null ? null : `${foto.ppm}`,
+                      unidad: 'ppm',
+                      tono: colorZona(foto.zona),
+                      ausente: 'sin reloj',
+                    },
+                    { etiqueta: 'Última', valor: ultima === undefined ? null : fmtClock(ultima), ausente: 'es la primera' },
+                  ]}
                 />
-              </div>
-            ) : (
-              <Apoyos
-                horizontal={horizontal}
-                items={[
-                  { etiqueta: 'Tiempo', valor: fmtClock(foto.tTramo) },
-                  {
-                    etiqueta: 'Pulso',
-                    valor: foto.ppm === null ? null : `${foto.ppm}`,
-                    unidad: 'ppm',
-                    tono: foto.zona ? `var(--twin-z${foto.zona})` : undefined,
-                    ausente: 'sin reloj',
-                  },
-                  { etiqueta: 'Última', valor: ultima === undefined ? null : fmtClock(ultima), ausente: 'es la primera' },
-                ]}
+              )
+            }
+            accion={
+              <FranjaAccion
+                titulo={descansando ? 'EMPEZAR YA' : 'SERIE HECHA'}
+                /* Los 400 los cierra el hito y el descanso lo cierra su cuenta
+                   atrás: en las dos el toque adelanta, no es la única salida. */
+                unicaSalida={false}
+                onClick={() => {
+                  onLog(
+                    descansando
+                      ? `${reloj()} · te saltas lo que queda de descanso`
+                      : `${reloj()} · cierras la serie a mano, sin llegar a los ${METROS_SERIE}`,
+                  );
+                  cerrarAMano();
+                }}
               />
-            )
-          }
-          accion={
-            <AccionPrincipal
-              titulo={descansando ? 'EMPEZAR YA' : 'SERIE HECHA'}
-              onClick={() => {
-                onLog(
-                  descansando
-                    ? `${reloj()} · te saltas lo que queda de descanso`
-                    : `${reloj()} · cierras la serie a mano, sin llegar a los ${METROS_SERIE}`,
-                );
-                cerrarAMano();
-              }}
+            }
+          />
+        }
+        velo={
+          pausado ? (
+            <VeloPausa
+              nota={`Llevas ${distanciaMedida(foto.mSesion)} de sesión. Al reanudar sigues en esta misma serie.`}
+              onReanudar={() => setPausado(false)}
             />
-          }
-          velo={
-            pausado ? (
-              <VeloPausa
-                nota={`Llevas ${distanciaMedida(foto.mSesion)} de sesión. Al reanudar sigues en esta misma serie.`}
-                onReanudar={() => setPausado(false)}
-              />
-            ) : null
-          }
-          sobreimpreso={
-            <>
-              <Aviso anuncio={anuncio} />
-              <Destello hito={hito} />
-            </>
-          }
-        />
-      </div>
+          ) : null
+        }
+        sobreimpreso={
+          <>
+            <Aviso anuncio={anuncio} />
+            <Destello hito={hito} />
+          </>
+        }
+      />
     </>
   );
 }

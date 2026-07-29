@@ -12,12 +12,17 @@
 //                  que la mida, y los metros que llegaste a hacer se quedan.
 
 import type { ReactNode } from 'react';
-import { Card, Label, Mono, SP } from '../../kit';
+import { Card, Mono, SP } from '../../kit';
+import { EtiquetaSujeto, Numeral } from '../../kit-vivo';
 import { Aviso, Sujeto } from './atomos';
 import { MAQUINA_NOMBRE, MEDIDA_UNIDAD, type Maquina, objetivoTexto } from './data';
 import type { EstadoErg } from './motor';
 
-/** El 3-2-1 se come la pantalla mientras corre. */
+/**
+ * El 3-2-1 se come la pantalla mientras corre. La cifra va en el numeral común
+ * (§10.2): tenía su propio `clamp(120px, 26vh, 190px)`, y el `vh` medía la
+ * ventana del navegador, no el alto del teléfono.
+ */
 export function CuentaAtras({
   e,
   landscape = false,
@@ -32,17 +37,10 @@ export function CuentaAtras({
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <Label size={10} color="var(--twin-accent-text)">Prepárate</Label>
-        <span
-          className="t-readout-hero"
-          style={{
-            fontSize: landscape ? 150 : 'clamp(120px, 26vh, 190px)',
-            color: 'var(--twin-accent-text)',
-            lineHeight: 1,
-          }}
-        >
+        <EtiquetaSujeto tono="var(--twin-accent-text)">Prepárate</EtiquetaSujeto>
+        <Numeral horizontal={landscape} tono="var(--twin-accent-text)">
           {e.cuenta}
-        </span>
+        </Numeral>
         <span
           style={{
             font: 'italic 800 20px/1.1 var(--twin-font-sans)',
@@ -105,47 +103,46 @@ export function BannerPrograma({ estado }: { estado: 'enviando' | 'listo' }) {
  * vivo simplemente no están: un raíl de guiones se lee como app rota, no como
  * silencio honesto. Y lo que se llegó a medir antes de perder el enlace se
  * queda, porque pasó de verdad.
+ *
+ * Viene en dos piezas porque son dos filas de la banda (§10.3): la orden cae en
+ * el sujeto, a la misma altura que el ritmo de la serie de al lado, y la puerta
+ * para volver a conectar cae en los apoyos. Antes iban juntas en un fragmento y
+ * el sujeto se corría hacia arriba tanto como midiera la tarjeta.
  */
-export function CuerpoSinMonitor({
-  e,
-  maquina,
-  onConectar,
-}: {
-  e: EstadoErg;
-  maquina: Maquina;
-  onConectar: () => void;
-}) {
+export function SujetoSinMonitor({ e }: { e: EstadoErg }) {
   const unidad = MEDIDA_UNIDAD[e.pres.medida];
   const objetivo = objetivoTexto(e.pres);
   return (
-    <>
-      <Sujeto
-        etiqueta={e.pres.series > 1 ? `Serie ${e.serie} de ${e.pres.series}` : e.pres.titulo}
-        valor={`${e.pres.cantidad}`}
-        unidad={unidad}
-        minPx={72}
-        maxPx={146}
-        extra={
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            {objetivo && <span className="tw-pill">{objetivo}</span>}
-            {e.medidoAntesDePerder != null && e.medidoAntesDePerder >= 1 && (
-              <Mono size={12} weight={600} color="var(--twin-muted)">
-                {e.medidoAntesDePerder} {unidad} antes de perder el monitor
-              </Mono>
-            )}
-          </div>
-        }
-      />
-      <Card padding={SP.m}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-            Sin monitor. Puedes hacerlo igual, pero no se medirá solo.
-          </span>
-          <button type="button" className="tw-btn-secondary" style={{ width: '100%', height: 44, fontSize: 14 }} onClick={onConectar}>
-            Conectar {MAQUINA_NOMBRE[maquina]}
-          </button>
+    <Sujeto
+      etiqueta={e.pres.series > 1 ? `Serie ${e.serie} de ${e.pres.series}` : e.pres.titulo}
+      valor={`${e.pres.cantidad}`}
+      unidad={unidad}
+      extra={
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          {objetivo && <span className="tw-pill">{objetivo}</span>}
+          {e.medidoAntesDePerder != null && e.medidoAntesDePerder >= 1 && (
+            <Mono size={12} weight={600} color="var(--twin-muted)">
+              {e.medidoAntesDePerder} {unidad} antes de perder el monitor
+            </Mono>
+          )}
         </div>
-      </Card>
-    </>
+      }
+    />
+  );
+}
+
+/** La salida del estado sin monitor: se puede seguir, y se puede reconectar. */
+export function PuertaSinMonitor({ maquina, onConectar }: { maquina: Maquina; onConectar: () => void }) {
+  return (
+    <Card padding={SP.m}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
+          Sin monitor. Puedes hacerlo igual, pero no se medirá solo.
+        </span>
+        <button type="button" className="tw-btn-secondary" style={{ width: '100%', height: 44, fontSize: 14 }} onClick={onConectar}>
+          Conectar {MAQUINA_NOMBRE[maquina]}
+        </button>
+      </div>
+    </Card>
   );
 }

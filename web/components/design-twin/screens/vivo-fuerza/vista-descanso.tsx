@@ -6,74 +6,25 @@
 // y eso merece pantalla propia y no una esquina. El descanso ES la dosis: 90 s
 // mal contados cambian la serie siguiente.
 //
-// La pantalla se tiñe de la zona del pulso que baja — calma medida, no un rojo
-// de alarma: aquí no pasa nada malo, estás recuperando. El naranja no aparece
-// hasta que se acaba, y entonces es lo único naranja que hay.
+// El lienzo se tiñe de la zona del pulso que baja, con el MISMO `Ambiente` que
+// el rodaje y el ergo (§10.1) — antes llevaba un tinte propio al 6-10 %, un
+// tercio del compartido, y por eso esta pantalla no se reconocía como la misma
+// app. Y lo que de verdad haces mientras descansas es RECUPERAR, así que el
+// pulso cayendo es el segundo peldaño del numeral y no una fila de servicio
+// (§10.6).
+//
+// El naranja no aparece hasta que se acaba, y entonces no lo pinta el fondo: lo
+// pinta la acción, que en ese instante pasa a ser lo único que puede cerrar el
+// tramo (`unicaSalida`, §10.5).
 
 import { useState } from 'react';
-import { Card, Hairline, IconCheckCircle, IconHeart, Label, Mono, Pantalla, SP, SecondaryCTA, CTA } from '../../kit';
-import { UMBRAL, reloj } from '../../datos-reales';
-import { hrZone, useTicker } from '../../sim';
-import { Sujeto, pastillaRir } from './atoms';
-import { pulsoTras, serie, serieTexto, type Prescripcion, type SerieHecha } from './data';
-
-const R_ANILLO = 92;
-const GROSOR = 13;
-const PERIMETRO = 2 * Math.PI * R_ANILLO;
-
-function Anillo({ fraccion, color, children }: { fraccion: number; color: string; children: React.ReactNode }) {
-  const lado = (R_ANILLO + GROSOR) * 2;
-  return (
-    <div style={{ position: 'relative', width: lado, height: lado }}>
-      <svg width={lado} height={lado} viewBox={`0 0 ${lado} ${lado}`} aria-hidden>
-        <g transform={`rotate(-90 ${lado / 2} ${lado / 2})`} fill="none" strokeLinecap="round">
-          <circle
-            cx={lado / 2}
-            cy={lado / 2}
-            r={R_ANILLO}
-            stroke="var(--twin-hairline-strong)"
-            strokeWidth={GROSOR}
-          />
-          <circle
-            cx={lado / 2}
-            cy={lado / 2}
-            r={R_ANILLO}
-            stroke={color}
-            strokeWidth={GROSOR}
-            strokeDasharray={PERIMETRO}
-            strokeDashoffset={PERIMETRO * (1 - Math.max(0, Math.min(1, fraccion)))}
-            style={{ transition: 'stroke-dashoffset 900ms linear, stroke 900ms ease-out' }}
-          />
-        </g>
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>{children}</div>
-    </div>
-  );
-}
-
-/** El pulso, solo si hay reloj. Sin reloj esta fila no existe (§7). */
-function Pulso({ ppm }: { ppm: number }) {
-  const zona = hrZone(ppm, UMBRAL.ppm);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: SP.s }}>
-        <span style={{ color: `var(--twin-z${zona})`, display: 'inline-flex' }}>
-          <IconHeart size={13} />
-        </span>
-        <Mono size={26} weight={800}>
-          {ppm}
-        </Mono>
-        <Label size={10}>ppm</Label>
-        <span className="tw-zone" data-zone={zona} style={{ marginLeft: 2 }}>
-          Z{zona}
-        </span>
-      </div>
-      <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-        de tu reloj · zona sobre umbral estimado
-      </span>
-    </div>
-  );
-}
+import { Card, Hairline, IconCheckCircle, Label, Mono, SP } from '../../kit';
+import { Ambiente, EtiquetaSujeto, FranjaAccion, MarcoVivo, Numeral, colorZona, zonaDe } from '../../kit-vivo';
+import type { TwinAppearance } from '../../types';
+import { reloj } from '../../datos-reales';
+import { useTicker } from '../../sim';
+import { BarraDescanso, Sujeto, dosisEnPeldanos, pastillaRir } from './atoms';
+import { pulsoTras, serieTexto, type Prescripcion, type SerieHecha } from './data';
 
 function Cierre({
   sellada,
@@ -123,6 +74,7 @@ export function VistaDescanso({
   serieHechaIndice,
   siguienteIndice,
   conReloj,
+  appearance,
   onEmpezar,
   onLog,
 }: {
@@ -132,6 +84,7 @@ export function VistaDescanso({
   serieHechaIndice: number;
   siguienteIndice: number;
   conReloj: boolean;
+  appearance: TwinAppearance;
   onEmpezar: () => void;
   onLog: (linea: string) => void;
 }) {
@@ -146,105 +99,88 @@ export function VistaDescanso({
   });
 
   const transcurrido = totalS - restante;
-  const ppm = pulsoTras(transcurrido);
-  const zona = hrZone(ppm, UMBRAL.ppm);
-  const proxima = serie(p.reps, p.cargaKg);
+  // Sin reloj en la muñeca no hay pulso, y sin pulso no hay zona ni tinte (§7).
+  const ppm = conReloj ? pulsoTras(transcurrido) : null;
+  const zona = zonaDe(ppm);
+  const proxima = dosisEnPeldanos(p.reps, p.cargaKg);
 
   const sellada = serieTexto(serieHecha.reps, serieHecha.cargaKg) ?? 'sin medida';
   const siguiente = [`serie ${siguienteIndice + 1} de ${p.series}`, serieTexto(p.reps, p.cargaKg)]
     .filter(Boolean)
     .join(' · ');
 
-  const tinte = fin
-    ? 'color-mix(in srgb, var(--twin-accent) 7%, transparent)'
-    : `color-mix(in srgb, var(--twin-z${zona}) ${conReloj ? 10 : 6}%, transparent)`;
-
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
-      <div
-        aria-hidden
-        style={{ position: 'absolute', inset: 0, background: tinte, transition: 'background 900ms ease-out' }}
-      />
-      <div style={{ position: 'relative', height: '100%' }}>
-        <Pantalla
-          accion={
-            fin ? (
-              <CTA
-                title={`EMPEZAR LA SERIE ${siguienteIndice + 1}`}
-                height={88}
-                onClick={() => {
-                  onLog(`Empieza la serie ${siguienteIndice + 1}`);
-                  onEmpezar();
-                }}
-              />
-            ) : (
-              <SecondaryCTA
-                title="Saltar el descanso"
-                height={54}
-                onClick={() => {
-                  onLog(`Descanso saltado con ${reloj(restante)} por delante`);
-                  setRestante(0);
-                }}
-              />
-            )
-          }
-        >
-          <div style={{ display: 'flex', alignItems: 'baseline', flex: '0 0 auto' }}>
+    <>
+      <Ambiente zona={zona} appearance={appearance} />
+      <MarcoVivo
+        cromo={
+          <div style={{ display: 'flex', alignItems: 'baseline', width: '100%' }}>
             <Label size={10}>{fin ? 'listo' : 'descanso'}</Label>
             <span style={{ flex: 1 }} />
             <Mono size={12} color="var(--twin-muted)">
               {reloj(totalS)} de plan
             </Mono>
           </div>
-
-          {fin && proxima ? (
-            <Sujeto
-              encima="Te toca"
-              cifra={proxima.cifra}
-              unidad={proxima.unidad}
-              nombre={p.ejercicio}
-              pastilla={pastillaRir(p.rir)}
-            />
+        }
+        contexto={
+          <BarraDescanso
+            fraccion={restante / totalS}
+            tono={fin ? 'var(--twin-accent)' : conReloj ? colorZona(zona) : 'var(--twin-muted)'}
+          />
+        }
+        sujeto={
+          fin && proxima ? (
+            <Sujeto encima="Te toca" dosis={proxima} nombre={p.ejercicio} pastilla={pastillaRir(p.rir)} />
           ) : (
-            <div
-              style={{
-                flex: '1 1 auto',
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: SP.l,
-              }}
-            >
-              <Anillo fraccion={restante / totalS} color={conReloj ? `var(--twin-z${zona})` : 'var(--twin-muted)'}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                  <span
-                    style={{
-                      fontFamily: 'var(--twin-font-mono)',
-                      fontWeight: 800,
-                      fontSize: 'clamp(46px, 11vh, 66px)',
-                      lineHeight: 1,
-                      fontVariantNumeric: 'tabular-nums',
-                      color: 'var(--twin-fg)',
-                    }}
-                  >
-                    {reloj(restante)}
+            <>
+              <EtiquetaSujeto>Afloja</EtiquetaSujeto>
+              <Numeral>{reloj(restante)}</Numeral>
+              {/* Lo que de verdad haces aquí es recuperar, y eso se mide: el
+                  pulso es el segundo peldaño, no una fila de servicio (§10.6). */}
+              {ppm !== null && (
+                <>
+                  <Numeral escala="segundo" tono={colorZona(zona)} unidad="ppm">
+                    {ppm}
+                  </Numeral>
+                  <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
+                    de tu reloj · zona sobre umbral estimado
                   </span>
-                  <Label size={9}>afloja</Label>
-                </div>
-              </Anillo>
-              {conReloj && <Pulso ppm={ppm} />}
-            </div>
-          )}
-
+                </>
+              )}
+            </>
+          )
+        }
+        apoyos={
           <Cierre
             sellada={`serie ${serieHechaIndice + 1} · ${sellada}`}
             cola={serieHecha.rirSentido != null ? `te quedaban ${serieHecha.rirSentido}` : undefined}
             siguiente={siguiente}
           />
-        </Pantalla>
-      </div>
-    </div>
+        }
+        accion={
+          fin ? (
+            <FranjaAccion
+              titulo={`EMPEZAR LA SERIE ${siguienteIndice + 1}`}
+              unicaSalida
+              onClick={() => {
+                onLog(`Empieza la serie ${siguienteIndice + 1}`);
+                onEmpezar();
+              }}
+            />
+          ) : (
+            // Saltar NO es la única salida: el reloj cierra el descanso solo. Por
+            // eso va en contorno y el naranja se guarda para cuando toca (§10.5).
+            <FranjaAccion
+              titulo="Saltar el descanso"
+              nota={`quedan ${reloj(restante)}`}
+              onClick={() => {
+                onLog(`Descanso saltado con ${reloj(restante)} por delante`);
+                setRestante(0);
+              }}
+            />
+          )
+        }
+      />
+    </>
   );
 }

@@ -1,17 +1,18 @@
 'use client';
 
-// El armazón que comparten los cuatro estados de «Correr»: la caja que reparte
-// el alto, la cabecera, la acción anclada, el velo de pausa y las dos cosas que
-// hacen que la pantalla se sienta VIVA (el destello de un hito y el aviso que
-// anuncia un parcial).
+// Lo que comparten los cuatro estados de «Correr» y NO es del lenguaje común:
+// la cabecera, el velo de pausa y las dos cosas que hacen que la pantalla se
+// sienta VIVA (el destello de un hito y el aviso que anuncia un parcial).
 //
-// Está aquí y no dentro de cada escena porque el sujeto cambia cuatro veces
-// (zona, metros que faltan, cuenta atrás, espera) pero el reparto del alto y el
-// sitio de la acción NO pueden cambiar: si el botón se mueve entre estados, a
-// 3:50 y con una mano se falla.
+// El reparto del alto y el sitio de la acción ya NO se deciden aquí: los pone
+// `MarcoVivo` + `FranjaAccion` de `../../kit-vivo`, para que el sujeto caiga a
+// la misma altura en las diez vistas en vivo y no solo en las cuatro de correr
+// (§10.3). Aquí había un `Escena` y un `AccionPrincipal` propios; eran la
+// versión de correr de lo que ahora es de todos.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CTA, Display, Label, RAD, RoundButton, SP } from '../../kit';
+import { BANDA, MarcoVivo } from '../../kit-vivo';
 import { useTicker } from '../../sim';
 import { IconoPausa, IconoPlay } from './atoms';
 import type { Evento, EventoEnT } from './guion';
@@ -274,37 +275,6 @@ export function useEventos(eventos: readonly EventoEnT[], manejar: (ev: Evento) 
   }, [eventos]);
 }
 
-/** La acción principal: 66 pt, ancha, y con estado apagado de verdad. */
-export function AccionPrincipal({
-  titulo,
-  onClick,
-  activo = true,
-}: {
-  titulo: string;
-  onClick: () => void;
-  activo?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={activo ? onClick : undefined}
-      disabled={!activo}
-      className="tw-btn-primary"
-      style={{
-        width: '100%',
-        height: 66,
-        letterSpacing: '0.06em',
-        background: activo ? 'var(--twin-accent)' : 'color-mix(in srgb, var(--twin-accent) 26%, transparent)',
-        color: activo ? 'var(--twin-accent-on)' : 'var(--twin-muted)',
-        boxShadow: activo ? 'var(--twin-shadow-card)' : 'none',
-        cursor: activo ? 'pointer' : 'default',
-      }}
-    >
-      {titulo}
-    </button>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // El velo de pausa
 // ---------------------------------------------------------------------------
@@ -331,34 +301,58 @@ export function VeloPausa({ nota, onReanudar }: { nota: string; onReanudar: () =
 }
 
 // ---------------------------------------------------------------------------
-// La caja: cómo se reparte el alto (§6.1 · gobierna)
+// La capa: el marco del §10 más lo que va POR ENCIMA de él
 // ---------------------------------------------------------------------------
 
 /**
- * Un dato manda y ESCALA hasta llenar; el resto se subordina. En vertical el
- * sujeto se queda con todo el centro y los apoyos son una tira baja. En
- * horizontal el sujeto se va a su columna y la derecha se lleva los apoyos y la
- * acción, para que el número siga siendo enorme con 402 pt de alto.
+ * `MarcoVivo` reparte el alto, pero el destello, el aviso y el velo de pausa no
+ * son filas: flotan sobre el lienzo. Esta capa es solo el contexto de
+ * posicionamiento que necesitan, dentro del safe area y no del marco del móvil
+ * (un velo que tape el notch tapa también la hora).
  */
-export function Escena({
+export function CapaVivo({ marco, velo, sobreimpreso }: { marco: ReactNode; velo?: ReactNode; sobreimpreso?: ReactNode }) {
+  return (
+    <div className="twin-screen-safe">
+      <div style={{ position: 'relative', height: '100%' }}>
+        {marco}
+        {velo}
+        {sobreimpreso}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * EL MARCO DE CORRER — `MarcoVivo` en vertical, dos columnas al girar.
+ *
+ * En vertical no hay nada propio: la banda, el numeral y la acción son las del
+ * §10 y el sujeto cae a los mismos 345 pt que en el ergo.
+ *
+ * Girado sí hay algo propio, y por la misma razón que el ergo tiene su cara de
+ * monitor: con 402 pt de alto la banda de 340 no cabe, y la degradación a una
+ * columna que hace `MarcoVivo` deja al sujeto ~50 pt y lo monta encima de los
+ * apoyos. Aquí el sujeto se va a su columna y la derecha se lleva los apoyos y
+ * la acción, que es lo que ya hacía esta pantalla. Lo que NO cambia al girar es
+ * la voz: mismo tinte, mismo numeral, misma franja de acción.
+ */
+export function MarcoCorrer({
   horizontal,
-  cabecera,
+  cromo,
+  contexto,
   sujeto,
   apoyos,
   accion,
-  velo,
-  sobreimpreso,
 }: {
   horizontal: boolean;
-  cabecera: ReactNode;
+  cromo?: ReactNode;
+  contexto?: ReactNode;
   sujeto: ReactNode;
   apoyos?: ReactNode;
   accion?: ReactNode;
-  /** Velo de pausa: tapa el lienzo entero cuando está. */
-  velo?: ReactNode;
-  /** Destellos y avisos, que van por encima de todo y no capturan toques. */
-  sobreimpreso?: ReactNode;
 }) {
+  if (!horizontal) {
+    return <MarcoVivo cromo={cromo} contexto={contexto} sujeto={sujeto} apoyos={apoyos} accion={accion} />;
+  }
   return (
     <div
       style={{
@@ -367,30 +361,31 @@ export function Escena({
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: SP.m,
-        padding: `${SP.s}px ${SP.m}px ${SP.m}px`,
-        // El sujeto escala con el LIENZO gracias a esto (ver `Cifra`).
+        gap: BANDA.hueco,
+        padding: BANDA.hueco,
+        // El numeral escala con el LIENZO, y aquí no hay `MarcoVivo` que abra
+        // el contenedor de consulta: lo abre este marco (§10.2).
         containerType: 'size',
       }}
     >
-      {cabecera}
-      {horizontal ? (
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.l, alignItems: 'stretch' }}>
-          <div style={{ flex: '1.25 1 0', minWidth: 0, display: 'grid', placeItems: 'center' }}>{sujeto}</div>
-          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.s }}>
-            {apoyos}
-            {accion}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>{sujeto}</div>
+      {cromo}
+      {contexto}
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.l, alignItems: 'stretch' }}>
+        <div style={{ flex: '1.25 1 0', minWidth: 0, display: 'grid', placeItems: 'center' }}>{sujeto}</div>
+        <div
+          style={{
+            flex: '1 1 0',
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: SP.s,
+          }}
+        >
           {apoyos}
-          {accion}
-        </>
-      )}
-      {velo}
-      {sobreimpreso}
+          {accion && <div style={{ height: BANDA.accion, flex: '0 0 auto' }}>{accion}</div>}
+        </div>
+      </div>
     </div>
   );
 }

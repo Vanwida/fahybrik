@@ -1,66 +1,33 @@
 'use client';
 
-// El cromo del bloque: lo que envuelve al sujeto y no se va nunca.
+// El cromo del bloque y su franja de contexto — lo que envuelve al sujeto y no
+// se va nunca.
 //
-// La franja existe porque en un For Time el crono del bloque ES la puntuación.
-// No puede desaparecer al abrir una hoja, ni al pausar, ni al sellar una
-// estación. Vive arriba, con superficie propia, y consigue su presencia por
-// sitio y por voz (mono de instrumento) en vez de por tamaño: si compitiera en
-// tamaño con el sujeto, la pantalla tendría dos sujetos y ninguno mandaría.
+// EL CRONO. En un For Time el crono del bloque ES la puntuación, así que no
+// puede desaparecer al abrir una hoja, ni al pausar, ni al sellar una estación.
+// Pero tampoco puede COMPETIR: hasta el 29-jul vivía en una barra con
+// superficie propia y a 34 px, y la pantalla acababa con dos numerales y
+// ninguno mandando. Ahora vive en la fila `contexto` de `MarcoVivo` (§10.3), en
+// la voz de instrumento pero un escalón por debajo: presencia por SITIO, no por
+// tamaño.
+//
+// EL TINTE. Ya no sale de aquí. Lo pone la ZONA DE PULSO (`Ambiente` de
+// `kit-vivo`, §10.1). Antes lo ponía la modalidad del tramo activo, y el
+// resultado se veía de lejos: lienzo verde azulado (remo) mientras el pulso
+// marcaba 164 ppm en Z4 — el fondo diciendo una cosa y el atleta otra. La
+// modalidad sigue marcando el tramo donde le toca, que es el punto de color de
+// cada fila de la ruta.
 
-import { Mono, RAD, SP } from '../../kit';
+import { RAD, SP } from '../../kit';
 import { reloj } from '../../datos-reales';
 
 // ---------------------------------------------------------------------------
-// El ambiente — el tramo activo tiñe la pantalla con su modalidad
-// ---------------------------------------------------------------------------
-
-export function Ambiente({ color }: { color: string }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        background: `radial-gradient(ellipse 120% 60% at 50% 22%, color-mix(in srgb, ${color} 20%, transparent), transparent 72%)`,
-        transition: 'background 600ms ease-out',
-      }}
-    />
-  );
-}
-
-/**
- * El fogonazo del suceso: entra de golpe y se va solo.
- *
- * La asimetría de la transición es el efecto entero — al encender no hay
- * transición (el suceso es instantáneo, como el pitido del monitor), y al
- * apagar hay 700 ms de caída. `activo` lo DERIVA quien lo usa del reloj
- * (`recienSellado`), así que aquí no hay ni estado ni temporizador.
- */
-export function Flash({ activo, color }: { activo: boolean; color: string }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        background: `color-mix(in srgb, ${color} 45%, transparent)`,
-        opacity: activo ? 1 : 0,
-        transition: activo ? 'none' : 'opacity 700ms ease-out',
-      }}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// La franja — la puntuación, siempre
+// El cromo — de qué formato es esto y dónde estás dentro
 // ---------------------------------------------------------------------------
 
 function IconPausa({ reanudar }: { reanudar: boolean }) {
   return (
-    <svg width={15} height={15} viewBox="0 0 16 16" aria-hidden>
+    <svg width={13} height={13} viewBox="0 0 16 16" aria-hidden>
       {reanudar ? (
         <path d="M4.5 3 13 8l-8.5 5V3Z" fill="currentColor" />
       ) : (
@@ -73,123 +40,109 @@ function IconPausa({ reanudar }: { reanudar: boolean }) {
   );
 }
 
-export interface CapEstado {
-  totalS: number;
-  restanteS: number;
-  /** Último minuto: la franja se pone naranja y lo dice. */
-  urgente: boolean;
-}
-
 /**
- * La franja — y el motivo de que exista en las DOS caras.
- *
- * «El formato nunca suelta la franja»: gires como gires, el For Time sigue
- * siendo un For Time, así que su puntuación y dónde estás no se van. Lo que
- * cambia al girar no es QUÉ lleva, es cómo se pliega: en horizontal el alto es
- * el recurso escaso (381 pt contra 781), así que el cap y el aviso se meten en
- * la misma línea en vez de apilarse debajo.
+ * La fila de cromo: pausar, el formato y en qué tramo vas. Todo en una línea de
+ * 34 pt — el mismo botón redondo que el AMRAP, para que dos formatos del mismo
+ * entreno no tengan dos cromos distintos.
  */
-export function Franja({
+export function CromoFormato({
   posicion,
-  scoreS,
-  cap,
   pausado,
   onPausa,
-  compacta = false,
 }: {
   posicion: string;
-  scoreS: number;
-  cap?: CapEstado;
   pausado: boolean;
   onPausa: () => void;
-  /** Horizontal: todo en una línea. */
-  compacta?: boolean;
 }) {
-  const urgente = cap?.urgente ?? false;
   return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        padding: compacta ? `2px ${SP.m}px` : `${SP.s}px ${SP.m}px ${cap ? SP.s : SP.m}px`,
-        background: urgente
-          ? 'color-mix(in srgb, var(--twin-accent) 24%, var(--twin-surface))'
-          : 'var(--twin-surface)',
-        borderBottom: '1px solid var(--twin-hairline-strong)',
-        transition: 'background-color 500ms ease-out',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: SP.s }}>
-        <button
-          type="button"
-          onClick={onPausa}
-          aria-label={pausado ? 'Reanudar el entreno' : 'Pausar el entreno'}
-          style={{
-            width: 44,
-            height: 44,
-            marginLeft: -10,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'transparent',
-            border: 0,
-            padding: 0,
-            color: 'var(--twin-muted)',
-            cursor: 'pointer',
-          }}
-        >
-          <IconPausa reanudar={pausado} />
-        </button>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-          <span
-            style={{
-              font: 'italic 800 10px/1 var(--twin-font-sans)',
-              letterSpacing: '0.12em',
-              color: 'var(--twin-accent-text)',
-            }}
-          >
-            FOR TIME
-          </span>
-          <span style={{ font: '600 12px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-            {pausado ? 'En pausa' : posicion}
-          </span>
-        </div>
-        <span style={{ flex: 1 }} />
-        {/* En horizontal el cap viaja en la propia línea: es lo mismo que
-            arriba, plegado de otra manera, no una segunda versión. */}
-        {compacta && cap && (
-          <div style={{ flex: '0 1 260px', minWidth: 140 }}>
-            <BarraCap {...cap} sinMargen />
-          </div>
-        )}
-        {compacta && urgente && <AvisoUltimoMinuto />}
-        <span
-          className="t-readout-m"
-          style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}
-        >
-          {reloj(scoreS)}
-        </span>
-      </div>
-      {!compacta && cap && <BarraCap {...cap} />}
-      {!compacta && urgente && (
-        <div style={{ marginTop: SP.xs }}>
-          <AvisoUltimoMinuto />
-        </div>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, width: '100%', minWidth: 0 }}>
+      <button
+        type="button"
+        onClick={onPausa}
+        aria-label={pausado ? 'Reanudar el entreno' : 'Pausar el entreno'}
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: '50%',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--twin-surface)',
+          border: '1px solid var(--twin-hairline)',
+          color: 'var(--twin-muted)',
+          cursor: 'pointer',
+          padding: 0,
+          flex: '0 0 auto',
+        }}
+      >
+        <IconPausa reanudar={pausado} />
+      </button>
+      <span
+        style={{
+          font: 'italic 800 10px/1 var(--twin-font-sans)',
+          letterSpacing: '0.12em',
+          color: 'var(--twin-accent-text)',
+          flex: '0 0 auto',
+        }}
+      >
+        FOR TIME
+      </span>
+      <span
+        style={{
+          font: '600 12px/1 var(--twin-font-sans)',
+          color: 'var(--twin-muted)',
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {pausado ? 'En pausa' : posicion}
+      </span>
+      <span style={{ flex: 1 }} />
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// El contexto — la puntuación, y el cap cuando lo hay
+// ---------------------------------------------------------------------------
+
+export interface CapEstado {
+  totalS: number;
+  restanteS: number;
+  /** Último minuto: el contexto se pone naranja y lo dice. */
+  urgente: boolean;
+}
+
 /**
- * Lo dice, y se calla. El aviso es la información de que se acaba, no una
- * arenga: el naranja ya grita bastante, y la barra de al lado ya dice «de
- * cap». Una sola redacción para las dos caras — la misma frase escrita dos
- * veces es como empiezan las tres grafías del ritmo (§2).
+ * La franja que no desaparece jamás. El crono va en `t-readout-s` (22 pt): la
+ * misma voz de instrumento que el sujeto, un escalón por debajo.
+ *
+ * El aviso del último minuto NO se escribe en una línea aparte — se dice en la
+ * etiqueta del propio crono. Una sola redacción para las dos caras: la misma
+ * frase escrita dos veces es como empiezan las tres grafías del ritmo (§2).
  */
-function AvisoUltimoMinuto() {
+export function ContextoFormato({ scoreS, cap }: { scoreS: number; cap?: CapEstado }) {
+  const urgente = cap?.urgente ?? false;
+  // «Último minuto» solo mientras QUEDA cap. Con el cap agotado el crono ya no
+  // avisa de nada: es lo que tardaste, y la barra de al lado dice el resto.
+  const avisa = urgente && (cap?.restanteS ?? 0) > 0;
   return (
-    <span style={{ font: '600 11px/1 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
-      Último minuto.
-    </span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: SP.m, width: '100%', minWidth: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, flex: '0 0 auto' }}>
+        <span className="t-readout-s" style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}>
+          {reloj(scoreS)}
+        </span>
+        <span
+          className="t-readout-label"
+          style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-muted)', letterSpacing: '0.1em' }}
+        >
+          {avisa ? 'último minuto' : 'tu tiempo'}
+        </span>
+      </span>
+      {cap ? <BarraCap {...cap} /> : <span style={{ flex: 1 }} />}
+    </div>
   );
 }
 
@@ -197,16 +150,17 @@ function AvisoUltimoMinuto() {
  * El cap es lo único que se pinta como progreso, y puede: es tiempo, y el
  * tiempo se mide. Las repeticiones no llevan barra por la misma razón.
  */
-function BarraCap({ totalS, restanteS, urgente, sinMargen = false }: CapEstado & { sinMargen?: boolean }) {
+function BarraCap({ totalS, restanteS, urgente }: CapEstado) {
   const usado = Math.min(1, Math.max(0, (totalS - restanteS) / totalS));
   const tinte = urgente ? 'var(--twin-accent)' : 'var(--twin-muted)';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, marginTop: sinMargen ? 0 : SP.s }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: SP.s }}>
       <div
         role="img"
         aria-label={`Cap de ${reloj(totalS)}. Quedan ${reloj(restanteS)}.`}
         style={{
           flex: 1,
+          minWidth: 0,
           height: 4,
           borderRadius: RAD.s,
           background: 'var(--twin-surface-sunken)',
@@ -215,10 +169,10 @@ function BarraCap({ totalS, restanteS, urgente, sinMargen = false }: CapEstado &
       >
         <div style={{ width: `${usado * 100}%`, height: '100%', background: tinte, transition: 'width 500ms linear' }} />
       </div>
-      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
-        <Mono size={14} weight={700} color={urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)'}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, flex: '0 0 auto' }}>
+        <span className="t-readout-s" style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}>
           {reloj(restanteS)}
-        </Mono>
+        </span>
         <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>de cap</span>
       </span>
     </div>

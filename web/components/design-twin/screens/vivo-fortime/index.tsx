@@ -62,7 +62,7 @@ export const escenarios: TwinEscenario[] = [
   },
 ];
 
-export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
+export function Screen({ escenario, orientation, appearance, onLog }: TwinScreenProps) {
   const aPulso = escenario === 'a-pulso-cap' || escenario === 'cap-encima';
   // La orientación es un PROP, no una clave de remontaje: el estudio no cambia
   // la `key` al girar, así que el guion, el crono y tus cortes siguen donde
@@ -71,9 +71,9 @@ export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
   return (
     <div className="twin-screen-safe">
       {aPulso ? (
-        <EscenaPulso escenario={escenario} landscape={landscape} onLog={onLog} />
+        <EscenaPulso escenario={escenario} landscape={landscape} appearance={appearance} onLog={onLog} />
       ) : (
-        <EscenaHyrox escenario={escenario} landscape={landscape} onLog={onLog} />
+        <EscenaHyrox escenario={escenario} landscape={landscape} appearance={appearance} onLog={onLog} />
       )}
     </div>
   );

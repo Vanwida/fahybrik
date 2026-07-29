@@ -87,7 +87,7 @@ function guionDe(escenario: string): Guion {
   return GUION[escenario] ?? GUION['series-remo'];
 }
 
-export function Screen({ orientation, escenario, onLog }: TwinScreenProps) {
+export function Screen({ orientation, appearance, escenario, onLog }: TwinScreenProps) {
   const guion = guionDe(escenario);
   const landscape = orientation === 'landscape';
 
@@ -112,11 +112,11 @@ export function Screen({ orientation, escenario, onLog }: TwinScreenProps) {
   // monitor, la corra el escenario que la corra. Y el escenario que existe para
   // enseñarla, en vertical, previsualiza en vez de dejar un callejón.
   const cuerpo = landscape ? (
-    <CaraMonitor guion={guion} onLog={onLog} />
+    <CaraMonitor guion={guion} appearance={appearance} onLog={onLog} />
   ) : escenario === 'horizontal-monitor' ? (
-    <InvitacionAGirar guion={guion} />
+    <InvitacionAGirar guion={guion} appearance={appearance} />
   ) : (
-    <CaraVertical guion={guion} onLog={onLog} />
+    <CaraVertical guion={guion} appearance={appearance} onLog={onLog} />
   );
 
   return <div className="twin-screen-safe">{cuerpo}</div>;

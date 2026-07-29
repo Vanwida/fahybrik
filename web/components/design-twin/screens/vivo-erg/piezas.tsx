@@ -11,7 +11,8 @@
 
 import { Card, Hairline, Label, Mono, SP } from '../../kit';
 import { fmtClock, fmtPace500 } from '../../sim';
-import { BarraDrenaje, Celda, Delta, zonaDe, COLOR_ZONA } from './atomos';
+import { Apoyo, BandaSujeto, Delta, EtiquetaSujeto, Numeral, colorZona, zonaDe } from '../../kit-vivo';
+import { BarraDrenaje } from './atomos';
 import {
   CADENCIA_UNIDAD,
   MEDIDA_UNIDAD,
@@ -142,14 +143,19 @@ export interface SujetoErg {
   etiqueta: string;
   valor: string;
   unidad: string;
-  /** Máximo del readout: lo fija el ancho del lienzo, no el gusto. */
-  maxPx: number;
   color?: string;
 }
 
 /**
  * El crono lleva ETIQUETA, no solo cifra: mientras espera a la máquina dice
  * «empieza al remar» en vez de enseñar un 00:00 que parece la app rota.
+ *
+ * Va sobre `BandaSujeto dominante` (§10.4): la superficie del ergo se gana la
+ * caja porque ES la pantalla —ocupa el centro, la corona la regla de acento y
+ * todo lo demás se le subordina—, y ese es exactamente el caso que el contrato
+ * bendice. El `div` de fuera existe porque `MarcoVivo` no deja pasar
+ * `dominante` a su banda, y sin él la superficie se encoge a su contenido en
+ * vez de ocupar la banda entera.
  */
 export function HeroErg({
   e,
@@ -165,45 +171,25 @@ export function HeroErg({
 }) {
   const armado = e.fase === 'armado';
   return (
-    <Card padding={SP.m} topAccent elevated fill>
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-        }}
-      >
-        <Label size={10}>{sujeto.etiqueta}</Label>
-        <span
-          className="t-readout-hero"
-          style={{
-            fontSize: `clamp(64px, 16vh, ${sujeto.maxPx}px)`,
-            color: sujeto.color ?? 'var(--twin-fg)',
-            transition: 'color 600ms linear',
-          }}
-        >
+    <div style={{ width: '100%', height: '100%', display: 'grid' }}>
+      <BandaSujeto dominante>
+        <EtiquetaSujeto>{sujeto.etiqueta}</EtiquetaSujeto>
+        <Numeral tono={sujeto.color} unidad={sujeto.unidad}>
           {sujeto.valor}
-        </span>
-        <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>{sujeto.unidad}</span>
-        {delta && (
-          <div style={{ marginTop: 6 }}>
-            <Delta {...delta} />
+        </Numeral>
+        {delta && <Delta {...delta} />}
+        <div style={{ width: '100%', padding: `0 ${SP.m}px`, boxSizing: 'border-box' }}>
+          <Hairline style={{ margin: '6px 0' }} />
+          <div style={{ display: 'flex', gap: SP.s }}>
+            {media != null && <SubLectura valor={media} etiqueta="media /500m" />}
+            <SubLectura
+              valor={fmtElapsed(e.t)}
+              etiqueta={armado ? 'empieza al remar' : e.pres.series > 1 ? 'esta serie' : 'este tramo'}
+            />
           </div>
-        )}
-        <Hairline style={{ alignSelf: 'stretch', margin: '8px 0 6px' }} />
-        <div style={{ display: 'flex', gap: SP.s, alignSelf: 'stretch' }}>
-          {media != null && <SubLectura valor={media} etiqueta="media /500m" />}
-          <SubLectura
-            valor={fmtElapsed(e.t)}
-            etiqueta={armado ? 'empieza al remar' : e.pres.series > 1 ? 'esta serie' : 'este tramo'}
-          />
         </div>
-      </div>
-    </Card>
+      </BandaSujeto>
+    </div>
   );
 }
 
@@ -243,13 +229,13 @@ export function RailTrabajo({ e, viva, maquina }: { e: EstadoErg; viva: LecturaV
   const vatiosEnSujeto = e.pres.medida === 'calorias';
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      {!mudo && <Celda etiqueta={CADENCIA_UNIDAD[maquina].split('/')[0]} valor={`${viva.cadencia}`} />}
+      {!mudo && <Apoyo etiqueta={CADENCIA_UNIDAD[maquina].split('/')[0]} valor={`${viva.cadencia}`} />}
       {!mudo && !vatiosEnSujeto && (
-        <Celda etiqueta="vatios" valor={`${viva.vatios}`} color="var(--twin-accent-text)" />
+        <Apoyo etiqueta="vatios" valor={`${viva.vatios}`} tono="var(--twin-accent-text)" />
       )}
-      {!mudo && vatiosEnSujeto && <Celda etiqueta="cal" valor={`${caloriasEn(maquina, e.t)}`} />}
+      {!mudo && vatiosEnSujeto && <Apoyo etiqueta="cal" valor={`${caloriasEn(maquina, e.t)}`} />}
       {e.pulso != null && (
-        <Celda etiqueta="pulso" valor={`${e.pulso}`} color={COLOR_ZONA(zona)} pie={zona ? `Z${zona}` : undefined} />
+        <Apoyo etiqueta="pulso" valor={`${e.pulso}`} tono={colorZona(zona)} pie={zona ? `Z${zona}` : undefined} />
       )}
     </div>
   );
@@ -269,9 +255,9 @@ export function LecturasDeParada({ e, maquina, ritmo }: { e: EstadoErg; maquina:
   const proy = e.medido == null ? null : proyeccionS(e.pres, e.t, e.medido, ritmo);
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      <Celda etiqueta="cal" valor={`${cal}`} />
-      {proy != null && <Celda etiqueta="proyección" valor={fmtElapsed(proy)} />}
-      <Celda etiqueta="resistencia" valor="118" pie="del ventilador" />
+      <Apoyo etiqueta="cal" valor={`${cal}`} />
+      {proy != null && <Apoyo etiqueta="proyección" valor={fmtElapsed(proy)} />}
+      <Apoyo etiqueta="resistencia" valor="118" pie="del ventilador" />
     </div>
   );
 }

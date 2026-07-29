@@ -11,13 +11,18 @@
 // medida, y copiarlo al registro sería inventarse cómo te fue. Se pregunta, y
 // se puede no contestar.
 //
-// Los objetivos son de 56 pt para arriba: esto se toca de pie, con la mano
-// sudada y sin gafas.
+// Va sobre el MISMO marco que la serie y el descanso (§10.3): lo que se apunta
+// cae exactamente donde estaba el «100 kg» que acabas de levantar, así que el
+// atleta no reencuadra al pasar de una a otra. Los objetivos siguen siendo de
+// 56 pt para arriba: esto se toca de pie, con la mano sudada y sin gafas.
 
 import { useState } from 'react';
-import { Label, Mono, Pantalla, RAD, SP, SecondaryCTA } from '../../kit';
+import { Label, Mono, RAD, SP, SecondaryCTA } from '../../kit';
+import { Ambiente, EtiquetaSujeto, FranjaAccion, MarcoVivo, Numeral, zonaDe } from '../../kit-vivo';
+import type { TwinAppearance } from '../../types';
 import { Barra } from './barra';
-import { kg, numeroTexto, serie, serieTexto, type Prescripcion, type SerieHecha } from './data';
+import { NombreEjercicio, TiraPlan, dosisEnPeldanos } from './atoms';
+import { kg, numeroTexto, serieTexto, type Prescripcion, type SerieHecha } from './data';
 
 /** Paso de carga = el par de discos más pequeño que existe (1,25 por lado). */
 const PASO_KG = 2.5;
@@ -104,7 +109,7 @@ function Stepper({
     onCambio(Math.max(min, Math.round((base + signo * salto) * 100) / 100));
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '0 0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
       <Label size={9}>{etiqueta}</Label>
       <div style={{ display: 'flex', alignItems: 'center', gap: pasoGrande ? 6 : SP.m }}>
         {pasoGrande && (
@@ -186,56 +191,19 @@ function EscalaRir({
 
 // ---------------------------------------------------------------------------
 
-function BotonGrande({
-  titulo,
-  activo,
-  onClick,
-}: {
-  titulo: string;
-  activo: boolean;
-  onClick: () => void;
-}) {
-  // Inactivo NO es «naranja translúcido»: eso deja el glifo marrón sobre un
-  // fondo apagado y no hay quien lo lea a un metro. Es una cara neutra, que
-  // además dice mejor lo que pasa — el naranja significa «puedes irte».
-  return (
-    <button
-      type="button"
-      className={activo ? 'tw-btn-primary' : undefined}
-      disabled={!activo}
-      onClick={onClick}
-      style={{
-        width: '100%',
-        height: 88,
-        fontSize: 16,
-        letterSpacing: '0.04em',
-        cursor: activo ? 'pointer' : 'default',
-        ...(activo
-          ? null
-          : {
-              border: '1px dashed var(--twin-hairline-strong)',
-              borderRadius: 14,
-              background: 'var(--twin-surface)',
-              color: 'var(--twin-muted)',
-              font: 'italic 800 16px/1 var(--twin-font-sans)',
-            }),
-      }}
-    >
-      {titulo}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 export function VistaRegistro({
   p,
   serieActiva,
+  pulso,
+  appearance,
   onConfirmar,
   onLog,
 }: {
   p: Prescripcion;
   serieActiva: number;
+  /** El pulso del reloj. Nulo = sin reloj, y el lienzo se queda neutro (§10.1). */
+  pulso: number | null;
+  appearance: TwinAppearance;
   onConfirmar: (hecha: SerieHecha) => void;
   onLog: (linea: string) => void;
 }) {
@@ -246,7 +214,7 @@ export function VistaRegistro({
   const [ajustando, setAjustando] = useState(p.reps == null);
 
   const prescrito = serieTexto(p.reps, p.cargaKg);
-  const actual = serie(reps, cargaKg);
+  const apuntado = dosisEnPeldanos(reps, cargaKg);
   const cambiado = reps !== p.reps || cargaKg !== p.cargaKg;
   const puedeCerrar = p.reps != null || reps != null;
 
@@ -265,115 +233,128 @@ export function VistaRegistro({
     );
   };
 
+  const discos = cargaKg != null && p.implemento === 'barra' ? <Barra totalKg={cargaKg} /> : null;
+
   return (
-    <Pantalla
-      accion={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
-          <BotonGrande
+    <>
+      <Ambiente zona={zonaDe(pulso)} appearance={appearance} />
+      <MarcoVivo
+        cromo={
+          <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, width: '100%' }}>
+            <Label size={10}>
+              Serie {serieActiva + 1} de {p.series}
+            </Label>
+            <span style={{ flex: 1 }} />
+            <NombreEjercicio>{p.ejercicio}</NombreEjercicio>
+          </div>
+        }
+        contexto={<TiraPlan p={p} />}
+        sujeto={
+          ajustando ? (
+            <>
+              <Stepper
+                etiqueta="repeticiones"
+                valor={reps}
+                unidad="reps"
+                paso={1}
+                pasoGrande={p.reps == null ? 5 : undefined}
+                min={1}
+                onCambio={(v) => {
+                  setReps(v);
+                  onLog(`Repeticiones: ${v}`);
+                }}
+              />
+              {cargaKg != null && (
+                <Stepper
+                  etiqueta="carga"
+                  valor={cargaKg}
+                  unidad="kg"
+                  paso={PASO_KG}
+                  min={PASO_KG}
+                  onCambio={(v) => {
+                    setCargaKg(v);
+                    onLog(`Carga: ${kg(v)}`);
+                  }}
+                />
+              )}
+              {/* Los discos siguen al número: subes 2,5 y ves qué disco añades. */}
+              {discos}
+            </>
+          ) : (
+            <>
+              <EtiquetaSujeto>lo que se apunta</EtiquetaSujeto>
+              {apuntado && (
+                <>
+                  <Numeral unidad={apuntado.sujeto.unidad ?? undefined}>{apuntado.sujeto.cifra}</Numeral>
+                  {apuntado.segundo && (
+                    <Numeral escala="segundo" unidad={apuntado.segundo.unidad ?? undefined}>
+                      {apuntado.segundo.cifra}
+                    </Numeral>
+                  )}
+                </>
+              )}
+              {discos}
+            </>
+          )
+        }
+        apoyos={
+          <>
+            <EscalaRir
+              valor={rirSentido}
+              delCoach={p.rir}
+              onElegir={(v) => {
+                setRirSentido(v);
+                onLog(`Te quedaban ${v === 4 ? '4 o más' : v}`);
+              }}
+            />
+            {p.reps == null ? (
+              // La salida honesta: si no las contaste, se apunta que no las
+              // contaste. Mejor un hueco declarado que un número inventado.
+              <SecondaryCTA
+                title="No las conté"
+                height={46}
+                onClick={() =>
+                  cerrar(
+                    { reps: null, cargaKg, rirSentido },
+                    `Serie ${serieActiva + 1} apuntada sin repeticiones (el atleta no las contó)`
+                  )
+                }
+              />
+            ) : (
+              <SecondaryCTA
+                title={ajustando ? `Tal cual · ${prescrito}` : 'Ajustar reps o kilos'}
+                height={46}
+                onClick={() => {
+                  if (ajustando) {
+                    setReps(p.reps);
+                    setCargaKg(p.cargaKg);
+                    onLog('Vuelve a lo prescrito');
+                  } else {
+                    onLog('Abre los ajustes de la serie');
+                  }
+                  setAjustando(!ajustando);
+                }}
+              />
+            )}
+          </>
+        }
+        accion={
+          <FranjaAccion
             titulo={
               puedeCerrar
                 ? `${cambiado || p.reps == null ? 'APUNTAR' : 'HECHA'} · ${serieTexto(reps, cargaKg) ?? ''}`
                 : '¿CUÁNTAS HICISTE?'
             }
-            activo={puedeCerrar}
+            // El toque del atleta es lo ÚNICO que pasa la serie de prescrita a
+            // hecha: ahí el relleno naranja significa algo (§10.5). Mientras no
+            // haya nada que cerrar, la franja es contorno punteado — el mismo
+            // trazo con el que esta familia declara sus huecos.
+            unicaSalida={puedeCerrar}
+            style={puedeCerrar ? undefined : { borderStyle: 'dashed', color: 'var(--twin-muted)' }}
             onClick={confirmar}
           />
-          {p.reps == null ? (
-            // La salida honesta: si no las contaste, se apunta que no las
-            // contaste. Mejor un hueco declarado que un número inventado.
-            <SecondaryCTA
-              title="No las conté"
-              height={46}
-              onClick={() =>
-                cerrar(
-                  { reps: null, cargaKg, rirSentido },
-                  `Serie ${serieActiva + 1} apuntada sin repeticiones (el atleta no las contó)`
-                )
-              }
-            />
-          ) : (
-            <SecondaryCTA
-              title={ajustando ? `Tal cual · ${prescrito}` : 'Ajustar reps o kilos'}
-              height={46}
-              onClick={() => {
-                if (ajustando) {
-                  setReps(p.reps);
-                  setCargaKg(p.cargaKg);
-                  onLog('Vuelve a lo prescrito');
-                } else {
-                  onLog('Abre los ajustes de la serie');
-                }
-                setAjustando(!ajustando);
-              }}
-            />
-          )}
-        </div>
-      }
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '0 0 auto' }}>
-        <Label size={10}>Serie {serieActiva + 1} de {p.series}</Label>
-        <span style={{ font: 'italic 800 20px/1.15 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-          {p.ejercicio}
-        </span>
-      </div>
-
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.l }}>
-        {ajustando ? (
-          <>
-            <Stepper
-              etiqueta="repeticiones"
-              valor={reps}
-              unidad="reps"
-              paso={1}
-              pasoGrande={p.reps == null ? 5 : undefined}
-              min={1}
-              onCambio={(v) => {
-                setReps(v);
-                onLog(`Repeticiones: ${v}`);
-              }}
-            />
-            {cargaKg != null && (
-              <Stepper
-                etiqueta="carga"
-                valor={cargaKg}
-                unidad="kg"
-                paso={PASO_KG}
-                min={PASO_KG}
-                onCambio={(v) => {
-                  setCargaKg(v);
-                  onLog(`Carga: ${kg(v)}`);
-                }}
-              />
-            )}
-          </>
-        ) : (
-          <div style={{ display: 'grid', placeItems: 'center', gap: SP.s }}>
-            <Label size={10}>lo que se apunta</Label>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <Mono size={58} weight={800}>
-                {actual?.cifra ?? ''}
-              </Mono>
-              {actual?.unidad && (
-                <Mono size={20} weight={700} color="var(--twin-muted)">
-                  {actual.unidad}
-                </Mono>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Los discos siguen al número: subes 2,5 y ves qué disco añades. */}
-        {cargaKg != null && p.implemento === 'barra' && <Barra totalKg={cargaKg} />}
-      </div>
-
-      <EscalaRir
-        valor={rirSentido}
-        delCoach={p.rir}
-        onElegir={(v) => {
-          setRirSentido(v);
-          onLog(`Te quedaban ${v === 4 ? '4 o más' : v}`);
-        }}
+        }
       />
-    </Pantalla>
+    </>
   );
 }

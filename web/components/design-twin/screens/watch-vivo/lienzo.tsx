@@ -26,14 +26,35 @@ import { estimateWidth, fitScale } from '../watch-live/format';
 import { W, zoneColor } from '../watch-live/theme';
 import { ZONA_NOMBRE, zonaDe } from './guion';
 
-/** Ancho máximo del sujeto: el lienzo (208) menos el aro y su aire. */
-const MAX_SUJETO = 190;
-/** Altura de las cifras de SF Pro respecto al cuerpo de la fuente. */
-const CAP_EM = 0.72;
+/**
+ * Ancho máximo del sujeto. El lienzo del reloj mide 208 pt, el safe area lateral
+ * que fija DeviceFrame se lleva 8 por lado y el aro otros 2: quedan 188.
+ * (Estaba en 190, dos más de los que hay — con la sans no llegaba a notarse
+ * porque casi nada tocaba el tope; con la mono, que es más ancha, sí.)
+ */
+const MAX_SUJETO = 188;
+/** Altura de las cifras respecto al cuerpo de la fuente (cap height de la mono). */
+const CAP_EM = 0.7;
 /** Caja de línea ceñida: lo que llena la pantalla es el GLIFO, no la caja. */
 const INTERLINEA = 0.8;
 /** Tope del tinte de estado. Por encima el aro y las etiquetas pierden contraste. */
 const TINTE_MAX = 38;
+
+/**
+ * En una monoespaciada TODOS los glifos avanzan lo mismo — 0,6 em en SF Mono y
+ * en Menlo, que es lo que resuelve `--twin-font-mono`.
+ *
+ * Por eso el sujeto no puede medirse con `estimateWidth`, que está calibrada
+ * para SF Pro y da los dos puntos por 0,32 em: un «:45» le sale un 18 % más
+ * estrecho de lo que ocupa de verdad, y el número se comería el bisel en vez de
+ * encoger. Las etiquetas y el segundo nivel siguen en la sans y siguen midiendo
+ * con ella.
+ */
+const AVANCE_MONO = 0.6;
+
+function anchoMono(texto: string, cuerpo: number): number {
+  return [...texto].length * AVANCE_MONO * cuerpo;
+}
 
 export function tinte(color: string, pct: number): string {
   return `color-mix(in srgb, ${color} ${pct}%, ${W.bg})`;
@@ -50,9 +71,13 @@ export function tinte(color: string, pct: number): string {
  * al pasar de 3 cifras a 2, o al bajar la cuenta atrás de un minuto. Eso no es
  * un efecto de más: es urgencia dicha en tamaño, y sale gratis del formato.
  *
- * Recto, no cursivo: el reloj espejo inclina sus cifras, pero a 90 px sobre un
- * lienzo de 208 la inclinación se come justo el ancho que el sujeto necesita, y
- * la diagonal pelea con la curva del bisel.
+ * La cara es la MONO recta tabular del cero rachado, la misma de las diez vistas
+ * en vivo del móvil (§10.2). Antes heredaba la sans de `.twin-root`, y era el
+ * único numeral de la familia que lo hacía: puesto al lado del 139 del pulso o
+ * del 0:25 del EMOM, cantaba. Recto y no cursivo, eso sí: el reloj espejo
+ * inclina sus cifras, pero a 90 px sobre un lienzo de 208 la inclinación se come
+ * justo el ancho que el sujeto necesita, y la diagonal pelea con la curva del
+ * bisel.
  */
 export function Sujeto({
   texto,
@@ -89,17 +114,19 @@ export function Sujeto({
 
   const cuerpo = alto / CAP_EM;
   const cuerpoUnidad = cuerpo * 0.3;
-  const ancho = estimateWidth(texto, cuerpo) + (unidad ? estimateWidth(unidad, cuerpoUnidad) : 0);
+  // La unidad va en la misma cara que la cifra: es la misma lectura, y partirla
+  // en dos familias es justo lo que el §10.2 vino a quitar.
+  const ancho = anchoMono(texto, cuerpo) + (unidad ? anchoMono(unidad, cuerpoUnidad) : 0);
   const ajuste = fitScale(ancho, MAX_SUJETO);
 
   return (
     <div ref={cajaRef} style={{ display: 'flex', alignItems: 'baseline', flex: '0 0 auto' }}>
       <span
         style={{
+          fontFamily: 'var(--twin-font-mono)',
           fontSize: cuerpo * ajuste,
           lineHeight: INTERLINEA,
           fontWeight: 800,
-          letterSpacing: '-0.02em',
           fontVariantNumeric: 'tabular-nums',
           color,
           transition: 'font-size 260ms ease-out, color 320ms ease',
@@ -110,6 +137,7 @@ export function Sujeto({
       {unidad ? (
         <span
           style={{
+            fontFamily: 'var(--twin-font-mono)',
             fontSize: cuerpoUnidad * ajuste,
             lineHeight: 1,
             fontWeight: 800,

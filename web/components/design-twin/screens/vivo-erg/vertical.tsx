@@ -14,15 +14,25 @@
 //                 decirlo es más honesto que dejar el último número puesto.
 //   descanso    → la CUENTA ATRÁS, con el pulso cayendo debajo.
 //
-// El orden de los bloques (franja · objetivo · sujeto · raíl) es el de la app
-// shipeada, y por su misma razón: es el orden en que llegan las preguntas a
-// media pieza. El toque para cerrar está SIEMPRE abajo.
+// El orden de los bloques es el de la app shipeada, y por su misma razón: es el
+// orden en que llegan las preguntas a media pieza. El toque para cerrar está
+// SIEMPRE abajo.
+//
+// Desde el 29-jul se monta sobre `MarcoVivo` (§10.3): cromo · contexto ·
+// SUJETO · apoyos · acción, con la banda del sujeto fija. La caja del objetivo
+// baja de encima del sujeto a la primera fila de apoyos —sigue siendo lo
+// segundo que se lee, y pegada al número que la gobierna (§10.6)— porque es lo
+// que hace que el ritmo caiga a la misma altura que los metros que faltan del
+// tramo de correr de la serie siguiente.
 
-import { Card, Hairline, Label, Mono, Pantalla } from '../../kit';
+import type { ReactNode } from 'react';
+import { Card, Hairline, Label, Mono } from '../../kit';
+import type { TwinAppearance } from '../../types';
 import { fmtClock, fmtPace500 } from '../../sim';
-import { Ambiente, Aviso, Cromo, Fogonazo, Pausa, SalidaManual, zonaDe } from './atomos';
+import { Ambiente, Fogonazo, FranjaAccion, MarcoVivo, zonaDe } from '../../kit-vivo';
+import { Aviso, Cromo, Pausa } from './atomos';
 import { Descanso, Hecho } from './descanso';
-import { AvisoSinDatos, BannerPrograma, CuentaAtras, CuerpoSinMonitor } from './estados';
+import { AvisoSinDatos, BannerPrograma, CuentaAtras, PuertaSinMonitor, SujetoSinMonitor } from './estados';
 import { CajaObjetivo, FranjaContexto, HeroErg, RailTrabajo, type SujetoErg } from './piezas';
 import {
   BICI_SERIE_1,
@@ -38,7 +48,15 @@ import {
 } from './data';
 import { tituloAccion, useMotorErg, type EstadoErg, type Guion } from './motor';
 
-export function CaraVertical({ guion, onLog }: { guion: Guion; onLog: (linea: string) => void }) {
+export function CaraVertical({
+  guion,
+  appearance,
+  onLog,
+}: {
+  guion: Guion;
+  appearance: TwinAppearance;
+  onLog: (linea: string) => void;
+}) {
   const e = useMotorErg(guion, onLog);
   const zona = zonaDe(e.pulso);
 
@@ -57,7 +75,7 @@ export function CaraVertical({ guion, onLog }: { guion: Guion; onLog: (linea: st
     <div style={{ position: 'relative', height: '100%' }}>
       {/* En descanso manda el azul de la app (lo pone la propia pantalla de
           descanso); trabajando, la zona de pulso tiñe el ambiente. */}
-      <Ambiente zona={e.fase === 'descanso' ? null : zona} />
+      <Ambiente zona={e.fase === 'descanso' ? null : zona} appearance={appearance} />
       <Fogonazo activo={e.fogonazo} />
       <div style={{ position: 'relative', height: '100%' }}>{cuerpo}</div>
       {e.pausado && (
@@ -82,59 +100,93 @@ function Tramo({ e, guion, onLog }: { e: EstadoErg; guion: Guion; onLog: (linea:
   const ausente = e.monitor === 'ausente';
   const enCuenta = e.fase === 'cuenta';
 
+  const sujeto = enCuenta ? (
+    <CuentaAtras e={e} />
+  ) : ausente ? (
+    <SujetoSinMonitor e={e} />
+  ) : (
+    <HeroErg
+      e={e}
+      sujeto={sujetoDe(e, esBici, mudo, viva.ritmo, viva.vatios)}
+      media={mediaDe(e, esBici)}
+      delta={deltaDe(e, esBici, mudo, viva)}
+    />
+  );
+
   return (
-    <Pantalla
+    <MarcoVivo
+      cromo={
+        <Cromo
+          titulo={e.pres.titulo}
+          serie={e.serie}
+          series={e.pres.series}
+          onSalir={() => onLog('salir del entreno: se guarda lo medido de esta serie')}
+          onPausa={e.alternarPausa}
+        />
+      }
+      contexto={<FranjaContexto e={e} />}
+      sujeto={sujeto}
+      apoyos={
+        <Apoyos>
+          {e.fase === 'armado' && <BannerPrograma estado="listo" />}
+          {e.fase === 'armado' && <AvisoSinDatos maquina={guion.maquina} />}
+          {ausente ? (
+            <PuertaSinMonitor
+              maquina={guion.maquina}
+              onConectar={() => onLog('conectar el remo: se abre la puerta de conexión')}
+            />
+          ) : (
+            !enCuenta && (
+              <>
+                <CajaObjetivo e={e} />
+                {e.cruceCiego && (
+                  <Aviso
+                    tono="alerta"
+                    texto={`${maquina} volvió ya por encima de ${e.pres.cantidad}. El cruce no se vio, así que la serie no se da por hecha: ciérrala tú.`}
+                  />
+                )}
+                {mudo && (
+                  <Aviso tono="alerta" texto={`Sin lecturas de ${maquina}. El tramo sigue abierto: parado no cierra nada.`} />
+                )}
+                {e.pres.series === 1 && <TarjetaParciales parciales={parcialesHasta(parcialesDe(e.pres), e.t)} />}
+                <RailTrabajo e={e} viva={viva} maquina={guion.maquina} />
+              </>
+            )
+          )}
+        </Apoyos>
+      }
       accion={
         enCuenta ? (
-          <SalidaManual titulo={tituloAccion(e)} onClick={e.saltarCuenta} alto={74} />
+          <FranjaAccion titulo={tituloAccion(e)} onClick={e.saltarCuenta} />
         ) : (
-          <SalidaManual titulo={tituloAccion(e)} onClick={e.cerrarAMano} destacada={e.cruceCiego} alto={88} />
+          /* El cruce del hito es quien cierra la serie, así que el toque es el
+             atajo y va en contorno. Se gana el relleno solo cuando el cruce ya
+             no puede llegar: porque el corte se lo tragó (`cruceCiego`) o
+             porque no hay monitor que lo vea (§10.5). */
+          <FranjaAccion titulo={tituloAccion(e)} onClick={e.cerrarAMano} unicaSalida={e.cruceCiego || ausente} />
         )
       }
-    >
-      <Cromo
-        titulo={e.pres.titulo}
-        serie={e.serie}
-        series={e.pres.series}
-        onSalir={() => onLog('salir del entreno: se guarda lo medido de esta serie')}
-        onPausa={e.alternarPausa}
-      />
-      <FranjaContexto e={e} />
+    />
+  );
+}
 
-      {e.fase === 'armado' && <BannerPrograma estado="listo" />}
-      {e.fase === 'armado' && <AvisoSinDatos maquina={guion.maquina} />}
-
-      {enCuenta ? (
-        <CuentaAtras e={e} />
-      ) : ausente ? (
-        <CuerpoSinMonitor
-          e={e}
-          maquina={guion.maquina}
-          onConectar={() => onLog('conectar el remo: se abre la puerta de conexión')}
-        />
-      ) : (
-        <>
-          <CajaObjetivo e={e} />
-          <HeroErg
-            e={e}
-            sujeto={sujetoDe(e, esBici, mudo, viva.ritmo, viva.vatios)}
-            media={mediaDe(e, esBici)}
-            delta={deltaDe(e, esBici, mudo, viva)}
-          />
-          {e.cruceCiego && (
-            <Aviso
-              tono="alerta"
-              texto={`${maquina} volvió ya por encima de ${e.pres.cantidad}. El cruce no se vio, así que la serie no se da por hecha: ciérrala tú.`}
-            />
-          )}
-          {mudo && (
-            <Aviso tono="alerta" texto={`Sin lecturas de ${maquina}. El tramo sigue abierto: parado no cierra nada.`} />
-          )}
-          {e.pres.series === 1 && <TarjetaParciales parciales={parcialesHasta(parcialesDe(e.pres), e.t)} />}
-          <RailTrabajo e={e} viva={viva} maquina={guion.maquina} />
-        </>
-      )}
-    </Pantalla>
+/**
+ * La fila de apoyos del ergo. Es la única de la tanda que puede desbordar —los
+ * parciales de una pieza continua se apilan solos— así que scrollea DENTRO de
+ * su fila en vez de comerse la banda del sujeto o dejar una cola debajo de la
+ * acción (§6.1).
+ *
+ * La pila va en un div PROPIO dentro del que scrollea, y no es un detalle: si
+ * las tarjetas cuelgan directas de una columna con el alto limitado, se
+ * encogen, y `Card` recorta por dentro (`overflow: hidden`). Así salía una
+ * tarjeta de «Parciales» con su cabecera y ninguna fila debajo, que es peor que
+ * no enseñarla: dice que no hay parciales cuando los hay.
+ */
+function Apoyos({ children }: { children: ReactNode }) {
+  return (
+    <div className="twin-scroll" style={{ maxHeight: '100%', flex: '0 1 auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
+    </div>
   );
 }
 
@@ -152,12 +204,11 @@ function sujetoDe(e: EstadoErg, esBici: boolean, mudo: boolean, ritmo: number | 
       etiqueta: 'Tiempo del tramo',
       valor: fmtElapsed(e.t),
       unidad: 'sin lecturas',
-      maxPx: 118,
       color: 'var(--twin-muted)',
     };
   }
   if (esBici) {
-    return { etiqueta: 'Ritmo ahora', valor: `${vatios}`, unidad: 'vatios', maxPx: 150 };
+    return { etiqueta: 'Ritmo ahora', valor: `${vatios}`, unidad: 'vatios' };
   }
   // Armado: el crono está retenido y lo dice la etiqueta del subreadout, así
   // que el sujeto es la orden, no un ritmo que nadie ha medido todavía.
@@ -166,10 +217,9 @@ function sujetoDe(e: EstadoErg, esBici: boolean, mudo: boolean, ritmo: number | 
       etiqueta: e.pres.series > 1 ? `Serie ${e.serie} de ${e.pres.series}` : 'Ahora',
       valor: `${e.pres.cantidad}`,
       unidad: MEDIDA_UNIDAD[e.pres.medida],
-      maxPx: 146,
     };
   }
-  return { etiqueta: 'Ritmo ahora', valor: fmtPace500(ritmo), unidad: '/500m', maxPx: 140 };
+  return { etiqueta: 'Ritmo ahora', valor: fmtPace500(ritmo), unidad: '/500m' };
 }
 
 /** La media de la serie: la app la enseña EN VIVO bajo el ritmo, no al final. */

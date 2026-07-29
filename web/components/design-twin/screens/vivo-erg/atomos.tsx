@@ -1,213 +1,57 @@
 'use client';
 
 // Los átomos de la cara de monitor. Lo genérico (Card, CTA, iconos) viene del
-// kit compartido; aquí vive SOLO lo que es del ergo y de nadie más.
+// kit compartido; el LENGUAJE del entreno en vivo (Ambiente, Numeral, la banda
+// del sujeto, la franja de acción, el delta, el apoyo) viene de `../../kit-vivo`
+// desde el 29-jul. Aquí vive SOLO lo que es del ergo y de nadie más.
+//
+// Lo que se fue de este fichero al kit del §10, y por qué: `Ambiente`, `Delta`,
+// `Fogonazo`, `zonaDe`, `COLOR_ZONA` (ahora `colorZona`) y `SalidaManual`
+// (ahora `FranjaAccion`) los tenían también correr, fuerza y el EMOM, cada uno
+// con su copia. `Celda` era el `Apoyo` del kit con otro nombre. Si mañana hay
+// que cambiar el tinte se cambia en un sitio y cambia en las diez (§0).
 //
 // Regla de voz: todo dato del monitor va en `t-readout-*` (mono recto 800,
-// tabular). La estructura (títulos, nombres) va en la cursiva Fabrik. Ningún
-// tamaño suelto: cuando un readout tiene que ESCALAR con el alto (§6.1
-// `gobierna`) se sobreescribe solo `font-size` sobre la clase, que conserva
-// familia, peso y tabular-nums.
+// tabular). La estructura (títulos, nombres) va en la cursiva Fabrik. Y ningún
+// tamaño de cifra grande se escribe aquí: lo pone `Numeral` (§10.2).
 
-import type { CSSProperties, ReactNode } from 'react';
-import { IconClose, Label, Mono, RAD, SP } from '../../kit';
-import { hrZone } from '../../sim';
-import { UMBRAL } from '../../datos-reales';
-
-export type Zona = 1 | 2 | 3 | 4 | 5;
-
-/** La zona del pulso. Sin pulso no hay zona: nulo, y nadie pinta un guion. */
-export function zonaDe(pulso: number | null): Zona | null {
-  return pulso == null ? null : hrZone(pulso, UMBRAL.ppm);
-}
-
-export const COLOR_ZONA = (z: Zona | null): string =>
-  z == null ? 'var(--twin-fg)' : `var(--twin-z${z})`;
-
-// ---------------------------------------------------------------------------
-// Ambiente — la zona de pulso tiñe la pantalla entera
-// ---------------------------------------------------------------------------
-
-/**
- * El tinte de zona sobre el lienzo. Es `background-color` (no un degradado)
- * porque un color SÍ interpola: al saltar de Z4 a Z5 el ambiente vira en vez
- * de parpadear. La máscara lo desvanece hacia abajo para que el sujeto quede
- * en la parte teñida y los datos de servicio, limpios.
- *
- * Sin zona no hay tinte. Un ambiente neutro es la lectura honesta de «no
- * tenemos tu pulso», y es exactamente lo que pasó en la pieza de esquí real.
- */
-export function Ambiente({ zona, intensidad = 13 }: { zona: Zona | null; intensidad?: number }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        backgroundColor:
-          zona == null ? 'transparent' : `color-mix(in srgb, var(--twin-z${zona}) ${intensidad}%, transparent)`,
-        WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, transparent 66%)',
-        maskImage: 'linear-gradient(to bottom, #000 0%, transparent 66%)',
-        transition: 'background-color 900ms linear',
-      }}
-    />
-  );
-}
-
-/** Fogonazo al cruzar el hito: nace encendido y se apaga solo. */
-export function Fogonazo({ activo, tono = 'var(--twin-ok)' }: { activo: boolean; tono?: string }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        backgroundColor: `color-mix(in srgb, ${tono} 42%, transparent)`,
-        opacity: activo ? 1 : 0,
-        transition: 'opacity 620ms ease-out',
-      }}
-    />
-  );
-}
+import type { ReactNode } from 'react';
+import { IconClose, Mono, RAD, SP } from '../../kit';
+import { EtiquetaSujeto, Numeral } from '../../kit-vivo';
 
 // ---------------------------------------------------------------------------
 // Readouts
 // ---------------------------------------------------------------------------
 
-/** El sujeto: el número que gobierna, con su etiqueta arriba y su unidad debajo. */
+/**
+ * El sujeto cuando el número que gobierna es la ORDEN y no una medida.
+ *
+ * Es `EtiquetaSujeto` + `Numeral` y nada más: la banda y el centrado los pone
+ * `MarcoVivo`, así que aquí no se vuelve a repartir alto ni se vuelve a elegir
+ * un tamaño de cifra. Antes tenía su propio `clamp(…, 17vh, …)`, que medía el
+ * alto de la VENTANA y no el del teléfono (§10.2).
+ */
 export function Sujeto({
   etiqueta,
   valor,
   unidad,
-  color = 'var(--twin-fg)',
-  minPx = 68,
-  maxPx = 132,
+  color,
   extra,
 }: {
   etiqueta: string;
   valor: string;
   unidad?: string;
   color?: string;
-  minPx?: number;
-  maxPx?: number;
   extra?: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        flex: '1 1 auto',
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SP.xs,
-      }}
-    >
-      <Label size={10}>{etiqueta}</Label>
-      <span
-        className="t-readout-hero"
-        style={{ fontSize: `clamp(${minPx}px, 17vh, ${maxPx}px)`, color, transition: 'color 600ms linear' }}
-      >
+    <>
+      <EtiquetaSujeto>{etiqueta}</EtiquetaSujeto>
+      <Numeral tono={color} unidad={unidad}>
         {valor}
-      </span>
-      {unidad && <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>{unidad}</span>}
+      </Numeral>
       {extra}
-    </div>
-  );
-}
-
-/** La diferencia contra el objetivo. Verde = vas mejor, y punto. */
-export function Delta({
-  valor,
-  unidad,
-  mejorEs,
-  sufijo,
-  textoNulo,
-}: {
-  valor: number | null;
-  unidad: string;
-  /** En ritmo, menos es mejor; en vatios, más. */
-  mejorEs: 'menos' | 'mas';
-  /** «vs objetivo» · «vs tu serie 1». Siempre se dice contra qué. */
-  sufijo: string;
-  /** Qué se lee cuando la diferencia es cero. Depende de contra qué compares. */
-  textoNulo: string;
-}) {
-  if (valor == null) return null;
-  const nulo = Math.abs(valor) < 0.5;
-  const mejor = mejorEs === 'menos' ? valor < 0 : valor > 0;
-  const color = nulo ? 'var(--twin-muted)' : mejor ? 'var(--twin-ok)' : 'var(--twin-danger)';
-  const signo = valor > 0 ? '+' : '−';
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        gap: 6,
-        padding: '5px 12px',
-        borderRadius: 999,
-        background: `color-mix(in srgb, ${color} 16%, transparent)`,
-        transition: 'background-color 400ms linear',
-      }}
-    >
-      {/* Una cifra va en la voz de instrumento; «en el objetivo» NO es una
-          cifra y monoespaciarla la disfraza de medida (§4). */}
-      {nulo ? (
-        <span style={{ font: '600 15px/1.1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{textoNulo}</span>
-      ) : (
-        <span className="t-readout-s" style={{ color, transition: 'color 400ms linear' }}>
-          {`${signo}${Math.abs(Math.round(valor))} ${unidad}`}
-        </span>
-      )}
-      <span style={{ font: '500 11px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{sufijo}</span>
-    </span>
-  );
-}
-
-/**
- * Celda de servicio: el tercer nivel de jerarquía y el último. Va en
- * `t-readout-s` (22 px) y no más: cuatro celdas se reparten 378 pt, y un
- * cronómetro a ancho fijo en `t-readout-m` se sale de su caja. El dato sigue
- * pesando el doble que su etiqueta (§4).
- */
-export function Celda({
-  etiqueta,
-  valor,
-  color = 'var(--twin-fg)',
-  pie,
-}: {
-  etiqueta: string;
-  valor: string;
-  color?: string;
-  pie?: string;
-}) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 4,
-        padding: '12px 6px',
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <span className="t-readout-s" style={{ color, transition: 'color 600ms linear' }}>{valor}</span>
-      <span
-        className="t-readout-label"
-        style={{ color: 'var(--twin-muted)', textAlign: 'center', letterSpacing: '0.1em' }}
-      >
-        {etiqueta}
-      </span>
-      {pie && <span style={{ font: '500 10px/1 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{pie}</span>}
-    </div>
+    </>
   );
 }
 
@@ -404,45 +248,6 @@ export function Aviso({
       />
       <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{texto}</span>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// La salida que siempre está — el toque cierra lo que la medida no cerró
-// ---------------------------------------------------------------------------
-
-export function SalidaManual({
-  titulo,
-  onClick,
-  destacada = false,
-  alto = 74,
-  style,
-}: {
-  titulo: string;
-  onClick: () => void;
-  /** Primaria cuando la medida ya no puede cerrar el tramo: ahí manda el toque. */
-  destacada?: boolean;
-  alto?: number;
-  style?: CSSProperties;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={destacada ? 'tw-btn-primary' : 'tw-btn-secondary'}
-      style={{
-        width: '100%',
-        height: alto,
-        fontSize: 17,
-        fontStyle: 'italic',
-        fontWeight: 800,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        ...style,
-      }}
-    >
-      {titulo}
-    </button>
   );
 }
 
