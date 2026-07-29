@@ -72,8 +72,10 @@ struct TodayBriefView: View {
             if let blocks = blockCount {
                 pill("\(blocks) bloques")
             }
-            if let minutes = payload.estDurationMinutes, minutes > 0 {
-                pill("~\(minutes) min")
+            // El mismo suelo que el teléfono, con las mismas palabras: «~70 min» era
+            // la cuarta grafía del mismo rato y prometía una estimación centrada.
+            if let suelo = Formato.duracionPrevista(payload.estDurationMinutes) {
+                pill(suelo)
             }
         }
     }

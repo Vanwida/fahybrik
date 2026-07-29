@@ -155,17 +155,12 @@ enum WatchWire {
 // MARK: - Display helpers (kept next to the model so both watch views read one source)
 
 extension WatchTodayPayload {
-    /// "1h 10m" / "45 min" — the estimated duration, or an em-dash when unknown.
-    var durationLabel: String {
-        guard let mins = estDurationMinutes, mins > 0 else { return "—" }
-        let h = mins / 60
-        let m = mins % 60
-        if h > 0 { return "\(h)h \(m)m" }
-        return "\(m) min"
-    }
-
-    /// The intensity label, or an em-dash when none was sent.
-    var intensityDisplay: String { intensityLabel ?? "—" }
+    // BORRADOS el 29-jul: `durationLabel` y `intensityDisplay`. Los dos devolvían
+    // «—» cuando el dato no venía, que es exactamente lo que prohíbe el §7 del
+    // contrato (lo que no se sabe NO se pinta, ni con guiones), y `durationLabel`
+    // además escribía una cuarta grafía del mismo rato («1h 10m»). Ninguno tenía
+    // llamantes — el reloj pinta su pastilla desde `estDurationMinutes` con
+    // `Formato.duracionPrevista`, que es el canónico.
 
     /// The activity kind mapped to a HealthKit workout type for the wrist's live
     /// session. Lives HERE (next to the payload) so both the current brief and the
