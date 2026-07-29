@@ -2,22 +2,31 @@
 
 // (b) TE TOCA A TI — el sujeto son los metros que te quedan de TU relevo.
 //
-// No el total conjunto (ese es el marcador, y vive abajo), no el reloj: los
-// metros que faltan para soltar. Es la única cifra que decide lo que haces con
-// el siguiente tirón, y baja sola, que es lo que hace que aprietes.
+// No el total conjunto (ese es el marcador, y vive en la fila de contexto), no
+// el reloj: los metros que faltan para soltar. Es la única cifra que decide lo
+// que haces con el siguiente tirón, y baja sola, que es lo que hace que
+// aprietes.
 //
 // Tu ritmo sí va contra el objetivo del tramo, porque aquí el objetivo es tuyo
 // de verdad. Y si el monitor todavía no da ritmo (los primeros tirones), no se
 // inventa uno: se dice que aún no lo hay (§7).
 
-import { CTA, Label, Mono, Pantalla, RAD, SP } from '../../kit';
-import { TopStrip } from '../entreno-vivo/piezas';
+import { Delta, FilaApoyos, FranjaAccion, EtiquetaSujeto, MarcoVivo, Numeral, Apoyo } from '../../kit-vivo';
 import { reloj } from '../../datos-reales';
 import { useElapsed, useTimeline } from '../../sim';
-import { BarraPareja, FranjaPareja, PulsoTuyo, Sujeto, UnidadRitmo, type EstadoPareja } from './atoms';
+import {
+  ApoyoPulso,
+  ApoyoReparto,
+  Cromo,
+  FranjaPareja,
+  LienzoVivo,
+  MarcadorTramo,
+  UnidadSujeto,
+  type EscenaLegVista,
+  type EstadoPareja,
+} from './atoms';
 import {
   TRAMO,
-  contraObjetivo,
   estimaSalidaS,
   metrosEn,
   metrosTexto,
@@ -26,7 +35,6 @@ import {
   ritmoS500,
   pulsoRemando,
   velocidad,
-  type EscenaLegProps,
   type Segmento,
 } from './data';
 
@@ -41,12 +49,13 @@ import {
  */
 const METROS_PARA_RITMO = 18;
 
-export function EscenaRemas({ hechos, actual, desdeM, onRelevo, onLog }: EscenaLegProps) {
+export function EscenaRemas({ hechos, actual, desdeM, onRelevo, onLog, appearance }: EscenaLegVista) {
   const t = useElapsed();
   const metros = Math.min(actual.hastaM, metrosEn(desdeM, actual.quien, t));
   const restanteM = Math.max(0, actual.hastaM - metros);
   const hechoM = metros - actual.desdeM;
   const largoM = actual.hastaM - actual.desdeM;
+  const ppm = pulsoRemando(hechoM / largoM);
 
   useTimeline([
     {
@@ -57,54 +66,86 @@ export function EscenaRemas({ hechos, actual, desdeM, onRelevo, onLog }: EscenaL
 
   const s500 = ritmoS500(actual.quien);
   const hayRitmo = hechoM >= METROS_PARA_RITMO;
-  const delta = contraObjetivo(s500);
 
   return (
-    <Pantalla
-      accion={
-        <CTA
-          title="RELEVO ▸"
-          height={96}
-          onClick={() => {
-            onLog(`Relevo a mano: sales con ${metrosTexto(metros)} m de tramo`);
-            onRelevo(metros);
-          }}
-        />
-      }
-    >
-      <TopStrip
-        faseLabel={null}
-        segmentoTitulo={`${TRAMO.titulo} · dobles`}
-        indice={hechos.length + 1}
-        total={TRAMO.totalM / TRAMO.relevoM}
-      />
-
-      <Sujeto
-        quien="tu"
-        label="Te quedan"
-        valor={metrosTexto(restanteM)}
-        unidad="m"
-        resaltado
-        nota={
-          <span>
-            llevas {metrosTexto(hechoM)} de tus {metrosTexto(largoM)} m
-          </span>
+    <LienzoVivo ppm={ppm} appearance={appearance}>
+      <MarcoVivo
+        cromo={
+          <Cromo
+            relevo={hechos.length + 1}
+            relevos={TRAMO.totalM / TRAMO.relevoM}
+            onSalir={() => onLog('salir del entreno: se guarda lo remado hasta aquí')}
+            onPausa={() => onLog('pausar el tramo')}
+          />
+        }
+        contexto={
+          <MarcadorTramo
+            hechos={hechos}
+            actual={actual}
+            metros={metros}
+            reloj={reloj(relojTramoS(hechos, actual, metros))}
+          />
+        }
+        sujeto={
+          <>
+            <EtiquetaSujeto>Te quedan</EtiquetaSujeto>
+            <Numeral>
+              {metrosTexto(restanteM)}
+              <UnidadSujeto>m</UnidadSujeto>
+            </Numeral>
+            <span style={{ font: '500 13px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+              llevas {metrosTexto(hechoM)} de tus {metrosTexto(largoM)} m
+            </span>
+            {/* La diferencia contra el objetivo del tramo, ya interpretada: a
+                170 ppm nadie resta de cabeza «2:02 contra 2:05». */}
+            {hayRitmo && (
+              <Delta
+                valor={s500 - TRAMO.objetivoS500}
+                unidad="s"
+                mejorEs="menos"
+                sufijo={`vs objetivo ${ritmoCifras(TRAMO.objetivoS500)}/500m`}
+                textoNulo="en el objetivo"
+              />
+            )}
+          </>
+        }
+        apoyos={
+          <>
+            <FranjaPareja estado={descansoDe(hechos)} />
+            {/* Sin ritmo del monitor no se pinta un cero, ni un guion, ni una
+                celda vacía: se dice quién no lo da todavía, y la celda aparece
+                cuando llega (§7). */}
+            {!hayRitmo && (
+              <span
+                style={{
+                  font: '500 12px/1.2 var(--twin-font-sans)',
+                  color: 'var(--twin-faint)',
+                  textAlign: 'center',
+                }}
+              >
+                el monitor del remo aún no da ritmo
+              </span>
+            )}
+            <FilaApoyos>
+              {hayRitmo && <Apoyo etiqueta="Tu ritmo" valor={ritmoCifras(s500)} pie="/500m" />}
+              <ApoyoPulso ppm={ppm} />
+              <ApoyoReparto quien="tu" hechos={hechos} actual={actual} metros={metros} />
+            </FilaApoyos>
+          </>
+        }
+        accion={
+          <FranjaAccion
+            titulo="Relevo"
+            nota="sales tú"
+            unicaSalida
+            onClick={() => {
+              onLog(`Relevo a mano: sales con ${metrosTexto(metros)} m de tramo`);
+              onRelevo(metros);
+            }}
+          />
         }
       />
-
-      <BloqueRitmo cifras={hayRitmo ? ritmoCifras(s500) : null} delta={hayRitmo ? delta : null} />
-
-      <FranjaPareja estado={descansoDe(hechos)} />
-
-      <PulsoTuyo ppm={pulsoRemando(hechoM / largoM)} />
-
-      <BarraPareja
-        hechos={hechos}
-        actual={actual}
-        metros={metros}
-        reloj={reloj(relojTramoS(hechos, actual, metros))}
-      />
-    </Pantalla>
+    </LienzoVivo>
   );
 }
 
@@ -121,66 +162,4 @@ function descansoDe(hechos: Segmento[]): EstadoPareja {
     modo: 'descansa',
     ultimo: { metros, tiempo: reloj(metros / velocidad('pareja')) },
   };
-}
-
-/**
- * Tu ritmo contra el objetivo del tramo. `cifras` a null = el monitor todavía
- * no da un ritmo del que fiarse: se dice, no se rellena con un cero ni con un
- * hueco que parezca un dato.
- */
-function BloqueRitmo({
-  cifras,
-  delta,
-}: {
-  cifras: string | null;
-  delta: { texto: string; color: string } | null;
-}) {
-  // Dos filas y no una: el ritmo, su unidad, el objetivo y la diferencia no
-  // caben en los 378 pt de ancho útil sin apretarse (medido en el lienzo del
-  // doble). Arriba lo que decide el tirón siguiente; debajo, contra qué.
-  return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 5,
-        padding: `9px ${SP.m}px 10px`,
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s, minHeight: 26 }}>
-        <Label size={9}>Tu ritmo</Label>
-        <span style={{ flex: 1 }} />
-        {cifras ? (
-          <>
-            <Mono size={24} weight={800}>
-              {cifras}
-            </Mono>
-            <UnidadRitmo />
-          </>
-        ) : (
-          <span style={{ font: '500 12px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-            el monitor aún no da ritmo
-          </span>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ font: '500 11px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-          objetivo
-        </span>
-        <Mono size={12} weight={700} color="var(--twin-muted)">
-          {ritmoCifras(TRAMO.objetivoS500)}
-        </Mono>
-        <span style={{ flex: 1 }} />
-        {delta && (
-          <span style={{ font: '600 12px/1.2 var(--twin-font-sans)', color: delta.color }}>
-            {delta.texto}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }

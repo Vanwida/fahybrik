@@ -1,27 +1,259 @@
 'use client';
 
 // Los átomos del relevo. Solo lo que es propio de dobles: lo genérico (Card,
-// Label, Mono, Display, CTA, Hairline, iconos) viene del kit compartido, que es
-// lo que manda el §0 del CONTRATO-UI.
+// Label, Mono, Hairline, iconos) viene del kit compartido y TODO el lenguaje del
+// entreno en vivo (ambiente, numeral, banda, acción, apoyos) viene de
+// `kit-vivo`, que es lo que manda el §0 y el §10 del CONTRATO-UI.
 //
-// Lo propio de dobles es siempre lo mismo: DE QUIÉN es cada cosa. Por eso todos
-// estos átomos llevan `quien` y sacan el color de `COLOR`/`COLOR_TEXTO`, en vez
-// de recibir un color suelto que en la siguiente pantalla se elegiría distinto.
+// Lo propio de dobles es siempre lo mismo: DE QUIÉN es cada cosa. Por eso estos
+// átomos llevan `quien` y sacan el color de `COLOR`/`COLOR_TEXTO`, en vez de
+// recibir un color suelto que en la siguiente pantalla se elegiría distinto.
+//
+// OJO con dónde vive la identidad (§10.1): el naranja y el azul dicen QUIÉN, y
+// eso es información, así que siguen en la pastilla, en el reparto y en la barra
+// bicolor. Lo que NO pueden hacer es teñir el lienzo: el lienzo es TU zona de
+// pulso, también mientras rema tu pareja — que es justo el dato que quieres ver
+// bajar mientras descansas.
 
 import type { ReactNode } from 'react';
-import { Hairline, IconHeart, Label, Mono, RAD, SP } from '../../kit';
+import type { TwinAppearance } from '../../types';
+import { Hairline, IconClose, Label, Mono, RAD, SP } from '../../kit';
+import { Ambiente, Apoyo, colorZona, zonaDe } from '../../kit-vivo';
 import {
+  CAMBIO_S,
   COLOR,
   COLOR_TEXTO,
   PAREJA,
   TRAMO,
   metrosPorQuien,
   metrosTexto,
-  nombreDe,
-  zonaDe,
+  pulsoRecuperando,
+  pulsoRemando,
+  velocidad,
+  type EscenaLegProps,
   type Quien,
   type Segmento,
 } from './data';
+
+/**
+ * Lo que recibe una cara del relevo. `EscenaLegProps` (el contrato del motor)
+ * más lo único que necesita el LENGUAJE: la apariencia, de la que depende
+ * cuánto tinte aguanta el lienzo. Vive aquí y no en `data.ts` porque es una
+ * necesidad de cómo se pinta, no del modelo del tramo.
+ */
+export type EscenaLegVista = EscenaLegProps & { appearance: TwinAppearance };
+
+// ---------------------------------------------------------------------------
+// §10.1 · El lienzo de una cara del relevo — TU zona, detrás de todo
+// ---------------------------------------------------------------------------
+
+/**
+ * Las CUATRO escenas entran por aquí, y por eso el tinte no salta al cambiar de
+ * escena: es siempre tu pulso, remes tú o reme ella.
+ *
+ * El ambiente va fuera del safe area (a sangre, bajo la isla) y el marco dentro.
+ */
+export function LienzoVivo({
+  ppm,
+  appearance,
+  children,
+}: {
+  /** Tu pulso. Nulo = sin ancla de FC: lienzo neutro, sin inventar intensidad. */
+  ppm: number | null;
+  appearance: TwinAppearance;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <Ambiente zona={zonaDe(ppm)} appearance={appearance} />
+      <div className="twin-screen-safe">{children}</div>
+    </>
+  );
+}
+
+/**
+ * Tu pulso en los dos instantes que no son un relevo en curso: el cambio y el
+ * cierre del tramo.
+ *
+ * Sale de las MISMAS curvas que las dos escenas de relevo, así que el tinte no
+ * pega un salto al cambiar de escena: si acabas de soltar vienes del pico
+ * (`pulsoRemando(1)` = 172), y si el último trozo lo remó tu pareja llevas su
+ * relevo entero recuperando, que es exactamente lo que la escena de espera
+ * estaba pintando un segundo antes.
+ *
+ * `trozos` son los relevos cerrados, el último incluido.
+ */
+export function pulsoTrasRelevo(trozos: Segmento[]): number {
+  const ultimo = trozos[trozos.length - 1];
+  if (!ultimo || ultimo.quien === 'tu') return pulsoRemando(1);
+  const suRelevoS = (ultimo.hastaM - ultimo.desdeM) / velocidad(ultimo.quien);
+  return pulsoRecuperando(CAMBIO_S + suRelevoS);
+}
+
+// ---------------------------------------------------------------------------
+// El cromo — salir, pausar y en qué relevo vas
+// ---------------------------------------------------------------------------
+
+/**
+ * La fila de arriba, propia y no prestada: antes se traía el `TopStrip` de
+ * `entreno-vivo`, que es otra pantalla, y eso ataba dos vistas que no comparten
+ * ni el modelo ni el ritmo de cambio. La forma (dos iconos a la izquierda,
+ * posición a la derecha) es la de `vivo-erg`, que es la que Alex aprobó.
+ */
+export function Cromo({
+  relevo,
+  relevos,
+  onSalir,
+  onPausa,
+}: {
+  relevo: number;
+  relevos: number;
+  onSalir: () => void;
+  onPausa: () => void;
+}) {
+  const boton = (hijo: ReactNode, etiqueta: string, click: () => void) => (
+    <button
+      type="button"
+      aria-label={etiqueta}
+      onClick={click}
+      style={{
+        width: 30,
+        height: 30,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        border: 0,
+        color: 'var(--twin-muted)',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+    >
+      {hijo}
+    </button>
+  );
+  return (
+    <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: SP.s }}>
+      {boton(<IconClose size={13} />, 'Salir del entreno', onSalir)}
+      {boton(<span style={{ fontSize: 15 }}>‖</span>, 'Pausar el entreno', onPausa)}
+      <span style={{ flex: 1 }} />
+      <span style={{ font: '500 11px/1.1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+        {TRAMO.titulo} · dobles
+      </span>
+      <span
+        style={{
+          font: 'italic 800 11px/1.1 var(--twin-font-sans)',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'var(--twin-accent-text)',
+        }}
+      >
+        Relevo {relevo} de {relevos}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// El contexto — el marcador del tramo, la fila que no desaparece jamás
+// ---------------------------------------------------------------------------
+
+/**
+ * En dobles el crono-puntuación es el TOTAL DE LOS DOS, y por eso ocupa la fila
+ * de contexto de la banda (§10.3) en las cuatro escenas: remes tú, reme ella,
+ * estéis cambiando o hayáis acabado, el tramo va por donde va.
+ *
+ * La barra pinta lo que ha pasado DE VERDAD, relevo a relevo: si os cambiáis
+ * antes de los 250, el trozo de cada uno cambia con vosotros. Y es aquí donde se
+ * ve la regla del motor sin tener que leerla: lo azul no es tuyo y no se te
+ * apunta.
+ *
+ * Sin superficie: es contexto, no una tarjeta — la caja la tenía por inercia y
+ * competía con los apoyos de abajo.
+ */
+export function MarcadorTramo({
+  hechos,
+  actual,
+  metros,
+  reloj,
+}: {
+  hechos: Segmento[];
+  actual: Segmento;
+  metros: number;
+  /** El reloj del tramo. Se omite donde ya sea el sujeto de la pantalla: el
+   * mismo 4:24 dos veces en el mismo lienzo no es contexto, es ruido. */
+  reloj?: string;
+}) {
+  const trozos: Segmento[] = [...hechos, { ...actual, hastaM: Math.max(actual.desdeM, metros) }];
+  const pct = (m: number) => `${(m / TRAMO.totalM) * 100}%`;
+
+  return (
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
+        <Label size={9}>Total de los dos</Label>
+        <span style={{ flex: 1 }} />
+        <Mono size={16} weight={800}>
+          {metrosTexto(metros)}
+        </Mono>
+        <Mono size={11} weight={600} color="var(--twin-muted)">
+          de {metrosTexto(TRAMO.totalM)} m
+        </Mono>
+        {reloj && (
+          <>
+            <span
+              aria-hidden
+              style={{ width: 1, height: 11, background: 'var(--twin-hairline-strong)', margin: '0 2px' }}
+            />
+            <Mono size={13} weight={700} color="var(--twin-muted)">
+              {reloj}
+            </Mono>
+          </>
+        )}
+      </div>
+
+      <div
+        style={{
+          position: 'relative',
+          height: 8,
+          borderRadius: 4,
+          overflow: 'hidden',
+          background: 'var(--twin-surface-sunken)',
+        }}
+      >
+        {trozos.map((t) => (
+          <div
+            key={`${t.quien}-${t.desdeM}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: pct(t.desdeM),
+              width: pct(Math.max(0, t.hastaM - t.desdeM)),
+              background: COLOR[t.quien],
+              transition: 'width 900ms linear',
+            }}
+          />
+        ))}
+        {/* Las marcas del reparto planeado: dónde TOCABA cambiar. */}
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: pct(i * TRAMO.relevoM),
+              width: 2,
+              background: 'var(--twin-bg)',
+              opacity: 0.85,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // El latido de «en vivo» — SMIL, como el Spinner del kit (aquí no hay hoja de
@@ -81,6 +313,39 @@ export function PastillaPersona({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Los afijos del numeral — a escala del numeral, nunca a un tamaño a mano
+// ---------------------------------------------------------------------------
+
+/** Cuerpo del afijo respecto al del numeral. En `em`: crece y encoge con él. */
+const UNIDAD_EM = 0.3;
+const ESTIMA_EM = 0.46;
+
+/**
+ * La unidad pegada a la cifra del sujeto.
+ *
+ * No usa la ranura `unidad` de `Numeral`: esa va en `.t-readout-label`, que
+ * lleva `text-transform: uppercase` y escribiría «M» donde hay metros (que es
+ * mega) y «S» donde hay segundos. Mismo fallo de twin.css que documenta
+ * `UnidadRitmo`, y se arregla allí, no aquí.
+ */
+export function UnidadSujeto({ children }: { children: ReactNode }) {
+  // El margen también en `em` — y en los del AFIJO, que es lo que le da un aire
+  // proporcional a su propio cuerpo y no un hueco fijo que se abre al encoger.
+  return (
+    <span style={{ fontSize: `${UNIDAD_EM}em`, marginLeft: '0.4em', color: 'var(--twin-muted)' }}>
+      {children}
+    </span>
+  );
+}
+
+/** El `~` de una estimación: pequeño, pegado a la cifra, nunca dentro (§7). */
+export function EstimaSujeto() {
+  return (
+    <span style={{ fontSize: `${ESTIMA_EM}em`, marginRight: '0.2em', color: 'var(--twin-muted)' }}>~</span>
+  );
+}
+
 /**
  * `/500m` en la voz de instrumento, pero con la eme MINÚSCULA.
  *
@@ -102,87 +367,6 @@ export function UnidadRitmo() {
     >
       /500m
     </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// EL SUJETO — el dato que gobierna, y escala hasta llenar (§6.1 `gobierna`)
-// ---------------------------------------------------------------------------
-
-export function Sujeto({
-  label,
-  valor,
-  unidad,
-  prefijo,
-  quien,
-  nota,
-  resaltado = false,
-}: {
-  label: string;
-  valor: string;
-  unidad?: string;
-  /** El `~` de una estimación: pequeño, pegado a la cifra, nunca dentro. */
-  prefijo?: string;
-  quien: Quien;
-  /** La línea de debajo: el hecho MEDIDO del que sale la cifra de arriba. */
-  nota?: ReactNode;
-  /** La cifra se tiñe del color de quien manda: para el último tramo de cuenta. */
-  resaltado?: boolean;
-}) {
-  return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <Label size={10} color={COLOR_TEXTO[quien]}>
-          {label}
-        </Label>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          {prefijo && (
-            <span
-              className="t-readout-m"
-              style={{ fontSize: 'clamp(24px, 6vh, 44px)', color: 'var(--twin-muted)' }}
-            >
-              {prefijo}
-            </span>
-          )}
-          {/* `gobierna`: el techo del clamp es alto a propósito. Con uno bajo la
-              cifra se quedaba en 108 px y sobraban ~240 pt de nada arriba y
-              abajo del sujeto — el mismo hueco que esta tanda venía a arreglar,
-              colado en la propuesta. Se vio en la primera captura del doble. */}
-          <span
-            className="t-readout-hero"
-            style={{
-              fontSize: 'clamp(72px, 21vh, 152px)',
-              color: resaltado ? COLOR_TEXTO[quien] : 'var(--twin-fg)',
-            }}
-          >
-            {valor}
-          </span>
-          {unidad && (
-            <span
-              className="t-readout-m"
-              style={{ fontSize: 'clamp(22px, 5.5vh, 40px)', color: 'var(--twin-muted)' }}
-            >
-              {unidad}
-            </span>
-          )}
-        </div>
-        {nota && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: SP.s,
-              font: '500 13px/1.35 var(--twin-font-sans)',
-              color: 'var(--twin-muted)',
-              textAlign: 'center',
-            }}
-          >
-            {nota}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -267,159 +451,40 @@ export function FranjaPareja({ estado }: { estado: EstadoPareja }) {
 }
 
 // ---------------------------------------------------------------------------
-// LA BARRA DE LOS DOS — el reparto real, no el planeado
+// Los apoyos — el tercer nivel, en las celdas del kit (§10)
 // ---------------------------------------------------------------------------
 
+/** Tu pulso: el único que este móvil mide, y el que tiñe el lienzo. */
+export function ApoyoPulso({ ppm }: { ppm: number }) {
+  const zona = zonaDe(ppm);
+  return <Apoyo etiqueta="Tu pulso" valor={String(ppm)} tono={colorZona(zona)} pie={zona ? `Z${zona}` : undefined} />;
+}
+
 /**
- * Pinta lo que ha pasado DE VERDAD, relevo a relevo: si os cambiáis antes de
- * los 250, el trozo de cada uno cambia con vosotros. Y es aquí donde se ve la
- * regla del motor sin tener que leerla: lo azul no es tuyo y no se te apunta.
+ * Los metros que lleva uno de los dos: la regla del motor dicha sin tener que
+ * leerla — lo que rema tu pareja es suyo y no se te apunta.
+ *
+ * Una celda por persona y no las dos juntas, porque no siempre caben las dos:
+ * la fila de apoyos son TRES a lo ancho y ni una más (§10), así que mientras
+ * remas el sitio se lo lleva tu ritmo y de tu pareja queda su franja.
  */
-export function BarraPareja({
+export function ApoyoReparto({
+  quien,
   hechos,
   actual,
   metros,
-  reloj,
 }: {
+  quien: Quien;
   hechos: Segmento[];
   actual: Segmento;
   metros: number;
-  /** El reloj del tramo. Se omite donde ya sea el sujeto de la pantalla: el
-   * mismo 4:24 dos veces en el mismo lienzo no es contexto, es ruido. */
-  reloj?: string;
 }) {
-  const trozos: Segmento[] = [...hechos, { ...actual, hastaM: Math.max(actual.desdeM, metros) }];
-  const porQuien = metrosPorQuien(hechos, actual, metros);
-  const pct = (m: number) => `${(m / TRAMO.totalM) * 100}%`;
-
+  const por = metrosPorQuien(hechos, actual, metros);
   return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 7,
-        padding: `10px ${SP.m}px 11px`,
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
-        <Label size={9}>Total de los dos</Label>
-        <span style={{ flex: 1 }} />
-        <Mono size={17} weight={800}>
-          {metrosTexto(metros)}
-        </Mono>
-        <Mono size={11} weight={600} color="var(--twin-muted)">
-          de {metrosTexto(TRAMO.totalM)} m
-        </Mono>
-      </div>
-
-      <div
-        style={{
-          position: 'relative',
-          height: 10,
-          borderRadius: 5,
-          overflow: 'hidden',
-          background: 'var(--twin-surface-sunken)',
-        }}
-      >
-        {trozos.map((t) => (
-          <div
-            key={`${t.quien}-${t.desdeM}`}
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: pct(t.desdeM),
-              width: pct(Math.max(0, t.hastaM - t.desdeM)),
-              background: COLOR[t.quien],
-              transition: 'width 900ms linear',
-            }}
-          />
-        ))}
-        {/* Las marcas del reparto planeado: dónde TOCABA cambiar. */}
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: pct(i * TRAMO.relevoM),
-              width: 2,
-              background: 'var(--twin-bg)',
-              opacity: 0.85,
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: SP.m }}>
-        <PuntoReparto quien="tu" metros={porQuien.tu} />
-        <PuntoReparto quien="pareja" metros={porQuien.pareja} />
-        <span style={{ flex: 1 }} />
-        {reloj && (
-          <>
-            <Mono size={12} weight={700} color="var(--twin-muted)">
-              {reloj}
-            </Mono>
-            <Label size={9}>reloj</Label>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PuntoReparto({ quien, metros }: { quien: Quien; metros: number }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: COLOR[quien], flex: '0 0 auto' }} />
-      <span style={{ font: '600 11px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-        {nombreDe(quien)}
-      </span>
-      <Mono size={12} weight={700}>
-        {metrosTexto(metros)}
-      </Mono>
-      <span style={{ font: '500 11px/1 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>m</span>
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tu pulso — el único que este móvil mide
-// ---------------------------------------------------------------------------
-
-export function PulsoTuyo({ ppm }: { ppm: number }) {
-  const zona = zonaDe(ppm);
-  return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: SP.s,
-        padding: `9px ${SP.m}px`,
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <span style={{ color: `var(--twin-z${zona})`, display: 'inline-flex' }}>
-        <IconHeart size={13} />
-      </span>
-      <Label size={9}>Tu pulso</Label>
-      <span style={{ flex: 1 }} />
-      <Mono size={20} weight={800} color={`var(--twin-z${zona})`}>
-        {ppm}
-      </Mono>
-      <Label size={9}>ppm</Label>
-      <span className="tw-zone" data-zone={zona} style={{ marginLeft: 4 }}>
-        Z{zona}
-      </span>
-    </div>
+    <Apoyo
+      etiqueta={quien === 'tu' ? 'Tuyos' : `De ${PAREJA}`}
+      valor={`${metrosTexto(por[quien])} m`}
+      tono={COLOR_TEXTO[quien]}
+    />
   );
 }

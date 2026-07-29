@@ -21,7 +21,7 @@
 //   · no llama medida a la cuenta de salida (es un cálculo sobre su ritmo)
 //   · no da por hecho el cambio (lo confirma un toque; la máquina no os ve)
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { EscenaCambio } from './escena-cambio';
 import { EscenaEspera } from './escena-espera';
@@ -134,7 +134,7 @@ function estadoInicial(escenario: string): Estado {
   };
 }
 
-export function Screen({ escenario, onLog }: TwinScreenProps) {
+export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
   const [estado, setEstado] = useState<Estado>(() => estadoInicial(escenario));
 
   /**
@@ -192,6 +192,8 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
           hechos={estado.hechos}
           actual={estado.actual}
           onSiguiente={() => onLog('Siguiente tramo del entreno (fuera del alcance de esta pantalla)')}
+          onLog={onLog}
+          appearance={appearance}
         />
       );
     }
@@ -202,6 +204,8 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
           entra={estado.actual}
           metros={estado.desdeM}
           onHecho={confirmarCambio}
+          onLog={onLog}
+          appearance={appearance}
         />
       );
     }
@@ -212,15 +216,16 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       descansoDesdeS: estado.descansoDesdeS,
       onRelevo: cerrarRelevo,
       onLog,
+      appearance,
     };
     return estado.actual.quien === 'tu' ? <EscenaRemas {...props} /> : <EscenaEspera {...props} />;
   })();
 
   // El remonte por paso reinicia el reloj de la escena: cada tramo cuenta el
   // suyo, igual que el remonte por escenario reinicia el guion entero.
-  return (
-    <div className="twin-screen-safe" key={estado.paso}>
-      {cuerpo}
-    </div>
-  );
+  //
+  // El safe area lo pone cada escena y no este envoltorio: el tinte de zona vive
+  // DETRÁS de él, a sangre, y desde aquí no se puede meter una capa por debajo
+  // sin envolver también al ambiente (§10.1).
+  return <Fragment key={estado.paso}>{cuerpo}</Fragment>;
 }
