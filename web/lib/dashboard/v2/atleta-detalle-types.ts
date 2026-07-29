@@ -29,6 +29,7 @@ import {
   BENCH_ROW_2K,
   benchmarkLabel,
   benchmarkMetric,
+  benchmarkIsDirectional,
   type BenchmarkMetric,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import {
@@ -351,16 +352,18 @@ function fmtMetricValue(value: number, metric: BenchmarkMetric): string {
   if (metric === 'time') return fmtTime(Math.round(value)) ?? EM_DASH;
   if (metric === 'load') return `${Math.round(value)} kg`;
   if (metric === 'distance') return `${Math.round(value)} m`; // Cooper
+  if (metric === 'rate') return `${Math.round(value)} ppm`; // heart rate
   return `${Math.round(value)}`; // reps
 }
 
-/** Pre-format a signed metric change ("−0:12", "+5 kg", "+3"). */
+/** Pre-format a signed metric change ("−0:12", "+5 kg", "+3 ppm"). */
 function fmtDeltaLabel(delta: number, metric: BenchmarkMetric): string {
   const sign = delta > 0 ? '+' : '−';
   const abs = Math.abs(delta);
   if (metric === 'time') return `${sign}${fmtTime(Math.round(abs)) ?? '0:00'}`;
   if (metric === 'load') return `${sign}${Math.round(abs)} kg`;
   if (metric === 'distance') return `${sign}${Math.round(abs)} m`;
+  if (metric === 'rate') return `${sign}${Math.round(abs)} ppm`;
   return `${sign}${Math.round(abs)}`;
 }
 
@@ -401,7 +404,14 @@ export function buildTestProgression(
     const first = b.results[0]!;
     const last = b.results[b.results.length - 1]!;
     const delta = Math.round(last.value - first.value);
-    const improved = delta === 0 ? null : metric === 'time' ? delta < 0 : delta > 0;
+    // A pure calibration anchor (threshold HR) moves without getting better or
+    // worse: show the change, withhold the verdict.
+    const improved =
+      delta === 0 || !benchmarkIsDirectional(b.exercise_slug)
+        ? null
+        : metric === 'time'
+          ? delta < 0
+          : delta > 0;
     rows.push({
       key: `b:${b.exercise_slug}`,
       label: b.label,
