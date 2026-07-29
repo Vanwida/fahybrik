@@ -67,7 +67,7 @@ function AutoReviewStrip({
   };
 
   return (
-    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn-border,var(--v2-border-strong))] bg-[color:var(--v2-warn-soft,var(--v2-surface-2))] px-2.5 py-1.5">
+    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-2.5 py-1.5">
       <MIcon name="auto_awesome" size={13} className="shrink-0 text-[color:var(--v2-muted)]" />
       <span className="min-w-0 flex-1 text-[10.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
         Auto del onboarding · revisar

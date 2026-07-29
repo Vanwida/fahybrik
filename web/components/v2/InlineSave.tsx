@@ -48,7 +48,7 @@ export function InlineSaveBadge({ status }: { status: InlineSaveState }) {
   }
   if (status === 'saved') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-success,var(--v2-fg))]">
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-ok)]">
         <MIcon name="check" size={14} /> Guardado
       </span>
     );

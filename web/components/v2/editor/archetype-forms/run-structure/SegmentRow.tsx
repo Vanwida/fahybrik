@@ -56,7 +56,7 @@ export function IconBtn({
       onClick={onClick}
       className={cn(
         'v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors',
-        disabled ? 'opacity-30' : 'hover:bg-[color:var(--v2-surface-3)] hover:text-[color:var(--v2-fg)]',
+        disabled ? 'opacity-30' : 'hover:bg-[color:var(--v2-elevated)] hover:text-[color:var(--v2-fg)]',
       )}
     >
       <MIcon name={icon} size={15} />
@@ -89,7 +89,7 @@ export function SegmentRow({
     return (
       <div
         className={cn(
-          'group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-1)] px-3 py-2.5',
+          'group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
         )}
       >
         <span
@@ -121,7 +121,7 @@ export function SegmentRow({
   return (
     <div
       className={cn(
-        'rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-1)] p-3',
+        'rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] p-3',
         'border-[color:var(--v2-accent)]/45',
       )}
     >

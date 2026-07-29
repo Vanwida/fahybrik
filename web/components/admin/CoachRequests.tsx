@@ -150,7 +150,7 @@ export function CoachRequests({ initial_coaches }: { initial_coaches: Allowliste
       {/* Añadir coach directamente (aprobado) */}
       <form
         onSubmit={handleAdd}
-        className="flex flex-col gap-3 rounded-[var(--r-md)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] p-5"
+        className="flex flex-col gap-3 rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] p-5"
       >
         <label
           htmlFor="admin-coach-email"
@@ -184,8 +184,8 @@ export function CoachRequests({ initial_coaches }: { initial_coaches: Allowliste
             aria-live="polite"
             className={
               banner.kind === 'success'
-                ? 'text-sm text-[color:var(--success,#3fb950)]'
-                : 'text-sm text-[color:var(--danger,#f85149)]'
+                ? 'text-sm text-[color:var(--ok)]'
+                : 'text-sm text-[color:var(--danger)]'
             }
           >
             {banner.message}
@@ -201,7 +201,7 @@ export function CoachRequests({ initial_coaches }: { initial_coaches: Allowliste
         {coaches.length === 0 ? (
           <p className="text-sm text-[color:var(--text-muted)]">Aún no hay coaches.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-[color:var(--border-subtle)] rounded-[var(--r-md)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)]">
+          <ul className="flex flex-col divide-y divide-[color:var(--border-subtle)] rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)]">
             {coaches.map((c) => {
               const busy = busyEmail === c.email;
               return (
@@ -240,7 +240,7 @@ export function CoachRequests({ initial_coaches }: { initial_coaches: Allowliste
                         type="button"
                         disabled={busy}
                         onClick={() => handleStatus(c.email, 'rejected')}
-                        className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] border border-[color:var(--border-subtle)] px-3 text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)] transition-colors hover:border-[color:var(--danger,#f85149)] hover:text-[color:var(--danger,#f85149)] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] border border-[color:var(--border-subtle)] px-3 text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)] transition-colors hover:border-[color:var(--danger)] hover:text-[color:var(--danger)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <MIcon name="block" size={15} />
                         Rechazar

@@ -557,7 +557,7 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
   return (
     <div className="flex flex-col gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2">
       <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-        <MIcon name="bookmark_add" size={13} className="text-[color:var(--v2-violet)]" />
+        <MIcon name="bookmark_add" size={13} />
         Guardar en biblioteca
       </span>
       <div className="flex items-center gap-2">
