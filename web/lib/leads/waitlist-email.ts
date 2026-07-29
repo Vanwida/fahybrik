@@ -1,5 +1,5 @@
 // Waitlist emails (Resend) for #18 — the two transactional sends around the capacity gate:
-//   • JOINED   — the lead finished onboarding while Pablo was at capacity → they're on the
+//   • JOINED   — the lead finished onboarding while the coach was at capacity → they're on the
 //     FIFO list. Premium, exclusive-club tone (scarcity = positioning, NOT rejection). No
 //     cita link (they can't book yet), no prices.
 //   • RELEASED — the coach MANUALLY opened a plaza → warm invite to book the intro call,
@@ -19,6 +19,7 @@ import {
   unsubscribeFooter,
   unsubscribeTextLine,
 } from './email-shell';
+import { coachVoice } from '@/lib/coach/voice';
 
 export interface WaitlistEmailResult {
   sent: boolean;
@@ -27,10 +28,15 @@ export interface WaitlistEmailResult {
 
 // Inputs trace to lead-submitted data → Zod-validate the shape (fails closed with a ZodError
 // the caller can catch). email/token are constrained; nombre may be absent.
+/** Nombre del coach de este lead (`leads.coach_id` → `coaches.full_name`). Sin dueño o
+ *  sin nombre → null, y la copia prescinde del nombre sin dejar hueco. */
+const coachNameField = z.string().nullable().optional();
+
 const joinedInputSchema = z.object({
   email: z.string().email(),
   nombre: z.string().nullable(),
   unsubscribe_token: z.string().min(1),
+  coach_name: coachNameField,
 });
 export type WaitlistJoinedInput = z.infer<typeof joinedInputSchema>;
 
@@ -39,6 +45,7 @@ const releasedInputSchema = z.object({
   nombre: z.string().nullable(),
   cita_token: z.string().min(1),
   unsubscribe_token: z.string().min(1),
+  coach_name: coachNameField,
 });
 export type WaitlistReleasedInput = z.infer<typeof releasedInputSchema>;
 
@@ -84,12 +91,13 @@ async function sendEmail(args: {
 
 /** "Estás en la lista de espera" — sent when a lead completes onboarding at full capacity. */
 export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promise<WaitlistEmailResult> {
-  const { email, nombre, unsubscribe_token } = joinedInputSchema.parse(input);
+  const { email, nombre, unsubscribe_token, coach_name } = joinedInputSchema.parse(input);
+  const v = coachVoice(coach_name);
   const g = greeting(nombre);
   const subject = 'Estás en la lista de espera de FAHYBRID';
   const heading = 'Estás en la lista de espera';
   const body = [
-    'Pablo entrena a un grupo reducido de atletas para poder seguir cada plan de cerca. Ahora mismo el grupo está completo.',
+    `${v.subject} entrena a un grupo reducido de atletas para poder seguir cada plan de cerca. Ahora mismo el grupo está completo.`,
     'Te hemos apuntado a la lista de espera. En cuanto se abra una plaza te escribimos, y se respeta el orden de llegada.',
     'No tienes que hacer nada más: nosotros te avisamos.',
   ];
@@ -97,14 +105,14 @@ export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promi
   const text =
     `${g.text}\n\n` +
     `${body.join('\n\n')}\n\n` +
-    `— Pablo · FAHYBRID\n\n` +
+    `— ${v.signature}\n\n` +
     unsubscribeTextLine(unsubscribe_token);
 
   const html = brandShell(
     `<h1 style="margin:8px 0 14px;font-size:22px;">${escapeHtml(heading)}</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${g.html}</p>
        ${paragraphsHtml(body)}
-       <p style="margin:24px 0 0;color:#666;">— Pablo · FAHYBRID</p>
+       <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(v.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
   );
 
@@ -113,21 +121,23 @@ export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promi
 
 /** "Se ha liberado una plaza" — sent when the coach manually releases a waitlisted lead. */
 export async function sendWaitlistReleasedEmail(input: WaitlistReleasedInput): Promise<WaitlistEmailResult> {
-  const { email, nombre, cita_token, unsubscribe_token } = releasedInputSchema.parse(input);
+  const { email, nombre, cita_token, unsubscribe_token, coach_name } =
+    releasedInputSchema.parse(input);
+  const v = coachVoice(coach_name);
   const g = greeting(nombre);
-  const subject = 'Se ha liberado una plaza — reserva tu llamada con Pablo';
+  const subject = `Se ha liberado una plaza — reserva tu llamada${v.withCoach}`;
   const heading = 'Se ha liberado tu plaza';
   const cta = citaUrl(cita_token);
   const ctaLabel = 'Reservar mi llamada';
   const body = [
-    'Buenas noticias: se ha abierto una plaza en el grupo de Pablo y es para ti.',
-    'El siguiente paso es una videollamada de 30 minutos con Pablo para ver tu caso y cómo enfocar tu plan. Elige el hueco que mejor te venga:',
+    `Buenas noticias: se ha abierto una plaza en el grupo de ${v.object} y es para ti.`,
+    `El siguiente paso es una videollamada de 30 minutos${v.withCoach} para ver tu caso y cómo enfocar tu plan. Elige el hueco que mejor te venga:`,
   ];
 
   const text =
     `${g.text}\n\n` +
     `${body.join('\n\n')}\n${cta}\n\n` +
-    `— Pablo · FAHYBRID\n\n` +
+    `— ${v.signature}\n\n` +
     unsubscribeTextLine(unsubscribe_token);
 
   const html = brandShell(
@@ -135,7 +145,7 @@ export async function sendWaitlistReleasedEmail(input: WaitlistReleasedInput): P
        <p style="margin:0 0 12px;line-height:1.6;">${g.html}</p>
        ${paragraphsHtml(body)}
        ${ctaButton(cta, ctaLabel)}
-       <p style="margin:24px 0 0;color:#666;">— Pablo · FAHYBRID</p>
+       <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(v.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
   );
 

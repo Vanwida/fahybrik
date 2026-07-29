@@ -1,7 +1,7 @@
 // Lead funnel emails (Resend). Two sends on full submit:
-//   • sendLeadNotification  — internal alert to Pablo/Gerard (LEADS_NOTIFY_EMAIL,
+//   • sendLeadNotification  — internal alert to the coach team (LEADS_NOTIFY_EMAIL,
 //     default hello@fahybrid.com) with the full answers formatted for the call.
-//   • sendLeadConfirmation  — short receipt to the lead.
+//   • sendLeadConfirmation  — short receipt to the lead, naming THAT lead's coach.
 //
 // SENDER: reuses AUTH_CONFIG.resendFromEmail() — the ALREADY-VERIFIED Resend domain
 // (aistudios.pro). fahybrid.com is NOT a verified Resend sender yet, so we do not send
@@ -17,6 +17,7 @@ import { AUTH_CONFIG } from '@/lib/auth/config';
 import type { LeadSubmitInput } from '@fahybrid/shared/schema';
 import { leadFirstName } from '@fahybrid/shared/domain/leads/questions';
 import { groupLeadSummary, summarizeLead } from '@fahybrid/shared/domain/leads/summary';
+import { coachVoice } from '@/lib/coach/voice';
 
 export interface LeadEmailResult {
   sent: boolean;
@@ -107,10 +108,14 @@ export async function sendLeadNotification(input: LeadSubmitInput): Promise<Lead
  * Short receipt to the lead. When a `bookingToken` is given (always, post-submit), it
  * carries the CTA to reserve the call at /es/cita/[token] — so a lead who finished the
  * onboarding without picking a slot can still book from the email.
+ *
+ * `coachName` es el nombre del coach de ESTE lead. Ausente/vacío → la plantilla se
+ * queda sin la coletilla «con X» y sigue leyéndose bien.
  */
 export async function sendLeadConfirmation(
   input: LeadSubmitInput,
   bookingToken?: string,
+  coachName?: string | null,
 ): Promise<LeadEmailResult> {
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
@@ -125,13 +130,19 @@ export async function sendLeadConfirmation(
     ? `${AUTH_CONFIG.appUrl().replace(/\/$/, '')}/es/cita/${bookingToken}`
     : null;
 
+  // El nombre del coach de ESTE lead (leads.coach_id, grabado al captarlo). Sin nombre,
+  // `withCoach` se queda vacío y la frase se lee igual: «Reserva tu videollamada — 30
+  // minutos, sin coste».
+  const voice = coachVoice(coachName);
+  const withCoachHtml = escapeHtml(voice.withCoach);
+
   const ctaText = bookingUrl
-    ? `Reserva tu videollamada con Pablo — 30 minutos, sin coste — aquí:\n${bookingUrl}`
-    : `Pablo revisará tus respuestas y te escribimos en breve para agendar tu llamada — 30 minutos, sin coste.`;
+    ? `Reserva tu videollamada${voice.withCoach} — 30 minutos, sin coste — aquí:\n${bookingUrl}`
+    : `${voice.subject} revisará tus respuestas y te escribimos en breve para agendar tu llamada — 30 minutos, sin coste.`;
   const ctaHtml = bookingUrl
-    ? `<p style="margin:0 0 12px;line-height:1.6;">Elige el hueco que mejor te venga para tu <strong>videollamada con Pablo</strong> — 30 minutos, sin coste.</p>
+    ? `<p style="margin:0 0 12px;line-height:1.6;">Elige el hueco que mejor te venga para tu <strong>videollamada${withCoachHtml}</strong> — 30 minutos, sin coste.</p>
        <p style="margin:0 0 12px;"><a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:12px 20px;background:#F06A2A;color:#0a0a0a;text-decoration:none;border-radius:8px;font-weight:600;">Reservar mi llamada</a></p>`
-    : `<p style="margin:0 0 12px;line-height:1.6;">Pablo revisará tus respuestas y te escribimos en breve para <strong>agendar tu llamada</strong> — 30 minutos, sin coste.</p>`;
+    : `<p style="margin:0 0 12px;line-height:1.6;">${escapeHtml(voice.subject)} revisará tus respuestas y te escribimos en breve para <strong>agendar tu llamada</strong> — 30 minutos, sin coste.</p>`;
 
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({

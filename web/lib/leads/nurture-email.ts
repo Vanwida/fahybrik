@@ -14,6 +14,7 @@ import { Resend } from 'resend';
 import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { NURTURE_TOUCH_TYPES, type NurtureTouchType } from '@fahybrid/shared/domain/leads/nurture';
+import { coachVoice, type CoachVoice } from '@/lib/coach/voice';
 import {
   EMPIEZA_PATH,
   appBase,
@@ -43,12 +44,16 @@ interface TouchCopy {
 
 // One entry per touch. Presentation lives here (web); the cadence/sequence metadata lives
 // in shared/domain/leads/nurture.ts. tú-form, sober, no prices.
-const COPY: Record<NurtureTouchType, TouchCopy> = {
+//
+// Cada entrada es FUNCIÓN del coach de ese lead: el nombre sale de `leads.coach_id` y la
+// plantilla pide el fragmento que le toca por posición (`subject` a principio de frase,
+// `object` en medio, `withCoach` como coletilla que desaparece entera si no hay nombre).
+const copyFor = (v: CoachVoice): Record<NurtureTouchType, TouchCopy> => ({
   parcial_t1: {
     subject: 'Termina tu solicitud en FAHYBRID',
     heading: 'Te quedó a medias',
     body: [
-      'Empezaste tu solicitud pero no llegaste a terminarla. Son un par de minutos, y con ella Pablo puede preparar tu plan a tu medida.',
+      `Empezaste tu solicitud pero no llegaste a terminarla. Son un par de minutos, y con ella ${v.object} puede preparar tu plan a tu medida.`,
       'Retómala donde la dejaste:',
     ],
     ctaLabel: 'Completar mi solicitud',
@@ -58,34 +63,34 @@ const COPY: Record<NurtureTouchType, TouchCopy> = {
     subject: 'Quedan pocas plazas · termina tu solicitud',
     heading: 'Las plazas son limitadas',
     body: [
-      'Pablo entrena a un número limitado de atletas para poder seguir cada plan de cerca. Ahora mismo hay plazas, pero se cierran.',
+      `${v.subject} entrena a un número limitado de atletas para poder seguir cada plan de cerca. Ahora mismo hay plazas, pero se cierran.`,
       'Si quieres tu sitio, termina tu solicitud y lo vemos:',
     ],
     ctaLabel: 'Completar mi solicitud',
     ctaKind: 'empieza',
   },
   nuevo_t1: {
-    subject: 'Reserva tu llamada con Pablo',
+    subject: `Reserva tu llamada${v.withCoach}`,
     heading: 'El siguiente paso es una llamada',
     body: [
-      'Ya tenemos tus respuestas. El siguiente paso es una videollamada de 30 minutos con Pablo para ver tu caso y cómo enfocar tu plan.',
+      `Ya tenemos tus respuestas. El siguiente paso es una videollamada de 30 minutos${v.withCoach} para ver tu caso y cómo enfocar tu plan.`,
       'Elige el hueco que mejor te venga:',
     ],
     ctaLabel: 'Reservar mi llamada',
     ctaKind: 'cita',
   },
   nuevo_t4: {
-    subject: '¿Reservamos tu llamada con Pablo?',
+    subject: `¿Reservamos tu llamada${v.withCoach}?`,
     heading: 'Seguimos con tu hueco',
     body: [
-      'Aún no has reservado tu videollamada con Pablo. Cuando te venga bien, elige un hueco y lo vemos con calma.',
+      `Aún no has reservado tu videollamada${v.withCoach}. Cuando te venga bien, elige un hueco y lo vemos con calma.`,
       'Reserva aquí:',
     ],
     ctaLabel: 'Reservar mi llamada',
     ctaKind: 'cita',
   },
   noshow_rebook: {
-    subject: 'Reprograma tu llamada con Pablo',
+    subject: `Reprograma tu llamada${v.withCoach}`,
     heading: 'Nos quedó pendiente',
     body: [
       'No pudimos vernos en la llamada. No pasa nada: elige otro hueco y la retomamos cuando te vaya bien.',
@@ -104,7 +109,7 @@ const COPY: Record<NurtureTouchType, TouchCopy> = {
     ctaLabel: 'Reservar otra llamada',
     ctaKind: 'cita',
   },
-};
+});
 
 // Our own DB feeds this, but `email` traces to lead-submitted input → validate the shape
 // (fails closed with a ZodError the cron catches per-candidate, so one bad row never aborts
@@ -115,6 +120,9 @@ const nurtureInputSchema = z.object({
   nombre: z.string().nullable(),
   cita_token: z.string().min(1).nullable(),
   unsubscribe_token: z.string().min(1),
+  /** Nombre del coach de este lead (`leads.coach_id` → `coaches.full_name`). Sin
+   *  dueño o sin nombre → null, y la copia prescinde del nombre sin dejar hueco. */
+  coach_name: z.string().nullable().optional(),
 });
 
 export type NurtureEmailInput = z.infer<typeof nurtureInputSchema>;
@@ -127,9 +135,10 @@ function ctaUrl(kind: CtaKind, citaToken: string | null): string | null {
 
 /** Sends the nurture email for one candidate touch. Guarded + validated. */
 export async function sendNurtureEmail(input: NurtureEmailInput): Promise<NurtureEmailResult> {
-  const { touch_type, email, nombre, cita_token, unsubscribe_token } =
+  const { touch_type, email, nombre, cita_token, unsubscribe_token, coach_name } =
     nurtureInputSchema.parse(input);
-  const copy = COPY[touch_type];
+  const voice = coachVoice(coach_name);
+  const copy = copyFor(voice)[touch_type];
 
   const cta = ctaUrl(copy.ctaKind, cita_token);
   if (!cta) {
@@ -151,7 +160,7 @@ export async function sendNurtureEmail(input: NurtureEmailInput): Promise<Nurtur
   const text =
     `${hi}\n\n` +
     `${bodyText}\n${cta}\n\n` +
-    `— Pablo · FAHYBRID\n\n` +
+    `— ${voice.signature}\n\n` +
     unsubscribeTextLine(unsubscribe_token);
 
   const html = brandShell(
@@ -159,7 +168,7 @@ export async function sendNurtureEmail(input: NurtureEmailInput): Promise<Nurtur
        <p style="margin:0 0 12px;line-height:1.6;">${hiHtml}</p>
        ${bodyHtml}
        ${ctaButton(cta, copy.ctaLabel)}
-       <p style="margin:24px 0 0;color:#666;">— Pablo · FAHYBRID</p>
+       <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(voice.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
   );
 

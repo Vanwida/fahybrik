@@ -98,7 +98,7 @@ function line(label: string, value: string | null | undefined): string | null {
 
 /**
  * Distil the lead's non-structured onboarding answers into readable ES coach notes
- * (what Pablo skims before building the plan). Codes are rendered as Spanish labels.
+ * (what the coach skims before building the plan). Codes are rendered as Spanish labels.
  * Free text is included verbatim. The doubles hint is appended so it stays visible.
  */
 export function buildCoachNotes(row: Record<string, unknown>): string {
