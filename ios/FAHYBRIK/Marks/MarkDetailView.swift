@@ -79,7 +79,7 @@ struct MarkDetailView: View {
             }
             Button("Cancelar", role: .cancel) { pendingDeletion = nil }
         } message: { result in
-            Text(MarkFormat.isDeclared(result)
+            Text(DataOrigin.isDeclared(result.source)
                  ? "La declaraste al entrar. Desaparece de tu historial y deja de contar como tu mejor marca."
                  : "Desaparece de tu historial y deja de contar como tu mejor marca.")
         }
@@ -306,7 +306,8 @@ struct MarkDetailView: View {
         // una sola grafía por concepto. Para una prueba propia manda el contexto
         // de carrera, que es lo que de verdad distingue una fila de otra — un 5K
         // en cinta no es el mismo bicho que uno en calle.
-        if result.source != "athlete_test", let origin = MarkFormat.originLabel(result) {
+        if result.source != DataOrigin.athleteTest,
+           let origin = DataOrigin.label(result.source, eventName: result.eventName) {
             return origin
         }
         switch result.runContext {

@@ -36,6 +36,7 @@
 		0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */; };
 		0B1FD64FEF8A3224A1CBACC9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92301D3099895B625F52E562 /* ChatView.swift */; };
 		0BC4CB79B20EEBAC971122F1 /* FoodScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF52F661AB1368C35F9E7999 /* FoodScannerView.swift */; };
+		0C995FE66347BF2F50462BA8 /* DataOrigin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 889EF8A6D2D98A6B9343BB8B /* DataOrigin.swift */; };
 		0CEF4E5347591EAC8CA8E054 /* WorkoutAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */; };
 		0E3287795D6662E9E6E92259 /* TreadmillAutoAdvanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0829AF2BC474FCF4A83E232 /* TreadmillAutoAdvanceTests.swift */; };
 		0E366ADA9BB1FE79D0C03982 /* PM5ConnectGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFD2F1D47B75449195DF8C2 /* PM5ConnectGuide.swift */; };
@@ -701,6 +702,7 @@
 		87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultCaptureSheet.swift; sourceTree = "<group>"; };
 		880B505E261FD68366EE8498 /* DeviceDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiagnostics.swift; sourceTree = "<group>"; };
 		883BD3BAFDC4853754FC7DD0 /* HistoryCalendarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarTests.swift; sourceTree = "<group>"; };
+		889EF8A6D2D98A6B9343BB8B /* DataOrigin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataOrigin.swift; sourceTree = "<group>"; };
 		88AC9F29DD28A8726EFE2134 /* MockDeviceProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceProfileTests.swift; sourceTree = "<group>"; };
 		88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLiveDataSources.swift; sourceTree = "<group>"; };
 		8915E616B82CB5366D36A6F3 /* FTMSControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSControlTests.swift; sourceTree = "<group>"; };
@@ -1206,6 +1208,7 @@
 		572AEED0394716065B2CDCC5 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				889EF8A6D2D98A6B9343BB8B /* DataOrigin.swift */,
 				651101976D586B0953539DF1 /* SafariView.swift */,
 			);
 			path = Shared;
@@ -2064,6 +2067,7 @@
 				EC11C17FD3DE9C14C8F20C14 /* CoachSpeech.swift in Sources */,
 				B566F0148E5456C40DF9B260 /* ConnectionsStep.swift in Sources */,
 				C2C13E6DEBC151ACC60A5969 /* CountdownFormat.swift in Sources */,
+				0C995FE66347BF2F50462BA8 /* DataOrigin.swift in Sources */,
 				AA27B7CFD653512B56C3BBB9 /* Day1Flow.swift in Sources */,
 				BBAA95CDADA087BDDAEC4F39 /* Day1Model.swift in Sources */,
 				D4F75F16FAA6EAD2434D93A9 /* DecodingTolerance.swift in Sources */,

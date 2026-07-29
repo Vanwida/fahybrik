@@ -132,7 +132,8 @@ struct MarksLibraryView: View {
         // El sello sale cuando el número NO es una medición propia del atleta:
         // del coach, de una carrera, o declarado al entrar. `athlete_test` es el
         // caso por defecto de esta biblioteca (son tus pruebas) y se deja implícito.
-        if shown.source != "athlete_test", let origin = MarkFormat.originLabel(shown) {
+        if shown.source != DataOrigin.athleteTest,
+           let origin = DataOrigin.label(shown.source, eventName: shown.eventName) {
             parts.append(origin)
         }
         return parts.isEmpty ? mark.approxLabel : parts.joined(separator: " · ")
