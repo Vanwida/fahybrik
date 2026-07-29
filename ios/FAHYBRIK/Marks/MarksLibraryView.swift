@@ -122,12 +122,19 @@ struct MarksLibraryView: View {
         guard let latest = mark.latest else {
             return mark.measuredBy == "registered" ? "Aún sin tiempo" : "Aún sin marca · \(mark.approxLabel)"
         }
+        // La fila pinta el MEJOR resultado, así que la fecha y el sello describen
+        // ese, no el último. Antes la fecha era la del último y el número el mejor:
+        // con una marca declarada eso pasa de ser una imprecisión a una mentira
+        // ("hace 3 días" sobre un número que el atleta declaró hace medio año).
+        let shown = mark.best ?? latest
         var parts: [String] = []
-        if let rel = MarkFormat.relative(latest.recordedAt) { parts.append(rel) }
-        switch latest.source {
-        case "coach_test": parts.append("test del coach")
-        case "registered": if let name = latest.eventName { parts.append(name) }
-        default: break
+        if let rel = MarkFormat.relative(shown.recordedAt) { parts.append(rel) }
+        // El sello sale cuando el número NO es una medición propia del atleta:
+        // del coach, de una carrera, o declarado al entrar. `athlete_test` es el
+        // caso por defecto de esta biblioteca (son tus pruebas) y se deja implícito.
+        if shown.source != DataOrigin.athleteTest,
+           let origin = DataOrigin.label(shown.source, eventName: shown.eventName) {
+            parts.append(origin)
         }
         return parts.isEmpty ? mark.approxLabel : parts.joined(separator: " · ")
     }

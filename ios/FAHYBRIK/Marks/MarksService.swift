@@ -39,6 +39,18 @@ enum MarksService {
         return resp.candidates
     }
 
+    /// `DELETE /api/athlete/marks/{id}` — el atleta retira una marca suya.
+    ///
+    /// Lo que declaró al entrar es suyo y tiene que poder quitarlo. El servidor
+    /// vuelve a comprobar la propiedad y el origen: esto no es la última palabra.
+    static func remove(id: String, bearer: String?) async throws {
+        let _: Empty = try await APIClient.shared.delete(
+            path: "/api/athlete/marks/\(id)",
+            body: Optional<Empty>.none,
+            bearer: bearer
+        )
+    }
+
     /// `POST /api/athlete/marks/register` — save the race, dated the day it happened.
     static func register(
         slug: String,
@@ -126,12 +138,17 @@ struct MarkView: Decodable, Identifiable {
     var id: String { slug }
 }
 
-struct MarkResult: Decodable, Equatable {
+struct MarkResult: Decodable, Equatable, Identifiable {
+    /// La fila de `athlete_benchmarks`. Necesaria para poder retirarla.
+    let id: String
     let value: Double
     let recordedAt: String
     let source: String         // coach_test | athlete_test | registered | onboarding | unknown
     let runContext: String?
     let eventName: String?
+
+    /// Lo que produjo el atleta lo puede retirar él. El test del coach no.
+    var isDeletableByAthlete: Bool { DataOrigin.isDeletableByAthlete(source) }
 }
 
 struct RaceTwin: Decodable, Equatable {

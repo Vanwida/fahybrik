@@ -116,12 +116,20 @@ struct MyStrengthView: View {
     }
 
     /// "130 kg × 3 · 20 jun 2026" — only the parts genuinely present.
+    ///
+    /// El sello de origen sale cuando el número NO lo midió el propio atleta. Un
+    /// 1RM declarado al entrar llega sin peso ni repeticiones (no hubo test), así
+    /// que sin sello se pintaba con la fecha a secas — idéntico a uno que sí se
+    /// levantó. Misma grafía que en Marcas (`DataOrigin`).
     private func sourceSubtitle(_ m: StrengthMaxProfile) -> String? {
         var parts: [String] = []
         if let w = m.testWeightKg, let r = m.testReps, w > 0, r > 0 {
             parts.append("\(Int(w.rounded())) kg × \(r)")
         }
         if let date = m.recordedDateLabel { parts.append(date) }
+        if m.source != DataOrigin.athleteTest, let origin = DataOrigin.label(m.source) {
+            parts.append(origin)
+        }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 

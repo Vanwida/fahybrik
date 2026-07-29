@@ -10,6 +10,7 @@ import {
   MARKS,
   isPersonalBest,
   markBySlug,
+  markIsDeletableByAthlete,
   registrableMarks,
   selfTestableMarks,
   validateMarkValue,
@@ -98,5 +99,27 @@ describe('isPersonalBest', () => {
 
   it('ergo marks ignore context entirely', () => {
     expect(isPersonalBest(ski, 229, [{ value: 230, run_context: 'outdoor' }])).toBe(true);
+  });
+});
+
+// ── Quién puede retirar una marca ────────────────────────────────────────────
+//
+// WHY PINNED: es una frontera de propiedad y las dos direcciones duelen. Si se
+// abre de más, el atleta borra desde el móvil el test con el que su coach
+// programó. Si se cierra de más, lo que declaró al entrar se queda para siempre
+// mandando en su mejor marca — que es justo lo que esta tanda vino a arreglar.
+describe('lo que el atleta puede retirar de su biblioteca', () => {
+  it('retira lo que produjo él — incluido lo que declaró al entrar', () => {
+    expect(markIsDeletableByAthlete('onboarding')).toBe(true);
+    expect(markIsDeletableByAthlete('athlete_test')).toBe(true);
+    expect(markIsDeletableByAthlete('registered')).toBe(true);
+  });
+
+  it('NUNCA el test del coach — es su registro, y con él programa', () => {
+    expect(markIsDeletableByAthlete('coach_test')).toBe(false);
+  });
+
+  it('tampoco lo de procedencia desconocida — no se borra a ciegas', () => {
+    expect(markIsDeletableByAthlete('unknown')).toBe(false);
   });
 });

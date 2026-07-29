@@ -24,6 +24,10 @@ struct MarkDetailView: View {
     @State private var liveContext: FreeWorkoutContext? = nil
     @State private var showRegister = false
 
+    /// La fila del historial que el atleta ha pedido retirar, a la espera de que
+    /// confirme. Borrar una marca no se deshace, así que se pregunta.
+    @State private var pendingDeletion: MarkResult? = nil
+
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
@@ -64,6 +68,21 @@ struct MarkDetailView: View {
         .navigationTitle(mark?.label ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .confirmationDialog(
+            "¿Retirar esta marca?",
+            isPresented: deletionPrompt,
+            titleVisibility: .visible,
+            presenting: pendingDeletion
+        ) { result in
+            Button("Retirar", role: .destructive) {
+                Task { await remove(result) }
+            }
+            Button("Cancelar", role: .cancel) { pendingDeletion = nil }
+        } message: { result in
+            Text(DataOrigin.isDeclared(result.source)
+                 ? "La declaraste al entrar. Desaparece de tu historial y deja de contar como tu mejor marca."
+                 : "Desaparece de tu historial y deja de contar como tu mejor marca.")
+        }
         .fullScreenCover(item: liveBinding) { boxed in
             WorkoutContainer(
                 assignmentId: nil,
@@ -102,6 +121,28 @@ struct MarkDetailView: View {
             get: { liveContext.map { BoxedContext(context: $0) } },
             set: { if $0 == nil { liveContext = nil } }
         )
+    }
+
+    private var deletionPrompt: Binding<Bool> {
+        Binding(
+            get: { pendingDeletion != nil },
+            set: { if !$0 { pendingDeletion = nil } }
+        )
+    }
+
+    /// Retira una marca y recarga. El servidor vuelve a comprobar la propiedad y el
+    /// origen, así que un fallo aquí se cuenta tal cual y no se toca la lista.
+    @MainActor
+    private func remove(_ result: MarkResult) async {
+        pendingDeletion = nil
+        error = nil
+        do {
+            try await MarksService.remove(id: result.id, bearer: bearer)
+            Haptics.success()
+            await load()
+        } catch {
+            self.error = "No pudimos retirar la marca."
+        }
     }
 
     // MARK: - Cards
@@ -246,19 +287,33 @@ struct MarkDetailView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        // Lo que produjo el atleta lo puede retirar él — sobre todo lo que declaró
+        // al entrar. El test del coach no ofrece la acción (es su registro).
+        .contextMenu {
+            if result.isDeletableByAthlete {
+                Button(role: .destructive) {
+                    pendingDeletion = result
+                } label: {
+                    Label("Retirar esta marca", systemImage: "trash")
+                }
+            }
+        }
     }
 
     private func historyTag(_ result: MarkResult) -> String {
-        switch result.source {
-        case "coach_test": return "test con tu coach"
-        case "registered": return result.eventName ?? "carrera registrada"
-        case "onboarding": return "de cuando entraste"
-        default:
-            switch result.runContext {
-            case "treadmill": return "en cinta"
-            case "outdoor": return "aire libre"
-            default: return "te probaste"
-            }
+        // Sello de origen compartido con la biblioteca (MarkFormat.originLabel):
+        // una sola grafía por concepto. Para una prueba propia manda el contexto
+        // de carrera, que es lo que de verdad distingue una fila de otra — un 5K
+        // en cinta no es el mismo bicho que uno en calle.
+        if result.source != DataOrigin.athleteTest,
+           let origin = DataOrigin.label(result.source, eventName: result.eventName) {
+            return origin
+        }
+        switch result.runContext {
+        case "treadmill": return "en cinta"
+        case "outdoor": return "aire libre"
+        default: return "te probaste"
         }
     }
 
