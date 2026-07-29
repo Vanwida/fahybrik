@@ -285,6 +285,31 @@ export function esDecimal(valor: number, decimales = 1): string {
   return valor.toFixed(decimales).replace('.', ',');
 }
 
+/**
+ * LA dosis de un ítem, con sus series. Una sola grafía: `4×5`, `2×10`, `500 m`.
+ *
+ * Vive aquí y no en cada pantalla porque ya pasó lo que el contrato avisaba.
+ * Las tres pantallas de esta tanda la escribieron por separado, cada una a su
+ * manera, el mismo día y habiendo leído las dos el §2:
+ *
+ *   - la puerta del bloque   → `2×10`        (series delante, «reps» fuera)
+ *   - el entreno en vivo     → `10 reps × 2` (series detrás, «reps» dentro)
+ *   - el post-entreno        → `2×10 reps`   (series delante, «reps» dentro)
+ *
+ * Mismo `Leg Swings`, mismos datos, tres grafías. Exactamente los «seis relojes
+ * y tres grafías del ritmo» que motivaron el contrato — así que la función es
+ * una y las pantallas la usan.
+ *
+ * Nulo cuando la prescripción no trae medida: las series SOLAS no son una
+ * dosis, y un `4×` colgando sería fabricar la mitad de un dato (§7).
+ */
+export function dosisConSeries(item: Pick<ItemReal, 'dosis' | 'series'>): string | null {
+  if (item.dosis == null) return null;
+  if (!item.series || item.series <= 1) return item.dosis;
+  // «5 reps» ×4 se lee «4×5»: la unidad se cae porque el × ya la implica.
+  return `${item.series}×${item.dosis.replace(/\s*reps?$/i, '')}`;
+}
+
 /** El punto de modalidad (`ModalityDot`) — el color, no un Circle() a mano. */
 export const COLOR_MODALIDAD: Record<Modalidad, string> = {
   run: 'var(--twin-modality-hyrox)',

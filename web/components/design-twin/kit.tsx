@@ -34,6 +34,13 @@ export interface CardProps {
   leftAccent?: boolean;
   /** Sube la cara a la capa más clara + sombra hero. */
   elevated?: boolean;
+  /**
+   * La tarjeta OCUPA el hueco que le den y sus hijos se lo reparten — la
+   * estrategia `llena` (§6.1) cuando el contenido no llega solo al alto. El
+   * sobrante entra en las filas, que es lo que las hace acertables de pie y
+   * sudando; nunca se acumula en una cola debajo.
+   */
+  fill?: boolean;
   style?: CSSProperties;
 }
 
@@ -44,6 +51,7 @@ export function Card({
   topAccent = false,
   leftAccent = false,
   elevated = false,
+  fill = false,
   style,
 }: CardProps) {
   return (
@@ -58,11 +66,14 @@ export function Card({
           ? 'linear-gradient(to bottom, var(--twin-surface-elevated), var(--twin-surface))'
           : 'linear-gradient(to bottom, var(--twin-surface), color-mix(in srgb, var(--twin-surface) 92%, transparent))',
         boxShadow: elevated ? 'var(--twin-shadow-hero)' : 'var(--twin-shadow-card)',
+        ...(fill ? { flex: 1, display: 'flex', flexDirection: 'column' as const, minHeight: 0 } : null),
         ...style,
       }}
     >
       {topAccent && <div style={{ height: 2, background: 'var(--twin-accent)' }} />}
-      <div style={{ padding }}>{children}</div>
+      <div style={fill ? { padding, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } : { padding }}>
+        {children}
+      </div>
       {leftAccent && (
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--twin-accent)' }} />
       )}
