@@ -6,7 +6,11 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
-import { estimateRaceReadiness } from '@fahybrid/shared/domain/coach/race-readiness';
+import {
+  estimateRaceReadiness,
+  READINESS_COMPLIANCE_DAYS,
+} from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCompliancePct } from './compliance-window';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
@@ -16,7 +20,6 @@ import {
 } from '@fahybrid/shared/domain/biometrics/resting-hr';
 import { SIGNAL_THRESHOLDS } from './signal-config';
 import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
-import { adherenceExclusionSql } from './adherence-pause-filter';
 
 export interface BuildCohortParams {
   coach_id: bigint | number;
@@ -239,7 +242,12 @@ async function rollupAthlete(
   const active_days_7d = last7.filter(
     (p) => (p.known_seconds ?? 0) + (p.unknown_seconds ?? 0) > 0,
   ).length;
-  const compliance_pct = await computeCompliance(client, athlete_id_num, now);
+  const compliance_pct = await loadCompliancePct({
+    athlete_id: athlete_id_num,
+    on_date: now,
+    days: READINESS_COMPLIANCE_DAYS,
+    client,
+  });
 
   const last_sync_at = a.last_sync_at?.toISOString() ?? null;
   const sync_minutes_ago =
@@ -349,31 +357,6 @@ async function rollupAthlete(
     programming_label: programming.status !== 'ok' ? programming.label : null,
     readiness_score: readiness?.score ?? null,
   };
-}
-
-async function computeCompliance(
-  client: Sql,
-  athlete_id: number,
-  now: Date,
-): Promise<number | null> {
-  const startIso = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
-  const todayIso = now.toISOString().slice(0, 10);
-  const rows = await client<Array<{ scheduled: number; completed: number }>>`
-    select
-      count(*) filter (where wa.scheduled_for <= ${todayIso}::date)::int as scheduled,
-      count(*) filter (
-        where wa.scheduled_for <= ${todayIso}::date and wa.status = 'completed'
-      )::int as completed
-    from workout_assignments wa
-    where wa.athlete_id = ${athlete_id}
-      and wa.scheduled_for >= ${startIso}::date
-      -- #13: EXCLUDE days inside a pause (frozen) from the row source; a whole
-      -- paused window ⇒ scheduled 0 ⇒ null, never a punitive 0%.
-      ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
-  `;
-  const r = rows[0];
-  if (!r || r.scheduled === 0) return null;
-  return Math.round((r.completed / r.scheduled) * 100);
 }
 
 function hrvTrend(delta: number | null): 'up' | 'down' | 'flat' | null {
