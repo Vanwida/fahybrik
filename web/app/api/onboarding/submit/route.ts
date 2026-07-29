@@ -18,9 +18,15 @@ import {
   BENCH_RUN_MARATHON,
   BENCH_ROW_2K,
   BENCH_SKI_1K,
+  BENCH_LTHR,
+  BENCH_RUN_THRESHOLD,
+  BENCH_RUN_1MILE,
+  BENCH_FTP,
   BENCHMARK_UNIT_KG,
   BENCHMARK_UNIT_REPS,
   BENCHMARK_UNIT_SECONDS,
+  BENCHMARK_UNIT_BPM,
+  BENCHMARK_UNIT_WATTS,
   hyroxBenchmarkSlug,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
@@ -223,6 +229,22 @@ const onboardingSnapshotSchema = z
     time_1k_ski_seconds: intRange(0, 1_800).optional(),
     hybrid_tests_notes: longText.optional(),
 
+    // ── Step 13 (ThresholdStep) — los umbrales que el atleta DECLARA ──────────
+    // iOS has always sent these five and the server has always dropped them: they
+    // were not modeled here, so the bounded catchall swallowed them and they never
+    // reached a column anyone reads. Every one of them is the TOP rung of a ladder
+    // whose resolver already prefers it (`resolveThresholdHr`, `resolveRunThreshold-
+    // PerKm`, `resolveRowSplit500`), so the athlete was typing his best evidence
+    // into a field that fed nothing while the app showed him bands off his birthday.
+    //
+    // They land as DECLARED, never as measured: a guided test supersedes them.
+    // Ranges mirror the athletes.max_hr_bpm CHECK and each benchmark's sane bounds.
+    lthr_bpm: intRange(80, 220).optional(),
+    max_hr_bpm: intRange(100, 230).optional(),
+    ftp_watts: intRange(30, 700).optional(),
+    threshold_pace_seconds_per_km: intRange(120, 1_200).optional(),
+    time_1_mile_seconds: intRange(180, 3_600).optional(),
+
     // ── HYROX history (carried from the legacy flat snapshot) ─────────────────
     // hyrox_best_time_seconds + the declared division feed the level algorithm's
     // hyrox_open / hyrox_pro benchmark. Previously only reached intake_notes_json.
@@ -317,6 +339,13 @@ function benchmarksFromSnapshot(
     [snap.time_1k_ski_seconds, BENCH_SKI_1K, BENCHMARK_UNIT_SECONDS],
     // HYROX best time (seconds) — previously only in the notes blob.
     [snap.hyrox_best_time_seconds, hyroxBenchmarkSlug(hyroxDivision), BENCHMARK_UNIT_SECONDS],
+    // Step 13 — the thresholds the athlete DECLARES. These are the top rung of
+    // their ladders; `source: 'onboarding'` is what keeps them declared rather
+    // than measured, so a guided test later supersedes them.
+    [snap.lthr_bpm, BENCH_LTHR, BENCHMARK_UNIT_BPM],
+    [snap.threshold_pace_seconds_per_km, BENCH_RUN_THRESHOLD, BENCHMARK_UNIT_SECONDS],
+    [snap.time_1_mile_seconds, BENCH_RUN_1MILE, BENCHMARK_UNIT_SECONDS],
+    [snap.ftp_watts, BENCH_FTP, BENCHMARK_UNIT_WATTS],
   ];
   const rows: Array<{ exercise_slug: string; value: number; unit: string }> = [];
   for (const [value, exercise_slug, unit] of defs) {
@@ -397,6 +426,11 @@ export async function POST(request: Request) {
         goal_other_text = coalesce(${snap.goal_other_text ?? null}, goal_other_text),
         run_experience = coalesce(${snap.run_experience ?? null}::run_experience, run_experience),
         strength_experience = coalesce(${snap.strength_experience ?? null}::strength_experience, strength_experience),
+
+        -- Step 13 — FC maxima declarada. Es la columna que resolveThresholdHr lee
+        -- como tercer peldano; hasta hoy iOS la enviaba y se perdia, y por eso los
+        -- 8 atletas de produccion la tienen a null.
+        max_hr_bpm = coalesce(${snap.max_hr_bpm ?? null}, max_hr_bpm),
 
         -- Step 3 — hábitos & estado (1-10)
         sleep_quality = coalesce(${snap.sleep_quality ?? null}, sleep_quality),
