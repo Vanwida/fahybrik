@@ -563,10 +563,11 @@ final class WorkoutSession {
     /// the MEASURED time and calls it the share of the bout. Ten minutes of Z2
     /// with the strap alive for four of them is 40 % in target, not 100 %.
     var liveZonePctInTarget: Int? {
-        guard let z = currentSegment?.targetZone, lapElapsedSeconds > 0 else { return nil }
-        let inZone = lapZoneAccumSec[z.rawValue] ?? 0
-        guard lapZoneAccumSec.values.reduce(0, +) > 0 else { return nil }
-        return Int((inZone / lapElapsedSeconds * 100).rounded())
+        guard let z = currentSegment?.targetZone,
+              lapElapsedSeconds > 0,
+              lapZoneAccumSec.values.reduce(0, +) > 0
+        else { return nil }
+        return Int(((lapZoneAccumSec[z.rawValue] ?? 0) / lapElapsedSeconds * 100).rounded())
     }
 
     /// Seconds per km from covered metres over elapsed seconds. THE one pace
