@@ -124,14 +124,16 @@ export function Descanso({ e, onLog }: { e: EstadoErg; onLog: (linea: string) =>
   );
 }
 
-/** Los apoyos del descanso y del cierre: pueden ser cinco cartas, y scrollean. */
+/**
+ * Los apoyos del descanso y del cierre: pueden ser cinco cartas, y scrollean.
+ * La pila va en un div propio dentro del que scrollea para que las tarjetas no
+ * se encojan: `Card` recorta por dentro y una tabla de series a media altura no
+ * se lee como «hay más», se lee como que faltan filas.
+ */
 function PilaApoyos({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="twin-scroll"
-      style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '100%', flex: '0 1 auto' }}
-    >
-      {children}
+    <div className="twin-scroll" style={{ maxHeight: '100%', flex: '0 1 auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
   );
 }

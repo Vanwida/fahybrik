@@ -172,17 +172,20 @@ function Tramo({ e, guion, onLog }: { e: EstadoErg; guion: Guion; onLog: (linea:
 
 /**
  * La fila de apoyos del ergo. Es la única de la tanda que puede desbordar —los
- * parciales de una pieza continua se apilan solos y ya son cinco cartas— así
- * que scrollea DENTRO de su fila en vez de comerse la banda del sujeto o
- * dejar una cola debajo de la acción (§6.1).
+ * parciales de una pieza continua se apilan solos— así que scrollea DENTRO de
+ * su fila en vez de comerse la banda del sujeto o dejar una cola debajo de la
+ * acción (§6.1).
+ *
+ * La pila va en un div PROPIO dentro del que scrollea, y no es un detalle: si
+ * las tarjetas cuelgan directas de una columna con el alto limitado, se
+ * encogen, y `Card` recorta por dentro (`overflow: hidden`). Así salía una
+ * tarjeta de «Parciales» con su cabecera y ninguna fila debajo, que es peor que
+ * no enseñarla: dice que no hay parciales cuando los hay.
  */
 function Apoyos({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="twin-scroll"
-      style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '100%', flex: '0 1 auto' }}
-    >
-      {children}
+    <div className="twin-scroll" style={{ maxHeight: '100%', flex: '0 1 auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
   );
 }
