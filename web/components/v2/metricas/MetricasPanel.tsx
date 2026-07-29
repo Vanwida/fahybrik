@@ -263,7 +263,7 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
       : `entre el ${formatDayShort(cohort_since)} y el ${formatDayShort(cohort_until)}`;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
       {/* Header */}
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">

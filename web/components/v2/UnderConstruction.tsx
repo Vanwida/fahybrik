@@ -6,7 +6,7 @@ import { MIcon } from '@/components/ui/MIcon';
 
 export function UnderConstruction({ title, icon }: { title: string; icon: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       <h1 className="v2-display text-3xl text-[color:var(--v2-fg)] sm:text-4xl">{title}</h1>
 
       <div className="mt-6 flex flex-col items-center justify-center gap-3 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-6 py-20 text-center">

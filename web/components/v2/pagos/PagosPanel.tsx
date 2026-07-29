@@ -156,7 +156,7 @@ export function PagosPanel({ data }: { data: CoachBilling }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
       <header className="flex flex-col gap-2">
         <h1 className="v2-display text-[clamp(28px,5vw,42px)] text-[color:var(--v2-fg)]">Pagos</h1>
         <p className="max-w-[62ch] text-sm text-[color:var(--v2-muted)]">

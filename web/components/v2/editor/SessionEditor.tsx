@@ -174,7 +174,7 @@ export function SessionEditor({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
       {/* Top bar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">

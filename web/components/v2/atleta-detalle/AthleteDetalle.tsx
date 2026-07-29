@@ -33,7 +33,7 @@ export function AthleteDetalle({
   const { header } = detalle;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-6">
       <DetalleHeader header={header} stats={detalle.stats} />
 
       {/* Lifecycle context (#13): pending pause request / en pausa / de baja. */}

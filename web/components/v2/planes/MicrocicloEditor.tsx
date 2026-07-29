@@ -214,7 +214,7 @@ export function MicrocicloEditor({
   const effectiveView: ViewMode = dayModel ? 'foco' : view;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       {/* Top bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <MicrocicloNameEditor microcycleId={microcycle_id} initialName={name} level={level} />

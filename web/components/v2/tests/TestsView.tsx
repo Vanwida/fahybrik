@@ -188,7 +188,7 @@ export function TestsView({
   const isEmpty = tests.length === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">

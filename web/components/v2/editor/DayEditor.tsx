@@ -410,7 +410,7 @@ export function DayEditor({
     : null;
 
   return (
-    <div className={embedded ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-[1480px] flex-col gap-5'}>
+    <div className={embedded ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5'}>
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">

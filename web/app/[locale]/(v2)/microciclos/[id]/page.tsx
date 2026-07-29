@@ -100,7 +100,7 @@ export default async function V2MicrocicloPage({
 
 function NotFound({ description }: { description: string }) {
   return (
-    <div className="mx-auto w-full max-w-[1480px] py-10">
+    <div className="mx-auto w-full max-w-[var(--v2-container)] py-10">
       <EmptyState icon="error" title="Microciclo no encontrado" description={description} />
     </div>
   );

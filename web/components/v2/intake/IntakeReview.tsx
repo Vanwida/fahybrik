@@ -182,7 +182,7 @@ export function IntakeReview({
   const tenure = waitingLabel(athlete.onboarded_at);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
       {/* ── Breadcrumb ───────────────────────────────────────────────────────── */}
       <nav aria-label="Ruta" className="flex items-center gap-1 text-xs text-[color:var(--v2-muted)]">
         <Link href="/altas" className="v2-focus hover:text-[color:var(--v2-fg)]">

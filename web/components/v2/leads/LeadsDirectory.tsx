@@ -95,7 +95,7 @@ export function LeadsDirectory({
   const archivedCount = counts.convertido + counts.descartado;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
       {/* ── Citas pendientes ──────────────────────────────────────────────── */}
       {upcomingCalls.length > 0 ? <PendingCitasCard calls={upcomingCalls} /> : null}
 

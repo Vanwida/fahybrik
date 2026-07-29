@@ -53,6 +53,13 @@
      borde 1) más la safe area del iPhone. Lo que mida a pantalla completa
      (mensajes) se lo resta por debajo de lg — si la barra cambia, cambiar AQUÍ. */
   --v2-tabbar-h: calc(61px + env(safe-area-inset-bottom));
+
+  /* Ancho máximo de la COLUMNA DE PÁGINA del dashboard. Uno solo: convivían
+     cuatro (1480 ×15, 1280, 1180 ×2) y Pagos y Métricas quedaban 300 px más
+     estrechas que Atletas y Hoy, así que el contenido saltaba de sitio al
+     cambiar de sección. NO aplica ni al landing (tiene su propio ritmo de
+     1180) ni al ancho de un modal, que se dimensiona a su contenido. */
+  --v2-container: 1480px;
 }
 
 /* ── DARK (default) — near-black depth, matches the current app canvas ─────── */

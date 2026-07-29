@@ -23,7 +23,7 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
     <RunZonesProvider
       value={data.run_zones.length > 0 ? { athlete_name: data.athlete_name.split(' ')[0] ?? data.athlete_name, zones: data.run_zones } : null}
     >
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
       {/* Header — back to plan + the day being edited */}
       <div className="flex flex-col gap-1.5">
         <Link
