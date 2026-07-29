@@ -74,6 +74,19 @@ export interface CompletenessResult {
   issues: CompletenessIssue[];
 }
 
+/**
+ * Does this prescription state how much work to do — anywhere? The universal
+ * floor shared by the completeness gate and the duration reader
+ * (`./duration.ts`), defined ONCE so the two can never disagree about whether an
+ * item was dosed. `rounds` deliberately does not count: it says when to STOP,
+ * never what to DO ("6 rondas de Box Jump" does not say how many box jumps).
+ */
+export function hasAnyDose(p: Prescription): boolean {
+  const hasBlockDose = p.total_s != null || p.work_s != null || p.structure != null;
+  const hasSetDose = (p.sets ?? []).some((s) => setMeasure(s) != null);
+  return hasBlockDose || hasSetDose;
+}
+
 const blocking = (message: string): CompletenessIssue => ({ severity: 'blocking', message });
 const advisory = (message: string): CompletenessIssue => ({ severity: 'advisory', message });
 
@@ -159,9 +172,7 @@ export function checkPrescriptionCompleteness(
   // ARE work ("rueda 45'" is a complete instruction on its own), and a #61 run
   // structure carries its dose inside its phases.
   const hasCap = p.total_s != null || p.rounds != null || p.work_s != null;
-  const hasBlockDose = p.total_s != null || p.work_s != null || p.structure != null;
-  const hasSetDose = sets.some((s) => setMeasure(s) != null);
-  if (!hasSetDose && !hasBlockDose) {
+  if (!hasAnyDose(p)) {
     return result([
       blocking('Sin dosis: no dice cuánto trabajo hacer (ni medida, ni tiempo).'),
     ]);
