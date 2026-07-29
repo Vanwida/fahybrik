@@ -113,7 +113,10 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     /// shared dump answers "¿por qué no me salen los botones?" without reading the code.
     private func offerSummary(_ offered: Bool, declared: Bool, refused: Bool) -> String {
         if offered { return "se ofrece el control en la app" }
-        if !TreadmillControlPolicy.appDrivesMachines {
+        // Read from the capability, which is the same fact `offersSpeedControl` /
+        // `offersInclineControl` were judged against a line above — asking the global
+        // separately would let the dump explain a decision it did not take.
+        if !capability.appDrivesMachines {
             return "la app no maneja máquinas de momento — solo lee"
         }
         if !capability.hasControlPoint { return "la cinta no tiene dónde escribir" }

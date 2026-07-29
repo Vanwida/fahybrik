@@ -64,6 +64,11 @@ final class WatchRunLegDriverTests: XCTestCase {
         XCTAssertEqual(s.currentRunLeg?.distanceMeters, 600)
         driver.tick()                         // re-baseline, discarding the recovery overshoot
         s.sampleRunGPS(deltaMeters: 600); driver.tick()   // covered 600 in-leg → close last
+        // The wrist closed the last leg, so the prescribed work is done — and the athlete
+        // is asked once rather than the watch ending his session for him.
+        XCTAssertTrue(s.isAwaitingFinishDecision)
+        XCTAssertFalse(s.isFinished)
+        s.finish()
         XCTAssertTrue(s.isFinished)
     }
 

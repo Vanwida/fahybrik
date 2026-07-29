@@ -206,6 +206,11 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         XCTAssertEqual(s.rotRoundIndex, 2)
         XCTAssertFalse(s.isFinished)
         m.endLegNow()                               // bout 2 (last) done → series closes
+        // All three bouts ran, so the prescribed work is complete — the session then asks
+        // him once instead of ending itself (`finishPrescribedWork`).
+        XCTAssertTrue(s.isAwaitingFinishDecision)
+        XCTAssertFalse(s.isFinished)
+        s.finish()
         XCTAssertTrue(s.isFinished)
         m.teardown()
     }

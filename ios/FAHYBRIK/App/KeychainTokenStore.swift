@@ -42,16 +42,25 @@ struct KeychainTokenStore {
 
     /// Store (or replace) the bearer. Updates the existing item in place so we never
     /// duplicate it; adds it with the after-first-unlock / this-device-only class.
-    func save(_ token: String) {
+    ///
+    /// RETURNS WHETHER THE TOKEN IS ACTUALLY IN THE KEYCHAIN. The Keychain can refuse a
+    /// write (a locked device, a daemon hiccup, a missing entitlement on the simulator),
+    /// and this used to discard the `OSStatus` from both calls — so a refusal looked
+    /// exactly like a success and only surfaced later as an athlete who had been silently
+    /// logged out. `@discardableResult` because the caller that merely mirrors
+    /// `AuthState.bearer` has nothing better to do with it; `migrateFromUserDefaults`
+    /// below is the caller that MUST check.
+    @discardableResult
+    func save(_ token: String) -> Bool {
         let data = Data(token.utf8)
         let status = SecItemUpdate(baseQuery as CFDictionary,
                                    [kSecValueData as String: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var add = baseQuery
-            add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            SecItemAdd(add as CFDictionary, nil)
-        }
+        if status == errSecSuccess { return true }
+        guard status == errSecItemNotFound else { return false }
+        var add = baseQuery
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
 
     func delete() {
@@ -66,7 +75,14 @@ struct KeychainTokenStore {
         defaults: UserDefaults = .standard
     ) {
         guard let legacy = defaults.string(forKey: key), !legacy.isEmpty else { return }
-        if read() == nil { save(legacy) }
+        // The legacy copy is dropped ONLY once the Keychain really holds a token — either
+        // one that was already there (it is the newer one and wins) or the one we just
+        // moved in. Clearing unconditionally, as this did, destroyed the athlete's ONLY
+        // session token whenever the Keychain write failed: the migration logged him out
+        // and there was nothing left to log him back in with. A failed migration must be
+        // a no-op that retries next launch, never a data loss.
+        let alreadyInKeychain = read() != nil
+        guard alreadyInKeychain || save(legacy) else { return }
         defaults.removeObject(forKey: key)
     }
 }

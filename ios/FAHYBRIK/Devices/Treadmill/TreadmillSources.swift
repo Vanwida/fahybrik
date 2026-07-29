@@ -108,6 +108,13 @@ struct TreadmillControlCapability: Equatable {
     /// permission to paint a control — they only subtract from what the machine declared.
     var canControlSpeed: Bool
     var canControlIncline: Bool
+    /// The PRODUCT switch (`TreadmillControlPolicy.appDrivesMachines`) carried on the
+    /// capability instead of read from the global inside `appMayDrive`. Same shipped
+    /// behaviour — the default IS the policy, so every production construction site is
+    /// unchanged — but the gate becomes an explicit input, which is what lets the control
+    /// machinery stay under test while the switch is off. A hidden global read made the
+    /// whole surface untestable the day it flipped, and five tests went red instead.
+    var appDrivesMachines: Bool = TreadmillControlPolicy.appDrivesMachines
     /// The machine DECLARED it accepts a speed / inclination target — Target Setting
     /// Features bits 0 and 1 of the Fitness Machine Feature characteristic (0x2ACC).
     ///
@@ -144,7 +151,7 @@ struct TreadmillControlCapability: Equatable {
 
     /// THE APP FACT: the app may write to this machine at all. Gates the silent writes too
     /// (programming the tramo onto the machine's own console), not just the steppers.
-    var appMayDrive: Bool { TreadmillControlPolicy.appDrivesMachines && canControl }
+    var appMayDrive: Bool { appDrivesMachines && canControl }
 
     /// THE ONLY TWO THINGS THE HUD READS. A control is painted when — and only when — the
     /// app drives machines at all, this machine has somewhere to write, it DECLARED it
