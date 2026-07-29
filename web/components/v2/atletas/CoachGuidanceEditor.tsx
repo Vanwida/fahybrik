@@ -230,7 +230,7 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label="Consejos de dobles"

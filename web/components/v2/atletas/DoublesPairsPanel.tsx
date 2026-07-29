@@ -219,7 +219,7 @@ function LinkPairModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Vincular pareja"

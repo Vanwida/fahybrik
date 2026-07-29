@@ -528,7 +528,7 @@ function ConfirmDeleteDialog({
 function DialogScrim({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
     <div
-      className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-30 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4"
       onClick={onClose}
       role="presentation"
     >

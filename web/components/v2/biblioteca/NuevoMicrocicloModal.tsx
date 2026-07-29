@@ -145,7 +145,7 @@ export function NuevoMicrocicloModal({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 p-4 pt-[8vh]"
+      className="fixed inset-0 z-40 flex items-start justify-center bg-[color:var(--v2-scrim)] p-4 pt-[8vh]"
       onClick={onClose}
       role="presentation"
     >
