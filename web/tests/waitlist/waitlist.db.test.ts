@@ -51,6 +51,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   // Resolved in beforeAll (a coach row is ensured there first).
   let funnelCoach: bigint = BigInt(0);
   let savedMax: number | null = null;
+  let savedFunnelCoachEnv: string | undefined;
 
   function email(tag: string): string {
     const e = `wl-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
@@ -156,17 +157,27 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   beforeAll(async () => {
     await sql`select 1 as ok`;
     // The waitlist is gated by the FUNNEL club's cap. Ensure a coach exists (a fresh
-    // branch may have none), resolve the funnel club, snapshot its cap, and restore it
-    // in afterAll so the branch is left intact.
-    const coach = await sql<{ id: string }[]>`select id::text as id from coaches order by id limit 1`;
-    if (!coach[0]) {
+    // branch may have none), then DECLARE it as the funnel's owner via the env — the
+    // resolver no longer guesses a club by picking the lowest id, so a test that needs
+    // one has to name it, exactly like a deploy does.
+    let coachId = (
+      await sql<{ id: string }[]>`select id::text as id from coaches order by id limit 1`
+    )[0]?.id;
+    if (!coachId) {
       const cu = await sql<{ id: string }[]>`
         insert into users (email, role) values (${email('coach')}, 'coach') returning id::text as id
       `;
       extraCoachUserIds.push(Number(cu[0]!.id));
-      await sql`insert into coaches (user_id, full_name) values (${Number(cu[0]!.id)}, 'WL Coach')`;
+      const created = await sql<{ id: string }[]>`
+        insert into coaches (user_id, full_name) values (${Number(cu[0]!.id)}, 'WL Coach')
+        returning id::text as id
+      `;
+      coachId = created[0]!.id;
     }
-    funnelCoach = (await funnelCoachId(sql))!;
+    savedFunnelCoachEnv = process.env.FUNNEL_COACH_ID;
+    process.env.FUNNEL_COACH_ID = coachId;
+
+    funnelCoach = (await funnelCoachId())!;
     savedMax = await getMaxAthletes(funnelCoach);
   });
 
@@ -188,6 +199,8 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
   afterAll(async () => {
     await setMaxAthletes(funnelCoach, savedMax); // restore the funnel club's cap
+    if (savedFunnelCoachEnv === undefined) delete process.env.FUNNEL_COACH_ID;
+    else process.env.FUNNEL_COACH_ID = savedFunnelCoachEnv;
     if (extraCoachUserIds.length) {
       // Deleting the user cascades the coach row we seeded (coaches.user_id on delete cascade).
       await sql`delete from users where id in ${sql(extraCoachUserIds)}`;

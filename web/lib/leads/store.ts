@@ -9,10 +9,17 @@
 // All three keep the same "a lead never moves backwards" invariant (the upserts never
 // downgrade a worked lead; the transition only advances). Single source of truth.
 //
+// DUEÑO (migración 0147): ambos upserts graban `coach_id` EN LA CAPTURA, a partir del
+// enlace por el que entró el lead (`funnelCoachId()`). No se deduce después mirando
+// quién hay en la base — la misma regla que la procedencia de una marca o el
+// `recorded_via` de una ejecución. Sin enlace atribuible se queda NULL («sin asignar»)
+// y lo asigna una persona; NULL nunca se rellena con un coach por descarte.
+//
 // Explicit columns (repo convention). Arrays → text[]; codes validated upstream by Zod.
 
 import { sql, type TransactionClient } from '@/lib/db';
 import { recordAudit, type Actor } from '@/lib/audit/record-edit';
+import { funnelCoachId } from './funnel-coach';
 import type { LeadDraftInput, LeadSubmitInput } from '@fahybrid/shared/schema';
 import {
   canReopenLead,
@@ -37,19 +44,24 @@ export interface LeadUpsertResult {
 
 /** Partial capture at the email step — only touches contact + bloque A. */
 export async function upsertLeadDraft(input: LeadDraftInput): Promise<LeadUpsertResult> {
+  const coach_id = await funnelCoachId();
   const rows = await sql<{ id: string; status: string; token: string; created: boolean }[]>`
     insert into leads (
       email, nombre,
       objetivo, carrera_mente, carrera_cual, carrera_cuando, plazo, motivo, inicio,
-      status, source
+      status, source, coach_id
     ) values (
       ${input.email}, ${input.nombre ?? null},
       ${input.objetivo ?? null}, ${input.carrera_mente ?? null}, ${input.carrera_cual ?? null},
       ${input.carrera_cuando ?? null}, ${input.plazo ?? null}, ${input.motivo ?? null},
       ${input.inicio ?? null},
-      'parcial', 'onboarding_web'
+      'parcial', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}
     )
     on conflict (email) do update set
+      -- El dueño se graba en la PRIMERA captura y no se reescribe: a quien ya tenía
+      -- dueño no se lo cambia una visita posterior, y a quien entró sin enlace
+      -- atribuible se le puede poner después (a mano o al completar).
+      coach_id       = coalesce(leads.coach_id, excluded.coach_id),
       nombre         = coalesce(excluded.nombre, leads.nombre),
       objetivo       = coalesce(excluded.objetivo, leads.objetivo),
       carrera_mente  = coalesce(excluded.carrera_mente, leads.carrera_mente),
@@ -69,6 +81,7 @@ export async function upsertLeadComplete(
   input: LeadSubmitInput,
   meta: LeadCaptureMeta,
 ): Promise<LeadUpsertResult> {
+  const coach_id = await funnelCoachId();
   const rows = await sql<{ id: string; status: string; token: string; created: boolean }[]>`
     insert into leads (
       email, nombre, telefono, edad, sexo, ubicacion,
@@ -81,7 +94,7 @@ export async function upsertLeadComplete(
       planes_previos, planes_fallo, espera_coaching, conocido, nota_libre,
       consent_rgpd, consent_at, consent_ip, consent_user_agent,
       submitted_at, submit_ip, submit_user_agent,
-      status, source
+      status, source, coach_id
     ) values (
       ${input.email}, ${input.nombre ?? null}, ${input.telefono}, ${input.edad ?? null},
       ${input.sexo ?? null}, ${input.ubicacion ?? null},
@@ -104,9 +117,11 @@ export async function upsertLeadComplete(
       ${input.espera_coaching ?? null}, ${input.conocido ?? null}, ${input.nota_libre ?? null},
       true, now(), ${meta.ip}, ${meta.userAgent},
       now(), ${meta.ip}, ${meta.userAgent},
-      'nuevo', 'onboarding_web'
+      'nuevo', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}
     )
     on conflict (email) do update set
+      -- Ver upsertLeadDraft: la atribución es de la captura y no se pisa.
+      coach_id             = coalesce(leads.coach_id, excluded.coach_id),
       nombre               = coalesce(excluded.nombre, leads.nombre),
       telefono             = excluded.telefono,
       edad                 = excluded.edad,
