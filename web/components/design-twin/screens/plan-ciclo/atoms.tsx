@@ -56,9 +56,12 @@ export function FilaTramo({
       etiqueta={etiqueta}
       onTap={() => onLog(etiqueta)}
       style={{
-        // La etapa abierta se lleva la mayor parte del sobrante: es la que
-        // tiene algo que enseñar dentro (sus semanas y sus hitos).
-        flex: abierto ? '3 1 auto' : '0 0 auto',
+        // La etapa abierta se lleva la mayor parte del sobrante… pero solo
+        // cuando tiene algo dentro que crezca con él. Si no hay nada marcado en
+        // su calendario, sus semanas son cuatro marcas y estirarla 300 pt sería
+        // aire dentro de una tarjeta: entonces baja a una parte y el sobrante se
+        // va al hueco declarado y a la carrera, que sí tienen qué decir (§6.2).
+        flex: abierto ? (tramo.hitos.length > 0 ? '3 1 auto' : '1 1 auto') : '0 0 auto',
         minHeight: 0,
         alignItems: 'flex-start',
         ...entradaStyle(visible, retardo),
