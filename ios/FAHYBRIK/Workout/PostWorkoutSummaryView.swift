@@ -1028,8 +1028,12 @@ struct PostWorkoutSummaryView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
-                    .frame(width: 60, alignment: .trailing)
+                // El título de al lado escala con el texto del sistema; este tiempo
+                // tiene que escalar con él o a tamaño accesible la etiqueta acaba
+                // pesando más que el dato (contrato §4).
+                MonoText(text: timeStr, size: 11, weight: .semibold,
+                         color: Theme.Color.foreground, escala: true, relativeTo: .caption2)
+                    .frame(minWidth: 60, alignment: .trailing)
                 if let z = seg.targetZone {
                     ZBadge(zone: z).frame(width: 38, alignment: .trailing)
                 }

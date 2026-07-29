@@ -163,7 +163,10 @@ struct ExerciseDetailView: View {
             Text("Según tu 1RM")
                 .scaledFont(12, weight: .semibold, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
-            MonoText(text: rl.kgLabel, size: 14, weight: .semibold, color: Theme.Color.accentText)
+            // «Según tu 1RM» escala; la carga tiene que escalar con ella, o a tamaño
+            // accesible la etiqueta adelanta al kilaje, que es el dato (contrato §4).
+            MonoText(text: rl.kgLabel, size: 14, weight: .semibold,
+                     color: Theme.Color.accentText, escala: true)
             if rl.needsReview {
                 Text("sin confirmar")
                     .scaledFont(10, relativeTo: .caption2)
