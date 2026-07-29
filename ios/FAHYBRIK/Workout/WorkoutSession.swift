@@ -554,14 +554,20 @@ final class WorkoutSession {
     }
 
     /// % of the current bout spent in the target HR zone (Steady adherence) — read
-    /// from the per-bout zone accumulation. nil when no target zone is prescribed
-    /// or no HR has been sampled yet (no fabricated 100%).
+    /// from the per-bout zone accumulation, over THE BOUT'S CLOCK. nil when no
+    /// target zone is prescribed or no HR has been sampled yet (no fabricated 100%).
+    ///
+    /// The base is `lapElapsedSeconds`, not the sum of the accumulated zones: the
+    /// clock runs every tick and the zones only accumulate while a strap is
+    /// feeding a classifiable pulse, so dividing by the sum reports the share of
+    /// the MEASURED time and calls it the share of the bout. Ten minutes of Z2
+    /// with the strap alive for four of them is 40 % in target, not 100 %.
     var liveZonePctInTarget: Int? {
-        guard let z = currentSegment?.targetZone else { return nil }
-        let total = lapZoneAccumSec.values.reduce(0, +)
-        guard total > 0 else { return nil }
-        let inZone = lapZoneAccumSec[z.rawValue] ?? 0
-        return Int((inZone / total * 100).rounded())
+        guard let z = currentSegment?.targetZone,
+              lapElapsedSeconds > 0,
+              lapZoneAccumSec.values.reduce(0, +) > 0
+        else { return nil }
+        return Int(((lapZoneAccumSec[z.rawValue] ?? 0) / lapElapsedSeconds * 100).rounded())
     }
 
     /// Seconds per km from covered metres over elapsed seconds. THE one pace

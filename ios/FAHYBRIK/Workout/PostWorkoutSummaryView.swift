@@ -199,8 +199,8 @@ struct PostWorkoutSummaryView: View {
                             manualDurationCard
                         }
                     } else {
-                        if hasZoneData {
-                            zonesStackedBar
+                        if let coverage = zoneCoverage {
+                            zonesStackedBar(coverage)
                         }
                         if hasHRData {
                             metricTiles
@@ -861,12 +861,19 @@ struct PostWorkoutSummaryView: View {
         !session.laps.compactMap(\.avgHRBpm).isEmpty
             || !session.laps.compactMap(\.maxHRBpm).isEmpty
     }
-    private var hasZoneData: Bool {
-        session.laps.contains { !$0.zoneSecondsByZone.isEmpty }
-    }
+    /// The zone reading, or nil when there is no bar to paint. Asking the reading
+    /// itself — instead of "is the dict non-empty" — is what keeps a lap that
+    /// carries zone keys worth zero seconds from rendering an EMPTY rounded bar,
+    /// which insinuates a measurement we do not have (§7 of docs/CONTRATO-UI.md).
+    private var zoneCoverage: ZoneCoverage? { ZoneCoverage.read(laps: session.laps) }
 
     // MARK: - Zones stacked bar
-    private var zonesStackedBar: some View {
+    //
+    // The bar spans the SESSION, not the measured part of it: the seconds the
+    // strap could not classify are their own band (`ZoneCoverage`), so the widths
+    // and the legend answer "where did this workout sit" and not "where did the
+    // part we happened to measure sit".
+    private func zonesStackedBar(_ coverage: ZoneCoverage) -> some View {
         CardSurface(padding: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
@@ -886,40 +893,27 @@ struct PostWorkoutSummaryView: View {
                 }
                 GeometryReader { geo in
                     HStack(spacing: 0) {
-                        ForEach(zoneDistribution, id: \.zone) { z in
-                            Rectangle().fill(z.zone.color)
-                                .frame(width: max(0, geo.size.width * CGFloat(z.pct) / 100))
+                        ForEach(coverage.bands) { band in
+                            Rectangle().fill(ZoneBandStyle.fill(band))
+                                .frame(width: max(0, geo.size.width * CGFloat(band.pct) / 100))
                         }
                     }
                 }
                 .frame(height: 16)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                HStack {
-                    ForEach(zoneDistribution, id: \.zone) { z in
+                HStack(spacing: 0) {
+                    ForEach(coverage.bands) { band in
                         MonoText(
-                            text: "\(z.zone.label) \(z.pct)%",
+                            text: "\(band.label) \(band.pct)%",
                             size: 9,
-                            color: z.zone.color
+                            color: ZoneBandStyle.text(band)
                         )
-                        if z.zone != .z5 { Spacer() }
+                        if band.id != coverage.bands.last?.id { Spacer(minLength: 4) }
                     }
                 }
             }
-        }
-    }
-
-    // Real zone distribution from accumulated lap data. Only rendered when
-    // `hasZoneData` is true, so there is no demo fallback here.
-    private var zoneDistribution: [(zone: HRZone, pct: Int, time: Double)] {
-        let totals = HRZone.allCases.map { z -> (HRZone, Double) in
-            let secs = session.laps.reduce(into: 0.0) { $0 += $1.zoneSecondsByZone[z.rawValue] ?? 0 }
-            return (z, secs)
-        }
-        let total = totals.reduce(0) { $0 + $1.1 }
-        guard total > 0 else { return [] }
-        return totals.map { (z, secs) in
-            let pct = Int((secs / total * 100).rounded())
-            return (z, pct, secs)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(ZoneBandStyle.spoken(coverage))
         }
     }
 

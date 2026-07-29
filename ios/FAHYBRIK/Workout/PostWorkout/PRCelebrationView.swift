@@ -72,18 +72,19 @@ struct WorkoutShareData: Equatable {
         return nil
     }
 
-    // The zone the athlete spent the most time in, as label + percentage. Mirrors
-    // the summary's zone distribution. Nil when no zone seconds were recorded.
+    // The zone the athlete spent the most time in, as label + percentage of the
+    // SESSION — the same reading, and the same base, as the summary's bar, so a
+    // share the athlete is about to share to Instagram can't be the one number
+    // that was measured against the strap's uptime instead of the workout.
+    // Nil when no zone seconds were recorded.
     private static func dominantZone(from laps: [LapRecord]) -> Zone? {
-        var byZone: [Int: Double] = [:]
-        for lap in laps {
-            for (z, secs) in lap.zoneSecondsByZone { byZone[z, default: 0] += secs }
-        }
-        let total = byZone.values.reduce(0, +)
-        guard total > 0, let top = byZone.max(by: { $0.value < $1.value }) else { return nil }
-        let pct = Int((top.value / total * 100).rounded())
-        let label = HRZone(rawValue: top.key)?.label ?? "Z\(top.key)"
-        return Zone(label: label, pct: pct)
+        guard let coverage = ZoneCoverage.read(laps: laps) else { return nil }
+        // The remainder is never the "dominant zone": it is the absence of one.
+        guard let top = coverage.bands
+            .filter({ $0.zone != nil })
+            .max(by: { $0.seconds < $1.seconds })
+        else { return nil }
+        return Zone(label: top.label, pct: top.pct)
     }
 
     // The longest-distance record (5k > 3k > 1k) — it drives the PR badge.

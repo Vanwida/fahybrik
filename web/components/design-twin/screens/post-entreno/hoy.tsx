@@ -24,6 +24,7 @@
 import { useState } from 'react';
 import { CTA, Card, Display, Hairline, Label, Mono, Muerto } from '../../kit';
 import { reloj, totalItems, UMBRAL, type MedidoReal, type SesionReal } from '../../datos-reales';
+import { distribucionZonas } from '../../zonas';
 import {
   BarraZonas,
   CabeceraBloqueHoy,
@@ -34,7 +35,6 @@ import {
   PastillasRPE,
   TileMedida,
   umbralLabel,
-  type SegmentoZona,
 } from './piezas';
 
 export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: MedidoReal; onLog: (linea: string) => void }) {
@@ -42,7 +42,10 @@ export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: Med
   const [comoHaIdo, setComoHaIdo] = useState(estadoComoHaIdoInicial());
 
   const hasHRData = medido.fcMediaPpm != null || medido.fcMaxPpm != null;
-  const hasZoneData = Object.keys(medido.zonasS).length > 0;
+  // La MISMA condición del Swift: se pregunta por la lectura, no por si el
+  // diccionario trae claves — unas zonas a 0 s dibujarían una barra vacía, que
+  // insinúa una medición que no existe (§7 del CONTRATO-UI).
+  const zonas = distribucionZonas(medido);
   const items = totalItems(sesion);
   // freeContext == nil en el Swift ⇔ la sesión viene de una asignación del
   // coach, no del builder libre — es justo lo que separa origen 'coach' de 'libre'.
@@ -69,8 +72,8 @@ export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: Med
             </button>
           </div>
 
-          {/* zonesStackedBar (línea 869) — solo con-zonas la dispara */}
-          {hasZoneData && (
+          {/* zonesStackedBar — solo una lectura real la dispara */}
+          {zonas.length > 0 && (
             <Card padding={10}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -78,13 +81,7 @@ export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: Med
                   <span style={{ flex: 1 }} />
                   <Mono size={9} color="var(--twin-muted)">{umbralLabel(UMBRAL)}</Mono>
                 </div>
-                {/* Ojo al dato: hoy el % se calcula sobre la SUMA de zonas
-                   (482 s), no sobre la duración de la sesión (572 s) — por eso
-                   Z1+Z2 suman 100% aunque solo cubran el 84% real. Y como
-                   `zoneDistribution` recorre las 5 HRZone.allCases sin filtrar
-                   las de 0 s, Z3/Z4/Z5 también salen en la leyenda a 0% — el
-                   ruido es real, se reproduce tal cual. */}
-                <BarraZonas segmentos={distribucionHoy(medido.zonasS)} />
+                <BarraZonas segmentos={zonas} />
               </div>
             </Card>
           )}
@@ -208,14 +205,3 @@ function FilaEntradaManual({ etiqueta, unidad }: { etiqueta: string; unidad: str
   );
 }
 
-/** zoneDistribution (línea 913) — sobre la SUMA, las 5 zonas siempre, incluidas las de 0 s. */
-function distribucionHoy(zonasS: MedidoReal['zonasS']): SegmentoZona[] {
-  const zonas = [1, 2, 3, 4, 5] as const;
-  const total = zonas.reduce((acc, z) => acc + (zonasS[`z${z}` as const] ?? 0), 0);
-  if (total <= 0) return [];
-  return zonas.map((z) => {
-    const secs = zonasS[`z${z}` as const] ?? 0;
-    const pct = Math.round((secs / total) * 100);
-    return { zona: z, pct, etiqueta: `Z${z} ${pct}%` };
-  });
-}
