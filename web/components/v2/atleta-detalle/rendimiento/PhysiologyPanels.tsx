@@ -1,9 +1,10 @@
 'use client';
 
 // Rendimiento · physiology panels — the four monthly/daily physiological series of
-// the deep dive: running economy (Z2 pace), lactate threshold (HR + pace),
-// anaerobic capacity (3-min power, with the still-null critical power / W′), and
-// the HYROX time prediction (null for real athletes today → honest null-guard).
+// the deep dive: running economy (pace inside the athlete's OWN Z2), the HR held
+// on prescribed threshold work, anaerobic capacity (3-min power, with the
+// still-null critical power / W′), and the HYROX time prediction (null for real
+// athletes today → honest null-guard).
 
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, Sparkline } from '../parts';
@@ -12,26 +13,35 @@ import { EM_DASH, fmtClock, fmtInt, fmtPace, lastNonNull, finiteCount } from './
 import type {
   AnaerobicPoint,
   HyroxPrediction,
-  LtPoint,
   RunningEconomyPoint,
+  ThresholdWorkPoint,
 } from '@/lib/dashboard/coach/deep-dive-performance';
 
 // ── 4 · ECONOMÍA DE CARRERA ─────────────────────────────────────────────────────
 
 export function RunningEconomyPanel({ series }: { series: RunningEconomyPoint[] }) {
-  const paces = series.map((p) => p.pace_at_145bpm_sec_per_km);
+  const paces = series.map((p) => p.pace_in_z2_sec_per_km);
   const latest = lastNonNull(paces);
   return (
-    <Panel title="Economía de carrera · ritmo en Z2">
+    <Panel title="Economía de carrera · ritmo en su Z2">
       {latest == null ? (
-        <SinDatos text="Sin rodajes en Z2 (≈145 ppm) para estimar la economía." />
+        // La serie llega VACÍA cuando el atleta no tiene ancla de pulso: sin
+        // umbral (ni máxima, ni fecha de nacimiento) no hay Z2 suya contra la
+        // que medir, y no se mide contra la de otro.
+        <SinDatos
+          text={
+            series.length === 0
+              ? 'Sin zonas de pulso: añade su FC de umbral o su máxima en el perfil y la economía aparece.'
+              : 'Sin rodajes dentro de su Z2 todavía.'
+          }
+        />
       ) : (
         <div className="flex items-end gap-4">
           <div className="flex flex-col">
             <span className="v2-display text-2xl tabular-nums text-[color:var(--v2-fg)]">
               {fmtPace(latest)}
             </span>
-            <span className="v2-micro mt-1 block">Ritmo actual a 145 ppm</span>
+            <span className="v2-micro mt-1 block">Ritmo actual en su Z2</span>
           </div>
           <div className="min-w-0 flex-1">
             {/* Menos s/km a la misma FC = mejor economía → mejora a la BAJA. */}
@@ -43,35 +53,38 @@ export function RunningEconomyPanel({ series }: { series: RunningEconomyPoint[] 
   );
 }
 
-// ── 5 · UMBRAL DE LACTATO ────────────────────────────────────────────────────────
+// ── 5 · TRABAJO DE UMBRAL ────────────────────────────────────────────────────────
+// Lo que sostuvo en las sesiones de umbral que le mandaron. NO es su FC de
+// umbral: ese ancla sale de su test y es la que define sus zonas. Tenerlas las
+// dos en pantalla con el mismo nombre era la colisión que se acaba de deshacer.
 
-export function LtPanel({ series }: { series: LtPoint[] }) {
-  const hr = series.map((p) => p.lt_hr_bpm);
-  const pace = series.map((p) => p.lt_pace_sec_per_km);
+export function ThresholdWorkPanel({ series }: { series: ThresholdWorkPoint[] }) {
+  const hr = series.map((p) => p.work_hr_bpm);
+  const pace = series.map((p) => p.work_pace_sec_per_km);
   const latestHr = lastNonNull(hr);
   const latestPace = lastNonNull(pace);
   const empty = latestHr == null && latestPace == null;
 
   return (
-    <Panel title="Umbral de lactato · 12 meses">
+    <Panel title="Trabajo de umbral · 12 meses">
       {empty ? (
         <SinDatos text="Sin sesiones de umbral registradas todavía." />
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            <PerfTile label="FC de umbral" value={fmtInt(latestHr)} unit="ppm" tone="info" />
-            <PerfTile label="Ritmo de umbral" value={fmtPace(latestPace)} tone="fg" />
+            <PerfTile label="FC sostenida" value={fmtInt(latestHr)} unit="ppm" tone="info" />
+            <PerfTile label="Ritmo sostenido" value={fmtPace(latestPace)} tone="fg" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <TrendCell label="FC de umbral">
+            <TrendCell label="FC sostenida">
               {finiteCount(hr) >= 2 ? (
                 <Sparkline values={hr} strokeVar="--v2-info" height={40} />
               ) : (
                 <SinDatos text="Sin serie suficiente." />
               )}
             </TrendCell>
-            <TrendCell label="Ritmo de umbral">
-              {/* Ritmo más rápido = umbral más alto → mejora a la BAJA. */}
+            <TrendCell label="Ritmo sostenido">
+              {/* Ritmo más rápido en el mismo trabajo → mejora a la BAJA. */}
               <MiniTrend values={pace} lowerIsBetter height={40} />
             </TrendCell>
           </div>
