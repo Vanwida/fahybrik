@@ -16,6 +16,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT, isWorkEffort } from '@/lib/execution/segment-work';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
@@ -73,6 +74,11 @@ interface RunSegRow {
   cadence_spm: number | null; // integer steps/min (mig 0124); null when uncaptured
   scheme: string | null;
   is_compromised: boolean;
+  // Los dos ejes de «esto cuenta como intento» (migs 0088 y 0146). Viajan crudos
+  // hasta JS porque esta consulta alimenta a la vez el VOLUMEN (que los quiere
+  // todos) y las medias de ritmo (que no) — ver el reparto en el builder.
+  leg_role: string | null;
+  is_structural: boolean;
 }
 export interface ZoneBand {
   code: string;
@@ -158,6 +164,9 @@ export async function buildRunningSection(
   );
 
   // ── Period run segments (one round-trip) ───────────────────────────────────
+  // A PROPÓSITO sin filtro de esfuerzo: esta consulta es la fuente de DOS
+  // preguntas distintas y filtrar aquí contestaría mal una de ellas. Baja todo lo
+  // corrido y el reparto se hace abajo, en JS, con el mismo predicado compartido.
   const segs = await client<RunSegRow[]>`
     select
       we.id::text as execution_id,
@@ -171,6 +180,8 @@ export async function buildRunningSection(
       )::text as pace_s_per_km,
       se.avg_hr,
       se.run_cadence_spm as cadence_spm,
+      se.leg_role,
+      coalesce(se.is_structural, false) as is_structural,
       ts.prescription_json->>'scheme' as scheme,
       exists (
         select 1 from segment_executions sib
@@ -200,8 +211,25 @@ export async function buildRunningSection(
       cadence: s.cadence_spm != null ? Number(s.cadence_spm) : null,
       scheme: normalizeFormat(s.scheme ?? undefined) ?? null,
       compromised: s.is_compromised,
+      work: isWorkEffort(s),
     }))
     .filter((s) => s.dist > 0);
+
+  // EL REPARTO — la decisión de este fichero, en dos líneas.
+  //
+  // `paced`  = TODO lo corrido, recuperaciones incluidas → alimenta el VOLUMEN.
+  //            Esos metros se corrieron: en un 5x1000 con trote de 400 las piernas
+  //            hicieron 6,6 km, no 5. Descontarlos haría que el volumen BAJARA el
+  //            día que la app empezó a grabar mejor — una regresión fantasma que el
+  //            atleta leería como «entrené menos».
+  // `effort` = solo los tramos de trabajo → alimenta TODO lo que es un ritmo (por
+  //            tipo, por zona, tendencia, cadencia, comprometida). Una media que se
+  //            traga el trote de vuelta no es el ritmo de nadie: ni el de las
+  //            series ni el del trote, y empeora justo cuando el atleta aprieta.
+  //
+  // Los kilómetros no mienten al sumarse; el ritmo sí al promediarse. Por eso la
+  // línea cae aquí y no en el WHERE.
+  const effort = paced.filter((s) => s.work);
 
   // ── CARD: Ritmo umbral · VDOT ──────────────────────────────────────────────
   cards.push(
@@ -251,6 +279,9 @@ export async function buildRunningSection(
   );
 
   // ── CARD: Volumen (period) ─────────────────────────────────────────────────
+  // Sobre `paced` (todo), no sobre `effort`: es LA tarjeta de volumen y cuenta los
+  // metros que se corrieron. Su drill (running.volume) suma igual, para que abrir
+  // la tarjeta nunca dé un total distinto del que la tarjeta enseña.
   const totalMeters = paced.reduce((a, s) => a + s.dist, 0);
   const sessionDays = new Set(paced.map((s) => s.execution_id));
   const weekBuckets = bucketWeeklyVolume(paced);
@@ -280,22 +311,22 @@ export async function buildRunningSection(
   cards.push(await buildBestEfforts(client, athleteId, latest5k));
 
   // ── CARD: Por tipo de entreno ──────────────────────────────────────────────
-  cards.push(buildByType(paced));
+  cards.push(buildByType(effort));
 
   // ── CARD: Zonas de ritmo (the bands) + Distribución por zona ───────────────
   if (bands.length) {
     cards.push(buildZoneBandsCard(bands, threshold_s));
-    cards.push(buildZoneDistribution(paced, bands));
+    cards.push(buildZoneDistribution(effort, bands));
   }
 
   // ── CARD: Tendencia de ritmo ───────────────────────────────────────────────
-  cards.push(buildPaceTrend(paced));
+  cards.push(buildPaceTrend(effort));
 
   // ── CARD: Tendencia de cadencia (gated a que haya cadencia registrada) ──────
-  cards.push(buildCadenceTrend(paced));
+  cards.push(buildCadenceTrend(effort));
 
   // ── CARD: Comprometida vs pura ─────────────────────────────────────────────
-  cards.push(buildCompromised(paced));
+  cards.push(buildCompromised(effort));
 
   return {
     section: 'running',
@@ -344,6 +375,10 @@ async function buildBestEfforts(
       left join exercises ex on ex.id = ts.exercise_id
       where we.athlete_id = ${athleteId}
         and coalesce(se.modality, case when ex.category = 'cardio' and ex.slug ilike '%run%' then 'run' else 'x' end) = 'run'
+        -- Un PR es un intento, y el trote de vuelta de un 5x1000 cae dentro de la
+        -- banda de ~1 km sin serlo. Mismo filtro que su drill, que sí los contaría
+        -- uno a uno en la lista de esfuerzos.
+        and ${SEG_IS_WORK_EFFORT(client)}
         and se.distance_meters between ${ONE_KM_MIN_METERS} and ${ONE_KM_MAX_METERS}
     )
     select coalesce(explicit_pace, case when dur > 0 then dur / (dist / 1000.0) else null end)::text as pace, day
@@ -365,6 +400,13 @@ async function buildBestEfforts(
       left join exercises ex on ex.id = ts.exercise_id
       where we.athlete_id = ${athleteId}
         and coalesce(se.modality, case when ex.category = 'cardio' and ex.slug ilike '%run%' then 'run' else 'x' end) = 'run'
+        -- El caso peligroso de todo esto. Aquí se SUMA la distancia de la ejecución
+        -- para ver si cae en la banda de 3 km: los metros del trote sacarían un
+        -- 4x1000 de la banda, y su tiempo se sumaría al del intento. O sea, o
+        -- desaparece un mejor 3 km que sí existió, o aparece uno más lento que
+        -- nadie corrió. Y el mismo sumatorio decide la banda de 5 km en el detector
+        -- de récords (lib/sync/running-prs.ts), que filtra igual.
+        and ${SEG_IS_WORK_EFFORT(client)}
       group by we.id, day
     )
     select dur::text as secs, day from by_exec
@@ -409,10 +451,14 @@ async function buildBestEfforts(
 }
 
 // ── By type ──────────────────────────────────────────────────────────────────
+// Recibe `effort`, no `paced`: la fila dice «Series · intervalos — 4:05 /km» y esa
+// media es de las series. Con los trotes dentro, el tipo que MÁS contraste tiene es
+// el que peor ritmo enseñaría, que es exactamente al revés de lo que pasa.
+// Los km del `sub` son el denominador de esa media, así que cuentan igual que ella.
 function buildByType(
-  paced: Array<{ scheme: string | null; execution_id: string; dist: number; pace: number | null }>,
+  effort: Array<{ scheme: string | null; execution_id: string; dist: number; pace: number | null }>,
 ): AnalyticsCard {
-  const typed = paced.filter((s) => s.scheme);
+  const typed = effort.filter((s) => s.scheme);
   const byScheme = new Map<string, { meters: number; weighted: number; execs: Set<string> }>();
   for (const s of typed) {
     if (s.pace == null) continue;
@@ -474,13 +520,17 @@ function zoneRangeLabel(z: ZoneBand): string | null {
 }
 
 // ── Zone distribution (km per zone over the period) ──────────────────────────
+// Recibe `effort`: aquí cada tramo se clasifica POR SU RITMO, así que un trote de
+// vuelta aterrizaría entero en Z1/Z2 y diría que el atleta hace suave justo el día
+// que hizo series. El total de esta tarjeta no cuadra con el de Volumen a
+// propósito — una reparte esfuerzo por zona, la otra cuenta kilómetros.
 function buildZoneDistribution(
-  paced: Array<{ dist: number; pace: number | null }>,
+  effort: Array<{ dist: number; pace: number | null }>,
   bands: ZoneBand[],
 ): AnalyticsCard {
   const meters = new Map<string, number>();
   let total = 0;
-  for (const s of paced) {
+  for (const s of effort) {
     if (s.pace == null) continue;
     const z = classifyZone(s.pace, bands);
     if (!z) continue;
@@ -505,14 +555,16 @@ function buildZoneDistribution(
     title_es: 'Distribución por zona',
     availability: total > 0 ? 'real' : 'needs_logging',
     zones,
-    drill: total > 0 ? drill('running.zone', {}, paced.length, 'reparto por zona') : null,
+    drill: total > 0 ? drill('running.zone', {}, effort.length, 'reparto por zona') : null,
   });
 }
 
 // ── Pace trend (weekly volume-weighted pace) ─────────────────────────────────
-function buildPaceTrend(paced: Array<{ day: string; dist: number; pace: number | null }>): AnalyticsCard {
+// Recibe `effort`. El copy de la tarjeta dice «bajando = motor mejorando», y con
+// los trotes dentro subiría en la semana de más calidad: la frase sería falsa.
+function buildPaceTrend(effort: Array<{ day: string; dist: number; pace: number | null }>): AnalyticsCard {
   const byWeek = new Map<string, { meters: number; timeSecs: number }>();
-  for (const s of paced) {
+  for (const s of effort) {
     if (s.pace == null) continue;
     const wk = isoWeekStart(s.day);
     const e = byWeek.get(wk) ?? { meters: 0, timeSecs: 0 };
@@ -550,11 +602,14 @@ function buildPaceTrend(paced: Array<{ day: string; dist: number; pace: number |
 // segments that actually carry a cadence contribute; a week with none is dropped.
 // Taller bar = higher cadence. Gated to 'needs_logging' until any run has cadence,
 // so it never shows a fabricated number on an athlete who's never logged one.
+// Recibe `effort`: la cadencia de un trote de vuelta es baja por definición, y
+// mezclarla dice «zancada menos económica» cuando lo único que pasó es que hubo
+// recuperaciones. Es la misma media ponderada que el ritmo, y va sobre lo mismo.
 function buildCadenceTrend(
-  paced: Array<{ day: string; dist: number; cadence: number | null }>,
+  effort: Array<{ day: string; dist: number; cadence: number | null }>,
 ): AnalyticsCard {
   const byWeek = new Map<string, { meters: number; weighted: number }>();
-  for (const s of paced) {
+  for (const s of effort) {
     if (s.cadence == null || s.dist <= 0) continue;
     const wk = isoWeekStart(s.day);
     const e = byWeek.get(wk) ?? { meters: 0, weighted: 0 };
@@ -592,10 +647,14 @@ function buildCadenceTrend(
 }
 
 // ── Compromised vs pure ──────────────────────────────────────────────────────
+// Recibe `effort`. La tarjeta compara DOS ritmos y se juega la lectura en una
+// diferencia de segundos; un trote colado en cualquiera de los dos lados la
+// inventa. Ojo: la recuperación NO es lo que marca `compromised` — ese flag mira
+// si la ejecución tiene tramos de otra modalidad, y una recuperación es 'run'.
 function buildCompromised(
-  paced: Array<{ compromised: boolean; dist: number; pace: number | null }>,
+  effort: Array<{ compromised: boolean; dist: number; pace: number | null }>,
 ): AnalyticsCard {
-  const agg = (list: typeof paced) => {
+  const agg = (list: typeof effort) => {
     let meters = 0;
     let weighted = 0;
     for (const s of list) {
@@ -605,8 +664,8 @@ function buildCompromised(
     }
     return meters > 0 ? weighted / meters : null;
   };
-  const purePace = agg(paced.filter((s) => !s.compromised));
-  const compPace = agg(paced.filter((s) => s.compromised));
+  const purePace = agg(effort.filter((s) => !s.compromised));
+  const compPace = agg(effort.filter((s) => s.compromised));
   const delta = purePace != null && compPace != null ? compPace - purePace : null;
   const hasCompromised = compPace != null;
 

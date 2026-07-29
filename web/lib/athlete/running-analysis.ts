@@ -18,12 +18,18 @@
 //   • training → [] (the session→station linkage isn't a clean single source
 //     here; left empty rather than fabricated — the view hides the section).
 //
-// Modality resolution mirrors modality-analytics.ts exactly (explicit
-// se.modality column wins; else derive from the exercise), single-sourced as the
-// SEG_MODALITY_SQL fragment so the run filter never drifts from the breakdown.
+// QUÉ FILAS ENTRAN. Dos preguntas distintas, y este fichero contesta las dos:
+// `SEG_MODALITY_SQL` decide si la fila es de correr, y `SEG_IS_WORK_EFFORT` si es
+// un ESFUERZO o el trote entre series (mig 0146). Las dos viven en
+// `@/lib/execution/segment-work` — aquí había una copia a mano de la primera que
+// prometía «kept identical» a la de modality-analytics, y las copias que se
+// prometen no divergir divergen. La regla del fichero: todo lo que mide CALIDAD
+// (mejor km, splits, progresión de ritmo) filtra las recuperaciones; el VOLUMEN
+// no, y dice por qué en su sitio.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';
 import { trainingPacesForVdot } from '@fahybrid/shared/domain/running/vdot';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
@@ -121,23 +127,6 @@ const SEVERITY_SLIGHTLY_WORSE_MAX = 0.1;
 
 type Severity = 'better' | 'slightly_worse' | 'worse';
 
-// Mirror of modality-analytics.ts SEG_MODALITY_SQL — kept identical so the run
-// filter here and the breakdown there never disagree.
-const SEG_MODALITY_SQL = (sql: Sql) => sql`
-  coalesce(
-    se.modality,
-    case
-      when ex.category = 'cardio' and ex.slug ilike '%run%'  then 'run'
-      when ex.category = 'cardio' and ex.slug ilike '%row%'  then 'row'
-      when ex.category = 'cardio' and (ex.slug ilike '%ski%') then 'ski'
-      when ex.category = 'cardio' and (ex.slug ilike '%bike%' or ex.slug ilike '%cycl%') then 'bike'
-      when ex.category = 'strength' then 'strength'
-      when ex.category is not null then 'other'
-      else 'other'
-    end
-  )
-`;
-
 // ── Formatting helpers ───────────────────────────────────────────────────────
 
 function num(v: unknown): number {
@@ -185,6 +174,9 @@ export async function buildRunningAnalysis(
 ): Promise<RunningAnalysisDTO> {
   const athleteId = Number(args.athlete_id);
   const mod = SEG_MODALITY_SQL(client);
+  // «Esta fila es un intento» — se compone en toda consulta que mida calidad. Es
+  // no-op sobre lo ya guardado: con `leg_role` nulo la fila sigue siendo trabajo.
+  const work = SEG_IS_WORK_EFFORT(client);
 
   // ── VDOT-derived tiles (VO₂ estimate / pace zones) ─────────────────────────
   // Source = `selectRunMark`, the one selector. It reads every running mark the
@@ -304,6 +296,12 @@ export async function buildRunningAnalysis(
       left join exercises ex on ex.id = ts.exercise_id
       where we.athlete_id = ${athleteId}
         and ${mod} = 'run'
+        -- El mejor km es un INTENTO. Desde 0146 un 5x1000 graba también sus cuatro
+        -- trotes de vuelta, y esos caen dentro de la banda de ~1 km sin serlo. Al
+        -- mínimo rara vez le cambiarían el valor (un trote no gana un PR), pero la
+        -- misma banda alimenta el listado del drill, que sí los contaría como
+        -- esfuerzos — y un filtro que «da igual aquí» es el que se olvida allí.
+        and ${work}
         and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     )
     select min(
@@ -324,6 +322,13 @@ export async function buildRunningAnalysis(
   // weekly_volume_km: distance in the current ISO week (Monday start). This is a
   // fallback — the view prefers the live StatsService figure — but we provide it
   // so the endpoint is self-sufficient.
+  //
+  // DECISIÓN — el VOLUMEN cuenta TODOS los metros, recuperaciones incluidas, y por
+  // eso aquí NO se compone `${work}`. Esos metros se corrieron de verdad: en un
+  // 5x1000 con trote de 400 las piernas hicieron 6,6 km, no 5. Descontarlos haría
+  // que el volumen semanal BAJARA el día que la app empezó a grabar mejor, o sea
+  // una regresión fantasma que el atleta leería como «esta semana entrené menos».
+  // El ritmo sí miente si mezcla trote y serie; los kilómetros no.
   const weekVolRows = await client<Array<{ meters: string | null }>>`
     select sum(coalesce(se.distance_meters, 0))::float as meters
     from segment_executions se
@@ -338,7 +343,9 @@ export async function buildRunningAnalysis(
 
   // volume_7d_km: rolling last-7-days running distance — the Inicio "Volumen ·
   // 7 días" figure. Same run-modality filter as above; only the window differs
-  // (a moving 7-day window vs the ISO week), so the two labels never lie.
+  // (a moving 7-day window vs the ISO week), so the two labels never lie. Misma
+  // decisión que arriba: es volumen, así que entra todo lo corrido. Los dos
+  // números son el mismo concepto en dos ventanas y tienen que contar igual.
   const vol7Rows = await client<Array<{ meters: string | null }>>`
     select sum(coalesce(se.distance_meters, 0))::float as meters
     from segment_executions se
@@ -352,6 +359,9 @@ export async function buildRunningAnalysis(
   const volume_7d_km = kmStr(vol7Rows[0]?.meters != null ? num(vol7Rows[0].meters) : 0);
 
   // ── Splits: the most recent run execution's per-km segments ────────────────
+  // El filtro de esfuerzo va aquí Y en la consulta de tramos de abajo, a la vez:
+  // si solo filtrara los tramos, esto podría elegir una sesión cuya única carrera
+  // fuera un trote y devolver cero splits — una pantalla vacía sin explicación.
   const lastRunExecRows = await client<Array<{ execution_id: string }>>`
     select we.id::text as execution_id
     from workout_executions we
@@ -361,7 +371,7 @@ export async function buildRunningAnalysis(
         from segment_executions se
         left join template_segments ts on ts.id = se.template_segment_id
         left join exercises ex on ex.id = ts.exercise_id
-        where se.execution_id = we.id and ${mod} = 'run'
+        where se.execution_id = we.id and ${mod} = 'run' and ${work}
       )
     order by coalesce(we.ended_at, we.started_at) desc
     limit 1
@@ -399,6 +409,11 @@ export async function buildRunningAnalysis(
       left join exercises ex on ex.id = ts.exercise_id
       where se.execution_id = ${lastExecId}
         and ${mod} = 'run'
+        -- Los splits son los km del ESFUERZO. Un trote de vuelta colado como k4
+        -- pinta una barra lenta de un km que el atleta nunca corrió como km, y
+        -- encima dispara la nota de deriva final: la segunda mitad sale peor por
+        -- pura aritmética, no porque se cayera. Eso es dato fabricado en pantalla.
+        and ${work}
       order by se.position asc
     `;
 
@@ -465,6 +480,12 @@ export async function buildRunningAnalysis(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and ${mod} = 'run'
+      -- Progresión = ritmo de lo que se entrenó fuerte, no ritmo medio del día. Si
+      -- el sumatorio se traga los trotes, la semana con MÁS series sale la más
+      -- lenta y la barra dice «vas peor» justo cuando el atleta más aprieta. Es la
+      -- misma razón por la que el volumen de arriba sí los cuenta y esto no: allí
+      -- la pregunta es cuánto corriste, aquí es a qué ritmo eres capaz.
+      and ${work}
       and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     group by 1
     having sum(coalesce(se.distance_meters, 0)) > 0

@@ -12,6 +12,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { computePredictionReview, type SnapshotSegment } from '@fahybrid/shared/domain/goal-gap';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { STATION_CATALOGUE } from './station-detail';
@@ -142,6 +143,12 @@ async function executionActuals(athleteId: number, executionId: number, client: 
   if (!exec) return null;
   const eventDateIso = isoDateString(startOfDayInBox(new Date(exec.started_at)));
 
+  // Solo tramos de TRABAJO (mig 0146), y se filtra aquí porque aquí es donde ya se
+  // decide qué fila entra — el bucle de abajo solo reparte por slug. Una recuperación
+  // es `modality = 'run'`, así que cada segundo de trote entre series se sumaría al
+  // cubo `run` y el «split de carrera previsto vs real» compararía la predicción
+  // contra trabajo + trote. La predicción saldría pesimista SIEMPRE, y como esta
+  // pantalla es el lazo con el que se corrige el modelo, lo desviaría en cada revisión.
   const segRows = await client<
     Array<{ modality: string | null; station_position: number | null; duration_s: string | null }>
   >`
@@ -152,6 +159,7 @@ async function executionActuals(athleteId: number, executionId: number, client: 
     from segment_executions se
     left join exercises ex on ex.id = se.exercise_id
     where se.execution_id = ${executionId}
+      and ${SEG_IS_WORK_EFFORT(client)}
       and se.started_at is not null and se.ended_at is not null and se.ended_at > se.started_at
   `;
 
@@ -175,6 +183,10 @@ async function executionActuals(athleteId: number, executionId: number, client: 
   if (Object.keys(acc).length === 0) return null;
 
   const by_slug: Record<string, number | null> = { ...acc };
+  // El total real de la sesión manda; `acc` es solo el respaldo, y ya era una suma
+  // parcial antes de 0146 (los tramos que no mapean a un slug de carrera nunca
+  // entraron). Excluir las recuperaciones no cambia esa semántica: sigue siendo «lo
+  // que se compara contra la predicción», no el tiempo de reloj de la sesión.
   const total = exec.total_duration_seconds ?? Object.values(acc).reduce((a, b) => a + b, 0);
   if (total <= 0) return null;
   return { event_date_iso: eventDateIso, event_name: exec.session_name, by_slug, total_s: total };

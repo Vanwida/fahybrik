@@ -68,6 +68,7 @@ import type {
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
 import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
+import { SEG_COUNTS_AS_VOLUME, SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -574,6 +575,12 @@ async function loadModality(
 ): Promise<ModalityDistribution> {
   const sinceIso = addDays(now, -RECENT_DAYS).toISOString();
   // Sum seconds + km + kg per exercise category, plus session count + 2x/day days.
+  //
+  // Sin las recuperaciones de una sesión de series (0146). Esos metros se
+  // corrieron de verdad, pero esto es el REPARTO del trabajo de la semana: si
+  // entran, el porcentaje de carrera sube de golpe el día que el motor empezó a
+  // grabarlas y el coach lee un cambio de plan donde solo hubo un cambio de
+  // instrumentación.
   const rows = await client<
     Array<{
       category: string | null;
@@ -597,6 +604,14 @@ async function loadModality(
     join sessions s on s.id = se.execution_id
     left join template_segments ts on ts.id = se.template_segment_id
     left join exercises ex on ex.id = ts.exercise_id
+    -- Este panel es el REPARTO DEL VOLUMEN, no un panel de intentos, así que usa el
+    -- predicado ancho: la recuperación de una sesión de series entra. Esos metros se
+    -- corrieron, y el atleta ve exactamente los mismos kilómetros en su tarjeta de
+    -- volumen. Si aquí se excluyeran, la misma semana daría dos cifras de km segun
+    -- quien preguntara -- que es la divergencia que ya costo dos modelos de zonas.
+    -- Los ritmos y los PRs si filtran por SEG_IS_WORK_EFFORT: los kilometros no
+    -- mienten cuando se suman, los ritmos mienten cuando se promedian.
+    where ${SEG_COUNTS_AS_VOLUME(client)}
     group by ex.category
   `;
 
@@ -886,6 +901,12 @@ async function loadPerformance(
     where we.athlete_id = ${athlete_id}
       and coalesce(we.ended_at, we.started_at, we.created_at) >= ${since}
       and se.started_at is not null and se.ended_at is not null
+      -- Solo intentos (0146). Un trote de recuperación de una sesión de series
+      -- comparte template_segment_id con las series, así que entra por este mismo
+      -- join: dura menos que una serie y se llevaría el min como si fuera el mejor
+      -- tiempo del atleta, además de subir la media, contar como intento y
+      -- disparar el CV de un ejercicio que nadie hizo peor.
+      and ${SEG_IS_WORK_EFFORT(client)}
     group by e.slug, e.name, e.category, e.hyrox_station_position, ceo.name
     having count(se.id) >= 1
     order by e.category, coalesce(ceo.name, e.name)

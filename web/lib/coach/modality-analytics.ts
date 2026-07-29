@@ -4,17 +4,21 @@
 //   segment_executions → workout_executions (athlete owner)
 //                       → template_segments → exercises (modality fallback).
 //
-// MODALITY resolution (single source of truth, mirrors normalizeModality on the
-// ingest side): the explicit `segment_executions.modality` column is PRIMARY;
-// when null we derive from the exercise — cardio splits into run/row/ski/bike by
-// slug, strength/category map straight through, everything else → 'other'. This
-// is expressed once as the SQL `seg_modality` CTE column and reused by all three
-// output sections so the breakdown is internally consistent.
+// MODALIDAD y QUÉ CUENTA COMO TRABAJO se resuelven los dos en
+// `@/lib/execution/segment-work`, no aquí. Este fichero tenía su propia copia a
+// mano del `case` de modalidad —una de tres en el repo— y las tres se habían
+// prometido no divergir mientras divergían en los paréntesis del caso `ski`.
+//
+// El predicado de trabajo importa desde 0146: una sesión de series graba también
+// sus recuperaciones, y un trote de vuelta metido en el `avg(ritmo)` de abajo lo
+// arrastra hacia el trote (es una media POR FILA, sin ponderar: una recuperación
+// por serie casi lo parte por la mitad) y metido en los `sum()` infla el volumen.
 //
 // Output shape is contract-frozen — consumed verbatim by the UI agents.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';
 
 export interface ModalityTotal {
   modality: string;
@@ -68,24 +72,6 @@ const RECENT_EXECUTIONS_LIMIT = 12;
 // Window for the totals/weekly aggregation.
 const ANALYTICS_WINDOW_DAYS = 90;
 
-// Shared SQL fragment: resolve the canonical modality for a segment row aliased
-// `se`, with exercise aliased `ex`. Explicit column wins; otherwise derive.
-// Reused across every query below (DRY).
-const SEG_MODALITY_SQL = (sql: Sql) => sql`
-  coalesce(
-    se.modality,
-    case
-      when ex.category = 'cardio' and ex.slug ilike '%run%'  then 'run'
-      when ex.category = 'cardio' and ex.slug ilike '%row%'  then 'row'
-      when ex.category = 'cardio' and (ex.slug ilike '%ski%') then 'ski'
-      when ex.category = 'cardio' and (ex.slug ilike '%bike%' or ex.slug ilike '%cycl%') then 'bike'
-      when ex.category = 'strength' then 'strength'
-      when ex.category is not null then 'other'
-      else 'other'
-    end
-  )
-`;
-
 function num(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : (v as number);
   return Number.isFinite(n) ? n : 0;
@@ -102,6 +88,7 @@ export async function buildModalityAnalytics(
 ): Promise<ModalityAnalytics> {
   const athleteId = Number(args.athlete_id);
   const mod = SEG_MODALITY_SQL(client);
+  const work = SEG_IS_WORK_EFFORT(client);
 
   // ---- by_modality_totals ----------------------------------------------------
   // distance + active duration + distinct sessions per modality, plus a
@@ -134,6 +121,7 @@ export async function buildModalityAnalytics(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+      and ${work}
     group by 1
     order by distance_meters desc, duration_seconds desc
   `;
@@ -173,6 +161,7 @@ export async function buildModalityAnalytics(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+      and ${work}
     group by 1, 2
     order by 1 asc, distance_meters desc
   `;
@@ -208,6 +197,11 @@ export async function buildModalityAnalytics(
 
   const execIds = recentExecRows.map((r) => Number(r.execution_id));
 
+  // El detalle por tramo es la lista de INTENTOS de la sesión: el coach la lee
+  // como «lo que hizo», fila a fila, con su ritmo y su potencia al lado. Un trote
+  // de recuperación en medio se lee como una serie floja. El contraste de una
+  // sesión de series se cuenta en su propia lectura (`SEG_IS_RECOVERY`), no
+  // colándolo en esta.
   const segRows =
     execIds.length === 0
       ? []
@@ -249,6 +243,7 @@ export async function buildModalityAnalytics(
           left join template_segments ts on ts.id = se.template_segment_id
           left join exercises ex on ex.id = ts.exercise_id
           where se.execution_id = any(${execIds}::bigint[])
+            and ${work}
           order by se.execution_id, se.position
         `;
 

@@ -17,6 +17,7 @@ import 'server-only';
 // everything else they have ever logged.
 
 import type { Sql, TransactionClient } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import {
   RUN_PR_BANDS,
   detectRunningPRs,
@@ -50,6 +51,11 @@ export async function detectExecutionRunningPRs(args: {
   const b3 = RUN_PR_BANDS.run_3k;
   const b5 = RUN_PR_BANDS.run_5k;
 
+  // Esto corre a propósito sobre el MISMO cliente que acaba de insertar los tramos
+  // — dentro de la transacción del ingest, donde todavía no existen para nadie más.
+  // Por eso el predicado compartido acepta `Sql | TransactionClient`.
+  const work = SEG_IS_WORK_EFFORT(sql);
+
   // One round-trip. `run_segs` isolates this athlete's run segments (same
   // modality resolution as analytics), flagging the current execution. `seg_pace`
   // gives per-segment 1k pace; `by_exec` gives per-execution total run distance +
@@ -72,6 +78,16 @@ export async function detectExecutionRunningPRs(args: {
           se.modality,
           case when ex.category = 'cardio' and ex.slug ilike '%run%' then 'run' else 'x' end
         ) = 'run'
+        -- Un récord es un INTENTO, y desde 0146 una sesión de series graba también
+        -- sus trotes de vuelta. Filtrarlos AQUÍ, en el CTE, protege los dos caminos
+        -- de abajo de una vez, que es justo lo que hace falta porque rompen distinto:
+        --   seg_pace  ensucia la banda de ~1 km con esfuerzos que no lo son.
+        --   by_exec   es el peligroso: los metros del trote empujan un 4x1000 fuera
+        --             de la banda de 3k y dentro de la de 5k, y el atleta se lleva
+        --             una notificación de récord de 5 km que nunca corrió. Y el
+        --             tiempo del trote se suma al del intento, así que hasta el
+        --             valor del récord sería mentira.
+        and ${work}
     ),
     seg_pace as (
       select
