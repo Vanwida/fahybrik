@@ -33,6 +33,8 @@ import * as vivoFortime from './screens/vivo-fortime';
 import * as vivoAmrap from './screens/vivo-amrap';
 import * as vivoDobles from './screens/vivo-dobles';
 import * as watchVivo from './screens/watch-vivo';
+import * as resumenCarrera from './screens/resumen-carrera';
+import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
 import * as planSemana from './screens/plan-semana';
 import * as planDia from './screens/plan-dia';
@@ -67,6 +69,12 @@ export const SCREENS: TwinScreenModule[] = [
   vivoAmrap,
   vivoDobles,
   watchVivo,
+  // Al terminar de correr (29-jul): un fartlek no tiene un ritmo, tiene dos, y
+  // promediarlos da un número que no describe ningún momento de la carrera.
+  // El sujeto lo decide la FORMA de lo que corriste (`tramos.ts`), no el
+  // formato de la pantalla. Móvil y muñeca leen el MISMO dato.
+  resumenCarrera,
+  watchResumen,
   // El plan a tres distancias (29-jul): tres preguntas sobre el MISMO objeto —
   // hacia dónde voy (ciclo), qué me toca y qué llevo (semana), qué hay hoy y
   // con qué dosis (día). Comparten modelo, escenarios y vocabulario visual en
@@ -92,7 +100,8 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
     grupo: 'En vivo, por quién gobierna',
     ids: ['vivo-correr', 'vivo-erg', 'vivo-fuerza', 'vivo-emom', 'vivo-fortime', 'vivo-amrap', 'vivo-dobles'],
   },
-  { grupo: 'La muñeca', ids: ['watch-vivo'] },
+  { grupo: 'Al terminar', ids: ['resumen-carrera'] },
+  { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
 ];
 
 export const ESTADO_LABEL: Record<TwinEstado, string> = {
