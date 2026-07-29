@@ -9,39 +9,15 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { COLOR_MODALIDAD, type Modalidad } from '../../datos-reales';
-import { Label, Mono, RAD, SP } from '../../kit';
+import { Label, Mono, PuntoModalidad, RAD, SP, entradaStyle } from '../../kit';
 import type { ClaveDosis, DiaPlan, EstadoDia, SemanaPlan } from './data';
 import { esDescarga, estadoDia } from './data';
 
-/** Entrada estándar: sube 6 pt y aparece. El escalón lo pone quien la usa. */
-export function entradaStyle(visible: boolean, delayMs: number): CSSProperties {
-  return {
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0)' : 'translateY(6px)',
-    transition: 'opacity 280ms ease-out, transform 280ms ease-out',
-    transitionDelay: `${delayMs}ms`,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// El punto de modalidad y los tokens de estado del día
-// ---------------------------------------------------------------------------
-
-export function PuntoModalidad({ modalidad, size = 8 }: { modalidad: Modalidad; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: COLOR_MODALIDAD[modalidad],
-        display: 'inline-block',
-        flex: '0 0 auto',
-      }}
-    />
-  );
-}
+// `entradaStyle` y `PuntoModalidad` nacieron aquí y ahora viven en el kit
+// compartido (§0): la familia del plan los necesitaba y una copia habría sido
+// la duplicación número quince. Se re-exportan para no romper a quien los
+// importaba desde este fichero.
+export { PuntoModalidad, entradaStyle };
 
 /** El sello de hecha: disco lleno del color de la modalidad con su check. */
 function Sello({ modalidad, visible, delayMs }: { modalidad: Modalidad; visible: boolean; delayMs: number }) {
