@@ -10,7 +10,7 @@ import { idSchema, isoDate } from './_primitives';
 // athlete to be active in the cohort).
 
 export const intakeBlockSpecSchema = z.object({
-  // Microciclo NAME (coach data / agnostic) — e.g. "Microciclo 1". Not an ATR phase.
+  // Microciclo NAME (coach data / agnostic) — e.g. "Microciclo 1". Not a catalogued phase.
   type: z.string().min(1).max(60),
   weeks: z.number().int().min(1).max(20),
 });

@@ -37,7 +37,7 @@ export interface AEvent {
 }
 
 export interface MacrocycleBlockSegment {
-  /** Microciclo NAME (coach data) — NOT an ATR phase. */
+  /** Microciclo NAME (coach data) — NOT a catalogued phase. */
   type: string;
   weeks: number;
   position: number;

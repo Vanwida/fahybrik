@@ -11,7 +11,7 @@ import { idSchema, isoDate, isoDateTime, weeklyPlanStatus } from './_primitives'
 export const weeklyPlanSchema = z.object({
   id: idSchema,
   athlete_id: idSchema,
-  // Optional link to the ATR microcycle this week belongs to. NULL when the
+  // Optional link to the microcycle this week belongs to. NULL when the
   // plan is created outside the microcycle structure (free planning).
   microcycle_id: idSchema.nullable(),
   // Monday of the ISO week (YYYY-MM-DD).
@@ -57,7 +57,7 @@ export type WeeklyPlanUpdate = z.infer<typeof weeklyPlanUpdateSchema>;
 // Coach publish-gate input. Publishing flips weekly_plans.status to 'published',
 // which makes a week visible to the athlete plan endpoint.
 //   - `week_start`  : publish a SINGLE week (the proposal / next-week path).
-//   - `week_starts` : publish an entire ATR block at once (every week the block
+//   - `week_starts` : publish a whole run of microcycles at once (every week the run
 //                     spans), so a block created in draft via /assign-draft is
 //                     never left with holes hidden by the gate.
 // Exactly one of the two must be present.

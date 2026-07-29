@@ -56,15 +56,6 @@ export const templateFormat = z.enum(
   TEMPLATE_FORMAT_VALUES as unknown as [TemplateFormat, ...TemplateFormat[]],
 );
 
-export const targetBlock = z.enum(['ACC', 'TRANS', 'REAL', 'any']);
-export type TargetBlock = z.infer<typeof targetBlock>;
-
-export const macrocycleStatus = z.enum(['planned', 'active', 'completed', 'cancelled']);
-export type MacrocycleStatus = z.infer<typeof macrocycleStatus>;
-
-export const blockStatus = z.enum(['planned', 'active', 'completed', 'skipped']);
-export type BlockStatus = z.infer<typeof blockStatus>;
-
 // 'partial' = terminated early but honestly logged (mig 0089); the write path
 // emits it, so the wire contract must accept it or 'partial' rows fail to parse.
 export const assignmentStatus = z.enum(['scheduled', 'completed', 'partial', 'missed', 'skipped']);
@@ -159,7 +150,6 @@ export const notificationType = z.enum([
   'week_adjustment_pending',
   'monthly_block_pending',
   'intake_pending',
-  'atr_transition_suggested',
 ]);
 export type NotificationType = z.infer<typeof notificationType>;
 

@@ -4,7 +4,7 @@ import { eventType, idSchema, isoDate, isoDateTime } from './_primitives';
 import { HYROX_ELEMENT_COUNT } from './hyrox-layout';
 
 // The RACE/COMPETITION domain. A `race` is a per-athlete competition entry — the
-// ANCHOR of the periodization (the ATR macrocycle peaks at it) and the source of
+// ANCHOR of the periodization (the plan peaks at it) and the source of
 // the "days until race" countdown. Distinct from the shared `events` catalog
 // (public HYROX venues Pablo curates): a race owns the athlete's own competition
 // attributes — format, division, gender category, goal time, result, status,
