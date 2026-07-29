@@ -1,6 +1,8 @@
-# CONTRATO DE UI — iOS
+# CONTRATO DE UI — iOS y web
 
-**Todo agente que toque una pantalla de iOS lee esto ANTES de escribir una línea.**
+**Todo agente que toque una pantalla —de iOS o del dashboard— lee esto ANTES de escribir una línea.**
+
+Las secciones 0-8 nacieron para iOS y **aplican a las dos superficies** (los componentes y formateadores concretos son los de cada stack). La **sección 9** es la parte específica de la web.
 
 Existe porque el 28-jul nueve agentes trabajaron en paralelo sin vocabulario común y cada uno
 resolvió lo mismo a su manera: el VO₂máx salió «42,4» en una pantalla y «42.4» en la de al lado,
@@ -152,3 +154,47 @@ móvil en el suelo, a tres metros, con una mano:
 6. ¿Qué pasa si ese dato no existe?
 
 Y si al recorrerla ves algo feo o inútil que nadie ha reportado: **arréglalo y dilo**.
+
+---
+
+## 9 · El dashboard del coach (web)
+
+Existe porque hasta el 29-jul este contrato se titulaba «— iOS» y la web no tenía equivalente, así que cada agente inventó su escala. El resultado medido: **631 tamaños de fuente escritos a mano** en unos 11 escalones, de los cuales **116 son medios píxeles** (`text-[11.5px]`, `text-[10.5px]`, `text-[12.5px]`) — justo lo que el §4 prohíbe con todas las letras.
+
+**Y el sistema ya existía.** `globals.css` tiene escala de espaciado (`--spacing-xs..xxxl`) y de tipo (`--type-display/body/small/caption`), y hay **55 tokens de color** bien hechos, respetados con cero clases crudas de Tailwind. El problema nunca fue que faltara el sistema: es que v2 no lo mira.
+
+### 9.1 · Se usan los tokens que ya hay
+
+- **Tipografía y espaciado: de la escala.** Ni un `text-[Npx]` nuevo. Los medios píxeles no son jerarquía, son ruido.
+- **Color: token siempre, y sin fallback.** Un `var(--v2-danger, #c0362c)` con el hex dentro es una segunda fuente de verdad que diverge en silencio: hoy hay **tres fallbacks distintos** para el mismo rojo. Y peor, **un fallback tapa que el token no existe**: `--v2-success` no está declarado (el real es `--v2-ok`), así que el «Guardado» de `InlineSave` **nunca sale verde** y nadie se ha enterado. Sin fallback, eso se ve el primer día.
+- **El scrim de un modal es `--v2-scrim`**, no `bg-black/60`. Ya se arregló una vez porque el negro sólido hacía ver oscuro el editor en tema claro, y volvió por 11 sitios.
+- **El naranja de marca no es un color de dato.** No se usa como tinte de zona ni de serie.
+- **Un solo ancho de contenedor.** Hoy conviven cuatro (`1480` ×15, `1280`, `1180` ×2): Pagos y Métricas son 300 px más estrechas que Atletas y Hoy, y se nota al cambiar de sección.
+
+### 9.2 · Un instrumento, no un documento
+
+El fallo de raíz del dashboard es el mismo que el del §6 en iOS, con otra cara: **cada vista es una pila vertical de secciones a ancho completo dentro de una columna centrada**, apiladas a una sola densidad. Nadie decidió para qué sirve el viewport, así que el vacío no es un bug de una pantalla — es lo que pasa cuando se acaban las secciones. Medido: **508 px muertos en `/altas` (56 % del viewport)**, 401 en `/pagos`, 389 en `/tests`, 295 bajo un roster de tres filas.
+
+Las cuatro estrategias de altura del §6.1 aplican igual. Y en web se añade el ancho:
+
+- **Una fila no reparte 700 px de vacío entre dos datos.** Las columnas se dimensionan al dato, no a `1fr` por defecto.
+- **Lo que decide la acción es lo más grande.** Hoy está invertido: en `/hoy` la fecha pesa 36 px y «0 requieren atención» pesa 11; en `/altas` el único dato urgente («esperando 20 días») son 11 px en azul tranquilo, sin escalar con la urgencia.
+- **Toda ruta resuelve sus estados** (§5). Hoy hay **cero** `loading.tsx`, `error.tsx`, `not-found.tsx` y `<Suspense>` en las 24 páginas: al navegar, la pantalla anterior se queda congelada sin ninguna señal.
+
+### 9.3 · El responsive recompone, no esconde
+
+390 es obligatorio: Pablo usa el móvil. Hoy el móvil **pierde información** en vez de reorganizarla — la adherencia y la última actividad, que son los dos datos de triaje del roster, sólo existen desde 1024 y 1280 px. Un dato que importa a 1440 importa a 390: cambia de sitio, no desaparece. Y un contenedor con scroll horizontal lleva **indicador** (las rails de `/hoy` lo tienen; la barra de 10 pestañas de la ficha del atleta no, y en móvil se ven 3).
+
+### 9.4 · Se diseña para ~100 atletas
+
+Es la escala de lanzamiento, no la de hoy. Una tabla que se lee bien con 3 filas y pinta las 100 de golpe **no está diseñada**: `/biblioteca` mide hoy **15.980 px de alto en 390** con sus 99 bloques, sin paginación ni virtualización.
+
+### 9.5 · El patrón bueno ya existe en casa
+
+`/mensajes` (tres columnas a altura completa con el compositor anclado), `/atletas/[id]/intake` (dos columnas con barra de acción pegada abajo) y `/metricas` están **bien compuestas**. No hay que inventar el sistema: hay que propagarlo.
+
+### 9.6 · Nada servido que no se pinte
+
+**29 rutas de API del coach no las llama nadie** (verificado: fuera de su propio `route.ts` sólo aparecen en la caché de `.next`). Entre ellas, la revisión semanal entera, la tabla de cohorte, el briefing, la bandeja de triaje con acciones en masa, los ajustes masivos de plan con deshacer, y **la ingesta del método por RAG** — que es el titular del proyecto. Hay incluso un `columns.ts` huérfano que define etiquetas y anchos de una tabla que nunca se construyó.
+
+**Regla:** un endpoint sin superficie es trabajo que el coach no recibe. Si se construye un endpoint, se construye lo que lo enseña **en el mismo lote**, o se declara explícitamente como pendiente en `FOCUS.md`. Ver la memoria «círculo cerrado, nada huérfano».
