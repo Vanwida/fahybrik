@@ -212,7 +212,20 @@ export function Numeral({
   const alto = ESCALA[escala][horizontal ? 'landscape' : 'portrait'];
   const ancho = techoDeAncho(children);
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center', ...style }}>
+    // `wrap` porque la ranura de unidad no siempre recibe una unidad: el erg le
+    // pasa «sin lecturas», que es una nota de honestidad (§7) y no cabe en la
+    // misma línea. Sin esto se recorta contra el borde y se lee «01:35 LE».
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 8,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        maxWidth: '100%',
+        ...style,
+      }}
+    >
       <span
         className="t-readout-hero"
         style={{
