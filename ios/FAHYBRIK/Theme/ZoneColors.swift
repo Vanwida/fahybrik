@@ -102,14 +102,19 @@ struct HRZoneBand: Codable, Equatable {
 struct HRZoneProfile: Codable, Equatable {
     /// The threshold heart rate every band is a fraction of.
     let lthrBpm: Int
-    /// True when the threshold was inferred rather than measured. Surfaces MUST
-    /// show this: an estimated band that looks measured is how a number nobody
-    /// measured quietly becomes evidence.
+    /// True when the SERVER inferred the threshold (from a max HR, or from an age).
+    /// Surfaces MUST show this: an estimated band that looks measured is how a
+    /// number nobody measured quietly becomes evidence. False for a threshold the
+    /// athlete declared — that one is his, not our arithmetic.
     let estimated: Bool
-    /// Closed set: `lthr_measured` · `from_max_hr` · `from_age`.
+    /// Closed set: `lthr_measured` · `lthr_declared` · `from_max_hr` · `from_age`.
     let source: String
     /// Athlete-facing explanation ("Estimado por tu edad").
     let sourceLabel: String
+    /// `measured` · `declared` · `estimated` — the three tiers of evidence. Older
+    /// builds never received it, so it decodes as nil and the surfaces fall back to
+    /// `estimated`.
+    let confidence: String?
     /// The five bands, easiest first.
     let zones: [HRZoneBand]
 

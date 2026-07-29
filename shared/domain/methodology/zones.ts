@@ -52,6 +52,11 @@ export interface AthleteBenchmarks {
   // erg anchors
   time_2k_row_seconds?: number | null; // 2000 m row
   time_1k_ski_seconds?: number | null; // 1000 m ski
+  // MEASURED erg threshold splits (s/500m) — the direct test result, which
+  // outranks backing a threshold out of a 2K/1K time trial. Until these existed
+  // the erg ladder had a single rung and a measured threshold had nowhere to land.
+  time_threshold_row_s_per_500m?: number | null;
+  time_threshold_ski_s_per_500m?: number | null;
   ftp_watts?: number | null; // cycling
   // HR anchors
   lthr_bpm?: number | null;
@@ -153,17 +158,41 @@ function resolvePace5kPerKm(b: AthleteBenchmarks): { s_per_km: number; source: s
   return null;
 }
 
-/** Row split2K in s/500m (spec §5). */
-function resolveRowSplit500(b: AthleteBenchmarks): { s_per_500m: number; source: string } | null {
+/**
+ * Row THRESHOLD split in s/500m. Prefers the DIRECT threshold test; falls back to
+ * the 2K time trial's average split.
+ *
+ * The fallback is an ESTIMATE and now says so. It used to be reported as measured,
+ * which was the erg ladder's version of the same lie the HR ladder told with
+ * Tanaka: a 2K is a ~7-minute effort held ABOVE threshold, so its average split is
+ * not the threshold — it is a proxy for it.
+ */
+function resolveRowSplit500(
+  b: AthleteBenchmarks,
+): { s_per_500m: number; source: string; estimated: boolean } | null {
+  if (b.time_threshold_row_s_per_500m != null)
+    return {
+      s_per_500m: b.time_threshold_row_s_per_500m,
+      source: 'time_threshold_row_s_per_500m',
+      estimated: false,
+    };
   if (b.time_2k_row_seconds != null)
-    return { s_per_500m: b.time_2k_row_seconds / 4, source: 'time_2k_row_seconds' };
+    return { s_per_500m: b.time_2k_row_seconds / 4, source: 'time_2k_row_seconds', estimated: true };
   return null;
 }
 
-/** Ski split1K → normalized to s/500m (spec §5: ski anchor is 1K). */
-function resolveSkiSplit500(b: AthleteBenchmarks): { s_per_500m: number; source: string } | null {
+/** Ski THRESHOLD split in s/500m. Same two rungs as row (ski TT anchor is 1K). */
+function resolveSkiSplit500(
+  b: AthleteBenchmarks,
+): { s_per_500m: number; source: string; estimated: boolean } | null {
+  if (b.time_threshold_ski_s_per_500m != null)
+    return {
+      s_per_500m: b.time_threshold_ski_s_per_500m,
+      source: 'time_threshold_ski_s_per_500m',
+      estimated: false,
+    };
   if (b.time_1k_ski_seconds != null)
-    return { s_per_500m: b.time_1k_ski_seconds / 2, source: 'time_1k_ski_seconds' };
+    return { s_per_500m: b.time_1k_ski_seconds / 2, source: 'time_1k_ski_seconds', estimated: true };
   return null;
 }
 
@@ -186,7 +215,10 @@ function resolveRunThresholdPerKm(b: AthleteBenchmarks): { s_per_km: number; sou
 }
 
 /** Erg THRESHOLD split in s/500m (the test result). The 2K/1K TT pace ≈ threshold. */
-function resolveErgThreshold500(modality: 'row' | 'ski', b: AthleteBenchmarks): { s_per_500m: number; source: string } | null {
+function resolveErgThreshold500(
+  modality: 'row' | 'ski',
+  b: AthleteBenchmarks,
+): { s_per_500m: number; source: string; estimated: boolean } | null {
   return modality === 'ski' ? resolveSkiSplit500(b) : resolveRowSplit500(b);
 }
 
@@ -222,9 +254,9 @@ export function deriveModalityThresholds(b: AthleteBenchmarks): ModalityThreshol
   const run = resolveRunThresholdPerKm(b);
   if (run) out.push({ modality: 'run', threshold_s: run.s_per_km, pace_unit: 'per_km', source: run.source, estimated: run.estimated });
   const row = resolveErgThreshold500('row', b);
-  if (row) out.push({ modality: 'row', threshold_s: row.s_per_500m, pace_unit: 'per_500m', source: row.source, estimated: false });
+  if (row) out.push({ modality: 'row', threshold_s: row.s_per_500m, pace_unit: 'per_500m', source: row.source, estimated: row.estimated });
   const ski = resolveErgThreshold500('ski', b);
-  if (ski) out.push({ modality: 'ski', threshold_s: ski.s_per_500m, pace_unit: 'per_500m', source: ski.source, estimated: false });
+  if (ski) out.push({ modality: 'ski', threshold_s: ski.s_per_500m, pace_unit: 'per_500m', source: ski.source, estimated: ski.estimated });
   return out;
 }
 

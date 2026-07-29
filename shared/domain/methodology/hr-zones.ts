@@ -28,15 +28,35 @@
 // A labelled-but-fabricated band is worse than an absent one: it is indis-
 // tinguishable from a real one at a glance, and it silently becomes evidence
 // (the `zone_seconds` a coach uses to decide next week's load).
+//
+// THE LADDER HAS FOUR RUNGS AND THREE CONFIDENCES (29-jul-2026).
+// measured → declared → estimated(max HR) → estimated(age). The middle rung was
+// added because the athlete's OWN number is data, not arithmetic: he may know his
+// threshold from a lab, a coach or a watch, and binning it while showing him a
+// band derived from his birthday was the system distrusting him and trusting
+// itself. It is labelled as his, he can change it, and a test supersedes it.
+//
+// The last two rungs are POPULATION GENERALIZATIONS. They exist so nobody is left
+// without zones to train against, they are always labelled estimated, and nothing
+// may score them as evidence (see `confidence`). The ORDER is what makes that
+// safe: a generalization can never displace a real measurement, only fill its
+// absence.
 
 // ── The anchor's inputs ──────────────────────────────────────────────────────
 // Deliberately narrower than `AthleteBenchmarks`: the HR model needs three
 // numbers and nothing else. Keeping it narrow is what lets `zones.ts` depend on
 // this file instead of the other way round.
 export interface HrAnchors {
-  /** Measured lactate-threshold HR. The only non-estimated anchor. */
+  /** Threshold HR MEASURED by a test we ran (`lthr_30min`). The strongest anchor. */
   lthr_bpm?: number | null;
-  /** Measured max HR (`athletes.max_hr_bpm`). Yields an ESTIMATED threshold. */
+  /**
+   * Threshold HR the ATHLETE declared — onboarding, or their profile. It is his
+   * number, not ours and not a test's: he may have it from a lab, from a coach, or
+   * from a watch that detects it. It outranks anything we could infer, and is
+   * outranked by a test the moment one exists.
+   */
+  lthr_declared_bpm?: number | null;
+  /** Max HR (`athletes.max_hr_bpm`). Yields an ESTIMATED threshold. */
   max_hr_bpm?: number | null;
   /** Age, for the last-resort estimate. Derived from `athletes.dob`. */
   age_years?: number | null;
@@ -84,10 +104,12 @@ export interface HrZoneBand {
 export interface AthleteHrZones {
   /** The anchor every band is a fraction of. */
   lthr_bpm: number;
-  /** True when the threshold was inferred rather than measured. */
+  /** True when WE inferred the threshold. False for measured AND for declared. */
   estimated: boolean;
   /** Which anchor produced it — audit trail, and the copy the UI explains with. */
   source: HrAnchorSource;
+  /** measured | declared | estimated. Use this to decide what may be SCORED. */
+  confidence: HrAnchorConfidence;
   /** The five bands, easiest → hardest. */
   bands: HrZoneBand[];
 }
@@ -97,38 +119,83 @@ export interface AthleteHrZones {
  * UI can say WHY a number is estimated without parsing a string, and so the
  * coach's view can distinguish "measured" from "we guessed from their birthday".
  */
-export type HrAnchorSource = 'lthr_measured' | 'from_max_hr' | 'from_age';
+export type HrAnchorSource = 'lthr_measured' | 'lthr_declared' | 'from_max_hr' | 'from_age';
+
+/**
+ * How much the anchor is worth as evidence — THREE tiers, not two.
+ *
+ *   measured  — a test we ran produced it.
+ *   declared  — the athlete's own number. His data, not ours and not fabricated:
+ *               it populates the app, it is labelled as his, he can edit or delete
+ *               it, and it is superseded the moment a test lands.
+ *   estimated — WE inferred it (from a max HR, or from a birthday). It is a
+ *               population generalization: fine to train against, never evidence.
+ *
+ * The boolean `estimated` was never able to express this. Keeping only a boolean
+ * is what let a birthday and a lab test look like the same claim downstream.
+ */
+export type HrAnchorConfidence = 'measured' | 'declared' | 'estimated';
+
+/** Confidence per rung. The ONE place the mapping lives. */
+export const HR_ANCHOR_CONFIDENCE: Record<HrAnchorSource, HrAnchorConfidence> = {
+  lthr_measured: 'measured',
+  lthr_declared: 'declared',
+  from_max_hr: 'estimated',
+  from_age: 'estimated',
+};
 
 /** Human-readable, athlete-facing, Spanish. Used by every surface that labels a
  *  band, so "estimada" is worded identically on the phone and in the dashboard. */
 export const HR_ANCHOR_LABEL: Record<HrAnchorSource, string> = {
   lthr_measured: 'Medido en tu test de umbral',
+  lthr_declared: 'El que tú nos diste',
   from_max_hr: 'Estimado desde tu FC máxima',
   from_age: 'Estimado por tu edad',
 };
 
+/** One resolved anchor: the number, the rung it came from, and what it is worth. */
+export interface ResolvedThresholdHr {
+  lthr_bpm: number;
+  /** True only for OUR inferences. A declared threshold is not our estimate. */
+  estimated: boolean;
+  source: HrAnchorSource;
+  confidence: HrAnchorConfidence;
+}
+
 /**
  * The athlete's threshold HR, strongest evidence first.
  *
- *   1. a measured LTHR — the real thing;
- *   2. 0.88 × a measured max HR — one inference;
- *   3. 0.88 × Tanaka(age) — two inferences, and the weakest thing we will accept.
+ *   1. a MEASURED LTHR — a test we ran;
+ *   2. a DECLARED LTHR — the athlete's own number. It beats anything we could
+ *      infer (it is data, not arithmetic) and loses to a test the day one exists;
+ *   3. 0.88 × max HR — one inference;
+ *   4. 0.88 × Tanaka(age) — two inferences, and the weakest thing we will accept.
  *
- * Null when none of the three is available. That null is the whole point: it is
- * what makes "aún no tienes zonas" possible instead of a fabricated 184.
+ * Rungs 3-4 are population generalizations: they exist so an athlete is not left
+ * without zones, they are labelled as estimates, and nothing may score them as
+ * evidence. The ORDER is the guarantee: a measured threshold always beats a
+ * birthday, so the generalization can never displace a real measurement.
+ *
+ * Null when none of the four is available.
  */
-export function resolveThresholdHr(
-  a: HrAnchors,
-): { lthr_bpm: number; estimated: boolean; source: HrAnchorSource } | null {
-  if (a.lthr_bpm != null && a.lthr_bpm > 0) {
-    return { lthr_bpm: a.lthr_bpm, estimated: false, source: 'lthr_measured' };
+export function resolveThresholdHr(a: HrAnchors): ResolvedThresholdHr | null {
+  const at = (lthr_bpm: number, source: HrAnchorSource): ResolvedThresholdHr => ({
+    lthr_bpm,
+    source,
+    confidence: HR_ANCHOR_CONFIDENCE[source],
+    estimated: HR_ANCHOR_CONFIDENCE[source] === 'estimated',
+  });
+
+  if (a.lthr_bpm != null && a.lthr_bpm > 0) return at(a.lthr_bpm, 'lthr_measured');
+  if (a.lthr_declared_bpm != null && a.lthr_declared_bpm > 0) {
+    return at(a.lthr_declared_bpm, 'lthr_declared');
   }
   if (a.max_hr_bpm != null && a.max_hr_bpm > 0) {
-    return { lthr_bpm: a.max_hr_bpm * LTHR_FROM_HRMAX, estimated: true, source: 'from_max_hr' };
+    return at(a.max_hr_bpm * LTHR_FROM_HRMAX, 'from_max_hr');
   }
   if (a.age_years != null && a.age_years > 0 && a.age_years < 120) {
     const hrmax = TANAKA_INTERCEPT - TANAKA_SLOPE * a.age_years;
-    return { lthr_bpm: hrmax * LTHR_FROM_HRMAX, estimated: true, source: 'from_age' };
+    return at(hrmax * LTHR_FROM_HRMAX, 'from_age');
   }
   return null;
 }
@@ -159,6 +226,7 @@ export function resolveHrZones(a: HrAnchors): AthleteHrZones | null {
     lthr_bpm: Math.round(anchor.lthr_bpm),
     estimated: anchor.estimated,
     source: anchor.source,
+    confidence: anchor.confidence,
     bands,
   };
 }

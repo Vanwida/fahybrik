@@ -9,6 +9,7 @@ import {
   type AthleteHrZones,
   type HrAnchors,
   type HrAnchorSource,
+  type HrAnchorConfidence,
 } from '@fahybrid/shared/domain/methodology';
 
 // THE athlete's heart-rate zones, loaded once — the only server-side entry point.
@@ -27,7 +28,12 @@ type AthleteHrRow = {
   max_hr_bpm: number | null;
   dob: string | null;
   lthr_bpm: number | null;
+  lthr_declared_bpm: number | null;
 };
+
+/** `athlete_benchmarks.source` values that mean "a test produced this". Everything
+ *  else on an `lthr_bpm` row is the athlete's own declaration. */
+const MEASURED_TEST_SOURCES = ['athlete_test', 'coach_test'] as const;
 
 /** Milliseconds in an average year, leap years amortised. */
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
@@ -50,19 +56,34 @@ export async function loadHrAnchors(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<HrAnchors> {
+  // The two threshold rungs are read SEPARATELY and ranked by the resolver, not by
+  // recency: a test always beats a declaration, even an older test than the
+  // declaration. Taking the latest row of either kind (the previous behaviour)
+  // would let a self-reported number silently overwrite a measured one.
   const rows = await client<AthleteHrRow[]>`
     select
       a.max_hr_bpm,
       to_char(a.dob, 'YYYY-MM-DD') as dob,
-      -- A recorded threshold-HR test, if the athlete has ever done one. It is the
-      -- only anchor that is not an estimate, so it wins whenever present.
+      -- Threshold MEASURED by a test (lthr_30min), newest first.
       (
         select b.value::int
         from athlete_benchmarks b
-        where b.athlete_id = a.id and b.exercise_slug = ${BENCH_LTHR}
+        where b.athlete_id = a.id
+          and b.exercise_slug = ${BENCH_LTHR}
+          and b.source = any(${MEASURED_TEST_SOURCES as unknown as string[]})
         order by b.recorded_at desc
         limit 1
-      ) as lthr_bpm
+      ) as lthr_bpm,
+      -- Threshold the ATHLETE declared (onboarding / profile), newest first.
+      (
+        select b.value::int
+        from athlete_benchmarks b
+        where b.athlete_id = a.id
+          and b.exercise_slug = ${BENCH_LTHR}
+          and (b.source is null or b.source <> all(${MEASURED_TEST_SOURCES as unknown as string[]}))
+        order by b.recorded_at desc
+        limit 1
+      ) as lthr_declared_bpm
     from athletes a
     where a.id = ${Number(athlete_id)}
     limit 1
@@ -70,6 +91,7 @@ export async function loadHrAnchors(
   const row = rows[0];
   return {
     lthr_bpm: row?.lthr_bpm ?? null,
+    lthr_declared_bpm: row?.lthr_declared_bpm ?? null,
     max_hr_bpm: row?.max_hr_bpm ?? null,
     age_years: ageYearsFrom(row?.dob ?? null),
   };
@@ -118,12 +140,15 @@ export interface HrZoneBandDTO {
 
 export interface HrZonesDTO {
   lthr_bpm: number;
-  /** True when the threshold was inferred rather than measured. The client MUST
-   *  surface this — an estimated band that looks measured is how a fabricated
-   *  number becomes evidence. */
+  /** True when WE inferred the threshold. The client MUST surface this — an
+   *  estimated band that looks measured is how a fabricated number becomes
+   *  evidence. False for a threshold the athlete declared: that one is his. */
   estimated: boolean;
   source: HrAnchorSource;
   source_label: string;
+  /** measured | declared | estimated — the three tiers, for surfaces that need to
+   *  say more than "estimada" (and for anything deciding what may be scored). */
+  confidence: HrAnchorConfidence;
   zones: HrZoneBandDTO[];
 }
 
@@ -136,6 +161,7 @@ export function buildHrZonesDTO(zones: AthleteHrZones | null): HrZonesDTO | null
     estimated: zones.estimated,
     source: zones.source,
     source_label: HR_ANCHOR_LABEL[zones.source],
+    confidence: zones.confidence,
     zones: zones.bands.map((b) => ({
       zone: b.zone,
       code: `Z${b.zone}`,
