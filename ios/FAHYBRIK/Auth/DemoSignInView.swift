@@ -21,66 +21,54 @@ struct DemoSignInView: View {
 
     private var isLoading: Bool { loadingSlot != nil }
 
+    // ARQUETIPO Lista · altura `centra` (§6): two slots never fill a phone, so
+    // the sheet opens at half height (`.compactSheet()`) and the choice centres
+    // in it instead of hanging off the top with three flexible Spacers under it.
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                Spacer()
 
-                Text("Acceso demo")
-                    .font(Theme.Typography.headlineM)
-                    .foregroundStyle(Theme.Color.foreground)
+            CenteredScreen {
+                VStack(spacing: Theme.Spacing.l) {
+                    Text("Acceso demo")
+                        .font(Theme.Typography.headlineM)
+                        .foregroundStyle(Theme.Color.foreground)
 
-                Text("Entra como uno de los atletas de prueba para ver la app con un plan real. No necesitas Apple ID.")
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Theme.Spacing.xl)
+                    Text("Entra como uno de los atletas de prueba para ver la app con un plan real. No necesitas Apple ID.")
+                        .scaledFont(16, relativeTo: .body)
+                        .foregroundStyle(Theme.Color.muted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                Spacer()
-
-                VStack(spacing: Theme.Spacing.m) {
-                    ForEach(DemoAuthService.Slot.allCases) { slot in
-                        Button {
-                            enter(slot)
-                        } label: {
-                            HStack {
-                                Text(slot.label)
-                                Spacer()
-                                if loadingSlot == slot {
-                                    ProgressView().tint(Theme.Color.background)
-                                }
+                    VStack(spacing: Theme.Spacing.m) {
+                        ForEach(DemoAuthService.Slot.allCases) { slot in
+                            ExpertPrimaryButton(
+                                title: loadingSlot == slot ? "Entrando…" : slot.label,
+                                enabled: !isLoading
+                            ) {
+                                enter(slot)
                             }
-                            .font(Theme.Typography.body)
-                            .padding(.horizontal, Theme.Spacing.l)
-                            .frame(height: 54)
-                            .frame(maxWidth: .infinity)
-                            .background(Theme.Color.accent)
-                            .foregroundStyle(Theme.Color.background)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                         }
-                        .disabled(isLoading)
+                    }
+                    .padding(.top, Theme.Spacing.s)
+
+                    if let error {
+                        Text(error)
+                            .scaledFont(13, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.danger)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
-
-                if let error {
-                    Text(error)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.danger)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                }
-
-                Spacer()
-
-                Button("Cancelar") { dismiss() }
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Color.muted)
+                .padding(.vertical, Theme.Spacing.xl)
+            }
+            .anchoredAction(separator: false) {
+                SkipLink(title: "Cancelar") { dismiss() }
                     .disabled(isLoading)
-                    .padding(.bottom, Theme.Spacing.xl)
             }
         }
+        .compactSheet()
     }
 
     private func enter(_ slot: DemoAuthService.Slot) {

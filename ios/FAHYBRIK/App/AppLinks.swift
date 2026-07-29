@@ -21,10 +21,10 @@ struct RequestSpotLink: View {
         } label: {
             VStack(spacing: 3) {
                 Text("¿Aún no entrenas con nosotros?")
-                    .font(.system(size: 13))
+                    .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
                 Text("Solicita tu plaza")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(16, weight: .semibold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.accentText)
             }
             .multilineTextAlignment(.center)

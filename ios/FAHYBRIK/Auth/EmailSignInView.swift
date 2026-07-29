@@ -66,9 +66,9 @@ struct EmailSignInView: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
+                    .scaledFont(16, weight: .bold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 40, height: 40)
+                    .frame(minWidth: 40, minHeight: 40)
             }
             .buttonStyle(.plain)
         }
@@ -132,8 +132,14 @@ struct EmailSignInView: View {
             TextField("000000", text: $code)
                 .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                // Monospaced so the six digits hold their columns as they land,
+                // scaled so the code grows with the rest of the copy, and capped
+                // to one line so a large text size widens the glyphs instead of
+                // wrapping the code in half.
+                .scaledFont(28, weight: .bold, relativeTo: .title, monospaced: true)
                 .tracking(8)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
                 .multilineTextAlignment(.center)
                 .focused($focus, equals: .code)
                 .onChange(of: code) { _, newValue in
