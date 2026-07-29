@@ -39,6 +39,18 @@ enum MarksService {
         return resp.candidates
     }
 
+    /// `DELETE /api/athlete/marks/{id}` — el atleta retira una marca suya.
+    ///
+    /// Lo que declaró al entrar es suyo y tiene que poder quitarlo. El servidor
+    /// vuelve a comprobar la propiedad y el origen: esto no es la última palabra.
+    static func remove(id: String, bearer: String?) async throws {
+        let _: Empty = try await APIClient.shared.delete(
+            path: "/api/athlete/marks/\(id)",
+            body: Optional<Empty>.none,
+            bearer: bearer
+        )
+    }
+
     /// `POST /api/athlete/marks/register` — save the race, dated the day it happened.
     static func register(
         slug: String,
@@ -126,12 +138,20 @@ struct MarkView: Decodable, Identifiable {
     var id: String { slug }
 }
 
-struct MarkResult: Decodable, Equatable {
+struct MarkResult: Decodable, Equatable, Identifiable {
+    /// La fila de `athlete_benchmarks`. Necesaria para poder retirarla.
+    let id: String
     let value: Double
     let recordedAt: String
     let source: String         // coach_test | athlete_test | registered | onboarding | unknown
     let runContext: String?
     let eventName: String?
+
+    /// Lo que produjo el atleta lo puede retirar él. El test del coach no: es el
+    /// registro con el que programa. Espeja `markIsDeletableByAthlete`.
+    var isDeletableByAthlete: Bool {
+        source == "onboarding" || source == "athlete_test" || source == "registered"
+    }
 }
 
 struct RaceTwin: Decodable, Equatable {
@@ -161,6 +181,35 @@ struct RegisterCandidate: Decodable, Identifiable {
 // Cómo se escriben las cifras vive en `Formato` — este fichero tenía su propio
 // reloj y su propia grafía del ritmo, y por eso el «/500» salía sin la `m`.
 enum MarkFormat {
+    /// El sello de origen de una marca: de dónde salió el número.
+    ///
+    /// UNA sola grafía para toda la app (CONTRATO-UI §2). Vivía duplicado en la
+    /// lista y en el detalle, y ya había divergido — "test del coach" en una,
+    /// "test con tu coach" en la otra.
+    ///
+    /// `onboarding` es el caso que obliga a que esto exista: un número que el
+    /// atleta DECLARÓ al entrar no puede pintarse igual que uno que se midió
+    /// (CONTRATO-UI §7). Sin sello, una marca declarada es indistinguible de una
+    /// medida de un vistazo, que es justo lo que la ley de honestidad prohíbe.
+    ///
+    /// Devuelve nil cuando el origen no añade nada (`unknown`): ahí el llamante
+    /// cae a lo que sí sabe (el contexto de carrera).
+    static func originLabel(_ result: MarkResult) -> String? {
+        switch result.source {
+        case "coach_test":   return "test del coach"
+        case "athlete_test": return "te probaste"
+        case "onboarding":   return "lo dijiste tú"
+        case "registered":   return result.eventName ?? "carrera registrada"
+        default:             return nil
+        }
+    }
+
+    /// True cuando el número lo declaró el atleta y NADIE lo midió. Lo declarado
+    /// se enseña, pero nunca como una medición.
+    static func isDeclared(_ result: MarkResult) -> Bool {
+        result.source == "onboarding"
+    }
+
     /// "3:52" / "1:02:10" — a mark value in its display form.
     static func value(_ mark: MarkView, _ value: Double) -> String {
         if mark.unit == "meters" { return "\(Int(value.rounded())) m" }
