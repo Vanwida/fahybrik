@@ -10,10 +10,12 @@
 // Sus cuatro preguntas, en este orden: cuánto queda · a qué voy · me estoy
 // recuperando · cómo fue la que acabo de hacer.
 
-import { Card, Hairline, Label, Mono, Pantalla, SP } from '../../kit';
+import type { ReactNode } from 'react';
+import { Card, Hairline, Label, Mono, SP } from '../../kit';
 import { fmtClock, fmtPace500 } from '../../sim';
 import { UMBRAL } from '../../datos-reales';
-import { Celda, Cromo, zonaDe, COLOR_ZONA } from './atomos';
+import { Apoyo, EtiquetaSujeto, FranjaAccion, MarcoVivo, Numeral, colorZona, zonaDe } from '../../kit-vivo';
+import { Cromo } from './atomos';
 import { TablaSeries } from './piezas';
 import {
   MEDIDA_UNIDAD,
@@ -46,6 +48,14 @@ const CAJA_INTERIOR = {
 /** Los últimos segundos van en acento, igual que los pitidos. */
 const URGENTE_S = 3;
 
+/**
+ * El campo azul ocupa la banda del sujeto (§10.3): la cuenta atrás cae a los
+ * mismos 345 pt que el ritmo de la serie que acabas de cerrar, así que al
+ * pasar de trabajar a descansar el número no se mueve — solo cambia de color.
+ * Lo que antes vivía DENTRO del campo y no es el sujeto (el «luego», el pulso
+ * que baja, la serie que acabas de hacer) baja a los apoyos, en el mismo orden
+ * en que llegan las preguntas del descanso.
+ */
 export function Descanso({ e, onLog }: { e: EstadoErg; onLog: (linea: string) => void }) {
   const prescrito = e.pres.descansoS;
   const restante = prescrito == null ? null : Math.max(0, prescrito - e.tDescanso);
@@ -53,37 +63,17 @@ export function Descanso({ e, onLog }: { e: EstadoErg; onLog: (linea: string) =>
   const siguiente = e.serie + 1;
 
   return (
-    <Pantalla
-      accion={
-        <button
-          type="button"
-          onClick={e.empezarSiguiente}
-          className="tw-btn-primary"
-          style={{ width: '100%', height: 88, fontSize: 17, letterSpacing: '0.06em' }}
-        >
-          {tituloAccion(e)}
-        </button>
+    <MarcoVivo
+      cromo={
+        <Cromo
+          titulo={e.pres.titulo}
+          serie={siguiente}
+          series={e.pres.series}
+          onSalir={() => onLog('salir del entreno desde el descanso')}
+          onPausa={e.alternarPausa}
+        />
       }
-    >
-      <Cromo
-        titulo={e.pres.titulo}
-        serie={siguiente}
-        series={e.pres.series}
-        onSalir={() => onLog('salir del entreno desde el descanso')}
-        onPausa={e.alternarPausa}
-      />
-
-      <div
-        style={{
-          flex: '1 1 auto',
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          padding: '12px 14px',
-          ...CAMPO_DESCANSO,
-        }}
-      >
+      contexto={
         <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
           <span
             style={{
@@ -100,37 +90,49 @@ export function Descanso({ e, onLog }: { e: EstadoErg; onLog: (linea: string) =>
             </span>
           )}
         </div>
-
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-          <span
-            className="t-readout-hero"
-            style={{
-              fontSize: 'clamp(80px, 19vh, 130px)',
-              color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-info)',
-              transition: 'color 300ms linear',
-            }}
-          >
+      }
+      sujeto={
+        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', ...CAMPO_DESCANSO }}>
+          <Numeral tono={urgente ? 'var(--twin-accent-text)' : 'var(--twin-info)'}>
             {fmtClock(restante ?? e.tDescanso)}
-          </span>
+          </Numeral>
         </div>
+      }
+      apoyos={
+        <PilaApoyos>
+          <Siguiente e={e} />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+            <Recuperacion e={e} />
+            <LaQueAcabas e={e} />
+          </div>
+          {prescrito == null && (
+            <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)', textAlign: 'center' }}>
+              El coach no escribió descanso para esta serie, así que el reloj cuenta hacia arriba y sales tú.
+            </span>
+          )}
+          {e.ultimo && <LecturasDeLaSerie resumen={e.ultimo} e={e} />}
+          <TablaSeries e={e} />
+        </PilaApoyos>
+      }
+      accion={
+        /* Con descanso escrito lo cierra su cuenta atrás y el toque solo
+           adelanta; sin descanso escrito no hay reloj que lo cierre y el toque
+           es la única salida (§10.5). */
+        <FranjaAccion titulo={tituloAccion(e)} onClick={e.empezarSiguiente} unicaSalida={prescrito == null} />
+      }
+    />
+  );
+}
 
-        <Siguiente e={e} />
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-          <Recuperacion e={e} />
-          <LaQueAcabas e={e} />
-        </div>
-      </div>
-
-      {prescrito == null && (
-        <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)', textAlign: 'center' }}>
-          El coach no escribió descanso para esta serie, así que el reloj cuenta hacia arriba y sales tú.
-        </span>
-      )}
-
-      {e.ultimo && <LecturasDeLaSerie resumen={e.ultimo} e={e} />}
-      <TablaSeries e={e} />
-    </Pantalla>
+/** Los apoyos del descanso y del cierre: pueden ser cinco cartas, y scrollean. */
+function PilaApoyos({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="twin-scroll"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '100%', flex: '0 1 auto' }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -160,7 +162,7 @@ function Recuperacion({ e }: { e: EstadoErg }) {
   return (
     <div style={{ flex: 1, ...CAJA_INTERIOR }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 5 }}>
-        <span className="t-readout-m" style={{ color: COLOR_ZONA(zona), transition: 'color 900ms linear' }}>
+        <span className="t-readout-m" style={{ color: colorZona(zona), transition: 'color 900ms linear' }}>
           {e.pulso}
         </span>
         <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>ppm</span>
@@ -207,10 +209,10 @@ function LecturasDeLaSerie({ resumen, e }: { resumen: ResumenSerie; e: EstadoErg
   return (
     <div style={{ display: 'flex', gap: 6 }}>
       {resumen.ritmoMedio != null && (
-        <Celda
+        <Apoyo
           etiqueta="media /500m"
           valor={fmtPace500(resumen.ritmoMedio)}
-          color={
+          tono={
             objetivo == null
               ? 'var(--twin-fg)'
               : resumen.ritmoMedio <= objetivo
@@ -219,9 +221,9 @@ function LecturasDeLaSerie({ resumen, e }: { resumen: ResumenSerie; e: EstadoErg
           }
         />
       )}
-      <Celda etiqueta="vatios" valor={`${resumen.vatiosMedios}`} />
-      <Celda etiqueta={e.pres.maquina === 'bici' ? 'pedaladas' : 'paladas'} valor={`${resumen.cadenciaMedia}`} />
-      <Celda etiqueta="cal" valor={`${caloriasEn(e.pres.maquina, resumen.duracionS)}`} />
+      <Apoyo etiqueta="vatios" valor={`${resumen.vatiosMedios}`} />
+      <Apoyo etiqueta={e.pres.maquina === 'bici' ? 'pedaladas' : 'paladas'} valor={`${resumen.cadenciaMedia}`} />
+      <Apoyo etiqueta="cal" valor={`${caloriasEn(e.pres.maquina, resumen.duracionS)}`} />
     </div>
   );
 }
@@ -232,39 +234,38 @@ function LecturasDeLaSerie({ resumen, e }: { resumen: ResumenSerie; e: EstadoErg
 
 export function Hecho({ e, onLog }: { e: EstadoErg; onLog: (linea: string) => void }) {
   return (
-    <Pantalla
-      accion={
-        <button
-          type="button"
-          onClick={() => onLog('terminar: el resumen del entreno se abre en su propia pantalla')}
-          className="tw-btn-primary"
-          style={{ width: '100%', height: 88, fontSize: 17, letterSpacing: '0.06em' }}
-        >
-          {tituloAccion(e)}
-        </button>
+    <MarcoVivo
+      cromo={
+        <Cromo
+          titulo={e.pres.titulo}
+          serie={e.serie}
+          series={e.pres.series}
+          onSalir={() => onLog('salir del entreno con la pieza ya cerrada')}
+          onPausa={e.alternarPausa}
+        />
       }
-    >
-      <Cromo
-        titulo={e.pres.titulo}
-        serie={e.serie}
-        series={e.pres.series}
-        onSalir={() => onLog('salir del entreno con la pieza ya cerrada')}
-        onPausa={e.alternarPausa}
-      />
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <Label size={10} color="var(--twin-ok)">Pieza cerrada</Label>
-          {e.ultimo && (
-            <span className="t-readout-hero" style={{ fontSize: 'clamp(64px, 15vh, 118px)' }}>
-              {fmtElapsed(e.ultimo.duracionS)}
-            </span>
-          )}
+      sujeto={
+        <>
+          <EtiquetaSujeto tono="var(--twin-ok)">Pieza cerrada</EtiquetaSujeto>
+          {e.ultimo && <Numeral>{fmtElapsed(e.ultimo.duracionS)}</Numeral>}
           <span className="t-headline-s" style={{ color: 'var(--twin-muted)' }}>{e.pres.titulo}</span>
-        </div>
-      </div>
-      {e.ultimo && <ResumenCard resumen={e.ultimo} pres={e.pres} e={e} />}
-      <TablaSeries e={e} />
-    </Pantalla>
+        </>
+      }
+      apoyos={
+        <PilaApoyos>
+          {e.ultimo && <ResumenCard resumen={e.ultimo} pres={e.pres} e={e} />}
+          <TablaSeries e={e} />
+        </PilaApoyos>
+      }
+      /* La pieza ya está cerrada: nada más va a sacarte de aquí. */
+      accion={
+        <FranjaAccion
+          titulo={tituloAccion(e)}
+          onClick={() => onLog('terminar: el resumen del entreno se abre en su propia pantalla')}
+          unicaSalida
+        />
+      }
+    />
   );
 }
 
