@@ -8,7 +8,7 @@ struct Chip: View {
     var body: some View {
         Button(action: { Haptics.light(); action() }) {
             Text(title)
-                .font(Theme.Typography.small)
+                .scaledFont(13, weight: .medium, relativeTo: .footnote)
                 .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -76,7 +76,7 @@ struct RadioRow: View {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                     .foregroundStyle(selected ? Theme.Color.accentText : Theme.Color.muted)
                 Text(title)
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.foreground)
                 Spacer()
             }

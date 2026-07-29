@@ -11,6 +11,8 @@ struct InjuriesLimitationsStep: View {
     let onNext: () -> Void
     let onSkip: () -> Void
 
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 200
+
     // Common body areas — keeps `area` structured for the model instead of
     // raw text. "Otro" lets the athlete type anything not covered.
     private static let bodyAreas = [
@@ -59,15 +61,15 @@ struct InjuriesLimitationsStep: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 SectionLabel(text: "Limitaciones de movimiento")
                 Text("¿Algún movimiento que evites o no puedas hacer?")
-                    .font(Theme.Typography.small)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
 
                 VStack(spacing: 0) {
                     LabeledRow(label: "Limitación") {
                         TextField("p.ej. sentadilla profunda", text: $state.movementLimitations)
                             .multilineTextAlignment(.trailing)
-                            .font(Theme.Typography.body)
-                            .frame(maxWidth: 200)
+                            .scaledFont(16, relativeTo: .body)
+                            .frame(maxWidth: fieldWidth)
                     }
                 }
                 .brandSurface()
@@ -92,10 +94,10 @@ private struct EmptyInjuriesCard: View {
                 .foregroundStyle(Theme.Color.ok)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Sin lesiones")
-                    .font(Theme.Typography.bodyEmph)
+                    .scaledFont(16, weight: .semibold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Añade una solo si tienes algo que reportar.")
-                    .font(Theme.Typography.small)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
             }
             Spacer(minLength: 0)
@@ -112,6 +114,8 @@ private struct InjuryCard: View {
     @Binding var injury: OnbInjury
     let areas: [String]
     let onRemove: () -> Void
+
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 190
 
     var body: some View {
         CardSurface(leftAccent: injury.active) {
@@ -144,13 +148,13 @@ private struct InjuryCard: View {
                 // Type free text (e.g. "rotura parcial")
                 HStack(spacing: Theme.Spacing.m) {
                     Text("Tipo")
-                        .font(Theme.Typography.body)
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
                     TextField("p.ej. rotura parcial", text: $injury.type)
                         .multilineTextAlignment(.trailing)
-                        .font(Theme.Typography.body)
-                        .frame(maxWidth: 190)
+                        .scaledFont(16, relativeTo: .body)
+                        .frame(maxWidth: fieldWidth)
                 }
 
                 Hairline()
@@ -158,7 +162,7 @@ private struct InjuryCard: View {
                 // Active toggle
                 Toggle(isOn: $injury.active) {
                     Text(injury.active ? "Activa ahora" : "Recuperada")
-                        .font(Theme.Typography.body)
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                 }
                 .tint(Theme.Color.accent)
@@ -168,13 +172,13 @@ private struct InjuryCard: View {
                 // Optional note
                 HStack(spacing: Theme.Spacing.m) {
                     Text("Nota")
-                        .font(Theme.Typography.body)
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
                     TextField("opcional", text: noteBinding)
                         .multilineTextAlignment(.trailing)
-                        .font(Theme.Typography.body)
-                        .frame(maxWidth: 190)
+                        .scaledFont(16, relativeTo: .body)
+                        .frame(maxWidth: fieldWidth)
                 }
             }
         }

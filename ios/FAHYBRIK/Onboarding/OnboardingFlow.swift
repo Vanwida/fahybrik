@@ -177,7 +177,7 @@ struct OnboardingFlow: View {
             Theme.Color.scrim.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.l) {
                 Text(message)
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.foreground)
                     .multilineTextAlignment(.center)
 

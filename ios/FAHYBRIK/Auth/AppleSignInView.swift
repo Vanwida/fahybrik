@@ -254,7 +254,7 @@ private struct LegalAcknowledgementText: View {
         }()
 
         return Text(attributed)
-            .font(Theme.Typography.caption)
+            .scaledFont(12, weight: .medium, relativeTo: .caption)
             .foregroundStyle(Theme.Color.muted)
             .multilineTextAlignment(.center)
             .tint(Theme.Color.accentText)

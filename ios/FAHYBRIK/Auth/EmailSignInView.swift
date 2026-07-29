@@ -85,7 +85,7 @@ struct EmailSignInView: View {
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Te enviaremos un código de 6 dígitos para entrar.")
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -123,7 +123,7 @@ struct EmailSignInView: View {
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Escribe el código que enviamos a \(normalizedEmail).")
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -159,7 +159,7 @@ struct EmailSignInView: View {
                 errorText(error)
             } else if let info {
                 Text(info)
-                    .font(Theme.Typography.small)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
             }
@@ -175,7 +175,7 @@ struct EmailSignInView: View {
                 }
                 .disabled(inProgress)
             }
-            .font(Theme.Typography.small)
+            .scaledFont(13, weight: .medium, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.accentText)
             .padding(.top, Theme.Spacing.xs)
         }
@@ -183,7 +183,7 @@ struct EmailSignInView: View {
 
     private func errorText(_ message: String) -> some View {
         Text(message)
-            .font(Theme.Typography.small)
+            .scaledFont(13, weight: .medium, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.danger)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -256,7 +256,7 @@ struct EmailSignInView: View {
 private extension View {
     func brandFieldStyle() -> some View {
         self
-            .font(Theme.Typography.body)
+            .scaledFont(16, relativeTo: .body)
             .foregroundStyle(Theme.Color.foreground)
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)

@@ -73,15 +73,14 @@ struct StepShell<Content: View>: View {
                     .foregroundStyle(Theme.Color.foreground)
                 if let subtitle {
                     Text(subtitle)
-                        .font(Theme.Typography.body)
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
 
             if let hint {
                 Text(hint)
-                    .font(Theme.Typography.small)
-                    .italic()
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote, italic: true)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }

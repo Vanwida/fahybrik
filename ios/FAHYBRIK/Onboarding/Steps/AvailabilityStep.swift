@@ -188,7 +188,7 @@ private struct TimeOfDayMenu: View {
         } label: {
             HStack(spacing: 4) {
                 Text(display)
-                    .font(Theme.Typography.bodyEmph.monospacedDigit())
+                    .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
                     .foregroundStyle(Theme.Color.foreground)
                 Image(systemName: "chevron.up.chevron.down")
                     .scaledFont(11, weight: .semibold, relativeTo: .caption2)
@@ -209,11 +209,11 @@ private struct SessionLengthControl: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
             Text("\(minutes)")
-                .font(Theme.Typography.bodyEmph.monospacedDigit())
+                .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
                 .foregroundStyle(Theme.Color.foreground)
                 .frame(minWidth: 32, alignment: .trailing)
             Text("min")
-                .font(Theme.Typography.caption)
+                .scaledFont(12, weight: .medium, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
             Stepper(
                 "",

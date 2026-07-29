@@ -30,7 +30,7 @@ struct WelcomeStep: View {
                         Text("·").foregroundStyle(Theme.Color.muted)
                         Link("Términos", destination: URL(string: "https://fahybrid.com/terms")!)
                     }
-                    .font(Theme.Typography.caption)
+                    .scaledFont(12, weight: .medium, relativeTo: .caption)
                     .tint(Theme.Color.accentText)
                     .padding(.top, Theme.Spacing.s)
                 }
@@ -48,13 +48,12 @@ struct WelcomeStep: View {
             Text(hasCoach
                  ? "El siguiente paso es que tu coach conozca tu cuerpo.\nCuanto más sepa, más preciso será tu plan."
                  : "Cuéntanos cómo entrenas.\nCuanto más sepamos, más precisos serán tus números.")
-                .font(Theme.Typography.body)
+                .scaledFont(16, relativeTo: .body)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("~10 min")
-                .font(Theme.Typography.small)
-                .italic()
+                .scaledFont(13, weight: .medium, relativeTo: .footnote, italic: true)
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, Theme.Spacing.s)
         }

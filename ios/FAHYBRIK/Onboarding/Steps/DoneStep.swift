@@ -42,14 +42,14 @@ struct DoneStep: View {
                         Text(hasCoach
                              ? "Tu coach está armando tu primer plan."
                              : "Tu cuenta está lista.")
-                            .font(Theme.Typography.body)
+                            .scaledFont(16, relativeTo: .body)
                             .foregroundStyle(Theme.Color.foreground)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text(hasCoach
                              ? "Lo verás en Inicio en unos minutos.\nMientras, échale un vistazo a la app."
                              : "Construye tu primer entreno desde Inicio.\nCalle, cinta, ergos y fuerza, como entrenes hoy.")
-                            .font(Theme.Typography.small)
+                            .scaledFont(13, weight: .medium, relativeTo: .footnote)
                             .foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }

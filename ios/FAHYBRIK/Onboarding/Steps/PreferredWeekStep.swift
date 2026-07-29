@@ -74,12 +74,12 @@ private struct PreferredDayCard: View {
                         .background(selection.isEmpty ? Theme.Color.surfaceElevated : Theme.Color.accent)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                     Text(name)
-                        .font(Theme.Typography.bodyEmph)
+                        .scaledFont(16, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
                     if selection.isEmpty {
                         Text("Libre")
-                            .font(Theme.Typography.caption)
+                            .scaledFont(12, weight: .medium, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }

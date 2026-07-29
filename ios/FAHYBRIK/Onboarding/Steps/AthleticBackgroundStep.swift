@@ -26,7 +26,7 @@ struct AthleticBackgroundStep: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text("Nivel de entrenamiento")
-                    .font(Theme.Typography.dataLabel)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                     .uppercaseTracked()
                     .foregroundStyle(Theme.Color.muted)
 
@@ -59,7 +59,7 @@ struct AthleticBackgroundStep: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text("Disciplina principal")
-                    .font(Theme.Typography.dataLabel)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                     .uppercaseTracked()
                     .foregroundStyle(Theme.Color.muted)
 

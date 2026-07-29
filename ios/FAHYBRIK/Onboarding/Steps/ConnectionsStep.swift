@@ -82,12 +82,12 @@ private struct ConnectionCard: View {
                 Spacer()
                 if isConnected {
                     Text("✓")
-                        .font(Theme.Typography.bodyEmph)
+                        .scaledFont(16, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.ok)
                 }
             }
             Text(description)
-                .font(Theme.Typography.small)
+                .scaledFont(13, weight: .medium, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
             if let actionTitle, let action {
