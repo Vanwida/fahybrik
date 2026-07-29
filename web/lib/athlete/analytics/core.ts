@@ -9,7 +9,6 @@
 // number is ever fabricated: when a metric is not measurable yet it is null with
 // an honest `availability` tag, never a fake value.
 
-import type { Sql } from '@/lib/db';
 
 // ── Honesty model (mirrors the doc's 5-tag legend) ───────────────────────────
 //
@@ -321,21 +320,7 @@ export function dayMonthEs(iso: string | null): string | null {
   return `${day} ${mon}`;
 }
 
-// ── Modality resolution (shared with running-analysis.ts / modality-analytics) ─
-//
-// Explicit se.modality wins; else derive from the exercise. Kept identical to the
-// other readers so the run/row/ski/bike filters never disagree across surfaces.
-export const SEG_MODALITY_SQL = (sql: Sql) => sql`
-  coalesce(
-    se.modality,
-    case
-      when ex.category = 'cardio' and ex.slug ilike '%run%'  then 'run'
-      when ex.category = 'cardio' and ex.slug ilike '%row%'  then 'row'
-      when ex.category = 'cardio' and ex.slug ilike '%ski%'  then 'ski'
-      when ex.category = 'cardio' and (ex.slug ilike '%bike%' or ex.slug ilike '%cycl%') then 'bike'
-      when ex.category = 'strength' then 'strength'
-      when ex.category is not null then 'other'
-      else 'other'
-    end
-  )
-`;
+// La resolución de modalidad y el predicado de «esto cuenta como trabajo» viven
+// juntos en `@/lib/execution/segment-work` — se re-exporta aquí para no romper a
+// quien ya importaba `SEG_MODALITY_SQL` desde el core de analítica.
+export { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';

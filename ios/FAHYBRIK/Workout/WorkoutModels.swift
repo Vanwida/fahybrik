@@ -794,12 +794,28 @@ struct LapRecord: Codable, Identifiable {
     var emomRoundsPrescribed: Int? = nil
 
     // MARK: Structured-run per-leg attribution (#break-2)
-    /// For a structured/interval run, the 0-based ordinal of the WORK leg this lap
-    /// measured (a pyramid's 1200/1000/800 → legs 0/1/2). Drives a stable per-leg
-    /// wire `position` so each interval's OWN pace/distance/HR reaches the coach
-    /// instead of collapsing into one blended aggregate lap. nil for every non-run /
-    /// single-aggregate lap (which keeps `position` = the segment's coach order).
+    /// For a structured/interval run, the 0-based index of this bout in the FLAT
+    /// expanded leg list of the block's prescription — repeticiones desplegadas,
+    /// fases en orden, RECUPERACIONES INCLUIDAS. Es el mismo espacio de índices que
+    /// `RunStructure.expandedLegs()` aquí y `flattenSegments()` en el servidor, así
+    /// que es la clave con la que «tramo 3 hecho» casa con «tramo 3 prescrito» sin
+    /// adivinar por orden de llegada. nil en todo lap que no sea un bout de carrera
+    /// estructurada (que conserva `position` = el orden del bloque del coach).
+    ///
+    /// OJO: hasta el 29-jul esto era el ordinal entre los tramos de TRABAJO, no el
+    /// índice plano. Con las recuperaciones sin grabar los dos coincidían; grabarlas
+    /// los separa, y el índice plano es el único que casa con la prescripción.
     var runLegIndex: Int? = nil
+    /// Qué ES este bout: "work" (una serie) o "recovery" (el trote/andar entre
+    /// series). Es EL contraste que define una sesión de series — sin él, cinco
+    /// fuertes no tienen contra qué compararse. nil fuera de una carrera estructurada.
+    var runLegRole: String? = nil
+    /// En qué FASE del bloque cae el bout: "warmup" | "main" | "cooldown". Hace falta
+    /// además del rol porque en la gramática un calentamiento es literalmente
+    /// `kind: work` (verificado en la prescripción 2574 de producción): sin la fase,
+    /// un trote de 10 min de calentamiento es indistinguible de una serie y un 5×1000
+    /// se lee como un 7×1000 cuya primera «serie» dura diez minutos.
+    var runLegPhase: String? = nil
 
     // MARK: Run device averages (#62)
     /// AVERAGE incline (%) over the segment, folded from the treadmill telemetry
@@ -916,6 +932,18 @@ struct SegmentExecutionDTO: Codable {
     var avg_drive_force_lbs: Double? = nil
     /// The PM5's per-interval splits (ErgData interval table).
     var erg_splits: [ErgSplitDTO]? = nil
+
+    // Atribución por tramo de una carrera estructurada (mig 0146). Los tres van
+    // juntos o ninguno: describen un bout de la lista plana de tramos.
+    /// Índice 0-based en la lista PLANA de tramos de la prescripción (repeticiones
+    /// desplegadas, fases en orden, recuperaciones incluidas) — la clave con la que
+    /// el servidor casa lo hecho con lo prescrito sin adivinar por orden.
+    var leg_index: Int? = nil
+    /// "work" | "recovery". El contraste que define una sesión de series.
+    var leg_role: String? = nil
+    /// "warmup" | "main" | "cooldown". Un calentamiento es `kind: work` en la
+    /// gramática, así que sin la fase no se distingue de una serie.
+    var leg_phase: String? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit

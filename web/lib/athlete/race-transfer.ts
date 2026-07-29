@@ -34,6 +34,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import {
   computeRaceTransfer,
   type ObservedEffort,
@@ -172,6 +173,16 @@ export async function buildRaceTransfer(
       limit 1
     `,
     // Trained side: modality efforts (run/ski/row → a pace).
+    //
+    // Solo tramos de TRABAJO (mig 0146). Un trote de recuperación de un 5x1000 es
+    // `modality = 'run'` con un ritmo perfectamente válido, así que sin el filtro
+    // entraría entero en esta población. Y no entraría neutro: una recuperación
+    // llega, POR CONSTRUCCIÓN, después de todas las series anteriores — o sea con
+    // `prior_work_s` alto —, así que `classifyEffort` la mandaría casi siempre a
+    // «fatigado». Esa asimetría es lo grave: el lado fatigado del cruce se calcularía
+    // sobre trotes y el fresco sobre series, y la pantalla mediría la diferencia
+    // entre correr fuerte y correr suave en lugar de la resistencia a la fatiga, que
+    // es exactamente la señal para la que existe.
     client<ModalityEffortRow[]>`
     select
       se.modality,
@@ -185,6 +196,7 @@ export async function buildRaceTransfer(
     from segment_executions se
     join workout_executions we on we.id = se.execution_id
     where we.athlete_id = ${athleteId}
+      and ${SEG_IS_WORK_EFFORT(client)}
       and se.modality in ('run', 'ski', 'row')
       and (case se.modality
         when 'run' then se.avg_pace_s_per_km
@@ -195,6 +207,13 @@ export async function buildRaceTransfer(
     // Match the movement via exercises.hyrox_station_position (2,3,4,6,7,8 = the 6
     // functional stations; 1/5 = ski/row are modality-paced above). Duration is the
     // real segment span; unmeasurable spans are excluded, never fabricated.
+    //
+    // El mismo filtro de trabajo que arriba, aunque hoy no haga falta: una
+    // recuperación de carrera es correr, no lleva ejercicio de estación, y el filtro
+    // de `hyrox_station_position` ya la deja fuera. Va igual porque nada impide que
+    // un bloque comprometido escriba mañana un tramo de descanso con el ejercicio de
+    // la estación (un burpee suave entre rondas), y entonces esta población sería la
+    // única de las dos sin defensa. Cuesta cero: la misma pregunta en los dos sitios.
     client<StationEffortRow[]>`
       select
         ex.hyrox_station_position as position_station,
@@ -206,6 +225,7 @@ export async function buildRaceTransfer(
       join workout_executions we on we.id = se.execution_id
       join exercises ex on ex.id = se.exercise_id
       where we.athlete_id = ${athleteId}
+        and ${SEG_IS_WORK_EFFORT(client)}
         and ex.hyrox_station_position in (2, 3, 4, 6, 7, 8)
         and se.started_at is not null
         and se.ended_at is not null

@@ -22,6 +22,12 @@ import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
 import { parseZoneSeconds, type ZoneSeconds } from '@/lib/execution/zone-seconds';
+import {
+  SEGMENT_LEG_PHASES,
+  SEGMENT_LEG_ROLES,
+  type SegmentLegPhase,
+  type SegmentLegRole,
+} from '@/lib/execution/segment-work';
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -67,6 +73,27 @@ export interface SegmentActual {
   /** Seconds in each HR zone over the tramo, folded out of `raw_lap_data_json`.
    * Null when no HR was measured — never a zero-filled band (see zone-seconds.ts). */
   zone_seconds: ZoneSeconds | null;
+  // ── Atribución de tramo de una carrera estructurada (mig 0146) ─────────────
+  //
+  // Aquí NO se filtra: el detalle de una sesión debe enseñar lo que pasó, y el
+  // trote entre series pasó. Lo que hace falta es que se pueda DISTINGUIR, que es
+  // justo lo que faltaba. Quien agregue (medias, PRs, cuentas) filtra con
+  // `isWorkEffort`; quien pinte, etiqueta.
+  /** Índice 0-based en la lista PLANA de tramos de la prescripción (repeticiones
+   *  desplegadas, fases en orden, recuperaciones incluidas). Mismo espacio de
+   *  índices que `flattenSegments()`, así que casa lo hecho con lo prescrito sin
+   *  zipear por orden de llegada. Null fuera de una carrera estructurada. */
+  leg_index: number | null;
+  /** 'work' | 'recovery'. El contraste que define una sesión de series. */
+  leg_role: SegmentLegRole | null;
+  /** 'warmup' | 'main' | 'cooldown'. Necesario además del rol: en la gramática un
+   *  calentamiento es `kind: work`, así que sin la fase un trote de diez minutos
+   *  se cuenta como una serie más. */
+  leg_phase: SegmentLegPhase | null;
+  /** Marcador de completado (mig 0088) — sin reps ni carga, no hay nada que
+   *  puntuar. Se expone porque es el OTRO eje de «esto no es un intento», y
+   *  tenerlo solo en la BD fue lo que dejó a 19 de 20 lectores sin filtrarlo. */
+  is_structural: boolean;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -92,6 +119,10 @@ export interface SegmentActualRow {
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
   run_cadence_spm: number | null;         // integer
   source: string | null;                  // free-text apparatus token
+  leg_index: number | null;               // integer
+  leg_role: string | null;                // 'work' | 'recovery' (CHECK en 0146)
+  leg_phase: string | null;               // 'warmup' | 'main' | 'cooldown'
+  is_structural: boolean | null;
   raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
 }
 
@@ -99,6 +130,20 @@ const MODALITY_SET = new Set<string>(SEGMENT_MODALITIES);
 
 function toModality(raw: string | null): SegmentModality {
   return raw != null && MODALITY_SET.has(raw) ? (raw as SegmentModality) : 'other';
+}
+
+// El CHECK de 0146 ya garantiza el vocabulario en la BD; esto es la red por si la
+// fila viene de una escritura futura que se lo salte. Un valor desconocido cae a
+// null («no se sabe») en vez de colarse como si fuera trabajo.
+const LEG_ROLE_SET = new Set<string>(SEGMENT_LEG_ROLES);
+const LEG_PHASE_SET = new Set<string>(SEGMENT_LEG_PHASES);
+
+function toLegRole(raw: string | null): SegmentLegRole | null {
+  return raw != null && LEG_ROLE_SET.has(raw) ? (raw as SegmentLegRole) : null;
+}
+
+function toLegPhase(raw: string | null): SegmentLegPhase | null {
+  return raw != null && LEG_PHASE_SET.has(raw) ? (raw as SegmentLegPhase) : null;
 }
 
 function num(v: string | number | null): number | null {
@@ -139,6 +184,10 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     run_cadence_spm: r.run_cadence_spm ?? null,
     source: r.source ?? null,
     zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
+    leg_index: r.leg_index ?? null,
+    leg_role: toLegRole(r.leg_role),
+    leg_phase: toLegPhase(r.leg_phase),
+    is_structural: r.is_structural ?? false,
     ...ergFields(r.raw_lap_data_json),
   }));
 }
@@ -183,6 +232,10 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       incline_pct               as incline_pct,
       run_cadence_spm           as run_cadence_spm,
       source                    as source,
+      leg_index                 as leg_index,
+      leg_role                  as leg_role,
+      leg_phase                 as leg_phase,
+      is_structural             as is_structural,
       raw_lap_data_json         as raw_lap_data_json
     from segment_executions
     where execution_id = ${executionId}

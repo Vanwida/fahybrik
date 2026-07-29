@@ -210,11 +210,17 @@ final class StructuredRunEngineTests: XCTestCase {
     // MARK: - #break-2 · per-WORK-leg execution (no blended aggregate lap)
 
     func testStructuredRunRecordsOneLapPerWorkLegNotBlended() throws {
-        // A pyramid 1000 / 500 with a parado recovery between must record TWO per-leg
-        // laps, each with its OWN covered distance + pace — NOT one aggregate blending
-        // both work bouts and the recovery (the meaningless-pace bug). The treadmill
-        // anchors its odometer baseline at each leg's FIRST sample, so we cover ≥ the
-        // leg's target FROM that baseline (mirrors testTreadmillClosesHeterogeneousPyramid).
+        // Una pirámide 1000 / recuperación / 500 graba TRES laps: los dos tramos de
+        // trabajo con su distancia y su ritmo PROPIOS, y la recuperación de en medio.
+        //
+        // Las recuperaciones se graban a propósito (mig 0146): una sesión de series es
+        // un CONTRASTE, y guardar solo los fuertes deja cinco números sin nada contra
+        // lo que compararlos. Cada lap lleva su `runLegIndex` (el índice en la lista
+        // PLANA de tramos, recuperaciones incluidas) y su `runLegRole`, así que la
+        // analítica distingue una cosa de la otra sin adivinarlo por el ritmo.
+        //
+        // La cinta ancla su odómetro en la PRIMERA muestra de cada tramo, así que se
+        // cubre ≥ el objetivo DESDE esa base (igual que testTreadmillClosesHeterogeneousPyramid).
         let s = structuredSession([main([
             work(.distance(m: 1000)), rec(.duration(s: 60), .parado), work(.distance(m: 500)),
         ])])
@@ -227,13 +233,21 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertEqual(s.laps.count, 1, "The first WORK leg is recorded at its boundary.")
         XCTAssertEqual(s.runLegIndex, 1)         // now parked on the recovery
 
-        s.primaryAdvance()                       // skip the recovery → leg 2 (work 500m) GO
+        s.primaryAdvance()                       // cierra la recuperación → leg 2 (work 500m) GO
+        XCTAssertEqual(s.laps.count, 2, "La recuperación también se graba, no se tira.")
         // Leg 2 (work 500m) over 1:00 → covers ~600 (≥500) → auto-closes → records leg 2.
         s.lapElapsedSeconds = 300
         src.emit(1300); src.emit(1900)
-        XCTAssertEqual(s.laps.count, 2, "Two WORK legs → two laps (recovery is not persisted).")
+        XCTAssertEqual(s.laps.count, 3, "Dos tramos de trabajo + la recuperación de en medio.")
 
-        let a = s.laps[0], b = s.laps[1]
+        // El rol y la fase viajan en cada lap — es lo que hace legible el contraste.
+        XCTAssertEqual(s.laps.map(\.runLegRole), ["work", "recovery", "work"])
+        XCTAssertEqual(s.laps.map(\.runLegPhase), ["main", "main", "main"])
+        // `runLegIndex` es el índice PLANO (recuperaciones incluidas), no el ordinal
+        // entre los tramos de trabajo: es lo único que casa con la prescripción.
+        XCTAssertEqual(s.laps.map(\.runLegIndex), [0, 1, 2])
+
+        let a = s.laps[0], b = s.laps[2]
         let da = try XCTUnwrap(a.distanceCoveredMeters)
         let db = try XCTUnwrap(b.distanceCoveredMeters)
         // Each leg carries its OWN covered distance — distinct, so NOT one blended lap.
@@ -244,8 +258,6 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(a.avgPaceSecPerKm), 240.0 / (da / 1000.0), accuracy: 1)
         XCTAssertEqual(try XCTUnwrap(b.avgPaceSecPerKm), 60.0 / (db / 1000.0), accuracy: 1)
         XCTAssertNotEqual(a.avgPaceSecPerKm, b.avgPaceSecPerKm, "The two legs must not share a blended pace.")
-        XCTAssertEqual(a.runLegIndex, 0)
-        XCTAssertEqual(b.runLegIndex, 1, "Second WORK leg is ordinal 1 (the recovery is skipped, not counted).")
         XCTAssertEqual(a.modality, "run")
         XCTAssertEqual(b.modality, "run")
         m.teardown()

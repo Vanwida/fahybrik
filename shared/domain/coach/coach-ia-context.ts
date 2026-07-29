@@ -6,6 +6,34 @@ import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 
 export type ProgressionVerdict = 'up' | 'flat' | 'down';
 
+/**
+ * ¿Cuenta esta fila de segment_executions (aliaseada se) como esfuerzo de trabajo?
+ *
+ * Copia LITERAL del predicado de `web/lib/execution/segment-work.ts`, que es LA
+ * fuente de la verdad y el sitio donde se documenta el porqué. Está copiado y no
+ * importado porque `shared/` es otro paquete y no puede depender de `web/`; y
+ * moverlo aquí para que web lo importara tampoco vale: el módulo canónico es
+ * donde ya miran los lectores de analítica de la web, y partirlo en dos mitades
+ * es exactamente la divergencia que ese módulo nació para acabar.
+ *
+ * Dos exclusiones:
+ *  · is_structural (0088) — marcador de completado de un calentamiento o vuelta a
+ *    la calma: sin reps ni carga, no hay nada que puntuar.
+ *  · leg_role = 'recovery' (0146) — el trote ENTRE series. Tiene metros y tiempo
+ *    reales; lo que no es es un intento.
+ *
+ * El coalesce a 'work' lo hace no-op sobre todo lo ya guardado: las filas de hoy
+ * llevan leg_role nulo y siguen contando como trabajo igual que antes de 0146.
+ *
+ * Si cambia allí, cambia aquí. Son dos líneas; lo que no puede pasar es que la
+ * analítica de la web y el contexto que lee la IA respondan cosas distintas a la
+ * misma pregunta.
+ */
+const segIsWorkEffort = (client: Sql) => client`
+  coalesce(se.is_structural, false) = false
+  and coalesce(se.leg_role, 'work') <> 'recovery'
+`;
+
 export type AthleteContextPack = {
   identity: {
     level: string | null;
@@ -260,6 +288,15 @@ function truncate(s: string, max: number): string {
  * Pace = total_duration_seconds / (distance_meters / 1000), aggregated
  * across segment_executions for each workout_execution.
  *
+ * Solo tramos de trabajo (0146). Aquí el ritmo se calcula por SESIÓN, sumando
+ * metros y segundos de todos sus tramos: un solo trote de recuperación dentro de
+ * la suma mueve el ritmo de esa sesión decenas de s/km, y el veredicto de abajo
+ * se dispara a ±3 s/km. Peor aún, lo movería de forma ASIMÉTRICA — solo las
+ * sesiones grabadas desde 0146 traen recuperaciones, así que la ventana reciente
+ * se compararía contra una anterior que no las tiene y TODOS los atletas que
+ * hagan series saldrían «worse» el mismo día, sin haber corrido peor. Esto lo lee
+ * la IA que aconseja al coach.
+ *
  * Status:
  *  - 'better' if recent pace is faster by ≥3 s/km
  *  - 'worse'  if recent pace is slower by ≥3 s/km
@@ -296,6 +333,7 @@ async function computeRunningSignal(params: {
         and se.distance_meters is not null
         and se.started_at is not null
         and se.ended_at is not null
+        and ${segIsWorkEffort(client)}
       group by we.id, run_date
       having sum(se.distance_meters) > 500
          and sum(extract(epoch from (se.ended_at - se.started_at))) > 60
@@ -399,6 +437,11 @@ async function computeHyroxSignal(params: {
         and ex.category = 'hyrox_station'
         and coalesce(we.ended_at, we.started_at, we.created_at)::date
             >= ${today_iso}::date - interval '56 days'
+        -- Mismo criterio que la señal de carrera: el mejor y la mediana de una
+        -- estación son estadísticos de INTENTOS. Hoy una estación no lleva
+        -- recuperaciones, pero un marcador estructural sí ganaría el min de
+        -- duración, y la pregunta debe ser una sola en todo el fichero.
+        and ${segIsWorkEffort(client)}
     ),
     missed_recent as (
       select ts.exercise_id, count(*)::int as missed_count

@@ -24,6 +24,10 @@ const baseRow = (over: Partial<SegmentActualRow> = {}): SegmentActualRow => ({
   incline_pct: null,
   run_cadence_spm: null,
   source: null,
+  leg_index: null,
+  leg_role: null,
+  leg_phase: null,
+  is_structural: false,
   raw_lap_data_json: null,
   ...over,
 });

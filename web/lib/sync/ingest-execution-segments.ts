@@ -15,6 +15,7 @@ import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
+import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -174,6 +175,14 @@ export const segmentInputSchema = z.object({
   peak_drive_force_lbs: z.number().finite().nonnegative().nullish(),
   avg_drive_force_lbs: z.number().finite().nonnegative().nullish(),
   erg_splits: z.array(ergSplitItemSchema).max(200).nullish(),
+  // Atribución por tramo de una carrera estructurada (mig 0146). Los tres van
+  // JUNTOS o ninguno — describen un bout de la lista plana de tramos de la
+  // prescripción, y media atribución no sirve para nada (ver `legAttribution`).
+  // `leg_index` comparte espacio de índices con `flattenSegments()`, así que es la
+  // clave con la que lo hecho casa con lo prescrito sin zipear por orden.
+  leg_index: z.number().int().min(0).nullish(),
+  leg_role: z.enum(SEGMENT_LEG_ROLES).nullish(),
+  leg_phase: z.enum(SEGMENT_LEG_PHASES).nullish(),
   source: z.string().min(1).max(40).optional(),
 });
 
@@ -213,6 +222,28 @@ function priorWorkSeconds(segments: SegmentInput[], current: SegmentInput): numb
     sum += d;
   }
   return sum;
+}
+
+/**
+ * La atribución de tramo de una carrera estructurada (mig 0146): índice plano +
+ * rol + fase. TODO o NADA — el CHECK `segment_executions_leg_all_or_none_chk` lo
+ * exige, y por una razón: media atribución no responde ninguna de las dos
+ * preguntas para las que existe (¿contra qué tramo prescrito casa? ¿es una serie
+ * o el trote de vuelta?). Un cliente que mande solo una parte aterriza como «esta
+ * fila no es un bout de carrera», que es la respuesta honesta.
+ */
+function legAttribution(seg: SegmentInput): {
+  index: number | null;
+  role: string | null;
+  phase: string | null;
+} {
+  const index = seg.leg_index ?? null;
+  const role = seg.leg_role ?? null;
+  const phase = seg.leg_phase ?? null;
+  if (index == null || role == null || phase == null) {
+    return { index: null, role: null, phase: null };
+  }
+  return { index, role, phase };
 }
 
 /** The effort CONTEXT copied off a template_segment (see migration 0120). */
@@ -352,6 +383,12 @@ export async function ingestExecutionSegments(args: {
         ? sql.json(ctx.prescription_json as Parameters<typeof sql.json>[0])
         : null;
     const priorWorkS = priorWorkSeconds(segments, seg);
+    // Atribución de tramo: TODO o NADA (lo exige también el CHECK de 0146). Una
+    // fila con rol pero sin índice no se puede casar con la prescripción, y una con
+    // índice pero sin rol no se distingue de su recuperación — que son los dos
+    // agujeros que 0146 cierra. Un payload a medias aterriza como «no es un bout»,
+    // que es la respuesta honesta, en vez de como media verdad.
+    const leg = legAttribution(seg);
 
     const rows = await sql<Array<{ id: string }>>`
       insert into segment_executions (
@@ -363,6 +400,7 @@ export async function ingestExecutionSegments(args: {
         avg_hr, max_hr, calories, reps_completed, weight_used_kg,
         reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
         emom_rounds_completed, emom_rounds_prescribed,
+        leg_index, leg_role, leg_phase,
         raw_lap_data_json, source,
         context_format, context_source, exercise_id, prescription_snapshot, prior_work_s
       ) values (
@@ -392,6 +430,9 @@ export async function ingestExecutionSegments(args: {
         ${seg.scaled_note ?? null},
         ${seg.emom_rounds_completed ?? null},
         ${seg.emom_rounds_prescribed ?? null},
+        ${leg.index},
+        ${leg.role},
+        ${leg.phase},
         ${rawLap},
         ${seg.source ?? null},
         ${contextFormat},
@@ -430,6 +471,13 @@ export async function ingestExecutionSegments(args: {
         -- (a re-sync of a non-EMOM segment carries NULLs, restoring the honest absence).
         emom_rounds_completed  = excluded.emom_rounds_completed,
         emom_rounds_prescribed = excluded.emom_rounds_prescribed,
+        -- La atribución de tramo describe QUÉ ES la fila, y el último payload es el
+        -- que lo sabe → se SOBRESCRIBE en bloque (los tres a la vez, igual que los
+        -- escribe legAttribution). Con coalesce, un re-sync desde una versión vieja
+        -- del cliente dejaría una recuperación disfrazada de trabajo.
+        leg_index              = excluded.leg_index,
+        leg_role               = excluded.leg_role,
+        leg_phase              = excluded.leg_phase,
         raw_lap_data_json   = coalesce(excluded.raw_lap_data_json, segment_executions.raw_lap_data_json),
         source              = coalesce(excluded.source, segment_executions.source),
         -- Effort context is server-DERIVED, so a re-sync recomputes it: the

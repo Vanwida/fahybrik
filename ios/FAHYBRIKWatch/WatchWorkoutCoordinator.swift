@@ -376,56 +376,12 @@ final class WatchWorkoutCoordinator {
         )
     }
 
+    // La traducción laps → cable es UNA y vive en SegmentPayloadBuilder (compilado en
+    // los dos targets). El reloj no tiene la pantalla donde el atleta declara FC o
+    // ritmo a mano, así que pasa el overlay vacío; todo lo demás es idéntico al
+    // teléfono — incluida la re-secuenciación de `position`, sin la cual los tramos
+    // de una carrera estructurada colapsaban en una sola fila al llegar al servidor.
     private func buildSegments(iso: ISO8601DateFormatter, laps: [LapRecord]) -> [SegmentExecutionDTO] {
-        laps.sorted { $0.position < $1.position }.map { lap in
-            let zones: [String: Int]? = lap.zoneSecondsByZone.isEmpty
-                ? nil
-                : lap.zoneSecondsByZone.reduce(into: [String: Int]()) { $0["z\($1.key)"] = Int($1.value.rounded()) }
-
-            let setDTOs: [SetExecutionDTO]? = lap.sets?.map { s in
-                SetExecutionDTO(
-                    set_index: s.setIndex,
-                    reps_prescribed: s.repsPrescribed,
-                    reps_actual: s.repsActual,
-                    load_prescribed_kg: s.loadPrescribedKg,
-                    load_actual_kg: s.loadActualKg,
-                    rpe: s.rpe,
-                    rir: s.rir,
-                    status: s.status,
-                    confirmed: s.confirmed,
-                    tempo: s.tempo,
-                    rest_s: s.restS
-                )
-            }
-
-            return SegmentExecutionDTO(
-                template_segment_id: lap.templateSegmentId,
-                position: lap.position,
-                modality: lap.modality,
-                started_at: iso.string(from: lap.startedAt),
-                ended_at: iso.string(from: lap.endedAt),
-                duration_seconds: Int(lap.durationSeconds.rounded()),
-                distance_meters: lap.distanceCoveredMeters,
-                avg_pace_s_per_500m: lap.avgPaceSecPer500m,
-                avg_pace_s_per_km: lap.avgPaceSecPerKm,
-                avg_power_w: lap.avgPowerWatts,
-                stroke_rate_spm: lap.strokeRateSpm,
-                avg_hr: lap.avgHRBpm,
-                max_hr: lap.maxHRBpm,
-                calories: lap.calories,
-                reps_completed: lap.repsCompleted,
-                weight_used_kg: lap.weightUsedKg,
-                zone_seconds_json: zones,
-                source: lap.source,
-                reps_prescribed: lap.repsPrescribed,
-                reps_actual: lap.repsCompleted,
-                reps_status: lap.repsStatus,
-                reps_confirmed: lap.repsConfirmed,
-                is_structural: lap.isStructural,
-                rx_scaled: lap.rxScaled,
-                scaled_note: lap.scaledNote,
-                sets: setDTOs
-            )
-        }
+        SegmentPayloadBuilder.build(laps: laps, overlay: .none, iso: iso)
     }
 }

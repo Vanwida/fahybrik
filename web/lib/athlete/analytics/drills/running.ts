@@ -6,6 +6,7 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
+import { SEG_IS_WORK_EFFORT, isWorkEffort } from '@/lib/execution/segment-work';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
   type DrillDownResult,
@@ -20,17 +21,27 @@ import {
 import { classifyZone, type ZoneBand } from '../running';
 
 // ── Running (volume / type / zone) — one execution = one session ─────────────
+// Una sesión tiene DOS cifras de metros y no son intercambiables (mig 0146). Se
+// guardan las dos aquí porque este cargador sirve a tres drills: el de volumen,
+// que cuenta lo corrido, y los de tipo/zona, que hablan de esfuerzo. Cada uno se
+// lleva la que su tarjeta enseña — ver `metersOf` abajo.
 interface RunExecAgg {
   execution_id: string;
   assignment_id: string;
   day: string;
+  /** TODOS los metros de carrera de la sesión, recuperaciones incluidas. */
   meters: number;
+  /** Solo los tramos de trabajo: la base del ritmo, de la FC y de tipo/zona. */
+  workMeters: number;
   paceWeighted: number;
   hrSum: number;
   hrCount: number;
   scheme: string | null;
 }
 
+// Baja TODOS los tramos de carrera del periodo, recuperaciones incluidas, y hace
+// el reparto en JS — igual que la sección que estos drills abren. Filtrar en el
+// WHERE dejaría al drill de volumen sin los metros que su tarjeta sí cuenta.
 async function loadRunExecutions(
   client: Sql,
   athleteId: number,
@@ -44,6 +55,8 @@ async function loadRunExecutions(
     pace_s_per_km: string | null;
     avg_hr: number | null;
     scheme: string | null;
+    leg_role: string | null;
+    is_structural: boolean;
   }>>`
     select
       we.id::text as execution_id,
@@ -57,6 +70,8 @@ async function loadRunExecutions(
           else null end
       )::text as pace_s_per_km,
       se.avg_hr,
+      se.leg_role,
+      coalesce(se.is_structural, false) as is_structural,
       ts.prescription_json->>'scheme' as scheme
     from segment_executions se
     join workout_executions we on we.id = se.execution_id
@@ -74,21 +89,29 @@ async function loadRunExecutions(
     const dist = numOrNull(r.distance_meters) ?? 0;
     const pace = numOrNull(r.pace_s_per_km);
     if (dist <= 0) continue;
+    const work = isWorkEffort(r);
     const e = byExec.get(r.execution_id) ?? {
       execution_id: r.execution_id,
       assignment_id: r.assignment_id,
       day: r.day,
       meters: 0,
+      workMeters: 0,
       paceWeighted: 0,
       hrSum: 0,
       hrCount: 0,
       scheme: normalizeFormat(r.scheme ?? undefined) ?? null,
     };
+    // Los metros van al saco de todos SIEMPRE; el ritmo y la FC solo si el tramo
+    // fue un esfuerzo. Un trote de vuelta corrido es kilómetro de verdad, pero su
+    // ritmo y su pulso describen una recuperación, no la sesión.
     e.meters += dist;
-    if (pace != null) e.paceWeighted += pace * dist;
-    if (r.avg_hr != null) {
-      e.hrSum += r.avg_hr;
-      e.hrCount += 1;
+    if (work) {
+      e.workMeters += dist;
+      if (pace != null) e.paceWeighted += pace * dist;
+      if (r.avg_hr != null) {
+        e.hrSum += r.avg_hr;
+        e.hrCount += 1;
+      }
     }
     if (!e.scheme) e.scheme = normalizeFormat(r.scheme ?? undefined) ?? null;
     byExec.set(r.execution_id, e);
@@ -107,6 +130,17 @@ export async function runningDrill(
   let title = 'Carrera · sesiones';
   const subtitle: string | null = `${period.label_es}`;
 
+  // Qué metros enseña CADA drill, y por qué no es el mismo número siempre: cada
+  // uno tiene que cuadrar con la tarjeta desde la que se abre. Volumen enseña los
+  // kilómetros corridos (recuperaciones incluidas, como su tarjeta); por tipo y
+  // por zona enseñan los del esfuerzo, que son el denominador del ritmo que esas
+  // tarjetas promedian. Que una tarjeta y su detalle digan cifras distintas es un
+  // bug; que dos tarjetas distintas cuenten cosas distintas es el diseño.
+  const metersOf = (e: RunExecAgg) => (kind === 'running.volume' ? e.meters : e.workMeters);
+  // El ritmo SIEMPRE se pondera sobre los metros de trabajo: es el ritmo al que se
+  // corrió lo que se fue a correr, no la media de la sesión con los trotes dentro.
+  const paceOf = (e: RunExecAgg) => (e.workMeters > 0 ? e.paceWeighted / e.workMeters : null);
+
   if (kind === 'running.type' && params.type) {
     execs = execs.filter((e) => e.scheme === params.type);
     title = 'Carrera por tipo';
@@ -114,7 +148,7 @@ export async function runningDrill(
   if (kind === 'running.zone' && params.zone) {
     const bands = await loadRunBands(client, athleteId);
     execs = execs.filter((e) => {
-      const pace = e.meters > 0 ? e.paceWeighted / e.meters : null;
+      const pace = paceOf(e);
       if (pace == null) return false;
       return classifyZone(pace, bands)?.code === params.zone;
     });
@@ -124,22 +158,23 @@ export async function runningDrill(
   const sessions: SourceSession[] = execs
     .sort((a, b) => b.day.localeCompare(a.day))
     .map((e) => {
-      const pace = e.meters > 0 ? e.paceWeighted / e.meters : null;
+      const pace = paceOf(e);
       const hr = e.hrCount > 0 ? Math.round(e.hrSum / e.hrCount) : null;
       return {
         id: e.execution_id,
         date: e.day,
         title_es: e.scheme ? schemeTitle(e.scheme) : 'Carrera',
-        detail_es: [kmStr(e.meters), hr != null ? `FC ${hr}` : null].filter(Boolean).join(' · ') || null,
+        detail_es: [kmStr(metersOf(e)), hr != null ? `FC ${hr}` : null].filter(Boolean).join(' · ') || null,
         value: pace != null ? `${paceStr(pace)} /km` : null,
         value_label: null,
         assignment_id: e.assignment_id,
       };
     });
 
-  const totalMeters = execs.reduce((a, e) => a + e.meters, 0);
+  const totalMeters = execs.reduce((a, e) => a + metersOf(e), 0);
+  const workMeters = execs.reduce((a, e) => a + e.workMeters, 0);
   const allPace = execs.reduce((a, e) => a + e.paceWeighted, 0);
-  const avgPace = totalMeters > 0 ? allPace / totalMeters : null;
+  const avgPace = workMeters > 0 ? allPace / workMeters : null;
   return {
     kind,
     title_es: title,
@@ -229,6 +264,12 @@ export async function bestEffortDrill(
       left join exercises ex on ex.id = ts.exercise_id
       where we.athlete_id = ${athleteId}
         and coalesce(se.modality, case when ex.category = 'cardio' and ex.slug ilike '%run%' then 'run' else 'x' end) = 'run'
+        -- Mismo filtro que la tarjeta Mejor 3 km (analytics/running.ts): aquí se
+        -- suma la ejecución entera para ver si cae en la banda, así que los metros
+        -- de un trote la sacarían de ella y su tiempo engordaría la marca. Si el
+        -- detalle no filtrara igual, abrir la tarjeta enseñaría sesiones que la
+        -- tarjeta no contó — o ninguna.
+        and ${SEG_IS_WORK_EFFORT(client)}
       group by we.id, day
       having sum(se.distance_meters) between ${lo} and ${hi} and sum(extract(epoch from (se.ended_at - se.started_at))) > 0
       order by sum(extract(epoch from (se.ended_at - se.started_at))) asc
@@ -258,6 +299,10 @@ export async function bestEffortDrill(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and coalesce(se.modality, case when ex.category = 'cardio' and ex.slug ilike '%run%' then 'run' else 'x' end) = 'run'
+      -- Aquí es donde más se nota: esta lista se titula «N esfuerzos» y los ordena
+      -- de mejor a peor. Sin filtrar, un 5x1000 aportaría nueve filas en vez de
+      -- cinco y las cuatro de abajo serían trotes presentados como intentos.
+      and ${SEG_IS_WORK_EFFORT(client)}
       and se.distance_meters between ${lo} and ${hi}
       and coalesce(se.avg_pace_s_per_km, extract(epoch from (se.ended_at - se.started_at)) / nullif(se.distance_meters/1000.0,0)) is not null
     order by coalesce(se.avg_pace_s_per_km::float, extract(epoch from (se.ended_at - se.started_at))::float / (se.distance_meters::float/1000.0)) asc

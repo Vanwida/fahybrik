@@ -17,6 +17,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
+import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
 import { loadDailyAssignmentCounts } from '@/lib/coach/compliance-window';
 import { getDailyTssSeries } from '@/lib/training-load';
@@ -254,6 +255,12 @@ async function loadExerciseSeries(
   const since = addDays(now, -180).toISOString();
   // Name is DISPLAYED (the exercise_label the coach reads below) — coach's
   // renamed exercise wins over the base catalog name (mig 0132).
+  //
+  // El `count(*)` que ordena este top-8 y el `min`/`avg` por día de la consulta
+  // siguiente cuentan INTENTOS. Desde 0146 una recuperación de una sesión de
+  // series llega con el mismo `template_segment_id` que las series, así que sin
+  // filtro un 5x1000 pesaría el doble en el ranking y su mejor tiempo sería el
+  // del trote de vuelta.
   const top = await client<Array<{ slug: string; name: string; category: string; n: number }>>`
     select e.slug, coalesce(ceo.name, e.name) as name, e.category::text as category, count(*)::int as n
     from segment_executions se
@@ -264,6 +271,7 @@ async function loadExerciseSeries(
     where we.athlete_id = ${athlete_id}
       and coalesce(we.ended_at, we.started_at) >= ${since}
       and se.started_at is not null and se.ended_at is not null
+      and ${SEG_IS_WORK_EFFORT(client)}
     group by e.slug, e.name, e.category, ceo.name
     order by n desc
     limit 8
@@ -286,6 +294,7 @@ async function loadExerciseSeries(
       and coalesce(we.ended_at, we.started_at) >= ${since}
       and ex.slug = any(${slugList}::text[])
       and se.started_at is not null and se.ended_at is not null
+      and ${SEG_IS_WORK_EFFORT(client)}
     group by ex.slug, iso
     order by ex.slug, iso
   `;
@@ -479,6 +488,12 @@ const MONTHLY_SERIES_MONTHS = 12;
  *
  * No anchor → no Z2 → EMPTY series. The screen says what is missing; it does not
  * fall back to somebody else's heart rate.
+ *
+ * Y solo RODAJE, nunca la recuperación de una sesión de series (0146). Este es el
+ * peor caso del repo para ese filtro: la consulta selecciona por «carrera con el
+ * pulso dentro de Z2», que es la definición literal de un trote de vuelta. Sin
+ * excluirlo, cuanto más duro entrena el atleta más trotes suaves entran en la
+ * media y la curva dice que su economía empeora — justo al revés.
  */
 async function loadRunningEconomy(
   client: Sql,
@@ -503,6 +518,7 @@ async function loadRunningEconomy(
         and coalesce(we.ended_at, we.started_at) <  ${next.toISOString()}::timestamptz
         and se.avg_hr between ${z2.min_bpm} and ${z2.max_bpm}
         and se.distance_meters > ${ECONOMY_MIN_DISTANCE_M}
+        and ${SEG_IS_WORK_EFFORT(client)}
     `;
     out.push({
       iso_month: monthKey(m),
@@ -543,6 +559,10 @@ async function loadThresholdWork(
         and coalesce(we.ended_at, we.started_at) <  ${next.toISOString()}::timestamptz
         and ex.slug like 'run-threshold%'
         and se.distance_meters > ${THRESHOLD_MIN_DISTANCE_M}
+        -- El umbral es lo que sostuvo EN las series, no lo que trotó entre ellas
+        -- (0146): la recuperación cuelga del mismo bloque de umbral, y metida en
+        -- estas dos medias baja el pulso y ralentiza el ritmo del mismo mes.
+        and ${SEG_IS_WORK_EFFORT(client)}
     `;
     out.push({
       iso_month: monthKey(m),
@@ -569,6 +589,10 @@ async function loadAnaerobic(
     where we.athlete_id = ${athlete_id}
       and coalesce(we.ended_at, we.started_at) >= ${since}
       and ex.slug = 'run-3min-allout'
+      -- Un max no lo puede ganar una recuperación, así que aquí el filtro no
+      -- corrige nada: está por coherencia, para que las cinco lecturas de este
+      -- fichero pregunten lo mismo y nadie tenga que averiguar por qué una no.
+      and ${SEG_IS_WORK_EFFORT(client)}
     group by iso
     order by iso
   `;
