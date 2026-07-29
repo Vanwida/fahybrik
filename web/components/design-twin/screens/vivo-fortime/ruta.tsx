@@ -75,30 +75,36 @@ export function FilaTramo({ fila, alto }: { fila: Fila; alto: number }) {
 /**
  * La ruta alrededor del cursor.
  *
- * Con `verTodas` enseña tres filas y una salida a la hoja entera — es lo que
- * hace falta cuando la ruta son 16 estaciones y no caben sin comerse al
- * sujeto. Sin `verTodas` las enseña TODAS: con seis tandas la ruta entera cabe,
- * y esconder cuatro filas detrás de un botón para abrir una hoja que enseña lo
- * mismo sería cromo por cromo.
+ * `ventana` enseña TRES filas — la que cerraste, la que haces y la que viene —
+ * en vez de la ruta entera. No es una preferencia estética: los apoyos de
+ * `MarcoVivo` son ~213 pt (§10.3) y seis filas de ruta más la fila de lecturas
+ * no caben ahí. Antes esto se «resolvía» dejando que el sujeto encogiera, que
+ * es exactamente lo que la banda vino a impedir.
+ *
+ * `verTodas` añade además la salida a la hoja entera — hace falta cuando la
+ * ruta son 16 estaciones y ni siquiera la hoja cabe en el cuerpo.
  */
 export function Riel({
   filas,
   activo,
-  alto = 44,
+  alto = 40,
+  ventana = false,
   verTodas,
 }: {
   filas: Fila[];
   activo: number;
   alto?: number;
+  /** Tres filas alrededor del cursor en vez de la ruta entera. */
+  ventana?: boolean;
   verTodas?: { etiqueta: string; onClick: () => void };
 }) {
-  const ventana = verTodas
+  const visibles = ventana
     ? [filas[activo - 1], filas[activo], filas[activo + 1]].filter((f): f is Fila => Boolean(f))
     : filas;
   return (
     <div style={{ flex: '0 0 auto' }}>
       <Card padding={0}>
-        {ventana.map((f, i) => (
+        {visibles.map((f, i) => (
           <div key={f.indice}>
             {i > 0 && <Hairline />}
             <FilaTramo fila={f} alto={alto} />
@@ -115,7 +121,7 @@ export function Riel({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 width: '100%',
-                height: 42,
+                height: 38,
                 padding: `0 ${SP.m}px`,
                 background: 'transparent',
                 border: 0,
@@ -157,7 +163,9 @@ export function HojaRuta({
   const corte = Math.ceil(filas.length / columnas);
   const grupos = columnas === 1 ? [filas] : [filas.slice(0, corte), filas.slice(corte)];
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
+    // Sin relleno propio: el marco ya lo pone, y doblarlo dejaba la lista
+    // sangrada respecto del cromo que tiene justo encima.
+    <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flex: '0 0 auto' }}>
         <Label size={11}>{titulo}</Label>
         <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{resumen}</span>

@@ -6,37 +6,22 @@
 //   SujetoTrabajo → no lo mide nadie, así que el sujeto es el trabajo que
 //                   tienes delante. Aquí NO hay contador de repeticiones ni
 //                   barra de progreso: la app no las sabe (CONTRATO-UI §7).
-//   Sello         → se acabó, y el sujeto pasa a ser el resultado.
+//   SujetoSello   → se acabó, y el sujeto pasa a ser el resultado.
 //
-// Los tamaños son los tokens de twin.css (t-readout-*, t-headline-*): aquí no
-// se inventa ninguno.
+// Los tres son CONTENIDO de la banda del sujeto (`MarcoVivo`), no una caja: la
+// banda ya centra, ya reserva el alto y ya deja el número directo sobre el
+// lienzo teñido (§10.4). Y el número grande de los tres pasa por `Numeral`
+// (§10.2) — antes iban a `t-readout-hero` a pelo, o sea 72 px clavados,
+// mientras el botón de la acción medía 76 pt de alto: el botón era físicamente
+// más grande que la cifra que gobierna la pantalla.
 
 import type { ReactNode } from 'react';
-import { Label, Mono, RAD, SP } from '../../kit';
+import { SP } from '../../kit';
+import { EtiquetaSujeto, Numeral } from '../../kit-vivo';
 
-// ---------------------------------------------------------------------------
-// El sujeto — dos caras, según quién mida
-// ---------------------------------------------------------------------------
-
-/**
- * El hueco del sujeto, y qué se hace con él.
- *
- * La estrategia es `gobierna`: el sujeto se queda todo lo que le dejen el
- * cromo y la ruta. Pero `t-readout-hero` son 72 pt y ahí se acaba la escala de
- * la app — pasar de ahí sería inventarse un tamaño, que es justo lo que
- * prohíbe el §4. Así que cuando sobra alto, `gobierna` DEGRADA A `centra`, que
- * el §6.1 contempla expresamente: el bloque se centra y el aire queda
- * simétrico. Lo que no puede pasar (y es lo que se ve en media app) es que el
- * sobrante se acumule en una cola debajo.
- */
-function Marco({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', padding: `0 ${SP.m}px` }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.xs, textAlign: 'center' }}>
-        {children}
-      </div>
-    </div>
-  );
+/** La regla de salida y el pie: la voz pequeña que cierra el sujeto. */
+function Pie({ children, tono = 'var(--twin-faint)' }: { children: ReactNode; tono?: string }) {
+  return <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: tono }}>{children}</span>;
 }
 
 /** Alguien lo mide: el sujeto es la medida, y corre sola. */
@@ -46,33 +31,30 @@ export function SujetoMedida({
   cumplido,
   titulo,
   regla,
+  horizontal = false,
 }: {
   cifra: string;
   objetivo: string;
   cumplido: boolean;
   titulo: string;
   regla: string;
+  horizontal?: boolean;
 }) {
   return (
-    <Marco>
-      <Label size={10}>Llevas</Label>
-      <span className="t-readout-hero" style={{ color: 'var(--twin-fg)' }}>
-        {cifra}
-      </span>
+    <>
+      <EtiquetaSujeto>Llevas</EtiquetaSujeto>
+      <Numeral horizontal={horizontal}>{cifra}</Numeral>
       {/* Al pasar del objetivo la cifra NO se topa ahí: sigue, y la línea de
           abajo cambia de voz. Eso es lo que hace que lo tachado pueda leer
           1.014 sin que nadie lo redondee. */}
-      <span
-        className="t-readout-s"
-        style={{ color: cumplido ? 'var(--twin-ok)' : 'var(--twin-muted)' }}
-      >
+      <span className="t-readout-s" style={{ color: cumplido ? 'var(--twin-ok)' : 'var(--twin-muted)' }}>
         {cumplido ? `${objetivo} hechos · suelta` : `de ${objetivo}`}
       </span>
       <span className="t-headline-m" style={{ marginTop: SP.xs }}>
         {titulo}
       </span>
-      <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{regla}</span>
-    </Marco>
+      <Pie>{regla}</Pie>
+    </>
   );
 }
 
@@ -87,6 +69,7 @@ export function SujetoTrabajo({
   carga,
   regla,
   pie,
+  horizontal = false,
 }: {
   /** Nulo cuando la prescripción no trae medida: entonces manda el nombre. */
   cifra: string | null;
@@ -94,86 +77,20 @@ export function SujetoTrabajo({
   carga: string | null;
   regla: string;
   pie?: string;
+  horizontal?: boolean;
 }) {
   return (
-    <Marco>
-      <Label size={10}>Te toca</Label>
-      {cifra && (
-        <span className="t-readout-hero" style={{ color: 'var(--twin-fg)' }}>
-          {cifra}
-        </span>
-      )}
+    <>
+      <EtiquetaSujeto>Te toca</EtiquetaSujeto>
+      {cifra && <Numeral horizontal={horizontal}>{cifra}</Numeral>}
+      {/* Sin dosis (pasa: el circuito de pierna del coach trae cuatro), el
+          nombre NO sube a la voz de instrumento: un movimiento no es una
+          medida (§4). Se queda de titular y el sujeto es él. */}
       <span className={cifra ? 't-headline-m' : 't-headline-l'}>{titulo}</span>
       {carga && <span className="tw-pill">{carga}</span>}
-      <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-faint)', marginTop: SP.xs }}>
-        {regla}
-      </span>
-      {pie && <span style={{ font: '600 13px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{pie}</span>}
-    </Marco>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Las lecturas de apoyo
-// ---------------------------------------------------------------------------
-
-export interface Celda {
-  label: string;
-  valor: string;
-  unidad?: string;
-  /** Zona de pulso, cuando la lectura es FC. Pinta el chip `tw-zone`. */
-  zona?: 1 | 2 | 3 | 4 | 5;
-}
-
-/**
- * UNA baldosa de lectura, y una sola.
- *
- * `flex: 1` a propósito: en una fila se reparten el ancho (el trío del
- * retrato) y en una columna se reparten el alto (el raíl del monitor en
- * horizontal). La misma pieza sirve para las dos caras, que es justo lo que
- * evita que la misma cifra se pinte de dos maneras según cómo gires el móvil.
- */
-export function Baldosa({ celda }: { celda: Celda }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: SP.xs,
-        padding: `${SP.s}px ${SP.m}px`,
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <Label size={9}>{celda.label}</Label>
-      <span style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-        <Mono size={20} weight={800} color={celda.zona ? `var(--twin-z${celda.zona})` : 'var(--twin-fg)'}>
-          {celda.valor}
-        </Mono>
-        {celda.unidad && (
-          <span style={{ font: '600 10px var(--twin-font-mono)', color: 'var(--twin-muted)' }}>{celda.unidad}</span>
-        )}
-        {celda.zona && (
-          <span className="tw-zone" data-zone={celda.zona}>
-            Z{celda.zona}
-          </span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-export function Trio({ celdas }: { celdas: Celda[] }) {
-  return (
-    <div style={{ display: 'flex', gap: SP.xs, flex: '0 0 auto' }}>
-      {celdas.map((c) => (
-        <Baldosa key={c.label} celda={c} />
-      ))}
-    </div>
+      <Pie>{regla}</Pie>
+      {pie && <Pie tono="var(--twin-muted)">{pie}</Pie>}
+    </>
   );
 }
 
@@ -181,39 +98,46 @@ export function Trio({ celdas }: { celdas: Celda[] }) {
 // El sello — cómo acaba un For Time, con o sin cap
 // ---------------------------------------------------------------------------
 
-export function Sello({
+/**
+ * El resultado, en la misma banda donde vivía la medida. Cae a la misma altura
+ * que el sujeto de la estación anterior a propósito (§10.3): la pantalla de
+ * «hecho» no es otra pantalla, es la misma diciendo cómo acabó.
+ */
+export function SujetoSello({
   label,
   cifra,
   unidad,
   titulo,
-  lineas,
-  extra,
+  horizontal = false,
 }: {
   label: string;
   cifra: string;
   unidad?: string;
   titulo: string;
-  lineas: string[];
-  extra?: ReactNode;
+  horizontal?: boolean;
 }) {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', padding: SP.l }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.s, textAlign: 'center' }}>
-        <Label size={10}>{label}</Label>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: SP.s }}>
-          <span className="t-readout-l">{cifra}</span>
-          {unidad && <Label size={11}>{unidad}</Label>}
+    <>
+      <EtiquetaSujeto>{label}</EtiquetaSujeto>
+      <Numeral horizontal={horizontal} unidad={unidad}>
+        {cifra}
+      </Numeral>
+      <span className="t-headline-m" style={{ marginTop: SP.xs }}>
+        {titulo}
+      </span>
+    </>
+  );
+}
+
+/** Las líneas que explican el sello. Van en apoyos, no en la banda. */
+export function LineasSello({ lineas }: { lineas: string[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'center', padding: `0 ${SP.s}px` }}>
+      {lineas.map((l) => (
+        <span key={l} style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+          {l}
         </span>
-        <span className="t-headline-s" style={{ marginTop: SP.xs }}>
-          {titulo}
-        </span>
-        {lineas.map((l) => (
-          <span key={l} style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)', maxWidth: 280 }}>
-            {l}
-          </span>
-        ))}
-        {extra}
-      </div>
+      ))}
     </div>
   );
 }
