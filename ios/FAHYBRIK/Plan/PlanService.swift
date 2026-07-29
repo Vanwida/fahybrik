@@ -11,10 +11,17 @@ struct AthleteWeekDaySession: Codable, Identifiable {
     /// the field on the week endpoint (see workout_assignments table). Nil for
     /// individual athletes or when backend doesn't expose the column yet.
     let partnerVisibility: String?
-    /// Estimated session duration in minutes, DERIVED from the template's blocks
-    /// (work + rest, scaled by sets/rounds). Nil when the template carries no
-    /// time-estimable segments — callers keep their honest non-duration copy.
+    /// El reloj que ESCRIBE el plan, en minutos — nunca una estimación de lo que
+    /// vas a tardar. Nil siempre que el trabajo principal no lleve duración escrita
+    /// (un `for_time`, reps sin tempo, una distancia sin ritmo, algo sin detallar);
+    /// entonces `durationUnknownReason` dice por qué. Se lee como un SUELO: los
+    /// segundos que nadie escribe solo suman. Lo escribe
+    /// `shared/domain/prescription/duration.ts` — el móvil no recalcula duraciones.
     let estDurationMinutes: Int?
+    /// Por qué no hay duración, cuando no la hay. Nil cuando `estDurationMinutes`
+    /// trae número. Es lo que permite que la pantalla diga «Dura lo que tardes» en
+    /// vez de callarse, y que la semana declare su hueco en vez de sumar ceros.
+    let durationUnknownReason: DuracionDesconocida?
     /// Number of blocks in the session (warmup / metcon / cooldown …). Nil when
     /// the template has no segments.
     let blocksCount: Int?
@@ -36,7 +43,8 @@ struct AthleteWeekDaySession: Codable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case assignmentId, slot, title, modality, status, partnerVisibility
-        case estDurationMinutes, blocksCount, shortPrescription, isTest, origin
+        case estDurationMinutes, durationUnknownReason, blocksCount, shortPrescription
+        case isTest, origin
         case format
     }
 
@@ -49,6 +57,11 @@ struct AthleteWeekDaySession: Codable, Identifiable {
         status = try c.decode(String.self, forKey: .status)
         partnerVisibility = try c.decodeIfPresent(String.self, forKey: .partnerVisibility)
         estDurationMinutes = try c.decodeIfPresent(Int.self, forKey: .estDurationMinutes)
+        // Por String y no por el enum: un motivo que esta versión no conozca se
+        // queda en nil en vez de tirar la semana entera al suelo.
+        durationUnknownReason = DuracionDesconocida(
+            cable: try c.decodeIfPresent(String.self, forKey: .durationUnknownReason)
+        )
         blocksCount = try c.decodeIfPresent(Int.self, forKey: .blocksCount)
         shortPrescription = try c.decodeIfPresent(String.self, forKey: .shortPrescription)
         isTest = try c.decodeIfPresent(Bool.self, forKey: .isTest)

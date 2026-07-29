@@ -329,24 +329,22 @@ struct FreeInicioView: View {
             .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
     }
 
-    /// "3 sesiones · ≈2 h 40" — count of finished sessions plus the summed
-    /// estimated time when the templates carry one. Never fabricated: with no
-    /// estimable duration only the count shows.
+    /// «3 sesiones · desde 2 h 40 · 1 sin tiempo previsto» — cuántas cerraste y
+    /// cuánto reloj escriben, con el hueco declarado al lado.
+    ///
+    /// Antes esto era `compactMap { estDurationMinutes }.reduce(0, +)`: la suma de
+    /// las que traían número, presentada como el tiempo de la semana. Con la mayoría
+    /// de las plantillas llegando sin duración, era subreportar en silencio. La
+    /// cuenta la hace `VolumenPrevisto`, la misma que la semana del plan — tener dos
+    /// sumas fue lo que permitió que esta se quedara atrás.
     private var weekSummaryLine: String? {
         let done = weekDoneSessions
         guard !done.isEmpty else { return nil }
         var parts = ["\(done.count) \(done.count == 1 ? "sesión" : "sesiones")"]
-        let minutes = done.compactMap { $0.estDurationMinutes }.reduce(0, +)
-        if minutes > 0 {
-            parts.append("≈\(clockHours(minutes))")
+        if let linea = VolumenPrevisto.lee(done.map(\.estDurationMinutes)).linea {
+            parts.append(linea)
         }
         return parts.joined(separator: " · ")
-    }
-
-    private func clockHours(_ minutes: Int) -> String {
-        let h = minutes / 60, m = minutes % 60
-        if h == 0 { return "\(m) min" }
-        return m == 0 ? "\(h) h" : "\(h) h \(m) min"
     }
 
     /// Narrow ES weekday letter for the strip ("L M X J V S D").
@@ -512,8 +510,11 @@ struct FreeInicioView: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                 Spacer(minLength: Theme.Spacing.s)
-                if let minutes = session.estDurationMinutes, minutes > 0, state.isFinished {
-                    Text(clockHours(minutes))
+                // El reloj que escribió el PLAN, no lo que tardaste (esta carga no
+                // trae la ejecución). Por eso va con su «desde»: sin él se leía como
+                // el tiempo que hiciste.
+                if state.isFinished, let suelo = Formato.duracionPrevista(session.estDurationMinutes) {
+                    Text(suelo)
                         .font(.system(size: 11, weight: .medium).monospacedDigit())
                         .foregroundStyle(Theme.Color.faint)
                 }

@@ -464,59 +464,7 @@ struct PlanView: View {
     // MARK: - Resumen de la semana (shape of the week, derived from the sessions)
 
     private var weekSummaryCard: some View {
-        let sessions = realSessions
-        let count = sessions.count
-        let counts = modalityCounts(sessions)
-        let minutes = totalEstMinutes(sessions)
-        return CardSurface(padding: 16, topAccent: false) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "RESUMEN DE LA SEMANA")
-                HStack(alignment: .lastTextBaseline, spacing: 6) {
-                    Text("\(count)")
-                        .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(count == 1 ? "sesión" : "sesiones")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                    Spacer(minLength: Theme.Spacing.s)
-                    if let vol = formatVolume(minutes) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock").font(.system(size: 11, weight: .semibold))
-                            Text(vol).font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        }
-                        .foregroundStyle(Theme.Color.muted)
-                    }
-                }
-                if !counts.isEmpty {
-                    breakdownChips(counts)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(summaryAccessibility(count: count, counts: counts, minutes: minutes))
-    }
-
-    @ViewBuilder
-    private func breakdownChips(_ counts: [(kind: Theme.Modality.Kind, count: Int)]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(chunk(counts, size: 3).enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 8) {
-                    ForEach(row, id: \.kind) { item in
-                        HStack(spacing: 5) {
-                            Circle().fill(item.kind.color).frame(width: 7, height: 7)
-                            Text("\(item.count) \(item.kind.label)")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground.opacity(0.9))
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(Theme.Color.surfaceElevated)
-                        .clipShape(Capsule())
-                    }
-                }
-            }
-        }
+        ResumenSemanaCard(sesiones: realSessions)
     }
 
     // MARK: - Progreso de la semana (real completion, not the date passing)
@@ -592,41 +540,6 @@ struct PlanView: View {
         days.flatMap { $0.sessions.filter { !$0.assignmentId.isEmpty } }
     }
 
-    /// Sessions bucketed by canonical modality, sorted by count desc then label,
-    /// so the breakdown reads "3 carrera · 1 fuerza · 1 HYROX". Honest: derived
-    /// only from the typed sessions already in the week.
-    private func modalityCounts(
-        _ sessions: [AthleteWeekDaySession]
-    ) -> [(kind: Theme.Modality.Kind, count: Int)] {
-        var counts: [Theme.Modality.Kind: Int] = [:]
-        for s in sessions {
-            counts[Theme.Modality.kind(s.modality), default: 0] += 1
-        }
-        return counts
-            .map { (kind: $0.key, count: $0.value) }
-            .sorted {
-                if $0.count != $1.count { return $0.count > $1.count }
-                return $0.kind.label < $1.kind.label
-            }
-    }
-
-    /// Estimated weekly volume = sum of per-session estimated minutes. Sessions the
-    /// backend couldn't time-estimate contribute 0; the caller hides the volume
-    /// when the total is 0 rather than under-reporting.
-    private func totalEstMinutes(_ sessions: [AthleteWeekDaySession]) -> Int {
-        sessions.reduce(0) { $0 + ($1.estDurationMinutes ?? 0) }
-    }
-
-    /// Human volume label with the "~" estimate marker. Nil when 0 (hidden).
-    private func formatVolume(_ minutes: Int) -> String? {
-        guard minutes > 0 else { return nil }
-        let h = minutes / 60
-        let m = minutes % 60
-        if h == 0 { return "~\(m) min" }
-        if m == 0 { return "~\(h) h" }
-        return "~\(h) h \(m) min"
-    }
-
     /// Completed sessions this week — REAL completion (server 'completed' OR the
     /// optimistic local store), never driven by the date passing.
     private var completedCount: Int {
@@ -647,26 +560,6 @@ struct PlanView: View {
         let parts = iso.split(separator: "-")
         guard parts.count == 3, let m = Int(parts[1]), let d = Int(parts[2]) else { return nil }
         return (d, m)
-    }
-
-    private func summaryAccessibility(
-        count: Int,
-        counts: [(kind: Theme.Modality.Kind, count: Int)],
-        minutes: Int
-    ) -> String {
-        var parts = ["\(count) \(count == 1 ? "sesión" : "sesiones")"]
-        let breakdown = counts.map { "\($0.count) \($0.kind.label)" }.joined(separator: ", ")
-        if !breakdown.isEmpty { parts.append(breakdown) }
-        if let vol = formatVolume(minutes) { parts.append("volumen \(vol)") }
-        return "Resumen de la semana: " + parts.joined(separator: "; ")
-    }
-
-    /// Split an array into rows of `size` for the chip / legend grids.
-    private func chunk<T>(_ array: [T], size: Int) -> [[T]] {
-        guard size > 0 else { return [array] }
-        return stride(from: 0, to: array.count, by: size).map {
-            Array(array[$0 ..< Swift.min($0 + size, array.count)])
-        }
     }
 
     // MARK: - Day list (Lun–Dom, today expanded)
@@ -1257,7 +1150,7 @@ struct PlanView: View {
         // source of truth for both the hue and the word).
         let kinds: [Theme.Modality.Kind] = [.run, .ergo, .strength, .functional, .hyrox, .support]
         return VStack(spacing: 6) {
-            ForEach(chunk(kinds, size: 3), id: \.self) { row in
+            ForEach(Rejilla.filas(kinds, de: 3), id: \.self) { row in
                 HStack(spacing: Theme.Spacing.l) {
                     Spacer(minLength: 0)
                     ForEach(row, id: \.self) { kind in

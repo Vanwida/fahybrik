@@ -75,6 +75,43 @@ enum Formato {
         clock(Double(seconds), anchoFijo: anchoFijo, subMinuto: subMinuto, enHoras: enHoras)
     }
 
+    // MARK: - Duración larga (minutos, no cronómetro)
+
+    /// «45 min» · «1 h» · «1 h 10» — un rato en minutos, escrito como se dice.
+    ///
+    /// Es la hermana de `clock` para la otra escala: el cronómetro cuenta segundos y
+    /// se lee corriendo; esto es cuánto te va a llevar la sesión o la semana, y ahí
+    /// «1:10:00» hace pensar. Existe porque el 29-jul había cuatro grafías del mismo
+    /// rato en la app — «~1 h 10 min», «1 h 10», «1h 10m» y «~70 min» —, cada una
+    /// escrita en la pantalla que la necesitaba.
+    ///
+    /// nil por debajo del minuto: «0 min» es exactamente el defecto plausible que
+    /// esta app lleva retirando de todas partes (contrato §7).
+    static func duracion(_ minutos: Int) -> String? {
+        guard minutos > 0 else { return nil }
+        let h = minutos / 60, m = minutos % 60
+        if h == 0 { return "\(m) min" }
+        if m == 0 { return "\(h) h" }
+        return "\(h) h \(m)"
+    }
+
+    /// «desde 1 h 10» — el rato que ESCRIBE el plan.
+    ///
+    /// «desde» y no «≈». La duración de una sesión no se estima: o la escribió el
+    /// coach (una ventana, un ciclo, una distancia contra un ritmo) o ES el
+    /// resultado y no se puede saber de antemano. Lo que se suma es solo lo escrito,
+    /// y todo lo que nadie escribe —andar hasta el rack, montar la barra, los
+    /// ejercicios sueltos de un calentamiento— solo puede AÑADIR. Así que el número
+    /// es un SUELO, y «≈» prometía una estimación centrada que nunca fue.
+    /// Ver `shared/domain/prescription/duration.ts`.
+    ///
+    /// nil cuando el plan no escribe reloj: ahí no hay número que dar (§7), y quien
+    /// llame se queda con la frase de `DuracionDesconocida`, que dice por qué.
+    static func duracionPrevista(_ minutos: Int?) -> String? {
+        guard let minutos, let cifra = duracion(minutos) else { return nil }
+        return "desde \(cifra)"
+    }
+
     // MARK: - Ritmo
 
     /// La unidad del ritmo por modalidad. El literal lleva la `m` de «500m»: sin
