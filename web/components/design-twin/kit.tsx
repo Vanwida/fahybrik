@@ -14,11 +14,50 @@
 // diagnóstico de una pantalla cambia con el escenario en vez de envejecer.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { COLOR_MODALIDAD, type Modalidad } from './datos-reales';
 
 /** Theme.Spacing. */
 export const SP = { xs: 4, s: 8, m: 12, l: 16, xl: 24, xxl: 32 } as const;
 /** Theme.Radius. */
 export const RAD = { s: 6, m: 10, l: 14, xl: 20 } as const;
+
+// ---------------------------------------------------------------------------
+// ModalityDot y la entrada estándar — compartidos, no privados de una pantalla
+// ---------------------------------------------------------------------------
+
+/**
+ * `ModalityDot` (Theme/RedesignComponents.swift). El §1 lo prohíbe dibujar a
+ * mano: donde va un punto de modalidad va este, no un `Circle()`.
+ *
+ * Vivía privado en `screens/plan-bloque/atoms.tsx`, que es exactamente la vía
+ * por la que el 28-jul nacieron seis relojes y tres grafías del ritmo. Sube al
+ * kit la primera vez que una segunda familia de pantallas lo necesita.
+ */
+export function PuntoModalidad({ modalidad, size = 8 }: { modalidad: Modalidad; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: COLOR_MODALIDAD[modalidad],
+        display: 'inline-block',
+        flex: '0 0 auto',
+      }}
+    />
+  );
+}
+
+/** Entrada estándar del doble: sube 6 pt y aparece. El escalón lo pone quien la usa. */
+export function entradaStyle(visible: boolean, delayMs: number): CSSProperties {
+  return {
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(6px)',
+    transition: 'opacity 280ms ease-out, transform 280ms ease-out',
+    transitionDelay: `${delayMs}ms`,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // CardSurface

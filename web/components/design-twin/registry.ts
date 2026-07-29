@@ -33,6 +33,9 @@ import * as vivoFortime from './screens/vivo-fortime';
 import * as vivoAmrap from './screens/vivo-amrap';
 import * as vivoDobles from './screens/vivo-dobles';
 import * as watchVivo from './screens/watch-vivo';
+import * as planCiclo from './screens/plan-ciclo';
+import * as planSemana from './screens/plan-semana';
+import * as planDia from './screens/plan-dia';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -64,6 +67,13 @@ export const SCREENS: TwinScreenModule[] = [
   vivoAmrap,
   vivoDobles,
   watchVivo,
+  // El plan a tres distancias (29-jul): tres preguntas sobre el MISMO objeto —
+  // hacia dónde voy (ciclo), qué me toca y qué llevo (semana), qué hay hoy y
+  // con qué dosis (día). Comparten modelo, escenarios y vocabulario visual en
+  // `plan/`, y van de lejos a cerca, que es como se navegan.
+  planCiclo,
+  planSemana,
+  planDia,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
