@@ -266,6 +266,16 @@ targets:
       # copia, muñeca y teléfono volverían a escribir el mismo dato de dos maneras
       # — que es exactamente de donde salieron «5:00»/«05:00» y «42,4»/«42.4».
       - path: FAHYBRIK/Theme/Formato.swift
+      # EL LENGUAJE DEL ENTRENO EN VIVO (contrato §10), la mitad que es DECISIÓN:
+      # dónde cae el sujeto, cuánto mide el numeral, si vas mejor o peor que tu
+      # objetivo y si el trabajo se puede contar. Foundation puro y compartido por
+      # la misma razón que Formato: que la muñeca diga «+2s» donde el teléfono dice
+      # «+2 s vs objetivo» —o que juzgue que vas bien cuando el teléfono dice que
+      # vas mal— es el fallo de los formateadores del 28-jul con otra cara.
+      # El PINTADO (Theme/LenguajeVivoUI.swift) se queda en el teléfono: necesita
+      # Theme.Color/Theme.Typography, que el reloj no compila — se pinta con su
+      # propio WatchTheme. Mismo reparto que ZoneColors.swift.
+      - path: FAHYBRIK/Theme/LenguajeVivo.swift
       - path: FAHYBRIK/Watch/WatchWireModels.swift
       - path: FAHYBRIK/Watch/MirrorWireModels.swift
       - path: FAHYBRIK/Plan/Prescription.swift
