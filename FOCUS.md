@@ -29,6 +29,8 @@ Verificado: typecheck y eslint en verde, las diez renderizan sin errores de cons
 
 **Siguiente:** Alex revisa en `/es/design`; lo aprobado pasa a Swift y su pantalla del doble a `espejo` en el mismo lote.
 
+**PRECEDENCIA (29-jul, validada por Alex: «me encanta»):** dentro de «Entreno en vivo», **la tanda inmersiva es la dirección canónica de UX**. Donde se solape o contradiga con la propuesta previa de composición (`entreno-vivo`, los arquetipos) o con cualquier mockup anterior, **manda la tanda**; los espejos (`run-live`, `benchmark-erg`, `watch-live`) documentan la app de HOY, no la dirección. Una sesión que vaya a trabajar el entreno en vivo NO debe interpretar el índice entero de `/es/design`: lee las dos entradas del 29-jul en `docs/DECISIONS.md` (tanda inmersiva + el giro con máquina) y las diez carpetas `web/components/design-twin/screens/{plan-bloque, sesion-previa, vivo-correr, vivo-erg, vivo-fuerza, vivo-emom, vivo-fortime, vivo-amrap, vivo-dobles, watch-vivo}`. Solo esas diez.
+
 **Decidido por Alex el 29-jul** (ver `docs/DECISIONS.md`): lo que el atleta declara en el onboarding **puebla su app y la ficha del coach**, marcado, editable y borrable, y lo medido manda sobre lo declarado. Y **sin zonas medidas se generalizan por población**, marcadas y sin puntuar como medidas.
 
 **En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), el nombre del tier free, y **el modelo de las 5 estaciones de HYROX** (no hay columna, ni slug, ni pantalla — se pregunta en el onboarding y se tira).
