@@ -10,9 +10,9 @@ struct StepHeader: View {
             if let onBack {
                 Button(action: { Haptics.light(); onBack() }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                        .scaledFont(18, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
-                        .frame(width: 36, height: 36)
+                        .frame(minWidth: 36, minHeight: 36)
                 }
                 .accessibilityLabel("Atrás")
             } else {
@@ -20,8 +20,7 @@ struct StepHeader: View {
             }
             Spacer()
             Text("\(stepNumber)/\(totalSteps)")
-                .font(Theme.Typography.small)
-                .italic()
+                .scaledFont(13, weight: .medium, relativeTo: .footnote, italic: true)
                 .foregroundStyle(Theme.Color.muted)
         }
         .padding(.horizontal, Theme.Spacing.l)
