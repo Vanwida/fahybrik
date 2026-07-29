@@ -237,9 +237,26 @@ interface Dosis {
   texto: string;
 }
 
-/** Pocas cifras: cada una es una fila, y el sobrante del bloque entra EN ellas. */
+/**
+ * Pocas cifras: cada una es una fila, y el sobrante del bloque entra EN ellas.
+ *
+ * **La fila lleva el NOMBRE del ejercicio, y esto no es decoración.** Sin él, el
+ * bloque «Recuperación Z2» del rodaje —Rowing, SkiErg, Assault Bike y Run, diez
+ * minutos cada uno— sale como cuatro «10:00 · Z2» idénticos con un punto de
+ * color, y el atleta no puede saber en qué máquina se sube. El punto de
+ * modalidad distingue la FAMILIA, no el aparato: remo, ski y bici comparten
+ * color de soporte. El dato que da sentido a la cifra es el nombre (§6.2), y lo
+ * tenemos.
+ *
+ * Los nombres van en inglés porque así están en `exercises.name`. No se traducen
+ * aquí: el hueco es del modelo de datos y taparlo en un mockup lo escondería de
+ * quien tiene que decidir arreglarlo.
+ */
 function DosisEnFilas({ dosis }: { dosis: Dosis[] }) {
   if (dosis.length === 0) return null;
+  // Con una o dos cifras la fila puede pagar el numeral grande; con más, baja un
+  // escalón para que el nombre quepa entero en 390 sin recortarse.
+  const tamano = dosis.length <= 2 ? 'm' : 's';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
       {dosis.map((d, i) => (
@@ -255,13 +272,26 @@ function DosisEnFilas({ dosis }: { dosis: Dosis[] }) {
           }}
         >
           <PuntoModalidad modalidad={d.item.modalidad} size={7} />
-          <Numeral tamano="m">{d.texto}</Numeral>
+          <span
+            style={{
+              font: '600 14px/1.25 var(--twin-font-sans)',
+              color: 'var(--twin-fg)',
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {d.item.nombre}
+          </span>
+          <Numeral tamano={tamano}>{d.texto}</Numeral>
           {d.item.objetivo ? (
             <span
               style={{
-                marginLeft: 'auto',
                 font: '500 13px/1.2 var(--twin-font-sans)',
                 color: 'var(--twin-muted)',
+                flex: '0 0 auto',
               }}
             >
               {d.item.objetivo}
@@ -294,8 +324,12 @@ function DosisEnParrilla({ dosis }: { dosis: Dosis[] }) {
       }}
     >
       {dosis.map((d, i) => (
-        <span key={`${d.item.nombre}-${i}`} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+        <span key={`${d.item.nombre}-${i}`} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
           <PuntoModalidad modalidad={d.item.modalidad} size={6} />
+          {/* También aquí manda el nombre: en la simulación HYROX hay NUEVE
+              «1,00 km» seguidos, y sin la estación al lado la lista deja de
+              decir por dónde vas. */}
+          <span style={{ font: '600 12px/1.2 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{d.item.nombre}</span>
           <Numeral tamano="s" sufijo={d.item.objetivo} tamanoSufijo={12}>
             {d.texto}
           </Numeral>
