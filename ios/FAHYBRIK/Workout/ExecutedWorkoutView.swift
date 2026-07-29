@@ -126,7 +126,7 @@ struct ExecutedWorkoutView: View {
             VStack(alignment: .leading, spacing: 10) {
                 headerCard
                 if !effortMetrics.isEmpty { effortTiles }
-                if !zoneDistribution.isEmpty { zonesCard }
+                if let coverage = zoneCoverage { zonesCard(coverage) }
                 // #64 — the outdoor run's route, when this session was run outside.
                 if let route = execution?.routePolyline, PolylineCodec.pointCount(route) >= 2 {
                     routeMapCard(route)
@@ -827,44 +827,45 @@ struct ExecutedWorkoutView: View {
     // The live summary has shown this bar since day one; the log — the surface
     // you actually revisit — threw it away. Same reading, same colours.
 
-    private var zoneDistribution: [(zone: HRZone, pct: Int)] {
-        var totals: [Int: Int] = [:]
+    /// The zone reading over the time the logged segments actually took — the
+    /// same base the live summary uses, so the bar the athlete saw on finishing
+    /// and the bar they revisit a week later cannot say two different things.
+    /// Segments whose duration never arrived are left out of both sides of the
+    /// ratio: they can neither be measured nor counted as a hole.
+    private var zoneCoverage: ZoneCoverage? {
+        var totals: [String: Int] = [:]
+        var window = 0.0
         for seg in execution?.segments ?? [] {
-            for (key, seconds) in seg.zoneSeconds ?? [:] {
-                guard let n = Int(key.dropFirst()), key.hasPrefix("z"), HRZone(rawValue: n) != nil else { continue }
-                totals[n, default: 0] += seconds
-            }
+            guard let duration = seg.durationSeconds, duration > 0 else { continue }
+            window += Double(duration)
+            for (key, seconds) in seg.zoneSeconds ?? [:] { totals[key, default: 0] += seconds }
         }
-        let total = totals.values.reduce(0, +)
-        guard total > 0 else { return [] }
-        return HRZone.allCases.map { z in (z, Int((Double(totals[z.rawValue] ?? 0) / Double(total) * 100).rounded())) }
+        return ZoneCoverage.read(zoneSecondsByKey: totals, windowSeconds: window)
     }
 
-    private var zonesCard: some View {
+    private func zonesCard(_ coverage: ZoneCoverage) -> some View {
         CardSurface(padding: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 LabelText(text: "Zonas", size: 9)
                 GeometryReader { geo in
                     HStack(spacing: 0) {
-                        ForEach(zoneDistribution, id: \.zone) { z in
-                            Rectangle().fill(z.zone.color)
-                                .frame(width: max(0, geo.size.width * CGFloat(z.pct) / 100))
+                        ForEach(coverage.bands) { band in
+                            Rectangle().fill(ZoneBandStyle.fill(band))
+                                .frame(width: max(0, geo.size.width * CGFloat(band.pct) / 100))
                         }
                     }
                 }
                 .frame(height: 16)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                HStack {
-                    ForEach(zoneDistribution, id: \.zone) { z in
-                        MonoText(text: "\(z.zone.label) \(z.pct)%", size: 9, color: z.zone.color)
-                        if z.zone != .z5 { Spacer() }
+                HStack(spacing: 0) {
+                    ForEach(coverage.bands) { band in
+                        MonoText(text: "\(band.label) \(band.pct)%", size: 9, color: ZoneBandStyle.text(band))
+                        if band.id != coverage.bands.last?.id { Spacer(minLength: 4) }
                     }
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                "Zonas: " + zoneDistribution.map { "\($0.zone.label) \($0.pct) por ciento" }.joined(separator: ", ")
-            )
+            .accessibilityLabel(ZoneBandStyle.spoken(coverage))
         }
     }
 
