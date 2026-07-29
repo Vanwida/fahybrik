@@ -225,12 +225,12 @@ export function NivelesPanel({
       {/* topbar */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)]">
             <b className="v2-num">{levels.length}</b> niveles
           </span>
           {classified > 0 ? (
             <span
-              className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+              className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
               style={{ background: 'var(--v2-ok-soft)', color: 'var(--v2-ok)' }}
             >
               <b className="v2-num">{classified}</b> atletas clasificados
@@ -274,14 +274,14 @@ export function NivelesPanel({
                 selected={draft?.id === lvl.id}
                 actions={
                   <>
-                    <span className="mr-1 hidden items-center gap-1 text-[11.5px] text-[color:var(--v2-faint)] sm:inline-flex">
+                    <span className="mr-1 hidden items-center gap-1 text-label text-[color:var(--v2-faint)] sm:inline-flex">
                       <MIcon name="person" size={14} />
                       <b className="v2-num">{lvl.athlete_count}</b> atletas
                     </span>
                     <button
                       type="button"
                       onClick={() => onEnter(lvl)}
-                      className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
+                      className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
                     >
                       Periodización <MIcon name="arrow_forward" size={13} />
                     </button>
@@ -306,7 +306,7 @@ export function NivelesPanel({
                 >
                   <span className="flex items-center gap-2.5">
                     <LevelBadge level={lvl.name} />
-                    <span className="truncate text-[14.5px] font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
+                    <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
                       {lvl.label}
                     </span>
                   </span>
@@ -356,7 +356,7 @@ export function NivelesPanel({
                   autoFocus
                 />
                 {conflict ? (
-                  <span className="mt-1 block text-[11px] font-semibold text-[color:var(--v2-danger)]">
+                  <span className="mt-1 block text-label font-semibold text-[color:var(--v2-danger)]">
                     Ya existe un nivel con ese código
                   </span>
                 ) : null}
@@ -419,7 +419,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
   return (
     <div
       role="alert"
-      className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-[12.5px]"
+      className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-xs"
       style={{ background: 'var(--v2-danger-soft)', color: 'var(--v2-danger)', border: '1px solid color-mix(in srgb, var(--v2-danger) 30%, transparent)' }}
     >
       <MIcon name="error" size={16} />
@@ -449,7 +449,7 @@ function EmptyLevels({
         <MIcon name="signal_cellular_alt" size={26} />
       </span>
       <p className="text-base font-bold text-[color:var(--v2-fg)]">No tienes niveles definidos</p>
-      <p className="mx-auto mt-1.5 max-w-[380px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="mx-auto mt-1.5 max-w-[380px] text-body leading-relaxed text-[color:var(--v2-muted)]">
         Los niveles clasifican a tus atletas. Cada uno guarda su propia periodización. Sin al menos uno, el sistema no puede colocar a nadie.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2.5">
@@ -474,10 +474,10 @@ function DeleteBlockedDialog({ level, onClose }: { level: V2LevelItem; onClose: 
         >
           <MIcon name="delete" size={20} />
         </span>
-        <p className="text-[15px] font-bold text-[color:var(--v2-fg)]">
+        <p className="text-reading font-bold text-[color:var(--v2-fg)]">
           No puedes eliminar «{level.name} · {level.label}»
         </p>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           <b className="text-[color:var(--v2-fg)] v2-num">{level.athlete_count}</b>{' '}
           {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo — así nadie se queda sin clasificación.
         </p>
@@ -506,10 +506,10 @@ function ConfirmDeleteDialog({
   return (
     <DialogScrim onClose={onCancel}>
       <div className="max-w-[420px] rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-5">
-        <p className="text-[15px] font-bold text-[color:var(--v2-fg)]">
+        <p className="text-reading font-bold text-[color:var(--v2-fg)]">
           ¿Eliminar «{level.name} · {level.label}»?
         </p>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           Ningún atleta tiene este nivel asignado. Se eliminará de tu catálogo junto con su periodización.
         </p>
         <div className="mt-4 flex gap-2">

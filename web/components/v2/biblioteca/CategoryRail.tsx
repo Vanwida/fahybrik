@@ -22,7 +22,7 @@ import type { V2LibReadiness } from '@/lib/dashboard/v2/biblioteca-axes';
 type ModalityRailId = 'todas' | V2LibModalityFilter;
 
 const ROW_CLS =
-  'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-[13px] font-medium transition-colors';
+  'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-body font-medium transition-colors';
 const ROW_ACTIVE = 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]';
 const ROW_IDLE =
   'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]';
@@ -62,7 +62,7 @@ function ToggleAxis<T extends string>({
               >
                 <span className="truncate">{opt.label}</span>
                 {n != null ? (
-                  <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                  <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">
                     {n}
                   </span>
                 ) : active ? (
@@ -132,7 +132,7 @@ export function CategoryRail({
                   aria-pressed={active}
                   onClick={() => onModality(opt.id)}
                   className={cn(
-                    'v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-[13px] font-medium transition-colors',
+                    'v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-body font-medium transition-colors',
                     active
                       ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]'
                       : 'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',

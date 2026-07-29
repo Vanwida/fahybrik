@@ -47,7 +47,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(opt.value)}
             className={cn(
               'v2-focus rounded-[var(--v2-r-pill)] font-semibold transition-colors',
-              size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
+              size === 'sm' ? 'px-2.5 py-1 text-label' : 'px-3 py-1.5 text-xs',
               active
                 ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

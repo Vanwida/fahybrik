@@ -37,7 +37,7 @@ export function MensajesTab({
         action={
           <Link
             href="/mensajes"
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-[13px] font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
           >
             Abrir en Mensajes
             <MIcon name="arrow_forward" size={16} />
@@ -59,7 +59,7 @@ export function MensajesTab({
               {athlete_name}
             </span>
             {phase_label ? (
-              <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+              <span className="truncate text-label text-[color:var(--v2-muted)]">
                 {phase_label}
               </span>
             ) : null}

@@ -95,20 +95,20 @@ export function EndPolicyPanel({
         disabled ? 'pointer-events-none opacity-50' : undefined,
       )}
     >
-      <div className="mb-3.5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.07em] text-[color:var(--v2-muted)]">
+      <div className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.07em] text-[color:var(--v2-muted)]">
         <MIcon name="repeat" size={16} className="text-[color:var(--v2-accent)]" />
         Al terminar la secuencia
       </div>
 
       {disabled ? (
-        <p className="text-[12px] text-[color:var(--v2-faint)]">
+        <p className="text-xs text-[color:var(--v2-faint)]">
           Añade al menos un microciclo para configurar qué pasa al acabar.
         </p>
       ) : (
         <>
           {/* Policy row */}
           <div className="flex flex-wrap items-center gap-3.5">
-            <span className="min-w-[150px] text-[12.5px] font-semibold text-[color:var(--v2-muted)]">
+            <span className="min-w-[150px] text-xs font-semibold text-[color:var(--v2-muted)]">
               Qué pasa al acabar
             </span>
             <div
@@ -126,7 +126,7 @@ export function EndPolicyPanel({
                     aria-checked={on}
                     onClick={() => setPolicy(opt.value)}
                     className={cn(
-                      'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-3 py-1.5 text-[11.5px] font-bold transition-colors',
+                      'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-3 py-1.5 text-label font-bold transition-colors',
                       on
                         ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                         : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -146,7 +146,7 @@ export function EndPolicyPanel({
               incrementActive ? undefined : 'pointer-events-none opacity-40',
             )}
           >
-            <span className="min-w-[150px] text-[12.5px] font-semibold text-[color:var(--v2-muted)]">
+            <span className="min-w-[150px] text-xs font-semibold text-[color:var(--v2-muted)]">
               Incremento por vuelta
             </span>
             <div className="inline-flex items-center overflow-hidden rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]">
@@ -172,7 +172,7 @@ export function EndPolicyPanel({
                 <MIcon name="add" size={16} />
               </button>
             </div>
-            <span className="text-[12px] font-semibold text-[color:var(--v2-muted)]">sobre</span>
+            <span className="text-xs font-semibold text-[color:var(--v2-muted)]">sobre</span>
             <div className="inline-flex items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]">
               <label className="sr-only" htmlFor="seq-progression-target">
                 Sobre qué se aplica el incremento
@@ -182,7 +182,7 @@ export function EndPolicyPanel({
                 value={targetValue}
                 onChange={(e) => setTarget(e.target.value as SequenceProgressionTarget)}
                 disabled={!incrementActive}
-                className="v2-focus h-[30px] cursor-pointer rounded-[var(--v2-r-s)] bg-transparent px-2.5 text-[12px] font-semibold text-[color:var(--v2-fg)] focus:outline-none"
+                className="v2-focus h-[30px] cursor-pointer rounded-[var(--v2-r-s)] bg-transparent px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] focus:outline-none"
               >
                 {TARGET_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -193,7 +193,7 @@ export function EndPolicyPanel({
             </div>
           </div>
 
-          <p className="mt-3 text-[11.5px] leading-relaxed text-[color:var(--v2-faint)]">
+          <p className="mt-3 text-label leading-relaxed text-[color:var(--v2-faint)]">
             {endPolicy === 'repeat' ? (
               <>
                 El incremento se aplica solo cuando el atleta <b className="text-[color:var(--v2-muted)]">vuelve a empezar</b> la

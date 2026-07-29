@@ -71,7 +71,7 @@ export function HistoricoTab({
                     <span className="truncate text-xs font-semibold text-[color:var(--v2-fg)]">
                       {p.name}
                     </span>
-                    <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
+                    <span className="v2-num text-label text-[color:var(--v2-faint)]">
                       {weeks.length} sem · {relativeDate(p.start_date) ?? p.start_date}
                     </span>
                   </div>
@@ -108,19 +108,19 @@ export function HistoricoTab({
                   <span className="truncate text-xs font-semibold text-[color:var(--v2-fg)]">
                     {s.session_name ?? 'Sesión conjunta'}
                   </span>
-                  <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                  <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">
                     {relativeDate(s.date) ?? s.date}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex min-w-0 flex-col rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] px-2.5 py-1.5">
-                    <span className="v2-micro truncate text-[9px]">{athleteName}</span>
+                    <span className="v2-micro truncate text-nano">{athleteName}</span>
                     <span className="v2-num text-sm font-bold text-[color:var(--v2-fg)]">
                       {s.self_score ?? EM_DASH}
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-col rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] px-2.5 py-1.5">
-                    <span className="v2-micro truncate text-[9px]">
+                    <span className="v2-micro truncate text-nano">
                       {s.partner_name ?? 'Pareja'}
                     </span>
                     <span className="v2-num text-sm font-bold text-[color:var(--v2-fg)]">
@@ -220,7 +220,7 @@ export function HistoricoTab({
                         {p.level}
                       </Pill>
                     </div>
-                    <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
+                    <span className="v2-num text-label text-[color:var(--v2-faint)]">
                       {p.name} · {relativeDate(p.start_date) ?? p.start_date}
                     </span>
                   </div>

@@ -143,7 +143,7 @@ export function CopyWeekModal({
               <button
                 type="button"
                 onClick={() => setMany([nextWeek.id])}
-                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
               >
                 La siguiente
               </button>
@@ -152,7 +152,7 @@ export function CopyWeekModal({
               <button
                 type="button"
                 onClick={() => setMany(followingWeeks.map((w) => w.id))}
-                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
               >
                 Todas las siguientes
               </button>
@@ -161,7 +161,7 @@ export function CopyWeekModal({
               <button
                 type="button"
                 onClick={() => setMany(candidates.map((w) => w.id))}
-                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
               >
                 Todas
               </button>
@@ -171,7 +171,7 @@ export function CopyWeekModal({
 
         <div className="flex max-h-[52vh] flex-col gap-1.5 overflow-y-auto p-4">
           {candidates.length === 0 ? (
-            <p className="px-1 py-6 text-center text-[13px] text-[color:var(--v2-muted)]">
+            <p className="px-1 py-6 text-center text-body text-[color:var(--v2-muted)]">
               No hay otras semanas en este microciclo.
             </p>
           ) : (
@@ -202,12 +202,12 @@ export function CopyWeekModal({
                       S{w.index + 1}
                     </span>
                     {w.label ? (
-                      <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+                      <span className="truncate text-label text-[color:var(--v2-muted)]">
                         {w.label}
                       </span>
                     ) : null}
                   </span>
-                  <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                  <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">
                     {hasContent ? `${w.session_count} ses` : 'vacía'}
                   </span>
                 </button>
@@ -218,18 +218,18 @@ export function CopyWeekModal({
 
         <footer className="flex flex-col gap-2 border-t border-[color:var(--v2-border)] px-4 py-3">
           {confirming && conflictCount > 0 ? (
-            <p className="text-[12px] text-[color:var(--v2-danger)]">
+            <p className="text-xs text-[color:var(--v2-danger)]">
               {conflictCount === 1
                 ? '1 semana destino ya tiene contenido y se sobrescribirá.'
                 : `${conflictCount} semanas destino ya tienen contenido y se sobrescribirán.`}
             </p>
           ) : errored ? (
-            <p className="text-[12px] text-[color:var(--v2-danger)]">
+            <p className="text-xs text-[color:var(--v2-danger)]">
               No se pudo copiar. Inténtalo de nuevo.
             </p>
           ) : null}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[color:var(--v2-muted)]">
+            <span className="text-label text-[color:var(--v2-muted)]">
               {selectedIds.length === 0
                 ? 'Elige una o más semanas'
                 : `${selectedIds.length} semana${selectedIds.length === 1 ? '' : 's'}`}

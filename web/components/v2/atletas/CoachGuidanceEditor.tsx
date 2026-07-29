@@ -27,7 +27,7 @@ import {
 import type { CoachGuidanceResponse } from '@fahybrid/shared/schema/coach-guidance';
 
 const BTN_BASE =
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-[13px] font-semibold transition-colors disabled:opacity-50';
+  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors disabled:opacity-50';
 
 const TAB_OPTIONS: ReadonlyArray<SegmentOption<CoachGuidanceContext>> = [
   { value: 'race_doubles', label: 'Carrera' },
@@ -244,7 +244,7 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
         <div className="mb-1 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Consejos de dobles</h2>
-            <p className="mt-0.5 text-[13px] text-[color:var(--v2-muted)]">
+            <p className="mt-0.5 text-body text-[color:var(--v2-muted)]">
               Tácticas que ve la pareja en el tablero de carrera y en la simulación.
             </p>
           </div>
@@ -270,9 +270,9 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
         </div>
 
         {current.loading ? (
-          <p className="py-8 text-center text-[13px] text-[color:var(--v2-muted)]">Cargando…</p>
+          <p className="py-8 text-center text-body text-[color:var(--v2-muted)]">Cargando…</p>
         ) : current.loadError ? (
-          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-[13px] text-[color:var(--v2-danger)]">
+          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-body text-[color:var(--v2-danger)]">
             {current.loadError}
           </p>
         ) : (
@@ -280,7 +280,7 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
             {!current.isCustom ? (
               <div className="mb-3 flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
                 <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]" />
-                <p className="text-[12px] leading-snug text-[color:var(--v2-muted)]">
+                <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
                   Estás viendo los consejos del sistema. Guarda para personalizarlos.
                 </p>
               </div>
@@ -301,9 +301,9 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
                       onChange={(e) => updateItem(active, index, e.target.value)}
                       maxLength={COACH_GUIDANCE_MAX_ITEM_CHARS}
                       placeholder="Escribe un consejo…"
-                      className="v2-focus h-9 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 pr-14 text-[13px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
+                      className="v2-focus h-9 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 pr-14 text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
                     />
-                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-[color:var(--v2-muted)]">
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-eyebrow font-medium text-[color:var(--v2-muted)]">
                       {item.length}/{COACH_GUIDANCE_MAX_ITEM_CHARS}
                     </span>
                   </div>
@@ -318,7 +318,7 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
               {current.items.length === 0 ? (
-                <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] p-3 text-center text-[12px] text-[color:var(--v2-muted)]">
+                <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] p-3 text-center text-xs text-[color:var(--v2-muted)]">
                   Sin consejos. Añade al menos uno.
                 </p>
               ) : null}
@@ -337,15 +337,15 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
                 <MIcon name="add" size={15} />
                 Añadir consejo
               </button>
-              <span className="text-[11px] text-[color:var(--v2-muted)]">
+              <span className="text-label text-[color:var(--v2-muted)]">
                 {current.items.length} / {COACH_GUIDANCE_MAX_ITEMS} consejos
               </span>
             </div>
 
             {current.saveError ? (
-              <p className="mt-3 text-[12px] font-medium text-[color:var(--v2-danger)]">{current.saveError}</p>
+              <p className="mt-3 text-xs font-medium text-[color:var(--v2-danger)]">{current.saveError}</p>
             ) : current.saved ? (
-              <p className="mt-3 text-[12px] font-medium text-[color:var(--v2-accent)]">Guardado</p>
+              <p className="mt-3 text-xs font-medium text-[color:var(--v2-accent)]">Guardado</p>
             ) : null}
 
             {/* Footer */}

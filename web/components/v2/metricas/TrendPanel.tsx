@@ -25,16 +25,16 @@ function MetricRow({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[12.5px] font-semibold text-[color:var(--v2-fg)]">{label}</span>
-          <span className="text-[10.5px] text-[color:var(--v2-faint)]">semana a semana</span>
+          <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{label}</span>
+          <span className="text-eyebrow text-[color:var(--v2-faint)]">semana a semana</span>
         </div>
         <div className="text-right leading-tight">
-          <span className="v2-num block text-[20px] font-extrabold text-[color:var(--v2-fg)]">
+          <span className="v2-num block text-data font-extrabold text-[color:var(--v2-fg)]">
             {formatCount(now)}
           </span>
           {delta ? (
             <span
-              className="v2-num text-[10.5px] font-bold"
+              className="v2-num text-eyebrow font-bold"
               style={{ color: DELTA_COLOR_VAR[delta.dir] }}
             >
               {DELTA_ARROW[delta.dir]} {delta.pct}

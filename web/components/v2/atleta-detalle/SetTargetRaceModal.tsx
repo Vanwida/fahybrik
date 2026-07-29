@@ -333,7 +333,7 @@ export function SetTargetRaceModal({
                         <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
                           {ev.name}
                         </span>
-                        <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+                        <span className="truncate text-label text-[color:var(--v2-muted)]">
                           {ev.location ? `${ev.location} · ` : ''}
                           {eventDateLabel(ev)}
                         </span>
@@ -374,7 +374,7 @@ export function SetTargetRaceModal({
                   ariaLabel="División"
                 />
                 {divisionHint ? (
-                  <span className="text-[11px] text-[color:var(--v2-faint)]">
+                  <span className="text-label text-[color:var(--v2-faint)]">
                     Divisiones del evento: {divisionHint}
                   </span>
                 ) : null}
@@ -403,7 +403,7 @@ export function SetTargetRaceModal({
                   aria-label="Tiempo objetivo en formato h:mm:ss"
                 />
                 {goalInvalid ? (
-                  <span className="text-[11px] text-[color:var(--v2-danger)]">
+                  <span className="text-label text-[color:var(--v2-danger)]">
                     Formato no válido. Usa h:mm:ss o mm:ss (máx. 10:00:00).
                   </span>
                 ) : null}

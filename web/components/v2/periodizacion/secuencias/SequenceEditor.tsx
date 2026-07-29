@@ -180,22 +180,22 @@ export function SequenceEditor({
             <button
               type="button"
               onClick={onClose}
-              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="arrow_back" size={15} /> Volver
             </button>
             <LevelBadge level={level.name} />
-            <span className="rounded-[var(--v2-r-xs)] border border-[color:var(--v2-border-strong)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)]">
+            <span className="rounded-[var(--v2-r-xs)] border border-[color:var(--v2-border-strong)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)]">
               {days} días
             </span>
             {isShared ? (
-              <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+              <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)]">
                 microciclos compartidos
               </span>
             ) : null}
           </div>
           <h2 className="v2-display text-2xl text-[color:var(--v2-fg)]">{level.label}</h2>
-          <p className="mt-0.5 text-[12.5px] text-[color:var(--v2-muted)]">
+          <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
             La cadena que recorre todo atleta clasificado a {level.name} · {days} días.
           </p>
         </div>
@@ -212,7 +212,7 @@ export function SequenceEditor({
       {error ? (
         <div
           role="alert"
-          className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-[12.5px]"
+          className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-xs"
           style={{
             background: 'var(--v2-danger-soft)',
             color: 'var(--v2-danger)',
@@ -254,7 +254,7 @@ export function SequenceEditor({
 
       {/* running total */}
       {!isEmpty ? (
-        <div className="mt-3.5 flex flex-wrap items-center gap-3 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-3.5 py-2.5 text-[12px] text-[color:var(--v2-muted)]">
+        <div className="mt-3.5 flex flex-wrap items-center gap-3 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-3.5 py-2.5 text-xs text-[color:var(--v2-muted)]">
           <span>
             <b className="v2-num text-[color:var(--v2-fg)]">{items.length}</b>{' '}
             {items.length === 1 ? 'microciclo' : 'microciclos'} ·{' '}
@@ -285,7 +285,7 @@ export function SequenceEditor({
       />
 
       {/* purpose strip */}
-      <div className="mt-3.5 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-[12.5px] text-[color:var(--v2-muted)]">
+      <div className="mt-3.5 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
         <span className="shrink-0 text-[color:var(--v2-accent)]">
           <MIcon name="my_location" size={18} />
         </span>
@@ -392,12 +392,12 @@ function MicrocicloCard({
         >
           <MIcon name="drag_indicator" size={16} />
         </span>
-        <span className="v2-num flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-[11px] font-bold text-[color:var(--v2-muted)]">
+        <span className="v2-num flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]">
           {order}
         </span>
         <span
           className={cn(
-            'min-w-0 flex-1 truncate text-[13px] font-bold',
+            'min-w-0 flex-1 truncate text-body font-bold',
             missing ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-fg)]',
           )}
           title={name}
@@ -406,7 +406,7 @@ function MicrocicloCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-muted)]">
+      <div className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
         <MIcon name="date_range" size={13} className="opacity-70" />
         <b className="v2-num">{weeks}</b> {weeks === 1 ? 'semana' : 'semanas'}
       </div>
@@ -460,9 +460,9 @@ function AddCard({
       className="v2-focus flex min-h-[128px] w-[188px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 text-center text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
     >
       <MIcon name="add" size={22} />
-      <span className="text-[11.5px] font-bold">Añadir microciclo</span>
+      <span className="text-label font-bold">Añadir microciclo</span>
       {empty ? (
-        <span className="text-[10.5px] font-normal leading-snug text-[color:var(--v2-faint)]">
+        <span className="text-eyebrow font-normal leading-snug text-[color:var(--v2-faint)]">
           Encadena microciclos para montar la periodización de {levelName} · {days} días
         </span>
       ) : null}

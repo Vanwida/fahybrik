@@ -87,9 +87,9 @@ function BlockChip({ block }: { block: DayBlockInfo }) {
           : undefined
       }
     >
-      <div className="truncate text-[11px] font-bold text-[color:var(--v2-fg)]">{block.title}</div>
+      <div className="truncate text-label font-bold text-[color:var(--v2-fg)]">{block.title}</div>
       {summary ? (
-        <div className="truncate text-[10px] leading-snug text-[color:var(--v2-muted)]">
+        <div className="truncate text-eyebrow leading-snug text-[color:var(--v2-muted)]">
           {summary}
         </div>
       ) : null}
@@ -132,11 +132,11 @@ function DayColumn({
 
   const header = (
     <div className="flex items-baseline justify-between gap-1 px-0.5">
-      <span className="truncate text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+      <span className="truncate text-label font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
         {DAY_LABELS_FULL[dayIndex]}
       </span>
       {day.session_count > 1 ? (
-        <span className="v2-num shrink-0 text-[10px] text-[color:var(--v2-faint)]">
+        <span className="v2-num shrink-0 text-eyebrow text-[color:var(--v2-faint)]">
           {day.session_count} ses
         </span>
       ) : null}
@@ -167,7 +167,7 @@ function DayColumn({
               <BlockChip key={i} block={b} />
             ))}
           </div>
-          <span className="v2-num mt-auto pt-0.5 text-[9.5px] text-[color:var(--v2-faint)]">
+          <span className="v2-num mt-auto pt-0.5 text-nano text-[color:var(--v2-faint)]">
             {day.block_count} bl{day.item_count > 0 ? ` · ${day.item_count} ej` : ''}
           </span>
         </Link>
@@ -191,15 +191,15 @@ function DayColumn({
           )}
         >
           <MIcon name="bedtime" size={20} />
-          <span className="text-[11px] font-semibold">Descanso</span>
+          <span className="text-label font-semibold">Descanso</span>
           {day.focus ? (
-            <span className="px-2 text-center text-[9px] text-[color:var(--v2-faint)]">
+            <span className="px-2 text-center text-nano text-[color:var(--v2-faint)]">
               {day.focus}
             </span>
           ) : null}
           {day.has_recovery ? (
             <span
-              className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-semibold"
+              className="mt-0.5 inline-flex items-center gap-1 text-nano font-semibold"
               style={{ color: 'var(--v2-ok)' }}
             >
               <MIcon name="spa" size={11} />
@@ -226,7 +226,7 @@ function DayColumn({
         )}
       >
         <MIcon name="add" size={20} />
-        <span className="text-[10px] font-medium">Añadir</span>
+        <span className="text-eyebrow font-medium">Añadir</span>
       </Link>
     </div>
   );
@@ -269,7 +269,7 @@ function WeekTabs({
             <span className="v2-num">S{i + 1}</span>
             <span
               className={cn(
-                'text-[10px] font-semibold',
+                'text-eyebrow font-semibold',
                 active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]',
               )}
             >
@@ -314,7 +314,7 @@ function WeekFocusRow({
 
   return (
     <div className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 py-2.5">
-      <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
         <MIcon name="flag" size={14} />
         Foco {weekLabel}
       </span>
@@ -338,7 +338,7 @@ function WeekFocusRow({
         className="v2-focus min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold text-[color:var(--v2-fg)] outline-none placeholder:font-normal placeholder:text-[color:var(--v2-faint)]"
       />
       <InlineSaveBadge status={status} />
-      <span className="hidden shrink-0 items-center gap-1 text-[11px] font-medium text-[color:var(--v2-faint)] sm:inline-flex">
+      <span className="hidden shrink-0 items-center gap-1 text-label font-medium text-[color:var(--v2-faint)] sm:inline-flex">
         <MIcon name="visibility" size={13} />
         lo ve el atleta
       </span>
@@ -413,7 +413,7 @@ function DeleteMicrocicloModal({
           </div>
         </div>
         {error ? (
-          <p className="mt-3 text-[13px] font-semibold text-[color:var(--v2-danger)]">
+          <p className="mt-3 text-body font-semibold text-[color:var(--v2-danger)]">
             No se pudo borrar. Inténtalo de nuevo.
           </p>
         ) : null}
@@ -667,7 +667,7 @@ export function MicrocicloV2({
             </h2>
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="v2-num text-[11px] font-semibold text-[color:var(--v2-muted)]">
+              <span className="v2-num text-label font-semibold text-[color:var(--v2-muted)]">
                 {focus?.session_count ?? 0}{' '}
                 {(focus?.session_count ?? 0) === 1 ? 'sesión' : 'sesiones'}
               </span>
@@ -678,7 +678,7 @@ export function MicrocicloV2({
                     {focusModalities.map((m) => (
                       <span
                         key={m}
-                        className="rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[9px] font-semibold"
+                        className="rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-nano font-semibold"
                         style={{
                           background: `var(${MODALITY_META[m].softVar})`,
                           color: `var(${MODALITY_META[m].colorVar})`,
@@ -698,7 +698,7 @@ export function MicrocicloV2({
                   type="button"
                   onClick={() => setCopyOpen(true)}
                   title="Copia el contenido de esta semana sobre otras semanas del microciclo"
-                  className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                  className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
                 >
                   <MIcon name="library_add" size={14} />
                   Copiar a…
@@ -709,7 +709,7 @@ export function MicrocicloV2({
                 onClick={duplicateWeek}
                 disabled={duplicating}
                 title="Crea una copia idéntica de esta semana justo después"
-                className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+                className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
               >
                 <MIcon name={duplicating ? 'progress_activity' : 'content_copy'} size={14} />
                 {duplicating ? 'Duplicando…' : 'Duplicar semana'}
@@ -717,7 +717,7 @@ export function MicrocicloV2({
             </div>
 
             {duplicateError ? (
-              <p className="basis-full text-[11px] font-semibold text-[color:var(--v2-danger)]">
+              <p className="basis-full text-label font-semibold text-[color:var(--v2-danger)]">
                 No se pudo duplicar la semana. Inténtalo de nuevo.
               </p>
             ) : null}

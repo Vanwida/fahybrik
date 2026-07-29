@@ -242,7 +242,7 @@ export function EjercicioEditor({
               <p className="truncate text-sm font-bold text-[color:var(--v2-fg)]">{title}</p>
               {ex ? (
                 <span
-                  className="mt-1 inline-block rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+                  className="mt-1 inline-block rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
                   style={{
                     background: `var(${EXERCISE_ORIGIN_META[ex.origin].bgVar})`,
                     color: `var(${EXERCISE_ORIGIN_META[ex.origin].fgVar})`,
@@ -296,7 +296,7 @@ export function EjercicioEditor({
                 aria-describedby={nameError && nameTouched ? 'ej-name-err' : undefined}
               />
               {nameError && nameTouched ? (
-                <p id="ej-name-err" className="mt-1 text-[11px] text-[color:var(--v2-danger)]">
+                <p id="ej-name-err" className="mt-1 text-label text-[color:var(--v2-danger)]">
                   {nameError}
                 </p>
               ) : null}
@@ -355,7 +355,7 @@ export function EjercicioEditor({
                 aria-describedby={videoInvalid ? 'ej-video-err' : undefined}
               />
               {videoInvalid ? (
-                <p id="ej-video-err" className="mt-1 text-[11px] text-[color:var(--v2-danger)]">
+                <p id="ej-video-err" className="mt-1 text-label text-[color:var(--v2-danger)]">
                   Eso no es un enlace de YouTube.
                 </p>
               ) : shared && ex.base_video_url && video.trim() !== '' ? (

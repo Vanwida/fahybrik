@@ -23,12 +23,12 @@ function H2({ children, id }: { children: React.ReactNode; id: string }) {
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[15px] leading-7 text-[color:var(--fg)]/90 mb-4">{children}</p>;
+  return <p className="text-reading leading-7 text-[color:var(--fg)]/90 mb-4">{children}</p>;
 }
 
 function UL({ children }: { children: React.ReactNode }) {
   return (
-    <ul className="list-disc pl-6 mb-4 space-y-1.5 text-[15px] leading-7 text-[color:var(--fg)]/90 marker:text-[color:var(--muted)]">
+    <ul className="list-disc pl-6 mb-4 space-y-1.5 text-reading leading-7 text-[color:var(--fg)]/90 marker:text-[color:var(--muted)]">
       {children}
     </ul>
   );
@@ -42,7 +42,7 @@ export default function TermsPage() {
   return (
     <article>
       <header className="mb-10">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)] mb-3">
+        <p className="text-label uppercase tracking-[0.16em] text-[color:var(--muted)] mb-3">
           Documento legal · Versión {VERSION}
         </p>
         <h1 className="font-display italic font-black text-[color:var(--fg)] text-4xl md:text-5xl tracking-tight leading-[1.05]">
@@ -380,7 +380,7 @@ export default function TermsPage() {
         </li>
       </UL>
 
-      <p className="mt-12 text-[12px] text-[color:var(--muted)]">
+      <p className="mt-12 text-xs text-[color:var(--muted)]">
         Versión {VERSION} · Publicada el {LAST_UPDATED}.
       </p>
     </article>

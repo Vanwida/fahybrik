@@ -81,13 +81,13 @@ export function AddMicrocicloPicker({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en tu biblioteca de microciclos…"
             autoFocus
-            className="h-full flex-1 bg-transparent text-[13px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
+            className="h-full flex-1 bg-transparent text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
           />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-[13px] text-[color:var(--v2-muted)]">
+            <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-body text-[color:var(--v2-muted)]">
               {microciclos.length === 0
                 ? 'Aún no tienes microciclos en la Biblioteca.'
                 : 'Ningún microciclo coincide con la búsqueda.'}
@@ -106,8 +106,8 @@ export function AddMicrocicloPicker({
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-bold text-[color:var(--v2-fg)]">{m.name}</div>
-                    <div className="mt-0.5 flex flex-wrap gap-3 text-[11px] text-[color:var(--v2-muted)]">
+                    <div className="truncate text-body font-bold text-[color:var(--v2-fg)]">{m.name}</div>
+                    <div className="mt-0.5 flex flex-wrap gap-3 text-label text-[color:var(--v2-muted)]">
                       <span className="inline-flex items-center gap-1">
                         <MIcon name="date_range" size={12} className="opacity-70" />
                         <b className="v2-num">{m.week_count}</b> sem

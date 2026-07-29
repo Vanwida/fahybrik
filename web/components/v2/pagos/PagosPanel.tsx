@@ -73,19 +73,19 @@ function KpiCard({
 function RosterTable({ rows }: { rows: DisplayRow[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      <table className="w-full border-collapse text-body">
         <thead>
           <tr className="border-b border-[color:var(--v2-border)] text-[color:var(--v2-faint)]">
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
               Atleta
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
               Precio / mes
             </th>
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
               Estado
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
               Próxima renovación
             </th>
           </tr>
@@ -106,7 +106,7 @@ function RosterTable({ rows }: { rows: DisplayRow[] }) {
                   >
                     <span className="font-semibold text-[color:var(--v2-fg)]">{row.full_name}</span>
                     {partnerName ? (
-                      <span className="text-[11px] text-[color:var(--v2-muted)]">
+                      <span className="text-label text-[color:var(--v2-muted)]">
                         compartida con {partnerName}
                       </span>
                     ) : null}

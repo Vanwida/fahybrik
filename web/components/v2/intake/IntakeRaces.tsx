@@ -45,7 +45,7 @@ export function IntakeRaces({
         <div className="flex flex-col gap-3">
           {past.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+              <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
                 Resultados
               </span>
               {past.map((r) => {
@@ -60,7 +60,7 @@ export function IntakeRaces({
                       <span className="truncate font-medium text-[color:var(--v2-fg)]">
                         {r.name}
                       </span>
-                      <span className="truncate text-[10px] text-[color:var(--v2-faint)]">
+                      <span className="truncate text-eyebrow text-[color:var(--v2-faint)]">
                         {eventLabel(r.event_type)} · {raceCategoryLineEs(r)}
                         {date ? ` · ${date}` : ''}
                       </span>
@@ -70,7 +70,7 @@ export function IntakeRaces({
                         {time}
                       </span>
                     ) : (
-                      <span className="shrink-0 text-[10px] text-[color:var(--v2-faint)]">
+                      <span className="shrink-0 text-eyebrow text-[color:var(--v2-faint)]">
                         sin marca
                       </span>
                     )}
@@ -82,7 +82,7 @@ export function IntakeRaces({
 
           {upcoming.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+              <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
                 Objetivos
               </span>
               {upcoming.map((r) => {
@@ -97,7 +97,7 @@ export function IntakeRaces({
                       <span className="truncate font-medium text-[color:var(--v2-fg)]">
                         {r.name}
                       </span>
-                      <span className="truncate text-[10px] text-[color:var(--v2-faint)]">
+                      <span className="truncate text-eyebrow text-[color:var(--v2-faint)]">
                         {eventLabel(r.event_type)} · {RACE_PRIORITY_LABEL[r.priority]}
                         {date ? ` · ${date}` : ''}
                       </span>

@@ -550,7 +550,7 @@ export function DayEditor({
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. Only a
           workout day has lines to gate; a rest day is always saveable. */}
       {!isRest && !gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>
@@ -671,7 +671,7 @@ function DayKindToggle({
   onChange: (kind: WeekDayKind) => void;
 }) {
   const base =
-    'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors';
+    'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 py-1.5 text-xs font-semibold transition-colors';
   return (
     <div
       role="group"

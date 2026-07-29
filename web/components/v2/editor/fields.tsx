@@ -75,7 +75,7 @@ export function NumberCell({
         className={cn(v2FieldCell, suffix && 'pr-7')}
       />
       {suffix ? (
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-[color:var(--v2-muted)]">
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-label text-[color:var(--v2-muted)]">
           {suffix}
         </span>
       ) : null}

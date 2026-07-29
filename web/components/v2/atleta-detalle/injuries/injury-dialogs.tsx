@@ -451,10 +451,10 @@ export function AdaptSessionsDialog({
                     {on ? <MIcon name="check" size={13} /> : null}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[13px] font-semibold text-[color:var(--v2-fg)]">
+                    <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
                       {s.title}
                     </span>
-                    <span className="v2-num text-[11px] text-[color:var(--v2-muted)]">
+                    <span className="v2-num text-label text-[color:var(--v2-muted)]">
                       {s.date_label}
                     </span>
                   </span>
@@ -471,7 +471,7 @@ export function AdaptSessionsDialog({
                           onClick={() => setKind(s.assignment_id, a)}
                           title={ADAPTATION_META[a].hint}
                           className={cn(
-                            'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border px-2.5 text-[11px] font-semibold transition-colors disabled:opacity-50',
+                            'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border px-2.5 text-label font-semibold transition-colors disabled:opacity-50',
                             active
                               ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface)] text-[color:var(--v2-fg)]'
                               : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

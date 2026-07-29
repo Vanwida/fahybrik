@@ -33,9 +33,9 @@ export function PagoStatusHero({
       <h1 className="mt-7 font-display italic font-black tracking-tight text-3xl md:text-4xl text-[color:var(--fg)]">
         {title}
       </h1>
-      <p className="mt-4 max-w-[440px] text-[15px] leading-7 text-[color:var(--fg)]/85">{body}</p>
+      <p className="mt-4 max-w-[440px] text-reading leading-7 text-[color:var(--fg)]/85">{body}</p>
       {hint ? (
-        <p className="mt-6 text-[13px] leading-6 text-[color:var(--muted)] max-w-[420px]">{hint}</p>
+        <p className="mt-6 text-body leading-6 text-[color:var(--muted)] max-w-[420px]">{hint}</p>
       ) : null}
     </section>
   );

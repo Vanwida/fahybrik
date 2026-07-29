@@ -164,11 +164,11 @@ export function ImportReviewGrid({
                 <h3 className="text-sm font-bold text-[color:var(--v2-fg)]">
                   Semana <span className="v2-num">{week.week}</span>
                 </h3>
-                <span className="text-[11px] text-[color:var(--v2-faint)]">· {week.sheet}</span>
+                <span className="text-label text-[color:var(--v2-faint)]">· {week.sheet}</span>
                 {week.fell_back ? (
                   <span
                     title="No existe la hoja de esa variante para esta semana; se leyó la estándar."
-                    className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-warn)]/12 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--v2-warn)]"
+                    className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-warn)]/12 px-2 py-0.5 text-eyebrow font-semibold text-[color:var(--v2-warn)]"
                   >
                     <MIcon name="info" size={11} />
                     estándar
@@ -187,7 +187,7 @@ export function ImportReviewGrid({
                       : `Importar la semana ${week.week}`
                   }
                   className={cn(
-                    'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                    'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors',
                     week.included
                       ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
                       : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]',
@@ -198,14 +198,14 @@ export function ImportReviewGrid({
                 </button>
 
                 {/* Fork B — explicit mapping (an excluded week needs no destination). */}
-                <label className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-muted)]">
+                <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
                   <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent)]" />
                   <span>Meter en</span>
                   <select
                     value={week.target_week_id ?? ''}
                     onChange={(e) => setTarget(weekIdx, e.target.value || null)}
                     disabled={!week.included}
-                    className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-[12px] font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-50"
+                    className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-50"
                   >
                     <option value="">— elige semana —</option>
                     {microWeeks.map((mw) => (
@@ -273,7 +273,7 @@ export function ImportReviewGrid({
                       </span>
                       <span
                         className={cn(
-                          'line-clamp-2 flex-1 text-[11px] font-medium',
+                          'line-clamp-2 flex-1 text-label font-medium',
                           tone === 'skipped'
                             ? 'text-[color:var(--v2-faint)] line-through'
                             : 'text-[color:var(--v2-muted)]',
@@ -284,7 +284,7 @@ export function ImportReviewGrid({
                       {tone !== 'rest' ? (
                         <span
                           className={cn(
-                            'inline-flex w-fit items-center rounded-[var(--v2-r-pill)] px-1.5 py-px text-[9.5px] font-bold',
+                            'inline-flex w-fit items-center rounded-[var(--v2-r-pill)] px-1.5 py-px text-nano font-bold',
                             TONE_TAG[tone].className,
                           )}
                         >
@@ -302,31 +302,31 @@ export function ImportReviewGrid({
 
       <footer className="space-y-2 border-t border-[color:var(--v2-border)] px-5 py-3">
         {error ? (
-          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
             {error}
           </p>
         ) : unresolved > 0 ? (
-          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
             {unresolved === 1
               ? '1 línea sin ejercicio del catálogo. Resuélvela para poder guardar.'
               : `${unresolved} líneas sin ejercicio del catálogo. Resuélvelas para poder guardar.`}
           </p>
         ) : incomplete > 0 ? (
-          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
             {incomplete === 1
               ? '1 línea dice el ejercicio pero no cuánto trabajo. Ábrela y prescríbela.'
               : `${incomplete} líneas dicen el ejercicio pero no cuánto trabajo. Ábrelas y prescríbelas.`}
           </p>
         ) : unmapped > 0 ? (
-          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-warn)]">
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
             Asigna cada semana importada a una semana del microciclo.
           </p>
         ) : writable === 0 ? (
-          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-warn)]">
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
             No queda ningún día seleccionado — incluye al menos uno para poder confirmar.
           </p>
@@ -342,7 +342,7 @@ export function ImportReviewGrid({
             <MIcon name="arrow_back" size={16} />
             Atrás
           </button>
-          <span className="ml-auto text-[11px] text-[color:var(--v2-muted)]">
+          <span className="ml-auto text-label text-[color:var(--v2-muted)]">
             {excluded > 0 ? (
               <>
                 Se deja{excluded === 1 ? '' : 'n'} fuera <span className="v2-num">{excluded}</span>{' '}

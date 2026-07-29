@@ -184,7 +184,7 @@ function RepeatBlock({
         <button
           type="button"
           onClick={() => setOpenKey(key)}
-          className="v2-focus min-w-0 flex-1 truncate text-left font-mono text-[13.5px] text-[color:var(--v2-fg)]"
+          className="v2-focus min-w-0 flex-1 truncate text-left font-mono text-body text-[color:var(--v2-fg)]"
           aria-label={`Editar repetición: ${elementSentence(repeat)}`}
         >
           <b className="font-bold text-[color:var(--v2-accent)]">{repeat.times} ×</b>{' '}
@@ -251,7 +251,7 @@ function AddButton({ icon, label, onClick }: { icon: string; label: string; onCl
     <button
       type="button"
       onClick={onClick}
-      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-[11.5px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
     >
       <MIcon name={icon} size={14} />
       {label}

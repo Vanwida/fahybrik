@@ -238,7 +238,7 @@ export function SessionEditor({
 
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
       {!gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>

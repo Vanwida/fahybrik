@@ -39,11 +39,11 @@ export function ImportNotices({ notices }: { notices: WeekNotice[] }) {
           >
             <MIcon name={tone.name} size={16} className={`mt-px shrink-0 ${tone.icon}`} />
             <div className="min-w-0 space-y-1.5">
-              <p className="text-[12.5px] leading-snug text-[color:var(--v2-fg)]">{n.message}</p>
+              <p className="text-xs leading-snug text-[color:var(--v2-fg)]">{n.message}</p>
               {n.href && n.cta ? (
                 <Link
                   href={n.href}
-                  className="v2-focus inline-flex items-center gap-1 text-[11.5px] font-bold text-[color:var(--v2-accent)] hover:underline"
+                  className="v2-focus inline-flex items-center gap-1 text-label font-bold text-[color:var(--v2-accent)] hover:underline"
                 >
                   {n.cta}
                   <MIcon name="arrow_forward" size={13} />

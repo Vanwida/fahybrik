@@ -257,7 +257,7 @@ function EvaluateCta({
           </span>
         </div>
       </div>
-      {error ? <span className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</span> : null}
+      {error ? <span className="text-label font-medium text-[color:var(--v2-danger)]">{error}</span> : null}
       <button
         type="button"
         onClick={onEvaluate}
@@ -299,14 +299,14 @@ function ProposalView({
       {/* Verdict + recommendation + evaluated week */}
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-bold"
           style={{ background: `var(--v2-${verdict.tone}-soft)`, color: `var(${TONE_VAR[verdict.tone]})` }}
         >
           <MIcon name={p.verdict === 'ok' ? 'check_circle' : 'warning'} size={14} filled />
           {verdict.label}
         </span>
         <Chip label="Recomendación" value={RECOMMENDATION_LABEL[p.recommendation]} tone="accent" />
-        <span className="v2-num ml-auto text-[11px] text-[color:var(--v2-faint)]">
+        <span className="v2-num ml-auto text-label text-[color:var(--v2-faint)]">
           Semana del {WEEK_FMT.format(new Date(p.week_start))}
         </span>
       </div>
@@ -343,10 +343,10 @@ function ProposalView({
                 key={`${c.date}-${c.slot}-${i}`}
                 className="flex items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-2.5 py-1.5"
               >
-                <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
+                <span className="v2-num text-label text-[color:var(--v2-faint)]">
                   {WEEK_FMT.format(new Date(c.date))} · {c.slot.toUpperCase()}
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 text-[11px] text-[color:var(--v2-fg)]">
+                <span className="ml-auto flex items-center gap-1.5 text-label text-[color:var(--v2-fg)]">
                   <span className="truncate text-[color:var(--v2-muted)]">
                     {templateName(p.template_names, c.from_template_id)}
                   </span>
@@ -362,7 +362,7 @@ function ProposalView({
       ) : null}
 
       {actionError ? (
-        <span className="text-[11px] font-medium text-[color:var(--v2-danger)]">{actionError}</span>
+        <span className="text-label font-medium text-[color:var(--v2-danger)]">{actionError}</span>
       ) : null}
 
       {/* Actions */}
@@ -397,13 +397,13 @@ function ProposalView({
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] text-[color:var(--v2-muted)]">
+          <span className="text-label text-[color:var(--v2-muted)]">
             Semana correcta — el plan sigue sin cambios.
           </span>
           <button
             type="button"
             onClick={onDismiss}
-            className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             Entendido
           </button>

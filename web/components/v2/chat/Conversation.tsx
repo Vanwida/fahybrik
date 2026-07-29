@@ -194,7 +194,7 @@ function Notice({ message, onDismiss }: { message: string; onDismiss: () => void
   return (
     <div
       role="status"
-      className="flex items-start gap-2 border-t border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2 text-[12px] text-[color:var(--v2-fg)]"
+      className="flex items-start gap-2 border-t border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2 text-xs text-[color:var(--v2-fg)]"
     >
       <MIcon name="error" size={15} className="mt-px shrink-0 text-[color:var(--v2-danger)]" />
       <span className="flex-1">{message}</span>

@@ -38,7 +38,7 @@ export function HexMark({ className }: { className?: string }) {
 const NAV_LINK_BASE =
   'group/nav relative flex h-11 items-center gap-4 rounded-[var(--v2-r-s)] px-3 whitespace-nowrap transition-colors v2-focus';
 const NAV_LABEL_CLASS =
-  'font-bold text-[12px] uppercase tracking-wide opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100';
+  'font-bold text-xs uppercase tracking-wide opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100';
 
 function navLinkClass(active: boolean): string {
   return cn(
@@ -72,7 +72,7 @@ function NavLink({
         <MIcon name={item.icon} filled={active} size={22} />
         {showBadge ? (
           <span
-            className="absolute -right-2 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+            className="absolute -right-2 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-nano font-bold"
             style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
           >
             {badgeCount > 9 ? '9+' : badgeCount}
@@ -136,7 +136,7 @@ export function V2Sidebar({
               <span
                 aria-hidden
                 className={cn(
-                  'px-3 pb-0.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]',
+                  'px-3 pb-0.5 pt-1 text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]',
                   // Hidden glyph in the collapsed rail; fades in on expand.
                   'opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100',
                 )}

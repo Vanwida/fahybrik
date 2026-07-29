@@ -346,7 +346,7 @@ function AltaModal({
                 </label>
               </div>
               {stripeConfigured ? (
-                <p className="text-[11px] leading-relaxed text-[color:var(--v2-faint)]">
+                <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
                   <b className="text-[color:var(--v2-muted)]">Cortesía</b> = acceso libre, sin Stripe.{' '}
                   <b className="text-[color:var(--v2-muted)]">Fundador</b> = suscripción real por Stripe
                   a 0 €.
@@ -397,12 +397,12 @@ function AltaModal({
                       </span>
                     </div>
                     {founder ? (
-                      <span className="text-[11px] text-[color:var(--v2-muted)]">
+                      <span className="text-label text-[color:var(--v2-muted)]">
                         Se cobrará <b className="text-[color:var(--v2-fg)]">0 €</b>. El precio de lista
                         es opcional (para tu MRR y el día que deje de ser fundador).
                       </span>
                     ) : pricePrefilled ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                      <span className="inline-flex items-center gap-1 text-label text-[color:var(--v2-faint)]">
                         <MIcon name="call" size={13} /> del parte de la llamada
                       </span>
                     ) : null}

@@ -27,14 +27,14 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
           Altas sin revisar
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {pending.length}
         </span>
         <Link
           href="/altas"
-          className="v2-focus ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus ml-auto inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
         >
           Ver todas
           <MIcon name="arrow_forward" size={13} />
@@ -54,13 +54,13 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
                 <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
                   {a.full_name}
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                <span className="inline-flex items-center gap-1 text-label text-[color:var(--v2-faint)]">
                   <MIcon name="hourglass_top" size={12} />
                   esperando {waitingLabel(a.hours_since_onboarded)}
                 </span>
               </div>
             </div>
-            <span className="mt-2.5 inline-flex h-7 w-full items-center justify-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] text-[11px] font-semibold text-[color:var(--v2-accent-fg)] transition-colors group-hover:bg-[color:var(--v2-accent-press)]">
+            <span className="mt-2.5 inline-flex h-7 w-full items-center justify-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] text-label font-semibold text-[color:var(--v2-accent-fg)] transition-colors group-hover:bg-[color:var(--v2-accent-press)]">
               Revisar alta
               <MIcon name="arrow_forward" size={14} />
             </span>

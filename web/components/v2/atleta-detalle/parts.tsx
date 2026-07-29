@@ -227,18 +227,18 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
         const cellStyle = !isRest ? { borderLeft: `2px solid ${color}` } : undefined;
         const inner = (
           <>
-            <span className="v2-micro text-[9px]">{d.label}</span>
+            <span className="v2-micro text-nano">{d.label}</span>
             {d.state === 'done' ? (
               <MIcon name="check" size={13} className="text-[color:var(--v2-ok)]" />
             ) : d.state === 'today' ? (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--v2-accent)' }} />
             ) : isRest ? (
-              <span className="text-[10px] text-[color:var(--v2-faint)]">·</span>
+              <span className="text-eyebrow text-[color:var(--v2-faint)]">·</span>
             ) : (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
             )}
             {d.title ? (
-              <span className="w-full truncate text-[8.5px] leading-tight text-[color:var(--v2-muted)]">
+              <span className="w-full truncate text-nano leading-tight text-[color:var(--v2-muted)]">
                 {d.title}
               </span>
             ) : null}

@@ -32,7 +32,7 @@ export function Pill({
 }) {
   const vars = TONE_VARS[tone];
   const base =
-    'inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap';
+    'inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold whitespace-nowrap';
 
   if (variant === 'solid') {
     return (

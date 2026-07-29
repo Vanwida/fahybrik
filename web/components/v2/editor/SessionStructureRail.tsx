@@ -92,7 +92,7 @@ function BlockRow({
           abriendo pieza por pieza a ver cuál falla. */}
       {undosed > 0 ? (
         <p
-          className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-semibold"
+          className="mt-0.5 flex items-center gap-1 truncate text-label font-semibold"
           style={{ color: 'var(--v2-warn)' }}
         >
           <MIcon name="edit_note" size={12} aria-hidden />

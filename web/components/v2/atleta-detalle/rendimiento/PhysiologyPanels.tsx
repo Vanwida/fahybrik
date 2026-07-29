@@ -169,9 +169,9 @@ function DerivedStat({
       <span className="v2-micro">{label}</span>
       <div className="flex items-baseline gap-1">
         <span className="v2-num text-sm font-semibold text-[color:var(--v2-muted)]">{value}</span>
-        {unit ? <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{unit}</span> : null}
+        {unit ? <span className="v2-num text-label text-[color:var(--v2-faint)]">{unit}</span> : null}
       </div>
-      {note ? <span className="text-[11px] text-[color:var(--v2-faint)]">{note}</span> : null}
+      {note ? <span className="text-label text-[color:var(--v2-faint)]">{note}</span> : null}
     </div>
   );
 }
@@ -213,8 +213,8 @@ export function HyroxPredictionPanel({ prediction }: { prediction: HyroxPredicti
                 key={s.station_label}
                 className="flex items-center justify-between gap-2 rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] px-2.5 py-1.5"
               >
-                <span className="truncate text-[11px] text-[color:var(--v2-muted)]">{s.station_label}</span>
-                <span className="v2-num shrink-0 text-[11px] font-semibold text-[color:var(--v2-fg)]">
+                <span className="truncate text-label text-[color:var(--v2-muted)]">{s.station_label}</span>
+                <span className="v2-num shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
                   {fmtClock(s.predicted_seconds)}
                 </span>
               </div>

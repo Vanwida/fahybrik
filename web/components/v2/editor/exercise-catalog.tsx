@@ -153,7 +153,7 @@ export function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'v2-focus rounded-[var(--v2-r-pill)] px-2.5 py-1 text-[11px] font-bold transition-colors',
+        'v2-focus rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold transition-colors',
         active
           ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
           : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -204,17 +204,17 @@ export function YouTubeField({
         )}
       />
       {state === 'valid' ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-ok)]">
+        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-ok)]">
           <MIcon name="play_circle" size={13} />
           Link válido. El atleta verá el vídeo en el detalle del ejercicio en iOS.
         </p>
       ) : state === 'invalid' ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-danger)]">
+        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-danger)]">
           <MIcon name="error" size={13} />
           No es una URL de YouTube válida.
         </p>
       ) : forEdit ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-faint)]">
+        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-faint)]">
           <MIcon name="info" size={13} />
           Sin vídeo todavía. Pega un link y el atleta lo verá al abrir este ejercicio.
         </p>

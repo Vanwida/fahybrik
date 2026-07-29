@@ -143,7 +143,7 @@ export function CopyDayModal({
         {/* Target-week chips (only when the microciclo has >1 week). */}
         {weeks.length > 1 ? (
           <div className="flex flex-wrap items-center gap-1.5 border-b border-[color:var(--v2-border)] px-4 py-3">
-            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+            <span className="mr-1 text-label font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
               Semana
             </span>
             {weeks.map((w) => {
@@ -155,7 +155,7 @@ export function CopyDayModal({
                   onClick={() => pickWeek(w.id)}
                   aria-pressed={active}
                   className={cn(
-                    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 text-[11px] font-semibold transition-colors',
+                    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
                     active
                       ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                       : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -185,7 +185,7 @@ export function CopyDayModal({
                   <span className="text-sm font-semibold text-[color:var(--v2-muted)]">
                     {fullLabel}
                   </span>
-                  <span className="text-[11px] font-medium text-[color:var(--v2-faint)]">
+                  <span className="text-label font-medium text-[color:var(--v2-faint)]">
                     este día
                   </span>
                 </div>
@@ -220,7 +220,7 @@ export function CopyDayModal({
                       {day.modalities.map((m: V2Modality) => (
                         <span
                           key={m}
-                          className="rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[9px] font-semibold leading-none"
+                          className="rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-nano font-semibold leading-none"
                           style={{
                             background: `var(${MODALITY_META[m].softVar})`,
                             color: `var(${MODALITY_META[m].colorVar})`,
@@ -232,7 +232,7 @@ export function CopyDayModal({
                     </span>
                   ) : null}
                 </span>
-                <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">
                   {dayStateLabel(day)}
                 </span>
               </button>
@@ -243,18 +243,18 @@ export function CopyDayModal({
         {/* Footer — overwrite confirmation + copy action. */}
         <footer className="flex flex-col gap-2 border-t border-[color:var(--v2-border)] px-4 py-3">
           {confirming && conflictCount > 0 ? (
-            <p className="text-[12px] text-[color:var(--v2-danger)]">
+            <p className="text-xs text-[color:var(--v2-danger)]">
               {conflictCount === 1
                 ? '1 día destino ya tiene contenido y se sobrescribirá.'
                 : `${conflictCount} días destino ya tienen contenido y se sobrescribirán.`}
             </p>
           ) : errored ? (
-            <p className="text-[12px] text-[color:var(--v2-danger)]">
+            <p className="text-xs text-[color:var(--v2-danger)]">
               No se pudo copiar. Inténtalo de nuevo.
             </p>
           ) : null}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[color:var(--v2-muted)]">
+            <span className="text-label text-[color:var(--v2-muted)]">
               {selectedDays.length === 0
                 ? 'Elige uno o más días'
                 : `${selectedDays.length} día${selectedDays.length === 1 ? '' : 's'} seleccionado${selectedDays.length === 1 ? '' : 's'}`}

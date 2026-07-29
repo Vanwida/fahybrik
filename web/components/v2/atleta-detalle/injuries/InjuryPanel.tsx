@@ -99,22 +99,22 @@ function Timeline({ entries }: { entries: InjuryTimelineEntry[] }) {
             style={{ background: 'var(--v2-accent)' }}
           />
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="v2-num text-[11px] font-semibold text-[color:var(--v2-faint)]">
+            <span className="v2-num text-label font-semibold text-[color:var(--v2-faint)]">
               {formatInjuryDate(e.at)} · {BY_LABEL[e.by]}
             </span>
             {e.kind === 'created' ? (
-              <Pill tone="neutral" className="px-1.5 py-0 text-[10px]">
+              <Pill tone="neutral" className="px-1.5 py-0 text-eyebrow">
                 registrada
               </Pill>
             ) : null}
             {e.status ? (
-              <Pill tone={statusMeta(e.status).tone} variant="soft" className="px-1.5 py-0 text-[10px]">
+              <Pill tone={statusMeta(e.status).tone} variant="soft" className="px-1.5 py-0 text-eyebrow">
                 → {statusMeta(e.status).label}
               </Pill>
             ) : null}
           </div>
           {e.note ? (
-            <p className="mt-0.5 text-[12.5px] leading-snug text-[color:var(--v2-muted)]">{e.note}</p>
+            <p className="mt-0.5 text-xs leading-snug text-[color:var(--v2-muted)]">{e.note}</p>
           ) : null}
         </li>
       ))}
@@ -197,7 +197,7 @@ function OpenInjuryCard({
               {severity.label}
             </Pill>
           </div>
-          <p className="v2-num mt-1 text-[11.5px] text-[color:var(--v2-muted)]">{meta}</p>
+          <p className="v2-num mt-1 text-label text-[color:var(--v2-muted)]">{meta}</p>
         </div>
       </div>
 
@@ -235,12 +235,12 @@ function OpenInjuryCard({
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[color:var(--v2-border)] pt-2.5">
-        <p className="text-[11px] leading-snug text-[color:var(--v2-faint)]">
+        <p className="text-label leading-snug text-[color:var(--v2-faint)]">
           Las sesiones adaptadas no cuentan como fallo de adherencia.
         </p>
         <Link
           href={`/atletas/${athleteId}?tab=sesiones`}
-          className="v2-focus inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-accent)]"
+          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)]"
         >
           <MIcon name="north_east" size={13} /> Ver 1:1
         </Link>
@@ -260,10 +260,10 @@ function ResolvedRow({ injury }: { injury: InjuryDTO }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] px-3 py-2">
       <div className="min-w-0">
-        <span className="truncate text-[13px] font-semibold text-[color:var(--v2-fg)]">
+        <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
           {zoneAndTypeLabel(injury)}
         </span>
-        <span className="v2-num ml-2 text-[11px] text-[color:var(--v2-faint)]">{range}</span>
+        <span className="v2-num ml-2 text-label text-[color:var(--v2-faint)]">{range}</span>
       </div>
       <Pill tone="ok" variant="soft" className="shrink-0">
         {severityMeta(injury.severity).label}

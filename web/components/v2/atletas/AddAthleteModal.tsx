@@ -194,7 +194,7 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
                 aria-invalid={trimmedEmail.length > 0 && !emailValid}
               />
               {trimmedEmail.length > 0 && !emailValid ? (
-                <span className="text-[11px] text-[color:var(--v2-danger)]">
+                <span className="text-label text-[color:var(--v2-danger)]">
                   Email no válido.
                 </span>
               ) : null}
@@ -283,7 +283,7 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
-                <p className="text-[11px] text-[color:var(--v2-faint)]">
+                <p className="text-label text-[color:var(--v2-faint)]">
                   Enlace de un solo uso. Caduca; puedes regenerarlo desde el perfil del atleta.
                 </p>
               </div>

@@ -18,7 +18,7 @@ import type { V2Sequence } from '@/lib/dashboard/v2/secuencias';
 import { SEQUENCE_DAYS_OPTIONS } from './days';
 
 const labelClass =
-  'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
+  'mb-1 block text-label font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
 
 export function DuplicarCeldaModal({
   source,
@@ -121,7 +121,7 @@ export function DuplicarCeldaModal({
         <div className="mb-4 flex items-start justify-between">
           <div className="min-w-0">
             <span className="text-sm font-bold text-[color:var(--v2-fg)]">Duplicar a otra celda</span>
-            <p className="mt-0.5 text-[12px] text-[color:var(--v2-muted)]">
+            <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
               Copia entera de <b className="text-[color:var(--v2-fg)]">{source.levelName} · {source.days} días</b> como
               punto de partida. La copia es independiente: edítala sin tocar el original.
             </p>
@@ -145,7 +145,7 @@ export function DuplicarCeldaModal({
               id="dup-level"
               value={targetLevelId}
               onChange={(e) => setTargetLevelId(e.target.value)}
-              className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
+              className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
             >
               {levels.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -170,7 +170,7 @@ export function DuplicarCeldaModal({
                     onClick={() => setPickedDays(d)}
                     title={occupied ? 'Esta variante ya tiene plan' : undefined}
                     className={cn(
-                      'v2-focus inline-flex h-9 min-w-[52px] items-center justify-center gap-1 rounded-[var(--v2-r-s)] border px-2.5 text-[13px] font-semibold transition-colors',
+                      'v2-focus inline-flex h-9 min-w-[52px] items-center justify-center gap-1 rounded-[var(--v2-r-s)] border px-2.5 text-body font-semibold transition-colors',
                       selected
                         ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                         : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
@@ -184,7 +184,7 @@ export function DuplicarCeldaModal({
               })}
             </div>
             {freeDays.length === 0 ? (
-              <p className="mt-1.5 text-[12px] text-[color:var(--v2-muted)]">
+              <p className="mt-1.5 text-xs text-[color:var(--v2-muted)]">
                 Todas las variantes de{' '}
                 <b className="text-[color:var(--v2-fg)]">{targetLevel?.name ?? 'este nivel'}</b> ya tienen plan.
                 Elige otro nivel.
@@ -193,7 +193,7 @@ export function DuplicarCeldaModal({
           </div>
 
           {error ? (
-            <p role="alert" className="text-[12px] font-medium text-[color:var(--v2-danger)]">
+            <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
               {error}
             </p>
           ) : null}

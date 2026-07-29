@@ -86,7 +86,7 @@ export function RegistrarResultadoForm({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-[color:var(--v2-fg)]">Registrar resultado de test</p>
-          <p className="text-[11px] text-[color:var(--v2-muted)]">
+          <p className="text-label text-[color:var(--v2-muted)]">
             Esfuerzo máximo · calcula las 6 zonas y alimenta los ritmos del plan
           </p>
         </div>
@@ -133,7 +133,7 @@ export function RegistrarResultadoForm({
               className="flex-1"
               onChange={setThresholdS}
             />
-            <span className="shrink-0 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+            <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
               {paceUnitLabel(unit)}
             </span>
           </div>
@@ -142,7 +142,7 @@ export function RegistrarResultadoForm({
 
       <div className="mt-3 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
         <MIcon name="info" size={14} className="shrink-0 text-[color:var(--v2-accent)]" />
-        <p className="text-[11px] leading-snug text-[color:var(--v2-muted)]">
+        <p className="text-label leading-snug text-[color:var(--v2-muted)]">
           {testType.protocol} · objetivo{' '}
           <b className="v2-num text-[color:var(--v2-accent)]">RPE {TEST_TARGET_RPE}</b>. El cálculo
           (ritmo → 6 zonas) lo aplica tu modelo de zonas — no a ojo.
@@ -150,7 +150,7 @@ export function RegistrarResultadoForm({
       </div>
 
       {error ? (
-        <p className="mt-2.5 text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="mt-2.5 text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       <div className="mt-3 flex items-center justify-end gap-2">
@@ -158,7 +158,7 @@ export function RegistrarResultadoForm({
           <button
             type="button"
             onClick={onDone}
-            className="v2-focus rounded-[var(--v2-r-s)] px-3 py-1.5 text-[12px] font-bold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus rounded-[var(--v2-r-s)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             Cancelar
           </button>
@@ -168,7 +168,7 @@ export function RegistrarResultadoForm({
           onClick={save}
           disabled={saving}
           className={cn(
-            'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-3.5 py-1.5 text-[12px] font-bold transition-colors',
+            'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-3.5 py-1.5 text-xs font-bold transition-colors',
             'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
             saving && 'opacity-60',
           )}

@@ -49,7 +49,7 @@ function ActionButton({
       onClick={onClick}
       disabled={busy}
       className={cn(
-        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         meta.tone === 'danger'
           ? 'border-[color:var(--v2-border)] text-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]'
           : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
@@ -166,7 +166,7 @@ function BajaDialog({ athleteId, onClose }: { athleteId: string; onClose: () => 
     >
       <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/30 bg-[color:var(--v2-warn-soft)] px-3.5 py-2.5">
         <MIcon name="info" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-        <p className="text-[13px] leading-relaxed text-[color:var(--v2-fg)]">
+        <p className="text-body leading-relaxed text-[color:var(--v2-fg)]">
           Congela el plan y la factura sigue hasta el fin del periodo. El historial se conserva y
           podrás darle de re-alta más adelante.
         </p>
@@ -215,7 +215,7 @@ function ReAltaDialog({ athleteId, onClose }: { athleteId: string; onClose: () =
       {overCapacity ? (
         <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-3.5 py-3">
           <MIcon name="warning" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-          <p className="text-[13px] leading-relaxed text-[color:var(--v2-fg)]">
+          <p className="text-body leading-relaxed text-[color:var(--v2-fg)]">
             El atleta ya vuelve a estar activo, pero has superado tu cupo. Libera una plaza o ajusta
             tu capacidad cuando puedas.
           </p>

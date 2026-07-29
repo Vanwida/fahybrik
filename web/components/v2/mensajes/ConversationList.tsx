@@ -181,7 +181,7 @@ function ConversationRow({
               navegador pueden pintar distinto durante un render. */}
           <span
             suppressHydrationWarning
-            className="v2-num shrink-0 text-[10px] text-[color:var(--v2-faint)]"
+            className="v2-num shrink-0 text-eyebrow text-[color:var(--v2-faint)]"
           >
             {listTime(thread.last_message_at)}
           </span>
@@ -202,7 +202,7 @@ function ConversationRow({
           {unread ? (
             <span
               aria-label={`${thread.unread_count} sin leer`}
-              className="v2-num inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[color:var(--v2-accent)] px-1 text-[10px] font-bold text-[color:var(--v2-accent-fg)]"
+              className="v2-num inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[color:var(--v2-accent)] px-1 text-eyebrow font-bold text-[color:var(--v2-accent-fg)]"
             >
               {thread.unread_count}
             </span>

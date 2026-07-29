@@ -33,7 +33,7 @@ export function LevelBadge({
       className={cn(
         'inline-flex items-center rounded-[var(--v2-r-xs)] px-1.5 py-0.5',
         'border border-[color:var(--v2-border-strong)] text-[color:var(--v2-muted)]',
-        'v2-num text-[10px] font-bold tracking-wide',
+        'v2-num text-eyebrow font-bold tracking-wide',
         className,
       )}
       title={`Nivel ${level}`}

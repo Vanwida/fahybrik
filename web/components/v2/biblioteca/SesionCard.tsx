@@ -39,7 +39,7 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
         </h3>
         {sesion.is_draft ? (
           <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
             style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
             title="Borrador — aún no la has dado por buena"
           >
@@ -53,14 +53,14 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {sesion.group_label ? (
           <span
-            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
             style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
           >
             {sesion.group_label}
           </span>
         ) : null}
         {sesion.format_label ? (
-          <span className="text-[11px] text-[color:var(--v2-faint)]">{sesion.format_label}</span>
+          <span className="text-label text-[color:var(--v2-faint)]">{sesion.format_label}</span>
         ) : null}
       </div>
 

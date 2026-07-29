@@ -235,7 +235,7 @@ export function IntakeReview({
             <div className="flex flex-col gap-2">
               <ClasificacionCard athleteId={athleteId} data={classification} />
               {month_proposal ? (
-                <p className="flex items-start gap-1.5 px-0.5 text-[11px] text-[color:var(--v2-faint)]">
+                <p className="flex items-start gap-1.5 px-0.5 text-label text-[color:var(--v2-faint)]">
                   <MIcon name="auto_awesome" size={13} className="mt-px" />
                   <span>
                     Para su nivel, plantilla de referencia: {month_proposal.month_name}.

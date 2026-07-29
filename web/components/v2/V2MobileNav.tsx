@@ -53,7 +53,7 @@ function TabBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <span
-      className="absolute -right-2.5 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-bold"
+      className="absolute -right-2.5 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-nano font-bold"
       style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
     >
       {count > 9 ? '9+' : count}
@@ -110,7 +110,7 @@ export function V2MobileNav({
   const tabClass = (active: boolean) =>
     cn(
       'v2-focus relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--v2-r-s)] px-1 pb-1 pt-1.5',
-      'text-[10px] font-bold tracking-[0.02em] transition-colors',
+      'text-eyebrow font-bold tracking-[0.02em] transition-colors',
       active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]',
     );
 
@@ -144,7 +144,7 @@ export function V2MobileNav({
         {sheetGroups.map((group, gi) => (
           <div key={group.label ?? `group-${gi}`} className="flex flex-col gap-2">
             {group.label ? (
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
+              <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
                 {group.label}
               </span>
             ) : null}

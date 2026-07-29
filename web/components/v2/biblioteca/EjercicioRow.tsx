@@ -78,7 +78,7 @@ export function EjercicioRow({
         </span>
 
         <span
-          className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+          className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
           style={{
             background: `var(${origin.bgVar})`,
             color: `var(${origin.fgVar})`,

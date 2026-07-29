@@ -42,7 +42,7 @@ export function DetalleTabBar({
             href={`/atletas/${athlete_id}?tab=${tab}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'v2-focus relative -mb-px shrink-0 whitespace-nowrap px-3 py-2.5 text-[13px] font-semibold transition-colors',
+              'v2-focus relative -mb-px shrink-0 whitespace-nowrap px-3 py-2.5 text-body font-semibold transition-colors',
               isActive
                 ? 'text-[color:var(--v2-fg)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

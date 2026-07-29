@@ -239,7 +239,7 @@ export function AsignarAtletaModal({
                           </span>
                           <span className="flex shrink-0 items-center gap-2">
                             {a.level_name ? (
-                              <span className="v2-num text-[10px] font-semibold text-[color:var(--v2-muted)]">
+                              <span className="v2-num text-eyebrow font-semibold text-[color:var(--v2-muted)]">
                                 {a.level_name}
                               </span>
                             ) : null}

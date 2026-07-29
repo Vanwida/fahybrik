@@ -15,7 +15,7 @@ import {
 
 // ── Shared button class strings (v2 tokens only) ────────────────────────────────
 const BTN_BASE =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
 
 export const DIALOG_PRIMARY_CLS = cn(
   BTN_BASE,

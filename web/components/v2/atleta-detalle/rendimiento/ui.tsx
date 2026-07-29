@@ -79,7 +79,7 @@ export function MiniTrend({
   if (finiteCount(values) < 2) {
     return (
       <div
-        className="flex items-center text-[11px] text-[color:var(--v2-faint)]"
+        className="flex items-center text-label text-[color:var(--v2-faint)]"
         style={{ height }}
       >
         Sin serie suficiente
@@ -93,7 +93,7 @@ export function MiniTrend({
 export function Chip({ label, value, tone }: { label: string; value?: string; tone: Tone }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-semibold"
       style={{ background: `var(${TONE_SOFT_VAR[tone]})`, color: `var(${TONE_VAR[tone]})` }}
     >
       <span>{label}</span>

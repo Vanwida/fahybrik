@@ -33,8 +33,8 @@ interface LevelOption {
 }
 
 const selectClass =
-  'h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]';
-const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
+  'h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]';
+const labelClass = 'mb-1 block text-label font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
 
 export function NuevoMicrocicloModal({
   onClose,
@@ -161,7 +161,7 @@ export function NuevoMicrocicloModal({
           <div className="min-w-0">
             <span className="text-sm font-bold text-[color:var(--v2-fg)]">Crear microciclo nuevo</span>
             {lockedLevel ? (
-              <p className="mt-0.5 text-[12px] text-[color:var(--v2-muted)]">
+              <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
                 para <b className="text-[color:var(--v2-fg)]">{lockedLevel.name}</b>
                 {daysContext != null ? (
                   <>
@@ -183,12 +183,12 @@ export function NuevoMicrocicloModal({
         </div>
 
         {loadingData ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-[color:var(--v2-muted)]">
+          <div className="flex items-center justify-center gap-2 py-10 text-body text-[color:var(--v2-muted)]">
             <MIcon name="progress_activity" size={18} className="animate-spin" />
             Cargando tus niveles…
           </div>
         ) : !lockedLevel && levels.length === 0 ? (
-          <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-[13px] text-[color:var(--v2-muted)]">
+          <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-body text-[color:var(--v2-muted)]">
             Define al menos un nivel en Periodización › Niveles antes de crear un microciclo.
           </div>
         ) : (
@@ -204,7 +204,7 @@ export function NuevoMicrocicloModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="p. ej. Base aeróbica · bloque 1"
                 autoFocus
-                className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none focus:border-[color:var(--v2-accent)]"
+                className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none focus:border-[color:var(--v2-accent)]"
               />
             </div>
 
@@ -219,7 +219,7 @@ export function NuevoMicrocicloModal({
                     title={`${lockedLevel.name} · ${lockedLevel.label}`}
                   >
                     <LevelBadge level={lockedLevel.name} />
-                    <span className="truncate text-[13px] text-[color:var(--v2-fg)]">
+                    <span className="truncate text-body text-[color:var(--v2-fg)]">
                       {lockedLevel.label}
                     </span>
                   </div>
@@ -252,13 +252,13 @@ export function NuevoMicrocicloModal({
                     const n = Number(e.target.value);
                     if (Number.isFinite(n)) setWeeks(Math.min(MAX_WEEKS, Math.max(MIN_WEEKS, Math.round(n))));
                   }}
-                  className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
+                  className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
                 />
               </div>
             </div>
 
             {error ? (
-              <p className="text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+              <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
             ) : null}
 
             <div className="mt-1 flex items-center justify-end gap-2">

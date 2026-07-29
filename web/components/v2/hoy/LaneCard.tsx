@@ -37,7 +37,7 @@ const ACTION_META: Record<V2LaneAction, ActionMeta> = {
 };
 
 const ACTION_BTN_CLS =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
 
 function linkCls(primary?: boolean): string {
   return cn(
@@ -152,7 +152,7 @@ export function LaneCard({ card, index }: { card: V2LaneCard; index: number }) {
           <LevelBadge level={card.level} />
         </div>
         {card.age_label ? (
-          <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+          <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">
             {card.age_label}
           </span>
         ) : null}

@@ -35,7 +35,7 @@ export function AdvancedHatch({
           className="shrink-0 text-[color:var(--v2-faint)]"
         />
         <span className="text-xs font-bold text-[color:var(--v2-muted)]">Ajuste avanzado</span>
-        <span className="ml-auto hidden text-[11px] text-[color:var(--v2-faint)] sm:inline">
+        <span className="ml-auto hidden text-label text-[color:var(--v2-faint)] sm:inline">
           modalidad · medida · objetivo · esquema — para el caso que el tipo no cubre
         </span>
       </button>

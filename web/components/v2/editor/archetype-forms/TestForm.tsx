@@ -81,7 +81,7 @@ export function TestForm({
       </div>
 
       {/* Protocol descriptor */}
-      <p className="text-[11px] text-[color:var(--v2-muted)]">{protocol}</p>
+      <p className="text-label text-[color:var(--v2-muted)]">{protocol}</p>
 
       {/* "Almacena ritmo / zonas" — the resolver declaration (naranja) */}
       <div
@@ -90,10 +90,10 @@ export function TestForm({
       >
         <MIcon name="download" size={16} className="shrink-0 text-[color:var(--v2-accent)]" />
         <div className="min-w-0">
-          <p className="text-[12px] font-bold text-[color:var(--v2-accent)]">
+          <p className="text-xs font-bold text-[color:var(--v2-accent)]">
             Almacena ritmo / zonas
           </p>
-          <p className="text-[11px] leading-snug text-[color:var(--v2-muted)]">
+          <p className="text-label leading-snug text-[color:var(--v2-muted)]">
             El resultado calcula las 6 zonas del atleta y recalcula sus ritmos objetivo en todo el
             plan.
           </p>

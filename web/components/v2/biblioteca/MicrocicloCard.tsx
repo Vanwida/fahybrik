@@ -109,7 +109,7 @@ export function MicrocicloCard({
       </div>
 
       {duplicateError ? (
-        <p className="relative z-10 mt-2 text-[11px] font-semibold text-[color:var(--v2-danger)]">
+        <p className="relative z-10 mt-2 text-label font-semibold text-[color:var(--v2-danger)]">
           No se pudo duplicar el microciclo. Inténtalo de nuevo.
         </p>
       ) : null}

@@ -30,7 +30,7 @@ import { Rail } from '@/components/v2/Rail';
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
 const BTN_BASE =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
 
 // ── Actionable "why not" mapping ────────────────────────────────────────────────
 // Each blocked reason maps to ONE concrete fix the coach can act on. Days-related
@@ -125,7 +125,7 @@ function ProposalCard({
       </p>
 
       {error ? (
-        <p className="mt-1.5 text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="mt-1.5 text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       {/* Actions */}
@@ -255,7 +255,7 @@ export function AsignacionSugeridaStrip({
           Asignación sugerida
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {visible.length}

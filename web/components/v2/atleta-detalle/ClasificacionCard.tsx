@@ -115,7 +115,7 @@ export function ClasificacionCard({
               type="button"
               disabled={busy}
               onClick={() => chooseLevel(data.suggested_level_id!)}
-              className="v2-focus inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-accent)] hover:underline disabled:opacity-50"
+              className="v2-focus inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)] hover:underline disabled:opacity-50"
             >
               <MIcon name="auto_awesome" size={13} />
               Sugerido: {data.suggested_level_name}
@@ -123,7 +123,7 @@ export function ClasificacionCard({
           ) : null}
         </div>
         {showSuggestion && data.suggested_level_reason ? (
-          <p className="flex items-start gap-1 text-[11px] text-[color:var(--v2-faint)]">
+          <p className="flex items-start gap-1 text-label text-[color:var(--v2-faint)]">
             <MIcon name="insights" size={12} className="mt-px shrink-0" />
             <span>{data.suggested_level_reason}</span>
           </p>
@@ -195,7 +195,7 @@ export function ClasificacionCard({
       </div>
 
       {error ? (
-        <p className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
     </Panel>
   );

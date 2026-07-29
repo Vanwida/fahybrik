@@ -61,13 +61,13 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
       {/* Grupo + procedencia del Excel (desambigua títulos repetidos) */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
-          className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+          className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
           style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
         >
           {bloque.group_label}
         </span>
         {bloque.source_ref ? (
-          <span className="text-[11px] text-[color:var(--v2-faint)]">{bloque.source_ref}</span>
+          <span className="text-label text-[color:var(--v2-faint)]">{bloque.source_ref}</span>
         ) : null}
       </div>
 
@@ -78,7 +78,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
 
       {/* Qué contiene. Un bloque puede traer VARIAS piezas (block_position). */}
       {bloque.typed ? (
-        <p className="mt-2 text-[11px] text-[color:var(--v2-faint)]">
+        <p className="mt-2 text-label text-[color:var(--v2-faint)]">
           <span className="v2-num">{bloque.exercise_count}</span>{' '}
           {bloque.exercise_count === 1 ? 'ejercicio' : 'ejercicios'}
           {bloque.part_count > 1 ? (
@@ -93,7 +93,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
       {/* CUÁNTAS líneas le faltan — el coach necesita saber el tamaño del arreglo
           antes de abrir, no solo que "algo" falta. */}
       {bloque.readiness === 'sin_dosis' ? (
-        <p className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--v2-warn)' }}>
+        <p className="mt-1 text-label font-semibold" style={{ color: 'var(--v2-warn)' }}>
           <span className="v2-num">{bloque.undosed_count}</span>{' '}
           {bloque.undosed_count === 1 ? 'línea sin dosis' : 'líneas sin dosis'} · ábrelo para
           completarlas
@@ -107,7 +107,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
 function StateBadge({ icon, label, title }: { icon: string; label: string; title: string }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
       style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
       title={title}
     >

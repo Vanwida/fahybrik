@@ -23,7 +23,7 @@ import type { V2SiguienteMicrocicloCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { Rail } from '@/components/v2/Rail';
 
 const BTN_BASE =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
 
 // Action → the verb on the button + the trailing "siguiente:" clause.
 function actionCopy(card: V2SiguienteMicrocicloCard): { button: string; next: React.ReactNode } {
@@ -131,7 +131,7 @@ function Card({
       </p>
 
       {error ? (
-        <p className="mt-1.5 text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="mt-1.5 text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       {/* Actions */}
@@ -187,7 +187,7 @@ export function SiguienteMicrocicloStrip({
           Siguiente microciclo
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {visible.length}

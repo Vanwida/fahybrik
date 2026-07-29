@@ -111,7 +111,7 @@ export function BorrarEjercicioDialog({
                     Vas a borrar «<b className="text-[color:var(--v2-fg)]">{ex.name}</b>» de tu
                     catálogo. No se puede deshacer.
                   </p>
-                  <p className="mt-1.5 text-[12px] leading-relaxed text-[color:var(--v2-faint)]">
+                  <p className="mt-1.5 text-xs leading-relaxed text-[color:var(--v2-faint)]">
                     Si lo tienes puesto en alguna sesión o bloque, te lo diremos y no se borrará.
                   </p>
                 </>
@@ -120,7 +120,7 @@ export function BorrarEjercicioDialog({
           </div>
 
           {retryable ? (
-            <p role="alert" className="mt-3 text-[13px] font-semibold text-[color:var(--v2-danger)]">
+            <p role="alert" className="mt-3 text-body font-semibold text-[color:var(--v2-danger)]">
               No se pudo borrar. Reinténtalo.
             </p>
           ) : null}

@@ -46,7 +46,7 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
           action={
             <Link
               href={data.back_href}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
             >
               <MIcon name="arrow_back" size={17} />
               Volver al plan

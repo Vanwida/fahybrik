@@ -99,10 +99,10 @@ export function ReadinessPanel({
                     className="h-2 w-2 shrink-0 rounded-full"
                     style={{ background: `var(${TONE_VAR[BAND_TONE[band]]})` }}
                   />
-                  <span className="min-w-0 truncate text-[11px] text-[color:var(--v2-muted)]">
+                  <span className="min-w-0 truncate text-label text-[color:var(--v2-muted)]">
                     {RACE_READINESS_BAND_LABEL_ES[band]}
                   </span>
-                  <span className="v2-num ml-auto shrink-0 text-[11px] font-semibold text-[color:var(--v2-fg)]">
+                  <span className="v2-num ml-auto shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
                     {reading.bands[band]}
                     <span className="text-[color:var(--v2-faint)]">
                       /{RACE_READINESS_BAND_MAX[band]}
@@ -203,7 +203,7 @@ export function PolarizationPanel({
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {INTENSITY.map((z) => (
-              <span key={z.key} className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-muted)]">
+              <span key={z.key} className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
                 <span
                   aria-hidden
                   className="h-2 w-2 rounded-full"
@@ -212,7 +212,7 @@ export function PolarizationPanel({
                 {z.label}
               </span>
             ))}
-            <span className="v2-num ml-auto text-[11px] text-[color:var(--v2-faint)]">
+            <span className="v2-num ml-auto text-label text-[color:var(--v2-faint)]">
               Objetivo 80 / 0 / 20
             </span>
           </div>
@@ -249,9 +249,9 @@ function PolarizationRow({ w }: { w: PolarizationByWindow }) {
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{WINDOW_LABEL[w.window]}</span>
         {pct == null || total <= 0 ? (
-          <span className="text-[11px] text-[color:var(--v2-faint)]">Sin datos</span>
+          <span className="text-label text-[color:var(--v2-faint)]">Sin datos</span>
         ) : (
-          <span className="v2-num text-[11px] text-[color:var(--v2-muted)]">
+          <span className="v2-num text-label text-[color:var(--v2-muted)]">
             {pct.low} / {pct.mid} / {pct.high}
             {drift != null ? (
               <>
@@ -334,7 +334,7 @@ function ExerciseCard({ ex }: { ex: ExerciseTimeSeries }) {
 function Metric({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="v2-micro text-[9px]">{label}</span>
+      <span className="v2-micro text-nano">{label}</span>
       <span
         className={
           strong

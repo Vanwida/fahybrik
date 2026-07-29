@@ -48,6 +48,29 @@
   --color-z4: var(--z4);
   --color-z5: var(--z5);
 
+  /* ── ESCALA DE TIPO DEL DASHBOARD (9 · 10 · 11 · 12 · 13 · 15 · 18) ────────
+     Genera utilidades `text-<nombre>`. Existe porque `--type-*` (más abajo) son
+     ATAJOS `font:` — llevan dentro peso, estilo, interlineado y familia — así
+     que `font: var(--type-small)` sobre un `.v2-num font-bold` le pisaría la
+     mono Y el peso. Para una utilidad de Tailwind hace falta la escala de
+     TAMAÑO sola, que es esto. Los valores NO se inventan: son los de `--type-*`
+     donde ya existían (11 = --type-data-label · 12 = --type-caption ·
+     13 = --type-small), más cuatro peldaños que a esa escala le faltaban porque
+     nació para pantallas de iOS, no para una tabla densa de escritorio.
+
+     Deliberadamente SIN `--text-*--line-height`: así una utilidad solo cambia
+     el tamaño, exactamente como hacía el `text-[Npx]` que sustituye, y ninguna
+     conversión mueve el interlineado de una vista.
+
+     12px NO está aquí a propósito: es `text-xs` de Tailwind, que ya se usa en
+     326 sitios. Un token nuevo de 12px sería un sinónimo. */
+  --text-nano: 9px;     /* badge de conteo, micro-etiqueta comprimida       */
+  --text-eyebrow: 10px; /* cabecera de tabla / de sección, MAYÚSCULAS+track */
+  --text-label: 11px;   /* la etiqueta densa troncal (= --type-data-label)  */
+  --text-body: 13px;    /* cuerpo del dashboard (= --type-small)            */
+  --text-reading: 15px; /* título de diálogo, input, prosa larga           */
+  --text-data: 18px;    /* EL número grande de un panel                     */
+
   /* Spacing scale (4 · 8 · 12 · 16 · 24 · 32 · 48) */
   --spacing-xs: 4px;
   --spacing-s: 8px;

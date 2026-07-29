@@ -29,8 +29,8 @@ export const MAX_TEXT = 2000;
 export const inputCls =
   'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-2 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]';
 export const labelCls =
-  'mb-1 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]';
-export const hintCls = 'mt-1 text-[11px] leading-relaxed text-[color:var(--v2-faint)]';
+  'mb-1 flex items-center justify-between gap-2 text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]';
+export const hintCls = 'mt-1 text-label leading-relaxed text-[color:var(--v2-faint)]';
 
 /** Texto separado por comas ↔ array (músculos / material). */
 export function parseList(text: string): string[] {
@@ -49,7 +49,7 @@ export function RestoreButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-xs)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-xs)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
     >
       <MIcon name="undo" size={12} />
       Restaurar
@@ -139,7 +139,7 @@ export function SharedIdentity({
   ];
   return (
     <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
+      <p className="flex items-center gap-1.5 text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
         <MIcon name="lock" size={13} />
         Esto define el movimiento
       </p>
@@ -151,7 +151,7 @@ export function SharedIdentity({
           </div>
         ))}
       </dl>
-      <p className="mt-2.5 text-[11px] leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="mt-2.5 text-label leading-relaxed text-[color:var(--v2-muted)]">
         Es igual para todos y no se cambia: la app cuenta con ello para las analíticas y para
         adaptar el entreno. ¿Necesitas otro movimiento?
       </p>
@@ -174,7 +174,7 @@ export function SharedIdentity({
  */
 function SuggestedTag() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
+    <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
       <MIcon name="lightbulb" size={11} />
       Sugerida
     </span>

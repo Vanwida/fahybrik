@@ -246,7 +246,7 @@ export function ChatComposer({
           disabled={disabled}
           aria-label="Mensaje"
           className={cn(
-            'v2-focus min-h-9 flex-1 resize-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-3 py-2 text-[13px]',
+            'v2-focus min-h-9 flex-1 resize-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-3 py-2 text-body',
             'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
             'focus:border-[color:var(--v2-border-strong)] disabled:opacity-50',
           )}
@@ -257,7 +257,7 @@ export function ChatComposer({
           onClick={() => void submit()}
           disabled={!canSend}
           className={cn(
-            'v2-focus flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-[13px] font-semibold transition-colors',
+            'v2-focus flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors',
             'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
             'disabled:cursor-not-allowed disabled:opacity-40',
           )}
@@ -335,10 +335,10 @@ function AttachmentPreview({
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-[color:var(--v2-fg)]">
+        <span className="block truncate text-body font-medium text-[color:var(--v2-fg)]">
           {isVoice ? 'Nota de voz' : attachment.file.name}
         </span>
-        <span className="v2-num block text-[11px] text-[color:var(--v2-faint)]">
+        <span className="v2-num block text-label text-[color:var(--v2-faint)]">
           {duration ?? `${Math.max(1, Math.round(attachment.file.size / 1024))} KB`}
         </span>
       </span>
@@ -379,22 +379,22 @@ function RecordingBar({
         className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[color:var(--v2-danger)] motion-reduce:animate-none"
         aria-hidden
       />
-      <span className="text-[13px] font-medium text-[color:var(--v2-fg)]">Grabando</span>
-      <span className="v2-num text-[13px] tabular-nums text-[color:var(--v2-muted)]" role="timer">
+      <span className="text-body font-medium text-[color:var(--v2-fg)]">Grabando</span>
+      <span className="v2-num text-body tabular-nums text-[color:var(--v2-muted)]" role="timer">
         {label}
       </span>
       <span className="flex-1" />
       <button
         type="button"
         onClick={onCancel}
-        className="v2-focus rounded-[var(--v2-r-s)] px-2.5 py-1.5 text-[13px] font-semibold text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus rounded-[var(--v2-r-s)] px-2.5 py-1.5 text-body font-semibold text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
       >
         Descartar
       </button>
       <button
         type="button"
         onClick={onStop}
-        className="v2-focus flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+        className="v2-focus flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
       >
         <MIcon name="stop" size={16} filled />
         Listo

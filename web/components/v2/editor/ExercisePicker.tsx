@@ -359,7 +359,7 @@ function ExerciseRow({
             {ex.name}
           </span>
           {sub ? (
-            <span className="block truncate text-[11px] text-[color:var(--v2-faint)]">{sub}</span>
+            <span className="block truncate text-label text-[color:var(--v2-faint)]">{sub}</span>
           ) : null}
         </span>
       </button>
@@ -370,7 +370,7 @@ function ExerciseRow({
           Antes vivía aquí un mapa local de cinco cubos que además ya había derivado
           de MODALITY_META ("Circuito" allí, "Funcional" aquí). */}
       <span
-        className="shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+        className="shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
         style={{
           background: `var(--v2-mod-${slug}-soft)`,
           color: `var(--v2-mod-${slug})`,

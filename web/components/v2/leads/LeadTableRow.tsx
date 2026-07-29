@@ -96,7 +96,7 @@ export function LeadTableRow({ lead, index }: { lead: LeadListItem; index: numbe
           </div>
           {/* Line 2 — one truncating line of short metadata */}
           {detail.length > 0 ? (
-            <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+            <span className="truncate text-label text-[color:var(--v2-muted)]">
               {detail.join(' · ')}
             </span>
           ) : null}

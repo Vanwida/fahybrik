@@ -129,7 +129,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
                       <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)] transition-colors group-hover:text-[color:var(--v2-accent)]">
                         {name}
                       </span>
-                      <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+                      <span className="truncate text-label text-[color:var(--v2-muted)]">
                         {meta ? `${meta} · ` : ''}en espera desde {formatRelative(e.waitlisted_at)}
                       </span>
                     </span>
@@ -158,7 +158,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
               {rowNote ? (
                 <p
                   role="alert"
-                  className="pl-10 text-[11px] font-medium sm:pl-0"
+                  className="pl-10 text-label font-medium sm:pl-0"
                   style={{ color: `var(--v2-${rowNote.tone})` }}
                 >
                   {rowNote.text}
@@ -170,7 +170,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
       </ul>
 
       {/* Hybrid model (#18): the queue auto-releases in FIFO order; the manual button overrides it. */}
-      <p className="border-t border-[color:var(--v2-border)] px-3 py-2 text-[11px] leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="border-t border-[color:var(--v2-border)] px-3 py-2 text-label leading-relaxed text-[color:var(--v2-muted)]">
         Automático: cuando se libera una plaza avisamos al primero de la cola. «Liberar plaza» se
         salta el orden.
       </p>

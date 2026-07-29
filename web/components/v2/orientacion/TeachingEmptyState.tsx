@@ -60,7 +60,7 @@ export function TeachingEmptyState({
             </p>
           ) : null}
           {why ? (
-            <p className="max-w-[22rem] text-pretty text-[11.5px] leading-relaxed text-[color:var(--v2-faint)] [&_b]:font-semibold [&_b]:text-[color:var(--v2-muted)]">
+            <p className="max-w-[22rem] text-pretty text-label leading-relaxed text-[color:var(--v2-faint)] [&_b]:font-semibold [&_b]:text-[color:var(--v2-muted)]">
               {why}
             </p>
           ) : null}
@@ -75,7 +75,7 @@ export function TeachingEmptyState({
 /** The 5-step pipeline order as a compact breadcrumb, current step in accent. */
 function MiniFlow({ highlight }: { highlight: PipelineStepKey }) {
   return (
-    <div className="inline-flex flex-wrap items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-1.5 text-[11px] text-[color:var(--v2-muted)]">
+    <div className="inline-flex flex-wrap items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-1.5 text-label text-[color:var(--v2-muted)]">
       {PIPELINE_STEP_META.map((s, i) => {
         const on = s.key === highlight;
         return (

@@ -255,7 +255,7 @@ function VoiceAttachment({ url, message }: { url: string; message: MessageDTO })
         className="v2-focus h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-[color:var(--v2-border-strong)] accent-[color:var(--v2-accent)]"
       />
       {remaining ? (
-        <span className="v2-num shrink-0 text-[11px] tabular-nums text-[color:var(--v2-muted)]">
+        <span className="v2-num shrink-0 text-label tabular-nums text-[color:var(--v2-muted)]">
           {remaining}
         </span>
       ) : null}
@@ -290,11 +290,11 @@ function FileAttachment({ url, message }: { url: string; message: MessageDTO }) 
         className="shrink-0 text-[color:var(--v2-muted)]"
       />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-[color:var(--v2-fg)]">
+        <span className="block truncate text-body font-medium text-[color:var(--v2-fg)]">
           {label}
         </span>
         {size ? (
-          <span className="v2-num block text-[11px] text-[color:var(--v2-faint)]">
+          <span className="v2-num block text-label text-[color:var(--v2-faint)]">
             {humanBytes(size)}
           </span>
         ) : null}

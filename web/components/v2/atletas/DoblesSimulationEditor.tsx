@@ -41,7 +41,7 @@ interface StationState {
 const SHARE_STEP = 0.05;
 
 const BTN_BASE =
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-[13px] font-semibold transition-colors disabled:opacity-50';
+  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors disabled:opacity-50';
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -237,7 +237,7 @@ export function DoblesSimulationEditor({
         <div className="mb-1 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Reparto de la simulación</h2>
-            <p className="mt-0.5 truncate text-[13px] text-[color:var(--v2-muted)]">
+            <p className="mt-0.5 truncate text-body text-[color:var(--v2-muted)]">
               {aName} <span className="text-[color:var(--v2-accent)]">·</span> {bName}
             </p>
           </div>
@@ -254,14 +254,14 @@ export function DoblesSimulationEditor({
         {/* Provenance — the reparto is the pair's; the coach recommends and either
             athlete can adjust it from the app. Shows who last touched it. */}
         {provenanceLabel ? (
-          <p className="mb-2 text-[11px] font-semibold text-[color:var(--v2-muted)]">{provenanceLabel}</p>
+          <p className="mb-2 text-label font-semibold text-[color:var(--v2-muted)]">{provenanceLabel}</p>
         ) : null}
 
         {/* Effect explainer — what the coach edits here is what each athlete sees,
             reframed as a recommendation the pair can adjust. */}
         <div className="mb-4 flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
           <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]" />
-          <p className="text-[12px] leading-snug text-[color:var(--v2-muted)]">
+          <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
             Tu recomendación de reparto para la simulación HYROX. La pareja puede ajustarla
             desde la app; cada atleta ve lo que esté puesto en su sesión (móvil y reloj):
             quién arranca cada estación, su parte y la nota.
@@ -269,9 +269,9 @@ export function DoblesSimulationEditor({
         </div>
 
         {loading ? (
-          <p className="py-8 text-center text-[13px] text-[color:var(--v2-muted)]">Cargando…</p>
+          <p className="py-8 text-center text-body text-[color:var(--v2-muted)]">Cargando…</p>
         ) : loadError ? (
-          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-[13px] text-[color:var(--v2-danger)]">
+          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-body text-[color:var(--v2-danger)]">
             {loadError}
           </p>
         ) : (
@@ -300,7 +300,7 @@ export function DoblesSimulationEditor({
             </div>
 
             {saveError ? (
-              <p className="mt-3 text-[12px] font-medium text-[color:var(--v2-danger)]">{saveError}</p>
+              <p className="mt-3 text-xs font-medium text-[color:var(--v2-danger)]">{saveError}</p>
             ) : null}
 
             {/* Footer */}
@@ -370,7 +370,7 @@ function StationRow({
     <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--v2-surface-2)] text-[11px] font-bold text-[color:var(--v2-muted)]">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]">
             {station.station_index}
           </span>
           <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{station.label}</span>
@@ -385,12 +385,12 @@ function StationRow({
       </div>
 
       {/* Effect line — always visible so the coach reads what each athlete will get. */}
-      <p className="mt-2 text-[12px] font-medium text-[color:var(--v2-muted)]">{effect}</p>
+      <p className="mt-2 text-xs font-medium text-[color:var(--v2-muted)]">{effect}</p>
 
       {/* Share slider — only when the station is shared. */}
       {isSplit ? (
         <div className="mt-2 flex items-center gap-3">
-          <span className="w-16 shrink-0 text-right text-[11px] font-semibold text-[color:var(--v2-fg)]">
+          <span className="w-16 shrink-0 text-right text-label font-semibold text-[color:var(--v2-fg)]">
             {aName.split(' ')[0]} {aPct}%
           </span>
           <input
@@ -403,7 +403,7 @@ function StationRow({
             className="h-1.5 flex-1 cursor-pointer accent-[color:var(--v2-accent)]"
             aria-label={`Parte de ${aName} en ${station.label}`}
           />
-          <span className="w-16 shrink-0 text-[11px] font-semibold text-[color:var(--v2-fg)]">
+          <span className="w-16 shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
             {bName.split(' ')[0]} {100 - aPct}%
           </span>
         </div>
@@ -416,7 +416,7 @@ function StationRow({
         onChange={(e) => onNote(e.target.value)}
         maxLength={120}
         placeholder="Nota (ej. alterna 250m)"
-        className="v2-focus mt-2 h-8 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-2.5 text-[12px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
+        className="v2-focus mt-2 h-8 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-2.5 text-xs text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
       />
     </div>
   );
@@ -437,14 +437,14 @@ function NoteBox({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">{label}</span>
+      <span className="text-label font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={500}
         rows={2}
         placeholder={placeholder}
-        className="v2-focus min-h-[52px] w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-2 text-[12px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
+        className="v2-focus min-h-[52px] w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-2 text-xs text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
       />
     </label>
   );

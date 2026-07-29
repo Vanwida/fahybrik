@@ -30,7 +30,7 @@ function Avatar({ name, kind }: { name: string; kind: 'coach' | 'athlete' }) {
       aria-hidden
       className={cn(
         'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full',
-        'text-[9px] font-bold ring-1 ring-inset',
+        'text-nano font-bold ring-1 ring-inset',
         kind === 'coach'
           ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)] ring-[color:var(--v2-accent)]'
           : 'bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)] ring-[color:var(--v2-info)]',
@@ -70,7 +70,7 @@ export function AuthorStamp({ kind, name, verb, at, createdBy, className }: Auth
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 text-[11px] leading-none text-[color:var(--v2-muted)]',
+        'inline-flex items-center gap-1.5 text-label leading-none text-[color:var(--v2-muted)]',
         className,
       )}
     >
@@ -86,7 +86,7 @@ export function AuthorStamp({ kind, name, verb, at, createdBy, className }: Auth
       ) : (
         <span
           className={cn(
-            'rounded-[var(--v2-r-2xs)] px-[5px] py-[2px] font-[family-name:var(--v2-font-mono)] text-[9px] font-bold uppercase tracking-wider ring-1 ring-inset',
+            'rounded-[var(--v2-r-2xs)] px-[5px] py-[2px] font-[family-name:var(--v2-font-mono)] text-nano font-bold uppercase tracking-wider ring-1 ring-inset',
             kind === 'ai'
               ? 'bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)] ring-[color:var(--v2-info)]'
               : 'bg-[color:var(--v2-surface)] text-[color:var(--v2-faint)] ring-[color:var(--v2-border)]',
