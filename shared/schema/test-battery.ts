@@ -11,18 +11,24 @@ import { z } from 'zod';
 // so this is an array of specs.
 
 /** How the work of a test result is measured. A coach picks this per result.
- *  Only `time` and `load` CALIBRATE today (zones / 1RM). `distance`, `reps`,
- *  `calories` and `hrr` are storable as a baseline (`derives: 'none'`) — deriving
+ *  `time`, `load` and `hr` CALIBRATE (pace zones / 1RM / HR zones). `distance`,
+ *  `reps` and `calories` are storable as a baseline (`derives: 'none'`) — deriving
  *  zones from a distance-covered test or a 1RM from reps needs the segment's fixed
- *  parameter and is a follow-up on the bridge; `hrr` (heart-rate recovery) never
+ *  parameter and is a follow-up on the bridge. `hrr` (heart-rate recovery) never
  *  calibrates, it's pure progression evidence. The coach UI constrains all of them
- *  to baseline. */
-export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr'] as const;
+ *  to baseline.
+ *
+ *  `hr` vs `hrr` are DIFFERENT quantities and must never be merged: `hr` is an
+ *  absolute rate (the threshold heart rate a 30-min test measures), `hrr` is a
+ *  DROP between two rates. They share the `bpm` unit and nothing else — one
+ *  anchors the zone model, the other is a fitness marker. */
+export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr', 'hr'] as const;
 export type StoreResultMeasure = (typeof STORE_RESULT_MEASURES)[number];
 
 /** The unit the entered value is in. Pairs with `measure`
  *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg,
- *  hrr→bpm — bpm the HR dropped in the fixed recovery window). */
+ *  hrr→bpm — bpm the HR dropped in the fixed recovery window,
+ *  hr→bpm — an absolute heart rate). */
 export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm'] as const;
 export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
 
@@ -30,12 +36,18 @@ export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
  *  so it is not listed here). 'none' = a stored baseline (e.g. HYROX half-sim, or any
  *  distance/calorie result until the bridge learns to derive from it). Bike zones are
  *  intentionally absent — no bike zone model exists yet, so exposing it would be a dead
- *  option that never calibrates. */
+ *  option that never calibrates.
+ *
+ *  `hr_zones` is the odd one out and deliberately so: the pace derives SNAPSHOT a
+ *  profile into `athlete_zone_profiles`, while the HR model is resolved live from
+ *  the anchor by `shared/domain/methodology/hr-zones.ts`. So writing the `lthr_bpm`
+ *  benchmark IS the whole calibration — see the bridge. */
 export const STORE_RESULT_DERIVES = [
   'run_zones',
   'row_zones',
   'ski_zones',
   'strength_max',
+  'hr_zones',
   'none',
 ] as const;
 export type StoreResultDerives = (typeof STORE_RESULT_DERIVES)[number];
@@ -43,7 +55,7 @@ export type StoreResultDerives = (typeof STORE_RESULT_DERIVES)[number];
 /** Measures that currently CALIBRATE (drive a non-`none` derive). The coach UI uses this
  *  to force `derives: 'none'` for the others, so a coach can never author a test that
  *  silently fails to calibrate. */
-export const CALIBRATING_MEASURES: readonly StoreResultMeasure[] = ['time', 'load'];
+export const CALIBRATING_MEASURES: readonly StoreResultMeasure[] = ['time', 'load', 'hr'];
 
 export const storeResultSpecSchema = z.object({
   // The canonical benchmark slug this result produces (run_5k, row_2k,
@@ -52,7 +64,9 @@ export const storeResultSpecSchema = z.object({
   unit: z.enum(STORE_RESULT_UNITS),
   measure: z.enum(STORE_RESULT_MEASURES),
   derives: z.enum(STORE_RESULT_DERIVES),
-  // The modality for a zone derivation (run/row/ski). Omitted for strength/baseline.
+  // The modality for a PACE zone derivation (run/row/ski). Omitted for strength,
+  // baseline, and for `hr_zones` — heart-rate zones are physiological, one ladder
+  // per athlete, not one per modality.
   modality: z.enum(['run', 'row', 'ski', 'bike', 'strength', 'hyrox']).optional(),
   label: z.string().min(1).max(60),
   // An OPTIONAL result (#34): captured only if available — the app may auto-measure it
@@ -60,9 +74,10 @@ export const storeResultSpecSchema = z.object({
   // completion (battery-status counts only the required results). Absent = required.
   optional: z.boolean().optional(),
 })
-  // A coherence guard mirrored in the DB check + coach UI: only time/load may calibrate.
+  // A coherence guard mirrored in the DB check + coach UI: only time/load/hr calibrate.
   .refine((s) => s.derives === 'none' || CALIBRATING_MEASURES.includes(s.measure), {
-    message: 'Solo las medidas de tiempo o peso pueden calibrar (zonas / 1RM); el resto se guarda como baseline.',
+    message:
+      'Solo las medidas de tiempo, peso o pulso pueden calibrar (zonas de ritmo / 1RM / zonas de pulso); el resto se guarda como baseline.',
     path: ['derives'],
   });
 export type StoreResultSpec = z.infer<typeof storeResultSpecSchema>;

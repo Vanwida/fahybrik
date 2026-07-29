@@ -84,11 +84,28 @@ export interface HrrTestEvent {
   source: TestSource;
 }
 
+// An absolute HEART-RATE result — today only the lactate-threshold HR (`lthr_bpm`),
+// the average pulse over the last 20 min of a 30-min all-out effort. UNLIKE `hrr`
+// (a DROP between two rates) this is a rate, and it is the ONE anchor of the HR zone
+// model that is measured instead of inferred (shared/domain/methodology/hr-zones.ts).
+// Recording the benchmark IS the calibration: the zone resolver reads the latest
+// `lthr_bpm` row live, so no snapshot table has to be rewritten.
+export interface HrTestEvent {
+  kind: 'hr';
+  athlete_id: number;
+  /** An absolute-HR benchmark slug (lthr_bpm) — already canonical. */
+  exercise_slug: string;
+  /** Beats per minute. NOT a delta. */
+  bpm: number;
+  source: TestSource;
+}
+
 export type TestEvent =
   | ThresholdTestEvent
   | StrengthTestEvent
   | TimeTrialTestEvent
-  | HrrTestEvent;
+  | HrrTestEvent
+  | HrTestEvent;
 
 export interface BenchmarkAppendRow {
   exercise_slug: string;
@@ -109,7 +126,7 @@ export function benchmarkForTestEvent(event: TestEvent): BenchmarkAppendRow {
   if (event.kind === 'timetrial') {
     return { exercise_slug: event.exercise_slug, value: event.seconds, unit: BENCHMARK_UNIT_SECONDS };
   }
-  if (event.kind === 'hrr') {
+  if (event.kind === 'hrr' || event.kind === 'hr') {
     return { exercise_slug: event.exercise_slug, value: event.bpm, unit: BENCHMARK_UNIT_BPM };
   }
   return {
