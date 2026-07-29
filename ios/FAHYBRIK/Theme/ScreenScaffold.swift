@@ -143,7 +143,16 @@ struct CenteredScreen<Head: View, Lead: View, Content: View>: View {
                             .frame(maxWidth: .infinity)
                             // minHeight centres by default: short content sits in
                             // the middle, taller content grows and scrolls.
-                            .frame(minHeight: max(0, proxy.size.height - leadHeight))
+                            //
+                            // The bottom safe area comes off the top of that: it
+                            // is what an `.anchoredAction` footer (and the home
+                            // indicator) occupies, and centring in the height
+                            // INCLUDING it puts the block half a footer too low —
+                            // which is how "centred" ends up glued to the button.
+                            .frame(minHeight: max(
+                                0,
+                                proxy.size.height - leadHeight - proxy.safeAreaInsets.bottom
+                            ))
                     }
                 }
                 .scrollBounceBehavior(.basedOnSize)
