@@ -1,4 +1,4 @@
-// ATR / programming evaluators — transition readiness, programming health,
+// Programming evaluators — transition readiness, programming health,
 // microcycle-ending due-soon, and A-event proximity. Labels/details preserved
 // from cohort.ts (transition) and the HOY redesign spec for the new ones.
 
@@ -22,7 +22,7 @@ export const transitionReadyEvaluator: SignalEvaluator = {
       value: null,
       baseline: null,
       trend: null,
-      label: 'Listo para TRANS',
+      label: 'Listo para el siguiente microciclo',
       detail: facts.transition_detail || 'Revisar deep-dive',
       dedupe_key: dedupeKey('transition_ready', facts.athlete_id),
     };
@@ -69,7 +69,7 @@ export const microcycleEndingEvaluator: SignalEvaluator = {
       trend: null,
       label: `Microciclo acaba en ${days}d`,
       detail: facts.current_block_type
-        ? `Bloque ${facts.current_block_type} · asigna el siguiente`
+        ? `Ahora: ${facts.current_block_type} · asigna el siguiente`
         : 'Asigna el siguiente microciclo',
       dedupe_key: dedupeKey('microcycle_ending', facts.athlete_id),
     };

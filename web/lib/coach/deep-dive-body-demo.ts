@@ -108,9 +108,9 @@ function buildVo2(): Vo2MaxPoint[] {
     const t = (11 - i) / 11;
     const v = 56.4 + t * 4.8;
     let annotation: string | null = null;
-    if (i === 6) annotation = 'ACC start';
-    if (i === 2) annotation = 'TRANS start';
-    if (i === 0) annotation = 'REAL start';
+    // Anotaciones de DEMO: marcan cambios de microciclo, sin nombrar ninguna
+    // escuela de periodización (el nombre real lo pone el coach).
+    if (i === 6 || i === 2 || i === 0) annotation = 'Cambio de microciclo';
     out.push({ iso_month: ym, value_ml_kg_min: round1(v), source: 'garmin', annotation });
   }
   return out;

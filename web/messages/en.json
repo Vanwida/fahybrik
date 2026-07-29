@@ -5,8 +5,7 @@
     "wordmark_aria": "FAHYBRID",
     "anchor_tagline": "Train at the detail.",
     "anchor_coach_more": "The more your coach knows, the more precise your plan.",
-    "anchor_coach_building": "Your coach is building your plan.",
-    "real_trans_acc": "REAL · TRANS · ACC"
+    "anchor_coach_building": "Your coach is building your plan."
   },
   "common": {
     "loading": "Loading…",
@@ -77,11 +76,7 @@
       "in_gym_today": "In gym today",
       "with_alerts": "With alert",
       "twice_daily": "Two-a-day",
-      "a_event_30d": "A-event ≤30 days",
-      "block_acc": "Block ACC",
-      "block_trans": "Block TRANS",
-      "block_real": "Block REAL",
-      "all_blocks": "All blocks"
+      "a_event_30d": "A-event ≤30 days"
     },
     "table": {
       "name": "Athlete",
@@ -192,7 +187,6 @@
     "discard": "Discard changes",
     "saved": "Saved",
     "search_semantic": "Try semantic search",
-    "block_acc_examples": "e.g. ACC → TRANS transition rules",
     "section_strength": "Strength",
     "section_conditioning": "Conditioning",
     "section_running": "Run",
@@ -304,8 +298,6 @@
     "field_title": "Título",
     "field_description": "Prescripción",
     "field_group": "Grupo metodológico",
-    "field_atr": "Fase ATR",
-    "atr_none": "Sin fase",
     "saved": "Cambios guardados.",
     "save_error": "No se pudieron guardar los cambios.",
     "load_error": "No se pudo cargar el bloque.",

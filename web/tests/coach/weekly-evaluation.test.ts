@@ -4,7 +4,7 @@ import type { AthleteContextPack } from '@/lib/coach/coach-ia-context';
 
 function basePack(overrides: Partial<AthleteContextPack> = {}): AthleteContextPack {
   return {
-    identity: { level: '2', block_type: 'ACC', week_in_block: 2, days_to_a_event: 90 },
+    identity: { level: '2', block_type: 'Base aeróbica', week_in_block: 2, days_to_a_event: 90 },
     compliance: { pct_7d: 0.85, pct_28d: 0.8, missed_7d: 0 },
     readiness: { score: 72, sub_score: 65, delta_7d: 3, hrv_delta_pct: 0 },
     effort: { avg_rpe_7d: 7, high_rpe_sessions_7d: 0 },
