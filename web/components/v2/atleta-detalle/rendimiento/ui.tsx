@@ -28,6 +28,17 @@ export const TONE_SOFT_VAR: Record<Tone, string> = {
   accent: '--v2-accent-soft',
 };
 
+/**
+ * Colour of a 0…100 disposition index. Lives here because the headline tile and
+ * the panel underneath it show the SAME number: two copies of the thresholds
+ * meant the tile could go amber while the panel stayed green.
+ */
+export function readinessTone(score: number): Tone {
+  if (score >= 65) return 'ok';
+  if (score >= 45) return 'warn';
+  return 'danger';
+}
+
 /** Headline stat tile — big display number + unit + micro label (BioTile twin). */
 export function PerfTile({
   label,

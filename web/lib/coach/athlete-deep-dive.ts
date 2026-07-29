@@ -16,7 +16,11 @@ import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
-import { estimateRaceReadiness } from '@fahybrid/shared/domain/coach/race-readiness';
+import {
+  estimateRaceReadiness,
+  READINESS_COMPLIANCE_DAYS,
+} from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
   computeAcr,
   computeLoadSeries,
@@ -513,7 +517,12 @@ async function loadReadiness(
   // off a THIRD query of the same 90-day series, and the two copies had drifted:
   // this one could never return null and let a missing TSB score 20 of its 40
   // freshness points.
-  const compliance7 = await loadCompliancePct(client, athlete_id, now, 7);
+  const compliance7 = await loadCompliancePct({
+    athlete_id,
+    on_date: now,
+    days: READINESS_COMPLIANCE_DAYS,
+    client,
+  });
   const race_readiness = estimateRaceReadiness({
     tsb: load.tsb,
     compliance_pct: compliance7,
@@ -555,32 +564,6 @@ async function loadLatestCheckinMetric(
   `;
   const v = rows[0]?.v;
   return v == null ? null : Math.round(v);
-}
-
-async function loadCompliancePct(
-  client: Sql,
-  athlete_id: number,
-  now: Date,
-  days: number,
-): Promise<number | null> {
-  const startIso = isoDate(addDays(now, -days));
-  const todayIso = isoDate(now);
-  const rows = await client<Array<{ scheduled: number; completed: number }>>`
-    select
-      count(*) filter (where wa.scheduled_for <= ${todayIso}::date)::int as scheduled,
-      count(*) filter (
-        where wa.scheduled_for <= ${todayIso}::date and wa.status = 'completed'
-      )::int as completed
-    from workout_assignments wa
-    where wa.athlete_id = ${athlete_id}
-      and wa.scheduled_for >= ${startIso}::date
-      -- #13: EXCLUDE days inside a pause (frozen) from the row source; a whole
-      -- paused window ⇒ scheduled 0 ⇒ null, never a punitive 0%.
-      ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
-  `;
-  const r = rows[0];
-  if (!r || r.scheduled === 0) return null;
-  return Math.round((r.completed / r.scheduled) * 100);
 }
 
 // ---------------------------------------------------------------------------

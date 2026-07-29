@@ -4,9 +4,10 @@
 // fetch (CarrerasTab pattern): loads the diagnostic payload on mount and gates the
 // whole tab on real data. Composition mirrors BiometriaTab — an "Evaluar semana"
 // autoregulation panel on top, a headline stat cluster, then one Panel per payload
-// section (readiness composite, 80/0/20 polarization, top exercises, running
-// economy, lactate threshold, anaerobic capacity, HYROX prediction). Every section
-// renders honest empty states; nothing is mocked.
+// section (disposition composite, 80/0/20 polarization, top exercises, running
+// economy in the athlete's own Z2, threshold work, anaerobic capacity, HYROX
+// prediction). Every section renders honest empty states; nothing is mocked, and
+// a missing reading is a stated gap with a way out — never a zero.
 
 import { useCallback, useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
@@ -20,10 +21,10 @@ import {
 import {
   AnaerobicPanel,
   HyroxPredictionPanel,
-  LtPanel,
   RunningEconomyPanel,
+  ThresholdWorkPanel,
 } from './rendimiento/PhysiologyPanels';
-import { PerfTile, type Tone } from './rendimiento/ui';
+import { PerfTile, readinessTone } from './rendimiento/ui';
 import { EM_DASH, fmtInt, fmtPace, lastNonNull } from './rendimiento/format';
 import type { PerformancePayload } from '@/lib/dashboard/coach/deep-dive-performance';
 
@@ -34,12 +35,6 @@ const GEN_FMT = new Intl.DateTimeFormat('es-ES', {
   minute: '2-digit',
   timeZone: 'Europe/Madrid',
 });
-
-function readinessTone(score: number): Tone {
-  if (score >= 65) return 'ok';
-  if (score >= 45) return 'warn';
-  return 'danger';
-}
 
 export function RendimientoTab({ athleteId }: { athleteId: string }) {
   const [performance, setPerformance] = useState<PerformancePayload | null>(null);
@@ -104,14 +99,14 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
     );
   }
 
-  const latestReadiness =
-    performance.race_readiness_history.length > 0
-      ? performance.race_readiness_history[performance.race_readiness_history.length - 1]!.score
-      : null;
+  const history = performance.race_readiness_history;
+  // El índice del titular es EL MISMO punto que encabeza la barra de abajo, y
+  // vale null cuando ese día no es puntuable — nunca un cero de relleno.
+  const latestReadiness = history.length > 0 ? (history[history.length - 1]!.reading?.score ?? null) : null;
   const latestEconomy = lastNonNull(
-    performance.running_economy.map((p) => p.pace_at_145bpm_sec_per_km),
+    performance.running_economy.map((p) => p.pace_in_z2_sec_per_km),
   );
-  const latestLtHr = lastNonNull(performance.lt_history.map((p) => p.lt_hr_bpm));
+  const latestThresholdHr = lastNonNull(performance.threshold_work.map((p) => p.work_hr_bpm));
   const latestPower = lastNonNull(performance.anaerobic_capacity.map((p) => p.best_3min_avg_w));
 
   return (
@@ -133,18 +128,23 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
       {/* Headline stat cluster */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <PerfTile
-          label="Readiness"
+          label="Disposición"
           value={latestReadiness != null ? `${latestReadiness}` : EM_DASH}
           unit={latestReadiness != null ? '/100' : undefined}
           tone={latestReadiness != null ? readinessTone(latestReadiness) : 'fg'}
         />
-        <PerfTile label="Economía Z2" value={fmtPace(latestEconomy)} tone="info" />
-        <PerfTile label="FC de umbral" value={fmtInt(latestLtHr)} unit={latestLtHr != null ? 'ppm' : undefined} tone="fg" />
+        <PerfTile label="Economía en su Z2" value={fmtPace(latestEconomy)} tone="info" />
+        <PerfTile
+          label="FC en trabajo de umbral"
+          value={fmtInt(latestThresholdHr)}
+          unit={latestThresholdHr != null ? 'ppm' : undefined}
+          tone="fg"
+        />
         <PerfTile label="Potencia 3 min" value={fmtInt(latestPower)} unit={latestPower != null ? 'W' : undefined} tone="accent" />
       </div>
 
-      {/* 1 · Readiness composite */}
-      <ReadinessPanel history={performance.race_readiness_history} />
+      {/* 1 · Disposición */}
+      <ReadinessPanel history={history} gap={performance.race_readiness_gap} />
 
       {/* 2 · Polarization 80/0/20 */}
       <PolarizationPanel
@@ -158,7 +158,7 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
       {/* 4 · Running economy + 5 · Lactate threshold */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <RunningEconomyPanel series={performance.running_economy} />
-        <LtPanel series={performance.lt_history} />
+        <ThresholdWorkPanel series={performance.threshold_work} />
       </div>
 
       {/* 6 · Anaerobic capacity + 7 · HYROX prediction */}
