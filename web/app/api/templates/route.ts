@@ -36,7 +36,6 @@ export async function GET(req: Request) {
       id: string;
       name: string;
       format: string;
-      target_block: string;
       target_level: number | null;
       segment_count: number;
       is_draft: boolean;
@@ -46,7 +45,6 @@ export async function GET(req: Request) {
       t.id::text as id,
       t.name,
       t.format::text as format,
-      t.target_block::text as target_block,
       t.target_level,
       coalesce(seg.cnt, 0)::int as segment_count,
       t.is_draft
@@ -71,7 +69,6 @@ export async function GET(req: Request) {
     id: r.id,
     name: r.name,
     format: r.format,
-    target_block: r.target_block,
     target_level: r.target_level,
     segment_count: r.segment_count,
     is_draft: r.is_draft,

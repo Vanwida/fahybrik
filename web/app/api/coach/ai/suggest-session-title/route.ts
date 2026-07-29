@@ -1,7 +1,7 @@
 // POST /api/coach/ai/suggest-session-title — suggest a short workout TITLE for a
 // day's session from its blocks/exercises. Returns { title, source: 'ai'|'fallback' }.
 // GET reports whether the LLM is configured (parity with the other coach/ai routes).
-// AGNOSTIC: no methodology/ATR coupling; the title is derived from content only.
+// AGNOSTIC: no methodology coupling; the title is derived from content only.
 
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';

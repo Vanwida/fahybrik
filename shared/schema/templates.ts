@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   idSchema,
   isoDateTime,
-  targetBlock,
   templateFormat,
 } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
@@ -13,7 +12,6 @@ export const templateSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(8000).nullable(),
   format: templateFormat,
-  target_block: targetBlock,
   target_level: z.number().int().min(1).max(10).nullable(),
   version: z.number().int().min(1),
   parent_template_id: idSchema.nullable(),
@@ -32,7 +30,7 @@ export const templateSchema = z.object({
 });
 export type Template = z.infer<typeof templateSchema>;
 
-// Per-week progression cell (for templates that auto-progress across an ATR microcycle).
+// Per-week progression cell (for templates that auto-progress across a microcycle).
 // Coach defines values for week 1..N; the engine picks the cell matching the current
 // microcycle. Each cell may override a subset of params.
 export const segmentWeekVariantSchema = z.object({
@@ -162,7 +160,6 @@ export const templateUpsertSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(8000).nullable().optional(),
   format: templateFormat,
-  target_block: targetBlock,
   target_level: z.number().int().min(1).max(10).nullable().optional(),
   day_position: z.string().max(60).nullable().optional(),
   paired_with_template_id: idSchema.nullable().optional(),

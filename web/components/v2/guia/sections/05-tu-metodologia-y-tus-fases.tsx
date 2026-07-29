@@ -2,7 +2,7 @@
 // Real flow: Periodización es 100% dato del coach. Niveles (athlete_levels:
 // código + etiqueta + descripción) = eje "quién". Una secuencia (nivel × días) es
 // una lista ORDENADA de microciclos; el ORDEN es la periodización (no hay entidad
-// "fase"). El NOMBRE del microciclo es la fase que ve el atleta. Sin ATR
+// "fase"). El NOMBRE del microciclo es la fase que ve el atleta. Sin catálogo
 // hardcodeado, sin nombres impuestos. Doc kit en '../doc'; hues var(--v2-mod-*).
 
 import {

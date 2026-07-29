@@ -2,7 +2,6 @@ export interface TemplateListItem {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   target_level: number | null;
   segment_count: number;
   is_draft: boolean;
@@ -22,7 +21,6 @@ export interface TemplateDetail {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   description: string | null;
   coach_notes: string | null;
   segments: TemplateSegmentPreview[];

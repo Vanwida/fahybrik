@@ -29,7 +29,7 @@ type StatusFilter = 'todos' | RosterStatus;
 type LevelFilter = 'todos' | string;
 // AGNOSTIC: phase = the coach's microciclo name (athlete_month_assignments →
 // program_month_templates.name). Options are derived from the real names present
-// in the roster, never a hardcoded ATR (ACC/TRANS/REAL) set. 'todas' = no filter,
+// in the roster, never a hardcoded phase set. 'todas' = no filter,
 // 'sin' = athletes with no active microciclo.
 type PhaseFilter = 'todas' | 'sin' | string;
 type TestFilter = 'todos' | 'pendiente';

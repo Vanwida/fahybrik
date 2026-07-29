@@ -7,7 +7,7 @@ import {
 
 describe('proposeBlockSpecs', () => {
   // NOTE: proposeBlockSpecs is AGNOSTIC by design — it returns neutral
-  // "Microciclo N" placeholders, NEVER ATR block names (ACC/TRANS/REAL). The
+  // "Microciclo N" placeholders, NEVER a hardcoded phase catalogue. The
   // periodization IS the ORDER + sizing of the microciclos, which the coach owns.
   // These tests pin that sizing logic, not any hardcoded phase label.
   test('long horizon produces 3 microciclos, front-loaded', () => {

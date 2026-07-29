@@ -4,9 +4,8 @@
  *
  * Two races, to demo A/B/C-race periodization:
  *   1. TARGET   — "HYROX Barcelona 2026", priority='target'. race_date = the END
- *                 of athlete 2's active ATR plan (queried live from
- *                 atr_macrocycles → atr_blocks → microcycles; ~2026-08-02). The
- *                 plan peaks to this; it's the main countdown.
+ *                 of athlete 2's plan (queried live from his microcycles;
+ *                 ~2026-08-02). The plan peaks to this; it's the main countdown.
  *   2. TUNE-UP  — "DEKA Strong Barcelona", priority='tune_up'. An intermediate
  *                 race ~3 weeks BEFORE the target (no taper, used as a test). So
  *                 getTargetRace → the August HYROX, getNextRace → the July DEKA.
@@ -39,15 +38,13 @@ async function main() {
     // Resolve the END of athlete 2's active plan = last microcycle end_date.
     const planRows = await sql<Array<{ plan_end: string | null }>>`
       select to_char(max(mc.end_date), 'YYYY-MM-DD') as plan_end
-      from atr_macrocycles mac
-      join atr_blocks b on b.macrocycle_id = mac.id
-      join microcycles mc on mc.block_id = b.id
-      where mac.athlete_id = ${ATHLETE_ID} and mac.status = 'active'
+      from microcycles mc
+      where mc.athlete_id = ${ATHLETE_ID}
     `;
     const planEnd = planRows[0]?.plan_end;
     if (!planEnd) {
       throw new Error(
-        `No active ATR plan end found for athlete ${ATHLETE_ID}; cannot anchor the target race.`,
+        `El atleta ${ATHLETE_ID} no tiene microciclos; no hay final de plan al que anclar la carrera.`,
       );
     }
     const targetDate = planEnd;

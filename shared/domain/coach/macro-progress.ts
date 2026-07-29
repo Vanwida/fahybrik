@@ -33,7 +33,7 @@ export type MacroPhaseAssignment = {
  * mapear la posición dentro del plan completo.
  */
 export type MacroBlockSpan = {
-  /** Microciclo NAME (coach data) — NOT an ATR phase. */
+  /** Microciclo NAME (coach data) — NOT a catalogued phase. */
   block_type: string;
   position: number;
   first_week: number;
@@ -359,7 +359,7 @@ export async function loadMicrocycleDetail(params: {
 }
 
 // =============================================================================
-// ATHLETE-FACING macro views — AGNOSTIC (no ATR block, no ACC/TRANS/REAL).
+// ATHLETE-FACING macro views — AGNOSTIC (no phase catalogue).
 //
 // What the athlete sees is the COACH'S microciclo NAME + "semana N de M",
 // derived from `athlete_month_assignments` (the materialization receipt: name via
@@ -368,7 +368,7 @@ export async function loadMicrocycleDetail(params: {
 // tables exist anymore). The `block` field is
 // kept in the response SHAPE for iOS Codable parity, but is ALWAYS null — the
 // athlete never receives periodization jargon. (The coach `buildMacroProgress`
-// above is untouched and still ATR-aware for coach analytics.)
+// above is untouched for coach analytics.)
 // =============================================================================
 
 /** Athlete-facing subset — current week only + microciclo label. */
@@ -445,7 +445,7 @@ async function currentMicrocicloLabel(
 }
 
 export type AthleteMacroProgressPayload = {
-  /** Kept null for iOS Codable parity — the athlete never receives an ATR block. */
+  /** Kept null for iOS Codable parity — the athlete never receives a phase label. */
   block: null;
   total_assigned_weeks: number;
   weeks: Array<{ week_start: string; status: MacroWeekStatus; compliance_pct: number | null }>;

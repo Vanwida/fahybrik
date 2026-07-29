@@ -77,7 +77,7 @@ export const SIGNAL_THRESHOLDS = {
   compliance_attention_max_pct: 70,
 
   // ── NEW (HOY redesign) ────────────────────────────────────────────────────
-  /** Microcycle ends within this many days → "asigna el siguiente" (Due-Soon ATR, Vigilar). */
+  /** Microcycle ends within this many days → "asigna el siguiente" (Due-Soon, Vigilar). */
   microcycle_ending_days: 7,
   /** A-priority event within this many days → race-near context. */
   a_event_near_days: 30,

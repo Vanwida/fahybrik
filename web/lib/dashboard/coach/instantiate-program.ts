@@ -57,11 +57,6 @@ const DEFAULT_TEMPLATE_FORMAT: TemplateFormat = 'circuit';
 /** Every value the `template_format` enum accepts — the single shared source
  *  (canonical catalog ∪ legacy DB members). Block + template formats share it. */
 const TEMPLATE_FORMATS: readonly TemplateFormat[] = templateFormat.options;
-/** templates.target_block enum domain. Microciclos no longer carry a block hint
- *  (identity = name + level + nº weeks; order = periodization), so materialized
- *  templates target 'any'. */
-const TARGET_BLOCKS = ['ACC', 'TRANS', 'REAL', 'any'] as const;
-
 /**
  * Etiqueta de slot a partir del índice de sesión del día. ÚNICA fuente de verdad
  * compartida por el materializador y el preview de publicación (mismo mapeo que
@@ -260,8 +255,6 @@ export async function instantiateWeekIntoMicrocycle(params: {
       ? (weekTpl.slots_json as WeekSlots)
       : parseWeekSlotsFromDb(weekTpl.slots_json);
 
-  const targetBlock: (typeof TARGET_BLOCKS)[number] = 'any';
-
   // Step 5/6 intake — place sessions only on the athlete's `program` days and
   // softly honour their preferred day-TYPE layout. No availability declared →
   // remap is a no-op (template lands on its authored weekdays).
@@ -293,7 +286,6 @@ export async function instantiateWeekIntoMicrocycle(params: {
         scheduled_for: dayIso,
         slot: slotLabel,
         session,
-        target_block: targetBlock,
         template_name_base: weekTpl.name,
         progression: params.progression,
       });
@@ -383,7 +375,6 @@ async function insertSlotAssignment(params: {
   scheduled_for: string;
   slot: 'am' | 'pm' | `slot:${number}`;
   session: WeekSession;
-  target_block: (typeof TARGET_BLOCKS)[number];
   template_name_base: string;
   progression?: ProgressionSpec;
 }): Promise<number> {
@@ -418,7 +409,6 @@ async function insertSlotAssignment(params: {
       client: params.client,
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
-      target_block: params.target_block,
       session: params.session,
       name_base: params.template_name_base,
       progression: params.progression,
@@ -533,7 +523,6 @@ async function materializeInlineSessionTemplate(params: {
   coach_id: number | bigint;
   /** Owner of the per-athlete instance this inline session materializes into. */
   athlete_id: number | bigint;
-  target_block: (typeof TARGET_BLOCKS)[number];
   session: WeekSession;
   name_base: string;
   progression?: ProgressionSpec;
@@ -584,14 +573,13 @@ async function materializeInlineSessionTemplate(params: {
   // No `instance_of_template_id`: inline content has no library source template.
   const tplRows = await params.client<Array<{ id: string }>>`
     insert into templates (
-      coach_id, name, format, target_block, is_draft, coach_notes,
+      coach_id, name, format, is_draft, coach_notes,
       instance_athlete_id
     )
     values (
       ${params.coach_id as number},
       ${name},
       ${format}::template_format,
-      ${params.target_block}::target_block,
       false,
       ${coachNotes},
       ${params.athlete_id as number}

@@ -97,13 +97,12 @@ export async function persistWorkoutFromAiSuggestion(params: {
 
   const [row] = await client<{ id: string }[]>`
     insert into templates (
-      coach_id, name, format, target_block, is_draft, warmup, coach_notes, meta_json
+      coach_id, name, format, is_draft, warmup, coach_notes, meta_json
     )
     values (
       ${params.coach_id},
       ${params.suggestion.name.slice(0, 200)},
       ${params.suggestion.format}::template_format,
-      ${params.suggestion.target_block ?? 'any'}::target_block,
       ${is_draft},
       ${params.suggestion.warmup ?? null},
       ${params.suggestion.coach_notes ?? null},

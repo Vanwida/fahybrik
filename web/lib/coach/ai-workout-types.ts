@@ -1,4 +1,4 @@
-import type { TemplateFormat, TargetBlock } from '@/lib/templates/schema';
+import type { TemplateFormat } from '@/lib/templates/schema';
 
 export interface AiWorkoutExercise {
   name: string;
@@ -25,7 +25,6 @@ export interface AiWorkoutBlock {
 export interface AiWorkoutSuggestion {
   name: string;
   format: TemplateFormat;
-  target_block?: TargetBlock;
   coach_notes?: string;
   warmup?: string;
   blocks: AiWorkoutBlock[];

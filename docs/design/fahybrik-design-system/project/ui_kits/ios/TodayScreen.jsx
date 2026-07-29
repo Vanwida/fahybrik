@@ -25,7 +25,7 @@ function TodayBody({ onStartWorkout }) {
         <Gear />
       </div>
 
-      {/* Countdown + ATR */}
+      {/* Countdown + microcycle context */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <SectionLabel>HYROX BCN · 42 días</SectionLabel>
         <div style={{ height: 1, background: 'rgba(161,161,161,0.2)' }} />

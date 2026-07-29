@@ -309,7 +309,7 @@ export interface ReferenceTest {
 // The resolver's output, GROUPED BY MODALITY so the panel reads as separate
 // sections (Remo / Ski-Erg / Bike-Erg / Carrera) instead of one flat list.
 // AGNOSTIC: the zone `code` is the stored band code, never a hardcoded
-// Z2/umbral/ATR vocabulary.
+// Z2/umbral vocabulary.
 export interface DerivedZone {
   /** Stored band code (e.g. "Z1"), shown as the row label. */
   code: string;
@@ -436,7 +436,7 @@ export function buildTestProgression(
  * modality, each zone by sort_order.
  *
  * AGNOSTIC: labels come from the stored `code` + the modality, never a hardcoded
- * Z2/umbral/ATR vocabulary. `adjusted` stays false — this model has no per-band
+ * Z2/umbral vocabulary. `adjusted` stays false — this model has no per-band
  * manual override yet, so we don't fake one.
  */
 function deriveObjectiveGroups(zone_profiles: AthleteZoneProfile[]): DerivedObjectiveGroup[] {

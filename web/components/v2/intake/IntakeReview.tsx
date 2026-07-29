@@ -9,7 +9,7 @@
 //
 // AGNOSTIC: the LEVEL decision reuses ClasificacionCard (coach-owned athlete_levels,
 // the same control as PerfilTab); block structure uses the coach's suggested
-// microciclo names. Nothing here hardcodes a method (no ATR, no fixed level labels).
+// microciclo names. Nothing here hardcodes a method (no phase catalogue, no fixed level labels).
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';

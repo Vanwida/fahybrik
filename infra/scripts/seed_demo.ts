@@ -73,10 +73,9 @@ interface AthleteSpec {
   inactive_days?: number;
   /** Days until a TARGET race (countdown card). */
   target_race_in_days?: number;
-  block_type: 'ACC' | 'TRANS' | 'REAL';
   /** Which week within the block the athlete currently sits in (1-based). */
-  block_current_week: number;
-  block_total_weeks: number;
+  cycle_current_week: number;
+  cycle_total_weeks: number;
 }
 
 const ATHLETES: AthleteSpec[] = [
@@ -94,9 +93,8 @@ const ATHLETES: AthleteSpec[] = [
     week_completion: 0.6,
     readiness: 78,
     unread_messages: 0,
-    block_type: 'ACC',
-    block_current_week: 2,
-    block_total_weeks: 5,
+    cycle_current_week: 2,
+    cycle_total_weeks: 5,
   },
   {
     email: `marc.vidal${DEMO_EMAIL_DOMAIN}`,
@@ -113,9 +111,8 @@ const ATHLETES: AthleteSpec[] = [
     readiness: 42, // < 45 → "Fatiga CNS alta" + vigilar fisiología
     unread_messages: 0,
     target_race_in_days: 24,
-    block_type: 'TRANS',
-    block_current_week: 2,
-    block_total_weeks: 4,
+    cycle_current_week: 2,
+    cycle_total_weeks: 4,
   },
   {
     email: `laura.perez${DEMO_EMAIL_DOMAIN}`,
@@ -131,9 +128,8 @@ const ATHLETES: AthleteSpec[] = [
     week_completion: 0,
     readiness: 66,
     unread_messages: 0,
-    block_type: 'ACC',
-    block_current_week: 1,
-    block_total_weeks: 5,
+    cycle_current_week: 1,
+    cycle_total_weeks: 5,
   },
   {
     email: `julia.roca${DEMO_EMAIL_DOMAIN}`,
@@ -150,9 +146,8 @@ const ATHLETES: AthleteSpec[] = [
     readiness: 88,
     unread_messages: 0,
     target_race_in_days: 11,
-    block_type: 'REAL',
-    block_current_week: 2,
-    block_total_weeks: 3,
+    cycle_current_week: 2,
+    cycle_total_weeks: 3,
   },
   {
     email: `pol.serra${DEMO_EMAIL_DOMAIN}`,
@@ -168,9 +163,8 @@ const ATHLETES: AthleteSpec[] = [
     week_completion: 0,
     readiness: null,
     unread_messages: 0,
-    block_type: 'ACC',
-    block_current_week: 1,
-    block_total_weeks: 5,
+    cycle_current_week: 1,
+    cycle_total_weeks: 5,
   },
   {
     email: `anna.camps${DEMO_EMAIL_DOMAIN}`,
@@ -186,9 +180,8 @@ const ATHLETES: AthleteSpec[] = [
     week_completion: 0,
     readiness: null,
     unread_messages: 0,
-    block_type: 'ACC',
-    block_current_week: 1,
-    block_total_weeks: 5,
+    cycle_current_week: 1,
+    cycle_total_weeks: 5,
   },
   {
     email: `david.costa${DEMO_EMAIL_DOMAIN}`,
@@ -205,9 +198,8 @@ const ATHLETES: AthleteSpec[] = [
     week_completion: 0.5,
     readiness: 71,
     unread_messages: 2, // → "espera respuesta" + message inbox item
-    block_type: 'ACC',
-    block_current_week: 4,
-    block_total_weeks: 5,
+    cycle_current_week: 4,
+    cycle_total_weeks: 5,
   },
   {
     email: `sofia.mas${DEMO_EMAIL_DOMAIN}`,
@@ -224,9 +216,8 @@ const ATHLETES: AthleteSpec[] = [
     readiness: 58,
     unread_messages: 0,
     inactive_days: 3, // recent assignments but last activity 3d ago → inactivity alert
-    block_type: 'TRANS',
-    block_current_week: 1,
-    block_total_weeks: 4,
+    cycle_current_week: 1,
+    cycle_total_weeks: 4,
   },
 ];
 
@@ -436,45 +427,30 @@ interface SeedPlanCtx {
 async function seedPlan(sql: ReturnType<typeof getSql>, ctx: SeedPlanCtx) {
   const { athleteId, templateId, templateVersion, today, weekStart, spec } = ctx;
 
-  // The block spans `block_total_weeks`; the current week sits at block_current_week.
-  // first week of block = this week − (block_current_week − 1).
-  const blockFirstWeekStart = addDays(weekStart, -(spec.block_current_week - 1) * 7);
-  const blockEnd = addDays(blockFirstWeekStart, spec.block_total_weeks * 7 - 1);
-  const macroStart = blockFirstWeekStart;
-  const macroEnd = addDays(blockEnd, 14); // a little tail so it reads as ongoing
+  // El atleta lleva `cycle_total_weeks` semanas de microciclo seguidas y hoy está
+  // en la `cycle_current_week`. Primera semana = esta semana − (actual − 1).
+  const cycleFirstWeekStart = addDays(weekStart, -(spec.cycle_current_week - 1) * 7);
 
-  const macroRows = await sql<{ id: string }[]>`
-    insert into atr_macrocycles (athlete_id, name, start_date, end_date, status, created_at, updated_at)
-    values (${athleteId}, ${'Demo macrociclo'}, ${isoDay(macroStart)}::date, ${isoDay(macroEnd)}::date, 'active', now(), now())
-    returning id::text
-  `;
-  const macroId = Number(macroRows[0]!.id);
-
-  const blockRows = await sql<{ id: string }[]>`
-    insert into atr_blocks (macrocycle_id, type, position, start_date, end_date, status, created_at, updated_at)
-    values (${macroId}, ${spec.block_type}::atr_block_type, 0, ${isoDay(blockFirstWeekStart)}::date, ${isoDay(blockEnd)}::date, 'active', now(), now())
-    returning id::text
-  `;
-  const blockId = Number(blockRows[0]!.id);
-
-  // One microcycle per week of the block. week_number is macro-relative (1-based
-  // from block start), matching how the roster derives block_week.
+  // Un microciclo por semana. Cuelgan del ATLETA (migración 0068): no hay
+  // macrociclo ni entidad "bloque" — el ORDEN de los microciclos es la
+  // periodización, y su nombre lo pone el coach.
   const microIds: number[] = [];
-  for (let w = 0; w < spec.block_total_weeks; w++) {
-    const wkStart = addDays(blockFirstWeekStart, w * 7);
+  for (let w = 0; w < spec.cycle_total_weeks; w++) {
+    const wkStart = addDays(cycleFirstWeekStart, w * 7);
     const wkEnd = addDays(wkStart, 6);
     const mcRows = await sql<{ id: string }[]>`
-      insert into microcycles (block_id, week_number, start_date, end_date, created_at, updated_at)
-      values (${blockId}, ${w + 1}, ${isoDay(wkStart)}::date, ${isoDay(wkEnd)}::date, now(), now())
+      insert into microcycles (athlete_id, week_number, start_date, end_date, created_at, updated_at)
+      values (${athleteId}, ${w + 1}, ${isoDay(wkStart)}::date, ${isoDay(wkEnd)}::date, now(), now())
       returning id::text
     `;
     microIds.push(Number(mcRows[0]!.id));
   }
-  const currentMicroId = microIds[spec.block_current_week - 1]!;
 
-  // Materialize past-week assignments (so the plan is "real") for the block so far.
-  for (let w = 0; w < spec.block_current_week - 1; w++) {
-    const wkStart = addDays(blockFirstWeekStart, w * 7);
+  const currentMicroId = microIds[spec.cycle_current_week - 1]!;
+
+  // Materializa las semanas ya pasadas para que el plan sea "real".
+  for (let w = 0; w < spec.cycle_current_week - 1; w++) {
+    const wkStart = addDays(cycleFirstWeekStart, w * 7);
     for (const off of WEEK_SESSION_DAYS) {
       await sql`
         insert into workout_assignments (athlete_id, microcycle_id, scheduled_for, template_id, template_version, status, created_at, updated_at)

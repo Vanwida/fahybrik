@@ -638,7 +638,7 @@ extension PlanWeek {
         }
         // weekLabel is the coach-authored freeform week label; `block` is the
         // coach's current microciclo NAME (agnostic coach data — see
-        // shared/domain/coach/macro-progress.ts, never an ATR sigla). Shown as-is.
+        // shared/domain/coach/macro-progress.ts, never a phase sigla). Shown as-is.
         let label = api.macroSummary.weekLabel
             ?? api.macroSummary.block
             ?? "Semana actual"

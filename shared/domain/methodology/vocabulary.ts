@@ -59,7 +59,6 @@ export const conditionMetric = z.enum([
   'days_behind_plan',
   'pct_plan_completed',
   'days_to_race',
-  'block_phase',
   'is_taper_window',
   // athlete state / selection
   'injury_flag',

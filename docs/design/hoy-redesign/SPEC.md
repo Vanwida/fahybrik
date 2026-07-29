@@ -31,7 +31,7 @@ Converge en los 6 clusters de research. El `/hoy` actual viola esta tesis (es un
 - Sin acciones en lote ni teclado (es herramienta diaria de un power-user).
 - Sin lentes/filtros guardados.
 - Señales sin contexto (readiness opaco, sin delta vs baseline → falsas alarmas).
-- Falta el bloque proactivo nº1 del modelo ATR: "microciclo acaba en N días → asigna el siguiente".
+- Falta el bloque proactivo nº1: "microciclo acaba en N días → asigna el siguiente".
 - `TeamPulseRail` pasivo (no enlaza a nada).
 
 ---
@@ -188,11 +188,11 @@ Anillo avatar: (◔)=no-leídos · Badge edad ⏱: gris <2h · ámbar 2–12h ·
 │ ● LISTO · 41   [Ver los 41 que van bien ▾]                                                 │
 └──────────────────────────────────────────────────────────────────────────────────────────┘
   PANEL LATERAL (no-modal): desglose readiness por contribuyentes (sueño/HRV/RHR/recup/adher
-  cada uno r-a-g + delta vs base) · timeline ATR [ACC 5s]→[TRANS 4s]→[REAL 3s ●s2] · sesiones
+  cada uno r-a-g + delta vs base) · timeline de la secuencia del coach (sus microciclos, en orden) · sesiones
   recientes · [Mensaje][Abrir plan][Ver tendencias]
 ```
 
-**Columnas:** Atleta (frozen) · Readiness (ring) · Trayectoria (chip) · Adherencia (dots microciclo) · Bandera · Bloque ATR · Próxima · Carrera. Headers sortables `aria-sort`, números `tabular-nums`. Cubo Listo colapsado por defecto (refuerza tiende-a-cero). Bulk-select → asignar microciclo ATR a grupo. Densidad Tabla/Tarjetas.
+**Columnas:** Atleta (frozen) · Readiness (ring) · Trayectoria (chip) · Adherencia (dots microciclo) · Bandera · Microciclo · Próxima · Carrera. Headers sortables `aria-sort`, números `tabular-nums`. Cubo Listo colapsado por defecto (refuerza tiende-a-cero). Bulk-select → asignar microciclo a grupo. Densidad Tabla/Tarjetas.
 
 ---
 
@@ -216,7 +216,7 @@ RAW TABLES → [CRON */15 + EVENT on-write] → recompute.ts (por atleta: rollup
 | Sin sync >48h / >24h | Crít/Vig | ✅ | `cohort.ts` sync_minutes_ago |
 | Intake pendiente >48h | Crít/Vig | ✅ | `intake.ts` |
 | Programming `no_month`/`month_2_pending` | Crítico | ✅ | `programming-status` |
-| Microciclo acaba ≤N días (Due-Soon ATR) | Vigilar | ✅ | `atr/service.ts` |
+| Microciclo acaba ≤N días (Due-Soon) | Vigilar | ✅ | `attention/evaluators/programming.ts` |
 | Ajuste semanal IA / bloque mensual pendiente | Vigilar | ✅ | `week-adjustments.ts` / `monthly-block-proposal.ts` |
 | Sesiones perdidas ≥2 (7d) | Vigilar | ✅ | `cohort.ts` (gap: sin tabla de disponibilidad → falsos en viaje) |
 | RPE alto ≥9 ayer · Check-in saltado >48h | Vigilar | ✅ | `cohort.ts` |

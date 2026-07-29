@@ -14,7 +14,7 @@ import { getTargetRaceRow } from './target-race';
  * legacy periodization "current block" reader. A microciclo is the coach's own DATA: the
  * materialization receipt `athlete_month_assignments` (name via
  * `program_month_templates`, dated window, `microcycle_ids[]` = its weeks). There is
- * NO ATR block, NO ACC/TRANS/REAL, NO macrocycle — the ORDER of the coach's
+ * NO phase catalogue, NO macrocycle entity — the ORDER of the coach's
  * microciclos IS the periodization. The athlete/coach see the coach's NAME +
  * "semana N de M", never periodization jargon.
  *
@@ -28,7 +28,7 @@ export type CurrentMicrociclo = {
   /** athlete_month_assignments.id — the coach "microciclo" (assignment receipt) id. */
   assignment_id: bigint;
   month_template_id: bigint;
-  /** program_month_templates.name — THE agnostic label (replaces ATR block_type). */
+  /** program_month_templates.name — THE agnostic label the coach writes. */
   name: string;
   /** athlete_levels.name for the assignment's template, or '' when unleveled. */
   level: string;

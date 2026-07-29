@@ -53,7 +53,7 @@ type Rule = {
 ### Resolución de conflictos (global)
 1. **Prioridad:** `critical > high > medium > low`. Seguridad (overtraining, skip) anula progresión.
 2. **Severidad dentro de igual prioridad:** se aplica la más conservadora — `skip > reschedule > swap_session > swap_modality > downgrade_intensity > keep`. Intra-sesión: `cut_reps`/`cut_sets`/`walk_jog` ganan a `scale_load`.
-3. **Coherencia de dirección:** si dos reglas empujan opuesto (subir vs bajar), gana la que **baja** (principio ATR conservador). Excepción: en `REAL`/taper, `days_to_race` manda.
+3. **Coherencia de dirección:** si dos reglas empujan opuesto (subir vs bajar), gana la que **baja** (criterio conservador). Excepción: en `REAL`/taper, `days_to_race` manda.
 4. **Scope:** la regla de scope más específico gana a igual prioridad.
 5. **Agregación temporal:** no se actúa por evento aislado — `*_consecutive`/`window` exigidos por diseño (anti-overreacción).
 6. **Una propuesta por semana:** acciones cross-session de la misma `week_start` se consolidan en UN `week_adjustment_proposal` (la tabla ya impone `pending uniq (athlete_id, week_start)`).
@@ -80,7 +80,7 @@ type Rule = {
 ### Área 1 — Filosofía & no-negociables `[selection/global]`
 Capa de validación global: toda salida de la IA pasa por estos no-negociables antes de entregarse; si los viola → descarta y reintenta, o escala a Pablo.
 - `hard_rules` | rule-builder | reglas CUANDO→ENTONCES con scope (global|block|group 1-10) | default: 14 reglas pre-cargadas (abajo) | sí
-- `philosophy_narrative` | nl+ai | texto indexado a RAG por bloque ATR | default: filosofía por bloque | sí
+- `philosophy_narrative` | nl+ai | texto indexado a RAG, lo escribe el coach | default: vacío | sí
 - `keystone_session_by_block` | matrix | {ACC,TRANS,REAL} × keystone_group_id (FK 1-10) + protect_rule(never_skip|swap_if_fatigued|reduce_volume) | default: ACC→g5 Zona2 `never_skip`; TRANS→g4 Series Running `swap_if_fatigued`; REAL→g7 Simulaciones `reduce_volume` (seed #7 "SESIÓN MÁS IMPORTANTE EN ACC", #8 threshold) | sí
 - `deload_policy` | matrix | every_n_weeks + volume_drop_pct(0-50) + keep_intensity | default: cada 4ª sem, −40% vol, intensidad mantenida | sí
 - `intensity_spacing_min_hours` | number+unit | h | default: 6 (example-templates §5; seed #1 "PM en 6+ horas") | sí
@@ -89,10 +89,10 @@ Capa de validación global: toda salida de la IA pasa por estos no-negociables a
 
 **14 no-negociables pre-cargados** (resumen; viven en el store): máx 1 día alta intensidad seguido · ACC no glycolítico (flag) · Z2 long keystone never_skip (swap a row si HRV<-15%) · 6h entre fuerza pesada y otra sesión · deload semana%4 −40% vol · decoupling>8%→−15% vol · HRV<-10% o sleep<6h→reschedule benchmark · HRV<-15% o soreness≥4→skip PM protegida · REAL día≤7 forbid Z5 sharpeners (taper) · REAL día≤10 fuerza→−30% carga+vol · intervals: última rep=primera ±tol, si drift>umbral→corta reps · full-sim máx 1× en REAL · **completitud de prescripción**: fuerza sin {reps,carga,RIR/RPE,tempo,descanso}→forbid; run/ergo sin (medida+objetivo)→forbid.
 
-### Área 2 — Periodización ATR `[selection]`
+### Área 2 — Periodización (del coach) `[selection]`
 El atleta no la toca; ve su resultado (bloque actual, semanas a carrera) con vocabulario athlete-facing.
 - `block_type` | select | ACC|TRANS|REAL (enum `atrBlockType`, `_primitives.ts:58`) | fijos | sí
-- `block_label_athlete` | text (1/tipo) | — | ACC→"Acumulación", TRANS→"Intensificación", REAL→"Tapering/Realización" | sí
+- `block_label_athlete` | text (1/bloque) | — | lo nombra el coach; el producto no trae catálogo | sí
 - `block_duration_weeks` | number+unit | 1-8 | ACC=5, TRANS=4, REAL=3 (ground-truth `assignment_microciclo`; coherente con day_position w3/w2/w1) | sí
 - `block_objective` | multiselect | volumen_aerobico|densidad_muscular|umbral_anaerobico|lactate_clearance|pace_consistency|especificidad_carrera|peaking_freshness|mantenimiento_fuerza | ACC=[volumen_aerobico,densidad_muscular]; TRANS=[umbral_anaerobico,lactate_clearance,pace_consistency]; REAL=[especificidad_carrera,peaking_freshness,mantenimiento_fuerza] (coach_notes) | sí
 - `block_intensity_ceiling` | select | Z2|Z3|Z4|Z5 | ACC=Z2, TRANS=Z4, REAL=Z5 | sí
@@ -140,7 +140,7 @@ Reglas: `lthr presente→anchor LTHR`; `lthr ausente→LTHR≈0.88·HRmax`; `sin
 Cada test → un campo del onboarding → un ancla → las zonas/cargas. Re-test recalibra.
 - `test_catalog` | matrix | test × {slug, modality, protocolo, output_field, feeds_anchor} | 17 tests: `1rm_back_squat/deadlift/bench/ohp/clean` → `one_rm_*_kg` (cargas %RM); `pullups_max`; `tt_5k`→`time_5k_seconds` (zonas pace); `tt_1mile`; `tt_2k_row`→`time_2k_row_seconds` (zonas erg); `tt_1k_ski`; `ftp_20min`→`ftp_watts`; `lthr_30min`→`lthr_bpm` (todas zonas HR); `hr_max`; `station_wallball/sled_push/bbj/farmer/sandbag_lunges`; `hyrox_half_sim`. Todos los output_field verificados contra `OnboardingState`. | sí
 - `test_cadence_mode` | select | block_start|every_n_weeks|on_plateau|manual | block_start | sí
-- `test_schedule` | matrix | lthr+tt_5k+tt_2k_row → inicio de CADA bloque ATR; 1RM → inicio ACC+REAL (no TRANS, fatiga); stations → ACC+mid-TRANS; half_sim → cada 4-6 sem en TRANS; huecos onboarding → batería w1 ACC | sí
+- `test_schedule` | matrix | lthr+tt_5k+tt_2k_row → inicio de CADA bloque del coach; el resto de la cadencia la fija él | sí
 - `freshness_threshold_weeks` | number+unit | 1RM=12, pace/HR=6, stations=8 | sí
 - `recalc_policy` | select | auto_on_result|propose_review|manual | **propose_review** (Pablo aprueba antes de mover cargas) | sí
 - `oneRm_estimation` | select | Epley|Brzycki|Lombardi | Epley | sí
@@ -209,7 +209,7 @@ Gobierna CADA mensaje IA→atleta; se inyecta como system-context en toda genera
 **Principio:** forma fija → tablas/columnas explícitas (convención del proyecto). El motor de reglas (estructura variable de aridad) → JSONB acotado, **mismo precedente que `prescription_json` (0043)**.
 
 - `coach_methodology` (1 fila/coach) — escalares: hr_zone_count, hr_anchor, pace/erg anclas, rpe_scale, intensity_spacing_min_hours, max_consecutive_hi_days, taper_*, recalc_policy, oneRm_estimation, gate thresholds, voice (tone sliders, why_depth, languages, emoji, feedback_style).
-- `methodology_blocks` (filas ACC/TRANS/REAL/coach) — label_athlete, duration_weeks, objective[], intensity_ceiling, order, progression shapes/deltas, deload policy.
+- `methodology_blocks` (una fila por bloque QUE DEFINA EL COACH) — label_athlete, duration_weeks, objective[], intensity_ceiling, order, progression shapes/deltas, deload policy.
 - `methodology_zones` (coach × system{hr|pace|erg|power} × zone) — label, lower/upper, anchor, op, offset.
 - `methodology_tests` (coach × test) — slug, modality, protocolo, output_field, feeds_anchor, cadence, freshness_weeks, recalc propagation.
 - `methodology_weekly_structure` (coach × nivel) — sessions/week, two_a_day, modality_mix, hard_easy, key_session, am_pm pairs, forbidden_adjacent, rest_placement, min_gap_h.

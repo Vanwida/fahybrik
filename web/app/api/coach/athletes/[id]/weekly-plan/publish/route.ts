@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST /api/coach/athletes/[id]/weekly-plan/publish
-// Publishes a week (or a whole ATR block) so the athlete plan endpoint stops
+// Publishes a week (or a whole run of microcycles) so the athlete plan endpoint stops
 // hiding it, and fires the `plan_published` notification. Coach auth via
 // getCoachSession; ownership verified inside publishWeek()/publishBlock().
 //   - { week_start }  → single week (proposal / next-week review path).

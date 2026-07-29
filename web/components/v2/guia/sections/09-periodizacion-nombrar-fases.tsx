@@ -1,7 +1,7 @@
 // GUÍA · 09 Periodización: nombrar fases — área "El plan". The agnostic model from
 // the real Periodización section (components/v2/periodizacion/PeriodizacionView):
 // a LEVEL holds an ordered SEQUENCE of microciclos per días/semana, and that order
-// IS the periodization. No fixed phases, no hardcoded ATR — the coach names and
+// IS the periodization. No fixed phases, no hardcoded catalogue — the coach names and
 // sequences his own. Each microciclo's name is the fase the athlete reads.
 
 import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';

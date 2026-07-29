@@ -5,8 +5,7 @@
     "wordmark_aria": "FAHYBRID",
     "anchor_tagline": "Entrenar al detalle.",
     "anchor_coach_more": "Cuanto más sepa tu entrenador, más preciso será tu plan.",
-    "anchor_coach_building": "Tu entrenador está armando tu plan.",
-    "real_trans_acc": "REAL · TRANS · ACC"
+    "anchor_coach_building": "Tu entrenador está armando tu plan."
   },
   "common": {
     "loading": "Cargando…",
@@ -77,11 +76,7 @@
       "in_gym_today": "Hoy en el gym",
       "with_alerts": "Con alerta",
       "twice_daily": "Doble sesión",
-      "a_event_30d": "A-event ≤30 días",
-      "block_acc": "Bloque ACC",
-      "block_trans": "Bloque TRANS",
-      "block_real": "Bloque REAL",
-      "all_blocks": "Todos los bloques"
+      "a_event_30d": "A-event ≤30 días"
     },
     "table": {
       "name": "Atleta",
@@ -192,7 +187,6 @@
     "discard": "Descartar cambios",
     "saved": "Guardado",
     "search_semantic": "Probar búsqueda semántica",
-    "block_acc_examples": "Ej. Reglas de transición ACC → TRANS",
     "section_strength": "Fuerza",
     "section_conditioning": "Acondicionamiento",
     "section_running": "Run",
@@ -304,8 +298,6 @@
     "field_title": "Título",
     "field_description": "Prescripción",
     "field_group": "Grupo metodológico",
-    "field_atr": "Fase ATR",
-    "atr_none": "Sin fase",
     "saved": "Cambios guardados.",
     "save_error": "No se pudieron guardar los cambios.",
     "load_error": "No se pudo cargar el bloque.",

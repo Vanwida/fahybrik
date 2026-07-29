@@ -1,12 +1,12 @@
-// Progress-readiness logic — AGNOSTIC replacement for the legacy ATR transition
-// engine. Answers ONE question: is this athlete ready to PROGRESS to the next
-// microciclo in the coach's ordered sequence? There is no fixed periodization
-// (no ACC→TRANS→REAL): the ORDER of the coach's microciclos IS the plan, so this
+// Progress-readiness logic — AGNOSTIC. Answers ONE question: is this athlete
+// ready to PROGRESS to the next microciclo in the coach's ordered sequence?
+// There is no fixed periodization and no catalogue of phases: the ORDER of the
+// coach's microciclos IS the plan, so this
 // emits a generic advance/hold/regress signal from compliance + load + benchmark
 // progression + microciclo completion. The coach has the final call — nothing
 // auto-promotes; the engine just surfaces a defensible suggestion.
 //
-// Thresholds are Pablo's tuning, carried verbatim from the prior ATR engine.
+// Los umbrales son un DEFECTO editable, no una verdad del producto.
 //
 // DEFENSIBLE means the evidence exists. Where a signal is missing — nothing was
 // scheduled yet, or part of the executed work has no intensity — the engine

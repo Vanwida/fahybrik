@@ -3,7 +3,7 @@ import 'server-only';
 // HOY — unified coach inbox (UX redesign Phase 1, docs/design/ux-redesign/SPEC.md §1).
 // Aggregates the surfaces Pablo had to visit separately into ONE ordered queue:
 // pending intakes, weekly-adjustment proposals (the old /review inbox), monthly
-// block / ATR-transition proposals, operational alerts (inactivity, billing)
+// block / microcycle-transition proposals, operational alerts (inactivity, billing)
 // and unread athlete messages.
 //
 // This module REUSES the existing per-surface loaders (listPendingIntake,

@@ -71,7 +71,7 @@ final class AssignmentDetailTests: XCTestCase {
             "my_role": null
           },
           "workout": {
-            "name": "ATR · Acumulación I",
+            "name": "Microciclo 1 · Base",
             "focus": "strength",
             "coach_note": "Calienta 10 min antes.",
             "estimated_duration_minutes": 60,
@@ -139,7 +139,7 @@ final class AssignmentDetailTests: XCTestCase {
 
         // Workout shell
         let workout = try XCTUnwrap(detail.workout)
-        XCTAssertEqual(workout.name, "ATR · Acumulación I")
+        XCTAssertEqual(workout.name, "Microciclo 1 · Base")
         XCTAssertEqual(workout.focus, "strength")
         XCTAssertEqual(workout.estimatedDurationMinutes, 60)
         XCTAssertEqual(workout.blocks.count, 2)

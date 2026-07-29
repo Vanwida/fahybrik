@@ -16,7 +16,6 @@ export interface TemplateDetailWire {
   id: string;
   name: string;
   format: string;
-  target_block: 'ACC' | 'TRANS' | 'REAL' | 'any';
   target_level: number | null;
   methodology_group_id: number | null;
   coach_notes: string | null;
@@ -41,7 +40,6 @@ export interface TemplateDetailWire {
 /** Metadatos de catálogo del entreno (los "tags" editables en el drawer). */
 export interface TemplateMeta {
   format: TemplateFormat;
-  target_block: 'ACC' | 'TRANS' | 'REAL' | 'any';
   target_level: number | null;
   methodology_group_id: number | null;
   coach_notes: string | null;
@@ -112,7 +110,6 @@ export function sessionToTemplateUpdatePayload(
 ): {
   name: string;
   format: TemplateFormat;
-  target_block: TemplateMeta['target_block'];
   target_level: number | null;
   methodology_group_id: number | null;
   coach_notes: string | null;
@@ -123,7 +120,6 @@ export function sessionToTemplateUpdatePayload(
   return {
     name: (session.focus ?? '').trim() || 'Sesión sin título',
     format: meta.format,
-    target_block: meta.target_block,
     target_level: meta.target_level,
     methodology_group_id: meta.methodology_group_id,
     coach_notes: meta.coach_notes,

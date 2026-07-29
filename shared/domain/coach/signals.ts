@@ -57,7 +57,7 @@ export const SIGNAL_KINDS = [
   'message_unanswered',
   'readiness_low',
   'transition_ready',
-  // Programming / ATR
+  // Programming
   'programming_status',
   'microcycle_ending',
   'a_event_near',
@@ -151,7 +151,7 @@ export interface SignalFacts {
   /** Optional free-text detail on the discomfort, or null. */
   discomfort_note: string | null;
 
-  // ATR / programming
+  // Programming
   /** Programming health from getAthleteProgrammingStatus. */
   programming_status: 'ok' | 'no_month' | 'pending_proposal' | 'empty_week' | 'month_2_pending';
   programming_label: string | null;
