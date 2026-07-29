@@ -15,6 +15,20 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 **En curso:** los arquetipos como pantallas del doble (`/es/design`) para que Alex apruebe la composición antes de tocar Swift · la puerta de entrada (4 de 5 pantallas de auth no scrollean y recortan el botón de email con texto grande) · los bugs de tokens del dashboard · el onboarding que puebla la app.
 
+---
+
+## Cerrado el 29-jul · La tanda inmersiva del entreno — diez pantallas nuevas del doble
+
+Encargo de Alex: *«cada view hecha PARA ese entreno; una vez uses la app no puedas dejar de usarla»* — solo iOS, la vista del atleta. Diez familias `propuesta` en `/es/design`, una por **quién gobierna** el entreno (decisión en `docs/DECISIONS.md`, 29-jul):
+
+- **Contexto:** `plan-bloque` (la semana dentro del bloque, con la rampa y el día vacío con salida) · `sesion-previa` (la ficha con vídeo por ejercicio, el porqué de Pablo, material, y el detalle con tu última vez).
+- **En vivo:** `vivo-correr` (la zona te tiñe el rodaje; en series mandan los metros que faltan; cinta honesta que LEE) · `vivo-erg` (el /500 contra objetivo, el crono espera al primer golpe, el cruce cierra) · `vivo-fuerza` (la serie delante con discos por lado y tu última vez; el descanso es pantalla) · `vivo-emom` (el minuto es el ambiente; lo que sobra es tuyo; interval 45/15 avisa de PARAR) · `vivo-fortime` (el crono es la puntuación y no se va; la estación es el tramo; 1.014 se lee 1.014) · `vivo-amrap` (la ronda gigante se toca en medio lienzo; el sellado exacto) · `vivo-dobles` (tu descanso es el sujeto cuando rema Ana; el cambio es un suceso 3-2-1).
+- **Muñeca:** `watch-vivo` (el fondo OLED entero es tu zona; un sujeto por página; el aro del bisel trocea las series).
+
+Verificado: typecheck y eslint en verde, las diez renderizan sin errores de consola en local, cero jerga (PM5/FTMS) en el lienzo, cero hex fuera de tokens, casos reales de producción como fixtures (5×500 exec 179, ski 400 exec 173, EMOM 177, HYROX 16, circuito con dosis null). **Hallazgo de raíz apuntado:** `t-readout-label` (Theme.swift + twin.css) escribe «/500M» por el uppercase — se arregla en los dos en el mismo lote.
+
+**Siguiente:** Alex revisa en `/es/design`; lo aprobado pasa a Swift y su pantalla del doble a `espejo` en el mismo lote.
+
 **Decidido por Alex el 29-jul** (ver `docs/DECISIONS.md`): lo que el atleta declara en el onboarding **puebla su app y la ficha del coach**, marcado, editable y borrable, y lo medido manda sobre lo declarado. Y **sin zonas medidas se generalizan por población**, marcadas y sin puntuar como medidas.
 
 **En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), el nombre del tier free, y **el modelo de las 5 estaciones de HYROX** (no hay columna, ni slug, ni pantalla — se pregunta en el onboarding y se tira).

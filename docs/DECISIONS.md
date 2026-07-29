@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-29 · La tanda inmersiva del entreno: una vista por QUIÉN GOBIERNA, no por pantalla genérica
+
+**Decidido:** el entreno en vivo del atleta (iOS) no es una pantalla con variantes — son **vistas distintas con sujeto propio**, y lo que las separa son dos variables ya establecidas por el motor: *quién gobierna la transición* (el reloj en EMOM/AMRAP · el hito medido en series de calle/cinta/ergo · el atleta en fuerza · el suceso en For Time · el relevo en dobles) × *qué fuente mide* (GPS, monitor del ergo, cinta en lectura, reloj de pulso, o nadie y se toca). De ahí salen las diez familias `propuesta` del doble shipeadas hoy: `plan-bloque`, `sesion-previa` (con vídeo por ejercicio), `vivo-correr`, `vivo-erg`, `vivo-fuerza`, `vivo-emom`, `vivo-fortime`, `vivo-amrap`, `vivo-dobles` y `watch-vivo`. Cinco huecos de PENDIENTES quedan cubiertos y salen del índice (plan de la semana, detalle de sesión, HUD de fuerza/metcon, la ruta entera como lista, dobles en vivo).
+
+**El lenguaje común que las une (y que la implementación Swift debe respetar):** un solo sujeto por estado, legible a 2 metros sudando; la zona de pulso tiñe el ambiente (no un chip perdido); el descanso es una pantalla con sujeto propio (cuenta atrás + pulso bajando + qué viene); las transiciones se ANUNCIAN (flash + cambio de sujeto); y la honestidad del §7 en vivo: una dosis null se pinta sin fabricar, un monitor parado no cierra un tramo (cierra el cruce o el toque), lo estimado viaja marcado y lo tachado enseña lo MEDIDO (1.014 no se redondea a 1.000).
+
+**Hallazgo de raíz apuntado (no arreglado aquí):** `t-readout-label` lleva `text-transform: uppercase` y convierte «/500m» en «/500M» (eme de mega). La raíz está en `Theme.Typography.readoutLabel` de Theme.swift, que `twin.css` espeja — se arregla en los DOS en el mismo lote, no en cada pantalla (dos familias lo esquivaron con un átomo local mientras tanto).
+
+**En consecuencia, no hacer:** no volver a diseñar «el HUD» como una pantalla única parametrizada; no darle reloj protagonista a un formato donde el reloj no gobierna (en fuerza el sujeto es la serie, en For Time es el trabajo); y no shipear en Swift ninguna de estas vistas sin actualizar su pantalla del doble a `espejo` en el mismo lote.
+
+---
+
 ## 2026-07-28 · El doble: la app vive replicada en la web, y los mockups sueltos se acaban
 
 **Decidido:** existe una réplica viva de la app del atleta dentro de la web del producto — «el doble» — en `app.fahybrid.com/<locale>/design` (grupo de rutas `(design)`, puerta **ADMIN-ONLY**: login Clerk en el middleware + rol `admin` de `user_roles` en el layout — hoy, solo Alex; un coach sin ese rol rebota a sign-in —, `noindex`). Es la herramienta interna de dirección de UX: cada pantalla se toca, gira (vertical/horizontal), cambia de apariencia (claro/oscuro) y SIMULA lo que en el mundo real es asíncrono — el monitor del remo que aparece al escanear, el GPS que tarda, la cuenta atrás del descanso. En el móvil, «pantalla completa» pinta el lienzo 1:1 y la orientación sigue al teléfono físico.

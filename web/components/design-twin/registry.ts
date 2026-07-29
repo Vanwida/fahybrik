@@ -23,6 +23,16 @@ import * as analiticasVeredicto from './screens/analiticas-veredicto';
 import * as gateBloque from './screens/gate-bloque';
 import * as entrenoVivo from './screens/entreno-vivo';
 import * as postEntreno from './screens/post-entreno';
+import * as planBloque from './screens/plan-bloque';
+import * as sesionPrevia from './screens/sesion-previa';
+import * as vivoCorrer from './screens/vivo-correr';
+import * as vivoErg from './screens/vivo-erg';
+import * as vivoFuerza from './screens/vivo-fuerza';
+import * as vivoEmom from './screens/vivo-emom';
+import * as vivoFortime from './screens/vivo-fortime';
+import * as vivoAmrap from './screens/vivo-amrap';
+import * as vivoDobles from './screens/vivo-dobles';
+import * as watchVivo from './screens/watch-vivo';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -40,6 +50,20 @@ export const SCREENS: TwinScreenModule[] = [
   gateBloque,
   entrenoVivo,
   postEntreno,
+  // La tanda inmersiva (29-jul): una vista por quién gobierna el entreno
+  // (el reloj en EMOM y AMRAP, el hito en series de calle y ergo, el atleta
+  // en fuerza, el suceso en For Time, el relevo en dobles) más el contexto
+  // (el plan del bloque, la ficha de sesión con vídeo) y la muñeca.
+  planBloque,
+  sesionPrevia,
+  vivoCorrer,
+  vivoErg,
+  vivoFuerza,
+  vivoEmom,
+  vivoFortime,
+  vivoAmrap,
+  vivoDobles,
+  watchVivo,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -55,14 +79,9 @@ export const ESTADO_LABEL: Record<TwinEstado, string> = {
 /** Pantallas de la app que aún NO tienen doble — el hueco reconocido. */
 export const PENDIENTES: TwinPendiente[] = [
   { titulo: 'Hoy', zona: 'Plan y hoy', descripcion: 'La portada diaria: readiness, sesión del día, avisos.' },
-  { titulo: 'Plan de la semana', zona: 'Plan y hoy', descripcion: 'Microciclo con puntos de modalidad y carga.' },
-  { titulo: 'Detalle de sesión', zona: 'Plan y hoy', descripcion: 'La ficha previa: bloques, dosis, el porqué del coach.' },
-  { titulo: 'HUD de fuerza y metcon', zona: 'Entreno en vivo', descripcion: 'Series, cargas y descansos en vivo (EMOM/AMRAP).' },
-  { titulo: 'La ruta entera, como Lista', zona: 'Entreno en vivo', descripcion: 'Las 16 estaciones en su propia hoja — la salida del «Ver las 16» del entreno en vivo.' },
   { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'Montar un libre: modalidad, medida, objetivo.' },
   { titulo: 'Tests guiados', zona: 'Marcas y tests', descripcion: 'La batería de calibración con instrucciones paso a paso.' },
   { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'Alta del atleta: datos, dispositivos, permisos.' },
-  { titulo: 'Dobles en vivo', zona: 'Entreno en vivo', descripcion: 'El relevo con Ana/Marcos: turnos y colores de pareja.' },
 ];
 
 /** Mockups históricos (pre-doble) — enlaces de consulta, congelados. */
