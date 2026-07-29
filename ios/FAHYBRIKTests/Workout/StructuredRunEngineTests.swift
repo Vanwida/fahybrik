@@ -74,7 +74,14 @@ final class StructuredRunEngineTests: XCTestCase {
         s.primaryAdvance(); s.primaryAdvance(); s.primaryAdvance()                            // →3,4,5
         XCTAssertEqual(s.runLegIndex, 5)
         XCTAssertFalse(s.isFinished)
-        s.primaryAdvance()                     // last leg done → single segment → finish
+
+        // Last leg done → the PRESCRIBED work is complete. The session does not end
+        // itself: it asks him once ("¿terminamos o sigues?"), which is the whole point
+        // of routing every natural completion through `finishPrescribedWork`.
+        s.primaryAdvance()
+        XCTAssertTrue(s.isAwaitingFinishDecision)
+        XCTAssertFalse(s.isFinished, "the session must never close behind the athlete's back")
+        s.finish()                             // he answers "terminar"
         XCTAssertTrue(s.isFinished)
     }
 
