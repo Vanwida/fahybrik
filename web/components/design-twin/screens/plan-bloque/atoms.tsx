@@ -11,7 +11,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { COLOR_MODALIDAD, type Modalidad } from '../../datos-reales';
 import { Label, Mono, PuntoModalidad, RAD, SP, entradaStyle } from '../../kit';
 import type { ClaveDosis, DiaPlan, EstadoDia, SemanaPlan } from './data';
-import { esDescarga, estadoDia } from './data';
+import { estadoDia } from './data';
 
 // `entradaStyle` y `PuntoModalidad` nacieron aquí y ahora viven en el kit
 // compartido (§0): la familia del plan los necesitaba y una copia habría sido
@@ -190,78 +190,6 @@ export function CarrilSemana({
           transitionDelay: '420ms',
         }}
       />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// La rampa del bloque
-// ---------------------------------------------------------------------------
-
-/**
- * La rampa del bloque. Las barras van en PORCENTAJE de su carril, no en pt:
- * así se quedan con el alto que sobre en la pantalla en vez de reservar uno
- * fijo, que es el fallo que el §6.1 persigue. El tope existe porque seis
- * torres de 240 pt dejan de leerse como una rampa.
- */
-export function Rampa({
-  semanas,
-  indiceActual,
-  dibujada,
-}: {
-  semanas: readonly number[];
-  indiceActual: number;
-  dibujada: boolean;
-}) {
-  const maximo = Math.max(...semanas, 1);
-  return (
-    <div
-      role="img"
-      aria-label={`Rampa del bloque: ${semanas.length} semanas, estás en la ${indiceActual + 1}`}
-      style={{ flex: '1 1 auto', minHeight: 78, maxHeight: 168, display: 'flex', flexDirection: 'column', gap: 5 }}
-    >
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', alignItems: 'flex-end', gap: 4 }}>
-        {semanas.map((minutos, i) => {
-          const actual = i === indiceActual;
-          const suave = esDescarga(semanas, i);
-          const relleno = actual
-            ? 'var(--twin-accent)'
-            : i < indiceActual
-              ? 'color-mix(in srgb, var(--twin-fg) 26%, transparent)'
-              : 'color-mix(in srgb, var(--twin-fg) 13%, transparent)';
-          return (
-            <span
-              key={i}
-              aria-hidden
-              style={{
-                flex: 1,
-                minWidth: 0,
-                // Un 4 % de suelo para que una semana muy suave siga siendo una
-                // barra y no una raya invisible.
-                height: dibujada ? `${Math.max(4, Math.round((minutos / maximo) * 100))}%` : 0,
-                borderRadius: `${RAD.s}px ${RAD.s}px 2px 2px`,
-                background: suave ? `repeating-linear-gradient(135deg, ${relleno} 0 3px, transparent 3px 7px)` : relleno,
-                boxShadow: actual ? '0 0 0 1px color-mix(in srgb, var(--twin-accent) 40%, transparent)' : undefined,
-                transition: 'height 520ms cubic-bezier(0.2, 0.8, 0.3, 1)',
-                transitionDelay: `${i * 70}ms`,
-              }}
-            />
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 4, flex: '0 0 auto' }}>
-        {semanas.map((_, i) => (
-          <span key={i} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            <Mono
-              size={10}
-              weight={i === indiceActual ? 700 : 500}
-              color={i === indiceActual ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}
-            >
-              {i + 1}
-            </Mono>
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

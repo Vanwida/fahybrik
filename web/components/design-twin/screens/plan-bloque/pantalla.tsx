@@ -1,37 +1,44 @@
 'use client';
 
-// La composición: dónde estás hoy dentro del bloque, y qué toca.
+// La composición: la PORTADA DIARIA del plan — dónde estás hoy dentro del
+// bloque, y qué toca.
 //
-// De arriba abajo hay una sola idea, contada tres veces a tres distancias: el
-// BLOQUE (la rampa de semanas), la SEMANA (el carril de siete días) y HOY (la
-// sesión, en grande). El hilo naranja que baja del día de hoy hasta la tarjeta
-// dice que son la misma cosa vista de lejos y de cerca.
+// De arriba abajo hay una sola idea contada dos veces a dos distancias: la
+// SEMANA (el carril de siete días) y HOY (la sesión, en grande). El hilo naranja
+// que baja del día de hoy hasta la tarjeta dice que son la misma cosa vista de
+// lejos y de cerca. La tercera distancia —hacia dónde va el bloque— NO se pinta
+// aquí: vive en `plan-ciclo`, y desde abajo se entra.
+//
+// Aquí había una rampa de volumen previsto por semana. Se retiró el 29-jul: sus
+// números no existían en producción y afirmaban cuánto iba a entrenar el atleta
+// dentro de tres semanas. Lo planificado se pinta con seguridad; lo medido del
+// futuro no existe (CONTRATO-UI §7).
 //
 // Altura (§6.1), `llena`: el cromo de arriba y la acción de abajo son fijos, y
-// el sobrante se lo reparten los dos que pueden pagarlo. El héroe crece con lo
-// que la sesión tenga que contar (sus partes, su dosis) y la rampa se queda el
-// resto hasta su tope, porque un bloque dibujado grande es justo lo que da
-// sentido a la semana. Ninguna cola debajo de nada.
+// el sobrante se lo lleva el héroe, que es el sujeto de la pantalla. Cuando la
+// sesión no trae cifras que estirar, el pie del bloque absorbe lo que sobre en
+// vez de dejar un hueco muerto. Ninguna cola debajo de nada.
 //
 // En el día de descanso el héroe degrada a `centra`: no hay contenido que
 // estirar, hay un hueco que explicar y del que salir.
 
 import { useState } from 'react';
 import type { Modalidad } from '../../datos-reales';
-import { CTA, Card, Display, Hairline, Label, Mono, SP } from '../../kit';
+import { CTA, Card, Display, Hairline, Label, SP } from '../../kit';
 import { useTimeline } from '../../sim';
-import { CarrilSemana, DatoClave, entradaStyle, ParteSesion, Pastilla, PuntoModalidad, Rampa, TarjetaDia } from './atoms';
-import type { DiaPlan, EstadoDia, SemanaPlan, SesionDelDia } from './data';
-import {
-  estadoDia,
-  horasPrevistas,
-  lecturaRampa,
-  minutosPrevistosSemana,
-  planDeEscenario,
-  rampaDelBloque,
-  sesionAnterior,
-  sesionSiguiente,
-} from './data';
+import { CarrilSemana, DatoClave, entradaStyle, ParteSesion, Pastilla, PuntoModalidad, TarjetaDia } from './atoms';
+import type { DiaPlan, DuracionPrevista, EstadoDia, SemanaPlan, SesionDelDia } from './data';
+import { estadoDia, planDeEscenario, sesionAnterior, sesionSiguiente } from './data';
+import { durationUnknownEs } from '@fahybrid/shared/domain/prescription';
+
+/**
+ * Lo que se lee donde iba la duración. O los minutos que el plan deja escritos,
+ * con su «unos», o la razón por la que no hay ninguno — nunca un hueco, nunca un
+ * guion (CONTRATO-UI §5: todo estado vacío lleva salida o dice por qué no la hay).
+ */
+function textoDuracion(d: DuracionPrevista): string {
+  return 'minutos' in d ? `unos ${d.minutos} min` : durationUnknownEs(d.razon);
+}
 
 /** «3 sesiones hechas» / «1 sesión hecha» — el plural, una sola vez. */
 function cuenta(n: number, singular: string, plural: string): string {
@@ -44,12 +51,8 @@ const MAX_PARTES = 4;
 export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (linea: string) => void }) {
   const [entrada, setEntrada] = useState(false);
   const [sellos, setSellos] = useState(false);
-  const [rampa, setRampa] = useState(false);
 
   const { bloque, semanaActual, semana } = planDeEscenario(escenario);
-  const minutos = minutosPrevistosSemana(semana);
-  const semanas = rampaDelBloque(bloque, semanaActual, minutos);
-  const lectura = lecturaRampa(semanas, semanaActual - 1);
 
   const hoy = semana.dias[semana.indiceHoy];
   const sesionHoy: SesionDelDia | null = hoy.sesiones[0] ?? null;
@@ -71,18 +74,16 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
     {
       at: 1150,
       run: () => {
-        setRampa(true);
         const parte = saltadas > 0 ? `, ${cuenta(saltadas, 'saltada', 'saltadas')}` : '';
         onLog(`0:01 · ${cuenta(hechas, 'sesión hecha', 'sesiones hechas')} esta semana${parte}`);
       },
     },
-    { at: 1750, run: () => onLog(`0:01 · La rampa se dibuja. ${lectura} ${horasPrevistas(minutos)} h previstas`) },
     {
-      at: 2350,
+      at: 1750,
       run: () =>
         onLog(
           sesionHoy
-            ? `0:02 · Hoy: ${sesionHoy.plan.ref.titulo}, unos ${sesionHoy.plan.minutosPrevistos} min`
+            ? `0:02 · Hoy: ${sesionHoy.plan.ref.titulo}, ${textoDuracion(sesionHoy.plan.duracion)}`
             : `0:02 · Hoy no hay nada en el plan${manana ? `; mañana toca ${manana.sesion.plan.ref.titulo}` : ''}`,
         ),
     },
@@ -116,32 +117,13 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
         <HeroeDescanso semana={semana} dia={hoy} visible={entrada} onAbrir={(que) => onLog(`${que} → abriría esa sesión`)} />
       )}
 
-      <div
-        style={{
-          // Flexible a propósito: la rampa se queda con lo que sobre después
-          // del héroe, hasta su tope. Es lo que da sentido a la semana, así
-          // que si hay alto, se lo gana ella.
-          flex: '1 1 auto',
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: SP.s,
-          ...entradaStyle(entrada, 200),
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <Label size={10}>El bloque</Label>
-          <span style={{ flex: 1 }} />
-          <Mono size={13} weight={700}>
-            {horasPrevistas(minutos)}
-          </Mono>
-          <Label size={9} color="var(--twin-muted)">
-            h previstas
-          </Label>
-        </div>
-        <Rampa semanas={semanas} indiceActual={semanaActual - 1} dibujada={rampa} />
-        <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{lectura}</span>
-      </div>
+      <EntradaAlCiclo
+        nombre={bloque.nombre}
+        semanaActual={semanaActual}
+        total={bloque.totalSemanas}
+        visible={entrada}
+        onAbrir={() => onLog('El bloque → abriría el ciclo entero')}
+      />
 
       <div style={{ flex: '0 0 auto', ...entradaStyle(entrada, 320) }}>
         <CTA
@@ -157,6 +139,88 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
           }
         />
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// El pie — la puerta al ciclo
+// ---------------------------------------------------------------------------
+
+/**
+ * Donde estaba la rampa. Dice lo ÚNICO que de verdad se sabe del bloque —cómo
+ * lo llamó el coach y por qué semana vas— y ofrece la salida a `plan-ciclo`,
+ * que es la pantalla que cuenta hacia dónde va el atleta con estructura
+ * publicada en vez de con una curva inventada.
+ *
+ * NO crece (`flex: 0 0 auto`): una puerta de dos líneas no se gana alto. El
+ * sobrante se lo lleva entero el héroe, que es el sujeto de la pantalla. Cuando
+ * esto compartía el sobrante con la tarjeta quedaba una franja muerta de ~140 pt
+ * entre las dos, que es justo lo que prohíbe el §6.2.
+ */
+function EntradaAlCiclo({
+  nombre,
+  semanaActual,
+  total,
+  visible,
+  onAbrir,
+}: {
+  nombre: string;
+  semanaActual: number;
+  total: number;
+  visible: boolean;
+  onAbrir: () => void;
+}) {
+  return (
+    <div
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        ...entradaStyle(visible, 200),
+      }}
+    >
+      <Hairline />
+      <button
+        type="button"
+        onClick={onAbrir}
+        style={{
+          appearance: 'none',
+          background: 'none',
+          border: 0,
+          padding: '11px 0 2px',
+          margin: 0,
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: SP.s,
+          cursor: 'pointer',
+          textAlign: 'left',
+          font: 'inherit',
+          color: 'inherit',
+        }}
+      >
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+          <Label size={10}>El bloque</Label>
+          <span
+            style={{
+              font: '600 13px/1.25 var(--twin-font-sans)',
+              color: 'var(--twin-fg)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {nombre}
+          </span>
+          <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+            Semana {semanaActual} de {total} · ver el ciclo entero
+          </span>
+        </span>
+        <span aria-hidden style={{ font: '500 17px/1 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
+          ›
+        </span>
+      </button>
     </div>
   );
 }
@@ -239,17 +303,15 @@ function HeroeSesion({ dia, sesion, visible }: { dia: DiaPlan; sesion: SesionDel
   const todasLasPartes = plan.ref.bloques.length > 1 ? plan.ref.bloques : [];
   const partes = todasLasPartes.slice(0, MAX_PARTES);
   const partesDeMas = todasLasPartes.length - partes.length;
-  // Sin cifras de dosis no hay nada dentro que pueda absorber alto (pasa: hay
-  // sesiones del método sin medida escrita). Entonces la tarjeta se queda con
-  // lo suyo y el sobrante se lo lleva la rampa, en vez de estirarse sobre nada.
-  const puedeCrecer = plan.claves.length > 0;
+  // El héroe se queda TODO el sobrante. Antes lo compartía con la rampa —y por
+  // eso podía renunciar a crecer cuando la sesión no traía cifras de dosis—,
+  // pero retirada la rampa el único que puede pagar el alto es el sujeto de la
+  // pantalla. Que la tarjeta respire de más es preferible a una franja muerta
+  // sobre la acción (§6.1: la altura la paga quien manda; §6.2: un hueco se gana
+  // o no existe).
 
   return (
-    <Card
-      fill={puedeCrecer}
-      leftAccent
-      style={{ flex: puedeCrecer ? '1 1 auto' : '0 0 auto', minHeight: 0, ...entradaStyle(visible, 120) }}
-    >
+    <Card fill leftAccent style={{ flex: '1 1 auto', minHeight: 0, ...entradaStyle(visible, 120) }}>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.m }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
           <Label size={10} color="var(--twin-accent-text)">
@@ -264,7 +326,9 @@ function HeroeSesion({ dia, sesion, visible }: { dia: DiaPlan; sesion: SesionDel
         <Display size={tamano}>{titulo}</Display>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: '0 0 auto' }}>
           {plan.formato && <Pastilla>{plan.formato}</Pastilla>}
-          <Pastilla acento>unos {plan.minutosPrevistos} min</Pastilla>
+          {/* Minutos si el plan los escribe; si no, la razón. La pastilla solo
+              va en acento cuando lleva un número: una razón no es un dato. */}
+          <Pastilla acento={'minutos' in plan.duracion}>{textoDuracion(plan.duracion)}</Pastilla>
         </div>
 
         {partes.length > 0 && (
@@ -389,9 +453,9 @@ function HeroeDescanso({
   );
 }
 
-/** El anticipo de mañana: su dato más claro y la estimación, marcada como tal. */
+/** El anticipo de mañana: su dato más claro y su duración, o por qué no la hay. */
 function detalleDeManana(sesion: SesionDelDia): string {
   const clave = sesion.plan.claves[0];
-  const tiempo = `unos ${sesion.plan.minutosPrevistos} min`;
+  const tiempo = textoDuracion(sesion.plan.duracion);
   return clave ? `${clave.valor} · ${tiempo}` : tiempo;
 }

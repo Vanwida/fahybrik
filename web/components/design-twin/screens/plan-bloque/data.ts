@@ -9,21 +9,24 @@
 //
 // Tres reglas que gobiernan este fichero:
 //
-//  1. Los minutos de una sesión que aún no ha pasado son una ESTIMACIÓN de la
-//     prescripción y se pintan con «unos». Los de una sesión hecha son la
-//     medida real de `workout_executions.total_duration_seconds` y se pintan
-//     sin adorno. Nunca se mezclan.
-//  2. La barra de la semana que estás mirando NO se escribe a mano: se suma de
-//     sus días. Si el carril y la rampa contasen por su cuenta, acabarían
-//     diciendo cosas distintas de la misma semana.
-//  3. Un día sin sesión no fabrica nada (§7). Es descanso y se dibuja como tal.
+//  1. Los minutos de una sesión que aún no ha pasado son el reloj que la
+//     PRESCRIPCIÓN deja escrito, y se pintan con «unos». Los de una sesión hecha
+//     son la medida real de `workout_executions.total_duration_seconds` y se
+//     pintan sin adorno. Nunca se mezclan. Y cuando la prescripción no escribe
+//     reloj no hay número: se dice por qué (`DuracionPrevista`).
+//  2. Un día sin sesión no fabrica nada (§7). Es descanso y se dibuja como tal.
+//  3. Aquí NO se dibuja volumen previsto de semanas futuras. Lo planificado se
+//     pinta con seguridad —qué sesiones hay, en qué día caen—; lo MEDIDO del
+//     futuro no existe todavía. La vista de hacia dónde va el atleta es
+//     `plan-ciclo`, que existe precisamente para contar la estructura sin
+//     inventarse una curva de carga.
 
 import type { Modalidad, SesionReal } from '../../datos-reales';
+import type { DurationUnknownReason } from '@fahybrid/shared/domain/prescription';
 import {
   BACK_SQUAT,
   CIRCUITO_PIERNA,
   dosisConSeries,
-  esDecimal,
   HYROX,
   MEDIDO_CIRCUITO,
   MEDIDO_REMO,
@@ -52,10 +55,21 @@ export interface SesionPlan {
    * resumen corto no es una medida falsa.
    */
   modalidades: Modalidad[];
-  /** Estimación desde la prescripción. Jamás se presenta como una medida. */
-  minutosPrevistos: number;
+  /**
+   * El reloj que la prescripción deja ESCRITO, o por qué no lo deja. Jamás se
+   * presenta como una medida, y jamás se rellena con un número plausible: es la
+   * misma regla que aplica el servidor en
+   * `shared/domain/prescription/duration.ts`, con el mismo vocabulario.
+   */
+  duracion: DuracionPrevista;
   claves: ClaveDosis[];
 }
+
+/**
+ * O hay minutos escritos, o hay una razón por la que no los hay. No existe el
+ * tercer caso «un número aproximado»: eso era el bug.
+ */
+export type DuracionPrevista = { minutos: number } | { razon: DurationUnknownReason };
 
 export interface SesionDelDia {
   plan: SesionPlan;
@@ -86,12 +100,6 @@ export interface BloquePlan {
   /** Lo escribe el coach. El sistema no nombra fases. */
   nombre: string;
   totalSemanas: number;
-  /**
-   * Minutos previstos de cada semana del bloque, tal y como está planificado.
-   * El de la semana que se está mirando se sustituye por el que suman sus días
-   * (ver regla 2 de la cabecera), así que aquí solo mandan las OTRAS.
-   */
-  previstas: readonly number[];
 }
 
 export interface EscenarioPlan {
@@ -119,9 +127,10 @@ export const SESION_HYROX: SesionPlan = {
   // carreras. No se reescribe para que cuadre con las claves de abajo.
   formato: HYROX.bloques[1].formato,
   modalidades: ['run', 'functional'],
-  // 8 km a ritmo de carrera + las ocho estaciones + el calentamiento y la
-  // vuelta a la calma de la plantilla. Estimación, no medida.
-  minutosPrevistos: 95,
+  // La plantilla 441 es `for_time` de punta a punta: la duración ES el
+  // resultado. El «95 min» que había aquí era un número a ojo para una sesión
+  // que por definición no lo tiene.
+  duracion: { razon: 'scored_by_time' },
   claves: [
     { valor: '8 km', etiqueta: 'corriendo' }, // los ocho Run de 1,00 km
     { valor: '152 kg', etiqueta: 'trineo' }, // Sled Push
@@ -132,8 +141,10 @@ export const SESION_HYROX: SesionPlan = {
 export const SESION_SQUAT: SesionPlan = {
   ref: BACK_SQUAT,
   modalidades: ['strength'],
-  // La ejecución 162 duró 9:32. La estimación se queda en 10.
-  minutosPrevistos: 10,
+  // 4×5 a 100 kg con 90 s de descanso: las repeticiones no traen tempo, así que
+  // el trabajo no tiene reloj escrito. El «10 min» que había aquí no salía de la
+  // prescripción — salía de la ejecución 162 (9:32), que es medir el futuro.
+  duracion: { razon: 'work_not_timed' },
   claves: [
     // La grafía de la dosis sale del canónico, no de un literal: es justo el
     // dato que tres pantallas escribieron de tres maneras (§2.1).
@@ -146,8 +157,11 @@ export const SESION_SQUAT: SesionPlan = {
 export const SESION_CIRCUITO: SesionPlan = {
   ref: CIRCUITO_PIERNA,
   modalidades: ['strength', 'functional'],
-  // La ejecución 103 duró 52:00. La estimación de la prescripción, 50.
-  minutosPrevistos: 50,
+  // Tres de los cuatro ítems de trabajo de la 442 llegan vacíos: la
+  // prescripción no dice cuánto trabajo hacer, así que no hay reloj que sumar.
+  // El «50 min» que había aquí estaba derivado de la ejecución 103 (52:00) —
+  // exactamente lo medido del futuro presentado como lo planificado.
+  duracion: { razon: 'undosed' },
   // Tres de los cuatro ejercicios de fuerza llegan SIN dosis desde la
   // plantilla 442. No se rellena el hueco: la única clave es la que existe.
   claves: [{ valor: '30 kg', etiqueta: 'zancada' }],
@@ -156,7 +170,9 @@ export const SESION_CIRCUITO: SesionPlan = {
 export const SESION_REMO: SesionPlan = {
   ref: REMO_500,
   modalidades: ['row'],
-  minutosPrevistos: 2,
+  // La única de las cuatro que SÍ se puede saber, y sin estimar nada: 500 m
+  // contra un ritmo prescrito de 1:52/500m son 112 s. Aritmética del plan.
+  duracion: { minutos: 2 },
   claves: [
     { valor: '500 m', etiqueta: 'distancia' },
     { valor: '1:52/500m', etiqueta: 'ritmo' },
@@ -184,7 +200,6 @@ function dia(indice: number, numero: number, sesiones: SesionDelDia[] = []): Dia
 const BLOQUE: BloquePlan = {
   nombre: 'Bloque 2 · fuerza y ritmo',
   totalSemanas: 6,
-  previstas: [165, 195, 207, 240, 260, 114],
 };
 
 /**
@@ -255,57 +270,21 @@ export function estadoDia(diaPlan: DiaPlan, indice: number, indiceHoy: number): 
   return indice < indiceHoy ? 'saltada' : 'pendiente';
 }
 
-/** Lo que el coach planificó para la semana, en minutos. */
-export function minutosPrevistosSemana(semana: SemanaPlan): number {
-  return semana.dias.reduce(
-    (total, d) => total + d.sesiones.reduce((n, s) => n + s.plan.minutosPrevistos, 0),
-    0,
-  );
-}
-
-/** La rampa del bloque con la semana actual calculada, nunca escrita. */
-export function rampaDelBloque(bloque: BloquePlan, semanaActual: number, minutosActual: number): number[] {
-  return bloque.previstas.map((v, i) => (i === semanaActual - 1 ? minutosActual : v));
-}
-
-/**
- * Una semana es descarga cuando el plan le quita al menos una cuarta parte del
- * volumen de la anterior. La primera semana de un bloque nunca lo es: no hay
- * nada de lo que bajar.
- */
-export function esDescarga(semanas: readonly number[], indice: number): boolean {
-  if (indice <= 0) return false;
-  return semanas[indice] <= semanas[indice - 1] * 0.75;
-}
-
-/** Dónde estás en la rampa, en una frase. La escribe el sistema, no el coach. */
-export function lecturaRampa(semanas: readonly number[], indice: number): string {
-  if (semanas.length <= 1) return 'Es la única semana del bloque.';
-  const actual = semanas[indice];
-  const esMinimo = actual === Math.min(...semanas);
-  if (esDescarga(semanas, indice)) {
-    return esMinimo ? 'Bajas de golpe: es la semana más suave del bloque.' : 'Bajas respecto a la semana pasada.';
-  }
-  if (actual === Math.max(...semanas)) return 'Es la semana más fuerte del bloque.';
-  if (indice === 0) return 'Arrancas el bloque.';
-  if (actual > semanas[indice - 1]) {
-    const quedaMas = semanas.slice(indice + 1).some((v) => v > actual);
-    return quedaMas ? 'Subes, y todavía queda más arriba.' : 'Subes desde la semana pasada.';
-  }
-  return 'Semana algo más suave que la anterior.';
-}
-
-/**
- * Las horas previstas de una semana: «3,5».
- *
- * Con el reloj canónico esto salía «3:27:00», que es h:mm:ss y no un volumen
- * semanal. Y un «3 h 27» sería inventarse un formateador nuevo justo de cara
- * al atleta, que es lo que el §2.1 prohíbe. Así que el volumen se lee en horas
- * decimales con `esDecimal`, que sí es canónico y ya pone la coma.
- */
-export function horasPrevistas(minutos: number): string {
-  return esDecimal(minutos / 60, 1);
-}
+// RETIRADO (29-jul): `minutosPrevistosSemana`, `rampaDelBloque`, `esDescarga`,
+// `lecturaRampa` y `horasPrevistas`, junto con el array `previstas` del bloque.
+//
+// Dibujaban una rampa de volumen previsto por semana — `[165, 195, 207, 240,
+// 260, 114]` — para las semanas 4, 5 y 6 de un bloque de 6. Ninguno de esos
+// números existía: en producción no hay ni un solo bloque de seis semanas (los
+// reales son de 1, 2 y 4) ni ninguna plantilla con ese nombre, y los minutos de
+// la semana actual se sumaban de unas estimaciones por sesión que a su vez
+// salían de las EJECUCIONES.
+//
+// La ley que violaba: lo planificado se pinta con seguridad; lo medido del
+// futuro no existe. Una barra de volumen para dentro de tres semanas afirma
+// cuánto va a entrenar alguien que todavía no ha entrenado. Hacia dónde va el
+// atleta lo cuenta `plan-ciclo`, que se escribió justo para eso y cuya cabecera
+// ya dice por qué no lleva ninguna curva de carga.
 
 export interface DiaConSesion {
   dia: DiaPlan;
