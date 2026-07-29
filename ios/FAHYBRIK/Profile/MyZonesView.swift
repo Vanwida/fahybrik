@@ -313,7 +313,7 @@ struct RegisterTestView: View {
     private static let modalities: [(key: String, label: String)] = [
         ("run", "Carrera"), ("row", "Remo"), ("ski", "Ski-Erg"), ("bike", "Bike-Erg"),
     ]
-    private var paceUnitLabel: String { modality == "run" ? "/km" : "/500m" }
+    private var paceUnitLabel: String { modality == "run" ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue }
     private var canSave: Bool { (thresholdSeconds ?? 0) > 0 && !saving }
 
     var body: some View {

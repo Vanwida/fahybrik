@@ -320,7 +320,7 @@ struct ExecutedWorkoutView: View {
             ergCol("#", fixed: true, .leading)
             ergCol("Tiempo", .trailing)
             ergCol("Dist", .trailing)
-            ergCol("/500m", .trailing)
+            ergCol(Formato.UnidadRitmo.por500m.rawValue, .trailing)
             ergCol("s/m", .trailing)
             ergCol("Cal", .trailing)
         }

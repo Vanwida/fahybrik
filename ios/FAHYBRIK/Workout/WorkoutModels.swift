@@ -507,8 +507,8 @@ extension WorkoutSegment {
         }
         if let p = targetPaceSecondsPerKm, p > 0 {
             parts.append(kind.isErg
-                ? "@ \(Formato.ritmoCifras(Double(p / 2))) /500m"
-                : "@ \(Formato.ritmoCifras(Double(p))) /km")
+                ? "@ \(Formato.ritmo(Double(p) / 2, .por500m))"
+                : "@ \(Formato.ritmo(Double(p), .porKm))")
         }
         if let z = targetZone { parts.append(z.label) }
         if let e = effortGuidance { parts.append(e) }

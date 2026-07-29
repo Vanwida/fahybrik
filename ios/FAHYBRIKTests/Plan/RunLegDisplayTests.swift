@@ -43,7 +43,7 @@ final class RunLegDisplayTests: XCTestCase {
         let l = leg(.distance(m: 1000), target: .pace(valueS: nil, minS: 265, maxS: 275))
 
         let inBand = RunLegDisplay.objetivo(for: l, livePaceSecPerKm: 270)
-        XCTAssertEqual(inBand?.label, "4:25–4:35 /km")
+        XCTAssertEqual(inBand?.label, "4:25–4:35/km")
         XCTAssertEqual(inBand?.status, .inTarget)
         XCTAssertEqual(RunLegDisplay.statusWord(inBand!.status), "✓")
 
@@ -57,7 +57,7 @@ final class RunLegDisplayTests: XCTestCase {
     func testObjetivoResolvedZoneBand() {
         let l = leg(.distance(m: 1000), target: .paceZone(3), resolved: band(fast: 240, slow: 254))
         let o = RunLegDisplay.objetivo(for: l, livePaceSecPerKm: 247)
-        XCTAssertEqual(o?.label, "4:00–4:14 /km")
+        XCTAssertEqual(o?.label, "4:00–4:14/km")
         XCTAssertEqual(o?.status, .inTarget)
     }
 

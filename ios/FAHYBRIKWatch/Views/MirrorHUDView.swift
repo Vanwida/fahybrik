@@ -223,7 +223,7 @@ struct MirrorHUDView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-                GiantNumber(text: beltPaceText, size: 46, unit: "/km")
+                GiantNumber(text: beltPaceText, size: 46, unit: Formato.UnidadRitmo.porKm.rawValue)
                 beltProgressBar(fraction: beltFraction(covered: covered, target: target))
                 WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
                 hrZoneRow

@@ -106,15 +106,23 @@ enum Formato {
     ///   donde la precisión es el dato. La prescripción no la necesita y con dos
     ///   decimales un «5 km» se leería «5,00 km», que sugiere una exactitud falsa.
     /// - nil cuando no hay distancia: lo que no se sabe no se pinta (contrato §7).
-    static func distancia(_ meters: Double, decimales: Int = 1) -> String? {
+    static func distancia(_ meters: Double,
+                          decimales: Int = 1,
+                          siempreDecimales: Bool = false) -> String? {
         guard meters > 0 else { return nil }
-        if meters >= 1000 { return esDecimal(meters / 1000, decimals: decimales) + " km" }
+        if meters >= 1000 {
+            return esDecimal(meters / 1000,
+                             decimals: decimales,
+                             siempreDecimales: siempreDecimales) + " km"
+        }
         return "\(Int(meters.rounded())) m"
     }
 
-    /// La distancia medida, con su precisión de dos decimales.
+    /// La distancia MEDIDA, con su precisión de dos decimales — «2,34 km», y «2,00 km»
+    /// cuando cae redonda: en una medida los ceros SON el dato (has cubierto dos
+    /// kilómetros clavados), y además el ancho no baila mientras corres.
     static func distanciaCubierta(_ meters: Double) -> String? {
-        distancia(meters, decimales: 2)
+        distancia(meters, decimales: 2, siempreDecimales: true)
     }
 
     // MARK: - Carga

@@ -334,7 +334,7 @@ struct ErgHUDContent: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
-                Text("/500m")
+                Text(Formato.UnidadRitmo.por500m.rawValue)
                     .font(Theme.Typography.readoutLabel)
                     .foregroundStyle(Theme.Color.muted)
                 Hairline()

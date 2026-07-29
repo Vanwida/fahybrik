@@ -95,8 +95,8 @@ final class RunTargetResolverTests: XCTestCase {
     }
 
     func testObjetivoLabel() {
-        XCTAssertEqual(RunTarget.pace(PaceTarget(fastS: 270, slowS: 285)).objetivoLabel, "4:30–4:45 /km")
-        XCTAssertEqual(RunTarget.pace(PaceTarget(single: 240)).objetivoLabel, "4:00 /km")
+        XCTAssertEqual(RunTarget.pace(PaceTarget(fastS: 270, slowS: 285)).objetivoLabel, "4:30–4:45/km")
+        XCTAssertEqual(RunTarget.pace(PaceTarget(single: 240)).objetivoLabel, "4:00/km")
         XCTAssertEqual(RunTarget.zone(.z2).objetivoLabel, "Z2")
         XCTAssertNil(RunTarget.none.objetivoLabel)
     }

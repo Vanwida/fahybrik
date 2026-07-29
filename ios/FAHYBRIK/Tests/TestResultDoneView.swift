@@ -144,7 +144,7 @@ struct TestResultDoneView: View {
         // intrinsic unit (run → /km, ergo → /500m) while the re-fetch lands.
         let profile = newZoneProfiles?.first { $0.modality == zone.modality }
         let thresholdText = profile?.thresholdLabel
-            ?? "\(Formato.ritmoCifras(Double(Int(zone.thresholdS.rounded()))))\(zone.modality == "run" ? "/km" : "/500m")"
+            ?? "\(Formato.ritmoCifras(Double(Int(zone.thresholdS.rounded()))))\(zone.modality == "run" ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue)"
         let delta = preThresholds[zone.modality].map { zone.thresholdS - $0 }
         return HStack(spacing: Theme.Spacing.m) {
             Text(profile?.modalityLabel ?? RecordBatteryResult.modalityLabel(zone.modality).capitalized)

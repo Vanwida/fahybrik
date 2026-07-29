@@ -77,7 +77,7 @@ enum FreeModality: String, CaseIterable, Identifiable {
     var resolvedPaceUnit: PaceUnit { self == .run ? .perKm : .per500m }
 
     /// Athlete-facing pace unit suffix.
-    var paceUnitLabel: String { self == .run ? "/km" : "/500m" }
+    var paceUnitLabel: String { self == .run ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue }
 
     /// Sensible starting pace for the stepper (seconds per the modality's unit).
     /// Row 1:52/500m, ski 2:05/500m, bike 1:35/500m, run 5:00/km.

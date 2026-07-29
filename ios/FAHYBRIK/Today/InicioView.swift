@@ -869,7 +869,7 @@ struct InicioView: View {
                 Spacer(minLength: 8)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     progressValue(pace, accent: true)
-                    Text("/km")
+                    Text(Formato.UnidadRitmo.porKm.rawValue)
                         .scaledFont(10, weight: .semibold, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -969,7 +969,7 @@ struct InicioView: View {
                         Text(best1k)
                             .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
                             .foregroundStyle(Theme.Color.accentText)
-                        Text("/km")
+                        Text(Formato.UnidadRitmo.porKm.rawValue)
                             .scaledFont(10, weight: .semibold, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                     }

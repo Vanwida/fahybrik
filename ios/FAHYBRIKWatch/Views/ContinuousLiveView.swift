@@ -34,7 +34,7 @@ struct ContinuousLiveView: View {
         LiveScaffold(status: statusText) {
             VStack(spacing: 4) {
                 WatchLabel(text: "Ritmo")
-                GiantNumber(text: paceText, size: 54, unit: "/km")
+                GiantNumber(text: paceText, size: 54, unit: Formato.UnidadRitmo.porKm.rawValue)
                 HStack(spacing: 6) {
                     if let dist = session.liveRunDistanceMeters {
                         MetricTile(label: "Dist", value: distanceValue(dist), unit: dist >= 1000 ? "km" : "m")

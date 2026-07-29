@@ -279,7 +279,7 @@ final class CaptureReviewModel: ObservableObject {
     // Prescribed link for the aggregate-only path (no per-split segments).
     let aggregateTemplateSegmentId: Int?
 
-    var paceUnitLabel: String { paceUnit == "per_km" ? "/km" : "/500m" }
+    var paceUnitLabel: String { paceUnit == "per_km" ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue }
     var isErgPace: Bool { paceUnit == "per_500m" }
 
     init(proposal: WorkoutVisionProposal) {

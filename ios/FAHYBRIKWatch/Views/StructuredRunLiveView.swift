@@ -67,7 +67,7 @@ struct StructuredRunLiveView: View {
             VStack(spacing: 7) {
                 VStack(spacing: 2) {
                     WatchLabel(text: "Ritmo")
-                    GiantNumber(text: paceText, size: 50, unit: "/km")
+                    GiantNumber(text: paceText, size: 50, unit: Formato.UnidadRitmo.porKm.rawValue)
                 }
                 objetivoLine
                 progressBar

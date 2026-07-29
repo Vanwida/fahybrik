@@ -497,7 +497,7 @@ struct TreadmillHUDView: View {
                         .foregroundStyle(status == .unknown ? Theme.Color.foreground : status.color)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text("/km")
+                    Text(Formato.UnidadRitmo.porKm.rawValue)
                         .font(Theme.Typography.readoutLabel)
                         .foregroundStyle(Theme.Color.muted)
                 }

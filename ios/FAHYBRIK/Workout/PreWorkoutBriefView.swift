@@ -754,8 +754,8 @@ struct PreWorkoutBriefView: View {
         }
         var pace: String? = nil
         if let pk = p.paceSecPerKm, pk > 0 {
-            pace = isErg ? "@ \(Formato.ritmoCifras(Double(pk / 2))) /500m"
-                         : "@ \(Formato.ritmoCifras(Double(pk))) /km"
+            pace = isErg ? "@ \(Formato.ritmo(Double(pk) / 2, .por500m))"
+                         : "@ \(Formato.ritmo(Double(pk), .porKm))"
         }
         let zone = p.hrZone.flatMap { HRZone(rawValue: $0) }
         var detail: [String] = []
