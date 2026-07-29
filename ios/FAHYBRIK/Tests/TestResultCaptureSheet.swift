@@ -21,7 +21,8 @@ enum TestMeasure {
     case distance  // meters
     case reps
     case calories
-    case hrr       // bpm drop — MEASURED by the app's recovery window, never typed
+    case hrr       // pulse DROP — MEASURED by the app's recovery window, never typed
+    case hr        // an absolute pulse (threshold FC) — typed by the athlete
     case other     // unknown future measure → plain number, no unit assumptions
 
     init(_ raw: String) {
@@ -32,6 +33,7 @@ enum TestMeasure {
         case "reps":     self = .reps
         case "calories": self = .calories
         case "hrr":      self = .hrr
+        case "hr":       self = .hr
         default:         self = .other
         }
     }
@@ -44,19 +46,22 @@ enum TestMeasure {
         case .distance: return 50    // meters
         case .reps:     return 1
         case .calories: return 5
-        case .hrr:      return 1     // bpm (display only — the row is read-only)
+        case .hrr:      return 1     // ppm (display only — the row is read-only)
+        case .hr:       return 1     // ppm
         case .other:    return 1
         }
     }
 
     /// Short unit shown next to a numeric field (time uses mm:ss, no unit chip).
+    /// Both pulse measures read in **ppm** — the athlete-facing unit for a heart
+    /// rate (docs/CONTRATO-UI.md §3: never "bpm", never "HR").
     var unitLabel: String {
         switch self {
         case .load:     return "kg"
         case .distance: return "m"
         case .reps:     return "reps"
         case .calories: return "cal"
-        case .hrr:      return "bpm"
+        case .hrr, .hr: return "ppm"
         case .time, .other: return ""
         }
     }
@@ -107,6 +112,14 @@ enum TestBatteryPrefill {
             // when the window never ran / had no signal — the row then reads as
             // omitted; the athlete NEVER types a recovery value by hand.
             return session.hrRecovery?.hrr60.map(Double.init)
+        case .hr:
+            // The threshold is the AVERAGE pulse over the last 20 min of the
+            // effort, and the session keeps no per-window HR average to compute it
+            // from — only the recovery capture. Pre-filling anything else here (the
+            // last reading, the session mean) would put a number that is not the
+            // threshold in the field that defines the athlete's zones. So: nil, and
+            // the athlete copies the lap average their watch already shows.
+            return nil
         case .other:
             return nil
         }

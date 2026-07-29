@@ -205,6 +205,7 @@ struct MyZonesView: View {
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
+                    thresholdTestLink
                 }
             } else {
                 CardSurface(padding: Theme.Spacing.l) {
@@ -218,9 +219,43 @@ struct MyZonesView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                thresholdTestLink
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The way OUT of an estimated threshold (docs/CONTRATO-UI.md §5: a state that
+    /// declares its limitation has to offer the exit). Both pulse states earn it —
+    /// "estimadas" and "todavía no las tenemos" have the SAME remedy, and until this
+    /// existed the screen named the 30-min test in prose and left the athlete with
+    /// nowhere to tap. It pushes the tests hub, where the threshold test is one
+    /// «Probarme» away, rather than starting a maximal effort from a settings screen.
+    private var thresholdTestLink: some View {
+        NavigationLink {
+            TestsHubView(bearer: bearer, hrZones: hr)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "stopwatch")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Haz el test de umbral")
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            .foregroundStyle(Theme.Color.accentText)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Haz el test de umbral para medir tus zonas de pulso")
     }
 
     /// Same anatomy as `zoneRow`: the NUMBER leads, the code is a tag on it.
