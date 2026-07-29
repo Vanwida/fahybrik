@@ -167,7 +167,23 @@ struct ActiveWorkoutView: View {
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.3), value: session.isTramoResting)
             }
-            if isErgLandscapeFocus {
+            if let viva = superficieViva {
+                // EL LENGUAJE DEL §10: estas dos superficies montan su propio marco
+                // (`MarcoVivo`) porque el ancla del sujeto es una propiedad de la
+                // PANTALLA, no de una vista — ver `superficieViva`. El cromo y la
+                // acción siguen siendo de aquí; lo que cambia es quién los coloca.
+                Ambiente(zona: session.liveZone)
+                switch viva {
+                case .emom:
+                    EmomVivoView(session: session,
+                                 accionTitulo: primaryTitle,
+                                 alTocarAccion: { primaryAction() }) { topStrip }
+                case .fuerza:
+                    FuerzaVivoView(session: session,
+                                   accionTitulo: primaryTitle,
+                                   alTocarAccion: { primaryAction() }) { topStrip }
+                }
+            } else if isErgLandscapeFocus {
                 // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
                 // big numbers, so the device surface owns the screen. The chrome kept
                 // is `topStrip` (salir / pausa / atrás) so he is never trapped, and —
@@ -812,6 +828,48 @@ struct ActiveWorkoutView: View {
     // Order, and why: a structured run keeps its own leg engine (untouched); a REST
     // is its own screen whatever produced it; then the device tramo; then the
     // format; then the plain per-kind grid.
+    // LAS DOS SUPERFICIES QUE HABLAN EL §10 Y MONTAN SU PROPIO MARCO.
+    //
+    // Por qué no van dentro de `modalityHUD` como las demás: el ancla del sujeto
+    // (§10.3) es una propiedad de la PANTALLA, no de una vista. `OutdoorRunHUDView`
+    // la cumple porque es un `fullScreenCover` que posee sus cinco filas; una vista
+    // metida en la ranura de `liveSurface` no sabe a qué altura empieza —y encima
+    // esa altura cambia según haya o no tira de conexiones, mapa de tramos o
+    // pareja—, así que su sujeto caería a una altura distinta en cada tramo del
+    // mismo entreno. Que es exactamente lo que el §10.3 viene a quitar.
+    //
+    // Así que a estas dos se les da la pantalla entera: el marco reserva las filas
+    // (`MarcoVivo`), el cromo y la acción se les pasan desde aquí, y el ancla vale
+    // lo mismo que en la vista de correr. Todo lo demás sigue por el árbol de
+    // siempre, sin tocar.
+    private enum SuperficieViva { case emom, fuerza }
+
+    /// Qué superficie del §10 posee la pantalla ahora mismo, o nil cuando manda el
+    /// árbol de siempre.
+    ///
+    /// LA CADENA ES LA MISMA que la de `liveSurface` + `modalityHUD`, en el mismo
+    /// orden y por la misma razón: el tramo activo decide. Se lee de arriba abajo
+    /// como allí, y si mañana se mueve una prioridad hay que moverla en los dos
+    /// sitios — de ahí que las dos citen esta nota.
+    private var superficieViva: SuperficieViva? {
+        // Lo que `liveSurface` resuelve ANTES de llegar al HUD de modalidad.
+        if session.currentSegmentIsPartnerRelay { return nil }
+        if session.currentBlockIsStructural { return nil }
+        if isErgLandscapeFocus { return nil }
+        // …y lo que `modalityHUD` resuelve antes que el formato.
+        if session.isRunStructureActive { return nil }
+        if session.isTramoResting { return nil }   // el descanso tiene su pantalla
+        if session.tramoIsErg { return nil }       // manda la máquina que mide
+        if session.currentSegment?.isEMOM == true { return .emom }
+        // Los formatos de acondicionamiento conservan su cronómetro dedicado.
+        if session.currentSegment?.isConditioningTimer == true { return nil }
+        // Y el resto es el suelo honesto de fuerza/reps — el mismo reparto que
+        // hacía el `switch` de `modalityHUD`, del que correr es la única excepción.
+        return session.currentSegment?.kind == .running ? nil : .fuerza
+    }
+
+    // THE ACTIVE TRAMO DECIDES — ver la nota de `superficieViva`, que resuelve las
+    // dos primeras ramas de formato antes de llegar aquí.
     @ViewBuilder
     private var modalityHUD: some View {
         if session.isRunStructureActive {
@@ -826,8 +884,6 @@ struct ActiveWorkoutView: View {
         } else if session.tramoIsErg {
             // Erg work, alone or inside any format.
             ErgHUDContent(session: session, pm5: pm5)
-        } else if session.currentSegment?.isEMOM == true {
-            EmomLiveHUD(session: session)
         } else if session.currentSegment?.isConditioningTimer == true {
             // Conditioning formats route by SCHEME to their dedicated timer (the
             // block-level fold means one segment = one format), regardless of kind.
@@ -845,17 +901,13 @@ struct ActiveWorkoutView: View {
                 ErgLiveStrip(pm5: pm5)
             }
         } else {
-            switch session.currentSegment?.kind {
-            case .running:
-                RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { showTreadmill = true },
-                           onTapOutdoor: { showOutdoor = true })
-            case .rowOrSki, .strength, .reps, .sled, .none:
-                // `.rowOrSki` can only land here with no erg resolved on the tramo,
-                // which the erg branch above already caught — the reps grid is the
-                // honest floor rather than an erg surface with nothing to show.
-                StrengthLiveHUD(session: session)
-            }
+            // Correr es lo ÚNICO que queda en este árbol: el EMOM y el hierro se
+            // llevan la pantalla entera antes de llegar aquí (ver `superficieViva`),
+            // y con ellos se fue el suelo de `.rowOrSki` / `.none`, que ya iba a la
+            // misma superficie de fuerza.
+            RunLiveHUD(session: session, gpsActive: gpsActive,
+                       onTapTreadmill: { showTreadmill = true },
+                       onTapOutdoor: { showOutdoor = true })
         }
     }
 
@@ -869,8 +921,11 @@ struct ActiveWorkoutView: View {
         case .steady:    SteadyLiveHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
-        default:
-            StrengthLiveHUD(session: session)
+        case .emom, .sets, .warmup, .cooldown, .none:
+            // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
+            // cuatro esquemas y el nil. Se escriben en vez de un `default` para que
+            // un esquema NUEVO no caiga aquí en silencio — que el compilador avise.
+            EmptyView()
         }
     }
 
@@ -984,27 +1039,13 @@ struct ActiveWorkoutView: View {
     // exactly the clutter that left no room for the numbers.
     @ViewBuilder
     private var nextSegmentChip: some View {
-        if !session.isTramoResting, !isErgSegment, let next = session.nextSegment {
-            HStack(spacing: Theme.Spacing.s) {
-                LabelText(text: "NEXT", color: Theme.Color.accentText, size: 10)
-                Text(next.title)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                Spacer(minLength: Theme.Spacing.s)
-                if let z = next.targetZone {
-                    ZBadge(zone: z)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.vertical, 9)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .padding(.bottom, 6)
+        if !session.isTramoResting, !isErgSegment {
+            // El chip vive en `SiguienteTramoChip`: las superficies del §10 montan
+            // su propio marco y necesitaban el mismo, y una segunda copia es como
+            // nacieron las catorce duraciones que el `Formato` vino a arreglar.
+            // Aquí se queda la CONDICIÓN (cuándo callar), que sí es de esta pantalla.
+            SiguienteTramoChip(siguiente: session.nextSegment)
+                .padding(.bottom, 6)
         }
     }
 

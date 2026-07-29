@@ -2,7 +2,8 @@ import SwiftUI
 
 // Per-format LIVE timers for the active workout — the dedicated face of each
 // conditioning format, routed by `currentSegment.formatScheme` in
-// ActiveWorkoutView (EMOM keeps its own `EmomLiveHUD`). They read the session as
+// ActiveWorkoutView (el EMOM tiene el suyo, `Vivo/EmomVivoView`, con marco
+// propio del §10). They read the session as
 // the single source of state (the session owns the clock, audio and auto-advance,
 // exactly as the EMOM engine does) and render with the shared Theme atoms.
 //
