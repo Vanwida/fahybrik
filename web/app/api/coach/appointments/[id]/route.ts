@@ -73,6 +73,10 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     lead_token: a.lead_token,
     modality: a.modality,
     location: location ?? null,
+    // El club que atiende la cita (`coaches.full_name`), no el miembro que pulsó el
+    // botón: el lead reservó con el club, y así el correo dice lo mismo lo firme quien
+    // lo firme desde el panel.
+    coach_name: session.club_name,
   });
 
   try {

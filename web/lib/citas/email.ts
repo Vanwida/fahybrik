@@ -3,16 +3,22 @@
 // RESEND_API_KEY is unset it logs + returns {sent:false} instead of throwing, so the
 // booking/accept flow is never blocked by delivery.
 //
-//   • booking received  → lead ("recibimos tu solicitud, Pablo confirma")
+//   • booking received  → lead ("recibimos tu solicitud, tu coach la confirma")
 //   • booking internal  → coach team (LEADS_NOTIFY_EMAIL): "nueva solicitud de cita"
 //   • accepted          → lead ("cita confirmada") + .ics attachment (+ Meet link if any)
 //   • rejected          → lead ("elige otro hueco") with the re-book link
 //   • cancelled         → lead
+//
+// EL NOMBRE DEL COACH ES DATO, NO PLANTILLA. Cada envío recibe `coach_name` (el del
+// coach de ESE lead/atleta) y la copia pide fragmentos a `coachVoice` en vez de
+// interpolar el nombre pelado. Importa más aquí que en un push: el `.ics` se queda en
+// el calendario del atleta para siempre, y un correo no se retira.
 
 import { Resend } from 'resend';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { buildIcs } from '@fahybrid/shared/domain/citas/ics';
 import type { CitaModality } from '@fahybrid/shared/schema';
+import { coachVoice } from '@/lib/coach/voice';
 
 export interface CitaEmailResult {
   sent: boolean;
@@ -61,6 +67,11 @@ interface Appt {
   modality: CitaModality;
   /** #40: presencial address (coach profile: studio_name + location). Null/absent = sin fijar. */
   location?: { name: string | null; address: string | null } | null;
+  /**
+   * Nombre del coach que atiende esta cita (`coaches.full_name`). Null/vacío → la copia
+   * se queda sin la coletilla «con X» y se lee igual de bien.
+   */
+  coach_name?: string | null;
 }
 
 // #40: presencial address helpers. Builds a one-line address ("Box — Calle") for display + the
@@ -128,17 +139,18 @@ export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> 
   const when = formatMadrid(appt.requested_start);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
+  const v = coachVoice(appt.coach_name);
   return send({
     to: appt.lead_email,
     subject: 'Hemos recibido tu solicitud de cita · FAHYBRID',
     text:
       `${appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,'}\n\n` +
-      `Hemos recibido tu solicitud de ${noun} con Pablo para el ${when} (hora de Madrid). ` +
-      `Pablo la confirmará en breve y te llegará un email con los detalles.\n\nEl equipo de FAHYBRID`,
+      `Hemos recibido tu solicitud de ${noun}${v.withCoach} para el ${when} (hora de Madrid). ` +
+      `${v.subject} la confirmará en breve y te llegará un email con los detalles.\n\nEl equipo de FAHYBRID`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Solicitud de cita recibida</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun} con Pablo para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). Pablo la confirmará en breve y te llegará un email con los detalles.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun}${escapeHtml(v.withCoach)} para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). ${escapeHtml(v.subject)} la confirmará en breve y te llegará un email con los detalles.</p>
        <p style="margin:24px 0 0;color:#666;">El equipo de FAHYBRID</p>`,
     ),
   });
@@ -167,34 +179,35 @@ export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> 
  * Lead: "cita confirmada" + .ics.
  *   • video      → Meet button/link (or "te llegará antes"); .ics LOCATION = meet_link.
  *   • presencial → the box address + a Google Maps link; .ics LOCATION = the address.
- *                  No address on file → honest fallback ("Pablo te confirmará el sitio").
+ *                  No address on file → honest fallback ("te confirmará el sitio").
  */
 export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResult> {
   const when = formatMadrid(appt.requested_start);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const hiText = appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,';
   const organizerEmail = process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
+  const v = coachVoice(appt.coach_name);
 
   if (appt.modality === 'presencial') {
     const { hasAddress, addressStr, mapsUrl } = presentAddress(appt.location);
     const whereText = hasAddress
       ? `Dónde: ${addressStr}${mapsUrl ? `\nCómo llegar: ${mapsUrl}` : ''}`
-      : 'Pablo te confirmará el sitio antes de la cita.';
+      : `${v.subject} te confirmará el sitio antes de la cita.`;
     const whereHtml = hasAddress
       ? `<p style="margin:0 0 6px;line-height:1.6;"><strong>Dónde</strong><br>${escapeHtml(addressStr)}</p>` +
         (mapsUrl
           ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(mapsUrl)}" style="display:inline-block;padding:12px 20px;background:#F06A2A;color:#0a0a0a;text-decoration:none;border-radius:8px;font-weight:600;">Cómo llegar</a></p>`
           : '')
-      : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">Pablo te confirmará el sitio antes de la cita.</p>`;
+      : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">${escapeHtml(v.subject)} te confirmará el sitio antes de la cita.</p>`;
 
     const ics = buildIcs({
       uid: `appt-${appt.id}@fahybrid.com`,
       start: new Date(appt.requested_start),
       durationMinutes: appt.duration_minutes,
-      summary: 'Sesión con Pablo (presencial) · FAHYBRID',
+      summary: `Sesión${v.withCoach} (presencial) · FAHYBRID`,
       description: hasAddress
-        ? `Sesión presencial con Pablo. Dónde: ${addressStr}`
-        : 'Sesión presencial con Pablo. Pablo te confirmará el sitio.',
+        ? `Sesión presencial${v.withCoach}. Dónde: ${addressStr}`
+        : `Sesión presencial${v.withCoach}. ${v.subject} te confirmará el sitio.`,
       location: hasAddress ? addressStr : 'Sesión presencial',
       organizerEmail,
       attendeeEmail: appt.lead_email,
@@ -202,15 +215,15 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
 
     return send({
       to: appt.lead_email,
-      subject: 'Sesión presencial confirmada con Pablo · FAHYBRID',
+      subject: `Sesión presencial confirmada${v.withCoach} · FAHYBRID`,
       text:
         `${hiText}\n\n` +
-        `Tu sesión presencial con Pablo está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+        `Tu sesión presencial${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
         `${whereText}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de FAHYBRID`,
       html: shell(
         `<h1 style="margin:8px 0 14px;font-size:22px;">Sesión confirmada</h1>
          <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial con Pablo está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
          ${whereHtml}
          <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
       ),
@@ -230,8 +243,8 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
     uid: `appt-${appt.id}@fahybrid.com`,
     start: new Date(appt.requested_start),
     durationMinutes: appt.duration_minutes,
-    summary: 'Videollamada con Pablo · FAHYBRID',
-    description: appt.meet_link ? `Videollamada: ${appt.meet_link}` : 'Videollamada con tu entrenador Pablo.',
+    summary: `Videollamada${v.withCoach} · FAHYBRID`,
+    description: appt.meet_link ? `Videollamada: ${appt.meet_link}` : `Videollamada${v.withCoach}.`,
     location: appt.meet_link ?? 'Videollamada',
     organizerEmail,
     attendeeEmail: appt.lead_email,
@@ -239,15 +252,15 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
 
   return send({
     to: appt.lead_email,
-    subject: 'Cita confirmada con Pablo · FAHYBRID',
+    subject: `Cita confirmada${v.withCoach} · FAHYBRID`,
     text:
       `${hiText}\n\n` +
-      `Tu videollamada con Pablo está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+      `Tu videollamada${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
       `${linkLine}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de FAHYBRID`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Cita confirmada</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada con Pablo está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
        ${linkHtml}
        <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
     ),
@@ -259,16 +272,17 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
 export async function sendAppointmentRejected(appt: Appt): Promise<CitaEmailResult> {
   const url = bookingUrl(appt.lead_token);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
+  const v = coachVoice(appt.coach_name);
   return send({
     to: appt.lead_email,
-    subject: 'Sobre tu cita con Pablo · FAHYBRID',
+    subject: `Sobre tu cita${v.withCoach} · FAHYBRID`,
     text:
       `${appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,'}\n\n` +
-      `Pablo no puede en el hueco que elegiste. Elige otro que te venga bien aquí:\n${url}\n\nEl equipo de FAHYBRID`,
+      `${v.subject} no puede en el hueco que elegiste. Elige otro que te venga bien aquí:\n${url}\n\nEl equipo de FAHYBRID`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Elijamos otro hueco</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Pablo no puede en el hueco que elegiste. Elige otro que te venga bien:</p>
+       <p style="margin:0 0 12px;line-height:1.6;">${escapeHtml(v.subject)} no puede en el hueco que elegiste. Elige otro que te venga bien:</p>
        <p style="margin:0 0 12px;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 20px;background:#F06A2A;color:#0a0a0a;text-decoration:none;border-radius:8px;font-weight:600;">Elegir otro hueco</a></p>`,
     ),
   });
@@ -280,9 +294,10 @@ export async function sendAppointmentCancelled(appt: Appt): Promise<CitaEmailRes
   const when = formatMadrid(appt.requested_start);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
+  const v = coachVoice(appt.coach_name);
   return send({
     to: appt.lead_email,
-    subject: 'Tu cita con Pablo se ha cancelado · FAHYBRID',
+    subject: `Tu cita${v.withCoach} se ha cancelado · FAHYBRID`,
     text:
       `${appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,'}\n\n` +
       `Tu ${noun} del ${when} se ha cancelado. Puedes reservar otra aquí:\n${url}\n\nEl equipo de FAHYBRID`,

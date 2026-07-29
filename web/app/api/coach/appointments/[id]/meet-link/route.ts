@@ -49,6 +49,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
         lead_token: a.lead_token,
         modality: a.modality,
         location,
+        coach_name: session.club_name,
       });
     }
     return jsonOk({ appointment: a });
