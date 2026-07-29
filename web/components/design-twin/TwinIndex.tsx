@@ -27,6 +27,10 @@ export function TwinIndex({ localePrefix }: { localePrefix: string }) {
           próximo. «Pendiente» = hueco reconocido. Los mockups nuevos nacen aquí, no en ficheros
           sueltos.
         </p>
+        <p className="studio-desc">
+          <Link href={`${localePrefix}/design/entreno`}>→ El entreno, en vivo</Link> — la tanda
+          inmersiva del 29-jul en su propia dirección, sin mezclar con lo demás.
+        </p>
       </header>
 
       {ZONAS.map((zona) => {

@@ -70,6 +70,21 @@ export function getScreen(id: string): TwinScreenModule | undefined {
   return SCREENS.find((s) => s.meta.id === id);
 }
 
+/**
+ * La tanda inmersiva del entreno (29-jul) con dirección PROPIA:
+ * `/design/entreno`. Existe porque el índice general mezcla épocas y
+ * propuestas que se solapan; esta colección es la dirección canónica del
+ * entreno en vivo y se enseña sola, agrupada por su propia lógica.
+ */
+export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
+  { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
+  {
+    grupo: 'En vivo, por quién gobierna',
+    ids: ['vivo-correr', 'vivo-erg', 'vivo-fuerza', 'vivo-emom', 'vivo-fortime', 'vivo-amrap', 'vivo-dobles'],
+  },
+  { grupo: 'La muñeca', ids: ['watch-vivo'] },
+];
+
 export const ESTADO_LABEL: Record<TwinEstado, string> = {
   espejo: 'Espejo de la app',
   propuesta: 'Propuesta',

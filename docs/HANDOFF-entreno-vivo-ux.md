@@ -7,6 +7,9 @@ leer FOCUS.md ni DECISIONS.md para entender la dirección — aquí está entera
 
 Fecha: 2026-07-29 · Validado por Alex («me encanta») · Solo iOS, la app del atleta.
 
+**La colección entera, en una sola dirección:** `app.fahybrid.com/es/design/entreno`
+(solo las diez pantallas, agrupadas; nada del índice general).
+
 ---
 
 ## 1 · La idea que ordena todo
