@@ -26,6 +26,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-28 · La app LEE las máquinas, no las conduce
+
+**Decidido:** `TreadmillControlPolicy.appDrivesMachines = false`. La app no envía comandos de velocidad ni de inclinación a ninguna máquina: **lee lo que la máquina reporta**. Y por separado: un Control Point BLE **no declara nada por sí solo** — `declaresSpeedTarget` / `declaresInclineTarget` valen `false` por defecto, porque *la ausencia no es un sí*.
+
+**Por qué:** la BH i.Concept **no admite control de velocidad por BLE** (ver la memoria del proyecto). Prometer que la app conduce la cinta es prometer algo que el hardware no cumple.
+
+**La capa de comandos NO se borra:** sigue shipeada y vuelve el día que haya una cinta que obedezca. La política es un campo de `TreadmillControlCapability` cuyo **default ES la política**, así que el comportamiento en producción no depende de que nadie se acuerde.
+
+**Escrito el 29-jul, y esa demora tuvo un coste medible:** la decisión vivía **solo en un comentario** de `TreadmillControlPolicy`. Cinco tests de `TreadmillControlModelTests` llevaban un día en rojo clavando el comportamiento retirado —uno afirmaba literalmente que un comando de velocidad llega a la cinta— y **nadie sabía por qué**, así que los 15 fallos se convirtieron en «la línea base» y seis agentes verificaron su trabajo contra ellos. **Esta entrada existe para eso: lo que se retira sin dejar constancia es lo que alguien reconstruye seis meses después.**
+
+**En consecuencia, no hacer:** no volver a escribir un test que dé por hecho que la app conduce una máquina; no interpretar la presencia de un Control Point como capacidad; y no retirar un comportamiento sin escribirlo aquí.
+
+---
+
 ## 2026-07-29 · Lo que el atleta declara es SU dato: puebla la app desde el minuto uno
 
 **Decidido (Alex):** todo lo que el atleta responde en el onboarding **se guarda y se enseña** — en su app y en el dashboard del coach — desde que descarga la app, **siempre editable y borrable por él**. Si nos dijo su marca de 10 km, Marcas enseña su 10 km. Y así con todo.
