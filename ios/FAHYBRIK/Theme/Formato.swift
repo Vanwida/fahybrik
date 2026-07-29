@@ -134,6 +134,40 @@ enum Formato {
     static func entero(_ value: Double, _ unidad: String) -> String {
         "\(Int(value.rounded())) \(unidad)"
     }
+
+    // MARK: - El trabajo hecho sobre el pedido (contrato §10.6)
+
+    /// «10 de 12» — lo que llevas de lo que te pidieron.
+    ///
+    /// Canónico NUEVO (§2.1): el trabajo de una vista en vivo no tenía grafía, y
+    /// sin canónico cada pantalla improvisa — el 29-jul tres agentes que habían
+    /// leído el contrato escribieron la misma dosis de fuerza de tres maneras
+    /// («2×10», «10 reps × 2», «2×10 reps») el mismo día.
+    ///
+    /// «de» y no «/»: se lee en voz alta como se piensa («diez de doce»), y la
+    /// barra ya significa otra cosa en esta app (`4:15/km`). La unidad la pinta el
+    /// layout aparte, como en `ritmoCifras`, para que el numeral no se coma la
+    /// palabra al escalar.
+    static func trabajo(hecho: Int, objetivo: Int) -> String {
+        "\(hecho) de \(objetivo)"
+    }
+
+    // MARK: - La diferencia contra un objetivo (contrato §10)
+
+    /// «+2 s» · «−3 s» — cuánto te separa de lo pedido, con el signo delante.
+    ///
+    /// Canónico NUEVO (§2.1). El signo negativo es el MENOS tipográfico (U+2212),
+    /// no el guion del teclado: a 22 pt en mono el guion se lee como un separador
+    /// y «-3 s» parece un rango partido. Es la misma grafía que ya usa el doble.
+    ///
+    /// El valor se redondea a entero: una diferencia en vivo con decimales cambia
+    /// cada tick y no se puede leer corriendo. Quien necesite saber si la
+    /// diferencia es DESPRECIABLE no mira el texto — pregunta a `Delta.juicio`,
+    /// que es donde vive ese criterio.
+    static func delta(_ valor: Double, _ unidad: String) -> String {
+        let signo = valor > 0 ? "+" : "\u{2212}"
+        return "\(signo)\(Int(abs(valor).rounded())) \(unidad)"
+    }
 }
 
 // MARK: - Vocabulario (contrato §3)
@@ -160,4 +194,13 @@ enum Vocab {
     static let tiempo = "Tiempo"
     static let vuelta = "Vuelta"
     static let total = "Total"
+
+    /// Lo que te pidieron. En prosa y como etiqueta, la misma palabra.
+    static let objetivo = "Objetivo"
+    /// El sufijo de un `Delta` contra la prescripción del tramo. Un delta sin
+    /// referente es un número que miente por omisión, así que la coletilla no es
+    /// decoración: es parte del dato.
+    static let vsObjetivo = "vs objetivo"
+    /// La zona de pulso, como concepto («Zona 2», «fuera de zona»).
+    static let zona = "Zona"
 }
