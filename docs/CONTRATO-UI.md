@@ -298,9 +298,13 @@ Los números grandes de una vista en vivo se leen a tres metros, sudando y en mo
 
 En una familia de vistas que se turnan durante el mismo entreno, **el sujeto no puede bailar**: si en una está centrado y en la siguiente 200 pt más abajo, el atleta reencuadra cada vez que cambia el formato. Se fija **una banda del sujeto** y todas las vistas la respetan, sea cual sea el dato que caiga dentro.
 
-### 10.4 · El sujeto vive sobre el fondo, no dentro de una tarjeta
+### 10.4 · El sujeto no puede ser un widget entre widgets
 
-Un borde y un padding convierten el protagonista en un widget. El número manda **directo sobre el lienzo** (como el rodaje), y las tarjetas quedan para lo secundario. Un `CardSurface` alrededor del sujeto es señal de que la jerarquía se resolvió con una caja en vez de con tamaño.
+**Corregido el 29-jul al mirar `vivo-erg`, que es la vista más evolucionada de la tanda.** La regla decía «el sujeto vive sobre el fondo, nunca dentro de una tarjeta», y es demasiado absoluta: el erg mete su `1:54` en una superficie y funciona, porque **esa superficie ES la pantalla** — ocupa el centro, la corona una regla de acento y todo lo demás se le subordina.
+
+Lo que falla en el AMRAP no es la caja: es que su caja **pesa lo mismo que las tres tarjetas de movimientos de debajo**, así que el sujeto se lee como un ítem más de una lista. La regla real:
+
+**El sujeto es la superficie dominante de la pantalla, o no lleva superficie ninguna.** Un contenedor alrededor del protagonista solo se gana si manda sobre todo lo demás en tamaño y en jerarquía. Si comparte aspecto con lo secundario, fuera la caja y el número directo sobre el lienzo (como el rodaje).
 
 ### 10.5 · La acción no pesa como el sujeto
 
