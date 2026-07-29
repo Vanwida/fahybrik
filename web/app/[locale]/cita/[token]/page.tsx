@@ -8,9 +8,11 @@ import { CitaBooking } from '@/components/citas/CitaBooking';
 // (the picker reads live availability client-side).
 export const dynamic = 'force-dynamic';
 
+// Sin el nombre del coach a propósito: es metadata estática de una página noindex, y el
+// nombre correcto depende del lead del token. El cuerpo de la página sí lo nombra.
 export const metadata: Metadata = {
   title: 'Reserva tu llamada · FAHYBRID',
-  description: 'Elige el hueco para tu videollamada con Pablo.',
+  description: 'Elige el hueco para tu videollamada.',
   robots: { index: false, follow: false },
 };
 

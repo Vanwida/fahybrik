@@ -63,7 +63,7 @@ export function UnsubscribeConfirm({ token }: { token: string | null }) {
           href="mailto:hello@fahybrid.com"
           className="text-[14px] text-[color:var(--muted)] underline-offset-4 hover:underline"
         >
-          Prefiero escribir a Pablo
+          Prefiero escribiros
         </a>
       </div>
       {status === 'error' && (

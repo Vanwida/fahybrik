@@ -8,11 +8,13 @@
 // flow independently, so it stays fully reusable.
 
 import { useEffect, useState } from 'react';
+import { coachVoice } from '@/lib/coach/voice';
 import { BookingSlotPicker } from './BookingSlotPicker';
 import './citas.css';
 
 export function CitaBooking({ token }: { token: string }) {
   const [nombre, setNombre] = useState<string>('');
+  const [coachName, setCoachName] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -22,8 +24,10 @@ export function CitaBooking({ token }: { token: string }) {
           headers: { Accept: 'application/json' },
         });
         if (!res.ok) return;
-        const data = (await res.json()) as { nombre?: string };
-        if (active && typeof data.nombre === 'string') setNombre(data.nombre.trim());
+        const data = (await res.json()) as { nombre?: string; coach_name?: string | null };
+        if (!active) return;
+        if (typeof data.nombre === 'string') setNombre(data.nombre.trim());
+        if (typeof data.coach_name === 'string') setCoachName(data.coach_name);
       } catch {
         // The greeting simply stays generic — never blocks the booking flow.
       }
@@ -32,6 +36,10 @@ export function CitaBooking({ token }: { token: string }) {
       active = false;
     };
   }, [token]);
+
+  // Sin nombre de coach (aún cargando, o lead sin dueño) el título se queda en «Reserva
+  // tu llamada», que se lee perfecto. Nunca «Reserva tu llamada con ».
+  const withCoach = coachVoice(coachName).withCoach;
 
   return (
     <div className="cita-wrap">
@@ -44,7 +52,9 @@ export function CitaBooking({ token }: { token: string }) {
           <span className="cita-f">F</span>AHYBRID
         </div>
         <h1 className="cita-title">
-          {nombre ? `Hola ${nombre}, reserva tu llamada con Pablo` : 'Reserva tu llamada con Pablo'}
+          {nombre
+            ? `Hola ${nombre}, reserva tu llamada${withCoach}`
+            : `Reserva tu llamada${withCoach}`}
         </h1>
         <p className="cita-sub">
           Elige tu hueco y listo — te llega el email con el enlace de la videollamada.

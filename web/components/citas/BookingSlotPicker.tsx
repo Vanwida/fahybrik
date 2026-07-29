@@ -6,9 +6,12 @@
 // The token IS the credential: on mount it fetches the public booking context
 // and then renders exactly one of four honest states — an existing
 // appointment's status, a live slot picker, a booked-confirmation, or the
-// "Pablo te escribirá" fallback (NEVER an empty calendar). All times are
+// "<coach> te escribirá" fallback (NEVER an empty calendar). All times are
 // Europe/Madrid, formatted for humans with Intl es-ES. Backend contract is
 // fixed; this only reads/writes it.
+//
+// El coach se nombra con lo que devuelve el contexto (`coach_name`, el coach de ESE
+// lead), nunca con un nombre escrito aquí.
 //
 // #40 — the lead first chooses HOW: 📹 Videollamada (Google Meet) or 📍
 // Presencial (en el box). A segmented control at the top drives which schedule's
@@ -17,6 +20,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowIcon } from '@/components/onboarding/icons';
+import { coachVoice } from '@/lib/coach/voice';
 import './citas.css';
 
 // ── Contract types (mirror /api/citas/context + /api/citas/book) ──────────────
@@ -53,6 +57,8 @@ interface DaySlots {
 }
 interface BookingContext {
   nombre: string;
+  /** Nombre del coach de este lead. Null/ausente → la copia prescinde del nombre. */
+  coach_name?: string | null;
   active_appointment: Appointment | null;
   slots: DaySlots[];
   // #18: coach at capacity and this lead is on the waitlist (not yet released) →
@@ -252,6 +258,10 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
 
   const rootClass = ['bk', `bk--${variant}`, className].filter(Boolean).join(' ');
 
+  // Cómo se nombra al coach de este lead en las tarjetas de abajo. Mientras carga (o si
+  // el lead no tiene dueño) sale el sujeto neutro, nunca un hueco ni un nombre ajeno.
+  const voice = coachVoice(ctx?.coach_name);
+
   // The modality choice only makes sense while the lead is actually picking a
   // slot — never once they have a cita (booked / active) or are waitlisted, and
   // not during the very first load (we don't yet know which of those they're in).
@@ -315,8 +325,8 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         </span>
         <p className="bk-card-title">Estás en la lista de espera.</p>
         <p className="bk-card-note">
-          El grupo de Pablo está completo ahora mismo. En cuanto se abra una plaza te avisamos por
-          email, por orden de llegada.
+          El grupo de {voice.object} está completo ahora mismo. En cuanto se abra una plaza te
+          avisamos por email, por orden de llegada.
         </p>
       </div>
     );
@@ -342,7 +352,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         </div>
       );
     } else {
-      // 'pendiente' (and any defensive fallback): awaiting Pablo's confirmation.
+      // 'pendiente' (and any defensive fallback): awaiting the coach's confirmation.
       content = (
         <div className="bk-card">
           <span className="bk-card-eyebrow">
@@ -350,7 +360,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
           </span>
           <p className="bk-card-title">
             Tu solicitud para el <strong>{formatFecha(appt.requested_start)}</strong> está
-            pendiente de que Pablo la confirme.
+            pendiente de que {voice.object} la confirme.
           </p>
           <p className="bk-card-note">Te avisaremos por email.</p>
         </div>
@@ -430,7 +440,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
     // empty calendar. (The lead can still toggle back to the other modality.)
     content = (
       <div className="bk-card">
-        <p className="bk-card-title">Pablo te escribirá para cuadrar tu llamada.</p>
+        <p className="bk-card-title">{voice.subject} te escribirá para cuadrar tu llamada.</p>
         <p className="bk-card-note">En breve recibirás un email para agendarla.</p>
       </div>
     );
