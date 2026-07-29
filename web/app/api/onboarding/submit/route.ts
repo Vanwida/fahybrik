@@ -16,6 +16,7 @@ import {
   BENCH_RUN_10K,
   BENCH_RUN_HALF,
   BENCH_RUN_MARATHON,
+  BENCH_ROW_1K,
   BENCH_ROW_2K,
   BENCH_SKI_1K,
   BENCHMARK_UNIT_KG,
@@ -221,7 +222,24 @@ const onboardingSnapshotSchema = z
     // algorithm + intake suggestions read row_2k / ski_1k).
     time_2k_row_seconds: intRange(0, 3_600).optional(),
     time_1k_ski_seconds: intRange(0, 1_800).optional(),
+    // El 1K de remo lo pregunta el paso de resistencia desde siempre y hasta hoy
+    // caía en el catchall — con su fila `row_1k` ya esperándole en la biblioteca
+    // de Marcas. Declararlo aquí es lo único que faltaba para que se vea.
+    time_1k_row_seconds: intRange(0, 1_800).optional(),
     hybrid_tests_notes: longText.optional(),
+
+    // ── Paso «Anaeróbico / umbral» -> athletes.max_hr_bpm ────────────────────
+    // La FC máxima medida. La columna existía y estaba vacía en TODOS los atletas
+    // porque este campo caía en el catchall: se preguntaba en el onboarding, se
+    // tiraba, y luego «Mis zonas» le pedía al mismo atleta que la volviera a
+    // teclear en Perfil. Es el segundo peldaño del ancla de zonas de FC
+    // (umbral medido → 0,88 × FC máxima → 0,88 × Tanaka), así que sin ella un
+    // atleta sin fecha de nacimiento se queda sin zonas.
+    //
+    // Entra como ancla ESTIMADA, no como medición: `resolveThresholdHr` la marca
+    // `from_max_hr` / `estimated: true` y la UI dice «Estimado desde tu FC máxima».
+    // El rango replica el CHECK de la columna y el de PATCH /api/athlete/profile.
+    max_hr_bpm: intRange(100, 230).optional(),
 
     // ── HYROX history (carried from the legacy flat snapshot) ─────────────────
     // hyrox_best_time_seconds + the declared division feed the level algorithm's
@@ -315,6 +333,7 @@ function benchmarksFromSnapshot(
     // Ergo time trials (seconds) — previously captured but dropped.
     [snap.time_2k_row_seconds, BENCH_ROW_2K, BENCHMARK_UNIT_SECONDS],
     [snap.time_1k_ski_seconds, BENCH_SKI_1K, BENCHMARK_UNIT_SECONDS],
+    [snap.time_1k_row_seconds, BENCH_ROW_1K, BENCHMARK_UNIT_SECONDS],
     // HYROX best time (seconds) — previously only in the notes blob.
     [snap.hyrox_best_time_seconds, hyroxBenchmarkSlug(hyroxDivision), BENCHMARK_UNIT_SECONDS],
   ];
@@ -437,6 +456,11 @@ export async function POST(request: Request) {
         biggest_obstacle = coalesce(${snap.biggest_obstacle ?? null}, biggest_obstacle),
         pct_depends_on_me = coalesce(${snap.pct_depends_on_me ?? null}, pct_depends_on_me),
         coach_role = coalesce(${snap.coach_role ?? null}, coach_role),
+
+        -- Paso «Anaeróbico / umbral» — la FC máxima declarada. coalesce, como el
+        -- resto: si el atleta ya tiene una (del editor de Perfil o de un test),
+        -- un re-submit del onboarding NUNCA la pisa.
+        max_hr_bpm = coalesce(${snap.max_hr_bpm ?? null}, max_hr_bpm),
 
         -- Step 13 — connections (client truth)
         healthkit_granted = coalesce(${snap.healthkit_granted ?? null}, healthkit_granted),
