@@ -116,14 +116,26 @@ export function Chrome({
   pausado,
   onPausa,
   onSalir,
+  compacto = false,
 }: {
   formato: string;
   pausado: boolean;
   onPausa: () => void;
   onSalir: () => void;
+  /** En horizontal los dos botones viven DENTRO de la franja del formato, que
+   *  ya canta la cadencia: aquí solo hacen falta ellos. */
+  compacto?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, flex: '0 0 auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: SP.s,
+        flex: '0 0 auto',
+        ...(compacto ? null : { alignSelf: 'stretch' }),
+      }}
+    >
       <RoundButton onClick={onSalir} label="Salir del entreno">
         <IconClose size={13} />
       </RoundButton>
@@ -138,10 +150,14 @@ export function Chrome({
           </svg>
         )}
       </RoundButton>
-      <span style={{ flex: 1 }} />
-      <Mono size={11} color="var(--twin-muted)">
-        {formato.toUpperCase()}
-      </Mono>
+      {!compacto && (
+        <>
+          <span style={{ flex: 1 }} />
+          <Mono size={11} color="var(--twin-muted)">
+            {formato.toUpperCase()}
+          </Mono>
+        </>
+      )}
     </div>
   );
 }
@@ -370,7 +386,8 @@ export function Traza({
   actual: number;
   /** Presente = las rondas selladas se distinguen de las que solo pasaron. */
   sellos?: Readonly<Record<number, number>>;
-  pie: string;
+  /** Ausente en horizontal: allí la ronda ya la canta la franja del formato. */
+  pie?: string;
 }) {
   const estado = (i: number): EstadoPip => {
     if (i === actual) return 'actual';
@@ -394,9 +411,11 @@ export function Traza({
           />
         ))}
       </div>
-      <Mono size={11} color="var(--twin-muted)">
-        {pie}
-      </Mono>
+      {pie && (
+        <Mono size={11} color="var(--twin-muted)">
+          {pie}
+        </Mono>
+      )}
     </div>
   );
 }

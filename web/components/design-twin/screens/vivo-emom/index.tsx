@@ -28,10 +28,10 @@ export const meta: TwinMeta = {
   zona: 'Entreno en vivo',
   estado: 'propuesta',
   descripcion:
-    'El reloj gobierna: acaba el minuto, acaba la ronda. El minuto es el ambiente de la pantalla (faena, tuyo, se acaba), la tarea se cuenta sola solo si hay una máquina que la cuente, y el interval avisa de PARAR tan fuerte como de empezar.',
+    'El reloj gobierna: acaba el minuto, acaba la ronda. El minuto es el ambiente de la pantalla (faena, tuyo, se acaba) y la tarea se cuenta sola solo si hay una máquina contándola. Gira el marco: el tramo decide la cara, y el formato nunca suelta su franja.',
   fuentes: [],
   dispositivo: 'iphone',
-  soportaHorizontal: false,
+  soportaHorizontal: true,
 };
 
 export const escenarios: TwinEscenario[] = [
@@ -39,27 +39,29 @@ export const escenarios: TwinEscenario[] = [
     id: 'alterno-maquinas',
     titulo: 'EMOM 12 · esquí y bici',
     descripcion:
-      'Ronda 4 de 12 con los monitores puestos: las calorías suben solas, cumples a los 0:41 y el resto del minuto se vuelve verde y tuyo; a los 0:50 se anuncia el esquí.',
+      'Ronda 4 de 12 con los monitores puestos: las calorías suben solas, cumples a los 0:41 y el resto del minuto se vuelve verde y tuyo; a los 0:50 se anuncia el esquí. Gíralo y sale la cara de la máquina, con el minuto y los avisos por encima.',
   },
   {
     id: 'a-pulso',
     titulo: 'EMOM 10 · 10 burpees',
     descripcion:
-      'Nadie puede contar burpees. El minuto drena igual y el toque de «hecho» solo sella tu tiempo; si el minuto acaba sin toque, la ronda pasa y no se inventa nada.',
+      'Nadie puede contar burpees. El minuto drena igual y el toque de «hecho» solo sella tu tiempo; si el minuto acaba sin toque, la ronda pasa y no se inventa nada. Girado no aparece ninguna máquina: aquí no hay nada que medir.',
   },
   {
     id: 'interval-45-15',
     titulo: 'Interval 45/15 · ronda 6 de 10',
     descripcion:
-      'El mismo motor con transición explícita: trabajo y cambio son estados opuestos, y el aviso de PARAR pesa tanto como el de empezar. Tabata es esto con otros números.',
+      'El mismo motor con transición explícita: trabajo y cambio son estados opuestos, y el aviso de PARAR pesa tanto como el de empezar. Tabata es esto con otros números. Girado, el reloj se queda con todo el ancho.',
   },
 ];
 
-export function Screen({ escenario, onLog }: TwinScreenProps) {
+export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
   const guion = GUIONES[escenario] ?? ALTERNO_MAQUINAS;
+  // `EmomVivo` recibe la orientación como dato y NO se remonta al girar: el
+  // reloj, las rondas y lo que hayas sellado siguen donde estaban.
   return (
     <div className="twin-screen-safe">
-      <EmomVivo guion={guion} onLog={onLog} />
+      <EmomVivo guion={guion} landscape={orientation === 'landscape'} onLog={onLog} />
     </div>
   );
 }

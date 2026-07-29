@@ -35,6 +35,11 @@
 // objetivo no cierra la ronda, convierte el resto del minuto en tu descanso.
 
 import { UMBRAL, type Modalidad } from '../../datos-reales';
+// La relación del monitor (kcal/h = W × 4 × 0,8604 + 300) ya vive escrita una
+// vez en el doble. Se importa en vez de volver a escribir la constante: un
+// segundo 0,8604 sería justo el duplicado que prohíbe el §0 del contrato. Su
+// sitio bueno sería el kit compartido, no la carpeta de otra pantalla.
+import { calPorHoraDesdeVatios } from '../benchmark-erg/data';
 
 // ---------------------------------------------------------------------------
 // El modelo
@@ -68,6 +73,22 @@ export interface Tarea {
   cantidad: number;
   unidad: Unidad;
   modalidad: Modalidad;
+  /**
+   * La cadencia sostenida en esa máquina (rpm en la bici, paladas en el esquí).
+   * Declarada, porque NO se deriva de los vatios: en un ergómetro la misma
+   * potencia sale a cadencias distintas según el amortiguador. Solo tiene
+   * sentido cuando hay un monitor que la lea.
+   */
+  cadencia?: number;
+}
+
+/**
+ * Cómo se llama la cadencia de cada máquina. Un esquí da paladas; una bici da
+ * vueltas. Llamar «paladas» a lo que hace una bici es de las cosas que delatan
+ * que el que escribió la pantalla no ha pisado un box.
+ */
+export function etiquetaCadencia(m: Modalidad): string {
+  return m === 'bike' ? 'rpm' : 'paladas';
 }
 
 /** Lo que hay conectado. Sin esto no se puede decidir qué se pinta (§7). */
@@ -94,11 +115,16 @@ export interface Guion {
   /** Por dónde entra la reproducción: ronda (0-based) y segundo del ciclo. */
   arranque: { ronda: number; segundo: number };
   /**
-   * En qué segundo del minuto cruzas el objetivo, ronda a ronda. Es una
-   * SIMULACIÓN del stream del monitor (sube porque te vas cansando), no una
-   * medida; solo se usa cuando hay monitor conectado.
+   * Los vatios que sostienes en cada ronda. Es lo ÚNICO que se declara del
+   * esfuerzo, y baja ronda a ronda porque eso es la fatiga.
+   *
+   * Todo lo demás sale de aquí: las calorías por hora las da la relación del
+   * monitor, el contador es su integral y el segundo en que cumples es una
+   * consecuencia, no un número puesto a mano. Así el número grande de la cara
+   * horizontal (los vatios) y el de la vertical (las calorías) no pueden
+   * contradecirse, que es lo que pasa cuando se inventan dos curvas.
    */
-  cruces?: readonly number[];
+  vatios?: readonly number[];
   /** Rondas que ya venían selladas al entrar (solo cuando no cuenta nadie). */
   sellosPrevios?: Readonly<Record<number, number>>;
   /** Una línea de contexto para la franja. */
@@ -244,14 +270,37 @@ export const COLOR_AMBIENTE: Record<Ambiente, string> = {
   cambio: 'var(--twin-ok)',
 };
 
+/** Los vatios de esa ronda, si hay monitor que los lea. */
+export function vatiosEn(g: Guion, ronda: number): number | undefined {
+  return g.vatios?.[ronda];
+}
+
+/** Las calorías por hora que marca el monitor a esos vatios. */
+export function calPorHoraEn(g: Guion, ronda: number): number | undefined {
+  const w = vatiosEn(g, ronda);
+  return w === undefined ? undefined : calPorHoraDesdeVatios(w);
+}
+
 /**
- * Lo que va leyendo el monitor este minuto: el delta del contador acumulado
- * desde que empezó la ronda. Lineal, que es lo que hace un ergómetro a
- * esfuerzo sostenido. Se congela al cruzar porque ahí dejas de darle.
+ * El segundo en que cruzas el objetivo. DERIVADO del esfuerzo, no puesto a
+ * mano: a 219 W una bici marca 1.054 cal/h, y 12 calorías a ese ritmo caen
+ * exactamente a los 41 s.
  */
-export function contadorMaquina(tarea: Tarea, transcurrido: number, cruceS: number): number {
-  if (cruceS <= 0) return tarea.cantidad;
-  return Math.min(tarea.cantidad, Math.floor((tarea.cantidad * transcurrido) / cruceS));
+export function cruceEn(g: Guion, ronda: number): number | undefined {
+  const calH = calPorHoraEn(g, ronda);
+  const t = tareaDe(g, ronda);
+  if (calH === undefined || !t || t.unidad !== 'cal') return undefined;
+  return Math.ceil((t.cantidad * 3600) / calH);
+}
+
+/**
+ * Lo que va leyendo el monitor este minuto: la integral de las calorías por
+ * hora desde que empezó la ronda. Se congela al cruzar porque ahí dejas de
+ * darle, y por eso los vatios y la cadencia caen a cero (§7: el cero de un
+ * monitor conectado es un dato, no un hueco).
+ */
+export function contadorMaquina(tarea: Tarea, transcurrido: number, calPorHora: number): number {
+  return Math.min(tarea.cantidad, Math.floor((calPorHora * transcurrido) / 3600));
 }
 
 /** El pulso del minuto. Sube mientras trabajas y baja en cuanto paras. */
@@ -261,6 +310,71 @@ export function pulsoPpm(transcurrido: number, hecha: boolean, cruceS: number): 
   const pico = FC.base + Math.round((FC.techo - FC.base) * subida);
   if (!hecha) return pico;
   return Math.max(FC.base - 6, pico - Math.round((transcurrido - cruceS) * 0.8));
+}
+
+// ---------------------------------------------------------------------------
+// El estado del minuto — UNA vez, para las dos caras
+// ---------------------------------------------------------------------------
+
+/**
+ * Todo lo que hace falta para pintar el instante, calculado una sola vez.
+ *
+ * Existe porque el móvil se gira: retrato y horizontal son DOS caras del MISMO
+ * minuto, y si cada una se derivase su estado acabarían discrepando en el borde
+ * (una dando la tarea por cumplida y la otra no). Aquí se deriva una vez y las
+ * dos caras la leen.
+ */
+export interface EstadoMinuto {
+  inst: Instante;
+  tarea: Tarea | null;
+  quien: QuienCuenta;
+  /** Segundo en que se cruza el objetivo, si alguien lo puede medir. */
+  cruceS: number | undefined;
+  calPorHora: number | undefined;
+  vatios: number | undefined;
+  /** Lo que marca el contador AHORA. Nulo si no hay quien cuente. */
+  contador: number | null;
+  hecha: boolean;
+  amb: Ambiente;
+  color: string;
+  siguiente: Tarea | null;
+  /** Hay otra cosa detrás y merece anunciarse. */
+  anuncia: boolean;
+  puedeSellar: boolean;
+}
+
+export function estadoMinuto(g: Guion, tAbs: number, sellos: Readonly<Record<number, number>>): EstadoMinuto {
+  const inst = instante(g, tAbs);
+  const tarea = tareaDe(g, inst.ronda);
+  const quien = quienCuenta(tarea, g.conexiones);
+  const calPorHora = calPorHoraEn(g, inst.ronda);
+  const cruceS = cruceEn(g, inst.ronda);
+  const contador =
+    quien === 'maquina' && tarea && calPorHora !== undefined
+      ? contadorMaquina(tarea, inst.transcurrido, calPorHora)
+      : null;
+  const puedeSellar = quien === 'nadie';
+  // «Sale al CRUZAR el objetivo», no «la lectura está por encima» (DECISIONS,
+  // 28-jul): se compara el contador, que es lo que el monitor dice de verdad.
+  const hecha =
+    contador !== null && tarea ? contador >= tarea.cantidad : puedeSellar ? sellos[inst.ronda] !== undefined : false;
+  const siguiente = alterna(g) ? tareaDe(g, inst.ronda + 1) : null;
+
+  return {
+    inst,
+    tarea,
+    quien,
+    cruceS,
+    calPorHora,
+    vatios: hecha ? 0 : vatiosEn(g, inst.ronda),
+    contador,
+    hecha,
+    amb: ambiente(g, inst, hecha),
+    color: COLOR_AMBIENTE[ambiente(g, inst, hecha)],
+    siguiente,
+    anuncia: siguiente !== null && siguiente.nombre !== tarea?.nombre,
+    puedeSellar,
+  };
 }
 
 /** «12 cal», «10 reps». La grafía del repo, sin inventar una segunda. */
@@ -302,14 +416,16 @@ export const ALTERNO_MAQUINAS: Guion = {
   cambioS: 0,
   rondas: 12,
   rotacion: [
-    { nombre: 'el esquí', cantidad: 10, unidad: 'cal', modalidad: 'ski' },
-    { nombre: 'la bici', cantidad: 12, unidad: 'cal', modalidad: 'bike' },
+    { nombre: 'el esquí', cantidad: 10, unidad: 'cal', modalidad: 'ski', cadencia: 41 },
+    { nombre: 'la bici', cantidad: 12, unidad: 'cal', modalidad: 'bike', cadencia: 78 },
   ],
   conexiones: { monitor: 'los dos monitores', reloj: true },
   arranque: { ronda: 3, segundo: 30 },
-  // Se va yendo hacia atrás minuto a minuto: eso es la fatiga, y es lo que
-  // hace que el descanso que te sobra se encoja sin que nadie te lo diga.
-  cruces: [38, 40, 37, 41, 39, 42, 40, 44, 41, 45, 43, 47],
+  // Los vatios bajan ronda a ronda dentro de cada máquina: eso es la fatiga. Y
+  // como el cruce se deriva de ellos, el descanso que te sobra se encoge solo,
+  // de 23 s en la primera ronda a 16 s en la última, sin que nadie lo escriba.
+  // Los 219 W de la ronda 4 son los que hacen que cumplas a los 0:41.
+  vatios: [196, 232, 192, 219, 188, 213, 184, 207, 180, 201, 176, 195],
   procedencia: 'ejecución 177 · EMOM 12 alternando esquí y bici',
 };
 

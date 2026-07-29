@@ -18,15 +18,11 @@ import { hrZone, useTicker } from '../../sim';
 import { reloj } from '../../datos-reales';
 import {
   AVISO_CORTE_S,
-  COLOR_AMBIENTE,
   UMBRAL_PPM,
-  alterna,
-  ambiente,
   ciclo,
-  contadorMaquina,
   duracionTotal,
+  estadoMinuto,
   frase,
-  instante,
   lineaFormato,
   pulsoPpm,
   quienCuenta,
@@ -36,6 +32,7 @@ import {
   type QuienCuenta,
   type Tarea,
 } from './data';
+import { CaraHorizontal } from './horizontal';
 import {
   Anuncio,
   BotonHecho,
@@ -53,7 +50,15 @@ import {
   puntoDe,
 } from './atoms';
 
-export function EmomVivo({ guion, onLog }: { guion: Guion; onLog: (linea: string) => void }) {
+export function EmomVivo({
+  guion,
+  landscape,
+  onLog,
+}: {
+  guion: Guion;
+  landscape: boolean;
+  onLog: (linea: string) => void;
+}) {
   // El reloj: `base` acumula lo corrido antes de la última pausa y `tramo` es lo
   // que lleva el tramo actual. Sin esto, reanudar reiniciaría el cronómetro
   // (useTicker vuelve a poner su origen en cada arranque).
@@ -65,29 +70,12 @@ export function EmomVivo({ guion, onLog }: { guion: Guion; onLog: (linea: string
   const sellosRef = useRef(sellos);
 
   const tAbs = guion.arranque.ronda * ciclo(guion) + guion.arranque.segundo + base + tramo;
-  const inst = instante(guion, tAbs);
+  // UN estado para las dos caras. Girar el móvil no vuelve a derivar nada: es
+  // el mismo minuto mirado desde otro sitio, y por eso no puede pasar que una
+  // cara dé la tarea por cumplida y la otra no.
+  const estado = estadoMinuto(guion, tAbs, sellos);
+  const { inst, tarea, quien, cruceS, contador, hecha, amb, color, siguiente, anuncia, puedeSellar } = estado;
   useTicker(!pausado && !inst.terminado, setTramo);
-
-  const tarea = tareaDe(guion, inst.ronda);
-  const quien = quienCuenta(tarea, guion.conexiones);
-  const cruceS = guion.cruces?.[inst.ronda];
-  const puedeSellar = quien === 'nadie';
-
-  const hecha =
-    quien === 'maquina' && cruceS !== undefined
-      ? inst.transcurrido >= cruceS
-      : puedeSellar
-        ? sellos[inst.ronda] !== undefined
-        : false;
-
-  const amb = ambiente(guion, inst, hecha);
-  const color = COLOR_AMBIENTE[amb];
-
-  // Lo que viene: SOLO cuando de verdad viene otra cosa. En un EMOM uniforme un
-  // «luego: burpees» sería la misma información dos veces (la misma regla que
-  // `nextMovement` en el HUD real de la app).
-  const siguiente = alterna(guion) ? tareaDe(guion, inst.ronda + 1) : null;
-  const anuncia = siguiente !== null && siguiente.nombre !== tarea?.nombre;
 
   // -------------------------------------------------------------------------
   // Cronología — una línea por suceso, y ni una por segundo
@@ -146,12 +134,36 @@ export function EmomVivo({ guion, onLog }: { guion: Guion; onLog: (linea: string
     onLog(`Ronda ${inst.ronda + 1} sellada a los ${reloj(seg)}`);
   };
 
+  const salir = () => onLog('Salir → volvería al detalle de la sesión');
   const selladas = Object.keys(sellos).length;
   const accion: ReactNode = puedeSellar
     ? hecha
       ? <SelloHecho texto={`Hecho en ${reloj(sellos[inst.ronda])}`} />
       : <BotonHecho onClick={sellar} />
     : undefined;
+
+  // Girar es OTRA CARA del mismo minuto, no otra pantalla: el estado vive aquí
+  // arriba, así que el reloj no se entera de que el móvil se ha movido.
+  if (landscape && !inst.terminado) {
+    return (
+      <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+        <EstilosEmom />
+        <CaraHorizontal
+          guion={guion}
+          estado={estado}
+          sellos={sellos}
+          pausado={pausado}
+          onPausa={alternarPausa}
+          onSalir={salir}
+          onSellar={sellar}
+        />
+        {/* El destello del cambio de minuto va DESPUÉS en el DOM: en horizontal
+            tiene que verse por encima de la cara del monitor, no debajo. */}
+        <Flash clave={`${inst.ronda}-${inst.fase}`} color={color} />
+        {pausado && <VeloPausa />}
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
@@ -168,7 +180,7 @@ export function EmomVivo({ guion, onLog }: { guion: Guion; onLog: (linea: string
           formato={lineaFormato(guion, reloj)}
           pausado={pausado}
           onPausa={alternarPausa}
-          onSalir={() => onLog('Salir → volvería al detalle de la sesión')}
+          onSalir={salir}
         />
 
         <ContextoFranja guion={guion} inst={inst} quien={quien} hecha={hecha} cruceS={cruceS} />
@@ -182,9 +194,8 @@ export function EmomVivo({ guion, onLog }: { guion: Guion; onLog: (linea: string
             guion={guion}
             inst={inst}
             tarea={tarea}
-            quien={quien}
+            contador={contador}
             hecha={hecha}
-            cruceS={cruceS}
             color={color}
             avisando={amb === 'aviso'}
             rotulo={amb === 'aviso' && guion.cambioS > 0 ? 'Para en' : ROTULO[amb]}
@@ -272,9 +283,8 @@ function ZonaTrabajo({
   guion,
   inst,
   tarea,
-  quien,
+  contador,
   hecha,
-  cruceS,
   color,
   avisando,
   rotulo,
@@ -284,20 +294,15 @@ function ZonaTrabajo({
   guion: Guion;
   inst: Instante;
   tarea: Tarea | null;
-  quien: QuienCuenta;
+  /** Lo que marca el monitor ahora. Nulo = no hay quien cuente. */
+  contador: number | null;
   hecha: boolean;
-  cruceS: number | undefined;
   color: string;
   avisando: boolean;
   rotulo: string;
   anuncio: Tarea | null;
   pausado: boolean;
 }) {
-  const contador =
-    quien === 'maquina' && tarea && cruceS !== undefined
-      ? contadorMaquina(tarea, inst.transcurrido, cruceS)
-      : null;
-
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.l, textAlign: 'center' }}>
