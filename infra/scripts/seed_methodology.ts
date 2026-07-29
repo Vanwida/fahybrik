@@ -92,7 +92,7 @@ async function seedCoachMethodology(sql: Sql, coachId: string): Promise<void> {
       7, 50, true,
       60, 80, 50, 40, 'una_linea',
       'es', 'en', 'tu', 'nunca',
-      'dato+accion', ${PHILOSOPHY_NARRATIVE}
+      'dato+accion', null
     )
     on conflict (coach_id) do update set
       hr_zone_count = excluded.hr_zone_count,
@@ -107,66 +107,6 @@ async function seedCoachMethodology(sql: Sql, coachId: string): Promise<void> {
       philosophy_narrative = excluded.philosophy_narrative,
       updated_at = now()
   `;
-}
-
-const PHILOSOPHY_NARRATIVE =
-  'Periodización ATR conservadora. La seguridad (recuperación, evitar sobreentrenamiento) ' +
-  'siempre manda sobre la progresión. En Acumulación se construye base aeróbica y densidad ' +
-  'muscular sin trabajo glucolítico; la sesión de Zona 2 larga es intocable. En ' +
-  'Transformación se eleva el umbral con series de running y ergómetros. En Realización se ' +
-  'afila con simulaciones de carrera y se mantiene la fuerza, nunca se busca PR. Cada ' +
-  'prescripción es completa (medida + objetivo) o no se entrega.';
-
-// ── methodology_blocks (Áreas 2 & 3) ─────────────────────────────────────────
-const BLOCKS = [
-  {
-    block_type: 'ACC', label_athlete: 'Acumulación', duration_weeks: 5,
-    objective_json: ['volumen_aerobico', 'densidad_muscular'], intensity_ceiling: 'Z2',
-    sequence_order: 1, progression_shape_volume: 'lineal', progression_shape_intensity: 'escalon',
-    weekly_volume_delta_pct: 7.5, intensity_ramp_low_pct: 60, intensity_ramp_high_pct: 80,
-    deload_trigger: 'last_week_of_block', deload_volume_reduction_pct: 15, deload_intensity_reduction_pct: 0,
-  },
-  {
-    block_type: 'TRANS', label_athlete: 'Intensificación', duration_weeks: 4,
-    objective_json: ['umbral_anaerobico', 'lactate_clearance', 'pace_consistency'], intensity_ceiling: 'Z4',
-    sequence_order: 2, progression_shape_volume: 'escalon', progression_shape_intensity: 'escalon',
-    weekly_volume_delta_pct: 5, intensity_ramp_low_pct: 70, intensity_ramp_high_pct: 85,
-    deload_trigger: 'last_week_of_block', deload_volume_reduction_pct: 15, deload_intensity_reduction_pct: 0,
-  },
-  {
-    block_type: 'REAL', label_athlete: 'Tapering/Realización', duration_weeks: 3,
-    objective_json: ['especificidad_carrera', 'peaking_freshness', 'mantenimiento_fuerza'], intensity_ceiling: 'Z5',
-    sequence_order: 3, progression_shape_volume: 'onda', progression_shape_intensity: 'onda',
-    weekly_volume_delta_pct: -10, intensity_ramp_low_pct: 80, intensity_ramp_high_pct: 87,
-    deload_trigger: 'readiness_based', deload_volume_reduction_pct: 50, deload_intensity_reduction_pct: 18,
-  },
-] as const;
-
-async function seedBlocks(sql: Sql, coachId: string): Promise<void> {
-  for (const b of BLOCKS) {
-    await sql`
-      insert into methodology_blocks (
-        coach_id, block_type, label_athlete, duration_weeks, objective_json,
-        intensity_ceiling, sequence_order, progression_shape_volume,
-        progression_shape_intensity, weekly_volume_delta_pct, intensity_ramp_low_pct,
-        intensity_ramp_high_pct, deload_trigger, deload_volume_reduction_pct,
-        deload_intensity_reduction_pct
-      ) values (
-        ${coachId}::bigint, ${b.block_type}, ${b.label_athlete}, ${b.duration_weeks},
-        ${sql.json([...b.objective_json])}, ${b.intensity_ceiling}, ${b.sequence_order},
-        ${b.progression_shape_volume}, ${b.progression_shape_intensity},
-        ${b.weekly_volume_delta_pct}, ${b.intensity_ramp_low_pct}, ${b.intensity_ramp_high_pct},
-        ${b.deload_trigger}, ${b.deload_volume_reduction_pct}, ${b.deload_intensity_reduction_pct}
-      )
-      on conflict (coach_id, block_type) do update set
-        label_athlete = excluded.label_athlete,
-        duration_weeks = excluded.duration_weeks,
-        objective_json = excluded.objective_json,
-        weekly_volume_delta_pct = excluded.weekly_volume_delta_pct,
-        deload_volume_reduction_pct = excluded.deload_volume_reduction_pct,
-        updated_at = now()
-    `;
-  }
 }
 
 // ── methodology_zones (Área 5) — the 6-zone OFFSET model (migration 0061). ────
@@ -428,11 +368,9 @@ async function synthesizeRag(sql: Sql, coachId: string): Promise<void> {
   // surface for rules (those are queried by SQL), so its chunks stay embedding-null.
   const raw =
     `# Metodología estructurada (síntesis determinista)\n\n` +
-    `## Bloques ATR\n` +
-    BLOCKS.map((b) => `- ${b.block_type} (${b.label_athlete}): ${b.duration_weeks} sem, techo ${b.intensity_ceiling}, objetivos ${b.objective_json.join('/')}.`).join('\n') +
-    `\n\n## No-negociables y reglas (${PABLO_DEFAULT_RULES.length})\n` +
+    `## No-negociables y reglas (${PABLO_DEFAULT_RULES.length})\n` +
     PABLO_DEFAULT_RULES.map((r) => `- [A${r.area}/${r.priority}] ${r.source_excerpt ?? r.actions.map((a) => a.verb).join(',')}`).join('\n') +
-    `\n\n## Narrativa de filosofía (retrieval por embedding)\n${PHILOSOPHY_NARRATIVE}\n`;
+    `\n`;
 
   // Upsert the document (one synthesis doc per coach, identified by title).
   const existing = await sql<{ id: string }[]>`
@@ -458,9 +396,7 @@ async function synthesizeRag(sql: Sql, coachId: string): Promise<void> {
   // kind is encoded as a prefix so the retrieval layer can filter structured vs
   // narrative deterministically until embeddings are backfilled.
   const chunks: string[] = [
-    `[structured:blocks] ${BLOCKS.map((b) => `${b.block_type}=${b.duration_weeks}w ceiling=${b.intensity_ceiling}`).join('; ')}`,
     `[structured:rules] ${PABLO_DEFAULT_RULES.length} reglas WHEN→THEN (filtro determinista, ver methodology_rules)`,
-    `[narrative:philosophy] ${PHILOSOPHY_NARRATIVE}`,
   ];
   for (const [i, content] of chunks.entries()) {
     await sql`
@@ -485,7 +421,6 @@ async function main(): Promise<void> {
     const coachId = await ensureCoach(sql);
     process.stdout.write(`Using coach_id=${coachId}\n`);
     await seedCoachMethodology(sql, coachId);
-    await seedBlocks(sql, coachId);
     await seedZones(sql, coachId);
     await seedTests(sql, coachId);
     await seedWeekly(sql, coachId);
@@ -495,7 +430,7 @@ async function main(): Promise<void> {
     await seedRules(sql, coachId);
     await synthesizeRag(sql, coachId);
     process.stdout.write(
-      `\n[seed:methodology] done — coach_methodology(1), blocks(${BLOCKS.length}), zones(${ZONES.length}), ` +
+      `\n[seed:methodology] done — coach_methodology(1), zones(${ZONES.length}), ` +
       `tests(${TESTS.length}), weekly(${WEEKLY.length}), subs(${SUBS.length}), stations(${STATIONS.length}), ` +
       `nutrition(${NUTRITION.length}), rules(${PABLO_DEFAULT_RULES.length}).\n`,
     );

@@ -1,5 +1,5 @@
 /**
- * Pablo's REAL default RULES (spec §4, all areas) as structured WHEN→THEN data
+ * Reglas por defecto (spec §4) como datos WHEN→THEN estructurados
  * for the methodology_rules engine. Split out of seed_methodology.ts to keep both
  * files under 500 lines. Each rule cites its origin (seed #N / doc §) in
  * source_excerpt; rules without a literal citation are authored 'system_default'
@@ -36,20 +36,6 @@ const OR = (...c: ConditionGroup['conditions']): ConditionGroup => ({ op: 'OR', 
 export const PABLO_DEFAULT_RULES: SeedRule[] = [
   // ── Área 1 — Filosofía & no-negociables (selection/global) ─────────────────
   {
-    area: 1, trigger_phase: 'selection', scope: 'week', priority: 'critical', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'Máximo 1 día de alta intensidad seguido.',
-    conditions: [G({ metric: 'block_phase', operator: 'in', value: ['ACC', 'TRANS', 'REAL'], unit: 'enum', source: 'plan_state' })],
-    actions: [{ verb: 'no_op_log_only', params: { constraint: 'max_consecutive_high_intensity_days=1' }, requires_coach_approval: false }],
-  },
-  {
-    area: 1, trigger_phase: 'selection', scope: 'block', priority: 'high', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'ACC no glucolítico (flag si la IA propone trabajo glucolítico en Acumulación).',
-    conditions: [G({ metric: 'block_phase', operator: '=', value: 'ACC', unit: 'enum', source: 'plan_state' })],
-    actions: [{ verb: 'flag_coach', params: { severity: 'medium', message: 'trabajo glucolítico propuesto en ACC' }, requires_coach_approval: false }],
-  },
-  {
     area: 1, trigger_phase: 'selection', scope: 'exercise', priority: 'critical', authored: 'coach',
     requires_coach_approval: false,
     source_excerpt: 'Completitud de prescripción: fuerza sin {reps,carga,RIR/RPE,tempo,descanso} → forbid.',
@@ -71,32 +57,6 @@ export const PABLO_DEFAULT_RULES: SeedRule[] = [
     actions: [{ verb: 'swap_modality', params: { exercise: 'run', to_modality: 'row', target: 'Z2', duration_min: 30 }, requires_coach_approval: true }],
   },
 
-  // ── Área 2 — Periodización ATR (selection) ─────────────────────────────────
-  {
-    area: 2, trigger_phase: 'selection', scope: 'block', priority: 'high', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'weeks_to_race==3 → set_block(REAL).',
-    conditions: [G({ metric: 'days_to_race', operator: 'between', value: [15, 21], unit: 'days', source: 'plan_state' })],
-    actions: [{ verb: 'advance_block', params: { to_phase: 'REAL' }, requires_coach_approval: false }],
-  },
-  {
-    area: 2, trigger_phase: 'selection', scope: 'block', priority: 'critical', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'REAL & weeks_to_race<=1 → taper profundo.',
-    conditions: [G(
-      { metric: 'block_phase', operator: '=', value: 'REAL', unit: 'enum', source: 'plan_state' },
-      { metric: 'days_to_race', operator: '<=', value: 7, unit: 'days', source: 'plan_state' },
-    )],
-    actions: [{ verb: 'deload_week', params: { pct: 50, keep_intensity: true }, requires_coach_approval: false }],
-  },
-  {
-    area: 2, trigger_phase: 'selection', scope: 'block', priority: 'medium', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'weeks_to_race<12 → truncate ACC (REAL siempre completo).',
-    conditions: [G({ metric: 'days_to_race', operator: '<', value: 84, unit: 'days', source: 'plan_state' })],
-    actions: [{ verb: 'repeat_block', params: { phase: 'ACC', truncate_from: 'start' }, requires_coach_approval: false }],
-  },
-
   // ── Área 3 — Progresión intra-bloque (selection) ───────────────────────────
   {
     area: 3, trigger_phase: 'cross_session', scope: 'week', priority: 'high', authored: 'coach',
@@ -104,13 +64,6 @@ export const PABLO_DEFAULT_RULES: SeedRule[] = [
     source_excerpt: 'decoupling>8% → reduce_volume(15%) next week (seed #2).',
     conditions: [G({ metric: 'decoupling', operator: '>', value: 8, unit: 'pct', source: 'derived', window: 'session' })],
     actions: [{ verb: 'lower_next_week', params: { pct: 15, dimension: 'volume' }, requires_coach_approval: true }],
-  },
-  {
-    area: 3, trigger_phase: 'selection', scope: 'week', priority: 'medium', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'ACC week++ → increase_load(3%).',
-    conditions: [G({ metric: 'block_phase', operator: '=', value: 'ACC', unit: 'enum', source: 'plan_state' })],
-    actions: [{ verb: 'progress_next_week', params: { pct: 3, dimension: 'load' }, requires_coach_approval: false }],
   },
   {
     area: 3, trigger_phase: 'selection', scope: 'week', priority: 'high', authored: 'coach',
@@ -123,13 +76,6 @@ export const PABLO_DEFAULT_RULES: SeedRule[] = [
       { verb: 'set_load_pct_rm', params: { to_pct: 70 }, requires_coach_approval: true },
       { verb: 'reduce_volume', params: { pct: 30, scope: 'strength' }, requires_coach_approval: true },
     ],
-  },
-  {
-    area: 3, trigger_phase: 'selection', scope: 'week', priority: 'medium', authored: 'coach',
-    requires_coach_approval: false,
-    source_excerpt: 'REAL → hold_load (85% × 3, mantener fuerza no PR).',
-    conditions: [G({ metric: 'block_phase', operator: '=', value: 'REAL', unit: 'enum', source: 'plan_state' })],
-    actions: [{ verb: 'set_load_pct_rm', params: { to_pct: 85 }, requires_coach_approval: false }],
   },
 
   // ── Área 6 — Gates de readiness (pre_session) ──────────────────────────────

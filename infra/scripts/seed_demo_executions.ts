@@ -1,6 +1,6 @@
 /**
  * DEMO SEED — workout_executions + segment_executions for athlete_id = 2, mapped
- * onto the REAL 12-week HYROX plan (ATR macrocycle → ACC/TRANS/REAL blocks →
+ * onto the real 12-week HYROX plan (microciclos ordenados →
  * weekly microcycles → workout_assignments). Seeds executions against PAST
  * assignments (weeks 1-3 of the plan) so /api/athlete/analytics and the coach
  * modality view render real run + row/ski + strength data.

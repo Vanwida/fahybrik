@@ -46,9 +46,8 @@ import { getSql } from './_db.js';
 const COACH_ID = 14;
 const MONTH_NAME = 'Plan Junio 2026 · W7–W9';
 const MONTH_LEVEL = 'pro';
-// W7-9 = fase de realización: 4 simulaciones de carrera + intervalos a umbral +
-// fuerza pesada compuesta encarando competición → ATR REAL. Enum: ACC/TRANS/REAL.
-const MONTH_ATR_HINT: 'ACC' | 'TRANS' | 'REAL' | null = 'REAL';
+// W7-9: 4 simulaciones de carrera + intervalos a umbral + fuerza pesada
+// compuesta encarando competición.
 const PLAN_HTML = resolve(
   '/Users/alexsolecarretero/Public/projects/health-planning/training/plan-junio-2026.html',
 );

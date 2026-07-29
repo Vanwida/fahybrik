@@ -94,7 +94,7 @@ const WEEK_COUNT = 2; // covers current week (audit) + next week (TestFlight dem
 // athlete on iOS Inicio/Plan as the week's microciclo label (week.microcicloName
 // ← resolveMicrocicloName ← program_month_templates.name). It MUST read like a
 // real phase the athlete understands — never internal jargon ("microciclo",
-// "Demo", "Atleta N"). "Acumulación" is agnostic coach DATA (a real ATR-style
+// "Demo", "Atleta N"). "Acumulación" is agnostic coach DATA (a microciclo name
 // phase name), not a hardcoded system concept. Doubles as the stable idempotency
 // marker: coach 29 owns exactly this one month template in the demo.
 const MONTH_NAME = 'Acumulación';
