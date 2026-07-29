@@ -24,7 +24,8 @@
 import type { ReactNode } from 'react';
 import { Mono, Label } from '../../kit';
 import { fmtClock, fmtPace500 } from '../../sim';
-import { BarraDrenaje, Delta, zonaDe, COLOR_ZONA } from './atomos';
+import { Delta, colorZona, zonaDe } from '../../kit-vivo';
+import { BarraDrenaje } from './atomos';
 import {
   CADENCIA_UNIDAD,
   MEDIDA_UNIDAD,
@@ -353,7 +354,7 @@ export function RailRegata({
       {!mudo && <TileVivo valor={`${viva.cadencia}`} etiqueta={CADENCIA_UNIDAD[maquina]} />}
       {!mudo && <TileVivo valor={`${viva.vatios}`} etiqueta="vatios" color="var(--twin-accent-text)" />}
       {e.pulso != null && (
-        <TileVivo valor={`${e.pulso}`} etiqueta="pulso" color={COLOR_ZONA(zona)} zona={zona} />
+        <TileVivo valor={`${e.pulso}`} etiqueta="pulso" color={colorZona(zona)} zona={zona} />
       )}
       {/* La salida remata la columna, no la preside: el camino normal es que
           cierre el cruce, y esto es lo que queda cuando la medida falla. */}

@@ -5,6 +5,7 @@
 // `previsualiza` del §6.1 aplicada a una postura en vez de a un formulario.
 
 import { Label, SP } from '../../kit';
+import type { TwinAppearance } from '../../types';
 import { CaraMonitor } from './monitor';
 import type { Guion } from './motor';
 
@@ -17,7 +18,7 @@ const LIENZO_ANCHO = 874;
 const LIENZO_ALTO = 402;
 const PREVIA_ESCALA = 0.38;
 
-export function InvitacionAGirar({ guion }: { guion: Guion }) {
+export function InvitacionAGirar({ guion, appearance }: { guion: Guion; appearance: TwinAppearance }) {
   return (
     <div
       style={{
@@ -58,7 +59,7 @@ export function InvitacionAGirar({ guion }: { guion: Guion }) {
         >
           {/* La previa corre su propio guion, así que su cronología no se
               mezcla con la de la pantalla: `onLog` no sale de aquí. */}
-          <CaraMonitor guion={guion} onLog={() => undefined} />
+          <CaraMonitor guion={guion} appearance={appearance} onLog={() => undefined} />
         </div>
       </div>
       <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)', maxWidth: 320 }}>
