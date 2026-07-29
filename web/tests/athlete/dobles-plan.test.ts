@@ -28,6 +28,7 @@ function session(
     partner_visibility: 'shared',
     origin: 'coach',
     est_duration_minutes: null,
+    duration_unknown_reason: null,
     blocks_count: null,
     short_prescription: null,
     is_test: false,

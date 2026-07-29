@@ -27,7 +27,10 @@ import {
 } from '@fahybrid/shared/schema/program-templates';
 import {
   safeParsePrescription,
-  type Prescription,
+  sessionDuration,
+  type DurationUnknownReason,
+  type PrescriptionRole,
+  type SessionDurationItem,
 } from '@fahybrid/shared/domain/prescription';
 import { sql } from '@/lib/db';
 
@@ -43,7 +46,21 @@ export interface AthleteWeekDaySession {
   status: string;
   partner_visibility: 'shared' | 'self_only';
   origin: 'coach' | 'self';
+  /**
+   * The clock the PLAN WRITES DOWN, in minutes — never an estimate of how long
+   * the athlete will take. Null whenever the session's principal work has no
+   * written duration (a `for_time` block, reps without a tempo, a distance
+   * without a pace, an undosed item); `duration_unknown_reason` then says why.
+   * Read it as a FLOOR ("al menos X"): the seconds nobody writes down only add.
+   * Owned by `shared/domain/prescription/duration.ts`.
+   */
   est_duration_minutes: number | null;
+  /**
+   * Why there is no duration, when there isn't one. Null when
+   * `est_duration_minutes` carries a number. Additive field — older clients that
+   * do not decode it simply keep hiding the duration, as they already do.
+   */
+  duration_unknown_reason: DurationUnknownReason | null;
   blocks_count: number | null;
   short_prescription: string | null;
   is_test: boolean;
@@ -234,6 +251,7 @@ export async function buildAthleteWeekPlan(
           origin: s.origin,
           // DERIVED, additive. Null when the template has no segments to read.
           est_duration_minutes: summary?.est_duration_minutes ?? null,
+          duration_unknown_reason: summary?.duration_unknown_reason ?? null,
           blocks_count: summary?.blocks_count ?? null,
           short_prescription: summary?.short_prescription ?? null,
           // A session is a TEST when its template stores measurable results
@@ -408,14 +426,9 @@ async function hasPublishedWeek(
   return rows[0]?.has_next ?? false;
 }
 
-// Honest defaults for estimating session duration from template segments when
-// the prescription is rep-based (no explicit time). Conservative averages so we
-// never over-promise a duration. Tunable as Pablo's data accrues.
-const SECONDS_PER_REP = 4; // ~4s per controlled rep (concentric + eccentric + reset)
-const DEFAULT_SET_REST_SECONDS = 60; // assumed inter-set rest when none prescribed
-
 type TemplateSummary = {
   est_duration_minutes: number | null;
+  duration_unknown_reason: DurationUnknownReason | null;
   blocks_count: number | null;
   short_prescription: string | null;
   // G5 — the session's REAL modality (the colorable run/row/ski/bike/strength/…),
@@ -438,6 +451,10 @@ type SegmentRow = {
   block_title: string | null;
   position: number;
   params_json: Record<string, unknown> | null;
+  /** The TYPED prescription — the source of truth for this line's dosage, and
+   *  the only one that can close a clock honestly. `params_json` is the legacy
+   *  flat mirror and states neither `for_time` nor a pace. */
+  prescription_json: unknown;
   // exercises.modality is the single source of truth (migration 0053, NOT NULL);
   // a per-line prescription_json.modality override wins when set on the segment.
   exercise_modality: string | null;
@@ -462,6 +479,7 @@ async function loadTemplateSummaries(
       ts.block_title as block_title,
       ts.position as position,
       ts.params_json as params_json,
+      ts.prescription_json as prescription_json,
       e.modality as exercise_modality,
       ts.prescription_json->>'modality' as prescription_modality
     from template_segments ts
@@ -499,11 +517,17 @@ async function loadTemplateSummaries(
     }
     const short_prescription = buildShortPrescription(titles, blocks_count);
 
-    const est_duration_minutes = estimateDurationMinutes(list.map((r) => r.params_json));
+    const duration = sessionDuration(list.map(segmentDurationItem));
 
     const modality = principalModality(list);
 
-    out.set(templateId, { est_duration_minutes, blocks_count, short_prescription, modality });
+    out.set(templateId, {
+      est_duration_minutes: duration.known ? duration.minutes : null,
+      duration_unknown_reason: duration.known ? null : duration.reason,
+      blocks_count,
+      short_prescription,
+      modality,
+    });
   }
 
   // CLOCK templates (entreno libre run as a bare box timer): no segments, so the
@@ -522,8 +546,15 @@ async function loadTemplateSummaries(
     for (const row of clocks) {
       const parsed = safeParsePrescription(row.prescription);
       if (!parsed.success) continue;
+      // The SAME reader as the segment path — a box clock is one principal item.
+      // Two duration formulas in one file is exactly how the athlete's week and
+      // the coach's queue came to disagree about adherence, TSS and stations.
+      const duration = sessionDuration([
+        { prescription: parsed.data, role: 'principal' },
+      ]);
       out.set(row.template_id, {
-        est_duration_minutes: clockDurationMinutes(parsed.data),
+        est_duration_minutes: duration.known ? duration.minutes : null,
+        duration_unknown_reason: duration.known ? null : duration.reason,
         // No segments means nothing to count and nothing to name: the session
         // title already reads as its shape ("EMOM 10 · cada 1:00").
         blocks_count: null,
@@ -536,25 +567,27 @@ async function loadTemplateSummaries(
   return out;
 }
 
-// A CLOCK's duration, in minutes, when its FORMAT bounds it — and only then:
-//   · amrap  → the window is the session (total_s).
-//   · emom   → rounds × the cycle, and the cycle is work + the explicit change.
-//   · for_time / rounds → open-ended by definition (you finish when you finish),
-//     so there is no duration to state and we state none.
-// Never an estimate: this is the protocol's own arithmetic, not a guess about how
-// long the athlete will take.
-function clockDurationMinutes(p: Prescription): number | null {
-  const seconds = (() => {
-    if (p.scheme === 'amrap') return p.total_s ?? null;
-    if (p.scheme === 'emom') {
-      const cycle = (p.work_s ?? 0) + (p.rest_s ?? 0);
-      const rounds = p.rounds ?? 0;
-      return cycle > 0 && rounds > 0 ? cycle * rounds : null;
-    }
-    return null;
-  })();
-  if (seconds === null || seconds <= 0) return null;
-  return Math.max(1, Math.round(seconds / 60));
+// One segment as a duration input: its TYPED prescription plus where it sits in
+// the session. The role matters because it decides whether an unwritten clock
+// kills the session's number: an open PRINCIPAL block does (the HYROX sim's
+// warm-up and cool-down really do add to 26 min, and 26 for a 73-min race is the
+// bug this replaced), while an unwritten mobility drill only makes the number a
+// floor. A segment whose prescription does not parse contributes no clock —
+// never a fabricated one.
+function segmentDurationItem(r: SegmentRow): SessionDurationItem {
+  const parsed = r.prescription_json ? safeParsePrescription(r.prescription_json) : null;
+  return {
+    prescription: parsed && parsed.success ? parsed.data : null,
+    role: prescriptionRole(classifyBlock(r.block_title)),
+  };
+}
+
+// The block's role in the vocabulary the domain speaks. `main` (an untitled
+// block) counts as principal: an untitled block is the work until proven otherwise.
+function prescriptionRole(role: BlockRole): PrescriptionRole {
+  if (role === 'warmup') return 'calentamiento';
+  if (role === 'cooldown') return 'vuelta';
+  return 'principal';
 }
 
 // Per-segment modality: a deliberate per-line prescription override wins, else
@@ -680,51 +713,6 @@ function buildShortPrescription(titles: string[], blocksCount: number | null): s
     return `${blocksCount} ${blocksCount === 1 ? 'bloque' : 'bloques'}`;
   }
   return null;
-}
-
-// Honest duration estimate (minutes) from a template's segment params. Sums
-// per-segment work + rest, scaled by sets/rounds. Work time is taken from
-// explicit time fields when present, else estimated from reps. Returns null
-// when nothing is estimable (so iOS keeps its honest "no duration" fallback).
-function estimateDurationMinutes(paramsList: Array<Record<string, unknown> | null>): number | null {
-  let totalSeconds = 0;
-  let sawSomething = false;
-
-  for (const params of paramsList) {
-    if (!params) continue;
-    const num = (key: string): number | null => {
-      const v = params[key];
-      return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
-    };
-
-    const sets = num('sets') ?? num('rounds') ?? 1;
-
-    // Per-set/round work seconds: explicit time, else duration, else rep-derived.
-    const timeSeconds = num('time_seconds') ?? num('duration_seconds');
-    const reps = num('reps');
-    let workPerSet: number | null = null;
-    if (timeSeconds != null) {
-      workPerSet = timeSeconds;
-    } else if (reps != null) {
-      workPerSet = reps * SECONDS_PER_REP;
-    }
-
-    const restSeconds = num('rest_seconds');
-
-    if (workPerSet != null) {
-      sawSomething = true;
-      // Rest happens between sets (sets - 1 gaps), defaulting when unspecified.
-      const restPerGap = restSeconds ?? (sets > 1 ? DEFAULT_SET_REST_SECONDS : 0);
-      totalSeconds += workPerSet * sets + restPerGap * Math.max(0, sets - 1);
-    } else if (restSeconds != null) {
-      // Pure rest/recovery block (e.g. "Recuperación 10'").
-      sawSomething = true;
-      totalSeconds += restSeconds;
-    }
-  }
-
-  if (!sawSomething || totalSeconds <= 0) return null;
-  return Math.max(1, Math.round(totalSeconds / 60));
 }
 
 // Resolve the week's microciclo label = the COACH'S microciclo name (agnostic,
