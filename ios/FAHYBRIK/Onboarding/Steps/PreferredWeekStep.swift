@@ -67,9 +67,10 @@ private struct PreferredDayCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 HStack(spacing: Theme.Spacing.m) {
                     Text(short)
-                        .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                         .foregroundStyle(selection.isEmpty ? Theme.Color.foreground : Theme.Color.accentOn)
-                        .frame(width: 30, height: 30)
+                        .padding(.horizontal, Theme.Spacing.xs)
+                        .frame(minWidth: 30, minHeight: 30)
                         .background(selection.isEmpty ? Theme.Color.surfaceElevated : Theme.Color.accent)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                     Text(name)

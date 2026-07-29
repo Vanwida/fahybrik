@@ -132,8 +132,9 @@ struct ChoiceGrid<Option: Hashable>: View {
                         let sel = isSelected(opt)
                         Button(action: { Haptics.light(); onTap(opt) }) {
                             Text(label(opt))
-                                .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                                .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                                 .foregroundStyle(sel ? Theme.Color.accentOn : Theme.Color.foreground)
+                                .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(sel ? Theme.Color.accent : Theme.Color.surface)

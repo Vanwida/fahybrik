@@ -38,10 +38,12 @@ struct AthleticBackgroundStep: View {
                         } label: {
                             VStack(spacing: 2) {
                                 Text(level.title)
-                                    .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                                    .scaledFont(16, weight: .heavy, relativeTo: .body, italic: true)
                                 Text(level.subtitle)
-                                    .font(.system(size: 9, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                                     .textCase(.uppercase)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)

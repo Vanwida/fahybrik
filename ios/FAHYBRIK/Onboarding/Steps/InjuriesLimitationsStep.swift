@@ -88,7 +88,7 @@ private struct EmptyInjuriesCard: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
             Image(systemName: "checkmark.shield")
-                .font(.system(size: 18, weight: .semibold))
+                .scaledFont(18, weight: .semibold, relativeTo: .body)
                 .foregroundStyle(Theme.Color.ok)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Sin lesiones")
@@ -131,9 +131,9 @@ private struct InjuryCard: View {
                     Spacer(minLength: Theme.Spacing.s)
                     Button(action: onRemove) {
                         Image(systemName: "trash")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(16, weight: .semibold, relativeTo: .body)
                             .foregroundStyle(Theme.Color.muted)
-                            .padding(8)
+                            .padding(Theme.Spacing.s)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Eliminar lesión")
@@ -199,9 +199,9 @@ private struct AddInjuryButton: View {
         Button(action: action) {
             HStack(spacing: Theme.Spacing.s) {
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .heavy))
+                    .scaledFont(13, weight: .heavy, relativeTo: .footnote)
                 Text("Añadir lesión")
-                    .font(Theme.Typography.bodyEmph)
+                    .scaledFont(16, weight: .semibold, relativeTo: .body)
             }
             .foregroundStyle(Theme.Color.accentText)
             .frame(maxWidth: .infinity)

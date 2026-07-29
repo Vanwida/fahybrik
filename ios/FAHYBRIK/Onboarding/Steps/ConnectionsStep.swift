@@ -93,7 +93,7 @@ private struct ConnectionCard: View {
             if let actionTitle, let action {
                 Button(action: { Haptics.light(); action() }) {
                     Text(actionTitle)
-                        .font(.system(size: 14, weight: .heavy)).italic()
+                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                         .foregroundStyle(isConnected ? Theme.Color.muted : Theme.Color.accentOn)
                         .padding(.horizontal, Theme.Spacing.l)
                         .padding(.vertical, 10)

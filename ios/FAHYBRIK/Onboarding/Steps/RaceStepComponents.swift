@@ -22,24 +22,24 @@ struct RaceActionCard: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .scaledFont(18, weight: .semibold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 40, height: 40)
+                    .frame(minWidth: 40, minHeight: 40)
                     .background(Theme.Color.accent.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(16, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: Theme.Spacing.s)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.faint)
             }
             .padding(14)
@@ -65,20 +65,20 @@ struct RaceDoneCard: View {
     let subtitle: String
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.m) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 20, weight: .semibold))
+                .scaledFont(20, weight: .semibold, relativeTo: .title3)
                 .foregroundStyle(Theme.Color.ok)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(16, weight: .semibold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.foreground)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Spacing.s)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -113,10 +113,10 @@ struct RaceInlineLink: View {
             HStack(spacing: 6) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
                 }
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .multilineTextAlignment(.center)
             }
             .foregroundStyle(Theme.Color.accentText)
