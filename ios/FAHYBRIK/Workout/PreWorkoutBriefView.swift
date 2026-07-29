@@ -742,11 +742,11 @@ struct PreWorkoutBriefView: View {
         let isErg = ["rowing", "ski_erg", "bike_erg"].contains(item.exerciseCategory.lowercased())
         var headline: String? = nil
         if let m = p.distanceMeters, m > 0 {
-            headline = PrescriptionRenderer.formatDistance(Double(m))
+            headline = Formato.distancia(Double(m))
         } else if let km = p.distanceKm, km > 0 {
-            headline = PrescriptionRenderer.formatDistance(km * 1000)
+            headline = Formato.distancia(km * 1000)
         } else if let d = p.durationSeconds, d > 0 {
-            headline = PrescriptionRenderer.formatClock(d)
+            headline = Formato.clock(d, subMinuto: .segundos)
         } else if let r = p.reps, r > 0 {
             headline = "\(r) reps"
         } else if let cal = p.calories, cal > 0 {
@@ -754,13 +754,13 @@ struct PreWorkoutBriefView: View {
         }
         var pace: String? = nil
         if let pk = p.paceSecPerKm, pk > 0 {
-            pace = isErg ? "@ \(PrescriptionRenderer.formatPace(pk / 2)) /500m"
-                         : "@ \(PrescriptionRenderer.formatPace(pk)) /km"
+            pace = isErg ? "@ \(Formato.ritmo(Double(pk) / 2, .por500m))"
+                         : "@ \(Formato.ritmo(Double(pk), .porKm))"
         }
         let zone = p.hrZone.flatMap { HRZone(rawValue: $0) }
         var detail: [String] = []
         if let kg = p.loadKg, kg > 0 { detail.append(formatKg(kg)) }
-        if let rest = p.restSeconds, rest > 0 { detail.append("descanso \(PrescriptionRenderer.formatRest(rest))") }
+        if let rest = p.restSeconds, rest > 0 { detail.append("descanso \(Formato.clock(rest, subMinuto: .segundos))") }
         return PrescriptionRenderer.Line(
             headline: headline, pace: pace,
             detail: detail.isEmpty ? nil : detail.joined(separator: " · "), zone: zone
@@ -900,6 +900,6 @@ struct PreWorkoutBriefView: View {
     // (an item with no structured prescription that still carries a stored load).
     private func formatKg(_ kg: Double) -> String {
         if kg.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(kg)) kg" }
-        return String(format: "%.1f kg", kg)
+        return Formato.kg(kg)
     }
 }

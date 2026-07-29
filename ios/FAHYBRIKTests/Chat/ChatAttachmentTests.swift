@@ -158,8 +158,8 @@ final class ChatAttachmentTests: XCTestCase {
     }
 
     func testDurationLabel() {
-        XCTAssertEqual(DurationLabel.mmss(42), "0:42")
-        XCTAssertEqual(DurationLabel.mmss(75), "1:15")
-        XCTAssertEqual(DurationLabel.mmss(0), "0:00")
+        XCTAssertEqual(Formato.clock(42), "0:42")
+        XCTAssertEqual(Formato.clock(75), "1:15")
+        XCTAssertEqual(Formato.clock(0), "0:00")
     }
 }

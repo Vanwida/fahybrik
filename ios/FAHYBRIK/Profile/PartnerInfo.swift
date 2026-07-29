@@ -90,12 +90,7 @@ struct PartnerRecentSession: Codable, Equatable, Identifiable {
     /// Pre-formatted headline result: "H:MM:SS" / "M:SS" for a timed HYROX
     /// result, else "N rondas +M" for an AMRAP, else nil (show duration/RPE).
     var scoreText: String? {
-        if let s = scoreTimeS, s > 0 {
-            let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-            return h > 0
-                ? String(format: "%d:%02d:%02d", h, m, sec)
-                : String(format: "%d:%02d", m, sec)
-        }
+        if let s = scoreTimeS, s > 0 { return Formato.clock(s) }
         if let r = scoreRounds, r > 0 {
             let reps = (scoreReps ?? 0) > 0 ? " +\(scoreReps!)" : ""
             return "\(r) rondas\(reps)"

@@ -173,8 +173,8 @@ struct FreeFunctionalMovement: Identifiable {
         switch dose {
         case .reps:     return "\(reps) reps"
         case .calories: return "\(calories) cal"
-        case .meters:   return PrescriptionRenderer.formatDistance(Double(meters)) ?? "\(meters) m"
-        case .time:     return PrescriptionRenderer.formatClock(seconds)
+        case .meters:   return Formato.distancia(Double(meters)) ?? "\(meters) m"
+        case .time:     return Formato.clock(seconds, subMinuto: .segundos)
         }
     }
 }
@@ -452,7 +452,7 @@ final class FreeFunctionalDraft {
         guard let f = format else { return "" }
         switch f {
         case .amrap:
-            return "AMRAP · \(PrescriptionRenderer.formatClock(windowSeconds))"
+            return "AMRAP · \(Formato.clock(windowSeconds, subMinuto: .segundos))"
         case .emom:
             // A Tabata IS this structure (20/10 × 8) — so it runs and saves as an
             // emom, but it reads by the name the athlete called it.
@@ -462,14 +462,14 @@ final class FreeFunctionalDraft {
             if transitionSeconds > 0 {
                 return "EMOM \(rounds) · \(workSeconds)/\(transitionSeconds)"
             }
-            return "EMOM \(rounds) · cada \(PrescriptionRenderer.formatRest(cadenceSeconds))"
+            return "EMOM \(rounds) · cada \(Formato.clock(cadenceSeconds, subMinuto: .segundos))"
         case .forTime:
             var s = "For Time · \(rounds) ronda\(rounds == 1 ? "" : "s")"
-            if capSeconds > 0 { s += " · cap \(PrescriptionRenderer.formatClock(capSeconds))" }
+            if capSeconds > 0 { s += " · cap \(Formato.clock(capSeconds, subMinuto: .segundos))" }
             return s
         case .rounds:
             var s = "\(rounds) ronda\(rounds == 1 ? "" : "s")"
-            if restSeconds > 0 { s += " · descanso \(PrescriptionRenderer.formatRest(restSeconds))" }
+            if restSeconds > 0 { s += " · descanso \(Formato.clock(restSeconds, subMinuto: .segundos))" }
             return s
         }
     }

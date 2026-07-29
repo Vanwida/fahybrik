@@ -77,7 +77,7 @@ enum FreeModality: String, CaseIterable, Identifiable {
     var resolvedPaceUnit: PaceUnit { self == .run ? .perKm : .per500m }
 
     /// Athlete-facing pace unit suffix.
-    var paceUnitLabel: String { self == .run ? "/km" : "/500m" }
+    var paceUnitLabel: String { self == .run ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue }
 
     /// Sensible starting pace for the stepper (seconds per the modality's unit).
     /// Row 1:52/500m, ski 2:05/500m, bike 1:35/500m, run 5:00/km.
@@ -442,13 +442,13 @@ final class FreeWorkoutDraft {
         let t = targetSuffix
         switch format {
         case .series:
-            return "\(rounds) × \(m) · r \(PrescriptionRenderer.formatRest(restSeconds))\(t)"
+            return "\(rounds) × \(m) · r \(Formato.clock(restSeconds, subMinuto: .segundos))\(t)"
         case .rounds:
-            return "\(rounds) rondas · \(m) · r \(PrescriptionRenderer.formatRest(restSeconds))\(t)"
+            return "\(rounds) rondas · \(m) · r \(Formato.clock(restSeconds, subMinuto: .segundos))\(t)"
         case .emom:
-            return "EMOM \(rounds) · cada \(PrescriptionRenderer.formatRest(cadenceSeconds)) · \(m)\(t)"
+            return "EMOM \(rounds) · cada \(Formato.clock(cadenceSeconds, subMinuto: .segundos)) · \(m)\(t)"
         case .amrap:
-            return "AMRAP \(PrescriptionRenderer.formatClock(windowSeconds)) · \(m)\(t)"
+            return "AMRAP \(Formato.clock(windowSeconds, subMinuto: .segundos)) · \(m)\(t)"
         case .continuo:
             return "\(m)\(t)"
         case .forTime:
@@ -458,8 +458,8 @@ final class FreeWorkoutDraft {
 
     var measureString: String {
         switch measureKind {
-        case .distance: return PrescriptionRenderer.formatDistance(Double(distanceMeters)) ?? "\(distanceMeters) m"
-        case .time:     return PrescriptionRenderer.formatClock(workSeconds)
+        case .distance: return Formato.distancia(Double(distanceMeters)) ?? "\(distanceMeters) m"
+        case .time:     return Formato.clock(workSeconds, subMinuto: .segundos)
         case .calories: return "\(calories) cal"
         }
     }
@@ -484,7 +484,7 @@ final class FreeWorkoutDraft {
         case .series:   return "\(rounds)×\(compactMeasure)"
         case .rounds:   return "\(rounds) rondas \(compactMeasure)"
         case .emom:     return "EMOM \(rounds)"
-        case .amrap:    return "AMRAP \(PrescriptionRenderer.formatClock(windowSeconds))"
+        case .amrap:    return "AMRAP \(Formato.clock(windowSeconds, subMinuto: .segundos))"
         case .continuo: return compactMeasure
         case .forTime:  return "For Time \(compactMeasure)"
         }
@@ -495,10 +495,10 @@ final class FreeWorkoutDraft {
         case .distance:
             if distanceMeters >= 1000 {
                 let km = Double(distanceMeters) / 1000
-                return km.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(km))k" : String(format: "%.1fk", km)
+                return "\(Formato.esDecimal(km))k"
             }
             return "\(distanceMeters)m"
-        case .time:     return PrescriptionRenderer.formatClock(workSeconds)
+        case .time:     return Formato.clock(workSeconds, subMinuto: .segundos)
         case .calories: return "\(calories)cal"
         }
     }

@@ -66,8 +66,7 @@ struct ChatThreadDTO: Codable, Equatable {
     /// ("Nota de voz · 0:42"). Nil when there's no voice duration.
     var coachVoiceDurationLabel: String? {
         guard let ms = lastCoachVoiceDurationMs, ms > 0 else { return nil }
-        let totalSeconds = ms / 1000
-        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
+        return Formato.clock(ms / 1000)
     }
 }
 

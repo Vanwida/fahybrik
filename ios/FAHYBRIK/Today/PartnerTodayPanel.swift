@@ -231,9 +231,7 @@ struct PartnerTodayPanel: View {
 
     /// "7" or "7.5" — drops the trailing ".0" so integer RPE reads clean.
     private func rpeLabel(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(value))
-            : String(format: "%.1f", value)
+        Formato.esDecimal(value)
     }
 }
 

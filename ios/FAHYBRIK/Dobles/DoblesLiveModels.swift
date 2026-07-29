@@ -145,14 +145,6 @@ enum DoblesLiveBannerState: Equatable {
 // MARK: - Formatting
 
 enum DoblesLiveFormat {
-    /// A clock as "M:SS" (or "H:MM:SS" past the hour). Used for elapsed + final time.
-    static func clock(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec)
-                     : String(format: "%d:%02d", m, sec)
-    }
-
     /// "hace 8 s" under a minute, "hace 3 min" beyond — the freshness cue.
     static func ago(_ ageS: Int) -> String {
         let a = max(0, ageS)
@@ -163,6 +155,6 @@ enum DoblesLiveFormat {
     /// RPE trimmed to a clean label ("8" / "7.5"), or nil when absent.
     static func rpe(_ value: Double?) -> String? {
         guard let v = value else { return nil }
-        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        return Formato.esDecimal(v)
     }
 }

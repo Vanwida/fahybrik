@@ -152,12 +152,12 @@ final class DoblesLiveTests: XCTestCase {
     // MARK: - Formatting
 
     func testClockAndAgoFormat() {
-        XCTAssertEqual(DoblesLiveFormat.clock(2832), "47:12")
-        XCTAssertEqual(DoblesLiveFormat.clock(3661), "1:01:01")
+        XCTAssertEqual(Formato.clock(2832), "47:12")
+        XCTAssertEqual(Formato.clock(3661), "1:01:01")
         XCTAssertEqual(DoblesLiveFormat.ago(8), "hace 8 s")
         XCTAssertEqual(DoblesLiveFormat.ago(125), "hace 2 min")
         XCTAssertEqual(DoblesLiveFormat.rpe(8), "8")
-        XCTAssertEqual(DoblesLiveFormat.rpe(7.5), "7.5")
+        XCTAssertEqual(DoblesLiveFormat.rpe(7.5), "7,5")
         XCTAssertNil(DoblesLiveFormat.rpe(nil))
     }
 }

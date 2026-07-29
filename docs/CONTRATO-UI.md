@@ -41,20 +41,52 @@ vacío con un `CardSurface` y una frase, o dibujar un `Circle()` donde va un `Mo
 
 ## 2 · Un formateador por concepto
 
+**Todo vive en `Theme/Formato.swift`** — una sola implementación, compilada también en
+el reloj (lista explícita del target en `ios/project.yml`), para que muñeca y teléfono
+no puedan escribir el mismo dato de dos maneras.
+
 | Concepto | Canónico | Formato |
 |---|---|---|
-| Ritmo | `PrescriptionRenderer.paceString` | `4:15/km` · `1:52/500m` — **sin espacio**, con la `m` |
-| Distancia | `PrescriptionRenderer.formatDistance` | `2,00 km` · `450 m` |
-| Duración | `MarkFormat.clock` | `5:00` — sin cero delante. En cronómetro en vivo se permite ancho fijo **solo** para que no baile el layout, y se pide por parámetro, no con otra función |
-| Decimales | coma española (`esDecimal`) | `42,4` — **jamás** `String(format:"%.1f")` en texto de cara al atleta |
+| Ritmo | `Formato.ritmo(_:_:)` | `4:15/km` · `1:52/500m` — **sin espacio**, con la `m`. `Formato.ritmoCifras` cuando la unidad la pinta el layout aparte |
+| Distancia prescrita | `Formato.distancia(_:)` | `2,5 km` · `450 m` |
+| Distancia medida | `Formato.distanciaCubierta(_:)` | `2,00 km` — en una medida los ceros SON el dato |
+| Duración | `Formato.clock(_:)` | `5:00` — sin cero delante |
+| Decimales | `Formato.esDecimal(_:)` | `42,4` — **jamás** `String(format:"%.1f")` en texto de cara al atleta |
+| Carga | `Formato.kg(_:)` | `82,5 kg` |
+| Unidad de ritmo | `Formato.UnidadRitmo` | `/km` · `/500m` · `/mi` |
 
-Si encuentras otro formateador del mismo concepto, **es un duplicado**: úsalo no, repórtalo.
-Hoy existen seis funciones `clock` distintas y tres grafías del ritmo.
+**Las variantes se piden POR PARÁMETRO, nunca escribiendo una segunda función** — la
+segunda función es exactamente como nació este problema:
+
+- `anchoFijo: true` → `05:00`. **Solo** el cronómetro que corre, para que el layout no
+  baile al pasar de 9:59. Lo que se lee después (resumen, log, marcas) va sin el cero.
+- `subMinuto: .segundos` → `45s` en vez de `0:45`. Descansos y topes.
+- `enHoras: false` → `63:45` en vez de `1:03:45`. El marcador de carrera, que habla en
+  minutos («sub-60»).
+- `siempreDecimales: true` → `12,0`. Lecturas que cambian en pasos de 0,1 en vivo.
+- `decimales:` → precisión de la distancia.
+
+Si encuentras otro formateador del mismo concepto, **es un duplicado**: no lo uses,
+bórralo. El 28-jul había **catorce** implementaciones de la duración, tres grafías del
+ritmo y dos `esDecimal` `private` en dos pantallas distintas — de ahí el «42,4» y el
+«42.4». `MarkFormat.clock`, `StatsFormat.*`, `PrescriptionRenderer.format*`,
+`WorkoutSession.formatElapsed`, `TreadmillMath.clock`, `DoblesLiveFormat.clock`,
+`DurationLabel.mmss` y `TimeMinSecRow.format` ya no existen: no los busques.
+
+Lo fija `FAHYBRIKTests/App/FormatoTests.swift`. Si cambias una grafía, salta ahí y no
+en la pantalla de un atleta.
 
 ## 3 · Vocabulario — español, siempre
 
+Las palabras viven en **`Vocab`** (mismo fichero, `Theme/Formato.swift`): `Vocab.fc`,
+`.ppm`, `.fcMedia`, `.fcMax`, `.fcReposo`, `.ritmo`, `.distancia`, `.vuelta`, `.total`.
+Úsalas — un literal suelto es lo que hace que el siguiente no lo encuentre.
+
 - **Pulso**: se llama `FC` (o «pulso»), la unidad es `ppm`. **Nunca** `HR` ni `bpm` ni `Avg HR`.
-- Nada en inglés en texto de cara al atleta. Ni una etiqueta.
+- **Cadencia**: la unidad es `pasos/min` (`Vocab.cadencia`), **nunca** `ppm` — se escribía
+  igual que el pulso y en las mismas pantallas.
+- Nada en inglés en texto de cara al atleta. Ni una etiqueta. (`Lap`, `Zone`, `Pace`,
+  `Dist Tgt` y `Avg HR` ya se fueron; no vuelvas a meterlos.)
 - Español natural de gimnasio: lo entiende alguien del box a la primera, sin jerga técnica.
 
 ## 4 · Tipografía

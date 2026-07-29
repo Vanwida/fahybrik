@@ -193,7 +193,7 @@ struct ErgHUDContent: View {
         let thisOne = [tramo.workLine, tramo.label].compactMap { $0 }.joined(separator: " ")
         let restSeconds: Int? = session.currentSegment?.formatRestSeconds
         let rest: String? = restSeconds.map {
-            "luego descanso \(WorkoutSession.formatElapsed(Double($0)))"
+            "luego descanso \(Formato.clock(Double($0)))"
         }
         return [thisOne.isEmpty ? nil : thisOne, rest].compactMap { $0 }.joined(separator: " · ")
     }
@@ -316,8 +316,8 @@ struct ErgHUDContent: View {
         }
         if let boxed = tramo.boxedSeconds, boxed > 0, let remaining = session.tramoWorkRemaining {
             let fraction = min(1, max(0, (Double(boxed) - remaining) / Double(boxed)))
-            return (WorkoutSession.formatElapsed(remaining), "",
-                    "de \(WorkoutSession.formatElapsed(Double(boxed)))",
+            return (Formato.clock(remaining, anchoFijo: true), "",
+                    "de \(Formato.clock(Double(boxed)))",
                     fraction, remaining <= 0)
         }
         return nil
@@ -334,13 +334,13 @@ struct ErgHUDContent: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
-                Text("/500m")
+                Text(Formato.UnidadRitmo.por500m.rawValue)
                     .font(Theme.Typography.readoutLabel)
                     .foregroundStyle(Theme.Color.muted)
                 Hairline()
                 HStack(spacing: 8) {
                     subReadout(value: avgSplitString, label: "media /500m")
-                    subReadout(value: WorkoutSession.formatElapsed(session.tramoElapsedSeconds),
+                    subReadout(value: Formato.clock(session.tramoElapsedSeconds),
                                label: tramoTimeLabel)
                 }
             }
@@ -436,15 +436,11 @@ struct ErgHUDContent: View {
     }
     private var splitString: String {
         guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
-        return Self.splitClock(p)
+        return Formato.ritmoCifras(p)
     }
     private var avgSplitString: String {
         guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return "—:—" }
-        return Self.splitClock(p)
-    }
-    private static func splitClock(_ pace: Double) -> String {
-        let s = Int(pace.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
+        return Formato.ritmoCifras(p)
     }
 
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }

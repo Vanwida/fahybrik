@@ -294,9 +294,7 @@ struct RegisterStrengthTestView: View {
     private var estimatePreview: String? {
         guard let w = weightKg, w > 0, let reps, repsRange.contains(reps) else { return nil }
         let est = StrengthService.estimatedOneRm(weightKg: w, reps: reps)
-        let value = est.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(est))
-            : String(format: "%.1f", est)
+        let value = Formato.esDecimal(est)
         return "≈ \(value) kg"
     }
 

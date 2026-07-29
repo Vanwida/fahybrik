@@ -340,8 +340,8 @@ struct DoblesRaceGapSection: View {
         parts.append("predicho \(GoalGapFormat.raceClock(seg.pairPredictedS))")
         if let delta = seg.deltaS, delta != 0 {
             parts.append(delta > 0
-                ? "\(StatsFormat.duration(Double(delta))) sobre el objetivo"
-                : "\(StatsFormat.duration(Double(abs(delta)))) bajo el objetivo")
+                ? "\(Formato.clock(Double(delta))) sobre el objetivo"
+                : "\(Formato.clock(Double(abs(delta)))) bajo el objetivo")
         }
         if editable { parts.append("toca para ajustar el reparto") }
         return parts.joined(separator: ", ")

@@ -37,7 +37,7 @@ struct AmountEntry: View {
         let current = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
         let next = max(0, current + delta)
         text = decimals
-            ? (next == next.rounded() ? String(Int(next)) : String(format: "%.1f", next))
+            ? (Formato.esDecimal(next))
             : String(Int(next.rounded()))
         Haptics.light()
     }

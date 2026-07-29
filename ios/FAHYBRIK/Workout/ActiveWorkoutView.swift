@@ -436,7 +436,7 @@ struct ActiveWorkoutView: View {
     // blocks have no format line (the title carries them).
     private func blockFormatLabel(_ segments: [WorkoutSegment]) -> String? {
         if let emom = segments.compactMap(\.emomPlan).first {
-            let cycle = "cada \(PrescriptionRenderer.formatRest(emom.intervalSeconds))"
+            let cycle = "cada \(Formato.clock(emom.intervalSeconds, subMinuto: .segundos))"
             // An INTERVAL EMOM leads with its split — "45/15" is what the athlete
             // is about to pace against, the cycle is the consequence.
             let shape = emom.hasTransition
@@ -460,7 +460,7 @@ struct ActiveWorkoutView: View {
         var parts: [String] = [scheme.displayName]
         switch scheme {
         case .amrap, .steady:
-            if let t = seg.formatTotalSeconds { parts.append(PrescriptionRenderer.formatClock(t)) }
+            if let t = seg.formatTotalSeconds { parts.append(Formato.clock(t, subMinuto: .segundos)) }
         case .tabata:
             if let w = seg.formatWorkSeconds, let r = seg.formatRestSeconds { parts.append("\(w)/\(r)s") }
             if let n = seg.formatRounds { parts.append("×\(n)") }
@@ -470,7 +470,7 @@ struct ActiveWorkoutView: View {
             parts.append("+\(seg.deathByIncrement)/min")
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             if let n = seg.formatRounds, n > 1 { parts.append("\(n) rondas") }
-            if let cap = seg.formatTotalSeconds { parts.append("cap \(PrescriptionRenderer.formatClock(cap))") }
+            if let cap = seg.formatTotalSeconds { parts.append("cap \(Formato.clock(cap, subMinuto: .segundos))") }
         default:
             break
         }
@@ -778,7 +778,7 @@ struct ActiveWorkoutView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 2)
-            Text(relayTimeString(session.lapElapsedSeconds))
+            Text(Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
                 .font(.system(size: 52, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Theme.Color.foreground)
             if let bpm = session.liveHRBpm {
@@ -800,11 +800,6 @@ struct ActiveWorkoutView: View {
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.l)
-    }
-
-    private func relayTimeString(_ s: Double) -> String {
-        let t = max(0, Int(s))
-        return String(format: "%d:%02d", t / 60, t % 60)
     }
 
     // THE ACTIVE TRAMO DECIDES. Whatever window the athlete is inside right now

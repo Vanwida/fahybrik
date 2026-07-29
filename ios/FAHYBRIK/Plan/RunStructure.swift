@@ -324,7 +324,7 @@ extension RunLeg {
     /// RPE guidance ("RPE 8", "RPE 8-9") when the leg targets RPE, else nil.
     var rpeLabel: String? {
         guard case let .rpe(value, min, max) = target else { return nil }
-        func fmt(_ d: Double) -> String { d == d.rounded() ? String(Int(d)) : String(format: "%.1f", d) }
+        func fmt(_ d: Double) -> String { Formato.esDecimal(d) }
         if let lo = min, let hi = max { return "RPE \(fmt(lo))-\(fmt(hi))" }
         if let v = value ?? min ?? max { return "RPE \(fmt(v))" }
         return nil

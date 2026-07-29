@@ -38,8 +38,8 @@ struct AthleteHistorySession: Decodable, Equatable, Identifiable {
     /// The headline time: the scored final time when present (HYROX/For Time), else the
     /// session duration, else nil (never fabricated). Formatted M:SS / H:MM:SS.
     var headlineTime: String? {
-        if let s = scoreTimeS, s > 0 { return DoblesLiveFormat.clock(s) }
-        if let d = totalDurationSeconds, d > 0 { return DoblesLiveFormat.clock(d) }
+        if let s = scoreTimeS, s > 0 { return Formato.clock(s) }
+        if let d = totalDurationSeconds, d > 0 { return Formato.clock(d) }
         return nil
     }
     /// Label under the time: "resultado" for a scored session (the time IS the score),

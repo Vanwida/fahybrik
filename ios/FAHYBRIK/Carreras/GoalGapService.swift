@@ -183,7 +183,7 @@ enum GoalGapFormat {
     /// the real minus (U+2212), matching the app's other signed deltas. A zero
     /// delta reads "±0:00".
     static func signedDuration(_ seconds: Int) -> String {
-        let magnitude = StatsFormat.duration(Double(abs(seconds)))
+        let magnitude = Formato.clock(Double(abs(seconds)))
         if seconds > 0 { return "+\(magnitude)" }
         if seconds < 0 { return "\u{2212}\(magnitude)" }
         return "±\(magnitude)"
@@ -193,15 +193,12 @@ enum GoalGapFormat {
     /// The whole goal frame speaks in minutes ("sub-60", "sub-90"), so the board's
     /// totals read on that same scale (matches the approved mockup).
     static func raceClock(_ seconds: Int) -> String {
-        let m = abs(seconds) / 60
-        let s = abs(seconds) % 60
-        return String(format: "%d:%02d", m, s)
+        Formato.clock(abs(seconds), enHoras: false)
     }
 
     /// Precision percent with a Spanish decimal comma and one fraction digit —
     /// 0.7 → "0,7%". Non-negative magnitude (the sign of the error isn't shown).
     static func precisionPercent(_ value: Double) -> String {
-        let one = String(format: "%.1f", abs(value)).replacingOccurrences(of: ".", with: ",")
-        return "\(one)%"
+        "\(Formato.esDecimal(abs(value)))%"
     }
 }

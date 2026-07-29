@@ -42,11 +42,28 @@ struct MonoText: View {
     var weight: Font.Weight = .medium
     var color: Color = Theme.Color.foreground
     var italic: Bool = false
+    /// Sigue el tamaño de texto del sistema (contrato §4).
+    ///
+    /// Por defecto NO escala, como el resto de lecturas: las rejillas densas de HUD
+    /// se reflowean y dejan de leerse. Pero cuando este dato va en fila JUNTO A una
+    /// etiqueta que sí escala, tiene que escalar con ella — si no, a tamaño accesible
+    /// la etiqueta crece, el dato se queda, y acaba pesando más la etiqueta que el
+    /// dato. Se pide por parámetro para poder adoptarlo pantalla a pantalla.
+    var escala: Bool = false
+    var relativeTo: Font.TextStyle = .footnote
+
     var body: some View {
         let f = Font.system(size: size, weight: weight, design: .monospaced).monospacedDigit()
-        Text(text)
-            .font(italic ? f.italic() : f)
-            .foregroundStyle(color)
+        if escala {
+            Text(text)
+                .scaledFont(size, weight: weight, relativeTo: relativeTo,
+                            italic: italic, monospaced: true)
+                .foregroundStyle(color)
+        } else {
+            Text(text)
+                .font(italic ? f.italic() : f)
+                .foregroundStyle(color)
+        }
     }
 }
 

@@ -150,14 +150,14 @@ struct FreeFunctionalBuilderView: View {
         if f.usesWindow {
             FreeStepper(label: "Duración total", value: $draft.windowSeconds,
                         step: FreeFunctionalStep.windowStep, minValue: FreeFunctionalStep.windowStep) {
-                PrescriptionRenderer.formatClock($0)
+                Formato.clock($0, subMinuto: .segundos)
             }
         }
         if f.usesCadence {
             cadencePresets
             FreeStepper(label: "Cada", value: $draft.cadenceSeconds,
                         step: FreeFunctionalStep.cadenceStep, minValue: FreeFunctionalStep.cadenceStep) {
-                PrescriptionRenderer.formatRest($0)
+                Formato.clock($0, subMinuto: .segundos)
             }
             // The split only appears once there IS one. "Al minuto" — the default and
             // the common case — never sees this row, so the simple EMOM keeps its
@@ -176,13 +176,13 @@ struct FreeFunctionalBuilderView: View {
         if f.usesRest {
             FreeStepper(label: "Descanso entre rondas", value: $draft.restSeconds,
                         step: FreeFunctionalStep.restStep, minValue: 0) {
-                $0 == 0 ? "sin pausa" : PrescriptionRenderer.formatRest($0)
+                $0 == 0 ? "sin pausa" : Formato.clock($0, subMinuto: .segundos)
             }
         }
         if f.usesCap {
             FreeStepper(label: "Límite de tiempo", value: $draft.capSeconds,
                         step: FreeFunctionalStep.capStep, minValue: 0) {
-                $0 == 0 ? "sin límite" : PrescriptionRenderer.formatClock($0)
+                $0 == 0 ? "sin límite" : Formato.clock($0, subMinuto: .segundos)
             }
         }
     }
@@ -396,12 +396,12 @@ struct FreeFunctionalCard: View {
         case .meters:
             FreeStepper(label: "Metros", value: $movement.meters,
                         step: FreeFunctionalStep.metersStep, minValue: FreeFunctionalStep.metersStep) {
-                PrescriptionRenderer.formatDistance(Double($0)) ?? "\($0) m"
+                Formato.distancia(Double($0)) ?? "\($0) m"
             }
         case .time:
             FreeStepper(label: "Tiempo", value: $movement.seconds,
                         step: FreeFunctionalStep.secondsStep, minValue: FreeFunctionalStep.secondsStep) {
-                PrescriptionRenderer.formatClock($0)
+                Formato.clock($0, subMinuto: .segundos)
             }
         }
     }

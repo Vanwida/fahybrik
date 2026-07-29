@@ -374,7 +374,7 @@ final class AssignmentDetailTests: XCTestCase {
         let p = try XCTUnwrap(detail.workout?.blocks.first?.items.first?.prescription)
         let line = PrescriptionRenderer.summaryLine(p)
         XCTAssertEqual(line.headline, "400 m")
-        XCTAssertEqual(line.pace, "@ 3:40 /km")
+        XCTAssertEqual(line.pace, "@ 3:40/km")
         XCTAssertTrue(line.detail?.contains("4×") ?? false)
         // 90s rest reads as m:ss at/above a minute ("1:30"), "Ns" only under it.
         XCTAssertTrue(line.detail?.contains("descanso 1:30") ?? false)
@@ -397,7 +397,7 @@ final class AssignmentDetailTests: XCTestCase {
         let p = try XCTUnwrap(detail.workout?.blocks.first?.items.first?.prescription)
         let line = PrescriptionRenderer.summaryLine(p)
         XCTAssertEqual(line.headline, "2 km")
-        XCTAssertEqual(line.pace, "@ 1:55 /500m")
+        XCTAssertEqual(line.pace, "@ 1:55/500m")
     }
 
     // Legacy item with NO prescription_json still decodes (nil) and renders from

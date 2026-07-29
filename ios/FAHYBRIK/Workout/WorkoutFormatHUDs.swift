@@ -142,8 +142,8 @@ private struct PaceTargetBar: View {
                 HStack(spacing: 4) {
                     Text("objetivo").font(.system(size: 10)).foregroundStyle(Theme.Color.faint)
                     Text(seg?.kind.isErg == true
-                         ? "\(TimeMinSecRow.format(p / 2)) /500m"
-                         : "\(TimeMinSecRow.format(p)) /km")
+                         ? Formato.ritmo(Double(p) / 2, .por500m)
+                         : Formato.ritmo(Double(p), .porKm))
                         .font(.system(size: 11, weight: .heavy, design: .monospaced))
                         .foregroundStyle(Theme.Color.foreground)
                 }
@@ -167,7 +167,7 @@ private struct MetricRow3: View {
 }
 
 private func hrCell(_ session: WorkoutSession) -> (String, String, String, Color) {
-    ("HR", session.liveHRBpm.map { "\($0)" } ?? "—", "bpm",
+    (Vocab.fc, session.liveHRBpm.map { "\($0)" } ?? "—", Vocab.ppm,
      session.liveZone?.color ?? Theme.Color.foreground)
 }
 
@@ -193,7 +193,7 @@ struct AmrapLiveHUD: View {
                                components: seg.declaredComponents)
             }
             MetricRow3(cells: [
-                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
                 ("Reps", "\(session.repsCurrentSegment)", "", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -209,8 +209,8 @@ struct AmrapLiveHUD: View {
         } else {
             FormatClockHero(
                 caption: "Restante",
-                value: WorkoutSession.formatElapsed(max(0, session.condRemaining)),
-                sub: window.map { "de \(WorkoutSession.formatElapsed(Double($0)))" },
+                value: Formato.clock(max(0, session.condRemaining), anchoFijo: true),
+                sub: window.map { "de \(Formato.clock(Double($0)))" },
                 color: Theme.Color.danger,
                 urgent: urgent
             )
@@ -407,13 +407,13 @@ struct ForTimeLiveHUD: View {
                             color: Theme.Color.accentText)
         } else if capFlip, let cap {
             FormatClockHero(caption: "Cierre del cap",
-                            value: WorkoutSession.formatElapsed(max(0, Double(cap) - session.condElapsed)),
-                            sub: "cap \(WorkoutSession.formatElapsed(Double(cap)))",
+                            value: Formato.clock(max(0, Double(cap) - session.condElapsed), anchoFijo: true),
+                            sub: "cap \(Formato.clock(Double(cap)))",
                             color: Theme.Color.danger, urgent: true)
         } else {
             FormatClockHero(caption: "Tiempo",
-                            value: WorkoutSession.formatElapsed(session.condElapsed),
-                            sub: cap.map { "cap \(WorkoutSession.formatElapsed(Double($0)))" },
+                            value: Formato.clock(session.condElapsed, anchoFijo: true),
+                            sub: cap.map { "cap \(Formato.clock(Double($0)))" },
                             color: Theme.Color.foreground)
         }
     }
@@ -422,13 +422,13 @@ struct ForTimeLiveHUD: View {
     /// The block clock at the last strike — the classic For Time split.
     private var lastSplit: String {
         guard let s = session.fixedRoundSplits.last else { return "—" }
-        return WorkoutSession.formatElapsed(s.elapsed)
+        return Formato.clock(s.elapsed)
     }
     /// How long the LAST STATION took. On a route that is the useful number: the
     /// cumulative stamp is already the clock in the context strip.
     private var lastSplitSeconds: String {
         guard let s = session.fixedRoundSplits.last else { return "—" }
-        return WorkoutSession.formatElapsed(s.seconds)
+        return Formato.clock(s.seconds)
     }
 }
 
@@ -460,14 +460,14 @@ struct ForTimeContextStrip: View {
                 .foregroundStyle(Theme.Color.faint)
                 .fixedSize()
             Spacer(minLength: 6)
-            Text(WorkoutSession.formatElapsed(capRemaining ?? session.condElapsed))
+            Text(Formato.clock(capRemaining ?? session.condElapsed, anchoFijo: true))
                 .font(.system(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundStyle(capRemaining != nil ? Theme.Color.danger : Theme.Color.foreground)
                 .monospacedDigit()
         }
         .stripChrome()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(seg?.formatScheme?.displayName ?? "Formato"), estación \(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal). Tiempo \(WorkoutSession.formatElapsed(session.condElapsed))")
+        .accessibilityLabel("\(seg?.formatScheme?.displayName ?? "Formato"), estación \(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal). Tiempo \(Formato.clock(session.condElapsed))")
     }
 }
 
@@ -498,7 +498,7 @@ private struct StationSubject: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1).minimumScaleFactor(0.6)
             }
-            Text("llevas \(WorkoutSession.formatElapsed(session.tramoElapsedSeconds)) en esta estación")
+            Text("llevas \(Formato.clock(session.tramoElapsedSeconds)) en esta estación")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.Color.muted)
         }
@@ -619,12 +619,12 @@ private struct StrikeList: View {
         if done {
             guard id < session.fixedRoundSplits.count else { return nil }
             let s = session.fixedRoundSplits[id]
-            let time = WorkoutSession.formatElapsed(s.seconds)
+            let time = Formato.clock(s.seconds)
             guard let work = s.workLine else { return time }
             return "\(work) · \(time)"
         }
         guard active, session.isStationTramo else { return nil }
-        return WorkoutSession.formatElapsed(session.tramoElapsedSeconds)
+        return Formato.clock(session.tramoElapsedSeconds)
     }
 }
 
@@ -644,7 +644,7 @@ struct TabataLiveHUD: View {
             RotatingWorkCard(
                 label: "Trabajo",
                 movement: seg?.primaryMovement ?? "—",
-                next: seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" }
+                next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
             )
             if !isCountIn {
                 RepTallyRow(label: "Reps · ronda \(session.rotRoundIndex + 1)",
@@ -652,7 +652,7 @@ struct TabataLiveHUD: View {
                             onMinus: { session.tabataAddRep(-1) }, onPlus: { session.tabataAddRep(1) })
             }
             MetricRow3(cells: [
-                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
                 ("Reps", "\(session.rotRepsThisRound)", "", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -669,7 +669,7 @@ struct TabataLiveHUD: View {
             FormatClockHero(
                 caption: "Ronda \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))",
                 captionColor: Theme.Color.accentText,
-                value: WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)),
+                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
                 sub: cadence,
                 color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
                 urgent: urgent
@@ -702,11 +702,11 @@ struct IntervalsLiveHUD: View {
             RotatingWorkCard(
                 label: "Esta serie",
                 movement: seg?.primaryMovement ?? "—",
-                work: seg?.targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) },
-                next: seg?.formatRestSeconds.map { "Descanso \(WorkoutSession.formatElapsed(Double($0)))" }
+                work: seg?.targetDistanceMeters.flatMap { Formato.distancia($0) },
+                next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
             )
             MetricRow3(cells: [
-                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
                 ("Series", "\(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))", "", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -725,7 +725,7 @@ struct IntervalsLiveHUD: View {
                 FormatClockHero(
                     caption: serieCaption,
                     captionColor: Theme.Color.accentText,
-                    value: paceValue, sub: "/km",
+                    value: paceValue, sub: Formato.UnidadRitmo.porKm.rawValue,
                     color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
                 )
                 PaceTargetBar(session: session)
@@ -734,7 +734,7 @@ struct IntervalsLiveHUD: View {
             FormatClockHero(
                 caption: serieCaption,
                 captionColor: Theme.Color.accentText,
-                value: WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)),
+                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
                 color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
                 urgent: urgent
             )
@@ -746,8 +746,8 @@ struct IntervalsLiveHUD: View {
     }
 
     private var paceValue: String {
-        if let p = session.liveCoveredPaceSecPerKm { return TimeMinSecRow.format(p) }
-        if let p = seg?.targetPaceSecondsPerKm { return TimeMinSecRow.format(p) }
+        if let p = session.liveCoveredPaceSecPerKm { return Formato.ritmoCifras(Double(p)) }
+        if let p = seg?.targetPaceSecondsPerKm { return Formato.ritmoCifras(Double(p)) }
         return "—:—"
     }
 }
@@ -766,7 +766,7 @@ struct DeathByLiveHUD: View {
             clock
             targetCard
             MetricRow3(cells: [
-                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
                 ("Ronda", "\(session.rotRoundIndex + 1)", "", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -783,8 +783,8 @@ struct DeathByLiveHUD: View {
             FormatClockHero(
                 caption: "Minuto \(session.rotRoundIndex + 1)",
                 captionColor: Theme.Color.accentText,
-                value: WorkoutSession.formatElapsed(max(0, session.rotPhaseRemaining)),
-                sub: "cada \(PrescriptionRenderer.formatRest(seg?.formatWorkSeconds ?? 60)) · objetivo +\(seg?.deathByIncrement ?? 1)/min",
+                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
+                sub: "cada \(Formato.clock(seg?.formatWorkSeconds ?? 60, subMinuto: .segundos)) · objetivo +\(seg?.deathByIncrement ?? 1)/min",
                 color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
                 urgent: urgent
             )
@@ -826,7 +826,7 @@ struct SteadyLiveHUD: View {
             clock
             paceCard
             MetricRow3(cells: [
-                ("Media", avgPace, "/km", Theme.Color.foreground),
+                ("Media", avgPace, Formato.UnidadRitmo.porKm.rawValue, Theme.Color.foreground),
                 ("% zona", session.liveZonePctInTarget.map { "\($0)" } ?? "—", "%", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -844,9 +844,9 @@ struct SteadyLiveHUD: View {
                 FormatClockHero(
                     caption: total != nil ? "Restante" : "Tiempo",
                     value: total != nil
-                        ? WorkoutSession.formatElapsed(max(0, session.condRemaining))
-                        : WorkoutSession.formatElapsed(session.condElapsed),
-                    sub: total.map { "de \(WorkoutSession.formatElapsed(Double($0)))" },
+                        ? Formato.clock(max(0, session.condRemaining), anchoFijo: true)
+                        : Formato.clock(session.condElapsed, anchoFijo: true),
+                    sub: total.map { "de \(Formato.clock(Double($0)))" },
                     color: Theme.Color.foreground
                 )
                 PaceTargetBar(session: session)
@@ -862,10 +862,10 @@ struct SteadyLiveHUD: View {
                     Text(livePace)
                         .font(Theme.Typography.readoutS).monospacedDigit()
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("/km").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Color.muted)
+                    Text(Formato.UnidadRitmo.porKm.rawValue).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Color.muted)
                     Spacer(minLength: 0)
                     if let d = session.liveRunDistanceMeters, d > 0 {
-                        Text(d >= 1000 ? String(format: "%.2f km", d / 1000) : "\(Int(d)) m")
+                        Text(Formato.distanciaCubierta(d) ?? "—")
                             .font(.system(size: 13, weight: .heavy, design: .monospaced))
                             .foregroundStyle(Theme.Color.muted)
                     }
@@ -876,11 +876,11 @@ struct SteadyLiveHUD: View {
     }
 
     private var livePace: String {
-        session.liveCoveredPaceSecPerKm.map { TimeMinSecRow.format($0) } ?? "—:—"
+        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
     }
     private var avgPace: String {
-        session.liveCoveredPaceSecPerKm.map { TimeMinSecRow.format($0) }
-            ?? seg?.targetPaceSecondsPerKm.map { TimeMinSecRow.format($0) }
+        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
+            ?? seg?.targetPaceSecondsPerKm.map { Formato.ritmoCifras(Double($0)) }
             ?? "—:—"
     }
 }
@@ -919,7 +919,7 @@ struct StructuredRunLiveHUD: View {
                     .frame(maxWidth: .infinity)
             }
             MetricRow3(cells: [
-                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
                 ("Tramo", "\(session.runLegNumber)/\(session.runLegTotal)", "", Theme.Color.foreground),
                 hrCell(session)
             ])
@@ -937,7 +937,7 @@ struct StructuredRunLiveHUD: View {
             FormatClockHero(
                 caption: legCaption,
                 captionColor: Theme.Color.accentText,
-                value: WorkoutSession.formatElapsed(max(0, session.runLegRemaining)),
+                value: Formato.clock(max(0, session.runLegRemaining), anchoFijo: true),
                 color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
                 urgent: urgent
             )
@@ -948,7 +948,7 @@ struct StructuredRunLiveHUD: View {
                 FormatClockHero(
                     caption: legCaption,
                     captionColor: Theme.Color.accentText,
-                    value: paceValue, sub: "/km",
+                    value: paceValue, sub: Formato.UnidadRitmo.porKm.rawValue,
                     color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
                 )
                 if isWork, let objetivo = leg?.objetivoLabel {
@@ -980,8 +980,8 @@ struct StructuredRunLiveHUD: View {
     }
 
     private var paceValue: String {
-        if let p = session.liveCoveredPaceSecPerKm { return TimeMinSecRow.format(p) }
-        if case let .pace(t) = (leg?.runTarget ?? .none), let s = t.single ?? t.fastS { return TimeMinSecRow.format(s) }
+        if let p = session.liveCoveredPaceSecPerKm { return Formato.ritmoCifras(Double(p)) }
+        if case let .pace(t) = (leg?.runTarget ?? .none), let s = t.single ?? t.fastS { return Formato.ritmoCifras(Double(s)) }
         return "—:—"
     }
 
@@ -989,8 +989,8 @@ struct StructuredRunLiveHUD: View {
     /// could not carry for a heterogeneous pyramid.
     private var legWork: String? {
         guard let leg else { return nil }
-        if let m = leg.distanceMeters { return PrescriptionRenderer.formatDistance(Double(m)) }
-        if let s = leg.durationSeconds { return WorkoutSession.formatElapsed(Double(s)) }
+        if let m = leg.distanceMeters { return Formato.distancia(Double(m)) }
+        if let s = leg.durationSeconds { return Formato.clock(Double(s)) }
         return nil
     }
 
@@ -1000,9 +1000,9 @@ struct StructuredRunLiveHUD: View {
         guard let leg else { return nil }
         var parts: [String] = []
         if let inc = leg.inclinePct, inc > 0 {
-            parts.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+            parts.append("Inclinación \(Formato.esDecimal(inc))%")
         }
-        if let cad = leg.cadenceSpm { parts.append("Cadencia \(cad) ppm") }
+        if let cad = leg.cadenceSpm { parts.append("Cadencia \(cad) \(Vocab.cadencia)") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -1020,8 +1020,8 @@ struct StructuredRunLiveHUD: View {
         let i = session.runLegIndex + 1
         guard i < legs.count else { return session.isLastSegment ? nil : "Siguiente bloque" }
         let n = legs[i]
-        let measure: String = n.distanceMeters.flatMap { PrescriptionRenderer.formatDistance(Double($0)) }
-            ?? n.durationSeconds.map { WorkoutSession.formatElapsed(Double($0)) }
+        let measure: String = n.distanceMeters.flatMap { Formato.distancia(Double($0)) }
+            ?? n.durationSeconds.map { Formato.clock(Double($0)) }
             ?? ""
         return n.isWork ? "Serie \(measure)".trimmingCharacters(in: .whitespaces)
                         : "Descanso \(measure)".trimmingCharacters(in: .whitespaces)

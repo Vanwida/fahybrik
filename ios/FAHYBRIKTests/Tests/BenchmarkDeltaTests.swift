@@ -34,9 +34,9 @@ final class BenchmarkDeltaTests: XCTestCase {
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "seconds", value: 1334), "22:14")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "seconds", value: 45), "45s")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "seconds", value: 3760), "1:02:40")
-        XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "kg", value: 142.5), "142.5 kg")
+        XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "kg", value: 142.5), "142,5 kg")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "kg", value: 140), "140 kg")
-        XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "bpm", value: 32), "32 bpm")
+        XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "bpm", value: 32), "32 ppm")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "meters", value: 850), "850 m")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "reps", value: 24), "24 reps")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "calories", value: 18), "18 cal")
@@ -46,9 +46,9 @@ final class BenchmarkDeltaTests: XCTestCase {
         XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "seconds", delta: -12), "−12 s")
         XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "seconds", delta: -65), "−1:05")
         XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "seconds", delta: 12), "+12 s")
-        XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "kg", delta: 2.5), "+2.5 kg")
+        XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "kg", delta: 2.5), "+2,5 kg")
         XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "kg", delta: -5), "−5 kg")
-        XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "bpm", delta: 3), "+3 bpm")
+        XCTAssertEqual(BenchmarkDelta.deltaLabel(unit: "bpm", delta: 3), "+3 ppm")
     }
 
     // MARK: - Series last value / delta
@@ -167,8 +167,8 @@ final class BenchmarkDeltaTests: XCTestCase {
         XCTAssertEqual(items[0].label, "5K")
         XCTAssertEqual(items[0].valueText, "22:14")
         XCTAssertEqual(items[0].deltaText, "−12 s vs tu marca anterior")
-        XCTAssertEqual(items[1].valueText, "34 bpm")
-        XCTAssertEqual(items[1].deltaText, "+3 bpm vs tu marca anterior")
+        XCTAssertEqual(items[1].valueText, "34 ppm")
+        XCTAssertEqual(items[1].deltaText, "+3 ppm vs tu marca anterior")
         // Unknown slug degrades honestly: slug as label, no delta without a prev.
         XCTAssertEqual(items[2].label, "unknown_slug")
         XCTAssertNil(items[2].deltaText)

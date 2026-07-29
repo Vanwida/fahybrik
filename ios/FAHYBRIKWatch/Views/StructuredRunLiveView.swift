@@ -67,7 +67,7 @@ struct StructuredRunLiveView: View {
             VStack(spacing: 7) {
                 VStack(spacing: 2) {
                     WatchLabel(text: "Ritmo")
-                    GiantNumber(text: paceText, size: 50, unit: "/km")
+                    GiantNumber(text: paceText, size: 50, unit: Formato.UnidadRitmo.porKm.rawValue)
                 }
                 objetivoLine
                 progressBar
@@ -237,7 +237,7 @@ struct StructuredRunLiveView: View {
         if let total = leg.durationSeconds {
             let elapsed = session.runLegElapsed
             return (leg.goal.fraction(distanceM: 0, elapsedS: elapsed),
-                    "\(TreadmillMath.clock(Int(elapsed))) / \(TreadmillMath.clock(total))")
+                    "\(Formato.clock(Int(elapsed))) / \(Formato.clock(total))")
         }
         return nil
     }

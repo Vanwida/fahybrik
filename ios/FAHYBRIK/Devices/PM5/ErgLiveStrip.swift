@@ -30,8 +30,7 @@ struct ErgLiveStrip: View {
 
     private var splitString: String {
         guard let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
-        let s = Int(p.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
+        return Formato.ritmoCifras(p)
     }
 
     private func cell(value: String, label: String,

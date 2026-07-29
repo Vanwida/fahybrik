@@ -271,16 +271,16 @@ extension ImportedRace {
     /// imported) — never a fabricated time.
     var totalTimeText: String {
         guard let seconds = result_time_seconds else { return "—" }
-        return StatsFormat.duration(Double(seconds))
+        return Formato.clock(Double(seconds))
     }
 
-    var runTotalText: String? { run_total_seconds.map { StatsFormat.duration(Double($0)) } }
-    var roxzoneText: String? { roxzone_seconds.map { StatsFormat.duration(Double($0)) } }
+    var runTotalText: String? { run_total_seconds.map { Formato.clock(Double($0)) } }
+    var roxzoneText: String? { roxzone_seconds.map { Formato.clock(Double($0)) } }
 
     /// Whole-second integer → "MM:SS" lap/station caption.
     static func splitText(_ seconds: Int?) -> String {
         guard let seconds else { return "—" }
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+        return Formato.clock(seconds)
     }
 
     /// "2 nov 2024" — day + month + year, Spanish. When the source carries no

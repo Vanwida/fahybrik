@@ -15,14 +15,14 @@ import SwiftUI
 // MARK: - Formato y copy
 
 enum FreePlanEvidenceCopy {
-    /// "4:05 /km" a partir de segundos por kilómetro.
+    /// "4:05/km" a partir de segundos por kilómetro.
     static func pace(_ secondsPerKm: Double) -> String {
-        MarkFormat.clock(secondsPerKm) + " /km"
+        Formato.ritmo(secondsPerKm, .porKm)
     }
 
     /// "1:02:02" / "32:39".
     static func time(_ seconds: Int) -> String {
-        MarkFormat.clock(Double(seconds))
+        Formato.clock(Double(seconds))
     }
 
     /// "Berlín · may 2025" — dónde y cuándo, en corto.

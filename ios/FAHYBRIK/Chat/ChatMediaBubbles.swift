@@ -79,7 +79,7 @@ struct ChatVideoBubble: View {
     private var taskKey: String { source.remoteURL ?? source.localURL?.absoluteString ?? "" }
     private var durationLabel: String? {
         guard let d = metaDuration, d > 0 else { return nil }
-        return DurationLabel.mmss(d)
+        return Formato.clock(d)
     }
 
     /// Only generate a poster from a LOCAL file (cheap). Remote videos stay a

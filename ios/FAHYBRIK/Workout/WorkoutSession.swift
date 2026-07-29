@@ -2797,11 +2797,4 @@ final class WorkoutSession {
         }
     }
 
-    static func formatElapsed(_ s: Double) -> String {
-        let total = Int(s.rounded())
-        if total >= 3600 {
-            return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
-        }
-        return String(format: "%02d:%02d", total / 60, total % 60)
-    }
 }

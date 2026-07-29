@@ -399,8 +399,8 @@ extension PrescriptionSet {
         guard let m else { return "—" }
         switch m {
         case .reps(let v):           return v > 0 ? "\(v) reps" : "—"
-        case .distance(let meters):  return PrescriptionRenderer.formatDistance(meters) ?? "—"
-        case .duration(let seconds): return seconds > 0 ? PrescriptionRenderer.formatClock(seconds) : "—"
+        case .distance(let meters):  return Formato.distancia(meters) ?? "—"
+        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : "—"
         case .calories(let v):       return v > 0 ? "\(v) cal" : "—"
         case .unknown:               return "—"
         }
@@ -431,9 +431,9 @@ extension WorkoutSegment {
     // targets; intensity from the prescribed RPE / pace / the block target.
     private func uniformEmomInterval(_ p: Prescription) -> EmomInterval {
         let work: String = targetReps.map { "\($0) reps" }
-            ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetDistanceMeters.flatMap { Formato.distancia($0) }
             ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
-            ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
+            ?? targetDurationSeconds.map { Formato.clock($0, subMinuto: .segundos) }
             ?? "—"
         let detail = effortGuidance
             ?? PrescriptionRenderer.targetLoad(p.target)
@@ -470,14 +470,14 @@ extension WorkoutSegment {
     /// Effort cue ("RPE 3"), or nil when no RPE was prescribed.
     var effortGuidance: String? {
         guard let r = targetRpe, r > 0 else { return nil }
-        let s = r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)
+        let s = Formato.esDecimal(r)
         return "RPE \(s)"
     }
 
     /// Prescribed duration as mm:ss ("08:00"), or nil when none was prescribed.
     var durationGuidance: String? {
         guard let d = targetDurationSeconds, d > 0 else { return nil }
-        return WorkoutSession.formatElapsed(Double(d))
+        return Formato.clock(Double(d))
     }
 
     /// A compact, athlete-readable line of THIS segment's prescribed work for the
@@ -500,15 +500,15 @@ extension WorkoutSegment {
         // reads /500m, run reads /km), mirroring the brief's lineFromParams.
         var parts: [String] = []
         if let r = targetReps, r > 0 { parts.append("\(r) reps") }
-        else if let m = targetDistanceMeters, let s = PrescriptionRenderer.formatDistance(m) { parts.append(s) }
+        else if let m = targetDistanceMeters, let s = Formato.distancia(m) { parts.append(s) }
         else if let d = durationGuidance { parts.append(d) }
         if let kg = loadKg, kg > 0 {
-            parts.append(kg.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(kg)) kg" : String(format: "%.1f kg", kg))
+            parts.append(Formato.kg(kg))
         }
         if let p = targetPaceSecondsPerKm, p > 0 {
             parts.append(kind.isErg
-                ? "@ \(PrescriptionRenderer.formatPace(p / 2)) /500m"
-                : "@ \(PrescriptionRenderer.formatPace(p)) /km")
+                ? "@ \(Formato.ritmo(Double(p) / 2, .por500m))"
+                : "@ \(Formato.ritmo(Double(p), .porKm))")
         }
         if let z = targetZone { parts.append(z.label) }
         if let e = effortGuidance { parts.append(e) }
@@ -624,9 +624,9 @@ extension WorkoutSegment {
         }
         // Scalar fallback: one component from the dominant measure + intensity.
         let work: String = targetReps.map { "\($0) reps" }
-            ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetDistanceMeters.flatMap { Formato.distancia($0) }
             ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
-            ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
+            ?? targetDurationSeconds.map { Formato.clock($0, subMinuto: .segundos) }
             ?? "—"
         let detail = effortGuidance
             ?? prescription.flatMap { PrescriptionRenderer.targetLoad($0.target) }

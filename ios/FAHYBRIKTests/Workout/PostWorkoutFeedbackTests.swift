@@ -83,7 +83,7 @@ final class PostWorkoutFeedbackTests: XCTestCase {
         let pr = PersonalRecord(kind: .run5k, newValueS: 1308, prevValueS: 1322)
         XCTAssertEqual(pr.headline, "Tu 5 km más rápido corriendo")
         XCTAssertEqual(pr.formattedValue, "21:48")
-        XCTAssertEqual(pr.deltaLine, "14 s más rápido que tu marca anterior")
+        XCTAssertEqual(pr.deltaLine, "14s más rápido que tu marca anterior")
     }
 
     func testFirstMarkCopySaysCorriendo() {
@@ -92,7 +92,7 @@ final class PostWorkoutFeedbackTests: XCTestCase {
     }
 
     func testDeltaFormatsMinutesForBigGaps() {
-        XCTAssertEqual(PersonalRecord.formatDelta(45), "45 s")
+        XCTAssertEqual(PersonalRecord.formatDelta(45), "45s")
         XCTAssertEqual(PersonalRecord.formatDelta(72), "1:12")
     }
 
@@ -217,7 +217,7 @@ final class PostWorkoutFeedbackTests: XCTestCase {
         let data = WorkoutShareData(
             title: "HYROX Sim · Estación 4",
             timeText: "47:23",
-            paceText: "4:35 /km",
+            paceText: "4:35/km",
             dominantZone: .init(label: "Z4", pct: 62),
             rpe: 8,
             prDistanceLabel: "5 km"

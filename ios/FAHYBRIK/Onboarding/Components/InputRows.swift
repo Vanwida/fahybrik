@@ -59,7 +59,7 @@ struct NumberRow: View {
 
     private func formatted(_ v: Double) -> String {
         if allowsDecimal && v.truncatingRemainder(dividingBy: 1) != 0 {
-            return String(format: "%.1f", v)
+            return Formato.esDecimal(v)
         }
         return String(Int(v))
     }
@@ -114,7 +114,7 @@ struct TimeMinSecRow: View {
                     seconds = Self.parse(new)
                 }
                 .onAppear {
-                    if let s = seconds, text.isEmpty { text = Self.format(s) }
+                    if let s = seconds, text.isEmpty { text = Formato.clock(s) }
                 }
         }
     }
@@ -128,9 +128,6 @@ struct TimeMinSecRow: View {
         return m * 60 + sec
     }
 
-    static func format(_ s: Int) -> String {
-        String(format: "%d:%02d", s / 60, s % 60)
-    }
 }
 
 // hh:mm:ss for races > 1h (half/marathon)
@@ -151,7 +148,7 @@ struct TimeHourMinSecRow: View {
                     seconds = Self.parse(new)
                 }
                 .onAppear {
-                    if let s = seconds, text.isEmpty { text = Self.format(s) }
+                    if let s = seconds, text.isEmpty { text = Formato.clock(s) }
                 }
         }
     }
@@ -167,12 +164,6 @@ struct TimeHourMinSecRow: View {
         return TimeMinSecRow.parse(s)
     }
 
-    static func format(_ s: Int) -> String {
-        if s >= 3600 {
-            return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
-        }
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
 }
 
 struct TextRow: View {

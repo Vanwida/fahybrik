@@ -530,7 +530,7 @@ private struct FreeStrengthCard: View {
             }
             FreeStepper(label: "Descanso", value: $item.restSeconds,
                         step: FreeStrengthStep.restStep, minValue: 0) {
-                $0 == 0 ? "sin pausa" : PrescriptionRenderer.formatRest($0)
+                $0 == 0 ? "sin pausa" : Formato.clock($0, subMinuto: .segundos)
             }
             previewLine
         }
@@ -580,12 +580,12 @@ private struct FreeStrengthCard: View {
         case .time:
             FreeStepper(label: "Tiempo", value: $item.seconds,
                         step: FreeStrengthStep.secondsStep, minValue: FreeStrengthStep.secondsStep) {
-                PrescriptionRenderer.formatClock($0)
+                Formato.clock($0, subMinuto: .segundos)
             }
         case .distance:
             FreeStepper(label: "Distancia", value: $item.meters,
                         step: FreeStrengthStep.metersStep, minValue: FreeStrengthStep.metersStep) {
-                PrescriptionRenderer.formatDistance(Double($0)) ?? "\($0) m"
+                Formato.distancia(Double($0)) ?? "\($0) m"
             }
         }
     }
@@ -602,6 +602,6 @@ private struct FreeStrengthCard: View {
     }
 
     private func kgString(_ v: Double) -> String {
-        v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+        Formato.esDecimal(v)
     }
 }

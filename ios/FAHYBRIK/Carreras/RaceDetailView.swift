@@ -406,8 +406,8 @@ struct RaceDetailView: View {
     private func predichoAccessibilityLabel(_ gap: GoalGap) -> String {
         var parts = ["Predicho hoy \(gap.predictedTotalS.map { GoalGapFormat.raceClock($0) } ?? "sin dato")"]
         if let g = gap.gapS {
-            if g > 0 { parts.append("\(StatsFormat.duration(Double(g))) sobre el objetivo") }
-            else if g < 0 { parts.append("\(StatsFormat.duration(Double(abs(g)))) bajo el objetivo") }
+            if g > 0 { parts.append("\(Formato.clock(Double(g))) sobre el objetivo") }
+            else if g < 0 { parts.append("\(Formato.clock(Double(abs(g)))) bajo el objetivo") }
             else { parts.append("justo en tu objetivo") }
         }
         return parts.joined(separator: ", ")

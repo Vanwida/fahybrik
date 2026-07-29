@@ -10,7 +10,7 @@ import Foundation
 //
 //   • mirrored(_:) — ROUND. The watch is MIRRORING the iPhone's live session, so its
 //     clock must match the phone, which formats remaining time with
-//     `WorkoutSession.formatElapsed` (round to nearest). CEIL made the mirror read 1s
+//     `Formato.clock` (round to nearest). CEIL made the mirror read 1s
 //     AHEAD of the phone (Alex's bug photo). Round → the same remaining maps to the
 //     same integer on both screens.
 //
@@ -26,13 +26,13 @@ enum CountdownFormat {
     }
 
     /// ROUND — a countdown that DUPLICATES the iPhone's display (mirror mode). Rounds
-    /// to nearest so the wrist clock matches the phone's `formatElapsed`.
+    /// to nearest so the wrist clock matches the phone's `Formato.clock`.
     static func mirrored(_ seconds: Double) -> String {
         format(max(0, Int(seconds.rounded())))
     }
 
     private static func format(_ wholeSeconds: Int) -> String {
         if wholeSeconds < 60 { return String(format: ":%02d", wholeSeconds) }
-        return WorkoutSession.formatElapsed(Double(wholeSeconds))
+        return Formato.clock(Double(wholeSeconds), anchoFijo: true)
     }
 }

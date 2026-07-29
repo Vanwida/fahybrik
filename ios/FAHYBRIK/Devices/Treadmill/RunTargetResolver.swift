@@ -2,10 +2,13 @@ import Foundation
 
 // Treadmill-BOUND half of the run pace domain: the belt math and the scalar
 // resolvers that read a `WorkoutSegment`. The pure, cross-platform core — the
-// `PaceTarget` / `TargetStatus` / `RunTarget` / `SegmentGoal` types, their judging
-// and the seconds→m:ss `TreadmillMath.clock` — lives in FAHYBRIK/Plan/RunPaceModel.swift
-// so the Apple Watch structured-run HUD shares it (#68). This file only ADDS the
-// device-bound extensions, so both targets compile from the same type declarations.
+// `PaceTarget` / `TargetStatus` / `RunTarget` / `SegmentGoal` types and their
+// judging — lives in FAHYBRIK/Plan/RunPaceModel.swift so the Apple Watch
+// structured-run HUD shares it (#68). This file only ADDS the device-bound
+// extensions, so both targets compile from the same type declarations.
+//
+// La grafía (seconds→m:ss y demás) NO está en ninguno de los dos: vive una sola
+// vez en Theme/Formato.swift, compartida con el reloj.
 
 // MARK: - Pace / distance math (belt-derived — app-only)
 

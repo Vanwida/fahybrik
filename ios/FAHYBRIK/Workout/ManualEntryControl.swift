@@ -62,7 +62,7 @@ struct ManualStepperField: View {
 
     // kg with at most one decimal, trimming a trailing ".0".
     private func trimmed(_ v: Double) -> String {
-        let s = String(format: "%.1f", v)
+        let s = Formato.esDecimal(v, siempreDecimales: true)
         return s.hasSuffix(".0") ? String(s.dropLast(2)) : s
     }
 

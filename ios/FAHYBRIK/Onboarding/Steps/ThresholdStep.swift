@@ -13,7 +13,7 @@ struct ThresholdStep: View {
             stepIndex: 13,
             title: "Anaeróbico / umbral",
             subtitle: "Tests si tienes datos. Si no, batería en w1.",
-            hint: "FTP, LTHR, ritmo umbral o 1-milla all-out son intercambiables.",
+            hint: "FTP, FC umbral, ritmo umbral o 1 milla a tope son intercambiables.",
             primaryEnabled: true,
             skipTitle: "Saltar",
             onBack: onBack,
@@ -27,7 +27,7 @@ struct ThresholdStep: View {
                     .foregroundStyle(Theme.Color.muted)
                 VStack(spacing: 0) {
                     IntRow(label: "FTP", unit: "W", value: $state.ftpWatts)
-                    IntRow(label: "LTHR", unit: "bpm", value: $state.lthrBpm)
+                    IntRow(label: "FC umbral", unit: Vocab.ppm, value: $state.lthrBpm)
                     TimeMinSecRow(label: "Ritmo umbral", seconds: $state.thresholdPaceSecondsPerKm)
                 }
                 .brandSurface()
@@ -39,8 +39,8 @@ struct ThresholdStep: View {
                     .uppercaseTracked()
                     .foregroundStyle(Theme.Color.muted)
                 VStack(spacing: 0) {
-                    TimeMinSecRow(label: "1 milla all-out", seconds: $state.time1MileSeconds)
-                    IntRow(label: "HR máx (test)", unit: "bpm", value: $state.maxHrBpm)
+                    TimeMinSecRow(label: "1 milla a tope", seconds: $state.time1MileSeconds)
+                    IntRow(label: "\(Vocab.fcMax) (test)", unit: Vocab.ppm, value: $state.maxHrBpm)
                 }
                 .brandSurface()
             }

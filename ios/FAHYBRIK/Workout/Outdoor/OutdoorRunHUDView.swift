@@ -161,7 +161,7 @@ struct OutdoorRunHUDView: View {
                         .font(Theme.Typography.readoutHero)
                         .foregroundStyle(status == .unknown ? Theme.Color.foreground : status.color)
                         .lineLimit(1).minimumScaleFactor(0.5)
-                    Text("/km").font(Theme.Typography.readoutLabel).foregroundStyle(Theme.Color.muted)
+                    Text(Formato.UnidadRitmo.porKm.rawValue).font(Theme.Typography.readoutLabel).foregroundStyle(Theme.Color.muted)
                 }
                 if let objetivo = model.runTarget.objetivoLabel {
                     HStack(spacing: 8) {
@@ -187,7 +187,7 @@ struct OutdoorRunHUDView: View {
         CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 8) {
                 LabelText(text: "Recuperación", size: 10)
-                Text(TreadmillMath.clock(Int((model.legTimeRemaining ?? 0).rounded())))
+                Text(Formato.clock(Int((model.legTimeRemaining ?? 0).rounded())))
                     .font(Theme.Typography.readoutHero)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1).minimumScaleFactor(0.5)
@@ -202,10 +202,10 @@ struct OutdoorRunHUDView: View {
                     GridItem(.flexible(), spacing: 8)]
         return LazyVGrid(columns: cols, spacing: 8) {
             ExpertCell(label: "Distancia", value: distanceString, unit: "")
-            ExpertCell(label: "Tiempo", value: WorkoutSession.formatElapsed(model.legElapsedEffective), unit: "")
+            ExpertCell(label: "Tiempo", value: Formato.clock(model.legElapsedEffective, anchoFijo: true), unit: "")
             ExpertCell(label: "Pulso",
                        value: model.currentBpm.map { "\($0)" } ?? "—",
-                       unit: "bpm",
+                       unit: Vocab.ppm,
                        color: model.liveZone?.color ?? Theme.Color.foreground)
         }
     }
@@ -222,8 +222,8 @@ struct OutdoorRunHUDView: View {
                              complete: model.progressFraction >= 1)
             case let .time(target):
                 GoalProgress(caption: "Tiempo del tramo",
-                             primary: TreadmillMath.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
-                             secondary: TreadmillMath.clock(target),
+                             primary: Formato.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
+                             secondary: Formato.clock(target),
                              fraction: model.progressFraction,
                              complete: model.progressFraction >= 1)
             case .open:
@@ -237,9 +237,9 @@ struct OutdoorRunHUDView: View {
         let parts: [String] = {
             var p: [String] = []
             if let inc = model.prescribedInclinePct, inc > 0 {
-                p.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+                p.append("Inclinación \(Formato.esDecimal(inc))%")
             }
-            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) ppm") }
+            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) \(Vocab.cadencia)") }
             return p
         }()
         if !parts.isEmpty {
@@ -296,10 +296,11 @@ struct OutdoorRunHUDView: View {
     // MARK: - Formatting
 
     private var paceString: String {
-        model.livePaceSecPerKm.map { TimeMinSecRow.format($0) } ?? "—:—"
+        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
     }
-    private var distanceString: String { PrescriptionRenderer.formatDistance(model.coveredMeters) ?? "0 m" }
-    private func distString(_ m: Double) -> String { PrescriptionRenderer.formatDistance(m) ?? "0 m" }
+    /// Lo cubierto es una MEDIDA: dos decimales, como el resto de HUDs en vivo.
+    private var distanceString: String { Formato.distanciaCubierta(model.coveredMeters) ?? "0 m" }
+    private func distString(_ m: Double) -> String { Formato.distancia(m) ?? "0 m" }
 
     /// The state word on the objetivo line — the mockup's natural-Spanish read of the
     /// live pace vs the band: inside, faster than prescribed, or slower.

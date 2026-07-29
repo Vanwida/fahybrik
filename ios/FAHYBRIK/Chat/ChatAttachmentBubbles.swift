@@ -189,7 +189,7 @@ struct ChatVoiceBubble: View {
     private var mutedBar: Color { (isMe ? Theme.Color.accentOn : Theme.Color.muted).opacity(0.45) }
 
     private var durationLabel: String {
-        DurationLabel.mmss(player.resolvedDuration ?? metaDuration ?? 0)
+        Formato.clock(player.resolvedDuration ?? metaDuration ?? 0)
     }
     private var seed: String { source.remoteURL ?? source.localURL?.absoluteString ?? "voice" }
 

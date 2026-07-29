@@ -980,7 +980,7 @@ private struct PendingAttachmentPreview: View {
     }
 
     private var subtitle: String {
-        if let seconds = picked.meta.durationSeconds { return DurationLabel.mmss(seconds) }
+        if let seconds = picked.meta.durationSeconds { return Formato.clock(seconds) }
         if picked.sizeBytes > 0 { return ByteCountLabel.format(picked.sizeBytes) }
         return "Listo para enviar"
     }
@@ -1103,7 +1103,7 @@ private struct MessageRow: View {
         switch message.kind {
         case .text(let body): return "\(who), \(message.timestamp): \(body)"
         case .voice(_, let d):
-            let dur = d.map { ", \(DurationLabel.mmss($0))" } ?? ""
+            let dur = d.map { ", \(Formato.clock($0))" } ?? ""
             return "\(who), \(message.timestamp): nota de voz\(dur)"
         case .image: return "\(who), \(message.timestamp): foto"
         case .video: return "\(who), \(message.timestamp): vídeo"

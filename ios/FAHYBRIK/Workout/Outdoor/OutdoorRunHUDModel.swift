@@ -246,10 +246,10 @@ final class OutdoorRunHUDModel {
 
     private func contentState() -> RunActivityAttributes.ContentState {
         RunActivityAttributes.ContentState(
-            paceLabel: livePaceSecPerKm.map { TimeMinSecRow.format($0) } ?? "—:—",
+            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—",
             legLabel: isStructured ? "Tramo \(legNumber)/\(legTotal)" : "",
-            distanceLabel: PrescriptionRenderer.formatDistance(coveredMeters) ?? "0 m",
-            timeLabel: WorkoutSession.formatElapsed(session.elapsedSeconds),
+            distanceLabel: Formato.distanciaCubierta(coveredMeters) ?? "0 m",
+            timeLabel: Formato.clock(session.elapsedSeconds, anchoFijo: true),
             zoneLabel: liveZone.map { "Z\($0.rawValue)" } ?? "",
             paused: session.isPaused
         )

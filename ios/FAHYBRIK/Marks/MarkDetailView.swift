@@ -164,9 +164,9 @@ struct MarkDetailView: View {
         CardSurface(padding: 14) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    twinHalf("En el box", MarkFormat.clock(best.value), caption: "tu PR")
+                    twinHalf("En el box", Formato.clock(best.value), caption: "tu PR")
                     Divider().overlay(Theme.Color.hairlineStrong).frame(height: 40)
-                    twinHalf("En carrera", MarkFormat.clock(twin.seconds), caption: twin.raceName)
+                    twinHalf("En carrera", Formato.clock(twin.seconds), caption: twin.raceName)
                 }
                 if let delta = twinDeltaLine(best: best.value, race: twin.seconds) {
                     Text(delta)

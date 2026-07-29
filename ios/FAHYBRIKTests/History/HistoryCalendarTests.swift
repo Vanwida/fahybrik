@@ -113,7 +113,7 @@ final class HistoryCalendarTests: XCTestCase {
 
     func testRpeLabel() {
         XCTAssertEqual(session(rpe: 7).rpeLabel, "RPE 7")
-        XCTAssertEqual(session(rpe: 7.5).rpeLabel, "RPE 7.5")
+        XCTAssertEqual(session(rpe: 7.5).rpeLabel, "RPE 7,5")
         XCTAssertNil(session().rpeLabel)
     }
 

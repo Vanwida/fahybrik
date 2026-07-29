@@ -818,7 +818,7 @@ struct PostWorkoutSummaryView: View {
                     .font(.system(size: 22, weight: .heavy, design: .default).italic())
                     .foregroundStyle(Theme.Color.foreground)
             } else {
-                HeroNumber(text: WorkoutSession.formatElapsed(session.elapsedSeconds), size: 36)
+                HeroNumber(text: Formato.clock(session.elapsedSeconds), size: 36)
             }
             Spacer()
             if let summaryShareURL {
@@ -931,8 +931,8 @@ struct PostWorkoutSummaryView: View {
     private var metricTiles: some View {
         let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
         return LazyVGrid(columns: cols, spacing: 6) {
-            ExpertCell(label: "Avg HR", value: avgHRBpm.map { "\($0)" } ?? "—", unit: "bpm")
-            ExpertCell(label: "Max HR", value: maxHRBpm.map { "\($0)" } ?? "—", unit: "bpm")
+            ExpertCell(label: Vocab.fcMedia, value: avgHRBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm)
+            ExpertCell(label: Vocab.fcMax, value: maxHRBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm)
         }
     }
 
@@ -960,8 +960,8 @@ struct PostWorkoutSummaryView: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-                IntRow(label: "FC media", unit: "ppm", value: $manualAvgHR)
-                IntRow(label: "FC máx", unit: "ppm", value: $manualMaxHR)
+                IntRow(label: Vocab.fcMedia, unit: Vocab.ppm, value: $manualAvgHR)
+                IntRow(label: Vocab.fcMax, unit: Vocab.ppm, value: $manualMaxHR)
             }
         }
     }
@@ -1019,7 +1019,7 @@ struct PostWorkoutSummaryView: View {
 
     private func segmentRow(_ seg: WorkoutSegment) -> some View {
         let lap = session.laps.first(where: { $0.segmentId == seg.id })
-        let timeStr = lap.map { WorkoutSession.formatElapsed($0.durationSeconds) } ?? "—"
+        let timeStr = lap.map { Formato.clock($0.durationSeconds) } ?? "—"
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 6) {
                 Text(seg.title)
@@ -1028,8 +1028,12 @@ struct PostWorkoutSummaryView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
-                    .frame(width: 60, alignment: .trailing)
+                // El título de al lado escala con el texto del sistema; este tiempo
+                // tiene que escalar con él o a tamaño accesible la etiqueta acaba
+                // pesando más que el dato (contrato §4).
+                MonoText(text: timeStr, size: 11, weight: .semibold,
+                         color: Theme.Color.foreground, escala: true, relativeTo: .caption2)
+                    .frame(minWidth: 60, alignment: .trailing)
                 if let z = seg.targetZone {
                     ZBadge(zone: z).frame(width: 38, alignment: .trailing)
                 }

@@ -177,6 +177,6 @@ struct SetTableLiveView: View {
     }
 
     private func intOrOne(_ v: Double) -> String {
-        v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        Formato.esDecimal(v)
     }
 }

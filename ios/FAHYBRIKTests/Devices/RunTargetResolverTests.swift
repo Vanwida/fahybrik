@@ -26,9 +26,9 @@ final class RunTargetResolverTests: XCTestCase {
     }
 
     func testClockFormat() {
-        XCTAssertEqual(TreadmillMath.clock(305), "5:05")
-        XCTAssertEqual(TreadmillMath.clock(0), "0:00")
-        XCTAssertEqual(TreadmillMath.clock(-5), "0:00")
+        XCTAssertEqual(Formato.clock(305), "5:05")
+        XCTAssertEqual(Formato.clock(0), "0:00")
+        XCTAssertEqual(Formato.clock(-5), "0:00")
     }
 
     // MARK: - Pace target judgment
@@ -95,8 +95,8 @@ final class RunTargetResolverTests: XCTestCase {
     }
 
     func testObjetivoLabel() {
-        XCTAssertEqual(RunTarget.pace(PaceTarget(fastS: 270, slowS: 285)).objetivoLabel, "4:30–4:45 /km")
-        XCTAssertEqual(RunTarget.pace(PaceTarget(single: 240)).objetivoLabel, "4:00 /km")
+        XCTAssertEqual(RunTarget.pace(PaceTarget(fastS: 270, slowS: 285)).objetivoLabel, "4:30–4:45/km")
+        XCTAssertEqual(RunTarget.pace(PaceTarget(single: 240)).objetivoLabel, "4:00/km")
         XCTAssertEqual(RunTarget.zone(.z2).objetivoLabel, "Z2")
         XCTAssertNil(RunTarget.none.objetivoLabel)
     }

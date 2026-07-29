@@ -278,7 +278,7 @@ struct VoiceRecorderView: View {
             LiveWaveform(levels: engine.levels, tint: Theme.Color.accent)
                 .frame(height: 56)
                 .padding(.horizontal, 28)
-            Text(DurationLabel.mmss(engine.elapsed))
+            Text(Formato.clock(engine.elapsed))
                 .font(.system(size: 30, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Theme.Color.foreground)
                 .monospacedDigit()
@@ -296,7 +296,7 @@ struct VoiceRecorderView: View {
                            tint: Theme.Color.accent)
                 .frame(height: 46)
                 .padding(.horizontal, 28)
-            Text(DurationLabel.mmss(engine.duration))
+            Text(Formato.clock(engine.duration))
                 .font(.system(size: 15, weight: .bold, design: .monospaced))
                 .foregroundStyle(Theme.Color.muted)
 

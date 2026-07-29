@@ -173,7 +173,9 @@ struct AthleteNextRace: Codable, Equatable {
     /// times through ONE implementation and they can never drift.
     static func goalTimeFormatted(_ seconds: Int?) -> String? {
         guard let total = seconds, total > 0 else { return nil }
-        return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+        // Un objetivo por debajo de la hora se lee «59:30», no «0:59:30»: el marco
+        // entero habla en minutos («sub-60», «sub-90») y esa hora en cero no dice nada.
+        return Formato.clock(total)
     }
 
     // MARK: enum → ES label maps (unknown tokens map to nil, never crash)
