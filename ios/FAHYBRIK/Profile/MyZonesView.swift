@@ -200,8 +200,11 @@ struct MyZonesView: View {
                         }
                     }
                 }
-                if hr.estimated {
-                    Text("Son una estimación mientras no midas tu umbral. Un test de 30 min las ajusta a lo que aguantas de verdad.")
+                // Three tiers, three sentences. A band off his own number and a band
+                // off his birthday are not the same claim, and lumping both under
+                // "estimadas" told the athlete we had guessed when he had told us.
+                if let note = pulseCaveat(hr) {
+                    Text(note)
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -223,6 +226,22 @@ struct MyZonesView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// What to say under the bands, by how the threshold was obtained. Nil when it
+    /// was MEASURED — then there is nothing to caveat and nothing to offer, and the
+    /// section stops nagging an athlete who already did the test.
+    private func pulseCaveat(_ hr: HRZoneProfile) -> String? {
+        // `confidence` is absent on payloads from before the declared rung existed;
+        // `estimated` is the honest fallback for those.
+        switch hr.confidence ?? (hr.estimated ? "estimated" : "measured") {
+        case "measured":
+            return nil
+        case "declared":
+            return "Están calculadas con el umbral que nos diste. Si haces el test de 30 min las ajustamos a lo que aguantas hoy."
+        default:
+            return "Son una estimación mientras no midas tu umbral. Un test de 30 min las ajusta a lo que aguantas de verdad."
+        }
     }
 
     /// The way OUT of an estimated threshold (docs/CONTRATO-UI.md §5: a state that

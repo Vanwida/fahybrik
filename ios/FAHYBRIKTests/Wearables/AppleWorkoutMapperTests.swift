@@ -50,6 +50,7 @@ final class AppleWorkoutMapperTests: XCTestCase {
             estimated: estimated,
             source: estimated ? "from_age" : "lthr_measured",
             sourceLabel: estimated ? "Estimado por tu edad" : "Medido en tu test de umbral",
+            confidence: estimated ? "estimated" : "measured",
             zones: [
                 HRZoneBand(zone: 1, code: "Z1", label: "Recuperación", minBpm: nil, maxBpm: 138, rangeLabel: "< 138 ppm"),
                 HRZoneBand(zone: 2, code: "Z2", label: "Aeróbico suave", minBpm: 139, maxBpm: 150, rangeLabel: "139–150 ppm"),
@@ -132,7 +133,8 @@ final class AppleWorkoutMapperTests: XCTestCase {
         // zone the watch does not get.
         XCTAssertNil(measuredMax.bpmBand(for: .z1), "Z1 is open at the bottom")
         let empty = HRZoneProfile(
-            lthrBpm: 170, estimated: false, source: "lthr_measured", sourceLabel: "", zones: []
+            lthrBpm: 170, estimated: false, source: "lthr_measured", sourceLabel: "",
+            confidence: "measured", zones: []
         )
         XCTAssertNil(empty.bpmBand(for: .z4), "no band → no fabricated band")
         XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: empty))

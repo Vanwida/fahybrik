@@ -78,6 +78,71 @@ describe('the anchor chain', () => {
   });
 });
 
+// 29-jul-2026 — the athlete's OWN number is data, not arithmetic. It populates the
+// app, labelled as his, and a test supersedes it. Before this rung existed, the
+// LTHR he typed in onboarding was binned and he was shown bands off his birthday.
+describe('the DECLARED rung — his number beats our arithmetic, loses to a test', () => {
+  it('a declared threshold outranks a max HR and an age', () => {
+    const a = resolveThresholdHr({ lthr_declared_bpm: 168, max_hr_bpm: 190, age_years: 30 })!;
+    expect(a.lthr_bpm).toBe(168);
+    expect(a.source).toBe('lthr_declared');
+    expect(a.confidence).toBe('declared');
+  });
+
+  it('a declared threshold is NOT one of our estimates', () => {
+    // `estimated` means "we inferred it". His own number was not inferred, so the
+    // surfaces that warn about estimates must not warn about this one.
+    expect(resolveThresholdHr({ lthr_declared_bpm: 168 })!.estimated).toBe(false);
+  });
+
+  it('a MEASURED threshold supersedes the declared one, whatever he typed', () => {
+    const a = resolveThresholdHr({ lthr_bpm: 155, lthr_declared_bpm: 175 })!;
+    expect(a.lthr_bpm).toBe(155);
+    expect(a.confidence).toBe('measured');
+  });
+
+  it('the ladder is measured → declared → max HR → age, and never reorders', () => {
+    const full = { lthr_bpm: 150, lthr_declared_bpm: 160, max_hr_bpm: 190, age_years: 44 };
+    expect(resolveThresholdHr(full)!.source).toBe('lthr_measured');
+    expect(resolveThresholdHr({ ...full, lthr_bpm: null })!.source).toBe('lthr_declared');
+    expect(resolveThresholdHr({ ...full, lthr_bpm: null, lthr_declared_bpm: null })!.source).toBe(
+      'from_max_hr',
+    );
+    expect(
+      resolveThresholdHr({ ...full, lthr_bpm: null, lthr_declared_bpm: null, max_hr_bpm: null })!
+        .source,
+    ).toBe('from_age');
+  });
+});
+
+// The last two rungs exist so nobody trains without zones. They are population
+// generalizations and must never be scored as evidence.
+describe('the POPULATION rungs are always labelled, never evidence', () => {
+  it('both inferred rungs report confidence "estimated"', () => {
+    expect(resolveThresholdHr({ max_hr_bpm: 190 })!.confidence).toBe('estimated');
+    expect(resolveThresholdHr({ age_years: 44 })!.confidence).toBe('estimated');
+  });
+
+  it('every rung agrees with itself: estimated ⇔ confidence "estimated"', () => {
+    const cases = [
+      { lthr_bpm: 168 },
+      { lthr_declared_bpm: 168 },
+      { max_hr_bpm: 190 },
+      { age_years: 44 },
+    ];
+    for (const c of cases) {
+      const a = resolveThresholdHr(c)!;
+      expect(a.estimated).toBe(a.confidence === 'estimated');
+    }
+  });
+
+  it('the resolved zone model carries the confidence to every surface', () => {
+    expect(resolveHrZones({ age_years: 44 })!.confidence).toBe('estimated');
+    expect(resolveHrZones({ lthr_declared_bpm: 168 })!.confidence).toBe('declared');
+    expect(resolveHrZones({ lthr_bpm: 168 })!.confidence).toBe('measured');
+  });
+});
+
 describe('the bands themselves', () => {
   const zones = resolveHrZones({ lthr_bpm: 170 })!;
 
