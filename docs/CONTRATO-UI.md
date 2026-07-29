@@ -95,6 +95,10 @@ Las palabras viven en **`Vocab`** (mismo fichero, `Theme/Formato.swift`): `Vocab
 - `scaledFont` en **todo**, incluidos los números. Si la prosa escala y el dato no, a tamaño
   accesible la etiqueta adelanta al dato.
 - **El dato pesa más que su etiqueta.** Siempre. Si la etiqueta es 16, el dato no puede ser 16.
+- **Pero un valor CATEGÓRICO no es una cifra.** «Español», «HYROX» o «Intermedio» a 22 pt
+  monoespaciado es absurdo: el monoespaciado es para lo que se compara columna a columna. Un
+  valor categórico gana a su etiqueta **por peso y un escalón de tamaño en la tipografía de
+  texto**, no convirtiéndose en un instrumento de medida.
 - Nada de medios puntos ni de dos niveles separados por 1 pt: eso no es jerarquía, es ruido.
 
 ## 5 · Toda pantalla resuelve sus cuatro estados
@@ -119,10 +123,16 @@ todo desde cero, y por eso salen distintas aunque nadie haga nada irrazonable.
 
 | Estrategia | Cuándo | Qué hace con el sobrante |
 |---|---|---|
-| `llena` | El contenido real da para el alto | Lo ocupa; **scrollea solo cuando desborda** |
-| `centra` | Hay poco contenido **y es deliberado** | Centra el bloque; el aire es simétrico, no una cola |
+| `llena` | Hay contenido, y **cuánto depende del dato** | Si no llega al alto, **reparte**; si desborda, scrollea desde arriba |
+| `centra` | No hay contenido, o es **una sola decisión** | Centra el bloque; el aire es simétrico, no una cola |
 | `previsualiza` | Estás decidiendo algo | El sobrante **se convierte en el sujeto**: enseña lo que estás montando |
 | `gobierna` | En vivo | Un dato manda y **escala** hasta llenar; el resto se subordina |
+
+**`llena` NO significa «esto llenará».** Significa «esto se adapta a lo que haya». La cantidad de
+contenido es dato-dependiente y **no la sabes al diseñar**: la misma sección de Analíticas llena con
+cuatro tarjetas y deja 250 pt muertos con dos. Por eso `llena` reparte cuando falta y scrollea
+cuando sobra, en vez de obligarte a acertar de antemano. Fijar la estrategia a priori es justo lo
+que hace que luego el dato real te desmienta.
 
 **Prohibido en la raíz de una pantalla: `VStack { contenido; Spacer() }`.** Ese `Spacer()` es la
 firma del problema — declara que sobra alto y que nadie decidió qué hacer con él. `Spacer()` solo
@@ -151,6 +161,19 @@ terminado: le falta el porqué, que es justo lo que el atleta abrió a buscar.
 
 **Un arquetipo se degrada, no se rompe:** una Lista sin elementos **es** un Vacío, y se pinta como
 Vacío (centrado, con salida), no como una lista de cero filas con el encabezado colgando arriba.
+
+### 6.2 bis · Un hueco se declara o se calla — la regla
+
+El §7 dice «lo que no se sabe **no se pinta**» y el §6.2 dice «el hueco **se declara**». En una
+lista chocan de frente: un 1RM que falta, ¿es un hueco que se declara o algo que no se pinta?
+
+**La regla: se declara cuando el atleta puede llenarlo con un acto concreto; se calla cuando no.**
+«Te falta el press banca» es una invitación y va con su acción. «No tenemos tu VO₂máx» sin nada que
+hacer es ruido gris que ocupa el sitio de lo que sí sabes. Y en corolario:
+
+**Un CONTADOR se pinta en cero; un VALOR MEDIDO no existe hasta que se mide.** «Tus tests: 0 de 4»
+es información — de hecho es cuando más falta hace. «VO₂máx: —» no lo es. Por eso hoy el contador de
+calibración desaparece justo cuando vale cero, que es exactamente al revés.
 
 ### 6.3 · El caso mínimo es el caso de diseño
 
