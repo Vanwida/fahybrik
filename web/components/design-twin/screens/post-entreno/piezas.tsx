@@ -6,9 +6,14 @@
 // idénticas en ambas (si no, el antes/después no compara lo mismo):
 // PastillasRPE (el RPE nunca viene puesto de antes, en ninguna de las dos),
 // ContenidoComoHaIdo (la misma tarjeta «Cómo ha ido» de SessionFeedbackCard.swift,
-// una vez en su Card de siempre y otra dentro de una fila plegada) y BarraZonas
-// (el mismo dibujo, con datos preparados distinto por cada vista — hoy sobre la
-// SUMA de zonas, propuesta sobre la DURACIÓN — eso lo decide quien la llama).
+// una vez en su Card de siempre y otra dentro de una fila plegada) y BarraZonas.
+//
+// Los porcentajes que le entran salen de `distribucionZonas` (../../zonas.ts),
+// UNA sola para las dos vistas desde el 29-jul. Antes eran dos porque «hoy»
+// repartía sobre la SUMA de las zonas y «propuesta» sobre la DURACIÓN: la
+// diferencia entre ambas ERA el bug. Arreglado en la app
+// (ios/FAHYBRIK/Workout/ZoneCoverage.swift), tener dos funciones solo
+// garantizaría que vuelvan a separarse.
 //
 // El resto (CabeceraBloqueHoy, FilaSegmentoHoy, TileMedida, FilaPlegada) son
 // piezas de composición del propio "por segmento"/"lo que se midió"/"lo que
@@ -53,9 +58,8 @@ export function TileMedida({ etiqueta, valor, unidad, color = 'var(--twin-fg)' }
 }
 
 // ---------------------------------------------------------------------------
-// Barra de zonas — el dibujo es el mismo en las dos vistas; los porcentajes
-// que le pasan NO (ver cabecera del fichero). `zona: null` es el tramo "sin
-// medir" que solo aparece en la propuesta.
+// Barra de zonas — el dibujo Y los porcentajes son los mismos en las dos vistas
+// (ver cabecera del fichero). `zona: null` es el tramo del que no hubo pulso.
 // ---------------------------------------------------------------------------
 
 export interface SegmentoZona {
@@ -63,6 +67,7 @@ export interface SegmentoZona {
   pct: number;
   etiqueta: string;
 }
+
 
 export function BarraZonas({ segmentos }: { segmentos: SegmentoZona[] }) {
   return (
