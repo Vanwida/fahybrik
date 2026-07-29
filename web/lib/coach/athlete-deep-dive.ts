@@ -7,9 +7,10 @@
 //   - athlete_benchmarks (1RMs)
 //   - athlete_coach_notes (private to coach)
 //
-// Real data from the database is preferred. When an athlete has no executions
-// yet OR the URL points at a `demo-N` ID, we fall back to canned demo data
-// (see deep-dive-demo.ts) — same `is_demo` pattern as the cohort.
+// Canned demo data is served for `demo-N` IDs ONLY (see deep-dive-demo.ts). A
+// REAL athlete always gets his own numbers, however few: an empty athlete
+// returns empty series and null KPIs with the gap declared in the banner, never
+// another athlete's data under his name.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -29,7 +30,6 @@ import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
 import { HR_ANCHOR_LABEL, zoneForBpm } from '@fahybrid/shared/domain/methodology';
 import {
   getDemoDeepDive,
-  getDemoFallback,
   isDemoAthleteId,
 } from './deep-dive-demo';
 import { getLatestReadiness } from './athlete-daily-readiness';
@@ -111,9 +111,16 @@ export async function buildAthleteDeepDive(
     throw new AthleteDeepDiveError('not_found', `athlete ${params.athlete_id} not found`);
   }
 
-  // Real-data signal: do we have any execution at all in the last 30d? If
-  // not, the page should still look alive — fall through to demo data with
-  // the real header on top so Pablo recognises the athlete.
+  // Has this athlete executed anything in the trends window? The answer used to
+  // decide whether to SHORT-CIRCUIT into canned demo numbers — Marc Vidal's CTL,
+  // his 1RMs, his sleep, his A-event — with the real athlete's name written on
+  // top and a small note saying the data was an example. That inverted the law:
+  // the athlete with nothing is precisely the one every null in this file was
+  // built for, and he was the only one who never reached them.
+  //
+  // Now nothing short-circuits. The loaders below run over his (empty) data and
+  // return what is actually true: empty series, null KPIs, no verdicts. The only
+  // thing the flag still does is DECLARE the gap in the banner.
   const exec = await client<Array<{ n: number }>>`
     select count(*)::int as n
     from workout_executions we
@@ -121,25 +128,9 @@ export async function buildAthleteDeepDive(
       and coalesce(we.ended_at, we.started_at, we.created_at)
             >= ${isoDate(addDays(now, -TRENDS_DAYS))}::date
   `;
-  const hasRealActivity = (exec[0]?.n ?? 0) > 0;
+  const hasRecentActivity = (exec[0]?.n ?? 0) > 0;
 
   const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: now, client });
-
-  if (!hasRealActivity) {
-    const fallback = getDemoFallback(
-      params.athlete_id,
-      header.full_name,
-      micro?.name ?? null,
-    );
-    fallback.banner = {
-      kind: 'new_athlete',
-      severity: 'info',
-      title: 'Datos baseline en construcción',
-      detail: 'primera semana es testing — los datos mostrados son ejemplo',
-      cta_label: null,
-    };
-    return fallback;
-  }
 
   const tssSeries = await getDailyTssSeries({
     athlete_id: numericId,
@@ -198,7 +189,13 @@ export async function buildAthleteDeepDive(
     a_event_days: aEvent?.days_until ?? null,
   });
 
-  const banner = computeBanner({ alerts, aEvent, hasMacrocycle: macrocycle != null });
+  const banner = computeBanner({
+    alerts,
+    aEvent,
+    hasMacrocycle: macrocycle != null,
+    hasRecentActivity,
+    hasAnyHistory: recent_days.some((d) => d.sessions.length > 0) || compliance.pct_total != null,
+  });
 
   return {
     generated_at_iso: now.toISOString(),
@@ -1202,7 +1199,28 @@ function computeBanner(input: {
   alerts: AlertReason[];
   aEvent: AEvent | null;
   hasMacrocycle: boolean;
+  hasRecentActivity: boolean;
+  hasAnyHistory: boolean;
 }): DeepDiveBanner | null {
+  // An athlete with nothing executed is the FIRST thing to say about him: every
+  // number below is empty, and without this line the coach is left to guess
+  // whether the page is empty or broken. It outranks the macrocycle warning
+  // because "no ha entrenado todavía" explains that one too.
+  if (!input.hasRecentActivity) {
+    return input.hasAnyHistory
+      ? {
+          kind: 'inactive', severity: 'warning',
+          title: 'Sin entrenos en los últimos 30 días',
+          detail: 'Los números de abajo son de antes de esa pausa',
+          cta_label: 'Escribirle',
+        }
+      : {
+          kind: 'new_athlete', severity: 'info',
+          title: 'Todavía no ha registrado ningún entreno',
+          detail: 'Carga, adherencia y tendencias aparecerán aquí en cuanto entrene',
+          cta_label: 'Asignarle plan',
+        };
+  }
   if (!input.hasMacrocycle) {
     return {
       kind: 'macrocycle_missing', severity: 'warning',

@@ -6,7 +6,7 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isDemoAthleteId } from './deep-dive-demo';
-import { getMarcBody, getDemoBodyFallback } from './deep-dive-body-demo';
+import { getMarcBody } from './deep-dive-body-demo';
 import { AthleteDeepDiveError } from './athlete-deep-dive';
 import { loadRestingHrBodySection } from '@/lib/biometrics/resting-hr-series';
 
@@ -148,10 +148,9 @@ export async function buildAthleteBody(params: {
     throw new AthleteDeepDiveError('not_found', `athlete ${params.athlete_id} not found`);
   }
 
+  // An athlete with no HRV reading gets an empty HRV block, not Marc's. The
+  // readers below already return nulls over a null series — that IS the answer.
   const hrvDaily = await loadDailyMetric(client, numericId, 'hrv', now, HRV_DAYS);
-  if (hrvDaily.every((p) => p.value == null)) {
-    return getDemoBodyFallback(params.athlete_id, header[0].full_name);
-  }
 
   const baseline28 = rollingAverage(hrvDaily, 28);
   const drops = countCrossings(hrvDaily, baseline28, -10);

@@ -207,10 +207,6 @@ export function getMarcBody(athleteId: string): BodyPayload | null {
   return null;
 }
 
-export function getDemoBodyFallback(athleteId: string, fullName: string): BodyPayload {
-  return { ...MARC_BODY, athlete_id: athleteId, athlete_name: fullName, is_demo: true };
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

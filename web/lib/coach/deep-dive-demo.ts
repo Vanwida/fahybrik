@@ -405,21 +405,8 @@ export function isDemoAthleteId(athleteId: string): boolean {
   return athleteId.startsWith('demo-');
 }
 
-// Used as fallback when a real athlete has no real data — Pablo still wants
-// the screen to look alive while he's onboarding.
-export function getDemoFallback(athleteId: string, fullName: string, currentMicrociclo: string | null): AthleteDeepDive {
-  return {
-    ...MARC,
-    is_demo: true,
-    header: {
-      ...MARC.header,
-      athlete_id: athleteId,
-      full_name: fullName,
-      is_demo: true,
-    },
-    macrocycle: currentMicrociclo
-      ? { ...(MARC.macrocycle as NonNullable<AthleteDeepDive['macrocycle']>), current_block: currentMicrociclo }
-      : MARC.macrocycle,
-    notes: [],
-  };
-}
+// `getDemoFallback` lived here and is DELETED on purpose. It spread Marc's whole
+// payload — his CTL/ATL/TSB, his 1RMs, his sleep, his A-event, his body — under
+// a real athlete's name whenever that athlete had no executions, which is the
+// one case the honest empty payload exists to cover. Do not reintroduce it: a
+// screen with nothing to show says so (docs/CONTRATO-UI.md §7, arquetipo Vacío).

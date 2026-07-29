@@ -33,16 +33,6 @@ export function getMarcPlan(
   return null;
 }
 
-export function getDemoPlanFallback(
-  athlete_id: string,
-  full_name: string,
-  view: PlanViewMode,
-  anchor: Date,
-): PlanPayload {
-  const out = buildPlan(athlete_id, full_name, view, anchor);
-  return { ...out, is_demo: true };
-}
-
 function buildPlan(
   athlete_id: string,
   athlete_name: string,
