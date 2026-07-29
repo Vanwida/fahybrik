@@ -153,6 +153,54 @@ final class LenguajeVivoTests: XCTestCase {
         XCTAssertNil(sinNada.cifra)
     }
 
+    // MARK: - La serie de fuerza, contra el presupuesto de ancho
+
+    func testLaSerieREALDelCoachCabeSinPartirseEnDos() {
+        // ESTE es el caso que rompió la familia del hierro: el 4×5 @ 100 kg real
+        // del plan. Se mide sobre lo que devuelve el CANÓNICO, no sobre un string
+        // escrito a mano en la prueba — si mañana alguien mete un espacio más en
+        // `Formato.serie`, el numeral deja de caber y hay que enterarse AQUÍ.
+        let cifra = try! XCTUnwrap(Formato.serie(reps: 5, cargaKg: 100)?.cifra)
+        let tamano = EscalaNumeral.tamano(texto: cifra, alto: 781, ancho: 378, escala: .sujeto)
+        let anchoOcupado = tamano * EscalaNumeral.avanceMono * CGFloat(cifra.count)
+        XCTAssertLessThanOrEqual(anchoOcupado, 378,
+                                 "La serie se sale del teléfono: partirla en dos peldaños invertiría la jerarquía")
+        // Y sigue siendo un instrumento, no una nota al pie.
+        XCTAssertGreaterThanOrEqual(tamano, EscalaNumeral.sujeto.minimo)
+    }
+
+    func testUnaSerieSinCargaNiSeEnteraDelPresupuestoDeAncho() {
+        // «12 reps» → la cifra es «12», dos glifos: el ancho no puede morderle, y
+        // por eso el peso corporal se lee tan grande como el §10.2 permite.
+        let cifra = try! XCTUnwrap(Formato.serie(reps: 12, cargaKg: nil)?.cifra)
+        XCTAssertNil(EscalaNumeral.techoDeAncho(texto: cifra, ancho: 378))
+    }
+
+    // MARK: - El trabajo sin nadie que lo cuente (§10.6)
+
+    func testUnEmomDiceLaDOSISCuandoNadieCuentaLasRepeticiones() {
+        // El hueco que salió al aplicar el §10.6 al EMOM: `Trabajo` sabía decir el
+        // CONTADOR («10 de 12») y no sabía decir la DOSIS. En un EMOM nadie cuenta
+        // burpees, y sin esto la banda se quedaba con el nombre del movimiento
+        // solo — menos de lo que el atleta tiene delante.
+        let t = Trabajo(nombre: "Burpees", hecho: nil, objetivo: nil, unidad: nil, dosis: "10 reps")
+        XCTAssertFalse(t.esContable)
+        XCTAssertNil(t.cifra, "No hay contador y no se finge uno")
+        XCTAssertEqual(t.segundoPeldano, "10 reps", "La dosis SÍ se sabe, y se dice (§7)")
+    }
+
+    func testConContadorLaDosisSobra() {
+        // «12 cal» debajo de «10 de 12» es la misma frase dicha dos veces.
+        let t = Trabajo(nombre: "Calorías", hecho: 10, objetivo: 12, unidad: "cal", dosis: "12 cal")
+        XCTAssertEqual(t.segundoPeldano, "10 de 12")
+    }
+
+    func testSinContadorYSinDosisNoSePintaNada() {
+        // Un cronómetro pelado no tiene qué nombrar: ni un cero, ni un guion.
+        let t = Trabajo(nombre: "Entreno libre", hecho: nil, objetivo: nil, unidad: nil)
+        XCTAssertNil(t.segundoPeldano)
+    }
+
     // MARK: - La grafía nueva que estas piezas estrenan (§2.1)
 
     func testLaGrafiaDelTrabajoSeLeeComoSePiensa() {

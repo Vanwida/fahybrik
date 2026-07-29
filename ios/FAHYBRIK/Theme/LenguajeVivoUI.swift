@@ -321,6 +321,25 @@ struct BandaSujeto<Content: View>: View {
 
 // MARK: - §10.6 · Lo que de verdad haces no va en gris
 
+/// QUÉ ESTÁS HACIENDO — «Wall balls», «Back Squat», «Calorías».
+///
+/// Es un valor CATEGÓRICO, no una medida: gana a su etiqueta por peso y por un
+/// escalón de la tipografía de TEXTO, y NO se monoespacia (§4). El mono es para
+/// lo que se compara columna a columna, y un nombre no se compara con nada.
+///
+/// Vive aquí y no en cada vista para que el EMOM y la fuerza digan «qué estás
+/// haciendo» con la misma letra — que es de lo que va el §10 entero.
+struct NombreDelTrabajo: View {
+    let texto: String
+
+    var body: some View {
+        Text(texto)
+            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
+            .foregroundStyle(Theme.Color.foreground)
+            .lineLimit(1).minimumScaleFactor(0.7)
+    }
+}
+
 /// EL TRABAJO — lo segundo más importante de la pantalla.
 ///
 /// Va en el numeral `segundo`, en la tinta normal y DENTRO de la banda, pegado al
@@ -332,13 +351,15 @@ struct TrabajoVista: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(trabajo.nombre)
-                .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1).minimumScaleFactor(0.7)
-            // Sin contador no se finge un cero: manda el nombre y ya (§7).
-            if let cifra = trabajo.cifra {
-                Numeral(texto: cifra, escala: .segundo, tono: tono, unidad: trabajo.unidad)
+            NombreDelTrabajo(texto: trabajo.nombre)
+            // El contador si alguien cuenta; si no, la DOSIS, que también se sabe.
+            // Lo que no se finge es un cero cuando no hay ni lo uno ni lo otro:
+            // entonces manda el nombre y ya (§7).
+            if let segundo = trabajo.segundoPeldano {
+                Numeral(texto: segundo,
+                        escala: .segundo,
+                        tono: trabajo.esContable ? tono : Theme.Color.foreground,
+                        unidad: trabajo.unidad)
             }
         }
         .frame(maxWidth: .infinity)

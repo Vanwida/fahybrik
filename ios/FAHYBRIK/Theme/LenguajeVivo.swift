@@ -262,6 +262,16 @@ struct Trabajo: Equatable {
     /// «cal» · «reps» · «m». Nil cuando el nombre ya la lleva dentro.
     let unidad: String?
 
+    /// LO PEDIDO, cuando nadie lo está contando: «12 cal», «10 burpees», «0:40».
+    ///
+    /// Hueco del modelo que salió al aplicar el §10.6 al EMOM (29-jul). `Trabajo`
+    /// sabía decir el CONTADOR («10 de 12») y no sabía decir la DOSIS, y en un EMOM
+    /// nadie cuenta burpees: sin esto la vista se quedaba con el nombre del
+    /// movimiento solo, que es menos de lo que el atleta tiene delante. No es lo
+    /// mismo que fingir un contador — «12 cal» es la prescripción, y esa SÍ se
+    /// sabe (§7). Se pinta solo cuando no hay contador; con contador sobra.
+    var dosis: String? = nil
+
     /// Solo hay cifra que pintar cuando se sabe lo hecho Y lo pedido. Con uno de
     /// los dos no hay lectura: «10 de ?» no es información.
     var esContable: Bool { hecho != nil && objetivo != nil }
@@ -271,4 +281,9 @@ struct Trabajo: Equatable {
         guard let hecho, let objetivo else { return nil }
         return Formato.trabajo(hecho: hecho, objetivo: objetivo)
     }
+
+    /// La cifra que va en el segundo peldaño del numeral: el contador si alguien
+    /// cuenta, y si no la dosis. Una de las dos, nunca las dos — «12 cal» debajo de
+    /// «10 de 12» es la misma frase dicha dos veces.
+    var segundoPeldano: String? { cifra ?? dosis }
 }

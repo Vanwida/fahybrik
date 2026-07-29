@@ -152,6 +152,64 @@ enum Formato {
         "\(hecho) de \(objetivo)"
     }
 
+    // MARK: - La serie de fuerza (contrato §10, sujeto del hierro)
+
+    /// Una cifra y su unidad, separadas — para que el sujeto pinte la unidad más
+    /// pequeña sin que nadie recomponga el string a mano.
+    struct Cifra: Equatable {
+        let cifra: String
+        /// Nil cuando la cifra no lleva unidad.
+        let unidad: String?
+
+        /// La misma cifra en una línea, para un riel o un resumen.
+        var linea: String { unidad.map { "\(cifra) \($0)" } ?? cifra }
+    }
+
+    /// «5 × 100» + «kg» — LA SERIE QUE TIENES DELANTE.
+    ///
+    /// Canónico NUEVO (§2.1): la misma serie estaba escrita de tres maneras el
+    /// 29-jul —`5 × 100 kg` en el HUD de fuerza, `5×100 kg` en el chip de tramo y
+    /// `5 × 100 kg` otra vez en el resumen post-entreno—, cada una con su propio
+    /// espaciado y su propio formateo del peso. Aquí una vez.
+    ///
+    /// `5 × 100` es UNA cosa y así se lee: son las repeticiones y luego la carga,
+    /// que es como se piensa una serie. No se parte en dos peldaños — de que quepa
+    /// se encarga el presupuesto de ancho de `EscalaNumeral` (§10.2), que es donde
+    /// vive ese problema.
+    ///
+    /// La DEGRADACIÓN es del modelo, no del layout: sin carga (peso corporal) la
+    /// serie son las repeticiones; sin repeticiones —el circuito real del coach
+    /// llega con 30 kg y ninguna— la serie es la carga sola; sin ninguna de las dos
+    /// no hay cifra que inventar y devuelve nil (§7).
+    ///
+    /// Ojo a la diferencia con `dosisDeSeries`, que es OTRO concepto: aquella
+    /// escribe *series × repeticiones* de toda la prescripción («4×5»); esta
+    /// escribe *repeticiones × carga* de UNA serie («5 × 100 kg»).
+    static func serie(reps: Int?, cargaKg: Double?) -> Cifra? {
+        if let reps, let cargaKg {
+            return Cifra(cifra: "\(reps) \(signoPor) \(esDecimal(cargaKg))", unidad: "kg")
+        }
+        if let cargaKg { return Cifra(cifra: esDecimal(cargaKg), unidad: "kg") }
+        if let reps { return Cifra(cifra: "\(reps)", unidad: Vocab.reps) }
+        return nil
+    }
+
+    /// «4×5» — series por repeticiones de TODA la prescripción, pegado.
+    ///
+    /// Pegado y no separado a propósito, y es la única diferencia visible con
+    /// `serie`: «4×5» es una dosis que se lee de un vistazo en una franja de
+    /// contexto, mientras que «5 × 100 kg» es el sujeto de la pantalla y respira.
+    /// Nil cuando no hay repeticiones que multiplicar.
+    static func dosisDeSeries(series: Int, reps: Int?) -> String? {
+        guard let reps, series > 0 else { return nil }
+        return series > 1 ? "\(series)\(signoPor)\(reps)" : "\(reps)"
+    }
+
+    /// El signo de multiplicar es el MULTIPLICATION SIGN (U+00D7), no una equis.
+    /// La `x` del teclado se lee como letra al lado de una cifra («5 x 100» parece
+    /// una talla) y encima cambia de anchura en la monoespaciada.
+    static let signoPor = "\u{00D7}"
+
     // MARK: - La diferencia contra un objetivo (contrato §10)
 
     /// «+2 s» · «−3 s» — cuánto te separa de lo pedido, con el signo delante.
@@ -203,4 +261,32 @@ enum Vocab {
     static let vsObjetivo = "vs objetivo"
     /// La zona de pulso, como concepto («Zona 2», «fuera de zona»).
     static let zona = "Zona"
+
+    // El hierro y el reloj de box. Palabras que el 29-jul vivían sueltas en cada
+    // vista en vivo («Reps» aquí, «reps» allí, «Descanso» y «descanso» en la misma
+    // pantalla) — y el atleta las lee todas en el mismo entreno.
+
+    /// Repeticiones. Como unidad de una cifra («5 reps») y como etiqueta.
+    static let reps = "reps"
+    /// Una serie de fuerza. `series` para el plural, que aquí no es regular en uso
+    /// («Serie 2 de 4» / «4 series»).
+    static let serie = "Serie"
+    static let series = "Series"
+    /// Una ronda de un formato con reloj (EMOM, intervalos, AMRAP).
+    static let ronda = "Ronda"
+    /// El peso que mueves.
+    static let carga = "Carga"
+    /// El descanso PRESCRITO — es dosis, no una pausa (§10 del contrato de UI).
+    static let descanso = "Descanso"
+    /// Repeticiones en recámara. Nunca `RIR` en prosa sin explicar; la pastilla lo
+    /// traduce (`Vocab.rirTraducido`).
+    static let rir = "RIR"
+    /// Esfuerzo percibido.
+    static let rpe = "RPE"
+
+    /// «RIR 2 · deja 2 dentro» — el número solo no dice qué hacer, y el atleta que
+    /// entra hoy no ha visto la escala nunca.
+    static func rirTraducido(_ valor: Int) -> String {
+        valor == 0 ? "\(rir) 0 · hasta el fallo" : "\(rir) \(valor) · deja \(valor) dentro"
+    }
 }

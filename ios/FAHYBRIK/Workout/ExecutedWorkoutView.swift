@@ -1005,12 +1005,11 @@ struct ExecutedWorkoutView: View {
     // SessionDetailDrawer chips). Reps × weight, distance, pace, duration, HR.
     private static func tokens(_ a: SegmentActualDTO) -> [String] {
         var t: [String] = []
-        if let reps = a.repsCompleted {
-            if let kg = a.weightUsedKg, kg > 0 {
-                t.append("\(reps) × \(formatKg(kg)) kg")
-            } else {
-                t.append("\(reps) reps")
-            }
+        // La serie pasa por el canónico (§2.1): «5 × 100 kg» se escribía aquí, en
+        // el chip de tramo y en el HUD de fuerza, cada uno con su espaciado.
+        if let s = Formato.serie(reps: a.repsCompleted,
+                                 cargaKg: (a.weightUsedKg ?? 0) > 0 ? a.weightUsedKg : nil) {
+            t.append(s.linea)
         }
         if let d = a.distanceMeters, d > 0 {
             t.append(formatDistance(d))
@@ -1034,8 +1033,6 @@ struct ExecutedWorkoutView: View {
         if let hr = a.avgHr { t.append("\(hr) ppm") }
         return t
     }
-
-    private static func formatKg(_ kg: Double) -> String { Formato.esDecimal(kg) }
 
     struct SegmentRowVM: Identifiable {
         let id: String
