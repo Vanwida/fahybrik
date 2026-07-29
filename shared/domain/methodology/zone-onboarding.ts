@@ -33,6 +33,11 @@ import {
   BENCH_ROW_2K,
   BENCH_SKI_1K,
   BENCH_LTHR,
+  BENCH_RUN_THRESHOLD,
+  BENCH_ROW_THRESHOLD,
+  BENCH_SKI_THRESHOLD,
+  BENCH_RUN_1MILE,
+  BENCH_FTP,
 } from '../coach/benchmark-slugs';
 
 /** A zone profile derived from onboarding benchmarks (the resolver's output). */
@@ -58,15 +63,27 @@ export interface CoachZonesByUnit {
 const ZONE_COUNT = 6;
 
 /**
- * Map `athlete_benchmarks` rows (slug + value) onto the `AthleteBenchmarks`
- * shape the threshold resolvers read: the pacing anchors used for pace zones, plus
- * the MEASURED heart-rate threshold that anchors the HR zones. 1RMs etc. are
- * omitted (they produce no zone). Missing slugs stay null.
+ * Map `athlete_benchmarks` rows (slug + value) onto the `AthleteBenchmarks` shape
+ * the threshold resolvers read. Missing slugs stay null; 1RMs are omitted (they
+ * produce no zone).
  *
- * `lthr_bpm` belongs here even though it derives no pace profile: the watch source
- * builds its `AthleteBenchmarks` from this mapper, and while the mapper ignored the
- * threshold the wrist kept receiving zones off an age estimate even for an athlete
- * who had measured theirs. The measured anchor has to travel with the rest.
+ * THIS FUNCTION WAS THE BUG, THREE TIMES OVER. It mapped only the time-trial
+ * anchors, so every ladder's TOP rung was unreachable while the resolvers sat
+ * there already preferring it:
+ *
+ *   · `run_threshold_s_per_km`      — `resolveRunThresholdPerKm` prefers it and
+ *     marks it measured, but it never arrived, so a measured threshold lost to a
+ *     5K time + a 10 s/km offset.
+ *   · `row/ski_threshold_s_per_500m`— the field did not even exist, so a measured
+ *     erg threshold had nowhere to land at all.
+ *   · `lthr_bpm`                    — the wrist kept getting age-estimated zones
+ *     for an athlete who had measured his threshold.
+ *
+ * Athlete 66 in production held measured run (248 s/km) and row (114 s/500m)
+ * thresholds and had ZERO zones of any kind, because the numbers stopped here.
+ *
+ * A benchmark row is a MEASUREMENT, whoever recorded it; the confidence of each
+ * rung is decided by the resolvers, not by this mapper.
  */
 export function athleteBenchmarksFromSlugRows(
   rows: Array<{ exercise_slug: string; value: number | null }>,
@@ -78,9 +95,15 @@ export function athleteBenchmarksFromSlugRows(
   return {
     time_5k_seconds: get(BENCH_RUN_5K),
     time_10k_seconds: get(BENCH_RUN_10K),
+    time_1mile_seconds: get(BENCH_RUN_1MILE),
     time_2k_row_seconds: get(BENCH_ROW_2K),
     time_1k_ski_seconds: get(BENCH_SKI_1K),
+    // The measured threshold of each ladder — the rungs that were stranded.
+    time_threshold_pace_s_per_km: get(BENCH_RUN_THRESHOLD),
+    time_threshold_row_s_per_500m: get(BENCH_ROW_THRESHOLD),
+    time_threshold_ski_s_per_500m: get(BENCH_SKI_THRESHOLD),
     lthr_bpm: get(BENCH_LTHR),
+    ftp_watts: get(BENCH_FTP),
   };
 }
 

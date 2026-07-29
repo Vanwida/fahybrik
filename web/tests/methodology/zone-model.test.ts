@@ -18,6 +18,8 @@ import {
   STANDARD_ZONES_PER_500M,
   STANDARD_ZONES_PER_KM,
   resolveTarget,
+  athleteBenchmarksFromSlugRows,
+  deriveModalityThresholds,
   type ResolvedZone,
 } from '@fahybrid/shared/domain/methodology';
 
@@ -143,5 +145,67 @@ describe('run pace zones (per_km) resolve off threshold', () => {
       STANDARD_ZONES_PER_KM.slice(),
     );
     expect(zones.map((z) => z.code)).toEqual(['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 29-jul-2026 — THE PACE LADDER'S TOP RUNG.
+//
+// `deriveModalityThresholds` always preferred a measured threshold over one backed
+// out of a time trial, but `athleteBenchmarksFromSlugRows` never handed the
+// measured one over, so the preference could not fire. Athlete 66 in production
+// held measured run (248 s/km) and row (114 s/500m) thresholds and would have got
+// zones off his 5K instead; athlete 67's derivation said 250 s/km while the
+// profile HE recorded said 270 — same athlete, two answers, 20 s/km apart.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('pace ladder — a measured threshold outranks a time trial', () => {
+  test('athlete 66: the mapper now carries his measured thresholds through', () => {
+    const b = athleteBenchmarksFromSlugRows([
+      { exercise_slug: 'run_5k', value: 1155 },
+      { exercise_slug: 'row_2k', value: 448 },
+      { exercise_slug: 'run_threshold_s_per_km', value: 248 },
+      { exercise_slug: 'row_threshold_s_per_500m', value: 114 },
+    ]);
+    expect(b.time_threshold_pace_s_per_km).toBe(248);
+    expect(b.time_threshold_row_s_per_500m).toBe(114);
+
+    const t = Object.fromEntries(deriveModalityThresholds(b).map((x) => [x.modality, x]));
+    expect(t.run!.threshold_s).toBe(248); // not 241 (5K/5 + 10 s offset)
+    expect(t.run!.estimated).toBe(false);
+    expect(t.row!.threshold_s).toBe(114); // not 112 (2K/4)
+    expect(t.row!.estimated).toBe(false);
+  });
+
+  test('without a measured threshold the time trial still answers, marked ESTIMATED', () => {
+    const b = athleteBenchmarksFromSlugRows([
+      { exercise_slug: 'run_5k', value: 1155 },
+      { exercise_slug: 'row_2k', value: 448 },
+      { exercise_slug: 'ski_1k', value: 264 },
+    ]);
+    const t = Object.fromEntries(deriveModalityThresholds(b).map((x) => [x.modality, x]));
+    expect(t.run!.threshold_s).toBe(1155 / 5 + 10);
+    expect(t.run!.estimated).toBe(true);
+    // These two were hardcoded `estimated: false`. A 2K is held ABOVE threshold, so
+    // calling its average split a measured threshold was a lie — the erg ladder's
+    // version of anchoring on a birthday and not saying so.
+    expect(t.row!.estimated).toBe(true);
+    expect(t.ski!.estimated).toBe(true);
+  });
+
+  test('athlete 67: the derivation now agrees with the profile he recorded', () => {
+    const b = athleteBenchmarksFromSlugRows([
+      { exercise_slug: 'run_5k', value: 1198 },
+      { exercise_slug: 'run_threshold_s_per_km', value: 270 },
+    ]);
+    const run = deriveModalityThresholds(b).find((x) => x.modality === 'run')!;
+    // athlete_zone_profiles stores threshold_s = 270 for athlete 67, run.
+    expect(run.threshold_s).toBe(270);
+    expect(run.estimated).toBe(false);
+  });
+
+  test('the HR anchor rides the same mapper, so the watch sees a measured threshold', () => {
+    expect(athleteBenchmarksFromSlugRows([{ exercise_slug: 'lthr_bpm', value: 168 }]).lthr_bpm).toBe(
+      168,
+    );
   });
 });

@@ -39,6 +39,11 @@ export const BENCH_RUN_HALF = 'run_half';
 export const BENCH_RUN_MARATHON = 'run_marathon';
 // The HYROX repeat unit — the race is 8 of these. Self-testable (#Marcas).
 export const BENCH_RUN_1K = 'run_1k';
+// 1 mile all-out. `AthleteBenchmarks.time_1mile_seconds` has always been READ by
+// the run-pace resolver (as a 5K-pace fallback) and iOS onboarding has always
+// asked for it — but no slug existed, so it could never be stored and the reader
+// was unreachable. The slug closes that loop.
+export const BENCH_RUN_1MILE = 'run_1mile';
 // Cooper: distance covered in a FIXED 12 minutes. The one benchmark whose value
 // is METERS, not seconds — higher is better, benchmarkLowerIsBetter already
 // handles it (only seconds improves downward).
@@ -64,12 +69,16 @@ export const BENCH_HYROX_PRO = 'hyrox_pro';
 export const BENCH_HYROX_HALF_SIM = 'hyrox_half_sim';
 
 // ── Threshold (test) pace per modality (unit: seconds) ───────────────────────
-// The trained Z4-lower-bound pace recorded as progression evidence EACH time a
-// zone test is logged (coach- or athlete-entered). DISTINCT from the time-trial
-// slugs above (run_5k…): a threshold test is not a 5 km — it's the umbral pace,
-// per the modality's unit (run → /km, row/ski/bike → /500m). Kept out of the
-// zone-derivation anchors (CANONICAL_ANCHOR_SLUG) so it never feeds zone math;
-// its only consumers are the progression engine + the coach test_logged signal.
+// The trained Z4-lower-bound pace recorded EACH time a zone test is logged (coach-
+// or athlete-entered). DISTINCT from the time-trial slugs above (run_5k…): a
+// threshold test is not a 5 km — it's the umbral pace, per the modality's unit
+// (run → /km, row/ski/bike → /500m).
+//
+// These ARE the top rung of the pace ladder: `deriveModalityThresholds` prefers a
+// measured threshold over one backed out of a time trial. (Until 29-jul-2026 the
+// benchmark→AthleteBenchmarks mapper dropped them, so the rung was unreachable and
+// this comment claimed the exclusion was deliberate — it was a bug, not a design.)
+// They also feed the progression engine + the coach test_logged signal.
 export const BENCH_RUN_THRESHOLD = 'run_threshold_s_per_km';
 export const BENCH_ROW_THRESHOLD = 'row_threshold_s_per_500m';
 export const BENCH_SKI_THRESHOLD = 'ski_threshold_s_per_500m';
@@ -87,6 +96,13 @@ export const BENCH_BIKE_THRESHOLD = 'bike_threshold_s_per_500m';
 // (see `benchmarkIsDirectional`): we show the new anchor and what it changed, and
 // we never call it better or worse.
 export const BENCH_LTHR = 'lthr_bpm';
+
+// ── Functional Threshold Power (unit: watts) ─────────────────────────────────
+// The cycling threshold. `bikePowerTarget` has always resolved bike zones from
+// `AthleteBenchmarks.ftp_watts` and iOS onboarding has always asked for it — but
+// no slug existed, so the value could never be stored and the resolver was dead
+// code for every athlete. Same defect as the run/erg/HR thresholds.
+export const BENCH_FTP = 'ftp_watts';
 
 // ── Heart-rate recovery (unit: bpm) ──────────────────────────────────────────
 // The bpm the HR drops in a fixed window after stopping a near-maximal effort —
@@ -125,6 +141,7 @@ export const BENCHMARK_UNIT_REPS = 'reps';
 export const BENCHMARK_UNIT_SECONDS = 'seconds';
 export const BENCHMARK_UNIT_BPM = 'bpm';
 export const BENCHMARK_UNIT_METERS = 'meters';
+export const BENCHMARK_UNIT_WATTS = 'watts';
 
 /** Direction of improvement for a benchmark, from its stored unit. Only a TIME
  *  benchmark (seconds) improves DOWNWARD (faster = better); every other unit
@@ -157,6 +174,7 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_RUN_HALF]: 'Media maratón',
   [BENCH_RUN_MARATHON]: 'Maratón',
   [BENCH_RUN_1K]: '1 km a tope',
+  [BENCH_RUN_1MILE]: '1 milla a tope',
   [BENCH_COOPER_12MIN]: 'Cooper 12 min',
   [BENCH_ROW_2K]: 'Remo 2000 m',
   [BENCH_SKI_1K]: 'SkiErg 1000 m',
@@ -172,6 +190,7 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_BIKE_THRESHOLD]: 'Umbral bici',
   [BENCH_HRR_60]: 'Recuperación FC 60s',
   [BENCH_LTHR]: 'Umbral de pulso',
+  [BENCH_FTP]: 'Umbral de potencia',
 };
 
 /** Human label for a benchmark slug; falls back to a humanized slug. */
@@ -192,12 +211,14 @@ export function benchmarkLabel(slug: string): string {
  *    unit: HRR higher is fitter, a threshold HR has no direction at all — ask
  *    `benchmarkIsDirectional`. Before this existed, bpm fell through to 'time'
  *    and a pulse of 156 rendered as "2:36" with "lower is better".
+ *  · 'power' (watts)      → "250 W" (FTP), HIGHER is better.
  */
-export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance' | 'rate';
+export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance' | 'rate' | 'power';
 export function benchmarkMetric(unit: string): BenchmarkMetric {
   if (unit === BENCHMARK_UNIT_KG) return 'load';
   if (unit === BENCHMARK_UNIT_REPS) return 'reps';
   if (unit === BENCHMARK_UNIT_METERS) return 'distance';
   if (unit === BENCHMARK_UNIT_BPM) return 'rate';
+  if (unit === BENCHMARK_UNIT_WATTS) return 'power';
   return 'time';
 }
