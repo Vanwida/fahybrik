@@ -77,7 +77,7 @@
   --grp-circuitos-funcionales-tint:     rgba(168, 184, 77, 0.14);
   --grp-tapering-activacion-tint:       rgba(194, 161, 140, 0.14);
 
-  /* ATR phase chips (reuse existing zone/semantic hues — no new palette) */
+  /* Phase chips — the label is the coach's own microcycle name (no fixed catalogue) */
   --atr-acc:        var(--z2);
   --atr-acc-tint:   rgba(77, 158, 235, 0.15);
   --atr-trans:      var(--z4);
@@ -854,8 +854,8 @@ input:focus-visible { border-radius: var(--r-m); }
           <button class="filter-chip" aria-pressed="false">AMRAP</button>
           <button class="filter-chip" aria-pressed="false">Continuo</button>
         </span>
-        <span class="chip-rail__facet" role="group" aria-label="Fase ATR">
-          <span class="micro-label">Fase ATR</span>
+        <span class="chip-rail__facet" role="group" aria-label="Fase">
+          <span class="micro-label">Fase</span>
           <button class="filter-chip filter-chip--active" aria-pressed="true">ACC</button>
           <button class="filter-chip" aria-pressed="false">TRANS</button>
           <button class="filter-chip" aria-pressed="false">REAL</button>
@@ -1091,7 +1091,7 @@ input:focus-visible { border-radius: var(--r-m); }
             <h2 class="editor-head__name">Acumulación Pro — Base aeróbica</h2>
             <div class="editor-head__chips">
               <span class="lvl-chip">Pro</span>
-              <span class="atr-badge atr-badge--acc">ACC · Acumulación</span>
+              <span class="phase-badge phase-badge--1">Acumulación</span>
             </div>
           </div>
         </div>

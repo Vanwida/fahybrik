@@ -3,7 +3,7 @@
 // server loader AND in client components. Single source of truth for:
 //   · methodology_group_id (1–10) → training MODALITY (the v2 color axis)
 //   · a day's WeekSlots → its dominant modality + session count (WeekStrip input)
-//   · phases (ATR defaults) → derived week count + a per-week load curve
+//   · phases (the coach's own microciclos) → derived week count
 //
 // MODEL NOTE: the plan-by-phase content (which sessions sit in which day of which
 // derived week) is NOT yet a persisted entity — only the coach's microcycle
@@ -241,7 +241,7 @@ export function weekSessionCount(days: DayModalityInfo[]): number {
 }
 
 // NOTE: there is deliberately NO per-week "load curve" here. Real per-week load
-// is not yet persisted, and a synthetic ATR-shaped ramp (entrada→carga→pico→
+// is not yet persisted, and a synthetic ramp (entrada→carga→pico→
 // descarga) would (a) paint invented numbers as if they were real and (b) bake a
 // single methodology's shape into an agnostic system. The week cards show the
 // HONEST signal instead — real session count + the modalities the week covers.

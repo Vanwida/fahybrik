@@ -3,7 +3,7 @@
  *
  * Dos capas:
  *   1) Funciones puras (sin DB): el heurístico determinista compone día/semana
- *      desde bloques ya cargados, respetando fase ATR + variedad de grupos +
+ *      desde bloques ya cargados, respetando el foco del coach + variedad de grupos +
  *      balance de carga; y el materializador de la respuesta LLM resuelve
  *      block_ids reales, descarta inventados y nunca repite el mismo bloque.
  *   2) Real DB (describeWithDb): el servicio completo `suggestWeekFromBlocks`

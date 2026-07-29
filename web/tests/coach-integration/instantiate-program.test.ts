@@ -43,7 +43,7 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
     cleanups.push(fx.cleanup);
 
     // AGNOSTIC: the materializer self-creates per-athlete microcycles (athlete_id +
-    // date overlap) — no pre-created ATR macrocycle/block needed.
+    // date overlap) — no macrocycle/block entity needed: none exists.
     const startIso = '2026-01-05'; // a Monday
 
     const tplId = await makeTemplate({ fx, name: 'Z2 circuit' });

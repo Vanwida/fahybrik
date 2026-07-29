@@ -1042,7 +1042,7 @@ export async function commitIntake(params: {
     throw new IntakeError('already_committed', 'intake already completed', 409);
   }
 
-  // AGNOSTIC: intake no longer auto-plans an ATR macrocycle. The coach's intended
+  // AGNOSTIC: intake no longer auto-plans a macrocycle. The coach's intended
   // periodization shape (block_specs) is recorded as snapshot DATA only; the actual
   // training weeks are materialized as microciclos (athlete_month_assignments) either
   // from an explicitly-chosen month template (below) or as a first-microciclo draft
@@ -1118,7 +1118,7 @@ export async function commitIntake(params: {
     // Default path (the form never sends month_template_id): materialize the
     // coach's FIRST month template as a first microciclo IN DRAFT, so Pablo lands
     // on a reviewable draft, NOT an empty calendar. AGNOSTIC — reuses the shared
-    // materializer; no ATR fabrication. Soft-fails: if the coach has no month
+    // materializer; no phase fabrication. Soft-fails: if the coach has no month
     // templates yet, no draft is created and Pablo programs the first microciclo
     // manually — intake must not 500 over a template gap.
     first_block_draft = await materializeFirstMicrocicloDraft({

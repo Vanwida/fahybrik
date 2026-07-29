@@ -54,7 +54,7 @@ Esto no depende de que me acuerde: el hook `SessionStart` (`.claude/hooks/sessio
 
 ## What this project is
 
-**FAHYBRID** — premium HYROX / hybrid training app. (La marca acaba en **D**: FAHYBRID. `FAHYBRIK` es solo el nombre heredado del repo, el proyecto Vercel y el de Neon — nunca se escribe en prosa, copy, docs ni artefactos.) Single coach (Pablo, Fabrik Training Club Barcelona) → his elite athletes. Two surfaces: iOS Swift native (athletes) + Next.js dashboard (Pablo). Templates created by Pablo + IA selects/adapts (NOT IA generating from scratch). Pablo's methodology = ATR block periodization, indexed via RAG + pgvector.
+**FAHYBRID** — premium HYROX / hybrid training app. (La marca acaba en **D**: FAHYBRID. `FAHYBRIK` es solo el nombre heredado del repo, el proyecto Vercel y el de Neon — nunca se escribe en prosa, copy, docs ni artefactos.) Single coach (Pablo, Fabrik Training Club Barcelona) → his elite athletes. Two surfaces: iOS Swift native (athletes) + Next.js dashboard (Pablo). Templates created by Pablo + IA selects/adapts (NOT IA generating from scratch). Each coach's own methodology is indexed via RAG + pgvector — el producto NO trae ninguna escuela de periodización cableada (ver HARD RULE Nº0 y docs/DECISIONS.md, migraciones 0064/0068/0148).
 
 ## Account scope — HARD RULE
 

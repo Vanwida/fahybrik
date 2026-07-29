@@ -8,7 +8,7 @@
 //
 // AGNOSTIC: the 9 archetypes are the sport's session vocabulary (HYROX / hybrid),
 // identical for every coach. They carry NO methodology — the phase/group is the
-// coach's OPTIONAL tag, applied separately. ATR appears only as an example label.
+// coach's OPTIONAL tag, applied separately.
 //
 // DRY: this file invents NO schema. Every seed resolves to fields already on
 // `Prescription`, produced by REUSING the editor-axes setters + the shared

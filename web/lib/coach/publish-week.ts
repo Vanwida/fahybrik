@@ -137,7 +137,7 @@ export interface PublishBlockResult {
 }
 
 /**
- * Publish an entire ATR block at once: upsert weekly_plans(status='published')
+ * Publish a whole run of microcycles at once: upsert weekly_plans(status='published')
  * for EACH week_start of the block, then fire a SINGLE `plan_published`
  * notification (anchored to the block's first week) so the athlete is told once,
  * not N times. This is the publish side of the create-in-draft → review →

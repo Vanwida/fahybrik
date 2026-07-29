@@ -1,6 +1,6 @@
 # FAHYBRIK Design System
 
-**FAHYBRIK** is a premium HYROX / hybrid-training platform — a single-coach, elite-athlete iOS app + Next.js coach dashboard. One coach (Pablo, Fabrik Training Club Barcelona) programs his elite athletes; templates are authored by Pablo and selected/adapted by IA via RAG over his ATR (Acumulación / Transformación / Realización) methodology.
+**FAHYBRIK** is a premium HYROX / hybrid-training platform — a single-coach, elite-athlete iOS app + Next.js coach dashboard. Multi-coach by design; Pablo (Fabrik Training Club Barcelona) is the pilot coach. Templates are authored by the coach and selected/adapted by IA via RAG over HIS OWN methodology — the product hardcodes no school of periodization.
 
 Two surfaces:
 
@@ -158,7 +158,7 @@ Radius scale: `6 · 10 · 14 · 20`. (s m l xl.) Workout cards use `l (14)`. The
 ### Layout rules
 
 - **Tab bar** (iOS, 5 tabs: Today / Plan / Stats / Chat / Profile) — fixed bottom, surface background, accent tint on selected.
-- **Above-the-fold rule:** the workout HERO card must be visible without scrolling. Countdown + ATR context above it; metrics scroll.
+- **Above-the-fold rule:** the workout HERO card must be visible without scrolling. Countdown + microcycle context above it; metrics scroll.
 - **Edge padding:** 24px horizontal on screens. 16px inside cards. 12px on dense rows.
 - **Card stack pattern:** rows separated by 1px `rgba(161,161,161,0.18)` hairlines, not gaps — keeps density Whoop-like.
 - **Active workout = chrome-free.** Hide the tab bar; everything is data.

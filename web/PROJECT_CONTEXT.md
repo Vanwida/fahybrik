@@ -8,8 +8,8 @@ Dashboard coach (Pablo, Fabrik Training Club Barcelona) para editar microciclos 
 - Auditoría UX exhaustiva sin ediciones: flujo microciclo → semanas → días → sesiones → bloques → asignar
 - Inventario detallado de interacciones por pantalla (ProgrammingMicrocyclesHub, NewMicrocycleWizard, MicrocycleHeader, ProgrammingWeekCanvas, BlockLibraryPicker, StudioDetailPanel, PabloIAComposeModal)
 - 15 fricciones concretas mapeadas con fichero:línea y severidad (3 ALTA: autosave nombre, 3 vías añadir, sin undo/redo; resto MEDIA/BAJA)
-- Nomenclatura dominio vs UI claridad identificada ("Bloque" ambiguo 3 significados, ATR jerga, Focus vs Fase confuso)
-- Lo que conservar: drag & drop fluido, autosave silent, badges ATR clara, pills semanas, panel contextual
+- Nomenclatura dominio vs UI claridad identificada ("Bloque" ambiguo 3 significados, jerga de fases, Focus vs Fase confuso)
+- Lo que conservar: drag & drop fluido, autosave silent, badges de fase claras, pills semanas, panel contextual
 - Informe enviado a team-lead via SendMessage
 
 ## ➡️ Siguiente acción

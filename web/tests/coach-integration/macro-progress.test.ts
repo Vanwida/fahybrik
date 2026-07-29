@@ -49,7 +49,7 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   async function seedMacroWithWeeks(): Promise<{ fx: Fixture; microId: number }> {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    // AGNOSTIC: a per-athlete microcycle covering ON_DATE (no ATR block).
+    // AGNOSTIC: a per-athlete microcycle covering ON_DATE (microcycles hang off the athlete).
     const { microcycleId: microId } = await makeMicrocycle({
       sql,
       athleteId: fx.athleteId,
@@ -128,7 +128,7 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     expect(p.total_assigned_weeks).toBe(0);
   });
 
-  test('buildAthleteMacroSummary is agnostic: microciclo name + "semana N de M", no ATR block', async () => {
+  test('buildAthleteMacroSummary is agnostic: microciclo name + "semana N de M", no phase label', async () => {
     const { fx } = await seedMacroWithWeeks();
     // The athlete label is now sourced from the materialization receipt
     // (athlete_month_assignments → program_month_templates.name), NOT periodization tables.
@@ -150,7 +150,7 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     `;
 
     const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
-    expect(s.block).toBeNull(); // no ATR block ever reaches the athlete
+    expect(s.block).toBeNull(); // no phase label ever reaches the athlete
     expect(s.current_week_start).toBe('2026-03-09'); // Monday of ON_DATE's week
     expect(s.current_week_end).toBe('2026-03-15');
     expect(s.week_label).toBe('Microciclo Base · semana 2 de 3');

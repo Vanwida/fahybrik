@@ -401,7 +401,7 @@ function SemanaVacia({
  *
  * AGNÓSTICO (§ del modelo): el nombre sale de `semana.enTramo.nombre`, que es
  * `program_month_templates.name` tal cual lo escribió el coach. Aquí no hay
- * catálogo de fases, ni «ATR», ni ningún nombre cableado — la migración 0064
+ * catálogo de fases ni ningún nombre cableado — la migración 0064
  * borró la entidad «fase» y con ella cualquier excusa para inventar una.
  */
 function dondeCae(semana: Semana, ciclo: Ciclo): string {

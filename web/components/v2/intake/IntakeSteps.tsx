@@ -3,7 +3,7 @@
 // v2 · INTAKE · STEPS — the left-column decision controls of the intake review.
 // Each step is presentational + controlled by the IntakeReview orchestrator, which
 // assembles them into the commit payload (POST /api/coach/intake/[id]). AGNOSTIC:
-// block names come from the coach's suggestions (never hardcoded ATR phases);
+// block names come from the coach's suggestions (never a hardcoded phase catalogue);
 // nothing here invents method.
 
 import { MIcon } from '@/components/ui/MIcon';

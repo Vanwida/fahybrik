@@ -9,7 +9,7 @@ import { defineRouting } from 'next-intl/routing';
  *
  * Sport vocabulary is brand-locked and IS NOT translated:
  *   HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, etc.
- *   "[F]AHYBRIK", "REAL · TRANS · ACC", and ATR segment labels.
+ *   "[F]AHYBRIK" and the coach's own microciclo labels.
  *
  * Locale detection: cookie `NEXT_LOCALE` (set by switcher in coach footer),
  * falling back to the default locale. We do NOT read Accept-Language —

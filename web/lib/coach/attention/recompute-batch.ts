@@ -4,7 +4,7 @@
 //   - hrv_baseline_days  (distinct HRV days in the 60d window — guards false crashes)
 //   - current_microciclo_name + current_microcycle_end_iso (the athlete's active
 //     microciclo = the athlete_month_assignments receipt, its name + window end —
-//     agnostic, no ATR block/macrocycle)
+//     agnostic, no block/macrocycle entity)
 //   - billing_* (replicates inbox.ts listInboxAlerts billing block in-CTE)
 
 import 'server-only';
@@ -149,7 +149,7 @@ export async function loadBatch(
     current_micro as (
       -- The athlete's active microciclo = the athlete_month_assignments receipt
       -- whose window contains today (most recent wins). Its label = the month
-      -- template name; its end = the assignment window end. Agnostic: no ATR
+      -- template name; its end = the assignment window end. Agnostic: no phase
       -- block, no macrocycle.
       select distinct on (ama.athlete_id)
         ama.athlete_id,

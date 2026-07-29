@@ -35,7 +35,7 @@ Tema: dark + Fabrik orange, tokens existentes de `web/app/globals.css` (surfaces
 
 1. **Intake nuevo** (crítico si >48h) — "María G. terminó el onboarding hace 36h" + chip A-event countdown. Acciones: `Revisar intake` (primaria) · `Ver ficha`.
 2. **Ajuste semanal propuesto** (Pablo IA) — resumen del coach_summary + mini-tabla diff `Día | Antes | Propuesto` (máx 3 filas, "+N cambios más"). Acciones: `Aprobar` (inline, sin salir) · `Ajustar` (abre calendario del atleta con drawer enfocado) · `Posponer`.
-3. **Propuesta de bloque mensual / transición ATR** — "Carlos R. termina Acumulación esta semana → propuesta: Transformación 4 sem". Acciones: `Aprobar` · `Revisar`.
+3. **Propuesta de bloque mensual / transición de microciclo** — "Carlos R. termina su microciclo esta semana → propuesta: el siguiente de su secuencia, 4 sem". Acciones: `Aprobar` · `Revisar`.
 4. **Alerta** — inactividad 2+ días, pago fallido, renovación en 7 días, readiness <45 sostenido. Acción: `Abrir atleta` (y `Enviar mensaje` cuando exista chat).
 5. **Mensaje de atleta** — preview del mensaje. Acción: `Responder`.
 
@@ -55,7 +55,7 @@ Anatomía de card: avatar + nombre atleta · chip de tipo (color semántico: err
 ## 2. ATLETAS — roster + ficha calendar-first
 
 ### 2a. Roster (`/atletas`) — SE CONSERVA el grid actual
-Cards con readiness + compliance + status pill + alerta: correcto, no se rediseña. Solo cambios: (1) la cola de intake y el banner de review desaparecen de aquí (viven en Hoy), (2) los filtros persisten en URL (no se resetean), (3) chip de fase ATR se mantiene.
+Cards con readiness + compliance + status pill + alerta: correcto, no se rediseña. Solo cambios: (1) la cola de intake y el banner de review desaparecen de aquí (viven en Hoy), (2) los filtros persisten en URL (no se resetean), (3) el chip con el NOMBRE del microciclo del coach se mantiene.
 
 ### 2b. Ficha de atleta (`/atletas/[id]`) — UNA página, el calendario es la columna vertebral
 
@@ -67,7 +67,7 @@ Cards con readiness + compliance + status pill + alerta: correcto, no se redise�
 - Control de zoom segmentado: `Semana | Mes | Macro` (mismo componente, misma data, distinta densidad).
 - **Semana:** 7 columnas, sesiones como cards con título + bloques resumidos + estado (completada ✓ verde / pendiente / saltada) + adherencia de la semana en la esquina.
 - **Mes:** grid mensual, sesiones como pills compactas, semanas con % cumplimiento al margen.
-- **Macro:** ribbon ATR (ACC 5 · TRANS 4 · REAL 3) con semana actual marcada, microciclos asignados como tramos, click en tramo = zoom a Mes.
+- **Macro:** ribbon de la secuencia del coach (sus microciclos, con sus nombres y duraciones) con semana actual marcada, microciclos asignados como tramos, click en tramo = zoom a Mes.
 - **Overlay de cumplimiento siempre visible** en los 3 niveles (lo planificado y lo hecho en la misma superficie — estándar TrainingPeaks).
 
 **Edición en sitio — REGLA DE ORO: cualquier ejercicio editable en ≤2 clicks, cero modales anidados.**
@@ -95,15 +95,15 @@ Click en sesión → **drawer derecho** (40% ancho desktop, full móvil) con la 
 **Dos tipos de objeto, nada más:** `Sesiones` y `Microciclos`. Toggle segmentado arriba. Muere la distinción Biblioteca/Entrenos/bloques-custom: todo entreno reutilizable es una **Sesión**.
 
 ### 3a. Sesiones (catálogo)
-- Grid de cards: título + tags (grupo metodológico 1-10, formato, fase ATR, nivel) + badge de origen: `Pablo` (las 97, prescripción original read-only) o `Propia`.
+- Grid de cards: título + tags (grupo metodológico 1-10, formato, nivel) + badge de origen: `Pablo` (las 97, prescripción original read-only) o `Propia`.
 - Search + filtros por tag (chips, mismos del catálogo actual de Entrenos). Los filtros son TAGS de un mismo sistema, no taxonomías paralelas.
 - Click card → drawer de sesión (MISMO componente que en el calendario del atleta, §2b). Las de Pablo: prescripción verbatim visible read-only + "Duplicar como propia" para editar.
-- `+ Nueva sesión`: un solo campo obligatorio (nombre, con sugerencia IA); formato/ATR/nivel como tags opcionales en el propio drawer. Sin modal-wizard de 6 campos.
+- `+ Nueva sesión`: un solo campo obligatorio (nombre, con sugerencia IA); formato/nivel como tags opcionales en el propio drawer. Sin modal-wizard de 6 campos.
 
 ### 3b. Microciclos
-- Grid de cards: nombre + nivel + fase ATR + 4 semanas + último editado (como ahora).
-- `+ Nuevo microciclo`: nombre (sugerencia IA) + nivel + fase ATR + objetivo — **una sola vez**. Las 4 semanas HEREDAN todo; override por semana posible pero colapsado tras "Ajustes de semana" (regla: herencia es lo normal, override la excepción, invisible por defecto). El campo nombre NO se repite por semana (auto: "Semana 1", "Semana 2 (deload)"...).
-- **Editor de microciclo:** board de 4 semanas en tabs (como ahora) + studio semanal de 7 columnas. Las sesiones del board se editan con el MISMO drawer de sesión. Drag-drop desde un rail lateral de biblioteca (sesiones filtradas por la fase ATR del microciclo, sugeridas primero).
+- Grid de cards: nombre + nivel + 4 semanas + último editado (como ahora).
+- `+ Nuevo microciclo`: nombre (sugerencia IA) + nivel + objetivo — **una sola vez**. Las 4 semanas HEREDAN todo; override por semana posible pero colapsado tras "Ajustes de semana" (regla: herencia es lo normal, override la excepción, invisible por defecto). El campo nombre NO se repite por semana (auto: "Semana 1", "Semana 2 (deload)"...).
+- **Editor de microciclo:** board de 4 semanas en tabs (como ahora) + studio semanal de 7 columnas. Las sesiones del board se editan con el MISMO drawer de sesión. Drag-drop desde un rail lateral de biblioteca (sesiones sugeridas por el foco que el coach escribe para el microciclo).
 - `Asignar a atleta` desde el header → flujo único §5.
 
 ---
@@ -125,7 +125,7 @@ Vive SIEMPRE inline dentro del drawer de sesión (expandir fila de ejercicio). E
 Un solo componente `AssignFlow`, invocable desde: ficha del atleta (CTA header / empty state) y editor de microciclo (botón Asignar). Siempre idéntico:
 
 1. **Selección:** atleta (preseleccionado si vienes de la ficha) + microciclo (preseleccionado si vienes del editor) + lunes de inicio (default próximo lunes; el picker solo permite lunes).
-2. **Preview SIEMPRE:** calendario real semana a semana (lo que ya hace publish-preview) + resumen "23 sesiones · 12 may – 8 jun · fase Acumulación".
+2. **Preview SIEMPRE:** calendario real semana a semana (lo que ya hace publish-preview) + resumen "23 sesiones · 12 may – 8 jun · microciclo «Acumulación»" (el nombre lo pone el coach).
 3. **Confirmación explícita:** botón `Publicar a [nombre]` + subtexto "El atleta lo verá inmediatamente en su móvil". Sin auto-publish.
 4. Éxito: toast "Publicado · 23 sesiones del 12 may al 8 jun" + link "Ver calendario".
 

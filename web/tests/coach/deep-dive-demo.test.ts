@@ -13,7 +13,7 @@ describe('coach/deep-dive-demo', () => {
     expect(dd.header.full_name).toBe('Marc Vidal');
     expect(dd.is_demo).toBe(true);
     // AGNOSTIC: current_block is a neutral microciclo name (the demo's final one),
-    // never an ATR label. Assert completeness, not a hardcoded phase.
+    // never a phase label. Assert completeness, not a hardcoded phase.
     expect(typeof dd.macrocycle?.current_block).toBe('string');
     expect(dd.macrocycle?.current_block?.length).toBeGreaterThan(0);
     expect(dd.modality.rows.length).toBe(5);
