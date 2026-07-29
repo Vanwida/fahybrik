@@ -207,8 +207,17 @@ struct PostWorkoutSummaryView: View {
                         } else {
                             manualHRCard
                         }
-                        if session.plan.segments.count > 1 {
-                            segmentsTable
+                        // La tabla se pinta cuando tiene MÁS DE UNA FILA que enseñar.
+                        // Antes preguntaba `segments.count > 1` — por bloques, no por
+                        // filas —, y por eso quien acababa una serie suelta (un
+                        // segmento, seis tramos dentro) no veía ninguno de los seis.
+                        if TablaDeTramos.hayQuePintarla(segmentos: session.plan.segments,
+                                                        laps: session.laps) {
+                            TablaDeTramos(
+                                grupos: session.plan.segmentGroups,
+                                laps: session.laps,
+                                ritmosManuales: $manualSegmentPaceSeconds
+                            )
                         }
                     }
                     if showScore {
@@ -966,102 +975,6 @@ struct PostWorkoutSummaryView: View {
     private func validHR(_ value: Int?) -> Int? {
         guard let v = value, v >= 30, v <= 260 else { return nil }
         return v
-    }
-
-    // MARK: - Per-segment table
-    //
-    // Grouped by coach block (Calentamiento / Principal / Vuelta a la calma …)
-    // rather than a flat mix, so the principal work reads as the focus and the
-    // warmup/cooldown drills (foam roll, breathing) sit under their own muted
-    // header instead of inflating one 11-row list.
-    private var segmentsTable: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                HStack {
-                    LabelText(text: "Por segmento", size: 9)
-                    Spacer()
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                ForEach(session.plan.segmentGroups) { group in
-                    Hairline()
-                    blockHeader(group)
-                    ForEach(Array(group.segments.enumerated()), id: \.element.id) { idx, seg in
-                        if idx > 0 { Hairline().opacity(0.4) }
-                        segmentRow(seg)
-                    }
-                }
-            }
-        }
-    }
-
-    // Block section header. The principal work is accented and the warmup/cooldown
-    // muted so the eye lands on the main effort.
-    private func blockHeader(_ group: WorkoutSegmentGroup) -> some View {
-        HStack(spacing: 6) {
-            Text(group.title.uppercased())
-                .font(.system(size: 10, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-                .foregroundStyle(group.phase.isMainWork ? Theme.Color.accentText : Theme.Color.muted)
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 9)
-        .padding(.bottom, 5)
-    }
-
-    private func segmentRow(_ seg: WorkoutSegment) -> some View {
-        let lap = session.laps.first(where: { $0.segmentId == seg.id })
-        let timeStr = lap.map { Formato.clock($0.durationSeconds) } ?? "—"
-        return VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 6) {
-                Text(seg.title)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                // El título de al lado escala con el texto del sistema; este tiempo
-                // tiene que escalar con él o a tamaño accesible la etiqueta acaba
-                // pesando más que el dato (contrato §4).
-                MonoText(text: timeStr, size: 11, weight: .semibold,
-                         color: Theme.Color.foreground, escala: true, relativeTo: .caption2)
-                    .frame(minWidth: 60, alignment: .trailing)
-                if let z = seg.targetZone {
-                    ZBadge(zone: z).frame(width: 38, alignment: .trailing)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            // Manual pace — only for a run/erg leg with no auto pace
-            // (no GPS / no PM5 split). The athlete enters the pace they
-            // read off the treadmill/erg so the segment still records a
-            // real intensity instead of an empty cell.
-            if needsManualPace(seg, lap: lap) {
-                TimeMinSecRow(label: paceLabel(seg), seconds: paceBinding(seg))
-            }
-        }
-    }
-
-    // True when this run/erg segment captured no automatic pace, so the athlete
-    // can enter it by hand. Strength/reps/sled segments have no pace and are
-    // never prompted; a leg with GPS/PM5 pace already shows its measured value.
-    private func needsManualPace(_ seg: WorkoutSegment, lap: LapRecord?) -> Bool {
-        guard seg.kind == .running || seg.kind == .rowOrSki else { return false }
-        return lap?.avgPaceSecPerKm == nil && lap?.avgPaceSecPer500m == nil
-    }
-
-    // Run pace is read /km; erg pace /500m (the erg-monitor convention).
-    private func paceLabel(_ seg: WorkoutSegment) -> String {
-        seg.kind == .rowOrSki ? "Ritmo /500m" : "Ritmo /km"
-    }
-
-    private func paceBinding(_ seg: WorkoutSegment) -> Binding<Int?> {
-        Binding(
-            get: { manualSegmentPaceSeconds[seg.id] },
-            set: { manualSegmentPaceSeconds[seg.id] = $0 }
-        )
     }
 
     // MARK: - Metcon/HYROX score
