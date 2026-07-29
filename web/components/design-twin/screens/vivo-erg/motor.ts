@@ -146,11 +146,13 @@ export function useMotorErg(guion: Guion, onLog: (linea: string) => void): Estad
    * midió, y es la misma que ya cuenta el total acumulado de la pieza. Sin
    * esto, cerrar la serie 2 dejaba una tabla diciendo «1 de 5» con dos hechas.
    */
-  const [hechas, setHechas] = useState<ResumenSerie[]>(() =>
-    Array.from({ length: Math.max(0, guion.serie - 1) }, (_, i) =>
-      resumenDeSerie(pres, i + 1, segundoDelCruce(pres), perfil ? pulsoEn(perfil, segundoDelCruce(pres)) : null),
-    ),
-  );
+  const [hechas, setHechas] = useState<ResumenSerie[]>(() => {
+    const cierre = segundoDelCruce(pres);
+    const pico = perfil ? pulsoEn(perfil, cierre) : null;
+    return Array.from({ length: Math.max(0, guion.serie - 1) }, (_, i) =>
+      resumenDeSerie(pres, i + 1, cierre, pico),
+    );
+  });
   const [ultimo, setUltimo] = useState<ResumenSerie | null>(null);
   /** Pulso con el que se entra en la serie: el que dejó el descanso anterior. */
   const [pulsoEnEspera, setPulsoEnEspera] = useState<number | null>(perfil?.base ?? null);

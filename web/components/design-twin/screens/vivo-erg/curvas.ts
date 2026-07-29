@@ -336,10 +336,7 @@ export function segundoDelCruce(pres: Prescripcion): number {
 
 /** Lo que mide una serie ya cerrada de esta prescripción, con su rebase real. */
 export function medidoDeSerieCompleta(pres: Prescripcion): number {
-  for (let s = 0; s <= MAX_S; s += 1) {
-    if (medidoEn(pres, s) >= pres.cantidad) return medidoEn(pres, s);
-  }
-  return pres.cantidad;
+  return medidoEn(pres, segundoDelCruce(pres));
 }
 
 /**
