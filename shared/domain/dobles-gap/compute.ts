@@ -38,6 +38,14 @@ import type {
   SoloPrediction,
 } from './types';
 
+/**
+ * The reparto assumed for a station the pair never configured: an even split.
+ * It mirrors the coach's editor default and the write boundary, and it is the
+ * only value here that is not read from the pair — hence `share_assumed`, which
+ * keeps any prediction built on it from claiming to be observed.
+ */
+const DEFAULT_STATION_SHARE = 0.5;
+
 /** Worst (least trustworthy) tier of a set — sin_datos dominates estimado
  *  dominates observado. Empty set → observado (never happens for a real segment). */
 const TIER_RANK: Record<PredictionTier, number> = { observado: 0, estimado: 1, sin_datos: 2 };
@@ -45,20 +53,28 @@ function worstTier(tiers: PredictionTier[]): PredictionTier {
   return tiers.reduce<PredictionTier>((w, t) => (TIER_RANK[t] > TIER_RANK[w] ? t : w), 'observado');
 }
 
-/** The reader-centric carrier + share for one segment. */
+/** The reader-centric carrier + share for one segment.
+ *
+ *  `share_assumed` marks a station the pair never configured. The 50/50 itself
+ *  stays — it is the system's declared default reparto, the same one the coach's
+ *  editor shows and can drag. What it must NOT do is travel silently: the
+ *  prediction built on it used to come back `observado`, the highest-confidence
+ *  tier, because the tier only ever looked at the two SOLO predictions. Two
+ *  well-measured athletes and a completely unknown reparto is not an observed
+ *  number. See `rawPairPrediction`. */
 function segmentCarrier(
   input: DoblesGapInput,
   segIndex: number,
-): { carrier: DoblesSegmentCarrier; self_share: number | null } {
+): { carrier: DoblesSegmentCarrier; self_share: number | null; share_assumed: boolean } {
   const seg = input.segments[segIndex]!;
-  if (seg.kind === 'run' || seg.kind === 'roxzone') return { carrier: 'together', self_share: null };
-  // Station: the reparto, defaulting a station absent from the pair's simulation
-  // to an even 50/50 split (documented — mirrors the coach's own default).
+  if (seg.kind === 'run' || seg.kind === 'roxzone') {
+    return { carrier: 'together', self_share: null, share_assumed: false };
+  }
   const sc = seg.station_index != null ? input.carriers.get(seg.station_index) : undefined;
-  if (!sc) return { carrier: 'split', self_share: 0.5 };
-  if (sc.carrier === 'self') return { carrier: 'self', self_share: 1 };
-  if (sc.carrier === 'partner') return { carrier: 'partner', self_share: 0 };
-  return { carrier: 'split', self_share: sc.self_share };
+  if (!sc) return { carrier: 'split', self_share: DEFAULT_STATION_SHARE, share_assumed: true };
+  if (sc.carrier === 'self') return { carrier: 'self', self_share: 1, share_assumed: false };
+  if (sc.carrier === 'partner') return { carrier: 'partner', self_share: 0, share_assumed: false };
+  return { carrier: 'split', self_share: sc.self_share, share_assumed: false };
 }
 
 /**
@@ -90,10 +106,16 @@ function rawPairPrediction(
   share: number | null,
   self: SoloPrediction,
   partner: SoloPrediction,
+  shareAssumed: boolean,
 ): { value: number | null; tier: PredictionTier } {
   const required: SoloPrediction[] =
     carrier === 'self' ? [self] : carrier === 'partner' ? [partner] : [self, partner];
-  const tier = worstTier(required.map((s) => s.tier));
+  const soloTier = worstTier(required.map((s) => s.tier));
+  // An assumed reparto caps the claim at `estimado`, however well-measured the
+  // two athletes are: half of a split station's seconds come from WHO does what,
+  // and on this station nobody said.
+  const tier: PredictionTier =
+    shareAssumed && soloTier === 'observado' ? 'estimado' : soloTier;
   if (tier === 'sin_datos') return { value: null, tier };
 
   // Every required side is observado/estimado ⇒ its predicted_s is non-null.
@@ -103,7 +125,7 @@ function rawPairPrediction(
   if (carrier === 'together') value = Math.max(s, p);
   else if (carrier === 'self') value = s;
   else if (carrier === 'partner') value = p;
-  else value = splitStationPrediction(share ?? 0.5, s, p);
+  else value = splitStationPrediction(share ?? DEFAULT_STATION_SHARE, s, p);
   return { value, tier };
 }
 
@@ -152,7 +174,13 @@ export function computeDoblesGap(input: DoblesGapInput): DoblesGapResult {
   for (let i = 0; i < segments.length; i++) {
     const self = self_solos[i] ?? { predicted_s: null, tier: 'sin_datos' as const };
     const partner = partner_solos[i] ?? { predicted_s: null, tier: 'sin_datos' as const };
-    const { value, tier } = rawPairPrediction(carriers[i]!.carrier, carriers[i]!.self_share, self, partner);
+    const { value, tier } = rawPairPrediction(
+      carriers[i]!.carrier,
+      carriers[i]!.self_share,
+      self,
+      partner,
+      carriers[i]!.share_assumed,
+    );
     tiers.push(tier);
     rawPredicted.push(value);
     selfSolo.push(self.predicted_s);

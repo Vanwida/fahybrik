@@ -45,6 +45,12 @@ function observedSolos(run: number, station: number, rox: number): SoloPredictio
   ];
 }
 
+/** Every station's reparto declared by the pair — the only way a split station
+ *  can be `observado`, since half its seconds come from WHO does what. */
+function declaredCarriers(self_share = 0.5): Map<number, StationCarrier> {
+  return new Map(STATION_INDICES.map((i) => [i, { carrier: 'split' as const, self_share }]));
+}
+
 function baseInput(over: Partial<DoblesGapInput> = {}): DoblesGapInput {
   const segments = makeSegments();
   return {
@@ -192,9 +198,45 @@ describe('computeDoblesGap — normalization, goal, and availability', () => {
     expect(res.predicted_total_s).toBe(sum);
   });
 
-  it('availability ok when every segment is observado', () => {
-    const res = computeDoblesGap(baseInput());
+  it('availability ok when every segment is observado AND the reparto is declared', () => {
+    const res = computeDoblesGap(baseInput({ carriers: declaredCarriers() }));
     expect(res.availability).toBe('ok');
+  });
+
+  // Este fixture antes pasaba con `carriers` VACÍO: dos atletas bien medidos y
+  // CERO información de reparto daban «observado» en las ocho estaciones. La
+  // mitad de los segundos de una estación compartida salen de quién hace qué.
+  it('sin reparto declarado, una estación NO puede ser observado', () => {
+    const res = computeDoblesGap(baseInput({ carriers: new Map() }));
+    expect(res.availability).toBe('partial');
+    for (const i of STATION_INDICES) {
+      expect(bySlug(res, `st-${i}`).tier).toBe('estimado');
+    }
+    // Correr y roxzone los hacen juntos: ahí no hay reparto que suponer.
+    expect(bySlug(res, 'run').tier).toBe('observado');
+    expect(bySlug(res, 'roxzone').tier).toBe('observado');
+  });
+
+  it('el número de la estación no cambia — lo que cambia es la confianza', () => {
+    const assumed = computeDoblesGap(baseInput({ carriers: new Map() }));
+    const declared = computeDoblesGap(baseInput({ carriers: declaredCarriers(0.5) }));
+    for (const i of STATION_INDICES) {
+      expect(bySlug(assumed, `st-${i}`).pair_predicted_s).toBe(
+        bySlug(declared, `st-${i}`).pair_predicted_s,
+      );
+    }
+  });
+
+  it('un reparto declarado NO mejora un solo que ya era estimado', () => {
+    const weak = [
+      solo(200, 'estimado'),
+      ...STATION_INDICES.map(() => solo(60, 'estimado')),
+      solo(40, 'estimado'),
+    ];
+    const res = computeDoblesGap(
+      baseInput({ self_solos: weak, carriers: declaredCarriers() }),
+    );
+    expect(bySlug(res, `st-${STATION_INDICES[0]}`).tier).toBe('estimado');
   });
 
   it('availability partial when some segment is estimado', () => {
