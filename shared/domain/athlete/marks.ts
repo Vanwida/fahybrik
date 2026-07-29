@@ -32,6 +32,33 @@ import {
   benchmarkLabel,
 } from '../coach/benchmark-slugs';
 
+/** Quién produjo una marca (`athlete_benchmarks.source`, migración 0139). */
+export type MarkSource = 'coach_test' | 'athlete_test' | 'registered' | 'onboarding' | 'unknown';
+
+/**
+ * Las marcas que el atleta puede BORRAR de su propia biblioteca.
+ *
+ * Lo que declaró al entrar es SUYO y tiene que poder quitarlo — sin eso, un
+ * número tecleado con prisa el primer día se queda para siempre mandando en su
+ * mejor marca. Lo que se probó él y lo que registró de una carrera son igual de
+ * suyos.
+ *
+ * `coach_test` NO: es el registro del coach, recalibra el plan, y borrarlo desde
+ * el móvil dejaría al coach sin la evidencia con la que programó. `unknown`
+ * tampoco: procedencia no fiable (semillas, histórico), y no se borra a ciegas lo
+ * que no se sabe de quién es.
+ */
+const ATHLETE_DELETABLE_SOURCES: ReadonlySet<string> = new Set<MarkSource>([
+  'onboarding',
+  'athlete_test',
+  'registered',
+]);
+
+/** True cuando esta marca la produjo el atleta y por tanto puede retirarla. */
+export function markIsDeletableByAthlete(source: string): boolean {
+  return ATHLETE_DELETABLE_SOURCES.has(source);
+}
+
 /** How the number is produced. Decides which UI opens on "Probarme". */
 export type MarkMeasuredBy = 'run' | 'erg' | 'registered';
 

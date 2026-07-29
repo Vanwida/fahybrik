@@ -23,6 +23,7 @@ import {
   MARKS,
   isPersonalBest,
   markBySlug,
+  markIsDeletableByAthlete,
   registrableMarks,
   validateMarkValue,
   type MarkSpec,
@@ -32,6 +33,8 @@ import {
 // ── The library read ─────────────────────────────────────────────────────────────
 
 export interface MarkResultView {
+  /** La fila de `athlete_benchmarks`. La app la necesita para poder retirarla. */
+  id: string;
   value: number;
   /** ISO instant. */
   recorded_at: string;
@@ -76,6 +79,7 @@ export async function loadMarksOverview(
   const [rows, twins, boxViews] = await Promise.all([
     client<
       {
+        id: string;
         exercise_slug: string;
         value: number;
         recorded_at: Date;
@@ -84,7 +88,7 @@ export async function loadMarksOverview(
         event_name: string | null;
       }[]
     >`
-      select exercise_slug, value::float8 as value, recorded_at, source, run_context, event_name
+      select id::text as id, exercise_slug, value::float8 as value, recorded_at, source, run_context, event_name
       from athlete_benchmarks
       where athlete_id = ${athlete_id as unknown as number}
         and exercise_slug = any(${slugs}::text[])
@@ -100,6 +104,7 @@ export async function loadMarksOverview(
     const list = bySlug.get(r.exercise_slug) ?? [];
     if (list.length < HISTORY_CAP) {
       list.push({
+        id: r.id,
         value: r.value,
         recorded_at: r.recorded_at.toISOString(),
         source: r.source,
@@ -385,6 +390,50 @@ export async function loadRegisterCandidates(
       duration_s: r.duration_s!,
       source: r.source,
     }));
+}
+
+// ── Retirar una marca ────────────────────────────────────────────────────────
+
+/** Por qué no se pudo borrar. `not_found` cubre también la marca de otro atleta:
+ *  el endpoint nunca revela si el id existe. */
+export type MarkDeleteError = 'not_found' | 'not_yours_to_delete';
+
+/**
+ * El atleta retira una marca de su biblioteca.
+ *
+ * Existe por lo declarado en el onboarding: ese número es SUYO y tiene que poder
+ * quitarlo. Pero la regla es más amplia que el onboarding — todo lo que produjo
+ * él (se probó, registró una carrera, lo declaró al entrar) lo puede retirar; el
+ * test del coach no, que es el registro con el que el coach programa.
+ *
+ * La propiedad se comprueba en el WHERE (athlete_id de la sesión), así que una id
+ * ajena no borra nada y sale por `not_found` sin filtrar su existencia. El borrado
+ * es de UNA fila del historial: retirar el 10K declarado no toca el 10K que
+ * corrió en marzo, y el mejor se recalcula solo en la siguiente lectura.
+ */
+export async function deleteAthleteMark(
+  params: { athlete_id: bigint | number; id: bigint },
+  client: Sql = defaultSql,
+): Promise<{ ok: true } | { ok: false; error: MarkDeleteError }> {
+  const rows = await client<{ source: string }[]>`
+    select source
+    from athlete_benchmarks
+    where id = ${params.id as unknown as number}
+      and athlete_id = ${Number(params.athlete_id)}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return { ok: false, error: 'not_found' };
+  if (!markIsDeletableByAthlete(row.source)) {
+    return { ok: false, error: 'not_yours_to_delete' };
+  }
+
+  await client`
+    delete from athlete_benchmarks
+    where id = ${params.id as unknown as number}
+      and athlete_id = ${Number(params.athlete_id)}
+  `;
+  return { ok: true };
 }
 
 /** Re-export for the routes so they never import the shared module twice. */
