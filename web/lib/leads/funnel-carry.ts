@@ -185,7 +185,11 @@ export interface FunnelTargetRace {
   format: 'singles' | 'doubles' | 'relay';
   division: 'open' | 'pro';
   gender_category: 'men' | 'women' | 'mixed';
-  race_date: string; // ISO yyyy-mm-dd
+  /**
+   * ISO yyyy-mm-dd, or NULL when the athlete did not say WHEN. The column is
+   * nullable and the coach pins the exact date once the athlete registers.
+   */
+  race_date: string | null;
 }
 
 const RACE_NAME_BY_CODE: Record<string, string> = {
@@ -196,7 +200,9 @@ const RACE_NAME_BY_CODE: Record<string, string> = {
 };
 
 // carrera_cuando → an approximate ISO race_date (the column is date; the coach
-// pins the exact one later once the athlete registers). Midpoint-ish of the range.
+// pins the exact one later once the athlete registers). Midpoint-ish of the
+// range the ATHLETE picked — an approximation of his own answer, not a guess in
+// place of one. An unrecognised or absent answer maps to nothing.
 const RACE_DAYS_BY_CODE: Record<string, number> = {
   menos_3m: 45,
   de_3_6m: 135,
@@ -232,7 +238,16 @@ export function mapTargetRace(
   const sexo = s('sexo');
   const gender_category: FunnelTargetRace['gender_category'] =
     format === 'doubles' ? 'mixed' : sexo === 'hombre' ? 'men' : sexo === 'mujer' ? 'women' : 'mixed';
-  const days = RACE_DAYS_BY_CODE[s('carrera_cuando')] ?? 135;
+  // No `?? 135`: an athlete who never answered WHEN was handed a race dated 4.5
+  // months out, and that date is not cosmetic — it lands in `races` as his
+  // TARGET, which drives every countdown, the taper and the readiness gates, and
+  // can quietly become the "real" date nobody revisits. With no answer the race
+  // is stored undated and the coach pins it. Same shape as the two `return null`
+  // above: this function already refuses to invent the venue.
+  const code = s('carrera_cuando');
+  const days = Object.prototype.hasOwnProperty.call(RACE_DAYS_BY_CODE, code)
+    ? RACE_DAYS_BY_CODE[code]
+    : null;
 
   return {
     name,
@@ -240,7 +255,7 @@ export function mapTargetRace(
     format,
     division,
     gender_category,
-    race_date: isoDatePlusDays(days, now),
+    race_date: days != null ? isoDatePlusDays(days, now) : null,
   };
 }
 

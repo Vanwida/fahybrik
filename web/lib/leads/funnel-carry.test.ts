@@ -117,7 +117,37 @@ describe('mapTargetRace', () => {
     expect(r.division).toBe('open');
     expect(r.gender_category).toBe('men');
     expect(r.race_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(new Date(r.race_date).getTime()).toBeGreaterThan(NOW.getTime());
+    expect(new Date(r.race_date!).getTime()).toBeGreaterThan(NOW.getTime());
+  });
+
+  // La fecha objetivo mueve cuenta atrás, taper y readiness. Si el atleta no
+  // dijo cuándo, no se le inventa una a 4,5 meses: la carrera se guarda sin
+  // fecha (la columna es nullable) y el coach la fija.
+  it('sin respuesta de CUÁNDO, la carrera va sin fecha — no a 135 días', () => {
+    const sinFecha = mapTargetRace(
+      { carrera_mente: 'si_se_cual', carrera_cual: 'hyrox_barcelona' },
+      NOW,
+    )!;
+    expect(sinFecha.name).toBe('HYROX Barcelona');
+    expect(sinFecha.race_date).toBeNull();
+  });
+
+  it('un código de CUÁNDO desconocido tampoco inventa fecha', () => {
+    const raro = mapTargetRace(
+      { carrera_mente: 'si_se_cual', carrera_cual: 'hyrox_barcelona', carrera_cuando: 'algun_dia' },
+      NOW,
+    )!;
+    expect(raro.race_date).toBeNull();
+  });
+
+  it('los tres códigos que SÍ existen siguen dando su fecha', () => {
+    for (const code of ['menos_3m', 'de_3_6m', 'mas_6m']) {
+      const r = mapTargetRace(
+        { carrera_mente: 'si_se_cual', carrera_cual: 'hyrox_barcelona', carrera_cuando: code },
+        NOW,
+      )!;
+      expect(r.race_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
   it('doubles pro category → doubles/pro/mixed; deka → deka event', () => {
