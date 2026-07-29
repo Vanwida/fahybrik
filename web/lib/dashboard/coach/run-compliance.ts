@@ -148,10 +148,18 @@ function segmentBand(seg: Segment, item: AssignmentDetailItem): ComplianceBand |
 // Prescribed WORK segments of an item, structure-first (native `structure`, else
 // `legacyToStructure`). Empty when the item isn't a run steady/intervals form.
 function workSegmentsOf(p: Prescription | null): Segment[] {
+  return allSegmentsOf(p).filter((seg) => seg.kind === 'work');
+}
+
+// La lista PLANA de tramos prescritos — repeticiones desplegadas, fases en orden,
+// RECUPERACIONES INCLUIDAS. Es el espacio de índices que `leg_index` referencia
+// (mig 0146): el mismo que produce `RunStructure.expandedLegs()` en el iOS. Por eso
+// se puede indexar directamente en vez de zipear.
+function allSegmentsOf(p: Prescription | null): Segment[] {
   if (!p) return [];
   const structure = p.structure && p.structure.length > 0 ? p.structure : legacyToStructure(p);
   if (!structure) return [];
-  return flattenSegments(structure).filter((seg) => seg.kind === 'work');
+  return flattenSegments(structure);
 }
 
 // A tramo is part of RUN compliance when the prescription is a run (intent), or —
@@ -199,6 +207,48 @@ export function buildRunCompliance(
         continue;
       }
 
+      // ── Camino NATIVO (mig 0146): cada lap sabe QUÉ tramo es ────────────────
+      //
+      // Cuando los laps traen `leg_index`, no hay nada que adivinar: el índice
+      // apunta a la lista plana de tramos prescritos, así que se busca el tramo
+      // por índice y punto. Esto sustituye al zip posicional que había antes
+      // (`work.length === itemActuals.length`), que era frágil por construcción:
+      // en cuanto el número de laps dejaba de coincidir con el número de series
+      // —y deja de coincidir SIEMPRE desde que se graban las recuperaciones— la
+      // guarda caía en silencio al camino de abajo y juzgaba CADA lap, trotes
+      // incluidos, contra la banda de las series. Media sesión salía «muy lento»
+      // y el % de cumplimiento se hundía sin que nadie hubiera fallado nada.
+      //
+      // Las RECUPERACIONES no se juzgan. El cumplimiento responde «¿pegaste las
+      // series?»; un trote de vuelta no tiene banda de trabajo contra la que
+      // medirse, y meterlo en el resumen solo diluiría la respuesta. Que el
+      // atleta respete o no la recuperación es otra pregunta, y hoy no se hace.
+      //
+      // Se exige que los laps traigan TODOS su `leg_index`, no que lo traiga
+      // alguno: un bloque estructurado los graba todos o ninguno, así que una
+      // mezcla solo puede venir de un re-sync a medias entre dos versiones del
+      // cliente. Con «alguno» los laps sin índice se caerían del veredicto en
+      // silencio, y un tramo que desaparece es peor que un tramo mal juzgado.
+      const legActuals = itemActuals.filter((a) => a.leg_index != null);
+      if (legActuals.length > 0 && legActuals.length === itemActuals.length) {
+        const all = allSegmentsOf(item.prescription_json);
+        for (const a of legActuals) {
+          const seg = all[a.leg_index!];
+          // Un tramo marcado como recuperación —por la fila o por la prescripción
+          // que hay en ese índice— queda fuera del veredicto.
+          if (a.leg_role === 'recovery' || seg?.kind === 'recovery') continue;
+          // Sin tramo prescrito en ese índice no hay banda: 'sin_dato' honesto,
+          // nunca la banda del bloque aplicada a ciegas.
+          push(
+            item.uid,
+            a.position,
+            evaluateRunSegment(seg ? segmentBand(seg, item) : null, sampleFromActual(a)),
+          );
+        }
+        continue;
+      }
+
+      // ── Camino HEREDADO: laps sin `leg_index` ───────────────────────────────
       // Native multi-rep block executed as several laps → align work segments to
       // laps in order. Reduces to the single-tramo path when there is one lap.
       const work = itemActuals.length > 1 ? workSegmentsOf(item.prescription_json) : [];

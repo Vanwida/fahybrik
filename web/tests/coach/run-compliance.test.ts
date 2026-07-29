@@ -85,6 +85,10 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     erg_splits: null,
     source: null,
     zone_seconds: null,
+    leg_index: null,
+    leg_role: null,
+    leg_phase: null,
+    is_structural: false,
     ...over,
   };
 }
