@@ -1134,7 +1134,7 @@ export async function appendNote(params: {
 // coverage.ts). Same law that took the barra y el veredicto off a station
 // comparison with no range: número sí, sentencia no.
 function buildCarga(input: {
-  ctl: number; atl: number; tsb: number; acr: number; z34_pct_7d: number | null;
+  ctl: number; atl: number; tsb: number; acr: number | null; z34_pct_7d: number | null;
   coverage: LoadCoverage;
 }): KpiCarga {
   const verdict = input.coverage.allows_verdict;
@@ -1142,7 +1142,10 @@ function buildCarga(input: {
     ctl: round1(input.ctl), ctl_trend: 'flat',
     atl: round1(input.atl), atl_trend: 'flat',
     tsb: round1(input.tsb), tsb_label: verdict ? tsbLabel(input.tsb) : null,
-    acr: round2(input.acr), acr_label: verdict ? acrLabel(input.acr) : null,
+    // A null ACR carries neither number nor label: with an empty chronic window
+    // there is no ratio to round and no verdict to pronounce.
+    acr: input.acr != null ? round2(input.acr) : null,
+    acr_label: verdict && input.acr != null ? acrLabel(input.acr) : null,
     z34_pct_7d: input.z34_pct_7d,
     polarization_pct: null,
     polarization_warn: false,

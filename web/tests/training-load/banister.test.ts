@@ -146,8 +146,29 @@ describe('computeAcr', () => {
     expect(last_28d_tss).toBe(60 * 28);
   });
 
-  test('returns zeros for empty input', () => {
-    expect(computeAcr([])).toEqual({ acr: 0, last_7d_tss: 0, last_28d_tss: 0 });
+  // The domain rule: 0/0 is "no se sabe", not "bajo". These two cases produce the
+  // same acute week (zero TSS) and MUST NOT produce the same ACR — one is an
+  // athlete nobody has measured, the other is an athlete who stopped training.
+  test('ACR is NULL for empty input — 0/0 is undefined, not zero', () => {
+    expect(computeAcr([])).toEqual({ acr: null, last_7d_tss: 0, last_28d_tss: 0 });
+  });
+
+  test('ACR is NULL when the chronic window carries no load at all', () => {
+    const daily = Array.from({ length: 28 }, (_, i) => ({
+      date: addDays('2026-01-01', i),
+      tss: 0,
+    }));
+    expect(computeAcr(daily).acr).toBeNull();
+  });
+
+  test('ACR is a real 0 when the chronic window has load and the acute week does not', () => {
+    // Trained for 21 days, then stopped for 7. That IS a measured detraining
+    // reading and it keeps its number — and its "bajo" verdict downstream.
+    const daily = [
+      ...Array.from({ length: 21 }, (_, i) => ({ date: addDays('2026-01-01', i), tss: 60 })),
+      ...Array.from({ length: 7 }, (_, i) => ({ date: addDays('2026-01-22', i), tss: 0 })),
+    ];
+    expect(computeAcr(daily).acr).toBe(0);
   });
 });
 

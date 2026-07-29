@@ -316,7 +316,7 @@ async function rollupAthlete(
     compliance_pct,
     hrv_delta_ms,
     hrv_trend,
-    acr: round2(load.acr),
+    acr: load.acr != null ? round2(load.acr) : null,
     tsb: round1(load.tsb),
     ctl: round1(load.ctl),
     atl: round1(load.atl),

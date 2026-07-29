@@ -66,7 +66,12 @@ export type LoadSummary = {
   ctl: number;          // fitness — 42d EWMA
   atl: number;          // fatigue — 7d EWMA
   tsb: number;          // freshness — CTL - ATL
-  acr: number;          // acute:chronic ratio over last 7d / last 28d
+  /**
+   * Acute:chronic ratio over last 7d / last 28d. NULL when the chronic window
+   * carries no load at all: that ratio is 0/0 — undefined, not zero. A measured
+   * 0 (trained for 28 d, then stopped for 7) is a real reading and stays 0.
+   */
+  acr: number | null;
   last_7d_tss: number;
   last_28d_tss: number;
   /** Executed seconds in the chronic (28 d) window that ARE priced into the numbers above. */
@@ -105,13 +110,19 @@ export function executedSeconds28d(summary: LoadSummary): number {
 
 // ACR per Gabbett et al. — last-7d sum divided by mean of last-28d daily load.
 // `daily` is ascending; we read from the tail.
+//
+// The ratio is NULL when the chronic window is empty, and that distinction is the
+// whole point: 0/0 is undefined, and an ACR reported as 0 gets labelled "bajo" —
+// a training verdict pronounced over an athlete nobody has measured. A chronic
+// window WITH load and an empty acute week is a different sentence entirely (he
+// trained, then stopped), it returns a real 0, and it earns its "bajo".
 export function computeAcr(daily: ReadonlyArray<DailyTss>): {
-  acr: number;
+  acr: number | null;
   last_7d_tss: number;
   last_28d_tss: number;
 } {
   if (daily.length === 0) {
-    return { acr: 0, last_7d_tss: 0, last_28d_tss: 0 };
+    return { acr: null, last_7d_tss: 0, last_28d_tss: 0 };
   }
   const tail7 = daily.slice(-7);
   const tail28 = daily.slice(-28);
@@ -120,7 +131,7 @@ export function computeAcr(daily: ReadonlyArray<DailyTss>): {
   const mean28 = tail28.length > 0 ? sum28 / tail28.length : 0;
   // weekly equivalent of the chronic mean
   const chronic_weekly = mean28 * 7;
-  const acr = chronic_weekly > 0 ? sum7 / chronic_weekly : 0;
+  const acr = chronic_weekly > 0 ? sum7 / chronic_weekly : null;
   return { acr, last_7d_tss: sum7, last_28d_tss: sum28 };
 }
 
