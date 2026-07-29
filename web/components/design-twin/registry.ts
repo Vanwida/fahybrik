@@ -16,6 +16,10 @@ import * as devices from './screens/devices';
 import * as watchLive from './screens/watch-live';
 import * as marks from './screens/marks';
 import * as rankingBox from './screens/ranking-box';
+import * as perfilRendimiento from './screens/perfil-rendimiento';
+import * as testsCalibracion from './screens/tests-calibracion';
+import * as chatCoach from './screens/chat-coach';
+import * as analiticasVeredicto from './screens/analiticas-veredicto';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -24,6 +28,10 @@ export const SCREENS: TwinScreenModule[] = [
   watchLive,
   marks,
   rankingBox,
+  perfilRendimiento,
+  testsCalibracion,
+  chatCoach,
+  analiticasVeredicto,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -45,7 +53,6 @@ export const PENDIENTES: TwinPendiente[] = [
   { titulo: 'HUD de fuerza y metcon', zona: 'Entreno en vivo', descripcion: 'Series, cargas y descansos en vivo (EMOM/AMRAP).' },
   { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'Montar un libre: modalidad, medida, objetivo.' },
   { titulo: 'Tests guiados', zona: 'Marcas y tests', descripcion: 'La batería de calibración con instrucciones paso a paso.' },
-  { titulo: 'Chat con el coach', zona: 'Perfil y ajustes', descripcion: 'Hilo, adjuntos y previsualización.' },
   { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'Alta del atleta: datos, dispositivos, permisos.' },
   { titulo: 'Dobles en vivo', zona: 'Entreno en vivo', descripcion: 'El relevo con Ana/Marcos: turnos y colores de pareja.' },
 ];
