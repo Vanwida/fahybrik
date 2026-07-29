@@ -423,9 +423,7 @@ enum AppleWorkoutMapper {
         // Only governable on a treadmill; outdoors it is an indication. Either way
         // WorkoutKit has no incline target, so it travels as text.
         if let incline = leg.inclinePct, incline > 0 {
-            parts.append(incline == incline.rounded()
-                ? "\(Int(incline))%"
-                : String(format: "%.1f%%", incline))
+            parts.append("\(Formato.esDecimal(incline))%")
         }
 
         parts.append(contentsOf: extraNotes)

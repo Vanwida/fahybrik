@@ -378,7 +378,7 @@ final class TreadmillHUDModel {
     /// what we asked for, not what the belt is doing; the screen must never show it beside
     /// `liveInclineText` under the same word.
     var inclineControlValue: String {
-        inclineIsLevel ? String(Int(targetIncline.rounded())) : String(format: "%.1f", targetIncline)
+        inclineIsLevel ? String(Int(targetIncline.rounded())) : Formato.esDecimal(targetIncline)
     }
     /// The incline the belt REPORTS, labelled with its own unit ("Nivel 3" / "Inclinación
     /// 1.5 %"). nil when the machine sends none — the line then simply isn't drawn, rather
@@ -386,7 +386,7 @@ final class TreadmillHUDModel {
     var liveInclineText: String? {
         let value: String? = inclineIsLevel
             ? latest.inclineLevel.map { String(Int($0.rounded())) }
-            : latest.inclinePct.map { String(format: "%.1f", $0) }
+            : latest.inclinePct.map { Formato.esDecimal($0) }
         guard let value else { return nil }
         let unit = inclineControlUnit
         return unit.isEmpty ? "\(inclineControlLabel) \(value)" : "\(inclineControlLabel) \(value) \(unit)"

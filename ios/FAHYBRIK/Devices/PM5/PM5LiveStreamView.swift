@@ -345,9 +345,9 @@ struct PM5LiveStreamView: View {
                     Spacer()
                 }
                 HStack(spacing: 6) {
-                    livePill(label: "PWR", value: store.live.powerWatts.map { "\($0) W" } ?? "—")
-                    livePill(label: "SPM", value: store.live.strokeRate.map { "\($0)" } ?? "—")
-                    livePill(label: "DIST", value: store.live.distanceMeters.map { String(format: "%.0f m", $0) } ?? "—")
+                    livePill(label: "POTENCIA", value: store.live.powerWatts.map { "\($0) W" } ?? "—")
+                    livePill(label: "PALADAS", value: store.live.strokeRate.map { "\($0)" } ?? "—")
+                    livePill(label: "DISTANCIA", value: store.live.distanceMeters.map { Formato.entero($0, "m") } ?? "—")
                 }
             }
         }
