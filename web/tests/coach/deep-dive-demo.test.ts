@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import * as demoModule from '@/lib/coach/deep-dive-demo';
 import {
   getDemoDeepDive,
-  getDemoFallback,
   isDemoAthleteId,
 } from '@/lib/coach/deep-dive-demo';
 
@@ -44,12 +44,13 @@ describe('coach/deep-dive-demo', () => {
     expect(isDemoAthleteId('42')).toBe(false);
   });
 
-  it('produces a fallback for a real athlete with no data', () => {
-    const dd = getDemoFallback('123', 'Real Person', 'TRANS');
-    expect(dd.header.athlete_id).toBe('123');
-    expect(dd.header.full_name).toBe('Real Person');
-    expect(dd.is_demo).toBe(true);
-    expect(dd.macrocycle?.current_block).toBe('TRANS');
-    expect(dd.notes).toEqual([]);
+  // Este test decía lo contrario: fijaba que un atleta REAL sin datos recibía
+  // el payload de Marc con su nombre encima. Ahora fija que esa puerta no
+  // existe — es la única forma de que no vuelva sin que nadie se entere.
+  it('NO expone ninguna vía para servir datos de ejemplo a un atleta real', () => {
+    expect('getDemoFallback' in demoModule).toBe(false);
+    // Lo único que decide si hay demo es que el id EMPIECE por `demo-`.
+    expect(isDemoAthleteId('123')).toBe(false);
+    expect(getDemoDeepDive('123')).toBeNull();
   });
 });

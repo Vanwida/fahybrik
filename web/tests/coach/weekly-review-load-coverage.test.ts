@@ -59,6 +59,7 @@ function row(overrides: Partial<CohortRow> = {}): CohortRow {
     sleep_avg_7d_h: null,
     rhr: null,
     days_to_a_event: null,
+    a_event_name: null,
     volume_7d_h: null,
     sessions_today: { am: null, pm: null },
     last_checkin_at: null,
@@ -124,6 +125,34 @@ describe('progresar de microciclo exige lo mismo', () => {
   test('un TSB nulo tampoco avanza (antes contaba como 0 y pasaba la puerta)', () => {
     const [t] = computeTransitions([row({ block_week: 3, tsb: null })]);
     expect(t?.recommendation).toBe('hold');
+  });
+});
+
+// La imagen especular del bug de la adherencia: allí un null se leía como 1 y
+// acababa en «avanzar»; aquí se leía como 0 y acababa en «regresar», con un
+// «Compliance 0%» impreso al lado. Un hueco no castiga ni premia: se queda en
+// hold y se dice que falta el dato.
+describe('una adherencia desconocida no es un 0 %', () => {
+  test('sin adherencia NO se recomienda regresar', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.recommendation).toBe('hold');
+  });
+
+  test('sin adherencia tampoco se avanza', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.recommendation).not.toBe('advance');
+  });
+
+  test('la señal declara el hueco en vez de imprimir «Compliance 0%»', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.signals).toContain('Adherencia sin datos todavía');
+    expect(t?.signals.some((s) => s.includes('Compliance 0%'))).toBe(false);
+  });
+
+  test('una adherencia BAJA de verdad sí sigue mandando a regresar', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: 45 })]);
+    expect(t?.recommendation).toBe('regress');
+    expect(t?.signals).toContain('Compliance 45%');
   });
 });
 

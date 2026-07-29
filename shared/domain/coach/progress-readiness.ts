@@ -55,7 +55,8 @@ export type ProgressReadinessInput = {
     ctl: number;
     atl: number;
     tsb: number;
-    acr: number;
+    /** Null when the chronic window is empty: 0/0 is undefined, not "bajo". */
+    acr: number | null;
     /**
      * Share 0..1 of the chronic window's executed work whose intensity was
      * known. Null when nothing was executed. Below LOAD_COVERAGE_MIN the load
@@ -112,18 +113,22 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
     );
   }
 
-  if (input.load.acr > ACR_OVERREACH || input.load.tsb < TSB_OVERREACH) {
+  // A null ACR means the chronic window is empty — no ratio exists, so neither
+  // verdict below can be pronounced from it. TSB still carries the overreaching
+  // branch on its own.
+  const acr = input.load.acr;
+  if ((acr != null && acr > ACR_OVERREACH) || input.load.tsb < TSB_OVERREACH) {
     // Sobrecarga survives partial coverage: the load we DID price already clears
     // the threshold, and unmeasured work can only add more on top.
     flags.push('overreaching');
     reasons.push(
-      `Señal de sobrecarga: ACR ${input.load.acr.toFixed(2)} / TSB ${input.load.tsb.toFixed(0)}.`,
+      `Señal de sobrecarga: ACR ${acr != null ? acr.toFixed(2) : 'sin dato'} / TSB ${input.load.tsb.toFixed(0)}.`,
     );
-  } else if (!loadPartial && input.load.acr < ACR_UNDERTRAINED && input.load.ctl > 0) {
+  } else if (!loadPartial && acr != null && acr < ACR_UNDERTRAINED && input.load.ctl > 0) {
     // "Infraentrenado" is a claim of ABSENCE of stimulus — unclaimable while we
     // know there is training we could not price.
     flags.push('undertrained');
-    reasons.push(`Infraentrenado: ACR ${input.load.acr.toFixed(2)} por debajo de ${ACR_UNDERTRAINED}.`);
+    reasons.push(`Infraentrenado: ACR ${acr.toFixed(2)} por debajo de ${ACR_UNDERTRAINED}.`);
   }
 
   if (
@@ -176,7 +181,14 @@ export function assessProgressReadiness(input: ProgressReadinessInput): Progress
 export type AthleteProgressReadiness = ProgressReadiness & {
   /** Current microciclo NAME (coach data), null when none active. */
   current_microciclo: string | null;
-  load: { ctl: number; atl: number; tsb: number; acr: number; intensity_coverage: number | null };
+  load: {
+    ctl: number;
+    atl: number;
+    tsb: number;
+    /** Null when the chronic window is empty — see the input type above. */
+    acr: number | null;
+    intensity_coverage: number | null;
+  };
   /** 0..1, or null when nothing was due yet in the microciclo (see the input type). */
   compliance_pct: number | null;
 };

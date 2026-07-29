@@ -134,6 +134,25 @@ export async function listThreadsForCoach(args: {
 }
 
 /**
+ * Cuántos mensajes de sus atletas tiene el coach sin abrir, sumando sus hilos.
+ * Es un dato REAL (`chat_threads.unread_for_coach`, el mismo contador que
+ * mantiene `sendMessage` y que pone a cero `markRead`), no una estimación: el
+ * briefing lo derivaba del número de alertas.
+ */
+export async function countUnreadForCoach(args: {
+  sql?: Sql;
+  coach_id: number | bigint;
+}): Promise<number> {
+  const client = args.sql ?? defaultSql;
+  const rows = await client<Array<{ n: number }>>`
+    select coalesce(sum(t.unread_for_coach), 0)::int as n
+    from chat_threads t
+    where t.coach_id = ${args.coach_id as unknown as number}
+  `;
+  return rows[0]?.n ?? 0;
+}
+
+/**
  * Idempotente: devuelve el hilo único (coach_id, athlete_id), creándolo en la
  * primera llamada. Dos llamadas concurrentes convergen al mismo id porque el
  * insert va `on conflict do nothing` contra la restricción única y re-selecciona

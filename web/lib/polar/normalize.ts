@@ -45,7 +45,12 @@ export type NormalizedSession = {
   externalId: string;
   startedAt: string; // UTC ISO
   endedAt: string; // UTC ISO
-  durationSeconds: number;
+  /**
+   * Null when Polar sent no duration — like every other metric in this type.
+   * It used to be a non-nullable `number` defaulted to 0, so an unknown
+   * duration was persisted as a zero-second workout and became permanent.
+   */
+  durationSeconds: number | null;
   distanceMeters: number | null;
   calories: number | null;
   avgHr: number | null;
@@ -102,9 +107,12 @@ export function normalizeSession(
   if (!externalId) return null;
   const startedAt = polarLocalToUtcIso(session.startTime, session.timezoneOffsetMinutes);
   if (!startedAt) return null;
-  const durationSeconds = millisToSeconds(session.durationMillis) ?? 0;
+  const durationSeconds = millisToSeconds(session.durationMillis);
+  // `endedAt` already degraded honestly (it falls back to the start rather than
+  // inventing an end); the duration column now does the same instead of writing
+  // a 0 that no reader can tell apart from a measurement.
   const endedAt =
-    durationSeconds > 0
+    durationSeconds != null && durationSeconds > 0
       ? new Date(Date.parse(startedAt) + durationSeconds * 1000).toISOString()
       : startedAt;
 

@@ -293,7 +293,11 @@ async function ingestGarminActivity(args: {
         ${athlete_id as unknown as number},
         ${startedAt},
         ${endedAt},
-        ${summary.durationInSeconds ?? 0},
+        -- NULL, not 0: the column is nullable and a 0 on disk is permanent. A
+        -- zero-second workout is indistinguishable from a real instantaneous
+        -- entry, and every reader of total_duration_seconds would inherit it
+        -- forever. The laps below already null every metric they do not get.
+        ${summary.durationInSeconds ?? null},
         'garmin',
         ${externalId},
         -- HOW the record came to exist. This row exists because an activity landed

@@ -13,7 +13,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { isDemoAthleteId } from './deep-dive-demo';
-import { getMarcPlan, getDemoPlanFallback } from './deep-dive-plan-demo';
+import { getMarcPlan } from './deep-dive-plan-demo';
 import { AthleteDeepDiveError } from './athlete-deep-dive';
 
 export const PLAN_VIEW_MODES = ['month', 'week', 'day'] as const;
@@ -169,9 +169,10 @@ export async function buildAthletePlan(params: BuildPlanParams): Promise<PlanPay
     order by wa.scheduled_for asc, t.day_position asc nulls last
   `;
 
-  if (rows.length === 0) {
-    return getDemoPlanFallback(params.athlete_id, header[0].full_name, view, anchor);
-  }
+  // No assignments in range is a REAL answer, and the code below already gives
+  // it: `buildWeeks` renders the calendar grid with no sessions on it. It used
+  // to short-circuit into Marc's plan instead, so an athlete with an empty month
+  // was shown somebody else's month.
 
   // Target race = soonest upcoming race with priority='target' (unified spine).
   const targetRace = await getTargetRaceRow(numericId, client, now);
@@ -449,11 +450,6 @@ function addDays(d: Date, n: number): Date {
 function parseIso(iso: string): Date {
   const [y, m, d] = iso.split('-').map((s) => Number(s));
   return new Date(Date.UTC(y, m - 1, d));
-}
-function daysBetween(a: Date, b: Date): number {
-  const aDay = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
-  const bDay = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
-  return Math.round((bDay - aDay) / 86_400_000);
 }
 function mondayOf(d: Date): Date {
   // ISO Monday of the week containing d.

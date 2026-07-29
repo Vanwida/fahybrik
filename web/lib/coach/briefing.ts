@@ -1,7 +1,22 @@
 // Daily briefing payload builder. Aggregates dashboard-level facts that
 // shouldn't require scanning the cohort table to surface.
+//
+// Every number here is counted from the cohort or passed in already measured.
+// Nothing is defaulted to a plausible value: a line whose input is unknown is
+// NOT PAINTED (docs/CONTRATO-UI.md §7). This is the screen that opens the
+// coach's day, so a fabricated number here is the one he is least likely to
+// question — three of them lived here (4 video reviews, a message count derived
+// from the alert count, and a synthetic 78/8/14 zone split).
 
 import type { BriefingLine, BriefingPayload, CohortRow, TimeOfDay } from '@fahybrid/shared/domain/coach/types';
+import {
+  aggregatePolarization,
+  polarizationDrift,
+  TARGET_POLARIZATION,
+} from '@fahybrid/shared/domain/coach/polarization';
+
+/** Drift beyond this many points is worth flagging to the coach. */
+const POLARIZATION_DRIFT_WARN = 6;
 
 interface BuildParams {
   coach_first_name: string;
@@ -9,7 +24,16 @@ interface BuildParams {
   now?: Date;
   active_athlete_count?: number;
   next_a_event?: { name: string; iso_date: string; athlete_count: number; phase?: string | null } | null;
-  pending_video_reviews?: number;
+  /**
+   * Messages the athletes sent that the coach has not opened, summed over his
+   * threads (`chat_threads.unread_for_coach`). Undefined means the caller did
+   * not look — the line is skipped rather than guessed.
+   *
+   * There is deliberately NO `pending_video_reviews` sibling: the schema has no
+   * video-review entity (no table, and `chat_messages.attachment_kind` only ever
+   * carries 'image' or 'voice'), so that count cannot be known — it was a
+   * hardcoded 4. It comes back the day the concept exists.
+   */
   unread_messages?: number;
   scheduled_tests?: Array<{ athlete_name: string; label: string }>;
   pending_intakes?: Array<{ athlete_id: string; full_name: string }>;
@@ -37,8 +61,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
   const alertCount = params.cohort.filter((r) => r.alerts.length > 0).length;
   const transitionReady = params.cohort.filter((r) => r.flags.transition_ready).length;
   const testsToday = params.cohort.filter((r) => r.flags.test_today).length;
-  const pendingReviews = params.pending_video_reviews ?? 4;
-  const unreadMessages = params.unread_messages ?? Math.min(6, alertCount * 2);
+  const unreadMessages = params.unread_messages ?? null;
 
   const polarization = aggregatePolarization(params.cohort);
 
@@ -79,14 +102,19 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
       filter_param: 'alert',
     });
   }
-  lines.push({
-    id: 'video_reviews',
-    icon: 'video',
-    primary: `${pendingReviews} video reviews pendientes`,
-    secondary: `${unreadMessages} mensajes sin responder`,
-    emphasis: pendingReviews > 5 ? 'warning' : 'normal',
-    filter_param: null,
-  });
+  // Only when there is something to answer. Zero unread is not news, and an
+  // unknown count is not a line at all.
+  if (unreadMessages != null && unreadMessages > 0) {
+    lines.push({
+      id: 'messages',
+      icon: 'message-circle',
+      primary:
+        unreadMessages === 1 ? '1 mensaje sin responder' : `${unreadMessages} mensajes sin responder`,
+      secondary: null,
+      emphasis: 'normal',
+      filter_param: 'messages',
+    });
+  }
   if (transitionReady > 0) {
     lines.push({
       id: 'transitions',
@@ -111,18 +139,15 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
     });
   }
   if (polarization) {
-    const target = '80/0/20';
-    const drift = Math.max(
-      Math.abs(polarization.low - 80),
-      Math.abs(polarization.mid - 0),
-      Math.abs(polarization.high - 20),
-    );
+    const target = `${TARGET_POLARIZATION.low}/${TARGET_POLARIZATION.mid}/${TARGET_POLARIZATION.high}`;
+    const drift = polarizationDrift(polarization);
+    const warn = drift > POLARIZATION_DRIFT_WARN;
     lines.push({
       id: 'polarization',
       icon: 'bar-chart-3',
       primary: `Polarización atletas 7d: ${polarization.low}/${polarization.mid}/${polarization.high}`,
-      secondary: drift > 6 ? `target ${target} · pol drift +${Math.round(drift)}` : `target ${target}`,
-      emphasis: drift > 6 ? 'warning' : 'normal',
+      secondary: warn ? `target ${target} · pol drift +${Math.round(drift)}` : `target ${target}`,
+      emphasis: warn ? 'warning' : 'normal',
       filter_param: 'polarization',
     });
   }
@@ -187,45 +212,25 @@ function greetingFor(tod: TimeOfDay, name: string): string {
   }
 }
 
-function aggregatePolarization(
-  cohort: CohortRow[],
-): { low: number; mid: number; high: number } | null {
-  const valid = cohort.filter((r) => r.polarization_pct != null);
-  if (valid.length === 0) {
-    // Synthesize from typical élite distribution for demo cohort that lacks
-    // per-athlete polarization data.
-    if (cohort.length >= 5) return { low: 78, mid: 8, high: 14 };
-    return null;
-  }
-  const sum = valid.reduce(
-    (s, r) => ({
-      low: s.low + (r.polarization_pct?.low ?? 0),
-      mid: s.mid + (r.polarization_pct?.mid ?? 0),
-      high: s.high + (r.polarization_pct?.high ?? 0),
-    }),
-    { low: 0, mid: 0, high: 0 },
-  );
-  return {
-    low: Math.round(sum.low / valid.length),
-    mid: Math.round(sum.mid / valid.length),
-    high: Math.round(sum.high / valid.length),
-  };
-}
-
+// The soonest target race in the cohort, named as the athlete actually named it.
+// The name used to be the literal 'HYROX BCN' regardless of the race — real ones
+// in production read "HYROX Barcelona" and "Leapmotor HYROX Barcelona", and an
+// athlete pointing at Madrid or a DEKA would have been told he was doing HYROX
+// BCN. Null name ⇒ no event line: the countdown alone names nothing.
 function inferUpcomingEvent(
   cohort: CohortRow[],
 ): { name: string; days: number; athlete_count: number } | null {
   const upcoming = cohort
-    .filter((r) => r.days_to_a_event != null)
+    .filter((r) => r.days_to_a_event != null && r.a_event_name != null)
     .sort((a, b) => (a.days_to_a_event ?? 0) - (b.days_to_a_event ?? 0));
   if (upcoming.length === 0) return null;
   const target = upcoming[0];
   const days = target.days_to_a_event!;
-  const cohortAtSameEvent = cohort.filter(
-    (r) => r.days_to_a_event != null && Math.abs((r.days_to_a_event ?? 0) - days) <= 7,
-  ).length;
+  // Athletes pointing at the SAME race, by name — a week's proximity used to be
+  // enough to lump two different races into one count.
+  const cohortAtSameEvent = cohort.filter((r) => r.a_event_name === target.a_event_name).length;
   return {
-    name: 'HYROX BCN',
+    name: target.a_event_name!,
     days,
     athlete_count: cohortAtSameEvent,
   };
