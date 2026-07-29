@@ -7,7 +7,13 @@
 // girar el teléfono no cambia el entreno: cambia la lectura. Y sigue habiendo
 // jerarquía aunque sea una rejilla: la celda de la medida que gobierna va con
 // filo naranja y un escalón más de tamaño, para que el ojo caiga ahí primero y
-// las otras tres se lean de barrido.
+// las otras se lean de barrido.
+//
+// LA ACCIÓN VIVE ABAJO EN LAS DOS ORIENTACIONES. Girado hay un tercio del alto,
+// así que la app shipeada le da una columna propia a la derecha, al alcance del
+// pulgar (`ActiveWorkoutView.landscapeAction`): sin ella, cerrar una serie
+// obligaba a girar el teléfono a media pieza. Aquí se hace igual, porque la
+// regla no es una regla si se cae al girar.
 
 import type { ReactNode } from 'react';
 import { IconClose, Label, Mono, SP } from '../../kit';
@@ -20,53 +26,63 @@ import {
   Fogonazo,
   Muescas,
   Pausa,
-  SalidaManual,
   zonaDe,
   type Zona,
 } from './atomos';
 import { CierreAncho, DescansoAncho, EsperaAncha } from './anchos';
+import { CuentaAtras } from './estados';
 import {
   BICI_SERIE_1,
   CADENCIA_UNIDAD,
   MAQUINA_NOMBRE,
   MEDIDA_UNIDAD,
+  caloriasEn,
   fmtElapsed,
   lecturaViva,
   objetivoTexto,
+  proyeccionS,
 } from './data';
-import { useMotorErg, type EstadoErg, type Guion } from './motor';
+import { tituloAccion, useMotorErg, type EstadoErg, type Guion } from './motor';
 
-/** Alto del lienzo en horizontal menos el safe de abajo (DeviceFrame). */
+/** Alto de la franja de contexto, en pt del lienzo horizontal. */
 const FRANJA_ALTO = 46;
+/** Ancho de la columna de acción (el mismo que la app: 132 pt). */
+const COLUMNA_ACCION = 132;
 
 export function CaraMonitor({ guion, onLog }: { guion: Guion; onLog: (linea: string) => void }) {
   const e = useMotorErg(guion, onLog);
   const zona = zonaDe(e.pulso);
+  const enDescanso = e.fase === 'descanso';
 
   const cuerpo = (() => {
-    if (e.fase === 'descanso') return <DescansoAncho e={e} />;
-    if (e.fase === 'armado') return <EsperaAncha e={e} guion={guion} />;
+    if (enDescanso) return <DescansoAncho e={e} />;
+    if (e.fase === 'cuenta') return <CuentaAtras e={e} landscape />;
+    if (e.fase === 'armado' || e.monitor === 'ausente') return <EsperaAncha e={e} guion={guion} />;
     if (e.fase === 'hecho') return <CierreAncho e={e} />;
     return <Rejilla e={e} guion={guion} />;
   })();
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
-      <Ambiente zona={zona} intensidad={16} />
+      <Ambiente zona={enDescanso ? null : zona} intensidad={16} />
       <Fogonazo activo={e.fogonazo} />
       <div
         style={{
           position: 'relative',
           height: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
+          gap: 10,
           padding: `6px ${SP.m}px ${SP.s}px`,
           boxSizing: 'border-box',
         }}
       >
-        <Franja e={e} onSalir={() => onLog('salir del entreno desde la cara de monitor')} />
-        {cuerpo}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Franja e={e} onSalir={() => onLog('salir del entreno desde la cara de monitor')} />
+          {cuerpo}
+        </div>
+        <div style={{ width: COLUMNA_ACCION, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <AccionAncha e={e} />
+        </div>
       </div>
       {e.pausado && (
         <Pausa onReanudar={e.alternarPausa} onSalir={() => onLog('salir del entreno desde la cara de monitor')} />
@@ -75,14 +91,41 @@ export function CaraMonitor({ guion, onLog }: { guion: Guion; onLog: (linea: str
   );
 }
 
+/** La misma acción y la misma etiqueta que en vertical: una conducta, dos sitios. */
+function AccionAncha({ e }: { e: EstadoErg }) {
+  const alPulsar =
+    e.fase === 'cuenta' ? e.saltarCuenta : e.fase === 'descanso' ? e.empezarSiguiente : e.cerrarAMano;
+  const primaria = e.fase === 'descanso' || e.cruceCiego || e.fase === 'cuenta';
+  return (
+    <button
+      type="button"
+      onClick={alPulsar}
+      className={primaria ? 'tw-btn-primary' : 'tw-btn-secondary'}
+      style={{
+        width: '100%',
+        height: 96,
+        fontSize: 15,
+        fontStyle: 'italic',
+        fontWeight: 800,
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+      }}
+    >
+      {tituloAccion(e)}
+    </button>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// La franja — quién eres, cuánto queda y cómo se sale. Todo en una línea.
+// La franja — quién eres, cuánto queda, lo cubierto y el total de la pieza
 // ---------------------------------------------------------------------------
 
 function Franja({ e, onSalir }: { e: EstadoErg; onSalir: () => void }) {
   const objetivo = objetivoTexto(e.pres);
   const unidad = MEDIDA_UNIDAD[e.pres.medida];
   const enTramo = e.fase === 'trabajando' || e.fase === 'cerrando';
+  const hayMedida = e.medido != null && e.restante != null;
+  const serieMostrada = e.fase === 'descanso' ? e.serie + 1 : e.serie;
   const icono = (etiqueta: string, hijo: ReactNode, click: () => void) => (
     <button
       type="button"
@@ -120,6 +163,8 @@ function Franja({ e, onSalir }: { e: EstadoErg; onSalir: () => void }) {
       {icono('Salir del entreno', <IconClose size={12} />, onSalir)}
       {icono('Pausar el entreno', <span>‖</span>, e.alternarPausa)}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Descansando ya cuentas la SIGUIENTE: es a la que vas, igual que en
+            vertical. Si no, la franja y el cuerpo dirían series distintas. */}
         <span
           style={{
             font: 'italic 800 12px/1 var(--twin-font-sans)',
@@ -129,34 +174,36 @@ function Franja({ e, onSalir }: { e: EstadoErg; onSalir: () => void }) {
             whiteSpace: 'nowrap',
           }}
         >
-          {e.pres.series > 1 ? `Serie ${e.serie} de ${e.pres.series}` : e.pres.titulo}
+          {e.pres.series > 1 ? `Serie ${serieMostrada} de ${e.pres.series}` : e.pres.titulo}
         </span>
-        <Muescas series={e.pres.series} actual={e.serie} />
+        <Muescas series={e.pres.series} actual={serieMostrada} />
       </div>
 
-      {enTramo ? (
+      {enTramo && hayMedida ? (
         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: SP.s }}>
           <span
             className="t-readout-m"
-            style={{ color: e.cruceCiego ? 'var(--twin-ok)' : e.ciego ? 'var(--twin-faint)' : 'var(--twin-fg)' }}
+            style={{
+              color: e.cruceCiego ? 'var(--twin-ok)' : e.monitor === 'mudo' ? 'var(--twin-faint)' : 'var(--twin-fg)',
+            }}
           >
             {e.cruceCiego ? e.medido : e.restante}
           </span>
-          {/* En horizontal la franja va apretada: la unidad sola basta y el
-              alto que sobra se lo queda la barra, que es lo que se lee de
-              lejos. «para cerrar» ya lo dice el propio vaciado. */}
           <span className="t-readout-label" style={{ color: 'var(--twin-muted)', whiteSpace: 'nowrap' }}>
             {unidad}
           </span>
-          <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ flex: 1, minWidth: 110 }}>
             <BarraDrenaje
-              restante={e.restante}
+              restante={e.restante ?? 0}
               total={e.pres.cantidad}
-              ciego={e.ciego}
+              ciego={e.monitor === 'mudo'}
               cubierta={e.cruceCiego}
               alto={8}
             />
           </div>
+          <Mono size={12} weight={600} color="var(--twin-faint)" style={{ whiteSpace: 'nowrap' }}>
+            {e.medido} / {e.pres.cantidad}
+          </Mono>
         </div>
       ) : (
         <span style={{ flex: 1 }} />
@@ -168,23 +215,12 @@ function Franja({ e, onSalir }: { e: EstadoErg; onSalir: () => void }) {
         </Mono>
       )}
       <span className="t-readout-m">{fmtElapsed(e.t)}</span>
-      {/* La salida a mano solo existe mientras hay tramo que cerrar: durante el
-          descanso ya no hay nada que cerrar y el botón sería ruido. */}
-      {enTramo && (
-        <SalidaManual
-          titulo={e.pres.series > 1 ? 'Cerrar serie' : 'Cerrar tramo'}
-          onClick={e.cerrarAMano}
-          destacada={e.cruceCiego}
-          alto={32}
-          style={{ width: 'auto', padding: '0 14px', fontSize: 12, flex: '0 0 auto' }}
-        />
-      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// La rejilla — cuatro lecturas, y la que gobierna manda
+// La rejilla — las lecturas grandes, y la que gobierna manda
 // ---------------------------------------------------------------------------
 
 interface Lectura {
@@ -194,6 +230,8 @@ interface Lectura {
   color?: string;
   zona?: Zona | null;
   principal?: boolean;
+  /** Segunda línea de la celda: la media, que la app enseña bajo el ritmo. */
+  pie?: string;
   delta?: { valor: number; unidad: string; mejorEs: 'menos' | 'mas'; sufijo: string; textoNulo: string };
 }
 
@@ -202,20 +240,19 @@ function Rejilla({ e, guion }: { e: EstadoErg; guion: Guion }) {
   const zona = zonaDe(e.pulso);
   const objetivo = e.pres.objetivo;
   const esBici = e.pres.medida === 'calorias';
+  const mudo = e.monitor === 'mudo';
 
   const lecturas: Lectura[] = [];
 
   if (esBici) {
-    // Con el cruce perdido, «0 para cerrar» leería como serie hecha y no lo
-    // está: lo que se sostiene es lo acumulado.
     lecturas.push({
       clave: 'cal',
       etiqueta: e.cruceCiego ? 'cal hechas' : 'cal para cerrar',
-      valor: `${e.cruceCiego ? e.medido : e.restante}`,
+      valor: `${e.cruceCiego ? (e.medido ?? 0) : (e.restante ?? 0)}`,
       color: e.cruceCiego ? 'var(--twin-ok)' : undefined,
       principal: true,
     });
-    if (!e.ciego) {
+    if (!mudo) {
       lecturas.push({
         clave: 'vatios',
         etiqueta: 'vatios',
@@ -233,7 +270,7 @@ function Rejilla({ e, guion }: { e: EstadoErg; guion: Guion }) {
   } else {
     // Sin lecturas del monitor no hay ritmo que pintar: la celda que gobierna
     // desaparece y el crono de la franja se queda como única verdad viva.
-    if (!e.ciego && viva.ritmo != null) {
+    if (!mudo && viva.ritmo != null) {
       lecturas.push({
         clave: 'ritmo',
         etiqueta: '/500m',
@@ -251,7 +288,7 @@ function Rejilla({ e, guion }: { e: EstadoErg; guion: Guion }) {
             : undefined,
       });
     }
-    if (!e.ciego) {
+    if (!mudo) {
       lecturas.push({ clave: 'cad', etiqueta: CADENCIA_UNIDAD[guion.maquina], valor: `${viva.cadencia}` });
       lecturas.push({ clave: 'vatios', etiqueta: 'vatios', valor: `${viva.vatios}` });
     }
@@ -269,7 +306,7 @@ function Rejilla({ e, guion }: { e: EstadoErg; guion: Guion }) {
     });
   }
 
-  if (e.ciego) {
+  if (mudo) {
     return (
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
@@ -288,16 +325,60 @@ function Rejilla({ e, guion }: { e: EstadoErg; guion: Guion }) {
     );
   }
 
-  return <Cuadricula lecturas={lecturas} />;
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Cuadricula lecturas={lecturas} />
+      <ParadaAncha e={e} guion={guion} ritmo={viva.ritmo} />
+    </div>
+  );
+}
+
+/**
+ * Lo que el monitor sabe y en vertical no cabe a media pieza: calorías,
+ * proyección de acabado y la resistencia del ventilador. En horizontal SÍ hay
+ * sitio, y el móvil está apoyado: se leen sin soltar la maneta.
+ */
+function ParadaAncha({ e, guion, ritmo }: { e: EstadoErg; guion: Guion; ritmo: number | null }) {
+  const proy = e.medido == null ? null : proyeccionS(e.pres, e.t, e.medido, ritmo);
+  const media = e.medido != null && e.medido > 0 && e.t > 0 ? fmtPace500((500 * e.t) / e.medido) : null;
+  const celdas: Array<{ etiqueta: string; valor: string }> = [
+    { etiqueta: 'cal', valor: `${caloriasEn(guion.maquina, e.t)}` },
+  ];
+  if (media) celdas.push({ etiqueta: 'media /500m', valor: media });
+  if (proy != null) celdas.push({ etiqueta: 'proyección', valor: fmtElapsed(proy) });
+  celdas.push({ etiqueta: 'resistencia', valor: '118' });
+  return (
+    <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
+      {celdas.map((c) => (
+        <div
+          key={c.etiqueta}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '6px 8px',
+            borderRadius: 10,
+            background: 'var(--twin-surface)',
+          }}
+        >
+          <span className="t-readout-s">{c.valor}</span>
+          <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>{c.etiqueta}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Cuadricula({ lecturas, compacta = false }: { lecturas: Lectura[]; compacta?: boolean }) {
-  // Los tamaños salen del ancho de celda: el lienzo horizontal deja 756 pt
-  // útiles, así que a dos columnas cada celda tiene ~370 y un readout de cinco
-  // cifras cabe hasta 128 px (mono avanza 0,6 em por carácter).
-  const columnas = lecturas.length >= 4 ? 2 : lecturas.length;
-  const tamPrincipal = compacta ? 44 : columnas === 2 ? 128 : 104;
-  const tamNormal = compacta ? 34 : columnas === 2 ? 92 : 84;
+  // Los tamaños los fija el ALTO de la celda, no el ancho: con la franja, la
+  // fila de lecturas de parada y dos filas de rejilla, cada celda tiene ~131 pt.
+  // Una cifra de 96 más su línea de etiqueta y delta (26) los llena justos; a
+  // 104 la pastilla del delta se salía por abajo.
+  const columnas = lecturas.length >= 4 ? 2 : Math.max(1, lecturas.length);
+  const tamPrincipal = compacta ? 44 : columnas === 2 ? 96 : 88;
+  const tamNormal = compacta ? 34 : columnas === 2 ? 74 : 68;
   return (
     <div
       style={{
@@ -318,7 +399,7 @@ function Cuadricula({ lecturas, compacta = false }: { lecturas: Lectura[]; compa
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 4,
+            gap: 3,
             padding: compacta ? '8px 6px' : '6px 10px',
             borderRadius: 14,
             background: 'var(--twin-surface)',
@@ -340,19 +421,13 @@ function Cuadricula({ lecturas, compacta = false }: { lecturas: Lectura[]; compa
           >
             {l.valor}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Etiqueta, zona y delta comparten LÍNEA: apilarlos desbordaba la
+              celda por abajo y la pastilla del delta se cortaba a la mitad. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', maxWidth: '100%' }}>
             <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>{l.etiqueta}</span>
             {l.zona && <span className="tw-zone" data-zone={l.zona}>{`Z${l.zona}`}</span>}
+            {l.delta && !compacta && <Delta {...l.delta} />}
           </div>
-          {l.delta && !compacta && (
-            <Delta
-              valor={l.delta.valor}
-              unidad={l.delta.unidad}
-              mejorEs={l.delta.mejorEs}
-              sufijo={l.delta.sufijo}
-              textoNulo={l.delta.textoNulo}
-            />
-          )}
         </div>
       ))}
     </div>
