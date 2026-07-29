@@ -18,9 +18,23 @@
 //      `startOfDayInBox(instant)` / `mondayOfWeekInBox(instant)` for this — never
 //      `startOfDayUtc(new Date())`.
 //
-// FAHYBRIK is single-coach (Fabrik Training Club, Barcelona) so the box timezone is a
-// single constant. If the product ever goes multi-box, this becomes a per-box field
-// and these *InBox helpers grow a `tz` parameter.
+// DEUDA CONOCIDA (29-jul-2026) — esto es un DEFECTO DE DESPLIEGUE, no una verdad.
+//
+// El producto ya es multi-coach: hay varios coaches en la misma base, y esta
+// constante le da a todos el mismo "hoy". Un coach fuera de este huso ve su
+// dashboard, sus métricas semanales y sus "próximo lunes" en un día que no es el
+// suyo. NO se arregla poniendo otro `?? 'Europe/Madrid'` en el siguiente sitio.
+//
+// De quién debe salir el huso, según el caso:
+//   · día del ATLETA (readiness, check-in, historial, plan de la semana, rachas)
+//     → `athletes.timezone`, vía `loadAthleteTimezone` en `db/athlete-timezone.ts`.
+//       El mecanismo YA existe y lo escribe el iPhone en cada sync de HealthKit.
+//   · día del COACH (su "Hoy", métricas, fecha de publicación, lunes de assign)
+//     → NO existe `coaches.timezone`. Hace falta migración + `tz` explícito en
+//       estos helpers. Es lo que hoy usa `startOfDayInBox`/`mondayOfWeekInBox`.
+//   · reloj de negocio (huecos de cita, hora en los emails) → el del coach también.
+//
+// Hasta que exista `coaches.timezone`, esto es el defecto y así se documenta.
 export const BOX_TIMEZONE = 'Europe/Madrid';
 
 export function parseIsoDate(d: string): Date {

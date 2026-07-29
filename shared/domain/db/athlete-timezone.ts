@@ -8,9 +8,11 @@ import { BOX_TIMEZONE, zonedDayString } from '../dates';
 
 /**
  * Until an athlete's device reports its IANA timezone (HealthKit sync batch →
- * `athletes.timezone`), fall back to Fabrik's box timezone. Single-coach launch
- * reality: everyone trains in Barcelona. It is a FALLBACK, not an assumption —
- * the column wins the moment it is populated.
+ * `athletes.timezone`), fall back to the deployment default (`BOX_TIMEZONE`).
+ * It is a FALLBACK, not an assumption — the column wins the moment it is
+ * populated, and it is the only tz link that exists today: there is no
+ * `coaches.timezone`, so a coach outside the default zone still reads a clock
+ * that is not his. See the note on `BOX_TIMEZONE` in `../dates.ts`.
  */
 export const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
 
