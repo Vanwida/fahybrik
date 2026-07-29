@@ -80,25 +80,37 @@ export interface CapEstado {
   urgente: boolean;
 }
 
+/**
+ * La franja — y el motivo de que exista en las DOS caras.
+ *
+ * «El formato nunca suelta la franja»: gires como gires, el For Time sigue
+ * siendo un For Time, así que su puntuación y dónde estás no se van. Lo que
+ * cambia al girar no es QUÉ lleva, es cómo se pliega: en horizontal el alto es
+ * el recurso escaso (381 pt contra 781), así que el cap y el aviso se meten en
+ * la misma línea en vez de apilarse debajo.
+ */
 export function Franja({
   posicion,
   scoreS,
   cap,
   pausado,
   onPausa,
+  compacta = false,
 }: {
   posicion: string;
   scoreS: number;
   cap?: CapEstado;
   pausado: boolean;
   onPausa: () => void;
+  /** Horizontal: todo en una línea. */
+  compacta?: boolean;
 }) {
   const urgente = cap?.urgente ?? false;
   return (
     <div
       style={{
         flex: '0 0 auto',
-        padding: `${SP.s}px ${SP.m}px ${cap ? SP.s : SP.m}px`,
+        padding: compacta ? `2px ${SP.m}px` : `${SP.s}px ${SP.m}px ${cap ? SP.s : SP.m}px`,
         background: urgente
           ? 'color-mix(in srgb, var(--twin-accent) 24%, var(--twin-surface))'
           : 'var(--twin-surface)',
@@ -142,6 +154,14 @@ export function Franja({
           </span>
         </div>
         <span style={{ flex: 1 }} />
+        {/* En horizontal el cap viaja en la propia línea: es lo mismo que
+            arriba, plegado de otra manera, no una segunda versión. */}
+        {compacta && cap && (
+          <div style={{ flex: '0 1 260px', minWidth: 140 }}>
+            <BarraCap {...cap} sinMargen />
+          </div>
+        )}
+        {compacta && urgente && <AvisoUltimoMinuto />}
         <span
           className="t-readout-m"
           style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}
@@ -149,12 +169,10 @@ export function Franja({
           {reloj(scoreS)}
         </span>
       </div>
-      {cap && <BarraCap {...cap} />}
-      {/* Lo dice, y se calla. El aviso es la información de que se acaba, no
-          una arenga: el naranja ya grita bastante. */}
-      {urgente && (
-        <div style={{ marginTop: SP.xs, font: '600 11px/1 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
-          Último minuto de cap.
+      {!compacta && cap && <BarraCap {...cap} />}
+      {!compacta && urgente && (
+        <div style={{ marginTop: SP.xs }}>
+          <AvisoUltimoMinuto />
         </div>
       )}
     </div>
@@ -162,14 +180,28 @@ export function Franja({
 }
 
 /**
+ * Lo dice, y se calla. El aviso es la información de que se acaba, no una
+ * arenga: el naranja ya grita bastante, y la barra de al lado ya dice «de
+ * cap». Una sola redacción para las dos caras — la misma frase escrita dos
+ * veces es como empiezan las tres grafías del ritmo (§2).
+ */
+function AvisoUltimoMinuto() {
+  return (
+    <span style={{ font: '600 11px/1 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
+      Último minuto.
+    </span>
+  );
+}
+
+/**
  * El cap es lo único que se pinta como progreso, y puede: es tiempo, y el
  * tiempo se mide. Las repeticiones no llevan barra por la misma razón.
  */
-function BarraCap({ totalS, restanteS, urgente }: CapEstado) {
+function BarraCap({ totalS, restanteS, urgente, sinMargen = false }: CapEstado & { sinMargen?: boolean }) {
   const usado = Math.min(1, Math.max(0, (totalS - restanteS) / totalS));
   const tinte = urgente ? 'var(--twin-accent)' : 'var(--twin-muted)';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, marginTop: SP.s }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: SP.s, marginTop: sinMargen ? 0 : SP.s }}>
       <div
         role="img"
         aria-label={`Cap de ${reloj(totalS)}. Quedan ${reloj(restanteS)}.`}

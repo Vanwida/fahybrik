@@ -141,26 +141,40 @@ export function HojaRuta({
   titulo,
   filas,
   resumen,
+  columnas = 1,
 }: {
   titulo: string;
   filas: Fila[];
   resumen: string;
+  /**
+   * En horizontal la hoja RECOMPONE en dos columnas en vez de encoger: hay
+   * 756 pt de ancho y 381 de alto, así que partir las 16 en 8 y 8 las enseña
+   * TODAS de una sin scroll. Esconderlas detrás de una inercia vertical sería
+   * desperdiciar justo lo que sobra.
+   */
+  columnas?: 1 | 2;
 }) {
+  const corte = Math.ceil(filas.length / columnas);
+  const grupos = columnas === 1 ? [filas] : [filas.slice(0, corte), filas.slice(corte)];
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flex: '0 0 auto' }}>
         <Label size={11}>{titulo}</Label>
         <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{resumen}</span>
       </div>
-      <div className="twin-scroll" style={{ flex: '1 1 auto', minHeight: 0 }}>
-        <Card padding={0}>
-          {filas.map((f, i) => (
-            <div key={f.indice}>
-              {i > 0 && <Hairline />}
-              <FilaTramo fila={f} alto={38} />
-            </div>
-          ))}
-        </Card>
+      <div className="twin-scroll" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.s }}>
+        {grupos.map((grupo, g) => (
+          <div key={g} style={{ flex: 1, minWidth: 0 }}>
+            <Card padding={0}>
+              {grupo.map((f, i) => (
+                <div key={f.indice}>
+                  {i > 0 && <Hairline />}
+                  <FilaTramo fila={f} alto={columnas === 2 ? 36 : 38} />
+                </div>
+              ))}
+            </Card>
+          </div>
+        ))}
       </div>
     </div>
   );

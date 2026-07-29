@@ -21,8 +21,9 @@ import { useTimeline } from '../../sim';
 import {
   ESTACIONES,
   SCORE_APERTURA_S,
+  VENTANA_SUCESO_S,
+  caraDeMonitor,
   cifraEnUnidadDe,
-  fcEn,
   motorDe,
   objetivoDe,
   planDe,
@@ -38,6 +39,7 @@ import {
 import { Ambiente, Flash, Franja } from './atoms';
 import { Sello, SujetoMedida, SujetoTrabajo, Trio, type Celda } from './sujeto';
 import { HojaRuta, Riel, type Fila } from './ruta';
+import { BandaSuceso, CaraFormato, CaraMonitor, celdaPulso } from './caras';
 import { useCronoSim } from './crono';
 
 function filasDe(ruta: Ruta, parcialVivoS: number): Fila[] {
@@ -68,7 +70,15 @@ function lineaDe(ruta: Ruta): string | null {
   return `${planDe(item)} · cerrada en ${reloj(cerrada.parcialS)} · ${cola}`;
 }
 
-export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (linea: string) => void }) {
+export function EscenaHyrox({
+  escenario,
+  landscape,
+  onLog,
+}: {
+  escenario: string;
+  landscape: boolean;
+  onLog: (linea: string) => void;
+}) {
   const [cortes, setCortes] = useState<Cortes>({});
   const [hoja, setHoja] = useState(escenario === 'ruta-entera');
   const { t, pausado, alternarPausa } = useCronoSim();
@@ -97,6 +107,13 @@ export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (l
   const cerradas = ruta.cerradas.filter((c): c is Cerrado => Boolean(c));
   const color = item ? COLOR_MODALIDAD[item.modalidad] : 'var(--twin-accent)';
 
+  // El suceso, por encima de la cara: dura dos ticks, lo justo para leer el
+  // tachado antes de que la vista ya esté en el tramo siguiente.
+  const suceso =
+    ruta.ultimaDeLaEscena != null && recienSellado(scoreS, ruta.ultimoSelloS, VENTANA_SUCESO_S)
+      ? filas[ruta.ultimaDeLaEscena]
+      : null;
+
   const cuerpo = () => {
     if (hoja) {
       return (
@@ -104,6 +121,7 @@ export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (l
           titulo="La ruta"
           filas={filas}
           resumen={`${cerradas.length} cerradas en ${reloj(cerradas.reduce((n, c) => n + c.parcialS, 0))}`}
+          columnas={landscape ? 2 : 1}
         />
       );
     }
@@ -125,30 +143,54 @@ export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (l
         />
       );
     }
+    const riel = (
+      <Riel
+        filas={filas}
+        activo={ruta.activo}
+        verTodas={{
+          etiqueta: `Ver las ${ESTACIONES.length} estaciones`,
+          onClick: () => {
+            setHoja(true);
+            onLog('La ruta entera, encima. El crono del bloque se queda arriba.');
+          },
+        }}
+      />
+    );
+
+    // EL TRAMO DECIDE LA CARA. Con máquina delante gana el monitor; sin ella
+    // (un Run, un trineo) manda el bloque igual que en vertical. El cambio de
+    // cara ocurre SOLO al cerrarse el remo: el tramo siguiente es un Run.
+    if (landscape) {
+      return (
+        <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          {caraDeMonitor(item) ? (
+            <CaraMonitor item={item} parcialS={parcialS} />
+          ) : (
+            <CaraFormato sujeto={<Sujeto item={item} parcialS={parcialS} />} lateral={riel} />
+          )}
+          {suceso && <BandaSuceso fila={suceso} />}
+        </div>
+      );
+    }
+
     return (
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
         <Sujeto item={item} parcialS={parcialS} />
-        <Riel
-          filas={filas}
-          activo={ruta.activo}
-          verTodas={{
-            etiqueta: `Ver las ${ESTACIONES.length} estaciones`,
-            onClick: () => {
-              setHoja(true);
-              onLog('La ruta entera, encima. El crono del bloque se queda arriba.');
-            },
-          }}
-        />
+        {riel}
       </div>
     );
   };
 
+  // En horizontal el alto es el recurso escaso, pero la acción no se encoge
+  // hasta dejar de acertarse sudando: baja de 76 a 64, no a 44. Y sigue abajo
+  // en las dos caras a propósito — girar no puede mover el botón de sitio.
+  const altoCTA = landscape ? 64 : 76;
   const accion = hoja ? (
-    <CTA title={item ? 'VOLVER A LA ESTACIÓN' : 'VOLVER'} height={68} onClick={() => setHoja(false)} />
+    <CTA title={item ? 'VOLVER A LA ESTACIÓN' : 'VOLVER'} height={landscape ? 56 : 68} onClick={() => setHoja(false)} />
   ) : item ? (
     <CTA
       title={ruta.activo === ESTACIONES.length - 1 ? 'ÚLTIMA HECHA' : 'ESTACIÓN HECHA'}
-      height={76}
+      height={altoCTA}
       onClick={() => setCortes({ ...cortes, [ruta.activo]: Math.max(1, parcialS) })}
     />
   ) : undefined;
@@ -157,7 +199,11 @@ export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (l
     <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
       <Ambiente color={color} />
       <Flash activo={recienSellado(scoreS, ruta.ultimoSelloS)} color={color} />
-      <Pantalla padding={0} gap={0} accion={accion ? <div style={{ padding: SP.m }}>{accion}</div> : undefined}>
+      <Pantalla
+        padding={0}
+        gap={0}
+        accion={accion ? <div style={{ padding: landscape ? `0 ${SP.m}px ${SP.s}px` : SP.m }}>{accion}</div> : undefined}
+      >
         <Franja
           posicion={
             item ? `Estación ${ruta.activo + 1} de ${ESTACIONES.length}` : `${ESTACIONES.length} de ${ESTACIONES.length}`
@@ -165,6 +211,7 @@ export function EscenaHyrox({ escenario, onLog }: { escenario: string; onLog: (l
           scoreS={scoreS}
           pausado={pausado}
           onPausa={alternarPausa}
+          compacta={landscape}
         />
         {cuerpo()}
       </Pantalla>
@@ -183,7 +230,7 @@ function Sujeto({ item, parcialS }: { item: ItemReal; parcialS: number }) {
     const ritmo = ritmoDe(item, metros, parcialS);
     if (ritmo) celdas.push({ label: 'Ritmo', valor: ritmo.valor, unidad: ritmo.unidad });
     celdas.push({ label: 'Aquí', valor: reloj(parcialS) });
-    celdas.push({ label: 'FC', valor: String(fcEn(parcialS)), unidad: 'ppm' });
+    celdas.push(celdaPulso(parcialS));
     return (
       <>
         <SujetoMedida
@@ -199,7 +246,7 @@ function Sujeto({ item, parcialS }: { item: ItemReal; parcialS: number }) {
   }
 
   celdas.push({ label: 'Aquí', valor: reloj(parcialS) });
-  celdas.push({ label: 'FC', valor: String(fcEn(parcialS)), unidad: 'ppm' });
+  celdas.push(celdaPulso(parcialS));
   return (
     <>
       {/* Sin dosis (pasa: el circuito de pierna del coach trae cuatro), el

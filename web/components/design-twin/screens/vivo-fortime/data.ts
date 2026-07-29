@@ -40,11 +40,18 @@ export const MARGEN_SUELTA_S = 3;
  * se selló el tramo y se apaga solo en el siguiente. Se calcula en vez de
  * guardarse porque un suceso no es un estado — es un instante del reloj, y
  * guardarlo obligaría a un efecto que dispara renders en cascada.
+ *
+ * `ventanaS` alarga el instante para lo que hay que poder LEER: el fogonazo
+ * dura un tick, pero la banda que canta el tachado dura dos, porque un número
+ * que aparece y desaparece en un segundo no es un aviso, es un parpadeo.
  */
-export function recienSellado(scoreS: number, ultimoSelloS: number): boolean {
+export function recienSellado(scoreS: number, ultimoSelloS: number, ventanaS: number = SIM_X): boolean {
   const desde = scoreS - ultimoSelloS;
-  return desde >= 0 && desde < SIM_X;
+  return desde >= 0 && desde < ventanaS;
 }
+
+/** Lo que dura la banda del suceso: dos ticks, lo justo para leer el tachado. */
+export const VENTANA_SUCESO_S = SIM_X * 2;
 
 // ---------------------------------------------------------------------------
 // Qué se mide, y quién lo sabe
@@ -213,6 +220,41 @@ const VELOCIDAD_MPS: Partial<Record<Modalidad, number>> = {
   run: 1000 / 293,
   bike: 1000 / 125,
 };
+
+/**
+ * EL TRAMO DECIDE LA CARA.
+ *
+ * En horizontal solo se pinta cara de monitor cuando hay una MÁQUINA delante
+ * (remo, ski, bici) **y** una medida que ella pueda mover. Las dos condiciones
+ * hacen falta, y cada una tumba un caso distinto:
+ *
+ *  · un Run tiene distancia pero no tiene máquina — sus metros los pone el
+ *    reloj, y un reloj no es un monitor que mirar a un metro de la cara;
+ *  · una bici a 5:00 tiene máquina pero su cruce lo manda el tiempo, así que
+ *    no hay metros que gobiernen la pantalla.
+ *
+ * En los dos casos la cara horizontal es la del FORMATO. Jamás una cara de
+ * monitor sin máquina.
+ */
+export function caraDeMonitor(item: ItemReal): boolean {
+  return CON_MONITOR.has(item.modalidad) && motorDe(item) !== null;
+}
+
+/**
+ * La cadencia que canta la máquina. Se DERIVA del ritmo y de lo que avanza el
+ * aparato por ciclo, que es la relación real (ritmo = cadencia × metros por
+ * palada); así no puede contradecir a los metros de al lado.
+ *
+ * Nula donde no se puede derivar: sin ciclo conocido no se inventa un número.
+ */
+const METROS_POR_CICLO: Partial<Record<Modalidad, number>> = { row: 9.6, ski: 8.5 };
+
+export function cadenciaDe(item: ItemReal): Lectura | null {
+  const mps = VELOCIDAD_MPS[item.modalidad];
+  const porCiclo = METROS_POR_CICLO[item.modalidad];
+  if (!mps || !porCiclo) return null;
+  return { valor: String(Math.round((mps / porCiclo) * 60)), unidad: '/min' };
+}
 
 /** Nulo cuando no lo mide nadie: sin medida no hay cruce, solo tu toque. */
 export function motorDe(item: ItemReal): MotorTramo | null {

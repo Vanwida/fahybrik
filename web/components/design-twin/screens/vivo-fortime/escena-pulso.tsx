@@ -25,7 +25,6 @@ import {
   SCORE_APERTURA_PULSO_S,
   TANDAS,
   TOTAL_REPS,
-  fcEn,
   proyeccionS,
   recienSellado,
   repsCerradas,
@@ -33,6 +32,7 @@ import {
 import { Ambiente, Flash, Franja } from './atoms';
 import { Sello, SujetoTrabajo, Trio } from './sujeto';
 import { Riel, type Fila } from './ruta';
+import { CaraFormato, NotaLateral, celdaPulso } from './caras';
 import { useCronoSim } from './crono';
 
 /** Último minuto de cap: la franja se pone naranja y lo dice. */
@@ -65,7 +65,15 @@ function filasDe(estado: Estado, parcialVivoS: number): Fila[] {
   });
 }
 
-export function EscenaPulso({ escenario, onLog }: { escenario: string; onLog: (linea: string) => void }) {
+export function EscenaPulso({
+  escenario,
+  landscape,
+  onLog,
+}: {
+  escenario: string;
+  landscape: boolean;
+  onLog: (linea: string) => void;
+}) {
   const alFilo = escenario === 'cap-encima';
   const cerradasIniciales = alFilo ? CERRADAS_CAP : CERRADAS_PULSO;
   const aperturaS = alFilo ? SCORE_APERTURA_CAP_S : SCORE_APERTURA_PULSO_S;
@@ -122,12 +130,35 @@ export function EscenaPulso({ escenario, onLog }: { escenario: string; onLog: (l
         scoreS={acabado ? scoreS : CAP_S}
         hechas={hechas}
         tandasCerradas={estado.cerradas.length}
+        landscape={landscape}
         onLog={onLog}
       />
     );
   }
 
   const tanda = TANDAS[estado.activa];
+  const sujeto = (
+    <SujetoTrabajo
+      cifra={String(tanda.reps)}
+      titulo={tanda.nombre}
+      carga={tanda.carga}
+      regla="cierras tú: nadie cuenta repeticiones"
+    />
+  );
+  const lecturas = (
+    <Trio
+      celdas={[
+        { label: 'Esta tanda', valor: reloj(parcialS) },
+        { label: 'Cerradas', valor: `${hechas}/${TOTAL_REPS}`, unidad: 'reps' },
+        celdaPulso(parcialS),
+      ]}
+    />
+  );
+  const proyeccionEl = <Proyeccion segundos={proyeccion} restanteS={restanteS} />;
+  // Sin «ver todas»: seis tandas caben enteras. La hoja aparte existe para la
+  // ruta de 16, donde el riel tendría que comerse al sujeto.
+  const riel = <Riel filas={filas} activo={estado.activa} alto={landscape ? 34 : 40} />;
+
   return (
     <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
       <Ambiente color={COLOR} />
@@ -138,10 +169,10 @@ export function EscenaPulso({ escenario, onLog }: { escenario: string; onLog: (l
         padding={0}
         gap={0}
         accion={
-          <div style={{ padding: SP.m }}>
+          <div style={{ padding: landscape ? `0 ${SP.m}px ${SP.s}px` : SP.m }}>
             <CTA
               title={estado.activa === TANDAS.length - 1 ? 'ÚLTIMA HECHA' : 'TANDA HECHA'}
-              height={76}
+              height={landscape ? 64 : 76}
               onClick={avanzar}
             />
           </div>
@@ -153,26 +184,33 @@ export function EscenaPulso({ escenario, onLog }: { escenario: string; onLog: (l
           cap={{ totalS: CAP_S, restanteS, urgente: restanteS <= AVISO_CAP_S }}
           pausado={pausado}
           onPausa={alternarPausa}
+          compacta={landscape}
         />
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
-          <SujetoTrabajo
-            cifra={String(tanda.reps)}
-            titulo={tanda.nombre}
-            carga={tanda.carga}
-            regla="cierras tú: nadie cuenta repeticiones"
+        {/* Aquí NO hay máquina, así que en horizontal tampoco hay cara de
+            monitor: manda el formato, recompuesto a dos campos. */}
+        {landscape ? (
+          <CaraFormato
+            sujeto={
+              <>
+                {sujeto}
+                {lecturas}
+              </>
+            }
+            lateral={
+              <>
+                {riel}
+                {proyeccionEl}
+              </>
+            }
           />
-          <Trio
-            celdas={[
-              { label: 'Esta tanda', valor: reloj(parcialS) },
-              { label: 'Cerradas', valor: `${hechas}/${TOTAL_REPS}`, unidad: 'reps' },
-              { label: 'FC', valor: String(fcEn(parcialS)), unidad: 'ppm' },
-            ]}
-          />
-          <Proyeccion segundos={proyeccion} restanteS={restanteS} />
-          {/* Sin «ver todas»: seis tandas caben enteras. La hoja aparte existe
-              para la ruta de 16, donde el riel tendría que comerse al sujeto. */}
-          <Riel filas={filas} activo={estado.activa} alto={40} />
-        </div>
+        ) : (
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s, padding: SP.m }}>
+            {sujeto}
+            {lecturas}
+            {proyeccionEl}
+            {riel}
+          </div>
+        )}
       </Pantalla>
     </div>
   );
@@ -187,18 +225,11 @@ function Proyeccion({ segundos, restanteS }: { segundos: number | null; restante
   if (segundos == null) return null;
   const seComeElCap = segundos > CAP_S;
   return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        textAlign: 'center',
-        font: '500 12px/1.3 var(--twin-font-sans)',
-        color: seComeElCap && restanteS <= AVISO_CAP_S ? 'var(--twin-accent-text)' : 'var(--twin-muted)',
-      }}
-    >
+    <NotaLateral tono={seComeElCap && restanteS <= AVISO_CAP_S ? 'accent' : 'muted'}>
       {seComeElCap
         ? 'Al ritmo de lo que llevas cerrado, te comes el cap.'
         : `Al ritmo de lo que llevas cerrado, acabas sobre ${reloj(segundos)}.`}
-    </div>
+    </NotaLateral>
   );
 }
 
@@ -215,12 +246,14 @@ function Cierre({
   scoreS,
   hechas,
   tandasCerradas,
+  landscape,
   onLog,
 }: {
   muerto: boolean;
   scoreS: number;
   hechas: number;
   tandasCerradas: number;
+  landscape: boolean;
   onLog: (linea: string) => void;
 }) {
   const enVuelo = TANDAS[tandasCerradas];
@@ -234,6 +267,7 @@ function Cierre({
           cap={{ totalS: CAP_S, restanteS: muerto ? 0 : CAP_S - scoreS, urgente: muerto }}
           pausado={false}
           onPausa={() => onLog('El bloque ya está cerrado: no hay nada que pausar')}
+          compacta={landscape}
         />
         {muerto ? (
           <Sello

@@ -121,36 +121,57 @@ export interface Celda {
   label: string;
   valor: string;
   unidad?: string;
+  /** Zona de pulso, cuando la lectura es FC. Pinta el chip `tw-zone`. */
+  zona?: 1 | 2 | 3 | 4 | 5;
+}
+
+/**
+ * UNA baldosa de lectura, y una sola.
+ *
+ * `flex: 1` a propósito: en una fila se reparten el ancho (el trío del
+ * retrato) y en una columna se reparten el alto (el raíl del monitor en
+ * horizontal). La misma pieza sirve para las dos caras, que es justo lo que
+ * evita que la misma cifra se pinte de dos maneras según cómo gires el móvil.
+ */
+export function Baldosa({ celda }: { celda: Celda }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: SP.xs,
+        padding: `${SP.s}px ${SP.m}px`,
+        borderRadius: RAD.m,
+        background: 'var(--twin-surface)',
+        border: '1px solid var(--twin-hairline)',
+      }}
+    >
+      <Label size={9}>{celda.label}</Label>
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
+        <Mono size={20} weight={800} color={celda.zona ? `var(--twin-z${celda.zona})` : 'var(--twin-fg)'}>
+          {celda.valor}
+        </Mono>
+        {celda.unidad && (
+          <span style={{ font: '600 10px var(--twin-font-mono)', color: 'var(--twin-muted)' }}>{celda.unidad}</span>
+        )}
+        {celda.zona && (
+          <span className="tw-zone" data-zone={celda.zona}>
+            Z{celda.zona}
+          </span>
+        )}
+      </span>
+    </div>
+  );
 }
 
 export function Trio({ celdas }: { celdas: Celda[] }) {
   return (
     <div style={{ display: 'flex', gap: SP.xs, flex: '0 0 auto' }}>
       {celdas.map((c) => (
-        <div
-          key={c.label}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: SP.xs,
-            padding: `${SP.s}px ${SP.m}px`,
-            borderRadius: RAD.m,
-            background: 'var(--twin-surface)',
-            border: '1px solid var(--twin-hairline)',
-          }}
-        >
-          <Label size={9}>{c.label}</Label>
-          <span style={{ display: 'flex', alignItems: 'baseline', gap: 3, minWidth: 0 }}>
-            <Mono size={20} weight={800}>
-              {c.valor}
-            </Mono>
-            {c.unidad && (
-              <span style={{ font: '600 10px var(--twin-font-mono)', color: 'var(--twin-muted)' }}>{c.unidad}</span>
-            )}
-          </span>
-        </div>
+        <Baldosa key={c.label} celda={c} />
       ))}
     </div>
   );
