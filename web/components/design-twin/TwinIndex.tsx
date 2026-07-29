@@ -47,7 +47,12 @@ export function TwinIndex({ localePrefix }: { localePrefix: string }) {
                   </div>
                   <h3>{meta.titulo}</h3>
                   <p>{meta.descripcion}</p>
-                  {meta.soportaHorizontal && <span className="studio-tag">gira ⟳</span>}
+                  <span className="studio-tags">
+                    {meta.composicion && (
+                      <span className="studio-tag studio-tag-estrategia">{meta.composicion.estrategia}</span>
+                    )}
+                    {meta.soportaHorizontal && <span className="studio-tag">gira ⟳</span>}
+                  </span>
                 </Link>
               ))}
               {huecos.map((p) => (

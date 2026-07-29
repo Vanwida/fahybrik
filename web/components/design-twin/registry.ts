@@ -20,6 +20,9 @@ import * as perfilRendimiento from './screens/perfil-rendimiento';
 import * as testsCalibracion from './screens/tests-calibracion';
 import * as chatCoach from './screens/chat-coach';
 import * as analiticasVeredicto from './screens/analiticas-veredicto';
+import * as gateBloque from './screens/gate-bloque';
+import * as entrenoVivo from './screens/entreno-vivo';
+import * as postEntreno from './screens/post-entreno';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -28,10 +31,15 @@ export const SCREENS: TwinScreenModule[] = [
   watchLive,
   marks,
   rankingBox,
+  // La tanda de composición (§6): todas declaran su ficha y se pueden ver
+  // en «cómo está hoy» además de en propuesta.
   perfilRendimiento,
   testsCalibracion,
   chatCoach,
   analiticasVeredicto,
+  gateBloque,
+  entrenoVivo,
+  postEntreno,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -49,8 +57,8 @@ export const PENDIENTES: TwinPendiente[] = [
   { titulo: 'Hoy', zona: 'Plan y hoy', descripcion: 'La portada diaria: readiness, sesión del día, avisos.' },
   { titulo: 'Plan de la semana', zona: 'Plan y hoy', descripcion: 'Microciclo con puntos de modalidad y carga.' },
   { titulo: 'Detalle de sesión', zona: 'Plan y hoy', descripcion: 'La ficha previa: bloques, dosis, el porqué del coach.' },
-  { titulo: 'Resumen post-entreno', zona: 'Entreno en vivo', descripcion: 'Desglose al acabar: laps, zonas, RPE, guardar.' },
   { titulo: 'HUD de fuerza y metcon', zona: 'Entreno en vivo', descripcion: 'Series, cargas y descansos en vivo (EMOM/AMRAP).' },
+  { titulo: 'La ruta entera, como Lista', zona: 'Entreno en vivo', descripcion: 'Las 16 estaciones en su propia hoja — la salida del «Ver las 16» del entreno en vivo.' },
   { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'Montar un libre: modalidad, medida, objetivo.' },
   { titulo: 'Tests guiados', zona: 'Marcas y tests', descripcion: 'La batería de calibración con instrucciones paso a paso.' },
   { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'Alta del atleta: datos, dispositivos, permisos.' },

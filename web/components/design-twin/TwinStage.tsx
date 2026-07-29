@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceFrame } from './DeviceFrame';
 import { SimPanel } from './SimPanel';
 import { getScreen } from './registry';
-import type { TwinAppearance, TwinOrientation } from './types';
+import type { TwinAppearance, TwinOrientation, TwinVista } from './types';
 
 export interface LogLine {
   t: number; // ms desde el arranque del escenario
@@ -28,6 +28,9 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
   const [runId, setRunId] = useState(0);
   const [orientation, setOrientation] = useState<TwinOrientation>('portrait');
   const [appearance, setAppearance] = useState<TwinAppearance>('dark');
+  // Antes / después. Arranca en la propuesta: el doble enseña a dónde vamos, y
+  // «hoy» es la prueba de por qué. Las pantallas sin `composicion` no lo usan.
+  const [vista, setVista] = useState<TwinVista>('propuesta');
   const [fullscreen, setFullscreen] = useState(false);
   const [logs, setLogs] = useState<LogLine[]>([]);
   // El cero de la cronología. 0 = «sin fijar»: el PRIMER log de la reproducción
@@ -82,12 +85,16 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
   }
 
   const { meta, escenarios, Screen } = mod;
+  // Sin ficha de composición no hay antes/después que enseñar: la pantalla
+  // recibe siempre 'propuesta' y el panel no ofrece el conmutador.
+  const vistaActiva: TwinVista = meta.composicion ? vista : 'propuesta';
   const screenEl = (
     <Screen
-      key={`${escenario}:${runId}`}
+      key={`${escenario}:${vistaActiva}:${runId}`}
       orientation={orientation}
       appearance={appearance}
       escenario={escenario}
+      vista={vistaActiva}
       onLog={onLog}
     />
   );
@@ -127,6 +134,8 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
         onOrientation={setOrientation}
         appearance={appearance}
         onAppearance={setAppearance}
+        vista={vistaActiva}
+        onVista={setVista}
         onFullscreen={() => setFullscreen(true)}
         logs={logs}
         indexHref={`${localePrefix}/design`}
