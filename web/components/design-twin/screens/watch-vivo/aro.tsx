@@ -18,6 +18,7 @@
 
 import type { ReactNode } from 'react';
 import { W } from '../watch-live/theme';
+import type { Tramo } from '../../tramos';
 
 /** Métricas del lienzo del reloj — las mismas que fija DeviceFrame (WATCH). */
 const LIENZO = { ancho: 208, alto: 248, radio: 56 } as const;
@@ -91,6 +92,53 @@ export function AroContinuo({ fraccion }: { fraccion: number }) {
         strokeDashoffset={PERIMETRO * (1 - queda)}
         style={{ transition: 'stroke-dashoffset 900ms linear' }}
       />
+    </Lienzo>
+  );
+}
+
+/**
+ * EL ARO DE TRAMOS — la forma de la carrera, ya terminada, en el bisel.
+ *
+ * Es el mismo hallazgo que `AroSegmentado` llevado al resumen: en un reloj no
+ * hay sitio para un gráfico, pero el borde no cuesta altura de contenido. Así
+ * que la estructura de lo que acabas de correr —cuántos fuertes, cuánto duró
+ * cada uno, dónde estaban los suaves— vive ahí, y se ve de reojo en TODAS las
+ * páginas sin robarle una línea a ninguna.
+ *
+ * Cada tramo ocupa el arco que le toca por duración. Lo fuerte, encendido; lo
+ * suave, el carril apagado; un parón, nada. El naranja es la estructura, igual
+ * que en vivo — no un color de dato (§9.1).
+ */
+export function AroTramos({ tramos }: { tramos: Tramo[] }) {
+  const total = tramos.reduce((a, t) => a + t.duracionS, 0);
+  if (total <= 0) return null;
+  const hueco = tramos.length > 1 ? Math.min(6, PERIMETRO / (tramos.length * 4)) : 0;
+  // Los arranques se acumulan ANTES del render y no dentro del `map`: mutar una
+  // variable mientras se pinta es lo que hace que el segundo render salga
+  // distinto del primero.
+  const arranques = tramos.reduce<number[]>(
+    (acc, t) => [...acc, acc[acc.length - 1]! + (t.duracionS / total) * PERIMETRO],
+    [0],
+  );
+  return (
+    <Lienzo via={false}>
+      {tramos.map((t, i) => {
+        const inicio = arranques[i]!;
+        const paso = (t.duracionS / total) * PERIMETRO;
+        const largo = Math.max(1, paso - hueco);
+        return (
+          <path
+            key={i}
+            d={TRAZADO}
+            fill="none"
+            stroke={t.tipo === 'fuerte' ? COLOR_ARO : COLOR_VIA}
+            strokeWidth={GROSOR}
+            strokeLinecap="butt"
+            strokeDasharray={`${t.tipo === 'parado' ? 0 : largo} ${PERIMETRO}`}
+            strokeDashoffset={-(inicio + hueco / 2)}
+          />
+        );
+      })}
     </Lienzo>
   );
 }
