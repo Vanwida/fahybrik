@@ -113,6 +113,16 @@ export interface Lectura {
   certeza: Certeza | null;
   motivo: Motivo | null;
   tramos: Tramo[];
+  /**
+   * Si los tramos son UNA LECTURA o sólo el andamio de la detección.
+   *
+   * En un rodaje continuo el disparador igualmente trocea la serie —tiene que
+   * hacerlo para poder concluir que no hay frontera—, pero esos trozos no son
+   * repeticiones: son ruido con nombre. Pintarlos sería enseñar una estructura
+   * que el atleta no corrió. Lo decide el dominio y no la pantalla, para que
+   * las dos superficies no puedan discrepar.
+   */
+  tramosSonLectura: boolean;
   fuerte: Grupo | null;
   suave: Grupo | null;
   /** s/km entre lo suave y lo fuerte. Es lo que hace que el ritmo fuerte signifique algo. */
@@ -280,6 +290,7 @@ export function lecturaDeCarrera(c: Carrera): Lectura {
   if (crudos === 'sin-serie' || crudos === 'muestras-escasas') {
     return {
       tramos: [],
+      tramosSonLectura: false,
       forma: 'no-se-sabe',
       certeza: null,
       motivo: crudos,
@@ -324,13 +335,15 @@ export function lecturaDeCarrera(c: Carrera): Lectura {
   const uniforme =
     !suaveNoRegistrado && (fuerte == null || suave == null || contrasteSkm! < UMBRAL_CONTRASTE_SKM);
 
-  // El aguante sólo se lee sobre repeticiones DE VERDAD: las que definió el
-  // coach, o las que separa una frontera real. Sacarlo de los trozos en que la
-  // detección parte un rodaje continuo sería leer el ruido.
+  // Los tramos son una lectura cuando son repeticiones DE VERDAD: las que
+  // definió el coach, o las que separa una frontera real. Los trozos en que la
+  // detección parte un rodaje continuo no lo son — ni para el aguante, ni para
+  // pintarlos.
   const repeticionesReales = certeza === 'marcados' || !uniforme;
 
   return {
     tramos,
+    tramosSonLectura: repeticionesReales,
     forma: uniforme ? 'uniforme' : 'con-contraste',
     certeza,
     motivo: null,

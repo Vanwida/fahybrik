@@ -146,10 +146,8 @@ describe('design-twin · lecturaDeCarrera', () => {
         { tipo: 'fuerte', duracionS: 300, distanciaM: 750 },
       ],
     });
-    expect(l.fuerte ?? l.tramos).toBeTruthy();
-    const grupo = l.fuerte ?? null;
     // Cubre la sesión entera y todo es fuerte: uniforme, y el ritmo vive en la media.
-    expect(grupo).toBeNull();
+    expect(l.forma).toBe('uniforme');
     expect(l.mediaSkm).toBeCloseTo(266.67, 1);
     expect(l.mediaSkm).not.toBeCloseTo(300, 0);
   });
@@ -184,6 +182,19 @@ describe('design-twin · lecturaDeCarrera', () => {
     expect(l.mediaEsMezcla).toBe(false);
     expect(l.fuerte).toBeNull();
     expect(l.suave).toBeNull();
+  });
+
+  it('los trozos de un rodaje continuo no son una lectura y no se pintan', () => {
+    // El disparador trocea igualmente —lo necesita para concluir que NO hay
+    // frontera— pero esos trozos no son repeticiones. Si la pantalla los
+    // dibujara, enseñaría una estructura que el atleta no corrió.
+    const l = lecturaDeCarrera(conMuestras([{ dur: 2400, skm: 300 }], 5));
+    expect(l.tramosSonLectura).toBe(false);
+    expect(l.aguante).toBeNull();
+
+    // En cambio un fartlek y unas vueltas marcadas SÍ son una lectura.
+    expect(lecturaDeCarrera(fartlek()).tramosSonLectura).toBe(true);
+    expect(lecturaDeCarrera(comoVueltas(HYROX_44)).tramosSonLectura).toBe(true);
   });
 
   it('la ondulación del terreno no es una frontera', () => {
