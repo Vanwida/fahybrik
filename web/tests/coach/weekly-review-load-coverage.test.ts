@@ -128,6 +128,34 @@ describe('progresar de microciclo exige lo mismo', () => {
   });
 });
 
+// La imagen especular del bug de la adherencia: allí un null se leía como 1 y
+// acababa en «avanzar»; aquí se leía como 0 y acababa en «regresar», con un
+// «Compliance 0%» impreso al lado. Un hueco no castiga ni premia: se queda en
+// hold y se dice que falta el dato.
+describe('una adherencia desconocida no es un 0 %', () => {
+  test('sin adherencia NO se recomienda regresar', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.recommendation).toBe('hold');
+  });
+
+  test('sin adherencia tampoco se avanza', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.recommendation).not.toBe('advance');
+  });
+
+  test('la señal declara el hueco en vez de imprimir «Compliance 0%»', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: null })]);
+    expect(t?.signals).toContain('Adherencia sin datos todavía');
+    expect(t?.signals.some((s) => s.includes('Compliance 0%'))).toBe(false);
+  });
+
+  test('una adherencia BAJA de verdad sí sigue mandando a regresar', () => {
+    const [t] = computeTransitions([row({ block_week: 3, compliance_pct: 45 })]);
+    expect(t?.recommendation).toBe('regress');
+    expect(t?.signals).toContain('Compliance 45%');
+  });
+});
+
 describe('la cola de atención anota el hueco, pero no lo convierte en alerta', () => {
   test('un atleta sin más problema que la cobertura NO entra en la cola', () => {
     expect(computeAttention([row({ load_coverage: HOLED })])).toEqual([]);
