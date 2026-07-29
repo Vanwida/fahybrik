@@ -40,6 +40,7 @@ interface AthleteRow {
   scheduled_today: number;
   scheduled_today_done: number;
   a_event_iso: string | null;
+  a_event_name: string | null;
 }
 
 export async function buildCohort(params: BuildCohortParams): Promise<CohortRow[]> {
@@ -134,7 +135,8 @@ async function loadRealCohort(
       -- as getTargetRaceRow, batch form (DISTINCT ON joined into the cohort query).
       select distinct on (r.athlete_id)
         r.athlete_id,
-        to_char(r.race_date, 'YYYY-MM-DD') as iso
+        to_char(r.race_date, 'YYYY-MM-DD') as iso,
+        r.name as name
       from races r
       where r.priority = 'target'
         and r.race_date >= ${todayIso}::date
@@ -166,7 +168,8 @@ async function loadRealCohort(
       coalesce(m7.n, 0)             as missed_sessions_7d,
       coalesce(ts.scheduled, 0)     as scheduled_today,
       coalesce(ts.done, 0)          as scheduled_today_done,
-      ae.iso                        as a_event_iso
+      ae.iso                        as a_event_iso,
+      ae.name                       as a_event_name
     from athletes a
     left join hrv_recent  hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
@@ -338,6 +341,7 @@ async function rollupAthlete(
     sleep_avg_7d_h: a.sleep_avg_7d_h != null ? round1(a.sleep_avg_7d_h) : null,
     rhr: restingHr != null ? Math.round(restingHr.bpm) : null,
     days_to_a_event,
+    a_event_name: a.a_event_name ?? null,
     volume_7d_h,
     sessions_today,
     last_checkin_at: a.last_checkin_at?.toISOString() ?? null,

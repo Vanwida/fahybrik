@@ -19,6 +19,11 @@ import { coerceJson } from '@/lib/json-column';
 import { buildCohort } from './cohort';
 import type { CohortRow } from '@fahybrid/shared/domain/coach/types';
 import {
+  aggregatePolarization,
+  polarizationDrift as computePolarizationDrift,
+  TARGET_POLARIZATION,
+} from '@fahybrid/shared/domain/coach/polarization';
+import {
   type CoachWeeklyReview,
   type CohortPlanDay,
   type CohortPlanWeek,
@@ -36,7 +41,6 @@ import {
   weeklyReviewSnapshotSchema,
 } from './weekly-review-schema';
 
-const TARGET_POLARIZATION = { low: 80, mid: 0, high: 20 };
 const POLARIZATION_DRIFT_THRESHOLD = 6;
 const ATTENTION_HRV_DROP_MS = 8;
 const MASS_ADJUSTMENT_MIN_AFFECTED = 3;
@@ -303,17 +307,14 @@ export function computeSnapshot(cohort: CohortRow[], now: Date): WeeklyReviewSna
     ? Math.round(compliances.reduce((s, v) => s + v, 0) / compliances.length)
     : null;
 
-  const volumeHours = cohort.reduce((s, r) => s + (r.volume_7d_h ?? 0), 0);
-  const totalVolume = round1(volumeHours);
+  // Only the athletes whose volume is actually known are summed, and the total is
+  // null when none is: adding an unknown as 0 h understates the cohort's week and
+  // reads as a measured total. Same shape as the compliance mean above.
+  const volumes = cohort.map((r) => r.volume_7d_h).filter((v): v is number => v != null);
+  const totalVolume = volumes.length > 0 ? round1(volumes.reduce((s, v) => s + v, 0)) : null;
 
   const polarization = aggregatePolarization(cohort);
-  const polarizationDrift = polarization
-    ? Math.max(
-      Math.abs(polarization.low - TARGET_POLARIZATION.low),
-      Math.abs(polarization.mid - TARGET_POLARIZATION.mid),
-      Math.abs(polarization.high - TARGET_POLARIZATION.high),
-    )
-    : null;
+  const polarizationDrift = polarization ? computePolarizationDrift(polarization) : null;
 
   const hrvDeltas = cohort
     .map((r) => r.hrv_delta_ms)
@@ -447,7 +448,12 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
     // the canonical progress-readiness reader for the per-athlete truth.
     if (row.block_week < TRANSITION_WEEK_THRESHOLD) continue;
 
-    const compliance = row.compliance_pct ?? 0;
+    // Adherence is NULL when nothing was due yet in the microciclo. Reading that
+    // as 0 was the exact mirror of the `null → 1 → advance` bug: it printed
+    // "Compliance 0%" and pushed the athlete into `regress` with medium
+    // confidence — a training verdict, and a number, both invented out of an
+    // athlete nobody had scheduled. Unknown adherence supports NEITHER verdict.
+    const compliance = row.compliance_pct;
     const hrvOk = row.hrv_delta_ms == null || row.hrv_delta_ms >= -3;
     // "Fresco enough to progress" is a claim about the ABSENCE of accumulated
     // fatigue, and it is exactly the claim a hole in the window cannot support:
@@ -460,16 +466,23 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
     let recommendation: 'advance' | 'hold' | 'regress' = 'hold';
     let confidence: 'high' | 'medium' | 'low' = 'low';
 
-    if (compliance >= 90 && freshEnough && hrvOk) {
+    if (compliance != null && compliance >= 90 && freshEnough && hrvOk) {
       recommendation = 'advance';
       confidence = compliance >= 95 ? 'high' : 'medium';
-    } else if (compliance < 70 || (row.hrv_delta_ms != null && row.hrv_delta_ms <= -10)) {
+    } else if (
+      (compliance != null && compliance < 70) ||
+      (row.hrv_delta_ms != null && row.hrv_delta_ms <= -10)
+    ) {
       recommendation = 'regress';
       confidence = 'medium';
     }
 
     const signals: string[] = [];
-    signals.push(`Compliance ${compliance}%`);
+    // The gap is stated, not filled: "Compliance 0%" is a reading, and there
+    // isn't one to report.
+    signals.push(
+      compliance != null ? `Compliance ${compliance}%` : 'Adherencia sin datos todavía',
+    );
     if (row.hrv_delta_ms != null) {
       signals.push(`HRV ${row.hrv_delta_ms >= 0 ? '+' : ''}${row.hrv_delta_ms.toFixed(0)} ms`);
     }
@@ -683,27 +696,6 @@ function isoDateAddDays(iso: string, days: number): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().slice(0, 10);
-}
-
-function aggregatePolarization(cohort: CohortRow[]): { low: number; mid: number; high: number } | null {
-  const valid = cohort.filter((r) => r.polarization_pct != null);
-  if (valid.length === 0) {
-    if (cohort.length >= 5) return { low: 78, mid: 8, high: 14 };
-    return null;
-  }
-  const sum = valid.reduce(
-    (s, r) => ({
-      low: s.low + (r.polarization_pct?.low ?? 0),
-      mid: s.mid + (r.polarization_pct?.mid ?? 0),
-      high: s.high + (r.polarization_pct?.high ?? 0),
-    }),
-    { low: 0, mid: 0, high: 0 },
-  );
-  return {
-    low: Math.round(sum.low / valid.length),
-    mid: Math.round(sum.mid / valid.length),
-    high: Math.round(sum.high / valid.length),
-  };
 }
 
 function recommendationFor(row: CohortRow, severity: 'critical' | 'warning'): string {

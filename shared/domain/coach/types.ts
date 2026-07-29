@@ -60,6 +60,8 @@ export interface CohortRow {
   sleep_avg_7d_h: number | null;
   rhr: number | null;
   days_to_a_event: number | null;
+  /** Name of that target race, as recorded. Null when there is none. */
+  a_event_name: string | null;
   /**
    * Hours actually executed in the last 7 days. Measured duration, so it is
    * whole regardless of load coverage: knowing HOW LONG someone trained never

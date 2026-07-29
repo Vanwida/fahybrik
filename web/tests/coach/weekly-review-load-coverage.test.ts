@@ -59,6 +59,7 @@ function row(overrides: Partial<CohortRow> = {}): CohortRow {
     sleep_avg_7d_h: null,
     rhr: null,
     days_to_a_event: null,
+    a_event_name: null,
     volume_7d_h: null,
     sessions_today: { am: null, pm: null },
     last_checkin_at: null,
