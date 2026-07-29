@@ -1,0 +1,645 @@
+'use client';
+
+// EL LENGUAJE DEL ENTRENO EN VIVO — la pieza compartida del §10 del CONTRATO-UI.
+//
+// Por qué existe: la tanda del 29-jul acertó la ESTRUCTURA (un sujeto por
+// formato, según quién gobierna la transición) y falló el LENGUAJE — siete
+// pantallas correctas que no se reconocían como la misma app. El tinte de zona
+// vivía solo en `vivo-correr`, el numeral tenía cinco implementaciones (una
+// clase, cuatro `font:` a mano, con 64 · 72 · 140 · 144 · 152 · 168 px de
+// techo), el sujeto caía a una altura distinta en cada pantalla y la acción
+// pesaba entre 66 y 96 pt según quién la escribiera.
+//
+// Aquí vive UNA vez cada una de las cuatro cosas que hacen que se reconozcan:
+//
+//   Ambiente      — la zona tiñe el lienzo (§10.1)
+//   Numeral       — un solo numeral, el del cero rachado (§10.2)
+//   MarcoVivo     — el sujeto cae SIEMPRE a la misma altura (§10.3, §10.4)
+//   FranjaAccion  — la acción no pesa como el sujeto (§10.5)
+//
+// Regla de mantenimiento (§0): si dentro de un mes hay que cambiar el tinte, se
+// cambia AQUÍ y cambia en las diez. Una pantalla que vuelva a escribir su
+// propio `font:` de sujeto o su propio degradado de zona está rompiendo el §10,
+// no «adaptándolo a su caso».
+
+import type { CSSProperties, ReactNode } from 'react';
+import type { TwinAppearance } from './types';
+import { hrZone } from './sim';
+import { UMBRAL } from './datos-reales';
+
+export type Zona = 1 | 2 | 3 | 4 | 5;
+
+const ZONAS: readonly Zona[] = [1, 2, 3, 4, 5];
+
+/** Sin pulso no hay zona: nulo, y nadie pinta un guion (§7). */
+export function zonaDe(pulso: number | null | undefined): Zona | null {
+  return pulso == null ? null : hrZone(pulso, UMBRAL.ppm);
+}
+
+/** El color de una zona. Sin zona, la tinta normal — nunca el naranja de marca. */
+export function colorZona(z: Zona | null): string {
+  return z == null ? 'var(--twin-fg)' : `var(--twin-z${z})`;
+}
+
+// ---------------------------------------------------------------------------
+// §10.1 · Ambiente — la zona tiñe el lienzo. Siempre.
+// ---------------------------------------------------------------------------
+
+/**
+ * Cuánto color aguanta cada tema. En oscuro el tinte tiene que subir para que
+ * se lea a dos metros; en claro, con el mismo porcentaje, el lienzo se
+ * emborrona y el texto pierde contraste. Por eso el reparto es por apariencia y
+ * no un número único.
+ */
+const MEZCLA: Record<TwinAppearance, { centro: number; suelo: number }> = {
+  dark: { centro: 30, suelo: 14 },
+  light: { centro: 17, suelo: 8 },
+};
+
+function capa(color: string, m: { centro: number; suelo: number }): string {
+  return [
+    `radial-gradient(115% 75% at 50% 20%, color-mix(in srgb, ${color} ${m.centro}%, transparent), transparent 70%)`,
+    `linear-gradient(to top, color-mix(in srgb, ${color} ${m.suelo}%, transparent), transparent 45%)`,
+  ].join(', ');
+}
+
+/**
+ * El fondo de una vista en vivo ES tu zona de pulso.
+ *
+ * Una capa por zona y solo la viva a opacidad 1: así el cambio de zona se
+ * TRANSICIONA (un degradado no interpola de un color a otro; dos capas sí).
+ *
+ * Sin ancla de FC no hay tinte y el lienzo queda neutro (§7): el color es un
+ * dato, y una pantalla sin pulso teñida de algo estaría inventando intensidad.
+ * Esa pantalla no es la versión rota de la buena — es la misma pantalla
+ * diciendo la verdad, y por eso conserva banda, numeral y acción intactos.
+ *
+ * El tinte es AMBIENTE: vive detrás de todo, no tiñe el texto y no compite con
+ * el sujeto. Y el naranja de marca NO es un color de zona (§9.1): `acento` se
+ * reserva para el instante en que algo se logra, nunca para un estado sostenido.
+ */
+export function Ambiente({
+  zona,
+  appearance,
+  acento = false,
+}: {
+  zona: Zona | null;
+  appearance: TwinAppearance;
+  /** Tiñe de naranja: SOLO el instante en que algo se logra. */
+  acento?: boolean;
+}) {
+  const m = MEZCLA[appearance];
+  return (
+    <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {ZONAS.map((z) => (
+        <div
+          key={z}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: !acento && zona === z ? 1 : 0,
+            transition: 'opacity 1100ms ease',
+            background: capa(`var(--twin-z${z})`, m),
+          }}
+        />
+      ))}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: acento ? 1 : 0,
+          transition: 'opacity 500ms ease',
+          background: capa('var(--twin-accent)', m),
+        }}
+      />
+    </div>
+  );
+}
+
+/** Fogonazo al cruzar el hito: nace encendido y se apaga solo. */
+export function Fogonazo({ activo, tono = 'var(--twin-ok)' }: { activo: boolean; tono?: string }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+        backgroundColor: `color-mix(in srgb, ${tono} 42%, transparent)`,
+        opacity: activo ? 1 : 0,
+        transition: 'opacity 620ms ease-out',
+      }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §10.2 · Un solo numeral, y es el del cero rachado
+// ---------------------------------------------------------------------------
+
+/**
+ * La escala del numeral. UNA, y con dos peldaños vivos:
+ *
+ *   sujeto  — el número que gobierna la pantalla
+ *   segundo — el trabajo, que es lo SEGUNDO más importante (§10.6)
+ *
+ * Escala con el LIENZO (unidades de contenedor), no con el viewport: dentro del
+ * marco del doble el alto de la ventana no dice nada del alto del teléfono, y
+ * con `vh` el número encoge en un portátil bajo aunque en el móvil sobre sitio.
+ * Tres pantallas usaban `vh` y por eso su sujeto estaba clavado en el techo del
+ * clamp sin que nadie lo notara. `MarcoVivo` abre el contenedor de consulta.
+ *
+ * Con el lienzo del iPhone 17 Pro (781 pt útiles en vertical) el 16 % sale a
+ * ~125 pt: se lee de pie, a dos metros y con el móvil en el suelo.
+ */
+const ESCALA: Record<'sujeto' | 'segundo', Record<'portrait' | 'landscape', string>> = {
+  sujeto: { portrait: 'clamp(64px, 16cqh, 140px)', landscape: 'clamp(64px, 16cqw, 140px)' },
+  segundo: { portrait: 'clamp(30px, 7cqh, 56px)', landscape: 'clamp(30px, 7cqw, 56px)' },
+};
+
+/**
+ * TODO número grande de una vista en vivo pasa por aquí.
+ *
+ * Mono recto 800 tabular — la cara de instrumento con el cero rachado, la que
+ * se lee sudando y en movimiento. Nada de tres tratamientos distintos para el
+ * 139 del pulso, el 0:25 del reloj y el 5×100 de la serie: un numeral para
+ * toda la app.
+ *
+ * `tono` existe porque el pulso SÍ se pinta del color de su zona; el resto de
+ * los sujetos van en la tinta normal y dejan el color al ambiente.
+ */
+export function Numeral({
+  children,
+  horizontal = false,
+  escala = 'sujeto',
+  tono = 'var(--twin-fg)',
+  unidad,
+  style,
+}: {
+  children: ReactNode;
+  horizontal?: boolean;
+  escala?: 'sujeto' | 'segundo';
+  tono?: string;
+  unidad?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center', ...style }}>
+      <span
+        className="t-readout-hero"
+        style={{
+          fontSize: ESCALA[escala][horizontal ? 'landscape' : 'portrait'],
+          color: tono,
+          lineHeight: 0.95,
+          transition: 'color 600ms linear',
+        }}
+      >
+        {children}
+      </span>
+      {unidad && (
+        <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>
+          {unidad}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §10.3 y §10.4 · El sujeto cae siempre a la misma altura, y manda
+// ---------------------------------------------------------------------------
+
+/**
+ * LA BANDA DEL SUJETO — el reparto del alto, en pt del lienzo lógico.
+ *
+ * En una familia de vistas que se turnan durante el MISMO entreno el sujeto no
+ * puede bailar: si en una está centrado y en la siguiente 200 pt más abajo, el
+ * atleta reencuadra cada vez que cambia el formato. Se fija la banda y todas la
+ * respetan, sea cual sea el dato que caiga dentro.
+ *
+ * Las filas se reservan aunque vengan vacías — ahí está el truco: una pantalla
+ * sin franja de contexto sigue empujando el sujeto a la misma altura que una
+ * que sí la tiene, y por eso el numeral no se mueve al cambiar de formato.
+ *
+ * Cuadre sobre el lienzo del iPhone 17 Pro (874 pt, safe 59/34 → 781 útiles):
+ *
+ *   safe top                 59
+ *   + relleno                12
+ *   + CROMO 34 + hueco 12    46
+ *   + CONTEXTO 46 + hueco 12 58
+ *   + media banda           170
+ *   ------------------------------
+ *   centro del sujeto       345 pt   ← el mismo en las diez
+ *
+ * 345 pt es donde ya caía el 140 de `vivo-correr`, que es la que Alex aprobó:
+ * la banda no reinventa una altura, fija la que funcionaba.
+ *
+ * Lo que sobra va a APOYOS (≈213 pt), nunca a una cola debajo (§6.1).
+ */
+export const BANDA = {
+  /** Salir, pausa, en qué serie vas. */
+  cromo: 34,
+  /** La franja que no desaparece jamás: el minuto, el crono-puntuación, la ventana. */
+  contexto: 46,
+  /** Donde vive el sujeto. Fija. */
+  sujeto: 340,
+  /** La acción: se alcanza con una mano y NO compite (§10.5). */
+  accion: 76,
+  /** Relleno y hueco entre filas (Theme.Spacing.m). */
+  hueco: 12,
+} as const;
+
+/**
+ * El marco de toda vista en vivo. Cinco filas, y el sujeto siempre en la tercera.
+ *
+ * Abre además el contenedor de consulta (`containerType: 'size'`) del que
+ * cuelga la escala del numeral: sin él las unidades `cqh` no resuelven y el
+ * número se queda en el suelo del clamp.
+ *
+ * `contexto` y `apoyos` admiten `null` — la fila se reserva igual. Eso es lo
+ * que mantiene la banda quieta entre formatos.
+ */
+export function MarcoVivo({
+  cromo,
+  contexto,
+  sujeto,
+  apoyos,
+  accion,
+  horizontal = false,
+}: {
+  cromo?: ReactNode;
+  contexto?: ReactNode;
+  sujeto: ReactNode;
+  apoyos?: ReactNode;
+  accion?: ReactNode;
+  horizontal?: boolean;
+}) {
+  // En horizontal el alto es 402 pt y una banda de 340 no cabe: ahí el marco
+  // degrada a `centra` (§6.1) y reparte, que es lo que la regla manda cuando la
+  // estrategia ya no puede sostenerse. La voz (tinte, numeral, acción) no cambia.
+  const filas = horizontal
+    ? `auto auto minmax(0, 1fr) auto ${BANDA.accion}px`
+    : `${BANDA.cromo}px ${BANDA.contexto}px ${BANDA.sujeto}px minmax(0, 1fr) ${BANDA.accion}px`;
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        height: '100%',
+        display: 'grid',
+        gridTemplateRows: filas,
+        gap: BANDA.hueco,
+        padding: BANDA.hueco,
+        boxSizing: 'border-box',
+        containerType: 'size',
+      }}
+    >
+      <div style={{ minHeight: 0, display: 'flex', alignItems: 'center' }}>{cromo}</div>
+      <div style={{ minHeight: 0, display: 'flex', alignItems: 'center' }}>{contexto}</div>
+      <BandaSujeto>{sujeto}</BandaSujeto>
+      <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8 }}>
+        {apoyos}
+      </div>
+      <div style={{ minHeight: 0 }}>{accion}</div>
+    </div>
+  );
+}
+
+/**
+ * El sujeto, dentro de la banda y centrado en ella.
+ *
+ * Sin superficie: el número manda DIRECTO sobre el lienzo teñido. Si una
+ * pantalla necesita superficie bajo el sujeto, la regla del §10.4 es que esa
+ * superficie sea la DOMINANTE de la pantalla (`dominante`), no una caja que
+ * pese lo mismo que las tarjetas de debajo — que es justo lo que convertía el
+ * «5» del AMRAP en un ítem más de la lista.
+ */
+export function BandaSujeto({
+  children,
+  dominante = false,
+  onClick,
+  etiquetaAccesible,
+}: {
+  children: ReactNode;
+  /** La superficie que ES la pantalla: ocupa la banda entera y la corona el acento. */
+  dominante?: boolean;
+  /** Cuando el propio sujeto es lo que se toca (la ronda del AMRAP). */
+  onClick?: () => void;
+  etiquetaAccesible?: string;
+}) {
+  const contenido = (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        textAlign: 'center',
+        width: '100%',
+        height: '100%',
+        minHeight: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+
+  const piel: CSSProperties = dominante
+    ? {
+        position: 'relative',
+        borderRadius: 20,
+        overflow: 'hidden',
+        // Nace del lienzo y se levanta apenas: es la superficie que manda, no
+        // una tarjeta más. La regla de acento arriba es la que la corona.
+        background: 'color-mix(in srgb, var(--twin-surface) 62%, transparent)',
+        boxShadow: 'inset 0 1px 0 var(--twin-hairline-strong)',
+      }
+    : {};
+
+  const cuerpo = (
+    <div style={{ minHeight: 0, display: 'grid', placeItems: 'center', ...piel }}>
+      {dominante && (
+        <div
+          aria-hidden
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'var(--twin-accent)' }}
+        />
+      )}
+      {contenido}
+    </div>
+  );
+
+  if (!onClick) return cuerpo;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={etiquetaAccesible}
+      style={{
+        minHeight: 0,
+        display: 'grid',
+        placeItems: 'center',
+        border: 0,
+        padding: 0,
+        background: 'transparent',
+        color: 'inherit',
+        font: 'inherit',
+        cursor: 'pointer',
+        ...piel,
+      }}
+    >
+      {dominante && (
+        <div
+          aria-hidden
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'var(--twin-accent)' }}
+        />
+      )}
+      {contenido}
+    </button>
+  );
+}
+
+/** La etiqueta del sujeto — micro-versales, encima del numeral. */
+export function EtiquetaSujeto({ children, tono = 'var(--twin-muted)' }: { children: ReactNode; tono?: string }) {
+  return (
+    <span
+      className="t-readout-label"
+      style={{ color: tono, letterSpacing: '0.16em', transition: 'color 600ms linear' }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §10.6 · Lo que de verdad haces no va en gris
+// ---------------------------------------------------------------------------
+
+/**
+ * EL TRABAJO — lo segundo más importante de la pantalla.
+ *
+ * En un EMOM el sujeto es el minuto drenando, pero lo que de verdad haces es
+ * «10 de 12 cal». Hoy eso estaba más pequeño que el reloj y metido en un panel
+ * gris aparte, como si fuera servicio. Lo secundario se pliega (§6, regla 4),
+ * pero el trabajo no es secundario: va en el numeral `segundo`, en la tinta
+ * normal y dentro de la banda, pegado al sujeto que lo gobierna.
+ */
+export function Trabajo({
+  nombre,
+  hecho,
+  objetivo,
+  unidad,
+  tono = 'var(--twin-fg)',
+}: {
+  nombre: string;
+  /** Nulo = no hay nada que lo cuente. Entonces manda el nombre y no se finge un 0 (§7). */
+  hecho?: number | null;
+  objetivo?: number | null;
+  unidad?: string;
+  tono?: string;
+}) {
+  const contable = hecho != null && objetivo != null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <span
+        style={{
+          font: 'italic 800 20px/1.15 var(--twin-font-sans)',
+          letterSpacing: '-0.01em',
+          color: 'var(--twin-fg)',
+        }}
+      >
+        {nombre}
+      </span>
+      {contable && (
+        <Numeral escala="segundo" tono={tono} unidad={unidad}>
+          {`${hecho} de ${objetivo}`}
+        </Numeral>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// La comparación honesta — lo que `vivo-erg` hacía bien y nadie más copiaba
+// ---------------------------------------------------------------------------
+
+/**
+ * La diferencia contra el objetivo. Verde = vas mejor, y punto.
+ *
+ * Es la pieza que convierte un número suelto en una lectura: «1:54» obliga al
+ * atleta a acordarse de su objetivo y restar de cabeza a 170 ppm; «+2 s vs
+ * objetivo» ya está interpretado. Siempre se dice CONTRA QUÉ se compara —
+ * un delta sin referente es un número que miente por omisión.
+ */
+export function Delta({
+  valor,
+  unidad,
+  mejorEs,
+  sufijo,
+  textoNulo,
+}: {
+  valor: number | null;
+  unidad: string;
+  /** En ritmo, menos es mejor; en vatios, más. */
+  mejorEs: 'menos' | 'mas';
+  /** «vs objetivo» · «vs tu serie 1». Siempre se dice contra qué. */
+  sufijo: string;
+  /** Qué se lee cuando la diferencia es cero. Depende de contra qué compares. */
+  textoNulo: string;
+}) {
+  if (valor == null) return null;
+  const nulo = Math.abs(valor) < 0.5;
+  const mejor = mejorEs === 'menos' ? valor < 0 : valor > 0;
+  const color = nulo ? 'var(--twin-muted)' : mejor ? 'var(--twin-ok)' : 'var(--twin-danger)';
+  const signo = valor > 0 ? '+' : '−';
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 6,
+        padding: '5px 12px',
+        borderRadius: 999,
+        background: `color-mix(in srgb, ${color} 16%, transparent)`,
+        transition: 'background-color 400ms linear',
+      }}
+    >
+      {/* Una cifra va en la voz de instrumento; «en el objetivo» NO es una
+          cifra y monoespaciarla la disfraza de medida (§4). */}
+      {nulo ? (
+        <span style={{ font: '600 15px/1.1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{textoNulo}</span>
+      ) : (
+        <span className="t-readout-s" style={{ color, transition: 'color 400ms linear' }}>
+          {`${signo}${Math.abs(Math.round(valor))} ${unidad}`}
+        </span>
+      )}
+      <span style={{ font: '500 11px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{sufijo}</span>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §10.5 · La acción no pesa como el sujeto
+// ---------------------------------------------------------------------------
+
+/**
+ * LA FRANJA DE ACCIÓN — anclada abajo, a una mano, y en su sitio de la jerarquía.
+ *
+ * «Terminar rodaje» o «Serie hecha» son la ACCIÓN: el sujeto es lo que MIRAS,
+ * la acción es lo que TOCAS. Por eso el contorno es el estado normal y el
+ * relleno naranja es la excepción — no al revés, que es como estaba y por lo
+ * que 96 pt de naranja macizo eran la mayor mancha de color de la pantalla.
+ *
+ * `unicaSalida` = el relleno se gana SOLO cuando el toque es lo único que puede
+ * cerrar el tramo (la fuerza la cierras tú; el rodaje lo cierra el hito). Así
+ * el color deja de ser decoración y pasa a decir quién gobierna la transición,
+ * que es exactamente la variable que separa estas vistas.
+ */
+export function FranjaAccion({
+  titulo,
+  onClick,
+  unicaSalida = false,
+  nota,
+  style,
+}: {
+  titulo: string;
+  onClick: () => void;
+  /** El toque es lo ÚNICO que cierra el tramo: ahí, y solo ahí, manda el relleno. */
+  unicaSalida?: boolean;
+  /** Una línea bajo el rótulo, para lo que el botón sella. */
+  nota?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={unicaSalida ? 'tw-btn-primary' : 'tw-btn-secondary'}
+      style={{
+        width: '100%',
+        height: '100%',
+        flexDirection: 'column',
+        gap: 3,
+        // 17 px es el tamaño de la CTA de la app. El EMOM la escribía a 26 y por
+        // eso su acción gritaba más que el trabajo que anunciaba.
+        fontSize: 17,
+        fontStyle: 'italic',
+        fontWeight: 800,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        borderRadius: 14,
+        ...style,
+      }}
+    >
+      <span>{titulo}</span>
+      {nota && (
+        <span
+          style={{
+            font: '600 10px/1 var(--twin-font-sans)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            opacity: 0.7,
+          }}
+        >
+          {nota}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Apoyos — el tercer nivel, y el último
+// ---------------------------------------------------------------------------
+
+/**
+ * Celda de servicio. Va en `t-readout-s` (22 px) y no más: tres o cuatro se
+ * reparten 378 pt de ancho, y un cronómetro en `t-readout-m` se sale de su caja.
+ * El dato sigue pesando más que su etiqueta (§4).
+ */
+export function Apoyo({
+  etiqueta,
+  valor,
+  tono = 'var(--twin-fg)',
+  pie,
+}: {
+  etiqueta: string;
+  valor: string;
+  tono?: string;
+  pie?: string;
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: '10px 6px',
+        borderRadius: 10,
+        // Translúcida: el tinte de zona tiene que verse DEBAJO de los apoyos,
+        // o el ambiente se corta en una línea recta a media pantalla.
+        background: 'color-mix(in srgb, var(--twin-surface) 78%, transparent)',
+        border: '1px solid var(--twin-hairline)',
+      }}
+    >
+      <span className="t-readout-s" style={{ color: tono, transition: 'color 600ms linear' }}>
+        {valor}
+      </span>
+      <span
+        className="t-readout-label"
+        style={{ color: 'var(--twin-muted)', textAlign: 'center', letterSpacing: '0.1em' }}
+      >
+        {etiqueta}
+      </span>
+      {pie && <span style={{ font: '500 10px/1 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{pie}</span>}
+    </div>
+  );
+}
+
+/** La fila de apoyos: tres celdas a lo ancho, que es lo que cabe legible. */
+export function FilaApoyos({ children }: { children: ReactNode }) {
+  return <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>{children}</div>;
+}
