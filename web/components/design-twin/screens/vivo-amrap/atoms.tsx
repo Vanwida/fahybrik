@@ -6,10 +6,7 @@
 // cuando el sujeto tiene que leerse con el móvil en el suelo).
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { IconCheckCircle, IconClose, IconHeart, Label, Mono, RAD } from '../../kit';
-import { COLOR_MODALIDAD, UMBRAL } from '../../datos-reales';
-import { hrZone } from '../../sim';
-import { lineaMovimiento, type MovimientoAmrap } from './data';
+import { IconClose, Label, Mono, RAD } from '../../kit';
 
 // ---------------------------------------------------------------------------
 // La confirmación gorda — «la pantalla late» al sumar una ronda
@@ -263,121 +260,102 @@ export function VentanaReadout({
 }
 
 // ---------------------------------------------------------------------------
-// La lista de movimientos — el toque pequeño, por línea
+// El núcleo de la ronda — el mismo en las dos caras
 // ---------------------------------------------------------------------------
 
-export type EstadoMovimiento = 'hecho' | 'actual' | 'pendiente';
-
 /**
- * Una línea del round. El toque es opcional a propósito: quien no marque nada
- * cierra rondas enteras y su marcador acaba en rondas redondas; quien marque,
- * se lleva la parcial exacta cuando la ventana lo corte. Lo que no puede pasar
- * es que la app rellene la parcial sola (§7).
+ * Lo que se toca y lo que dice el marcador. Vive aquí, y no dentro de cada
+ * cara, porque vertical y horizontal tienen que enseñar la MISMA ronda: si se
+ * escribiera dos veces, girar el móvil acabaría cambiando el número de sitio,
+ * de tamaño y de redacción, que es como se pierde la confianza en un marcador.
+ *
+ * `tamano` es lo único que cambia entre caras, y cambia por una razón: 144
+ * cuando la ronda gobierna, 96 cuando lo hace el monitor y ella cede sin
+ * desaparecer.
  */
-export function FilaMovimiento({
-  movimiento,
-  estado,
-  onMarcar,
+export function NucleoRonda({
+  rondas,
+  repsMarcadas,
+  compara,
+  tamano,
+  pista,
 }: {
-  movimiento: MovimientoAmrap;
-  estado: EstadoMovimiento;
-  onMarcar: () => void;
+  rondas: number;
+  repsMarcadas: number;
+  compara: { indice: number; texto: string; deltaS: number } | null;
+  tamano: 96 | 144;
+  pista: string;
 }) {
-  const hecho = estado === 'hecho';
-  const actual = estado === 'actual';
   return (
-    <button
-      type="button"
-      onClick={onMarcar}
-      aria-label={`Marcar ${lineaMovimiento(movimiento)}`}
-      aria-pressed={hecho}
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        width: '100%',
-        padding: '13px 14px',
-        borderRadius: RAD.m,
-        border: `1px solid ${actual ? 'color-mix(in srgb, var(--twin-accent) 45%, transparent)' : 'var(--twin-hairline)'}`,
-        background: actual ? 'color-mix(in srgb, var(--twin-accent) 10%, var(--twin-surface))' : 'var(--twin-surface)',
-        color: 'var(--twin-fg)',
-        cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'background-color 200ms linear, border-color 200ms linear',
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          flex: '0 0 auto',
-          background: hecho ? 'transparent' : COLOR_MODALIDAD[movimiento.modalidad],
-          border: hecho ? '1.5px solid var(--twin-faint)' : 'none',
-        }}
-      />
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          font: `italic ${actual ? 800 : 700} 20px/1.15 var(--twin-font-sans)`,
-          color: hecho ? 'var(--twin-faint)' : 'var(--twin-fg)',
-          textDecoration: hecho ? 'line-through' : 'none',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {lineaMovimiento(movimiento)}
-      </span>
-      {hecho && (
-        <span style={{ color: 'var(--twin-ok)', display: 'inline-flex', flex: '0 0 auto' }}>
-          <IconCheckCircle size={16} />
+    <>
+      <Label size={10}>Rondas</Label>
+      {/* 144 = dos veces `t-readout-hero`. El sujeto de un AMRAP se lee de pie,
+          a tres metros y con el móvil en el suelo; a 72 no llega. */}
+      <Golpe key={rondas}>
+        <Mono size={tamano} weight={800} style={{ lineHeight: 1 }}>
+          {rondas}
+        </Mono>
+      </Golpe>
+
+      {repsMarcadas > 0 && (
+        <Mono size={22} weight={800} color="var(--twin-accent-text)">
+          +{repsMarcadas} reps
+        </Mono>
+      )}
+
+      {compara && (
+        <span
+          style={{
+            font: '500 13px/1.3 var(--twin-font-sans)',
+            color: 'var(--twin-muted)',
+            marginTop: 4,
+            textAlign: 'center',
+          }}
+        >
+          {`ronda ${compara.indice} · `}
+          <span style={{ color: compara.deltaS > 0 ? 'var(--twin-warning)' : 'var(--twin-ok)', fontWeight: 700 }}>
+            {compara.texto}
+          </span>
         </span>
       )}
-    </button>
+
+      <span
+        style={{
+          font: '500 12px/1.2 var(--twin-font-sans)',
+          color: 'var(--twin-faint)',
+          marginTop: 6,
+          textAlign: 'center',
+        }}
+      >
+        {pista}
+      </span>
+    </>
   );
 }
 
-// ---------------------------------------------------------------------------
-// La franja del pulso — existe solo si hay reloj
-// ---------------------------------------------------------------------------
-
-/**
- * Pulso y zona. `ppm` nulo = no hay reloj emparejado y la franja NO se pinta:
- * ni un guion ni una barra vacía insinuando que algo se está midiendo (§7).
- * La zona sale del umbral, que hoy en toda la base es estimado — por eso el
- * sellado lo dice con todas las letras y aquí, en vivo, solo se pinta la banda.
- */
-export function FranjaPulso({ ppm }: { ppm: number | null }) {
-  if (ppm === null) return null;
-  const zona = hrZone(ppm, UMBRAL.ppm);
+/** El reloj parado, encima de todo. Igual en las dos caras. */
+export function CapaPausa({ onSeguir }: { onSeguir: () => void }) {
   return (
     <div
       style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'var(--twin-scrim)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: 10,
-        padding: '8px 12px',
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-        flex: '0 0 auto',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24,
       }}
     >
-      <span style={{ color: `var(--twin-z${zona})`, display: 'inline-flex' }}>
-        <IconHeart size={13} />
+      <Label size={11}>En pausa</Label>
+      <span style={{ font: 'italic 800 28px/1.1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
+        El reloj está parado
       </span>
-      <Mono size={22} weight={800}>
-        {ppm}
-      </Mono>
-      <Label size={10}>ppm</Label>
-      <span style={{ flex: 1 }} />
-      <span className="tw-zone" data-zone={zona}>
-        Z{zona}
-      </span>
+      <button type="button" onClick={onSeguir} className="tw-btn-primary" style={{ width: '100%', height: 64 }}>
+        SEGUIR
+      </button>
     </div>
   );
 }

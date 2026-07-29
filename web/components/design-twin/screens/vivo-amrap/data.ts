@@ -30,6 +30,12 @@
 // describen el MISMO AMRAP en tres instantes y ninguna inventa por su cuenta.
 
 import type { Modalidad } from '../../datos-reales';
+// Las dos conversiones de Concept2 ya existen y son físicas, no de esta
+// pantalla (§0: si existe, se usa). DEUDA DECLARADA: viven en el módulo de
+// otra pantalla del doble; su sitio es `datos-reales.ts`, junto a `reloj()`.
+// Se importan en vez de copiarse porque una tercera versión de la misma
+// fórmula es exactamente lo que el contrato persigue.
+import { calPorHoraDesdeVatios, vatiosDesdeRitmo } from '../benchmark-erg/data';
 
 /** La ventana del entreno: 12:00. El único número que no depende del atleta. */
 export const VENTANA_S = 720;
@@ -51,13 +57,23 @@ export interface MovimientoAmrap {
    * quien lo lee está mirando el monitor del remo, no contando burpees.
    */
   unidad: 'reps' | 'cal';
+  /**
+   * Lo cuenta una MÁQUINA, no tú. Es la propiedad que decide la cara en
+   * horizontal: un tramo medido puede llenar la pantalla de instrumento
+   * porque hay algo real que enseñar; uno a pulso, no.
+   *
+   * Ojo: medible no es medido. Sin el monitor emparejado esto no vale nada y
+   * el tramo se comporta como cualquier otro (§7) — de ahí que `caraDe` pida
+   * las dos cosas.
+   */
+  mideElMonitor?: boolean;
   modalidad: Modalidad;
 }
 
 /** El AMRAP de esta familia: tres movimientos, diez de cada uno. */
 export const MOVIMIENTOS: readonly MovimientoAmrap[] = [
   { nombre: 'wall balls', dosis: 10, unidad: 'reps', modalidad: 'functional' },
-  { nombre: 'remo', dosis: 10, unidad: 'cal', modalidad: 'row' },
+  { nombre: 'remo', dosis: 10, unidad: 'cal', mideElMonitor: true, modalidad: 'row' },
   { nombre: 'burpees', dosis: 10, unidad: 'reps', modalidad: 'functional' },
 ];
 
@@ -70,6 +86,60 @@ export const REPS_POR_RONDA = MOVIMIENTOS.reduce((n, m) => n + m.dosis, 0);
  */
 export function lineaMovimiento(m: MovimientoAmrap): string {
   return m.unidad === 'cal' ? `${m.dosis} cal de ${m.nombre}` : `${m.dosis} ${m.nombre}`;
+}
+
+// ---------------------------------------------------------------------------
+// El remo, cuando hay monitor delante
+// ---------------------------------------------------------------------------
+
+/**
+ * ¿Hay un monitor emparejado? Declarado aquí, en un sitio, porque de esto
+ * depende que la pantalla pueda convertirse en un instrumento o no.
+ *
+ * Con `false` NO hay cara de monitor: el remo se comporta como los burpees,
+ * se cuenta a ojo y el tramo se marca a mano. La app mide lo que está
+ * conectado y nada más (§7); unas calorías inventadas en letra de 120 pt
+ * serían la mentira más grande que puede contar esta familia.
+ */
+export const MONITOR_CONECTADO = true;
+
+/** El ritmo al que se rema en este AMRAP: 2:00/500m. Fabricado, como los splits. */
+export const RITMO_REMO_S500 = 120;
+
+/** Los vatios y las calorías salen de la física del Concept2, no de un número a mano. */
+export const VATIOS_REMO = vatiosDesdeRitmo(RITMO_REMO_S500);
+const CAL_POR_HORA = calPorHoraDesdeVatios(VATIOS_REMO);
+
+/** Calorías completas que marca el monitor tras `segundos` remando. */
+export function calEnTramo(segundos: number): number {
+  return Math.max(0, Math.floor((segundos * CAL_POR_HORA) / 3600));
+}
+
+/** Lo que se tarda en cerrar las 10 cal a ese ritmo: 37 s. */
+export const TRAMO_REMO_S = Math.ceil((MOVIMIENTOS[1].dosis * 3600) / CAL_POR_HORA);
+
+export type Cara = 'monitor' | 'formato';
+
+/**
+ * LA REGLA: el tramo decide la cara. Un movimiento que mide una máquina
+ * conectada puede llenar la pantalla de instrumento; uno que cuentas tú, no
+ * tiene nada que enseñar en grande que no sea el propio formato.
+ *
+ * Las dos condiciones son necesarias: medible Y medido. Si el monitor no está
+ * emparejado la cara cae a `formato`, que es la verdad.
+ */
+export function caraDe(movimiento: MovimientoAmrap | undefined, monitorConectado: boolean): Cara {
+  return movimiento?.mideElMonitor && monitorConectado ? 'monitor' : 'formato';
+}
+
+export interface LecturaErg {
+  /** Calorías de ESTE tramo, no de la sesión. */
+  cal: number;
+  /** Las que pide la ronda. */
+  objetivoCal: number;
+  /** `1:52` — las cifras; la unidad la pinta el layout (§2). */
+  ritmo500: string;
+  vatios: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +169,13 @@ export interface Arranque {
   rondas: number;
   /** Movimientos marcados de la ronda en curso (0 a 3). */
   marcados: number;
+  /**
+   * Segundo de la ventana en que empezó el movimiento en curso. Hace falta
+   * porque un tramo medido cuenta desde que ENTRAS en él (el monitor lleva
+   * calorías de toda la sesión; las de la ronda son la diferencia), y porque
+   * es lo que decide qué cara se pinta al girar el móvil.
+   */
+  tramoDesdeS: number;
 }
 
 /**
@@ -108,8 +185,17 @@ export interface Arranque {
  * seis cerradas (11:34) y 26 s de ronda 7 sin cerrar.
  */
 export const ARRANQUE: Record<'en-faena' | 'ultimo-minuto', Arranque> = {
-  'en-faena': { transcurridoS: cierreGuionS(4) + 40, rondas: 4, marcados: 1 },
-  'ultimo-minuto': { transcurridoS: VENTANA_S - AVISO_FINAL_S, rondas: 5, marcados: 2 },
+  // Los wall balls de esa ronda costaron 22 s, así que el remo empezó en 8:02
+  // y al montar llevas 18 s remando: cinco calorías de las diez.
+  'en-faena': { transcurridoS: cierreGuionS(4) + 40, rondas: 4, marcados: 1, tramoDesdeS: cierreGuionS(4) + 22 },
+  // Ronda 6: wall balls hasta 10:04, remo sus 37 s, y desde 10:41 los burpees.
+  // El cursor está en un tramo A PULSO, así que aquí manda el formato.
+  'ultimo-minuto': {
+    transcurridoS: VENTANA_S - AVISO_FINAL_S,
+    rondas: 5,
+    marcados: 2,
+    tramoDesdeS: cierreGuionS(5) + 22 + TRAMO_REMO_S,
+  },
 };
 
 /** Lo que quedó sin cerrar cuando sonó la bocina: los wall balls marcados. */

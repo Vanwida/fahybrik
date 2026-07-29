@@ -17,6 +17,7 @@
 // «6 rondas y 10 reps», que es verdad, en vez de un 14 fabricado que no lo es.
 
 import { useState } from 'react';
+import type { TwinOrientation } from '../../types';
 import { CTA, Card, Display, Hairline, Label, Mono, Pantalla, SP } from '../../kit';
 import { UMBRAL, reloj } from '../../datos-reales';
 import { hrZone } from '../../sim';
@@ -44,74 +45,138 @@ export interface SelladoProps {
   movimientoEnCurso: MovimientoAmrap | null;
   /** Del reloj. Nulo si no había reloj emparejado: entonces no se pinta. */
   pulsoMaxPpm: number | null;
+  orientation: TwinOrientation;
   onLog: (linea: string) => void;
 }
 
-export function Sellado({ rondas, repsMarcadas, movimientoEnCurso, pulsoMaxPpm, onLog }: SelladoProps) {
+export function Sellado({
+  rondas,
+  repsMarcadas,
+  movimientoEnCurso,
+  pulsoMaxPpm,
+  orientation,
+  onLog,
+}: SelladoProps) {
   const [declaradas, setDeclaradas] = useState(0);
   const [guardado, setGuardado] = useState(false);
 
+  const apaisado = orientation === 'landscape';
   const totalReps = repsMarcadas + declaradas;
   const splits = rondas.map((r) => r.duracionS);
   const preguntaAbierta = movimientoEnCurso !== null && !guardado;
 
-  return (
-    <Pantalla
-      accion={
-        <CTA
-          title={guardado ? 'IR AL RESUMEN' : 'GUARDAR EL RESULTADO'}
-          height={64}
-          onClick={() => {
-            if (guardado) {
-              onLog('Al resumen del entreno · el marcador viaja al coach con el resto de la sesión');
-              return;
-            }
-            setGuardado(true);
-            onLog(
-              `Sellado: ${marcador(rondas.length, totalReps)}` +
-                (declaradas > 0 ? ` · ${declaradas} las pusiste tú` : ' · nada declarado a mano'),
-            );
-          }}
-        />
-      }
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: '0 0 auto', padding: '0 2px' }}>
-        <Label size={10} color="var(--twin-accent-text)">
-          Se acabó la ventana
-        </Label>
-        <span style={{ flex: 1 }} />
-        <Mono size={11} color="var(--twin-muted)">
-          AMRAP {ventana(VENTANA_S)}
-        </Mono>
-      </div>
+  const accion = (
+    <CTA
+      title={guardado ? 'IR AL RESUMEN' : 'GUARDAR EL RESULTADO'}
+      height={apaisado ? 54 : 64}
+      onClick={() => {
+        if (guardado) {
+          onLog('Al resumen del entreno · el marcador viaja al coach con el resto de la sesión');
+          return;
+        }
+        setGuardado(true);
+        onLog(
+          `Sellado: ${marcador(rondas.length, totalReps)}` +
+            (declaradas > 0 ? ` · ${declaradas} las pusiste tú` : ' · nada declarado a mano'),
+        );
+      }}
+    />
+  );
 
-      <Marcador rondas={rondas.length} reps={totalReps} />
+  const cabecera = (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: '0 0 auto', padding: '0 2px' }}>
+      <Label size={10} color="var(--twin-accent-text)">
+        Se acabó la ventana
+      </Label>
+      <span style={{ flex: 1 }} />
+      <Mono size={11} color="var(--twin-muted)">
+        AMRAP {ventana(VENTANA_S)}
+      </Mono>
+    </div>
+  );
 
-      {preguntaAbierta && movimientoEnCurso && (
-        <Pregunta
-          movimiento={movimientoEnCurso}
-          valor={declaradas}
-          onCambiar={(v) => {
-            setDeclaradas(v);
-            onLog(`Declaras ${v} ${movimientoEnCurso.unidad === 'cal' ? 'cal' : palabraReps(v)} de ${movimientoEnCurso.nombre}`);
-          }}
-        />
-      )}
+  // El sujeto cede un escalón en apaisado (72 = `t-readout-hero`) porque el
+  // lienzo mide 381 pt de alto: a 96 el desglose dejaría de caber, y un
+  // marcador sin sus rondas es la mitad de la verdad.
+  const cifra = <Marcador rondas={rondas.length} reps={totalReps} tamano={apaisado ? 72 : 96} />;
 
-      {guardado && movimientoEnCurso && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px', flex: '0 0 auto' }}>
-          <Label size={10}>De dónde sale</Label>
-          <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-            {repsMarcadas} marcadas mientras entrenabas
-            {declaradas > 0 ? ` y ${declaradas} de ${movimientoEnCurso.nombre} que pusiste tú` : ''}
-          </span>
+  const bloqueParcial =
+    preguntaAbierta && movimientoEnCurso ? (
+      <Pregunta
+        movimiento={movimientoEnCurso}
+        valor={declaradas}
+        onCambiar={(v) => {
+          setDeclaradas(v);
+          onLog(
+            `Declaras ${v} ${movimientoEnCurso.unidad === 'cal' ? 'cal' : palabraReps(v)} de ${movimientoEnCurso.nombre}`,
+          );
+        }}
+      />
+    ) : guardado && movimientoEnCurso ? (
+      <Procedencia marcadas={repsMarcadas} declaradas={declaradas} movimiento={movimientoEnCurso.nombre} />
+    ) : null;
+
+  const desglose = <Desglose rondas={rondas} splits={splits} repsSueltas={totalReps} />;
+  const pulso = pulsoMaxPpm !== null ? <PulsoMaximo ppm={pulsoMaxPpm} /> : null;
+
+  if (apaisado) {
+    return (
+      // Sin `accion` en la Pantalla: en apaisado la CTA vive DENTRO de la
+      // columna izquierda. A todo lo ancho se comía 66 pt de los 357 del
+      // lienzo y el desglose perdía sus dos últimas filas — la ronda 6 (el
+      // apretón final) y la parcial por la que pregunta la tarjeta de al
+      // lado. Un botón de 756 pt de ancho no era más fácil de acertar; solo
+      // más caro.
+      <Pantalla>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: SP.m }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.m }}>
+            {cabecera}
+            {/* El sujeto se queda con el hueco que sobre y se centra en él: si
+                aprieta, encoge esto y nunca la acción ni la pregunta. */}
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>{cifra}</div>
+            {bloqueParcial}
+            <div style={{ flex: '0 0 auto' }}>{accion}</div>
+          </div>
+          {/* El desglose no se pliega al girar: es lo que da sentido al
+              marcador, y en apaisado hay ancho de sobra para ponerlo al lado
+              en vez de debajo. */}
+          <div style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', gap: SP.m }}>
+            {desglose}
+            {pulso}
+          </div>
         </div>
-      )}
+      </Pantalla>
+    );
+  }
 
-      <Desglose rondas={rondas} splits={splits} repsSueltas={totalReps} />
-
-      {pulsoMaxPpm !== null && <PulsoMaximo ppm={pulsoMaxPpm} />}
+  return (
+    <Pantalla accion={accion}>
+      {cabecera}
+      {cifra}
+      {bloqueParcial}
+      {desglose}
+      {pulso}
     </Pantalla>
+  );
+}
+
+function Procedencia({
+  marcadas,
+  declaradas,
+  movimiento,
+}: {
+  marcadas: number;
+  declaradas: number;
+  movimiento: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px', flex: '0 0 auto' }}>
+      <Label size={10}>De dónde sale</Label>
+      <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+        {marcadas} marcadas mientras entrenabas
+        {declaradas > 0 ? ` y ${declaradas} de ${movimiento} que pusiste tú` : ''}
+      </span>
+    </div>
   );
 }
 
@@ -119,11 +184,11 @@ export function Sellado({ rondas, repsMarcadas, movimientoEnCurso, pulsoMaxPpm, 
 // El sujeto: el marcador exacto
 // ---------------------------------------------------------------------------
 
-function Marcador({ rondas, reps }: { rondas: number; reps: number }) {
+function Marcador({ rondas, reps, tamano }: { rondas: number; reps: number; tamano: 72 | 96 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: '0 0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <Mono size={96} weight={800} style={{ lineHeight: 1 }}>
+        <Mono size={tamano} weight={800} style={{ lineHeight: 1 }}>
           {rondas}
         </Mono>
         <Display size={28}>{palabraRondas(rondas)}</Display>
@@ -133,7 +198,7 @@ function Marcador({ rondas, reps }: { rondas: number; reps: number }) {
           <Display size={22} color="var(--twin-muted)">
             y
           </Display>
-          <Mono size={48} weight={800} color="var(--twin-accent-text)" style={{ lineHeight: 1 }}>
+          <Mono size={tamano === 96 ? 48 : 34} weight={800} color="var(--twin-accent-text)" style={{ lineHeight: 1 }}>
             {reps}
           </Mono>
           <Display size={22} color="var(--twin-muted)">
