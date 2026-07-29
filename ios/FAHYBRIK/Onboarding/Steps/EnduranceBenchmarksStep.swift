@@ -20,7 +20,7 @@ struct EnduranceBenchmarksStep: View {
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text("Running")
-                    .font(Theme.Typography.dataLabel)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                     .uppercaseTracked()
                     .foregroundStyle(Theme.Color.muted)
                 VStack(spacing: 0) {
@@ -34,7 +34,7 @@ struct EnduranceBenchmarksStep: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text("Concept2")
-                    .font(Theme.Typography.dataLabel)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                     .uppercaseTracked()
                     .foregroundStyle(Theme.Color.muted)
                 VStack(spacing: 0) {

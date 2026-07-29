@@ -236,6 +236,18 @@ enum Theme {
         static let xxxl: CGFloat = 48
     }
 
+    enum Size {
+        /// Height of a full-width tap target: the primary CTA, Sign in with
+        /// Apple, a picker slot. 54 pt sits comfortably above the 44 pt HIG
+        /// minimum and is the height the whole app already used — it was just
+        /// written as a bare `54` in half a dozen files.
+        ///
+        /// Our own buttons apply it as a `minHeight` so the label can still grow
+        /// with Dynamic Type; system controls (Sign in with Apple) take it as a
+        /// fixed `height`, because they render their own label and do not reflow.
+        static let control: CGFloat = 54
+    }
+
     enum Radius {
         static let s: CGFloat = 6
         static let m: CGFloat = 10

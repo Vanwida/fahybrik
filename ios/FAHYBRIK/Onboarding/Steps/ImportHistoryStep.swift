@@ -58,8 +58,7 @@ struct ImportHistoryStep: View {
             )
 
             Text("Primera HYROX en el horizonte. Si aún no has competido, sáltalo —lo programamos.")
-                .font(Theme.Typography.small)
-                .italic()
+                .scaledFont(13, weight: .medium, relativeTo: .footnote, italic: true)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }

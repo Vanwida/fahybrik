@@ -67,18 +67,19 @@ private struct PreferredDayCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 HStack(spacing: Theme.Spacing.m) {
                     Text(short)
-                        .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                         .foregroundStyle(selection.isEmpty ? Theme.Color.foreground : Theme.Color.accentOn)
-                        .frame(width: 30, height: 30)
+                        .padding(.horizontal, Theme.Spacing.xs)
+                        .frame(minWidth: 30, minHeight: 30)
                         .background(selection.isEmpty ? Theme.Color.surfaceElevated : Theme.Color.accent)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                     Text(name)
-                        .font(Theme.Typography.bodyEmph)
+                        .scaledFont(16, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
                     if selection.isEmpty {
                         Text("Libre")
-                            .font(Theme.Typography.caption)
+                            .scaledFont(12, weight: .medium, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }

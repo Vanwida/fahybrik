@@ -21,126 +21,75 @@ struct AppleSignInView: View {
     /// membership for this Apple ID (404 no_account) — an organic download.
     @State private var showNoAccount: Bool = false
 
+    // ARQUETIPO Vacío · altura `centra` (docs/CONTRATO-UI.md §6). What is
+    // missing is the session, and the way out is the door itself: the identity
+    // block centres in the height it does not fill, and every way in lives in
+    // the anchored footer, where the thumb is.
+    //
+    // Was two flexible `Spacer()`s around a `Spacer().frame(height: .xl)` — a
+    // flexible hole in the middle, 24 pt between absolutely everything, and the
+    // Apple button floating in the flow with the email alternative under it. At
+    // accessibility text sizes the whole stack clipped top and bottom and
+    // "Entrar con mi email" — the only real alternative for an athlete whose
+    // Apple ID is not their enrolment email — became unreachable.
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.xl) {
-                Spacer()
 
-                Wordmark(size: 64)
-
-                Text("Entrenar al detalle.")
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Color.muted)
-
-                Spacer()
-
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    switch result {
-                    case .success(let auth):
-                        guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else {
-                            error = "Credencial inválida"
-                            return
-                        }
-                        inProgress = true
-                        Task {
-                            do {
-                                let resp = try await AppleAuthService.exchange(credential)
-                                inProgress = false
-                                Haptics.success()
-                                onAuthenticated(resp)
-                            } catch let apiErr as APIError {
-                                inProgress = false
-                                switch apiErr {
-                                case .http(let code, let body):
-                                    let bodyStr = String(data: body, encoding: .utf8) ?? ""
-                                    if code == 404, bodyStr.contains("no_account") {
-                                        // Signed in fine, but not a member → funnel.
-                                        showNoAccount = true
-                                    } else {
-                                        self.error = "HTTP \(code): \(bodyStr.prefix(220))"
-                                    }
-                                case .offline:
-                                    self.error = "Sin conexión."
-                                case .invalidResponse:
-                                    self.error = "Respuesta inválida del servidor."
-                                case .decoding(let dec):
-                                    self.error = "Decoding: \(dec.localizedDescription)"
-                                }
-                            } catch {
-                                inProgress = false
-                                self.error = "Error: \(error.localizedDescription)"
-                            }
-                        }
-                    case .failure(let e):
-                        if (e as NSError).code != ASAuthorizationError.canceled.rawValue {
-                            error = e.localizedDescription
-                        }
-                    }
-                }
-                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .padding(.horizontal, Theme.Spacing.xl)
-
-                // Universal path: email + one-time code. Secondary to Apple, but a
-                // real alternative for an athlete whose Apple ID ≠ enrolment email.
-                Button {
-                    Haptics.light()
-                    showEmail = true
-                } label: {
-                    Text("Entrar con mi email")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                                .strokeBorder(Theme.Color.outline, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(PressScaleStyle())
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.xs)
-
-                // Cold-download path: someone who is NOT a member yet → the
-                // membership-application funnel (opens in Safari).
-                RequestSpotLink()
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.s)
-
-                if let error {
-                    Text(error)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.danger)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                }
-
-                if inProgress {
-                    ProgressView().tint(Theme.Color.accentText)
-                }
-
-                // ADDITIVE, gated demo entry. Secondary + visually subordinate
-                // to Sign in with Apple — never the primary path. Hidden unless
-                // the demo build flag is on; the backend additionally 404s the
-                // mint endpoint off-demo, so the picker degrades to an honest
-                // "demo no disponible" even if the button is ever shown.
-                // DEBUG-ONLY: never compiled into a Release / App Store build.
-                #if DEBUG
-                if DemoEntry.isEnabled, onDemoSession != nil {
-                    Button("Entrar como atleta demo") { showDemo = true }
-                        .font(Theme.Typography.small)
+            CenteredScreen {
+                VStack(spacing: Theme.Spacing.m) {
+                    Wordmark(size: 64)
+                    Text("Entrenar al detalle.")
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.muted)
-                        .padding(.top, Theme.Spacing.xs)
                 }
-                #endif
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.vertical, Theme.Spacing.xl)
+            }
+            .anchoredAction(separator: false) {
+                VStack(spacing: Theme.Spacing.m) {
+                    if let error {
+                        Text(error)
+                            .scaledFont(13, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.danger)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if inProgress {
+                        ProgressView().tint(Theme.Color.accentText)
+                    }
 
-                LegalAcknowledgementText()
-                    .padding(.horizontal, Theme.Spacing.xl)
+                    appleButton
 
-                Spacer().frame(height: Theme.Spacing.xl)
+                    // Universal path: email + one-time code. Secondary to Apple,
+                    // but a real alternative for an athlete whose Apple ID ≠
+                    // enrolment email — so it is anchored next to it, never below
+                    // the fold.
+                    SecondaryButton(title: "Entrar con mi email") {
+                        showEmail = true
+                    }
+
+                    // Cold-download path: someone who is NOT a member yet → the
+                    // membership-application funnel (opens in Safari).
+                    RequestSpotLink()
+
+                    // ADDITIVE, gated demo entry. Secondary + visually subordinate
+                    // to Sign in with Apple — never the primary path. Hidden unless
+                    // the demo build flag is on; the backend additionally 404s the
+                    // mint endpoint off-demo, so the picker degrades to an honest
+                    // "demo no disponible" even if the button is ever shown.
+                    // DEBUG-ONLY: never compiled into a Release / App Store build.
+                    #if DEBUG
+                    if DemoEntry.isEnabled, onDemoSession != nil {
+                        SkipLink(title: "Entrar como atleta demo") { showDemo = true }
+                    }
+                    #endif
+
+                    LegalAcknowledgementText()
+                }
+                // 16 (the footer's own inset) + 8 = the 24 pt gutter the rest of
+                // the screen uses.
+                .padding(.horizontal, Theme.Spacing.s)
             }
         }
         .sheet(isPresented: $showEmail) {
@@ -164,6 +113,66 @@ struct AppleSignInView: View {
             NoAccountView { showNoAccount = false }
         }
     }
+
+    // MARK: - Sign in with Apple
+    //
+    // Apple's own control, so it keeps a FIXED height: it renders its own label
+    // and does not reflow at large Dynamic Type (our buttons next to it take
+    // `Theme.Size.control` as a minimum and grow instead).
+    private var appleButton: some View {
+        SignInWithAppleButton(.continue) { request in
+            request.requestedScopes = [.fullName, .email]
+        } onCompletion: { result in
+            handle(result)
+        }
+        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+        .frame(height: Theme.Size.control)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    }
+
+    private func handle(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let e):
+            if (e as NSError).code != ASAuthorizationError.canceled.rawValue {
+                error = e.localizedDescription
+            }
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else {
+                error = "Credencial inválida"
+                return
+            }
+            inProgress = true
+            Task {
+                do {
+                    let resp = try await AppleAuthService.exchange(credential)
+                    inProgress = false
+                    Haptics.success()
+                    onAuthenticated(resp)
+                } catch let apiErr as APIError {
+                    inProgress = false
+                    switch apiErr {
+                    case .http(let code, let body):
+                        let bodyStr = String(data: body, encoding: .utf8) ?? ""
+                        if code == 404, bodyStr.contains("no_account") {
+                            // Signed in fine, but not a member → funnel.
+                            showNoAccount = true
+                        } else {
+                            self.error = "HTTP \(code): \(bodyStr.prefix(220))"
+                        }
+                    case .offline:
+                        self.error = "Sin conexión."
+                    case .invalidResponse:
+                        self.error = "Respuesta inválida del servidor."
+                    case .decoding(let dec):
+                        self.error = "Decoding: \(dec.localizedDescription)"
+                    }
+                } catch {
+                    inProgress = false
+                    self.error = "Error: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
 }
 
 // Shown when someone signs in with Apple but has no account yet (backend 404
@@ -176,46 +185,30 @@ struct AppleSignInView: View {
 struct NoAccountView: View {
     let onBack: () -> Void
 
+    // ARQUETIPO Vacío · altura `centra` (§6). The subject is what is missing and
+    // why, so it is the shared `RedesignEmptyState` — same piece the rest of the
+    // app uses — centred, with the funnel and the way back anchored below.
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.xl) {
-                Spacer()
 
-                Wordmark(size: 32)
-
+            CenteredScreen {
+                RedesignEmptyState(
+                    symbol: "envelope.badge",
+                    title: "Aún no tienes cuenta activa.",
+                    message: "Entra con el mismo email con el que tu coach te dio de alta, o abre el enlace de tu email de bienvenida.",
+                    exit: .explained(
+                        note: "Si tu coach acaba de darte de alta, el email de bienvenida puede tardar unos minutos."
+                    )
+                )
+                .padding(.vertical, Theme.Spacing.xl)
+            }
+            .anchoredAction(separator: false) {
                 VStack(spacing: Theme.Spacing.m) {
-                    Text("Aún no tienes cuenta activa.")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Si tu coach te ha dado de alta, abre el enlace de tu email de bienvenida o entra con ese mismo email. Si aún no tienes plaza, solicítala aquí abajo.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.Color.muted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-
-                Spacer()
-
-                VStack(spacing: Theme.Spacing.l) {
                     RequestSpotLink()
-                        .padding(.horizontal, Theme.Spacing.xl)
-
-                    Button {
-                        Haptics.light()
-                        onBack()
-                    } label: {
-                        Text("Volver")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    .buttonStyle(.plain)
+                    SkipLink(title: "Volver", action: onBack)
                 }
-
-                Spacer().frame(height: Theme.Spacing.xl)
+                .padding(.horizontal, Theme.Spacing.s)
             }
         }
     }
@@ -261,7 +254,7 @@ private struct LegalAcknowledgementText: View {
         }()
 
         return Text(attributed)
-            .font(Theme.Typography.caption)
+            .scaledFont(12, weight: .medium, relativeTo: .caption)
             .foregroundStyle(Theme.Color.muted)
             .multilineTextAlignment(.center)
             .tint(Theme.Color.accentText)

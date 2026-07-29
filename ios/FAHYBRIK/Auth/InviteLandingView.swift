@@ -26,55 +26,60 @@ struct InviteLandingView: View {
     @State private var error: String? = nil
     @State private var inProgress: Bool = false
 
+    // ARQUETIPO Vacío · altura `centra` (§6). What is missing is the activation;
+    // the invitation itself is the subject, so it centres, and the single way in
+    // is anchored. Composed by hand rather than through `RedesignEmptyState`
+    // because the exit HAS to be Apple's own button — the component's exit is an
+    // `ExpertPrimaryButton`, and Sign in with Apple may not be re-skinned.
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.xl) {
-                Spacer()
 
-                Wordmark(size: 28)
-
-                VStack(spacing: 12) {
+            CenteredScreen {
+                VStack(spacing: Theme.Spacing.m) {
+                    Wordmark(size: 28)
+                        .padding(.bottom, Theme.Spacing.s)
                     LabelText(text: "Te han invitado", color: Theme.Color.accentText)
                     Text("Activa tu cuenta")
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
                     Text("Tu coach te ha invitado a entrenar en FAHYBRID. Inicia sesión con Apple para activar tu cuenta.")
-                        .font(.system(size: 14))
+                        .scaledFont(16, relativeTo: .body)
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, Theme.Spacing.xl)
                 }
-
-                Spacer()
-
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    handleApple(result)
-                }
-                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.xl)
-                .disabled(inProgress)
-                .opacity(inProgress ? 0.6 : 1)
-                .accessibilityLabel("Iniciar sesión con Apple para activar tu invitación")
+                .padding(.vertical, Theme.Spacing.xl)
+            }
+            .anchoredAction(separator: false) {
+                VStack(spacing: Theme.Spacing.m) {
+                    if let error {
+                        Text(error)
+                            .scaledFont(13, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.danger)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if inProgress {
+                        ProgressView().tint(Theme.Color.accentText)
+                    }
 
-                if let error {
-                    Text(error)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.danger)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        handleApple(result)
+                    }
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    // Apple's control renders its own label and does not reflow,
+                    // so it keeps a fixed height.
+                    .frame(height: Theme.Size.control)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    .disabled(inProgress)
+                    .opacity(inProgress ? 0.6 : 1)
+                    .accessibilityLabel("Iniciar sesión con Apple para activar tu invitación")
                 }
-                if inProgress {
-                    ProgressView().tint(Theme.Color.accentText)
-                }
-
-                Spacer().frame(height: Theme.Spacing.xl)
+                .padding(.horizontal, Theme.Spacing.s)
             }
         }
     }

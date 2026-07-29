@@ -66,9 +66,9 @@ struct EmailSignInView: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
+                    .scaledFont(16, weight: .bold, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 40, height: 40)
+                    .frame(minWidth: 40, minHeight: 40)
             }
             .buttonStyle(.plain)
         }
@@ -85,7 +85,7 @@ struct EmailSignInView: View {
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Te enviaremos un código de 6 dígitos para entrar.")
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -123,7 +123,7 @@ struct EmailSignInView: View {
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Escribe el código que enviamos a \(normalizedEmail).")
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -132,8 +132,14 @@ struct EmailSignInView: View {
             TextField("000000", text: $code)
                 .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                // Monospaced so the six digits hold their columns as they land,
+                // scaled so the code grows with the rest of the copy, and capped
+                // to one line so a large text size widens the glyphs instead of
+                // wrapping the code in half.
+                .scaledFont(28, weight: .bold, relativeTo: .title, monospaced: true)
                 .tracking(8)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
                 .multilineTextAlignment(.center)
                 .focused($focus, equals: .code)
                 .onChange(of: code) { _, newValue in
@@ -153,7 +159,7 @@ struct EmailSignInView: View {
                 errorText(error)
             } else if let info {
                 Text(info)
-                    .font(Theme.Typography.small)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
             }
@@ -169,7 +175,7 @@ struct EmailSignInView: View {
                 }
                 .disabled(inProgress)
             }
-            .font(Theme.Typography.small)
+            .scaledFont(13, weight: .medium, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.accentText)
             .padding(.top, Theme.Spacing.xs)
         }
@@ -177,7 +183,7 @@ struct EmailSignInView: View {
 
     private func errorText(_ message: String) -> some View {
         Text(message)
-            .font(Theme.Typography.small)
+            .scaledFont(13, weight: .medium, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.danger)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -250,7 +256,7 @@ struct EmailSignInView: View {
 private extension View {
     func brandFieldStyle() -> some View {
         self
-            .font(Theme.Typography.body)
+            .scaledFont(16, relativeTo: .body)
             .foregroundStyle(Theme.Color.foreground)
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)

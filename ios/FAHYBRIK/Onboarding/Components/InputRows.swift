@@ -7,7 +7,7 @@ struct LabeledRow<Trailing: View>: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
             Text(label)
-                .font(Theme.Typography.body)
+                .scaledFont(16, relativeTo: .body)
                 .foregroundStyle(Theme.Color.foreground)
             Spacer()
             trailing()
@@ -32,6 +32,9 @@ struct NumberRow: View {
     var allowsDecimal: Bool = true
 
     @State private var text: String = ""
+    // The value scales with Dynamic Type, so its slot has to scale with it —
+    // a pinned 80 pt cap truncated three digits at accessibility sizes.
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 80
 
     var body: some View {
         LabeledRow(label: label) {
@@ -39,8 +42,8 @@ struct NumberRow: View {
                 TextField("—", text: $text)
                     .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(Theme.Typography.bodyEmph.monospacedDigit())
-                    .frame(maxWidth: 80)
+                    .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
+                    .frame(maxWidth: fieldWidth)
                     .onChange(of: text) { _, new in
                         let cleaned = new.replacingOccurrences(of: ",", with: ".")
                         value = Double(cleaned)
@@ -51,7 +54,7 @@ struct NumberRow: View {
                         }
                     }
                 Text(unit)
-                    .font(Theme.Typography.caption)
+                    .scaledFont(12, weight: .medium, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
             }
         }
@@ -71,6 +74,7 @@ struct IntRow: View {
     @Binding var value: Int?
 
     @State private var text: String = ""
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 80
 
     var body: some View {
         LabeledRow(label: label) {
@@ -78,8 +82,8 @@ struct IntRow: View {
                 TextField("—", text: $text)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(Theme.Typography.bodyEmph.monospacedDigit())
-                    .frame(maxWidth: 80)
+                    .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
+                    .frame(maxWidth: fieldWidth)
                     .onChange(of: text) { _, new in
                         value = Int(new)
                     }
@@ -88,7 +92,7 @@ struct IntRow: View {
                     }
                 if !unit.isEmpty {
                     Text(unit)
-                        .font(Theme.Typography.caption)
+                        .scaledFont(12, weight: .medium, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -102,14 +106,15 @@ struct TimeMinSecRow: View {
     @Binding var seconds: Int?
 
     @State private var text: String = ""
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 100
 
     var body: some View {
         LabeledRow(label: label) {
             TextField("mm:ss", text: $text)
                 .keyboardType(.numbersAndPunctuation)
                 .multilineTextAlignment(.trailing)
-                .font(Theme.Typography.bodyEmph.monospacedDigit())
-                .frame(maxWidth: 100)
+                .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
+                .frame(maxWidth: fieldWidth)
                 .onChange(of: text) { _, new in
                     seconds = Self.parse(new)
                 }
@@ -136,14 +141,15 @@ struct TimeHourMinSecRow: View {
     @Binding var seconds: Int?
 
     @State private var text: String = ""
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 110
 
     var body: some View {
         LabeledRow(label: label) {
             TextField("h:mm:ss", text: $text)
                 .keyboardType(.numbersAndPunctuation)
                 .multilineTextAlignment(.trailing)
-                .font(Theme.Typography.bodyEmph.monospacedDigit())
-                .frame(maxWidth: 110)
+                .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
+                .frame(maxWidth: fieldWidth)
                 .onChange(of: text) { _, new in
                     seconds = Self.parse(new)
                 }
@@ -171,12 +177,14 @@ struct TextRow: View {
     let placeholder: String
     @Binding var value: String
 
+    @ScaledMetric(relativeTo: .body) private var fieldWidth: CGFloat = 180
+
     var body: some View {
         LabeledRow(label: label) {
             TextField(placeholder, text: $value)
                 .multilineTextAlignment(.trailing)
-                .font(Theme.Typography.body)
-                .frame(maxWidth: 180)
+                .scaledFont(16, relativeTo: .body)
+                .frame(maxWidth: fieldWidth)
         }
     }
 }
@@ -198,7 +206,7 @@ struct SliderRow: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             HStack {
                 Text(label)
-                    .font(Theme.Typography.body)
+                    .scaledFont(16, relativeTo: .body)
                     .foregroundStyle(Theme.Color.foreground)
                 Spacer()
                 Text("\(value)")
@@ -217,7 +225,7 @@ struct SliderRow: View {
                     Spacer()
                     Text(maxLabel ?? "")
                 }
-                .font(Theme.Typography.caption)
+                .scaledFont(12, weight: .medium, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
             }
         }

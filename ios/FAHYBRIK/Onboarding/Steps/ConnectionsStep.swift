@@ -82,18 +82,18 @@ private struct ConnectionCard: View {
                 Spacer()
                 if isConnected {
                     Text("✓")
-                        .font(Theme.Typography.bodyEmph)
+                        .scaledFont(16, weight: .semibold, relativeTo: .body)
                         .foregroundStyle(Theme.Color.ok)
                 }
             }
             Text(description)
-                .font(Theme.Typography.small)
+                .scaledFont(13, weight: .medium, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
             if let actionTitle, let action {
                 Button(action: { Haptics.light(); action() }) {
                     Text(actionTitle)
-                        .font(.system(size: 14, weight: .heavy)).italic()
+                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                         .foregroundStyle(isConnected ? Theme.Color.muted : Theme.Color.accentOn)
                         .padding(.horizontal, Theme.Spacing.l)
                         .padding(.vertical, 10)

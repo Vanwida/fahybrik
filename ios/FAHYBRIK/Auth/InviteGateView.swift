@@ -18,54 +18,44 @@ struct InviteGateView: View {
     @State private var error: String? = nil
     @State private var inProgress: Bool = false
 
+    // ARQUETIPO Vacío · altura `centra` (§6). The subject is what is missing and
+    // why; the exit — retrying Sign in with Apple — is REQUIRED and lives inside
+    // the state, which is what `RedesignEmptyState` enforces. Only the escape
+    // ("cerrar sesión") is anchored, so it can never be confused with the way in.
+    //
+    // Was a `ZStack { fondo; VStack(spacing: .xl) }` with two flexible Spacers
+    // and no scroll: at accessibility text sizes it clipped top and bottom.
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.xl) {
-                Spacer()
 
-                Wordmark(size: 32)
-
+            CenteredScreen {
                 VStack(spacing: Theme.Spacing.m) {
-                    Text("Esta app es para atletas invitados.")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Si tu coach te ha invitado, abre el enlace que te envió o entra con el email que te dio.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.Color.muted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-
-                Spacer()
-
-                VStack(spacing: Theme.Spacing.m) {
-                    PrimaryButton(title: "Reintentar Sign in", enabled: !inProgress) {
-                        retrySignIn()
-                    }
-                    .accessibilityHint("Vuelve a iniciar sesión con Apple")
-
-                    SkipLink(title: "Cerrar sesión") {
-                        auth.signOut()
-                    }
+                    RedesignEmptyState(
+                        symbol: "person.badge.key",
+                        title: "Esta app es para atletas invitados.",
+                        message: "Si tu coach te ha invitado, abre el enlace que te envió o entra con el email que te dio.",
+                        exit: .action(title: "Reintentar con Apple", perform: retrySignIn)
+                    )
 
                     if let error {
                         Text(error)
-                            .font(Theme.Typography.small)
+                            .scaledFont(13, relativeTo: .footnote)
                             .foregroundStyle(Theme.Color.danger)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, Theme.Spacing.xl)
                     }
                     if inProgress {
                         ProgressView().tint(Theme.Color.accentText)
                     }
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-
-                Spacer().frame(height: Theme.Spacing.xl)
+                .padding(.vertical, Theme.Spacing.xl)
+            }
+            .anchoredAction(separator: false) {
+                SkipLink(title: "Cerrar sesión") {
+                    auth.signOut()
+                }
             }
         }
     }

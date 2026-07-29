@@ -101,9 +101,10 @@ private struct DayAvailabilityRow: View {
         HStack(spacing: Theme.Spacing.m) {
             // Day badge — orange face when this day is for the program.
             Text(short)
-                .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
                 .foregroundStyle(status == .program ? Theme.Color.accentOn : Theme.Color.foreground)
-                .frame(width: 30, height: 30)
+                .padding(.horizontal, Theme.Spacing.xs)
+                .frame(minWidth: 30, minHeight: 30)
                 .background(status == .program ? Theme.Color.accent : Theme.Color.surfaceElevated)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                 .accessibilityLabel(name)
@@ -141,9 +142,10 @@ private struct StatusChip: View {
     var body: some View {
         Button(action: { Haptics.light(); action() }) {
             Text(label)
-                .font(.system(size: 12, weight: selected ? .semibold : .medium))
+                .scaledFont(12, weight: selected ? .semibold : .medium, relativeTo: .caption)
                 .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
                 .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
@@ -186,10 +188,10 @@ private struct TimeOfDayMenu: View {
         } label: {
             HStack(spacing: 4) {
                 Text(display)
-                    .font(Theme.Typography.bodyEmph.monospacedDigit())
+                    .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
                     .foregroundStyle(Theme.Color.foreground)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
         }
@@ -207,11 +209,11 @@ private struct SessionLengthControl: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
             Text("\(minutes)")
-                .font(Theme.Typography.bodyEmph.monospacedDigit())
+                .scaledFont(16, weight: .semibold, relativeTo: .body, monospaced: true)
                 .foregroundStyle(Theme.Color.foreground)
                 .frame(minWidth: 32, alignment: .trailing)
             Text("min")
-                .font(Theme.Typography.caption)
+                .scaledFont(12, weight: .medium, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
             Stepper(
                 "",

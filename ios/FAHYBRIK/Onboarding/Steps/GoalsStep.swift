@@ -103,7 +103,7 @@ struct MultilineField: View {
             SectionLabel(label)
             TextField(placeholder, text: $text, axis: .vertical)
                 .lineLimit(2...4)
-                .font(Theme.Typography.body)
+                .scaledFont(16, relativeTo: .body)
                 .padding(Theme.Spacing.m)
                 .background(Theme.Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
