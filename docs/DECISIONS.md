@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
+
+**Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
+
+**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron `atr_blocks`, `atr_macrocycles` y el enum `atr_block_type`, y dejaron aquí escrito el porqué. Pero **la columna viva no se llamaba `atr_` sino `target_block`**, así que aquella limpieza —que buscó por la cadena «atr»— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (acumulación, transformación, realización, ACC/TRANS/REAL, «fase», «bloque», periodización), nunca por el nombre de la escuela.** Un catálogo de fases puede llamarse cualquier cosa.
+
+**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con valor ATR (ACC 64 · TRANS 4 · REAL 1) eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase ATR.
+
+**Qué pasa con el prompt de composición semanal:** `compose-week.ts` metía `bloque=${target_block}` en la lista de plantillas que ve el modelo. Para el 100 % de las plantillas de coaches reales eso era literalmente `bloque=any` — ruido, no señal. Y el canal agnóstico que lo sustituye **ya existía y ya llegaba al modelo**: `focus`, texto libre del coach (2-400 caracteres), que viaja literal como «Foco de la semana (literal del coach): …». El coach dice con sus palabras qué toca esa semana; no se le ofrece el desplegable de la doctrina de otro.
+
+**En consecuencia, no hacer:** no reintroducir un catálogo de fases bajo ningún nombre (`target_block`, `phase`, `block_type` como enum cerrado…) — el ORDEN de los microciclos ES la periodización y su NOMBRE lo pone el coach; no volver a barrer una metodología buscando su sigla; y no meter en un prompt un campo cuyo valor real es `any` en casi todas las filas, porque enseña al modelo una estructura que el coach nunca pidió.
+
+**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. Se le quitó el ATR; la decisión de borrarlo entero o revivirlo agnóstico no está tomada.
+
+---
+
 ## 2026-07-29 · La tanda inmersiva del entreno: una vista por QUIÉN GOBIERNA, no por pantalla genérica
 
 **Decidido:** el entreno en vivo del atleta (iOS) no es una pantalla con variantes — son **vistas distintas con sujeto propio**, y lo que las separa son dos variables ya establecidas por el motor: *quién gobierna la transición* (el reloj en EMOM/AMRAP · el hito medido en series de calle/cinta/ergo · el atleta en fuerza · el suceso en For Time · el relevo en dobles) × *qué fuente mide* (GPS, monitor del ergo, cinta en lectura, reloj de pulso, o nadie y se toca). De ahí salen las diez familias `propuesta` del doble shipeadas hoy: `plan-bloque`, `sesion-previa` (con vídeo por ejercicio), `vivo-correr`, `vivo-erg`, `vivo-fuerza`, `vivo-emom`, `vivo-fortime`, `vivo-amrap`, `vivo-dobles` y `watch-vivo`. Cinco huecos de PENDIENTES quedan cubiertos y salen del índice (plan de la semana, detalle de sesión, HUD de fuerza/metcon, la ruta entera como lista, dobles en vivo).
