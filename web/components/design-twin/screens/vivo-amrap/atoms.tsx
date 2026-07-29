@@ -1,12 +1,19 @@
 'use client';
 
-// Los átomos de la familia AMRAP. Solo tokens: ni un hex, ni un tamaño fuera
-// de la escala de twin.css (la voz `readout` va en 22/34/48/72, y el número de
-// la ronda en 144 = dos veces `t-readout-hero`, que es lo que pide `gobierna`
-// cuando el sujeto tiene que leerse con el móvil en el suelo).
+// Los átomos de la familia AMRAP.
+//
+// El número de la ronda ya NO se escribe aquí a mano. Vivía a `Mono size={144}`
+// —el doble del techo de la escala de twin.css— con un comentario explicando
+// por qué se saltaba la escala, y el sellado usaba 96 y 72 en otros dos sitios:
+// cuatro tamaños para el mismo marcador. Ahora todo pasa por `Numeral`
+// (§10.2), que escala con el lienzo y tiene DOS peldaños: `sujeto` cuando la
+// ronda gobierna y `segundo` cuando cede ante el monitor. Ceder de tamaño sin
+// desaparecer sigue siendo la regla; lo que cambia es que el tamaño lo pone la
+// escala y no cada cara.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { IconClose, Label, Mono, RAD } from '../../kit';
+import { IconClose, Label, RAD } from '../../kit';
+import { BandaSujeto, EtiquetaSujeto, Numeral } from '../../kit-vivo';
 
 // ---------------------------------------------------------------------------
 // La confirmación gorda — «la pantalla late» al sumar una ronda
@@ -169,7 +176,7 @@ export function TopCromo({
   onSalir: () => void;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', flex: '0 0 auto' }}>
       <BotonMantener label="Mantén pulsado para salir del entreno" onCompletar={onSalir}>
         <IconClose size={13} />
       </BotonMantener>
@@ -208,53 +215,101 @@ export function TopCromo({
         </span>
         {/* «AMRAP 12:00» es el lead canónico de la prescripción
             (shared/domain/prescription/to-text.ts): el formato y su ventana. */}
-        <Mono size={11} color="var(--twin-muted)">
+        <span className="t-readout-label" style={{ color: 'var(--twin-muted)', letterSpacing: '0.08em' }}>
           {ventanaTotal}
-        </Mono>
+        </span>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// La ventana, en número
+// La ventana, en número — la fila de contexto
 // ---------------------------------------------------------------------------
 
 /**
  * El aro ya dice cuánto queda de un vistazo; esto es para cuando quieres el
- * dato exacto. Crece y se vuelve naranja según aprieta — de 34 (readout-m) a
- * 48 en el último minuto y a 72 (readout-hero) en los diez últimos segundos,
- * siempre por debajo del número de la ronda, que es quien manda.
+ * dato exacto. Va en la fila `contexto` de `MarcoVivo`, en la misma voz y el
+ * mismo escalón que el crono del For Time: la ventana gobierna el entreno, pero
+ * no es el sujeto — el sujeto es la ronda, porque es lo que decide si aprietas.
+ *
+ * Ya no crece de 34 a 48 a 72 según aprieta. Crecer era su manera de gritar
+ * cuando no había ambiente que lo dijera; ahora lo dicen el aro caliente, el
+ * naranja y el aliento, y el sujeto se queda quieto en su banda (§10.3).
  */
 export function VentanaReadout({
   texto,
-  tamano,
   caliente,
   aliento,
 }: {
   texto: string;
-  tamano: number;
   caliente: boolean;
   aliento: string | null;
 }) {
+  const tinte = caliente ? 'var(--twin-accent-text)' : 'var(--twin-fg)';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flex: '0 0 auto' }}>
-      <Label size={10} color={caliente ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}>
-        Quedan
-      </Label>
-      <Mono
-        size={tamano}
-        weight={800}
-        color={caliente ? 'var(--twin-accent-text)' : 'var(--twin-fg)'}
-        style={{ lineHeight: 1, transition: 'font-size 500ms ease-out, color 500ms linear' }}
-      >
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, width: '100%', minWidth: 0 }}>
+      <span className="t-readout-s" style={{ color: tinte, transition: 'color 500ms linear' }}>
         {texto}
-      </Mono>
+      </span>
+      <span
+        className="t-readout-label"
+        style={{
+          color: caliente ? 'var(--twin-accent-text)' : 'var(--twin-muted)',
+          letterSpacing: '0.1em',
+          flex: '0 0 auto',
+        }}
+      >
+        quedan
+      </span>
       {aliento && (
-        <span style={{ font: '600 13px/1.2 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
+        <span
+          style={{
+            font: '600 13px/1.2 var(--twin-font-sans)',
+            color: 'var(--twin-accent-text)',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {aliento}
         </span>
       )}
+      <span style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// El marcador — y es el botón
+// ---------------------------------------------------------------------------
+
+/**
+ * La superficie DOMINANTE del §10.4: ocupa la banda entera, la corona la regla
+ * de acento y se toca. Ese es el trato — un contenedor alrededor del
+ * protagonista solo se gana si manda sobre todo lo demás en tamaño y en
+ * jerarquía, y aquí se gana porque en un AMRAP el sujeto ES el botón: la ronda
+ * se cierra tocando el marcador con el móvil en el suelo.
+ *
+ * El envoltorio existe porque `MarcoVivo` mete el `sujeto` dentro de su propia
+ * `BandaSujeto` sin superficie; para que la dominante llene la banda hay que
+ * darle el alto y el ancho de la fila antes de entrar en ella.
+ */
+export function MarcadorTocable({
+  onClick,
+  etiqueta,
+  children,
+}: {
+  onClick: () => void;
+  etiqueta: string;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ width: '100%', height: '100%', minHeight: 0, display: 'grid' }}>
+      <BandaSujeto dominante onClick={onClick} etiquetaAccesible={etiqueta}>
+        {children}
+      </BandaSujeto>
     </div>
   );
 }
@@ -269,38 +324,37 @@ export function VentanaReadout({
  * escribiera dos veces, girar el móvil acabaría cambiando el número de sitio,
  * de tamaño y de redacción, que es como se pierde la confianza en un marcador.
  *
- * `tamano` es lo único que cambia entre caras, y cambia por una razón: 144
- * cuando la ronda gobierna, 96 cuando lo hace el monitor y ella cede sin
- * desaparecer.
+ * `cede` es lo único que cambia entre caras, y cambia por una razón: la ronda
+ * baja al peldaño `segundo` cuando manda el monitor, y no desaparece. Ceder el
+ * tamaño no es ceder el sitio.
  */
 export function NucleoRonda({
   rondas,
   repsMarcadas,
   compara,
-  tamano,
-  pista,
+  cede = false,
+  horizontal = false,
 }: {
   rondas: number;
   repsMarcadas: number;
   compara: { indice: number; texto: string; deltaS: number } | null;
-  tamano: 96 | 144;
-  pista: string;
+  /** El monitor gobierna esta cara: la ronda baja un peldaño. */
+  cede?: boolean;
+  horizontal?: boolean;
 }) {
   return (
     <>
-      <Label size={10}>Rondas</Label>
-      {/* 144 = dos veces `t-readout-hero`. El sujeto de un AMRAP se lee de pie,
-          a tres metros y con el móvil en el suelo; a 72 no llega. */}
+      <EtiquetaSujeto>Rondas</EtiquetaSujeto>
       <Golpe key={rondas}>
-        <Mono size={tamano} weight={800} style={{ lineHeight: 1 }}>
+        <Numeral horizontal={horizontal} escala={cede ? 'segundo' : 'sujeto'}>
           {rondas}
-        </Mono>
+        </Numeral>
       </Golpe>
 
       {repsMarcadas > 0 && (
-        <Mono size={22} weight={800} color="var(--twin-accent-text)">
+        <span className="t-readout-s" style={{ color: 'var(--twin-accent-text)' }}>
           +{repsMarcadas} reps
-        </Mono>
+        </span>
       )}
 
       {compara && (
@@ -318,17 +372,6 @@ export function NucleoRonda({
           </span>
         </span>
       )}
-
-      <span
-        style={{
-          font: '500 12px/1.2 var(--twin-font-sans)',
-          color: 'var(--twin-faint)',
-          marginTop: 6,
-          textAlign: 'center',
-        }}
-      >
-        {pista}
-      </span>
     </>
   );
 }

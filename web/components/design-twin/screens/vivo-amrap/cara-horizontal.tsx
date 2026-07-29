@@ -18,24 +18,43 @@
 //       remo se coma el AMRAP: por muy bonito que sea el monitor, sigues
 //       teniendo un reloj que te va a sacar y unas rondas que contar.
 //
-// Lo único que cambia en la franja entre una cara y otra es el tamaño de la
-// ronda (144 cuando gobierna, 96 cuando cede). No desaparece jamás.
+// Lo único que cambia en la franja entre una cara y otra es el peldaño del
+// numeral de la ronda (`sujeto` cuando gobierna, `segundo` cuando cede ante el
+// monitor). No desaparece jamás.
+//
+// Y aquí también manda el §10.1: el lienzo lo tiñe la zona de pulso, detrás del
+// aro y de los dos campos. El aro sigue contando la ventana —es un aviso que
+// drena, no un estado sostenido— y el naranja de marca sigue reservado al
+// remate, que no es un color de zona.
 
-import { Label, Mono, SP } from '../../kit';
+import { SP } from '../../kit';
 import { hrZone } from '../../sim';
 import { UMBRAL } from '../../datos-reales';
+import type { TwinAppearance } from '../../types';
+import { Ambiente, Apoyo, EtiquetaSujeto, FilaApoyos, Numeral, colorZona, zonaDe } from '../../kit-vivo';
 import { ARO_MARGEN, AroVentana } from './aro';
-import { CapaPausa, Destello, NucleoRonda, TopCromo } from './atoms';
+import { CapaPausa, Destello, MarcadorTocable, NucleoRonda, TopCromo } from './atoms';
 import { FilaMovimiento, FranjaPulso, type EstadoMovimiento } from './filas';
 import { MOVIMIENTOS, lineaMovimiento, type LecturaErg } from './data';
 import type { VistaViva } from './vista';
 
-/** El ancho de la franja. Cabe una ronda de 144 pt (dos cifras) con aire. */
+/** El ancho de la franja. Cabe el marcador con aire y sigue tocándose sudando. */
 const FRANJA_ANCHO = 250;
 
-export function CaraHorizontal({ vista, destello }: { vista: VistaViva; destello: number }) {
+export function CaraHorizontal({
+  vista,
+  appearance,
+  destello,
+}: {
+  vista: VistaViva;
+  appearance: TwinAppearance;
+  destello: number;
+}) {
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
+    // El contenedor de consulta del que cuelga la escala del numeral (§10.2).
+    // En retrato lo abre `MarcoVivo`; aquí, que no lo usamos, lo abre la cara.
+    <div style={{ position: 'relative', height: '100%', containerType: 'size' }}>
+      <Ambiente zona={zonaDe(vista.pulsoPpm)} appearance={appearance} />
       <AroVentana fraccion={vista.fraccion} tension={vista.tension} />
 
       <div
@@ -74,60 +93,46 @@ export function CaraHorizontal({ vista, destello }: { vista: VistaViva; destello
 // La franja — lo que el formato no suelta
 // ---------------------------------------------------------------------------
 
+/**
+ * La ventana arriba (contexto) y el marcador debajo (sujeto), en la superficie
+ * dominante de este lado. Es el mismo trato del §10.4 que en retrato: la caja
+ * se gana porque manda sobre todo lo que tiene al lado y porque es lo que se
+ * toca.
+ */
 function Franja({ vista }: { vista: VistaViva }) {
   const caliente = vista.tension > 0;
+  const tinte = caliente ? 'var(--twin-accent-text)' : 'var(--twin-fg)';
   return (
-    <button
-      type="button"
-      onClick={vista.onCerrarRonda}
-      aria-label={`Cerrar la ronda ${vista.rondas + 1}`}
-      style={{
-        flex: `0 0 ${FRANJA_ANCHO}px`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        padding: SP.m,
-        borderRadius: 20,
-        border: '1px solid var(--twin-hairline-strong)',
-        background: 'color-mix(in srgb, var(--twin-surface) 70%, transparent)',
-        color: 'var(--twin-fg)',
-        cursor: 'pointer',
-      }}
-    >
-      <Label size={10} color={caliente ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}>
-        Quedan
-      </Label>
-      <Mono
-        size={vista.remate ? 72 : 48}
-        weight={800}
-        color={caliente ? 'var(--twin-accent-text)' : 'var(--twin-fg)'}
-        style={{ lineHeight: 1, transition: 'font-size 500ms ease-out, color 500ms linear' }}
-      >
-        {vista.ventanaTexto}
-      </Mono>
-      {vista.aliento && (
-        <span style={{ font: '600 13px/1.2 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
-          {vista.aliento}
-        </span>
-      )}
+    <div style={{ flex: `0 0 ${FRANJA_ANCHO}px`, minWidth: 0, display: 'grid' }}>
+      <MarcadorTocable onClick={vista.onCerrarRonda} etiqueta={`Cerrar la ronda ${vista.rondas + 1}`}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span className="t-readout-s" style={{ color: tinte, transition: 'color 500ms linear' }}>
+            {vista.ventanaTexto}
+          </span>
+          <EtiquetaSujeto tono={caliente ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}>quedan</EtiquetaSujeto>
+        </div>
+        {vista.aliento && (
+          <span style={{ font: '600 13px/1.2 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
+            {vista.aliento}
+          </span>
+        )}
 
-      <div
-        aria-hidden
-        style={{ height: 1, alignSelf: 'stretch', background: 'var(--twin-hairline)', margin: `${SP.m}px 0` }}
-      />
+        <div
+          aria-hidden
+          style={{ height: 1, alignSelf: 'stretch', background: 'var(--twin-hairline)', margin: `${SP.s}px 0` }}
+        />
 
-      <NucleoRonda
-        rondas={vista.rondas}
-        repsMarcadas={vista.repsMarcadas}
-        compara={vista.compara}
-        // La ronda cede tamaño cuando manda el monitor, pero no el sitio: es
-        // la diferencia entre subordinarse y desaparecer.
-        tamano={vista.cara === 'monitor' ? 96 : 144}
-        pista="toca aquí al cerrar la ronda"
-      />
-    </button>
+        <NucleoRonda
+          horizontal
+          rondas={vista.rondas}
+          repsMarcadas={vista.repsMarcadas}
+          compara={vista.compara}
+          // La ronda cede el peldaño cuando manda el monitor, pero no el sitio:
+          // es la diferencia entre subordinarse y desaparecer.
+          cede={vista.cara === 'monitor'}
+        />
+      </MarcadorTocable>
+    </div>
   );
 }
 
@@ -141,22 +146,21 @@ function CaraMonitor({ erg, pulsoPpm }: { erg: LecturaErg; pulsoPpm: number | nu
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: SP.s }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px', flex: '0 0 auto' }}>
-        <Label size={10}>{lineaMovimiento(MOVIMIENTOS[1])}</Label>
+        <EtiquetaSujeto>{lineaMovimiento(MOVIMIENTOS[1])}</EtiquetaSujeto>
         <span style={{ flex: 1 }} />
-        <Mono size={11} color="var(--twin-muted)">
+        <span className="t-readout-label" style={{ color: 'var(--twin-muted)', letterSpacing: '0.08em' }}>
           lo cuenta el monitor
-        </Mono>
+        </span>
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <Mono size={144} weight={800} color={hecho ? 'var(--twin-ok)' : 'var(--twin-fg)'} style={{ lineHeight: 1 }}>
-            {erg.cal}
-          </Mono>
-          <Mono size={34} weight={700} color="var(--twin-muted)">
-            / {erg.objetivoCal} cal
-          </Mono>
-        </div>
+        <Numeral
+          horizontal
+          tono={hecho ? 'var(--twin-ok)' : 'var(--twin-fg)'}
+          unidad={`/ ${erg.objetivoCal} cal`}
+        >
+          {erg.cal}
+        </Numeral>
       </div>
 
       {/* La barra es honesta porque hay quien la mide: sale de las calorías
@@ -175,37 +179,13 @@ function CaraMonitor({ erg, pulsoPpm }: { erg: LecturaErg; pulsoPpm: number | nu
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
-        <Baldosa valor={erg.ritmo500} etiqueta="/500m" />
-        <Baldosa valor={`${erg.vatios}`} etiqueta="vatios" color="var(--twin-accent-text)" />
+      <FilaApoyos>
+        <Apoyo etiqueta="Ritmo" valor={erg.ritmo500} pie="/500m" />
+        <Apoyo etiqueta="Vatios" valor={`${erg.vatios}`} />
         {pulsoPpm !== null && zona !== null && (
-          <Baldosa valor={`${pulsoPpm}`} etiqueta={`ppm · Z${zona}`} color={`var(--twin-z${zona})`} />
+          <Apoyo etiqueta="Pulso" valor={`${pulsoPpm}`} tono={colorZona(zona)} pie={`ppm · Z${zona}`} />
         )}
-      </div>
-    </div>
-  );
-}
-
-function Baldosa({ valor, etiqueta, color = 'var(--twin-fg)' }: { valor: string; etiqueta: string; color?: string }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 3,
-        padding: '9px 4px',
-        borderRadius: 12,
-        background: 'var(--twin-surface)',
-        border: '1px solid var(--twin-hairline)',
-      }}
-    >
-      <Mono size={34} weight={800} color={color}>
-        {valor}
-      </Mono>
-      <Label size={9}>{etiqueta}</Label>
+      </FilaApoyos>
     </div>
   );
 }

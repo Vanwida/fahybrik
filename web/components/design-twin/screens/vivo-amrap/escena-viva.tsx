@@ -18,7 +18,7 @@
 // `cara-horizontal.tsx`, que es donde vive la regla del tramo.
 
 import { useState } from 'react';
-import type { TwinOrientation } from '../../types';
+import type { TwinAppearance, TwinOrientation } from '../../types';
 import { useTicker, useTimeline } from '../../sim';
 import { reloj } from '../../datos-reales';
 import { CaraHorizontal } from './cara-horizontal';
@@ -52,10 +52,11 @@ const TOQUE_MINIMO_S = 2;
 export interface EscenaVivaProps {
   arranque: keyof typeof ARRANQUE;
   orientation: TwinOrientation;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }
 
-export function EscenaViva({ arranque, orientation, onLog }: EscenaVivaProps) {
+export function EscenaViva({ arranque, orientation, appearance, onLog }: EscenaVivaProps) {
   const inicio = ARRANQUE[arranque];
 
   const [base, setBase] = useState(inicio.transcurridoS);
@@ -171,6 +172,7 @@ export function EscenaViva({ arranque, orientation, onLog }: EscenaVivaProps) {
         movimientoEnCurso={marcados < MOVIMIENTOS.length ? MOVIMIENTOS[marcados] : null}
         pulsoMaxPpm={PULSO_MAX_PPM}
         orientation={orientation}
+        appearance={appearance}
         onLog={onLog}
       />
     );
@@ -213,8 +215,8 @@ export function EscenaViva({ arranque, orientation, onLog }: EscenaVivaProps) {
   };
 
   return orientation === 'landscape' ? (
-    <CaraHorizontal vista={vista} destello={destello} />
+    <CaraHorizontal vista={vista} appearance={appearance} destello={destello} />
   ) : (
-    <CaraVertical vista={vista} destello={destello} />
+    <CaraVertical vista={vista} appearance={appearance} destello={destello} />
   );
 }
