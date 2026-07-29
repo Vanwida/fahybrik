@@ -65,6 +65,7 @@
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
 		1BED5612C4EE966809ED0BA4 /* RunAutoPauseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73436A9BBEE97504B5DF9AB /* RunAutoPauseTests.swift */; };
 		1C531582881A3B62C414DEEE /* DoblesLivePresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A48A43ECA058D95A167103FC /* DoblesLivePresence.swift */; };
+		1C59230B37D5F2D9F3317397 /* SegmentPayloadBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */; };
 		1DA7ADAA26695F78811FDBE4 /* TrainingDaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F7DBBA7990F6BEC99522A14 /* TrainingDaysView.swift */; };
 		1DE3332AB4229A3A62DFC3AA /* WatchPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB1A4598C8B61A292DE32327 /* WatchPlanModel.swift */; };
 		1E22451CDA0BC486FEFF0A32 /* DeleteAccountConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A07618BFBE2D893F8EC219B /* DeleteAccountConfirmView.swift */; };
@@ -351,6 +352,7 @@
 		CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */; };
 		D0A40812E60DB25147E89856 /* FTMSControlStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */; };
 		D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D674AB748CF0731318E718C5 /* HistoryService.swift */; };
+		D1A4F0CA3FE76E8B77D96AAC /* SegmentPayloadBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */; };
 		D1CCE0FB0BEEEA275FC8AAB3 /* DoblesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4075C7EACC5B3ADAD94F5E5 /* DoblesService.swift */; };
 		D23CB0F3457C878E6A1F412D /* TestResultDoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A43342DB16A6417086FE00 /* TestResultDoneView.swift */; };
 		D28031483568AEE7A46C86D8 /* WorkoutAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */; };
@@ -740,6 +742,7 @@
 		9A9504F8733B644F322ED87D /* LiveTramo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTramo.swift; sourceTree = "<group>"; };
 		9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFormatHUDs.swift; sourceTree = "<group>"; };
 		9B348B62783F896F5C0A5774 /* DoblesStreakSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesStreakSection.swift; sourceTree = "<group>"; };
+		9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentPayloadBuilder.swift; sourceTree = "<group>"; };
 		9B8239FADDEB566CC3160532 /* InjuryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjuryService.swift; sourceTree = "<group>"; };
 		9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		9F726D0B3292528EFE86B210 /* FAHYBRIKApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FAHYBRIKApp.swift; sourceTree = "<group>"; };
@@ -1049,6 +1052,7 @@
 				E38DE2084485521A56ED911B /* RestSurface.swift */,
 				3807715E5A421C492855AAAE /* RunEnvironment.swift */,
 				C5773D08D2A19E53DF38FCE8 /* RunPreStartFlow.swift */,
+				9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */,
 				29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */,
 				9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */,
 				9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */,
@@ -2280,6 +2284,7 @@
 				D36DC146789CC377AE4BF27B /* SafariView.swift in Sources */,
 				531CE717424FD1028BF11717 /* Scale1to5Picker.swift in Sources */,
 				2FBE00066FF051CE569FB384 /* ScreenScaffold.swift in Sources */,
+				D1A4F0CA3FE76E8B77D96AAC /* SegmentPayloadBuilder.swift in Sources */,
 				4C60E04E38C5EAC3C82B008B /* SessionExercisesSheet.swift in Sources */,
 				E44CA7DA6C4C2AB6CA729F46 /* SessionFeedbackCard.swift in Sources */,
 				F2B1FCED68ECF4D589808275 /* SolicitarCarreraView.swift in Sources */,
@@ -2372,6 +2377,7 @@
 				92D8371CE02BCA4B1BBA0937 /* RunLegProgress.swift in Sources */,
 				B3982E0F7A8076E4F293A7F4 /* RunPaceModel.swift in Sources */,
 				1E77CA59D198D406C4B2E26E /* RunStructure.swift in Sources */,
+				1C59230B37D5F2D9F3317397 /* SegmentPayloadBuilder.swift in Sources */,
 				2CA78AF286F7B748A5746DF8 /* SessionMapView.swift in Sources */,
 				51131F03B9B3EA4DA3F2C797 /* SetTableLiveView.swift in Sources */,
 				517A4398F12E892D6A022EFA /* SplitsView.swift in Sources */,

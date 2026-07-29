@@ -639,134 +639,21 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Map each captured segment lap to the wire DTO. Position-ordered so the
-    // backend can match on `position` when no integer segment id is available.
+    // Map each captured segment lap to the wire DTO. La traducción vive UNA sola vez
+    // en `SegmentPayloadBuilder` (compilado también en el reloj) — tenerla duplicada
+    // es lo que dejó al reloj sin re-secuenciar `position`, sin rondas de EMOM, sin
+    // pendiente y sin el detalle del erg durante meses. Lo único propio del teléfono
+    // es lo que el atleta declara a mano en esta pantalla.
     private func buildSegments(iso: ISO8601DateFormatter) -> [SegmentExecutionDTO] {
-        // Session-level manual HR overlay (only set when no strap measured HR),
-        // clamped to the analytics-accepted range so a stray entry can't 400 the
-        // whole sync. Applied per-lap below to any lap missing measured HR.
-        let manualHRAvg = validHR(manualAvgHR)
-        let manualHRMax = validHR(manualMaxHR)
-
-        // #break-2: a structured/interval run records several per-WORK-leg laps that
-        // all share the block's coach `position` (disambiguated by `runLegIndex`).
-        // When any are present, re-sequence the wire `position` to a unique, ordered
-        // run so the ingest's (execution_id, position) upsert keeps EACH leg instead of
-        // collapsing them. The coach maps actuals → prescription by template_segment_id,
-        // so the absolute position is only ordering; a run-free session keeps its exact
-        // legacy position = coach order (zero change).
-        let ordered = session.laps.sorted {
-            ($0.position, $0.runLegIndex ?? -1) < ($1.position, $1.runLegIndex ?? -1)
-        }
-        let hasRunLegs = ordered.contains { $0.runLegIndex != nil }
-        return ordered
-            .enumerated()
-            .map { offset, lap in
-                let wirePosition = hasRunLegs ? offset : lap.position
-                let zones: [String: Int]? = lap.zoneSecondsByZone.isEmpty
-                    ? nil
-                    : lap.zoneSecondsByZone.reduce(into: [String: Int]()) {
-                        $0["z\($1.key)"] = Int($1.value.rounded())
-                    }
-
-                // Manual pace overlay — only when this lap captured no auto pace.
-                // Run pace is /km, erg pace /500m (lap.modality == "run" → km).
-                var avgPaceKm = lap.avgPaceSecPerKm
-                var avgPace500 = lap.avgPaceSecPer500m
-                var source = lap.source
-                if let mp = manualSegmentPaceSeconds[lap.segmentId], mp > 0,
-                   avgPaceKm == nil, avgPace500 == nil {
-                    if lap.modality == "run" {
-                        avgPaceKm = Double(mp)
-                    } else {
-                        avgPace500 = Double(mp)
-                    }
-                    source = "manual"
-                }
-
-                // Per-set strength detail → wire (1:1 with SetRecord).
-                let setDTOs: [SetExecutionDTO]? = lap.sets?.map { s in
-                    SetExecutionDTO(
-                        set_index: s.setIndex,
-                        reps_prescribed: s.repsPrescribed,
-                        reps_actual: s.repsActual,
-                        load_prescribed_kg: s.loadPrescribedKg,
-                        load_actual_kg: s.loadActualKg,
-                        rpe: s.rpe,
-                        rir: s.rir,
-                        status: s.status,
-                        confirmed: s.confirmed,
-                        tempo: s.tempo,
-                        rest_s: s.restS
-                    )
-                }
-
-                // Erg detail (#33) → wire. The backend folds drag / cal-per-hour /
-                // force / splits into raw_lap_data_json; avg_pace_s_per_500m above
-                // already carries the PM5's own average pace.
-                let ergSplitDTOs: [ErgSplitDTO]? = lap.ergSplits?.map { s in
-                    ErgSplitDTO(
-                        index: s.index,
-                        time_seconds: s.timeSeconds,
-                        distance_meters: s.distanceMeters,
-                        avg_pace_s_per_500m: s.avgPaceSecPer500m,
-                        stroke_rate_spm: s.strokeRateSpm,
-                        avg_power_w: s.avgPowerWatts,
-                        calories: s.totalCalories,
-                        calories_per_hour: s.avgCaloriesPerHour,
-                        drag_factor: s.avgDragFactor,
-                        rest_time_seconds: s.restTimeSeconds,
-                        rest_distance_meters: s.restDistanceMeters,
-                        avg_hr: s.avgHeartRateBpm
-                    )
-                }
-
-                return SegmentExecutionDTO(
-                    template_segment_id: lap.templateSegmentId,
-                    position: wirePosition,
-                    modality: lap.modality,
-                    started_at: iso.string(from: lap.startedAt),
-                    ended_at: iso.string(from: lap.endedAt),
-                    duration_seconds: Int(lap.durationSeconds.rounded()),
-                    distance_meters: lap.distanceCoveredMeters,
-                    avg_pace_s_per_500m: avgPace500,
-                    avg_pace_s_per_km: avgPaceKm,
-                    avg_power_w: lap.avgPowerWatts,
-                    stroke_rate_spm: lap.strokeRateSpm,
-                    // Fall back to the manual session HR for any lap with none
-                    // measured, so a failed wearable still records a heart rate.
-                    avg_hr: lap.avgHRBpm ?? manualHRAvg,
-                    max_hr: lap.maxHRBpm ?? manualHRMax,
-                    calories: lap.calories,
-                    // `reps_completed` == the ACTUAL reps (nil on a skip — never a
-                    // fabricated 0). We send `reps_actual` too (canonical); the
-                    // backend accepts both and prefers reps_actual.
-                    reps_completed: lap.repsCompleted,
-                    weight_used_kg: lap.weightUsedKg,
-                    zone_seconds_json: zones,
-                    source: source,
-                    reps_prescribed: lap.repsPrescribed,
-                    reps_actual: lap.repsCompleted,
-                    reps_status: lap.repsStatus,
-                    reps_confirmed: lap.repsConfirmed,
-                    is_structural: lap.isStructural,
-                    rx_scaled: lap.rxScaled,
-                    scaled_note: lap.scaledNote,
-                    sets: setDTOs,
-                    emom_rounds_completed: lap.emomRoundsCompleted,   // #break-1
-                    emom_rounds_prescribed: lap.emomRoundsPrescribed,
-                    // Segment average incline (from the belt) / cadence (nil — no
-                    // on-device source yet); the backend range-gates both (#62).
-                    incline_pct: lap.inclinePct,
-                    run_cadence_spm: lap.runCadenceSpm,
-                    // Erg detail (#33).
-                    drag_factor: lap.dragFactor,
-                    avg_calories_per_hour: lap.avgCaloriesPerHour,
-                    peak_drive_force_lbs: lap.peakDriveForceLbs,
-                    avg_drive_force_lbs: lap.avgDriveForceLbs,
-                    erg_splits: ergSplitDTOs
-                )
-            }
+        SegmentPayloadBuilder.build(
+            laps: session.laps,
+            overlay: ManualSegmentOverlay(
+                avgHR: manualAvgHR,
+                maxHR: manualMaxHR,
+                paceSecondsBySegment: manualSegmentPaceSeconds
+            ),
+            iso: iso
+        )
     }
 
     // MARK: - Cronómetro · declare what you did (one tap, never required)
@@ -960,13 +847,8 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Heart-rate within the analytics-accepted range (Zod 30–260) — values
-    // outside it are dropped rather than sent, so a stray entry never rejects the
-    // whole sync. Used to clamp the manual avg/max before they reach the payload.
-    private func validHR(_ value: Int?) -> Int? {
-        guard let v = value, v >= 30, v <= 260 else { return nil }
-        return v
-    }
+    // El recorte de la FC al rango que acepta la analítica (Zod 30–260) vive ahora
+    // en `ManualSegmentOverlay`, junto al único sitio que construye el payload.
 
     // MARK: - Per-segment table
     //

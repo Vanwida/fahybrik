@@ -304,6 +304,12 @@ targets:
       # so the type must compile into the watch too (the BLE service stays app-only).
       - path: FAHYBRIK/Devices/PM5/PM5DataParser.swift
       - path: FAHYBRIK/Workout/WorkoutModels.swift
+      # LA ÚNICA traducción de los laps medidos al payload del cable. Compartida a
+      # propósito: el reloj tenía su propia copia y se quedó atrás en la
+      # re-secuenciación de `position` (los tramos de una carrera estructurada
+      # colapsaban en UNA fila al llegar al servidor), en las rondas de EMOM, en la
+      # pendiente y en el detalle del erg. Con una sola función eso no puede repetirse.
+      - path: FAHYBRIK/Workout/SegmentPayloadBuilder.swift
       # #56 — the pure dobles-turn projection (rep reparto + turn derivation). Pure
       # Foundation; shared into the watch because WorkoutModels' prescribedRepsForLog
       # reads repSplit() to log a split station against the pact (SetTableLiveView reads
