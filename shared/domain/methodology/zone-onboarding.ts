@@ -32,6 +32,7 @@ import {
   BENCH_RUN_10K,
   BENCH_ROW_2K,
   BENCH_SKI_1K,
+  BENCH_LTHR,
 } from '../coach/benchmark-slugs';
 
 /** A zone profile derived from onboarding benchmarks (the resolver's output). */
@@ -58,8 +59,14 @@ const ZONE_COUNT = 6;
 
 /**
  * Map `athlete_benchmarks` rows (slug + value) onto the `AthleteBenchmarks`
- * shape the threshold resolvers read. Only the pacing anchors used for zones are
- * mapped (1RMs etc. don't produce pace zones). Missing slugs stay null.
+ * shape the threshold resolvers read: the pacing anchors used for pace zones, plus
+ * the MEASURED heart-rate threshold that anchors the HR zones. 1RMs etc. are
+ * omitted (they produce no zone). Missing slugs stay null.
+ *
+ * `lthr_bpm` belongs here even though it derives no pace profile: the watch source
+ * builds its `AthleteBenchmarks` from this mapper, and while the mapper ignored the
+ * threshold the wrist kept receiving zones off an age estimate even for an athlete
+ * who had measured theirs. The measured anchor has to travel with the rest.
  */
 export function athleteBenchmarksFromSlugRows(
   rows: Array<{ exercise_slug: string; value: number | null }>,
@@ -73,6 +80,7 @@ export function athleteBenchmarksFromSlugRows(
     time_10k_seconds: get(BENCH_RUN_10K),
     time_2k_row_seconds: get(BENCH_ROW_2K),
     time_1k_ski_seconds: get(BENCH_SKI_1K),
+    lthr_bpm: get(BENCH_LTHR),
   };
 }
 

@@ -10,6 +10,9 @@ import 'server-only';
 //   · time-trial (run_5k / row_2k)   → benchmark + DERIVED zone profile
 //   · time-trial baseline (half-sim) → benchmark only (no zone/max)
 //   · load (back_squat_1rm …)        → versioned strength max + benchmark
+//   · hr (lthr_bpm)                  → benchmark only — and that IS the HR-zone
+//     calibration, because the zone model resolves live off the latest anchor
+//   · hrr (hrr60)                    → benchmark only (baseline evidence)
 // then re-runs the LEVEL suggestion (it reads athlete_benchmarks fresh, so the
 // real 5K/2K/1RM firm up the athlete's level from data, not self-report).
 //
@@ -34,6 +37,7 @@ import {
   BENCH_ROW_2K,
   BENCH_SKI_1K,
   benchmarkLowerIsBetter,
+  benchmarkIsDirectional,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
 import type { TestSource } from '@fahybrid/shared/domain/athlete/record-test-result';
@@ -163,6 +167,24 @@ export async function recordBatteryResults(params: {
         bpm: e.value,
         source,
       });
+    } else if (spec.measure === 'hr') {
+      // An absolute heart rate (lthr_bpm). This branch is load-bearing: without it
+      // the `else` below would file a threshold of 156 ppm as 156 SECONDS.
+      //
+      // Writing the benchmark IS the whole calibration for `hr_zones` — unlike the
+      // pace zones there is no profile to snapshot, because the HR model is
+      // resolved live from the latest `lthr_bpm` row (web/lib/athlete/hr-zones.ts →
+      // shared/domain/methodology/hr-zones.ts). The moment this row lands, the
+      // athlete's phone, the coach's read-back and the watch alert all switch from
+      // an estimated anchor to a measured one. Do not "finish" this by adding a
+      // snapshot table: there is nothing missing.
+      await recordTestBenchmark(sql, {
+        kind: 'hr',
+        athlete_id,
+        exercise_slug: spec.slug,
+        bpm: e.value,
+        source,
+      });
     } else {
       // time-trial (run_5k / row_2k / hyrox_half_sim)
       await recordTestBenchmark(sql, {
@@ -226,12 +248,15 @@ export async function recordBatteryResults(params: {
   }
 
   // Per-entry progression delta vs the snapshot taken before the writes. Direction
-  // is unit-correct (time faster = better; kg / bpm / reps higher = better).
+  // is unit-correct (time faster = better; kg / bpm / reps higher = better), and a
+  // pure calibration anchor (threshold HR) gets NO verdict at all — it re-scales
+  // training without being better or worse, so `improved` stays null and the app
+  // shows the change without praising or scolding it.
   out.entries = entries.map((e) => {
     const spec = specBySlug.get(e.slug)!;
     const prev = prevBySlug.get(e.slug) ?? null;
     const improved =
-      prev == null || e.value === prev
+      prev == null || e.value === prev || !benchmarkIsDirectional(e.slug)
         ? null
         : benchmarkLowerIsBetter(spec.unit)
           ? e.value < prev

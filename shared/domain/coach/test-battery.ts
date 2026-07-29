@@ -24,6 +24,7 @@ import {
   BENCH_DEADLIFT_1RM,
   BENCH_BENCH_PRESS_1RM,
   BENCH_HRR_60,
+  BENCH_LTHR,
 } from './benchmark-slugs';
 import { STRENGTH_LIFTS } from '../strength/exercises';
 import type { Prescription } from '../prescription/types';
@@ -105,12 +106,16 @@ export interface CalibrationTestProtocol {
   primary_modality: 'run' | 'row' | 'strength' | 'hyrox';
   // Coach-facing protocol instructions (the session brief).
   protocol: string;
-  // Anchored to the athlete's first week (relative Monday). All four = 1.
-  week_offset: number;
+  // Anchored to the athlete's first week (relative Monday). The four week-1
+  // tests = 1. NULL means the test is NOT auto-scheduled: it exists in the coach's
+  // catalog, the athlete can run it on demand ("Probarme"), and the coach can drop
+  // it into a plan whenever it fits. That is how a test joins the catalog without
+  // being imposed on week 1.
+  week_offset: number | null;
   // Preferred weekday (1 = Mon … 7 = Sun) so the four spread across the week
   // rather than piling on one day (each is demanding). A suggestion; the coach
-  // can move them (Fork A: auto + override).
-  day_of_week: number;
+  // can move them (Fork A: auto + override). Null iff `week_offset` is null.
+  day_of_week: number | null;
   // The contract: what this test measures and calibrates.
   store_results: StoreResultSpec[];
   // The SESSION the athlete executes (#61 guided tramos). When present, the
@@ -121,8 +126,30 @@ export interface CalibrationTestProtocol {
 
 export const CALIBRATION_META_KEY = 'calibration' as const;
 
-// The default v1 battery (Fork B: fixed 4 — the day-1 promise). Coach can
-// remove/move any as a normal plan session.
+/** The threshold-pulse protocol's slug. Shared because it is the ONE test the
+ *  "tus zonas son estimadas" states send the athlete to — the phone starts it by
+ *  slug, so this string cannot be retyped anywhere. */
+export const LTHR_30MIN_SLUG = 'lthr_30min';
+
+// Umbral de pulso (30 min): the ONLY protocol that measures a heart-rate anchor.
+// Friel's field test — 30 min all out, alone, and the average pulse of the LAST 20
+// min is the threshold. The first 10 min are excluded on purpose: HR lags the
+// effort at the start, so averaging the whole half hour under-reads the threshold.
+// One run item, three phases; the effort itself is prescribed by RPE because the
+// pace is not what we are measuring.
+const LTHR_30MIN_RUN_STRUCTURE: RunStructure = [
+  { role: 'warmup', elements: [{ kind: 'work', measure: { type: 'duration', s: 900 }, target: { type: 'rpe', value: 3 } }] },
+  { role: 'main', elements: [{ kind: 'work', measure: { type: 'duration', s: 1800 }, target: { type: 'rpe', min: 8, max: 9 } }] },
+  { role: 'cooldown', elements: [{ kind: 'work', measure: { type: 'duration', s: 600 }, target: { type: 'rpe', value: 2 } }] },
+];
+
+const LTHR_30MIN_CONTENT: readonly CalibrationContentSegment[] = [
+  { exercise: ['run'], title: 'Umbral 30 min', block_position: 0, prescription: prescriptionFromStructure(LTHR_30MIN_RUN_STRUCTURE) },
+];
+
+// The default v1 battery. The first four are the week-1 promise (Fork B: fixed 4);
+// the threshold-pulse test ships in the catalog UNSCHEDULED — it is a fifth maximal
+// effort and does not belong in the same week as the other four.
 export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
   {
     slug: 'tt_5k',
@@ -200,6 +227,30 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
       HRR60_OPTIONAL_RESULT,
     ],
   },
+  {
+    slug: LTHR_30MIN_SLUG,
+    label: 'Umbral de pulso',
+    format: 'test',
+    primary_modality: 'run',
+    protocol:
+      'Calienta 15 min. Luego 30 min a tope sostenido, solo y en llano, con la cinta del pulso puesta. Tu umbral es el pulso medio de los últimos 20 min: los primeros 10 no cuentan porque el pulso todavía va por detrás del esfuerzo.',
+    // NOT auto-scheduled: available on demand, never a fifth maximal effort in week 1.
+    week_offset: null,
+    day_of_week: null,
+    store_results: [
+      {
+        slug: BENCH_LTHR,
+        unit: 'bpm',
+        measure: 'hr',
+        derives: 'hr_zones',
+        label: 'Umbral de pulso',
+      },
+      // Same treatment as every other resistance test: the app measures it from
+      // the HR stream and it never gates finishing.
+      HRR60_OPTIONAL_RESULT,
+    ],
+    content: LTHR_30MIN_CONTENT,
+  },
 ] as const;
 
 /** Every store_results spec flattened, keyed by slug (the bridge's routing table). */
@@ -238,21 +289,27 @@ export interface CalibrationTarget {
   result_label: string;
   /** The canonical benchmark slug this target writes (run_5k, back_squat_1rm…). */
   slug: string;
-  measure: Extract<StoreResultMeasure, 'time' | 'load'>;
-  unit: Extract<StoreResultUnit, 'seconds' | 'kg'>;
+  measure: Extract<StoreResultMeasure, 'time' | 'load' | 'hr'>;
+  unit: Extract<StoreResultUnit, 'seconds' | 'kg' | 'bpm'>;
   derives: Exclude<StoreResultDerives, 'none'>;
-  modality: 'run' | 'row' | 'ski' | 'strength';
+  /** The modality a PACE zone derivation belongs to. NULL for the HR zones: they
+   *  are one physiological ladder for the whole athlete, not one per modality. */
+  modality: 'run' | 'row' | 'ski' | 'strength' | null;
 }
 
 const ZONE_TARGETS: readonly CalibrationTarget[] = [
   { key: 'run_zones', coach_label: 'Zonas de carrera', result_label: 'Tiempo 5K', slug: BENCH_RUN_5K, measure: 'time', unit: 'seconds', derives: 'run_zones', modality: 'run' },
   { key: 'row_zones', coach_label: 'Zonas de remo', result_label: 'Tiempo 2K remo', slug: BENCH_ROW_2K, measure: 'time', unit: 'seconds', derives: 'row_zones', modality: 'row' },
   { key: 'ski_zones', coach_label: 'Zonas de ski', result_label: 'Tiempo 1K ski', slug: BENCH_SKI_1K, measure: 'time', unit: 'seconds', derives: 'ski_zones', modality: 'ski' },
+  // The ONLY target that writes a MEASURED heart-rate anchor. Without it every
+  // athlete's HR zones are estimated forever — the model prefers a measured
+  // threshold and, until this existed, nothing on any surface could produce one.
+  { key: 'hr_zones', coach_label: 'Zonas de pulso', result_label: 'Umbral de pulso', slug: BENCH_LTHR, measure: 'hr', unit: 'bpm', derives: 'hr_zones', modality: null },
 ];
 
 // The six tracked lifts → a strength_max calibration target each (DRY: reuses
 // STRENGTH_LIFTS, the single source of truth for the tracked 1RM lifts).
-const STRENGTH_TARGETS: readonly CalibrationTarget[] = STRENGTH_LIFTS.map((lift) => ({
+const STRENGTH_TARGETS: readonly CalibrationTarget[] = STRENGTH_LIFTS.map((lift): CalibrationTarget => ({
   key: lift.slug,
   coach_label: `1RM · ${lift.label}`,
   result_label: lift.label,
@@ -290,7 +347,9 @@ export function specForCalibrationTarget(
     measure: target.measure,
     unit: target.unit,
     derives: target.derives,
-    modality: target.modality,
+    // The spec omits the modality rather than carrying a null (the schema models
+    // "no modality" as absent), so an HR target serializes as a clean object.
+    ...(target.modality ? { modality: target.modality } : {}),
     label: (label && label.trim()) || target.result_label,
   };
 }
@@ -318,14 +377,21 @@ export const BASELINE_MEASURE_UNITS: ReadonlyArray<{
  *   · a calibrating derive → the spec MUST match its catalog target EXACTLY
  *     (slug + measure + unit + modality). This is what guarantees the bridge and
  *     the zone/1RM engine actually pick it up.
+ *
+ * "No modality" is written `null` on a target and ABSENT on a spec, so both sides
+ * are normalized before comparing — otherwise the HR target could never match.
  */
 export function calibrationCoherenceError(spec: StoreResultSpec): string | null {
   if (spec.derives === 'none') return null;
   const target = CALIBRATION_TARGET_BY_SLUG.get(spec.slug);
   if (!target || target.derives !== spec.derives) {
-    return `El resultado "${spec.label}" no calibra: su medida no está en el catálogo de calibración (zonas de carrera/remo/ski o 1RM de un levantamiento).`;
+    return `El resultado "${spec.label}" no calibra: su medida no está en el catálogo de calibración (zonas de carrera/remo/ski, zonas de pulso o 1RM de un levantamiento).`;
   }
-  if (spec.measure !== target.measure || spec.unit !== target.unit || spec.modality !== target.modality) {
+  if (
+    spec.measure !== target.measure ||
+    spec.unit !== target.unit ||
+    (spec.modality ?? null) !== target.modality
+  ) {
     return `El resultado "${spec.label}" es incoherente con lo que calibra (${target.coach_label}).`;
   }
   return null;

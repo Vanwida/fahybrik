@@ -20,11 +20,31 @@
 // when per-session HR/power lands; they are covered by tests and must not be
 // mistaken for live paths.
 
+/**
+ * The threshold heart rate the HR mode prices a session against, WITH its
+ * provenance — never a bare number.
+ *
+ * WHY THE SHAPE. `resolveThresholdHr` always answers, because its last rung is
+ * 0.88 × Tanaka(age): every athlete with a birth date has an "LTHR". If this
+ * field were a plain `number | null`, that estimate would flow in at the type
+ * boundary and the engine would price the session's intensity against a
+ * BIRTHDAY — then report it as measured intensity, and `loadIntensityCoverage()`
+ * would read 100 % on invented load. That is the same failure the 0.65 default
+ * IF caused, rebuilt one layer up. The type now refuses to carry the anchor
+ * without the flag that decides whether it may be used.
+ */
+export type TssThresholdHr = {
+  bpm: number;
+  /** True when inferred (from a max HR, or from age). Estimated ⇒ NOT usable here. */
+  estimated: boolean;
+};
+
 export type TssInput = {
   duration_seconds: number;
   rpe?: number | null;            // 1..10
   avg_hr?: number | null;         // bpm
-  lthr?: number | null;           // bpm — Lactate Threshold HR
+  /** Measured threshold HR + provenance. An ESTIMATED anchor prices nothing. */
+  lthr?: TssThresholdHr | null;
   hr_rest?: number | null;        // bpm
   hr_max?: number | null;         // bpm
   avg_power_watts?: number | null;
@@ -63,8 +83,12 @@ function ifFromRpe(rpe: number): number | null {
 // HRR fraction at LTHR is ~0.85 for trained athletes; we anchor IF=1.0 there.
 function ifFromHr(input: TssInput): number | null {
   const { avg_hr, lthr } = input;
-  if (avg_hr == null || lthr == null || lthr <= 0) return null;
-  return avg_hr / lthr;
+  if (avg_hr == null || lthr == null || lthr.bpm <= 0) return null;
+  // An ESTIMATED threshold does not price a session. Falling through to RPE (or to
+  // null) is the honest answer: better an unpriced hour the coach can see than a
+  // TSS whose intensity came from the athlete's date of birth.
+  if (lthr.estimated) return null;
+  return avg_hr / lthr.bpm;
 }
 
 function ifFromPower(input: TssInput): number | null {

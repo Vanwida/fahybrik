@@ -77,10 +77,15 @@ export const BENCH_BIKE_THRESHOLD = 'bike_threshold_s_per_500m';
 
 // ── Threshold HEART RATE (unit: bpm) ─────────────────────────────────────────
 // The lactate-threshold heart rate — the average HR over the last 20 min of a
-// 30-min all-out effort (the `lthr_30min` protocol in the seeded methodology
-// tests, whose `output_field` is this exact name). It is the ANCHOR of the whole
+// 30-min all-out effort (the `lthr_30min` protocol). It is the ANCHOR of the whole
 // heart-rate zone model (shared/domain/methodology/hr-zones.ts): the only anchor
 // that is measured rather than inferred, so it outranks a max HR and an age.
+//
+// It is NOT a performance metric. A threshold HR that rises is not a fitter
+// athlete — the number is largely individual, and it drifts DOWN with age while
+// fitness improves. So it is deliberately excluded from the progression verdict
+// (see `benchmarkIsDirectional`): we show the new anchor and what it changed, and
+// we never call it better or worse.
 export const BENCH_LTHR = 'lthr_bpm';
 
 // ── Heart-rate recovery (unit: bpm) ──────────────────────────────────────────
@@ -129,6 +134,19 @@ export function benchmarkLowerIsBetter(unit: string): boolean {
   return unit === BENCHMARK_UNIT_SECONDS;
 }
 
+/** Benchmarks that are CALIBRATION ANCHORS, not performances: a change in them
+ *  re-scales training but is neither an improvement nor a regression, so no
+ *  surface may render a verdict on one. Asking `benchmarkLowerIsBetter` about a
+ *  threshold heart rate is asking the wrong question — the unit (bpm) would answer
+ *  "higher is better", which is simply false. */
+const NON_DIRECTIONAL_BENCHMARKS: ReadonlySet<string> = new Set([BENCH_LTHR]);
+
+/** True when an improvement verdict is meaningful for this benchmark. False for a
+ *  pure anchor (threshold HR) — callers must then leave `improved` null. */
+export function benchmarkIsDirectional(slug: string): boolean {
+  return !NON_DIRECTIONAL_BENCHMARKS.has(slug);
+}
+
 // ── Display labels (Spanish) — canonical home for benchmark UI copy ───────────
 // Non-strength benchmarks (time-trials + rep tests + HYROX). Strength 1RM labels
 // live with the lift catalog (strengthLiftLabel) so there's a single source per
@@ -153,6 +171,7 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_SKI_THRESHOLD]: 'Umbral ski',
   [BENCH_BIKE_THRESHOLD]: 'Umbral bici',
   [BENCH_HRR_60]: 'Recuperación FC 60s',
+  [BENCH_LTHR]: 'Umbral de pulso',
 };
 
 /** Human label for a benchmark slug; falls back to a humanized slug. */
@@ -169,11 +188,16 @@ export function benchmarkLabel(slug: string): string {
  *  · 'reps'               → count, HIGHER is better
  *  · 'load' (kg)          → 1RM in kg, HIGHER is better
  *  · 'distance' (meters)  → "2.870 m" (Cooper), HIGHER is better
+ *  · 'rate' (bpm)         → "156 ppm". Direction depends on the SLUG, not the
+ *    unit: HRR higher is fitter, a threshold HR has no direction at all — ask
+ *    `benchmarkIsDirectional`. Before this existed, bpm fell through to 'time'
+ *    and a pulse of 156 rendered as "2:36" with "lower is better".
  */
-export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance';
+export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance' | 'rate';
 export function benchmarkMetric(unit: string): BenchmarkMetric {
   if (unit === BENCHMARK_UNIT_KG) return 'load';
   if (unit === BENCHMARK_UNIT_REPS) return 'reps';
   if (unit === BENCHMARK_UNIT_METERS) return 'distance';
+  if (unit === BENCHMARK_UNIT_BPM) return 'rate';
   return 'time';
 }

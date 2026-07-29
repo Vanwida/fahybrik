@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CALIBRATION_BATTERY,
   storeResultSpecBySlug,
+  LTHR_30MIN_SLUG,
 } from '@fahybrid/shared/domain/coach/test-battery';
 import {
   storeResultsSchema,
@@ -13,6 +14,7 @@ import {
   BENCH_ROW_2K,
   BENCH_HYROX_HALF_SIM,
   BENCH_BACK_SQUAT_1RM,
+  BENCH_LTHR,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 
@@ -20,11 +22,44 @@ import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 // complete and coherent so the seed + badge + bridge all agree.
 
 describe('DEFAULT_CALIBRATION_BATTERY catalog', () => {
-  it('is the fixed 4 (Fork B), all anchored to week 1, on distinct days', () => {
-    expect(DEFAULT_CALIBRATION_BATTERY).toHaveLength(4);
-    expect(DEFAULT_CALIBRATION_BATTERY.every((p) => p.week_offset === 1)).toBe(true);
-    const days = DEFAULT_CALIBRATION_BATTERY.map((p) => p.day_of_week);
+  it('schedules the fixed 4 (Fork B) in week 1, on distinct days', () => {
+    const scheduled = DEFAULT_CALIBRATION_BATTERY.filter((p) => p.week_offset != null);
+    expect(scheduled).toHaveLength(4);
+    expect(scheduled.every((p) => p.week_offset === 1)).toBe(true);
+    const days = scheduled.map((p) => p.day_of_week);
     expect(new Set(days).size).toBe(4); // spread, never piled on one day
+  });
+
+  it('the threshold-pulse test ships UNSCHEDULED — never a 5th maximal effort in week 1', () => {
+    const lthr = DEFAULT_CALIBRATION_BATTERY.find((p) => p.slug === LTHR_30MIN_SLUG)!;
+    expect(lthr).toBeDefined();
+    // Both null together: the restore writes a schedule row only when both are set.
+    expect(lthr.week_offset).toBeNull();
+    expect(lthr.day_of_week).toBeNull();
+  });
+
+  it('a protocol is scheduled on both axes or on neither', () => {
+    for (const p of DEFAULT_CALIBRATION_BATTERY) {
+      expect(p.week_offset == null).toBe(p.day_of_week == null);
+    }
+  });
+
+  it('the threshold-pulse test is the ONE protocol that writes a measured HR anchor', () => {
+    const producers = DEFAULT_CALIBRATION_BATTERY.filter((p) =>
+      p.store_results.some((s) => s.slug === BENCH_LTHR),
+    );
+    expect(producers.map((p) => p.slug)).toEqual([LTHR_30MIN_SLUG]);
+
+    const spec = storeResultSpecBySlug(BENCH_LTHR)!;
+    // bpm, not seconds: the bridge routes on `measure`, and 'time' would file a
+    // threshold of 156 ppm as 156 seconds.
+    expect(spec.measure).toBe('hr');
+    expect(spec.unit).toBe('bpm');
+    expect(spec.derives).toBe('hr_zones');
+    // HR zones are one physiological ladder, not one per modality.
+    expect(spec.modality).toBeUndefined();
+    // It is required: a threshold test that captures nothing measured nothing.
+    expect(spec.optional ?? false).toBe(false);
   });
 
   it('every protocol store_results validates against the contract schema', () => {

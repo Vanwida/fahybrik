@@ -134,8 +134,11 @@ function formatCapturedValue(measure: string, value: number): string {
       return `${n} m`;
     case 'calories':
       return `${n} cal`;
+    // Both HR measures read in ppm — the athlete-facing unit for a pulse
+    // (docs/CONTRATO-UI.md §3: never "bpm"). `hrr` is a drop, `hr` a rate.
     case 'hrr':
-      return `${n} bpm`;
+    case 'hr':
+      return `${n} ppm`;
     default: // reps
       return n;
   }
