@@ -26,6 +26,60 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-29 · Lo que el atleta declara es SU dato: puebla la app desde el minuto uno
+
+**Decidido (Alex):** todo lo que el atleta responde en el onboarding **se guarda y se enseña** — en su app y en el dashboard del coach — desde que descarga la app, **siempre editable y borrable por él**. Si nos dijo su marca de 10 km, Marcas enseña su 10 km. Y así con todo.
+
+**Por qué:** el onboarding tiene ~19 pasos que preguntan marcas, objetivo, estaciones de HYROX, umbral, hábitos, días de entreno y lesiones. Y las auditorías de composición del 29-jul encontraron las pantallas del atleta **vacías**: el hub de tests sin nada que enseñar, Marcas con 12 filas de «—», «Mis zonas» diciendo que no hay zonas. Si el atleta declara algo y luego abre la pantalla que debería enseñarlo y ve un guion, **el dato se perdió por el camino** y encima le pedimos dos veces lo mismo.
+
+**La distinción que hace esto legítimo, y que NO se puede difuminar:** lo declarado por el atleta **no es un dato fabricado** — es suyo, y por eso puebla la app sin violar la ley de honestidad. Un valor por defecto nuestro sí lo sería. La diferencia se sostiene sobre tres condiciones: **(1)** se marca su procedencia (declarado ≠ medido por la app ≠ estimado por nosotros), **(2)** el atleta puede editarlo y borrarlo en un toque, y **(3)** una marca declarada **no compite con una medida**: cuando llega el dato real, manda el real.
+
+**En consecuencia, no hacer:** no volver a preguntar algo que el atleta ya declaró; no enseñar un vacío en una pantalla cuyo dato está en la respuesta de onboarding; y no dejar que un dato declarado se confunda con uno medido en las analíticas.
+
+**Pendiente:** el mapa campo por campo (qué se pregunta → si se envía → si se guarda → si lo lee el atleta → si lo lee el coach) está en curso. Las tres patologías a cazar: **huérfano** (se pregunta y no se guarda), **enterrado** (se guarda y no lo lee nadie) y **mudo** (se lee y la pantalla no lo pinta — el caso conocido de Perfil).
+
+---
+
+## 2026-07-29 · Sin zonas medidas, se generalizan por población — marcadas, y sin puntuar
+
+**Decidido (Alex):** cuando un atleta no tiene zonas de FC derivables de su propia evidencia, **se le dan zonas generalizadas por población** mientras llegan los números reales de los tests. Nadie se queda sin zonas.
+
+**La condición que las hace legítimas:** la zona por población **se marca como estimada y NO puntúa como medida**. Se pinta, se entrena con ella y empuja al test; pero **no alimenta un veredicto** como si fuera un dato del atleta. Estimar y decirlo es honesto; estimar y callarlo es fabricar. Ver la entrada «"No se sabe" es un valor de primera clase».
+
+**Por qué hacía falta:** la escalera de evidencia del 28-jul (umbral medido → 0,88 × FCmáx medida → 0,88 × Tanaka) **solo habla en pulsaciones**, y eso la dejó invertida en producción: los atletas **66 y 67 tienen umbral MEDIDO** de carrera (`run_threshold_s_per_km`) y de remo (`row_threshold_s_per_500m`) **y no tienen zonas**, mientras que el **63, que no tiene ni un test y solo una fecha de nacimiento, tiene las cinco bandas completas**. Un cumpleaños puntuaba por encima de un test real, y **5 de 8 atletas se quedaban sin zonas** por no tener `dob`. Un vacío no ayuda a nadie.
+
+**Trampa de tipos detectada y que hay que cerrar al construir esto:** `TssInput.lthr` es un `number | null` pelado mientras `resolveThresholdHr` devuelve `{lthr_bpm, estimated, source}`. En cuanto llegue la FC por sesión, **la marca `estimated` se cae en el límite de tipos** y el motor de carga contará como «intensidad conocida» un TSS construido desde una fecha de nacimiento, reportando 100 % de cobertura sobre algo inventado. **El tipo tiene que poder expresar la diferencia**, o esta decisión y la de la cobertura chocan en silencio.
+
+**En consecuencia, no hacer:** no dejar a un atleta sin zonas por falta de un dato que podemos generalizar; no dejar que lo generalizado emita veredictos; y no pasar un umbral por un tipo que no distinga medido de estimado.
+
+---
+
+## 2026-07-28 · Una sola race readiness, y «no puntuable» deja de ser un número
+
+**Decidido:** existe **una sola** `estimateRaceReadiness`, en `shared/domain/coach/race-readiness.ts`. Si falta una señal, **no hay nota** — no hay crédito neutro por la señal ausente.
+
+**Por qué (escrito el 29-jul, tarde: esta decisión se tomó el 28 y no se documentó, y esa omisión es exactamente lo que permitió que se contradijera consigo misma).** Había **tres** implementaciones, no dos: la del roster, la de la ficha, y una tercera en `deep-dive-performance.ts` que era **la única que se renderizaba**. Las dos que se unificaron no las pinta ningún `.tsx`.
+
+Los defectos medidos contra producción: la tercera fórmula daba `tsbPts = 20` si faltaba el TSB, **`hrvPts = 12` SIEMPRE** (la variabilidad ni se consultaba: se regalaba) y `sesPts = 5` — **32 puntos de piso fabricados**, que eran el **100 % del índice en 3 de 6 atletas**. Y su consulta pedía la tabla `training_load`, **que no existe en la base**: el error se tragaba en silencio y la casilla enseñaba «—» a todo el mundo desde siempre.
+
+Peor aún, el módulo unificado **reintrodujo el mismo pecado con otro nombre**: `COMPLIANCE_UNKNOWN_PTS = 20` (de 30) y `HRV_UNKNOWN_PTS = 10` (de 20). **El 50 no había muerto: se había repartido en componentes.** La prueba, con datos reales: el atleta **72, con 74 segundos de trabajo en toda su historia, puntuaba 63**; el **66, con 0 minutos y 0 % de adherencia, puntuaba 29** de los cuales 28,8 eran fabricados; y el **64, el mejor instrumentado de todos, era el único con `null`**. El que tiene datos era el único sin nota.
+
+**En consecuencia, no hacer:** no dar crédito neutro a una señal ausente; no dejar que una consulta rota devuelva silencio en vez de error; y **no unificar dos copias sin comprobar antes cuál es la que se renderiza** — fue lo que dejó viva la tercera.
+
+---
+
+## 2026-07-28 · El «suelo» de la carga: número sí, sentencia no
+
+**Decidido:** CTL, ATL y volumen se enseñan como **suelo** (solo pueden subir con lo que falte) y **el veredicto se retira** cuando la cobertura de intensidad baja de `LOAD_COVERAGE_MIN = 0,9`. «Fresco», «cargado», «ACR alto» dejan de emitirse; la cifra se queda.
+
+**Por qué (escrito el 29-jul: esta decisión también se tomó el 28 sin documentar, y su umbral no estaba escrito en ningún sitio fuera del código).** Un hueco de carga **no sesga el TSB en una sola dirección**: las curvas de decaimiento de CTL y ATL se cruzan a **~14 días**, así que una sesión que falte de la última quincena hace leer *más fresco* y una más vieja *más cargado*. Nadie puede corregir eso, así que la asimetría es la regla: **lo que AÑADE carga exige cobertura** (subir volumen, avanzar de microciclo) y **lo que la QUITA sobrevive al hueco** (sobreesfuerzo, semana de descarga), porque el trabajo sin valorar solo empuja más hacia lo que ya detectan.
+
+**Contradicción abierta que esto destapa:** `progress-readiness.ts` deja pasar el veredicto **más caro** por la puerta que esta decisión cerró — emite `overreaching → regress` con confianza `high` sin mirar la cobertura, justificándose en que «el trabajo sin medir solo puede sumar». Eso es falso por construcción y lo dice el fichero de al lado: ACR = agudo/crónico, y un hueco en los días 8-28 sube el denominador y **baja** el ACR. Hoy está latente porque ningún atleta tiene microciclo activo. **O el hueco retira los veredictos, o no retira ninguno.**
+
+**En consecuencia, no hacer:** no emitir una etiqueta de forma sobre una serie con agujeros; no tratar un hueco como si sesgara en una sola dirección; y no dar por cerrada una decisión de honestidad hasta comprobar que **se pinta**, no solo que se computa.
+
+---
+
 ## 2026-07-28 · Las zonas de pulso se anclan en el UMBRAL, nunca en la frecuencia máxima — y el móvil deja de calcularlas
 
 **Decidido:** existe **un solo modelo de zonas de FC**, `shared/domain/methodology/hr-zones.ts`, y es fracción del **umbral** (Z1 ≤0,81 · Z2 0,82-0,88 · Z3 0,89-0,94 · Z4 0,95-1,02 · Z5 ≥1,03). **Las resuelve el servidor en ppm absolutas y el iOS solo las pinta** — deja de tener su propia clasificación. El ancla se busca por orden de evidencia: **umbral medido → 0,88 × FC máxima medida → 0,88 × Tanaka**. Sin ninguna de las tres **no hay zonas**, y no se inventa un ancla: la pantalla lo dice y ofrece la salida.
@@ -56,7 +110,11 @@ Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (par
 
 **Resultado:** siete lectores que daban **tres valores y dos fechas** distintos del mismo dato ahora dan uno (atleta 64, 28-jul: 52 ppm del 27-jul en los siete).
 
-**Suelo del check-in subjetivo: 7 días** (un microciclo). Llevaba el peso más alto del readiness (0,35) y no caducaba nunca, así que un check-in de marzo seguía diciendo «Recuperado y listo» en julio. El número está calibrado contra el dato: **el hueco máximo entre dos check-ins consecutivos en toda la base es de 2 días**, así que a quien lo usa no le caduca nunca. Al caducar, el peso se redistribuye por la renormalización que ya existía; si no queda ninguna señal, el compute devuelve `null` y sale el vacío honesto.
+**Suelo del check-in subjetivo: 7 días** (un microciclo). Llevaba el peso más alto del readiness (0,35) y no caducaba nunca, así que un check-in de marzo seguía diciendo «Recuperado y listo» en julio. Al caducar, el peso se redistribuye por la renormalización que ya existía; si no queda ninguna señal, el compute devuelve `null` y sale el vacío honesto.
+
+> **Corregido el 29-jul:** la calibración original de esta línea medía la magnitud equivocada. Decía «el hueco máximo entre dos check-ins consecutivos es de 2 días, así que a quien lo usa no le caduca nunca» — pero el estadístico que importa para un suelo de caducidad es **el tiempo desde el ÚLTIMO** check-in, no el hueco entre dos. Medido el 29-jul: los atletas 66 y 67 tienen su último check-in del 22-jul, o sea **exactamente 7 días**. Les caduca hoy. El suelo de 7 días se mantiene porque un microciclo sigue siendo el argumento correcto, pero **la frase que decía que no afectaba a nadie era falsa al escribirla**.
+>
+> **Segundo número de caducidad, que esta entrada no declaraba:** `RESTING_HR_SHOWABLE_DAYS = 14`. La FC en reposo se **enseña** hasta 14 días con su edad, pero **solo puntúa si es del propio día**. Son dos reglas distintas a propósito (mostrar ≠ puntuar), pero conviven con el check-in, que puntúa con **peso completo 0,35 hasta los 7 días sin descuento por edad**. Un check-in de hace 6 días entra con el peso más alto del modelo y una FC en reposo de ayer no entra en absoluto. **Esa asimetría no está justificada y queda abierta.**
 
 **La procedencia (`recorded_via`) la escriben los cuatro escritores**, no uno: las ingestas de HealthKit, Garmin y Polar escriben `'imported'`. En el upsert **manda lo que ya hubiera** (`coalesce(workout_executions.recorded_via, excluded.recorded_via)`): una sesión `live` **no se degrada** porque el reloj la sincronice después. `reconcile.ts` no participa — mueve `source` entre garmin y healthkit, y eso cambia el QUÉ midió, no el CÓMO se registró. Las filas viejas se quedan en NULL a propósito (57 de seed): es la respuesta honesta, y por eso no hizo falta migración.
 
@@ -82,7 +140,7 @@ Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (par
 
 **Consecuencia conocida y ACEPTADA:** la tarjeta «Listo para progresar» de `/hoy` enseña a menos gente, y las curvas de carga del coach tienen huecos donde antes había línea continua. Es correcto: esa tarjeta dice literalmente «súbele la carga».
 
-**Pendiente derivado:** el hueco ya viaja en `LoadSummary` pero **`athlete-deep-dive.ts` y `cohort.ts` todavía no lo pintan** — la carga del coach se ve completa aunque tenga agujeros. Falta cerrarlo.
+**Pendiente derivado — actualizado el 29-jul:** `athlete-deep-dive.ts` y `cohort.ts` **ya computan la cobertura y ya bloquean las etiquetas**. Pero el pendiente real sigue abierto un piso más arriba: **ningún componente `.tsx` pinta `load_coverage`, `badge_es`, `note_es`, `action_es`, `tsb_label` ni `acr_label`** (verificado por grep sobre todo `web/**/*.tsx`: cero renders). La decisión vive entera en el DTO y no llega a un solo píxel de Pablo. **La lección: «lo computa el módulo» no es «lo ve el coach», y esta entrada daba lo primero por lo segundo.**
 
 **Dónde vive:** `progress-readiness.ts`, `shared/domain/training-load/{tss,banister,index}.ts`, `web/lib/athlete/race-context.ts`.
 
