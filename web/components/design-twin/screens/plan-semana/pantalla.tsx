@@ -2,15 +2,10 @@
 
 // La composición de la semana.
 //
-// ---------------------------------------------------------------------------
-// LA PREGUNTA Y LA JERARQUÍA QUE SALE DE ELLA
-// ---------------------------------------------------------------------------
-//
-// «¿Qué me toca hoy y qué llevo?». En ese orden se lee, pero NO en ese orden se
-// pinta: lo primero que entra por los ojos es el estado del conjunto (es una
-// Lista, §6.2, y su sujeto es el conjunto y su estado), y lo de hoy es la fila
-// que más pesa dentro de la lista de siete. Así una sola mirada contesta las
-// dos mitades sin tener que elegir entre ellas.
+// LA JERARQUÍA. «¿Qué me toca hoy y qué llevo?» se lee en ese orden, pero no se
+// pinta en ese orden: primero entra el estado del CONJUNTO (es una Lista, §6.2,
+// y su sujeto es el conjunto y su estado) y lo de hoy es la fila que más pesa
+// dentro de las siete. Una sola mirada contesta las dos mitades.
 //
 //   Cromo    → dónde cae la semana dentro del plan (etiqueta del coach).
 //   Sujeto   → la voz del coach para la semana + EL CONTADOR + lo ya medido.
@@ -18,31 +13,20 @@
 //   Cuerpo   → los SIETE días, con hoy acentuado. Aquí vive «qué me toca hoy».
 //   Acción   → abrir el día; principal solo si hoy queda algo por hacer (§10.5).
 //
-// ---------------------------------------------------------------------------
-// POR QUÉ LA CABECERA NO LIDERA CON UN TOTAL DE HORAS PREVISTAS
-// ---------------------------------------------------------------------------
+// POR QUÉ NO LIDERA CON UN TOTAL DE HORAS PREVISTAS: sería fabricado. De las
+// ocho sesiones de la semana real del atleta 67 solo TRES traen dosis suficiente
+// para estimar cuánto duran (`plan/datos.ts`); las otras cinco no llevan medida
+// o son `for_time`, donde la duración ES el resultado. Un «3,5 h previstas»
+// arriba sería la suma de tres octavos vendida como el total. El sujeto lidera
+// con hechos —el CONTADOR, que se pinta aunque valga cero (§6.2 bis), y los
+// minutos ya MEDIDOS, que solo aparecen cuando existen— y las estimaciones bajan
+// a las filas, una a una y marcadas con «unos».
 //
-// Porque sería fabricado. De las ocho sesiones de la semana real del atleta 67
-// solo TRES traen dosis suficiente para estimar cuánto duran (`plan/datos.ts`);
-// las otras cinco o no llevan medida o son `for_time`, donde la duración ES el
-// resultado. Un «3,5 h previstas» arriba sería la suma de tres octavos vendida
-// como el total de la semana.
-//
-// Así que el sujeto lidera con lo que sí son hechos: el CONTADOR de sesiones
-// —que se pinta aunque valga cero (§6.2 bis)— y los minutos ya MEDIDOS, que
-// solo aparecen cuando existen. Las estimaciones bajan a las filas, una a una y
-// siempre marcadas con «unos», que es donde el atleta puede leerlas sin
-// confundirlas con lo que hizo.
-//
-// ---------------------------------------------------------------------------
-// ALTURA (§6.1): `llena` + scroll, y degrada a `centra`
-// ---------------------------------------------------------------------------
-//
-// Los siete días se reparten TODO el sobrante: cada fila crece, ninguna cola
-// debajo. Un día con cinco trabajos (pasa: el martes 28 del atleta 64) crece con
-// ellos y, si la semana entera desborda, scrollea desde arriba en vez de
-// encogerse. Cuando la semana no tiene ni un trabajo, la Lista **es** un Vacío y
-// se pinta como tal: centrado y con salida obligatoria.
+// ALTURA (§6.1) `llena` + scroll: los siete días se reparten TODO el sobrante,
+// cada fila crece y no hay cola debajo. Un día de cinco trabajos (pasa: el
+// martes 28 del atleta 64) crece con ellos, y si la semana desborda scrollea en
+// vez de encogerse. Sin ni un trabajo, la Lista **es** un Vacío y se pinta como
+// tal: centrada y con salida obligatoria.
 
 import { useState } from 'react';
 import { Label, SP } from '../../kit';
@@ -91,7 +75,7 @@ const FILA = {
   /** Hoy pesa casi el doble: es la mitad de la pregunta que trae al atleta. */
   hoy: { peso: 1.7, alto: 56 },
   /** El descanso es un hueco DECLARADO, no una fila que falta — pero pesa menos. */
-  descanso: { peso: 0.5, alto: 40 },
+  descanso: { peso: 0.5, alto: 34 },
 } as const;
 
 /** Ancho de la columna del día. Fijo para que los siete numerales alineen. */
@@ -120,7 +104,7 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
         onLog(
           vacia
             ? '0:01 · Ni una sesión esta semana. La Lista se pinta como Vacío'
-            : `0:01 · ${cuenta.hechas} de ${plural(cuenta.total, 'sesión hecha', 'sesiones hechas')}` +
+            : `0:01 · ${cuenta.hechas} de ${plural(cuenta.total, 'sesión', 'sesiones')}` +
               `${medidos !== null ? `, ${loMedido(medidos)}` : ''}`,
         ),
     },
@@ -222,7 +206,8 @@ function FilaDia({
   esHoy: boolean;
   onTap: () => void;
 }) {
-  const medida = estado === 'descanso' ? FILA.descanso : esHoy ? FILA.hoy : FILA.normal;
+  const descanso = estado === 'descanso';
+  const medida = descanso ? FILA.descanso : esHoy ? FILA.hoy : FILA.normal;
   // La marca del día toma el color de la modalidad que abre el día; no se
   // inventa una modalidad para el conjunto (el mismo criterio del carril de
   // `plan-bloque`). En un descanso el color no se usa.
@@ -233,7 +218,16 @@ function FilaDia({
       acento={esHoy}
       onTap={onTap}
       etiqueta={etiquetaDia(dia, estado, esHoy)}
-      style={{ flex: `${medida.peso} 0 auto`, minHeight: medida.alto, alignItems: 'center' }}
+      style={{
+        flex: `${medida.peso} 0 auto`,
+        minHeight: medida.alto,
+        alignItems: 'center',
+        // Un descanso respira menos: es un hueco declarado, no un trabajo. Con
+        // el relleno normal, las cinco filas de descanso de la semana del atleta
+        // 64 se comían 240 pt y empujaban fuera de pantalla el martes de cinco
+        // sesiones, que es justo lo que hay que ver.
+        ...(descanso ? { padding: `${SP.xs}px ${SP.m}px` } : null),
+      }}
     >
       <span
         style={{
@@ -251,9 +245,7 @@ function FilaDia({
         </Label>
         <Numeral
           tamano="s"
-          color={
-            esHoy ? 'var(--twin-accent-text)' : estado === 'descanso' ? 'var(--twin-faint)' : 'var(--twin-fg)'
-          }
+          color={esHoy ? 'var(--twin-accent-text)' : descanso ? 'var(--twin-faint)' : 'var(--twin-fg)'}
         >
           {dia.numero}
         </Numeral>
@@ -261,7 +253,7 @@ function FilaDia({
 
       <MarcaEstado estado={estado} modalidad={modalidad} />
 
-      {estado === 'descanso' ? (
+      {descanso ? (
         <span style={{ flex: 1, minWidth: 0 }}>
           <Label size={10} color="var(--twin-faint)">
             {ETIQUETA_ESTADO.descanso}
@@ -303,8 +295,9 @@ function LineaTrabajo({ trabajo, saltada, grande }: { trabajo: Trabajo; saltada:
       >
         {trabajo.titulo}
       </span>
-      {/* La marca de saltada va en palabras además de en el aro tachado: es el
-          único estado que se lee igual que «pendiente» si solo miras el aro. */}
+      {/* La marca de saltada va en palabras además de en el aro tachado: a un
+          brazo de distancia un ⊘ de 16 pt se lee igual que un ○, y confundir
+          «te la saltaste» con «te queda» es el peor error posible de esta fila. */}
       {saltada ? (
         <Label size={9} color="var(--twin-muted)">
           {ETIQUETA_ESTADO.saltada}
@@ -316,8 +309,13 @@ function LineaTrabajo({ trabajo, saltada, grande }: { trabajo: Trabajo; saltada:
         ))}
       </span>
       <Origen trabajo={trabajo} />
-      {/* Medido / previsto / nada lo decide el átomo, en un solo sitio. */}
-      <Duracion trabajo={trabajo} />
+      {/* Medido / previsto / nada lo decide el átomo, en un solo sitio.
+          En un día SALTADO no se pinta: la estimación de una sesión que ya no va
+          a ocurrir no es información, y medida en pantalla costaba el título —
+          «Series de carrera» se recortaba a «Series de…» para dejar sitio a un
+          «unos 53 min» de algo que no pasó. Entre la identidad del trabajo y esa
+          cifra, gana la identidad. */}
+      {saltada ? null : <Duracion trabajo={trabajo} />}
     </span>
   );
 }
@@ -480,12 +478,15 @@ function etiquetaDia(dia: Dia, estado: EstadoDia, esHoy: boolean): string {
   if (estado === 'descanso') return `${cuando}: descanso, nada en el plan`;
   const partes = dia.trabajos.map((t) => {
     const marca = t.esTest ? ' (test)' : t.origen === 'libre' ? ' (tuyo)' : '';
+    // Un día saltado tampoco dicta la estimación: se lee lo que se ve.
     const tiempo =
-      t.medidoMin !== null
-        ? `, ${t.medidoMin} min`
-        : t.previstoMin !== null
-          ? `, unos ${t.previstoMin} min`
-          : '';
+      estado === 'saltada'
+        ? ''
+        : t.medidoMin !== null
+          ? `, ${t.medidoMin} min`
+          : t.previstoMin !== null
+            ? `, unos ${t.previstoMin} min`
+            : '';
     return `${t.titulo}${marca}${tiempo}`;
   });
   return `${cuando}, ${ETIQUETA_ESTADO[estado]}: ${partes.join('; ')}`;
