@@ -224,7 +224,7 @@ export function PerfilTab({
                 <div className="mb-1.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-1.5">
                   <span
                     aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                    className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
                     style={{
                       background: `var(--v2-mod-${group.modality === 'run' ? 'carrera' : 'ergo'})`,
                     }}

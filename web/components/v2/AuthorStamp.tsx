@@ -86,7 +86,7 @@ export function AuthorStamp({ kind, name, verb, at, createdBy, className }: Auth
       ) : (
         <span
           className={cn(
-            'rounded-[5px] px-[5px] py-[2px] font-[family-name:var(--v2-font-mono)] text-[9px] font-bold uppercase tracking-wider ring-1 ring-inset',
+            'rounded-[var(--v2-r-2xs)] px-[5px] py-[2px] font-[family-name:var(--v2-font-mono)] text-[9px] font-bold uppercase tracking-wider ring-1 ring-inset',
             kind === 'ai'
               ? 'bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)] ring-[color:var(--v2-info)]'
               : 'bg-[color:var(--v2-surface)] text-[color:var(--v2-faint)] ring-[color:var(--v2-border)]',

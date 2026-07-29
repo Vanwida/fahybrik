@@ -55,9 +55,14 @@ function blockColorVar(format: string | null): string {
   }
 }
 
+// El tono dice DE QUIÉN es el bloque, y usa el mismo idioma de autoría que
+// AuthorStamp (el sello canónico): contenido del coach = acento, IA = info,
+// respaldo del sistema = aviso. `--v2-violet` no existía como token, así que la
+// chapa de "IA compuesta" se pintaba sin color y sin fondo — justo la que dice
+// que el bloque NO es del coach.
 const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; icon: string }> = {
-  library: { label: 'De tu biblioteca', tone: '--v2-info', icon: 'inventory_2' },
-  llm: { label: 'IA compuesta', tone: '--v2-violet', icon: 'neurology' },
+  library: { label: 'De tu biblioteca', tone: '--v2-accent', icon: 'inventory_2' },
+  llm: { label: 'IA compuesta', tone: '--v2-info', icon: 'neurology' },
   library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', icon: 'undo' },
 };
 
@@ -455,7 +460,7 @@ function ProposalBody({
                 <span
                   aria-hidden
                   className={cn(
-                    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border',
+                    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
                     on
                       ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                       : 'border-[color:var(--v2-border-strong)]',

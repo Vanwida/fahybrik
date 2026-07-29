@@ -64,7 +64,7 @@ function DimensionRow({ label, value }: { label: string; value: number | null })
           <i
             key={i}
             className={cn(
-              'h-1.5 w-3.5 rounded-[3px]',
+              'h-1.5 w-3.5 rounded-[var(--v2-r-3xs)]',
               i <= value
                 ? TONE_BG[tone]
                 : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',

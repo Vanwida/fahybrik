@@ -102,7 +102,7 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
         <span>Dónde cae para {ctx.athlete_name}</span>
         <span>sus zonas reales</span>
       </div>
-      <div className="relative flex h-5 overflow-hidden rounded-[6px]">
+      <div className="relative flex h-5 overflow-hidden rounded-[var(--v2-r-xs)]">
         {bands.map((b, i) => {
           const bandSpan = (b.slow_s ?? b.fast_s + OPEN_BAND_PAD_S) - b.fast_s;
           return (

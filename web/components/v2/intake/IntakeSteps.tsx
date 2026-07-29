@@ -292,7 +292,7 @@ function TestRow({
         <span
           aria-hidden
           className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border',
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
             checked
               ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
               : 'border-[color:var(--v2-border-strong)]',
@@ -449,7 +449,7 @@ export function WelcomeNotesStep({
         <span
           aria-hidden
           className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border',
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
             send
               ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
               : 'border-[color:var(--v2-border-strong)]',

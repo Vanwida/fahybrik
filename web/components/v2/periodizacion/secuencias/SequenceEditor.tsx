@@ -392,7 +392,7 @@ function MicrocicloCard({
         >
           <MIcon name="drag_indicator" size={16} />
         </span>
-        <span className="v2-num flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[color:var(--v2-surface-2)] text-[11px] font-bold text-[color:var(--v2-muted)]">
+        <span className="v2-num flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-[11px] font-bold text-[color:var(--v2-muted)]">
           {order}
         </span>
         <span
@@ -419,7 +419,7 @@ function MicrocicloCard({
           disabled={index === 0}
           aria-label="Mover antes"
           className={cn(
-            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[4px] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
+            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
             index === 0 ? 'cursor-not-allowed opacity-30' : 'hover:text-[color:var(--v2-fg)]',
           )}
         >
@@ -431,7 +431,7 @@ function MicrocicloCard({
           disabled={index === total - 1}
           aria-label="Mover después"
           className={cn(
-            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[4px] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
+            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
             index === total - 1 ? 'cursor-not-allowed opacity-30' : 'hover:text-[color:var(--v2-fg)]',
           )}
         >
@@ -489,7 +489,7 @@ function TotalBar({
       {segs.map((s, i) => (
         <span
           key={i}
-          className="h-2 rounded-[2px]"
+          className="h-2 rounded-[var(--v2-r-3xs)]"
           style={{
             width: `${(s.weeks / total) * 100}%`,
             background: 'var(--v2-muted)',

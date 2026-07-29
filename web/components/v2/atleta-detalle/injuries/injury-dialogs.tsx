@@ -442,7 +442,7 @@ export function AdaptSessionsDialog({
                   <span
                     aria-hidden
                     className={cn(
-                      'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[5px] border',
+                      'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
                       on
                         ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                         : 'border-[color:var(--v2-border-strong)]',

@@ -42,7 +42,13 @@
   --v2-font-sans: var(--font-geist-sans), "SF Pro Text", system-ui, sans-serif;
   --v2-font-mono: var(--font-geist-mono), "SF Mono", ui-monospace, monospace;
 
-  /* Radii + spacing — one source for both themes. */
+  /* Radii + spacing — one source for both themes.
+     Los dos peldaños micro existen porque la escala se quedaba en 6px mientras
+     la UI tiene controles de 6-18px (barras finas, muestras de color, casillas):
+     ahí 6px redondea de más y por eso 15 sitios se escapaban a mano con 2, 3, 4
+     y 5px. Progresión coherente hacia abajo: 2 · 4 · 6 · 8 · 12 · 16. */
+  --v2-r-3xs: 2px; /* barra fina, muestra de color diminuta */
+  --v2-r-2xs: 4px; /* casilla, botón micro */
   --v2-r-xs: 6px;
   --v2-r-s: 8px;
   --v2-r-m: 12px;

@@ -91,7 +91,7 @@ function Sparkline({ segments }: { segments: SequenceSparkSegment[] }) {
       {segments.map((seg, i) => (
         <span
           key={i}
-          className="h-1.5 rounded-[2px]"
+          className="h-1.5 rounded-[var(--v2-r-3xs)]"
           style={{
             width: `${(Math.max(seg.weeks, 1) / total) * 100}%`,
             background: 'var(--v2-muted)',

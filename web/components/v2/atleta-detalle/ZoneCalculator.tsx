@@ -145,7 +145,7 @@ function ZoneColumn({ profile, athleteId }: { profile: AthleteZoneProfile; athle
       <div className="mb-2.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-2">
         <span
           aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+          className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
           style={{ background: `var(--v2-mod-${profile.modality === 'run' ? 'carrera' : 'ergo'})` }}
         />
         <span className="text-[12.5px] font-bold text-[color:var(--v2-fg)]">

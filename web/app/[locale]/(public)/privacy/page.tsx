@@ -62,7 +62,7 @@ export default function PrivacyPage() {
 
       <section
         aria-label="English summary for partner reviewers"
-        className="mb-10 rounded-[14px] border border-[color:var(--outline)] bg-[color:var(--surface)] p-5"
+        className="mb-10 rounded-[var(--r-l)] border border-[color:var(--outline)] bg-[color:var(--surface)] p-5"
       >
         <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)] mb-2">
           English summary
