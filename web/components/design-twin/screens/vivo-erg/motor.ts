@@ -37,6 +37,7 @@ import {
   pulsoEn,
   resumenDeSerie,
   ritmoConUnidad,
+  segundoDelCruce,
 } from './data';
 
 export type Fase = 'cuenta' | 'armado' | 'trabajando' | 'cerrando' | 'descanso' | 'hecho';
@@ -139,7 +140,17 @@ export function useMotorErg(guion: Guion, onLog: (linea: string) => void): Estad
   const [cruceCiego, setCruceCiego] = useState(false);
   const [fogonazo, setFogonazo] = useState(false);
   const [perdido, setPerdido] = useState(false);
-  const [hechas, setHechas] = useState<ResumenSerie[]>([]);
+  /**
+   * Las series que YA estaban hechas cuando el doble entra. Un guion que abre
+   * en la serie 2 no empieza con el historial vacío: la 1 pasó y el monitor la
+   * midió, y es la misma que ya cuenta el total acumulado de la pieza. Sin
+   * esto, cerrar la serie 2 dejaba una tabla diciendo «1 de 5» con dos hechas.
+   */
+  const [hechas, setHechas] = useState<ResumenSerie[]>(() =>
+    Array.from({ length: Math.max(0, guion.serie - 1) }, (_, i) =>
+      resumenDeSerie(pres, i + 1, segundoDelCruce(pres), perfil ? pulsoEn(perfil, segundoDelCruce(pres)) : null),
+    ),
+  );
   const [ultimo, setUltimo] = useState<ResumenSerie | null>(null);
   /** Pulso con el que se entra en la serie: el que dejó el descanso anterior. */
   const [pulsoEnEspera, setPulsoEnEspera] = useState<number | null>(perfil?.base ?? null);

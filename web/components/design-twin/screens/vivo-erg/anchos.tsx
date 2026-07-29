@@ -7,6 +7,7 @@
 // panel de instrumentos y pasa a ser una sola lectura grande con su contexto al
 // lado, que es lo que se ve desde el ergo a metro y medio.
 
+import type { ReactNode } from 'react';
 import { Label, Mono, SP } from '../../kit';
 import { fmtClock, fmtPace500 } from '../../sim';
 import { COLOR_ZONA, zonaDe } from './atomos';
@@ -26,7 +27,16 @@ const URGENTE_S = 3;
  * Esperando a la máquina, o directamente sin ella. En los dos casos el sujeto es
  * la ORDEN: es lo que sigue siendo verdad cuando no hay ninguna medida viva.
  */
-export function EsperaAncha({ e, guion }: { e: EstadoErg; guion: Guion }) {
+export function EsperaAncha({
+  e,
+  guion,
+  accion,
+}: {
+  e: EstadoErg;
+  guion: Guion;
+  /** La acción va DENTRO de la cara, no en una columna que estruje el resto. */
+  accion?: ReactNode;
+}) {
   const maquina = MAQUINA_NOMBRE[guion.maquina];
   const ausente = e.monitor === 'ausente';
   const unidad = MEDIDA_UNIDAD[e.pres.medida];
@@ -66,13 +76,14 @@ export function EsperaAncha({ e, guion }: { e: EstadoErg; guion: Guion }) {
               </span>
             </>
           )}
+          {accion && <div style={{ maxWidth: 240, paddingTop: 2 }}>{accion}</div>}
         </div>
       </div>
     </div>
   );
 }
 
-export function DescansoAncho({ e }: { e: EstadoErg }) {
+export function DescansoAncho({ e, accion }: { e: EstadoErg; accion?: ReactNode }) {
   const restante = e.pres.descansoS == null ? null : Math.max(0, e.pres.descansoS - e.tDescanso);
   const urgente = restante != null && restante <= URGENTE_S;
   const zona = zonaDe(e.pulso);
@@ -165,6 +176,7 @@ export function DescansoAncho({ e }: { e: EstadoErg }) {
             </div>
           </>
         )}
+        {accion}
       </div>
     </div>
   );
@@ -179,7 +191,7 @@ function ParDato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   );
 }
 
-export function CierreAncho({ e }: { e: EstadoErg }) {
+export function CierreAncho({ e, accion }: { e: EstadoErg; accion?: ReactNode }) {
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'grid', placeItems: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -193,6 +205,7 @@ export function CierreAncho({ e }: { e: EstadoErg }) {
             {e.ultimo.ritmoMedio != null ? ` · ${fmtPace500(e.ultimo.ritmoMedio)}/500m de media` : ''}
           </Mono>
         )}
+        {accion && <div style={{ paddingTop: 6 }}>{accion}</div>}
       </div>
     </div>
   );

@@ -11,13 +11,23 @@
 //   sin monitor  → la PRESCRIPCIÓN. Sigue siendo verdad aunque no haya nada
 //                  que la mida, y los metros que llegaste a hacer se quedan.
 
+import type { ReactNode } from 'react';
 import { Card, Label, Mono, SP } from '../../kit';
 import { Aviso, Sujeto } from './atomos';
 import { MAQUINA_NOMBRE, MEDIDA_UNIDAD, type Maquina, objetivoTexto } from './data';
 import type { EstadoErg } from './motor';
 
 /** El 3-2-1 se come la pantalla mientras corre. */
-export function CuentaAtras({ e, landscape = false }: { e: EstadoErg; landscape?: boolean }) {
+export function CuentaAtras({
+  e,
+  landscape = false,
+  accion,
+}: {
+  e: EstadoErg;
+  landscape?: boolean;
+  /** Solo la cara horizontal la pasa: en vertical la acción va anclada abajo. */
+  accion?: ReactNode;
+}) {
   const unidad = MEDIDA_UNIDAD[e.pres.medida];
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
@@ -44,6 +54,7 @@ export function CuentaAtras({ e, landscape = false }: { e: EstadoErg; landscape?
         >
           {e.pres.cantidad} {unidad}
         </span>
+        {accion && <div style={{ paddingTop: 10 }}>{accion}</div>}
       </div>
     </div>
   );

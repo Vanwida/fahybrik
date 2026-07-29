@@ -326,6 +326,14 @@ export function acumuladoTexto(
   return `total ${total} ${MEDIDA_UNIDAD[pres.medida]}`;
 }
 
+/** El segundo en el que la medida CRUZA la cantidad de la serie. */
+export function segundoDelCruce(pres: Prescripcion): number {
+  for (let s = 0; s <= MAX_S; s += 1) {
+    if (medidoEn(pres, s) >= pres.cantidad) return s;
+  }
+  return MAX_S;
+}
+
 /** Lo que mide una serie ya cerrada de esta prescripción, con su rebase real. */
 export function medidoDeSerieCompleta(pres: Prescripcion): number {
   for (let s = 0; s <= MAX_S; s += 1) {
