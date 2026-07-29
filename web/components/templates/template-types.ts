@@ -1,4 +1,4 @@
-import type { SegmentParams, TemplateFormat, TargetBlock } from '@/lib/templates/schema';
+import type { SegmentParams, TemplateFormat } from '@/lib/templates/schema';
 
 export type ExerciseCategoryToken =
   | 'cardio'
@@ -41,7 +41,6 @@ export interface TemplateBuilderInitialState {
   name: string;
   description: string | null;
   format: TemplateFormat;
-  target_block: TargetBlock;
   target_level: number | null;
   day_position: string | null;
   paired_with_template_id: string | null;

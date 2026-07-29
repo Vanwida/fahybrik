@@ -24,7 +24,6 @@ export async function GET(
       id: string;
       name: string;
       format: string;
-      target_block: string;
       description: string | null;
       coach_notes: string | null;
     }>
@@ -33,7 +32,6 @@ export async function GET(
       id::text as id,
       name,
       format::text as format,
-      target_block::text as target_block,
       description,
       coach_notes
     from templates
@@ -84,7 +82,6 @@ export async function GET(
     id: tpl.id,
     name: tpl.name,
     format: tpl.format,
-    target_block: tpl.target_block,
     description: tpl.description,
     coach_notes: tpl.coach_notes,
     segments,

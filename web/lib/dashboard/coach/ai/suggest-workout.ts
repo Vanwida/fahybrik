@@ -191,7 +191,7 @@ interface PickedTemplate {
 
 async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | null> {
   // Buscamos templates con segmentos del coach. Filtrado heurístico simple por
-  // tokens del focus y target_block.
+  // tokens del focus contra el nombre, más el nivel del atleta.
   const levelMap: Record<NonNullable<PickArgs['level']>, number> = {
     beginner: 1,
     intermediate: 2,
@@ -205,7 +205,6 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
       id: string;
       name: string;
       format: string;
-      target_block: string;
       target_level: number | null;
       segment_count: number;
     }>
@@ -214,7 +213,6 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
       t.id::text as id,
       t.name,
       t.format::text as format,
-      t.target_block::text as target_block,
       t.target_level,
       coalesce(seg.cnt, 0)::int as segment_count
     from templates t

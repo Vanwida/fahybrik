@@ -5,10 +5,8 @@
 
 export {
   templateFormat as templateFormatSchema,
-  targetBlock as targetBlockSchema,
   exerciseCategory as exerciseCategorySchema,
   type TemplateFormat,
-  type TargetBlock,
   type ExerciseCategory,
 } from '@fahybrid/shared/schema/_primitives';
 

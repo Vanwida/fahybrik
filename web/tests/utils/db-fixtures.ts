@@ -170,7 +170,7 @@ export async function makeFreeAthlete(sql: Sql): Promise<FreeAthleteFixture> {
 
 /**
  * Insert a microciclo (a week row) directly under an athlete — AGNOSTIC: microcycles
- * now hang off `athlete_id` (no ATR block/macrocycle). Returns its id. Most tests no
+ * now hang off `athlete_id` (no block/macrocycle entity). Returns its id. Most tests no
  * longer need this (the materializer self-creates microcycles by athlete_id + date),
  * but it stays for tests that seed a bare microciclo to read back.
  */
@@ -201,8 +201,8 @@ export async function makeTemplate(params: {
 }): Promise<number> {
   const { fx } = params;
   const rows = await fx.sql<Array<{ id: string }>>`
-    insert into templates (coach_id, name, format, target_block, version)
-    values (${fx.coachId}, ${params.name}, ${params.format ?? 'circuit'}::template_format, 'any', 1)
+    insert into templates (coach_id, name, format, version)
+    values (${fx.coachId}, ${params.name}, ${params.format ?? 'circuit'}::template_format, 1)
     returning id::text
   `;
   const id = Number(rows[0]!.id);

@@ -52,13 +52,13 @@ export async function cloneTemplateAsInstance(params: {
   // `store_results` drives the athlete week endpoint's is_test flag.
   const tplRows = await params.client<Array<{ id: string; version: number }>>`
     insert into templates (
-      coach_id, name, description, format, target_block, target_level,
+      coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
       coach_notes, meta_json, demo_video_url, methodology_group_id,
       instance_athlete_id, instance_of_template_id
     )
     select
-      coach_id, name, description, format, target_block, target_level,
+      coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
       coach_notes, meta_json, demo_video_url, methodology_group_id,
       ${ath}, coalesce(instance_of_template_id, id)

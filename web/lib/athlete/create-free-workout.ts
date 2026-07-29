@@ -155,11 +155,11 @@ export async function createFreeWorkout(
     // 1. Instance template (OUT of the coach library via instance_athlete_id).
     const tplRows = await tx<Array<{ id: string }>>`
       insert into templates (
-        coach_id, name, format, target_block, version,
+        coach_id, name, format, version,
         is_draft, is_partner_workout, instance_athlete_id, meta_json
       )
       values (
-        ${coachId}, ${title}, ${scheme}::template_format, 'any'::target_block, 1,
+        ${coachId}, ${title}, ${scheme}::template_format, 1,
         false, false, ${athleteId}, ${tx.json(metaJson)}
       )
       returning id::text as id

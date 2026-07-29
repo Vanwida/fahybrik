@@ -251,7 +251,6 @@ export interface LibraryTemplate {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   target_level: number | null;
 }
 
@@ -304,7 +303,7 @@ export async function planWeekSkeleton(args: {
       '',
       'Biblioteca del coach (nombres EXACTOS; son SUS entrenos, priorízalos cuando encajen):',
       ...args.library.map(
-        (t) => `- "${t.name}" (formato=${t.format}, bloque=${t.target_block}, nivel=${t.target_level ?? '?'})`,
+        (t) => `- "${t.name}" (formato=${t.format}, nivel=${t.target_level ?? '?'})`,
       ),
     );
   } else {

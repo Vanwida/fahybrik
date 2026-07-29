@@ -56,9 +56,9 @@ async function makeCalibrationAssignment(
 ): Promise<number> {
   const p = DEFAULT_CALIBRATION_BATTERY.find((x) => x.slug === protocolSlug)!;
   const rows = await fx.sql<Array<{ id: string }>>`
-    insert into templates (coach_id, name, format, target_block, version, meta_json)
+    insert into templates (coach_id, name, format, version, meta_json)
     values (
-      ${fx.coachId}, ${p.label}, ${p.format}::template_format, 'any', 1,
+      ${fx.coachId}, ${p.label}, ${p.format}::template_format, 1,
       ${fx.sql.json({ store_results: p.store_results, calibration: p.slug })}
     )
     returning id::text

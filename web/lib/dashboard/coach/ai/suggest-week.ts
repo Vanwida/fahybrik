@@ -204,7 +204,6 @@ interface TemplateRow {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   target_level: number | null;
   segment_count: number;
 }
@@ -231,7 +230,6 @@ async function loadCoachTemplates(
       t.id::text as id,
       t.name,
       t.format::text as format,
-      t.target_block::text as target_block,
       t.target_level,
       coalesce(seg.cnt, 0)::int as segment_count
     from templates t
@@ -521,7 +519,6 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
       id: t.id,
       name: t.name,
       format: t.format,
-      target_block: t.target_block,
       target_level: t.target_level,
     })),
     box_block: formatBoxScheduleForPrompt(args.box_class_schedule ?? null),

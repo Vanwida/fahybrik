@@ -7,7 +7,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
-import { templateFormat, targetBlock } from '@fahybrid/shared/schema/_primitives';
+import { templateFormat } from '@fahybrid/shared/schema/_primitives';
 import { segmentParamsSchema } from '@fahybrid/shared/schema/templates';
 import {
   prescriptionSchema,
@@ -42,7 +42,6 @@ export type TemplateSegmentInput = z.infer<typeof templateSegmentInputSchema>;
 export const templateCreateSchema = z.object({
   name: z.string().min(1).max(200),
   format: templateFormat,
-  target_block: targetBlock.default('any'),
   target_level: z.number().int().min(1).max(10).nullable().optional(),
   // Pedagogical training group 1..10 (A8 / D3). Nullable — not every template
   // maps cleanly. References methodology_groups(id).
@@ -80,7 +79,6 @@ export interface TemplateListRow {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   target_level: number | null;
   is_draft: boolean;
   segment_count: number;
@@ -98,7 +96,6 @@ export async function listTemplatesForCoach(
       t.id::text as id,
       t.name,
       t.format::text as format,
-      t.target_block::text as target_block,
       t.target_level,
       t.is_draft,
       coalesce(seg.cnt, 0)::int as segment_count,
@@ -136,7 +133,6 @@ export interface TemplateDetailFull {
   id: string;
   name: string;
   format: string;
-  target_block: string;
   target_level: number | null;
   methodology_group_id: number | null;
   coach_notes: string | null;
@@ -179,7 +175,6 @@ export async function getTemplateDetail(params: {
       id: string;
       name: string;
       format: string;
-      target_block: string;
       target_level: number | null;
       methodology_group_id: number | null;
       coach_notes: string | null;
@@ -191,7 +186,6 @@ export async function getTemplateDetail(params: {
       id::text as id,
       name,
       format::text as format,
-      target_block::text as target_block,
       target_level,
       methodology_group_id,
       coach_notes,
@@ -294,14 +288,13 @@ export async function createTemplate(params: {
   await client.begin(async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
       insert into templates (
-        coach_id, name, format, target_block, target_level,
+        coach_id, name, format, target_level,
         methodology_group_id, coach_notes, is_draft
       )
       values (
         ${Number(params.coach_id)},
         ${body.name},
         ${body.format}::template_format,
-        ${body.target_block}::target_block,
         ${body.target_level ?? null},
         ${body.methodology_group_id ?? null},
         ${body.coach_notes ?? null},
@@ -338,14 +331,13 @@ export async function updateTemplate(params: {
       Array<{
         name: string;
         format: string;
-        target_block: string;
         target_level: number | null;
         methodology_group_id: number | null;
         coach_notes: string | null;
         is_draft: boolean;
       }>
     >`
-      select name, format::text as format, target_block::text as target_block,
+      select name, format::text as format,
              target_level, methodology_group_id, coach_notes, is_draft
       from templates
       where id = ${Number(params.template_id)}
@@ -362,7 +354,6 @@ export async function updateTemplate(params: {
     const next = {
       name: body.name ?? cur.name,
       format: body.format ?? cur.format,
-      target_block: body.target_block ?? cur.target_block,
       target_level:
         body.target_level !== undefined ? body.target_level : cur.target_level,
       methodology_group_id:
@@ -378,7 +369,6 @@ export async function updateTemplate(params: {
       update templates set
         name                 = ${next.name},
         format               = ${next.format}::template_format,
-        target_block         = ${next.target_block}::target_block,
         target_level         = ${next.target_level},
         methodology_group_id = ${next.methodology_group_id},
         coach_notes          = ${next.coach_notes},
