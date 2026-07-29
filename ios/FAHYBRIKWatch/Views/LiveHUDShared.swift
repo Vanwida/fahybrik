@@ -21,16 +21,13 @@ enum WatchFormat {
 
     /// Pace seconds → "m:ss" (e.g. 278 → "4:38"). Nil-safe caller shows a dash.
     static func pace(_ secondsPerUnit: Int) -> String {
-        let s = max(0, secondsPerUnit)
-        return String(format: "%d:%02d", s / 60, s % 60)
+        Formato.ritmoCifras(Double(secondsPerUnit))
     }
 
-    /// Kilograms with no trailing ".0" ("80", "82.5").
-    static func kg(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(value))
-            : String(format: "%.1f", value)
-    }
+    /// Kilogramos sin el ".0" de más ("80", "82,5"). Escribía «82.5» con punto
+    /// mientras el teléfono escribía «82,5»: el mismo peso, dos grafías, y el reloj
+    /// es la pantalla que el atleta mira mientras levanta.
+    static func kg(_ value: Double) -> String { Formato.esDecimal(value) }
 }
 
 // MARK: - Giant numeral

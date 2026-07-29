@@ -778,7 +778,7 @@ struct ActiveWorkoutView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 2)
-            Text(relayTimeString(session.lapElapsedSeconds))
+            Text(Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
                 .font(.system(size: 52, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Theme.Color.foreground)
             if let bpm = session.liveHRBpm {
@@ -800,11 +800,6 @@ struct ActiveWorkoutView: View {
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.l)
-    }
-
-    private func relayTimeString(_ s: Double) -> String {
-        let t = max(0, Int(s))
-        return String(format: "%d:%02d", t / 60, t % 60)
     }
 
     // THE ACTIVE TRAMO DECIDES. Whatever window the athlete is inside right now

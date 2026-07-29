@@ -943,11 +943,11 @@ struct ExecutedWorkoutView: View {
         return note.isEmpty ? name : "\(name) · \(note)"
     }
 
-    /// "1.01 km" past a kilometre, plain metres below it. The ONE distance
-    /// formatter this screen uses, so the headline and the per-leg rows can
-    /// never state the same distance two different ways.
+    /// "1,01 km" past a kilometre, plain metres below it. Decía ser «el ÚNICO
+    /// formateador de distancia» — de esta PANTALLA, que es justo el alcance que
+    /// dejó que cada pantalla tuviera el suyo. Ahora es el de la app.
     static func formatDistance(_ meters: Double) -> String {
-        meters >= 1000 ? String(format: "%.2f km", meters / 1000) : "\(Int(meters.rounded())) m"
+        Formato.distanciaCubierta(meters) ?? "0 m"
     }
 
     // Join the prescribed items (workout blocks) with the logged actuals by uid,
@@ -1034,9 +1034,7 @@ struct ExecutedWorkoutView: View {
         return t
     }
 
-    private static func formatKg(_ kg: Double) -> String {
-        kg == kg.rounded() ? String(Int(kg)) : String(format: "%.1f", kg)
-    }
+    private static func formatKg(_ kg: Double) -> String { Formato.esDecimal(kg) }
 
     struct SegmentRowVM: Identifiable {
         let id: String

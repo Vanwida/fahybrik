@@ -26,9 +26,9 @@ final class RunTargetResolverTests: XCTestCase {
     }
 
     func testClockFormat() {
-        XCTAssertEqual(TreadmillMath.clock(305), "5:05")
-        XCTAssertEqual(TreadmillMath.clock(0), "0:00")
-        XCTAssertEqual(TreadmillMath.clock(-5), "0:00")
+        XCTAssertEqual(Formato.clock(305), "5:05")
+        XCTAssertEqual(Formato.clock(0), "0:00")
+        XCTAssertEqual(Formato.clock(-5), "0:00")
     }
 
     // MARK: - Pace target judgment

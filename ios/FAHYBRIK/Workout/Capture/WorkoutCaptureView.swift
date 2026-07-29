@@ -595,7 +595,7 @@ private struct CaptureFieldCard: View {
     private var display: String {
         guard let v = field.value else { return "" }
         switch kind {
-        case .time: return TimeMinSecRow.format(Int(v.rounded()))
+        case .time: return Formato.clock(v)
         case .int:  return "\(Int(v.rounded()))"
         case .decimal:
             return v == v.rounded() ? "\(Int(v))" : String(format: "%.1f", v)
@@ -659,7 +659,7 @@ private struct SplitEdit: View {
                     let t = new.trimmingCharacters(in: .whitespaces)
                     field.value = t.isEmpty ? nil : (TimeMinSecRow.parse(t).map(Double.init) ?? field.value)
                 }
-                .onAppear { if let v = field.value { text = TimeMinSecRow.format(Int(v.rounded())) } }
+                .onAppear { if let v = field.value { text = Formato.clock(v) } }
             if !suffix.isEmpty {
                 Text(suffix).font(.system(size: 8, weight: .semibold)).foregroundStyle(Theme.Color.faint)
             }

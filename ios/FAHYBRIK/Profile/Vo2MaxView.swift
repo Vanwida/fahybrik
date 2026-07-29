@@ -83,7 +83,7 @@ struct Vo2MaxView: View {
     private func hero(headline: Vo2MaxHeadline, baseline: Double?) -> some View {
         VStack(spacing: Theme.Spacing.s) {
             HStack(alignment: .lastTextBaseline, spacing: 6) {
-                HeroNumber(text: esDecimal(headline.value), size: 88)
+                HeroNumber(text: Formato.esDecimal(headline.value), size: 88)
                 Text("ml/kg·min")
                     .scaledFont(12, weight: .semibold, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
@@ -106,7 +106,7 @@ struct Vo2MaxView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "VO2 máximo \(esDecimal(headline.value)) mililitros por kilo y minuto. "
+            "VO2 máximo \(Formato.esDecimal(headline.value)) mililitros por kilo y minuto. "
             + "\(deltaChip(latest: headline.value, baseline: baseline)?.text ?? ""). \(sourceLine(headline))"
         )
     }
@@ -139,7 +139,7 @@ struct Vo2MaxView: View {
                         .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer(minLength: 8)
-                    Text(esDecimal(vdot.value))
+                    Text(Formato.esDecimal(vdot.value))
                         .font(.system(size: 22, weight: .heavy, design: .default).monospacedDigit())
                         .italic()
                         .foregroundStyle(Theme.Color.foreground)
@@ -226,7 +226,7 @@ struct Vo2MaxView: View {
         let delta = (latest - baseline).rounded(toPlaces: 1)
         guard abs(delta) >= 0.1 else { return ("En tu media de 3 meses", false) }
         let sign = delta > 0 ? "+" : "\u{2212}"
-        return ("\(sign)\(esDecimal(abs(delta))) vs tu media de 3 meses", delta > 0)
+        return ("\(sign)\(Formato.esDecimal(abs(delta))) vs tu media de 3 meses", delta > 0)
     }
 
     private func chartPoints(_ series: [Vo2MaxPoint]) -> [CardSeriesPoint] {
@@ -240,7 +240,7 @@ struct Vo2MaxView: View {
                 // Sin recorrido (todo el tramo idéntico) la línea va centrada, que
                 // es la verdad: no se ha movido.
                 height: span > 0 ? (point.value - lo) / span : 0.5,
-                display: esDecimal(point.value),
+                display: Formato.esDecimal(point.value),
                 current: index == series.count - 1,
                 label: nil
             )
@@ -250,18 +250,12 @@ struct Vo2MaxView: View {
     private func chartAxis(_ series: [Vo2MaxPoint]) -> CardSeriesAxis? {
         let values = series.map(\.value)
         guard let lo = values.min(), let hi = values.max(), hi > lo else { return nil }
-        return CardSeriesAxis(min_display: esDecimal(lo), max_display: esDecimal(hi))
+        return CardSeriesAxis(min_display: Formato.esDecimal(lo), max_display: Formato.esDecimal(hi))
     }
 
     private func trendAxLabel(_ series: [Vo2MaxPoint]) -> String {
         guard let first = series.first, let last = series.last else { return "Sin curva" }
-        return "Últimos 3 meses: de \(esDecimal(first.value)) a \(esDecimal(last.value))."
-    }
-
-    /// «42,4» — coma decimal, una cifra, y sin decimal cuando es redondo.
-    private func esDecimal(_ v: Double) -> String {
-        if v == v.rounded() { return String(Int(v)) }
-        return String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",")
+        return "Últimos 3 meses: de \(Formato.esDecimal(first.value)) a \(Formato.esDecimal(last.value))."
     }
 
     /// «28 jul» a partir de un día ISO local del atleta (sin aritmética de zonas).

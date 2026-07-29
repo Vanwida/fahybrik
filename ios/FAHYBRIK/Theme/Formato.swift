@@ -46,20 +46,27 @@ enum Formato {
     ///   vivo, para que el layout no baile al pasar de 9:59 a 10:00. Fuera del
     ///   cronómetro el cero delante es ruido, y era la otra mitad de «5:00 vs 05:00».
     /// - `subMinuto`: ver `SubMinuto`.
+    /// - `enHoras`: a false el reloj NO pasa a horas y sigue contando minutos
+    ///   («63:45», no «1:03:45»). Es lo que pide el marcador de carrera, donde todo
+    ///   el marco habla en minutos («sub-60», «sub-90») y una hora en cabeza rompe
+    ///   la escala. Es una regla distinta, no otra grafía: por eso es un parámetro.
     static func clock(_ seconds: Double,
                       anchoFijo: Bool = false,
-                      subMinuto: SubMinuto = .reloj) -> String {
+                      subMinuto: SubMinuto = .reloj,
+                      enHoras: Bool = true) -> String {
         let total = max(0, Int(seconds.rounded()))
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        let h = total / 3600, s = total % 60
+        let m = enHoras ? (total % 3600) / 60 : total / 60
+        if enHoras, h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
         if m == 0, subMinuto == .segundos { return "\(s)s" }
         return String(format: anchoFijo ? "%02d:%02d" : "%d:%02d", m, s)
     }
 
     static func clock(_ seconds: Int,
                       anchoFijo: Bool = false,
-                      subMinuto: SubMinuto = .reloj) -> String {
-        clock(Double(seconds), anchoFijo: anchoFijo, subMinuto: subMinuto)
+                      subMinuto: SubMinuto = .reloj,
+                      enHoras: Bool = true) -> String {
+        clock(Double(seconds), anchoFijo: anchoFijo, subMinuto: subMinuto, enHoras: enHoras)
     }
 
     // MARK: - Ritmo

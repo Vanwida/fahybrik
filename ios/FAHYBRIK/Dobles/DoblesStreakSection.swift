@@ -90,7 +90,7 @@ struct DoblesStreakSection: View {
             Text(name)
                 .font(.system(size: 11, weight: .heavy).italic())
                 .foregroundStyle(color)
-            Text(seconds.map { DoblesLiveFormat.clock($0) } ?? "—")
+            Text(seconds.map { Formato.clock($0) } ?? "—")
                 .font(.system(size: 14, weight: .heavy, design: .monospaced).monospacedDigit())
                 .foregroundStyle(Theme.Color.foreground)
         }

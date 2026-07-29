@@ -282,7 +282,7 @@ struct TreadmillHUDView: View {
     private var landscapeMetrics: some View {
         HStack(spacing: 8) {
             ExpertCell(label: "Metros", value: distString(model.legDistanceM), unit: "")
-            ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.legElapsedEffective)), unit: "")
+            ExpertCell(label: "Tiempo", value: Formato.clock(Int(model.legElapsedEffective)), unit: "")
             ExpertCell(label: "Pulso",
                        value: model.currentBpm.map { "\($0)" } ?? "—", unit: "bpm",
                        color: model.liveZone?.color ?? Theme.Color.foreground)
@@ -465,7 +465,7 @@ struct TreadmillHUDView: View {
         CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 8) {
                 LabelText(text: "Recuperación", size: 10)
-                Text(TreadmillMath.clock(Int((model.legTimeRemaining ?? 0).rounded())))
+                Text(Formato.clock(Int((model.legTimeRemaining ?? 0).rounded())))
                     .font(Theme.Typography.readoutHero)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
@@ -586,7 +586,7 @@ struct TreadmillHUDView: View {
     @ViewBuilder
     private var progressSection: some View {
         if !model.isRecovery {
-            let clock = TreadmillMath.clock(Int(model.legElapsedEffective))
+            let clock = Formato.clock(Int(model.legElapsedEffective))
             switch model.currentLeg.goal {
             case let .distance(target):
                 GoalProgress(
@@ -601,8 +601,8 @@ struct TreadmillHUDView: View {
                 // The primary readout IS the clock here (time remaining), so no second one.
                 GoalProgress(
                     caption: "Tiempo del tramo",
-                    primary: TreadmillMath.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
-                    secondary: TreadmillMath.clock(target),
+                    primary: Formato.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
+                    secondary: Formato.clock(target),
                     fraction: model.progressFraction,
                     complete: model.isComplete
                 )
@@ -799,7 +799,7 @@ struct TreadmillHUDView: View {
     // MARK: - Formatting
 
     private var heroPace: String {
-        model.livePaceSecPerKm.map(TreadmillMath.clock) ?? "—:—"
+        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
     }
     private var heroCaption: String {
         switch model.runTarget {
@@ -811,7 +811,7 @@ struct TreadmillHUDView: View {
         var parts: [String] = []
         switch model.currentLeg.goal {
         case let .distance(m): parts.append(distString(m))
-        case let .time(s):     parts.append(TreadmillMath.clock(s))
+        case let .time(s):     parts.append(Formato.clock(s))
         case .open:            break
         }
         if let objetivo = model.runTarget.objetivoLabel { parts.append(objetivo) }

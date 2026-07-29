@@ -436,15 +436,11 @@ struct ErgHUDContent: View {
     }
     private var splitString: String {
         guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
-        return Self.splitClock(p)
+        return Formato.ritmoCifras(p)
     }
     private var avgSplitString: String {
         guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return "—:—" }
-        return Self.splitClock(p)
-    }
-    private static func splitClock(_ pace: Double) -> String {
-        let s = Int(pace.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
+        return Formato.ritmoCifras(p)
     }
 
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }

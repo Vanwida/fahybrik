@@ -95,7 +95,7 @@ struct JointShareData: Equatable {
     private static func side(_ s: JointSummarySide, fallback: String) -> Side {
         Side(
             name: DoblesJointFormat.trimmed(s.name) ?? fallback,
-            timeText: s.totalTimeS.map { DoblesLiveFormat.clock($0) } ?? "—",
+            timeText: s.totalTimeS.map { Formato.clock($0) } ?? "—",
             rpe: s.rpe,
             tonnageText: s.tonnageKg.map { "\(Int($0.rounded())) kg" },
             prCount: s.prCount

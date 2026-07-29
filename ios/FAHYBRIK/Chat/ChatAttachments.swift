@@ -158,11 +158,3 @@ enum ByteCountLabel {
     }
 }
 
-/// A whole-second `m:ss` duration label for voice / video ("0:42"). Shared by
-/// the recorder, the preview and the playback bubble so they never drift.
-enum DurationLabel {
-    static func mmss(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
-        return String(format: "%d:%02d", total / 60, total % 60)
-    }
-}

@@ -237,7 +237,7 @@ struct StructuredRunLiveView: View {
         if let total = leg.durationSeconds {
             let elapsed = session.runLegElapsed
             return (leg.goal.fraction(distanceM: 0, elapsedS: elapsed),
-                    "\(TreadmillMath.clock(Int(elapsed))) / \(TreadmillMath.clock(total))")
+                    "\(Formato.clock(Int(elapsed))) / \(Formato.clock(total))")
         }
         return nil
     }

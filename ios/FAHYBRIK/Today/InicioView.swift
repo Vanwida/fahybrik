@@ -588,10 +588,7 @@ struct InicioView: View {
     private func goalPlain(_ race: AthleteNextRace) -> String? {
         guard let s = race.goalTimeSeconds, s > 0 else { return nil }
         if s % 60 == 0 { return "\(s / 60) min" }
-        let h = s / 3600, mins = (s % 3600) / 60, secs = s % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, mins, secs)
-            : String(format: "%d:%02d", mins, secs)
+        return Formato.clock(s)
     }
 
     /// Extract (N, M) from the server "… semana N de M" label — the first two
@@ -899,7 +896,7 @@ struct InicioView: View {
                     } else if let vdot {
                         // VDOT is a property of the 5 km test (not the trained umbral) —
                         // shown here as test-progress context, distinct from the Z4 above.
-                        Text("VDOT \(esDecimal(vdot))")
+                        Text("VDOT \(Formato.esDecimal(vdot))")
                             .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                             .foregroundStyle(Theme.Color.muted)
                     }
@@ -944,7 +941,7 @@ struct InicioView: View {
         return HStack(spacing: 3) {
             Image(systemName: improved ? "arrow.down.right" : "arrow.up.right")
                 .font(.system(size: 9, weight: .bold))
-            Text("\(improved ? "−" : "+")\(clock(abs(delta)))")
+            Text("\(improved ? "−" : "+")\(Formato.clock(abs(delta)))")
                 .font(.system(size: 10, weight: .bold, design: .monospaced).monospacedDigit())
         }
         .foregroundStyle(improved ? Theme.Color.ok : Theme.Color.danger)
@@ -955,8 +952,8 @@ struct InicioView: View {
         var label = "5 kilómetros, \(latest.time)"
         if let delta = fiveKDeltaSeconds {
             label += delta < 0
-                ? ", mejoras \(clock(abs(delta)))"
-                : ", subes \(clock(abs(delta)))"
+                ? ", mejoras \(Formato.clock(abs(delta)))"
+                : ", subes \(Formato.clock(abs(delta)))"
         }
         return label
     }
@@ -984,13 +981,13 @@ struct InicioView: View {
             if let volume7d {
                 VStack(alignment: .leading, spacing: 2) {
                     LabelText(text: "Volumen · 7 días", size: 10)
-                    Text(esDecimal(volume7d))
+                    Text(Formato.esDecimal(volume7d))
                         .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
                         .foregroundStyle(Theme.Color.foreground)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Volumen de 7 días, \(esDecimal(volume7d))")
+                .accessibilityLabel("Volumen de 7 días, \(Formato.esDecimal(volume7d))")
             }
         }
     }
@@ -1573,18 +1570,9 @@ struct InicioView: View {
 
     // MARK: - Small formatters
     //
-    // Spanish decimal comma for the two figures that carry a fraction (volume +
-    // VDOT); the server pre-formats them with a dot. Everything else is integer or
-    // already m:ss.
-
-    private func esDecimal(_ s: String) -> String {
-        s.replacingOccurrences(of: ".", with: ",")
-    }
-
-    /// Seconds → "m:ss" (62 → "1:02"). Used for the 5 km improvement delta.
-    private func clock(_ seconds: Int) -> String {
-        String(format: "%d:%02d", seconds / 60, seconds % 60)
-    }
+    // La coma decimal y el reloj vivían aquí como copias `private` — y otra copia
+    // distinta de `esDecimal` vivía en Vo2MaxView. Por eso el mismo VO₂máx salía
+    // «42,4» en una pantalla y «42.4» en la de al lado. Ahora los dos leen `Formato`.
 
     /// Trim a wire string, returning nil for empty/whitespace (honest-empty guard).
     private func nonEmpty(_ s: String?) -> String? {

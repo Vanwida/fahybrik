@@ -1903,15 +1903,9 @@ struct TestBadge: View {
     }
 }
 
-// MARK: - Duration formatting (shared by the params formatter)
-
-private func formatDuration(_ seconds: Int) -> String {
-    let m = seconds / 60
-    let s = seconds % 60
-    if m == 0 { return "\(s)s" }
-    if s == 0 { return "\(m)'" }
-    return String(format: "%d:%02d", m, s)
-}
+// Aquí vivía un `formatDuration` con una TERCERA grafía de la duración: los minutos
+// redondos salían como «5'». El mismo tramo se leía «5'» en el plan y «5:00» en el
+// entreno. Ahora los dos dicen «5:00» (`Formato.clock`).
 
 // MARK: - Workout params formatter
 //
@@ -1993,7 +1987,7 @@ enum WorkoutItemParamsFormatter {
             parts.append("RPE \(formatRpe(rpe))")
         }
         if let rest = p.restSeconds {
-            parts.append("rest \(formatDuration(rest))")
+            parts.append("descanso \(Formato.clock(rest, subMinuto: .segundos))")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
@@ -2001,10 +1995,10 @@ enum WorkoutItemParamsFormatter {
     private static func runningSummary(_ p: WorkoutItemParams) -> String? {
         var parts: [String] = []
         if let dur = p.durationSeconds {
-            parts.append(formatDuration(dur))
+            parts.append(Formato.clock(dur, subMinuto: .segundos))
         }
         if let km = p.distanceKm {
-            parts.append(String(format: "%.2f km", km))
+            parts.append(Formato.distancia(km * 1000, decimales: 2) ?? "")
         } else if let m = p.distanceMeters {
             parts.append("\(m) m")
         }
@@ -2023,7 +2017,7 @@ enum WorkoutItemParamsFormatter {
     private static func ergoSummary(_ p: WorkoutItemParams) -> String? {
         var parts: [String] = []
         if let dur = p.durationSeconds {
-            parts.append(formatDuration(dur))
+            parts.append(Formato.clock(dur, subMinuto: .segundos))
         }
         if let m = p.distanceMeters {
             parts.append("\(m) m")
@@ -2045,19 +2039,9 @@ enum WorkoutItemParamsFormatter {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    private static func formatKg(_ kg: Double) -> String {
-        if kg.truncatingRemainder(dividingBy: 1) == 0 {
-            return "\(Int(kg)) kg"
-        }
-        return String(format: "%.1f kg", kg)
-    }
+    private static func formatKg(_ kg: Double) -> String { Formato.kg(kg) }
 
-    private static func formatRpe(_ rpe: Double) -> String {
-        if rpe.truncatingRemainder(dividingBy: 1) == 0 {
-            return "\(Int(rpe))"
-        }
-        return String(format: "%.1f", rpe)
-    }
+    private static func formatRpe(_ rpe: Double) -> String { Formato.esDecimal(rpe) }
 
 }
 

@@ -15,17 +15,16 @@ import Foundation
 // resolved on this side at all: the server sends the absolute bands and the app
 // paints them (`HRZoneProfile`, Theme/ZoneColors.swift).
 
-// MARK: - Clock formatting
+// MARK: - Belt math
 
-enum TreadmillMath {
-    /// Format whole seconds as m:ss (pace / clock). The single seconds→m:ss
-    /// formatter both platforms share (the belt math + `paceSecPerKm` live in the
-    /// app-only extension in RunTargetResolver.swift).
-    static func clock(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
-}
+/// La matemática de la cinta. Se declara aquí (target compartido) y se rellena en
+/// `Devices/Treadmill/RunTargetResolver.swift`, que es solo de la app porque
+/// necesita `TreadmillConstants`.
+///
+/// Tenía también un `clock` que se anunciaba como «el único formateador
+/// seconds→m:ss que comparten las dos plataformas». No lo era: había otras trece.
+/// La grafía está ahora en `Theme/Formato.swift`, y aquí queda solo la matemática.
+enum TreadmillMath {}
 
 // MARK: - Target
 
@@ -46,10 +45,10 @@ struct PaceTarget: Equatable {
 
     /// Human objetivo string (the "/km" unit is added by the caller).
     var label: String {
-        if let f = fastS, let s = slowS { return "\(TreadmillMath.clock(f))–\(TreadmillMath.clock(s))" }
-        if let f = fastS { return "≥ \(TreadmillMath.clock(f))" }
-        if let s = slowS { return "≤ \(TreadmillMath.clock(s))" }
-        if let single { return TreadmillMath.clock(single) }
+        if let f = fastS, let s = slowS { return "\(Formato.clock(f))–\(Formato.clock(s))" }
+        if let f = fastS { return "≥ \(Formato.clock(f))" }
+        if let s = slowS { return "≤ \(Formato.clock(s))" }
+        if let single { return Formato.clock(single) }
         return "—"
     }
 
@@ -127,7 +126,7 @@ enum RunTarget: Equatable {
     /// The objetivo shown near the hero, or nil when there's nothing to hit.
     var objetivoLabel: String? {
         switch self {
-        case let .pace(t): return "\(t.label) /km"
+        case let .pace(t): return "\(t.label)\(Formato.UnidadRitmo.porKm.rawValue)"
         case let .zone(z): return z.label
         case .none:        return nil
         }

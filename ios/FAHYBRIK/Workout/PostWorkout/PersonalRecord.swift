@@ -72,11 +72,11 @@ struct PersonalRecord: Equatable {
         return "\(PersonalRecord.formatDelta(improvement)) más rápido que tu marca anterior"
     }
 
-    /// Format a positive seconds delta as "14 s" (< 60 s) or "1:12" (≥ 60 s).
+    /// Format a positive seconds delta as "14s" (< 60 s) or "1:12" (≥ 60 s).
+    /// Escribía «14 s» con espacio donde el resto de la app escribe «45s»: misma
+    /// magnitud, dos grafías.
     static func formatDelta(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
-        if total < 60 { return "\(total) s" }
-        return String(format: "%d:%02d", total / 60, total % 60)
+        Formato.clock(seconds, subMinuto: .segundos)
     }
 }
 

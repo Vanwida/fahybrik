@@ -112,7 +112,7 @@ struct DoblesLiveStrip: View {
                         .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 HStack(spacing: 12) {
-                    metric(icon: "stopwatch", text: DoblesLiveFormat.clock(elapsedS))
+                    metric(icon: "stopwatch", text: Formato.clock(elapsedS))
                     if let hr = hrBpm {
                         metric(icon: "heart.fill", text: "\(hr)", tint: Theme.Color.danger)
                     }
@@ -130,7 +130,7 @@ struct DoblesLiveStrip: View {
         case .finished(_, let finalTimeS, let finalRpe):
             HStack(spacing: 10) {
                 if let t = finalTimeS {
-                    Text(DoblesLiveFormat.clock(t))
+                    Text(Formato.clock(t))
                         .font(.system(size: 18, weight: .heavy, design: .monospaced))
                         .foregroundStyle(Theme.Color.foreground)
                 }
@@ -197,14 +197,14 @@ struct DoblesLiveStrip: View {
         case .live(let n, let paused, let block, let progress, let elapsedS, let hr, let age):
             var s = "Tu pareja \(n) \(paused ? "en pausa" : "en vivo")"
             if let w = workLine(block: block, progress: progress) { s += ", \(w)" }
-            s += ", \(DoblesLiveFormat.clock(elapsedS))"
+            s += ", \(Formato.clock(elapsedS))"
             if let hr { s += ", \(hr) pulsaciones" }
             s += ", \(DoblesLiveFormat.ago(age))"
             return s
         case .stale(let n, let age): return "\(n) sin señal, última hace \(age) segundos"
         case .finished(let n, let t, let rpe):
             var s = "\(n) ha terminado"
-            if let t { s += ", \(DoblesLiveFormat.clock(t))" }
+            if let t { s += ", \(Formato.clock(t))" }
             if let r = DoblesLiveFormat.rpe(rpe) { s += ", RPE \(r)" }
             return s
         case .left(let n): return "\(n) ha salido de su sesión"

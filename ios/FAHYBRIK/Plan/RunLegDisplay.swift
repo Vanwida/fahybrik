@@ -16,7 +16,7 @@ enum RunLegDisplay {
     /// metres, a duration as m:ss, or "" for an open (manual) leg.
     static func measureLabel(_ leg: RunLeg) -> String {
         if let m = leg.distanceMeters { return "\(m) m" }
-        if let s = leg.durationSeconds { return TreadmillMath.clock(s) }
+        if let s = leg.durationSeconds { return Formato.clock(s) }
         return ""
     }
 

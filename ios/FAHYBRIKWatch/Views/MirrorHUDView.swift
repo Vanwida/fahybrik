@@ -249,7 +249,7 @@ struct MirrorHUDView: View {
     }
 
     private func beltDistance(_ meters: Double, km: Bool) -> String {
-        km ? String(format: "%.2f km", meters / 1000) : "\(Int(meters.rounded())) m"
+        km ? (Formato.distanciaCubierta(meters) ?? "0 m") : "\(Int(meters.rounded())) m"
     }
 
     private func beltProgressBar(fraction: Double) -> some View {

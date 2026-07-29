@@ -187,7 +187,7 @@ struct OutdoorRunHUDView: View {
         CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 8) {
                 LabelText(text: "Recuperación", size: 10)
-                Text(TreadmillMath.clock(Int((model.legTimeRemaining ?? 0).rounded())))
+                Text(Formato.clock(Int((model.legTimeRemaining ?? 0).rounded())))
                     .font(Theme.Typography.readoutHero)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1).minimumScaleFactor(0.5)
@@ -222,8 +222,8 @@ struct OutdoorRunHUDView: View {
                              complete: model.progressFraction >= 1)
             case let .time(target):
                 GoalProgress(caption: "Tiempo del tramo",
-                             primary: TreadmillMath.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
-                             secondary: TreadmillMath.clock(target),
+                             primary: Formato.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
+                             secondary: Formato.clock(target),
                              fraction: model.progressFraction,
                              complete: model.progressFraction >= 1)
             case .open:
@@ -296,9 +296,10 @@ struct OutdoorRunHUDView: View {
     // MARK: - Formatting
 
     private var paceString: String {
-        model.livePaceSecPerKm.map { TimeMinSecRow.format($0) } ?? "—:—"
+        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
     }
-    private var distanceString: String { Formato.distancia(model.coveredMeters) ?? "0 m" }
+    /// Lo cubierto es una MEDIDA: dos decimales, como el resto de HUDs en vivo.
+    private var distanceString: String { Formato.distanciaCubierta(model.coveredMeters) ?? "0 m" }
     private func distString(_ m: Double) -> String { Formato.distancia(m) ?? "0 m" }
 
     /// The state word on the objetivo line — the mockup's natural-Spanish read of the
