@@ -6,8 +6,31 @@
 
 import Link from 'next/link';
 import type { LogLine } from './TwinStage';
-import type { TwinAppearance, TwinEscenario, TwinMeta, TwinOrientation } from './types';
+import type {
+  TwinAppearance,
+  TwinArquetipo,
+  TwinEscenario,
+  TwinEstrategia,
+  TwinMeta,
+  TwinOrientation,
+  TwinVista,
+} from './types';
 import { ESTADO_LABEL } from './registry';
+
+const ARQUETIPO_LABEL: Record<TwinArquetipo, string> = {
+  configurar: 'Configurar',
+  lista: 'Lista',
+  detalle: 'Detalle',
+  vacio: 'Vacío',
+  'en-vivo': 'En vivo',
+};
+
+const ESTRATEGIA_NOTA: Record<TwinEstrategia, string> = {
+  llena: 'el contenido ocupa el alto y scrollea SOLO cuando desborda',
+  centra: 'poco contenido, deliberado: el aire es simétrico, no una cola',
+  previsualiza: 'el sobrante se convierte en el sujeto',
+  gobierna: 'un dato manda y escala hasta llenar; el resto se subordina',
+};
 
 interface SimPanelProps {
   meta: TwinMeta;
@@ -19,6 +42,8 @@ interface SimPanelProps {
   onOrientation: (o: TwinOrientation) => void;
   appearance: TwinAppearance;
   onAppearance: (a: TwinAppearance) => void;
+  vista: TwinVista;
+  onVista: (v: TwinVista) => void;
   onFullscreen: () => void;
   logs: LogLine[];
   indexHref: string;
@@ -39,6 +64,42 @@ export function SimPanel(p: SimPanelProps) {
 
       <h1 className="studio-title">{p.meta.titulo}</h1>
       <p className="studio-desc">{p.meta.descripcion}</p>
+
+      {p.meta.composicion && (
+        <section aria-label="Composición" className="studio-composicion">
+          <h2 className="studio-label">Composición · contrato §6</h2>
+          <div className="studio-seg studio-seg-ancho" role="group" aria-label="Antes y después">
+            <button type="button" data-active={p.vista === 'hoy' || undefined} onClick={() => p.onVista('hoy')}>
+              Cómo está hoy
+            </button>
+            <button
+              type="button"
+              data-active={p.vista === 'propuesta' || undefined}
+              onClick={() => p.onVista('propuesta')}
+            >
+              Propuesta
+            </button>
+          </div>
+          <dl className="studio-ficha">
+            <dt>Arquetipo</dt>
+            <dd>{ARQUETIPO_LABEL[p.meta.composicion.arquetipo]}</dd>
+            <dt>Estrategia</dt>
+            <dd>
+              <code>{p.meta.composicion.estrategia}</code> — {ESTRATEGIA_NOTA[p.meta.composicion.estrategia]}
+            </dd>
+            <dt>Sujeto</dt>
+            <dd>{p.meta.composicion.sujeto}</dd>
+            <dt>Hoy</dt>
+            <dd className="studio-ficha-mal">{p.meta.composicion.diagnostico}</dd>
+            <dt>Se resuelve</dt>
+            <dd>{p.meta.composicion.resuelve}</dd>
+          </dl>
+          <p className="studio-hint">
+            En «cómo está hoy» las bandas rayadas y la franja roja se MIDEN del propio layout: el número
+            de pt cambia con el escenario.
+          </p>
+        </section>
+      )}
 
       <section aria-label="Escenarios">
         <h2 className="studio-label">Escenarios</h2>

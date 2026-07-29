@@ -166,6 +166,44 @@
 
 .studio-hint { font-size: 12px; color: var(--st-faint); line-height: 1.5; margin: 8px 0 0; }
 
+/* ----- ficha de composición (contrato §6): el antes/después y su declaración ----- */
+
+.studio-composicion {
+  padding: 14px;
+  border: 1px solid var(--st-hairline);
+  border-radius: 12px;
+  background: var(--st-card);
+}
+.studio-composicion .studio-label { margin-bottom: 12px; }
+
+.studio-seg-ancho { display: flex; width: 100%; }
+.studio-seg-ancho button { flex: 1; text-align: center; }
+
+.studio-ficha {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.studio-ficha dt {
+  color: var(--st-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-top: 3px;
+  white-space: nowrap;
+}
+.studio-ficha dd { margin: 0; color: var(--st-fg); }
+.studio-ficha code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--st-accent);
+}
+.studio-ficha-mal { color: #f08d8d; }
+
 .studio-cronologia-wrap { min-height: 120px; }
 .studio-cronologia {
   list-style: none;
@@ -273,6 +311,14 @@ a.studio-card:hover { border-color: rgba(240, 106, 42, 0.5); transform: translat
 .studio-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .studio-device { font-size: 11px; color: var(--st-faint); letter-spacing: 0.08em; text-transform: uppercase; }
 .studio-tag { font-size: 11px; color: var(--st-faint); }
+.studio-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 2px; }
+.studio-tag-estrategia {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 106, 42, 0.35);
+  color: var(--st-accent);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
 
 .studio-archivo summary { cursor: pointer; list-style: none; }
 .studio-archivo summary::-webkit-details-marker { display: none; }

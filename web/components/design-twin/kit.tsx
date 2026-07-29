@@ -1,0 +1,535 @@
+'use client';
+
+// El kit compartido del doble — átomos transcritos de ios/FAHYBRIK/Theme/
+// (Theme.swift · Atoms.swift · ScreenScaffold.swift). Si el Swift cambia, esto
+// cambia en el MISMO lote.
+//
+// Vive aquí y no dentro de una pantalla por la regla 0 del CONTRATO-UI: si otro
+// fichero puede necesitarlo, va al sitio compartido. Nació privado dentro de
+// `screens/benchmark-erg/ui.tsx` y esa vía fue justo la que en la app produjo
+// seis relojes y tres grafías del ritmo — aquí se corta antes de empezar.
+//
+// Incluye además los DOS instrumentos de medida del estudio (`Muerto`,
+// `Recortado`): no asertan un número, lo miden del layout reproducido. Así el
+// diagnóstico de una pantalla cambia con el escenario en vez de envejecer.
+
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+
+/** Theme.Spacing. */
+export const SP = { xs: 4, s: 8, m: 12, l: 16, xl: 24, xxl: 32 } as const;
+/** Theme.Radius. */
+export const RAD = { s: 6, m: 10, l: 14, xl: 20 } as const;
+
+// ---------------------------------------------------------------------------
+// CardSurface
+// ---------------------------------------------------------------------------
+
+export interface CardProps {
+  children: ReactNode;
+  padding?: number;
+  radius?: number;
+  /** Filo de acento de 2 px arriba (CardSurface.topAccent). */
+  topAccent?: boolean;
+  /** Filo de acento de 3 px a la izquierda (CardSurface.leftAccent). */
+  leftAccent?: boolean;
+  /** Sube la cara a la capa más clara + sombra hero. */
+  elevated?: boolean;
+  style?: CSSProperties;
+}
+
+export function Card({
+  children,
+  padding = SP.l,
+  radius = RAD.l,
+  topAccent = false,
+  leftAccent = false,
+  elevated = false,
+  style,
+}: CardProps) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        borderRadius: radius,
+        overflow: 'hidden',
+        // Relleno en capas: degradado casi vertical elevado → surface, para que
+        // la cara tenga un brillo superior en vez de ser una losa plana.
+        background: elevated
+          ? 'linear-gradient(to bottom, var(--twin-surface-elevated), var(--twin-surface))'
+          : 'linear-gradient(to bottom, var(--twin-surface), color-mix(in srgb, var(--twin-surface) 92%, transparent))',
+        boxShadow: elevated ? 'var(--twin-shadow-hero)' : 'var(--twin-shadow-card)',
+        ...style,
+      }}
+    >
+      {topAccent && <div style={{ height: 2, background: 'var(--twin-accent)' }} />}
+      <div style={{ padding }}>{children}</div>
+      {leftAccent && (
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--twin-accent)' }} />
+      )}
+      {/* Costura hairline, algo más viva en el borde superior (el labio iluminado). */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: radius,
+          border: '1px solid transparent',
+          background:
+            'linear-gradient(to bottom, var(--twin-hairline-strong), var(--twin-hairline)) border-box',
+          WebkitMask: 'linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Texto
+// ---------------------------------------------------------------------------
+
+/** LabelText — micro-etiqueta en versales con tracking. */
+export function Label({
+  children,
+  color = 'var(--twin-muted)',
+  size = 11,
+  style,
+}: {
+  children: ReactNode;
+  color?: string;
+  size?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        font: `600 ${size}px/1.1 var(--twin-font-sans)`,
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+        color,
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** MonoText — cifras tabulares de instrumento. */
+export function Mono({
+  children,
+  size = 13,
+  weight = 500,
+  color = 'var(--twin-fg)',
+  italic = false,
+  style,
+}: {
+  children: ReactNode;
+  size?: number;
+  weight?: number;
+  color?: string;
+  italic?: boolean;
+  style?: CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        font: `${italic ? 'italic ' : ''}${weight} ${size}px/1.1 var(--twin-font-mono)`,
+        fontVariantNumeric: 'tabular-nums',
+        color,
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Título en la voz Fabrik: cursiva heavy. */
+export function Display({
+  children,
+  size,
+  color = 'var(--twin-fg)',
+  tracking = '-0.01em',
+  style,
+}: {
+  children: ReactNode;
+  size: number;
+  color?: string;
+  tracking?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        font: `italic 800 ${size}px/1.1 var(--twin-font-sans)`,
+        letterSpacing: tracking,
+        color,
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function Hairline({ style }: { style?: CSSProperties }) {
+  return <div aria-hidden style={{ height: 1, background: 'var(--twin-hairline)', ...style }} />;
+}
+
+// ---------------------------------------------------------------------------
+// Botones
+// ---------------------------------------------------------------------------
+
+/** ExpertPrimaryButton — relleno naranja, glifo accentOn, cursiva heavy. */
+export function CTA({
+  title,
+  onClick,
+  height = 54,
+  style,
+}: {
+  title: string;
+  onClick: () => void;
+  height?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="tw-btn-primary"
+      style={{ width: '100%', height, fontSize: 16, letterSpacing: '0.06em', ...style }}
+    >
+      {title}
+    </button>
+  );
+}
+
+/** SecondaryButton — contorno, sin relleno. */
+export function SecondaryCTA({
+  title,
+  onClick,
+  height = 44,
+  style,
+}: {
+  title: string;
+  onClick: () => void;
+  height?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="tw-btn-secondary" style={{ width: '100%', height, fontSize: 14, ...style }}>
+      {title}
+    </button>
+  );
+}
+
+/** Botón circular de chrome (salir / atrás), 34 pt. */
+export function RoundButton({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: '50%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--twin-surface-elevated)',
+        border: '1px solid var(--twin-hairline)',
+        color: 'var(--twin-fg)',
+        cursor: 'pointer',
+        padding: 0,
+        flex: '0 0 auto',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Avisos — el patrón de la app para aviso inline (fondo tinte + icono)
+// ---------------------------------------------------------------------------
+
+export function Notice({
+  tone,
+  children,
+}: {
+  tone: 'warning' | 'ok' | 'accent';
+  children: ReactNode;
+}) {
+  const color = `var(--twin-${tone === 'accent' ? 'accent-text' : tone})`;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: SP.s,
+        padding: SP.m,
+        borderRadius: RAD.m,
+        background: `color-mix(in srgb, ${color} 14%, transparent)`,
+        color: 'var(--twin-fg)',
+      }}
+    >
+      <span style={{ color, display: 'inline-flex', flex: '0 0 auto', paddingTop: 1 }}>
+        <IconWarning />
+      </span>
+      <span style={{ font: '500 13px/1.35 var(--twin-font-sans)' }}>{children}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ScreenScaffold — la columna de pantalla con la acción anclada abajo
+// ---------------------------------------------------------------------------
+
+/**
+ * `.anchoredAction { }`: cuerpo flexible + acción SIEMPRE visible al fondo
+ * (§6, regla 3). El cuerpo lleva `minHeight: 0` para que un hijo que scrollea
+ * pueda encogerse en vez de empujar el botón fuera de la pantalla.
+ */
+export function Pantalla({
+  children,
+  accion,
+  padding = SP.m,
+  gap = SP.m,
+}: {
+  children: ReactNode;
+  accion?: ReactNode;
+  padding?: number;
+  gap?: number;
+}) {
+  return (
+    <div
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap,
+        padding,
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap }}>
+        {children}
+      </div>
+      {accion && <div style={{ flex: '0 0 auto' }}>{accion}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Los instrumentos de medida del estudio
+// ---------------------------------------------------------------------------
+
+/**
+ * El sobrante que hoy no hace nada — se mide solo.
+ *
+ * Ocupa el hueco que en la app de hoy queda vacío y publica su alto REAL en pt
+ * (el lienzo del doble es 1:1 con el iPhone 17 Pro: 402×874 pt, y `offsetHeight`
+ * va sin escalar). Cambia de escenario y el número cambia con él.
+ *
+ * Solo se pinta en la vista «hoy»: es el diagnóstico, no la app.
+ */
+export function Muerto({ nota }: { nota?: string }) {
+  const [alto, setAlto] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // La primera medida la da el propio ResizeObserver, que dispara al observar:
+  // no hace falta un setState suelto en el efecto (y así no encadena renders).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAlto(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      style={{
+        flex: '1 1 auto',
+        minHeight: 0,
+        position: 'relative',
+        display: 'grid',
+        placeItems: 'center',
+        borderRadius: RAD.m,
+        border: '1px dashed color-mix(in srgb, var(--twin-danger) 45%, transparent)',
+        background:
+          'repeating-linear-gradient(135deg, color-mix(in srgb, var(--twin-danger) 9%, transparent) 0 6px, transparent 6px 14px)',
+      }}
+    >
+      {alto >= 44 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: 6, textAlign: 'center' }}>
+          <Mono size={alto >= 120 ? 22 : 13} weight={700} color="var(--twin-danger)">
+            {alto} pt
+          </Mono>
+          {alto >= 90 && <Label size={9} color="var(--twin-danger)">sin nada</Label>}
+          {nota && alto >= 150 && (
+            <span style={{ font: '500 11px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)', maxWidth: 220 }}>
+              {nota}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Lo que hoy se corta — también se mide solo.
+ *
+ * Recorta a su hueco (como hace el `clipShape` de la app) y publica cuántos pt
+ * de contenido se han quedado fuera. Sin scroll a propósito: en retrato la app
+ * tampoco lo tiene, y ese es justo el fallo que hay que poder VER.
+ */
+export function Recortado({ children }: { children: ReactNode }) {
+  const [fuera, setFuera] = useState(0);
+  const caja = useRef<HTMLDivElement>(null);
+  const dentro = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const c = caja.current;
+    const d = dentro.current;
+    if (!c || !d) return;
+    const ro = new ResizeObserver(() => setFuera(Math.max(0, d.offsetHeight - c.clientHeight)));
+    ro.observe(c);
+    ro.observe(d);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div style={{ flex: '1 1 auto', minHeight: 0, position: 'relative' }}>
+      <div ref={caja} style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: RAD.m }}>
+        <div ref={dentro}>{children}</div>
+      </div>
+      {fuera > 0 && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '7px 10px',
+            borderRadius: `0 0 ${RAD.m}px ${RAD.m}px`,
+            background: 'linear-gradient(to top, var(--twin-danger), color-mix(in srgb, var(--twin-danger) 0%, transparent))',
+            color: '#fff',
+          }}
+        >
+          <Mono size={13} weight={700} color="#fff">
+            {fuera} pt
+          </Mono>
+          <Label size={9} color="rgba(255,255,255,0.9)">
+            recortados
+          </Label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Iconos — SVG mínimos, equivalentes a los SF Symbols que usa la app
+// ---------------------------------------------------------------------------
+
+/** ProgressView: SMIL en vez de keyframes CSS (aquí no hay hoja de estilos). */
+export function Spinner({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="8" cy="8" r="6" opacity="0.2" />
+        <path d="M8 2a6 6 0 0 1 6 6">
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0 8 8"
+            to="360 8 8"
+            dur="0.9s"
+            repeatCount="indefinite"
+          />
+        </path>
+      </g>
+    </svg>
+  );
+}
+
+export function IconWarning({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <path d="M8 1.6 15 14H1L8 1.6Z" fill="currentColor" />
+      <path d="M8 6v3.6" stroke="var(--twin-bg)" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="8" cy="11.8" r="0.85" fill="var(--twin-bg)" />
+    </svg>
+  );
+}
+
+export function IconCheckCircle({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="8" r="7" fill="currentColor" />
+      <path d="m4.9 8.2 2.1 2.1 4-4.3" fill="none" stroke="var(--twin-bg)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconCircle({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+export function IconChevron({ dir = 'right', size = 13 }: { dir?: 'left' | 'right'; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      aria-hidden
+      style={{ transform: dir === 'left' ? 'scaleX(-1)' : undefined }}
+    >
+      <path d="m6 3.4 5 4.6-5 4.6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconClose({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <path d="M3.6 3.6 12.4 12.4M12.4 3.6 3.6 12.4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconHeart({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <path
+        d="M8 14S1.6 10.2 1.6 5.9A3.6 3.6 0 0 1 8 3.7a3.6 3.6 0 0 1 6.4 2.2C14.4 10.2 8 14 8 14Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
