@@ -101,7 +101,7 @@ struct ExerciseDetailView: View {
                         }
 
                         if let notes = item.notes, !notes.isEmpty {
-                            section(title: "NOTA DE PABLO") {
+                            section(title: "NOTA DE TU COACH") {
                                 Text(notes)
                                     .scaledFont(14, relativeTo: .subheadline)
                                     .foregroundStyle(Theme.Color.muted)
