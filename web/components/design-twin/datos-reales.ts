@@ -24,8 +24,19 @@ export type Modalidad = 'run' | 'row' | 'ski' | 'bike' | 'strength' | 'functiona
 export interface ItemReal {
   /** `exercises.name`. */
   nombre: string;
-  /** La MEDIDA — distancia, tiempo, reps o calorías. */
-  dosis: string;
+  /**
+   * La MEDIDA — distancia, tiempo, reps o calorías.
+   *
+   * **`null` cuando la prescripción no la trae, y pasa de verdad**: en el
+   * circuito de pierna del coach (plantilla 442) hay CUATRO segmentos cuyo
+   * `prescription_json` entero es `{"scheme":"sets","modality":"functional"}`.
+   * Sin medida. Es el hueco conocido del método (~38 % de la biblioteca sin
+   * dosis) y llega hasta la pantalla del atleta.
+   *
+   * Nulo se pinta como el nombre solo. **Jamás un «— reps» ni un 0**: eso
+   * sería fabricar una dosis que el coach no escribió (§7).
+   */
+  dosis: string | null;
   /** El OBJETIVO — ritmo, zona, RPE, %RM o kg. Ausente = no lo hay. */
   objetivo?: string;
   /** Descanso entre series, en segundos. Ausente = la prescripción no lo lleva. */
@@ -140,7 +151,15 @@ export const HYROX: SesionReal = {
   ],
 };
 
-/** `templates` 442 · asignación 240 · 11 segmentos en 3 bloques. El caso típico del plan. */
+/**
+ * `templates` 442 · asignación 240 · **11 segmentos en 3 bloques**. El caso
+ * típico del plan del coach — y el que enseña el hueco del método.
+ *
+ * Copiado fila a fila de `template_segments`. Los cuatro del bloque «Fuerza»
+ * son literales: `Sled Push`, `Sled drag (backwards)` y `Run` llegan con
+ * `{"scheme":"sets","modality":…}` y NADA más, y el `Reverse Lunge` trae
+ * cuatro series con 30 kg pero **sin repeticiones**. Así está en producción.
+ */
 export const CIRCUITO_PIERNA: SesionReal = {
   procedencia: 'plantilla 442 · asignación 240 · atleta 67',
   titulo: 'Fuerza · circuito de pierna',
@@ -152,21 +171,25 @@ export const CIRCUITO_PIERNA: SesionReal = {
       items: [
         { nombre: 'BikeErg', dosis: '5:00', objetivo: 'RPE 3', modalidad: 'bike' },
         { nombre: 'Leg Swings', dosis: '10 reps', series: 2, modalidad: 'mobility' },
+        { nombre: 'Thoracic Rotation', dosis: '10 reps', series: 2, modalidad: 'mobility' },
         { nombre: 'Air Squat', dosis: '15 reps', objetivo: 'peso corporal', series: 2, modalidad: 'functional' },
       ],
     },
     {
-      titulo: 'Principal',
+      titulo: 'Fuerza',
       items: [
-        { nombre: 'Back Squat', dosis: '5 reps', objetivo: '100 kg', descansoS: 90, series: 4, modalidad: 'strength' },
-        { nombre: 'Sandbag Lunges', dosis: '100 m', objetivo: '20 kg', modalidad: 'functional' },
-        { nombre: 'Wall Balls', dosis: '100 reps', objetivo: '6 kg', modalidad: 'functional' },
+        // Cuatro series y un peso, pero el coach no escribió las repeticiones.
+        { nombre: 'Reverse Lunge', dosis: null, objetivo: '30 kg', series: 4, modalidad: 'strength' },
+        { nombre: 'Sled Push', dosis: null, modalidad: 'functional' },
+        { nombre: 'Sled drag (backwards)', dosis: null, modalidad: 'strength' },
+        { nombre: 'Run', dosis: null, modalidad: 'run' },
       ],
     },
     {
       titulo: 'Vuelta a la calma',
       estructural: true,
       items: [
+        { nombre: 'BikeErg', dosis: '5:00', objetivo: 'RPE 2', modalidad: 'bike' },
         { nombre: 'Foam roll lower body', dosis: '5:00', modalidad: 'mobility' },
         { nombre: 'Breathing Work', dosis: '3:00', modalidad: 'mobility' },
       ],
