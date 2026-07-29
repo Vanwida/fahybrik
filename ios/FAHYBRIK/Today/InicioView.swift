@@ -741,14 +741,14 @@ struct InicioView: View {
                 text: sleepChipText(b),
                 active: b?.hasSleep == true
             )
-            SignalChip(icon: "heart.fill", text: "FC reposo", active: b?.hasRestingHR == true)
+            SignalChip(icon: "heart.fill", text: Vocab.fcReposo, active: b?.hasRestingHR == true)
         }
     }
 
     /// "7.5 h" when we have the real sleep hours, else just the label.
     private func sleepChipText(_ b: ReadinessBreakdown?) -> String {
         if let h = b?.sleepHours, h > 0 {
-            let v = h == h.rounded() ? String(Int(h)) : String(format: "%.1f", h)
+            let v = Formato.esDecimal(h)
             return "\(v) h"
         }
         return "Sueño"

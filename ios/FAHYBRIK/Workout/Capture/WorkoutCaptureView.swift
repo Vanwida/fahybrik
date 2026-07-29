@@ -407,7 +407,7 @@ private struct ReviewBody: View {
                     }
                     CaptureFieldCard(label: "Ritmo medio", unit: model.paceUnitLabel, field: $model.avgPace, kind: .time)
                     if hasAny(model.avgHr) {
-                        CaptureFieldCard(label: "FC media", unit: "ppm", field: $model.avgHr, kind: .int)
+                        CaptureFieldCard(label: Vocab.fcMedia, unit: Vocab.ppm, field: $model.avgHr, kind: .int)
                     }
                     if hasAny(model.avgPower) {
                         CaptureFieldCard(label: "Potencia media", unit: "W", field: $model.avgPower, kind: .decimal)
@@ -598,7 +598,7 @@ private struct CaptureFieldCard: View {
         case .time: return Formato.clock(v)
         case .int:  return "\(Int(v.rounded()))"
         case .decimal:
-            return v == v.rounded() ? "\(Int(v))" : String(format: "%.1f", v)
+            return Formato.esDecimal(v)
         }
     }
 

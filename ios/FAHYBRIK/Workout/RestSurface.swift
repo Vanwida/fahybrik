@@ -119,7 +119,7 @@ struct RestSurface: View {
                 Text("\(hr.bpm)")
                     .font(.system(size: 34, weight: .heavy, design: .monospaced).monospacedDigit())
                     .foregroundStyle(session.liveZone?.color ?? Theme.Color.foreground)
-                Text("ppm")
+                Text(Vocab.ppm)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
             }

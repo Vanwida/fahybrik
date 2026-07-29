@@ -900,6 +900,6 @@ struct PreWorkoutBriefView: View {
     // (an item with no structured prescription that still carries a stored load).
     private func formatKg(_ kg: Double) -> String {
         if kg.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(kg)) kg" }
-        return String(format: "%.1f kg", kg)
+        return Formato.kg(kg)
     }
 }

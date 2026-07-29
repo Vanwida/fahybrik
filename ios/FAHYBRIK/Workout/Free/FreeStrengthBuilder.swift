@@ -602,6 +602,6 @@ private struct FreeStrengthCard: View {
     }
 
     private func kgString(_ v: Double) -> String {
-        v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+        Formato.esDecimal(v)
     }
 }

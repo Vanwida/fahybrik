@@ -495,7 +495,7 @@ final class FreeWorkoutDraft {
         case .distance:
             if distanceMeters >= 1000 {
                 let km = Double(distanceMeters) / 1000
-                return km.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(km))k" : String(format: "%.1fk", km)
+                return "\(Formato.esDecimal(km))k"
             }
             return "\(distanceMeters)m"
         case .time:     return Formato.clock(workSeconds, subMinuto: .segundos)

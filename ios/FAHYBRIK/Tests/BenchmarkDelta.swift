@@ -25,7 +25,7 @@ enum BenchmarkDelta {
         switch unit {
         case "seconds":  return timeLabel(Int(value.rounded()))
         case "kg":       return "\(trimmed(value)) kg"
-        case "bpm":      return "\(Int(value.rounded())) bpm"
+        case "bpm":      return "\(Int(value.rounded())) \(Vocab.ppm)"
         case "meters":   return "\(Int(value.rounded())) m"
         case "reps":     return "\(Int(value.rounded())) reps"
         case "calories": return "\(Int(value.rounded())) cal"
@@ -44,7 +44,7 @@ enum BenchmarkDelta {
             let s = Int(mag.rounded())
             return s < 60 ? "\(sign)\(s) s" : "\(sign)\(Formato.ritmoCifras(Double(s)))"
         case "kg":       return "\(sign)\(trimmed(mag)) kg"
-        case "bpm":      return "\(sign)\(Int(mag.rounded())) bpm"
+        case "bpm":      return "\(sign)\(Int(mag.rounded())) \(Vocab.ppm)"
         case "meters":   return "\(sign)\(Int(mag.rounded())) m"
         case "reps":     return "\(sign)\(Int(mag.rounded())) reps"
         case "calories": return "\(sign)\(Int(mag.rounded())) cal"
@@ -64,6 +64,6 @@ enum BenchmarkDelta {
         let rounded = (v * 10).rounded() / 10
         return rounded == rounded.rounded()
             ? String(Int(rounded))
-            : String(format: "%.1f", rounded)
+            : Formato.esDecimal(rounded)
     }
 }

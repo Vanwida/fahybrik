@@ -161,7 +161,7 @@ struct OutdoorRunHUDView: View {
                         .font(Theme.Typography.readoutHero)
                         .foregroundStyle(status == .unknown ? Theme.Color.foreground : status.color)
                         .lineLimit(1).minimumScaleFactor(0.5)
-                    Text("/km").font(Theme.Typography.readoutLabel).foregroundStyle(Theme.Color.muted)
+                    Text(Formato.UnidadRitmo.porKm.rawValue).font(Theme.Typography.readoutLabel).foregroundStyle(Theme.Color.muted)
                 }
                 if let objetivo = model.runTarget.objetivoLabel {
                     HStack(spacing: 8) {
@@ -205,7 +205,7 @@ struct OutdoorRunHUDView: View {
             ExpertCell(label: "Tiempo", value: Formato.clock(model.legElapsedEffective, anchoFijo: true), unit: "")
             ExpertCell(label: "Pulso",
                        value: model.currentBpm.map { "\($0)" } ?? "—",
-                       unit: "bpm",
+                       unit: Vocab.ppm,
                        color: model.liveZone?.color ?? Theme.Color.foreground)
         }
     }
@@ -237,7 +237,7 @@ struct OutdoorRunHUDView: View {
         let parts: [String] = {
             var p: [String] = []
             if let inc = model.prescribedInclinePct, inc > 0 {
-                p.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+                p.append("Inclinación \(Formato.esDecimal(inc))%")
             }
             if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) \(Vocab.cadencia)") }
             return p

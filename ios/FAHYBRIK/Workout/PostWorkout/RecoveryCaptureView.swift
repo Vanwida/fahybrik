@@ -107,7 +107,7 @@ struct RecoveryCaptureView: View {
             return "Consolidando la marca de 60 segundos…"
         }
         if let drop = session.hrRecovery?.hrr60 {
-            return "Tu pulso ha bajado \(drop) bpm en el primer minuto. Registrado."
+            return "Tu pulso ha bajado \(drop) \(Vocab.ppm) en el primer minuto. Registrado."
         }
         return "Sin señal de pulso suficiente — esta vez la recuperación se omite."
     }
@@ -172,7 +172,7 @@ struct RecoveryCaptureView: View {
                         .font(Theme.Typography.readoutM)
                         .foregroundStyle(Theme.Color.foreground)
                         .contentTransition(.numericText())
-                    Text("bpm")
+                    Text(Vocab.ppm)
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundStyle(Theme.Color.muted)
                 }

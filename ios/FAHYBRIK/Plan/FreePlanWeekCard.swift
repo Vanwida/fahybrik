@@ -189,7 +189,7 @@ enum FreePlanWeekCopy {
 
     /// "105 kg", sin decimal cuando es redondo.
     private static func weight(_ kg: Double) -> String {
-        kg == kg.rounded() ? "\(Int(kg)) kg" : String(format: "%.1f kg", kg)
+        Formato.kg(kg)
     }
 
     private static func stationName(_ station: String) -> String {

@@ -805,8 +805,8 @@ struct ExecutedWorkoutView: View {
     /// array means the block isn't drawn at all — no grid of dashes.
     private var effortMetrics: [(label: String, value: String, unit: String)] {
         var out: [(String, String, String)] = []
-        if let hr = avgHrBpm { out.append(("FC media", "\(hr)", "ppm")) }
-        if let hr = maxHrBpm { out.append(("FC máx", "\(hr)", "ppm")) }
+        if let hr = avgHrBpm { out.append((Vocab.fcMedia, "\(hr)", Vocab.ppm)) }
+        if let hr = maxHrBpm { out.append((Vocab.fcMax, "\(hr)", Vocab.ppm)) }
         if let p = avgPowerW { out.append(("Potencia", "\(Int(p.rounded()))", "W")) }
         if let s = avgStrokeRate { out.append(("Ritmo de palada", "\(Int(s.rounded()))", "s/m")) }
         if let c = totalCalories { out.append(("Calorías", "\(Int(c.rounded()))", "kcal")) }
@@ -1022,7 +1022,7 @@ struct ExecutedWorkoutView: View {
         // Average incline / cadence over the segment (#62). Shown only when the
         // source (treadmill / wearable) actually reported them — never a fake 0.
         if let inc = a.inclinePct, inc > 0 {
-            t.append(inc == inc.rounded() ? "\(Int(inc))% incl." : String(format: "%.1f%% incl.", inc))
+            t.append("\(Formato.esDecimal(inc))% incl.")
         }
         if let cad = a.runCadenceSpm, cad > 0 {
             t.append("cad. \(cad)")

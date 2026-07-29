@@ -39,7 +39,7 @@ struct ContinuousLiveView: View {
                     if let dist = session.liveRunDistanceMeters {
                         MetricTile(label: "Dist", value: distanceValue(dist), unit: dist >= 1000 ? "km" : "m")
                     }
-                    MetricTile(label: "FC", value: session.liveHRBpm.map(String.init) ?? "—")
+                    MetricTile(label: Vocab.fc, value: session.liveHRBpm.map(String.init) ?? "—")
                 }
             }
         } bottom: {
@@ -116,7 +116,7 @@ struct ContinuousLiveView: View {
     }
 
     private func distanceValue(_ meters: Double) -> String {
-        meters >= 1000 ? String(format: "%.2f", meters / 1000) : String(Int(meters))
+        meters >= 1000 ? Formato.esDecimal(meters / 1000, decimals: 2, siempreDecimales: true) : String(Int(meters))
     }
 
     private var statusText: String {

@@ -16,7 +16,7 @@ struct SummaryView: View {
                 header
                 HStack(spacing: 7) {
                     MetricTile(label: leftTileLabel, value: leftTileValue)
-                    MetricTile(label: "FC med", value: avgHR.map(String.init) ?? "—")
+                    MetricTile(label: Vocab.fcMedia, value: avgHR.map(String.init) ?? "—")
                 }
                 // #23 — dobles: badge + the share decision. The toggle appears ONLY
                 // for a shareable (shared) dobles session; a self_only/individual

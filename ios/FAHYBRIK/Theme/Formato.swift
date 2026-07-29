@@ -22,8 +22,14 @@ enum Formato {
     /// «42,4» · «5» — coma decimal, y sin decimal cuando el número es redondo.
     /// `String(format:"%.1f")` queda PROHIBIDO en texto de cara al atleta: escribe
     /// punto y delata que el número no pasó por aquí.
-    static func esDecimal(_ value: Double, decimals: Int = 1) -> String {
-        if value.rounded() == value { return String(Int(value.rounded())) }
+    ///
+    /// - `siempreDecimales`: mantiene el decimal aunque el número sea redondo
+    ///   («12,0»). Solo para lecturas que CAMBIAN en vivo y en pasos de 0,1 — la
+    ///   velocidad de la cinta —, donde perder la cifra hace saltar el ancho.
+    static func esDecimal(_ value: Double,
+                          decimals: Int = 1,
+                          siempreDecimales: Bool = false) -> String {
+        if !siempreDecimales, value.rounded() == value { return String(Int(value.rounded())) }
         return String(format: "%.\(decimals)f", value)
             .replacingOccurrences(of: ".", with: ",")
     }

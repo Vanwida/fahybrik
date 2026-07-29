@@ -960,8 +960,8 @@ struct PostWorkoutSummaryView: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-                IntRow(label: "FC media", unit: "ppm", value: $manualAvgHR)
-                IntRow(label: "FC máx", unit: "ppm", value: $manualMaxHR)
+                IntRow(label: Vocab.fcMedia, unit: Vocab.ppm, value: $manualAvgHR)
+                IntRow(label: Vocab.fcMax, unit: Vocab.ppm, value: $manualMaxHR)
             }
         }
     }

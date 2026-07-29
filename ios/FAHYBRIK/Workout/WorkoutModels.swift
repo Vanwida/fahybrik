@@ -470,7 +470,7 @@ extension WorkoutSegment {
     /// Effort cue ("RPE 3"), or nil when no RPE was prescribed.
     var effortGuidance: String? {
         guard let r = targetRpe, r > 0 else { return nil }
-        let s = r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)
+        let s = Formato.esDecimal(r)
         return "RPE \(s)"
     }
 
@@ -503,7 +503,7 @@ extension WorkoutSegment {
         else if let m = targetDistanceMeters, let s = Formato.distancia(m) { parts.append(s) }
         else if let d = durationGuidance { parts.append(d) }
         if let kg = loadKg, kg > 0 {
-            parts.append(kg.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(kg)) kg" : String(format: "%.1f kg", kg))
+            parts.append(Formato.kg(kg))
         }
         if let p = targetPaceSecondsPerKm, p > 0 {
             parts.append(kind.isErg

@@ -155,6 +155,6 @@ enum DoblesLiveFormat {
     /// RPE trimmed to a clean label ("8" / "7.5"), or nil when absent.
     static func rpe(_ value: Double?) -> String? {
         guard let v = value else { return nil }
-        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        return Formato.esDecimal(v)
     }
 }

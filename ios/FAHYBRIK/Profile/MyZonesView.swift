@@ -178,7 +178,7 @@ struct MyZonesView: View {
                                     .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
                                     .foregroundStyle(Theme.Color.foreground)
                                 Spacer(minLength: 8)
-                                Text("ppm")
+                                Text(Vocab.ppm)
                                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(Theme.Color.muted)
                             }

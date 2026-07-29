@@ -246,7 +246,7 @@ struct TreadmillHUDView: View {
             VStack(spacing: 8) {
                 if model.canControlSpeed {
                     stepperCard(label: "Velocidad objetivo",
-                                value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
+                                value: Formato.esDecimal(model.targetSpeedKmh, siempreDecimales: true), unit: "km/h",
                                 down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                 }
                 if model.canControlIncline {
@@ -284,7 +284,7 @@ struct TreadmillHUDView: View {
             ExpertCell(label: "Metros", value: distString(model.legDistanceM), unit: "")
             ExpertCell(label: "Tiempo", value: Formato.clock(Int(model.legElapsedEffective)), unit: "")
             ExpertCell(label: "Pulso",
-                       value: model.currentBpm.map { "\($0)" } ?? "—", unit: "bpm",
+                       value: model.currentBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm,
                        color: model.liveZone?.color ?? Theme.Color.foreground)
         }
     }
@@ -318,7 +318,7 @@ struct TreadmillHUDView: View {
                 HStack(spacing: 8) {
                     if model.canControlSpeed {
                         stepperCard(label: "Velocidad objetivo",
-                                    value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
+                                    value: Formato.esDecimal(model.targetSpeedKmh, siempreDecimales: true), unit: "km/h",
                                     down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                     }
                     if model.canControlIncline {
@@ -404,7 +404,7 @@ struct TreadmillHUDView: View {
         let parts: [String] = {
             var p: [String] = []
             if let inc = model.prescribedInclinePct, inc > 0 {
-                p.append(inc == inc.rounded() ? "inclinación \(Int(inc)) %" : String(format: "inclinación %.1f %%", inc))
+                p.append("inclinación \(Formato.esDecimal(inc)) %")
             }
             if let cad = model.prescribedCadenceSpm { p.append("cadencia \(cad) \(Vocab.cadencia)") }
             return p
@@ -543,7 +543,7 @@ struct TreadmillHUDView: View {
     private var beltReadingLine: String? {
         var parts: [String] = []
         if let kmh = model.displaySpeedKmh, kmh > 0 {
-            parts.append(String(format: "%.1f km/h en la cinta", kmh))
+            parts.append("\(Formato.esDecimal(kmh)) km/h en la cinta")
         }
         if let incline = model.liveInclineText { parts.append(incline) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -555,7 +555,7 @@ struct TreadmillHUDView: View {
             ExpertCell(
                 label: "Pulso",
                 value: model.currentBpm.map { "\($0)" } ?? "—",
-                unit: "bpm",
+                unit: Vocab.ppm,
                 color: model.liveZone?.color ?? Theme.Color.foreground
             )
             if let zone = model.liveZone {
@@ -820,9 +820,9 @@ struct TreadmillHUDView: View {
     private var speedString: String {
         // The RESOLVED belt speed (odometer-derived when the machine freezes instantaneous
         // speed at 0), so the tile shows the real pace he's running, never a stuck 0.0.
-        model.displaySpeedKmh.map { String(format: "%.1f", $0) } ?? "—"
+        model.displaySpeedKmh.map { Formato.esDecimal($0, siempreDecimales: true) } ?? "—"
     }
     private func distString(_ m: Double) -> String {
-        m >= 1000 ? String(format: "%.2f km", m / 1000) : "\(Int(m.rounded())) m"
+        Formato.distanciaCubierta(m) ?? "0 m"
     }
 }

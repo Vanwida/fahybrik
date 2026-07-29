@@ -89,7 +89,7 @@ struct RegisterRaceSheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Carrera · \(String(format: "%.2f", candidate.distanceM / 1000)) km")
+                                Text("Carrera · \(Formato.distanciaCubierta(candidate.distanceM) ?? "—")")
                                     .font(Theme.Typography.bodyEmph)
                                     .foregroundStyle(Theme.Color.foreground)
                                 Text(candidateSubtitle(candidate))

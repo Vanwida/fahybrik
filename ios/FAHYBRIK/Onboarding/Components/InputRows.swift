@@ -59,7 +59,7 @@ struct NumberRow: View {
 
     private func formatted(_ v: Double) -> String {
         if allowsDecimal && v.truncatingRemainder(dividingBy: 1) != 0 {
-            return String(format: "%.1f", v)
+            return Formato.esDecimal(v)
         }
         return String(Int(v))
     }

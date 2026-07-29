@@ -664,7 +664,7 @@ private struct Contributor: Identifiable {
     /// "6,6 h" (Spanish decimal comma, one place) / "8 h" for a whole number.
     private static func esHours(_ h: Double) -> String {
         if h == h.rounded() { return "\(Int(h)) h" }
-        return String(format: "%.1f h", h).replacingOccurrences(of: ".", with: ",")
+        return "\(Formato.esDecimal(h)) h"
     }
 
     private static func moodLabel(_ subScore: Double?) -> String {

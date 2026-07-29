@@ -524,7 +524,7 @@ struct KgWheel: View {
     /// "82,5 kg" / "80 kg" — coma decimal y sin ,0 de relleno.
     static func kgLabel(_ v: Double) -> String {
         let whole = v.truncatingRemainder(dividingBy: 1) == 0
-        let num = whole ? String(Int(v)) : String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",")
+        let num = whole ? String(Int(v)) : Formato.esDecimal(v)
         return num + " kg"
     }
 }

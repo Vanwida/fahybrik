@@ -56,7 +56,7 @@ enum TestMeasure {
         case .distance: return "m"
         case .reps:     return "reps"
         case .calories: return "cal"
-        case .hrr:      return "bpm"
+        case .hrr:      return Vocab.ppm
         case .time, .other: return ""
         }
     }
@@ -340,7 +340,7 @@ struct TestResultCaptureSheet: View {
                 Text("−\(Int(value))")
                     .font(Theme.Typography.readoutL)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("bpm")
+                Text(Vocab.ppm)
                     .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
             }
@@ -447,6 +447,6 @@ struct TestResultCaptureSheet: View {
         let rounded = (v * 10).rounded() / 10
         return rounded == rounded.rounded()
             ? String(Int(rounded))
-            : String(format: "%.1f", rounded)
+            : Formato.esDecimal(rounded)
     }
 }

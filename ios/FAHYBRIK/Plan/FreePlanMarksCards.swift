@@ -284,6 +284,6 @@ enum FreePlanCopy {
 
     /// Una lectura biométrica tal y como se imprime (decimal solo si lo tiene).
     static func number(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
+        Formato.esDecimal(value)
     }
 }
