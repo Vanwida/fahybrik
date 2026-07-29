@@ -20,7 +20,8 @@ import {
 } from '@/lib/dashboard/v2/planes-model';
 import { loadDayEditorModel } from '@/lib/dashboard/v2/editor-data';
 import { MicrocicloEditor, type MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { Link } from '@/i18n/navigation';
+import { ScreenNotice, screenNoticeActionClass } from '@/components/v2/ScreenState';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,10 +99,19 @@ export default async function V2MicrocicloPage({
   );
 }
 
+// La salida es la Biblioteca, que es de donde se llega aquí: antes esto era un
+// callejón sin salida — el aviso arriba y el resto de la pantalla en blanco.
 function NotFound({ description }: { description: string }) {
   return (
-    <div className="mx-auto w-full max-w-[var(--v2-container)] py-10">
-      <EmptyState icon="error" title="Microciclo no encontrado" description={description} />
-    </div>
+    <ScreenNotice
+      icon="search_off"
+      title="Microciclo no encontrado"
+      description={description}
+      action={
+        <Link href="/biblioteca" className={screenNoticeActionClass}>
+          Volver a la biblioteca
+        </Link>
+      }
+    />
   );
 }

@@ -5,11 +5,13 @@
 
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import NextLink from 'next/link';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getCoachProfile } from '@/lib/coach/profile';
 import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { screenNoticeActionClass } from '@/components/v2/ScreenState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
 import { PushCard } from '@/components/v2/push/PushNotifications';
@@ -37,10 +39,18 @@ export default async function V2AjustesPage({
       <div className="mx-auto flex w-full max-w-2xl flex-col">
         <Header />
         <div className="mt-6">
+          {/* La salida es obligatoria: el texto ya pedía volver a entrar, pero no
+              había por dónde. NextLink y no el Link de i18n, porque /sign-in vive
+              fuera del árbol [locale] (es ruta de Clerk) y no lleva prefijo. */}
           <EmptyState
             icon="settings"
             title="Sesión no disponible"
             description="No hemos podido cargar tu cuenta. Vuelve a iniciar sesión para ver tus ajustes."
+            action={
+              <NextLink href="/sign-in" className={screenNoticeActionClass}>
+                Iniciar sesión
+              </NextLink>
+            }
           />
         </div>
       </div>
