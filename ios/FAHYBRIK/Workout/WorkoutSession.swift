@@ -221,7 +221,6 @@ final class WorkoutSession {
     private var runLegZoneStart: [Int: Double] = [:]   // lapZoneAccumSec snapshot at leg GO
     private var runLegInclineSumStart: Double = 0  // lapInclineSum at leg GO
     private var runLegInclineCountStart: Int = 0   // lapInclineCount at leg GO
-    private var runWorkLegOrdinal: Int = 0         // 0-based index among WORK legs recorded
 
     /// Captured final score for the PRINCIPAL conditioning block, set on its close
     /// and read by the post-workout summary to PRE-FILL the result (the athlete
@@ -1609,7 +1608,6 @@ final class WorkoutSession {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { clearRunStructure(); return }
         runStructureSegmentIndex = currentSegmentIndex
         runLegIndex = 0
-        runWorkLegOrdinal = 0        // #break-2: first WORK leg recorded is ordinal 0
         runCountInRemaining = Self.countInSeconds
         primeRunLeg()
         WorkoutAudio.shared.activate()
@@ -1671,8 +1669,16 @@ final class WorkoutSession {
         // duration / pace / HR) is available HERE at the boundary. Record a WORK leg as
         // its own segment execution so each interval's pace reaches the coach instead
         // of blending into one aggregate lap. Recovery legs advance the cursor only.
+        // Se graba TODO tramo que termina, trabajo Y recuperación. Grabar solo las
+        // series es guardar los números y tirar las unidades: un 5×1000 quedaba con
+        // cinco fuertes y NADA contra lo que compararlos, y el contraste es lo que
+        // define una sesión de series. Sin la recuperación no se puede saber si el
+        // atleta trotó o anduvo, si se la recortó, ni cuánto le bajó el pulso entre
+        // series — y el volumen total de carrera salía corto por todo lo trotado.
+        // El rol viaja en la fila (`leg_role`), así que la analítica distingue una
+        // cosa de la otra sin tener que adivinarlo por el ritmo.
         let finished = legs[runLegIndex]
-        if finished.kind == .work { recordRunLegLap(finished) }
+        recordRunLegLap(finished, at: runLegIndex)
         let next = runLegIndex + 1
         if next >= legs.count {
             WorkoutAudio.shared.playFinish()
@@ -1711,13 +1717,16 @@ final class WorkoutSession {
         }
     }
 
-    // #break-2: record ONE segment execution for a finished WORK leg. All legs share
-    // the run block's `templateSegmentId` (the coach's run-compliance zips the
-    // prescription's work segments to these laps in order); a stable `runLegIndex`
-    // drives a unique wire position. Captures the leg's OWN measured distance /
-    // duration / pace / HR / incline / zone via the baselines snapshotted at its GO —
-    // so a pyramid's 1200/1000/800 land as three honest paces, not one blend.
-    private func recordRunLegLap(_ leg: RunLeg) {
+    // #break-2: graba UNA segment execution por tramo terminado — serie O recuperación.
+    // Todos los tramos comparten el `templateSegmentId` del bloque de carrera; lo que
+    // los distingue en el servidor es `leg_index` (el índice en la lista PLANA de
+    // tramos de la prescripción, el mismo espacio que `flattenSegments`), `leg_role`
+    // (work/recovery) y `leg_phase` (warmup/main/cooldown). Con esos tres, «tramo 3
+    // hecho» casa con «tramo 3 prescrito» sin zipear por orden de llegada.
+    // Captura la distancia / duración / ritmo / FC / pendiente / zona PROPIAS del
+    // tramo desde las bases tomadas en su GO — así una pirámide 1200/1000/800 aterriza
+    // como tres ritmos honestos y no como una media.
+    private func recordRunLegLap(_ leg: RunLeg, at legIndex: Int) {
         guard let seg = currentSegment else { return }
         let now = Date()
         let dur = runLegElapsed   // lapElapsedSeconds − runLegStartElapsed (this leg only)
@@ -1747,8 +1756,6 @@ final class WorkoutSession {
             : nil
         // Source precedence mirrors the aggregate close: real movement data > HR-only.
         let source = beltDelta > 0 ? "treadmill" : (gpsDelta > 0 ? "gps" : (avgHR != nil ? "healthkit" : "manual"))
-        let ordinal = runWorkLegOrdinal
-        runWorkLegOrdinal += 1
         let lap = LapRecord(
             id: UUID(),
             segmentId: seg.id,
@@ -1777,7 +1784,9 @@ final class WorkoutSession {
             rxScaled: nil,
             scaledNote: nil,
             sets: nil,
-            runLegIndex: ordinal,
+            runLegIndex: legIndex,
+            runLegRole: leg.kind.rawValue,
+            runLegPhase: leg.phaseRole.rawValue,
             inclinePct: inclinePct,
             runCadenceSpm: nil
         )

@@ -50,8 +50,11 @@ struct SplitsView: View {
 
     private var rows: [Row] {
         let laps = session.laps
-            .filter { !$0.isStructural }
-            .sorted { $0.position < $1.position }
+            .filter { !$0.isStructural && $0.runLegRole != "recovery" }
+            .sorted { ($0.position, $0.runLegIndex ?? -1) < ($1.position, $1.runLegIndex ?? -1) }
+        // El trote entre series NO compite por «la mejor»: dura menos que cualquier
+        // serie por definición, así que sin este filtro la recuperación más corta se
+        // coronaba como el mejor split de la sesión.
         let best = laps.map(\.durationSeconds).min()
         return laps.map { lap in
             let title = session.plan.segments.first { $0.id == lap.segmentId }?.title ?? ""
@@ -61,6 +64,6 @@ struct SplitsView: View {
 
     /// Whether there's enough to warrant a splits page (≥2 measured laps).
     static func hasSplits(_ session: WorkoutSession) -> Bool {
-        session.laps.filter { !$0.isStructural }.count >= 2
+        session.laps.filter { !$0.isStructural && $0.runLegRole != "recovery" }.count >= 2
     }
 }
