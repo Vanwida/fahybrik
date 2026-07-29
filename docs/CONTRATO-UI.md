@@ -73,6 +73,18 @@ ritmo y dos `esDecimal` `private` en dos pantallas distintas — de ahí el «42
 `WorkoutSession.formatElapsed`, `TreadmillMath.clock`, `DoblesLiveFormat.clock`,
 `DurationLabel.mmss` y `TimeMinSecRow.format` ya no existen: no los busques.
 
+### 2.1 · Y si el formateador que necesitas NO existe
+
+Esta tabla dice qué usar cuando existe, y **no decía nada de cuándo falta**. Ahí cada
+uno improvisa, que es como se generan los duplicados de mañana. La prueba: el 29-jul
+tres agentes que **habían leído este contrato** escribieron la misma dosis de fuerza de
+tres formas distintas el mismo día — `2×10`, `10 reps × 2` y `2×10 reps`.
+
+**La regla: si un concepto de cara al atleta no tiene canónico, creas el canónico** en
+el sitio compartido (`Formato`/`Vocab` en `Theme/`), **lo añades a esta tabla en el mismo
+lote**, y lo dices en el informe. Nunca lo resuelves en línea dentro de tu vista «porque
+es solo esta pantalla»: no hay ninguna que sea solo una.
+
 Lo fija `FAHYBRIKTests/App/FormatoTests.swift`. Si cambias una grafía, salta ahí y no
 en la pantalla de un atleta.
 
@@ -133,6 +145,16 @@ contenido es dato-dependiente y **no la sabes al diseñar**: la misma sección d
 cuatro tarjetas y deja 250 pt muertos con dos. Por eso `llena` reparte cuando falta y scrollea
 cuando sobra, en vez de obligarte a acertar de antemano. Fijar la estrategia a priori es justo lo
 que hace que luego el dato real te desmienta.
+
+**Y el sobrante entra EN LAS FILAS, nunca en una cola debajo.** Cuatro filas de 60 pt en un hueco
+de 460 no «ocupan el alto» por estar en un contenedor que sí: se apilan arriba y dejan 220 pt de
+cola. Que esto haya que escribirlo lo demuestra el 29-jul: **los tres agentes que construyeron los
+arquetipos cometieron en su primera propuesta el mismo hueco que venían a arreglar.**
+
+**Las cuatro estrategias no son excluyentes: se componen.** `previsualiza` y `gobierna` **degradan
+a `centra`** cuando se acaba la verdad que enseñar (un solo ítem sin más datos) o cuando el número
+ya no puede crecer sin dejar de leerse. Una envuelve a la otra; no se elige una y se descarta el
+resto.
 
 **Prohibido en la raíz de una pantalla: `VStack { contenido; Spacer() }`.** Ese `Spacer()` es la
 firma del problema — declara que sobra alto y que nadie decidió qué hacer con él. `Spacer()` solo
