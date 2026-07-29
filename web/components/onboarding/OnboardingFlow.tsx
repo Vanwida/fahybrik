@@ -58,7 +58,14 @@ function applyPatch(base: LeadAnswers, patch: AnswerPatch): LeadAnswers {
   return next;
 }
 
-export function OnboardingFlow({ locale }: { locale: string }) {
+export function OnboardingFlow({
+  locale,
+  coachName = null,
+}: {
+  locale: string;
+  /** Nombre del coach dueño del embudo. Null → la copia prescinde del nombre. */
+  coachName?: string | null;
+}) {
   const [answers, setAnswers] = useState<LeadAnswers>({});
   const [panes, setPanes] = useState<Pane[]>(() => [
     { key: 0, stepId: INTRO_ID, dir: 'fwd', phase: 'enter' },
@@ -200,7 +207,7 @@ export function OnboardingFlow({ locale }: { locale: string }) {
   }
 
   const renderPane = (stepId: string) => {
-    if (stepId === INTRO_ID) return <IntroScreen cb={cb} />;
+    if (stepId === INTRO_ID) return <IntroScreen cb={cb} coachName={coachName} />;
     if (stepId === FINAL_ID)
       return (
         <FinalScreen
@@ -209,6 +216,7 @@ export function OnboardingFlow({ locale }: { locale: string }) {
           bookingToken={bookingToken}
           waitlisted={waitlisted}
           waitlistPosition={waitlistPosition}
+          coachName={coachName}
         />
       );
     const q = questionById(stepId);

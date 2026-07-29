@@ -45,6 +45,9 @@ interface CandidateRow {
   lead_nombre: string | null;
   // #40: video → Meet reminder; presencial → address reminder. Reviews are always 'video'.
   modality: CitaModality;
+  // El coach que atiende la cita: el del lead (leads.coach_id) o el del atleta
+  // (athletes.coach_id) según por dónde entró. Null = sin dueño o sin nombre puesto.
+  coach_name: string | null;
 }
 
 export interface SendDueCitaRemindersResult {
@@ -71,6 +74,7 @@ export interface SendDueCitaRemindersParams {
     lead_nombre: string | null;
     modality: CitaModality;
     location?: { name: string | null; address: string | null } | null;
+    coach_name?: string | null;
   }) => Promise<CitaEmailResult>;
 }
 
@@ -87,11 +91,14 @@ export async function sendDueCitaReminders(
   const candidates = await client<CandidateRow[]>`
     select a.id::text as id, a.requested_start, a.meet_link, a.modality::text as modality,
            coalesce(l.email, u.email)      as lead_email,
-           coalesce(l.nombre, ath.full_name) as lead_nombre
+           coalesce(l.nombre, ath.full_name) as lead_nombre,
+           coalesce(lc.full_name, ac.full_name) as coach_name
     from appointments a
     left join leads l    on l.id = a.lead_id
     left join athletes ath on ath.id = a.athlete_id
     left join users u    on u.id = ath.user_id
+    left join coaches lc on lc.id = l.coach_id
+    left join coaches ac on ac.id = ath.coach_id
     where a.status = ${REMINDABLE_STATUS}::appointment_status
       and a.reminder_sent_at is null
       and coalesce(l.email, u.email) is not null
@@ -131,6 +138,7 @@ export async function sendDueCitaReminders(
         lead_nombre: c.lead_nombre,
         modality: c.modality,
         location: c.modality === 'presencial' ? studioLocation : null,
+        coach_name: c.coach_name,
       });
     } catch {
       // A thrown error (e.g. Zod on a malformed row) is treated as a failed send.

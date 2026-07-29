@@ -135,7 +135,8 @@ export async function setReviewCadence(args: {
 // ── proposeReview (coach) ───────────────────────────────────────────────────────
 /**
  * El coach propone una revisión: inserta una notificación al usuario del atleta
- * ("Pablo te propone una revisión — reserva tu hueco"). NO crea cita (la reserva el
+ * («<coach> te propone una revisión — reserva tu hueco»; el nombre lo resuelve iOS con
+ * `CoachRef`). NO crea cita (la reserva el
  * atleta). Idempotente-ish: no re-propone si ya hay una revisión próxima reservada o una
  * propuesta reciente sin reservar. Reutiliza notifications (type='system' + kind en
  * payload_json), el patrón partner_left/subscription_cancelled.

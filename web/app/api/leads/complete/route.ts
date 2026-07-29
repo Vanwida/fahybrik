@@ -2,16 +2,18 @@
 //
 // Fired at the end of the onboarding (after teléfono + RGPD consent). Overwrites the
 // lead row with the full answers, sets status='nuevo', stamps consent + audit, and
-// fires two emails: internal notification (Pablo/Gerard) + confirmation to the lead.
+// fires two emails: internal notification (to the coach team) + confirmation to the
+// lead, que nombra al coach de ESE lead.
 // Emails are guarded (skip if Resend unconfigured) and never block the response.
 
 import { leadSubmitInput } from '@fahybrid/shared/schema';
+import { sql } from '@/lib/db';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { upsertLeadComplete } from '@/lib/leads/store';
 import { sendLeadConfirmation, sendLeadNotification } from '@/lib/leads/email';
 import { getCapacityState, type CapacityState } from '@/lib/coach/capacity';
-import { funnelCoachId } from '@/lib/leads/funnel-coach';
+import { coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
 import { countWaitlist, joinWaitlist } from '@/lib/leads/waitlist';
 import { sendWaitlistJoinedEmail } from '@/lib/leads/waitlist-email';
 
@@ -55,6 +57,11 @@ export async function POST(req: Request) {
     const funnelCoach = await funnelCoachId();
     capacity = funnelCoach !== null ? await getCapacityState(funnelCoach) : null;
   }
+
+  // El coach de ESTE lead, ya grabado en la fila por el upsert (migración 0147). Se lee de
+  // la fila y no del entorno: si mañana un lead entra por otro enlace, el correo lo nombra
+  // a él sin tocar esto.
+  const coachName = await coachNameForLead(sql, BigInt(res.id));
   if (capacity?.full) {
     const jw = await joinWaitlist(res.id); // idempotent; returns the lead's contact for the email
     // Waitlist-joined email instead of the booking confirmation; internal notify stays.
@@ -65,6 +72,7 @@ export async function POST(req: Request) {
             email: jw.email,
             nombre: jw.nombre,
             unsubscribe_token: jw.unsubscribe_token,
+            coach_name: coachName,
           })
         : Promise.resolve(),
     ]);
@@ -80,7 +88,10 @@ export async function POST(req: Request) {
   // Not full (or an already-worked lead): unchanged behaviour. Fire both emails; guarded
   // senders return a result rather than throwing. The confirmation carries the booking link
   // (/es/cita/[token]) so a lead who didn't pick a slot on the final screen can still book.
-  await Promise.allSettled([sendLeadNotification(input), sendLeadConfirmation(input, res.token)]);
+  await Promise.allSettled([
+    sendLeadNotification(input),
+    sendLeadConfirmation(input, res.token, coachName),
+  ]);
 
   // Return the token so the onboarding final screen can offer the slot picker inline.
   return jsonOk(

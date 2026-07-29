@@ -17,6 +17,8 @@ import {
 } from '@/lib/citas/store';
 import { createMeeting } from '@/lib/citas/meeting';
 import { sendBookingInternal, sendAppointmentAccepted } from '@/lib/citas/email';
+import { sql } from '@/lib/db';
+import { coachNameForLead } from '@/lib/leads/funnel-coach';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +88,9 @@ export async function POST(req: Request) {
       lead_token: token,
       modality,
       location: studio,
+      // Ruta pública (sin sesión): el coach sale del lead, que lo lleva grabado desde su
+      // captura (`leads.coach_id`, migración 0147).
+      coach_name: await coachNameForLead(sql, BigInt(res.lead.id)),
     };
     // Confirmation email (the accepted one: fecha + .ics + Meet/address) + internal notify. Guarded.
     await Promise.allSettled([sendAppointmentAccepted(appt), sendBookingInternal(appt)]);

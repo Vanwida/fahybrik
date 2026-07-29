@@ -1,12 +1,14 @@
 // GET /api/citas/context/[token] — public booking-page data for a lead's opaque token:
-// { lead:{nombre}, active_appointment | null, slots }. No auth (token IS the credential);
-// rate-limited. Never exposes the numeric id.
+// { nombre, coach_name, active_appointment | null, slots }. No auth (token IS the
+// credential); rate-limited. Never exposes the numeric id.
 
 import type { NextResponse } from 'next/server';
 import { citaModality } from '@fahybrid/shared/schema';
+import { sql } from '@/lib/db';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { CitasError, getBookingContext } from '@/lib/citas/store';
+import { coachNameForLead } from '@/lib/leads/funnel-coach';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,8 +35,12 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse> {
     const context = await getBookingContext(token, modality);
     // Only expose the lead's first name publicly (no email/phone/id on this endpoint).
     const first = (context.lead.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+    // El coach de ESTE lead, para que la página de reserva lo nombre en vez de llevar un
+    // nombre propio escrito. Es el mismo nombre que ya ve en los correos.
+    const coach_name = await coachNameForLead(sql, BigInt(context.lead.id));
     return jsonOk({
       nombre: first,
+      coach_name,
       active_appointment: context.active_appointment,
       slots: context.slots,
       waitlisted: context.waitlisted, // #18: UI shows the "en lista de espera" state instead of slots

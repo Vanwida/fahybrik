@@ -1,11 +1,11 @@
 {
-  "$comment": "English (informal you) — SECONDARY locale. Voice: spare, precise, no motivational filler. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, etc. — never translated. Anchor: 'Train at the detail.' / 'The more Pablo knows, the more precise your plan.' / 'Pablo is building your plan.'",
+  "$comment": "English (informal you) — SECONDARY locale. Voice: spare, precise, no motivational filler. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, etc. — never translated. Anchor: 'Train at the detail.' / 'The more your coach knows, the more precise your plan.' / 'Your coach is building your plan.'",
   "brand": {
     "name": "FAHYBRID",
     "wordmark_aria": "FAHYBRID",
     "anchor_tagline": "Train at the detail.",
-    "anchor_pablo_more": "The more Pablo knows, the more precise your plan.",
-    "anchor_pablo_building": "Pablo is building your plan.",
+    "anchor_coach_more": "The more your coach knows, the more precise your plan.",
+    "anchor_coach_building": "Your coach is building your plan.",
     "real_trans_acc": "REAL · TRANS · ACC"
   },
   "common": {
@@ -239,7 +239,7 @@
   },
   "intake": {
     "welcome_title": "Intake",
-    "welcome_subtitle": "The more Pablo knows, the more precise your plan.",
+    "welcome_subtitle": "The more your coach knows, the more precise your plan.",
     "welcome_cta": "Start",
     "macrocycle_title": "Macrocycle objective",
     "level_title": "Level",
@@ -283,13 +283,13 @@
   },
   "library": {
     "title": "Biblioteca",
-    "subtitle": "Los bloques de entrenamiento de Pablo, organizados por grupo metodológico.",
+    "subtitle": "Los bloques de entrenamiento de tu entrenador, organizados por grupo metodológico.",
     "search_placeholder": "Buscar por título o prescripción…",
     "all_groups": "Todos",
     "blocks_count": "{count, plural, one {# bloque} other {# bloques}}",
     "pending_count": "{count, plural, one {# pendiente} other {# pendientes}}",
     "needs_review_badge": "Sin desglosar — pendiente",
-    "needs_review_detail": "Este bloque aún no está desglosado en ejercicios. Pablo lo revisará. Por ahora solo se conserva su prescripción verbatim.",
+    "needs_review_detail": "Este bloque aún no está desglosado en ejercicios. Tu entrenador lo revisará. Por ahora solo se conserva su prescripción verbatim.",
     "empty": "No hay bloques en este grupo.",
     "empty_search": "Ningún bloque coincide con la búsqueda.",
     "exercises_heading": "Ejercicios",
