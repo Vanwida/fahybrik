@@ -430,7 +430,7 @@ function DeleteMicrocicloModal({
             type="button"
             onClick={remove}
             disabled={busy}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#d63a3a)] px-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <MIcon name={busy ? 'progress_activity' : 'delete'} size={16} />
             {busy ? 'Borrando…' : 'Borrar microciclo'}

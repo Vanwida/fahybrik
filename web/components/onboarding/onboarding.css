@@ -384,7 +384,7 @@
 }
 .ob-error {
   margin: 0 0 10px;
-  color: var(--danger, #f23f3f);
+  color: var(--danger);
   font-size: 13px;
   text-align: center;
 }

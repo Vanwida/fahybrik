@@ -441,8 +441,8 @@ function SummaryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-[color:var(--v2-scrim,rgba(0,0,0,0.6))]" />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop,0_20px_60px_rgba(0,0,0,0.4))]">
+      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-[color:var(--v2-scrim)]" />
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-1 flex items-start justify-between gap-3">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Resumen al lead</h2>
           <button type="button" aria-label="Cerrar" onClick={onClose} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]">

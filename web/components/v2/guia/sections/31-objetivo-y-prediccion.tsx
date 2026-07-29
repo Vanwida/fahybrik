@@ -14,7 +14,7 @@ import type { GuiaSection } from '../config';
 type Tier = 'observado' | 'estimado' | 'sin_datos';
 const TIER: Record<Tier, { label: string; fg: string; bg: string }> = {
   observado: { label: 'Observado', fg: 'var(--v2-ok)', bg: 'var(--v2-ok-soft)' },
-  estimado: { label: 'Estimado', fg: 'var(--v2-info, var(--acc))', bg: 'var(--v2-info-soft, var(--sunken))' },
+  estimado: { label: 'Estimado', fg: 'var(--v2-info)', bg: 'var(--v2-info-soft)' },
   sin_datos: { label: 'Sin datos', fg: 'var(--muted)', bg: 'var(--sunken)' },
 };
 

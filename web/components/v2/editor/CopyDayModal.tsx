@@ -202,7 +202,7 @@ export function CopyDayModal({
                 className={cn(
                   'v2-focus group flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border px-3 py-2.5 text-left transition-colors disabled:opacity-50',
                   checked
-                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft,rgba(255,122,26,.08))]'
+                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
                     : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]',
                 )}
               >
@@ -266,7 +266,7 @@ export function CopyDayModal({
               className={cn(
                 'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
                 confirming && conflictCount > 0
-                  ? 'bg-[color:var(--v2-danger,#c0362c)] text-white'
+                  ? 'bg-[color:var(--v2-danger)] text-white'
                   : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
               )}
             >

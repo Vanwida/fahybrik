@@ -237,7 +237,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--hair)',
-              borderRadius: 'var(--v2-r-l, 14px)',
+              borderRadius: 'var(--v2-r-l)',
               padding: '13px 13px 6px',
               marginTop: '6px',
             }}
@@ -310,7 +310,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--hair)',
-              borderRadius: 'var(--v2-r-l, 14px)',
+              borderRadius: 'var(--v2-r-l)',
               padding: '14px 16px',
               textAlign: 'center',
               marginBottom: '10px',

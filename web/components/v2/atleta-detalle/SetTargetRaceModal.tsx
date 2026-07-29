@@ -232,11 +232,11 @@ export function SetTargetRaceModal({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-[color:var(--v2-scrim,rgba(0,0,0,0.6))]"
+        className="absolute inset-0 bg-[color:var(--v2-scrim)]"
       />
 
       {/* Dialog */}
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop,0_20px_60px_rgba(0,0,0,0.4))]">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--v2-border)] p-5">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Carrera objetivo</h2>

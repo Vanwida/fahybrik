@@ -258,7 +258,7 @@ export function NuevoMicrocicloModal({
             </div>
 
             {error ? (
-              <p className="text-[12px] font-medium text-[color:var(--v2-danger,#ef4444)]">{error}</p>
+              <p className="text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
             ) : null}
 
             <div className="mt-1 flex items-center justify-end gap-2">

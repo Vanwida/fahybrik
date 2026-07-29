@@ -231,7 +231,7 @@ function HechoChips({ tokens }: { tokens: string[] }) {
       {tokens.map((tk, i) => (
         <span
           key={i}
-          className="v2-num inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft,rgba(60,170,110,.10))] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-ok)]"
+          className="v2-num inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-ok)]"
         >
           {tk}
         </span>

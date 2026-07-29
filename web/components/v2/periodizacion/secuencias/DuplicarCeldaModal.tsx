@@ -193,7 +193,7 @@ export function DuplicarCeldaModal({
           </div>
 
           {error ? (
-            <p role="alert" className="text-[12px] font-medium text-[color:var(--v2-danger,#ef4444)]">
+            <p role="alert" className="text-[12px] font-medium text-[color:var(--v2-danger)]">
               {error}
             </p>
           ) : null}
