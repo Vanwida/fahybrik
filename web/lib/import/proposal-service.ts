@@ -2,8 +2,8 @@ import 'server-only';
 
 // #28 — PROPOSAL service. The request-shaped wrapper around the tested
 // orchestrator (`buildImportProposal`): it validates the coach's request, checks
-// microcycle ownership, RESOLVES the source (uploaded xlsx / pasted text /
-// Pablo's canonical workbook), and runs the grammar+resolver+LLM pipeline into a
+// microcycle ownership, RESOLVES the source (the xlsx THIS coach uploaded, or
+// pasted text), and runs the grammar+resolver+LLM pipeline into a
 // typed per-day proposal. It SAVES NOTHING — the coach reviews the proposal and
 // only the separate CONFIRM step writes.
 //
