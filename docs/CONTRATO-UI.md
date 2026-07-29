@@ -275,3 +275,37 @@ Es la escala de lanzamiento, no la de hoy. Una tabla que se lee bien con 3 filas
 **29 rutas de API del coach no las llama nadie** (verificado: fuera de su propio `route.ts` sólo aparecen en la caché de `.next`). Entre ellas, la revisión semanal entera, la tabla de cohorte, el briefing, la bandeja de triaje con acciones en masa, los ajustes masivos de plan con deshacer, y **la ingesta del método por RAG** — que es el titular del proyecto. Hay incluso un `columns.ts` huérfano que define etiquetas y anchos de una tabla que nunca se construyó.
 
 **Regla:** un endpoint sin superficie es trabajo que el coach no recibe. Si se construye un endpoint, se construye lo que lo enseña **en el mismo lote**, o se declara explícitamente como pendiente en `FOCUS.md`. Ver la memoria «círculo cerrado, nada huérfano».
+
+---
+
+## 10 · El lenguaje del entreno en vivo
+
+La tanda del 29-jul (`/es/design/entreno`) acertó la **estructura**: un sujeto por formato, según quién gobierna la transición. Lo que le faltaba era **lenguaje**: siete pantallas correctas que no se reconocían como la misma app. Esto lo fija, y aplica a las diez vistas en vivo, al reloj y a lo que se construya después en Swift.
+
+### 10.1 · La zona tiñe el lienzo. Siempre.
+
+**Es la idea que da identidad, y hoy solo la usa el rodaje.** El fondo de una vista en vivo **es** tu zona de pulso: un tinte ambiente, oscuro y saturado apenas, que cambia contigo. Aplica a **todas** las vistas donde haya FC — correr, ergo, fuerza, EMOM, For Time, AMRAP, dobles y la muñeca.
+
+- Sin ancla de FC **no hay tinte**: fondo neutro. El color es un dato, y lo que no se sabe no se pinta (§7).
+- El tinte es **ambiente, no decoración**: nunca compite con el sujeto ni tiñe el texto.
+- La escala de zona es la que ya existe (`--v2-z*`), no una nueva. Y el **naranja de marca no es un color de zona** (§9.1).
+
+### 10.2 · Un solo numeral, y es el del cero rachado
+
+Los números grandes de una vista en vivo se leen a tres metros, sudando y en movimiento. Van todos con **la misma cara**: la monoespaciada de cifra rachada que ya usan el EMOM y la fuerza. Nada de tres tratamientos distintos para el 139 del pulso, el 0:25 del reloj y el 5×100 de la serie. **Un numeral para toda la app.**
+
+### 10.3 · El sujeto cae siempre a la misma altura
+
+En una familia de vistas que se turnan durante el mismo entreno, **el sujeto no puede bailar**: si en una está centrado y en la siguiente 200 pt más abajo, el atleta reencuadra cada vez que cambia el formato. Se fija **una banda del sujeto** y todas las vistas la respetan, sea cual sea el dato que caiga dentro.
+
+### 10.4 · El sujeto vive sobre el fondo, no dentro de una tarjeta
+
+Un borde y un padding convierten el protagonista en un widget. El número manda **directo sobre el lienzo** (como el rodaje), y las tarjetas quedan para lo secundario. Un `CardSurface` alrededor del sujeto es señal de que la jerarquía se resolvió con una caja en vez de con tamaño.
+
+### 10.5 · La acción no pesa como el sujeto
+
+«Terminar rodaje» o «Serie hecha» son la **acción**, y hoy pesan igual que el dato que gobierna la pantalla. Se anclan abajo y se alcanzan con una mano (§6.2), pero **no compiten en peso**: el sujeto es lo que miras, la acción es lo que tocas.
+
+### 10.6 · Lo que de verdad haces no va en gris
+
+Corolario de §6.2: en un EMOM el sujeto es el minuto drenando, pero **el trabajo es «10 de 12 cal»** — y hoy está más pequeño que el reloj y metido en un panel gris aparte. Lo secundario se pliega (regla 4), pero **el trabajo no es secundario**: es lo segundo más importante de la pantalla y tiene que leerse como tal.
