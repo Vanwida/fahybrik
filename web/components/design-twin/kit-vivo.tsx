@@ -158,6 +158,32 @@ const ESCALA: Record<'sujeto' | 'segundo', Record<'portrait' | 'landscape', stri
 };
 
 /**
+ * EL PRESUPUESTO DE ANCHO — la escala de arriba solo mira el ALTO, y con eso no
+ * basta.
+ *
+ * `139`, `0:21` y `1:54` caben de sobra a 125 pt; `5 × 100` son siete avances
+ * de la mono (0,6 em cada uno) = 525 pt sobre un lienzo de 378, y se sale del
+ * teléfono. `vivo-erg` lo tenía resuelto con un `maxPx` por sujeto y esta pieza
+ * lo dejó fuera al generalizarla — con el resultado de que la fuerza tuvo que
+ * partir su prescripción en dos peldaños y «5 × 100» dejó de leerse como UNA
+ * cosa, que es justo lo que el atleta tiene delante.
+ *
+ * Así que el tamaño es el MENOR de los dos techos: el del alto y el que deja el
+ * ancho. Solo muerde cuando la cifra es larga — un sujeto de 3 o 4 glifos no se
+ * entera de que esto existe.
+ *
+ * 94cqw y no 100: el numeral respira contra los bordes del lienzo.
+ */
+const AVANCE_MONO = 0.6;
+
+function techoDeAncho(texto: ReactNode): string | null {
+  if (typeof texto !== 'string' && typeof texto !== 'number') return null;
+  const glifos = String(texto).length;
+  if (glifos <= 4) return null;
+  return `calc(94cqw / ${(AVANCE_MONO * glifos).toFixed(2)})`;
+}
+
+/**
  * TODO número grande de una vista en vivo pasa por aquí.
  *
  * Mono recto 800 tabular — la cara de instrumento con el cero rachado, la que
@@ -183,14 +209,17 @@ export function Numeral({
   unidad?: string;
   style?: CSSProperties;
 }) {
+  const alto = ESCALA[escala][horizontal ? 'landscape' : 'portrait'];
+  const ancho = techoDeAncho(children);
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center', ...style }}>
       <span
         className="t-readout-hero"
         style={{
-          fontSize: ESCALA[escala][horizontal ? 'landscape' : 'portrait'],
+          fontSize: ancho ? `min(${alto}, ${ancho})` : alto,
           color: tono,
           lineHeight: 0.95,
+          whiteSpace: 'nowrap',
           transition: 'color 600ms linear',
         }}
       >

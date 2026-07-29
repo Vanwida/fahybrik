@@ -227,25 +227,30 @@ export interface DosisSerie {
 }
 
 /**
- * La serie, en los DOS peldaños que tiene el numeral compartido.
+ * La serie, como sujeto de la banda.
  *
- * Por qué no va en un solo peldaño: `serie()` escribe `5 × 100` + `kg`, y siete
- * avances mono al tamaño de sujeto del kit (16 cqh ≈ 125 pt) miden 525 pt sobre
- * un lienzo de 378. El numeral del §10.2 tiene UNA escala y no tiene presupuesto
- * de ancho, así que la cifra larga no cabe: hay que repartirla, no encogerla a
- * mano (encogerla a mano es exactamente lo que hacían los cuatro `font:` que
- * este lote borra).
+ * **`5 × 100` es UNA cosa, y así se lee.** Es la prescripción que el atleta
+ * tiene delante: ni «100 kg» con un «5 reps» colgando debajo (eso invierte la
+ * jerarquía — en fuerza se leen las repeticiones y luego la carga) ni dos datos
+ * sueltos que hay que recomponer de cabeza entre serie y serie.
  *
- * El reparto no es arbitrario: **manda la carga y las repeticiones son el
- * segundo peldaño**, que es justo lo que ya hacía la degradación del modelo —
- * el `Reverse Lunge` real llega con 30 kg y SIN repeticiones, y allí el sujeto
- * ya era la carga sola. Sin carga (peso corporal) el sujeto son las
- * repeticiones, y sin ninguna de las dos no hay cifra: manda el nombre.
+ * Hubo un intento de partirla en dos peldaños porque siete avances de la mono a
+ * 125 pt miden 525 sobre un lienzo de 378 y se salían. Pero eso era un fallo del
+ * numeral compartido, no de la fuerza: `Numeral` ya tiene presupuesto de ancho
+ * (kit-vivo) y encoge la cifra larga lo justo para que quepa entera. El arreglo
+ * fue a la raíz, no al caso.
+ *
+ * La degradación se conserva y es del modelo, no del layout: sin carga (peso
+ * corporal) el sujeto son las repeticiones; sin repeticiones —el `Reverse Lunge`
+ * real llega con 30 kg y sin ellas— el sujeto es la carga sola; sin ninguna de
+ * las dos no hay cifra que inventar y manda el nombre (§7).
  */
 export function dosisEnPeldanos(reps: number | null, cargaKg: number | null): DosisSerie | null {
+  const completa = serie(reps, cargaKg);
+  if (completa) return { sujeto: completa, segundo: null };
   const carga = serie(null, cargaKg);
+  if (carga) return { sujeto: carga, segundo: null };
   const repeticiones = serie(reps, null);
-  if (carga) return { sujeto: carga, segundo: repeticiones };
   if (repeticiones) return { sujeto: repeticiones, segundo: null };
   return null;
 }
