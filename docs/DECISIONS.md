@@ -54,6 +54,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-07-29 · Un lead es del coach por cuyo ENLACE entró, y eso se graba al captar
+
+**Decidido (Alex):** el dueño de un lead es **el coach** — «de momento», así que se modela para que mañana pueda pasar a ser el club sin reescribirlo, pero hoy es una persona. Y la atribución **se graba en el momento de la captura**; no se deduce después mirando quién hay en la base.
+
+**El mecanismo, y lo bueno es que ya funciona así sin saberlo:** un lead entra por un **enlace** («la web que dice habla con nosotros»), y ese enlace tiene dueño. Nuestro embudo de FAHYBRID **es simplemente el enlace de Pablo**; el día que entre otro coach, el suyo apunta a su panel. Mismo camino, cero casos especiales, y no hace falta un modo «nuestro» y otro «de ellos».
+
+**Por qué al captar y no después:** es la misma regla que ya rige la procedencia de una marca (`declarado` vs `medido`) y el `recorded_via` de una ejecución — **quien no lo grabó en su momento, ya no lo sabe**. Resolver el dueño a posteriori significa adivinarlo, y adivinar aquí es mandarle a un coach el lead de otro.
+
+**Los leads existentes se rellenan hacia atrás con Pablo**, porque es la verdad: llegaron por su enlace.
+
+**Y el caso sin enlace atribuible** (alguien escribe al correo genérico) **no se adivina**: el lead se queda **sin asignar** y alguien lo asigna a mano. Ese estado tiene que existir explícitamente aunque hoy no ocurra — es lo que impide que mañana un lead ajeno caiga en el panel de Pablo por defecto.
+
+**En consecuencia, no hacer:** no resolver el dueño de un lead consultando la base en el momento de leerlo; no poner un coach por defecto cuando falta la atribución; y no tratar nuestro embudo como un caso especial del producto.
+
+---
+
 ## 2026-07-29 · MÉTODO es dato del coach; MECANISMO es código. El censo, y lo que destapa
 
 **Contexto que cambia el listón:** este código se venderá como **FLEXR** a otros entrenadores. Pablo es **nuestro coach de pruebas**, no el destinatario. Queda como **regla Nº0** en `CLAUDE.md`. La pregunta que decide cada caso: ***¿otro entrenador competente lo haría distinto?*** Si sí, es método y nace como **dato con valor por defecto**, nunca como `const`.
