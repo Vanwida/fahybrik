@@ -97,31 +97,83 @@ extension View {
 /// `head` is pinned above and never participates in the centring — it is the
 /// screen's own header (a title row, a progress rail), the part that must stay
 /// where the athlete last saw it.
-struct CenteredScreen<Head: View, Content: View>: View {
-    @ViewBuilder var head: () -> Head
-    @ViewBuilder var content: () -> Content
+///
+/// `lead` is the third position, and it exists for the question-then-answer
+/// shape: a title block that must sit at the TOP (so it lands in the same place
+/// on every step of a flow instead of sliding up and down with the length of the
+/// form) while the body still centres in the height the title leaves over. It
+/// scrolls with the content — unlike `head` — so at accessibility text sizes a
+/// three-line headline can be scrolled past instead of eating the screen.
+/// With no `lead`, the geometry is exactly the two-slot one above.
+struct CenteredScreen<Head: View, Lead: View, Content: View>: View {
+    let head: () -> Head
+    let lead: () -> Lead
+    let content: () -> Content
+
+    /// Measured, not guessed: the leftover the body centres in is the screen
+    /// minus whatever the title block actually took at this text size.
+    @State private var leadHeight: CGFloat = 0
+
+    init(
+        @ViewBuilder head: @escaping () -> Head,
+        @ViewBuilder lead: @escaping () -> Lead,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.head = head
+        self.lead = lead
+        self.content = content
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             head()
             GeometryReader { proxy in
                 ScrollView {
-                    content()
-                        .frame(maxWidth: .infinity)
-                        // minHeight centres by default: short content sits in
-                        // the middle, taller content grows and scrolls.
-                        .frame(minHeight: proxy.size.height)
+                    VStack(spacing: 0) {
+                        lead()
+                            .background(
+                                GeometryReader { geo in
+                                    SwiftUI.Color.clear.preference(
+                                        key: LeadHeightKey.self,
+                                        value: geo.size.height
+                                    )
+                                }
+                            )
+                        content()
+                            .frame(maxWidth: .infinity)
+                            // minHeight centres by default: short content sits in
+                            // the middle, taller content grows and scrolls.
+                            .frame(minHeight: max(0, proxy.size.height - leadHeight))
+                    }
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
         }
+        .onPreferenceChange(LeadHeightKey.self) { leadHeight = $0 }
     }
 }
 
-extension CenteredScreen where Head == EmptyView {
+private struct LeadHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+extension CenteredScreen where Lead == EmptyView {
+    /// Pinned header + centred body. No title block to hold at the top.
+    init(
+        @ViewBuilder head: @escaping () -> Head,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.init(head: head, lead: { EmptyView() }, content: content)
+    }
+}
+
+extension CenteredScreen where Head == EmptyView, Lead == EmptyView {
     /// The headless form — the content owns the whole screen.
     init(@ViewBuilder content: @escaping () -> Content) {
-        self.init(head: { EmptyView() }, content: content)
+        self.init(head: { EmptyView() }, lead: { EmptyView() }, content: content)
     }
 }
 
