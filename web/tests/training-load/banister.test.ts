@@ -22,8 +22,28 @@ describe('computeTss', () => {
   });
 
   test('HR-based path takes precedence over RPE', () => {
-    const hrTss = computeTss({ duration_seconds: 3600, rpe: 5, avg_hr: 175, lthr: 175 });
+    const hrTss = computeTss({ duration_seconds: 3600, rpe: 5, avg_hr: 175, lthr: { bpm: 175, estimated: false } });
     expect(hrTss).toBeCloseTo(100, 0);
+  });
+
+  // The HR anchor always RESOLVES (its last rung is 0.88 × Tanaka(age)), so
+  // without this guard every athlete with a birth date would get HR-priced load
+  // and the coverage report would call a birthday "intensidad conocida".
+  test('an ESTIMATED threshold does not price the session — it falls through to RPE', () => {
+    const estimated = computeTss({
+      duration_seconds: 3600,
+      rpe: 5,
+      avg_hr: 175,
+      lthr: { bpm: 175, estimated: true },
+    });
+    // RPE 5 → IF 0.70 → 49 TSS, NOT the 100 the HR mode would have claimed.
+    expect(estimated).toBeCloseTo(49, 0);
+  });
+
+  test('an estimated threshold with no RPE to fall back on yields null, not invented load', () => {
+    expect(
+      computeTss({ duration_seconds: 3600, avg_hr: 175, lthr: { bpm: 175, estimated: true } }),
+    ).toBeNull();
   });
 
   test('power-based path takes precedence over HR + RPE', () => {
@@ -31,7 +51,7 @@ describe('computeTss', () => {
       duration_seconds: 3600,
       rpe: 3,
       avg_hr: 130,
-      lthr: 175,
+      lthr: { bpm: 175, estimated: false },
       avg_power_watts: 250,
       ftp_watts: 250,
     });
