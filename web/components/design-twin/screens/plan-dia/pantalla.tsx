@@ -117,80 +117,80 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
 
   return (
     <Lienzo
-        accion={
-          vacio ? undefined : pendiente ? (
-            <Accion
-              titulo="Empezar"
-              principal
-              visible={paso >= 4}
-              onTap={() => onLog(`Empezar → abriría la ficha de ${pendiente.titulo}`)}
-            />
-          ) : (
-            <Accion
-              titulo="Ver cómo fue"
-              visible={paso >= 4}
-              onTap={() => onLog('Ver cómo fue → abriría el resumen del día')}
-            />
-          )
-        }
-      >
-        <Cromo
-          izquierda={cromoDelDia(dia, semana)}
-          derecha={vacio === 'sin-plan' ? undefined : palabraDelDia(hechas, total, esPasado)}
-          visible={paso >= 1}
-        />
-
-        {vacio ? (
-          <div
-            style={{
-              flex: '1 1 auto',
-              minHeight: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              ...entradaStyle(paso >= 2, 90),
-            }}
-          >
-            {vacio === 'sin-plan' ? (
-              <SinPlan hayPlan={hayPlan} onLog={onLog} />
-            ) : (
-              <Descanso semana={semana} dia={dia} indice={indice} onLog={onLog} />
-            )}
-          </div>
+      accion={
+        vacio ? undefined : pendiente ? (
+          <Accion
+            titulo="Empezar"
+            principal
+            visible={paso >= 4}
+            onTap={() => onLog(`Empezar → abriría la ficha de ${pendiente.titulo}`)}
+          />
         ) : (
-          <>
-            <Sujeto {...sujeto} visible={paso >= 2} />
-            <Cuerpo style={entradaStyle(paso >= 3, 150)}>
-              <div
-                className="twin-scroll"
-                style={{
-                  flex: '1 1 auto',
-                  minHeight: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: SP.s,
-                  // `llena` degrada a `centra` cuando no hay ninguna cifra que
-                  // absorba el sobrante (§6.1): mejor centrado que con cola.
-                  justifyContent: puedeCrecer ? undefined : 'center',
-                }}
-              >
-                {dia.trabajos.map((trabajo, i) => (
-                  <TrabajoDelDia
-                    key={`${trabajo.titulo}-${i}`}
-                    dia={dia}
-                    trabajo={trabajo}
-                    indice={indice}
-                    indiceHoy={semana.indiceHoy}
-                    soloUno={total === 1}
-                    esSujeto={trabajo === pendiente}
-                    onLog={onLog}
-                  />
-                ))}
-              </div>
-              {semana.intencion ? <VozDelCoach texto={semana.intencion} visible={paso >= 4} /> : null}
-            </Cuerpo>
-          </>
-        )}
+          <Accion
+            titulo="Ver cómo fue"
+            visible={paso >= 4}
+            onTap={() => onLog('Ver cómo fue → abriría el resumen del día')}
+          />
+        )
+      }
+    >
+      <Cromo
+        izquierda={cromoDelDia(dia, semana)}
+        derecha={vacio === 'sin-plan' ? undefined : palabraDelDia(hechas, total, esPasado)}
+        visible={paso >= 1}
+      />
+
+      {vacio ? (
+        <div
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            ...entradaStyle(paso >= 2, 90),
+          }}
+        >
+          {vacio === 'sin-plan' ? (
+            <SinPlan hayPlan={hayPlan} onLog={onLog} />
+          ) : (
+            <Descanso semana={semana} dia={dia} indice={indice} onLog={onLog} />
+          )}
+        </div>
+      ) : (
+        <>
+          <Sujeto {...sujeto} visible={paso >= 2} />
+          <Cuerpo style={entradaStyle(paso >= 3, 150)}>
+            <div
+              className="twin-scroll"
+              style={{
+                flex: '1 1 auto',
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: SP.s,
+                // `llena` degrada a `centra` cuando no hay ninguna cifra que
+                // absorba el sobrante (§6.1): mejor centrado que con cola.
+                justifyContent: puedeCrecer ? undefined : 'center',
+              }}
+            >
+              {dia.trabajos.map((trabajo, i) => (
+                <TrabajoDelDia
+                  key={`${trabajo.titulo}-${i}`}
+                  dia={dia}
+                  trabajo={trabajo}
+                  indice={indice}
+                  indiceHoy={semana.indiceHoy}
+                  soloUno={total === 1}
+                  esSujeto={trabajo === pendiente}
+                  onLog={onLog}
+                />
+              ))}
+            </div>
+            {semana.intencion ? <VozDelCoach texto={semana.intencion} visible={paso >= 4} /> : null}
+          </Cuerpo>
+        </>
+      )}
     </Lienzo>
   );
 }
