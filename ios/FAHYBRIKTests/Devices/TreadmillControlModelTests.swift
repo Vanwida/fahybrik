@@ -48,8 +48,21 @@ final class TreadmillControlModelTests: XCTestCase {
         func diagnosticsText() -> String? { nil }
     }
 
+    /// A fully OBEDIENT belt, in a build where the app drives machines: it has somewhere
+    /// to write, it DECLARES both targets (0x2ACC bits 0/1) and it has refused nothing.
+    ///
+    /// Both extra flags are the point. Since 28-jul the app ships with
+    /// `TreadmillControlPolicy.appDrivesMachines == false` (no belt we've met obeys a
+    /// speed write) and a capability that merely has a Control Point declares NOTHING
+    /// ("absence is not a yes"). Under those two gates every stepper below is a no-op, so
+    /// the tests would be asserting on a surface that can't move. Stating both here keeps
+    /// the control machinery — clamping, the ± steppers, console mirroring, one-shot
+    /// programming — genuinely under test for the day the switch goes back to `true`;
+    /// `testShippedPolicyDrivesNothing` pins what actually ships today.
     private let cap = TreadmillControlCapability(
         hasControlPoint: true, canControlSpeed: true, canControlIncline: true,
+        appDrivesMachines: true,
+        declaresSpeedTarget: true, declaresInclineTarget: true,
         speed: FTMSControl.Range(min: 1, max: 20, step: 0.5),
         incline: FTMSControl.Range(min: 0, max: 12, step: 0.5))
 
@@ -201,6 +214,30 @@ final class TreadmillControlModelTests: XCTestCase {
         m.sendTestSpeed(6)
         XCTAssertEqual(src.sent.last, .setTargetSpeedKmh(6))
         XCTAssertEqual(m.targetSpeedKmh, stepperBefore, accuracy: 0.001)
+        m.teardown()
+    }
+
+    // MARK: - What actually ships today
+
+    /// The product decision of 28-jul, pinned: the app READS belts and drives NOTHING.
+    /// Even a machine that has a Control Point, declares both targets and has refused
+    /// nothing gets no steppers and receives not one byte — a control that doesn't
+    /// control is worse than no control. This is the test that fails (correctly, and
+    /// loudly) the day someone flips the switch back without meaning to.
+    func testShippedPolicyDrivesNothing() {
+        XCTAssertFalse(TreadmillControlPolicy.appDrivesMachines)
+        let (m, src) = makeModel()
+        var obedient = cap                 // declares everything…
+        obedient.appDrivesMachines = TreadmillControlPolicy.appDrivesMachines   // …but we don't drive
+        obedient.canSetTargetDistance = true
+        src.pushCapability(obedient)
+
+        XCTAssertFalse(m.canControlSpeed)
+        XCTAssertFalse(m.canControlIncline)
+        m.nudgeSpeed(1)
+        m.nudgeIncline(1)
+        XCTAssertTrue(src.sent.isEmpty, "no command may reach a belt the app does not drive")
+        XCTAssertTrue(src.bestEffort.isEmpty, "nor may the silent programming of its display")
         m.teardown()
     }
 

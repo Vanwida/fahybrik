@@ -370,8 +370,10 @@ final class TreadmillHUDModel {
     /// grade — still a PERCENT to the athlete (level == %), just in WHOLE-percent detents, so
     /// the stepper moves 1 % per tap and shows no decimals.
     var inclineIsLevel: Bool { controlCapability.inclineIsLevel }
-    /// Stepper caption + unit — always "Inclinación" / "%": both encodings drive a percent
-    /// grade (the i.Concept level IS the percent), so we never hide it behind a bare "Nivel".
+    /// Stepper caption + unit, per the RESOLVED dialect: "Inclinación" / "%" on a
+    /// spec-clean belt, a bare "Nivel" with NO unit on the i.Concept — whose console
+    /// detents we have never verified against a real grade, so we show the number it
+    /// speaks instead of a percent we'd be making up. `FTMSInclineDialect` owns both.
     var inclineControlLabel: String { controlCapability.inclineDialect.controlLabel }
     var inclineControlUnit: String { controlCapability.inclineDialect.controlUnit }
     /// The incline the app has COMMANDED — belongs to the stepper and nowhere else. It is
