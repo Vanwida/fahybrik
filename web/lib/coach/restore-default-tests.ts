@@ -104,12 +104,17 @@ export async function restoreDefaultTests(
         `;
       }
 
-      // Reset the schedule to the default (week 1, its suggested weekday).
+      // Reset the schedule to the default (week 1, its suggested weekday). A
+      // protocol with no week_offset is deliberately UNSCHEDULED: it lives in the
+      // catalog and runs on demand ("Probarme") or when the coach places it, so it
+      // never lands in week 1 uninvited.
       await tx`delete from coach_test_schedule where test_id = ${testId}`;
-      await tx`
-        insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
-        values (${testId}, ${protocol.week_offset}, ${protocol.day_of_week}, true)
-      `;
+      if (protocol.week_offset != null && protocol.day_of_week != null) {
+        await tx`
+          insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
+          values (${testId}, ${protocol.week_offset}, ${protocol.day_of_week}, true)
+        `;
+      }
     });
   }
 
