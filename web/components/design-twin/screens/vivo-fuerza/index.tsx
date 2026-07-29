@@ -60,13 +60,20 @@ export const escenarios: TwinEscenario[] = [
   },
 ];
 
-export function Screen({ escenario, onLog }: TwinScreenProps) {
+export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
+  // `twin-screen-safe` ya va en absoluto, así que es el bloque contenedor del
+  // tinte de zona (§10.1): el `Ambiente` de cada vista baña el lienzo entero,
+  // incluida la zona del notch, y el marco vive dentro de los safe areas.
   return (
     <div className="twin-screen-safe">
       {escenario === 'hueco-honesto' ? (
-        <MaquinaCircuito onLog={onLog} />
+        <MaquinaCircuito appearance={appearance} onLog={onLog} />
       ) : (
-        <MaquinaFuerza entrada={escenario === 'registro' ? 'registro' : escenario === 'descanso' ? 'descanso' : 'serie'} onLog={onLog} />
+        <MaquinaFuerza
+          entrada={escenario === 'registro' ? 'registro' : escenario === 'descanso' ? 'descanso' : 'serie'}
+          appearance={appearance}
+          onLog={onLog}
+        />
       )}
     </div>
   );

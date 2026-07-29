@@ -14,9 +14,11 @@
 //              registro no puede preguntar un número: pregunta si se hizo.
 
 import { useState } from 'react';
-import { CTA, Card, Hairline, IconCheckCircle, Label, Mono, Pantalla, SP, SecondaryCTA } from '../../kit';
+import { Card, Hairline, IconCheckCircle, Label, Mono, SP, SecondaryCTA } from '../../kit';
+import { Ambiente, FranjaAccion, MarcoVivo, zonaDe } from '../../kit-vivo';
+import type { TwinAppearance } from '../../types';
 import { useTimeline } from '../../sim';
-import { Hueco, Pie, RielCircuito, RielSeries, UltimaVez } from './atoms';
+import { Hueco, Pie, RielCircuito, RielSeries, SujetoNombre, UltimaVez } from './atoms';
 import {
   CIRCUITO,
   CON_RELOJ,
@@ -28,6 +30,7 @@ import {
   SQUAT,
   ULTIMA_VEZ,
   kg,
+  pulsoTras,
   serieTexto,
   type Prescripcion,
   type SerieHecha,
@@ -38,6 +41,15 @@ import { VistaSerie } from './vista-serie';
 
 export type FaseFuerza = 'serie' | 'registro' | 'descanso';
 
+/**
+ * El pulso mientras trabajas, del reloj de la muñeca. Es el máximo MEDIDO de
+ * esta misma asignación (ejecución 162: 122 ppm), que es lo que marcas al
+ * soltar la barra — de ahí arranca la caída del descanso. Sobre el umbral de
+ * 162 cae en Z1, y por eso el lienzo del hierro se tiñe de calma: lo dice el
+ * dato, no la estética.
+ */
+const PULSO_TRABAJANDO = pulsoTras(0);
+
 // ---------------------------------------------------------------------------
 // El cierre del ejercicio — la cuarta serie no puede dejar la pantalla colgada
 // ---------------------------------------------------------------------------
@@ -45,50 +57,54 @@ export type FaseFuerza = 'serie' | 'registro' | 'descanso';
 function VistaFin({
   p,
   hechas,
+  appearance,
   onLog,
 }: {
   p: Prescripcion;
   hechas: Record<number, SerieHecha>;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }) {
   return (
-    <Pantalla accion={<CTA title="CERRAR EL EJERCICIO" height={88} onClick={() => onLog('Ejercicio cerrado')} />}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.s, paddingTop: SP.xl }}>
-        <Label size={10}>{p.series} de {p.series} series</Label>
-        <span style={{ font: 'italic 800 30px/1.1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-          {p.ejercicio}
-        </span>
-      </div>
-      <div
-        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-      >
-        <Card padding={0} topAccent>
-          {Array.from({ length: p.series }, (_, i) => {
-            const h = hechas[i];
-            return (
-              <div key={i}>
-                {i > 0 && <Hairline />}
-                <div style={{ display: 'flex', alignItems: 'center', gap: SP.m, padding: '13px 14px' }}>
-                  <span style={{ color: 'var(--twin-ok)', display: 'inline-flex' }}>
-                    <IconCheckCircle size={14} />
-                  </span>
-                  <Label size={9}>serie {i + 1}</Label>
-                  <span style={{ flex: 1 }} />
-                  {h?.rirSentido != null && (
-                    <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-                      te quedaban {h.rirSentido}
+    <>
+      <Ambiente zona={zonaDe(CON_RELOJ ? PULSO_TRABAJANDO : null)} appearance={appearance} />
+      <MarcoVivo
+        cromo={
+          <Label size={10}>
+            {p.series} de {p.series} series
+          </Label>
+        }
+        sujeto={<SujetoNombre encima="Ejercicio hecho" nombre={p.ejercicio} />}
+        apoyos={
+          <Card padding={0} topAccent>
+            {Array.from({ length: p.series }, (_, i) => {
+              const h = hechas[i];
+              return (
+                <div key={i}>
+                  {i > 0 && <Hairline />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: SP.m, padding: '11px 14px' }}>
+                    <span style={{ color: 'var(--twin-ok)', display: 'inline-flex' }}>
+                      <IconCheckCircle size={14} />
                     </span>
-                  )}
-                  <Mono size={14} weight={700}>
-                    {(h && serieTexto(h.reps, h.cargaKg)) ?? 'sin apuntar'}
-                  </Mono>
+                    <Label size={9}>serie {i + 1}</Label>
+                    <span style={{ flex: 1 }} />
+                    {h?.rirSentido != null && (
+                      <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+                        te quedaban {h.rirSentido}
+                      </span>
+                    )}
+                    <Mono size={14} weight={700}>
+                      {(h && serieTexto(h.reps, h.cargaKg)) ?? 'sin apuntar'}
+                    </Mono>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </Card>
-      </div>
-    </Pantalla>
+              );
+            })}
+          </Card>
+        }
+        accion={<FranjaAccion titulo="CERRAR EL EJERCICIO" unicaSalida onClick={() => onLog('Ejercicio cerrado')} />}
+      />
+    </>
   );
 }
 
@@ -98,7 +114,16 @@ function VistaFin({
 
 const BLOQUE_FUERZA = 'Fuerza';
 
-export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: (l: string) => void }) {
+export function MaquinaFuerza({
+  entrada,
+  appearance,
+  onLog,
+}: {
+  entrada: FaseFuerza;
+  appearance: TwinAppearance;
+  onLog: (l: string) => void;
+}) {
+  const pulso = CON_RELOJ ? PULSO_TRABAJANDO : null;
   // Entrar por el descanso significa que la serie 2 ya está cerrada y la que
   // viene es la 3. El estado inicial lo dice el escenario; de ahí en adelante
   // manda la máquina.
@@ -124,7 +149,7 @@ export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: 
   ]);
 
   if (activa >= SQUAT.series && fase === 'serie' && hechas[SQUAT.series - 1]) {
-    return <VistaFin p={SQUAT} hechas={hechas} onLog={onLog} />;
+    return <VistaFin p={SQUAT} hechas={hechas} appearance={appearance} onLog={onLog} />;
   }
 
   if (fase === 'registro') {
@@ -132,6 +157,8 @@ export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: 
       <VistaRegistro
         p={SQUAT}
         serieActiva={activa}
+        pulso={pulso}
+        appearance={appearance}
         onLog={onLog}
         onConfirmar={(hecha) => {
           setHechas({ ...hechas, [activa]: hecha });
@@ -155,6 +182,7 @@ export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: 
         serieHechaIndice={activa - 1}
         siguienteIndice={activa}
         conReloj={CON_RELOJ}
+        appearance={appearance}
         onEmpezar={() => setFase('serie')}
         onLog={onLog}
       />
@@ -169,6 +197,8 @@ export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: 
       total={SQUAT.series}
       encima={`Te toca · serie ${activa + 1} de ${SQUAT.series}`}
       ctaTitulo="SERIE HECHA"
+      pulso={pulso}
+      appearance={appearance}
       riel={<RielSeries total={SQUAT.series} activa={activa} hechas={hechas} />}
       pie={
         <UltimaVez
@@ -192,7 +222,14 @@ export function MaquinaFuerza({ entrada, onLog }: { entrada: FaseFuerza; onLog: 
 const BLOQUE_CIRCUITO = 'Circuito de pierna';
 const LETRAS = CIRCUITO.map((c) => ({ letra: c.letra, nombre: c.item.nombre }));
 
-export function MaquinaCircuito({ onLog }: { onLog: (l: string) => void }) {
+export function MaquinaCircuito({
+  appearance,
+  onLog,
+}: {
+  appearance: TwinAppearance;
+  onLog: (l: string) => void;
+}) {
+  const pulso = CON_RELOJ ? PULSO_TRABAJANDO : null;
   const [posicion, setPosicion] = useState(0); // 0 = A1, 1 = A2…
   const [vuelta, setVuelta] = useState(0);
   const [registrando, setRegistrando] = useState(false);
@@ -224,6 +261,8 @@ export function MaquinaCircuito({ onLog }: { onLog: (l: string) => void }) {
       <VistaRegistro
         p={LUNGE}
         serieActiva={vuelta}
+        pulso={pulso}
+        appearance={appearance}
         onLog={onLog}
         onConfirmar={(hecha) => {
           setHechas({ ...hechas, [vuelta]: hecha });
@@ -243,6 +282,8 @@ export function MaquinaCircuito({ onLog }: { onLog: (l: string) => void }) {
       total={CIRCUITO.length}
       encima={enLunge ? `Te toca · serie ${vuelta + 1} de ${LUNGE.series}` : 'Te toca · sin soltar'}
       ctaTitulo={enLunge ? 'SERIE HECHA' : 'HECHO'}
+      pulso={pulso}
+      appearance={appearance}
       riel={<RielCircuito letras={LETRAS} activo={posicion} />}
       pie={
         <>
