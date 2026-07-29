@@ -55,13 +55,20 @@ export const escenarios: TwinEscenario[] = [
   },
 ];
 
-export function Screen({ escenario, orientation, onLog }: TwinScreenProps) {
+export function Screen({ escenario, orientation, appearance, onLog }: TwinScreenProps) {
   const guion = GUIONES[escenario] ?? ALTERNO_MAQUINAS;
   // `EmomVivo` recibe la orientación como dato y NO se remonta al girar: el
-  // reloj, las rondas y lo que hayas sellado siguen donde estaban.
+  // reloj, las rondas y lo que hayas sellado siguen donde estaban. La
+  // apariencia baja porque el tinte de zona reparte distinto color en claro y
+  // en oscuro (§10.1): con el mismo porcentaje, en claro el lienzo se emborrona.
   return (
     <div className="twin-screen-safe">
-      <EmomVivo guion={guion} landscape={orientation === 'landscape'} onLog={onLog} />
+      <EmomVivo
+        guion={guion}
+        landscape={orientation === 'landscape'}
+        appearance={appearance}
+        onLog={onLog}
+      />
     </div>
   );
 }

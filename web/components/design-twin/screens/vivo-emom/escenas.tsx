@@ -11,14 +11,25 @@
 // ronda, el toque de «hecho» no adelanta la ronda, y no hay botón para
 // adelantarla: la adelanta el reloj. Cumplir la tarea cambia una sola cosa, la
 // que importa cuando estás reventado: cuánto de ese minuto pasa a ser tuyo.
+//
+// EL LENGUAJE (§10). Tres cosas cambiaron de sitio en este lote:
+//
+//   1. El lienzo lo tiñe la ZONA DE PULSO, no la fase del minuto. Sin reloj en
+//      la muñeca no hay tinte y el lienzo queda neutro — y esa pantalla no es
+//      la versión rota de la buena: es la misma diciendo la verdad (§7).
+//   2. El cambio ya no mete el sujeto en una tarjeta verde maciza mientras el
+//      trabajo lo deja sobre el lienzo. Misma piel en los dos estados; lo que
+//      anuncia el cambio es el fogonazo, que para eso está en el kit.
+//   3. El trabajo («11 de 12 cal») sale del panel gris y entra EN LA BANDA,
+//      pegado al minuto que lo gobierna y en el segundo peldaño del numeral.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Label, Mono, Pantalla, RAD, SP } from '../../kit';
-import { hrZone, useTicker } from '../../sim';
+import { Ambiente, EtiquetaSujeto, Fogonazo, FranjaAccion, MarcoVivo, Numeral, zonaDe, type Zona } from '../../kit-vivo';
+import type { TwinAppearance } from '../../types';
+import { useTicker } from '../../sim';
 import { reloj } from '../../datos-reales';
 import {
   AVISO_CORTE_S,
-  UMBRAL_PPM,
   ciclo,
   duracionTotal,
   estadoMinuto,
@@ -27,6 +38,7 @@ import {
   pulsoPpm,
   quienCuenta,
   tareaDe,
+  type Ambiente as AmbienteMinuto,
   type Guion,
   type Instante,
   type QuienCuenta,
@@ -35,17 +47,15 @@ import {
 import { CaraHorizontal } from './horizontal';
 import {
   Anuncio,
-  BotonHecho,
   Chip,
   Chrome,
   Drenaje,
   EstilosEmom,
-  Flash,
   Franja,
   Hero,
   ROTULO,
   SelloHecho,
-  TareaGrande,
+  TrabajoMinuto,
   Traza,
   puntoDe,
 } from './atoms';
@@ -53,10 +63,12 @@ import {
 export function EmomVivo({
   guion,
   landscape,
+  appearance,
   onLog,
 }: {
   guion: Guion;
   landscape: boolean;
+  appearance: TwinAppearance;
   onLog: (linea: string) => void;
 }) {
   // El reloj: `base` acumula lo corrido antes de la última pausa y `tramo` es lo
@@ -76,6 +88,20 @@ export function EmomVivo({
   const estado = estadoMinuto(guion, tAbs, sellos);
   const { inst, tarea, quien, cruceS, contador, hecha, amb, color, siguiente, anuncia, puedeSellar } = estado;
   useTicker(!pausado && !inst.terminado, setTramo);
+
+  // El pulso, derivado UNA vez: es lo que tiñe el lienzo (§10.1) y lo que se lee
+  // en la franja. Sin reloj en la muñeca es nulo, y entonces no hay zona, no hay
+  // tinte y no hay chip — ni con un guion, ni con un cero (§7).
+  const ppm = guion.conexiones.reloj && cruceS !== undefined ? pulsoPpm(inst.transcurrido, hecha, cruceS) : null;
+  const zona = zonaDe(ppm);
+
+  // El instante en que algo se logra: cruzas el objetivo y el ambiente se va al
+  // acento un segundo. Es el único naranja que puede bañar el lienzo, y por eso
+  // es un INSTANTE y no un estado sostenido (§10.1).
+  const cruceReciente = hecha && quien === 'maquina' && cruceS !== undefined && inst.transcurrido - cruceS <= 1;
+  // El fogonazo del arranque de fase: nace encendido y se apaga solo. Sustituye
+  // al `Flash` que esta carpeta se había escrito por su cuenta.
+  const arranqueDeFase = !inst.terminado && inst.transcurrido <= 0;
 
   // -------------------------------------------------------------------------
   // Cronología — una línea por suceso, y ni una por segundo
@@ -136,11 +162,24 @@ export function EmomVivo({
 
   const salir = () => onLog('Salir → volvería al detalle de la sesión');
   const selladas = Object.keys(sellos).length;
-  const accion: ReactNode = puedeSellar
-    ? hecha
-      ? <SelloHecho texto={`Hecho en ${reloj(sellos[inst.ronda])}`} />
-      : <BotonHecho onClick={sellar} />
-    : undefined;
+  const accion: ReactNode = puedeSellar ? (
+    hecha ? (
+      <SelloHecho texto={`Hecho en ${reloj(sellos[inst.ronda])}`} />
+    ) : (
+      // En un EMOM gobierna el RELOJ, no tu dedo: el toque solo sella TU tiempo
+      // de este minuto, y si no lo das la ronda pasa igual. Por eso NO es la
+      // única salida y la franja va en contorno (§10.5). Antes gritaba a
+      // `italic 800 26px` sobre 88 pt de naranja macizo.
+      <FranjaAccion titulo="Hecho" nota="sella tu tiempo de este minuto" onClick={sellar} />
+    )
+  ) : undefined;
+
+  const ambiente = (
+    <>
+      <Ambiente zona={zona} appearance={appearance} acento={cruceReciente} />
+      <Fogonazo activo={arranqueDeFase} tono={inst.fase === 'cambio' ? 'var(--twin-ok)' : 'var(--twin-neutral)'} />
+    </>
+  );
 
   // Girar es OTRA CARA del mismo minuto, no otra pantalla: el estado vive aquí
   // arriba, así que el reloj no se entera de que el móvil se ha movido.
@@ -148,18 +187,18 @@ export function EmomVivo({
     return (
       <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
         <EstilosEmom />
+        {ambiente}
         <CaraHorizontal
           guion={guion}
           estado={estado}
           sellos={sellos}
+          ppm={ppm}
+          zona={zona}
           pausado={pausado}
           onPausa={alternarPausa}
           onSalir={salir}
           onSellar={sellar}
         />
-        {/* El destello del cambio de minuto va DESPUÉS en el DOM: en horizontal
-            tiene que verse por encima de la cara del monitor, no debajo. */}
-        <Flash clave={`${inst.ronda}-${inst.fase}`} color={color} />
         {pausado && <VeloPausa />}
       </div>
     );
@@ -168,59 +207,75 @@ export function EmomVivo({
   return (
     <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
       <EstilosEmom />
+      {/* La columna del minuto va DEBAJO del ambiente: es geometría de tiempo,
+          no el color del lienzo. */}
       <Drenaje
         fraccion={inst.duracionFase > 0 ? inst.restante / inst.duracionFase : 0}
-        color={color}
         claveFase={`${inst.ronda}-${inst.fase}`}
       />
-      {!inst.terminado && <Flash clave={`${inst.ronda}-${inst.fase}`} color={color} />}
+      {ambiente}
 
-      <Pantalla accion={inst.terminado ? undefined : accion}>
-        <Chrome
-          formato={lineaFormato(guion, reloj)}
-          pausado={pausado}
-          onPausa={alternarPausa}
-          onSalir={salir}
-        />
-
-        <ContextoFranja guion={guion} inst={inst} quien={quien} hecha={hecha} cruceS={cruceS} />
-
-        {inst.terminado ? (
-          <Final guion={guion} />
-        ) : amb === 'cambio' ? (
-          <ZonaCambio inst={inst} siguiente={tareaDe(guion, inst.ronda + 1)} />
-        ) : (
-          <ZonaTrabajo
-            guion={guion}
-            inst={inst}
-            tarea={tarea}
-            contador={contador}
-            hecha={hecha}
-            color={color}
-            avisando={amb === 'aviso'}
-            rotulo={amb === 'aviso' && guion.cambioS > 0 ? 'Para en' : ROTULO[amb]}
-            anuncio={amb === 'aviso' && anuncia ? siguiente : null}
-            pausado={pausado}
-          />
-        )}
-
-        <Traza
-          total={guion.rondas}
-          // Acabado: ninguna ronda es «la de ahora», todas quedan detrás. Sin
-          // esto la última se quedaba marcada en naranja como si siguiera viva.
-          actual={inst.terminado ? guion.rondas : inst.ronda}
-          sellos={puedeSellar ? sellos : undefined}
-          pie={
-            puedeSellar
-              ? `Ronda ${inst.ronda + 1} de ${guion.rondas} · ${selladas} selladas`
-              : `Ronda ${inst.ronda + 1} de ${guion.rondas}`
-          }
-        />
-      </Pantalla>
+      <MarcoVivo
+        cromo={
+          <Chrome formato={lineaFormato(guion, reloj)} pausado={pausado} onPausa={alternarPausa} onSalir={salir} />
+        }
+        contexto={<ContextoFranja guion={guion} ppm={ppm} zona={zona} tarea={tarea} quien={quien} />}
+        sujeto={
+          inst.terminado ? (
+            <Final guion={guion} />
+          ) : (
+            <Minuto
+              guion={guion}
+              inst={inst}
+              tarea={tarea}
+              contador={contador}
+              hecha={hecha}
+              color={color}
+              enCambio={amb === 'cambio'}
+              avisando={amb === 'aviso'}
+              rotulo={rotuloDe(guion, inst, amb)}
+              anuncio={amb === 'aviso' && anuncia ? siguiente : null}
+              siguiente={siguiente}
+              pausado={pausado}
+            />
+          )
+        }
+        apoyos={
+          <>
+            {/* El anuncio de lo que viene vive en los APOYOS y no dentro de la
+                banda: metido con el sujeto, aparecer y desaparecer cada 10 s le
+                movía el numeral 30 pt arriba y abajo — justo el baile que el
+                §10.3 viene a quitar. Aquí además gana el hueco de la fila. */}
+            {!inst.terminado && amb === 'aviso' && anuncia && siguiente && (
+              <Anuncio rotulo="Ahora toca" texto={frase(siguiente)} punto={puntoDe(siguiente)} />
+            )}
+            <Traza
+              total={guion.rondas}
+              // Acabado: ninguna ronda es «la de ahora», todas quedan detrás. Sin
+              // esto la última se quedaba marcada en naranja como si siguiera viva.
+              actual={inst.terminado ? guion.rondas : inst.ronda}
+              sellos={puedeSellar ? sellos : undefined}
+              pie={
+                puedeSellar
+                  ? `Ronda ${inst.ronda + 1} de ${guion.rondas} · ${selladas} selladas`
+                  : `Ronda ${inst.ronda + 1} de ${guion.rondas}`
+              }
+            />
+          </>
+        }
+        accion={inst.terminado ? undefined : accion}
+      />
 
       {pausado && <VeloPausa />}
     </div>
   );
+}
+
+/** El rótulo del minuto. En cambio dice qué empieza; en trabajo, qué queda. */
+export function rotuloDe(guion: Guion, inst: Instante, amb: AmbienteMinuto): string {
+  if (inst.fase === 'cambio') return inst.restante <= AVISO_CORTE_S ? 'Empieza en' : 'Cambio';
+  if (amb === 'aviso' && guion.cambioS > 0) return 'Para en';
+  return ROTULO[amb];
 }
 
 // ---------------------------------------------------------------------------
@@ -229,18 +284,18 @@ export function EmomVivo({
 
 function ContextoFranja({
   guion,
-  inst,
+  ppm,
+  zona,
+  tarea,
   quien,
-  hecha,
-  cruceS,
 }: {
   guion: Guion;
-  inst: Instante;
+  /** El pulso ya derivado arriba: aquí no se vuelve a calcular. */
+  ppm: number | null;
+  zona: Zona | null;
+  tarea: Tarea | null;
   quien: QuienCuenta;
-  hecha: boolean;
-  cruceS: number | undefined;
 }) {
-  const tarea = tareaDe(guion, inst.ronda);
   const chips: ReactNode[] = [];
 
   // El monitor se nombra por la máquina de ESTE minuto: es la que está leyendo.
@@ -256,11 +311,9 @@ function ContextoFranja({
   }
 
   // El pulso solo existe si hay reloj en la muñeca. Sin reloj no se pinta: ni
-  // con un guion, ni con un cero.
-  if (guion.conexiones.reloj && cruceS !== undefined) {
-    const ppm = pulsoPpm(inst.transcurrido, hecha, cruceS);
-    const z = hrZone(ppm, UMBRAL_PPM);
-    chips.push(<Chip key="fc" texto={`${ppm} ppm · Z${z}`} color={`var(--twin-z${z})`} />);
+  // con un guion, ni con un cero — y entonces el lienzo tampoco se tiñe.
+  if (ppm !== null && zona !== null) {
+    chips.push(<Chip key="fc" texto={`${ppm} ppm · Z${zona}`} color={`var(--twin-z${zona})`} />);
   }
 
   if (chips.length === 0 && !guion.nota) return null;
@@ -276,19 +329,28 @@ function ContextoFranja({
 }
 
 // ---------------------------------------------------------------------------
-// El trabajo: el minuto manda y la tarea se subordina
+// El sujeto: el minuto manda y el trabajo se le pega debajo
 // ---------------------------------------------------------------------------
 
-function ZonaTrabajo({
+/**
+ * Trabajo y cambio comparten piel — el sujeto NO cambia de superficie dentro de
+ * la misma pantalla (§10.4). Antes el cambio inundaba una tarjeta verde maciza
+ * mientras el trabajo dejaba el número sobre el lienzo, y el atleta reencuadraba
+ * cada 45 segundos. Lo que cambia ahora es lo que DICE: el rótulo, el color de
+ * ese rótulo, el fogonazo del arranque y el latido de los últimos segundos.
+ */
+function Minuto({
   guion,
   inst,
   tarea,
   contador,
   hecha,
   color,
+  enCambio,
   avisando,
   rotulo,
   anuncio,
+  siguiente,
   pausado,
 }: {
   guion: Guion;
@@ -298,74 +360,43 @@ function ZonaTrabajo({
   contador: number | null;
   hecha: boolean;
   color: string;
+  enCambio: boolean;
   avisando: boolean;
   rotulo: string;
   anuncio: Tarea | null;
+  siguiente: Tarea | null;
   pausado: boolean;
 }) {
-  return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.l, textAlign: 'center' }}>
-        <Hero
-          texto={reloj(inst.restante)}
-          color={color}
-          rotulo={rotulo}
-          late={avisando && !pausado}
-          etiquetaVoz={`Ronda ${inst.ronda + 1} de ${guion.rondas}, quedan ${inst.restante} segundos`}
-        />
-
-        {tarea ? (
-          <TareaGrande tarea={tarea} contador={contador} hecha={hecha} atenuada={hecha && anuncio !== null} />
-        ) : (
-          // Un cronómetro pelado no pinta una ronda fantasma de guiones
-          // (DECISIONS, 27-jul). Lo que sí se dice es que se puede declarar
-          // después, porque eso el atleta SÍ puede llenarlo con un acto.
-          <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)', maxWidth: 260 }}>
-            Sin movimientos declarados. Los dices al acabar, con calma.
-          </span>
-        )}
-
-        {anuncio && <Anuncio rotulo="Ahora toca" texto={frase(anuncio)} punto={puntoDe(anuncio)} />}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// El cambio: el opuesto visual del trabajo, no un matiz suyo
-// ---------------------------------------------------------------------------
-
-function ZonaCambio({ inst, siguiente }: { inst: Instante; siguiente: Tarea | null }) {
   const apura = inst.restante <= AVISO_CORTE_S;
-  // Relleno pleno del token + glifo del fondo: la misma receta que la CTA de la
-  // app, y pasa AA en los dos temas (9,1:1 en oscuro · 5,4:1 en claro).
   return (
-    <div
-      style={{
-        flex: '1 1 auto',
-        minHeight: 0,
-        display: 'grid',
-        placeItems: 'center',
-        borderRadius: RAD.l,
-        background: 'var(--twin-ok)',
-        color: 'var(--twin-bg)',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.m, textAlign: 'center' }}>
-        <Hero
-          texto={reloj(inst.restante)}
-          color="var(--twin-bg)"
-          rotulo={apura ? 'Empieza en' : 'Cambio'}
-          late={apura}
-          etiquetaVoz={`Cambio, quedan ${inst.restante} segundos`}
-        />
-        {siguiente && (
-          <span style={{ font: 'italic 800 20px/1.15 var(--twin-font-sans)', color: 'var(--twin-bg)' }}>
+    <>
+      <Hero
+        texto={reloj(inst.restante)}
+        tono={color}
+        rotulo={rotulo}
+        late={(avisando || (enCambio && apura)) && !pausado}
+        etiquetaVoz={`Ronda ${inst.ronda + 1} de ${guion.rondas}, quedan ${inst.restante} segundos`}
+      />
+
+      {enCambio ? (
+        // Durante el cambio lo que de verdad haces es ir hacia el sitio: lo
+        // segundo más importante es lo que te espera al llegar.
+        siguiente && (
+          <Numeral escala="segundo" tono="var(--twin-ok)">
             {frase(siguiente)}
-          </span>
-        )}
-      </div>
-    </div>
+          </Numeral>
+        )
+      ) : tarea ? (
+        <TrabajoMinuto tarea={tarea} contador={contador} hecha={hecha} atenuada={hecha && anuncio !== null} />
+      ) : (
+        // Un cronómetro pelado no pinta una ronda fantasma de guiones
+        // (DECISIONS, 27-jul). Lo que sí se dice es que se puede declarar
+        // después, porque eso el atleta SÍ puede llenarlo con un acto.
+        <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)', maxWidth: 260 }}>
+          Sin movimientos declarados. Los dices al acabar, con calma.
+        </span>
+      )}
+    </>
   );
 }
 
@@ -375,24 +406,18 @@ function ZonaCambio({ inst, siguiente }: { inst: Instante; siguiente: Tarea | nu
 
 function Final({ guion }: { guion: Guion }) {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.s, textAlign: 'center' }}>
-        <Label size={11} color="var(--twin-ok)" style={{ letterSpacing: '0.22em' }}>
-          Hecho
-        </Label>
-        <span style={{ font: 'italic 800 40px/1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-          {guion.rondas} rondas
+    <>
+      <EtiquetaSujeto tono="var(--twin-ok)">Hecho</EtiquetaSujeto>
+      <Numeral unidad="rondas">{guion.rondas}</Numeral>
+      <Numeral escala="segundo" tono="var(--twin-muted)" unidad="de reloj">
+        {reloj(duracionTotal(guion))}
+      </Numeral>
+      {guion.rotacion.length > 0 && (
+        <span style={{ font: '500 12px/1.4 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
+          {guion.rotacion.map(frase).join(' · ')}
         </span>
-        <Mono size={14} color="var(--twin-muted)">
-          {reloj(duracionTotal(guion))} de reloj
-        </Mono>
-        {guion.rotacion.length > 0 && (
-          <span style={{ font: '500 12px/1.4 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-            {guion.rotacion.map(frase).join(' · ')}
-          </span>
-        )}
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 

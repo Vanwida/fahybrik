@@ -21,20 +21,18 @@
 
 import type { ReactNode } from 'react';
 import { Label, Mono, RAD, SP } from '../../kit';
-import { hrZone } from '../../sim';
+import { EtiquetaSujeto, FranjaAccion, Numeral, type Zona } from '../../kit-vivo';
 import { reloj } from '../../datos-reales';
 import {
   AVISO_CORTE_S,
-  UMBRAL_PPM,
   dosis,
   etiquetaCadencia,
   frase,
   lineaFormato,
-  pulsoPpm,
   type EstadoMinuto,
   type Guion,
 } from './data';
-import { Anuncio, BotonHecho, Chrome, Hero, ROTULO, SelloHecho, Traza, puntoDe } from './atoms';
+import { Anuncio, Chrome, Hero, ROTULO, SelloHecho, Traza, puntoDe } from './atoms';
 
 // ---------------------------------------------------------------------------
 // Piezas que solo existen aquí. Viven en este fichero y no en `atoms.tsx`
@@ -124,27 +122,15 @@ function ContadorMonitor({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <Label size={11} color={hecha ? 'var(--twin-ok)' : 'var(--twin-muted)'} style={{ letterSpacing: '0.22em' }}>
+      <EtiquetaSujeto tono={hecha ? 'var(--twin-ok)' : 'var(--twin-muted)'}>
         {unidad === 'cal' ? 'Calorías' : unidad}
-      </Label>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span
-          style={{
-            fontFamily: 'var(--twin-font-mono)',
-            fontWeight: 800,
-            fontSize: 'clamp(84px, 34vh, 132px)',
-            lineHeight: 1,
-            fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '-0.02em',
-            color: hecha ? 'var(--twin-ok)' : 'var(--twin-fg)',
-          }}
-        >
-          {contador}
-        </span>
-        <Mono size={30} weight={700} color="var(--twin-muted)">
-          / {objetivo} {unidad}
-        </Mono>
-      </div>
+      </EtiquetaSujeto>
+      {/* El numeral compartido, también aquí: era el quinto `font:` a mano de
+          la tanda, y con `vh` — o sea, con el alto de la ventana del navegador
+          en vez del del teléfono. */}
+      <Numeral horizontal tono={hecha ? 'var(--twin-ok)' : 'var(--twin-fg)'} unidad={`de ${objetivo} ${unidad}`}>
+        {contador}
+      </Numeral>
     </div>
   );
 }
@@ -153,6 +139,9 @@ export interface CaraProps {
   guion: Guion;
   estado: EstadoMinuto;
   sellos: Record<number, number>;
+  /** El pulso, derivado UNA vez arriba: aquí no se recalcula (§10.1). */
+  ppm: number | null;
+  zona: Zona | null;
   pausado: boolean;
   onPausa: () => void;
   onSalir: () => void;
@@ -276,6 +265,11 @@ function Marco({
         gap: SP.s,
         padding: SP.m,
         boxSizing: 'border-box',
+        // Abre el contenedor de consulta del que cuelga la escala del numeral.
+        // `MarcoVivo` lo hace en retrato; en horizontal esta cara no lo usa (es
+        // de dos columnas), así que lo abre ella. Sin esto las unidades `cq*`
+        // caerían en el viewport y volveríamos al fallo del `vh`.
+        containerType: 'size',
       }}
     >
       <FranjaFormato {...props} cara={cara} />
@@ -306,12 +300,10 @@ function Marco({
 // ---------------------------------------------------------------------------
 
 function CaraMonitor(props: CaraProps) {
-  const { estado, guion } = props;
-  const { tarea, contador, hecha, vatios, cruceS, inst, amb, anuncia, siguiente } = estado;
+  const { estado, ppm, zona: z } = props;
+  const { tarea, contador, hecha, vatios, amb, anuncia, siguiente } = estado;
   if (!tarea || contador === null) return <CaraFormato {...props} />;
 
-  const ppm = cruceS !== undefined && guion.conexiones.reloj ? pulsoPpm(inst.transcurrido, hecha, cruceS) : null;
-  const z = ppm === null ? null : hrZone(ppm, UMBRAL_PPM);
   // Al cruzar dejas de darle: el monitor lee cero de potencia y cero de
   // cadencia. Es un dato de un aparato conectado, no un hueco (§6.2 bis).
   const cadencia = hecha ? 0 : (tarea.cadencia ?? null);
@@ -364,17 +356,16 @@ function CaraFormato(props: CaraProps) {
         display: 'grid',
         placeItems: 'center',
         borderRadius: RAD.l,
-        // El cambio inunda su columna: el opuesto visual del trabajo, con el
-        // glifo del fondo (pasa AA en los dos temas, igual que en retrato).
-        background: enCambio ? 'var(--twin-ok)' : 'transparent',
-        color: enCambio ? 'var(--twin-bg)' : undefined,
-        transition: 'background-color 200ms ease-out',
+        // El cambio ya NO inunda su columna de verde macizo: el sujeto lleva la
+        // misma piel en los dos estados (§10.4), y lo que anuncia el cambio es
+        // el rótulo verde y el fogonazo que baña el lienzo entero.
       }}
     >
       <Hero
         texto={reloj(inst.restante)}
-        color={enCambio ? 'var(--twin-bg)' : color}
+        tono={color}
         rotulo={rotulo}
+        horizontal
         late={(amb === 'aviso' || (enCambio && apura)) && !props.pausado}
         etiquetaVoz={`Ronda ${inst.ronda + 1} de ${guion.rondas}, quedan ${inst.restante} segundos`}
       />
@@ -445,8 +436,15 @@ function CaraFormato(props: CaraProps) {
             {dosis(tarea)}
           </Mono>
         </div>
-        {puedeSellar &&
-          (hecha ? <SelloHecho texto={`Hecho en ${reloj(sellos[inst.ronda])}`} /> : <BotonHecho onClick={onSellar} />)}
+        {puedeSellar && (
+          <div style={{ height: 76 }}>
+            {hecha ? (
+              <SelloHecho texto={`Hecho en ${reloj(sellos[inst.ronda])}`} />
+            ) : (
+              <FranjaAccion titulo="Hecho" nota="sella tu tiempo de este minuto" onClick={onSellar} />
+            )}
+          </div>
+        )}
         <Traza total={guion.rondas} actual={inst.ronda} sellos={puedeSellar ? sellos : undefined} />
       </div>
     </Marco>
