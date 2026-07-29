@@ -100,7 +100,12 @@ final class OutdoorRunHUDModel {
     func togglePause() { session.togglePause() }
     /// Manual OVERRIDE — close this leg now ("Tramo hecho" / "Hecho"). Same advance
     /// the automatic GPS close and the rest of the workout use.
-    func endLegNow() { Haptics.medium(); session.primaryAdvance() }
+    ///
+    /// El háptico lo dispara `FranjaAccion`, que es la pieza compartida de la
+    /// acción (contrato §10.5): así el toque se siente igual en las diez vistas en
+    /// vivo en vez de depender de que cada modelo se acuerde. Aquí sonaba dos
+    /// veces desde que la vista pasó a hablar el lenguaje del §10.
+    func endLegNow() { session.primaryAdvance() }
 
     // MARK: - Leg display context (shared resolvers → reads like the belt HUD)
 
