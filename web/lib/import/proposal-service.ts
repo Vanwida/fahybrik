@@ -13,7 +13,7 @@ import 'server-only';
 
 import { tmpdir } from 'node:os';
 import { writeFileSync, unlinkSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -98,11 +98,6 @@ export const importGenerateRequestSchema = z
 
 export type ImportGenerateRequest = z.infer<typeof importGenerateRequestSchema>;
 
-// Pablo's canonical 12-week workbook, used only when the coach neither uploads a
-// file nor pastes text (the demo convenience path). Same location the read tests
-// resolve. process.cwd() is the `web/` package dir → repo-root /docs.
-const CANONICAL_XLSX = resolve(process.cwd(), '..', 'docs', 'Plantilla_HYROX_12sem (1) 2.xlsx');
-
 // Display name for a 1..7 day index (only needed for the pasted-text path, where
 // the day may be unknown). Kept local — the reader owns the xlsx mapping.
 const DAY_DISPLAY = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -123,33 +118,40 @@ async function assertMicrocycleOwned(
 }
 
 /**
- * Read the WEEK-RANGE source into `ImportedWeek[]` (whole weeks). Precedence:
- * uploaded xlsx → canonical workbook. The paste flow is single-day and handled
+ * Read the WEEK-RANGE source into `ImportedWeek[]` (whole weeks). The ONLY source
+ * is the workbook this coach uploaded. The paste flow is single-day and handled
  * separately (`buildPastedDay`), so it never reaches here.
+ *
+ * There is deliberately NO default workbook. Until 2026-07-29 this fell back to a
+ * specific coach's 12-week xlsx shipped in the repo, so a coach who hit importar
+ * without choosing a file got ANOTHER coach's plan proposed as if it were his own.
+ * A missing source is an error, never someone else's content.
  */
 async function readSource(
   req: ImportProposalRequest,
   weekNums: number[],
 ): Promise<ImportedWeek[]> {
-  if (req.xlsx_base64) {
-    const tmp = join(
-      tmpdir(),
-      `fahybrik-import-${Date.now()}-${Math.random().toString(36).slice(2)}.xlsx`,
+  if (!req.xlsx_base64) {
+    throw new ImportError(
+      'missing_source',
+      'Sube tu Excel para importar estas semanas, o pega el entreno de un día.',
+      400,
     );
+  }
+  const tmp = join(
+    tmpdir(),
+    `fahybrik-import-${Date.now()}-${Math.random().toString(36).slice(2)}.xlsx`,
+  );
+  try {
+    writeFileSync(tmp, Buffer.from(req.xlsx_base64, 'base64'));
+    return await readPlanWorkbook(tmp, req.variant, weekNums);
+  } finally {
     try {
-      writeFileSync(tmp, Buffer.from(req.xlsx_base64, 'base64'));
-      return await readPlanWorkbook(tmp, req.variant, weekNums);
-    } finally {
-      try {
-        unlinkSync(tmp);
-      } catch {
-        // temp cleanup is best-effort.
-      }
+      unlinkSync(tmp);
+    } catch {
+      // temp cleanup is best-effort.
     }
   }
-
-  // Demo/default convenience: read Pablo's canonical workbook for the range.
-  return readPlanWorkbook(CANONICAL_XLSX, req.variant, weekNums);
 }
 
 /**
@@ -306,8 +308,8 @@ export async function buildImportProposalFromRequest(params: {
 
   await assertMicrocycleOwned(params.coach_id, req.microcycle_id, client);
 
-  // Two flows: PASTE = a single day placed on a concrete weekday; EXCEL/canonical =
-  // whole weeks over a week range.
+  // Two flows: PASTE = a single day placed on a concrete weekday; EXCEL = whole
+  // weeks over a week range, read from the workbook THIS coach uploaded.
   let weeks: ImportedWeek[];
   const isPaste = !!req.pasted_text && req.pasted_text.trim().length > 0;
   if (isPaste) {
@@ -321,6 +323,10 @@ export async function buildImportProposalFromRequest(params: {
     try {
       weeks = await readSource(req, range.weeks);
     } catch (err) {
+      // Un ImportError ya viene tipado y con su status (p. ej. `missing_source`,
+      // 400): re-envolverlo lo convertía en un 422 «no se pudo leer el fichero»
+      // para un caso en el que no hay fichero que leer.
+      if (err instanceof ImportError) throw err;
       const message = err instanceof Error ? err.message : 'No se pudo leer el origen.';
       throw new ImportError('source_read_failed', message, 422);
     }

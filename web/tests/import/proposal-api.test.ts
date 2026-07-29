@@ -1,15 +1,19 @@
 /**
  * Real-DB API-level test for the #28 PROPOSAL service (the /proposal route's core,
  * minus the HTTP/session shell). Creates a throwaway microcycle owned by the seed
- * coach, then drives buildImportProposalFromRequest against Pablo's REAL canonical
- * workbook + the real per-coach exercise resolver, asserting the TYPED per-day
- * proposal and that ownership is enforced. LLM is disabled (llmAssist:null) so the
- * grammar half is exercised deterministically. Saves nothing. Skips loudly without
- * TEST_DATABASE_URL; skips the xlsx assertions if the workbook is absent.
+ * coach, then drives buildImportProposalFromRequest against a REAL workbook fixture
+ * + the real per-coach exercise resolver, asserting the TYPED per-day proposal and
+ * that ownership is enforced. LLM is disabled (llmAssist:null) so the grammar half
+ * is exercised deterministically. Saves nothing. Skips loudly without
+ * TEST_DATABASE_URL; skips the xlsx assertions if the workbook fixture is absent.
+ *
+ * El fixture se pasa como `xlsx_base64`, igual que lo sube un coach: el servicio ya
+ * no tiene workbook por defecto (antes caía al de UN coach concreto en tiempo de
+ * ejecución), así que este test recorre exactamente el camino de producción.
  */
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   buildImportProposalFromRequest,
   ImportError,
@@ -73,6 +77,7 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
           microcycle_id: microcycleId,
           variant: 'estandar',
           range_text: 'de la semana 1 a la 4',
+          xlsx_base64: readFileSync(XLSX).toString('base64'),
         },
         client: sql,
         llmAssist: null, // deterministic grammar half only
