@@ -140,13 +140,13 @@ export function TestEditorPanel({
       {/* Resultados */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
+          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
             Resultados
           </span>
           <button
             type="button"
             onClick={addResult}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
           >
             <MIcon name="add" size={14} /> Añadir
           </button>
@@ -199,7 +199,7 @@ export function TestEditorPanel({
                   maxLength={60}
                 />
               </div>
-              <label className="mt-1.5 flex cursor-pointer items-start gap-1.5 text-[11.5px] leading-snug text-[color:var(--v2-muted)]">
+              <label className="mt-1.5 flex cursor-pointer items-start gap-1.5 text-label leading-snug text-[color:var(--v2-muted)]">
                 <input
                   type="checkbox"
                   checked={r.optional}
@@ -214,7 +214,7 @@ export function TestEditorPanel({
                   </span>
                 </span>
               </label>
-              <p className="mt-1 text-[11px] leading-snug text-[color:var(--v2-faint)]">
+              <p className="mt-1 text-label leading-snug text-[color:var(--v2-faint)]">
                 {resultHelp(r)}
               </p>
             </div>
@@ -225,19 +225,19 @@ export function TestEditorPanel({
       {/* Agenda */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
+          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
             Agenda
           </span>
           <button
             type="button"
             onClick={addSchedule}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
           >
             <MIcon name="add" size={14} /> Añadir semana
           </button>
         </div>
         {draft.schedule.length === 0 ? (
-          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-[11.5px] leading-snug text-[color:var(--v2-faint)]">
+          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
             Sin agenda: el test queda en tu catálogo pero no se programa solo. Añade una semana para que se inyecte en el plan del atleta.
           </p>
         ) : (
@@ -247,7 +247,7 @@ export function TestEditorPanel({
                 key={i}
                 className="flex flex-wrap items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2"
               >
-                <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[color:var(--v2-muted)]">
+                <label className="inline-flex items-center gap-1.5 text-label font-semibold text-[color:var(--v2-muted)]">
                   Semana
                   <input
                     type="number"
@@ -259,7 +259,7 @@ export function TestEditorPanel({
                         week_offset: Math.min(52, Math.max(1, Number(e.target.value) || 1)),
                       })
                     }
-                    className="v2-focus h-7 w-14 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-center text-[13px] text-[color:var(--v2-fg)]"
+                    className="v2-focus h-7 w-14 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-center text-body text-[color:var(--v2-fg)]"
                   />
                 </label>
                 <div className="flex items-center gap-1">
@@ -274,7 +274,7 @@ export function TestEditorPanel({
                         aria-label={`Día ${lbl}`}
                         aria-pressed={active}
                         className={cn(
-                          'v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[11.5px] font-bold transition-colors',
+                          'v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-label font-bold transition-colors',
                           active
                             ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                             : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -297,7 +297,7 @@ export function TestEditorPanel({
             ))}
           </div>
         )}
-        <p className="mt-1.5 text-[11px] leading-snug text-[color:var(--v2-faint)]">
+        <p className="mt-1.5 text-label leading-snug text-[color:var(--v2-faint)]">
           Repite un test en varias semanas (re-tests) añadiendo más filas. La semana 1 es la primera del plan del atleta.
         </p>
       </div>

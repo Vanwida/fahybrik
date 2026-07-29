@@ -170,7 +170,7 @@ function PriceEditor({
           Introduce un importe válido en euros e inténtalo de nuevo.
         </p>
       ) : (
-        <p className="text-[11px] text-[color:var(--v2-faint)]">
+        <p className="text-label text-[color:var(--v2-faint)]">
           Se aplica al próximo cobro; no se cobra de forma prorrateada a mitad de mes.
         </p>
       )}
@@ -189,19 +189,19 @@ function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      <table className="w-full border-collapse text-body">
         <thead>
           <tr className="border-b border-[color:var(--v2-border)] text-[color:var(--v2-faint)]">
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
               Mes
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
               Importe
             </th>
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
               Estado
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
               Fecha
             </th>
           </tr>

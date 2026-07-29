@@ -47,7 +47,7 @@ export function SequenceCell({
           'text-left transition-colors hover:border-[color:var(--v2-border-strong)] hover:bg-[color:var(--v2-surface-2)]',
         )}
       >
-        <div className="flex w-full items-center gap-2 text-[10px] text-[color:var(--v2-muted)]">
+        <div className="flex w-full items-center gap-2 text-eyebrow text-[color:var(--v2-muted)]">
           <span className="inline-flex items-center gap-1">
             <MIcon name="view_week" size={12} className="opacity-70" />
             <b className="v2-num text-[color:var(--v2-fg)]">{mc}</b> mc
@@ -83,7 +83,7 @@ export function SequenceCell({
 
 function Sparkline({ segments }: { segments: SequenceSparkSegment[] }) {
   if (segments.length === 0) {
-    return <span className="text-[10px] text-[color:var(--v2-faint)]">sin microciclos</span>;
+    return <span className="text-eyebrow text-[color:var(--v2-faint)]">sin microciclos</span>;
   }
   const total = segments.reduce((sum, s) => sum + Math.max(s.weeks, 1), 0);
   return (
@@ -91,7 +91,7 @@ function Sparkline({ segments }: { segments: SequenceSparkSegment[] }) {
       {segments.map((seg, i) => (
         <span
           key={i}
-          className="h-1.5 rounded-[2px]"
+          className="h-1.5 rounded-[var(--v2-r-3xs)]"
           style={{
             width: `${(Math.max(seg.weeks, 1) / total) * 100}%`,
             background: 'var(--v2-muted)',

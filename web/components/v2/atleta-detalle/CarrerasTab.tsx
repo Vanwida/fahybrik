@@ -264,10 +264,10 @@ function UpcomingCard({
         <span className="text-sm font-bold text-[color:var(--v2-fg)]">{race.name}</span>
         <span className="text-xs text-[color:var(--v2-muted)]">{raceCategoryLineEs(race)}</span>
         {dateLine ? (
-          <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{dateLine}</span>
+          <span className="v2-num text-label text-[color:var(--v2-faint)]">{dateLine}</span>
         ) : null}
         {goal ? (
-          <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+          <span className="mt-0.5 inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)]">
             <MIcon name="target" size={13} className="text-[color:var(--v2-accent)]" />
             <span className="v2-num">Objetivo {goal}</span>
           </span>
@@ -276,11 +276,11 @@ function UpcomingCard({
 
       {pendingRemove ? (
         <div className="mt-1 flex flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
-          <span className="text-[11px] font-medium text-[color:var(--v2-fg)]">
+          <span className="text-label font-medium text-[color:var(--v2-fg)]">
             ¿Quitar este objetivo de la cuenta atrás?
           </span>
           {removeError ? (
-            <span className="text-[11px] font-medium text-[color:var(--v2-danger)]">
+            <span className="text-label font-medium text-[color:var(--v2-danger)]">
               {removeError}
             </span>
           ) : null}
@@ -289,7 +289,7 @@ function UpcomingCard({
               type="button"
               onClick={onCancelRemove}
               disabled={removing}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               Cancelar
             </button>
@@ -297,7 +297,7 @@ function UpcomingCard({
               type="button"
               onClick={onConfirmRemove}
               disabled={removing}
-              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {removing ? (
                 <MIcon name="progress_activity" size={13} className="animate-spin" />
@@ -349,10 +349,10 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             ) : null}
           </div>
           {metaLine ? (
-            <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{metaLine}</span>
+            <span className="v2-num text-label text-[color:var(--v2-faint)]">{metaLine}</span>
           ) : null}
           {teammates ? (
-            <span className="text-[11px] text-[color:var(--v2-muted)]">Con {teammates}</span>
+            <span className="text-label text-[color:var(--v2-muted)]">Con {teammates}</span>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
@@ -360,12 +360,12 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             {result ?? 'Sin resultado'}
           </span>
           {topPct != null ? (
-            <span className="v2-num text-[11px] font-semibold text-[color:var(--v2-accent)]">
+            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent)]">
               Top {topPct}%
             </span>
           ) : null}
           {rankLine ? (
-            <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{rankLine}</span>
+            <span className="v2-num text-label text-[color:var(--v2-faint)]">{rankLine}</span>
           ) : null}
         </div>
       </div>
@@ -376,7 +376,7 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name={expanded ? 'expand_less' : 'expand_more'} size={16} />
             {expanded ? 'Ocultar splits' : 'Ver splits'}
@@ -398,7 +398,7 @@ function SplitsPanel({ race }: { race: RaceHistoryItem }) {
   return (
     <div className="mt-1 flex flex-col gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
       {race.is_team_result ? (
-        <span className="text-[11px] font-medium text-[color:var(--v2-muted)]">
+        <span className="text-label font-medium text-[color:var(--v2-muted)]">
           Tiempos del equipo (no individuales).
         </span>
       ) : null}
@@ -459,8 +459,8 @@ function SummaryTile({ label, value, accent }: { label: string; value: string; a
 function SplitCell({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface)] px-2 py-1.5">
-      <span className="truncate text-[11px] text-[color:var(--v2-muted)]">{label}</span>
-      <span className="v2-num shrink-0 text-[11px] font-semibold text-[color:var(--v2-fg)]">
+      <span className="truncate text-label text-[color:var(--v2-muted)]">{label}</span>
+      <span className="v2-num shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
         {value ?? '—'}
       </span>
     </div>
@@ -483,7 +483,7 @@ function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }
       <button
         type="button"
         onClick={onRetry}
-        className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-danger)]"
+        className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-danger)]"
       >
         <MIcon name="refresh" size={13} />
         Reintentar

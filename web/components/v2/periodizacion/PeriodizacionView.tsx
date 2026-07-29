@@ -98,7 +98,7 @@ export function PeriodizacionView({
   }, [router, pathname]);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       {/* topbar + orientation — levels home only (the level detail owns its header) */}
       {!entered ? (
         <>

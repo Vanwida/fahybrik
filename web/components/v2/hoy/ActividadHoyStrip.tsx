@@ -33,7 +33,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
           Actividad de hoy
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {activity.total}
@@ -55,7 +55,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
                   {s.athlete_name}
                 </span>
                 {s.age_label ? (
-                  <span className="text-[11px] text-[color:var(--v2-faint)]">{s.age_label}</span>
+                  <span className="text-label text-[color:var(--v2-faint)]">{s.age_label}</span>
                 ) : null}
               </div>
               <MIcon
@@ -74,7 +74,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
             </p>
 
             {/* Real key result (tiempo · RPE / "Completada") */}
-            <p className="mt-0.5 v2-num text-[11px] text-[color:var(--v2-muted)]">{s.result}</p>
+            <p className="mt-0.5 v2-num text-label text-[color:var(--v2-muted)]">{s.result}</p>
           </Link>
         ))}
 
@@ -84,7 +84,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
             className="v2-focus flex w-28 shrink-0 flex-col items-center justify-center rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] p-2.5 text-center transition-colors hover:border-[color:var(--v2-border-strong)]"
           >
             <span className="text-sm font-semibold text-[color:var(--v2-fg)]">+{hidden}</span>
-            <span className="text-[11px] text-[color:var(--v2-muted)]">más hoy</span>
+            <span className="text-label text-[color:var(--v2-muted)]">más hoy</span>
           </Link>
         ) : null}
       </Rail>

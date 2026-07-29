@@ -43,7 +43,7 @@ export function CitaActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         TONE_CLS[tone],
         className,
       )}

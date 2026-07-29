@@ -188,7 +188,7 @@ export function TestsView({
   const isEmpty = tests.length === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">
@@ -258,11 +258,11 @@ export function TestsView({
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-[14.5px] font-bold text-[color:var(--v2-fg)]">
+                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)]">
                         {t.name}
                       </span>
                       {!t.enabled ? (
-                        <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+                        <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
                           en pausa
                         </span>
                       ) : null}
@@ -285,7 +285,7 @@ export function TestsView({
                       e.stopPropagation();
                       setApplying(t);
                     }}
-                    className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-[12px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
+                    className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
                   >
                     Aplicar
                   </button>
@@ -326,7 +326,7 @@ export function TestsView({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-[13px] text-[color:var(--v2-fg)] shadow-lg"
+          className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-body text-[color:var(--v2-fg)] shadow-lg"
         >
           <MIcon name="event_available" size={16} className="text-[color:var(--v2-accent)]" />
           <span>{toast}</span>
@@ -388,7 +388,7 @@ function PurposeStrip({ onRestore, restoring }: { onRestore: () => void; restori
         type="button"
         onClick={onRestore}
         disabled={restoring}
-        className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 py-1 text-[11.5px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-50"
+        className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-50"
       >
         <MIcon name="restart_alt" size={14} /> {restoring ? 'Restaurando…' : 'Restaurar batería por defecto'}
       </button>
@@ -414,7 +414,7 @@ function EmptyTests({
         <MIcon name="timer" size={26} />
       </span>
       <p className="text-base font-bold text-[color:var(--v2-fg)]">No tienes tests de calibración</p>
-      <p className="mx-auto mt-1.5 max-w-[420px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="mx-auto mt-1.5 max-w-[420px] text-body leading-relaxed text-[color:var(--v2-muted)]">
         Sin tests, la primera semana del atleta no fija su punto de partida real: sus zonas y 1RM se
         quedan en la estimación del onboarding. Restaura la batería por defecto o crea el tuyo.
       </p>
@@ -451,8 +451,8 @@ function ConfirmDeleteDialog({
   return (
     <DialogScrim onClose={onCancel}>
       <div className="max-w-[420px] rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-5">
-        <p className="text-[15px] font-bold text-[color:var(--v2-fg)]">¿Quitar «{test.name}» de la batería?</p>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="text-reading font-bold text-[color:var(--v2-fg)]">¿Quitar «{test.name}» de la batería?</p>
+        <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           Dejará de programarse en los planes nuevos. Los tests ya asignados a un atleta y sus
           resultados capturados se conservan.
         </p>

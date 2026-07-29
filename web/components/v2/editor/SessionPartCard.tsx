@@ -100,7 +100,7 @@ export function SessionPartCard({
       {/* Session header */}
       <header className="flex flex-col gap-2.5 border-b border-[color:var(--v2-border)] px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-0.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
             {SLOT_LABEL[session.slot]}
             {session.time_hint ? ` · ${session.time_hint}` : ''}
           </span>
@@ -132,7 +132,7 @@ export function SessionPartCard({
               onClick={onSuggestTitle}
               disabled={suggesting}
               title="Sugerir un título a partir del contenido del entreno"
-              className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 text-[13px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+              className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 text-body font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
             >
               <MIcon name={suggesting ? 'progress_activity' : 'lightbulb'} size={16} />
               <span className="hidden sm:inline">{suggesting ? 'Sugiriendo…' : 'Sugerir título'}</span>
@@ -145,7 +145,7 @@ export function SessionPartCard({
             type="button"
             onClick={onSuggestWorkout}
             title="Coach IA redacta los bloques de esta sesión a partir de un foco"
-            className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-[13px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+            className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-body font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
           >
             <MIcon name="draw" size={16} />
             <span className="hidden sm:inline">Redactar con IA</span>
@@ -276,7 +276,7 @@ function SortableBlockCard({
           className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-transparent bg-transparent px-1.5 py-1 text-sm font-bold text-[color:var(--v2-fg)] placeholder:font-medium placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border)] focus:border-[color:var(--v2-accent)] focus:bg-[color:var(--v2-surface)]"
         />
         {typeLabel ? (
-          <span className="shrink-0 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+          <span className="shrink-0 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
             {typeLabel}
           </span>
         ) : null}
@@ -294,7 +294,7 @@ function SortableBlockCard({
           dónde salió, no promete que se actualice sola. Si el bloque de origen ya no
           existe, el loader deja el título en null y aquí no se pinta nada. */}
       {block.source_block_title ? (
-        <p className="flex items-center gap-1 px-2 pt-1.5 text-[11px] text-[color:var(--v2-faint)]">
+        <p className="flex items-center gap-1 px-2 pt-1.5 text-label text-[color:var(--v2-faint)]">
           <MIcon name="library_books" size={13} aria-hidden />
           Desde tu bloque «{block.source_block_title}»
         </p>
@@ -325,8 +325,8 @@ function InlineBlockPicker({
     <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-3.5">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-[13px] font-bold text-[color:var(--v2-fg)]">Añadir bloque</span>
-          <span className="text-[11px] text-[color:var(--v2-muted)]">
+          <span className="text-body font-bold text-[color:var(--v2-fg)]">Añadir bloque</span>
+          <span className="text-label text-[color:var(--v2-muted)]">
             elige el tipo de trabajo · el nombre lo pones tú
           </span>
         </div>

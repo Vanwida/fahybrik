@@ -148,7 +148,7 @@ export function CreateExerciseForm({
 
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
         <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
-        <p className="text-[12px] leading-snug text-[color:var(--v2-fg)]">
+        <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
           Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo — sólo tú lo
           verás.
         </p>
@@ -210,7 +210,7 @@ function ChipField({
         {label}
         {aside ? <span className="text-[color:var(--v2-faint)]">{aside}</span> : null}
         {suggested ? (
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
+          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
             <MIcon name="lightbulb" size={11} />
             Sugerida
           </span>
@@ -219,7 +219,7 @@ function ChipField({
       <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
         {children}
       </div>
-      <p className="text-[11px] text-[color:var(--v2-faint)]">{hint}</p>
+      <p className="text-label text-[color:var(--v2-faint)]">{hint}</p>
     </div>
   );
 }

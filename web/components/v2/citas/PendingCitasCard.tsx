@@ -51,7 +51,7 @@ export function PendingCitasCard({ calls }: { calls: UpcomingCall[] }) {
                   <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)] transition-colors group-hover:text-[color:var(--v2-accent)]">
                     {name}
                   </span>
-                  <span className="v2-num truncate text-[11px] text-[color:var(--v2-muted)]">
+                  <span className="v2-num truncate text-label text-[color:var(--v2-muted)]">
                     {formatCitaDateTime(c.requested_start)} · {c.duration_minutes} min
                   </span>
                 </div>

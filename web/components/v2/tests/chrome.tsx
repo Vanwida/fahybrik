@@ -12,7 +12,7 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
   return (
     <div
       role="alert"
-      className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-[12.5px]"
+      className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-xs"
       style={{
         background: 'var(--v2-danger-soft)',
         color: 'var(--v2-danger)',
@@ -31,7 +31,7 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
 export function DialogScrim({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
     <div
-      className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-30 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -91,7 +91,7 @@ export function SelectInput({
       onChange={(e) => onChange(e.target.value)}
       className={cn(
         'v2-focus h-[34px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-        'bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)]',
+        'bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)]',
         'focus:border-[color:var(--v2-border-strong)]',
       )}
     >

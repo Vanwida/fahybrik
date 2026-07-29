@@ -11,6 +11,7 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import type { SegmentTarget } from '@fahybrid/shared/domain/prescription';
+import { zoneSoftVar } from '@/lib/dashboard/v2/zone-view';
 
 /** One resolved band, athlete-absolute. fast_s < slow_s; slow_s null = open (Z1). */
 export interface RunZoneBand {
@@ -39,15 +40,24 @@ function clock(totalS: number): string {
 /** The Z1 band is open-ended (slow_s null) — give it a finite edge for drawing. */
 const OPEN_BAND_PAD_S = 60;
 
-// The five-step heat from easy to hard, matching the mockup's ruler.
-const BAND_TINTS = [
-  'rgba(63,199,115,.13)',
-  'rgba(63,199,115,.27)',
-  'rgba(242,165,46,.27)',
-  'rgba(240,106,42,.33)',
-  'rgba(229,72,77,.33)',
-  'rgba(229,72,77,.45)',
-];
+/**
+ * El tinte de una banda sale del EJE DE ZONA compartido (`zoneSoftVar` →
+ * `--v2-z1..z6-soft`), la misma escala que pintan la calculadora de zonas y las
+ * tarjetas de sesión, ya resuelta para tema claro y oscuro.
+ *
+ * Antes eran seis `rgba()` clavados aquí, y uno era el naranja de MARCA
+ * (`rgba(240,106,42,.33)`): globals.css:44 lo prohíbe como color de dato
+ * ("HR zones — workout charts ONLY (orange forbidden here)") porque el naranja
+ * significa "seleccionado/marca" en toda la app.
+ *
+ * El número de zona se lee del `code` de la banda ("Z4" → 4), no de su posición,
+ * para que la regla del ritmo pinte la Z4 del atleta con el MISMO color que su
+ * ficha aunque su perfil tenga cinco zonas en vez de seis.
+ */
+function bandTint(band: RunZoneBand, index: number): string {
+  const n = Number(/^z(\d+)$/i.exec(band.code.trim())?.[1]);
+  return `var(${zoneSoftVar(Number.isFinite(n) ? n : index + 1)})`;
+}
 
 /**
  * The ruler itself. Renders ONLY when the surrounding surface provided zones AND
@@ -88,17 +98,17 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
 
   return (
     <div className="mt-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
-      <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--v2-faint)]">
+      <div className="mb-1.5 flex items-center justify-between text-eyebrow font-bold uppercase tracking-[0.1em] text-[color:var(--v2-faint)]">
         <span>Dónde cae para {ctx.athlete_name}</span>
         <span>sus zonas reales</span>
       </div>
-      <div className="relative flex h-5 overflow-hidden rounded-[6px]">
+      <div className="relative flex h-5 overflow-hidden rounded-[var(--v2-r-xs)]">
         {bands.map((b, i) => {
           const bandSpan = (b.slow_s ?? b.fast_s + OPEN_BAND_PAD_S) - b.fast_s;
           return (
             <div
               key={b.code}
-              style={{ width: `${(bandSpan / span) * 100}%`, background: BAND_TINTS[i] ?? BAND_TINTS[BAND_TINTS.length - 1] }}
+              style={{ width: `${(bandSpan / span) * 100}%`, background: bandTint(b, i) }}
             />
           );
         })}
@@ -110,14 +120,14 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
           />
         ) : null}
       </div>
-      <div className="mt-1 flex justify-between font-mono text-[10px] text-[color:var(--v2-faint)]">
+      <div className="mt-1 flex justify-between font-mono text-eyebrow text-[color:var(--v2-faint)]">
         {bands.map((b) => (
           <span key={b.code}>
             {b.code} · {clock(b.fast_s)}
           </span>
         ))}
       </div>
-      <p className="mt-1.5 text-[11.5px] text-[color:var(--v2-muted)]">{caption}</p>
+      <p className="mt-1.5 text-label text-[color:var(--v2-muted)]">{caption}</p>
     </div>
   );
 }

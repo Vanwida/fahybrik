@@ -137,9 +137,9 @@ export function PipelineCue({
   // ── Collapsed: only badge + dots ────────────────────────────────────────────
   if (effectiveMode === 'collapsed') {
     return (
-      <div className="mb-4 inline-flex w-auto items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-[11.5px]">
+      <div className="mb-4 inline-flex w-auto items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-label">
         <span
-          className="rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+          className="rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {badge}
@@ -159,9 +159,9 @@ export function PipelineCue({
 
   // ── Compact (default steady state): one line ────────────────────────────────
   return (
-    <div className="mb-4 flex items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-[11.5px]">
+    <div className="mb-4 flex items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-label">
       <span
-        className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+        className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
         style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
       >
         {badge}
@@ -249,15 +249,15 @@ function FlowNode({
     <div className="flex items-center">
       <div className="min-w-[92px] px-2 text-center">
         <span
-          className="v2-num mb-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10.5px] font-bold"
+          className="v2-num mb-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-eyebrow font-bold"
           style={numStyle}
         >
           {ord}
         </span>
-        <div className="text-[11.5px] font-bold leading-tight" style={{ color: nameColor }}>
+        <div className="text-label font-bold leading-tight" style={{ color: nameColor }}>
           {name}
         </div>
-        <div className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+        <div className="mt-0.5 text-nano font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
           {where}
         </div>
       </div>

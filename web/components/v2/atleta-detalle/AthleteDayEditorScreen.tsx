@@ -23,7 +23,7 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
     <RunZonesProvider
       value={data.run_zones.length > 0 ? { athlete_name: data.athlete_name.split(' ')[0] ?? data.athlete_name, zones: data.run_zones } : null}
     >
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
       {/* Header — back to plan + the day being edited */}
       <div className="flex flex-col gap-1.5">
         <Link
@@ -46,7 +46,7 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
           action={
             <Link
               href={data.back_href}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
             >
               <MIcon name="arrow_back" size={17} />
               Volver al plan

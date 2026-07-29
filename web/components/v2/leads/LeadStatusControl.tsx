@@ -120,7 +120,7 @@ export function LeadStatusControl({
             onClick={() => setStatus('nuevo')}
             disabled={busy}
             className={cn(
-              'v2-focus inline-flex h-9 w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-[13px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50',
+              'v2-focus inline-flex h-9 w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50',
             )}
           >
             <MIcon
@@ -146,7 +146,7 @@ export function LeadStatusControl({
                   onClick={() => setStatus(s)}
                   disabled={busy}
                   className={cn(
-                    'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                    'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                     isDiscard
                       ? 'border-[color:var(--v2-border)] text-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]'
                       : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',

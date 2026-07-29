@@ -41,7 +41,7 @@ export default async function AdminPage({
           money for the whole platform. */}
       <section className="flex flex-col gap-8">
         <header className="flex flex-col gap-1 border-b border-[color:var(--border-subtle)] pb-4">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
             Negocio / Suscripciones
           </p>
           <h1 className="font-display-xl text-[color:var(--fg)]">Métricas</h1>
@@ -52,7 +52,7 @@ export default async function AdminPage({
       {/* Coaches — approve/reject requests, add coaches directly. */}
       <section className="flex flex-col gap-6">
         <header className="flex flex-col gap-1 border-b border-[color:var(--border-subtle)] pb-4">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
             Equipo
           </p>
           <h2 className="font-display-xl text-[color:var(--fg)]">Coaches</h2>

@@ -49,7 +49,7 @@ function TestCard({
         )}
       </div>
       {has && rel ? (
-        <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">{rel}</span>
+        <span className="v2-num shrink-0 text-label text-[color:var(--v2-faint)]">{rel}</span>
       ) : null}
     </div>
   );
@@ -121,7 +121,7 @@ function StrengthRow({ max }: { max: StrengthMaxView }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{max.exercise_label}</span>
         {rel ? (
-          <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{rel}</span>
+          <span className="v2-num text-label text-[color:var(--v2-faint)]">{rel}</span>
         ) : null}
       </div>
       {delta ? (
@@ -181,7 +181,7 @@ export function PerfilTab({
             </span>
             <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">
               {data.max_hr_bpm}{' '}
-              <span className="text-[11px] font-normal text-[color:var(--v2-faint)]">bpm</span>
+              <span className="text-label font-normal text-[color:var(--v2-faint)]">bpm</span>
             </span>
           </div>
         ) : null}
@@ -224,12 +224,12 @@ export function PerfilTab({
                 <div className="mb-1.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-1.5">
                   <span
                     aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                    className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
                     style={{
                       background: `var(--v2-mod-${group.modality === 'run' ? 'carrera' : 'ergo'})`,
                     }}
                   />
-                  <span className="text-[12.5px] font-bold text-[color:var(--v2-fg)]">
+                  <span className="text-xs font-bold text-[color:var(--v2-fg)]">
                     {group.modality_label}
                   </span>
                 </div>

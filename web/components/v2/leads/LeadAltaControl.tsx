@@ -221,8 +221,8 @@ function AltaModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Cerrar" onClick={close} className="absolute inset-0 bg-[color:var(--v2-scrim,rgba(0,0,0,0.6))]" />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop,0_20px_60px_rgba(0,0,0,0.4))]">
+      <button type="button" aria-label="Cerrar" onClick={close} className="absolute inset-0 bg-[color:var(--v2-scrim)]" />
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Dar de alta como atleta</h2>
           <button type="button" aria-label="Cerrar" onClick={close} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]">
@@ -346,7 +346,7 @@ function AltaModal({
                 </label>
               </div>
               {stripeConfigured ? (
-                <p className="text-[11px] leading-relaxed text-[color:var(--v2-faint)]">
+                <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
                   <b className="text-[color:var(--v2-muted)]">Cortesía</b> = acceso libre, sin Stripe.{' '}
                   <b className="text-[color:var(--v2-muted)]">Fundador</b> = suscripción real por Stripe
                   a 0 €.
@@ -397,12 +397,12 @@ function AltaModal({
                       </span>
                     </div>
                     {founder ? (
-                      <span className="text-[11px] text-[color:var(--v2-muted)]">
+                      <span className="text-label text-[color:var(--v2-muted)]">
                         Se cobrará <b className="text-[color:var(--v2-fg)]">0 €</b>. El precio de lista
                         es opcional (para tu MRR y el día que deje de ser fundador).
                       </span>
                     ) : pricePrefilled ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                      <span className="inline-flex items-center gap-1 text-label text-[color:var(--v2-faint)]">
                         <MIcon name="call" size={13} /> del parte de la llamada
                       </span>
                     ) : null}

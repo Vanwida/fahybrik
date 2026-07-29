@@ -95,7 +95,7 @@ export function LeadsDirectory({
   const archivedCount = counts.convertido + counts.descartado;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
       {/* ── Citas pendientes ──────────────────────────────────────────────── */}
       {upcomingCalls.length > 0 ? <PendingCitasCard calls={upcomingCalls} /> : null}
 
@@ -185,7 +185,7 @@ export function LeadsDirectory({
           onClick={() => setShowArchived((v) => !v)}
           aria-pressed={showArchived}
           className={cn(
-            'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3 text-[11px] font-semibold whitespace-nowrap transition-colors',
+            'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3 text-label font-semibold whitespace-nowrap transition-colors',
             showArchived
               ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
               : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

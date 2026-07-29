@@ -41,21 +41,21 @@ export function useInlineSave(persist: (value: string) => Promise<boolean>) {
 export function InlineSaveBadge({ status }: { status: InlineSaveState }) {
   if (status === 'saving') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+      <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)]">
         <MIcon name="progress_activity" size={14} /> Guardando…
       </span>
     );
   }
   if (status === 'saved') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-success,var(--v2-fg))]">
+      <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-ok)]">
         <MIcon name="check" size={14} /> Guardado
       </span>
     );
   }
   if (status === 'error') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-danger)]">
+      <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-danger)]">
         <MIcon name="error" size={14} /> No se pudo guardar
       </span>
     );

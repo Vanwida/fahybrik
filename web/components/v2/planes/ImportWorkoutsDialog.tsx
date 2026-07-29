@@ -327,7 +327,7 @@ export function ImportWorkoutsDialog({
                   type="button"
                   onClick={() => selectSource(m)}
                   className={cn(
-                    'v2-focus rounded-[calc(var(--v2-r-s)-2px)] px-3 py-1.5 text-[12px] font-semibold transition-colors',
+                    'v2-focus rounded-[calc(var(--v2-r-s)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors',
                     sourceMode === m
                       ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                       : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -378,14 +378,14 @@ export function ImportWorkoutsDialog({
                 />
                 {pasteInstructionHint ? (
                   <div className="flex flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn)]/10 px-3 py-2.5">
-                    <p className="flex items-start gap-1.5 text-[12px] leading-snug text-[color:var(--v2-fg)]">
+                    <p className="flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-fg)]">
                       <MIcon name="lightbulb" size={15} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
                       Esto parece una instrucción, no una sesión pegada. Para que la IA te la genere usa «Generar con IA».
                     </p>
                     <button
                       type="button"
                       onClick={switchToGenerateWithText}
-                      className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-[12px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                      className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
                     >
                       <MIcon name="draw" size={14} /> Generar con IA
                     </button>
@@ -417,7 +417,7 @@ export function ImportWorkoutsDialog({
                   </p>
                 </div>
                 {llmConfigured === false ? (
-                  <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-[12px] leading-snug text-[color:var(--v2-muted)]">
+                  <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-xs leading-snug text-[color:var(--v2-muted)]">
                     <MIcon name="info" size={14} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
                     La generación con IA está pendiente de configurar. Mientras tanto usa «Subir Excel» o
                     «Pegar texto».
@@ -478,7 +478,7 @@ export function ImportWorkoutsDialog({
                       type="button"
                       onClick={() => setVariant(v.value)}
                       className={cn(
-                        'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-[12px] font-semibold transition-colors',
+                        'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-xs font-semibold transition-colors',
                         variant === v.value
                           ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                           : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -492,7 +492,7 @@ export function ImportWorkoutsDialog({
             ) : null}
 
             {formError ? (
-              <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
+              <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
                 <MIcon name="error" size={14} />
                 {formError}
               </p>

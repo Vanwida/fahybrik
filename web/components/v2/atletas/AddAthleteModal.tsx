@@ -148,11 +148,11 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
         type="button"
         aria-label="Cerrar"
         onClick={close}
-        className="absolute inset-0 bg-[color:var(--v2-scrim,rgba(0,0,0,0.6))]"
+        className="absolute inset-0 bg-[color:var(--v2-scrim)]"
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop,0_20px_60px_rgba(0,0,0,0.4))]">
+      <div className="relative w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">
             {created ? 'Atleta creado' : 'Agregar atleta'}
@@ -194,7 +194,7 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
                 aria-invalid={trimmedEmail.length > 0 && !emailValid}
               />
               {trimmedEmail.length > 0 && !emailValid ? (
-                <span className="text-[11px] text-[color:var(--v2-danger)]">
+                <span className="text-label text-[color:var(--v2-danger)]">
                   Email no válido.
                 </span>
               ) : null}
@@ -283,7 +283,7 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
-                <p className="text-[11px] text-[color:var(--v2-faint)]">
+                <p className="text-label text-[color:var(--v2-faint)]">
                   Enlace de un solo uso. Caduca; puedes regenerarlo desde el perfil del atleta.
                 </p>
               </div>

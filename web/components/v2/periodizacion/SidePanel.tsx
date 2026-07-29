@@ -41,7 +41,7 @@ export function SidePanel({
       className="v2-focus flex flex-col rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-[18px] shadow-[var(--v2-shadow-pop)]"
     >
       <div className="mb-3.5 flex items-center justify-between">
-        <span className="text-[13px] font-bold uppercase tracking-[0.07em] text-[color:var(--v2-muted)]">
+        <span className="text-body font-bold uppercase tracking-[0.07em] text-[color:var(--v2-muted)]">
           {title}
         </span>
         <button
@@ -76,7 +76,7 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
+      <span className="mb-1.5 block text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
         {label}
         {hint ? (
           <span className="ml-1.5 font-semibold normal-case tracking-normal text-[color:var(--v2-faint)]">
@@ -90,7 +90,7 @@ export function Field({
 }
 
 const INPUT_CLS = cn(
-  'v2-focus w-full rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)] px-3 text-[13px] text-[color:var(--v2-fg)]',
+  'v2-focus w-full rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)] px-3 text-body text-[color:var(--v2-fg)]',
   'placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]',
 );
 

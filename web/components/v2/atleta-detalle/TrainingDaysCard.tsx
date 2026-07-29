@@ -42,9 +42,9 @@ export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
                   : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
             )}
           >
-            <span className="v2-micro text-[9px]">{d.label}</span>
+            <span className="v2-micro text-nano">{d.label}</span>
             {!has_availability ? (
-              <span className="text-[10px] text-[color:var(--v2-faint)]">{EM_DASH}</span>
+              <span className="text-eyebrow text-[color:var(--v2-faint)]">{EM_DASH}</span>
             ) : d.trains ? (
               <span
                 aria-hidden
@@ -58,7 +58,7 @@ export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
         ))}
       </div>
       {!has_availability ? (
-        <p className="mt-2.5 text-[11px] text-[color:var(--v2-faint)]">
+        <p className="mt-2.5 text-label text-[color:var(--v2-faint)]">
           El atleta aún no ha marcado sus días reales en su app.
         </p>
       ) : null}

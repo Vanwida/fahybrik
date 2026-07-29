@@ -72,7 +72,7 @@ function MapGlance() {
       style={{
         position: 'relative',
         height: '96px',
-        borderRadius: 'var(--v2-r-l, 14px)',
+        borderRadius: 'var(--v2-r-l)',
         border: '1px solid var(--hair)',
         background: 'var(--surface)',
         overflow: 'hidden',
@@ -224,7 +224,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             style={{
               background: 'var(--surface)',
               border: '2px solid var(--ok)',
-              borderRadius: 'var(--v2-r-l, 14px)',
+              borderRadius: 'var(--v2-r-l)',
               padding: '14px 16px',
               textAlign: 'center',
               marginBottom: '10px',

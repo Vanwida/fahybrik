@@ -185,13 +185,13 @@ function SplitsTable({
       {meta.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--v2-border)] px-2.5 py-1.5">
           {meta.map((m) => (
-            <span key={m} className="v2-num text-[11px] text-[color:var(--v2-muted)]">
+            <span key={m} className="v2-num text-label text-[color:var(--v2-muted)]">
               {m}
             </span>
           ))}
         </div>
       ) : null}
-      <table className="w-full border-collapse text-[11px]">
+      <table className="w-full border-collapse text-label">
         <thead>
           <tr className="text-[color:var(--v2-faint)]">
             <th className="px-2.5 py-1 text-left font-medium">#</th>
@@ -231,7 +231,7 @@ function HechoChips({ tokens }: { tokens: string[] }) {
       {tokens.map((tk, i) => (
         <span
           key={i}
-          className="v2-num inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft,rgba(60,170,110,.10))] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-ok)]"
+          className="v2-num inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-ok)]"
         >
           {tk}
         </span>
@@ -322,7 +322,7 @@ export function SessionDetailDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
       onClick={onClose}
     >
       <div

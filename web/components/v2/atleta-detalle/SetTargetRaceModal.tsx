@@ -232,11 +232,11 @@ export function SetTargetRaceModal({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-[color:var(--v2-scrim,rgba(0,0,0,0.6))]"
+        className="absolute inset-0 bg-[color:var(--v2-scrim)]"
       />
 
       {/* Dialog */}
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop,0_20px_60px_rgba(0,0,0,0.4))]">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--v2-border)] p-5">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Carrera objetivo</h2>
@@ -333,7 +333,7 @@ export function SetTargetRaceModal({
                         <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
                           {ev.name}
                         </span>
-                        <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+                        <span className="truncate text-label text-[color:var(--v2-muted)]">
                           {ev.location ? `${ev.location} · ` : ''}
                           {eventDateLabel(ev)}
                         </span>
@@ -374,7 +374,7 @@ export function SetTargetRaceModal({
                   ariaLabel="División"
                 />
                 {divisionHint ? (
-                  <span className="text-[11px] text-[color:var(--v2-faint)]">
+                  <span className="text-label text-[color:var(--v2-faint)]">
                     Divisiones del evento: {divisionHint}
                   </span>
                 ) : null}
@@ -403,7 +403,7 @@ export function SetTargetRaceModal({
                   aria-label="Tiempo objetivo en formato h:mm:ss"
                 />
                 {goalInvalid ? (
-                  <span className="text-[11px] text-[color:var(--v2-danger)]">
+                  <span className="text-label text-[color:var(--v2-danger)]">
                     Formato no válido. Usa h:mm:ss o mm:ss (máx. 10:00:00).
                   </span>
                 ) : null}

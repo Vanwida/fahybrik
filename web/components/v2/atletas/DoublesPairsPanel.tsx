@@ -22,7 +22,7 @@ import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import type { DoublesPair } from '@/lib/dashboard/coach/doubles-pairs';
 
 const BTN_BASE =
-  'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-50';
+  'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] px-2.5 text-xs font-semibold transition-colors disabled:opacity-50';
 
 function cellLabel(pair: DoublesPair): string {
   const lvl = pair.level_name ?? 'sin nivel';
@@ -154,7 +154,7 @@ function PairRow({ pair }: { pair: DoublesPair }) {
         </div>
       </div>
       {error ? (
-        <p className="text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       {simOpen ? (
@@ -219,7 +219,7 @@ function LinkPairModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Vincular pareja"
@@ -240,19 +240,19 @@ function LinkPairModal({
             <MIcon name="close" size={18} />
           </button>
         </div>
-        <p className="mb-4 text-[13px] text-[color:var(--v2-muted)]">
+        <p className="mb-4 text-body text-[color:var(--v2-muted)]">
           Dos atletas que entrenan el mismo plan. Si tienen distinto nivel o días, alinéalos
           antes. Si a uno le falta el nivel o los días, se copian del otro.
         </p>
 
         {candidates.length < 2 ? (
-          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-[13px] text-[color:var(--v2-muted)]">
+          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-body text-[color:var(--v2-muted)]">
             Necesitas al menos dos atletas sin pareja para vincular.
           </p>
         ) : (
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[color:var(--v2-muted)]">Atleta 1</span>
+              <span className="text-xs font-semibold text-[color:var(--v2-muted)]">Atleta 1</span>
               <select className={selectClass} value={aId} onChange={(e) => setAId(e.target.value)}>
                 <option value="">Elegir atleta…</option>
                 {candidates
@@ -265,7 +265,7 @@ function LinkPairModal({
               </select>
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[color:var(--v2-muted)]">Atleta 2</span>
+              <span className="text-xs font-semibold text-[color:var(--v2-muted)]">Atleta 2</span>
               <select className={selectClass} value={bId} onChange={(e) => setBId(e.target.value)}>
                 <option value="">Elegir atleta…</option>
                 {candidates
@@ -279,7 +279,7 @@ function LinkPairModal({
             </label>
 
             {error ? (
-              <p className="text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+              <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
             ) : null}
 
             <button
@@ -366,7 +366,7 @@ export function DoublesPairsPanel({
       </div>
 
       {pairs.length === 0 ? (
-        <p className="px-1 py-2 text-[13px] text-[color:var(--v2-muted)]">
+        <p className="px-1 py-2 text-body text-[color:var(--v2-muted)]">
           Aún no hay parejas. Vincula dos atletas que entrenen el mismo plan.
         </p>
       ) : (

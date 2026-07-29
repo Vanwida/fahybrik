@@ -80,7 +80,7 @@ export function ImportDayReviewDrawer({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="v2-display text-xl">{dayLabel}</h2>
-              <span className={`text-[11px] font-bold uppercase tracking-wide ${tone.className}`}>
+              <span className={`text-label font-bold uppercase tracking-wide ${tone.className}`}>
                 {tone.label}
               </span>
             </div>
@@ -94,7 +94,7 @@ export function ImportDayReviewDrawer({
               <button
                 type="button"
                 onClick={() => onChangeIncluded(!day.included)}
-                className={`v2-focus mt-2 inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                className={`v2-focus mt-2 inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors ${
                   day.included
                     ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
                     : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]'
@@ -122,7 +122,7 @@ export function ImportDayReviewDrawer({
             <>
               {incompleteLines.length > 0 ? (
                 <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-danger)]/40 bg-[color:var(--v2-danger)]/8 p-3.5">
-                  <p className="flex items-center gap-1.5 text-[12px] font-bold text-[color:var(--v2-danger)]">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-[color:var(--v2-danger)]">
                     <MIcon name="error" size={14} />
                     {incompleteLines.length === 1
                       ? 'Falta prescribir 1 línea'
@@ -130,7 +130,7 @@ export function ImportDayReviewDrawer({
                   </p>
                   <ul className="mt-2 space-y-1.5">
                     {incompleteLines.map((line) => (
-                      <li key={line.uid} className="text-[11.5px] leading-snug">
+                      <li key={line.uid} className="text-label leading-snug">
                         <span className="font-semibold text-[color:var(--v2-fg)]">
                           {line.exercise_name || 'Línea sin nombre'}
                         </span>
@@ -147,7 +147,7 @@ export function ImportDayReviewDrawer({
               {sessions.map((session, sessionIndex) => (
                 <section key={session.uid} className="space-y-3">
                   {sessions.length > 1 ? (
-                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+                    <h3 className="flex items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
                       <MIcon name={sessionIndex === 0 ? 'wb_sunny' : 'bedtime'} size={13} />
                       {SESSION_LABEL[sessionIndex] ?? `Sesión ${sessionIndex + 1}`}
                     </h3>

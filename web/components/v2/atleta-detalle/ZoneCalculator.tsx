@@ -67,16 +67,16 @@ function AutoReviewStrip({
   };
 
   return (
-    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn-border,var(--v2-border-strong))] bg-[color:var(--v2-warn-soft,var(--v2-surface-2))] px-2.5 py-1.5">
+    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-2.5 py-1.5">
       <MIcon name="auto_awesome" size={13} className="shrink-0 text-[color:var(--v2-muted)]" />
-      <span className="min-w-0 flex-1 text-[10.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
+      <span className="min-w-0 flex-1 text-eyebrow font-semibold leading-tight text-[color:var(--v2-muted)]">
         Auto del onboarding · revisar
       </span>
       <button
         type="button"
         onClick={confirm}
         disabled={saving}
-        className="v2-focus inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2 py-0.5 text-[10.5px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+        className="v2-focus inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2 py-0.5 text-eyebrow font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
       >
         <MIcon name={saving ? 'hourglass_empty' : 'check'} size={12} />
         {error ? 'Reintenta' : saving ? 'Guardando…' : 'Confirmar'}
@@ -110,22 +110,22 @@ function ZoneCard({
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-[12.5px] font-bold leading-tight text-[color:var(--v2-fg)]">
+          <span className="text-xs font-bold leading-tight text-[color:var(--v2-fg)]">
             Zona {zone.sort_order}
           </span>
           {isZ6 ? (
-            <span className="rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-z6-soft)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+            <span className="rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-z6-soft)] px-1.5 py-px text-nano font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
               ≤30 s
             </span>
           ) : null}
         </div>
-        <div className="mt-0.5 truncate text-[11px] leading-snug text-[color:var(--v2-muted)]">
+        <div className="mt-0.5 truncate text-label leading-snug text-[color:var(--v2-muted)]">
           {zone.label}
         </div>
       </div>
-      <div className="v2-num shrink-0 whitespace-nowrap text-[13px] font-bold text-[color:var(--v2-fg)]">
+      <div className="v2-num shrink-0 whitespace-nowrap text-body font-bold text-[color:var(--v2-fg)]">
         {formatZoneRange(zone)}
-        <span className="ml-0.5 text-[10px] font-semibold text-[color:var(--v2-faint)]">
+        <span className="ml-0.5 text-eyebrow font-semibold text-[color:var(--v2-faint)]">
           {paceUnitLabel(unit)}
         </span>
       </div>
@@ -145,13 +145,13 @@ function ZoneColumn({ profile, athleteId }: { profile: AthleteZoneProfile; athle
       <div className="mb-2.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-2">
         <span
           aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+          className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
           style={{ background: `var(--v2-mod-${profile.modality === 'run' ? 'carrera' : 'ergo'})` }}
         />
-        <span className="text-[12.5px] font-bold text-[color:var(--v2-fg)]">
+        <span className="text-xs font-bold text-[color:var(--v2-fg)]">
           {MODALITY_LABEL[profile.modality]}
         </span>
-        <span className="v2-num ml-auto text-[11px] text-[color:var(--v2-muted)]">
+        <span className="v2-num ml-auto text-label text-[color:var(--v2-muted)]">
           test{' '}
           <b className="text-[color:var(--v2-fg)]">{formatThreshold(profile.threshold_s)}</b>{' '}
           {paceUnitLabel(unit)}
@@ -181,25 +181,25 @@ function ResultBar({
     .at(-1);
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
-      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--v2-accent)]">
+      <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-accent)]">
         Resultado del test
       </span>
       <span aria-hidden className="h-4 w-px self-stretch bg-[color:var(--v2-border)]" />
       {profiles.map((p) => (
         <div key={`${p.modality}-${p.id}`} className="flex items-baseline gap-1.5">
-          <span className="text-[10.5px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+          <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
             {MODALITY_LABEL[p.modality]}
           </span>
-          <span className="v2-num text-[16px] font-bold text-[color:var(--v2-fg)]">
+          <span className="v2-num text-data font-bold text-[color:var(--v2-fg)]">
             {formatThreshold(p.threshold_s)}
           </span>
-          <span className="text-[11px] font-semibold text-[color:var(--v2-muted)]">
+          <span className="text-label font-semibold text-[color:var(--v2-muted)]">
             {paceUnitLabel(p.pace_unit)}
           </span>
         </div>
       ))}
       {latestIso ? (
-        <span className="v2-num ml-auto text-[11px] text-[color:var(--v2-faint)]">
+        <span className="v2-num ml-auto text-label text-[color:var(--v2-faint)]">
           {athleteName} · {formatProfileDate(latestIso)}
         </span>
       ) : null}
@@ -240,18 +240,18 @@ export function ZoneCalculator({
         <div className="flex items-center gap-3">
           <AthleteAvatar name={athleteName} size="lg" />
           <div>
-            <div className="text-[15px] font-extrabold text-[color:var(--v2-fg)]">
+            <div className="text-reading font-extrabold text-[color:var(--v2-fg)]">
               {athleteName}
             </div>
-            <div className="text-[11px] text-[color:var(--v2-muted)]">
+            <div className="text-label text-[color:var(--v2-muted)]">
               {latestIso ? `Test · ${formatProfileDate(latestIso)}` : 'Test'} · RPE{' '}
               {TEST_TARGET_RPE}
             </div>
           </div>
         </div>
-        <div className="text-right text-[10.5px] font-bold uppercase leading-tight tracking-[0.12em] text-[color:var(--v2-faint)]">
+        <div className="text-right text-eyebrow font-bold uppercase leading-tight tracking-[0.12em] text-[color:var(--v2-faint)]">
           Calculadora de zonas
-          <b className="block text-[13px] tracking-[0.04em] text-[color:var(--v2-accent)]">
+          <b className="block text-body tracking-[0.04em] text-[color:var(--v2-accent)]">
             {titleFamily(profiles)}
           </b>
         </div>
@@ -290,7 +290,7 @@ export function ZoneCalculator({
         <span aria-hidden className="text-[color:var(--v2-accent)]">
           ⤓
         </span>
-        <p className="text-[12px] leading-snug text-[color:var(--v2-muted)]">
+        <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
           Estas zonas <b className="text-[color:var(--v2-fg)]">alimentan el plan</b>: cada bloque
           escrito en relativo (<span className="v2-num text-[color:var(--v2-accent)]">Z2</span> /{' '}
           <span className="v2-num text-[color:var(--v2-accent)]">Z4</span> / “ritmo umbral”) se

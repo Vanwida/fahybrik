@@ -102,7 +102,7 @@ export function PushBanner() {
           size={18}
           className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]"
         />
-        <p className="min-w-0 flex-1 text-[13px] leading-snug text-[color:var(--v2-fg)]">
+        <p className="min-w-0 flex-1 text-body leading-snug text-[color:var(--v2-fg)]">
           {state === 'available' ? (
             'Recibe un aviso cuando un atleta te escriba, aunque el dashboard esté cerrado.'
           ) : (
@@ -136,7 +136,7 @@ export function PushBanner() {
               setBusy(false);
             }
           }}
-          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
+          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
         >
           {busy ? 'Activando…' : 'Activar avisos'}
         </button>

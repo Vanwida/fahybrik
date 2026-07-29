@@ -27,7 +27,7 @@ export function ContextHint({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn('text-[11.5px] leading-snug text-[color:var(--v2-faint)]', className)}>
+    <div className={cn('text-label leading-snug text-[color:var(--v2-faint)]', className)}>
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 text-[color:var(--v2-accent)] opacity-80" aria-hidden>
           <MIcon name="info" size={13} />
@@ -46,7 +46,7 @@ export function ContextHint({
         ) : null}
       </div>
       {more && open ? (
-        <p className="mt-1 pl-[19px] text-[11px] leading-relaxed text-[color:var(--v2-faint)] [&_b]:font-bold [&_b]:text-[color:var(--v2-muted)]">
+        <p className="mt-1 pl-[19px] text-label leading-relaxed text-[color:var(--v2-faint)] [&_b]:font-bold [&_b]:text-[color:var(--v2-muted)]">
           {more}
         </p>
       ) : null}

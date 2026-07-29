@@ -410,7 +410,7 @@ export function DayEditor({
     : null;
 
   return (
-    <div className={embedded ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-[1480px] flex-col gap-5'}>
+    <div className={embedded ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5'}>
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
@@ -537,7 +537,7 @@ export function DayEditor({
             title={canSave ? undefined : gate.reason ?? undefined}
             className={
               saveState === 'error'
-                ? 'v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
+                ? 'v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-4 text-sm font-bold text-white transition-colors'
                 : 'v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
             }
           >
@@ -550,7 +550,7 @@ export function DayEditor({
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. Only a
           workout day has lines to gate; a rest day is always saveable. */}
       {!isRest && !gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>
@@ -671,7 +671,7 @@ function DayKindToggle({
   onChange: (kind: WeekDayKind) => void;
 }) {
   const base =
-    'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors';
+    'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 py-1.5 text-xs font-semibold transition-colors';
   return (
     <div
       role="group"

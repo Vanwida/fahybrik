@@ -38,11 +38,11 @@ export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) 
             className="h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ background: `var(${lane.dot_var})` }}
           />
-          <h2 className="truncate text-[13px] font-bold text-[color:var(--v2-fg)]">{lane.title}</h2>
+          <h2 className="truncate text-body font-bold text-[color:var(--v2-fg)]">{lane.title}</h2>
         </div>
         <span
           className={cn(
-            'v2-num shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[11px] font-bold',
+            'v2-num shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-label font-bold',
             cards.length > 0
               ? 'text-[color:var(--v2-fg)]'
               : 'text-[color:var(--v2-faint)]',

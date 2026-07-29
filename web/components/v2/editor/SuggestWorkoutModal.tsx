@@ -55,9 +55,14 @@ function blockColorVar(format: string | null): string {
   }
 }
 
+// El tono dice DE QUIÉN es el bloque, y usa el mismo idioma de autoría que
+// AuthorStamp (el sello canónico): contenido del coach = acento, IA = info,
+// respaldo del sistema = aviso. `--v2-violet` no existía como token, así que la
+// chapa de "IA compuesta" se pintaba sin color y sin fondo — justo la que dice
+// que el bloque NO es del coach.
 const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; icon: string }> = {
-  library: { label: 'De tu biblioteca', tone: '--v2-info', icon: 'inventory_2' },
-  llm: { label: 'IA compuesta', tone: '--v2-violet', icon: 'neurology' },
+  library: { label: 'De tu biblioteca', tone: '--v2-accent', icon: 'inventory_2' },
+  llm: { label: 'IA compuesta', tone: '--v2-info', icon: 'neurology' },
   library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', icon: 'undo' },
 };
 
@@ -173,7 +178,7 @@ export function SuggestWorkoutModal({
         <div className="flex items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
           <div className="flex min-w-0 flex-col">
             <h2 className="v2-display text-lg text-[color:var(--v2-fg)]">{title}</h2>
-            <span className="truncate text-[11px] text-[color:var(--v2-muted)]">{destinationLabel}</span>
+            <span className="truncate text-label text-[color:var(--v2-muted)]">{destinationLabel}</span>
           </div>
           {phase === 'proposal' && suggestion ? <SourceBadge source={suggestion.source} /> : null}
           <button
@@ -228,7 +233,7 @@ export function SuggestWorkoutModal({
               <button
                 type="button"
                 onClick={() => setPhase('form')}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-[13px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 <MIcon name="refresh" size={15} /> Otra
               </button>
@@ -236,19 +241,19 @@ export function SuggestWorkoutModal({
                 type="button"
                 onClick={insert}
                 disabled={insertBlocks.length === 0}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-[13px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-body font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
                 Insertar {insertBlocks.length} bloque{insertBlocks.length === 1 ? '' : 's'}
               </button>
             </>
           ) : (
             <>
-              <span className="text-[11px] text-[color:var(--v2-faint)]">Se insertan como bloques editables.</span>
+              <span className="text-label text-[color:var(--v2-faint)]">Se insertan como bloques editables.</span>
               <button
                 type="button"
                 onClick={generate}
                 disabled={!canGenerate || phase === 'thinking'}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-[13px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-body font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
                 <MIcon name={phase === 'thinking' ? 'progress_activity' : 'draw'} size={16} className={phase === 'thinking' ? 'animate-spin' : undefined} />
                 Generar
@@ -266,7 +271,7 @@ function SourceBadge({ source }: { source: AiSuggestion['source'] }) {
   const m = SOURCE_META[source];
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-[10px] font-bold"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-eyebrow font-bold"
       style={{ color: `var(${m.tone})`, background: `color-mix(in srgb, var(${m.tone}) 15%, transparent)` }}
     >
       <MIcon name={m.icon} size={12} /> {m.label}
@@ -383,8 +388,8 @@ function ModeOption({
         disabled && 'cursor-not-allowed opacity-45 hover:border-[color:var(--v2-border)]',
       )}
     >
-      <span className="text-[12.5px] font-bold">{big}</span>
-      <span className="mt-0.5 text-[9.5px] font-medium opacity-80">{hint}</span>
+      <span className="text-xs font-bold">{big}</span>
+      <span className="mt-0.5 text-nano font-medium opacity-80">{hint}</span>
     </button>
   );
 }
@@ -393,10 +398,10 @@ function ThinkingBody({ mode, focus }: { mode: SuggestMode; focus: string }) {
   return (
     <div className="flex flex-col items-center gap-3 py-9 text-center">
       <MIcon name="progress_activity" size={34} className="animate-spin text-[color:var(--v2-accent)]" />
-      <span className="text-[13px] font-bold text-[color:var(--v2-fg)]">
+      <span className="text-body font-bold text-[color:var(--v2-fg)]">
         {mode === 'slow' ? 'Coach IA compone los bloques' : 'Buscando en tu biblioteca'}
       </span>
-      <span className="max-w-[36ch] text-[11.5px] text-[color:var(--v2-muted)]">{focus}</span>
+      <span className="max-w-[36ch] text-label text-[color:var(--v2-muted)]">{focus}</span>
     </div>
   );
 }
@@ -426,7 +431,7 @@ function ProposalBody({
   return (
     <div className="flex flex-col gap-2.5">
       {note ? (
-        <p className="border-l-2 border-[color:var(--v2-border-strong)] pl-2.5 text-[11.5px] leading-relaxed text-[color:var(--v2-faint)]">
+        <p className="border-l-2 border-[color:var(--v2-border-strong)] pl-2.5 text-label leading-relaxed text-[color:var(--v2-faint)]">
           {note}
         </p>
       ) : null}
@@ -455,7 +460,7 @@ function ProposalBody({
                 <span
                   aria-hidden
                   className={cn(
-                    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border',
+                    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
                     on
                       ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                       : 'border-[color:var(--v2-border-strong)]',
@@ -463,15 +468,15 @@ function ProposalBody({
                 >
                   {on ? <MIcon name="check" size={13} /> : null}
                 </span>
-                <span className="text-[13px] font-bold text-[color:var(--v2-fg)]">{b.title}</span>
+                <span className="text-body font-bold text-[color:var(--v2-fg)]">{b.title}</span>
                 {b.format ? (
-                  <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+                  <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-nano font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
                     {b.format}
                   </span>
                 ) : null}
               </button>
               {b.items.length === 0 ? (
-                <p className="px-3 py-2 text-[11.5px] text-[color:var(--v2-faint)]">
+                <p className="px-3 py-2 text-label text-[color:var(--v2-faint)]">
                   Bloque vacío — rellénalo tras insertar.
                 </p>
               ) : (
@@ -483,10 +488,10 @@ function ProposalBody({
                       key={it.uid}
                       className="flex items-baseline gap-2.5 border-t border-[color:var(--v2-border)] px-3 py-1.5"
                     >
-                      <span className="min-w-[130px] text-[12px] font-semibold text-[color:var(--v2-fg)]">
+                      <span className="min-w-[130px] text-xs font-semibold text-[color:var(--v2-fg)]">
                         {it.exercise_name}
                       </span>
-                      <span className="v2-num flex-1 text-[11.5px] text-[color:var(--v2-muted)]">
+                      <span className="v2-num flex-1 text-label text-[color:var(--v2-muted)]">
                         {prescriptionToText(it.prescription)}
                       </span>
                       <button
@@ -514,7 +519,7 @@ function ProposalBody({
           );
         })
       )}
-      <p className="mt-1 text-[10.5px] leading-relaxed text-[color:var(--v2-faint)]">
+      <p className="mt-1 text-eyebrow leading-relaxed text-[color:var(--v2-faint)]">
         Se añaden al final de la sesión. Edita cargas, ritmos y descansos en el editor tras insertar.
       </p>
     </div>
@@ -548,7 +553,7 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
   if (status === 'saved') {
     const name = groups.find((g) => g.id === groupId)?.name ?? 'biblioteca';
     return (
-      <div className="flex items-center gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2 text-[11px] font-semibold text-[color:var(--v2-ok)]">
+      <div className="flex items-center gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2 text-label font-semibold text-[color:var(--v2-ok)]">
         <MIcon name="check_circle" size={14} /> Guardada en biblioteca · {name}
       </div>
     );
@@ -556,8 +561,8 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2">
-      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-        <MIcon name="bookmark_add" size={13} className="text-[color:var(--v2-violet)]" />
+      <span className="inline-flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+        <MIcon name="bookmark_add" size={13} />
         Guardar en biblioteca
       </span>
       <div className="flex items-center gap-2">
@@ -566,7 +571,7 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
           onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : '')}
           disabled={status === 'saving' || groups.length === 0}
           aria-label="Grupo de metodología"
-          className="v2-focus h-8 min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-[12px] text-[color:var(--v2-fg)] focus:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+          className="v2-focus h-8 min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-xs text-[color:var(--v2-fg)] focus:border-[color:var(--v2-border-strong)] disabled:opacity-50"
         >
           <option value="">{groups.length === 0 ? 'Cargando grupos…' : 'Elige grupo…'}</option>
           {groups.map((g) => (
@@ -579,7 +584,7 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
           type="button"
           onClick={() => void save()}
           disabled={groupId === '' || status === 'saving'}
-          className="v2-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-45"
+          className="v2-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-45"
         >
           <MIcon
             name={status === 'saving' ? 'progress_activity' : 'bookmark_add'}
@@ -589,7 +594,7 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
           Guardar
         </button>
       </div>
-      {error ? <p className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
+      {error ? <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
     </div>
   );
 }

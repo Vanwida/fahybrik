@@ -44,7 +44,7 @@ function ConfidenceBadge({ confidence }: { confidence: V2NivelSugeridoCard['conf
   const meta = CONFIDENCE_META[confidence];
   return (
     <span
-      className="inline-flex items-center rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex items-center rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
       style={{
         background: `var(${meta.softVar})`,
         color: `var(${meta.colorVar})`,
@@ -86,7 +86,7 @@ export function NivelSugeridoCard({
   }
 
   const btnBase =
-    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
+    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
 
   return (
     <div className="w-60 shrink-0 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
@@ -165,7 +165,7 @@ export function NivelSugeridoStrip({ cards }: { cards: V2NivelSugeridoCard[] }) 
           Nivel pendiente de confirmar
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {visible.length}

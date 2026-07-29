@@ -166,7 +166,7 @@ function Stat({
 /** A "Clave · valor" line (Experiencia). */
 function KeyLine({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-baseline gap-2 text-[13px]">
+    <div className="flex items-baseline gap-2 text-body">
       <span className="text-[color:var(--v2-muted)]">{k}</span>
       <span aria-hidden className="text-[color:var(--v2-faint)]">
         ·
@@ -179,7 +179,7 @@ function KeyLine({ k, v }: { k: string; v: string }) {
 /** A goal-horizon term: micro key ("Corto") + the athlete's narrative. */
 function GoalTerm({ term, value }: { term: string; value: string }) {
   return (
-    <div className="flex gap-2 text-[12.5px]">
+    <div className="flex gap-2 text-xs">
       <span className="v2-micro min-w-[44px] shrink-0 pt-px">{term}</span>
       <span className="text-[color:var(--v2-fg)]">{value}</span>
     </div>
@@ -200,7 +200,7 @@ function AvailCell({
     <span
       title={AVAIL_TITLES[value ?? 'rest']}
       className={cn(
-        'flex h-[26px] w-[26px] items-center justify-center rounded-[var(--v2-r-s)] border text-[10px] font-bold',
+        'flex h-[26px] w-[26px] items-center justify-center rounded-[var(--v2-r-s)] border text-eyebrow font-bold',
         isProgram &&
           'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]',
         isOther &&
@@ -217,7 +217,7 @@ function AvailCell({
 
 /** A muted single line used when a panel has nothing to show. */
 function MutedLine({ children }: { children: ReactNode }) {
-  return <p className="text-[13px] text-[color:var(--v2-muted)]">{children}</p>;
+  return <p className="text-body text-[color:var(--v2-muted)]">{children}</p>;
 }
 
 // =============================================================================
@@ -251,20 +251,20 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
         <span className="v2-num text-lg font-semibold text-[color:var(--v2-fg)]">
           {trainingDays}
         </span>
-        <span className="text-[12.5px] text-[color:var(--v2-muted)]">días/sem</span>
+        <span className="text-xs text-[color:var(--v2-muted)]">días/sem</span>
       </span>,
     );
   }
   if (window) {
     availParts.push(
-      <span key="window" className="v2-num text-[13px] text-[color:var(--v2-fg)]">
+      <span key="window" className="v2-num text-body text-[color:var(--v2-fg)]">
         {window}
       </span>,
     );
   }
   if (s.session_minutes != null) {
     availParts.push(
-      <span key="mins" className="text-[12.5px] text-[color:var(--v2-muted)]">
+      <span key="mins" className="text-xs text-[color:var(--v2-muted)]">
         <span className="v2-num">{s.session_minutes}</span> min/sesión
       </span>,
     );
@@ -342,7 +342,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
             {athlete.injuries.map((inj, i) => (
               <div
                 key={`${inj.area}-${i}`}
-                className="flex flex-wrap items-center gap-1.5 text-[13px] text-[color:var(--v2-fg)]"
+                className="flex flex-wrap items-center gap-1.5 text-body text-[color:var(--v2-fg)]"
               >
                 <span>{inj.area}</span>
                 {inj.severity ? (
@@ -370,7 +370,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
                 {contraindications.map((c, i) => (
                   <div
                     key={`${c.area}-${c.flag}-${i}`}
-                    className="flex items-center gap-1.5 text-[12.5px] text-[color:var(--v2-muted)]"
+                    className="flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]"
                   >
                     <MIcon
                       name="do_not_step"
@@ -412,7 +412,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
           <div className="grid grid-cols-2 gap-x-3.5 gap-y-2">
             {benchmarks.map((b) => (
               <div key={b.exercise_slug} className="flex flex-col gap-0.5">
-                <span className="text-[11px] text-[color:var(--v2-muted)]">{b.label}</span>
+                <span className="text-label text-[color:var(--v2-muted)]">{b.label}</span>
                 <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">
                   {b.value} {b.unit}
                 </span>
@@ -424,7 +424,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
 
       {/* 7 · INSTALACIÓN & EQUIPO */}
       <RailPanel title="Instalación & equipo" icon="warehouse">
-        <p className="text-[13px] font-semibold text-[color:var(--v2-fg)]">{facilityLabel}</p>
+        <p className="text-body font-semibold text-[color:var(--v2-fg)]">{facilityLabel}</p>
         {s.owned_equipment.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {s.owned_equipment.map((e) => (
@@ -435,7 +435,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
           </div>
         ) : null}
         {s.equipment_incompatible_count > 0 ? (
-          <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-[color:var(--v2-muted)]">
+          <p className="mt-2 flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
             <MIcon name="swap_horiz" size={13} className="shrink-0 text-[color:var(--v2-warn)]" />
             <span>
               Sin {s.missing_equipment_tags.map(humanizeSlug).join(', ')} ·{' '}

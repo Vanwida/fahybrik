@@ -133,9 +133,9 @@ export function AplicarTestSheet({
   }
 
   const chipOn =
-    'v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-[13px] font-semibold text-[color:var(--v2-accent)]';
+    'v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]';
   const chipOff =
-    'v2-focus rounded-[var(--v2-r-m)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-[13px] text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]';
+    'v2-focus rounded-[var(--v2-r-m)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]';
 
   return (
     <div
@@ -160,12 +160,12 @@ export function AplicarTestSheet({
 
         <div className="flex flex-col gap-5 overflow-y-auto px-5 py-5">
           <div>
-            <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
+            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
               ¿A quién?
             </p>
             <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)]">
               {roster.length === 0 ? (
-                <p className="px-3.5 py-4 text-[13px] text-[color:var(--v2-muted)]">
+                <p className="px-3.5 py-4 text-body text-[color:var(--v2-muted)]">
                   Todavía no tienes atletas.
                 </p>
               ) : (
@@ -181,7 +181,7 @@ export function AplicarTestSheet({
                       }`}
                     >
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border ${
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border ${
                           on
                             ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                             : 'border-[color:var(--v2-border-strong)]'
@@ -189,15 +189,15 @@ export function AplicarTestSheet({
                       >
                         {on ? <MIcon name="check" size={12} /> : null}
                       </span>
-                      <span className="flex-1 truncate text-[13.5px] text-[color:var(--v2-fg)]">
+                      <span className="flex-1 truncate text-body text-[color:var(--v2-fg)]">
                         {a.full_name}
                       </span>
                       {a.pending_by_test[test.id] ? (
-                        <span className="shrink-0 text-[11.5px] font-semibold text-[color:var(--v2-accent)]">
+                        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-accent)]">
                           programado · {scheduledLabel(a.pending_by_test[test.id]!)}
                         </span>
                       ) : (
-                        <span className="shrink-0 text-[11.5px] text-[color:var(--v2-faint)]">
+                        <span className="shrink-0 text-label text-[color:var(--v2-faint)]">
                           {a.lifecycle_status === 'pausado'
                             ? 'en pausa'
                             : `último: ${lastDoneLabel(a.last_done_by_test[test.id])}`}
@@ -232,7 +232,7 @@ export function AplicarTestSheet({
           </div>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
+            <span className="text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
               ¿Qué día?
             </span>
             <input
@@ -240,12 +240,12 @@ export function AplicarTestSheet({
               value={date}
               min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setDate(e.target.value)}
-              className="v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5 py-3 text-[15px] font-semibold text-[color:var(--v2-fg)]"
+              className="v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5 py-3 text-reading font-semibold text-[color:var(--v2-fg)]"
             />
           </label>
 
           <div>
-            <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
+            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
               Repetirlo
             </p>
             <div className="flex flex-wrap gap-2">
@@ -273,7 +273,7 @@ export function AplicarTestSheet({
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-[13px] font-semibold text-[color:var(--v2-fg)]"
+            className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
           >
             Cancelar
           </button>
@@ -281,7 +281,7 @@ export function AplicarTestSheet({
             type="button"
             onClick={submit}
             disabled={busy || selected.size === 0}
-            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
+            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
           >
             {busy ? (
               <MIcon name="progress_activity" size={15} className="animate-spin" />

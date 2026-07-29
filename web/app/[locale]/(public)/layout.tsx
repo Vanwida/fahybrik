@@ -21,7 +21,7 @@ export default async function PublicLayout({
           <Wordmark href="/" size="md" />
           <nav
             aria-label="Legal"
-            className="flex items-center gap-5 text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)]"
+            className="flex items-center gap-5 text-label uppercase tracking-[0.16em] text-[color:var(--muted)]"
           >
             <Link
               href="/privacy"
@@ -46,9 +46,9 @@ export default async function PublicLayout({
       </main>
 
       <footer className="border-t border-[color:var(--hairline)]">
-        <div className="mx-auto flex w-full max-w-[840px] flex-col items-start justify-between gap-3 px-6 py-6 text-[12px] text-[color:var(--muted)] md:flex-row md:items-center">
+        <div className="mx-auto flex w-full max-w-[840px] flex-col items-start justify-between gap-3 px-6 py-6 text-xs text-[color:var(--muted)] md:flex-row md:items-center">
           <span>{t('copyright', { year: new Date().getFullYear() })}</span>
-          <div className="flex items-center gap-5 uppercase tracking-[0.16em] text-[11px]">
+          <div className="flex items-center gap-5 uppercase tracking-[0.16em] text-label">
             <Link href="/privacy" className="hover:text-[color:var(--fg)]">
               {t('privacy')}
             </Link>

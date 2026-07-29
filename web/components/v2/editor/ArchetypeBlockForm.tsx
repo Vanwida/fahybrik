@@ -163,7 +163,7 @@ function FormHeader({
         <button
           type="button"
           onClick={onChangeType}
-          className="v2-focus ml-auto inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-[11px] font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+          className="v2-focus ml-auto inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
         >
           <MIcon name="sync" size={13} />
           Cambiar tipo

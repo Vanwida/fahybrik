@@ -56,14 +56,14 @@ export function ChatBubble({
               <button
                 type="button"
                 onClick={() => onDelete(message.id)}
-                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--v2-danger)] hover:bg-[color:var(--v2-danger-soft)]"
+                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-danger)] hover:bg-[color:var(--v2-danger-soft)]"
               >
                 Borrar
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
-                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)]"
+                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)]"
               >
                 No
               </button>
@@ -93,7 +93,7 @@ export function ChatBubble({
         {hasText ? (
           <span
             className={cn(
-              'whitespace-pre-wrap break-words rounded-[var(--v2-r-m)] px-3 py-2 text-[13px] leading-relaxed',
+              'whitespace-pre-wrap break-words rounded-[var(--v2-r-m)] px-3 py-2 text-body leading-relaxed',
               isCoach
                 ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]'
                 : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]',
@@ -120,7 +120,7 @@ function Footer({
 }) {
   if (message.failed) {
     return (
-      <span className="flex items-center gap-1.5 px-1 text-[10px] text-[color:var(--v2-danger)]">
+      <span className="flex items-center gap-1.5 px-1 text-eyebrow text-[color:var(--v2-danger)]">
         <MIcon name="error" size={12} />
         No se envió
         {onRetry ? (
@@ -137,11 +137,11 @@ function Footer({
   }
 
   if (message.pending) {
-    return <span className="px-1 text-[10px] text-[color:var(--v2-faint)]">enviando…</span>;
+    return <span className="px-1 text-eyebrow text-[color:var(--v2-faint)]">enviando…</span>;
   }
 
   return (
-    <span className="v2-num flex items-center gap-1 px-1 text-[10px] text-[color:var(--v2-faint)]">
+    <span className="v2-num flex items-center gap-1 px-1 text-eyebrow text-[color:var(--v2-faint)]">
       {TIME_FMT.format(new Date(message.created_at))}
       {isCoach ? (
         <MIcon

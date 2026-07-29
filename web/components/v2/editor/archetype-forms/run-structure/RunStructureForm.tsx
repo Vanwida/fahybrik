@@ -133,7 +133,7 @@ export function RunStructureForm({
               type="button"
               title={a.hint}
               onClick={() => applyArchetype(a.id)}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-[11.5px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
             >
               <MIcon name={a.icon} size={14} />
               {a.name}
@@ -152,7 +152,7 @@ export function RunStructureForm({
                 key={tab.role}
                 type="button"
                 onClick={() => addPhase(tab.role)}
-                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-[11.5px] font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent)]"
+                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent)]"
               >
                 <MIcon name="add" size={13} />
                 {tab.label}
@@ -204,7 +204,7 @@ export function RunStructureForm({
       <PhaseEditor elements={active.elements} onChange={(elements) => setPhaseElements(active.role, elements)} />
 
       {/* La sesión suma — the coach's mental math, done for him */}
-      <p className="pt-1 text-[11.5px] font-semibold text-[color:var(--v2-faint)]">
+      <p className="pt-1 text-label font-semibold text-[color:var(--v2-faint)]">
         {totalsSentence(totals)}
       </p>
     </div>
@@ -243,7 +243,7 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
           }}
           placeholder="Escríbelo como siempre: 6x1000 @4:30 r2'"
           aria-label="Añadir tramos escribiendo la serie"
-          className="v2-focus w-full bg-transparent py-1.5 font-mono text-[13px] text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
+          className="v2-focus w-full bg-transparent py-1.5 font-mono text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
         />
         <button
           type="button"
@@ -255,7 +255,7 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
         </button>
       </div>
       {failed ? (
-        <p role="alert" className="pl-1 text-[11.5px] text-[color:var(--v2-warn)]">
+        <p role="alert" className="pl-1 text-label text-[color:var(--v2-warn)]">
           No lo he entendido — prueba como <span className="font-mono">6x1000 @4:30 r2'</span> o{' '}
           <span className="font-mono">20' Z2</span>. También puedes montarlo abajo.
         </p>

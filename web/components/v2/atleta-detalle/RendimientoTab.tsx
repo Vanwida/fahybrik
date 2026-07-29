@@ -80,7 +80,7 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
         <button
           type="button"
           onClick={() => void reload()}
-          className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-danger)]"
+          className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-danger)]"
         >
           <MIcon name="refresh" size={13} />
           Reintentar

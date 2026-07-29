@@ -80,10 +80,10 @@ function StageRow({
   return (
     <div className={`${ROW_COLS} items-center py-1`}>
       <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-        <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-fg)]">
+        <span className="text-body font-semibold leading-tight text-[color:var(--v2-fg)]">
           {meta.name}
         </span>
-        <span className="text-[10.5px] text-[color:var(--v2-faint)]">{meta.def}</span>
+        <span className="text-eyebrow text-[color:var(--v2-faint)]">{meta.def}</span>
       </div>
       <div className="flex items-center gap-3">
         <div className="relative h-8 flex-1 overflow-hidden rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)]">
@@ -93,10 +93,10 @@ function StageRow({
           />
         </div>
         <div className="min-w-[58px] text-right">
-          <span className="v2-num block text-[18px] font-extrabold leading-none text-[color:var(--v2-fg)]">
+          <span className="v2-num block text-data font-extrabold leading-none text-[color:var(--v2-fg)]">
             {formatCount(count)}
           </span>
-          <span className="v2-num mt-0.5 block text-[10.5px] font-semibold text-[color:var(--v2-faint)]">
+          <span className="v2-num mt-0.5 block text-eyebrow font-semibold text-[color:var(--v2-faint)]">
             {CONV_KEY[keyName] ? formatPct(conv) : 'base'}
           </span>
         </div>
@@ -122,14 +122,14 @@ function DropRow({
     <div className={ROW_COLS}>
       <div className="hidden sm:block" />
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-l border-[color:var(--v2-border-strong)] pl-3">
-        <span className="text-[11px] font-semibold text-[color:var(--v2-muted)]">
+        <span className="text-label font-semibold text-[color:var(--v2-muted)]">
           <span className="v2-num text-[color:var(--v2-danger)]">
             −{dropPct == null ? '—' : formatPct(dropPct)}
           </span>{' '}
           · <span className="v2-num">{formatCount(lost)}</span> {reason}
         </span>
         {sideExitLabel && sideExitCount ? (
-          <span className="rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-[10.5px] font-semibold text-[color:var(--v2-faint)]">
+          <span className="rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-eyebrow font-semibold text-[color:var(--v2-faint)]">
             <span className="v2-num">{formatCount(sideExitCount)}</span> {sideExitLabel}
           </span>
         ) : null}
@@ -146,14 +146,14 @@ function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
     return (
       <div className={`${ROW_COLS} items-center py-1`}>
         <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-          <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
+          <span className="text-body font-semibold leading-tight text-[color:var(--v2-muted)]">
             Visitas web
           </span>
-          <span className="text-[10.5px] text-[color:var(--v2-faint)]">landing fahybrid.com</span>
+          <span className="text-eyebrow text-[color:var(--v2-faint)]">landing fahybrid.com</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="h-8 flex-1 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)]" />
-          <div className="min-w-[58px] text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-[color:var(--v2-faint)]">
+          <div className="min-w-[58px] text-right text-eyebrow font-semibold uppercase leading-tight tracking-wide text-[color:var(--v2-faint)]">
             recogiendo
             <br />
             datos hoy
@@ -165,10 +165,10 @@ function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
   return (
     <div className={`${ROW_COLS} items-center py-1`}>
       <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-        <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-fg)]">
+        <span className="text-body font-semibold leading-tight text-[color:var(--v2-fg)]">
           Visitas web
         </span>
-        <span className="text-[10.5px] text-[color:var(--v2-faint)]">
+        <span className="text-eyebrow text-[color:var(--v2-faint)]">
           {visitas.since_date ? `desde ${formatIsoDayShort(visitas.since_date)}` : 'landing fahybrid.com'}
         </span>
       </div>
@@ -178,10 +178,10 @@ function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
           <div className="h-full w-full rounded-[var(--v2-r-s)]" style={{ background: FILL_STYLE.base }} />
         </div>
         <div className="min-w-[58px] text-right">
-          <span className="v2-num block text-[18px] font-extrabold leading-none text-[color:var(--v2-fg)]">
+          <span className="v2-num block text-data font-extrabold leading-none text-[color:var(--v2-fg)]">
             {formatCount(visitas.views)}
           </span>
-          <span className="v2-num mt-0.5 block text-[10.5px] font-semibold text-[color:var(--v2-faint)]">
+          <span className="v2-num mt-0.5 block text-eyebrow font-semibold text-[color:var(--v2-faint)]">
             {formatCount(visitas.visitors)} únicos
           </span>
         </div>

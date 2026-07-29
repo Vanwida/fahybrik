@@ -154,27 +154,27 @@ export function LevelDetailPanel({
           <button
             type="button"
             onClick={onBack}
-            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} /> Niveles
           </button>
           <div className="flex flex-wrap items-center gap-2.5">
             <LevelBadge level={level.name} />
             <h2 className="v2-display text-2xl text-[color:var(--v2-fg)]">{level.label}</h2>
-            <span className="inline-flex items-center gap-1 text-[12px] text-[color:var(--v2-faint)]">
+            <span className="inline-flex items-center gap-1 text-xs text-[color:var(--v2-faint)]">
               <MIcon name="person" size={14} />
               <b className="v2-num">{level.athlete_count}</b>{' '}
               {level.athlete_count === 1 ? 'atleta' : 'atletas'}
             </span>
           </div>
           {level.description ? (
-            <p className="mt-1 max-w-[640px] text-[12.5px] leading-relaxed text-[color:var(--v2-muted)]">
+            <p className="mt-1 max-w-[640px] text-xs leading-relaxed text-[color:var(--v2-muted)]">
               {level.description}
             </p>
           ) : null}
         </div>
         <span
-          className="inline-flex shrink-0 items-center gap-1 self-start rounded-[var(--v2-r-pill)] px-2.5 py-1 text-[11px] font-semibold"
+          className="inline-flex shrink-0 items-center gap-1 self-start rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-semibold"
           style={{
             background: filledVariants === totalVariants ? 'var(--v2-ok-soft)' : 'var(--v2-surface-2)',
             color: filledVariants === totalVariants ? 'var(--v2-ok)' : 'var(--v2-muted)',
@@ -190,7 +190,7 @@ export function LevelDetailPanel({
       {reloadError ? (
         <div
           role="alert"
-          className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-[12.5px]"
+          className="mb-3 flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5 text-xs"
           style={{
             background: 'var(--v2-danger-soft)',
             color: 'var(--v2-danger)',
@@ -205,7 +205,7 @@ export function LevelDetailPanel({
               setReloadError(null);
               void refetch();
             }}
-            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 text-[11px] font-bold text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 text-label font-bold text-[color:var(--v2-danger)]"
           >
             Reintentar
           </button>
@@ -248,7 +248,7 @@ export function LevelDetailPanel({
       </div>
 
       {/* purpose strip */}
-      <div className="mt-4 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-[12.5px] text-[color:var(--v2-muted)]">
+      <div className="mt-4 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
         <span className="shrink-0 text-[color:var(--v2-accent)]">
           <MIcon name="my_location" size={18} />
         </span>
@@ -292,8 +292,8 @@ function DaysVariantCard({
     <div className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-baseline gap-1">
-          <b className="v2-num text-[15px] font-bold text-[color:var(--v2-fg)]">{days}</b>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[color:var(--v2-muted)]">
+          <b className="v2-num text-reading font-bold text-[color:var(--v2-fg)]">{days}</b>
+          <span className="text-label font-semibold uppercase tracking-[0.04em] text-[color:var(--v2-muted)]">
             días/sem
           </span>
         </span>
@@ -304,7 +304,7 @@ function DaysVariantCard({
               onClick={onDuplicate}
               aria-label={`Duplicar la secuencia de ${days} días a otra celda`}
               title="Duplica esta secuencia entera a otro nivel o nº de días"
-              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="content_copy" size={13} />
               Duplicar a…
@@ -313,7 +313,7 @@ function DaysVariantCard({
           <button
             type="button"
             onClick={onClick}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
           >
             {filled ? 'Editar' : 'Montar'}
             <MIcon name="arrow_forward" size={13} />

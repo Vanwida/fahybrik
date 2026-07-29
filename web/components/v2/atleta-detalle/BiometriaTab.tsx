@@ -84,7 +84,7 @@ function TrendRow({ metric }: { metric: TrendMetric }) {
     <div className="flex items-center gap-3 py-2.5">
       <div className="flex w-20 shrink-0 flex-col">
         <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{metric.label}</span>
-        <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
+        <span className="v2-num text-label text-[color:var(--v2-faint)]">
           {present && metric.current != null ? (
             <>
               <span className="text-[color:var(--v2-muted)]">{metric.current}</span> {metric.unit}
@@ -103,7 +103,7 @@ function TrendRow({ metric }: { metric: TrendMetric }) {
             height={40}
           />
         ) : (
-          <div className="flex h-10 items-center text-[11px] text-[color:var(--v2-faint)]">
+          <div className="flex h-10 items-center text-label text-[color:var(--v2-faint)]">
             Sin lecturas en {TREND_DAYS} días
           </div>
         )}

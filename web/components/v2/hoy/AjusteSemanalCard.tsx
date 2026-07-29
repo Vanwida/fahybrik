@@ -21,7 +21,7 @@ import type { V2WeekAdjustmentCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { Rail } from '@/components/v2/Rail';
 
 const BTN_BASE =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
 
 /** "23 jun" from an ISO date (YYYY-MM-DD), box timezone-safe (date-only). */
 function weekStartLabel(iso: string): string {
@@ -82,7 +82,7 @@ export function AjusteSemanalCard({
           <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
             {card.athlete_name}
           </span>
-          <span className="text-[11px] text-[color:var(--v2-faint)]">
+          <span className="text-label text-[color:var(--v2-faint)]">
             semana del {weekStartLabel(card.week_start)}
           </span>
         </div>
@@ -96,7 +96,7 @@ export function AjusteSemanalCard({
           persisted context_pack) so the coach doesn't approve blind. */}
       {card.triggers.length > 0 ? (
         <div className="mt-2">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+          <p className="mb-1 text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
             Por qué
           </p>
           <div className="flex flex-wrap gap-1">
@@ -115,7 +115,7 @@ export function AjusteSemanalCard({
           {card.diff_rows.map((row, i) => (
             <li
               key={`${row.day_label}-${i}`}
-              className="flex items-center gap-1.5 text-[11px] leading-snug"
+              className="flex items-center gap-1.5 text-label leading-snug"
             >
               <span className="w-9 shrink-0 font-semibold uppercase text-[color:var(--v2-faint)]">
                 {row.day_label}
@@ -132,7 +132,7 @@ export function AjusteSemanalCard({
             </li>
           ))}
           {card.extra_change_count > 0 ? (
-            <li className="text-[11px] text-[color:var(--v2-faint)]">
+            <li className="text-label text-[color:var(--v2-faint)]">
               +{card.extra_change_count} más
             </li>
           ) : null}
@@ -140,7 +140,7 @@ export function AjusteSemanalCard({
       ) : null}
 
       {error ? (
-        <p className="mt-1.5 text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="mt-1.5 text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       {/* Actions */}
@@ -204,7 +204,7 @@ export function AjusteSemanalStrip({ cards }: { cards: V2WeekAdjustmentCard[] })
           Ajuste de semana sugerido
         </span>
         <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
           style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
         >
           {visible.length}

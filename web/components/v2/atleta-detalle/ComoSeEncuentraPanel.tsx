@@ -58,13 +58,13 @@ function DimensionRow({ label, value }: { label: string; value: number | null })
   const tone = checkinValueTone(value);
   return (
     <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2.5">
-      <span className="text-[13px] text-[color:var(--v2-fg)]">{label}</span>
+      <span className="text-body text-[color:var(--v2-fg)]">{label}</span>
       <span className="flex gap-1" aria-hidden>
         {[1, 2, 3, 4, 5].map((i) => (
           <i
             key={i}
             className={cn(
-              'h-1.5 w-3.5 rounded-[3px]',
+              'h-1.5 w-3.5 rounded-[var(--v2-r-3xs)]',
               i <= value
                 ? TONE_BG[tone]
                 : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
@@ -90,7 +90,7 @@ function WeekStrip({ week }: { week: CheckinWeekSlot[] }) {
           <div key={d.iso} className="flex flex-col items-center gap-1">
             <span
               className={cn(
-                'grid h-[26px] w-[26px] place-items-center rounded-[var(--v2-r-xs)] font-mono text-[10px]',
+                'grid h-[26px] w-[26px] place-items-center rounded-[var(--v2-r-xs)] font-mono text-eyebrow',
                 tone
                   ? cn(TONE_TEXT[tone], TONE_SOFT[tone])
                   : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)]',
@@ -99,7 +99,7 @@ function WeekStrip({ week }: { week: CheckinWeekSlot[] }) {
             >
               {d.sub_score ?? '·'}
             </span>
-            <span className="text-[9.5px] font-medium uppercase text-[color:var(--v2-faint)]">
+            <span className="text-nano font-medium uppercase text-[color:var(--v2-faint)]">
               {CHECKIN_DOW_LABEL[d.dow]}
             </span>
           </div>
@@ -155,7 +155,7 @@ export function ComoSeEncuentraPanel({
           <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-2.5">
             <span
               aria-hidden
-              className="grid h-[17px] w-[17px] flex-none place-items-center rounded-full bg-[color:var(--v2-danger)] text-[11px] font-bold text-white"
+              className="grid h-[17px] w-[17px] flex-none place-items-center rounded-full bg-[color:var(--v2-danger)] text-label font-bold text-white"
             >
               !
             </span>

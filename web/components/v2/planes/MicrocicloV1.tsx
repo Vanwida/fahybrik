@@ -43,7 +43,7 @@ function DayChip({
         className="v2-focus flex min-h-[52px] items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
         {rest ? (
-          <span className="text-[10px] font-semibold">descanso</span>
+          <span className="text-eyebrow font-semibold">descanso</span>
         ) : (
           <MIcon name="add" size={16} />
         )}
@@ -60,12 +60,12 @@ function DayChip({
       style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
     >
       <span
-        className="truncate text-[10px] font-bold"
+        className="truncate text-eyebrow font-bold"
         style={{ color: `var(${MODALITY_META[mod].colorVar})` }}
       >
         {MODALITY_META[mod].label}
       </span>
-      <span className="v2-num mt-auto text-[9px] text-[color:var(--v2-faint)]">
+      <span className="v2-num mt-auto text-nano text-[color:var(--v2-faint)]">
         {day.session_count > 1 ? `${day.session_count} ses · ` : ''}
         {day.block_count} bl
       </span>
@@ -120,7 +120,7 @@ export function MicrocicloV1({
           <span className="v2-num">{weeks.length}</span>&nbsp;semanas
         </Pill>
         {errored ? (
-          <span className="text-[11px] font-semibold text-[color:var(--v2-danger)]">
+          <span className="text-label font-semibold text-[color:var(--v2-danger)]">
             No se pudo duplicar la semana. Inténtalo de nuevo.
           </span>
         ) : null}
@@ -167,10 +167,10 @@ export function MicrocicloV1({
                     />
                   </button>
                 </div>
-                <span className="truncate text-[10px] text-[color:var(--v2-muted)]" title={w.label}>
+                <span className="truncate text-eyebrow text-[color:var(--v2-muted)]" title={w.label}>
                   {w.label}
                 </span>
-                <span className="v2-num mt-auto text-[10px] font-semibold text-[color:var(--v2-faint)]">
+                <span className="v2-num mt-auto text-eyebrow font-semibold text-[color:var(--v2-faint)]">
                   {w.session_count} {w.session_count === 1 ? 'sesión' : 'sesiones'}
                 </span>
               </div>

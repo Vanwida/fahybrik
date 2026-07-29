@@ -40,7 +40,7 @@ function FeedbackPill({ label, selected, tone }: { label: string; selected?: boo
       style={{
         fontSize: '11px',
         fontWeight: selected ? 700 : 500,
-        color: selected ? 'var(--accOn, #2a1400)' : 'var(--fg)',
+        color: selected ? 'var(--accOn)' : 'var(--fg)',
         background: selected ? fill : 'var(--surface)',
         border: `1px solid ${selected ? 'transparent' : 'var(--hair)'}`,
         borderRadius: '999px',

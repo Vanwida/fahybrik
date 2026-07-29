@@ -38,7 +38,7 @@ export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
         <div className="flex flex-col gap-1 border-t border-[color:var(--v2-border)] pt-2">
           {daysWithSessions.map((d) => (
             <div key={d.iso_date} className="flex items-start gap-2">
-              <span className="v2-micro w-8 shrink-0 pt-0.5 text-[9px]">
+              <span className="v2-micro w-8 shrink-0 pt-0.5 text-nano">
                 {DOW_SHORT[d.day_of_week] ?? '—'}
               </span>
               <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -47,7 +47,7 @@ export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
                   return (
                     <span
                       key={`${d.iso_date}-${i}`}
-                      className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-fg)]"
+                      className="inline-flex items-center gap-1 text-label text-[color:var(--v2-fg)]"
                       title={meta.label}
                     >
                       <span

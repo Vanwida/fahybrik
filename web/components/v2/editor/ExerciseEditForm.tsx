@@ -129,7 +129,7 @@ export function EditExerciseForm({
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-[color:var(--v2-fg)]">{exercise.name}</p>
-          <p className="text-[11px] text-[color:var(--v2-faint)]">
+          <p className="text-label text-[color:var(--v2-faint)]">
             {CATEGORY_LABEL[exercise.category]}
             {originLabel ? ` · ${originLabel}` : ''}
           </p>
@@ -138,7 +138,7 @@ export function EditExerciseForm({
 
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
         <MIcon name="person" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
-        <p className="text-[12px] leading-snug text-[color:var(--v2-fg)]">
+        <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
           {isOwn ? (
             <>
               <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente — no hay una
@@ -169,12 +169,12 @@ export function EditExerciseForm({
           // Same message the server would give (invalid_name) — validated here
           // too so the coach sees it before Guardar disables itself, not after.
           name.trim().length === 0 ? (
-            <p className="text-[11px] text-[color:var(--v2-danger)]">
+            <p className="text-label text-[color:var(--v2-danger)]">
               Tu ejercicio necesita un nombre.
             </p>
           ) : null
         ) : (
-          <p className="text-[11px] text-[color:var(--v2-faint)]">
+          <p className="text-label text-[color:var(--v2-faint)]">
             Vacío = tus atletas verán el nombre base ({exercise.base_name}).
           </p>
         )}
@@ -251,7 +251,7 @@ function OverrideTextField({
         placeholder={base ?? 'Sin contenido — escribe el tuyo…'}
         className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
       />
-      <p className="text-[11px] text-[color:var(--v2-faint)]">
+      <p className="text-label text-[color:var(--v2-faint)]">
         {base
           ? 'Vacío = tus atletas verán el contenido base (el del placeholder).'
           : 'Vacío = no se mostrará nada.'}

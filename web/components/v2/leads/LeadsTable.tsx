@@ -46,7 +46,7 @@ export function LeadsTable({
       {/* Footer count */}
       {leads.length > 0 ? (
         <div className="flex items-center justify-between border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-          <span className="text-[11px] text-[color:var(--v2-muted)]">
+          <span className="text-label text-[color:var(--v2-muted)]">
             mostrando{' '}
             <span className="v2-num font-semibold text-[color:var(--v2-fg)]">{leads.length}</span> de{' '}
             <span className="v2-num">{scopeTotal}</span>

@@ -65,7 +65,7 @@ export function FilterDropdown<T extends string>({
         aria-expanded={open}
         aria-controls={menuId}
         className={cn(
-          'v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] px-3 text-[11px] font-semibold whitespace-nowrap transition-colors',
+          'v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] px-3 text-label font-semibold whitespace-nowrap transition-colors',
           active
             ? 'border border-[color:var(--v2-accent)] text-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
             : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',

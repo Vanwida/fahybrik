@@ -169,7 +169,7 @@ export function RaceCatalogAdmin({
       </div>
 
       {error ? (
-        <p role="alert" className="text-sm text-[color:var(--danger,#f23f3f)]">
+        <p role="alert" className="text-sm text-[color:var(--danger)]">
           {error}
         </p>
       ) : null}
@@ -178,11 +178,11 @@ export function RaceCatalogAdmin({
       {races.length === 0 ? (
         <EmptyState onAdd={() => setModal({ race: null })} />
       ) : filtered.length === 0 ? (
-        <p className="rounded-[var(--r-md)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
+        <p className="rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
           Ninguna carrera coincide con el filtro.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-[var(--r-md)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)]">
+        <div className="overflow-hidden rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)]">
           {/* Header */}
           <div className="hidden grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b border-[color:var(--border-subtle)] bg-[color:var(--surface-container-low)] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-muted)] lg:grid">
             <span>Carrera</span>
@@ -285,7 +285,7 @@ function RaceRow({
       {/* Fecha */}
       <div className="lg:w-28">
         {race.is_tentative || !race.start_date ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--warning,#f2a52e)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--warning,#f2a52e)]">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--warning)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--warning)]">
             Por confirmar
           </span>
         ) : (
@@ -369,7 +369,7 @@ function Toggle({
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-[var(--r-md)] border border-dashed border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] px-6 py-16 text-center">
+    <div className="flex flex-col items-center gap-4 rounded-[var(--r-m)] border border-dashed border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)] px-6 py-16 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--surface-elevated)] text-[color:var(--text-muted)]">
         <MIcon name="event" size={24} />
       </span>

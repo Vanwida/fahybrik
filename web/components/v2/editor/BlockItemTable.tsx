@@ -281,7 +281,7 @@ function MetconTable({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-mod-circuito-soft)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-mod-circuito)]">
+        <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-mod-circuito-soft)] px-2 py-0.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-mod-circuito)]">
           {formatLabel}
           {duration}
         </span>

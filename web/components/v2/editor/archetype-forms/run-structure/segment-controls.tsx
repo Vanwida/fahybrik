@@ -154,12 +154,12 @@ function PaceValue({
           <ClockCell seconds={target.min_s ?? null} ariaLabel="Ritmo más rápido (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', min_s: s ?? 0, max_s: target.max_s ?? (s ?? 0) })} />
           <span className="text-xs text-[color:var(--v2-muted)]">–</span>
           <ClockCell seconds={target.max_s ?? null} ariaLabel="Ritmo más lento (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', min_s: target.min_s ?? (s ?? 0), max_s: s ?? 0 })} />
-          <span className="text-[11px] font-semibold text-[color:var(--v2-muted)]">/km</span>
+          <span className="text-label font-semibold text-[color:var(--v2-muted)]">/km</span>
         </div>
       ) : (
         <div className="flex items-center gap-1">
           <ClockCell seconds={target.value_s ?? null} ariaLabel="Ritmo (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', value_s: s ?? 0 })} />
-          <span className="text-[11px] font-semibold text-[color:var(--v2-muted)]">/km</span>
+          <span className="text-label font-semibold text-[color:var(--v2-muted)]">/km</span>
         </div>
       )}
     </div>

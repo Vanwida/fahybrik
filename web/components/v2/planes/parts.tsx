@@ -24,7 +24,7 @@ export function ModalityTag({ modality }: { modality: V2Modality }) {
   const meta = MODALITY_META[modality];
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+      className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-eyebrow font-semibold whitespace-nowrap"
       style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: `var(${meta.colorVar})` }} />

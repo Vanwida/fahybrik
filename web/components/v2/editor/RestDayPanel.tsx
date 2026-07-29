@@ -87,7 +87,7 @@ export function RestDayPanel({
           <MIcon name="bedtime" size={20} className="text-[color:var(--v2-accent)]" />
           <span className="v2-display text-lg text-[color:var(--v2-fg)]">Día de descanso</span>
         </div>
-        <p className="max-w-[384px] text-[12.5px] text-[color:var(--v2-muted)]">
+        <p className="max-w-[384px] text-xs text-[color:var(--v2-muted)]">
           Sugerencias de recuperación opcionales — siguen siendo descanso.
         </p>
       </div>
@@ -99,7 +99,7 @@ export function RestDayPanel({
           return (
             <span
               key={`${r.activity}-${idx}`}
-              className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-[12px] font-semibold text-[color:var(--v2-fg)]"
+              className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-fg)]"
               style={okChipStyle}
             >
               <span aria-hidden className="h-2 w-2 rounded-full" style={okDotStyle} />
@@ -131,7 +131,7 @@ export function RestDayPanel({
             type="button"
             onClick={() => setAdding((v) => !v)}
             aria-expanded={adding}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-[12px] font-semibold text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="add" size={14} />
             Añadir
@@ -147,7 +147,7 @@ export function RestDayPanel({
               key={a}
               type="button"
               onClick={() => addActivity(a)}
-              className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-[12px] font-medium text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-xs font-medium text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
             >
               {RECOVERY_ACTIVITY_LABEL[a]}
             </button>
@@ -158,10 +158,10 @@ export function RestDayPanel({
       {/* Inline editor for the open chip — optional duration + short note. */}
       {editingIdx !== null && recovery[editingIdx] ? (
         <div className="mx-auto mt-4 flex max-w-[448px] flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
-          <span className="text-[11px] font-semibold text-[color:var(--v2-muted)]">
+          <span className="text-label font-semibold text-[color:var(--v2-muted)]">
             {RECOVERY_ACTIVITY_LABEL[recovery[editingIdx]!.activity]}
           </span>
-          <label className="flex items-center gap-2 text-[12px] text-[color:var(--v2-muted)]">
+          <label className="flex items-center gap-2 text-xs text-[color:var(--v2-muted)]">
             <span className="w-16 shrink-0">Duración</span>
             <input
               type="number"
@@ -171,11 +171,11 @@ export function RestDayPanel({
               value={recovery[editingIdx]!.duration_min ?? ''}
               onChange={(e) => setDuration(editingIdx, e.target.value)}
               placeholder="opcional"
-              className="v2-focus w-24 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-[13px] text-[color:var(--v2-fg)]"
+              className="v2-focus w-24 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-body text-[color:var(--v2-fg)]"
             />
             <span className="text-[color:var(--v2-faint)]">min</span>
           </label>
-          <label className="flex items-center gap-2 text-[12px] text-[color:var(--v2-muted)]">
+          <label className="flex items-center gap-2 text-xs text-[color:var(--v2-muted)]">
             <span className="w-16 shrink-0">Nota</span>
             <input
               type="text"
@@ -183,13 +183,13 @@ export function RestDayPanel({
               value={recovery[editingIdx]!.note ?? ''}
               onChange={(e) => setNote(editingIdx, e.target.value)}
               placeholder="p. ej. cuádriceps e isquios · ritmo cómodo"
-              className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-[13px] text-[color:var(--v2-fg)]"
+              className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-body text-[color:var(--v2-fg)]"
             />
           </label>
         </div>
       ) : null}
 
-      <p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
+      <p className="mt-5 text-center font-mono text-eyebrow uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
         Sin carga · no cuenta como sesión
       </p>
     </div>

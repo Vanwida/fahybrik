@@ -160,7 +160,7 @@ export function LibraryBlockRail({
           <header className="flex items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
             <div className="flex min-w-0 flex-col">
               <h2 className="v2-display text-lg text-[color:var(--v2-fg)]">Biblioteca de bloques</h2>
-              <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+              <span className="truncate text-label text-[color:var(--v2-muted)]">
                 {destinationLabel}
               </span>
             </div>
@@ -253,7 +253,7 @@ export function LibraryBlockRail({
           </div>
 
           <div className="border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-2.5">
-            <p className="text-[10.5px] leading-relaxed text-[color:var(--v2-faint)]">
+            <p className="text-eyebrow leading-relaxed text-[color:var(--v2-faint)]">
               Se copia la estructura. Editarlo luego en la Biblioteca no cambia esta semana.
             </p>
           </div>
@@ -278,7 +278,7 @@ function GroupChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border px-2.5 text-[11.5px] font-semibold transition-colors',
+        'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
         active
           ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]'
           : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -339,7 +339,7 @@ function BlockRow({
           />
         ) : null}
       </div>
-      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label">
         {row.source_ref ? (
           <span className="v2-num text-[color:var(--v2-muted)]">{row.source_ref}</span>
         ) : null}

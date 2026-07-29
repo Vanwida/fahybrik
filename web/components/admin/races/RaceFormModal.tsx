@@ -174,7 +174,7 @@ export function RaceFormModal({ race, onClose, onSaved }: RaceFormModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--scrim)] p-4 sm:p-8"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -184,7 +184,7 @@ export function RaceFormModal({ race, onClose, onSaved }: RaceFormModalProps) {
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-2xl rounded-[var(--r-md)] border border-[color:var(--border-subtle)] bg-[color:var(--surface)] shadow-2xl"
+        className="w-full max-w-2xl rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-[color:var(--surface)] shadow-2xl"
       >
         <header className="flex items-center justify-between border-b border-[color:var(--border-subtle)] px-5 py-4">
           <h2 id={titleId} className="font-display-xl text-[color:var(--fg)]">
@@ -366,7 +366,7 @@ export function RaceFormModal({ race, onClose, onSaved }: RaceFormModalProps) {
           {error ? (
             <p
               role="alert"
-              className="text-sm text-[color:var(--danger,#f23f3f)]"
+              className="text-sm text-[color:var(--danger)]"
             >
               {error}
             </p>

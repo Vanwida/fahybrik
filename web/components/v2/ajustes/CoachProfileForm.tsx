@@ -179,7 +179,7 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
               </button>
             ) : null}
           </div>
-          <p className="text-[11px] text-[color:var(--v2-muted)]">JPG, PNG o WEBP · máx. 4 MB</p>
+          <p className="text-label text-[color:var(--v2-muted)]">JPG, PNG o WEBP · máx. 4 MB</p>
         </div>
         <input
           ref={fileRef}
@@ -207,7 +207,7 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
           onChange={(e) => set('full_name', e.target.value)}
           className={cn(FIELD, nameInvalid && 'border-[color:var(--v2-danger)]')}
         />
-        <p className="text-[11px] text-[color:var(--v2-muted)]">
+        <p className="text-label text-[color:var(--v2-muted)]">
           Lo que ven tus atletas como su entrenador.
         </p>
       </div>
@@ -267,7 +267,7 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
           onChange={(e) => set('bio', e.target.value)}
           className={cn(FIELD, 'resize-y leading-relaxed')}
         />
-        <p className="self-end text-[11px] tabular-nums text-[color:var(--v2-faint)]">
+        <p className="self-end text-label tabular-nums text-[color:var(--v2-faint)]">
           {form.bio.length}/{COACH_PROFILE_LIMITS.bio}
         </p>
       </div>

@@ -107,7 +107,7 @@ export function ReorderRow({
           disabled={isFirst}
           aria-label="Subir"
           className={cn(
-            'v2-focus flex h-[15px] w-[22px] items-center justify-center rounded-[4px] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
+            'v2-focus flex h-[15px] w-[22px] items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
             isFirst
               ? 'cursor-not-allowed opacity-30'
               : 'hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -121,7 +121,7 @@ export function ReorderRow({
           disabled={isLast}
           aria-label="Bajar"
           className={cn(
-            'v2-focus flex h-[15px] w-[22px] items-center justify-center rounded-[4px] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
+            'v2-focus flex h-[15px] w-[22px] items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
             isLast
               ? 'cursor-not-allowed opacity-30'
               : 'hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

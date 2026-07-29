@@ -90,7 +90,7 @@ export function LeadDetalle({
   ].filter(Boolean) as string[];
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-6">
       {/* Back link */}
       <Link
         href="/leads"

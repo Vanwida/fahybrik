@@ -174,7 +174,7 @@ export function SessionEditor({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
       {/* Top bar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -226,7 +226,7 @@ export function SessionEditor({
             title={gate.ok ? undefined : gate.reason ?? undefined}
             className={
               saveState === 'error'
-                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
+                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-4 text-sm font-bold text-white transition-colors'
                 : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
             }
           >
@@ -238,7 +238,7 @@ export function SessionEditor({
 
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
       {!gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>

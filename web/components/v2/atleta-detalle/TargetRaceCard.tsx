@@ -85,7 +85,7 @@ export function TargetRaceCard({ athleteId }: { athleteId: string }) {
               <span className="text-xs text-[color:var(--v2-muted)]">
                 {raceCategoryLineEs(target)}
               </span>
-              <span className="v2-num flex flex-wrap items-center gap-x-1.5 text-[11px] text-[color:var(--v2-faint)]">
+              <span className="v2-num flex flex-wrap items-center gap-x-1.5 text-label text-[color:var(--v2-faint)]">
                 {dateLabel ? <span>{dateLabel}</span> : null}
                 {dateLabel && goalLabel ? <span aria-hidden>·</span> : null}
                 {goalLabel ? <span>objetivo {goalLabel}</span> : null}

@@ -70,7 +70,7 @@ function DeltaLine({ r }: { r: number | null }) {
   const d = formatDelta(r);
   if (!d) return null;
   return (
-    <span className="v2-num text-[11.5px] font-semibold text-[color:var(--v2-muted)]">
+    <span className="v2-num text-label font-semibold text-[color:var(--v2-muted)]">
       <span style={{ color: DELTA_COLOR_VAR[d.dir] }}>
         {DELTA_ARROW[d.dir]} {d.pct}
       </span>{' '}
@@ -113,7 +113,7 @@ function OutcomesPanel({ outcomes }: { outcomes: FunnelMetrics['outcomes'] }) {
       <div className="flex flex-col gap-4">
         <div className="flex items-end justify-between gap-3">
           <StatTile label="Precio medio propuesto" value={formatEur(outcomes.avg_price_eur)} />
-          <span className="text-right text-[10.5px] leading-tight text-[color:var(--v2-faint)]">
+          <span className="text-right text-eyebrow leading-tight text-[color:var(--v2-faint)]">
             sobre <span className="v2-num">{formatCount(outcomes.priced_call_count)}</span>
             <br />
             {outcomes.priced_call_count === 1 ? 'llamada con precio' : 'llamadas con precio'}
@@ -128,17 +128,17 @@ function OutcomesPanel({ outcomes }: { outcomes: FunnelMetrics['outcomes'] }) {
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ background: `var(${OUTCOME_TONE_VAR[SESSION_OUTCOME_TONE[o]]})` }}
               />
-              <span className="flex-1 text-[12.5px] text-[color:var(--v2-fg)]">
+              <span className="flex-1 text-xs text-[color:var(--v2-fg)]">
                 {SESSION_OUTCOME_LABEL[o]}
               </span>
-              <span className="v2-num text-[13px] font-semibold text-[color:var(--v2-fg)]">
+              <span className="v2-num text-body font-semibold text-[color:var(--v2-fg)]">
                 {formatCount(outcomes.counts[o])}
               </span>
             </div>
           ))}
           <div className="mt-1 flex items-center justify-between border-t border-[color:var(--v2-border)] pt-2">
             <span className="v2-micro">Total partes</span>
-            <span className="v2-num text-[13px] font-bold text-[color:var(--v2-fg)]">
+            <span className="v2-num text-body font-bold text-[color:var(--v2-fg)]">
               {formatCount(totalCalls)}
             </span>
           </div>
@@ -175,22 +175,22 @@ function ObjetivoTable({ rows }: { rows: FunnelMetrics['by_objetivo'] }) {
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-collapse text-body">
           <thead>
             <tr className="border-b border-[color:var(--v2-border)] text-[color:var(--v2-faint)]">
-              <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-[10.5px]">
+              <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
                 Objetivo
               </th>
-              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
                 Onboardings
               </th>
-              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
                 Citas
               </th>
-              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
                 Altas
               </th>
-              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-[10.5px]">
+              <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
                 Conversión
               </th>
             </tr>
@@ -243,7 +243,7 @@ function ObjetivoTable({ rows }: { rows: FunnelMetrics['by_objetivo'] }) {
 // ── Honest notes ─────────────────────────────────────────────────────────────────────
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2.5 text-[11.5px] leading-relaxed text-[color:var(--v2-muted)]">
+    <div className="flex items-start gap-2.5 text-label leading-relaxed text-[color:var(--v2-muted)]">
       <span
         aria-hidden
         className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[color:var(--v2-faint)]"
@@ -263,7 +263,7 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
       : `entre el ${formatDayShort(cohort_since)} y el ${formatDayShort(cohort_until)}`;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
       {/* Header */}
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -316,7 +316,7 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
           value={formatPct1(conversions.onboarding_to_alta)}
           tone="ok"
           sub={
-            <span className="v2-num text-[11.5px] font-semibold text-[color:var(--v2-muted)]">
+            <span className="v2-num text-label font-semibold text-[color:var(--v2-muted)]">
               {formatCount(stages.convertido)} de {formatCount(stages.completado)} completados
             </span>
           }

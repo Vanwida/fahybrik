@@ -47,7 +47,7 @@ export function StepShell({ n, children }: { n: number; children: React.ReactNod
     <section className="flex gap-3">
       <span
         aria-hidden
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[11px] font-bold text-[color:var(--v2-muted)]"
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]"
       >
         {n}
       </span>
@@ -167,7 +167,7 @@ export function BlockStructureStep({
           </li>
         ))}
       </ul>
-      <p className="flex items-start gap-1.5 text-[11px] text-[color:var(--v2-faint)]">
+      <p className="flex items-start gap-1.5 text-label text-[color:var(--v2-faint)]">
         <MIcon name="lightbulb" size={13} className="mt-px" />
         <span>
           Énfasis sugerido · {EMPHASIS_LABEL[emphasis.bias]} — {emphasis.note}
@@ -292,7 +292,7 @@ function TestRow({
         <span
           aria-hidden
           className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border',
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
             checked
               ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
               : 'border-[color:var(--v2-border-strong)]',
@@ -348,7 +348,7 @@ export function WarningsStep({
             <WarningRow key={w.kind} warning={w}>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 text-[11px] font-semibold',
+                  'inline-flex items-center gap-1 text-label font-semibold',
                   eventResolved ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-muted)]',
                 )}
               >
@@ -362,7 +362,7 @@ export function WarningsStep({
             return (
               <WarningRow key={w.kind} warning={w}>
                 {acked ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-ok)]">
+                  <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-ok)]">
                     <MIcon name="check_circle" size={14} />
                     Confirmado
                   </span>
@@ -370,7 +370,7 @@ export function WarningsStep({
                   <button
                     type="button"
                     onClick={() => onAck(w.kind)}
-                    className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 py-1 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                    className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
                   >
                     <MIcon name="check" size={13} />
                     Confirmar
@@ -407,7 +407,7 @@ function WarningRow({
             {critical ? 'Crítico' : 'Aviso'}
           </Pill>
         </div>
-        <span className="text-[11px] text-[color:var(--v2-muted)]">{warning.detail}</span>
+        <span className="text-label text-[color:var(--v2-muted)]">{warning.detail}</span>
       </div>
       <div className="shrink-0 self-center">{children}</div>
     </div>
@@ -449,7 +449,7 @@ export function WelcomeNotesStep({
         <span
           aria-hidden
           className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border',
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
             send
               ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
               : 'border-[color:var(--v2-border-strong)]',
@@ -475,7 +475,7 @@ export function WelcomeNotesStep({
             'focus:border-[color:var(--v2-border-strong)] disabled:opacity-50',
           )}
         />
-        <span className="v2-num self-end text-[11px] text-[color:var(--v2-faint)]">
+        <span className="v2-num self-end text-label text-[color:var(--v2-faint)]">
           {body.length} / {WELCOME_MAX}
         </span>
       </div>
@@ -527,7 +527,7 @@ export function AssignBar({
           <span
             key={c.key}
             className={cn(
-              'inline-flex items-center gap-1 text-[11px] font-semibold',
+              'inline-flex items-center gap-1 text-label font-semibold',
               c.state === 'ok'
                 ? 'text-[color:var(--v2-ok)]'
                 : c.state === 'blocked'
@@ -545,11 +545,11 @@ export function AssignBar({
       </div>
 
       {error ? (
-        <p className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] text-[color:var(--v2-faint)]">
+        <span className="text-label text-[color:var(--v2-faint)]">
           {canAssign
             ? 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
             : `${blockers} ${blockers === 1 ? 'punto' : 'puntos'} por resolver.`}

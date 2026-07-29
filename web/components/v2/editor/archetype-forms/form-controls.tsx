@@ -35,7 +35,7 @@ export function Field({
       <div className="flex items-baseline justify-between gap-2">
         <FieldLabel>{label}</FieldLabel>
         {hint ? (
-          <span className="text-[10px] font-medium text-[color:var(--v2-faint)]">{hint}</span>
+          <span className="text-eyebrow font-medium text-[color:var(--v2-faint)]">{hint}</span>
         ) : null}
       </div>
       {children}
@@ -70,7 +70,7 @@ export function InlineToggle<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              'v2-focus rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide transition-colors',
+              'v2-focus rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide transition-colors',
               active
                 ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -135,7 +135,7 @@ export function PaceCell({
         className="flex-1"
         onChange={(s) => onChange({ kind: 'pace', unit, value_s: s ?? 0 })}
       />
-      <span className="shrink-0 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+      <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
         {unitLabel}
       </span>
     </div>

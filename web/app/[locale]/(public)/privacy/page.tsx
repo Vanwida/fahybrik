@@ -30,12 +30,12 @@ function H3({ children }: { children: React.ReactNode }) {
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[15px] leading-7 text-[color:var(--fg)]/90 mb-4">{children}</p>;
+  return <p className="text-reading leading-7 text-[color:var(--fg)]/90 mb-4">{children}</p>;
 }
 
 function UL({ children }: { children: React.ReactNode }) {
   return (
-    <ul className="list-disc pl-6 mb-4 space-y-1.5 text-[15px] leading-7 text-[color:var(--fg)]/90 marker:text-[color:var(--muted)]">
+    <ul className="list-disc pl-6 mb-4 space-y-1.5 text-reading leading-7 text-[color:var(--fg)]/90 marker:text-[color:var(--muted)]">
       {children}
     </ul>
   );
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
   return (
     <article>
       <header className="mb-10">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)] mb-3">
+        <p className="text-label uppercase tracking-[0.16em] text-[color:var(--muted)] mb-3">
           Documento legal · Versión {VERSION}
         </p>
         <h1 className="font-display italic font-black text-[color:var(--fg)] text-4xl md:text-5xl tracking-tight leading-[1.05]">
@@ -62,12 +62,12 @@ export default function PrivacyPage() {
 
       <section
         aria-label="English summary for partner reviewers"
-        className="mb-10 rounded-[14px] border border-[color:var(--outline)] bg-[color:var(--surface)] p-5"
+        className="mb-10 rounded-[var(--r-l)] border border-[color:var(--outline)] bg-[color:var(--surface)] p-5"
       >
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)] mb-2">
+        <p className="text-label uppercase tracking-[0.16em] text-[color:var(--muted)] mb-2">
           English summary
         </p>
-        <p className="text-[14px] leading-6 text-[color:var(--fg)]/90">
+        <p className="text-reading leading-6 text-[color:var(--fg)]/90">
           FAHYBRID is a coaching platform operated by the FAHYBRID team (Spain, EU). We process
           health, training, and biometric data — including data sourced from{' '}
           <Term>Garmin Connect (Health &amp; Activity APIs)</Term>,{' '}
@@ -268,7 +268,7 @@ export default function PrivacyPage() {
       <UL>
         <li>
           <Term>Neon (base de datos Postgres).</Term> Región{' '}
-          <span className="font-mono text-[13px]">aws-eu-central-1</span> (Frankfurt,
+          <span className="font-mono text-body">aws-eu-central-1</span> (Frankfurt,
           Alemania). Cifrado en reposo por defecto. Aquí vive todo tu perfil, sesiones y
           métricas normalizadas.
         </li>
@@ -535,7 +535,7 @@ export default function PrivacyPage() {
         </li>
       </UL>
 
-      <p className="mt-12 text-[12px] text-[color:var(--muted)]">
+      <p className="mt-12 text-xs text-[color:var(--muted)]">
         Versión {VERSION} · Publicada el {LAST_UPDATED}.
       </p>
     </article>
