@@ -1769,8 +1769,13 @@ struct InicioView: View {
 
     private func sessionDetailMeta(for session: AthleteWeekDaySession) -> String {
         var parts: [String] = []
-        if let min = session.estDurationMinutes, min > 0 {
-            parts.append("≈ \(min) min")
+        // El reloj escrito es un SUELO («desde 45 min»), no una estimación centrada.
+        // Y cuando el plan no escribe ninguno, la sesión no se queda muda: dice por
+        // qué no se puede saber, que es justo lo que el atleta viene a preguntar.
+        if let suelo = Formato.duracionPrevista(session.estDurationMinutes) {
+            parts.append(suelo)
+        } else if let razon = session.durationUnknownReason {
+            parts.append(razon.frase)
         }
         if let blocks = session.blocksCount, blocks > 0 {
             parts.append("\(blocks) \(blocks == 1 ? "bloque" : "bloques")")
