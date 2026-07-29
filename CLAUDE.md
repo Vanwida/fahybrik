@@ -22,6 +22,19 @@ This file is loaded automatically by Claude when working in this repo. It supple
 
 Si me pillo saltando a construir/delegar sin haber hecho 1-4, PARO y vuelvo al diseño. Ver memoria [[feedback-coherence-over-no-errors]], [[feedback-sense-and-market-standards]].
 
+## HARD RULE Nº0 — ESTO ES MULTI-COACH. PABLO ES *UN* COACH, NO *EL* COACH.
+
+Este código se venderá como **FLEXR** a otros entrenadores — con suerte, miles. Pablo es **nuestro coach de pruebas**, no el destinatario del software. Alex lleva repitiéndolo sesión tras sesión; si vuelve a tener que decirlo, es un fallo nuestro.
+
+**La línea, y hay que saber aplicarla en cada decisión:**
+
+- **MECANISMO = nuestro, va en código.** Cómo se calcula un TSS, cómo se detectan los tramos de una serie, cómo se resuelve un ancla por orden de evidencia, cómo se decide que un dato no se sabe. Eso es el producto.
+- **MÉTODO = del coach, va en DATO EDITABLE.** Dónde cortan las bandas de zona, qué pesos lleva un índice de disposición, cuántos días caduca un check-in, qué reparto de polarización considera bueno, cómo se llaman sus fases, qué umbral retira un veredicto.
+
+**La pregunta que decide cada caso:** *«¿otro entrenador competente lo haría distinto?»* Si la respuesta es sí, **es método: nace como dato con un valor por defecto, nunca como `const`.**
+
+**En consecuencia:** cero nombres propios en el código (ni «Pablo», ni «Fabrik», ni «ATR» — la landing y lo legal son otra cosa); nuestros valores actuales son **defectos editables**, así que un coach que no toca nada se comporta igual que hoy; y **antes de escribir una constante que huela a metodología, hazte la pregunta**.
+
 ## HARD RULE — TODO SE COMMITEA. NADA SE PIERDE.
 
 Alex tiene una plataforma propia (**mentalOS**) que lee los cambios en disco y el historial de git de todos sus proyectos, y se los sirve al móvil. Si el trabajo no está en git, para él **no existe**.
