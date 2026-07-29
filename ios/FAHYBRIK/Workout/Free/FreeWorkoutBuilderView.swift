@@ -236,13 +236,13 @@ struct FreeWorkoutBuilderView: View {
                 if format.usesCadence {
                     FreeStepper(label: "Cada", value: $draft.cadenceSeconds,
                                 step: FreeStep.cadenceSeconds, minValue: FreeStep.cadenceSeconds) {
-                        PrescriptionRenderer.formatRest($0)
+                        Formato.clock($0, subMinuto: .segundos)
                     }
                 }
                 if format.usesWindow {
                     FreeStepper(label: "Duración total", value: $draft.windowSeconds,
                                 step: FreeStep.windowSeconds, minValue: FreeStep.windowSeconds) {
-                        PrescriptionRenderer.formatClock($0)
+                        Formato.clock($0, subMinuto: .segundos)
                     }
                 }
 
@@ -258,7 +258,7 @@ struct FreeWorkoutBuilderView: View {
                 if format.usesRest {
                     FreeStepper(label: "Descanso", value: $draft.restSeconds,
                                 step: FreeStep.restSeconds, minValue: 0) {
-                        $0 == 0 ? "—" : PrescriptionRenderer.formatRest($0)
+                        $0 == 0 ? "—" : Formato.clock($0, subMinuto: .segundos)
                     }
                 }
 
@@ -292,12 +292,12 @@ struct FreeWorkoutBuilderView: View {
         case .distance:
             FreeStepper(label: "Distancia", value: $draft.distanceMeters,
                         step: FreeStep.distanceMeters, minValue: FreeStep.distanceMeters) {
-                PrescriptionRenderer.formatDistance(Double($0)) ?? "\($0) m"
+                Formato.distancia(Double($0)) ?? "\($0) m"
             }
         case .time:
             FreeStepper(label: "Tiempo", value: $draft.workSeconds,
                         step: FreeStep.workSeconds, minValue: FreeStep.workSeconds) {
-                PrescriptionRenderer.formatClock($0)
+                Formato.clock($0, subMinuto: .segundos)
             }
         case .calories:
             FreeStepper(label: "Calorías", value: $draft.calories,
@@ -311,7 +311,7 @@ struct FreeWorkoutBuilderView: View {
         case .pace:
             FreeStepper(label: "Ritmo \(draft.modality?.paceUnitLabel ?? "")",
                         value: $draft.paceSeconds, step: FreeStep.paceSeconds, minValue: 30) {
-                PrescriptionRenderer.formatPace($0)
+                Formato.ritmoCifras(Double($0))
             }
         case .hrZone:
             FreeZonePicker(zone: $draft.hrZone)

@@ -213,7 +213,7 @@ struct ExecutedWorkoutView: View {
             return (Self.formatDistance(d), "distancia")
         }
         if let total = execution?.totalDurationSeconds, total > 0 {
-            return (WorkoutSession.formatElapsed(Double(total)), "duración")
+            return (Formato.clock(Double(total)), "duración")
         }
         return (isPartial ? "Terminado antes" : "Completado", "estado")
     }
@@ -223,7 +223,7 @@ struct ExecutedWorkoutView: View {
     private var headlineSupport: String? {
         var parts: [String] = []
         if headline.caption != "duración", let total = execution?.totalDurationSeconds, total > 0 {
-            parts.append(WorkoutSession.formatElapsed(Double(total)))
+            parts.append(Formato.clock(Double(total)))
         }
         if headline.caption != "distancia", let d = totalDistanceMeters, d > 0 {
             parts.append(Self.formatDistance(d))
@@ -332,9 +332,9 @@ struct ExecutedWorkoutView: View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 ergVal("\(s.index)", fixed: true, .leading, accent: true)
-                ergVal(s.timeSeconds.map { WorkoutSession.formatElapsed($0) } ?? "—", .trailing)
+                ergVal(s.timeSeconds.map { Formato.clock($0) } ?? "—", .trailing)
                 ergVal(s.distanceMeters.map { "\(Int($0))" } ?? "—", .trailing)
-                ergVal(s.avgPaceSPer500m.map { PrescriptionRenderer.formatPace(Int($0.rounded())) } ?? "—", .trailing)
+                ergVal(s.avgPaceSPer500m.map { Formato.ritmoCifras(Double(Int($0.rounded()))) } ?? "—", .trailing)
                 ergVal(s.strokeRateSpm.map { "\($0)" } ?? "—", .trailing)
                 ergVal(s.calories.map { "\($0)" } ?? "—", .trailing)
             }
@@ -345,7 +345,7 @@ struct ExecutedWorkoutView: View {
                 HStack(spacing: 4) {
                     Spacer(minLength: 0)
                     MonoText(
-                        text: "descanso \(WorkoutSession.formatElapsed(rt))" + (restDistanceLabel(s)),
+                        text: "descanso \(Formato.clock(rt))" + (restDistanceLabel(s)),
                         size: 9,
                         color: Theme.Color.faint
                     )
@@ -745,10 +745,10 @@ struct ExecutedWorkoutView: View {
             .sorted { ($0.durationSeconds ?? 0) > ($1.durationSeconds ?? 0) }
         guard let leg = legs.first else { return nil }
         if let p = leg.avgPaceSPer500m, p > 0 {
-            return "\(PrescriptionRenderer.formatPace(Int(p.rounded())))/500m"
+            return "\(Formato.ritmoCifras(Double(Int(p.rounded()))))/500m"
         }
         if let p = leg.avgPaceSPerKm, p > 0 {
-            return "\(PrescriptionRenderer.formatPace(Int(p.rounded())))/km"
+            return "\(Formato.ritmoCifras(Double(Int(p.rounded()))))/km"
         }
         return nil
     }
@@ -1015,9 +1015,9 @@ struct ExecutedWorkoutView: View {
             t.append(formatDistance(d))
         }
         if let p = a.avgPaceSPer500m, p > 0 {
-            t.append("\(PrescriptionRenderer.formatPace(Int(p)))/500m")
+            t.append("\(Formato.ritmoCifras(Double(Int(p))))/500m")
         } else if let p = a.avgPaceSPerKm, p > 0 {
-            t.append("\(PrescriptionRenderer.formatPace(Int(p)))/km")
+            t.append("\(Formato.ritmoCifras(Double(Int(p))))/km")
         }
         // Average incline / cadence over the segment (#62). Shown only when the
         // source (treadmill / wearable) actually reported them — never a fake 0.
@@ -1028,7 +1028,7 @@ struct ExecutedWorkoutView: View {
             t.append("cad. \(cad)")
         }
         if a.repsCompleted == nil, a.distanceMeters == nil, let dur = a.durationSeconds, dur > 0 {
-            t.append(WorkoutSession.formatElapsed(Double(dur)))
+            t.append(Formato.clock(Double(dur)))
         }
         if let hr = a.avgHr { t.append("\(hr) ppm") }
         return t

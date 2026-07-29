@@ -63,7 +63,7 @@ enum PrescriptionRenderer {
                     work: work,
                     load: targetLoad(s.target),
                     tempo: s.tempo,
-                    rest: s.restS.map(formatRest)
+                    rest: s.restS.map { Formato.clock($0, subMinuto: .segundos) }
                 )
             )
         }
@@ -126,7 +126,7 @@ enum PrescriptionRenderer {
         // still shows, because that is a different number.
         let blockRest = p.scheme == .emom ? nil : p.restS
         if let restS = set?.restS ?? blockRest, restS > 0 {
-            detail.append("descanso \(formatRest(restS))")
+            detail.append("descanso \(Formato.clock(restS, subMinuto: .segundos))")
         }
         return Line(
             headline: headline,
@@ -143,7 +143,7 @@ enum PrescriptionRenderer {
     static func wodHeader(_ p: Prescription) -> String? {
         switch p.scheme {
         case .amrap:
-            if let cap = p.totalS, cap > 0 { return "AMRAP · \(formatClock(cap))" }
+            if let cap = p.totalS, cap > 0 { return "AMRAP · \(Formato.clock(cap, subMinuto: .segundos))" }
             return "AMRAP"
         case .emom:
             // `work_s` is the WORK WINDOW, not the cadence (the server's shape — see
@@ -156,15 +156,15 @@ enum PrescriptionRenderer {
             let transition = p.restS ?? 0
             if work > 0 {
                 parts.append(transition > 0
-                    ? "\(work)/\(transition) · cada \(formatRest(work + transition))"
-                    : "cada \(formatRest(work))")
+                    ? "\(work)/\(transition) · cada \(Formato.clock(work + transition, subMinuto: .segundos))"
+                    : "cada \(Formato.clock(work, subMinuto: .segundos))")
             }
             if let rounds = p.rounds, rounds > 0 { parts.append("\(rounds) rondas") }
             return parts.joined(separator: " · ")
         case .forTime:
             var parts = ["For Time"]
             if let rounds = p.rounds, rounds > 0 { parts.insert("\(rounds) rondas", at: 1) }
-            if let cap = p.totalS, cap > 0 { parts.append("cap \(formatClock(cap))") }
+            if let cap = p.totalS, cap > 0 { parts.append("cap \(Formato.clock(cap, subMinuto: .segundos))") }
             return parts.joined(separator: " · ")
         default:
             return nil
@@ -179,9 +179,9 @@ enum PrescriptionRenderer {
         case .reps(let v):
             return v > 0 ? "\(v)" : nil
         case .distance(let meters):
-            return formatDistance(meters)
+            return Formato.distancia(meters)
         case .duration(let seconds):
-            return seconds > 0 ? formatClock(seconds) : nil
+            return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
         case .calories(let v):
             return v > 0 ? "\(v) cal" : nil
         case .unknown:
@@ -215,7 +215,7 @@ enum PrescriptionRenderer {
         case let .percentRM(v, mn, mx):
             return range(v, mn, mx, suffix: "% 1RM")
         case let .kg(v, mn, mx):
-            return range(v, mn, mx, suffix: " kg", isKg: true)
+            return range(v, mn, mx, suffix: " kg")
         case let .rpe(v, mn, mx):
             return range(v, mn, mx, prefix: "RPE ")
         case let .rir(v, mn, mx):
@@ -235,25 +235,30 @@ enum PrescriptionRenderer {
         }
     }
 
-    /// The pace chip for a card, e.g. "@ 3:40 /km" (run) or "@ 1:55 /500m" (erg).
+    /// The pace chip for a card, e.g. "@ 3:40/km" (run) or "@ 1:55/500m" (erg).
     /// `isErg` selects the /500m convention when the unit is generic.
+    ///
+    /// Cifras y unidad van PEGADAS. Esta función escribía «@ 3:40 /km» con espacio y
+    /// era una de las tres grafías del ritmo que convivían — dos de ellas llegaban a
+    /// verse en el mismo scroll.
     static func paceString(_ t: Target?, isErg: Bool) -> String? {
         guard case let .pace(unit, valueS, minS, maxS) = t else { return nil }
-        let label: String
+        let unidad: Formato.UnidadRitmo
         switch unit {
-        case .per500m: label = "/500m"
-        case .perMile: label = "/mi"
-        case .perKm:   label = isErg ? "/500m" : "/km"
+        case .per500m: unidad = .por500m
+        case .perMile: unidad = .porMilla
+        case .perKm:   unidad = isErg ? .por500m : .porKm
         }
         // When the stored unit is per_km but this is an erg, convert to /500m.
         let scale: Double = (unit == .perKm && isErg) ? 0.5 : 1.0
-        func fmt(_ s: Int) -> String { formatPace(Int((Double(s) * scale).rounded())) }
-        if let v = valueS, v > 0 { return "@ \(fmt(v)) \(label)" }
+        func fmt(_ s: Int) -> String { Formato.ritmoCifras((Double(s) * scale).rounded()) }
+        let label = unidad.rawValue
+        if let v = valueS, v > 0 { return "@ \(fmt(v))\(label)" }
         if let lo = minS, let hi = maxS, lo > 0, hi > 0 {
-            return "@ \(fmt(lo))–\(fmt(hi)) \(label)"
+            return "@ \(fmt(lo))–\(fmt(hi))\(label)"
         }
-        if let lo = minS, lo > 0 { return "@ \(fmt(lo))+ \(label)" }
-        if let hi = maxS, hi > 0 { return "@ \(fmt(hi)) \(label)" }
+        if let lo = minS, lo > 0 { return "@ \(fmt(lo))+\(label)" }
+        if let hi = maxS, hi > 0 { return "@ \(fmt(hi))\(label)" }
         return nil
     }
 
@@ -265,11 +270,13 @@ enum PrescriptionRenderer {
     /// ceiling, `minS` alone a floor, both together a tightening band, `valueS` a
     /// flat clock.
     private static func timeCapString(valueS: Int?, minS: Int?, maxS: Int?) -> String? {
-        if let v = valueS { return formatPace(v) }
-        if minS == nil, let mx = maxS { return "≤ \(formatPace(mx))" }
-        if maxS == nil, let mn = minS { return "≥ \(formatPace(mn))" }
+        if let v = valueS { return Formato.ritmoCifras(Double(v)) }
+        if minS == nil, let mx = maxS { return "≤ \(Formato.ritmoCifras(Double(mx)))" }
+        if maxS == nil, let mn = minS { return "≥ \(Formato.ritmoCifras(Double(mn)))" }
         guard let mn = minS, let mx = maxS else { return nil }
-        return mn == mx ? formatPace(mn) : "\(formatPace(mn))–\(formatPace(mx))"
+        return mn == mx
+            ? Formato.ritmoCifras(Double(mn))
+            : "\(Formato.ritmoCifras(Double(mn)))–\(Formato.ritmoCifras(Double(mx)))"
     }
 
     /// The HR-zone badge value for a card (uses the range midpoint when a band).
@@ -293,50 +300,24 @@ enum PrescriptionRenderer {
 
     // MARK: - Formatters (mono, athlete-facing)
 
+    // Las cuatro primitivas que vivían aquí (`formatDistance`, `formatClock`,
+    // `formatRest`, `formatPace`) se han ido a `Theme/Formato.swift`. `formatClock` y
+    // `formatRest` eran además la MISMA regla escrita dos veces — «45s» por debajo del
+    // minuto, «1:30» por encima —, así que las dos colapsan en
+    // `Formato.clock(_:subMinuto:.segundos)`.
+    //
+    // Lo que sigue aquí es lo propio de una PRESCRIPCIÓN: rangos, el «@» del ritmo, la
+    // conversión a /500m del ergómetro. Eso no es grafía, es semántica del plan.
+
     private static func range(
         _ value: Double?, _ min: Double?, _ max: Double?,
-        prefix: String = "", suffix: String = "", isKg: Bool = false
+        prefix: String = "", suffix: String = ""
     ) -> String? {
-        func n(_ d: Double) -> String {
-            if isKg { return d.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(d))" : String(format: "%.1f", d) }
-            return d.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(d))" : String(format: "%.1f", d)
-        }
+        func n(_ d: Double) -> String { Formato.esDecimal(d) }
         if let v = value { return "\(prefix)\(n(v))\(suffix)" }
         if let lo = min, let hi = max { return "\(prefix)\(n(lo))–\(n(hi))\(suffix)" }
         if let lo = min { return "\(prefix)\(n(lo))+\(suffix)" }
         if let hi = max { return "\(prefix)≤\(n(hi))\(suffix)" }
         return nil
-    }
-
-    static func formatDistance(_ meters: Double) -> String? {
-        guard meters > 0 else { return nil }
-        if meters >= 1000 {
-            let km = meters / 1000
-            return km.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(km)) km" : String(format: "%.1f km", km)
-        }
-        return "\(Int(meters.rounded())) m"
-    }
-
-    /// m:ss for a duration ≥ 1 min, else "Ns".
-    static func formatClock(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        if m == 0 { return "\(s)s" }
-        return String(format: "%d:%02d", m, s)
-    }
-
-    /// Rest reads "90s" under a minute, "2:00" / "2:30" at or above.
-    static func formatRest(_ seconds: Int) -> String {
-        if seconds < 60 { return "\(seconds)s" }
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%d:%02d", m, s)
-    }
-
-    static func formatPace(_ secondsPerUnit: Int) -> String {
-        let m = secondsPerUnit / 60
-        let s = secondsPerUnit % 60
-        return String(format: "%d:%02d", m, s)
     }
 }

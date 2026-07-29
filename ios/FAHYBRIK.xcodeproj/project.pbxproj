@@ -220,6 +220,7 @@
 		7D9FE0ABA448EC6ECED339B8 /* WorkoutFormatHUDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */; };
 		7F4AB767CC789E18551DE365 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB2C2734A579C7C24E28E740 /* CoreLocation.framework */; };
 		7F9D03AD50F95167830E8E8F /* NutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED48EFC44FF48D81CC1850A /* NutritionView.swift */; };
+		7FE7F20CC844A7D6491A6BA8 /* Formato.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBEE3A3D51172F6E1E0FFA5 /* Formato.swift */; };
 		8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */; };
 		81EBD8C816F64C036AAF62E4 /* HeartRateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A8A51900BDAC310D579C42 /* HeartRateParser.swift */; };
 		824817A27EA2989622632399 /* CheckinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691375D173DBA6F86C29874E /* CheckinView.swift */; };
@@ -337,6 +338,7 @@
 		CD066FBD3FB21046D501DA32 /* RunTargetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */; };
 		CDA0985247D17A77EEAA4ECB /* AudioCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD05E4662FE0BD965C20823 /* AudioCoach.swift */; };
 		CEA271C9C2482C5722EF1437 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */; };
+		CECFA16BEA22C2F9959DEFD0 /* Formato.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBEE3A3D51172F6E1E0FFA5 /* Formato.swift */; };
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
 		CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */; };
 		D0A40812E60DB25147E89856 /* FTMSControlStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */; };
@@ -676,6 +678,7 @@
 		7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountService.swift; sourceTree = "<group>"; };
 		7D9494B04303A5A577798CC7 /* ErgLiveStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgLiveStrip.swift; sourceTree = "<group>"; };
 		7DAB7D87F7B2112418BD4516 /* KeychainTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStore.swift; sourceTree = "<group>"; };
+		7DBEE3A3D51172F6E1E0FFA5 /* Formato.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formato.swift; sourceTree = "<group>"; };
 		7E6DB6B6CA197C17960A6039 /* BenchmarkDeltaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkDeltaTests.swift; sourceTree = "<group>"; };
 		7E7404F52D9E2EA1343D075D /* RunRouteMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunRouteMapView.swift; sourceTree = "<group>"; };
 		7EE16E8C5A61C375B8EA531F /* HRChipPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRChipPresentationTests.swift; sourceTree = "<group>"; };
@@ -960,6 +963,7 @@
 			isa = PBXGroup;
 			children = (
 				1D68388A51BB12F5A37F852A /* Atoms.swift */,
+				7DBEE3A3D51172F6E1E0FFA5 /* Formato.swift */,
 				FC94A17EBAE399DCC37750B5 /* Haptics.swift */,
 				3DB51A5239429B9A268B822D /* RedesignComponents.swift */,
 				D1C75EF82C3F8E617072D47E /* ScreenScaffold.swift */,
@@ -2109,6 +2113,7 @@
 				8A60F22CE2726C1554EC974A /* FijarObjetivoView.swift in Sources */,
 				0BC4CB79B20EEBAC971122F1 /* FoodScannerView.swift in Sources */,
 				D610A231F29112D8B98A6F6E /* FoodSearchView.swift in Sources */,
+				7FE7F20CC844A7D6491A6BA8 /* Formato.swift in Sources */,
 				BCD0C53AEAFF1A7D432E7498 /* Formatters.swift in Sources */,
 				D496FC49833E21BC710F358C /* FreeDeclareMovementsSheet.swift in Sources */,
 				914FDD70869B73509571F320 /* FreeExerciseCatalog.swift in Sources */,
@@ -2311,6 +2316,7 @@
 				8B5DEE934F36B89D4D0AC00E /* DoblesTurn.swift in Sources */,
 				6F34EA1D009B5C8D149D90CA /* FAHYBRIKWatchApp.swift in Sources */,
 				E151F62C346910991E54492A /* FixedLiveView.swift in Sources */,
+				CECFA16BEA22C2F9959DEFD0 /* Formato.swift in Sources */,
 				2AA8689EE50D8D94D3AA7881 /* HRRecovery.swift in Sources */,
 				9FDF8CCDF867678368986C63 /* LiveFlowView.swift in Sources */,
 				EEBC99BA15D17BB81E7AC277 /* LiveHUDShared.swift in Sources */,

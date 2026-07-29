@@ -216,8 +216,8 @@ struct GoalGapBoard: View {
         parts.append(durationText(segment.predictedS))
         if let d = segment.deltaS, d != 0 {
             parts.append(d > 0
-                ? "faltan \(StatsFormat.duration(Double(d)))"
-                : "\(StatsFormat.duration(Double(abs(d)))) por delante")
+                ? "faltan \(Formato.clock(Double(d)))"
+                : "\(Formato.clock(Double(abs(d)))) por delante")
         }
         return parts.joined(separator: ", ")
     }

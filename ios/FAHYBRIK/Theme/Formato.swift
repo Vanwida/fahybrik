@@ -129,6 +129,11 @@ enum Vocab {
     /// Pulsaciones por minuto. Nunca `bpm`.
     static let ppm = "ppm"
 
+    /// La cadencia se escribía también «ppm» (pasos por minuto) — la MISMA unidad
+    /// que el pulso, en las mismas pantallas. «Cadencia 176 ppm» encima de «FC 176
+    /// ppm» no se distingue. La cadencia se cuenta en pasos, y así se dice.
+    static let cadencia = "pasos/min"
+
     static let ritmo = "Ritmo"
     static let distancia = "Distancia"
     static let tiempo = "Tiempo"

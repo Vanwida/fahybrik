@@ -54,7 +54,7 @@ struct PersonalRecord: Equatable {
 
     /// The new mark as a clock string ("21:48"), reusing the session's formatter so
     /// the value reads exactly like the rest of the app.
-    var formattedValue: String { WorkoutSession.formatElapsed(newValueS) }
+    var formattedValue: String { Formato.clock(newValueS) }
 
     /// Unambiguous headline for the celebration: it is the athlete's fastest RUN of
     /// this distance (a genuine PR) or their first mark of it — never a test.

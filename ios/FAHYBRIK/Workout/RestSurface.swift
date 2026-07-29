@@ -70,7 +70,7 @@ struct RestSurface: View {
     // MARK: - 2 · The subject: how long is left
 
     private var countdown: some View {
-        Text(WorkoutSession.formatElapsed(session.tramoRestRemaining))
+        Text(Formato.clock(session.tramoRestRemaining, anchoFijo: true))
             .font(.system(size: isLandscape ? 108 : 130, weight: .heavy, design: .monospaced)
                 .monospacedDigit())
             .foregroundStyle(isUrgent ? Theme.Color.accentText : Theme.Color.info)
@@ -150,7 +150,7 @@ struct RestSurface: View {
     /// the card never invents closure that didn't exist.
     private var lastEffort: (time: String, work: String?)? {
         guard let seconds = session.lastTramoElapsedSeconds, seconds > 0 else { return nil }
-        return (WorkoutSession.formatElapsed(seconds), session.lastTramoWorkLine)
+        return (Formato.clock(seconds), session.lastTramoWorkLine)
     }
 
     private func effortCard(_ effort: (time: String, work: String?)) -> some View {

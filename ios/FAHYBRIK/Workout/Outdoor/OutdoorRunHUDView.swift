@@ -202,7 +202,7 @@ struct OutdoorRunHUDView: View {
                     GridItem(.flexible(), spacing: 8)]
         return LazyVGrid(columns: cols, spacing: 8) {
             ExpertCell(label: "Distancia", value: distanceString, unit: "")
-            ExpertCell(label: "Tiempo", value: WorkoutSession.formatElapsed(model.legElapsedEffective), unit: "")
+            ExpertCell(label: "Tiempo", value: Formato.clock(model.legElapsedEffective, anchoFijo: true), unit: "")
             ExpertCell(label: "Pulso",
                        value: model.currentBpm.map { "\($0)" } ?? "—",
                        unit: "bpm",
@@ -239,7 +239,7 @@ struct OutdoorRunHUDView: View {
             if let inc = model.prescribedInclinePct, inc > 0 {
                 p.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
             }
-            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) ppm") }
+            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) \(Vocab.cadencia)") }
             return p
         }()
         if !parts.isEmpty {
@@ -298,8 +298,8 @@ struct OutdoorRunHUDView: View {
     private var paceString: String {
         model.livePaceSecPerKm.map { TimeMinSecRow.format($0) } ?? "—:—"
     }
-    private var distanceString: String { PrescriptionRenderer.formatDistance(model.coveredMeters) ?? "0 m" }
-    private func distString(_ m: Double) -> String { PrescriptionRenderer.formatDistance(m) ?? "0 m" }
+    private var distanceString: String { Formato.distancia(model.coveredMeters) ?? "0 m" }
+    private func distString(_ m: Double) -> String { Formato.distancia(m) ?? "0 m" }
 
     /// The state word on the objetivo line — the mockup's natural-Spanish read of the
     /// live pace vs the band: inside, faster than prescribed, or slower.

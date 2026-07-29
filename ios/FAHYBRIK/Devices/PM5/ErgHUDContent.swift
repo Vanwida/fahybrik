@@ -193,7 +193,7 @@ struct ErgHUDContent: View {
         let thisOne = [tramo.workLine, tramo.label].compactMap { $0 }.joined(separator: " ")
         let restSeconds: Int? = session.currentSegment?.formatRestSeconds
         let rest: String? = restSeconds.map {
-            "luego descanso \(WorkoutSession.formatElapsed(Double($0)))"
+            "luego descanso \(Formato.clock(Double($0)))"
         }
         return [thisOne.isEmpty ? nil : thisOne, rest].compactMap { $0 }.joined(separator: " · ")
     }
@@ -316,8 +316,8 @@ struct ErgHUDContent: View {
         }
         if let boxed = tramo.boxedSeconds, boxed > 0, let remaining = session.tramoWorkRemaining {
             let fraction = min(1, max(0, (Double(boxed) - remaining) / Double(boxed)))
-            return (WorkoutSession.formatElapsed(remaining), "",
-                    "de \(WorkoutSession.formatElapsed(Double(boxed)))",
+            return (Formato.clock(remaining, anchoFijo: true), "",
+                    "de \(Formato.clock(Double(boxed)))",
                     fraction, remaining <= 0)
         }
         return nil
@@ -340,7 +340,7 @@ struct ErgHUDContent: View {
                 Hairline()
                 HStack(spacing: 8) {
                     subReadout(value: avgSplitString, label: "media /500m")
-                    subReadout(value: WorkoutSession.formatElapsed(session.tramoElapsedSeconds),
+                    subReadout(value: Formato.clock(session.tramoElapsedSeconds),
                                label: tramoTimeLabel)
                 }
             }

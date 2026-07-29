@@ -406,7 +406,7 @@ struct TreadmillHUDView: View {
             if let inc = model.prescribedInclinePct, inc > 0 {
                 p.append(inc == inc.rounded() ? "inclinación \(Int(inc)) %" : String(format: "inclinación %.1f %%", inc))
             }
-            if let cad = model.prescribedCadenceSpm { p.append("cadencia \(cad) ppm") }
+            if let cad = model.prescribedCadenceSpm { p.append("cadencia \(cad) \(Vocab.cadencia)") }
             return p
         }()
         if !parts.isEmpty {

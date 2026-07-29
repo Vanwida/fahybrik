@@ -1,11 +1,14 @@
 import Foundation
 import SwiftUI
 
-// Shared analytics formatting + modality display traits. Relocated here from the
-// deleted Stats/ tab so the many callers that outlived it (Carreras' Rendimiento /
-// GoalGap / Predicho-vs-Real / Hyresult, and the athlete-analytics summary) keep a
-// single, stable home. Type names are unchanged on purpose — every call site reads
-// the same `StatsFormat.*` / `StatsDateParser.*` / `AnalyticsModality` API.
+// Rasgos de presentación por modalidad + parseo de fechas de analítica. Vino aquí
+// de la pestaña Stats borrada, para que los muchos llamantes que la sobrevivieron
+// (Rendimiento / GoalGap / Predicho-vs-Real / Hyresult de Carreras) tuvieran un
+// sitio estable.
+//
+// La GRAFÍA ya no está aquí: cómo se escribe un número vive en `Theme/Formato.swift`,
+// compartido con el reloj. Aquí queda solo lo que es propio de la modalidad —
+// etiqueta, color, símbolo y qué convención de ritmo le toca.
 
 // MARK: - Modality classification
 //
@@ -116,98 +119,11 @@ enum AnalyticsModality: String {
     }
 }
 
-// MARK: - Formatting
-//
-// Centralised so every surface (cards, segment rows, charts, VoiceOver) speaks
-// the same units. Pace is m:ss, distance is km (≥1 km) or m, duration is
-// h:mm / m:ss depending on magnitude.
-
-enum StatsFormat {
-    /// Distance in metres → "32.4 km" (≥1000 m) or "850 m".
-    static func distance(_ meters: Double) -> String {
-        if meters >= 1000 {
-            let km = meters / 1000
-            // Drop the decimal for round-ish big values, keep one otherwise.
-            if km >= 100 || km.truncatingRemainder(dividingBy: 1) == 0 {
-                return "\(Int(km.rounded())) km"
-            }
-            return String(format: "%.1f km", km)
-        }
-        return "\(Int(meters.rounded())) m"
-    }
-
-    /// Distance split into a big value + small unit, for hero-style cells.
-    static func distanceParts(_ meters: Double) -> (value: String, unit: String) {
-        if meters >= 1000 {
-            let km = meters / 1000
-            let v = (km >= 100 || km.truncatingRemainder(dividingBy: 1) == 0)
-                ? "\(Int(km.rounded()))"
-                : String(format: "%.1f", km)
-            return (v, "km")
-        }
-        return ("\(Int(meters.rounded()))", "m")
-    }
-
-    /// Duration → "1:24:30" (h:mm:ss) when ≥1 h, else "42:10" (m:ss).
-    static func duration(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
-        return String(format: "%d:%02d", m, s)
-    }
-
-    /// Compact duration for dense cells → "5h 12m" / "42m" / "30s".
-    static func durationCompact(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
-        if m > 0 { return "\(m)m" }
-        return "\(total)s"
-    }
-
-    /// Pace seconds-per-unit → "4:35". Unit suffix is supplied by the caller.
-    static func pace(_ secondsPerUnit: Double) -> String {
-        let total = Int(secondsPerUnit.rounded())
-        let m = total / 60
-        let s = total % 60
-        return String(format: "%d:%02d", m, s)
-    }
-
-    /// Pace with its unit suffix for the given modality ("4:35 /km",
-    /// "1:52 /500m"). Nil when there is no applicable pace value.
-    static func pace(forModality modality: AnalyticsModality,
-                     perKm: Double?,
-                     per500m: Double?) -> String? {
-        switch modality.paceKind {
-        case .perKm:
-            guard let v = perKm, v > 0 else { return nil }
-            return "\(pace(v)) /km"
-        case .per500m:
-            guard let v = per500m, v > 0 else { return nil }
-            return "\(pace(v)) /500m"
-        case .none:
-            return nil
-        }
-    }
-
-    /// Whole integer with a unit ("182 W", "28 spm", "412 kcal").
-    static func intUnit(_ value: Double, _ unit: String) -> String {
-        "\(Int(value.rounded())) \(unit)"
-    }
-
-    static func weight(_ kg: Double) -> String {
-        if kg.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(kg)) kg" }
-        return String(format: "%.1f kg", kg)
-    }
-
-    static func rpe(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(value))" }
-        return String(format: "%.1f", value)
-    }
-}
+// El bloque `StatsFormat` que vivía aquí ha desaparecido: era una segunda copia
+// entera de la grafía (duración, ritmo, distancia, peso, RPE) que además escribía
+// los decimales con PUNTO («32.4 km») y el ritmo con espacio («4:35 /km»). Todo eso
+// vive ahora en `Theme/Formato.swift`, una sola vez. Seis de sus ocho funciones no
+// las llamaba nadie — se han borrado, no reubicado.
 
 // MARK: - Date parsing
 //

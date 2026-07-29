@@ -157,32 +157,24 @@ struct RegisterCandidate: Decodable, Identifiable {
 
 // MARK: - Formatting
 
+// Lo que aquí queda es lo que sabe de una MARCA (unidad, grupo, si baja o sube).
+// Cómo se escriben las cifras vive en `Formato` — este fichero tenía su propio
+// reloj y su propia grafía del ritmo, y por eso el «/500» salía sin la `m`.
 enum MarkFormat {
     /// "3:52" / "1:02:10" — a mark value in its display form.
     static func value(_ mark: MarkView, _ value: Double) -> String {
         if mark.unit == "meters" { return "\(Int(value.rounded())) m" }
-        return clock(value)
-    }
-
-    static func clock(_ seconds: Double) -> String {
-        let total = max(0, Int(seconds.rounded()))
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, s)
-            : String(format: "%d:%02d", m, s)
+        return Formato.clock(value)
     }
 
     /// The derived pace line under a hero value: run → /km, erg → /500m.
     static func paceLine(_ mark: MarkView, _ value: Double) -> String? {
         guard mark.unit == "seconds", let dist = mark.targetDistanceM, dist > 0 else { return nil }
-        if mark.group == "run" {
-            return clock(value * 1000 / dist) + "/km"
-        }
         if mark.group == "ergo" {
-            return clock(value * 500 / dist) + "/500"
+            return Formato.ritmo(value * 500 / dist, .por500m)
         }
-        // Races: pace per km reads better than a raw total.
-        return clock(value * 1000 / dist) + "/km"
+        // Carrera y carreras: el ritmo por km se lee mejor que un total en bruto.
+        return Formato.ritmo(value * 1000 / dist, .porKm)
     }
 
     /// "hace 3 semanas" — relative age of a result. Coarse on purpose.

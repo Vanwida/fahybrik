@@ -58,7 +58,7 @@ struct ZoneModalityProfile: Decodable, Identifiable {
     /// threshold is stored.
     var thresholdLabel: String? {
         guard let thresholdS, thresholdS > 0 else { return nil }
-        return "\(PrescriptionRenderer.formatPace(Int(thresholdS.rounded())))\(paceUnitLabel)"
+        return "\(Formato.ritmoCifras(Double(Int(thresholdS.rounded()))))\(paceUnitLabel)"
     }
 }
 

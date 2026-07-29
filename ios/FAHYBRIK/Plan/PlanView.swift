@@ -2012,7 +2012,7 @@ enum WorkoutItemParamsFormatter {
             parts.append("Z\(zone)")
         }
         if let pace = p.paceSecPerKm {
-            parts.append("\(PrescriptionRenderer.formatPace(pace))/km")
+            parts.append("\(Formato.ritmoCifras(Double(pace)))/km")
         }
         if let spm = p.cadenceSpm {
             parts.append("\(spm) spm")
@@ -2040,7 +2040,7 @@ enum WorkoutItemParamsFormatter {
             // Ergo pace is conventionally /500m. The unified prescription model
             // normalizes pace to seconds-per-KM (`paceSecPerKm`), so halve it to
             // recover the /500m value the athlete reads on the erg monitor.
-            parts.append("\(PrescriptionRenderer.formatPace(pace / 2))/500m")
+            parts.append("\(Formato.ritmoCifras(Double(pace / 2)))/500m")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

@@ -42,7 +42,7 @@ enum BenchmarkDelta {
         switch unit {
         case "seconds":
             let s = Int(mag.rounded())
-            return s < 60 ? "\(sign)\(s) s" : "\(sign)\(PrescriptionRenderer.formatPace(s))"
+            return s < 60 ? "\(sign)\(s) s" : "\(sign)\(Formato.ritmoCifras(Double(s)))"
         case "kg":       return "\(sign)\(trimmed(mag)) kg"
         case "bpm":      return "\(sign)\(Int(mag.rounded())) bpm"
         case "meters":   return "\(sign)\(Int(mag.rounded())) m"
@@ -55,8 +55,8 @@ enum BenchmarkDelta {
     // "22:14" for 1334 s, "45s" under a minute, "1:02:40" past the hour.
     private static func timeLabel(_ seconds: Int) -> String {
         seconds >= 3600
-            ? WorkoutSession.formatElapsed(Double(seconds))
-            : PrescriptionRenderer.formatClock(seconds)
+            ? Formato.clock(Double(seconds))
+            : Formato.clock(seconds, subMinuto: .segundos)
     }
 
     // "142.5" / "140" — one decimal max, no trailing ".0".

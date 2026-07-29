@@ -183,7 +183,7 @@ enum GoalGapFormat {
     /// the real minus (U+2212), matching the app's other signed deltas. A zero
     /// delta reads "±0:00".
     static func signedDuration(_ seconds: Int) -> String {
-        let magnitude = StatsFormat.duration(Double(abs(seconds)))
+        let magnitude = Formato.clock(Double(abs(seconds)))
         if seconds > 0 { return "+\(magnitude)" }
         if seconds < 0 { return "\u{2212}\(magnitude)" }
         return "±\(magnitude)"

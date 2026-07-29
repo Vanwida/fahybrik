@@ -57,7 +57,7 @@ struct RegisterRaceSheet: View {
                     // Until the time is declared the button says what it needs, not a
                     // fabricated "0:00" — and it stays disabled.
                     PrimaryButton(
-                        title: manualTotal.map { "Guardar \(mark.label) · \(MarkFormat.clock($0))" }
+                        title: manualTotal.map { "Guardar \(mark.label) · \(Formato.clock($0))" }
                             ?? "Escribe tu tiempo",
                         enabled: !busy && manualTotal != nil
                     ) {
@@ -97,7 +97,7 @@ struct RegisterRaceSheet: View {
                                     .foregroundStyle(Theme.Color.faint)
                             }
                             Spacer()
-                            Text(MarkFormat.clock(Double(candidate.durationS)))
+                            Text(Formato.clock(Double(candidate.durationS)))
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                                 .foregroundStyle(Theme.Color.foreground)
                         }

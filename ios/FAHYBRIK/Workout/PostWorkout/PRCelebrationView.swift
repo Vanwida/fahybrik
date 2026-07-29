@@ -39,7 +39,7 @@ struct WorkoutShareData: Equatable {
     ) -> WorkoutShareData {
         WorkoutShareData(
             title: session.plan.name,
-            timeText: WorkoutSession.formatElapsed(Double(totalSeconds ?? Int(session.elapsedSeconds.rounded()))),
+            timeText: Formato.clock(Double(totalSeconds ?? Int(session.elapsedSeconds.rounded()))),
             paceText: averagePace(from: session.laps),
             dominantZone: dominantZone(from: session.laps),
             rpe: rpe,
@@ -62,12 +62,12 @@ struct WorkoutShareData: Equatable {
         let run = aggregate(["run"])
         if run.dist > 0 {
             let secPerKm = run.time / (run.dist / 1000)
-            return "\(StatsFormat.pace(secPerKm)) /km"
+            return Formato.ritmo(secPerKm, .porKm)
         }
         let erg = aggregate(["row", "ski", "bike"])
         if erg.dist > 0 {
             let secPer500 = erg.time / (erg.dist / 500)
-            return "\(StatsFormat.pace(secPer500)) /500m"
+            return Formato.ritmo(secPer500, .por500m)
         }
         return nil
     }

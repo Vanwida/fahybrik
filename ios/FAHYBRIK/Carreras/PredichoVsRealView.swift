@@ -231,7 +231,7 @@ struct PredictionReviewCard: View {
                      "predicho \(durationText(row.predictedS))",
                      "real \(durationText(row.actualS))"]
         if let d = row.deltaS {
-            parts.append(d <= 0 ? "\(StatsFormat.duration(Double(abs(d)))) más rápido" : "\(StatsFormat.duration(Double(d))) más lento")
+            parts.append(d <= 0 ? "\(Formato.clock(Double(abs(d)))) más rápido" : "\(Formato.clock(Double(d))) más lento")
         }
         return parts.joined(separator: ", ")
     }

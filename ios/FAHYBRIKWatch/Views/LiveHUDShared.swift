@@ -11,7 +11,7 @@ import SwiftUI
 enum WatchFormat {
     /// Count-UP clock ("08:21", "1:02:40"). Delegates to the engine's formatter so
     /// the watch and phone read time identically.
-    static func clock(_ seconds: Double) -> String { WorkoutSession.formatElapsed(seconds) }
+    static func clock(_ seconds: Double) -> String { Formato.clock(seconds, anchoFijo: true) }
 
     /// STANDALONE count-DOWN readout (CEIL) — the watch is the sole display, so it
     /// shows the whole second in lock-step with the engine's audio ticks (count-in,

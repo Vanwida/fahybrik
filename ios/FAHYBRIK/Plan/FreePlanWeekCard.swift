@@ -107,14 +107,14 @@ enum FreePlanWeekCopy {
         days.indices.contains(weekday) ? days[weekday] : ""
     }
 
-    /// "4:15 /km" a partir de segundos por kilómetro.
+    /// "4:15/km" a partir de segundos por kilómetro.
     private static func pace(_ secondsPerKm: Int) -> String {
-        MarkFormat.clock(Double(secondsPerKm)) + " /km"
+        Formato.ritmo(Double(secondsPerKm), .porKm)
     }
 
     /// "1:30" de recuperación.
     private static func rest(_ seconds: Int) -> String {
-        MarkFormat.clock(Double(seconds))
+        Formato.clock(Double(seconds))
     }
 
     static func title(_ session: FreePlannedSession) -> String {
@@ -171,7 +171,7 @@ enum FreePlanWeekCopy {
     }
 
     private static func ergDetail(_ erg: FreeErgPrescription) -> String {
-        let pace500 = MarkFormat.clock(Double(erg.targetPaceSPer500)) + " /500"
+        let pace500 = Formato.clock(Double(erg.targetPaceSPer500)) + " /500"
         return "\(erg.reps) x \(distanceLabel(erg.distanceM)) a \(pace500), \(rest(erg.restS)) de recuperación"
     }
 

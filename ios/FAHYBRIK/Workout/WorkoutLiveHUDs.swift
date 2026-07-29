@@ -1065,9 +1065,9 @@ struct EmomLiveHUD: View {
         // A plain EMOM reads as its cadence; an interval reads as its split, which
         // is the number the athlete is actually pacing against.
         guard plan.hasTransition else {
-            return "cada \(PrescriptionRenderer.formatRest(plan.intervalSeconds))"
+            return "cada \(Formato.clock(plan.intervalSeconds, subMinuto: .segundos))"
         }
-        return "\(plan.workSeconds)/\(plan.restSeconds) · cada \(PrescriptionRenderer.formatRest(plan.intervalSeconds))"
+        return "\(plan.workSeconds)/\(plan.restSeconds) · cada \(Formato.clock(plan.intervalSeconds, subMinuto: .segundos))"
     }
 
     // The next movement, ONLY when the EMOM alternates and the upcoming interval
