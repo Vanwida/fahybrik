@@ -15,11 +15,16 @@ export function TandaEntrenoIndex({ localePrefix }: { localePrefix: string }) {
         <p className="studio-label">El doble · colección</p>
         <h1>El entreno, en vivo</h1>
         <p className="studio-desc">
-          Las diez pantallas de la tanda inmersiva (29-jul), y nada más. La regla que las ordena:
-          cada formato tiene una vista con sujeto propio según QUIÉN gobierna la transición (el
-          reloj, el hito medido, el atleta, el suceso, el relevo). Girado con máquina delante sale
-          la cara de monitor y el formato se queda en la franja. Donde esta colección choque con
-          propuestas más viejas del índice general, manda esta.
+          La regla que ordena el móvil: cada formato tiene una vista con sujeto propio según QUIÉN
+          gobierna la transición (el reloj, el hito medido, el atleta, el suceso, el relevo). Girado
+          con máquina delante sale la cara de monitor y el formato se queda en la franja.
+        </p>
+        <p className="studio-desc">
+          En la muñeca la regla es OTRA, y por eso hay nueve vistas más (30-jul). Ahí no decide el
+          formato: deciden qué mide el reloj <em>de verdad</em> en esa modalidad —en cinta y en ergo
+          no ve la máquina, en fuerza no ve ni la carga ni las reps— y si el atleta puede mirar y
+          puede tocar en ese momento. Lo segundo manda sobre lo primero. Donde esta colección choque
+          con propuestas más viejas del índice general, manda esta.
         </p>
       </header>
 
