@@ -273,6 +273,186 @@ struct RedesignEmptyState: View {
     }
 }
 
+// MARK: - Fila de dato (§4 y §6.2 bis, hechos componente)
+
+/// Lo que una fila sabe de su número.
+///
+/// Son TRES estados y no dos a propósito. Mientras la fuente carga no hay ni
+/// cifra ni invitación: enseñar la invitación antes de saber si hay dato es
+/// prometer un hueco que a lo mejor no existe, y enseñar un guion es inventarse
+/// una medida (§7). El estado intermedio se pinta como lo que es — todavía no lo
+/// sabemos — con el mismo `redacted` que ya usa la fila de modalidad de Perfil.
+enum EstadoDelDato: Equatable {
+    /// La fuente aún no ha contestado.
+    case cargando
+    /// Hay cifra. `sufijo` es su unidad o el resto del contador («kg», «de 4»);
+    /// `pie` dice de dónde sale, que es lo que convierte un número en un dato.
+    case valor(cifra: String, sufijo: String?, pie: String?)
+    /// No hay cifra. La `invitacion` dice QUÉ ACTO la llena — no qué hay dentro
+    /// de la puerta. Se usa sólo cuando el atleta puede llenarla (§6.2 bis).
+    case vacio(invitacion: String)
+
+    /// Azúcar para el caso normal: `.valor("245", sufijo: "kg", pie: "peso muerto")`.
+    static func valor(_ cifra: String, sufijo: String? = nil, pie: String? = nil) -> EstadoDelDato {
+        .valor(cifra: cifra, sufijo: sufijo, pie: pie)
+    }
+
+    var hayDato: Bool { if case .valor = self { return true } else { return false } }
+}
+
+/// UNA fila que enseña su cifra — la pieza que faltaba y por la que Perfil llevaba
+/// cinco puertas con la etiqueta de lo que hay dentro en vez de los números que el
+/// atleta viene a ver.
+///
+/// Fija de una vez las dos reglas que se incumplían a mano en cada pantalla:
+///
+///   · **§4 — el dato pesa más que su etiqueta.** 22 mono contra 13: la etiqueta
+///     BAJA cuando hay cifra, y sube a voz principal cuando la fila está vacía,
+///     porque entonces el sujeto de la fila es ella. Una fila con etiqueta y valor
+///     al mismo tamaño no tiene jerarquía, tiene dos textos.
+///   · **§6.2 bis — un hueco se declara o se calla.** El subtítulo explicativo
+///     sólo sobrevive cuando NO hay dato, y entonces es una invitación con el acto
+///     que la llena. Con dato, el sitio del subtítulo lo ocupa el número.
+///
+/// El valor escala con el texto del sistema (`MonoText(escala:)`): va en la misma
+/// fila que una etiqueta que escala, y si no escalara con ella a tamaño accesible
+/// la etiqueta acabaría pesando más que el dato — el §4 al revés.
+struct FilaDato<Accesorio: View>: View {
+    let etiqueta: String
+    /// Segunda línea de la izquierda que se pinta SIEMPRE (la antigüedad de una
+    /// marca, su sello de origen). Distinta de la `invitacion`, que sólo existe
+    /// cuando no hay dato.
+    var detalle: String? = nil
+    let estado: EstadoDelDato
+    /// Regla vertical de color a la izquierda — el grupo al que pertenece la fila.
+    var acento: Color? = nil
+    /// Pinta la cifra en el color de acento. Para el contador que aún no está
+    /// completo: es la fila que pide un acto.
+    var destacaValor: Bool = false
+    var muestraChevron: Bool = true
+    /// Adorno a la izquierda del chevron — una `PillChip` de estado, por ejemplo.
+    @ViewBuilder var accesorio: () -> Accesorio
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.m) {
+            if let acento {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(acento)
+                    .frame(width: 3, height: 30)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(etiqueta)
+                    .scaledFont(
+                        estado.hayDato ? 13 : 15,
+                        weight: estado.hayDato ? .medium : .semibold,
+                        relativeTo: estado.hayDato ? .footnote : .subheadline
+                    )
+                    .foregroundStyle(estado.hayDato ? Theme.Color.muted : Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let detalle {
+                    Text(detalle)
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.faint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if case let .vacio(invitacion) = estado {
+                    Text(invitacion)
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.faint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: Theme.Spacing.s)
+
+            accesorio()
+
+            switch estado {
+            case .cargando:
+                // Ni cifra ni invitación: todavía no sabemos cuál de las dos toca.
+                MonoText(text: "00", size: 22, weight: .bold, escala: true)
+                    .redacted(reason: .placeholder)
+            case let .valor(cifra, sufijo, pie):
+                VStack(alignment: .trailing, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        MonoText(
+                            text: cifra,
+                            size: 22,
+                            weight: .bold,
+                            color: destacaValor ? Theme.Color.accentText : Theme.Color.foreground,
+                            escala: true
+                        )
+                        .lineLimit(1)
+                        if let sufijo {
+                            Text(sufijo)
+                                .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                                .foregroundStyle(Theme.Color.muted)
+                        }
+                    }
+                    if let pie {
+                        Text(pie)
+                            .scaledFont(11, weight: .medium, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.faint)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+            case .vacio:
+                EmptyView()
+            }
+
+            if muestraChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(minHeight: 58)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(etiquetaAccesible)
+        .accessibilityAddTraits(muestraChevron ? .isButton : [])
+    }
+
+    private var etiquetaAccesible: String {
+        var partes = [etiqueta]
+        if let detalle { partes.append(detalle) }
+        switch estado {
+        case .cargando:
+            partes.append("cargando")
+        case let .valor(cifra, sufijo, pie):
+            partes.append([cifra, sufijo].compactMap { $0 }.joined(separator: " "))
+            if let pie { partes.append(pie) }
+        case let .vacio(invitacion):
+            partes.append("sin dato")
+            partes.append(invitacion)
+        }
+        return partes.joined(separator: ", ")
+    }
+}
+
+extension FilaDato where Accesorio == EmptyView {
+    init(
+        etiqueta: String,
+        detalle: String? = nil,
+        estado: EstadoDelDato,
+        acento: Color? = nil,
+        destacaValor: Bool = false,
+        muestraChevron: Bool = true
+    ) {
+        self.init(
+            etiqueta: etiqueta,
+            detalle: detalle,
+            estado: estado,
+            acento: acento,
+            destacaValor: destacaValor,
+            muestraChevron: muestraChevron,
+            accesorio: { EmptyView() }
+        )
+    }
+}
+
 #if DEBUG
 #Preview("Estado vacío · con acción") {
     CenteredScreen {
