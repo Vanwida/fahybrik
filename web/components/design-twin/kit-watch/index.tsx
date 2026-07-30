@@ -34,43 +34,35 @@ import {
   type ReactNode,
 } from 'react';
 import { Numeral, SegundoNivel, sinMovimiento, versales } from './numeral';
-import { PERMITE, altoSujeto, type Apoyos, type Modo } from './modelo';
+import {
+  PERMITE,
+  altoSujeto,
+  apoyosDe,
+  type EstadoDestello,
+  type Modo,
+  type PaginaReloj,
+} from './modelo';
 import { W } from '../screens/watch-live/theme';
 
 export * from './modelo';
 export * from './bisel';
+export * from './paginas';
 export { Numeral, SegundoNivel, versales, sinMovimiento, estimarSans } from './numeral';
 
-// ---------------------------------------------------------------------------
-// Lo que una vista DECLARA
-// ---------------------------------------------------------------------------
-
-export interface PaginaReloj {
-  /** Para la cronología del panel; también es la `key` del render. */
-  id: string;
-  /** Banda superior de una línea: dónde estás. */
-  contexto: string;
-  /** ¿Puede mirar? ¿Puede tocar? De aquí sale todo lo demás. */
-  modo: Modo;
-  /** El numeral a sangre. */
-  sujeto: { texto: string; unidad?: string; tono?: string; latido?: number };
-  /** El segundo nivel — y no hay tercero. */
-  segundo?: { etiqueta?: string; valor: string; tono?: string };
-  /** La franja de acción. En `ojeada` el lienzo la ignora, por diseño. */
-  accion?: { etiqueta: string; onToca: () => void };
-  /** Versales al pie: procedencia u honestidad. Usa las constantes de `NOTA`. */
-  nota?: string;
-}
-
 /**
- * El estado de un destello. Va en estado porque el golpe de luz se dispara por
- * SUCESO (cierre de serie, ronda nueva), no por render: sube `n` y el lienzo lo
- * reproduce.
+ * Los tokens y los formateadores del reloj se reexportan DESDE AQUÍ, y las
+ * nueve vistas no importan otra cosa que este kit.
+ *
+ * Viven en `screens/watch-live/` porque son el espejo literal de
+ * `WatchTheme.swift` y de `WatchFormat`, y ahí es donde tienen que estar para
+ * que se vea que espejan algo. Pero si nueve vistas tiran de una PANTALLA para
+ * conseguir sus colores, mover ese espejo rompe nueve ficheros. Reexportando,
+ * la flecha fea es UNA y está aquí.
  */
-export interface EstadoDestello {
-  n: number;
-  color: string;
-}
+export { W, zoneColor, URGENT_THRESHOLD_S } from '../screens/watch-live/theme';
+// Los formateadores van por `./formato`, que corrige la coma decimal que el
+// espejo de Swift escribe como punto. Ver la cabecera de ese fichero.
+export * from './formato';
 
 export interface RelojProps {
   paginas: PaginaReloj[];
@@ -117,19 +109,14 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
     [paginas, onLog],
   );
 
-  // ¿Qué se pinta de verdad? El MODO decide, no la vista.
-  const permite = PERMITE[p.modo];
-  const accion = permite.accion ? p.accion : undefined;
+  // ¿Qué se pinta de verdad? El MODO decide, no la vista. En `ojeada` el gesto
+  // SIGUE existiendo (la pantalla entera es un blanco: no hay que apuntar y no
+  // cuesta un punto de alto), pero no se anuncia — y esos 15 pt son del sujeto.
+  const franja = PERMITE[p.modo].franja ? p.accion : undefined;
   const varias = paginas.length > 1;
-  const apoyos: Apoyos = {
-    segundo: p.segundo != null,
-    accion: accion != null,
-    nota: p.nota != null,
-    puntos: varias,
-  };
-  const alto = altoSujeto(p.sujeto.texto, apoyos, p.sujeto.unidad);
+  const alto = altoSujeto(p.sujeto.texto, apoyosDe(p, varias), p.sujeto.unidad);
 
-  const interactivo = accion != null || varias;
+  const interactivo = p.accion != null || varias;
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: W.bg, overflow: 'hidden' }}>
@@ -149,8 +136,8 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <AreaPrincipal
             interactivo={interactivo}
-            etiqueta={accion?.etiqueta ?? p.contexto}
-            onToca={accion?.onToca}
+            etiqueta={p.accion?.etiqueta ?? p.contexto}
+            onToca={p.accion?.onToca}
             onDesliz={(dir) => ir(activa + dir)}
           >
             <span style={contextoEstilo}>{p.contexto}</span>
@@ -173,7 +160,7 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
                 color={p.segundo.tono}
               />
             ) : null}
-            {accion ? <FranjaAccion etiqueta={accion.etiqueta} modo={p.modo} /> : null}
+            {franja ? <FranjaAccion etiqueta={franja.etiqueta} modo={p.modo} /> : null}
             {p.nota ? <span style={{ ...versales, marginTop: 3 }}>{p.nota}</span> : null}
           </AreaPrincipal>
 
@@ -257,7 +244,7 @@ function AreaPrincipal({
  * el reloj no PIDE nada, y una acción a plena luz es pedir.
  */
 function FranjaAccion({ etiqueta, modo }: { etiqueta: string; modo: Modo }) {
-  const enReposo = modo === 'ciego';
+  const enReposo = PERMITE[modo].atenuada;
   return (
     <span
       style={{

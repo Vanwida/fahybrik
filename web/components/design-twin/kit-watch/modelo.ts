@@ -50,13 +50,33 @@ export type Modo =
   /** Mirar y tocar: aquí van la decisión y los controles. */
   | 'mando';
 
-/** Lo que cada modo permite en la página. Lo hace cumplir el lienzo, no la vista. */
-export const PERMITE: Record<Modo, { accion: boolean; controles: boolean }> = {
-  // El enunciado admite una OFERTA en reposo («al acabar, toca»), que no es una
-  // petición: se pinta atenuada y no compite con nada.
-  ciego: { accion: true, controles: false },
-  ojeada: { accion: false, controles: false },
-  mando: { accion: true, controles: true },
+/**
+ * Lo que cada modo permite. Lo hace cumplir el LIENZO, no la vista.
+ *
+ * ── DONDE EL MODELO DE LOS TRES MODOS SE ROMPIÓ, Y CÓMO QUEDA ──────────────
+ *
+ * «Mirar sin tocar → cero controles» describe el estado ESTABLE, pero hay un
+ * instante que no es ninguno de los tres: el EMOM lo enseña sin margen de duda.
+ * Estás pedaleando (ojeada), acabas las 12 calorías y en ese instante paras y
+ * SÍ puedes tocar — y tienes que poder, porque marcar la tarea es lo que te da
+ * el resto del minuto. Si `ojeada` prohibiera tocar, el formato no funcionaría.
+ *
+ * La regla, corregida y sin perder nada de la original: **en `ojeada` no hay
+ * controles ANUNCIADOS.** La pantalla entera sigue siendo un blanco (no hay que
+ * apuntar y no cuesta ni un punto de alto), pero NO se gasta una línea en
+ * decirlo. Lo que el modo prohíbe es que un control ocupe sitio y compita con
+ * el dato, no que exista un gesto latente.
+ *
+ * Así los tres modos se distinguen por lo que PINTAN, que es lo que se puede
+ * hacer cumplir desde aquí:
+ *   · `ciego`  → franja atenuada. Una oferta en reposo, jamás una petición.
+ *   · `ojeada` → sin franja. Esos 15 pt vuelven al sujeto.
+ *   · `mando`  → franja a plena luz. Aquí la decisión se anuncia.
+ */
+export const PERMITE: Record<Modo, { franja: boolean; atenuada: boolean }> = {
+  ciego: { franja: true, atenuada: true },
+  ojeada: { franja: false, atenuada: false },
+  mando: { franja: true, atenuada: false },
 };
 
 // ---------------------------------------------------------------------------
@@ -219,6 +239,37 @@ export const SUJETO_SUELO = 43;
  */
 export const SUJETO_GLIFOS_MAX = 5;
 
+// ---------------------------------------------------------------------------
+// Lo que una vista DECLARA — dato puro, para poder comprobarlo sin montar nada
+// ---------------------------------------------------------------------------
+
+export interface PaginaReloj {
+  /** Para la cronología del panel; también es la `key` del render. */
+  id: string;
+  /** Banda superior de una línea: dónde estás. */
+  contexto: string;
+  /** ¿Puede mirar? ¿Puede tocar? De aquí sale todo lo demás. */
+  modo: Modo;
+  /** El numeral a sangre. */
+  sujeto: { texto: string; unidad?: string; tono?: string; latido?: number };
+  /** El segundo nivel — y no hay tercero. */
+  segundo?: { etiqueta?: string; valor: string; tono?: string };
+  /** La franja de acción. En `ojeada` el lienzo la ignora, por diseño. */
+  accion?: { etiqueta: string; onToca: () => void };
+  /** Versales al pie: procedencia u honestidad. Usa las constantes de `NOTA`. */
+  nota?: string;
+}
+
+/**
+ * El estado de un destello. Va en estado porque el golpe de luz se dispara por
+ * SUCESO (cierre de serie, ronda nueva), no por render: sube `n` y el lienzo lo
+ * reproduce.
+ */
+export interface EstadoDestello {
+  n: number;
+  color: string;
+}
+
 export interface Apoyos {
   /** ¿Hay segundo nivel? */
   segundo: boolean;
@@ -228,6 +279,22 @@ export interface Apoyos {
   nota: boolean;
   /** ¿Hay más de una página? (si no, los puntos no existen) */
   puntos: boolean;
+}
+
+/**
+ * Qué apoyos acaba pintando una página. Vive aquí y no dentro del lienzo para
+ * que la comprobación de vitest y el render usen LA MISMA regla: si el test
+ * calculara los apoyos por su cuenta, aprobaría layouts que la pantalla no
+ * pinta así, que es la peor clase de test verde.
+ */
+export function apoyosDe(p: PaginaReloj, varias: boolean): Apoyos {
+  return {
+    segundo: p.segundo != null,
+    // En `ojeada` la franja no se pinta aunque la página traiga acción.
+    accion: PERMITE[p.modo].franja && p.accion != null,
+    nota: p.nota != null,
+    puntos: varias,
+  };
 }
 
 /** Cuenta glifos de verdad (un emoji o una tilde compuesta no son dos). */

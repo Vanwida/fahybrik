@@ -38,6 +38,10 @@ import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
 import * as planSemana from './screens/plan-semana';
 import * as planDia from './screens/plan-dia';
+// La muñeca, formato a formato (30-jul): nueve vistas cuyo diseño NO lo decide
+// el formato sino qué mide el reloj de verdad en esa modalidad y si el atleta
+// puede mirar y tocar en ese momento. Ver `kit-watch/modelo.ts`.
+import * as watchFuerza from './screens/watch-fuerza';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -82,6 +86,7 @@ export const SCREENS: TwinScreenModule[] = [
   planCiclo,
   planSemana,
   planDia,
+  watchFuerza,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -102,6 +107,10 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
   },
   { grupo: 'Al terminar', ids: ['resumen-carrera'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
+  {
+    grupo: 'La muñeca, formato a formato',
+    ids: ['watch-fuerza'],
+  },
 ];
 
 export const ESTADO_LABEL: Record<TwinEstado, string> = {
