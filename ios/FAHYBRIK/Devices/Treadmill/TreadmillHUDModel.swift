@@ -384,7 +384,7 @@ final class TreadmillHUDModel {
     }
     /// The incline the belt REPORTS, labelled with its own unit ("Nivel 3" / "Inclinación
     /// 1.5 %"). nil when the machine sends none — the line then simply isn't drawn, rather
-    /// than a "—" holding space for nothing.
+    /// than a dash holding space for nothing (§7).
     var liveInclineText: String? {
         let value: String? = inclineIsLevel
             ? latest.inclineLevel.map { String(Int($0.rounded())) }
@@ -526,9 +526,9 @@ final class TreadmillHUDModel {
 
     // MARK: - Live derived values
 
-    /// Live pace (sec/km) from the SMOOTHED, odometer-aware belt speed — stable, and "—:—"
-    /// only after the belt is genuinely still, so it no longer flickers on a T01_ whose
-    /// instantaneous-speed field reads 0 mid-run.
+    /// Live pace (sec/km) from the SMOOTHED, odometer-aware belt speed. nil only after the
+    /// belt is genuinely still, so it no longer flickers on a T01_ whose instantaneous-speed
+    /// field reads 0 mid-run. Nil is NOT a value to paint: `sinLecturaMotivo` says why.
     var livePaceSecPerKm: Int? { speedResolver.paceSecPerKm }
 
     /// Preferred HR: the BLE strap when live, else the watch/HealthKit stream the
@@ -564,6 +564,39 @@ final class TreadmillHUDModel {
     /// True when the THRESHOLD behind the bands was inferred rather than measured
     /// (label "estimado"); false when it came from the athlete's own test.
     var zoneIsEstimated: Bool { hrZones?.estimated ?? false }
+
+    // MARK: - Por qué NO hay dato (§7 del CONTRATO-UI)
+    //
+    // Lo que no se sabe no se pinta: ni un guion, ni un cero que parezca medida. Se
+    // pinta el MOTIVO, y el motivo vive aquí y no en la vista porque depende del
+    // estado real del aparato — que es lo que el modelo tiene. Cada superficie lo
+    // lee y lo pasa por el hueco `ausente:` de su celda (`ExpertCell` en Atoms,
+    // `ApoyoVivo` en LenguajeVivoUI: el mismo contrato en dos voces).
+
+    /// POR QUÉ no hay lectura de la cinta.
+    ///
+    /// PARADO NO ES DESCONOCIDO, y esa es toda la gracia: si la cinta dice "voy a 0"
+    /// eso ES un dato y se pinta 0 (§6.2 bis); si no dice nada, no lo es. Por eso
+    /// esto sólo se usa cuando la magnitud es nil, y distingue las cuatro razones
+    /// por las que puede serlo — que llevan a cuatro cosas distintas que hacer.
+    var sinLecturaMotivo: String {
+        if !treadmillLink.isLive { return "sin conectar" }
+        if latest.lastUpdate == .distantPast { return "esperando a la cinta" }
+        if telemetrySilent { return "la cinta no envía datos" }
+        return "cinta parada"
+    }
+
+    /// POR QUÉ no hay pulso. Se lee del enlace EFECTIVO (quien de verdad grabaría),
+    /// no del canal de la banda: buscarla, haberla perdido y no tener ninguna son
+    /// tres estados distintos, y el atleta hace algo distinto en cada uno.
+    var sinPulsoMotivo: String {
+        switch effectiveHRLink {
+        case .scanning, .connecting:       return "buscando la banda"
+        case .lost:                        return "se perdió la banda"
+        case .connected:                   return "sin lecturas aún"
+        case .idle, .unavailable, .failed: return "sin banda ni reloj"
+        }
+    }
 
     /// Hero judgment: pace targets judge on pace, zone targets on HR zone,
     /// recovery / no-target has nothing to judge.

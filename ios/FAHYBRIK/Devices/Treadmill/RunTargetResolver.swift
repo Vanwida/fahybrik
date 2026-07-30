@@ -14,8 +14,8 @@ import Foundation
 
 extension TreadmillMath {
     /// Belt speed (km/h) → running pace in whole seconds per km. Returns nil when
-    /// the belt is effectively stopped (`< minMovingSpeedKmh`): pace is undefined
-    /// at a standstill and must render as "—", never a divide-by-zero.
+    /// the belt is effectively stopped (`< minMovingSpeedKmh`): pace is undefined at
+    /// a standstill, so no se pinta — se pinta que la cinta está parada (§7).
     static func paceSecPerKm(fromSpeedKmh kmh: Double) -> Int? {
         guard kmh >= TreadmillConstants.minMovingSpeedKmh else { return nil }
         return Int((3600.0 / kmh).rounded())

@@ -32,8 +32,9 @@ struct TreadmillHUDView: View {
             VStack(spacing: Theme.Spacing.m) {
                 header
                 // Honest "connected but silent" state, above the hero: many FTMS
-                // belts emit NOTHING until the band moves, so without this the HUD
-                // is a grid of dashes that reads as "broken". The 1 s TimelineView
+                // belts emit NOTHING until the band moves, and the readouts alone
+                // can only say "esperando a la cinta" — this says what to DO about
+                // it, which is the part the athlete needs. The 1 s TimelineView
                 // re-evaluates the time-based staleness check; the banner drops the
                 // instant a sample lands (the model's `latest` mutation re-renders).
                 if model.treadmillLink.isLive, !model.isCountIn {
@@ -153,12 +154,16 @@ struct TreadmillHUDView: View {
     private var cintaChipText: String {
         "Cinta · " + (model.treadmillLink.deviceName ?? cintaStateWord)
     }
+    /// La palabra del chip cuando no hay nombre de aparato que enseñar. `.connected`
+    /// SIEMPRE trae nombre (`deviceName`), así que sólo cae aquí por `.idle`: nadie ha
+    /// empezado a buscar todavía. Eso se dice, no se pinta un guion — y el chip es
+    /// además el sitio donde se arregla, que se abre de un toque.
     private var cintaStateWord: String {
         switch model.treadmillLink {
         case .scanning, .connecting: return "buscando"
         case .lost:                  return "se perdió"
         case .unavailable, .failed:  return "sin señal"
-        case .idle, .connected:      return "—"
+        case .idle, .connected:      return "sin conectar"
         }
     }
     private var pulseChipText: String {
@@ -171,7 +176,7 @@ struct TreadmillHUDView: View {
         case .scanning, .connecting: return "buscando"
         case .lost:                  return "se perdió"
         case .unavailable, .failed:  return "sin señal"
-        case .idle, .connected:      return "—"
+        case .idle, .connected:      return "sin conectar"
         }
     }
 
@@ -223,7 +228,8 @@ struct TreadmillHUDView: View {
     /// running state — recovery / count-in / connecting keep their centered portrait
     /// states, which read fine rotated.
     private var landscapeLiveHUD: some View {
-        HStack(alignment: .center, spacing: 16) {
+        let sujeto = landscapeSubject
+        return HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(landscapeLegLine)
                     .font(.system(size: 12, weight: .heavy, design: .default).italic())
@@ -231,14 +237,20 @@ struct TreadmillHUDView: View {
                     .foregroundStyle(Theme.Color.accentText)
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                Text(landscapeHero)
+                Text(sujeto.cifra)
                     .font(.system(size: 112, weight: .heavy, design: .monospaced).monospacedDigit())
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1).minimumScaleFactor(0.5)
-                Text(landscapeHeroUnit)
+                Text(sujeto.unidad)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(0.8)
                     .foregroundStyle(Theme.Color.muted)
+                if let motivo = sujeto.motivo {
+                    Text(motivo)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                }
                 Spacer(minLength: 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -264,18 +276,28 @@ struct TreadmillHUDView: View {
         .padding(.vertical, 2)
     }
 
-    /// When the app drives the belt's speed the hero is that speed (it's the dial the
-    /// athlete is turning); otherwise the subject is his pace, the running metric. Either
-    /// way it is the belt's REAL reading, never the target we asked for.
-    private var landscapeHero: String {
-        model.canControlSpeed ? speedString : heroPace
+    /// When the app drives the belt's speed the subject is that speed (it's the dial the
+    /// athlete is turning); otherwise it is his pace, the running metric. Either way it is
+    /// the belt's REAL reading, never the target we asked for — y cuando esa lectura no
+    /// existe se baja a `sinRitmo` con el motivo debajo, nunca a un guion de 112 pt.
+    ///
+    /// La velocidad SÍ se pinta en cero: una cinta que dice "voy a 0" está midiendo (§6.2
+    /// bis). El ritmo no, porque a velocidad cero el ritmo no existe (no es 0, es nada).
+    private var landscapeSubject: (cifra: String, unidad: String, motivo: String?) {
+        if model.canControlSpeed {
+            if let kmh = model.displaySpeedKmh {
+                return (Formato.esDecimal(kmh, siempreDecimales: true), "km/h · real en la cinta", nil)
+            }
+        } else if let ritmo = heroPace {
+            return (ritmo, "/km · ritmo real", nil)
+        }
+        let caida = sinRitmo
+        return (caida.cifra, caida.etiqueta.lowercased(), model.sinLecturaMotivo)
     }
-    private var landscapeHeroUnit: String {
-        model.canControlSpeed ? "km/h · real en la cinta" : "/km · ritmo real"
-    }
+
     private var landscapeLegLine: String {
         var line = "Tramo \(model.legNumber) de \(model.legTotal)"
-        if let objetivo = model.runTarget.objetivoLabel { line += " — objetivo \(objetivo)" }
+        if let objetivo = model.runTarget.objetivoLabel { line += " · objetivo \(objetivo)" }
         return line
     }
 
@@ -283,9 +305,12 @@ struct TreadmillHUDView: View {
         HStack(spacing: 8) {
             ExpertCell(label: "Metros", value: distString(model.legDistanceM), unit: "")
             ExpertCell(label: "Tiempo", value: Formato.clock(Int(model.legElapsedEffective)), unit: "")
+            // Metros y tiempo los sabe la app siempre; el pulso viene de fuera y puede
+            // no estar. Entonces la celda dice POR QUÉ, no una raya (§7).
             ExpertCell(label: "Pulso",
-                       value: model.currentBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm,
-                       color: model.liveZone?.color ?? Theme.Color.foreground)
+                       value: model.currentBpm.map { "\($0)" }, unit: Vocab.ppm,
+                       color: model.liveZone?.color ?? Theme.Color.foreground,
+                       ausente: model.sinPulsoMotivo)
         }
     }
 
@@ -383,7 +408,7 @@ struct TreadmillHUDView: View {
             Image(systemName: "speedometer")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.Color.muted)
-            Text("Pon la velocidad en la cinta — tu modelo no la deja controlar por Bluetooth. La inclinación sí.")
+            Text("Pon la velocidad en la cinta. Tu modelo no la deja controlar por Bluetooth; la inclinación sí.")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -461,11 +486,16 @@ struct TreadmillHUDView: View {
         }
     }
 
+    /// Una recuperación con cuenta atrás enseña lo que QUEDA. Una recuperación abierta
+    /// (sin `rest_s` prescrito) no tiene cuenta atrás que enseñar, y un «0:00» ahí es un
+    /// reloj que nadie ha puesto (§7): entonces manda el tiempo que LLEVAS, que la app sí
+    /// sabe siempre. El rótulo cambia con la cifra, o el número estaría mintiendo.
     private var recoveryHero: some View {
-        CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
+        let restante = model.legTimeRemaining
+        return CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 8) {
-                LabelText(text: "Recuperación", size: 10)
-                Text(Formato.clock(Int((model.legTimeRemaining ?? 0).rounded())))
+                LabelText(text: restante != nil ? "Recuperación" : "Llevas recuperando", size: 10)
+                Text(Formato.clock(restante ?? model.legElapsedEffective))
                     .font(Theme.Typography.readoutHero)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
@@ -486,22 +516,35 @@ struct TreadmillHUDView: View {
         }
     }
 
+    /// EL SUJETO de la tarjeta. Con ritmo medido, el ritmo y su veredicto; sin él, la
+    /// siguiente verdad disponible y el PORQUÉ de que no haya ritmo.
+    ///
+    /// Rótulo y cifra viajan JUNTOS a propósito: poner «Ritmo» encima de un cronómetro
+    /// es mentir igual (§7), y es el error más difícil de ver porque cada mitad, por su
+    /// cuenta, es correcta. Y sin medida no hay veredicto: el borde de color y el «vas
+    /// rápido» se apagan, porque juzgaban un número que ya no está.
     private var paceHero: some View {
+        let ritmo = heroPace
         let status = model.heroStatus
+        let juzga = ritmo != nil && status != .unknown
         return CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 6) {
-                LabelText(text: heroCaption, size: 10)
+                LabelText(text: ritmo != nil ? heroCaption : sinRitmo.etiqueta, size: 10)
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
-                    Text(heroPace)
+                    Text(ritmo ?? sinRitmo.cifra)
                         .font(Theme.Typography.readoutHero)
-                        .foregroundStyle(status == .unknown ? Theme.Color.foreground : status.color)
+                        .foregroundStyle(juzga ? status.color : Theme.Color.foreground)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text(Formato.UnidadRitmo.porKm.rawValue)
-                        .font(Theme.Typography.readoutLabel)
-                        .foregroundStyle(Theme.Color.muted)
+                    // La unidad viaja con SU cifra: «/km» debajo de un cronómetro
+                    // convertiría el reloj del tramo en un ritmo que nadie ha medido.
+                    if ritmo != nil {
+                        Text(Formato.UnidadRitmo.porKm.rawValue)
+                            .font(Theme.Typography.readoutLabel)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                 }
-                if let objetivo = model.runTarget.objetivoLabel {
+                if ritmo != nil, let objetivo = model.runTarget.objetivoLabel {
                     HStack(spacing: 8) {
                         Text("Objetivo \(objetivo)")
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -513,6 +556,10 @@ struct TreadmillHUDView: View {
                                 .foregroundStyle(status.color)
                         }
                     }
+                } else if ritmo == nil {
+                    Text(model.sinLecturaMotivo)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
                 }
                 beltReadings
             }
@@ -520,7 +567,7 @@ struct TreadmillHUDView: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(status == .unknown ? Color.clear : status.color.opacity(0.75), lineWidth: 2)
+                .stroke(juzga ? status.color.opacity(0.75) : Color.clear, lineWidth: 2)
         )
     }
 
@@ -549,18 +596,28 @@ struct TreadmillHUDView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
+    /// Pulso y zona. El pulso dice lo que mide o POR QUÉ no mide; la zona, cuando no
+    /// existe, DESAPARECE.
+    ///
+    /// Antes eran dos celdas fijas con un guion cada una. Pero no son el mismo caso: al
+    /// pulso le falta un aparato y eso el atleta lo arregla de un toque en el chip de
+    /// arriba, así que se declara (§6.2 bis); la zona sin umbral no la arregla nadie a
+    /// mitad de un tramo, así que se calla — y callarse es quitar la celda, no dejar el
+    /// hueco con una raya dentro. Sin zona, el pulso se queda el ancho entero.
     private var hrAndZoneRow: some View {
-        let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
-        return LazyVGrid(columns: cols, spacing: 8) {
+        // HStack y no la rejilla de dos columnas que había: con la zona ausente, una
+        // rejilla deja media fila en blanco, que es el mismo hueco con otra cara.
+        HStack(alignment: .top, spacing: 8) {
             ExpertCell(
                 label: "Pulso",
-                value: model.currentBpm.map { "\($0)" } ?? "—",
+                value: model.currentBpm.map { "\($0)" },
                 unit: Vocab.ppm,
-                color: model.liveZone?.color ?? Theme.Color.foreground
+                color: model.liveZone?.color ?? Theme.Color.foreground,
+                ausente: model.sinPulsoMotivo
             )
             if let zone = model.liveZone {
                 VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Zona", size: 11)
+                    LabelText(text: Vocab.zona, size: 11)
                     ZoneMeter(zone: zone, isEstimated: model.zoneIsEstimated)
                 }
                 .padding(.horizontal, 12)
@@ -572,9 +629,6 @@ struct TreadmillHUDView: View {
                         .stroke(Theme.Color.hairline, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            } else {
-                // No HR, or HR without an age → honest empty slot, never a fake zone.
-                ExpertCell(label: "Zona", value: "—", unit: "")
             }
         }
     }
@@ -750,7 +804,7 @@ struct TreadmillHUDView: View {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.Color.warning)
-                Text("Conectada, pero la cinta no envía datos. Ponla en marcha desde la consola — algunas solo emiten con la banda en movimiento.")
+                Text("Conectada, pero la cinta no envía datos. Ponla en marcha desde la consola: algunas solo emiten con la banda en movimiento.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -798,9 +852,21 @@ struct TreadmillHUDView: View {
 
     // MARK: - Formatting
 
-    private var heroPace: String {
-        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
+    /// El ritmo REAL de la cinta. nil = no hay medida, y punto: el centinela "—:—" que
+    /// vivía aquí obligaba a cada sitio que lo pintaba a fingir que era un ritmo (§7).
+    /// Quien pinta decide qué hacer con el nil, con `model.sinLecturaMotivo` al lado.
+    private var heroPace: String? {
+        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
     }
+
+    /// LA SIGUIENTE VERDAD DISPONIBLE cuando la cinta no da ritmo: lo que te han
+    /// mandado, y si no te han mandado nada, el reloj del tramo — lo único que la app
+    /// sabe con certeza siempre. Es el mismo escalón que usa el rodaje al aire libre.
+    private var sinRitmo: (etiqueta: String, cifra: String) {
+        if let objetivo = model.runTarget.objetivoLabel { return (Vocab.objetivo, objetivo) }
+        return (Vocab.tiempo, Formato.clock(model.legElapsedEffective, anchoFijo: true))
+    }
+
     private var heroCaption: String {
         switch model.runTarget {
         case .zone: return "Ritmo · objetivo por zona"
@@ -817,11 +883,8 @@ struct TreadmillHUDView: View {
         if let objetivo = model.runTarget.objetivoLabel { parts.append(objetivo) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
-    private var speedString: String {
-        // The RESOLVED belt speed (odometer-derived when the machine freezes instantaneous
-        // speed at 0), so the tile shows the real pace he's running, never a stuck 0.0.
-        model.displaySpeedKmh.map { Formato.esDecimal($0, siempreDecimales: true) } ?? "—"
-    }
+    /// La distancia CUBIERTA es un contador, y un contador se pinta en cero (§6.2 bis):
+    /// «0 m» al empezar el tramo no es un hueco, es la verdad.
     private func distString(_ m: Double) -> String {
         Formato.distanciaCubierta(m) ?? "0 m"
     }
