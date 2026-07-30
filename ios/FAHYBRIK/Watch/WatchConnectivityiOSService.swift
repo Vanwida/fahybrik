@@ -351,7 +351,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         guard let b else { return nil }
         var candidates: [(score: Double, label: String)] = []
         if let s = b.sleepComponent {
-            candidates.append((s, "Sueño \(sleepLabel(b.sleepHours))"))
+            // Igual que la HRV y la FC de abajo: sin la cifra cruda va el nombre
+            // solo. Es el componente que más tira del score, y eso ya se sabe.
+            let raw = sleepLabel(b.sleepHours).map { " \($0)" } ?? ""
+            candidates.append((s, "Sueño\(raw)"))
         }
         if let s = b.hrvComponent {
             let raw = b.hrvMs.map { " \(Int($0.rounded())) ms" } ?? ""
@@ -367,10 +370,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         return candidates.min { $0.score < $1.score }?.label
     }
 
-    /// Sleep hours as "6h 10m" (drops the minutes when zero → "6h"); em-dash when
-    /// the raw hours are missing.
-    private static func sleepLabel(_ hours: Double?) -> String {
-        guard let hours, hours > 0 else { return "—" }
+    /// Sleep hours as "6h 10m" (drops the minutes when zero → "6h"); nil when the
+    /// raw hours are missing, so the caller decides what to say.
+    private static func sleepLabel(_ hours: Double?) -> String? {
+        guard let hours, hours > 0 else { return nil }
         let h = Int(hours)
         let m = Int((hours - Double(h)) * 60 + 0.5)
         return m > 0 ? "\(h)h \(m)m" : "\(h)h"

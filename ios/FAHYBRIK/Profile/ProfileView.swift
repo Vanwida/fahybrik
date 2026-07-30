@@ -277,15 +277,25 @@ struct ProfileView: View {
 
     private var identityCard: some View {
         let name = identity?.fullName ?? "Tu perfil"
-        let initials = identity?.initials ?? "—"
+        let initials = identity?.initials ?? ""
         return HStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(Theme.Color.accent)
                     .frame(width: 60, height: 60)
-                Text(initials)
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.accentOn)
+                // Sin nombre no hay iniciales: va la silueta, como en CoachAvatar
+                // (mismo glifo y su misma proporción, 0,42 del diámetro). Un avatar
+                // vacío no es un dato que falte, y una raya dentro del círculo lo
+                // haría parecer uno (§7).
+                if initials.isEmpty {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 25, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentOn)
+                } else {
+                    Text(initials)
+                        .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.accentOn)
+                }
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
@@ -751,8 +761,11 @@ struct ProfileView: View {
                         icon: "antenna.radiowaves.left.and.right",
                         title: "Concept2 PM5",
                         subtitle: PM5ConnectionStore.shared.rememberedDeviceName ?? "Sin emparejar",
-                        statusText: PM5ConnectionStore.shared.rememberedDeviceName == nil ? "—" : "pareado",
-                        statusColor: PM5ConnectionStore.shared.rememberedDeviceName == nil ? Theme.Color.muted : Theme.Color.ok
+                        // Sin remo emparejado no hay estado que enseñar: la pastilla
+                        // desaparece. Lo dice el subtítulo, y la fila entra al ajuste
+                        // que lo empareja.
+                        statusText: PM5ConnectionStore.shared.rememberedDeviceName == nil ? nil : "pareado",
+                        statusColor: Theme.Color.ok
                     )
                 }
                 .buttonStyle(.plain)
@@ -1164,14 +1177,17 @@ struct ProfileView: View {
         }
     }
 
+    /// `statusText` nil = no hay estado que contar todavía. La pastilla no se pinta:
+    /// una cápsula con un guion dentro parece un estado y no lo es (§7).
     private func deviceRowContent(
         icon: String,
         title: String,
         subtitle: String,
-        statusText: String,
+        statusText: String?,
         statusColor: Color
     ) -> some View {
-        HStack(spacing: 12) {
+        let spokenStatus = statusText.map { ", \($0)" } ?? ""
+        return HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.Color.accentText)
@@ -1188,14 +1204,16 @@ struct ProfileView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Text(statusText)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(statusColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(statusColor.opacity(0.15))
-                .clipShape(Capsule())
+            if let statusText {
+                Text(statusText)
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(statusColor.opacity(0.15))
+                    .clipShape(Capsule())
+            }
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.Color.faint)
@@ -1203,7 +1221,7 @@ struct ProfileView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(subtitle), \(statusText)")
+        .accessibilityLabel("\(title), \(subtitle)\(spokenStatus)")
         .accessibilityAddTraits(.isButton)
     }
 
