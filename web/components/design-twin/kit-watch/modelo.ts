@@ -223,19 +223,23 @@ export const SUJETO_SUELO = 43;
  * que un sujeto se queda pequeño por número de cifras mucho antes que por falta
  * de sitio vertical. La tabla, calculada con `altoPorAncho`:
  *
- *   glifos │ ejemplo   │ altura de cifra
- *   ───────┼───────────┼────────────────
- *      1   │ `9`       │ 150 (tope)
- *      2   │ `43`      │ 109
- *      3   │ `139`     │  73
- *      4   │ `:45`+m   │  55
- *      5   │ `63:45`   │  44
- *      6   │ `1:02:40` │  37  ← ya no es un sujeto
+ *   glifos │ ejemplo  │ altura de cifra
+ *   ───────┼──────────┼────────────────
+ *      1   │ `9`      │ 150 (le da para 219, pero ahí manda el techo)
+ *      2   │ `43`     │ 110
+ *      3   │ `139`    │  73
+ *      4   │ `1:30`   │  55
+ *      5   │ `63:45`  │  44  ← el suelo
+ *      6   │ `102:40` │  37  ← ya no es un sujeto, es una línea de texto grande
  *
  * Consecuencia de diseño, y es la regla que ordena las nueve vistas: **lo que
  * no cabe NO SE ENCOGE, se parte en páginas.** Un crono que pasa de la hora se
- * escribe en minutos (`63:45`, §2 `enHoras:false`) y la hora vive en el
+ * escribe en minutos (`73:00`, §2 `enHoras:false`) y la hora vive en el
  * contexto; un ritmo con su unidad manda la unidad al segundo nivel.
+ *
+ * Y una cifra menos NO es un 20 % más de altura: es un 50 %. Por eso quitarle
+ * un glifo a un sujeto es la palanca de legibilidad más grande que hay aquí,
+ * muy por encima de cualquier ajuste de layout.
  */
 export const SUJETO_GLIFOS_MAX = 5;
 
@@ -319,10 +323,45 @@ export function altoPorPresupuesto(a: Apoyos): number {
  */
 export const UNIDAD_EM = 0.3;
 
+/**
+ * EL DECIMAL NO ES EL DATO, ES LA PRECISIÓN — y por eso va a un 42 % del cuerpo.
+ *
+ * Salió al pintar la primera vista y es de las cosas que sólo se ven mirando la
+ * pantalla a tamaño real. En una monoespaciada TODOS los glifos avanzan igual,
+ * también la coma, así que un `82,5 kg` se lleva 4,6 glifos de ancho y el
+ * numeral se queda en 48 pt de cifra. Escrito así, además, se lee «82 , 5»:
+ * la coma abre un hueco idéntico al de una cifra y parte el número en dos.
+ *
+ * Bajando la parte decimal, el mismo dato pasa a ocupar 3,2 glifos y el numeral
+ * sube a 68 pt — un 42 % más grande sin quitar ni un dígito de información.
+ * Es la misma jerarquía que usa cualquier instrumento de medida, y es la
+ * palanca de legibilidad más barata que hay en un lienzo de 188 pt.
+ */
+export const DECIMAL_EM = 0.42;
+
+/**
+ * Parte un sujeto en la CIFRA que se lee y el DECIMAL que la afina. Lo aplica
+ * el numeral solo, sin que las vistas tengan que saberlo: pasan `82,5` y el
+ * lienzo hace el resto.
+ */
+export function partirDecimal(texto: string): { entero: string; decimal?: string } {
+  const i = texto.indexOf(',');
+  return i < 0 ? { entero: texto } : { entero: texto.slice(0, i), decimal: texto.slice(i) };
+}
+
+/** Ancho de un sujeto medido en glifos de cuerpo entero, decimal y unidad aparte. */
+export function anchoEnGlifos(texto: string, unidad?: string): number {
+  const { entero, decimal } = partirDecimal(texto);
+  return (
+    glifos(entero) +
+    (decimal ? glifos(decimal) * DECIMAL_EM : 0) +
+    (unidad ? glifos(unidad) * UNIDAD_EM : 0)
+  );
+}
+
 /** Lo que el ANCHO del lienzo deja para un texto de N glifos y su unidad. */
 export function altoPorAncho(texto: string, unidad?: string): number {
-  const n = Math.max(1, glifos(texto) + (unidad ? glifos(unidad) * UNIDAD_EM : 0));
-  return (ANCHO_UTIL / (n * AVANCE_MONO)) * CAP_EM;
+  return (ANCHO_UTIL / (Math.max(1, anchoEnGlifos(texto, unidad)) * AVANCE_MONO)) * CAP_EM;
 }
 
 /**
@@ -350,8 +389,11 @@ export interface Veredicto {
  */
 export function veredicto(texto: string, a: Apoyos, unidad?: string): Veredicto {
   const alto = altoSujeto(texto, a, unidad);
-  // El tope de glifos se mide sobre la CIFRA, no sobre la unidad: «450 m» son
-  // tres cifras con una marca al lado, no cinco glifos de dato.
-  if (glifos(texto) > SUJETO_GLIFOS_MAX) return { cabe: false, alto, motivo: 'demasiados-glifos' };
+  // El tope se mide sobre la CIFRA ENTERA: «450 m» son tres cifras con una
+  // marca al lado, no cinco glifos de dato, y «82,5 kg» son dos con su
+  // precisión detrás.
+  if (glifos(partirDecimal(texto).entero) > SUJETO_GLIFOS_MAX) {
+    return { cabe: false, alto, motivo: 'demasiados-glifos' };
+  }
   return alto >= SUJETO_SUELO ? { cabe: true, alto } : { cabe: false, alto, motivo: 'sin-sitio' };
 }

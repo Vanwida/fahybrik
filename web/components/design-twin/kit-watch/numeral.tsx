@@ -14,7 +14,15 @@
 // escritos a mano del dashboard.
 
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { ANCHO_UTIL, AVANCE_MONO, CAP_EM, UNIDAD_EM } from './modelo';
+import {
+  ANCHO_UTIL,
+  AVANCE_MONO,
+  CAP_EM,
+  DECIMAL_EM,
+  UNIDAD_EM,
+  anchoEnGlifos,
+  partirDecimal,
+} from './modelo';
 import { W } from '../screens/watch-live/theme';
 
 /**
@@ -68,10 +76,11 @@ export function Numeral({
   }, [latido]);
 
   const cuerpo = alto / CAP_EM;
+  const cuerpoDecimal = cuerpo * DECIMAL_EM;
   const cuerpoUnidad = cuerpo * UNIDAD_EM;
-  const ancho =
-    [...texto].length * AVANCE_MONO * cuerpo +
-    (unidad ? [...unidad].length * AVANCE_MONO * cuerpoUnidad : 0);
+  // El decimal se subordina solo: las vistas pasan «82,5» y aquí se parte.
+  const { entero, decimal } = partirDecimal(texto);
+  const ancho = anchoEnGlifos(texto, unidad) * AVANCE_MONO * cuerpo;
   // `altoSujeto` ya deja el texto dentro del lienzo; esto es el cinturón: si
   // una vista pasa un `alto` a mano, sigue sin comerse el bisel.
   const ajuste = ancho <= ANCHO_UTIL ? 1 : ANCHO_UTIL / ancho;
@@ -90,8 +99,23 @@ export function Numeral({
           transition: 'font-size 260ms ease-out, color 320ms ease',
         }}
       >
-        {texto}
+        {entero}
       </span>
+      {decimal ? (
+        <span
+          style={{
+            fontFamily: 'var(--twin-font-mono)',
+            fontSize: cuerpoDecimal * ajuste,
+            lineHeight: 1,
+            fontWeight: 800,
+            // Del color del dato, no del gris de la unidad: sigue siendo la
+            // medida, sólo que la parte que se lee de segundas.
+            color,
+          }}
+        >
+          {decimal}
+        </span>
+      ) : null}
       {unidad ? (
         <span
           style={{
@@ -101,6 +125,9 @@ export function Numeral({
             fontSize: cuerpoUnidad * ajuste,
             lineHeight: 1,
             fontWeight: 800,
+            // Sin margen: `anchoEnGlifos` calcula el ancho exacto que ocupa
+            // esto, y cualquier separación de más se sale por la derecha y se
+            // mete debajo del aro. El avance de la mono ya separa de sobra.
             color: W.dim,
           }}
         >
