@@ -67,11 +67,21 @@ struct DoblesStreakSection: View {
                 .font(.system(size: 14, weight: .heavy))
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
-            HStack(spacing: 10) {
-                timePair(name: "Tú", seconds: last.selfTimeS, color: Theme.Color.accent)
-                if last.partnerTimeS != nil {
-                    Text("·").foregroundStyle(Theme.Color.faint)
-                    timePair(name: partnerName, seconds: last.partnerTimeS, color: Theme.Color.partner)
+            // Cada tiempo se pinta sólo si se registró. La sesión ya pasó y no
+            // hay nada que el atleta pueda hacer para recuperar un tiempo que
+            // nadie tomó: se calla (§6.2 bis). Si no hay ninguno, la fila entera
+            // desaparece en vez de quedarse con dos rayas.
+            if last.selfTimeS != nil || last.partnerTimeS != nil {
+                HStack(spacing: 10) {
+                    if let selfS = last.selfTimeS {
+                        timePair(name: "Tú", seconds: selfS, color: Theme.Color.accent)
+                    }
+                    if let partnerS = last.partnerTimeS {
+                        if last.selfTimeS != nil {
+                            Text("·").foregroundStyle(Theme.Color.faint)
+                        }
+                        timePair(name: partnerName, seconds: partnerS, color: Theme.Color.partner)
+                    }
                 }
             }
         }
@@ -85,12 +95,14 @@ struct DoblesStreakSection: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
 
-    private func timePair(name: String, seconds: Int?, color: Color) -> some View {
+    /// Nombre + tiempo. Pide el tiempo NO opcional a propósito: quien llama ya
+    /// decidió que existe, y así aquí no queda un hueco que rellenar.
+    private func timePair(name: String, seconds: Int, color: Color) -> some View {
         HStack(spacing: 5) {
             Text(name)
                 .font(.system(size: 11, weight: .heavy).italic())
                 .foregroundStyle(color)
-            Text(seconds.map { Formato.clock($0) } ?? "—")
+            Text(Formato.clock(seconds))
                 .font(.system(size: 14, weight: .heavy, design: .monospaced).monospacedDigit())
                 .foregroundStyle(Theme.Color.foreground)
         }

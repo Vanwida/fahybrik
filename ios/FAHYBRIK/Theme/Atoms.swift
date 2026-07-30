@@ -369,24 +369,40 @@ struct RecoveryRing: View {
 }
 
 // MARK: - Expert-density data cell (small Garmin-style)
+//
+// `ausente` es el §7 hecho pieza, igual que en `ApoyoVivo`: cuando no hay medida
+// NO se pinta un guion — se pinta la RAZÓN de que no la haya. Esta celda nació sin
+// estado ausente, así que cada llamante se lo inventaba con un `?? "—"`; eso es
+// justo lo que el contrato prohíbe, y estaba repetido por media app.
 struct ExpertCell: View {
     let label: String
-    let value: String
+    /// Nil = no hay medida. No se pinta el hueco: se pinta el porqué.
+    let value: String?
     var unit: String = ""
     var color: Color = Theme.Color.foreground
+    /// Lo que se dice cuando el valor no existe («sin reloj», «Buscando GPS»).
+    var ausente: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             LabelText(text: label, size: 11)
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
-                    .foregroundStyle(color)
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.Color.muted)
+            if let value {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(value)
+                        .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
+                        .foregroundStyle(color)
+                    if !unit.isEmpty {
+                        Text(unit)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                 }
+            } else {
+                Text(ausente ?? "sin medir")
+                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 12)
@@ -400,7 +416,13 @@ struct ExpertCell: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .brandShadow(Theme.Shadow.cardTight)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(unit.isEmpty ? "\(label), \(value)" : "\(label), \(value) \(unit)")
+        .accessibilityLabel(textoAccesible)
+    }
+
+    // VoiceOver leyendo «raya» es la misma mentira que pintarla.
+    private var textoAccesible: String {
+        guard let value else { return "\(label), \(ausente ?? "sin medir")" }
+        return unit.isEmpty ? "\(label), \(value)" : "\(label), \(value) \(unit)"
     }
 }
 

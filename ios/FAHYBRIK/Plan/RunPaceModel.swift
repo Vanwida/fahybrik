@@ -43,13 +43,17 @@ struct PaceTarget: Equatable {
 
     var hasBand: Bool { fastS != nil || slowS != nil }
 
-    /// Human objetivo string (the "/km" unit is added by the caller).
-    var label: String {
+    /// Human objetivo string (the "/km" unit is added by the caller). Nil for an
+    /// EMPTY target (no point, no band): un objetivo que no existe no se escribe
+    /// con un guion, y quien pinta decide qué hacer con el hueco (§7). Todos los
+    /// constructores de `.pace(…)` ya exigen punto o banda antes de envolverlo,
+    /// así que el nil es la red, no el caso normal.
+    var label: String? {
         if let f = fastS, let s = slowS { return "\(Formato.clock(f))–\(Formato.clock(s))" }
         if let f = fastS { return "≥ \(Formato.clock(f))" }
         if let s = slowS { return "≤ \(Formato.clock(s))" }
         if let single { return Formato.clock(single) }
-        return "—"
+        return nil
     }
 
     func status(currentSecPerKm pace: Int?) -> TargetStatus {
@@ -126,7 +130,7 @@ enum RunTarget: Equatable {
     /// The objetivo shown near the hero, or nil when there's nothing to hit.
     var objetivoLabel: String? {
         switch self {
-        case let .pace(t): return "\(t.label)\(Formato.UnidadRitmo.porKm.rawValue)"
+        case let .pace(t): return t.label.map { "\($0)\(Formato.UnidadRitmo.porKm.rawValue)" }
         case let .zone(z): return z.label
         case .none:        return nil
         }

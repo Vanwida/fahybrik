@@ -44,9 +44,9 @@ struct ErgHUDContent: View {
             if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil { noDataHint }
             // Three states, three subjects. Counting in: the count. No monitor: the
             // work you have been given. Working: the split. Each one is the largest
-            // thing on the screen while it is true — a hero showing "—:—" through a
-            // count-in, or through a piece with no machine paired, is a readout
-            // pretending to read something.
+            // thing on the screen while it is true — a hero holding a placeholder
+            // through a count-in, or through a piece with no machine paired, is a
+            // readout pretending to read something.
             if session.isTramoCountIn {
                 countInBody
             } else if !pm5.isConnected {
@@ -115,7 +115,7 @@ struct ErgHUDContent: View {
             HStack(spacing: 8) {
                 Image(systemName: "antenna.radiowaves.left.and.right.slash")
                     .font(.system(size: 14, weight: .semibold))
-                Text("Sin monitor. Puedes hacerlo igual — no se medirá solo.")
+                Text("Sin monitor. Puedes hacerlo igual, pero no se medirá solo.")
                     .font(.system(size: 13, weight: .medium))
                 Spacer(minLength: 0)
             }
@@ -295,7 +295,9 @@ struct ErgHUDContent: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(goal.done ? "Objetivo completado" : "Te quedan \(goal.remaining) \(goal.unit)")
         } else {
-            railTile(value: coveredMeters.map { "\(Int($0))" } ?? "—", label: "metros", valueSize: 34)
+            // Metros cubiertos SIN objetivo: un contador, y un contador se pinta en
+            // cero (§6.2 bis). Nunca falta — por eso aquí no hay hueco que declarar.
+            railTile(valor: "\(Int(coveredMeters))", label: "metros", valueSize: 34)
         }
     }
 
@@ -303,7 +305,8 @@ struct ErgHUDContent: View {
     /// case that matters), then calories, then a time box. nil = nothing prescribed.
     private var goalReadout: (remaining: String, unit: String, covered: String,
                               fraction: Double, done: Bool)? {
-        if let target = tramo.targetDistanceMeters, let covered = coveredMeters {
+        if let target = tramo.targetDistanceMeters {
+            let covered = coveredMeters
             let left = max(0, target - covered)
             return ("\(Int(left.rounded()))", "m",
                     "\(Int(covered)) / \(Int(target)) m",
@@ -325,27 +328,48 @@ struct ErgHUDContent: View {
 
     // MARK: - 3 · Hero (the split — the number you steer by)
 
+    /// El sujeto es el split. Y cuando no hay split, el sujeto no es un split falso:
+    /// a palada parada el ritmo no existe (no es cero, es que no lo hay), así que el
+    /// hueco dice POR QUÉ y la unidad «/500m» se va con él — una unidad sola bajo una
+    /// frase es el resto de un número que ya no está.
     private func heroCard(splitSize: CGFloat) -> some View {
         CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
             VStack(spacing: 4) {
                 LabelText(text: "Split · real", size: 10)
-                Text(splitString)
-                    .font(.system(size: splitSize, weight: .heavy, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                Text(Formato.UnidadRitmo.por500m.rawValue)
-                    .font(Theme.Typography.readoutLabel)
-                    .foregroundStyle(Theme.Color.muted)
+                if let split = splitString {
+                    Text(split)
+                        .font(.system(size: splitSize, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                    Text(Formato.UnidadRitmo.por500m.rawValue)
+                        .font(Theme.Typography.readoutLabel)
+                        .foregroundStyle(Theme.Color.muted)
+                } else {
+                    Text(sinSplitMotivo)
+                        .font(Theme.Typography.headlineS)
+                        .foregroundStyle(Theme.Color.muted)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2).minimumScaleFactor(0.7)
+                        .frame(height: splitSize * 0.6)
+                }
                 Hairline()
                 HStack(spacing: 8) {
-                    subReadout(value: avgSplitString, label: "media /500m")
-                    subReadout(value: Formato.clock(session.tramoElapsedSeconds),
+                    subReadout(valor: avgSplitString, label: "media /500m",
+                               ausente: sinSplitMotivo)
+                    subReadout(valor: Formato.clock(session.tramoElapsedSeconds),
                                label: tramoTimeLabel)
                 }
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// POR QUÉ no hay split. Antes de la primera palada el monitor no ha dicho nada;
+    /// después, un split ausente significa que ahora mismo no estás remando — que es
+    /// un hecho sobre ti, no un fallo de la app.
+    private var sinSplitMotivo: String {
+        noLiveData ? sinLecturaMotivo : "sin remar"
     }
 
     /// The bout clock is labelled for what it is. While it is HELD waiting for the
@@ -356,12 +380,22 @@ struct ErgHUDContent: View {
         session.tramoClockArmed ? "empieza al remar" : "esta serie"
     }
 
-    private func subReadout(value: String, label: String) -> some View {
+    private func subReadout(valor: String?, label: String,
+                            ausente: String? = nil) -> some View {
         VStack(spacing: 2) {
-            Text(value)
-                .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1).minimumScaleFactor(0.5)
+            if let valor {
+                Text(valor)
+                    .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+            } else {
+                Text(ausente ?? sinLecturaMotivo)
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                    .frame(height: 30)
+            }
             Text(label)
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(0.6)
@@ -370,7 +404,7 @@ struct ErgHUDContent: View {
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)")
+        .accessibilityLabel("\(label): \(valor ?? ausente ?? sinLecturaMotivo)")
     }
 
     // MARK: - 4 · Work rail (three tiles, big enough to read from the floor)
@@ -381,21 +415,44 @@ struct ErgHUDContent: View {
     /// they now live there.
     @ViewBuilder
     private var workRail: some View {
-        railTile(value: spm.map { "\($0)" } ?? "—", label: "s/min", valueSize: 32)
-        railTile(value: watts.map { "\($0)" } ?? "—", label: "vatios",
-                 color: Theme.Color.accentText, valueSize: 32)
-        railTile(value: session.liveHRBpm.map { "\($0)" } ?? "—", label: "pulso",
-                 color: session.liveZone?.color ?? Theme.Color.foreground, valueSize: 32)
+        // Paladas y vatios llegan EN CERO cuando dejas de tirar, y ese cero se pinta:
+        // está medido (§6.2 bis). Sólo son nil antes de la primera palada, y entonces
+        // se dice eso mismo. El pulso no es del monitor: falta cuando no hay de dónde.
+        railTile(valor: spm.map { "\($0)" }, label: "s/min", valueSize: 32,
+                 ausente: sinLecturaMotivo)
+        railTile(valor: watts.map { "\($0)" }, label: "vatios",
+                 color: Theme.Color.accentText, valueSize: 32,
+                 ausente: sinLecturaMotivo)
+        railTile(valor: session.liveHRBpm.map { "\($0)" }, label: "pulso",
+                 color: session.liveZone?.color ?? Theme.Color.foreground, valueSize: 32,
+                 ausente: "sin banda ni reloj")
     }
 
-    private func railTile(value: String, label: String,
+    /// POR QUÉ el monitor no da una lectura. Aquí SIEMPRE está conectado (un monitor
+    /// caído se lleva `unmeasuredBody`), así que la única razón posible es que todavía
+    /// no ha llegado nada suyo: la primera palada es lo que lo arranca.
+    private var sinLecturaMotivo: String { "esperando la primera palada" }
+
+    /// `valor` nil = no hay medida, y entonces se pinta el porqué — mismo contrato que
+    /// `ApoyoVivo` (Theme/LenguajeVivoUI.swift), en la voz de esta superficie.
+    private func railTile(valor: String?, label: String,
                           color: Color = Theme.Color.foreground,
-                          valueSize: CGFloat = 21) -> some View {
+                          valueSize: CGFloat = 21,
+                          ausente: String? = nil) -> some View {
         VStack(spacing: 2) {
-            Text(value)
-                .font(.system(size: valueSize, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(color)
-                .lineLimit(1).minimumScaleFactor(0.5)
+            if let valor {
+                Text(valor)
+                    .font(.system(size: valueSize, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(color)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+            } else {
+                Text(ausente ?? sinLecturaMotivo)
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                    .frame(height: valueSize)
+            }
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .heavy)).tracking(0.7)
                 .foregroundStyle(Theme.Color.muted)
@@ -407,7 +464,7 @@ struct ErgHUDContent: View {
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)")
+        .accessibilityLabel("\(label): \(valor ?? ausente ?? sinLecturaMotivo)")
     }
 
     private var noDataHint: some View {
@@ -434,12 +491,16 @@ struct ErgHUDContent: View {
     private var noLiveData: Bool {
         live.paceSecondsPer500m == nil && live.powerWatts == nil && (live.distanceMeters ?? 0) <= 0
     }
-    private var splitString: String {
-        guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
+    /// El split y su media. nil = no hay medida, y quien pinta decide qué dice en su
+    /// lugar; devolver un centinela obligaba al héroe a enseñarlo como si fuera un
+    /// ritmo (§7). El monitor manda 0 cuando no te mueves y el decodificador lo pasa a
+    /// nil, que es lo correcto: a palada parada el ritmo no existe.
+    private var splitString: String? {
+        guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return nil }
         return Formato.ritmoCifras(p)
     }
-    private var avgSplitString: String {
-        guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return "—:—" }
+    private var avgSplitString: String? {
+        guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return nil }
         return Formato.ritmoCifras(p)
     }
 
@@ -449,7 +510,12 @@ struct ErgHUDContent: View {
     /// Meters covered IN THIS TRAMO — the bout's own window, so serie 2 of a 5×500
     /// starts at zero instead of carrying serie 1's metres into its goal. NOT gated
     /// on the link: metres already covered stay true if the monitor drops.
-    private var coveredMeters: Double? { session.tramoErgDistanceMeters ?? 0 }
+    ///
+    /// No es opcional a propósito: es un CONTADOR y empieza en cero. Lo era, y el cero
+    /// viajaba envuelto en un `Double?` que nunca era nil — un opcional de mentira que
+    /// obligaba a cada callsite a inventarse un valor por si acaso (y uno se inventaba
+    /// un guion).
+    private var coveredMeters: Double { session.tramoErgDistanceMeters ?? 0 }
 
     private var objectiveLine: String? {
         if let d = tramo.targetDistanceMeters { return "\(Int(d)) m" }

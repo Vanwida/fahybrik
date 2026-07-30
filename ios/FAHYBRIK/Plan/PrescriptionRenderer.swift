@@ -26,8 +26,9 @@ enum PrescriptionRenderer {
     struct SetRow: Identifiable, Equatable {
         let id: Int
         let index: Int
-        /// Work column, e.g. "5", "12", "1 km", "0:40", "15 cal".
-        let work: String
+        /// Work column, e.g. "5", "12", "1 km", "0:40", "15 cal". Nil cuando ese set
+        /// no declara medida — nunca una raya: la celda decide (§7).
+        let work: String?
         /// Intensity column, e.g. "75% 1RM", "120 kg", "RPE 8", "RIR 2", "BW".
         let load: String?
         /// Tempo column, e.g. "3-1-1-0".
@@ -55,12 +56,11 @@ enum PrescriptionRenderer {
         guard let sets = p.sets, !sets.isEmpty else { return nil }
         var rows: [SetRow] = []
         for (i, s) in sets.enumerated() {
-            let work = measureWork(s.measure) ?? "—"
             rows.append(
                 SetRow(
                     id: i,
                     index: i + 1,
-                    work: work,
+                    work: measureWork(s.measure),
                     load: targetLoad(s.target),
                     tempo: s.tempo,
                     rest: s.restS.map { Formato.clock($0, subMinuto: .segundos) }
@@ -86,7 +86,9 @@ enum PrescriptionRenderer {
     static func collapsedSetsLabel(_ p: Prescription) -> String? {
         guard let rows = setRows(p), let first = rows.first else { return nil }
         var parts: [String] = []
-        parts.append("\(rows.count) × \(first.work)")
+        // Sin medida declarada el encabezado es el CONTADOR de series, que sí se
+        // sabe («4 series»). Antes salía «4 × —» (§7).
+        parts.append(first.work.map { "\(rows.count) × \($0)" } ?? "\(rows.count) series")
         if let load = first.load { parts.append(load) }
         if let tempo = first.tempo { parts.append("tempo \(tempo)") }
         if let rest = first.rest { parts.append("descanso \(rest)") }

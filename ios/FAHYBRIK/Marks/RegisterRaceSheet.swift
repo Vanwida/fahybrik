@@ -89,7 +89,11 @@ struct RegisterRaceSheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Carrera · \(Formato.distanciaCubierta(candidate.distanceM) ?? "—")")
+                                // Si la actividad llegó sin distancia, el título es
+                                // solo «Carrera»: el tiempo de al lado es el dato
+                                // que importa para registrarla.
+                                Text(Formato.distanciaCubierta(candidate.distanceM)
+                                     .map { "Carrera · \($0)" } ?? "Carrera")
                                     .font(Theme.Typography.bodyEmph)
                                     .foregroundStyle(Theme.Color.foreground)
                                 Text(candidateSubtitle(candidate))

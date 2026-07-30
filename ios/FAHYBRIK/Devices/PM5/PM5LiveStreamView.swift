@@ -228,7 +228,7 @@ struct PM5LiveStreamView: View {
                     .foregroundStyle(Theme.Color.muted)
                 PM5ConnectGuide()
                 if store.hasRememberedDevice, let name = store.rememberedDeviceName {
-                    Text("Último usado: \(name) — tócalo en la lista cuando aparezca.")
+                    Text("Último usado: \(name). Tócalo en la lista cuando aparezca.")
                         .font(Theme.Typography.caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -345,28 +345,44 @@ struct PM5LiveStreamView: View {
                     Spacer()
                 }
                 HStack(spacing: 6) {
-                    livePill(label: "POTENCIA", value: store.live.powerWatts.map { "\($0) W" } ?? "—")
-                    livePill(label: "PALADAS", value: store.live.strokeRate.map { "\($0)" } ?? "—")
-                    livePill(label: "DISTANCIA", value: store.live.distanceMeters.map { Formato.entero($0, "m") } ?? "—")
+                    livePill(label: "POTENCIA", valor: store.live.powerWatts.map { "\($0) W" })
+                    livePill(label: "PALADAS", valor: store.live.strokeRate.map { "\($0)" })
+                    livePill(label: "DISTANCIA", valor: store.live.distanceMeters.map { Formato.entero($0, "m") })
                 }
             }
         }
     }
 
-    private func livePill(label: String, value: String) -> some View {
+    /// Acabas de conectar y el monitor todavía no ha dicho nada. Eso NO son tres
+    /// guiones: es que falta la primera palada, y decirlo es lo que hace que el
+    /// atleta la dé en vez de pensar que la conexión ha fallado (§7).
+    private static let sinLecturaMotivo = "esperando la primera palada"
+
+    /// `valor` nil = no hay medida: se pinta el porqué. Mismo contrato que `ApoyoVivo`
+    /// (Theme/LenguajeVivoUI.swift), en la voz de esta hoja.
+    private func livePill(label: String, valor: String?) -> some View {
         VStack(spacing: 2) {
             Text(label)
                 .font(.system(size: 9, weight: .semibold))
                 .uppercaseTracked()
                 .foregroundStyle(Theme.Color.muted)
-            Text(value)
-                .font(.system(size: 14, weight: .heavy, design: .default).italic().monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
+            if let valor {
+                Text(valor)
+                    .font(.system(size: 14, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+            } else {
+                Text(Self.sinLecturaMotivo)
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private func stateMessage<CTA: View>(
@@ -421,9 +437,15 @@ struct PM5SettingsView: View {
                             .font(Theme.Typography.dataLabel)
                             .uppercaseTracked()
                             .foregroundStyle(Theme.Color.muted)
-                        Text(store.rememberedDeviceName ?? "—")
-                            .font(Theme.Typography.bodyEmph)
-                            .foregroundStyle(Theme.Color.foreground)
+                        // Sin erg recordado no hay nombre que enseñar: el rótulo de
+                        // arriba ya lo dice y «Buscar y emparejar» es lo que se hace
+                        // al respecto, así que la línea desaparece en vez de dejar un
+                        // guion ocupando su sitio (§7).
+                        if let name = store.rememberedDeviceName {
+                            Text(name)
+                                .font(Theme.Typography.bodyEmph)
+                                .foregroundStyle(Theme.Color.foreground)
+                        }
                         if store.isConnected {
                             HStack(spacing: 6) {
                                 Circle().fill(Theme.Color.ok).frame(width: 8, height: 8)

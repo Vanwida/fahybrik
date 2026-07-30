@@ -13,8 +13,28 @@ struct AnalyticsCardView: View {
     /// Open the source-session list for a tapped aggregate.
     let onDrill: (DrillRef) -> Void
 
+    /// Las filas QUE TRAEN CIFRA. Una fila sin valor no es una fila a medias: es un
+    /// hueco, y un hueco no se pinta (§7). El backend las manda igualmente (la
+    /// cadencia del remo cuando el monitor no la reporta, la carga aguda sin reloj),
+    /// así que el filtro vive aquí y alimenta también a `hasContent`: si al quitarlas
+    /// no queda nada, la tarjeta cae al estado vacío, que sí dice qué falta.
+    private var filledRows: [CardRow] { card.rows.filter { $0.value != nil } }
+
+    /// El bloque principal existe si trae número O si trae su cifra de al lado (el
+    /// VDOT sigue siendo real aunque falte el umbral). Sin ninguno de los dos no hay
+    /// bloque: una unidad suelta («/km · Z4») no es un dato.
+    private var primary: CardPrimary? {
+        guard let p = card.primary, p.value != nil || p.side != nil else { return nil }
+        return p
+    }
+
+    /// La tarjeta declara un hueco cuando su número principal no existe. Entonces la
+    /// nota del backend es LA frase de la tarjeta (dice qué acto lo llena), y se
+    /// pinta aunque haya explicación: sin ella solo quedaría el título.
+    private var declaresGap: Bool { card.primary != nil && card.primary?.value == nil }
+
     private var hasContent: Bool {
-        card.primary != nil || !card.rows.isEmpty || !card.series.isEmpty || !card.zones.isEmpty
+        primary != nil || !filledRows.isEmpty || !card.series.isEmpty || !card.zones.isEmpty
     }
 
     var body: some View {
@@ -33,15 +53,18 @@ struct AnalyticsCardView: View {
         CardSurface(padding: 15) {
             VStack(alignment: .leading, spacing: 12) {
                 cardLabel
-                if let primary = card.primary { PrimaryBlock(primary: primary) }
+                if let primary = primary { PrimaryBlock(primary: primary) }
                 if !card.series.isEmpty { seriesChart }
-                if !card.rows.isEmpty { rowsBlock }
+                if !filledRows.isEmpty { rowsBlock }
                 if !card.zones.isEmpty { zonesBlock }
                 if let meaning = card.meaning_es, !meaning.isEmpty { MeaningNote(text: meaning) }
-                if let note = card.availability_note, !note.isEmpty, card.meaning_es == nil {
+                if let note = card.availability_note, !note.isEmpty,
+                   card.meaning_es == nil || declaresGap {
+                    // Cuando la nota explica el hueco habla con la misma voz que el
+                    // estado vacío; como pie de procedencia, se queda al fondo.
                     Text(note)
-                        .scaledFont(10, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.faint)
+                        .scaledFont(declaresGap ? 12 : 10, relativeTo: declaresGap ? .caption : .caption2)
+                        .foregroundStyle(declaresGap ? Theme.Color.muted : Theme.Color.faint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let drill = card.drill { ProvenanceChip(drill: drill) { onDrill(drill) } }
@@ -84,7 +107,7 @@ struct AnalyticsCardView: View {
 
     private var rowsBlock: some View {
         VStack(spacing: 0) {
-            ForEach(Array(card.rows.enumerated()), id: \.element.id) { idx, row in
+            ForEach(Array(filledRows.enumerated()), id: \.element.id) { idx, row in
                 if idx > 0 { Hairline() }
                 MetricRow(row: row, onDrill: onDrill)
             }
@@ -190,21 +213,20 @@ private struct PrimaryBlock: View {
     let primary: CardPrimary
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
+            // Sin cifra no se pinta ni la cifra ni su unidad: «/km · Z4» a solas no
+            // es un dato, es el hueco disfrazado. Lo que falta lo cuenta la nota de
+            // la tarjeta. La cifra de al lado sí sobrevive: es una medida real.
             if let value = primary.value {
                 Text(value)
                     .font(.system(size: 38, weight: .heavy).italic().monospacedDigit())
                     .foregroundStyle(Theme.Color.accentText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
-            } else {
-                Text("—")
-                    .font(.system(size: 38, weight: .heavy).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            if let unit = primary.unit, !unit.isEmpty {
-                Text(unit)
-                    .scaledFont(13, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.muted)
+                if let unit = primary.unit, !unit.isEmpty {
+                    Text(unit)
+                        .scaledFont(13, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
+                }
             }
             Spacer(minLength: 8)
             if let side = primary.side {
@@ -222,8 +244,11 @@ private struct PrimaryBlock: View {
 
     private var primaryAxLabel: String {
         var parts: [String] = []
-        if let v = primary.value { parts.append(v) }
-        if let u = primary.unit { parts.append(u) }
+        if let v = primary.value {
+            parts.append(v)
+            // La unidad se lee con su cifra o no se lee: sola no dice nada.
+            if let u = primary.unit { parts.append(u) }
+        }
         if let s = primary.side { parts.append("\(s.label) \(s.value)") }
         return parts.joined(separator: " ")
     }
@@ -249,16 +274,14 @@ private struct MetricRow: View {
                 }
             }
             Spacer(minLength: 8)
+            // Solo llegan aquí las filas con cifra: `filledRows` deja fuera los
+            // huecos, así que no hay caso «sin valor» que pintar.
             if let value = row.value {
                 Text(value)
                     .font(.system(size: 16, weight: .heavy).italic().monospacedDigit())
                     .foregroundStyle(row.accent ? Theme.Color.accentText : Theme.Color.foreground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-            } else {
-                Text("—")
-                    .font(.system(size: 16, weight: .heavy).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.faint)
             }
             if row.drill != nil {
                 Image(systemName: "chevron.right")

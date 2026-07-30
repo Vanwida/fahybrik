@@ -259,12 +259,8 @@ struct ExecutedWorkoutView: View {
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        MonoText(
-                            text: row.result,
-                            size: 11,
-                            color: row.hasResult ? Theme.Color.muted : Theme.Color.faint
-                        )
-                        .multilineTextAlignment(.trailing)
+                        MonoText(text: row.result, size: 11, color: Theme.Color.muted)
+                            .multilineTextAlignment(.trailing)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 9)
@@ -275,15 +271,50 @@ struct ExecutedWorkoutView: View {
 
     // MARK: - Erg interval table (#33 — ErgData-style)
 
-    // Erg segments (row / ski / bike) whose monitor reported a split table.
+    // Erg segments (row / ski / bike) whose monitor reported a split table WITH at
+    // least one measured column. Un monitor que solo devolvió el índice de las
+    // series no tiene tabla que enseñar, y una rejilla de guiones no es una tabla.
     private var ergIntervalSegments: [SegmentActualDTO] {
         (execution?.segments ?? []).filter { seg in
-            ["row", "ski", "bike"].contains(seg.modality) && (seg.ergSplits?.isEmpty == false)
+            ["row", "ski", "bike"].contains(seg.modality)
+                && !Self.ergColumnas(seg.ergSplits ?? []).isEmpty
         }
+    }
+
+    // Las columnas que ESTOS intervalos midieron de verdad. Un monitor que no
+    // reporta cadencia no deja una columna de guiones: deja de haber columna (§7).
+    private enum ErgColumna: CaseIterable {
+        case tiempo, distancia, ritmo, cadencia, calorias
+
+        var titulo: String {
+            switch self {
+            case .tiempo:    return "Tiempo"
+            case .distancia: return "Dist"
+            case .ritmo:     return Formato.UnidadRitmo.por500m.rawValue
+            case .cadencia:  return "s/m"
+            case .calorias:  return "Cal"
+            }
+        }
+
+        /// Lo que este intervalo midió en esta columna, o nil si el monitor no lo dio.
+        func valor(_ s: ErgSplitActual) -> String? {
+            switch self {
+            case .tiempo:    return s.timeSeconds.map { Formato.clock($0) }
+            case .distancia: return s.distanceMeters.map { "\(Int($0))" }
+            case .ritmo:     return s.avgPaceSPer500m.map { Formato.ritmoCifras(Double(Int($0.rounded()))) }
+            case .cadencia:  return s.strokeRateSpm.map { "\($0)" }
+            case .calorias:  return s.calories.map { "\($0)" }
+            }
+        }
+    }
+
+    private static func ergColumnas(_ splits: [ErgSplitActual]) -> [ErgColumna] {
+        ErgColumna.allCases.filter { col in splits.contains { col.valor($0) != nil } }
     }
 
     private func ergIntervalsCard(_ seg: SegmentActualDTO) -> some View {
         let splits = seg.ergSplits ?? []
+        let columnas = Self.ergColumnas(splits)
         return CardSurface(padding: 0) {
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -296,10 +327,10 @@ struct ExecutedWorkoutView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 Hairline()
-                ergHeaderRow
+                ergHeaderRow(columnas)
                 ForEach(splits) { s in
                     Hairline().opacity(0.4)
-                    ergDataRow(s)
+                    ergDataRow(s, columnas)
                 }
                 if let footer = ergFooterText(seg) {
                     Hairline()
@@ -314,29 +345,25 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    // Column header: #, time, distance, /500m, spm, calories — the ErgData columns.
-    private var ergHeaderRow: some View {
+    // Column header: # plus the ErgData columns this monitor actually measured.
+    private func ergHeaderRow(_ columnas: [ErgColumna]) -> some View {
         HStack(spacing: 6) {
             ergCol("#", fixed: true, .leading)
-            ergCol("Tiempo", .trailing)
-            ergCol("Dist", .trailing)
-            ergCol(Formato.UnidadRitmo.por500m.rawValue, .trailing)
-            ergCol("s/m", .trailing)
-            ergCol("Cal", .trailing)
+            ForEach(columnas, id: \.self) { col in
+                ergCol(col.titulo, .trailing)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
     }
 
-    private func ergDataRow(_ s: ErgSplitActual) -> some View {
+    private func ergDataRow(_ s: ErgSplitActual, _ columnas: [ErgColumna]) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 ergVal("\(s.index)", fixed: true, .leading, accent: true)
-                ergVal(s.timeSeconds.map { Formato.clock($0) } ?? "—", .trailing)
-                ergVal(s.distanceMeters.map { "\(Int($0))" } ?? "—", .trailing)
-                ergVal(s.avgPaceSPer500m.map { Formato.ritmoCifras(Double(Int($0.rounded()))) } ?? "—", .trailing)
-                ergVal(s.strokeRateSpm.map { "\($0)" } ?? "—", .trailing)
-                ergVal(s.calories.map { "\($0)" } ?? "—", .trailing)
+                ForEach(columnas, id: \.self) { col in
+                    ergVal(col.valor(s), .trailing)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -378,9 +405,12 @@ struct ExecutedWorkoutView: View {
         }
     }
 
+    // Nil = este intervalo no midió esta columna. La celda se queda VACÍA: la
+    // columna existe porque otros intervalos sí la midieron, y este no. Ni guion
+    // ni cero (§7).
     @ViewBuilder
-    private func ergVal(_ text: String, fixed: Bool = false, _ align: Alignment, accent: Bool = false) -> some View {
-        let val = MonoText(text: text, size: 11, color: accent ? Theme.Color.accentText : Theme.Color.foreground)
+    private func ergVal(_ text: String?, fixed: Bool = false, _ align: Alignment, accent: Bool = false) -> some View {
+        let val = MonoText(text: text ?? "", size: 11, color: accent ? Theme.Color.accentText : Theme.Color.foreground)
         if fixed {
             val.frame(width: Self.ergIndexColWidth, alignment: align)
         } else {
@@ -802,7 +832,7 @@ struct ExecutedWorkoutView: View {
     }
 
     /// The "how did it go" numbers, built ONLY from what was measured. An empty
-    /// array means the block isn't drawn at all — no grid of dashes.
+    /// array means the block isn't drawn at all — never an empty grid.
     private var effortMetrics: [(label: String, value: String, unit: String)] {
         var out: [(String, String, String)] = []
         if let hr = avgHrBpm { out.append((Vocab.fcMedia, "\(hr)", Vocab.ppm)) }
@@ -873,47 +903,55 @@ struct ExecutedWorkoutView: View {
     //
     // RPE, how hard it felt against the prescription, and any niggle. The last
     // two are collected at save time (#58) and were stored and never shown back.
-    // RPE that was never answered reads "—", never a number nobody chose.
+    //
+    // Un RPE que nadie contestó NO se pinta. Esta pantalla es de solo lectura y no
+    // hay forma de contestarlo ahora, así que declarar el hueco sería ruido gris:
+    // se calla y la tarjeta enseña lo que sí se sabe (§6.2 bis). Si no hay ninguna
+    // de las tres cosas, la tarjeta no existe.
 
     @ViewBuilder
     private var feedbackCard: some View {
+        let rpe = execution?.perceivedExertion
         let difficulty = difficultyLabel
         let pain = painLabel
-        if execution?.perceivedExertion != nil || difficulty != nil || pain != nil {
+        if rpe != nil || difficulty != nil || pain != nil {
             CardSurface(padding: 10) {
                 VStack(alignment: .leading, spacing: 8) {
                     LabelText(text: "Cómo fue", size: 9)
-                    HStack(alignment: .top, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                                MonoText(
-                                    text: execution?.perceivedExertion.map { "\($0)" } ?? "—",
-                                    size: 22,
-                                    weight: .heavy,
-                                    color: execution?.perceivedExertion == nil
-                                        ? Theme.Color.faint : Theme.Color.foreground
-                                )
-                                if execution?.perceivedExertion != nil {
-                                    MonoText(text: "/10", size: 11, color: Theme.Color.muted)
+                    // Con solo la molestia que apuntó el atleta, esta fila no existe:
+                    // no deja un renglón en blanco esperando datos que no hay.
+                    if rpe != nil || difficulty != nil {
+                        HStack(alignment: .top, spacing: 10) {
+                            if let rpe {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                        MonoText(text: "\(rpe)", size: 22, weight: .heavy)
+                                        MonoText(text: "/10", size: 11, color: Theme.Color.muted)
+                                    }
+                                    LabelText(text: Vocab.rpe, size: 9)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            if let difficulty {
+                                // Sola en la tarjeta se lee a la izquierda: una única
+                                // lectura colgando del borde derecho parece un resto.
+                                VStack(alignment: rpe == nil ? .leading : .trailing, spacing: 2) {
+                                    Text(difficulty)
+                                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                                        .foregroundStyle(Theme.Color.foreground)
+                                    LabelText(text: "Dificultad", size: 9)
                                 }
                             }
-                            LabelText(
-                                text: execution?.perceivedExertion == nil ? "RPE · sin registrar" : "RPE",
-                                size: 9
-                            )
-                        }
-                        if let difficulty {
-                            Spacer(minLength: 0)
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(difficulty)
-                                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                LabelText(text: "Dificultad", size: 9)
-                            }
+                            // Con las dos lecturas, el hueco de en medio las separa a
+                            // los dos bordes; con una sola, sobra a la derecha para
+                            // que no quede centrada en mitad de la tarjeta.
+                            if rpe == nil || difficulty == nil { Spacer(minLength: 0) }
                         }
                     }
                     if let pain {
-                        Hairline()
+                        // Sin nada encima, la molestia es lo único de la tarjeta y no
+                        // hace falta separarla de nada.
+                        if rpe != nil || difficulty != nil { Hairline() }
                         HStack(alignment: .top, spacing: 6) {
                             Image(systemName: "bandage")
                                 .font(.system(size: 11, weight: .semibold))
@@ -954,6 +992,11 @@ struct ExecutedWorkoutView: View {
     // Join the prescribed items (workout blocks) with the logged actuals by uid,
     // so each row reads "ejercicio · lo que hizo". Falls back to listing unmatched
     // actuals (a free workout / lap with no template item) so nothing is dropped.
+    //
+    // Un ejercicio prescrito SIN registro no da fila. Esta pantalla es un registro
+    // de lo hecho, y un nombre con una raya al lado no es un dato: es una etiqueta
+    // huérfana que además ya no se puede llenar (§6.2 bis). Distinto es el que SÍ
+    // se registró pero sin números — ese se hizo, y así se dice.
     private var perSegmentRows: [SegmentRowVM]? {
         guard let exec = execution else { return nil }
         let actualsByUid: [String: SegmentActualDTO] = Dictionary(
@@ -966,16 +1009,15 @@ struct ExecutedWorkoutView: View {
         if let blocks = detail?.workout?.blocks {
             for block in blocks {
                 for item in block.items {
-                    let actual = actualsByUid[item.uid]
-                    if actual != nil { usedUids.insert(item.uid) }
-                    let tokens = actual.map(Self.tokens) ?? []
+                    guard let actual = actualsByUid[item.uid] else { continue }
+                    usedUids.insert(item.uid)
+                    let tokens = Self.tokens(actual)
                     rows.append(
                         SegmentRowVM(
                             id: item.uid,
                             name: item.exerciseName,
-                            result: tokens.isEmpty ? "—" : tokens.joined(separator: " · "),
-                            hasResult: !tokens.isEmpty,
-                            device: actual?.source.flatMap(Self.deviceName)
+                            result: tokens.isEmpty ? "hecho" : tokens.joined(separator: " · "),
+                            device: actual.source.flatMap(Self.deviceName)
                         )
                     )
                 }
@@ -993,7 +1035,6 @@ struct ExecutedWorkoutView: View {
                     id: "seg-\(seg.position)",
                     name: Theme.Modality.label(seg.modality),
                     result: tokens.joined(separator: " · "),
-                    hasResult: true,
                     device: seg.source.flatMap(Self.deviceName)
                 )
             )
@@ -1037,8 +1078,10 @@ struct ExecutedWorkoutView: View {
     struct SegmentRowVM: Identifiable {
         let id: String
         let name: String
+        /// Lo que quedó registrado. Una fila SIEMPRE trae resultado: la que no
+        /// tenía ninguno no llega hasta aquí. Llevaba además un `hasResult` que
+        /// solo servía para saber si el resultado era el guion.
         let result: String
-        let hasResult: Bool
         /// Human name of the kit that measured this leg; nil when none did.
         var device: String? = nil
     }

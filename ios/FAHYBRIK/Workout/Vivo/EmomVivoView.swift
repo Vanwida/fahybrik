@@ -184,7 +184,7 @@ struct EmomVivoView<Cromo: View>: View {
                 hecho: nil,
                 objetivo: nil,
                 unidad: nil,
-                dosis: itv.work == "—" ? nil : itv.work)
+                dosis: itv.work)
     }
 
     // MARK: - Los apoyos — la traza de rondas, y lo que viene
@@ -239,7 +239,8 @@ struct EmomVivoView<Cromo: View>: View {
         guard let sig = plan.interval(i + 1),
               let act = plan.interval(i),
               sig.movement != act.movement else { return nil }
-        return sig.work != "—" ? "\(sig.work) · \(sig.movement)" : sig.movement
+        guard let work = sig.work else { return sig.movement }
+        return "\(work) · \(sig.movement)"
     }
 }
 

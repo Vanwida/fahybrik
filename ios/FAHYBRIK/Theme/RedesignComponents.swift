@@ -303,19 +303,19 @@ struct StationTimeRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             // El dato pesa más que su etiqueta (contrato §4): la hora va por
             // encima de los 12 pt del rótulo, y el delta secundario por debajo.
-            MonoText(
-                text: time ?? "—",
-                size: 13,
-                weight: .bold,
-                color: time == nil ? Theme.Color.faint : Theme.Color.foreground
-            )
-            MonoText(
-                text: delta ?? "—",
-                size: 11,
-                weight: .bold,
-                color: Theme.Color.faint
-            )
-            .frame(width: 44, alignment: .trailing)
+            // Sin tiempo y sin delta NO se pinta nada: esta fila nació justamente
+            // para no rellenar un hueco con media barra (§7), y lo estaba
+            // rellenando con dos guiones. El ancho fijo del delta se queda para
+            // que las filas de al lado sigan cuadrando.
+            if let time {
+                MonoText(text: time, size: 13, weight: .bold, color: Theme.Color.foreground)
+            }
+            if let delta {
+                MonoText(text: delta, size: 11, weight: .bold, color: Theme.Color.faint)
+                    .frame(width: 44, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: 44, height: 1)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label), \(time ?? "sin tiempo")")

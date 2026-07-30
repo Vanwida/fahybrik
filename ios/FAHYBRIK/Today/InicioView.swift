@@ -650,13 +650,17 @@ struct InicioView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(readinessAxLabel)
         } else {
-            // Not yet loaded (rare with cache-first) — stable placeholder.
+            // Not yet loaded (rare with cache-first). Ni cifra ni invitación:
+            // todavía no sabemos cuál de las dos toca, así que el hueco se pinta
+            // como lo que es con el mismo `redacted` de FilaDato. Un guion aquí
+            // diría que no hay dato, y eso aún no lo sabemos.
             CardSurface(padding: Theme.Spacing.l) {
                 VStack(alignment: .leading, spacing: 14) {
                     LabelText(text: "¿Cómo llegas hoy?")
-                    Text("—")
+                    Text("00")
                         .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
                         .foregroundStyle(Theme.Color.faint)
+                        .redacted(reason: .placeholder)
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -1321,6 +1325,9 @@ struct InicioView: View {
     private enum StepsDisplay {
         case count(String)
         case connect
+        /// Salud todavía no ha contestado. No es lo mismo que no tener pasos.
+        case leyendo
+        /// Salud contestó y no hay muestras de hoy.
         case empty
         var isConnect: Bool { if case .connect = self { return true } else { return false } }
     }
@@ -1334,7 +1341,9 @@ struct InicioView: View {
         case .unavailable:
             return .connect
         case nil:
-            return .empty
+            // Aún no hemos preguntado. Antes caía en `empty` y salía un guion: eso
+            // afirma que no hay pasos, que es justo lo que todavía no sabemos.
+            return .leyendo
         }
     }
 
@@ -1386,9 +1395,17 @@ struct InicioView: View {
                     .font(.system(size: 10, weight: .semibold))
             }
             .foregroundStyle(Theme.Color.accentText)
-        case .empty:
-            Text("—")
+        case .leyendo:
+            // Mientras Salud contesta, el hueco se pinta como lo que es.
+            Text("0.000")
                 .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.faint)
+                .redacted(reason: .placeholder)
+        case .empty:
+            // Salud no tiene muestras de hoy. No es un cero medido: puede que el
+            // reloj no haya sincronizado, así que se dice, no se cifra.
+            Text("sin datos todavía")
+                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.faint)
         }
     }
@@ -1397,6 +1414,7 @@ struct InicioView: View {
         switch display {
         case .count(let text): return "Pasos hoy, \(text)"
         case .connect:         return "Pasos hoy. Conecta Apple Salud para ver tus pasos"
+        case .leyendo:         return "Pasos hoy, cargando"
         case .empty:           return "Pasos hoy, sin datos todavía"
         }
     }

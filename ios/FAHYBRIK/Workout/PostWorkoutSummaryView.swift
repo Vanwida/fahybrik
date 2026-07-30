@@ -87,7 +87,8 @@ struct PostWorkoutSummaryView: View {
 
     // MANUAL FALLBACK (no wearable). Optional session HR the athlete enters when
     // no strap fed the workout; injected onto every lap that lacks measured HR so
-    // a failed wearable never loses the record. Shown only when `!hasHRData`.
+    // a failed wearable never loses the record. Se ofrece POR MÉTRICA: la que el
+    // reloj no dejó, aunque haya dejado la otra.
     @State private var manualAvgHR: Int? = nil
     @State private var manualMaxHR: Int? = nil
     // Per-segment manually-entered pace, keyed by segment id. Stored in the
@@ -202,11 +203,7 @@ struct PostWorkoutSummaryView: View {
                         if let coverage = zoneCoverage {
                             zonesStackedBar(coverage)
                         }
-                        if hasHRData {
-                            metricTiles
-                        } else {
-                            manualHRCard
-                        }
+                        hrSection
                         // La tabla se pinta cuando tiene MÁS DE UNA FILA que enseñar.
                         // Antes preguntaba `segments.count > 1` — por bloques, no por
                         // filas —, y por eso quien acababa una serie suelta (un
@@ -813,16 +810,62 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // MARK: - HR metric tiles
+    // MARK: - La FC de la sesión: lo medido y lo declarable, en una sola sección
     //
     // Only the metrics we actually measure: avg + max HR from the strap.
     // Decoupling / recovery / power require sensor streams we don't capture
     // yet, so we don't fabricate them.
+    //
+    // Las casillas y el formulario a mano eran ramas EXCLUYENTES (`hasHRData ?
+    // tiles : formulario`), y ahí estaba el fallo: una sesión que dejó la máxima
+    // pero no la media enseñaba un guion en la media Y no daba forma de anotarla,
+    // porque el formulario solo salía cuando faltaban las dos. Ahora conviven.
+    //
+    // Y sí es declarable, aunque el entreno haya terminado: el overlay que se envía
+    // rellena hueco a hueco (`avg_hr: lap.avgHRBpm ?? manual`) y se manda SIEMPRE,
+    // así que anotar una nunca pisa la que sí se midió. Como llenarlo cuesta un
+    // toque, se declara en vez de callarse (§6.2 bis).
+    private var hrSection: some View {
+        VStack(spacing: 6) {
+            if hasHRData { metricTiles }
+            if !faltanPorDeclarar.isEmpty { declararFCCard }
+        }
+    }
+
+    /// Las dos FC de sesión. Una sola fuente para nombrarlas, leerlas y escribirlas:
+    /// tenerlas escritas tres veces es lo que dejó el caso a medias sin cubrir.
+    private enum MetricaFC: CaseIterable {
+        case media, maxima
+        var etiqueta: String { self == .media ? Vocab.fcMedia : Vocab.fcMax }
+    }
+
+    private func medida(_ m: MetricaFC) -> Int? {
+        switch m {
+        case .media:  return avgHRBpm
+        case .maxima: return maxHRBpm
+        }
+    }
+
+    private func declaracion(_ m: MetricaFC) -> Binding<Int?> {
+        switch m {
+        case .media:  return $manualAvgHR
+        case .maxima: return $manualMaxHR
+        }
+    }
+
+    private var faltanPorDeclarar: [MetricaFC] {
+        MetricaFC.allCases.filter { medida($0) == nil }
+    }
+
+    /// Solo lo que midió el reloj. La que falta no deja casilla: baja al formulario
+    /// de abajo, que es donde el atleta puede hacer algo con ella.
     private var metricTiles: some View {
-        let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
-        return LazyVGrid(columns: cols, spacing: 6) {
-            ExpertCell(label: Vocab.fcMedia, value: avgHRBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm)
-            ExpertCell(label: Vocab.fcMax, value: maxHRBpm.map { "\($0)" } ?? "—", unit: Vocab.ppm)
+        HStack(spacing: 6) {
+            ForEach(MetricaFC.allCases.filter { medida($0) != nil }, id: \.self) { m in
+                ExpertCell(label: m.etiqueta,
+                           value: medida(m).map { "\($0)" },
+                           unit: Vocab.ppm)
+            }
         }
     }
 
@@ -833,25 +876,27 @@ struct PostWorkoutSummaryView: View {
     }
     private var maxHRBpm: Int? { session.laps.compactMap(\.maxHRBpm).max() }
 
-    // MARK: - Manual HR fallback (no wearable)
+    // MARK: - Lo que el reloj no dejó, y el atleta sí sabe
     //
-    // Rendered in place of the HR tiles when no strap fed the session. Both
-    // fields are optional — the athlete fills in whatever they know off a watch
+    // Fields are optional — the athlete fills in whatever they know off a watch
     // that didn't sync. The value is wired into the execution payload at save.
-    private var manualHRCard: some View {
+    private var declararFCCard: some View {
         CardSurface(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
                     LabelText(text: "Frecuencia cardiaca", size: 9)
-                    Text("Sin pulsómetro. Anótala a mano si la conoces.")
+                    Text(hasHRData
+                         ? "Esta el reloj no la dejó. Anótala si la conoces."
+                         : "Sin pulsómetro. Anótala a mano si la conoces.")
                         .scaledFont(11, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.faint)
                 }
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-                IntRow(label: Vocab.fcMedia, unit: Vocab.ppm, value: $manualAvgHR)
-                IntRow(label: Vocab.fcMax, unit: Vocab.ppm, value: $manualMaxHR)
+                ForEach(faltanPorDeclarar, id: \.self) { m in
+                    IntRow(label: m.etiqueta, unit: Vocab.ppm, value: declaracion(m))
+                }
             }
         }
     }

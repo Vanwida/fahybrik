@@ -44,14 +44,16 @@ struct AthleteIdentity: Codable {
     /// that is precisely the bug this field replaced.
     let hrZones: HRZoneProfile?
 
+    /// Las iniciales del avatar. VACÍA cuando todavía no hay nombre: no hay
+    /// iniciales que enseñar, y un guion dentro de un círculo no es un dato del
+    /// atleta (§7). Es el estado que `CoachAvatar` ya resuelve con la silueta.
     var initials: String {
         let parts = fullName
             .split(separator: " ")
             .prefix(2)
             .compactMap { $0.first }
             .map(String.init)
-        let joined = parts.joined().uppercased()
-        return joined.isEmpty ? "—" : joined
+        return parts.joined().uppercased()
     }
 
     /// Whole-years age derived from `dob` (YYYY-MM-DD). Nil when dob is absent

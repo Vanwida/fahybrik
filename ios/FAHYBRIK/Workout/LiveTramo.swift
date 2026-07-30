@@ -97,11 +97,7 @@ struct LiveTramo: Equatable {
     /// The work of this window as the athlete reads it ("500 m", "15 cal", "0:40"),
     /// or nil when nothing measurable is prescribed — never a placeholder dash, so
     /// a caller can decide to show nothing rather than a fake value.
-    var workLine: String? {
-        guard let measure else { return nil }
-        let s = PrescriptionSet.emomWorkString(measure)
-        return s == "—" ? nil : s
-    }
+    var workLine: String? { PrescriptionSet.emomWorkString(measure) }
 
     // MARK: - When a station ends by itself
     //

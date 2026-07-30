@@ -19,7 +19,12 @@ enum WatchFormat {
     /// `CountdownFormat.mirrored`, called directly from MirrorHUDView.
     static func countdown(_ seconds: Double) -> String { CountdownFormat.standalone(seconds) }
 
-    /// Pace seconds → "m:ss" (e.g. 278 → "4:38"). Nil-safe caller shows a dash.
+    /// Pace seconds → "m:ss" (e.g. 278 → "4:38").
+    ///
+    /// Con un ritmo medido delante SIEMPRE sabe escribirlo, así que nunca devuelve
+    /// hueco. El llamante que TODAVÍA no tiene ritmo no pinta un guion: degrada a la
+    /// siguiente verdad (el reloj del tramo) y lo dice en la etiqueta — ver
+    /// `StructuredRunLiveView.lecturaDelTramo` y `MirrorHUDView.lecturaDeCinta`.
     static func pace(_ secondsPerUnit: Int) -> String {
         Formato.ritmoCifras(Double(secondsPerUnit))
     }
@@ -30,10 +35,33 @@ enum WatchFormat {
     static func kg(_ value: Double) -> String { Formato.esDecimal(value) }
 }
 
+// MARK: - Por qué no hay dato
+
+/// Las razones ciertas de que un dato en vivo todavía no exista EN LA MUÑECA.
+///
+/// §7 del contrato de UI: lo que no se sabe no se pinta — se pinta la razón, que es
+/// lo único accionable. Aquí «sin reloj» nunca vale como razón: el reloj ES el
+/// dispositivo. Vive aquí porque la dicen tres sitios (la pastilla de pulso, la celda
+/// de FC del rodaje y el encabezado de la barra de zona) y antes cada uno se
+/// inventaba su propio `?? "—"`.
+///
+/// PENDIENTE: su sitio natural es `Vocab` (`Theme/Formato.swift`, ya compilado en el
+/// reloj); no se movió ahí para no tocar la app del teléfono en esta tanda.
+enum WatchSinDato {
+    /// El sensor de la muñeca aún no ha entregado una pulsación.
+    static let pulso = "buscando pulso"
+}
+
 // MARK: - Giant numeral
 
 /// The number protagonista — heavy, italic, tabular, auto-scaling to fill the
 /// wrist. `unit` rides small alongside ("/km", "kg").
+///
+/// `text` NO es opcional a propósito: a 72 pt no cabe una frase, así que el hueco no
+/// se resuelve aquí. Cuando la medida todavía no existe, **degrada el llamante** a la
+/// siguiente verdad que sí conoce (el reloj del tramo) y cambia LA ETIQUETA con ella —
+/// mismo criterio que `OutdoorRunHUDView.lecturaViva` en el teléfono. Dejar «Ritmo»
+/// encima de un cronómetro miente igual que pintar un guion.
 struct GiantNumber: View {
     let text: String
     var size: CGFloat = 72
@@ -127,19 +155,36 @@ struct BigTapButton: View {
 
 // MARK: - HR pill
 
-/// Compact heart-rate readout with a zone-colored dot. Shows a dash when no HR is
-/// streaming yet (honest — never a fabricated number).
+/// Compact heart-rate readout with a zone-colored dot.
+///
+/// Sin pulso NO pinta un guion. No fabricar el número estaba bien, pero el guion
+/// tampoco era honesto: no dice nada y a 40 mm ocupa el sitio de lo único accionable,
+/// que es POR QUÉ no hay dato (§7). Ahora pinta la razón, y el punto de zona
+/// desaparece con ella — su color ES el dato, y sin pulso no hay zona que colorear.
 struct HRPill: View {
     let bpm: Int?
     let zoneColor: Color
+    /// Lo que se dice mientras no llega la primera pulsación.
+    var ausente: String = WatchSinDato.pulso
 
     var body: some View {
         HStack(spacing: 5) {
-            Circle().fill(zoneColor).frame(width: 8, height: 8)
-            Text(bpm.map(String.init) ?? "—")
-                .font(.system(size: 13, weight: .heavy).monospacedDigit())
-                .foregroundStyle(WatchTheme.ink)
+            if let bpm {
+                Circle().fill(zoneColor).frame(width: 8, height: 8)
+                Text("\(bpm)")
+                    .font(.system(size: 13, weight: .heavy).monospacedDigit())
+                    .foregroundStyle(WatchTheme.ink)
+            } else {
+                Text(ausente)
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(WatchTheme.dim)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
+        // VoiceOver leyendo «raya» es la misma mentira que pintarla.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(bpm.map { "\(Vocab.fc), \($0) \(Vocab.ppm)" } ?? "\(Vocab.fc), \(ausente)")
     }
 }
 
@@ -147,32 +192,57 @@ struct HRPill: View {
 
 /// One small secondary metric (DIST / FC / KCAL / CARGA …). Up to three sit in a
 /// row under the hero; the hero always dominates.
+///
+/// `ausente` es el §7 hecho pieza, igual que `ApoyoVivo` y `ExpertCell` en el
+/// teléfono: sin medida no se pinta el hueco, se pinta la RAZÓN. La celda nació sin
+/// estado ausente y por eso cada llamante se inventaba su propio `?? "—"`.
 struct MetricTile: View {
     let label: String
-    let value: String
+    /// Nil = no hay medida. No se pinta el hueco: se pinta el porqué.
+    let value: String?
     var unit: String? = nil
+    /// Lo que se dice cuando el valor no existe («buscando pulso»).
+    var ausente: String? = nil
 
     var body: some View {
         VStack(spacing: 1) {
             WatchLabel(text: label)
                 .font(.system(size: 8.5, weight: .heavy))
-            HStack(alignment: .lastTextBaseline, spacing: 1) {
-                Text(value)
-                    .font(.system(size: 16, weight: .heavy).monospacedDigit())
-                    .foregroundStyle(WatchTheme.ink)
-                if let unit {
-                    Text(unit)
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
+            if let value {
+                HStack(alignment: .lastTextBaseline, spacing: 1) {
+                    Text(value)
+                        .font(.system(size: 16, weight: .heavy).monospacedDigit())
+                        .foregroundStyle(WatchTheme.ink)
+                    if let unit {
+                        Text(unit)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(WatchTheme.dim)
+                    }
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            } else {
+                Text(ausente ?? "sin medir")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(WatchTheme.dim)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .background(WatchTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        // VoiceOver leyendo «raya» es la misma mentira que pintarla.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(textoAccesible)
+    }
+
+    private var textoAccesible: String {
+        guard let value else { return "\(label), \(ausente ?? "sin medir")" }
+        guard let unit else { return "\(label), \(value)" }
+        return "\(label), \(value) \(unit)"
     }
 }
 

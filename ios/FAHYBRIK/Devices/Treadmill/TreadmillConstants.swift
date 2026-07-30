@@ -55,7 +55,8 @@ extension BluetoothAvailability {
 
 enum TreadmillConstants {
     /// Below this belt speed the treadmill is effectively stopped: pace is
-    /// undefined (a divide-by-zero) and must render as "—", never a huge number.
+    /// undefined (a divide-by-zero), so it comes back nil and the surface says the
+    /// belt is stopped — never a huge number, y nunca un guion (§7 del CONTRATO-UI).
     static let minMovingSpeedKmh: Double = 0.5
 
     // The single-pace judging tolerance moved to `PaceTarget.singleToleranceSecPerKm`

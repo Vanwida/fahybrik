@@ -191,16 +191,21 @@ private struct SessionRow: View {
 
     private var rowContent: some View {
         HStack(alignment: .center, spacing: 11) {
-            // Date stamp (day number + month).
+            // Date stamp (day number + month). La columna se reserva siempre para que
+            // la lista no se desalinee, pero una sesión sin fecha no pinta sello.
             VStack(spacing: 1) {
-                Text(dayNumber)
-                    .font(.system(size: 15, weight: .heavy).monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(monthLabel)
-                    .font(.system(size: 8, weight: .heavy))
-                    .tracking(0.4)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Theme.Color.faint)
+                if let day = dayNumber {
+                    Text(day)
+                        .font(.system(size: 15, weight: .heavy).monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                if let month = monthLabel {
+                    Text(month)
+                        .font(.system(size: 8, weight: .heavy))
+                        .tracking(0.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Theme.Color.faint)
+                }
             }
             .frame(width: 34)
 
@@ -242,21 +247,26 @@ private struct SessionRow: View {
         .contentShape(Rectangle())
     }
 
-    // Date parsing → "24" + "jun". Undated import → "—".
-    private var dayNumber: String {
-        guard let d = session.date, d.count >= 10 else { return "—" }
-        return String(Int(d.dropFirst(8).prefix(2)) ?? 0)
+    // Date parsing → "24" + "jun". An undated import has NO stamp: nil, y su columna
+    // se queda vacía. Devolver un guion (o el "0" que salía cuando el día no era un
+    // número) es inventarse una fecha con otra tipografía.
+    private var dayNumber: String? {
+        guard let d = session.date, d.count >= 10,
+              let day = Int(d.dropFirst(8).prefix(2)) else { return nil }
+        return String(day)
     }
-    private var monthLabel: String {
+    private var monthLabel: String? {
         guard let d = session.date, d.count >= 7,
-              let m = Int(d.dropFirst(5).prefix(2)), (1...12).contains(m) else { return "" }
+              let m = Int(d.dropFirst(5).prefix(2)), (1...12).contains(m) else { return nil }
         return Self.monthsEs[m - 1]
     }
     private static let monthsEs = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
     private var axLabel: String {
         var parts: [String] = []
-        if !dayNumber.isEmpty && dayNumber != "—" { parts.append("\(dayNumber) \(monthLabel)") }
+        if let day = dayNumber {
+            parts.append(monthLabel.map { "\(day) \($0)" } ?? day)
+        }
         parts.append(session.title_es)
         if let v = session.value { parts.append(v) }
         return parts.joined(separator: ", ")

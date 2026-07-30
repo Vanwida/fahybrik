@@ -4,8 +4,9 @@ import Foundation
 /// jittery to show raw, so this pure smoother averages the trustworthy speed fixes
 /// over a short rolling window → a stable-but-responsive sec/km. It is deliberately
 /// HONEST: a fix whose speed-accuracy CoreLocation can't vouch for is dropped, and
-/// when there's no trustworthy recent speed the pace is `nil` (the HUD shows "—",
-/// never a fabricated number). It also exposes the smoothed SPEED for auto-pause —
+/// when there's no trustworthy recent speed the pace is `nil` — nunca un número
+/// inventado. Quien pinta enseña entonces la RAZÓN (`GPSSignalQuality.label`), que
+/// es lo único accionable. It also exposes the smoothed SPEED for auto-pause —
 /// distinct from pace, because a confident near-zero speed is a valid "stopped"
 /// reading that pace intentionally suppresses.
 struct RunPaceSmoother {
@@ -18,11 +19,11 @@ struct RunPaceSmoother {
     /// adds the debounce on top, so 3 s of raw fixes is enough to see a real stop.
     static let speedWindowSeconds: TimeInterval = 3
     /// A speed fix is trusted only when CoreLocation's own speed-accuracy is at/under
-    /// this (m/s); above it (or negative = invalid) the sample is dropped. Weak signal
-    /// then reads "—", never an invented pace.
+    /// this (m/s); above it (or negative = invalid) the sample is dropped. Con la
+    /// señal floja no hay ritmo, y se dice que se está buscando.
     static let maxSpeedAccuracyMps: Double = 2.0
     /// Below this speed (m/s ≈ 2.5 km/h) the athlete is walking or stopped; a pace
-    /// derived from it reads as an absurd number, so the pace hero shows "—".
+    /// derived from it reads as an absurd number, so no pace is published at all.
     static let minPaceSpeedMps: Double = 0.7
 
     private var samples: [(t: TimeInterval, speed: Double)] = []
@@ -39,8 +40,8 @@ struct RunPaceSmoother {
     }
 
     /// The smoothed live pace (sec/km), or `nil` when there is no trustworthy recent
-    /// speed OR the athlete is essentially stopped → the HUD shows "—". Averaged over
-    /// the full pace window.
+    /// speed OR the athlete is essentially stopped → el HUD enseña la razón, no la
+    /// cifra. Averaged over the full pace window.
     func paceSecPerKm(now: TimeInterval) -> Int? {
         guard let avg = averageSpeed(now: now, window: Self.windowSeconds),
               avg >= Self.minPaceSpeedMps else { return nil }

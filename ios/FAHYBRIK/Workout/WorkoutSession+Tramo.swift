@@ -22,8 +22,12 @@ extension WorkoutSession {
     /// subdivides it, so every caller has a tramo — never an optional to unwrap.
     var currentTramo: LiveTramo {
         guard let seg = currentSegment else {
+            // Sin segmento no sabemos QUÉ hace, pero sí sabemos que está entrenando:
+            // eso es lo que se dice. Una raya aquí se pinta como si fuera el nombre
+            // del movimiento (§7) — y este label va al HUD, al espejo del reloj y a
+            // la presencia de dobles.
             return LiveTramo(segmentIndex: currentSegmentIndex, cursor: .segment,
-                             label: "—", modality: .other, measure: nil, boxedSeconds: nil)
+                             label: "Entreno", modality: .other, measure: nil, boxedSeconds: nil)
         }
         let i = currentSegmentIndex
         // EXTRA WORK. The prescription finished and the athlete chose to keep going,
@@ -189,7 +193,8 @@ extension WorkoutSession {
         let idx = tramoRoundIndex
         if let plan = seg?.emomPlan, idx + 1 < plan.intervalCount,
            let nxt = plan.interval(idx + 1) {
-            return nxt.work == "—" ? nxt.movement : "\(nxt.work) · \(nxt.movement)"
+            guard let work = nxt.work else { return nxt.movement }
+            return "\(work) · \(nxt.movement)"
         }
         if isRunStructureActive, let legs = currentRunLegs, idx + 1 < legs.count {
             return legs[idx + 1].isWork ? "tramo \(idx + 2)" : "recuperación"

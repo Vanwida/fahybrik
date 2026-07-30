@@ -196,9 +196,9 @@ struct ExerciseDetailView: View {
                     HStack(spacing: 0) {
                         detailSetCell("\(row.index)", width: 40, color: Theme.Color.faint)
                         detailSetCell(row.work, width: 56)
-                        detailSetCell(row.load ?? "—", color: row.load != nil ? Theme.Color.accentText : Theme.Color.faint)
-                        if showTempo { detailSetCell(row.tempo ?? "—", width: 64, color: row.tempo != nil ? Theme.Color.muted : Theme.Color.faint) }
-                        if showRest { detailSetCell(row.rest ?? "—", width: 52, color: row.rest != nil ? Theme.Color.muted : Theme.Color.faint) }
+                        detailSetCell(row.load, color: Theme.Color.accentText)
+                        if showTempo { detailSetCell(row.tempo, width: 64, color: Theme.Color.muted) }
+                        if showRest { detailSetCell(row.rest, width: 52, color: Theme.Color.muted) }
                     }
                     .padding(.vertical, 10)
                 }
@@ -218,8 +218,11 @@ struct ExerciseDetailView: View {
     }
 
     @ViewBuilder
-    private func detailSetCell(_ text: String, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
-        let cell = Text(text)
+    /// Una celda de la tabla de series. `nil` = ese set no declara ese campo, y
+    /// entonces la celda se queda VACÍA: la columna sigue alineada, pero no se
+    /// pinta un guion que se lee como si fuera el valor (§7).
+    private func detailSetCell(_ text: String?, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
+        let cell = Text(text ?? "")
             .font(.system(size: 13, weight: .medium, design: .monospaced))
             .foregroundStyle(color)
             .lineLimit(1)

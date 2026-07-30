@@ -180,7 +180,8 @@ final class LiveHeartRateProvider {
 
     /// Starts an anchored HR query bounded to the workout window. HealthKit never
     /// reveals READ authorization, so this is best-effort: if no wearable is
-    /// writing HR, no samples arrive and the HUD simply shows "—" (no fabrication).
+    /// writing HR, no samples arrive y el HUD dice «sin reloj» en vez de una cifra
+    /// (nunca se fabrica un pulso).
     func start(from startDate: Date) {
         // AUDIT-6 — idempotent: a second start (e.g. the wrist dropping mid-run) must
         // tear down the previous anchored query first, never leak a second one.

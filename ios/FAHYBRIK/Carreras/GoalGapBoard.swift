@@ -125,9 +125,13 @@ struct GoalGapBoard: View {
                 Spacer(minLength: 8)
                 HStack(spacing: 8) {
                     deltaText(segment.deltaS)
-                    Text(durationText(segment.predictedS))
-                        .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
+                    // Sin predicho no hay cifra que pintar: la fila se queda con
+                    // su nombre y su barra, que ya dicen la verdad (§7).
+                    if let predicho = durationText(segment.predictedS) {
+                        Text(predicho)
+                            .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
                 }
             }
             GapTrack(
@@ -162,13 +166,15 @@ struct GoalGapBoard: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.Color.faint)
             Spacer(minLength: 8)
-            Text(durationText(segment.predictedS))
-                .font(.system(size: 12, weight: .medium, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.muted)
+            if let predicho = durationText(segment.predictedS) {
+                Text(predicho)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.muted)
+            }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(segment.labelEs), \(durationText(segment.predictedS))")
+        .accessibilityLabel("\(segment.labelEs), \(durationText(segment.predictedS) ?? "sin tiempo")")
     }
 
     // No data yet — the row still holds its place: name, an italic "sin datos",
@@ -203,17 +209,17 @@ struct GoalGapBoard: View {
 
     // MARK: - Helpers
 
-    /// "—" when the value is absent (never a fabricated time), else the race
-    /// clock in running minutes ("63:45") — the sub-X frame speaks in minutes.
-    private func durationText(_ seconds: Int?) -> String {
-        guard let seconds else { return "—" }
-        return GoalGapFormat.raceClock(seconds)
+    /// El reloj de carrera en minutos corridos ("63:45") — el marco sub-X habla
+    /// en minutos. NIL cuando no hay tiempo: lo que no se sabe no se pinta (§7),
+    /// y decide qué decir en su lugar quien pinta, no el formateador.
+    private func durationText(_ seconds: Int?) -> String? {
+        seconds.map { GoalGapFormat.raceClock($0) }
     }
 
     private func rowAccessibilityLabel(_ segment: GoalGapSegment) -> String {
         var parts = [segment.labelEs]
         if let tier = segment.tierLabel { parts.append(tier) }
-        parts.append(durationText(segment.predictedS))
+        parts.append(durationText(segment.predictedS) ?? "sin tiempo")
         if let d = segment.deltaS, d != 0 {
             parts.append(d > 0
                 ? "faltan \(Formato.clock(Double(d)))"

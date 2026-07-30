@@ -73,7 +73,7 @@ final class DoblesJointTests: XCTestCase {
             title: "Sim", date: Date(), partnerFallback: nil))
         XCTAssertNil(data.selfSide.tonnageText)
         XCTAssertNil(data.selfSide.rpe)
-        XCTAssertEqual(data.selfSide.timeText, "—")
+        XCTAssertNil(data.selfSide.timeText)
         XCTAssertEqual(data.selfSide.name, "Tú")             // name null → self fallback
         XCTAssertTrue(data.partnerSide.hasPR)                // pr 2 → chip
         XCTAssertNil(data.partnerSide.tonnageText)

@@ -306,6 +306,20 @@ struct RegisterStrengthTestView: View {
         return "≈ \(value) kg"
     }
 
+    /// Lo que falta para que haya estimación, dicho como el acto que lo llena
+    /// (§6.2 bis). Nil cuando ya se puede estimar.
+    private var estimateMissing: String? {
+        if let reps, !repsRange.contains(reps) {
+            return "Las repeticiones van de \(repsRange.lowerBound) a \(repsRange.upperBound)"
+        }
+        switch ((weightKg ?? 0) <= 0, reps == nil) {
+        case (true, true):   return "Escribe el peso y las repeticiones"
+        case (true, false):  return "Escribe el peso que moviste"
+        case (false, true):  return "Escribe cuántas repeticiones hiciste"
+        case (false, false): return nil
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -387,8 +401,9 @@ struct RegisterStrengthTestView: View {
                 .foregroundStyle(Theme.Color.muted)
             VStack(spacing: 0) {
                 NumberRow(label: "Peso levantado", unit: "kg", value: $weightKg)
-                // The shared row both fields deserve: it has an EMPTY state ("—"),
-                // which a stepper does not.
+                // The shared row both fields deserve: it starts EMPTY (its text
+                // field shows the placeholder until you type), which a stepper
+                // parked on a number does not.
                 IntRow(label: "Repeticiones", unit: "", value: $reps)
             }
             .brandSurface()
@@ -405,9 +420,18 @@ struct RegisterStrengthTestView: View {
                 .font(Theme.Typography.dataLabel)
                 .uppercaseTracked()
                 .foregroundStyle(Theme.Color.muted)
-            Text(estimatePreview ?? "—")
-                .font(.system(size: 28, weight: .heavy, design: .default).italic().monospacedDigit())
-                .foregroundStyle(Theme.Color.accentText)
+            // Hasta que no están los dos datos no hay 1RM que estimar. En vez de
+            // una raya de 28 puntos, la línea dice qué falta por escribir.
+            if let preview = estimatePreview {
+                Text(preview)
+                    .font(.system(size: 28, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+            } else if let missing = estimateMissing {
+                Text(missing)
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text(hasCoach
                  ? "Estimación Epley al momento. Tu coach guarda el valor definitivo (puede usar otra fórmula)."
                  : "Estimación al momento. El valor definitivo se calcula al guardar.")

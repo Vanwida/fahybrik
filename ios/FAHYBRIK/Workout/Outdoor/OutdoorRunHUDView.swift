@@ -248,11 +248,20 @@ struct OutdoorRunHUDView: View {
                                            sufijo: Vocab.vsObjetivo,
                                            textoNulo: "en el objetivo"))
             }
-        } else {
+        } else if let ordenado = objetivo.label {
             // Todavía no hay ritmo medido: el sujeto es la ORDEN, no un número
             // que nadie ha medido (§7).
             EtiquetaSujeto(texto: Vocab.objetivo)
-            Numeral(texto: objetivo.label, unidad: Formato.UnidadRitmo.porKm.rawValue)
+            Numeral(texto: ordenado, unidad: Formato.UnidadRitmo.porKm.rawValue)
+            Text(model.gpsQuality.label)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+        } else {
+            // Ni ritmo medido ni objetivo legible (una banda sin valores usables).
+            // La siguiente verdad disponible es el reloj del tramo, que es lo único
+            // que la app sabe con certeza — la misma degradación de `lecturaViva`.
+            EtiquetaSujeto(texto: lecturaViva.etiqueta)
+            Numeral(texto: lecturaViva.texto, unidad: lecturaViva.unidad)
             Text(model.gpsQuality.label)
                 .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)

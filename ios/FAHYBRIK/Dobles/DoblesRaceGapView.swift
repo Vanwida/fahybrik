@@ -125,15 +125,29 @@ struct DoblesRaceGapSection: View {
         CardSurface(padding: 16, elevated: true) {
             VStack(alignment: .leading, spacing: 10) {
                 LabelText(text: "PREDICHO HOY · PAREJA")
-                Text(gap.predictedTotalS.map { GoalGapFormat.raceClock($0) } ?? "—")
-                    .font(.system(size: 40, weight: .heavy, design: .monospaced).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
+                // El sujeto es el predicho de la pareja. Sin él se declara qué
+                // falta y cómo se llena — es un acto que los dos pueden hacer
+                // (§6.2 bis) — en vez de un número de 40 pt que no existe.
+                if let predicho = gap.predictedTotalS.map({ GoalGapFormat.raceClock($0) }) {
+                    Text(predicho)
+                        .font(.system(size: 40, weight: .heavy, design: .monospaced).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                } else {
+                    Text("Todavía no podemos predecir vuestro tiempo.")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Necesitamos tiempos de estación de los dos. En cuanto los tengáis aparece aquí.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let goal = gap.goalS {
                     // El gap lo da el servidor, y sólo llega cuando hay predicho
                     // de verdad contra el que comparar (nunca un "justo" engañoso
-                    // con el número en "—").
+                    // sobre un predicho que no existe).
                     if let g = gap.gapS {
                         gapPill(g)
                     }
@@ -353,7 +367,10 @@ struct DoblesRaceGapSection: View {
         case "partner":  return "lo lleva \(partnerName)"
         case "together": return "juntos"
         case "split":
-            let pct = Int((max(0, min(1, seg.selfShare ?? 0.5)) * 100).rounded())
+            // Igual que el chip: sin reparto sabido, «repartida» — nunca un 50/50
+            // inventado (§7).
+            guard let share = seg.selfShare else { return "repartida" }
+            let pct = Int((max(0, min(1, share)) * 100).rounded())
             return "tú \(pct) por ciento"
         default:         return seg.carrier
         }

@@ -111,7 +111,16 @@ private struct ImportedRaceCard: View {
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 4) {
-                    MonoText(text: race.totalTimeText, size: 13, weight: .bold)
+                    // Sin marca importada, la fila dice que está pendiente — que es
+                    // lo mismo que ya decía VoiceOver, y un acto concreto que el
+                    // atleta puede hacer (§6.2 bis). Antes eran dos voces distintas.
+                    if let total = race.totalTimeText {
+                        MonoText(text: total, size: 13, weight: .bold)
+                    } else {
+                        Text("resultado pendiente")
+                            .scaledFont(11, weight: .semibold, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                     if hasSplits {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 10, weight: .semibold))
@@ -148,7 +157,7 @@ private struct ImportedRaceCard: View {
         var parts: [String] = [race.name, race.dateText, race.divisionLabel]
         if let tag = race.formatTag { parts.append(tag) }
         if let partners = race.partnersLabel { parts.append(partners) }
-        parts.append(race.result_time_seconds == nil ? "resultado pendiente" : race.totalTimeText)
+        parts.append(race.totalTimeText ?? "resultado pendiente")
         return parts.joined(separator: ", ")
     }
 
@@ -205,7 +214,11 @@ private struct ImportedRaceCard: View {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 6) {
                         ForEach(row, id: \.offset) { idx, secs in
-                            splitCell(label: "k\(idx + 1)", value: ImportedRace.splitText(secs))
+                            // Una vuelta que la importación no trajo no ocupa celda:
+                            // la rejilla se recoloca sola con los Spacer de abajo.
+                            if let lap = ImportedRace.splitText(secs) {
+                                splitCell(label: "k\(idx + 1)", value: lap)
+                            }
                         }
                         if row.count < 4 {
                             ForEach(0..<(4 - row.count), id: \.self) { _ in
@@ -222,13 +235,17 @@ private struct ImportedRaceCard: View {
         VStack(alignment: .leading, spacing: 7) {
             LabelText(text: race.is_team_result ? "Estaciones · equipo" : "Estaciones", size: 10)
             VStack(spacing: 6) {
+                // Sólo las estaciones cuyo parcial vino de verdad: una fila con el
+                // nombre y una raya al lado no es media fila, es un hueco (§6.2).
                 ForEach(workStations) { split in
-                    HStack(spacing: 8) {
-                        Text(HyroxStation.labels[split.index] ?? "Estación \(split.index)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.Color.muted)
-                        Spacer(minLength: 8)
-                        MonoText(text: ImportedRace.splitText(split.seconds), size: 11, weight: .medium)
+                    if let parcial = ImportedRace.splitText(split.seconds) {
+                        HStack(spacing: 8) {
+                            Text(HyroxStation.labels[split.index] ?? "Estación \(split.index)")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.Color.muted)
+                            Spacer(minLength: 8)
+                            MonoText(text: parcial, size: 11, weight: .medium)
+                        }
                     }
                 }
             }

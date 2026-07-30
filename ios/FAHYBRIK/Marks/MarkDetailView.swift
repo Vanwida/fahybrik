@@ -151,10 +151,12 @@ struct MarkDetailView: View {
         CardSurface(padding: 18) {
             VStack(spacing: 6) {
                 LabelText(text: mark.best == nil ? "Sin marca todavía" : "Tu mejor marca")
-                Text(mark.best.map { MarkFormat.value(mark, $0.value) } ?? "—")
-                    .font(Theme.Typography.readoutL)
-                    .foregroundStyle(Theme.Color.foreground)
+                // Sin marca no hay cifra que enseñar. El sitio del número lo ocupa
+                // la referencia de abajo, y el botón anclado es el acto que la llena.
                 if let best = mark.best {
+                    Text(MarkFormat.value(mark, best.value))
+                        .font(Theme.Typography.readoutL)
+                        .foregroundStyle(Theme.Color.foreground)
                     HStack(spacing: 6) {
                         if let pace = MarkFormat.paceLine(mark, best.value) {
                             Text(pace)
@@ -187,13 +189,20 @@ struct MarkDetailView: View {
         }
     }
 
+    /// Una de las dos mitades del récord por contexto. La que todavía no tienes se
+    /// declara (el botón anclado pregunta calle o cinta en cada intento, así que es
+    /// un hueco que llenas tú), pero se dice con palabras: donde va un tiempo no se
+    /// pinta un guion. Comparte la tipografía del valor para que las dos tarjetas
+    /// midan igual de alto.
     private func contextTile(_ title: String, result: MarkResult?, mark: MarkView) -> some View {
         CardSurface(padding: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 LabelText(text: title)
-                Text(result.map { MarkFormat.value(mark, $0.value) } ?? "—")
+                Text(result.map { MarkFormat.value(mark, $0.value) } ?? "Sin marca")
                     .font(.system(size: 17, weight: .bold, design: .monospaced))
                     .foregroundStyle(result == nil ? Theme.Color.faint : Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

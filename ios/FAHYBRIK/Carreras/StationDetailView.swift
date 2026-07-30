@@ -102,8 +102,11 @@ struct StationDetailView: View {
         if !d.trend.isEmpty {
             trendSection(d.trend)
         }
-        if !d.sub_metrics.isEmpty {
-            subMetrics(d.sub_metrics)
+        // La rejilla existe sólo si queda alguna sub-métrica MEDIDA: una rejilla
+        // de celdas huecas es peor que no tenerla (§7).
+        let medidas = measuredSubMetrics(d)
+        if !medidas.isEmpty {
+            subMetrics(medidas)
         }
         if !d.training.isEmpty {
             TrainingLinksList(title: "ENTRENOS QUE LA TRABAJAN", links: d.training)
@@ -114,49 +117,96 @@ struct StationDetailView: View {
     }
 
     // Tu última vs benchmark + delta + percentile, in a left-accented card.
+    //
+    // Cada pieza se pinta SOLO si existe (§7): sin tu tiempo la tarjeta se
+    // convierte en la invitación a conseguirlo — que es un acto concreto y está
+    // aquí mismo (§6.2 bis) —; sin benchmark no hay columna ni barra, porque una
+    // barra sin contra qué compararse insinúa un veredicto que nadie ha medido.
+    @ViewBuilder
     private func lastVsBenchmark(_ d: StationDetail) -> some View {
-        let severity = BenchmarkBarRow.Severity(wire: d.severity)
-        return CardSurface(padding: 15, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        LabelText(text: "TU ÚLTIMA", size: 10)
-                        Text(d.last_time ?? "—")
-                            .font(Theme.Typography.readoutM)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    Spacer(minLength: 12)
-                    VStack(alignment: .trailing, spacing: 3) {
-                        LabelText(text: "BENCHMARK", size: 10)
-                        MonoText(text: d.benchmark_time ?? "—", size: 18, weight: .bold, color: Theme.Color.muted)
-                    }
-                }
-                HStack(spacing: 10) {
-                    MonoText(text: d.delta ?? "—", size: 13, weight: .bold, color: severityColor(severity))
-                        .frame(width: 48, alignment: .leading)
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Theme.Color.surfaceElevated)
-                            Capsule()
-                                .fill(severityColor(severity))
-                                .frame(width: geo.size.width * CGFloat(max(0, min(1, d.fraction))))
+        if let last = d.last_time {
+            let severity = BenchmarkBarRow.Severity(wire: d.severity)
+            CardSurface(padding: 15, leftAccent: true) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            LabelText(text: "TU ÚLTIMA", size: 10)
+                            Text(last)
+                                .font(Theme.Typography.readoutM)
+                                .foregroundStyle(Theme.Color.foreground)
+                        }
+                        Spacer(minLength: 12)
+                        if let benchmark = d.benchmark_time {
+                            VStack(alignment: .trailing, spacing: 3) {
+                                LabelText(text: "BENCHMARK", size: 10)
+                                MonoText(text: benchmark, size: 18, weight: .bold, color: Theme.Color.muted)
+                            }
                         }
                     }
-                    .frame(height: 6)
-                    if let pct = d.percentile_label {
+                    // La barra mide TU tiempo contra el benchmark: sin benchmark
+                    // no hay fracción que sea verdad, así que no se dibuja.
+                    if d.benchmark_time != nil {
+                        HStack(spacing: 10) {
+                            if let delta = d.delta {
+                                MonoText(text: delta, size: 13, weight: .bold, color: severityColor(severity))
+                                    .frame(width: 48, alignment: .leading)
+                            }
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Theme.Color.surfaceElevated)
+                                    Capsule()
+                                        .fill(severityColor(severity))
+                                        .frame(width: geo.size.width * CGFloat(max(0, min(1, d.fraction))))
+                                }
+                            }
+                            .frame(height: 6)
+                            if let pct = d.percentile_label {
+                                Text(pct)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Theme.Color.muted)
+                            }
+                        }
+                    } else if let pct = d.percentile_label {
                         Text(pct)
                             .font(.system(size: 11))
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(benchmarkA11y(d, last: last))
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(benchmarkA11y(d))
+        } else {
+            noTimeYetCard
         }
     }
 
-    private func benchmarkA11y(_ d: StationDetail) -> String {
-        var s = "\(station). Tu última \(d.last_time ?? "sin dato"), benchmark \(d.benchmark_time ?? "sin dato")"
+    // Sin tiempo en esta estación: se declara qué falta y se da la salida, que
+    // es la MISMA de la pantalla vacía (importar). Nunca un hueco con relleno.
+    private var noTimeYetCard: some View {
+        CardSurface(padding: 15, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(text: "TU ÚLTIMA", size: 10)
+                Text("Todavía no tienes un tiempo en esta estación.")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    Haptics.light()
+                    showImport = true
+                } label: {
+                    Text("Importar mis carreras")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+                .buttonStyle(PressScaleStyle())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func benchmarkA11y(_ d: StationDetail, last: String) -> String {
+        var s = "\(station). Tu última \(last)"
+        if let benchmark = d.benchmark_time { s += ", benchmark \(benchmark)" }
         if let delta = d.delta { s += ", diferencia \(delta)" }
         if let pct = d.percentile_label { s += ", \(pct)" }
         return s
@@ -192,17 +242,28 @@ struct StationDetailView: View {
     }
 
     // Sub-metrics grid (best / avg / sled weight / stops).
+    //
+    // Una celda sin medida NO se pinta: se omite de la rejilla (§7). Si no queda
+    // ninguna, la rejilla entera desaparece — el llamante filtra antes de
+    // decidir si hay sección, así que aquí nunca llega una lista vacía.
     private func subMetrics(_ metrics: [StationSubMetric]) -> some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach(metrics) { m in
-                ExpertCell(
-                    label: m.label,
-                    value: m.value ?? "—",
-                    unit: m.unit ?? "",
-                    color: emphasisColor(m.emphasis)
-                )
+                if let value = m.value, !value.isEmpty {
+                    ExpertCell(
+                        label: m.label,
+                        value: value,
+                        unit: m.unit ?? "",
+                        color: emphasisColor(m.emphasis)
+                    )
+                }
             }
         }
+    }
+
+    /// Sólo las sub-métricas que de verdad tienen un valor medido.
+    private func measuredSubMetrics(_ d: StationDetail) -> [StationSubMetric] {
+        d.sub_metrics.filter { $0.value?.isEmpty == false }
     }
 
     // MARK: - Color helpers

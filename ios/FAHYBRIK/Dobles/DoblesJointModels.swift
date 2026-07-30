@@ -64,7 +64,10 @@ struct DoblesLastJoint: Codable, Hashable {
 struct JointShareData: Equatable {
     struct Side: Equatable {
         let name: String
-        let timeText: String        // "47:12" — "—" when no time recorded
+        /// "47:12" — nil cuando ese lado no registró tiempo. La cabecera del
+        /// struct ya prometía «each field is real or omitted»; éste era el único
+        /// que no lo cumplía, y encima acaba en un PNG que se comparte (§7).
+        let timeText: String?
         let rpe: Int?               // nil → the RPE stat hides
         let tonnageText: String?    // "500 kg" — nil when no load logged
         let prCount: Int
@@ -95,7 +98,7 @@ struct JointShareData: Equatable {
     private static func side(_ s: JointSummarySide, fallback: String) -> Side {
         Side(
             name: DoblesJointFormat.trimmed(s.name) ?? fallback,
-            timeText: s.totalTimeS.map { Formato.clock($0) } ?? "—",
+            timeText: s.totalTimeS.map { Formato.clock($0) },
             rpe: s.rpe,
             tonnageText: s.tonnageKg.map { "\(Int($0.rounded())) kg" },
             prCount: s.prCount

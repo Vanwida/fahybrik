@@ -453,9 +453,11 @@ struct HistorialDelMes: View {
                     Text(HistoryCalendar.dowAbbrev(row.date))
                         .font(.system(size: 8, weight: .heavy)).tracking(0.4).textCase(.uppercase)
                         .foregroundStyle(Theme.Color.faint)
-                    Text(dayNumber(row.date))
-                        .font(.system(size: 16, weight: .heavy).monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
+                    if let day = dayNumber(row.date) {
+                        Text(day)
+                            .font(.system(size: 16, weight: .heavy).monospacedDigit())
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
                 }
                 .frame(width: 34)
 
@@ -516,7 +518,10 @@ struct HistorialDelMes: View {
         .foregroundStyle(tint)
     }
 
-    private func dayNumber(_ iso: String) -> String {
-        HistoryCalendar.parseISO(iso).map { String($0.day) } ?? "—"
+    /// El día del mes del sello. Nil cuando la fecha no se puede leer: entonces no
+    /// hay sello que pintar, igual que `dowAbbrev` ya devuelve vacío. La columna
+    /// sigue reservada para que la lista no se desalinee.
+    private func dayNumber(_ iso: String) -> String? {
+        HistoryCalendar.parseISO(iso).map { String($0.day) }
     }
 }

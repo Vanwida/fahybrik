@@ -251,7 +251,10 @@ final class OutdoorRunHUDModel {
 
     private func contentState() -> RunActivityAttributes.ContentState {
         RunActivityAttributes.ContentState(
-            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—",
+            // Sin ritmo medido, la pantalla bloqueada dice POR QUÉ no lo hay — la
+            // misma razón que ya da el HUD debajo del sujeto. Un guion en la isla
+            // dinámica es la misma mentira que un guion en la app (§7).
+            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? gpsQuality.label,
             legLabel: isStructured ? "Tramo \(legNumber)/\(legTotal)" : "",
             distanceLabel: Formato.distanciaCubierta(coveredMeters) ?? "0 m",
             timeLabel: Formato.clock(session.elapsedSeconds, anchoFijo: true),
