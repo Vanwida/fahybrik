@@ -74,9 +74,13 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
         let seg = sesion.plan.segments[0]
         let lectura = TramosMedidos.lee(segmento: seg, laps: sesion.laps)
 
-        // Lo que la app GUARDA HOY: un lap por tramo fuerte, ninguna recuperación.
+        // Lo que la app guarda desde la 0146: TODOS los tramos, incluidas las cinco
+        // recuperaciones. El test anterior fijaba «6 filas» porque el motor tiraba las
+        // recuperaciones al grabar — grabarlas era justo el arreglo, así que la
+        // expectativa vieja era la especificación del bug.
         XCTAssertEqual(seg.runStructureLegs?.count, 11)
-        XCTAssertEqual(lectura.filas.count, 6, "los seis, no uno")
+        XCTAssertEqual(lectura.filas.count, 11, "los once tramos: seis fuertes y cinco recuperaciones")
+        XCTAssertEqual(lectura.fuertesMedidos, 6, "de los once, seis son de trabajo")
         XCTAssertTrue(TablaDeTramos.hayQuePintarla(segmentos: sesion.plan.segments, laps: sesion.laps))
 
         let imagen = render(
