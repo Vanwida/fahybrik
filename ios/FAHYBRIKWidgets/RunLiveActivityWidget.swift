@@ -25,7 +25,13 @@ struct RunLiveActivityWidget: Widget {
                     islandMetric(value: s.paceLabel, unit: "/km", accent: !s.paused)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    islandMetric(value: s.zoneLabel.isEmpty ? "—" : s.zoneLabel, unit: "zona", accent: false)
+                    // Sin zona la métrica SE VA de la isla, no se queda como guion: la
+                    // pantalla bloqueada no ofrece ninguna acción para arreglarlo, y la
+                    // región de al lado ya dice el porqué (`paceLabel` trae la razón).
+                    // Es lo mismo que hace la banda de abajo, que omite su chip (§7).
+                    if !s.zoneLabel.isEmpty {
+                        islandMetric(value: s.zoneLabel, unit: "zona", accent: false)
+                    }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(s.paused ? "PAUSA" : (s.legLabel.isEmpty ? "Carrera" : s.legLabel))

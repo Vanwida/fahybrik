@@ -16,7 +16,13 @@ struct SummaryView: View {
                 header
                 HStack(spacing: 7) {
                     MetricTile(label: leftTileLabel, value: leftTileValue)
-                    MetricTile(label: Vocab.fcMedia, value: avgHR.map(String.init) ?? "—")
+                    // El entreno ya ha terminado: si no hubo pulso, no hay nada que el
+                    // atleta pueda hacer al respecto, así que la celda SE CALLA en vez
+                    // de declarar el hueco (§6.2 bis). Un guion aquí solo ocupaba el
+                    // sitio de lo que sí se midió.
+                    if let avg = avgHR {
+                        MetricTile(label: Vocab.fcMedia, value: "\(avg)")
+                    }
                 }
                 // #23 — dobles: badge + the share decision. The toggle appears ONLY
                 // for a shareable (shared) dobles session; a self_only/individual

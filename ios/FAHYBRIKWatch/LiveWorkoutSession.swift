@@ -133,12 +133,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         tickTimer = t
     }
 
-    // MARK: - Display formatters
-
-    // Cronómetro en la muñeca: ancho fijo para que el número no baile.
-    var formattedElapsed: String { Formato.clock(elapsedSeconds, anchoFijo: true) }
-
-    var formattedDistance: String { Formato.distanciaCubierta(distanceMeters) ?? "0 m" }
 }
 
 // MARK: - HKWorkoutSessionDelegate

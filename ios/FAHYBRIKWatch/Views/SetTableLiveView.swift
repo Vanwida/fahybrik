@@ -44,10 +44,11 @@ struct SetTableLiveView: View {
 
     private var multiSet: some View {
         let total = session.setRecords.count
-        return LiveScaffold(status: "Fuerza · Serie \(min(activeSetIndex + 1, total)) / \(total)") {
+        let lectura = lecturaDeSerie
+        return LiveScaffold(status: "Fuerza · \(Vocab.serie) \(min(activeSetIndex + 1, total)) / \(total)") {
             VStack(spacing: 5) {
-                WatchLabel(text: "Objetivo")
-                loadHero
+                WatchLabel(text: lectura.etiqueta)
+                GiantNumber(text: lectura.texto, size: 42, unit: lectura.unidad)
                 if let detail = detailLine { detailText(detail) }
                 SetDots(total: total, currentIndex: activeSetIndex, doneIndices: doneIndices)
                     .padding(.top, 2)
@@ -60,10 +61,11 @@ struct SetTableLiveView: View {
     // MARK: - Single set
 
     private var singleSet: some View {
-        LiveScaffold(status: "Fuerza") {
+        let lectura = lecturaDeSerie
+        return LiveScaffold(status: "Fuerza") {
             VStack(spacing: 5) {
-                WatchLabel(text: "Objetivo")
-                loadHero
+                WatchLabel(text: lectura.etiqueta)
+                GiantNumber(text: lectura.texto, size: 42, unit: lectura.unidad)
                 if let detail = singleDetailLine { detailText(detail) }
             }
         } bottom: {
@@ -75,14 +77,20 @@ struct SetTableLiveView: View {
 
     // MARK: - Shared pieces
 
-    @ViewBuilder
-    private var loadHero: some View {
-        if let load = currentLoadKg {
-            GiantNumber(text: WatchFormat.kg(load), size: 42, unit: "kg")
-        } else {
-            // Bodyweight / %RM with no absolute kg — the reps line carries the work.
-            GiantNumber(text: currentReps.map(String.init) ?? "—", size: 42, unit: "reps")
-        }
+    /// LA SIGUIENTE VERDAD DISPONIBLE de la serie: la carga si la hay, si no las reps,
+    /// y si no hay ninguna de las dos el reloj de la serie — lo único que la app sabe
+    /// con certeza. Etiqueta, cifra y unidad viajan JUNTAS, igual que en
+    /// `OutdoorRunHUDView.lecturaViva`.
+    ///
+    /// Antes el hueco se pintaba con un guion bajo un «Objetivo» fijo, y las dos
+    /// mitades mentían a la vez: no había cifra, y la etiqueta seguía llamando
+    /// objetivo a algo que nadie prescribió (un movimiento a peso corporal por tiempo
+    /// no lleva ni kilos ni reps). Un cero tampoco vale: esto es una DOSIS, no un
+    /// contador, y «0 reps» es una prescripción falsa (§6.2 bis).
+    private var lecturaDeSerie: (etiqueta: String, texto: String, unidad: String?) {
+        if let load = currentLoadKg { return (Vocab.objetivo, WatchFormat.kg(load), "kg") }
+        if let reps = currentReps { return (Vocab.objetivo, "\(reps)", Vocab.reps) }
+        return (Vocab.tiempo, WatchFormat.clock(session.lapElapsedSeconds), nil)
     }
 
     private func detailText(_ text: String) -> some View {
@@ -161,19 +169,21 @@ struct SetTableLiveView: View {
         return sets[activeSetIndex]
     }
 
+    /// Las reps solo bajan al detalle cuando NO son ya el sujeto: sin carga el hero es
+    /// el número de reps, y repetirlo debajo era leer «8 · 8 reps · RIR 2».
     private var detailLine: String? {
         var parts: [String] = []
-        if let reps = currentReps { parts.append("\(reps) reps") }
-        if let rir = prescribedSet?.prescribedRir { parts.append("RIR \(intOrOne(rir))") }
-        else if let rpe = prescribedSet?.prescribedRpe { parts.append("RPE \(intOrOne(rpe))") }
+        if let reps = currentReps, currentLoadKg != nil { parts.append("\(reps) \(Vocab.reps)") }
+        if let rir = prescribedSet?.prescribedRir { parts.append("\(Vocab.rir) \(intOrOne(rir))") }
+        else if let rpe = prescribedSet?.prescribedRpe { parts.append("\(Vocab.rpe) \(intOrOne(rpe))") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var singleDetailLine: String? {
-        guard let reps = currentReps else { return session.currentSegment?.effortGuidance }
-        var parts = ["\(reps) reps"]
+        var parts: [String] = []
+        if let reps = currentReps, currentLoadKg != nil { parts.append("\(reps) \(Vocab.reps)") }
         if let e = session.currentSegment?.effortGuidance { parts.append(e) }
-        return parts.joined(separator: " · ")
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private func intOrOne(_ v: Double) -> String {

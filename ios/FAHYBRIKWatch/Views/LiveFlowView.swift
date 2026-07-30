@@ -132,7 +132,7 @@ private struct RelayLiveView: View {
                 GiantNumber(text: WatchFormat.clock(session.lapElapsedSeconds), size: 40)
                 HRPill(bpm: session.liveHRBpm, zoneColor: WatchTheme.zoneGreen)
                 if let next = session.nextSegment?.title {
-                    Text("Sig: tú — \(next)")
+                    Text("Luego entras tú · \(next)")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(WatchTheme.dim)
                         .lineLimit(1)

@@ -38,8 +38,8 @@ struct MirrorHUDView: View {
                 // work keeps the standard active glance.
                 if let dobles = frame?.dobles {
                     doblesContent(dobles)
-                } else if let covered = frame?.beltDistanceM {
-                    treadmillContent(covered: covered, target: frame?.beltTargetM)
+                } else if let f = frame, let covered = f.beltDistanceM {
+                    treadmillContent(f, covered: covered, target: f.beltTargetM)
                 } else {
                     activeContent
                 }
@@ -210,31 +210,49 @@ struct MirrorHUDView: View {
     //
     // The wrist glance for a live treadmill DISTANCE run: a progress bar filling with the
     // covered belt meters (a distance leg has no countdown to tick), the covered pace and
-    // the zone — the SAME readouts the phone HUD shows. Every value is frame-pushed (the
-    // wrist can't derive belt distance locally), so nothing ticks between frames; the
-    // phone resends as the meters accrue. Same status/HR/advance idiom as activeContent.
-    private func treadmillContent(covered: Double, target: Double?) -> some View {
-        LiveScaffold(status: frame?.blockTitle) {
-            VStack(spacing: 6) {
-                if let line = frame?.lineTitle {
-                    Text(line)
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundStyle(WatchTheme.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+    // the zone — the SAME readouts the phone HUD shows. The BELT values are frame-pushed
+    // (the wrist can't derive belt distance locally), so the bar and the meters only move
+    // when the phone resends; the CLOCK is re-based locally like activeContent's, because
+    // it's what the hero degrades to before the first measured pace. Same status/HR/
+    // advance idiom as activeContent.
+    private func treadmillContent(_ f: MirrorStateFrame, covered: Double, target: Double?) -> some View {
+        LiveScaffold(status: f.blockTitle) {
+            // El reloj SÍ se re-basa localmente entre tramas (igual que en
+            // activeContent): los metros de la cinta no se pueden derivar aquí, pero el
+            // tiempo sí, así que la lectura degradada no se queda congelada.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let lectura = lecturaDeCinta(f, now: context.date)
+                VStack(spacing: 6) {
+                    if let line = f.lineTitle {
+                        Text(line)
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundStyle(WatchTheme.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    WatchLabel(text: lectura.etiqueta)
+                    GiantNumber(text: lectura.texto, size: 46, unit: lectura.unidad)
+                    beltProgressBar(fraction: beltFraction(covered: covered, target: target))
+                    WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
+                    hrZoneRow
                 }
-                GiantNumber(text: beltPaceText, size: 46, unit: Formato.UnidadRitmo.porKm.rawValue)
-                beltProgressBar(fraction: beltFraction(covered: covered, target: target))
-                WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
-                hrZoneRow
             }
         } bottom: {
             advanceButton
         }
     }
 
-    private var beltPaceText: String {
-        frame?.beltPaceSecPerKm.map(WatchFormat.pace) ?? "—:—"
+    /// LA SIGUIENTE VERDAD DISPONIBLE en la cinta: el ritmo cubierto si el teléfono ya
+    /// lo ha medido, y mientras no (los primeros metros del tramo) el reloj del tramo.
+    /// Etiqueta, cifra y unidad viajan JUNTAS — mismo criterio que
+    /// `StructuredRunLiveView.lecturaDelTramo` y que el HUD del teléfono. El guion que
+    /// había aquí ocupaba el hero con algo que no dice nada, y con el «/km» al lado
+    /// (§7).
+    private func lecturaDeCinta(_ f: MirrorStateFrame, now: Date) -> (etiqueta: String, texto: String, unidad: String?) {
+        guard let ritmo = f.beltPaceSecPerKm else {
+            return (Vocab.tiempo, WatchFormat.clock(f.lapElapsed + sinceFrame(now)), nil)
+        }
+        return (Vocab.ritmo, WatchFormat.pace(ritmo), Formato.UnidadRitmo.porKm.rawValue)
     }
 
     private func beltFraction(covered: Double, target: Double?) -> Double {

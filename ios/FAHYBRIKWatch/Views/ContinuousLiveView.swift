@@ -13,8 +13,13 @@ struct ContinuousLiveView: View {
 
     var body: some View {
         Group {
-            if showPaceHero {
-                paceHero
+            // El ritmo medido ES la condición de esta presentación, no un texto con
+            // hueco: si no lo hay, la pantalla que se pinta es la de zona. Antes la
+            // condición y el texto eran dos decisiones separadas y el texto llevaba un
+            // `?? "—:—"` inalcanzable — un guion que nadie podía ver y que el
+            // siguiente que tocara la condición sí habría enseñado.
+            if let pace = measuredPace {
+                paceHero(pace)
             } else {
                 zonePresentation
             }
@@ -30,16 +35,18 @@ struct ContinuousLiveView: View {
 
     // MARK: - Pace hero (measured run pace)
 
-    private var paceHero: some View {
+    private func paceHero(_ pace: Int) -> some View {
         LiveScaffold(status: statusText) {
             VStack(spacing: 4) {
-                WatchLabel(text: "Ritmo")
-                GiantNumber(text: paceText, size: 54, unit: Formato.UnidadRitmo.porKm.rawValue)
+                WatchLabel(text: Vocab.ritmo)
+                GiantNumber(text: WatchFormat.pace(pace), size: 54, unit: Formato.UnidadRitmo.porKm.rawValue)
                 HStack(spacing: 6) {
                     if let dist = session.liveRunDistanceMeters {
                         MetricTile(label: "Dist", value: distanceValue(dist), unit: dist >= 1000 ? "km" : "m")
                     }
-                    MetricTile(label: Vocab.fc, value: session.liveHRBpm.map(String.init) ?? "—")
+                    MetricTile(label: Vocab.fc,
+                               value: session.liveHRBpm.map(String.init),
+                               ausente: WatchSinDato.pulso)
                 }
             }
         } bottom: {
@@ -53,13 +60,15 @@ struct ContinuousLiveView: View {
         LiveScaffold(status: statusText) {
             VStack(spacing: 10) {
                 VStack(spacing: 2) {
-                    WatchLabel(text: "Tiempo")
+                    WatchLabel(text: Vocab.tiempo)
                     GiantNumber(text: WatchFormat.clock(session.condElapsed), size: 54)
                 }
                 zoneBar
-                Text(inZoneStateText)
-                    .font(.system(size: 11, weight: .heavy))
-                    .foregroundStyle(inZone ? WatchTheme.zoneGreen : WatchTheme.zoneAmber)
+                if let veredicto = zoneStateText {
+                    Text(veredicto)
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(inZone ? WatchTheme.zoneGreen : WatchTheme.zoneAmber)
+                }
             }
         } bottom: {
             structuralDone
@@ -79,11 +88,7 @@ struct ContinuousLiveView: View {
 
     private var zoneBar: some View {
         VStack(spacing: 5) {
-            HStack {
-                WatchLabel(text: pctInZoneText)
-                Spacer()
-                WatchLabel(text: "FC \(session.liveHRBpm.map(String.init) ?? "—")")
-            }
+            zoneBarHeader
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     HStack(spacing: 0) {
@@ -105,14 +110,33 @@ struct ContinuousLiveView: View {
         }
     }
 
-    // MARK: - Derived
-
-    private var showPaceHero: Bool {
-        session.currentSegment?.kind == .running && session.liveCoveredPaceSecPerKm != nil
+    /// El encabezado de la barra: el % en zona y el pulso.
+    ///
+    /// Sin pulso no existe ninguno de los dos, y decirlo DOS veces («buscando pulso»
+    /// a izquierda y a derecha) es ruido: la fila colapsa en una sola frase con el
+    /// porqué. La barra de debajo se queda sin tramo encendido, que ya lo cuenta sola.
+    @ViewBuilder
+    private var zoneBarHeader: some View {
+        if let bpm = session.liveHRBpm {
+            HStack {
+                if let pct = session.liveZonePctInTarget {
+                    WatchLabel(text: "En zona \(pct)%")
+                }
+                Spacer()
+                WatchLabel(text: "\(Vocab.fc) \(bpm)")
+            }
+        } else {
+            WatchLabel(text: WatchSinDato.pulso)
+        }
     }
 
-    private var paceText: String {
-        session.liveCoveredPaceSecPerKm.map(WatchFormat.pace) ?? "—:—"
+    // MARK: - Derived
+
+    /// El ritmo CUBIERTO de un tramo de carrera, o nil: es lo que decide qué
+    /// presentación se pinta.
+    private var measuredPace: Int? {
+        guard session.currentSegment?.kind == .running else { return nil }
+        return session.liveCoveredPaceSecPerKm
     }
 
     private func distanceValue(_ meters: Double) -> String {
@@ -130,10 +154,13 @@ struct ContinuousLiveView: View {
         return live == target
     }
 
-    private var inZoneStateText: String { inZone ? "EN ZONA ✓" : "FUERA DE ZONA" }
-
-    private var pctInZoneText: String {
-        session.liveZonePctInTarget.map { "EN ZONA \($0)%" } ?? "EN ZONA —"
+    /// El veredicto de zona necesita SUS DOS MITADES: la zona que te pidieron y la que
+    /// llevas. Sin objetivo prescrito o sin pulso no hay veredicto que emitir, y antes
+    /// decía «FUERA DE ZONA» en los dos casos: una sentencia sobre un dato que no
+    /// existe, que es justo lo que el §7 prohíbe.
+    private var zoneStateText: String? {
+        guard session.currentSegment?.targetZone != nil, session.liveZone != nil else { return nil }
+        return inZone ? "EN ZONA ✓" : "FUERA DE ZONA"
     }
 
     private func markerX(for zone: HRZone, width: CGFloat) -> CGFloat {

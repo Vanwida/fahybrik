@@ -63,11 +63,12 @@ struct StructuredRunLiveView: View {
     // MARK: - Work tramo (pace hero + objetivo band + progress + zone)
 
     private var work: some View {
-        LiveScaffold(status: statusText) {
+        let lectura = lecturaDelTramo
+        return LiveScaffold(status: statusText) {
             VStack(spacing: 7) {
                 VStack(spacing: 2) {
-                    WatchLabel(text: "Ritmo")
-                    GiantNumber(text: paceText, size: 50, unit: Formato.UnidadRitmo.porKm.rawValue)
+                    WatchLabel(text: lectura.etiqueta)
+                    GiantNumber(text: lectura.texto, size: 50, unit: lectura.unidad)
                 }
                 objetivoLine
                 progressBar
@@ -205,7 +206,18 @@ struct StructuredRunLiveView: View {
         RunLegDisplay.legPaceSecPerKm(coveredMeters: driver.legCoveredMeters, elapsedS: session.runLegElapsed)
     }
 
-    private var paceText: String { legPaceSecPerKm.map(WatchFormat.pace) ?? "—:—" }
+    /// LA SIGUIENTE VERDAD DISPONIBLE del tramo: el ritmo medido, y mientras no lo hay
+    /// (los primeros metros, o un tramo sin GPS ni cinta) el reloj del tramo, que es lo
+    /// único que la app sabe con certeza. Etiqueta, cifra y unidad viajan JUNTAS: un
+    /// cronómetro bajo la palabra «Ritmo» miente igual que un guion, y encima es el
+    /// error más difícil de ver porque cada mitad, por su cuenta, es correcta (§7).
+    /// Mismo criterio que `OutdoorRunHUDView.lecturaViva` en el teléfono.
+    private var lecturaDelTramo: (etiqueta: String, texto: String, unidad: String?) {
+        guard let ritmo = legPaceSecPerKm else {
+            return (Vocab.tiempo, WatchFormat.clock(session.runLegElapsed), nil)
+        }
+        return (Vocab.ritmo, WatchFormat.pace(ritmo), Formato.UnidadRitmo.porKm.rawValue)
+    }
 
     private var objetivo: (label: String, status: TargetStatus)? {
         session.currentRunLeg.flatMap { RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: legPaceSecPerKm) }
