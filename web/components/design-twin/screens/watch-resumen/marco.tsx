@@ -15,8 +15,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { W, zoneColor } from '../watch-live/theme';
-import { AroTramos } from '../watch-vivo/aro';
-import { SegundoNivel, Sujeto, tinte } from '../watch-vivo/lienzo';
+import { AroTramos, Numeral, SegundoNivel, tinte } from '../../kit-watch';
 import type { Tramo } from '../../tramos';
 
 export interface Pagina {
@@ -76,7 +75,7 @@ export function MarcoResumen({
           <button type="button" onClick={avanzar} aria-label={`${p.contexto}. Siguiente página`} style={areaPrincipal}>
             <span style={contextoEstilo}>{p.contexto}</span>
             <span style={{ flex: 1 }} />
-            <Sujeto texto={p.sujeto} unidad={p.unidad} alto={ALTO_SUJETO} color={p.tono ?? W.ink} />
+            <Numeral texto={p.sujeto} unidad={p.unidad} alto={ALTO_SUJETO} color={p.tono ?? W.ink} />
             <span style={{ flex: 1 }} />
             {p.segundo ? <SegundoNivel etiqueta={p.etiquetaSegundo} valor={p.segundo} /> : null}
             <span style={{ ...versales, marginTop: 4, opacity: p.nota ? 1 : 0 }}>{p.nota ?? '·'}</span>

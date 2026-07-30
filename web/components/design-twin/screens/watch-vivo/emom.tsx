@@ -14,9 +14,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTicker } from '../../sim';
 import { countdown } from '../watch-live/format';
 import { URGENT_THRESHOLD_S, W, zoneColor } from '../watch-live/theme';
-import { AroContinuo } from './aro';
+import { AroContinuo, SegundoNivel } from '../../kit-watch';
 import { EMOM, bpmEmom, tareaEmom, zonaDe } from './guion';
-import { Marco, SegundoNivel, Sujeto, type Destello } from './lienzo';
+import { Marco, Sujeto, type EstadoDestello } from './lienzo';
 
 interface Fase {
   estado: 'trabajo' | 'recupera';
@@ -34,7 +34,7 @@ export function Emom({ onLog }: { onLog: (linea: string) => void }) {
     ronda: EMOM.actual,
     finS: EMOM.restanteInicialS,
   });
-  const [destello, setDestello] = useState<Destello>({ n: 0, color: W.orangeSoft });
+  const [destello, setDestello] = useState<EstadoDestello>({ n: 0, color: W.orangeSoft });
   const faseRef = useRef(fase);
   useEffect(() => {
     faseRef.current = fase;
@@ -73,7 +73,7 @@ export function Emom({ onLog }: { onLog: (linea: string) => void }) {
       color={recuperando ? W.zoneGreen : zoneColor(zonaDe(bpm))}
       aro={<AroContinuo fraccion={quedaS / EMOM.ventanaS} />}
       sujeto={
-        <Sujeto texto={countdown(quedaS)} alto={94} color={quedaS <= URGENT_THRESHOLD_S ? W.orange : W.ink} />
+        <Sujeto texto={countdown(quedaS)} color={quedaS <= URGENT_THRESHOLD_S ? W.orange : W.ink} />
       }
       segundo={<SegundoNivel valor={recuperando ? 'recupera' : tareaEmom(fase.ronda)} />}
       accion={recuperando ? undefined : 'Toca · hecha'}
