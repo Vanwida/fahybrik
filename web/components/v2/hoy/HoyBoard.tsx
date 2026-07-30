@@ -118,8 +118,12 @@ export function HoyBoard({
     data.asignacion_sugerida_cards.length + data.siguiente_microciclo_cards.length +
     data.week_adjustment_cards.length;
 
+  // `llena` (§6.1): el tablero ocupa el hueco entero y reparte por dentro. Sin
+  // esto, la bandeja de un coach al día terminaba donde se acababan sus tiras y
+  // dejaba el resto muerto — que es exactamente el fallo que el §9.2 describe
+  // («el vacío es lo que pasa cuando se acaban las secciones»).
   return (
-    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
+    <div className="mx-auto flex min-h-[calc(100dvh-3.5rem-var(--v2-tabbar-h)-2rem)] w-full max-w-[var(--v2-container)] flex-col lg:min-h-[calc(100dvh-3.5rem-3rem)]">
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -243,8 +247,13 @@ export function HoyBoard({
       ) : lanesEmpty && !q ? (
         /* Las cuatro calles vacías se dicen en una línea cada una, no en cuatro
            paneles de ~190 px: es el caso NORMAL de un coach al día, y ocupaba
-           media pantalla para decir que no pasaba nada. */
-        <div className="mt-4 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+           media pantalla para decir que no pasaba nada.
+           Y esa fila va ANCLADA ABAJO (`mt-auto`), no pegada a lo anterior: es un
+           marcador de estado, y un marcador vive en el borde inferior —igual que
+           el conteo del roster y el de la cola de altas—. Sin esto, quitar los
+           cuatro paneles falsos dejaba 301 px de cola muerta al descubierto, que
+           es justo lo que prohíbe el §6.1. */
+        <div className="mt-auto grid grid-cols-1 gap-1.5 pt-4 sm:grid-cols-2 xl:grid-cols-4">
           {filteredLanes.map(({ lane, cards }) => (
             <HoyLane key={lane.id} lane={lane} cards={cards} />
           ))}
