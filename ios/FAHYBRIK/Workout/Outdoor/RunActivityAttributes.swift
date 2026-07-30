@@ -14,7 +14,9 @@ import ActivityKit
 
 struct RunActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
-        /// Current smoothed pace, e.g. "4:47" — "—:—" when GPS can't vouch for it.
+        /// Current smoothed pace, e.g. "4:47". Cuando el GPS todavía no puede
+        /// avalarlo, este campo trae la RAZÓN en su sitio ("Buscando GPS"), no un
+        /// hueco: la pantalla bloqueada obedece el §7 igual que la app.
         var paceLabel: String
         /// "Tramo 2/5" for a structured run, or "" for a continuous run (no legs).
         var legLabel: String

@@ -739,12 +739,12 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(Theme.Color.accentText)
                         .lineLimit(1)
                 }
-                MonoText(
-                    text: (session.currentSegment?.title ?? "—").uppercased(),
-                    size: 11,
-                    color: Theme.Color.muted
-                )
-                .lineLimit(1)
+                // Sin tramo abierto (el entreno acaba de cerrarse) no hay título que
+                // dar: la línea desaparece, igual que la fase de arriba (§7).
+                if let titulo = session.currentSegment?.title {
+                    MonoText(text: titulo.uppercased(), size: 11, color: Theme.Color.muted)
+                        .lineLimit(1)
+                }
             }
             if segmentHasVideo {
                 Button(action: {
@@ -1307,7 +1307,7 @@ struct ActiveWorkoutView: View {
             let omitted = index - current - 1
             if omitted > 0 {
                 pendingNav = PendingNav(
-                    title: "Saltar a \(jumpTargetTitle(index))",
+                    title: jumpTargetTitle(index).map { "Saltar a \($0)" } ?? "Saltar hacia delante",
                     message: omitted == 1
                         ? "Se omite 1 tramo, sin registrarlo."
                         : "Se omiten \(omitted) tramos, sin registrarlos.",
@@ -1319,7 +1319,7 @@ struct ActiveWorkoutView: View {
             }
         } else if session.currentSegmentHasLiveProgress {
             pendingNav = PendingNav(
-                title: "Volver a \(jumpTargetTitle(index))",
+                title: jumpTargetTitle(index).map { "Volver a \($0)" } ?? "Volver atrás",
                 message: "Perderás lo que llevas en este tramo sin guardar.",
                 confirmTitle: "Volver",
                 action: { session.jumpTo(index) }
@@ -1350,8 +1350,11 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    private func jumpTargetTitle(_ index: Int) -> String {
-        guard index >= 0, index < session.plan.segments.count else { return "—" }
+    // El nombre del tramo al que vas, o nil si el índice no cae en el plan. Quien
+    // compone el título decide: «Saltar a —» no es una pregunta que nadie pueda
+    // contestar.
+    private func jumpTargetTitle(_ index: Int) -> String? {
+        guard index >= 0, index < session.plan.segments.count else { return nil }
         return session.plan.segments[index].title
     }
 

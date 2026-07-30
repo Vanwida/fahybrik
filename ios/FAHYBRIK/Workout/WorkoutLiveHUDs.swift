@@ -89,8 +89,8 @@ struct RunLiveHUD: View {
     }
 
     // A target-less run leg (no pace, no distance, no zone) with no live GPS has
-    // nothing measurable to display — the HUD would be all dashes. Switch it to
-    // the coach's effort/duration guidance instead (e.g. a warmup "8 min RPE 3").
+    // nothing measurable to display. Switch it to the coach's effort/duration
+    // guidance instead (e.g. a warmup "8 min RPE 3").
     private var isGuidanceOnly: Bool {
         !hasLiveDistance
             && seg?.targetPaceSecondsPerKm == nil
@@ -98,53 +98,46 @@ struct RunLiveHUD: View {
             && seg?.targetZone == nil
     }
 
-    // Effort cue for the hero in guidance mode: the prescribed RPE, else a plain
-    // "Suave" — never a dash.
-    private var guidanceHero: (value: String, caption: String) {
-        if let rpe = seg?.effortGuidance { return (rpe, "Esfuerzo objetivo") }
-        return ("Suave", "Esfuerzo objetivo")
-    }
-
     var body: some View {
+        let lectura = lecturaDelSujeto
         VStack(spacing: 12) {
             CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
                 CenterMetric(
-                    value: isGuidanceOnly ? guidanceHero.value : paceString,
-                    unit: isGuidanceOnly ? "" : Formato.UnidadRitmo.porKm.rawValue,
-                    caption: isGuidanceOnly ? guidanceHero.caption : paceCaption,
+                    value: lectura.valor,
+                    unit: lectura.unidad,
+                    caption: lectura.etiqueta,
                     color: hasLiveDistance ? Theme.Color.accentText : Theme.Color.foreground,
                     hero: true
                 )
             }
 
+            // Las lecturas de servicio. `ApoyoVivo` es el §7 hecho pieza: cuando no
+            // hay medida NO pinta un hueco, pinta la RAZÓN de que no la haya, que es
+            // lo único accionable mientras corres.
             let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
             LazyVGrid(columns: cols, spacing: 4) {
                 if isGuidanceOnly {
-                    // Guidance cells (duration goal + clocks) — real values, no dashes.
-                    ExpertCell(label: "Duración", value: seg?.durationGuidance ?? "Libre", unit: "")
-                    ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
-                    ExpertCell(
-                        label: Vocab.fc,
-                        value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                        unit: Vocab.ppm,
-                        color: session.liveZone?.color ?? Theme.Color.foreground
-                    )
-                    ExpertCell(label: Vocab.total, value: Formato.clock(session.elapsedSeconds, anchoFijo: true), unit: "")
+                    // Un tramo guiado no mide distancia ni zona: enseña la dosis que
+                    // pidió el coach y los dos relojes, que sí se saben.
+                    ApoyoVivo(etiqueta: "Duración", valor: seg?.durationGuidance ?? "Libre")
+                    apoyoDelReloj
+                    apoyoDelPulso
+                    ApoyoVivo(etiqueta: Vocab.total,
+                              valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
                 } else {
-                    ExpertCell(label: distanceLabel, value: distanceString, unit: "")
-                    ExpertCell(label: Vocab.vuelta, value: Formato.clock(session.lapElapsedSeconds, anchoFijo: true), unit: "")
-                    ExpertCell(
-                        label: Vocab.fc,
-                        value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                        unit: Vocab.ppm,
-                        color: session.liveZone?.color ?? Theme.Color.foreground
-                    )
-                    ExpertCell(
-                        label: "Zona",
-                        value: session.currentSegment?.targetZone?.label ?? (session.liveZone?.label ?? "—"),
-                        unit: "",
-                        color: (session.currentSegment?.targetZone ?? session.liveZone)?.color ?? Theme.Color.foreground
-                    )
+                    // Distancia: lo cubierto cuando el GPS mide, si no el objetivo del
+                    // coach. Un tramo sin ninguna de las dos NO deja celda vacía: no
+                    // hay hueco que declarar donde nunca hubo dato (§6.2 bis).
+                    if hasLiveDistance,
+                       let d = session.liveRunDistanceMeters,
+                       let cubierta = Formato.distanciaCubierta(d) {
+                        ApoyoVivo(etiqueta: Vocab.distancia, valor: cubierta)
+                    } else if let d = seg?.targetDistanceMeters, let objetivo = Formato.distancia(d) {
+                        ApoyoVivo(etiqueta: Vocab.objetivo, valor: objetivo)
+                    }
+                    apoyoDelReloj
+                    apoyoDelPulso
+                    apoyoDeLaZona
                 }
             }
 
@@ -180,40 +173,83 @@ struct RunLiveHUD: View {
         }
     }
 
-    // Hero pace: live covered pace when GPS is feeding, else the prescribed target
-    // pace. Caption makes the meaning explicit so the value is never ambiguous.
-    //
-    // El ritmo sale del MOTOR (`session.liveCoveredPaceSecPerKm`), nunca de una
-    // cuenta propia. Esta vista tenía su copia — distancia del tramo entre tiempo de
-    // la vuelta — y en un 6×800 el denominador se comía los trotes: el HUD decía
-    // 5:33/km mientras el atleta corría a 3:30, y el registro que le llegaba al coach
-    // sí era el bueno. Dos números del mismo esfuerzo. El motor mide sobre la PIERNA
-    // en una serie estructurada, así que lo que se ve y lo que se guarda coinciden.
-    private var paceString: String {
-        if hasLiveDistance, let pace = session.liveCoveredPaceSecPerKm {
-            return Formato.ritmoCifras(Double(pace))
-        }
-        if let p = session.currentSegment?.targetPaceSecondsPerKm {
-            return Formato.ritmoCifras(Double(p))
-        }
-        return "—:—"
-    }
-    private var paceCaption: String {
-        if hasLiveDistance { return "\(Vocab.ritmo) · GPS" }
-        return session.currentSegment?.targetPaceSecondsPerKm != nil
-            ? "\(Vocab.ritmo) objetivo" : Vocab.ritmo
+    // MARK: El sujeto — la SIGUIENTE VERDAD DISPONIBLE, nunca un hueco
+
+    /// Qué cifra manda esta pantalla. Se resuelve por orden de evidencia y NUNCA
+    /// cae en un guion: si no hay ritmo medido manda el objetivo, y si tampoco hay
+    /// objetivo manda el reloj de la vuelta, que es lo único que la app sabe con
+    /// certeza (mismo patrón que el HUD de exterior, §7).
+    ///
+    /// El ritmo sale del MOTOR (`session.liveCoveredPaceSecPerKm`), nunca de una
+    /// cuenta propia. Esta vista tenía su copia — distancia del tramo entre tiempo de
+    /// la vuelta — y en un 6×800 el denominador se comía los trotes: el HUD decía
+    /// 5:33/km mientras el atleta corría a 3:30, y el registro que le llegaba al coach
+    /// sí era el bueno. Dos números del mismo esfuerzo. El motor mide sobre la PIERNA
+    /// en una serie estructurada, así que lo que se ve y lo que se guarda coinciden.
+    private enum SujetoDelHUD {
+        /// Tramo sin nada medible: manda el esfuerzo que pidió el coach.
+        case esfuerzo(String)
+        /// Ritmo REAL, medido.
+        case ritmoMedido(Int)
+        /// Aún no hay ritmo medido: manda el objetivo, que sí se sabe.
+        case ritmoObjetivo(Int)
+        /// Ni medido ni prescrito: el reloj de la vuelta.
+        case relojDeVuelta(Double)
     }
 
-    // Distance cell shows live covered (GPS) when available, else the target.
-    // Lo cubierto se escribe con dos decimales (es una medida) y el objetivo con uno
-    // (lo escribió el coach redondo) — misma función, distinta precisión pedida.
-    private var distanceLabel: String { hasLiveDistance ? Vocab.distancia : "Objetivo" }
-    private var distanceString: String {
-        if hasLiveDistance, let d = session.liveRunDistanceMeters {
-            return Formato.distanciaCubierta(d) ?? "—"
+    private var sujeto: SujetoDelHUD {
+        if isGuidanceOnly { return .esfuerzo(seg?.effortGuidance ?? "Suave") }
+        if hasLiveDistance, let ritmo = session.liveCoveredPaceSecPerKm { return .ritmoMedido(ritmo) }
+        if let objetivo = seg?.targetPaceSecondsPerKm { return .ritmoObjetivo(objetivo) }
+        return .relojDeVuelta(session.lapElapsedSeconds)
+    }
+
+    /// Etiqueta y cifra viajan JUNTAS a propósito: cuando eran dos decisiones
+    /// separadas la pantalla acababa poniendo «Ritmo» encima de un cronómetro, y
+    /// mentir con la etiqueta es mentir igual (§7).
+    private var lecturaDelSujeto: (etiqueta: String, valor: String, unidad: String) {
+        let porKm = Formato.UnidadRitmo.porKm.rawValue
+        switch sujeto {
+        case let .esfuerzo(v):      return ("Esfuerzo objetivo", v, "")
+        case let .ritmoMedido(p):   return ("\(Vocab.ritmo) · GPS", Formato.ritmoCifras(Double(p)), porKm)
+        case let .ritmoObjetivo(p): return ("\(Vocab.ritmo) objetivo", Formato.ritmoCifras(Double(p)), porKm)
+        case let .relojDeVuelta(s): return (Vocab.vuelta, Formato.clock(s, anchoFijo: true), "")
         }
-        guard let d = session.currentSegment?.targetDistanceMeters else { return "—" }
-        return Formato.distancia(d) ?? "—"
+    }
+
+    // MARK: Los apoyos
+
+    /// El reloj de apoyo. Cuando el sujeto YA es la vuelta, aquí va el total:
+    /// repetir el mismo cronómetro dos veces no es un dato más.
+    @ViewBuilder
+    private var apoyoDelReloj: some View {
+        if case .relojDeVuelta = sujeto {
+            ApoyoVivo(etiqueta: Vocab.total,
+                      valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
+        } else {
+            ApoyoVivo(etiqueta: Vocab.vuelta,
+                      valor: Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
+        }
+    }
+
+    /// El pulso, teñido de su zona. Sin pulsómetro no hay medida y se dice por qué.
+    private var apoyoDelPulso: some View {
+        ApoyoVivo(etiqueta: Vocab.fc,
+                  valor: session.liveHRBpm.map { "\($0)" },
+                  unidad: Vocab.ppm,
+                  tono: session.liveZone?.color ?? Theme.Color.foreground,
+                  ausente: "sin reloj")
+    }
+
+    /// La zona: la que pidió el coach, si no la que estás pisando, si no la razón.
+    /// Sin pulso no hay nada que clasificar; con pulso pero sin bandas ancladas, no
+    /// hay dónde clasificarlo. Son dos huecos distintos y se dicen distinto.
+    private var apoyoDeLaZona: some View {
+        let zona = seg?.targetZone ?? session.liveZone
+        return ApoyoVivo(etiqueta: Vocab.zona,
+                         valor: zona?.label,
+                         tono: zona?.color ?? Theme.Color.foreground,
+                         ausente: session.liveHRBpm == nil ? "sin reloj" : "sin zonas")
     }
 }
 
@@ -523,10 +559,14 @@ private struct IntervalChip: View {
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
             }
-            Text(targetLine)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundStyle(state == .current ? Theme.Color.foreground : Theme.Color.muted)
-                .lineLimit(1)
+            // Un tramo libre no lleva prescripción que enseñar: la línea no existe,
+            // no se pinta un guion debajo del título (§7).
+            if let targetLine {
+                Text(targetLine)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(state == .current ? Theme.Color.foreground : Theme.Color.muted)
+                    .lineLimit(1)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -566,7 +606,8 @@ private struct IntervalChip: View {
 
     // Per-segment target line, e.g. "500m · 1:50/500" (erg), "1km · 4:30/km"
     // (run), "12 × 60kg" (strength). Built from the prescription, no free text.
-    private var targetLine: String {
+    // Nil for a leg the coach left free: no hay prescripción que resumir.
+    private var targetLine: String? {
         let seg = segment
         var parts: [String] = []
         if let d = seg.targetDistanceMeters, let txt = Formato.distancia(d) {
@@ -593,7 +634,7 @@ private struct IntervalChip: View {
         case .reps:
             break
         }
-        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var accessibility: String {
@@ -603,6 +644,8 @@ private struct IntervalChip: View {
         case .current: stateWord = "actual"
         case .upcoming: stateWord = "siguiente"
         }
-        return "\(segment.title), \(stateWord), \(targetLine)"
+        var dicho = "\(segment.title), \(stateWord)"
+        if let targetLine { dicho += ", \(targetLine)" }
+        return dicho
     }
 }

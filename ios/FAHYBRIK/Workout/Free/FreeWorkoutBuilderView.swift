@@ -256,9 +256,11 @@ struct FreeWorkoutBuilderView: View {
                 measureStepper
 
                 if format.usesRest {
-                    FreeStepper(label: "Descanso", value: $draft.restSeconds,
+                    // Descanso cero no es «no se sabe»: es que no hay descanso, y el
+                    // atleta acaba de elegirlo bajando el contador. Se dice (§7).
+                    FreeStepper(label: Vocab.descanso, value: $draft.restSeconds,
                                 step: FreeStep.restSeconds, minValue: 0) {
-                        $0 == 0 ? "—" : Formato.clock($0, subMinuto: .segundos)
+                        $0 == 0 ? "Sin descanso" : Formato.clock($0, subMinuto: .segundos)
                     }
                 }
 
@@ -664,12 +666,15 @@ struct FreeZonePicker: View {
 // MARK: - Live preview card ("Tu entreno")
 
 struct FreePreviewCard: View {
+    /// El resumen de lo que el atleta lleva montado. Nunca llega vacía: las dos
+    /// pantallas que la pintan viven dentro de un `if let format`, así que aquí ya
+    /// hay formato y hay línea. La rama del guion no la alcanzaba nadie.
     let line: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             LabelText(text: "Tu entreno", color: Theme.Color.accentText, size: 11)
-            Text(line.isEmpty ? "—" : line)
+            Text(line)
                 .font(Theme.Typography.readoutS)
                 .foregroundStyle(Theme.Color.foreground)
                 .minimumScaleFactor(0.7)
