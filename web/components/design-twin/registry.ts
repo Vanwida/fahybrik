@@ -41,7 +41,15 @@ import * as planDia from './screens/plan-dia';
 // La muñeca, formato a formato (30-jul): nueve vistas cuyo diseño NO lo decide
 // el formato sino qué mide el reloj de verdad en esa modalidad y si el atleta
 // puede mirar y tocar en ese momento. Ver `kit-watch/modelo.ts`.
+import * as watchRodaje from './screens/watch-rodaje';
+import * as watchSeries from './screens/watch-series';
+import * as watchCinta from './screens/watch-cinta';
+import * as watchErgo from './screens/watch-ergo';
 import * as watchFuerza from './screens/watch-fuerza';
+import * as watchEmom from './screens/watch-emom';
+import * as watchFortime from './screens/watch-fortime';
+import * as watchAmrap from './screens/watch-amrap';
+import * as watchDobles from './screens/watch-dobles';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -86,7 +94,15 @@ export const SCREENS: TwinScreenModule[] = [
   planCiclo,
   planSemana,
   planDia,
+  watchRodaje,
+  watchSeries,
+  watchCinta,
+  watchErgo,
   watchFuerza,
+  watchEmom,
+  watchFortime,
+  watchAmrap,
+  watchDobles,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -109,7 +125,17 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
   {
     grupo: 'La muñeca, formato a formato',
-    ids: ['watch-fuerza'],
+    ids: [
+      'watch-rodaje',
+      'watch-series',
+      'watch-cinta',
+      'watch-ergo',
+      'watch-fuerza',
+      'watch-emom',
+      'watch-fortime',
+      'watch-amrap',
+      'watch-dobles',
+    ],
   },
 ];
 

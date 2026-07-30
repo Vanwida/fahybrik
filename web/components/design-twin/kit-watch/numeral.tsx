@@ -216,3 +216,66 @@ export const versales: CSSProperties = {
   color: W.dim,
   whiteSpace: 'nowrap',
 };
+
+/** Cuerpo de las versales, y lo que el `letter-spacing` añade por carácter. */
+const VERSALES_CUERPO = 10;
+const VERSALES_TRACKING = 1.1;
+
+/**
+ * AVANCE DE UNA MAYÚSCULA, y es la corrección que hace que esto sirva de algo.
+ *
+ * `estimarSans` da 0,58 em por letra, que es el avance de SF Pro en texto
+ * NORMAL. Pero las versales llevan `text-transform: uppercase`, y una mayúscula
+ * de SF Pro Heavy avanza ~0,72 em: un 24 % más. Medido contra la realidad, esa
+ * diferencia es justo la que separa «cabe» de «se sale del reloj» —
+ * `SIN MÁQUINA · PULSO Y TIEMPO` da 176 pt con 0,58 (y parecía caber en 188) y
+ * 207 pt con 0,72, que es lo que de verdad medía cuando colgaba por los lados.
+ *
+ * O sea que el ajuste automático existía pero nunca se disparaba, porque medía
+ * con la regla equivocada. Un estimador que se queda corto es peor que no
+ * tenerlo: da luz verde a lo que desborda.
+ */
+const AVANCE_VERSAL = 0.72;
+
+/**
+ * UNA LÍNEA DE VERSALES QUE NO SE SALE DEL RELOJ.
+ *
+ * Existe porque se salió: `SIN MÁQUINA · PULSO Y TIEMPO` mide 193 pt sobre un
+ * lienzo de 188 y colgaba por los dos lados del reloj, fuera de la pantalla.
+ * El `whiteSpace: nowrap` de las versales evita que una nota se parta en dos
+ * líneas —que sería peor—, pero sin ajuste lo que hace es desbordar en
+ * silencio: en una captura a tamaño doble ni se nota.
+ *
+ * El suelo es 0,82 y no baja de ahí. Por debajo el cromo deja de leerse, y una
+ * nota de honestidad que no se lee no cumple su función: **si a esa escala no
+ * cabe, la frase es demasiado larga y hay que escribirla más corta**, que es lo
+ * que comprueba `kit-watch.test.ts`.
+ */
+export function Versales({ children, tono, arriba = 0 }: { children: string; tono?: string; arriba?: number }) {
+  const ancho = anchoVersales(children);
+  const ajuste = ancho <= ANCHO_UTIL ? 1 : Math.max(0.82, ANCHO_UTIL / ancho);
+  return (
+    <span
+      style={{
+        ...versales,
+        fontSize: VERSALES_CUERPO * ajuste,
+        letterSpacing: VERSALES_TRACKING * ajuste,
+        color: tono ?? versales.color,
+        marginTop: arriba,
+        flex: '0 0 auto',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** El ancho que ocuparía una línea de versales, en pt. Lo usa también el test. */
+export function anchoVersales(texto: string): number {
+  let em = 0;
+  for (const ch of texto) {
+    // Los signos y el espacio no cambian al pasar a mayúsculas; las letras sí.
+    em += AVANCE_SANS[ch] ?? (ch >= '0' && ch <= '9' ? 0.6 : AVANCE_VERSAL);
+  }
+  return em * VERSALES_CUERPO + texto.length * VERSALES_TRACKING;
+}

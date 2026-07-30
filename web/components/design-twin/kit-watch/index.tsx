@@ -33,7 +33,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { Numeral, SegundoNivel, sinMovimiento, versales } from './numeral';
+import { Numeral, SegundoNivel, Versales, sinMovimiento } from './numeral';
 import {
   PERMITE,
   altoSujeto,
@@ -47,7 +47,7 @@ import { W } from '../screens/watch-live/theme';
 export * from './modelo';
 export * from './bisel';
 export * from './paginas';
-export { Numeral, SegundoNivel, versales, sinMovimiento, estimarSans } from './numeral';
+export { Numeral, SegundoNivel, Versales, versales, sinMovimiento, estimarSans, anchoVersales } from './numeral';
 
 /**
  * Los tokens y los formateadores del reloj se reexportan DESDE AQUÍ, y las
@@ -140,7 +140,7 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
             onToca={p.accion?.onToca}
             onDesliz={(dir) => ir(activa + dir)}
           >
-            <span style={contextoEstilo}>{p.contexto}</span>
+            <Versales tono="rgba(255,255,255,0.85)">{p.contexto}</Versales>
             {/* El sobrante crece PRIMERO en el sujeto (hasta su techo) y sólo
                 después se reparte en aire simétrico arriba y abajo. Es el §10.3
                 aplicado: el centro óptico no baila de una vista a otra. */}
@@ -161,7 +161,7 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
               />
             ) : null}
             {franja ? <FranjaAccion etiqueta={franja.etiqueta} modo={p.modo} /> : null}
-            {p.nota ? <span style={{ ...versales, marginTop: 3 }}>{p.nota}</span> : null}
+            {p.nota ? <Versales arriba={3}>{p.nota}</Versales> : null}
           </AreaPrincipal>
 
           {varias ? <Puntos total={paginas.length} activa={activa} onIr={ir} /> : null}
@@ -246,16 +246,9 @@ function AreaPrincipal({
 function FranjaAccion({ etiqueta, modo }: { etiqueta: string; modo: Modo }) {
   const enReposo = PERMITE[modo].atenuada;
   return (
-    <span
-      style={{
-        ...versales,
-        marginTop: 4,
-        color: enReposo ? 'rgba(255,255,255,0.42)' : W.ink,
-        letterSpacing: enReposo ? 1.1 : 1.4,
-      }}
-    >
+    <Versales arriba={4} tono={enReposo ? 'rgba(255,255,255,0.42)' : W.ink}>
       {etiqueta}
-    </span>
+    </Versales>
   );
 }
 
@@ -347,12 +340,6 @@ const botonReset: CSSProperties = {
   background: 'transparent',
   font: 'inherit',
   appearance: 'none',
-};
-
-const contextoEstilo: CSSProperties = {
-  ...versales,
-  color: 'rgba(255,255,255,0.85)',
-  flex: '0 0 auto',
 };
 
 const bandaPuntos: CSSProperties = {

@@ -104,8 +104,13 @@ export type Fuente =
 export const NOTA = {
   /** El dato lo lee el móvil de la máquina; el reloj sólo lo repite. */
   delMovil: 'del móvil',
-  /** No hay máquina emparejada: en la muñeca sólo quedan pulso y tiempo. */
-  sinMaquina: 'sin máquina · pulso y tiempo',
+  /**
+   * No hay máquina emparejada. Decía «sin máquina · pulso y tiempo» y medía
+   * 193 pt sobre un lienzo de 188: se salía del reloj por los dos lados. Y lo
+   * que sobraba era además redundante — la página ya enseña el pulso y el
+   * tiempo, no hace falta anunciarlos.
+   */
+  sinMaquina: 'sin máquina emparejada',
   /** Sin ancla de FC no hay zona: fondo neutro y ni una palabra de zona. */
   sinAncla: 'sin umbral · no hay zona',
   /** Hay ancla, pero es estimada: la zona que se pinta cuelga de una estimación. */
