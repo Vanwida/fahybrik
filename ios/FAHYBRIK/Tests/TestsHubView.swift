@@ -10,8 +10,25 @@ import SwiftUI
 //
 // Reached from Inicio (the battery card summarizes and navigates here — full
 // screen cover) and from Perfil (pushed). Honest states throughout: loading,
-// error-with-retry, and a "Pablo prepara tus tests" empty state — never a
-// broken 0/0 or a fabricated curve.
+// error-with-retry, and an empty state for the athlete whose coach has not
+// programmed anything yet — never a broken 0/0 or a fabricated curve.
+//
+// COMPOSICIÓN (contrato §6, aplicado el 30-jul). Un arquetipo se degrada, no se
+// rompe, así que esta pantalla es DOS:
+//
+//   · con batería publicada → **Lista**, `llena` + scroll, y el siguiente acto
+//     anclado abajo al alcance del pulgar. Cada tarjeta conserva su propia
+//     acción; la anclada es la global.
+//   · sin nada programado → **Vacío**, `centra`, con salida REAL. Era el peor
+//     caso mínimo de la app: donde aterriza el atleta recién dado de alta, tres
+//     tarjetas cortas apiladas arriba, el resto negro y NI UNA acción en toda la
+//     pantalla. Ahora es un estado centrado con el contador pintado en cero
+//     (§6.2 bis: un contador en cero es información, y es cuando más falta hace)
+//     y un acto concreto — la biblioteca de marcas, donde puede probarse por su
+//     cuenta sin esperar a nadie.
+//
+// El denominador NO se inventa: sin batería publicada no hay «de cuántos», así
+// que el contador enseña sólo lo que se sabe (§7).
 struct TestsHubView: View {
     let bearer: String?
     /// Athlete's resolved max-HR source, threaded into launched sessions (same
@@ -43,6 +60,9 @@ struct TestsHubView: View {
     /// Slug whose /start call failed (inline error on that card).
     @State private var startFailedSlug: String? = nil
     @State private var captureTarget: CaptureTarget? = nil
+    /// La salida del atleta que aún no tiene batería: la biblioteca de marcas,
+    /// donde «Probarme» lanza un intento medido por el mismo motor en vivo.
+    @State private var showMarksLibrary = false
 
     private struct CaptureTarget: Identifiable {
         let id: String            // assignmentId
@@ -88,6 +108,19 @@ struct TestsHubView: View {
                 }
             )
         }
+        // La biblioteca empuja sus propios destinos, así que viaja con su pila:
+        // el hub se abre como cover desde Inicio y ahí no hay ninguna heredada.
+        .fullScreenCover(isPresented: $showMarksLibrary) {
+            NavigationStack {
+                MarksLibraryView(bearer: bearer, hrZones: hrZones)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cerrar") { showMarksLibrary = false }
+                                .foregroundStyle(Theme.Color.accentText)
+                        }
+                    }
+            }
+        }
     }
 
     private var reloadToken: String { "\(bearer ?? "-")#\(reloadNonce)" }
@@ -120,51 +153,95 @@ struct TestsHubView: View {
     @ViewBuilder
     private var content: some View {
         if loading && status == nil {
-            Spacer()
-            ProgressView().tint(Theme.Color.accentText)
-            Spacer()
+            CenteredScreen { loadingState }
         } else if failed && status == nil {
-            errorState
+            CenteredScreen { errorState }
+        } else if let status, status.isScheduled {
+            scheduled(status)
         } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    header
-                    zonesCard
-                    if let status, status.isScheduled {
-                        ForEach(status.tests) { test in
-                            testCard(test)
-                        }
-                    } else {
-                        preparingCard
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
-            .refreshable { reloadNonce += 1 }
+            // Sin batería publicada la Lista ES un Vacío, y se pinta como Vacío
+            // (§6.2): centrado y con salida, no un encabezado colgando arriba.
+            CenteredScreen { nothingScheduledState }
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    // MARK: - Lista (hay batería publicada) — `llena` + el siguiente acto anclado
+
+    @ViewBuilder
+    private func scheduled(_ status: BatteryStatus) -> some View {
+        let list = ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                header(status)
+                zonesCard
+                ForEach(status.tests) { test in
+                    testCard(test)
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.top, Theme.Spacing.l)
+            .padding(.bottom, Theme.Spacing.xxl)
+        }
+        .refreshable { reloadNonce += 1 }
+
+        // Batería cerrada = no queda acto global que anclar, y una barra vacía
+        // abajo es exactamente el hueco que el §6.1 prohíbe.
+        if let next = nextAction(status) {
+            list.anchoredAction {
+                VStack(spacing: Theme.Spacing.xs) {
+                    Text(next.subject)
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(1)
+                    ExpertPrimaryButton(title: next.title, height: 50, action: next.perform)
+                }
+            }
+        } else {
+            list
+        }
+    }
+
+    /// El siguiente acto de la batería — el que la anclada ofrece sin que el
+    /// atleta tenga que buscar la tarjeta. El orden es el de urgencia real: un
+    /// número que falta bloquea la calibración, lo de hoy va antes que lo de
+    /// pasado, y sólo después se propone empezar el siguiente.
+    private struct NextAct {
+        /// Qué test, en una línea sobre el botón: «PROBARME» a secas no dice cuál
+        /// cuando hay cuatro tarjetas, y meterlo en el botón lo desborda.
+        let subject: String
+        let title: String
+        let perform: () -> Void
+    }
+
+    private func nextAction(_ status: BatteryStatus) -> NextAct? {
+        if let pending = status.firstPendingResult {
+            return NextAct(subject: pending.label, title: "AÑADIR RESULTADO") {
+                Task { await openCapture(pending) }
+            }
+        }
+        if let today = status.tests.first(where: { $0.displayState == .pending && isScheduledToday($0) }) {
+            return NextAct(subject: "\(today.label) · hoy", title: "CONTINUAR") {
+                workoutLaunch = WorkoutLaunch(assignmentId: today.assignmentId, title: today.label)
+            }
+        }
+        if let next = status.tests.first(where: { $0.displayState == .pending }) {
+            return NextAct(
+                subject: "\(next.label) · \(dateLabel(next.scheduledFor))",
+                title: startingSlug == next.calibrationSlug ? "PREPARANDO…" : "PROBARME"
+            ) {
+                Task { await startTest(next) }
+            }
+        }
+        return nil
+    }
+
+    private func header(_ status: BatteryStatus) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Tus tests")
                     .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
                 Spacer(minLength: Theme.Spacing.s)
-                if let status, status.isScheduled {
-                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        Text("\(status.completed)")
-                            .font(Theme.Typography.readoutM)
-                            .foregroundStyle(status.isComplete ? Theme.Color.ok : Theme.Color.foreground)
-                        Text("/\(status.total)")
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(status.completed) de \(status.total) tests con resultado")
-                }
+                CalibrationCounter(done: status.completed, total: status.total)
             }
             Text("Corre el test y la app mide por ti: marca, recuperación y zonas. Tú solo aprietas.")
                 .font(Theme.Typography.small)
@@ -360,43 +437,37 @@ struct TestsHubView: View {
         }
     }
 
-    // MARK: - Empty / error states
+    // MARK: - Vacío / cargando / error
+    //
+    // Los tres con las piezas compartidas (§5). Antes el vacío era una tarjeta
+    // dibujada a mano —duplicada además en `TestBatteryCard`— y la carga y el
+    // error eran `Spacer(); …; Spacer()`, o sea `CenteredScreen` reimplementado
+    // dos veces en el mismo fichero.
 
-    private var preparingCard: some View {
-        CardSurface(padding: Theme.Spacing.l) {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: "stopwatch")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 44, height: 44)
-                    .background(Theme.Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Tu coach prepara tus tests")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Cuando los programe aparecerán aquí, con tu progreso y tus zonas.")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
+    private var nothingScheduledState: some View {
+        TestsSinBateriaState {
+            Haptics.light()
+            showMarksLibrary = true
         }
     }
 
-    private var errorState: some View {
-        VStack(spacing: 10) {
-            Spacer()
-            Text("No pudimos cargar tus tests")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            Button("Reintentar") { reloadNonce += 1 }
-                .font(Theme.Typography.bodyEmph)
-                .foregroundStyle(Theme.Color.accentText)
-            Spacer()
+    private var loadingState: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            ProgressView().tint(Theme.Color.accentText)
+            Text("Cargando tus tests…")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var errorState: some View {
+        RedesignEmptyState(
+            symbol: "arrow.clockwise",
+            title: "No pudimos cargar tus tests",
+            message: "Revisa tu conexión e inténtalo de nuevo.",
+            exit: .action(title: "Reintentar") { reloadNonce += 1 }
+        )
     }
 
     // MARK: - Actions
@@ -520,5 +591,36 @@ struct TestsHubView: View {
         let months = ["ene", "feb", "mar", "abr", "may", "jun",
                       "jul", "ago", "sep", "oct", "nov", "dic"]
         return "\(d) \(months[m - 1])"
+    }
+}
+
+// MARK: - El vacío del hub
+
+/// EL CASO DE DISEÑO (§6.3): el atleta recién dado de alta. Sin batería, sin
+/// zonas, sin marcas. Lo único que NO puede pasar es que se quede sin nada que
+/// tocar — que es exactamente lo que pasaba: tres tarjetas cortas arriba, el
+/// resto negro y ni una acción en toda la pantalla.
+///
+/// Vive como pieza propia (y no como un `private var` del hub) porque es un
+/// estado con vida propia: no depende de nada del hub salvo su acción, y así se
+/// puede RENDERIZAR en el arnés de capturas — una pantalla se mira, no se supone
+/// (§8).
+struct TestsSinBateriaState: View {
+    /// La salida real: la biblioteca de marcas, donde el atleta puede probarse
+    /// hoy sin esperar a que nadie le programe nada.
+    let onProbarme: () -> Void
+
+    var body: some View {
+        RedesignEmptyState(
+            eyebrow: "Calibración",
+            title: "Tus zonas y tus cargas están sin fijar",
+            message: "Los tests las fijan en una sesión: a qué pulso entrenas, con cuánto peso y a qué ritmo. Hasta entonces, todo va con estimaciones.",
+            exit: .action(title: "Pruébate por tu cuenta", perform: onProbarme),
+            note: "Tu coach programa los tests de calibración, normalmente en tu primera semana. Cuando lo haga aparecen aquí."
+        ) {
+            // Sin batería publicada no hay denominador que enseñar, y no se
+            // inventa (§7): el contador dice lo que se sabe — cero calibrados.
+            CalibrationCounter(done: 0, total: nil, hero: true, unidad: "tests calibrados")
+        }
     }
 }
