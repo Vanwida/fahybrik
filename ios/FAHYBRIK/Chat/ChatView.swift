@@ -85,44 +85,14 @@ struct ChatView: View {
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
+            // TRES BANDAS (contrato §6): encabezado fijo · conversación ·
+            // compositor anclado. El compositor ya era el último hijo de esta
+            // pila, así que ya estaba anclado; lo que faltaba era que la banda
+            // de en medio decidiera qué hacer con su hueco.
             VStack(spacing: 0) {
                 header
                 Hairline()
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        if displayMessages.isEmpty {
-                            // Spinner ONLY on a true cold load — nothing on screen
-                            // AND the store has never loaded the history. A cached
-                            // (even legitimately-empty) conversation skips it.
-                            if isLoading && !store.chatMessages.hasLoaded {
-                                loadingState
-                            } else {
-                                emptyState
-                            }
-                        } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(displayMessages) { msg in
-                                    MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach",
-                                               bearer: bearer,
-                                               onRetry: { retry(msg.id) },
-                                               onDiscard: { discard(msg.id) },
-                                               onDelete: { deleteSentMessage(msg.id) })
-                                        .id(msg.id)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 16)
-                            .padding(.bottom, 14)
-                        }
-                    }
-                    .onChange(of: displayMessages.count) { _, _ in
-                        if let last = displayMessages.last {
-                            withAnimation(.easeOut(duration: 0.18)) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
+                conversationBand
                 Hairline()
                 inputRow
             }
@@ -747,9 +717,9 @@ struct ChatView: View {
     // fabricated. The role line is the honest substitute. When raised as a
     // sheet, a trailing close button is shown; as the tab root it is omitted.
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.m) {
             CoachAvatar(initials: coachInitials, size: 36)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(coachDisplayName)
                     .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
@@ -757,7 +727,7 @@ struct ChatView: View {
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Spacing.s)
             if isPresented {
                 Button(action: { Haptics.light(); dismiss() }) {
                     Image(systemName: "xmark")
@@ -770,42 +740,97 @@ struct ChatView: View {
                 .accessibilityLabel("Cerrar chat")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Conversación con \(coachDisplayName)")
+    }
+
+    // MARK: - La banda de en medio
+    //
+    // La estrategia de altura la decide el CONTENIDO, no la pantalla (§6.1): con
+    // mensajes `llena` y scrollea; sin ellos el MISMO hueco se reparte y
+    // `centra`. Antes el vacío colgaba de un `.padding(.top, 72)` fijo dentro
+    // del scroll — ni centrado, ni scrolleable, y con ~460 pt muertos debajo.
+
+    @ViewBuilder
+    private var conversationBand: some View {
+        if displayMessages.isEmpty {
+            CenteredScreen {
+                // Spinner ONLY on a true cold load — nothing on screen AND the
+                // store has never loaded the history. A cached (even
+                // legitimately-empty) conversation skips it.
+                if isLoading && !store.chatMessages.hasLoaded {
+                    loadingState
+                } else if loadFailed {
+                    errorState
+                } else {
+                    emptyState
+                }
+            }
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                        ForEach(displayMessages) { msg in
+                            MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach",
+                                       bearer: bearer,
+                                       onRetry: { retry(msg.id) },
+                                       onDiscard: { discard(msg.id) },
+                                       onDelete: { deleteSentMessage(msg.id) })
+                                .id(msg.id)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.vertical, Theme.Spacing.l)
+                }
+                // Un chat se abre por el final: lo último dicho es lo que traes
+                // en la cabeza. Antes sólo saltaba al final cuando LLEGABA un
+                // mensaje nuevo, así que abrirlo te dejaba en el principio de
+                // toda la historia.
+                .onAppear {
+                    guard let last = displayMessages.last else { return }
+                    DispatchQueue.main.async { proxy.scrollTo(last.id, anchor: .bottom) }
+                }
+                .onChange(of: displayMessages.count) { _, _ in
+                    if let last = displayMessages.last {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - States
 
     private var loadingState: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.Spacing.m) {
             ProgressView().tint(Theme.Color.muted)
             Text("Cargando conversación…")
                 .scaledFont(12, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            CoachAvatar(initials: coachInitials, size: 56)
-            Text(loadFailed ? "No se pudo cargar el chat" : emptyPrompt)
-                .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Text(loadFailed
-                 ? "Revisa tu conexión. Tus mensajes se enviarán cuando vuelvas."
-                 : "Tu coach responde aquí. Dudas, RPE, sensaciones.")
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
+        ChatVacioState(coachInitials: coachInitials, prompt: emptyPrompt) {
+            draft = ChatVacioState.conversationStarter
+            inputFocused = true
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 32)
-        .padding(.top, 72)
+    }
+
+    private var errorState: some View {
+        ChatErrorState { Task { await retryLoad() } }
+    }
+
+    @MainActor
+    private func retryLoad() async {
+        isLoading = true
+        loadFailed = false
+        await loadInitial()
     }
 
     // MARK: - Input
@@ -821,16 +846,15 @@ struct ChatView: View {
                 textComposer
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
         .background(Theme.Color.background)
     }
 
     /// Normal composer: ＋ attach · text field · orange send ↑.
     private var textComposer: some View {
         let canSend = !draft.trimmingCharacters(in: .whitespaces).isEmpty
-        return HStack(spacing: 10) {
+        return HStack(spacing: Theme.Spacing.m) {
             Button {
                 Haptics.light()
                 inputFocused = false
@@ -851,7 +875,7 @@ struct ChatView: View {
                 .focused($inputFocused)
                 .scaledFont(14, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, Theme.Spacing.l)
                 .frame(height: 40)
                 .background(Theme.Color.surface)
                 .overlay(
@@ -880,9 +904,9 @@ struct ChatView: View {
     /// discard ✕ and the orange send ↑. This is the "review then send" gate — the
     /// attachment only leaves the device when the athlete taps send.
     private func pendingAttachmentComposer(_ picked: ChatPickedAttachment) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.Spacing.m) {
             PendingAttachmentPreview(picked: picked)
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Spacing.s)
             Button(action: discardComposerAttachment) {
                 Image(systemName: "xmark")
                     .font(.system(size: 15, weight: .bold))
@@ -912,6 +936,56 @@ struct ChatView: View {
     }
 }
 
+// MARK: - Los dos estados sin conversación
+//
+// Piezas propias, no `private var` de la vista, por lo mismo que el vacío del
+// hub de tests: son estados con vida propia y así se pueden RENDERIZAR en el
+// arnés de capturas (§8). Y sobre todo porque son DOS estados, no uno con un
+// ternario — que es como estaban, y por eso el error no tenía reintento.
+
+/// El vacío gana SALIDA: un arranque que RELLENA el compositor y lo enfoca. No
+/// lo envía — el atleta lo edita y decide. Escribirle al coach en frío es justo
+/// lo que cuesta, y una primera frase ya escrita quita ese peso.
+struct ChatVacioState: View {
+    let coachInitials: String
+    /// «Escribe a <coach> para empezar», ya resuelto con el nombre real (o la
+    /// versión neutra cuando no lo sabemos — nunca uno inventado).
+    let prompt: String
+    let onArranque: () -> Void
+
+    /// Primera frase del arranque. Abierta a propósito: el atleta la termina.
+    static let conversationStarter = "Hoy me he encontrado…"
+
+    var body: some View {
+        RedesignEmptyState(
+            title: prompt,
+            message: "Aquí van dudas, sensaciones y molestias. Lo que le cuentes cambia el entreno de mañana.",
+            exit: .action(title: "Contarle cómo he ido hoy", perform: onArranque),
+            // No decimos «en línea»: el backend no expone presencia del coach y
+            // afirmarla sería fabricarla (§7).
+            note: "Te contesta cuando pueda."
+        ) {
+            CoachAvatar(initials: coachInitials, size: 56)
+        }
+    }
+}
+
+/// El error, con el reintento que no tenía: antes esta rama reutilizaba el
+/// bloque del vacío cambiando sólo el copy, así que el atleta leía «revisa tu
+/// conexión» y no tenía nada que tocar.
+struct ChatErrorState: View {
+    let onReintentar: () -> Void
+
+    var body: some View {
+        RedesignEmptyState(
+            symbol: "arrow.clockwise",
+            title: "No se pudo cargar el chat",
+            message: "Revisa tu conexión. Lo que escribas ahora se guarda y sale solo en cuanto vuelvas a tener línea.",
+            exit: .action(title: "Reintentar", perform: onReintentar)
+        )
+    }
+}
+
 // MARK: - Pending attachment preview (composer)
 
 /// Compact preview of a picked-but-not-yet-sent attachment: an image thumbnail,
@@ -922,16 +996,16 @@ private struct PendingAttachmentPreview: View {
     @State private var thumb: UIImage?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.Spacing.m) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
                     .fill(Theme.Color.surfaceSunken)
                     .frame(width: 44, height: 44)
                 if let thumb {
                     Image(uiImage: thumb)
                         .resizable().scaledToFill()
                         .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                 } else {
                     Image(systemName: glyph)
                         .font(.system(size: 18, weight: .semibold))
@@ -946,7 +1020,7 @@ private struct PendingAttachmentPreview: View {
                         .clipShape(Circle())
                 }
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(title)
                     .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
@@ -1054,10 +1128,10 @@ private struct MessageRow: View {
     private var canDelete: Bool { isMe && message.status == .sent }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            if isMe { Spacer(minLength: 40) }
+        HStack(alignment: .bottom, spacing: Theme.Spacing.s) {
+            if isMe { Spacer(minLength: Theme.Spacing.xxl) }
 
-            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: isMe ? .trailing : .leading, spacing: Theme.Spacing.xs) {
                 bubble
                 Text(metaLabel)
                     .font(.system(size: 9, design: .monospaced))
@@ -1075,7 +1149,7 @@ private struct MessageRow: View {
                 onDelete: { onDelete?() }
             )
 
-            if message.sender == .coach { Spacer(minLength: 40) }
+            if message.sender == .coach { Spacer(minLength: Theme.Spacing.xxl) }
         }
         // A failed message is tap-to-retry across the whole row. Non-failed rows
         // add NO row-level gesture, so the interactive bubbles (play / open /
@@ -1118,8 +1192,8 @@ private struct MessageRow: View {
             Text(body)
                 .scaledFont(14, relativeTo: .footnote)
                 .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.foreground)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.vertical, Theme.Spacing.s)
                 .chatBubbleSurface(isMe: isMe)
                 .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
                 .opacity(message.status == .sent ? 1 : 0.6)
