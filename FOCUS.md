@@ -1,39 +1,43 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-29**
+Última actualización: **2026-07-30**
 
 ---
 
 ## En qué estamos ahora
 
-**Que la app se vea PENSADA, no volcada** — el encargo de Alex del 29-jul: *«la UI no puede ser una simple UI como la que teníamos, pusheada todo al top sin más, llena de espacios; las views todas tienen que tener su sentido y su diseño pensado para funcionar»*.
+**Que el software sea de verdad multi-coach.** Alex, el 29-jul: *«al final esto derivará a FLEXR, este código, y lo venderemos a otros coaches. Pablo es nuestro coach, no es "el coach". Habrán con suerte miles de coaches.»* Es la **HARD RULE Nº0** de `CLAUDE.md`, y la línea es: **MECANISMO en código** (cómo se calcula un TSS, cómo se detectan los tramos, cómo se resuelve un ancla) · **MÉTODO en dato editable** (dónde cortan las zonas, los pesos del readiness, los umbrales de veredicto). La pregunta que decide cada caso: *¿otro entrenador competente lo haría distinto?*
 
-**La causa raíz, encontrada:** las cuatro reglas de pantalla existían desde el 27-jul y no sirvieron, porque faltaba lo que las hace aplicables. Y `Theme/ScreenScaffold.swift` — repartir el alto, anclar la acción, obligar a que un vacío tenga salida — se commiteó el 28-jul con **212 líneas y CERO llamadas**, adoptándose después por barrios. Las pantallas sin tocar no están mal por descuido: **cada una resolvió el reparto vertical a mano y cada una lo resolvió distinto**. Seis respuestas a la misma pregunta.
+**ATR está fuera, del todo** (migración 0148 aplicada en producción, con el código desplegado antes). Sobrevivió a las limpiezas de 0064/0068 porque **la columna viva no se llamaba `atr_` sino `target_block`**: una metodología se barre por semántica, nunca por su sigla. De paso caían «Listo para TRANS» en la cola de HOY, las anotaciones del gráfico de VO₂máx, un HTML público y **el propio `CLAUDE.md`**, que enseñaba ATR a todo agente que arrancara.
 
-**Lo que se ha cerrado hoy para que no vuelva a pasar:** `docs/CONTRATO-UI.md` §6 (cuatro estrategias de altura · cinco arquetipos · el caso de diseño es el atleta recién dado de alta) y **§9, que la web no tenía** — el contrato se titulaba «— iOS» y por eso el dashboard acumuló 631 tamaños de fuente a mano, 116 de ellos en medios píxeles, ignorando la escala que ya existe en `globals.css`.
+**El nombre del coach ya sale de la base** en las push, los correos de cita y de lead y los `.ics`. Y **un lead se graba con su dueño en la captura** (0147): NULL significa «sin asignar», nunca «el coach por defecto».
 
-**En curso:** los arquetipos como pantallas del doble (`/es/design`) para que Alex apruebe la composición antes de tocar Swift · la puerta de entrada (4 de 5 pantallas de auth no scrollean y recortan el botón de email con texto grande) · los bugs de tokens del dashboard · el onboarding que puebla la app.
+**En curso / lo siguiente:** las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
+
+**Esperan decisión de Alex:** si guardamos la serie de ritmo (`execution_streams`) · el identificador de coach en el enlace público de captura · las tres filas «Pablo Amigo» (60/61/62) con los atletas repartidos · el modelo de las 5 estaciones de HYROX · borrar o revivir `methodology_blocks`/`methodology_rules` (motor muerto cuya forma sigue siendo un catálogo de fases) · la firma de distribución, que bloquea TestFlight.
 
 ---
 
-## Cerrado el 29-jul · La tanda inmersiva del entreno — diez pantallas nuevas del doble
+## Cerrado el 30-jul · El lenguaje del entreno, en la app
 
-Encargo de Alex: *«cada view hecha PARA ese entreno; una vez uses la app no puedas dejar de usarla»* — solo iOS, la vista del atleta. Diez familias `propuesta` en `/es/design`, una por **quién gobierna** el entreno (decisión en `docs/DECISIONS.md`, 29-jul):
+`docs/CONTRATO-UI.md` §10 fija el idioma de las vistas en vivo — **la zona tiñe el lienzo, un solo numeral, el sujeto ancla su centro, la acción no compite, y el trabajo no va en gris** — y ya no vive solo en el doble: **correr, fuerza y EMOM lo hablan en Swift**, con 730 líneas del HUD viejo muertas.
 
-- **Contexto:** `plan-bloque` (la semana dentro del bloque, con la rampa y el día vacío con salida) · `sesion-previa` (la ficha con vídeo por ejercicio, el porqué de Pablo, material, y el detalle con tu última vez).
-- **En vivo:** `vivo-correr` (la zona te tiñe el rodaje; en series mandan los metros que faltan; cinta honesta que LEE) · `vivo-erg` (el /500 contra objetivo, el crono espera al primer golpe, el cruce cierra; horizontal = cara de monitor con objetivo · héroe · raíl, y sin monitor la prescripción manda) · `vivo-fuerza` (la serie delante con discos por lado y tu última vez; el descanso es pantalla) · `vivo-emom` (el minuto es el ambiente; lo que sobra es tuyo; interval 45/15 avisa de PARAR) · `vivo-fortime` (el crono es la puntuación y no se va; la estación es el tramo; 1.014 se lee 1.014) · `vivo-amrap` (la ronda gigante se toca en medio lienzo; el sellado exacto) · `vivo-dobles` (tu descanso es el sujeto cuando rema Ana; el cambio es un suceso 3-2-1).
-- **Muñeca:** `watch-vivo` (el fondo OLED entero es tu zona; un sujeto por página; el aro del bisel trocea las series).
+Al reescribirlas salieron bugs de la app real: el pulso ausente pintaba «—»; «tiempo del tramo» enseñaba lo que QUEDA mientras la distancia enseñaba lo CUBIERTO, en la misma caja; y en fuerza **el botón grande cerraba el ejercicio** mientras «serie hecha» era un botón de 12 pt — el gesto que repites cuatro veces era el pequeño.
 
-Verificado: typecheck y eslint en verde, las diez renderizan sin errores de consola en local, cero jerga (PM5/FTMS) en el lienzo, cero hex fuera de tokens, casos reales de producción como fixtures (5×500 exec 179, ski 400 exec 173, EMOM 177, HYROX 16, circuito con dosis null). **Hallazgo de raíz apuntado:** `t-readout-label` (Theme.swift + twin.css) escribe «/500M» por el uppercase — se arregla en los dos en el mismo lote.
+**Y al terminar una serie ya se ven los tramos**: el resumen pasó de «¿hay más de un bloque?» a «¿hay más de una fila?», porque una carrera estructurada es UN bloque con N tramos. Cada uno con su ritmo **medido**.
 
-**Siguiente:** Alex revisa en `/es/design`; lo aprobado pasa a Swift y su pantalla del doble a `espejo` en el mismo lote.
+---
 
-**PRECEDENCIA (29-jul, validada por Alex: «me encanta»):** dentro de «Entreno en vivo», **la tanda inmersiva es la dirección canónica de UX**. Donde se solape o contradiga con la propuesta previa de composición (`entreno-vivo`, los arquetipos) o con cualquier mockup anterior, **manda la tanda**; los espejos (`run-live`, `benchmark-erg`, `watch-live`) documentan la app de HOY, no la dirección. Una sesión que vaya a trabajar el entreno en vivo NO debe interpretar el índice entero de `/es/design`: lee las dos entradas del 29-jul en `docs/DECISIONS.md` (tanda inmersiva + el giro con máquina) y las diez carpetas `web/components/design-twin/screens/{plan-bloque, sesion-previa, vivo-correr, vivo-erg, vivo-fuerza, vivo-emom, vivo-fortime, vivo-amrap, vivo-dobles, watch-vivo}`. Solo esas diez.
+## Cerrado el 30-jul · La honestidad de la duración y de las series
 
-**Decidido por Alex el 29-jul** (ver `docs/DECISIONS.md`): lo que el atleta declara en el onboarding **puebla su app y la ficha del coach**, marcado, editable y borrable, y lo medido manda sobre lo declarado. Y **sin zonas medidas se generalizan por población**, marcadas y sin puntuar como medidas.
+**La duración la escribe el coach o ES el resultado — no hay tercer caso.** El «26 minutos para todo» eran el calentamiento y la vuelta a la calma compartidos (25,7 min): el trabajo no entraba nunca. De 42 plantillas, 26 pierden el número; y leer la prescripción tipada se lo **da** a 12 entrenos libres que la fórmula vieja no sabía leer. La semana dice ahora las dos mitades: «6 sesiones · desde 50 min» + «5 sin tiempo previsto».
 
-**En espera de Alex:** el diseño de la pizarra del entreno funcional, tres detalles del reloj (página 2 = zonas o pizarra; el botón de fuerza a uno o dos toques; la FC con color de zona o lisa), el nombre del tier free, y **el modelo de las 5 estaciones de HYROX** (no hay columna, ni slug, ni pantalla — se pregunta en el onboarding y se tira).
+**El motor ya graba las recuperaciones** (0146, con `leg_index`/`leg_role`/`leg_phase`), y el reloj deja de fundir los tramos en una fila. Eso rompía ~20 lectores que asumían «una fila de correr = un esfuerzo»: la economía en Z2 le habría dicho al coach que el atleta empeora justo cuando entrena más duro.
+
+**El resumen honesto de una serie está diseñado** (`/es/design/resumen-carrera` y `watch-resumen`): la media se gana ser el sujeto **solo si la carrera fue UNA sola cosa**. Falta construirlo en Swift — y falta guardar la serie de ritmo, que hoy no existe en ninguna tabla.
+
+---
 
 ---
 
