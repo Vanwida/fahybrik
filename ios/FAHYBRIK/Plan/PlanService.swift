@@ -622,15 +622,11 @@ extension PlanWeek {
         let days: [PlanDay] = api.week.days.map { d in
             let primary = d.sessions.first
             let title = primary?.title ?? (d.isRest ? "Descanso" : "Sin sesión")
-            let subtitle = d.sessions
-                .map { "\($0.slot.uppercased()) · \($0.title)" }
-                .joined(separator: " · ")
             return PlanDay(
                 assignmentId: primary?.assignmentId,
                 dayName: dayNameES(d.dayOfWeek),
                 dayNumber: dayNumberFromIso(d.isoDate),
                 title: title,
-                subtitle: subtitle.isEmpty ? "—" : subtitle,
                 isRest: d.isRest || d.sessions.isEmpty,
                 status: primary?.status,
                 partnerVisibility: primary?.partnerVisibility

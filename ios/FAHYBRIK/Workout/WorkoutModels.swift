@@ -274,7 +274,11 @@ struct WorkoutSegment: Codable, Identifiable {
 // PrescriptionRenderer so the live HUD reads exactly like the rest of the app.
 struct EmomInterval: Equatable {
     let movement: String   // "Remo", "Burpees", or the exercise title
-    let work: String       // "15 cal", "12 reps", "200 m", "0:40"
+    /// "15 cal", "12 reps", "200 m", "0:40" — nil when the minute declares NO
+    /// measurable work. Never a placeholder dash: the dash was a sentinel that
+    /// five call sites had to strip with `!= "—"` to recover "not known", which
+    /// is the type being wrong (§7 del contrato de UI). Quien pinta decide.
+    let work: String?
     let detail: String?    // "@ 1:50/500m", "RPE 8" — nil when none prescribed
 }
 
@@ -392,17 +396,17 @@ extension PrescriptionSet {
         return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail)
     }
 
-    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal"), an
-    /// em-dash when the measure is absent/zero. EMOM-specific: shows the reps unit
-    /// and a non-nil placeholder, unlike `PrescriptionRenderer.measureWork`.
-    static func emomWorkString(_ m: Measure?) -> String {
-        guard let m else { return "—" }
+    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal"), or
+    /// nil when the measure is absent / zero / unknown. EMOM-specific: it spells
+    /// the reps unit, unlike `PrescriptionRenderer.measureWork`.
+    static func emomWorkString(_ m: Measure?) -> String? {
+        guard let m else { return nil }
         switch m {
-        case .reps(let v):           return v > 0 ? "\(v) reps" : "—"
-        case .distance(let meters):  return Formato.distancia(meters) ?? "—"
-        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : "—"
-        case .calories(let v):       return v > 0 ? "\(v) cal" : "—"
-        case .unknown:               return "—"
+        case .reps(let v):           return v > 0 ? "\(v) reps" : nil
+        case .distance(let meters):  return Formato.distancia(meters)
+        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
+        case .calories(let v):       return v > 0 ? "\(v) cal" : nil
+        case .unknown:               return nil
         }
     }
 }
@@ -430,11 +434,10 @@ extension WorkoutSegment {
     // Uniform EMOM (same work every minute) — work comes from the flattened scalar
     // targets; intensity from the prescribed RPE / pace / the block target.
     private func uniformEmomInterval(_ p: Prescription) -> EmomInterval {
-        let work: String = targetReps.map { "\($0) reps" }
+        let work: String? = targetReps.map { "\($0) reps" }
             ?? targetDistanceMeters.flatMap { Formato.distancia($0) }
-            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
+            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work is a measure too
             ?? targetDurationSeconds.map { Formato.clock($0, subMinuto: .segundos) }
-            ?? "—"
         let detail = effortGuidance
             ?? PrescriptionRenderer.targetLoad(p.target)
             ?? PrescriptionRenderer.paceString(p.target, isErg: kind.isErg)
@@ -590,7 +593,9 @@ extension WorkoutSegment {
 struct WorkComponent: Identifiable, Equatable {
     let id: Int
     let name: String
-    let work: String
+    /// La dosis del movimiento ("500 m", "12 reps") — nil cuando el bloque no
+    /// declara ninguna. Nunca una raya: quien pinta decide qué dice (§7).
+    let work: String?
     let detail: String?
 }
 
@@ -623,11 +628,10 @@ extension WorkoutSegment {
             }
         }
         // Scalar fallback: one component from the dominant measure + intensity.
-        let work: String = targetReps.map { "\($0) reps" }
+        let work: String? = targetReps.map { "\($0) reps" }
             ?? targetDistanceMeters.flatMap { Formato.distancia($0) }
-            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
+            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work is a measure too
             ?? targetDurationSeconds.map { Formato.clock($0, subMinuto: .segundos) }
-            ?? "—"
         let detail = effortGuidance
             ?? prescription.flatMap { PrescriptionRenderer.targetLoad($0.target) }
             ?? prescription.flatMap { PrescriptionRenderer.paceString($0.target, isErg: isErg) }
@@ -639,16 +643,16 @@ extension WorkoutSegment {
     /// where the athlete named a format and nothing else.
     ///
     /// `components` cannot answer this: its scalar fallback ALWAYS yields one row, so
-    /// a clock with nothing declared comes back as a single "—" line named after the
-    /// segment. That is the row the live lists must not print.
+    /// a clock with nothing declared comes back as a single work-less line named after
+    /// the segment. That is the row the live lists must not print.
     var hasDeclaredWork: Bool {
         if prescription?.sets?.isEmpty == false { return true }
         return targetReps != nil || targetDistanceMeters != nil
             || targetCalories != nil || targetDurationSeconds != nil
     }
 
-    /// `components`, but EMPTY for a bare clock instead of the one-row "—" fallback.
-    /// The live movement lists read this so a cronómetro shows no phantom round.
+    /// `components`, but EMPTY for a bare clock instead of the one-row work-less
+    /// fallback. The live movement lists read this so a cronómetro shows no phantom round.
     var declaredComponents: [WorkComponent] { hasDeclaredWork ? components : [] }
 
     // ── Block-level conditioning params (read from the folded prescription) ──────

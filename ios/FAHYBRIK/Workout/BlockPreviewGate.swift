@@ -51,7 +51,7 @@ struct BlockPreviewGate: View {
                 var seen = Set<String>()
                 for itv in plan.intervals where !seen.contains(itv.movement) {
                     seen.insert(itv.movement)
-                    let detail = [itv.work != "—" ? itv.work : nil, itv.detail]
+                    let detail = [itv.work, itv.detail]
                         .compactMap { $0 }
                         .joined(separator: " · ")
                     out.append(WorkRow(id: out.count, name: itv.movement, work: detail.isEmpty ? nil : detail))
@@ -61,7 +61,7 @@ struct BlockPreviewGate: View {
                 // Chipper / …): list each movement of the round, exactly as the
                 // live FIXED HUD shows it.
                 for comp in seg.components {
-                    let detail = [comp.work != "—" ? comp.work : nil, comp.detail]
+                    let detail = [comp.work, comp.detail]
                         .compactMap { $0 }
                         .joined(separator: " · ")
                     out.append(WorkRow(id: out.count, name: comp.name, work: detail.isEmpty ? nil : detail))

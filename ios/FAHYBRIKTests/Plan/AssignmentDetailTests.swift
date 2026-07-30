@@ -299,7 +299,7 @@ final class AssignmentDetailTests: XCTestCase {
 
         let rows = try XCTUnwrap(PrescriptionRenderer.setRows(p))
         XCTAssertEqual(rows.count, 5)
-        XCTAssertEqual(rows.map(\.work), ["10", "10", "8", "8", "6"])
+        XCTAssertEqual(rows.compactMap(\.work), ["10", "10", "8", "8", "6"])
         XCTAssertEqual(rows.map { $0.load ?? "" }, ["60% 1RM", "65% 1RM", "70% 1RM", "70% 1RM", "75% 1RM"])
         // Pyramid → NOT uniform → expands to one row per set.
         XCTAssertFalse(PrescriptionRenderer.setsAreUniform(p))

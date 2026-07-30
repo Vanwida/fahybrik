@@ -102,10 +102,12 @@ struct FixedLiveView: View {
                         .foregroundStyle(WatchTheme.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    Text(comp.work)
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundStyle(WatchTheme.orangeSoft)
-                        .lineLimit(1)
+                    if let work = comp.work {
+                        Text(work)
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundStyle(WatchTheme.orangeSoft)
+                            .lineLimit(1)
+                    }
                 }
                 GiantNumber(text: WatchFormat.clock(session.condElapsed), size: 40)
                     .padding(.top, 2)

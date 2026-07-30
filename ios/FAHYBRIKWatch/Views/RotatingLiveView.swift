@@ -148,8 +148,7 @@ struct RotatingLiveView: View {
     private var nowWork: String? {
         guard let seg = session.currentSegment else { return nil }
         if seg.isEMOM, let plan = seg.emomPlan {
-            let w = plan.interval(session.emomIntervalIndex)?.work
-            return (w == "—") ? nil : w
+            return plan.interval(session.emomIntervalIndex).flatMap(\.work)
         }
         if seg.formatScheme == .deathBy {
             return "Objetivo \(session.deathByTarget)"

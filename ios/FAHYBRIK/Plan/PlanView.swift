@@ -1734,7 +1734,6 @@ struct PlanDay: Identifiable, Hashable {
     let dayName: String          // "JUE"
     let dayNumber: Int           // 15
     let title: String            // primary session title
-    let subtitle: String         // joined modality summary
     let isRest: Bool
     /// Server-side assignment status of the primary session: 'scheduled' |
     /// 'completed' | 'missed' | 'in_progress' (see deep-dive-plan PLAN_STATUS).
@@ -1821,7 +1820,7 @@ enum WorkoutItemParamsFormatter {
                     return collapsed
                 }
                 // Pyramid → "5 series · 10→6 · 60→75% 1RM" (count + work/load spread).
-                let works = rows.map(\.work)
+                let works = rows.compactMap(\.work)
                 let loads = rows.compactMap(\.load)
                 var parts = ["\(rows.count) series"]
                 if let first = works.first, let last = works.last, first != last {

@@ -528,7 +528,11 @@ struct PreWorkoutBriefView: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                MonoText(text: interval.work, size: 15, weight: .semibold, color: Theme.Color.foreground)
+                // Un minuto sin dosis declarada no pinta nada a la derecha: el
+                // movimiento ya está dicho a la izquierda (§7).
+                if let work = interval.work {
+                    MonoText(text: work, size: 15, weight: .semibold, color: Theme.Color.foreground)
+                }
                 if let detail = interval.detail {
                     MonoText(text: detail, size: 12, weight: .medium, color: Theme.Color.accentText)
                 }
@@ -644,9 +648,9 @@ struct PreWorkoutBriefView: View {
         HStack(spacing: 0) {
             setCell("\(row.index)", width: setColIndex, color: Theme.Color.faint)
             setCell(row.work, width: setColReps)
-            setCell(row.load ?? "—", color: row.load != nil ? Theme.Color.accentText : Theme.Color.faint)
-            if showTempo { setCell(row.tempo ?? "—", width: setColTempo, color: row.tempo != nil ? Theme.Color.muted : Theme.Color.faint) }
-            if showRest { setCell(row.rest ?? "—", width: setColRest, color: row.rest != nil ? Theme.Color.muted : Theme.Color.faint) }
+            setCell(row.load, color: Theme.Color.accentText)
+            if showTempo { setCell(row.tempo, width: setColTempo, color: Theme.Color.muted) }
+            if showRest { setCell(row.rest, width: setColRest, color: Theme.Color.muted) }
         }
         .padding(.vertical, 10)
     }
@@ -671,8 +675,11 @@ struct PreWorkoutBriefView: View {
     }
 
     @ViewBuilder
-    private func setCell(_ text: String, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
-        let cell = Text(text)
+    /// Una celda de la tabla de series. `nil` = ese set no declara ese campo, y
+    /// entonces la celda se queda VACÍA: la columna sigue alineada, pero no se
+    /// pinta un guion que se lee como si fuera el valor (§7).
+    private func setCell(_ text: String?, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
+        let cell = Text(text ?? "")
             .font(.system(size: 13, weight: .medium, design: .monospaced))
             .foregroundStyle(color)
             .lineLimit(1)
