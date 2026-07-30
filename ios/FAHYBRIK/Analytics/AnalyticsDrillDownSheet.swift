@@ -22,7 +22,6 @@ struct AnalyticsDrillDownSheet: View {
 
     @State private var result: DrillDownResult? = nil
     @State private var isLoading = true
-    @State private var failed = false
     // #27 — a source row that carries an assignment_id opens the existing executed detail.
     @State private var executedTarget: WorkoutLaunch? = nil
 
@@ -57,23 +56,30 @@ struct AnalyticsDrillDownSheet: View {
         if let result {
             loaded(result)
         } else if isLoading {
-            VStack(spacing: 12) {
-                ProgressView().tint(Theme.Color.accent)
-                Text("Cargando sesiones…")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
+            CenteredScreen {
+                VStack(spacing: Theme.Spacing.m) {
+                    ProgressView().tint(Theme.Color.accent)
+                    Text("Cargando sesiones…")
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                .frame(maxWidth: .infinity)
             }
         } else {
-            // No bearer / request failed / 404 → honest empty, never a fake list.
-            VStack(spacing: 8) {
-                Image(systemName: "tray")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-                Text("Sin sesiones para este desglose")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
+            // ESTO NUNCA FUE UN VACÍO. `fetchDrillDown` sólo devuelve nil sin
+            // bearer o cuando la petición falla: un desglose que existe y no
+            // tiene filas llega con `sessions: []` y lo pinta `loaded`. Decir
+            // «sin sesiones para este desglose» cuando lo que pasó es que no
+            // hubo red es mentirle al atleta sobre sus propios datos (§7) — y
+            // encima le deja sin reintentar.
+            CenteredScreen {
+                RedesignEmptyState(
+                    symbol: "arrow.clockwise",
+                    title: "No pudimos abrir el desglose",
+                    message: "Revisa tu conexión e inténtalo de nuevo.",
+                    exit: .action(title: "Reintentar") { Task { await load() } }
+                )
             }
-            .padding(.horizontal, Theme.Spacing.xl)
         }
     }
 
@@ -159,7 +165,6 @@ struct AnalyticsDrillDownSheet: View {
         isLoading = true
         let r = await AnalyticsService.fetchDrillDown(target.ref, period: target.period, bearer: bearer)
         result = r
-        failed = (r == nil)
         isLoading = false
     }
 }

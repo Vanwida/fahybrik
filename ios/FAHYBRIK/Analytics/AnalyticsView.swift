@@ -14,6 +14,23 @@ import SwiftUI
 // gate — never a fabricated number. Cache-first via the shared AppDataStore (one
 // in-memory + on-disk slice per section×period, SWR), so switching sections and
 // periods you've already opened is instant.
+//
+// COMPOSICIÓN (contrato §6, aplicado el 30-jul). La pantalla estaba llena de
+// forma y vacía de fondo: el selector de periodo mandaba arriba y las tarjetas
+// eran N cajas grises diciendo cada una que no había nada, ninguna con salida.
+//
+//   · EL SUJETO ES EL VEREDICTO DE LA SECCIÓN, no el selector de periodo. Y el
+//     veredicto NO se inventa: sale de la primera tarjeta que trae cifra
+//     (`primary.value` + `unit`), su título la etiqueta, y el juicio es su
+//     `meaning_es` — que ya lo escribe el servidor. El periodo baja a un control
+//     pequeño, que es lo que es.
+//   · SIN COBERTURA NO HAY VEREDICTO: cuando la tarjeta no está en `real`, la
+//     CIFRA se queda y el JUICIO se retira; en su sitio se declara el hueco con
+//     el `availability_note` del propio servidor («Haz un test de carrera para
+//     fijar tu umbral»). Es el §6.2 bis: el hueco se declara cuando hay un acto
+//     concreto detrás.
+//   · UNA SECCIÓN SIN NADA ES UN VACÍO, y se pinta como Vacío (§6.2): UN estado
+//     centrado con salida, no diez tarjetas repitiendo la misma ausencia.
 struct AnalyticsView: View {
     var bearer: String? = nil
     /// FREE tier switch (athlete without coach) — hides the chat affordance.
@@ -29,6 +46,10 @@ struct AnalyticsView: View {
     @State private var drillTarget: DrillTarget? = nil
     @State private var showCustomPicker = false
     @State private var revealed = false
+    /// La salida del vacío: los tests son el acto que SIEMBRA estas analíticas.
+    /// Y el hub degrada honestamente si el atleta tampoco tiene batería, así que
+    /// la cadena se cierra en vez de acabar en otro callejón.
+    @State private var showTestsHub = false
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -42,17 +63,12 @@ struct AnalyticsView: View {
     private var currentSection: AnalyticsSection? { slice.value }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                sectionNav
-                periodSelector
-                if section == .ergo { ergSelector }
-                cards
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.xl)
+        // `head` queda fijo: el título, las secciones y (en Ergo) la máquina son
+        // la IDENTIDAD de lo que estás mirando, y no deben irse al scrollear.
+        // El cuerpo `llena` cuando hay tarjetas y reparte el aire cuando no —
+        // resuelto por contenido, no por una decisión a priori (§6.1).
+        CenteredScreen(head: { chrome }) {
+            main
         }
         .refreshable {
             // Pull-to-refresh: re-pull the active section×period fresh (force
@@ -67,6 +83,17 @@ struct AnalyticsView: View {
             CustomPeriodSheet(initial: period) { newPeriod in
                 period = newPeriod
             }
+        }
+        .fullScreenCover(isPresented: $showTestsHub) {
+            TestsHubView(
+                bearer: effectiveBearer,
+                onClose: { showTestsHub = false },
+                onSessionCompleted: {
+                    Task {
+                        await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
+                    }
+                }
+            )
         }
         .onAppear {
             revealed = false
@@ -83,6 +110,24 @@ struct AnalyticsView: View {
     /// Composite identity that drives the revalidation task (erg only for Ergo).
     private var refreshKey: String {
         "\(effectiveBearer ?? "nil")|\(section.rawValue)|\(period.cacheSuffix)|\(scopedErg?.rawValue ?? "")"
+    }
+
+    // MARK: - Chrome (pinned: title · sections · erg)
+
+    /// Lo que NO scrollea: qué pantalla es y qué estás mirando. El periodo no
+    /// vive aquí — es un calificador del detalle, no la identidad de la sección.
+    private var chrome: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            header
+                .padding(.horizontal, Theme.Spacing.xl)
+            sectionNav
+            if section == .ergo {
+                ergSelector
+                    .padding(.horizontal, Theme.Spacing.xl)
+            }
+        }
+        .padding(.top, Theme.Spacing.s)
+        .padding(.bottom, Theme.Spacing.m)
     }
 
     // MARK: - Header
@@ -132,7 +177,8 @@ struct AnalyticsView: View {
                     .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, Theme.Spacing.xs)
+            .padding(.horizontal, Theme.Spacing.xl)
         }
     }
 
@@ -213,35 +259,230 @@ struct AnalyticsView: View {
         return key.label
     }
 
-    // MARK: - Cards
+    // MARK: - Body
 
     @ViewBuilder
-    private var cards: some View {
-        if let section = currentSection {
-            VStack(alignment: .leading, spacing: 11) {
-                ForEach(Array(section.cards.enumerated()), id: \.element.id) { idx, card in
-                    AnalyticsCardView(card: card) { drill in
-                        drillTarget = DrillTarget(ref: drill, period: period)
-                    }
-                    .staggerReveal(revealed, index: min(idx, 8))
-                }
+    private var main: some View {
+        if let loaded = currentSection {
+            // Una sección puede llegar LLENA DE TARJETAS y vacía de fondo: el
+            // servidor emite siempre su juego de cards, y con un atleta recién
+            // dado de alta todas vienen sin cifra. Eso no es una lista corta, es
+            // un Vacío — y se pinta como Vacío.
+            if AnalyticsVerdict.isBlank(loaded) {
+                emptyState(loaded)
+            } else {
+                loadedBody(loaded)
             }
         } else if slice.isRevalidating || !slice.hasLoaded {
             // Cold load (no cache yet) — quiet skeletons, not an empty state.
-            VStack(spacing: 11) {
+            VStack(spacing: Theme.Spacing.m) {
                 ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
             }
+            .padding(.horizontal, Theme.Spacing.xl)
         } else {
-            // Loaded but genuinely nothing — honest empty (rare; sections emit cards).
-            CardSurface(padding: 15) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: section.navLabel)
-                    Text("Aún no hay datos para este periodo.")
-                        .scaledFont(12, relativeTo: .footnote)
+            // Ni caché ni respuesta: es un error, y un error lleva reintento.
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tus analíticas",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") {
+                    Task {
+                        await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
+                    }
+                },
+                eyebrow: section.navLabel
+            )
+        }
+    }
+
+    private func loadedBody(_ loaded: AnalyticsSection) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            // El sujeto, primero y más grande.
+            if let verdict = AnalyticsVerdict.of(loaded) {
+                verdictBlock(verdict, in: loaded)
+            }
+
+            // El periodo, a su tamaño real, justo encima de lo que califica.
+            HStack(alignment: .center, spacing: Theme.Spacing.s) {
+                LabelText(text: "El detalle")
+                Spacer(minLength: Theme.Spacing.s)
+                periodSelector
+                    .frame(maxWidth: 210)
+            }
+
+            ForEach(Array(loaded.cards.enumerated()), id: \.element.id) { idx, card in
+                AnalyticsCardView(card: card) { drill in
+                    drillTarget = DrillTarget(ref: drill, period: period)
+                }
+                .staggerReveal(revealed, index: min(idx, 8))
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.xl)
+    }
+
+    private func verdictBlock(_ v: AnalyticsVerdict, in loaded: AnalyticsSection) -> some View {
+        AnalyticsVerdictBlock(verdict: v, periodLabel: loaded.period.label_es)
+    }
+
+    private func emptyState(_ loaded: AnalyticsSection) -> some View {
+        AnalyticsSeccionVaciaState(
+            seccion: section.navLabel,
+            porque: AnalyticsVerdict.blankReason(loaded),
+            necesitaDispositivo: loaded.availability == .needs_wearable
+        ) {
+            Haptics.light()
+            showTestsHub = true
+        }
+    }
+}
+
+// MARK: - El sujeto: el veredicto
+
+/// La cifra que se lee a tres metros, qué es, y — sólo si hay cobertura — la
+/// frase que la juzga. Sin cobertura la cifra SE QUEDA y el juicio se retira,
+/// con el hueco declarado en su sitio.
+struct AnalyticsVerdictBlock: View {
+    let verdict: AnalyticsVerdict
+    /// «últimos 30 días» — un veredicto sin su ventana miente por omisión.
+    let periodLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                Text(verdict.figure)
+                    .font(Theme.Typography.readoutL)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                if let unit = verdict.unit {
+                    Text(unit)
+                        .font(Theme.Typography.bodyEmph)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
+            Text("\(verdict.label) · \(periodLabel)")
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            if let judgement = verdict.judgement {
+                Text(judgement)
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let gap = verdict.coverageGap {
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.warning)
+                        .padding(.top, 1)
+                    Text(gap)
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.vertical, Theme.Spacing.s)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                        .stroke(Theme.Color.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                )
+                .accessibilityElement(children: .combine)
+            }
         }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+// MARK: - La sección vacía
+
+/// UN estado, centrado, con salida — no N tarjetas grises repitiendo la misma
+/// ausencia. El porqué lo escribe el servidor (`availability_note`), así que no
+/// nos lo inventamos aquí.
+struct AnalyticsSeccionVaciaState: View {
+    let seccion: String
+    let porque: String
+    /// Sin dispositivo no hay acto que ofrecer DENTRO de la app, y un botón
+    /// falso es peor que ninguno: se explica y punto.
+    let necesitaDispositivo: Bool
+    let onVerTests: () -> Void
+
+    var body: some View {
+        if necesitaDispositivo {
+            RedesignEmptyState(
+                symbol: "applewatch",
+                title: "Todavía no hay nada que analizar aquí",
+                message: porque,
+                exit: .explained(note: "Esto se llena solo en cuanto entrenes con un reloj o pulsómetro conectado."),
+                eyebrow: seccion
+            )
+        } else {
+            RedesignEmptyState(
+                symbol: "chart.line.uptrend.xyaxis",
+                title: "Todavía no hay nada que analizar aquí",
+                message: porque,
+                exit: .action(title: "Ver mis tests", perform: onVerTests),
+                note: "Y cada entreno que registres suma aquí sin que tengas que hacer nada.",
+                eyebrow: seccion
+            )
+        }
+    }
+}
+
+// MARK: - El veredicto de una sección
+//
+// Derivado, nunca inventado: el servidor ya manda la cifra, su título y la frase
+// que la interpreta. Esto sólo decide CUÁL de las tarjetas es la portada y
+// cuándo el juicio deja de sostenerse.
+
+struct AnalyticsVerdict {
+    /// `primary.value` de la tarjeta de portada.
+    let figure: String
+    /// `primary.unit` — «/km · Z4», «kg».
+    let unit: String?
+    /// El título de esa tarjeta: qué es la cifra.
+    let label: String
+    /// `meaning_es` — SÓLO cuando la tarjeta está en `real`. Sin cobertura, la
+    /// cifra se queda y el juicio se retira.
+    let judgement: String?
+    /// `availability_note` cuando la cobertura no da: el hueco, declarado con
+    /// las palabras del servidor.
+    let coverageGap: String?
+
+    /// La portada de la sección: la primera tarjeta que trae cifra. Si ninguna
+    /// la trae, la sección no tiene veredicto que dar.
+    static func of(_ section: AnalyticsSection) -> AnalyticsVerdict? {
+        guard let card = section.cards.first(where: { ($0.primary?.value?.isEmpty == false) }),
+              let value = card.primary?.value else { return nil }
+        let covered = card.availability == .real
+        return AnalyticsVerdict(
+            figure: value,
+            unit: card.primary?.unit,
+            label: card.title_es,
+            judgement: covered ? card.meaning_es : nil,
+            coverageGap: covered ? nil : card.availability_note
+        )
+    }
+
+    /// Una sección está VACÍA DE FONDO cuando ninguna de sus tarjetas lleva un
+    /// solo dato: ni cifra, ni fila con valor, ni serie, ni zona con valor. Es el
+    /// caso del atleta recién dado de alta, y es cuando la pantalla se llenaba de
+    /// tarjetas grises que sólo decían que no había nada.
+    static func isBlank(_ section: AnalyticsSection) -> Bool {
+        section.cards.allSatisfy { card in
+            (card.primary?.value?.isEmpty ?? true)
+                && card.rows.allSatisfy { ($0.value?.isEmpty ?? true) }
+                && card.series.isEmpty
+                && card.zones.allSatisfy { ($0.value?.isEmpty ?? true) }
+        }
+    }
+
+    /// Por qué está vacía, con las palabras del servidor. La primera nota de
+    /// disponibilidad que exista; si no hay ninguna, una frase honesta y neutra.
+    static func blankReason(_ section: AnalyticsSection) -> String {
+        section.cards.compactMap { $0.availability_note }.first(where: { !$0.isEmpty })
+            ?? "Aún no hay sesiones registradas en este periodo."
     }
 }
 
