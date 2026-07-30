@@ -99,7 +99,7 @@ private struct RotatingWorkCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 LabelText(text: label, color: Theme.Color.accentText, size: 10)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    if let work, work != "—" {
+                    if let work {
                         Text(work)
                             .font(Theme.Typography.readoutS)
                             .monospacedDigit()
@@ -156,20 +156,36 @@ private struct PaceTargetBar: View {
 
 /// A 3-cell metric row matching the EMOM HUD's grid (total / progress / HR).
 private struct MetricRow3: View {
-    let cells: [(String, String, String, Color)]   // label, value, unit, color
+    /// Una celda de la fila. Era una tupla de cuatro `String` no opcionales, y por
+    /// eso cada llamante colaba un `?? "—"` para poder rellenarla: el hueco no
+    /// cabía en el tipo. `value` nil = no hay medida, y `ausente` dice por qué (§7).
+    struct Cell {
+        let label: String
+        let value: String?
+        var unit: String = ""
+        var color: Color = Theme.Color.foreground
+        var ausente: String? = nil
+    }
+
+    let cells: [Cell]
     var body: some View {
         let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
         LazyVGrid(columns: cols, spacing: 4) {
             ForEach(Array(cells.enumerated()), id: \.offset) { _, c in
-                ExpertCell(label: c.0, value: c.1, unit: c.2, color: c.3)
+                ExpertCell(label: c.label, value: c.value, unit: c.unit, color: c.color, ausente: c.ausente)
             }
         }
     }
 }
 
-private func hrCell(_ session: WorkoutSession) -> (String, String, String, Color) {
-    (Vocab.fc, session.liveHRBpm.map { "\($0)" } ?? "—", Vocab.ppm,
-     session.liveZone?.color ?? Theme.Color.foreground)
+/// El pulso en vivo. Sin reloj emparejado no llega ninguna muestra, así que la
+/// celda dice eso — que es accionable — en vez de una raya que no dice nada.
+private func hrCell(_ session: WorkoutSession) -> MetricRow3.Cell {
+    MetricRow3.Cell(label: Vocab.fc,
+                    value: session.liveHRBpm.map { "\($0)" },
+                    unit: Vocab.ppm,
+                    color: session.liveZone?.color ?? Theme.Color.foreground,
+                    ausente: "sin reloj")
 }
 
 // MARK: - AMRAP
@@ -194,8 +210,8 @@ struct AmrapLiveHUD: View {
                                components: seg.declaredComponents)
             }
             MetricRow3(cells: [
-                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
-                ("Reps", "\(session.repsCurrentSegment)", "", Theme.Color.foreground),
+                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
+                .init(label: "Reps", value: "\(session.repsCurrentSegment)"),
                 hrCell(session)
             ])
         }
@@ -333,10 +349,15 @@ private struct FixedRoundList: View {
                 ForEach(components) { c in
                     Hairline()
                     HStack(spacing: 9) {
-                        Text(c.work)
-                            .font(.system(size: 14, weight: .heavy, design: .monospaced))
-                            .foregroundStyle(Theme.Color.accentText)
-                            .frame(minWidth: 52, alignment: .leading)
+                        // Sin dosis declarada no se reserva la columna: un hueco de
+                        // 52 pt delante del movimiento se lee como una dosis que se
+                        // ha borrado, y no hay tal (§7).
+                        if let work = c.work {
+                            Text(work)
+                                .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                                .foregroundStyle(Theme.Color.accentText)
+                                .frame(minWidth: 52, alignment: .leading)
+                        }
                         Text(c.name)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Theme.Color.foreground)
@@ -383,17 +404,17 @@ struct ForTimeLiveHUD: View {
                 StationSubject(session: session)
                 StrikeList(session: session)
                 MetricRow3(cells: [
-                    ("Parcial", lastSplitSeconds, "", Theme.Color.foreground),
-                    ("Estación", "\(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)",
-                     "", Theme.Color.foreground),
+                    .init(label: "Parcial", value: lastSplitSeconds, ausente: "aún sin parciales"),
+                    .init(label: "Estación",
+                          value: "\(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)"),
                     hrCell(session)
                 ])
             } else {
                 clock
                 StrikeList(session: session)
                 MetricRow3(cells: [
-                    ("Split", lastSplit, "", Theme.Color.foreground),
-                    (listUnitLabel, "\(session.fixedRoundsDone)/\(session.fixedListTotal)", "", Theme.Color.foreground),
+                    .init(label: "Split", value: lastSplit, ausente: "aún sin vueltas"),
+                    .init(label: listUnitLabel, value: "\(session.fixedRoundsDone)/\(session.fixedListTotal)"),
                     hrCell(session)
                 ])
             }
@@ -420,16 +441,16 @@ struct ForTimeLiveHUD: View {
     }
 
     private var listUnitLabel: String { seg?.formatScheme == .chipper ? "Estación" : "Ronda" }
-    /// The block clock at the last strike — the classic For Time split.
-    private var lastSplit: String {
-        guard let s = session.fixedRoundSplits.last else { return "—" }
-        return Formato.clock(s.elapsed)
+    /// The block clock at the last strike — the classic For Time split. Nil until
+    /// the FIRST strike: antes de la primera vuelta no hay parcial, y una raya ahí
+    /// se lee como un parcial de cero (§7).
+    private var lastSplit: String? {
+        session.fixedRoundSplits.last.map { Formato.clock($0.elapsed) }
     }
     /// How long the LAST STATION took. On a route that is the useful number: the
-    /// cumulative stamp is already the clock in the context strip.
-    private var lastSplitSeconds: String {
-        guard let s = session.fixedRoundSplits.last else { return "—" }
-        return Formato.clock(s.seconds)
+    /// cumulative stamp is already the clock in the context strip. Nil como arriba.
+    private var lastSplitSeconds: String? {
+        session.fixedRoundSplits.last.map { Formato.clock($0.seconds) }
     }
 }
 
@@ -528,7 +549,11 @@ private struct StrikeList: View {
     private var rows: [Row] {
         guard let seg else { return [] }
         if isStations {
-            return seg.declaredComponents.map { Row(id: $0.id, label: "\($0.work)  \($0.name)", detail: $0.detail) }
+            return seg.declaredComponents.map { c in
+                Row(id: c.id,
+                    label: c.work.map { "\($0)  \(c.name)" } ?? c.name,
+                    detail: c.detail)
+            }
         }
         // Per-round rows. A SINGLE-movement For Time shows its work each round
         // ("10 Burpees"); a multi-movement one shows only the movement NAMES — the
@@ -540,7 +565,7 @@ private struct StrikeList: View {
         let declared = seg.declaredComponents
         let detail: String? = {
             if declared.count == 1, let c = declared.first {
-                return c.work != "—" ? "\(c.work) \(c.name)" : c.name
+                return c.work.map { "\($0) \(c.name)" } ?? c.name
             }
             let names = declared.map(\.name).joined(separator: " · ")
             return names.isEmpty ? nil : names
@@ -644,7 +669,9 @@ struct TabataLiveHUD: View {
             clock
             RotatingWorkCard(
                 label: "Trabajo",
-                movement: seg?.primaryMovement ?? "—",
+                // Sin segmento no hay nombre de movimiento — pero sí sabemos que es
+                // la fase de trabajo, que es lo que dice la banda de arriba.
+                movement: seg?.primaryMovement ?? "Trabajo",
                 next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
             )
             if !isCountIn {
@@ -653,8 +680,8 @@ struct TabataLiveHUD: View {
                             onMinus: { session.tabataAddRep(-1) }, onPlus: { session.tabataAddRep(1) })
             }
             MetricRow3(cells: [
-                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
-                ("Reps", "\(session.rotRepsThisRound)", "", Theme.Color.foreground),
+                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
+                .init(label: "Reps", value: "\(session.rotRepsThisRound)"),
                 hrCell(session)
             ])
         }
@@ -702,13 +729,15 @@ struct IntervalsLiveHUD: View {
             clock
             RotatingWorkCard(
                 label: "Esta serie",
-                movement: seg?.primaryMovement ?? "—",
+                // Sin segmento no hay nombre de movimiento — pero sí sabemos que es
+                // la fase de trabajo, que es lo que dice la banda de arriba.
+                movement: seg?.primaryMovement ?? "Trabajo",
                 work: seg?.targetDistanceMeters.flatMap { Formato.distancia($0) },
                 next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
             )
             MetricRow3(cells: [
-                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
-                ("Series", "\(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))", "", Theme.Color.foreground),
+                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
+                .init(label: "Series", value: "\(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))"),
                 hrCell(session)
             ])
         }
@@ -723,10 +752,11 @@ struct IntervalsLiveHUD: View {
         } else if seg?.kind == .running && session.rotPhaseRemaining <= 0 {
             // Distance-based run bout (no fixed duration): show live pace vs target.
             VStack(spacing: 8) {
+                let lectura = lecturaDeRitmo
                 FormatClockHero(
-                    caption: serieCaption,
+                    caption: lectura.caption,
                     captionColor: Theme.Color.accentText,
-                    value: paceValue, sub: Formato.UnidadRitmo.porKm.rawValue,
+                    value: lectura.value, sub: lectura.unidad,
                     color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
                 )
                 PaceTargetBar(session: session)
@@ -746,10 +776,20 @@ struct IntervalsLiveHUD: View {
         "Serie \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))"
     }
 
-    private var paceValue: String {
-        if let p = session.liveCoveredPaceSecPerKm { return Formato.ritmoCifras(Double(p)) }
-        if let p = seg?.targetPaceSecondsPerKm { return Formato.ritmoCifras(Double(p)) }
-        return "—:—"
+    /// LA SIGUIENTE VERDAD DISPONIBLE: el ritmo si ya se ha medido, y si no el reloj
+    /// de la serie, que es lo único que la app sabe con certeza.
+    ///
+    /// Etiqueta, cifra y unidad viajan JUNTAS a propósito. Antes esto caía al ritmo
+    /// OBJETIVO: la prescripción se pintaba en el hueco del ritmo en vivo, con el
+    /// «/km» debajo, y lo único que las separaba era el color. Corriendo, el color
+    /// no se lee — y el número que salía era justo el que esperabas ver, así que el
+    /// error era invisible (§7). Mismo criterio que `OutdoorRunHUDView.lecturaViva`.
+    private var lecturaDeRitmo: (caption: String, value: String, unidad: String?) {
+        guard let p = session.liveCoveredPaceSecPerKm else {
+            return ("\(serieCaption) · \(Vocab.tiempo.lowercased())",
+                    Formato.clock(session.tramoElapsedSeconds, anchoFijo: true), nil)
+        }
+        return (serieCaption, Formato.ritmoCifras(Double(p)), Formato.UnidadRitmo.porKm.rawValue)
     }
 }
 
@@ -767,8 +807,8 @@ struct DeathByLiveHUD: View {
             clock
             targetCard
             MetricRow3(cells: [
-                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
-                ("Ronda", "\(session.rotRoundIndex + 1)", "", Theme.Color.foreground),
+                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
+                .init(label: "Ronda", value: "\(session.rotRoundIndex + 1)"),
                 hrCell(session)
             ])
         }
@@ -827,8 +867,10 @@ struct SteadyLiveHUD: View {
             clock
             paceCard
             MetricRow3(cells: [
-                ("Media", avgPace, Formato.UnidadRitmo.porKm.rawValue, Theme.Color.foreground),
-                ("% zona", session.liveZonePctInTarget.map { "\($0)" } ?? "—", "%", Theme.Color.foreground),
+                .init(label: "Media", value: avgPace, unit: Formato.UnidadRitmo.porKm.rawValue,
+                      ausente: "aún sin recorrido"),
+                .init(label: "% zona", value: session.liveZonePctInTarget.map { "\($0)" }, unit: "%",
+                      ausente: "sin reloj"),
                 hrCell(session)
             ])
         }
@@ -860,13 +902,22 @@ struct SteadyLiveHUD: View {
             VStack(alignment: .leading, spacing: 8) {
                 LabelText(text: "Ritmo en vivo", color: Theme.Color.accentText, size: 10)
                 HStack(alignment: .firstTextBaseline, spacing: 9) {
-                    Text(livePace)
-                        .font(Theme.Typography.readoutS).monospacedDigit()
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(Formato.UnidadRitmo.porKm.rawValue).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Color.muted)
+                    if let livePace {
+                        Text(livePace)
+                            .font(Theme.Typography.readoutS).monospacedDigit()
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text(Formato.UnidadRitmo.porKm.rawValue).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Color.muted)
+                    } else {
+                        // La unidad se va con el número: un «/km» solo, al lado de
+                        // nada, sigue prometiendo un ritmo que no tenemos (§7).
+                        Text("aún sin recorrido")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                     Spacer(minLength: 0)
-                    if let d = session.liveRunDistanceMeters, d > 0 {
-                        Text(Formato.distanciaCubierta(d) ?? "—")
+                    if let d = session.liveRunDistanceMeters, d > 0,
+                       let recorrido = Formato.distanciaCubierta(d) {
+                        Text(recorrido)
                             .font(.system(size: 13, weight: .heavy, design: .monospaced))
                             .foregroundStyle(Theme.Color.muted)
                     }
@@ -876,13 +927,19 @@ struct SteadyLiveHUD: View {
         }
     }
 
-    private var livePace: String {
-        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "—:—"
-    }
-    private var avgPace: String {
+    /// El ritmo MEDIDO, o nil. Nunca «—:—»: quien pinta dice por qué no lo hay.
+    private var livePace: String? {
         session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
-            ?? seg?.targetPaceSecondsPerKm.map { Formato.ritmoCifras(Double($0)) }
-            ?? "—:—"
+    }
+
+    /// La media REAL del tramo (lo recorrido entre lo que llevas).
+    ///
+    /// Antes caía al ritmo OBJETIVO cuando no había medida: pintaba la prescripción
+    /// en el hueco de la media, con su misma etiqueta y su misma unidad. Eso es
+    /// fabricar un dato del atleta (§7) — y encima es invisible, porque el número
+    /// que sale es exactamente el que esperabas ver. El objetivo ya se pinta aparte.
+    private var avgPace: String? {
+        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
     }
 }
 
@@ -920,8 +977,8 @@ struct StructuredRunLiveHUD: View {
                     .frame(maxWidth: .infinity)
             }
             MetricRow3(cells: [
-                ("Total", Formato.clock(session.elapsedSeconds, anchoFijo: true), "", Theme.Color.foreground),
-                ("Tramo", "\(session.runLegNumber)/\(session.runLegTotal)", "", Theme.Color.foreground),
+                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
+                .init(label: "Tramo", value: "\(session.runLegNumber)/\(session.runLegTotal)"),
                 hrCell(session)
             ])
         }
@@ -946,10 +1003,11 @@ struct StructuredRunLiveHUD: View {
             // DISTANCE / open leg — live covered pace vs the objetivo band; closed by
             // the belt or a manual "TRAMO HECHO".
             VStack(spacing: 8) {
+                let lectura = lecturaDeRitmo
                 FormatClockHero(
-                    caption: legCaption,
+                    caption: lectura.caption,
                     captionColor: Theme.Color.accentText,
-                    value: paceValue, sub: Formato.UnidadRitmo.porKm.rawValue,
+                    value: lectura.value, sub: lectura.unidad,
                     color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
                 )
                 if isWork, let objetivo = leg?.objetivoLabel {
@@ -980,10 +1038,17 @@ struct StructuredRunLiveHUD: View {
                : "Descanso · tramo \(session.runLegNumber) / \(session.runLegTotal)"
     }
 
-    private var paceValue: String {
-        if let p = session.liveCoveredPaceSecPerKm { return Formato.ritmoCifras(Double(p)) }
-        if case let .pace(t) = (leg?.runTarget ?? .none), let s = t.single ?? t.fastS { return Formato.ritmoCifras(Double(s)) }
-        return "—:—"
+    /// El ritmo medido del tramo, y si aún no lo hay el RELOJ del tramo.
+    ///
+    /// Antes caía al ritmo objetivo del leg — que ya se pinta justo debajo, con su
+    /// etiqueta «objetivo». O sea que el mismo número salía dos veces y el de arriba
+    /// se leía como lo que estabas corriendo (§7). El reloj no miente y siempre está.
+    private var lecturaDeRitmo: (caption: String, value: String, unidad: String?) {
+        guard let p = session.liveCoveredPaceSecPerKm else {
+            return ("\(legCaption) · \(Vocab.tiempo.lowercased())",
+                    Formato.clock(session.runLegElapsed, anchoFijo: true), nil)
+        }
+        return (legCaption, Formato.ritmoCifras(Double(p)), Formato.UnidadRitmo.porKm.rawValue)
     }
 
     /// The leg's OWN measure ("800 m" / "3:00"), the per-bout value the scalar path
