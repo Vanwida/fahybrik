@@ -7,7 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { MIcon } from '@/components/ui/MIcon';
 import type { PendingIntakeAthlete } from '@/lib/coach/intake';
-import { Rail } from '@/components/v2/Rail';
+import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 function waitingLabel(hours: number): string {
   if (hours < 1) return 'recién llegado';
@@ -20,29 +20,21 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
   if (pending.length === 0) return null;
 
   return (
-    <section aria-label="Altas sin revisar" className="mt-4">
-      <div className="mb-2 flex items-center gap-2">
-        <MIcon name="how_to_reg" size={16} className="text-[color:var(--v2-accent)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
-          Altas sin revisar
-        </span>
-        <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          {pending.length}
-        </span>
+    <DecisionStrip
+      icon="how_to_reg"
+      label="Altas sin revisar"
+      count={pending.length}
+      action={
         <Link
           href="/altas"
-          className="v2-focus ml-auto inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
         >
           Ver todas
           <MIcon name="arrow_forward" size={13} />
         </Link>
-      </div>
-
-      <Rail>
-        {pending.map((a) => (
+      }
+    >
+      {pending.map((a) => (
           <Link
             key={a.athlete_id}
             href={`/atletas/${a.athlete_id}/intake`}
@@ -65,8 +57,7 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
               <MIcon name="arrow_forward" size={14} />
             </span>
           </Link>
-        ))}
-      </Rail>
-    </section>
+      ))}
+    </DecisionStrip>
   );
 }

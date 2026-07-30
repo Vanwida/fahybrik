@@ -15,7 +15,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2NivelSugeridoCard } from '@/lib/dashboard/v2/hoy-lanes';
-import { Rail } from '@/components/v2/Rail';
+import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 // ── Confidence badge ──────────────────────────────────────────────────────────
 
@@ -157,27 +157,10 @@ export function NivelSugeridoStrip({ cards }: { cards: V2NivelSugeridoCard[] }) 
   }
 
   return (
-    <section aria-label="Niveles pendientes de confirmar" className="mt-4">
-      {/* Section header */}
-      <div className="mb-2 flex items-center gap-2">
-        <MIcon name="school" size={16} className="text-[color:var(--v2-accent)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
-          Nivel pendiente de confirmar
-        </span>
-        <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          {visible.length}
-        </span>
-      </div>
-
-      {/* Horizontal scroll row */}
-      <Rail>
-        {visible.map((card) => (
-          <NivelSugeridoCard key={card.id} card={card} onAccepted={handleAccepted} />
-        ))}
-      </Rail>
-    </section>
+    <DecisionStrip icon="school" label="Nivel pendiente de confirmar" count={visible.length}>
+      {visible.map((card) => (
+        <NivelSugeridoCard key={card.id} card={card} onAccepted={handleAccepted} />
+      ))}
+    </DecisionStrip>
   );
 }

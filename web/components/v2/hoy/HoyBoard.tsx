@@ -102,28 +102,53 @@ export function HoyBoard({
     [data.lanes, q],
   );
 
+  // Las calles se juzgan por SÍ MISMAS: antes «el tablero está vacío» exigía que
+  // también lo estuvieran las tiras de decisión, así que con tres altas pendientes
+  // se pintaban cuatro calles vacías de ~190 px cada una. Son dos preguntas
+  // distintas y ahora se responden por separado.
+  const lanesEmpty = totalCards === 0;
+
+  // JERARQUÍA (§9.2 «lo que decide la acción es lo más grande»). Estaba invertida:
+  // la fecha pesaba 36 px y «0 requieren atención» —lo único que decide si hoy hay
+  // trabajo— pesaba 11. Ahora el titular es LO QUE REQUIERE DECISIÓN, y la fecha
+  // pasa a ser lo que siempre fue: contexto. Y escala con la urgencia: cuando no
+  // hay nada pendiente el titular es la calma, no un cero en rojo.
+  const pendientes =
+    data.need_attention_count + pending_intakes.length + data.nivel_sugerido_cards.length +
+    data.asignacion_sugerida_cards.length + data.siguiente_microciclo_cards.length +
+    data.week_adjustment_cards.length;
+
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">
-            <span className="text-[color:var(--v2-fg)]">Hoy</span>
-            <span className="text-[color:var(--v2-muted)]"> · {today}</span>
+            {pendientes > 0 ? (
+              <>
+                <span className="v2-num text-[color:var(--v2-danger)]">{pendientes}</span>
+                <span className="text-[color:var(--v2-fg)]">
+                  {' '}
+                  {pendientes === 1 ? 'decisión' : 'decisiones'}
+                </span>
+              </>
+            ) : (
+              <span className="text-[color:var(--v2-fg)]">Todo en orden</span>
+            )}
             {orient.hydrated && !orient.visible ? (
               <InfoDot onClick={orient.recall} label="Cómo funciona Hoy" className="ml-2" />
             ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-body text-[color:var(--v2-muted)]">Hoy · {today}</span>
             <Pill tone="neutral" variant="soft">
               <span className="v2-num">{data.total_athletes}</span>&nbsp;atletas
             </Pill>
-            <Pill tone="danger" variant="soft">
-              <span className="v2-num">{data.need_attention_count}</span>&nbsp;requieren atención
-            </Pill>
-            <Pill tone="info" variant="soft">
-              <span className="v2-num">{data.awaiting_reply_count}</span>&nbsp;sin respuesta
-            </Pill>
+            {data.awaiting_reply_count > 0 ? (
+              <Pill tone="info" variant="soft">
+                <span className="v2-num">{data.awaiting_reply_count}</span>&nbsp;sin respuesta
+              </Pill>
+            ) : null}
           </div>
         </div>
 
@@ -214,6 +239,15 @@ export function HoyBoard({
               </Link>
             }
           />
+        </div>
+      ) : lanesEmpty && !q ? (
+        /* Las cuatro calles vacías se dicen en una línea cada una, no en cuatro
+           paneles de ~190 px: es el caso NORMAL de un coach al día, y ocupaba
+           media pantalla para decir que no pasaba nada. */
+        <div className="mt-4 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+          {filteredLanes.map(({ lane, cards }) => (
+            <HoyLane key={lane.id} lane={lane} cards={cards} />
+          ))}
         </div>
       ) : (
         /* ── Board · 4 equal lanes ──────────────────────────────────────── */

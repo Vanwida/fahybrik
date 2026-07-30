@@ -1,29 +1,50 @@
 'use client';
 
-// HoyLane — one triage column: a sticky header (dot + title + count) over a
-// scroll of LaneCards. Caps visible cards and shows a "+ N más" footer when
-// truncated. Renders a calm EmptyState when the lane has no cards (after the
-// active search filter). One of the 4 equal board columns.
+// HoyLane — una columna de triaje: cabecera (punto + título + contador) sobre las
+// tarjetas. Corta a LANE_CARD_CAP y enseña «+ N más» cuando sobra.
+//
+// UNA CALLE VACÍA NO ES UNA TARJETA VACÍA. Antes cada calle sin elementos pintaba
+// un panel de ~190 px con su icono y su frase, así que con las cuatro vacías
+// —que es el caso NORMAL de un coach al día— el tablero era una banda entera de
+// nada ocupando media pantalla. Una calle vacía es una BUENA noticia y una buena
+// noticia se dice en una línea: ahora se pliega a su propia cabecera con una
+// marca de visto. El contrato lo pide dos veces: «el hueco se gana o no existe»
+// (§6) y «cada elemento se gana su sitio» (§8.2).
 
 import { LaneCard } from '@/components/v2/hoy/LaneCard';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { MIcon } from '@/components/ui/MIcon';
 import type { V2Lane, V2LaneCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { cn } from '@/lib/utils';
 
 /** Max cards rendered per lane before the "+ N más" footer. */
 const LANE_CARD_CAP = 8;
 
-const EMPTY_COPY: Record<string, { icon: string; title: string }> = {
-  fallo_sesiones: { icon: 'check_circle', title: 'Nadie ha fallado sesiones' },
-  listo_progresar: { icon: 'trending_up', title: 'Sin candidatos a progresar hoy' },
-  vigilar_fisiologia: { icon: 'favorite', title: 'Fisiología en verde' },
-  espera_respuesta: { icon: 'mark_chat_read', title: 'Bandeja al día' },
+/** Lo que dice una calle cuando está vacía. Es la BUENA noticia de esa calle. */
+const EMPTY_COPY: Record<string, string> = {
+  fallo_sesiones: 'Nadie ha fallado sesiones',
+  listo_progresar: 'Sin candidatos a progresar hoy',
+  vigilar_fisiologia: 'Fisiología en verde',
+  espera_respuesta: 'Bandeja al día',
 };
 
 export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) {
   const visible = cards.slice(0, LANE_CARD_CAP);
   const overflow = cards.length - visible.length;
-  const empty = EMPTY_COPY[lane.id] ?? { icon: 'inbox', title: 'Sin elementos' };
+
+  // ── Vacía: una línea, no un panel ────────────────────────────────────────────
+  if (cards.length === 0) {
+    return (
+      <section
+        className="flex min-w-0 items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] px-2.5 py-1.5"
+        aria-label={lane.title}
+      >
+        <MIcon name="check" size={14} className="shrink-0 text-[color:var(--v2-ok)]" />
+        <span className="truncate text-label text-[color:var(--v2-muted)]">
+          {EMPTY_COPY[lane.id] ?? lane.title}
+        </span>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -41,13 +62,8 @@ export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) 
           <h2 className="truncate text-body font-bold text-[color:var(--v2-fg)]">{lane.title}</h2>
         </div>
         <span
-          className={cn(
-            'v2-num shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-label font-bold',
-            cards.length > 0
-              ? 'text-[color:var(--v2-fg)]'
-              : 'text-[color:var(--v2-faint)]',
-          )}
-          style={cards.length > 0 ? { background: `color-mix(in srgb, var(${lane.dot_var}) 18%, transparent)` } : undefined}
+          className={cn('v2-num shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-label font-bold', 'text-[color:var(--v2-fg)]')}
+          style={{ background: `color-mix(in srgb, var(${lane.dot_var}) 18%, transparent)` }}
         >
           {cards.length}
         </span>
@@ -55,11 +71,9 @@ export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) 
 
       {/* Cards */}
       <div className="flex flex-col gap-1.5 p-1.5">
-        {visible.length === 0 ? (
-          <EmptyState icon={empty.icon} title={empty.title} className="border-none py-8" />
-        ) : (
-          visible.map((card, i) => <LaneCard key={card.id} card={card} index={i} />)
-        )}
+        {visible.map((card, i) => (
+          <LaneCard key={card.id} card={card} index={i} />
+        ))}
 
         {overflow > 0 ? (
           <button

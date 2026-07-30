@@ -25,7 +25,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 import type { V2AsignacionSugeridaCard } from '@/lib/dashboard/v2/hoy-lanes';
-import { Rail } from '@/components/v2/Rail';
+import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
@@ -247,27 +247,10 @@ export function AsignacionSugeridaStrip({
   }
 
   return (
-    <section aria-label="Asignaciones sugeridas" className="mt-4">
-      {/* Section header */}
-      <div className="mb-2 flex items-center gap-2">
-        <MIcon name="auto_awesome_motion" size={16} className="text-[color:var(--v2-accent)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
-          Asignación sugerida
-        </span>
-        <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          {visible.length}
-        </span>
-      </div>
-
-      {/* Horizontal scroll row */}
-      <Rail>
-        {visible.map((card) => (
-          <AsignacionSugeridaCard key={card.id} card={card} onAssigned={handleAssigned} />
-        ))}
-      </Rail>
-    </section>
+    <DecisionStrip icon="auto_awesome_motion" label="Asignación sugerida" count={visible.length}>
+      {visible.map((card) => (
+        <AsignacionSugeridaCard key={card.id} card={card} onAssigned={handleAssigned} />
+      ))}
+    </DecisionStrip>
   );
 }
