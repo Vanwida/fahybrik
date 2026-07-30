@@ -16,6 +16,7 @@ import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/Fil
 import { RosterTable } from '@/components/v2/atletas/RosterTable';
 import { AddAthleteModal } from '@/components/v2/atletas/AddAthleteModal';
 import { DoublesPairsPanel } from '@/components/v2/atletas/DoublesPairsPanel';
+import { PageFrame } from '@/components/v2/PageFrame';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import type { DoublesPair } from '@/lib/dashboard/coach/doubles-pairs';
 import { toRosterRow, type RosterRow } from '@/lib/dashboard/v2/atletas-row';
@@ -178,9 +179,19 @@ export function RosterDirectory({
     return out;
   }, [rows, query, status, level, phase, test, sort]);
 
-  return (
-    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4">
-      {/* ── Top bar ──────────────────────────────────────────────────────── */}
+  // ── Composición (§6.1 `llena` · §9.2 «un instrumento, no un documento») ────
+  // La pantalla es un marco a altura completa: cabecera fija arriba, la tabla
+  // ocupando TODO lo que sobre y scrolleando por dentro. Antes era una pila
+  // vertical y con tres filas dejaba 295 px muertos debajo.
+  //
+  // Y el sobrante de ANCHO se gana llevándose lo secundario fuera de la pila
+  // (§6 regla 4, «lo secundario se pliega»): de xl para arriba, las altas sin
+  // revisar y las parejas de dobles viven en una columna a la derecha en vez de
+  // empujar la tabla hacia abajo. Eso deja la tabla en ~1.000 px, que es justo
+  // lo que suman sus columnas — y con ello desaparece el vacío de ~470 px que
+  // abría el `1fr` del nombre en medio de cada fila.
+  const head = (
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">
@@ -245,31 +256,6 @@ export function RosterDirectory({
         </div>
       </div>
 
-      {/* ── Altas sin revisar banner (links to the intake queue) ─────────── */}
-      {counts.nuevos > 0 ? (
-        <Link
-          href="/altas"
-          className="v2-focus group flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/30 bg-[color:var(--v2-accent-soft)] px-3.5 py-2.5 transition-colors hover:border-[color:var(--v2-accent)]"
-        >
-          <MIcon name="how_to_reg" size={18} className="text-[color:var(--v2-accent)]" />
-          <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-            <span className="v2-num">{counts.nuevos}</span>{' '}
-            {counts.nuevos === 1 ? 'alta sin revisar' : 'altas sin revisar'}
-          </span>
-          <span className="text-xs text-[color:var(--v2-muted)]">
-            · revisa el intake y asigna su primer plan
-          </span>
-          <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-[color:var(--v2-accent)]">
-            Revisar
-            <MIcon
-              name="arrow_forward"
-              size={15}
-              className="transition-transform group-hover:translate-x-0.5"
-            />
-          </span>
-        </Link>
-      ) : null}
-
       {/* ── Filter row ───────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <FilterDropdown
@@ -311,14 +297,64 @@ export function RosterDirectory({
           />
         </div>
       </div>
+    </div>
+  );
 
-      {/* ── Dobles — coach-created training pairs ────────────────────────── */}
-      <DoublesPairsPanel pairs={doubles_pairs} athletes={athletes} />
+  return (
+    <PageFrame
+      altura="llena"
+      head={head}
+      // Por debajo de xl lo secundario NO cabe al lado, así que va debajo y la
+      // pantalla scrollea: la tabla se queda con la primera pantalla entera
+      // (`min-h-full` + `flex-1`) y lo secundario espera abajo, sin robarle el
+      // pliegue. De xl para arriba nada scrollea: son dos columnas fijas.
+      bodyClassName="overflow-y-auto pb-4 sm:pb-6 xl:overflow-hidden"
+    >
+      <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-4 xl:grid xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-stretch">
+        {/* ── El instrumento ───────────────────────────────────────────────────
+             `min-h-[60svh]`: por debajo de xl la tabla se queda con la mayor
+             parte de la primera pantalla y lo secundario cae por debajo del
+             pliegue. 60 % de la ventana pequeña deja sitio a la cabecera (título,
+             contadores y dos filas de filtros) sin recortar la lista a tres
+             filas, que es lo que pasaba al repartir el alto entre los tres
+             bloques. De xl arriba manda la rejilla y esto no aplica. */}
+        <div className="flex min-h-[60svh] flex-col xl:min-h-0 xl:flex-1">
+          <RosterTable
+            rows={filtered}
+            total={rows.length}
+            hasAnyAthletes={rows.length > 0}
+            onAdd={() => setAddOpen(true)}
+          />
+        </div>
 
-      {/* ── Table ────────────────────────────────────────────────────────── */}
-      <RosterTable rows={filtered} total={rows.length} hasAnyAthletes={rows.length > 0} />
+        {/* ── Lo secundario, plegado al lado en vez de encima de la tabla ──── */}
+        <aside className="flex shrink-0 flex-col gap-3 xl:min-h-0 xl:shrink xl:overflow-y-auto">
+          {counts.nuevos > 0 ? (
+            <Link
+              href="/altas"
+              className="v2-focus group flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/30 bg-[color:var(--v2-accent-soft)] px-3.5 py-2.5 transition-colors hover:border-[color:var(--v2-accent)]"
+            >
+              <MIcon name="how_to_reg" size={18} className="shrink-0 text-[color:var(--v2-accent)]" />
+              <span className="min-w-0 text-body font-semibold text-[color:var(--v2-fg)]">
+                <span className="v2-num">{counts.nuevos}</span>{' '}
+                {counts.nuevos === 1 ? 'alta sin revisar' : 'altas sin revisar'}
+              </span>
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)]">
+                Revisar
+                <MIcon
+                  name="arrow_forward"
+                  size={15}
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
+              </span>
+            </Link>
+          ) : null}
+
+          <DoublesPairsPanel pairs={doubles_pairs} athletes={athletes} />
+        </aside>
+      </div>
 
       {addOpen ? <AddAthleteModal onClose={() => setAddOpen(false)} /> : null}
-    </div>
+    </PageFrame>
   );
 }

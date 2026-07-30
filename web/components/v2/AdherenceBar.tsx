@@ -1,6 +1,14 @@
-// AdherenceBar — track + filled bar colored by adherence band (green ≥75 /
-// amber 60–74 / red <60, per components/v2/constants). The numeric % is shown
-// alongside so color is never the only signal. Null pct → a muted "—".
+// AdherenceBar — carril + barra teñida por la banda de adherencia (verde ≥75 /
+// ámbar 60–74 / rojo <60, según components/v2/constants). El % va al lado, así el
+// color nunca es la única señal.
+//
+// SIN DATO NO SE PINTA UNA BARRA (§7): «lo que no se sabe no se pinta — ni con
+// guiones, ni con una barra vacía que insinúe progreso». `pct == null` no es una
+// medida que falte: es que NO HAY TRABAJO PROGRAMADO en la ventana (sin microciclo
+// activo, o una pausa que congela el plan — ver lib/dashboard/athletes/list). Eso
+// es un hueco que SE DECLARA (§6.2 bis), porque el coach lo llena con un acto
+// concreto: asignarle plan. Así que se dice con palabras, no con un «—» sobre un
+// carril vacío que se lee como 0 %.
 
 import { adherenceBand, ADHERENCE_BAND_COLOR_VAR } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -17,10 +25,12 @@ export function AdherenceBar({
 }) {
   if (pct == null) {
     return (
-      <div className={cn('flex items-center gap-2', className)}>
-        <div className="h-1.5 flex-1 rounded-full bg-[color:var(--v2-surface-2)]" />
-        {showValue ? <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span> : null}
-      </div>
+      <span
+        className={cn('text-xs text-[color:var(--v2-faint)]', className)}
+        title="Sin trabajo programado en la ventana: la adherencia no se puede calcular"
+      >
+        sin programar
+      </span>
     );
   }
   const clamped = Math.max(0, Math.min(100, pct));
