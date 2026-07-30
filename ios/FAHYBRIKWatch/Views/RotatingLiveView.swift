@@ -79,7 +79,11 @@ struct RotatingLiveView: View {
 
     private var statusText: String {
         guard let seg = session.currentSegment else { return "" }
-        let name = seg.formatScheme?.displayName ?? "EMOM"
+        // Sin esquema NO se inventa un nombre de formato: «EMOM» era el defecto de
+        // cualquier segmento desconocido, y un nombre plausible en el sitio de «no se
+        // sabe» es justo lo que nadie detecta (§7). El plan de EMOM, si existe, sí es
+        // prueba de que lo es; si no hay ni esquema ni plan, la tira se calla.
+        guard let name = seg.formatScheme?.displayName ?? (seg.isEMOM ? "EMOM" : nil) else { return "" }
         if seg.isEMOM, let plan = seg.emomPlan {
             return "\(name) · \(session.emomIntervalIndex + 1) / \(plan.intervalCount)"
         }

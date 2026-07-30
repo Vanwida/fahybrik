@@ -221,24 +221,32 @@ struct MirrorHUDView: View {
             // activeContent): los metros de la cinta no se pueden derivar aquí, pero el
             // tiempo sí, así que la lectura degradada no se queda congelada.
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                let lectura = lecturaDeCinta(f, now: context.date)
-                VStack(spacing: 6) {
-                    if let line = f.lineTitle {
-                        Text(line)
-                            .font(.system(size: 14, weight: .heavy))
-                            .foregroundStyle(WatchTheme.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    WatchLabel(text: lectura.etiqueta)
-                    GiantNumber(text: lectura.texto, size: 46, unit: lectura.unidad)
-                    beltProgressBar(fraction: beltFraction(covered: covered, target: target))
-                    WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
-                    hrZoneRow
-                }
+                treadmillHero(f, now: context.date, covered: covered, target: target)
             }
         } bottom: {
             advanceButton
+        }
+    }
+
+    /// El cuerpo del hero de cinta. Vive aparte del `LiveScaffold` a propósito: dentro
+    /// del `TimelineView` el inferidor de SwiftUI no podía resolver el `Content` del
+    /// scaffold, y el error salía apuntando al scaffold en vez de aquí.
+    private func treadmillHero(_ f: MirrorStateFrame, now: Date,
+                               covered: Double, target: Double?) -> some View {
+        let lectura = lecturaDeCinta(f, now: now)
+        return VStack(spacing: 6) {
+            if let line = f.lineTitle {
+                Text(line)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(WatchTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            WatchLabel(text: lectura.etiqueta)
+            GiantNumber(text: lectura.texto, size: 46, unit: lectura.unidad)
+            beltProgressBar(covered: covered, target: target)
+            WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
+            hrZoneRow
         }
     }
 
@@ -255,11 +263,6 @@ struct MirrorHUDView: View {
         return (Vocab.ritmo, WatchFormat.pace(ritmo), Formato.UnidadRitmo.porKm.rawValue)
     }
 
-    private func beltFraction(covered: Double, target: Double?) -> Double {
-        guard let target, target > 0 else { return 0 }
-        return min(1, max(0, covered / target))
-    }
-
     private func beltDistanceLabel(covered: Double, target: Double?) -> String {
         guard let target, target > 0 else { return beltDistance(covered, km: covered >= 1000) }
         let km = target >= 1000                              // format both by the target's scale
@@ -270,15 +273,23 @@ struct MirrorHUDView: View {
         km ? (Formato.distanciaCubierta(meters) ?? "0 m") : "\(Int(meters.rounded())) m"
     }
 
-    private func beltProgressBar(fraction: Double) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(WatchTheme.surfaceRaised)
-                Capsule().fill(WatchTheme.orange)
-                    .frame(width: max(0, geo.size.width * min(1, max(0, fraction))))
+    /// La barra solo existe cuando hay contra qué llenarla. Sin objetivo de distancia
+    /// (un tramo de cinta abierto) se pintaba una cápsula vacía de punta a punta, que
+    /// insinúa un progreso hacia una meta que nadie prescribió — el §7 la nombra con
+    /// todas las letras. Se omite, y la línea de metros de debajo dice lo que sí se
+    /// ha medido.
+    @ViewBuilder
+    private func beltProgressBar(covered: Double, target: Double?) -> some View {
+        if let target, target > 0 {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(WatchTheme.surfaceRaised)
+                    Capsule().fill(WatchTheme.orange)
+                        .frame(width: geo.size.width * min(1, max(0, covered / target)))
+                }
             }
+            .frame(height: 8)
         }
-        .frame(height: 8)
     }
 
     // MARK: - HR + zone bar (mirrors ContinuousLiveView)
