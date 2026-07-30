@@ -17,19 +17,6 @@ export function zonaDe(bpm: number): 1 | 2 | 3 | 4 | 5 {
   return hrZone(bpm, UMBRAL.ppm);
 }
 
-/**
- * El nombre de la zona en español de box. «Rodaje», «tempo» y «umbral» son
- * jerga de corredor: en la muñeca, sudando y a distancia de brazo, tiene que
- * entenderse a la primera y sin traducir nada.
- */
-export const ZONA_NOMBRE: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: 'muy suave',
-  2: 'suave',
-  3: 'medio',
-  4: 'fuerte',
-  5: 'máximo',
-};
-
 /** Interpolación lineal saturada — la forma de todas las curvas de FC de aquí. */
 export function rampa(desde: number, hasta: number, t: number, duracionS: number): number {
   if (duracionS <= 0) return hasta;

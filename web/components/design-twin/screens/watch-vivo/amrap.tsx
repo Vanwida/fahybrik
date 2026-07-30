@@ -15,14 +15,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useTicker } from '../../sim';
 import { clock } from '../watch-live/format';
 import { W, zoneColor } from '../watch-live/theme';
-import { AroContinuo } from './aro';
+import { AroContinuo, SegundoNivel } from '../../kit-watch';
 import { AMRAP, bpmAmrap, zonaDe } from './guion';
-import { Marco, SegundoNivel, Sujeto, type Destello } from './lienzo';
+import { Marco, Sujeto, type EstadoDestello } from './lienzo';
 
 export function Amrap({ onLog }: { onLog: (linea: string) => void }) {
   const [t, setT] = useState(0);
   const [rondas, setRondas] = useState<number>(AMRAP.rondasIniciales);
-  const [destello, setDestello] = useState<Destello>({ n: 0, color: W.orangeSoft });
+  const [destello, setDestello] = useState<EstadoDestello>({ n: 0, color: W.orangeSoft });
   const rondasRef = useRef(rondas);
   const cerradoRef = useRef(false);
   useEffect(() => {
@@ -54,7 +54,7 @@ export function Amrap({ onLog }: { onLog: (linea: string) => void }) {
       contexto={terminado ? 'Tiempo · AMRAP 12 min' : 'AMRAP 12 min'}
       color={zoneColor(zonaDe(bpm))}
       aro={<AroContinuo fraccion={quedaS / AMRAP.ventanaS} />}
-      sujeto={<Sujeto texto={String(rondas)} alto={115} latido={rondas} />}
+      sujeto={<Sujeto texto={String(rondas)} latido={rondas} />}
       segundo={
         terminado ? (
           <SegundoNivel valor="rondas" />

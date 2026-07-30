@@ -17,9 +17,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTicker } from '../../sim';
 import { countdown, kg } from '../watch-live/format';
 import { URGENT_THRESHOLD_S, W, zoneColor } from '../watch-live/theme';
-import { AroContinuo, AroSegmentado } from './aro';
+import { AroContinuo, AroSegmentado, SegundoNivel } from '../../kit-watch';
 import { FUERZA, bpmFuerza, zonaDe } from './guion';
-import { Marco, SegundoNivel, Sujeto, type Destello } from './lienzo';
+import { Marco, Sujeto, type EstadoDestello } from './lienzo';
 
 interface Fase {
   estado: 'descanso' | 'serie';
@@ -36,7 +36,7 @@ function lineaSerie(serie: number): string {
 export function Fuerza({ onLog }: { onLog: (linea: string) => void }) {
   const [t, setT] = useState(0);
   const [fase, setFase] = useState<Fase>({ estado: 'descanso', desde: 0, serie: FUERZA.serieActual });
-  const [destello, setDestello] = useState<Destello>({ n: 0, color: W.orangeSoft });
+  const [destello, setDestello] = useState<EstadoDestello>({ n: 0, color: W.orangeSoft });
   const faseRef = useRef(fase);
   useEffect(() => {
     faseRef.current = fase;
@@ -78,7 +78,7 @@ export function Fuerza({ onLog }: { onLog: (linea: string) => void }) {
         contexto={`Serie ${fase.serie} / ${FUERZA.series}`}
         color={zoneColor(zonaDe(bpm))}
         aro={<AroSegmentado total={FUERZA.series} hechas={fase.serie - 1} fraccion={0} />}
-        sujeto={<Sujeto texto={kg(FUERZA.cargaKg)} unidad="kg" alto={94} />}
+        sujeto={<Sujeto texto={kg(FUERZA.cargaKg)} unidad="kg" />}
         segundo={<SegundoNivel valor={`${FUERZA.reps} reps`} />}
         accion="Toca · hecha"
         onAvanzar={() => cerrarSerie(t, fase)}
@@ -97,7 +97,7 @@ export function Fuerza({ onLog }: { onLog: (linea: string) => void }) {
       color={W.zoneGreen}
       aro={<AroContinuo fraccion={quedaS / FUERZA.descansoS} />}
       sujeto={
-        <Sujeto texto={countdown(quedaS)} alto={94} color={quedaS <= URGENT_THRESHOLD_S ? W.orange : W.ink} />
+        <Sujeto texto={countdown(quedaS)} color={quedaS <= URGENT_THRESHOLD_S ? W.orange : W.ink} />
       }
       segundo={<SegundoNivel valor={lineaSerie(fase.serie)} />}
       accion="Toca · ya"

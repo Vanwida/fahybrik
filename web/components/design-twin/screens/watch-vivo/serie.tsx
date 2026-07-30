@@ -16,9 +16,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTicker } from '../../sim';
 import { countdown, pace } from '../watch-live/format';
 import { URGENT_THRESHOLD_S, W, zoneColor } from '../watch-live/theme';
-import { AroSegmentado } from './aro';
+import { AroSegmentado, SegundoNivel } from '../../kit-watch';
 import { SERIES, bpmSerie, zonaDe } from './guion';
-import { Marco, SegundoNivel, Sujeto, type Destello } from './lienzo';
+import { Marco, Sujeto, type EstadoDestello } from './lienzo';
 
 interface Fase {
   estado: 'trabajo' | 'recupera';
@@ -34,7 +34,7 @@ function inicioM(serie: number): number {
 export function Serie({ onLog }: { onLog: (linea: string) => void }) {
   const [t, setT] = useState(0);
   const [fase, setFase] = useState<Fase>({ estado: 'trabajo', desde: 0, serie: SERIES.actual });
-  const [destello, setDestello] = useState<Destello>({ n: 0, color: W.orangeSoft });
+  const [destello, setDestello] = useState<EstadoDestello>({ n: 0, color: W.orangeSoft });
   const faseRef = useRef(fase);
   useEffect(() => {
     faseRef.current = fase;
@@ -79,7 +79,7 @@ export function Serie({ onLog }: { onLog: (linea: string) => void }) {
         sujeto={
           <Sujeto
             texto={countdown(quedaS)}
-            alto={94}
+           
             color={quedaS <= URGENT_THRESHOLD_S ? W.orange : W.ink}
           />
         }
@@ -107,7 +107,7 @@ export function Serie({ onLog }: { onLog: (linea: string) => void }) {
           fraccion={(SERIES.metros - quedaM) / SERIES.metros}
         />
       }
-      sujeto={<Sujeto texto={String(Math.ceil(quedaM))} unidad="m" alto={108} />}
+      sujeto={<Sujeto texto={String(Math.ceil(quedaM))} unidad="m" />}
       segundo={<SegundoNivel etiqueta="GPS" valor={`${pace(SERIES.ritmoSecKm)}/km`} />}
       accion="Toca · serie hecha"
       onAvanzar={() => aplicar(t, fase)}
