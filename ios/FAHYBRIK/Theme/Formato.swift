@@ -165,7 +165,18 @@ enum Formato {
     // MARK: - Carga
 
     /// «80 kg» · «82,5 kg».
-    static func kg(_ value: Double) -> String { esDecimal(value) + " kg" }
+    static func kg(_ value: Double) -> String { carga(value).linea }
+
+    /// La MISMA carga partida en cifra y unidad — «82,5» + «kg».
+    ///
+    /// Canónico NUEVO (§2.1): una fila que enseña un 1RM pinta la cifra en la
+    /// monoespaciada grande y la unidad pequeña al lado, y sin esto cada pantalla
+    /// se recompone el string a mano o mete «kg» dentro del numeral (donde sale
+    /// con el espaciado de una columna de instrumento). Es la hermana de `kg`,
+    /// no una segunda grafía: `kg` es literalmente esta, unida.
+    static func carga(_ value: Double) -> Cifra {
+        Cifra(cifra: esDecimal(value), unidad: "kg")
+    }
 
     /// Un entero con su unidad: «182 W», «28 spm», «412 kcal».
     static func entero(_ value: Double, _ unidad: String) -> String {

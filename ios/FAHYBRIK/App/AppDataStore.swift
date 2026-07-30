@@ -247,13 +247,17 @@ final class AppDataStore {
         _ = await (p, pa)
     }
 
-    /// Perfil: identity, partner, subscription, plus the week (for the coach name).
+    /// Perfil: identity, partner, subscription, the week (for the coach name) and
+    /// the strength maxes — Perfil's «Tu fuerza» row now PINTA el 1RM más pesado,
+    /// así que la porción tiene que revalidarse aquí y no sólo al calentar la app:
+    /// si no, un 1RM registrado esta mañana no aparecería hasta pasar por Inicio.
     func loadProfile(force: Bool = false) async {
         async let i: Void = refreshIdentity(force: force)
         async let p: Void = refreshPlanWeek(force: force)
         async let pa: Void = refreshPartner(force: force)
         async let s: Void = refreshSubscription(force: force)
-        _ = await (i, p, pa, s)
+        async let sm: Void = refreshStrengthMaxes(force: force)
+        _ = await (i, p, pa, s, sm)
     }
 
     /// Carreras: the unified races hub (upcoming + past), the race-context

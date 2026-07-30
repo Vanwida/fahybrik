@@ -4,6 +4,20 @@ import SwiftUI
 // the EXISTING ExecutedWorkoutView (this screen builds no detail of its own). Month
 // navigation is capped at the current month (no future); back is free. The grid math is
 // pure (HistoryModels); this file is presentation + the fetch per month.
+//
+// ARQUETIPO **Lista** que degrada a **Vacío** (contrato §6.2). ESTRATEGIA `llena`,
+// montada sobre las TRES posiciones de `CenteredScreen`:
+//
+//   head     la barra con la ✕ — clavada, nunca se va con el scroll.
+//   lead     el mes, el calendario y la leyenda: el instrumento de la pantalla, que
+//            se queda arriba (si bailara, el atleta reencuadraría al cambiar de mes)
+//            pero scrollea con el contenido a tamaños de texto accesibles.
+//   content  la lista del mes, que CENTRA en el alto que le deja el calendario
+//            cuando está vacía y crece/scrollea cuando el mes está lleno.
+//
+// Antes era `VStack { topBar; ScrollView { … } }` y un mes sin entrenos dejaba ~380 pt
+// muertos debajo del calendario con la frase «Sin entrenos este mes» pegada arriba y
+// sin ninguna salida — el §6.1 y el §5 incumplidos en el mismo sitio.
 struct HistoryView: View {
     let bearer: String?
     var onClose: () -> Void = {}
@@ -11,6 +25,9 @@ struct HistoryView: View {
     @State private var viewed: YearMonth = .current()
     @State private var month: AthleteHistoryMonth? = nil
     @State private var loading = true
+    /// No pudimos preguntar por este mes. Distinto de «este mes no tiene entrenos»:
+    /// uno lleva reintento y el otro no (§5).
+    @State private var failed = false
     @State private var executedTarget: WorkoutLaunch? = nil
     /// The day (YYYY-MM-DD) the athlete tapped when it held SEVERAL sessions —
     /// the list below narrows to it so they choose, instead of the calendar
@@ -32,29 +49,29 @@ struct HistoryView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
     var body: some View {
-        VStack(spacing: 0) {
+        CenteredScreen {
             topBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    monthNav
-                    calendar
-                    legend
-                    Divider().overlay(Theme.Color.hairline)
-                    monthList
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.s)
-                .padding(.bottom, Theme.Spacing.xxl)
+        } lead: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                monthNav
+                calendar
+                legend
+                Divider().overlay(Theme.Color.hairline)
             }
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.top, Theme.Spacing.s)
+            .padding(.bottom, Theme.Spacing.l)
+        } content: {
+            monthList
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.bottom, Theme.Spacing.xxl)
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .task(id: viewed) {
             // A focus belongs to the month it was set in — carrying it across
             // navigation would filter the new month down to nothing.
             selectedDay = nil
-            loading = true
-            month = await HistoryService.fetch(month: viewed, bearer: bearer)
-            loading = false
+            await load()
         }
         .fullScreenCover(item: $executedTarget) { launch in
             ExecutedWorkoutView(
@@ -63,9 +80,27 @@ struct HistoryView: View {
                 bearer: bearer,
                 onClose: { executedTarget = nil },
                 // Stale id (404) → refetch this month so the day reflects its current id.
-                onStale: { Task { month = await HistoryService.fetch(month: viewed, bearer: bearer) } }
+                onStale: { Task { await load() } }
             )
         }
+    }
+
+    // MARK: - Load
+
+    @MainActor
+    private func load() async {
+        loading = true
+        do {
+            month = try await HistoryService.fetch(month: viewed, bearer: bearer)
+            failed = false
+        } catch {
+            // Sin respuesta el mes se queda SIN pintar (nil), no vacío: un mes que
+            // no pudimos leer no es un mes sin entrenos, y decir lo segundo es la
+            // app mintiendo sobre el trabajo del atleta (§7).
+            month = nil
+            failed = true
+        }
+        loading = false
     }
 
     // MARK: - Top bar
@@ -268,22 +303,85 @@ struct HistoryView: View {
 
     // MARK: - Month list (newest-first)
 
-    @ViewBuilder
     private var monthList: some View {
-        if loading && month == nil {
-            HStack { Spacer(); ProgressView().tint(Theme.Color.accent); Spacer() }
-                .padding(.top, Theme.Spacing.l)
-        } else if rows.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-                Text("Sin entrenos este mes")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
+        HistorialDelMes(
+            viewed: viewed,
+            rows: rows,
+            loading: loading && month == nil,
+            failed: failed,
+            selectedDay: selectedDay,
+            onReintentar: { Task { await load() } },
+            onVerMesAnterior: {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.15)) { viewed = viewed.previous() }
+            },
+            onVerElMes: {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.15)) { selectedDay = nil }
+            },
+            onAbrir: { session in
+                Haptics.light()
+                executedTarget = WorkoutLaunch(
+                    assignmentId: session.assignmentId,
+                    title: session.title
+                )
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, Theme.Spacing.l)
+        )
+    }
+
+    private func cellAccessibility(_ n: Int, _ state: CalendarDayState, _ isToday: Bool) -> String {
+        var s = "\(n)"
+        if isToday { s += ", hoy" }
+        switch state {
+        case .empty: break
+        case .rest: s += ", descanso"
+        case .trained(let p): s += p ? ", entreno hecho en pareja" : ", entreno hecho"
+        }
+        return s
+    }
+}
+
+private extension String {
+    /// "julio 2026" → "Julio 2026" (capitalize only the first letter, keep the rest).
+    var capitalizedFirst: String {
+        guard let first = first else { return self }
+        return first.uppercased() + dropFirst()
+    }
+}
+
+// MARK: - La lista del mes, con sus cuatro estados
+
+/// Lo que va debajo del calendario: la lista de sesiones del mes, su cargando, su
+/// vacío y su error. Sin estado propio — lo recibe todo y devuelve toques.
+///
+/// Vive fuera de `HistoryView` para poder renderizarse en una captura (dentro
+/// cuelga del `CenteredScreen`, que es un `ScrollView`, e `ImageRenderer` no dibuja
+/// ScrollView) y porque es la parte de la pantalla que tiene estados: separarla
+/// hace que los cuatro se puedan mirar uno a uno.
+struct HistorialDelMes: View {
+    let viewed: YearMonth
+    let rows: [HistoryListRow]
+    let loading: Bool
+    let failed: Bool
+    /// El día enfocado cuando el atleta tocó uno con varias sesiones.
+    let selectedDay: String?
+    let onReintentar: () -> Void
+    let onVerMesAnterior: () -> Void
+    let onVerElMes: () -> Void
+    let onAbrir: (AthleteHistorySession) -> Void
+
+    var body: some View {
+        if loading {
+            HStack { Spacer(); ProgressView().tint(Theme.Color.accent); Spacer() }
+        } else if failed {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar \(HistoryCalendar.monthNameEs(viewed.month))",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar", perform: onReintentar)
+            )
+        } else if rows.isEmpty {
+            mesVacio
         } else {
             VStack(spacing: 0) {
                 if selectedDay != nil { focusedDayHeader }
@@ -295,6 +393,26 @@ struct HistoryView: View {
         }
     }
 
+    /// Un mes sin entrenos. Lleva salida SIEMPRE (§5), y la salida es el acto que
+    /// el atleta viene a hacer aquí: **mirar hacia atrás**. «Ver junio» nombra su
+    /// destino, cabe en un toque y no le deja adivinando si hay algo detrás.
+    ///
+    /// Un mes ya cerrado y otro en curso no dicen lo mismo: en el que corre todavía
+    /// puede pasar algo, y eso es información; en el que pasó, ya no.
+    private var mesVacio: some View {
+        RedesignEmptyState(
+            symbol: "calendar",
+            title: "Sin entrenos en \(HistoryCalendar.monthNameEs(viewed.month))",
+            message: HistoryCalendar.todayDay(in: viewed) != nil
+                ? "Lo que entrenes este mes aparece aquí en cuanto lo cierres."
+                : "No hay ninguna sesión registrada en este mes.",
+            exit: .action(
+                title: "Ver \(HistoryCalendar.monthNameEs(viewed.previous().month))",
+                perform: onVerMesAnterior
+            )
+        )
+    }
+
     /// Shown when a multi-session day is focused: says WHICH day is on screen and
     /// gives one obvious way back to the full month. Without it the filtered list
     /// would look like a month that lost most of its sessions.
@@ -304,10 +422,7 @@ struct HistoryView: View {
             HStack(spacing: 8) {
                 LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 10)
                 Spacer(minLength: 0)
-                Button(action: {
-                    Haptics.light()
-                    withAnimation(.easeInOut(duration: 0.15)) { self.selectedDay = nil }
-                }) {
+                Button(action: onVerElMes) {
                     Text("Ver el mes")
                         .scaledFont(11, weight: .semibold, relativeTo: .caption2)
                         .foregroundStyle(Theme.Color.muted)
@@ -331,10 +446,7 @@ struct HistoryView: View {
 
     private func listRow(_ row: HistoryListRow) -> some View {
         let s = row.session
-        return Button(action: {
-            Haptics.light()
-            executedTarget = WorkoutLaunch(assignmentId: s.assignmentId, title: s.title)
-        }) {
+        return Button(action: { onAbrir(s) }) {
             HStack(alignment: .center, spacing: 12) {
                 // Date stamp — DOW + day number.
                 VStack(spacing: 1) {
@@ -406,24 +518,5 @@ struct HistoryView: View {
 
     private func dayNumber(_ iso: String) -> String {
         HistoryCalendar.parseISO(iso).map { String($0.day) } ?? "—"
-    }
-
-    private func cellAccessibility(_ n: Int, _ state: CalendarDayState, _ isToday: Bool) -> String {
-        var s = "\(n)"
-        if isToday { s += ", hoy" }
-        switch state {
-        case .empty: break
-        case .rest: s += ", descanso"
-        case .trained(let p): s += p ? ", entreno hecho en pareja" : ", entreno hecho"
-        }
-        return s
-    }
-}
-
-private extension String {
-    /// "julio 2026" → "Julio 2026" (capitalize only the first letter, keep the rest).
-    var capitalizedFirst: String {
-        guard let first = first else { return self }
-        return first.uppercased() + dropFirst()
     }
 }
