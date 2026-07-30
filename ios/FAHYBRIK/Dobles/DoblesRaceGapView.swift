@@ -367,7 +367,10 @@ struct DoblesRaceGapSection: View {
         case "partner":  return "lo lleva \(partnerName)"
         case "together": return "juntos"
         case "split":
-            let pct = Int((max(0, min(1, seg.selfShare ?? 0.5)) * 100).rounded())
+            // Igual que el chip: sin reparto sabido, «repartida» — nunca un 50/50
+            // inventado (§7).
+            guard let share = seg.selfShare else { return "repartida" }
+            let pct = Int((max(0, min(1, share)) * 100).rounded())
             return "tú \(pct) por ciento"
         default:         return seg.carrier
         }

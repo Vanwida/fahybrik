@@ -150,7 +150,13 @@ extension DoblesRaceGapSegment {
         case "partner":  return partnerName.uppercased()
         case "together": return "JUNTOS"
         case "split":
-            let pct = Int((max(0, min(1, selfShare ?? 0.5)) * 100).rounded())
+            // Sin reparto sabido NO se dice «50/50»: eso es una cifra concreta sobre
+            // quién carga cuánto, y el 0,5 se la inventaba. Lo que sí se sabe es que
+            // está repartida, y eso es lo que se dice (§7 y la entrada «"No se sabe"
+            // es un valor de primera clase» de docs/DECISIONS.md, que retiró justo
+            // este 0,5 en la comparación por estación).
+            guard let share = selfShare else { return "REPARTIDA" }
+            let pct = Int((max(0, min(1, share)) * 100).rounded())
             return pct == 50 ? "50/50" : "TÚ \(pct)%"
         default:         return carrier.uppercased()
         }

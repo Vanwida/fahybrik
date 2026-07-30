@@ -615,17 +615,23 @@ private struct Contributor: Identifiable {
         let value = "\(Int(bpm.rounded())) ppm"
         // No personal RHR baseline exists in the model — status comes from the
         // component (lower RHR → higher component → better), no fabricated reference.
-        let c = b?.rhrComponent ?? 0
-        let status: (String, Status)
-        if c >= 80 { status = ("Excelente", .good) }
-        else if c >= 50 { status = ("Correcta", .mid) }
-        else { status = ("Elevada", .low) }
+        // Sin componente NO hay veredicto. El `?? 0` que había caía en el peor tramo,
+        // así que un dato que falta se leía como «Elevada» — una valoración negativa
+        // sobre el atleta fabricada con un cero (§7). Ahora falta la etiqueta, no se
+        // inventa: la barra ya era honesta (nil) y el color iba por libre.
+        let status: (String, Status)? = b?.rhrComponent.map {
+            if $0 >= 80 { return ("Excelente", .good) }
+            if $0 >= 50 { return ("Correcta", .mid) }
+            return ("Elevada", .low)
+        }
         return Contributor(
             icon: icon, name: name, valueText: value, referenceText: nil,
-            statusLabel: status.0, statusColor: status.1.color,
-            barFraction: b?.rhrComponent.map { $0 / 100 }, barColor: status.1.color,
+            statusLabel: status?.0 ?? "sin valorar",
+            statusColor: status?.1.color ?? Theme.Color.muted,
+            barFraction: b?.rhrComponent.map { $0 / 100 },
+            barColor: status?.1.color ?? Theme.Color.muted,
             isAction: false,
-            axLabel: "Frecuencia cardíaca en reposo, \(value), \(status.0)"
+            axLabel: "Frecuencia cardíaca en reposo, \(value), \(status?.0 ?? "sin valorar")"
         )
     }
 
@@ -633,7 +639,12 @@ private struct Contributor: Identifiable {
         let icon = "checklist", name = "Check-in"
         if done {
             let mood = moodLabel(b?.subScore)
-            let barColor = ReadinessZone.of(score: Int((b?.subScore ?? 0).rounded())).color
+            // Sin sub-score no hay zona, y por tanto no hay color de zona: el `?? 0`
+            // teñía la barra del peor tramo con un cero que nadie había medido. La
+            // fracción ya era nil, así que la barra no se pintaba — pero el color sí
+            // viajaba, y en cuanto alguien pinte la barra sin dato sale roja (§7).
+            let barColor = b?.subScore
+                .map { ReadinessZone.of(score: Int($0.rounded())).color } ?? Theme.Color.muted
             return Contributor(
                 icon: icon, name: name, valueText: "\(mood) · hoy", referenceText: nil,
                 statusLabel: "Editar", statusColor: Theme.Color.muted,
