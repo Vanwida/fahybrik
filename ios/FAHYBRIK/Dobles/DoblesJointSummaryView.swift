@@ -110,10 +110,20 @@ struct JointSideColumn: View {
                 .tracking(0.6)
                 .foregroundStyle(color)
                 .lineLimit(1).minimumScaleFactor(0.6)
-            Text(side.timeText)
-                .font(.system(size: big ? 40 : 30, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1).minimumScaleFactor(0.5)
+            // El lado que no registró tiempo lo dice, y en la voz de texto: una
+            // raya a 40 puntos y monoespaciada se lee como una marca (§7, §4).
+            if let tiempo = side.timeText {
+                Text(tiempo)
+                    .font(.system(size: big ? 40 : 30, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+            } else {
+                Text("sin tiempo")
+                    .font(.system(size: big ? 15 : 13, weight: .medium).italic())
+                    .foregroundStyle(Theme.Color.faint)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .frame(height: big ? 44 : 34)
+            }
             VStack(spacing: 3) {
                 if let rpe = side.rpe { stat("RPE", "\(rpe)") }
                 if let tonnage = side.tonnageText { stat("MOVIDO", tonnage) }

@@ -101,7 +101,8 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let age_group: String?
     /// Finish time in seconds. Optional: an expired objective surfaced in the
     /// hub's `past` may not have a result yet (the athlete hasn't imported their
-    /// time), so the card reads "—" rather than a fabricated time.
+    /// time), so the card says the result is pending rather than showing a
+    /// fabricated time.
     let result_time_seconds: Int?
     let run_total_seconds: Int?
     let roxzone_seconds: Int?
@@ -266,21 +267,21 @@ extension ImportedRace {
         return "con \(head) y \(names.last!)"
     }
 
-    /// Total finish time, pre-formatted "H:MM:SS" / "MM:SS". A dash when the
-    /// result isn't recorded yet (e.g. an expired objective whose time hasn't been
-    /// imported) — never a fabricated time.
-    var totalTimeText: String {
-        guard let seconds = result_time_seconds else { return "—" }
-        return Formato.clock(Double(seconds))
+    /// Total finish time, pre-formatted "H:MM:SS" / "MM:SS". Nil when the result
+    /// isn't recorded yet (e.g. an expired objective whose time hasn't been
+    /// imported) — never a fabricated time, y tampoco una raya: decide quien
+    /// pinta, que es el único que sabe si ahí cabe la frase entera (§7).
+    var totalTimeText: String? {
+        result_time_seconds.map { Formato.clock(Double($0)) }
     }
 
     var runTotalText: String? { run_total_seconds.map { Formato.clock(Double($0)) } }
     var roxzoneText: String? { roxzone_seconds.map { Formato.clock(Double($0)) } }
 
-    /// Whole-second integer → "MM:SS" lap/station caption.
-    static func splitText(_ seconds: Int?) -> String {
-        guard let seconds else { return "—" }
-        return Formato.clock(seconds)
+    /// Whole-second integer → "MM:SS" lap/station caption. Nil cuando la
+    /// importación no trajo ese parcial: la celda entonces no se pinta.
+    static func splitText(_ seconds: Int?) -> String? {
+        seconds.map { Formato.clock($0) }
     }
 
     /// "2 nov 2024" — day + month + year, Spanish. When the source carries no
