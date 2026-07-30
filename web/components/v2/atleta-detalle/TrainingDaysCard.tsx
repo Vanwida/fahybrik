@@ -13,6 +13,52 @@ import { Panel } from './parts';
 import { cn } from '@/lib/utils';
 import { EM_DASH, type TrainingDaysData } from '@/lib/dashboard/v2/atleta-detalle-types';
 
+/** La misma semana, comprimida a una tira de siete casillas para la banda fija de
+ *  la ficha. El #47 pedía que los días reales se vean SIEMPRE, sin depender de la
+ *  pestaña abierta — pero en su forma de tarjeta costaba ~100 px de los 440 de
+ *  cromo que había antes del primer dato. Aquí se cumple lo mismo por ~28 px.
+ *  Comparte las celdas con la tarjeta: una sola fuente de la semana. */
+export function TrainingDaysStrip({ data }: { data: TrainingDaysData }) {
+  const { days, training_days_per_week, has_availability } = data;
+  if (!has_availability && training_days_per_week == null) return null;
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      title={
+        has_availability
+          ? `Días de entreno reales: ${days.filter((d) => d.trains).map((d) => d.full_label).join(', ')}`
+          : 'El atleta aún no ha marcado sus días reales en su app'
+      }
+    >
+      <span className="v2-micro hidden sm:inline">días</span>
+      <div className="flex items-center gap-1">
+        {days.map((d) => (
+          <span
+            key={d.key}
+            aria-hidden
+            className={cn(
+              'flex h-5 w-5 items-center justify-center rounded-[var(--v2-r-2xs)] text-nano font-bold uppercase',
+              !has_availability
+                ? 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]'
+                : d.trains
+                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                  : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
+            )}
+          >
+            {d.label.slice(0, 1)}
+          </span>
+        ))}
+      </div>
+      <span className="sr-only">
+        {has_availability
+          ? `Días de entreno reales: ${days.filter((d) => d.trains).map((d) => d.full_label).join(', ')}`
+          : 'El atleta aún no ha marcado sus días reales'}
+      </span>
+    </div>
+  );
+}
+
 export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
   const { days, training_days_per_week, has_availability } = data;
 

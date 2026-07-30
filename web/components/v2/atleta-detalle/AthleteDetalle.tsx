@@ -1,9 +1,18 @@
 'use client';
 
-// AthleteDetalle — the client orchestrator for the athlete detail screen. Renders
-// the header band + stat cluster, the 5-tab underline nav, and the active sub-view
-// (driven by the URL ?tab=). All data is loaded server-side and passed in via the
-// `detalle` payload; this component is pure composition + the per-tab selectors.
+// AthleteDetalle — el orquestador de la ficha del atleta: la banda de identidad,
+// la navegación de pestañas y la sub-vista activa (la manda `?tab=` en la URL).
+// El dato se carga en servidor y llega por `detalle`; aquí sólo hay composición.
+//
+// COMPOSICIÓN (§6.2 «Detalle»): el sujeto es el dato que te trajo a abrirla, y
+// antes tardaba 440 px en aparecer —las diez pestañas arrancaban en y=440 y el
+// contenido en y=508, o sea el 56 % de la primera pantalla era cromo—. A 390 la
+// pantalla ENTERA era cromo: 844 px sin un solo dato.
+//
+// Ahora identidad y pestañas viven en una banda FIJA que se queda pegada bajo la
+// barra de la app, así que el coach cambia de pestaña sin volver arriba y el
+// contenido empieza donde antes empezaban las pestañas. La banda se pega a
+// `top-14` porque esa es la altura de la barra del shell (V2Shell).
 
 import { DetalleHeader } from './DetalleHeader';
 import { LifecycleBanner } from './lifecycle/LifecycleBanner';
@@ -33,20 +42,28 @@ export function AthleteDetalle({
   const { header } = detalle;
 
   return (
-    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-6">
-      <DetalleHeader header={header} stats={detalle.stats} />
+    <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
+      {/* ── Banda fija: identidad + pestañas ─────────────────────────────────
+           Se estira hasta los bordes de <main> (los márgenes negativos) para que
+           el fondo cubra de lado a lado al quedarse pegada; el contenido de
+           dentro conserva el acolchado de la página. */}
+      <div className="sticky top-14 z-[9] -mx-4 -mt-4 mb-4 border-b border-[color:var(--v2-border)] bg-[color:color-mix(in_srgb,var(--v2-bg)_92%,transparent)] px-4 pt-4 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
+        <DetalleHeader
+          header={header}
+          stats={detalle.stats}
+          training_days={detalle.training_days}
+        />
+        <div className="mt-2.5 -mb-px">
+          <DetalleTabBar athlete_id={header.athlete_id} active={tab} />
+        </div>
+      </div>
 
-      {/* Lifecycle context (#13): pending pause request / en pausa / de baja. */}
+      {/* Contexto de ciclo de vida (#13): pausa pedida / en pausa / de baja. */}
       <LifecycleBanner
         athleteId={header.athlete_id}
         athleteName={header.full_name}
         lifecycle={header.lifecycle}
       />
-
-      {/* Días reales del atleta (#47): contexto permanente, fuera de los tabs. */}
-      <TrainingDaysCard data={detalle.training_days} />
-
-      <DetalleTabBar athlete_id={header.athlete_id} active={tab} />
 
       <div className="v2-stagger">
         {tab === 'perfil' ? (
@@ -57,6 +74,11 @@ export function AthleteDetalle({
               lifecycle={header.lifecycle}
               plan={detalle.plan}
             />
+            {/* Días reales del atleta (#47). La tira de la banda fija los enseña
+                SIEMPRE (que es lo que pedía el #47); la tarjeta entera —con el
+                porqué cuando el atleta aún no los ha marcado— vive aquí, que es
+                donde el coach viene a leer su perfil. */}
+            <TrainingDaysCard data={detalle.training_days} />
             <PerfilTab
               data={selectPerfilTab(detalle)}
               classification={detalle.classification}

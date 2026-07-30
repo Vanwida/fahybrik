@@ -36,10 +36,13 @@ const NOTE_MAX = 1000;
 function ActionButton({
   kind,
   busy,
+  compact,
   onClick,
 }: {
   kind: LifecycleActionKind;
   busy: boolean;
+  /** Sólo el icono por debajo de sm — ver el porqué en LifecycleControl. */
+  compact?: boolean;
   onClick: () => void;
 }) {
   const meta = LIFECYCLE_ACTION_META[kind];
@@ -48,15 +51,18 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={busy}
+      aria-label={meta.label}
+      title={meta.label}
       className={cn(
-        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        compact ? 'px-2.5 sm:px-3' : 'px-3',
         meta.tone === 'danger'
           ? 'border-[color:var(--v2-border)] text-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]'
           : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
       )}
     >
       <MIcon name={busy ? 'progress_activity' : meta.icon} size={16} className={busy ? 'animate-spin' : undefined} />
-      {meta.label}
+      <span className={compact ? 'hidden sm:inline' : undefined}>{meta.label}</span>
     </button>
   );
 }
@@ -234,9 +240,16 @@ function ReAltaDialog({ athleteId, onClose }: { athleteId: string; onClose: () =
 export function LifecycleControl({
   athleteId,
   lifecycle,
+  compact,
 }: {
   athleteId: string;
   lifecycle: DetalleLifecycle;
+  /** Por debajo de sm deja sólo el icono. Pausar y Dar de baja son acciones RARAS
+   *  y en la banda de la ficha se comían una fila entera de las pocas que caben en
+   *  390 — lo secundario se pliega (§6 regla 4). El nombre no se pierde (va en
+   *  `aria-label` y en `title`) y ninguna de las dos hace nada sin pasar antes por
+   *  su diálogo de confirmación, que sí lo explica entero. */
+  compact?: boolean;
 }) {
   const { mutate, busy, error, setError } = useLifecycleMutation(athleteId);
   const [dialog, setDialog] = useState<LifecycleActionKind | null>(null);
@@ -256,7 +269,7 @@ export function LifecycleControl({
     <div className="flex flex-col items-stretch gap-1.5 lg:items-end">
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
         {actions.map((k) => (
-          <ActionButton key={k} kind={k} busy={busy} onClick={() => onAction(k)} />
+          <ActionButton key={k} kind={k} busy={busy} compact={compact} onClick={() => onAction(k)} />
         ))}
       </div>
       {/* Inline error for the direct (dialog-less) resume path. */}
