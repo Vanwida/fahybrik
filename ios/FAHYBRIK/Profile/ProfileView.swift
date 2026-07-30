@@ -131,19 +131,20 @@ struct ProfileView: View {
                             unpairRow
                         }
 
-                        SectionHeader(title: "Rendimiento")
+                        // RENDIMIENTO — las cifras del atleta. Cada fila lleva SU
+                        // número; los 1RM y las zonas de pulso salen de lo que el
+                        // store ya tiene en memoria, así que se pintan sin esperar.
                         // Coach-calibrated surfaces (test battery, derived zones)
                         // exist only when a coach programs them; the free athlete
                         // keeps the self-service marks + strength library.
-                        if hasCoach {
-                            testsCard
-                        }
-                        marksCard
-                        vo2MaxCard
-                        if hasCoach {
-                            zonesCard
-                        }
-                        strengthCard
+                        RendimientoSection(
+                            bearer: bearer,
+                            hasCoach: hasCoach,
+                            fuerza: store.strengthMaxes.value,
+                            zonas: identity?.hrZones,
+                            identidadCargada: store.identity.hasLoaded,
+                            onSessionCompleted: { Task { await store.planMutated() } }
+                        )
 
                         SectionHeader(title: "Entreno")
                         trainingDaysCard
@@ -672,106 +673,10 @@ struct ProfileView: View {
         await store.refreshPartner(force: true)
     }
 
-    // MARK: - Tests ("Tus tests")
-
-    /// Tests guiados — the benchmarks hub: every battery test with its last mark,
-    /// delta, curve and «Probarme». Pushed (nav bar back); it launches sessions
-    /// through its own cover.
-    private var testsCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                TestsHubView(
-                    bearer: bearer,
-                    hrZones: identity?.hrZones,
-                    onSessionCompleted: { Task { await store.planMutated() } }
-                )
-            } label: {
-                profileRowContent(
-                    icon: "stopwatch",
-                    title: "Tus tests",
-                    subtitle: "Benchmarks con tu progreso · pruébate y calibra tus zonas"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Zones ("Mis zonas")
-
-    /// Entry point to the athlete's resolved pace bands per modality. Read-only;
-    /// the destination handles its own loading / empty / error states.
-    private var zonesCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                MyZonesView(bearer: bearer)
-            } label: {
-                profileRowContent(
-                    icon: "speedometer",
-                    title: "Mis zonas de ritmo",
-                    subtitle: "Tus bandas por modalidad · carrera /km, remo y ski /500m"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Strength ("Mi fuerza")
-
-    /// Entry point to the athlete's strength maxes (1RM per lift). Read-only;
-    /// the destination handles its own loading / empty / error states and the
-    /// register-test sheet.
-    private var strengthCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                MyStrengthView(bearer: bearer, hasCoach: hasCoach)
-            } label: {
-                profileRowContent(
-                    icon: "dumbbell",
-                    title: "Mi fuerza",
-                    subtitle: "Tus 1RM por levantamiento · sentadilla, peso muerto, press…"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Marcas (#Marcas — pruébate cuando quieras)
-
-    private var marksCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                MarksLibraryView(bearer: bearer, hrZones: identity?.hrZones)
-            } label: {
-                profileRowContent(
-                    icon: "stopwatch",
-                    title: "Tus marcas",
-                    subtitle: "Pruébate cuando quieras · 1 km, Cooper, 5K, remo y ski"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - VO₂ máx ("Tu motor")
-
-    /// El VO₂ máx llevaba meses llegando del reloj y el atleta no lo veía en
-    /// ninguna pantalla: sólo salía en el análisis corporal del entrenador. Vive
-    /// aquí, junto a las otras cifras que son SUYAS (marcas, zonas, fuerza), y la
-    /// pantalla se encarga de su propio vacío y de su propio error.
-    private var vo2MaxCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                Vo2MaxView(bearer: bearer, hrZones: identity?.hrZones)
-            } label: {
-                profileRowContent(
-                    icon: "lungs",
-                    title: "Tu VO₂ máx",
-                    subtitle: "El techo de tu motor aeróbico · de tu reloj o del Cooper de 12 min"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
+    // Las cinco filas de Rendimiento (tests · marcas · VO₂ máx · zonas · fuerza)
+    // viven en `RendimientoSection`. Eran cinco tarjetas con un icono, un título y
+    // un subtítulo que describía lo que había DENTRO de la puerta — ni un número —,
+    // y ahora cada una lleva su cifra. Ver Profile/RendimientoSection.swift.
 
     // MARK: - Devices
 
@@ -1636,6 +1541,16 @@ struct ProfileView: View {
 // The handoff's `perfil` row: label-left (muted) / value-right, in a flat
 // hairline-divided card. An optional trailing chevron marks a navigable row.
 // Renders as one VoiceOver element.
+//
+// El valor pesa MÁS que su etiqueta (contrato §4). Esta fila las pintaba a las dos
+// a 13, y una fila con etiqueta y valor al mismo tamaño no tiene jerarquía: tiene
+// dos textos, y el ojo no sabe cuál de los dos vino a leer.
+//
+// Pero un valor CATEGÓRICO no es una cifra: «Español», «HYROX» o «Activa · renueva
+// el 3 ago» a 22 pt monoespaciado sería absurdo — el monoespaciado es para lo que
+// se compara columna a columna. Aquí el valor gana por peso y UN escalón de tamaño
+// dentro de la tipografía de texto (15 semibold contra 13 regular), que es
+// exactamente lo que el §4 pide para este caso.
 private struct SettingValueRow: View {
     let label: String
     let value: String
@@ -1649,7 +1564,7 @@ private struct SettingValueRow: View {
                 .foregroundStyle(Theme.Color.muted)
             Spacer(minLength: 12)
             Text(value)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(valueColor)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
@@ -1670,15 +1585,32 @@ private struct SettingValueRow: View {
 
 // MARK: - Section header
 
-private struct SectionHeader: View {
+// Internal (no `private`) porque `RendimientoSection` lo monta desde su propio
+// fichero: una sección que se pinta a sí misma tiene que poder escribir su propio
+// encabezado, y duplicarlo allí es cómo dos secciones de la misma pantalla acaban
+// con dos tipografías (contrato §0).
+struct SectionHeader: View {
     let title: String
+    /// El estado de la sección, alineado a la derecha del título — «3 de 5 con
+    /// dato». Nil cuando la sección no tiene nada que contar de sí misma.
+    var accesorio: String? = nil
+
     var body: some View {
-        Text(title.uppercased())
-            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-            .tracking(1.6)
-            .foregroundStyle(Theme.Color.muted)
-            .padding(.horizontal, 4)
-            .padding(.top, 4)
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+            Text(title.uppercased())
+                .scaledFont(10, weight: .semibold, relativeTo: .caption2)
+                .tracking(1.6)
+                .foregroundStyle(Theme.Color.muted)
+            if let accesorio {
+                Spacer(minLength: Theme.Spacing.s)
+                Text(accesorio)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
     }
 }
 
