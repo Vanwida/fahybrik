@@ -11,6 +11,8 @@
 //     porque el valor está en el número: "29 sin dosis" dice cuánto queda.
 // Pure controlled presentation; the view owns the selected state.
 
+import { useState } from 'react';
+import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 import type {
@@ -115,8 +117,38 @@ export function CategoryRail({
   readinessOptions?: ReadonlyArray<{ id: V2LibReadiness; label: string }>;
   readinessCounts?: Partial<Record<V2LibReadiness, number>>;
 }) {
+  // Por debajo de lg el carril se apilaba entero: ~13 filas de filtros ANTES de la
+  // primera tarjeta, o sea el catálogo empezaba fuera de la pantalla. Los filtros
+  // son lo secundario y se pliegan (§6 regla 4); el número de filtros activos se
+  // queda a la vista para que plegado nunca signifique escondido.
+  const [abierto, setAbierto] = useState(false);
+  const activos =
+    (showModality && modality !== 'todas' ? 1 : 0) +
+    (objective != null ? 1 : 0) +
+    (readiness != null ? 1 : 0);
+
   return (
-    <nav aria-label="Filtrar biblioteca" className="flex flex-col gap-5 lg:sticky lg:top-2">
+    <nav aria-label="Filtrar biblioteca" className="lg:sticky lg:top-2">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        aria-expanded={abierto}
+        className="v2-focus mb-2 inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] lg:hidden"
+      >
+        <MIcon name="tune" size={16} />
+        Filtros
+        {activos > 0 ? (
+          <span
+            className="v2-num flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
+            style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+          >
+            {activos}
+          </span>
+        ) : null}
+        <MIcon name={abierto ? 'expand_less' : 'expand_more'} size={16} />
+      </button>
+
+      <div className={cn('flex-col gap-5 lg:flex', abierto ? 'flex' : 'hidden')}>
       {/* POR MODALIDAD — bloques only */}
       {showModality ? (
       <div className="flex flex-col gap-1.5">
@@ -174,6 +206,7 @@ export function CategoryRail({
           counts={readinessCounts}
         />
       ) : null}
+      </div>
     </nav>
   );
 }

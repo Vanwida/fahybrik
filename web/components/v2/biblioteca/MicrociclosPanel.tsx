@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { TeachingEmptyState } from '@/components/v2/orientacion';
 import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
 import type { V2MicrocicloItem } from '@/lib/dashboard/v2/biblioteca-data';
-import { GRID_CLS } from '@/components/v2/biblioteca/biblioteca-nav';
+import { PagedGrid } from '@/components/v2/biblioteca/PagedGrid';
 
 export function MicrociclosPanel({
   items,
@@ -54,10 +54,10 @@ export function MicrociclosPanel({
     );
   }
   return (
-    <div className={GRID_CLS}>
+    <PagedGrid total={items.length} noun="microciclos">
       {items.map((m, i) => (
         <MicrocicloCard key={m.id} microciclo={m} index={i} />
       ))}
-    </div>
+    </PagedGrid>
   );
 }

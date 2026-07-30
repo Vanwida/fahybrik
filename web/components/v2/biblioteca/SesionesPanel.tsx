@@ -11,7 +11,8 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { TeachingEmptyState } from '@/components/v2/orientacion';
 import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import type { V2SesionItem } from '@/lib/dashboard/v2/biblioteca-data';
-import { GRID_CLS, NUEVA_SESION_HREF } from '@/components/v2/biblioteca/biblioteca-nav';
+import { NUEVA_SESION_HREF } from '@/components/v2/biblioteca/biblioteca-nav';
+import { PagedGrid } from '@/components/v2/biblioteca/PagedGrid';
 
 export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny: boolean }) {
   if (items.length === 0) {
@@ -49,17 +50,23 @@ export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny
     );
   }
   return (
-    <div className={GRID_CLS}>
+    <PagedGrid
+      total={items.length}
+      noun="sesiones"
+      footer={
+        <Link
+          key="nueva"
+          href={NUEVA_SESION_HREF}
+          className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+        >
+          <MIcon name="add" size={22} />
+          <span className="text-xs font-semibold">nueva sesión</span>
+        </Link>
+      }
+    >
       {items.map((s, i) => (
         <SesionCard key={s.id} sesion={s} index={i} />
       ))}
-      <Link
-        href={NUEVA_SESION_HREF}
-        className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-      >
-        <MIcon name="add" size={22} />
-        <span className="text-xs font-semibold">nueva sesión</span>
-      </Link>
-    </div>
+    </PagedGrid>
   );
 }
