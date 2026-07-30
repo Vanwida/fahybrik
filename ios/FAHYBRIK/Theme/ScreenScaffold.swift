@@ -202,7 +202,8 @@ enum EmptyStateExit {
 }
 
 /// Honest empty-state scaffold for the surfaces that are not populated yet. A
-/// muted SF symbol, a title, a sentence, and — always — the way out.
+/// muted SF symbol (or a richer `figure`), a title, a sentence, and — always —
+/// the way out.
 ///
 /// Never mock data. Never a dead end: `exit` has no default value precisely so
 /// that every call site has to decide.
@@ -211,21 +212,72 @@ enum EmptyStateExit {
 /// Carreras, Dobles and the station/analytics detail screens — it used to be
 /// declared at the bottom of `CarrerasView.swift`, which is how a shared
 /// component ends up looking like one tab's private business.
-struct RedesignEmptyState: View {
-    let symbol: String
+///
+/// EXTENDED 30-jul, adopting it in the tests hub / chat / analytics. Three gaps
+/// showed up the moment three more screens tried to use it as-is, and all three
+/// are resolved HERE rather than in a local variant (contrato §0/§1):
+///
+///   · `figure` — a symbol cannot say everything. §6.2 bis wants a COUNTER
+///     painted in zero ("0 tests calibrados"), and the chat's empty state wants
+///     the coach's real avatar. Both used to be reasons to hand-roll the whole
+///     block. Defaults to nothing, so the thirty symbol call sites are untouched.
+///   · `note` — an exit and an explanation are not mutually exclusive. "Pruébate
+///     por tu cuenta" is what the athlete can do NOW; "los tests los programa tu
+///     coach" is the half that does not depend on them. The enum cannot carry it
+///     (Swift has no default arguments on enum cases, so adding one would churn
+///     every existing `.action` call site), so it rides alongside — and renders
+///     through the SAME note box as `.explained`: one implementation, two
+///     positions.
+///   · `eyebrow` — WHICH surface is empty, for a state that degrades from a
+///     named section ("Calibración", "Carrera") instead of owning the screen.
+struct RedesignEmptyState<Figure: View>: View {
+    /// Tracked micro-label above the mark. Nil when the screen is self-evident.
+    var eyebrow: String? = nil
+    /// The muted SF symbol. Nil when `figure` carries the mark instead.
+    var symbol: String? = nil
     let title: String
     let message: String
     /// The way out. Required.
     let exit: EmptyStateExit
+    /// The sentence UNDER the exit: the part of the answer that does NOT depend
+    /// on the athlete. Leave nil with `.explained` — there the note IS the exit,
+    /// and setting both prints the same sentence twice.
+    var note: String? = nil
     /// Muted by default. Override only when the emptiness itself carries meaning
     /// — "sin molestias registradas" is good news, and its shield reads green.
     var symbolColor: Color = Theme.Color.faint
+    /// The mark, when a symbol cannot say it. `EmptyView` by default.
+    let figure: Figure
+
+    /// The figure form: the mark is a view you build (a counter, an avatar).
+    init(
+        eyebrow: String? = nil,
+        title: String,
+        message: String,
+        exit: EmptyStateExit,
+        note: String? = nil,
+        @ViewBuilder figure: () -> Figure
+    ) {
+        self.eyebrow = eyebrow
+        self.symbol = nil
+        self.title = title
+        self.message = message
+        self.exit = exit
+        self.note = note
+        self.figure = figure()
+    }
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .regular))
-                .foregroundStyle(symbolColor)
+        VStack(spacing: Theme.Spacing.m) {
+            if let eyebrow {
+                LabelText(text: eyebrow, color: Theme.Color.accentText)
+            }
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: 34, weight: .regular))
+                    .foregroundStyle(symbolColor)
+            }
+            figure
             Text(title)
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
@@ -235,9 +287,19 @@ struct RedesignEmptyState: View {
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
             exitView
+            // Only alongside an action: with `.explained` the exit already IS
+            // this box, and printing it twice is how a scaffold starts lying.
+            if let note, !exitIsExplained {
+                noteBox(note)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Theme.Spacing.l)
+    }
+
+    private var exitIsExplained: Bool {
+        if case .explained = exit { return true }
+        return false
     }
 
     @ViewBuilder
@@ -248,28 +310,59 @@ struct RedesignEmptyState: View {
                 .padding(.top, Theme.Spacing.xs)
                 .padding(.horizontal, Theme.Spacing.m)
         case let .explained(note):
-            HStack(alignment: .top, spacing: 7) {
-                Image(systemName: "clock")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-                    .padding(.top, 1)
-                Text(note)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .padding(.top, Theme.Spacing.xs)
-            .accessibilityElement(children: .combine)
+            noteBox(note)
         }
+    }
+
+    /// The quiet "this is what has to happen, and who does it" box. ONE
+    /// implementation, used both as the exit itself (`.explained`) and as the
+    /// footnote under an action (`note`).
+    private func noteBox(_ note: String) -> some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.s) {
+            Image(systemName: "clock")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.Color.faint)
+                .padding(.top, 1)
+            Text(note)
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.faint)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.vertical, Theme.Spacing.s)
+        .background(Theme.Color.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .padding(.top, Theme.Spacing.xs)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension RedesignEmptyState where Figure == EmptyView {
+    /// The symbol form — what almost every empty state in the app uses. Argument
+    /// order is unchanged from before the `figure` slot existed, so the thirty
+    /// existing call sites keep compiling untouched.
+    init(
+        symbol: String,
+        title: String,
+        message: String,
+        exit: EmptyStateExit,
+        note: String? = nil,
+        symbolColor: Color = Theme.Color.faint,
+        eyebrow: String? = nil
+    ) {
+        self.eyebrow = eyebrow
+        self.symbol = symbol
+        self.title = title
+        self.message = message
+        self.exit = exit
+        self.note = note
+        self.symbolColor = symbolColor
+        self.figure = EmptyView()
     }
 }
 
