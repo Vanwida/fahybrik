@@ -18,7 +18,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 import type { V2WeekAdjustmentCard } from '@/lib/dashboard/v2/hoy-lanes';
-import { Rail } from '@/components/v2/Rail';
+import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 const BTN_BASE =
   'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
@@ -196,27 +196,10 @@ export function AjusteSemanalStrip({ cards }: { cards: V2WeekAdjustmentCard[] })
   }
 
   return (
-    <section aria-label="Ajustes de semana sugeridos" className="mt-4">
-      {/* Section header */}
-      <div className="mb-2 flex items-center gap-2">
-        <MIcon name="tune" size={16} className="text-[color:var(--v2-accent)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
-          Ajuste de semana sugerido
-        </span>
-        <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          {visible.length}
-        </span>
-      </div>
-
-      {/* Horizontal scroll row */}
-      <Rail>
-        {visible.map((card) => (
-          <AjusteSemanalCard key={card.id} card={card} onResolved={handleResolved} />
-        ))}
-      </Rail>
-    </section>
+    <DecisionStrip icon="tune" label="Ajuste de semana sugerido" count={visible.length}>
+      {visible.map((card) => (
+        <AjusteSemanalCard key={card.id} card={card} onResolved={handleResolved} />
+      ))}
+    </DecisionStrip>
   );
 }

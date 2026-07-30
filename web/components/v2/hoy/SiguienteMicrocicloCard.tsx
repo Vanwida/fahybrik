@@ -20,7 +20,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2SiguienteMicrocicloCard } from '@/lib/dashboard/v2/hoy-lanes';
-import { Rail } from '@/components/v2/Rail';
+import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 const BTN_BASE =
   'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
@@ -180,25 +180,10 @@ export function SiguienteMicrocicloStrip({
   }
 
   return (
-    <section aria-label="Siguiente microciclo" className="mt-4">
-      <div className="mb-2 flex items-center gap-2">
-        <MIcon name="skip_next" size={16} className="text-[color:var(--v2-accent)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
-          Siguiente microciclo
-        </span>
-        <span
-          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          {visible.length}
-        </span>
-      </div>
-
-      <Rail>
-        {visible.map((card) => (
-          <Card key={card.id} card={card} onAdvanced={handleAdvanced} />
-        ))}
-      </Rail>
-    </section>
+    <DecisionStrip icon="skip_next" label="Siguiente microciclo" count={visible.length}>
+      {visible.map((card) => (
+        <Card key={card.id} card={card} onAdvanced={handleAdvanced} />
+      ))}
+    </DecisionStrip>
   );
 }

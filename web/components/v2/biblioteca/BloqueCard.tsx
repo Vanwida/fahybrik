@@ -21,8 +21,41 @@ import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 import type { V2BloqueItem } from '@/lib/dashboard/v2/biblioteca-data';
 
+/** Normaliza para comparar título y prosa: sin acentos, sin signos, sin dobles
+ *  espacios y en minúsculas. Sólo para DECIDIR si sobra, nunca para pintar. */
+function normaliza(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** La prosa del bloque SIN repetir el título que ya va encima.
+ *
+ *  Los bloques importados del Excel traen la prosa verbatim, y esa prosa empieza
+ *  casi siempre por el propio título: la tarjeta gastaba ~150 px en decir dos
+ *  veces lo mismo, con 99 tarjetas en pantalla. Si al quitar el título no queda
+ *  nada que añadir, la tarjeta se calla — cada elemento se gana su sitio (§8.2). */
+function prosaSinRepetirTitulo(title: string, description: string): string | null {
+  const t = normaliza(title);
+  const d = normaliza(description);
+  if (!d) return null;
+  if (d === t) return null;
+  if (d.startsWith(t) && t.length > 0) {
+    // Recorta por la misma cantidad de palabras que ocupa el título.
+    const palabrasTitulo = t.split(' ').length;
+    const resto = description.trim().split(/\s+/).slice(palabrasTitulo).join(' ');
+    const limpio = resto.replace(/^[\s·:.,;–—-]+/, '').trim();
+    return limpio.length > 0 ? limpio : null;
+  }
+  return description;
+}
+
 export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: number }) {
   const meta = MODALITY_META[bloque.modality];
+  const prosa = prosaSinRepetirTitulo(bloque.title, bloque.description);
 
   return (
     <Link
@@ -71,10 +104,13 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         ) : null}
       </div>
 
-      {/* Prosa verbatim — para los importados dice el entreno entero, no solo el título */}
-      <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[color:var(--v2-muted)]">
-        {bloque.description}
-      </p>
+      {/* Prosa verbatim — para los importados dice el entreno entero. Si lo único
+          que dice es el título que ya está arriba, no se pinta. */}
+      {prosa ? (
+        <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[color:var(--v2-muted)]">
+          {prosa}
+        </p>
+      ) : null}
 
       {/* Qué contiene. Un bloque puede traer VARIAS piezas (block_position). */}
       {bloque.typed ? (

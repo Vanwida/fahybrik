@@ -53,7 +53,10 @@ export function V2Shell({
           </div>
         </header>
 
-        {/* Bottom padding < lg clears the fixed mobile tab bar. */}
+        {/* Bottom padding < lg clears the fixed mobile tab bar.
+            OJO: PageFrame (components/v2/PageFrame.tsx) CANCELA este acolchado
+            con márgenes negativos para plantarse sobre todo el hueco útil. Si
+            cambian estos valores, cambian allí — están atados. */}
         <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 lg:pb-6">{children}</main>
 
         <V2MobileNav

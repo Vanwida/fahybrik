@@ -10,7 +10,8 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { TeachingEmptyState } from '@/components/v2/orientacion';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
 import type { V2BloqueItem } from '@/lib/dashboard/v2/biblioteca-data';
-import { GRID_CLS, NUEVO_BLOQUE_HREF } from '@/components/v2/biblioteca/biblioteca-nav';
+import { NUEVO_BLOQUE_HREF } from '@/components/v2/biblioteca/biblioteca-nav';
+import { PagedGrid } from '@/components/v2/biblioteca/PagedGrid';
 
 export function BloquesPanel({ items, hasAny }: { items: V2BloqueItem[]; hasAny: boolean }) {
   if (items.length === 0) {
@@ -49,17 +50,23 @@ export function BloquesPanel({ items, hasAny }: { items: V2BloqueItem[]; hasAny:
     );
   }
   return (
-    <div className={GRID_CLS}>
+    <PagedGrid
+      total={items.length}
+      noun="bloques"
+      footer={
+        <Link
+          key="nuevo"
+          href={NUEVO_BLOQUE_HREF}
+          className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+        >
+          <MIcon name="add" size={22} />
+          <span className="text-xs font-semibold">nuevo bloque</span>
+        </Link>
+      }
+    >
       {items.map((b, i) => (
         <BloqueCard key={b.id} bloque={b} index={i} />
       ))}
-      <Link
-        href={NUEVO_BLOQUE_HREF}
-        className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-      >
-        <MIcon name="add" size={22} />
-        <span className="text-xs font-semibold">nuevo bloque</span>
-      </Link>
-    </div>
+    </PagedGrid>
   );
 }

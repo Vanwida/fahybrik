@@ -9,7 +9,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
-export function Rail({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Rail({
+  children,
+  className,
+  wrap,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** Reparte en varias líneas en vez de scrollear de lado. Un carril está bien
+   *  para un puñado de tarjetas y mal para veinte: con veinte altas pendientes el
+   *  coach deslizaba veinte veces y la tira no decía ni cuántas había. Ver
+   *  DecisionStrip, que es quien decide cuándo toca. */
+  wrap?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   // pages = viewport-sized pages when overflowing; 0 = fits, no affordances.
   const [pages, setPages] = useState(0);
@@ -18,7 +30,7 @@ export function Rail({ children, className }: { children: React.ReactNode; class
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || wrap) return;
     const update = () => {
       const overflows = el.scrollWidth - el.clientWidth > 8;
       setPages(overflows && el.clientWidth > 0 ? Math.ceil(el.scrollWidth / el.clientWidth) : 0);
@@ -33,14 +45,19 @@ export function Rail({ children, className }: { children: React.ReactNode; class
       ro.disconnect();
       el.removeEventListener('scroll', update);
     };
-  }, []);
+  }, [wrap]);
 
   return (
     <div className="relative">
       <div
         ref={ref}
         className={cn(
-          'flex snap-x snap-proximity gap-2.5 overflow-x-auto pb-1 [&>*]:snap-start',
+          'flex gap-2.5 pb-1',
+          // Al repartir en líneas, las tarjetas crecen hasta llenar la suya: con
+          // su ancho fijo, a 390 sobraban ~120 px a la derecha de cada una.
+          wrap
+            ? 'flex-wrap [&>*]:grow'
+            : 'snap-x snap-proximity overflow-x-auto [&>*]:snap-start',
           className,
         )}
       >

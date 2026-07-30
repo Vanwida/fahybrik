@@ -1,10 +1,17 @@
 'use client';
 
-// AthleteTableRow — one roster row as a full-width link to the athlete detail.
-// Columns mirror the directory header: Atleta · Nivel · Estado · Fase · Adherencia
-// · Últ. registro · ›. Rows carry a soft status tint (atención=red, nuevo=blue) +
-// a matching status-colored left accent so the eye triages down the list. Pure
-// presentational; the table owns data + ordering.
+// AthleteTableRow — una fila del roster, enlace entero a la ficha del atleta.
+//
+// DOS FORMAS, EL MISMO DATO (§9.3 «el responsive recompone, no esconde»):
+//   · < lg → dos líneas: identidad arriba; fase · adherencia · último registro
+//            abajo. Antes la adherencia sólo existía desde 1024 y el último
+//            registro desde 1280, así que en el móvil de Pablo el roster no
+//            servía para triar: se veían un nombre y un estado.
+//   · ≥ lg → la fila de tabla, con las columnas de `GRID_COLS`.
+// No hay ni un dato que exista en un ancho y falte en otro.
+//
+// La fila lleva un acento izquierdo del color de su estado + un tinte suave, así
+// el ojo baja la lista triando por color antes de leer.
 
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
@@ -20,47 +27,13 @@ import { formatRelative } from '@/lib/dashboard/relative-time';
 import { cn } from '@/lib/utils';
 import { GRID_COLS } from '@/components/v2/atletas/grid';
 
-export function AthleteTableRow({ row, index }: { row: RosterRow; index: number }) {
-  const statusMeta = ROSTER_STATUS_META[row.status];
-  const tint = statusMeta.rowTintVar;
-
+/** Las marcas que cuelgan del estado (lesión, pausa pedida, check-in en riesgo).
+ *  Se pintan igual en las dos formas de la fila, así que viven en un sitio. */
+function MarcasDeEstado({ row }: { row: RosterRow }) {
   return (
-    <Link
-      href={`/atletas/${row.athlete_id}`}
-      className={cn(
-        'v2-focus v2-stagger group grid items-center gap-3 border-b border-[color:var(--v2-border)] px-3 py-2.5',
-        'transition-colors hover:bg-[color:var(--v2-elevated)]',
-        // Resting lifecycle states (pausa / baja) read de-emphasized; hover restores
-        // full contrast so the row stays legible when the coach focuses it.
-        statusMeta.muted && 'opacity-60 hover:opacity-100',
-        GRID_COLS,
-      )}
-      style={{
-        ['--v2-stagger-i' as string]: index,
-        // Status-colored left accent + a faint row wash for triage states.
-        boxShadow: `inset 3px 0 0 0 var(${statusMeta.colorVar})`,
-        background: tint ? `var(${tint})` : undefined,
-      }}
-    >
-      {/* Atleta */}
-      <div className="flex min-w-0 items-center gap-2.5 pl-1">
-        <AthleteAvatar name={row.full_name} size="sm" />
-        <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
-          {row.full_name}
-        </span>
-      </div>
-
-      {/* Nivel */}
-      <div className="hidden sm:block">
-        <LevelBadge level={row.level} />
-      </div>
-
-      {/* Estado — status badge (+ threaded pause reason), a "Pidió pausa" chip when the
-          athlete has an open pause request, and the #16 injury badge at a glance. */}
-      <div className="flex min-w-0 flex-col items-start gap-1">
-        <RosterStatusDot status={row.status} detail={row.status_detail} />
-        {row.injury ? (
-          (() => {
+    <>
+      {row.injury
+        ? (() => {
             const badge = injuryBadge(row.injury.zone, row.injury.status);
             return (
               <Pill tone={badge.tone} variant="soft" className="max-w-full" title="Lesión registrada">
@@ -69,62 +42,127 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
               </Pill>
             );
           })()
-        ) : null}
-        {row.pause_request_label ? (
-          <Pill tone="warn" variant="soft" className="max-w-full" title="El atleta ha pedido una pausa">
-            <MIcon name="pan_tool" size={11} />
-            <span className="truncate">Pidió pausa</span>
-          </Pill>
-        ) : null}
-        {row.checkin_risk_sub != null ? (
-          <Pill
-            tone="danger"
-            variant="soft"
-            className="max-w-full"
-            title="El check-in de HOY viene en banda de riesgo"
-          >
-            <MIcon name="sentiment_dissatisfied" size={11} />
-            <span className="truncate">
-              Check-in <span className="font-mono">{row.checkin_risk_sub}</span>
-            </span>
-          </Pill>
-        ) : null}
+        : null}
+      {row.pause_request_label ? (
+        <Pill tone="warn" variant="soft" className="max-w-full" title="El atleta ha pedido una pausa">
+          <MIcon name="pan_tool" size={11} />
+          <span className="truncate">Pidió pausa</span>
+        </Pill>
+      ) : null}
+      {row.checkin_risk_sub != null ? (
+        <Pill
+          tone="danger"
+          variant="soft"
+          className="max-w-full"
+          title="El check-in de HOY viene en banda de riesgo"
+        >
+          <MIcon name="sentiment_dissatisfied" size={11} />
+          <span className="truncate">
+            Check-in <span className="font-mono">{row.checkin_risk_sub}</span>
+          </span>
+        </Pill>
+      ) : null}
+    </>
+  );
+}
+
+/** Último registro — «hace 2 d», o la ausencia dicha en claro. */
+function UltimoRegistro({ row }: { row: RosterRow }) {
+  return row.last_activity_at ? (
+    <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+      {formatRelative(row.last_activity_at)}
+    </span>
+  ) : (
+    <span className="text-xs text-[color:var(--v2-faint)]">sin registros</span>
+  );
+}
+
+export function AthleteTableRow({ row, index }: { row: RosterRow; index: number }) {
+  const statusMeta = ROSTER_STATUS_META[row.status];
+  const tint = statusMeta.rowTintVar;
+
+  return (
+    <Link
+      href={`/atletas/${row.athlete_id}`}
+      className={cn(
+        'v2-focus v2-stagger group block border-b border-[color:var(--v2-border)] px-3 py-2.5',
+        'transition-colors hover:bg-[color:var(--v2-elevated)]',
+        // Los estados en reposo (pausa / baja) se leen apagados; el hover les
+        // devuelve el contraste cuando el coach los enfoca.
+        statusMeta.muted && 'opacity-60 hover:opacity-100',
+        'lg:grid lg:items-center lg:gap-3',
+        GRID_COLS,
+      )}
+      style={{
+        ['--v2-stagger-i' as string]: index,
+        boxShadow: `inset 3px 0 0 0 var(${statusMeta.colorVar})`,
+        background: tint ? `var(${tint})` : undefined,
+      }}
+    >
+      {/* ── Atleta ─────────────────────────────────────────────────────────── */}
+      <div className="flex min-w-0 items-center gap-2.5 pl-1">
+        <AthleteAvatar name={row.full_name} size="sm" />
+        <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
+          {row.full_name}
+        </span>
+        {/* El nivel viaja pegado al nombre por debajo de lg (arriba tiene columna). */}
+        <span className="lg:hidden">
+          <LevelBadge level={row.level} />
+        </span>
+        <span className="ml-auto shrink-0 text-[color:var(--v2-faint)] lg:hidden">
+          <MIcon name="chevron_right" size={18} />
+        </span>
       </div>
 
-      {/* Fase actual — block span so `truncate` actually clips (an inline span
-          ignores overflow and would bleed into Adherencia); full label on hover. */}
-      <div className="hidden min-w-0 md:block" title={row.phase_label}>
-        {row.phase_code ? (
-          <span className="block truncate text-xs text-[color:var(--v2-muted)]">
-            {row.phase_label}
-          </span>
-        ) : (
-          <span className="block truncate text-xs text-[color:var(--v2-faint)]">
-            {row.phase_label}
-          </span>
-        )}
+      {/* ── Nivel (columna propia sólo en tabla) ───────────────────────────── */}
+      <div className="hidden lg:block">
+        <LevelBadge level={row.level} />
       </div>
 
-      {/* Adherencia */}
+      {/* ── Estado ─────────────────────────────────────────────────────────── */}
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1 lg:mt-0 lg:flex-col lg:items-start">
+        <RosterStatusDot status={row.status} detail={row.status_detail} />
+        <MarcasDeEstado row={row} />
+      </div>
+
+      {/* ── Fase actual — bloque para que `truncate` recorte de verdad ─────── */}
+      <div className="hidden min-w-0 lg:block" title={row.phase_label}>
+        <span
+          className={cn(
+            'block truncate text-xs',
+            row.phase_code ? 'text-[color:var(--v2-muted)]' : 'text-[color:var(--v2-faint)]',
+          )}
+        >
+          {row.phase_label}
+        </span>
+      </div>
+
+      {/* ── Adherencia (tabla) ─────────────────────────────────────────────── */}
       <div className="hidden lg:block">
         <AdherenceBar pct={row.adherence_pct} />
       </div>
 
-      {/* Últ. registro — most recent logged session ("hace 2 d"), honest empty
-          state when the athlete has never logged one. */}
-      <div className="hidden xl:block">
-        {row.last_activity_at ? (
-          <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-            {formatRelative(row.last_activity_at)}
-          </span>
-        ) : (
-          <span className="text-xs text-[color:var(--v2-faint)]">sin registros</span>
-        )}
+      {/* ── Último registro (tabla) ────────────────────────────────────────── */}
+      <div className="hidden lg:block">
+        <UltimoRegistro row={row} />
       </div>
 
-      {/* Chevron */}
-      <div className="flex justify-end text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-muted)]">
+      {/* ── Chevron (tabla) ────────────────────────────────────────────────── */}
+      <div className="hidden justify-end text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-muted)] lg:flex">
         <MIcon name="chevron_right" size={20} />
+      </div>
+
+      {/* ── Segunda línea (< lg) — los datos de triaje, que antes desaparecían.
+             Misma información que las columnas de arriba, recompuesta. ─────── */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[calc(1.75rem+0.625rem+0.25rem)] lg:hidden">
+        <span className="min-w-0 max-w-full truncate text-xs text-[color:var(--v2-faint)]" title={row.phase_label}>
+          {row.phase_label}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="v2-micro">adh.</span>
+          <AdherenceBar pct={row.adherence_pct} />
+        </span>
+        <UltimoRegistro row={row} />
       </div>
     </Link>
   );
