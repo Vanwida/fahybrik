@@ -93,14 +93,24 @@ struct PredictionReviewCard: View {
         .accessibilityLabel(totalsAccessibilityLabel)
     }
 
-    private func totalColumn(label: String, value: String) -> some View {
+    /// Una de las dos columnas del cabezal. Sin tiempo NO se pinta una cifra: se
+    /// dice que no lo hay, y en la voz de TEXTO — una nota de ausencia no es una
+    /// medida y monoespaciarla a 26 pt la disfrazaría de dato (§4, §7).
+    @ViewBuilder
+    private func totalColumn(label: String, value: String?) -> some View {
         VStack(spacing: 3) {
             LabelText(text: label, size: 10)
-            Text(value)
-                .font(.system(size: 26, weight: .heavy, design: .default).italic().monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            if let value {
+                Text(value)
+                    .font(.system(size: 26, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            } else {
+                Text("sin tiempo")
+                    .font(.system(size: 13, weight: .medium).italic())
+                    .foregroundStyle(Theme.Color.faint)
+            }
         }
     }
 
@@ -152,28 +162,40 @@ struct PredictionReviewCard: View {
         .accessibilityLabel(rowAccessibilityLabel(row))
     }
 
-    private func numCell(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
-            .foregroundStyle(color)
-            .frame(width: numColumn, alignment: .trailing)
+    /// Una celda de la tabla. Sin valor la celda se queda VACÍA y conserva su
+    /// ancho: la fila sigue alineada y no se pinta un relleno que se lee como un
+    /// tiempo (§7). A 52 pt no cabe una nota, y la fila ya dice de qué estación
+    /// habla.
+    @ViewBuilder
+    private func numCell(_ text: String?, color: Color) -> some View {
+        if let text {
+            Text(text)
+                .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
+                .foregroundStyle(color)
+                .frame(width: numColumn, alignment: .trailing)
+        } else {
+            Color.clear.frame(width: numColumn, height: 1)
+        }
     }
 
     /// Δ = actual − predicted: green when faster than predicted, danger (red)
     /// when slower — same semantics as the gap board's per-segment delta — muted
-    /// at zero. Never a fabricated value when the delta is absent.
+    /// at zero. Sin delta la celda se calla, igual que las de tiempo.
+    @ViewBuilder
     private func deltaCell(_ deltaS: Int?) -> some View {
-        let text = deltaS.map { GoalGapFormat.signedDuration($0) } ?? "—"
-        let color: Color = {
-            guard let deltaS else { return Theme.Color.muted }
-            if deltaS < 0 { return Theme.Color.ok }
-            if deltaS > 0 { return Theme.Color.danger }
-            return Theme.Color.muted
-        }()
-        return Text(text)
-            .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
-            .foregroundStyle(color)
-            .frame(width: numColumn, alignment: .trailing)
+        if let deltaS {
+            let color: Color = {
+                if deltaS < 0 { return Theme.Color.ok }
+                if deltaS > 0 { return Theme.Color.danger }
+                return Theme.Color.muted
+            }()
+            Text(GoalGapFormat.signedDuration(deltaS))
+                .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
+                .foregroundStyle(color)
+                .frame(width: numColumn, alignment: .trailing)
+        } else {
+            Color.clear.frame(width: numColumn, height: 1)
+        }
     }
 
     // MARK: - Insight
@@ -196,10 +218,11 @@ struct PredictionReviewCard: View {
 
     // MARK: - Helpers
 
-    // Race-clock minutes ("63:45") — same scale as the sub-X goal frame.
-    private func durationText(_ seconds: Int?) -> String {
-        guard let seconds else { return "—" }
-        return GoalGapFormat.raceClock(seconds)
+    // Race-clock minutes ("63:45") — same scale as the sub-X goal frame. NIL
+    // cuando no hay tiempo: el formateador no inventa un relleno, y quien pinta
+    // decide si calla la celda o dice el porqué (§7).
+    private func durationText(_ seconds: Int?) -> String? {
+        seconds.map { GoalGapFormat.raceClock($0) }
     }
 
     private var accuracyText: String? {
@@ -219,17 +242,19 @@ struct PredictionReviewCard: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
+    // VoiceOver dice lo mismo que se ve: donde no hay tiempo, la frase lo dice
+    // con palabras. Leer «raya» sería la misma mentira con otra voz.
     private var totalsAccessibilityLabel: String {
-        var parts = ["Predijimos \(durationText(review.predictedTotalS))",
-                     "hiciste \(durationText(review.actualTotalS))"]
+        var parts = ["Predijimos \(durationText(review.predictedTotalS) ?? "sin tiempo")",
+                     "hiciste \(durationText(review.actualTotalS) ?? "sin tiempo")"]
         if let acc = accuracyText { parts.append(acc) }
         return parts.joined(separator: ", ")
     }
 
     private func rowAccessibilityLabel(_ row: PredictionReviewRow) -> String {
-        var parts = [row.labelEs,
-                     "predicho \(durationText(row.predictedS))",
-                     "real \(durationText(row.actualS))"]
+        var parts = [row.labelEs]
+        if let predicho = durationText(row.predictedS) { parts.append("predicho \(predicho)") }
+        if let real = durationText(row.actualS) { parts.append("real \(real)") }
         if let d = row.deltaS {
             parts.append(d <= 0 ? "\(Formato.clock(Double(abs(d)))) más rápido" : "\(Formato.clock(Double(d))) más lento")
         }

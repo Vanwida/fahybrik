@@ -217,12 +217,27 @@ struct RaceDetailView: View {
         CardSurface(padding: 16, elevated: true) {
             VStack(alignment: .leading, spacing: 10) {
                 LabelText(text: "PREDICHO HOY")
-                Text(gap.predictedTotalS.map { GoalGapFormat.raceClock($0) } ?? "—")
-                    .font(.system(size: 40, weight: .heavy, design: .monospaced).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                gapPill(gap.gapS)
+                // El sujeto de la tarjeta es el predicho. Cuando aún no lo hay se
+                // dice QUÉ falta y CÓMO se llena — el atleta puede hacerlo, y por
+                // eso se declara en vez de callarse (§6.2 bis). Lo que jamás se
+                // pinta es un número de 40 pt que no existe.
+                if let predicho = gap.predictedTotalS.map({ GoalGapFormat.raceClock($0) }) {
+                    Text(predicho)
+                        .font(.system(size: 40, weight: .heavy, design: .monospaced).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    gapPill(gap.gapS)
+                } else {
+                    Text("Todavía no podemos predecir tu tiempo.")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Entrena las estaciones o importa una carrera y el predicho aparece aquí, estación a estación.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let source = sourceLine(gap) {
                     Text(source)
                         .font(.system(size: 12))
@@ -403,8 +418,12 @@ struct RaceDetailView: View {
         return parts.joined(separator: ", ")
     }
 
+    // VoiceOver lee lo mismo que se ve: sin predicho, la declaración entera.
     private func predichoAccessibilityLabel(_ gap: GoalGap) -> String {
-        var parts = ["Predicho hoy \(gap.predictedTotalS.map { GoalGapFormat.raceClock($0) } ?? "sin dato")"]
+        guard let predicho = gap.predictedTotalS.map({ GoalGapFormat.raceClock($0) }) else {
+            return "Predicho hoy. Todavía no podemos predecir tu tiempo. Entrena las estaciones o importa una carrera y aparece aquí."
+        }
+        var parts = ["Predicho hoy \(predicho)"]
         if let g = gap.gapS {
             if g > 0 { parts.append("\(Formato.clock(Double(g))) sobre el objetivo") }
             else if g < 0 { parts.append("\(Formato.clock(Double(abs(g)))) bajo el objetivo") }

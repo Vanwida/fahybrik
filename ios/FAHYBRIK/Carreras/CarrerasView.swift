@@ -724,11 +724,15 @@ private struct CarrerasRaceContent: View {
                             StationDetailView(station: b.station, bearer: bearer)
                         } label: {
                             HStack(spacing: 10) {
-                                if let fraction = b.fraction, let severity = b.severity {
+                                // La barra con veredicto necesita las TRES cosas:
+                                // fracción, severidad y delta. Sin el delta no se
+                                // rellena con un guion — se cae a la fila sin
+                                // barra, que dice el tiempo y calla el juicio.
+                                if let fraction = b.fraction, let severity = b.severity, let delta = b.delta {
                                     BenchmarkBarRow(
                                         label: b.station,
                                         fraction: fraction,
-                                        delta: b.delta ?? "—",
+                                        delta: delta,
                                         severity: BenchmarkBarRow.Severity(wire: severity)
                                     )
                                 } else {
@@ -830,10 +834,15 @@ private struct CarrerasRaceContent: View {
         guard !seconds.contains(nil) else { return nil }
         let values = seconds.compactMap { $0 }.map(Double.init)
         guard let maxV = values.max(), maxV > 0 else { return nil }
+        // El rótulo sale de los MISMOS segundos que dan la altura de la barra —
+        // que el guard de arriba ya garantiza presentes—, no del texto
+        // preformateado del servidor, que podía faltar y dejaba un guion bajo una
+        // barra con altura real. Y así la duración la escribe el canónico
+        // (contrato §2), como en el resto de la app.
         return window.enumerated().map { idx, race in
             let secs = Double(race.total_seconds ?? 0)
             return EvolutionPoint(
-                label: race.total_time ?? "—",
+                label: Formato.clock(secs),
                 fraction: secs / maxV,
                 isLatest: idx == window.count - 1
             )
@@ -866,7 +875,16 @@ private struct LegacyHistorySection: View {
                                 .foregroundStyle(Theme.Color.faint)
                         }
                         Spacer(minLength: 8)
-                        MonoText(text: r.total_time ?? "—", size: 13, weight: .bold)
+                        // Una carrera del historial sin tiempo registrado dice
+                        // que no lo hay, en la voz de texto: una nota de ausencia
+                        // no es una cifra y no se monoespacia (§4, §7).
+                        if let total = r.total_time {
+                            MonoText(text: total, size: 13, weight: .bold)
+                        } else {
+                            Text("sin tiempo")
+                                .font(.system(size: 11, weight: .medium).italic())
+                                .foregroundStyle(Theme.Color.faint)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
@@ -911,14 +929,23 @@ private struct LastRaceCard: View {
                         .foregroundStyle(Theme.Color.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 12)
-                    Text(race.total_time ?? "—")
-                        .font(Theme.Typography.readoutM)
-                        .foregroundStyle(Theme.Color.foreground)
+                    // Sin tiempo total no se pinta cifra: el nombre de la carrera
+                    // se queda con todo el ancho (§7).
+                    if let total = race.total_time {
+                        Text(total)
+                            .font(Theme.Typography.readoutM)
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
                 }
-                HStack(spacing: Theme.Spacing.l) {
-                    splitTile(label: "Run", value: race.run_time)
-                    splitTile(label: "Estac.", value: race.stations_time)
-                    splitTile(label: "RoxZone", value: race.roxzone_time, accent: true)
+                // Las tres casillas de parciales son datos MEDIDOS: la que no
+                // tiene tiempo se omite del reparto, y si no queda ninguna la
+                // fila entera desaparece en vez de dejar tres huecos.
+                if hasAnySplit {
+                    HStack(spacing: Theme.Spacing.l) {
+                        splitTile(label: "Run", value: race.run_time)
+                        splitTile(label: "Estac.", value: race.stations_time)
+                        splitTile(label: "RoxZone", value: race.roxzone_time, accent: true)
+                    }
                 }
                 if let standing = race.standing_label {
                     standingBand(standing)
@@ -928,19 +955,27 @@ private struct LastRaceCard: View {
         }
     }
 
+    /// ¿Hay al menos un parcial que sea un tiempo de verdad?
+    private var hasAnySplit: Bool {
+        race.run_time != nil || race.stations_time != nil || race.roxzone_time != nil
+    }
+
+    @ViewBuilder
     private func splitTile(label: String, value: String?, accent: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            LabelText(text: label, size: 10)
-            MonoText(
-                text: value ?? "—",
-                size: 14,
-                weight: .bold,
-                color: accent ? Theme.Color.warning : Theme.Color.foreground
-            )
+        if let value {
+            VStack(alignment: .leading, spacing: 3) {
+                LabelText(text: label, size: 10)
+                MonoText(
+                    text: value,
+                    size: 14,
+                    weight: .bold,
+                    color: accent ? Theme.Color.warning : Theme.Color.foreground
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(label): \(value)")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value ?? "sin dato")")
     }
 
     private func standingBand(_ text: String) -> some View {

@@ -168,17 +168,26 @@ struct DoblesRepartoEditorSheet: View {
     private var effectCard: some View {
         CardSurface(padding: 16, elevated: true) {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                effectRow(
-                    label: "ESTE TRAMO",
-                    value: newStationPredicted.map { GoalGapFormat.raceClock($0) } ?? "—",
-                    delta: stationDelta
-                )
-                Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-                effectRow(
-                    label: "PREDICHO PAREJA",
-                    value: newTotal.map { GoalGapFormat.raceClock($0) } ?? "—",
-                    delta: nil
-                )
+                // La tarjeta sólo se pinta con `canRecompute`, así que el tramo
+                // SIEMPRE tiene número; se desenvuelve en vez de rellenarse.
+                if let tramo = newStationPredicted {
+                    effectRow(
+                        label: "ESTE TRAMO",
+                        value: GoalGapFormat.raceClock(tramo),
+                        delta: stationDelta
+                    )
+                }
+                // El total sí puede faltar (sin predicho conjunto del servidor).
+                // Entonces la fila NO existe: nada que la pareja pueda hacer aquí
+                // para llenarla, así que se calla, y su separador con ella (§6.2 bis).
+                if let total = newTotal {
+                    Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+                    effectRow(
+                        label: "PREDICHO PAREJA",
+                        value: GoalGapFormat.raceClock(total),
+                        delta: nil
+                    )
+                }
                 if let g = newGap {
                     gapPill(g)
                 } else if goalS == nil {

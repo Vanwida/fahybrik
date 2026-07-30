@@ -31,6 +31,29 @@ struct DoblesSharedAnalyticsView: View {
         analytics?.partnerName ?? partner?.firstName ?? "tu compañero"
     }
 
+    // Lo que se pinta donde NO hay medida. No es un valor: es la razón de que
+    // falte, y por eso va en la voz de texto y en itálica — nunca monoespaciada,
+    // que es la letra de los instrumentos (§4, §7). Mismo tono que el «sin datos»
+    // del camino al objetivo, para que las dos superficies suenen igual.
+    //
+    // NOTA (§0): esto debería ser UN átomo compartido en `Theme/`; hoy no existe
+    // y se escribe a mano aquí y en otras cinco pantallas de Carreras/Dobles.
+    private var sinMarca: some View { textoAusente("sin marca") }
+    private var sinDato: some View { textoAusente("sin dato") }
+
+    private func textoAusente(_ texto: String) -> some View {
+        Text(texto)
+            .font(.system(size: 11, weight: .medium).italic())
+            .foregroundStyle(Theme.Color.faint)
+            .lineLimit(1)
+    }
+
+    /// Una fila de comparación sólo existe si al menos uno de los dos tiene dato.
+    /// Sin ninguno no es una fila «vacía»: no es una fila (§6.2).
+    private func comparables(_ rows: [DoblesH2HRow]) -> [DoblesH2HRow] {
+        rows.filter { $0.selfValue != nil || $0.partnerValue != nil }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
@@ -129,7 +152,8 @@ struct DoblesSharedAnalyticsView: View {
 
         // Per-station head-to-head — each athlete's best race, station by station.
         // Self = orange (accent), partner = blue (partner); faster side flagged.
-        if !a.headToHead.isEmpty {
+        let caraACara = comparables(a.headToHead)
+        if !caraACara.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 HStack(spacing: 6) {
                     Text("Cara a cara")
@@ -139,7 +163,7 @@ struct DoblesSharedAnalyticsView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.Color.faint)
                 }
-                headToHeadTable(a.headToHead)
+                headToHeadTable(caraACara)
             }
             .staggerReveal(appear, index: 3)
         }
@@ -166,7 +190,8 @@ struct DoblesSharedAnalyticsView: View {
         }
 
         // Weekly comparison — friendly rivalry.
-        if !a.weekly.isEmpty {
+        let semana = comparables(a.weekly)
+        if !semana.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 HStack(spacing: 6) {
                     Text("Esta semana")
@@ -176,7 +201,7 @@ struct DoblesSharedAnalyticsView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.Color.faint)
                 }
-                weeklyTable(a.weekly)
+                weeklyTable(semana)
             }
             .staggerReveal(appear, index: 5)
         }
@@ -232,8 +257,13 @@ struct DoblesSharedAnalyticsView: View {
                 .lineLimit(1)
 
             HStack(spacing: 3) {
-                MonoText(text: row.selfValue ?? "—", size: 13, weight: .bold,
-                         color: row.selfValue == nil ? Theme.Color.faint : Theme.Color.accentText)
+                // El lado sin marca dice que no la hay, no una raya: «tú 7:18 ·
+                // él sin marca» se lee, y la comparación sigue teniendo sentido.
+                if let valor = row.selfValue {
+                    MonoText(text: valor, size: 13, weight: .bold, color: Theme.Color.accentText)
+                } else {
+                    sinMarca
+                }
                 if selfFaster == true {
                     Image(systemName: "arrowtriangle.up.fill")
                         .font(.system(size: 7))
@@ -246,8 +276,11 @@ struct DoblesSharedAnalyticsView: View {
                 .foregroundStyle(Theme.Color.faint)
 
             HStack(spacing: 3) {
-                MonoText(text: row.partnerValue ?? "—", size: 13, weight: .bold,
-                         color: row.partnerValue == nil ? Theme.Color.faint : Theme.Color.partner)
+                if let valor = row.partnerValue {
+                    MonoText(text: valor, size: 13, weight: .bold, color: Theme.Color.partner)
+                } else {
+                    sinMarca
+                }
                 if selfFaster == false {
                     Image(systemName: "arrowtriangle.up.fill")
                         .font(.system(size: 7))
@@ -283,8 +316,13 @@ struct DoblesSharedAnalyticsView: View {
                     .lineLimit(1)
             }
             LabelText(text: "Mejor HYROX", size: 10)
-            MonoText(text: value ?? "—", size: 19, weight: .bold,
-                     color: value == nil ? Theme.Color.faint : Theme.Color.foreground)
+            // La tarjeta existe porque al menos uno de los dos tiene marca; el
+            // que no la tiene lo dice, y no finge una cifra (§7).
+            if let value {
+                MonoText(text: value, size: 19, weight: .bold, color: Theme.Color.foreground)
+            } else {
+                sinMarca
+            }
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,17 +391,30 @@ struct DoblesSharedAnalyticsView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.Color.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    MonoText(text: row.selfValue ?? "—", size: 13, weight: .bold, color: Theme.Color.accentText)
-                        .frame(width: 54, alignment: .trailing)
+                    Group {
+                        if let valor = row.selfValue {
+                            MonoText(text: valor, size: 13, weight: .bold, color: Theme.Color.accentText)
+                        } else {
+                            sinDato
+                        }
+                    }
+                    .frame(width: 54, alignment: .trailing)
                     Text("·")
                         .foregroundStyle(Theme.Color.faint)
-                    MonoText(text: row.partnerValue ?? "—", size: 13, weight: .bold, color: Theme.Color.partner)
-                        .frame(width: 54, alignment: .leading)
+                    Group {
+                        if let valor = row.partnerValue {
+                            MonoText(text: valor, size: 13, weight: .bold, color: Theme.Color.partner)
+                        } else {
+                            sinDato
+                        }
+                    }
+                    .frame(width: 54, alignment: .leading)
                 }
                 .padding(.horizontal, 13)
                 .padding(.vertical, 11)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(row.metric): tú \(row.selfValue ?? "—"), \(partnerName) \(row.partnerValue ?? "—")")
+                // VoiceOver dice «sin dato», nunca «raya».
+                .accessibilityLabel("\(row.metric): tú \(row.selfValue ?? "sin dato"), \(partnerName) \(row.partnerValue ?? "sin dato")")
             }
         }
         .background(Theme.Color.surface)

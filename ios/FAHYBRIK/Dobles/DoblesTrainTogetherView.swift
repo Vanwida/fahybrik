@@ -246,9 +246,17 @@ struct DoblesTrainTogetherView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
-                Text(ref ?? "1RM —")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.Color.faint)
+                // Sin 1RM registrado se dice, y así el chip explica por qué la
+                // columna de ese atleta viene sin carga.
+                if let ref {
+                    Text(ref)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.Color.faint)
+                } else {
+                    Text("sin 1RM")
+                        .font(.system(size: 10, weight: .medium).italic())
+                        .foregroundStyle(Theme.Color.faint)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -262,7 +270,7 @@ struct DoblesTrainTogetherView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name), \(ref ?? "1RM no disponible")")
+        .accessibilityLabel("\(name), \(ref ?? "sin 1RM registrado")")
     }
 
     // MARK: - Dual-load table
@@ -301,19 +309,16 @@ struct DoblesTrainTogetherView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(row.selfLoad ?? "—")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .frame(width: 70, alignment: .leading)
-                    Text(row.partnerLoad ?? "—")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .frame(width: 70, alignment: .leading)
+                    // La carga se resuelve sobre el 1RM de cada uno: quien no lo
+                    // tiene registrado no tiene carga, y eso se DICE — nombra la
+                    // causa y con ella el acto que la arregla (§6.2 bis).
+                    cargaCelda(row.selfLoad)
+                    cargaCelda(row.partnerLoad)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(row.exercise) \(row.setsReps ?? ""), \(selfName) \(row.selfLoad ?? "—"), \(partnerName) \(row.partnerLoad ?? "—")")
+                .accessibilityLabel(filaAccesible(row))
             }
         }
         .background(Theme.Color.surface)
@@ -322,5 +327,33 @@ struct DoblesTrainTogetherView: View {
                 .stroke(Theme.Color.hairline, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    }
+
+    /// Una celda de carga. Con carga, la cifra en la letra de instrumento; sin
+    /// ella, la razón en la voz de texto — una nota de ausencia no es una medida
+    /// y no se monoespacia (§4).
+    @ViewBuilder
+    private func cargaCelda(_ carga: String?) -> some View {
+        if let carga {
+            Text(carga)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(Theme.Color.foreground)
+                .frame(width: 70, alignment: .leading)
+        } else {
+            Text("sin 1RM")
+                .font(.system(size: 11, weight: .medium).italic())
+                .foregroundStyle(Theme.Color.faint)
+                .lineLimit(1)
+                .frame(width: 70, alignment: .leading)
+        }
+    }
+
+    /// VoiceOver lee la fila entera, y donde falta la carga dice por qué falta.
+    private func filaAccesible(_ row: DoblesExerciseRow) -> String {
+        var parts = [row.exercise]
+        if let sr = row.setsReps, !sr.isEmpty { parts.append(sr) }
+        parts.append("\(selfName) \(row.selfLoad ?? "sin 1RM")")
+        parts.append("\(partnerName) \(row.partnerLoad ?? "sin 1RM")")
+        return parts.joined(separator: ", ")
     }
 }
