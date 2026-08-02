@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-02 · Los tests: TRES sistemas paralelos, y ninguno deja al coach escribir el test que quiere
+
+**El hallazgo (no es una decisión todavía: es el diagnóstico que la precede).** Alex pidió algo elemental —«que el coach pueda montar un test de ergo de 2 × 2 min y que calibre zonas»— y el sistema no puede. Al abrirlo aparecen **tres vocabularios de test conviviendo**, sin hablarse:
+
+1. **`shared/domain/methodology/test-types.ts`** — cinco tipos cerrados (`row_2k`, `ski_2k`, `run_3min`, `run_9min`, `run_30min`) con modalidad × medida × cantidad. **Sí modela tests por DURACIÓN** y sabe resolver un umbral con ellos.
+2. **`coach_calibration_tests` (#34)** — lo que Pablo ve en `/tests`: nombre, formato, **protocolo en texto libre**, resultados y agenda.
+3. **`methodology_tests`** — el catálogo del RAG.
+
+**Los cinco huecos objetivos, con su fichero:**
+
+- **El coach no puede definir QUÉ se hace.** El protocolo es prosa. El contenido se materializa como *un segmento por resultado* con `prescription_json = NULL` (`web/lib/coach/calibration-content.ts`: *«there is no coach-facing editor for a templates row today»*). Solo los cuatro protocolos sembrados traen tramos reales. Conclusión: **un test escrito por el coach no se puede ejecutar guiado en iOS** — ni cuenta intervalos, ni cierra tramos, ni sabe cuántas series hay.
+- **El catálogo de calibración clava protocolo ↔ derivación.** `CALIBRATION_TARGETS` (`shared/domain/coach/test-battery.ts`) dice que «zonas de carrera» son *el tiempo de un 5K* y «zonas de remo» *el tiempo de un 2K*. No hay forma de calibrar con un 30′ (el estándar de umbral), ni con 3′/9′, ni con 2 × 2′ — aunque el sistema (1) ya sepa hacerlo.
+- **Una medida de DISTANCIA no puede calibrar nunca.** `CALIBRATING_MEASURES = time | load | hr` (`shared/schema/test-battery.ts`). Todo test de tiempo fijo —Cooper 12′, 2 × 2′, cualquier MAS test— se guarda como baseline muerto. Es exactamente el caso que se pidió.
+- **Falta la AGREGACIÓN.** Un `store_result` es un valor suelto: no existe «la media de los dos tramos» ni «el mejor de los seis». Sin eso, un test de N esfuerzos no tiene resultado.
+- **El pulso se teclea.** La app mide sola el `hrr60` desde el stream de FC, pero el **umbral de pulso (`lthr_bpm`) lo escribe el atleta a mano**, teniendo nosotros la serie entera de un test máximo. Alex: *«es un test de cardio: tienen que calibrar zonas… con el pulso se ven las zonas, pero hay que saberlo».*
+
+**La forma que tendría que tener un test, y que hay que decidir:** *protocolo estructurado* (la gramática de prescripción que YA existe: calentamiento + N esfuerzos + recuperaciones) × *qué mide cada tramo* (tiempo | distancia | potencia | FC | carga, leído del monitor/GPS/reloj) × *cómo se agregan los tramos* (media | mejor | suma | último) × *qué ancla produce* (ritmo umbral | FC umbral | 1RM | nada) **con el ajuste como dato del coach** — el estándar del deporte es mecanismo nuestro (un 30′ ES el umbral; un 2K va unos segundos por debajo), pero **el número exacto lo edita el coach**, HARD RULE Nº0.
+
+**Lo que sí se decidió y ya está construido:** la superficie del atleta (`/es/design/test-comparativa`, pantalla `propuesta` del doble). Un test se lee **contra otro**, y en este orden: el veredicto en una frase · contra qué se compara (elegible: anterior · hace 3 meses · tu mejor · 1ª vez) · el umbral desplazado en la escala de ritmo, que es lo que gobierna su plan · el desglose por tramos con su pulso.
+
+**En consecuencia, no hacer:** no añadir un cuarto vocabulario de test; no comparar dos intentos de protocolos distintos aunque calibren lo mismo; no colorear el delta de pulso de un test máximo como si fuera un veredicto (solo dice algo junto al rendimiento); no pintar como mejora un delta que no mueve el umbral ni medio segundo; y no dejar que el coach cree un test que **parezca** calibrar y luego no calibre.
+
+---
+
 ## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
 
 **Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.

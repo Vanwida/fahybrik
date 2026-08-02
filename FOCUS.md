@@ -1,7 +1,17 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-30**
+Última actualización: **2026-08-02**
+
+---
+
+## 2-ago · Los tests, que estaban peor de lo que parecía
+
+Alex pidió que el coach pueda montar **un test de ergo de 2 × 2 min que calibre zonas**. No se puede, y al abrirlo salieron **tres sistemas de test paralelos** que no se hablan (`test-types.ts` · `coach_calibration_tests` · `methodology_tests`) y cinco huecos: el coach **no puede definir qué se hace** (el protocolo es texto libre y el contenido se materializa sin prescripción, así que iOS no lo puede guiar); el catálogo de calibración **clava** «zonas de remo» = *tiempo de un 2K*; una medida de **distancia no calibra jamás**, que es justo el caso de un test por tiempo fijo; no existe **agregación** de tramos («la media de los dos»); y el **umbral de pulso se teclea a mano** teniendo nosotros el stream de FC entero. Todo el diagnóstico, con ficheros, en `docs/DECISIONS.md` (2026-08-02).
+
+**Construido:** la superficie del atleta — `app.fahybrid.com/es/design/test-comparativa` (pantalla `propuesta` del doble). Un test se lee **contra otro**: el veredicto en una frase, la referencia elegible (anterior · hace 3 meses · tu mejor · 1ª vez), el umbral desplazado en la escala de ritmo —y con él las seis zonas del plan— y el desglose por tramos con su pulso. Cinco escenarios, dos de ellos son el encargo: **«2 × 2′»** (el test que hoy no se puede montar) y **«mismo tiempo, 9 ppm menos»** (la mejora que hoy se pinta como «nada»).
+
+**Espera decisión de Alex:** rehacer el modelo de test (protocolo estructurado × medida por tramo × agregación × qué ancla produce, con el ajuste como dato del coach) toca migración + editor del coach + el puente + iOS. No se ha tocado nada de eso.
 
 ---
 
