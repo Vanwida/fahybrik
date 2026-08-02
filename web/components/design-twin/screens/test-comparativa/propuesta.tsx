@@ -1,38 +1,44 @@
 'use client';
 
-// PROPUESTA — el resultado de un test contra el de hace tres meses.
+// PROPUESTA v2 — el test contra el de hace tres meses, con LAS ZONAS de sujeto.
 //
-// El sujeto NO es el número: es **cuánto has mejorado**, y por eso lo primero que
-// se lee es el veredicto y no la cifra. La cifra viene inmediatamente después,
-// porque el atleta la quiere, pero sola no dice nada — «7:41» solo significa algo
-// contra «7:58».
+// El giro respecto a la v1 (que enseñaba el umbral como un pin en una escala):
+// en HYROX se entrena POR ZONAS, en correr y en los ergos. El producto real de
+// un test no es la cifra — es la tabla de zonas recalculada, porque eso es lo
+// que el atleta va a leer mañana en su plan. Así que la comparación enseña las
+// SEIS bandas, antes → ahora, cada una con su corte y su mejora.
 //
-// Cuatro bandas, de arriba abajo, en el orden en que se contesta la pregunta:
-//   1. el veredicto + la marca de hoy;
+// Cuatro bandas, en el orden en que se contesta la pregunta:
+//   1. la marca, antes → ahora — el número viejo apagado, el nuevo grande,
+//      el delta y el % debajo;
 //   2. contra QUÉ (el segmentado: anterior · hace 3 meses · tu mejor · 1ª vez);
-//   3. lo que cambia en su plan — el umbral desplazado en la escala de ritmo,
-//      que es lo que va a leer mañana;
+//   3. LA ESCALERA DE ZONAS — la banda de cada zona entonces y ahora, con su
+//      mejora por fila. Como las bandas del coach son cortes fijos sobre el
+//      umbral, el test que lo mueve las mueve todas: eso es lo que se ve;
 //   4. cómo se produjo — tramo a tramo, y a qué pulso.
 //
-// Nada se pinta sin dato: un intento sin reloj deja la fila del pulso dicha, no
-// rellenada, y sin historia no hay comparación (se dice que esta es la primera).
+// Nada se pinta sin dato: un intento sin reloj deja la fila del pulso dicha,
+// sin historia no hay comparación, y un umbral que no se movió medio segundo
+// enseña las zonas UNA vez (dos columnas idénticas serían teatro).
 
 import { useState } from 'react';
 import { Card, Etiqueta, NavBar, Pantalla, Pastilla, PuntoModalidad } from '../../kit-composicion/chrome';
-import { esDecimal, ppm } from '../../kit-composicion/formato';
+import { esDecimal, ppm, reloj } from '../../kit-composicion/formato';
 import { R, S } from '../../kit-composicion/tokens';
 import {
+  banda,
   esEmpate,
   esMejora,
   menosEsMejor,
   referencias,
   type Intento,
   type TestComparado,
+  type ZonaDef,
 } from './data';
 
-// ── Formateadores. Uno por concepto (§2): el test se lee con DÉCIMAS, que es la
-//    precisión a la que se decide un récord, y el resto del doble no las tiene.
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Formateadores. El test se lee con DÉCIMAS (la precisión a la que se decide
+//    un récord); las bandas de zona van en segundos enteros, que es como se
+//    entrenan. Uno por concepto (§2). ─────────────────────────────────────────
 
 /** `461.2` → `7:41,2` · `120.3` → `2:00,3`. */
 function relojDec(segundos: number): string {
@@ -42,80 +48,98 @@ function relojDec(segundos: number): string {
   return `${m}:${resto}`;
 }
 
-/** La marca, en la unidad del test. */
-function marca(test: TestComparado, valor: number): string {
-  return test.unidad === 'segundos' ? relojDec(valor) : esDecimal(valor, valor % 1 === 0 ? 0 : 1);
+function sufijoRitmo(test: TestComparado): string {
+  return test.umbralUnidad === 'por500m' ? '/500m' : '/km';
 }
 
-function unidadDe(test: TestComparado): string {
-  return test.unidad === 'segundos' ? '' : 'm';
+/** El HÉROE de un intento: el resultado en su propia voz. Un esfuerzo único se
+ *  nombra por su tiempo total; un test de N tramos no TIENE tiempo total con
+ *  significado, así que se nombra por su ritmo medio. */
+function hero(test: TestComparado, i: Intento): { texto: string; sufijo: string } {
+  if (test.agregacion !== 'unico') {
+    return { texto: relojDec(test.ritmo(i.valor)), sufijo: sufijoRitmo(test) };
+  }
+  return test.unidad === 'segundos'
+    ? { texto: relojDec(i.valor), sufijo: '' }
+    : { texto: esDecimal(i.valor, i.valor % 1 === 0 ? 0 : 1), sufijo: 'm' };
 }
 
-/** El ritmo comparable, siempre con su sufijo. */
-function ritmoTexto(test: TestComparado, valor: number): string {
-  return `${relojDec(test.ritmo(valor))}${test.umbralUnidad === 'por500m' ? '/500m' : '/km'}`;
+/** La línea secundaria: lo que el héroe no dijo (el ritmo, o el total). */
+function secundaria(test: TestComparado, i: Intento): string {
+  if (test.agregacion !== 'unico') {
+    const total =
+      test.unidad === 'metros'
+        ? `${esDecimal(i.valor, i.valor % 1 === 0 ? 0 : 1)} m en total`
+        : `${relojDec(i.valor)} en total`;
+    return `${total} · media de los tramos`;
+  }
+  return `${relojDec(test.ritmo(i.valor))}${sufijoRitmo(test)}`;
 }
 
-/** Delta con signo tipográfico y su unidad: `−17,4 s` · `+35,5 m`. */
-function deltaTexto(test: TestComparado, d: number): string {
+/** Delta del héroe, en su voz: segundos de ritmo para tests de tramos, y la
+ *  unidad del test para esfuerzos únicos. */
+function deltaHero(test: TestComparado, ref: Intento, hoy: Intento): string {
+  const d =
+    test.agregacion !== 'unico' || test.unidad === 'segundos'
+      ? test.ritmo(hoy.valor) - test.ritmo(ref.valor)
+      : hoy.valor - ref.valor;
+  const esTiempo = test.agregacion !== 'unico' || test.unidad === 'segundos';
   const signo = d > 0 ? '+' : d < 0 ? '−' : '';
   const mag = Math.abs(d);
-  return test.unidad === 'segundos'
-    ? `${signo}${esDecimal(mag)} s`
+  return esTiempo
+    ? `${signo}${mag >= 60 ? relojDec(mag) : esDecimal(mag)} s`
     : `${signo}${esDecimal(mag, mag % 1 === 0 ? 0 : 1)} m`;
 }
 
-// ── El veredicto: la frase que abre la pantalla ──────────────────────────────
+/** Mejora relativa sobre el ritmo comparable — el «−3,6 %» que hace el delta
+ *  legible entre tests de distinta duración. */
+function porcentaje(test: TestComparado, ref: Intento, hoy: Intento): string {
+  const p = ((test.ritmo(hoy.valor) - test.ritmo(ref.valor)) / test.ritmo(ref.valor)) * 100;
+  const signo = p > 0 ? '+' : p < 0 ? '−' : '';
+  return `${signo}${esDecimal(Math.abs(p))} %`;
+}
+
+// ── El veredicto: la frase que interpreta lo que los números no dicen ────────
 
 interface Veredicto {
-  titular: string;
+  /** Solo cuando los números solos ENGAÑARÍAN (empate, empeora, mismo-tiempo-
+   *  menos-pulso). En una mejora normal los números son el titular. */
+  titular: string | null;
   detalle: string;
   tono: 'ok' | 'neutro' | 'aviso';
 }
 
-/**
- * Lo que de verdad pasó entre los dos intentos. El caso que hoy se pierde es el
- * tercero: MISMO tiempo con el pulso más bajo es una mejora de las buenas, y una
- * pantalla que solo resta números la enseña como «−0,4 s», o sea, como nada.
- */
 function veredicto(test: TestComparado, ref: Intento, hoy: Intento): Veredicto {
   const d = hoy.valor - ref.valor;
   const dFc = hoy.fcMedia != null && ref.fcMedia != null ? hoy.fcMedia - ref.fcMedia : null;
-  const dRitmo = test.ritmo(hoy.valor) - test.ritmo(ref.valor);
   const empate = esEmpate(test, ref, hoy);
 
   if (empate && dFc != null && dFc <= -3) {
     return {
-      titular: `Mismo tiempo, ${Math.abs(dFc)} ppm menos`,
-      detalle: 'El mismo esfuerzo te cuesta menos que hace tres meses. Es mejora, aunque el crono no se mueva.',
+      titular: `Mismo ritmo, ${Math.abs(dFc)} ppm menos`,
+      detalle: 'El mismo esfuerzo te cuesta menos que entonces. Es mejora, aunque el crono no se mueva.',
       tono: 'ok',
     };
   }
   if (empate) {
     return {
       titular: 'Te has quedado igual',
-      detalle: 'Ni el tiempo ni el pulso se mueven. Tu umbral no cambia y tu plan sigue con los mismos ritmos.',
+      detalle: 'Ni el ritmo ni el pulso se mueven: tus zonas siguen donde estaban.',
       tono: 'neutro',
     };
   }
   if (esMejora(test.unidad, d)) {
-    // El titular y el chip cuentan el MISMO número: redondear aquí a 36 lo que
-    // ahí se lee 35,5 hace dudar de los dos.
-    const cuanto =
-      test.unidad === 'segundos'
-        ? `${esDecimal(Math.abs(d))} s más rápido`
-        : `${esDecimal(Math.abs(d), Math.abs(d) % 1 === 0 ? 0 : 1)} m más`;
     return {
-      titular: `${cuanto} que ${ref.cuando}`,
+      titular: null,
       detalle:
         dFc != null && dFc <= 0
-          ? `Y con ${dFc === 0 ? 'el mismo' : `${Math.abs(dFc)} ppm menos de`} pulso: has ido más rápido pagando menos.`
-          : `Son ${esDecimal(Math.abs(dRitmo))} s por ${test.umbralUnidad === 'por500m' ? '500 m' : 'kilómetro'}.`,
+          ? `Y con ${dFc === 0 ? 'el mismo pulso' : `${Math.abs(dFc)} ppm menos`}: más rápido pagando menos.`
+          : 'Tu umbral baja, y las seis zonas de tu plan bajan con él.',
       tono: 'ok',
     };
   }
   return {
-    titular: `${esDecimal(Math.abs(d))} ${test.unidad === 'segundos' ? 's más lento' : 'm menos'} que ${ref.cuando}`,
+    titular: `Más lento que ${ref.cuando}`,
     detalle: 'Un test malo también es dato: tu plan se recalcula con este número, no con el de antes.',
     tono: 'aviso',
   };
@@ -130,7 +154,6 @@ function ChipDelta({ texto, mejora, neutro }: { texto: string; mejora: boolean; 
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 4,
         padding: '3px 7px',
         borderRadius: R.pill,
         background: `color-mix(in srgb, ${color} 14%, transparent)`,
@@ -193,7 +216,227 @@ function Selector({
   );
 }
 
-/** Una fila del cara a cara: etiqueta · entonces · ahora · delta. */
+// ── Banda 1 · La marca, antes → ahora ────────────────────────────────────────
+
+function HeroComparado({ test, contra, hoy }: { test: TestComparado; contra: Intento | null; hoy: Intento }) {
+  const v = contra ? veredicto(test, contra, hoy) : null;
+  const empate = contra != null && esEmpate(test, contra, hoy);
+  const mejora = !empate && contra != null && esMejora(test.unidad, hoy.valor - contra.valor);
+  const hoyHero = hero(test, hoy);
+
+  return (
+    <Card padding={S.l}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: S.s }}>
+          <PuntoModalidad modalidad={test.modalidad} />
+          <Etiqueta>{test.protocolo}</Etiqueta>
+          <span style={{ flex: 1 }} />
+          {test.calibra ? <Pastilla tono="acento">Calibra</Pastilla> : null}
+        </div>
+
+        {v?.titular ? (
+          <span
+            style={{
+              font: 'italic 800 21px/1.12 var(--twin-font-sans)',
+              letterSpacing: '-0.01em',
+              color: v.tono === 'ok' ? 'var(--twin-ok)' : v.tono === 'aviso' ? 'var(--twin-warning)' : 'var(--twin-fg)',
+            }}
+          >
+            {v.titular}
+          </span>
+        ) : null}
+        {!contra ? (
+          <span style={{ font: 'italic 800 21px/1.12 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
+            Tu primera vez
+          </span>
+        ) : null}
+
+        {/* La pareja de números: el viejo apagado, el nuevo manda. */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: S.m, flexWrap: 'wrap' }}>
+          {contra ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ font: '600 10px/1 var(--twin-font-sans)', letterSpacing: '0.08em', color: 'var(--twin-faint)' }}>
+                {contra.fecha}
+              </span>
+              <span
+                style={{
+                  font: '700 24px/1 var(--twin-font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--twin-muted)',
+                }}
+              >
+                {hero(test, contra).texto}
+              </span>
+            </div>
+          ) : null}
+          {contra ? (
+            <span style={{ color: 'var(--twin-faint)', fontSize: 15, paddingBottom: 6 }}>→</span>
+          ) : null}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ font: '600 10px/1 var(--twin-font-sans)', letterSpacing: '0.08em', color: 'var(--twin-accent-text)' }}>
+              {hoy.fecha} · HOY
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+              <span
+                style={{
+                  font: '800 42px/0.95 var(--twin-font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--twin-fg)',
+                }}
+              >
+                {hoyHero.texto}
+              </span>
+              {hoyHero.sufijo ? (
+                <span style={{ font: '600 14px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+                  {hoyHero.sufijo}
+                </span>
+              ) : null}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: S.s, flexWrap: 'wrap' }}>
+          {contra ? (
+            <>
+              <ChipDelta texto={deltaHero(test, contra, hoy)} mejora={mejora} neutro={empate} />
+              <ChipDelta texto={porcentaje(test, contra, hoy)} mejora={mejora} neutro={empate} />
+            </>
+          ) : null}
+          <span style={{ font: '600 12px/1 var(--twin-font-mono)', color: 'var(--twin-muted)' }}>
+            {secundaria(test, hoy)}
+          </span>
+        </div>
+
+        <span style={{ font: '400 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+          {v?.detalle ??
+            'No hay nada contra qué medirla todavía: esta marca es la referencia con la que se compararán las siguientes.'}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+// ── Banda 3 · La escalera de zonas ───────────────────────────────────────────
+
+function bandaTexto(umbral: number, z: ZonaDef): string {
+  const b = banda(umbral, z);
+  return b.slow === null
+    ? `> ${reloj(Math.round(b.fast))}`
+    : `${reloj(Math.round(b.fast))}–${reloj(Math.round(b.slow))}`;
+}
+
+function FilaZona({
+  z,
+  antes,
+  ahora,
+}: {
+  z: ZonaDef;
+  /** Banda de la referencia. undefined = columna única (sin comparación). */
+  antes?: string;
+  ahora: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: S.s, padding: '7px 0' }}>
+      <span
+        aria-hidden
+        style={{ width: 8, height: 8, borderRadius: 4, background: z.color, flex: '0 0 auto' }}
+      />
+      <span style={{ flex: '0 0 92px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ font: '700 12px/1 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{z.codigo}</span>
+        <span style={{ font: '500 10px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{z.nombre}</span>
+      </span>
+      {antes !== undefined ? (
+        <>
+          <span
+            style={{
+              flex: 1,
+              textAlign: 'right',
+              font: '600 12.5px/1 var(--twin-font-mono)',
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--twin-muted)',
+            }}
+          >
+            {antes}
+          </span>
+          <span style={{ flex: '0 0 12px', textAlign: 'center', color: 'var(--twin-faint)', fontSize: 10 }}>→</span>
+        </>
+      ) : null}
+      <span
+        style={{
+          flex: 1,
+          textAlign: 'right',
+          font: '700 13px/1 var(--twin-font-mono)',
+          fontVariantNumeric: 'tabular-nums',
+          color: 'var(--twin-fg)',
+        }}
+      >
+        {ahora}
+      </span>
+    </div>
+  );
+}
+
+function ZonasCard({ test, contra, hoy }: { test: TestComparado; contra: Intento | null; hoy: Intento }) {
+  if (!test.calibra || hoy.umbral == null) return null;
+  const uHoy = hoy.umbral;
+  const uRef = contra?.umbral ?? null;
+  const sinCambio = uRef != null && Math.abs(uHoy - uRef) < 0.5;
+  const comparando = uRef != null && !sinCambio;
+
+  return (
+    <Card padding={S.l}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: S.s }}>
+          <Etiqueta color="var(--twin-accent-text)">Tus zonas · {sufijoRitmo(test)}</Etiqueta>
+          <span style={{ flex: 1 }} />
+          {comparando ? (
+            <ChipDelta
+              // El corte rápido de la Z4 ES el umbral: su desplazamiento, en
+              // segundos enteros (las bandas se leen así), es el de TODAS.
+              texto={`todas ${Math.round(uHoy) - Math.round(uRef) > 0 ? '+' : '−'}${Math.abs(Math.round(uHoy) - Math.round(uRef))} s`}
+              mejora={uHoy < uRef}
+            />
+          ) : null}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {comparando ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: S.s, paddingBottom: 2 }}>
+              <span style={{ width: 8, flex: '0 0 auto' }} />
+              <span style={{ flex: '0 0 92px' }} />
+              <span style={{ flex: 1, textAlign: 'right', font: '600 9.5px/1 var(--twin-font-sans)', letterSpacing: '0.07em', color: 'var(--twin-faint)' }}>
+                {contra?.fecha}
+              </span>
+              <span style={{ flex: '0 0 12px' }} />
+              <span style={{ flex: 1, textAlign: 'right', font: '600 9.5px/1 var(--twin-font-sans)', letterSpacing: '0.07em', color: 'var(--twin-accent-text)' }}>
+                HOY
+              </span>
+            </div>
+          ) : null}
+          {test.zonas.map((z) => (
+            <FilaZona
+              key={z.codigo}
+              z={z}
+              antes={comparando ? bandaTexto(uRef, z) : undefined}
+              ahora={bandaTexto(uHoy, z)}
+            />
+          ))}
+        </div>
+
+        <span style={{ font: '400 11.5px/1.4 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
+          {sinCambio
+            ? `Sin cambios: tu umbral se queda en ${relojDec(uHoy)}${sufijoRitmo(test)} y las bandas no se mueven.`
+            : comparando
+              ? 'Los cortes de cada zona los define tu coach sobre tu umbral: el test lo mueve, y todas se recalculan con él. Esto es lo que leerás en tu plan.'
+              : 'Estas bandas salen de tu marca de hoy. Los cortes los define tu coach; a partir de ahora tu plan se escribe con ellas.'}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+// ── Banda 4 · Cómo lo hiciste ────────────────────────────────────────────────
+
 function FilaCara({
   etiqueta,
   antes,
@@ -204,11 +447,10 @@ function FilaCara({
   falta,
 }: {
   etiqueta: string;
-  antes: string;
+  antes?: string;
   ahora: string;
   delta?: string;
   mejora?: boolean;
-  /** El delta es contexto, no veredicto: se pinta sin color. */
   neutro?: boolean;
   falta?: boolean;
 }) {
@@ -217,18 +459,22 @@ function FilaCara({
       <span style={{ flex: '0 0 74px', font: '500 12px/1.2 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
         {etiqueta}
       </span>
-      <span
-        style={{
-          flex: 1,
-          textAlign: 'right',
-          font: falta ? '400 12px/1.2 var(--twin-font-sans)' : '600 14px/1.2 var(--twin-font-mono)',
-          fontVariantNumeric: 'tabular-nums',
-          color: falta ? 'var(--twin-faint)' : 'var(--twin-muted)',
-        }}
-      >
-        {antes}
-      </span>
-      <span style={{ flex: '0 0 14px', textAlign: 'center', color: 'var(--twin-faint)', fontSize: 11 }}>→</span>
+      {antes !== undefined ? (
+        <>
+          <span
+            style={{
+              flex: 1,
+              textAlign: 'right',
+              font: falta ? '400 12px/1.2 var(--twin-font-sans)' : '600 14px/1.2 var(--twin-font-mono)',
+              fontVariantNumeric: 'tabular-nums',
+              color: falta ? 'var(--twin-faint)' : 'var(--twin-muted)',
+            }}
+          >
+            {antes}
+          </span>
+          <span style={{ flex: '0 0 14px', textAlign: 'center', color: 'var(--twin-faint)', fontSize: 11 }}>→</span>
+        </>
+      ) : null}
       <span
         style={{
           flex: 1,
@@ -240,93 +486,82 @@ function FilaCara({
       >
         {ahora}
       </span>
-      <span style={{ flex: '0 0 70px', display: 'flex', justifyContent: 'flex-end' }}>
+      <span style={{ flex: '0 0 64px', display: 'flex', justifyContent: 'flex-end' }}>
         {delta ? <ChipDelta texto={delta} mejora={mejora ?? false} neutro={neutro} /> : null}
       </span>
     </div>
   );
 }
 
-/**
- * La escala de ritmo con el umbral de entonces y el de ahora. Es la traducción
- * que hace útil el test: las seis zonas del coach son desplazamientos fijos sobre
- * el umbral, así que TODAS se mueven exactamente lo que se movió él. No hace falta
- * conocer sus bandas para decir la verdad — y no se inventa ninguna.
- */
-function EscalaUmbral({ antes, ahora, sufijo }: { antes: number; ahora: number; sufijo: string }) {
-  const margen = Math.max(6, Math.abs(antes - ahora) * 0.9);
-  const min = Math.min(antes, ahora) - margen;
-  const max = Math.max(antes, ahora) + margen;
-  // Más rápido = menos segundos = a la IZQUIERDA, como en cualquier monitor.
-  const pos = (v: number) => ((v - min) / (max - min)) * 100;
-  const mejora = ahora < antes;
+function ComoLoHiciste({ test, contra, hoy }: { test: TestComparado; contra: Intento | null; hoy: Intento }) {
+  const dFc = hoy.fcMedia != null && contra?.fcMedia != null ? hoy.fcMedia - contra.fcMedia : null;
+  const dFcMax = hoy.fcMax != null && contra?.fcMax != null ? hoy.fcMax - contra.fcMax : null;
+  const signo = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '±');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
-      <div style={{ position: 'relative', height: 34 }}>
-        <div
-          style={{
-            position: 'absolute',
-            insetInline: 0,
-            top: 15,
-            height: 4,
-            borderRadius: 2,
-            // La base es NEUTRA: un degradado de bueno a malo convertiría la
-            // escala en un juicio, y aquí lo único que se juzga es el tramo
-            // que separa los dos umbrales.
-            background: 'color-mix(in srgb, var(--twin-fg) 12%, transparent)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            top: 15,
-            height: 4,
-            borderRadius: 2,
-            left: `${Math.min(pos(antes), pos(ahora))}%`,
-            width: `${Math.abs(pos(ahora) - pos(antes))}%`,
-            background: mejora ? 'var(--twin-ok)' : 'var(--twin-warning)',
-          }}
-        />
-        {[
-          { v: antes, texto: relojDec(antes), tono: 'var(--twin-muted)', arriba: true },
-          { v: ahora, texto: relojDec(ahora), tono: 'var(--twin-fg)', arriba: false },
-        ].map((p) => (
-          <div
-            key={p.arriba ? 'antes' : 'ahora'}
-            style={{
-              position: 'absolute',
-              left: `${pos(p.v)}%`,
-              top: p.arriba ? 0 : 19,
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            {p.arriba ? null : <span style={{ width: 2, height: 8, background: p.tono, borderRadius: 1 }} />}
-            <span
-              style={{
-                font: `${p.arriba ? 500 : 700} 11px/1.2 var(--twin-font-mono)`,
-                fontVariantNumeric: 'tabular-nums',
-                color: p.tono,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {p.texto}
-            </span>
-            {p.arriba ? <span style={{ width: 2, height: 8, background: p.tono, borderRadius: 1 }} /> : null}
-          </div>
-        ))}
+    <Card padding={S.l}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Etiqueta>Cómo lo hiciste</Etiqueta>
+
+        {hoy.tramos.map((t, i) => {
+          const antes = contra?.tramos[i];
+          const d = antes ? t.valor - antes.valor : null;
+          return (
+            <FilaCara
+              key={t.etiqueta}
+              etiqueta={t.etiqueta}
+              antes={contra ? (antes ? `${esDecimal(antes.valor, 0)} m` : '—') : undefined}
+              ahora={`${esDecimal(t.valor, 0)} m`}
+              delta={d != null ? `${signo(d)}${esDecimal(Math.abs(d), 0)} m` : undefined}
+              mejora={d != null && esMejora(test.unidad, d)}
+            />
+          );
+        })}
+
+        {/* El pulso de un test máximo es CONTEXTO, no veredicto: nunca se
+            colorea solo. La interpretación (mismo ritmo pagando menos) la hace
+            la frase del héroe, que ve ritmo y pulso JUNTOS. */}
+        {hoy.fcMedia != null || contra?.fcMedia != null ? (
+          <FilaCara
+            etiqueta="FC media"
+            antes={contra ? (contra.fcMedia != null ? ppm(contra.fcMedia) : 'sin reloj') : undefined}
+            falta={contra != null && contra.fcMedia == null}
+            ahora={hoy.fcMedia != null ? ppm(hoy.fcMedia) : '—'}
+            delta={dFc != null ? `${signo(dFc)}${Math.abs(dFc)}` : undefined}
+            mejora={false}
+            neutro
+          />
+        ) : null}
+        {hoy.fcMax != null || contra?.fcMax != null ? (
+          <FilaCara
+            etiqueta="FC máx"
+            antes={contra ? (contra.fcMax != null ? ppm(contra.fcMax) : 'sin reloj') : undefined}
+            falta={contra != null && contra.fcMax == null}
+            ahora={hoy.fcMax != null ? ppm(hoy.fcMax) : '—'}
+            delta={dFcMax != null ? `${signo(dFcMax)}${Math.abs(dFcMax)}` : undefined}
+            mejora={false}
+            neutro
+          />
+        ) : null}
+
+        {contra && contra.fcMedia == null ? (
+          <span style={{ font: '400 11.5px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)', paddingTop: S.xs }}>
+            Aquel día no llevabas reloj, así que de ese test solo se sabe el tiempo.
+          </span>
+        ) : null}
+        {hoy.tramos.length > 0 ? (
+          <span style={{ font: '400 11.5px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)', paddingTop: S.xs }}>
+            {menosEsMejor(test.unidad) ? 'Menos tiempo es mejor.' : 'Más metros es mejor.'} El resultado es la{' '}
+            {test.agregacion === 'media' ? 'media' : 'mejor'} de los tramos, como lo definió tu coach.
+          </span>
+        ) : null}
       </div>
-      <span style={{ font: '400 11.5px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-        Más rápido a la izquierda · {sufijo}
-      </span>
-    </div>
+    </Card>
   );
 }
 
-/** La curva de todos los intentos. El comparado y el de hoy, marcados. */
+// ── La curva de todos los intentos ───────────────────────────────────────────
+
 function Curva({ test, refId }: { test: TestComparado; refId: string | null }) {
   const vals = test.intentos.map((i) => test.ritmo(i.valor));
   const min = Math.min(...vals);
@@ -334,8 +569,7 @@ function Curva({ test, refId }: { test: TestComparado; refId: string | null }) {
   const span = max - min || 1;
   const ANCHO = 100;
   const ALTO = 44;
-  // Los extremos se meten hacia dentro: con el primer punto en x=0 el círculo
-  // sale medio cortado por el borde del viewBox.
+  // Los extremos se meten hacia dentro para que el círculo no se corte.
   const MARGEN = 3;
   const util = ANCHO - MARGEN * 2;
   const puntos = test.intentos.map((i, idx) => ({
@@ -391,14 +625,6 @@ export function TestComparativa({ test, onLog }: { test: TestComparado; onLog: (
   const [refId, setRefId] = useState(refs[0]?.id ?? '');
   const hoy = test.intentos[test.intentos.length - 1];
   const ref = refs.find((r) => r.id === refId)?.intento ?? null;
-  const v = ref ? veredicto(test, ref, hoy) : null;
-
-  const dValor = ref ? hoy.valor - ref.valor : null;
-  // Empate = el número no mueve el umbral ni medio segundo. Entonces NINGÚN
-  // chip del número se colorea: si el veredicto dice «mismo tiempo», un chip
-  // verde al lado lo desmiente y el atleta no sabe a cuál de los dos creer.
-  const empate = ref != null && esEmpate(test, ref, hoy);
-  const mejora = !empate && dValor != null && esMejora(test.unidad, dValor);
 
   return (
     <Pantalla
@@ -416,204 +642,14 @@ export function TestComparativa({ test, onLog }: { test: TestComparado; onLog: (
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: S.m, padding: `${S.m}px ${S.l}px ${S.l}px` }}>
-        {/* 1 · El veredicto y la marca */}
-        <Card padding={S.l}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: S.s }}>
-              <PuntoModalidad modalidad={test.modalidad} />
-              <Etiqueta>{hoy.fecha} · {hoy.cuando}</Etiqueta>
-              <span style={{ flex: 1 }} />
-              {test.calibra ? <Pastilla tono="acento">Calibra</Pastilla> : null}
-            </div>
-
-            {v ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span
-                  style={{
-                    font: 'italic 800 21px/1.12 var(--twin-font-sans)',
-                    letterSpacing: '-0.01em',
-                    color: v.tono === 'ok' ? 'var(--twin-ok)' : v.tono === 'aviso' ? 'var(--twin-warning)' : 'var(--twin-fg)',
-                  }}
-                >
-                  {v.titular}
-                </span>
-                <span style={{ font: '400 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-                  {v.detalle}
-                </span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ font: 'italic 800 21px/1.12 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                  Tu primera vez
-                </span>
-                <span style={{ font: '400 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-                  No hay nada contra qué medirla todavía: esta marca es la referencia con la que se compararán las siguientes.
-                </span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: S.s, flexWrap: 'wrap' }}>
-              {/* 48 y no 72: aquí el sujeto es el veredicto, y la cifra es su
-                  prueba. Un hero de 72 pt dejaría la frase de arriba de adorno. */}
-              <span className="t-readout-l" style={{ color: 'var(--twin-fg)' }}>
-                {marca(test, hoy.valor)}
-              </span>
-              {unidadDe(test) ? (
-                <span style={{ font: '600 15px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-                  {unidadDe(test)}
-                </span>
-              ) : null}
-              <span style={{ flex: 1 }} />
-              {dValor != null ? <ChipDelta texto={deltaTexto(test, dValor)} mejora={mejora} neutro={empate} /> : null}
-            </div>
-            <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)', marginTop: -6 }}>
-              {ritmoTexto(test, hoy.valor)}
-              {test.agregacion === 'media' ? ' · media de los dos tramos' : ''}
-            </span>
-          </div>
-        </Card>
-
-        {/* 2 · Contra qué */}
+        <HeroComparado test={test} contra={ref} hoy={hoy} />
         {refs.length > 1 ? (
           <Selector opciones={refs} activa={refId} onElegir={(id) => { setRefId(id); onLog(`comparar contra: ${id}`); }} />
         ) : null}
-
-        {/* El cara a cara */}
-        {ref ? (
-          <Card padding={S.l}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: S.s, paddingBottom: S.xs }}>
-                <span style={{ flex: '0 0 74px' }} />
-                <span style={{ flex: 1, textAlign: 'right', font: '600 10px/1.2 var(--twin-font-sans)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--twin-faint)' }}>
-                  {ref.fecha}
-                </span>
-                <span style={{ flex: '0 0 14px' }} />
-                <span style={{ flex: 1, textAlign: 'right', font: '600 10px/1.2 var(--twin-font-sans)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--twin-accent-text)' }}>
-                  Hoy
-                </span>
-                <span style={{ flex: '0 0 70px' }} />
-              </div>
-
-              <FilaCara
-                etiqueta={test.unidad === 'segundos' ? 'Tiempo' : 'Metros'}
-                antes={marca(test, ref.valor)}
-                ahora={marca(test, hoy.valor)}
-                delta={deltaTexto(test, hoy.valor - ref.valor)}
-                mejora={mejora}
-                neutro={empate}
-              />
-              <FilaCara
-                etiqueta="Ritmo"
-                antes={ritmoTexto(test, ref.valor)}
-                ahora={ritmoTexto(test, hoy.valor)}
-                delta={`${test.ritmo(hoy.valor) - test.ritmo(ref.valor) < 0 ? '−' : '+'}${esDecimal(Math.abs(test.ritmo(hoy.valor) - test.ritmo(ref.valor)))} s`}
-                mejora={!empate && test.ritmo(hoy.valor) < test.ritmo(ref.valor)}
-                neutro={empate}
-              />
-              {hoy.fcMedia != null || ref.fcMedia != null ? (
-                // El pulso de un test máximo NO es bueno ni malo por sí solo: ir
-                // 8 s más rápido con 1 ppm más no es empeorar nada. Solo se
-                // colorea cuando dice algo — mismo rendimiento (o mejor) pagando
-                // menos. En cualquier otro caso es contexto, y va neutro.
-                <FilaCara
-                  etiqueta="FC media"
-                  antes={ref.fcMedia != null ? ppm(ref.fcMedia) : 'sin reloj'}
-                  falta={ref.fcMedia == null}
-                  ahora={hoy.fcMedia != null ? ppm(hoy.fcMedia) : '—'}
-                  delta={
-                    hoy.fcMedia != null && ref.fcMedia != null
-                      ? `${hoy.fcMedia - ref.fcMedia > 0 ? '+' : hoy.fcMedia - ref.fcMedia < 0 ? '−' : ''}${Math.abs(hoy.fcMedia - ref.fcMedia)}`
-                      : undefined
-                  }
-                  mejora={false}
-                  neutro={
-                    !(
-                      hoy.fcMedia != null &&
-                      ref.fcMedia != null &&
-                      hoy.fcMedia - ref.fcMedia <= -3 &&
-                      !(dValor != null && !mejora && !esEmpate(test, ref, hoy))
-                    )
-                  }
-                />
-              ) : null}
-              {ref.fcMedia == null ? (
-                <span style={{ font: '400 11.5px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)', paddingTop: S.xs }}>
-                  Aquel día no llevabas reloj, así que de ese test solo se sabe el tiempo.
-                </span>
-              ) : null}
-            </div>
-          </Card>
+        <ZonasCard test={test} contra={ref} hoy={hoy} />
+        {hoy.tramos.length > 0 || hoy.fcMedia != null || ref?.fcMedia != null ? (
+          <ComoLoHiciste test={test} contra={ref} hoy={hoy} />
         ) : null}
-
-        {/* 3 · Lo que cambia en tu plan */}
-        {test.calibra && hoy.umbral != null ? (
-          <Card padding={S.l}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
-              <Etiqueta color="var(--twin-accent-text)">Lo que cambia en tu plan</Etiqueta>
-              {ref?.umbral != null && Math.abs(hoy.umbral - ref.umbral) < 0.5 ? (
-                // Medio segundo por 500 m es ruido de medición, no un cambio de
-                // umbral. Pintar la escala con los dos pines pisándose sugeriría
-                // un movimiento que no existe.
-                <span style={{ font: '400 13px/1.45 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                  Tu umbral se queda en <b>{relojDec(hoy.umbral)}{test.umbralUnidad === 'por500m' ? '/500m' : '/km'}</b>: tus
-                  zonas siguen exactamente donde estaban y tu plan no cambia de ritmos.
-                </span>
-              ) : ref?.umbral != null ? (
-                <>
-                  <EscalaUmbral
-                    antes={ref.umbral}
-                    ahora={hoy.umbral}
-                    sufijo={`umbral en ${test.umbralUnidad === 'por500m' ? 's/500m' : 's/km'}`}
-                  />
-                  <span style={{ font: '400 13px/1.45 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                    Tu umbral se ha movido{' '}
-                    <b style={{ color: hoy.umbral < ref.umbral ? 'var(--twin-ok)' : 'var(--twin-warning)' }}>
-                      {esDecimal(Math.abs(hoy.umbral - ref.umbral))} s
-                    </b>{' '}
-                    y tus seis zonas van con él: cada ritmo que leas esta semana en tu plan sale de este número.
-                  </span>
-                </>
-              ) : (
-                <span style={{ font: '400 13px/1.45 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                  Este test fija {test.calibra}: a partir de ahora tus ritmos salen de{' '}
-                  <b>{relojDec(hoy.umbral)}{test.umbralUnidad === 'por500m' ? '/500m' : '/km'}</b>.
-                </span>
-              )}
-            </div>
-          </Card>
-        ) : null}
-
-        {/* 4 · Cómo lo hiciste */}
-        {hoy.tramos.length > 0 && ref ? (
-          <Card padding={S.l}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
-              <Etiqueta>Cómo lo hiciste</Etiqueta>
-              <span style={{ font: '400 12px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)', marginBottom: S.xs }}>
-                {test.protocolo}
-              </span>
-              {hoy.tramos.map((t, i) => {
-                const antes = ref.tramos[i];
-                const d = antes ? t.valor - antes.valor : null;
-                return (
-                  <FilaCara
-                    key={t.etiqueta}
-                    etiqueta={t.etiqueta}
-                    antes={antes ? `${esDecimal(antes.valor, 0)} m` : '—'}
-                    ahora={`${esDecimal(t.valor, 0)} m`}
-                    delta={d != null ? deltaTexto(test, d) : undefined}
-                    mejora={d != null && esMejora(test.unidad, d)}
-                  />
-                );
-              })}
-              <span style={{ font: '400 11.5px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)', paddingTop: S.xs }}>
-                {menosEsMejor(test.unidad) ? 'Menos tiempo es mejor.' : 'Más metros es mejor.'} El resultado del test es la{' '}
-                {test.agregacion === 'media' ? 'media' : 'mejor'} de los tramos, como lo definió tu coach.
-              </span>
-            </div>
-          </Card>
-        ) : null}
-
-        {/* La historia entera */}
         {test.intentos.length > 1 ? (
           <Card padding={S.l}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>

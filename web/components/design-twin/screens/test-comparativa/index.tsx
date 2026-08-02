@@ -30,39 +30,45 @@ export const meta: TwinMeta = {
   zona: 'Marcas y tests',
   estado: 'propuesta',
   descripcion:
-    'El resultado de un test deja de ser una cifra suelta: se elige contra qué compararse, se ve el umbral desplazado (y con él las seis zonas del plan) y se lee tramo a tramo a qué pulso se hizo.',
+    'El resultado de un test deja de ser una cifra suelta: se elige contra qué compararse y el sujeto es la escalera de zonas recalculada — la banda de cada zona antes y ahora, que es lo que el atleta leerá mañana en su plan.',
   fuentes: [],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {
     arquetipo: 'detalle',
     estrategia: 'llena',
-    sujeto: 'El veredicto — cuánto has mejorado, en una frase, antes que la cifra.',
+    sujeto: 'Las seis zonas, antes → ahora. En HYROX se entrena por zonas; el producto del test es esa tabla.',
     diagnostico:
       'Hoy el resultado son un número grande, un chip de delta contra la marca anterior y una curva de 84×30 pt (TestsHubView.swift). No hay forma de compararse con un test concreto, ni de ver qué zonas cambian, ni de distinguir «mismo tiempo» de «mismo tiempo con 9 ppm menos».',
     resuelve:
-      'El delta pasa a ser una frase con sujeto, la referencia se elige, y debajo va lo que el atleta usará mañana: el umbral desplazado en la escala de ritmo y el desglose por tramos con su pulso.',
+      'La marca antes → ahora con delta y %, la referencia elegible, y la escalera: cada zona con su banda de entonces, la de hoy y cuánto se movió — más el desglose por tramos con su pulso.',
   },
 };
 
 export const escenarios: TwinEscenario[] = [
   {
-    id: 'remo-2k',
-    titulo: '2 km de remo · cuatro intentos',
-    descripcion:
-      'El caso canónico: seis meses de historia y cuatro referencias posibles. Toca «Hace 3 meses» / «1ª vez» y mira cómo cambia el veredicto sin que se mueva la cifra de hoy.',
-  },
-  {
     id: 'dos-por-dos',
     titulo: '2 × 2′ · el test que hoy no se puede montar',
     descripcion:
-      'Tiempo fijo, así que se miden METROS (más es mejor) y hacen falta tramos + una agregación. El sistema de hoy lo guardaría como baseline y no movería ni una zona.',
+      'Tiempo fijo, así que se miden METROS y el héroe es el split medio. La escalera enseña las seis bandas −5 s. Hoy el sistema lo guardaría como baseline y no movería ni una zona.',
+  },
+  {
+    id: 'remo-2k',
+    titulo: '2 km de remo · cuatro intentos',
+    descripcion:
+      'Seis meses de historia y cuatro referencias posibles. Toca «Hace 3 meses» / «1ª vez» y mira cómo se recalcula la escalera entera sin que se mueva la cifra de hoy.',
+  },
+  {
+    id: 'carrera-5k',
+    titulo: 'Carrera 5K · las zonas en /km',
+    descripcion:
+      'Correr es la mitad de HYROX y habla el mismo idioma: la misma escalera, con las bandas en minutos por kilómetro.',
   },
   {
     id: 'mismo-tiempo',
     titulo: 'Mismo tiempo, 9 ppm menos',
     descripcion:
-      'La mejora que hoy es invisible: 0,4 s de diferencia en el crono y nueve pulsaciones menos de coste. La app actual lo pinta como «nada».',
+      'La mejora que hoy es invisible: 0,4 s de diferencia en el crono y nueve pulsaciones menos de coste. Las zonas no se mueven — y se dice UNA vez, sin teatro de dos columnas iguales.',
   },
   {
     id: 'sin-pulso',
@@ -72,12 +78,13 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'primera',
     titulo: 'La primera vez',
-    descripcion: 'Sin historia no hay comparación: se dice que esta marca es la referencia, y no aparece ni selector ni curva.',
+    descripcion:
+      'Sin historia no hay comparación: la escalera sale en una sola columna — estas son tus zonas, a partir de aquí se compara.',
   },
 ];
 
 export function Screen({ escenario, onLog }: TwinScreenProps) {
-  const test = TESTS[escenario] ?? TESTS['remo-2k'];
+  const test = TESTS[escenario] ?? TESTS['dos-por-dos'];
   return (
     <div className="twin-screen-safe" style={{ height: '100%' }}>
       <TestComparativa key={test.id} test={test} onLog={onLog} />

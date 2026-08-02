@@ -61,6 +61,23 @@ export interface Intento {
   umbral: number | null;
 }
 
+/**
+ * Una banda de zona del COACH: desplazamientos fijos sobre el umbral, espejo de
+ * `methodology_zones` (zone-model.ts: fast = umbral + low · slow = umbral + high,
+ * null = abierta). Nombre, color y cortes son MÉTODO — dato editable del coach,
+ * jamás una constante del producto (HARD RULE Nº0). Los valores de abajo son el
+ * seed por defecto; al cablear esto de verdad se leen los suyos.
+ */
+export interface ZonaDef {
+  codigo: string;
+  nombre: string;
+  color: string;
+  /** Borde RÁPIDO de la banda: segundos desde el umbral (negativo = más rápido). */
+  low: number;
+  /** Borde LENTO. null = abierta (Z1 llega hasta el infinito). */
+  high: number | null;
+}
+
 export interface TestComparado {
   id: string;
   nombre: string;
@@ -75,9 +92,37 @@ export interface TestComparado {
   umbralUnidad: 'por500m' | 'porKm';
   /** El valor del test llevado a ritmo comparable (s/500m o s/km). */
   ritmo: (valor: number) => number;
+  /** Las bandas del coach para la unidad de este test. */
+  zonas: ZonaDef[];
   /** Intentos ordenados de viejo a nuevo. El último es el de hoy. */
   intentos: Intento[];
 }
+
+/** La banda absoluta de una zona para un umbral dado, en segundos por unidad. */
+export function banda(umbral: number, z: ZonaDef): { fast: number; slow: number | null } {
+  return { fast: umbral + z.low, slow: z.high === null ? null : umbral + z.high };
+}
+
+// Seed por defecto de las seis zonas de ritmo (dato del coach; ver ZonaDef).
+// Los cortes van en segundos DESDE el umbral: la Z4 nace en él, por eso el test
+// que lo mueve las mueve todas exactamente lo mismo.
+export const ZONAS_500M: ZonaDef[] = [
+  { codigo: 'Z1', nombre: 'Recuperación', color: '#34C759', low: 22, high: null },
+  { codigo: 'Z2', nombre: 'Aeróbico ligero', color: '#3B82F6', low: 14, high: 21 },
+  { codigo: 'Z3', nombre: 'Aeróbico intenso', color: '#EAB308', low: 8, high: 13 },
+  { codigo: 'Z4', nombre: 'Umbral', color: '#F59E0B', low: 0, high: 7 },
+  { codigo: 'Z5', nombre: 'VO₂ máx', color: '#EF4444', low: -3, high: -1 },
+  { codigo: 'Z6', nombre: 'Sprint', color: '#B91C1C', low: -8, high: -4 },
+];
+
+export const ZONAS_KM: ZonaDef[] = [
+  { codigo: 'Z1', nombre: 'Recuperación', color: '#34C759', low: 60, high: null },
+  { codigo: 'Z2', nombre: 'Aeróbico ligero', color: '#3B82F6', low: 35, high: 59 },
+  { codigo: 'Z3', nombre: 'Aeróbico intenso', color: '#EAB308', low: 18, high: 34 },
+  { codigo: 'Z4', nombre: 'Umbral', color: '#F59E0B', low: 0, high: 17 },
+  { codigo: 'Z5', nombre: 'VO₂ máx', color: '#EF4444', low: -12, high: -1 },
+  { codigo: 'Z6', nombre: 'Sprint', color: '#B91C1C', low: -25, high: -13 },
+];
 
 // ── Direcciones y deltas ─────────────────────────────────────────────────────
 
@@ -155,6 +200,7 @@ const REMO_2K: TestComparado = {
   calibra: 'tus zonas de remo',
   umbralUnidad: 'por500m',
   ritmo: (s) => s / 4,
+  zonas: ZONAS_500M,
   intentos: [
     { id: 'feb', fecha: '5 FEB', cuando: 'hace 6 meses', valor: 492.4, tramos: [], fcMedia: 171, fcMax: 181, umbral: 128.1 },
     { id: 'may', fecha: '6 MAY', cuando: 'hace 3 meses', valor: 478.6, tramos: [], fcMedia: 174, fcMax: 184, umbral: 124.7 },
@@ -177,6 +223,7 @@ const DOS_POR_DOS: TestComparado = {
   umbralUnidad: 'por500m',
   // Metros en 120 s → segundos por 500 m.
   ritmo: (m) => 60000 / m,
+  zonas: ZONAS_500M,
   intentos: [
     {
       id: 'may',
@@ -219,9 +266,28 @@ const MISMO_TIEMPO: TestComparado = {
   calibra: 'tus zonas de ski',
   umbralUnidad: 'por500m',
   ritmo: (s) => s / 2,
+  zonas: ZONAS_500M,
   intentos: [
     { id: 'may', fecha: '20 MAY', cuando: 'hace 3 meses', valor: 222.4, tramos: [], fcMedia: 177, fcMax: 186, umbral: 116.2 },
     { id: 'jul', fecha: '30 JUL', cuando: 'hoy', valor: 222.0, tramos: [], fcMedia: 168, fcMax: 179, umbral: 116.0 },
+  ],
+};
+
+/** Correr: la mitad de HYROX. El mismo lenguaje, en /km. */
+const CARRERA_5K: TestComparado = {
+  id: 'carrera-5k',
+  nombre: 'Carrera 5K',
+  modalidad: 'run',
+  protocolo: '5 km a fondo · un solo esfuerzo',
+  unidad: 'segundos',
+  agregacion: 'unico',
+  calibra: 'tus zonas de correr',
+  umbralUnidad: 'porKm',
+  ritmo: (s) => s / 5,
+  zonas: ZONAS_KM,
+  intentos: [
+    { id: 'may', fecha: '6 MAY', cuando: 'hace 3 meses', valor: 1438.0, tramos: [], fcMedia: 178, fcMax: 191, umbral: 287.6 },
+    { id: 'jul', fecha: '30 JUL', cuando: 'hoy', valor: 1369.4, tramos: [], fcMedia: 176, fcMax: 190, umbral: 273.9 },
   ],
 };
 
@@ -236,6 +302,7 @@ const PRIMERA: TestComparado = {
   calibra: 'tus zonas de remo',
   umbralUnidad: 'por500m',
   ritmo: (s) => s / 4,
+  zonas: ZONAS_500M,
   intentos: [
     { id: 'feb', fecha: '5 FEB', cuando: 'hoy', valor: 492.4, tramos: [], fcMedia: 171, fcMax: 181, umbral: 128.1 },
   ],
@@ -252,8 +319,9 @@ const SIN_PULSO: TestComparado = {
 };
 
 export const TESTS: Record<string, TestComparado> = {
-  'remo-2k': REMO_2K,
   'dos-por-dos': DOS_POR_DOS,
+  'remo-2k': REMO_2K,
+  'carrera-5k': CARRERA_5K,
   'mismo-tiempo': MISMO_TIEMPO,
   primera: PRIMERA,
   'sin-pulso': SIN_PULSO,
