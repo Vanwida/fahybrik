@@ -18,6 +18,7 @@ import * as marks from './screens/marks';
 import * as rankingBox from './screens/ranking-box';
 import * as perfilRendimiento from './screens/perfil-rendimiento';
 import * as testsCalibracion from './screens/tests-calibracion';
+import * as testComparativa from './screens/test-comparativa';
 import * as chatCoach from './screens/chat-coach';
 import * as analiticasVeredicto from './screens/analiticas-veredicto';
 import * as gateBloque from './screens/gate-bloque';
@@ -62,6 +63,9 @@ export const SCREENS: TwinScreenModule[] = [
   // en «cómo está hoy» además de en propuesta.
   perfilRendimiento,
   testsCalibracion,
+  // El resultado de un test contra otro (2-ago): el hub dice CUÁNTOS has hecho;
+  // esta dice qué cambió y qué se movió en tu plan por haberlo hecho.
+  testComparativa,
   chatCoach,
   analiticasVeredicto,
   gateBloque,
