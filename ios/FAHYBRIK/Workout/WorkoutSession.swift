@@ -1150,6 +1150,7 @@ final class WorkoutSession {
         emomCountInRemaining = 0
         emomPhase = .work
         emomPhaseRemaining = Double(plan.workSeconds)
+        reanchorTramoDeviceWindowAtGo()
         WorkoutAudio.shared.playGo()
         Haptics.cueGo()
     }
@@ -1284,6 +1285,7 @@ final class WorkoutSession {
         condCountInRemaining = 0
         condStartElapsed = lapElapsedSeconds
         startRotatingFirstPhase(seg)
+        reanchorTramoDeviceWindowAtGo()
         WorkoutAudio.shared.playGo()
         Haptics.cueGo()
     }
@@ -1299,6 +1301,7 @@ final class WorkoutSession {
                 if condCountInRemaining <= 0 {
                     condStartElapsed = lapElapsedSeconds      // GO — the format clock starts now
                     startRotatingFirstPhase(seg)
+                    reanchorTramoDeviceWindowAtGo()
                     WorkoutAudio.shared.playGo()
                     Haptics.cueGo()
                 } else {
@@ -1516,16 +1519,37 @@ final class WorkoutSession {
     }
 
     /// Intervals "Serie hecha" — end the current work bout (→ rest, or the next
-    /// round when there's no rest), e.g. a distance bout finished by feel/GPS.
-    func intervalsBoutDone() {
+    /// round when there's no rest), e.g. a distance bout finished by feel/GPS —
+    /// or by the monitor crossing the bout's m/cal goal (`auto: true`).
+    func intervalsBoutDone(auto: Bool = false) {
         guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished,
               let seg = currentSegment else { return }
-        Haptics.medium()
+        if auto { Haptics.cueGo() } else { Haptics.medium() }
         if rotPhase == .work {
             rollRotatingPhase(seg: seg, scheme: .intervals)
         } else {
             advanceRotatingRound(seg: seg)
         }
+    }
+
+    /// Machine-crossed goal on a plain erg segment → same as `lap()` without the
+    /// medium haptic (the auto path already fired cueGo).
+    func lapFromMachine() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
+        let origin = currentSegmentIndex
+        closeCurrentSegmentLap()
+        if currentSegmentIndex < plan.segments.count - 1 {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        } else {
+            finishPrescribedWork()
+        }
+    }
+
+    /// Machine-crossed goal on a steady conditioning block.
+    func closeConditioningAndAdvanceFromMachine() {
+        guard isConditioningActive, !isPaused, !isFinished else { return }
+        closeConditioningAndAdvance()
     }
 
     /// Death By "Lo logré" — completed this minute's target; advance to the next
@@ -2506,6 +2530,9 @@ final class WorkoutSession {
                 tramoErgStartCalories = c - Swift.max(0, last - (tramoErgStartCalories ?? last))
             }
             if tramoErgStartCalories == nil { tramoErgStartCalories = c }
+            // Calories alone can free the armed clock (bike/ski cal pieces often
+            // tick cal before a meaningful distance).
+            if let anchor = tramoErgStartCalories, c > anchor { releaseArmedTramoClock() }
             lapErgLastCalories = c
         }
         // A calorie-measured bout on a static machine can produce calories before a
@@ -2700,6 +2727,7 @@ final class WorkoutSession {
                 if emomCountInRemaining <= 0 {
                     emomPhase = .work
                     emomPhaseRemaining = Double(plan.workSeconds)
+                    reanchorTramoDeviceWindowAtGo()
                     WorkoutAudio.shared.playGo()
                     Haptics.cueGo()
                 } else {

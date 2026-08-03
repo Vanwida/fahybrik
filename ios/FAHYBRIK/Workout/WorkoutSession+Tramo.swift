@@ -367,6 +367,17 @@ extension WorkoutSession {
         return nil
     }
 
+    /// Current policy for the live tramo (program / close / scope). Surfaces and
+    /// the PM5 programmer share this so free and prescribed paths never diverge.
+    var currentErgCounterPolicy: ErgCounterPolicy {
+        ErgCounterPolicy.resolve(
+            tramo: currentTramo,
+            segment: currentSegment,
+            isResting: isTramoResting,
+            isCountIn: isTramoCountIn
+        )
+    }
+
     /// The machine moved: release the held clock and stamp its real zero. Called
     /// from `sampleErg` on the first sample that shows actual work.
     func releaseArmedTramoClock() {
@@ -394,16 +405,54 @@ extension WorkoutSession {
         !isPaused && !isFinished && !isAwaitingBlockStart && condCountInRemaining <= 0
     }
 
-    /// The goal has been REACHED on the machine → close the station and walk on.
+    /// The goal has been REACHED on the machine → advance the work cursor.
     /// Called from `sampleErg` with the window's measured values from BEFORE this
     /// sample landed, because the test is that we watched the goal being CROSSED.
+    ///
+    /// Applies to every erg window whose `ErgCounterPolicy` advances on machine
+    /// goal (series bouts, fixed stations, steady pieces) — not only stations.
     func advanceStationIfMachineGoalMet(beforeMeters: Double?, beforeCalories: Int?) {
         guard stationCanAutoClose else { return }
-        guard currentTramo.closesOnMachineGoal(metersBefore: beforeMeters,
-                                               metersNow: tramoErgDistanceMeters,
-                                               caloriesBefore: beforeCalories,
-                                               caloriesNow: tramoErgCalories) else { return }
-        markRoundDone(auto: true)
+        let tramo = currentTramo
+        let policy = ErgCounterPolicy.resolve(
+            tramo: tramo,
+            segment: currentSegment,
+            isResting: isTramoResting,
+            isCountIn: isTramoCountIn
+        )
+        guard policy.advancesOnMachineGoal else { return }
+        guard tramo.crossesMachineGoal(metersBefore: beforeMeters,
+                                       metersNow: tramoErgDistanceMeters,
+                                       caloriesBefore: beforeCalories,
+                                       caloriesNow: tramoErgCalories) else { return }
+        // Route the advance by which cursor owns the window.
+        if tramo.isFixedStation {
+            markRoundDone(auto: true)
+        } else if currentSegment?.formatScheme == .intervals {
+            intervalsBoutDone(auto: true)
+        } else if currentSegment?.isConditioningTimer == true,
+                  currentSegment?.formatScheme == .steady {
+            // Steady conditioning block finished its m/cal piece.
+            Haptics.cueGo()
+            closeConditioningAndAdvanceFromMachine()
+        } else {
+            // Plain erg segment (not a format timer) — classic lap.
+            Haptics.cueGo()
+            lapFromMachine()
+        }
+    }
+
+    /// Re-anchor the tramo device window to the monitor's current cumulative
+    /// reading. Called at count-in → GO so metres/cal rowed during 3-2-1 do not
+    /// count toward the bout (mirrors RunLegProgress `#in`/`#go`).
+    func reanchorTramoDeviceWindowAtGo() {
+        tramoErgStartDistance = lapErgLastDistance
+        tramoErgStartCalories = lapErgLastCalories
+        tramoStartElapsed = lapElapsedSeconds
+        tramoClockArmed = currentTramo.isErg
+            && currentTramo.boxedSeconds == nil
+            && !isTramoResting
+            && ergConnected
     }
 
     /// The BOX of a clock-measured station ran out → close it and walk on. Called
