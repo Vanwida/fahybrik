@@ -82,6 +82,35 @@ final class ErgSeriesAutoCloseTests: XCTestCase {
         XCTAssertEqual(s.tramoErgDistanceMeters ?? 0, 200, accuracy: 0.001)
     }
 
+    func testEachSeriesBoutWritesItsOwnLap() {
+        let s = seriesSession(distanceM: 500, rounds: 3, restS: 60)
+        feed(s, distance: 0)
+        feed(s, distance: 500)                 // bout 0 → rest
+        XCTAssertEqual(s.laps.count, 1)
+        XCTAssertEqual(s.laps[0].runLegIndex, 0)
+        XCTAssertEqual(s.laps[0].distanceCoveredMeters ?? 0, 500, accuracy: 0.5)
+        XCTAssertEqual(s.laps[0].runLegRole, "work")
+
+        s.intervalsBoutDone()                  // skip rest → bout 1
+        s.syncTramoIfNeeded()
+        feed(s, distance: 500)
+        feed(s, distance: 1000)                // bout 1 → rest
+        XCTAssertEqual(s.laps.count, 2)
+        XCTAssertEqual(s.laps[1].runLegIndex, 1)
+        XCTAssertEqual(s.laps[1].distanceCoveredMeters ?? 0, 500, accuracy: 0.5)
+
+        // Finish: no blended aggregate on top of the per-bout laps.
+        s.intervalsBoutDone()                  // skip rest → bout 2
+        s.syncTramoIfNeeded()
+        feed(s, distance: 1000)
+        feed(s, distance: 1500)                // last bout → may rest or close
+        if s.rotPhase == .rest { s.intervalsBoutDone() }
+        // After the series closes, still only the three bout laps (no 4th aggregate).
+        XCTAssertEqual(s.laps.filter { $0.runLegIndex != nil }.count, 3)
+        XCTAssertFalse(s.laps.contains { $0.runLegIndex == nil && $0.segmentId == s.laps[0].segmentId },
+                       "no blended aggregate after per-bout recording")
+    }
+
     func testCountInMetresDiscardedAtGo() {
         let s = seriesSession(distanceM: 500, rounds: 2, restS: 60)
         // Rebuild into count-in to prove re-anchor.

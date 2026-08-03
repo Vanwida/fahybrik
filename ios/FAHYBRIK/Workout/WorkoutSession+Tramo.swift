@@ -332,6 +332,7 @@ extension WorkoutSession {
         tramoHRPeak = nil
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
+        stampTramoSampleCursors()
         // A device-measured window with no time box starts when the MACHINE starts.
         // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
         // has no business running through any of that.
@@ -355,6 +356,10 @@ extension WorkoutSession {
         lastTramoElapsedSeconds = nil
         tramoHRPeak = nil
         lastTramoHRPeak = nil
+        tramoHRStartCount = 0
+        tramoPaceSampleStart = 0
+        tramoPowerSampleStart = 0
+        tramoSpmSampleStart = 0
     }
 
     /// What the monitor measured in the window that just closed, as the athlete
@@ -449,6 +454,7 @@ extension WorkoutSession {
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
         tramoStartElapsed = lapElapsedSeconds
+        stampTramoSampleCursors()
         tramoClockArmed = currentTramo.isErg
             && currentTramo.boxedSeconds == nil
             && !isTramoResting

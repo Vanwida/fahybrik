@@ -417,6 +417,17 @@ final class WorkoutSession {
     /// must freeze, but the metres the athlete just covered are still this round's
     /// and must stay on screen.
     var tramoRestLatched: Bool = false
+    /// Sample-array cursors at the OPEN of the current work tramo — so a per-bout
+    /// erg series lap can slice HR / pace / power / SPM to THIS serie only (same
+    /// idea as `runLegHRStartCount` for structured runs).
+    var tramoHRStartCount: Int = 0
+    var tramoPaceSampleStart: Int = 0
+    var tramoPowerSampleStart: Int = 0
+    var tramoSpmSampleStart: Int = 0
+    /// How many interval WORK bouts have been written as their own LapRecord for
+    /// the current segment. When > 0, `closeCurrentSegmentLap` skips the blended
+    /// aggregate (mirrors structured-run per-leg recording).
+    private var ergIntervalBoutsRecorded: Int = 0
 
     // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
     // aggregates (HR / zone / distance / calories) are merged back in when the
@@ -1223,6 +1234,7 @@ final class WorkoutSession {
         condCountInRemaining = Self.countInSeconds
         fixedRoundsDone = 0
         fixedRoundSplits = []
+        ergIntervalBoutsRecorded = 0
         rotRoundIndex = 0
         rotRoundsCompleted = 0
         rotPhase = .work
@@ -1241,6 +1253,10 @@ final class WorkoutSession {
         condStartElapsed = 0
         fixedRoundsDone = 0
         fixedRoundSplits = []
+        // Do NOT zero ergIntervalBoutsRecorded here — closeConditioningAndAdvance
+        // calls clearConditioning BEFORE closeCurrentSegmentLap, and the skip-aggregate
+        // path needs the count to still be live. Zeroed in startConditioning and after
+        // closeCurrentSegmentLap consumes it.
         rotRoundIndex = 0
         rotRoundsCompleted = 0
         rotPhaseRemaining = 0
@@ -1372,14 +1388,21 @@ final class WorkoutSession {
         case .deathBy:
             advanceDeathByMinute()          // a completed minute = an implicit "logré"
         case .tabata, .intervals:
-            if rotPhase == .work, let rest = seg.formatRestSeconds {
-                rotPhase = .rest
-                rotPhaseRemaining = Double(rest)
-                // "Para" — NOT the movement-change tone this used to borrow, which
-                // is the cue for "next round, different movement". Under effort the
-                // two must not sound alike.
-                WorkoutAudio.shared.playWorkEnd()
-                Haptics.cueStop()
+            if rotPhase == .work {
+                // Snapshot THIS serie's measured window BEFORE rest/next (so serie 2
+                // does not blend into serie 1's lap — the erg twin of recordRunLegLap).
+                if scheme == .intervals { recordErgIntervalBout(at: rotRoundIndex) }
+                if let rest = seg.formatRestSeconds {
+                    rotPhase = .rest
+                    rotPhaseRemaining = Double(rest)
+                    // "Para" — NOT the movement-change tone this used to borrow, which
+                    // is the cue for "next round, different movement". Under effort the
+                    // two must not sound alike.
+                    WorkoutAudio.shared.playWorkEnd()
+                    Haptics.cueStop()
+                } else {
+                    advanceRotatingRound(seg: seg)
+                }
             } else {
                 advanceRotatingRound(seg: seg)
             }
@@ -1550,6 +1573,82 @@ final class WorkoutSession {
     func closeConditioningAndAdvanceFromMachine() {
         guard isConditioningActive, !isPaused, !isFinished else { return }
         closeConditioningAndAdvance()
+    }
+
+    /// Stamp sample-array cursors for the open tramo (HR / pace / power / SPM).
+    /// Called from the tramo layer (other file) so `private` arrays stay in this file.
+    func stampTramoSampleCursors() {
+        tramoHRStartCount = lapHRSamples.count
+        tramoPaceSampleStart = lapErgPaceSamples.count
+        tramoPowerSampleStart = lapErgPowerSamples.count
+        tramoSpmSampleStart = lapErgSpmSamples.count
+    }
+
+    /// One WORK bout of an erg interval series → its own LapRecord (distance / cal /
+    /// duration / pace / power / SPM / HR for THIS serie only). Uses the tramo window
+    /// already latched for the live HUD. `runLegIndex` carries the 0-based bout index
+    /// so `SegmentPayloadBuilder` re-sequences positions and ships `leg_index`.
+    private func recordErgIntervalBout(at boutIndex: Int) {
+        guard let seg = currentSegment else { return }
+        let now = Date()
+        let dur = tramoRecordedSeconds
+        let meters = tramoErgDistanceMeters.flatMap { $0 >= 1 ? $0 : nil }
+        let cals = tramoErgCalories.flatMap { $0 >= 1 ? Double($0) : nil }
+        // Per-bout HR / erg samples: slice from the cursors stamped at tramo open.
+        let hrStart = Swift.min(tramoHRStartCount, lapHRSamples.count)
+        let hrSlice = Array(lapHRSamples[hrStart...])
+        let avgHR = hrSlice.isEmpty ? nil : hrSlice.reduce(0, +) / hrSlice.count
+        let maxHR = hrSlice.max()
+        func meanSlice(_ xs: [Double], from: Int) -> Double? {
+            let i = Swift.min(from, xs.count)
+            let s = Array(xs[i...])
+            guard !s.isEmpty else { return nil }
+            return s.reduce(0, +) / Double(s.count)
+        }
+        let avgPace500 = meanSlice(lapErgPaceSamples, from: tramoPaceSampleStart)
+        let avgPower = meanSlice(lapErgPowerSamples, from: tramoPowerSampleStart)
+        let avgSpm = meanSlice(lapErgSpmSamples, from: tramoSpmSampleStart)
+        // Covered /500 m from the bout's own metres when the sample mean is missing.
+        let derivedPace500: Double? = {
+            if let p = avgPace500, p > 0 { return p }
+            guard let m = meters, m > 0, dur > 0 else { return nil }
+            return (dur / m) * 500.0
+        }()
+        let source = lapHadPM5 ? "pm5" : (avgHR != nil ? "healthkit" : "manual")
+        let lap = LapRecord(
+            id: UUID(),
+            segmentId: seg.id,
+            templateSegmentId: seg.templateSegmentId,
+            position: seg.order,
+            modality: seg.wireModality,
+            startedAt: now.addingTimeInterval(-dur),
+            endedAt: now,
+            durationSeconds: dur,
+            avgHRBpm: avgHR,
+            maxHRBpm: maxHR,
+            zoneSecondsByZone: [:],
+            repsCompleted: nil,
+            distanceCoveredMeters: meters,
+            avgPaceSecPer500m: derivedPace500,
+            avgPaceSecPerKm: nil,
+            avgPowerWatts: avgPower,
+            strokeRateSpm: avgSpm,
+            calories: cals,
+            weightUsedKg: nil,
+            source: source,
+            repsPrescribed: nil,
+            repsStatus: nil,
+            repsConfirmed: false,
+            isStructural: false,
+            rxScaled: nil,
+            scaledNote: nil,
+            sets: nil,
+            runLegIndex: boutIndex,
+            runLegRole: "work",
+            runLegPhase: "main"
+        )
+        laps.append(lap)
+        ergIntervalBoutsRecorded += 1
     }
 
     /// Death By "Lo logré" — completed this minute's target; advance to the next
@@ -1921,6 +2020,13 @@ final class WorkoutSession {
         // advanceRunLeg (each with its own pace), so there is no blended aggregate to
         // build here — just reset the per-segment accumulators the per-leg path used.
         if seg.hasRunStructure {
+            resetSegmentAccumulators()
+            return
+        }
+        // Erg series (5×500 / 8×20 cal): each WORK bout already wrote its own LapRecord
+        // via `recordErgIntervalBout`. Do not emit a second blended aggregate.
+        if seg.formatScheme == .intervals, ergIntervalBoutsRecorded > 0 {
+            ergIntervalBoutsRecorded = 0
             resetSegmentAccumulators()
             return
         }
