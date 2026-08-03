@@ -115,16 +115,20 @@ struct LiveTramo: Equatable {
     // functions of the window and the readings so the rule can be verified on its
     // own, without a live session — the engine below only supplies the numbers.
 
-    /// True when a machine reading just CROSSED this station's goal.
+    /// True when a machine reading just CROSSED this window's m/cal goal.
     ///
     /// The test is the CROSSING, not "the reading sits past the goal", and that is
     /// what makes a reconnection safe: a monitor that comes back mid-piece reports
     /// less than the goal and nothing fires. A monitor that goes QUIET can never fire
     /// it either — silence is an athlete catching his breath, and only the goal being
-    /// reached takes him off a station.
-    func closesOnMachineGoal(metersBefore: Double?, metersNow: Double?,
-                             caloriesBefore: Int?, caloriesNow: Int?) -> Bool {
-        guard isFixedStation, isErg else { return false }
+    /// reached takes him off a window.
+    ///
+    /// Pure on the MEASURE. Whether the engine should ACT on the cross is
+    /// `ErgCounterPolicy.advancesOnMachineGoal` (series, stations, steady — not EMOM
+    /// minutes, not AMRAP). Callers combine both.
+    func crossesMachineGoal(metersBefore: Double?, metersNow: Double?,
+                            caloriesBefore: Int?, caloriesNow: Int?) -> Bool {
+        guard isErg else { return false }
         if let target = targetDistanceMeters, let now = metersNow {
             return now >= target && (metersBefore ?? 0) < target
         }
@@ -132,6 +136,17 @@ struct LiveTramo: Equatable {
             return now >= target && (caloriesBefore ?? 0) < target
         }
         return false
+    }
+
+    /// Back-compat name: historically only fixed stations auto-closed. Prefer
+    /// `crossesMachineGoal` + `ErgCounterPolicy` for new code.
+    func closesOnMachineGoal(metersBefore: Double?, metersNow: Double?,
+                             caloriesBefore: Int?, caloriesNow: Int?) -> Bool {
+        // Legacy callers assumed stations only; keep that gate here so old tests
+        // and any un-updated path stay safe. New engine path uses crossesMachineGoal.
+        guard isFixedStation else { return false }
+        return crossesMachineGoal(metersBefore: metersBefore, metersNow: metersNow,
+                                  caloriesBefore: caloriesBefore, caloriesNow: caloriesNow)
     }
 
     /// True when a CLOCK-measured station has spent its box ("2 min de bici").

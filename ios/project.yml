@@ -211,7 +211,7 @@ targets:
         PRODUCT_NAME: FAHYBRIK
         # Version = single source of truth. The Info.plist CFBundleShortVersionString
         # / CFBundleVersion expand from these (see info: block) — no second literal.
-        CURRENT_PROJECT_VERSION: 5
+        CURRENT_PROJECT_VERSION: 11
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -329,6 +329,7 @@ targets:
       # WorkoutSession's tick and erg sampling call into it, so both files must
       # compile into the watch alongside the engine. Pure Foundation.
       - path: FAHYBRIK/Workout/LiveTramo.swift
+      - path: FAHYBRIK/Workout/ErgCounterPolicy.swift
       - path: FAHYBRIK/Workout/WorkoutSession+Tramo.swift
       # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
       # delegates here so it rounds like the iPhone (mirror countdown parity).
@@ -369,7 +370,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FAHYBRIKWatch/FAHYBRIKWatch.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_NAME: FAHYBRIKWatch
-        CURRENT_PROJECT_VERSION: 5
+        CURRENT_PROJECT_VERSION: 11
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: NO
@@ -414,7 +415,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.widgets
         PRODUCT_NAME: FAHYBRIKWidgets
-        CURRENT_PROJECT_VERSION: 5
+        CURRENT_PROJECT_VERSION: 11
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
