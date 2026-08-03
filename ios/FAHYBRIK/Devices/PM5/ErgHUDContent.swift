@@ -110,6 +110,10 @@ struct ErgHUDContent: View {
                 Text("\(Int(covered)) m antes de perder el monitor")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
+            } else if let cals = session.tramoErgCalories, cals >= 1 {
+                Text("\(cals) cal antes de perder el monitor")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
@@ -312,7 +316,10 @@ struct ErgHUDContent: View {
                     "\(Int(covered)) / \(Int(target)) m",
                     min(1, covered / target), left <= 0)
         }
-        if let target = tramo.targetCalories, let covered = session.tramoErgCalories {
+        if let target = tramo.targetCalories {
+            // Default 0 until the first sample — same as metres. Requiring a non-nil
+            // reading hid the whole goal bar on cal pieces (0x33 is slower than distance).
+            let covered = session.tramoErgCalories ?? 0
             let left = max(0, target - covered)
             return ("\(left)", "cal", "\(covered) / \(target) cal",
                     min(1, Double(covered) / Double(target)), left <= 0)
