@@ -89,10 +89,13 @@ export function Hub(props: HubProps) {
             title="Concept2 PM5"
             subtitle={props.pm5Remembered ?? 'Sin emparejar'}
             trailing={
-              <PillAndChevron
-                text={props.pm5Remembered == null ? '—' : 'pareado'}
-                color={props.pm5Remembered == null ? 'var(--twin-muted)' : 'var(--twin-ok)'}
-              />
+              // Sin remo emparejado no hay estado que enseñar: la píldora
+              // desaparece y solo queda el chevron (ProfileView.swift:~767).
+              props.pm5Remembered == null ? (
+                <Glyph name="chevron.right" size={11} color="var(--twin-faint)" weight={2.6} />
+              ) : (
+                <PillAndChevron text="pareado" color="var(--twin-ok)" />
+              )
             }
             onTap={props.onPM5}
             ariaLabel={`Concept2 PM5, ${props.pm5Remembered ?? 'Sin emparejar'}`}

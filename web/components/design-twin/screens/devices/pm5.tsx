@@ -13,8 +13,14 @@ import { Glyph } from './glyphs';
 import { Card, Hairline, LabelText, NavBar, PrimaryButton, SecondaryButton, Spinner } from './atoms';
 import { R, SP } from './tokens';
 
-/** Los estados de PM5ConnectionState que esta pantalla sabe nombrar. */
-export type PM5Estado = 'idle' | 'scanning' | 'connecting' | 'discovering' | 'streaming';
+/**
+ * Los estados de PM5ConnectionState que esta pantalla sabe nombrar, más
+ * `lost`: el store real separa `connectionLost` (un booleano propio) de
+ * `connectionState` — cuando el erg cae solo, el estado vuelve a `.idle` y
+ * `connectionLost` se pone a true a la vez (PM5ConnectionStore.swift:~366).
+ * Aquí se colapsan en un único valor porque el doble modela un estado a la vez.
+ */
+export type PM5Estado = 'idle' | 'scanning' | 'connecting' | 'discovering' | 'streaming' | 'lost';
 
 export interface ErgDescubierto {
   id: string;
@@ -64,7 +70,10 @@ export function PM5Settings({ recordado, conectado, onBack, onOlvidar, onBuscar 
         <Card>
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.s }}>
             <LabelText text={recordado ? 'Dispositivo emparejado' : 'Sin dispositivo emparejado'} />
-            <div className="t-body-emph">{recordado ?? '—'}</div>
+            {/* Sin erg recordado no hay nombre que enseñar: el rótulo de arriba
+                ya lo dice, así que la línea desaparece en vez de dejar un
+                guion (ProfileView.swift:~440-448, §7). */}
+            {recordado && <div className="t-body-emph">{recordado}</div>}
             {conectado && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Dot />
@@ -136,6 +145,7 @@ export function PM5Scanner(props: PM5ScannerProps) {
                 {etiquetaEstado(props.estado)}
               </span>
             </div>
+            {props.estado === 'lost' && <ConexionPerdida />}
             {props.descubiertos.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: SP.m }}>
                 <span className="t-small" style={{ color: 'var(--twin-muted)' }}>
@@ -144,7 +154,7 @@ export function PM5Scanner(props: PM5ScannerProps) {
                 <PM5ConnectGuide />
                 {props.recordadoNombre && (
                   <span className="t-caption" style={{ color: 'var(--twin-muted)' }}>
-                    Último usado: {props.recordadoNombre} — tócalo en la lista cuando aparezca.
+                    Último usado: {props.recordadoNombre}. Tócalo en la lista cuando aparezca.
                   </span>
                 )}
               </div>
@@ -192,12 +202,40 @@ function etiquetaEstado(estado: PM5Estado): string {
     case 'streaming':
       return 'Conectado';
     case 'idle':
+    // El store real vuelve a `.idle` en cuanto el erg cae solo — el aviso de
+    // abajo es lo que distingue esta pantalla de un simple "listo para buscar".
+    case 'lost':
       return 'Listo para buscar';
   }
 }
 
 function Dot() {
   return <span style={{ width: 8, height: 8, borderRadius: 9999, background: 'var(--twin-ok)', flex: 'none' }} />;
+}
+
+/**
+ * "Se perdió la conexión con el erg" — tras una caída inesperada (nunca porque
+ * el atleta desconectó). Nada se reconecta solo: la lista de abajo ES la
+ * vuelta, y hace falta un toque (PM5LiveStreamView.swift:~254-272, §7).
+ */
+function ConexionPerdida() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: SP.s,
+        padding: SP.m,
+        background: 'color-mix(in srgb, var(--twin-warning) 15%, transparent)',
+        borderRadius: R.m,
+      }}
+    >
+      <Glyph name="exclamationmark.triangle.fill" size={14} color="var(--twin-warning)" />
+      <span className="t-small" style={{ color: 'var(--twin-fg)' }}>
+        Se perdió la conexión con el erg. Elígelo otra vez abajo para volver a conectarlo.
+      </span>
+    </div>
+  );
 }
 
 /** Fila estilo ErgData: icono, «ID <serie>» y una línea de acción en castellano. */
@@ -267,17 +305,23 @@ function ConectadoCard({ nombre }: { nombre: string | null }) {
           <span className="t-body-emph">{nombre ?? 'PM5'}</span>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {/* Aún no ha dado una palada: el monitor no ha mandado ni un dato. */}
-          <LivePill label="PWR" value="—" />
-          <LivePill label="SPM" value="—" />
-          <LivePill label="DIST" value="—" />
+          <LivePill label="POTENCIA" />
+          <LivePill label="PALADAS" />
+          <LivePill label="DISTANCIA" />
         </div>
       </div>
     </Card>
   );
 }
 
-function LivePill({ label, value }: { label: string; value: string }) {
+/**
+ * Acaba de conectar y el monitor aún no ha mandado ni un dato: eso NO son tres
+ * guiones — falta la primera palada, y decirlo es lo que hace que el atleta la
+ * dé (PM5LiveStreamView.swift:~356-359, §7).
+ */
+const SIN_LECTURA_MOTIVO = 'esperando la primera palada';
+
+function LivePill({ label, value }: { label: string; value?: string }) {
   return (
     <div
       style={{
@@ -301,7 +345,13 @@ function LivePill({ label, value }: { label: string; value: string }) {
       >
         {label}
       </span>
-      <span style={{ font: 'italic 800 14px/1 var(--twin-font-sans)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      {value ? (
+        <span style={{ font: 'italic 800 14px/1 var(--twin-font-sans)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      ) : (
+        <span className="t-caption" style={{ color: 'var(--twin-muted)', textAlign: 'center' }}>
+          {SIN_LECTURA_MOTIVO}
+        </span>
+      )}
     </div>
   );
 }

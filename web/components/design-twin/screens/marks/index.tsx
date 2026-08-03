@@ -14,8 +14,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { MarkDetail } from './detail';
-import { MarksLibrary } from './library';
-import { best, MARCAS_CON_HISTORIAL, MARCAS_SIN_DATOS, type Mark } from './fixtures';
+import { MarksLibrary, type MarksEstado } from './library';
+import { best, CATALOGO_VACIO, MARCAS_CON_HISTORIAL, MARCAS_SIN_DATOS, type Mark } from './fixtures';
 
 /** Duración del push de iOS + la curva con la que decelera. */
 const PUSH_MS = 340;
@@ -28,6 +28,7 @@ export const meta: TwinMeta = {
   titulo: 'Marcas — biblioteca y detalle',
   zona: 'Marcas y tests',
   estado: 'espejo',
+  actualizado: '2026-08-03',
   descripcion:
     'Las nueve marcas del catálogo con su PR, y la ficha de una: historial, delta por intento y «Probarme ahora».',
   fuentes: [
@@ -51,21 +52,57 @@ export const escenarios: TwinEscenario[] = [
     id: 'nunca-probada',
     titulo: 'Marca sin datos',
     descripcion:
-      'Alguien que aún no se ha probado: la lista en «—» y, dentro, el vacío honesto con el tiempo que cuesta la marca.',
+      'Alguien que aún no se ha probado: la fila calla el número y, dentro, el vacío honesto con el tiempo que cuesta la marca.',
+  },
+  {
+    id: 'cargando',
+    titulo: 'Cargando',
+    descripcion: 'El primer instante, antes de que conteste el servidor: solo el spinner, sin título ni promesas.',
+  },
+  {
+    id: 'fallo',
+    titulo: 'No pudo cargar',
+    descripcion: 'La petición falla y no hay marcas ya en memoria: el hueco explica qué pasó y ofrece reintentar.',
+  },
+  {
+    id: 'catalogo-vacio',
+    titulo: 'Coach sin catálogo',
+    descripcion:
+      'El coach todavía no ha publicado ninguna prueba: no es un hueco que el atleta pueda llenar, así que no hay botón — solo la nota de quién lo hace.',
   },
 ];
 
 export function Screen({ escenario, onLog }: TwinScreenProps) {
-  const marks = escenario === 'nunca-probada' ? MARCAS_SIN_DATOS : MARCAS_CON_HISTORIAL;
+  const marks =
+    escenario === 'nunca-probada'
+      ? MARCAS_SIN_DATOS
+      : escenario === 'catalogo-vacio'
+        ? CATALOGO_VACIO
+        : MARCAS_CON_HISTORIAL;
+  // 'cargando' y 'fallo' no dependen de ningún catálogo: son el instante ANTES
+  // de que el servidor conteste, así que `marks` para ellos es irrelevante.
+  const estadoLista: MarksEstado = escenario === 'cargando' || escenario === 'fallo' ? escenario : 'lista';
 
   const [abierta, setAbierta] = useState<Mark | null>(null);
   const [dentro, setDentro] = useState(false);
   const salida = useRef<number | null>(null);
 
   useEffect(() => {
+    if (estadoLista === 'cargando') {
+      onLog('Tus marcas · cargando…');
+      return;
+    }
+    if (estadoLista === 'fallo') {
+      onLog('Tus marcas · no pudimos cargar, reintento disponible');
+      return;
+    }
+    if (marks.length === 0) {
+      onLog('Tus marcas · el coach no ha publicado catálogo');
+      return;
+    }
     const conRegistro = marks.filter((m) => best(m) !== null).length;
     onLog(`Tus marcas · ${marks.length} del catálogo, ${conRegistro} con registro`);
-  }, [marks, onLog]);
+  }, [marks, estadoLista, onLog]);
 
   useEffect(
     () => () => {
@@ -113,7 +150,12 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
             transition: `transform ${PUSH_MS}ms ${PUSH_EASE}`,
           }}
         >
-          <MarksLibrary marks={marks} onOpen={abrir} />
+          <MarksLibrary
+            marks={marks}
+            estado={estadoLista}
+            onOpen={abrir}
+            onRetry={() => onLog('Reintentar → vuelve a pedir la biblioteca')}
+          />
         </div>
 
         {abierta && (

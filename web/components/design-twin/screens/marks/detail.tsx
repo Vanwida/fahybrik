@@ -17,6 +17,7 @@ import {
   clock,
   delta,
   markValue,
+  originLabel,
   paceLine,
   relative,
   type Mark,
@@ -98,23 +99,27 @@ function Hero({ mark, mejor }: { mark: Mark; mejor: MarkResult | null }) {
     <Card padding={18}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <Micro>{mejor ? 'Tu mejor marca' : 'Sin marca todavía'}</Micro>
-        <div className="t-readout-l">{mejor ? markValue(mark, mejor.value) : '—'}</div>
         {mejor ? (
-          // El Swift pinta el «·» en cuanto hay fecha, haya ritmo o no: en Cooper
-          // (metros, sin ritmo derivado) la línea arranca con el punto. Se espeja tal cual.
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              font: '500 13px/1.4 var(--twin-font-sans)',
-              color: 'var(--twin-muted)',
-            }}
-          >
-            {ritmo && <span>{ritmo}</span>}
-            <span>·</span>
-            <span>{relative(mejor.daysAgo)}</span>
-          </div>
+          <>
+            <div className="t-readout-l">{markValue(mark, mejor.value)}</div>
+            {/* El Swift pinta el «·» en cuanto hay fecha, haya ritmo o no: en Cooper
+                (metros, sin ritmo derivado) la línea arranca con el punto. Se espeja tal cual. */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 6,
+                font: '500 13px/1.4 var(--twin-font-sans)',
+                color: 'var(--twin-muted)',
+              }}
+            >
+              {ritmo && <span>{ritmo}</span>}
+              <span>·</span>
+              <span>{relative(mejor.daysAgo)}</span>
+            </div>
+          </>
         ) : (
+          // Sin marca no hay cifra que enseñar: el sitio del número lo ocupa la
+          // referencia de cuánto cuesta la prueba, no un guion (§6.2 bis/§7).
           <div style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
             {mark.approxLabel}
           </div>
@@ -142,8 +147,9 @@ function ContextTile({ titulo, valor }: { titulo: string; valor: string | null }
     <Card padding={12} style={{ flex: 1 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Micro>{titulo}</Micro>
+        {/* La mitad que aún no tienes se dice con palabras, no con un guion. */}
         <Mono size={17} color={valor ? 'var(--twin-fg)' : 'var(--twin-faint)'}>
-          {valor ?? '—'}
+          {valor ?? 'Sin marca'}
         </Mono>
       </div>
     </Card>
@@ -260,17 +266,18 @@ function FilaHistorial({
   );
 }
 
+/**
+ * Sello de origen compartido con la biblioteca (`originLabel`): una sola
+ * grafía por concepto. Para una prueba propia manda el contexto de carrera,
+ * que es lo que de verdad distingue una fila de otra — un 5K en cinta no es
+ * el mismo bicho que uno en calle.
+ */
 function etiquetaHistorial(resultado: MarkResult): string {
-  switch (resultado.source) {
-    case 'coach_test':
-      return 'test con tu coach';
-    case 'registered':
-      return resultado.eventName ?? 'carrera registrada';
-    case 'onboarding':
-      return 'de cuando entraste';
-    default:
-      if (resultado.runContext === 'treadmill') return 'en cinta';
-      if (resultado.runContext === 'outdoor') return 'aire libre';
-      return 'te probaste';
+  if (resultado.source !== 'athlete_test') {
+    const origen = originLabel(resultado.source, resultado.eventName);
+    if (origen) return origen;
   }
+  if (resultado.runContext === 'treadmill') return 'en cinta';
+  if (resultado.runContext === 'outdoor') return 'aire libre';
+  return 'te probaste';
 }

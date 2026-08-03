@@ -311,7 +311,7 @@ a.studio-card:hover { border-color: rgba(240, 106, 42, 0.5); transform: translat
 .studio-card .studio-enapp { font-size: 12px; color: var(--st-faint); }
 .studio-card .studio-enapp strong { color: var(--st-muted); font-weight: 600; }
 .studio-card-pendiente { opacity: 0.55; }
-.studio-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-card-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .studio-device { font-size: 11px; color: var(--st-faint); letter-spacing: 0.08em; text-transform: uppercase; }
 .studio-tag { font-size: 11px; color: var(--st-faint); }
 .studio-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 2px; }

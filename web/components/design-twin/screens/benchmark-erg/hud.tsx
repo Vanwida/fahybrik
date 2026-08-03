@@ -3,37 +3,50 @@
 // El HUD del erg en vivo — espejo de ios/FAHYBRIK/Devices/PM5/ErgHUDContent.swift
 // más el chrome que lo envuelve en ActiveWorkoutView (topStrip, ConnectionStrip,
 // PM5ProgramBanner, botón TERMINAR). UNA vista, DOS disposiciones: retrato apila
-// metros/héroe/raíles; horizontal pone los raíles a los lados del número grande
-// (la cara ErgData). Todos los valores derivan de la curva fija de data.ts, así
-// el monitor del doble no puede contradecirse.
+// goal/héroe/raíles; horizontal pone goal y raíles a los lados del número grande.
+// Todos los valores derivan de la curva fija de data.ts, así el monitor del
+// doble no puede contradecirse.
+//
+// El body cambia de SUJETO, no de decorado (ErgHUDContent.body): contando el
+// 3-2-1 el sujeto es la cuenta; sin monitor el sujeto es el trabajo prescrito;
+// remando, el sujeto es el split. Cada uno se queda con TODA la pantalla
+// mientras es cierto — nunca un HUD normal con sus cifras tachadas por rayas.
+//
+// Las piezas puramente presentacionales (chrome + los tres cuerpos + goalBox /
+// heroCard / workRail) viven en `./ui` — este fichero es solo el reloj de la
+// pieza y la disposición retrato/horizontal (§ Files under 500 lines).
 
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { hrZone, useTicker, useTimeline } from '../../sim';
 import { PM5Chip } from './connect';
 import {
   BottomButton,
-  Card,
-  Hairline,
-  IconChevron,
-  IconClose,
-  Label,
+  ConnChip,
+  CountInBody,
+  GoalBox,
+  HeroCard,
   Mono,
+  PreparateStrip,
   ProgramLine,
-  RAD,
+  RailTile,
   SP,
+  TopStrip,
+  UnmeasuredBody,
 } from './ui';
 import {
   UMBRAL_BPM,
   MARCA,
   SEGUNDO_FINAL,
+  SIN_LECTURA_MOTIVO,
   TIEMPOS,
   TIEMPO_FINAL_S,
-  caloriasEn,
-  calPorHoraDesdeVatios,
+  TRAMO_LABEL,
+  TRAMO_WORK_LINE,
   fmtDeltaMarca,
   fmtElapsed,
   fmtMarca,
   metrosEn,
+  pulsoEn,
   ritmoEn,
   ritmoMedioEn,
   spmEn,
@@ -79,8 +92,10 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
     if (s === 1) setBanner(null);
   });
 
-  // Caída del enlace: los valores en vivo se guardan tras `pm5.isConnected` en la
-  // app, así que aquí simplemente se apagan a «—» hasta que vuelve.
+  // Caída del enlace: `session.tramoErgDistanceMeters` no sigue el reloj de la
+  // pieza mientras el monitor está mudo, así que lo que se enseña es lo ya
+  // remado ANTES de perderlo (`metrosAlCaer`, fijo), no un contador que siga
+  // avanzando a escondidas del propio HUD que dice "sin monitor".
   useTimeline(
     [
       { at: TIEMPOS.caidaEnS * 1000, run: () => { setConectado(false); onLog('Conexión con el PM5 perdida'); } },
@@ -108,55 +123,69 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
   const ritmo = ritmoEn(ts);
   const media = ritmoMedioEn(ts);
   const vivo = conectado && enPieza && ts > 0;
-  const split = vivo ? fmtMarca(ritmo) : '—:—';
-  const mediaStr = vivo && media ? fmtMarca(media) : '—:—';
+  // sinSplitMotivo (ErgHUDContent): antes de la primera palada no ha llegado
+  // nada del monitor; a partir de ahí, un split ausente es "no estás remando".
+  // La curva de esta pieza no para a mitad, así que solo el primer caso ocurre.
+  const sinSplitMotivo = ts > 0 ? 'sin remar' : SIN_LECTURA_MOTIVO;
+  const split = vivo ? fmtMarca(ritmo) : null;
+  const mediaStr = vivo && media ? fmtMarca(media) : null;
   const tiempo = fmtElapsed(done ? TIEMPO_FINAL_S : ts);
-  const spm = vivo ? `${spmEn(ts)}` : '—';
-  const vatios = vivo ? `${vatiosDesdeRitmo(ritmo)}` : '—';
-  const vatiosMedios = vivo && media ? `${vatiosDesdeRitmo(media)}` : '—';
-  const cal = vivo ? `${caloriasEn(ts)}` : '—';
-  const calH = vivo ? `${calPorHoraDesdeVatios(vatiosDesdeRitmo(ritmo))}` : '—';
-  const pulso = enPieza ? 118 + Math.round(60 * Math.min(1, ts / 95) ** 0.75) : null;
+  // tramoTimeLabel: el reloj de la serie está "armado" hasta la primera palada.
+  const tiempoLabel = ts > 0 ? 'esta serie' : 'empieza al remar';
+  const spm = vivo ? spmEn(ts) : null;
+  const vatios = vivo ? vatiosDesdeRitmo(ritmo) : null;
+  const pulso = enPieza ? pulsoEn(ts) : null;
   const zona = pulso ? hrZone(pulso, UMBRAL_BPM) : null;
-  const proyeccion =
-    vivo && metros > 0 && metros < MARCA.distanciaM
-      ? fmtElapsed(ts + (MARCA.distanciaM - metros) * (ritmo / 500))
-      : null;
+  const metrosAlCaer = metrosEn(TIEMPOS.caidaEnS);
 
   const hud = landscape ? (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 12, alignItems: 'stretch' }}>
-      <div style={{ width: 172, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <MetersBox metros={metros} conectado={conectado} />
-        <RailTile value={spm} label="s/min" />
-        <RailTile value={vatios} label="vatios" color="var(--twin-accent-text)" />
-        <RailTile value={vatiosMedios} label="vatios medios" />
+      <div style={{ width: 190, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <GoalBox metros={metros} />
+        <span style={{ flex: 1 }} />
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <HeroCard split={split} splitSize={112} media={mediaStr} tiempo={tiempo} />
+        <HeroCard
+          split={split}
+          splitSize={132}
+          media={mediaStr}
+          tiempo={tiempo}
+          tiempoLabel={tiempoLabel}
+          sinSplitMotivo={sinSplitMotivo}
+        />
       </div>
-      <div style={{ width: 150, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <RailTile value={cal} label="cal" />
-        <RailTile value={calH} label="cal/h" />
-        {proyeccion && <RailTile value={proyeccion} label="proyección" />}
-        <RailTile value={pulso ? `${pulso}` : '—'} label="pulso" color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'} />
-        <RailTile value={conectado ? `${118}` : '—'} label="drag" />
+      <div style={{ width: 128, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <RailTile value={spm !== null ? `${spm}` : null} label="s/min" />
+        <RailTile value={vatios !== null ? `${vatios}` : null} label="vatios" color="var(--twin-accent-text)" />
+        <RailTile
+          value={pulso !== null ? `${pulso}` : null}
+          label="pulso"
+          color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'}
+          ausente="sin banda ni reloj"
+        />
+        <span style={{ flex: 1 }} />
       </div>
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.m }}>
-      <MetersBox metros={metros} conectado={conectado} />
-      <HeroCard split={split} splitSize={92} media={mediaStr} tiempo={tiempo} />
+      <GoalBox metros={metros} />
+      <HeroCard
+        split={split}
+        splitSize={92}
+        media={mediaStr}
+        tiempo={tiempo}
+        tiempoLabel={tiempoLabel}
+        sinSplitMotivo={sinSplitMotivo}
+      />
       <div style={{ display: 'flex', gap: 8 }}>
-        <RailTile value={spm} label="s/min" />
-        <RailTile value={vatios} label="vatios" color="var(--twin-accent-text)" />
-        <RailTile value={vatiosMedios} label="vatios medios" />
-      </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <RailTile value={cal} label="cal" />
-        <RailTile value={calH} label="cal/h" />
-        {proyeccion && <RailTile value={proyeccion} label="proyección" />}
-        <RailTile value={pulso ? `${pulso}` : '—'} label="pulso" color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'} />
-        <RailTile value={conectado ? '118' : '—'} label="drag" />
+        <RailTile value={spm !== null ? `${spm}` : null} label="s/min" />
+        <RailTile value={vatios !== null ? `${vatios}` : null} label="vatios" color="var(--twin-accent-text)" />
+        <RailTile
+          value={pulso !== null ? `${pulso}` : null}
+          label="pulso"
+          color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'}
+          ausente="sin banda ni reloj"
+        />
       </div>
     </div>
   );
@@ -181,9 +210,9 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
               color: 'var(--twin-accent-text)',
             }}
           >
-            {MARCA.label}
+            {TRAMO_LABEL}
           </span>
-          <Mono size={12} color="var(--twin-muted)">{MARCA.distanciaM} m</Mono>
+          <Mono size={12} color="var(--twin-muted)">{TRAMO_WORK_LINE}</Mono>
         </div>
       )}
       {!landscape && (
@@ -193,7 +222,9 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
         </div>
       )}
 
-      {countIn > 0 && <CountInStrip restante={countIn} />}
+      {/* contextStrip durante el count-in: solo "Prepárate" — sin serie que
+          contar en una pieza continua. */}
+      {countIn > 0 && <PreparateStrip />}
       {banner && (
         <ProgramLine
           text={banner === 'enviando' ? 'Enviando el entreno al PM5…' : 'Listo — rema para empezar'}
@@ -201,7 +232,15 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
         />
       )}
 
-      {hud}
+      {/* Tres sujetos, tres cuerpos — nunca el HUD normal con sus cifras en
+          "—" (ErgHUDContent.body: countInBody / unmeasuredBody / el HUD real). */}
+      {countIn > 0 ? (
+        <CountInBody landscape={landscape} restante={countIn} workLine={TRAMO_WORK_LINE} />
+      ) : !conectado ? (
+        <UnmeasuredBody landscape={landscape} metrosAlCaer={metrosAlCaer} />
+      ) : (
+        hud
+      )}
 
       {!landscape && (
         <>
@@ -209,212 +248,6 @@ export function ErgHUD({ landscape, programarMs, conCaida, onTerminar, onLog }: 
           <BottomButton title="TERMINAR" onClick={onTerminar} />
         </>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Chrome — topStrip de ActiveWorkoutView (salir / pausa / atrás + fase y tramo)
-// ---------------------------------------------------------------------------
-
-function TopStrip({ landscape }: { landscape: boolean }) {
-  const iconBtn = (child: ReactNode, label: string, dim = false) => (
-    <button
-      type="button"
-      aria-label={label}
-      style={{
-        width: 26,
-        height: 28,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'transparent',
-        border: 0,
-        color: 'var(--twin-muted)',
-        opacity: dim ? 0.3 : 1,
-        cursor: 'pointer',
-        padding: 0,
-      }}
-    >
-      {child}
-    </button>
-  );
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
-      {iconBtn(<IconClose size={13} />, 'Salir del entreno')}
-      {iconBtn(<span style={{ fontSize: 16 }}>‖</span>, 'Pausar entreno')}
-      {iconBtn(<IconChevron dir="left" size={13} />, 'Volver atrás', true)}
-      <span style={{ flex: 1 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: landscape ? 'flex-end' : 'center', gap: 1 }}>
-        <span
-          style={{
-            font: 'italic 800 9px/1.1 var(--twin-font-sans)',
-            letterSpacing: '0.08em',
-            color: 'var(--twin-accent-text)',
-          }}
-        >
-          BENCHMARK
-        </span>
-        <Mono size={11} color="var(--twin-muted)">{MARCA.label.toUpperCase()}</Mono>
-      </div>
-      {!landscape && <span style={{ width: 80 }} />}
-    </div>
-  );
-}
-
-function ConnChip({ texto, on }: { texto: string; on: boolean }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '5px 8px',
-        borderRadius: RAD.s,
-        color: on ? 'var(--twin-accent-text)' : 'var(--twin-muted)',
-        background: on ? 'color-mix(in srgb, var(--twin-accent) 14%, transparent)' : 'var(--twin-surface)',
-        border: `1px solid ${on ? 'color-mix(in srgb, var(--twin-accent-text) 50%, transparent)' : 'var(--twin-outline)'}`,
-        font: 'italic 800 9px/1 var(--twin-font-sans)',
-        letterSpacing: '0.07em',
-        textTransform: 'uppercase',
-      }}
-    >
-      ♥ {texto}
-    </span>
-  );
-}
-
-/** seriesStrip en modo count-in: «PREPÁRATE 3». */
-function CountInStrip({ restante }: { restante: number }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '7px 10px',
-        borderRadius: RAD.m,
-        background: 'var(--twin-surface)',
-      }}
-    >
-      <Label size={10} color="var(--twin-accent-text)">Prepárate</Label>
-      <Mono size={15} weight={800} color="var(--twin-accent-text)">{restante}</Mono>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Piezas del HUD (metersBox / heroCard / railTile de ErgHUDContent)
-// ---------------------------------------------------------------------------
-
-function MetersBox({ metros, conectado }: { metros: number; conectado: boolean }) {
-  const covered = conectado ? Math.floor(metros) : null;
-  const target = MARCA.distanciaM;
-  const done = (covered ?? 0) >= target;
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-        padding: '12px 12px',
-        borderRadius: 14,
-        background: 'var(--twin-surface)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
-        <Mono size={26} weight={800} color={done ? 'var(--twin-ok)' : 'var(--twin-fg)'}>
-          {covered ?? '—'}
-        </Mono>
-        <Mono size={13} weight={600} color="var(--twin-muted)">/ {target} m</Mono>
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: 'var(--twin-surface-sunken)', overflow: 'hidden' }}>
-        <div
-          style={{
-            height: '100%',
-            width: `${Math.min(100, ((covered ?? 0) / target) * 100)}%`,
-            background: done ? 'var(--twin-ok)' : 'var(--twin-accent)',
-            transition: 'width 900ms linear',
-          }}
-        />
-      </div>
-      <span
-        style={{
-          font: '800 9px/1 var(--twin-font-sans)',
-          letterSpacing: '0.08em',
-          color: 'var(--twin-muted)',
-          textAlign: 'center',
-        }}
-      >
-        METROS
-      </span>
-    </div>
-  );
-}
-
-function HeroCard({ split, splitSize, media, tiempo }: { split: string; splitSize: number; media: string; tiempo: string }) {
-  return (
-    <Card padding={SP.m} topAccent elevated>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <Label size={10}>Split · real</Label>
-        <Mono size={splitSize} weight={800} style={{ lineHeight: 1 }}>
-          {split}
-        </Mono>
-        <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>/500m</span>
-        <Hairline style={{ alignSelf: 'stretch', margin: '6px 0' }} />
-        <div style={{ display: 'flex', gap: 8, alignSelf: 'stretch' }}>
-          <SubReadout value={media} label="media /500m" />
-          <SubReadout value={tiempo} label="tiempo" />
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function SubReadout({ value, label }: { value: string; label: string }) {
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <Mono size={30} weight={800}>{value}</Mono>
-      <span
-        style={{
-          font: '600 10px/1 var(--twin-font-mono)',
-          letterSpacing: '0.06em',
-          color: 'var(--twin-muted)',
-        }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function RailTile({ value, label, color = 'var(--twin-fg)' }: { value: string; label: string; color?: string }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
-        padding: '9px 4px',
-        borderRadius: 12,
-        background: 'var(--twin-surface)',
-        minWidth: 0,
-      }}
-    >
-      <Mono size={21} weight={800} color={color}>{value}</Mono>
-      <span
-        style={{
-          font: '800 8px/1 var(--twin-font-sans)',
-          letterSpacing: '0.07em',
-          textTransform: 'uppercase',
-          color: 'var(--twin-muted)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </span>
     </div>
   );
 }

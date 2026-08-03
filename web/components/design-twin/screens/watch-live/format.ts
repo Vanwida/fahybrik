@@ -35,6 +35,26 @@ export function kg(value: number): string {
   return value % 1 === 0 ? String(Math.round(value)) : value.toFixed(1);
 }
 
+/** Formato.duracion — «45 min» · «1 h» · «1 h 10»; nil por debajo del minuto. */
+export function duracion(minutos: number): string | null {
+  if (minutos <= 0) return null;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m}`;
+}
+
+/**
+ * Formato.duracionPrevista — «desde 50 min», el SUELO que escribe el plan (no
+ * una estimación centrada: «~50 min» prometía un promedio que no era).
+ */
+export function duracionPrevista(minutos: number | null): string | null {
+  if (minutos === null) return null;
+  const cifra = duracion(minutos);
+  return cifra ? `desde ${cifra}` : null;
+}
+
 /** ContinuousLiveView.distanceValue — «1.24» en km a partir de 1000 m, si no metros enteros. */
 export function distanceValue(meters: number): string {
   return meters >= 1000 ? (meters / 1000).toFixed(2) : String(Math.floor(meters));

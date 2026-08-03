@@ -5,6 +5,8 @@
 // velocidad por Bluetooth (la pones en la consola; la app la registra tal cual)
 // pero SÍ la inclinación. El héroe es el ritmo real; el panel de máquina lleva
 // el stepper de inclinación y la nota de velocidad manual, palabra por palabra.
+// Sin ritmo medido el sujeto degrada al objetivo (o al motivo por el que no
+// hay lectura), nunca a un guion — el mismo contrato que ExpertCell en Atoms.
 //
 // Horizontal (#6): el número grande a la izquierda (ritmo real, porque la cinta
 // no obedece), controles + métricas compactas a la derecha.
@@ -33,23 +35,27 @@ import {
   CUENTA_ATRAS_S,
   UMBRAL_BPM,
   INCLINACION_PRESCRITA_PCT,
-  OBJETIVO_SKM,
   SEGMENTO_TITULO,
+  SIN_PULSO_MOTIVO_CINTA,
   TRAMOS,
   colorEstado,
   estadoRitmo,
   fmt1,
   fmtDistanciaCinta,
   fmtElapsed,
+  lineaLecturaCinta,
+  objetivoLabel,
   palabraEstadoCinta,
   pulsoEn,
+  sinLecturaMotivoCinta,
+  sinRitmo,
 } from './data';
 import { fraccionTramo, restanteTramo, useTramos } from './engine';
 
 const NOTA_VELOCIDAD_MANUAL =
-  'Pon la velocidad en la cinta — tu modelo no la deja controlar por Bluetooth. La inclinación sí.';
+  'Pon la velocidad en la cinta. Tu modelo no la deja controlar por Bluetooth; la inclinación sí.';
 const AVISO_SIN_DATOS =
-  'Conectada, pero la cinta no envía datos. Ponla en marcha desde la consola — algunas solo emiten con la banda en movimiento.';
+  'Conectada, pero la cinta no envía datos. Ponla en marcha desde la consola: algunas solo emiten con la banda en movimiento.';
 
 /** s/km desde km/h — la conversión del propio HUD. */
 function ritmoDesdeKmh(kmh: number): number {
@@ -120,6 +126,12 @@ export function HUDCinta({
   const bpm = corriendo && conDatos ? pulsoEn(estado.legS + estado.idx * 60) : null;
   const zona = bpm ? hrZone(bpm, UMBRAL_BPM) : null;
   const cue = palabraEstadoCinta(estadoObj);
+  // La siguiente verdad disponible cuando no hay ritmo — el objetivo se
+  // convierte en el sujeto — y por qué no la hay (TreadmillHUDModel).
+  const sinRitmoInfo = sinRitmo(estado.legS);
+  const motivoSinRitmo = sinLecturaMotivoCinta(conDatos);
+  // Lo que la CINTA dice que hace, bajo el héroe — una vez, nunca una fila de celdas.
+  const lecturaCinta = lineaLecturaCinta(velocidadKmh, conDatos);
 
   const cabecera = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
@@ -177,14 +189,17 @@ export function HUDCinta({
           <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 16, alignItems: 'stretch' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
               <span style={{ font: 'italic 800 12px/1.2 var(--twin-font-sans)', letterSpacing: '0.03em', color: 'var(--twin-accent-text)' }}>
-                Tramo {estado.idx + 1} de {TRAMOS.length} — objetivo {fmtElapsed(OBJETIVO_SKM).replace(/^0/, '')} /km
+                Tramo {estado.idx + 1} de {TRAMOS.length} · objetivo {objetivoLabel()}
               </span>
               <span className="t-readout-hero" style={{ fontSize: 100, color: colorEstado(estadoObj) }}>
-                {ritmo ? fmtElapsed(ritmo).replace(/^0/, '') : '—:—'}
+                {ritmo !== null ? fmtElapsed(ritmo).replace(/^0/, '') : sinRitmoInfo.cifra}
               </span>
               <span style={{ font: '600 11px/1 var(--twin-font-mono)', letterSpacing: '0.07em', color: 'var(--twin-muted)' }}>
-                /km · ritmo real
+                {ritmo !== null ? '/km · ritmo real' : sinRitmoInfo.etiqueta.toLowerCase()}
               </span>
+              {ritmo === null && (
+                <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{motivoSinRitmo}</span>
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {stepperInclinacion}
@@ -192,7 +207,13 @@ export function HUDCinta({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                 <Celda etiqueta="Metros" valor={fmtDistanciaCinta(estado.legM)} />
                 <Celda etiqueta="Tiempo" valor={fmtElapsed(estado.legS).replace(/^0/, '')} />
-                <Celda etiqueta="Pulso" valor={bpm ? `${bpm}` : '—'} unidad="bpm" color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'} />
+                <Celda
+                  etiqueta="Pulso"
+                  valor={bpm !== null ? `${bpm}` : null}
+                  unidad="bpm"
+                  color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'}
+                  ausente={SIN_PULSO_MOTIVO_CINTA}
+                />
               </div>
               <BotonNeutro titulo="TERMINAR TRAMO" onClick={avanzar} />
             </div>
@@ -223,6 +244,9 @@ export function HUDCinta({
                 <span className="t-readout-hero" style={{ fontSize: 64 }}>
                   {fmtElapsed(restanteTramo(tramo, estado)).replace(/^0/, '')}
                 </span>
+                {lecturaCinta && (
+                  <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)' }}>{lecturaCinta}</span>
+                )}
               </div>
             </Tarjeta>
           ) : (
@@ -236,30 +260,39 @@ export function HUDCinta({
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <Etiqueta texto="Ritmo" size={10} />
+                <Etiqueta texto={ritmo !== null ? 'Ritmo' : sinRitmoInfo.etiqueta} size={10} />
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span className="t-readout-hero" style={{ fontSize: 60, color: colorEstado(estadoObj) }}>
-                    {ritmo ? fmtElapsed(ritmo).replace(/^0/, '') : '—:—'}
+                    {ritmo !== null ? fmtElapsed(ritmo).replace(/^0/, '') : sinRitmoInfo.cifra}
                   </span>
-                  <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>/km</span>
+                  {ritmo !== null && <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>/km</span>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
-                    Objetivo {fmtElapsed(OBJETIVO_SKM).replace(/^0/, '')} /km
-                  </span>
-                  {cue && (
-                    <span
-                      style={{
-                        font: 'italic 800 10px/1 var(--twin-font-sans)',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        color: colorEstado(estadoObj),
-                      }}
-                    >
-                      {cue}
+                {ritmo !== null ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
+                      Objetivo {objetivoLabel()} /km
                     </span>
-                  )}
-                </div>
+                    {cue && (
+                      <span
+                        style={{
+                          font: 'italic 800 10px/1 var(--twin-font-sans)',
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: colorEstado(estadoObj),
+                        }}
+                      >
+                        {cue}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{motivoSinRitmo}</span>
+                )}
+                {lecturaCinta && (
+                  <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)', paddingTop: 2 }}>
+                    {lecturaCinta}
+                  </span>
+                )}
               </div>
             </Tarjeta>
           )}
@@ -287,24 +320,35 @@ export function HUDCinta({
           <div style={{ display: 'flex', gap: 8 }}>{stepperInclinacion}</div>
           <NotaPlana icono="speedometer">{NOTA_VELOCIDAD_MANUAL}</NotaPlana>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <Celda etiqueta="Pulso" valor={bpm ? `${bpm}` : '—'} unidad="bpm" color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'} />
-            {zona ? (
-              <div style={{ padding: 12, borderRadius: 10, background: 'var(--twin-surface-elevated)', border: '1px solid var(--twin-hairline)' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Celda
+                etiqueta="Pulso"
+                valor={bpm !== null ? `${bpm}` : null}
+                unidad="bpm"
+                color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'}
+                ausente={SIN_PULSO_MOTIVO_CINTA}
+              />
+            </div>
+            {/* Sin zona (sin umbral que resolverla), la celda DESAPARECE — no se
+                rellena con un guion; el pulso se queda el ancho entero. */}
+            {zona && (
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: 12,
+                  borderRadius: 10,
+                  background: 'var(--twin-surface-elevated)',
+                  border: '1px solid var(--twin-hairline)',
+                }}
+              >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <Etiqueta texto="Zona" />
                   <MedidorZona zona={zona} />
                 </div>
               </div>
-            ) : (
-              <Celda etiqueta="Zona" valor="—" />
             )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <Celda etiqueta="Velocidad" valor={conDatos ? fmt1(velocidadKmh) : '—'} unidad="km/h" />
-            <Celda etiqueta="Inclinación" valor={fmt1(inclinacion)} unidad="%" />
-            <Celda etiqueta="Tiempo" valor={fmtElapsed(estado.legS).replace(/^0/, '')} />
           </div>
 
           {!enRecuperacion && (
@@ -312,6 +356,7 @@ export function HUDCinta({
               caption="Distancia del tramo"
               primary={fmtDistanciaCinta(estado.legM)}
               secondary={fmtDistanciaCinta(tramo.metros ?? 0)}
+              elapsed={fmtElapsed(estado.legS).replace(/^0/, '')}
               fraction={fraccionTramo(tramo, estado)}
               complete={fraccionTramo(tramo, estado) >= 1}
             />

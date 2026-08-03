@@ -15,6 +15,7 @@ export const meta: TwinMeta = {
   titulo: 'El entreno en la muñeca',
   zona: 'Conexiones y relojes',
   estado: 'espejo',
+  actualizado: '2026-08-03',
   descripcion:
     'La app del Apple Watch: brief del día, puerta de bloque, el vivo que tiñe la zona (y pasa a ritmo cuando el GPS mide), series de fuerza con descanso, y splits.',
   fuentes: [

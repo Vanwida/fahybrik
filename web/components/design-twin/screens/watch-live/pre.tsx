@@ -5,6 +5,7 @@
 
 import type { CSSProperties } from 'react';
 import { BigTapButton, LiveScaffold, VStack, WatchCanvas, WatchLabel } from './atoms';
+import { duracionPrevista } from './format';
 import { HEAVY, PADDED_W, SEMIBOLD, W } from './theme';
 
 /**
@@ -27,6 +28,7 @@ export function TodayBrief({
   primerBloque: string;
   onStart: () => void;
 }) {
+  const suelo = duracionPrevista(minutos);
   return (
     <WatchCanvas>
       <div
@@ -44,7 +46,7 @@ export function TodayBrief({
         <div style={{ ...clamp2, fontSize: 24, fontWeight: HEAVY, color: W.ink, lineHeight: 1.15 }}>{titulo}</div>
         <div style={{ display: 'flex', gap: 6 }}>
           <Pill text={`${bloques} bloques`} background={W.surfaceRaised} />
-          <Pill text={`~${minutos} min`} background={W.surfaceRaised} />
+          {suelo ? <Pill text={suelo} background={W.surfaceRaised} /> : null}
         </div>
         <div style={{ fontSize: 11, fontWeight: SEMIBOLD, color: W.dim, whiteSpace: 'nowrap' }}>
           {`1º · ${primerBloque}`}

@@ -179,15 +179,46 @@ function PlayGlyph() {
   );
 }
 
+// MARK: - Por qué no hay dato
+
+/**
+ * WatchSinDato — las razones ciertas de que un dato en vivo todavía no exista
+ * EN LA MUÑECA. Lo que no se sabe no se pinta con un guion: se pinta la
+ * razón, que es lo único accionable. La dicen tres sitios (la píldora de FC,
+ * la teja de métrica y el encabezado de la barra de zona), de ahí que viva
+ * aquí en vez de que cada uno se invente su propio guion.
+ */
+export const WATCH_SIN_DATO = {
+  /** El sensor de la muñeca aún no ha entregado una pulsación. */
+  pulso: 'buscando pulso',
+} as const;
+
 // MARK: - Píldora de FC
 
-/** FC compacta con el punto teñido de zona. Sin dato, un guion: nunca un número inventado. */
-export function HRPill({ bpm, dotColor }: { bpm: number | null; dotColor: string }) {
+/**
+ * FC compacta con el punto teñido de zona. Sin pulso NO pinta un guion: el
+ * punto de zona desaparece con él (su color ES el dato, y sin pulso no hay
+ * zona que colorear) y en su lugar se dice el porqué.
+ */
+export function HRPill({
+  bpm,
+  dotColor,
+  ausente = WATCH_SIN_DATO.pulso,
+}: {
+  bpm: number | null;
+  dotColor: string;
+  ausente?: string;
+}) {
+  if (bpm === null) {
+    return (
+      <span style={{ fontSize: 11, fontWeight: HEAVY, color: W.dim, whiteSpace: 'nowrap' }}>{ausente}</span>
+    );
+  }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor }} />
       <span style={{ fontSize: 13, fontWeight: HEAVY, fontVariantNumeric: 'tabular-nums', color: W.ink }}>
-        {bpm === null ? '—' : bpm}
+        {bpm}
       </span>
     </span>
   );
@@ -197,11 +228,24 @@ export function HRPill({ bpm, dotColor }: { bpm: number | null; dotColor: string
 
 /**
  * Una métrica secundaria (DIST / FC …). Hasta tres bajo el héroe, que siempre
- * manda. Nota de fidelidad: en el Swift la teja intenta bajar su etiqueta a
- * 8.5 pt con un `.font()` POR FUERA de `WatchLabel`, que en SwiftUI no gana al
- * `.font()` interno — se dibuja a 10 pt, que es lo que se replica aquí.
+ * manda. `ausente` es el §7 hecho pieza: sin medida no se pinta el hueco, se
+ * pinta la razón — «sin medir» por defecto, como en el Swift. Nota de
+ * fidelidad: en el Swift la teja intenta bajar su etiqueta a 8.5 pt con un
+ * `.font()` POR FUERA de `WatchLabel`, que en SwiftUI no gana al `.font()`
+ * interno — se dibuja a 10 pt, que es lo que se replica aquí.
  */
-export function MetricTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+export function MetricTile({
+  label,
+  value,
+  unit,
+  ausente = 'sin medir',
+}: {
+  label: string;
+  /** Null = no hay medida. No se pinta el hueco: se pinta el porqué. */
+  value: string | null;
+  unit?: string;
+  ausente?: string;
+}) {
   return (
     <div
       style={{
@@ -216,12 +260,16 @@ export function MetricTile({ label, value, unit }: { label: string; value: strin
       }}
     >
       <WatchLabel text={label} />
-      <span style={{ display: 'flex', alignItems: 'baseline', gap: 1, whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 16, fontWeight: HEAVY, fontVariantNumeric: 'tabular-nums', color: W.ink }}>
-          {value}
+      {value !== null ? (
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 1, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 16, fontWeight: HEAVY, fontVariantNumeric: 'tabular-nums', color: W.ink }}>
+            {value}
+          </span>
+          {unit ? <span style={{ fontSize: 9, fontWeight: SEMIBOLD, color: W.dim }}>{unit}</span> : null}
         </span>
-        {unit ? <span style={{ fontSize: 9, fontWeight: SEMIBOLD, color: W.dim }}>{unit}</span> : null}
-      </span>
+      ) : (
+        <span style={{ fontSize: 9, fontWeight: SEMIBOLD, color: W.dim, textAlign: 'center' }}>{ausente}</span>
+      )}
     </div>
   );
 }

@@ -236,6 +236,8 @@ function construir(historias: Map<string, Historia>): Mark[] {
 export const MARCAS_CON_HISTORIAL: readonly Mark[] = construir(CON_HISTORIAL);
 /** Alguien que aún no se ha probado: todo el catálogo en vacío. */
 export const MARCAS_SIN_DATOS: readonly Mark[] = construir(new Map());
+/** El coach no ha publicado ninguna prueba: `marks.isEmpty` en MarksLibraryView. */
+export const CATALOGO_VACIO: readonly Mark[] = [];
 
 // ── Derivados (pickBest de web/lib/athlete/marks.ts) ─────────────────────────
 
@@ -279,6 +281,27 @@ export function paceLine(mark: Mark, value: number): string | null {
   if (!dist || dist <= 0) return null;
   if (mark.group === 'ergo') return `${clock((value * 500) / dist)}/500`;
   return `${clock((value * 1000) / dist)}/km`;
+}
+
+/**
+ * DataOrigin.label(source, eventName) — la única grafía de un origen, coma por
+ * coma. Antes cada vista tenía su propio switch y el mismo origen acababa con
+ * dos nombres («test del coach» en la biblioteca, «test con tu coach» en el
+ * detalle); esto es el formateador único, espejo de ios/FAHYBRIK/Shared/DataOrigin.swift.
+ */
+export function originLabel(source: MarkSource, eventName?: string): string | null {
+  switch (source) {
+    case 'coach_test':
+      return 'test del coach';
+    case 'athlete_test':
+      return 'te probaste';
+    case 'onboarding':
+      return 'lo dijiste tú';
+    case 'registered':
+      return eventName ?? 'carrera registrada';
+    default:
+      return null;
+  }
 }
 
 /** «hace 3 semanas» — antigüedad gruesa a propósito. */

@@ -26,6 +26,7 @@ export const meta: TwinMeta = {
   titulo: 'Dispositivos y relojes',
   zona: 'Conexiones y relojes',
   estado: 'espejo',
+  actualizado: '2026-08-03',
   descripcion: 'El equipo del atleta agrupado por lo que hace: quién recibe el entreno, quién solo lee y qué se conecta en el gimnasio.',
   fuentes: [
     'ios/FAHYBRIK/Profile/ProfileView.swift',
@@ -57,6 +58,11 @@ export const escenarios: TwinEscenario[] = [
     titulo: 'Emparejar el remo',
     descripcion: 'Buscar y emparejar: la guía del monitor, el erg aparece en la lista y lo tocas tú.',
   },
+  {
+    id: 'remo-desconectado',
+    titulo: 'Se cae el remo solo',
+    descripcion: 'El PM5 se desconecta sin que el atleta lo pida: el aviso y la lista para volver a elegirlo — nada se reconecta solo.',
+  },
 ];
 
 type Ruta = 'hub' | 'pm5' | 'garmin';
@@ -67,6 +73,9 @@ interface EstadoInicial {
   polarConectado: boolean;
   pm5Recordado: string | null;
   apertura: string;
+  /** Solo lo usa el escenario que arranca con la hoja del remo ya abierta. */
+  hoja?: Hoja;
+  pm5Estado?: PM5Estado;
 }
 
 const INICIAL: Record<string, EstadoInicial> = {
@@ -88,6 +97,14 @@ const INICIAL: Record<string, EstadoInicial> = {
     pm5Recordado: null,
     apertura: 'Remo sin emparejar — toca «Buscar y emparejar»',
   },
+  'remo-desconectado': {
+    ruta: 'pm5',
+    polarConectado: true,
+    pm5Recordado: PM5_RECORDADO,
+    apertura: 'El remo se cortó a mitad de pieza — el aviso y la lista para volver a elegirlo',
+    hoja: 'pm5-scanner',
+    pm5Estado: 'lost',
+  },
 };
 
 /** Cuánto aguanta el aviso flotante (ProfileView.showToast). */
@@ -97,7 +114,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const cfg = INICIAL[escenario] ?? INICIAL['estado-hoy'];
 
   const [ruta, setRuta] = useState<Ruta>(cfg.ruta);
-  const [hoja, setHoja] = useState<Hoja>('ninguna');
+  const [hoja, setHoja] = useState<Hoja>(cfg.hoja ?? 'ninguna');
   const [toast, setToast] = useState<string | null>(null);
 
   // Reloj: el permiso de WorkoutKit es la única puerta; apagarlo pregunta antes.
@@ -119,7 +136,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const vinculadaEnServidor = useRef(false);
 
   const [pm5Recordado, setPm5Recordado] = useState<string | null>(cfg.pm5Recordado);
-  const [pm5Estado, setPm5Estado] = useState<PM5Estado>('idle');
+  const [pm5Estado, setPm5Estado] = useState<PM5Estado>(cfg.pm5Estado ?? 'idle');
   const [descubiertos, setDescubiertos] = useState<ErgDescubierto[]>([]);
   const [pm5Conectado, setPm5Conectado] = useState<string | null>(null);
   const elegido = useRef<ErgDescubierto | null>(null);

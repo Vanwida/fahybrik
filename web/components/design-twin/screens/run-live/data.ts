@@ -212,6 +212,58 @@ export function palabraEstadoCinta(estado: EstadoObjetivo): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Cuando no hay ritmo medido — TreadmillHUDView.sinRitmo / OutdoorRunHUDView.
+// lecturaViva: el sujeto degrada a la SIGUIENTE VERDAD DISPONIBLE, nunca a un
+// hueco. En este bloque hay un único punto (PaceTarget.single = 4:35, sin
+// banda), así que el objetivo SIEMPRE existe y es esa siguiente verdad.
+// ---------------------------------------------------------------------------
+
+/** RunTarget.objetivoLabel — el ritmo objetivo formateado ("4:35"). */
+export function objetivoLabel(): string {
+  return fmtElapsed(OBJETIVO_SKM).replace(/^0/, '');
+}
+
+/** La siguiente verdad disponible sin ritmo: el objetivo si existe, si no el
+ *  reloj del tramo. La segunda rama no es alcanzable con este bloque (siempre
+ *  prescribe un ritmo), pero es la que usaría un tramo sin `PaceTarget`. */
+export function sinRitmo(legSegundos: number): { etiqueta: string; cifra: string } {
+  const objetivo = objetivoLabel();
+  return objetivo ? { etiqueta: 'Objetivo', cifra: objetivo } : { etiqueta: 'Tiempo', cifra: fmtElapsed(legSegundos) };
+}
+
+// ---------------------------------------------------------------------------
+// Por qué NO hay dato — TreadmillHUDModel.sinLecturaMotivo / sinPulsoMotivo
+// (§7 del CONTRATO-UI). El Swift distingue cuatro motivos para cada aparato;
+// este guion solo recorre dos de cada uno — nunca simula una cinta que se
+// calla tras haber dado datos, ni un umbral perdido de la banda — pero la
+// palabra que SÍ dice es la real, nunca un guion.
+// ---------------------------------------------------------------------------
+
+/** TreadmillHUDModel.sinLecturaMotivo. `conDatos` false = nunca llegó el
+ *  primer dato ("esperando a la cinta"); true implica velocidad 0 con datos
+ *  vivos ("cinta parada") — las otras dos palabras («sin conectar» / «la
+ *  cinta no envía datos») son de un enlace que este guion no modela. */
+export function sinLecturaMotivoCinta(conDatos: boolean): string {
+  return conDatos ? 'cinta parada' : 'esperando a la cinta';
+}
+
+/** TreadmillHUDModel.sinPulsoMotivo — el reloj es siempre la fuente en este
+ *  HUD (chip "Pulso · Watch"), así que el único motivo alcanzable es el de un
+ *  enlace conectado sin lectura todavía. */
+export const SIN_PULSO_MOTIVO_CINTA = 'sin lecturas aún';
+
+/** El motivo del pulso en la calle — chip "Sin reloj" (OutdoorRunHUDView). */
+export const SIN_PULSO_MOTIVO_CALLE = 'sin reloj';
+
+/** TreadmillHUDView.beltReadingLine — lo que la CINTA dice que hace, bajo el
+ *  héroe: la misma medida en las unidades del propio dial. Ausente hasta el
+ *  primer dato — nunca una fila de guiones. */
+export function lineaLecturaCinta(velocidadKmh: number, conDatos: boolean): string | null {
+  if (!conDatos || velocidadKmh <= 0) return null;
+  return `${fmt1(velocidadKmh)} km/h en la cinta`;
+}
+
+// ---------------------------------------------------------------------------
 // Ruta ficticia para el mini-mapa (sin tiles: geometría propia en metros)
 // ---------------------------------------------------------------------------
 
