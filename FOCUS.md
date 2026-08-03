@@ -5,15 +5,13 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## 3-ago · Sincronía de contadores (PM5 / tramo)
+## 3-ago · Sincronía de contadores PM5 — implementado (rama `feat/pm5-counter-sync`)
 
-Diagnóstico: metros (carrera) y calorías (ergo) se desincronizan porque hay varios contadores y la app no es dueña clara de la ventana al empezar serie/ronda. Plan de implementación escrito:
+OK de Alex: app-dueña · AMRAP cumulative · ergo antes que carrera.
 
-→ **`docs/plan-sincronia-contadores-dispositivo.md`**
+**Hecho (32 tests verdes):** `ErgCounterPolicy` · programmer por tramo (bout fixed, no intervalos nativos) · auto-cierre series m/cal · re-ancla count-in→GO · UI cal 0 por defecto · strip con ventana de tramo · DECISIONS. Plan: `docs/plan-sincronia-contadores-dispositivo.md`.
 
-Modelo: tramo = unidad; policy `perTramo` vs `cumulative`; app manda program al PM5 al entrar en tramo de trabajo; series/EMOM/estaciones resetean m·cal; AMRAP acumulativo; libre = prescrito. 9 PRs (policy → programmer → auto-cierre → UI → record → free → gym → paridad carrera).
-
-**Espera OK de Alex (3 sí/no):** (1) app-dueña siempre en series (no intervalos nativos PM5 como default) · (2) AMRAP siempre cumulative · (3) ergo (PR1–8) antes que carrera (PR9).
+**Pendiente:** record per-bout de series ergo en el payload · QA gym con PM5 real · paridad carrera (cinta/GPS, PR9 del plan).
 
 ---
 

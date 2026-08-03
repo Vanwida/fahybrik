@@ -10,6 +10,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-03 · Contadores PM5: la app es dueña del tramo
+
+**Decidido:** en ergo (remo/ski/bike), la app y el PM5 miden **la misma unidad de trabajo (el tramo)**. La app **programa el piece al entrar en cada tramo de trabajo** y el contador de m/cal de esa ventana parte de cero. Libre y prescrito comparten `ErgCounterPolicy` + `PM5WorkoutProgrammer` + `WorkoutSession` — no hay camino especial.
+
+| Scope | Cuándo |
+|---|---|
+| `perTramo` | Series m/cal, pirámide, EMOM ronda ergo, estación For Time, steady con goal |
+| `cumulativeSegment` | AMRAP (window entero); formatos fixed free-order sin cursor de estación |
+
+| Close | Cuándo |
+|---|---|
+| `machineGoal` | Cruce de m/cal (series, estaciones, steady) — test de CRUCE, no umbral estático |
+| `formatClock` | EMOM (el minuto manda); AMRAP |
+| `sessionClock` | Series por tiempo |
+| `athleteTap` | reps / sin goal |
+
+**App-dueña de series:** se abandona el default de intervalos nativos del PM5 (`distanceIntervals`/`calorieIntervals` que no tienen count de rondas). Cada bout se programa como **fixed** de esa medida; el key de ventana es el del tramo → el monitor vuelve a “row to begin” en cada serie.
+
+**Count-in:** al GO se re-ancla la ventana (`reanchorTramoDeviceWindowAtGo`) — lo remado en el 3-2-1 no cuenta.
+
+**UI:** goal de cal pinta `0 / N` sin esperar el primer sample; strip y rest usan ventana de tramo, no el acumulado crudo del PM5.
+
+**Plan:** `docs/plan-sincronia-contadores-dispositivo.md`. Código: `ErgCounterPolicy`, programmer por tramo, auto-cierre series, strip.
+
+**En consecuencia, no hacer:** no volver a programar series como intervalos nativos del PM5 por defecto; no auto-cerrar un EMOM por cruce de cal (el reloj del minuto manda); no resetear el contador en un AMRAP por “ronda mental”; no pintar `live.distanceMeters` crudo en superficies de tramo.
+
+---
+
 ## 2026-08-02 · Los tests: TRES sistemas paralelos, y ninguno deja al coach escribir el test que quiere
 
 **El hallazgo (no es una decisión todavía: es el diagnóstico que la precede).** Alex pidió algo elemental —«que el coach pueda montar un test de ergo de 2 × 2 min y que calibre zonas»— y el sistema no puede. Al abrirlo aparecen **tres vocabularios de test conviviendo**, sin hablarse:
