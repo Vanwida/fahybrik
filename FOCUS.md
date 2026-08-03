@@ -1,7 +1,19 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-02**
+Última actualización: **2026-08-03**
+
+---
+
+## 3-ago · Sincronía de contadores (PM5 / tramo)
+
+Diagnóstico: metros (carrera) y calorías (ergo) se desincronizan porque hay varios contadores y la app no es dueña clara de la ventana al empezar serie/ronda. Plan de implementación escrito:
+
+→ **`docs/plan-sincronia-contadores-dispositivo.md`**
+
+Modelo: tramo = unidad; policy `perTramo` vs `cumulative`; app manda program al PM5 al entrar en tramo de trabajo; series/EMOM/estaciones resetean m·cal; AMRAP acumulativo; libre = prescrito. 9 PRs (policy → programmer → auto-cierre → UI → record → free → gym → paridad carrera).
+
+**Espera OK de Alex (3 sí/no):** (1) app-dueña siempre en series (no intervalos nativos PM5 como default) · (2) AMRAP siempre cumulative · (3) ergo (PR1–8) antes que carrera (PR9).
 
 ---
 
