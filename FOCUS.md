@@ -5,6 +5,17 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 3-ago · Garmin CIQ — listo para sideload (falta reloj USB)
+
+Clave local generada (`garmin-ciq/developer_key.der`, gitignored). Compila con
+`./garmin-ciq/build.sh` (JAVA_HOME openjdk + monkeyc SDK 9.2.0) →
+`bin/fahybrid-fr965.prg`. **No se puede sideload sin volumen `/Volumes/GARMIN`.**
+Siguiente: conectar reloj por USB → `cp bin/fahybrid-fr965.prg /Volumes/GARMIN/GARMIN/APPS/`
+→ login email/código → día con carrera hasta reproductor nativo. Código de la app
+no bloquea; `exitTo` solo se valida en hardware.
+
+---
+
 ## 3-ago · Sincronía de contadores PM5 — implementado (rama `feat/pm5-counter-sync`)
 
 OK de Alex: app-dueña · AMRAP cumulative · ergo antes que carrera.
