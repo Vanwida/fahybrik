@@ -504,23 +504,20 @@ struct ActiveWorkoutView: View {
     // the erg sheet and taps the erg he is on. If nothing is connected he simply rows
     // and the app records what it can, exactly as it does for an unrecognised belt.
 
-    /// Program the CURRENT erg piece on the connected PM5 (ErgData behavior: the
-    /// monitor loads the workout and shows "row to begin"; the athlete touches
-    /// nothing).
-    ///
-    /// The window key is what decides when the piece is (re)sent, and therefore when
-    /// the monitor's counter goes back to zero. When the APP clocks the series — an
-    /// EMOM on the ski, a Tabata on the bike — every round is its own window, so
-    /// each round starts the monitor from zero, which is exactly what the athlete
-    /// asked for and what the old once-per-segment guard never did. When the MONITOR
-    /// clocks the series (native intervals), the segment stays the window: re-sending
-    /// would restart the whole piece under him.
+    /// Program the CURRENT erg work window on the connected PM5 (ErgData behavior:
+    /// the monitor loads the workout and shows "row to begin"; the athlete touches
+    /// nothing). Driven by `ErgCounterPolicy`: each per-tramo series/EMOM/station
+    /// re-sends so the monitor zeros; cumulative windows (AMRAP) keep one key.
     private func attemptProgramPM5() {
         guard let seg = session.currentSegment, seg.involvesErg else { return }
-        let key = PM5WorkoutProgrammer.monitorRunsTheSeries(seg)
-            ? "seg-\(seg.id.uuidString)"
-            : session.currentTramo.key
-        pm5.programIfNeeded(for: seg, windowKey: key)
+        let tramo = session.currentTramo
+        let policy = ErgCounterPolicy.resolve(
+            tramo: tramo,
+            segment: seg,
+            isResting: session.isTramoResting,
+            isCountIn: session.isTramoCountIn
+        )
+        pm5.programIfNeeded(for: seg, tramo: tramo, policy: policy)
     }
 
     /// Let go of every machine the moment the work ends — before the summary, not
@@ -898,7 +895,7 @@ struct ActiveWorkoutView: View {
             // it, or the erg surface would have taken the screen. Leaving the rower's
             // numbers under "50 wall balls" would read as his current work.
             if segmentInvolvesErg, pm5.isConnected, !session.isStationTramo {
-                ErgLiveStrip(pm5: pm5)
+                ErgLiveStrip(session: session, pm5: pm5)
             }
         } else {
             // Correr es lo ÚNICO que queda en este árbol: el EMOM y el hierro se

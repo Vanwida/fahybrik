@@ -177,20 +177,33 @@ final class PM5ConnectionStore: NSObject {
     // MARK: - workout programming (ErgData parity)
 
     /// Send this erg piece to the monitor. `windowKey` is the WORK WINDOW the piece
-    /// belongs to — the segment when the piece stands alone, the tramo when a format
-    /// subdivides it. When the key changes, the piece is sent again, which is what
-    /// makes the monitor zero its counters and wait for the next first stroke: round
-    /// 3 of an EMOM on the ski starts from 0 m, exactly like round 1 did.
+    /// belongs to — the tramo key for per-bout series/EMOM/stations, or a stable
+    /// segment key for cumulative windows (AMRAP). When the key changes, the piece
+    /// is sent again, which is what makes the monitor zero its counters and wait
+    /// for the next first stroke: serie 3 of a 5×500 starts from 0 m.
     ///
-    /// It is deliberately NOT re-sent while the MONITOR is running the series
-    /// itself (native intervals): re-programming mid-piece would restart the whole
-    /// thing under the athlete. See `PM5WorkoutProgrammer.monitorRunsTheSeries`.
-    ///
+    /// Prefer the tramo+policy overload so each bout programs its own measure.
     /// Non-erg pieces and unmapped shapes are a no-op: the athlete can ALWAYS just
-    /// row, the monitor programming is never a gate.
+    /// row; monitor programming is never a gate.
     func programIfNeeded(for segment: WorkoutSegment, windowKey: String) {
-        guard isConnected else { return }
         guard let spec = PM5WorkoutProgrammer.spec(for: segment) else { return }
+        program(spec: spec, windowKey: windowKey)
+    }
+
+    /// Program the LIVE tramo under `ErgCounterPolicy`. No-op when the policy says
+    /// not to program (rest / count-in / non-erg) or the key is unchanged.
+    func programIfNeeded(for segment: WorkoutSegment,
+                         tramo: LiveTramo,
+                         policy: ErgCounterPolicy) {
+        guard let key = PM5WorkoutProgrammer.programWindowKey(policy: policy, tramo: tramo, segment: segment),
+              let spec = PM5WorkoutProgrammer.spec(for: tramo, segment: segment, policy: policy) else {
+            return
+        }
+        program(spec: spec, windowKey: key)
+    }
+
+    private func program(spec: PM5WorkoutSpec, windowKey: String) {
+        guard isConnected else { return }
         guard programmedWindowKey != windowKey else { return }
         programmedWindowKey = windowKey
         #if targetEnvironment(simulator)

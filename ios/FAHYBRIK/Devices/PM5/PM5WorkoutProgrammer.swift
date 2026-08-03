@@ -1,29 +1,26 @@
 import Foundation
 
 // Pure mapping: our prescription domain → the PM5's native workout menu
-// (PM5WorkoutSpec). The erg twin of TreadmillLegResolver — resolved once per erg
-// segment, fully unit-testable, no CoreBluetooth.
+// (PM5WorkoutSpec). The erg twin of TreadmillLegResolver — fully unit-testable,
+// no CoreBluetooth.
 //
-// PRINCIPLE — program what the monitor can natively RUN, never approximate:
-//   · uniform intervals with rest    → fixed dist/time/cal INTERVALS (the free
-//     "5×500 r1:30" → distanceIntervals(500, 90); the monitor runs work+rest
-//     itself — note the PM has no interval COUNT for fixed intervals, it repeats
-//     until the athlete stops; the app's session engine owns the 5 rounds)
-//   · intervals with NO rest         → folded into one fixed piece whose SPLIT is
-//     the bout (5×500 r0 ≡ 2500m with 500m splits — same thing, honestly)
-//   · steady / for-time / warm-up    → fixed distance / time / calories
-//   · AMRAP window                   → fixed time
-//   · app-driven formats (EMOM, Tabata, Death By…) and heterogeneous interval
-//     pyramids (1200/1000/800) → JUST ROW: the app drives the clock, the monitor
-//     free-runs with splits and a clean zeroed counter per piece. (Heterogeneous
-//     pieces need the variable-interval wire — 0x77 SETPMDATA — a future step.)
+// PRINCIPLE (2026-08, counter sync): the APP owns the series count. Each work
+// tramo is programmed as THAT bout's fixed piece (500 m, 20 cal, 2:00), so the
+// monitor zeros and waits for "row to begin" when the tramo opens. Native PM5
+// interval modes (work+rest repeating forever, no round count) are no longer the
+// default path — they desynced the app's "serie 3/5" from the monitor.
+//
+//   · series / stations / steady goal → fixed dist/time/cal of THIS bout
+//   · AMRAP window                    → fixed time once (cumulative)
+//   · EMOM / open app-driven          → justRow (or fixed if the round has m/cal)
+//   · rest / count-in / non-erg       → nil (do not program)
+//
 // A pace objective rides along whenever one is prescribed (PaceBoat on the PM5).
+// See docs/plan-sincronia-contadores-dispositivo.md + ErgCounterPolicy.
 enum PM5WorkoutProgrammer {
 
-    /// The PM5 program for this segment, or nil when no part of it touches an erg
-    /// (never program the monitor from a run or strength piece). Gated on
-    /// `involvesErg`, not on the segment kind: a ski/bike EMOM collapses to a
-    /// non-erg kind and would otherwise never reach the monitor at all.
+    /// Segment-level program — used for cumulative windows (AMRAP) and as a
+    /// fallback when no tramo is available. Prefer `spec(for:tramo:segment:policy:)`.
     static func spec(for segment: WorkoutSegment) -> PM5WorkoutSpec? {
         guard segment.involvesErg else { return nil }
         let pace = targetPaceSecPer500m(segment)
@@ -31,62 +28,74 @@ enum PM5WorkoutProgrammer {
 
         switch p.scheme {
         case .intervals:
-            return intervalsSpec(segment, p, pace: pace)
+            // App-owned series: program ONE bout (not native intervals, not the
+            // whole multi-round total). The live path re-sends per tramo key.
+            return boutFixedSpec(measure: boutMeasure(segment, p), pace: pace)
         case .steady, .warmup, .cooldown, .forTime:
-            // One continuous piece; the scalars (or the single set's measure)
-            // carry the goal. A goal-less For Time degrades to just row.
             return scalarSpec(segment, pace: pace)
         case .amrap:
-            // Fixed window: the monitor counts the time down, the app counts work.
             if let t = p.totalS, t > 0 { return .fixedTime(seconds: t, pace: pace) }
             return .justRow(pace: pace)
         case .emom, .tabata, .deathBy, .chipper, .ladder, .rounds, .hyroxSim, .sets:
-            // App-driven formats: our engine owns the interval clock (beeps,
-            // rotation); the monitor free-runs and records honestly.
             return .justRow(pace: pace)
         }
     }
 
-    /// True when the piece we send makes the MONITOR run the whole series itself
-    /// (native work+rest intervals). Then the monitor already zeroes its own split
-    /// counter between bouts, and re-sending the piece on every bout would restart
-    /// the series under the athlete — so the app re-anchors its own window and
-    /// leaves the monitor alone. False for everything the APP clocks (EMOM, Tabata,
-    /// a heterogeneous pyramid, a single piece), where each window has to be sent
-    /// again to get the counter back to zero.
-    static func monitorRunsTheSeries(_ segment: WorkoutSegment) -> Bool {
-        switch spec(for: segment)?.kind {
-        case .distanceIntervals, .timeIntervals, .calorieIntervals: return true
-        default: return false
+    /// Program for the LIVE tramo under an already-resolved policy. Nil when the
+    /// policy says not to program (rest, count-in, non-erg) or the segment is not
+    /// erg-related.
+    static func spec(for tramo: LiveTramo,
+                     segment: WorkoutSegment,
+                     policy: ErgCounterPolicy) -> PM5WorkoutSpec? {
+        guard segment.involvesErg, tramo.isErg, policy.shouldProgramOnEnter else { return nil }
+        let pace = targetPaceSecPer500m(segment)
+        switch policy.program {
+        case .none:
+            return nil
+        case .justRow:
+            return .justRow(pace: pace)
+        case .fixedPiece:
+            if let measure = tramo.measure {
+                return boutFixedSpec(measure: measure, pace: pace)
+            }
+            // Cumulative AMRAP etc. fall back to the segment shape.
+            return spec(for: segment)
         }
+    }
+
+    /// Window key for `programIfNeeded`. Changes → monitor is re-sent and zeros.
+    /// perTramo → tramo key; cumulative → stable segment key.
+    static func programWindowKey(policy: ErgCounterPolicy,
+                                 tramo: LiveTramo,
+                                 segment: WorkoutSegment) -> String? {
+        guard policy.shouldProgramOnEnter else { return nil }
+        switch policy.scope {
+        case .perTramo: return tramo.key
+        case .cumulativeSegment: return "seg-\(segment.id.uuidString)"
+        }
+    }
+
+    /// Legacy name. Always false under app-owned series: the app reprograms every
+    /// work tramo so the monitor counter matches the bout. Kept so call sites
+    /// compile; prefer `ErgCounterPolicy` + `programWindowKey`.
+    static func monitorRunsTheSeries(_ segment: WorkoutSegment) -> Bool {
+        _ = segment
+        return false
     }
 
     // MARK: - Shapes
 
-    /// Uniform interval work → the PM's native fixed-interval modes; rest-less
-    /// series fold into one fixed piece split by the bout.
-    private static func intervalsSpec(_ segment: WorkoutSegment, _ p: Prescription, pace: Double?) -> PM5WorkoutSpec {
-        let rest = p.restS ?? p.sets?.first?.restS ?? 0
-        guard let measure = boutMeasure(segment, p) else { return .justRow(pace: pace) }
-        let rounds = max(1, segment.formatRounds ?? 1)
-
+    /// One bout → fixed piece (the app will re-send for the next bout).
+    private static func boutFixedSpec(measure: Measure?, pace: Double?) -> PM5WorkoutSpec {
+        guard let measure else { return .justRow(pace: pace) }
         switch measure {
         case .distance(let meters):
             let m = Int(meters.rounded())
-            guard m > 0 else { return .justRow(pace: pace) }
-            return rest > 0
-                ? .distanceIntervals(workMeters: m, restSeconds: rest, pace: pace)
-                : .fixedDistance(meters: m * rounds, splitMeters: m, pace: pace)
+            return m > 0 ? .fixedDistance(meters: m, pace: pace) : .justRow(pace: pace)
         case .duration(let seconds):
-            guard seconds > 0 else { return .justRow(pace: pace) }
-            return rest > 0
-                ? .timeIntervals(workSeconds: seconds, restSeconds: rest, pace: pace)
-                : .fixedTime(seconds: seconds * rounds, splitSeconds: seconds, pace: pace)
+            return seconds > 0 ? .fixedTime(seconds: seconds, pace: pace) : .justRow(pace: pace)
         case .calories(let cals):
-            guard cals > 0 else { return .justRow(pace: pace) }
-            return rest > 0
-                ? .calorieIntervals(workCalories: cals, restSeconds: rest, pace: pace)
-                : .fixedCalories(calories: cals * rounds, splitCalories: cals, pace: pace)
+            return cals > 0 ? .fixedCalories(calories: cals, pace: pace) : .justRow(pace: pace)
         case .reps, .unknown:
             return .justRow(pace: pace)
         }
