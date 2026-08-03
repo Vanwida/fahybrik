@@ -95,7 +95,7 @@ UX must be polished, never rough — even for early demos. Pablo is **very deman
 
 Reference: **Whoop app** for dark + dense + premium athletic vibe. Brand: black + Fabrik orange. Italic-bold display typography (derivative of Fabrik wordmark).
 
-**El doble** (`app.fahybrid.com/<locale>/design`, grupo `(design)` + `web/components/design-twin/`): réplica viva de la app del atleta para dirigir UX. REGLA: los mockups de UI de la app se construyen como pantallas `propuesta` del doble — nunca más artifacts/HTML sueltos; todo cambio de UX shipeado en Swift actualiza su pantalla `espejo` en el mismo lote; si Theme.swift cambia tokens, `twin.css` cambia en el mismo lote. Ver docs/DECISIONS.md (2026-07-27 «El doble»).
+**El doble** (`app.fahybrid.com/<locale>/design`, grupo `(design)` + `web/components/design-twin/`): réplica viva de la app del atleta para dirigir UX. REGLA: los mockups de UI de la app se construyen como pantallas `propuesta` del doble — nunca más artifacts/HTML sueltos; todo cambio de UX shipeado en Swift actualiza su pantalla `espejo` en el mismo lote; si Theme.swift cambia tokens, `twin.css` cambia en el mismo lote; todo cambio en una pantalla del doble estampa su `actualizado` (meta) en el mismo commit — el índice ordena por esa fecha; `cd web && pnpm run twin:desfase` delata los espejos cuyo Swift cambió después de su fecha (correr al tocar UI de iOS y al empezar sesión de diseño). Ver docs/DECISIONS.md (2026-07-27 «El doble»).
 
 ## Workflow
 

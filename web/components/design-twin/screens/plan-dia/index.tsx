@@ -42,6 +42,7 @@ export const meta: TwinMeta = {
   titulo: 'El día del plan',
   zona: 'Plan y hoy',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Qué hay ese día, en qué orden y con qué dosis. Cada trabajo con sus bloques plegados a una línea; el detalle de una sesión vive en su ficha.',
   fuentes: [],

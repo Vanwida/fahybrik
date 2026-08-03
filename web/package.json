@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "twin:desfase": "node scripts/twin-desfase.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

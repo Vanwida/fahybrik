@@ -24,9 +24,12 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · EMOM',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'El aro lleva la ventana entera de un tirón, porque no se para porque tú acabes antes. Al marcar la tarea el mismo número se pone verde y pasa a leerse como el respiro que te queda.',
   fuentes: [],
+  enApp:
+    'RotatingLiveView shipea los datos EMOM y el verde en descanso; sin aro y sin interacción del atleta.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

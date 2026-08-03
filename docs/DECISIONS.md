@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-03 · El doble mentía con autoridad: sellos fechados, re-verificables, y el índice por recencia
+
+**El fallo (Alex: «no podemos fiarnos de eso»):** el índice del doble hacía afirmaciones que nadie re-verificaba. Auditado contra el Swift real: **los 5 espejos estaban desfasados** — congelados justo antes de la campaña iOS del 29-jul/3-ago («un guion no es un dato»: donde no hay medida se omite el elemento o se explica con palabras) — y uno (`devices`) nació ya incompleto (el banner de conexión perdida del PM5 existía desde el 20-jul y el espejo se declaró el 28 sin él). Peor: **24 de las 33 «propuestas» ya estaban construidas en Swift** (la tanda del 30-jul implementó las propuestas casi literalmente y nadie re-selló el doble), «Tests guiados» figuraba como pendiente teniendo doble (`tests-calibracion`), y `ranking-box` afirmaba un dato falso («los datos ya viajan en el GET de marcas» — el endpoint no lleva percentil ni cohorte).
+
+**Decidido:**
+- **Toda afirmación del doble lleva fecha.** `TwinMeta.actualizado` (YYYY-MM-DD) es obligatorio y se estampa **en el mismo commit** que el cambio de diseño. «Espejo» ya no significa «así está la app hoy» sino «réplica del Swift a esta fecha» — la fecha delata el desfase en vez de esconderlo.
+- **Estado nuevo `construida`:** la propuesta se shipeó en Swift (`fuentes` = los ficheros que la construyeron) pero el doble no está re-verificado contra ese Swift. Es la antesala honesta de `espejo`. Re-sellados 12: tests-calibracion, perfil-rendimiento, analiticas-veredicto, chat-coach, entreno-vivo, gate-bloque, post-entreno, sesion-previa, plan-semana, vivo-fuerza, vivo-emom, vivo-fortime.
+- **Campo `enApp`** en propuestas parciales: una frase con lo que el Swift actual ya tiene y lo que sigue siendo futuro (14 pantallas: vivo-erg/correr/amrap/dobles, watch-dobles/series/fuerza/rodaje/amrap/fortime/cinta/emom, plan-bloque, ranking-box).
+- **Detector permanente:** `cd web && pnpm run twin:desfase` compara la fecha git de cada fuente Swift contra el `actualizado` de su espejo y lista los podridos (exit 1). Correr al tocar UI de iOS y al abrir sesión de diseño.
+- **El índice contesta primero «¿qué es lo nuevo?»:** sección «Lo último» por fechas (cards para el día más fresco, pastillas para los lotes), fecha en cada card, zonas ordenadas por recencia y la tanda del entreno colapsada en una card-colección (21 pantallas dejaban ilegible el inventario).
+- **PENDIENTES = pantallas que existen en la app sin doble** (semántica explícita): Hoy (InicioView), Entreno libre (FreeWorkoutBuilderView), Onboarding día 1. «Tests guiados» eliminado — su doble existe.
+
+**En consecuencia, no hacer:** no declarar `espejo` sin `fuentes` + verificación contra el Swift de ese día; no dejar en `propuesta` algo que Swift ya construyó (→ `construida`, y a `espejo` solo tras re-verificar); no cambiar una pantalla del doble sin bump de su `actualizado`; no volver a un índice sin recencia.
+
+---
+
 ## 2026-08-03 · Contadores PM5: la app es dueña del tramo
 
 **Decidido:** en ergo (remo/ski/bike), la app y el PM5 miden **la misma unidad de trabajo (el tramo)**. La app **programa el piece al entrar en cada tramo de trabajo** y el contador de m/cal de esa ventana parte de cero. Libre y prescrito comparten `ErgCounterPolicy` + `PM5WorkoutProgrammer` + `WorkoutSession` — no hay camino especial.

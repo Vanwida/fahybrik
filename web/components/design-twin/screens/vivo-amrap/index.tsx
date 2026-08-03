@@ -30,9 +30,12 @@ export const meta: TwinMeta = {
   titulo: 'AMRAP · la ventana y las rondas',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Tiempo fijo, rondas libres. El reloj gobierna como ambiente y la ronda manda como sujeto: se toca en medio lienzo y la pantalla late al sumar. Al girar, el tramo decide la cara (el remo lo mide el monitor; los burpees los cuentas tú) y la franja del formato no se suelta nunca.',
   fuentes: [],
+  enApp:
+    'Ventana, toque-suma-ronda y tally shipeados (AmrapLiveHUD); faltan el aro a media pantalla, el latido y la horizontal propia.',
   dispositivo: 'iphone',
   soportaHorizontal: true,
 };

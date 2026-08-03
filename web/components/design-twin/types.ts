@@ -18,6 +18,12 @@ export type TwinEstado =
   | 'espejo'
   /** Mockup de algo aún no construido en la app (sustituye al artifact suelto). */
   | 'propuesta'
+  /**
+   * La propuesta ya se shipeó en Swift (`fuentes` = los ficheros que la
+   * construyeron), pero el doble no está re-verificado contra ese Swift.
+   * Es la antesala honesta de `espejo`: afirma «se construyó», no «soy fiel».
+   */
+  | 'construida'
   /** Hueco reconocido: la pantalla existe en la app pero aún no tiene doble. */
   | 'pendiente';
 
@@ -82,10 +88,21 @@ export interface TwinMeta {
   titulo: string;
   zona: TwinZona;
   estado: Exclude<TwinEstado, 'pendiente'>;
+  /**
+   * Última vez que la pantalla cambió de verdad (YYYY-MM-DD). El índice ordena
+   * por esta fecha — se actualiza EN EL MISMO COMMIT que el cambio de diseño.
+   */
+  actualizado: string;
   /** Una línea para la card del índice. */
   descripcion: string;
   /** Rutas repo-relativas del Swift espejado (vacío si es propuesta). */
   fuentes: string[];
+  /**
+   * Solo para `propuesta` sobre algo que YA existe en parte: una frase con lo
+   * que el Swift actual tiene de esto y lo que sigue siendo futuro. Ausente =
+   * futuro puro. Evita que una propuesta parcial se lea como app inexistente.
+   */
+  enApp?: string;
   dispositivo: 'iphone' | 'watch';
   soportaHorizontal: boolean;
   /**

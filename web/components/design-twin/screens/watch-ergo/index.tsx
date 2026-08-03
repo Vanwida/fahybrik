@@ -22,6 +22,7 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · ergo',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'El PM5 lo lee el móvil, no el reloj: en la muñeca sólo hay pulso y tiempo, y los metros y el /500 llegan marcados. Sin monitor emparejado se caen dos de las tres páginas y la primera pasa a ser tu FC.',
   fuentes: [],

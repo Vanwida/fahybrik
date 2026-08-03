@@ -19,10 +19,14 @@ export const meta: TwinMeta = {
   id: 'perfil-rendimiento',
   titulo: 'Perfil — las filas llevan su dato',
   zona: 'Perfil y ajustes',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'La sección «Rendimiento» deja de ser cinco puertas grises y pasa a ser una lista donde cada fila lleva su cifra. Compara «HOY» con la propuesta en el mismo atleta.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Profile/RendimientoSection.swift',
+    'ios/FAHYBRIK/Profile/ProfileView.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

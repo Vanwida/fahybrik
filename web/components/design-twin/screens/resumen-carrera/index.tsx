@@ -60,6 +60,7 @@ export const meta: TwinMeta = {
   titulo: 'Al terminar de correr — el resumen honesto',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Un fartlek no tiene un ritmo, tiene dos. El sujeto es el ritmo de lo fuerte contra lo suave, con el aguante debajo — y cuando no se puede separar, se dice en vez de promediar.',
   fuentes: [],

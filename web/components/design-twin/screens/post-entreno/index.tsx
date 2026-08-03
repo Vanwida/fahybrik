@@ -22,10 +22,15 @@ export const meta: TwinMeta = {
   id: 'post-entreno',
   titulo: 'Al acabar — el registro que se va a guardar',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'El sujeto no son los campos: es el registro. Se guarda sin tocar nada, y lo que no se midió no se pinta — las zonas casi nunca están.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/PostWorkoutSummaryView.swift',
+    'ios/FAHYBRIK/Workout/PostWorkout/TramosMedidos.swift',
+    'ios/FAHYBRIK/Workout/PostWorkout/TablaDeTramos.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {

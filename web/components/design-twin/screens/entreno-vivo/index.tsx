@@ -14,10 +14,16 @@ export const meta: TwinMeta = {
   id: 'entreno-vivo',
   titulo: 'El entreno en vivo — quién gobierna la pantalla',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'El body que hoy hospeda TRES arquetipos a la vez. Aquí se separan: qué manda mientras trabajas, qué pasa cuando el bloque es en realidad una lista, y qué es la puerta que se pone encima.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/ActiveWorkoutView.swift',
+    'ios/FAHYBRIK/Workout/WorkoutFormatHUDs.swift',
+    'ios/FAHYBRIK/Workout/WorkoutLiveHUDs.swift',
+    'ios/FAHYBRIK/Workout/BlockPreviewGate.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {

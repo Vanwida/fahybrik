@@ -26,9 +26,12 @@ export const meta: TwinMeta = {
   titulo: 'El plan — la semana dentro del bloque',
   zona: 'Plan y hoy',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Dónde estás hoy dentro del bloque y qué toca: el carril de siete días con sus sellos y la sesión de hoy en grande, con su duración solo cuando el plan la deja escrita. Por el pie se entra al ciclo. El día que no toca nada también tiene salida.',
   fuentes: [],
+  enApp:
+    'InicioView y PlanView existen por separado; la fusión que propone esta pantalla, no.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

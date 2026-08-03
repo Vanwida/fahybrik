@@ -47,10 +47,15 @@ export const meta: TwinMeta = {
   id: 'sesion-previa',
   titulo: 'La ficha de la sesión, con el vídeo',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'Lo que ves antes de empezar: qué toca, por qué te lo manda el coach y cómo se hace cada movimiento. Un vídeo por ejercicio y «Empezar» siempre abajo.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/PreWorkoutBriefView.swift',
+    'ios/FAHYBRIK/Plan/SessionExercisesSheet.swift',
+    'ios/FAHYBRIK/Plan/ExerciseDetailView.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

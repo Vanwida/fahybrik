@@ -15,9 +15,12 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · AMRAP',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'La ronda no la mide nadie: la declaras tú con un toque, y por eso es la única vista que anuncia su acción todo el rato. La muñeca entera es el marcador.',
   fuentes: [],
+  enApp:
+    'FixedLiveView (rama amrap) shipea cuenta atrás, «Rondas: N» y el botón «+ Ronda».',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

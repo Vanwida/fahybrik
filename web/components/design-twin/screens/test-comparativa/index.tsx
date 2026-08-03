@@ -29,6 +29,7 @@ export const meta: TwinMeta = {
   titulo: 'El test, contra el de hace tres meses',
   zona: 'Marcas y tests',
   estado: 'propuesta',
+  actualizado: '2026-08-02',
   descripcion:
     'El resultado de un test deja de ser una cifra suelta: se elige contra qué compararse y el sujeto es la escalera de zonas recalculada — la banda de cada zona antes y ahora, que es lo que el atleta leerá mañana en su plan.',
   fuentes: [],

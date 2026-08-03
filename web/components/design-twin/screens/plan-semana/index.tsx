@@ -23,10 +23,11 @@ export const meta: TwinMeta = {
   id: 'plan-semana',
   titulo: 'El plan — la semana',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'Qué te toca hoy y qué llevas: el contador de sesiones, las horas ya medidas, el reparto por modalidad y los siete días con su estado. La semana vacía tiene dos caras, y se distinguen.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Plan/PlanView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

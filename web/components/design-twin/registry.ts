@@ -144,17 +144,20 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
 ];
 
 export const ESTADO_LABEL: Record<TwinEstado, string> = {
-  espejo: 'Espejo de la app',
+  espejo: 'Espejo',
   propuesta: 'Propuesta',
+  construida: 'Construida',
   pendiente: 'Pendiente',
 };
 
-/** Pantallas de la app que aún NO tienen doble — el hueco reconocido. */
+/**
+ * Pantallas que EXISTEN en la app y aún no tienen doble — el hueco reconocido.
+ * (3-ago: «Tests guiados» salió de aquí — su doble es `tests-calibracion`.)
+ */
 export const PENDIENTES: TwinPendiente[] = [
-  { titulo: 'Hoy', zona: 'Plan y hoy', descripcion: 'La portada diaria: readiness, sesión del día, avisos.' },
-  { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'Montar un libre: modalidad, medida, objetivo.' },
-  { titulo: 'Tests guiados', zona: 'Marcas y tests', descripcion: 'La batería de calibración con instrucciones paso a paso.' },
-  { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'Alta del atleta: datos, dispositivos, permisos.' },
+  { titulo: 'Hoy', zona: 'Plan y hoy', descripcion: 'La portada diaria (InicioView: readiness, sesión del día, avisos) — sin doble.' },
+  { titulo: 'Entreno libre (builder)', zona: 'Entreno en vivo', descripcion: 'FreeWorkoutBuilderView: modalidad → formato → configura — sin doble.' },
+  { titulo: 'Onboarding día 1', zona: 'Perfil y ajustes', descripcion: 'OnboardingFlow + Day1Flow: alta, datos, dispositivos, permisos — sin doble.' },
 ];
 
 /** Mockups históricos (pre-doble) — enlaces de consulta, congelados. */

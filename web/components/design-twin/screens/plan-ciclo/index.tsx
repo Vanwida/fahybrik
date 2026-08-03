@@ -21,6 +21,7 @@ export const meta: TwinMeta = {
   titulo: 'El plan — hacia dónde voy y cuánto queda',
   zona: 'Plan y hoy',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Las etapas que tu coach ha publicado, en orden y con el nombre que él les puso, el cursor de hoy dentro de la que toca, lo que está marcado en el calendario y la carrera cerrando por abajo. Cero carga prevista: eso no se sabe.',
   fuentes: [],

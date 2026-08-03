@@ -15,9 +15,12 @@ export const meta: TwinMeta = {
   titulo: 'Ranking del box — «En tu box»',
   zona: 'Marcas y tests',
   estado: 'propuesta',
+  actualizado: '2026-07-28',
   descripcion:
-    'Tu marca contra el box, sin nombres: percentil + distribución anónima en el detalle de marca, y «Tus marcas» dentro de Analíticas. Los datos ya viajan en el GET de marcas.',
+    'Tu marca contra el box, sin nombres: percentil + distribución anónima en el detalle de marca, y «Tus marcas» dentro de Analíticas. El GET de marcas aún no lleva percentil ni cohorte: el endpoint es parte del encargo.',
   fuentes: [],
+  enApp:
+    'El «En tu box» de MarkDetailView es otra cosa: tu PR contra tu tiempo de carrera, no un percentil contra otros atletas.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

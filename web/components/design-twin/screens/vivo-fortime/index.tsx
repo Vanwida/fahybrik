@@ -27,10 +27,11 @@ export const meta: TwinMeta = {
   id: 'vivo-fortime',
   titulo: 'For Time — la ruta y el suceso',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'El crono sube y el trabajo es fijo. La estación es el tramo, el reloj del bloque es la puntuación y no se va nunca, y de cada estación se sale por donde se puede: cruzando el objetivo si alguien lo mide, o con tu toque si no lo mide nadie. Gíralo: con máquina delante sale la cara del monitor, sin ella el HUD del formato, y la franja se queda en las dos.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Workout/WorkoutFormatHUDs.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: true,
 };

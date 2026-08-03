@@ -5,6 +5,12 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 3-ago · El doble había caducado — re-sellado entero + índice por recencia
+
+Alex dejó de fiarse del índice del doble («no encuentro el mockup de ayer», «hay cosas desactualizadas que parecen la realidad») y la auditoría le dio la razón: **5/5 espejos desfasados** (congelados antes de la campaña iOS «un guion no es un dato») y **24/33 propuestas ya construidas en Swift** sin re-sellar. Hecho: fecha `actualizado` obligatoria en cada pantalla (estampada desde git), índice con «Lo último» primero + tanda colapsada en colección, estado nuevo **`construida`** (12 pantallas), campo **`enApp`** en parciales (14), «Tests guiados» fuera de pendientes (su doble es `tests-calibracion`), afirmación falsa de `ranking-box` corregida, y detector permanente **`pnpm run twin:desfase`** (fecha git de fuentes vs sello). Detalle en `docs/DECISIONS.md` (2026-08-03 «El doble mentía»). **En curso:** 5 agentes re-fidelizando los espejos contra el Swift de hoy — commit aparte al aterrizar.
+
+---
+
 ## 3-ago · Garmin CIQ — listo para sideload (falta reloj USB)
 
 Clave local generada (`garmin-ciq/developer_key.der`, gitignored). Compila con

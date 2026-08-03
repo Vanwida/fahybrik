@@ -15,9 +15,12 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · dobles',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'El sujeto no es un número, es si trabajas tú o esperas. Y cuando esperas, tu salida pasa a ser el sujeto — salvo que nadie mida a tu pareja, que es lo que pasa hoy.',
   fuentes: [],
+  enApp:
+    'RelayLiveView ya distingue trabajas-vs-esperas en la muñeca; el resto del tratamiento sigue aquí.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

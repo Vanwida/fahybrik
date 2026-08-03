@@ -17,10 +17,11 @@ export const meta: TwinMeta = {
   id: 'gate-bloque',
   titulo: 'La puerta del bloque — «empieza cuando estés listo»',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'La pantalla que ven las dos poblaciones: es el único briefing del entreno libre y la antesala de cada bloque del plan. Hoy reserva el mismo hueco para 1 ítem que para 16.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Workout/BlockPreviewGate.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {

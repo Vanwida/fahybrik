@@ -19,10 +19,11 @@ export const meta: TwinMeta = {
   id: 'tests-calibracion',
   titulo: 'Hub de tests — la calibración es el sujeto',
   zona: 'Marcas y tests',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'La pantalla donde aterriza el atleta nuevo deja de ser un callejón sin salida: el contador se pinta también en cero y el vacío se centra con una salida real.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Tests/TestsHubView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

@@ -15,9 +15,12 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · For Time',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'El crono total es la puntuación y no se va de la pantalla. En 8 de las 16 estaciones el reloj no mide nada más: la forma de la ruta se va al bisel, que es el único sitio donde cabe.',
   fuentes: [],
+  enApp:
+    'FixedLiveView shipea el crono-puntuación, la estación y la transición; falta el bisel.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

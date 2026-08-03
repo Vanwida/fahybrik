@@ -15,9 +15,12 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · cinta',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-30',
   descripcion:
     'Bajo techo el reloj sólo mide pulso y tiempo: los metros y la velocidad los lee el móvil de la cinta y llegan marcados. Sin cinta emparejada, la muñeca es un pulsómetro con cronómetro.',
   fuentes: [],
+  enApp:
+    'MirrorHUDView shipea el espejo de cinta con los metros del móvil; falta decir «del móvil» en la UI.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

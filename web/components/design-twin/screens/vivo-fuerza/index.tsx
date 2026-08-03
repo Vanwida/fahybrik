@@ -25,10 +25,11 @@ export const meta: TwinMeta = {
   id: 'vivo-fuerza',
   titulo: 'El hierro en vivo — la serie que tienes delante',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'En fuerza gobierna el atleta: la app no mide ni una repetición. Su trabajo es que sepas qué toca sin pensarlo, recoger lo que hiciste en un toque y contar el descanso, que también es dosis.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
