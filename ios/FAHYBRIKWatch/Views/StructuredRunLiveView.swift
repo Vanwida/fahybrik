@@ -1,27 +1,27 @@
 import SwiftUI
 
-// STRUCTURED RUN family (#68) — the athlete runs the series from the wrist, no
-// phone. A folded run block carrying a `structure` is driven by the shared engine's
-// leg cursor; this screen paints one tramo at a time (mockup "tramos con objetivo"):
-// "TRAMO 3 DE 13 · 800 m" up top, the measured pace big, the objetivo band colored
-// in/out, a distance (or time) progress bar, a live-HR zone strip, and the "luego:"
-// next-leg preview. A DISTANCE tramo auto-closes on the covered distance (the
-// WatchRunLegDriver); a TIME tramo counts down on the engine clock; "Tramo hecho"
-// is the manual override. Legacy runs without a structure never route here.
+// SERIES DE CALLE — una serie a la vez en la muñeca.
+//
+// Diseño (`watch-series` / kit-watch):
+//   · Trabajo  → modo ojeada: metros que faltan (o los que llevas sin objetivo),
+//     ritmo GPS en segundo nivel, CERO franja anunciada. Gesto latente solo si
+//     nadie puede cerrar el tramo (sin distancia prescrita).
+//   · Recupera → modo mando: cuenta atrás, lo que viene, «empezar ya».
+//   · Bisel segmentado = serie N de M + avance dentro del tramo.
+//   · Página del cuerpo (pulso) aparte.
+//
+// Corrige el live de hoy: héroe a 50 pt con botón de 52 pt y zona bar robando
+// altura. La pantalla ES el botón; el progreso vive en el bisel.
 struct StructuredRunLiveView: View {
     let session: WorkoutSession
-    // The per-leg distance driver is OWNED by the coordinator (WORKOUT lifetime), not
-    // this screen: paging away must NOT stop the DISTANCE auto-close, and the per-leg
-    // baseline must survive this view being recreated by watchOS paging. The view is
-    // purely presentational — it reads the driver's covered distance / progress.
     let driver: WatchRunLegDriver
 
     @State private var lastPaceHapticAt: Date = .distantPast
+    @State private var destello = WatchDestello()
+    @State private var lastLegIndex: Int = -1
 
     var body: some View {
         content
-            // Out-of-band pace haptic — mirrors ContinuousLiveView's zone-exit buzz:
-            // throttled so a bout hovering near the edge never vibrates continuously.
             .onChange(of: legPaceSecPerKm) { _, _ in
                 guard isWork, let status = objetivo?.status,
                       status == .tooFast || status == .tooSlow else { return }
@@ -30,157 +30,171 @@ struct StructuredRunLiveView: View {
                     WatchHaptics.warning()
                 }
             }
+            .onChange(of: session.runLegIndex) { _, new in
+                if lastLegIndex >= 0, new != lastLegIndex {
+                    destello = WatchDestello(
+                        n: destello.n + 1,
+                        color: isRecovery ? WatchTheme.zoneGreen : WatchTheme.orangeSoft
+                    )
+                }
+                lastLegIndex = new
+            }
+            .onAppear { lastLegIndex = session.runLegIndex }
     }
 
     @ViewBuilder
     private var content: some View {
         if session.isRunCountIn {
             countIn
-        } else if isRecovery {
-            recovery
         } else {
-            work
+            WatchReloj(
+                paginas: paginas,
+                tinte: tinteLienzo,
+                bisel: bisel,
+                destello: destello
+            )
         }
     }
 
-    // MARK: - Count-in (3-2-1 before the first tramo)
+    // MARK: - Count-in
 
     private var countIn: some View {
-        LiveScaffold(status: statusText) {
-            VStack(spacing: 6) {
-                WatchLabel(text: "Prepárate")
-                GiantNumber(text: WatchFormat.countdown(session.runCountInRemaining), size: 84, color: WatchTheme.orange)
-                if let next = RunLegDisplay.nextLegPreview(session.currentRunLeg) {
-                    Text(next)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .padding(.top, 1)
-                }
-            }
-        }
+        WatchReloj(
+            paginas: [
+                WatchPagina(
+                    id: "countin",
+                    contexto: statusText,
+                    modo: .ojeada,
+                    sujeto: WatchFormat.countdown(session.runCountInRemaining),
+                    tono: WatchTheme.orange,
+                    segundoEtiqueta: "Luego",
+                    segundoValor: RunLegDisplay.nextLegPreview(session.currentRunLeg)
+                ),
+            ],
+            tinte: WatchTheme.orange,
+            bisel: WatchAroContinuo(
+                remaining: countInFraction
+            ).watchBisel(),
+            destello: destello
+        )
     }
 
-    // MARK: - Work tramo (pace hero + objetivo band + progress + zone)
+    // MARK: - Páginas
 
-    private var work: some View {
-        let lectura = lecturaDelTramo
-        return LiveScaffold(status: statusText) {
-            VStack(spacing: 7) {
-                VStack(spacing: 2) {
-                    WatchLabel(text: lectura.etiqueta)
-                    GiantNumber(text: lectura.texto, size: 50, unit: lectura.unidad)
-                }
-                objetivoLine
-                progressBar
-                zoneStrip
-                nextLine
-            }
-        } bottom: {
-            BigTapButton(title: "Tramo hecho ▸") { session.primaryAdvance() }
+    private var paginas: [WatchPagina] {
+        var list: [WatchPagina] = []
+        if isRecovery {
+            list.append(paginaRecupera)
+        } else {
+            list.append(paginaSerie)
         }
+        if let pulso = WatchPaginasComunes.pulso(
+            bpm: session.liveHRBpm,
+            zone: session.liveZone,
+            modo: isRecovery ? .mando : .ojeada
+        ) {
+            list.append(pulso)
+        }
+        return list
     }
 
-    // MARK: - Recovery tramo (recover, countdown / distance, HR)
+    private var paginaSerie: WatchPagina {
+        let objetivoM = session.currentRunLeg?.distanceMeters
+        let cubiertos = driver.legCoveredMeters
+        let texto: String
+        let unidad = "m"
+        if let objetivoM, objetivoM > 0 {
+            // Redondeo hacia ARRIBA: no dar por acabado un tramo antes de tiempo.
+            texto = String(Int(ceil(max(0, Double(objetivoM) - cubiertos))))
+        } else if let total = session.currentRunLeg?.durationSeconds, total > 0 {
+            // Tramo a tiempo: la cuenta atrás manda.
+            return WatchPagina(
+                id: "serie-tiempo",
+                contexto: statusText,
+                modo: .ojeada,
+                sujeto: WatchFormat.countdown(session.runLegRemaining),
+                tono: WatchTinte.urgente(session.runLegRemaining),
+                segundoEtiqueta: legPaceSecPerKm != nil ? "GPS" : nil,
+                segundoValor: legPaceSecPerKm.map { "\(WatchFormat.pace($0))/km" },
+                // Con hito de tiempo el motor cierra solo: no se declara toque.
+                accion: nil,
+                onToca: nil
+            )
+        } else {
+            // Sin objetivo: lo único que sabe el reloj son los metros que LLEVAS.
+            texto = String(Int(floor(cubiertos)))
+        }
 
-    private var recovery: some View {
-        LiveScaffold(status: "RECUPERA", statusColor: WatchTheme.zoneGreen) {
-            VStack(spacing: 6) {
-                WatchLabel(text: recoveryTitle)
+        let cierreManual = objetivoM == nil && session.currentRunLeg?.durationSeconds == nil
+        return WatchPagina(
+            id: "serie",
+            contexto: statusText,
+            modo: .ojeada,
+            sujeto: texto,
+            unidad: unidad,
+            segundoEtiqueta: legPaceSecPerKm != nil ? "GPS" : nil,
+            segundoValor: legPaceSecPerKm.map { "\(WatchFormat.pace($0))/km" }
+                ?? (objetivoM == nil ? "sin objetivo" : nil),
+            // Gesto latente solo cuando NADA cierra el tramo (§7).
+            accion: cierreManual ? "Toca · serie hecha" : nil,
+            onToca: cierreManual ? { session.primaryAdvance() } : nil
+        )
+    }
+
+    private var paginaRecupera: WatchPagina {
+        let queda = session.runLegRemaining
+        let luego: String? = {
+            if let m = session.currentRunLeg.flatMap({ _ in nextWorkMeters }) {
+                return "\(m) m"
+            }
+            return RunLegDisplay.nextLegPreview(nextRunLeg)
+        }()
+        return WatchPagina(
+            id: "recupera",
+            contexto: recoveryContexto,
+            modo: .mando,
+            sujeto: {
                 if let target = session.currentRunLeg?.durationSeconds, target > 0 {
-                    GiantNumber(text: WatchFormat.countdown(session.runLegRemaining), size: 60,
-                                color: WatchTheme.zoneGreen)
-                } else {
-                    GiantNumber(text: distanceCoveredText, size: 44, unit: "m")
+                    return WatchFormat.countdown(queda)
                 }
-                progressBar
-                HStack {
-                    HRPill(bpm: session.liveHRBpm, zoneColor: hrZoneColor)
-                    Spacer()
+                return String(Int(driver.legCoveredMeters))
+            }(),
+            unidad: (session.currentRunLeg?.durationSeconds ?? 0) > 0 ? nil : "m",
+            tono: {
+                if let target = session.currentRunLeg?.durationSeconds, target > 0 {
+                    return WatchTinte.urgente(queda)
                 }
-                nextLine
+                return WatchTheme.ink
+            }(),
+            segundoEtiqueta: luego != nil ? "Luego" : nil,
+            segundoValor: luego,
+            accion: "Toca · empezar ya",
+            onToca: { session.primaryAdvance() }
+        )
+    }
+
+    // MARK: - Bisel / tinte
+
+    private var bisel: AnyView? {
+        if isRecovery {
+            if let total = session.currentRunLeg?.durationSeconds, total > 0 {
+                let rem = total > 0 ? session.runLegRemaining / Double(total) : 0
+                return WatchAroContinuo(remaining: rem).watchBisel()
             }
-        } bottom: {
-            BigTapButton(title: "Saltar descanso ▸") { session.primaryAdvance() }
+            return WatchAroContinuo(remaining: 1).watchBisel()
         }
+        let total = max(1, workLegTotal)
+        let hechas = max(0, workLegNumber - 1)
+        return WatchAroSegmentado(
+            total: total,
+            hechas: hechas,
+            fraccion: workFraction
+        ).watchBisel()
     }
 
-    // MARK: - Objetivo band (colored in / out)
-
-    @ViewBuilder
-    private var objetivoLine: some View {
-        if let obj = objetivo {
-            let word = RunLegDisplay.statusWord(obj.status)
-            HStack(spacing: 5) {
-                Text("obj")
-                    .font(.system(size: 11, weight: .heavy))
-                    .foregroundStyle(WatchTheme.dim)
-                Text(obj.label)
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundStyle(objetivoColor(obj.status))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                if !word.isEmpty {
-                    Text(word)
-                        .font(.system(size: 12, weight: .heavy))
-                        .foregroundStyle(objetivoColor(obj.status))
-                }
-            }
-        }
-    }
-
-    // MARK: - Progress bar (distance covered / target, or time)
-
-    @ViewBuilder
-    private var progressBar: some View {
-        if let bar = progress {
-            VStack(spacing: 3) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(WatchTheme.surfaceRaised)
-                        Capsule().fill(WatchTheme.orange)
-                            .frame(width: max(2, geo.size.width * bar.fraction))
-                    }
-                }
-                .frame(height: 8)
-                Text(bar.caption)
-                    .font(.system(size: 11, weight: .heavy).monospacedDigit())
-                    .foregroundStyle(WatchTheme.dim)
-            }
-        }
-    }
-
-    // MARK: - Mini zone strip (live HR zone tint)
-
-    private var zoneStrip: some View {
-        HStack(spacing: 0) {
-            ForEach(HRZone.allCases, id: \.rawValue) { zone in
-                Rectangle()
-                    .fill(WatchTheme.zoneColor(zone).opacity(session.liveZone == zone ? 1 : 0.28))
-            }
-        }
-        .frame(height: 6)
-        .clipShape(Capsule())
-    }
-
-    // MARK: - Next-leg preview
-
-    /// The next tramo in this folded run block (public engine state only), or nil on
-    /// the last leg — read here rather than added to the shared engine.
-    private var nextRunLeg: RunLeg? {
-        guard let legs = session.currentRunLegs else { return nil }
-        let i = session.runLegIndex + 1
-        return i < legs.count ? legs[i] : nil
-    }
-
-    @ViewBuilder
-    private var nextLine: some View {
-        if let next = RunLegDisplay.nextLegPreview(nextRunLeg) {
-            Text("Luego · \(next)")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
+    private var tinteLienzo: Color? {
+        if isRecovery { return WatchTheme.zoneGreen }
+        return WatchTinte.color(for: session.liveZone)
     }
 
     // MARK: - Derived
@@ -192,65 +206,70 @@ struct StructuredRunLiveView: View {
         let n = session.runLegNumber
         let m = session.runLegTotal
         let measure = session.currentRunLeg.map(RunLegDisplay.measureLabel) ?? ""
-        return measure.isEmpty ? "TRAMO \(n) DE \(m)" : "TRAMO \(n) DE \(m) · \(measure)"
+        if measure.isEmpty { return "Serie \(n) / \(m)" }
+        return "Serie \(n) / \(m) · \(measure)"
     }
 
-    private var recoveryTitle: String {
+    private var recoveryContexto: String {
         let mode = RunLegDisplay.recoveryModeWord(session.currentRunLeg?.recoveryMode)
-        return mode.isEmpty ? "Recupera" : "Recupera \(mode)"
+        let base = mode.isEmpty ? "Recupera" : "Recupera \(mode)"
+        if let next = workLegNumberForNext {
+            return "\(base) · viene la \(next)"
+        }
+        return base
     }
 
-    /// The current tramo's average pace (sec/km), from its covered distance over its
-    /// elapsed — the honest per-tramo pace (never the segment average).
     private var legPaceSecPerKm: Int? {
         RunLegDisplay.legPaceSecPerKm(coveredMeters: driver.legCoveredMeters, elapsedS: session.runLegElapsed)
-    }
-
-    /// LA SIGUIENTE VERDAD DISPONIBLE del tramo: el ritmo medido, y mientras no lo hay
-    /// (los primeros metros, o un tramo sin GPS ni cinta) el reloj del tramo, que es lo
-    /// único que la app sabe con certeza. Etiqueta, cifra y unidad viajan JUNTAS: un
-    /// cronómetro bajo la palabra «Ritmo» miente igual que un guion, y encima es el
-    /// error más difícil de ver porque cada mitad, por su cuenta, es correcta (§7).
-    /// Mismo criterio que `OutdoorRunHUDView.lecturaViva` en el teléfono.
-    private var lecturaDelTramo: (etiqueta: String, texto: String, unidad: String?) {
-        guard let ritmo = legPaceSecPerKm else {
-            return (Vocab.tiempo, WatchFormat.clock(session.runLegElapsed), nil)
-        }
-        return (Vocab.ritmo, WatchFormat.pace(ritmo), Formato.UnidadRitmo.porKm.rawValue)
     }
 
     private var objetivo: (label: String, status: TargetStatus)? {
         session.currentRunLeg.flatMap { RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: legPaceSecPerKm) }
     }
 
-    private var distanceCoveredText: String { String(Int(driver.legCoveredMeters)) }
-
-    private func objetivoColor(_ status: TargetStatus) -> Color {
-        switch status {
-        case .inTarget: return WatchTheme.zoneGreen
-        case .tooFast, .tooSlow: return WatchTheme.zoneAmber
-        case .unknown: return WatchTheme.ink
-        }
+    private var nextRunLeg: RunLeg? {
+        guard let legs = session.currentRunLegs else { return nil }
+        let i = session.runLegIndex + 1
+        return i < legs.count ? legs[i] : nil
     }
 
-    private var hrZoneColor: Color {
-        session.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim
+    private var nextWorkMeters: Int? {
+        nextRunLeg?.distanceMeters
     }
 
-    /// The progress bar model: a DISTANCE leg fills on covered/target ("510 / 800 m");
-    /// a TIME leg fills on elapsed/total ("1:23 / 3:00"). Nil for an open/unknown leg.
-    private var progress: (fraction: Double, caption: String)? {
-        guard let leg = session.currentRunLeg else { return nil }
-        if let target = leg.distanceMeters {
-            let covered = driver.legCoveredMeters
-            return (leg.goal.fraction(distanceM: covered, elapsedS: 0),
-                    "\(Int(covered)) / \(target) m")
+    /// Solo piernas de trabajo cuentan en el aro (las recuperaciones no son “serie”).
+    private var workLegs: [RunLeg] {
+        (session.currentRunLegs ?? []).filter(\.isWork)
+    }
+
+    private var workLegTotal: Int { max(1, workLegs.count) }
+
+    private var workLegNumber: Int {
+        guard let legs = session.currentRunLegs else { return session.runLegNumber }
+        let done = legs.prefix(session.runLegIndex).filter(\.isWork).count
+        return isWork ? done + 1 : done
+    }
+
+    private var workLegNumberForNext: Int? {
+        guard isRecovery else { return nil }
+        let n = workLegNumber + 1
+        return n <= workLegTotal ? n : nil
+    }
+
+    private var workFraction: Double {
+        guard let leg = session.currentRunLeg else { return 0 }
+        if let target = leg.distanceMeters, target > 0 {
+            return min(1, max(0, driver.legCoveredMeters / Double(target)))
         }
-        if let total = leg.durationSeconds {
-            let elapsed = session.runLegElapsed
-            return (leg.goal.fraction(distanceM: 0, elapsedS: elapsed),
-                    "\(Formato.clock(Int(elapsed))) / \(Formato.clock(total))")
+        if let total = leg.durationSeconds, total > 0 {
+            return min(1, max(0, session.runLegElapsed / Double(total)))
         }
-        return nil
+        return 0
+    }
+
+    private var countInFraction: Double {
+        // Count-in suele ser 3 s; sin total fijo drenamos visualmente por remaining/3.
+        let total: Double = 3
+        return min(1, max(0, session.runCountInRemaining / total))
     }
 }

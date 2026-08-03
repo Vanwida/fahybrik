@@ -23,8 +23,8 @@ export const meta: TwinMeta = {
   id: 'watch-emom',
   titulo: 'Muñeca · EMOM',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El aro lleva la ventana entera de un tirón, porque no se para porque tú acabes antes. Al marcar la tarea el mismo número se pone verde y pasa a leerse como el respiro que te queda.',
   fuentes: [],

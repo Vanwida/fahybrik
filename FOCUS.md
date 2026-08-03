@@ -5,6 +5,27 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 3-ago · Apple Watch en vivo — port del diseño del doble a WatchOS
+
+El live feo (`watch-live` / botón 52 pt + tejas) deja de ser la UI del reloj.
+**Shipeado en Swift** el lenguaje del doble (`kit-watch` → `FAHYBRIKWatch/Lienzo/`):
+
+- **Kit:** `WatchReloj` (páginas, modos ciego/ojeada/mando, tinte de zona, destello),
+  `WatchAroContinuo` / `WatchAroSegmentado` (progreso en el bisel, cero altura de contenido).
+- **Familias:** series de calle · rodaje · EMOM/rotating · AMRAP/For Time/HYROX ·
+  fuerza · descanso · relevo dobles · resumen post-entreno · genérico.
+- **Reglas:** un sujeto por página · pantalla = botón · sin zona no hay tinte ·
+  pulso en página propia · franja solo en mando (ojeada = gesto latente).
+
+Build: `FAHYBRIKWatch` **SUCCEEDED** (sim Series 11 46mm). Twin: pantallas
+watch-* marcadas `construida` (no `espejo` aún — MirrorHUD y checklist siguen
+el layout viejo; cinta/ergo no tienen vista reloj propia).
+
+Pendiente natural: espejar MirrorHUD · checklist al lienzo · vistas cinta/ergo
+si el reloj llega a recibir contadores de máquina · QA en muñeca real.
+
+---
+
 ## 3-ago · El doble había caducado — re-sellado entero + índice por recencia
 
 Alex dejó de fiarse del índice del doble («no encuentro el mockup de ayer», «hay cosas desactualizadas que parecen la realidad») y la auditoría le dio la razón: **5/5 espejos desfasados** (congelados antes de la campaña iOS «un guion no es un dato») y **24/33 propuestas ya construidas en Swift** sin re-sellar. Hecho: fecha `actualizado` obligatoria en cada pantalla (estampada desde git), índice con «Lo último» primero + tanda colapsada en colección, estado nuevo **`construida`** (12 pantallas), campo **`enApp`** en parciales (14), «Tests guiados» fuera de pendientes (su doble es `tests-calibracion`), afirmación falsa de `ranking-box` corregida, y detector permanente **`pnpm run twin:desfase`** (fecha git de fuentes vs sello). Detalle en `docs/DECISIONS.md` (2026-08-03 «El doble mentía»). Los 5 espejos quedaron **re-fidelizados contra el Swift de hoy** (campaña «un guion no es un dato»: átomos con contrato `ausente`, motivos con palabras, estados que se omiten en vez de pintar rayas; devices ganó el escenario de conexión perdida que le faltaba desde su nacimiento) — `twin:desfase` en verde y typecheck limpio.
@@ -217,22 +238,12 @@ la pantalla de VO₂máx no tienen aún su pantalla en `(design)`).
 
 ---
 
-## PENDIENTE de diseño · el Apple Watch, bloque propio (28-jul)
+## Apple Watch · diseño portado a Swift (era pendiente 28-jul)
 
-Alex: «el Apple Watch de momento tenemos que mejorar mucho, NO lo programes
-ahora, pero la UI es muy pobre, muy pequeña, debemos trabajarla muchísimo».
-**No tocar todavía.** Va después de las pantallas del móvil, como bloque
-aparte, porque es otro problema de diseño: 40 mm a distancia de brazo, en
-movimiento y sudando — ahí el sujeto es casi lo único que cabe y el resto
-debería ser una segunda página, no letra pequeña alrededor.
-
-Hallazgo al mirarlo (no perderlo): **avanzar de ronda desde la muñeca YA
-funciona.** El canal de vuelta existe (`PhoneMirrorService.applyCommand`,
-`MirrorWire.CommandKind.advance`) y está bien enrutado, incluido el relevo
-de dobles (no apunta el trabajo de la pareja al atleta). El principio de
-`LiveFlowView` también es el correcto: un botón grande que avanza todo,
-cero navegación durante el esfuerzo. Lo que falta es la ejecución visual,
-no la capacidad.
+El bloque de diseño del reloj **ya no está congelado**: el 3-ago se portó el
+lenguaje del doble a WatchOS (ver entrada arriba). Sigue valiendo el hallazgo:
+avanzar de ronda desde la muñeca ya funcionaba; lo que faltaba era la ejecución
+visual por casuística — eso es lo que entra ahora.
 
 ---
 

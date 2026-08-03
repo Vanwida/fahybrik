@@ -14,8 +14,8 @@ export const meta: TwinMeta = {
   id: 'watch-fortime',
   titulo: 'Muñeca · For Time',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El crono total es la puntuación y no se va de la pantalla. En 8 de las 16 estaciones el reloj no mide nada más: la forma de la ruta se va al bisel, que es el único sitio donde cabe.',
   fuentes: [],

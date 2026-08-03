@@ -38,8 +38,8 @@ export const meta: TwinMeta = {
   id: 'watch-resumen',
   titulo: 'Al terminar, en la muñeca',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El resumen de una carrera con un sujeto por página: la primera es el ritmo de lo fuerte, no la media. Y cuando no hay tramos, la media aparece con su etiqueta verdadera.',
   fuentes: [],

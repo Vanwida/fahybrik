@@ -32,8 +32,8 @@ export const meta: TwinMeta = {
   id: 'watch-vivo',
   titulo: 'La muñeca, rediseñada',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El entreno en vivo del reloj con el sujeto al doble de tamaño: la pantalla es el botón, el progreso se traza en el bisel y el pulso vive en una segunda página.',
   fuentes: [],

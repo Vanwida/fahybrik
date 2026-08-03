@@ -114,35 +114,33 @@ private struct RelayLiveView: View {
     }
 
     var body: some View {
-        LiveScaffold(status: "RELEVO", statusColor: WatchTheme.orangeSoft) {
-            VStack(spacing: 4) {
-                Text("\(partner) hace")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                Text(station)
-                    .font(.system(size: 19, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-                Text("Recupera")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(WatchTheme.orangeSoft)
-                    .padding(.top, 1)
-                GiantNumber(text: WatchFormat.clock(session.lapElapsedSeconds), size: 40)
-                HRPill(bpm: session.liveHRBpm, zoneColor: WatchTheme.zoneGreen)
-                if let next = session.nextSegment?.title {
-                    Text("Luego entras tú · \(next)")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .padding(.top, 1)
+        // Diseño (`watch-dobles`): mientras rema la pareja, el sujeto es TU salida
+        // (recuperas / sales en …). Mando — puedes tocar para el relevo.
+        WatchReloj(
+            paginas: {
+                var list: [WatchPagina] = [
+                    WatchPagina(
+                        id: "relevo",
+                        contexto: "\(partner) · \(station)",
+                        modo: .mando,
+                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
+                        segundoEtiqueta: "Recupera",
+                        segundoValor: session.nextSegment.map { "Luego entras · \($0.title)" } ?? "Relevo",
+                        accion: "Toca · relevo",
+                        onToca: { session.advanceRelay() }
+                    ),
+                ]
+                if let pulso = WatchPaginasComunes.pulso(
+                    bpm: session.liveHRBpm,
+                    zone: session.liveZone,
+                    modo: .mando
+                ) {
+                    list.append(pulso)
                 }
-            }
-        } bottom: {
-            BigTapButton(title: "Relevo ▸") { session.advanceRelay() }
-        }
+                return list
+            }(),
+            tinte: WatchTheme.orange
+        )
     }
 }
 
@@ -155,20 +153,29 @@ private struct GenericLiveView: View {
     let session: WorkoutSession
 
     var body: some View {
-        LiveScaffold(status: session.currentSegment?.title ?? "Entreno", statusColor: WatchTheme.dim) {
-            VStack(spacing: 5) {
-                WatchLabel(text: "Tiempo")
-                GiantNumber(text: WatchFormat.clock(session.lapElapsedSeconds), size: 54)
-                if let line = session.currentSegment?.previewWorkLine {
-                    Text(line)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.7)
+        WatchReloj(
+            paginas: {
+                var list: [WatchPagina] = [
+                    WatchPagina(
+                        id: "gen",
+                        contexto: session.currentSegment?.title ?? "Entreno",
+                        modo: .mando,
+                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
+                        segundoValor: session.currentSegment?.previewWorkLine,
+                        accion: "Toca · hecho",
+                        onToca: { session.primaryAdvance() }
+                    ),
+                ]
+                if let pulso = WatchPaginasComunes.pulso(
+                    bpm: session.liveHRBpm,
+                    zone: session.liveZone,
+                    modo: .mando
+                ) {
+                    list.append(pulso)
                 }
-            }
-        } bottom: {
-            BigTapButton(title: "Hecho ▸") { session.primaryAdvance() }
-        }
+                return list
+            }(),
+            tinte: WatchTinte.color(for: session.liveZone)
+        )
     }
 }

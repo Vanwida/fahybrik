@@ -14,8 +14,8 @@ export const meta: TwinMeta = {
   id: 'watch-dobles',
   titulo: 'Muñeca · dobles',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El sujeto no es un número, es si trabajas tú o esperas. Y cuando esperas, tu salida pasa a ser el sujeto — salvo que nadie mida a tu pareja, que es lo que pasa hoy.',
   fuentes: [],

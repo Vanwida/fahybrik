@@ -14,8 +14,8 @@ export const meta: TwinMeta = {
   id: 'watch-series',
   titulo: 'Muñeca · series de calle',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-07-30',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'Dentro de la serie se mira y no se toca; en la recuperación se decide. Y si el coach no escribió los metros, el tramo lo cierras tú y el reloj deja de prometer cuánto falta.',
   fuentes: [],

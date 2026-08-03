@@ -1,36 +1,31 @@
 import SwiftUI
 
-// The rest banner — a green-tinted takeover between strength sets. Giant green
-// count-down + what comes next. The engine owns the 3·2·1 count ticks (fired on
-// its clock); the watch adds a single "go" cue as rest ends. Auto-dismisses when
-// the engine zeroes the rest clock. Mockup 5.
+// DESCANSO DE FUERZA — pantalla completa, modo mando.
+//
+// Ya no es un banner verde encima del live: es la situación diseñada en
+// `watch-fuerza` (descanso): cuenta atrás como sujeto, serie que viene debajo,
+// bisel que drena, tinte verde de recuperación. Toque = empezar ya (salta el resto).
 struct RestBannerView: View {
     let session: WorkoutSession
 
     var body: some View {
-        ZStack {
-            WatchTheme.restBg.ignoresSafeArea()
-            VStack(spacing: 6) {
-                StatusHeader(text: "Descanso", color: WatchTheme.zoneGreen)
-                Spacer(minLength: 0)
-                WatchLabel(text: "Vuelve en", color: WatchTheme.zoneGreen.opacity(0.85))
-                GiantNumber(text: WatchFormat.countdown(session.restRemainingSeconds), size: 80, color: WatchTheme.zoneGreen)
-                Spacer(minLength: 0)
-                if let next = nextLabel {
-                    VStack(spacing: 1) {
-                        WatchLabel(text: "Luego")
-                        Text(next)
-                            .font(.system(size: 15, weight: .heavy))
-                            .foregroundStyle(WatchTheme.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .padding(.bottom, 8)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-        }
+        WatchReloj(
+            paginas: [
+                WatchPagina(
+                    id: "descanso",
+                    contexto: "Descanso",
+                    modo: .mando,
+                    sujeto: WatchFormat.countdown(session.restRemainingSeconds),
+                    tono: WatchTinte.urgente(session.restRemainingSeconds),
+                    segundoEtiqueta: nextLabel != nil ? "Luego" : nil,
+                    segundoValor: nextLabel,
+                    accion: "Toca · empezar ya",
+                    onToca: { session.dismissRest() }
+                ),
+            ],
+            tinte: WatchTheme.zoneGreen,
+            bisel: WatchAroContinuo(remaining: remainingFraction).watchBisel()
+        )
         .onChange(of: session.restRemainingSeconds) { old, new in
             if old > 0 && new <= 0 { WatchHaptics.start() }
         }
@@ -38,5 +33,18 @@ struct RestBannerView: View {
 
     private var nextLabel: String? {
         session.currentSegment?.title
+    }
+
+    private var remainingFraction: Double {
+        // El engine no expone el total del rest; usamos el prescrito del set si hay,
+        // si no un techo razonable para que el aro no quede vacío al instante.
+        let total = prescribedRestTotal ?? max(session.restRemainingSeconds, 1)
+        return min(1, max(0, session.restRemainingSeconds / total))
+    }
+
+    private var prescribedRestTotal: Double? {
+        guard let sets = session.currentSegment?.prescription?.sets else { return nil }
+        let maxRest = sets.compactMap(\.restS).max() ?? 0
+        return maxRest > 0 ? Double(maxRest) : nil
     }
 }
