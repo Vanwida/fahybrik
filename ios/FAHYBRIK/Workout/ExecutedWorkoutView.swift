@@ -418,9 +418,19 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    // "Remo · 2000 m" / "Ski" — modality label plus the covered distance when known.
+    // "Remo · 2000 m" / "SkiErg" — the SPECIFIC machine, not `Theme.Modality.label`'s
+    // day-dot bucket. That bucket deliberately merges row/ski/bike into one
+    // "ergómetro" hue for the plan legend (see Theme.swift) — reused here it made a
+    // remo minute and a ski minute in the same EMOM read identically, so the athlete
+    // could no longer tell which round was which (26-jul: "aquí el 4 no sé qué era").
+    // The wire modality ("row"/"ski"/"bike") is preserved end to end; only the LABEL
+    // was collapsing it.
+    private static func machineLabel(_ modality: String) -> String {
+        ErgMachineRole(wire: modality)?.titleES ?? Theme.Modality.label(modality)
+    }
+
     private func ergTitle(_ seg: SegmentActualDTO) -> String {
-        let label = Theme.Modality.label(seg.modality)
+        let label = Self.machineLabel(seg.modality)
         if let d = seg.distanceMeters, d > 0 { return "\(label) · \(Int(d)) m" }
         return label
     }
@@ -1033,7 +1043,7 @@ struct ExecutedWorkoutView: View {
             rows.append(
                 SegmentRowVM(
                     id: "seg-\(seg.position)",
-                    name: Theme.Modality.label(seg.modality),
+                    name: Self.machineLabel(seg.modality),
                     result: tokens.joined(separator: " · "),
                     device: seg.source.flatMap(Self.deviceName)
                 )
