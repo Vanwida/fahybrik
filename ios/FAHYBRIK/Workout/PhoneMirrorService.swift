@@ -422,9 +422,17 @@ final class PhoneMirrorService {
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
             targetZone: seg?.targetZone?.rawValue,
-            // The advance ends everything when there is no block after this one and
-            // we are not parked on a block gate (a gate's advance only STARTS it).
-            isFinalStep: !session.isAwaitingBlockStart && !session.hasBlockAfterCurrent,
+            // El avance ACABA la sesión solo cuando este toque la acaba de verdad: no
+            // hay bloque después, no estamos en la puerta de un bloque (ahí el avance
+            // solo lo EMPIEZA), no queda tramo por delante dentro del bloque y no
+            // queda serie por cerrar. Un entreno de fuerza libre mete todos los
+            // ejercicios en UN bloque, así que con la regla vieja («no hay bloque
+            // después») la muñeca rotulaba TERMINAR desde la primera serie del primer
+            // ejercicio — y ese botón pide confirmación de fin de sesión.
+            isFinalStep: !session.isAwaitingBlockStart
+                && !session.hasBlockAfterCurrent
+                && session.isLastSegment
+                && session.pendingSetIndex == nil,
             restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
             dobles: dobles,
             beltDistanceM: beltDistanceM,

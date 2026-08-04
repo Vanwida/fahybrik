@@ -101,12 +101,14 @@ struct FuerzaVivoView<Cromo: View>: View {
     /// el EJERCICIO entero. El gesto que haces cuatro veces era el pequeño y el que
     /// haces una vez, el grande.
     ///
-    /// El motor no cambia: son las MISMAS llamadas (`confirmSet`, que dispara el
-    /// descanso, y el avance del anfitrión). Lo que cambia es cuál las dispara.
-    private var seriePendiente: Int? {
-        guard porSeries else { return nil }
-        return session.setRecords.firstIndex { !$0.confirmed && $0.status != "skipped" }
-    }
+    /// QUIÉN DECIDE QUÉ HACE EL TOQUE: el MOTOR, no esta vista. La regla «con series
+    /// pendientes el toque cierra la SERIE, no el ejercicio» vivía aquí dentro, y por
+    /// eso el botón «Siguiente» del reloj —que entra por `primaryAdvance` sin pasar
+    /// por ninguna pantalla— cerraba el press de banca en la primera serie y saltaba
+    /// al curl. Ahora la regla es del motor (`WorkoutSession.strengthPrimary`) y esta
+    /// vista solo la NOMBRA: lee cuál es la serie pendiente para rotular el botón, y
+    /// el toque va por el mismo camino que el mando de la muñeca.
+    private var seriePendiente: Int? { session.pendingSetIndex }
 
     private var tituloDeAccion: String {
         if descansando { return "SALTAR DESCANSO" }
@@ -120,11 +122,7 @@ struct FuerzaVivoView<Cromo: View>: View {
         return "todas las series cerradas"
     }
 
-    private func ejecutarAccion() {
-        if descansando { session.dismissRest(); return }
-        if let i = seriePendiente { session.confirmSet(i); return }
-        alTocarAccion()
-    }
+    private func ejecutarAccion() { alTocarAccion() }
 
     // MARK: - Contexto — el pacto del coach para este ejercicio
 

@@ -827,6 +827,19 @@ final class WorkoutSession {
     /// the same behaviour the rotating engine gives "Serie hecha". For every other
     /// format it closes the current segment's lap and advances — the classic manual
     /// lap, unchanged.
+    ///
+    /// EL AVANCE ES SIEMPRE DEL ESCALÓN MÁS PEQUEÑO QUE TIENES DELANTE, y por eso
+    /// vive AQUÍ y no en una vista. Cada formato ya declaraba cuál es su escalón
+    /// —la fase del EMOM, la ronda del rotativo, la pierna de la carrera— menos la
+    /// FUERZA, cuyo escalón es LA SERIE y cuya regla («con series pendientes no se
+    /// cierra el ejercicio») solo existía dentro de `FuerzaVivoView`. Cualquier otro
+    /// mando que llame a este método —el botón «Siguiente» del reloj, vía
+    /// `PhoneMirrorService.applyCommand`— se la saltaba: un toque en la muñeca
+    /// durante la serie 1 de press de banca cerraba el ejercicio ENTERO y saltaba al
+    /// curl. Y como los dos ejercicios comparten bloque, el salto era mudo (sin
+    /// preview intermedia) y el descanso que sonaba ya era el del curl. Los dos
+    /// fallos del gym del 4-ago son el mismo agujero: una regla de dominio metida en
+    /// una pantalla.
     func primaryAdvance() {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
         if seg.hasRunStructure {
@@ -837,9 +850,30 @@ final class WorkoutSession {
             rollEMOMPhase(plan)
         } else if seg.isConditioningTimer {
             conditioningPrimary(seg)
+        } else if seg.usesMultiSetStrength {
+            strengthPrimary()
         } else {
             lap()
         }
+    }
+
+    /// El escalón de la fuerza por series: si corre el descanso, lo salta; si queda
+    /// serie por cerrar, la cierra (y arranca SU descanso); y solo cuando no queda
+    /// ninguna, cierra el ejercicio. Idéntico al ciclo trabajo→descanso→trabajo del
+    /// rotativo, con la diferencia de mando que define la fuerza: aquí quien cierra
+    /// la serie es el atleta, nunca el reloj.
+    private func strengthPrimary() {
+        if restRemainingSeconds > 0 { dismissRest(); return }
+        if let i = pendingSetIndex { confirmSet(i); return }
+        lap()
+    }
+
+    /// La serie que el atleta tiene delante: la primera sin confirmar y sin saltar.
+    /// Nil cuando el tramo no va por series o cuando ya están todas cerradas — y
+    /// entonces el escalón vuelve a ser el ejercicio.
+    var pendingSetIndex: Int? {
+        guard currentSegment?.usesMultiSetStrength == true else { return nil }
+        return setRecords.firstIndex { !$0.confirmed && $0.status != "skipped" }
     }
 
     // Closes current segment's lap, advances to next. Behavior shared by For

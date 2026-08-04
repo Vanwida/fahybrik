@@ -217,9 +217,86 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertEqual(s.setRecords[0].loadActualKg, 60, "\"Hecho\" declares the prescribed load.")
         XCTAssertNil(s.setRecords[1].loadActualKg)
 
-        s.primaryAdvance()
+        // Cerrar el ejercicio exige cerrar SUS series: el avance salta el descanso y
+        // confirma la que toque, y solo cuando no queda ninguna cierra el tramo.
+        s.primaryAdvance()   // salta el descanso de la serie 1
+        s.primaryAdvance()   // serie 2 hecha
+        s.primaryAdvance()   // salta su descanso
+        s.primaryAdvance()   // serie 3 hecha
+        XCTAssertTrue(s.laps.isEmpty, "Con series cerradas pero descanso corriendo el tramo sigue abierto.")
+        s.primaryAdvance()   // salta el último descanso
+        s.primaryAdvance()   // ya no queda serie → cierra el ejercicio
         let lap = try XCTUnwrap(s.laps.last)
         XCTAssertEqual(lap.weightUsedKg, 60, "The aggregate load is the max DECLARED one.")
+        XCTAssertEqual(lap.sets?.count, 3, "Las tres series llegan al registro del coach.")
+    }
+
+    // MARK: - Gym 4-ago · el avance es de la SERIE, y la regla es del motor
+    //
+    // Los dos fallos de fuerza del 4-ago son el mismo agujero: «con series pendientes
+    // no se cierra el ejercicio» vivía en `FuerzaVivoView`, así que el botón
+    // «Siguiente» del reloj —que entra por `primaryAdvance`— se lo saltaba. Estos
+    // tests fijan la regla EN EL MOTOR, que es por donde entra cualquier mando.
+
+    /// Dos ejercicios de 4 series en el MISMO bloque. Un avance por serie no puede
+    /// cerrar el primero: 4 series de banca antes de que aparezca el curl.
+    func testPrimaryAdvanceClosesTheSetNotTheExerciseWhileSetsArePending() throws {
+        let s = armedSession(dosEjerciciosDeCuatroSeries())
+        XCTAssertEqual(s.currentSegment?.title, "Press de banca")
+
+        for serie in 1...4 {
+            XCTAssertEqual(s.pendingSetIndex, serie - 1)
+            s.primaryAdvance()                              // serie hecha → arranca su descanso
+            XCTAssertEqual(s.currentSegment?.title, "Press de banca",
+                           "La serie \(serie) no puede sacarte del ejercicio.")
+            s.primaryAdvance()                              // salta el descanso
+        }
+        XCTAssertNil(s.pendingSetIndex, "Las cuatro series están cerradas.")
+        s.primaryAdvance()                                  // ahora sí: cierra el ejercicio
+        XCTAssertEqual(s.currentSegment?.title, "Curl", "Solo entonces se pasa al siguiente.")
+        XCTAssertEqual(s.laps.last?.sets?.count, 4, "Las cuatro series entran en el registro.")
+    }
+
+    /// El descanso que suena es el del ejercicio que tienes delante. El 4-ago sonó
+    /// el 1:30 del curl (su valor por defecto) mientras el atleta seguía en banca,
+    /// porque el salto prematuro ya había recargado las series del curl.
+    func testRestIsTheOneOfTheExerciseInFront() throws {
+        let s = armedSession(dosEjerciciosDeCuatroSeries())
+        s.primaryAdvance()
+        XCTAssertEqual(s.restRemainingSeconds, 15, "Banca descansa 15 s, los suyos.")
+
+        for _ in 1...7 { s.primaryAdvance() }               // cerrar banca entera
+        s.primaryAdvance()                                  // pasar al curl
+        XCTAssertEqual(s.currentSegment?.title, "Curl")
+        s.primaryAdvance()
+        XCTAssertEqual(s.restRemainingSeconds, 90, "Y el curl los suyos: 1:30.")
+    }
+
+    /// La muñeca no puede rotular TERMINAR mientras quede trabajo: un entreno de
+    /// fuerza libre mete todos los ejercicios en UN bloque, así que «no hay bloque
+    /// después» era cierto desde la primera serie del primer ejercicio.
+    func testMirrorFinalStepIsNotClaimedWhileSetsOrSegmentsRemain() throws {
+        let s = armedSession(dosEjerciciosDeCuatroSeries())
+        XCTAssertFalse(s.hasBlockAfterCurrent, "Un solo bloque: no hay bloque después.")
+        XCTAssertFalse(s.isLastSegment, "…pero sí queda ejercicio por delante.")
+        XCTAssertNotNil(s.pendingSetIndex, "…y series por cerrar.")
+    }
+
+    /// Banca 4×10 con 15 s + Curl 4×10 con 1:30, los dos en el bloque «Fuerza» —
+    /// exactamente lo que construye el builder de fuerza libre.
+    private func dosEjerciciosDeCuatroSeries() -> [WorkoutSegment] {
+        func ejercicio(_ titulo: String, orden: Int, descanso: Int) -> WorkoutSegment {
+            let serie = PrescriptionSet(measure: .reps(10), target: .bodyweight, modality: nil,
+                                        restS: descanso, tempo: nil, note: nil)
+            let rx = Prescription(scheme: .sets, modality: .strength,
+                                  sets: Array(repeating: serie, count: 4),
+                                  rounds: nil, workS: nil, restS: nil, totalS: nil,
+                                  target: nil, note: nil, start: nil, increment: nil)
+            return WorkoutSegment(order: orden, title: titulo, kind: .strength, templateSegmentId: nil,
+                                  targetReps: 10, blockTitle: "Fuerza", blockPosition: 1, prescription: rx)
+        }
+        return [ejercicio("Press de banca", orden: 1, descanso: 15),
+                ejercicio("Curl", orden: 2, descanso: 90)]
     }
 
     func testBodyweightRepsCloseHasNoSyntheticSet() throws {
