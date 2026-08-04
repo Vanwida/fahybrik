@@ -127,6 +127,30 @@ contrastadas con el Swift: **docs/reloj-inventario.html**.
 
 ---
 
+## 4-ago (noche) · El reloj entero pinta los guiones — estado
+
+Hecho y commiteado (120657e1 → 6ac3df46): el cable lleva EL TRAMO (`MirrorTramo`),
+el espejo pinta los MISMOS guiones que el modo solitario, seis guiones (rodaje,
+series, fuerza, EMOM, ruta, ergo), escaparate `-guion <id>` para capturar sin
+entrenar, bisel = forma de la PANTALLA (no un círculo — era idioma Garmin), aro
+segmentado de series restaurado del doble, guiones compartidos a iOS y testeados
+de cabo a rabo (motor→trama→encode→decode→guion→páginas). 840 tests, 0 fallos
+inesperados. Capturas: **docs/reloj-en-vivo.html**.
+
+Reglas que Alex fijó esta noche: NO rediseñar lo que el doble ya diseñó (pasó con
+el aro y con un «Frena/Aprieta» inventado — revertidos); versales legibles (nota
+9→10 pt); el aro cuadrado se queda (esferas redondas = otro reloj, más adelante).
+
+Pendiente: (1) fallo ESPERADO documentado en `EspejoDeCaboARaboTests` — las
+series del coach escritas como `sets` sin `structure` no generan ventanas de
+tramo; arreglo = motor, sets→legs, camino de TreadmillLegResolver. (2) Los dos
+casos que NO están en el doble (rodaje con zona prescrita + fartlek por tiempo)
+deben entrar al doble como propuesta para que Alex los valide. (3) Validador UX
+(agente) revisando las 17 capturas contra el doble — aplicar sus hallazgos.
+(4) Probar con reloj emparejado el flujo real (crear 5×500 → arrancar en móvil).
+
+---
+
 ## 4-ago · La especificidad por formato es un GUION, no una vista
 
 El diagnóstico, verificado en el código: el port de agosto se llevó el **lienzo**
