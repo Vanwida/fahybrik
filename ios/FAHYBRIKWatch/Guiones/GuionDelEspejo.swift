@@ -40,6 +40,15 @@ enum GuionDelEspejo {
         case .series:
             return GuionSeries.paginas(series(t, bpm: bpm, elapsed: enTramo),
                                        GuionSeries.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
+        case .emom:
+            return GuionEmom.paginas(emom(t, bpm: bpm, elapsed: enTramo),
+                                     GuionEmom.Gestos(marcarHecha: avanzar))
+        case .ruta:
+            return GuionRuta.paginas(ruta(t, f, elapsed: enTramo),
+                                     GuionRuta.Gestos(estacionHecha: avanzar))
+        case .ergo:
+            return GuionErgo.paginas(ergo(t, bpm: bpm, elapsed: enTramo),
+                                     GuionErgo.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
         case .ninguno:
             return generico(f, bpm: bpm, elapsed: elapsed, avanzar: avanzar)
         }
@@ -47,7 +56,7 @@ enum GuionDelEspejo {
 
     // MARK: - Qué guion sirve este tramo
 
-    private enum Cual { case fuerza, rodaje, series, ninguno }
+    private enum Cual { case fuerza, rodaje, series, emom, ruta, ergo, ninguno }
 
     /// MANDA LA MODALIDAD, NO EL NOMBRE DEL FORMATO. Y esto no es una preferencia
     /// de estilo: es que las dos fuentes de entreno NO escriben el mismo formato
@@ -68,6 +77,13 @@ enum GuionDelEspejo {
     /// Así que la pregunta correcta no es cómo se llama el formato, es QUÉ MIDE
     /// esto: la modalidad del tramo primero, y dentro de ella, si viene troceado.
     private static func guionPara(_ t: MirrorTramo) -> Cual {
+        // El EMOM y la RUTA son formatos que mandan sobre la modalidad: un EMOM de
+        // ski y uno de burpees son la misma pantalla, porque lo que gobierna es el
+        // reloj de pared. Igual la ruta de estaciones de un HYROX, que atraviesa
+        // correr y máquinas contra un solo crono.
+        if t.formato == PrescriptionScheme.emom.rawValue { return .emom }
+        if esRuta(t.formato) { return .ruta }
+
         switch t.modalidad {
         case PrescriptionModality.run.rawValue:
             // Troceado si el motor cuenta rondas, o si la ventana la cierra algo
@@ -75,11 +91,21 @@ enum GuionDelEspejo {
             return (t.rondaTotal ?? 0) > 1 ? .series : .rodaje
         case PrescriptionModality.strength.rawValue:
             return .fuerza
+        case PrescriptionModality.row.rawValue,
+             PrescriptionModality.ski.rawValue,
+             PrescriptionModality.bike.rawValue:
+            return .ergo
         default:
-            // Ergo, funcional y lo demás: todavía sin guion propio. Cae en la
-            // lectura genérica, que ya usa el lienzo bueno.
             return .ninguno
         }
+    }
+
+    /// Los formatos que se recorren como una RUTA de estaciones contra un solo
+    /// crono. AMRAP queda fuera a propósito: su lista se repite y nadie sabe en
+    /// qué movimiento estás (lo declara el propio motor).
+    private static func esRuta(_ formato: String?) -> Bool {
+        [PrescriptionScheme.forTime, .chipper, .hyroxSim, .rounds, .ladder]
+            .map(\.rawValue).contains(formato ?? "")
     }
 
     // MARK: - Trama → Estado de cada guion
@@ -126,6 +152,89 @@ enum GuionDelEspejo {
             ritmoSecPorKm: t.ritmoSecPorKm,
             objetivo: t.objetivoLabel.map { ($0, estado(t.objetivoEstado)) },
             loQueViene: t.siguiente,
+            zonaViva: zona(t.zonaViva),
+            bpm: bpm
+        )
+    }
+
+    /// El EMOM. El cable trae la tarea de ESTA ronda, no el plan entero, así que
+    /// la lista se rellena con ella y sólo la casilla de la ronda siguiente se
+    /// cambia por `siguiente` — que es lo único que el guion necesita para
+    /// anunciar «luego» en la parada. Rellenar el resto con la actual es honesto:
+    /// nadie está mirando la ronda 9 desde la 3.
+    private static func emom(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionEmom.Estado {
+        let rondas = max(1, t.rondaTotal ?? 1)
+        let ronda = min(max(1, t.rondaN ?? 1), rondas)
+        let actual = GuionEmom.TareaEmom(
+            texto: [t.etiqueta, t.dosis].compactMap { $0 }.joined(separator: " · "),
+            // Sin saber si esto se hace en el suelo, `ojeada` es la lectura segura:
+            // pinta el dato entero y no anuncia controles.
+            modo: .ojeada,
+            ergo: t.hechoMedida != nil ? t.etiqueta : nil
+        )
+        var tareas = Array(repeating: actual, count: rondas)
+        if let sig = t.siguiente, ronda < tareas.count {
+            tareas[ronda] = GuionEmom.TareaEmom(texto: sig, modo: .ojeada, ergo: nil)
+        }
+        let ventana = t.ventanaTotal ?? 60
+        return GuionEmom.Estado(
+            rondas: rondas,
+            ronda: ronda,
+            ventanaS: ventana,
+            // Sin parada escrita, el trabajo ES la ventana entera.
+            trabajoS: ventana,
+            tareas: tareas,
+            enVentanaS: t.ventanaQueda.map { max(0, ventana - $0) } ?? elapsed,
+            // El móvil no manda «ya la marqué»: el descanso dentro del formato es
+            // lo que sí viaja, y es lo mismo que ver desde fuera.
+            hechaEnS: t.enDescanso ? 0 : nil,
+            maquina: t.hechoMedida != nil,
+            metrosMaquina: t.hechoMedida,
+            bpm: bpm,
+            zonaViva: zona(t.zonaViva)
+        )
+    }
+
+    /// La ruta de estaciones. El cable trae la estación en curso, no la ruta
+    /// entera, así que se arma una del tamaño que dice el motor con la actual en
+    /// su sitio: el guion sólo lee la actual y el total, que es lo que pinta.
+    private static func ruta(_ t: MirrorTramo, _ f: MirrorStateFrame, elapsed: Double) -> GuionRuta.Estado {
+        let total = max(1, t.rondaTotal ?? 1)
+        let i = min(max(0, (t.rondaN ?? 1) - 1), total - 1)
+        let hueca = GuionRuta.Estacion(nombre: "Estación", dosis: "", peso: 1, distanciaM: nil)
+        var ruta = Array(repeating: hueca, count: total)
+        ruta[i] = GuionRuta.Estacion(
+            nombre: t.etiqueta ?? f.lineTitle ?? "Estación",
+            dosis: t.dosis ?? f.detailLine ?? "",
+            peso: 1,
+            // El reloj sólo mide en los tramos de carrera. En una estación ciega
+            // no hay distancia que prometer y la vista se queda en una página.
+            distanciaM: t.modalidad == PrescriptionModality.run.rawValue ? t.objetivoMedida : nil
+        )
+        return GuionRuta.Estado(
+            ruta: ruta,
+            estacion: i,
+            // El crono TOTAL es la puntuación de una ruta, no el de la estación.
+            cronoS: f.sessionElapsed,
+            enEstacionS: elapsed
+        )
+    }
+
+    /// El ergo. El reloj no ve la máquina: si el móvil no manda metros es que no
+    /// hay monitor emparejado, y el guion se cae a pulso y crono él solo.
+    private static func ergo(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionErgo.Estado {
+        GuionErgo.Estado(
+            fase: t.enDescanso ? .descanso : .remando,
+            serie: t.rondaN ?? 1,
+            totalSeries: max(1, t.rondaTotal ?? 1),
+            tramoM: t.objetivoMedida ?? 0,
+            maquina: t.hechoMedida != nil,
+            hechosM: t.hechoMedida,
+            // El /500 del PM5 todavía no viaja: el cable lleva ritmo por km, que es
+            // de correr. Antes que traducir una cosa por otra, no se pinta.
+            ritmoSec500: nil,
+            segundosEnFase: elapsed,
+            quedaDescansoS: t.enDescanso ? t.ventanaQueda : nil,
             zonaViva: zona(t.zonaViva),
             bpm: bpm
         )
