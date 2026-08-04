@@ -102,16 +102,17 @@ enum WatchTheme {
 // Always main-thread — see the 4-ago note on the engine shim.
 enum WatchHaptics {
     private static func play(_ type: WKHapticType) {
+        let fire = { WKInterfaceDevice.current().play(type) }
         if Thread.isMainThread {
-            WKInterfaceDevice.current().play(type)
+            fire()
         } else {
-            DispatchQueue.main.async {
-                WKInterfaceDevice.current().play(type)
-            }
+            DispatchQueue.main.async(execute: fire)
         }
     }
 
-    static func tap()        { play(.click) }
+    /// UI taps — `notification` so a button is actually felt mid-effort (`.click`
+    /// is often lost under sweat / movement).
+    static func tap()        { play(.notification) }
     static func success()    { play(.success) }
     static func transition() { play(.directionUp) }
     static func warning()    { play(.notification) }

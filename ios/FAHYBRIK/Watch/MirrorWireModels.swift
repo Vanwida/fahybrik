@@ -30,6 +30,11 @@ enum MirrorWire {
         static let frame = "frame"
         /// Phone → watch: the session is over — finish (save) or discard.
         static let end = "end"
+        /// Phone → watch: a workout-cue haptic (tick / go / stop / finish). The
+        /// engine lives on the phone in mirror mode, so without this the wrist
+        /// never feels the 3-2-1, GO or rest end. ADDITIVE: an older watch ignores
+        /// the type and keeps running.
+        static let haptic = "haptic"
         /// Watch → phone: a live heart-rate sample from the wrist sensor.
         static let hr = "hr"
         /// Watch → phone: a control tap relayed to the phone's engine.
@@ -37,6 +42,14 @@ enum MirrorWire {
         /// Watch → phone: recording closed; carries the HKWorkout UUID (nil on
         /// discard) so the phone stamps source_workout_ref on the execution.
         static let ended = "ended"
+    }
+
+    /// `MirrorHaptic.cue` values — keep the string small and stable.
+    enum HapticCue {
+        static let tick = "tick"
+        static let go = "go"
+        static let stop = "stop"
+        static let finish = "finish"
     }
 
     /// Wrist control vocabulary (MirrorCommand.kind).
@@ -146,6 +159,12 @@ struct MirrorDoblesTurn: Codable, Equatable {
 /// recording (phone discarded the run) → discard the builder, no HKWorkout.
 struct MirrorEnd: Codable {
     let save: Bool
+}
+
+/// Phone → watch: fire a workout-cue haptic on the wrist NOW. Carries only the
+/// cue name (`MirrorWire.HapticCue`); the wrist maps it to `Haptics.cue*`.
+struct MirrorHaptic: Codable, Equatable {
+    let cue: String
 }
 
 /// Watch → phone: live HR off the wrist sensor. The phone injects it into the

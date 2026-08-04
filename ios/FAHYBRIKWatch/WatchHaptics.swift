@@ -7,16 +7,27 @@ import WatchKit
 // backed by WatchKit's `WKInterfaceDevice`, so the engine runs unchanged on the
 // wrist. Same type name, disjoint target membership — never a duplicate symbol.
 //
-// 4-ago: `play` is ALWAYS main-thread. Timer / HealthKit / mirror callbacks can
-// land off-main; WKInterfaceDevice.play is a no-op (or dropped) off the main
-// run loop — which is how "no hay haptics en el reloj" survived the iOS floor fix
-// of 28-jul (that one only rewrote the phone side).
+// WHY things were silent (4-ago, gym):
+// 1. Mirror mode: engine cues fired only on the phone — no wire → wrist never
+//    played 3-2-1 / GO / rest. Fixed by MirrorWire.MessageType.haptic.
+// 2. `play` off-main is dropped by WatchKit → always hop to main.
+// 3. `.click` is too light under effort → cues use start/stop/notification.
 enum Haptics {
     private static func play(_ type: WKHapticType) {
+        let fire = { WKInterfaceDevice.current().play(type) }
         if Thread.isMainThread {
-            WKInterfaceDevice.current().play(type)
+            fire()
         } else {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async(execute: fire)
+        }
+    }
+
+    private static func playSequence(_ types: [WKHapticType], gap: TimeInterval) {
+        guard !types.isEmpty else { return }
+        play(types[0])
+        for (i, type) in types.dropFirst().enumerated() {
+            let delay = gap * Double(i + 1)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 WKInterfaceDevice.current().play(type)
             }
         }
@@ -28,30 +39,14 @@ enum Haptics {
     static func success() { play(.success) }
     static func error()   { play(.failure) }
 
-    // Workout cues — same MEANING as iOS Core Haptics cues, mapped to the
-    // strongest WatchKit types that still read as distinct under effort.
-    static func cueTick() { play(.directionUp) }
+    // Workout cues — unmissable under fatigue. Prefer notification/start over click.
+    static func cueTick() { play(.notification) }
 
-    /// GO — two beats so it can't be missed under fatigue (matches iOS double hit).
-    static func cueGo() {
-        play(.start)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            WKInterfaceDevice.current().play(.start)
-        }
-    }
+    /// GO — two strong beats (matches the phone's double Core Haptics hit).
+    static func cueGo() { playSequence([.start, .start], gap: 0.10) }
 
     /// STOP — fall-away pair, distinct from GO.
-    static func cueStop() {
-        play(.stop)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-            WKInterfaceDevice.current().play(.click)
-        }
-    }
+    static func cueStop() { playSequence([.stop, .notification], gap: 0.14) }
 
-    static func cueFinish() {
-        play(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            WKInterfaceDevice.current().play(.success)
-        }
-    }
+    static func cueFinish() { playSequence([.success, .success], gap: 0.14) }
 }

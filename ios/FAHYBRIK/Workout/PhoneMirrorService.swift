@@ -82,11 +82,23 @@ final class PhoneMirrorService {
     /// Register the mirrored-session start handler ONCE, as early as possible so a
     /// session started on the wrist is never missed. Idempotent.
     func prepare() {
+        // Always (re)install the cue relay — even if HealthKit is unavailable the
+        // no-op send is fine, and a previous session may have cleared the hook.
+        Haptics.relayWorkoutCue = { [weak self] cue in
+            Task { @MainActor in self?.sendHapticCue(cue) }
+        }
         guard !didRegisterHandler, HKHealthStore.isHealthDataAvailable() else { return }
         didRegisterHandler = true
         healthStore.workoutSessionMirroringStartHandler = { [weak self] mirrored in
             Task { @MainActor in self?.adopt(mirrored) }
         }
+    }
+
+    /// Push a workout-cue haptic to the wrist immediately. No-op when the watch
+    /// is not mirroring. Best-effort: a dropped packet never blocks the engine.
+    func sendHapticCue(_ cue: String) {
+        guard wristJoined, mirrored != nil else { return }
+        send(MirrorWire.MessageType.haptic, MirrorHaptic(cue: cue))
     }
 
     /// Remote-start the wrist recording for `session`. Non-blocking and silent on
@@ -423,6 +435,15 @@ final class PhoneMirrorService {
         // once per frame, never per centimetre. Pace rides along on the resend.
         let beltTargetKey = f.beltTargetM.map { String(Int($0)) } ?? ""
         let beltBucketKey = f.beltDistanceM.map { String(Int($0 / 10)) } ?? ""
+        // Count-in second rides in the key so each whole second of the 3-2-1
+        // forces a frame (the wrist re-bases, and the cue relay still has a
+        // secondary path if a haptic packet is dropped).
+        let countInSec: String
+        if f.phase == MirrorWire.Phase.countIn, let cd = f.countdownRemaining {
+            countInSec = String(max(0, Int(ceil(cd))))
+        } else {
+            countInSec = ""
+        }
         let parts: [String] = [
             f.phase,
             f.blockTitle ?? "",
@@ -431,6 +452,7 @@ final class PhoneMirrorService {
             f.progressText ?? "",
             f.targetZone.map(String.init) ?? "",
             f.countdownRemaining != nil ? "cd" : "",
+            countInSec,
             f.restRemaining != nil ? "rest" : "",
             doblesKey,
             beltTargetKey,

@@ -139,8 +139,24 @@ final class MirrorSessionController: NSObject {
             if let f = envelope.body(as: MirrorStateFrame.self) { applyFrame(f) }
         case MirrorWire.MessageType.end:
             if let e = envelope.body(as: MirrorEnd.self) { finish(save: e.save) }
+        case MirrorWire.MessageType.haptic:
+            // Engine cue from the phone — play on the wrist immediately.
+            if let h = envelope.body(as: MirrorHaptic.self) { playEngineCue(h.cue) }
         default:
             break                       // tolerant: a newer phone may speak more types
+        }
+    }
+
+    /// Map a wire cue name to the watch-side `Haptics.cue*` vocabulary.
+    private func playEngineCue(_ cue: String) {
+        switch cue {
+        case MirrorWire.HapticCue.tick:   Haptics.cueTick()
+        case MirrorWire.HapticCue.go:     Haptics.cueGo()
+        case MirrorWire.HapticCue.stop:   Haptics.cueStop()
+        case MirrorWire.HapticCue.finish: Haptics.cueFinish()
+        default:
+            // Unknown future cue — a firm start is better than silence.
+            Haptics.cueGo()
         }
     }
 

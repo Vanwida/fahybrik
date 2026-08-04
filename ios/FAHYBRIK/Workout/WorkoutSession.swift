@@ -694,9 +694,14 @@ final class WorkoutSession {
         Task { await WorkoutStateStore.shared.open() }
         guard timer == nil else { return }
         lastTick = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        // `.common` so ticks (and with them cue haptics / audio) keep firing while
+        // the user scrolls the live HUD — default `.default` mode dies mid-gesture
+        // and was a silent killer of 3-2-1 buzzes on the wrist standalone path.
+        let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
         // First appearance: ARM the current block (show its preview, hold the
         // clock) so the session begins with the athlete's approval, not a timer
         // that's already running. A crash-recovered EMOM keeps its live interval
