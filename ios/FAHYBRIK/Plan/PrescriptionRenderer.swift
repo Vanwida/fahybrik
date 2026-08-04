@@ -95,6 +95,23 @@ enum PrescriptionRenderer {
         return parts.joined(separator: " · ")
     }
 
+    /// CUÁNTAS VECES SE REPITE LA MISMA DOSIS — el «4 ×» de un 4×10, el «5 ×» de un
+    /// 5×500 m. Nil cuando los sets NO son repeticiones: un solo set, o la ROTACIÓN
+    /// de un bloque plegado, donde cada set es un movimiento distinto (`conditioningFold`
+    /// y el builder funcional escriben siempre el nombre en `note`) y su cuenta no
+    /// multiplica nada — «3 ×» delante de remo/ski/cinta sería mentira (§7).
+    ///
+    /// El conteo es DOSIS, no decoración: «4 × 10» y «10» son dos prescripciones
+    /// distintas, y hasta hoy la previa solo lo decía cuando el esquema era
+    /// literalmente `.intervals`, así que un 4×10 de fuerza llegaba a la pantalla de
+    /// antes de empezar como «10 · Corporal · descanso 15s».
+    static func repetitionCount(_ p: Prescription) -> Int? {
+        guard let sets = p.sets, sets.count > 1 else { return nil }
+        guard Set(sets.map { $0.note ?? "" }).count == 1 else { return nil }
+        guard setsAreUniform(p) else { return nil }
+        return sets.count
+    }
+
     // MARK: - Single-line summary (run / ergo / functional / core / mobility)
     //
     // For a non-strength line the athlete reads one card, not a table. We pick the
@@ -109,16 +126,23 @@ enum PrescriptionRenderer {
         let target = set?.target ?? p.target
 
         let modality = p.modality ?? set?.modality ?? .other
-        let headline = measureWork(measure)
+        let work = measureWork(measure)
+        // EL MULTIPLICADOR VA EN EL TITULAR, pegado a la medida, porque es parte de
+        // la dosis y no un apunte: lo que el atleta lee en grande es «4 × 10», no
+        // «10» con un «4×» colgando del detalle en gris. Sin medida escrita el
+        // titular es el contador, que sí se sabe («4 series»), igual que hace
+        // `collapsedSetsLabel` — un solo formateador para el mismo concepto (§2).
+        let repeats = repetitionCount(p)
+        let headline: String? = {
+            guard let repeats else { return work }
+            guard let work else { return "\(repeats) series" }
+            return "\(repeats) × \(work)"
+        }()
         let pace = paceString(target, isErg: modality.isErg)
         let zone = zoneFromTarget(target)
 
         // Detail line: everything that isn't the headline measure or pace/zone.
         var detail: [String] = []
-        // Interval shape: N × (work) with rest.
-        if let count = p.sets?.count, count > 1, p.scheme == .intervals {
-            detail.insert("\(count)×", at: 0)
-        }
         if let load = targetLoad(target), !isPaceOrZone(target) {
             detail.append(load)
         }
@@ -138,11 +162,39 @@ enum PrescriptionRenderer {
         )
     }
 
-    // MARK: - WOD (amrap / emom / for_time) header
+    // MARK: - Cabecera de formato (todo esquema con reloj)
 
-    /// The format + cap/rounds header for a conditioning block, e.g.
-    /// "AMRAP · 12:00", "EMOM · 10 min", "For Time · cap 15:00".
+    /// LA CABECERA DE FORMATO de un bloque: el esquema y los números que lo definen
+    /// — "AMRAP · 12:00", "EMOM · 45/15 · cada 1:00 · 10 rondas", "5 rondas ·
+    /// descanso 1:00", "Tabata · 20/10 · 8 rondas", "Death By · desde 1 · +1 por ronda".
+    ///
+    /// UN SOLO FORMATEADOR (§2 del contrato). Había DOS: este, que solo conocía
+    /// amrap/emom/for_time, y `conditioningFormatLabel`, escondido dentro de la vista
+    /// del entreno activo, que cubría el resto. La previa leía el primero, así que un
+    /// circuito, un Tabata, un Death By o una sim de HYROX llegaban a la pantalla de
+    /// antes de empezar SIN cabecera, mientras que dentro del entreno sí la tenían.
+    ///
+    /// Nil solo para lo que NO es un formato con reloj (fuerza, calentamiento, vuelta
+    /// a la calma) y para el esquema al que no le queda ningún número que decir: ahí
+    /// el título del bloque ya lo dice todo, y una cabecera vacía sería ruido.
     static func wodHeader(_ p: Prescription) -> String? {
+        /// El nº de rondas de un esquema. `.intervals` no siempre lo escribe: sus
+        /// bouts SON los sets, así que la lista los cuenta (mismo criterio que
+        /// `WorkoutSegment.formatRounds`, del que esta función es ahora la única
+        /// fuente para la cabecera).
+        func rounds() -> Int? {
+            if let r = p.rounds, r > 0 { return r }
+            if p.scheme == .intervals, let n = p.sets?.count, n > 0 { return n }
+            return nil
+        }
+        func rondas(_ n: Int) -> String { "\(n) ronda\(n == 1 ? "" : "s")" }
+        /// El reparto trabajo/transición de un ciclo, cuando está escrito.
+        func split() -> String? {
+            guard let w = p.workS, w > 0 else { return nil }
+            guard let r = p.restS, r > 0 else { return "\(w)s" }
+            return "\(w)/\(r)"
+        }
+
         switch p.scheme {
         case .amrap:
             if let cap = p.totalS, cap > 0 { return "AMRAP · \(Formato.clock(cap, subMinuto: .segundos))" }
@@ -168,7 +220,45 @@ enum PrescriptionRenderer {
             if let rounds = p.rounds, rounds > 0 { parts.insert("\(rounds) rondas", at: 1) }
             if let cap = p.totalS, cap > 0 { parts.append("cap \(Formato.clock(cap, subMinuto: .segundos))") }
             return parts.joined(separator: " · ")
-        default:
+        case .tabata:
+            // Un Tabata ES la forma del EMOM con otros números (20/10 × 8), y por eso
+            // se rotula igual: reparto primero, rondas después.
+            var parts = ["Tabata"]
+            if let s = split() { parts.append(s) }
+            if let n = rounds() { parts.append(rondas(n)) }
+            return parts.joined(separator: " · ")
+        case .intervals:
+            // "Series" es la palabra que se usa en el gimnasio; `displayName` es el
+            // vocabulario canónico del cable, en inglés, y no se enseña (§3).
+            var parts = ["Series"]
+            if let s = split() { parts.append(s) }
+            if let n = rounds() { parts.append("\(n) series") }
+            return parts.count > 1 ? parts.joined(separator: " · ") : nil
+        case .deathBy:
+            // El arranque y el incremento SON el protocolo: sin ellos no hay nada que
+            // decir que el nombre no diga ya.
+            var parts = ["Death By"]
+            if let start = p.start, start > 0 { parts.append("desde \(start)") }
+            if let inc = p.increment, inc > 0 { parts.append("+\(inc) por ronda") }
+            return parts.count > 1 ? parts.joined(separator: " · ") : "Death By"
+        case .rounds:
+            // Un circuito se nombra por sus rondas y su descanso — no lleva la palabra
+            // "Rounds" delante, que en castellano sobra («5 rondas · descanso 1:00»).
+            var parts: [String] = []
+            if let n = rounds() { parts.append(rondas(n)) }
+            if let rest = p.restS, rest > 0 { parts.append("descanso \(Formato.clock(rest, subMinuto: .segundos))") }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        case .chipper, .ladder, .hyroxSim:
+            var parts = [p.scheme.displayName]
+            if let n = rounds(), n > 1 { parts.append(rondas(n)) }
+            if let cap = p.totalS, cap > 0 { parts.append("cap \(Formato.clock(cap, subMinuto: .segundos))") }
+            return parts.joined(separator: " · ")
+        case .steady:
+            guard let t = p.totalS, t > 0 else { return nil }
+            return "Continuo · \(Formato.clock(t, subMinuto: .segundos))"
+        case .sets, .warmup, .cooldown:
+            // No son formatos con reloj: el título del bloque y la tabla de series ya
+            // los cuentan enteros.
             return nil
         }
     }

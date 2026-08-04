@@ -560,13 +560,17 @@ struct PreWorkoutBriefView: View {
         return "Min \(index + 1)"
     }
 
-    // Render ONE item by its modality. Strength → per-set table; run/ergo →
-    // distance/duration × pace/zone card; functional/core/mobility → reps/dist ×
-    // load/bodyweight card.
+    // Render ONE item. Lo que decide la TABLA POR SERIES es que la prescripción sea
+    // una tabla de series (`scheme == .sets` con sets escritos), no la modalidad: un
+    // core de 3×20 o una movilidad de 3×30 s tienen exactamente la misma forma que un
+    // 4×10 de banca, y filtrar por `modality == .strength` los mandaba a la tarjeta de
+    // una línea, que se come el conteo de series. Todo lo demás —correr, ergo,
+    // funcional, un movimiento suelto de un WOD— sigue siendo tarjeta de una línea.
     @ViewBuilder
     private func itemView(_ item: WorkoutItem) -> some View {
         let modality = itemModality(item)
-        if modality == .strength, item.prescription?.sets?.isEmpty == false {
+        let sets = item.prescription?.scheme == .sets ? (item.prescription?.sets?.count ?? 0) : 0
+        if sets > 0, modality == .strength || sets > 1 {
             strengthItemTable(item)
         } else {
             modalityCard(item, modality: modality)
@@ -827,18 +831,22 @@ struct PreWorkoutBriefView: View {
         return itemModality(first).rawValue
     }
 
-    /// The WOD format/cap chip for a conditioning block — derived from the first
-    /// item's prescription scheme (amrap/emom/for_time), else from the block
-    /// format. Nil for a plain strength/cardio block.
+    /// La cabecera de formato del bloque. Sale del formateador compartido, que ya
+    /// conoce TODOS los esquemas con reloj — antes se filtraba por `scheme.isWOD`
+    /// (solo amrap/emom/for_time), así que un circuito, un Tabata o una sim de HYROX
+    /// llegaban a la previa sin cabecera aunque dentro del entreno sí la tuvieran.
+    /// Nil para fuerza / calentamiento / vuelta a la calma, donde el título basta.
     private func wodHeader(for block: WorkoutBlock) -> String? {
-        if let p = block.items.first?.prescription, p.scheme.isWOD {
-            return PrescriptionRenderer.wodHeader(p)
+        if let p = block.items.first?.prescription,
+           let header = PrescriptionRenderer.wodHeader(p) {
+            return header
         }
-        switch block.format.lowercased() {
-        case "amrap":    return "AMRAP"
-        case "emom":     return "EMOM"
-        case "for_time": return "FOR TIME"
-        default:         return nil
+        // Sin prescripción estructurada solo se sabe el formato del bloque: se dice
+        // el nombre y nada más, que es lo único cierto.
+        guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else { return nil }
+        switch scheme {
+        case .sets, .warmup, .cooldown: return nil
+        default:                        return scheme.displayName
         }
     }
 

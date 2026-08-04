@@ -373,11 +373,68 @@ final class AssignmentDetailTests: XCTestCase {
         let detail = try decode(json)
         let p = try XCTUnwrap(detail.workout?.blocks.first?.items.first?.prescription)
         let line = PrescriptionRenderer.summaryLine(p)
-        XCTAssertEqual(line.headline, "400 m")
+        // El multiplicador va PEGADO a la medida, en el titular: «4 × 400 m» es la
+        // dosis entera. Antes colgaba del detalle, en gris y detrás de la carga.
+        XCTAssertEqual(line.headline, "4 × 400 m")
         XCTAssertEqual(line.pace, "@ 3:40/km")
-        XCTAssertTrue(line.detail?.contains("4×") ?? false)
         // 90s rest reads as m:ss at/above a minute ("1:30"), "Ns" only under it.
         XCTAssertTrue(line.detail?.contains("descanso 1:30") ?? false)
+    }
+
+    // MARK: - Gym 4-ago · la previa dice la dosis entera, en TODOS los tipos
+
+    /// El caso reportado: un 4×10 corporal con 15 s llegaba a la pantalla de antes de
+    /// empezar como «10 · Corporal · descanso 15s» — sin las cuatro series.
+    func test_strengthSets_countReachesTheHeadline() throws {
+        let serie = PrescriptionSet(measure: .reps(10), target: .bodyweight, modality: nil,
+                                    restS: 15, tempo: nil, note: nil)
+        let p = Prescription(scheme: .sets, modality: .strength,
+                             sets: Array(repeating: serie, count: 4),
+                             rounds: nil, workS: nil, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        let line = PrescriptionRenderer.summaryLine(p)
+        XCTAssertEqual(line.headline, "4 × 10")
+        XCTAssertTrue(line.detail?.contains("descanso 15s") ?? false)
+    }
+
+    /// Y la contraparte que impide que la regla mienta: la ROTACIÓN de un bloque
+    /// plegado son movimientos distintos, no repeticiones. «3 ×» delante de
+    /// remo/ski/cinta diría que hay que hacer cada uno tres veces.
+    func test_foldedRotation_isNeverCollapsedIntoAMultiplier() throws {
+        func estacion(_ nombre: String) -> PrescriptionSet {
+            PrescriptionSet(measure: .calories(15), target: nil, modality: nil,
+                            restS: nil, tempo: nil, note: nombre)
+        }
+        let p = Prescription(scheme: .emom, modality: .functional,
+                             sets: [estacion("Remo"), estacion("SkiErg"), estacion("Cinta")],
+                             rounds: 12, workS: 60, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        XCTAssertNil(PrescriptionRenderer.repetitionCount(p))
+        XCTAssertEqual(PrescriptionRenderer.summaryLine(p).headline, "15 cal")
+    }
+
+    /// La cabecera de formato la conocen TODOS los esquemas con reloj, no solo
+    /// amrap/emom/for_time: un circuito llegaba a la previa sin cabecera y aparecía
+    /// con ella al arrancar, porque había dos formateadores distintos.
+    func test_wodHeader_coversEveryClockScheme() throws {
+        func rx(_ scheme: PrescriptionScheme, rounds: Int? = nil, workS: Int? = nil,
+                restS: Int? = nil, totalS: Int? = nil, start: Int? = nil, increment: Int? = nil) -> Prescription {
+            Prescription(scheme: scheme, modality: nil, sets: nil, rounds: rounds, workS: workS,
+                         restS: restS, totalS: totalS, target: nil, note: nil,
+                         start: start, increment: increment)
+        }
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.rounds, rounds: 5, restS: 60)),
+                       "5 rondas · descanso 1:00")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.tabata, rounds: 8, workS: 20, restS: 10)),
+                       "Tabata · 20/10 · 8 rondas")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.deathBy, start: 1, increment: 1)),
+                       "Death By · desde 1 · +1 por ronda")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.hyroxSim, rounds: 8, totalS: 5400)),
+                       "HYROX Sim · 8 rondas · cap 1:30:00")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.steady, totalS: 2400)), "Continuo · 40:00")
+        // Fuerza / calentamiento / vuelta a la calma no son formatos con reloj.
+        XCTAssertNil(PrescriptionRenderer.wodHeader(rx(.sets)))
+        XCTAssertNil(PrescriptionRenderer.wodHeader(rx(.warmup)))
     }
 
     // An erg pace stored per_km converts to /500m for the athlete's monitor.

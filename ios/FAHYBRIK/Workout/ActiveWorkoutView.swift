@@ -432,10 +432,15 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    // The block's format/scheme line for the preview. An EMOM reads its resolved
-    // plan ("EMOM · 15 rondas · cada 1:00"); other conditioning schemes (AMRAP /
-    // For Time) reuse the shared PrescriptionRenderer; plain strength / warmup
-    // blocks have no format line (the title carries them).
+    // The block's format/scheme line for the preview. An EMOM reads its RESOLVED plan
+    // (el único caso que sabe algo que la prescripción no dice: la rotación ya
+    // expandida); todo lo demás sale del formateador compartido.
+    //
+    // Aquí vivía `conditioningFormatLabel`, una SEGUNDA implementación de la misma
+    // cabecera —Tabata, Death By, Series, Continuo, Chipper, Ladder, Rondas, sim— que
+    // esta pantalla tenía y la previa no. Por eso un circuito llegaba a la pantalla de
+    // antes de empezar sin cabecera y aparecía con ella al arrancar. Ahora hay UNA
+    // (§2), en `PrescriptionRenderer.wodHeader`, y las dos pantallas leen la misma.
     private func blockFormatLabel(_ segments: [WorkoutSegment]) -> String? {
         if let emom = segments.compactMap(\.emomPlan).first {
             let cycle = "cada \(Formato.clock(emom.intervalSeconds, subMinuto: .segundos))"
@@ -446,37 +451,7 @@ struct ActiveWorkoutView: View {
                 : cycle
             return "EMOM · \(emom.intervalCount) rondas · \(shape)"
         }
-        if let wod = segments.compactMap(\.prescription).first(where: { $0.scheme.isWOD }) {
-            return PrescriptionRenderer.wodHeader(wod)
-        }
-        // The remaining conditioning formats (Tabata, Death By, Intervals, Steady,
-        // Chipper, Ladder, Rounds, HYROX sim) build their own header line.
-        if let seg = segments.first(where: { $0.isConditioningTimer }) {
-            return conditioningFormatLabel(seg)
-        }
-        return nil
-    }
-
-    private func conditioningFormatLabel(_ seg: WorkoutSegment) -> String? {
-        guard let scheme = seg.formatScheme else { return nil }
-        var parts: [String] = [scheme.displayName]
-        switch scheme {
-        case .amrap, .steady:
-            if let t = seg.formatTotalSeconds { parts.append(Formato.clock(t, subMinuto: .segundos)) }
-        case .tabata:
-            if let w = seg.formatWorkSeconds, let r = seg.formatRestSeconds { parts.append("\(w)/\(r)s") }
-            if let n = seg.formatRounds { parts.append("×\(n)") }
-        case .intervals:
-            if let n = seg.formatRounds { parts.append("\(n) series") }
-        case .deathBy:
-            parts.append("+\(seg.deathByIncrement)/min")
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            if let n = seg.formatRounds, n > 1 { parts.append("\(n) rondas") }
-            if let cap = seg.formatTotalSeconds { parts.append("cap \(Formato.clock(cap, subMinuto: .segundos))") }
-        default:
-            break
-        }
-        return parts.joined(separator: " · ")
+        return segments.compactMap(\.prescription).compactMap(PrescriptionRenderer.wodHeader).first
     }
 
     private var segmentHasVideo: Bool {
