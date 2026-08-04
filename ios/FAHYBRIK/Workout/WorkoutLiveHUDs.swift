@@ -201,7 +201,7 @@ struct RunLiveHUD: View {
         if isGuidanceOnly { return .esfuerzo(seg?.effortGuidance ?? "Suave") }
         if hasLiveDistance, let ritmo = session.liveCoveredPaceSecPerKm { return .ritmoMedido(ritmo) }
         if let objetivo = seg?.targetPaceSecondsPerKm { return .ritmoObjetivo(objetivo) }
-        return .relojDeVuelta(session.lapElapsedSeconds)
+        return .relojDeVuelta(session.tramoElapsedSeconds)
     }
 
     /// Etiqueta y cifra viajan JUNTAS a propósito: cuando eran dos decisiones
@@ -221,6 +221,12 @@ struct RunLiveHUD: View {
 
     /// El reloj de apoyo. Cuando el sujeto YA es la vuelta, aquí va el total:
     /// repetir el mismo cronómetro dos veces no es un dato más.
+    ///
+    /// «Vuelta» es el reloj del TRAMO —la pierna que estás corriendo—, no el del
+    /// segmento. Con el crudo `lapElapsedSeconds`, en un 6×800 la vuelta se comía los
+    /// trotes de recuperación y en una tirada de un solo tramo era el total otra vez.
+    /// Es el mismo cambio que ya se hizo con el ritmo (el motor mide sobre la PIERNA):
+    /// lo que se ve y lo que se guarda hablan de la misma ventana.
     @ViewBuilder
     private var apoyoDelReloj: some View {
         if case .relojDeVuelta = sujeto {
@@ -228,7 +234,7 @@ struct RunLiveHUD: View {
                       valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
         } else {
             ApoyoVivo(etiqueta: Vocab.vuelta,
-                      valor: Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
+                      valor: Formato.clock(session.tramoElapsedSeconds, anchoFijo: true))
         }
     }
 

@@ -300,6 +300,11 @@ enum Vocab {
     static let tiempo = "Tiempo"
     static let vuelta = "Vuelta"
     static let total = "Total"
+    /// Cuánto llevas desde que soltaste la barra. En el hierro es EL número que se
+    /// mira entre series, y el que la app no daba: el descanso prescrito se agota y
+    /// desaparece, y a partir de ahí nadie sabe si lleva cuarenta segundos o cuatro
+    /// minutos sentado.
+    static let pausa = "Pausa"
 
     /// Lo que te pidieron. En prosa y como etiqueta, la misma palabra.
     static let objetivo = "Objetivo"

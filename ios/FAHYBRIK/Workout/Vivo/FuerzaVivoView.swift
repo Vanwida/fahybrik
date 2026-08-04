@@ -347,8 +347,15 @@ struct FuerzaVivoView<Cromo: View>: View {
                           unidad: Vocab.ppm,
                           tono: session.liveZone?.color ?? Theme.Color.foreground,
                           ausente: "sin reloj")
-                ApoyoVivo(etiqueta: Vocab.vuelta,
-                          valor: Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
+                // LA PAUSA, NO LA «VUELTA». La vuelta contaba desde que se abrió el
+                // ejercicio, así que en un 4×10 sumaba las cuatro series y sus tres
+                // descansos sin reiniciar: un número que no contesta ninguna pregunta
+                // que se haga el que está levantando. Lo que sí se pregunta entre
+                // series es cuánto lleva parado — y el descanso prescrito se agota y
+                // desaparece justo cuando deja de saberlo.
+                ApoyoVivo(etiqueta: Vocab.pausa,
+                          valor: session.secondsSinceLastSet.map { Formato.clock($0, anchoFijo: true) },
+                          ausente: "aún no")
                 ApoyoVivo(etiqueta: Vocab.total,
                           valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
             }

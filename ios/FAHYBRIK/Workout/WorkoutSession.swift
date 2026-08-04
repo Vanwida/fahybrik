@@ -2403,6 +2403,9 @@ final class WorkoutSession {
     func primeSetsIfNeeded() {
         guard setsPrimedSegmentIndex != currentSegmentIndex else { return }
         setsPrimedSegmentIndex = currentSegmentIndex
+        // La pausa es del tramo que tienes delante: al cambiar de ejercicio se
+        // olvida, o el primer «Pausa» del curl heredaría el reloj de la banca.
+        lastSetClosedElapsed = nil
         guard let seg = currentSegment, seg.usesMultiSetStrength,
               let sets = seg.prescription?.sets else {
             setRecords = []
@@ -2454,7 +2457,26 @@ final class WorkoutSession {
         }
         recomputeSetStatus(index)
         registerFirstWorkingSet()
+        lastSetClosedElapsed = elapsedSeconds
         startRest(setRecords[index].restS)
+    }
+
+    /// El reloj de la sesión cuando se cerró la última serie. Nil hasta que se cierra
+    /// la primera del tramo: antes no hay pausa que contar, y un 0:00 se leería como
+    /// una medida (§7).
+    private(set) var lastSetClosedElapsed: Double?
+
+    /// CUÁNTO LLEVAS DESDE QUE SOLTASTE LA BARRA. Sigue corriendo cuando el descanso
+    /// prescrito se agota, que es justo cuando el atleta deja de tener referencia.
+    ///
+    /// Sustituye a la «vuelta» en el hierro: `lapElapsedSeconds` cuenta desde que se
+    /// abrió el TRAMO, así que en un 4×10 sumaba las cuatro series y sus tres
+    /// descansos sin reiniciar nunca — un número que no contesta ninguna pregunta que
+    /// el atleta se haga («suma rara, poco útil»). El total de la sesión, que sí
+    /// contesta una, se queda donde estaba.
+    var secondsSinceLastSet: Double? {
+        guard let t = lastSetClosedElapsed else { return nil }
+        return Swift.max(0, elapsedSeconds - t)
     }
 
     func setSetReps(_ index: Int, _ reps: Int) {
