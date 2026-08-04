@@ -145,11 +145,47 @@ final class MirrorSessionController: NSObject {
     }
 
     private func applyFrame(_ f: MirrorStateFrame) {
+        // Mirror mode: the ENGINE lives on the phone, so iOS `Haptics.cue*` never
+        // reaches the wrist. Edge-detect phase / rest / count-in from consecutive
+        // frames and fire the watch-side cues here (main actor already).
+        fireHaptics(from: frame, to: f)
         frame = f
         frameReceivedAt = Date()
         lastSignalAt = frameReceivedAt ?? Date()
         isConnectionLost = false
         applyPhase(f.phase)
+    }
+
+    /// Translate phone-engine transitions into wrist haptics. Without this, only
+    /// button taps / zone exit / dobles handoff buzzed on the watch — never the
+    /// 3-2-1, GO, rest end or finish that the athlete needs eyes-up.
+    private func fireHaptics(from old: MirrorStateFrame?, to new: MirrorStateFrame) {
+        let oldPhase = old?.phase
+        let newPhase = new.phase
+
+        // Count-in TICKS are owned by MirrorHUDView's local TimelineView — the
+        // phone may be backgrounded and stop pushing frames mid 3-2-1. Here we
+        // only fire transitions that are frame-events.
+
+        // GO — count-in ends, or a block gate starts work.
+        if oldPhase == MirrorWire.Phase.countIn && newPhase == MirrorWire.Phase.active {
+            Haptics.cueGo()
+        } else if oldPhase == MirrorWire.Phase.gate && newPhase == MirrorWire.Phase.active {
+            Haptics.cueGo()
+        }
+
+        // Rest appears → STOP; rest clears → GO (same vocabulary as the phone floor).
+        let oldRest = old?.restRemaining ?? 0
+        let newRest = new.restRemaining ?? 0
+        if oldRest <= 0, newRest > 0 {
+            Haptics.cueStop()
+        } else if oldRest > 0, newRest <= 0 {
+            Haptics.cueGo()
+        }
+
+        if newPhase == MirrorWire.Phase.finished, oldPhase != MirrorWire.Phase.finished {
+            Haptics.cueFinish()
+        }
     }
 
     /// Mirror the engine's pause state onto the HK session so paused/rest minutes

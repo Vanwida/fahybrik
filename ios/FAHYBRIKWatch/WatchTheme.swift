@@ -97,22 +97,34 @@ enum WatchTheme {
 // MARK: - Haptics
 //
 // Watch-side haptic vocabulary wrapping WKInterfaceDevice. The shared engine
-// fires its own haptics via the iOS `Haptics` enum; these cover the UI-layer
-// cues the views own (button taps, transitions, zone exits).
+// fires its own haptics via the iOS `Haptics` enum (watch shim in WatchHaptics.swift);
+// these cover the UI-layer cues the views own (button taps, transitions, zone exits).
+// Always main-thread — see the 4-ago note on the engine shim.
 enum WatchHaptics {
-    static func tap()        { WKInterfaceDevice.current().play(.click) }
-    static func success()    { WKInterfaceDevice.current().play(.success) }
-    static func transition() { WKInterfaceDevice.current().play(.directionUp) }
-    static func warning()    { WKInterfaceDevice.current().play(.notification) }
-    static func start()      { WKInterfaceDevice.current().play(.start) }
-    static func stop()       { WKInterfaceDevice.current().play(.stop) }
+    private static func play(_ type: WKHapticType) {
+        if Thread.isMainThread {
+            WKInterfaceDevice.current().play(type)
+        } else {
+            DispatchQueue.main.async {
+                WKInterfaceDevice.current().play(type)
+            }
+        }
+    }
+
+    static func tap()        { play(.click) }
+    static func success()    { play(.success) }
+    static func transition() { play(.directionUp) }
+    static func warning()    { play(.notification) }
+    static func start()      { play(.start) }
+    static func stop()       { play(.stop) }
 
     /// #56 — "entras tú": the partner's relay just handed the station back. A DOUBLE
     /// notification tap so it's unmistakable on the wrist mid-effort (distinct from the
     /// single-tap cues), the two beats ~220ms apart.
     static func relayHandoff() {
-        let device = WKInterfaceDevice.current()
-        device.play(.notification)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { device.play(.notification) }
+        play(.notification)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            WKInterfaceDevice.current().play(.notification)
+        }
     }
 }

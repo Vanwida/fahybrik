@@ -12,6 +12,10 @@ struct MirrorHUDView: View {
     // 0 = live (default) · 1 = controls (one swipe away).
     @State private var page = 0
     @State private var lastZoneHapticAt: Date = .distantPast
+    /// Local 3-2-1 ceil last felt — the count-in re-bases between frames, so
+    /// ticks must fire here when the displayed second changes, not only when a
+    /// phone frame lands (phone timers die in background).
+    @State private var lastCountInCeil: Int? = nil
 
     var body: some View {
         TabView(selection: $page) {
@@ -91,10 +95,12 @@ struct MirrorHUDView: View {
     // the count-in isn't skippable from the mirrored wrist (matches standalone).
     private var countInContent: some View {
         LiveScaffold(status: frame?.blockTitle) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            TimelineView(.periodic(from: .now, by: 0.25)) { context in
+                let remaining = countInRemaining(context.date)
+                let ceil = max(0, Int(ceil(remaining)))
                 VStack(spacing: 6) {
                     WatchLabel(text: "Prepárate")
-                    GiantNumber(text: countInText(context.date), size: 84, color: WatchTheme.orange)
+                    GiantNumber(text: CountdownFormat.standalone(remaining), size: 84, color: WatchTheme.orange)
                     if let next = frame?.lineTitle {
                         Text(next)
                             .font(.system(size: 12, weight: .semibold))
@@ -102,8 +108,27 @@ struct MirrorHUDView: View {
                             .padding(.top, 1)
                     }
                 }
+                // Local tick: fire when the CEIL second drops (3→2→1→0).
+                .onChange(of: ceil) { _, n in
+                    guard phase == MirrorWire.Phase.countIn else { return }
+                    if n > 0, lastCountInCeil == nil || n < (lastCountInCeil ?? n + 1) {
+                        Haptics.cueTick()
+                    } else if n == 0, (lastCountInCeil ?? 1) > 0 {
+                        Haptics.cueGo()
+                    }
+                    lastCountInCeil = n
+                }
+                .onAppear {
+                    if ceil > 0 { lastCountInCeil = ceil }
+                }
             }
         }
+        .onDisappear { lastCountInCeil = nil }
+    }
+
+    private func countInRemaining(_ now: Date) -> Double {
+        guard let cd = frame?.countdownRemaining else { return 0 }
+        return max(0, cd - sinceFrame(now))
     }
 
     private var activeContent: some View {
@@ -514,14 +539,6 @@ struct MirrorHUDView: View {
         guard let at = controller.frameReceivedAt,
               phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
         return max(0, now.timeIntervalSince(at))
-    }
-
-    /// The count-in 3-2-1, re-based locally between frames. CEIL (the wrist's OWN
-    /// count-in style, in lock-step with the engine's audio ticks) — NOT the mirrored
-    /// round the live clock uses, because this is the pre-roll, not a duplicated clock.
-    private func countInText(_ now: Date) -> String {
-        guard let cd = frame?.countdownRemaining else { return WatchFormat.countdown(0) }
-        return CountdownFormat.standalone(max(0, cd - sinceFrame(now)))
     }
 
     /// The hero clock: a re-based countdown when the phone shows one, else a re-based
