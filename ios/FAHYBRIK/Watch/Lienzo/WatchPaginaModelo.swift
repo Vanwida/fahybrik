@@ -1,0 +1,170 @@
+import SwiftUI
+
+// EL LIENZO DE LA MUÑECA — la mitad que es MODELO.
+//
+// Aquí vive lo que una pantalla del reloj DECLARA (el modo, la página, el tinte,
+// la nota, la altura del sujeto); el pintado —`WatchReloj`— se queda en el target
+// del reloj, en `FAHYBRIKWatch/Lienzo/WatchLienzo.swift`.
+//
+// POR QUÉ ESTÁ AQUÍ Y NO EN EL RELOJ: los guiones son funciones puras estado →
+// páginas, y son lo que decide qué lee el atleta en la muñeca. Compilando este
+// modelo también en el target de iOS, `FAHYBRIKTests` (que es iOS) puede recorrer
+// la cadena entera móvil → cable → muñeca y comprobar las páginas que salen. Antes
+// vivía sólo en watchOS y por eso ese tramo no lo verificaba nadie.
+
+// MARK: - Modo
+
+/// Lo que el atleta PUEDE hacer ahora mismo — manda sobre el formato.
+enum WatchModo {
+    /// Ni mirar ni tocar: el reloj enuncia y espera. Oferta atenuada, jamás petición.
+    case ciego
+    /// Mirar sin tocar: un dato a sangre. Gesto latente sin franja anunciada.
+    case ojeada
+    /// Mirar y tocar: aquí van la decisión y la franja a plena luz.
+    case mando
+
+    var pintaFranja: Bool {
+        switch self {
+        case .ciego, .mando: return true
+        case .ojeada: return false
+        }
+    }
+
+    var franjaAtenuada: Bool {
+        switch self {
+        case .ciego: return true
+        case .ojeada, .mando: return false
+        }
+    }
+}
+
+// MARK: - Página
+
+/// Una página del reloj. Lo que no cabe no encoge: se va a la siguiente.
+struct WatchPagina: Identifiable {
+    let id: String
+    /// Banda superior de una línea: dónde estás.
+    let contexto: String
+    let modo: WatchModo
+    /// El numeral a sangre.
+    let sujeto: String
+    var unidad: String? = nil
+    var tono: Color = WatchTheme.ink
+    /// Segundo nivel — y no hay tercero.
+    var segundoEtiqueta: String? = nil
+    var segundoValor: String? = nil
+    var segundoTono: Color? = nil
+    /// Franja de acción. En `ojeada` el lienzo no la pinta (gesto latente).
+    var accion: String? = nil
+    var onToca: (() -> Void)? = nil
+    /// Versales al pie: procedencia u honestidad.
+    var nota: String? = nil
+}
+
+// MARK: - Destello
+
+/// Golpe de luz a pantalla completa por SUCESO (cierre de serie, ronda nueva).
+struct WatchDestello: Equatable {
+    var n: Int = 0
+    var color: Color = WatchTheme.orangeSoft
+}
+
+// MARK: - Zona (nombres de box, no jerga de corredor)
+
+enum WatchZonaNombre {
+    static func de(_ zone: HRZone) -> String {
+        switch zone {
+        case .z1: return "muy suave"
+        case .z2: return "suave"
+        case .z3: return "medio"
+        case .z4: return "fuerte"
+        case .z5: return "máximo"
+        }
+    }
+}
+
+// MARK: - Honestidad (§7)
+
+enum WatchNota {
+    static let delMovil = "del móvil"
+    static let sinMaquina = "sin máquina emparejada"
+    static let sinAncla = "sin umbral · no hay zona"
+    static let umbralEstimado = "umbral estimado"
+    static let loDicesTu = "lo dices tú"
+    static let sinSenal = "sin señal · buscando"
+}
+
+// MARK: - Tinte del lienzo
+
+enum WatchTinte {
+    /// Tope del tinte de zona. Por encima el aro y las versales pierden contraste.
+    static let maxOpacity: Double = 0.38
+
+    /// Color de relleno del fondo, o nil → negro puro (sin ancla / sin zona).
+    static func color(for zone: HRZone?) -> Color? {
+        zone.map { WatchTheme.zoneColor($0) }
+    }
+
+    static func urgente(_ quedaS: Double) -> Color {
+        quedaS > 0 && quedaS <= WatchTheme.urgentThreshold ? WatchTheme.orange : WatchTheme.ink
+    }
+}
+
+// MARK: - Página del pulso (compartida por las nueve familias)
+
+enum WatchPaginasComunes {
+    /// Página del cuerpo. Sin pulso no se pinta (nil). Sin zona → ppm crudos + nota.
+    static func pulso(bpm: Int?, zone: HRZone?, modo: WatchModo = .ojeada) -> WatchPagina? {
+        guard let bpm else { return nil }
+        if let zone {
+            return WatchPagina(
+                id: "pulso",
+                contexto: "Pulso",
+                modo: modo,
+                sujeto: "\(bpm)",
+                segundoValor: "Z\(zone.rawValue) \(WatchZonaNombre.de(zone))",
+                segundoTono: WatchTheme.zoneColor(zone)
+            )
+        }
+        return WatchPagina(
+            id: "pulso",
+            contexto: "Pulso",
+            modo: modo,
+            sujeto: "\(bpm)",
+            segundoValor: "ppm",
+            nota: WatchNota.sinAncla
+        )
+    }
+
+    static func tiempo(segundos: Double, contexto: String = "Llevas", nota: String? = nil, modo: WatchModo = .ojeada) -> WatchPagina {
+        WatchPagina(
+            id: "tiempo",
+            contexto: contexto,
+            modo: modo,
+            sujeto: WatchFormat.clock(segundos),
+            nota: nota
+        )
+    }
+}
+
+// MARK: - Altura del sujeto (ancho manda)
+
+enum WatchSujeto {
+    /// Techo / suelo del numeral (pt de cifra), espejo del kit-watch.
+    static let techo: CGFloat = 110
+    static let suelo: CGFloat = 44
+
+    /// Altura de cifra por número de glifos. En la muñeca limita el ANCHO, no el alto.
+    static func alto(para texto: String) -> CGFloat {
+        let n = max(1, texto.count)
+        let porAncho: CGFloat
+        switch n {
+        case 1: porAncho = techo
+        case 2: porAncho = 96
+        case 3: porAncho = 72
+        case 4: porAncho = 56
+        default: porAncho = suelo
+        }
+        return porAncho
+    }
+}

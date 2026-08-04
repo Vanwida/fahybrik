@@ -158,15 +158,19 @@ struct MirrorHUDView: View {
         }
     }
 
-    /// El aro dibuja a QUIEN CIERRA la ventana, igual que en solitario: una cuenta
-    /// atrás con total conocido. Sin total no hay aro — dibujar una fracción que
-    /// nadie sabe es la mentira que el bisel vino a evitar (hoy la muñeca asumía
-    /// 60 s en un EMOM y pintaba un aro inventado).
+    /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
+    /// segmentado en series/fuerza/ergo — el on/off alrededor del cuadrado —,
+    /// continuo para una sola cosa en marcha, y nada cuando nadie sabe el total.
     private var bisel: AnyView? {
-        guard let t = frame?.tramo,
-              let queda = t.ventanaQueda,
-              let total = t.ventanaTotal, total > 0 else { return nil }
-        return WatchAroContinuo(remaining: max(0, min(1, queda / total))).watchBisel()
+        guard let f = frame else { return nil }
+        switch GuionDelEspejo.aro(f) {
+        case .ninguno:
+            return nil
+        case let .continuo(queda):
+            return WatchAroContinuo(remaining: queda).watchBisel()
+        case let .segmentado(total, hechas, fraccion):
+            return WatchAroSegmentado(total: total, hechas: hechas, fraccion: fraccion).watchBisel()
+        }
     }
 
     /// Los segundos DENTRO de la ventana, re-basados en local entre tramas (los

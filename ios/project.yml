@@ -278,6 +278,29 @@ targets:
       - path: FAHYBRIK/Theme/LenguajeVivo.swift
       - path: FAHYBRIK/Watch/WatchWireModels.swift
       - path: FAHYBRIK/Watch/MirrorWireModels.swift
+      # ----- EL LIENZO Y LOS GUIONES DE LA MUÑECA -----
+      # Qué lee el atleta en el reloj lo deciden los GUIONES: funciones puras
+      # estado → páginas, sin una sola vista dentro. Vivían sólo en el target
+      # watchOS y por eso nadie los verificaba: FAHYBRIKTests es iOS, así que la
+      # cadena móvil → cable → muñeca se cortaba justo antes de la pantalla —
+      # que es donde salieron los fallos que se cazaron entrenando. Compilándolos
+      # también en iOS, un test recorre el viaje entero y comprueba las páginas.
+      #
+      # Sube con ellos lo mínimo que necesitan para armar una página: la paleta
+      # (una página lleva color), el modelo de página y la grafía de los números.
+      # Todo SwiftUI/Foundation puro. El PINTADO se queda en la muñeca
+      # (FAHYBRIKWatch/Lienzo/WatchLienzo.swift + WatchBisel.swift), y con él
+      # `GuionEscaparate` — que es el único guion que instancia vistas del reloj.
+      - path: FAHYBRIK/Watch/Lienzo/WatchPaleta.swift
+      - path: FAHYBRIK/Watch/Lienzo/WatchPaginaModelo.swift
+      - path: FAHYBRIK/Watch/Lienzo/WatchFormato.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionRodaje.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionSeries.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionFuerza.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionEmom.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionRuta.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionErgo.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionDelEspejo.swift
       - path: FAHYBRIK/Plan/Prescription.swift
       # Prescription.swift references RunStructure (the #61 structured-run grammar),
       # so its definition must compile into the watch target too.

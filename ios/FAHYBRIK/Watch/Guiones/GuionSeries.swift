@@ -156,9 +156,15 @@ enum GuionSeries {
         }
     }
 
-    /// El segundo nivel del trabajo: tu ritmo y, si el coach escribió objetivo,
-    /// el veredicto. El ritmo lo mide el GPS del reloj y la etiqueta lo dice —
-    /// es el mismo sitio donde una cinta pondría «del móvil».
+    /// El segundo nivel del trabajo: tu ritmo, medido por el GPS del reloj — y la
+    /// etiqueta lo dice. Es el mismo sitio donde una cinta pondría «del móvil» y
+    /// una serie a pulso no pondría nada, porque no habría ritmo que enseñar.
+    ///
+    /// TAL CUAL EL DOBLE, sin veredictos inventados encima: el aviso de ritmo
+    /// fuera de banda ya es un HÁPTICO (la muñeca vibra, no sermonea), y esta
+    /// línea se queda para el dato. Aquí hubo un «Frena / Aprieta» propio que no
+    /// estaba en ningún diseño aprobado — rediseñar lo ya diseñado es el fallo
+    /// que motivó revertirlo.
     private static func segundoDeTrabajo(_ e: Estado) -> (String?, String?, Color?) {
         guard let ritmo = e.ritmoSecPorKm else {
             // Sin ritmo medido no se pinta una etiqueta vacía: si hay objetivo
@@ -166,42 +172,7 @@ enum GuionSeries {
             guard let objetivo = e.objetivo else { return (nil, nil, nil) }
             return ("Objetivo", objetivo.label, nil)
         }
-        let ritmoTexto = "\(WatchFormat.pace(ritmo))\(Formato.UnidadRitmo.porKm.rawValue)"
-        guard let objetivo = e.objetivo else { return ("GPS", ritmoTexto, nil) }
-        // Cuando vas BIEN, la etiqueta dice contra qué vas («5:00 /km») y el verde
-        // dice que lo estás cumpliendo: el color ya es el veredicto y la palabra se
-        // gasta en información. Sólo cuando vas fuera se gasta la etiqueta en la
-        // corrección, porque entonces el dato accionable es qué hacer, no el número.
-        //
-        // (`RunLegDisplay.statusWord` devuelve «✓» para dentro de banda; puesto en
-        // versales a 11 pt, un palote suelto no dice nada y encima se lee como si
-        // fuera parte del ritmo.)
-        //
-        // Y la etiqueta NO repite el objetivo cuando ya se está juzgando: escribir
-        // «5:00 /KM · 4:58/km» pone la unidad dos veces en la misma línea de 188 pt
-        // y obliga a leer dos números para entender uno. El objetivo lo sabe el
-        // atleta —se lo escribió el coach y lo vio en la previa—; lo que no sabe es
-        // si ahora mismo lo está cumpliendo, y eso lo dice el color en un vistazo.
-        switch objetivo.status {
-        case .inTarget:
-            return ("GPS", ritmoTexto, WatchTheme.zoneGreen)
-        case .tooFast:
-            return ("Frena", ritmoTexto, WatchTheme.zoneAmber)
-        case .tooSlow:
-            return ("Aprieta", ritmoTexto, WatchTheme.zoneAmber)
-        case .unknown:
-            // Sin banda de ritmo que juzgar (una zona, un RPE): entonces sí se
-            // enseña contra qué vas, porque el color no puede decirlo.
-            return (objetivo.label, ritmoTexto, nil)
-        }
-    }
-
-    private static func tono(_ status: TargetStatus) -> Color? {
-        switch status {
-        case .inTarget: return WatchTheme.zoneGreen
-        case .tooFast, .tooSlow: return WatchTheme.zoneAmber
-        case .unknown: return nil
-        }
+        return ("GPS", "\(WatchFormat.pace(ritmo))\(Formato.UnidadRitmo.porKm.rawValue)", nil)
     }
 
     // MARK: - Recuperación

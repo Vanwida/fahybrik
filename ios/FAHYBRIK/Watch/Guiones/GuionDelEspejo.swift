@@ -240,6 +240,47 @@ enum GuionDelEspejo {
         )
     }
 
+    // MARK: - El aro, decidido como dato
+
+    /// EL ARO — decidido aquí (puro, testeable) y sólo DIBUJADO por la vista.
+    /// Regla del doble que el espejo pisoteaba: en las series el aro es el on/off
+    /// alrededor del cuadrado — UNA PORCIÓN POR SERIE — no un anillo continuo.
+    /// El continuo queda para lo que es una sola cosa en marcha (ventana EMOM,
+    /// descanso, AMRAP). Y sin total conocido no hay aro: dibujar una fracción
+    /// que nadie sabe es la mentira que el bisel vino a evitar.
+    enum Aro: Equatable {
+        case ninguno
+        case continuo(queda: Double)
+        case segmentado(total: Int, hechas: Int, fraccion: Double)
+    }
+
+    static func aro(_ f: MirrorStateFrame) -> Aro {
+        guard let t = f.tramo else { return .ninguno }
+        switch guionPara(t) {
+        case .series, .fuerza, .ergo:
+            guard let total = t.rondaTotal, total > 1 else { return aroContinuo(t) }
+            let hechas = max(0, (t.rondaN ?? 1) - 1)
+            let fraccion: Double
+            if let obj = t.objetivoMedida, obj > 0, let hecho = t.hechoMedida {
+                fraccion = min(1, max(0, hecho / obj))
+            } else if let queda = t.ventanaQueda, let tot = t.ventanaTotal, tot > 0 {
+                fraccion = min(1, max(0, 1 - queda / tot))
+            } else {
+                // El segmento en curso no se rellena si nadie mide su avance —
+                // el aro sigue diciendo POR QUÉ serie vas, no cuánto llevas.
+                fraccion = 0
+            }
+            return .segmentado(total: total, hechas: hechas, fraccion: fraccion)
+        case .rodaje, .emom, .ruta, .ninguno:
+            return aroContinuo(t)
+        }
+    }
+
+    private static func aroContinuo(_ t: MirrorTramo) -> Aro {
+        guard let queda = t.ventanaQueda, let total = t.ventanaTotal, total > 0 else { return .ninguno }
+        return .continuo(queda: max(0, min(1, queda / total)))
+    }
+
     /// QUIÉN CIERRA la ventana — lo resuelve el motor y viaja resuelto, para que
     /// la muñeca no vuelva a decidirlo por su cuenta con otra regla.
     private static func cierre(_ t: MirrorTramo) -> GuionSeries.Cierre {

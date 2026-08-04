@@ -37,9 +37,11 @@ enum GuionEscaparate {
         let titulo: String
         let paginas: [WatchPagina]
         var tinte: Color? = nil
-        /// La fracción que le queda al aro (1 = entero, 0 = vacío). Nil = sin aro,
-        /// que es lo que corresponde cuando nadie sabe cuánto falta.
+        /// La fracción que le queda al aro continuo (1 = entero). Nil = sin aro.
         var aro: Double? = nil
+        /// El aro SEGMENTADO del doble — el on/off alrededor del cuadrado, una
+        /// porción por serie. Si está, gana al continuo.
+        var aroSeg: (total: Int, hechas: Int, fraccion: Double)? = nil
     }
 
     // MARK: - El catálogo
@@ -98,7 +100,7 @@ enum GuionEscaparate {
                     metrosEnTramo: 174, quedaS: nil, enTramoS: 52, ritmoSecPorKm: 298,
                     objetivo: ("5:00 /km", .inTarget), loQueViene: nil,
                     zonaViva: nil, bpm: 162)),
-                aro: 0.65
+                aroSeg: (total: 5, hechas: 0, fraccion: 0.35)
             ),
             Caso(
                 id: "series-lento",
@@ -108,7 +110,7 @@ enum GuionEscaparate {
                     metrosEnTramo: 640, quedaS: nil, enTramoS: 196, ritmoSecPorKm: 322,
                     objetivo: ("4:55–5:05 /km", .tooSlow), loQueViene: nil,
                     zonaViva: nil, bpm: 171)),
-                aro: 0.47
+                aroSeg: (total: 5, hechas: 2, fraccion: 0.53)
             ),
             // El fartlek de la plantilla 318 — 5×(5' Z4 / 1' Z2). Lo cierra el reloj,
             // así que el sujeto es la cuenta atrás y no unos metros que nadie prometió.
@@ -120,7 +122,7 @@ enum GuionEscaparate {
                     metrosEnTramo: 810, quedaS: 137, enTramoS: 163, ritmoSecPorKm: 289,
                     objetivo: ("Z4", .unknown), loQueViene: nil,
                     zonaViva: .z4, bpm: 176)),
-                tinte: WatchTinte.color(for: .z4), aro: 0.46
+                tinte: WatchTinte.color(for: .z4), aroSeg: (total: 5, hechas: 1, fraccion: 0.54)
             ),
             // Sin objetivo escrito: nadie sabe dónde acaba, así que el sujeto cambia de
             // sentido (los metros que LLEVAS) y aparece el toque para cerrar.
@@ -130,7 +132,10 @@ enum GuionEscaparate {
                 paginas: GuionSeries.paginas(.init(
                     fase: .trabajo, serie: 2, totalSeries: 5, cierre: .atleta,
                     metrosEnTramo: 1_176, quedaS: nil, enTramoS: 294, ritmoSecPorKm: 250,
-                    objetivo: nil, loQueViene: nil, zonaViva: nil, bpm: 168))
+                    objetivo: nil, loQueViene: nil, zonaViva: nil, bpm: 168)),
+                // Serie abierta: el aro dice POR QUÉ serie vas, pero el segmento en
+                // curso no se rellena — nadie mide cuánto le falta.
+                aroSeg: (total: 5, hechas: 1, fraccion: 0)
             ),
             Caso(
                 id: "series-recupera",
@@ -153,7 +158,7 @@ enum GuionEscaparate {
                 paginas: GuionFuerza.paginas(.init(
                     serie: 3, totalSeries: 4, cargaKg: 100, reps: 5, rir: 2, rpe: nil,
                     esfuerzo: nil, segundosEnSerie: 24, zonaViva: nil, bpm: 132)),
-                aro: 0.5
+                aroSeg: (total: 4, hechas: 2, fraccion: 0)
             ),
             // Ejecución 171: el coach no escribió carga. El sujeto pasa a ser las reps
             // y no se pinta «— kg».
@@ -254,7 +259,8 @@ enum GuionEscaparate {
                 paginas: GuionErgo.paginas(.init(
                     fase: .remando, serie: 2, totalSeries: 8, tramoM: 500,
                     maquina: false, hechosM: nil, ritmoSec500: nil,
-                    segundosEnFase: 74, quedaDescansoS: nil, zonaViva: nil, bpm: 164))
+                    segundosEnFase: 74, quedaDescansoS: nil, zonaViva: nil, bpm: 164)),
+                aroSeg: (total: 8, hechas: 1, fraccion: 0)
             ),
             Caso(
                 id: "ergo-con-maquina",
@@ -263,7 +269,7 @@ enum GuionEscaparate {
                     fase: .remando, serie: 3, totalSeries: 8, tramoM: 500,
                     maquina: true, hechosM: 318, ritmoSec500: 115,
                     segundosEnFase: 73, quedaDescansoS: nil, zonaViva: .z4, bpm: 169)),
-                tinte: WatchTinte.color(for: .z4), aro: 0.36
+                tinte: WatchTinte.color(for: .z4), aroSeg: (total: 8, hechas: 2, fraccion: 0.64)
             ),
             Caso(
                 id: "ergo-descanso",
@@ -289,7 +295,9 @@ struct GuionEscaparateView: View {
         WatchReloj(
             paginas: caso.paginas,
             tinte: caso.tinte,
-            bisel: caso.aro.map { WatchAroContinuo(remaining: $0).watchBisel() }
+            bisel: caso.aroSeg.map {
+                WatchAroSegmentado(total: $0.total, hechas: $0.hechas, fraccion: $0.fraccion).watchBisel()
+            } ?? caso.aro.map { WatchAroContinuo(remaining: $0).watchBisel() }
         )
     }
 }
