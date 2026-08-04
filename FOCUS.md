@@ -26,10 +26,85 @@ contrastadas con el Swift: **docs/reloj-inventario.html**.
   `pnpm run twin:desfase`). Y `watch-vivo` es el ancestro de las nueve vistas de
   formato: sobra en el índice.
 
-Orden propuesto: espejo al lenguaje del lienzo → cinta → cable del ergo + ergo →
-deudas del port (biseles de For Time/dobles/resumen, fracción del aro de fuerza,
-totales adivinados, código muerto) → ordenar el índice del doble.
-**Pendiente de OK de Alex antes de tocar Swift.**
+---
+
+## 4-ago · La especificidad por formato es un GUION, no una vista
+
+El diagnóstico, verificado en el código: el port de agosto se llevó el **lienzo**
+(`Lienzo/WatchLienzo.swift`, `WatchBisel.swift` = el port de `kit-watch/`) pero **no
+los guiones**. El doble tiene nueve `guion.ts` (~930 líneas de código real, ~64 casos
+atados a ejecuciones reales) que son exactamente la decisión de *qué es el sujeto en
+cada momento*; en Swift no existía ninguno, así que las vistas re-dedujeron el
+contenido de lo que el motor tenía a mano y todos los formatos acabaron pareciéndose.
+Encima el router reparte por **familia de presentación**, no por formato
+(`LiveFlowView.swift:88`): For Time, Chipper, Ladder y Rounds comparten página.
+
+### Los cuatro hechos que ordenan el trabajo
+
+1. **El reloj corre en espejo el 90 % de las sesiones** (`MirrorSessionController.swift:5`)
+   y **el cable no lleva el formato**: `MirrorStateFrame` no tiene un campo que diga si
+   esto es un EMOM o una serie de fuerza — sólo tres strings ya redactados por el móvil.
+   En espejo el reloj ni siquiera sabe si el minuto que corre es trabajo o el cambio.
+2. **El reloj YA es una app completa en solitario**: compila el mismo motor
+   (`ios/project.yml:325-336`) y recibe el `detailJson` entero. Sin móvil sabe el
+   formato, el plan y la dosis de cada ronda. No hace falta app separada.
+3. **La línea la marca quién mide**: correr fuera → el reloj mide todo, solitario es
+   mejor; fuerza y WOD → no lo mide nadie, el reloj basta; ergo y cinta → **cero
+   CoreBluetooth en el target del reloj**, el móvil es obligatorio.
+4. **Cuatro formatos no existen en la biblioteca real**: Tabata, Death By, Chipper y
+   Ladder tienen **cero casos**; AMRAP tiene uno. Se salen del alcance.
+
+### Lo que Pablo programa de verdad (bloques, formato canónico)
+
+`steady 212 · sets 194 · rounds 90 · intervals 89 · for_time 25 · hyrox_sim 24 · emom 16`
+
+### El techo que NO es de código, es del dato
+
+- El **time cap no existe**: 0 de 39 segmentos For Time llevan `total_s`; «TC 30'» vive
+  en el título del bloque. **Alex: «tc debería existir»** → hay que rellenarlo en la
+  biblioteca (el campo ya está en el modelo: `total_s` y `target.time_cap`).
+- 54 de 216 bloques (25 %) no tienen dosis tipada, sólo el texto verbatim.
+- Los EMOM multi-estación del coach están **vacíos**; los únicos EMOM estructurados los
+  creó un atleta desde la app (`meta_json.origin = "self"`).
+- Los fartlek pierden estructura al tipar (el bloque 451 se come la recuperación y la
+  inclinación del 1 %).
+
+### Decisiones tomadas
+
+- **v1 = rodaje + series + fuerza.** 80 % del volumen y los tres mejor tipados: se
+  pueden hacer específicos sin tocar la biblioteca. For Time, HYROX y EMOM van después
+  y arrastran arreglar el dato del coach.
+- **No se separa la app.** Lo que cambia es que el atleta elija **«con móvil / sin
+  móvil» al empezar** en vez de que lo decida el botón que pulsó
+  (`RootView.swift:56-58`: hoy el espejo gana siempre). Correr sin móvil pasa a ser un
+  camino de primera.
+- **El cable sólo hace falta para ergo y cinta.** Correr sin móvil ya cae en solitario,
+  donde el reloj tiene el plan entero: se arregla con el guion, sin ampliar
+  `MirrorStateFrame`.
+
+### Hecho (`c0d8b6ef`)
+
+`Guiones/GuionRodaje.swift` y `Guiones/GuionSeries.swift` — funciones puras
+estado → páginas; `ContinuousLiveView` y `StructuredRunLiveView` quedan de
+renderizador fino. Build FAHYBRIKWatch SUCCEEDED.
+
+- Rodaje: orden de páginas por degradación (con zona viva el pulso gobierna; sin ancla
+  manda el ritmo). **Añade el caso dominante que el doble no cubría**: con zona
+  prescrita el segundo nivel juzga (en zona / te pasas / vas corto); sin ancla no se
+  juzga y la zona prescrita se dice en el contexto.
+- Series: tres formas de cierre y el sujeto sale de quién cierra — hito → metros que
+  faltan; reloj → cuenta atrás (**el fartlek, que el doble no modelaba**); atleta →
+  metros que llevas. El toque «serie hecha» desaparece cuando cierra un hito.
+
+### Siguiente
+
+1. **Tests de los guiones** — los ~64 casos del doble. Bloqueado por dónde vive el
+   lienzo: `WatchPagina` está sólo en el target del reloj y el de tests es iOS. Hay que
+   partir `WatchLienzo` en modelo (compartido) y vista (reloj).
+2. Guion de **fuerza**.
+3. La elección **con móvil / sin móvil** al empezar (la parte del reloj primero; la del
+   arranque del teléfono toca `PreWorkoutBriefView`).
+4. Actualizar los espejos del doble con lo que ha cambiado en Swift.
 
 ---
 
