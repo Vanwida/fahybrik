@@ -439,8 +439,88 @@ final class PhoneMirrorService {
             beltTargetM: beltTargetM,
             beltPaceSecPerKm: beltPaceSecPerKm,
             hapticCue: pendingHapticCue,
-            hapticSeq: pendingHapticSeq
+            hapticSeq: pendingHapticSeq,
+            tramo: buildTramo(session)
         )
+    }
+
+    /// EL TRAMO en dato — lo que deja a la muñeca elegir guion y pintar el sujeto
+    /// del formato en vez de las tres frases ya redactadas de arriba.
+    ///
+    /// Todo sale de accesores que el motor YA resuelve; aquí no se decide nada
+    /// nuevo, sólo se proyecta. Lo que no se sabe viaja nil: un cero mandado como
+    /// si fuera medida es la clase de mentira que el §7 vino a matar.
+    private func buildTramo(_ session: WorkoutSession) -> MirrorTramo {
+        let tramo = session.currentTramo
+        let seg = session.currentSegment
+        let descansando = session.isTramoResting
+
+        // El ritmo del TRAMO, no la media del segmento: en una serie la media
+        // atraviesa recuperaciones y describe un esfuerzo que no existió.
+        let ritmo: Int? = session.liveCoveredPaceSecPerKm
+        let objetivo = session.currentRunLeg.flatMap {
+            RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo)
+        }
+
+        // La serie EN CURSO, no la primera. `previewWorkLine` congela la primera
+        // los cinco sets, que es justo lo que la muñeca lleva enseñando.
+        let set = session.pendingSetIndex.flatMap { i in
+            session.setRecords.indices.contains(i) ? session.setRecords[i] : nil
+        }
+
+        // Lo cubierto en ESTA ventana. Erg y cinta tienen ventana propia por
+        // tramo; sin ella el minuto 4 de un EMOM reclamaría los metros de todos
+        // los anteriores.
+        let hechoErg: Double? = session.tramoErgDistanceMeters
+            ?? session.tramoErgCalories.map { Double($0) }
+        let hecho: Double? = tramo.isErg ? hechoErg : session.tramoBeltDistanceMeters
+
+        let objetivoMedida: Double? = tramo.targetDistanceMeters
+            ?? tramo.targetCalories.map { Double($0) }
+
+        return MirrorTramo(
+            formato: seg?.formatScheme?.rawValue,
+            modalidad: tramo.modality.rawValue,
+            etiqueta: tramo.label,
+            dosis: tramo.workLine,
+            rondaN: session.tramoRoundTotal > 0 ? session.tramoRoundIndex + 1 : nil,
+            rondaTotal: session.tramoRoundTotal > 0 ? session.tramoRoundTotal : nil,
+            enDescanso: descansando,
+            cierre: cierreWire(session.currentErgCounterPolicy.close),
+            objetivoMedida: objetivoMedida,
+            hechoMedida: hecho,
+            // En descanso el reloj que corre es el del descanso; en trabajo, el de
+            // la ventana — y `tramoWorkRemaining` ya viene nil cuando no la cierra
+            // un reloj, así que la muñeca no inventa cuenta atrás.
+            ventanaQueda: descansando ? session.tramoRestRemaining : session.tramoWorkRemaining,
+            ventanaTotal: tramo.boxedSeconds.map { Double($0) },
+            enTramoS: session.tramoElapsedSeconds,
+            ritmoSecPorKm: ritmo,
+            objetivoLabel: objetivo?.label,
+            objetivoEstado: objetivo.map { estadoWire($0.status) },
+            zonaViva: session.liveZone?.rawValue,
+            siguiente: session.nextTramoLine,
+            cargaKg: set.flatMap { $0.loadActualKg ?? $0.loadPrescribedKg },
+            reps: set.flatMap { $0.repsActual ?? $0.repsPrescribed }
+        )
+    }
+
+    private func cierreWire(_ close: ErgCounterPolicy.Close) -> String {
+        switch close {
+        case .machineGoal:  return "machineGoal"
+        case .sessionClock: return "sessionClock"
+        case .formatClock:  return "formatClock"
+        case .athleteTap:   return "athleteTap"
+        }
+    }
+
+    private func estadoWire(_ status: TargetStatus) -> String {
+        switch status {
+        case .inTarget: return "inTarget"
+        case .tooFast:  return "tooFast"
+        case .tooSlow:  return "tooSlow"
+        case .unknown:  return "unknown"
+        }
     }
 
     // A structured-run leg → the wrist's work line + objetivo line, from the SAME leg
@@ -480,6 +560,30 @@ final class PhoneMirrorService {
         let countdownSec = f.countdownRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
         let restSec = f.restRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
         let hapticKey = f.hapticSeq.map(String.init) ?? ""
+        // Del TRAMO sólo entra lo que cambia de FORMA, nunca lo que corre solo: la
+        // ronda, si estás en descanso, qué tarea toca, quién cierra la ventana y la
+        // dosis. El ritmo, los metros y los relojes se quedan fuera — si entraran,
+        // cada segundo forzaría una trama y el canal se inunda. Los metros ya tienen
+        // su cubo grueso arriba (la cinta), y el resto la muñeca lo tickea local.
+        // El veredicto del ritmo SÍ es estructural: pasar de «en objetivo» a «lento»
+        // cambia lo que se pinta, y son cuatro valores, no un número continuo.
+        let tramoKey: String = {
+            guard let t = f.tramo else { return "" }
+            var campos: [String] = []
+            campos.append(t.formato ?? "")
+            campos.append(t.etiqueta ?? "")
+            campos.append(t.dosis ?? "")
+            campos.append(t.rondaN.map(String.init) ?? "")
+            campos.append(t.rondaTotal.map(String.init) ?? "")
+            campos.append(t.enDescanso ? "rest" : "work")
+            campos.append(t.cierre ?? "")
+            campos.append(t.objetivoLabel ?? "")
+            campos.append(t.objetivoEstado ?? "")
+            campos.append(t.zonaViva.map(String.init) ?? "")
+            campos.append(t.cargaKg.map { String(Int($0 * 10)) } ?? "")
+            campos.append(t.reps.map(String.init) ?? "")
+            return campos.joined(separator: ",")
+        }()
         let parts: [String] = [
             f.phase,
             f.blockTitle ?? "",
@@ -495,6 +599,7 @@ final class PhoneMirrorService {
             beltTargetKey,
             beltBucketKey,
             hapticKey,
+            tramoKey,
         ]
         return parts.joined(separator: "|")
     }

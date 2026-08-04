@@ -131,36 +131,50 @@ struct MirrorHUDView: View {
         return max(0, cd - sinceFrame(now))
     }
 
+    /// EL VIVO DEL ESPEJO — ahora es el MISMO lienzo y los MISMOS guiones que sin
+    /// móvil (`GuionDelEspejo`). Antes esta pantalla tenía lenguaje propio (título
+    /// + un crono de 56 pt + dos líneas + un botón de 52 pt), y como el reloj corre
+    /// en espejo casi siempre, eso convertía en genérico todo el diseño por formato:
+    /// el atleta veía la pantalla buena en el 10 % de sus entrenos.
+    ///
+    /// El botón de abajo desaparece con él: en este lenguaje **la pantalla ES el
+    /// botón**, y el rótulo lo pone el guion según lo que de verdad cierre este
+    /// toque — no un booleano precocinado que en la ronda 1 de 5 decía «Terminar».
+    @ViewBuilder
     private var activeContent: some View {
-        LiveScaffold(status: frame?.blockTitle) {
+        if let f = frame {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                VStack(spacing: 6) {
-                    if let line = frame?.lineTitle {
-                        Text(line)
-                            .font(.system(size: 15, weight: .heavy))
-                            .foregroundStyle(WatchTheme.ink)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                    }
-                    GiantNumber(text: heroClock(context.date), size: 56)
-                    if let detail = frame?.detailLine {
-                        Text(detail)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(WatchTheme.dim)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                    }
-                    if let progress = frame?.progressText {
-                        WatchLabel(text: progress)
-                    }
-                    hrZoneRow
-                }
+                WatchReloj(
+                    paginas: GuionDelEspejo.paginas(
+                        f,
+                        bpm: controller.liveHR,
+                        elapsed: heroElapsed(context.date),
+                        avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) }
+                    ),
+                    tinte: WatchTinte.color(for: controller.liveZone),
+                    bisel: bisel
+                )
             }
-        } bottom: {
-            advanceButton
         }
+    }
+
+    /// El aro dibuja a QUIEN CIERRA la ventana, igual que en solitario: una cuenta
+    /// atrás con total conocido. Sin total no hay aro — dibujar una fracción que
+    /// nadie sabe es la mentira que el bisel vino a evitar (hoy la muñeca asumía
+    /// 60 s en un EMOM y pintaba un aro inventado).
+    private var bisel: AnyView? {
+        guard let t = frame?.tramo,
+              let queda = t.ventanaQueda,
+              let total = t.ventanaTotal, total > 0 else { return nil }
+        return WatchAroContinuo(remaining: max(0, min(1, queda / total))).watchBisel()
+    }
+
+    /// Los segundos DENTRO de la ventana, re-basados en local entre tramas (los
+    /// timers del iPhone mueren en segundo plano).
+    private func heroElapsed(_ now: Date) -> Double {
+        guard let f = frame else { return 0 }
+        let base = f.tramo?.enTramoS ?? f.lapElapsed
+        return phase == MirrorWire.Phase.active ? base + sinceFrame(now) : base
     }
 
     // MARK: - Dobles turn (#56)

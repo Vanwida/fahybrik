@@ -179,6 +179,10 @@ struct MirrorTramo: Codable, Equatable {
     /// `PrescriptionScheme.rawValue`. Es el campo que hoy no existe y sin el cual
     /// la muñeca no puede elegir guion.
     let formato: String?
+    /// `PrescriptionModality.rawValue` del tramo. El formato no basta para elegir
+    /// guion: unas «series» de correr y unas de remo son el mismo `intervals` y
+    /// distinta pantalla, porque el reloj mide una y no la otra.
+    let modalidad: String?
     /// La tarea de AHORA: «SkiErg», «Back squat», «Run 3». No el título plegado
     /// del bloque, que es el mismo los doce minutos.
     let etiqueta: String?
@@ -203,6 +207,11 @@ struct MirrorTramo: Codable, Equatable {
     /// necesita y hoy la muñeca se inventa (asume 60 s en un EMOM).
     let ventanaQueda: Double?
     let ventanaTotal: Double?
+    /// Segundos DENTRO de esta ventana. No es `lapElapsed`, que cuenta desde que
+    /// se abrió el tramo y en un 4×10 suma las cuatro series y sus tres descansos
+    /// de corrido — la misma «vuelta» que no contestaba ninguna pregunta en el
+    /// móvil (f4c7f0e9). La muñeca necesita el reloj de LA repetición.
+    let enTramoS: Double?
     /// El ritmo medido de ESTE tramo (no la media del segmento) y el objetivo
     /// prescrito con su veredicto ya juzgado por el motor compartido, para que
     /// muñeca y teléfono no puedan discrepar.
