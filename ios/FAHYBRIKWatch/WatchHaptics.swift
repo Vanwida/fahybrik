@@ -45,6 +45,11 @@ enum Haptics {
     /// GO — two strong beats (matches the phone's double Core Haptics hit).
     static func cueGo() { playSequence([.start, .start], gap: 0.10) }
 
+    /// CAMBIA DE MÁQUINA — the minute rolled onto a DIFFERENT movement. `directionUp`
+    /// then a firm start ("deja eso → ahora esto"), so it is unmistakable against GO's
+    /// equal double when the athlete is mid-effort and not looking.
+    static func cueChange() { playSequence([.directionUp, .start], gap: 0.12) }
+
     /// STOP — fall-away pair, distinct from GO.
     static func cueStop() { playSequence([.stop, .notification], gap: 0.14) }
 

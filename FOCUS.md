@@ -5,6 +5,27 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · Haptics del reloj mudos en EMOM multi-máquina — CAUSA RAÍZ
+
+Tres arreglos previos (6be705b8, 537ef7e6, 206c0104) reforzaron el TRANSPORTE, que ya
+estaba bien. El fallo estaba en el emisor: en `advanceEMOMInterval`, el cambio de
+movimiento disparaba `Haptics.heavy()` — vocabulario de UI, que NO llama a
+`relayWorkoutCue` y por tanto nunca sale del móvil. En un EMOM remo→ski→cinta el
+movimiento cambia CADA minuto, así que ningún cue llegaba a la muñeca; un EMOM de un
+solo movimiento (que reenvía `cueGo`) sí funcionaba, y eso lo tapaba.
+
+**Arreglado:** el cambio de movimiento es ahora un cue propio de primera clase
+(`Haptics.cueChange()` → `MirrorWire.HapticCue.change` → `Haptics.cueChange()` en el
+reloj), no un `cueGo` genérico: en multi-máquina «cambia de máquina» es EL aviso que
+se acciona. Reloj viejo que no conozca el nombre cae al `default` (start firme), nunca
+a silencio. Builds iOS + watchOS SUCCEEDED.
+
+**Nota de diseño:** solo las cuatro (ahora cinco) funciones `cue*` cruzan al reloj.
+`light/medium/heavy/success` son feedback de UI y se quedan en el móvil — si un aviso
+tiene que sentirse en la muñeca, va en el vocabulario de cues.
+
+---
+
 ## 4-ago · Resumen EMOM de verdad (por estación + totales)
 
 EMOM multi-estación graba **un lap por minuto** (remo/ski/run…) con ritmo/cal/W.

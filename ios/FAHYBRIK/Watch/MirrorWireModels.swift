@@ -50,6 +50,12 @@ enum MirrorWire {
         static let go = "go"
         static let stop = "stop"
         static let finish = "finish"
+        /// The work window rolled AND the movement changed — "cambia de máquina".
+        /// Its own cue and not a `go` because in a multi-station EMOM (remo → ski →
+        /// cinta) it is the single cue the athlete acts on: `go` says "empieza",
+        /// this says "empieza OTRA COSA". An older wrist build that doesn't know
+        /// the name falls back to a firm start (see `playEngineCue`), never silence.
+        static let change = "change"
     }
 
     /// Wrist control vocabulary (MirrorCommand.kind).

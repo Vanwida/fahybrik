@@ -55,6 +55,21 @@ enum Haptics {
         relayWorkoutCue?(MirrorWire.HapticCue.go)
     }
 
+    /// The window rolled AND the movement changed — "cambia de máquina". A soft beat
+    /// followed by a sharp one ("deja eso → ahora esto"), deliberately unlike `cueGo`'s
+    /// tight equal pair so the wrist can tell "empieza" from "empieza OTRA COSA".
+    ///
+    /// WHY IT IS A CUE AND NOT `heavy()`: it used to be, and that is exactly why the
+    /// watch was silent through a whole multi-station EMOM (4-ago). `heavy()` is UI
+    /// vocabulary — it buzzes the hand holding the phone and never touches
+    /// `relayWorkoutCue`. In a remo → ski → cinta EMOM the movement changes EVERY
+    /// minute, so every single boundary took that branch and nothing reached the wrist;
+    /// a uniform EMOM (which relays `cueGo`) worked, which is what hid it.
+    static func cueChange() {
+        engine.pattern([(0.00, 1.0, 0.4), (0.10, 1.0, 0.9)])
+        relayWorkoutCue?(MirrorWire.HapticCue.change)
+    }
+
     /// STOP — the work window just ended (a change window, a rest). Deliberately
     /// unlike `cueGo`: two beats falling away, so the two are never confused under
     /// effort.

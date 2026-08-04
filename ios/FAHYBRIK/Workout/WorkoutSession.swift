@@ -1202,7 +1202,10 @@ final class WorkoutSession {
         syncTramoIfNeeded()
         if changed {
             WorkoutAudio.shared.playMovementChange()
-            Haptics.heavy()
+            // A WORKOUT CUE, not UI feedback: this has to reach the wrist. It was
+            // `Haptics.heavy()`, which only buzzes the phone — so a multi-station EMOM
+            // (movement changes every minute) never sent the wrist a single cue.
+            Haptics.cueChange()
         } else {
             WorkoutAudio.shared.playIntervalStart()
             Haptics.cueGo()

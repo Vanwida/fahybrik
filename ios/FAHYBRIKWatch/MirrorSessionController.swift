@@ -161,6 +161,7 @@ final class MirrorSessionController: NSObject {
         switch cue {
         case MirrorWire.HapticCue.tick:   Haptics.cueTick()
         case MirrorWire.HapticCue.go:     Haptics.cueGo()
+        case MirrorWire.HapticCue.change: Haptics.cueChange()
         case MirrorWire.HapticCue.stop:   Haptics.cueStop()
         case MirrorWire.HapticCue.finish: Haptics.cueFinish()
         default:
