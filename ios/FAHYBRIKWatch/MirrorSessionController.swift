@@ -77,6 +77,8 @@ final class MirrorSessionController: NSObject {
     /// Later of "recording started" and "last frame" — the watchdog reference.
     private var lastSignalAt: Date = .distantPast
     private var watchdog: Timer?
+    /// Last haptic seq played — de-dupes dedicated packets vs frame-embedded cues.
+    private var lastHapticSeq: Int = 0
 
     private override init() { super.init() }
 
@@ -141,14 +143,21 @@ final class MirrorSessionController: NSObject {
             if let e = envelope.body(as: MirrorEnd.self) { finish(save: e.save) }
         case MirrorWire.MessageType.haptic:
             // Engine cue from the phone — play on the wrist immediately.
-            if let h = envelope.body(as: MirrorHaptic.self) { playEngineCue(h.cue) }
+            if let h = envelope.body(as: MirrorHaptic.self) {
+                playEngineCue(h.cue, seq: h.seq)
+            }
         default:
             break                       // tolerant: a newer phone may speak more types
         }
     }
 
     /// Map a wire cue name to the watch-side `Haptics.cue*` vocabulary.
-    private func playEngineCue(_ cue: String) {
+    /// `seq` de-dupes when the same cue also rides on a frame.
+    private func playEngineCue(_ cue: String, seq: Int?) {
+        if let seq {
+            guard seq > lastHapticSeq else { return }
+            lastHapticSeq = seq
+        }
         switch cue {
         case MirrorWire.HapticCue.tick:   Haptics.cueTick()
         case MirrorWire.HapticCue.go:     Haptics.cueGo()
@@ -161,9 +170,11 @@ final class MirrorSessionController: NSObject {
     }
 
     private func applyFrame(_ f: MirrorStateFrame) {
-        // Mirror mode: the ENGINE lives on the phone, so iOS `Haptics.cue*` never
-        // reaches the wrist. Edge-detect phase / rest / count-in from consecutive
-        // frames and fire the watch-side cues here (main actor already).
+        // Path B: cue embedded on the frame (redundancy for a dropped haptic packet).
+        if let cue = f.hapticCue {
+            playEngineCue(cue, seq: f.hapticSeq)
+        }
+        // Path C: edge-detect phase / rest / countdown seconds from consecutive frames.
         fireHaptics(from: frame, to: f)
         frame = f
         frameReceivedAt = Date()
@@ -172,16 +183,26 @@ final class MirrorSessionController: NSObject {
         applyPhase(f.phase)
     }
 
-    /// Translate phone-engine transitions into wrist haptics. Without this, only
-    /// button taps / zone exit / dobles handoff buzzed on the watch — never the
-    /// 3-2-1, GO, rest end or finish that the athlete needs eyes-up.
+    /// Local edge-detect as a third path: even if dedicated + embedded packets
+    /// are lost, a 1 Hz frame stream of countdown/rest seconds still fires cues.
     private func fireHaptics(from old: MirrorStateFrame?, to new: MirrorStateFrame) {
         let oldPhase = old?.phase
         let newPhase = new.phase
 
-        // Count-in TICKS are owned by MirrorHUDView's local TimelineView — the
-        // phone may be backgrounded and stop pushing frames mid 3-2-1. Here we
-        // only fire transitions that are frame-events.
+        // Countdown second drop (3→2→1 of count-in OR last 3s of EMOM/AMRAP).
+        if let newCD = new.countdownRemaining {
+            let newCeil = max(0, Int(ceil(newCD)))
+            if let oldCD = old?.countdownRemaining {
+                let oldCeil = max(0, Int(ceil(oldCD)))
+                if newCeil < oldCeil {
+                    if newCeil > 0, newCeil <= 3 {
+                        Haptics.cueTick()
+                    } else if newCeil == 0, oldCeil > 0 {
+                        Haptics.cueGo()
+                    }
+                }
+            }
+        }
 
         // GO — count-in ends, or a block gate starts work.
         if oldPhase == MirrorWire.Phase.countIn && newPhase == MirrorWire.Phase.active {
@@ -190,13 +211,20 @@ final class MirrorSessionController: NSObject {
             Haptics.cueGo()
         }
 
-        // Rest appears → STOP; rest clears → GO (same vocabulary as the phone floor).
+        // Rest appears → STOP; rest clears → GO.
         let oldRest = old?.restRemaining ?? 0
         let newRest = new.restRemaining ?? 0
         if oldRest <= 0, newRest > 0 {
             Haptics.cueStop()
         } else if oldRest > 0, newRest <= 0 {
             Haptics.cueGo()
+        } else if oldRest > 0, newRest > 0 {
+            // Rest last 3 seconds.
+            let oldCeil = Int(ceil(oldRest))
+            let newCeil = Int(ceil(newRest))
+            if newCeil < oldCeil, newCeil > 0, newCeil <= 3 {
+                Haptics.cueTick()
+            }
         }
 
         if newPhase == MirrorWire.Phase.finished, oldPhase != MirrorWire.Phase.finished {

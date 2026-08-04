@@ -74,6 +74,12 @@ final class PhoneMirrorService {
     // Bumped by begin()/end() so a stale retry loop from a previous session can't
     // launch the watch app after the workout it belonged to is gone.
     @ObservationIgnored private var watchLaunchGeneration = 0
+    /// Monotonic cue id — rides on frames + dedicated haptic packets so the wrist
+    /// de-dupes when both land.
+    @ObservationIgnored private var hapticSeq: Int = 0
+    /// Last cue waiting to ride on the next forced frame (cleared after one send).
+    @ObservationIgnored private var pendingHapticCue: String?
+    @ObservationIgnored private var pendingHapticSeq: Int?
 
     private init() {}
 
@@ -82,10 +88,15 @@ final class PhoneMirrorService {
     /// Register the mirrored-session start handler ONCE, as early as possible so a
     /// session started on the wrist is never missed. Idempotent.
     func prepare() {
-        // Always (re)install the cue relay — even if HealthKit is unavailable the
-        // no-op send is fine, and a previous session may have cleared the hook.
+        // Always (re)install the cue relay — hop to main WITHOUT an unstructured
+        // Task so a 0.25s timer tick that is already on MainActor still fires the
+        // send in the same turn (Task enqueue used to delay / drop under load).
         Haptics.relayWorkoutCue = { [weak self] cue in
-            Task { @MainActor in self?.sendHapticCue(cue) }
+            if Thread.isMainThread {
+                self?.sendHapticCue(cue)
+            } else {
+                DispatchQueue.main.async { self?.sendHapticCue(cue) }
+            }
         }
         guard !didRegisterHandler, HKHealthStore.isHealthDataAvailable() else { return }
         didRegisterHandler = true
@@ -94,11 +105,29 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Push a workout-cue haptic to the wrist immediately. No-op when the watch
-    /// is not mirroring. Best-effort: a dropped packet never blocks the engine.
+    /// Push a workout-cue haptic to the wrist immediately. Dual path: dedicated
+    /// `haptic` packet AND a forced frame carrying the same cue+seq. No-op when
+    /// the mirrored session is not up. Best-effort — never blocks the engine.
     func sendHapticCue(_ cue: String) {
-        guard wristJoined, mirrored != nil else { return }
-        send(MirrorWire.MessageType.haptic, MirrorHaptic(cue: cue))
+        guard mirrored != nil else { return }
+        hapticSeq += 1
+        let seq = hapticSeq
+        pendingHapticCue = cue
+        pendingHapticSeq = seq
+        // Path A — dedicated packet (low latency when the channel is healthy).
+        send(MirrorWire.MessageType.haptic, MirrorHaptic(cue: cue, seq: seq))
+        // Path B — force a frame so a dropped dedicated packet still lands.
+        if let session {
+            var frame = buildFrame(from: session)
+            frame.hapticCue = cue
+            frame.hapticSeq = seq
+            send(MirrorWire.MessageType.frame, frame)
+            lastSentKey = structuralKey(frame)
+            lastSentAt = Date()
+            // Consume so the next heartbeat doesn't re-play the same cue.
+            pendingHapticCue = nil
+            pendingHapticSeq = nil
+        }
     }
 
     /// Remote-start the wrist recording for `session`. Non-blocking and silent on
@@ -400,7 +429,9 @@ final class PhoneMirrorService {
             dobles: dobles,
             beltDistanceM: beltDistanceM,
             beltTargetM: beltTargetM,
-            beltPaceSecPerKm: beltPaceSecPerKm
+            beltPaceSecPerKm: beltPaceSecPerKm,
+            hapticCue: pendingHapticCue,
+            hapticSeq: pendingHapticSeq
         )
     }
 
@@ -435,15 +466,12 @@ final class PhoneMirrorService {
         // once per frame, never per centimetre. Pace rides along on the resend.
         let beltTargetKey = f.beltTargetM.map { String(Int($0)) } ?? ""
         let beltBucketKey = f.beltDistanceM.map { String(Int($0 / 10)) } ?? ""
-        // Count-in second rides in the key so each whole second of the 3-2-1
-        // forces a frame (the wrist re-bases, and the cue relay still has a
-        // secondary path if a haptic packet is dropped).
-        let countInSec: String
-        if f.phase == MirrorWire.Phase.countIn, let cd = f.countdownRemaining {
-            countInSec = String(max(0, Int(ceil(cd))))
-        } else {
-            countInSec = ""
-        }
+        // Every whole second of a countdown / rest forces a frame so the wrist
+        // can fire local 3-2-1 ticks even if a dedicated haptic packet is lost,
+        // and so the re-based clock never drifts more than ~1 s.
+        let countdownSec = f.countdownRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
+        let restSec = f.restRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
+        let hapticKey = f.hapticSeq.map(String.init) ?? ""
         let parts: [String] = [
             f.phase,
             f.blockTitle ?? "",
@@ -452,11 +480,13 @@ final class PhoneMirrorService {
             f.progressText ?? "",
             f.targetZone.map(String.init) ?? "",
             f.countdownRemaining != nil ? "cd" : "",
-            countInSec,
+            countdownSec,
             f.restRemaining != nil ? "rest" : "",
+            restSec,
             doblesKey,
             beltTargetKey,
             beltBucketKey,
+            hapticKey,
         ]
         return parts.joined(separator: "|")
     }

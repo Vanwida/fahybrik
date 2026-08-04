@@ -136,13 +136,21 @@ final class PM5ConnectionStore: NSObject {
 
     func disconnect() {
         expectingDisconnect = true      // he asked → the drop is not a "lost connection"
-        #if targetEnvironment(simulator)
-        stopMockStream()
+        // Optimistic UI settle BEFORE CoreBluetooth's didDisconnect (which can
+        // lag or never arrive if the erg is already off). The chip must leave
+        // "listo" the instant the session releases the machine — gym: next
+        // athlete / next session must not see a ghost "connected" PM5.
         connectionState = .idle
         connectedDeviceName = nil
         connectedIdentifier = nil
         programState = .idle
         programmedWindowKey = nil
+        live = PM5LiveSample()
+        splits = []
+        connectionLost = false
+        notifyUpdate()
+        #if targetEnvironment(simulator)
+        stopMockStream()
         #else
         service.disconnect()
         #endif

@@ -554,11 +554,18 @@ struct ActiveWorkoutView: View {
     /// happens AFTER the finish, so the strap has to keep streaming until it closes.
     /// Everything else goes now.
     private func releaseDevicesOnFinish() {
-        pool.disconnectAll()
-        DeviceHub.shared.stopTreadmill()
-        guard session.hrRecovery == nil else { return }
+        // Gym rule: PM5 + FTMS leave the machine the INSTANT work ends — not when
+        // the summary dismisses. Optimistic disconnect so the chip never lingers
+        // as "listo" while CoreBluetooth is still winding down.
+        if session.hrRecovery != nil {
+            // Recovery still needs the HR strap; release ergs + belt only.
+            pool.disconnectAll()
+            DeviceHub.shared.stopTreadmill()
+            return
+        }
+        DeviceHub.shared.stopAll()
         liveHR.stop()
-        DeviceHub.shared.stopHeartRate()
+        session.ergConnected = false
     }
 
     // Hook the optional providers' callbacks into the session. Done once on

@@ -140,6 +140,12 @@ struct MirrorStateFrame: Codable, Equatable {
     var beltDistanceM: Double? = nil
     var beltTargetM: Double? = nil
     var beltPaceSecPerKm: Int? = nil
+    /// Workout-cue haptic to play on the wrist (MirrorWire.HapticCue). Carried
+    /// on the frame as a REDUNDANT path to the dedicated `haptic` message — if
+    /// either packet lands, the athlete feels it. Seq must strictly increase so
+    /// the same cue isn't re-played on a heartbeat resend. OPTIONAL + ADDITIVE.
+    var hapticCue: String? = nil
+    var hapticSeq: Int? = nil
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete
@@ -161,10 +167,11 @@ struct MirrorEnd: Codable {
     let save: Bool
 }
 
-/// Phone → watch: fire a workout-cue haptic on the wrist NOW. Carries only the
-/// cue name (`MirrorWire.HapticCue`); the wrist maps it to `Haptics.cue*`.
+/// Phone → watch: fire a workout-cue haptic on the wrist NOW. Carries the
+/// cue name (`MirrorWire.HapticCue`) + a monotonic seq so the wrist de-dupes.
 struct MirrorHaptic: Codable, Equatable {
     let cue: String
+    var seq: Int? = nil
 }
 
 /// Watch → phone: live HR off the wrist sensor. The phone injects it into the

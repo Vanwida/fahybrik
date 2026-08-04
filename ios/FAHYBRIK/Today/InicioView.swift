@@ -58,6 +58,9 @@ struct InicioView: View {
     // #34 — bumped to force the calibration battery card to reload (pull-to-refresh
     // and after a completed session, which may flip a test's state / result).
     @State private var testBatteryNonce: Int = 0
+    /// Bumped when a session is just marked done locally so "Hecho hoy" re-paints
+    /// from CompletedAssignmentsStore without waiting for /plan/week.
+    @State private var marksRevision: Int = 0
     // Tests guiados — the Tests hub (benchmarks + zonas + «Probarme»), raised by
     // the battery card. Full-screen cover, like every launch from Inicio.
     @State private var showTestsHub: Bool = false
@@ -89,6 +92,8 @@ struct InicioView: View {
     // "Hecho hoy" confirmation so the loop closes on the home screen and the athlete
     // can reopen what they logged. Reads the same state machine as the plan marks.
     private var completedTodaySessions: [AthleteWeekDaySession] {
+        // Touch marksRevision so a just-completed mark re-filters without a network round-trip.
+        _ = marksRevision
         guard let resp = planWeek else { return [] }
         let todayIso = resp.week.todayIso
         guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
@@ -234,6 +239,7 @@ struct InicioView: View {
             await store.loadHome(force: true)
             stepsReading = await HealthKitStepsReader.todaySteps()
             testBatteryNonce += 1
+            marksRevision += 1
         }
         .fullScreenCover(item: $workoutLaunch) { launch in
             // EMPEZAR runs the real prescribed workout via WorkoutContainer.
@@ -246,8 +252,11 @@ struct InicioView: View {
                 onCompleted: { _ in
                     // A finished session can flip a calibration test's state / land
                     // its result — reload the battery card alongside the plan.
+                    // Bump marksRevision so "Hecho hoy" re-reads CompletedAssignmentsStore
+                    // immediately (UserDefaults alone does not invalidate this view).
                     testBatteryNonce += 1
-                    Task { await store.planMutated() }
+                    marksRevision += 1
+                    Task { await store.loadHome(force: true) }
                 }
             )
         }
@@ -271,7 +280,10 @@ struct InicioView: View {
                 bearer: effectiveBearer,
                 hrZones: store.identity.value?.hrZones,
                 onClose: { showFreeBuilder = false },
-                onCompleted: { Task { await store.planMutated() } }
+                onCompleted: {
+                    marksRevision += 1
+                    Task { await store.loadHome(force: true) }
+                }
             )
         }
         .fullScreenCover(isPresented: $showTestsHub, onDismiss: {
