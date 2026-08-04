@@ -5,6 +5,64 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · Lo que Alex encontró entrenando — tres cerrados, tres abiertos
+
+Sesión de gym real (fuerza, dos ejercicios, con el reloj puesto). Seis hallazgos.
+
+**CERRADOS Y COMMITEADOS:**
+
+1. **El avance cerraba el ejercicio, no la serie** (`d9b67424`). Los DOS bugs de
+   fuerza eran uno: la regla «con series pendientes no se cierra el ejercicio» vivía
+   dentro de `FuerzaVivoView`, y el botón «Siguiente» del reloj entra por
+   `primaryAdvance()` sin pasar por ninguna pantalla. Un toque en la muñeca durante
+   la serie 1 cerraba el ejercicio entero y saltaba al siguiente — y el descanso que
+   sonaba después ya era el del OTRO ejercicio (su valor por defecto, 1:30), con el
+   atleta todavía en el primero. La regla sube al motor (`strengthPrimary`), así que
+   cualquier mando queda protegido igual. De paso, `isFinalStep` del espejo dejaba a
+   la muñeca rotulando TERMINAR desde la primera serie.
+
+2. **La previa se comía las series** (`c8e5c156`). `summaryLine` solo ponía el «N ×»
+   cuando el esquema era `.intervals`; un 4×10 llegaba como «10 · Corporal ·
+   descanso 15s». Ahora la regla mira la prescripción, no el esquema, y distingue
+   REPETICIONES de la ROTACIÓN de un bloque plegado. Y había DOS formateadores de
+   cabecera de formato (uno en el renderer, otro escondido en la vista activa), por
+   lo que un circuito llegaba a la previa sin cabecera: ahora hay uno.
+
+3. **El «tiempo de vuelta»** (`f4c7f0e9`). Contaba desde que se abrió el tramo, así
+   que en un 4×10 sumaba las cuatro series y sus tres descansos. En el hierro pasa a
+   ser **Pausa** (desde que cerraste la última serie), que es lo que se pregunta
+   alguien con una barra en las manos y lo que la app no contestaba. En correr,
+   «Vuelta» pasa a ser el reloj del TRAMO, no el del segmento.
+
+**ABIERTOS:**
+
+4. **BISERIE — el hueco de fondo.** Alex quería intercalar dos ejercicios y no se
+   puede decir. Modelo aprobado: un entreno de fuerza es una lista de **grupos**, y
+   un grupo es `N rondas × [estación₁…estaciónₖ]` + descanso entre estaciones +
+   descanso entre rondas. Con k=1 son las series seguidas de siempre (cero cambio);
+   k≥2 es la biserie, y la triserie y el circuito de fuerza salen gratis. UI
+   elegida: **grupo explícito** («+ Añadir grupo» → Serie sola | Biserie/Triserie).
+   Implementación: **un grupo es un BLOQUE** (cada uno con su `blockPosition`), las
+   estaciones siguen siendo un tramo cada una — 1:1 con `items[]`, así que el
+   guardado no cambia —, y el motor recorre el grupo por rondas y cierra K laps al
+   final, uno por estación.
+
+5. **EMOM sin ronda de descanso.** Hoy `usesRest` excluye `.emom` por diseño: solo
+   existe el «Cambio» (la transición DENTRO del ciclo, 45/15). Falta el minuto de
+   descanso como estación de la rotación — remo / ski / cinta / **descanso**, que es
+   programación estándar. El motor ya tiene fase de descanso (`rollEMOMPhase`) pero
+   escalar, igual en todas las rondas; hace falta que la rotación admita estaciones
+   de descanso. Ojo: `PrescriptionSet` en el servidor es `.strict()`, así que marcar
+   una estación como descanso toca el contrato compartido.
+
+6. **Pantalla bloqueada.** Live Activity existe y funciona, pero SOLO para la
+   carrera al aire libre (`RunLiveActivityWidget`, #64). Las otras ~9 vistas en vivo
+   no tienen ninguna. Ya hay un modelo de estado agnóstico al formato que se
+   construye cada tick para CUALQUIER entreno — `MirrorStateFrame`, el que alimenta
+   al reloj —, así que la Live Activity debe comer de ahí y no de una segunda copia.
+
+---
+
 ## 4-ago · Inventario del reloj — qué está portado y qué no
 
 Antes de seguir portando mockups del doble a watchOS hacía falta saber qué falta de

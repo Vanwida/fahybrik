@@ -10,6 +10,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-04 · El avance es del escalón más pequeño, y eso lo decide el MOTOR — nunca una pantalla
+
+**Decidido:** `primaryAdvance()` es el único sitio donde se declara qué significa «siguiente» para cada formato, y ese significado es **el escalón más pequeño que el atleta tiene delante**: la fase en un EMOM, la ronda en un rotativo, la pierna en una carrera estructurada y **la SERIE en fuerza**. Ninguna vista puede tener una regla de avance propia.
+
+**Por qué:** la fuerza era la excepción — su regla («con series pendientes no se cierra el ejercicio») vivía dentro de `FuerzaVivoView`, una vista SwiftUI del iPhone. El botón «Siguiente ▸» del reloj entra por `PhoneMirrorService.applyCommand` → `primaryAdvance()` sin pasar por ninguna pantalla, así que se la saltaba entera: en el gym del 4-ago, un toque en la muñeca durante la serie 1 de press de banca cerró el ejercicio de cuatro series y saltó al curl. Y el segundo fallo reportado ese día —«no respeta el descanso del primer ejercicio»— no era un bug aparte sino su consecuencia: los dos ejercicios comparten bloque, así que el salto fue mudo (sin preview intermedia), `primeSetsIfNeeded` ya había recargado las series del curl, y el 1:30 que sonó era el descanso por defecto del curl con el atleta todavía en banca.
+
+La lección general, que es la que hay que recordar: **una regla de dominio metida en una vista es una regla que solo se cumple en esa vista.** Cada superficie nueva (el reloj, mañana un mando, una Live Activity con botones) la vuelve a romper.
+
+**En consecuencia, no hacer:** no volver a poner condiciones de avance en una vista; si una pantalla necesita saber qué hará el toque, que se lo PREGUNTE al motor (`pendingSetIndex`) y lo rotule, sin decidirlo. Y no declarar «este toque termina la sesión» mirando solo si hay bloque después: en un entreno de fuerza libre todos los ejercicios van en UN bloque, así que era cierto desde la primera serie.
+
+**Dónde vive:** `WorkoutSession.primaryAdvance` / `strengthPrimary` / `pendingSetIndex`, `PhoneMirrorService.buildFrame` (`isFinalStep`). Commit `d9b67424`.
+
+---
+
+## 2026-08-04 · El conteo de series es DOSIS: lo decide la prescripción, no el esquema
+
+**Decidido:** el multiplicador de una prescripción («4 × 10») se lee de los propios sets y va **en el titular**, pegado a la medida. Se pone cuando los sets son **repeticiones de la misma dosis**, y NUNCA cuando son la **rotación** de un bloque plegado, donde cada set es un movimiento distinto (el fold siempre escribe el nombre en `note`) y «3 ×» delante de remo/ski/cinta significaría hacer cada uno tres veces.
+
+**Por qué:** `summaryLine` solo ponía el «N ×» si el esquema era literalmente `.intervals`; para `.sets`, core y movilidad leía `sets.first` y tiraba el resto. Un 4×10 de fuerza llegaba a la pantalla de antes de empezar como «10 · Corporal · descanso 15s» — y «4 × 10» y «10» no son la misma prescripción con más o menos adorno, son dos entrenos distintos. La condición estaba escrita sobre el caso que se tenía delante (las series de correr) en vez de sobre el concepto.
+
+**Y la segunda mitad, que es la misma enfermedad:** existían DOS formateadores de la cabecera de formato — `PrescriptionRenderer.wodHeader`, que solo conocía amrap/emom/for_time y es el que lee la previa, y `conditioningFormatLabel` escondido dentro de `ActiveWorkoutView`, que cubría Tabata, Death By, Series, Continuo, Chipper, Ladder, Rondas y sim de HYROX. Por eso un circuito llegaba a la previa sin cabecera y aparecía con ella al arrancar el entreno. Queda uno solo (§2 del contrato de UI), cubriendo todos los esquemas con reloj.
+
+**En consecuencia, no hacer:** no condicionar un formateador por esquema cuando la pregunta la contesta el dato (¿son repeticiones o son movimientos?); no enrutar la tabla por series por MODALIDAD (un core de 3×20 tiene la misma forma que un 4×10 de banca); y no enseñar `PrescriptionScheme.displayName` al atleta — es el vocabulario del cable, en inglés.
+
+**Dónde vive:** `PrescriptionRenderer.repetitionCount` / `summaryLine` / `wodHeader`, `PreWorkoutBriefView.itemView`. Commit `c8e5c156`.
+
+---
+
+## 2026-08-04 · Un entreno de fuerza es una lista de GRUPOS, y un grupo es N rondas × K estaciones
+
+**Decidido:** la unidad del entreno de fuerza deja de ser el ejercicio suelto y pasa a ser el **grupo**: `N rondas × [estación₁…estaciónₖ]`, con **descanso entre estaciones** (dentro de la ronda) y **descanso entre rondas**. Un grupo de una sola estación son las series seguidas de toda la vida (`4 × 10, descanso 1:30`) y se comporta exactamente igual que hoy; un grupo de dos es una **biserie**; de tres o más, triserie y circuito de fuerza. Un mismo modelo, sin casos especiales.
+
+**Por qué:** el 4-ago Alex montó dos ejercicios queriendo hacerlos intercalados y descubrió que no hay manera de decirlo — el constructor asume en silencio que todo va seguido. Y las dos formas son igual de normales en una sala de pesas, así que la que faltaba no es un extra: es la mitad del dominio. Además, con el modelo viejo el número de series vive en cada ejercicio, y en una biserie eso admite estados sin sentido (4 series de uno y 3 del otro): las rondas son del GRUPO porque la ronda es lo que se repite.
+
+**Cómo se ejecuta, y por qué así:** un grupo es un **BLOQUE** (cada uno con su `blockPosition`), y cada estación sigue siendo **un tramo**. Eso mantiene los tramos 1:1 con los `items[]` del guardado —que mapea ejecución↔prescripción por posición—, así que el contrato con el servidor no se toca. El motor recorre el grupo por rondas y al cerrarlo emite K laps, uno por estación, cada uno con sus R series. El descanso no necesita campo nuevo: el `restS` de cada set ya lo expresa — las estaciones intermedias llevan el de cambio, la última la de la ronda.
+
+**En consecuencia, no hacer:** no meter el número de rondas en la estación (queda contradecible); no plegar el grupo en un solo tramo para simplificar el motor, porque rompería la atribución por ejercicio que lee el coach; y no inventar un campo de descanso nuevo en el contrato compartido cuando `PrescriptionSet.rest_s` ya lo dice.
+
+**Dónde vive:** `FreeStrengthBuilder`, `WorkoutSession`, `FuerzaVivoView`.
+
+---
+
 ## 2026-08-04 · Resumen post-entreno: un lap por minuto EMOM + informe de sesión
 
 **El fallo (Alex, gym):** tras un EMOM con PM5 el resumen solo pedía RPE; no había ritmo por estación ni totales útiles, pese a que el monitor manda cal/ritmo/W.
