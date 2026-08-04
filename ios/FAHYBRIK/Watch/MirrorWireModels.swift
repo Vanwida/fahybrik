@@ -152,6 +152,73 @@ struct MirrorStateFrame: Codable, Equatable {
     /// the same cue isn't re-played on a heartbeat resend. OPTIONAL + ADDITIVE.
     var hapticCue: String? = nil
     var hapticSeq: Int? = nil
+    /// EL TRAMO — la ventana de trabajo activa, en DATO en vez de en frases.
+    ///
+    /// Por qué existe: hasta aquí el cable mandaba tres strings ya redactados por
+    /// el móvil (`lineTitle` / `detailLine` / `progressText`) y la muñeca los
+    /// pintaba tal cual. Con eso el reloj NO PUEDE saber qué formato corre — no hay
+    /// un solo campo que lo diga — ni si el minuto en curso es trabajo o el cambio
+    /// de un EMOM, ni cuál es la dosis de ESTA ronda. Y como el reloj corre en
+    /// espejo la inmensa mayoría de las sesiones, eso convertía en genérico todo
+    /// lo que se pintara en la muñeca, por bien diseñado que estuviera.
+    ///
+    /// Mandando el tramo, los MISMOS guiones (`Guiones/`) sirven las dos vías:
+    /// en solitario leen el motor, en espejo leen esto. Una pantalla por formato,
+    /// no dos. OPTIONAL + ADDITIVE como el resto: un reloj viejo lo ignora y
+    /// sigue con las frases; un móvil viejo lo omite → nil y el reloj degrada.
+    var tramo: MirrorTramo? = nil
+}
+
+/// Phone → watch: LA VENTANA DE TRABAJO ACTIVA, en dato.
+///
+/// Es la proyección de `LiveTramo` + lo que el motor ya sabe derivar de ella
+/// (quién la cierra, cuánto le queda, qué se lleva medido). Todo opcional menos
+/// `enDescanso`: la muñeca pinta lo que hay y JAMÁS fabrica — un campo ausente
+/// significa «nadie lo sabe», que es una respuesta, no un hueco.
+struct MirrorTramo: Codable, Equatable {
+    /// `PrescriptionScheme.rawValue`. Es el campo que hoy no existe y sin el cual
+    /// la muñeca no puede elegir guion.
+    let formato: String?
+    /// La tarea de AHORA: «SkiErg», «Back squat», «Run 3». No el título plegado
+    /// del bloque, que es el mismo los doce minutos.
+    let etiqueta: String?
+    /// Su dosis, tal como la escribió el coach: «12 cal», «500 m», «5 reps».
+    let dosis: String?
+    /// La ronda / serie / tramo en curso sobre el total. Unificado por el motor
+    /// (`tramoRoundIndex` / `tramoRoundTotal`), no por formato.
+    let rondaN: Int?
+    let rondaTotal: Int?
+    /// Trabajo o descanso DENTRO del formato. Hoy el reloj recibe el descanso de
+    /// un EMOM como un countdown cualquiera, sin marca: no puede teñirlo.
+    let enDescanso: Bool
+    /// QUIÉN CIERRA la ventana (`ErgCounterPolicy.Close`): `machineGoal`,
+    /// `sessionClock`, `formatClock`, `athleteTap`. Decide el sujeto y decide si
+    /// hay aro — sin ello la muñeca prometería una fracción que nadie sabe.
+    let cierre: String?
+    /// El objetivo del tramo y lo que se lleva hecho, en su unidad (metros o
+    /// calorías). Nil si el tramo no va por medida de máquina.
+    let objetivoMedida: Double?
+    let hechoMedida: Double?
+    /// La ventana de tiempo, cuando la cierra un reloj. `total` es lo que el aro
+    /// necesita y hoy la muñeca se inventa (asume 60 s en un EMOM).
+    let ventanaQueda: Double?
+    let ventanaTotal: Double?
+    /// El ritmo medido de ESTE tramo (no la media del segmento) y el objetivo
+    /// prescrito con su veredicto ya juzgado por el motor compartido, para que
+    /// muñeca y teléfono no puedan discrepar.
+    let ritmoSecPorKm: Int?
+    let objetivoLabel: String?
+    /// `TargetStatus`: `inTarget` | `tooFast` | `tooSlow` | `unknown`.
+    let objetivoEstado: String?
+    /// La zona que se está midiendo AHORA (1…5). La resuelve el móvil, que es
+    /// quien tiene el perfil de umbrales: sin ella no hay tinte ni veredicto.
+    let zonaViva: Int?
+    /// Lo que viene después, ya redactado. Nil = no lo escribió nadie.
+    let siguiente: String?
+    /// Fuerza: la carga y las reps de la serie EN CURSO — no las de la primera,
+    /// que es lo único que viajaba hasta ahora dentro de `detailLine`.
+    let cargaKg: Double?
+    let reps: Int?
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete
