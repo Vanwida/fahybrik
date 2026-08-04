@@ -73,10 +73,10 @@ enum GuionFuerza {
             sujeto: sujeto,
             unidad: unidad,
             segundoValor: segundo,
-            segundoTono: WatchTheme.orangeSoft,
+            
             // Una oferta en reposo, no una petición: el lienzo la pinta atenuada
             // porque el modo es `ciego`.
-            accion: "Toca · serie hecha",
+            accion: "Al acabar · toca",
             onToca: g.serieHecha,
             // Todas las cifras de esta vista las declara el atleta.
             nota: WatchNota.loDicesTu

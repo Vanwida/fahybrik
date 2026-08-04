@@ -109,7 +109,11 @@ enum GuionSeries {
     // MARK: - Trabajo
 
     private static func paginaTrabajo(_ e: Estado, _ g: Gestos) -> WatchPagina {
-        let contexto = "Serie \(e.serie) / \(max(e.totalSeries, e.serie))"
+        // Con hito, el sujeto son los metros que FALTAN — y el contexto lo dice,
+        // porque «326 m» a secas no distingue llevar de faltar (mismo patrón que
+        // «REMO · TE FALTAN» en el ergo del doble).
+        let base = "Serie \(e.serie) / \(max(e.totalSeries, e.serie))"
+        let contexto = { if case .hito = e.cierre { return base + " · te faltan" } else { return base } }()
         let (sujeto, unidad) = sujetoDeTrabajo(e)
         let (etiqueta, valor, tono) = segundoDeTrabajo(e)
         return WatchPagina(
@@ -181,7 +185,7 @@ enum GuionSeries {
         let (sujeto, unidad, tono) = sujetoDeRecuperacion(e)
         return WatchPagina(
             id: "recupera",
-            contexto: "Recupera · viene la \(e.serie)",
+            contexto: "Descanso · viene la \(e.serie)",
             // De pie, jadeando, con las manos libres. Aquí SÍ se decide.
             modo: .mando,
             sujeto: sujeto,
@@ -192,7 +196,7 @@ enum GuionSeries {
             // la lleva el contexto y el resto no lo sabe nadie.
             segundoEtiqueta: e.loQueViene == nil ? nil : "Luego",
             segundoValor: e.loQueViene,
-            accion: "Toca · empezar ya",
+            accion: "Toca · ya",
             onToca: g.empezarYa
         )
     }

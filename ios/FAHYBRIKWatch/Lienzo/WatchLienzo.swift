@@ -104,11 +104,14 @@ struct WatchReloj: View {
                 Spacer(minLength: 4)
 
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    // El numeral del CONTRATO (§10.2): LA monoespaciada de cero
+                    // rachado, recta — la del doble. La display itálica del port
+                    // hacía bailar el crono y no era el canon aprobado.
                     Text(p.sujeto)
-                        .font(.system(size: alto, weight: .heavy).italic().monospacedDigit())
+                        .font(.custom("Menlo-Bold", size: alto))
                         .foregroundStyle(p.tono)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.45)
+                        .minimumScaleFactor(0.6)
                     if let u = p.unidad {
                         Text(u)
                             .font(.system(size: alto * 0.30, weight: .heavy).monospacedDigit())

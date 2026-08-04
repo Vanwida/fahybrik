@@ -54,7 +54,7 @@ final class EspejoDeCaboARaboTests: XCTestCase {
     func testLaSerieEnseñaLosMetrosQueFaltanYNoElCronoDeLaSesion() throws {
         let paginas = try paginasEnLaMuneca(seriesLibres())
         let primera = try XCTUnwrap(paginas.first)
-        XCTAssertEqual(primera.contexto, "Serie 1 / 5")
+        XCTAssertTrue(primera.contexto.hasPrefix("Serie 1 / 5"))
         // 500 m prescritos y cero cubiertos todavía: faltan los 500.
         XCTAssertEqual(primera.sujeto, "500")
         XCTAssertEqual(primera.unidad, "m")

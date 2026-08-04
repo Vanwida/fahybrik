@@ -257,7 +257,7 @@ enum GuionDelEspejo {
     static func aro(_ f: MirrorStateFrame) -> Aro {
         guard let t = f.tramo else { return .ninguno }
         switch guionPara(t) {
-        case .series, .fuerza, .ergo:
+        case .series, .fuerza, .ergo, .ruta:
             guard let total = t.rondaTotal, total > 1 else { return aroContinuo(t) }
             let hechas = max(0, (t.rondaN ?? 1) - 1)
             let fraccion: Double
@@ -271,7 +271,7 @@ enum GuionDelEspejo {
                 fraccion = 0
             }
             return .segmentado(total: total, hechas: hechas, fraccion: fraccion)
-        case .rodaje, .emom, .ruta, .ninguno:
+        case .rodaje, .emom, .ninguno:
             return aroContinuo(t)
         }
     }

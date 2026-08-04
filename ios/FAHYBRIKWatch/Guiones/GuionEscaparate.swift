@@ -226,7 +226,8 @@ enum GuionEscaparate {
                 titulo: "HYROX · estación que el reloj no ve",
                 paginas: GuionRuta.paginas(.init(
                     ruta: [run, sled, run, wall], estacion: 1,
-                    cronoS: 2_480, enEstacionS: 41))
+                    cronoS: 2_480, enEstacionS: 41)),
+                aroSeg: (total: 4, hechas: 1, fraccion: 0)
             ),
             Caso(
                 id: "ruta-carrera",
@@ -234,7 +235,7 @@ enum GuionEscaparate {
                 paginas: GuionRuta.paginas(.init(
                     ruta: [run, sled, run, wall], estacion: 2,
                     cronoS: 2_745, enEstacionS: 168)),
-                aro: 0.38
+                aroSeg: (total: 4, hechas: 2, fraccion: 0.62)
             ),
             // El caso que justifica escribir el crono en minutos: pasada la hora,
             // `1:02:40` son seis glifos y deja de ser un sujeto.
@@ -243,7 +244,8 @@ enum GuionEscaparate {
                 titulo: "HYROX · pasada la hora",
                 paginas: GuionRuta.paginas(.init(
                     ruta: [run, sled, run, wall], estacion: 3,
-                    cronoS: 4_200, enEstacionS: 90))
+                    cronoS: 4_200, enEstacionS: 90)),
+                aroSeg: (total: 4, hechas: 3, fraccion: 0)
             ),
         ]
     }
