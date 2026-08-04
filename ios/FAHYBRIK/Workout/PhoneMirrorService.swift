@@ -486,7 +486,7 @@ final class PhoneMirrorService {
             rondaN: session.tramoRoundTotal > 0 ? session.tramoRoundIndex + 1 : nil,
             rondaTotal: session.tramoRoundTotal > 0 ? session.tramoRoundTotal : nil,
             enDescanso: descansando,
-            cierre: cierreWire(session.currentErgCounterPolicy.close),
+            cierre: cierreDelTramo(tramo, descansando: descansando),
             objetivoMedida: objetivoMedida,
             hechoMedida: hecho,
             // En descanso el reloj que corre es el del descanso; en trabajo, el de
@@ -505,13 +505,24 @@ final class PhoneMirrorService {
         )
     }
 
-    private func cierreWire(_ close: ErgCounterPolicy.Close) -> String {
-        switch close {
-        case .machineGoal:  return "machineGoal"
-        case .sessionClock: return "sessionClock"
-        case .formatClock:  return "formatClock"
-        case .athleteTap:   return "athleteTap"
-        }
+    /// QUIÉN CIERRA esta ventana, sea de la modalidad que sea.
+    ///
+    /// NO sale de `ErgCounterPolicy`: esa tabla resuelve el contador del PM5 y
+    /// devuelve `athleteTap` para todo lo que no sea un ergo (`resolve` sale por
+    /// arriba si `!tramo.isErg`). Mandar eso por el cable hacía que una serie de
+    /// 500 m corriendo — con su hito de distancia, que lo cierra el GPS — viajara
+    /// como «la cierras tú», y la muñeca cambiaba el sujeto: en vez de los metros
+    /// que faltan pintaba los que llevas, y ofrecía un toque que no hace falta.
+    ///
+    /// La regla verdadera es la del tramo y es la misma de `LiveTramo`: metros o
+    /// calorías → lo sabe la medida; segundos → lo sabe el reloj; nada de eso →
+    /// no lo sabe nadie y lo dice el atleta.
+    private func cierreDelTramo(_ tramo: LiveTramo, descansando: Bool) -> String {
+        // En descanso manda siempre el reloj del descanso: no hay medida que cruzar.
+        if descansando { return "sessionClock" }
+        if tramo.targetDistanceMeters != nil || tramo.targetCalories != nil { return "machineGoal" }
+        if tramo.boxedSeconds != nil || tramo.targetDurationSeconds != nil { return "sessionClock" }
+        return "athleteTap"
     }
 
     private func estadoWire(_ status: TargetStatus) -> String {
