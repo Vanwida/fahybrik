@@ -428,6 +428,10 @@ final class WorkoutSession {
     /// the current segment. When > 0, `closeCurrentSegmentLap` skips the blended
     /// aggregate (mirrors structured-run per-leg recording).
     private var ergIntervalBoutsRecorded: Int = 0
+    /// How many EMOM WORK minutes have been written as their own LapRecord for
+    /// the current segment (one row per station/minute: remo, ski, wallballs…).
+    /// When > 0, `closeCurrentSegmentLap` skips the blended block aggregate.
+    private var emomIntervalBoutsRecorded: Int = 0
 
     // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
     // aggregates (HR / zone / distance / calories) are merged back in when the
@@ -1176,6 +1180,12 @@ final class WorkoutSession {
     // is identical either way, so it takes no "was this automatic" flag.
     private func advanceEMOMInterval() {
         guard let plan = currentSegment?.emomPlan else { return }
+        // Plain EMOM (no explicit rest) and the last work minute: the work window
+        // that just ended is still THIS interval — record it before the cursor moves.
+        // (Interval EMOMs with a change window already recorded on work→rest.)
+        if emomPhase == .work {
+            recordEMOMIntervalBout(at: emomIntervalIndex)
+        }
         emomCompletedIntervals = max(emomCompletedIntervals, emomIntervalIndex + 1)
         let next = emomIntervalIndex + 1
         if next >= plan.intervalCount {
@@ -1188,6 +1198,8 @@ final class WorkoutSession {
         emomIntervalIndex = next
         emomPhase = .work
         emomPhaseRemaining = Double(plan.workSeconds)
+        // Open the next minute's device window (ski after remo → counters at 0).
+        syncTramoIfNeeded()
         if changed {
             WorkoutAudio.shared.playMovementChange()
             Haptics.heavy()
@@ -2035,6 +2047,17 @@ final class WorkoutSession {
             resetSegmentAccumulators()
             return
         }
+        // EMOM multi-station: each WORK minute already has its own LapRecord
+        // (remo / ski / run / …). Stamp rounds on the last bout; skip the blend.
+        if emomIntervalBoutsRecorded > 0 {
+            if let i = laps.lastIndex(where: { $0.segmentId == seg.id && $0.runLegIndex != nil }) {
+                laps[i].emomRoundsCompleted = capturedEmomCompleted
+                laps[i].emomRoundsPrescribed = capturedEmomPrescribed
+            }
+            emomIntervalBoutsRecorded = 0
+            resetSegmentAccumulators()
+            return
+        }
         let now = Date()
         let isErg = seg.kind.isErg
         let usedPM5 = isErg && lapHadPM5
@@ -2875,6 +2898,8 @@ final class WorkoutSession {
         // through a change with nowhere to change to.
         let isLastRound = emomIntervalIndex + 1 >= plan.intervalCount
         if plan.hasTransition, emomPhase == .work, !isLastRound {
+            // Close THIS station's work (metres / cal / pace) before the change window.
+            recordEMOMIntervalBout(at: emomIntervalIndex)
             emomPhase = .rest
             emomPhaseRemaining = Double(plan.restSeconds)
             WorkoutAudio.shared.playWorkEnd()
@@ -2882,6 +2907,96 @@ final class WorkoutSession {
             return
         }
         advanceEMOMInterval()   // beep + roll (or close on the last one)
+    }
+
+    /// One EMOM WORK minute → its own LapRecord (pace / cal / power / SPM / HR of
+    /// THIS station only). `runLegIndex` = minute ordinal so the post-workout table
+    /// and payload re-sequence like erg series / structured run. Modality is the
+    /// tramo's machine (row/ski/run/…), not the folded block's "functional".
+    private func recordEMOMIntervalBout(at index: Int) {
+        guard let seg = currentSegment, seg.isEMOM else { return }
+        let tramo = currentTramo
+        let now = Date()
+        let dur = tramoRecordedSeconds
+        let isErg = tramo.isErg
+        let isRun = tramo.isRun
+        let meters: Double? = {
+            if isErg, let m = tramoErgDistanceMeters, m >= 1 { return m }
+            if isRun {
+                if lapBeltDistanceMeters > 0 { return lapBeltDistanceMeters }
+                if lapHadGPS, let g = lapGpsDistanceMeters, g > 0 { return g }
+            }
+            return nil
+        }()
+        let cals: Double? = {
+            guard isErg, let c = tramoErgCalories, c >= 1 else { return nil }
+            return Double(c)
+        }()
+        let hrStart = Swift.min(tramoHRStartCount, lapHRSamples.count)
+        let hrSlice = Array(lapHRSamples[hrStart...])
+        let avgHR = hrSlice.isEmpty ? nil : hrSlice.reduce(0, +) / hrSlice.count
+        let maxHR = hrSlice.max()
+        func meanSlice(_ xs: [Double], from: Int) -> Double? {
+            let i = Swift.min(from, xs.count)
+            let s = Array(xs[i...])
+            guard !s.isEmpty else { return nil }
+            return s.reduce(0, +) / Double(s.count)
+        }
+        let avgPace500: Double? = {
+            guard isErg else { return nil }
+            if let p = meanSlice(lapErgPaceSamples, from: tramoPaceSampleStart), p > 0 { return p }
+            guard let m = meters, m > 0, dur > 0 else { return nil }
+            return (dur / m) * 500.0
+        }()
+        let avgPaceKm: Double? = {
+            guard isRun, let m = meters, m > 0, dur > 0 else { return nil }
+            return Self.paceSecPerKm(meters: m, seconds: dur)
+        }()
+        let avgPower = isErg ? meanSlice(lapErgPowerSamples, from: tramoPowerSampleStart) : nil
+        let avgSpm = isErg ? meanSlice(lapErgSpmSamples, from: tramoSpmSampleStart) : nil
+        let source: String = {
+            if isErg && lapHadPM5 { return "pm5" }
+            if isRun && lapBeltDistanceMeters > 0 { return "treadmill" }
+            if isRun && lapHadGPS { return "gps" }
+            if avgHR != nil { return "healthkit" }
+            return "manual"
+        }()
+        // Wire modality of THIS minute (row/ski/run/functional), never the folded block.
+        let modality = tramo.modality.rawValue
+        let lap = LapRecord(
+            id: UUID(),
+            segmentId: seg.id,
+            templateSegmentId: seg.templateSegmentId,
+            position: seg.order,
+            modality: modality,
+            startedAt: now.addingTimeInterval(-dur),
+            endedAt: now,
+            durationSeconds: dur,
+            avgHRBpm: avgHR,
+            maxHRBpm: maxHR,
+            zoneSecondsByZone: [:],
+            repsCompleted: nil,
+            distanceCoveredMeters: meters,
+            avgPaceSecPer500m: avgPace500,
+            avgPaceSecPerKm: avgPaceKm,
+            avgPowerWatts: avgPower,
+            strokeRateSpm: avgSpm,
+            calories: cals,
+            weightUsedKg: nil,
+            source: source,
+            repsPrescribed: nil,
+            repsStatus: nil,
+            repsConfirmed: false,
+            isStructural: false,
+            rxScaled: nil,
+            scaledNote: nil,
+            sets: nil,
+            runLegIndex: index,
+            runLegRole: "work",
+            runLegPhase: "main"
+        )
+        laps.append(lap)
+        emomIntervalBoutsRecorded += 1
     }
 
     private func persistedSnapshot() -> PersistedWorkoutState {

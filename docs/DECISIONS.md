@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-04 · Resumen post-entreno: un lap por minuto EMOM + informe de sesión
+
+**El fallo (Alex, gym):** tras un EMOM con PM5 el resumen solo pedía RPE; no había ritmo por estación ni totales útiles, pese a que el monitor manda cal/ritmo/W.
+
+**Decidido:**
+1. **EMOM graba un `LapRecord` por minuto de TRABAJO** (`recordEMOMIntervalBout`), con modalidad del tramo (row/ski/run/…), metros/cal/ritmo/W/HR de esa ventana. `runLegIndex` = ordinal del minuto.
+2. **No hay lap blended del bloque** si ya hay bouts por minuto (misma regla que series erg 5×500). Las rondas EMOM X/Y se estampan en el último bout.
+3. **Resumen final** pinta `ResumenSesionCard` (totales + por máquina) y `TablaDeTramos` con filas «1. Remo · 1:52/500m · 12 cal».
+4. **Se guarda** vía `SegmentPayloadBuilder` → `SegmentExecutionDTO` (ritmo, cal, potencia, modality por tramo).
+
+**En consecuencia, no hacer:** no volver a un solo lap "functional" para un EMOM multi-estación; no inventar ritmos sin medición; no pintar card de sesión vacía.
+
+---
+
 ## 2026-08-04 · Multi-máquina en funcional: slots por rol + pool PM5
 
 **El fallo (Alex, gym):** en un EMOM/AMRAP/For Time con remo + ski + run en cinta no se podía conectar ni ski ni remo (el remo ni salía), ni la cinta. El sistema tenía un solo chip «Remo» y un solo `PM5ConnectionStore`, y la elegibilidad miraba el `kind` del segmento (que en un funcional colapsa a `.reps` / `.strength`), no las modalidades de cada movimiento.

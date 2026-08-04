@@ -45,13 +45,22 @@ enum TramosMedidos {
         var tiempo: String { Formato.clock(lap.durationSeconds) }
 
         /// El segundo dato de la fila, por orden de lo que primero se mira al acabar
-        /// una serie: el ritmo si se midió, y si no la distancia que cubriste. nil
-        /// cuando no se midió ninguno — ahí la fila se queda con su tiempo (§7).
+        /// una serie / estación: ritmo (/km o /500 m), cal, potencia, o distancia.
+        /// nil cuando no se midió ninguno — ahí la fila se queda con su tiempo (§7).
         var medida: String? {
             if let ritmo = lap.avgPaceSecPerKm, ritmo > 0 {
                 return Formato.ritmo(ritmo, .porKm)
             }
-            if let metros = lap.distanceCoveredMeters {
+            if let ritmo500 = lap.avgPaceSecPer500m, ritmo500 > 0 {
+                return Formato.ritmo(ritmo500, .por500m)
+            }
+            if let cal = lap.calories, cal >= 1 {
+                return "\(Int(cal.rounded())) cal"
+            }
+            if let w = lap.avgPowerWatts, w >= 1 {
+                return "\(Int(w.rounded())) W"
+            }
+            if let metros = lap.distanceCoveredMeters, metros >= 1 {
                 return Formato.distanciaCubierta(metros)
             }
             return nil
@@ -100,6 +109,24 @@ enum TramosMedidos {
         let medidos = laps
             .filter { $0.segmentId == segmento.id && $0.runLegIndex != nil }
             .sorted { ($0.runLegIndex ?? 0) < ($1.runLegIndex ?? 0) }
+
+        // EMOM multi-estación: cada minuto es un lap con `runLegIndex` = ordinal.
+        // El título es el movimiento del plan (Remo, SkiErg…), no "Tramo N".
+        if let plan = segmento.emomPlan, !medidos.isEmpty {
+            var filas: [Fila] = []
+            for lap in medidos {
+                let idx = lap.runLegIndex ?? 0
+                let mov = plan.interval(idx)?.movement
+                let titulo: String
+                if let mov, !mov.isEmpty {
+                    titulo = "\(idx + 1). \(mov)"
+                } else {
+                    titulo = "Min \(idx + 1)"
+                }
+                filas.append(Fila(id: lap.id, lap: lap, leg: nil, titulo: titulo))
+            }
+            return Lectura(filas: filas, fuertesPrevistos: plan.intervalCount)
+        }
 
         // ¿Contra qué lista se emparejan? Si hay tantos laps como tramos, se grabó
         // TODO (fuertes y recuperaciones) y el emparejamiento es directo. Si no, los

@@ -5,6 +5,14 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · Resumen EMOM de verdad (por estación + totales)
+
+EMOM multi-estación graba **un lap por minuto** (remo/ski/run…) con ritmo/cal/W.
+Resumen post-entreno: card **Tu sesión** (totales + por máquina) + tabla por estación.
+Se persiste en execution segments. Probar: libre EMOM remo+ski+PM5 → guardar → ver filas.
+
+---
+
 ## 4-ago · Multi-máquina en funcional (PM5 ×2 + FTMS)
 
 Gym Alex: EMOM/AMRAP/For Time con remo + ski + cinta no ofrecía conectar.

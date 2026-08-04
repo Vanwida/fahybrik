@@ -204,10 +204,18 @@ struct PostWorkoutSummaryView: View {
                             zonesStackedBar(coverage)
                         }
                         hrSection
+                        // Informe de sesión: totales + por máquina (remo / ski / run)
+                        // desde los laps medidos. Se pinta solo si hay datos reales.
+                        if ResumenSesionCard.hayQuePintarla(laps: session.laps,
+                                                            elapsedSeconds: session.elapsedSeconds) {
+                            ResumenSesionCard(laps: session.laps,
+                                              elapsedSeconds: session.elapsedSeconds)
+                        }
                         // La tabla se pinta cuando tiene MÁS DE UNA FILA que enseñar.
                         // Antes preguntaba `segments.count > 1` — por bloques, no por
                         // filas —, y por eso quien acababa una serie suelta (un
                         // segmento, seis tramos dentro) no veía ninguno de los seis.
+                        // EMOM multi-estación: un lap por minuto con ritmo/cal/W.
                         if TablaDeTramos.hayQuePintarla(segmentos: session.plan.segments,
                                                         laps: session.laps) {
                             TablaDeTramos(
