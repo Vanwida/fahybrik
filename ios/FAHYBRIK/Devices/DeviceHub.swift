@@ -177,7 +177,8 @@ final class DeviceHub {
     func stopAll() {
         stopTreadmill()
         stopHeartRate()
-        PM5ConnectionStore.shared.disconnect()
+        // All PM5 links (role-bound Remo/Ski/Bike + unscoped) share this lifecycle.
+        PM5Pool.shared.disconnectAll()
     }
 
     /// Release the BELT alone. Split out of `stopAll` because the two devices stop

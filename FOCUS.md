@@ -1,7 +1,24 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-03**
+Última actualización: **2026-08-04**
+
+---
+
+## 4-ago · Multi-máquina en funcional (PM5 ×2 + FTMS)
+
+Gym Alex: EMOM/AMRAP/For Time con remo + ski + cinta no ofrecía conectar.
+**Shipeado en iOS** (rama `feat/pm5-counter-sync`):
+
+- Slots por rol: Remo · SkiErg · BikeErg · Cinta · Banda (derivados de sets/modality).
+- `PM5Pool`: un store/service por rol; tramo vivo enruta al monitor de su modalidad.
+- Contadores: EMOM per-tramo (reset al saltar ski↔remo); AMRAP acumulativo (ya en `ErgCounterPolicy`).
+- Free functional: sets con modality del ejercicio; card de dispositivos en el builder.
+- 32 tests verdes (eligibility + pool + counter policy). Build sim OK.
+
+**Probar en gym:** libre funcional EMOM con remo+ski+run → conectar 2 PM5 + cinta → verificar contador a 0 en cada ronda ergo y lectura de cinta en el run.
+
+Pendiente natural de la lista 4-ago: fuerza (series/descanso), rest en EMOM, lock screen, rondas en previa.
 
 ---
 

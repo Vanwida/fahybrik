@@ -137,8 +137,45 @@ struct FreeFunctionalBuilderView: View {
                 }
                 addButton
                 titleField
+                // Slots for Remo / Ski / Cinta / banda derived from the movements
+                // the athlete declared — same eligibility as plan sessions. Empty
+                // when the piece is a bare clock with no machine work.
+                if !sessionDevices.isEmpty {
+                    DeviceConnectCard(devices: sessionDevices)
+                }
             }
         }
+    }
+
+    /// Devices this free functional draft will use, from its folded segment.
+    /// Does NOT call `buildContext()` (that remembers prefs as a side effect).
+    private var sessionDevices: [PreWorkoutDevice] {
+        guard draft.format != nil else { return [.heartRate] }
+        // Mirror the fold used at start: one segment whose sets carry each
+        // movement's modality — enough for eligibility without running the full
+        // free-save payload path.
+        let sets = draft.movements.map { m in
+            PrescriptionSet(
+                measure: m.doseMeasure,
+                target: nil,
+                modality: m.exercise.prescriptionModality ?? .functional,
+                restS: nil, tempo: nil, note: m.exercise.name
+            )
+        }
+        let presc = Prescription(
+            scheme: draft.format!.scheme,
+            modality: .functional,
+            sets: sets.isEmpty ? nil : sets,
+            rounds: nil, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil
+        )
+        let segment = WorkoutSegment(
+            order: 1, title: "Funcional", kind: .reps,
+            blockTitle: "Funcional", blockPosition: 1,
+            prescription: presc
+        )
+        let devices = PreWorkoutDeviceEligibility.devices(for: [segment])
+        return devices.isEmpty ? [.heartRate] : devices
     }
 
     @ViewBuilder

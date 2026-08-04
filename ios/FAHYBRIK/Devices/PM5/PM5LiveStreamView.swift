@@ -10,8 +10,16 @@ import SwiftUI
 struct PM5LiveStreamView: View {
     @Bindable var store: PM5ConnectionStore
     var onDone: () -> Void = {}
+    /// When set (Remo / SkiErg / BikeErg), the sheet titles the role so binding
+    /// two PM5s in one session is unambiguous.
+    var roleTitle: String? = nil
 
     @Environment(\.dismiss) private var dismiss
+
+    private var useButtonTitle: String {
+        if let roleTitle { return "USAR ESTE · \(roleTitle.uppercased())" }
+        return "USAR ESTE PM5"
+    }
 
     var body: some View {
         ZStack {
@@ -22,7 +30,7 @@ struct PM5LiveStreamView: View {
                 content
                 Spacer(minLength: 0)
                 if store.isConnected {
-                    ExpertPrimaryButton(title: "USAR ESTE PM5") {
+                    ExpertPrimaryButton(title: useButtonTitle) {
                         onDone()
                         dismiss()
                     }
@@ -56,10 +64,11 @@ struct PM5LiveStreamView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Concept2 PM5")
+                Text(roleTitle.map { "PM5 · \($0)" } ?? "Concept2 PM5")
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Conecta tu erg para potencia y SPM en directo")
+                Text(roleTitle.map { "Elige el monitor de \($0) en la sala" }
+                     ?? "Conecta tu erg para potencia y SPM en directo")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
             }

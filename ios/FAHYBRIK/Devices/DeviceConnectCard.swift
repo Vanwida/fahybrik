@@ -4,23 +4,25 @@ import SwiftUI
 // and in the free builder's final step. One tappable chip per device the session
 // will use (from `PreWorkoutDeviceEligibility`).
 //
+// Multi-machine functional (2026-08-04): chips are per ROLE (Remo · SkiErg · BikeErg
+// · Cinta · Banda). Each PM5 role opens its own picker bound to that role's store
+// in `PM5Pool`, so two Concept2 monitors can stay connected at once.
+//
 // Tapping a chip NEVER blindly connects: it opens the device's picker so the athlete
 // chooses their OWN machine by name (the gym fix). Once connected, the chip shows the
 // connected device's real name; tapping it again re-opens the picker (to disconnect
 // or switch), and a long-press disconnects straight away. Nothing is required — the
 // athlete can start without connecting.
-//
-// The chips read the SHARED device layer (`DeviceHub.shared` channels for cinta +
-// banda, `PM5ConnectionStore.shared` for remo), so whatever is connected here stays
-// connected into the live workout — no re-scan.
 struct DeviceConnectCard: View {
     /// The devices to offer, already filtered + ordered by the caller.
     let devices: [PreWorkoutDevice]
 
     @State private var hub = DeviceHub.shared
-    @State private var pm5 = PM5ConnectionStore.shared
+    @State private var pool = PM5Pool.shared
     @State private var watch = WatchPresence.shared
-    @State private var showPM5Sheet = false
+    /// Which PM5 role sheet is open (nil = closed). Uses the device id so
+    /// Remo and Ski each present their own store.
+    @State private var openPM5DeviceId: String? = nil
 
     var body: some View {
         CardSurface(padding: 12) {
@@ -63,13 +65,24 @@ struct DeviceConnectCard: View {
                               watchHint: watch.appAvailable,
                               batteryPercent: hub.hrBatteryPercent)
         }
-        .sheet(isPresented: $showPM5Sheet) {
-            PM5LiveStreamView(store: pm5)
+        .sheet(isPresented: pm5SheetBinding) {
+            if let id = openPM5DeviceId,
+               let device = devices.first(where: { $0.id == id }),
+               let store = pool.store(for: device) {
+                PM5LiveStreamView(store: store, roleTitle: device.isPM5 ? device.titleES : nil)
+            }
         }
         // NO .onAppear CONNECT. This card used to silently reconnect a remembered HR
         // strap the moment it appeared ("it's personal, it's safe"). It isn't: straps
         // move between people too, and one exception is all it takes for the invariant
         // to stop being auditable. Every device here waits for a tap.
+    }
+
+    private var pm5SheetBinding: Binding<Bool> {
+        Binding(
+            get: { openPM5DeviceId != nil },
+            set: { if !$0 { openPM5DeviceId = nil } }
+        )
     }
 
     @ViewBuilder
@@ -136,11 +149,17 @@ struct DeviceConnectCard: View {
         switch device {
         case .treadmill: return hub.treadmill.link
         case .heartRate: return hub.heartRate.link
-        case .pm5:
-            if case .streaming = pm5.connectionState {
-                return .connected(name: pm5.connectedDeviceName ?? "Remo")
+        case .erg, .ergAny:
+            guard let store = pool.store(for: device) else { return .idle }
+            if case .streaming = store.connectionState {
+                return .connected(name: store.connectedDeviceName ?? device.titleES)
             }
-            return pm5.connectionState.deviceLink
+            var link = store.connectionState.deviceLink
+            // Prefer role title over generic "PM5" when streaming name is unknown.
+            if case .connected = link, store.connectedDeviceName == nil {
+                link = .connected(name: device.titleES)
+            }
+            return link
         }
     }
 
@@ -148,7 +167,7 @@ struct DeviceConnectCard: View {
         switch device {
         case .treadmill: return hub.treadmill
         case .heartRate: return hub.heartRate
-        case .pm5:       return nil
+        case .erg, .ergAny: return nil
         }
     }
 
@@ -163,16 +182,18 @@ struct DeviceConnectCard: View {
             ch.openPicker()
             return
         }
-        // PM5 keeps its own richer sheet (shows live erg data). It only ever OPENS —
-        // the erg is chosen from the list inside, by tapping. A remembered erg used to
-        // be reconnected from right here, on the tap that opened the sheet, which is
-        // how the app could latch onto whichever machine had that identifier now.
-        showPM5Sheet = true
+        // PM5: open the role's own sheet. Hide peripherals already claimed by
+        // another role so one monitor cannot be bound to Remo and Ski at once.
+        if let store = pool.store(for: device) {
+            store.excludePeripheralIds = pool.occupiedPeripheralIds
+                .subtracting([store.connectedIdentifier].compactMap { $0 })
+        }
+        openPM5DeviceId = device.id
     }
 
     private func disconnect(_ device: PreWorkoutDevice) {
         if let ch = channel(for: device) { ch.disconnect() }
-        else { pm5.disconnect() }
+        else { pool.store(for: device)?.disconnect() }
     }
 
     /// `enabled == false` pins the binding to false, so a card that doesn't show this

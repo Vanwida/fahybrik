@@ -102,11 +102,22 @@ struct PreWorkoutBriefView: View {
 
     private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
 
-    /// Devices the SMALL bottom card still offers: the HR strap only. The PM5 has
-    /// its first-class connect card at the top and the treadmill lives in the
-    /// full-screen pre-start run sequence — ONE journey each, no duplicates.
+    /// Mono pure-erg session (one PM5 slot, no cinta): keep the large ErgConnectCard
+    /// at the top. Multi-machine functional (Remo + Ski + Cinta…) uses the shared
+    /// DeviceConnectCard with every slot so the athlete can bind all three before GO.
+    private var showsMonoErgCard: Bool {
+        let machines = eligibleDevices.filter { $0 != .heartRate }
+        let ergs = machines.filter(\.isPM5)
+        return ergs.count == 1 && machines.count == 1
+    }
+
+    /// Devices for the Dispositivos card. Mono-erg leaves only HR here (PM5 has its
+    /// own card). Multi-machine / run-in-functional / mixed → every slot.
     private var bottomDevices: [PreWorkoutDevice] {
-        eligibleDevices.filter { $0 == .heartRate }
+        if showsMonoErgCard {
+            return eligibleDevices.filter { $0 == .heartRate }
+        }
+        return eligibleDevices
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -152,10 +163,10 @@ struct PreWorkoutBriefView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header
                     coachNote
-                    // ErgData pattern: erg work puts the CONNECT card first-class at
-                    // the top, above the blocks — the one PM5 entry, never a small
-                    // chip below the fold.
-                    if eligibleDevices.contains(.pm5) {
+                    // ErgData pattern: pure single-erg work puts the CONNECT card
+                    // first-class at the top. Multi-machine functional uses the
+                    // Dispositivos card with Remo / Ski / Cinta slots instead.
+                    if showsMonoErgCard {
                         ErgConnectCard()
                     }
                     if let blocks = structuredBlocks, !blocks.isEmpty {

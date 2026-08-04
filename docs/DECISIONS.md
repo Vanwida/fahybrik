@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-04 · Multi-máquina en funcional: slots por rol + pool PM5
+
+**El fallo (Alex, gym):** en un EMOM/AMRAP/For Time con remo + ski + run en cinta no se podía conectar ni ski ni remo (el remo ni salía), ni la cinta. El sistema tenía un solo chip «Remo» y un solo `PM5ConnectionStore`, y la elegibilidad miraba el `kind` del segmento (que en un funcional colapsa a `.reps` / `.strength`), no las modalidades de cada movimiento.
+
+**Decidido (mecanismo, HARD RULE Nº0):**
+
+1. **Slots por máquina, no un PM5 genérico.** La previa ofrece `Cinta` · `Remo` · `SkiErg` · `BikeErg` · `Banda` según lo que el session toque de verdad (`involvesRun` / `involvesErg` + modalidades de `sets[]` / `ergKind`). Caso extremo: EMOM 10 cal remo · 10 cal ski · wallballs · 200 m cinta → tres máquinas + banda a la vez.
+
+2. **El atleta asigna cada PM5 a un rol.** El monitor no anuncia ski vs remo; el slot es la asignación. Un mismo peripheral no puede ocupar dos roles (`excludePeripheralIds`).
+
+3. **`PM5Pool`:** un store por rol (cada uno con su `PM5Service` / CBCentralManager) + el unscoped `any` para mono-erg legacy. El tramo vivo resuelve `activeStore(for: modality)` → feed + program solo ese monitor.
+
+4. **Contadores (ya decidido 2026-08-03):** EMOM ronda ergo = `perTramo` (reset a 0 al entrar en ski o remo). AMRAP / free-order acumulativo = `cumulativeSegment`. Al final del entreno se suma el trabajo medido de todos los monitores.
+
+5. **Free functional:** cada set del fold lleva la modalidad del ejercicio (catálogo / categoría / slug). Sin eso el live tramo no sabe qué máquina es y no se ofrece slot.
+
+**En consecuencia, no hacer:** no volver a un único chip «Remo» para todo ergo; no conectar el PM5 mirando solo `segment.kind`; no programar el piece en un monitor de otro rol; no exigir conectar (sigue siendo opcional).
+
+**Código:** `ErgMachineRole` · `PreWorkoutDeviceEligibility` · `PM5Pool` · `DeviceConnectCard` multi-rol · routing en `ActiveWorkoutView` · fold de `FreeFunctionalBuilder`.
+
+---
+
 ## 2026-08-03 · El doble mentía con autoridad: sellos fechados, re-verificables, y el índice por recencia
 
 **El fallo (Alex: «no podemos fiarnos de eso»):** el índice del doble hacía afirmaciones que nadie re-verificaba. Auditado contra el Swift real: **los 5 espejos estaban desfasados** — congelados justo antes de la campaña iOS del 29-jul/3-ago («un guion no es un dato»: donde no hay medida se omite el elemento o se explica con palabras) — y uno (`devices`) nació ya incompleto (el banner de conexión perdida del PM5 existía desde el 20-jul y el espejo se declaró el 28 sin él). Peor: **24 de las 33 «propuestas» ya estaban construidas en Swift** (la tanda del 30-jul implementó las propuestas casi literalmente y nadie re-selló el doble), «Tests guiados» figuraba como pendiente teniendo doble (`tests-calibracion`), y `ranking-box` afirmaba un dato falso («los datos ya viajan en el GET de marcas» — el endpoint no lleva percentil ni cohorte).

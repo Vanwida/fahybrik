@@ -65,7 +65,9 @@ struct ActiveWorkoutView: View {
     // to resume it when the sheet is dismissed (and not resume a session the
     // athlete had already paused before opening the video).
     @State private var resumeAfterVideo: Bool = false
-    @State private var pm5 = PM5ConnectionStore.shared
+    /// Multi-PM5 pool: role-bound Remo/Ski/Bike + unscoped fallback. The live
+    /// store is resolved per tramo modality (`activePM5`).
+    @State private var pool = PM5Pool.shared
     // A pending navigation awaiting confirmation (a forward skip that omits work,
     // or a back-step that would discard live-captured data). Nil = nothing to ask.
     @State private var pendingNav: PendingNav? = nil
@@ -93,6 +95,15 @@ struct ActiveWorkoutView: View {
     /// Is an erg measuring what the athlete is doing RIGHT NOW? This is the SCREEN
     /// question — whose numbers own the surface this second.
     private var isErgSegment: Bool { session.tramoIsErg }
+
+    /// PM5 store for the CURRENT tramo (ski minute → ski store, remo → remo).
+    /// Falls back to the unscoped store when only one monitor is connected.
+    private var activePM5: PM5ConnectionStore {
+        pool.activeStore(for: session.currentTramo) ?? pool.any
+    }
+
+    /// Any PM5 linked this session (for "connect before start" gates and sheets).
+    private var anyPM5Connected: Bool { pool.anyConnected }
     /// Landscape + a device-measured window → that surface takes the whole screen.
     /// There is no second erg view and no "ver en grande" cover: rotating the phone
     /// IS the gesture, and the SAME component re-lays itself out. It now includes
@@ -197,7 +208,7 @@ struct ActiveWorkoutView: View {
                         if session.isTramoResting {
                             RestSurface(session: session)
                         } else {
-                            ErgHUDContent(session: session, pm5: pm5)
+                            ErgHUDContent(session: session, pm5: activePM5)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -271,7 +282,7 @@ struct ActiveWorkoutView: View {
             wireLiveSources()
             // Seed the monitor flag: the athlete may have paired in the pre-start
             // gate, before this view existed, and `onChange` only fires on CHANGES.
-            session.ergConnected = pm5.isConnected
+            session.ergConnected = activePM5.isConnected
             attemptProgramPM5()
             updateRunGPS()
             maybeAutoOpenRunCover()
@@ -319,61 +330,33 @@ struct ActiveWorkoutView: View {
             // so the phone keeps recording HR alone.
             if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
         }
-        .onChange(of: pm5.live.heartRateBpm) { _, bpm in
-            // HRM strap can be paired through the PM5; route into session as a
-            // fallback HR source (HealthKit/watch wins if it's already streaming).
-            if let bpm { session.injectLiveHR(bpm, source: .pm5) }
-        }
-        .onChange(of: pm5.live.lastUpdate) { _, _ in
-            // Each PM5 sample updates `lastUpdate`; feed the erg stream into the
-            // session's per-segment aggregation (avg pace/power/SPM, distance,
-            // calories) so the execution record is built from real samples.
-            guard pm5.isConnected else { return }
-            session.sampleErg(
-                paceSecPer500m: pm5.live.paceSecondsPer500m,
-                powerWatts: pm5.live.powerWatts,
-                strokeRate: pm5.live.strokeRate,
-                distanceMeters: pm5.live.distanceMeters,
-                caloriesKcal: pm5.live.caloriesKcal,
-                dragFactor: pm5.live.dragFactor,
-                caloriesPerHour: pm5.live.caloriesPerHour,
-                monitorAvgPaceSecPer500m: pm5.live.avgPaceSecondsPer500m,
-                peakDriveForceLbs: pm5.live.peakDriveForceLbs,
-                avgDriveForceLbs: pm5.live.avgDriveForceLbs
-            )
-        }
-        .onChange(of: pm5.splits) { _, splits in
-            // Snapshot the monitor's completed splits into the current erg segment
-            // (event-driven, separate from the 1 Hz live sample above).
-            guard pm5.isConnected else { return }
-            session.captureErgSplits(splits)
+        // Multi-PM5: any role store can tick. Resolve the active role for THIS
+        // tramo and only feed that monitor's numbers into the session window.
+        .onChange(of: pool.epoch) { _, _ in
+            feedActivePM5()
         }
         .onChange(of: session.currentSegmentIndex) { _, _ in
             // A new erg piece starts with a clean interval table — the PM5's split
             // numbers can otherwise carry over between pieces in one session.
-            if session.currentSegment?.involvesErg == true { pm5.resetSplits() }
+            if session.currentSegment?.involvesErg == true { activePM5.resetSplits() }
             // …and gets programmed onto the monitor. Non-erg segments never touch it.
             attemptProgramPM5()
+            // Role may have changed with the segment — refresh the connected flag.
+            session.ergConnected = activePM5.isConnected
         }
         .onChange(of: session.tramoKey) { _, _ in
             // A NEW WORK WINDOW inside the same segment — round 3 of a ski EMOM,
             // bout 2 of a 5×500. When the app clocks the series, the piece is sent
             // again here so the monitor's counter is back at zero for it (Alex:
             // "cada ronda la app debe mandar el reinicio del pm5").
-            attemptProgramPM5()
-        }
-        .onChange(of: pm5.connectionState) { _, _ in
-            // Tell the engine whether a monitor is streaming BEFORE reprogramming:
-            // it decides with this whether a station's clock waits for the machine
-            // or starts on the tap. Without it, a station done on an unpaired erg
-            // sat at 0:00 and saved that zero.
-            session.ergConnected = pm5.isConnected
-            // PM5 connected (or reconnected) mid-piece → send it the current erg
-            // piece now; the store's per-connection guard makes this idempotent.
+            // Also re-bind which role owns the live numbers (ski → remo).
+            session.ergConnected = activePM5.isConnected
             attemptProgramPM5()
         }
         .sheet(isPresented: $showPM5Sheet, onDismiss: { maybeAutoOpenRunCover() }) {
-            PM5LiveStreamView(store: pm5)
+            let store = sheetPM5
+            let role = ErgMachineRole(modality: session.currentTramo.modality)
+            PM5LiveStreamView(store: store, roleTitle: role?.titleES)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
             TreadmillHUDView(session: session, hrZones: hrZones)
@@ -511,13 +494,54 @@ struct ActiveWorkoutView: View {
     private func attemptProgramPM5() {
         guard let seg = session.currentSegment, seg.involvesErg else { return }
         let tramo = session.currentTramo
+        guard tramo.isErg else { return }
         let policy = ErgCounterPolicy.resolve(
             tramo: tramo,
             segment: seg,
             isResting: session.isTramoResting,
             isCountIn: session.isTramoCountIn
         )
-        pm5.programIfNeeded(for: seg, tramo: tramo, policy: policy)
+        // Program only the monitor bound to THIS tramo's machine (ski piece on
+        // the ski PM5, remo on the remo). Never reprogram a sibling role.
+        activePM5.programIfNeeded(for: seg, tramo: tramo, policy: policy)
+    }
+
+    /// Pull live numbers from the PM5 that owns the current tramo (multi-role safe).
+    private func feedActivePM5() {
+        let pm5 = activePM5
+        session.ergConnected = session.tramoIsErg && pm5.isConnected
+        guard session.tramoIsErg, pm5.isConnected else { return }
+        if let bpm = pm5.live.heartRateBpm {
+            session.injectLiveHR(bpm, source: .pm5)
+        }
+        session.sampleErg(
+            paceSecPer500m: pm5.live.paceSecondsPer500m,
+            powerWatts: pm5.live.powerWatts,
+            strokeRate: pm5.live.strokeRate,
+            distanceMeters: pm5.live.distanceMeters,
+            caloriesKcal: pm5.live.caloriesKcal,
+            dragFactor: pm5.live.dragFactor,
+            caloriesPerHour: pm5.live.caloriesPerHour,
+            monitorAvgPaceSecPer500m: pm5.live.avgPaceSecondsPer500m,
+            peakDriveForceLbs: pm5.live.peakDriveForceLbs,
+            avgDriveForceLbs: pm5.live.avgDriveForceLbs
+        )
+        if !pm5.splits.isEmpty {
+            session.captureErgSplits(pm5.splits)
+        }
+    }
+
+    /// Store to open when the athlete taps "conectar PM5" mid-workout: the
+    /// current tramo's role if erg, else the first named machine of the segment.
+    private var sheetPM5: PM5ConnectionStore {
+        if session.tramoIsErg { return activePM5 }
+        if let seg = session.currentSegment {
+            let roles = PreWorkoutDeviceEligibility.namedErgRoles(in: seg)
+            if let first = ErgMachineRole.allCases.first(where: { roles.contains($0) }) {
+                return pool.store(for: first)
+            }
+        }
+        return pool.any
     }
 
     /// Let go of every machine the moment the work ends — before the summary, not
@@ -530,7 +554,7 @@ struct ActiveWorkoutView: View {
     /// happens AFTER the finish, so the strap has to keep streaming until it closes.
     /// Everything else goes now.
     private func releaseDevicesOnFinish() {
-        pm5.disconnect()
+        pool.disconnectAll()
         DeviceHub.shared.stopTreadmill()
         guard session.hrRecovery == nil else { return }
         liveHR.stop()
@@ -608,7 +632,7 @@ struct ActiveWorkoutView: View {
     /// Connecting here programs the piece at once (`onChange(pm5.connectionState)`
     /// → `attemptProgramPM5`), so the app and the erg start at the same point.
     private func needsErgConnect(_ segs: [WorkoutSegment]) -> Bool {
-        segs.contains(where: { $0.involvesErg }) && !pm5.isConnected
+        segs.contains(where: { $0.involvesErg }) && !anyPM5Connected
     }
 
     /// "el remo" / "el SkiErg" / "la bici" for the connect header. The live segment
@@ -880,7 +904,7 @@ struct ActiveWorkoutView: View {
             RestSurface(session: session)
         } else if session.tramoIsErg {
             // Erg work, alone or inside any format.
-            ErgHUDContent(session: session, pm5: pm5)
+            ErgHUDContent(session: session, pm5: activePM5)
         } else if session.currentSegment?.isConditioningTimer == true {
             // Conditioning formats route by SCHEME to their dedicated timer (the
             // block-level fold means one segment = one format), regardless of kind.
@@ -894,8 +918,8 @@ struct ActiveWorkoutView: View {
             // would lose real data. On a ROUTE the app DOES know — and he is not on
             // it, or the erg surface would have taken the screen. Leaving the rower's
             // numbers under "50 wall balls" would read as his current work.
-            if segmentInvolvesErg, pm5.isConnected, !session.isStationTramo {
-                ErgLiveStrip(session: session, pm5: pm5)
+            if segmentInvolvesErg, activePM5.isConnected, !session.isStationTramo {
+                ErgLiveStrip(session: session, pm5: activePM5)
             }
         } else {
             // Correr es lo ÚNICO que queda en este árbol: el EMOM y el hierro se
@@ -966,7 +990,7 @@ struct ActiveWorkoutView: View {
         } else {
             ConnectionStrip(
                 session: session,
-                pm5: pm5,
+                pm5: activePM5,
                 gpsActive: gpsActive,
                 segmentIsErg: segmentInvolvesErg,
                 segmentIsRun: isRunSegment,
@@ -1007,7 +1031,7 @@ struct ActiveWorkoutView: View {
             // Connect is offered whenever an erg belongs to this block, not only
             // while its round is live — otherwise a ski EMOM gives the athlete no
             // way to pair before the first minute starts.
-            if segmentInvolvesErg && !pm5.isConnected {
+            if segmentInvolvesErg && !anyPM5Connected {
                 connectPM5CTA
             }
             if isRunSeriesSegment {

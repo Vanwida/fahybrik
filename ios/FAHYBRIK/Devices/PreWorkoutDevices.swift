@@ -5,51 +5,180 @@ import Foundation
 // only nudges a device the session will use (no dead "connect your rower" chip on a
 // squat day). Pure + fully unit-testable; the card view renders whatever this
 // returns.
+//
+// FUNCTIONAL / multi-machine (2026-08-04): a single EMOM can need Remo + Ski +
+// Cinta at once. Slots are per MACHINE ROLE, not a single "PM5" chip. The athlete
+// binds each role to a physical peripheral; the live engine routes the active
+// tramo's modality to that binding. See PM5Pool + ErgCounterPolicy.
 
-/// A device the athlete can connect from the brief (or the free builder), before
-/// the clock starts.
-enum PreWorkoutDevice: String, CaseIterable, Identifiable {
-    /// FTMS Bluetooth treadmill — for run work.
-    case treadmill
-    /// Concept2 PM5 — for erg (row / ski / bike) work.
-    case pm5
-    /// Standard BLE heart-rate strap — for any cardio work (run, erg, conditioning).
-    case heartRate
+/// A Concept2 erg discipline that needs its own PM5 link when several appear in
+/// one session (row + ski in the same EMOM). The monitor itself does not advertise
+/// ski vs row — the SLOT is the athlete's assignment of "this PM5 is the ski".
+enum ErgMachineRole: String, CaseIterable, Identifiable, Codable, Hashable {
+    case row
+    case ski
+    case bike
 
     var id: String { rawValue }
 
-    /// The chip's device name (the live state word is appended by the card).
+    var modality: PrescriptionModality {
+        switch self {
+        case .row:  return .row
+        case .ski:  return .ski
+        case .bike: return .bike
+        }
+    }
+
     var titleES: String {
         switch self {
-        case .treadmill: return "Cinta"
-        case .pm5:       return "Remo"
-        case .heartRate: return "Banda de pulso"
+        case .row:  return "Remo"
+        case .ski:  return "SkiErg"
+        case .bike: return "BikeErg"
         }
     }
 
     var icon: String {
         switch self {
-        case .treadmill: return "figure.run"
-        case .pm5:       return "antenna.radiowaves.left.and.right"
-        case .heartRate: return "heart.fill"
+        case .row:  return "figure.rower"
+        case .ski:  return "figure.skiing.crosscountry"
+        case .bike: return "figure.indoor.cycle"
         }
+    }
+
+    init?(modality: PrescriptionModality) {
+        switch modality {
+        case .row:  self = .row
+        case .ski:  self = .ski
+        case .bike: self = .bike
+        default:    return nil
+        }
+    }
+
+    init?(wire: String) {
+        self.init(rawValue: wire)
+    }
+}
+
+/// A device the athlete can connect from the brief (or the free builder), before
+/// the clock starts.
+enum PreWorkoutDevice: Hashable, Identifiable {
+    /// FTMS Bluetooth treadmill — for run work.
+    case treadmill
+    /// Concept2 PM5 bound to a specific erg role (row / ski / bike).
+    case erg(ErgMachineRole)
+    /// One unscoped PM5 when the session involves erg work but does not name a
+    /// machine (legacy / bare timer). Live routes any erg tramo to this link.
+    case ergAny
+    /// Standard BLE heart-rate strap — for any cardio work (run, erg, conditioning).
+    case heartRate
+
+    var id: String {
+        switch self {
+        case .treadmill:     return "treadmill"
+        case .erg(let r):    return "erg-\(r.rawValue)"
+        case .ergAny:        return "erg-any"
+        case .heartRate:     return "heartRate"
+        }
+    }
+
+    /// The chip's device name (the live state word is appended by the card).
+    var titleES: String {
+        switch self {
+        case .treadmill:     return "Cinta"
+        case .erg(let r):    return r.titleES
+        case .ergAny:        return "PM5"
+        case .heartRate:     return "Banda de pulso"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .treadmill:     return "figure.run"
+        case .erg(let r):    return r.icon
+        case .ergAny:        return "antenna.radiowaves.left.and.right"
+        case .heartRate:     return "heart.fill"
+        }
+    }
+
+    /// True when this chip opens a Concept2 PM5 picker.
+    var isPM5: Bool {
+        switch self {
+        case .erg, .ergAny: return true
+        default: return false
+        }
+    }
+
+    /// Role for a role-bound erg chip; nil for ergAny / non-PM5.
+    var ergRole: ErgMachineRole? {
+        if case .erg(let r) = self { return r }
+        return nil
     }
 }
 
 enum PreWorkoutDeviceEligibility {
     /// The devices to offer for a session, in display order (primary machines
     /// first, the universal HR strap last):
-    ///   • Cinta   — any RUN segment (continuous, series or structured run).
-    ///   • Remo    — any ERG segment (row / ski / bike, PM5-driven).
-    ///   • Banda   — any CARDIO segment (run, erg, or a conditioning/metcon/EMOM
-    ///               block) where HR + zones matter. A pure strength/mobility day
-    ///               offers nothing → the card doesn't show.
+    ///   · Cinta        — any RUN movement (segment or set inside a format).
+    ///   · Remo/Ski/Bike — each distinct erg machine the session touches.
+    ///   · PM5          — fallback when erg is involved but no machine is named.
+    ///   · Banda        — any CARDIO work (run, erg, metcon/EMOM/…).
+    ///
+    /// A pure strength/mobility day offers nothing → the card doesn't show.
     static func devices(for segments: [WorkoutSegment]) -> [PreWorkoutDevice] {
+        var machines = Set<ErgMachineRole>()
+        var needsTreadmill = false
+        var needsUnscopedErg = false
+        var needsHR = false
+
+        for s in segments {
+            if s.involvesRun { needsTreadmill = true }
+            if isCardio(s) { needsHR = true }
+
+            let named = namedErgRoles(in: s)
+            if !named.isEmpty {
+                machines.formUnion(named)
+            } else if s.involvesErg {
+                // Erg work with no machine tag (legacy bare segment, title-only).
+                needsUnscopedErg = true
+            }
+        }
+
         var out: [PreWorkoutDevice] = []
-        if segments.contains(where: { $0.kind == .running }) { out.append(.treadmill) }
-        if segments.contains(where: { $0.kind == .rowOrSki }) { out.append(.pm5) }
-        if segments.contains(where: isCardio) { out.append(.heartRate) }
+        if needsTreadmill { out.append(.treadmill) }
+        // Stable role order: row → ski → bike (matches HYROX station order habits).
+        for role in ErgMachineRole.allCases where machines.contains(role) {
+            out.append(.erg(role))
+        }
+        // Unscoped only when we could not name any machine — never stack both.
+        if needsUnscopedErg && machines.isEmpty {
+            out.append(.ergAny)
+        }
+        if needsHR { out.append(.heartRate) }
         return out
+    }
+
+    /// Distinct erg roles a segment's work will touch — from ergKind, set modalities,
+    /// and the prescription's declared modality. Empty when there is no erg work
+    /// or only an untyped "involves erg" signal.
+    static func namedErgRoles(in segment: WorkoutSegment) -> Set<ErgMachineRole> {
+        var roles = Set<ErgMachineRole>()
+        if let k = segment.ergKind, let r = ErgMachineRole(wire: k) {
+            roles.insert(r)
+        }
+        for wire in segment.ergMachines {
+            if let r = ErgMachineRole(wire: wire) { roles.insert(r) }
+        }
+        if let sets = segment.prescription?.sets {
+            for set in sets {
+                if let m = set.modality, let r = ErgMachineRole(modality: m) {
+                    roles.insert(r)
+                }
+            }
+        }
+        if let m = segment.prescription?.modality, let r = ErgMachineRole(modality: m) {
+            roles.insert(r)
+        }
+        return roles
     }
 
     /// A cardiovascular segment — run, erg, or a conditioning/metcon/EMOM block,
@@ -57,6 +186,8 @@ enum PreWorkoutDeviceEligibility {
     private static func isCardio(_ s: WorkoutSegment) -> Bool {
         s.kind == .running
             || s.kind == .rowOrSki
+            || s.involvesErg
+            || s.involvesRun
             || s.isConditioningTimer
             || s.isEMOM
             || s.isMetconFamily
@@ -112,7 +243,7 @@ extension PM5ConnectionState {
         case .idle:                        return .idle
         case .scanning:                    return .scanning
         case .connecting, .discoveringServices: return .connecting
-        case .streaming:                   return .connected(name: "Remo")
+        case .streaming:                   return .connected(name: "PM5")
         case .disconnecting:               return .idle
         case .failed(let msg):             return .failed(msg)
         }
