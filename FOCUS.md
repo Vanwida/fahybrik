@@ -5,6 +5,34 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · Inventario del reloj — qué está portado y qué no
+
+Antes de seguir portando mockups del doble a watchOS hacía falta saber qué falta de
+verdad. Doce pantallas de reloj en el doble, capturadas escenario a escenario y
+contrastadas con el Swift: **docs/reloj-inventario.html**.
+
+- **Diez ya están en Swift** (commit `12b20e34`, 3-ago): rodaje, series, fuerza, EMOM,
+  AMRAP, For Time, dobles, descanso y resumen. El port no está por empezar, está por
+  terminar.
+- **Faltan cinta y ergo** — las dos donde el reloj NO mide la máquina. El ergo no se
+  puede portar aún: `MirrorStateFrame` no lleva ni metros, ni /500, ni SPM, ni vatios
+  (los de cinta sí están).
+- **El agujero real es el modo espejo.** `MirrorHUDView` (554 L) sigue en el lenguaje
+  viejo — botón de 52 pt, tejas, barra de cápsula — y es lo que corre cuando el entreno
+  lo gobierna el móvil, que es casi siempre. Cinta y ergo viven ahí dentro. Dobles está
+  implementado dos veces con dos lenguajes distintos (`RelayLiveView` nuevo en
+  solitario, `doblesContent` viejo en espejo).
+- **`watch-live` dejó de ser espejo:** enseña la app anterior al port (lo confirma
+  `pnpm run twin:desfase`). Y `watch-vivo` es el ancestro de las nueve vistas de
+  formato: sobra en el índice.
+
+Orden propuesto: espejo al lenguaje del lienzo → cinta → cable del ergo + ergo →
+deudas del port (biseles de For Time/dobles/resumen, fracción del aro de fuerza,
+totales adivinados, código muerto) → ordenar el índice del doble.
+**Pendiente de OK de Alex antes de tocar Swift.**
+
+---
+
 ## 4-ago · La cinta graba en CUALQUIER entreno, no solo en un bloque de correr
 
 **El fallo (dos capas, las dos por estrechar de más):**
