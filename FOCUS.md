@@ -5,6 +5,40 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · La cinta graba en CUALQUIER entreno, no solo en un bloque de correr
+
+**El fallo (dos capas, las dos por estrechar de más):**
+
+1. La telemetría de la cinta solo llegaba a la sesión a través de `TreadmillHUDModel`
+   — un *view model*, vivo solo mientras la pantalla de cinta está abierta. Un tramo de
+   correr dentro de otro formato (EMOM, For Time, HYROX sim, circuito) nunca abre esa
+   pantalla: la cinta emitía y la sesión no grababa nada.
+2. Aunque llegara, los guardias eran `currentSegment.kind == .running`, y un bloque
+   plegado es `.reps`/funcional. Mismo bug que ya se arregló para el remo («gated on the
+   TRAMO, not on the segment») pero que nunca se replicó a la cinta ni al GPS.
+
+**El modelo ahora:** la grabación es de ámbito de SESIÓN, no de pantalla.
+
+- `TreadmillDistanceTracker` (puro): odómetro→incrementos, con el fallback de integrar
+  velocidad cuando el odómetro se congela. Una sola implementación.
+- `TreadmillSessionFeeder`: EL dueño del feed cinta→sesión, vivo todo el entreno,
+  cableado en `wireLiveSources` igual que la banda de pulso. El HUD ya no alimenta la
+  sesión (era doble conteo); conserva su propio anillo por tramo con su propio tracker
+  reseteado por tramo — un tramo de trabajo no hereda los metros del trote de recuperación.
+- **El orden es contrato:** `DeviceHub` llama a `onRecordSample` ANTES que a `onSample`.
+  El auto-avance del HUD cierra el lap con el mismo sample que completa el tramo, así que
+  grabar después metía esos metros en el lap SIGUIENTE. Bug real de producción que
+  cazaron los tests.
+- Guardias → `tramoIsRun` en cinta, inclinación y GPS; al cerrar el lap ya no se filtra
+  por `kind == .running` (lo medido es medido, lo envuelva el formato que lo envuelva).
+- Ventana de cinta por tramo (`tramoBeltDistanceMeters`), gemela de la del erg: sin ella
+  el minuto 4 de un EMOM reclamaba los metros de todos los minutos de carrera anteriores.
+
+822 tests verdes. Builds iOS + watchOS OK. **Probar en gym:** cinta en un EMOM/For Time
+mixto → metros y ritmo del tramo de correr, y en el resumen por estación.
+
+---
+
 ## 4-ago · Haptics del reloj mudos en EMOM multi-máquina — CAUSA RAÍZ
 
 Tres arreglos previos (6be705b8, 537ef7e6, 206c0104) reforzaron el TRANSPORTE, que ya

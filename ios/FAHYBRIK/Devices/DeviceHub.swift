@@ -47,6 +47,19 @@ final class DeviceHub {
     var onSample: ((TreadmillSample) -> Void)?
     var onBpm: ((Int) -> Void)?
 
+    /// THE RECORDING's belt feed, owned by the active workout for the WHOLE session —
+    /// the treadmill twin of `onBpm`. `onSample` above is a single slot held by
+    /// whichever HUD is on screen, and the recording must not depend on a screen being
+    /// open: a run leg inside another format (EMOM, For Time, HYROX sim, circuit) never
+    /// opens the treadmill cover, which is exactly how a connected belt could stream
+    /// while the session recorded nothing.
+    ///
+    /// ORDER IS PART OF THE CONTRACT: this runs BEFORE `onSample`. The HUD's auto-
+    /// advance can CLOSE THE SEGMENT LAP on the very sample it is handed, so if the
+    /// recording went second, the metres of the sample that completed a leg would land
+    /// in the NEXT lap instead of the one they finished.
+    var onRecordSample: ((TreadmillSample) -> Void)?
+
     // --- Treadmill machine control (drive the belt + stay synced) ---
     /// What the connected belt lets the app drive — `.none` for a read-only machine or
     /// in the simulator. Published so the HUD can decide whether to offer controls.
@@ -86,7 +99,9 @@ final class DeviceHub {
             makeSource: { injectedHR ?? Self.makeHR() })
 
         treadmill.onSourceCreated = { [weak self] src in
-            (src as? TreadmillDataSource)?.onSample = { [weak self] in self?.onSample?($0) }
+            (src as? TreadmillDataSource)?.onSample = { [weak self] sample in
+                self?.handleTreadmillSample(sample)
+            }
             // Feature-detect control: only a controllable belt (real FTMS source) wires
             // these; a read-only machine / the simulator mock simply never reports.
             guard let self, let control = src as? (any TreadmillControllable) else { return }
@@ -145,6 +160,14 @@ final class DeviceHub {
         treadmillControllable?.forceInclineDialect(dialect)
     }
 
+    /// Fan out one belt sample: the RECORDING first, then whichever HUD holds
+    /// `onSample`. Two consumers, one stream, one order — see `onRecordSample` for why
+    /// that order is not an accident.
+    private func handleTreadmillSample(_ sample: TreadmillSample) {
+        onRecordSample?(sample)
+        onSample?(sample)
+    }
+
     private func handleBpm(_ bpm: Int) {
         bleBpm = bpm
         onBpm?(bpm)
@@ -190,6 +213,7 @@ final class DeviceHub {
         onControlCapability = nil
         onMachineEvent = nil
         onControlResult = nil
+        onRecordSample = nil
         treadmill.stop()
         treadmillControllable = nil
         treadmillControl = .none

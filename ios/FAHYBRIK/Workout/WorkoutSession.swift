@@ -405,6 +405,11 @@ final class WorkoutSession {
     /// zero, so serie 2 of a 5×500 starts from 0 m again instead of 1000/500.
     var tramoErgStartDistance: Double? = nil
     var tramoErgStartCalories: Int? = nil
+    /// Belt metres covered THIS SEGMENT at tramo entry — the treadmill twin of
+    /// `tramoErgStartDistance`. Without it a multi-station EMOM reported the whole
+    /// segment's belt distance on every run minute (minute 4 claiming minute 1 + 4's
+    /// metres); with it each minute owns exactly what it covered.
+    var tramoBeltStartDistance: Double = 0
     /// How long the tramo that just closed lasted — the number the rest screen
     /// shows so "tiempo" stops counting the moment the work stops.
     var lastTramoElapsedSeconds: Double? = nil
@@ -2085,8 +2090,16 @@ final class WorkoutSession {
         // athlete's manual entry. The belt beats GPS/manual — if a belt measured this
         // run it IS the truth of the tramo. We never record the prescribed target as
         // "covered" — target is a HUD hint, not measured work.
-        let usedGPS = seg.kind == .running && lapHadGPS
-        let beltDistance: Double? = (seg.kind == .running && lapBeltDistanceMeters > 0) ? lapBeltDistanceMeters : nil
+        // MEASURED IS MEASURED, whatever format wrapped it. These used to be gated on
+        // `seg.kind == .running`, which silently threw the belt's / GPS's metres away
+        // for every run that lives INSIDE another format — a run station in a For Time,
+        // a HYROX sim, a circuit, an AMRAP, an EMOM. The block folds to a functional
+        // segment, so the run work was measured, accumulated, and then dropped on close.
+        // The feeds themselves are already tramo-gated (`sampleTreadmillDistance` /
+        // `sampleRunGPS`), so anything that reached these accumulators IS run work and
+        // there is nothing left to re-check here.
+        let usedGPS = lapHadGPS
+        let beltDistance: Double? = lapBeltDistanceMeters > 0 ? lapBeltDistanceMeters : nil
         let runDistance: Double? = usedGPS ? lapGpsDistanceMeters : manualRunDistanceMeters
         let distance = ergDistance ?? beltDistance ?? runDistance
 
@@ -2094,9 +2107,9 @@ final class WorkoutSession {
         // duration (km/min). Only when we actually measured a distance; otherwise
         // nil (no fabricated pace from the prescription). The belt's covered meters
         // feed it exactly like GPS/manual do.
-        let avgPaceKm: Double? = seg.kind == .running
-            ? Self.paceSecPerKm(meters: beltDistance ?? runDistance, seconds: lapElapsedSeconds)
-            : nil
+        let avgPaceKm: Double? = Self.paceSecPerKm(
+            meters: beltDistance ?? runDistance, seconds: lapElapsedSeconds
+        )
 
         // Load USED (kg) — ONLY what the athlete DECLARED. It used to fall back to
         // `seg.loadKg`, so a sentadilla done at 80 over a prescription of 100 read
@@ -2746,12 +2759,13 @@ final class WorkoutSession {
         hrSourceLastSeenAt = Date()
     }
 
-    /// Accumulates phone-GPS covered distance for the current RUN segment. The
-    /// provider passes the incremental meters since its last callback; we sum
-    /// them into the in-window total. Ignored for non-run segments and when an
-    /// erg owns the distance.
+    /// Accumulates phone-GPS covered distance for the current RUN work. The provider
+    /// passes the incremental meters since its last callback; we sum them into the
+    /// in-window total. TRAMO-gated like the belt and the monitor, so an outdoor run
+    /// leg inside ANY format (a HYROX sim, a circuit, a For Time) records its metres
+    /// instead of only a segment the coach happened to author as a pure run.
     func sampleRunGPS(deltaMeters: Double) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running, deltaMeters > 0 else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
     }
@@ -2762,7 +2776,12 @@ final class WorkoutSession {
     /// flat belt (0%) is a real reading and counts; ignored off a run segment or
     /// while paused. Averaged into the ONE segment lap on close; nil when never fed.
     func sampleTreadmillIncline(_ inclinePct: Double) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running else { return }
+        // Gated on the TRAMO, not on the segment — the same fix `sampleErg` carries and
+        // for the same reason: a RUN minute inside an EMOM is running work whose belt
+        // data is real, even though the folded segment that wraps it reads as
+        // reps/functional. That guard is why a remo→ski→cinta EMOM recorded nothing
+        // from the treadmill (4-ago).
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
         lapInclineSum += inclinePct
         lapInclineCount += 1
     }
@@ -2774,8 +2793,15 @@ final class WorkoutSession {
     /// (the per-tramo truth lives here, not in the ephemeral view model). Pause-aware
     /// by the same guard as the incline/GPS feeds; only positive deltas count.
     func sampleTreadmillDistance(deltaMeters: Double) {
+        // TRAMO-gated, like the incline feed above and like `sampleErg`: the belt
+        // measures the run minute of a mixed EMOM just as truly as it measures a
+        // dedicated run block.
         guard !isPaused, !isFinished, !isAwaitingBlockStart,
-              currentSegment?.kind == .running, deltaMeters > 0 else { return }
+              tramoIsRun, deltaMeters > 0 else { return }
+        // The cursor may have moved since the last sample: anchor this one in the
+        // window it actually belongs to BEFORE counting it, exactly as `sampleErg`
+        // does — otherwise minute 4's metres land in minute 3's bout.
+        syncTramoIfNeeded()
         lapBeltDistanceMeters += deltaMeters
     }
 
@@ -2788,10 +2814,11 @@ final class WorkoutSession {
             .map { Int($0.rounded()) }
     }
 
-    /// Live covered distance for the current run segment for HUD display
-    /// (GPS sum when available, else the athlete's manual entry).
+    /// Live covered distance for the current RUN work for HUD display (GPS sum when
+    /// available, else the athlete's manual entry). Tramo-gated like the feed that
+    /// fills it, so a run station inside any format can show its covered metres.
     var liveRunDistanceMeters: Double? {
-        currentSegment?.kind == .running ? (lapGpsDistanceMeters ?? manualRunDistanceMeters) : nil
+        tramoIsRun ? (lapGpsDistanceMeters ?? manualRunDistanceMeters) : nil
     }
 
     private func tick() {
@@ -2926,7 +2953,10 @@ final class WorkoutSession {
         let meters: Double? = {
             if isErg, let m = tramoErgDistanceMeters, m >= 1 { return m }
             if isRun {
-                if lapBeltDistanceMeters > 0 { return lapBeltDistanceMeters }
+                // THIS MINUTE's belt metres, not the segment's running total — the belt
+                // read `lapBeltDistanceMeters` here while the erg read its tramo window,
+                // so minute 4 of a run/row EMOM claimed every earlier run minute too.
+                if let m = tramoBeltDistanceMeters, m >= 1 { return m }
                 if lapHadGPS, let g = lapGpsDistanceMeters, g > 0 { return g }
             }
             return nil
@@ -2959,7 +2989,7 @@ final class WorkoutSession {
         let avgSpm = isErg ? meanSlice(lapErgSpmSamples, from: tramoSpmSampleStart) : nil
         let source: String = {
             if isErg && lapHadPM5 { return "pm5" }
-            if isRun && lapBeltDistanceMeters > 0 { return "treadmill" }
+            if isRun && tramoBeltDistanceMeters != nil { return "treadmill" }
             if isRun && lapHadGPS { return "gps" }
             if avgHR != nil { return "healthkit" }
             return "manual"

@@ -81,6 +81,9 @@ struct ActiveWorkoutView: View {
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
     @State private var liveHR = LiveHeartRateProvider()
+    /// THE owner of the belt → session recording, alive for the whole workout (see the
+    /// type). Wired to the shared device layer in `wireLiveSources`, like the strap.
+    @State private var beltFeeder: TreadmillSessionFeeder?
     /// Drives the erg surface's portrait↔landscape arrangement (`.compact` = landscape).
     @Environment(\.verticalSizeClass) private var vSizeClass
 
@@ -531,6 +534,12 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    /// Pull the belt's latest telemetry into the session. THE single owner of the
+    /// belt → session feed: `TreadmillHUDModel` deliberately does not write distance or
+    /// incline any more, so opening the cover mid-run can never double-count.
+    ///
+    /// The session's own guards decide whether the sample counts (tramo is running
+    /// work, not paused) — the same shape as `feedActivePM5`.
     /// Store to open when the athlete taps "conectar PM5" mid-workout: the
     /// current tramo's role if erg, else the first named machine of the segment.
     private var sheetPM5: PM5ConnectionStore {
@@ -585,6 +594,14 @@ struct ActiveWorkoutView: View {
         DeviceHub.shared.onBpm = { bpm in
             session.injectLiveHR(bpm, source: .strap)
         }
+        // The BELT into the RECORDING, for the whole workout — the exact twin of the
+        // strap wiring above, and for the same reason: a device's data belongs to the
+        // session, not to whichever screen happens to be open. The treadmill HUD used to
+        // be the only thing feeding this, so a run leg inside an EMOM / For Time / HYROX
+        // sim (which never open that cover) recorded nothing from a connected belt.
+        let feeder = TreadmillSessionFeeder(session: session)
+        beltFeeder = feeder
+        DeviceHub.shared.onRecordSample = { sample in feeder.ingest(sample) }
     }
 
     // #8 — the athlete answered "¿dónde corres?" before starting: put them straight

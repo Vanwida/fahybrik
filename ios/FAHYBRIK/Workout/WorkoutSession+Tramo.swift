@@ -256,6 +256,15 @@ extension WorkoutSession {
         return Swift.max(0, last - start)
     }
 
+    /// BELT metres covered INSIDE the current window — the treadmill twin of
+    /// `tramoErgDistanceMeters`. Nil until the belt has actually moved in this window,
+    /// so a run minute with no machine reports nothing rather than a measured-looking
+    /// zero (§7).
+    var tramoBeltDistanceMeters: Double? {
+        let covered = lapBeltDistanceMeters - tramoBeltStartDistance
+        return covered > 0 ? covered : nil
+    }
+
     /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether
     /// the goal is meters, calories or seconds. Nil when the tramo prescribes no
     /// measurable goal: a bar with no denominator would be decoration, not data.
@@ -332,6 +341,7 @@ extension WorkoutSession {
         tramoHRPeak = nil
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
+        tramoBeltStartDistance = lapBeltDistanceMeters
         stampTramoSampleCursors()
         // A device-measured window with no time box starts when the MACHINE starts.
         // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
