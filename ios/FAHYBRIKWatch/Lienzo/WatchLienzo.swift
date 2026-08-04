@@ -318,7 +318,11 @@ struct WatchReloj: View {
                         .foregroundStyle(WatchTheme.dim)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // Centrada, como el segundo nivel y como el doble: es la
+                        // fila que más abajo queda y por tanto la que más cerca
+                        // pasa del borde curvo del bisel.
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 8)
                         .padding(.top, 2)
                 }
             }

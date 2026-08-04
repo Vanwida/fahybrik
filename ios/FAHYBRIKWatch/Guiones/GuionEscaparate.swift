@@ -44,7 +44,7 @@ enum GuionEscaparate {
 
     // MARK: - El catálogo
 
-    static let casos: [Caso] = rodaje + series + fuerza
+    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo
 
     // ── Rodaje ──────────────────────────────────────────────────────────────
     private static var rodaje: [Caso] {
@@ -163,6 +163,116 @@ enum GuionEscaparate {
                 paginas: GuionFuerza.paginas(.init(
                     serie: 2, totalSeries: 4, cargaKg: nil, reps: 10, rir: nil, rpe: nil,
                     esfuerzo: nil, segundosEnSerie: 18, zonaViva: nil, bpm: 128))
+            ),
+        ]
+    }
+
+    // ── EMOM ────────────────────────────────────────────────────────────────
+    private static var emom: [Caso] {
+        // Ejecución 177: ski y bici alternos, 45 s de trabajo y 15 de parada.
+        let ski = GuionEmom.TareaEmom(texto: "Ski 45 s", modo: .ojeada, ergo: "Ski")
+        let bici = GuionEmom.TareaEmom(texto: "Bici 45 s", modo: .ojeada, ergo: "Bici")
+        // Plantilla 462: 10 rondas de 60 s a 10 burpees. El único EMOM a pulso que
+        // existe, y el que demuestra que el MODO manda: en el suelo no se mira.
+        let burpees = GuionEmom.TareaEmom(texto: "10 burpees", modo: .ciego, ergo: nil)
+        return [
+            Caso(
+                id: "emom-trabajo",
+                titulo: "EMOM · minuto de ski, con máquina",
+                paginas: GuionEmom.paginas(.init(
+                    rondas: 20, ronda: 7, ventanaS: 60, trabajoS: 45,
+                    tareas: [ski, bici], enVentanaS: 17, hechaEnS: nil,
+                    maquina: true, metrosMaquina: 148, bpm: 161, zonaViva: .z4)),
+                tinte: WatchTinte.color(for: .z4), aro: 0.72
+            ),
+            // El hallazgo de esta vista: al marcar la tarea el sujeto NO cambia —
+            // cambia el color, y el mismo número pasa a leerse como el respiro.
+            Caso(
+                id: "emom-hecha",
+                titulo: "EMOM · tarea hecha, el resto es tuyo",
+                paginas: GuionEmom.paginas(.init(
+                    rondas: 20, ronda: 7, ventanaS: 60, trabajoS: 45,
+                    tareas: [ski, bici], enVentanaS: 38, hechaEnS: 34,
+                    maquina: true, metrosMaquina: 312, bpm: 158, zonaViva: .z4)),
+                tinte: WatchTheme.zoneGreen, aro: 0.37
+            ),
+            Caso(
+                id: "emom-ciego",
+                titulo: "EMOM · burpees, a pulso y a ciegas",
+                paginas: GuionEmom.paginas(.init(
+                    rondas: 10, ronda: 4, ventanaS: 60, trabajoS: 60,
+                    tareas: [burpees], enVentanaS: 22, hechaEnS: nil,
+                    maquina: false, metrosMaquina: nil, bpm: 172, zonaViva: nil)),
+                aro: 0.63
+            ),
+        ]
+    }
+
+    // ── Ruta (For Time · Chipper · HYROX) ───────────────────────────────────
+    private static var ruta: [Caso] {
+        // La ruta oficial de HYROX: 8 tramos de 1 km alternados con 8 estaciones.
+        // Los tramos los mide el GPS; las ocho estaciones no las ve el reloj.
+        let run = GuionRuta.Estacion(nombre: "Run", dosis: "1000 m", peso: 270, distanciaM: 1_000)
+        let sled = GuionRuta.Estacion(nombre: "Sled Push", dosis: "50 m · 152 kg", peso: 180, distanciaM: nil)
+        let wall = GuionRuta.Estacion(nombre: "Wall Balls", dosis: "100 reps · 9 kg", peso: 300, distanciaM: nil)
+        return [
+            Caso(
+                id: "ruta-ciega",
+                titulo: "HYROX · estación que el reloj no ve",
+                paginas: GuionRuta.paginas(.init(
+                    ruta: [run, sled, run, wall], estacion: 1,
+                    cronoS: 2_480, enEstacionS: 41))
+            ),
+            Caso(
+                id: "ruta-carrera",
+                titulo: "HYROX · tramo de carrera",
+                paginas: GuionRuta.paginas(.init(
+                    ruta: [run, sled, run, wall], estacion: 2,
+                    cronoS: 2_745, enEstacionS: 168)),
+                aro: 0.38
+            ),
+            // El caso que justifica escribir el crono en minutos: pasada la hora,
+            // `1:02:40` son seis glifos y deja de ser un sujeto.
+            Caso(
+                id: "ruta-pasada-la-hora",
+                titulo: "HYROX · pasada la hora",
+                paginas: GuionRuta.paginas(.init(
+                    ruta: [run, sled, run, wall], estacion: 3,
+                    cronoS: 4_200, enEstacionS: 90))
+            ),
+        ]
+    }
+
+    // ── Ergo ────────────────────────────────────────────────────────────────
+    private static var ergo: [Caso] {
+        [
+            // Hoy es el 100 % de los casos: ningún PM5 llega a la app. Sin monitor
+            // no hay metros ni /500 — quedan el pulso y el crono, y cierras tú.
+            Caso(
+                id: "ergo-sin-maquina",
+                titulo: "Ergo · sin monitor emparejado",
+                paginas: GuionErgo.paginas(.init(
+                    fase: .remando, serie: 2, totalSeries: 8, tramoM: 500,
+                    maquina: false, hechosM: nil, ritmoSec500: nil,
+                    segundosEnFase: 74, quedaDescansoS: nil, zonaViva: nil, bpm: 164))
+            ),
+            Caso(
+                id: "ergo-con-maquina",
+                titulo: "Ergo · 8×500 con el PM5 emparejado",
+                paginas: GuionErgo.paginas(.init(
+                    fase: .remando, serie: 3, totalSeries: 8, tramoM: 500,
+                    maquina: true, hechosM: 318, ritmoSec500: 115,
+                    segundosEnFase: 73, quedaDescansoS: nil, zonaViva: .z4, bpm: 169)),
+                tinte: WatchTinte.color(for: .z4), aro: 0.36
+            ),
+            Caso(
+                id: "ergo-descanso",
+                titulo: "Ergo · descanso entre series",
+                paginas: GuionErgo.paginas(.init(
+                    fase: .descanso, serie: 4, totalSeries: 8, tramoM: 500,
+                    maquina: true, hechosM: 500, ritmoSec500: 114,
+                    segundosEnFase: 46, quedaDescansoS: 74, zonaViva: nil, bpm: 142)),
+                tinte: WatchTheme.zoneGreen, aro: 0.62
             ),
         ]
     }
