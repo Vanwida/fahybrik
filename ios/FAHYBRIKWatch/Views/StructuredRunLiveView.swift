@@ -2,16 +2,9 @@ import SwiftUI
 
 // SERIES DE CALLE — una serie a la vez en la muñeca.
 //
-// Diseño (`watch-series` / kit-watch):
-//   · Trabajo  → modo ojeada: metros que faltan (o los que llevas sin objetivo),
-//     ritmo GPS en segundo nivel, CERO franja anunciada. Gesto latente solo si
-//     nadie puede cerrar el tramo (sin distancia prescrita).
-//   · Recupera → modo mando: cuenta atrás, lo que viene, «empezar ya».
-//   · Bisel segmentado = serie N de M + avance dentro del tramo.
-//   · Página del cuerpo (pulso) aparte.
-//
-// Corrige el live de hoy: héroe a 50 pt con botón de 52 pt y zona bar robando
-// altura. La pantalla ES el botón; el progreso vive en el bisel.
+// Qué se enseña en cada momento vive en `GuionSeries` (función pura, probada sin
+// pantalla). Aquí quedan las tres cosas que sí son de la vista: leer el motor y
+// el driver de tramo, el bisel segmentado y los avisos hápticos.
 struct StructuredRunLiveView: View {
     let session: WorkoutSession
     let driver: WatchRunLegDriver
@@ -48,7 +41,7 @@ struct StructuredRunLiveView: View {
             countIn
         } else {
             WatchReloj(
-                paginas: paginas,
+                paginas: GuionSeries.paginas(estado, gestos),
                 tinte: tinteLienzo,
                 bisel: bisel,
                 destello: destello
@@ -63,7 +56,7 @@ struct StructuredRunLiveView: View {
             paginas: [
                 WatchPagina(
                     id: "countin",
-                    contexto: statusText,
+                    contexto: "Serie \(workLegNumber) / \(workLegTotal)",
                     modo: .ojeada,
                     sujeto: WatchFormat.countdown(session.runCountInRemaining),
                     tono: WatchTheme.orange,
@@ -72,105 +65,49 @@ struct StructuredRunLiveView: View {
                 ),
             ],
             tinte: WatchTheme.orange,
-            bisel: WatchAroContinuo(
-                remaining: countInFraction
-            ).watchBisel(),
+            bisel: WatchAroContinuo(remaining: countInFraction).watchBisel(),
             destello: destello
         )
     }
 
-    // MARK: - Páginas
+    // MARK: - El motor → el guion
 
-    private var paginas: [WatchPagina] {
-        var list: [WatchPagina] = []
-        if isRecovery {
-            list.append(paginaRecupera)
-        } else {
-            list.append(paginaSerie)
-        }
-        if let pulso = WatchPaginasComunes.pulso(
-            bpm: session.liveHRBpm,
-            zone: session.liveZone,
-            modo: isRecovery ? .mando : .ojeada
-        ) {
-            list.append(pulso)
-        }
-        return list
-    }
-
-    private var paginaSerie: WatchPagina {
-        let objetivoM = session.currentRunLeg?.distanceMeters
-        let cubiertos = driver.legCoveredMeters
-        let texto: String
-        let unidad = "m"
-        if let objetivoM, objetivoM > 0 {
-            // Redondeo hacia ARRIBA: no dar por acabado un tramo antes de tiempo.
-            texto = String(Int(ceil(max(0, Double(objetivoM) - cubiertos))))
-        } else if let total = session.currentRunLeg?.durationSeconds, total > 0 {
-            // Tramo a tiempo: la cuenta atrás manda.
-            return WatchPagina(
-                id: "serie-tiempo",
-                contexto: statusText,
-                modo: .ojeada,
-                sujeto: WatchFormat.countdown(session.runLegRemaining),
-                tono: WatchTinte.urgente(session.runLegRemaining),
-                segundoEtiqueta: legPaceSecPerKm != nil ? "GPS" : nil,
-                segundoValor: legPaceSecPerKm.map { "\(WatchFormat.pace($0))/km" },
-                // Con hito de tiempo el motor cierra solo: no se declara toque.
-                accion: nil,
-                onToca: nil
-            )
-        } else {
-            // Sin objetivo: lo único que sabe el reloj son los metros que LLEVAS.
-            texto = String(Int(floor(cubiertos)))
-        }
-
-        let cierreManual = objetivoM == nil && session.currentRunLeg?.durationSeconds == nil
-        return WatchPagina(
-            id: "serie",
-            contexto: statusText,
-            modo: .ojeada,
-            sujeto: texto,
-            unidad: unidad,
-            segundoEtiqueta: legPaceSecPerKm != nil ? "GPS" : nil,
-            segundoValor: legPaceSecPerKm.map { "\(WatchFormat.pace($0))/km" }
-                ?? (objetivoM == nil ? "sin objetivo" : nil),
-            // Gesto latente solo cuando NADA cierra el tramo (§7).
-            accion: cierreManual ? "Toca · serie hecha" : nil,
-            onToca: cierreManual ? { session.primaryAdvance() } : nil
+    private var estado: GuionSeries.Estado {
+        GuionSeries.Estado(
+            fase: isRecovery ? .recupera : .trabajo,
+            // En la recuperación el número que importa es el de la serie que VIENE.
+            serie: isRecovery ? (workLegNumberForNext ?? workLegTotal) : workLegNumber,
+            totalSeries: workLegTotal,
+            cierre: cierre,
+            metrosEnTramo: driver.legCoveredMeters,
+            quedaS: esPorTiempo ? session.runLegRemaining : nil,
+            enTramoS: session.runLegElapsed,
+            ritmoSecPorKm: legPaceSecPerKm,
+            objetivo: objetivo,
+            loQueViene: isRecovery ? RunLegDisplay.nextLegPreview(nextRunLeg) : nil,
+            zonaViva: session.liveZone,
+            bpm: session.liveHRBpm
         )
     }
 
-    private var paginaRecupera: WatchPagina {
-        let queda = session.runLegRemaining
-        let luego: String? = {
-            if let m = session.currentRunLeg.flatMap({ _ in nextWorkMeters }) {
-                return "\(m) m"
-            }
-            return RunLegDisplay.nextLegPreview(nextRunLeg)
-        }()
-        return WatchPagina(
-            id: "recupera",
-            contexto: recoveryContexto,
-            modo: .mando,
-            sujeto: {
-                if let target = session.currentRunLeg?.durationSeconds, target > 0 {
-                    return WatchFormat.countdown(queda)
-                }
-                return String(Int(driver.legCoveredMeters))
-            }(),
-            unidad: (session.currentRunLeg?.durationSeconds ?? 0) > 0 ? nil : "m",
-            tono: {
-                if let target = session.currentRunLeg?.durationSeconds, target > 0 {
-                    return WatchTinte.urgente(queda)
-                }
-                return WatchTheme.ink
-            }(),
-            segundoEtiqueta: luego != nil ? "Luego" : nil,
-            segundoValor: luego,
-            accion: "Toca · empezar ya",
-            onToca: { session.primaryAdvance() }
+    private var gestos: GuionSeries.Gestos {
+        GuionSeries.Gestos(
+            cerrarSerie: { session.primaryAdvance() },
+            empezarYa: { session.primaryAdvance() }
         )
+    }
+
+    /// QUIÉN CIERRA el tramo en curso — la pregunta que decide el sujeto.
+    private var cierre: GuionSeries.Cierre {
+        if let m = session.currentRunLeg?.distanceMeters, m > 0 {
+            return .hito(metros: Double(m))
+        }
+        if esPorTiempo { return .reloj }
+        return .atleta
+    }
+
+    private var esPorTiempo: Bool {
+        (session.currentRunLeg?.durationSeconds ?? 0) > 0
     }
 
     // MARK: - Bisel / tinte
@@ -178,16 +115,13 @@ struct StructuredRunLiveView: View {
     private var bisel: AnyView? {
         if isRecovery {
             if let total = session.currentRunLeg?.durationSeconds, total > 0 {
-                let rem = total > 0 ? session.runLegRemaining / Double(total) : 0
-                return WatchAroContinuo(remaining: rem).watchBisel()
+                return WatchAroContinuo(remaining: session.runLegRemaining / Double(total)).watchBisel()
             }
             return WatchAroContinuo(remaining: 1).watchBisel()
         }
-        let total = max(1, workLegTotal)
-        let hechas = max(0, workLegNumber - 1)
         return WatchAroSegmentado(
-            total: total,
-            hechas: hechas,
+            total: max(1, workLegTotal),
+            hechas: max(0, workLegNumber - 1),
             fraccion: workFraction
         ).watchBisel()
     }
@@ -201,23 +135,6 @@ struct StructuredRunLiveView: View {
 
     private var isWork: Bool { session.isRunLegWork }
     private var isRecovery: Bool { !(session.currentRunLeg?.isWork ?? true) }
-
-    private var statusText: String {
-        let n = session.runLegNumber
-        let m = session.runLegTotal
-        let measure = session.currentRunLeg.map(RunLegDisplay.measureLabel) ?? ""
-        if measure.isEmpty { return "Serie \(n) / \(m)" }
-        return "Serie \(n) / \(m) · \(measure)"
-    }
-
-    private var recoveryContexto: String {
-        let mode = RunLegDisplay.recoveryModeWord(session.currentRunLeg?.recoveryMode)
-        let base = mode.isEmpty ? "Recupera" : "Recupera \(mode)"
-        if let next = workLegNumberForNext {
-            return "\(base) · viene la \(next)"
-        }
-        return base
-    }
 
     private var legPaceSecPerKm: Int? {
         RunLegDisplay.legPaceSecPerKm(coveredMeters: driver.legCoveredMeters, elapsedS: session.runLegElapsed)
@@ -233,11 +150,8 @@ struct StructuredRunLiveView: View {
         return i < legs.count ? legs[i] : nil
     }
 
-    private var nextWorkMeters: Int? {
-        nextRunLeg?.distanceMeters
-    }
-
-    /// Solo piernas de trabajo cuentan en el aro (las recuperaciones no son “serie”).
+    /// Sólo las piernas de TRABAJO cuentan como serie (una recuperación no es
+    /// «la serie 3»), y por eso el aro se segmenta con ellas y no con los tramos.
     private var workLegs: [RunLeg] {
         (session.currentRunLegs ?? []).filter(\.isWork)
     }
@@ -268,8 +182,6 @@ struct StructuredRunLiveView: View {
     }
 
     private var countInFraction: Double {
-        // Count-in suele ser 3 s; sin total fijo drenamos visualmente por remaining/3.
-        let total: Double = 3
-        return min(1, max(0, session.runCountInRemaining / total))
+        min(1, max(0, session.runCountInRemaining / 3))
     }
 }
