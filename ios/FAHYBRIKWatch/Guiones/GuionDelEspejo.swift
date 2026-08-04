@@ -49,19 +49,37 @@ enum GuionDelEspejo {
 
     private enum Cual { case fuerza, rodaje, series, ninguno }
 
-    /// El formato NO basta: unas series de correr y unas de remo son el mismo
-    /// `intervals` y distinta pantalla, porque el reloj mide una y la otra no.
-    /// Manda la pareja formato × modalidad, que es como está modelado el dominio.
+    /// MANDA LA MODALIDAD, NO EL NOMBRE DEL FORMATO. Y esto no es una preferencia
+    /// de estilo: es que las dos fuentes de entreno NO escriben el mismo formato
+    /// para la misma cosa.
+    ///
+    /// Comprobado contra la biblioteca real:
+    ///   · «Correr · Series» del constructor libre → `scheme: intervals`
+    ///     (`FreeWorkout.swift:108`).
+    ///   · Las series de correr del coach (plantilla 314, «3x1000m (1'30\" rest)»)
+    ///     → `scheme: SETS`, con la distancia y el descanso dentro de cada set.
+    ///   · Y el fartlek de la plantilla 318 → `sets` otra vez, con medida de tiempo.
+    ///
+    /// Con una regla que empezara por «si el formato es `sets`, es fuerza», las
+    /// series de correr del COACH se habrían pintado como una tabla de hierro —
+    /// «100 kg» donde tocaban «los metros que faltan». El mismo entreno se vería
+    /// distinto según quién lo escribió, que es justo lo que no puede pasar.
+    ///
+    /// Así que la pregunta correcta no es cómo se llama el formato, es QUÉ MIDE
+    /// esto: la modalidad del tramo primero, y dentro de ella, si viene troceado.
     private static func guionPara(_ t: MirrorTramo) -> Cual {
-        if t.formato == PrescriptionScheme.sets.rawValue { return .fuerza }
-        guard t.modalidad == PrescriptionModality.run.rawValue else { return .ninguno }
-        // Correr continuo — un bout sin trocear.
-        if t.formato == PrescriptionScheme.steady.rawValue { return .rodaje }
-        // Correr troceado: series de calle. Cubre el `intervals` que hoy emite el
-        // constructor de entreno libre para «Correr · Series» y las series
-        // prescritas por el coach.
-        if t.rondaTotal ?? 0 > 1 { return .series }
-        return .rodaje
+        switch t.modalidad {
+        case PrescriptionModality.run.rawValue:
+            // Troceado si el motor cuenta rondas, o si la ventana la cierra algo
+            // que no es el propio bout entero (un hito o un reloj por repetición).
+            return (t.rondaTotal ?? 0) > 1 ? .series : .rodaje
+        case PrescriptionModality.strength.rawValue:
+            return .fuerza
+        default:
+            // Ergo, funcional y lo demás: todavía sin guion propio. Cae en la
+            // lectura genérica, que ya usa el lienzo bueno.
+            return .ninguno
+        }
     }
 
     // MARK: - Trama → Estado de cada guion

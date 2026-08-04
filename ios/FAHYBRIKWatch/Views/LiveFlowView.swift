@@ -70,6 +70,16 @@ struct LiveFlowView: View {
             // (.intervals / .steady). Falls through to the scalar presentation only if
             // the driver is somehow absent (never during an active session).
             StructuredRunLiveView(session: session, driver: driver)
+        } else if session.currentSegment?.kind == .running, presentation == .setTable {
+            // LAS DOS FUENTES NO ESCRIBEN EL MISMO FORMATO PARA LA MISMA COSA.
+            // El constructor de entreno libre escribe una serie de correr como
+            // `intervals`; el coach la escribe como `sets` con la distancia y el
+            // descanso dentro de cada set (plantilla 314, «3x1000m (1'30\" rest)»).
+            // Con el reparto por presentación a secas, la serie del COACH caía en la
+            // tabla de hierro: el mismo entreno se veía distinto según quién lo
+            // escribió. Corriendo nunca se pinta una tabla de series — manda lo que
+            // el reloj MIDE, no cómo se llama el formato.
+            ContinuousLiveView(session: session)
         } else if let presentation {
             switch presentation {
             case .rotating:   RotatingLiveView(session: session)

@@ -287,7 +287,13 @@ struct WatchReloj: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // CENTRADO, como en el doble. Iba pegado a la izquierda y en el
+                    // borde inferior el aro curva hacia dentro: un segundo nivel
+                    // largo («OBJETIVO Z4 · 4:49/km») se metía DEBAJO del aro y se
+                    // leía cortado. Centrarlo lo mantiene dentro del ancho útil
+                    // pase lo que pase, que es la razón por la que el kit lo centra.
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 8)
                     .padding(.bottom, 2)
                 }
 

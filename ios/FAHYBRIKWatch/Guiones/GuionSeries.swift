@@ -168,12 +168,32 @@ enum GuionSeries {
         }
         let ritmoTexto = "\(WatchFormat.pace(ritmo))\(Formato.UnidadRitmo.porKm.rawValue)"
         guard let objetivo = e.objetivo else { return ("GPS", ritmoTexto, nil) }
-        let palabra = RunLegDisplay.statusWord(objetivo.status)
-        return (
-            palabra.isEmpty ? "Objetivo \(objetivo.label)" : palabra,
-            ritmoTexto,
-            tono(objetivo.status)
-        )
+        // Cuando vas BIEN, la etiqueta dice contra qué vas («5:00 /km») y el verde
+        // dice que lo estás cumpliendo: el color ya es el veredicto y la palabra se
+        // gasta en información. Sólo cuando vas fuera se gasta la etiqueta en la
+        // corrección, porque entonces el dato accionable es qué hacer, no el número.
+        //
+        // (`RunLegDisplay.statusWord` devuelve «✓» para dentro de banda; puesto en
+        // versales a 11 pt, un palote suelto no dice nada y encima se lee como si
+        // fuera parte del ritmo.)
+        //
+        // Y la etiqueta NO repite el objetivo cuando ya se está juzgando: escribir
+        // «5:00 /KM · 4:58/km» pone la unidad dos veces en la misma línea de 188 pt
+        // y obliga a leer dos números para entender uno. El objetivo lo sabe el
+        // atleta —se lo escribió el coach y lo vio en la previa—; lo que no sabe es
+        // si ahora mismo lo está cumpliendo, y eso lo dice el color en un vistazo.
+        switch objetivo.status {
+        case .inTarget:
+            return ("GPS", ritmoTexto, WatchTheme.zoneGreen)
+        case .tooFast:
+            return ("Frena", ritmoTexto, WatchTheme.zoneAmber)
+        case .tooSlow:
+            return ("Aprieta", ritmoTexto, WatchTheme.zoneAmber)
+        case .unknown:
+            // Sin banda de ritmo que juzgar (una zona, un RPE): entonces sí se
+            // enseña contra qué vas, porque el color no puede decirlo.
+            return (objetivo.label, ritmoTexto, nil)
+        }
     }
 
     private static func tono(_ status: TargetStatus) -> Color? {
