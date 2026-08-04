@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predicción HYROX v2 — el modelo que se calibra solo</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171; --info:#60a5fa;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5.4vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 10px}
+  .sub{color:var(--muted);font-size:17.5px;max-width:680px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:23px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px;scroll-margin-top:20px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800;flex:0 0 auto}
+  h3{font-size:15.5px;font-weight:800;margin:var(--sp-3) 0 var(--sp-1)}
+  h4{font-size:13.5px;font-weight:800;margin:var(--sp-2) 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:9px} li::marker{color:var(--accent)}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.3)}
+  a:hover{border-bottom-color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tS table{margin:0}
+  .num{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .pill.info{color:var(--info);border-color:rgba(96,165,250,.35)}
+  .break{border-left:3px solid var(--bad);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-3)}
+  .break h3{margin:0 0 4px;color:var(--fg)}
+  .break p{margin:0 0 8px;font-size:14.5px;color:var(--muted)}
+  .break p:last-child{margin-bottom:0}
+  .keep{border-left:3px solid var(--ok);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-2)}
+  .keep h3{margin:0 0 4px} .keep p{margin:0;font-size:14.5px;color:var(--muted)}
+  .law{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .law h3{margin:0 0 6px;color:var(--accent)}
+  .law p{margin:0;font-size:15px;color:var(--fg)}
+  .law p + p{margin-top:8px;color:var(--muted);font-size:14px}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;font:13.5px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);margin-bottom:var(--sp-2);overflow-x:auto}
+  .formula .c{color:var(--faint)}
+  .formula .k{color:var(--accent)}
+  .layer{display:flex;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
+  .layer:last-child{border-bottom:0}
+  .layer .n{flex:0 0 40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic}
+  .layer h3{margin:0 0 3px} .layer p{margin:0 0 6px;font-size:14px;color:var(--muted)}
+  .layer p:last-child{margin-bottom:0}
+  .src{font-size:12.5px;color:var(--faint);display:block;margin-top:4px}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-2) var(--sp-3);margin:var(--sp-4) 0 0}
+  .toc ol{margin:0 0 0 20px;columns:2;column-gap:var(--sp-3)}
+  .toc li{margin-bottom:5px;font-size:14px;break-inside:avoid}
+  .toc a{border:0;color:var(--muted)} .toc a:hover{color:var(--accent)}
+  .big{font-size:clamp(26px,4vw,34px);font-weight:800;font-style:italic;color:var(--accent);line-height:1.15;letter-spacing:-.01em}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-2)}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--sp-2)}
+  .stat .v{font-size:26px;font-weight:800;font-style:italic;color:var(--fg);line-height:1.1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--faint);margin-top:5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .stat .d{font-size:13.5px;color:var(--muted);margin-top:8px}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  .footer p{margin-bottom:8px}
+  @media (max-width:600px){ .wrap{padding:var(--sp-4) var(--sp-2)} .toc ol{columns:1} h2{gap:8px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Modelo de predicción v2 · Propuesta para decisión</p>
+  <h1>El predictor que publica su propio error</h1>
+  <p class="sub">El modelo v1 es honesto pero ciego: sabe decir «no lo sé» y no sabe aprender. Esta propuesta lo convierte en un sistema que se calibra con cada entreno, se corrige en mitad de la carrera y demuestra por escrito cuánto se equivoca antes de pedirle confianza a nadie.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 4 ago 2026</span>
+    <span><b>Sustituye a</b> · <code>docs/race-projection-spec.html</code> (27-jul, ya implementada en su mayor parte)</span>
+    <span><b>Estado</b> · propuesta · cero código escrito</span>
+  </div>
+
+  <div class="toc">
+    <ol>
+      <li><a href="#s1">El veredicto en cinco líneas</a></li>
+      <li><a href="#s2">Lo que la ciencia obliga</a></li>
+      <li><a href="#s3">Lo que rompí contra nuestros datos</a></li>
+      <li><a href="#s4">El modelo — cuatro capas</a></li>
+      <li><a href="#s5">Las ocho leyes</a></li>
+      <li><a href="#s6">Qué se puede calibrar hoy</a></li>
+      <li><a href="#s7">Mecanismo vs método</a></li>
+      <li><a href="#s8">Cómo se demuestra que funciona</a></li>
+      <li><a href="#s9">Orden de construcción</a></li>
+      <li><a href="#s10">La decisión que queda abierta</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s1"><span class="n">01</span>El veredicto en cinco líneas</h2>
+
+  <p class="lede">El v1 hizo bien lo difícil: descompone la prueba en diez tramos, declara la procedencia de cada número, envejece la evidencia y se niega a rellenar huecos con el objetivo del atleta. Eso se queda entero. Lo que le falta es de otra naturaleza.</p>
+
+  <div class="grid2">
+    <div class="stat"><div class="v">5 de 8</div><div class="l">atletas sin ninguna carrera</div><div class="d">Y <strong>6 de 8</strong> sin ninguna marca que el modelo acepte como medición. El caso sin datos no es el borde del modelo: es el caso dominante, y hoy recibe <code>sin_datos</code> y un total nulo.</div></div>
+    <div class="stat"><div class="v">±3 / 7 / 15 %</div><div class="l">banda fija por fuente</div><div class="d">La misma anchura relativa para un atleta de 60 min y uno de 87. La ciencia dice que el error crece hacia los lentos: la banda está mal especificada por construcción.</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">veces que entrenar aporta señal</div><div class="d">Entrenar mueve el número solo porque la carrera pierde peso al envejecer. Ninguna sesión ejecutada EMPUJA la predicción. El decaimiento no es aprendizaje.</div></div>
+    <div class="stat"><div class="v">null</div><div class="l">lo que ve Pablo</div><div class="d"><code>loadHyroxPrediction()</code> en el dashboard del coach devuelve <code>null</code> siempre. El panel entero es un estado vacío permanente sobre un motor que sí funciona.</div></div>
+  </div>
+
+  <p>Los cinco huecos, dichos como lo que son:</p>
+  <ol>
+    <li><strong>No aprende.</strong> La evidencia decae; el entreno no suma. Un mes de series de remo no mueve el número salvo por el envejecimiento de otra cosa.</li>
+    <li><strong>La incertidumbre es simétrica y constante.</strong> Un intervalo del mismo ancho relativo para todo el mundo, cuando el fenómeno es abiertamente heterocedástico.</li>
+    <li><strong>La fatiga de la prueba es implícita.</strong> El «factor de transferencia personal» es UN número que solo existe si el atleta ya tiene una carrera. Es justo lo que separa un HYROX de ocho kilómetros sueltos, y solo lo tienen los que menos lo necesitan.</li>
+    <li><strong>Sin carrera y sin marcas no hay número.</strong> Cinco de nuestros ocho atletas no tienen carrera y seis no tienen marca medida. Y el embudo del tier free entero.</li>
+    <li><strong>Nunca se ha validado en público.</strong> Existe la infraestructura de snapshots predicho-vs-real y no se ha publicado un solo error medido. Pedimos confianza sin haberla ganado.</li>
+  </ol>
+
+  <h2 id="s2"><span class="n">02</span>Lo que la ciencia obliga</h2>
+  <p class="mut">Seis hallazgos con fuente primaria. No son inspiración: cada uno descarta una forma de construir el modelo.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Hallazgo</th><th>El dato</th><th>Qué descarta</th></tr></thead>
+    <tbody>
+    <tr>
+      <td>La fisiología predice la carrera, no las estaciones</td>
+      <td>VO₂máx vs tiempo total ρ = −0,71; vs tiempo de carrera ρ = −0,73. <strong>Ninguna variable fisiológica ni antropométrica correlacionó con el tiempo de las estaciones.</strong> <span class="src">Brandt et al. 2025, Front Physiol 16:1519240 (N=11, simulación Open completa)</span></td>
+      <td>Un modelo único «motor → tiempo». Son tres submodelos con entradas distintas: carrera, estaciones y roxzone.</td>
+    </tr>
+    <tr>
+      <td>El error crece hacia los lentos</td>
+      <td>Regresión cuantílica sobre <strong>39.696 resultados</strong> PRO/ELITE: los coeficientes de todas las disciplinas son sistemáticamente mayores en τ=0,75 que en τ=0,10. <span class="src">Rappelt et al. 2026, Front Physiol 17:1847569</span></td>
+      <td>Una banda de ancho relativo constante. Exige cuantiles, no un ± simétrico.</td>
+    </tr>
+    <tr>
+      <td>El remo predice el resto mejor que la propia carrera</td>
+      <td>Pseudo-R² sobre «el resto del tiempo»: remo 0,25-0,46 · lunges 0,19-0,39 · burpees 0,18-0,36 · <strong>carrera 0,14-0,35</strong>. <span class="src">Rappelt et al. 2026</span></td>
+      <td>Que «medir el 5K» sea la primera recomendación. Reordena por completo qué le pedimos al atleta que mida.</td>
+    </tr>
+    <tr>
+      <td>La durabilidad es un parámetro individual</td>
+      <td>Fade medio run1→run8 = <strong>+1:53 (44 %)</strong>, no monótono: pico en run 5, alivio, y repunte en run 8 solo para los lentos. Por bracket, el run 8 cuesta +64 s a un 1:20 y +140 s a un 1:40. <span class="src">HyroxDataLab, 395.452 resultados · marco conceptual: Maunder et al. 2021, Sports Med 51:1619</span></td>
+      <td>Un factor de fatiga único tipo Riegel, que es exactamente lo que usan todas las calculadoras del mercado.</td>
+    </tr>
+    <tr>
+      <td>El ancla es el resultado real, no la fisiología estimada</td>
+      <td>N=2.303 corredores, MSE de predicción: Riegel 381 · una carrera previa + entreno 228 · <strong>dos carreras previas + entreno 208</strong>. <span class="src">Vickers &amp; Vertosick 2016, BMC Sports Sci Med Rehabil 8:26</span></td>
+      <td>Confiar en el modelo genérico. Los dos productos con mejor reputación del mercado (Garmin, Runalyze) convergen en lo mismo: factor de corrección personal sobre el modelo.</td>
+    </tr>
+    <tr>
+      <td>El nivel del deporte se desplaza</td>
+      <td>Top-100 PRO hombres: 70:13 (S1) → <strong>56:56 (S7), −19 %</strong>, ωp²=0,76. La roxzone es lo único que crece en peso relativo (6,3 % → 7,3 %). <span class="src">Rappelt et al. 2026</span></td>
+      <td>Un prior poblacional sin ponderación temporal. Sin ella el modelo predice el nivel de 2022.</td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <p class="mut">Y un aviso que también sale de las fuentes: <strong>no existe ningún estudio de laboratorio que mida el coste de transición estación → carrera.</strong> Lo más cercano es la literatura de entrenamiento concurrente (Palmer &amp; Sleivert 2001: +2,6 % de coste de oxígeno una hora después de fuerza), y el fade real de HYROX es entre diez y veinte veces mayor. Es decir: la penalización de «carrera comprometida» <strong>no se puede derivar de la literatura</strong>. Hay que medirla en los splits. Cualquier constante que escribamos sin medirla es invención con bibliografía de adorno.</p>
+
+  <h2 id="s3"><span class="n">03</span>Lo que rompí contra nuestros datos</h2>
+  <p class="mut">Ocho carreras-equipo reales en producción (14 filas, deduplicadas por equipo), todas dobles, con los ocho splits de carrera y los ocho de estación. Es el único dato de carrera de verdad que tenemos. Dos supuestos del modelo no sobreviven.</p>
+
+  <div class="break">
+    <h3>1 · La curva de fatiga de singles no vale para dobles. Ni de lejos.</h3>
+    <p>Aplicando a nuestras carreras la curva poblacional de su propio bracket de tiempo, el error medio va de 22 a 85 segundos por vuelta. Y una de las ocho corre <strong>más rápido al final que al principio en las siete vueltas</strong>. Tiene sentido físico: en dobles se corren los 8 km enteros pero las estaciones se reparten, así que se llega a cada vuelta mucho menos fatigado. La durabilidad no es solo del atleta: es del atleta <em>en un formato</em>.</p>
+    <div class="tS"><table>
+      <thead><tr><th>Carrera</th><th>Total</th><th>Run 1</th><th class="num">Fade observado r2..r8 (s)</th><th class="num">Fade poblacional</th><th>Error medio</th></tr></thead>
+      <tbody>
+      <tr><td>Barcelona 14-may</td><td>60:16</td><td>3:47</td><td class="num">7 20 18 31 22 23 21</td><td class="num">47 71 72 80 74 74 64</td><td>49 s</td></tr>
+      <tr><td>Berlin 16-may</td><td>62:02</td><td>3:20</td><td class="num">34 41 49 49 45 44 102</td><td class="num">47 71 72 80 74 74 64</td><td>28 s</td></tr>
+      <tr><td>Bilbao 7-feb</td><td>63:37</td><td>4:23</td><td class="num">−10 24 19 7 22 37 6</td><td class="num">47 71 72 80 74 74 64</td><td>54 s</td></tr>
+      <tr><td>Paris 23-abr</td><td>64:13</td><td>4:23</td><td class="num">−21 −12 −8 −15 −10 −13 −37</td><td class="num">47 71 72 80 74 74 64</td><td><strong>85 s</strong></td></tr>
+      <tr><td>Barcelona 14-may</td><td>65:53</td><td>3:49</td><td class="num">6 41 42 63 53 53 50</td><td class="num">47 71 72 80 74 74 64</td><td>25 s</td></tr>
+      <tr><td>Barcelona 25-abr</td><td>69:09</td><td>4:14</td><td class="num">18 45 29 50 54 71 65</td><td class="num">47 71 72 80 74 74 64</td><td>22 s</td></tr>
+      <tr><td>Paris 23-abr</td><td>70:31</td><td>4:06</td><td class="num">−8 12 14 30 33 41 12</td><td class="num">47 71 72 80 74 74 64</td><td>50 s</td></tr>
+      <tr><td>Barcelona 14-may</td><td>86:58</td><td>6:11</td><td class="num">11 34 27 29 32 32 32</td><td class="num">49 80 79 93 84 84 84</td><td>51 s</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Consecuencia de diseño:</strong> la curva de durabilidad se indexa por <em>(atleta, formato)</em>, y el prior poblacional también. Si un día importamos población, hay que importarla por división y formato, no un promedio global.</p>
+  </div>
+
+  <div class="break">
+    <h3>2 · El reparto del tiempo tampoco es el de singles, y el presupuesto lo usa igual.</h3>
+    <p>Rappelt, en singles PRO, da carrera 48,5 % y roxzone 7,3 %. Nuestras ocho carreras dobles dan carrera entre 49,6 % y 60,6 % (media 54,6 %), estaciones entre 31,6 % y 41,8 %, roxzone entre 6,8 % y 11,1 %. Coherente con la física del formato, e incompatible con la regla que hoy usa el presupuesto de dobles: cuando falla el cohorte, cae a <em>«la carrera de singles del atleta más rápido como referencia de forma»</em>. Esa referencia tiene una forma que en dobles no existe.</p>
+    <div class="tS"><table>
+      <thead><tr><th>Carrera</th><th>Total</th><th>Carrera</th><th>Estaciones</th><th>Roxzone</th><th>s / transición</th></tr></thead>
+      <tbody>
+      <tr><td>Barcelona 14-may</td><td>60:16</td><td>54,0 %</td><td>39,3 %</td><td>6,8 %</td><td>31</td></tr>
+      <tr><td>Berlin 16-may</td><td>62:02</td><td>52,6 %</td><td>36,4 %</td><td><strong>11,1 %</strong></td><td><strong>52</strong></td></tr>
+      <tr><td>Bilbao 7-feb</td><td>63:37</td><td>57,8 %</td><td>35,3 %</td><td>7,1 %</td><td>34</td></tr>
+      <tr><td>Paris 23-abr</td><td>64:13</td><td>51,5 %</td><td>39,2 %</td><td>9,4 %</td><td>45</td></tr>
+      <tr><td>Barcelona 14-may</td><td>65:53</td><td>54,1 %</td><td>39,1 %</td><td>6,9 %</td><td>34</td></tr>
+      <tr><td>Barcelona 25-abr</td><td>69:09</td><td>56,9 %</td><td>34,1 %</td><td>9,1 %</td><td>47</td></tr>
+      <tr><td>Paris 23-abr</td><td>70:31</td><td>49,6 %</td><td>41,8 %</td><td>8,7 %</td><td>46</td></tr>
+      <tr><td>Barcelona 14-may</td><td>86:58</td><td>60,6 %</td><td>31,6 %</td><td>7,9 %</td><td>51</td></tr>
+      </tbody>
+    </table></div>
+    <p>De regalo, un hallazgo de entrenamiento que el modelo debería servirle a Pablo hoy: el equipo de <strong>Berlin corre a ritmo de 62 minutos y transiciona a ritmo de 1:40</strong> (52 s por transición, cuando su bracket poblacional está en 34). Son casi dos minutos y medio tirados en el pasillo, sin entrenar nada. Es el tipo de diagnóstico que el v1 no puede emitir porque no tiene referencia con la que comparar.</p>
+  </div>
+
+  <div class="keep">
+    <h3>Lo que SÍ sobrevivió: el ranking de señal de Rappelt se reproduce en nuestros datos</h3>
+    <p>Correlación de cada segmento con «el resto del tiempo» (n=8, indicativo, no prueba): <strong>ski 0,92 · remo 0,92</strong> · farmers 0,62 · sled pull 0,48 · <strong>carrera 0,45</strong> · roxzone 0,44 · lunges 0,40 · sled push 0,36 · wall balls 0,30 · burpees 0,11. Dos conjuntos de datos independientes, con tres órdenes de magnitud de diferencia en tamaño, ponen los ergómetros por delante de la carrera. Con la diferencia de que un remo de 1000 m lo mide el PM5 con precisión de laboratorio y a coste cero para el atleta.</p>
+  </div>
+
+  <h2 id="s4"><span class="n">04</span>El modelo — cuatro capas</h2>
+
+  <div class="card">
+    <div class="layer">
+      <div class="n">0</div>
+      <div>
+        <h3>El prior — de dónde sale un número cuando no hay nada</h3>
+        <p>Una tabla agregada por <em>(temporada · división · formato · sexo · grupo de edad) × segmento</em> con la distribución de tiempos en cuantiles. Nunca resultados individuales de terceros: solo estadística. Ponderada por temporada, porque el nivel se mueve un 19 % en siete años.</p>
+        <p>Con cero datos del atleta la predicción <strong>es</strong> el prior de su casilla, dicho como tal («esto es lo típico de tu división, todavía no sé nada de ti»). Con cada dato suyo se despega del prior en proporción a la información que aporta. Eso es <em>partial pooling</em> jerárquico, y hace innecesaria cualquier regla del tipo «si tiene menos de N datos, usa la media»: la matemática ya lo hace, y lo hace calibrado.</p>
+        <p class="src">Es la pieza que hoy no existe y que bloquea las cinco estaciones de fuerza y el embudo entero. §10.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="n">1</div>
+      <div>
+        <h3>Tres submodelos, porque son tres fenómenos distintos</h3>
+        <h4>Carrera — capacidad × curva de durabilidad</h4>
+        <p>La capacidad fresca ya está bien resuelta (Daniels/VDOT sobre la marca menos extrapolada). Lo nuevo es lo que le pasa a esa capacidad dentro de la prueba: <strong>no un factor, una curva de ocho valores</strong>, con la forma no monótona que tiene de verdad (pico en la vuelta 5, tras el remo). Es un parámetro del atleta y del formato, con shrinkage hacia el prior de su bracket.</p>
+        <div class="formula">
+ritmo(vuelta <span class="k">i</span>) = ritmo_umbral × durabilidad<sub><span class="k">i</span></sub>(atleta, formato)<br>
+<span class="c">// durabilidad se ESTIMA de los datos, no se escribe como constante</span><br>
+<span class="c">// prior: curva del bracket · posterior: las vueltas que el atleta ya ha corrido fatigado</span>
+        </div>
+        <h4>Estaciones — rendimiento observado + prior, jamás fisiología</h4>
+        <p>Brandt es tajante: no hay variable fisiológica que las prediga. Se alimentan de (a) la simulación medida por la app, que convierte estimación en observación y ya existe como formato en la biblioteca, (b) el split real de una carrera, y (c) el prior de la casilla. El peso corporal entra donde físicamente cambia el signo del resultado, no como variable global.</p>
+        <h4>Roxzone — experiencia, no forma física</h4>
+        <p>El 7,3 % del tiempo, creciendo, y la mayor diferencia absoluta entre un elite y un atleta medio (+4:04, más que cualquier estación). No se entrena, así que no tiene fuente de entreno: se predice por carreras disputadas y bracket. Y es lo más barato de mejorar que existe en este deporte.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="n">2</div>
+      <div>
+        <h3>Incertidumbre — cuantiles calibrados, no un ± inventado</h3>
+        <p>Regresión cuantílica (τ = 0,10 / 0,50 / 0,90) por segmento, y encima <strong>conformalización</strong>: el intervalo se ajusta contra un conjunto de calibración hasta que su cobertura empírica es la que promete. Deja de ser una afirmación teórica y pasa a ser una medida.</p>
+        <div class="formula">
+proyección = [ q<sub>10</sub> … q<sub>90</sub> ] con q<sub>50</sub> destacado<br>
+<span class="c">// el ancho DEPENDE del atleta y del segmento, no es un % fijo</span><br>
+<span class="c">// wall balls dispersa 2:02 de σ; el SkiErg, un minuto entre deciles extremos</span>
+        </div>
+        <p>El precedente exacto existe y está publicado: <strong>TRAP</strong> hace esto para carreras de montaña por puntos de control y consigue una cobertura real del 91,4 % para un objetivo nominal del 90 %. Es el análogo estructural de HYROX: una carrera segmentada con predicción que se actualiza en cada tramo.<span class="src">Fogliato, Oliveira &amp; Yurko, arXiv:2002.01328</span></p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="n">3</div>
+      <div>
+        <h3>Actualización — el modelo vive, en dos escalas de tiempo</h3>
+        <h4>Entre carreras: estado latente que el entreno empuja</h4>
+        <p>Un estado de forma y fatiga que se actualiza con cada sesión y cada test. La clave técnica es que el modelo de fitness-fatiga clásico <strong>se reescribe exactamente como un sistema de estados lineal</strong>, así que acoplarle un filtro que lo corrige con cada observación es matemáticamente consistente, no un apaño.<span class="src">Kolossa et al. 2017, Int J Computer Science in Sport 16(2)</span></p>
+        <p>Esto sustituye la decaída de 180 días por algo que de verdad aprende: hoy entrenar mueve el número porque la carrera pierde peso; con esto lo mueve porque el entreno <em>aporta</em>.</p>
+        <h4>Durante la carrera: corrección en vivo</h4>
+        <p>Tras cada tramo real, un factor del día se corrige de forma amortiguada con la desviación observada, rechazando de entrada lo imposible (un sensor que falla, un tramo mal cerrado) antes de que contamine nada.</p>
+        <div class="formula">
+k ← k × (1 + <span class="k">w</span> · (real / predicho − 1))    <span class="c">// w ≈ 0,4</span><br>
+si (real / predicho) ∉ [0,5 … 2,0] → <span class="k">se rechaza</span>  <span class="c">// mejor sin señal que con una corrupta</span><br>
+ETA = tramos restantes × k
+        </div>
+        <p>Es el mecanismo que CORNR ya tiene construido y probado para la odometría, aplicado al tiempo. El resultado en la muñeca: <em>«vas para 1:32:40, ±40 s»</em> en el minuto 38 de la carrera, y ajustándose. Y absorbe la fatiga del día sin necesidad de modelarla aparte: cada tramo recalibra.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="s5"><span class="n">05</span>Las ocho leyes</h2>
+  <p class="mut">Las cinco del v1 siguen vigentes y no se tocan. Las tres nuevas son la diferencia entre un modelo que acierta y un modelo en el que se puede confiar.</p>
+
+  <div class="law"><h3>1-5 · Las que ya están</h3><p>Rango nunca un número solo · ningún hueco se rellena con el objetivo · la evidencia envejece · cada coeficiente con origen declarado · nada entra si no baja el error.</p></div>
+  <div class="law">
+    <h3>6 · El modelo publica su propio error antes de pedir confianza</h3>
+    <p>Se entrena con todas las carreras del atleta menos la última, predice esa última, y le enseña el resultado: <em>«en tu HYROX de Bilbao te habría dicho 1:03:10 y hiciste 1:03:37. Fallé 27 segundos.»</em></p>
+    <p>Es validación holdout convertida en producto. La infraestructura de snapshots ya existe y nunca se ha usado para esto. Es lo que separa «confía en mí» de «mira lo que hago».</p>
+  </div>
+  <div class="law">
+    <h3>7 · El modelo no debuta en público</h3>
+    <p>Sin al menos una validación contra un resultado real de <em>ese</em> atleta, la predicción se presenta como no validada, con el rango poblacional entero y sin protagonismo. La confianza es una escalera discreta atada a cantidad de evidencia, nunca un porcentaje que finge precisión.</p>
+  </div>
+  <div class="law">
+    <h3>8 · La calibración caduca y lo dice</h3>
+    <p>Cada coeficiente y cada tramo del prior llevan la temporada en la que se ajustaron. El nivel del deporte se mueve un 19 % en siete temporadas: un modelo que no reponderá acabará prediciendo, con toda la confianza del mundo, el HYROX de hace tres años.</p>
+  </div>
+
+  <h2 id="s6"><span class="n">06</span>Qué se puede calibrar hoy</h2>
+  <p class="mut">La pregunta directa: ¿podemos calibrar esto o no? Respuesta por piezas, contra el inventario real de medición del proyecto. Tres cosas se pueden calibrar hoy mismo sin construir ningún sensor nuevo, una necesita un toque, y una está bloqueada.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Pieza del modelo</th><th>Con qué se calibra</th><th>Estado</th></tr></thead>
+    <tbody>
+    <tr>
+      <td>Curva de durabilidad de carrera</td>
+      <td>Los laps de correr que la cinta y el GPS <strong>ya graban dentro de cualquier formato</strong> desde el arreglo del 4-ago. Un EMOM o un For Time que alterne ergo y carrera <em>es</em> un test de durabilidad de campo: ritmo de la misma modalidad, medido, con trabajo previo conocido (<code>prior_work_s</code> ya se persiste).</td>
+      <td><span class="pill ok">hoy, sin nada nuevo</span></td>
+    </tr>
+    <tr>
+      <td>Capacidad de ergo (la señal más rentable)</td>
+      <td>PM5 por BLE: ritmo /500 m, vatios, paladas por minuto, drag factor y distancia por split, ya persistidos en <code>raw_lap_data_json</code>. Precisión de laboratorio, coste cero para el atleta.</td>
+      <td><span class="pill ok">hoy, sin nada nuevo</span></td>
+    </tr>
+    <tr>
+      <td>Capacidad de carrera y umbral</td>
+      <td>Marcas de «Probarme», umbral de zonas, VO₂máx del reloj. Ya conectado end to end.</td>
+      <td><span class="pill ok">hoy</span></td>
+    </tr>
+    <tr>
+      <td>Las cinco estaciones de fuerza</td>
+      <td>La simulación HYROX medida por la app. El formato ya existe en la biblioteca (24 bloques) y el motor ya sabe que una simulación es un contexto fatigado. Falta que su ejecución escriba un split por estación reutilizable como observación.</td>
+      <td><span class="pill warn">un toque de trabajo</span></td>
+    </tr>
+    <tr>
+      <td>El prior poblacional</td>
+      <td>Nada que tengamos. 8 carreras-equipo propias, todas dobles, cero singles reales.</td>
+      <td><span class="pill bad">bloqueado · §10</span></td>
+    </tr>
+    <tr>
+      <td>Antropometría (peso, altura, composición)</td>
+      <td>HealthKit ya expone <code>body_mass_kg</code> y la composición; el servidor ya entiende <code>body_fat_pct</code>. Hoy están las tres vacías en 8 de 8 atletas porque nadie las lee del reloj.</td>
+      <td><span class="pill warn">una línea en iOS</span></td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <p><strong>Lo que esto significa en corto:</strong> el submodelo de carrera y el de ergo se pueden calibrar y validar con lo que ya está grabando la app. Las estaciones necesitan que la simulación escriba observaciones. Y el prior — lo único que permite decirle un número a alguien que no ha medido nada — depende de una decisión que no es técnica.</p>
+
+  <h2 id="s7"><span class="n">07</span>Mecanismo vs método</h2>
+  <p class="mut">La pregunta que decide cada caso: <em>¿otro entrenador competente lo haría distinto?</em> Si sí, es método y nace como dato editable con un valor por defecto.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Mecanismo · nuestro, en código</th><th>Método · del coach, dato editable</th></tr></thead>
+    <tbody>
+    <tr><td>Cómo se compone la incertidumbre de los tramos en la del total</td><td>Si al atleta se le enseña el rango o solo el centro</td></tr>
+    <tr><td>Cómo se estima la curva de durabilidad y cómo encoge hacia el prior</td><td>Qué considera «listo para predecir» (cuánta evidencia exige antes de enseñar un número)</td></tr>
+    <tr><td>Cómo se resuelve la jerarquía de evidencia y cómo envejece</td><td>Cuántos días caduca un test antes de dejar de contar</td></tr>
+    <tr><td>La corrección en vivo y su banda de rechazo de valores imposibles</td><td>Qué desviación considera «vas fuera de plan» y merece un aviso</td></tr>
+    <tr><td>La conformalización y el cálculo de cobertura</td><td>El umbral de cobertura por debajo del cual se retira la predicción</td></tr>
+    <tr><td>Que un número nunca aparezca sin procedencia</td><td>Cómo llama a cada nivel de confianza en su app</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s8"><span class="n">08</span>Cómo se demuestra que funciona</h2>
+  <p>Tres métricas, publicadas, no tres opiniones. Se calculan sobre los snapshots que ya se guardan y se comparan entre versiones del modelo sobre las mismas carreras.</p>
+  <ul>
+    <li><strong>Error absoluto medio del total</strong>, y desglosado por tramo. Es la métrica que ninguna calculadora del mercado publica — ni siquiera el mejor intento que existe (un LightGBM cuantílico sobre 14.000 resultados scrapeados) reporta un solo MAE.</li>
+    <li><strong>Cobertura empírica.</strong> Si prometemos un intervalo del 80 %, el 80 % de las carreras tiene que caer dentro. Ni 95 (banda inútil de ancha) ni 50 (mentira). Esta es la métrica que convierte la ley 1 en algo verificable.</li>
+    <li><strong>Ganancia sobre la línea base.</strong> Toda variable nueva compite contra el modelo sin ella. Si no baja el error, fuera, por interesante que sea. El precedente de Vickers es el listón: dos carreras previas más entreno baten a la fórmula clásica casi dos a uno.</li>
+  </ul>
+  <p class="mut">Con ocho carreras propias no se calibra un modelo de veinte parámetros: se sobreajusta. Por eso las capas entran de una en una y cada una tiene que ganarse el sitio contra la anterior.</p>
+
+  <h2 id="s9"><span class="n">09</span>Orden de construcción</h2>
+  <p class="mut">Ordenado por señal entregada dividida por lo que cuesta, no por dependencias técnicas.</p>
+  <div class="tS"><table>
+    <thead><tr><th>#</th><th>Qué</th><th>Por qué va aquí</th><th>Depende de población</th></tr></thead>
+    <tbody>
+    <tr><td>1</td><td>Enchufar el panel del coach</td><td><code>loadHyroxPrediction()</code> devuelve <code>null</code>: el motor funciona y Pablo ve un vacío permanente. Es trabajo hecho que nadie recibe.</td><td>No</td></tr>
+    <tr><td>2</td><td>Curva de durabilidad por atleta y formato</td><td>Es lo que separa HYROX de correr 8 km. Se calibra con laps que ya se graban, y arregla el fallo que rompió el stress-test.</td><td>No <span class="pill info">prior interno al principio</span></td></tr>
+    <tr><td>3</td><td>Reordenar <code>next_inputs</code> por señal real</td><td>Dos conjuntos de datos independientes dicen que el ergómetro predice más que el 5K. Hoy le pedimos al atleta lo que menos informa.</td><td>No</td></tr>
+    <tr><td>4</td><td>Cuantiles + conformalización</td><td>Convierte el rango en una promesa medible. Necesita historial de snapshots para calibrar, así que cuanto antes empiece a acumular, mejor.</td><td>No</td></tr>
+    <tr><td>5</td><td>La ley 6 en pantalla (el error propio)</td><td>Barato y es el mayor salto de confianza del producto. Solo aplica a quien tenga dos carreras.</td><td>No</td></tr>
+    <tr><td>6</td><td>La simulación escribe observaciones por estación</td><td>Única vía de convertir las cinco estaciones de fuerza de estimación en medición sin datos de terceros.</td><td>No</td></tr>
+    <tr><td>7</td><td>Estado latente que el entreno empuja</td><td>El salto conceptual grande. Pide que 2 y 4 estén asentados para poder demostrar que baja el error.</td><td>No</td></tr>
+    <tr><td>8</td><td>Corrección en vivo y ETA en la muñeca</td><td>El gancho visible. Se apoya en toda la cadena anterior.</td><td>No</td></tr>
+    <tr><td>9</td><td>Predicción para quien no ha medido nada</td><td>El embudo del tier free entero.</td><td><strong>Sí</strong></td></tr>
+    </tbody>
+  </table></div>
+  <p class="mut">Ocho de las nueve piezas <strong>no dependen</strong> de la decisión de población. Eso importa: el modelo puede empezar a ser mucho mejor de lo que es sin esperar a nada.</p>
+
+  <h2 id="s10"><span class="n">10</span>La decisión que queda abierta</h2>
+  <div class="law">
+    <h3>¿Construimos el prior poblacional?</h3>
+    <p>Es la misma pregunta que dejó abierta la spec de julio, pero ahora con argumento. A favor: es la única forma de decirle algo a alguien que no ha medido nada — cinco de nuestros ocho atletas hoy, y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte extrajo sus casi cuarenta mil resultados exactamente así.</p>
+    <p>Cómo se haría si se hace: despacio y cacheado, guardando <strong>solo estadística agregada</strong> por casilla (temporada, división, formato, sexo, edad), nunca resultados de terceros identificables ni exhibibles, y con ponderación temporal para que el prior no se quede anclado al nivel de hace tres temporadas.</p>
+    <p>Si la respuesta es no, el modelo sigue siendo mucho mejor que el actual para los atletas de Pablo — las ocho primeras piezas del orden de arriba no la necesitan — pero el tier free se queda sin su número y hay que decidir qué se le enseña en su lugar.</p>
+  </div>
+
+  <div class="footer">
+    <p>FAHYBRID · especificación interna · 4 ago 2026</p>
+    <p>Deriva de: auditoría del motor actual (<code>shared/domain/evidence</code>, <code>goal-gap</code>, <code>race-transfer</code>, <code>dobles-gap</code>, <code>athlete/mark-projection</code>) · inventario de las 17 fuentes de medición del proyecto · stress-test contra las 8 carreras-equipo reales de producción · mecanismos de recalibración de CORNR (<code>docs/cornr-race-mode-spec.md</code>) · literatura primaria citada en §02.</p>
+    <p>Sustituye a <code>docs/race-projection-spec.html</code> (27-jul), cuyas siete correcciones están ya implementadas salvo las bloqueadas por dato.</p>
+  </div>
+
+</div>
+</body>
+</html>

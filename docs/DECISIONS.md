@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-04 · La durabilidad es un parámetro del atleta Y DEL FORMATO — no una constante de fatiga
+
+**Decidido:** el modelo de predicción v2 (`docs/prediccion-hyrox-v2.html`) deja de tratar la fatiga de la prueba como un escalar. Pasa a ser una **curva de ocho valores** indexada por *(atleta, formato)*, estimada de los datos con encogimiento hacia un prior de su bracket. El «factor de transferencia personal» de hoy —un número único que además solo existe si el atleta ya tiene una carrera— queda como caso degenerado de esa curva.
+
+**Por qué:** se probó la curva poblacional de singles contra las 8 carreras-equipo reales de producción (todas dobles) y el error medio va de 22 a 85 s por vuelta; una de las ocho corre **más rápido al final que al principio en las siete vueltas**. Es física del formato, no ruido: en dobles se corren los 8 km enteros pero las estaciones se reparten, así que se llega a cada vuelta mucho menos fatigado. El mismo stress-test tumbó el reparto del tiempo: Rappelt da carrera 48,5 % / roxzone 7,3 % en singles PRO, y nuestras dobles dan carrera 49,6-60,6 % (media 54,6 %) y roxzone 6,8-11,1 %.
+
+**En consecuencia, no hacer:** no usar una referencia de singles para presupuestar dobles — hoy `dobles-gap` cae, cuando falla el cohorte, a «la carrera de singles del atleta más rápido como referencia de forma», y esa forma en dobles no existe. Y si algún día se importa población, importarla **por división y formato**, nunca un promedio global.
+
+**Dónde vive:** propuesta, sin código. El motor afectado sería `shared/domain/goal-gap/predict.ts` (`personalTransferFactor`) y `shared/domain/dobles-gap/compute.ts` (fuentes de presupuesto).
+
+---
+
+## 2026-08-04 · El ergómetro predice el resto de la carrera mejor que la propia carrera
+
+**Decidido:** `next_inputs` («qué medir para estrechar el rango») se reordena por señal medida, no por intuición. El remo y el ski pasan por delante del 5K.
+
+**Por qué:** dos conjuntos de datos independientes, con tres órdenes de magnitud de diferencia en tamaño, coinciden. Rappelt et al. 2026 (39.696 resultados PRO/ELITE, regresión cuantílica sobre «el resto del tiempo»): remo pseudo-R² 0,25-0,46 frente a carrera 0,14-0,35. Nuestras 8 carreras (n bajo, indicativo): ski 0,92 · remo 0,92 · carrera 0,45. Y el PM5 mide un remo de 1000 m con precisión de laboratorio y a coste cero para el atleta, mientras que un 5K le cuesta una sesión.
+
+**En consecuencia, no hacer:** no seguir pidiendo primero la marca de carrera solo porque correr sea la mitad del tiempo de la prueba. Pesar mucho en el reloj no es lo mismo que informar mucho sobre el resultado.
+
+**Dónde vive:** propuesta. Afectaría a `shared/domain/goal-gap/next-input.ts`.
+
+---
+
 ## 2026-08-04 · El avance es del escalón más pequeño, y eso lo decide el MOTOR — nunca una pantalla
 
 **Decidido:** `primaryAdvance()` es el único sitio donde se declara qué significa «siguiente» para cada formato, y ese significado es **el escalón más pequeño que el atleta tiene delante**: la fase en un EMOM, la ronda en un rotativo, la pierna en una carrera estructurada y **la SERIE en fuerza**. Ninguna vista puede tener una regla de avance propia.

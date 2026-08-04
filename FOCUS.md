@@ -5,6 +5,47 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 4-ago · Predicción HYROX v2 — propuesta, y dos supuestos rotos contra el dato real
+
+`docs/prediccion-hyrox-v2.html`. Rediseño del predictor, con la ciencia primaria que existe
+(solo hay dos papers utilizables: Brandt 2025 con N=11 y Rappelt 2026 con 39.696 resultados),
+el inventario real de lo que medimos, y los mecanismos de recalibración de CORNR.
+
+**El diagnóstico del v1:** hace bien lo difícil (diez tramos, procedencia declarada, nada se
+rellena con el objetivo) y le faltan cinco cosas: **no aprende** (la evidencia decae, el entreno
+no aporta), la banda es de ancho relativo fijo cuando el fenómeno es heterocedástico, la fatiga
+de la prueba es un escalar que solo existe si ya tienes carrera, sin carrera ni marcas no hay
+número (**5 de 8 atletas sin carrera, 6 de 8 sin marca medida**), y nunca se ha publicado un
+error medido pese a que los snapshots llevan meses guardándose.
+
+**Lo que rompió el stress-test contra las 8 carreras-equipo reales:**
+
+1. **La curva de fatiga de singles no vale para dobles** — error de 22 a 85 s por vuelta, y una
+   de las ocho corre MÁS RÁPIDO al final en las siete vueltas. La durabilidad es del atleta *y
+   del formato*.
+2. **El reparto tampoco** — Rappelt da carrera 48,5 % / roxzone 7,3 % en singles; nuestras dobles
+   dan 49,6-60,6 % y 6,8-11,1 %. Y `dobles-gap` presupuesta cayendo a «la carrera de singles del
+   más rápido», una forma que en dobles no existe.
+3. **Lo que sí sobrevivió:** el ranking de señal. Ski 0,92 · remo 0,92 · carrera 0,45 en nuestros
+   datos, mismo orden que Rappelt con 39.696 resultados. **El ergo predice más que la carrera** — y
+   lo mide el PM5 gratis.
+
+**Propuesta:** cuatro capas (prior poblacional con encogimiento · tres submodelos, porque la
+fisiología predice la carrera pero NO las estaciones · cuantiles conformalizados en vez de ±% fijo ·
+actualización en dos escalas: estado latente que el entreno empuja, y corrección en vivo tipo CORNR
+con ETA en la muñeca). Tres leyes nuevas: el modelo **publica su propio error** antes de pedir
+confianza, no debuta en público sin una validación con ese atleta, y su calibración caduca.
+
+**Calibrable HOY sin construir nada:** la curva de durabilidad (los laps de correr ya se graban
+dentro de cualquier formato desde el arreglo de esta mañana) y el ergo (PM5). Las estaciones piden
+que la simulación escriba observaciones. **8 de las 9 piezas del plan NO dependen de datos de
+población.**
+
+**Espera decisión de Alex:** el prior poblacional (§10) — sin él no hay número para quien no ha
+medido nada, que son 5 de 8 atletas y el embudo free entero.
+
+---
+
 ## 4-ago · Lo que Alex encontró entrenando — tres cerrados, tres abiertos
 
 Sesión de gym real (fuerza, dos ejercicios, con el reloj puesto). Seis hallazgos.
