@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { head } from '@vercel/blob';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { idSchema } from '@fahybrid/shared/schema/_primitives';
@@ -28,6 +29,7 @@ import {
   suggestWeekFromBlocks,
 } from '@/lib/dashboard/coach/ai/suggest-week-from-blocks';
 import { weekDaysToProposal } from './generate-proposal';
+import { readWeekFromImages, ImportVisionError, type LlmImageInput } from './vision-reader';
 
 export class ImportError extends Error {
   constructor(
@@ -97,6 +99,59 @@ export const importGenerateRequestSchema = z
   .strict();
 
 export type ImportGenerateRequest = z.infer<typeof importGenerateRequestSchema>;
+
+/**
+ * The PHOTO branch — a coach's screenshots of their calendar (TrainingPeaks or
+ * similar), already uploaded to Blob via /api/coach/import/upload-url. Unlike
+ * the paste flow, `readWeekFromImages` (lib/import/vision-reader.ts) reads a
+ * WHOLE WEEK per screenshot — each day's position comes from the calendar
+ * image itself, not from a UI selector — so this mirrors the EXCEL branch
+ * (whole weeks in), not the single-day paste branch. There is deliberately no
+ * `target_weekday` here: nothing downstream would consume it.
+ */
+export const IMPORT_PHOTO_MAX_IMAGES = 10; // stays under callLlmJsonWithImage's
+// own 12-images-per-turn ceiling (lib/dashboard/coach/ai/llm.ts) so a request
+// that would fail the model call is rejected at validation, before we spend a
+// single Blob download.
+
+/**
+ * Per-file size ceiling — a high-resolution screenshot or camera photo of a
+ * week's calendar rarely exceeds a few MB; 15 MB leaves generous headroom
+ * without inviting a client to disguise video as "an image". THE SAME
+ * constant signs the upload (upload-url/route.ts imports it) and re-checks
+ * the downloaded blob's real size here (`resolvePhotoImages`) — one source of
+ * truth for the two touchpoints of the same limit.
+ */
+export const IMPORT_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
+
+const importPhotoImageSchema = z
+  .object({
+    /** The pathname /api/coach/import/upload-url returned after signing that
+     *  exact upload — NEVER a client-supplied URL (see `resolvePhotoImages`
+     *  below for why accepting a URL would be unsafe). */
+    pathname: z.string().min(1).max(500),
+  })
+  .strict();
+
+export const importPhotoRequestSchema = z
+  .object({
+    microcycle_id: idSchema,
+    mode: z.literal('photo'),
+    /** In visual/reading order — vision-reader treats the array as ONE
+     *  ordered read, not N independent ones. */
+    images: z.array(importPhotoImageSchema).min(1).max(IMPORT_PHOTO_MAX_IMAGES),
+    /**
+     * Which week number the FIRST screenshot represents; later screenshots
+     * read as consecutive weeks. Purely cosmetic labelling for the review
+     * grid — same as the paste flow's `week: 1` — because the coach maps
+     * each read week to a real week_template_id explicitly at /confirm
+     * (Fork B). Left unset, a multi-week photo batch would always be labelled
+     * "Semana 1, Semana 2…" regardless of which real weeks were photographed.
+     */
+    start_week: z.number().int().positive().max(52).optional(),
+  })
+  .strict();
+export type ImportPhotoRequest = z.infer<typeof importPhotoRequestSchema>;
 
 // Display name for a 1..7 day index (only needed for the pasted-text path, where
 // the day may be unknown). Kept local — the reader owns the xlsx mapping.
@@ -214,6 +269,157 @@ function isGenerateRequest(body: unknown): boolean {
   );
 }
 
+/** Peek the discriminant without full validation: the PHOTO branch. */
+function isPhotoRequest(body: unknown): boolean {
+  return (
+    typeof body === 'object' && body !== null && (body as { mode?: unknown }).mode === 'photo'
+  );
+}
+
+/**
+ * The coach_id folder segment of an `import-photos/<coach_id>/…` pathname —
+ * the same convention `athleteIdFromPathname` uses for `chat/<athlete_id>/…`
+ * (lib/chat/upload.ts). `/api/coach/import/upload-url` is the ONLY writer of
+ * this prefix (it derives it from the signed-in coach's own session), so a
+ * pathname whose owner segment doesn't match the CALLING coach's id can only
+ * mean one of two things: a stale/foreign pathname, or a client trying to
+ * reference an image it never uploaded. Either way: reject, never resolve it.
+ */
+export function importPhotoPathnameOwner(pathname: string): bigint | null {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length < 5 || segments[0] !== 'import-photos') return null;
+  const idSeg = segments[1];
+  if (!idSeg || !/^\d+$/.test(idSeg)) return null;
+  try {
+    return BigInt(idSeg);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Turns the coach's already-uploaded pathnames into the base64 images
+ * `readWeekFromImages` consumes.
+ *
+ * WHY A PATHNAME AND NEVER A URL: if this accepted a client-supplied URL, the
+ * endpoint would become a proxy that fetches WHATEVER host the client names —
+ * a classic SSRF hole, and worse here because the fetched bytes get forwarded
+ * on to an LLM call. A pathname closes it two ways: (1) `head()` below is an
+ * AUTHENTICATED call to Vercel Blob's API scoped by our own token — it can
+ * only ever resolve an object inside OUR store, never an arbitrary external
+ * host, no matter what string is passed; (2) the `import-photos/<coach_id>/…`
+ * prefix — written only by upload-url, from the session, never the client —
+ * is checked against the CALLING coach before we even ask Blob, so one coach
+ * can't reference another coach's upload either. Outside our store: nothing
+ * resolves. Inside it: only the caller's own.
+ */
+async function resolvePhotoImages(
+  coach_id: number | bigint,
+  images: ImportPhotoRequest['images'],
+): Promise<LlmImageInput[]> {
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!blobToken) {
+    throw new ImportError(
+      'storage_unavailable',
+      'El almacén de imágenes no está configurado.',
+      503,
+    );
+  }
+
+  const out: LlmImageInput[] = [];
+  for (const { pathname } of images) {
+    const owner = importPhotoPathnameOwner(pathname);
+    if (owner === null || owner !== BigInt(coach_id)) {
+      throw new ImportError('not_found', 'Una de las capturas no existe o no es tuya.', 404);
+    }
+
+    let meta: { url: string; contentType: string; size: number };
+    try {
+      meta = await head(pathname, { token: blobToken });
+    } catch {
+      throw new ImportError('not_found', 'Una de las capturas no existe o no es tuya.', 404);
+    }
+    if (meta.size > IMPORT_PHOTO_MAX_BYTES) {
+      throw new ImportError('too_large', 'Una de las capturas supera el tamaño permitido.', 413);
+    }
+
+    const upstream = await fetch(meta.url, {
+      headers: { authorization: `Bearer ${blobToken}` },
+      cache: 'no-store',
+    });
+    if (!upstream.ok) {
+      throw new ImportError(
+        'source_read_failed',
+        'No se pudo leer una de las capturas subidas.',
+        502,
+      );
+    }
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+    out.push({ image_base64: bytes.toString('base64'), mime_type: meta.contentType });
+  }
+  return out;
+}
+
+/**
+ * PHOTO branch. Resolves the coach's already-uploaded screenshots, runs the
+ * vision reader, and feeds the SAME `ImportedWeek[]` intermediate the
+ * Excel/paste branches produce into `buildImportProposal()` — no parallel
+ * pipeline. Saves nothing.
+ */
+async function buildPhotoProposal(params: {
+  coach_id: number | bigint;
+  body: unknown;
+  client?: Sql;
+  llmAssist?: LlmAssist | null;
+}): Promise<ImportProposal> {
+  const parsed = importPhotoRequestSchema.safeParse(params.body);
+  if (!parsed.success) {
+    throw new ImportError('invalid_request', parsed.error.message, 400);
+  }
+  const req = parsed.data;
+  const client = params.client ?? defaultSql;
+
+  await assertMicrocycleOwned(params.coach_id, req.microcycle_id, client);
+
+  const images = await resolvePhotoImages(params.coach_id, req.images);
+
+  let weeks: ImportedWeek[];
+  try {
+    weeks = await readWeekFromImages({
+      images,
+      start_week: req.start_week,
+      coach_id: params.coach_id,
+    });
+  } catch (err) {
+    if (err instanceof ImportVisionError) {
+      if (err.code === 'unconfigured') {
+        throw new ImportError('vision_not_configured', 'Configura LLM_VISION_MODEL.', 501);
+      }
+      throw new ImportError('vision_failed', 'No se pudo leer alguna de las capturas.', 422);
+    }
+    const message = err instanceof Error ? err.message : 'No se pudo leer la captura.';
+    throw new ImportError('vision_failed', message, 422);
+  }
+
+  if (weeks.length === 0) {
+    throw new ImportError(
+      'empty_reading',
+      'No se ha reconocido ningún entreno en las capturas.',
+      422,
+    );
+  }
+
+  const assist =
+    params.llmAssist === null ? undefined : (params.llmAssist ?? buildLlmAssist(params.coach_id));
+
+  return buildImportProposal({
+    coach_id: Number(params.coach_id),
+    weeks,
+    llmAssist: assist,
+    client,
+  });
+}
+
 /**
  * AI-GENERATE branch. ONE rule decides the source, and it is a product rule, not a
  * technical one: **the coach's own method wins.**
@@ -289,13 +495,21 @@ export async function buildImportProposalFromRequest(params: {
   /** Explicit override; default = the real env-configured assist (or none). */
   llmAssist?: LlmAssist | null;
 }): Promise<ImportProposal> {
-  // The GENERATE branch is a distinct request; route it before the file/paste
-  // schema (which requires `variant`, absent here).
+  // The GENERATE and PHOTO branches are distinct requests; route them before
+  // the file/paste schema (which requires `variant`, absent from either).
   if (isGenerateRequest(params.body)) {
     return buildGeneratedProposal({
       coach_id: params.coach_id,
       body: params.body,
       client: params.client,
+    });
+  }
+  if (isPhotoRequest(params.body)) {
+    return buildPhotoProposal({
+      coach_id: params.coach_id,
+      body: params.body,
+      client: params.client,
+      llmAssist: params.llmAssist,
     });
   }
 
