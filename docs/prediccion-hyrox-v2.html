@@ -62,6 +62,8 @@
   .layer{display:flex;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
   .layer:last-child{border-bottom:0}
   .layer .n{flex:0 0 40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic}
+  /* sin esto un hijo flex no encoge por debajo de su contenido y las tablas de dentro desbordan la página */
+  .layer > div:last-child{min-width:0}
   .layer h3{margin:0 0 3px} .layer p{margin:0 0 6px;font-size:14px;color:var(--muted)}
   .layer p:last-child{margin-bottom:0}
   .src{font-size:12.5px;color:var(--faint);display:block;margin-top:4px}
@@ -98,6 +100,7 @@
       <li><a href="#s2">Lo que la ciencia obliga</a></li>
       <li><a href="#s3">Lo que rompí contra nuestros datos</a></li>
       <li><a href="#s4">El modelo — cuatro capas</a></li>
+      <li><a href="#s4b">El bucle de aprendizaje</a></li>
       <li><a href="#s5">Las ocho leyes</a></li>
       <li><a href="#s6">Qué se puede calibrar hoy</a></li>
       <li><a href="#s7">Mecanismo vs método</a></li>
@@ -229,40 +232,47 @@
     <div class="layer">
       <div class="n">1</div>
       <div>
-        <h3>Tres submodelos, porque son tres fenómenos distintos</h3>
-        <h4>Carrera — capacidad × curva de durabilidad</h4>
-        <p>La capacidad fresca ya está bien resuelta (Daniels/VDOT sobre la marca menos extrapolada). Lo nuevo es lo que le pasa a esa capacidad dentro de la prueba: <strong>no un factor, una curva de ocho valores</strong>, con la forma no monótona que tiene de verdad (pico en la vuelta 5, tras el remo). Es un parámetro del atleta y del formato, con shrinkage hacia el prior de su bracket.</p>
-        <div class="formula">
-ritmo(vuelta <span class="k">i</span>) = ritmo_umbral × durabilidad<sub><span class="k">i</span></sub>(atleta, formato)<br>
-<span class="c">// durabilidad se ESTIMA de los datos, no se escribe como constante</span><br>
-<span class="c">// prior: curva del bracket · posterior: las vueltas que el atleta ya ha corrido fatigado</span>
-        </div>
-        <h4>Estaciones — rendimiento observado + prior, jamás fisiología</h4>
-        <p>Brandt es tajante: no hay variable fisiológica que las prediga. Se alimentan de (a) la simulación medida por la app, que convierte estimación en observación y ya existe como formato en la biblioteca, (b) el split real de una carrera, y (c) el prior de la casilla. El peso corporal entra donde físicamente cambia el signo del resultado, no como variable global.</p>
-        <h4>Roxzone — experiencia, no forma física</h4>
-        <p>El 7,3 % del tiempo, creciendo, y la mayor diferencia absoluta entre un elite y un atleta medio (+4:04, más que cualquier estación). No se entrena, así que no tiene fuente de entreno: se predice por carreras disputadas y bracket. Y es lo más barato de mejorar que existe en este deporte.</p>
+        <h3>No se predice el tiempo. Se predice al ATLETA, y se simula la carrera con él.</h3>
+        <p class="lede" style="font-size:16px">Es el cambio de fondo respecto al v1 y respecto a todo lo que hay en el mercado. Predecir el tiempo directamente obliga a elegir entre un número que baila con cada sesión ruidosa y un número que no se mueve cuando entrenas. Esa tensión no se arregla ajustando el suavizado: se arregla cambiando <em>qué</em> se predice.</p>
+        <p>El estado del atleta son <strong>cinco parámetros</strong>. Son pocos, se miden con instrumentos concretos, evolucionan despacio y de forma suave. El tiempo de carrera es una <em>consecuencia</em> de ellos, y se obtiene simulando los diez tramos con las cargas de su división.</p>
+        <div class="tS" style="margin-top:14px"><table>
+          <thead><tr><th>Parámetro</th><th>Qué es</th><th>Con qué se mide</th></tr></thead>
+          <tbody>
+          <tr><td>Velocidad crítica de carrera</td><td>El ritmo que sostiene indefinidamente</td><td>Dos esfuerzos máximos de duración distinta (~3 y ~12 min)</td></tr>
+          <tr><td>Depósito de carrera (D′)</td><td>Lo que puede gastar por encima de esa velocidad antes de reventar, y a qué ritmo lo reconstituye</td><td>Los mismos dos esfuerzos: <strong>uno solo no separa los dos parámetros</strong></td></tr>
+          <tr><td>Potencia crítica y depósito de ergo</td><td>Lo mismo en remo y ski</td><td><strong>El PM5, en vatios reales.</strong> Es el terreno original del modelo, no una analogía</td></tr>
+          <tr><td>Durabilidad</td><td>La tasa a la que su velocidad crítica cae conforme acumula trabajo</td><td>Vueltas de correr con trabajo previo conocido — el entreno mixto de HYROX</td></tr>
+          <tr><td>Coste de las estaciones</td><td>Tiempo y dispersión de las seis funcionales, y la roxzone</td><td>Observación: simulación medida, o split de carrera. Nunca fisiología</td></tr>
+          </tbody>
+        </table></div>
+        <p><strong>Por qué separar velocidad crítica y depósito importa tanto aquí, y casi nadie lo hace:</strong> con un solo test —un 5K, pongamos— no puedes distinguir a un atleta con motor grande y depósito pequeño de uno al revés. Los dos hacen el mismo 5K. Pero en una prueba con ocho estaciones que te vacían el depósito una y otra vez, hacen tiempos muy distintos. Un solo punto no determina dos parámetros; hacen falta dos esfuerzos de duración distinta, y eso convierte el protocolo de tests en una decisión de modelo, no de gusto.</p>
+        <p><strong>Y la parte fisiológica se queda donde la ciencia la sostiene.</strong> Brandt es tajante: ninguna variable fisiológica predice el tiempo de las estaciones. Así que los tres primeros parámetros gobiernan carrera y ergos, y las seis estaciones funcionales más la roxzone salen de observación y del prior. Mezclarlos sería inventar señal donde el estudio dice que no la hay.</p>
+        <p class="src">Modelo de velocidad crítica y D′ en carrera: <em>The Measurement and Application of Critical Speed and D′ in Running</em>, Sports Med 2026 — las estimaciones válidas salen de pruebas predictivas entre ~3 y ~15 min, con error de predicción de time-trial del 2-15 %.</p>
       </div>
     </div>
     <div class="layer">
       <div class="n">2</div>
       <div>
-        <h3>Incertidumbre — cuantiles calibrados, no un ± inventado</h3>
-        <p>Regresión cuantílica (τ = 0,10 / 0,50 / 0,90) por segmento, y encima <strong>conformalización</strong>: el intervalo se ajusta contra un conjunto de calibración hasta que su cobertura empírica es la que promete. Deja de ser una afirmación teórica y pasa a ser una medida.</p>
+        <h3>Incertidumbre — se simula la carrera mil veces, no se suman bandas</h3>
+        <p>Como el estado del atleta es una distribución y no cinco números exactos, la carrera se simula muestreando de esa distribución. Sale <strong>la distribución del tiempo total directamente</strong>, y con ella cualquier cuantil, sin tener que componer bandas a mano.</p>
+        <p>Eso elimina de paso el supuesto más feo del v1: hoy los diez tramos se suman en cuadratura asumiendo que sus errores son <em>independientes</em>, algo que el propio código declara como dudoso — un mal día va mal en todos los tramos a la vez. En la simulación esa correlación aparece sola, porque los tramos comparten los mismos parámetros de origen.</p>
         <div class="formula">
-proyección = [ q<sub>10</sub> … q<sub>90</sub> ] con q<sub>50</sub> destacado<br>
-<span class="c">// el ancho DEPENDE del atleta y del segmento, no es un % fijo</span><br>
-<span class="c">// wall balls dispersa 2:02 de σ; el SkiErg, un minuto entre deciles extremos</span>
+<span class="c">// mil carreras simuladas → la distribución del total</span><br>
+p50 = 1:29:40 · [p10 … p90] = 1:26:10 … 1:34:20<br>
+<span class="k">P(bajar de 1:30:00) = 68 %</span>   <span class="c">// hace seis semanas: 31 %</span>
         </div>
-        <p>El precedente exacto existe y está publicado: <strong>TRAP</strong> hace esto para carreras de montaña por puntos de control y consigue una cobertura real del 91,4 % para un objetivo nominal del 90 %. Es el análogo estructural de HYROX: una carrera segmentada con predicción que se actualiza en cada tramo.<span class="src">Fogliato, Oliveira &amp; Yurko, arXiv:2002.01328</span></p>
+        <p><strong>Y esto es lo que cambia el producto.</strong> Un rango es información; una probabilidad es una historia con progreso: <em>«tienes un 68 % de bajar de 1:30 en Barcelona, y hace seis semanas tenías un 31 %»</em>. Cada carrera fijada —la principal y la secundaria— lleva la suya, y son distintas porque están a distinta distancia en el calendario y se llega distinto a cada una.</p>
+        <p>Encima va la <strong>conformalización</strong>: los cuantiles se ajustan contra un conjunto de calibración hasta que su cobertura empírica es la que prometen. Deja de ser una afirmación teórica y pasa a ser una medida. El precedente exacto está publicado: <strong>TRAP</strong> hace esto en carreras de montaña por puntos de control y consigue 91,4 % de cobertura real para un 90 % nominal.<span class="src">Fogliato, Oliveira &amp; Yurko, arXiv:2002.01328</span></p>
       </div>
     </div>
     <div class="layer">
       <div class="n">3</div>
       <div>
         <h3>Actualización — el modelo vive, en dos escalas de tiempo</h3>
-        <h4>Entre carreras: estado latente que el entreno empuja</h4>
-        <p>Un estado de forma y fatiga que se actualiza con cada sesión y cada test. La clave técnica es que el modelo de fitness-fatiga clásico <strong>se reescribe exactamente como un sistema de estados lineal</strong>, así que acoplarle un filtro que lo corrige con cada observación es matemáticamente consistente, no un apaño.<span class="src">Kolossa et al. 2017, Int J Computer Science in Sport 16(2)</span></p>
+        <h4>Entre carreras: cada sesión mueve los parámetros, con el peso que merece</h4>
+        <p>Los cinco parámetros se actualizan con cada sesión y cada test. La clave técnica es que el modelo de fitness-fatiga clásico <strong>se reescribe exactamente como un sistema de estados lineal</strong>, así que acoplarle un filtro que lo corrige con cada observación es matemáticamente consistente, no un apaño.<span class="src">Kolossa et al. 2017, Int J Computer Science in Sport 16(2)</span></p>
         <p>Esto sustituye la decaída de 180 días por algo que de verdad aprende: hoy entrenar mueve el número porque la carrera pierde peso; con esto lo mueve porque el entreno <em>aporta</em>.</p>
+        <p><strong>Y es lo que impide que el número baile.</strong> Cada observación entra con un peso proporcional a su precisión: un rodaje suave casi no mueve la velocidad crítica, porque un rodaje suave no informa de ella; un test de 2000 m la mueve mucho. No es suavizado cosmético — es la respuesta correcta, y tiene la propiedad de que cuando el atleta ve moverse su predicción, <em>se ha movido por algo</em> y se le puede decir por qué.</p>
         <h4>Durante la carrera: corrección en vivo</h4>
         <p>Tras cada tramo real, un factor del día se corrige de forma amortiguada con la desviación observada, rechazando de entrada lo imposible (un sensor que falla, un tramo mal cerrado) antes de que contamine nada.</p>
         <div class="formula">
@@ -274,6 +284,54 @@ ETA = tramos restantes × k
       </div>
     </div>
   </div>
+
+  <h2 id="s4b"><span class="n">04b</span>El bucle de aprendizaje — dos velocidades, no una</h2>
+
+  <p class="lede">Esto sí es un sistema que se entrena con datos y mejora con el tiempo. Pero tiene <strong>dos bucles con volúmenes de datos que se diferencian en tres órdenes de magnitud</strong>, y confundirlos es el error que hunde este tipo de proyectos.</p>
+
+  <div class="grid2">
+    <div class="stat">
+      <div class="l">Bucle rápido · sobra el dato</div>
+      <div class="v">~300 / mes</div>
+      <div class="d">Observaciones por atleta que entran: cada tramo, cada lap, cada test, cada sesión. Actualiza <strong>los parámetros de ese atleta</strong>. Es lo que el usuario ve moverse, y no necesita datos de nadie más. Aquí no hay escasez de nada.</div>
+    </div>
+    <div class="stat">
+      <div class="l">Bucle lento · la etiqueta es cara</div>
+      <div class="v">2-4 / año</div>
+      <div class="d">Carreras por atleta. Es la única etiqueta verdadera («predijo X, tardó Y») y es lo que corrige <strong>el modelo que convierte parámetros en tiempo</strong>. Con 100 atletas son unas 300 etiquetas al año.</div>
+    </div>
+  </div>
+
+  <div class="law">
+    <h3>La estructura física sustituye a los datos que no tenemos</h3>
+    <p>Un reconocedor de objetos aprende de cero porque tiene millones de ejemplos. Aquí el bucle lento da unos cientos al año: aprender de cero la función «entrenamiento → tiempo» pediría años de espera antes del primer número creíble.</p>
+    <p>La salida es no aprenderla de cero. Al simular la carrera con física conocida —velocidad crítica, depósito, durabilidad, cargas de la división— el bucle lento ya no tiene que aprender la función entera: solo tiene que <strong>corregir unos pocos coeficientes</strong>. Y unos pocos coeficientes sí se ajustan con cientos de carreras. Ésa es exactamente la diferencia entre tener algo bueno en seis meses o en cinco años, y es la razón por la que el modelo lleva fisiología dentro en lugar de ser una regresión sobre features.</p>
+  </div>
+
+  <div class="break">
+    <h3>El error que hay que evitar HOY, porque cada semana sin él es dataset perdido</h3>
+    <p>Para que una carrera sirva de etiqueta mañana, hay que haber congelado <strong>todo lo que sabíamos el día que se predijo</strong>: los parámetros con su incertidumbre, la evidencia que los sostenía, la versión del modelo. Hoy <code>race_predictions</code> guarda el resultado (el total y los diez tramos) pero <strong>no las entradas</strong>.</p>
+    <p>Sin las entradas, dentro de un año no se puede reconstruir qué sabía el modelo entonces, y cualquier reentrenamiento se contamina con información que en el momento de predecir no existía. Es fuga temporal, y es el fallo número uno que invalida sistemas de este tipo — con el agravante de que no se nota: el modelo parece buenísimo en la evaluación y falla en producción.</p>
+    <p><strong>Cuesta una columna.</strong> Y es lo único de toda esta propuesta que urge de verdad, porque no se puede recuperar hacia atrás: la carrera que se corra este mes sin haber guardado su vector de entradas no vuelve.</p>
+  </div>
+
+  <p><strong>Los dos conjuntos de datos son complementarios, y por eso se usan los dos.</strong> La población de resultados públicos tiene decenas de miles de carreras pero <em>ningún</em> entrenamiento asociado: solo sabe qué pasó el día de la prueba, así que sirve para la forma (cómo se reparte el tiempo, cuánto dispersa cada estación, cómo es el fade típico de un bracket). Los nuestros son pocos pero tienen las dos mitades, entrenamiento y resultado, que es lo único que puede responder a la pregunta que de verdad nos importa.</p>
+
+  <div class="law">
+    <h3>Y ese bucle, leído al revés, es la prueba de que la programación funciona</h3>
+    <p>Guardar la trayectoria de los parámetros de cada atleta a lo largo del tiempo no solo sirve para predecir. Permite decir <em>«los atletas que hicieron este bloque de seis semanas subieron su velocidad crítica una media de X»</em>. Eso ya no es una predicción: es evidencia medida de que el entrenamiento sirve.</p>
+    <p>Es el mismo dato usado en la otra dirección, y es lo que un coach necesita para vender su método — así que es producto de FLEXR, no solo del predictor.</p>
+  </div>
+
+  <h3>El activo que se acumula — y las tres condiciones para que exista</h3>
+  <p>El bucle, sostenido en el tiempo, es un activo que no se compra: se genera como subproducto de que el producto se use, y es acumulativo. Un competidor con más dinero no puede saltárselo, solo puede empezar a acumular más tarde.</p>
+  <p><strong>La ventaja no será el volumen — con cien atletas no competimos en escala con nadie. Es la combinación.</strong> Los resultados de carrera son públicos y los scrapea cualquiera. Los datos de entrenamiento los tienen Garmin, Strava y todos los relojes. Lo que <em>nadie</em> tiene es la tripleta unida por atleta y a lo largo del tiempo: <strong>lo que se le prescribió · lo que ejecutó y cómo respondió · qué tiempo hizo el día de la carrera</strong>. Garmin no sabe qué carrera corriste ni quién te la programó; el coach no tiene la telemetría; HYROX solo tiene el cronómetro. Ese par prescripción → adaptación → resultado es lo que hace falta para responder la única pregunta que importa en este negocio, que es si el entrenamiento sirve.</p>
+  <p>Para que ese activo llegue a existir hacen falta tres cosas, y las tres son baratas ahora y carísimas o imposibles después:</p>
+  <ol>
+    <li><strong>El vector de entradas congelado</strong> con cada predicción, como dice el recuadro de arriba. Sin él los datos no son reentrenables y todo lo demás da igual.</li>
+    <li><strong>La prescripción trazable, no solo la ejecución.</strong> Sin saber qué se le mandó hacer, la mejora no se puede atribuir a nada. <code>prescription_snapshot</code> ya existe y se escribe: hay que no perderlo de vista.</li>
+    <li><strong>La propiedad y el consentimiento resueltos desde el día cero.</strong> Es una decisión de negocio, no técnica, y es mucho más fácil con cero usuarios que retroactivamente con mil. Y en un producto multi-coach tiene una arista propia: cuando el atleta es de otro coach, hay que tener respondido de quién es el dato agregado antes de firmar al primero. <span class="pill warn">pendiente · Alex</span></li>
+  </ol>
 
   <h2 id="s5"><span class="n">05</span>Las ocho leyes</h2>
   <p class="mut">Las cinco del v1 siguen vigentes y no se tocan. Las tres nuevas son la diferencia entre un modelo que acierta y un modelo en el que se puede confiar.</p>
@@ -300,19 +358,19 @@ ETA = tramos restantes × k
     <thead><tr><th>Pieza del modelo</th><th>Con qué se calibra</th><th>Estado</th></tr></thead>
     <tbody>
     <tr>
-      <td>Curva de durabilidad de carrera</td>
-      <td>Los laps de correr que la cinta y el GPS <strong>ya graban dentro de cualquier formato</strong> desde el arreglo del 4-ago. Un EMOM o un For Time que alterne ergo y carrera <em>es</em> un test de durabilidad de campo: ritmo de la misma modalidad, medido, con trabajo previo conocido (<code>prior_work_s</code> ya se persiste).</td>
+      <td>Durabilidad — la curva de fatiga</td>
+      <td><strong>No hace falta inventar un test: ya se entrena.</strong> Un EMOM o un For Time que alterne ergo y carrera <em>es</em> un experimento controlado de carrera comprometida — mismo atleta, misma modalidad, ritmo medido y trabajo previo conocido (<code>prior_work_s</code>). Con la frecuencia cardíaca de control: mismo ritmo con nueve pulsaciones más también es durabilidad. Los laps de correr se graban dentro de cualquier formato desde el arreglo del 4-ago.</td>
+      <td><span class="pill ok">hoy, sin nada nuevo</span><br><span class="src">falta uso: 0 tramos fatigados en la base</span></td>
+    </tr>
+    <tr>
+      <td>Potencia crítica y depósito de ergo <span class="pill on">la señal más rentable</span></td>
+      <td>PM5 por BLE: <strong>vatios reales</strong>, ritmo /500 m, paladas y drag factor por split, ya persistidos. Dos esfuerzos de duración distinta (p. ej. ~1 y ~6 min) bastan para separar los dos parámetros. Es el terreno original del modelo de potencia crítica, con precisión de laboratorio y sin laboratorio.</td>
       <td><span class="pill ok">hoy, sin nada nuevo</span></td>
     </tr>
     <tr>
-      <td>Capacidad de ergo (la señal más rentable)</td>
-      <td>PM5 por BLE: ritmo /500 m, vatios, paladas por minuto, drag factor y distancia por split, ya persistidos en <code>raw_lap_data_json</code>. Precisión de laboratorio, coste cero para el atleta.</td>
-      <td><span class="pill ok">hoy, sin nada nuevo</span></td>
-    </tr>
-    <tr>
-      <td>Capacidad de carrera y umbral</td>
-      <td>Marcas de «Probarme», umbral de zonas, VO₂máx del reloj. Ya conectado end to end.</td>
-      <td><span class="pill ok">hoy</span></td>
+      <td>Velocidad crítica y depósito de carrera</td>
+      <td>Dos esfuerzos máximos de duración distinta (~3 y ~12 min). <strong>Esto sí cambia el protocolo</strong>: el catálogo actual de marcas está pensado para un esfuerzo suelto, y un solo punto no determina dos parámetros. El umbral de zonas y el VO₂máx del reloj siguen valiendo como respaldo para quien no se haya probado.</td>
+      <td><span class="pill warn">pide un test nuevo</span></td>
     </tr>
     <tr>
       <td>Las cinco estaciones de fuerza</td>
@@ -363,10 +421,11 @@ ETA = tramos restantes × k
   <div class="tS"><table>
     <thead><tr><th>#</th><th>Qué</th><th>Por qué va aquí</th><th>Depende de población</th></tr></thead>
     <tbody>
-    <tr><td>1</td><td>Enchufar el panel del coach</td><td><code>loadHyroxPrediction()</code> devuelve <code>null</code>: el motor funciona y Pablo ve un vacío permanente. Es trabajo hecho que nadie recibe.</td><td>No</td></tr>
-    <tr><td>2</td><td>Curva de durabilidad por atleta y formato</td><td>Es lo que separa HYROX de correr 8 km. Se calibra con laps que ya se graban, y arregla el fallo que rompió el stress-test.</td><td>No <span class="pill info">prior interno al principio</span></td></tr>
+    <tr><td>0</td><td><strong>Congelar el vector de entradas con cada predicción</strong></td><td><span class="pill bad">urge</span> Es lo único que no se puede recuperar hacia atrás: la carrera que se corra sin haber guardado qué sabía el modelo ese día no vuelve. Una columna, y sin ella el dataset del §04b no existe.</td><td>No</td></tr>
+    <tr><td>1</td><td>Enchufar el panel del coach · filtrar por procedencia</td><td><code>loadHyroxPrediction()</code> devuelve <code>null</code>: el motor funciona y el coach ve un vacío permanente. Y de paso el filtro de <code>source</code> que le falta a la consulta del lado entrenado, para que el seed no entre en la población.</td><td>No</td></tr>
+    <tr><td>2</td><td>Los cinco parámetros y la simulación de la carrera</td><td>El corazón del v2: deja de predecirse el tiempo y pasa a predecirse el atleta. Incluye la curva de durabilidad, que es lo que separa un HYROX de correr 8 km y lo que rompió el stress-test. Se calibra con laps que ya se graban.</td><td>No <span class="pill info">prior interno al principio</span></td></tr>
     <tr><td>3</td><td>Reordenar <code>next_inputs</code> por señal real</td><td>Dos conjuntos de datos independientes dicen que el ergómetro predice más que el 5K. Hoy le pedimos al atleta lo que menos informa.</td><td>No</td></tr>
-    <tr><td>4</td><td>Cuantiles + conformalización</td><td>Convierte el rango en una promesa medible. Necesita historial de snapshots para calibrar, así que cuanto antes empiece a acumular, mejor.</td><td>No</td></tr>
+    <tr><td>4</td><td>Simulación Monte Carlo + conformalización</td><td>De aquí sale la probabilidad («68 % de bajar de 1:30»), que es la frase que hace el producto. Necesita historial de snapshots para calibrar la cobertura, así que cuanto antes empiece a acumular, mejor.</td><td>No</td></tr>
     <tr><td>5</td><td>La ley 6 en pantalla (el error propio)</td><td>Barato y es el mayor salto de confianza del producto. Solo aplica a quien tenga dos carreras.</td><td>No</td></tr>
     <tr><td>6</td><td>La simulación escribe observaciones por estación</td><td>Única vía de convertir las cinco estaciones de fuerza de estimación en medición sin datos de terceros.</td><td>No</td></tr>
     <tr><td>7</td><td>Estado latente que el entreno empuja</td><td>El salto conceptual grande. Pide que 2 y 4 estén asentados para poder demostrar que baja el error.</td><td>No</td></tr>

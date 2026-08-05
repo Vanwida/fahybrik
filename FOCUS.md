@@ -78,11 +78,41 @@ error medido pese a que los snapshots llevan meses guardándose.
    datos, mismo orden que Rappelt con 39.696 resultados. **El ergo predice más que la carrera** — y
    lo mide el PM5 gratis.
 
-**Propuesta:** cuatro capas (prior poblacional con encogimiento · tres submodelos, porque la
-fisiología predice la carrera pero NO las estaciones · cuantiles conformalizados en vez de ±% fijo ·
-actualización en dos escalas: estado latente que el entreno empuja, y corrección en vivo tipo CORNR
-con ETA en la muñeca). Tres leyes nuevas: el modelo **publica su propio error** antes de pedir
-confianza, no debuta en público sin una validación con ese atleta, y su calibración caduca.
+**Propuesta (revisada el 5-ago con Alex):** el cambio de fondo es que **no se predice el tiempo, se
+predice al ATLETA y se simula la carrera con él**. Cinco parámetros (velocidad crítica y depósito de
+carrera · potencia crítica y depósito de ergo, en vatios reales del PM5 · durabilidad · coste
+observado de las estaciones), y el tiempo sale de simular los diez tramos mil veces. Eso resuelve la
+tensión de fondo: predecir el tiempo directo obliga a elegir entre un número que baila y uno que no
+se mueve; predecir parámetros no, porque cada observación entra con el peso de su precisión (un
+rodaje no informa de la velocidad crítica, un test sí).
+
+Dos consecuencias que valen el cambio: **la probabilidad** («68 % de bajar de 1:30, hace seis semanas
+31 %») en vez de un rango, por carrera fijada — y adiós al supuesto de independencia entre tramos,
+porque en la simulación la correlación sale sola. Y **separar velocidad crítica de depósito exige dos
+esfuerzos de duración distinta**, no un 5K: con un punto no distingues motor grande de depósito
+grande, y en una prueba con ocho estaciones que te vacían eso decide el tiempo.
+
+**El compromised running no necesita test nuevo: ya se entrena.** Un EMOM de remo+carrera es un
+experimento controlado — mismo atleta, ritmo medido, trabajo previo conocido.
+
+Tres leyes nuevas: el modelo **publica su propio error** antes de pedir confianza, no debuta en
+público sin una validación con ese atleta, y su calibración caduca.
+
+**El bucle de aprendizaje (§04b), que es el marco de Alex:** son DOS bucles, no uno. El rápido
+(~300 observaciones/mes por atleta) mueve los parámetros de ese atleta y es lo que el usuario ve. El
+lento (2-4 carreras/año) es la única etiqueta verdadera y corrige el modelo. Por eso el modelo lleva
+física dentro: **la estructura sustituye a los datos que no hay** — con simulación, el bucle lento
+solo tiene que ajustar unos coeficientes, no aprender la función entera, y eso son cientos de
+carreras en vez de años. **URGENTE y no recuperable: congelar el vector de ENTRADAS con cada
+predicción** (hoy `race_predictions` guarda el resultado, no lo que sabíamos). Sin eso hay fuga
+temporal y el dataset no vale. Cada carrera que se corra sin ello es dato perdido.
+
+**El activo:** no es el volumen (con 100 atletas no competimos en escala), es la tripleta que no
+tiene nadie — *lo prescrito · la adaptación medida · el resultado*, unida por atleta y en el tiempo.
+Garmin no sabe qué carrera corriste; el coach no tiene telemetría; HYROX solo tiene el cronómetro.
+**Pendiente de Alex:** propiedad y consentimiento del dato desde el día cero, con su arista
+multi-coach (de quién es el agregado cuando el atleta es de otro coach) — barato ahora con cero
+usuarios, carísimo después.
 
 **Calibrable HOY sin construir nada:** la curva de durabilidad (los laps de correr ya se graban
 dentro de cualquier formato desde el arreglo de esta mañana) y el ergo (PM5). Las estaciones piden
