@@ -2,8 +2,9 @@
 //
 // Los casos NO son inventados: son los 30 nombres reales que la semana 12 de la
 // captura deja sin resolver (tests/import/photo-e2e.test.ts). Lo que se fija aquí
-// es lo que el resolutor del importador NO puede cazar y por qué hoy se crean
-// duplicados: el orden de las palabras, los acentos y un matiz de más.
+// es lo que el resolutor del importador NO puede cazar: el orden de las palabras,
+// el plural y un matiz de más. (Los acentos ya los pliega él desde la migración
+// 0151; aquí se siguen plegando porque esta comparación es suya, no la del SQL.)
 
 import { describe, expect, test } from 'vitest';
 import {
@@ -40,9 +41,10 @@ describe('nameTokens — cómo se parte un nombre para compararlo', () => {
 });
 
 describe('lo que el resolutor NO caza y aquí sí', () => {
-  test('los ACENTOS: hoy «Puente de glúteo» del catálogo nunca casa con el término sin tilde', () => {
-    // La capa 3 del resolutor compara `lower(name)` en SQL contra un término ya
-    // desacentuado, así que este par no puede resolver nunca y se crea duplicado.
+  test('los ACENTOS no cambian el ejercicio', () => {
+    // El resolutor ya los pliega en SQL (migración 0151), pero esta comparación
+    // corre en el servidor sobre nombres crudos y tiene que plegarlos por su
+    // cuenta: si no, un «Puente de glúteo» del catálogo no se propondría nunca.
     expect(nameSimilarity('Puente de gluteo', 'Puente de glúteo')).toBe(1);
   });
 
