@@ -89,6 +89,26 @@ ninguno. Ahora los 5xx de la ruta se capturan.
 `maxDuration` es una bomba — se come el presupuesto y mata la petición sin decir por qué. Y sin
 instrumentación por etapas, la causa hay que deducirla en vez de leerla.
 
+**SEGUNDO INCIDENTE, tras probar la UI: «cada foto = una semana, empezando por la 1» era invención
+mía, no algo que Alex pidiera.** Su queja textual: *«¿quién te ha dicho que sea solo 1 semana? ¿y
+si es 1 día? ¿o 3 días? ¿y si quiero subir la semana 45? ¿cómo haces un diálogo de subir sin poder
+especificar?»*. Tenía razón — no había forma de decir dónde va lo que subes.
+
+**Arreglado (`d92d49b6`, desplegado en `dpl_5sd85aEawUNxZKYsumYiotfocCKE`):** el coach ya NO declara
+qué sube — el lector ya ve las cabeceras de día en la foto. Solo declara **dónde empieza**:
+`target_week_id` (obligatorio, verificado contra el microciclo real del coach) + `target_weekday`
+(opcional, 1..7). `start_week` desaparece de los dos lados. Un mismo control cubre un día suelto,
+tres días, una semana entera o varias seguidas — incluida la semana 45, listada como cualquier otra.
+La UI puso los dos desplegables ANTES de la zona de arrastre (se elige el destino, luego se sueltan
+las fotos) y cazó un bug real que el encargo no mencionaba: el diálogo mapeaba SIEMPRE desde la
+primera semana del microciclo, así que anclar en la 3 con varias capturas habría machacado la 1-5 en
+vez de llenar la 3-7 — dos semanas ya escritas borradas en silencio. Ahora coloca por desplazamiento
+desde la elegida.
+La regla de colocación (`photo-placement.ts`, pura): sin día → cada uno en su día real, semanas
+consecutivas desde el ancla · con día y un solo día encontrado → ancla ahí, lo escrito en la foto no
+manda · con día y varios → el primero ancla, el resto conserva el MISMO hueco relativo (puede cruzar
+a la semana siguiente) · desbordamiento → nunca se recorta, error con los dos números.
+
 **Efecto del catálogo, medido con el resolutor REAL antes de aplicar:** de 48 ítems sin resolver de
 la semana fotografiada, **19 pasan a resolver (48→29)**. De los 23 nombres reales: 19 resuelven, 1
 queda por un corte de OCR (no por catálogo) y 3 quedan fuera a propósito porque no son movilidad.
