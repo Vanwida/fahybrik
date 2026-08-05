@@ -41,8 +41,16 @@ dentro de cualquier formato desde el arreglo de esta mañana) y el ergo (PM5). L
 que la simulación escriba observaciones. **8 de las 9 piezas del plan NO dependen de datos de
 población.**
 
-**Espera decisión de Alex:** el prior poblacional (§10) — sin él no hay número para quien no ha
-medido nada, que son 5 de 8 atletas y el embudo free entero.
+**DECIDIDO por Alex (4-ago): SÍ al prior poblacional**, con tres condiciones que van con la
+decisión — solo estadística agregada por casilla (nunca resultados de terceros identificables ni
+exhibidos), ponderada por temporada (el nivel se mueve un 19 % en siete) y **por división Y
+formato** (consecuencia directa de lo que rompió el stress-test). Desbloquea las cinco estaciones
+de fuerza, el arranque en frío y la proyección sin objetivo. No bloquea nada: se empieza por las
+ocho piezas que no lo necesitan.
+
+**Siguiente, por orden de señal / coste:** enchufar el panel del coach (`loadHyroxPrediction()`
+devuelve `null` siempre — motor que funciona, coach que ve un vacío) · curva de durabilidad por
+atleta y formato · reordenar `next_inputs` al ergo.
 
 ---
 

@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-04 · SÍ al prior poblacional — agregado, ponderado por temporada, por división y formato
+
+**Decidido (Alex):** se construye el prior poblacional de HYROX. Cierra la pregunta que la spec del 27-jul dejó abierta en su §10 y que llevaba desde entonces bloqueando tres cosas: las cinco estaciones de fuerza (sin marca posible en el catálogo), el arranque en frío de un atleta nuevo y la proyección sin objetivo del embudo free.
+
+**Con tres condiciones que son parte de la decisión, no criterio de quien lo implemente:**
+
+1. **Solo estadística agregada.** Cuantiles por casilla *(temporada · división · formato · sexo · grupo de edad) × segmento*. Nunca resultados de terceros identificables, nunca exhibidos, nunca consultables por persona. Lo que se guarda es una distribución, no un ranking.
+2. **Ponderado por temporada.** Rappelt et al. 2026 mide −19 % en el top-100 PRO masculino entre S1 y S7 (ωp²=0,76). Un prior sin reponderar predice el nivel de 2022 con toda la confianza del mundo.
+3. **Por división Y formato.** Consecuencia directa del stress-test: la curva de fatiga y el reparto del tiempo de dobles no son los de singles. Un promedio global no sirve para nada.
+
+**Por qué:** es la única forma de darle un número a quien no ha medido nada, que hoy son 5 de nuestros 8 atletas y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte (39.696 resultados PRO/ELITE) se construyó exactamente así, con scripts propios sobre los resultados públicos.
+
+**En consecuencia, no hacer:** no exhibir ni almacenar resultados de terceros a nivel de persona; no usar el prior para nada que no sea encoger una estimación propia; y no bloquear el resto del trabajo esperándolo — 8 de las 9 piezas del plan de `docs/prediccion-hyrox-v2.html` §09 no dependen de él.
+
+**Dónde vive:** decidido, sin construir. `docs/prediccion-hyrox-v2.html` §10.
+
+---
+
 ## 2026-08-04 · La durabilidad es un parámetro del atleta Y DEL FORMATO — no una constante de fatiga
 
 **Decidido:** el modelo de predicción v2 (`docs/prediccion-hyrox-v2.html`) deja de tratar la fatiga de la prueba como un escalar. Pasa a ser una **curva de ocho valores** indexada por *(atleta, formato)*, estimada de los datos con encogimiento hacia un prior de su bracket. El «factor de transferencia personal» de hoy —un número único que además solo existe si el atleta ya tiene una carrera— queda como caso degenerado de esa curva.

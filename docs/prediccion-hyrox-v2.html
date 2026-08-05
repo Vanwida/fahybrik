@@ -103,7 +103,7 @@
       <li><a href="#s7">Mecanismo vs método</a></li>
       <li><a href="#s8">Cómo se demuestra que funciona</a></li>
       <li><a href="#s9">Orden de construcción</a></li>
-      <li><a href="#s10">La decisión que queda abierta</a></li>
+      <li><a href="#s10">La decisión, tomada</a></li>
     </ol>
   </div>
 
@@ -376,12 +376,17 @@ ETA = tramos restantes × k
   </table></div>
   <p class="mut">Ocho de las nueve piezas <strong>no dependen</strong> de la decisión de población. Eso importa: el modelo puede empezar a ser mucho mejor de lo que es sin esperar a nada.</p>
 
-  <h2 id="s10"><span class="n">10</span>La decisión que queda abierta</h2>
+  <h2 id="s10"><span class="n">10</span>La decisión, tomada</h2>
   <div class="law">
-    <h3>¿Construimos el prior poblacional?</h3>
-    <p>Es la misma pregunta que dejó abierta la spec de julio, pero ahora con argumento. A favor: es la única forma de decirle algo a alguien que no ha medido nada — cinco de nuestros ocho atletas hoy, y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte extrajo sus casi cuarenta mil resultados exactamente así.</p>
-    <p>Cómo se haría si se hace: despacio y cacheado, guardando <strong>solo estadística agregada</strong> por casilla (temporada, división, formato, sexo, edad), nunca resultados de terceros identificables ni exhibibles, y con ponderación temporal para que el prior no se quede anclado al nivel de hace tres temporadas.</p>
-    <p>Si la respuesta es no, el modelo sigue siendo mucho mejor que el actual para los atletas de Pablo — las ocho primeras piezas del orden de arriba no la necesitan — pero el tier free se queda sin su número y hay que decidir qué se le enseña en su lugar.</p>
+    <h3>Sí al prior poblacional — agregado y ponderado <span class="pill on" style="vertical-align:middle;margin-left:6px">4 ago 2026</span></h3>
+    <p>Queda cerrada la pregunta que la spec de julio dejó abierta. <strong>Se construye</strong>, porque es la única forma de decirle algo a alguien que no ha medido nada: cinco de nuestros ocho atletas hoy, y el 100 % del embudo free.</p>
+    <p>Con tres condiciones que forman parte de la decisión, no del gusto de quien lo implemente:</p>
+    <ul>
+      <li><strong>Solo estadística agregada.</strong> Se guardan cuantiles por casilla <em>(temporada · división · formato · sexo · grupo de edad) × segmento</em>. Nunca resultados de terceros identificables, nunca exhibidos, nunca consultables por persona.</li>
+      <li><strong>Ponderado por temporada.</strong> El nivel del deporte se mueve un 19 % en siete temporadas: un prior sin reponderar predice el HYROX de 2022 con toda la confianza del mundo.</li>
+      <li><strong>Por división y formato.</strong> Es la consecuencia directa del stress-test de §03: un promedio global no sirve, porque la curva de fatiga y el reparto del tiempo de dobles no son los de singles.</li>
+    </ul>
+    <p>Esto desbloquea las tres cosas que hoy no tienen fuente: las cinco estaciones de fuerza, el arranque en frío de un atleta nuevo y la proyección sin objetivo del embudo. Las otras ocho piezas del orden de §09 siguen sin depender de ella, así que el trabajo puede empezar por donde ya se puede.</p>
   </div>
 
   <div class="footer">
