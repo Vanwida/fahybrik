@@ -31,13 +31,14 @@ import { CASOS as EMOM } from '@/components/design-twin/screens/watch-emom/guion
 import { CASOS as FORTIME } from '@/components/design-twin/screens/watch-fortime/guion';
 import { CASOS as AMRAP } from '@/components/design-twin/screens/watch-amrap/guion';
 import { CASOS as DOBLES } from '@/components/design-twin/screens/watch-dobles/guion';
+import { CASOS as PARED } from '@/components/design-twin/screens/watch-reloj-de-pared/guion';
 
 interface Caso {
   nombre: string;
   paginas: readonly PaginaReloj[];
 }
 
-/** Las nueve. Añadir una vista es añadir una línea aquí. */
+/** Las diez. Añadir una vista es añadir una línea aquí. */
 const VISTAS: ReadonlyArray<readonly [string, readonly Caso[]]> = [
   ['rodaje', RODAJE],
   ['series de calle', SERIES],
@@ -48,6 +49,9 @@ const VISTAS: ReadonlyArray<readonly [string, readonly Caso[]]> = [
   ['For Time', FORTIME],
   ['AMRAP', AMRAP],
   ['dobles', DOBLES],
+  // La décima (5-ago): los cuatro formatos que corta el reloj de pared cuando la
+  // modalidad no es ni correr ni ergo — y son CUATRO sujetos, no uno.
+  ['reloj de pared', PARED],
 ];
 
 describe('el lienzo del reloj', () => {
@@ -81,9 +85,9 @@ describe('el lienzo del reloj', () => {
   });
 });
 
-describe('las nueve vistas', () => {
-  it('son nueve', () => {
-    expect(VISTAS).toHaveLength(9);
+describe('las diez vistas', () => {
+  it('son diez', () => {
+    expect(VISTAS).toHaveLength(10);
   });
 
   for (const [vista, casos] of VISTAS) {

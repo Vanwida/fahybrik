@@ -51,6 +51,11 @@ import * as watchEmom from './screens/watch-emom';
 import * as watchFortime from './screens/watch-fortime';
 import * as watchAmrap from './screens/watch-amrap';
 import * as watchDobles from './screens/watch-dobles';
+// La décima (5-ago): la familia que se quedó sin pantalla al reordenar las
+// superficies — series, tabata, death by y trabajo continuo cuando la modalidad
+// no es ni correr ni ergo. Los cuatro los corta el reloj de pared; cada uno hace
+// otra pregunta, y por eso son cuatro sujetos y no cuatro banderas.
+import * as watchRelojDePared from './screens/watch-reloj-de-pared';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -107,6 +112,7 @@ export const SCREENS: TwinScreenModule[] = [
   watchFortime,
   watchAmrap,
   watchDobles,
+  watchRelojDePared,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -139,6 +145,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
       'watch-fortime',
       'watch-amrap',
       'watch-dobles',
+      'watch-reloj-de-pared',
     ],
   },
 ];
