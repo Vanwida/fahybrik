@@ -413,11 +413,13 @@ export function ImportPhotoPicker({
         </ol>
       </div>
 
-      {photos.length > 0 ? (
+      {/* Con UNA captura el orden no puede importar, así que el aviso sobra: era
+          ruido en el caso más común. Sale solo desde la segunda, que es cuando
+          hay algo que ordenar. */}
+      {photos.length > 1 ? (
         <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
-          El orden de las capturas es el orden de las semanas: la <strong>1</strong> es la primera
-          semana y las siguientes van detrás. Lo que ponga escrito dentro de la foto no cuenta.
-          Arrastra una miniatura o usa sus flechas para cambiarlo.
+          El orden manda: la <strong>1</strong> es la primera semana. Arrastra una miniatura o usa
+          sus flechas para cambiarlo.
         </p>
       ) : null}
 
