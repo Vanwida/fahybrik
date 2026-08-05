@@ -43,17 +43,22 @@
  * DOS PIEZAS SE MOCKEAN (nada de DB), tal y como se pidió:
  *
  *   1) `resolveExercise`, y de una forma DELIBERADAMENTE PESIMISTA y
- *      declarada: solo se deja resolver por la capa 2 (`GLOBAL_ALIASES`, el
- *      mapa estático real, importado del módulo real — no reescrito aquí) —
- *      la capa determinista que NO depende del catálogo de ningún coach
- *      concreto. Las capas 1 (sinónimo aprendido del coach) y 3/4 (nombre
- *      exacto/substring contra SU catálogo) se simulan siempre en MISS,
- *      porque este test no tiene manera honesta de saber qué contiene el
- *      catálogo real de un coach sin consultar la base de datos — y
- *      consultarla no es lo que se pidió aquí. Esto es un SUELO, no el número
- *      de producción: un coach cuyo catálogo ya tenga "Bird Dog" o "Cat Cow"
- *      (movimientos de rehab/movilidad genéricos, nada de nicho) resolverá
- *      más que esto.
+ *      declarada: solo se deja resolver por la capa 2 (`GLOBAL_ALIASES` +
+ *      `normalizeTerm`, el mapa y la normalización REALES, importados del
+ *      módulo real — no reescritos). El escaneo de ventanas de palabras
+ *      (`aliasToSlug`, privada, no exportada) SÍ se reimplementa a mano —
+ *      espejo exacto de la función real, paréntesis incluidos (ver
+ *      `aliasSlugFor` más abajo, con el porqué). Las capas 1 (sinónimo
+ *      aprendido del coach) y 3/4 (nombre exacto/substring contra SU
+ *      catálogo) se simulan siempre en MISS, porque este test no tiene
+ *      manera honesta de saber qué contiene el catálogo real de un coach sin
+ *      consultar la base de datos — y consultarla en cada corrida no es lo
+ *      que se pidió aquí. Esto es un SUELO, no el número de producción — pero
+ *      verificado UNA vez, a mano, contra el catálogo REAL (79 ejercicios,
+ *      psql): ningún nombre real de esta captura que siga sin resolver tiene
+ *      equivalente bajo otro nombre; el hueco es cobertura del catálogo
+ *      (movilidad/activación: 7 de 79), no una traducción perdida. Ver la
+ *      nota al final del fichero.
  *
  *   2) `resolveImportDefaults`, a los defaults DEL SISTEMA
  *      (`DEFAULT_IMPORT_DEFAULTS`) — el coach de la demo, recién llegado, no
@@ -73,12 +78,23 @@ import {
 import { GLOBAL_ALIASES, normalizeTerm } from '@/lib/import/exercise-resolve';
 
 // ── (1) El resolutor de ejercicios, mockeado (ver el porqué en la cabecera) ─
+// Espejo de `aliasToSlug` (privada, no exportada, exercise-resolve.ts). El
+// paréntesis se strippea ANTES de partir en palabras — igual que la función
+// real tras el arreglo del 2026-08-05 ("Dominada (lastrada)" perdía el
+// calificador en silencio porque el paréntesis rompía la ventana de 2
+// palabras). Si esta copia diverge de la real, el propio commit que la
+// cambie debe tocar esta también — es el precio de no poder importar una
+// función privada.
 function aliasSlugFor(term: string): string | null {
   const normalized = normalizeTerm(term);
   if (!normalized) return null;
   const exact = GLOBAL_ALIASES[normalized];
   if (exact) return exact;
-  const words = normalized.split(' ');
+  const words = normalized
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ');
   for (let len = Math.min(4, words.length); len >= 1; len--) {
     for (let i = 0; i + len <= words.length; i++) {
       const slug = GLOBAL_ALIASES[words.slice(i, i + len).join(' ')];
@@ -204,7 +220,7 @@ async function runFullChain(): Promise<{ days: ProposalDay[]; outcomes: BlockOut
   return { days, outcomes };
 }
 
-describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 + 2d487eb8', () => {
+describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 + 2d487eb8 + f202c9c5', () => {
   test('20 tarjetas transcritas → 14 tarjetas de bloque de entreno (sin cambios: la cuenta de tarjetas no la tocan estos arreglos)', async () => {
     const { outcomes } = await runFullChain();
     expect(outcomes).toHaveLength(14);
@@ -286,22 +302,23 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
     expect(allFlags).toHaveLength(56);
   });
 
-  test('la lista LITERAL de ejercicios que no resuelven a catálogo — la de verdad esta vez: 51 de 56 items, 30 nombres reales distintos', async () => {
+  test('la lista LITERAL de ejercicios que no resuelven a catálogo — la definitiva: 47 de 56 items (esta mañana: 51)', async () => {
     const { days } = await runFullChain();
     const allFlags = days.flatMap((d) => d.flags);
 
     const unresolved = allFlags.filter((f) => f.unresolved_exercise);
-    expect(unresolved).toHaveLength(51);
+    expect(unresolved).toHaveLength(47);
 
     // La lista que de verdad importa: nombres reales de la captura que el
-    // catálogo (suelo GLOBAL_ALIASES) no reconoce. "A)" y "FUERZA PARTE ALTA"/
-    // "OPCIONAL" son restos de parseo (la cabecera "A) 4×4 | RIR 2" produce un
-    // segundo token junto al del título) — no ejercicios, y se cuentan aparte.
+    // catálogo (suelo GLOBAL_ALIASES ampliado por f202c9c5) sigue sin
+    // reconocer. "A)"/"FUERZA PARTE ALTA"/"OPCIONAL" son restos de parseo (la
+    // cabecera "A) 4×4 | RIR 2" produce un segundo token junto al del
+    // título) — no ejercicios, y se cuentan aparte (ver el test de
+    // movilidad/activación más abajo, que solo cuenta ejercicios reales).
     const namedMisses = unresolved.map((f) => f.exercise_token).filter((t) => t.trim().length > 0);
     expect(namedMisses).toEqual([
       'FUERZA PARTE ALTA',
       'A)',
-      'Dominada (lastrada)',
       'Cable External Rotation',
       'Band Pull Apart',
       'Prone Y Raise',
@@ -312,12 +329,10 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
       'Isometría en puente de glúteo',
       'Cat Cow',
       'Cossack Squat',
-      'Forward Leg Swing',
       'Cobra Pose',
       'Hip Flexor Stretch',
       'Bird Dog',
       'Incremental ergómetros',
-      'Remo',
       'Single Leg Glute Bridge',
       'Side Step Squat With Band',
       'Extension de cadera en cuadrúp...',
@@ -327,25 +342,99 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
       'OPCIONAL',
       'A)',
       'Push Jerk',
-      'Dominada (lastrada)',
       'Bici Libre',
     ]);
 
-    // Y lo que SÍ resuelve — 5 de 56, ya no solo "carrera": tres nombres
-    // reales matchean por SUBSTRING contra GLOBAL_ALIASES ("side plank",
-    // "lateral raise", "push up" dentro de sus nombres completos). Antes de
-    // hoy esos tres NUNCA llegaban al resolutor — caían a review con token
-    // vacío — así que este acierto es NUEVO, no una mejora del resolutor.
+    // Y lo que SÍ resuelve — 9 de 56 (esta mañana: 5). Las 4 ocurrencias
+    // nuevas son traducción pura ES↔EN, no catálogo nuevo: "Dominada
+    // (lastrada)" (×2, una por cada tarjeta que la lleva), "Remo", "Forward
+    // Leg Swing". "Press Banca" y "Step Ups Cajón" TAMBIÉN se tradujeron en
+    // f202c9c5 pero no aparecen aquí resueltos — sus líneas nunca llegan al
+    // resolutor (caen a `review` con token vacío por otros motivos: la carga
+    // "%", el patrón "10+10"), así que el alias nuevo no tiene nada que
+    // resolver todavía en ESTA captura — ver el test de abajo.
     const resolved = allFlags.filter((f) => !f.unresolved_exercise);
     expect(resolved.map((f) => f.exercise_token)).toEqual([
+      'Dominada (lastrada)',
+      'Forward Leg Swing',
       'carrera',
       'carrera mi',
+      'Remo',
       'Side Plank with Clam Shell Hold',
       'Banded Lateral Raise',
       'Scapular Push Up',
+      'Dominada (lastrada)',
     ]);
     expect(resolved.every((f) => f.resolved_via === 'alias')).toBe(true);
   });
+
+  test('"Press Banca" y "Step Ups Cajón" (traducidos en f202c9c5) no llegan al resolutor: sus líneas nunca produjeron un token', async () => {
+    const { days } = await runFullChain();
+    const allNotes = days
+      .flatMap((d) => d.sessions)
+      .flatMap((s) => s.blocks)
+      .flatMap((b) => b.items)
+      .map((it) => it.notes)
+      .filter((n): n is string => !!n);
+
+    // El texto sigue vivo (verbatim, en `notes`), pero ninguno se convirtió
+    // en `exercise_token` — el alias nuevo no tiene ocasión de dispararse
+    // porque `resolveExercise` nunca se llama con "Press Banca" ni "Step Ups
+    // Cajón" como término. Es un hueco de GRAMÁTICA (la carga ">78-80%" y el
+    // patrón "10+10" no producen token), no de traducción.
+    expect(allNotes.some((n) => n.includes('Press Banca'))).toBe(true);
+    expect(allNotes.some((n) => n.includes('Step Ups Cajón'))).toBe(true);
+    const allTokens = days.flatMap((d) => d.flags).map((f) => f.exercise_token);
+    expect(allTokens).not.toContain('Press Banca');
+    expect(allTokens).not.toContain('Step Ups Cajón');
+  });
+
+  test('de los ejercicios reales que siguen sin resolver, 19 de 22 (86%) son movilidad/activación — el catálogo base solo tiene 7 de movilidad sobre 79', async () => {
+    const { days } = await runFullChain();
+    const allFlags = days.flatMap((d) => d.flags);
+    const unresolved = allFlags.filter((f) => f.unresolved_exercise);
+
+    // Restos de parseo, NO ejercicios — se excluyen antes de clasificar
+    // (mismo criterio que el test de arriba).
+    const PARSE_DEBRIS = new Set(['FUERZA PARTE ALTA', 'A)', 'OPCIONAL']);
+    const realNames = [
+      ...new Set(
+        unresolved.map((f) => f.exercise_token.trim()).filter((t) => t && !PARSE_DEBRIS.has(t)),
+      ),
+    ];
+    expect(realNames).toHaveLength(22);
+
+    // Clasificación por juicio de dominio (movimiento por movimiento, no por
+    // patrón de texto): rehab/prehab de hombro, activación glútea, drills de
+    // movilidad de cadera/columna y estabilidad core-cuadrupedia cuentan como
+    // movilidad/activación. Lo que NO cuenta: un levantamiento de fuerza
+    // (Push Jerk) y dos piezas de cardio cuyo equipo exacto ni se sabe
+    // (Incremental ergómetros, Bici Libre — verificado contra el catálogo:
+    // ninguno de los tres tiene equivalente, ver el test de abajo).
+    const NOT_MOBILITY = new Set(['Push Jerk', 'Incremental ergómetros', 'Bici Libre']);
+    const mobility = realNames.filter((n) => !NOT_MOBILITY.has(n));
+    expect(mobility).toHaveLength(19);
+    expect(realNames.filter((n) => NOT_MOBILITY.has(n))).toHaveLength(3);
+  });
+
+  // NOTA (no es un test — no hay DB aquí a propósito): los 22 nombres reales
+  // sin resolver de arriba se verificaron a mano, UNA vez, contra los 79
+  // ejercicios reales del catálogo base (`select id, slug, name, category,
+  // modality from exercises where coach_id is null`, vía psql). Cero
+  // coincidencias legítimas — el hueco es COBERTURA del catálogo (movilidad/
+  // activación solo tiene 7 filas de 79), no una traducción perdida. Tres
+  // negativos que a primera vista PARECEN encajar y no lo hacen (confirmados
+  // de forma independiente, no solo heredados de f202c9c5):
+  //   · "Puente de glúteo" ≠ Hip Thrust — glúteo bajo sin carga vs extensión
+  //     de cadera cargada; movimientos distintos.
+  //   · "Push Jerk" ≠ Clean & Jerk ni Push Press — variante propia de la
+  //     familia olímpica (jerk sin la cargada previa, con impulso de piernas
+  //     distinto al push press).
+  //   · "Bici Libre" ≠ BikeErg necesariamente — "libre" no dice máquina;
+  //     asumir el ergómetro inventaría el equipo.
+  // Si el catálogo base gana entradas de movilidad/activación, ES ESTA lista
+  // la que hay que volver a cruzar — no haría falta tocar gramática ni
+  // resolutor para que algo empiece a resolver solo.
 
   test('las tarjetas de nota y métricas siguen sin colarse como entreno (sin cambios)', async () => {
     const { days } = await runFullChain();
