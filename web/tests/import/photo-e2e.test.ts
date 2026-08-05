@@ -104,13 +104,47 @@ function aliasSlugFor(term: string): string | null {
   return null;
 }
 
+// Ground truth of the REAL base catalog (`select slug from exercises where
+// coach_id is null order by slug`, vía psql, 2026-08-05 — 79 filas, ANTES de
+// la migración 0152). El mock de abajo asumía, sin comprobarlo, que TODA
+// entrada de GLOBAL_ALIASES apunta a una fila que YA existe — cierto siempre
+// hasta que 0152 escribió alias "adelantados" (p.ej. "single leg glute
+// bridge" → `single-leg-glute-bridge`) para filas que NO existen todavía
+// (0152 está escrita pero NO aplicada — pendiente del visto bueno del
+// cliente). Sin este filtro, el suelo pesimista dejaba de serlo: un alias
+// que resuelve a un slug sin fila real se contaba como "resuelto" aquí
+// aunque el `resolveExercise` REAL (que sí consulta `exercises`) seguiría
+// fallando hoy mismo en producción. Se re-verifica a mano cuando cambie el
+// catálogo base — mismo compromiso que ya pesa sobre `aliasSlugFor` arriba.
+const KNOWN_CATALOG_SLUGS = new Set([
+  'ab-wheel', 'air-squat', 'assault-bike', 'atlas-stone-shoulder', 'back-squat',
+  'barbell-row', 'bench-press', 'bike-erg', 'box-jump', 'box-step-up',
+  'broad-jump', 'bulgarian-split-squat', 'burpee', 'cable-fly', 'clean-and-jerk',
+  'deadlift', 'depth-jump', 'devil-press', 'dip', 'double-under',
+  'dumbbell-snatch', 'foam-roll-lower-15min', 'front-squat', 'goblet-squat',
+  'hang-power-clean', 'hanging-knee-raise', 'hip-thrust', 'hollow-hold',
+  'hyrox-burpee-broad-jump', 'hyrox-farmer-carry', 'hyrox-sandbag-lunges',
+  'hyrox-sled-pull', 'hyrox-sled-push', 'hyrox-wall-balls', 'jump-squat',
+  'kb-clean', 'kb-swing', 'lateral-raise', 'leg-swings',
+  'mobility-hip-flow-15min', 'overhead-press', 'pendlay-row', 'pistol-squat',
+  'plank', 'power-clean', 'prehab-shoulder-banded-15min', 'pull-up',
+  'push-press', 'push-up', 'reverse-lunge', 'romanian-deadlift', 'row', 'run',
+  'run-technique-drills', 'russian-twist', 'sandbag-clean', 'side-plank',
+  'single-leg-rdl', 'sit-up', 'ski-erg', 'sled-drag-backwards', 'snatch',
+  'thoracic-rotation', 'thruster', 'toes-to-bar', 'turkish-get-up',
+  'w23-dead-bug', 'w23-kb-overhead-walking-lunge', 'w23-nordic-curl',
+  'w6-breathing-work', 'w6-high-box-jump', 'w6-sit-up-shoot',
+  'w7-prehab-preventatives', 'w9-burpee-to-plate', 'walk', 'walking-lunge',
+  'weighted-dip', 'weighted-pullup', 'zercher-squat-jump',
+]);
+
 vi.mock('@/lib/import/exercise-resolve', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/import/exercise-resolve')>();
   return {
     ...actual,
     resolveExercise: async (_coachId: number, term: string) => {
       const slug = aliasSlugFor(term);
-      if (slug) return { exercise_id: 1, via: 'alias' as const };
+      if (slug && KNOWN_CATALOG_SLUGS.has(slug)) return { exercise_id: 1, via: 'alias' as const };
       return { exercise_id: null, normalized: normalizeTerm(term) };
     },
   };
@@ -302,12 +336,13 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
     expect(allFlags).toHaveLength(56);
   });
 
-  test('la lista LITERAL de ejercicios que no resuelven a catálogo — la definitiva: 47 de 56 items (esta mañana: 51)', async () => {
+  test('la lista LITERAL de ejercicios que no resuelven a catálogo — la definitiva: 48 de 56 items (esta mañana: 51)', async () => {
     const { days } = await runFullChain();
     const allFlags = days.flatMap((d) => d.flags);
 
     const unresolved = allFlags.filter((f) => f.unresolved_exercise);
-    expect(unresolved).toHaveLength(47);
+    const namedMisses = unresolved.map((f) => f.exercise_token).filter((t) => t.trim().length > 0);
+    expect(unresolved).toHaveLength(48);
 
     // La lista que de verdad importa: nombres reales de la captura que el
     // catálogo (suelo GLOBAL_ALIASES ampliado por f202c9c5) sigue sin
@@ -315,7 +350,18 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
     // cabecera "A) 4×4 | RIR 2" produce un segundo token junto al del
     // título) — no ejercicios, y se cuentan aparte (ver el test de
     // movilidad/activación más abajo, que solo cuenta ejercicios reales).
-    const namedMisses = unresolved.map((f) => f.exercise_token).filter((t) => t.trim().length > 0);
+    //
+    // "Scapular Push Up" pasa a esta lista en la migración 0152: antes se
+    // colaba como "resuelto" por el alias genérico "push up" (2 palabras),
+    // que le daba SILENCIOSAMENTE el ejercicio equivocado (Push-Up normal en
+    // vez del suyo propio) — un bug real de match cruzado en producción HOY,
+    // no un efecto de la migración. La 0152 añade la clave explícita de 3
+    // palabras "scapular push up" (gana la ventana más larga antes que la de
+    // 2), así que ahora SÍ apunta al slug correcto — pero ese slug todavía no
+    // tiene fila (0152 escrita, no aplicada), así que hoy mismo cae
+    // correctamente a revisión en vez de mentir. Verificado contra un mock
+    // que ahora sí distingue "alias existe" de "alias con fila real" (ver
+    // `KNOWN_CATALOG_SLUGS` más arriba).
     expect(namedMisses).toEqual([
       'FUERZA PARTE ALTA',
       'A)',
@@ -339,14 +385,16 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
       'Diagonal Band Pull Apart',
       'Banded Front Raise',
       'Prone T Raise',
+      'Scapular Push Up',
       'OPCIONAL',
       'A)',
       'Push Jerk',
       'Bici Libre',
     ]);
 
-    // Y lo que SÍ resuelve — 9 de 56 (esta mañana: 5). Las 4 ocurrencias
-    // nuevas son traducción pura ES↔EN, no catálogo nuevo: "Dominada
+    // Y lo que SÍ resuelve — 8 de 56 (esta mañana: 5, hasta f202c9c5: 9 con
+    // el falso positivo de "Scapular Push Up" incluido). Las 3 ocurrencias
+    // restantes de traducción pura ES↔EN (catálogo sin crecer): "Dominada
     // (lastrada)" (×2, una por cada tarjeta que la lleva), "Remo", "Forward
     // Leg Swing". "Press Banca" y "Step Ups Cajón" TAMBIÉN se tradujeron en
     // f202c9c5 pero no aparecen aquí resueltos — sus líneas nunca llegan al
@@ -362,7 +410,6 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
       'Remo',
       'Side Plank with Clam Shell Hold',
       'Banded Lateral Raise',
-      'Scapular Push Up',
       'Dominada (lastrada)',
     ]);
     expect(resolved.every((f) => f.resolved_via === 'alias')).toBe(true);
@@ -389,7 +436,7 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
     expect(allTokens).not.toContain('Step Ups Cajón');
   });
 
-  test('de los ejercicios reales que siguen sin resolver, 19 de 22 (86%) son movilidad/activación — el catálogo base solo tiene 7 de movilidad sobre 79', async () => {
+  test('de los ejercicios reales que siguen sin resolver, 20 de 23 (87%) son movilidad/activación — el catálogo base solo tiene 7 de movilidad sobre 79', async () => {
     const { days } = await runFullChain();
     const allFlags = days.flatMap((d) => d.flags);
     const unresolved = allFlags.filter((f) => f.unresolved_exercise);
@@ -402,29 +449,34 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
         unresolved.map((f) => f.exercise_token.trim()).filter((t) => t && !PARSE_DEBRIS.has(t)),
       ),
     ];
-    expect(realNames).toHaveLength(22);
+    expect(realNames).toHaveLength(23);
 
     // Clasificación por juicio de dominio (movimiento por movimiento, no por
     // patrón de texto): rehab/prehab de hombro, activación glútea, drills de
     // movilidad de cadera/columna y estabilidad core-cuadrupedia cuentan como
-    // movilidad/activación. Lo que NO cuenta: un levantamiento de fuerza
-    // (Push Jerk) y dos piezas de cardio cuyo equipo exacto ni se sabe
-    // (Incremental ergómetros, Bici Libre — verificado contra el catálogo:
-    // ninguno de los tres tiene equivalente, ver el test de abajo).
+    // movilidad/activación — "Scapular Push Up" entra en el mismo grupo que
+    // "Prone Y/T Raise"/"Band Scapular Retraction"/"Serratus wall slide": es
+    // activación de estabilizadores de la escápula, no fuerza de empuje. Lo
+    // que NO cuenta: un levantamiento de fuerza (Push Jerk) y dos piezas de
+    // cardio cuyo equipo exacto ni se sabe (Incremental ergómetros, Bici
+    // Libre — verificado contra el catálogo: ninguno de los tres tiene
+    // equivalente, ver el test de abajo).
     const NOT_MOBILITY = new Set(['Push Jerk', 'Incremental ergómetros', 'Bici Libre']);
     const mobility = realNames.filter((n) => !NOT_MOBILITY.has(n));
-    expect(mobility).toHaveLength(19);
+    expect(mobility).toHaveLength(20);
     expect(realNames.filter((n) => NOT_MOBILITY.has(n))).toHaveLength(3);
   });
 
-  // NOTA (no es un test — no hay DB aquí a propósito): los 22 nombres reales
-  // sin resolver de arriba se verificaron a mano, UNA vez, contra los 79
-  // ejercicios reales del catálogo base (`select id, slug, name, category,
-  // modality from exercises where coach_id is null`, vía psql). Cero
-  // coincidencias legítimas — el hueco es COBERTURA del catálogo (movilidad/
-  // activación solo tiene 7 filas de 79), no una traducción perdida. Tres
-  // negativos que a primera vista PARECEN encajar y no lo hacen (confirmados
-  // de forma independiente, no solo heredados de f202c9c5):
+  // NOTA (no es un test — no hay DB aquí a propósito): los 23 nombres reales
+  // sin resolver de arriba (22 + "Scapular Push Up", que hasta la 0152 se
+  // colaba como resuelto por un match cruzado con el "push up" genérico — ver
+  // el comentario en el test de arriba) se verificaron a mano, UNA vez,
+  // contra los 79 ejercicios reales del catálogo base (`select id, slug,
+  // name, category, modality from exercises where coach_id is null`, vía
+  // psql). Cero coincidencias legítimas — el hueco es COBERTURA del catálogo
+  // (movilidad/activación solo tiene 7 filas de 79), no una traducción
+  // perdida. Tres negativos que a primera vista PARECEN encajar y no lo hacen
+  // (confirmados de forma independiente, no solo heredados de f202c9c5):
   //   · "Puente de glúteo" ≠ Hip Thrust — glúteo bajo sin carga vs extensión
   //     de cadera cargada; movimientos distintos.
   //   · "Push Jerk" ≠ Clean & Jerk ni Push Press — variante propia de la
@@ -434,7 +486,10 @@ describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 +
   //     asumir el ergómetro inventaría el equipo.
   // Si el catálogo base gana entradas de movilidad/activación, ES ESTA lista
   // la que hay que volver a cruzar — no haría falta tocar gramática ni
-  // resolutor para que algo empiece a resolver solo.
+  // resolutor para que algo empiece a resolver solo. La migración 0152 (ver
+  // infra/migrations/) siembra exactamente esta cobertura — ESCRITA, no
+  // aplicada — y ya trae el alias explícito que corrige el match cruzado de
+  // "Scapular Push Up" en cuanto se aplique.
 
   test('las tarjetas de nota y métricas siguen sin colarse como entreno (sin cambios)', async () => {
     const { days } = await runFullChain();

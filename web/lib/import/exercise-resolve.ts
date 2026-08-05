@@ -96,6 +96,14 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'dominadas lastradas': 'weighted-pullup',
   'push up': 'push-up',
   'push ups': 'push-up',
+  // Caught by verifying, not by inspection: aliasToSlug's word-window scan
+  // checks the LONGEST window first, but "push up" (2 words) is a substring
+  // of "scapular push up" (3 words) — without its OWN 3-word key, "Scapular
+  // Push Up" (migration 0152) silently resolved to the generic push-up
+  // instead, a wrong-exercise bug the coach would never notice. The explicit
+  // longer key wins the race before the shorter one ever gets a look.
+  'scapular push up': 'scapular-push-up',
+  'scapular push ups': 'scapular-push-up',
   'dip': 'weighted-dip',
   'dips': 'weighted-dip',
   'lateral raise': 'lateral-raise',
@@ -167,6 +175,36 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'forward leg swings': 'leg-swings',
   'balanceo de pierna': 'leg-swings',
   'balanceo de piernas': 'leg-swings',
+  // English equivalents for the Spanish-named rows added by migration 0152
+  // (mobility/activation base catalog) — the row's OWN name is the coach's
+  // real Spanish wording (per that migration's header), so the catalog-name
+  // exact/substring layers already resolve the exact Spanish phrase once the
+  // row exists; these are for the English side of the same movement. NOT
+  // resolvable yet — 0152 is written but NOT applied (client sign-off
+  // pending); these keys become live the moment it runs, safe to ship ahead
+  // of it (aliasToSlug finds the slug, the `exercises` lookup just misses
+  // until the row exists, same as any other miss).
+  'glute bridge': 'glute-bridge',
+  // Same race as "Scapular Push Up" above, same fix: "single leg glute
+  // bridge" (4 words) CONTAINS "glute bridge" (2 words) as its last two
+  // words. Without its own 4-word key here, the scan's first pass (the full
+  // 4-word window) misses, and it falls through to the 2-word pass, where
+  // "glute bridge" — a real key — wins, resolving to the BILATERAL bridge
+  // instead of this single-leg one. Caught the same way: running the real
+  // resolver against a real branch, not by reading the code.
+  'single leg glute bridge': 'single-leg-glute-bridge',
+  'glute bridge march': 'glute-bridge-march',
+  'isometric glute bridge': 'glute-bridge-isometric-hold',
+  'glute bridge hold': 'glute-bridge-isometric-hold',
+  // "90-90"/"90/90" carries no letters at all — the ONLY way it resolves is
+  // this exact-string key; the catalog row is named descriptively ("90/90
+  // Hip Stretch") for OTHER coaches browsing it, which the bare digits would
+  // never usefully be.
+  '90-90': 'hip-90-90-stretch',
+  '90/90': 'hip-90-90-stretch',
+  'quadruped hip extension': 'quadruped-hip-extension',
+  'donkey kick': 'quadruped-hip-extension',
+  'donkey kicks': 'quadruped-hip-extension',
 };
 
 // ---------------------------------------------------------------------------
