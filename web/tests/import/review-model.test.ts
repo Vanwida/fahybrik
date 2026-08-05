@@ -24,8 +24,8 @@ import {
   buildReviewModel,
   dayHiddenCount,
   dayProposedFields,
+  dayProposedPaths,
   dayTone,
-  proposedFieldLabel,
   sessionIncompleteLines,
   totalExcludedDays,
   totalIncomplete,
@@ -35,6 +35,7 @@ import {
   type MicroWeekRef,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
+import { proposedFieldLabel } from '@/lib/dashboard/v2/import-provenance';
 
 // ── Fixture builders (minimal but REAL types — no `any`) ──────────────────────
 
@@ -494,5 +495,36 @@ describe('lo que la fuente cortó', () => {
     expect(day.proposed).toEqual([]);
     expect(day.truncations).toEqual([]);
     expect(dayTone(day)).toBe('ok');
+  });
+});
+
+describe('las rutas propuestas que consume el editor de bloque', () => {
+  test('llegan por línea, con su etiqueta ya escrita', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const paths = dayProposedPaths(model[0]!.days[0]!);
+    expect([...paths.keys()]).toEqual([itemUid]);
+    expect([...paths.get(itemUid)!.entries()]).toEqual([
+      ['sets[0].rest_s', 'descanso 90 s'],
+      ['sets[0].target', 'RIR 2'],
+    ]);
+  });
+
+  test('editar el valor saca su ruta del mapa, no solo de la lista', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s = 120;
+    expect([...dayProposedPaths(day).get(itemUid)!.keys()]).toEqual(['sets[0].target']);
+  });
+
+  test('sin propuestas el mapa está vacío: el editor no recibe nada que marcar', () => {
+    expect(dayProposedPaths(photoModel(uid('item'), [])[0]!.days[0]!).size).toBe(0);
   });
 });

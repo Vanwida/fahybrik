@@ -9,13 +9,13 @@
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
-import type { ProposedField, ReviewDay } from '@/lib/dashboard/v2/import-review';
+import type { ReviewDay } from '@/lib/dashboard/v2/import-review';
 import {
   blockTruncation,
   dayIncompleteLines,
   dayProposedFields,
+  dayProposedPaths,
   dayTone,
-  proposedFieldLabel,
 } from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
@@ -36,38 +36,6 @@ const SEED_PRESCRIPTION: Prescription = {
 };
 
 let manualSeq = 0;
-
-/**
- * Lo propuesto, agrupado por línea para poder leerlo como lo lee el coach: el
- * ejercicio y, al lado, los valores que no salían en la foto.
- */
-function groupProposedByItem(
-  day: ReviewDay,
-): Array<{ uid: string; name: string; fields: ProposedField[] }> {
-  const pending = dayProposedFields(day);
-  if (pending.length === 0) return [];
-  const names = new Map<string, string>();
-  for (const session of day.sessions) {
-    for (const block of session.blocks) {
-      for (const item of block.items) names.set(item.uid, item.exercise_name);
-    }
-  }
-  const order: string[] = [];
-  const byItem = new Map<string, ProposedField[]>();
-  for (const field of pending) {
-    const bucket = byItem.get(field.item_uid);
-    if (bucket) bucket.push(field);
-    else {
-      order.push(field.item_uid);
-      byItem.set(field.item_uid, [field]);
-    }
-  }
-  return order.map((uid) => ({
-    uid,
-    name: names.get(uid) || 'Línea sin ejercicio',
-    fields: byItem.get(uid)!,
-  }));
-}
 
 const TONE_COPY: Record<ReturnType<typeof dayTone>, { label: string; className: string }> = {
   rest: { label: 'Descanso', className: 'text-[color:var(--v2-faint)]' },
@@ -111,8 +79,10 @@ export function ImportDayReviewDrawer({
   // Lo que la foto no enseñaba y rellenó el importador. Sale en trazo discontinuo:
   // el coach tiene que poder ver de un vistazo qué leyó la foto y qué pusimos
   // nosotros por él. Al confirmar la distinción desaparece y no se guarda.
-  const proposedByItem = groupProposedByItem(day);
-  const proposedCount = proposedByItem.reduce((n, group) => n + group.fields.length, 0);
+  const proposedCount = dayProposedFields(day).length;
+  // Por línea, qué rutas siguen siendo propuestas: el editor de bloque marca con
+  // ellas el campo exacto, que es donde el coach entiende «esto no lo escribí yo».
+  const proposedPaths = dayProposedPaths(day);
 
   /** Una línea vacía en el bloque que la foto cortó, para escribirla a mano. */
   const addManualLine = (sessionIndex: number, blockUid: string) => {
@@ -261,23 +231,6 @@ export function ImportDayReviewDrawer({
                       Aceptar todos los propuestos
                     </button>
                   </div>
-                  <ul className="mt-3 space-y-2">
-                    {proposedByItem.map((group) => (
-                      <li key={group.uid} className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                        <span className="text-label font-semibold text-[color:var(--v2-fg)]">
-                          {group.name}
-                        </span>
-                        {group.fields.map((field) => (
-                          <span
-                            key={field.path}
-                            className="v2-num inline-flex items-center rounded-[var(--v2-r-xs)] border border-dashed border-[color:var(--v2-warn)] px-2 py-0.5 text-nano text-[color:var(--v2-warn)]"
-                          >
-                            {proposedFieldLabel(field.field, field.snapshot)} · propuesto
-                          </span>
-                        ))}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               ) : null}
 
@@ -315,6 +268,7 @@ export function ImportDayReviewDrawer({
                           <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4">
                             <BlockEditor
                               block={block}
+                              proposedPaths={proposedPaths}
                               onChange={(next) => updateBlock(sessionIndex, next)}
                             />
                           </div>
