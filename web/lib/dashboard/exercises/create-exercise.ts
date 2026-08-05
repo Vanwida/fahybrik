@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema } from '@fahybrid/shared/domain/prescription';
 import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
-import { sql, type Sql } from '@/lib/db';
+import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exercise';
 
@@ -74,7 +74,7 @@ function slugify(name: string): string {
     .slice(0, 80);
 }
 
-async function uniqueSlug(base: string, client: Sql): Promise<string> {
+async function uniqueSlug(base: string, client: Sql | TransactionClient): Promise<string> {
   const root = base || 'ejercicio';
   // One query for all existing slugs sharing the root, then pick the first free.
   const taken = await client<{ slug: string }[]>`
@@ -93,7 +93,10 @@ async function uniqueSlug(base: string, client: Sql): Promise<string> {
 export async function createExercise(
   input: CreateExerciseInput,
   coachId: bigint,
-  client: Sql = sql,
+  // Acepta también una TRANSACCIÓN, para que el alta EN BLOQUE del importador
+  // pueda crear treinta ejercicios todos-o-ninguno sin duplicar este insert. Es
+  // el mismo ensanche que ya hacen `coach/blocks.ts` y `coach/templates.ts`.
+  client: Sql | TransactionClient = sql,
 ): Promise<CatalogExercise> {
   const slug = await uniqueSlug(slugify(input.name), client);
   const videoUrl = input.video_url ?? null;
