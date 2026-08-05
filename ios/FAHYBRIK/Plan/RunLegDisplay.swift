@@ -24,9 +24,16 @@ enum RunLegDisplay {
     /// elapsed time — the honest per-tramo pace (the session's segment pace averages
     /// across every leg, so it can't be used here). Nil until the leg has enough
     /// distance/time for a meaningful number.
+    /// Por encima de esto no se está corriendo: se está de pie, parado o el GPS
+    /// aún no ha fijado. 20:00/km es más lento que caminar despacio, así que un
+    /// número por encima no describe ningún esfuerzo — describe un sensor sin
+    /// datos. Pintarlo es peor que no pintar nada: «55:40/km» sentado en el sofá
+    /// parece una medida y no lo es (§7).
+    static let maxPaceSecPerKm = 1_200
     static func legPaceSecPerKm(coveredMeters: Double, elapsedS: Double) -> Int? {
         guard coveredMeters >= minMetersForPace, elapsedS > 0 else { return nil }
-        return Int((elapsedS / (coveredMeters / 1000.0)).rounded())
+        let pace = Int((elapsedS / (coveredMeters / 1000.0)).rounded())
+        return pace <= maxPaceSecPerKm ? pace : nil
     }
 
     /// The objetivo line for a WORK leg + its judgment. `label` is the pace band /

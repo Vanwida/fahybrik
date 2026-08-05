@@ -251,10 +251,12 @@ final class OutdoorRunHUDModel {
 
     private func contentState() -> RunActivityAttributes.ContentState {
         RunActivityAttributes.ContentState(
-            // Sin ritmo medido, la pantalla bloqueada dice POR QUÉ no lo hay — la
-            // misma razón que ya da el HUD debajo del sujeto. Un guion en la isla
-            // dinámica es la misma mentira que un guion en la app (§7).
-            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? gpsQuality.label,
+            // Sin ritmo medido este campo va VACÍO y el widget cambia de sujeto al
+            // tiempo. Antes se colaba aquí `gpsQuality.label` y salía «RITMO · GPS
+            // fuerte /km». Y además de estar en el sitio equivocado, no le sirve de
+            // nada al atleta: que el GPS vaya bien es el estado normal, y un estado
+            // normal no se anuncia — sólo se avisa cuando FALTA algo.
+            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "",
             legLabel: isStructured ? "Tramo \(legNumber)/\(legTotal)" : "",
             distanceLabel: Formato.distanciaCubierta(coveredMeters) ?? "0 m",
             timeLabel: Formato.clock(session.elapsedSeconds, anchoFijo: true),

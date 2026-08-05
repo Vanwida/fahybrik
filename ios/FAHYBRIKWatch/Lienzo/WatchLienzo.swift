@@ -43,9 +43,10 @@ struct WatchReloj: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                WatchTheme.bg
+                WatchTheme.bg.ignoresSafeArea()
                 if let tinte {
                     tinte.opacity(WatchTinte.maxOpacity)
+                        .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
                 }
                 // Degradado OLED: aire arriba/abajo, sujeto legible en el centro.
@@ -60,19 +61,25 @@ struct WatchReloj: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .opacity(0.9)
+                .opacity(0.55)
+                .ignoresSafeArea()
 
-                if let bisel { bisel }
+                if let bisel { bisel.ignoresSafeArea() }
 
                 contenido(size: geo.size)
 
                 // Destello de transición.
                 destello.color
                     .opacity(destelloOpacity)
+                    .ignoresSafeArea()
                     .allowsHitTesting(false)
             }
         }
-        .ignoresSafeArea()
+        // EL FONDO va a sangre; EL CONTENIDO no. En watchOS la franja superior no
+        // es nuestra: el sistema pinta ahí la hora en toda app de entreno y no se
+        // puede quitar. El safe area superior existe justo para eso, y al ignorarlo
+        // la banda de contexto se metía DEBAJO de «10:59» y no se leía ninguna de
+        // las dos. Se ignora sólo para pintar el color hasta el borde.
         .onChange(of: destello.n) { _, _ in
             guard destello.n > 0 else { return }
             destelloOpacity = 0.55
@@ -93,13 +100,17 @@ struct WatchReloj: View {
         VStack(spacing: 0) {
             // Área principal = el botón (toque) + deslizamiento (páginas).
             VStack(spacing: 0) {
+                // Y aunque el safe area ya baja el contenido, la banda se queda en
+                // la mitad izquierda: la hora vive arriba a la derecha y un
+                // contexto largo («SERIE 1 / 5 · TE FALTAN») llegaría hasta ella.
                 Text(p.contexto.uppercased())
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(1.1)
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(1.0)
                     .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 44)
 
                 Spacer(minLength: 4)
 

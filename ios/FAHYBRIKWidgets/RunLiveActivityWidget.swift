@@ -16,13 +16,19 @@ struct RunLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
             RunLiveActivityLockScreen(state: context.state)
-                .activityBackgroundTint(Color.black.opacity(0.35))
+                // Casi opaco a propósito: al 35 % el fondo de pantalla se colaba y
+                // el texto blanco sobre una foto clara no se leía. La pantalla
+                // bloqueada puede tener CUALQUIER imagen detrás, así que el
+                // contraste no puede depender de ella.
+                .activityBackgroundTint(Color.black.opacity(0.92))
                 .activitySystemActionForegroundColor(fabrikOrange)
         } dynamicIsland: { context in
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    islandMetric(value: s.paceLabel, unit: "/km", accent: !s.paused)
+                    islandMetric(value: s.paceLabel.isEmpty ? s.timeLabel : s.paceLabel,
+                                 unit: s.paceLabel.isEmpty ? "tiempo" : "/km",
+                                 accent: !s.paused)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     // Sin zona la métrica SE VA de la isla, no se queda como guion: la
@@ -83,17 +89,24 @@ struct RunLiveActivityLockScreen: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
+            // EL SUJETO ES EL RITMO, Y SI NO HAY RITMO ES EL TIEMPO. Nunca una
+            // palabra con «/km» detrás: la unidad convierte cualquier cosa en una
+            // medida falsa. El tiempo siempre es cierto, así que es la degradación
+            // honesta mientras el GPS no pueda avalar un ritmo.
+            let hayRitmo = !state.paceLabel.isEmpty
             VStack(alignment: .leading, spacing: 2) {
-                Text(state.paused ? "PAUSA" : "RITMO")
+                Text(state.paused ? "PAUSA" : (hayRitmo ? "RITMO" : "TIEMPO"))
                     .font(.system(size: 10, weight: .heavy).italic())
                     .tracking(0.6)
                     .foregroundStyle(state.paused ? fabrikOrange : .secondary)
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
-                    Text(state.paceLabel)
+                    Text(hayRitmo ? state.paceLabel : state.timeLabel)
                         .font(.system(size: 34, weight: .heavy, design: .monospaced))
                         .foregroundStyle(state.paused ? .secondary : .primary)
                         .lineLimit(1).minimumScaleFactor(0.6)
-                    Text("/km").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                    if hayRitmo {
+                        Text("/km").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -104,7 +117,9 @@ struct RunLiveActivityLockScreen: View {
                 chip(state.distanceLabel, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 HStack(spacing: 8) {
                     if !state.zoneLabel.isEmpty { chip(state.zoneLabel, systemImage: "heart.fill") }
-                    chip(state.timeLabel, systemImage: "clock")
+                    // El tiempo no se repite: si ya es el sujeto de la izquierda,
+                    // ponerlo otra vez al lado es ruido.
+                    if hayRitmo { chip(state.timeLabel, systemImage: "clock") }
                 }
             }
         }

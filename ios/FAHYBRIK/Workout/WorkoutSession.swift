@@ -616,7 +616,11 @@ final class WorkoutSession {
         } else {
             pace = Self.paceSecPerKm(meters: liveRunDistanceMeters, seconds: lapElapsedSeconds)
         }
-        return pace.map { Int($0.rounded()) }
+        // El mismo techo que aplica RunLegDisplay: por encima de 20:00/km no se
+        // está corriendo, y un número así en la muñeca parece una medida sin
+        // serlo. Se aplica AQUÍ además de allí porque este accesor lo leen el HUD
+        // del móvil y el cable del espejo, y los tres tienen que callar a la vez.
+        return pace.map { Int($0.rounded()) }.flatMap { $0 <= RunLegDisplay.maxPaceSecPerKm ? $0 : nil }
     }
 
     /// EMOM intervals still ahead of the current one (0 on the last interval).
