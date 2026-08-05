@@ -1,7 +1,55 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-04**
+Última actualización: **2026-08-05**
+
+---
+
+## 5-ago · Importar la semana desde una FOTO — diseño cerrado y la gramática saneada
+
+**En marcha.** Alex quiere una cuarta puerta en el importador (hoy: subir Excel, pegar texto,
+generar con IA) para meter una semana desde una captura de pantalla — su fuente real es la vista
+de calendario semanal de TrainingPeaks. Documento con los mockups:
+`docs/importar-por-foto.html`.
+
+**La decisión de arquitectura: la visión TRANSCRIBE, la gramática TIPA.** El modelo lee la imagen
+y devuelve la misma estructura intermedia que ya produce el lector de Excel; a partir de ahí entra
+la gramática determinista, `resolveExercise()`, la rejilla de revisión y `confirm`. Un día
+importado de una foto queda byte a byte como uno escrito a mano. Si la visión escupiera el JSON
+final habría dos caminos de notación a prescripción tipada y divergirían.
+
+**Lo que la exploración dejó claro (3 agentes, todo con fichero:línea):**
+- La infraestructura de visión YA existe (`callLlmJsonWithImage`, `LLM_VISION_MODEL`) y ya envuelve
+  cada campo en `{valor, confianza}` — se usa para fotos de comida y capturas de Garmin/PM5/Strava,
+  pero nunca se conectó al importador del coach.
+- `slots_json` es la superficie de AUTORÍA; `templates`+`template_segments` la de MATERIALIZACIÓN.
+  Se cruzan UNA vez, al asignar. El importador escribe solo en la primera. **Un entreno inventado
+  NO necesita existir en la biblioteca de bloques; sí necesita `exercise_id` real.**
+- `completeness.ts` ya distingue dos listones: lo que AUTORA un modelo exige dosis+intensidad+
+  descanso; lo que se TRANSCRIBE de un coach solo dosis. Medido contra las 12 semanas de Pablo:
+  el estricto rechaza el 57 %, el ejecutable 0 de 137. Importar una foto es transcribir.
+- **Un item mal tipado no da error: desaparece.** `WorkoutBlock.items` es `@LossyArray`, así que un
+  item sin `scheme` (o sin los 5 campos de ejercicio) se borra en silencio de la sesión del atleta.
+
+**Hecho hoy** (commit `13de22a2`): cinco bugs de la gramática compartida, verificados EJECUTANDO
+`parseNotationCell`. Tres de ellos no fallaban — acertaban MAL con `detected`, sin bandera:
+`"B: Deadlift 5x5"` tipaba un ejercicio llamado «B» tirando el nombre real; `"3-4 RONDAS"` y
+`"12-15 repeticiones"` tipaban series de un ejercicio llamado «RONDAS» / «repeticiones». Más el
+signo `×` tumbando líneas por motivo tipográfico, el RIR que solo se borraba y nunca se tipaba
+(cada `4x4 | RIR 2` de la biblioteca perdió su intensidad), y «Bici» sin modalidad. 174 tests en
+verde, 0 regresiones, 9 tests nuevos de regresión.
+
+**Lo siguiente:** el lector de visión + `build-proposal.ts` multi-bloque por día (hoy colapsa el
+día entero en UN bloque, herencia de «una celda = un día» del Excel; la captura real trae días con
+tres entrenos), los defaults rellenables como dato editable del coach (patrón `coach_guidance`,
+no `coach_methodology` que está muerto), y la UI del cuarto modo.
+
+**Pendiente de decisión de Alex:**
+1. El UX del documento (cuarta pestaña + marcado leído/propuesto en la revisión).
+2. Dos cosas que tocan `Prescription` y por tanto los `Codable` de Swift: **rango de reps**
+   («4 series de 12-15» hoy se aplana a dos series, que es otra cosa) y **superserie**
+   (`A1/A2/A3` frente a `A/B/C`, que cambia cómo se ejecuta en vivo). Ambas objetivamente
+   necesarias; ninguna construida todavía.
 
 ---
 
