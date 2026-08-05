@@ -34,11 +34,13 @@ struct ActiveWorkoutView: View {
     @State private var partnerLive: PartnerLiveStatus? = nil
     @State private var partnerStripCollapsed: Bool = false
 
-    @State private var showTreadmill: Bool = false
-    @State private var showOutdoor: Bool = false
-    // #8 — the last segment index whose run HUD we auto-opened. Guards the auto-open
-    // to ONCE per segment, so a manual close is respected until the next run segment.
-    @State private var autoOpenedRunSegment: Int? = nil
+    // AQUÍ VIVÍAN `showTreadmill`, `showOutdoor` y `autoOpenedRunSegment` (5-ago).
+    // Las dos pantallas de correr eran `fullScreenCover` y se auto-abrían al entrar
+    // al tramo, así que había SIEMPRE dos superficies vivas para el mismo trabajo:
+    // el HUD de la ranura seguía montado debajo, con otras reglas de ritmo y de
+    // cierre, y cerrar el cover enseñaba otra pantalla del mismo tramo. Ahora correr
+    // es una superficie viva más (ver `superficieViva`): no hay cover que abrir, no
+    // hay estado de apertura que guardar y no hay nada debajo.
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -124,17 +126,12 @@ struct ActiveWorkoutView: View {
     private var isRunSegment: Bool {
         session.currentSegment?.kind == .running
     }
-    // #60 — a RUN interval series (folded `.intervals` segment). The plain-run
-    // treadmill entry lives inside RunLiveHUD, but a series routes to
-    // IntervalsLiveHUD, so it needs its own "Correr en cinta" CTA here.
-    // The belt follows the same rule as the monitor: a run round inside ANY format
-    // (an EMOM alternating cinta / burpees) has to be able to reach the belt too.
-    private var isRunSeriesSegment: Bool {
-        guard let s = session.currentSegment else { return false }
-        // A structured run (#61) is a leg sequence on the belt too — offer the CTA.
-        return TreadmillLegResolver.isRunSeries(s) || s.hasRunStructure
-            || (session.tramoIsRun && s.kind != .running)
-    }
+    // AQUÍ VIVÍA `isRunSeriesSegment`, la condición de los botones «Correr en
+    // cinta» / «Correr fuera». Era la MISMA decisión escrita en dos sitios (la otra
+    // copia iba dentro de `RunLiveHUD`), y las dos abrían covers. Con los botones se
+    // fue la condición; lo que queda —cuándo ofrecer CAMBIAR DE SITIO— se lee de
+    // `session.tramoIsRun`, que es la pregunta de verdad: ¿la ventana activa es
+    // correr?
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
     }
@@ -182,10 +179,14 @@ struct ActiveWorkoutView: View {
                     .animation(.easeInOut(duration: 0.3), value: session.isTramoResting)
             }
             if let viva = superficieViva {
-                // EL LENGUAJE DEL §10: estas dos superficies montan su propio marco
+                // EL LENGUAJE DEL §10: estas superficies montan su propio marco
                 // (`MarcoVivo`) porque el ancla del sujeto es una propiedad de la
-                // PANTALLA, no de una vista — ver `superficieViva`. El cromo y la
-                // acción siguen siendo de aquí; lo que cambia es quién los coloca.
+                // PANTALLA, no de una vista — ver `superficieViva`. En el EMOM y el
+                // hierro el cromo y la acción siguen siendo de aquí y sólo cambia
+                // quién los coloca; las dos de correr traen los suyos (su cromo lleva
+                // el altavoz y la pausa, y su acción cierra el tramo), y por eso se
+                // les pasa a dónde va el aspa: a SALIR DEL ENTRENO, no a cerrar una
+                // pantalla que ya no tiene nada detrás.
                 Ambiente(zona: session.liveZone)
                 switch viva {
                 case .emom:
@@ -196,6 +197,12 @@ struct ActiveWorkoutView: View {
                     FuerzaVivoView(session: session,
                                    accionTitulo: primaryTitle,
                                    alTocarAccion: { primaryAction() }) { topStrip }
+                case .correrFuera:
+                    OutdoorRunHUDView(session: session, hrZones: hrZones,
+                                      alSalir: { requestExit() })
+                case .correrCinta:
+                    TreadmillHUDView(session: session, hrZones: hrZones,
+                                     alSalir: { requestExit() })
                 }
             } else if isErgLandscapeFocus {
                 // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
@@ -288,7 +295,6 @@ struct ActiveWorkoutView: View {
             session.ergConnected = activePM5.isConnected
             attemptProgramPM5()
             updateRunGPS()
-            maybeAutoOpenRunCover()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
             if !PhoneMirrorService.shared.wristJoined {
@@ -317,16 +323,17 @@ struct ActiveWorkoutView: View {
         }
         .onChange(of: session.currentSegmentIndex) { _, _ in
             updateRunGPS()
-            maybeAutoOpenRunCover()
         }
-        .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
-            // The athlete tapped "Empezar" on a block whose first segment is a run —
-            // land them straight in the HUD they chose, not the generic screen.
-            if !awaiting { maybeAutoOpenRunCover() }
+        .onChange(of: session.isAwaitingBlockStart) { _, _ in
+            // El atleta le ha dado a EMPEZAR (o ha llegado a la puerta del siguiente
+            // bloque): la superficie de calle aparece o desaparece con eso, y con
+            // ella cambia quién es el dueño del GPS.
+            updateRunGPS()
         }
-        .onChange(of: showOutdoor) { _, presenting in
-            // Hand the GPS to the outdoor HUD when it opens; take it back on close.
-            if presenting { runGPS.stop() } else { updateRunGPS() }
+        .onChange(of: session.runEnvironment) { _, _ in
+            // Acaba de contestar «¿dónde corres?»: en cinta el GPS se apaga, en la
+            // calle lo toma la superficie de calle.
+            updateRunGPS()
         }
         .onChange(of: PhoneMirrorService.shared.wristJoined) { _, joined in
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
@@ -356,17 +363,15 @@ struct ActiveWorkoutView: View {
             session.ergConnected = activePM5.isConnected
             attemptProgramPM5()
         }
-        .sheet(isPresented: $showPM5Sheet, onDismiss: { maybeAutoOpenRunCover() }) {
+        .sheet(isPresented: $showPM5Sheet) {
             let store = sheetPM5
             let role = ErgMachineRole(modality: session.currentTramo.modality)
             PM5LiveStreamView(store: store, roleTitle: role?.titleES)
         }
-        .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, hrZones: hrZones)
-        }
-        .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, hrZones: hrZones)
-        }
+        // AQUÍ ESTABAN LOS DOS `fullScreenCover` DE CORRER (cinta y calle). Se han
+        // ido: las dos pantallas se pintan EN LÍNEA como superficie viva, así que ya
+        // no pueden taparse entre ellas, ni tapar un EMOM o un For Time, ni convivir
+        // con un HUD montado debajo.
         // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
         // so the next cover / the count-in never fights the dismissing one.
         .fullScreenCover(isPresented: $showRunGate, onDismiss: { continueAfterRunGate() }) {
@@ -396,7 +401,6 @@ struct ActiveWorkoutView: View {
             // Resume only if opening the video is what paused the clock.
             if resumeAfterVideo { session.resumeFromVideo() }
             resumeAfterVideo = false
-            maybeAutoOpenRunCover()     // the screen is free again — see the guard
         }) {
             if let url = session.currentSegment?.videoUrl {
                 YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
@@ -579,30 +583,12 @@ struct ActiveWorkoutView: View {
         DeviceHub.shared.onRecordSample = { sample in feeder.ingest(sample) }
     }
 
-    // #8 — the athlete answered "¿dónde corres?" before starting: put them straight
-    // in the chosen live HUD (cinta / calle) when a run segment goes live, instead of
-    // a generic GPS screen. Fires ONCE per segment (the autoOpenedRunSegment guard),
-    // so a manual close stays closed until the next run segment.
-    private func maybeAutoOpenRunCover() {
-        guard let env = session.runEnvironment,
-              isRunSegment,
-              !session.isAwaitingBlockStart,
-              autoOpenedRunSegment != session.currentSegmentIndex,
-              !showTreadmill, !showOutdoor,
-              // NEVER push a cover over an open sheet. This fires off SESSION state
-              // (the engine advancing a segment), so it can land while the athlete has
-              // the erg sheet or a technique video open — and UIKit answers a modal
-              // fighting a modal with "only presenting a single sheet is supported",
-              // eating his taps. `autoOpenedRunSegment` is deliberately NOT stamped on
-              // this path, and both sheets re-run this check on dismiss, so he still
-              // lands in his HUD the moment the screen is free.
-              !showPM5Sheet, !showSegmentVideo else { return }
-        autoOpenedRunSegment = session.currentSegmentIndex
-        switch env {
-        case .treadmill: showTreadmill = true
-        case .outdoor:   showOutdoor = true
-        }
-    }
+    // AQUÍ VIVÍA `maybeAutoOpenRunCover()` (#8), que abría el cover de correr al
+    // entrar al tramo. Con él se van sus tres parches: el guardado de «ya lo abrí
+    // para este tramo», la abstención cuando había una hoja abierta (UIKit no
+    // presenta un modal sobre otro) y los reintentos al cerrarla. Nada de eso hacía
+    // falta: la pantalla de correr no se ABRE, se RESUELVE — `superficieViva` la
+    // devuelve cuando toca y la retira cuando deja de tocar.
 
     // MARK: - Pre-block start gates (run env → erg connect → count-in)
 
@@ -669,12 +655,15 @@ struct ActiveWorkoutView: View {
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
     private func updateRunGPS() {
-        // While the outdoor GPS HUD (#64) is up it OWNS the location stream (its own
-        // provider feeds the session); running ours too would double-count distance,
-        // so stand down until it closes. On a TREADMILL run the GPS stays off
-        // entirely — indoor GPS noise reads as phantom pace ("números aleatorios");
-        // the belt is the distance source.
-        if isRunSegment && !showOutdoor && session.runEnvironment != .treadmill {
+        // Mientras la superficie de CALLE (#64) es la que manda, ella OWNS the
+        // location stream (su propio proveedor alimenta la sesión); correr también el
+        // nuestro contaría la distancia dos veces, así que nos apartamos mientras esté
+        // en pantalla. Antes la condición era `!showOutdoor` porque esa pantalla era
+        // un cover; ahora la pregunta es si `superficieViva` la ha resuelto — que es
+        // lo mismo, pero dicho donde de verdad se decide.
+        // On a TREADMILL run the GPS stays off entirely — indoor GPS noise reads as
+        // phantom pace ("números aleatorios"); the belt is the distance source.
+        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment != .treadmill {
             runGPS.start()
         } else {
             runGPS.stop()
@@ -848,21 +837,26 @@ struct ActiveWorkoutView: View {
     // Order, and why: a structured run keeps its own leg engine (untouched); a REST
     // is its own screen whatever produced it; then the device tramo; then the
     // format; then the plain per-kind grid.
-    // LAS DOS SUPERFICIES QUE HABLAN EL §10 Y MONTAN SU PROPIO MARCO.
+    // LAS SUPERFICIES QUE HABLAN EL §10 Y MONTAN SU PROPIO MARCO.
     //
     // Por qué no van dentro de `modalityHUD` como las demás: el ancla del sujeto
-    // (§10.3) es una propiedad de la PANTALLA, no de una vista. `OutdoorRunHUDView`
-    // la cumple porque es un `fullScreenCover` que posee sus cinco filas; una vista
-    // metida en la ranura de `liveSurface` no sabe a qué altura empieza —y encima
-    // esa altura cambia según haya o no tira de conexiones, mapa de tramos o
-    // pareja—, así que su sujeto caería a una altura distinta en cada tramo del
-    // mismo entreno. Que es exactamente lo que el §10.3 viene a quitar.
+    // (§10.3) es una propiedad de la PANTALLA, no de una vista. Una vista metida en
+    // la ranura de `liveSurface` no sabe a qué altura empieza —y encima esa altura
+    // cambia según haya o no tira de conexiones, mapa de tramos o pareja—, así que su
+    // sujeto caería a una altura distinta en cada tramo del mismo entreno. Que es
+    // exactamente lo que el §10.3 viene a quitar.
     //
-    // Así que a estas dos se les da la pantalla entera: el marco reserva las filas
-    // (`MarcoVivo`), el cromo y la acción se les pasan desde aquí, y el ancla vale
-    // lo mismo que en la vista de correr. Todo lo demás sigue por el árbol de
-    // siempre, sin tocar.
-    private enum SuperficieViva { case emom, fuerza }
+    // Así que a éstas se les da la pantalla entera: el marco reserva las filas
+    // (`MarcoVivo`) y el ancla vale lo mismo en todas. Todo lo demás sigue por el
+    // árbol de siempre.
+    //
+    // CORRER ENTRÓ AQUÍ EL 5-AGO, y es el cambio de fondo. Estaba excluido a
+    // propósito: sus dos pantallas eran `fullScreenCover` y se abrían ENCIMA de un
+    // HUD que seguía montado debajo, así que un mismo tramo de carrera lo podían
+    // pintar seis vistas y dos a la vez, con reglas distintas de ritmo y de cierre.
+    // Ahora hay UNA por lo que estás haciendo, y cuál de las dos lo decide la
+    // respuesta que ya diste al empezar («¿dónde corres?», la puerta del bloque).
+    private enum SuperficieViva { case emom, fuerza, correrFuera, correrCinta }
 
     /// Qué superficie del §10 posee la pantalla ahora mismo, o nil cuando manda el
     /// árbol de siempre.
@@ -876,27 +870,43 @@ struct ActiveWorkoutView: View {
         if session.currentSegmentIsPartnerRelay { return nil }
         if session.currentBlockIsStructural { return nil }
         if isErgLandscapeFocus { return nil }
+        // CORRER, y va antes del descanso a propósito: el trote de recuperación de
+        // una serie es parte de la MISMA vista (calle y cinta pintan su propia
+        // recuperación, con su ritmo y su cuenta atrás). Mandarlo a `RestSurface`
+        // haría bailar dos pantallas dentro del mismo tramo, que es justo lo que esta
+        // regla viene a quitar. Un EMOM cuyo tramo es correr NO entra: ahí manda el
+        // minuto, y el cover se abría precisamente encima de él y lo tapaba.
+        if session.currentSegment?.kind == .running,
+           session.currentSegment?.isEMOM != true,
+           // La puerta del bloque tiene la pantalla y todavía no ha empezado nada:
+           // estas dos superficies encienden GPS, cinta y Live Activity al aparecer,
+           // y eso no se hace hasta que el atleta le da a EMPEZAR.
+           !session.isAwaitingBlockStart {
+            switch session.runEnvironment {
+            case .treadmill: return .correrCinta
+            case .outdoor:   return .correrFuera
+            // Todavía no ha contestado dónde corre. No se elige por él ni se pinta
+            // una tercera pantalla: la puerta del bloque le pregunta, y mientras
+            // tanto el suelo honesto es «CAMBIAR DE SITIO» (ver `liveSurface`).
+            case .none:      return nil
+            }
+        }
         // …y lo que `modalityHUD` resuelve antes que el formato.
-        if session.isRunStructureActive { return nil }
         if session.isTramoResting { return nil }   // el descanso tiene su pantalla
         if session.tramoIsErg { return nil }       // manda la máquina que mide
         if session.currentSegment?.isEMOM == true { return .emom }
         // Los formatos de acondicionamiento conservan su cronómetro dedicado.
         if session.currentSegment?.isConditioningTimer == true { return nil }
         // Y el resto es el suelo honesto de fuerza/reps — el mismo reparto que
-        // hacía el `switch` de `modalityHUD`, del que correr es la única excepción.
-        return session.currentSegment?.kind == .running ? nil : .fuerza
+        // hacía el `switch` de `modalityHUD`.
+        return .fuerza
     }
 
     // THE ACTIVE TRAMO DECIDES — ver la nota de `superficieViva`, que resuelve las
     // dos primeras ramas de formato antes de llegar aquí.
     @ViewBuilder
     private var modalityHUD: some View {
-        if session.isRunStructureActive {
-            // #61 — a folded run that carries a `structure` runs the native leg
-            // cursor (per-bout distance/target/incline), not the rotating machine.
-            StructuredRunLiveHUD(session: session)
-        } else if session.isTramoResting {
+        if session.isTramoResting {
             // Work just stopped: the questions changed, so the screen changes. One
             // surface for every engine that rests (EMOM change window, Tabata /
             // interval rest) — see RestSurface.
@@ -920,28 +930,31 @@ struct ActiveWorkoutView: View {
             if segmentInvolvesErg, activePM5.isConnected, !session.isStationTramo {
                 ErgLiveStrip(session: session, pm5: activePM5)
             }
-        } else {
-            // Correr es lo ÚNICO que queda en este árbol: el EMOM y el hierro se
-            // llevan la pantalla entera antes de llegar aquí (ver `superficieViva`),
-            // y con ellos se fue el suelo de `.rowOrSki` / `.none`, que ya iba a la
-            // misma superficie de fuerza.
-            // Una sola puerta, la que ya contestaste al empezar (ver el bloque
-            // gemelo más abajo): ofrecer las dos a la vez convertía la respuesta
-            // del arranque en decorativa.
-            RunLiveHUD(session: session, gpsActive: gpsActive,
-                       onTapTreadmill: session.runEnvironment == .treadmill ? { showTreadmill = true } : nil,
-                       onTapOutdoor: session.runEnvironment == .outdoor ? { showOutdoor = true } : nil)
         }
+        // NO HAY RAMA `else`, Y ESO ES EL CAMBIO. Aquí caía `RunLiveHUD`, la pantalla
+        // naranja genérica de correr — la sexta superficie capaz de pintar un tramo
+        // de carrera, y la que se quedaba viva DEBAJO del cover. Correr ya no llega a
+        // este árbol: se lo lleva `superficieViva`. Lo único que puede caer hasta
+        // aquí es un tramo de correr cuyo «¿dónde corres?» sigue sin contestar, y ahí
+        // lo honesto es no pintar ningún instrumento y dejar la pregunta a mano
+        // (`CambiarDeSitioButton`, en `liveSurface`).
     }
 
     @ViewBuilder
     private var conditioningHUD: some View {
         switch session.currentSegment?.formatScheme {
         case .amrap:     AmrapLiveHUD(session: session)
-        case .tabata:    TabataLiveHUD(session: session)
-        case .intervals: IntervalsLiveHUD(session: session)
-        case .deathBy:   DeathByLiveHUD(session: session)
-        case .steady:    SteadyLiveHUD(session: session)
+        // LOS CUATRO ESQUEMAS QUE PERDIERON SU RELOJ DEDICADO (5-ago). Sus casos
+        // REALES ya los sirve quien mide: una serie o un rodaje de correr se los
+        // lleva la superficie de calle/cinta (matriz «Series · calle/cinta» y
+        // «Rodaje · calle/cinta»), uno de ergo `ErgHUDContent` («Rodaje · ergo»), y
+        // el descanso de cualquiera de ellos `RestSurface`. Lo que puede caer aquí es
+        // el resto: un trabajo rotativo que nadie mide (una tabata de burpees). Para
+        // eso NO hay pantalla diseñada, así que se usa el suelo honesto que ya
+        // existe —el reloj del bloque con el movimiento y su dosis— en vez de
+        // inventar una: dice menos, pero no dice nada falso.
+        case .tabata, .intervals, .deathBy, .steady:
+            ForTimeLiveHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
         case .emom, .sets, .superset, .warmup, .cooldown, .none:
@@ -1037,21 +1050,19 @@ struct ActiveWorkoutView: View {
             if segmentInvolvesErg && !anyPM5Connected {
                 connectPM5CTA
             }
-            // UNA SOLA PUERTA, LA QUE YA CONTESTASTE.
+            // NO HAY BOTONES DE ENTRADA A NINGUNA PANTALLA DE CORRER, Y NO PUEDE
+            // HABERLOS. Aquí vivían «CORRER EN CINTA» / «CORRER FUERA», que abrían un
+            // cover encima de esto — encima de un EMOM, de un For Time, o de otro HUD
+            // de correr. A tu pantalla de correr no se ENTRA: si el tramo es correr,
+            // ES la pantalla (ver `superficieViva`).
             //
-            // Aquí había DOS botones en paralelo — «Correr en cinta» y «Correr
-            // fuera» — que abrían uno u otro HUD en cualquier momento, dijeras lo
-            // que dijeras al empezar. Con eso, la pregunta «¿dónde corres?» no
-            // decidía nada: se contestaba y luego se podía saltar con un toque, y
-            // el atleta acababa con dos pantallas distintas para el mismo tramo
-            // (una con mapa y otra sin). Ahora manda la respuesta: se ofrece
-            // ENTRAR a tu HUD, y cambiar de sitio es una acción aparte y explícita.
-            if isRunSeriesSegment {
-                switch session.runEnvironment {
-                case .treadmill: TreadmillEntryButton(action: { showTreadmill = true })
-                case .outdoor:   OutdoorEntryButton(action: { showOutdoor = true })
-                case .none:      EmptyView()
-                }
+            // Lo que sí queda es CAMBIAR DE SITIO, que es una pregunta, no una
+            // pantalla. Se ofrece siempre que la ventana activa sea de correr y esta
+            // ranura siga en pie — o sea, en los dos casos en los que la superficie de
+            // correr no manda: un tramo de correr dentro de un formato (una estación
+            // de la ruta, una ronda de un EMOM), y un tramo de correr cuyo «¿dónde
+            // corres?» aún no está contestado, donde además es el único camino.
+            if session.tramoIsRun {
                 CambiarDeSitioButton(action: { showRunGate = true })
             }
             nextSegmentChip

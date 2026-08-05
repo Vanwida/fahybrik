@@ -1,5 +1,15 @@
 import SwiftUI
 
+// FUERA DE PRODUCCIÓN (5-ago). Todo este fichero se compila SÓLO en DEBUG.
+//
+// En la app del atleta esta hoja se abría con una pulsación larga de 0,6 s sobre el
+// chip de la cinta, y lo que enseña —dialecto FTMS S1…S5, velocidades e inclinación
+// en crudo, hex byte a byte— no es una pantalla de producto: es nuestra herramienta
+// de campo. Que exista está bien; que un atleta pueda llegar a ella sin querer, no.
+// Sus dos entradas (`TreadmillHUDView.gestoDeDiagnostico` y el enlace del
+// `controlNotice`) van con el mismo `#if DEBUG`.
+#if DEBUG
+
 // "Modo de control" — the field-diagnosis screen for a belt that will not obey.
 //
 // WHY IT EXISTS: he tests alone in a gym, and every wrong guess about the control dialect
@@ -313,3 +323,5 @@ struct TreadmillControlDebugSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 }
+
+#endif   // DEBUG

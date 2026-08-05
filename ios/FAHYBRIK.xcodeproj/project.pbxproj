@@ -17,7 +17,6 @@
 		025BA042FF524920D4C658A5 /* InviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0508E384288152EE74E19F1 /* InviteService.swift */; };
 		0356197E3802A9F29B46AD24 /* WearablesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67B3C8F723D9D7FC61B2F98 /* WearablesService.swift */; };
 		04BFC484BBC3EF34C69442FD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8CB3F166EFBDA07B51DBBD /* SummaryView.swift */; };
-		04D0CE56C7766A26BAD5DC91 /* ManualEntryControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188E789D535F0AB8C94725AE /* ManualEntryControl.swift */; };
 		0598FD598F086A848E78C119 /* FreePlanWeekCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C283793AF45408010D22ECB0 /* FreePlanWeekCard.swift */; };
 		059C200E535CD6789EDF320C /* HRChipPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE16E8C5A61C375B8EA531F /* HRChipPresentationTests.swift */; };
 		05B377E4771BB4EAE001C614 /* BLEHeartRateSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84984BD832C961ADFCB52D3C /* BLEHeartRateSource.swift */; };
@@ -588,7 +587,6 @@
 		1667FE1B5D4D953FE736F9F5 /* RunLegProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegProgress.swift; sourceTree = "<group>"; };
 		1746871F83CAA0B2483927DB /* CarrerasService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarrerasService.swift; sourceTree = "<group>"; };
 		188040B3F7869F27D1727ED5 /* HeartRateParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateParserTests.swift; sourceTree = "<group>"; };
-		188E789D535F0AB8C94725AE /* ManualEntryControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualEntryControl.swift; sourceTree = "<group>"; };
 		19D40B905A5E968D6F0AB6C0 /* DoblesRepartoEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesRepartoEditorSheet.swift; sourceTree = "<group>"; };
 		1AB02853595DE919DBE8644A /* RestBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestBannerView.swift; sourceTree = "<group>"; };
 		1B2029D942B4C76C0580E790 /* RunPaceSmoother.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunPaceSmoother.swift; sourceTree = "<group>"; };
@@ -1153,7 +1151,6 @@
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
 				141E799DEAD09B89E810DA46 /* HRRecovery.swift */,
 				9A9504F8733B644F322ED87D /* LiveTramo.swift */,
-				188E789D535F0AB8C94725AE /* ManualEntryControl.swift */,
 				51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */,
 				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
 				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
@@ -2386,7 +2383,6 @@
 				8D8868BDE5DADDAC6A37AFEA /* LifecycleService.swift in Sources */,
 				E217263D19C7CB664EC8652E /* LifecycleSheets.swift in Sources */,
 				C83EF879B0DCF1C441D4C46C /* LiveTramo.swift in Sources */,
-				04D0CE56C7766A26BAD5DC91 /* ManualEntryControl.swift in Sources */,
 				41BE0F9D69F594A52799B6C9 /* MarkDetailView.swift in Sources */,
 				7D7144BECF667E742DF4A951 /* MarksLibraryView.swift in Sources */,
 				2536C41E6F8614CD2BADBEC3 /* MarksService.swift in Sources */,
