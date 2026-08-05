@@ -10,6 +10,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-05 · La superserie es un FORMATO de bloque, no un nivel nuevo de anidamiento
+
+**Decidido:** `superset` entra en el catálogo canónico de formatos (`shared/domain/prescription/format.ts`) y en el enum PG `template_format`. Un bloque con formato `superset` **rota** sus ejercicios (A1→A2→A1→A2); uno con formato `sets` los ejecuta en **series rectas** (todas las de A, luego todas las de B). Ambos registran carga por serie.
+
+**Por qué así.** Se planteó primero como una agrupación nueva dentro del bloque, y es un error: el nivel ya existe. Un coach que escribe `A1/A2/A3` y luego `B` está describiendo **dos bloques**, no un bloque con subgrupos. La estructura del repo ya lo modela — `WeekDayPart` es el bloque y sus `items[]` son sus ejercicios — así que la agrupación por letras se traduce a **fronteras de bloque + formato del bloque**, sin tocar el shape de los items ni añadir un nivel de anidamiento que todo lo de aguas abajo tendría que aprender.
+
+**Lo que se verificó antes de decidirlo** (contra el código, no de memoria):
+
+- **`block_position` NO servía.** Es el índice del bloque dentro de la sesión (`editor-serialize.ts:324`, `instantiate-program.ts:621`), no un mecanismo de sub-agrupación. Entre bloque e item no hay nada.
+- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIK/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
+- **Y aunque se reutilizara, no valdría:** el fold coge únicamente el PRIMER set de cada item (`:1689`). Una superserie de fuerza necesita N series por ejercicio alternando, cada una con su descanso. Por eso `superset` es un camino propio en el motor y no un alias de `rounds`.
+
+**En consecuencia, no hacer:** no añadir un campo de grupo a `WeekDayPartItem` ni a `PrescriptionSet` — la letra del coach es notación de entrada, se consume al importar y muere ahí; no reutilizar `rounds`/`circuit` para una superserie de fuerza (arrancaría un reloj de acondicionamiento y perdería las series); y no dar por hecho que dos items en el mismo bloque rotan — hasta hoy nunca lo han hecho, así que todo bloque `sets` existente sigue siendo series rectas.
+
+---
+
+## 2026-08-05 · Una medida de trabajo puede ser un RANGO
+
+**Decidido:** `Measure` gana un `max` opcional en sus cuatro formas (reps, distancia, duración, calorías). El campo base sigue siendo obligatorio y es el **suelo** del rango.
+
+**Por qué:** «4 series de 12-15 repeticiones» es una banda dentro de la que el atleta autorregula. El importador la aplanaba en dos series, una de 12 y otra de 15 — que es otro entreno. El eje `Target` ya sabía expresar rangos (ritmo, zona, RPE, %RM) desde siempre; el eje `Measure` nunca los tuvo, y no había ningún apaño previo en el repo (`reps_scheme` es una **secuencia** de valores exactos, `"10/10/8/8/6"`, no un rango).
+
+**Forma elegida y por qué:** un solo nombre, `max`, para las cuatro formas — el `kind` ya dice la unidad. Y el campo base **obligatorio** en vez de espejar el `value?|min?/max?` de `Target`: así todo lector existente (el prefill de reps del motor en vivo, `prescriptionToParams`, los `Codable` de iOS) sigue funcionando sin tocarlo y enseña el suelo. El cambio es aditivo, no una migración.
+
+**En consecuencia, no hacer:** no confundir rango con secuencia al parsear; ante la ambigüedad, `review`. Y no volver opcional el campo base «por simetría con Target» — rompería en silencio a todos los consumidores.
+
+---
+
 ## 2026-08-04 · SÍ al prior poblacional — agregado, ponderado por temporada, por división y formato
 
 **Decidido (Alex):** se construye el prior poblacional de HYROX. Cierra la pregunta que la spec del 27-jul dejó abierta en su §10 y que llevaba desde entonces bloqueando tres cosas: las cinco estaciones de fuerza (sin marca posible en el catálogo), el arranque en frío de un atleta nuevo y la proyección sin objetivo del embudo free.
