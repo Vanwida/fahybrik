@@ -106,10 +106,12 @@ enum PrescriptionRenderer {
     /// - Todas las series con la misma medida → «4 × 8». Distintas → la secuencia
     ///   tal y como la escribe el coach, «10/10/8/8/6», que ya dice cuántas son.
     ///   Alguna sin medida → solo el contador, «5 series», que sí se sabe.
-    /// - La carga solo cuando TODAS las series llevan la misma. Cuando cambia serie
-    ///   a serie no se enseña ninguna: la de la primera no es la del ejercicio, y
-    ///   pegar cuatro «100 kg/105 kg/…» no se lee de un vistazo. El atleta las tiene
-    ///   una a una en el entreno en vivo, que es donde levanta.
+    /// - Todas las series con la misma carga → esa carga. Cuando la carga SUBE (o
+    ///   baja) serie a serie es una progresión y se pinta como tal, «100 → 115 kg»:
+    ///   no como banda con guion, porque «100-115 kg» se leería como «elige lo que
+    ///   quieras ahí dentro» y en una pirámide el orden importa. Y si sube y baja,
+    ///   nada: ahí la flecha también mentiría, y el atleta tiene el peso de cada
+    ///   serie delante, una a una, en el entreno en vivo.
     static func rotationDose(_ p: Prescription) -> (work: String?, load: String?) {
         guard let rows = setRows(p), !rows.isEmpty else { return (nil, nil) }
 
@@ -124,10 +126,10 @@ enum PrescriptionRenderer {
         }
 
         let loads = rows.map(\.load)
-        let load = (loads.first ?? nil).flatMap { primera in
+        let uniforme = (loads.first ?? nil).flatMap { primera in
             loads.allSatisfy { $0 == primera } ? primera : nil
         }
-        return (work, load)
+        return (work, uniforme ?? progressionLoad(p.sets ?? []))
     }
 
     /// CUÁNTAS VECES SE REPITE LA MISMA DOSIS — el «4 ×» de un 4×10, el «5 ×» de un
@@ -473,6 +475,61 @@ enum PrescriptionRenderer {
     //
     // Lo que sigue aquí es lo propio de una PRESCRIPCIÓN: rangos, el «@» del ritmo, la
     // conversión a /500m del ergómetro. Eso no es grafía, es semántica del plan.
+
+    /// Un objetivo de carga descompuesto en LA GRAFÍA CON LA QUE SE ESCRIBE (su
+    /// afijo) y su valor de PUNTO. Es lo que permite escribir una progresión con la
+    /// misma cara que `targetLoad` en vez de recomponer strings a mano.
+    ///
+    /// Nil para lo que no es una carga con número (peso corporal, ritmo, zona, un
+    /// reloj que batir) y —a propósito— para un objetivo que YA es una banda por sí
+    /// mismo («70-80 %»): una serie que se autorregula dentro de un margen no es un
+    /// peldaño de una escalera, así que no puede ser el extremo de una flecha.
+    private static func loadPoint(_ t: Target?) -> (prefix: String, suffix: String, value: Double)? {
+        guard let t else { return nil }
+        switch t {
+        case let .percentRM(v, _, _): return v.map { ("", "% 1RM", $0) }
+        case let .kg(v, _, _):        return v.map { ("", " kg", $0) }
+        case let .rpe(v, _, _):       return v.map { ("RPE ", "", $0) }
+        case let .rir(v, _, _):       return v.map { ("RIR ", "", $0) }
+        case let .watts(v, _, _):     return v.map { ("", " W", $0) }
+        case .bodyweight, .hrBpm, .calories, .timeCap, .hrZone, .pace, .unknown:
+            return nil
+        }
+    }
+
+    /// LA CARGA DE UNA PROGRESIÓN — «100 → 115 kg», «60 → 75% 1RM».
+    ///
+    /// Para una pirámide, donde colapsar a la primera serie mentiría y enseñar las
+    /// cuatro no se lee de un vistazo. Dice de dónde sale y dónde acaba, que es lo
+    /// que el atleta necesita antes de empezar; el peso exacto de cada serie lo
+    /// tiene delante, serie a serie, en el entreno en vivo.
+    ///
+    /// SOLO cuando la escalera es de verdad: todas las series con el mismo tipo de
+    /// objetivo, todas con un valor de punto, y la secuencia MONÓTONA (sube siempre
+    /// o baja siempre; una bajada al final también es una progresión, las series
+    /// descendentes existen). Si sube y baja no se pinta nada: la flecha prometería
+    /// que se va de la primera a la última cuando por el camino pasó otra cosa (§7).
+    static func progressionLoad(_ sets: [PrescriptionSet]) -> String? {
+        guard sets.count > 1 else { return nil }
+        let puntos = sets.map { loadPoint($0.target) }
+        // Una sola serie sin carga escrita y no hay escalera que contar.
+        guard let primero = puntos.first ?? nil, let ultimo = puntos.last ?? nil,
+              puntos.allSatisfy({ $0 != nil }) else { return nil }
+        // Mezclar kg con %RM no es una progresión, son dos formas de decir la carga.
+        guard puntos.allSatisfy({ $0?.prefix == primero.prefix && $0?.suffix == primero.suffix })
+        else { return nil }
+
+        let valores = puntos.compactMap { $0?.value }
+        let pares = Array(zip(valores, valores.dropFirst()))
+        let sube = pares.allSatisfy { $0 <= $1 }
+        let baja = pares.allSatisfy { $0 >= $1 }
+        // Ni monótona, ni una escalera de un solo escalón (esa ya la colapsa quien
+        // detecta que todas las series llevan la misma carga).
+        guard sube || baja, primero.value != ultimo.value else { return nil }
+
+        func n(_ d: Double) -> String { Formato.esDecimal(d) }
+        return "\(primero.prefix)\(n(primero.value)) \(Formato.signoProgresion) \(n(ultimo.value))\(primero.suffix)"
+    }
 
     private static func range(
         _ value: Double?, _ min: Double?, _ max: Double?,

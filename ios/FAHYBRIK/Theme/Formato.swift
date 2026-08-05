@@ -266,6 +266,14 @@ enum Formato {
     /// una talla) y encima cambia de anchura en la monoespaciada.
     static let signoPor = "\u{00D7}"
 
+    /// DE DÓNDE A DÓNDE VA UNA PROGRESIÓN — «100 → 115 kg».
+    ///
+    /// Flecha (U+2192) y no guion, y la diferencia es de significado: «100-115 kg»
+    /// se lee como una banda («elige lo que quieras ahí dentro»), y en una pirámide
+    /// eso es falso — el orden importa y se empieza en una carga para acabar en
+    /// otra. La flecha dice exactamente eso y ocupa lo mismo.
+    static let signoProgresion = "\u{2192}"
+
     // MARK: - La diferencia contra un objetivo (contrato §10)
 
     /// «+2 s» · «−3 s» — cuánto te separa de lo pedido, con el signo delante.

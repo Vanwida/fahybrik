@@ -728,9 +728,9 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertEqual(d1.work, "4 × 8")
         XCTAssertEqual(d1.load, "100 kg")
 
-        // PIRÁMIDE: reps y carga cambian serie a serie. La secuencia se escribe como
-        // la escribe el coach, y la carga NO se enseña — la de la primera serie no es
-        // la del ejercicio, y colapsarla inventaría tres series (§7).
+        // PIRÁMIDE: reps y carga cambian serie a serie. La secuencia de reps se
+        // escribe como la escribe el coach, y la carga se lee como lo que es, una
+        // PROGRESIÓN: de dónde sale y dónde acaba, con flecha y no con guion.
         let piramide = Prescription(
             scheme: .sets, modality: .strength,
             sets: [(10, 100.0), (10, 105.0), (8, 110.0), (8, 110.0), (6, 115.0)].map { reps, kg in
@@ -741,7 +741,59 @@ final class WorkoutExecutionSpineTests: XCTestCase {
             start: nil, increment: nil)
         let d2 = PrescriptionRenderer.rotationDose(piramide)
         XCTAssertEqual(d2.work, "10/10/8/8/6")
-        XCTAssertNil(d2.load, "Con carga distinta por serie no se enseña ninguna.")
+        XCTAssertEqual(d2.load, "100 → 115 kg")
+        XCTAssertFalse(d2.load!.contains("-"), "Una banda con guion diría «elige ahí dentro».")
+    }
+
+    func testLaProgresionSeEscribeConLaMismaCaraQueLaCarga() throws {
+        // La flecha no inventa una grafía nueva: escribe el afijo de cada objetivo
+        // exactamente donde lo pone `targetLoad` — sufijo en %RM y kg, prefijo en RPE.
+        func escalera(_ objetivos: [Target]) -> [PrescriptionSet] {
+            objetivos.map { PrescriptionSet(measure: .reps(5), target: $0, modality: .strength,
+                                            restS: nil, tempo: nil, note: nil) }
+        }
+        XCTAssertEqual(
+            PrescriptionRenderer.progressionLoad(escalera([
+                .percentRM(value: 60, min: nil, max: nil),
+                .percentRM(value: 70, min: nil, max: nil),
+                .percentRM(value: 75, min: nil, max: nil),
+            ])), "60 → 75% 1RM")
+        XCTAssertEqual(
+            PrescriptionRenderer.progressionLoad(escalera([
+                .rpe(value: 6, min: nil, max: nil), .rpe(value: 8, min: nil, max: nil),
+            ])), "RPE 6 → 8")
+        // Una escalera DESCENDENTE también es una progresión: las series bajando existen.
+        XCTAssertEqual(
+            PrescriptionRenderer.progressionLoad(escalera([
+                .kg(value: 115, min: nil, max: nil), .kg(value: 110, min: nil, max: nil),
+                .kg(value: 100, min: nil, max: nil),
+            ])), "115 → 100 kg")
+    }
+
+    func testUnaCargaQueSubeYBajaNoSePinta() throws {
+        // Si no es monótona, la flecha mentiría: diría que va de la primera a la
+        // última cuando por el camino pasó otra cosa. Mejor nada (§7).
+        func escalera(_ kgs: [Double]) -> [PrescriptionSet] {
+            kgs.map { PrescriptionSet(measure: .reps(5), target: .kg(value: $0, min: nil, max: nil),
+                                      modality: .strength, restS: nil, tempo: nil, note: nil) }
+        }
+        XCTAssertNil(PrescriptionRenderer.progressionLoad(escalera([100, 110, 105])))
+        // Mezclar kg con %RM tampoco es una escalera: son dos formas de decir la carga.
+        let mezcla = [
+            PrescriptionSet(measure: .reps(5), target: .kg(value: 100, min: nil, max: nil),
+                            modality: .strength, restS: nil, tempo: nil, note: nil),
+            PrescriptionSet(measure: .reps(5), target: .percentRM(value: 80, min: nil, max: nil),
+                            modality: .strength, restS: nil, tempo: nil, note: nil),
+        ]
+        XCTAssertNil(PrescriptionRenderer.progressionLoad(mezcla))
+        // Y una serie que YA es una banda por sí misma («70-80 %») no es un peldaño.
+        let banda = [
+            PrescriptionSet(measure: .reps(5), target: .percentRM(value: nil, min: 70, max: 80),
+                            modality: .strength, restS: nil, tempo: nil, note: nil),
+            PrescriptionSet(measure: .reps(5), target: .percentRM(value: 85, min: nil, max: nil),
+                            modality: .strength, restS: nil, tempo: nil, note: nil),
+        ]
+        XCTAssertNil(PrescriptionRenderer.progressionLoad(banda))
     }
 
     func testLaDosisSinMedidaDeclaradaSoloCuentaLasSeries() throws {
@@ -779,8 +831,8 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         // conteo colapsado ES la verdad de las series desiguales: «4 × 8» al lado de
         // «2 × 10» enseña por sí solo que el segundo se retira antes.
         XCTAssertEqual(dosis.map(\.work), ["4 × 8", "2 × 10"])
-        // Y la carga sube 5 kg por serie en los dos, así que no se enseña ninguna.
-        XCTAssertEqual(dosis.map(\.load), [nil, nil])
+        // Y la carga sube 5 kg por serie en los dos: cada uno dice su progresión.
+        XCTAssertEqual(dosis.map(\.load), ["100 → 115 kg", "60 → 65 kg"])
     }
 
     func testElVocabularioDeLaRotacionEsElMismoEnLasDosPantallas() throws {
