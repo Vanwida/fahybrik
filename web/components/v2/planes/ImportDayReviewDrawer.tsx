@@ -202,6 +202,26 @@ export function ImportDayReviewDrawer({
                 </div>
               ) : null}
 
+              {day.notes ? (
+                /* La fuente traía algo que no era entreno («Semana 12», «Control
+                   test salto»). Se enseña ANTES de confirmar porque si no el coach
+                   no puede comprobar qué se leyó, y al guardar acaba en la nota del
+                   día. Aquí no se edita: para eso está el editor del día. */
+                <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-[color:var(--v2-fg)]">
+                    <MIcon name="sticky_note_2" size={15} className="text-[color:var(--v2-muted)]" />
+                    Nota del día
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-line text-label leading-snug text-[color:var(--v2-muted)]">
+                    {day.notes}
+                  </p>
+                  <p className="mt-1.5 text-nano text-[color:var(--v2-faint)]">
+                    No es un entreno, así que se guarda como nota. Si el día ya tiene una, esta se
+                    añade debajo.
+                  </p>
+                </div>
+              ) : null}
+
               {proposedCount > 0 ? (
                 <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] p-3.5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
