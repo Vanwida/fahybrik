@@ -78,19 +78,19 @@ struct LiveTramo: Equatable {
     var isRun: Bool { modality == .run }
 
     var targetDistanceMeters: Double? {
-        if case let .distance(m) = measure, m > 0 { return m }
+        if case let .distance(m, _) = measure, m > 0 { return m }
         return nil
     }
     var targetCalories: Int? {
-        if case let .calories(c) = measure, c > 0 { return c }
+        if case let .calories(c, _) = measure, c > 0 { return c }
         return nil
     }
     var targetDurationSeconds: Int? {
-        if case let .duration(s) = measure, s > 0 { return s }
+        if case let .duration(s, _) = measure, s > 0 { return s }
         return nil
     }
     var targetReps: Int? {
-        if case let .reps(r) = measure, r > 0 { return r }
+        if case let .reps(r, _) = measure, r > 0 { return r }
         return nil
     }
 
@@ -261,7 +261,7 @@ extension WorkoutSegment {
     /// waiting armed for a monitor that may never be paired. nil for every other
     /// measure: metres, calories and reps do not end on a clock.
     func stationBoxSeconds(at index: Int) -> Int? {
-        if case let .duration(s)? = rotationSet(at: index)?.measure, s > 0 { return s }
+        if case let .duration(s, _)? = rotationSet(at: index)?.measure, s > 0 { return s }
         return nil
     }
 
@@ -294,7 +294,7 @@ extension WorkoutSegment {
         if let r = targetReps, r > 0 { return .reps(r) }
         if let s = targetDurationSeconds, s > 0 { return .duration(seconds: s) }
         if let sets = prescription?.sets, let first = sets.first?.measure,
-           case let .calories(c) = first, c > 0 { return .calories(c) }
+           case let .calories(c, _) = first, c > 0 { return .calories(c) }
         return nil
     }
 

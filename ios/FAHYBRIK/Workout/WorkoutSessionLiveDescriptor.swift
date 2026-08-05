@@ -47,6 +47,13 @@ extension WorkoutSession {
         }
         if seg?.usesMultiSetStrength == true, !setRecords.isEmpty {
             let done = setRecords.filter { $0.confirmed }.count
+            let actual = min(done, setRecords.count - 1)
+            // En una SUPERSERIE «SERIE 5/12» es cierto y no sitúa a nadie: lo que
+            // cuenta en una rotación es la vuelta, igual que en el EMOM. La muñeca
+            // dice lo mismo que la pantalla, o son dos apps.
+            if let t = seg?.supersetSlot(at: actual) {
+                return "\(Vocab.ronda.uppercased()) \(t.round)/\(t.rounds)"
+            }
             return "SERIE \(min(done + 1, setRecords.count))/\(setRecords.count)"
         }
         return nil

@@ -256,6 +256,12 @@ enum PrescriptionRenderer {
         case .steady:
             guard let t = p.totalS, t > 0 else { return nil }
             return "Continuo · \(Formato.clock(t, subMinuto: .segundos))"
+        case .superset:
+            // Tampoco lleva reloj, pero SÍ tiene algo que el título no dice: que los
+            // ejercicios rotan, y cuántas vueltas. Sin esta línea la superserie se
+            // lee como una tabla de series rectas, que es justo lo que no es.
+            guard let n = rounds(), n > 0 else { return Vocab.superserie }
+            return "\(Vocab.superserie) · \(n) \(n == 1 ? "vuelta" : "vueltas")"
         case .sets, .warmup, .cooldown:
             // No son formatos con reloj: el título del bloque y la tabla de series ya
             // los cuentan enteros.
@@ -265,17 +271,44 @@ enum PrescriptionRenderer {
 
     // MARK: - Measure → work string
 
-    static func measureWork(_ m: Measure?) -> String? {
+    /// La dosis de una medida en texto, con su BANDA cuando el coach prescribió una
+    /// («12-15», «0:40-1:00», «800-1000 m»). Nil cuando no hay medida, es cero o es
+    /// desconocida — nunca un guion (§7).
+    ///
+    /// UN solo formateador (§2): antes esto estaba escrito dos veces —aquí y en
+    /// `WorkoutSegment.emomWorkString`— con la única diferencia de que el EMOM
+    /// deletrea la unidad de las repeticiones. Esa diferencia es ahora el
+    /// parámetro, y así una banda no puede aparecer en una pantalla y perderse en
+    /// la de al lado.
+    static func measureWork(_ m: Measure?, deletreandoReps: Bool = false) -> String? {
         guard let m else { return nil }
+        // El techo se pinta con el MISMO formateador que el suelo, para que una
+        // banda no mezcle dos grafías del mismo número.
+        func banda(_ suelo: String, _ formatear: (Double) -> String?) -> String {
+            guard let techo = m.techo, let alto = formatear(techo) else { return suelo }
+            return "\(suelo)-\(alto)"
+        }
         switch m {
-        case .reps(let v):
-            return v > 0 ? "\(v)" : nil
-        case .distance(let meters):
-            return Formato.distancia(meters)
-        case .duration(let seconds):
-            return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
-        case .calories(let v):
-            return v > 0 ? "\(v) cal" : nil
+        case let .reps(v, _):
+            guard v > 0 else { return nil }
+            let cifra = banda("\(v)") { "\(Int($0))" }
+            return deletreandoReps ? "\(cifra) \(Vocab.reps)" : cifra
+        case let .distance(meters, _):
+            // La unidad se escribe UNA vez, al final: «800-1000 m», no «800 m-1000 m».
+            guard let suelo = Formato.distancia(meters) else { return nil }
+            guard let techo = m.techo, let alto = Formato.distancia(techo) else { return suelo }
+            let unidadCompartida = suelo.split(separator: " ").last == alto.split(separator: " ").last
+            guard unidadCompartida,
+                  let cifraSuelo = suelo.split(separator: " ").first else { return "\(suelo)-\(alto)" }
+            return "\(cifraSuelo)-\(alto)"
+        case let .duration(seconds, _):
+            guard seconds > 0 else { return nil }
+            return banda(Formato.clock(seconds, subMinuto: .segundos)) {
+                Formato.clock(Int($0), subMinuto: .segundos)
+            }
+        case let .calories(v, _):
+            guard v > 0 else { return nil }
+            return "\(banda("\(v)") { "\(Int($0))" }) cal"
         case .unknown:
             return nil
         }
@@ -286,7 +319,7 @@ enum PrescriptionRenderer {
         guard let m else { return "" }
         switch m {
         case .reps:                return "reps"
-        case .distance(let meters): return meters >= 1000 ? "km" : "m"
+        case .distance(let meters, _): return meters >= 1000 ? "km" : "m"
         case .duration:            return ""
         case .calories:            return ""
         case .unknown:             return ""

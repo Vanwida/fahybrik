@@ -126,6 +126,22 @@ struct SegmentDoblesSplit: Codable, Equatable {
     }
 }
 
+/// UN TURNO de una superserie: qué ejercicio toca y por qué vuelta vas.
+///
+/// Existe porque la rotación aplanada (`sets[]` en orden de ejecución) sabe qué
+/// hacer pero no sabe DECIRLO: la serie 5 de doce es «la vuelta 2 del press», y sin
+/// eso el atleta ve doce series numeradas seguidas sin saber en cuál está. La
+/// vuelta se guarda y no se calcula por división, porque con series desiguales
+/// (A1 con 4 y A2 con 3) el índice deja de dividir.
+struct SupersetSlot: Codable, Equatable {
+    /// El movimiento de este turno — la etiqueta del coach, si no el ejercicio.
+    let movement: String
+    /// La vuelta a la rotación, en base 1.
+    let round: Int
+    /// Cuántas vueltas tiene el bloque entero.
+    let rounds: Int
+}
+
 struct WorkoutSegment: Codable, Identifiable {
     let id: UUID
     let order: Int
@@ -182,6 +198,22 @@ struct WorkoutSegment: Codable, Identifiable {
     /// unchanged. `var` with a default so the big init and cached/mirror snapshots
     /// stay untouched and decode tolerantly.
     var doblesSplit: SegmentDoblesSplit? = nil
+
+    /// La rotación de una SUPERSERIE, un turno por serie de `prescription.sets` y en
+    /// el mismo orden — para que la pantalla pueda decir en todo momento qué
+    /// ejercicio toca y por qué vuelta va. Nil en todo lo demás. `var` con defecto
+    /// para que las llamadas y los snapshots cacheados sigan decodificando.
+    var supersetSlots: [SupersetSlot]? = nil
+
+    /// True cuando este tramo ejecuta un bloque en superserie.
+    var isSuperset: Bool { prescription?.scheme == .superset }
+
+    /// El turno que corresponde a la serie `i` (base 0). Nil fuera de una
+    /// superserie o cuando la rotación no cubre ese índice.
+    func supersetSlot(at i: Int) -> SupersetSlot? {
+        guard let supersetSlots, supersetSlots.indices.contains(i) else { return nil }
+        return supersetSlots[i]
+    }
 
     /// The MODALITY string emitted on the execution wire for this segment. Single
     /// source for the lap's `modality` (#erg-2).
@@ -241,7 +273,8 @@ struct WorkoutSegment: Codable, Identifiable {
         blockPosition: Int? = nil,
         videoUrl: String? = nil,
         prescription: Prescription? = nil,
-        ergKind: String? = nil
+        ergKind: String? = nil,
+        supersetSlots: [SupersetSlot]? = nil
     ) {
         self.id = id
         self.order = order
@@ -262,6 +295,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.videoUrl = videoUrl
         self.prescription = prescription
         self.ergKind = ergKind
+        self.supersetSlots = supersetSlots
     }
 }
 
@@ -396,18 +430,13 @@ extension PrescriptionSet {
         return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail)
     }
 
-    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal"), or
-    /// nil when the measure is absent / zero / unknown. EMOM-specific: it spells
-    /// the reps unit, unlike `PrescriptionRenderer.measureWork`.
+    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal", y
+    /// "12-15 reps" cuando el coach prescribió una banda), o nil cuando la medida
+    /// falta / es cero / es desconocida. Lo ÚNICO propio del EMOM es que deletrea
+    /// la unidad de las repeticiones; el formateo vive una sola vez en
+    /// `PrescriptionRenderer.measureWork` (§2), que es de donde sale la banda.
     static func emomWorkString(_ m: Measure?) -> String? {
-        guard let m else { return nil }
-        switch m {
-        case .reps(let v):           return v > 0 ? "\(v) reps" : nil
-        case .distance(let meters):  return Formato.distancia(meters)
-        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
-        case .calories(let v):       return v > 0 ? "\(v) cal" : nil
-        case .unknown:               return nil
-        }
+        PrescriptionRenderer.measureWork(m, deletreandoReps: true)
     }
 }
 
@@ -565,8 +594,15 @@ extension WorkoutSegment {
     /// True when this strength segment is a multi-SET piece (a 5×5, a pyramid) the
     /// athlete logs set by set — driven by the structured `prescription.sets`.
     /// A single-set strength move falls back to the simple prefilled rep flow.
+    ///
+    /// Una SUPERSERIE entra siempre, la mueva el músculo que la mueva: el formato ya
+    /// declara que esto se registra serie a serie. Mirando solo el `kind`, una
+    /// superserie de sentadilla + dominadas se resuelve como mixta (`.reps`) y se
+    /// habría quedado sin registro de carga — que es exactamente lo que un bloque de
+    /// fuerza no puede perder.
     var usesMultiSetStrength: Bool {
-        guard kind == .strength, !isEMOM else { return false }
+        guard !isEMOM else { return false }
+        guard kind == .strength || isSuperset else { return false }
         return (prescription?.sets?.count ?? 0) > 1
     }
 
@@ -856,6 +892,12 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var id: Int { setIndex }
     let setIndex: Int                  // 1-based
     var repsPrescribed: Int?
+    /// El TECHO cuando el coach prescribió una banda («12-15»): `repsPrescribed` es
+    /// el suelo y con él se prellena y se calcula, y esto es lo que hace que la
+    /// pantalla enseñe la banda entera en vez de media prescripción. Solo se pinta;
+    /// no viaja al cable (`SetExecutionDTO` registra lo HECHO, que es un número).
+    /// `var` con defecto para que los snapshots cacheados sigan decodificando.
+    var repsPrescribedMax: Int? = nil
     var repsActual: Int?
     var loadPrescribedKg: Double?
     var loadActualKg: Double?
@@ -1189,6 +1231,18 @@ extension WorkoutPlan {
                     order += 1
                     return [mergedEmomSegment(block: block, merged: merged, order: order)]
                 }
+                // UNA SUPERSERIE ROTA: A1 serie 1 → A2 serie 1 → A3 serie 1 →
+                // descanso → A1 serie 2 … Es UN bloque, así que es UN tramo cuya
+                // rotación aplanada conserva TODAS las series de cada ejercicio con
+                // su carga y su descanso. No pasa por `conditioningFold` —ni podría:
+                // aquel se queda con el primer set de cada ejercicio y arranca un
+                // reloj de acondicionamiento, y esto es fuerza que se registra serie
+                // a serie. Un bloque mal formado devuelve nil y cae a series rectas.
+                if let (folded, slots) = block.supersetFold {
+                    order += 1
+                    return [mergedSupersetSegment(block: block, merged: folded,
+                                                  slots: slots, order: order)]
+                }
                 // Every OTHER multi-movement conditioning block (For Time, AMRAP,
                 // Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds,
                 // HYROX sim) folds into ONE block-level segment the same way: the
@@ -1289,7 +1343,7 @@ extension WorkoutPlan {
         // into a real per-set prescription so the multi-set logger records ALL N sets
         // (with their tempo/rest). An AUTHORED prescription always wins — only a
         // prescription-LESS scalar strength with N>1 sets is synthesized here.
-        let prescription = item.prescription ?? scalarStrengthPrescription(from: p, kind: kind)
+        let prescription = item.prescription ?? item.scalarStrengthPrescription
         return WorkoutSegment(
             order: order,
             title: item.exerciseName,
@@ -1315,25 +1369,6 @@ extension WorkoutPlan {
             prescription: prescription,
             ergKind: item.ergSubtype            // #erg-2: row/ski/bike, not a merged "row"
         )
-    }
-
-    /// #break-3(a): build a per-set strength prescription from a SCALAR "N × reps"
-    /// (params_json `{sets, reps, load_kg | load_pct, rest_seconds}`) so a
-    /// prescription-less multi-set lift materializes ALL its sets instead of priming
-    /// one. Returns nil unless it is genuinely a multi-set (`sets > 1`) rep-based
-    /// strength scalar — a single set, a non-strength item, or a repless scalar keeps
-    /// the legacy single-lap path (single sets get their per-set detail at close time).
-    private static func scalarStrengthPrescription(from p: WorkoutItemParams, kind: SegmentKind) -> Prescription? {
-        guard kind == .strength, let sets = p.sets, sets > 1, let reps = p.reps, reps > 0 else { return nil }
-        // Prefer an absolute kg objective; else a %1RM; else none (athlete logs load).
-        let target: Target? = p.loadKg.map { .kg(value: $0, min: nil, max: nil) }
-            ?? p.loadPct.map { .percentRM(value: $0, min: nil, max: nil) }
-        let one = PrescriptionSet(measure: .reps(reps), target: target, modality: .strength,
-                                  restS: p.restSeconds, tempo: nil, note: nil)
-        return Prescription(scheme: .sets, modality: .strength,
-                            sets: Array(repeating: one, count: sets),
-                            rounds: nil, workS: nil, restS: p.restSeconds, totalS: nil,
-                            target: target, note: nil, start: nil, increment: nil)
     }
 
     // Package the shared alternating-EMOM fold (`block.alternatingEmom` — the ONE
@@ -1425,6 +1460,43 @@ extension WorkoutPlan {
             // the ONE lap records the right erg. A fold that MIXES machines carries
             // none — see `mergedEmomSegment` for why the kind alone can't tell.
             ergKind: block.singleErgMachine
+        )
+    }
+
+    // Empaqueta la superserie plegada (`block.supersetFold`) en el ÚNICO tramo que
+    // la ejecuta. Espeja a los otros dos plegados: aquí solo vive lo propio del
+    // tramo (título, modalidad del registro, id atribuido); la rotación se construye
+    // una vez en `WorkoutBlock`.
+    private static func mergedSupersetSegment(block: WorkoutBlock,
+                                              merged: Prescription,
+                                              slots: [SupersetSlot],
+                                              order: Int) -> WorkoutSegment {
+        // Homogénea (todo hierro) conserva su kind; una superserie MIXTA (sentadilla
+        // + dominadas) no tiene una sola modalidad → `.reps`, un registro neutro sin
+        // GPS ni PM5 falsos. Misma regla que los otros dos plegados. Y no se pierde
+        // el registro por serie: `usesMultiSetStrength` lo decide por el FORMATO.
+        let kinds = Set(block.items.map(\.segmentKind))
+        let kind: SegmentKind = kinds.count == 1 ? (kinds.first ?? .reps) : .reps
+
+        // Los ejercicios en orden — es lo que el atleta reconoce como el bloque.
+        let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " · ")
+
+        return WorkoutSegment(
+            order: order,
+            title: title.isEmpty ? block.title : title,
+            kind: kind,
+            // Un tramo, un template_segments.id: se atribuye al primer ejercicio (los
+            // demás comparten bloque), igual que en los otros dos plegados.
+            templateSegmentId: block.items.first?.templateSegmentId,
+            // Sin escalares de bloque: la verdad de una superserie es de CADA serie,
+            // y un objetivo de bloque sería el del primer ejercicio sobre todos.
+            blockTitle: block.title,
+            blockPosition: block.blockPosition,
+            // Varios movimientos → ningún vídeo de técnica que no engañe.
+            videoUrl: nil,
+            prescription: merged,
+            ergKind: block.singleErgMachine,
+            supersetSlots: slots
         )
     }
 
@@ -1545,6 +1617,41 @@ extension WorkoutItem {
         if let d = p.durationSeconds, d > 0 { return .duration(seconds: d) }
         return nil
     }
+
+    /// #break-3(a): a per-set strength prescription built from a SCALAR "N × reps"
+    /// (params_json `{sets, reps, load_kg | load_pct, rest_seconds}`), so a
+    /// prescription-less multi-set lift materializes ALL its sets instead of priming
+    /// one. Nil unless it is genuinely a multi-set (`sets > 1`) rep-based strength
+    /// scalar — a single set, a non-strength item, or a repless scalar keeps the
+    /// legacy single-lap path (single sets get their per-set detail at close time).
+    ///
+    /// Vive en `WorkoutItem` (y no dentro del constructor de tramos) porque la
+    /// rotación de la superserie necesita EXACTAMENTE las mismas series: si cada
+    /// camino se las materializara por su cuenta, un 4×10 escrito en escalares
+    /// rotaría distinto de como se ejecuta recto. UNA definición.
+    var scalarStrengthPrescription: Prescription? {
+        let p = paramsJson
+        guard segmentKind == .strength, let sets = p.sets, sets > 1,
+              let reps = p.reps, reps > 0 else { return nil }
+        // Prefer an absolute kg objective; else a %1RM; else none (athlete logs load).
+        let target: Target? = p.loadKg.map { .kg(value: $0, min: nil, max: nil) }
+            ?? p.loadPct.map { .percentRM(value: $0, min: nil, max: nil) }
+        let one = PrescriptionSet(measure: .reps(reps), target: target, modality: .strength,
+                                  restS: p.restSeconds, tempo: nil, note: nil)
+        return Prescription(scheme: .sets, modality: .strength,
+                            sets: Array(repeating: one, count: sets),
+                            rounds: nil, workS: nil, restS: p.restSeconds, totalS: nil,
+                            target: target, note: nil, start: nil, increment: nil)
+    }
+
+    /// Las series de este ejercicio tal y como se van a ejecutar: las estructuradas
+    /// del coach, y si no las trae, las que se materializan de sus escalares. Vacío
+    /// cuando el ejercicio no declara ninguna serie — que es una de las dos formas
+    /// en que una superserie llega mal formada.
+    var seriesEjecutables: [PrescriptionSet] {
+        if let sets = prescription?.sets, !sets.isEmpty { return sets }
+        return scalarStrengthPrescription?.sets ?? []
+    }
 }
 
 // MARK: - WorkoutBlock → alternating-EMOM fold (THE single source)
@@ -1657,6 +1764,86 @@ extension WorkoutBlock {
             note: nil,
             start: nil,
             increment: nil
+        )
+    }
+
+    /// True cuando el coach declaró este bloque como SUPERSERIE. Solo el formato
+    /// del bloque lo dice: dos ejercicios en el mismo bloque nunca han rotado, y no
+    /// van a empezar a hacerlo por estar juntos (docs/DECISIONS.md 2026-08-05).
+    var isSuperset: Bool { PrescriptionScheme(canonicalizing: format) == .superset }
+
+    /// La SUPERSERIE plegada: los ejercicios del bloque en el orden REAL de
+    /// ejecución —A1 serie 1 → A2 serie 1 → A3 serie 1 → A1 serie 2 …— más la
+    /// etiqueta de qué ejercicio y qué vuelta es cada turno.
+    ///
+    /// POR QUÉ NO SIRVE `conditioningFold`: aquel se queda con el PRIMER set de
+    /// cada ejercicio (una ronda de metcon es una lista de movimientos), y una
+    /// superserie de fuerza es justo lo contrario — cada ejercicio trae N series
+    /// con SU carga y SU descanso, y perderlas es perder el entreno. Aquí se
+    /// conservan todas: la serie r de cada ejercicio, con su medida, su objetivo,
+    /// su tempo y su descanso intactos.
+    ///
+    /// SERIES DESIGUALES: si A1 trae 4 y A2 trae 3, la vuelta 4 la corre A1 solo.
+    /// Nada se inventa y nada se pierde; las vueltas son las del que más trae.
+    ///
+    /// DEGRADA A SERIES RECTAS (nil) cuando el bloque llega mal formado: un solo
+    /// ejercicio, o algún ejercicio sin series. Misma doctrina que el EMOM y el
+    /// AMRAP — un bloque roto se ejecuta como lo que sí se entiende, nunca revienta
+    /// y nunca se inventa una rotación que el coach no escribió.
+    var supersetFold: (prescription: Prescription, slots: [SupersetSlot])? {
+        guard isSuperset, items.count > 1 else { return nil }
+        let porEjercicio = items.map(\.seriesEjecutables)
+        guard porEjercicio.allSatisfy({ !$0.isEmpty }) else { return nil }
+        let vueltas = porEjercicio.map(\.count).max() ?? 0
+        guard vueltas > 0 else { return nil }
+
+        var rotacion: [PrescriptionSet] = []
+        var slots: [SupersetSlot] = []
+        for vuelta in 0..<vueltas {
+            for (i, item) in items.enumerated() {
+                let series = porEjercicio[i]
+                // El ejercicio que ya agotó sus series no vuelve a aparecer.
+                guard vuelta < series.count else { continue }
+                let serie = series[vuelta]
+                let etiquetaCoach = serie.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let movimiento = (etiquetaCoach?.isEmpty == false) ? etiquetaCoach! : item.exerciseName
+                rotacion.append(
+                    PrescriptionSet(
+                        // La serie ENTERA, verbatim: su medida, su carga, su tempo y
+                        // su descanso son lo que hace que esto sea fuerza y no un WOD.
+                        measure: serie.measure,
+                        target: serie.target ?? item.prescription?.target,
+                        modality: serie.modality
+                            ?? item.prescription?.modality
+                            ?? PrescriptionModality(rawValue: item.segmentKind.modality),
+                        restS: serie.restS,
+                        tempo: serie.tempo,
+                        // Nunca nil: cada turno nombra su movimiento, que es la mitad
+                        // de lo que el atleta necesita saber en una rotación.
+                        note: movimiento
+                    )
+                )
+                slots.append(SupersetSlot(movement: movimiento, round: vuelta + 1, rounds: vueltas))
+            }
+        }
+
+        return (
+            Prescription(
+                scheme: .superset,
+                modality: nil,
+                sets: rotacion,
+                rounds: vueltas,
+                workS: nil,
+                restS: nil,
+                totalS: nil,
+                // El objetivo es de CADA serie (cargas distintas por ejercicio): uno
+                // de bloque sería el del primer ejercicio pintado sobre todos.
+                target: nil,
+                note: nil,
+                start: nil,
+                increment: nil
+            ),
+            slots
         )
     }
 

@@ -465,4 +465,245 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         let line = PrescriptionRenderer.summaryLine(p)
         XCTAssertEqual(line.detail, "≤ 0:08", "The roxzone cap must read as a ceiling on the exercise card.")
     }
+
+    // MARK: - SUPERSERIE · el bloque ROTA y conserva todas sus series
+    //
+    // Un bloque `superset` se ejecuta A1 serie 1 → A2 serie 1 → A3 serie 1 →
+    // descanso → A1 serie 2 … (docs/DECISIONS.md 2026-08-05). Lo que se prueba aquí
+    // es lo que se pierde si se hace mal: el ORDEN, y las series de cada ejercicio
+    // con su carga y su descanso — que es justo lo que `conditioningFold` tira.
+
+    /// Un ejercicio con `series` series de `reps`, cada una con su propia carga
+    /// (`cargaBase` + 5 kg por serie) para poder comprobar que ninguna se pierde.
+    private func itemDeFuerza(uid: String, nombre: String, slug: String,
+                              series: Int, reps: Int, cargaBase: Double,
+                              descansoS: Int) -> String {
+        let sets = (0..<series).map { i in
+            "{ \"measure\": { \"kind\": \"reps\", \"value\": \(reps) }, " +
+            "\"target\": { \"kind\": \"kg\", \"value\": \(cargaBase + Double(i) * 5) }, " +
+            "\"rest_s\": \(descansoS) }"
+        }.joined(separator: ", ")
+        let rx = "{ \"scheme\": \"sets\", \"modality\": \"strength\", \"sets\": [ \(sets) ] }"
+        return """
+        { "uid": "\(uid)", "exercise_id": "\(uid)", "exercise_name": "\(nombre)", "exercise_slug": "\(slug)",
+          "exercise_category": "strength", "exercise_video_url": null, "cues": null,
+          "params_json": {}, "prescription_json": \(rx), "notes": null }
+        """
+    }
+
+    private func bloque(formato: String, items: [String]) -> String {
+        """
+        {
+          "assignment": { "id": "asg1", "athlete_id": "ath1", "scheduled_for": "2026-08-05", "status": "scheduled" },
+          "workout": { "name": "Fuerza", "blocks": [ { "uid": "b", "title": "A", "format": "\(formato)",
+            "block_position": 1, "items": [ \(items.joined(separator: ", ")) ] } ] } }
+        """
+    }
+
+    private func supersetDeTres(series: Int = 4) -> String {
+        bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: series, reps: 8, cargaBase: 100, descansoS: 0),
+            itemDeFuerza(uid: "i2", nombre: "Press banca", slug: "bench-press",
+                         series: series, reps: 10, cargaBase: 60, descansoS: 0),
+            itemDeFuerza(uid: "i3", nombre: "Remo", slug: "barbell-row",
+                         series: series, reps: 12, cargaBase: 40, descansoS: 90),
+        ])
+    }
+
+    func testSuperserieRotaEnElOrdenDeEjecucion() throws {
+        // 3 ejercicios x 4 series = UN tramo con 12 turnos en orden de rotación.
+        let detail = try decode(supersetDeTres())
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+
+        XCTAssertEqual(plan.segments.count, 1,
+                       "Una superserie es UN bloque, luego UN tramo — no uno por ejercicio.")
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertEqual(seg.prescription?.scheme, .superset)
+        XCTAssertEqual(seg.prescription?.rounds, 4, "Cuatro vueltas a la rotación.")
+
+        let sets = try XCTUnwrap(seg.prescription?.sets)
+        XCTAssertEqual(sets.count, 12, "Las 12 series se conservan: 3 ejercicios x 4.")
+        XCTAssertEqual(sets.map(\.note),
+                       ["Sentadilla", "Press banca", "Remo",
+                        "Sentadilla", "Press banca", "Remo",
+                        "Sentadilla", "Press banca", "Remo",
+                        "Sentadilla", "Press banca", "Remo"],
+                       "El orden ES la superserie: A1 s1, A2 s1, A3 s1, A1 s2 …")
+
+        // La vuelta va escrita en cada turno, no se deduce dividiendo.
+        XCTAssertEqual(seg.supersetSlots?.map(\.round), [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4])
+        XCTAssertEqual(seg.supersetSlots?.allSatisfy { $0.rounds == 4 }, true)
+        XCTAssertEqual(seg.supersetSlot(at: 4)?.movement, "Press banca")
+    }
+
+    func testSuperserieConservaCargaYDescansoDeCadaSerie() throws {
+        // Lo que `conditioningFold` tiraba: coge solo el PRIMER set de cada item.
+        let detail = try decode(supersetDeTres())
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        let sets = try XCTUnwrap(seg.prescription?.sets)
+
+        // Las cuatro sentadillas suben de 100 a 115: cada serie con SU carga.
+        let sentadillas = sets.enumerated().filter { $0.offset % 3 == 0 }.map(\.element)
+        XCTAssertEqual(sentadillas.map(\.prescribedLoadKg), [100, 105, 110, 115])
+        XCTAssertEqual(sentadillas.map(\.prescribedReps), [8, 8, 8, 8])
+        // Y el descanso es del turno: cero al pasar de un ejercicio al siguiente,
+        // 90 s al cerrar la vuelta. Un descanso de bloque los aplanaría a uno.
+        XCTAssertEqual(sets.map(\.restS), [0, 0, 90, 0, 0, 90, 0, 0, 90, 0, 0, 90])
+    }
+
+    func testSuperserieSeRegistraSerieASerieYNoArrancaRelojDeMetcon() throws {
+        let detail = try decode(supersetDeTres())
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+
+        XCTAssertTrue(seg.usesMultiSetStrength,
+                      "Una superserie se registra serie a serie, con su carga.")
+        XCTAssertFalse(seg.isConditioningTimer,
+                       "No es un metcon: no arranca reloj de acondicionamiento.")
+        XCTAssertFalse(seg.isMetconFamily, "Es fuerza, no lleva Rx/Scaled.")
+        XCTAssertFalse(seg.isEMOM)
+
+        // Y el registro por serie se ceba con las 12 series de la rotación.
+        let s = armedSession([seg])
+        s.primeSetsIfNeeded()
+        XCTAssertEqual(s.setRecords.count, 12)
+        XCTAssertEqual(s.setRecords.first?.loadPrescribedKg, 100)
+    }
+
+    func testSuperserieConSeriesDesigualesNoPierdeNinguna() throws {
+        // A1 con 4 series y A2 con 2: la vuelta 3 y la 4 las corre A1 solo. Ni se
+        // inventa una serie de A2 ni se recortan las de A1.
+        let detail = try decode(bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 0),
+            itemDeFuerza(uid: "i2", nombre: "Press banca", slug: "bench-press",
+                         series: 2, reps: 10, cargaBase: 60, descansoS: 90),
+        ]))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertEqual(seg.prescription?.sets?.map(\.note),
+                       ["Sentadilla", "Press banca", "Sentadilla", "Press banca",
+                        "Sentadilla", "Sentadilla"])
+        XCTAssertEqual(seg.supersetSlots?.map(\.round), [1, 1, 2, 2, 3, 4])
+        XCTAssertEqual(seg.prescription?.rounds, 4)
+    }
+
+    func testSuperserieDeUnSoloEjercicioDegradaASeriesRectas() throws {
+        // Un ejercicio no rota contra nadie. Degrada, no revienta (doctrina EMOM/AMRAP).
+        let detail = try decode(bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 90),
+        ]))
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        XCTAssertEqual(plan.segments.count, 1)
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertNil(seg.supersetSlots, "Sin rotación no hay turnos que enseñar.")
+        XCTAssertEqual(seg.prescription?.scheme, .sets, "Vuelve a ser fuerza recta.")
+        XCTAssertEqual(seg.prescription?.sets?.count, 4, "Y conserva sus cuatro series.")
+        XCTAssertEqual(seg.title, "Sentadilla")
+    }
+
+    func testSuperserieConEjercicioSinSeriesDegradaASeriesRectas() throws {
+        // El segundo ejercicio no declara ninguna serie: no se sabe cuántas vueltas
+        // hace ni con qué, así que no se inventa la rotación.
+        let sinSeries = """
+        { "uid": "i2", "exercise_id": "i2", "exercise_name": "Press banca", "exercise_slug": "bench-press",
+          "exercise_category": "strength", "exercise_video_url": null, "cues": null,
+          "params_json": {}, "notes": null }
+        """
+        let detail = try decode(bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 90),
+            sinSeries,
+        ]))
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        XCTAssertEqual(plan.segments.count, 2, "Un tramo por ejercicio: series rectas.")
+        XCTAssertNil(plan.segments.first?.supersetSlots)
+        XCTAssertEqual(plan.segments.map(\.title), ["Sentadilla", "Press banca"])
+    }
+
+    func testBloqueDeFuerzaNormalSigueSiendoSeriesRectas() throws {
+        // La regla que no puede romperse: dos ejercicios en el mismo bloque NUNCA
+        // han rotado, y no empiezan a hacerlo por estar juntos.
+        let detail = try decode(bloque(formato: "straight_sets", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 90),
+            itemDeFuerza(uid: "i2", nombre: "Press banca", slug: "bench-press",
+                         series: 4, reps: 10, cargaBase: 60, descansoS: 90),
+        ]))
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        XCTAssertEqual(plan.segments.count, 2)
+        XCTAssertTrue(plan.segments.allSatisfy { $0.supersetSlots == nil })
+        XCTAssertEqual(plan.segments.first?.prescription?.sets?.count, 4)
+    }
+
+    // MARK: - MEDIDA CON RANGO · «12-15» es una banda, no dos series
+
+    func testMedidaConMaxDecodificaLaBanda() throws {
+        let m = try makeDecoder().decode(
+            Measure.self, from: Data(#"{"kind":"reps","value":12,"max":15}"#.utf8))
+        guard case let .reps(suelo, techo) = m else { return XCTFail("debe decodificar como .reps") }
+        XCTAssertEqual(suelo, 12)
+        XCTAssertEqual(techo, 15)
+        XCTAssertEqual(m.suelo, 12, "El suelo es con lo que se calcula.")
+        XCTAssertTrue(m.esRango)
+        XCTAssertEqual(PrescriptionRenderer.measureWork(m), "12-15")
+        XCTAssertEqual(PrescriptionRenderer.measureWork(m, deletreandoReps: true), "12-15 reps")
+    }
+
+    func testMedidaSinMaxDecodificaExactamenteComoAntes() throws {
+        // El cambio es ADITIVO: un JSON de ayer se comporta igual que ayer.
+        let m = try makeDecoder().decode(
+            Measure.self, from: Data(#"{"kind":"reps","value":12}"#.utf8))
+        XCTAssertEqual(m, .reps(12))
+        XCTAssertFalse(m.esRango)
+        XCTAssertNil(m.techo)
+        XCTAssertEqual(PrescriptionRenderer.measureWork(m), "12")
+        XCTAssertEqual(PrescriptionRenderer.measureWork(m, deletreandoReps: true), "12 reps")
+    }
+
+    func testMaxQueNoAbreBandaNoSePintaComoRango() throws {
+        // «15-15» no es un rango, y «15-12» es una errata: ni uno ni otro se enseñan
+        // como banda (§7 — lo que no es un dato no se pinta).
+        for json in [#"{"kind":"reps","value":15,"max":15}"#, #"{"kind":"reps","value":15,"max":12}"#] {
+            let m = try makeDecoder().decode(Measure.self, from: Data(json.utf8))
+            XCTAssertFalse(m.esRango, json)
+            XCTAssertEqual(PrescriptionRenderer.measureWork(m), "15", json)
+        }
+    }
+
+    func testBandaDeRepsLlegaAlRegistroDeSeriesSinContaminarElCalculo() throws {
+        // El prellenado usa el SUELO (12); la pantalla enseña la banda (12-15).
+        let rx = "{ \"scheme\": \"sets\", \"modality\": \"strength\", \"sets\": [ " +
+                 "{ \"measure\": { \"kind\": \"reps\", \"value\": 12, \"max\": 15 }, " +
+                 "\"target\": { \"kind\": \"kg\", \"value\": 60 } }, " +
+                 "{ \"measure\": { \"kind\": \"reps\", \"value\": 12, \"max\": 15 }, " +
+                 "\"target\": { \"kind\": \"kg\", \"value\": 60 } } ] }"
+        let detail = try decode(oneItemWorkout(
+            category: "strength", slug: "curl", name: "Curl", params: "{}", prescription: rx))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        let set = try XCTUnwrap(seg.prescription?.sets?.first)
+        XCTAssertEqual(set.prescribedReps, 12, "El suelo es lo prescrito para calcular.")
+        XCTAssertEqual(set.prescribedRepsMax, 15)
+
+        let s = armedSession([seg])
+        s.primeSetsIfNeeded()
+        let rec = try XCTUnwrap(s.setRecords.first)
+        XCTAssertEqual(rec.repsPrescribed, 12)
+        XCTAssertEqual(rec.repsActual, 12, "Se prellena con el suelo, nunca con el techo.")
+        XCTAssertEqual(rec.repsPrescribedMax, 15)
+        XCTAssertEqual(Formato.serie(reps: rec.repsPrescribed, repsMax: rec.repsPrescribedMax,
+                                     cargaKg: rec.loadPrescribedKg)?.linea, "12-15 × 60 kg")
+    }
+
+    func testMedidaConRangoSobreviveElViajeDeIdaYVuelta() throws {
+        // Encode + decode: el techo no se pierde por el camino (el espejo del reloj
+        // y la cola sin conexión guardan medidas ya decodificadas).
+        for m in [Measure.reps(12, max: 15),
+                  .distance(meters: 800, max: 1000),
+                  .duration(seconds: 40, max: 60),
+                  .calories(12, max: 15)] {
+            let ida = try JSONEncoder().encode(m)
+            XCTAssertEqual(try makeDecoder().decode(Measure.self, from: ida), m)
+        }
+    }
 }

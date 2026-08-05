@@ -97,8 +97,11 @@ extension Prescription {
 
     private static func medidaDeCorrer(_ m: Measure?) -> RunSegmentMeasure? {
         switch m {
-        case let .distance(meters) where meters > 0: return .distance(m: Int(meters))
-        case let .duration(seconds) where seconds > 0: return .duration(s: seconds)
+        // El SUELO es lo que define el tramo. Una banda («800-1000 m») se corre
+        // hasta donde diga el atleta; el cursor de la serie no puede rematarlo en
+        // un techo que nadie ha prometido.
+        case let .distance(meters, _) where meters > 0: return .distance(m: Int(meters))
+        case let .duration(seconds, _) where seconds > 0: return .duration(s: seconds)
         default: return nil
         }
     }

@@ -98,6 +98,13 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     case rounds
     case hyroxSim = "hyrox_sim"
     case sets
+    /// SUPERSERIE — los ejercicios del bloque ROTAN (A1 serie 1 → A2 serie 1 → A3
+    /// serie 1 → descanso → A1 serie 2 …) en vez de hacerse en series rectas. Es un
+    /// formato de BLOQUE, no un nivel de anidamiento (docs/DECISIONS.md 2026-08-05):
+    /// el coach que escribe A1/A2/A3 y luego B está describiendo dos bloques.
+    /// Registra carga por serie igual que `.sets` — no es un metcon y no arranca
+    /// ningún reloj de acondicionamiento.
+    case superset
     case warmup
     case cooldown
 
@@ -152,7 +159,9 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .forTime, .amrap, .emom, .tabata, .deathBy,
              .chipper, .ladder, .rounds, .hyroxSim:
             return true
-        case .intervals, .steady, .sets, .warmup, .cooldown:
+        // La superserie es fuerza: su honestidad vive en la carga y las reps de
+        // cada serie, no en un Rx/Scaled de bloque.
+        case .intervals, .steady, .sets, .superset, .warmup, .cooldown:
             return false
         }
     }
@@ -172,7 +181,9 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .emom, .tabata, .deathBy, .intervals:        return .rotating
         case .forTime, .amrap, .chipper, .ladder, .rounds, .hyroxSim: return .fixed
         case .steady:                                     return .continuous
-        case .sets:                                       return .setTable
+        // La superserie se pinta con la MISMA tabla de series que la fuerza recta:
+        // lo que cambia es el ORDEN en que se recorren, no la pantalla.
+        case .sets, .superset:                            return .setTable
         case .warmup, .cooldown:                          return .list
         }
     }
@@ -206,6 +217,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .rounds:   return "Rounds"
         case .hyroxSim: return "HYROX Sim"
         case .sets:     return "Strength"
+        case .superset: return "Superserie"
         case .warmup:   return "Warm-up"
         case .cooldown: return "Cool-down"
         }
@@ -255,17 +267,27 @@ enum PrescriptionModality: String, Codable, Equatable {
 
 // MARK: - Measure (the WORK done in a set — "how much")
 
+// UNA MEDIDA PUEDE SER UNA BANDA, no solo un punto. «4 series de 12-15» es un
+// rango dentro del que el atleta autorregula, no dos series distintas de 12 y de
+// 15 (ver docs/DECISIONS.md, 2026-08-05). El segundo valor asociado —`max`— es el
+// TECHO y es opcional; el primero sigue siendo obligatorio y es el SUELO.
+//
+// Por qué con valor por defecto (`= nil`): así todo el que CONSTRUYE una medida
+// («.reps(10)») sigue compilando sin tocarlo, y todo el que la LEE está obligado
+// por el compilador a decir qué hace con el techo — que es justo donde se decide
+// si se pinta la banda o se calcula con el suelo. El suelo manda en TODO cálculo;
+// la banda es información para el atleta.
 enum Measure: Equatable {
-    case reps(Int)
-    case distance(meters: Double)
-    case duration(seconds: Int)
-    case calories(Int)
+    case reps(Int, max: Int? = nil)
+    case distance(meters: Double, max: Double? = nil)
+    case duration(seconds: Int, max: Int? = nil)
+    case calories(Int, max: Int? = nil)
     /// Unrecognized / malformed kind — kept so an unknown future measure never
     /// crashes the decode; the renderer simply skips it.
     case unknown
 
     private enum CodingKeys: String, CodingKey {
-        case kind, value, meters, seconds
+        case kind, value, meters, seconds, max
     }
 }
 
@@ -273,15 +295,23 @@ extension Measure: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let kind = (try? c.decode(String.self, forKey: .kind)) ?? ""
+        // El techo llega como número en la MISMA clave sea cual sea la forma (el
+        // `kind` ya dice la unidad). Ausente en todo JSON anterior al cambio: el
+        // decode es aditivo y una medida sin `max` decodifica exactamente igual.
+        let max = try? c.decodeIfPresent(Double.self, forKey: .max)
         switch kind {
         case "reps":
-            self = .reps(Int((try? c.decode(Double.self, forKey: .value)) ?? 0))
+            self = .reps(Int((try? c.decode(Double.self, forKey: .value)) ?? 0),
+                         max: max.map { Int($0) })
         case "distance":
-            self = .distance(meters: (try? c.decode(Double.self, forKey: .meters)) ?? 0)
+            self = .distance(meters: (try? c.decode(Double.self, forKey: .meters)) ?? 0,
+                             max: max)
         case "duration":
-            self = .duration(seconds: Int((try? c.decode(Double.self, forKey: .seconds)) ?? 0))
+            self = .duration(seconds: Int((try? c.decode(Double.self, forKey: .seconds)) ?? 0),
+                             max: max.map { Int($0) })
         case "calories":
-            self = .calories(Int((try? c.decode(Double.self, forKey: .value)) ?? 0))
+            self = .calories(Int((try? c.decode(Double.self, forKey: .value)) ?? 0),
+                             max: max.map { Int($0) })
         default:
             self = .unknown
         }
@@ -290,18 +320,56 @@ extension Measure: Codable {
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .reps(let v):
+        case let .reps(v, max):
             try c.encode("reps", forKey: .kind); try c.encode(v, forKey: .value)
-        case .distance(let m):
+            try c.encodeIfPresent(max, forKey: .max)
+        case let .distance(m, max):
             try c.encode("distance", forKey: .kind); try c.encode(m, forKey: .meters)
-        case .duration(let s):
+            try c.encodeIfPresent(max, forKey: .max)
+        case let .duration(s, max):
             try c.encode("duration", forKey: .kind); try c.encode(s, forKey: .seconds)
-        case .calories(let v):
+            try c.encodeIfPresent(max, forKey: .max)
+        case let .calories(v, max):
             try c.encode("calories", forKey: .kind); try c.encode(v, forKey: .value)
+            try c.encodeIfPresent(max, forKey: .max)
         case .unknown:
             break
         }
     }
+}
+
+extension Measure {
+    /// El SUELO de la medida, se llame como se llame el campo base en cada forma.
+    /// Espejo de `measureFloor()` en `shared/domain/prescription/types.ts`: es el
+    /// valor con el que se calcula SIEMPRE (volumen, prellenado, analíticas).
+    var suelo: Double? {
+        switch self {
+        case let .reps(v, _):      return Double(v)
+        case let .distance(m, _):  return m
+        case let .duration(s, _):  return Double(s)
+        case let .calories(v, _):  return Double(v)
+        case .unknown:             return nil
+        }
+    }
+
+    /// El TECHO, solo cuando el coach prescribió una banda de verdad. Espejo de
+    /// `measureIsRange()`: un `max` igual o por debajo del suelo no es un rango,
+    /// así que no se pinta como tal (§7 — lo que no es un dato no se enseña).
+    var techo: Double? {
+        let max: Double?
+        switch self {
+        case let .reps(_, m):      max = m.map(Double.init)
+        case let .distance(_, m):  max = m
+        case let .duration(_, m):  max = m.map(Double.init)
+        case let .calories(_, m):  max = m.map(Double.init)
+        case .unknown:             max = nil
+        }
+        guard let max, let suelo, max > suelo else { return nil }
+        return max
+    }
+
+    /// True cuando la medida es una banda («12-15») y no un punto.
+    var esRango: Bool { techo != nil }
 }
 
 // MARK: - PaceUnit
@@ -437,10 +505,19 @@ struct PrescriptionSet: Codable, Equatable {
 // from the typed `measure` / `target` without re-deriving the renderer's strings.
 extension PrescriptionSet {
     /// Prescribed reps for this set (the `.reps` measure), nil for distance /
-    /// duration / calorie work.
+    /// duration / calorie work. Con una banda («12-15») esto es el SUELO — es el
+    /// número con el que se calcula y con el que se prellena el registro; la banda
+    /// se enseña aparte (`prescribedRepsMax`).
     var prescribedReps: Int? {
-        if case let .reps(v) = measure, v > 0 { return v }
+        if case let .reps(v, _) = measure, v > 0 { return v }
         return nil
+    }
+
+    /// El TECHO de una banda de repeticiones («12-15» → 15), nil cuando el coach
+    /// prescribió un número exacto. Solo para ENSEÑARLO: ningún cálculo lo usa.
+    var prescribedRepsMax: Int? {
+        guard case .reps = measure, let techo = measure?.techo else { return nil }
+        return Int(techo)
     }
 
     /// Prescribed ABSOLUTE load in kg — only when the target is an explicit `kg`

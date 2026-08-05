@@ -57,6 +57,21 @@ struct FuerzaVivoView<Cromo: View>: View {
     private var porSeries: Bool { seg?.usesMultiSetStrength == true }
     private var admiteCarga: Bool { seg?.kind == .strength || seg?.kind == .sled }
 
+    // LA SUPERSERIE — los ejercicios del bloque ROTAN, así que la pregunta que el
+    // atleta se hace entre serie y serie deja de ser «cuál de las cuatro voy» y
+    // pasa a ser «qué ejercicio toca y por qué vuelta». Esas dos cosas viven en el
+    // turno (`SupersetSlot`), y la pantalla las dice donde ya miraba: la etiqueta
+    // del sujeto lleva la vuelta y el nombre del trabajo lleva el ejercicio.
+    private var esSuperserie: Bool { seg?.isSuperset == true }
+    private func turno(_ i: Int) -> SupersetSlot? { seg?.supersetSlot(at: i) }
+
+    /// El ejercicio del turno `i` — en una superserie, el movimiento que toca; en
+    /// todo lo demás, el título del tramo, que YA es el ejercicio.
+    private func movimiento(_ i: Int?) -> String {
+        if let i, let t = turno(i) { return t.movement }
+        return seg?.title ?? ""
+    }
+
     var body: some View {
         MarcoVivo {
             cromo
@@ -113,6 +128,9 @@ struct FuerzaVivoView<Cromo: View>: View {
     private var tituloDeAccion: String {
         if descansando { return "SALTAR DESCANSO" }
         guard let i = seriePendiente else { return accionTitulo }
+        // En una superserie el número global («SERIE 7») no contesta nada: lo que
+        // sitúa al atleta es la vuelta y el ejercicio, y eso lo dice el sujeto.
+        if esSuperserie { return "SERIE HECHA" }
         return "SERIE \(session.setRecords[i].setIndex) HECHA"
     }
 
@@ -156,6 +174,14 @@ struct FuerzaVivoView<Cromo: View>: View {
     /// prescripción sin repeticiones no inventa un «×5» (§7).
     private var lineaDelPlan: String? {
         var partes: [String] = []
+        // Una superserie NO es «12×5»: son tres ejercicios rotando cuatro vueltas, y
+        // contar sus doce turnos como si fueran doce series del mismo ejercicio es
+        // exactamente la clase de dato que miente (§7). Lo cuenta la cabecera del
+        // formato, que ya sabe decirlo, y el descanso —que en una rotación cambia de
+        // turno a turno— se queda en la serie, que es de donde es.
+        if esSuperserie {
+            return seg?.prescription.flatMap(PrescriptionRenderer.wodHeader)
+        }
         if porSeries, let dosis = Formato.dosisDeSeries(series: session.setRecords.count,
                                                         reps: session.setRecords.first?.repsPrescribed) {
             partes.append(dosis)
@@ -228,15 +254,22 @@ struct FuerzaVivoView<Cromo: View>: View {
     @ViewBuilder
     private func sujetoDeSerie(_ i: Int) -> some View {
         let rec = session.setRecords[i]
-        EtiquetaSujeto(texto: "\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
+        // En una superserie la cuenta que sitúa es la VUELTA, no el número global de
+        // la serie: «Ronda 2 de 4» y, debajo, el ejercicio que toca.
+        let t = turno(i)
+        EtiquetaSujeto(texto: t.map { "\(Vocab.ronda) \($0.round) de \($0.rounds)" }
+            ?? "\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
+        // La BANDA solo mientras la serie sigue siendo la del plan: en cuanto el
+        // atleta dice qué hizo, lo que manda es su número, no el margen.
         if let dosis = Formato.serie(reps: rec.repsActual ?? rec.repsPrescribed,
+                                     repsMax: rec.confirmed ? nil : rec.repsPrescribedMax,
                                      cargaKg: rec.loadActualKg ?? rec.loadPrescribedKg) {
             Numeral(texto: dosis.cifra, unidad: dosis.unidad)
-            NombreDelTrabajo(texto: seg?.title ?? "")
+            NombreDelTrabajo(texto: movimiento(i))
         } else {
             // Sin ninguna cifra el sujeto ES el nombre, y va en la voz de titular:
             // el mono es para lo que se compara columna a columna (§4).
-            Text(seg?.title ?? "")
+            Text(movimiento(i))
                 .scaledFont(34, weight: .heavy, relativeTo: .largeTitle, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
@@ -322,11 +355,18 @@ struct FuerzaVivoView<Cromo: View>: View {
     }
 
     /// La serie que viene, para el descanso. Nil cuando esta era la última.
+    ///
+    /// En una superserie el descanso es justo donde se pierde el hilo —lo siguiente
+    /// es OTRO ejercicio—, así que la línea lo nombra: «Luego · Remo · 10 × 60 kg».
     private var textoSerieSiguiente: String? {
         guard let i = indiceSerieActual else { return nil }
         let rec = session.setRecords[i]
         guard !rec.confirmed else { return nil }
-        return Formato.serie(reps: rec.repsPrescribed, cargaKg: rec.loadActualKg ?? rec.loadPrescribedKg)?.linea
+        let dosis = Formato.serie(reps: rec.repsPrescribed,
+                                  repsMax: rec.repsPrescribedMax,
+                                  cargaKg: rec.loadActualKg ?? rec.loadPrescribedKg)?.linea
+        guard let movimiento = turno(i)?.movement else { return dosis }
+        return [movimiento, dosis].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// La serie que toca: la primera sin confirmar y sin saltar. Cuando están
@@ -362,6 +402,7 @@ struct FuerzaVivoView<Cromo: View>: View {
             if porSeries {
                 RielDeSeries(series: session.setRecords,
                              actual: indiceSerieActual,
+                             turnos: seg?.supersetSlots,
                              alTocar: { editando = SerieEnEdicion(indice: $0) })
             } else {
                 ajustesDeTramo
@@ -427,14 +468,40 @@ struct SerieEnEdicion: Identifiable, Equatable {
 ///
 /// Tocar una serie abre su editor. Ajustar es la excepción (§7): lo normal es que
 /// la serie salga como está escrita y se cierre con el botón grande.
+///
+/// EN UNA SUPERSERIE EL RIEL ES LA VUELTA, no el bloque entero: tres ejercicios por
+/// cuatro vueltas son doce peldaños, y doce no caben en 390 pt ni contestan la
+/// pregunta que se hace el que está levantando —«¿qué me queda de ESTA vuelta?»—.
+/// Así que la rotación se recorta a los turnos de la vuelta en curso y cada peldaño
+/// se rotula con su EJERCICIO en vez de con un número global que no sitúa a nadie.
 struct RielDeSeries: View {
     let series: [SetRecord]
     let actual: Int?
+    /// La rotación de la superserie, un turno por serie y en el mismo orden. Nil en
+    /// una serie recta, donde los peldaños son las series del mismo ejercicio.
+    var turnos: [SupersetSlot]? = nil
     let alTocar: (Int) -> Void
+
+    /// Los peldaños que se pintan: en fuerza recta, todas las series; en superserie,
+    /// solo los turnos de la vuelta en la que estás.
+    private var visibles: [SetRecord] {
+        guard let turnos, let actual, turnos.indices.contains(actual) else { return series }
+        let vuelta = turnos[actual].round
+        return series.filter { rec in
+            let i = rec.setIndex - 1
+            return turnos.indices.contains(i) && turnos[i].round == vuelta
+        }
+    }
+
+    private func turno(_ rec: SetRecord) -> SupersetSlot? {
+        let i = rec.setIndex - 1
+        guard let turnos, turnos.indices.contains(i) else { return nil }
+        return turnos[i]
+    }
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(series) { rec in
+            ForEach(visibles) { rec in
                 let i = rec.setIndex - 1
                 Button(action: { Haptics.light(); alTocar(i) }) {
                     peldano(rec, esLaDeAhora: i == actual)
@@ -453,9 +520,10 @@ struct RielDeSeries: View {
                         .font(.system(size: 8, weight: .heavy))
                         .foregroundStyle(rec.status == "scaled" ? Theme.Color.warning : Theme.Color.ok)
                 }
-                Text("S\(rec.setIndex)")
+                Text(turno(rec)?.movement ?? "S\(rec.setIndex)")
                     .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
                     .foregroundStyle(esLaDeAhora ? Theme.Color.accentText : Theme.Color.muted)
+                    .lineLimit(1).minimumScaleFactor(0.5)
             }
             Text(dosis(rec))
                 .font(Theme.Typography.readoutS)
@@ -484,14 +552,20 @@ struct RielDeSeries: View {
     private func dosis(_ rec: SetRecord) -> String {
         let reps = rec.confirmed ? (rec.repsActual ?? rec.repsPrescribed) : rec.repsPrescribed
         let kg = rec.confirmed ? (rec.loadActualKg ?? rec.loadPrescribedKg) : rec.loadPrescribedKg
-        return Formato.serie(reps: reps, cargaKg: kg)?.linea ?? "·"
+        return Formato.serie(reps: reps,
+                             repsMax: rec.confirmed ? nil : rec.repsPrescribedMax,
+                             cargaKg: kg)?.linea ?? "·"
     }
 
     private func voz(_ rec: SetRecord, esLaDeAhora: Bool) -> String {
         let estado = rec.status == "skipped" ? "saltada"
             : rec.confirmed ? (rec.status == "scaled" ? "ajustada" : "hecha")
             : (esLaDeAhora ? "la que toca" : "pendiente")
-        return "Serie \(rec.setIndex), \(estado), \(dosis(rec)). Tocar para ajustar"
+        // El lector de pantalla dice lo mismo que se ve: en una rotación, el
+        // ejercicio y la vuelta; en fuerza recta, el número de la serie.
+        let quien = turno(rec).map { "\($0.movement), vuelta \($0.round) de \($0.rounds)" }
+            ?? "Serie \(rec.setIndex)"
+        return "\(quien), \(estado), \(dosis(rec)). Tocar para ajustar"
     }
 }
 
@@ -512,14 +586,24 @@ struct EditorDeSerie: View {
         session.setRecords.indices.contains(indice) ? session.setRecords[indice] : nil
     }
 
+    /// Qué serie estás ajustando. En una rotación, el número global no la identifica
+    /// («Serie 7 de 12» no dice de qué ejercicio): la nombra el turno.
+    private var cabecera: String {
+        if let t = session.currentSegment?.supersetSlot(at: indice) {
+            return "\(t.movement) · \(Vocab.ronda.lowercased()) \(t.round) de \(t.rounds)"
+        }
+        return "\(Vocab.serie) \(rec?.setIndex ?? indice + 1) de \(session.setRecords.count)"
+    }
+
     var body: some View {
         ScrollView {
             if let rec {
                 VStack(spacing: Theme.Spacing.m) {
                     HStack {
-                        Text("\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
+                        Text(cabecera)
                             .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                             .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1).minimumScaleFactor(0.7)
                         Spacer()
                         Button("Listo") { dismiss() }
                             .scaledFont(15, weight: .semibold, relativeTo: .subheadline)

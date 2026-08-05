@@ -162,9 +162,9 @@ struct ErgCounterPolicy: Equatable {
     private static func programForMeasure(_ measure: Measure?) -> Program {
         guard let measure else { return .justRow }
         switch measure {
-        case .distance(let m) where m > 0: return .fixedPiece
-        case .calories(let c) where c > 0: return .fixedPiece
-        case .duration(let s) where s > 0: return .fixedPiece
+        case .distance(let m, _) where m > 0: return .fixedPiece
+        case .calories(let c, _) where c > 0: return .fixedPiece
+        case .duration(let s, _) where s > 0: return .fixedPiece
         default: return .justRow
         }
     }

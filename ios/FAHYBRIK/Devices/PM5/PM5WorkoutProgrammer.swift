@@ -36,7 +36,7 @@ enum PM5WorkoutProgrammer {
         case .amrap:
             if let t = p.totalS, t > 0 { return .fixedTime(seconds: t, pace: pace) }
             return .justRow(pace: pace)
-        case .emom, .tabata, .deathBy, .chipper, .ladder, .rounds, .hyroxSim, .sets:
+        case .emom, .tabata, .deathBy, .chipper, .ladder, .rounds, .hyroxSim, .sets, .superset:
             return .justRow(pace: pace)
         }
     }
@@ -89,12 +89,12 @@ enum PM5WorkoutProgrammer {
     private static func boutFixedSpec(measure: Measure?, pace: Double?) -> PM5WorkoutSpec {
         guard let measure else { return .justRow(pace: pace) }
         switch measure {
-        case .distance(let meters):
+        case .distance(let meters, _):
             let m = Int(meters.rounded())
             return m > 0 ? .fixedDistance(meters: m, pace: pace) : .justRow(pace: pace)
-        case .duration(let seconds):
+        case .duration(let seconds, _):
             return seconds > 0 ? .fixedTime(seconds: seconds, pace: pace) : .justRow(pace: pace)
-        case .calories(let cals):
+        case .calories(let cals, _):
             return cals > 0 ? .fixedCalories(calories: cals, pace: pace) : .justRow(pace: pace)
         case .reps, .unknown:
             return .justRow(pace: pace)
@@ -114,9 +114,9 @@ enum PM5WorkoutProgrammer {
         // Calories never flatten into scalars — read the typed measure.
         if let m = uniformSetMeasure(segment.prescription) {
             switch m {
-            case .calories(let c) where c > 0: return .fixedCalories(calories: c, pace: pace)
-            case .distance(let d) where d > 0: return .fixedDistance(meters: Int(d.rounded()), pace: pace)
-            case .duration(let s) where s > 0: return .fixedTime(seconds: s, pace: pace)
+            case .calories(let c, _) where c > 0: return .fixedCalories(calories: c, pace: pace)
+            case .distance(let d, _) where d > 0: return .fixedDistance(meters: Int(d.rounded()), pace: pace)
+            case .duration(let s, _) where s > 0: return .fixedTime(seconds: s, pace: pace)
             default: break
             }
         }

@@ -2415,7 +2415,8 @@ final class WorkoutSession {
             SetRecord(
                 setIndex: i + 1,
                 repsPrescribed: s.prescribedReps,
-                repsActual: s.prescribedReps,          // default = did as written
+                repsPrescribedMax: s.prescribedRepsMax, // la banda, solo para enseñarla
+                repsActual: s.prescribedReps,          // default = did as written (el SUELO)
                 loadPrescribedKg: s.prescribedLoadKg,
                 loadActualKg: nil,                     // unknown until the athlete says so
                 rpe: nil,                              // collected only if entered

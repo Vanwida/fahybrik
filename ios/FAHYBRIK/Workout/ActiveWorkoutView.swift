@@ -944,10 +944,11 @@ struct ActiveWorkoutView: View {
         case .steady:    SteadyLiveHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
-        case .emom, .sets, .warmup, .cooldown, .none:
+        case .emom, .sets, .superset, .warmup, .cooldown, .none:
             // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
-            // cuatro esquemas y el nil. Se escriben en vez de un `default` para que
-            // un esquema NUEVO no caiga aquí en silencio — que el compilador avise.
+            // cinco esquemas y el nil — la superserie entre ellos, porque es fuerza y
+            // no arranca ningún reloj de acondicionamiento. Se escriben en vez de un
+            // `default` para que un esquema NUEVO no caiga aquí en silencio.
             EmptyView()
         }
     }

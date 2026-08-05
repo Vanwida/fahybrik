@@ -233,12 +233,20 @@ enum Formato {
     /// Ojo a la diferencia con `dosisDeSeries`, que es OTRO concepto: aquella
     /// escribe *series × repeticiones* de toda la prescripción («4×5»); esta
     /// escribe *repeticiones × carga* de UNA serie («5 × 100 kg»).
-    static func serie(reps: Int?, cargaKg: Double?) -> Cifra? {
-        if let reps, let cargaKg {
-            return Cifra(cifra: "\(reps) \(signoPor) \(esDecimal(cargaKg))", unidad: "kg")
+    /// `repsMax` es el TECHO de una banda de repeticiones («12-15 × 60 kg»): el
+    /// coach prescribe un margen dentro del que el atleta autorregula, y enseñar
+    /// solo el suelo le esconde media prescripción. Se ignora cuando no supera al
+    /// suelo — un techo que no abre banda no es un rango (§7).
+    static func serie(reps: Int?, repsMax: Int? = nil, cargaKg: Double?) -> Cifra? {
+        let cifraReps: String? = reps.map { suelo in
+            guard let techo = repsMax, techo > suelo else { return "\(suelo)" }
+            return "\(suelo)-\(techo)"
+        }
+        if let cifraReps, let cargaKg {
+            return Cifra(cifra: "\(cifraReps) \(signoPor) \(esDecimal(cargaKg))", unidad: "kg")
         }
         if let cargaKg { return Cifra(cifra: esDecimal(cargaKg), unidad: "kg") }
-        if let reps { return Cifra(cifra: "\(reps)", unidad: Vocab.reps) }
+        if let cifraReps { return Cifra(cifra: cifraReps, unidad: Vocab.reps) }
         return nil
     }
 
@@ -325,8 +333,13 @@ enum Vocab {
     /// («Serie 2 de 4» / «4 series»).
     static let serie = "Serie"
     static let series = "Series"
-    /// Una ronda de un formato con reloj (EMOM, intervalos, AMRAP).
+    /// Una ronda de un formato con reloj (EMOM, intervalos, AMRAP). Y también una
+    /// VUELTA a la rotación de una superserie, que es el mismo concepto: has pasado
+    /// una vez por todos los ejercicios.
     static let ronda = "Ronda"
+    /// Dos o más ejercicios que se alternan serie a serie. La palabra que usa el
+    /// gimnasio; `PrescriptionScheme.superset` es el vocabulario del cable (§3).
+    static let superserie = "Superserie"
     /// El peso que mueves.
     static let carga = "Carga"
     /// El descanso PRESCRITO — es dosis, no una pausa (§10 del contrato de UI).
