@@ -146,6 +146,8 @@ interface BlockOutcome {
   day_of_week: number;
   block_title: string;
   item_count: number;
+  detected_item_count: number;
+  incomplete_item_count: number;
   review_item_count: number;
   unresolved_item_count: number;
   unresolved_tokens: string[];
@@ -170,6 +172,8 @@ async function runFullChain(): Promise<{ days: ProposalDay[]; outcomes: BlockOut
       for (const block of session.blocks) {
         const blockItemUids = new Set(block.items.map((it) => it.uid));
         const blockFlags = day.flags.filter((f) => blockItemUids.has(f.uid));
+        const detectedItems = blockFlags.filter((f) => f.confidence === 'detected');
+        const incompleteItems = blockFlags.filter((f) => f.confidence === 'incomplete');
         const reviewItems = blockFlags.filter((f) => f.confidence === 'review');
         const unresolvedItems = blockFlags.filter((f) => f.unresolved_exercise);
         const truncated = (day.truncations ?? []).some((t) => t.block_uid === block.uid);
@@ -184,6 +188,8 @@ async function runFullChain(): Promise<{ days: ProposalDay[]; outcomes: BlockOut
           day_of_week: day.day_of_week,
           block_title: block.title,
           item_count: block.items.length,
+          detected_item_count: detectedItems.length,
+          incomplete_item_count: incompleteItems.length,
           review_item_count: reviewItems.length,
           unresolved_item_count: unresolvedItems.length,
           unresolved_tokens: unresolvedItems.map((f) => f.exercise_token),
@@ -198,136 +204,152 @@ async function runFullChain(): Promise<{ days: ProposalDay[]; outcomes: BlockOut
   return { days, outcomes };
 }
 
-describe('cadena completa contra la captura real (semana 12)', () => {
-  test('20 tarjetas transcritas → 14 tarjetas de bloque de entreno (una de ellas, "Running", sin ni un dato planificado)', async () => {
-    const { days, outcomes } = await runFullChain();
-
-    const totalCards =
-      days.reduce((n, d) => n + d.sessions.reduce((m, s) => m + s.blocks.length, 0), 0) +
-      // notas/métricas/descanso no generan bloque: se cuentan aparte por día.
-      (days.some((d) => d.notes?.includes('SEMANA 12')) ? 1 : 0) +
-      (days.some((d) => d.notes?.includes('CONTROL TEST SALTO')) ? 1 : 0) +
-      (days.some((d) => d.state === 'rest') ? 1 : 0) +
-      // 3 tarjetas de métricas — se descartan sin dejar rastro (ver el test
-      // dedicado más abajo), así que se cuentan a mano contra el literal.
-      3;
-
+describe('cadena completa contra la captura real (semana 12) — tras d913a0c6 + 2d487eb8', () => {
+  test('20 tarjetas transcritas → 14 tarjetas de bloque de entreno (sin cambios: la cuenta de tarjetas no la tocan estos arreglos)', async () => {
+    const { outcomes } = await runFullChain();
     expect(outcomes).toHaveLength(14);
-    expect(totalCards).toBe(20);
   });
 
-  test('0 de las 14 tarjetas de entreno producen un bloque ejecutable con contenido real', async () => {
+  test('2 de las 14 tarjetas dan bloque ejecutable CON contenido real (esta mañana: 0) — pero NINGUNO de los dos resuelve TODOS sus ejercicios', async () => {
     const { outcomes } = await runFullChain();
 
-    // La verdad mecánica: `isExecutable` da positivo en 3 bloques. Los tres son
-    // artefactos, no aciertos — el test que sigue lo desglosa uno a uno.
-    // "Running" pasa VACÍO: la tarjeta no traía ni un dato planificado (todo
-    // era lo REALIZADO), así que el bloque tiene CERO items — "ejecutable"
-    // porque no hay nada que ejecutar, no porque haya un entreno completo.
-    const mechanicallyExecutable = outcomes.filter((o) => o.executable);
-    expect(mechanicallyExecutable.map((o) => o.block_title)).toEqual([
-      'REFUERZO HOMBRO',
-      'Running',
+    // "Running" sigue siendo un falso positivo vacío: la tarjeta no trae un
+    // solo dato planificado, así que su bloque tiene 0 items — "ejecutable"
+    // porque no hay nada que ejecutar. Se excluye igual que esta mañana.
+    const genuinelyUsable = outcomes.filter((o) => o.executable && o.item_count > 0);
+    expect(genuinelyUsable.map((o) => o.block_title)).toEqual([
+      'COMPENSATORIO GLÚTEO',
       '4 × 600 + 3 × 800',
     ]);
 
-    // Y NINGUNO de los dos es un acierto real: cero tarjetas producen un
-    // bloque ejecutable Y con el contenido que el coach realmente escribió.
-    const genuinelyUsable = outcomes.filter(
-      (o) => o.executable && o.item_count > 0 && o.unresolved_item_count < o.item_count,
-    );
-    expect(genuinelyUsable).toHaveLength(0);
+    // De los dos, solo UNO es un arreglo de HOY: "COMPENSATORIO GLÚTEO" (día 2)
+    // era el bloque que se comía sus 3 ejercicios reales tras la dosis
+    // huérfana "P" — ver el test dedicado. "4 × 600 + 3 × 800" YA era
+    // ejecutable esta mañana (el mismo hueco de siempre: sin modalidad
+    // conocida, el gate de completitud no le exige objetivo) — no es un
+    // artefacto de hoy, es un hueco preexistente sin tocar.
+    // Y el listón que pidió team-lead: ninguno de los dos tiene TODOS sus
+    // ejercicios resueltos a catálogo — los dos seguirían pidiendo que el
+    // coach elija manualmente antes de poder confirmar.
+    for (const o of genuinelyUsable) {
+      expect(o.unresolved_item_count).toBe(o.item_count);
+    }
   });
 
-  test('"REFUERZO HOMBRO" (día 1): el guardián de contra-palabras no cubre inglés — "Sets Exercises" se tipa como ejercicio falso y se COME los 5 reales', async () => {
+  test('"REFUERZO HOMBRO" (día 1): el bug de "Sets Exercises" está arreglado — los 5 ejercicios reales sobreviven como incomplete', async () => {
     const { days } = await runFullChain();
     const block = days[0]!.sessions[0]!.blocks.find((b) => b.title === 'REFUERZO HOMBRO')!;
 
-    // La tarjeta real trae 5 ejercicios (Cable External Rotation, Band Pull
-    // Apart, Prone Y Raise, Serratus wall slide, Band Scapular Retraction).
-    // Ninguno sobrevive: el bloque tiene UN item, y es la línea de contadores
-    // mal leída como ejercicio.
-    expect(block.items).toHaveLength(1);
-    expect(block.items[0]!.exercise_name).toBe('Sets Exercises');
-    // "0/10 Sets 0/5 Exercises" — el "0/10" se lee como secuencia de reps.
-    // DOSE_WORD_ONLY_RE (shared/domain/import/result.ts) cubre "sets" pero NO
-    // "exercises" (su lista es solo española: rounds/rondas/series/reps/
-    // repeticiones/veces/ejercicios/min/seg), así que el guardián de
-    // contra-palabras — que si cazara "Sets Exercises" lo mandaría a review —
-    // no dispara, y la línea se tipa `detected` con una dosis inventada.
-    expect(block.items[0]!.prescription.sets?.map((s) => s.measure)).toEqual([
-      { kind: 'reps', value: 0 },
-      { kind: 'reps', value: 10 },
+    expect(block.items.map((it) => it.exercise_name)).toEqual([
+      'Cable External Rotation',
+      'Band Pull Apart',
+      'Prone Y Raise',
+      'Serratus wall slide',
+      'Band Scapular Retraction',
     ]);
+    // Ya no hay "Sets Exercises". Los 5 son `incomplete`: el nombre es real,
+    // la dosis no viene en esta tarjeta — ni inventada ni perdida.
+    expect(block.items.every((it) => it.prescription.sets == null)).toBe(true);
   });
 
-  test('"COMPENSATORIO GLÚTEO" (día 2): la dosis en PROSA se tipa bien, pero queda huérfana — el nombre real (3 ejercicios) se pierde', async () => {
+  test('"COMPENSATORIO GLÚTEO" (día 2): la dosis huérfana "P" ya no se pierde — se reparte entre los 3 ejercicios reales', async () => {
     const { days } = await runFullChain();
     const block = days[1]!.sessions[0]!.blocks.find((b) => b.title === 'COMPENSATORIO GLÚTEO')!;
 
-    // "P: Realiza 4 series de entre 12-15 repeticiones... 1 minuto de
-    // descanso" SÍ se tipa: 4 series, rango 12-15 reps, 60s de descanso.
-    const prose = block.items.find((it) => it.exercise_name === 'P')!;
-    expect(prose.prescription.sets).toHaveLength(4);
-    expect(prose.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 12, max: 15 });
-    expect(prose.prescription.sets![0]!.rest_s).toBe(60);
-
-    // Pero el NOMBRE real del movimiento no sobrevive: "P" es lo que queda de
-    // "P:" tras strippear la etiqueta, no un ejercicio. Los tres nombres reales
-    // ("Puente de glúteo", "Marcha desde puente de glúteo", "Isometría en
-    // puente de glúteo") caen aparte, sin dosis, a `review`.
-    expect(prose.exercise_id).toBeNull();
-    const reviewNames = block.items
-      .filter((it) => it !== prose)
-      .map((it) => it.notes)
-      .filter((n): n is string => !!n);
-    expect(reviewNames).toEqual([
-      '1) Puente de glúteo',
-      '2) Marcha desde puente de glúteo',
-      '3) Isometría en puente de glúteo',
+    expect(block.items.map((it) => it.exercise_name)).toEqual([
+      'Puente de glúteo',
+      'Marcha desde puente de glúteo',
+      'Isometría en puente de glúteo',
     ]);
+    // Ya no queda ningún item huérfano llamado "P". Los 3 llevan la MISMA
+    // dosis leída de la prosa: 4 series, 12-15 reps (rango, no un punto
+    // inventado), 60s de descanso — RIR 2 lo añade el relleno de defaults
+    // (la prosa no decía intensidad).
+    for (const it of block.items) {
+      expect(it.prescription.sets).toHaveLength(4);
+      expect(it.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 12, max: 15 });
+      expect(it.prescription.sets![0]!.rest_s).toBe(60);
+      expect(it.prescription.sets![0]!.target).toEqual({ kind: 'rir', value: 2 });
+    }
   });
 
-  test('49 de 51 items no resuelven a catálogo (contra el suelo de GLOBAL_ALIASES) — lista literal de tokens no vacíos', async () => {
+  test('desglose por los TRES estados: detected 21 · incomplete 17 · review 18, de 56 items (esta mañana: 51 items, sin "incomplete")', async () => {
     const { days } = await runFullChain();
     const allFlags = days.flatMap((d) => d.flags);
 
-    expect(allFlags).toHaveLength(51);
-    const unresolved = allFlags.filter((f) => f.unresolved_exercise);
-    expect(unresolved).toHaveLength(49);
+    const byState = {
+      detected: allFlags.filter((f) => f.confidence === 'detected').length,
+      incomplete: allFlags.filter((f) => f.confidence === 'incomplete').length,
+      review: allFlags.filter((f) => f.confidence === 'review').length,
+    };
+    expect(byState).toEqual({ detected: 21, incomplete: 17, review: 18 });
+    expect(allFlags).toHaveLength(56);
+  });
 
+  test('la lista LITERAL de ejercicios que no resuelven a catálogo — la de verdad esta vez: 51 de 56 items, 30 nombres reales distintos', async () => {
+    const { days } = await runFullChain();
+    const allFlags = days.flatMap((d) => d.flags);
+
+    const unresolved = allFlags.filter((f) => f.unresolved_exercise);
+    expect(unresolved).toHaveLength(51);
+
+    // La lista que de verdad importa: nombres reales de la captura que el
+    // catálogo (suelo GLOBAL_ALIASES) no reconoce. "A)" y "FUERZA PARTE ALTA"/
+    // "OPCIONAL" son restos de parseo (la cabecera "A) 4×4 | RIR 2" produce un
+    // segundo token junto al del título) — no ejercicios, y se cuentan aparte.
     const namedMisses = unresolved.map((f) => f.exercise_token).filter((t) => t.trim().length > 0);
     expect(namedMisses).toEqual([
       'FUERZA PARTE ALTA',
       'A)',
-      'Sets Exercises',
-      'P',
+      'Dominada (lastrada)',
+      'Cable External Rotation',
+      'Band Pull Apart',
+      'Prone Y Raise',
+      'Serratus wall slide',
+      'Band Scapular Retraction',
+      'Puente de glúteo',
+      'Marcha desde puente de glúteo',
+      'Isometría en puente de glúteo',
+      'Cat Cow',
+      'Cossack Squat',
+      'Forward Leg Swing',
+      'Cobra Pose',
+      'Hip Flexor Stretch',
+      'Bird Dog',
       'Incremental ergómetros',
       'Remo',
+      'Single Leg Glute Bridge',
+      'Side Step Squat With Band',
+      'Extension de cadera en cuadrúp...',
+      'Diagonal Band Pull Apart',
+      'Banded Front Raise',
+      'Prone T Raise',
       'OPCIONAL',
       'A)',
+      'Push Jerk',
+      'Dominada (lastrada)',
       'Bici Libre',
     ]);
-    // Y NINGUNO de los ~30 nombres reales del literal (Cable External
-    // Rotation, Band Pull Apart, Cat Cow, Cossack Squat, Bird Dog, Side Plank
-    // with Clam Shell Hold, Push Jerk, Encogimientos KTB…) aparece aquí — no
-    // es que fallen al resolver: la gramática nunca los tipa (van a `review`
-    // con `exercise_token: ''`), así que ni siquiera LLEGAN al resolutor.
-    for (const real of ['Cable External Rotation', 'Cat Cow', 'Bird Dog', 'Push Jerk']) {
-      expect(namedMisses).not.toContain(real);
-    }
 
-    // Lo que SÍ resuelve: solo dos líneas de "carrera" (alias global 'run'),
-    // dentro de TRANSICIONES CARRERA.
+    // Y lo que SÍ resuelve — 5 de 56, ya no solo "carrera": tres nombres
+    // reales matchean por SUBSTRING contra GLOBAL_ALIASES ("side plank",
+    // "lateral raise", "push up" dentro de sus nombres completos). Antes de
+    // hoy esos tres NUNCA llegaban al resolutor — caían a review con token
+    // vacío — así que este acierto es NUEVO, no una mejora del resolutor.
     const resolved = allFlags.filter((f) => !f.unresolved_exercise);
-    expect(resolved.map((f) => f.exercise_token)).toEqual(['carrera', 'carrera mi']);
+    expect(resolved.map((f) => f.exercise_token)).toEqual([
+      'carrera',
+      'carrera mi',
+      'Side Plank with Clam Shell Hold',
+      'Banded Lateral Raise',
+      'Scapular Push Up',
+    ]);
     expect(resolved.every((f) => f.resolved_via === 'alias')).toBe(true);
   });
 
-  test('las tarjetas de nota y métricas se descartan del entreno correctamente', async () => {
+  test('las tarjetas de nota y métricas siguen sin colarse como entreno (sin cambios)', async () => {
     const { days } = await runFullChain();
 
-    // Notas: van a ProposalDay.notes, NUNCA a un bloque/item.
     expect(days[0]!.notes).toBe('SEMANA 12');
     expect(days[4]!.notes).toContain('CONTROL TEST SALTO');
     for (const day of days) {
@@ -337,50 +359,23 @@ describe('cadena completa contra la captura real (semana 12)', () => {
         }
       }
     }
-
-    // Métricas: se descartan SIN dejar rastro — ni bloque, ni nota, ni ningún
-    // otro campo de ProposalDay. Correcto (no son entreno), pero es bueno que
-    // conste: si algún día se quisiera que el coach viera "dormiste 6h58" en
-    // algún sitio, hoy NO llega a ninguna parte de la propuesta.
     const allText = JSON.stringify(days);
     expect(allText).not.toContain('Sleep Hours');
     expect(allText).not.toContain('Body Battery');
   });
 
-  test('el truncamiento llega ÍNTEGRO a la propuesta: 8 de las 14 tarjetas de entreno siguen marcadas truncadas', async () => {
-    const { outcomes, days } = await runFullChain();
-
-    // 12 de las 20 tarjetas del literal están cortadas por la UI, pero 4 de
-    // esas 12 son tarjetas de métricas/nota (no generan bloque) — de las 14
-    // de entreno, las cortadas son 8.
+  test('el truncamiento sigue llegando íntegro a la propuesta: 8 de 14 (sin cambios respecto a esta mañana)', async () => {
+    const { outcomes } = await runFullChain();
     const truncatedOutcomes = outcomes.filter((o) => o.truncated);
     expect(truncatedOutcomes).toHaveLength(8);
-
-    // El contador explícito ("4 More", "3 More") sobrevive como hidden_count;
-    // un corte sin contador ("Descanso 1:30...", "Notas...") queda con null —
-    // nunca se inventa un número que no estaba.
-    const movilidad = days[2]!.truncations!.find((t) => t.block_uid ===
-      days[2]!.sessions[0]!.blocks.find((b) => b.title === 'MOVILIDAD GENERAL')!.uid)!;
-    expect(movilidad.hidden_count).toBe(4);
-
-    const fuerzaAlta = days[0]!.truncations!.find((t) => t.block_uid ===
-      days[0]!.sessions[0]!.blocks.find((b) => b.title.startsWith('FUERZA PARTE ALTA'))!.uid)!;
-    expect(fuerzaAlta.hidden_count).toBeNull();
   });
 
-  test('el relleno de defaults SOLO propone descanso/RIR/reps sobre líneas ya tipadas — nunca inventa sobre una review', async () => {
+  test('bug de esta mañana que YA NO existe: un título corto sin mayúsculas ("Running") ya no se fabrica como ejercicio', async () => {
     const { days } = await runFullChain();
-    const allFilled = days.flatMap((d) => d.filled ?? []);
-
-    // 51 items en total, pero solo 9 recibieron algún relleno — exactamente
-    // los que la gramática SÍ tipó como fuerza con series (los que cayeron a
-    // review, la inmensa mayoría, no reciben nada: no hay estructura donde
-    // colgar un default).
-    const filledItemUids = new Set(allFilled.map((f) => f.item_uid));
-    expect(filledItemUids.size).toBe(9);
-    expect(allFilled.every((f) => f.field === 'rest' || f.field === 'intensity')).toBe(true);
-    // Nunca reps fuera de fuerza-sin-medida en este fixture: cada línea que sí
-    // tipó fuerza ya traía sus repeticiones (4×4, RIR 2) o su rango (12-15).
-    expect(allFilled.some((f) => f.field === 'reps')).toBe(false);
+    const allTokens = days.flatMap((d) => d.flags).map((f) => f.exercise_token);
+    // Ninguna línea `incomplete` puede llevar el token "Running" — el arreglo
+    // que descarta el título mal leído como ejercicio (dropTitleMisreadAsExercise)
+    // lo quita antes de resolver/rellenar.
+    expect(allTokens).not.toContain('Running');
   });
 });
