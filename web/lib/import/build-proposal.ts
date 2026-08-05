@@ -29,6 +29,7 @@ import {
   type ParseNotationCellOptions,
 } from '@fahybrid/shared/domain/import/notation';
 import { parseStrength } from '@fahybrid/shared/domain/import/strength';
+import { isNoiseLine, looksLikeBareMovementName } from '@fahybrid/shared/domain/import/label';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { resolveExercise } from './exercise-resolve';
 import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
@@ -269,15 +270,18 @@ function dayNotesField(cards: readonly ImportedCard[] | undefined): { notes?: st
  *     LOOKS orphaned (a dense WOD review line, "no confident dose recognized")
  *     is never coerced into a dose.
  *
- * KNOWN GAP, flagged rather than guessed: if the orphan line carries text
- * BESIDES the dose clause, that text has nowhere to go — `EditorBlock` has no
- * `notes` field today (only `EditorItem.notes`), and adding one is outside
- * this file. In the real card this was written against, the whole line IS the
- * dose clause, so this does not lose anything there.
+ * The orphan's own raw text is returned too (`orphanText`) — not discarded.
+ * The caller (`buildCardBlock`) carries it into `EditorBlock.coach_note`, the
+ * SAME field a library block already uses for a verbatim prescription that
+ * doesn't fit the structure (`WeekDayPart.coach_note`). This is not an
+ * attempt to isolate "just the leftover, non-dose words" (no clean way to do
+ * that against free text without re-implementing the grammar's own regex
+ * cascade) — it keeps the coach's ORIGINAL phrasing visible next to the dose
+ * it produced, which is strictly more transparent than silence.
  */
-function redistributeOrphanDose(lines: ParsedLine[]): ParsedLine[] {
+function redistributeOrphanDose(lines: ParsedLine[]): { lines: ParsedLine[]; orphanText?: string } {
   const hasIncomplete = lines.some((l) => l.confidence === 'incomplete');
-  if (!hasIncomplete) return lines;
+  if (!hasIncomplete) return { lines };
 
   const candidates: Array<{ line: ParsedLine; dose: Prescription }> = [];
   for (const l of lines) {
@@ -287,15 +291,51 @@ function redistributeOrphanDose(lines: ParsedLine[]): ParsedLine[] {
       candidates.push({ line: l, dose: parsed.prescription });
     }
   }
-  if (candidates.length !== 1) return lines;
+  if (candidates.length !== 1) return { lines };
   const { line: orphan, dose } = candidates[0]!;
 
-  return lines
+  const nextLines = lines
     .filter((l) => l !== orphan)
     .map((l): ParsedLine => {
       if (l.confidence !== 'incomplete') return l;
       return { ...l, confidence: 'detected', review_reasons: [], prescription: structuredClone(dose) };
     });
+  return { lines: nextLines, orphanText: orphan.prescription.note };
+}
+
+// "16 Sets 8 Exercises" / "0/10 Sets 0/5 Exercises" — a progress COUNTER, not
+// content. Same shape `isNoiseLine` already drops it for (COUNTER_LINE_RE,
+// shared/domain/import/label.ts) — reproduced narrowly here (not imported;
+// that const isn't exported, and this pattern is small/stable enough to own).
+const COUNTER_SHAPE_RE = /^\d+(?:\/\d+)?\s+sets?\s+\d+(?:\/\d+)?\s+exercises?\s*$/i;
+// "Video ...", "Notas..." — a label pointing at something the photo didn't
+// capture, not the content itself. Keeping it as a "note" would just repeat
+// what the truncation signal already says. Same shape as label.ts's private
+// METADATA_MARKER_RE, reproduced for the same reason as above.
+const METADATA_ONLY_RE = /^(?:video|notas?|fotos?|link|enlace|url)\s*\.{0,3}$/i;
+
+/**
+ * A card's own text that `isNoiseLine` correctly keeps OUT of the exercise
+ * grammar (it is not a movement, not a dose) but that then vanishes with
+ * ZERO trace — not an item, not a flag, nowhere. Real example from the
+ * fixture this was built against: a "Bici Libre Z2" card whose ONLY content
+ * is "Hora y media de rodar libre soltando piernas, tranquilo." — a whole
+ * card's prescription, in prose, gone today. Deliberately narrow: excludes
+ * the metadata/counter shapes that ARE correctly meaningless (see the two
+ * regexes above) and anything under 3 words (a stray fragment, not a note).
+ */
+function cardLostProse(card: ImportedCard): string | undefined {
+  const titleFold = card.title?.trim().toLocaleLowerCase('es');
+  const lost = card.lines.filter((raw) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return false;
+    if (titleFold && trimmed.toLocaleLowerCase('es') === titleFold) return false;
+    if (looksLikeBareMovementName(trimmed)) return false; // becomes its own `incomplete` item
+    if (!isNoiseLine(trimmed)) return false; // typed normally elsewhere — not lost
+    if (COUNTER_SHAPE_RE.test(trimmed) || METADATA_ONLY_RE.test(trimmed)) return false;
+    return trimmed.split(/\s+/).filter(Boolean).length >= 3;
+  });
+  return lost.length > 0 ? lost.join('\n') : undefined;
 }
 
 /**
@@ -334,8 +374,14 @@ async function buildCardBlock(
 ): Promise<{ block: EditorBlock; flags: ProposalFlag[] }> {
   const parsed = await parseWithAssist(cardToSessionText(card), llmAssist, { bareNamesAreExercises: true });
   const withoutTitle = dropTitleMisreadAsExercise(parsed, card.title);
-  const lines = redistributeOrphanDose(withoutTitle);
+  const { lines, orphanText } = redistributeOrphanDose(withoutTitle);
   const { items, flags } = await resolveLines(coach_id, sql, lines);
+  // Verbatim text the card carried that isn't dose, isn't a movement, and
+  // isn't the title — the orphan's own line (when redistributed) plus any
+  // other prose the grammar correctly keeps out of the exercise model. Same
+  // field a library block already uses for verbatim prescription text
+  // (WeekDayPart.coach_note) — never a new channel.
+  const coachNote = [orphanText, cardLostProse(card)].filter((t): t is string => !!t).join('\n\n');
   const block: EditorBlock = {
     uid: uid('blk'),
     // El título es el de LA TARJETA, no la primera línea del estímulo del día —
@@ -343,6 +389,7 @@ async function buildCardBlock(
     title: (card.title ?? 'Sesión').slice(0, 120),
     format: blockFormat(lines),
     group: structureGroup(card.title),
+    ...(coachNote ? { coach_note: coachNote } : {}),
     items,
   };
   return { block, flags };

@@ -371,6 +371,12 @@ export const editorBlockInputSchema = z.object({
   // serializer lo persiste en slots_json; opcional para callers que no lo envían.
   group: structureGroupSchema.optional(),
   source_block_id: z.number().int().positive().nullable().optional(),
+  // Texto verbatim que no encaja en la estructura (misma semántica que
+  // WeekDayPart.coach_note arriba — la prescripción/nota en prosa de un
+  // bloque). Opcional: los callers que no lo envían (el editor de día hoy no
+  // tiene UI para tocarlo) preservan el original vía el serializer, nunca lo
+  // borran por omisión.
+  coach_note: z.string().max(2000).optional(),
   items: z.array(editorItemInputSchema).max(24).default([]),
 });
 export type EditorBlockInput = z.infer<typeof editorBlockInputSchema>;

@@ -441,6 +441,11 @@ describe('buildImportProposal — cards: orphan block-level dose redistribution'
     const flags = day.flags.filter((f) => items.some((it) => it.uid === f.uid));
     expect(flags.every((f) => f.confidence === 'detected')).toBe(true);
     expect(flags.every((f) => f.review_reasons.length === 0)).toBe(true);
+    // The orphan's own phrasing survives too — as the block's coach_note, not
+    // silently gone once its dose is redistributed.
+    expect(day.sessions[0]!.blocks[0]!.coach_note).toBe(
+      'P: Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de descanso entre series.',
+    );
   });
 
   test('TWO orphan dose candidates → ambiguous, nothing redistributed, both stay as the grammar produced them', async () => {
@@ -497,5 +502,108 @@ describe('buildImportProposal — cards: orphan block-level dose redistribution'
     expect(items).toHaveLength(1);
     expect(items[0]!.exercise_name).toBe('');
     expect(day.flags[0]!.confidence).toBe('review');
+  });
+});
+
+describe('buildImportProposal — cards: lost prose lands in block.coach_note, not nowhere', () => {
+  test('real fixture card ("Bici Libre Z2") keeps its prose aside as coach_note alongside the real work the title itself types', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Bici Libre Z2',
+            lines: ['Hora y media de rodar libre soltando piernas, tranquilo.'],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const block = day.sessions[0]!.blocks[0]!;
+    // The title "Bici Libre Z2" is ITSELF a compact prescription (bike, Z2) —
+    // it types as a real item, same as before this change (untouched here).
+    expect(block.items).toHaveLength(1);
+    expect(block.items[0]!.prescription).toMatchObject({ scheme: 'steady', modality: 'bike' });
+    // What is NEW: the descriptive line under it no longer vanishes.
+    expect(block.coach_note).toBe('Hora y media de rodar libre soltando piernas, tranquilo.');
+  });
+
+  test('counters ("16 Sets 8 Exercises") and metadata markers ("Video ...", "Notas...") are NOT captured as notes — they say nothing', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Fuerza',
+            lines: [
+              'Deadlift 5r 10/10/8/6/4',
+              '16 Sets 8 Exercises',
+              '0/10 Sets 0/5 Exercises',
+              'Video ...',
+              'Notas...',
+            ],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    expect(day.sessions[0]!.blocks[0]!.coach_note).toBeUndefined();
+  });
+
+  test('a short bare fragment (< 3 words) is not captured — too little to be a real note', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [card({ kind: 'workout', title: 'Fuerza', lines: ['Deadlift 5r 10/10/8/6/4', 'listo ya'] })],
+      },
+    ]);
+    // "listo ya" is 2 words — below the 3-word floor.
+    expect(wk.days[0]!.sessions[0]!.blocks[0]!.coach_note).toBeUndefined();
+  });
+
+  test('a genuine coach aside alongside real work IS captured, without swallowing the real exercise', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Fuerza',
+            lines: ['Deadlift 5r 10/10/8/6/4', 'Recuerda hidratar bien entre series hoy'],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const block = day.sessions[0]!.blocks[0]!;
+    expect(block.items).toHaveLength(1);
+    expect(block.items[0]!.exercise_name).toBe('Deadlift');
+    expect(block.coach_note).toBe('Recuerda hidratar bien entre series hoy');
+  });
+
+  test('the no-cards (Excel/pegado) path never sets coach_note — same prose, no cards structure', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: 'Rodaje',
+        session_text: 'Hora y media de rodar libre soltando piernas, tranquilo.',
+      },
+    ]);
+    expect(wk.days[0]!.sessions[0]!.blocks[0]!.coach_note).toBeUndefined();
   });
 });

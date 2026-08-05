@@ -113,6 +113,15 @@ export interface EditorBlock {
    * pinta nada, que es lo honesto: la referencia es del pasado, no una promesa.
    */
   source_block_title?: string | null;
+  /**
+   * Texto verbatim que no encaja en la estructura del bloque — la prescripción
+   * en prosa de un bloque de biblioteca, o (import por foto) el texto de una
+   * tarjeta que la gramática no pudo tipar como ejercicio ni como dosis huérfana
+   * (ver web/lib/import/build-proposal.ts). Misma semántica que
+   * WeekDayPart.coach_note (shared/schema/program-templates.ts); el day editor
+   * hoy no tiene UI para editarlo, así que se preserva pero no se muestra.
+   */
+  coach_note?: string;
   items: EditorItem[];
 }
 

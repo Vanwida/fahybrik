@@ -10,11 +10,15 @@
 //
 // ROUND-TRIP FIDELITY (the whole point): the editor view model is a SUBSET of the
 // persisted shape — the loader (mapPart/mapItem) only reads a handful of fields.
-// The persisted part also carries config_json, coach_note, block_modifiers,
-// athlete_note (block level) and day/session-level focus/notes/template_id that
-// the editor never surfaces. Serializing naively from the editor model alone
-// would WIPE those on every save. So every serializer takes the ORIGINAL loaded
-// shape and PRESERVES the fields the editor cannot edit, matching by `uid`.
+// The persisted part also carries config_json, block_modifiers, athlete_note
+// (block level) and day/session-level focus/notes/template_id that the editor
+// never surfaces. Serializing naively from the editor model alone would WIPE
+// those on every save. So every serializer takes the ORIGINAL loaded shape and
+// PRESERVES the fields the editor cannot edit, matching by `uid`. `coach_note`
+// is a middle case: the editor now CARRIES it (a source can set one — the
+// photo importer does, web/lib/import/build-proposal.ts) but has no UI to edit
+// it, so it round-trips through the block like the others rather than being
+// authored here.
 //
 // A3 FIX — incomplete lines are NEVER silently dropped. A line with no
 // exercise (exercise_id == null) is invalid data (the DB exercise_id is non-null),
@@ -80,9 +84,9 @@ function serializeItem(
 
 // ── Block (part) ───────────────────────────────────────────────────────────--
 // EditorBlock → WeekDayPart. The editor edits title/format/methodology_group_id/
-// source_block_id/items; everything else on the stored part (config_json,
-// coach_note, block_modifiers, athlete_note) is preserved from the original part
-// matched by uid so a day-level save never clobbers block-level config.
+// source_block_id/coach_note/items; config_json/block_modifiers/athlete_note
+// are preserved from the original part matched by uid so a day-level save
+// never clobbers block-level config.
 function serializePart(
   block: EditorBlockInput,
   original: WeekDayPart | undefined,
@@ -125,6 +129,14 @@ function serializePart(
       ? { source_block_id: block.source_block_id }
       : original?.source_block_id != null
         ? { source_block_id: original.source_block_id }
+        : {}),
+    // Same "input wins when sent, else keep the original" shape as the fields
+    // above. No caller clears it by omission today (the day editor has no UI
+    // for it yet) — that is a later decision, not this one.
+    ...(block.coach_note != null
+      ? { coach_note: block.coach_note }
+      : original?.coach_note != null
+        ? { coach_note: original.coach_note }
         : {}),
     items,
   };
