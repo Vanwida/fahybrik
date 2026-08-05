@@ -62,6 +62,7 @@ const SCHEME_LABEL_ES: Record<string, string> = {
   rounds: 'Rondas',
   hyrox_sim: 'Simulación HYROX',
   sets: 'Fuerza',
+  superset: 'Fuerza',
 };
 
 // ── DB row shapes ────────────────────────────────────────────────────────────
