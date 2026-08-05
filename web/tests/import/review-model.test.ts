@@ -629,3 +629,44 @@ describe('la nota del día llega hasta el confirmar', () => {
     expect(buildConfirmBody('7', model).weeks).toHaveLength(0);
   });
 });
+
+// ── La prosa del bloque sobrevive al confirmar ────────────────────────────────
+// `blockToWire` construye el cuerpo que se guarda. El serializer tiene el
+// contrato «lo que llega manda, si no se conserva el ORIGINAL» — seguro para el
+// editor de día, donde el original existe. En una IMPORTACIÓN no hay original:
+// el bloque nace ahí, así que lo que esta función omita NO se preserva, se
+// PIERDE. `coach_note` lleva la prosa que la gramática no pudo tipar, y en una
+// tarjeta como «Bici Libre Z2», cuya prescripción entera es una frase, ESO es el
+// entreno. Omitirlo habría leído la línea del coach, se la habría enseñado en la
+// revisión, y la habría borrado justo al pulsar confirmar.
+describe('la prosa y el rol del bloque sobreviven al confirmar', () => {
+  function bodyForBlock(patch: Partial<EditorSession['blocks'][number]>) {
+    const itemUid = uid('item');
+    const session = makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10 }]);
+    Object.assign(session.blocks[0]!, patch);
+    const micro = [makeMicroWeek('w10', 0)];
+    const proposal = makeProposal([makeWeek(1, [makeDay(1, 'Lunes', [session], [makeFlag(itemUid, 'Back Squat')])])]);
+    const weeks = buildReviewModel(proposal, micro);
+    weeks[0]!.targetWeekId = 'w10';
+    return buildConfirmBody('1', weeks);
+  }
+
+  test('coach_note viaja hasta el cuerpo que se guarda', () => {
+    const body = bodyForBlock({ coach_note: 'Hora y media de rodar libre soltando piernas, tranquilo.' });
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]! as { coach_note?: string };
+    expect(block.coach_note).toBe('Hora y media de rodar libre soltando piernas, tranquilo.');
+  });
+
+  test('el rol estructural del bloque viaja también', () => {
+    const body = bodyForBlock({ group: 'calentamiento' });
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]! as { group?: string };
+    expect(block.group).toBe('calentamiento');
+  });
+
+  test('un bloque sin prosa ni rol no inventa las claves', () => {
+    const body = bodyForBlock({});
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]!;
+    expect('coach_note' in block).toBe(false);
+    expect('group' in block).toBe(false);
+  });
+});

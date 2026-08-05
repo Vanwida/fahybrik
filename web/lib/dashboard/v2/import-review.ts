@@ -341,12 +341,25 @@ interface WireItem {
   notes?: string;
 }
 
+// `group` and `coach_note` travel too. The serializer's contract is "input wins,
+// otherwise the ORIGINAL is preserved" — which is safe for the day editor, where
+// an original exists. On an IMPORT there is no original: the block is being born
+// here, so anything this function omits is not preserved, it is LOST.
+//
+// `coach_note` carries the prose the grammar could not type — and for a card like
+// "Bici Libre Z2", whose entire prescription is one sentence, that IS the workout.
+// Dropping it here would have read the coach's line, shown it in the review, and
+// then deleted it the moment they pressed confirm.
 function blockToWire(block: EditorBlock) {
   return {
     uid: block.uid,
     title: block.title,
     format: block.format,
     methodology_group_id: block.methodology_group_id ?? null,
+    ...(block.group ? { group: block.group } : {}),
+    ...(block.coach_note && block.coach_note.trim()
+      ? { coach_note: block.coach_note.trim() }
+      : {}),
     source_block_id: block.source_block_id ?? null,
     items: block.items.map(
       (it): WireItem => ({
