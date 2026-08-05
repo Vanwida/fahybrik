@@ -462,6 +462,18 @@ final class PhoneMirrorService {
             RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo)
         }
 
+        // En una serie de correr se cuentan SERIES, no piernas: un 3×1000 con sus
+        // dos recuperaciones son cinco tramos y tres series, y «tramo 4 de 5» no
+        // le dice nada a nadie. La regla vive en RunLegDisplay para que el móvil y
+        // las dos vías del reloj cuenten igual.
+        let ronda: (n: Int, total: Int)? = {
+            if let legs = session.currentRunLegs, !legs.isEmpty {
+                return RunLegDisplay.serie(legs: legs, indice: session.runLegIndex)
+            }
+            guard session.tramoRoundTotal > 0 else { return nil }
+            return (n: session.tramoRoundIndex + 1, total: session.tramoRoundTotal)
+        }()
+
         // La serie EN CURSO, no la primera. `previewWorkLine` congela la primera
         // los cinco sets, que es justo lo que la muñeca lleva enseñando.
         let set = session.pendingSetIndex.flatMap { i in
@@ -483,8 +495,8 @@ final class PhoneMirrorService {
             modalidad: tramo.modality.rawValue,
             etiqueta: tramo.label,
             dosis: tramo.workLine,
-            rondaN: session.tramoRoundTotal > 0 ? session.tramoRoundIndex + 1 : nil,
-            rondaTotal: session.tramoRoundTotal > 0 ? session.tramoRoundTotal : nil,
+            rondaN: ronda?.n,
+            rondaTotal: ronda?.total,
             enDescanso: descansando,
             cierre: cierreDelTramo(tramo, descansando: descansando),
             objetivoMedida: objetivoMedida,

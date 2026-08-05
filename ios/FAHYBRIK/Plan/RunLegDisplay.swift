@@ -68,6 +68,20 @@ enum RunLegDisplay {
         }
     }
 
+    /// LA SERIE que el atleta está haciendo, sobre el total de SERIES.
+    ///
+    /// Cuenta sólo las piernas de TRABAJO: una recuperación no es «la serie 3», y
+    /// de cara al atleta cada repetición es UNA serie («cinco series de 1.200»).
+    /// Vive aquí y no en cada pantalla porque el móvil, el reloj en solitario y el
+    /// cable del espejo tienen que contar igual — si no, la muñeca dice «2 de 5»
+    /// donde el teléfono dice «3 de 9» y una de las dos miente.
+    static func serie(legs: [RunLeg], indice: Int) -> (n: Int, total: Int) {
+        let total = max(1, legs.filter(\.isWork).count)
+        let hechas = legs.prefix(max(0, indice)).filter(\.isWork).count
+        let enTrabajo = legs.indices.contains(indice) ? legs[indice].isWork : false
+        return (n: min(max(1, enTrabajo ? hechas + 1 : hechas), total), total: total)
+    }
+
     /// The "luego: …" preview of the NEXT leg — "rec. 2:00 suave" for a recovery,
     /// "800 m" / "2:00" for the next work bout. Nil on the last leg (nothing next).
     static func nextLegPreview(_ leg: RunLeg?) -> String? {

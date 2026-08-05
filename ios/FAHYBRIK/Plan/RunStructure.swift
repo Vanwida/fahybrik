@@ -347,7 +347,13 @@ extension Prescription {
     /// block carries no structure (legacy path). Empty legs are treated as no
     /// structure by callers.
     var runStructureLegs: [RunLeg]? {
-        guard let s = structure, !s.isEmpty else { return nil }
+        guard let s = structure, !s.isEmpty else {
+            // Sin gramática nativa, la serie de correr que el COACH escribe como
+            // una tabla de `sets` (plantilla 314, «3x1000m») se traduce a las
+            // mismas piernas. Sin esto, esas sesiones no tenían cursor de tramo y
+            // la muñeca las pintaba como un rodaje. Ver `RunSeriesDeSets.swift`.
+            return runLegsDesdeSets
+        }
         let legs = s.expandedLegs()
         return legs.isEmpty ? nil : legs
     }

@@ -112,20 +112,14 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         // acción anunciada. Que una acabara en la tabla de hierro es exactamente
         // lo que este test impide.
         //
-        // HOY FALLA, Y ES UN HALLAZGO DEL MOTOR, no del cable ni del guion: una
-        // serie del coach escrita como `sets` (3x1000m, plantilla 314) no genera
-        // ventanas de tramo — el motor sólo levanta el driver de series cuando la
-        // prescripción trae `structure` (#61). Sin ronda en el cable, la muñeca
-        // la pinta como rodaje (que no es falso, pero no es la pantalla de
-        // series). El arreglo es resolver sets→legs en el motor, el mismo camino
-        // que ya hace TreadmillLegResolver para la cinta. El test queda como
-        // fallo ESPERADO para que el hueco no se pierda y para que arreglarlo lo
-        // ponga en verde solo.
-        XCTExpectFailure("series del coach sin `structure`: el motor no genera tramos aún") {
-            XCTAssertEqual(libre.first?.id, coach.first?.id)
-            XCTAssertEqual(libre.first?.unidad, coach.first?.unidad)
-            XCTAssertEqual(libre.first?.modo, coach.first?.modo)
-        }
+        // Esto falló hasta que el motor aprendió a leer una tabla de `sets` como
+        // lo que es (`RunSeriesDeSets.swift`): antes, la serie del coach no tenía
+        // cursor de tramo y la muñeca la pintaba como un rodaje.
+        XCTAssertEqual(libre.first?.id, coach.first?.id)
+        XCTAssertEqual(libre.first?.unidad, coach.first?.unidad)
+        XCTAssertEqual(libre.first?.modo, coach.first?.modo)
+        XCTAssertTrue(coach.first?.contexto.hasPrefix("Serie 1 / 3") == true,
+                      "la serie del coach tiene que contar sus tres repeticiones")
     }
 
     // MARK: - Fuerza

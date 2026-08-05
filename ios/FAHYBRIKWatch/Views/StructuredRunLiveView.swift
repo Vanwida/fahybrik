@@ -156,13 +156,15 @@ struct StructuredRunLiveView: View {
         (session.currentRunLegs ?? []).filter(\.isWork)
     }
 
-    private var workLegTotal: Int { max(1, workLegs.count) }
-
-    private var workLegNumber: Int {
-        guard let legs = session.currentRunLegs else { return session.runLegNumber }
-        let done = legs.prefix(session.runLegIndex).filter(\.isWork).count
-        return isWork ? done + 1 : done
+    /// La MISMA regla que manda el cable (RunLegDisplay.serie): tenía aquí su
+    /// propia copia y dos copias de una cuenta acaban discrepando.
+    private var serie: (n: Int, total: Int) {
+        RunLegDisplay.serie(legs: session.currentRunLegs ?? [], indice: session.runLegIndex)
     }
+
+    private var workLegTotal: Int { serie.total }
+
+    private var workLegNumber: Int { serie.n }
 
     private var workLegNumberForNext: Int? {
         guard isRecovery else { return nil }
