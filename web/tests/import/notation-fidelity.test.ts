@@ -824,3 +824,191 @@ describe('class 12 — group_label surfaces on the parsed line, truly optional',
     expect('group_label' in l!).toBe(false);
   });
 });
+
+// ── class 13 — bare movement names (photo-import): named, not vanished ──────
+// Source: a real TrainingPeaks week sweep (fixtures/screenshot-semana12-*.json
+// in web/tests/import/, another session's fixture — every string below is
+// VERBATIM from it). 49 of 51 real exercises never reached the resolver
+// because a card that lists movements by NAME (dose elsewhere on the card)
+// has no digit on the name line, and "no digit → prose" is right for Pablo's
+// Excel but wrong here. `bareNamesAreExercises` (default OFF) is the one
+// switch that changes this — Excel/pasted text behavior is byte-for-byte
+// identical with it off, verified by the option-off tests below and by every
+// pre-class-13 test in this file still passing unmodified.
+
+describe('class 13 — bareNamesAreExercises OFF (default): zero behavior change', () => {
+  test('a bare name with the option off still vanishes, exactly like before', () => {
+    expect(parseNotationCell('A) Cable External Rotation')).toHaveLength(0);
+    expect(parseNotationCell('Cat Cow')).toHaveLength(0);
+  });
+
+  test('passing {} explicitly is the same as passing nothing', () => {
+    expect(parseNotationCell('Cat Cow', {})).toHaveLength(0);
+  });
+});
+
+describe('class 13 — bareNamesAreExercises ON: a real name types incomplete, not vanished', () => {
+  test('"A) Cable External Rotation" → incomplete, token+group_label, NO dose', () => {
+    const [l, ...rest] = parseNotationCell('A) Cable External Rotation', {
+      bareNamesAreExercises: true,
+    });
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('incomplete');
+    expect(l!.exercise_token).toBe('Cable External Rotation');
+    expect(l!.group_label).toEqual({ letter: 'A' });
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.sets).toBeUndefined(); // unset, not [] — never "zero sets prescribed"
+  });
+
+  test('a full REFUERZO HOMBRO card: 5 names in, 5 incomplete exercises out, counter dropped', () => {
+    const cell = [
+      '0/10 Sets 0/5 Exercises',
+      'A) Cable External Rotation',
+      'B) Band Pull Apart',
+      'C) Prone Y Raise',
+      'D) Serratus wall slide',
+      'E) Band Scapular Retraction',
+    ].join('\n');
+    const lines = parseNotationCell(cell, { bareNamesAreExercises: true });
+    expect(lines).toHaveLength(5); // the counter line contributes ZERO lines
+    expect(lines.every((l) => l.confidence === 'incomplete')).toBe(true);
+    expect(lines.map((l) => l.exercise_token)).toEqual([
+      'Cable External Rotation',
+      'Band Pull Apart',
+      'Prone Y Raise',
+      'Serratus wall slide',
+      'Band Scapular Retraction',
+    ]);
+    expect(lines.map((l) => l.group_label)).toEqual([
+      { letter: 'A' },
+      { letter: 'B' },
+      { letter: 'C' },
+      { letter: 'D' },
+      { letter: 'E' },
+    ]);
+  });
+
+  test('an indexed marker ("A1) Cat Cow") still types incomplete — the digit is the label\'s own, not the name\'s', () => {
+    // The bug this regresses: isNoiseLine never flags "A1) Cat Cow" as noise
+    // (the "1" in "A1" satisfies its digit check), so the bare-name path must
+    // not be gated behind isNoiseLine at all.
+    const [l] = parseNotationCell('A1) Cat Cow', { bareNamesAreExercises: true });
+    expect(l!.confidence).toBe('incomplete');
+    expect(l!.exercise_token).toBe('Cat Cow');
+    expect(l!.group_label).toEqual({ letter: 'A', index: 1 });
+  });
+
+  test('a numeric-ordinal name ("1) Puente de glúteo") types incomplete with NO group_label', () => {
+    const [l] = parseNotationCell('1) Puente de glúteo', { bareNamesAreExercises: true });
+    expect(l!.confidence).toBe('incomplete');
+    expect(l!.exercise_token).toBe('Puente de glúteo');
+    expect(l!.group_label).toBeUndefined();
+  });
+
+  test('a "- " bulleted name ("- Dominada (lastrada)") strips the bullet, keeps the parenthetical', () => {
+    const [l] = parseNotationCell('- Dominada (lastrada)', { bareNamesAreExercises: true });
+    expect(l!.confidence).toBe('incomplete');
+    expect(l!.exercise_token).toBe('Dominada (lastrada)');
+  });
+
+  test('still noise even with the option on: title, coach note', () => {
+    for (const cell of [
+      'DÍA LARGO MIXTO Z2', // ALL-CAPS title — isBlockTitle owns this, never a bare name
+      '*Notas del coach', // coach note marker
+    ]) {
+      expect(parseNotationCell(cell, { bareNamesAreExercises: true })).toHaveLength(0);
+    }
+  });
+
+  test('a digit-bearing header ("BLOQUE 1)") is unaffected by the option — it already reviewed', () => {
+    // Has a digit, so it never reaches the bare-name path at all; unchanged
+    // from option-off behavior (a review line, not a silent drop).
+    const off = parseNotationCell('BLOQUE 1)');
+    const on = parseNotationCell('BLOQUE 1)', { bareNamesAreExercises: true });
+    expect(on).toEqual(off);
+    expect(off[0]!.confidence).toBe('review');
+  });
+
+  test('a URL/reference note stays noise, never a fabricated exercise called the URL', () => {
+    const cell = 'Lanzamiento de disco: https://www.youtube.com/watch';
+    expect(parseNotationCell(cell, { bareNamesAreExercises: true })).toHaveLength(0);
+  });
+
+  test('a metadata marker ("Video ...", "Notas...") stays noise', () => {
+    expect(parseNotationCell('Video ...', { bareNamesAreExercises: true })).toHaveLength(0);
+    expect(parseNotationCell('Notas...', { bareNamesAreExercises: true })).toHaveLength(0);
+  });
+
+  test('long prose stays noise — "pocas palabras" is not negotiable', () => {
+    const cell =
+      'Vamos a realizar controles periódicos de salto para observar cómo responde tu sistema neuromuscular';
+    expect(parseNotationCell(cell, { bareNamesAreExercises: true })).toHaveLength(0);
+  });
+
+  test('a short coaching directive (leading verb) stays noise, not a fake exercise', () => {
+    expect(parseNotationCell('Recuerda hidratarte bien', { bareNamesAreExercises: true })).toHaveLength(0);
+  });
+
+  test('a real dosed line is completely unaffected by the option', () => {
+    const [l] = parseNotationCell('Sentadilla 4x8', { bareNamesAreExercises: true });
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets).toHaveLength(4);
+  });
+
+  test('a modality CHOICE ("row/ski") is never read as a movement name', () => {
+    expect(parseNotationCell('row/ski', { bareNamesAreExercises: true })).toHaveLength(0);
+  });
+});
+
+describe('class 13 — "N Sets M Exercises" counters drop cleanly, in any confidence mode', () => {
+  test('a counter line alone produces ZERO lines, option on or off', () => {
+    for (const cell of [
+      '0/10 Sets 0/5 Exercises',
+      '16 Sets 8 Exercises',
+      '21 Sets 7 Exercises',
+      '24 Sets 8 Exercises',
+    ]) {
+      expect(parseNotationCell(cell)).toHaveLength(0);
+      expect(parseNotationCell(cell, { bareNamesAreExercises: true })).toHaveLength(0);
+    }
+  });
+
+  test('the OLD bug: "0/10 Sets 0/5 Exercises" no longer fabricates a 2-set "Sets Exercises" movement', () => {
+    // Before the counter-line rule, parseRepSeq read "0/10" as a 2-set
+    // sequence and DOSE_WORD_ONLY_RE didn't know the English word
+    // "exercises", so this typed CONFIDENTLY as a fake exercise.
+    const lines = parseNotationCell('0/10 Sets 0/5 Exercises');
+    expect(lines).toHaveLength(0);
+  });
+});
+
+describe('class 13 — a "sets" scheme always needs a REAL movement name', () => {
+  test('"A2) 90-90" reviews — the exercise\'s own numeric name is not a fabricated rep sequence', () => {
+    // "90-90" (the hip-mobility drill) is indistinguishable from a genuine
+    // "90 then 90" rep sequence without a catalog lookup — which is a LATER
+    // concern, not this module's. Honest answer: review, never a confident
+    // but wrong 2-set dose with an EMPTY exercise name.
+    const [l] = parseNotationCell('A2) 90-90');
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.sets).toBeUndefined();
+    expect(l!.prescription.note).toBe('A2) 90-90');
+  });
+
+  test('a "P:" note prefix with a rep-range-shaped sentence reviews, not a fake exercise named "P"', () => {
+    // extractLabel has no exclusion list for short pre-colon prefixes the way
+    // GROUP_LABEL_RE excludes A–H group markers — "P:" (Pablo's note prefix)
+    // used to read as a name-first label and fabricate a strength line.
+    const cell =
+      'P: Realiza 4 series de entre 12 - 15 repeticiones por ejercicio con 1 minuto de descanso entre series.';
+    const [l] = parseNotationCell(cell);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.sets).toBeUndefined();
+    expect(l!.prescription.note).toBe(cell);
+  });
+
+  test('a real short (multi-letter) movement token is unaffected — the guard is length <= 1, not "short"', () => {
+    const [l] = parseNotationCell('3 rounds RDL 8/lado');
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('RDL');
+  });
+});

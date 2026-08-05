@@ -246,7 +246,94 @@ export function isNoiseLine(line: string): boolean {
   // data (joinContinuations already tried to attach it to the previous line;
   // orphaned, it needs to reach parseLine so it reviews instead of vanishing).
   if (/^(rest day|off)\b/.test(n)) return true;
+  // "16 Sets 8 Exercises" / "0/10 Sets 0/5 Exercises" — a progress COUNTER for
+  // the whole card, not a work line. Checked before the digit rules below so
+  // it drops CLEANLY (zero lines) instead of surviving into the dose grammar,
+  // where a slash-separated pair ("0/10") reads as a rep sequence and types a
+  // fabricated exercise literally called "Sets Exercises" — its own counter
+  // words are excluded from naming a movement (DOSE_WORD_ONLY_RE, result.ts),
+  // but that only downgrades it to a review line, which still clutters the
+  // screen with something the coach never wrote as work.
+  if (COUNTER_LINE_RE.test(line)) return true;
   if (!/\d/.test(line)) return true; // no number anywhere → prose/header
   if (TARGET_ONLY_RE.test(line)) return true; // target with no dose → directive
   return false;
+}
+
+const COUNTER_LINE_RE = /^\d+(?:\/\d+)?\s+sets?\s+\d+(?:\/\d+)?\s+exercises?\s*$/i;
+
+// ── Bare movement names (photo-import only) ──────────────────────────────────
+// A photographed TrainingPeaks card lists its movements by NAME, one per line,
+// with the dose living elsewhere on the card (a shared header, or not captured
+// at all) — unlike Pablo's Excel/pasted notation, where every real work line
+// carries its own dose and a dose-less line really is a header. So "no digit
+// anywhere" cannot mean "prose" unconditionally; parseNotationCell's
+// `bareNamesAreExercises` option (default OFF — Excel/pasted text never sets
+// it) asks THIS module to also try reading a noise line as a plain name.
+//
+// Ground truth: a real 22-card TrainingPeaks week sweep (fixtures/screenshot-
+// semana12-*.json). Every string below in the exclusion lists is VERBATIM
+// from that sweep — a prose note, a URL reference, or a metadata marker that
+// must stay noise even with the option on.
+
+/** A leading "- "/"– "/"— " bullet is list notation, never part of the name. */
+function stripLeadingBullet(line: string): string {
+  return line.replace(/^[-–—]\s+/, '');
+}
+
+// Coaching-note DIRECTIVES a short dose-less line can open with — never a
+// movement name. Curated from real captures, not a general verb parser: a
+// false NEGATIVE here (a real name wrongly kept as noise) costs the coach one
+// manual add; a false POSITIVE (an instruction typed as a fabricated
+// exercise) costs a fake catalog entry, which this function must never risk.
+const PROSE_VERB_RE =
+  /^(?:recuerda|recordar|manda|env[ií]a|avisa|revisa|procura|intenta|evita|sube|baja|aumenta|reduce|mant[eé]n|hidr[aá]tate|descansa|realiza|haz|confirma|comprueba|vamos)\b/i;
+
+// A line that IS just a metadata marker ("Video ...", "Notas...") rather than
+// content, optionally trailed by the vision-reader's truncation ellipsis.
+const METADATA_MARKER_RE = /^(?:video|notas?|fotos?|link|enlace|url)\s*\.{0,3}$/i;
+
+/** A dose-less line that READS as a movement name ("Cat Cow", "Cable External
+ *  Rotation") rather than a header, a coach note, a URL reference, or a short
+ *  instruction. Takes the RAW line — its own group/order marker (readGroup
+ *  Label/stripGroupLabel) is stripped first, same as bareMovementToken below,
+ *  so the two always agree on what they are judging. "Pocas palabras, sin
+ *  verbo conjugado, sin dos puntos finales": ≤6 words (a real name in the
+ *  sweep tops out at 6 — "Side Plank with Clam Shell Hold"; longer is prose,
+ *  the same call isBlockTitle/isNoiseLine already make for an ALL-CAPS or
+ *  long dose-less line), no trailing colon (that labels something ELSE), and
+ *  no leading coaching-note verb. A digit anywhere disqualifies it outright —
+ *  a NAME never carries a dose fragment, and this is also what keeps a
+ *  counter line ("16 Sets 8 Exercises") from reaching here even if
+ *  COUNTER_LINE_RE's exact shape ever drifts from a future capture. */
+export function looksLikeBareMovementName(line: string): boolean {
+  const trimmed = stripGroupLabel(line).trim();
+  if (!trimmed || /\d/.test(trimmed)) return false;
+  const n = foldText(trimmed);
+  if (n.startsWith('*')) return false; // coach note marker
+  if (/^\(.*\)$/.test(trimmed)) return false; // parenthetical aside
+  if (/^(directo a|direct to|luego|despues|then|foco|foco en|finisher\s*:)\b/.test(n)) return false;
+  if (/^(rest day|off|descanso)\b/.test(n)) return false;
+  if (isModalityChoice(trimmed)) return false; // "row/ski" is a CHOICE annotation, not a name
+  if (/https?:\/\/|www\./i.test(trimmed)) return false; // a link/reference note
+  if (METADATA_MARKER_RE.test(trimmed)) return false;
+  if (/:\s*$/.test(trimmed)) return false; // a trailing colon labels something else
+  // Sentence-final punctuation excludes it — but the vision reader's
+  // truncation ellipsis ("Extension de cadera en cuadrúp...") is a CUT-OFF
+  // real name, not a sentence, so a "." only excludes when it is NOT part of
+  // "...".
+  if (/[!?]\s*$/.test(trimmed) || /(?<!\.)\.\s*$/.test(trimmed)) return false;
+  const body = stripLeadingBullet(trimmed);
+  if (!body) return false;
+  const words = body.split(/\s+/).filter(Boolean);
+  if (words.length > 6) return false; // "prosa larga"
+  if (PROSE_VERB_RE.test(body)) return false;
+  return true;
+}
+
+/** The verbatim name a bare-movement line carries, once its group/order
+ *  marker and any leading list bullet are gone. Caller's job to have already
+ *  confirmed looksLikeBareMovementName. */
+export function bareMovementToken(line: string): string {
+  return stripLeadingBullet(stripGroupLabel(line).trim()).trim();
 }

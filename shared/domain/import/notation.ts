@@ -38,12 +38,15 @@ import {
   stripTargetTokens,
 } from './dose';
 import {
+  bareMovementToken,
   cardioModalities,
   isBlockTitle,
   isModalityChoice,
   isNoiseLine,
   leadingColonLabel,
+  looksLikeBareMovementName,
   modalityFrom,
+  readGroupLabel,
   TARGET_ONLY_RE,
 } from './label';
 import { parseBout } from './bout';
@@ -55,12 +58,34 @@ import {
   tryRoundsHeaderCombo,
   tryStrengthCombo,
 } from './strength';
-import { finalizeDetected, type Parsed, type ParsedLine, reviewLine } from './result';
+import {
+  finalizeDetected,
+  incompleteExerciseLine,
+  type Parsed,
+  type ParsedLine,
+  reviewLine,
+} from './result';
 
 // ── Public API (shape lives in ./result.ts; re-exported for stability) ────────
 
 export type { NotationConfidence, ParsedLine } from './result';
 export type { GroupLabel } from './label';
+
+export interface ParseNotationCellOptions {
+  /** When true, a dose-less line that reads as a movement NAME (not a
+   *  header/note/URL/prose — see looksLikeBareMovementName in ./label.ts)
+   *  types as confidence:'incomplete' with its exercise_token set and NO
+   *  dose — never fabricated, never zero — instead of being dropped as
+   *  noise. OFF by default: on Excel/pasted text every real work line
+   *  carries its own dose, so a dose-less line there really IS a header, and
+   *  turning it into a fabricated exercise would be worse than dropping it.
+   *  The photo-import path is the one caller that needs this on — a
+   *  photographed TrainingPeaks card lists its movements by name with the
+   *  dose living elsewhere on the card (see docs/DECISIONS.md, 2026-08-05
+   *  corpus sweep: 49 of 51 real exercises never reached the resolver
+   *  because a dose-less name-only line was silently prose). */
+  bareNamesAreExercises?: boolean;
+}
 
 /**
  * Parse ONE session cell (a day's Capa-2 text, possibly multi-line) into typed
@@ -68,7 +93,10 @@ export type { GroupLabel } from './label';
  * no-dose line is a block TITLE (its modality contextualizes the lines under
  * it); each remaining work line is typed (`detected`) or preserved (`review`).
  */
-export function parseNotationCell(text: string): ParsedLine[] {
+export function parseNotationCell(
+  text: string,
+  opts: ParseNotationCellOptions = {},
+): ParsedLine[] {
   const cell = normalizeNotation(text);
   const lines = joinContinuations(cell.split('\n'));
   const out: ParsedLine[] = [];
@@ -79,6 +107,23 @@ export function parseNotationCell(text: string): ParsedLine[] {
     if (isBlockTitle(line)) {
       titleModality = modalityFrom(line);
       continue;
+    }
+    // Tried BEFORE isNoiseLine, not nested inside it: a group-labeled name
+    // ("A1) Cat Cow") carries a digit in its OWN index, so isNoiseLine's
+    // "no digit → noise" rule never fires for it and the noise branch would
+    // never be reached at all — looksLikeBareMovementName does its own
+    // (stricter) digit/URL/prose exclusion after stripping the label, so it
+    // is safe to try unconditionally here rather than gated behind a
+    // digit-based classification that the label's own index defeats.
+    if (opts.bareNamesAreExercises) {
+      const bare = tryBareExerciseLine(line);
+      if (bare) {
+        if (titleModality && !bare.prescription.modality) {
+          bare.prescription.modality = titleModality;
+        }
+        out.push(bare);
+        continue;
+      }
     }
     if (isNoiseLine(line)) continue;
     for (const parsed of parseLine(line)) {
@@ -95,6 +140,17 @@ export function parseNotationCell(text: string): ParsedLine[] {
     }
   }
   return out;
+}
+
+/** A dose-less noise line, read as a bare movement name (photo-import only —
+ *  see ParseNotationCellOptions.bareNamesAreExercises). Null when it doesn't
+ *  look like one (a note, a URL, prose — looksLikeBareMovementName owns that
+ *  judgment) or when nothing is left once its group/order marker is gone. */
+function tryBareExerciseLine(line: string): ParsedLine | null {
+  if (!looksLikeBareMovementName(line)) return null;
+  const token = bareMovementToken(line);
+  if (!token) return null;
+  return incompleteExerciseLine(token, line, readGroupLabel(line));
 }
 
 // ── Continuations ────────────────────────────────────────────────────────────
