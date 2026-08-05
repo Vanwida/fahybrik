@@ -63,7 +63,12 @@ extension Prescription {
                 phaseRole: .main
             ))
             // El descanso va ENTRE repeticiones: el último set no lo lleva.
-            let descanso = set.restS ?? restS
+            // El descanso, SÓLO el que lleva el propio set. Cogerlo del bloque
+            // fabricaba piernas de recuperación donde el coach no las escribió:
+            // `restS` del bloque es un valor que las importaciones rellenan por
+            // defecto, así que heredarlo convertía cualquier tabla en una serie
+            // con recuperaciones inventadas.
+            let descanso = set.restS
             if let descanso, descanso > 0, i < sets.count - 1 {
                 legs.append(RunLeg(
                     kind: .recovery,
@@ -87,9 +92,14 @@ extension Prescription {
     private var esSerieDeCorrerEnSets: Bool {
         guard scheme == .sets else { return false }
         guard let sets, sets.count > 1 else { return false }
-        // La modalidad puede venir en la prescripción o en cada set.
-        let esCorrer = modality == .run || sets.allSatisfy { $0.modality == .run }
-        guard esCorrer else { return false }
+        // LA MODALIDAD TIENE QUE CUADRAR EN LOS DOS SITIOS, y esto no es celo:
+        // con un `||` bastaba que el BLOQUE se declarara de correr para que sus
+        // sets entraran sin mirarse, y un bloque mixto —una plancha de 60 s entre
+        // series— convertía la plancha en una pierna de carrera. El bloque dice
+        // de qué va; cada set puede desmentirlo, y si lo desmiente, no es una
+        // serie de correr y se va por el camino de siempre.
+        guard modality == .run else { return false }
+        guard sets.allSatisfy({ $0.modality == nil || $0.modality == .run }) else { return false }
         // Y TODOS los sets tienen que traer una medida de correr: si uno no la
         // trae, no se sabe dónde acaba ese tramo y traducir sería inventarlo.
         return sets.allSatisfy { Self.medidaDeCorrer($0.measure) != nil }

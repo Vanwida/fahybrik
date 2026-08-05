@@ -16,6 +16,9 @@ struct MirrorHUDView: View {
     /// ticks must fire here when the displayed second changes, not only when a
     /// phone frame lands (phone timers die in background).
     @State private var lastCountInCeil: Int? = nil
+    /// La muñeca bajada. El lienzo lo resuelve para el vivo; aquí se aplica a las
+    /// dos capas que lo tapan (pausa y descanso), que no pasan por él.
+    @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
         TabView(selection: $page) {
@@ -36,21 +39,27 @@ struct MirrorHUDView: View {
             } else if phase == MirrorWire.Phase.countIn {
                 countInContent
             } else {
-                // #56 — a HYROX dobles station renders the TURN hero (whose station +
-                // the rep reparto) in place of the generic work line; a live treadmill
-                // distance run renders the belt ring (covered/target + pace); individual
-                // work keeps the standard active glance.
+                // LA CINTA YA NO TIENE PANTALLA APARTE. El tramo del cable trae
+                // sus metros y su objetivo como los de cualquier carrera, así que
+                // la pinta el mismo guion — con la marca «del móvil», que es lo
+                // único que la distingue de correr fuera. Tener una rama propia
+                // la dejaba fuera del lienzo y, con él, fuera del estado atenuado:
+                // justo la pantalla que se mira con el brazo colgando en la cinta.
+                //
+                // Dobles conserva la suya hasta que su guion esté portado: quitarla
+                // ahora dejaría al relevo sin pantalla, que es peor.
                 if let dobles = frame?.dobles {
                     doblesContent(dobles)
-                } else if let f = frame, let covered = f.beltDistanceM {
-                    treadmillContent(f, covered: covered, target: f.beltTargetM)
                 } else {
                     activeContent
                 }
+                // Los dos tapan la pantalla entera, así que en atenuado bajan el
+                // brillo en vez de quedarse encendidos a plena luz: el descanso es
+                // POR DEFINICIÓN el momento en que la muñeca está abajo.
                 if phase == MirrorWire.Phase.paused {
-                    pausedOverlay
+                    pausedOverlay.opacity(atenuado ? 0.65 : 1)
                 } else if let rest = frame?.restRemaining {
-                    restOverlay(base: rest)
+                    restOverlay(base: rest).opacity(atenuado ? 0.7 : 1)
                 }
             }
         }
