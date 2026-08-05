@@ -23,7 +23,13 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { parseNotationCell, type ParsedLine } from '@fahybrid/shared/domain/import/notation';
+import {
+  parseNotationCell,
+  type ParsedLine,
+  type ParseNotationCellOptions,
+} from '@fahybrid/shared/domain/import/notation';
+import { parseStrength } from '@fahybrid/shared/domain/import/strength';
+import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { resolveExercise } from './exercise-resolve';
 import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
 import { fillMissingWithDefaults } from './fill-defaults';
@@ -34,7 +40,15 @@ import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
 export interface ProposalFlag {
   uid: string;
-  confidence: 'detected' | 'review';
+  /**
+   * `incomplete` (shared/domain/import/result.ts, cards-only via
+   * `bareNamesAreExercises`) — the exercise IS known (a real movement name
+   * off a photographed card), its dose is not: neither `detected` (full
+   * confidence) nor `review` (nothing structured provable, verbatim text
+   * only). The coach still needs to add sets/reps, same as `review` — every
+   * `confidence !== 'detected'` check in this module treats the two alike.
+   */
+  confidence: 'detected' | 'review' | 'incomplete';
   review_reasons: string[];
   /** The exercise token did not resolve to a catalog id — the coach must pick/create. */
   unresolved_exercise: boolean;
@@ -151,9 +165,15 @@ function structureGroup(stimulus: string | null): StructureGroup {
  *  whatever the grammar left `review` (a successful, schema-valid parse
  *  upgrades the line; otherwise it stays `review`, never fabricated). The SAME
  *  step whether `text` is a whole day's session_text blob or one card's body —
- *  extracted so both paths run byte-identical logic. */
-async function parseWithAssist(text: string, llmAssist?: LlmAssist): Promise<ParsedLine[]> {
-  let lines = parseNotationCell(text);
+ *  extracted so both paths run byte-identical logic. `parseOpts` is how the
+ *  cards path turns on `bareNamesAreExercises` — the no-cards path never
+ *  passes it, so Excel/pegado behavior is untouched. */
+async function parseWithAssist(
+  text: string,
+  llmAssist?: LlmAssist,
+  parseOpts?: ParseNotationCellOptions,
+): Promise<ParsedLine[]> {
+  let lines = parseNotationCell(text, parseOpts);
   if (llmAssist) {
     const upgraded: ParsedLine[] = [];
     for (const ln of lines) {
@@ -226,6 +246,82 @@ function dayNotesField(cards: readonly ImportedCard[] | undefined): { notes?: st
 }
 
 /**
+ * A CARD's dose can live on its OWN line instead of each movement's ("P:
+ * Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de
+ * descanso entre series." under three bare names) — common enough in this
+ * source to name. The grammar types ONE line at a time (shared/domain/import/
+ * notation.ts) so it never sees this: it correctly types the dose clause but,
+ * having no movement of its own to attach it to, downgrades it to `review`
+ * with an EMPTY token (`finalizeDetected`'s short-token guard, shared/domain/
+ * import/result.ts — "P" and "90-90" are the two real cases it exists for).
+ * This re-parses that SAME raw text with the grammar's OWN strength reader
+ * (`parseStrength` — reused, not reinvented) to recover the sets it already
+ * typed once, applies them to every bare-name (`incomplete`) line in the card,
+ * and drops the now-redundant orphan.
+ *
+ * Conditions — anything outside these is left EXACTLY as the grammar produced
+ * it, never guessed:
+ *   · at least one `incomplete` line to receive the dose;
+ *   · EXACTLY one orphan candidate — two would mean "which dose goes with
+ *     which name?", genuinely unknowable, so both stay untouched;
+ *   · the candidate's raw text must itself re-type as a real sets scheme
+ *     (parseStrength succeeds with a non-empty `sets[]`) — prose that merely
+ *     LOOKS orphaned (a dense WOD review line, "no confident dose recognized")
+ *     is never coerced into a dose.
+ *
+ * KNOWN GAP, flagged rather than guessed: if the orphan line carries text
+ * BESIDES the dose clause, that text has nowhere to go — `EditorBlock` has no
+ * `notes` field today (only `EditorItem.notes`), and adding one is outside
+ * this file. In the real card this was written against, the whole line IS the
+ * dose clause, so this does not lose anything there.
+ */
+function redistributeOrphanDose(lines: ParsedLine[]): ParsedLine[] {
+  const hasIncomplete = lines.some((l) => l.confidence === 'incomplete');
+  if (!hasIncomplete) return lines;
+
+  const candidates: Array<{ line: ParsedLine; dose: Prescription }> = [];
+  for (const l of lines) {
+    if (l.confidence !== 'review' || l.exercise_token !== '') continue;
+    const parsed = parseStrength(l.prescription.note ?? '');
+    if (parsed && parsed.prescription.sets && parsed.prescription.sets.length > 0) {
+      candidates.push({ line: l, dose: parsed.prescription });
+    }
+  }
+  if (candidates.length !== 1) return lines;
+  const { line: orphan, dose } = candidates[0]!;
+
+  return lines
+    .filter((l) => l !== orphan)
+    .map((l): ParsedLine => {
+      if (l.confidence !== 'incomplete') return l;
+      return { ...l, confidence: 'detected', review_reasons: [], prescription: structuredClone(dose) };
+    });
+}
+
+/**
+ * `cardToSessionText` prepends the card's own TITLE so an ALL-CAPS one seeds
+ * `isBlockTitle` (imported-week.ts's documented contract). But a title is not
+ * always ALL-CAPS — the real fixture carries "Running", "Fuerza", "Metcon" —
+ * and `isBlockTitle` requires it, so a short, dose-less, mixed-case title
+ * slips past it. With `bareNamesAreExercises` on, that same title then reads
+ * as a plausible bare movement name and fabricates a fake exercise called
+ * "Running". A card's title is NEVER an exercise — it is the card's own
+ * heading, by the data model's own contract (`ImportedCard.title`) — so an
+ * `incomplete` line whose token IS the title, verbatim, is that misread, not
+ * a movement. Dropped before anything downstream (redistribution, resolve)
+ * ever sees it, so it cannot become a fake item nor a false "bare name" for
+ * `redistributeOrphanDose` to count.
+ */
+function dropTitleMisreadAsExercise(lines: ParsedLine[], title: string | null): ParsedLine[] {
+  if (!title) return lines;
+  const titleFold = title.trim().toLocaleLowerCase('es');
+  if (!titleFold) return lines;
+  return lines.filter(
+    (l) => !(l.confidence === 'incomplete' && l.exercise_token.trim().toLocaleLowerCase('es') === titleFold),
+  );
+}
+
+/**
  * Build one card's block: parse → resolve → wrap. Whether the SOURCE cut the
  * card off is NOT this function's concern (it can only speak for the block it
  * built) — the caller reports that at the day level, see `ProposalDay.truncations`.
@@ -236,7 +332,9 @@ async function buildCardBlock(
   card: ImportedCard,
   llmAssist: LlmAssist | undefined,
 ): Promise<{ block: EditorBlock; flags: ProposalFlag[] }> {
-  const lines = await parseWithAssist(cardToSessionText(card), llmAssist);
+  const parsed = await parseWithAssist(cardToSessionText(card), llmAssist, { bareNamesAreExercises: true });
+  const withoutTitle = dropTitleMisreadAsExercise(parsed, card.title);
+  const lines = redistributeOrphanDose(withoutTitle);
   const { items, flags } = await resolveLines(coach_id, sql, lines);
   const block: EditorBlock = {
     uid: uid('blk'),
@@ -297,12 +395,18 @@ async function buildDayFromCards(
     focus: d.stimulus?.split('\n')[0]?.slice(0, 120),
     blocks,
   };
-  const reviewItemUids = flags.filter((f) => f.confidence === 'review').map((f) => f.uid);
-  const fillResult = fillMissingWithDefaults([rawSession], defaults, { review_item_uids: reviewItemUids });
+  // `incomplete` excluded exactly like `review`: neither carries a typed dose
+  // (`sets`) to hang a default on — `fillItem`'s own `sets.length === 0` early
+  // return would already skip an `incomplete` item, but naming it here keeps
+  // the exclusion's intent explicit instead of relying on that as a side effect.
+  const noFillUids = flags
+    .filter((f) => f.confidence === 'review' || f.confidence === 'incomplete')
+    .map((f) => f.uid);
+  const fillResult = fillMissingWithDefaults([rawSession], defaults, { review_item_uids: noFillUids });
   const session = fillResult.sessions[0]!;
 
   const dayNeedsReview =
-    flags.some((f) => f.confidence === 'review' || f.unresolved_exercise) || truncations.length > 0;
+    flags.some((f) => f.confidence !== 'detected' || f.unresolved_exercise) || truncations.length > 0;
   const day: ProposalDay = {
     day_of_week: d.day_of_week,
     dow: d.dow,
@@ -405,7 +509,11 @@ export async function buildImportProposal(params: {
         focus: d.stimulus?.split('\n')[0]?.slice(0, 120),
         blocks: [block],
       };
-      const dayNeedsReview = flags.some((f) => f.confidence === 'review' || f.unresolved_exercise);
+      // `!== 'detected'` (not `=== 'review'`): `bareNamesAreExercises` is never
+      // passed here, so `incomplete` can't occur on this path today — this
+      // guards against that changing under this code without anyone noticing,
+      // for free, the same guard the cards path uses.
+      const dayNeedsReview = flags.some((f) => f.confidence !== 'detected' || f.unresolved_exercise);
       days.push({
         day_of_week: d.day_of_week,
         dow: d.dow,

@@ -348,3 +348,154 @@ describe('buildImportProposal — cards: fill-defaults (photo-only proposed valu
     expect(wk.days[0]!.filled).toBeUndefined();
   });
 });
+
+describe('buildImportProposal — cards: bare movement names (confidence "incomplete")', () => {
+  test('a dose-less line that reads as a movement name types incomplete on the cards path (name known, dose not)', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [card({ kind: 'workout', title: 'MOVILIDAD GENERAL', lines: ['Cat Cow', 'Bird Dog'] })],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const items = day.sessions[0]!.blocks[0]!.items;
+    expect(items.map((it) => it.exercise_name)).toEqual(['Cat Cow', 'Bird Dog']);
+    expect(day.flags.every((f) => f.confidence === 'incomplete')).toBe(true);
+    expect(day.flags.every((f) => f.review_reasons.length > 0)).toBe(true); // "needs sets/reps"
+    expect(day.state).toBe('review'); // incomplete blocks green same as review
+  });
+
+  test('the SAME dose-less names on the no-cards path are dropped as noise, exactly like before (bareNamesAreExercises is OFF there)', async () => {
+    const wk = await proposalFor([
+      { day_of_week: 1, dow: 'Lunes', stimulus: 'Movilidad', session_text: 'Cat Cow\nBird Dog' },
+    ]);
+    const day = wk.days[0]!;
+    // No dose anywhere → the block ends up with zero items, exactly the
+    // pre-existing Excel/pegado behavior (a dose-less line there IS a header).
+    expect(day.sessions[0]!.blocks[0]!.items).toEqual([]);
+  });
+
+  test('a card whose TITLE is itself a bare-name-shaped string ("Running" — real fixture title) never fabricates a fake exercise', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [card({ kind: 'workout', title: 'Running', lines: ["30' Z2"] })],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const items = day.sessions[0]!.blocks[0]!.items;
+    // Exactly the ONE real work line — no second item fabricated from the title.
+    expect(items).toHaveLength(1);
+    expect(items.every((it) => it.exercise_name !== 'Running')).toBe(true);
+    expect(day.sessions[0]!.blocks[0]!.title).toBe('Running'); // the block title is still correct
+  });
+});
+
+describe('buildImportProposal — cards: orphan block-level dose redistribution', () => {
+  test('team-lead\'s exact card — COMPENSATORIO GLÚTEO: 1 block, 3 exercises, all 4×12-15 @ 60s rest, zero "P" exercises', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'COMPENSATORIO GLÚTEO',
+            lines: [
+              '1) Puente de glúteo',
+              '2) Marcha desde puente de glúteo',
+              '3) Isometría en puente de glúteo',
+              'P: Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de descanso entre series.',
+            ],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    expect(day.sessions[0]!.blocks).toHaveLength(1);
+    const items = day.sessions[0]!.blocks[0]!.items;
+    expect(items).toHaveLength(3); // the orphan "P" line is gone, not a 4th item
+    expect(items.map((it) => it.exercise_name)).toEqual([
+      'Puente de glúteo',
+      'Marcha desde puente de glúteo',
+      'Isometría en puente de glúteo',
+    ]);
+    expect(items.some((it) => it.exercise_name === 'P')).toBe(false);
+    for (const it of items) {
+      expect(it.prescription.scheme).toBe('sets');
+      expect(it.prescription.sets).toHaveLength(4);
+      for (const s of it.prescription.sets!) {
+        expect(s.measure).toEqual({ kind: 'reps', value: 12, max: 15 });
+        expect(s.rest_s).toBe(60);
+      }
+    }
+    // All three are now fully typed — 'detected', not 'incomplete'/'review'.
+    const flags = day.flags.filter((f) => items.some((it) => it.uid === f.uid));
+    expect(flags.every((f) => f.confidence === 'detected')).toBe(true);
+    expect(flags.every((f) => f.review_reasons.length === 0)).toBe(true);
+  });
+
+  test('TWO orphan dose candidates → ambiguous, nothing redistributed, both stay as the grammar produced them', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'AMBIGUO',
+            lines: [
+              '1) Puente de glúteo',
+              'P: Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de descanso entre series.',
+              'Q: Realiza 3 series de entre 8-10 repeticiones por ejercicio con 90 segundos de descanso entre series.',
+            ],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const items = day.sessions[0]!.blocks[0]!.items;
+    // The bare name stays incomplete — no dose to safely pick.
+    const puente = items.find((it) => it.exercise_name === 'Puente de glúteo')!;
+    expect(puente.prescription.sets).toBeUndefined();
+    const puenteFlag = day.flags.find((f) => f.uid === puente.uid)!;
+    expect(puenteFlag.confidence).toBe('incomplete');
+    // Both orphan lines survive too (as their own review items, empty token).
+    expect(items.filter((it) => it.exercise_name === '')).toHaveLength(2);
+  });
+
+  test('zero incomplete lines → an orphan-shaped review line is left exactly as the grammar produced it (nothing to redistribute to)', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Fuerza',
+            lines: [
+              'P: Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de descanso entre series.',
+            ],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const items = day.sessions[0]!.blocks[0]!.items;
+    expect(items).toHaveLength(1);
+    expect(items[0]!.exercise_name).toBe('');
+    expect(day.flags[0]!.confidence).toBe('review');
+  });
+});
