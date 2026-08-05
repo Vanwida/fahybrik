@@ -203,6 +203,122 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     expect(res).toMatchObject({ exercise_id: id, via: 'name_exact' });
   });
 
+  // -------------------------------------------------------------------------
+  // TRANSLATION ALIASES (2026-08-05 sweep) — a coach who writes "Dominada"
+  // for a catalog exercise named "Pull-up" isn't missing a movement, they're
+  // writing it in Spanish. Every NEW key added to GLOBAL_ALIASES must point
+  // at a slug that is REAL in the catalog today, verified against the actual
+  // demo-branch rows (never assumed) — an alias to a slug that doesn't exist
+  // is worse than no alias: it silently returns exercise_id: null forever.
+  // -------------------------------------------------------------------------
+
+  test('every NEW translation alias resolves to a slug that actually exists in the catalog', async () => {
+    const newAliasTerms = [
+      'dominada',
+      'dominadas',
+      'dominada lastrada',
+      'dominadas lastradas',
+      'press banca',
+      'remo',
+      'step ups cajon',
+      'step up cajon',
+      'forward leg swing',
+      'forward leg swings',
+      'balanceo de pierna',
+      'balanceo de piernas',
+    ];
+    const missing: string[] = [];
+    for (const term of newAliasTerms) {
+      const slug = GLOBAL_ALIASES[term];
+      expect(slug, `"${term}" must be a real GLOBAL_ALIASES key`).toBeDefined();
+      const row = await sql<Array<{ id: string }>>`select id::text as id from exercises where slug = ${slug}`;
+      if (row.length === 0) missing.push(`${term} → ${slug}`);
+    }
+    expect(missing, `alias targets a slug missing from the catalog: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  test('the ES↔EN sweep: "Dominada (lastrada)"/"Remo"/"Press Banca"/"Step Ups Cajón" now resolve via alias', async () => {
+    const fx = await seedCoach();
+    const cases: Array<{ term: string; slug: string }> = [
+      ['Dominada', 'pull-up'],
+      ['Dominada (lastrada)', 'weighted-pullup'],
+      ['Remo', 'row'],
+      ['Press Banca >78-80%', 'bench-press'], // real card line, trailing load kept verbatim
+      ['10+10 Step Ups Cajón', 'box-step-up'], // real card line, leading rep count kept verbatim
+      ['Forward Leg Swing', 'leg-swings'],
+    ].map(([term, slug]) => ({ term, slug }));
+    for (const { term, slug } of cases) {
+      const res = await resolveExercise(fx.coachId, term, sql);
+      expect(res, `"${term}"`).toMatchObject({ via: 'alias' });
+      const row = await sql<Array<{ slug: string }>>`select slug from exercises where id = ${res.exercise_id}`;
+      expect(row[0]?.slug, `"${term}" resolved to the wrong exercise`).toBe(slug);
+    }
+  });
+
+  test('genuinely DIFFERENT movements stay unaliased, on purpose — the sweep\'s negative findings', async () => {
+    // "Puente de glúteo" is NOT "Hip Thrust" (a bridge and a loaded hip thrust
+    // are different exercises); "Push Jerk" is NOT "Clean & Jerk" or "Push
+    // Press" (a distinct Olympic-lift variant); "Bici Libre" is unstructured
+    // outdoor riding, not necessarily the "BikeErg" machine. All three exist
+    // as SOMETHING close in the catalog — aliasing them anyway is exactly the
+    // false-synonym risk the sweep was told to avoid ("ante la duda, fuera").
+    const fx = await seedCoach();
+    for (const term of ['Puente de glúteo', 'Push Jerk', 'Bici Libre', 'Cat Cow', 'Cossack Squat']) {
+      const res = await resolveExercise(fx.coachId, term, sql);
+      expect(res.exercise_id, `"${term}" must NOT have been aliased to a look-alike`).toBeNull();
+    }
+  });
+
+  // The count the client is waiting for: of the real unresolved-name corpus
+  // (web/tests/import/photo-e2e.test.ts's `namedMisses`, de-duplicated and
+  // stripped of parse artifacts — "A)", "OPCIONAL", "FUERZA PARTE ALTA" are
+  // not movement names), how many now resolve PURELY from translating them?
+  test('READOUT: how many of the real corpus resolve now, translation-only (no catalog growth)', async () => {
+    const fx = await seedCoach();
+    const corpus = [
+      'Dominada (lastrada)',
+      'Cable External Rotation',
+      'Band Pull Apart',
+      'Prone Y Raise',
+      'Serratus wall slide',
+      'Band Scapular Retraction',
+      'Puente de glúteo',
+      'Marcha desde puente de glúteo',
+      'Isometría en puente de glúteo',
+      'Cat Cow',
+      'Cossack Squat',
+      'Forward Leg Swing',
+      'Cobra Pose',
+      'Hip Flexor Stretch',
+      'Bird Dog',
+      'Incremental ergómetros',
+      'Remo',
+      'Single Leg Glute Bridge',
+      'Side Step Squat With Band',
+      'Extension de cadera en cuadrúp...',
+      'Diagonal Band Pull Apart',
+      'Banded Front Raise',
+      'Prone T Raise',
+      'Push Jerk',
+      'Bici Libre',
+    ];
+    let resolved = 0;
+    for (const term of corpus) {
+      const res = await resolveExercise(fx.coachId, term, sql);
+      if (res.exercise_id !== null) resolved += 1;
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[translation sweep] ${resolved}/${corpus.length} of the real unresolved corpus now resolve via alias.`,
+    );
+    // "Dominada (lastrada)", "Remo", "Forward Leg Swing" — 3 of these 25 unique
+    // names. "Press Banca" and "Step Ups Cajón" also now resolve (see the
+    // dedicated test above) but were never IN this specific 25-name corpus —
+    // they surfaced from re-reading the source cards directly, not from this
+    // test's own unresolved list.
+    expect(resolved).toBe(3);
+  });
+
   test('an unknown term resolves to null with the normalized key (caller escalates)', async () => {
     const fx = await seedCoach();
     // Pure gibberish, verified to contain (and be contained by) NO catalog name.

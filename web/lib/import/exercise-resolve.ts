@@ -83,6 +83,17 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'turkish get up': 'turkish-get-up',
   'pull up': 'pull-up',
   'pull ups': 'pull-up',
+  // ES↔EN translation, not a new movement (2026-08-05 sweep against the real
+  // catalog — "Dominada" IS "Pull-up", same movement in two languages, and a
+  // translation is our own mechanism, never a coach's methodology). The
+  // "(lastrada)"/qualifier suffix on a real card ("Dominada (lastrada)")
+  // still resolves through this key via aliasToSlug's word-window scan — no
+  // extra key needed for that; the WEIGHTED form below is a distinct catalog
+  // row and needs its own key precisely because it is a different movement.
+  'dominada': 'pull-up',
+  'dominadas': 'pull-up',
+  'dominada lastrada': 'weighted-pullup',
+  'dominadas lastradas': 'weighted-pullup',
   'push up': 'push-up',
   'push ups': 'push-up',
   'dip': 'weighted-dip',
@@ -91,9 +102,17 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'elevaciones laterales': 'lateral-raise',
   'cable fly': 'cable-fly',
   'aperturas en polea': 'cable-fly',
+  // "Press Banca" IS "Bench Press" — same translation-not-invention rule.
+  'press banca': 'bench-press',
   // ergs / cardio
   'row': 'row',
   'rowing': 'row',
+  // "Remo" bare is the ERG (cardio) — same word, same "row"/"clean"/"ski"
+  // single-word convention already used below; a genuinely different
+  // movement that happens to CONTAIN "remo" ("Remo con barra", a barbell row
+  // — strength, not cardio) is the coach's to correct once via learnSynonym
+  // (layer 1, which always wins next time), exactly like "row"/"clean" today.
+  'remo': 'row',
   'skierg': 'ski-erg',
   'ski': 'ski-erg',
   'ab': 'assault-bike',
@@ -128,6 +147,9 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'db snatch': 'dumbbell-snatch',
   'db box step': 'box-step-up',
   'box step': 'box-step-up',
+  // "Step Ups Cajón" IS "Box Step-up" — "cajón" is the box, same movement.
+  'step ups cajon': 'box-step-up',
+  'step up cajon': 'box-step-up',
   'devil press': 'devil-press',
   // core / mobility
   'side plank': 'side-plank',
@@ -135,6 +157,16 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'plank': 'plank',
   'sit up': 'sit-up',
   'sit ups': 'sit-up',
+  // "Forward Leg Swing" is the catalog's generic "Leg Swings" done in the
+  // forward/back plane — the SAME drill, direction specified, not a
+  // different one (unlike "Puente de glúteo" vs "Hip Thrust", which stay
+  // UNALIASED below in the sweep's negative findings — those are genuinely
+  // different movements). "Balanceo de pierna(s)" is its Spanish name, added
+  // for the same reason "carrera"/"correr" sit next to "run" above.
+  'forward leg swing': 'leg-swings',
+  'forward leg swings': 'leg-swings',
+  'balanceo de pierna': 'leg-swings',
+  'balanceo de piernas': 'leg-swings',
 };
 
 // ---------------------------------------------------------------------------
@@ -193,12 +225,27 @@ export function normalizeTerm(raw: string): string {
  * then the longest word-window (up to 4 words) found ANYWHERE in the candidate —
  * so "8r db depth jump" and "db snatch" both resolve. Returns the catalog slug
  * or null. Deterministic (longest window wins, scanned left-to-right).
+ *
+ * Parenthetical qualifiers ("Dominada (lastrada)", a real card line) are
+ * common Spanish notation and must not defeat the window-scan: the ONLY
+ * splitter was a literal space, so "dominada (lastrada)" tokenized as
+ * `["dominada", "(lastrada)"]` — the 2-word window never matched a
+ * "dominada lastrada" key (parens are not spaces), and the loop fell through
+ * to the 1-word "dominada" match instead, silently discarding the qualifier.
+ * Stripping just the paren CHARACTERS (never their content) before splitting
+ * turns it into two clean words, so a 2-word key can still claim the
+ * qualified form ahead of the bare 1-word fallback, exactly as the
+ * longest-window-wins contract already promises for space-separated input.
  */
 function aliasToSlug(candidate: string): string | null {
   if (!candidate) return null;
   const exact = GLOBAL_ALIASES[candidate];
   if (exact) return exact;
-  const words = candidate.split(' ');
+  const words = candidate
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ');
   for (let len = Math.min(4, words.length); len >= 1; len--) {
     for (let i = 0; i + len <= words.length; i++) {
       const slug = GLOBAL_ALIASES[words.slice(i, i + len).join(' ')];
