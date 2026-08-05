@@ -14,18 +14,19 @@ import {
   checkPrescriptionCompleteness,
   isExecutable,
   blockingReasons,
-  measureFloor,
-  measureIsRange,
-  setMeasure,
-  setTarget,
-  type Measure,
-  type Prescription,
-  type Target,
 } from '@fahybrid/shared/domain/prescription';
-import { OBJETIVO_LABEL } from '@/lib/dashboard/v2/editor-axes';
+import {
+  hiddenEntryCount,
+  findTruncation,
+  pendingProposedFields,
+  proposedPathsByItem,
+  readProposedFields,
+  readTruncations,
+  type BlockTruncation,
+  type ProposedField,
+} from '@/lib/dashboard/v2/import-provenance';
 import type { EditorSession, EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import type { ProposalFlag, ProposalDay, ProposalWeek, ImportProposal } from '@/lib/import/build-proposal';
-import type { FilledField, FilledFieldKind } from '@/lib/import/fill-defaults';
 
 /** A container week the coach can map an imported week onto (Fork B target). */
 export interface MicroWeekRef {
@@ -35,46 +36,9 @@ export interface MicroWeekRef {
   session_count: number;
 }
 
-// ── LEÍDO frente a PROPUESTO ──────────────────────────────────────────────────
-// Una captura recorta, y hay valores que el coach escribe una vez y repite por
-// costumbre (el descanso entre series, lo cerca del fallo que va una serie, las
-// repeticiones cuando se ven las series pero no el número). El importador los
-// rellena con SUS valores por defecto y los marca. Aquí solo vive la MARCA.
-//
-// La distinción es SOLO de la importación: se pinta en la revisión, el coach la
-// acepta o la cambia, y al confirmar desaparece — `buildConfirmBody` manda la
-// prescripción a secas y nada de esto se persiste. Por eso no viaja dentro de la
-// prescripción, sino al lado.
-
-/**
- * Qué clase de hueco tapó el importador. Es EL MISMO tipo que emite el relleno
- * (`lib/import/fill-defaults`), no una copia: si allí nace una clase nueva, aquí
- * deja de compilar en vez de aparecer un día sin etiqueta en la pantalla.
- */
-export type ProposedFieldKind = FilledFieldKind;
-
-/** Un valor que el importador PROPUSO porque la foto no lo enseñaba. */
-export interface ProposedField {
-  item_uid: string;
-  field: ProposedFieldKind;
-  /** Ruta dentro de la prescripción del item: `sets[0].rest_s`, `sets[0].measure`… */
-  path: string;
-  /**
-   * El valor tal y como lo dejó el importador. Si hoy hay otro en esa ruta es que
-   * el coach ya lo tocó, y entonces deja de ser una propuesta: es suyo. Así
-   * «editar un propuesto lo da por confirmado» sale del propio dato y no de tener
-   * que escuchar cada tecla del editor.
-   */
-  snapshot: unknown;
-}
-
-/** Una tarjeta que la fuente cortó: hay trabajo que la foto no llegó a enseñar. */
-export interface BlockTruncation {
-  /** El bloque que salió de esa tarjeta. */
-  block_uid: string;
-  /** Cuántas entradas dijo la fuente que escondía («4 More»), o null si no lo dijo. */
-  hidden_count: number | null;
-}
+// LEÍDO frente a PROPUESTO, y lo que la fuente cortó: los tipos y la lógica pura
+// viven en `./import-provenance`. Aquí solo se cuelgan del día y se le pregunta
+// por él, que es como los usa la pantalla.
 
 export interface ReviewDay {
   day_of_week: number;
@@ -111,138 +75,21 @@ export interface ReviewWeek {
 export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'incomplete' | 'unresolved';
 
 // ── Lo que añade la rama de FOTO ──────────────────────────────────────────────
-// Son campos OPCIONALES de la propuesta: el Excel y el texto pegado no los traen y
-// una propuesta sin ellos se revisa exactamente igual que siempre. Se leen a mano y
-// con desconfianza (vienen por la red) en vez de darlos por buenos.
-
-/** Lo que de `FilledField` viaja por la red: el `reason` no se pinta, así que ni
- *  se pide. La forma la sigue mandando el que rellena, no esta pantalla. */
-type FilledFieldWire = Pick<FilledField, 'item_uid' | 'field' | 'path'>;
-
-interface TruncationWire {
-  block_uid: string;
-  hidden_count: number | null;
-}
-
-interface PhotoProposalExtras {
-  filled?: readonly FilledFieldWire[];
-  truncations?: readonly TruncationWire[];
-}
-
-/** Las clases válidas, en forma de registro EXHAUSTIVO a propósito: si aparece
- *  una cuarta, esto deja de compilar. Con una lista suelta se colaría en silencio. */
-const PROPOSED_FIELD_KINDS: Record<ProposedFieldKind, true> = {
-  reps: true,
-  rest: true,
-  intensity: true,
-};
-
-function isProposedFieldKind(value: unknown): value is ProposedFieldKind {
-  // `Object.hasOwn` y no `in`: `'toString' in {}` es cierto por el prototipo.
-  return typeof value === 'string' && Object.hasOwn(PROPOSED_FIELD_KINDS, value);
-}
-
-function photoExtras(d: ProposalDay): PhotoProposalExtras {
-  // La propuesta tipada aún no declara estos dos campos porque solo los emite la
-  // rama de foto. La conversión es el precio de leer algo aditivo; lo que llega se
-  // valida entero justo debajo, así que un servidor que mande basura no pinta nada.
-  return d as ProposalDay & PhotoProposalExtras;
-}
-
-function readFilled(raw: unknown): FilledFieldWire[] {
-  if (!Array.isArray(raw)) return [];
-  const out: FilledFieldWire[] = [];
-  for (const entry of raw) {
-    if (typeof entry !== 'object' || entry === null) continue;
-    const { item_uid, field, path } = entry as Record<string, unknown>;
-    if (typeof item_uid !== 'string' || typeof path !== 'string') continue;
-    if (!isProposedFieldKind(field)) continue;
-    out.push({ item_uid, field, path });
-  }
-  return out;
-}
-
-function readTruncations(raw: unknown): BlockTruncation[] {
-  if (!Array.isArray(raw)) return [];
-  const out: BlockTruncation[] = [];
-  for (const entry of raw) {
-    if (typeof entry !== 'object' || entry === null) continue;
-    const { block_uid, hidden_count } = entry as Record<string, unknown>;
-    if (typeof block_uid !== 'string') continue;
-    out.push({
-      block_uid,
-      hidden_count:
-        typeof hidden_count === 'number' && Number.isFinite(hidden_count) && hidden_count > 0
-          ? Math.trunc(hidden_count)
-          : null,
-    });
-  }
-  return out;
-}
-
-/** `sets[3].rest_s` → índice + campo. Solo esas tres rutas: son las únicas que el
- *  importador rellena, y aceptar una ruta arbitraria sería inventarse un lenguaje. */
-const SET_PATH_RE = /^sets\[(\d+)\]\.(measure|target|rest_s)$/;
-
-function valueAtPath(prescription: Prescription, path: string): unknown {
-  const parsed = SET_PATH_RE.exec(path);
-  if (!parsed) return undefined;
-  const set = prescription.sets?.[Number(parsed[1])];
-  if (!set) return undefined;
-  // measure/target se leen por el accesor del dominio: una prescripción vieja los
-  // guarda como alias sueltos (`reps`, `rir`) y leer el campo a pelo los perdería.
-  if (parsed[2] === 'measure') return setMeasure(set);
-  if (parsed[2] === 'target') return setTarget(set);
-  return set.rest_s;
-}
-
-/** Comparación estable de valores pequeños y planos (un Measure, un Target, un
- *  número). Ordena las claves para que reconstruir el mismo objeto en otro orden
- *  no se lea como una edición del coach. */
-function sameValue(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== 'object' || a === null || b === null) return false;
-  const ka = Object.keys(a as object).sort();
-  const kb = Object.keys(b as object).sort();
-  if (ka.length !== kb.length || ka.some((k, i) => k !== kb[i])) return false;
-  return ka.every((k) =>
-    sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
-  );
-}
-
-function itemByUid(sessions: EditorSession[], uid: string): EditorBlock['items'][number] | null {
-  for (const session of sessions) {
-    for (const block of session.blocks) {
-      for (const item of block.items) {
-        if (item.uid === uid) return item;
-      }
-    }
-  }
-  return null;
-}
+// El servidor los declara en `ProposalDay` (build-proposal.ts), pero llegan por la
+// red dentro de un `as ImportProposal`, así que se validan igual al leerlos. El
+// Excel y el texto pegado no los traen: una propuesta sin ellos se revisa
+// exactamente igual que siempre.
 
 function fromProposalDay(d: ProposalDay): ReviewDay {
   const sessions = d.sessions.map((s) => structuredClone(s));
-  const extras = photoExtras(d);
-  // El valor de la propuesta se congela AQUÍ: la propuesta ya viene rellenada, así
-  // que lo que hay ahora en cada ruta es exactamente lo que se propuso.
-  const proposed: ProposedField[] = [];
-  for (const filled of readFilled(extras.filled)) {
-    const item = itemByUid(sessions, filled.item_uid);
-    if (!item) continue;
-    const snapshot = valueAtPath(item.prescription, filled.path);
-    if (snapshot === undefined) continue;
-    proposed.push({ ...filled, snapshot });
-  }
   return {
     day_of_week: d.day_of_week,
     dow: d.dow,
     stimulus: d.stimulus,
     sessions,
     flags: d.flags,
-    proposed,
-    truncations: readTruncations(extras.truncations),
+    proposed: readProposedFields(sessions, d.filled),
+    truncations: readTruncations(d.truncations),
     included: true,
   };
 }
@@ -349,20 +196,18 @@ export function dayIncompleteLines(day: ReviewDay): IncompleteLine[] {
   return day.sessions.flatMap((s) => sessionIncompleteLines(s));
 }
 
-// ── Lo propuesto, en vivo ─────────────────────────────────────────────────────
+// ── Lo propuesto y lo cortado, colgados del día ───────────────────────────────
+// La lógica es de `./import-provenance`; aquí solo se le pregunta por un día, que
+// es la forma en que lo usa la pantalla.
 
-/**
- * Las propuestas que SIGUEN siendo propuestas. Una cuyo valor ya no coincide con
- * lo que dejó el importador es que el coach la editó, y editarla la da por
- * confirmada: deja de pintarse en discontinuo y deja de contar.
- */
+/** Las propuestas que SIGUEN siendo propuestas: editar una la da por confirmada. */
 export function dayProposedFields(day: ReviewDay): ProposedField[] {
-  if (day.proposed.length === 0) return [];
-  return day.proposed.filter((p) => {
-    const item = itemByUid(day.sessions, p.item_uid);
-    if (!item) return false;
-    return sameValue(valueAtPath(item.prescription, p.path), p.snapshot);
-  });
+  return pendingProposedFields(day.sessions, day.proposed);
+}
+
+/** Las rutas todavía propuestas por línea, para que el editor marque el campo. */
+export function dayProposedPaths(day: ReviewDay): Map<string, ReadonlyMap<string, string>> {
+  return proposedPathsByItem(day.sessions, day.proposed);
 }
 
 /** Da por buenas TODAS las propuestas del día de una vez. No cambia ni un valor:
@@ -371,48 +216,14 @@ export function acceptDayProposals(day: ReviewDay): ReviewDay {
   return day.proposed.length === 0 ? day : { ...day, proposed: [] };
 }
 
-/** Lo propuesto de un item concreto, para pintarlo junto a su línea. */
-export function itemProposedFields(day: ReviewDay, itemUid: string): ProposedField[] {
-  return dayProposedFields(day).filter((p) => p.item_uid === itemUid);
-}
-
-/** Cómo se lee una propuesta: «descanso 90 s», «8-12 reps», «RIR 2». */
-export function proposedFieldLabel(field: ProposedFieldKind, value: unknown): string {
-  if (field === 'rest') {
-    return typeof value === 'number' ? `descanso ${Math.round(value)} s` : 'descanso';
-  }
-  if (field === 'reps') {
-    const measure = value as Measure | undefined;
-    if (!measure || measure.kind !== 'reps') return 'repeticiones';
-    return measureIsRange(measure)
-      ? `${measureFloor(measure)}-${measure.max} reps`
-      : `${measureFloor(measure)} reps`;
-  }
-  const target = value as Target | undefined;
-  if (!target) return 'intensidad';
-  const label = OBJETIVO_LABEL[target.kind] ?? 'intensidad';
-  // Peso corporal no lleva cifra; ritmo y tiempo tope la llevan en segundos y se
-  // escriben en reloj, no en número suelto. El importador no propone ninguno de los
-  // tres (solo RIR), así que aquí basta con no mentir sobre ellos.
-  if (target.kind === 'bodyweight' || target.kind === 'pace' || target.kind === 'time_cap') {
-    return label;
-  }
-  const amount = target.value ?? target.min ?? target.max;
-  return amount === undefined ? label : `${label} ${amount}`;
-}
-
-// ── Lo que la fuente cortó ────────────────────────────────────────────────────
-
-/** Cuántas entradas dijo la fuente que escondía, sumando el día. Las tarjetas que
- *  se cortaron sin decir cuántas cuentan como 1: hay trabajo sin ver, y callarlo
- *  porque no sabemos el número sería justo lo que este aviso viene a evitar. */
+/** Cuántas entradas dijo la fuente que escondía, sumando el día. */
 export function dayHiddenCount(day: ReviewDay): number {
-  return day.truncations.reduce((n, t) => n + (t.hidden_count ?? 1), 0);
+  return hiddenEntryCount(day.truncations);
 }
 
-/** Las tarjetas cortadas de UN bloque (0 o 1 en la práctica). */
+/** El corte de UN bloque del día (0 o 1 en la práctica). */
 export function blockTruncation(day: ReviewDay, blockUid: string): BlockTruncation | null {
-  return day.truncations.find((t) => t.block_uid === blockUid) ?? null;
+  return findTruncation(day.truncations, blockUid);
 }
 
 function dayUnresolvedCount(day: ReviewDay): number {
