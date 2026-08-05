@@ -480,15 +480,41 @@ final class PhoneMirrorService {
             session.setRecords.indices.contains(i) ? session.setRecords[i] : nil
         }
 
-        // Lo cubierto en ESTA ventana. Erg y cinta tienen ventana propia por
-        // tramo; sin ella el minuto 4 de un EMOM reclamaría los metros de todos
-        // los anteriores.
-        let hechoErg: Double? = session.tramoErgDistanceMeters
-            ?? session.tramoErgCalories.map { Double($0) }
-        let hecho: Double? = tramo.isErg ? hechoErg : session.tramoBeltDistanceMeters
-
-        let objetivoMedida: Double? = tramo.targetDistanceMeters
-            ?? tramo.targetCalories.map { Double($0) }
+        // LO CUBIERTO EN ESTA VENTANA — y OBJETIVO Y MEDIDA VIAJAN EMPAREJADOS.
+        //
+        // Aquí había dos fallos que la muñeca no podía detectar, porque los dos
+        // números llegaban bien formados:
+        //
+        // 1. Se leía el acumulador de la CINTA para todo lo que no fuera ergo. Al
+        //    aire libre eso es nil, así que una serie de 1.000 m en la calle
+        //    pintaba «te faltan 1000» los cuatro minutos enteros, sin moverse. El
+        //    dato bueno estaba dos accesores más abajo, en el mismo fichero del
+        //    motor: los metros de la pierna salen del GPS cuando no hay cinta.
+        //
+        // 2. Objetivo y medida se resolvían por separado con dos `??`, así que un
+        //    tramo de «12 cal» de ski cogía el objetivo en calorías y la medida en
+        //    METROS — el PM5 reporta distancia haya o no objetivo de distancia. La
+        //    muñeca pintaba «te faltan 0 m» desde la primera palada y el aro salía
+        //    lleno. El motor ya los empareja bien en `tramoProgress`; era el cable
+        //    el que divergía de él, y ahora usa la misma pareja.
+        let objetivoMedida: Double?
+        let hecho: Double?
+        if tramo.isErg, let cal = tramo.targetCalories, cal > 0 {
+            // La unidad la manda el OBJETIVO: si la pieza se mide en calorías, lo
+            // hecho son calorías. Nunca los metros que el monitor reporta igual.
+            objetivoMedida = Double(cal)
+            hecho = session.tramoErgCalories.map { Double($0) }
+        } else if tramo.isErg {
+            objetivoMedida = tramo.targetDistanceMeters
+            hecho = session.tramoErgDistanceMeters
+        } else {
+            objetivoMedida = tramo.targetDistanceMeters
+                ?? tramo.targetCalories.map { Double($0) }
+            // Correr: la cinta si la hay, el GPS si no. Es la MISMA regla que usa
+            // el motor para el ritmo de la pierna, así que ritmo y metros no
+            // pueden contar cosas distintas.
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+        }
 
         return MirrorTramo(
             formato: seg?.formatScheme?.rawValue,
@@ -605,6 +631,11 @@ final class PhoneMirrorService {
             campos.append(t.zonaViva.map(String.init) ?? "")
             campos.append(t.cargaKg.map { String(Int($0 * 10)) } ?? "")
             campos.append(t.reps.map(String.init) ?? "")
+            // Lo medido en la ventana entra en cubo GRUESO, igual que los metros de
+            // la cinta: sin él sólo refrescaba con el latido de 5 s y el numeral de
+            // «te faltan» daba saltos de cinco en cinco segundos. Con él llega al
+            // ritmo del cambio real y como mucho una vez por trama.
+            campos.append(t.hechoMedida.map { String(Int($0 / 10)) } ?? "")
             return campos.joined(separator: ",")
         }()
         let parts: [String] = [

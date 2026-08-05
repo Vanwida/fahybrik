@@ -399,6 +399,12 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         WKApplication: true
+        # ALWAYS-ON, DECLARADO. Sin esta clave el sistema nunca entrega el estado
+        # atenuado: todo el trabajo de `isLuminanceReduced` del lienzo sería
+        # decoración y al bajar la muñeca la app se iría a la esfera. Es la queja
+        # número uno contra las apps de entreno de terceros, y no se arregla con
+        # código — se declara aquí.
+        WKSupportsAlwaysOnDisplay: true
         WKCompanionAppBundleIdentifier: com.fahybrid.app
         WKWatchOnly: false
         WKBackgroundModes:

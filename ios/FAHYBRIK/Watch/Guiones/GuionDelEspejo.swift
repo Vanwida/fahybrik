@@ -177,14 +177,19 @@ enum GuionDelEspejo {
             tareas[ronda] = GuionEmom.TareaEmom(texto: sig, modo: .ojeada, ergo: nil)
         }
         let ventana = t.ventanaTotal ?? 60
+        let enVentana = t.ventanaQueda.map { max(0, ventana - $0) } ?? elapsed
         return GuionEmom.Estado(
             rondas: rondas,
             ronda: ronda,
             ventanaS: ventana,
-            // Sin parada escrita, el trabajo ES la ventana entera.
-            trabajoS: ventana,
+            // LA PARADA ERA INALCANZABLE. `trabajoS = ventana` siempre hacía que el
+            // guion nunca viera la fase de descanso, así que durante los 15-20 s de
+            // parada la muñeca seguía diciendo «llevas N s de trabajo» y el aro
+            // arrancaba a media vuelta. El cable SÍ trae `enDescanso`: cuando lo
+            // dice, el trabajo se acabó en el segundo en que estamos.
+            trabajoS: t.enDescanso ? min(enVentana, ventana) : ventana,
             tareas: tareas,
-            enVentanaS: t.ventanaQueda.map { max(0, ventana - $0) } ?? elapsed,
+            enVentanaS: enVentana,
             // El móvil no manda «ya la marqué»: el descanso dentro del formato es
             // lo que sí viaja, y es lo mismo que ver desde fuera.
             hechaEnS: t.enDescanso ? 0 : nil,

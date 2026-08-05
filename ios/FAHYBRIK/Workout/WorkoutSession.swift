@@ -606,12 +606,19 @@ final class WorkoutSession {
     /// denominator and the HUD read 5:33/km while the athlete was running 3:30 —
     /// and the lap archived for the coach (`recordRunLegLap`) was already the right
     /// one. Same window, same baselines, same answer as what gets saved.
+    /// Los metros cubiertos en la PIERNA en curso — cinta si la hay, GPS si no.
+    /// Una sola regla, para que el ritmo de la pierna y los metros que se pintan
+    /// no puedan contar cosas distintas de la misma carrera.
+    var runLegCoveredMeters: Double {
+        let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
+        let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
+        return beltDelta > 0 ? beltDelta : gpsDelta
+    }
+
     var liveCoveredPaceSecPerKm: Int? {
         let pace: Double?
         if isRunStructureActive {
-            let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
-            let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
-            let covered = beltDelta > 0 ? beltDelta : gpsDelta
+            let covered = runLegCoveredMeters
             pace = Self.paceSecPerKm(meters: covered, seconds: runLegElapsed)
         } else {
             pace = Self.paceSecPerKm(meters: liveRunDistanceMeters, seconds: lapElapsedSeconds)

@@ -265,6 +265,21 @@ extension WorkoutSession {
         return covered > 0 ? covered : nil
     }
 
+    /// LOS METROS DE ESTA PIERNA CORRIENDO — cinta si la hay, GPS si no.
+    ///
+    /// Existe porque el cable del espejo leía sólo el acumulador de la cinta, y al
+    /// aire libre eso es nil: una serie de 1.000 m en la calle pintaba «te faltan
+    /// 1000» los cuatro minutos enteros sin moverse del sitio. La regla de qué
+    /// fuente manda ya la tenía el motor para el RITMO de la pierna
+    /// (`liveCoveredPaceSecPerKm`); aquí se expone la misma, para que ritmo y
+    /// metros no puedan contar cosas distintas de la misma carrera.
+    var tramoRunCoveredMeters: Double? {
+        guard tramoIsRun else { return nil }
+        guard isRunStructureActive else { return liveRunDistanceMeters }
+        let cubiertos = runLegCoveredMeters
+        return cubiertos > 0 ? cubiertos : nil
+    }
+
     /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether
     /// the goal is meters, calories or seconds. Nil when the tramo prescribes no
     /// measurable goal: a bar with no denominator would be decoration, not data.

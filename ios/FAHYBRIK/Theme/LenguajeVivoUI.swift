@@ -479,6 +479,12 @@ struct ApoyoVivo: View {
     var ausente: String?
     /// Marca de procedencia: «estimado», «declarado».
     var marca: String?
+    /// La coletilla de la celda: la zona en que cayó ese pulso, la unidad cuando
+    /// no cabe al lado de la cifra. Va en faint y debajo — es lo ÚLTIMO que se
+    /// lee. Existe en el kit del doble (`Apoyo.pie`) desde el 29-jul y aquí
+    /// faltaba, así que una celda que quería decir «157 · Z4» sólo podía decir una
+    /// de las dos cosas.
+    var pie: String?
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xs) {
@@ -508,6 +514,11 @@ struct ApoyoVivo: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
+            }
+            if let pie {
+                Text(pie)
+                    .scaledFont(10, weight: .medium, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
             }
         }
         .frame(maxWidth: .infinity)

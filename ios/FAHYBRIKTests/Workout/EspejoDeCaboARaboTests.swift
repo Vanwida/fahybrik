@@ -60,6 +60,22 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         XCTAssertEqual(primera.unidad, "m")
     }
 
+    /// Y AVANZAN. Este test faltaba, y su ausencia dejó pasar el peor fallo de la
+    /// noche: el cable leía el acumulador de la CINTA para todo, así que al aire
+    /// libre —donde eso es nil— la muñeca pintaba «te faltan 500» los cuatro
+    /// minutos enteros. Un numeral congelado parece un numeral correcto: sólo lo
+    /// caza afirmar que el número CAMBIA cuando el atleta corre.
+    func testLosMetrosQueFaltanBajanCuandoElAtletaCorre() throws {
+        let s = seriesLibres()
+        let alSalir = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
+
+        s.sampleRunGPS(deltaMeters: 180)
+        let aMitad = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
+
+        XCTAssertNotEqual(aMitad, alSalir, "el numeral se quedaba congelado toda la serie")
+        XCTAssertLessThan(Int(aMitad) ?? .max, Int(alSalir) ?? 0)
+    }
+
     /// El botón «Terminar» en la primera de cinco series no puede volver a
     /// existir: lo que cierra este tramo es el hito de distancia, así que la
     /// muñeca NO anuncia ninguna acción mientras corres.

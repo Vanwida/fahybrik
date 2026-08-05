@@ -63,6 +63,12 @@ struct WorkoutContainer: View {
         // pulse; the athlete does nothing). Reached only from a LIVE finish —
         // manual/capture logs never measured a live effort, so they skip it.
         case recovery
+        // AL TERMINAR DE CORRER — la lectura honesta de la carrera, antes del
+        // registro. Sólo cuando el entreno FUE una carrera con metros medidos: es
+        // la única forma que tiene un sujeto que enseñar («8 fuertes a 3:58», o
+        // los kilómetros cuando no se puede separar). Para todo lo demás no
+        // aparece y el resumen genérico es lo primero, como siempre.
+        case lecturaCarrera
         case summary
         // #34 — a calibration TEST session ends here instead of closing: after the
         // execution is saved, the athlete confirms the measured number(s) (pre-
@@ -249,7 +255,7 @@ struct WorkoutContainer: View {
                                 // athlete fills the summary; PostWorkoutSummaryView
                                 // stamps source_workout_ref.
                                 PhoneMirrorService.shared.end(save: true)
-                                phase = .summary
+                                phase = trasElEsfuerzo(session)
                             }
                         },
                         // Clean exit: leave the workout WITHOUT recording anything.
@@ -283,10 +289,15 @@ struct WorkoutContainer: View {
                             // The window is over (skip / continue / 90 s auto-close):
                             // NOW close the wrist recording, then the normal summary.
                             PhoneMirrorService.shared.end(save: true)
-                            phase = .summary
+                            phase = trasElEsfuerzo(session)
                         }
                     )
                     .toolbar(.hidden, for: .tabBar)
+                }
+            case .lecturaCarrera:
+                if let session {
+                    ResumenCarreraView(session: session, onContinuar: { phase = .summary })
+                        .toolbar(.hidden, for: .tabBar)
                 }
             case .summary:
                 if let session {
@@ -414,6 +425,20 @@ struct WorkoutContainer: View {
         (detail?.storeResults ?? []).contains {
             TestMeasure($0.measure) == .hrr || $0.slug == "hrr60"
         }
+    }
+
+    // LO QUE VIENE DESPUÉS DEL ESFUERZO. Si el entreno fue una carrera con metros
+    // medidos, primero la LECTURA de esa carrera (a cuánto fuiste, contra qué, si
+    // aguantaste) y después el registro; si no, el registro directo, como siempre.
+    //
+    // La condición no la decide esta vista: la decide `CarreraDeLaSesion`, que
+    // devuelve nil cuando no hubo carrera o cuando nada midió la distancia. Sin
+    // metros no hay ritmo, y una lectura de carrera sin ritmo no tiene sujeto que
+    // enseñar — ahí manda el resumen genérico, que sí sabe hablar de tiempo y pulso.
+    private func trasElEsfuerzo(_ session: WorkoutSession) -> Phase {
+        CarreraDeLaSesion.carrera(laps: session.laps, segmentos: session.plan.segments) != nil
+            ? .lecturaCarrera
+            : .summary
     }
 
     // The wrist recording's activity kind (mirror mode), in the watch vocabulary
