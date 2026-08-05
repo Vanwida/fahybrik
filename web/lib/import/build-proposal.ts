@@ -26,6 +26,9 @@ import { sql as defaultSql } from '@/lib/db';
 import { parseNotationCell, type ParsedLine } from '@fahybrid/shared/domain/import/notation';
 import { resolveExercise } from './exercise-resolve';
 import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
+import { fillMissingWithDefaults } from './fill-defaults';
+import { resolveImportDefaults } from '@/lib/coach/import-defaults';
+import type { ImportDefaultsValues } from '@fahybrid/shared/domain/coach-import-defaults';
 import type { EditorSession, EditorBlock, EditorItem, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
@@ -79,6 +82,18 @@ export interface ProposalDay {
    * say how much it hid. Absent when nothing was truncated.
    */
   truncations?: Array<{ block_uid: string; hidden_count: number | null }>;
+  /**
+   * Values the importer PROPOSED because the photo didn't show them (rest
+   * between sets, strength RIR, a rep range) — the coach confirms or overrides
+   * them in review, never shipped un-reviewed. Same shape as `FilledField`
+   * (web/lib/import/fill-defaults.ts) WITHOUT `reason` — the provenance never
+   * leaves this module. Contract ratified with import-review.ts, which already
+   * reads this field name. CARDS-ONLY, same as `truncations`: fill-defaults.ts
+   * and coach-import-defaults.ts are both scoped to "what the PHOTO didn't
+   * show" — the Excel/pegado path is the coach's own verbatim text and is never
+   * filled. Absent when nothing was proposed.
+   */
+  filled?: Array<{ item_uid: string; field: 'reps' | 'rest' | 'intensity'; path: string }>;
 }
 
 export interface ProposalWeek {
@@ -248,6 +263,13 @@ async function buildCardBlock(
  * `hidden_count` into `ProposalDay.truncations` — the day-level channel
  * `import-review.ts` already reads, never a per-item hack — so a block that
  * lost content downstream of what the source showed can never look complete.
+ *
+ * `defaults` fills whatever gap the photo left (rest / RIR / rep range) via
+ * `fillMissingWithDefaults`, called AFTER the grammar + resolver so it works
+ * on the FINAL typed prescriptions, and only for lines the grammar actually
+ * typed — a `review`-confidence item is excluded (`review_item_uids`): there
+ * is no structure to hang a default on, and filling over raw text would be
+ * inventing on top of an unknown.
  */
 async function buildDayFromCards(
   coach_id: number,
@@ -255,6 +277,7 @@ async function buildDayFromCards(
   d: { day_of_week: number; dow: string; stimulus: string | null; cards: readonly ImportedCard[] },
   cards: readonly ImportedCard[],
   llmAssist: LlmAssist | undefined,
+  defaults: ImportDefaultsValues,
 ): Promise<{ day: ProposalDay; flags: ProposalFlag[] }> {
   const blocks: EditorBlock[] = [];
   const flags: ProposalFlag[] = [];
@@ -268,12 +291,16 @@ async function buildDayFromCards(
     }
   }
 
-  const session: EditorSession = {
+  const rawSession: EditorSession = {
     uid: uid('ses'),
     slot: 'am',
     focus: d.stimulus?.split('\n')[0]?.slice(0, 120),
     blocks,
   };
+  const reviewItemUids = flags.filter((f) => f.confidence === 'review').map((f) => f.uid);
+  const fillResult = fillMissingWithDefaults([rawSession], defaults, { review_item_uids: reviewItemUids });
+  const session = fillResult.sessions[0]!;
+
   const dayNeedsReview =
     flags.some((f) => f.confidence === 'review' || f.unresolved_exercise) || truncations.length > 0;
   const day: ProposalDay = {
@@ -284,6 +311,9 @@ async function buildDayFromCards(
     flags,
     state: dayNeedsReview ? 'review' : 'detected',
     ...(truncations.length > 0 ? { truncations } : {}),
+    ...(fillResult.filled.length > 0
+      ? { filled: fillResult.filled.map(({ item_uid, field, path }) => ({ item_uid, field, path })) }
+      : {}),
     ...dayNotesField(d.cards),
   };
   return { day, flags };
@@ -312,6 +342,14 @@ export async function buildImportProposal(params: {
     }
   }
 
+  // Resolved LAZILY, once, on first use — an Excel/pegado-only import never
+  // touches the cards path and so never pays this extra round trip.
+  let importDefaults: ImportDefaultsValues | null = null;
+  async function getImportDefaults(): Promise<ImportDefaultsValues> {
+    importDefaults ??= await resolveImportDefaults(coach_id, sql);
+    return importDefaults;
+  }
+
   const outWeeks: ProposalWeek[] = [];
   for (const w of weeks) {
     const days: ProposalDay[] = [];
@@ -329,6 +367,7 @@ export async function buildImportProposal(params: {
           { day_of_week: d.day_of_week, dow: d.dow, stimulus: d.stimulus, cards: d.cards },
           cards,
           llmAssist,
+          await getImportDefaults(),
         );
         countFlags(built.flags);
         days.push(built.day);

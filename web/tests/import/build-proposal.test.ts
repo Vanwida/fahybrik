@@ -259,3 +259,92 @@ describe('buildImportProposal — cards', () => {
     ).resolves.toBeTruthy();
   });
 });
+
+describe('buildImportProposal — cards: fill-defaults (photo-only proposed values)', () => {
+  test('a strength line missing rest + intensity gets both proposed, reported in day.filled with the RATIFIED shape', async () => {
+    // "Deadlift 5r 10/10/8/6/4" types 5 sets with reps but NO target and NO
+    // rest between them — exactly the gap fillMissingWithDefaults exists for.
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [card({ kind: 'workout', title: 'Fuerza', lines: ['Deadlift 5r 10/10/8/6/4'] })],
+      },
+    ]);
+    const day = wk.days[0]!;
+    const itemUid = day.sessions[0]!.blocks[0]!.items[0]!.uid;
+    expect(day.filled).toBeDefined();
+    // 5 sets → RIR proposed on all 5; rest proposed between them (not after the last) → 4.
+    const intensity = day.filled!.filter((f) => f.field === 'intensity');
+    const rest = day.filled!.filter((f) => f.field === 'rest');
+    expect(intensity).toHaveLength(5);
+    expect(rest).toHaveLength(4);
+    expect(intensity.map((f) => f.path)).toEqual(['sets[0].target', 'sets[1].target', 'sets[2].target', 'sets[3].target', 'sets[4].target']);
+    expect(rest.map((f) => f.path)).toEqual(['sets[0].rest_s', 'sets[1].rest_s', 'sets[2].rest_s', 'sets[3].rest_s']);
+    // The RATIFIED shape is exactly {item_uid, field, path} — no `reason` leaks through.
+    for (const f of day.filled!) {
+      expect(f.item_uid).toBe(itemUid);
+      expect(Object.keys(f).sort()).toEqual(['field', 'item_uid', 'path']);
+    }
+  });
+
+  test('a review-confidence line (dense WOD the grammar cannot type) is excluded from filling', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Metcon',
+            lines: [
+              'WOD For Time 4 rounds: 10m KB OH walking lunge 24kg, 5 thrusters 40kg, 3 clean 40kg, 10 TTB (TC 12\')',
+            ],
+          }),
+        ],
+      },
+    ]);
+    const day = wk.days[0]!;
+    expect(day.flags[0]!.confidence).toBe('review');
+    // No sets structure on a review line — nothing for fillMissingWithDefaults
+    // to hang a default on, so it must stay untouched.
+    expect(day.filled).toBeUndefined();
+  });
+
+  test('a fully-specified line (reps + %RM + rest already stated) proposes nothing — day.filled stays absent', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'Fuerza',
+            lines: [`5 rounds Back Squat c/2'30": 10/10/8/8/6 — 60/65/70/70/75% RM`],
+          }),
+        ],
+      },
+    ]);
+    expect(wk.days[0]!.filled).toBeUndefined();
+  });
+
+  test('the no-cards (Excel/pegado) path NEVER fills defaults — same gap-prone line, day.filled stays absent', async () => {
+    // Same exact line as the first test above, which DOES get filled on the
+    // cards path — proving the photo-only scoping, not just an absence of gaps.
+    const wk = await proposalFor([
+      {
+        day_of_week: 2,
+        dow: 'Martes',
+        stimulus: 'Fuerza',
+        session_text: 'Deadlift 5r 10/10/8/6/4',
+      },
+    ]);
+    expect(wk.days[0]!.filled).toBeUndefined();
+  });
+});
