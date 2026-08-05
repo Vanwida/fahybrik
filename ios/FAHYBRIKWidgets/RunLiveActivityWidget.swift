@@ -16,11 +16,16 @@ struct RunLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
             RunLiveActivityLockScreen(state: context.state)
-                // Casi opaco a propósito: al 35 % el fondo de pantalla se colaba y
-                // el texto blanco sobre una foto clara no se leía. La pantalla
-                // bloqueada puede tener CUALQUIER imagen detrás, así que el
-                // contraste no puede depender de ella.
-                .activityBackgroundTint(Color.black.opacity(0.92))
+                // SIN OPACIDAD, y esto es doctrina de Apple, no gusto: el fondo por
+                // defecto de una Live Activity en la pantalla bloqueada YA es opaco
+                // (blanco en claro, negro en oscuro). En cuanto le pones opacidad al
+                // tint, el fondo de pantalla se transparenta y el texto puede caer
+                // sobre cualquier foto — que es exactamente lo que pasaba. El HIG lo
+                // dice literal: usar color de fondo y opacidad «sparingly», y cuidar
+                // el contraste sobre todo en pantallas Always-On con luminancia
+                // reducida, donde además el sistema fuerza modo oscuro.
+                // https://developer.apple.com/design/human-interface-guidelines/live-activities
+                .activityBackgroundTint(.black)
                 .activitySystemActionForegroundColor(fabrikOrange)
         } dynamicIsland: { context in
             let s = context.state
