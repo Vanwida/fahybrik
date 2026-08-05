@@ -142,6 +142,7 @@ export function formatLabel(format: TemplateFormat): string {
     rounds: 'Rounds',
     hyrox_sim: 'HYROX sim',
     sets: 'Strength',
+    superset: 'Superset',
     warmup: 'Warm-up',
     cooldown: 'Cool-down',
     // Legacy DB-only members (normalized to canonical on read).

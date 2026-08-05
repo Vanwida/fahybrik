@@ -82,6 +82,7 @@ const FORMAT_CHIP_LABEL: Record<TemplateFormat, string> = {
   rounds: 'Rondas',
   hyrox_sim: 'Simulación',
   sets: 'Series',
+  superset: 'Superserie',
   warmup: 'Calentamiento',
   cooldown: 'Vuelta a la calma',
   // Legacy DB-only members (normalized to canonical on read).
