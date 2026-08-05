@@ -5,12 +5,49 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## 5-ago · Importar la semana desde una FOTO — diseño cerrado y la gramática saneada
+## 5-ago · Importar la semana desde una FOTO — CONSTRUIDO, y el muro es el catálogo
 
-**En marcha.** Alex quiere una cuarta puerta en el importador (hoy: subir Excel, pegar texto,
-generar con IA) para meter una semana desde una captura de pantalla — su fuente real es la vista
-de calendario semanal de TrainingPeaks. Documento con los mockups:
-`docs/importar-por-foto.html`.
+**Estado: la cadena entera está construida y en verde (2931 tests, tsc limpio, iOS 859 tests).**
+Falta desplegar y aplicar las migraciones 0149/0150. Diseño y mockups: `docs/importar-por-foto.html`.
+
+**LA MEDICIÓN CONTRA LA SEMANA REAL DE ALEX** (`web/tests/import/photo-e2e.test.ts`, corre la
+cadena completa sin DB ni modelo). Antes → después de los arreglos de hoy:
+
+| | mañana | tarde |
+|---|---|---|
+| Tarjetas con bloque ejecutable | 0 de 14 | 2 de 14 (solo 1 es arreglo de hoy) |
+| Items leídos | 51 | 56 |
+| Estados | detected/review | detected 21 · **incomplete 17** · review 18 |
+| Ejercicios que resuelven | 2 | 5 |
+| Ejercicios que NO resuelven | 49 (casi ninguno llegaba al resolutor) | **51 de 56 — y ahora es real** |
+
+**El diagnóstico honesto: el parseo ya no es el cuello de botella, el CATÁLOGO sí.** 30 nombres
+reales de la semana (Cable External Rotation, Cat Cow, Bird Dog, Cossack Squat, Puente de glúteo,
+Push Jerk…) sencillamente no existen en `exercises`. El seed trae 52 y el vocabulario de movilidad
+y activación de una semana real es mucho más ancho. **PENDIENTE DE DECISIÓN DE ALEX:** ¿se ensancha
+el catálogo base con el vocabulario común (que es de todos, no metodología de nadie) o cada coach
+se crea el suyo?
+
+**Seis fallos del tipo «no falla, acierta MAL con confianza»** cazados y cerrados hoy — ninguno
+levantaba bandera, así que el coach no tenía forma de verlos:
+`B: Deadlift 5x5` tipaba un ejercicio llamado «B» tirando el nombre real · `3-4 RONDAS` y
+`12-15 repeticiones` fabricaban series de un ejercicio llamado «RONDAS» / «repeticiones» ·
+`A2) 90-90` fabricaba dos series de 90 reps · `P: Realiza 4 series…` fabricaba un ejercicio «P» ·
+el contador `0/10 Sets 0/5 Exercises` se comía los 5 ejercicios reales de su tarjeta · un título de
+tarjeta corto («Running») se fabricaba como ejercicio. Más: el `×` Unicode tumbaba líneas enteras
+por motivo tipográfico, el RIR se borraba y nunca se tipaba (toda la biblioteca perdió su
+intensidad), «Bici» no tenía modalidad, y `Descanso 1:30` se evaporaba.
+
+**El fallo de MODELO, que era el gordo:** `isNoiseLine` tiraba toda línea sin dígitos como prosa.
+Una tarjeta de TrainingPeaks lista los ejercicios SOLO por nombre, así que **26 ejercicios reales
+se evaporaban antes de llegar al resolutor**. Arreglado en la raíz con un tercer estado nuevo,
+`incomplete` (se conoce el ejercicio, no la dosis), y una opción apagada por defecto para que
+Excel y texto pegado no cambien ni un byte.
+
+**Otros dos que habrían mordido:** editar una serie de una superserie la devolvía a series rectas
+en silencio (`StrengthFields` reescribía `scheme:'sets'`), y seis fixtures de `confirm-api.test.ts`
+usaban `session:` en singular contra un esquema `.strict()` que pide `sessions:` array — habrían
+petado en cuanto alguien corriera esa suite con una base delante.
 
 **La decisión de arquitectura: la visión TRANSCRIBE, la gramática TIPA.** El modelo lee la imagen
 y devuelve la misma estructura intermedia que ya produce el lector de Excel; a partir de ahí entra
