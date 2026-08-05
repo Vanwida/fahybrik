@@ -9,14 +9,11 @@
  * returned (`import-photos/<coach_id>/…`) — never a client-chosen URL. So
  * the "reject a foreign host" concern doesn't test a URL allowlist; it tests
  * the pathname's OWNER segment, which is what `resolvePhotoImages`
- * (lib/import/photo-proposal.ts) checks before ever asking Blob for it.
+ * (lib/import/photo-blob-resolve.ts) checks before ever asking Blob for it.
  */
 import { describe, expect, test } from 'vitest';
-import {
-  importPhotoRequestSchema,
-  importPhotoPathnameOwner,
-  IMPORT_PHOTO_MAX_IMAGES,
-} from '@/lib/import/photo-proposal';
+import { importPhotoRequestSchema, IMPORT_PHOTO_MAX_IMAGES } from '@/lib/import/photo-proposal';
+import { importPhotoPathnameOwner } from '@/lib/import/photo-pathname';
 import { importPhotoUploadUrlSchema } from '@/app/api/coach/import/upload-url/route';
 import { visionReadingNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
@@ -62,21 +59,33 @@ describe('importPhotoRequestSchema', () => {
     microcycle_id: 7,
     mode: 'photo' as const,
     images: [{ pathname: 'import-photos/7/2026/08/uuid-1.jpg' }],
+    target_week_id: '42',
   };
 
   test('accepts a minimal valid request', () => {
     expect(importPhotoRequestSchema.safeParse(base).success).toBe(true);
   });
-  test('accepts several images and an optional start_week', () => {
+  test('target_week_id is REQUIRED — the old start_week-based model is gone', () => {
+    const { target_week_id: _drop, ...rest } = base;
+    expect(importPhotoRequestSchema.safeParse(rest).success).toBe(false);
+    // A leftover `start_week` from the old contract is rejected too (.strict).
+    expect(
+      importPhotoRequestSchema.safeParse({ ...rest, start_week: 5 }).success,
+    ).toBe(false);
+  });
+  test('accepts several images and an optional target_weekday', () => {
     const r = importPhotoRequestSchema.safeParse({
       ...base,
       images: [
         { pathname: 'import-photos/7/2026/08/uuid-1.jpg' },
         { pathname: 'import-photos/7/2026/08/uuid-2.jpg' },
       ],
-      start_week: 5,
+      target_weekday: 3,
     });
     expect(r.success).toBe(true);
+  });
+  test('accepts a numeric target_week_id too (idSchema coerces, matches confirm-service.ts)', () => {
+    expect(importPhotoRequestSchema.safeParse({ ...base, target_week_id: 42 }).success).toBe(true);
   });
   test('rejects an empty images array', () => {
     expect(importPhotoRequestSchema.safeParse({ ...base, images: [] }).success).toBe(false);
@@ -100,9 +109,9 @@ describe('importPhotoRequestSchema', () => {
   test('rejects a wrong mode literal', () => {
     expect(importPhotoRequestSchema.safeParse({ ...base, mode: 'foto' }).success).toBe(false);
   });
-  test('rejects start_week out of range', () => {
-    expect(importPhotoRequestSchema.safeParse({ ...base, start_week: 0 }).success).toBe(false);
-    expect(importPhotoRequestSchema.safeParse({ ...base, start_week: 53 }).success).toBe(false);
+  test('rejects target_weekday out of 1..7', () => {
+    expect(importPhotoRequestSchema.safeParse({ ...base, target_weekday: 0 }).success).toBe(false);
+    expect(importPhotoRequestSchema.safeParse({ ...base, target_weekday: 8 }).success).toBe(false);
   });
   test('rejects a bare url instead of a pathname image ref (.strict + shape)', () => {
     const r = importPhotoRequestSchema.safeParse({
@@ -113,7 +122,7 @@ describe('importPhotoRequestSchema', () => {
   });
   test('rejects unknown keys (.strict)', () => {
     expect(
-      importPhotoRequestSchema.safeParse({ ...base, target_weekday: 3 }).success,
+      importPhotoRequestSchema.safeParse({ ...base, extra_field: 3 }).success,
     ).toBe(false);
   });
 });

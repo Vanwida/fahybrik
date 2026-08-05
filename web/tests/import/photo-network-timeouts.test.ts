@@ -11,7 +11,7 @@
  * milisegundos, no la paciencia de CI.
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { resolvePhotoImages, IMPORT_PHOTO_MAX_BYTES } from '@/lib/import/photo-proposal';
+import { resolvePhotoImages, IMPORT_PHOTO_MAX_BYTES } from '@/lib/import/photo-blob-resolve';
 import { ImportError } from '@/lib/import/import-shared';
 
 const { headMock } = vi.hoisted(() => ({ headMock: vi.fn() }));

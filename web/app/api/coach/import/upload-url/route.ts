@@ -10,7 +10,7 @@
 // El PATHNAME que devuelve es el único identificador que
 // /api/coach/import/proposal (modo `photo`) acepta después — nunca una URL
 // suelta del cliente. Ver el porqué, con detalle, en el comentario de
-// `resolvePhotoImages` en lib/import/photo-proposal.ts: aceptar una URL
+// `resolvePhotoImages` en lib/import/photo-blob-resolve.ts: aceptar una URL
 // convertiría esa ruta en un proxy de descarga arbitraria.
 //
 // Auth: sesión de coach obligatoria. La carpeta del blob la decide el
@@ -21,12 +21,12 @@ import { issueSignedToken, presignUrl } from '@vercel/blob';
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { IMPORT_PHOTO_MAX_BYTES } from '@/lib/import/photo-proposal';
+import { IMPORT_PHOTO_MAX_BYTES } from '@/lib/import/photo-blob-resolve';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// El tope de bytes (`IMPORT_PHOTO_MAX_BYTES`) vive en lib/import/photo-proposal.ts
+// El tope de bytes (`IMPORT_PHOTO_MAX_BYTES`) vive en lib/import/photo-blob-resolve.ts
 // — es la MISMA constante que firma esta subida y que, del otro lado, vuelve a
 // comprobar la ruta de proposal antes de descargar el blob. Una sola fuente.
 

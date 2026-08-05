@@ -319,7 +319,7 @@ describe('varias capturas', () => {
     expect(bodies[0]!.temperature).toBe(0);
   });
 
-  test('dos semanas se numeran correlativas desde start_week', async () => {
+  test('dos semanas se numeran correlativas — numeración puramente interna, ya no configurable (start_week desapareció, ver photo-placement.ts)', async () => {
     const twoWeeks = {
       weeks: [
         { days: [{ day_of_week: 1, cards: [{ title: 'A', kind: 'workout', lines: ['10 × 400m'] }] }] },
@@ -328,9 +328,9 @@ describe('varias capturas', () => {
     };
     const { fetchImpl } = fakeModel(twoWeeks);
 
-    const weeks = await readWeekFromImages({ images: [IMAGE], start_week: 5, fetchImpl });
+    const weeks = await readWeekFromImages({ images: [IMAGE], fetchImpl });
 
-    expect(weeks.map((w) => w.week)).toEqual([5, 6]);
+    expect(weeks.map((w) => w.week)).toEqual([1, 2]);
     expect(weeks[1]!.days[2]!.cards![0]!.lines).toEqual(['4 × 600 + 3 × 800']);
   });
 

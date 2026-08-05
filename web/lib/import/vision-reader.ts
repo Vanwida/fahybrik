@@ -60,7 +60,9 @@ export function isImportVisionConfigured(): boolean {
 /** De dónde se leyó la semana, para `ImportedWeek.sheet` (el Excel pone su hoja). */
 const PHOTO_SHEET = 'foto';
 
-/** Sin indicación del coach, la primera semana leída es la 1. */
+/** Numeración puramente interna de las semanas leídas en UNA lectura — ya no
+ *  configurable (`start_week` desapareció 2026-08-05): la colocación real la
+ *  decide `web/lib/import/photo-placement.ts`, no este lector. */
 const DEFAULT_START_WEEK = 1;
 
 /** Transcribir no es redactar: cero temperatura. */
@@ -181,7 +183,7 @@ function sessionTextFrom(day: ImportedDay): string | null {
   return text.length > 0 ? text : null;
 }
 
-function toImportedWeeks(raw: VisionWeekRaw, startWeek: number): ImportedWeek[] {
+function toImportedWeeks(raw: VisionWeekRaw): ImportedWeek[] {
   const weeks: ImportedWeek[] = [];
 
   for (const rawWeek of raw.weeks) {
@@ -219,7 +221,11 @@ function toImportedWeeks(raw: VisionWeekRaw, startWeek: number): ImportedWeek[] 
     }
 
     weeks.push({
-      week: startWeek + weeks.length,
+      // Purely internal bookkeeping now — `web/lib/import/photo-placement.ts`
+      // always overwrites `.week` with the coach's REAL target week before
+      // this reaches build-proposal.ts, so there is nothing left for a
+      // caller-supplied start to mean. See the 2026-08-05 placement rework.
+      week: DEFAULT_START_WEEK + weeks.length,
       sheet: PHOTO_SHEET,
       fell_back: false,
       days,
@@ -234,8 +240,6 @@ function toImportedWeeks(raw: VisionWeekRaw, startWeek: number): ImportedWeek[] 
 export interface WeekVisionArgs {
   /** Las capturas, EN ORDEN visual. Viajan en un solo turno: son una lectura. */
   images: LlmImageInput[];
-  /** Número de la primera semana leída; las siguientes van correlativas. */
-  start_week?: number;
   coach_id?: number | bigint | null;
   fetchImpl?: typeof fetch;
 }
@@ -274,7 +278,7 @@ export async function readWeekVision(args: WeekVisionArgs): Promise<WeekVisionRe
   }
 
   return {
-    weeks: toImportedWeeks(parsed.data, args.start_week ?? DEFAULT_START_WEEK),
+    weeks: toImportedWeeks(parsed.data),
     uncertain: parsed.data.uncertain,
     notes: parsed.data.notes,
     model,
