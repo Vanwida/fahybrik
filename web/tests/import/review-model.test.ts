@@ -647,7 +647,7 @@ describe('la prosa y el rol del bloque sobreviven al confirmar', () => {
     const micro = [makeMicroWeek('w10', 0)];
     const proposal = makeProposal([makeWeek(1, [makeDay(1, 'Lunes', [session], [makeFlag(itemUid, 'Back Squat')])])]);
     const weeks = buildReviewModel(proposal, micro);
-    weeks[0]!.targetWeekId = 'w10';
+    weeks[0]!.target_week_id = 'w10';
     return buildConfirmBody('1', weeks);
   }
 
