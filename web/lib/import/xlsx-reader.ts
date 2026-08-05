@@ -31,28 +31,12 @@ export const MAX_WEEK = 12;
 
 export type ImportVariant = 'estandar' | 'fuerza' | 'resistencia';
 
-export type ImportedDay = {
-  /** 1 = Lunes … 7 = Domingo. */
-  day_of_week: number;
-  /** Display day name, e.g. "Lunes". */
-  dow: string;
-  /** CAPA 1 — the day's stimulus line. Null when the cell is empty. */
-  stimulus: string | null;
-  /** CAPA 2 — the detailed session in Pablo's notation. Null when empty. */
-  session_text: string | null;
-};
+// The intermediate shape is SOURCE-AGNOSTIC and lives in ./imported-week — a
+// spreadsheet is one of its readers, not its definition. Re-exported here so the
+// existing importers keep their import paths.
+import type { ImportedDay, ImportedWeek } from './imported-week';
 
-export type ImportedWeek = {
-  week: number;
-  /** The sheet actually read (reflects a fallback, if one happened). */
-  sheet: string;
-  /**
-   * True when the requested variant sheet did not exist for this week and we
-   * fell back to the "Semana N" estándar sheet (Fue/Res only cover S1..S5).
-   */
-  fell_back: boolean;
-  days: ImportedDay[];
-};
+export type { ImportedCard, ImportedCardKind, ImportedDay, ImportedWeek } from './imported-week';
 
 /** Ordered so index+1 == day_of_week. Single source for names + matching. */
 const DAY_DISPLAY = [
