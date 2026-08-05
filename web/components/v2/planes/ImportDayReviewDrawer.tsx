@@ -242,9 +242,15 @@ export function ImportDayReviewDrawer({
                           ? '1 valor lo hemos puesto nosotros'
                           : `${proposedCount} valores los hemos puesto nosotros`}
                       </p>
+                      {/* Lo que hace que aceptarlos en bloque sea seguro: solo se
+                          proponen CONVENCIONES del entrenador, nunca un número que
+                          dependa del atleta. Decirlo aquí ahorra abrir línea por
+                          línea para comprobar qué se tocó. */}
                       <p className="mt-1 max-w-prose text-label leading-snug text-[color:var(--v2-muted)]">
-                        La foto no los enseñaba, así que van con tus valores por defecto. Cámbialos
-                        donde haga falta o dalos por buenos.
+                        La foto no los enseñaba, así que van con tus valores por defecto: descanso,
+                        RIR y rango de repeticiones. El ritmo, la carga y la zona no se proponen
+                        nunca, que dependen del atleta. Cámbialos donde haga falta o dalos por
+                        buenos.
                       </p>
                     </div>
                     <button

@@ -25,6 +25,7 @@ import {
 import { OBJETIVO_LABEL } from '@/lib/dashboard/v2/editor-axes';
 import type { EditorSession, EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import type { ProposalFlag, ProposalDay, ProposalWeek, ImportProposal } from '@/lib/import/build-proposal';
+import type { FilledField, FilledFieldKind } from '@/lib/import/fill-defaults';
 
 /** A container week the coach can map an imported week onto (Fork B target). */
 export interface MicroWeekRef {
@@ -45,8 +46,12 @@ export interface MicroWeekRef {
 // prescripción a secas y nada de esto se persiste. Por eso no viaja dentro de la
 // prescripción, sino al lado.
 
-/** Qué clase de hueco tapó el importador. Mismo vocabulario que el que lo rellena. */
-export type ProposedFieldKind = 'reps' | 'rest' | 'intensity';
+/**
+ * Qué clase de hueco tapó el importador. Es EL MISMO tipo que emite el relleno
+ * (`lib/import/fill-defaults`), no una copia: si allí nace una clase nueva, aquí
+ * deja de compilar en vez de aparecer un día sin etiqueta en la pantalla.
+ */
+export type ProposedFieldKind = FilledFieldKind;
 
 /** Un valor que el importador PROPUSO porque la foto no lo enseñaba. */
 export interface ProposedField {
@@ -110,11 +115,9 @@ export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'incomplete' | 'unr
 // una propuesta sin ellos se revisa exactamente igual que siempre. Se leen a mano y
 // con desconfianza (vienen por la red) en vez de darlos por buenos.
 
-interface FilledFieldWire {
-  item_uid: string;
-  field: ProposedFieldKind;
-  path: string;
-}
+/** Lo que de `FilledField` viaja por la red: el `reason` no se pinta, así que ni
+ *  se pide. La forma la sigue mandando el que rellena, no esta pantalla. */
+type FilledFieldWire = Pick<FilledField, 'item_uid' | 'field' | 'path'>;
 
 interface TruncationWire {
   block_uid: string;
@@ -126,7 +129,18 @@ interface PhotoProposalExtras {
   truncations?: readonly TruncationWire[];
 }
 
-const PROPOSED_FIELD_KINDS: readonly ProposedFieldKind[] = ['reps', 'rest', 'intensity'];
+/** Las clases válidas, en forma de registro EXHAUSTIVO a propósito: si aparece
+ *  una cuarta, esto deja de compilar. Con una lista suelta se colaría en silencio. */
+const PROPOSED_FIELD_KINDS: Record<ProposedFieldKind, true> = {
+  reps: true,
+  rest: true,
+  intensity: true,
+};
+
+function isProposedFieldKind(value: unknown): value is ProposedFieldKind {
+  // `Object.hasOwn` y no `in`: `'toString' in {}` es cierto por el prototipo.
+  return typeof value === 'string' && Object.hasOwn(PROPOSED_FIELD_KINDS, value);
+}
 
 function photoExtras(d: ProposalDay): PhotoProposalExtras {
   // La propuesta tipada aún no declara estos dos campos porque solo los emite la
@@ -142,8 +156,8 @@ function readFilled(raw: unknown): FilledFieldWire[] {
     if (typeof entry !== 'object' || entry === null) continue;
     const { item_uid, field, path } = entry as Record<string, unknown>;
     if (typeof item_uid !== 'string' || typeof path !== 'string') continue;
-    if (!PROPOSED_FIELD_KINDS.includes(field as ProposedFieldKind)) continue;
-    out.push({ item_uid, field: field as ProposedFieldKind, path });
+    if (!isProposedFieldKind(field)) continue;
+    out.push({ item_uid, field, path });
   }
   return out;
 }
