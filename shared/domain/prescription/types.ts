@@ -314,20 +314,65 @@ export function targetToLoad(target: Target): Load | null {
 // The unit of WORK DONE in a set — "how much". Discriminated by kind so a run
 // segment (distance), a plank (duration), a squat (reps) and a cal-row
 // (calories) all carry their work in a typed, analytics-readable field.
+//
+// RANGES (`max`). A coach who writes "4 series de 12-15" is prescribing a BAND,
+// not two sets: the athlete autoregulates inside it. Without this the importer
+// flattened it into one set of 12 and another of 15 — a different workout. The
+// base field is always the LOWER bound and stays REQUIRED, so every existing
+// reader (the live engine's rep prefill, prescriptionToParams, iOS) keeps
+// working unchanged and simply shows the floor; `max` is additive.
+// One name for all four kinds: the `kind` already says the unit.
 export type Measure =
-  | { kind: 'reps'; value: number }
-  | { kind: 'distance'; meters: number }
-  | { kind: 'duration'; seconds: number }
-  | { kind: 'calories'; value: number };
+  | { kind: 'reps'; value: number; max?: number }
+  | { kind: 'distance'; meters: number; max?: number }
+  | { kind: 'duration'; seconds: number; max?: number }
+  | { kind: 'calories'; value: number; max?: number };
 
 export type MeasureKind = Measure['kind'];
 
-export const measureSchema: z.ZodType<Measure> = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('reps'), value: z.number().int().nonnegative() }).strict(),
-  z.object({ kind: z.literal('distance'), meters: z.number().nonnegative() }).strict(),
-  z.object({ kind: z.literal('duration'), seconds: z.number().nonnegative() }).strict(),
-  z.object({ kind: z.literal('calories'), value: z.number().nonnegative().max(CAL_MAX) }).strict(),
-]) as unknown as z.ZodType<Measure>;
+/** The lower bound of a measure, whatever its kind names the field. */
+export function measureFloor(m: Measure): number {
+  return m.kind === 'distance' ? m.meters : m.kind === 'duration' ? m.seconds : m.value;
+}
+
+/** True when the measure prescribes a band ("12-15 reps") rather than a point. */
+export function measureIsRange(m: Measure): boolean {
+  return m.max !== undefined && m.max > measureFloor(m);
+}
+
+const maxReps = z.number().int().nonnegative().optional();
+const maxAmount = z.number().nonnegative().optional();
+
+// `max` must sit at or above the floor — a "15-12" band is a typo, not a range.
+export const measureSchema: z.ZodType<Measure> = z
+  .discriminatedUnion('kind', [
+    z
+      .object({ kind: z.literal('reps'), value: z.number().int().nonnegative(), max: maxReps })
+      .strict(),
+    z
+      .object({ kind: z.literal('distance'), meters: z.number().nonnegative(), max: maxAmount })
+      .strict(),
+    z
+      .object({ kind: z.literal('duration'), seconds: z.number().nonnegative(), max: maxAmount })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('calories'),
+        value: z.number().nonnegative().max(CAL_MAX),
+        max: maxAmount.and(z.number().max(CAL_MAX).optional()),
+      })
+      .strict(),
+  ])
+  .superRefine((m, ctx) => {
+    const measure = m as Measure;
+    if (measure.max !== undefined && measure.max < measureFloor(measure)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'measure.max must be at or above the measure floor',
+        path: ['max'],
+      });
+    }
+  }) as unknown as z.ZodType<Measure>;
 
 // ── Scheme ──────────────────────────────────────────────────────────────────
 // A prescription's scheme IS its block's FORMAT — the same axis (a block has one
