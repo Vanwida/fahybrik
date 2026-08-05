@@ -5,6 +5,42 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 5-ago (madrugada) · Una vista por lo que estás haciendo — reparto de pantallas del entreno
+
+Se rehízo de raíz el reparto de superficies del entreno en los dos dispositivos. El
+detonante: entrenar con la app y encontrarse dos pantallas para el mismo tramo de
+correr, el crono que no cuadra entre ellas, y la muñeca enseñando la app de julio.
+
+Análisis previo (antes de tocar nada): **`docs/entreno-vista-por-vista.html`** — mapa
+de lo que hay, ley de diseño con fuente oficial de Apple y Garmin, y la matriz de los
+dieciséis tipos de entreno reales con su sujeto por dispositivo. Decisiones
+estructurales en `docs/DECISIONS.md` (tres entradas del 5-ago).
+
+**Cerrado.** El cable del espejo lleva el TRAMO en dato y no frases (`MirrorTramo`),
+así que los mismos guiones sirven las dos vías del reloj · seis guiones puros en
+`ios/FAHYBRIK/Watch/Guiones/`, compilados también en iOS y testeados de cabo a rabo ·
+el espejo dejó de tener pantalla propia · el bisel es la forma de la PANTALLA y no un
+círculo (era idioma Garmin) · **Always-On** resuelto en el lienzo y heredado por las
+seis vistas · **una vista por ejercicio en iOS**: murieron seis HUD sin diseño detrás
+y el sheet de depuración salió de producción (1.109 líneas fuera) · **la auto-pausa
+es del motor**, no de una vista (el crono se quedaba parado para siempre al cerrar la
+pantalla en un semáforo) · las series que el coach escribe como `sets` ya generan
+tramos, así que plan y entreno libre pintan la misma pantalla.
+
+**Reglas que fijó Alex.** No rediseñar lo que el doble ya diseñó: si no gusta la UI y
+hay mockup, se porta el mockup — ni se parchea la vieja ni se añade una encima. Nunca
+pantalla vacía: si sobra sitio, el dato crece. El aro cuadrado se queda (las esferas
+redondas son otro reloj). El listón son Apple Entrenamiento y Garmin.
+
+**Abierto.** (1) Tabata y Death By de burpees se quedaron sin ventana trabajo/descanso
+— cero casos reales y ningún diseño; si Pablo programa uno, se diseña primero. (2) El
+espejo `run-live` del doble miente: refleja la app de julio y `twin:desfase` no lo caza
+porque compara fechas. (3) Las pantallas del reloj que no son el vivo (puerta de
+bloque, brief, resumen, splits, mapa) siguen en el lenguaje viejo. (4) `resumen-carrera`
+está diseñado y en curso de porte.
+
+---
+
 ## 5-ago · Importar la semana desde una FOTO — CONSTRUIDO, y el muro es el catálogo
 
 **Estado: la cadena entera está construida y en verde (2931 tests, tsc limpio, iOS 859 tests).**
