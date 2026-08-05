@@ -302,6 +302,54 @@
   <p><strong>Lo que la foto de calendario nunca dará:</strong> lo que hay dentro de las tarjetas
   cerradas. Ahí es donde entra la segunda foto del entreno abierto, o el coach a mano. El sistema
   lo dice; no lo disimula.</p>
+
+  <div class="note" style="border-left-color:var(--warn)">
+    <b>Lo medido, no lo estimado.</b> La tabla de arriba era la previsión al diseñar. Después se
+    construyó un test que corre la cadena entera contra esta misma captura, sin modelo y sin base
+    de datos (<code>photo-e2e.test.ts</code>). Los números reales están abajo, y son distintos.
+  </div>
+</section>
+
+<section>
+  <h2>La medición real</h2>
+  <p>Se midió dos veces: al terminar la primera versión, y después de arreglar lo que esa
+  medición destapó.</p>
+  <table>
+    <thead><tr><th></th><th>Primera medición</th><th>Tras los arreglos</th></tr></thead>
+    <tbody>
+      <tr><td>Tarjetas con bloque ejecutable</td><td>0 de 14</td><td>2 de 14</td></tr>
+      <tr><td>Elementos leídos</td><td>51</td><td>56</td></tr>
+      <tr><td>Ejercicios que resuelven</td><td>2</td><td>5</td></tr>
+      <tr><td>Ejercicios que NO resuelven</td><td>49 · <b>casi ninguno llegaba a intentarlo</b></td><td>51 · <b>y ahora es real</b></td></tr>
+      <tr><td>Métricas y notas coladas como entreno</td><td>0</td><td>0</td></tr>
+      <tr><td>Truncamiento detectado</td><td>8 de 14</td><td>8 de 14</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Qué reveló, que no era lo que yo esperaba</h3>
+  <p>La primera medición dijo <strong>0 de 14</strong>. Pero la causa no era el resolutor de
+  ejercicios, que es lo que yo temía: era que la gramática tiraba <strong>26 ejercicios reales
+  antes de llegar a él</strong>. Tenía una regla —<em>línea sin ningún número, es prosa</em>— que
+  vale para un Excel donde toda línea lleva su dosis, y no para una tarjeta que lista los
+  ejercicios solo por nombre. Se arregló en la raíz: hay un tercer estado, <em>incompleto</em>, que
+  dice la verdad — se conoce el ejercicio, no el trabajo.</p>
+
+  <p><strong>El muro que queda ya no es nuestro:</strong> de 56 elementos, 51 no existen en el
+  catálogo. Treinta nombres reales sin sitio donde caer. Por eso la revisión crea los que faltan
+  <strong>en bloque y agrupados por tarjeta</strong> — diez resueltos con dos toques en vez de
+  treinta formularios — proponiendo fusión con los que ya existen bajo otro nombre.</p>
+
+  <div class="note">
+    <b>Seis fallos que no fallaban.</b> Por el camino salieron seis casos que no daban error:
+    acertaban <em>mal</em> y con confianza, así que nada levantaba bandera y el coach no tenía
+    forma de verlos. <code>B: Deadlift 5x5</code> creaba un ejercicio llamado «B» y tiraba el
+    nombre real · <code>3-4 RONDAS</code> creaba dos series de un ejercicio llamado «RONDAS» ·
+    <code>A2) 90-90</code> creaba dos series de 90 repeticiones · <code>P: Realiza 4 series…</code>
+    creaba un ejercicio llamado «P» · el contador <code>0/10 Sets 0/5 Exercises</code> se comía los
+    cinco ejercicios reales de su tarjeta · y un título corto como «Running» se convertía en un
+    ejercicio. Ese es el fallo más caro que tiene un importador, porque el resultado parece
+    plausible.
+  </div>
 </section>
 
 <section>
