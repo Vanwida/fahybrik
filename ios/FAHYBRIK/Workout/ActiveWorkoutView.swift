@@ -925,9 +925,12 @@ struct ActiveWorkoutView: View {
             // llevan la pantalla entera antes de llegar aquí (ver `superficieViva`),
             // y con ellos se fue el suelo de `.rowOrSki` / `.none`, que ya iba a la
             // misma superficie de fuerza.
+            // Una sola puerta, la que ya contestaste al empezar (ver el bloque
+            // gemelo más abajo): ofrecer las dos a la vez convertía la respuesta
+            // del arranque en decorativa.
             RunLiveHUD(session: session, gpsActive: gpsActive,
-                       onTapTreadmill: { showTreadmill = true },
-                       onTapOutdoor: { showOutdoor = true })
+                       onTapTreadmill: session.runEnvironment == .treadmill ? { showTreadmill = true } : nil,
+                       onTapOutdoor: session.runEnvironment == .outdoor ? { showOutdoor = true } : nil)
         }
     }
 
@@ -1033,9 +1036,22 @@ struct ActiveWorkoutView: View {
             if segmentInvolvesErg && !anyPM5Connected {
                 connectPM5CTA
             }
+            // UNA SOLA PUERTA, LA QUE YA CONTESTASTE.
+            //
+            // Aquí había DOS botones en paralelo — «Correr en cinta» y «Correr
+            // fuera» — que abrían uno u otro HUD en cualquier momento, dijeras lo
+            // que dijeras al empezar. Con eso, la pregunta «¿dónde corres?» no
+            // decidía nada: se contestaba y luego se podía saltar con un toque, y
+            // el atleta acababa con dos pantallas distintas para el mismo tramo
+            // (una con mapa y otra sin). Ahora manda la respuesta: se ofrece
+            // ENTRAR a tu HUD, y cambiar de sitio es una acción aparte y explícita.
             if isRunSeriesSegment {
-                TreadmillEntryButton(action: { showTreadmill = true })
-                OutdoorEntryButton(action: { showOutdoor = true })
+                switch session.runEnvironment {
+                case .treadmill: TreadmillEntryButton(action: { showTreadmill = true })
+                case .outdoor:   OutdoorEntryButton(action: { showOutdoor = true })
+                case .none:      EmptyView()
+                }
+                CambiarDeSitioButton(action: { showRunGate = true })
             }
             nextSegmentChip
         }

@@ -235,3 +235,28 @@ struct GoalProgress: View {
         return parts.joined(separator: ", ")
     }
 }
+
+/// «Me cambio de sitio» — la ÚNICA forma de rectificar dónde corres una vez
+/// empezado, y a propósito no compite con la entrada a tu HUD.
+///
+/// Antes había dos botones en paralelo («Correr en cinta» / «Correr fuera») que
+/// abrían cualquiera de las dos pantallas en cualquier momento: con eso, la
+/// pregunta del arranque no decidía nada y el atleta se encontraba dos pantallas
+/// distintas para el mismo tramo. Aquí lo que manda es lo que contestaste; esto
+/// es la puerta de atrás, secundaria y explícita.
+struct CambiarDeSitioButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: { Haptics.light(); action() }) {
+            Text("CAMBIAR DE SITIO")
+                .font(.system(size: 12, weight: .heavy).italic())
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Cambiar entre cinta y calle")
+    }
+}
