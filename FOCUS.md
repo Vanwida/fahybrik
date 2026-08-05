@@ -62,16 +62,19 @@ producción: **79 ejercicios, de los cuales solo 7 de movilidad**. De los 22 eje
 que no resuelven, **19 (86 %) son movilidad y activación**. Y no queda ninguna traducción por hacer
 — se verificó leyendo los 79 nombres reales y cruzándolos uno a uno.
 
-**LISTO Y SIN APLICAR, a la espera del OK de Alex:** migración `0152_mobility_activation_base_catalog`
-— 42 ejercicios BASE (`coach_id IS NULL`) de movilidad y activación, con modalidad y categoría
-revisadas una a una. Verificada en rama desechable: aplica limpia, 121 filas sin colisión de slug,
-movilidad 7→28. **Efecto medido con el resolutor REAL: de 48 ítems sin resolver, 19 pasan a
-resolver (48→29).** De los 23 nombres reales: 19 resuelven, 1 queda por un corte de OCR (no por
-catálogo) y 3 quedan fuera a propósito porque no son movilidad.
+**APLICADO Y DESPLEGADO (5-ago, con OK de Alex).** Las cuatro migraciones en producción y
+verificadas contra la base real: `0149` defaults del coach (tabla creada, 0 filas — un coach que no
+toca nada usa los del sistema) · `0150` formato superserie (el enum acepta `superset`) · `0151`
+plegado de acentos (`unaccent(lower('Puente de Glúteo')) = 'puente de gluteo'` → cierto) · `0152`
+catálogo de movilidad: **79→121 ejercicios, movilidad 7→28**.
 
-**Cuatro migraciones pendientes de aplicar a producción** (todas idempotentes, todas verificadas en
-rama desechable): `0149` defaults del coach · `0150` formato superserie · `0151` plegado de acentos
-· `0152` catálogo de movilidad.
+Despliegue: `dpl_CGWd5eHWdYHhhDd7VcW5E2N5y7bd`, READY en producción desde el commit `1c359374`,
+sirviendo fahybrid.com y app.fahybrid.com. Comprobado contra los dos dominios (raíz 307 · POST
+auth/request 400 · coros/status 200 · athlete/benchmarks 401).
+
+**Efecto del catálogo, medido con el resolutor REAL antes de aplicar:** de 48 ítems sin resolver de
+la semana fotografiada, **19 pasan a resolver (48→29)**. De los 23 nombres reales: 19 resuelven, 1
+queda por un corte de OCR (no por catálogo) y 3 quedan fuera a propósito porque no son movilidad.
 
 **Tres bugs más del mismo patrón, cazados AL VERIFICAR y no al construir** (los tres resolvían en
 silencio al ejercicio equivocado, sin levantar bandera): `Dominada (lastrada)` daba *Pull-up* en vez
