@@ -29,7 +29,13 @@ import {
   suggestWeekFromBlocks,
 } from '@/lib/dashboard/coach/ai/suggest-week-from-blocks';
 import { weekDaysToProposal } from './generate-proposal';
-import { readWeekFromImages, ImportVisionError, type LlmImageInput } from './vision-reader';
+import {
+  readWeekVision,
+  ImportVisionError,
+  type LlmImageInput,
+  type WeekVisionReading,
+} from './vision-reader';
+import { visionReadingNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
 export class ImportError extends Error {
   constructor(
@@ -383,9 +389,12 @@ async function buildPhotoProposal(params: {
 
   const images = await resolvePhotoImages(params.coach_id, req.images);
 
-  let weeks: ImportedWeek[];
+  // `readWeekVision` (not the plain `readWeekFromImages`) so `uncertain[]`/
+  // `notes` — the reader's own honesty signals about what it could NOT read
+  // with confidence — survive past this function instead of being dropped.
+  let reading: WeekVisionReading;
   try {
-    weeks = await readWeekFromImages({
+    reading = await readWeekVision({
       images,
       start_week: req.start_week,
       coach_id: params.coach_id,
@@ -395,13 +404,22 @@ async function buildPhotoProposal(params: {
       if (err.code === 'unconfigured') {
         throw new ImportError('vision_not_configured', 'Configura LLM_VISION_MODEL.', 501);
       }
-      throw new ImportError('vision_failed', 'No se pudo leer alguna de las capturas.', 422);
+      if (err.code === 'invalid_request') {
+        // 0 images or > the reader's own per-turn cap — a malformed request,
+        // not an upstream failure (defense in depth: our own Zod schema above
+        // already keeps `images` in 1..IMPORT_PHOTO_MAX_IMAGES, itself under
+        // the reader's ceiling, so this should never actually fire).
+        throw new ImportError('invalid_request', err.message, 400);
+      }
+      // 'http' | 'empty' | 'invalid_json' — the vision provider failed or
+      // returned something we couldn't parse: an UPSTREAM failure, not ours.
+      throw new ImportError('vision_failed', 'No se pudo leer alguna de las capturas.', 502);
     }
     const message = err instanceof Error ? err.message : 'No se pudo leer la captura.';
-    throw new ImportError('vision_failed', message, 422);
+    throw new ImportError('vision_failed', message, 502);
   }
 
-  if (weeks.length === 0) {
+  if (reading.weeks.length === 0) {
     throw new ImportError(
       'empty_reading',
       'No se ha reconocido ningún entreno en las capturas.',
@@ -412,12 +430,19 @@ async function buildPhotoProposal(params: {
   const assist =
     params.llmAssist === null ? undefined : (params.llmAssist ?? buildLlmAssist(params.coach_id));
 
-  return buildImportProposal({
+  const proposal = await buildImportProposal({
     coach_id: Number(params.coach_id),
-    weeks,
+    weeks: reading.weeks,
     llmAssist: assist,
     client,
   });
+
+  // Surface what the model flagged as uncertain (or any free note about the
+  // capture) the SAME way the generate branch surfaces its own honesty
+  // signals — `ImportProposal.notices`, never silently dropped.
+  const notice = visionReadingNotice(reading.uncertain, reading.notes);
+  if (!notice) return proposal;
+  return { ...proposal, notices: [...(proposal.notices ?? []), notice] };
 }
 
 /**

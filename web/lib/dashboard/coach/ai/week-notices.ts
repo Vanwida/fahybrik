@@ -17,7 +17,10 @@ export type WeekNoticeCode =
   /** Bloques sin `block_exercises`: solo prosa → nada ejecutable que insertar. */
   | 'untyped_blocks'
   /** El modelo falló/no está configurado → la semana la compuso el heurístico. */
-  | 'llm_fallback';
+  | 'llm_fallback'
+  /** La lectura de una foto marcó algo que no pudo leer con seguridad, o dejó
+   *  una nota sobre la captura (recorte, borde borroso…). Ver `visionReadingNotice`. */
+  | 'vision_uncertain';
 
 export interface WeekNotice {
   code: WeekNoticeCode;
@@ -93,5 +96,35 @@ export function llmFallbackNotice(reason: string): WeekNotice {
       `No he podido usar la IA para elegir los bloques (${reason}). ` +
       `Te he compuesto la semana repartiendo tu biblioteca por grupos, ` +
       `así que puede que no siga tu foco al pie de la letra: revísala.`,
+  };
+}
+
+/**
+ * Aviso de la lectura por FOTO (importador #28, modo photo): lo que el lector de
+ * visión marcó como no leído con seguridad, más cualquier nota libre sobre la
+ * captura (un recorte, un borde borroso…) — las dos señales de honestidad que
+ * `readWeekVision` (lib/import/vision-reader.ts) devuelve junto a las semanas.
+ * Misma regla que el resto de este módulo: si el modelo dudó, el coach lo ve —
+ * nunca se maquilla como una lectura limpia.
+ *
+ * `null` cuando no hay nada que avisar (lectura limpia, sin notas) — el llamador
+ * no filtra, solo concatena.
+ */
+export function visionReadingNotice(uncertain: string[], notes: string | null): WeekNotice | null {
+  const hasUncertain = uncertain.length > 0;
+  const trimmedNotes = notes?.trim() || null;
+  if (!hasUncertain && !trimmedNotes) return null;
+
+  const parts: string[] = [];
+  if (hasUncertain) parts.push(`No he podido leer con seguridad: ${uncertain.join('; ')}.`);
+  if (trimmedNotes) parts.push(trimmedNotes);
+
+  return {
+    code: 'vision_uncertain',
+    // Algo sin leer con seguridad puede ser justo lo que el coach necesitaba de
+    // esa semana: se avisa como warning. Una nota sin dudas (p. ej. "la captura
+    // de arriba llega hasta el jueves") es solo contexto.
+    tone: hasUncertain ? 'warning' : 'info',
+    message: parts.join(' '),
   };
 }

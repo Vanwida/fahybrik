@@ -18,6 +18,7 @@ import {
   IMPORT_PHOTO_MAX_IMAGES,
 } from '@/lib/import/proposal-service';
 import { importPhotoUploadUrlSchema } from '@/app/api/coach/import/upload-url/route';
+import { visionReadingNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
 describe('importPhotoUploadUrlSchema', () => {
   const base = { mime_type: 'image/jpeg', size_bytes: 500_000 };
@@ -141,5 +142,39 @@ describe('importPhotoPathnameOwner — el cierre de host/coach ajeno', () => {
 
   test('un segmento de coach no numérico no resuelve', () => {
     expect(importPhotoPathnameOwner('import-photos/abc/2026/08/uuid.jpg')).toBeNull();
+  });
+});
+
+describe('visionReadingNotice — las señales de honestidad de la lectura por foto', () => {
+  test('lectura limpia (sin dudas, sin notas): null, no se avisa nada', () => {
+    expect(visionReadingNotice([], null)).toBeNull();
+    expect(visionReadingNotice([], '')).toBeNull();
+    expect(visionReadingNotice([], '   ')).toBeNull();
+  });
+
+  test('con líneas dudosas: warning, código vision_uncertain, las cita', () => {
+    const notice = visionReadingNotice(
+      ['el título del jueves, tapado por el dedo', 'la última fila de la captura 2'],
+      null,
+    );
+    expect(notice).not.toBeNull();
+    expect(notice!.code).toBe('vision_uncertain');
+    expect(notice!.tone).toBe('warning');
+    expect(notice!.message).toContain('el título del jueves, tapado por el dedo');
+    expect(notice!.message).toContain('la última fila de la captura 2');
+  });
+
+  test('solo una nota libre, sin dudas: info, no warning', () => {
+    const notice = visionReadingNotice([], 'La captura 2 llega hasta el jueves.');
+    expect(notice).not.toBeNull();
+    expect(notice!.tone).toBe('info');
+    expect(notice!.message).toContain('La captura 2 llega hasta el jueves.');
+  });
+
+  test('dudas Y nota a la vez: las dos llegan en un único aviso, warning gana', () => {
+    const notice = visionReadingNotice(['el RIR del viernes'], 'Falta la semana 3 en las capturas.');
+    expect(notice!.tone).toBe('warning');
+    expect(notice!.message).toContain('el RIR del viernes');
+    expect(notice!.message).toContain('Falta la semana 3 en las capturas.');
   });
 });
