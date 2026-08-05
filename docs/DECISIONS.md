@@ -10,6 +10,72 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-05 · Una vista por lo que estás haciendo (iOS + watchOS)
+
+**Qué se decidió.** Cada tipo de entreno tiene SU pantalla, en los dos dispositivos.
+Correr fuera ≠ correr en cinta ≠ serie ≠ continuo ≠ fuerza ≠ EMOM ≠ For Time. Una
+vista genérica con `if`s dentro no es diseño: es una excepción disfrazada. El
+reparto lo decide **qué mide el dispositivo** y **quién cierra el trabajo**, no cómo
+se llama el formato — porque las dos fuentes de entreno no escriben lo mismo para la
+misma cosa (el constructor libre emite `intervals`; el coach escribe `sets`).
+
+**Por qué.** Correr lo pintaban SEIS superficies y dos estaban vivas a la vez: un
+`fullScreenCover` tapaba un HUD que seguía montado debajo. De ahí salían tres cosas
+que el atleta veía y no se explicaban: podía saltar entre pantallas del mismo tramo,
+la Live Activity dependía de cuál tuviera abierta, y los tiempos no cuadraban.
+
+**Qué se eliminó** (ninguna tenía diseño detrás; el mapa está en
+`docs/entreno-vista-por-vista.html`): `RunLiveHUD` — la naranja genérica —,
+`StructuredRunLiveHUD`, `IntervalsLiveHUD`, `TabataLiveHUD`, `SteadyLiveHUD`,
+`DeathByLiveHUD`, sus piezas huérfanas y `ManualEntryControl`. Y
+`TreadmillControlDebugSheet`, que se abría con pulsación larga **en producción**,
+queda tras `#if DEBUG`.
+
+**Qué NO hacer en consecuencia.** No volver a añadir una pantalla «genérica de
+correr» ni un botón que abra una segunda vista del mismo tramo. Si un formato se
+queda sin pantalla, se DISEÑA en el doble primero; no se resuelve con un `if` dentro
+de otra. Tabata y Death By de burpees (ni correr ni ergo) se quedaron sin ventana
+trabajo/descanso a propósito: tienen cero casos reales en la biblioteca y ningún
+diseño. Caen al suelo honesto — dicen menos, no dicen nada falso.
+
+---
+
+## 2026-08-05 · Una auto-pausa no puede sobrevivir a quien la vigila
+
+**Qué se decidió.** El invariante de la auto-pausa lo garantiza la SESIÓN, no la
+vista: quien evalúa se registra, y al irse el último cualquier auto-pausa suya se
+levanta sola. Sin vigilante no se puede auto-pausar, porque nadie podría deshacerlo.
+Una pausa **manual** no la levanta nadie más que el atleta.
+
+**Por qué.** `session.autoResume()` tenía un solo llamante en toda la app, dentro
+del modelo de la pantalla de calle, y moría con ella. Parabas en un semáforo,
+cerrabas esa pantalla, y la sesión quedaba **pausada para siempre** — el crono
+detenido y el entreno guardándose con ese tiempo de menos.
+
+**Qué NO hacer.** No volver a poner el ciclo de vida de un estado del motor en manos
+de una vista. Si algo lo enciende, el motor tiene que saber apagarlo aunque quien lo
+encendió desaparezca.
+
+---
+
+## 2026-08-05 · El cable del espejo lleva el TRAMO, no frases
+
+**Qué se decidió.** `MirrorStateFrame` transporta `MirrorTramo` (formato, modalidad,
+ronda n/m, dosis de AHORA, trabajo vs descanso, quién cierra la ventana, lo medido en
+ESA ventana). Con eso, los MISMOS guiones sirven las dos vías: en solitario leen el
+motor, en espejo leen la trama. Una pantalla por formato, no dos.
+
+**Por qué.** El reloj corre en espejo la inmensa mayoría de las sesiones y el cable
+sólo llevaba tres strings ya redactados por el móvil. Sin un campo que dijera el
+formato, la muñeca no podía elegir pantalla: todo el diseño por formato vivía en el
+10 % de los entrenos.
+
+**Qué NO hacer.** No mandar por el cable un dato ya renderizado cuando existe el dato
+en bruto, y no rellenar el hueco de un número con una excusa: la Live Activity
+mandaba el estado del GPS en el sitio del ritmo y salía «RITMO · GPS fuerte /km».
+Sin dato, cambia el sujeto — no se disfraza.
+
+
 ## 2026-08-05 · La superserie es un FORMATO de bloque, no un nivel nuevo de anidamiento
 
 **Decidido:** `superset` entra en el catálogo canónico de formatos (`shared/domain/prescription/format.ts`) y en el enum PG `template_format`. Un bloque con formato `superset` **rota** sus ejercicios (A1→A2→A1→A2); uno con formato `sets` los ejecuta en **series rectas** (todas las de A, luego todas las de B). Ambos registran carga por serie.
