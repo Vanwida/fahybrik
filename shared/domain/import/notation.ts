@@ -33,7 +33,7 @@ import {
   parseDistanceLadder,
   parseRecoveryClock,
   parseRest,
-  parseRpeTarget,
+  parseEffortTarget,
   parseZoneTarget,
   stripTargetTokens,
 } from './dose';
@@ -156,7 +156,7 @@ function parseLine(line: string): ParsedLine[] {
   // and distributed onto every typed bout that names no target of its own.
   const todo = line.match(/,\s*(?:todo|toda|todos|todas)\s+([^,]+)$/i);
   if (todo) {
-    const tailTarget = parseZoneTarget(todo[1]!) ?? parseRpeTarget(todo[1]!)?.target;
+    const tailTarget = parseZoneTarget(todo[1]!) ?? parseEffortTarget(todo[1]!)?.target;
     if (tailTarget && !/\d/.test(stripTargetTokens(todo[1]!))) {
       const parsed = parseLine(line.slice(0, todo.index!));
       for (const l of parsed) {
@@ -276,7 +276,7 @@ function tryDistanceLadder(line: string): ParsedLine[] | null {
   const p: Prescription = { scheme: 'intervals', rounds: sets.length, sets };
   const modality = modalityFrom(leftover);
   if (modality) p.modality = modality;
-  const target = parseZoneTarget(line) ?? parseRpeTarget(line)?.target;
+  const target = parseZoneTarget(line) ?? parseEffortTarget(line)?.target;
   if (target) p.target = target;
   return [finalizeDetected(leftover.replace(/\s+/g, ' ').trim(), p, line)];
 }

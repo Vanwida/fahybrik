@@ -17,7 +17,10 @@ import { foldText, paceUnitFrom, stripTargetTokens } from './dose';
 const CARDIO_MODALITY_TESTS: ReadonlyArray<readonly [Modality, RegExp]> = [
   ['row', /\b(row|rowing|remo)\b/],
   ['ski', /\b(skierg|ski-erg|ski)\b/],
-  ['bike', /\b(bike|bike-erg|assault|airbike|ab)\b/],
+  // Spanish counts: "Bici Libre Z2" is how a coach writes it here, and without
+  // `bici` the line typed its zone and duration but came out with NO modality —
+  // run and row already carried their Spanish words, bike did not.
+  ['bike', /\b(bike|bike-erg|assault|airbike|ab|bici|bicicleta|rodillo)\b/],
   [
     'run',
     /\b(run|carrera|correr|corriendo|cinta|treadmill|pista|threshold|umbral|fartlek|tempo|trote|easy run|strides)\b/,
@@ -65,8 +68,31 @@ const STRUCTURAL_WORDS_RE =
 
 // ── Labels ───────────────────────────────────────────────────────────────────
 
-/** Leading "LABEL:" form ("ROW:", "Threshold cinta:") → the label, else null. */
+// ── Exercise ORDER / GROUP labels ────────────────────────────────────────────
+// A coach numbers the movements of a session: "A) Press Banca", "B: Dominada",
+// "A1/A2/A3" for a superset, "1) Puente de glúteo" for a plain list. That prefix
+// is GROUPING notation — never part of the movement name.
+//
+// It used to be read as the name itself: `extractLabel` stops at the first colon,
+// so "B: Deadlift 5x5" typed CONFIDENTLY as an exercise called "B" and threw
+// "Deadlift" away — no review flag, nothing for the coach to notice. "A:" only
+// escaped because the lone "a" is in CONNECTOR_WORDS_RE (the Spanish preposition),
+// so it got deleted by accident. Stripping the label here is the root fix.
+
+/** A leading order/group marker: letter (+ optional index), or a list ordinal. */
+const GROUP_LABEL_RE =
+  /^\s*(?:[A-H]\d{0,2}(?:\s*\/\s*[A-H]?\d{0,2})*\s*[):.–—-]|\d{1,2}\s*[).])\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/;
+
+/** The line with its order/group marker removed ("B: Deadlift 5x5" → "Deadlift
+ *  5x5"). Idempotent and safe on lines that carry none. */
+export function stripGroupLabel(seg: string): string {
+  return seg.replace(GROUP_LABEL_RE, '');
+}
+
+/** Leading "LABEL:" form ("ROW:", "Threshold cinta:") → the label, else null.
+ *  An order/group marker is NOT a label — see GROUP_LABEL_RE above. */
 export function leadingColonLabel(seg: string): string | null {
+  if (GROUP_LABEL_RE.test(seg)) return null;
   const m = seg.match(/^\s*([A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ /+-]*?)\s*:/);
   return m ? m[1]!.trim() : null;
 }
@@ -75,7 +101,7 @@ export function leadingColonLabel(seg: string): string | null {
  *  — with target tokens (Z2, RPE n) stripped beforehand so a zone never
  *  truncates a name at its digit (class 8). */
 export function extractLabel(seg: string): string {
-  let s = stripTargetTokens(seg).trim();
+  let s = stripTargetTokens(stripGroupLabel(seg)).trim();
   s = s.replace(/^\s*\d+\s*(?:rounds|rondas|series|reps?|x|r)\b[:.\s]*/i, '');
   const head = s.match(/^([^\d:]*)/);
   let label = head ? head[1]! : s;
@@ -130,7 +156,7 @@ export interface DoseFirstLabel {
  *  ("easy"), not an exercise — they go to the note. */
 export function doseFirstLabel(seg: string, opts?: { structural?: boolean }): DoseFirstLabel {
   const notes: string[] = [];
-  let s = seg.replace(/\d+\s*x\s*\([^)]*\)/g, ' '); // paren-intervals are dose, not note
+  let s = stripGroupLabel(seg).replace(/\d+\s*x\s*\([^)]*\)/g, ' '); // paren-intervals are dose, not note
   s = s.replace(/\(([^)]*)\)/g, (_, inner: string) => {
     if (!paceUnitFrom(inner)) notes.push(inner.trim()); // pace parens are typed elsewhere
     return ' ';

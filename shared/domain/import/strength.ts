@@ -7,6 +7,7 @@
 
 import { type Prescription, type PrescriptionSet, type Target } from '../prescription/types';
 import {
+  parseEffortTarget,
   parseKg,
   parseLoadPctList,
   parseRepSeq,
@@ -134,6 +135,10 @@ export function parseStrength(seg: string): Parsed | null {
   const loadList = parseLoadPctList(seg);
   const kg = parseKg(seg);
   const rest = parseRest(seg);
+  // Proximity-to-failure ("RIR 2", "RPE 8") is the intensity when the line
+  // carries no %RM and no kg — which is most of a real strength block. It was
+  // stripped before the rep read (above) and then never typed at all.
+  const effort = parseEffortTarget(seg)?.target;
 
   let perSetReps = reps ?? (nxm ? Array.from({ length: nxm.sets }, () => nxm.reps) : null);
   let token: string | null = null;
@@ -203,7 +208,8 @@ export function parseStrength(seg: string): Parsed | null {
     else if (timedSetSeconds !== undefined) {
       s.measure = { kind: 'duration', seconds: timedSetSeconds };
     }
-    const target = usedRepsFirst ? repsFirstTarget : strengthTargetForSet(loadList, kg, i, nSets);
+    const target =
+      (usedRepsFirst ? repsFirstTarget : strengthTargetForSet(loadList, kg, i, nSets)) ?? effort;
     if (target) s.target = target;
     if (rest !== undefined) s.rest_s = rest;
     sets.push(s);

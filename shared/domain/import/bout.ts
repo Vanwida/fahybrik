@@ -20,7 +20,7 @@ import {
   parseParenInterval,
   parseRepSeq,
   parseRest,
-  parseRpeTarget,
+  parseEffortTarget,
   parseZoneTarget,
   stripLoadPct,
   stripTargetTokens,
@@ -45,7 +45,7 @@ export function parseBout(seg: string): Parsed | null {
   const choice = isModalityChoice(seg) || cardioModalities(seg).length >= 2;
   const modality = choice ? undefined : modalityFrom(seg);
   const zone = parseZoneTarget(seg);
-  const rpe = parseRpeTarget(seg);
+  const rpe = parseEffortTarget(seg);
   const paren = parseParenInterval(seg);
   const interval = paren ? null : parseInterval(seg);
   const distInterval = paren || interval ? null : parseDistanceInterval(seg);

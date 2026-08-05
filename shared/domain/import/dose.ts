@@ -21,7 +21,13 @@ export function normalizeNotation(s: string): string {
     .replace(/[″‶]/g, "''") // ″ ‶ (double prime) → ''
     .replace(/[‘’‛]/g, "'") // ‘ ’ ‛ → '
     .replace(/[“”]/g, "''") // “ ” → ''
-    .replace(/"/g, "''"); // straight double-quote → ''
+    .replace(/"/g, "''") // straight double-quote → ''
+    // "10 × 400m" — the multiplication sign is what a calendar UI (and anyone
+    // typing on iOS) produces for "x". Every parser below matches ASCII `x`, so
+    // WITHOUT this the whole line falls to `review` for a purely typographic
+    // reason. Same for the multiplication asterisk forms.
+    .replace(/[×✕✖⨯]/g, 'x')
+    .replace(/ /g, ' '); // non-breaking space (pasted text / OCR)
 }
 
 /** Lowercase, accent-fold, collapse whitespace — the comparison form. */
@@ -156,7 +162,7 @@ export function parseParenInterval(raw: string): ParenInterval | null {
   const work_s = parseClockSeconds(parts[0]!);
   if (work_s === undefined) return null;
   const out: ParenInterval = { rounds: parseInt(m[1]!, 10), work_s };
-  const target = parseZoneTarget(parts[0]!) ?? parseRpeTarget(parts[0]!)?.target;
+  const target = parseZoneTarget(parts[0]!) ?? parseEffortTarget(parts[0]!)?.target;
   if (target) out.target = target;
   if (parts[1] !== undefined) {
     const rest = parseClockSeconds(parts[1]);
@@ -196,21 +202,33 @@ export function isPureRest(seg: string): boolean {
 
 // ── Intensity targets ────────────────────────────────────────────────────────
 
-/** "RPE 8" / "RPE8" / "RPE 3-4" → a point or RANGE rpe Target + its verbatim
- *  text (for the note when another target wins the primary slot). Class-2 fix:
- *  ranges are read here so they can never masquerade as a rep sequence. */
-export function parseRpeTarget(raw: string): { target: Target; text: string } | null {
-  // The range's second number must be a BARE rpe value — "RPE8 – 45'' rest" is
-  // a point RPE followed by a rest clock, not a range (the unit lookahead).
-  const m = raw.match(/\brpe\s*(\d{1,2})(?:\s*[-–—]\s*(\d{1,2})(?!\d)(?!\s*['%]|\s*kg\b|\s*k?m\b))?/i);
+/** "RPE 8" / "RPE8" / "RPE 3-4" / "RIR 2" / "RIR 1-2" → a point or RANGE effort
+ *  Target + its verbatim text (for the note when another target wins the primary
+ *  slot). Class-2 fix: ranges are read here so they can never masquerade as a
+ *  rep sequence.
+ *
+ *  RIR shares this reader because it occupies the SAME slot as RPE — it is the
+ *  other way coaches write proximity to failure, and `Target` has carried
+ *  `{kind:'rir'}` since the model spec. It used only to be STRIPPED (so a rep
+ *  reader could not eat it) and never typed, so every "4x4 | RIR 2" in the
+ *  library silently lost its intensity. */
+export function parseEffortTarget(raw: string): { target: Target; text: string } | null {
+  // The range's second number must be a BARE effort value — "RPE8 – 45'' rest"
+  // is a point RPE followed by a rest clock, not a range (the unit lookahead).
+  const m = raw.match(
+    /\b(rpe|rir)\s*(\d{1,2})(?:\s*[-–—]\s*(\d{1,2})(?!\d)(?!\s*['%]|\s*kg\b|\s*k?m\b))?/i,
+  );
   if (!m) return null;
-  const lo = parseInt(m[1]!, 10);
-  if (lo > 10) return null; // not a real RPE
-  const hi = m[2] !== undefined ? parseInt(m[2], 10) : undefined;
-  if (hi !== undefined && hi >= lo && hi <= 10) {
-    return { target: { kind: 'rpe', min: lo, max: hi }, text: `RPE ${lo}-${hi}` };
+  const kind = m[1]!.toLowerCase() === 'rir' ? ('rir' as const) : ('rpe' as const);
+  const ceiling = kind === 'rpe' ? 10 : 10; // beyond 10 reps-in-reserve is not a prescription
+  const label = kind.toUpperCase();
+  const lo = parseInt(m[2]!, 10);
+  if (lo > ceiling) return null;
+  const hi = m[3] !== undefined ? parseInt(m[3], 10) : undefined;
+  if (hi !== undefined && hi >= lo && hi <= ceiling) {
+    return { target: { kind, min: lo, max: hi }, text: `${label} ${lo}-${hi}` };
   }
-  return { target: { kind: 'rpe', value: lo }, text: `RPE ${lo}` };
+  return { target: { kind, value: lo }, text: `${label} ${lo}` };
 }
 
 /** "Z2" / "zona 2" / "Z3-Z4" / "Z3-4" → a point or RANGE hr_zone Target. */

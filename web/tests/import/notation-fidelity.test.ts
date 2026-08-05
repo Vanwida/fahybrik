@@ -463,3 +463,93 @@ describe('invariants across the fidelity corpus', () => {
     }
   });
 });
+
+// ── class 10 — notation the grammar used to get WRONG, not just miss ──────────
+// These are regressions, not gaps: every case below used to emit `detected`
+// (or vanish) with a silently corrupted result, so nothing in the review screen
+// told the coach to look. Sources: a real TrainingPeaks week (calendar view) and
+// the group-label notation any coach writes.
+
+describe('class 10 — order labels never become the exercise', () => {
+  test('"B:" / "C:" no longer replace the movement name', () => {
+    // "A:" escaped by accident (the lone "a" is a Spanish connector that got
+    // deleted); every other letter typed an exercise CALLED "B" / "C".
+    for (const [cell, name] of [
+      ['A: Back Squat 5x5', 'Back Squat'],
+      ['B: Deadlift 5x5', 'Deadlift'],
+      ['C: Bench Press 5x5', 'Bench Press'],
+    ] as const) {
+      const [line] = parseNotationCell(cell);
+      expect(line!.confidence).toBe('detected');
+      expect(line!.exercise_token).toBe(name);
+    }
+  });
+
+  test('paren and list ordinals are stripped too', () => {
+    for (const [cell, name] of [
+      ['A) Press Banca 4x4', 'Press Banca'],
+      ['A1) Cat Cow 2x10', 'Cat Cow'],
+      ['1) Puente de glúteo 3x12', 'Puente de glúteo'],
+    ] as const) {
+      const [line] = parseNotationCell(cell);
+      expect(line!.exercise_token).toBe(name);
+    }
+  });
+});
+
+describe('class 10 — a counter word is not a movement', () => {
+  test('"3-4 RONDAS" reviews instead of typing 2 sets of an exercise named RONDAS', () => {
+    const [line] = parseNotationCell('3-4 RONDAS');
+    expect(line!.confidence).toBe('review');
+    expect(line!.prescription.note).toBe('3-4 RONDAS');
+  });
+
+  test('"12-15 repeticiones" reviews instead of typing sets of 12 and 15', () => {
+    // A rep RANGE is one prescription, not two discrete sets — and the model has
+    // no range on `measure` yet, so review is the honest answer.
+    const [line] = parseNotationCell('12-15 repeticiones');
+    expect(line!.confidence).toBe('review');
+  });
+});
+
+describe('class 10 — typographic and bilingual coverage', () => {
+  test('the × multiplication sign types exactly like an ascii x', () => {
+    const [uni] = parseNotationCell('10 × 400m');
+    const [ascii] = parseNotationCell('10 x 400m');
+    expect(uni!.confidence).toBe('detected');
+    expect(uni!.prescription).toEqual(ascii!.prescription);
+  });
+
+  test('"Bici" reads as bike, like "carrera" reads as run', () => {
+    const [line] = parseNotationCell("45' Bici Libre Z2");
+    expect(line!.prescription.modality).toBe('bike');
+  });
+});
+
+describe('class 10 — RIR is an intensity, not noise', () => {
+  test('"RIR 2" types as a rir target on every set', () => {
+    // It was only ever STRIPPED (so a rep reader could not eat it) and never
+    // read, so every "4x4 | RIR 2" lost its intensity silently.
+    const [line] = parseNotationCell('Back Squat 4x4 | RIR 2');
+    expect(line!.confidence).toBe('detected');
+    expect(line!.exercise_token).toBe('Back Squat');
+    expect(line!.prescription.sets).toHaveLength(4);
+    for (const s of line!.prescription.sets!) {
+      expect(s.target).toEqual({ kind: 'rir', value: 2 });
+    }
+  });
+
+  test('an explicit %RM still wins the primary slot over RIR', () => {
+    const [line] = parseNotationCell('Press Banca 4x4 78-80% RIR 2');
+    expect(line!.prescription.sets![0]!.target).toEqual({
+      kind: 'percent_rm',
+      min: 78,
+      max: 80,
+    });
+  });
+
+  test('RPE keeps working unchanged', () => {
+    const [line] = parseNotationCell('Dominada 3x8 RPE 8');
+    expect(line!.prescription.sets![0]!.target).toEqual({ kind: 'rpe', value: 8 });
+  });
+});
