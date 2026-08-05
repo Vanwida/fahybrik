@@ -18,9 +18,14 @@ import type {
   ProposalWeek,
 } from '@/lib/import/build-proposal';
 import {
+  acceptDayProposals,
+  blockTruncation,
   buildConfirmBody,
   buildReviewModel,
+  dayHiddenCount,
+  dayProposedFields,
   dayTone,
+  proposedFieldLabel,
   sessionIncompleteLines,
   totalExcludedDays,
   totalIncomplete,
@@ -333,5 +338,161 @@ describe('lines with no dose block confirm', () => {
         }),
       ),
     ).toBe(0);
+  });
+});
+
+// ── LEÍDO frente a PROPUESTO, y lo que la fuente cortó ────────────────────────
+// Lo que trae la rama de FOTO: los huecos que rellenó el importador con los
+// valores por defecto del coach, y las tarjetas que la captura cortó. Las dos
+// cosas viven SOLO en la revisión: se pintan, se aceptan o se cambian, y al
+// confirmar desaparecen. Aquí se fija justo eso.
+
+/** Un día con una línea de fuerza y `filled` marcando el descanso y el RIR. */
+function photoDay(
+  itemUid: string,
+  filled: Array<{ item_uid: string; field: string; path: string }>,
+  truncations: Array<{ block_uid: string; hidden_count: number | null }> = [],
+): ProposalDay {
+  const session = makeSession([
+    {
+      uid: itemUid,
+      name: 'Back Squat',
+      exerciseId: 10,
+      prescription: {
+        scheme: 'sets',
+        modality: 'strength',
+        sets: [
+          { measure: { kind: 'reps', value: 8, max: 12 }, target: { kind: 'rir', value: 2 }, rest_s: 90 },
+          { measure: { kind: 'reps', value: 8, max: 12 }, target: { kind: 'rir', value: 2 } },
+        ],
+      },
+    },
+  ]);
+  return {
+    ...makeDay(1, 'Lunes', [session], [makeFlag(itemUid, 'Back Squat')]),
+    // Los dos campos que añade la foto: opcionales en la propuesta, así que se
+    // adjuntan como los adjunta el servidor y el modelo los lee con desconfianza.
+    ...{ filled, truncations },
+  } as ProposalDay;
+}
+
+/** El uid de la línea lo pone el llamador para poder apuntar a ella en `filled`,
+ *  igual que hace el servidor: la marca de lo propuesto viaja POR UID. */
+function photoModel(
+  itemUid: string,
+  filled: Array<{ item_uid: string; field: string; path: string }>,
+  truncations: Array<{ block_uid: string; hidden_count: number | null }> = [],
+): ReviewWeek[] {
+  return buildReviewModel(
+    makeProposal([makeWeek(1, [photoDay(itemUid, filled, truncations)])]),
+    [makeMicroWeek('101', 0)],
+  );
+}
+
+describe('lo propuesto por el importador', () => {
+  test('se lee de la propuesta y se congela el valor que dejó', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    const pending = dayProposedFields(day);
+    expect(pending).toHaveLength(2);
+    expect(pending.map((p) => proposedFieldLabel(p.field, p.snapshot))).toEqual([
+      'descanso 90 s',
+      'RIR 2',
+    ]);
+  });
+
+  test('editar un propuesto lo da por confirmado: deja de contar', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    // El coach cambia el descanso en el editor de bloque.
+    day.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s = 120;
+    const pending = dayProposedFields(day);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.field).toBe('intensity');
+  });
+
+  test('«aceptar todos» los da por buenos sin tocar un solo valor', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const accepted = acceptDayProposals(model[0]!.days[0]!);
+    expect(dayProposedFields(accepted)).toHaveLength(0);
+    expect(accepted.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s).toBe(90);
+  });
+
+  test('un día con propuestas es ámbar, nunca verde', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    expect(dayTone(model[0]!.days[0]!)).toBe('review');
+    expect(dayTone(acceptDayProposals(model[0]!.days[0]!))).toBe('ok');
+  });
+
+  test('lo que no se entiende se tira: campo raro, línea que no existe, ruta inventada', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'peso', path: 'sets[0].rest_s' },
+      { item_uid: 'no-existe', field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'rest', path: 'items[0].loco' },
+      { item_uid: itemUid, field: 'rest', path: 'sets[1].rest_s' }, // la 2ª serie no lo lleva
+    ]);
+    expect(dayProposedFields(model[0]!.days[0]!)).toHaveLength(0);
+  });
+
+  test('las repeticiones propuestas se leen como el rango que son', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'reps', path: 'sets[0].measure' },
+    ]);
+    const [pending] = dayProposedFields(model[0]!.days[0]!);
+    expect(proposedFieldLabel(pending!.field, pending!.snapshot)).toBe('8-12 reps');
+  });
+
+  test('nada de esto se guarda: el confirmar manda la prescripción a secas', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const body = buildConfirmBody('7', model);
+    expect(JSON.stringify(body)).not.toContain('propuesto');
+    expect(JSON.stringify(body)).not.toContain('not_visible_in_source');
+    // Y el valor propuesto SÍ viaja, porque es la prescripción del coach.
+    expect(body.weeks[0]!.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s).toBe(90);
+  });
+});
+
+describe('lo que la fuente cortó', () => {
+  test('se cuenta lo que dijo que escondía, y 1 cuando no lo dijo', () => {
+    const model = photoModel(uid('item'), [], [
+      { block_uid: 'blk-a', hidden_count: 4 },
+      { block_uid: 'blk-b', hidden_count: null },
+    ]);
+    const day = model[0]!.days[0]!;
+    expect(dayHiddenCount(day)).toBe(5);
+    expect(blockTruncation(day, 'blk-a')?.hidden_count).toBe(4);
+    expect(blockTruncation(day, 'blk-z')).toBeNull();
+  });
+
+  test('un día con trabajo sin ver es ámbar', () => {
+    const model = photoModel(uid('item'), [], [{ block_uid: 'blk-a', hidden_count: 4 }]);
+    expect(dayTone(model[0]!.days[0]!)).toBe('review');
+  });
+
+  test('sin nada de la foto, el día se revisa como siempre', () => {
+    const model = photoModel(uid('item'), []);
+    const day = model[0]!.days[0]!;
+    expect(day.proposed).toEqual([]);
+    expect(day.truncations).toEqual([]);
+    expect(dayTone(day)).toBe('ok');
   });
 });
