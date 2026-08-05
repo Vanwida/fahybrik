@@ -72,6 +72,23 @@ Despliegue: `dpl_CGWd5eHWdYHhhDd7VcW5E2N5y7bd`, READY en producción desde el co
 sirviendo fahybrid.com y app.fahybrid.com. Comprobado contra los dos dominios (raíz 307 · POST
 auth/request 400 · coros/status 200 · athlete/benchmarks 401).
 
+**INCIDENTE EL MISMO DÍA, y su arreglo (`ca5f62eb`, desplegado en `dpl_8kK2GGRxQp5R8cyWYA2UkuNP7nPi`).**
+Alex probó la función y vio «No se pudo conectar». Los logs: `upload-url` 201 (la subida bien) y
+`proposal` **504 tras 300 s**. Causa más consistente con la evidencia: el descargador de las
+capturas (`photo-proposal.ts`) **no tenía ninguna cota de red** —ni `head()` ni el `fetch`— y bajaba
+las imágenes en serie; un socket colgado ahí se come el presupuesto entero y **no llega siquiera** a
+la llamada al modelo, que sí estaba acotada a 90 s. Por eso salió un 504 opaco a los 300 y no un 502
+limpio a los 90.
+Arreglado: cada salto de red con su aborto (10 s localizar · 20 s bajar), descargas en PARALELO,
+presupuesto blando de 260 s que devuelve error legible en español antes de que Vercel mate la
+función, tope AGREGADO de 30 MB (10 capturas de 15 MB eran ~200 MB hacia el modelo) e
+instrumentación por etapas.
+**Lo que el incidente destapó y era peor que el bug: NINGÚN error 5xx llegaba a Sentry.** Ni este ni
+ninguno. Ahora los 5xx de la ruta se capturan.
+**LECCIÓN, anotada porque se repitió hoy:** un `fetch` sin timeout dentro de una función con
+`maxDuration` es una bomba — se come el presupuesto y mata la petición sin decir por qué. Y sin
+instrumentación por etapas, la causa hay que deducirla en vez de leerla.
+
 **Efecto del catálogo, medido con el resolutor REAL antes de aplicar:** de 48 ítems sin resolver de
 la semana fotografiada, **19 pasan a resolver (48→29)**. De los 23 nombres reales: 19 resuelven, 1
 queda por un corte de OCR (no por catálogo) y 3 quedan fuera a propósito porque no son movilidad.
