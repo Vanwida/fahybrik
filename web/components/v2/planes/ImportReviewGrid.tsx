@@ -15,6 +15,9 @@ import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 import { ImportNotices } from './ImportNotices';
 import {
+  acceptDayProposals,
+  dayHiddenCount,
+  dayProposedFields,
   dayTone,
   totalExcludedDays,
   totalIncomplete,
@@ -23,6 +26,7 @@ import {
   unmappedWeekCount,
   type DayTone,
   type MicroWeekRef,
+  type ReviewDay,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
@@ -88,6 +92,7 @@ export function ImportReviewGrid({
   confirming,
   error,
   onBack,
+  onAddPhoto,
 }: {
   reviewWeeks: ReviewWeek[];
   microWeeks: MicroWeekRef[];
@@ -98,6 +103,9 @@ export function ImportReviewGrid({
   confirming: boolean;
   error: string | null;
   onBack: () => void;
+  /** Vuelve al paso de las fotos, para la captura de una tarjeta que salió cortada.
+   *  Solo existe cuando la propuesta vino de una foto. */
+  onAddPhoto?: () => void;
 }) {
   const [editing, setEditing] = useState<{ weekIdx: number; dayIdx: number } | null>(null);
 
@@ -138,6 +146,14 @@ export function ImportReviewGrid({
         i !== weekIdx
           ? w
           : { ...w, days: w.days.map((d, j) => (j === dayIdx ? { ...d, included } : d)) },
+      ),
+    );
+  };
+
+  const patchDay = (weekIdx: number, dayIdx: number, next: (day: ReviewDay) => ReviewDay) => {
+    onChange(
+      reviewWeeks.map((w, i) =>
+        i !== weekIdx ? w : { ...w, days: w.days.map((d, j) => (j === dayIdx ? next(d) : d)) },
       ),
     );
   };
@@ -239,6 +255,19 @@ export function ImportReviewGrid({
                 // week-level control governs → cells are display-only too.
                 const clickable = tone !== 'rest' && week.included;
                 const cellLabel = `${day.dow} de la semana ${week.week}`;
+                // Un día ámbar puede serlo por tres motivos muy distintos, y la
+                // píldora tiene que decir CUÁL: lo que la fuente cortó pesa más que
+                // lo que rellenamos nosotros, y eso más que un «revisar» genérico.
+                const hidden = tone === 'review' ? dayHiddenCount(day) : 0;
+                const proposed = tone === 'review' ? dayProposedFields(day).length : 0;
+                const tagLabel =
+                  hidden > 0
+                    ? `${hidden} sin ver`
+                    : proposed > 0
+                      ? `${proposed} hueco${proposed === 1 ? '' : 's'}`
+                      : tone === 'rest'
+                        ? ''
+                        : TONE_TAG[tone].label;
                 return (
                   <div
                     key={day.day_of_week}
@@ -288,7 +317,7 @@ export function ImportReviewGrid({
                             TONE_TAG[tone].className,
                           )}
                         >
-                          {TONE_TAG[tone].label}
+                          {tagLabel}
                         </span>
                       ) : null}
                     </CellBody>
@@ -374,6 +403,10 @@ export function ImportReviewGrid({
             setSession(editing.weekIdx, editing.dayIdx, sessionIdx, session)
           }
           onChangeIncluded={(included) => setDayIncluded(editing.weekIdx, editing.dayIdx, included)}
+          onAcceptProposals={() =>
+            patchDay(editing.weekIdx, editing.dayIdx, acceptDayProposals)
+          }
+          onAddPhoto={onAddPhoto}
           onClose={() => setEditing(null)}
         />
       ) : null}
