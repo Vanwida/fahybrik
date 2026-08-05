@@ -59,7 +59,7 @@ export function isCoachIaLlmConfigured(): boolean {
 
 export class CoachIaLlmError extends Error {
   constructor(
-    public readonly code: 'unconfigured' | 'http' | 'empty' | 'invalid_json',
+    public readonly code: 'unconfigured' | 'http' | 'empty' | 'invalid_json' | 'invalid_request',
     message: string,
   ) {
     super(message);
@@ -170,19 +170,38 @@ export async function callCoachIaLlmJson(args: CallArgs): Promise<unknown> {
 
 // ── Image-capable variant ────────────────────────────────────────────────────
 // Same OpenRouter-compatible wire, but the user turn carries multimodal content
-// parts: a text instruction + an `image_url` block with a data: URI (base64).
+// parts: a text instruction + ONE `image_url` block per image (data: URI, base64).
 // Used by the workout-capture vision feature (athlete uploads a screenshot of
-// another app's summary). The MODEL is passed in by the caller (read from env,
-// NEVER hardcoded) so a single multimodal model (text+image) serves it.
+// another app's summary) and by the plan importer's photo reader. The MODEL is
+// passed in by the caller (read from env, NEVER hardcoded) so a single multimodal
+// model (text+image) serves both.
+//
+// N IMAGES, NOT ONE. A workout summary is a single screenshot, but a week of a
+// coach's calendar takes several — and they are ONE reading, not N independent
+// ones: a card the UI cut off in the first capture is whole in the second, and
+// only a reader that sees both can tell. So the images travel in the SAME user
+// turn, IN ORDER, and the single-image form is just the N=1 case.
 //
 // Provider/base/key resolution mirrors callCoachIaLlmJson exactly (OpenRouter by
 // default: LLM_BASE_URL + OPENROUTER_API_KEY). `fetchImpl` is injectable for tests.
-export async function callLlmJsonWithImage(args: {
+
+/** One image of a multimodal turn. `image_base64` is RAW base64, no data: prefix. */
+export interface LlmImageInput {
+  image_base64: string;
+  mime_type: string; // e.g. image/jpeg
+}
+
+/**
+ * Transport ceiling for a single multimodal turn. Every image rides in the request
+ * body as base64 (+33% over the bytes), so this bounds both the payload we build
+ * and what a provider will accept in one turn.
+ */
+const MAX_IMAGES_PER_CALL = 12;
+
+interface LlmVisionCallBase {
   model: string;
   system: string;
   user: string;
-  image_base64: string; // raw base64 (no data: prefix)
-  mime_type: string; // e.g. image/jpeg
   temperature?: number;
   max_tokens?: number;
   meta?: {
@@ -191,7 +210,29 @@ export async function callLlmJsonWithImage(args: {
     coach_id?: number | bigint | null;
   };
   fetchImpl?: typeof fetch;
-}): Promise<unknown> {
+}
+
+/** Either ONE image (the original single-capture callers) or `images` with N in
+ *  visual order — never both, so a caller can't half-fill two forms. */
+export type LlmVisionCallArgs =
+  | (LlmVisionCallBase & { image_base64: string; mime_type: string; images?: undefined })
+  | (LlmVisionCallBase & { images: LlmImageInput[]; image_base64?: undefined; mime_type?: undefined });
+
+export async function callLlmJsonWithImage(args: LlmVisionCallArgs): Promise<unknown> {
+  const images: LlmImageInput[] =
+    args.images === undefined
+      ? [{ image_base64: args.image_base64, mime_type: args.mime_type }]
+      : args.images;
+  if (images.length === 0) {
+    throw new CoachIaLlmError('invalid_request', 'Llamada de visión sin ninguna imagen');
+  }
+  if (images.length > MAX_IMAGES_PER_CALL) {
+    throw new CoachIaLlmError(
+      'invalid_request',
+      `Máximo ${MAX_IMAGES_PER_CALL} imágenes por llamada (recibidas ${images.length})`,
+    );
+  }
+
   const fetchImpl = args.fetchImpl ?? fetch;
   const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
@@ -220,7 +261,6 @@ export async function callLlmJsonWithImage(args: {
     if (title) headers['X-Title'] = title;
   }
 
-  const dataUri = `data:${args.mime_type};base64,${args.image_base64}`;
   const body = {
     model: args.model,
     messages: [
@@ -229,7 +269,10 @@ export async function callLlmJsonWithImage(args: {
         role: 'user',
         content: [
           { type: 'text', text: args.user },
-          { type: 'image_url', image_url: { url: dataUri } },
+          ...images.map((img) => ({
+            type: 'image_url' as const,
+            image_url: { url: `data:${img.mime_type};base64,${img.image_base64}` },
+          })),
         ],
       },
     ],
