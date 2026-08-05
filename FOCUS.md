@@ -21,12 +21,27 @@ cadena completa sin DB ni modelo). Antes → después de los arreglos de hoy:
 | Ejercicios que resuelven | 2 | 5 |
 | Ejercicios que NO resuelven | 49 (casi ninguno llegaba al resolutor) | **51 de 56 — y ahora es real** |
 
-**El diagnóstico honesto: el parseo ya no es el cuello de botella, el CATÁLOGO sí.** 30 nombres
-reales de la semana (Cable External Rotation, Cat Cow, Bird Dog, Cossack Squat, Puente de glúteo,
-Push Jerk…) sencillamente no existen en `exercises`. El seed trae 52 y el vocabulario de movilidad
-y activación de una semana real es mucho más ancho. **PENDIENTE DE DECISIÓN DE ALEX:** ¿se ensancha
-el catálogo base con el vocabulario común (que es de todos, no metodología de nadie) o cada coach
-se crea el suyo?
+**El diagnóstico honesto: el parseo ya no es el cuello de botella, el CATÁLOGO sí.** Medido contra
+producción: **79 ejercicios, de los cuales solo 7 de movilidad**. De los 22 ejercicios de la semana
+que no resuelven, **19 (86 %) son movilidad y activación**. Y no queda ninguna traducción por hacer
+— se verificó leyendo los 79 nombres reales y cruzándolos uno a uno.
+
+**LISTO Y SIN APLICAR, a la espera del OK de Alex:** migración `0152_mobility_activation_base_catalog`
+— 42 ejercicios BASE (`coach_id IS NULL`) de movilidad y activación, con modalidad y categoría
+revisadas una a una. Verificada en rama desechable: aplica limpia, 121 filas sin colisión de slug,
+movilidad 7→28. **Efecto medido con el resolutor REAL: de 48 ítems sin resolver, 19 pasan a
+resolver (48→29).** De los 23 nombres reales: 19 resuelven, 1 queda por un corte de OCR (no por
+catálogo) y 3 quedan fuera a propósito porque no son movilidad.
+
+**Cuatro migraciones pendientes de aplicar a producción** (todas idempotentes, todas verificadas en
+rama desechable): `0149` defaults del coach · `0150` formato superserie · `0151` plegado de acentos
+· `0152` catálogo de movilidad.
+
+**Tres bugs más del mismo patrón, cazados AL VERIFICAR y no al construir** (los tres resolvían en
+silencio al ejercicio equivocado, sin levantar bandera): `Dominada (lastrada)` daba *Pull-up* en vez
+de *Weighted pull-up* porque el paréntesis rompía la ventana de dos palabras · `Scapular Push Up`
+chocaba con el alias más corto `push up` · `Single Leg Glute Bridge` con `glute bridge`. El de
+`Scapular Push Up` está en producción HOY, sin relación con nada de esto.
 
 **Seis fallos del tipo «no falla, acierta MAL con confianza»** cazados y cerrados hoy — ninguno
 levantaba bandera, así que el coach no tenía forma de verlos:
