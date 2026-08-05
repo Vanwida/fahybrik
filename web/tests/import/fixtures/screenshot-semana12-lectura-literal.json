@@ -1,0 +1,250 @@
+{
+  "_meta": {
+    "fuente": "screenshot enviado por Alex el 2026-08-05",
+    "origen_ui": "TrainingPeaks — vista calendario semanal, 7 columnas de dia (3..9)",
+    "proposito": "verdad de campo para el test de extraccion por foto. Contenido LITERAL visible, cero interpretacion.",
+    "regla": "todo lo que la UI corta se marca truncado:true. NUNCA se completa por inferencia."
+  },
+  "dias": [
+    {
+      "dia": 3,
+      "tarjetas": [
+        { "tipo_ui": "nota", "titulo": "SEMANA 12", "truncado": false },
+        { "tipo_ui": "metricas", "lineas": ["Body Battery: Low 29 High 77"], "resto_oculto": "2 more...", "truncado": true },
+        {
+          "tipo_ui": "strength", "estado_visual": "amarillo",
+          "titulo": "FUERZA PARTE ALTA (4 × 4)",
+          "totales": { "duracion": "0:40:25", "distancia": "0.00 km", "tss": "23 hrTSS" },
+          "cuerpo": [
+            "A) 4 × 4 | RIR 2",
+            "- Press Banca >78-80%",
+            "- Dominada (lastrada)",
+            "- Push Press 2 DB",
+            "Descanso 1:30..."
+          ],
+          "planificado": { "duracion": "P: 1:00:00" },
+          "truncado": true, "motivo_truncado": "la linea de descanso acaba en puntos suspensivos"
+        },
+        {
+          "tipo_ui": "strength", "estado_visual": "rojo",
+          "titulo": "REFUERZO HOMBRO",
+          "contadores": "0/10 Sets 0/5 Exercises",
+          "ejercicios": [
+            { "marca": "A", "nombre": "Cable External Rotation" },
+            { "marca": "B", "nombre": "Band Pull Apart" },
+            { "marca": "C", "nombre": "Prone Y Raise" },
+            { "marca": "D", "nombre": "Serratus wall slide" },
+            { "marca": "E", "nombre": "Band Scapular Retraction" }
+          ],
+          "truncado": false,
+          "nota": "5 ejercicios visibles y el contador dice 5 Exercises: la lista esta completa. Pero NO hay reps/carga/descanso visibles: 10 Sets entre 5 ejercicios."
+        }
+      ]
+    },
+    {
+      "dia": 4,
+      "tarjetas": [
+        { "tipo_ui": "metricas", "lineas": ["Sleep Hours: 7.96 hrs"], "resto_oculto": "8 more...", "truncado": true },
+        {
+          "tipo_ui": "running", "estado_visual": "verde_completado",
+          "titulo": "10 × 400m",
+          "totales": { "duracion": "0:46:02", "distancia": "8.25 km", "tss": "59 TSS" },
+          "cuerpo": ["Repeticiones de 400, APRETAMOS!"],
+          "planificado": { "duracion": "P: 0:44:10", "tss": "P: 50 TSS" },
+          "grafico_intervalos": true,
+          "social": "7 comentarios/reacciones",
+          "truncado": false,
+          "nota": "el titulo lleva la estructura (10 × 400m) pero NO hay descanso ni ritmo objetivo visibles"
+        },
+        {
+          "tipo_ui": "running", "estado_visual": "neutro",
+          "titulo": "Running",
+          "totales": { "duracion": "0:15:10", "distancia": "3.01 km", "tss": "21 TSS" },
+          "social": "3", "truncado": false,
+          "nota": "titulo generico, cero prescripcion"
+        },
+        {
+          "tipo_ui": "strength",
+          "titulo": "COMPENSATORIO GLÚTEO",
+          "cuerpo": [
+            "1) Puente de glúteo",
+            "2) Marcha desde puente de glúteo",
+            "3) Isometría en puente de glúteo",
+            "Video ..."
+          ],
+          "planificado": { "texto": "P: Realiza 4 series de entre 12 - 15 repeticiones por ejercicio con 1 minuto de descanso entre series." },
+          "truncado": true, "motivo_truncado": "'Video ...' corta un enlace o lista de videos",
+          "nota": "la dosis viene en PROSA en la linea P:, no estructurada. Rango de reps 12-15."
+        }
+      ]
+    },
+    {
+      "dia": 5, "marcado_hoy": true,
+      "tarjetas": [
+        { "tipo_ui": "metricas", "lineas": ["Sleep Hours: 6.58 hrs", "Body Battery: Low 23 High 97"], "resto_oculto": "8 more...", "truncado": true },
+        {
+          "tipo_ui": "strength",
+          "titulo": "MOVILIDAD GENERAL",
+          "contadores": "16 Sets 8 Exercises",
+          "ejercicios": [
+            { "marca": "A1", "nombre": "Cat Cow" },
+            { "marca": "A2", "nombre": "90-90" },
+            { "marca": "A3", "nombre": "Cossack Squat" },
+            { "marca": "A4", "nombre": "Forward Leg Swing" }
+          ],
+          "resto_oculto": "4 More",
+          "truncado": true,
+          "nota": "8 ejercicios declarados, solo 4 visibles. Marcas A1..A4 = circuito/serie compuesta A."
+        },
+        {
+          "tipo_ui": "ergo_remo",
+          "titulo": "TRANSICIONES CARRERA",
+          "totales": { "duracion": "1:20:00" },
+          "cuerpo": [
+            "BLOQUE 1)",
+            "3 RONDAS",
+            "- 500 m carrera 3:45 min/km",
+            "- 10+10 Step Ups Cajón",
+            "- 500 m carrera 3:45 mi..."
+          ],
+          "truncado": true, "motivo_truncado": "la tercera linea del bloque se corta; y 'BLOQUE 1)' implica que existe un BLOQUE 2 no visible",
+          "nota": "icono de remo pero el contenido es carrera + cajon: el icono NO determina la modalidad real"
+        }
+      ]
+    },
+    {
+      "dia": 6,
+      "tarjetas": [
+        { "tipo_ui": "descanso", "titulo": "DESCANSO", "truncado": false }
+      ]
+    },
+    {
+      "dia": 7,
+      "tarjetas": [
+        {
+          "tipo_ui": "nota",
+          "titulo": "CONTROL TEST SALTO",
+          "cuerpo": ["Vamos a realizar controles periódicos de salto para observar cómo responde tu sistema neuromuscul..."],
+          "truncado": true
+        },
+        {
+          "tipo_ui": "strength",
+          "titulo": "WCSE CALENTAMIENTO - MO...",
+          "titulo_truncado": true,
+          "contadores": "21 Sets 7 Exercises",
+          "ejercicios": [
+            { "marca": "A1", "nombre": "Cobra Pose" },
+            { "marca": "A2", "nombre": "90-90" },
+            { "marca": "A3", "nombre": "Hip Flexor Stretch" },
+            { "marca": "A4", "nombre": "Bird Dog" }
+          ],
+          "resto_oculto": "3 More",
+          "truncado": true
+        },
+        {
+          "tipo_ui": "ergo_remo",
+          "titulo": "Incremental ergómetros (90-120-180)",
+          "totales": { "duracion": "1:20:00" },
+          "cuerpo": [
+            "BLOQUE 1)",
+            "3-4 RONDAS",
+            "- 90 seg Remo Z3",
+            "- 15 Burpee con salto a disco (video)",
+            "- 2 minutos Air-b..."
+          ],
+          "planificado": {
+            "texto": "P: Burpee con salto a disco: https://youtu.be/UfVbhoO8BdQ",
+            "extra": "Lanzamiento de disco: https://www.youtu..."
+          },
+          "truncado": true,
+          "motivo_truncado": "'2 minutos Air-b...' (Air-bike) cortado; segunda URL cortada; 'BLOQUE 1)' implica bloques posteriores",
+          "nota": "rondas en RANGO (3-4). Zona Z3 sobre remo. Trabajo por TIEMPO (90 seg, 2 minutos) y por REPS (15 burpees) en el mismo bloque."
+        }
+      ]
+    },
+    {
+      "dia": 8,
+      "tarjetas": [
+        {
+          "tipo_ui": "strength",
+          "titulo": "COMPENSATORIO GLÚTEO",
+          "contadores": "24 Sets 8 Exercises",
+          "ejercicios": [
+            { "marca": "A1", "nombre": "Side Plank with Clam Shell Hold" },
+            { "marca": "A2", "nombre": "Single Leg Glute Bridge" },
+            { "marca": "A3", "nombre": "Side Step Squat With Band" },
+            { "marca": "A4", "nombre": "Extension de cadera en cuadrúp...", "nombre_truncado": true }
+          ],
+          "resto_oculto": "4 More",
+          "truncado": true,
+          "nota": "mismo TITULO que la tarjeta del dia 4 pero contenido distinto: el titulo NO identifica un bloque"
+        },
+        {
+          "tipo_ui": "running",
+          "titulo": "4 × 600 + 3 × 800",
+          "totales": { "duracion": "0:57:07", "tss": "56 TSS" },
+          "cuerpo": ["4 × 600 + 3 × 800"],
+          "grafico_intervalos": true,
+          "truncado": false,
+          "nota": "estructura COMPUESTA: dos series distintas en una sesion. Sin descanso ni ritmo visibles."
+        }
+      ]
+    },
+    {
+      "dia": 9,
+      "tarjetas": [
+        {
+          "tipo_ui": "strength",
+          "titulo": "OPCIONA: REFUERZO HOMBRO",
+          "contadores": "10 Sets 5 Exercises",
+          "ejercicios": [
+            { "marca": "A", "nombre": "Diagonal Band Pull Apart" },
+            { "marca": "B", "nombre": "Banded Front Raise" },
+            { "marca": "C", "nombre": "Banded Lateral Raise" },
+            { "marca": "D", "nombre": "Prone T Raise" },
+            { "marca": "E", "nombre": "Scapular Push Up" }
+          ],
+          "truncado": false,
+          "nota": "'OPCIONA:' es un prefijo de opcionalidad en el titulo (typo de 'OPCIONAL'), no parte del nombre. Marcas A..E sueltas = series rectas, no circuito."
+        },
+        {
+          "tipo_ui": "strength",
+          "titulo": "OPCIONAL: FUERZA PARTE ALTA (4 × 4)",
+          "totales": { "duracion": "1:00:00" },
+          "cuerpo": [
+            "A) 4 × 4 | RIR 2",
+            "- Push Jerk",
+            "- Dominada (lastrada)",
+            "- Encogimientos KTB",
+            "Descanso 1:30"
+          ],
+          "resto_oculto": "Notas...",
+          "truncado": true
+        },
+        {
+          "tipo_ui": "bici",
+          "titulo": "Bici Libre Z2",
+          "totales": { "duracion": "1:30:00", "tss": "60 TSS" },
+          "cuerpo": ["Hora y media de rodar libre soltando piernas, tranquilo."],
+          "truncado": false,
+          "nota": "duracion + zona. Prescripcion completa y minima."
+        }
+      ]
+    }
+  ],
+  "_observaciones_de_dominio": [
+    "TRUNCAMIENTO SISTEMICO: 11 de 18 tarjetas estan cortadas por la UI ('4 More', '3 More', 'Notas...', '...'). Una foto del calendario semanal es una fuente INHERENTEMENTE INCOMPLETA. El sistema debe detectarlo y declararlo, jamas rellenarlo.",
+    "TRES TIPOS DE TARJETA QUE NO SON ENTRENO: nota/anotacion (SEMANA 12, CONTROL TEST SALTO), metricas del dispositivo (Sleep, Body Battery) y descanso. Hay que clasificarlas y descartarlas o mapearlas aparte.",
+    "PLANIFICADO vs REALIZADO conviven en la misma tarjeta: 'P: 0:44:10' (plan) frente a '0:46:02' (hecho). Al importar un plan solo interesa lo planificado.",
+    "EL ICONO MIENTE: 'TRANSICIONES CARRERA' lleva icono de remo y su contenido es carrera + step ups. La modalidad se decide por el CONTENIDO, con el icono como pista debil.",
+    "NOTACION DE AGRUPACION: A1/A2/A3/A4 = circuito (serie compuesta); A/B/C/D/E = series rectas independientes. Es semantica real y cambia como se ejecuta en vivo.",
+    "RANGOS por todas partes: reps '12-15', rondas '3-4', %RM '>78-80%'. El modelo tiene que admitir rango, no solo valor unico.",
+    "DOSIS EN PROSA: 'Realiza 4 series de entre 12-15 repeticiones por ejercicio con 1 minuto de descanso'. La dosis existe pero no esta estructurada por ejercicio.",
+    "TITULO NO ES IDENTIDAD: dos tarjetas 'COMPENSATORIO GLÚTEO' con contenido distinto. No se puede deduplicar por titulo.",
+    "OPCIONALIDAD en el titulo: 'OPCIONAL:' / 'OPCIONA:' es un atributo de la sesion, no parte del nombre.",
+    "MEDIA ADJUNTA: enlaces de YouTube por ejercicio, cortados por la UI.",
+    "MEZCLA DE UNIDADES EN UN MISMO BLOQUE: 90 seg (tiempo) + 15 burpees (reps) + 500 m (distancia) conviven en el mismo circuito.",
+    "CARGA: '>78-80%' (%RM con suelo), '(lastrada)' (peso anadido), '2 DB' (implemento), 'KTB' (kettlebell). Tipos de carga distintos.",
+    "MULTIPLES SESIONES POR DIA: hasta 3 entrenos reales en un mismo dia (dia 9), mas tarjetas no-entreno."
+  ]
+}
