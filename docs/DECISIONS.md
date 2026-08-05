@@ -20,7 +20,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 2. **Ponderado por temporada.** Rappelt et al. 2026 mide −19 % en el top-100 PRO masculino entre S1 y S7 (ωp²=0,76). Un prior sin reponderar predice el nivel de 2022 con toda la confianza del mundo.
 3. **Por división Y formato.** Consecuencia directa del stress-test: la curva de fatiga y el reparto del tiempo de dobles no son los de singles. Un promedio global no sirve para nada.
 
-**Por qué:** es la única forma de darle un número a quien no ha medido nada, que hoy son 5 de nuestros 8 atletas y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte (39.696 resultados PRO/ELITE) se construyó exactamente así, con scripts propios sobre los resultados públicos.
+**Por qué:** es la única forma de darle un número a quien no ha medido nada — que es todo el mundo el día que se instala la app, y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte (39.696 resultados PRO/ELITE) se construyó exactamente así, con scripts propios sobre los resultados públicos.
 
 **En consecuencia, no hacer:** no exhibir ni almacenar resultados de terceros a nivel de persona; no usar el prior para nada que no sea encoger una estimación propia; y no bloquear el resto del trabajo esperándolo — 8 de las 9 piezas del plan de `docs/prediccion-hyrox-v2.html` §09 no dependen de él.
 

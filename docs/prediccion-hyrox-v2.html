@@ -112,7 +112,7 @@
   <p class="lede">El v1 hizo bien lo difícil: descompone la prueba en diez tramos, declara la procedencia de cada número, envejece la evidencia y se niega a rellenar huecos con el objetivo del atleta. Eso se queda entero. Lo que le falta es de otra naturaleza.</p>
 
   <div class="grid2">
-    <div class="stat"><div class="v">5 de 8</div><div class="l">atletas sin ninguna carrera</div><div class="d">Y <strong>6 de 8</strong> sin ninguna marca que el modelo acepte como medición. El caso sin datos no es el borde del modelo: es el caso dominante, y hoy recibe <code>sin_datos</code> y un total nulo.</div></div>
+    <div class="stat"><div class="v">100 %</div><div class="l">de los que lleguen, al llegar</div><div class="d">Nadie estrena la app con una carrera importada y una marca medida. El atleta sin datos no es el borde del modelo: es <strong>el estado inicial de todos</strong>, y hoy recibe <code>sin_datos</code> y un total nulo.</div></div>
     <div class="stat"><div class="v">±3 / 7 / 15 %</div><div class="l">banda fija por fuente</div><div class="d">La misma anchura relativa para un atleta de 60 min y uno de 87. La ciencia dice que el error crece hacia los lentos: la banda está mal especificada por construcción.</div></div>
     <div class="stat"><div class="v">0</div><div class="l">veces que entrenar aporta señal</div><div class="d">Entrenar mueve el número solo porque la carrera pierde peso al envejecer. Ninguna sesión ejecutada EMPUJA la predicción. El decaimiento no es aprendizaje.</div></div>
     <div class="stat"><div class="v">null</div><div class="l">lo que ve Pablo</div><div class="d"><code>loadHyroxPrediction()</code> en el dashboard del coach devuelve <code>null</code> siempre. El panel entero es un estado vacío permanente sobre un motor que sí funciona.</div></div>
@@ -123,7 +123,7 @@
     <li><strong>No aprende.</strong> La evidencia decae; el entreno no suma. Un mes de series de remo no mueve el número salvo por el envejecimiento de otra cosa.</li>
     <li><strong>La incertidumbre es simétrica y constante.</strong> Un intervalo del mismo ancho relativo para todo el mundo, cuando el fenómeno es abiertamente heterocedástico.</li>
     <li><strong>La fatiga de la prueba es implícita.</strong> El «factor de transferencia personal» es UN número que solo existe si el atleta ya tiene una carrera. Es justo lo que separa un HYROX de ocho kilómetros sueltos, y solo lo tienen los que menos lo necesitan.</li>
-    <li><strong>Sin carrera y sin marcas no hay número.</strong> Cinco de nuestros ocho atletas no tienen carrera y seis no tienen marca medida. Y el embudo del tier free entero.</li>
+    <li><strong>Sin carrera y sin marcas no hay número.</strong> Es el día uno de cualquier atleta y es el embudo del tier free entero. El modelo empieza a servir justo cuando ya no hace tanta falta.</li>
     <li><strong>Nunca se ha validado en público.</strong> Existe la infraestructura de snapshots predicho-vs-real y no se ha publicado un solo error medido. Pedimos confianza sin haberla ganado.</li>
   </ol>
 
@@ -326,7 +326,7 @@ ETA = tramos restantes × k
     </tr>
     <tr>
       <td>Antropometría (peso, altura, composición)</td>
-      <td>HealthKit ya expone <code>body_mass_kg</code> y la composición; el servidor ya entiende <code>body_fat_pct</code>. Hoy están las tres vacías en 8 de 8 atletas porque nadie las lee del reloj.</td>
+      <td>HealthKit ya expone <code>body_mass_kg</code> y la composición; el servidor ya entiende <code>body_fat_pct</code>. Las tres columnas existen y no las escribe nadie: no hay ninguna lectura del reloj que las rellene, así que llegarán vacías también en producción.</td>
       <td><span class="pill warn">una línea en iOS</span></td>
     </tr>
     </tbody>
@@ -379,7 +379,7 @@ ETA = tramos restantes × k
   <h2 id="s10"><span class="n">10</span>La decisión, tomada</h2>
   <div class="law">
     <h3>Sí al prior poblacional — agregado y ponderado <span class="pill on" style="vertical-align:middle;margin-left:6px">4 ago 2026</span></h3>
-    <p>Queda cerrada la pregunta que la spec de julio dejó abierta. <strong>Se construye</strong>, porque es la única forma de decirle algo a alguien que no ha medido nada: cinco de nuestros ocho atletas hoy, y el 100 % del embudo free.</p>
+    <p>Queda cerrada la pregunta que la spec de julio dejó abierta. <strong>Se construye</strong>, porque es la única forma de decirle algo a alguien que no ha medido nada — que es todo el mundo el día que se instala la app, y el 100 % del embudo free.</p>
     <p>Con tres condiciones que forman parte de la decisión, no del gusto de quien lo implemente:</p>
     <ul>
       <li><strong>Solo estadística agregada.</strong> Se guardan cuantiles por casilla <em>(temporada · división · formato · sexo · grupo de edad) × segmento</em>. Nunca resultados de terceros identificables, nunca exhibidos, nunca consultables por persona.</li>

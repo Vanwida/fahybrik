@@ -52,20 +52,22 @@ ocho piezas que no lo necesitan.
 devuelve `null` siempre — motor que funciona, coach que ve un vacío) · curva de durabilidad por
 atleta y formato · reordenar `next_inputs` al ergo.
 
-### ABIERTO · El seed entra en el predictor de tres atletas reales
+### ABIERTO · Al predictor le falta el filtro de procedencia que las carreras SÍ tienen
 
-Mismo fallo que las carreras sembradas (que se arregló con `races.is_synthetic`, mig 0142),
-vivo en la otra mitad: **`segment_executions` tiene 158 tramos con `source='demo'` repartidos
-entre los atletas 66, 67 y 69**, que son atletas reales de Pablo, no cuentas demo. 151 de ellos
-son tramos de correr **con ritmo**. Y la consulta del lado entrenado
-(`web/lib/athlete/race-transfer.ts:186-204`) filtra por trabajo-vs-recuperación y por modalidad,
-pero **no por `source`** — así que esos ritmos inventados son hoy la población de «ejecuciones»
-de esos tres atletas. Para el 67 son 68 tramos, y es justo un atleta sin marca válida de carrera:
-su nivel entrenado sale entero de datos que nadie corrió.
+Mismo fallo que las carreras sembradas (arreglado con `races.is_synthetic`, mig 0142), vivo en
+la otra mitad: la consulta del lado entrenado (`web/lib/athlete/race-transfer.ts:186-204`) filtra
+por trabajo-vs-recuperación y por modalidad, pero **no por `se.source`**. Hoy `segment_executions`
+tiene 158 tramos `source='demo'` (151 de correr, con ritmo) y entran enteros en la población de
+«ejecuciones» del atleta al que cuelguen.
 
-Bloquea calibrar nada (ley 5: una variable solo entra si baja el error, y el error se mediría
-contra seed). Arreglo: la misma forma que en `races` — marcar la procedencia y excluirla en la
-consulta, nunca borrar filas.
+**No hay nadie sufriéndolo: no tenemos ningún atleta.** Los ocho de la base somos nosotros
+probando, y los tres que cargan el seed (66/67/69) son cuentas inventadas. Lo que importa es que
+el agujero está en el motor, no en las filas: el día que un atleta de verdad tenga una fila
+sembrada al lado de una real, el modelo no sabrá distinguirlas. Y bloquea calibrar (ley 5: el
+error se mediría contra seed).
+
+Arreglo: la misma forma que en `races` — marcar la procedencia y excluirla en la consulta, nunca
+borrar filas.
 
 ### ABIERTO · Cero tramos fatigados en toda la base
 
