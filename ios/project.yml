@@ -260,6 +260,18 @@ targets:
     type: application
     platform: watchOS
     deploymentTarget: "11.0"
+    # ESQUEMA COMPARTIDO, y no es cosmética.
+    #
+    # Sólo estaba compartido el de la app del iPhone; el del reloj lo creaba Xcode
+    # a mano en cada máquina y no vivía en el repo. Consecuencia práctica: instalar
+    # el binario del iPhone NO empuja de forma fiable la app del reloj a un reloj ya
+    # emparejado (eso lo hace la app Watch a su ritmo), y sin este esquema no había
+    # una forma versionada de instalarla DIRECTAMENTE en la muñeca. Con él,
+    # `xcodebuild -scheme FAHYBRIKWatch -destination 'platform=watchOS,name=<reloj>'`
+    # —o elegirlo en Xcode— pone la build de hoy en el reloj sin pasar por el
+    # teléfono, que es justo lo que faltaba para poder probar.
+    scheme:
+      testTargets: []
     sources:
       - path: FAHYBRIKWatch
       # ----- Shared execution domain (compiled into BOTH targets) -----
