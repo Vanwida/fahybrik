@@ -8,6 +8,7 @@ import { describe, expect, test } from 'vitest';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 import {
+  applyResolvedTokens,
   collectMissingExercises,
   realMissingCount,
 } from '@/lib/dashboard/v2/import-missing';
@@ -158,5 +159,46 @@ describe('la modalidad SOLO se propone con evidencia', () => {
     ]);
     expect(m!.blockTitles).toEqual(['Refuerzo hombro', 'Movilidad general']);
     expect(m!.suggestedModality).toBe('mobility');
+  });
+});
+
+describe('estampar lo decidido cierra el círculo', () => {
+  test('todas las líneas del mismo token quedan resueltas de una vez', () => {
+    const weeks = [
+      week([
+        session('Movilidad general', [{ name: 'Cat Cow' }, { name: 'Bird Dog' }]),
+        session('Movilidad general', [{ name: 'Cat Cow' }]),
+      ]),
+    ];
+    const next = applyResolvedTokens(weeks, [
+      { key: 'cat cow', exercise_id: 501, exercise_name: 'Cat Cow' },
+    ]);
+    const items = next[0]!.days[0]!.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items));
+    expect(items.filter((i) => i.exercise_id === 501)).toHaveLength(2);
+    // El que no se decidió sigue sin resolver: no se toca lo que no se pidió.
+    expect(items.find((i) => i.exercise_name === 'Bird Dog')!.exercise_id).toBeNull();
+  });
+
+  test('la línea pasa a llamarse como el ejercicio, no como el token de la fuente', () => {
+    const weeks = [week([session('Fuerza', [{ name: 'Dominadas' }])])];
+    const next = applyResolvedTokens(weeks, [
+      { key: 'dominadas', exercise_id: 7, exercise_name: 'Dominada' },
+    ]);
+    const item = next[0]!.days[0]!.sessions[0]!.blocks[0]!.items[0]!;
+    expect(item.exercise_name).toBe('Dominada');
+    expect(item.exercise_id).toBe(7);
+  });
+
+  test('lo que ya estaba resuelto no se pisa', () => {
+    const weeks = [week([session('Fuerza', [{ name: 'Back Squat', exerciseId: 10 }])])];
+    const next = applyResolvedTokens(weeks, [
+      { key: 'back squat', exercise_id: 999, exercise_name: 'Otro' },
+    ]);
+    expect(next[0]!.days[0]!.sessions[0]!.blocks[0]!.items[0]!.exercise_id).toBe(10);
+  });
+
+  test('sin nada decidido, las semanas salen igual', () => {
+    const weeks = [week([session('Fuerza', [{ name: 'Cat Cow' }])])];
+    expect(applyResolvedTokens(weeks, [])).toEqual(weeks);
   });
 });

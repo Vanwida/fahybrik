@@ -33,6 +33,12 @@ import {
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { ImportDayReviewDrawer } from './ImportDayReviewDrawer';
+import { ImportMissingExercisesPanel } from './ImportMissingExercisesPanel';
+import {
+  applyResolvedTokens,
+  collectMissingExercises,
+  realMissingCount,
+} from '@/lib/dashboard/v2/import-missing';
 
 // `incomplete` shares the danger hue with `unresolved` because it shares the
 // consequence — both block Confirmar. Amber would promise the coach he can ship
@@ -109,6 +115,10 @@ export function ImportReviewGrid({
   onAddPhoto?: () => void;
 }) {
   const [editing, setEditing] = useState<{ weekIdx: number; dayIdx: number } | null>(null);
+  const [creatingMissing, setCreatingMissing] = useState(false);
+  // Cuántos NOMBRES distintos faltan, no cuántas líneas: 51 líneas de una semana
+  // real son 30 nombres, y es por nombre por lo que se decide.
+  const missingCount = realMissingCount(collectMissingExercises(reviewWeeks));
 
   const setTarget = (weekIdx: number, target: string | null) => {
     onChange(reviewWeeks.map((w, i) => (i === weekIdx ? { ...w, target_week_id: target } : w)));
@@ -347,12 +357,28 @@ export function ImportReviewGrid({
             {error}
           </p>
         ) : unresolved > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} />
-            {unresolved === 1
-              ? '1 línea sin ejercicio del catálogo. Resuélvela para poder guardar.'
-              : `${unresolved} líneas sin ejercicio del catálogo. Resuélvelas para poder guardar.`}
-          </p>
+          /* La salida de un solo toque. Sin ella, una semana real obliga a abrir
+             el selector treinta veces, que es donde se abandona la función. */
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
+              <MIcon name="error" size={14} />
+              {unresolved === 1
+                ? '1 línea sin ejercicio del catálogo.'
+                : `${unresolved} líneas sin ejercicio del catálogo.`}
+            </p>
+            {missingCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCreatingMissing(true)}
+                className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/50 px-2.5 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10"
+              >
+                <MIcon name="library_add" size={14} />
+                {missingCount === 1
+                  ? 'Crear el ejercicio que falta'
+                  : `Crear los ${missingCount} ejercicios que faltan`}
+              </button>
+            ) : null}
+          </div>
         ) : incomplete > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
@@ -405,6 +431,17 @@ export function ImportReviewGrid({
           </button>
         </div>
       </footer>
+
+      {creatingMissing ? (
+        <ImportMissingExercisesPanel
+          weeks={reviewWeeks}
+          onResolved={(resolved) => {
+            onChange(applyResolvedTokens(reviewWeeks, resolved));
+            setCreatingMissing(false);
+          }}
+          onClose={() => setCreatingMissing(false)}
+        />
+      ) : null}
 
       {editing && editingDay ? (
         <ImportDayReviewDrawer

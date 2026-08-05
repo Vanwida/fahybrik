@@ -199,3 +199,52 @@ export function collectMissingExercises(weeks: readonly ReviewWeek[]): MissingEx
 export function realMissingCount(missing: readonly MissingExercise[]): number {
   return missing.filter((m) => m.notAnExercise === null).length;
 }
+
+/** Lo que se decidió para un token: a qué ejercicio del catálogo apunta ahora. */
+export interface ResolvedToken {
+  /** La clave normalizada del token (`MissingExercise.key`). */
+  key: string;
+  exercise_id: number;
+  /** El nombre con el que se guardó, para que la línea deje de enseñar el token
+   *  crudo de la fuente y enseñe el ejercicio de verdad. */
+  exercise_name: string;
+}
+
+/**
+ * Estampa los ejercicios ya resueltos en TODAS las líneas que los usaban.
+ *
+ * Aquí se cierra el círculo sin maquinaria nueva: la línea pasa a tener
+ * `exercise_id`, el día deja de estar bloqueado, y al confirmar el aprendizaje de
+ * sinónimos que YA existe aprende la equivalencia sola — porque `buildConfirmBody`
+ * emite sinónimo justo cuando un flag venía sin resolver y la línea acaba con id.
+ * Así la segunda semana del coach resuelve sola lo que en la primera tuvo que
+ * decidir.
+ *
+ * No muta: devuelve semanas nuevas, como todo lo demás del modelo de revisión.
+ */
+export function applyResolvedTokens(
+  weeks: readonly ReviewWeek[],
+  resolved: readonly ResolvedToken[],
+): ReviewWeek[] {
+  if (resolved.length === 0) return [...weeks];
+  const byKey = new Map(resolved.map((r) => [r.key, r]));
+  return weeks.map((week) => ({
+    ...week,
+    days: week.days.map((day) => ({
+      ...day,
+      sessions: day.sessions.map((session) => ({
+        ...session,
+        blocks: session.blocks.map((block) => ({
+          ...block,
+          items: block.items.map((item) => {
+            if (item.exercise_id != null && Number(item.exercise_id) > 0) return item;
+            const hit = byKey.get(normalizeKey(item.exercise_name));
+            return hit
+              ? { ...item, exercise_id: hit.exercise_id, exercise_name: hit.exercise_name }
+              : item;
+          }),
+        })),
+      })),
+    })),
+  }));
+}
