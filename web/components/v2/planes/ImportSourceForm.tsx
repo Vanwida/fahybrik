@@ -19,6 +19,7 @@ import { looksLikeInstruction } from '@/lib/import/instruction-detect';
 import { getLlmConfigured } from '@/components/v2/editor/ai-suggest-workout';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { ImportPhotoPicker, type PhotoDraft } from './ImportPhotoPicker';
+import { ImportPhotoDestination, WeekSelect } from './import-destination';
 import { usePhotoUploads } from './import-photo-upload';
 
 export type ImportSourceMode = 'file' | 'paste' | 'photo' | 'generate';
@@ -43,44 +44,14 @@ export interface ImportExtractRequest {
   /** El cuerpo de /api/coach/import/proposal, ya armado para este modo. */
   body: unknown;
   /**
-   * La semana del microciclo a la que va lo importado, cuando el modo produce UNA
-   * sola semana (pegar y generar). Los que traen varias (Excel, foto) las mapea el
-   * coach una a una en la revisión, así que aquí va null.
+   * La semana del microciclo por la que EMPIEZA lo importado. Pegar y generar
+   * traen una sola, así que es su destino entero; una tanda de fotos puede traer
+   * varias y se colocan a partir de esta, en el orden de las capturas.
+   *
+   * `null` solo en el Excel, que no pregunta dónde empieza: ahí se queda el mapeo
+   * por defecto y el coach ajusta semana a semana en la revisión.
    */
   targetWeekId: string | null;
-}
-
-/** Container-week picker — shared by the paste (day) and generate (whole week) flows. */
-function WeekSelect({
-  microWeeks,
-  value,
-  onChange,
-  ariaLabel = 'Semana del microciclo',
-}: {
-  microWeeks: MicroWeekRef[];
-  value: string;
-  onChange: (v: string) => void;
-  ariaLabel?: string;
-}) {
-  return (
-    <select
-      aria-label={ariaLabel}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
-    >
-      {microWeeks.length === 0 ? (
-        <option value="">— sin semanas —</option>
-      ) : (
-        microWeeks.map((mw) => (
-          <option key={mw.id} value={mw.id}>
-            Semana {mw.index + 1}
-            {mw.label ? ` · ${mw.label}` : ''}
-          </option>
-        ))
-      )}
-    </select>
-  );
 }
 
 export function ImportSourceForm({
@@ -119,11 +90,19 @@ export function ImportSourceForm({
   // Modo FOTO: las capturas EN ORDEN. La posición decide el número de semana, así
   // que esta lista nunca se reordena sola — solo la mueve el coach.
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
-  // Paste-flow destination: ONE concrete day = a container week + a weekday. The
-  // week defaults to the microcycle's first week; the coach adjusts either select.
-  // The GENERATE flow reuses `pasteWeekId` — it targets one WHOLE week, no weekday.
-  const [pasteWeekId, setPasteWeekId] = useState<string>(microWeeks[0]?.id ?? '');
+  // DÓNDE EMPIEZA lo que se importa. Lo comparten pegar, generar y foto, porque en
+  // los tres es la misma pregunta y la respuesta se conserva al cambiar de modo.
+  const [targetWeekId, setTargetWeekId] = useState<string>(microWeeks[0]?.id ?? '');
   const [pasteWeekday, setPasteWeekday] = useState<number>(1);
+  /**
+   * El día por el que empieza una tanda de FOTOS. `null` = toda la semana.
+   *
+   * Es OPCIONAL porque el número de días no hay que declararlo: el lector ya ve
+   * las cabeceras de día en la captura y sabe si le has dado dos o siete. Lo único
+   * que la foto no puede saber es a qué semana de ESTE microciclo va, porque en la
+   * imagen pone «SEMANA 12» y eso no dice nada del plan que se está montando.
+   */
+  const [photoWeekday, setPhotoWeekday] = useState<number | null>(null);
   // Generate-flow (#48): the coach's natural-language week focus.
   const [generateFocus, setGenerateFocus] = useState('');
   // Shown when a pasted block reads like an instruction (steer to "Generar con IA").
@@ -180,11 +159,11 @@ export function ImportSourceForm({
   const canExtract =
     !busy &&
     (sourceMode === 'paste'
-      ? pastedText.trim().length > 0 && pasteWeekId.length > 0
+      ? pastedText.trim().length > 0 && targetWeekId.length > 0
       : sourceMode === 'photo'
-        ? photos.length > 0
+        ? photos.length > 0 && targetWeekId.length > 0
         : sourceMode === 'generate'
-          ? generateFocus.trim().length >= 2 && pasteWeekId.length > 0 && llmConfigured === true
+          ? generateFocus.trim().length >= 2 && targetWeekId.length > 0 && llmConfigured === true
           : rangeText.trim().length > 0);
 
   const submit = async () => {
@@ -204,7 +183,7 @@ export function ImportSourceForm({
           pasted_text: pastedText,
           target_weekday: pasteWeekday,
         },
-        targetWeekId: pasteWeekId,
+        targetWeekId,
       });
       return;
     }
@@ -216,7 +195,7 @@ export function ImportSourceForm({
           mode: 'generate' as const,
           focus: generateFocus.trim(),
         },
-        targetWeekId: pasteWeekId,
+        targetWeekId,
       });
       return;
     }
@@ -236,8 +215,10 @@ export function ImportSourceForm({
           microcycle_id: Number(microcycleId),
           mode: 'photo' as const,
           images: uploaded.map((pathname) => ({ pathname })),
+          target_week_id: Number(targetWeekId),
+          ...(photoWeekday ? { target_weekday: photoWeekday } : {}),
         },
-        targetWeekId: null,
+        targetWeekId,
       });
       return;
     }
@@ -301,7 +282,16 @@ export function ImportSourceForm({
           </p>
         </div>
       ) : sourceMode === 'photo' ? (
-        <ImportPhotoPicker photos={photos} onChange={setPhotos} disabled={busy} />
+        <div className="space-y-3">
+          <ImportPhotoDestination
+            microWeeks={microWeeks}
+            weekId={targetWeekId}
+            onWeekId={setTargetWeekId}
+            weekday={photoWeekday}
+            onWeekday={setPhotoWeekday}
+          />
+          <ImportPhotoPicker photos={photos} onChange={setPhotos} disabled={busy} />
+        </div>
       ) : sourceMode === 'paste' ? (
         <label className="block space-y-1.5">
           <span className="v2-micro">Pega la sesión de un día</span>
@@ -357,7 +347,7 @@ export function ImportSourceForm({
           </label>
           <div className="space-y-1.5">
             <span className="v2-micro">¿En qué semana del microciclo la meto?</span>
-            <WeekSelect microWeeks={microWeeks} value={pasteWeekId} onChange={setPasteWeekId} />
+            <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
             <p className="v2-micro text-[color:var(--v2-faint)]">
               La IA compone la semana entera con tu biblioteca. La revisas antes de guardar — nada
               entra sin ejercicio del catálogo.
@@ -380,7 +370,7 @@ export function ImportSourceForm({
         <div className="space-y-1.5">
           <span className="v2-micro">¿En qué día del microciclo lo meto?</span>
           <div className="grid grid-cols-2 gap-2">
-            <WeekSelect microWeeks={microWeeks} value={pasteWeekId} onChange={setPasteWeekId} />
+            <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
             <select
               aria-label="Día de la semana"
               value={pasteWeekday}

@@ -3,11 +3,12 @@
 // ImportPhotoPicker — la cuarta puerta del importador: el coach suelta aquí las
 // capturas de su calendario y de aquí salen ya subidas, EN ORDEN.
 //
-// EL ORDEN ES EL DATO. El número de semana sale de la POSICIÓN de cada captura,
-// no de lo que ponga escrito dentro (lo decide el lector, y a propósito: leer
-// "SEMANA 12" en un rótulo no la convierte en la semana 12 del plan que se está
-// montando). Por eso las miniaturas van numeradas a la vista, se pueden reordenar
-// y jamás se reordenan solas por nombre de fichero.
+// EL ORDEN ES EL DATO. El coach dice DÓNDE EMPIEZA (arriba, en el destino) y lo
+// que traigan las capturas se coloca a partir de ahí EN ESTE ORDEN. Lo que ponga
+// escrito dentro de la foto no cuenta: leer «SEMANA 12» en un rótulo no la
+// convierte en la semana 12 del plan que se está montando. Por eso las miniaturas
+// van numeradas a la vista, se pueden reordenar, y jamás se reordenan solas por
+// nombre de fichero.
 //
 // Reordenar tiene DOS caminos y los dos son de primera clase: arrastrar la
 // miniatura, o las flechas de cada una. Arrastrar no existe para quien navega con
@@ -142,7 +143,7 @@ function PhotoTile({
           </span>
         )}
 
-        {/* El número: es lo que decide la semana, así que se ve siempre. */}
+        {/* El número: es lo que decide dónde cae, así que se ve siempre. */}
         <span className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 text-nano font-bold text-[color:var(--v2-accent-fg)]">
           {position}
         </span>
@@ -364,7 +365,7 @@ export function ImportPhotoPicker({
         )}
       >
         <p className="text-center text-sm font-semibold text-[color:var(--v2-fg)]">
-          Arrastra las capturas de la semana
+          Arrastra las capturas
         </p>
         <p className="mt-1 text-center text-xs text-[color:var(--v2-muted)]">
           Varias fotos por importación · JPG, PNG o HEIC
@@ -418,7 +419,8 @@ export function ImportPhotoPicker({
           hay algo que ordenar. */}
       {photos.length > 1 ? (
         <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
-          El orden manda: la <strong>1</strong> es la primera semana. Arrastra una miniatura o usa
+          Se colocan en ESTE orden a partir de donde has dicho arriba: la <strong>1</strong> va
+          primero. Lo que ponga escrito dentro de la foto no cuenta. Arrastra una miniatura o usa
           sus flechas para cambiarlo.
         </p>
       ) : null}

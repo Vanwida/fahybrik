@@ -123,13 +123,26 @@ export function ImportWorkoutsDialog({
       const proposal = (await res.json()) as ImportProposal;
       const model = buildReviewModel(proposal, microWeeks);
       setNotices(proposal.notices ?? []);
-      // Pegar y generar dan UNA sola semana importada: se mapea a la semana que
-      // eligió el coach (el mapeo por defecto la dejaría en la primera) y se
-      // etiqueta igual. Excel y foto traen varias y las mapea él en la revisión.
-      if (targetWeekId && model[0]) {
-        model[0].target_week_id = targetWeekId;
-        const mw = microWeeks.find((w) => w.id === targetWeekId);
-        if (mw) model[0].week = mw.index + 1;
+      // El coach dijo DÓNDE EMPIEZA, así que lo importado se coloca a partir de
+      // ahí y no desde la primera semana: la 1ª leída va a la que eligió, la 2ª a
+      // la siguiente, y así. Con pegar y generar, que traen una sola, esto es lo
+      // mismo de siempre; con una tanda de fotos es la diferencia entre llenar de
+      // la 3 a la 7 o machacar de la 1 a la 5.
+      //
+      // Sin destino elegido (el Excel) se queda el mapeo por defecto de
+      // `buildReviewModel`, y el coach lo ajusta semana a semana en la revisión.
+      if (targetWeekId) {
+        const ordered = [...microWeeks].sort((a, b) => a.index - b.index);
+        const start = ordered.findIndex((w) => w.id === targetWeekId);
+        if (start >= 0) {
+          model.forEach((week, i) => {
+            const mw = ordered[start + i];
+            // Más semanas leídas que semanas por delante: las que sobran se quedan
+            // sin destino y la revisión las bloquea hasta que él diga dónde van.
+            week.target_week_id = mw?.id ?? null;
+            if (mw) week.week = mw.index + 1;
+          });
+        }
       }
       setReviewWeeks(model);
       setConfirmError(null);
