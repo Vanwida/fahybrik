@@ -49,21 +49,30 @@ enum CarreraDeLaSesion {
 
     // MARK: - Duración
 
-    /// CUÁNTO DURÓ EL CORRER — el hueco entre el primer lap y el último, no la
-    /// suma de los laps.
+    /// CUÁNTO DURÓ EL CORRER — de reloj de pared y BLOQUE A BLOQUE, no la suma de
+    /// los laps.
     ///
-    /// Y la diferencia es el caso que la ley necesita ver. Una sesión grabada por
-    /// el camino viejo (o corrida por el reloj, que manda las series y no los
-    /// trotes) trae cinco fuertes y nada más: la suma de los laps son 20 minutos y
-    /// la carrera duró 45. Esos 25 minutos que faltan SON la recuperación que
-    /// nadie grabó, y son lo que impide llamar «uniforme» —y absolver a la media—
-    /// a un 5×1000. Con la suma, ese hueco desaparecería y con él la única pista
-    /// de que hubo contraste.
+    /// La diferencia contra la suma es el caso que la ley necesita ver. Una sesión
+    /// grabada por el camino de hasta el 29-jul (o corrida por el reloj, que manda
+    /// las series y no los trotes) trae cinco fuertes y nada más: la suma de los
+    /// laps son 20 minutos y la carrera duró 45. Esos 25 minutos que faltan SON la
+    /// recuperación que nadie grabó, y son lo que impide llamar «uniforme» —y
+    /// absolver a la media— a un 5×1000. Con la suma, ese hueco desaparecería y
+    /// con él la única pista de que hubo contraste.
+    ///
+    /// Y bloque a bloque porque el reloj de pared de la sesión ENTERA cuenta lo
+    /// que no es correr. Una sesión con trote de calentamiento, cuarenta minutos
+    /// de hierro y vuelta a la calma trotando mide, de la primera zancada a la
+    /// última, casi una hora — y ese hueco no es ninguna recuperación sin grabar:
+    /// es la sentadilla. Sumando el intervalo de cada bloque por separado, lo que
+    /// pasa ENTRE bloques no entra, que es exactamente lo que se quiere.
     private static func duracion(_ correr: [LapRecord]) -> Double {
-        let suma = correr.reduce(0) { $0 + $1.durationSeconds }
-        guard let inicio = correr.map(\.startedAt).min(),
-              let fin = correr.map(\.endedAt).max() else { return suma }
-        return max(suma, fin.timeIntervalSince(inicio))
+        Dictionary(grouping: correr, by: \.segmentId).values.reduce(0) { total, bloque in
+            let suma = bloque.reduce(0) { $0 + $1.durationSeconds }
+            guard let inicio = bloque.map(\.startedAt).min(),
+                  let fin = bloque.map(\.endedAt).max() else { return total + suma }
+            return total + max(suma, fin.timeIntervalSince(inicio))
+        }
     }
 
     // MARK: - Los tramos que ya vienen cerrados
