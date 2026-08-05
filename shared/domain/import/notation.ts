@@ -60,6 +60,7 @@ import { finalizeDetected, type Parsed, type ParsedLine, reviewLine } from './re
 // ── Public API (shape lives in ./result.ts; re-exported for stability) ────────
 
 export type { NotationConfidence, ParsedLine } from './result';
+export type { GroupLabel } from './label';
 
 /**
  * Parse ONE session cell (a day's Capa-2 text, possibly multi-line) into typed

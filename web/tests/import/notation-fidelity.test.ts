@@ -18,6 +18,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { parseNotationCell } from '@fahybrid/shared/domain/import/notation';
+import { readGroupLabel } from '@fahybrid/shared/domain/import/label';
 import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 
 describe('class 1 — double-prime seconds are SECONDS, never ×60', () => {
@@ -743,5 +744,83 @@ describe('invariants across the class 11 corpus', () => {
         expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
       }
     }
+  });
+});
+
+// ── class 12 — the group/order marker is READ, not just stripped ────────────
+// docs/DECISIONS.md, 2026-08-05 "La superserie es un FORMATO de bloque": a
+// block builder needs to know WHICH lines share a letter (and whether they
+// carry an index, meaning "rotate") to draw block boundaries — "A1/A2/A3" is
+// one superset block, "A", "B", "C" are three straight-set blocks. The letter
+// is import-time-only signal (readGroupLabel), never persisted downstream.
+
+describe('class 12 — readGroupLabel reads exactly what stripGroupLabel removes', () => {
+  test('a bare letter ("A:", "A)", "B:", "C:") has no index', () => {
+    for (const [cell, letter] of [
+      ['A: Back Squat 5x5', 'A'],
+      ['B: Deadlift 5x5', 'B'],
+      ['C: Bench Press 5x5', 'C'],
+      ['A) Press Banca 4x4', 'A'],
+    ] as const) {
+      expect(readGroupLabel(cell)).toEqual({ letter });
+    }
+  });
+
+  test('a letter+index ("A1)", "A2)") carries the index — this is the rotate signal', () => {
+    expect(readGroupLabel('A1) Cat Cow 2x10')).toEqual({ letter: 'A', index: 1 });
+    expect(readGroupLabel('A2) Dominada 3x8')).toEqual({ letter: 'A', index: 2 });
+  });
+
+  test('a NUMERIC ordinal ("1)", "2)") is a plain list, not a group — null', () => {
+    // Same null as "no marker at all": a block builder must not group these.
+    expect(readGroupLabel('1) Puente de glúteo 3x12')).toBeNull();
+    expect(readGroupLabel('2) Bird dog 3x10')).toBeNull();
+  });
+
+  test('a line with no marker at all returns null', () => {
+    expect(readGroupLabel('Sentadilla 4x8')).toBeNull();
+    expect(readGroupLabel(`15' easy run`)).toBeNull();
+  });
+
+  test('a leading "LABEL:" that is NOT a group marker ("ROW:") is not read as one', () => {
+    // leadingColonLabel already treats these as distinct from GROUP_LABEL_RE;
+    // readGroupLabel must agree (same shared regex — see label.ts).
+    expect(readGroupLabel(`ROW: 5' WU`)).toBeNull();
+  });
+
+  test('a chained marker ("A1/A2/A3:") reads its OWN leading letter+index', () => {
+    expect(readGroupLabel('A1/A2/A3: Superset')).toEqual({ letter: 'A', index: 1 });
+  });
+});
+
+describe('class 12 — group_label surfaces on the parsed line, truly optional', () => {
+  test('"A1) Cat Cow 2x10" / "A2) Dominada 3x8" carry their own letter+index', () => {
+    const [a1] = parseNotationCell('A1) Cat Cow 2x10');
+    expect(a1!.confidence).toBe('detected');
+    expect(a1!.exercise_token).toBe('Cat Cow');
+    expect(a1!.group_label).toEqual({ letter: 'A', index: 1 });
+
+    const [a2] = parseNotationCell('A2) Dominada 3x8');
+    expect(a2!.exercise_token).toBe('Dominada');
+    expect(a2!.group_label).toEqual({ letter: 'A', index: 2 });
+  });
+
+  test('a bare-letter block ("A) Press Banca") carries a label with no index', () => {
+    const [a] = parseNotationCell('A) Press Banca 4x4');
+    expect(a!.exercise_token).toBe('Press Banca');
+    expect(a!.group_label).toEqual({ letter: 'A' });
+  });
+
+  test('a numeric-ordinal line ("1) Puente de glúteo") carries NO group_label', () => {
+    const [l] = parseNotationCell('1) Puente de glúteo 3x12');
+    expect(l!.exercise_token).toBe('Puente de glúteo');
+    expect(l!.group_label).toBeUndefined();
+    expect('group_label' in l!).toBe(false); // truly optional: the key is absent, not undefined-valued
+  });
+
+  test('a line with no marker at all carries no group_label field either', () => {
+    const [l] = parseNotationCell('Sentadilla 4x8');
+    expect(l!.group_label).toBeUndefined();
+    expect('group_label' in l!).toBe(false);
   });
 });

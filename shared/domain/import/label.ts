@@ -79,14 +79,45 @@ const STRUCTURAL_WORDS_RE =
 // escaped because the lone "a" is in CONNECTOR_WORDS_RE (the Spanish preposition),
 // so it got deleted by accident. Stripping the label here is the root fix.
 
-/** A leading order/group marker: letter (+ optional index), or a list ordinal. */
+/** A leading order/group marker: letter (+ optional index), or a list ordinal.
+ *  The LETTER branch captures its letter (group 1) and index (group 2, empty
+ *  string when bare) so readGroupLabel below can read the exact same marker
+ *  stripGroupLabel removes — one source, so the two can never drift apart.
+ *  The NUMERIC-ordinal branch ("1)", "2)") captures nothing: a plain list is
+ *  not a group (see readGroupLabel and docs/DECISIONS.md, 2026-08-05 — a
+ *  superset is a block FORMAT, and only a LETTER marker names one). */
 const GROUP_LABEL_RE =
-  /^\s*(?:[A-H]\d{0,2}(?:\s*\/\s*[A-H]?\d{0,2})*\s*[):.–—-]|\d{1,2}\s*[).])\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/;
+  /^\s*(?:([A-H])(\d{0,2})(?:\s*\/\s*[A-H]?\d{0,2})*\s*[):.–—-]|\d{1,2}\s*[).])\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/;
 
 /** The line with its order/group marker removed ("B: Deadlift 5x5" → "Deadlift
  *  5x5"). Idempotent and safe on lines that carry none. */
 export function stripGroupLabel(seg: string): string {
   return seg.replace(GROUP_LABEL_RE, '');
+}
+
+/** A coach's leading group marker, READ rather than discarded: "A1" →
+ *  {letter:'A', index:1}; a bare "A" (or "A:", "A)") → {letter:'A'} (no
+ *  index). `index` is what tells a block builder to ROTATE ("A1/A2/A3" is one
+ *  superset block, format `superset`) instead of running straight sets
+ *  ("A", "B", "C" are three separate `sets` blocks) — see docs/DECISIONS.md,
+ *  2026-08-05. A chained marker ("A1/A2/A3:") reads only its OWN leading
+ *  letter+index — the one naming THIS line — not the whole chain: in real
+ *  notation each movement carries its own line with its own single marker
+ *  ("A1) Press Banca", "A2) Dominada", …), so that is the case this exists
+ *  to serve. A NUMERIC ordinal ("1)", "2)") is a plain list, never a group —
+ *  it returns null, same as a line with no marker at all. This is import-time
+ *  notation only: it is never persisted onto a PrescriptionSet or a
+ *  WeekDayPartItem, it dies once the block boundaries are drawn. */
+export interface GroupLabel {
+  letter: string;
+  index?: number;
+}
+
+export function readGroupLabel(seg: string): GroupLabel | null {
+  const m = seg.match(GROUP_LABEL_RE);
+  if (!m || m[1] === undefined) return null; // no marker, or a numeric ordinal
+  const index = m[2] ? parseInt(m[2], 10) : undefined;
+  return index !== undefined ? { letter: m[1], index } : { letter: m[1] };
 }
 
 /** Leading "LABEL:" form ("ROW:", "Threshold cinta:") → the label, else null.

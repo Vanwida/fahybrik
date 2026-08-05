@@ -10,18 +10,24 @@ import {
   prescriptionSchema,
 } from '../prescription/types';
 import { foldText } from './dose';
+import { readGroupLabel, type GroupLabel } from './label';
 
 export type NotationConfidence = 'detected' | 'review';
 
 /** One recognized line of a session cell: the exercise label, its typed dosage,
  *  and how sure the grammar is about the typing. `exercise_token` is verbatim
  *  (resolution to a catalog exercise is a LATER concern, not this module's job)
- *  and is empty for a `review` line or a bout that names no movement. */
+ *  and is empty for a `review` line or a bout that names no movement.
+ *  `group_label` is OPTIONAL and set only when the coach wrote one ("A1) …") —
+ *  a line with none simply omits the field. It is import-time-only signal for
+ *  whoever draws block boundaries (see readGroupLabel in ./label.ts); nothing
+ *  downstream of this module persists it. */
 export interface ParsedLine {
   exercise_token: string;
   prescription: Prescription;
   confidence: NotationConfidence;
   review_reasons: string[];
+  group_label?: GroupLabel;
 }
 
 /** An intermediate parse (pre-validation): the token + its prescription. */
@@ -59,11 +65,13 @@ export function finalizeDetected(
   if (!parsed.success) {
     return reviewLine(raw, `typed prescription failed validation: ${parsed.error.message}`);
   }
+  const groupLabel = readGroupLabel(raw);
   return {
     exercise_token: token,
     prescription: parsed.data as Prescription,
     confidence: 'detected',
     review_reasons: [],
+    ...(groupLabel ? { group_label: groupLabel } : {}),
   };
 }
 
@@ -78,7 +86,14 @@ export function reviewLine(raw: string, reason: string): ParsedLine {
     scheme: detectMetconScheme(raw),
     note: text,
   }) as Prescription;
-  return { exercise_token: '', prescription, confidence: 'review', review_reasons: [reason] };
+  const groupLabel = readGroupLabel(raw);
+  return {
+    exercise_token: '',
+    prescription,
+    confidence: 'review',
+    review_reasons: [reason],
+    ...(groupLabel ? { group_label: groupLabel } : {}),
+  };
 }
 
 function detectMetconScheme(raw: string): PrescriptionScheme {
