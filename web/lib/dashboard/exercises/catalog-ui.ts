@@ -1,5 +1,6 @@
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema, type Modality } from '@fahybrid/shared/domain/prescription';
+import { detectCardioModality } from '@fahybrid/shared/domain/exercises/classify';
 import {
   COACH_OVERRIDE_FIELDS,
   type CoachExerciseRow,
@@ -75,25 +76,6 @@ export const MODALITY_LABELS: Record<Modality, string> = {
 export const MODALITY_OPTIONS: ReadonlyArray<{ value: Modality; label: string }> =
   modalitySchema.options.map((value) => ({ value, label: MODALITY_LABELS[value] }));
 
-/** Sin acentos y en minúsculas: "Bici", "bici" y "BICI" son la misma palabra. */
-const fold = (s: string): string =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
-
-/**
- * QUÉ máquina de cardio nombra el texto. Español y inglés porque el catálogo Base
- * está en inglés y el coach escribe en español — ése era justo el agujero de la regla
- * vieja, que sólo miraba inglés (`like '%row%'`).
- */
-const CARDIO_NAME_HINTS: ReadonlyArray<readonly [RegExp, Modality]> = [
-  [/\bski|skierg/, 'ski'],
-  [/\bbike|\bbici|airbike|assault/, 'bike'],
-  [/\brow|\bremo/, 'row'],
-  [/\brun|\bcorr|carrera|cinta|sprint|rodaje|tirada/, 'run'],
-];
-
 /** Cuando el nombre no dice nada, lo dice la categoría. */
 const CATEGORY_MODALITY: Record<ExerciseCategory, Modality> = {
   cardio: 'run',
@@ -125,12 +107,20 @@ const CATEGORY_IS_THE_DISCIPLINE: ReadonlySet<ExerciseCategory> = new Set<Exerci
  * la regla vieja). Todo lo demás lo dice la categoría. Deliberadamente corta: una
  * heurística que acierta el 90% y se ve es útil; una que acierta el 99% y no se ve es
  * la que nos trajo hasta aquí.
+ *
+ * QUÉ sabe el nombre lo dice `detectCardioModality` (shared/domain/exercises/
+ * classify.ts) — la MISMA tabla que usa `guessMovement` para el alta en bloque
+ * desde una foto. Antes vivía duplicada aquí con su propia lista de palabras,
+ * ligeramente distinta; una sola tabla es la que este módulo lleva todo el día
+ * defendiendo. Lo que NO se comparte es el fallback: cuando el nombre no dice
+ * nada, `guessMovement` prefiere `null` (mejor preguntar que adivinar mal), pero
+ * este formulario SIEMPRE tiene que ofrecer algo — por eso cae a la categoría
+ * (`CATEGORY_MODALITY`), nunca a `null`. Comportamiento observable sin cambios.
  */
 export function suggestModality(name: string, category: ExerciseCategory): Modality {
   const fallback = CATEGORY_MODALITY[category];
   if (CATEGORY_IS_THE_DISCIPLINE.has(category)) return fallback;
-  const text = fold(name);
-  return CARDIO_NAME_HINTS.find(([re]) => re.test(text))?.[1] ?? fallback;
+  return detectCardioModality(name) ?? fallback;
 }
 
 /**

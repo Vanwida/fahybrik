@@ -66,12 +66,43 @@ function fold(raw: string): string {
     .trim();
 }
 
+// Which cardio machine/mode a NAME points to — ski/row/bike/run. The ONE place
+// that knows this, shared by `modalityForCategory` below (mirroring migration
+// 0053's cardio derivation) AND `suggestModality` (web/lib/dashboard/exercises/
+// catalog-ui.ts — the coach's create-exercise form), which used to carry its
+// OWN, slightly different word list. Reconciled here on request (two
+// classifiers that could silently drift apart is exactly the failure mode
+// this module exists to prevent): the Spanish running vocabulary
+// ("sprint"/"rodaje"/"tirada") and treating "airbike" as its own compound
+// word came from `suggestModality`'s list and would otherwise have been lost
+// by deleting it in favor of this one.
+const CARDIO_MODALITY_HINTS: ReadonlyArray<readonly [RegExp, Modality]> = [
+  [/\bski(?:erg)?\b/, 'ski'],
+  [/\brow(?:ing)?\b|\bremo\b/, 'row'],
+  [/\bbike\b|\bbici\w*\b|air[\s-]?bikes?|assault|\becho\b|\bcycl\w*\b/, 'bike'],
+  [
+    /\brun\b|\btreadmill\b|\bjog\w*\b|\bcarrera\b|\bcorrer\b|\bcinta\b|\btrote\b|\bsprints?\b|\brodajes?\b|\btiradas?\b/,
+    'run',
+  ],
+];
+
+/** Which cardio machine/mode `name` points to, or `null` when nothing does —
+ *  the caller decides what "nothing matched" means: this module's own
+ *  `modalityForCategory` falls back to `'other'` (migration 0053's exact
+ *  rule), while `suggestModality`'s form always has to suggest SOMETHING and
+ *  falls back to `'run'` instead. Same knowledge, two legitimately different
+ *  fallback policies — not a fork of the knowledge itself. */
+export function detectCardioModality(name: string): Modality | null {
+  const folded = fold(name);
+  return CARDIO_MODALITY_HINTS.find(([re]) => re.test(folded))?.[1] ?? null;
+}
+
 /**
  * category → modality, mirroring migration 0053's backfill rule exactly (see
- * file header). `cardio`/`hyrox_station` still read the NAME for which
- * cardio modality applies — the migration used `like '%word%'`; this uses
- * word-boundary regexes on the ALREADY-folded name, stricter than a bare
- * substring for the same intent.
+ * file header). `cardio` still reads the NAME (via `detectCardioModality`)
+ * for which cardio modality applies; `hyrox_station` does its OWN narrower
+ * ski/row/run check (never bike — no official HYROX station is a bike leg,
+ * unlike the general cardio case) per 0053's separate hyrox_station branch.
  */
 function modalityForCategory(category: ExerciseCategory, folded: string): Modality {
   switch (category) {
@@ -85,13 +116,7 @@ function modalityForCategory(category: ExerciseCategory, folded: string): Modali
     case 'skill':
       return 'functional';
     case 'cardio':
-      if (/\bski\b/.test(folded)) return 'ski';
-      if (/\brow(ing)?\b|\bremo\b/.test(folded)) return 'row';
-      if (/\bbike\b|\bassault\b|\becho\b|\bcycl\w*\b|\bbici\w*\b/.test(folded)) return 'bike';
-      if (/\brun\b|\btreadmill\b|\bjog\w*\b|\bcarrera\b|\bcorrer\b|\bcinta\b|\btrote\b/.test(folded)) {
-        return 'run';
-      }
-      return 'other';
+      return detectCardioModality(folded) ?? 'other';
     case 'hyrox_station':
       if (/\bski\b/.test(folded)) return 'ski';
       if (/\brow(ing)?\b|\bremo\b/.test(folded)) return 'row';
@@ -155,7 +180,7 @@ const CURATED: Rule[] = [
   },
   // Cardio — pure conditioning modalities, run/row/ski/bike/swim words.
   {
-    re: /\b(runs?|jog(?:ging)?|treadmills?|carreras?|correr|cintas?|trotes?|rows?|rowing|remos?|ski(?:erg)?|bikes?|bicis?|cycling|assault bikes?|echo bikes?|air[\s-]?bikes?|swims?|nadar|nataci[oó]n)\b/,
+    re: /\b(runs?|jog(?:ging)?|treadmills?|carreras?|correr|cintas?|trotes?|sprints?|rodajes?|tiradas?|rows?|rowing|remos?|ski(?:erg)?|bikes?|bicis?|cycling|assault bikes?|echo bikes?|air[\s-]?bikes?|swims?|nadar|nataci[oó]n)\b/,
     category: 'cardio',
     confidence: 'high',
   },

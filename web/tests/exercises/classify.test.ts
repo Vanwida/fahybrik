@@ -8,7 +8,11 @@
  * than no guess, so a `null` here is a PASS, not a gap.
  */
 import { describe, expect, test } from 'vitest';
-import { guessMovement, type MovementGuess } from '@fahybrid/shared/domain/exercises/classify';
+import {
+  detectCardioModality,
+  guessMovement,
+  type MovementGuess,
+} from '@fahybrid/shared/domain/exercises/classify';
 
 interface Case {
   name: string;
@@ -119,5 +123,43 @@ describe('guessMovement — specificity ordering resolves the SAME word meaning 
       modality: 'functional',
       confidence: 'high',
     });
+  });
+});
+
+describe('detectCardioModality — the ONE cardio-name table, shared with suggestModality', () => {
+  // web/lib/dashboard/exercises/catalog-ui.ts's suggestModality used to carry
+  // its OWN, slightly different word list for the exact same job (which cardio
+  // machine does this name point to). Reconciled here per team-lead's request
+  // (two classifiers that can drift is the failure mode this module exists to
+  // prevent) — these are the terms suggestModality's OWN test suite
+  // (web/tests/exercises/suggest-modality.test.ts) already covers, asserted
+  // here too so this shared table can never regress them independently.
+  test.each([
+    ['Remo 500m', 'row'],
+    ['Bici 20 min', 'bike'],
+    ['Carrera continua 40 min', 'run'],
+    ['Rodaje suave', 'run'],
+    ['Tirada larga', 'run'],
+    ['Sprint 100m', 'run'],
+    ['HYROX SkiErg', 'ski'],
+  ] as const)('"%s" → %s', (name, expected) => {
+    expect(detectCardioModality(name)).toBe(expected);
+  });
+
+  test('"airbike" as ONE compound word resolves to bike (suggestModality carried this, guessMovement did not)', () => {
+    // The OLD guessMovement regex required a word BOUNDARY before "bike"
+    // (`\bbike\b`), which "airbike" never satisfies (no boundary between "air"
+    // and "bike") — a real gap suggestModality's simpler `airbike` alternative
+    // already covered. Folded in during reconciliation, not lost.
+    expect(detectCardioModality('Airbike Sprint')).toBe('bike');
+  });
+
+  test('no cardio signal in the name → null (the caller decides the fallback, this table never guesses one)', () => {
+    expect(detectCardioModality('Cat Cow')).toBeNull();
+    expect(detectCardioModality('')).toBeNull();
+  });
+
+  test('reconciliation did not regress guessMovement: "Sprint 100m" now classifies (it silently could not before)', () => {
+    expect(guessMovement('Sprint 100m')).toEqual({ category: 'cardio', modality: 'run', confidence: 'high' });
   });
 });
