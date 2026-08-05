@@ -48,7 +48,11 @@ export function finalizeDetected(
   raw: string,
 ): ParsedLine {
   const bare = foldText(token);
-  if (bare && DOSE_WORD_ONLY_RE.test(bare)) {
+  // Every word counts work rather than names it ("series repeticiones" is the
+  // debris left behind by a bare "N series de X-Y repeticiones" with no
+  // exercise attached — as wrong a "movement" as "RONDAS" alone).
+  const words = bare.split(/\s+/).filter(Boolean);
+  if (words.length > 0 && words.every((w) => DOSE_WORD_ONLY_RE.test(w))) {
     return reviewLine(raw, `counter word "${token.trim()}" read as the movement — no exercise named`);
   }
   const parsed = prescriptionSchema.safeParse(prescription);

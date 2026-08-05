@@ -10,9 +10,11 @@ import {
   parseEffortTarget,
   parseKg,
   parseLoadPctList,
+  parseRepRange,
   parseRepSeq,
   parseRest,
   parseSetCount,
+  parseSetsByRepRange,
   parseSetsByReps,
   stripLoadPct,
   stripTargetTokens,
@@ -25,6 +27,34 @@ export const ROUNDS_HEADER_RE =
   /^\s*(\d+)\s*(?:rounds|rondas|series|vueltas)\b\s*(?:c\/\s*\d+\s*'(?:\s*\d+\s*'')?\s*)?[:.]?\s*/i;
 
 // ── Combos (one physical line → one typed line per movement) ─────────────────
+
+/** "10+10 Step Ups Cajón" — a movement named ONCE after a chain of bare rep
+ *  counts. FIEL O REVIEW reads "+" exactly as it reads everywhere ELSE in this
+ *  grammar (a SEPARATOR between discrete units, never a sum): each addend
+ *  becomes its OWN set of that many reps of the one movement named at the
+ *  end — 2 sets of 10, never "20 reps" (that sums the text) and never "10 per
+ *  side" (that claims an alternating/unilateral reading the bare "+" does not
+ *  say — "/lado" is the text that proves that, see parseStrength above).
+ *  Needs no new schema field: PrescriptionSet is already an array, so a
+ *  literal reading of "+" as "another set" costs nothing extra to represent. */
+export function tryRepPlusCombo(line: string): ParsedLine[] | null {
+  if (!line.includes('+')) return null;
+  const segs = line.split('+').map((s) => s.trim()).filter(Boolean);
+  if (segs.length < 2) return null;
+  const values: number[] = [];
+  for (const seg of segs.slice(0, -1)) {
+    if (!/^\d{1,2}$/.test(seg)) return null; // every addend but the last must be a BARE count
+    values.push(parseInt(seg, 10));
+  }
+  const last = segs[segs.length - 1]!;
+  const m = last.match(/^(\d{1,2})\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ'\- ]*)$/);
+  if (!m) return null;
+  values.push(parseInt(m[1]!, 10));
+  const token = m[2]!.replace(/\s+/g, ' ').trim();
+  if (!token) return null;
+  const sets: PrescriptionSet[] = values.map((value) => ({ measure: { kind: 'reps', value } }));
+  return [finalizeDetected(token, { scheme: 'sets', modality: 'strength', sets }, line)];
+}
 
 /** A clean strength combo ("A 5r <scheme> + B 5r <scheme>") splits on "+" into
  *  one typed line per movement. */
@@ -127,11 +157,22 @@ function parseRepsFirstMovement(
 // "Deadlift 5r 10/10/8/6/4"   "5 rounds c/2': 3 Power Clean 70-80%"
 
 export function parseStrength(seg: string): Parsed | null {
+  const stripped = stripTargetTokens(stripLoadPct(seg));
+  // "Sentadilla 4x12-15" — sets × a rep BAND, read before anything else can
+  // misparse "12-15" as a 2-element sequence (12 reps, then 15).
+  const setsByRange = parseSetsByRepRange(seg);
+  const setCount = parseSetCount(seg);
+  // "4 series de 12-15 repeticiones" — same band, spelled with an explicit set
+  // count instead of "Nx". A BARE range with no multiplier anywhere ("12-15
+  // repeticiones" alone) has no sets to repeat it over, so it is intentionally
+  // left unclaimed here — it falls through to the plain sequence reader below,
+  // which reads it as one un-named set of two reps and then reviews for lack
+  // of a movement name (the existing counter-word guard in ./result.ts).
+  const repRange = !setsByRange && setCount !== undefined ? parseRepRange(stripped) : null;
   // Target clauses are stripped BEFORE the rep-scheme read so "RPE 3-4" or
   // "Z3-4" can never masquerade as reps (class 2).
-  const reps = parseRepSeq(stripTargetTokens(stripLoadPct(seg)));
-  const nxm = reps ? null : parseSetsByReps(seg);
-  const setCount = parseSetCount(seg);
+  const reps = setsByRange || repRange ? null : parseRepSeq(stripped);
+  const nxm = reps || setsByRange ? null : parseSetsByReps(seg);
   const loadList = parseLoadPctList(seg);
   const kg = parseKg(seg);
   const rest = parseRest(seg);
@@ -140,7 +181,16 @@ export function parseStrength(seg: string): Parsed | null {
   // stripped before the rep read (above) and then never typed at all.
   const effort = parseEffortTarget(seg)?.target;
 
-  let perSetReps = reps ?? (nxm ? Array.from({ length: nxm.sets }, () => nxm.reps) : null);
+  const repsMax = setsByRange?.max ?? repRange?.max;
+  let perSetReps =
+    reps ??
+    (setsByRange
+      ? Array.from({ length: setsByRange.sets }, () => setsByRange.value)
+      : repRange
+        ? Array.from({ length: setCount! }, () => repRange.value)
+        : nxm
+          ? Array.from({ length: nxm.sets }, () => nxm.reps)
+          : null);
   let token: string | null = null;
   let repsFirstTarget: Target | undefined;
   let usedRepsFirst = false;
@@ -204,8 +254,12 @@ export function parseStrength(seg: string): Parsed | null {
   const sets: PrescriptionSet[] = [];
   for (let i = 0; i < nSets; i++) {
     const s: PrescriptionSet = {};
-    if (perSetReps) s.measure = { kind: 'reps', value: perSetReps[i]! };
-    else if (timedSetSeconds !== undefined) {
+    if (perSetReps) {
+      s.measure =
+        repsMax !== undefined
+          ? { kind: 'reps', value: perSetReps[i]!, max: repsMax }
+          : { kind: 'reps', value: perSetReps[i]! };
+    } else if (timedSetSeconds !== undefined) {
       s.measure = { kind: 'duration', seconds: timedSetSeconds };
     }
     const target =

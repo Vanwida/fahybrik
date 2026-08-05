@@ -51,6 +51,7 @@ import {
   parseCoreWorkRest,
   parseStrength,
   ROUNDS_HEADER_RE,
+  tryRepPlusCombo,
   tryRoundsHeaderCombo,
   tryStrengthCombo,
 } from './strength';
@@ -105,7 +106,14 @@ const CONTINUATION_RE = /^[\s—–-]*\d+(?:\/\d+)+(?:\s*[—–-].*)?$|^[\s—�
 
 function isContinuation(line: string): boolean {
   if (!line) return false;
-  return CONTINUATION_RE.test(line) || TARGET_ONLY_RE.test(line);
+  // "Descanso 1:30" on its own physical line under a work line: a pure-rest
+  // continuation (see isPureRest — colon/word clocks included) attaches its
+  // rest_s to the line above via the SAME merge-then-reparse this function
+  // already does for rep schemes and bare targets — parseRest reads it once
+  // the text is joined. Orphaned (nothing above to attach to) it falls
+  // through unmerged and reviews instead of vanishing (isNoiseLine no longer
+  // eats a "descanso" line that carries a dose — see ./label.ts).
+  return CONTINUATION_RE.test(line) || TARGET_ONLY_RE.test(line) || isPureRest(line);
 }
 
 function joinContinuations(lines: string[]): string[] {
@@ -219,6 +227,12 @@ function parseChain(line: string, segments: string[]): ParsedLine[] {
   }
   const chain = tryBoutChain(line, segments);
   if (chain) return chain;
+  // "10+10 Step Ups Cajón" — bare rep counts chained onto ONE trailing
+  // movement name; neither a strength combo (no per-segment dose) nor a bout
+  // chain (no bout signal) can type it, but it is still provable — see
+  // tryRepPlusCombo. Tried LAST so it never shadows an existing combo class.
+  const repPlus = tryRepPlusCombo(line);
+  if (repPlus) return repPlus;
   if (work.length < 2) return [parseSegment(line)];
   return [reviewLine(line, 'multi-bout line the grammar could not type whole — kept verbatim')];
 }

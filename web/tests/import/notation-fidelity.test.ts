@@ -553,3 +553,195 @@ describe('class 10 — RIR is an intensity, not noise', () => {
     expect(line!.prescription.sets![0]!.target).toEqual({ kind: 'rpe', value: 8 });
   });
 });
+
+// ── class 11 — TrainingPeaks capture vocabulary (colon clocks, word units,
+// rep RANGES, rest lines that used to vanish, "+"-chained rep counts) ─────────
+// Source: a real TrainingPeaks week (calendar screenshot text) and Pablo's own
+// group-label notation. Every case is a NEW grammar surface, not a bugfix to
+// an existing one — see shared/domain/import/dose.ts, strength.ts, label.ts.
+
+describe('class 11 — a rep RANGE is a BAND, never two flattened sets', () => {
+  test('"Sentadilla 4x12-15" → 4 sets, each a reps band 12-15, not 12 then 15', () => {
+    const [line, ...rest] = parseNotationCell('Sentadilla 4x12-15');
+    expect(rest).toHaveLength(0);
+    expect(line!.confidence).toBe('detected');
+    expect(line!.exercise_token).toBe('Sentadilla');
+    expect(line!.prescription.sets).toHaveLength(4);
+    for (const s of line!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps', value: 12, max: 15 });
+    }
+  });
+
+  test('"Sentadilla 4 series de 12-15 repeticiones" → the same band, spelled out', () => {
+    const [line] = parseNotationCell('Sentadilla 4 series de 12-15 repeticiones');
+    expect(line!.confidence).toBe('detected');
+    expect(line!.exercise_token).toBe('Sentadilla');
+    expect(line!.prescription.sets).toHaveLength(4);
+    expect(line!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 12, max: 15 });
+  });
+
+  test('"10/10/8/8/6" stays an exact per-set SEQUENCE, never a range', () => {
+    // The disambiguator: a range needs an ASCENDING dash pair beside a reps
+    // word or an "Nx" multiplier — a slash-joined list is never a range.
+    const [line] = parseNotationCell('Sentadilla 10/10/8/8/6');
+    expect(line!.prescription.sets!.map((s) => s.measure)).toEqual(
+      [10, 10, 8, 8, 6].map((value) => ({ kind: 'reps', value })),
+    );
+    expect(line!.prescription.sets!.every((s) => s.measure!.max === undefined)).toBe(true);
+  });
+
+  test('"12-15 repeticiones" alone still reviews — no exercise, no multiplier to repeat the band over', () => {
+    const [line] = parseNotationCell('12-15 repeticiones');
+    expect(line!.confidence).toBe('review');
+    expect(line!.prescription.sets).toBeUndefined();
+  });
+
+  test('"4 series de 12-15 repeticiones" alone (no exercise) reviews too, not "series repeticiones"', () => {
+    // A generalization of the counter-word guard: EVERY word in the token is a
+    // counter, not just a single bare word — the range grammar makes this
+    // multi-word debris reachable where before only single words were.
+    const [line] = parseNotationCell('4 series de 12-15 repeticiones');
+    expect(line!.confidence).toBe('review');
+    expect(line!.prescription.note).toBe('4 series de 12-15 repeticiones');
+  });
+
+  test('"3-4 RONDAS" is still a review, not a fabricated rounds range', () => {
+    const [line] = parseNotationCell('3-4 RONDAS');
+    expect(line!.confidence).toBe('review');
+  });
+});
+
+describe('class 11 — clock vocabulary: words and colons, not just the prime', () => {
+  test('word seconds/minutes/hours read as durations, with a clean token', () => {
+    const [min] = parseNotationCell('Carrera 2 min Z2');
+    expect(min!.exercise_token).toBe('Carrera');
+    expect(min!.prescription.total_s).toBe(120);
+    const [minutos] = parseNotationCell('Carrera 2 minutos Z2');
+    expect(minutos!.prescription.total_s).toBe(120);
+    const [hora] = parseNotationCell('Carrera 1 hora Z2');
+    expect(hora!.exercise_token).toBe('Carrera');
+    expect(hora!.prescription.total_s).toBe(3600);
+  });
+
+  test('a 3-part colon clock reads as h:mm:ss, a 2-part one as m:ss', () => {
+    const [hms] = parseNotationCell(`Carrera 1:20:00 Z2`);
+    expect(hms!.prescription.total_s).toBe(4800);
+    const [ms] = parseNotationCell(`10' movilidad\nRest 1:30`);
+    expect(ms!.prescription.rest_s).toBe(90); // never 5400 (misread as h:mm)
+  });
+
+  test('pace with a colon clock and unit types the SAME target as the prime form', () => {
+    const [colon] = parseNotationCell(`Carrera 5' @ 3:45 min/km`);
+    const [prime] = parseNotationCell(`Carrera 5' @ 3'45/km`);
+    expect(colon!.prescription.target).toEqual({ kind: 'pace', unit: 'per_km', value_s: 225 });
+    expect(colon!.prescription.target).toEqual(prime!.prescription.target);
+  });
+
+  test('"1:54 /500m" reads as 114 s/500m pace', () => {
+    const [l] = parseNotationCell(`Row 5' @ 1:54 /500m`);
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_500m', value_s: 114 });
+  });
+
+  test('"4x8" is still 4 sets of 8 reps — the new vocabulary never reads it as a clock', () => {
+    const [l] = parseNotationCell('Sentadilla 4x8');
+    expect(l!.prescription.sets!.map((s) => s.measure)).toEqual(
+      [8, 8, 8, 8].map((value) => ({ kind: 'reps', value })),
+    );
+  });
+
+  test('a word/colon clock still attached to an unconsumed "Nx" reviews rather than fabricating', () => {
+    // "6x90 seg" is a 6-round × 90-second interval; the grammar has no
+    // word-interval reader yet, so reading just "90 seg" as a bare duration
+    // would silently drop the "6x" repeat count. Honesty: review, not a
+    // fabricated single 90s bout (and NOT "6 sets of 90 reps" either).
+    const [l] = parseNotationCell('6x90 seg strides');
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.sets).toBeUndefined();
+    expect(l!.prescription.total_s).toBeUndefined();
+  });
+});
+
+describe('class 11 — "Descanso 1:30" attaches to the line above, never vanishes', () => {
+  test('a standalone rest-with-clock line merges onto the previous line as rest_s', () => {
+    const lines = parseNotationCell(`45' carrera Z2\nDescanso 1:30`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('detected');
+    expect(lines[0]!.prescription.total_s).toBe(2700);
+    expect(lines[0]!.prescription.rest_s).toBe(90);
+  });
+
+  test('word-clock and reversed-order rest lines merge the same way', () => {
+    const [seg] = parseNotationCell(`10' movilidad\nRest 90 seg`);
+    expect(seg!.prescription.rest_s).toBe(90);
+    const [rev] = parseNotationCell(`10' movilidad\n1:30 descanso`);
+    expect(rev!.prescription.rest_s).toBe(90);
+  });
+
+  test('an ORPHANED rest line (nothing above to attach to) reviews — never the void', () => {
+    const lines = parseNotationCell(`Descanso 1:30`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('review');
+    expect(lines[0]!.prescription.note).toBe('Descanso 1:30');
+  });
+
+  test('a bare rest DAY ("Descanso" / "off") is still noise — zero lines, as before', () => {
+    expect(parseNotationCell(`Descanso`)).toHaveLength(0);
+    expect(parseNotationCell(`Rest day`)).toHaveLength(0);
+    expect(parseNotationCell(`off`)).toHaveLength(0);
+  });
+});
+
+describe('class 11 — "+"-chained bare rep counts read as separate sets', () => {
+  test('"10+10 Step Ups Cajón" → 2 sets of 10 reps, "+" as a separator not a sum', () => {
+    const [line, ...rest] = parseNotationCell('10+10 Step Ups Cajón');
+    expect(rest).toHaveLength(0);
+    expect(line!.confidence).toBe('detected');
+    expect(line!.exercise_token).toBe('Step Ups Cajón');
+    // Exactly 2 sets of 10 — never "20 reps" (a fabricated sum) and never a
+    // "max" (a fabricated range): each addend is its own set, nothing more.
+    expect(line!.prescription.sets!.map((s) => s.measure)).toEqual([
+      { kind: 'reps', value: 10 },
+      { kind: 'reps', value: 10 },
+    ]);
+  });
+
+  test('a three-way chain "8+8+8 Curl" also reads as three sets', () => {
+    const [line] = parseNotationCell('8+8+8 Curl');
+    expect(line!.confidence).toBe('detected');
+    expect(line!.exercise_token).toBe('Curl');
+    expect(line!.prescription.sets!.map((s) => s.measure)).toEqual([
+      { kind: 'reps', value: 8 },
+      { kind: 'reps', value: 8 },
+      { kind: 'reps', value: 8 },
+    ]);
+  });
+
+  test('a real multi-bout chain is UNCHANGED — bare rep counts never shadow it', () => {
+    const lines = parseNotationCell(`10' row + 10' ski + 10' AB + 10' run Z2`);
+    expect(lines).toHaveLength(4);
+  });
+});
+
+// ── Cross-class invariant, extended with the class 11 corpus ────────────────
+
+describe('invariants across the class 11 corpus', () => {
+  const CLASS_11_CELLS = [
+    'Sentadilla 4x12-15',
+    'Sentadilla 4 series de 12-15 repeticiones',
+    'Carrera 2 min Z2',
+    'Carrera 1 hora Z2',
+    `Carrera 5' @ 3:45 min/km`,
+    `Row 5' @ 1:54 /500m`,
+    `45' carrera Z2\nDescanso 1:30`,
+    '10+10 Step Ups Cajón',
+  ];
+
+  test('every emitted prescription validates', () => {
+    for (const cell of CLASS_11_CELLS) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+      }
+    }
+  });
+});

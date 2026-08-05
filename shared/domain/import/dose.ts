@@ -41,9 +41,37 @@ export const foldText = (s: string): string =>
 
 // ── Clocks & durations ───────────────────────────────────────────────────────
 
+/** h/m/s colon groups (the 3rd, seconds, group optional: 2 parts = m:ss, 3 =
+ *  h:mm:ss) → total seconds. Shared by parseClockSeconds and parseRest so the
+ *  TrainingPeaks colon vocabulary is read identically everywhere. */
+function colonClockToSeconds(hOrM: string, mOrS: string, s: string | undefined): number {
+  if (s !== undefined) return parseInt(hOrM, 10) * 3600 + parseInt(mOrS, 10) * 60 + parseInt(s, 10);
+  return parseInt(hOrM, 10) * 60 + parseInt(mOrS, 10);
+}
+
+/** A number + its unit WORD ("hora(s)", "min(utos)", "segundos"/"seg"/"s") →
+ *  seconds. Shared by parseClockSeconds and parseRest. */
+function wordClockToSeconds(n: number, unit: string): number {
+  const u = unit.toLowerCase();
+  if (u.startsWith('hora')) return n * 3600;
+  if (u.startsWith('min')) return n * 60;
+  return n; // segundos / seg / s
+}
+
 /** Any single clock literal → seconds: "1h15'"→4500 · "3'30''"→210 · "3'"→180 ·
- *  "30''"→30 · "1h"→3600. Order matters: the compound forms first so a `''`
- *  never loses a quote to the minutes reader. */
+ *  "30''"→30 · "1h"→3600 · "90 seg"/"90s"→90 · "2 min"→120 · "1 hora"→3600 ·
+ *  "1:30"→90 (m:ss) · "1:20:00"→4800 (h:mm:ss). Order matters: the compound
+ *  prime forms first so a `''` never loses a quote to the minutes reader; the
+ *  word/colon forms are TrainingPeaks' vocabulary, tried only once no prime
+ *  form matched. A pace clock ("3:45 min/km") is NOT a duration — both new
+ *  forms refuse to fire immediately before a pace unit, and the word form
+ *  refuses to fire on a number that is itself the ss half of an m:ss pace
+ *  (the `(?<!:)` lookbehind), so "3:45 min/km" is never misread as 45 min.
+ *  `(?<!\d)` on every new form anchors the number to ITS OWN start — without
+ *  it, a lookbehind that blocks the true start of a number (e.g. the "9" of
+ *  "90") lets the engine backtrack into the number's OWN trailing digit (the
+ *  "0" of "90") and fabricate a match from a digit that was never a number on
+ *  its own. */
 export function parseClockSeconds(raw: string): number | undefined {
   const hm = raw.match(/(\d+)\s*h\s*(\d+)\s*'/i);
   if (hm) return parseInt(hm[1]!, 10) * 3600 + parseInt(hm[2]!, 10) * 60;
@@ -55,11 +83,33 @@ export function parseClockSeconds(raw: string): number | undefined {
   if (min) return parseInt(min[1]!, 10) * 60;
   const sec = raw.match(/(\d+)\s*''/);
   if (sec) return parseInt(sec[1]!, 10);
+  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
+  const word = raw.match(
+    new RegExp(
+      `(?<!\\d)(?<!:)(\\d+)\\s*(horas?|min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
+      'i',
+    ),
+  );
+  if (word) return wordClockToSeconds(parseInt(word[1]!, 10), word[2]!);
+  const hms = raw.match(new RegExp(`(?<!\\d)\\b(\\d+):([0-5]?\\d):([0-5]?\\d)\\b${PACE_GUARD}`));
+  if (hms) return colonClockToSeconds(hms[1]!, hms[2]!, hms[3]);
+  const msColon = raw.match(new RegExp(`(?<!\\d)\\b(\\d+):([0-5]\\d)\\b${PACE_GUARD}`));
+  if (msColon) return colonClockToSeconds(msColon[1]!, msColon[2]!, undefined);
   return undefined;
 }
 
 /** A continuous bout duration in minutes/hours — never a rest clock ("1'15''",
- *  guarded), never a seconds literal, never a pace ("6'/km", unit lookahead). */
+ *  guarded), never a seconds literal, never a pace ("6'/km", unit lookahead).
+ *  Also reads the TrainingPeaks word/colon vocabulary ("2 min", "90 seg",
+ *  "1:30"), guarded the same way as parseClockSeconds so a pace's "45" in
+ *  "3:45 min/km" is never misread as 45 minutes. "1 hora" already matches the
+ *  bare `h` branch above (a coach's "h" and the "h" starting "hora" are the
+ *  same literal), so no separate hour-word branch is needed. The new forms
+ *  also refuse a number still attached to an "Nx" this function does not
+ *  itself consume: "6x90 seg" is a ROUNDS×CLOCK interval (no word-interval
+ *  reader exists yet — see parseInterval), and reading just its "90 seg" half
+ *  as a bare 90s duration would silently drop the "6x" repeat count, which is
+ *  a fabrication this function must never make; the line stays review. */
 export function parseDuration(raw: string): number | undefined {
   const hm = raw.match(/(\d+)\s*h\s*(\d+)\s*'/);
   if (hm) return parseInt(hm[1]!, 10) * 3600 + parseInt(hm[2]!, 10) * 60;
@@ -67,6 +117,26 @@ export function parseDuration(raw: string): number | undefined {
   if (h) return parseInt(h[1]!, 10) * 3600;
   const min = raw.match(/(\d+)\s*'(?!')(?!\s*\d)(?!\s*\/\s*(?:km|500|mi|milla))/);
   if (min) return parseInt(min[1]!, 10) * 60;
+  // `(?<!\d)` is load-bearing, not decorative: without it, when NOT_INTERVAL_
+  // GUARD blocks the true start of "90" in "6x90 seg", the engine backtracks
+  // and re-tries from "0" (the trailing digit) — which the "x"-lookbehind no
+  // longer sees, so it would match a fabricated "0 seg" = 0s instead of
+  // refusing the line. Anchoring every number to its OWN start closes that.
+  const NOT_INTERVAL_GUARD = '(?<!\\d)(?<!x\\s{0,3})';
+  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
+  const word = raw.match(
+    new RegExp(
+      `(?<!:)${NOT_INTERVAL_GUARD}(\\d+)\\s*(min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
+      'i',
+    ),
+  );
+  if (word) return wordClockToSeconds(parseInt(word[1]!, 10), word[2]!);
+  const hms = raw.match(
+    new RegExp(`${NOT_INTERVAL_GUARD}\\b(\\d+):([0-5]?\\d):([0-5]?\\d)\\b${PACE_GUARD}`),
+  );
+  if (hms) return colonClockToSeconds(hms[1]!, hms[2]!, hms[3]);
+  const msColon = raw.match(new RegExp(`${NOT_INTERVAL_GUARD}\\b(\\d+):([0-5]\\d)\\b${PACE_GUARD}`));
+  if (msColon) return colonClockToSeconds(msColon[1]!, msColon[2]!, undefined);
   return undefined;
 }
 
@@ -176,6 +246,13 @@ export function parseParenInterval(raw: string): ParenInterval | null {
 
 // ── Rest ─────────────────────────────────────────────────────────────────────
 
+// The rest CUE words that carry a clock rather than merely qualify one — shared
+// by parseRest and isPureRest so the two never drift apart (see isPureRest's
+// docstring: the reversed order was added to parseRest once and to isPureRest's
+// whitelist only later, which is exactly the kind of gap sharing one source
+// closes for good).
+const REST_CUE_SRC = '(?:rest|descanso|recuperaci[oó]n|recovery)';
+
 /** Rest: "45'' rest", "1'15'' walking rest", "2' rest", "90'' float", "c/2'30''"
  *  → seconds. Conservative: needs an explicit rest cue OR the "c/" (cada) form.
  *  The cada seconds part requires its own `''` so "c/2': 3 Power Clean" reads
@@ -190,14 +267,45 @@ export function parseRest(raw: string): number | undefined {
   if (min) return parseInt(min[1]!, 10) * 60;
   const sec = raw.match(/(\d+)\s*''\s*(?:rest|descanso|walking|float|trote|est[aá]tico|off)/i);
   if (sec) return parseInt(sec[1]!, 10);
+  // TrainingPeaks vocabulary: a colon or word clock with the rest CUE directly
+  // adjacent, either order — "Descanso 1:30", "1:30 descanso", "Rest 90 seg".
+  // Scoped tight to the cue's immediate neighbor (not "does this string
+  // contain a clock anywhere") so an UNRELATED earlier clock on a merged
+  // continuation line ("45' carrera Z2 Descanso 1:30" — see joinContinuations
+  // in ./notation.ts) is never misread as the rest.
+  const cueThenColon = raw.match(
+    new RegExp(`${REST_CUE_SRC}\\s*:?\\s*(\\d+):([0-5]?\\d)(?::([0-5]?\\d))?\\b`, 'i'),
+  );
+  if (cueThenColon) return colonClockToSeconds(cueThenColon[1]!, cueThenColon[2]!, cueThenColon[3]);
+  const colonThenCue = raw.match(
+    new RegExp(`(\\d+):([0-5]?\\d)(?::([0-5]?\\d))?\\s*${REST_CUE_SRC}\\b`, 'i'),
+  );
+  if (colonThenCue) return colonClockToSeconds(colonThenCue[1]!, colonThenCue[2]!, colonThenCue[3]);
+  const cueThenWord = raw.match(
+    new RegExp(`${REST_CUE_SRC}\\s*:?\\s*(\\d+)\\s*(horas?|min(?:utos?)?|segundos?|seg\\.?|s)\\b`, 'i'),
+  );
+  if (cueThenWord) return wordClockToSeconds(parseInt(cueThenWord[1]!, 10), cueThenWord[2]!);
+  const wordThenCue = raw.match(
+    new RegExp(`(\\d+)\\s*(horas?|min(?:utos?)?|segundos?|seg\\.?|s)\\s*(?:de\\s+)?${REST_CUE_SRC}\\b`, 'i'),
+  );
+  if (wordThenCue) return wordClockToSeconds(parseInt(wordThenCue[1]!, 10), wordThenCue[2]!);
   return undefined;
 }
 
-/** A segment that IS only a rest clause ("1' rest", "— 2' de descanso"). */
+// One clock, any vocabulary (prime, colon, word) — shared by both orders of
+// isPureRest so "1:30 descanso" and "descanso 1:30" recognize the SAME set of
+// clocks as parseRest actually knows how to read.
+const REST_CLOCK_SRC =
+  "(?:\\d+\\s*'\\s*\\d+\\s*''|\\d+\\s*'{1,2}|\\d+\\s*:\\s*[0-5]?\\d(?:\\s*:\\s*[0-5]?\\d)?|\\d+\\s*(?:horas?|min(?:utos?)?|segundos?|seg\\.?|s))";
+
+/** A segment that IS only a rest clause — cue + one clock, either order:
+ *  "1' rest", "— 2' de descanso" (Pablo's order), "Descanso 1:30", "1:30
+ *  descanso", "Rest 90 seg" (TrainingPeaks writes the cue first, often with a
+ *  colon or word clock, but not always). */
 export function isPureRest(seg: string): boolean {
-  return /^[\s—–-]*\d+\s*'{1,2}\s*(?:de\s+)?(?:rest|descanso|recuperaci[oó]n|recovery)\s*$/i.test(
-    seg,
-  );
+  const trailing = new RegExp(`^[\\s—–-]*${REST_CLOCK_SRC}\\s*(?:de\\s+)?${REST_CUE_SRC}\\s*$`, 'i');
+  const leading = new RegExp(`^[\\s—–-]*${REST_CUE_SRC}\\s*:?\\s*${REST_CLOCK_SRC}\\s*$`, 'i');
+  return trailing.test(seg) || leading.test(seg);
 }
 
 // ── Intensity targets ────────────────────────────────────────────────────────
@@ -288,6 +396,16 @@ export function parsePaceClockTarget(raw: string): Target | null {
   if (point) {
     return { kind: 'pace', unit, value_s: parseInt(point[1]!, 10) * 60 + parseInt(point[2]!, 10) };
   }
+  // TrainingPeaks colon form: "3:45 min/km" → 225 s/km; "1:54 /500m" → 114
+  // s/500m. A pace clock is always m:ss (never h:mm:ss — nobody paces per hour).
+  const colonPoint = raw.match(/(\d+):([0-5]?\d)\s*(?:min\s*)?\/\s*(?:km|500\s*m?|mi|milla)/i);
+  if (colonPoint) {
+    return {
+      kind: 'pace',
+      unit,
+      value_s: parseInt(colonPoint[1]!, 10) * 60 + parseInt(colonPoint[2]!, 10),
+    };
+  }
   return null;
 }
 
@@ -311,6 +429,13 @@ export function parsePaceCap(raw: string): PaceCap | null {
 
 // ── Strength numerics ────────────────────────────────────────────────────────
 
+// Every unit word/mark that means "this number is a CLOCK, not a rep count" —
+// shared by parseSetsByReps and parseSetsByRepRange so "6x90 seg" (a 90-
+// SECOND interval the grammar doesn't type yet — it stays review rather than
+// being fabricated as 6 sets of 90 reps) is excluded the same way "4x400m"
+// and "4x6'" already are.
+const UNIT_GUARD = "(?!\\s*(?:'|''|m\\b|km|cal|kg|horas?\\b|min(?:utos?)?\\b|segundos?\\b|seg\\.?\\b|s\\b))";
+
 /** Per-set rep scheme "10/10/8/8/6" or "10-10-8-6" → [10,10,8,8,6]. Intra-list
  *  separators carry NO spaces, so a spaced " / " never bleeds lists together.
  *  A sequence ending AT a quote is a clock range ("5-8' descanso"), not reps. */
@@ -319,6 +444,37 @@ export function parseRepSeq(raw: string): number[] | null {
   if (!m) return null;
   const parts = m[1]!.split(/[/\-]/).map((x) => parseInt(x, 10)).filter((n) => !Number.isNaN(n));
   return parts.length >= 2 ? parts : null;
+}
+
+/** A rep RANGE ("12-15 repeticiones") — a BAND the athlete autoregulates
+ *  inside, not two discrete sets. Two dash-joined numbers are ambiguous with a
+ *  2-element SEQUENCE ("12-8", one set of 12 then one of 8) on their own, so
+ *  this only fires with a reps WORD directly after ("repeticiones"/"reps")
+ *  AND only when the numbers ascend (lo < hi) — a descending pair is never a
+ *  range, so it correctly falls through to the sequence reader instead. */
+export function parseRepRange(raw: string): { value: number; max: number } | null {
+  const m = raw.match(/(\d{1,2})\s*[-–—]\s*(\d{1,2})(?!\d)\s*(?:repeticiones?|reps?)\b/i);
+  if (!m) return null;
+  const value = parseInt(m[1]!, 10);
+  const max = parseInt(m[2]!, 10);
+  return max > value ? { value, max } : null;
+}
+
+/** "Sentadilla 4x12-15" — sets × a rep RANGE (band, not two sets). Same
+ *  disambiguation as parseRepRange: only an ASCENDING pair counts as a band;
+ *  mirrors parseSetsByReps' guards against distances/clocks/loads stealing
+ *  the second number. */
+export function parseSetsByRepRange(
+  seg: string,
+): { sets: number; value: number; max: number } | null {
+  const m = seg.match(
+    new RegExp(`(\\d+)\\s*x\\s*(\\d{1,2})\\s*[-–—]\\s*(\\d{1,2})(?!\\d)${UNIT_GUARD}`, 'i'),
+  );
+  if (!m) return null;
+  const sets = parseInt(m[1]!, 10);
+  const value = parseInt(m[2]!, 10);
+  const max = parseInt(m[3]!, 10);
+  return max > value ? { sets, value, max } : null;
 }
 
 /** A load list ending in "%": "60/65/70/70/75%" → per-set list; "65-85%" → a
@@ -348,9 +504,10 @@ export function parseSetCount(raw: string): number | undefined {
 
 /** "4x8" (sets × uniform reps) — reps capped at 2 digits so "2x1200" can never
  *  read as 1200 reps (3-4 digit values after x are DISTANCES, never reps), and
- *  NOT "4x6'" (interval) or "4x400m" (distance). */
+ *  NOT "4x6'" (interval), "4x400m" (distance), or "4x90 seg" (a clock — see
+ *  UNIT_GUARD). */
 export function parseSetsByReps(seg: string): { sets: number; reps: number } | null {
-  const m = seg.match(/(\d+)\s*x\s*(\d{1,2})(?!\d)(?!\s*(?:'|''|m\b|km|cal|kg))/i);
+  const m = seg.match(new RegExp(`(\\d+)\\s*x\\s*(\\d{1,2})(?!\\d)${UNIT_GUARD}`, 'i'));
   if (!m) return null;
   return { sets: parseInt(m[1]!, 10), reps: parseInt(m[2]!, 10) };
 }

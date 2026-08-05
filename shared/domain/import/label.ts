@@ -122,10 +122,13 @@ function stripDoseTokens(raw: string): string {
     .replace(/\d+\s*x\s*\([^)]*\)/g, ' ') // 5x(4' Z3 / 1' Z2) — consumed by the paren-interval parser
     .replace(/\d+(?:[.,]\d+)?\s*km\s*\/\s*h/gi, ' ')
     .replace(/\d+\s*'\s*\d*\s*'{0,2}\s*\/\s*(?:km|500\s*m?|mi|milla)/gi, ' ')
+    .replace(/\d+:[0-5]?\d\s*(?:min\s*)?\/\s*(?:km|500\s*m?|mi|milla)/gi, ' ') // colon pace: "3:45 min/km"
     .replace(/\d+\s*x\s*\d+\s*(?:''|'|m\b)?/gi, ' ')
     .replace(/\d+\s*h\s*\d+\s*'/g, ' ')
     .replace(/\d+\s*h\b/gi, ' ')
     .replace(/\d+\s*'{1,2}/g, ' ')
+    .replace(/\d+:[0-5]?\d(?::[0-5]?\d)?\b/g, ' ') // colon clock: "1:30", "1:20:00"
+    .replace(/\d+\s*(?:horas?|min(?:utos?)?|segundos?|seg\.?|s)\b/gi, ' ') // word clock: "2 min", "90 seg", "90s"
     .replace(/\d+(?:[.,]\d+)?\s*km\b/gi, ' ')
     .replace(/\d+\s*m\b/gi, ' ')
     .replace(/\d+(?:[.,]\d+)?\s*kg\b/gi, ' ')
@@ -206,7 +209,12 @@ export function isNoiseLine(line: string): boolean {
   if (n.startsWith('*')) return true; // coach note
   if (/^\(.*\)$/.test(line.trim())) return true; // "(misma intensidad…)"
   if (/^(directo a|direct to|luego|despues|then|foco|foco en|finisher\s*:)\b/.test(n)) return true;
-  if (/^(descanso|rest day|off)\b/.test(n)) return true;
+  // A whole rest DAY is noise regardless of digits ("off"/"rest day"). A bare
+  // "Descanso" header (no clock) falls to the no-digit rule right below. A
+  // "Descanso 1:30" that DOES carry a clock must NOT be dropped here — it is
+  // data (joinContinuations already tried to attach it to the previous line;
+  // orphaned, it needs to reach parseLine so it reviews instead of vanishing).
+  if (/^(rest day|off)\b/.test(n)) return true;
   if (!/\d/.test(line)) return true; // no number anywhere → prose/header
   if (TARGET_ONLY_RE.test(line)) return true; // target with no dose → directive
   return false;
