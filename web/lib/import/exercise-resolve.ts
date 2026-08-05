@@ -13,11 +13,21 @@
  *   (2) global alias    — the static term→slug map (GLOBAL_ALIASES, mirrored from
  *                         infra/scripts/parse_blocks_lib.ts) → catalog by slug.
  *                         Unscoped by coach — see the note on layer (2) below.
- *   (3) catalog name exact       — `lower(coalesce(override.name, exercises.name))`
- *                         == normalized term, scoped to what THIS coach may see.
+ *   (3) catalog name exact       — `unaccent(lower(coalesce(override.name, exercises.name)))`
+ *                         == unaccent(normalized term), scoped to what THIS coach may see.
  *   (4) catalog name substring   — same merged-name + scope, term ⊂ name or
  *                         name ⊂ term (shortest name wins).
  *   (5) miss            — { exercise_id: null, normalized }; caller escalates.
+ *
+ * ACCENTS (migration 0151): `normalized` is already accent-free (TS-side NFD
+ * strip in `normalizeTerm`), so layers (3)/(4) wrap the SQL side in Postgres's
+ * `unaccent()` too — plain `lower()` does NOT fold á/é/í/ó/ú/ü/ñ, so an
+ * accented catalog name ("Puente de Glúteo") could never match an unaccented
+ * term and the importer would silently create a duplicate next to it. Layer
+ * (1)/(2) were never affected: `coach_exercise_synonyms.term_normalized` is
+ * written AND read through the same `normalizeTerm()` (both TS, no SQL-side
+ * name comparison), and GLOBAL_ALIASES resolves to an ASCII `slug` (exact
+ * match, no accents to begin with).
  *
  * OWNERSHIP (migration 0132, `lib/exercises/coach-override.ts`): layers (3)/(4)
  * are the ones that ENUMERATE/RESOLVE by name, so per that module's contract they
@@ -267,28 +277,37 @@ export async function resolveExercise(
     // (3) Catalog name, exact — matched against the coach's MERGED name
     // (override.name ?? base.name; see file header). Scoped to what this coach
     // may see so this can never resolve into another coach's PROPIO exercise.
+    //
+    // `unaccent(lower(...))` on BOTH sides (migration 0151): `normalized` is
+    // already accent-free (TS-side NFD strip in normalizeTerm), but `lower()`
+    // alone does NOT strip accents in SQL — an exercise named "Puente de
+    // Glúteo" produced `puente de glúteo` here against `puente de gluteo` on
+    // the TS side and could never match. Unaccenting BOTH sides (not just the
+    // column) is belt-and-suspenders: `normalized` is a no-op under it today,
+    // but it means the two sides can never silently drift onto different
+    // folding rules again.
     const exact = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
-      where lower(coalesce(ceo.name, e.name)) = ${normalized}
+      where unaccent(lower(coalesce(ceo.name, e.name))) = unaccent(${normalized})
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, e.id asc
       limit 1
     `;
     if (exact[0]) return { exercise_id: Number(exact[0].id), via: 'name_exact' };
 
-    // (4) Catalog name, substring — same merged-name + visibility scope as (3).
-    // The term is contained in the (merged) name OR the name is contained in the
-    // term. Deterministic: own-before-base first, then shortest name (most
-    // specific), then id.
+    // (4) Catalog name, substring — same merged-name + visibility scope as (3),
+    // same unaccent fix. The term is contained in the (merged) name OR the
+    // name is contained in the term. Deterministic: own-before-base first,
+    // then shortest name (most specific), then id.
     const sub = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
       where (
-          position(${normalized} in lower(coalesce(ceo.name, e.name))) > 0
-          or position(lower(coalesce(ceo.name, e.name)) in ${normalized}) > 0
+          position(unaccent(${normalized}) in unaccent(lower(coalesce(ceo.name, e.name)))) > 0
+          or position(unaccent(lower(coalesce(ceo.name, e.name))) in unaccent(${normalized})) > 0
         )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, length(coalesce(ceo.name, e.name)) asc, e.id asc

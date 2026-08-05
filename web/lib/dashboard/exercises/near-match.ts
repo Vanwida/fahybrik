@@ -2,12 +2,11 @@
 // YA tiene, escrito de otra manera?
 //
 // POR QUÉ EXISTE. El resolutor del importador (lib/import/exercise-resolve.ts) ya
-// prueba sinónimo, alias, nombre exacto y subcadena bidireccional. Lo que se le
-// escapa es lo que no es ni igual ni contenido:
+// prueba sinónimo, alias, nombre exacto y subcadena bidireccional (los acentos
+// del nombre de catálogo se pliegan con `unaccent()` en SQL desde la migración
+// 0151 — antes de eso «Puente de glúteo» no podía casar jamás; ya no es el caso).
+// Lo que se le sigue escapando es lo que no es ni igual ni contenido:
 //   · el orden de las palabras — «Squat Cossack» contra «Cossack Squat»
-//   · los acentos — su capa de nombre compara `lower(name)` en SQL contra un
-//     término ya sin acentos, así que un «Puente de glúteo» del catálogo NO puede
-//     casar jamás, y hoy eso crea duplicados con tilde
 //   · un matiz de más — «Puente de glúteo a una pierna» contra «Puente de glúteo»
 //
 // Y existe aquí, a mano, porque en el repo NO hay nada que reutilizar: ni

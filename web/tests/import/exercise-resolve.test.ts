@@ -175,6 +175,34 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // ACCENTS (migration 0151) — before this fix, `lower()` alone never folded
+  // á/é/í/ó/ú/ü/ñ, so an accented catalog name could never match the
+  // accent-stripped `normalized` term and the importer silently created a
+  // duplicate. `unaccent()` on both sides of layers 3/4 closes it.
+  // -------------------------------------------------------------------------
+
+  test('an accented catalog name resolves from an UNACCENTED term (layer 3, exact)', async () => {
+    const fx = await seedCoach();
+    const id = await makeExercise({ fx, name: 'Puente de Glúteo Xqzwv' });
+    const res = await resolveExercise(fx.coachId, 'puente de gluteo xqzwv', sql);
+    expect(res).toMatchObject({ exercise_id: id, via: 'name_exact' });
+  });
+
+  test('an accented catalog name resolves via an unaccented SUBSTRING token (layer 4)', async () => {
+    const fx = await seedCoach();
+    const id = await makeExercise({ fx, name: 'Vqzwx Glúteo Isométrico' });
+    const res = await resolveExercise(fx.coachId, 'gluteo isometrico', sql);
+    expect(res).toMatchObject({ exercise_id: id, via: 'name_substring' });
+  });
+
+  test('the TERM carrying an accent still resolves against an unaccented catalog name (symmetric)', async () => {
+    const fx = await seedCoach();
+    const id = await makeExercise({ fx, name: 'Nucleo Wprfx' }); // catalog name, no accent
+    const res = await resolveExercise(fx.coachId, 'Núcleo Wprfx', sql); // term, WITH accent
+    expect(res).toMatchObject({ exercise_id: id, via: 'name_exact' });
+  });
+
   test('an unknown term resolves to null with the normalized key (caller escalates)', async () => {
     const fx = await seedCoach();
     // Pure gibberish, verified to contain (and be contained by) NO catalog name.
