@@ -18,6 +18,7 @@ import {
   acceptDayProposals,
   dayHiddenCount,
   dayProposedFields,
+  dayReviewLineCount,
   dayTone,
   totalExcludedDays,
   totalIncomplete,
@@ -255,19 +256,29 @@ export function ImportReviewGrid({
                 // week-level control governs → cells are display-only too.
                 const clickable = tone !== 'rest' && week.included;
                 const cellLabel = `${day.dow} de la semana ${week.week}`;
-                // Un día ámbar puede serlo por tres motivos muy distintos, y la
-                // píldora tiene que decir CUÁL: lo que la fuente cortó pesa más que
-                // lo que rellenamos nosotros, y eso más que un «revisar» genérico.
+                // Un día ámbar puede serlo por tres motivos MUY distintos y la
+                // píldora dice cuál, ordenados por lo que le toca hacer al coach:
+                //   1. «N sin ver» — hay trabajo que la foto no enseñó: o lo escribe
+                //      a mano o vuelve a fotografiar. Es lo único que falta de verdad.
+                //   2. «revisar»   — hay texto que no se pudo tipar: pide sus OJOS.
+                //   3. «N huecos»  — valores ya rellenados con sus defaults: solo
+                //      pide un visto bueno, así que va el último.
+                // El orden importa: con «huecos» arriba, un día con diez huecos ya
+                // tapados y dos líneas sin tipar se leía como si no quedara nada que
+                // mirar, que es justo lo contrario de la verdad.
                 const hidden = tone === 'review' ? dayHiddenCount(day) : 0;
+                const toReview = tone === 'review' ? dayReviewLineCount(day) : 0;
                 const proposed = tone === 'review' ? dayProposedFields(day).length : 0;
                 const tagLabel =
                   hidden > 0
                     ? `${hidden} sin ver`
-                    : proposed > 0
-                      ? `${proposed} hueco${proposed === 1 ? '' : 's'}`
-                      : tone === 'rest'
-                        ? ''
-                        : TONE_TAG[tone].label;
+                    : toReview > 0
+                      ? TONE_TAG.review.label
+                      : proposed > 0
+                        ? `${proposed} hueco${proposed === 1 ? '' : 's'}`
+                        : tone === 'rest'
+                          ? ''
+                          : TONE_TAG[tone].label;
                 return (
                   <div
                     key={day.day_of_week}

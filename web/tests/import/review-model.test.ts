@@ -25,6 +25,7 @@ import {
   dayHiddenCount,
   dayProposedFields,
   dayProposedPaths,
+  dayReviewLineCount,
   dayTone,
   sessionIncompleteLines,
   totalExcludedDays,
@@ -526,5 +527,54 @@ describe('las rutas propuestas que consume el editor de bloque', () => {
 
   test('sin propuestas el mapa está vacío: el editor no recibe nada que marcar', () => {
     expect(dayProposedPaths(photoModel(uid('item'), [])[0]!.days[0]!).size).toBe(0);
+  });
+});
+
+// ── El TERCER estado de la gramática: `incomplete` ────────────────────────────
+// `confidence` ya no es binaria. `incomplete` = se supo el ejercicio pero no su
+// dosis, que es el estado NORMAL de una foto (una tarjeta lista «Band Pull Apart»
+// sin decir series ni reps). No es un error: casi siempre lo tapa el relleno por
+// defecto. Lo que se fija aquí es que NO contamine el ámbar, porque si lo hiciera
+// toda importación por foto saldría en revisar por definición.
+
+describe('`incomplete` no es un error', () => {
+  test('una línea incomplete cuya dosis se rellenó NO pone el día en revisar por sí misma', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.flags = day.flags.map((f) => ({ ...f, confidence: 'incomplete' as const }));
+    // Ámbar sí, pero por el PROPUESTO, no por la confianza…
+    expect(dayTone(day)).toBe('review');
+    // …y al dar por bueno lo propuesto, el día se queda verde. Si `incomplete`
+    // contara como revisar, esto seguiría en ámbar para siempre.
+    expect(dayTone(acceptDayProposals(day))).toBe('ok');
+    expect(totalIncomplete([{ ...model[0]!, days: [day] }])).toBe(0);
+  });
+
+  test('solo `review` cuenta como línea que pide ojos', () => {
+    const itemUid = uid('item');
+    const day = photoModel(itemUid, [])[0]!.days[0]!;
+    day.flags = day.flags.map((f) => ({ ...f, confidence: 'incomplete' as const }));
+    expect(dayReviewLineCount(day)).toBe(0);
+    day.flags = [...day.flags, makeFlag(uid('item'), 'texto raro', { confidence: 'review' })];
+    expect(dayReviewLineCount(day)).toBe(1);
+    expect(dayTone(day)).toBe('review');
+  });
+
+  test('la píldora no esconde un «revisar» detrás de los huecos ya tapados', () => {
+    // El caso que pedía el orden: diez huecos rellenados y una línea sin tipar.
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.flags = [...day.flags, makeFlag(uid('item'), 'texto raro', { confidence: 'review' })];
+    // Las dos cosas conviven, y la que pide ojos manda sobre la que solo pide OK.
+    expect(dayProposedFields(day).length).toBe(2);
+    expect(dayReviewLineCount(day)).toBe(1);
+    expect(dayHiddenCount(day)).toBe(0);
   });
 });

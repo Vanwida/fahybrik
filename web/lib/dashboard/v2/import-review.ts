@@ -247,7 +247,22 @@ function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
  *
  *  Lo cortado por la fuente y lo propuesto por el importador también son ámbar: no
  *  impiden guardar (el coach puede querer la semana tal cual), pero un día con
- *  trabajo sin ver o con valores que él no escribió no se puede pintar de verde. */
+ *  trabajo sin ver o con valores que él no escribió no se puede pintar de verde.
+ *
+ *  ── OJO CON `confidence`, que tiene TRES valores ────────────────────────────
+ *  La comparación de abajo es `=== 'review'` a propósito, y NO `!== 'detected'`.
+ *  `incomplete` significa que la gramática supo el ejercicio pero no su dosis, y
+ *  ese es el estado NORMAL de una foto: una tarjeta lista «Band Pull Apart» sin
+ *  decir series ni reps. No es un error y casi siempre lo tapa el relleno por
+ *  defecto, que además lo deja marcado como propuesto. Si esto se relajara a
+ *  `!== 'detected'`, cada importación por foto saldría en ámbar por definición y
+ *  el aviso dejaría de significar nada.
+ *
+ *  Lo que SÍ atrapa una `incomplete` que nadie pudo tapar es el gate del dominio
+ *  (`dayIncompleteCount`, dos líneas más arriba): mira la prescripción de verdad,
+ *  no lo que dijo la gramática, así que una línea que sigue sin trabajo sale roja
+ *  y bloquea el confirmar. Los dos caminos no se pisan: uno juzga la lectura, el
+ *  otro el resultado. */
 export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
   if (day.sessions.length === 0) return 'rest';
   if (!weekIncluded || !day.included) return 'skipped';
@@ -257,6 +272,13 @@ export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
   if (dayProposedFields(day).length > 0) return 'review';
   if (day.flags.some((f) => f.confidence === 'review')) return 'review';
   return 'ok';
+}
+
+/** Líneas que la gramática NO pudo tipar en absoluto: se conservó su texto y hay
+ *  que mirarlas. Es lo único que pide OJOS del coach entre lo ámbar — un hueco
+ *  rellenado solo pide un visto bueno. */
+export function dayReviewLineCount(day: ReviewDay): number {
+  return day.flags.filter((f) => f.confidence === 'review').length;
 }
 
 /** Total unresolved-exercise lines across the INCLUDED days (the confirm gate).
