@@ -52,6 +52,30 @@ ocho piezas que no lo necesitan.
 devuelve `null` siempre — motor que funciona, coach que ve un vacío) · curva de durabilidad por
 atleta y formato · reordenar `next_inputs` al ergo.
 
+### ABIERTO · El seed entra en el predictor de tres atletas reales
+
+Mismo fallo que las carreras sembradas (que se arregló con `races.is_synthetic`, mig 0142),
+vivo en la otra mitad: **`segment_executions` tiene 158 tramos con `source='demo'` repartidos
+entre los atletas 66, 67 y 69**, que son atletas reales de Pablo, no cuentas demo. 151 de ellos
+son tramos de correr **con ritmo**. Y la consulta del lado entrenado
+(`web/lib/athlete/race-transfer.ts:186-204`) filtra por trabajo-vs-recuperación y por modalidad,
+pero **no por `source`** — así que esos ritmos inventados son hoy la población de «ejecuciones»
+de esos tres atletas. Para el 67 son 68 tramos, y es justo un atleta sin marca válida de carrera:
+su nivel entrenado sale entero de datos que nadie corrió.
+
+Bloquea calibrar nada (ley 5: una variable solo entra si baja el error, y el error se mediría
+contra seed). Arreglo: la misma forma que en `races` — marcar la procedencia y excluirla en la
+consulta, nunca borrar filas.
+
+### ABIERTO · Cero tramos fatigados en toda la base
+
+La curva de durabilidad de §04 se calibra con tramos de correr **precedidos de trabajo**, y hoy
+hay **cero** en producción: de 158 tramos de correr, 145 no llevan `prior_work_s` (son seed o
+ingesta externa del reloj) y los 13 con contexto son todos frescos. El escritor está bien
+(`ingest-execution-segments.ts:216`, honesto-o-nada); lo que falta es uso: sesiones reales en
+formatos que mezclen ergo y carrera, que es justo lo que se empezó a hacer esta semana. No se
+arregla con código.
+
 ---
 
 ## 4-ago · Lo que Alex encontró entrenando — tres cerrados, tres abiertos
