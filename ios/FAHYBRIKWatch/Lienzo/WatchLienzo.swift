@@ -31,6 +31,29 @@ struct WatchReloj: View {
     @State private var destelloOpacity: Double = 0
     @State private var dragOffset: CGFloat = 0
 
+    /// LA MUÑECA BAJADA — el estado que decide si esta app sirve para entrenar.
+    ///
+    /// Es la queja número uno contra las apps de entreno de terceros en Apple
+    /// Watch: bajas el brazo a mitad de serie y o se apaga la pantalla o el reloj
+    /// del sistema tapa los datos. Apple no: en Always-On mantiene las métricas
+    /// visibles y sólo quita lo que no aporta.
+    ///
+    /// Aquí se resuelve UNA vez, en el lienzo, y lo heredan las seis vistas. Lo
+    /// que hace Apple en su propia app de entreno y copiamos:
+    ///   · quitar lo que se mueve (centésimas, animaciones, destellos),
+    ///   · esconder los puntos de página,
+    ///   · **volver solo a la primera página**, para que al levantar la muñeca no
+    ///     te encuentres en la de pulso sin haberla pedido,
+    ///   · y apagar los rellenos grandes: el HIG pide cambiar áreas llenas por
+    ///     trazos y bajar el brillo, no repintar la pantalla de otro color.
+    ///
+    /// Y una regla dura que cambia el diseño, no sólo el brillo: **con la muñeca
+    /// baja el sistema ignora los deslizamientos, pero NO los toques**. Así que
+    /// pasar de página deja de existir en atenuado — de ahí la vuelta a la
+    /// primera — mientras que el toque de «serie hecha» sigue funcionando, que es
+    /// justo el que hace falta con el brazo abajo.
+    @Environment(\.isLuminanceReduced) private var atenuado
+
     private var paginaActiva: WatchPagina {
         guard !paginas.isEmpty else {
             return WatchPagina(id: "vacio", contexto: "", modo: .ojeada, sujeto: "—")
@@ -44,7 +67,7 @@ struct WatchReloj: View {
         GeometryReader { geo in
             ZStack {
                 WatchTheme.bg.ignoresSafeArea()
-                if let tinte {
+                if let tinte, !atenuado {
                     tinte.opacity(WatchTinte.maxOpacity)
                         .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
@@ -61,7 +84,9 @@ struct WatchReloj: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .opacity(0.55)
+                // Con la muñeca baja el degradado sube: menos píxeles encendidos
+                // alrededor del sujeto, que es lo único que hay que poder leer.
+                .opacity(atenuado ? 0.75 : 0.55)
                 .ignoresSafeArea()
 
                 if let bisel { bisel.ignoresSafeArea() }
@@ -81,13 +106,19 @@ struct WatchReloj: View {
         // la banda de contexto se metía DEBAJO de «10:59» y no se leía ninguna de
         // las dos. Se ignora sólo para pintar el color hasta el borde.
         .onChange(of: destello.n) { _, _ in
-            guard destello.n > 0 else { return }
+            guard destello.n > 0, !atenuado else { return }
             destelloOpacity = 0.55
             withAnimation(.easeOut(duration: 0.45)) { destelloOpacity = 0 }
             WatchHaptics.transition()
         }
         .onChange(of: paginas.count) { _, _ in
             if indice >= paginas.count { indice = max(0, paginas.count - 1) }
+        }
+        // Bajas la muñeca → vuelves al sujeto. Igual que la app de Apple, que
+        // regresa sola a métricas: al levantar el brazo no puedes encontrarte en
+        // una página que no pediste y que ya no puedes abandonar deslizando.
+        .onChange(of: atenuado) { _, reducida in
+            if reducida { indice = 0 }
         }
     }
 
@@ -162,10 +193,15 @@ struct WatchReloj: View {
                     Text(franja.uppercased())
                         .font(.system(size: 11, weight: .heavy))
                         .tracking(0.8)
+                        // En atenuado baja aún más, pero NO se quita: el HIG pide
+                        // llevar un control a un aspecto «no disponible», no
+                        // reorganizar la pantalla al bajar el brazo.
                         .foregroundStyle(
-                            p.modo.franjaAtenuada
-                                ? WatchTheme.dim.opacity(0.55)
-                                : WatchTheme.ink.opacity(0.92)
+                            atenuado
+                                ? WatchTheme.dim.opacity(0.45)
+                                : (p.modo.franjaAtenuada
+                                    ? WatchTheme.dim.opacity(0.55)
+                                    : WatchTheme.ink.opacity(0.92))
                         )
                         .frame(maxWidth: .infinity)
                         .padding(.top, 4)
@@ -178,7 +214,7 @@ struct WatchReloj: View {
                     Text(nota.uppercased())
                         .font(.system(size: 10, weight: .heavy))
                         .tracking(1.0)
-                        .foregroundStyle(WatchTheme.dim)
+                        .foregroundStyle(atenuado ? WatchTheme.dim.opacity(0.5) : WatchTheme.dim)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         // Centrada, como el segundo nivel y como el doble: es la
@@ -197,7 +233,10 @@ struct WatchReloj: View {
             .accessibilityLabel(accesibilidad(p))
             .accessibilityAddTraits(p.onToca != nil ? .isButton : [])
 
-            if varias {
+            // Los puntos de página no existen con la muñeca baja: no se puede
+            // deslizar, así que anunciar que hay más páginas sería ofrecer algo
+            // que el sistema no deja hacer. Apple los esconde igual.
+            if varias, !atenuado {
                 HStack(spacing: 6) {
                     ForEach(0..<paginas.count, id: \.self) { i in
                         Circle()
