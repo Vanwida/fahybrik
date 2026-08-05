@@ -95,6 +95,41 @@ enum PrescriptionRenderer {
         return parts.joined(separator: " · ")
     }
 
+    /// LA DOSIS DE UN EJERCICIO QUE ENTRA EN UNA ROTACIÓN, en las dos líneas que
+    /// caben en una fila: el TRABAJO arriba y la CARGA debajo.
+    ///
+    /// Existe para la superserie de la previa, donde el ejercicio no puede traerse
+    /// su tabla de series entera (son tres ejercicios en una tarjeta) pero tampoco
+    /// puede colapsarse a la primera serie: un 4×8 a 100 kg y una pirámide de 100 a
+    /// 115 se leerían igual, y eso son tres series inventadas (§7). Así que:
+    ///
+    /// - Todas las series con la misma medida → «4 × 8». Distintas → la secuencia
+    ///   tal y como la escribe el coach, «10/10/8/8/6», que ya dice cuántas son.
+    ///   Alguna sin medida → solo el contador, «5 series», que sí se sabe.
+    /// - La carga solo cuando TODAS las series llevan la misma. Cuando cambia serie
+    ///   a serie no se enseña ninguna: la de la primera no es la del ejercicio, y
+    ///   pegar cuatro «100 kg/105 kg/…» no se lee de un vistazo. El atleta las tiene
+    ///   una a una en el entreno en vivo, que es donde levanta.
+    static func rotationDose(_ p: Prescription) -> (work: String?, load: String?) {
+        guard let rows = setRows(p), !rows.isEmpty else { return (nil, nil) }
+
+        let works = rows.map(\.work)
+        let work: String?
+        if let primera = works.first ?? nil, works.allSatisfy({ $0 == primera }) {
+            work = rows.count > 1 ? "\(rows.count) \(Formato.signoPor) \(primera)" : primera
+        } else if works.allSatisfy({ $0 != nil }) {
+            work = works.compactMap { $0 }.joined(separator: "/")
+        } else {
+            work = "\(rows.count) series"
+        }
+
+        let loads = rows.map(\.load)
+        let load = (loads.first ?? nil).flatMap { primera in
+            loads.allSatisfy { $0 == primera } ? primera : nil
+        }
+        return (work, load)
+    }
+
     /// CUÁNTAS VECES SE REPITE LA MISMA DOSIS — el «4 ×» de un 4×10, el «5 ×» de un
     /// 5×500 m. Nil cuando los sets NO son repeticiones: un solo set, o la ROTACIÓN
     /// de un bloque plegado, donde cada set es un movimiento distinto (`conditioningFold`
@@ -258,10 +293,15 @@ enum PrescriptionRenderer {
             return "Continuo · \(Formato.clock(t, subMinuto: .segundos))"
         case .superset:
             // Tampoco lleva reloj, pero SÍ tiene algo que el título no dice: que los
-            // ejercicios rotan, y cuántas vueltas. Sin esta línea la superserie se
+            // ejercicios rotan, y cuántas rondas. Sin esta línea la superserie se
             // lee como una tabla de series rectas, que es justo lo que no es.
+            //
+            // «Rondas», no «vueltas»: es la palabra que ya usan el EMOM y el circuito
+            // (`Vocab.ronda`), y la que el atleta lee en vivo sobre el sujeto. Dos
+            // palabras para lo mismo en dos pantallas del mismo entreno son dos
+            // conceptos para quien las lee.
             guard let n = rounds(), n > 0 else { return Vocab.superserie }
-            return "\(Vocab.superserie) · \(n) \(n == 1 ? "vuelta" : "vueltas")"
+            return "\(Vocab.superserie) · \(rondas(n))"
         case .sets, .warmup, .cooldown:
             // No son formatos con reloj: el título del bloque y la tabla de series ya
             // los cuentan enteros.

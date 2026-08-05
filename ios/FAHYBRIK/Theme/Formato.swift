@@ -333,9 +333,10 @@ enum Vocab {
     /// («Serie 2 de 4» / «4 series»).
     static let serie = "Serie"
     static let series = "Series"
-    /// Una ronda de un formato con reloj (EMOM, intervalos, AMRAP). Y también una
-    /// VUELTA a la rotación de una superserie, que es el mismo concepto: has pasado
-    /// una vez por todos los ejercicios.
+    /// Una ronda de un formato con reloj (EMOM, intervalos, AMRAP) y también una
+    /// ronda de la rotación de una superserie: has pasado una vez por todos los
+    /// ejercicios. Es EL nombre de ese concepto en toda la app — la previa, el
+    /// entreno en vivo y la muñeca dicen «ronda», nunca «vuelta».
     static let ronda = "Ronda"
     /// Dos o más ejercicios que se alternan serie a serie. La palabra que usa el
     /// gimnasio; `PrescriptionScheme.superset` es el vocabulario del cable (§3).

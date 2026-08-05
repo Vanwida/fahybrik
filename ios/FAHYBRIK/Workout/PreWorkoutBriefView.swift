@@ -467,6 +467,14 @@ struct PreWorkoutBriefView: View {
             // timer can never present the EMOM differently.
             if let merged = block.alternatingEmom {
                 alternatingEmomCard(block, merged)
+            } else if let (folded, _) = block.supersetFold {
+                // UNA SUPERSERIE SE ALTERNA, y hasta ahora la previa la enseñaba como
+                // ejercicios sueltos: el atleta llegaba al entreno sin saber la forma
+                // de lo que iba a hacer y se la encontraba dentro. Misma puerta que
+                // usa el motor (`block.supersetFold`), así que las dos pantallas no
+                // pueden discrepar: si el bloque degrada a series rectas, degrada en
+                // las dos, y la previa no promete una rotación que no va a pasar.
+                supersetCard(block, folded)
             } else {
                 ForEach(block.items) { item in
                     itemView(item)
@@ -512,9 +520,11 @@ struct PreWorkoutBriefView: View {
                         fallbackIsErg: set.modality?.isErg ?? false
                     )
                     let item = idx < block.items.count ? block.items[idx] : nil
-                    emomRotationRow(
+                    rotationRow(
                         label: minuteLabel(idx, of: sets.count),
-                        interval: interval,
+                        movement: interval.movement,
+                        work: interval.work,
+                        detail: interval.detail,
                         item: item
                     )
                 }
@@ -522,7 +532,71 @@ struct PreWorkoutBriefView: View {
         }
     }
 
-    private func emomRotationRow(label: String, interval: EmomInterval, item: WorkoutItem?) -> some View {
+    // MARK: Superserie — los ejercicios se alternan, ronda a ronda
+    //
+    // Lo que el atleta necesita saber ANTES de empezar es la FORMA: que estos
+    // ejercicios se alternan, en qué orden entran y cuántas rondas hay. La dosis de
+    // cada uno va a su derecha, con la misma retícula que la rotación del EMOM
+    // (misma familia de bloque plegado, misma lectura).
+    //
+    // SERIES DESIGUALES: no se redondea nada. La cabecera dice las rondas del
+    // bloque y cada fila dice las series de SU ejercicio, así que un «4 × 8» junto a
+    // un «2 × 10» enseña por sí solo que el segundo se retira antes. Un número por
+    // ejercicio y ninguno inventado.
+    @ViewBuilder
+    private func supersetCard(_ block: WorkoutBlock, _ merged: Prescription) -> some View {
+        CardSurface(padding: 0, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text("SE ALTERNAN")
+                        .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.Color.accentText)
+                    Spacer(minLength: 8)
+                    if let rondas = merged.rounds, rondas > 0 {
+                        MonoText(text: "\(rondas) \(Vocab.ronda.lowercased())\(rondas == 1 ? "" : "s")",
+                                 size: 12, weight: .semibold, color: Theme.Color.muted)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Theme.Color.surfaceSunken)
+                .overlay(alignment: .bottom) { Hairline() }
+
+                ForEach(Array(block.items.enumerated()), id: \.offset) { idx, item in
+                    if idx > 0 { Hairline() }
+                    // El orden en que entran, que es lo que hay que saber para
+                    // encadenarlos. La letra del coach (A1/A2) no llega hasta aquí:
+                    // se consume al importar y muere ahí.
+                    let dose = supersetDose(item)
+                    rotationRow(
+                        label: "\(idx + 1)º",
+                        movement: item.exerciseName,
+                        work: dose.work,
+                        detail: dose.load,
+                        item: item
+                    )
+                }
+            }
+        }
+    }
+
+    /// La dosis de un ejercicio de la superserie. Lee la prescripción escrita y, si
+    /// no la trae, la que se materializa de sus escalares — las MISMAS series que va
+    /// a ejecutar el motor, para que la previa no cuente unas y el entreno otras.
+    private func supersetDose(_ item: WorkoutItem) -> (work: String?, load: String?) {
+        guard let p = item.prescription ?? item.scalarStrengthPrescription else { return (nil, nil) }
+        return PrescriptionRenderer.rotationDose(p)
+    }
+
+    // UNA fila de rotación, la misma para el EMOM que alterna minutos y para la
+    // superserie que alterna ejercicios: turno a la izquierda, movimiento en medio,
+    // dosis a la derecha. Son la misma lectura, así que se pintan igual.
+    private func rotationRow(label: String, movement: String, work: String?,
+                             detail: String?, item: WorkoutItem?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .heavy))
@@ -530,7 +604,7 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.faint)
                 .frame(width: 66, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
-                Text(interval.movement)
+                Text(movement)
                     .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(2)
@@ -539,13 +613,15 @@ struct PreWorkoutBriefView: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                // Un minuto sin dosis declarada no pinta nada a la derecha: el
+                // Un turno sin dosis declarada no pinta nada a la derecha: el
                 // movimiento ya está dicho a la izquierda (§7).
-                if let work = interval.work {
+                if let work {
                     MonoText(text: work, size: 15, weight: .semibold, color: Theme.Color.foreground)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
-                if let detail = interval.detail {
+                if let detail {
                     MonoText(text: detail, size: 12, weight: .medium, color: Theme.Color.accentText)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
             }
         }
@@ -846,6 +922,13 @@ struct PreWorkoutBriefView: View {
         guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else { return nil }
         switch scheme {
         case .sets, .warmup, .cooldown: return nil
+        case .superset:
+            // La superserie NO lleva chapa, y por dos razones distintas. Si la
+            // rotación se pliega, quien la anuncia es la tarjeta, con sus rondas y
+            // sus ejercicios: repetir «Superserie» arriba es decir dos veces lo
+            // mismo. Y si el bloque degradó a series rectas, la chapa sería lo peor
+            // de todo — prometería una rotación que el entreno no va a hacer.
+            return nil
         default:                        return scheme.displayName
         }
     }

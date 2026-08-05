@@ -563,7 +563,7 @@ struct RielDeSeries: View {
             : (esLaDeAhora ? "la que toca" : "pendiente")
         // El lector de pantalla dice lo mismo que se ve: en una rotación, el
         // ejercicio y la vuelta; en fuerza recta, el número de la serie.
-        let quien = turno(rec).map { "\($0.movement), vuelta \($0.round) de \($0.rounds)" }
+        let quien = turno(rec).map { "\($0.movement), \(Vocab.ronda.lowercased()) \($0.round) de \($0.rounds)" }
             ?? "Serie \(rec.setIndex)"
         return "\(quien), \(estado), \(dosis(rec)). Tocar para ajustar"
     }

@@ -695,6 +695,104 @@ final class WorkoutExecutionSpineTests: XCTestCase {
                                      cargaKg: rec.loadPrescribedKg)?.linea, "12-15 × 60 kg")
     }
 
+    // MARK: - LA PREVIA de una superserie · misma forma que el entreno
+
+    func testLaPreviaLeeLaMismaPuertaQueElMotor() throws {
+        // La previa decide con `supersetFold`, exactamente igual que el motor: si el
+        // bloque rota, rotan las dos pantallas; si degrada, degradan las dos. Es lo
+        // que impide que la previa prometa una rotación que el entreno no hace.
+        let rota = try decode(supersetDeTres())
+        let bloqueRota = try XCTUnwrap(rota.workout?.blocks.first)
+        XCTAssertNotNil(bloqueRota.supersetFold)
+        XCTAssertEqual(bloqueRota.supersetFold?.prescription.rounds, 4)
+
+        let degrada = try decode(bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 90),
+        ]))
+        XCTAssertNil(try XCTUnwrap(degrada.workout?.blocks.first).supersetFold,
+                     "Un solo ejercicio: la previa lo enseña como fuerza recta.")
+    }
+
+    func testLaDosisDeLaRotacionColapsaLoUniformeYNoInventaCarga() throws {
+        // Series iguales → «4 × 8» + la carga. Es el caso normal.
+        let uniforme = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: (0..<4).map { _ in
+                PrescriptionSet(measure: .reps(8), target: .kg(value: 100, min: nil, max: nil),
+                                modality: .strength, restS: nil, tempo: nil, note: nil)
+            },
+            rounds: nil, workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+            start: nil, increment: nil)
+        let d1 = PrescriptionRenderer.rotationDose(uniforme)
+        XCTAssertEqual(d1.work, "4 × 8")
+        XCTAssertEqual(d1.load, "100 kg")
+
+        // PIRÁMIDE: reps y carga cambian serie a serie. La secuencia se escribe como
+        // la escribe el coach, y la carga NO se enseña — la de la primera serie no es
+        // la del ejercicio, y colapsarla inventaría tres series (§7).
+        let piramide = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: [(10, 100.0), (10, 105.0), (8, 110.0), (8, 110.0), (6, 115.0)].map { reps, kg in
+                PrescriptionSet(measure: .reps(reps), target: .kg(value: kg, min: nil, max: nil),
+                                modality: .strength, restS: nil, tempo: nil, note: nil)
+            },
+            rounds: nil, workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+            start: nil, increment: nil)
+        let d2 = PrescriptionRenderer.rotationDose(piramide)
+        XCTAssertEqual(d2.work, "10/10/8/8/6")
+        XCTAssertNil(d2.load, "Con carga distinta por serie no se enseña ninguna.")
+    }
+
+    func testLaDosisSinMedidaDeclaradaSoloCuentaLasSeries() throws {
+        // Sin medida no hay «4 × —»: se dice lo que sí se sabe, que son cuatro.
+        let sinMedida = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: (0..<4).map { _ in
+                PrescriptionSet(measure: nil, target: .kg(value: 30, min: nil, max: nil),
+                                modality: .strength, restS: nil, tempo: nil, note: nil)
+            },
+            rounds: nil, workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+            start: nil, increment: nil)
+        let d = PrescriptionRenderer.rotationDose(sinMedida)
+        XCTAssertEqual(d.work, "4 series")
+        XCTAssertEqual(d.load, "30 kg")
+    }
+
+    func testSeriesDesigualesSeCuentanPorEjercicioSinRedondear() throws {
+        // A1 con 4 series y A2 con 2: la cabecera dice 4 rondas y cada fila dice las
+        // suyas. Ni se recorta la primera ni se infla la segunda.
+        let detail = try decode(bloque(formato: "superset", items: [
+            itemDeFuerza(uid: "i1", nombre: "Sentadilla", slug: "back-squat",
+                         series: 4, reps: 8, cargaBase: 100, descansoS: 0),
+            itemDeFuerza(uid: "i2", nombre: "Press banca", slug: "bench-press",
+                         series: 2, reps: 10, cargaBase: 60, descansoS: 90),
+        ]))
+        let block = try XCTUnwrap(detail.workout?.blocks.first)
+        let fold = try XCTUnwrap(block.supersetFold)
+        XCTAssertEqual(fold.prescription.rounds, 4, "La cabecera dice las rondas del bloque.")
+
+        let dosis = block.items.map { item in
+            PrescriptionRenderer.rotationDose(item.prescription!)
+        }
+        // Las reps sí son iguales dentro de cada ejercicio, así que colapsan — y el
+        // conteo colapsado ES la verdad de las series desiguales: «4 × 8» al lado de
+        // «2 × 10» enseña por sí solo que el segundo se retira antes.
+        XCTAssertEqual(dosis.map(\.work), ["4 × 8", "2 × 10"])
+        // Y la carga sube 5 kg por serie en los dos, así que no se enseña ninguna.
+        XCTAssertEqual(dosis.map(\.load), [nil, nil])
+    }
+
+    func testElVocabularioDeLaRotacionEsElMismoEnLasDosPantallas() throws {
+        // «Ronda», no «vuelta»: la previa, el sujeto del entreno en vivo y la muñeca
+        // dicen la misma palabra, o son dos conceptos para quien las lee.
+        let detail = try decode(supersetDeTres())
+        let fold = try XCTUnwrap(try XCTUnwrap(detail.workout?.blocks.first).supersetFold)
+        let cabecera = try XCTUnwrap(PrescriptionRenderer.wodHeader(fold.prescription))
+        XCTAssertEqual(cabecera, "Superserie · 4 rondas")
+        XCTAssertFalse(cabecera.lowercased().contains("vuelta"))
+    }
+
     func testMedidaConRangoSobreviveElViajeDeIdaYVuelta() throws {
         // Encode + decode: el techo no se pierde por el camino (el espejo del reloj
         // y la cola sin conexión guardan medidas ya decodificadas).
