@@ -54,6 +54,12 @@ export interface ReviewDay {
   proposed: ProposedField[];
   /** Las tarjetas que la fuente cortó. Vacío = no se cortó nada. */
   truncations: BlockTruncation[];
+  /**
+   * Lo que la fuente traía y NO era entreno: un «Semana 12», un «Control test
+   * salto». Es información del coach, así que no se tira — va a la nota del día
+   * (`WeekDay.notes`) al confirmar. Ausente = la fuente no traía ninguna.
+   */
+  notes?: string;
   /** Coach's selection — false = leave this day out of the import (not written,
    *  not counted, its unresolved lines stop blocking confirm). Rest days ignore it. */
   included: boolean;
@@ -90,6 +96,7 @@ function fromProposalDay(d: ProposalDay): ReviewDay {
     flags: d.flags,
     proposed: readProposedFields(sessions, d.filled),
     truncations: readTruncations(d.truncations),
+    ...(typeof d.notes === 'string' && d.notes.trim() ? { notes: d.notes.trim() } : {}),
     included: true,
   };
 }
@@ -369,6 +376,9 @@ export interface ConfirmBody {
     day_of_week: number;
     /** N sesiones del día. Posicional: [0]=am, [1]=pm. */
     sessions: Array<ReturnType<typeof sessionToWire>>;
+    /** La nota que traía la fuente, si traía alguna. El servidor decide cómo se
+     *  junta con la que el día ya tuviera: nunca machaca la del coach. */
+    notes?: string;
   }>;
   synonyms: Array<{ term: string; exercise_id: number }>;
 }
@@ -395,6 +405,7 @@ export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): Con
         target_week_template_id: target,
         day_of_week: d.day_of_week,
         sessions: d.sessions.map(sessionToWire),
+        ...(d.notes ? { notes: d.notes } : {}),
       });
 
       const flagByUid = new Map(d.flags.map((f) => [f.uid, f]));

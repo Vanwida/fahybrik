@@ -8,8 +8,8 @@
  *   4) a target week not in the microcycle is refused (Fork B ownership).
  * All fixtures are torn down. Skips loudly without TEST_DATABASE_URL.
  */
-import { afterAll, beforeAll, expect, test } from 'vitest';
-import { confirmImport } from '@/lib/import/confirm-service';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { confirmImport, mergeDayNote } from '@/lib/import/confirm-service';
 import { ImportError } from '@/lib/import/proposal-service';
 import { getWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
@@ -93,7 +93,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
       coach_id: SEED_COACH_ID,
       body: {
         microcycle_id: microcycleId,
-        weeks: [{ target_week_template_id: weekId, day_of_week: 2, session: sessionWith(exerciseId) }],
+        weeks: [{ target_week_template_id: weekId, day_of_week: 2, sessions: [sessionWith(exerciseId)] }],
         synonyms: [{ term: LEARN_TERM, exercise_id: exerciseId }],
       },
       client: sql,
@@ -119,6 +119,68 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
     expect(Number(syn[0]!.exercise_id)).toBe(exerciseId);
   });
 
+  test('una tarjeta de nota acaba en WeekDay.notes, y una nota previa NO se pierde', async () => {
+    // 1) Primera importación: el día no tenía nota, así que entra la de la foto.
+    await confirmImport({
+      coach_id: SEED_COACH_ID,
+      body: {
+        microcycle_id: microcycleId,
+        weeks: [
+          {
+            target_week_template_id: weekId,
+            day_of_week: 6,
+            sessions: [sessionWith(exerciseId)],
+            notes: 'Control test salto',
+          },
+        ],
+      },
+      client: sql,
+    });
+    let week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    let day = week!.slots_json.days.find((d) => d.day_of_week === 6);
+    expect(day!.notes).toBe('Control test salto');
+
+    // 2) Segunda importación con OTRA nota: la primera sigue ahí, arriba.
+    await confirmImport({
+      coach_id: SEED_COACH_ID,
+      body: {
+        microcycle_id: microcycleId,
+        weeks: [
+          {
+            target_week_template_id: weekId,
+            day_of_week: 6,
+            sessions: [sessionWith(exerciseId)],
+            notes: 'Pesaje el viernes',
+          },
+        ],
+      },
+      client: sql,
+    });
+    week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    day = week!.slots_json.days.find((d) => d.day_of_week === 6);
+    expect(day!.notes).toBe('Control test salto\n\nPesaje el viernes');
+
+    // 3) Reimportar la MISMA nota no la duplica.
+    await confirmImport({
+      coach_id: SEED_COACH_ID,
+      body: {
+        microcycle_id: microcycleId,
+        weeks: [
+          {
+            target_week_template_id: weekId,
+            day_of_week: 6,
+            sessions: [sessionWith(exerciseId)],
+            notes: 'Pesaje el viernes',
+          },
+        ],
+      },
+      client: sql,
+    });
+    week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    day = week!.slots_json.days.find((d) => d.day_of_week === 6);
+    expect(day!.notes).toBe('Control test salto\n\nPesaje el viernes');
+  });
+
   test('rejects a confirm with an unresolved line — nothing saved (sacred rule)', async () => {
     let thrown: unknown;
     try {
@@ -126,7 +188,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
         coach_id: SEED_COACH_ID,
         body: {
           microcycle_id: microcycleId,
-          weeks: [{ target_week_template_id: weekId, day_of_week: 4, session: sessionWith(null) }],
+          weeks: [{ target_week_template_id: weekId, day_of_week: 4, sessions: [sessionWith(null)] }],
         },
         client: sql,
       });
@@ -149,11 +211,48 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
         body: {
           microcycle_id: microcycleId,
           weeks: [
-            { target_week_template_id: 2_000_000_000, day_of_week: 3, session: sessionWith(exerciseId) },
+            { target_week_template_id: 2_000_000_000, day_of_week: 3, sessions: [sessionWith(exerciseId)] },
           ],
         },
         client: sql,
       }),
     ).rejects.toMatchObject({ code: 'invalid_target', status: 400 });
+  });
+});
+
+// ── La nota del día, sin base de datos ───────────────────────────────────────
+// `mergeDayNote` es pura, así que se prueba aquí al lado del servicio que la usa
+// y corre siempre (el bloque de arriba se salta sin TEST_DATABASE_URL).
+// LA REGLA que fija: lo que escribió el coach no se pierde nunca.
+
+describe('mergeDayNote — la nota del coach manda', () => {
+  test('sin nota previa, entra la de la importación', () => {
+    expect(mergeDayNote(undefined, 'Control test salto')).toBe('Control test salto');
+    expect(mergeDayNote('', 'Control test salto')).toBe('Control test salto');
+  });
+
+  test('sin nota importada, la del coach se queda EXACTAMENTE como estaba', () => {
+    expect(mergeDayNote('Lo suyo', undefined)).toBe('Lo suyo');
+    expect(mergeDayNote('Lo suyo', '   ')).toBe('Lo suyo');
+    expect(mergeDayNote(undefined, undefined)).toBeUndefined();
+  });
+
+  test('con las dos, la suya arriba y la importada debajo: no se machaca', () => {
+    expect(mergeDayNote('Lo suyo', 'Control test salto')).toBe('Lo suyo\n\nControl test salto');
+  });
+
+  test('reimportar la misma semana no duplica el texto', () => {
+    const once = mergeDayNote('Lo suyo', 'Control test salto')!;
+    expect(mergeDayNote(once, 'Control test salto')).toBe(once);
+  });
+
+  test('si juntarlas pasara del tope, se cae la IMPORTADA, nunca la suya', () => {
+    const suya = 'x'.repeat(790);
+    expect(mergeDayNote(suya, 'una nota que ya no cabe')).toBe(suya);
+  });
+
+  test('una nota importada larguísima se recorta al tope, pero solo si no hay suya', () => {
+    const larga = 'y'.repeat(900);
+    expect(mergeDayNote(undefined, larga)).toHaveLength(800);
   });
 });

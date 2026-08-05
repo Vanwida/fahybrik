@@ -578,3 +578,54 @@ describe('`incomplete` no es un error', () => {
     expect(dayHiddenCount(day)).toBe(0);
   });
 });
+
+// ── La nota del día ───────────────────────────────────────────────────────────
+// Una tarjeta que no es entreno («Semana 12», «Control test salto») lleva
+// información del coach. Se leía y se perdía por el camino, que es peor que no
+// capturarla: la importación parecía haberla entendido y luego no estaba en
+// ningún sitio. Ahora viaja hasta `WeekDay.notes`.
+
+describe('la nota del día llega hasta el confirmar', () => {
+  function dayWithNote(notes: string | undefined): ProposalDay {
+    const itemUid = uid('item');
+    return {
+      ...makeDay(1, 'Lunes', [makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10 }])], [
+        makeFlag(itemUid, 'Back Squat'),
+      ]),
+      ...(notes === undefined ? {} : { notes }),
+    } as ProposalDay;
+  }
+
+  test('una tarjeta de nota acaba en el cuerpo del confirmar', () => {
+    const model = buildReviewModel(
+      makeProposal([makeWeek(1, [dayWithNote('Control test salto\nPesaje el viernes')])]),
+      [makeMicroWeek('101', 0)],
+    );
+    expect(model[0]!.days[0]!.notes).toBe('Control test salto\nPesaje el viernes');
+    const body = buildConfirmBody('7', model);
+    expect(body.weeks[0]!.notes).toBe('Control test salto\nPesaje el viernes');
+  });
+
+  test('sin nota, el cuerpo no lleva el campo (el Excel y el pegado no la traen)', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote(undefined)])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    expect(model[0]!.days[0]!.notes).toBeUndefined();
+    expect('notes' in buildConfirmBody('7', model).weeks[0]!).toBe(false);
+  });
+
+  test('una nota en blanco no ensucia el día', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote('   \n  ')])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    expect(model[0]!.days[0]!.notes).toBeUndefined();
+  });
+
+  test('un día excluido no manda su nota', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote('Control test')])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    model[0]!.days[0]!.included = false;
+    expect(buildConfirmBody('7', model).weeks).toHaveLength(0);
+  });
+});
