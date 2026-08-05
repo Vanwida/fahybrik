@@ -26,12 +26,28 @@ import {
   TextCell,
 } from './fields';
 
+/**
+ * Un valor que NO escribió el coach: lo propuso el importador porque la fuente no
+ * lo enseñaba. Trazo discontinuo ámbar, el mismo lenguaje que la revisión — y es
+ * FORMA además de color, así que se distingue sin ver el ámbar. Se acompaña
+ * siempre de «, propuesto» en la etiqueta accesible del campo: un lector de
+ * pantalla no ve el trazo.
+ */
+const PROPOSED_CELL =
+  'rounded-[var(--v2-r-2xs)] outline outline-1 outline-dashed outline-offset-1 outline-[color:var(--v2-warn)]';
+
+/** La etiqueta accesible de un campo propuesto. */
+function proposedAria(label: string, proposed: boolean): string {
+  return proposed ? `${label}, propuesto` : label;
+}
+
 // ── STRENGTH — per-set table {reps, carga, tempo, descanso} ──────────────────
 export function StrengthFields({
   value,
   onChange,
   scheme = 'sets',
   showRest = true,
+  proposedPaths,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
@@ -48,8 +64,16 @@ export function StrengthFields({
    * oculta y el descanso vive una sola vez a nivel de bloque.
    */
   showRest?: boolean;
+  /**
+   * Rutas de esta prescripción cuyo valor puso el importador, no el coach
+   * (`sets[0].rest_s`, `sets[0].measure`, `sets[0].target`). Solo la pasa la
+   * revisión de una importación: SIN ella la tabla se pinta exactamente como
+   * siempre y no sabe que existen las importaciones.
+   */
+  proposedPaths?: ReadonlyMap<string, string>;
 }) {
   const sets = value.sets ?? [];
+  const anyProposed = proposedPaths !== undefined && proposedPaths.size > 0;
   const gridCols = showRest
     ? 'grid-cols-[1.25rem_1fr_1fr_2.5rem]'
     : 'grid-cols-[1.25rem_1fr_1fr]';
@@ -93,6 +117,11 @@ export function StrengthFields({
             modality={value.modality}
             gridCols={gridCols}
             showRest={showRest}
+            proposed={{
+              measure: proposedPaths?.has(`sets[${i}].measure`) ?? false,
+              target: proposedPaths?.has(`sets[${i}].target`) ?? false,
+              rest: proposedPaths?.has(`sets[${i}].rest_s`) ?? false,
+            }}
             onChange={(patch) => updateSet(i, patch)}
             onRemove={sets.length > 1 ? () => removeSet(i) : undefined}
           />
@@ -103,6 +132,12 @@ export function StrengthFields({
           </p>
         ) : null}
       </div>
+
+      {anyProposed ? (
+        <p className="px-0.5 text-label leading-snug text-[color:var(--v2-warn)]">
+          Lo del trazo discontinuo no salía en la fuente: lo pusimos con tus valores por defecto.
+        </p>
+      ) : null}
 
       <button
         type="button"
@@ -122,6 +157,7 @@ function StrengthSetRow({
   modality,
   gridCols,
   showRest,
+  proposed,
   onChange,
   onRemove,
 }: {
@@ -130,6 +166,8 @@ function StrengthSetRow({
   modality: Prescription['modality'];
   gridCols: string;
   showRest: boolean;
+  /** Qué celdas de ESTA serie las puso el importador. Todo false = normal. */
+  proposed?: { measure: boolean; target: boolean; rest: boolean };
   onChange: (patch: Partial<PrescriptionSet>) => void;
   onRemove?: () => void;
 }) {
@@ -145,21 +183,29 @@ function StrengthSetRow({
         </span>
         <NumberCell
           value={reps}
-          ariaLabel={`Serie ${index + 1} · reps`}
+          ariaLabel={proposedAria(`Serie ${index + 1} · reps`, proposed?.measure ?? false)}
+          className={proposed?.measure ? PROPOSED_CELL : undefined}
           min={0}
           max={1000}
           onChange={(v) => onChange({ measure: v == null ? undefined : { kind: 'reps', value: v } })}
         />
-        <TargetCell
-          target={target}
-          modality={modality}
-          ariaPrefix={`Serie ${index + 1}`}
-          onChange={(t) => onChange({ target: t })}
-        />
+        {/* El objetivo cambia de forma según su tipo (una cifra, un rango, un
+            reloj de ritmo), así que la marca va en el contenedor y no dentro:
+            así vale para las tres. El «(propuesto)» viaja por `ariaPrefix`, que
+            ya se cuela en la etiqueta de todos sus campos. */}
+        <div className={proposed?.target ? PROPOSED_CELL : undefined}>
+          <TargetCell
+            target={target}
+            modality={modality}
+            ariaPrefix={proposed?.target ? `Serie ${index + 1} (propuesto)` : `Serie ${index + 1}`}
+            onChange={(t) => onChange({ target: t })}
+          />
+        </div>
         {showRest ? (
           <NumberCell
             value={set.rest_s ?? null}
-            ariaLabel={`Descanso (s) serie ${index + 1}`}
+            ariaLabel={proposedAria(`Descanso (s) serie ${index + 1}`, proposed?.rest ?? false)}
+            className={proposed?.rest ? PROPOSED_CELL : undefined}
             min={0}
             max={3600}
             suffix="s"

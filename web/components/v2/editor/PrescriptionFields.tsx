@@ -53,9 +53,18 @@ const FORMAT_OPTIONS: { value: PrescriptionScheme; label: string }[] = [
 export function PrescriptionFields({
   value,
   onChange,
+  proposedPaths,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
+  /**
+   * Rutas cuyo valor puso el importador y no el coach. Solo llega desde la
+   * revisión de una importación; sin ella este editor se comporta exactamente
+   * como siempre. Solo la tabla de fuerza tiene dónde ponerla: el resto de campos
+   * son de bloque (rondas, cap, descanso del formato) y el importador no los toca
+   * nunca — ver la lista de lo que NO se rellena en lib/import/fill-defaults.ts.
+   */
+  proposedPaths?: ReadonlyMap<string, string>;
 }) {
   const axes = axesOf(value);
   const formatId = useId();
@@ -148,7 +157,7 @@ export function PrescriptionFields({
       {/* ── Adaptive CAMPOS card ─────────────────────────────────────────── */}
       <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
         {isStrength ? (
-          <StrengthFields value={value} onChange={onChange} />
+          <StrengthFields value={value} onChange={onChange} proposedPaths={proposedPaths} />
         ) : (
           <ConditioningFields value={value} onChange={onChange} />
         )}

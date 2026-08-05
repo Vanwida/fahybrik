@@ -12,6 +12,7 @@ import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { undosedLines, type UndosedLine } from '@/lib/dashboard/v2/block-dose';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
+import { isStrengthModality } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { PrescriptionFields } from './PrescriptionFields';
@@ -30,6 +31,7 @@ export function BlockEditor({
   onDuplicate,
   onSave,
   onAddItem,
+  proposedPaths,
 }: {
   block: EditorBlock;
   athleteName?: string;
@@ -37,6 +39,12 @@ export function BlockEditor({
   onDuplicate?: () => void;
   onSave?: () => void;
   onAddItem?: () => void;
+  /**
+   * Por línea, las rutas de su prescripción cuyo valor puso el IMPORTADOR y no el
+   * coach. La pasa solo la revisión de una importación: sin ella este editor se
+   * comporta exactamente como siempre y no sabe que existen las importaciones.
+   */
+  proposedPaths?: ReadonlyMap<string, ReadonlyMap<string, string>>;
 }) {
   const [activeItemUid, setActiveItemUid] = useState<string | null>(
     block.items[0]?.uid ?? null,
@@ -51,6 +59,24 @@ export function BlockEditor({
     block.items.length > 0 && patternForBlock(block.archetype_id, block.format) !== null;
 
   const undosed = undosedLines(block);
+
+  // Una propuesta se marca EN SU CAMPO solo si ese campo se está pintando: la
+  // tabla de series de fuerza de la línea ACTIVA. Las demás (otra pestaña, una
+  // línea de cardio cuyo descanso se edita a nivel de bloque, un formulario de
+  // arquetipo) no tienen dónde, y esas las dice la tira. Ninguna se calla.
+  const stripLines = (block.items ?? [])
+    .map((it) => {
+      const labels = proposedPaths?.get(it.uid);
+      if (!labels || labels.size === 0) return null;
+      const markedInline =
+        !hasArchetypeForm &&
+        it.uid === activeItem?.uid &&
+        isStrengthModality(it.prescription.modality);
+      return markedInline
+        ? null
+        : { uid: it.uid, name: it.exercise_name, labels: [...labels.values()] };
+    })
+    .filter((l): l is { uid: string; name: string; labels: string[] } => l !== null);
 
   const updateItem = (uid: string, patch: Partial<EditorItem>) => {
     onChange({
@@ -108,6 +134,13 @@ export function BlockEditor({
           cuanto entra la dosis. */}
       {undosed.length > 0 ? <UndosedNotice lines={undosed} /> : null}
 
+      {/* Lo propuesto por el importador se marca EN SU CAMPO cuando ese campo
+          existe, que es la tabla de series de fuerza. Un formulario de arquetipo
+          o una línea de cardio no tienen dónde: su descanso se edita a nivel de
+          bloque y el importador nunca toca ese. Ahí lo dice esta tira, para que
+          ninguna de las dos vías se calle una propuesta. */}
+      {stripLines.length > 0 ? <ProposedStrip lines={stripLines} /> : null}
+
       {/* DEFAULT — the archetype-first tailored form (the simple input). It owns
           the exercise name, the type-specific fields, the phase tag, the athlete
           preview AND the "Ajuste avanzado" hatch (the full axes, reused). */}
@@ -163,6 +196,7 @@ export function BlockEditor({
 
               <PrescriptionFields
                 value={activeItem.prescription}
+                proposedPaths={proposedPaths?.get(activeItem.uid)}
                 onChange={(p) => setItemPrescription(activeItem.uid, p)}
               />
 
@@ -227,6 +261,38 @@ export function BlockEditor({
  * Con una sola línea (117 de las 119 piezas del coach) no se nombra el ejercicio:
  * es el que tiene delante, y decírselo sería ruido.
  */
+/**
+ * Lo que puso el importador en líneas cuyo campo NO se está pintando: otra
+ * pestaña, una línea de cardio (su descanso se edita a nivel de bloque) o un
+ * formulario de arquetipo. Mismo lenguaje que la marca del campo — trazo
+ * discontinuo ámbar — para que se lean como lo mismo, que lo son.
+ */
+function ProposedStrip({
+  lines,
+}: {
+  lines: Array<{ uid: string; name: string; labels: string[] }>;
+}) {
+  return (
+    <ul className="space-y-1.5">
+      {lines.map((line) => (
+        <li key={line.uid} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-label font-semibold text-[color:var(--v2-fg)]">
+            {line.name || 'Línea sin ejercicio'}
+          </span>
+          {line.labels.map((label) => (
+            <span
+              key={label}
+              className="v2-num inline-flex items-center rounded-[var(--v2-r-xs)] border border-dashed border-[color:var(--v2-warn)] px-2 py-0.5 text-nano text-[color:var(--v2-warn)]"
+            >
+              {label} · propuesto
+            </span>
+          ))}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function UndosedNotice({ lines }: { lines: UndosedLine[] }) {
   const one = lines.length === 1;
   return (
