@@ -9,14 +9,14 @@
  * returned (`import-photos/<coach_id>/…`) — never a client-chosen URL. So
  * the "reject a foreign host" concern doesn't test a URL allowlist; it tests
  * the pathname's OWNER segment, which is what `resolvePhotoImages`
- * (lib/import/proposal-service.ts) checks before ever asking Blob for it.
+ * (lib/import/photo-proposal.ts) checks before ever asking Blob for it.
  */
 import { describe, expect, test } from 'vitest';
 import {
   importPhotoRequestSchema,
   importPhotoPathnameOwner,
   IMPORT_PHOTO_MAX_IMAGES,
-} from '@/lib/import/proposal-service';
+} from '@/lib/import/photo-proposal';
 import { importPhotoUploadUrlSchema } from '@/app/api/coach/import/upload-url/route';
 import { visionReadingNotice } from '@/lib/dashboard/coach/ai/week-notices';
 

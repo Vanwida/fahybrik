@@ -24,8 +24,8 @@ export const dynamic = 'force-dynamic';
 // double-session week is 12 of them, and the provider queues concurrent calls, so
 // the measured end-to-end is ~204s — over the 180s this used to carry. 300s is the
 // ceiling the cron routes already run at. The PHOTO branch shares this ceiling:
-// it downloads up to IMPORT_PHOTO_MAX_IMAGES blobs (proposal-service.ts) THEN
-// makes its own single vision call, well inside the same budget.
+// it downloads up to IMPORT_PHOTO_MAX_IMAGES blobs (lib/import/photo-proposal.ts)
+// THEN makes its own single vision call, well inside the same budget.
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
