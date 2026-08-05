@@ -16,6 +16,7 @@ import type {
 } from '@fahybrid/shared/domain/prescription';
 import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import { MIcon } from '@/components/ui/MIcon';
+import { cn } from '@/lib/utils';
 import { axesOf } from '@/lib/dashboard/v2/editor-axes';
 import {
   ClockCell,
@@ -29,11 +30,29 @@ import {
 export function StrengthFields({
   value,
   onChange,
+  scheme = 'sets',
+  showRest = true,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
+  /**
+   * El esquema con el que se reescribe la prescripción al editar. Por defecto
+   * 'sets'. La SUPERSERIE usa esta misma tabla pero su bloque es 'superset': sin
+   * este parámetro, tocar una serie devolvía el bloque a series rectas y la
+   * rotación se perdía en silencio.
+   */
+  scheme?: Prescription['scheme'];
+  /**
+   * La superserie descansa al cerrar la VUELTA, no entre series de un mismo
+   * ejercicio (encadenarlas es justo lo que la define), así que allí la columna se
+   * oculta y el descanso vive una sola vez a nivel de bloque.
+   */
+  showRest?: boolean;
 }) {
   const sets = value.sets ?? [];
+  const gridCols = showRest
+    ? 'grid-cols-[1.25rem_1fr_1fr_2.5rem]'
+    : 'grid-cols-[1.25rem_1fr_1fr]';
 
   const updateSet = (i: number, patch: Partial<PrescriptionSet>) => {
     const nextSets = sets.map((s, idx) => {
@@ -44,25 +63,25 @@ export function StrengthFields({
       });
       return merged;
     });
-    onChange({ ...value, scheme: 'sets', sets: nextSets });
+    onChange({ ...value, scheme, sets: nextSets });
   };
 
   const addSet = () => {
     const last = sets[sets.length - 1];
     const seed: PrescriptionSet = last ? { ...last } : { measure: { kind: 'reps', value: 8 } };
-    onChange({ ...value, scheme: 'sets', sets: [...sets, seed] });
+    onChange({ ...value, scheme, sets: [...sets, seed] });
   };
 
   const removeSet = (i: number) =>
-    onChange({ ...value, scheme: 'sets', sets: sets.filter((_, idx) => idx !== i) });
+    onChange({ ...value, scheme, sets: sets.filter((_, idx) => idx !== i) });
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[1.25rem_1fr_1fr_2.5rem] items-center gap-1.5 px-0.5">
+      <div className={cn('grid items-center gap-1.5 px-0.5', gridCols)}>
         <span className="v2-micro text-center">#</span>
         <span className="v2-micro">Reps</span>
         <span className="v2-micro">Carga</span>
-        <span className="v2-micro text-right">Desc</span>
+        {showRest ? <span className="v2-micro text-right">Desc</span> : null}
       </div>
 
       <div className="space-y-1.5">
@@ -72,6 +91,8 @@ export function StrengthFields({
             index={i}
             set={set}
             modality={value.modality}
+            gridCols={gridCols}
+            showRest={showRest}
             onChange={(patch) => updateSet(i, patch)}
             onRemove={sets.length > 1 ? () => removeSet(i) : undefined}
           />
@@ -99,12 +120,16 @@ function StrengthSetRow({
   index,
   set,
   modality,
+  gridCols,
+  showRest,
   onChange,
   onRemove,
 }: {
   index: number;
   set: PrescriptionSet;
   modality: Prescription['modality'];
+  gridCols: string;
+  showRest: boolean;
   onChange: (patch: Partial<PrescriptionSet>) => void;
   onRemove?: () => void;
 }) {
@@ -114,7 +139,7 @@ function StrengthSetRow({
 
   return (
     <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5">
-      <div className="grid grid-cols-[1.25rem_1fr_1fr_2.5rem] items-center gap-1.5">
+      <div className={cn('grid items-center gap-1.5', gridCols)}>
         <span className="v2-num text-center text-xs font-bold text-[color:var(--v2-muted)]">
           {index + 1}
         </span>
@@ -131,14 +156,16 @@ function StrengthSetRow({
           ariaPrefix={`Serie ${index + 1}`}
           onChange={(t) => onChange({ target: t })}
         />
-        <NumberCell
-          value={set.rest_s ?? null}
-          ariaLabel={`Descanso (s) serie ${index + 1}`}
-          min={0}
-          max={3600}
-          suffix="s"
-          onChange={(v) => onChange({ rest_s: v ?? undefined })}
-        />
+        {showRest ? (
+          <NumberCell
+            value={set.rest_s ?? null}
+            ariaLabel={`Descanso (s) serie ${index + 1}`}
+            min={0}
+            max={3600}
+            suffix="s"
+            onChange={(v) => onChange({ rest_s: v ?? undefined })}
+          />
+        ) : null}
       </div>
       <div className="mt-1.5 flex items-center gap-1.5">
         <TextCell

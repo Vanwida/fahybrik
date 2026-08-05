@@ -35,17 +35,31 @@ import { createTestBlock, TEST_BLOCK_FORMAT } from '@/lib/dashboard/v2/test-temp
 // STEADY      — one line: duración|distancia + zona|RPE|ritmo  (Z2 / tempo / activación / test)
 // INTERVALS   — N × (distancia|tiempo work) @ ritmo|RPE + descanso  (series / intervalos)
 // SETS_TABLE  — the per-set table: reps × %RM|kg × descanso × tempo  (fuerza)
+// SUPERSET    — the SAME per-set table, once PER EXERCISE, plus the rotation rest:
+//               the block alternates its exercises (A1→A2→A1→A2) instead of running
+//               them in straight sets. That rotation is the ONLY difference from
+//               SETS_TABLE (docs/DECISIONS.md 2026-08-05), so the table is reused
+//               verbatim and this pattern adds exactly two things: the second
+//               exercise and the descanso de la vuelta.
 // COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito)
 // HYROX_SIM   — the dedicated ORDERED race template: 16 fixed legs (8 runs + 8
 //               stations in official order) + Open/Pro standard loads  (Simulación HYROX)
 // TEST        — the dedicated light resolver form: pick a test TYPE (modality +
 //               measure auto, RPE 10) whose result calculates the athlete's zones
-export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components' | 'hyrox_sim' | 'test';
+export type FormPattern =
+  | 'steady'
+  | 'intervals'
+  | 'sets_table'
+  | 'superset'
+  | 'components'
+  | 'hyrox_sim'
+  | 'test';
 
 export type ArchetypeId =
   | 'steady_run'
   | 'intervals'
   | 'strength'
+  | 'superset'
   | 'power_emom'
   | 'wod_metcon'
   | 'circuit_core'
@@ -73,6 +87,12 @@ export interface Archetype {
   format: string;
   /** Default block title pre-filled when the coach picks this type. */
   defaultTitle: string;
+  /**
+   * Cuántos ejercicios se siembran al crear el bloque. Por defecto 1: casi todos
+   * los arquetipos arrancan con uno. La superserie arranca con DOS porque un solo
+   * ejercicio no es una superserie: lo que la define es que se alternan.
+   */
+  seedItems?: number;
   /**
    * DEFERRED this chunk (HYROX-sim template + Test "almacena ritmo" specifics).
    * The archetype is NOT a dead tile: it routes to its closest base form so it
@@ -118,6 +138,19 @@ export const ARCHETYPES: Archetype[] = [
     frequency: '47×',
     format: 'strength_block',
     defaultTitle: 'Fuerza',
+  },
+  {
+    id: 'superset',
+    name: 'Superserie',
+    shortName: 'Superserie',
+    purpose: 'Dos o tres ejercicios que se alternan. Una serie de cada y descansas al cerrar la vuelta.',
+    icon: 'swap_horiz',
+    modalitySlug: 'fuerza',
+    pattern: 'superset',
+    frequency: 'nuevo',
+    format: 'superset',
+    defaultTitle: 'Superserie',
+    seedItems: 2,
   },
   {
     id: 'hyrox_sim',
@@ -213,6 +246,7 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
   steady_run: 'carrera',
   intervals: 'carrera',
   strength: 'fuerza',
+  superset: 'fuerza',
   power_emom: 'circuito',
   wod_metcon: 'circuito',
   circuit_core: 'circuito',
@@ -228,6 +262,7 @@ const ARCHETYPE_SCHEME: Record<ArchetypeId, Prescription['scheme']> = {
   steady_run: 'steady',
   intervals: 'intervals',
   strength: 'sets',
+  superset: 'superset',
   power_emom: 'emom',
   wod_metcon: 'for_time',
   circuit_core: 'rounds',
@@ -239,6 +274,11 @@ const ARCHETYPE_SCHEME: Record<ArchetypeId, Prescription['scheme']> = {
 // Activación defaults to a low, easy effort (RPE 3) — the one place the archetype
 // overrides the modality's natural target with its own sensible default.
 const ACTIVATION_TARGET: Prescription['target'] = { kind: 'rpe', value: 3 };
+
+// Descanso por defecto al CERRAR una vuelta de superserie (A1 → A2 → descanso).
+// Semilla editable en el formulario, nunca una regla: es el mismo valor que un
+// coach pone de oficio entre series de fuerza submáxima.
+const SUPERSET_ROTATION_REST_S = 90;
 
 /**
  * Build a valid starting Prescription for a fresh block of the chosen archetype.
@@ -255,6 +295,20 @@ export function seedArchetype(id: ArchetypeId): Prescription {
   if (scheme === 'sets') {
     // Strength keeps the seeded per-set table from applyModalidad as-is.
     return base;
+  }
+
+  if (scheme === 'superset') {
+    // La MISMA tabla de series que la fuerza (su pareja): lo único que cambia es
+    // que el bloque rota sus ejercicios. El descanso sube a nivel de bloque porque
+    // es el de la VUELTA (A1 → A2 → descanso), así que el que trae la semilla de
+    // fuerza por serie se retira: dos descansos con significados distintos en la
+    // misma tarjeta es justo lo que confunde al coach.
+    const sets = (base.sets ?? []).map((set) => {
+      const next = { ...set };
+      delete next.rest_s;
+      return next;
+    });
+    return { ...base, scheme: 'superset', sets, rest_s: SUPERSET_ROTATION_REST_S };
   }
 
   const modality: Modality = base.modality ?? 'other';
@@ -321,6 +375,10 @@ const FORMAT_TO_ARCHETYPE: Record<string, ArchetypeId> = {
   tempo: 'steady_run',
   intervals: 'intervals',
   strength_block: 'strength',
+  // Sin esta entrada, una superserie recargada (o importada de una foto) caía a
+  // "sin arquetipo" y perdía su formulario: el formato existía en el catálogo pero
+  // no tenía dónde editarse.
+  superset: 'superset',
   emom: 'power_emom',
   for_time: 'wod_metcon',
   amrap: 'wod_metcon',
@@ -365,15 +423,18 @@ export function createBlockFromArchetype(
   if (id === 'test') return createTestBlock(group);
 
   const archetype = getArchetype(id);
-  const prescription = seedArchetype(id);
   const now = Date.now();
 
-  const item: EditorItem = {
-    uid: `arch-item-${now}`,
+  // `seedItems` ejercicios (1 salvo la superserie, que nace con dos). Se llama a
+  // seedArchetype UNA VEZ POR ITEM a propósito: devuelve un objeto nuevo cada vez,
+  // así dos ejercicios del mismo bloque nunca comparten la misma prescripción por
+  // referencia (editar uno cambiaría el otro).
+  const items: EditorItem[] = Array.from({ length: archetype.seedItems ?? 1 }, (_, i) => ({
+    uid: `arch-item-${now}-${i}`,
     exercise_id: null,
     exercise_name: '',
-    prescription,
-  };
+    prescription: seedArchetype(id),
+  }));
 
   return {
     uid: `arch-${id}-${now}`,
@@ -381,6 +442,6 @@ export function createBlockFromArchetype(
     format: archetype.format,
     archetype_id: id,
     ...(group ? { group } : {}),
-    items: [item],
+    items,
   };
 }

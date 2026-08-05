@@ -31,6 +31,7 @@ import { SteadyForm } from './archetype-forms/SteadyForm';
 import { IntervalsForm } from './archetype-forms/IntervalsForm';
 import { RunStructureForm } from './archetype-forms/run-structure/RunStructureForm';
 import { SetsTableForm } from './archetype-forms/SetsTableForm';
+import { SupersetForm } from './archetype-forms/SupersetForm';
 import { ComponentsForm } from './archetype-forms/ComponentsForm';
 import { SimulacionHyroxForm } from './archetype-forms/SimulacionHyroxForm';
 import { TestForm } from './archetype-forms/TestForm';
@@ -53,9 +54,13 @@ export function ArchetypeBlockForm({
     : // Reloaded block: derive the header card from the stored format.
       archetypeForFormat(block.format);
 
-  // Multi-item patterns (components, hyrox_sim) edit the block's ITEM LIST; the
-  // single-item patterns (steady/intervals/sets_table) edit one item's prescription.
-  const isMultiItem = pattern === 'components' || pattern === 'hyrox_sim';
+  // Multi-item patterns (components, hyrox_sim, superset) edit the block's ITEM
+  // LIST; the single-item patterns (steady/intervals/sets_table) edit one item's
+  // prescription. Una superserie es multi-item POR DEFINICIÓN: lo que la hace
+  // superserie es que sus ejercicios se alternan, así que trae su propio selector
+  // de ejercicio por cada uno y no el único de arriba.
+  const isMultiItem =
+    pattern === 'components' || pattern === 'hyrox_sim' || pattern === 'superset';
   // The Test pattern is single-item but SELF-CONTAINED: the test TYPE names the
   // exercise + fully defines the prescription (round-trips from it), so it shows
   // no free exercise-name input and no advanced-axes hatch (that would break the
@@ -111,6 +116,8 @@ export function ArchetypeBlockForm({
         )
       ) : pattern === 'sets_table' && firstItem ? (
         <SetsTableForm value={firstItem.prescription} onChange={setFirstPrescription} />
+      ) : pattern === 'superset' ? (
+        <SupersetForm block={block} onChange={onChange} />
       ) : pattern === 'components' ? (
         <ComponentsForm block={block} onChange={onChange} />
       ) : pattern === 'hyrox_sim' ? (

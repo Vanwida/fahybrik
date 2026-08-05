@@ -32,9 +32,19 @@ function currentObjectiveKind(p: Prescription): TargetKind {
 export function SetsTableForm({
   value,
   onChange,
+  scheme = 'sets',
+  showRest = true,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
+  /**
+   * Esquema con el que se reescribe la prescripción al editar. La SUPERSERIE
+   * reutiliza este formulario entero con `scheme="superset"`: sin esto, cambiar el
+   * objetivo de carga devolvía el bloque a series rectas y se perdía la rotación.
+   */
+  scheme?: Prescription['scheme'];
+  /** La superserie lleva el descanso a nivel de bloque (el de la vuelta). */
+  showRest?: boolean;
 }) {
   const objKind = currentObjectiveKind(value);
 
@@ -56,7 +66,7 @@ export function SetsTableForm({
       void _rir;
       return { ...rest, target };
     });
-    onChange({ ...value, scheme: 'sets', sets });
+    onChange({ ...value, scheme, sets });
   };
 
   return (
@@ -72,7 +82,7 @@ export function SetsTableForm({
 
       {/* The existing per-set table — reps × objetivo × descanso × tempo. */}
       <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-        <StrengthFields value={value} onChange={onChange} />
+        <StrengthFields value={value} onChange={onChange} scheme={scheme} showRest={showRest} />
       </div>
     </div>
   );
