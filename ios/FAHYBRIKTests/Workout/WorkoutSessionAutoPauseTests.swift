@@ -16,6 +16,11 @@ final class WorkoutSessionAutoPauseTests: XCTestCase {
                                coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()   // running, not paused, not awaiting
+        // La auto-pausa sólo existe mientras alguien mira la velocidad. En la app
+        // eso lo hace la pantalla de calle; aquí lo declara el test, igual que la
+        // sesión exige en producción — sin vigilante no se puede auto-pausar,
+        // porque nadie podría deshacerlo (ver `AutoPausaNoSobreviveTests`).
+        s.beginAutoPauseEvaluation()
         return s
     }
 

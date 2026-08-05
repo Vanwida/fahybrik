@@ -755,8 +755,32 @@ final class WorkoutSession {
     /// and the covered pace stays honest — while remembering that WE paused, so
     /// resumed movement can lift it. No-op when already paused / finished / parked on
     /// a block preview. The caller owns the haptic + the non-modal "Auto-pausa" banner.
+    /// UNA AUTO-PAUSA NO PUEDE SOBREVIVIR A QUIEN LA VIGILA.
+    ///
+    /// La auto-pausa la decide quien mira la velocidad del GPS, y eso vive en una
+    /// pantalla. Cuando esa pantalla se va —el atleta la cierra, cambia de tramo,
+    /// pasa a la cinta— ya no hay nadie evaluando si el atleta ha vuelto a correr,
+    /// y la sesión se quedaba **pausada para siempre**: el crono parado en un
+    /// semáforo, y encima el entreno se guardaba con ese tiempo de menos.
+    ///
+    /// El fallo no era que faltara una llamada en un `teardown`: era que el
+    /// invariante estaba en manos de la vista. Ahora lo garantiza la sesión —
+    /// quien evalúe se registra, y al irse cualquier auto-pausa suya se levanta
+    /// sola. Una pausa MANUAL no se toca nunca: ésa es del atleta.
+    private var autoPauseEvaluadores = 0
+
+    func beginAutoPauseEvaluation() { autoPauseEvaluadores += 1 }
+
+    func endAutoPauseEvaluation() {
+        autoPauseEvaluadores = Swift.max(0, autoPauseEvaluadores - 1)
+        guard autoPauseEvaluadores == 0 else { return }
+        autoResume()
+    }
+
     func autoPause() {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
+        // Sin nadie vigilando no se auto-pausa: nadie podría deshacerlo.
+        guard autoPauseEvaluadores > 0 else { return }
         isPaused = true
         autoPaused = true
     }

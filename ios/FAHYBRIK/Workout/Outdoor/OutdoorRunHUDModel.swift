@@ -74,9 +74,15 @@ final class OutdoorRunHUDModel {
         displayTimer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        // Mientras esta pantalla mire la velocidad, ELLA es quien puede auto-pausar.
+        // La sesión lleva la cuenta y libera sola cuando el último se va.
+        session.beginAutoPauseEvaluation()
     }
 
     func teardown() {
+        // Antes que nada: dejar de vigilar. Si el atleta cerró esto parado en un
+        // semáforo, la sesión no puede quedarse pausada sin nadie que la despierte.
+        session.endAutoPauseEvaluation()
         displayTimer?.invalidate(); displayTimer = nil
         gps.setBackgroundUpdates(false)   // stop background GPS the moment the run closes (battery)
         gps.stop()
