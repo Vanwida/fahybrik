@@ -70,6 +70,12 @@ enum MirrorWire {
         /// iPhone volvía a foreground (IMG_2387). Un dato entrante por la sesión
         /// espejo SÍ despierta al teléfono; el timer, no.
         static let sync = "sync"
+        /// EL RELOJ DE PARED: declarar que no llegaste a las repeticiones del
+        /// minuto en un death by. No es el `advance` genérico a propósito — ese
+        /// dispara `deathByLogged` (el camino de ÉXITO, el minuto cumplido, que
+        /// el motor ya avanza solo). Confundir los dos marcaría como superado el
+        /// minuto en el que el atleta acaba de fallar.
+        static let deathByFail = "deathByFail"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in

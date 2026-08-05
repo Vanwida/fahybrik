@@ -308,6 +308,8 @@ final class PhoneMirrorService {
             if !session.isPaused { session.togglePause() }
         case MirrorWire.CommandKind.resume:
             if session.isPaused { session.togglePause() }
+        case MirrorWire.CommandKind.deathByFail:
+            session.deathByFail()
         default:
             break
         }
@@ -539,7 +541,12 @@ final class PhoneMirrorService {
             zonaViva: session.liveZone?.rawValue,
             siguiente: session.nextTramoLine,
             cargaKg: set.flatMap { $0.loadActualKg ?? $0.loadPrescribedKg },
-            reps: set.flatMap { $0.repsActual ?? $0.repsPrescribed }
+            // `reps` es fuerza cuando hay serie en curso, y las repeticiones DEL
+            // MINUTO en un death by cuando no la hay — los dos formatos son
+            // mutuamente excluyentes, así que un solo campo basta para los dos.
+            reps: set != nil
+                ? set.flatMap { $0.repsActual ?? $0.repsPrescribed }
+                : (seg?.formatScheme == .deathBy ? session.deathByTarget : nil)
         )
     }
 

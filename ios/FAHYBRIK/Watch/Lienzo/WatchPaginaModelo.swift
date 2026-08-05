@@ -59,6 +59,16 @@ struct WatchPagina: Identifiable {
     var onToca: (() -> Void)? = nil
     /// Versales al pie: procedencia u honestidad.
     var nota: String? = nil
+    /// EL LATIDO — un golpe de escala en el numeral cuando este número cambia.
+    ///
+    /// Existe para el reloj de pared (`GuionRelojDePared`): en un tabata la
+    /// cifra no se lee a tiempo de servir para nada —ni en los 20 s de trabajo
+    /// ni en los 10 de parada hay ninguna decisión que cambie sabiendo el
+    /// segundo exacto—, así que lo que se usa es el ESTADO: trabajas o paras.
+    /// El latido es la confirmación de que la ronda cambió, sin pedir que se
+    /// enfoque el número para leerlo. Sube el valor para disparar el golpe; que
+    /// el número en sí sea el mismo o distinto no importa, sólo el cambio.
+    var latido: Int = 0
 }
 
 // MARK: - Destello

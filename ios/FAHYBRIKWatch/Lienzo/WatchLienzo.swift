@@ -53,6 +53,7 @@ struct WatchReloj: View {
     /// primera — mientras que el toque de «serie hecha» sigue funcionando, que es
     /// justo el que hace falta con el brazo abajo.
     @Environment(\.isLuminanceReduced) private var atenuado
+    @State private var golpe: CGFloat = 1
 
     private var paginaActiva: WatchPagina {
         guard !paginas.isEmpty else {
@@ -154,6 +155,16 @@ struct WatchReloj: View {
                         .foregroundStyle(p.tono)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
+                        // EL LATIDO. Un golpe de escala de 340 ms cuando `p.latido`
+                        // cambia — nunca al montar la página, sólo al CAMBIAR: si
+                        // disparara con el primer valor puesto, la ronda 1 de un
+                        // tabata pulsaría sin que hubiera pasado nada todavía.
+                        .scaleEffect(golpe)
+                        .onChange(of: p.latido) { _, _ in
+                            golpe = 1
+                            withAnimation(.easeOut(duration: 0.18)) { golpe = 1.14 }
+                            withAnimation(.easeOut(duration: 0.16).delay(0.18)) { golpe = 1 }
+                        }
                     if let u = p.unidad {
                         Text(u)
                             .font(.system(size: alto * 0.30, weight: .heavy).monospacedDigit())

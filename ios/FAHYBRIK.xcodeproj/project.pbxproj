@@ -142,6 +142,7 @@
 		3C5DA580832E71E2C03E78E4 /* KeychainTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAB7D87F7B2112418BD4516 /* KeychainTokenStore.swift */; };
 		3C8DDBA07356D0EDC06ECD01 /* FTMSTreadmillParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150C8A6EAB2B6FC85A7D0ED7 /* FTMSTreadmillParser.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
+		3E55F85773197FF1BD26983A /* EspejoRelojDeParedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */; };
 		3ECB363450CB65D9ED0ED530 /* GuionFuerza.swift in Sources */ = {isa = PBXBuildFile; fileRef = F965F57F4EC45CD897921525 /* GuionFuerza.swift */; };
 		3F5987EB7F92F4E9E0530508 /* TreadmillConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B095C0D35F7A67110145CEF /* TreadmillConstants.swift */; };
 		3F5B58AE8A8E601CAFD03E96 /* ChecklistLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C8A1E55CAF66B6AFB0B949 /* ChecklistLiveView.swift */; };
@@ -214,10 +215,12 @@
 		6740ACDEAC1B3B3B84556722 /* MyStrengthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4285DC48D6D1BD3D7042E16 /* MyStrengthView.swift */; };
 		677A5D19A5642F5B27CE77BD /* DeviceHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58859ABC592990B8A4EB837F /* DeviceHub.swift */; };
 		67C7D8E74BAF5F6F5443D0A8 /* RaceCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBA3019D6F13D1753993AB3 /* RaceCalendarService.swift */; };
+		67E72C4A1DFAAAE6E037819E /* GuionRelojDeParedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA659EF6ACBC9EFD89E1164 /* GuionRelojDeParedTests.swift */; };
 		685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */; };
 		688B6C9F2195ABFB7A57AA8E /* ZoneCoverage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74231A9C739686C2071C2069 /* ZoneCoverage.swift */; };
 		6AAF20CF8B6E2553501825C0 /* MyZonesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70D483F95728633B7B3547C0 /* MyZonesView.swift */; };
 		6AB00B53908A29B4875EC2BA /* TestsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439102E7BE4D472B0A3C047C /* TestsHubView.swift */; };
+		6B084DF38B05CF3118647D0A /* GuionRelojDePared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 436ADF65AFAC574160CFE7F8 /* GuionRelojDePared.swift */; };
 		6B4263061DFB66F9789D4D9B /* GuionErgo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C383B27E344864F54A7B99 /* GuionErgo.swift */; };
 		6C1E34103F1C222F9FD8D2F0 /* PM5WorkoutProgrammer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73A68404255EFFB752343750 /* PM5WorkoutProgrammer.swift */; };
 		6C294DDB41A3122F1D2F50CA /* LiveWorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA39FD9391B44A7E577DC77A /* LiveWorkoutSession.swift */; };
@@ -262,6 +265,7 @@
 		824817A27EA2989622632399 /* CheckinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691375D173DBA6F86C29874E /* CheckinView.swift */; };
 		8304BD51BD9DF538CDF50E23 /* LaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540953E181A1B013FB43B851 /* LaunchSplashView.swift */; };
 		83250B0BD03389F90D1E1549 /* PM5Pool.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1FE8494C07AA573A765236 /* PM5Pool.swift */; };
+		837E59D8C93F1F02432D9860 /* GuionRelojDePared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 436ADF65AFAC574160CFE7F8 /* GuionRelojDePared.swift */; };
 		83C51B77C1B4BDF15DD56E23 /* ImportHistoryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2CFF40D992E0742989750AE /* ImportHistoryStep.swift */; };
 		841170B9A8C6B42AA2267BE2 /* RunCueEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C7E1CB418D53ABD8B86F5C /* RunCueEngine.swift */; };
 		841F3FE4274C50C6951F6246 /* GuionSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE09A09A014A40B667C9A06 /* GuionSeries.swift */; };
@@ -603,6 +607,7 @@
 		1BFE35A94B3C3B89E14B71E2 /* LenguajeVivo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LenguajeVivo.swift; sourceTree = "<group>"; };
 		1CFDED792A7591918E4D4DA2 /* FreeFunctionalBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFunctionalBuilderView.swift; sourceTree = "<group>"; };
 		1D68388A51BB12F5A37F852A /* Atoms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atoms.swift; sourceTree = "<group>"; };
+		1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EspejoRelojDeParedTests.swift; sourceTree = "<group>"; };
 		1E7EEF0FB9C6C66A6C61C2AD /* WatchRunLegDriverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRunLegDriverTests.swift; sourceTree = "<group>"; };
 		1ED48EFC44FF48D81CC1850A /* NutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionView.swift; sourceTree = "<group>"; };
 		1F1B84CA34CFECB33FF5ECB6 /* RaceStepComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceStepComponents.swift; sourceTree = "<group>"; };
@@ -666,6 +671,7 @@
 		41EB05553A86CA68BFC2CE3D /* ImportedRaceHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedRaceHistory.swift; sourceTree = "<group>"; };
 		428A259778E7CF4834F40CE0 /* RunLegDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegDisplay.swift; sourceTree = "<group>"; };
 		42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
+		436ADF65AFAC574160CFE7F8 /* GuionRelojDePared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionRelojDePared.swift; sourceTree = "<group>"; };
 		439102E7BE4D472B0A3C047C /* TestsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestsHubView.swift; sourceTree = "<group>"; };
 		44AEA23FC45DE304FDE5549E /* AppFeedbackSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackSheet.swift; sourceTree = "<group>"; };
 		44FB98ED7471F434CC3D5E62 /* DeviceChannelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceChannelTests.swift; sourceTree = "<group>"; };
@@ -964,6 +970,7 @@
 		DB1A4598C8B61A292DE32327 /* WatchPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPlanModel.swift; sourceTree = "<group>"; };
 		DC0608678E17B47D5C1C22C5 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 		DC5F9E5EE28C600F66A1DEBF /* Generated-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Generated-Info.plist"; sourceTree = "<group>"; };
+		DCA659EF6ACBC9EFD89E1164 /* GuionRelojDeParedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionRelojDeParedTests.swift; sourceTree = "<group>"; };
 		DCEE8F536C882F5BA9402CEA /* MockDeviceSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceSources.swift; sourceTree = "<group>"; };
 		DD06425D235284347988D17C /* PM5ConnectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5ConnectionStore.swift; sourceTree = "<group>"; };
 		DD8F4BB0E65C93AE8B1A7E38 /* ReviewTodayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewTodayCard.swift; sourceTree = "<group>"; };
@@ -1073,6 +1080,7 @@
 				0E27265B78B5431E1DF36E61 /* GuionEmom.swift */,
 				02C383B27E344864F54A7B99 /* GuionErgo.swift */,
 				F965F57F4EC45CD897921525 /* GuionFuerza.swift */,
+				436ADF65AFAC574160CFE7F8 /* GuionRelojDePared.swift */,
 				B8BD9596CEA068A30D69E482 /* GuionRodaje.swift */,
 				74F0B15F60E8833E2293E64F /* GuionRuta.swift */,
 				9DE09A09A014A40B667C9A06 /* GuionSeries.swift */,
@@ -1581,8 +1589,10 @@
 				139B35A57A39BB6C644F4F48 /* ErgCounterPolicyTests.swift */,
 				9B34B273450C0CDF7C1668D5 /* ErgSeriesAutoCloseTests.swift */,
 				94664E1080747489D35B0DC4 /* EspejoDeCaboARaboTests.swift */,
+				1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */,
 				B50A802EBADFA979DEA7842C /* FormaDeCarreraTests.swift */,
 				6E2F276A687B40AFFD1FE476 /* FreeWorkoutEncodeTests.swift */,
+				DCA659EF6ACBC9EFD89E1164 /* GuionRelojDeParedTests.swift */,
 				5AB3E2FBF445091413BB293B /* HRProvenanceTests.swift */,
 				01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */,
 				3AC88949D9D6EEF0EC372A99 /* MirrorWireModelsTests.swift */,
@@ -2373,6 +2383,7 @@
 				169EF58A5F03FC318E23E715 /* GuionEmom.swift in Sources */,
 				6B4263061DFB66F9789D4D9B /* GuionErgo.swift in Sources */,
 				3ECB363450CB65D9ED0ED530 /* GuionFuerza.swift in Sources */,
+				837E59D8C93F1F02432D9860 /* GuionRelojDePared.swift in Sources */,
 				E2EF906702C760D8E997AFA9 /* GuionRodaje.swift in Sources */,
 				8439BD410B4AC68DC580A8C5 /* GuionRuta.swift in Sources */,
 				43EE7FBCE4011D2065DCC1AC /* GuionSeries.swift in Sources */,
@@ -2582,6 +2593,7 @@
 				0FA9CF39A944E4F15241EBDD /* GuionErgo.swift in Sources */,
 				A870035CE3A6DFE809E5F699 /* GuionEscaparate.swift in Sources */,
 				8DCE2DAD7DAC4888870FB1D1 /* GuionFuerza.swift in Sources */,
+				6B084DF38B05CF3118647D0A /* GuionRelojDePared.swift in Sources */,
 				FB160E2DADC1CCFDB65EA9FD /* GuionRodaje.swift in Sources */,
 				61AB13B32563A99C09CFE861 /* GuionRuta.swift in Sources */,
 				841F3FE4274C50C6951F6246 /* GuionSeries.swift in Sources */,
@@ -2673,6 +2685,7 @@
 				A42CEAA402C888065C41B1C6 /* ErgCounterPolicyTests.swift in Sources */,
 				FCAAE68F480CE240B9BF700E /* ErgSeriesAutoCloseTests.swift in Sources */,
 				136A35D5901612AF90D541C5 /* EspejoDeCaboARaboTests.swift in Sources */,
+				3E55F85773197FF1BD26983A /* EspejoRelojDeParedTests.swift in Sources */,
 				E9FDDE92B0B19129662FF878 /* FTMSControlSequencerTests.swift in Sources */,
 				E601CA8F67205463A0FC9E2B /* FTMSControlTests.swift in Sources */,
 				55F658B967472472F5C9F3D5 /* FTMSTreadmillParserTests.swift in Sources */,
@@ -2680,6 +2693,7 @@
 				E7E793AF6A7B84EE21940868 /* FormatoTests.swift in Sources */,
 				AAF4092F2B7DC798BBCF6F21 /* FreeWorkoutEncodeTests.swift in Sources */,
 				E67994FBE35B123988FA8FB5 /* GuidedTestTemplateTests.swift in Sources */,
+				67E72C4A1DFAAAE6E037819E /* GuionRelojDeParedTests.swift in Sources */,
 				059C200E535CD6789EDF320C /* HRChipPresentationTests.swift in Sources */,
 				53BED8207DE1CAB3060B3D1A /* HRProvenanceTests.swift in Sources */,
 				AC5EA79BFC7C50D5507482AE /* HRRecoveryTests.swift in Sources */,

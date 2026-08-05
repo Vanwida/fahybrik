@@ -24,7 +24,12 @@ enum GuionDelEspejo {
         _ f: MirrorStateFrame,
         bpm: Int?,
         elapsed: Double,
-        avanzar: @escaping () -> Void
+        avanzar: @escaping () -> Void,
+        /// Death by: declarar que no llegaste al minuto. Distinto de `avanzar`
+        /// (que en este formato marca el minuto como CUMPLIDO) — ver
+        /// `MirrorWire.CommandKind.deathByFail`. Sin valor, degrada a `avanzar`
+        /// para que un llamante que no lo pase no se quede sin ningún gesto.
+        rendirse: (() -> Void)? = nil
     ) -> [WatchPagina] {
         guard let t = f.tramo else { return generico(f, bpm: bpm, elapsed: elapsed, avanzar: avanzar) }
 
@@ -49,6 +54,9 @@ enum GuionDelEspejo {
         case .ergo:
             return GuionErgo.paginas(ergo(t, bpm: bpm, elapsed: enTramo),
                                      GuionErgo.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
+        case .relojDePared:
+            return GuionRelojDePared.paginas(relojDePared(t, bpm: bpm),
+                                             GuionRelojDePared.Gestos(rendirse: rendirse ?? avanzar))
         case .ninguno:
             return generico(f, bpm: bpm, elapsed: elapsed, avanzar: avanzar)
         }
@@ -56,7 +64,7 @@ enum GuionDelEspejo {
 
     // MARK: - Qué guion sirve este tramo
 
-    private enum Cual { case fuerza, rodaje, series, emom, ruta, ergo, ninguno }
+    private enum Cual { case fuerza, rodaje, series, emom, ruta, ergo, relojDePared, ninguno }
 
     /// MANDA LA MODALIDAD, NO EL NOMBRE DEL FORMATO. Y esto no es una preferencia
     /// de estilo: es que las dos fuentes de entreno NO escriben el mismo formato
@@ -96,8 +104,20 @@ enum GuionDelEspejo {
              PrescriptionModality.bike.rawValue:
             return .ergo
         default:
-            return .ninguno
+            // EL RELOJ DE PARED: intervals/tabata/death_by/steady cuando nadie
+            // mide la máquina y no hay GPS — burpees, planchas, un trineo.
+            // Ninguno de los tres casos anteriores los reclama (no son de
+            // correr, ni de fuerza, ni de ergo), y son justo la familia que se
+            // quedó sin pantalla al reordenar las superficies del entreno.
+            return esRelojDePared(t.formato) ? .relojDePared : .ninguno
         }
+    }
+
+    /// Los cuatro formatos que corta el reloj de pared. `sets`/`forTime`-y-cía
+    /// quedan fuera a propósito: cada uno tiene ya su propio guion.
+    private static func esRelojDePared(_ formato: String?) -> Bool {
+        [PrescriptionScheme.intervals, .tabata, .deathBy, .steady]
+            .map(\.rawValue).contains(formato ?? "")
     }
 
     /// Los formatos que se recorren como una RUTA de estaciones contra un solo
@@ -245,6 +265,50 @@ enum GuionDelEspejo {
         )
     }
 
+    /// El reloj de pared. `enTramoS` no entra aquí: el sujeto de los cuatro
+    /// formatos es lo que QUEDA (`ventanaQueda`), nunca un crono que suba —eso
+    /// es justo la degradación genérica que esta familia vino a sustituir.
+    ///
+    /// `fallado` no puede venir del cable: `deathByFail()` avanza el bloque en
+    /// el mismo tick (`WorkoutSession.swift`), así que no hay una trama
+    /// intermedia «acabas de fallar» que capturar — el atleta toca, el bloque
+    /// cambia, y la SIGUIENTE trama ya es de otra cosa. La página de resumen del
+    /// guion queda para el modo solitario, donde sí existe ese instante.
+    private static func relojDePared(_ t: MirrorTramo, bpm: Int?) -> GuionRelojDePared.Estado {
+        let formato: GuionRelojDePared.Formato
+        switch t.formato {
+        case PrescriptionScheme.tabata.rawValue: formato = .tabata
+        case PrescriptionScheme.deathBy.rawValue: formato = .deathBy
+        case PrescriptionScheme.steady.rawValue: formato = .steady
+        default: formato = .intervals
+        }
+        let esDeathBy = formato == .deathBy
+
+        // `death_by` no tiene un total de rondas: la ronda 12 existe si llegas.
+        // El resto sí lo trae el cable, salvo que sea 1 (nada que contar) — un
+        // total de 1 rondas no informa, así que se omite.
+        var totalRondas: Int? = nil
+        if !esDeathBy, let total = t.rondaTotal, total > 1 {
+            totalRondas = total
+        }
+
+        let repsDelMinuto: Int? = esDeathBy ? t.reps : nil
+        let zonaViva: HRZone? = zona(t.zonaViva)
+
+        return GuionRelojDePared.Estado(
+            formato: formato,
+            movimiento: t.etiqueta,
+            rondaActual: max(1, t.rondaN ?? 1),
+            totalRondas: totalRondas,
+            enDescanso: t.enDescanso,
+            quedaS: t.ventanaQueda ?? 0,
+            objetivo: t.objetivoLabel,
+            repsDelMinuto: repsDelMinuto,
+            zonaViva: zonaViva,
+            bpm: bpm
+        )
+    }
+
     // MARK: - El aro, decidido como dato
 
     /// EL ARO — decidido aquí (puro, testeable) y sólo DIBUJADO por la vista.
@@ -276,6 +340,20 @@ enum GuionDelEspejo {
                 fraccion = 0
             }
             return .segmentado(total: total, hechas: hechas, fraccion: fraccion)
+        case .relojDePared:
+            // Sólo intervals y tabata cuentan RONDAS — el aro de la tabla de la
+            // pantalla nueva («segmentado, una por serie» / «segmentado, 8»).
+            // Death by no tiene total fijo y steady es una ventana sin trocear:
+            // los dos se quedan en el continuo de siempre.
+            guard t.formato == PrescriptionScheme.intervals.rawValue
+                    || t.formato == PrescriptionScheme.tabata.rawValue,
+                  let total = t.rondaTotal, total > 1 else { return aroContinuo(t) }
+            // El segmento en curso se deja SIN rellenar a propósito: `ventanaTotal`
+            // aquí es sólo la ventana de TRABAJO, no el ciclo trabajo+parada
+            // completo que dibujaría el aro del doble, y rellenarlo con ese
+            // número saltaría hacia atrás en cuanto empieza la parada. El aro
+            // sigue diciendo en qué ronda vas, que es lo que importa de reojo.
+            return .segmentado(total: total, hechas: max(0, (t.rondaN ?? 1) - 1), fraccion: 0)
         case .rodaje, .emom, .ninguno:
             return aroContinuo(t)
         }

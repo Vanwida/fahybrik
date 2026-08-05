@@ -320,6 +320,7 @@ targets:
       - path: FAHYBRIK/Watch/Guiones/GuionEmom.swift
       - path: FAHYBRIK/Watch/Guiones/GuionRuta.swift
       - path: FAHYBRIK/Watch/Guiones/GuionErgo.swift
+      - path: FAHYBRIK/Watch/Guiones/GuionRelojDePared.swift
       - path: FAHYBRIK/Watch/Guiones/GuionDelEspejo.swift
       - path: FAHYBRIK/Plan/Prescription.swift
       # Prescription.swift references RunStructure (the #61 structured-run grammar),

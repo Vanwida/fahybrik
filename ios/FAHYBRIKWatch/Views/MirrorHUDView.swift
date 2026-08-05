@@ -158,7 +158,10 @@ struct MirrorHUDView: View {
                         f,
                         bpm: controller.liveHR,
                         elapsed: heroElapsed(context.date),
-                        avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) }
+                        avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) },
+                        // Death by: «al fallar» no es un avance cualquiera —
+                        // ver el comentario de `deathByFail` en MirrorWireModels.
+                        rendirse: { controller.sendCommand(MirrorWire.CommandKind.deathByFail) }
                     ),
                     tinte: WatchTinte.color(for: controller.liveZone),
                     bisel: bisel
