@@ -37,12 +37,37 @@ contra 12 casos reales (los 3 suyos + 9 del dominio).
   zonas reales, curva y recuperación se pueden calcular **retroactivamente**
   cruzando por tiempo, sin tocar iOS.
 
+**El patrón, once veces:** nos lo mandan y lo tiramos. La cinta manda desnivel y
+calorías por Bluetooth y el parser salta los bytes (`FTMSTreadmillParser:87,93`)
+· Polar parsea calorías y distancia y no hay columna donde ponerlas · Garmin
+tipa `activeKilocalories` y nunca lo lee · `HKWorkoutRoute` (GPS+altitud del
+propio Watch) no se referencia en todo el repo · el descanso real entre series se
+cronometra, se pinta y solo sobrevive el prescrito · el PM5 pierde splits, drag y
+fuerzas **justo en series y EMOM** (los dos paths construyen el lap sin ellos) ·
+`TreadmillHUDModel.measured` se calcula y no lo lee ningún fichero.
+
+**Encuadre que dio Alex a media sesión:** la app es el CENTRO del atleta — que no
+tenga que abrir Garmin ni Fitness, y que sepa que sus datos viven ahí y seguirán
+ahí. Verificado el hueco más incómodo: **ya ingerimos sueño, VFC, FC en reposo y
+pasos, y solo se usan por dentro para el readiness — no hay ninguna pantalla donde
+el atleta los vea.** Tenemos su dato y le obligamos a mirarlo en otra app.
+
 **Cuatro cambios propuestos:** cabecera medida en `workout_executions` (desbloquea
 TSS real) · `round_index` con el unique ampliado · tabla `workout_traces` (patrón
 de `workout_routes`, no fila por muestra) · altitud y reloj en `RoutePoint`.
 
-**Riesgo mayor identificado:** la ronda convierte la relación ejecución↔prescripción
+**Riesgo mayor del diseño:** la ronda convierte la relación ejecución↔prescripción
 de 1:1 a 1:N — toca todo lo que empareja tramos con el plan.
+
+**Cuatro fallos ya existentes destapados de paso** (no son del diseño, están ahí):
+1. **Garmin BORRA el detalle en vivo** — `delete from segment_executions where
+   execution_id=…` y reescribe con sus vueltas planas. Sin fusión por campo. No se
+   nota porque nadie ha conectado un Garmin todavía.
+2. `segmentExecutionSchema` omite **12 columnas que sí existen** — quien diseñe
+   contra el zod se queda ciego a la mitad de lo guardado.
+3. El `avg_hr` **mezcla aparatos**: PM5, correa y HealthKit entran al mismo
+   acumulador sin filtrar. La jerarquía existe solo para la etiqueta.
+4. Las 80 series de fuerza con carga y RIR **no llegan a la vista del coach**.
 
 **Pendiente de decisión de Alex.** No se ha construido nada.
 

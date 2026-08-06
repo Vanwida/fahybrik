@@ -125,11 +125,13 @@
 <header>
   <div class="kicker">Modelo de dominio · 6 de agosto de 2026</div>
   <h1>El entreno deja rastro.<br>Hoy lo <em>borramos</em> al guardarlo.</h1>
-  <p class="sub">Medimos bien y tiramos casi todo. Lo que queda no da para decirle al atleta cómo
-  le fue, ni para calcular la carga de verdad, ni para alimentar la predicción. Este es el modelo
-  completo de lo que un entreno tiene que dejar escrito.</p>
+  <p class="sub">Medimos bien y tiramos casi todo — en once sitios distintos el dato llega y se
+  descarta. Lo que queda no da para decirle al atleta cómo le fue, ni para calcular la carga de
+  verdad, ni para que deje de abrir la app de su reloj. Este es el modelo completo de lo que un
+  entreno tiene que dejar escrito.</p>
   <div class="toc">
     <a href="#caso">El caso que lo destapa</a>
+    <a href="#centro">La app es el centro</a>
     <a href="#principio">El principio</a>
     <a href="#hoy">Lo que hay hoy</a>
     <a href="#modelo">El modelo</a>
@@ -176,8 +178,92 @@
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="centro">
+  <h2>02 · Por qué esto es más que un reporte</h2>
+  <p class="h2sub">Si el atleta abre Garmin para ver algo suyo, hemos perdido</p>
+
+  <p class="lede">El objetivo no es tener una pantalla bonita al terminar. Es que <strong>la app sea
+  el centro</strong>: que el atleta no tenga que ir a Garmin Connect, ni a Fitness, ni a
+  TrainingPeaks a ver datos que aquí no están. Y que sepa que todo lo suyo vive aquí y va a
+  seguir aquí.</p>
+
+  <p>De ese objetivo salen tres exigencias, y las tres son objetivas —no hay nada que opinar sobre
+  ellas, solo cumplirlas:</p>
+
+  <div class="layers">
+    <div class="layer">
+      <span class="idx">A</span>
+      <div class="body">
+        <div class="t">COBERTURA — lo que enseña su reloj tiene que estar aquí</div>
+        <div class="d">No «algo parecido»: lo mismo o mejor. Cada cosa que un atleta abre otra app
+        para mirar es una grieta por la que se escapa la confianza en la nuestra.</div>
+      </div>
+    </div>
+    <div class="layer">
+      <span class="idx">B</span>
+      <div class="body">
+        <div class="t">CERO FRICCIÓN — no se le pide nada que su reloj ya sepa</div>
+        <div class="d">Ni copiar, ni volver a teclear, ni «sincroniza a mano». Lo que el dispositivo
+        mide entra solo. Lo único que se le pregunta es lo que ninguna máquina puede saber: cómo se
+        sintió.</div>
+      </div>
+    </div>
+    <div class="layer">
+      <span class="idx">C</span>
+      <div class="body">
+        <div class="t">PERMANENCIA — vive aquí, y sigue aquí</div>
+        <div class="d">Cambie de reloj, cambie de marca, deje de pagar una suscripción ajena. Su
+        histórico no se rompe. Es la promesa que ninguna marca de relojes puede hacerle, porque cada
+        una solo guarda lo suyo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <b>La permanencia es nuestra ventaja real, y no es marketing.</b> Un atleta que se pasa de Garmin
+    a Apple Watch pierde su histórico: son dos silos que no se hablan. En una app que ingiere de las
+    dos, su historia es <b>continua</b> — y sigue siéndolo el día que cambie otra vez. Eso solo lo
+    puede ofrecer quien no vende el reloj.
+  </div>
+
+  <h3>Qué mira hoy en otra app, y por qué</h3>
+
+  <table class="tight">
+    <thead><tr><th style="width:210px">Lo que va a buscar fuera</th><th style="width:130px">¿Lo tenemos?</th><th>Dónde está el corte</th></tr></thead>
+    <tbody>
+      <tr><td>Distancia, ritmo, pulso del entreno</td><td><span class="yes">sí</span></td><td>Está y se enseña</td></tr>
+      <tr><td>Mapa de por dónde fue</td><td><span class="part">a medias</span></td><td>La pantalla existe; el camino que guarda la traza nunca ha escrito una fila</td></tr>
+      <tr><td>Splits por kilómetro</td><td><span class="no">no</span></td><td>Sin reloj en la traza no se pueden derivar</td></tr>
+      <tr><td>Desnivel</td><td><span class="no">no</span></td><td>Nos lo mandan la cinta y el GPS; lo tiramos</td></tr>
+      <tr><td>Calorías</td><td><span class="no">casi no</span></td><td>Solo del ergómetro. La cinta y Polar nos las mandan y se descartan</td></tr>
+      <tr><td>Zonas de pulso del entreno</td><td><span class="part">a medias</span></td><td>El modelo es bueno (anclado en umbral) pero casi ningún tramo lo lleva</td></tr>
+      <tr><td>Curva de pulso y de ritmo</td><td><span class="no">no</span></td><td>Se mide, se reduce a medias y se borra</td></tr>
+      <tr class="strong"><td><b>Sueño</b></td><td><span class="part">se ingiere</span></td><td><b>No hay ninguna pantalla donde verlo.</b> Solo alimenta la disposición del día</td></tr>
+      <tr class="strong"><td><b>VFC · pulso en reposo</b></td><td><span class="part">se ingiere</span></td><td>Igual: entra, se usa por dentro, el atleta no lo ve nunca</td></tr>
+      <tr class="strong"><td><b>Pasos · actividad diaria</b></td><td><span class="part">se ingiere</span></td><td>Igual</td></tr>
+      <tr><td>VO₂máx</td><td><span class="part">a medias</span></td><td>Se ingiere y se usa en un sitio (el plan libre); no hay tendencia</td></tr>
+      <tr><td>Estado de forma · carga · fatiga</td><td><span class="part">a medias</span></td><td>Se calcula, pero con el TSS falso de RPE — y no llega a ninguna pantalla del atleta</td></tr>
+      <tr><td>Récords personales</td><td><span class="part">a medias</span></td><td>Solo de correr (1k/3k/5k). Nada de fuerza, ergo ni funcional</td></tr>
+      <tr><td>Su histórico completo, exportable</td><td><span class="part">existe el módulo</span></td><td><code>data-export.ts</code> existe; no hay forma de pedirlo desde la app</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout bad">
+    <b>El hueco más incómodo de esa tabla:</b> ya ingerimos el sueño, la VFC, el pulso en reposo y
+    los pasos —están en la base— y los usamos <b>solo por dentro</b>, para calcular la disposición
+    del día. El atleta nunca los ve. Es decir: <b>tenemos su dato y aun así le obligamos a abrir
+    otra app para mirarlo</b>. Eso no cuesta ingesta, cuesta una pantalla.
+  </div>
+
+  <p>Este documento resuelve la mitad del entreno. La otra mitad —la vida diaria: sueño, descanso,
+  tendencias— es el mismo problema con las mismas piezas ya en la base, y merece su propio diseño.
+  Lo importante es que las dos van al mismo sitio: <strong>un solo archivo, el suyo, para
+  siempre</strong>.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="principio">
-  <h2>02 · El principio</h2>
+  <h2>03 · El principio</h2>
   <p class="h2sub">Un entreno no es un resumen: es una línea de tiempo con estructura conocida</p>
 
   <p>Todo el modelo sale de una sola idea. Un entreno ejecutado son <strong>tres capas
@@ -228,23 +314,28 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="hoy">
-  <h2>03 · Lo que hay hoy</h2>
+  <h2>04 · Lo que hay hoy</h2>
   <p class="h2sub">Inventario honesto, medido contra producción</p>
 
-  <p>Antes de proponer nada, lo que de verdad hay. Todos los números salen de consultas a la base de
-  producción del 6 de agosto de 2026, no de suposiciones.</p>
+  <div class="callout warn">
+    <b>Qué son y qué no son estos números.</b> La app todavía <b>no tiene atletas</b>: lo que hay en
+    la base son pruebas nuestras, algunas mal hechas. Así que estas cifras <b>no dicen nada de cómo
+    entrena nadie</b> y el modelo no se diseña contra ellas. Sirven para una sola cosa, que sí es
+    válida: <b>saber qué caminos del código se han ejercitado alguna vez y cuáles nunca</b>. Que haya
+    cero rutas GPS guardadas no significa que la gente no corra: significa que ese camino no ha
+    escrito jamás una fila.
+  </div>
 
   <div class="grid3">
-    <div class="stat"><div class="n">85</div><div class="lab">ejecuciones registradas, de 6 atletas</div></div>
-    <div class="stat"><div class="n">221</div><div class="lab">tramos ejecutados</div></div>
-    <div class="stat"><div class="n ok">195</div><div class="lab">tramos con pulso medido</div></div>
-    <div class="stat"><div class="n">154</div><div class="lab">tramos con ritmo</div></div>
-    <div class="stat"><div class="n warn">18</div><div class="lab">tramos con reparto de zonas</div></div>
-    <div class="stat"><div class="n bad">7</div><div class="lab">tramos con calorías</div></div>
-    <div class="stat"><div class="n ok">80</div><div class="lab">series de fuerza con detalle</div></div>
-    <div class="stat"><div class="n bad">0</div><div class="lab">rutas GPS guardadas, nunca ninguna</div></div>
-    <div class="stat"><div class="n bad">0</div><div class="lab">rondas de circuito atribuidas</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">rutas GPS guardadas — el camino existe y nunca ha escrito</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">rondas de circuito atribuidas — imposible por esquema</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">carreras estructuradas grabadas de verdad</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">sesiones con «cómo ha ido» — el path existe, nunca llegó</div></div>
+    <div class="stat"><div class="n warn">7</div><div class="lab">tramos con calorías, todos de ergómetro</div></div>
+    <div class="stat"><div class="n ok">80</div><div class="lab">series de fuerza con detalle — este camino sí funciona</div></div>
   </div>
+  <p class="caption">Los ceros son el dato interesante: no hablan de atletas, hablan de caminos de
+  código que nunca han corrido. Y uno de ellos —las rondas— es cero porque el esquema lo prohíbe.</p>
 
   <h3>Lo que ya funciona, y funciona bien</h3>
   <p>El diagnóstico honesto es que <strong>medimos más de lo que parece</strong>. El contrato que va
@@ -297,9 +388,47 @@
     <div class="rung miss">
       <span class="lvl">Hueco 5</span>
       <span><b>La atribución de lo que ya tenemos.</b> Hay <b>102.910 muestras de pulso</b> en la
-      base, de 2022 a hoy — y solo <b>226</b> están ligadas a un entreno.</span>
+      base (de 3 atletas con Apple Watch, 2022→hoy) — y solo <b>226</b> están ligadas a un entreno.</span>
       <span class="st">gratis</span>
     </div>
+  </div>
+
+  <div class="callout">
+    <b>El propio código ya lo tenía escrito.</b> En
+    <code>PostWorkout/CarreraDeLaSesion.swift:14</code>, sobre por qué no hay curva de ritmo:
+    <i>«muestras — NO. La app no guarda ninguna serie de ritmo, y el polilínea de la ruta lleva
+    coordenadas y ni un solo tiempo, así que no se puede derivar sin inventarla.»</i> No es un
+    descubrimiento nuestro: es un hueco conocido, documentado y nunca cerrado.
+  </div>
+
+  <h3>Y el patrón que aparece en todas partes: nos lo mandan y lo tiramos</h3>
+
+  <p>Auditando fuente por fuente aparece lo mismo una y otra vez. No es que no midamos: es que
+  <strong>el dato llega y se descarta</strong>, en once sitios distintos. Cada línea de esta tabla
+  está verificada con su ruta en el código.</p>
+
+  <table class="tight">
+    <thead><tr><th style="width:150px">Dónde</th><th>Qué llega y se tira</th><th style="width:190px">Evidencia</th></tr></thead>
+    <tbody>
+      <tr class="strong"><td>Cinta FTMS</td><td><b>Desnivel acumulado</b> y <b>calorías</b> propias de la cinta: el parser lee el bitfield, calcula el offset y <b>salta el valor</b></td><td class="mono">FTMSTreadmillParser.swift:87 · :93</td></tr>
+      <tr><td>Cinta FTMS</td><td>Ritmo instantáneo y medio, equivalente metabólico, fuerza en la cinta</td><td class="mono">:88-91 · :98 · :104</td></tr>
+      <tr class="strong"><td>Circuitos</td><td><b>El split de cada ronda</b> (tiempo, metros, calorías). Se pinta en vivo, cero referencias en el payload</td><td class="mono">LiveTramo.swift:169</td></tr>
+      <tr class="strong"><td>Fuerza</td><td><b>El descanso real medido</b> entre series. Se cronometra, se pinta como «Pausa», solo sobrevive el prescrito</td><td class="mono">WorkoutSession.swift:2496</td></tr>
+      <tr class="strong"><td>PM5 en series y EMOM</td><td>Factor de arrastre, cal/hora, fuerzas de tirada y <b>los splits del monitor</b>: se muestrean, pero esos dos caminos construyen el registro sin pasarlos. Solo sobreviven en pieza continua</td><td class="mono">recordErgIntervalBout :1685<br>recordEMOMIntervalBout :3037</td></tr>
+      <tr><td>PM5</td><td>El resumen oficial de fin de entreno (0x39): se suscribe y nunca se parsea. Y la FC de descanso del intervalo</td><td class="mono">PM5DataParser.swift:235</td></tr>
+      <tr><td>Apple Watch</td><td><code>HKWorkoutRoute</code> — el GPS <b>con altitud</b> que graba el propio reloj. Cero referencias en todo el repo</td><td class="mono">nunca se pide</td></tr>
+      <tr><td>Garmin</td><td><code>activeKilocalories</code> de la actividad: <b>está tipado</b> y el ingest nunca lo lee</td><td class="mono">ingest-garmin.ts:38 vs :246</td></tr>
+      <tr><td>Polar</td><td>Calorías y distancia de la sesión: <b>se parsean</b> y se descartan porque no hay columna donde ponerlas</td><td class="mono">normalize.ts:143</td></tr>
+      <tr><td>Cinta (interno)</td><td><code>TreadmillHUDModel.measured</code> — media de velocidad, inclinación y pulso por tramo: se calcula, se escribe, y <b>ningún fichero del repo la lee</b></td><td class="mono">TreadmillHUDModel.swift:804</td></tr>
+      <tr><td>AMRAP</td><td>No hay marca de tiempo por ronda ni siquiera en memoria — solo un contador</td><td class="mono">WorkoutSession.swift:1562</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout bad">
+    <b>Lo de la cinta es el caso más claro de todos.</b> Preguntabas por las calorías: la cinta te las
+    está mandando por Bluetooth en cada notificación, junto con el desnivel. El parser conoce los dos
+    campos, tiene el comentario escrito al lado, avanza el puntero los bytes exactos… y no los guarda.
+    Lo mismo con Polar, que nos manda las calorías de cada sesión y las tiramos por no tener columna.
   </div>
 
   <div class="callout good">
@@ -314,7 +443,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="modelo">
-  <h2>04 · El modelo</h2>
+  <h2>05 · El modelo</h2>
   <p class="h2sub">Cinco granularidades y una coordenada única</p>
 
   <p>Un entreno híbrido tiene cinco niveles reales. Cualquier dato medido pertenece exactamente a
@@ -380,7 +509,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="matriz">
-  <h2>05 · Qué se mide, por modalidad</h2>
+  <h2>06 · Qué se mide, por modalidad</h2>
   <p class="h2sub">La matriz completa. Nada de esto es opcional por modalidad</p>
 
   <p>Esta es la parte objetiva del dominio: qué variables tiene que llevar un entreno de cada tipo
@@ -399,9 +528,9 @@
       <tr><td>Pulso mínimo</td><td class="mono">traza</td><td><span class="tag calc">calc</span></td><td>TrainingPeaks lo muestra; sale gratis de la curva</td></tr>
       <tr><td>Reparto de zonas</td><td class="mono">traza + umbral</td><td><span class="tag calc">calc</span></td><td>Hoy lo calcula el móvil y se guarda congelado — pasa a calcularse al leer</td></tr>
       <tr><td>Cadencia</td><td class="mono">reloj · HealthKit</td><td><span class="tag have">ya</span></td><td><code>run_cadence_spm</code></td></tr>
-      <tr><td>Desnivel + / −</td><td class="mono">GPS · barómetro</td><td><span class="tag new">nuevo</span></td><td>Se descarta hoy; viene en el mismo <code>CLLocation</code></td></tr>
-      <tr><td>Inclinación</td><td class="mono">cinta FTMS</td><td><span class="tag have">ya</span></td><td><code>incline_pct</code></td></tr>
-      <tr><td>Calorías</td><td class="mono">HealthKit</td><td><span class="tag new">nuevo</span></td><td>Solo 7 tramos de 221 lo tienen. Es el que preguntabas</td></tr>
+      <tr class="strong"><td><b>Desnivel + / −</b></td><td class="mono">GPS · cinta · Apple Watch</td><td><span class="tag new">nuevo</span></td><td>Tres vías nos lo dan y ninguna se lee: el <code>CLLocation</code> lleva la altitud, la cinta lo manda por Bluetooth, y el reloj graba su propia traza con altitud (<code>HKWorkoutRoute</code>, cero referencias en el repo)</td></tr>
+      <tr><td>Inclinación</td><td class="mono">cinta FTMS</td><td><span class="tag have">ya</span></td><td><code>incline_pct</code>, pero solo la media — el perfil de subidas se pierde</td></tr>
+      <tr class="strong"><td><b>Calorías</b></td><td class="mono">cinta · Polar · HealthKit</td><td><span class="tag new">nuevo</span></td><td><b>Las tres fuentes nos las mandan y las tiramos.</b> La cinta por Bluetooth, Polar al parsear la sesión, HealthKit a nivel de entreno. Es el dato que preguntabas</td></tr>
       <tr><td>Deriva cardíaca</td><td class="mono">traza</td><td><span class="tag calc">calc</span></td><td>El coach ya tiene un umbral configurable que nada alimenta</td></tr>
       <tr><td>Recuperación a 60 s</td><td class="mono">traza post-esfuerzo</td><td><span class="tag calc">calc</span></td><td>El mecanismo ya existe, solo se usa en tests</td></tr>
       <tr><td>Ruta</td><td class="mono">GPS</td><td><span class="tag have">ya</span></td><td>Tabla creada, cero filas escritas</td></tr>
@@ -419,7 +548,7 @@
       <tr><td>Factor de arrastre</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
       <tr><td>Fuerza de tirada media · pico</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
       <tr><td>Trabajo total (kJ)</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>Potencia × tiempo. TrainingPeaks lo enseña</td></tr>
-      <tr><td>Splits por intervalo</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td>Ya se guardan y se pintan, estilo ErgData</td></tr>
+      <tr class="strong"><td>Splits por intervalo</td><td class="mono">PM5</td><td><span class="tag have">ya*</span></td><td><b>*Solo en pieza continua.</b> En series (5×500) y en EMOM, que es donde más importan, el registro se construye sin ellos — junto con el factor de arrastre y las fuerzas de tirada</td></tr>
     </tbody>
   </table>
 
@@ -431,7 +560,7 @@
       <tr><td>Carga por serie</td><td class="mono">el atleta</td><td><span class="tag have">ya</span></td><td></td></tr>
       <tr><td>RIR / RPE por serie</td><td class="mono">el atleta</td><td><span class="tag have">ya</span></td><td></td></tr>
       <tr><td>Tempo · descanso prescrito</td><td class="mono">prescripción</td><td><span class="tag have">ya</span></td><td></td></tr>
-      <tr><td>Descanso <b>real</b></td><td class="mono">reloj de la app</td><td><span class="tag new">nuevo</span></td><td>Medible: el tiempo entre el fin de una serie y el inicio de la siguiente</td></tr>
+      <tr class="strong"><td>Descanso <b>real</b></td><td class="mono">reloj de la app</td><td><span class="tag new">nuevo</span></td><td><b>Ya se cronometra</b> y se pinta en pantalla como «Pausa» — y al guardar solo sobrevive el prescrito</td></tr>
       <tr><td>Tonelaje</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>Σ reps × carga. La medida de volumen de fuerza</td></tr>
       <tr><td>1RM estimado</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>De la mejor serie con RIR conocido</td></tr>
       <tr><td>Pulso de la sesión</td><td class="mono">correa</td><td><span class="tag have">ya</span></td><td>Poco útil en fuerza, pero es lo que da el hrTSS del ejemplo (23)</td></tr>
@@ -455,7 +584,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="esquema">
-  <h2>06 · El esquema</h2>
+  <h2>07 · El esquema</h2>
   <p class="h2sub">Cuatro cambios. Ninguno rompe lo que ya existe</p>
 
   <h3>1 · La sesión gana su cabecera medida</h3>
@@ -537,7 +666,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="derivados">
-  <h2>07 · Lo que se desbloquea</h2>
+  <h2>08 · Lo que se desbloquea</h2>
   <p class="h2sub">El reporte no es el fin: es el input que le falta a medio sistema</p>
 
   <p>Pediste que esto sirva «para analíticas, predicción, etc.». No es una aspiración: hay piezas ya
@@ -570,7 +699,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="casos">
-  <h2>08 · Roto contra 12 casos reales</h2>
+  <h2>09 · Roto contra 12 casos reales</h2>
   <p class="h2sub">Si un caso no entra, el modelo está mal — no el caso</p>
 
   <p>Los tres primeros son tus capturas. Los demás salen del dominio que ya está en el repo.</p>
@@ -615,7 +744,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="pantalla">
-  <h2>09 · Lo que ve el atleta</h2>
+  <h2>10 · Lo que ve el atleta</h2>
   <p class="h2sub">Al terminar, y meses después desde el calendario</p>
 
   <p>Hay una incoherencia real que hay que arreglar en el mismo lote: <strong>hoy el atleta ve menos
@@ -677,7 +806,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="descartado">
-  <h2>10 · Lo descartado, y por qué</h2>
+  <h2>11 · Lo descartado, y por qué</h2>
   <p class="h2sub">Lo que se borra sin dejar constancia es lo que alguien reconstruye en seis meses</p>
 
   <table class="tight">
@@ -703,7 +832,7 @@
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <section id="riesgos">
-  <h2>11 · Riesgos que veo</h2>
+  <h2>12 · Riesgos que veo</h2>
   <p class="h2sub">Antes de construir, no después de que los encuentres tú</p>
 
   <ol>
@@ -733,11 +862,46 @@
     fue frenando» son juicio de entrenador: nacen como <b>dato editable del coach</b> con un valor
     por defecto, nunca como constante. El mecanismo —cómo se calcula la deriva— sí es nuestro.</li>
   </ol>
+
+  <h3>Y cuatro cosas que encontramos auditando y que hay que arreglar igual</h3>
+
+  <p>No son riesgos del diseño: son fallos que ya están ahí y que este trabajo destapa. Los dejo
+  escritos para que no se pierdan.</p>
+
+  <div class="callout bad">
+    <b>1 · Garmin borra el detalle de un entreno grabado en vivo.</b> Cuando llegan sus vueltas, el
+    ingest hace <code>delete from segment_executions where execution_id = …</code> y reescribe todo
+    desde cero. No hay fusión campo a campo. Si el atleta corrió con la app —con sus tramos, sus
+    series y sus splits del monitor— y su reloj sincroniza después, <b>ese detalle desaparece y lo
+    sustituyen las vueltas planas del reloj</b>. Justo lo contrario de lo que queremos, y hoy no se
+    nota solo porque nadie ha conectado un Garmin todavía.
+  </div>
+
+  <div class="callout bad">
+    <b>2 · El contrato compartido se quedó atrás del esquema.</b>
+    <code>segmentExecutionSchema</code> omite <b>doce columnas que sí existen</b> en la base
+    (inclinación, cadencia de carrera, rondas de EMOM, la atribución por tramo, el ejercicio, el
+    formato del contexto…). Quien diseñe mirando el contrato en vez de la tabla se queda ciego a la
+    mitad de lo que ya guardamos — que es exactamente el error de partida de esta conversación.
+  </div>
+
+  <div class="callout bad">
+    <b>3 · El pulso medio puede estar mezclando aparatos.</b> Las lecturas del PM5, de la correa y de
+    HealthKit entran todas al mismo acumulador sin filtrar. Existe una jerarquía de fuente, pero solo
+    para la <i>etiqueta</i> que se enseña: <b>el número promedia lo que llegue</b>. Con dos aparatos
+    puestos, el pulso guardado no es el de ninguno de los dos.
+  </div>
+
+  <div class="callout warn">
+    <b>4 · El detalle por serie de fuerza nunca llega al coach.</b> Las 80 series guardadas con su
+    carga y su RIR las leen las analíticas, pero la vista de sesión del coach enseña solo el agregado
+    del ejercicio. El dato está y no se pinta.
+  </div>
 </section>
 
 <div class="foot">
-  <p><b>Verificado contra:</b> base de producción (85 ejecuciones, 221 tramos, 102.910 muestras de
-  pulso, 6 atletas) · <code>shared/schema/workouts.ts</code> ·
+  <p><b>Verificado contra:</b> la base (85 ejecuciones, 221 tramos, 176.581 lecturas biométricas —
+  todo pruebas nuestras, no atletas) · <code>shared/schema/workouts.ts</code> ·
   <code>infra/migrations/{0001,0127,0142,0146}</code> ·
   <code>ios/FAHYBRIK/Workout/{SegmentPayloadBuilder,WorkoutSession,LiveTramo,HRRecovery,PostWorkoutSummaryView}.swift</code> ·
   <code>ios/FAHYBRIK/Workout/Outdoor/PolylineCodec.swift</code> ·
