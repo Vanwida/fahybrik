@@ -9,22 +9,49 @@ import SwiftUI
 // reales — `formatWorkSeconds`/`formatRestSeconds` dan el total de la ventana
 // de verdad, no la estimación de 60 s que hacía falta adivinar por el cable.
 //
-// EMOM se queda en `RotatingLiveView`: enchufarlo aquí pintaría su plan y su
-// fase con la regla de otro formato. Ver el comentario de esa vista.
+// EMOM se queda en `EmomLiveView`: enchufarlo aquí pintaría su plan y su fase
+// con la regla de otro formato. Ver el comentario de esa vista.
 struct RelojDeParedLiveView: View {
     let session: WorkoutSession
 
     @State private var destello = WatchDestello()
     @State private var lastRondaKey: String = ""
 
+    // MARK: - Páginas
+
+    /// El 3-2-1 es del motor de CONDICIONAMIENTO (`isCondCountIn`), no de la
+    /// familia — es el mismo cuenta atrás que ya pinta `FixedLiveView` para
+    /// AMRAP/For Time. Sin esto, los cuatro formatos de aquí arrancaban
+    /// pintando su contenido en un estado a medio resolver: `steady` decía
+    /// «Se acabó» (quedaS en 0), intervals se quedaba en «0:00» fijo y tabata
+    /// en la ronda 1 fija — los tres antes de que el bloque empezara.
+    private var paginas: [WatchPagina] {
+        if session.isCondCountIn {
+            var list: [WatchPagina] = [
+                WatchPagina(
+                    id: "countin",
+                    contexto: session.currentSegment?.formatScheme?.displayName ?? "Prepárate",
+                    modo: .ojeada,
+                    sujeto: WatchFormat.countdown(session.condCountInRemaining),
+                    tono: WatchTheme.orange
+                ),
+            ]
+            if let pulso = WatchPaginasComunes.pulso(bpm: session.liveHRBpm, zone: session.liveZone, modo: .ojeada) {
+                list.append(pulso)
+            }
+            return list
+        }
+        return GuionRelojDePared.paginas(
+            GuionRelojDePared.estadoSolitario(session),
+            GuionRelojDePared.gestosSolitario(session)
+        )
+    }
+
     var body: some View {
         WatchReloj(
-            paginas: GuionRelojDePared.paginas(
-                GuionRelojDePared.estadoSolitario(session),
-                GuionRelojDePared.gestosSolitario(session)
-            ),
-            tinte: WatchTinte.color(for: session.liveZone),
-            bisel: bisel,
+            paginas: paginas,
+            tinte: session.isCondCountIn ? WatchTheme.orange : WatchTinte.color(for: session.liveZone),
+            bisel: session.isCondCountIn ? nil : bisel,
             destello: destello
         )
         .onChange(of: rondaKey) { _, new in

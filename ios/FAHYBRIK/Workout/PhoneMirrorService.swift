@@ -553,7 +553,10 @@ final class PhoneMirrorService {
             // mutuamente excluyentes, así que un solo campo basta para los dos.
             reps: set != nil
                 ? set.flatMap { $0.repsActual ?? $0.repsPrescribed }
-                : (seg?.formatScheme == .deathBy ? session.deathByTarget : nil)
+                : (seg?.formatScheme == .deathBy ? session.deathByTarget : nil),
+            // EMOM: la ronda de AHORA, no si el móvil reporta metros — así una
+            // ronda de ski sin cinta/PM5 conectado sigue siendo `.ojeada`.
+            tareaEsErgo: seg?.emomPlan?.interval(session.tramoRoundIndex)?.isErg ?? false
         )
     }
 

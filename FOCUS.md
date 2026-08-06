@@ -1,7 +1,33 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-05**
+Última actualización: **2026-08-06**
+
+---
+
+## 6-ago · El EMOM sabía si eras máquina — y nunca lo decía en la muñeca
+
+Bug de raíz encontrado revisando lo shipeado anoche: `GuionDelEspejo.emom()`
+mandaba `modo: .ojeada` a TODA ronda de EMOM sin excepción — un burpee en el
+suelo pintaba controles que el atleta no podía tocar. El dato ya existía
+(`PrescriptionSet.modality` → máquina o no) pero se calculaba y se tiraba antes
+de llegar al cable.
+
+**Cerrado, de raíz, no un guard.** `EmomInterval.isErg` (ya se calculaba, ahora
+se queda) → `MirrorTramo.tareaEsErgo` en el cable → `GuionDelEspejo.emom()` lee
+el dato en vez de asumir · `GuionEmom.estadoSolitario`/`gestosSolitario`
+construidos (no existían: el EMOM en solitario llevaba el motor real pero
+ningún guion lo leía) · `EmomLiveView` sustituye a `RotatingLiveView` (que
+documentaba dos huecos — enganche a marcar tarea, guion — que ya no existían;
+sólo faltaba el adaptador) · de paso, el 3-2-1 de `RelojDeParedLiveView`
+(intervals/tabata/death by/steady) estaba sin pintar desde que se shipeó
+anoche — arreglado igual que ya lo tenía `FixedLiveView`. Esto cierra el punto
+(1) de «Abierto» de la entrada de abajo.
+
+Tests: `GuionEmomTests` (9, guion puro) + `EspejoEmomTests` (6, motor→cable→
+guion Y motor→guion sin cable, ski/bici vs. burpees en las dos vías).
+Verificado: build iOS + watchOS limpios, 924 tests iOS en verde (suite
+completa, incluidas éstas).
 
 ---
 
@@ -32,8 +58,8 @@ hay mockup, se porta el mockup — ni se parchea la vieja ni se añade una encim
 pantalla vacía: si sobra sitio, el dato crece. El aro cuadrado se queda (las esferas
 redondas son otro reloj). El listón son Apple Entrenamiento y Garmin.
 
-**Abierto.** (1) Tabata y Death By de burpees se quedaron sin ventana trabajo/descanso
-— cero casos reales y ningún diseño; si Pablo programa uno, se diseña primero. (2) El
+**Abierto.** (1) ~~Tabata y Death By de burpees se quedaron sin ventana trabajo/descanso~~
+— resuelto 5/6-ago, ver la entrada de arriba (`GuionRelojDePared` + su 3-2-1). (2) El
 espejo `run-live` del doble miente: refleja la app de julio y `twin:desfase` no lo caza
 porque compara fechas. (3) Las pantallas del reloj que no son el vivo (puerta de
 bloque, brief, resumen, splits, mapa) siguen en el lenguaje viejo. (4) `resumen-carrera`

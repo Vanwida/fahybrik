@@ -252,6 +252,61 @@ enum GuionEmom {
         return e.maquina ? WatchNota.delMovil : WatchNota.sinMaquina
     }
 
+    // MARK: - El motor EN SOLITARIO → Estado
+    //
+    // El mismo papel que `GuionDelEspejo.emom` hace para el cable, aquí para
+    // cuando el reloj lleva el motor él solo. A diferencia del cable —que sólo
+    // conoce la ronda de AHORA y repite esa tarea para rellenar el array—, aquí
+    // se lee el plan ENTERO (`EmomPlan.intervals`, longitud = rondas), así que
+    // `tareas` no necesita el parche de «sólo la casilla siguiente cambia».
+    static func estadoSolitario(_ session: WorkoutSession) -> Estado {
+        guard let plan = session.currentSegment?.emomPlan, !plan.intervals.isEmpty else {
+            return Estado(
+                rondas: 1, ronda: 1, ventanaS: 60, trabajoS: 60,
+                tareas: [TareaEmom(texto: "", modo: .ciego, ergo: nil)],
+                enVentanaS: 0, hechaEnS: nil, maquina: false, metrosMaquina: nil,
+                bpm: session.liveHRBpm, zonaViva: session.liveZone
+            )
+        }
+        let enVentanaS: Double = session.emomPhase == .work
+            ? Double(plan.workSeconds) - session.emomPhaseRemaining
+            : Double(plan.workSeconds) + (Double(plan.restSeconds) - session.emomPhaseRemaining)
+        return Estado(
+            rondas: plan.intervalCount,
+            ronda: min(max(1, session.emomIntervalIndex + 1), plan.intervalCount),
+            ventanaS: Double(plan.intervalSeconds),
+            trabajoS: Double(plan.workSeconds),
+            tareas: plan.intervals.map(tareaDeIntervalo),
+            enVentanaS: max(0, enVentanaS),
+            // El motor no guarda «ya la marqué» — sólo la FASE: si ya estás en
+            // la parada, la ronda se dio por hecha. Misma regla que el cable
+            // (`GuionDelEspejo.emom`), porque es la misma verdad, leída sin
+            // pasar por el móvil.
+            hechaEnS: session.emomPhase == .rest ? 0 : nil,
+            // Cero Bluetooth en el reloj a solas: la máquina sólo llega por el
+            // móvil en espejo (arquitectónico, no un hueco por rellenar).
+            maquina: false,
+            metrosMaquina: nil,
+            bpm: session.liveHRBpm,
+            zonaViva: session.liveZone
+        )
+    }
+
+    static func gestosSolitario(_ session: WorkoutSession) -> Gestos {
+        Gestos(marcarHecha: { session.primaryAdvance() })
+    }
+
+    /// Byte a byte lo que pinta el cable (`GuionDelEspejo.emom`) para la MISMA
+    /// ronda: `movement`/`work`, nunca `detail` (el RPE/ritmo no cabía en el
+    /// cable y aquí tiene que leerse igual en las dos vías).
+    private static func tareaDeIntervalo(_ i: EmomInterval) -> TareaEmom {
+        TareaEmom(
+            texto: [i.movement, i.work].compactMap { $0 }.joined(separator: " · "),
+            modo: i.isErg ? .ojeada : .ciego,
+            ergo: i.isErg ? i.movement : nil
+        )
+    }
+
     // MARK: - Los casos que esta vista puede alcanzar
 
     /// Los dos movimientos alternos de la ejecución 177 (plantilla 506): ski y

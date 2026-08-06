@@ -187,10 +187,12 @@ enum GuionDelEspejo {
         let ronda = min(max(1, t.rondaN ?? 1), rondas)
         let actual = GuionEmom.TareaEmom(
             texto: [t.etiqueta, t.dosis].compactMap { $0 }.joined(separator: " · "),
-            // Sin saber si esto se hace en el suelo, `ojeada` es la lectura segura:
-            // pinta el dato entero y no anuncia controles.
-            modo: .ojeada,
-            ergo: t.hechoMedida != nil ? t.etiqueta : nil
+            // GROUND TRUTH de la prescripción, no si el móvil ya reporta datos:
+            // antes de este campo TODA ronda viajaba `.ojeada`, así que una
+            // ronda de burpees pintaba controles que el atleta, en el suelo,
+            // no podía tocar.
+            modo: t.tareaEsErgo ? .ojeada : .ciego,
+            ergo: t.tareaEsErgo ? t.etiqueta : nil
         )
         var tareas = Array(repeating: actual, count: rondas)
         if let sig = t.siguiente, ronda < tareas.count {

@@ -314,6 +314,18 @@ struct EmomInterval: Equatable {
     /// is the type being wrong (§7 del contrato de UI). Quien pinta decide.
     let work: String?
     let detail: String?    // "@ 1:50/500m", "RPE 8" — nil when none prescribed
+    /// ¿ES ESTA RONDA UNA MÁQUINA? — row/ski/bike, no burpees ni core.
+    ///
+    /// Existe porque el reloj necesita saber si el CUERPO puede mirar mientras
+    /// hace esta ronda, y eso no es un dato que se adivine del texto («Ski 45
+    /// s» vs «10 burpees»): es la modalidad que el coach ya escribió en cada
+    /// set (`PrescriptionSet.modality`). Antes de este campo, el guion del
+    /// espejo (`GuionDelEspejo.emom`) lo daba por hecho a `.ojeada` SIEMPRE —
+    /// un EMOM de burpees se pintaba como si tuvieras las manos libres para
+    /// mirar el reloj en pleno suelo. El dato ya se calculaba aquí mismo
+    /// (`isErg` en `emomInterval`/`uniformEmomInterval`) y se tiraba después
+    /// de decidir el formato del `detail`; ahora se queda.
+    let isErg: Bool
 }
 
 // The full EMOM dosage for one segment, expanded across its N intervals. Built
@@ -427,7 +439,7 @@ extension PrescriptionSet {
         let isErg = modality?.isErg ?? fallbackIsErg
         let detail = PrescriptionRenderer.targetLoad(target)
             ?? PrescriptionRenderer.paceString(target, isErg: isErg)
-        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail)
+        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail, isErg: isErg)
     }
 
     /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal", y
@@ -470,7 +482,7 @@ extension WorkoutSegment {
         let detail = effortGuidance
             ?? PrescriptionRenderer.targetLoad(p.target)
             ?? PrescriptionRenderer.paceString(p.target, isErg: kind.isErg)
-        return EmomInterval(movement: title, work: work, detail: detail)
+        return EmomInterval(movement: title, work: work, detail: detail, isErg: kind.isErg)
     }
 }
 

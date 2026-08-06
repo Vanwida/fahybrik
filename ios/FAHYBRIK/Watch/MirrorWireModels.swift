@@ -234,6 +234,11 @@ struct MirrorTramo: Codable, Equatable {
     /// que es lo único que viajaba hasta ahora dentro de `detailLine`.
     let cargaKg: Double?
     let reps: Int?
+    /// EMOM: ¿la ronda de AHORA es una máquina? — row/ski/bike, no burpees.
+    /// Decide si el cuerpo puede mirar el reloj (`.ojeada`) o no (`.ciego`),
+    /// independiente de si el móvil está de verdad reportando metros: antes de
+    /// este campo, toda ronda de EMOM viajaba como `.ojeada` sin excepción.
+    var tareaEsErgo: Bool = false
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete
