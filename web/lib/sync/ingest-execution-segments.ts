@@ -447,7 +447,14 @@ export async function ingestExecutionSegments(args: {
         ${prescriptionSnapshot},
         ${priorWorkS}
       )
-      on conflict (execution_id, position) do update set
+      -- El destino del ON CONFLICT tiene que ESPEJAR EXACTAMENTE el unique vivo.
+      -- La migración 0155 lo amplió a (execution_id, position, round_index) para
+      -- que un circuito por rondas quepa, y este target se quedó con dos columnas:
+      -- Postgres no busca "un unique que empiece por estas", exige uno que coincida,
+      -- así que TODO insert de tramo reventaba con "there is no unique or exclusion
+      -- constraint matching the ON CONFLICT specification" — no solo los de rondas.
+      -- Si algún día vuelve a cambiar ese unique, esta línea cambia con él.
+      on conflict (execution_id, position, round_index) do update set
         template_segment_id = coalesce(excluded.template_segment_id, segment_executions.template_segment_id),
         started_at          = excluded.started_at,
         ended_at            = excluded.ended_at,

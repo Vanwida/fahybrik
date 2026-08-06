@@ -1739,7 +1739,12 @@ final class WorkoutSession {
             sets: nil,
             runLegIndex: boutIndex,
             runLegRole: "work",
-            runLegPhase: "main"
+            runLegPhase: "main",
+            // Qué APARATO midió el pulso de este bout — el dueño actual del latch de
+            // prioridad, y solo si este bout tuvo alguna muestra propia (nunca una
+            // procedencia heredada de una serie que no midió nada). Mismo criterio
+            // que `recordRunLegLap` y que el merge de `closeCurrentSegmentLap`.
+            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue
         )
         laps.append(lap)
         ergIntervalBoutsRecorded += 1
@@ -3138,7 +3143,10 @@ final class WorkoutSession {
             sets: nil,
             runLegIndex: index,
             runLegRole: "work",
-            runLegPhase: "main"
+            runLegPhase: "main",
+            // Igual que en las series de erg y en la carrera estructurada: de qué
+            // aparato salió el pulso de ESTE minuto, y solo si el minuto midió algo.
+            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue
         )
         laps.append(lap)
         emomIntervalBoutsRecorded += 1

@@ -180,4 +180,39 @@ final class HRProvenanceTests: XCTestCase {
         XCTAssertEqual(lap.avgHRBpm, 150, "the paused reading must not enter the aggregation")
         XCTAssertEqual(lap.maxHRBpm, 150)
     }
+
+    // MARK: - Cobertura: TODO lap con pulso dice de qué aparato salió
+    //
+    // El fix original instrumentó `recordRunLegLap` y el merge de
+    // `closeCurrentSegmentLap`, pero el motor construye `LapRecord` en CINCO
+    // sitios. Los dos que faltaban —`recordErgIntervalBout` (series de erg) y
+    // `recordEMOMIntervalBout` (cada minuto de EMOM)— son justo los formatos más
+    // comunes en remo y ski fraccionado: guardaban pulso sin procedencia.
+    //
+    // Este test es estructural a propósito: no comprueba un formato concreto sino
+    // la INVARIANTE, para que un sexto constructor de LapRecord que nazca mañana
+    // sin `hrSource` lo rompa aquí en vez de llegar callado a producción.
+    // (`appendStructuralLap` queda fuera por construcción: escribe el pulso a nil,
+    // así que su procedencia nil es la respuesta correcta, no un olvido.)
+
+    func testEveryLapWithPulseCarriesItsProvenance() throws {
+        let s = armedSession()
+        s.injectLiveHR(150, source: .strap)
+        s.injectLiveHR(160, source: .strap)
+        s.primaryAdvance()
+
+        for lap in s.laps {
+            if lap.avgHRBpm != nil || lap.maxHRBpm != nil {
+                XCTAssertNotNil(
+                    lap.hrSource,
+                    "un lap con pulso medido debe decir qué aparato lo midió"
+                )
+            } else {
+                XCTAssertNil(
+                    lap.hrSource,
+                    "sin pulso medido no se inventa procedencia"
+                )
+            }
+        }
+    }
 }
