@@ -128,7 +128,7 @@
   <div class="law">
     <h3>El titular</h3>
     <p>De las ocho estaciones de HYROX, <strong>dos ya están resueltas por hardware</strong> (el PM5 emite ski y remo, y eso es medida, no inferencia), <strong>cuatro tienen evidencia publicada</strong> de que se reconocen desde la muñeca, y <strong>dos no las ha estudiado nadie</strong>. Y esas dos no hace falta clasificarlas: en una carrera van siempre en el mismo sitio del orden.</p>
-    <p>En fuerza el techo es más alto de lo que parece. La muñeca sigue a la barra, así que además de contar se puede medir <strong>a qué velocidad se movió cada repetición</strong>. Eso convierte el RIR de una opinión tecleada en una medida.</p>
+    <p>En fuerza la muñeca sigue a la barra, así que además de contar se puede medir <strong>a qué velocidad se movió cada repetición</strong> — con una salvedad que la evidencia obliga a poner por delante: eso <em>no</em> sustituye al RIR que teclea el atleta. Lo calibra.</p>
   </div>
 
   <h2 id="s2"><span class="n">02</span>No es una capacidad, son cuatro</h2>
@@ -163,8 +163,8 @@
         <td>¿A qué velocidad movió la barra?</td>
         <td>Doble integración de la aceleración con corrección de deriva en las fases estáticas de la repetición.</td>
         <td><span class="pill ok">No</span><span class="src">validar sí, entrenar no</span></td>
-        <td class="num">r = 0,95 · error 0,064 m/s</td>
-        <td>Apple Watch 7 contra captura óptica, 22 levantadores, 599 sentadillas. Revisado por pares.</td>
+        <td class="num">r = 0,95 · error 10 %<span class="src">y se degrada al acercarse al 1RM</span></td>
+        <td>Apple Watch 7 contra captura óptica, 22 levantadores, 599 sentadillas. Revisado por pares — pero solo en sentadilla y a cargas ligeras y medias.</td>
       </tr>
     </tbody>
   </table></div>
@@ -217,20 +217,28 @@
 
   <p>La segunda es que <strong>en barra la muñeca es la barra.</strong> Se mueven juntas. Así que el sensor no está viendo un gesto parecido al ejercicio: está trazando la trayectoria del propio implemento. Y eso abre algo que no estaba en el encargo y es el mayor valor de toda esta propuesta.</p>
 
-  <div class="law">
-    <h3>Tres campos que dejan de teclearse</h3>
-    <p>Hoy una serie de fuerza se registra con reps, carga, RIR o RPE, tempo y descanso. La carga la pone el coach y el descanso lo mide el reloj. <strong>Los otros tres los teclea el atleta a ojo.</strong> Con el sensor: las reps se cuentan, el tempo se mide, y el RIR deja de ser una opinión.</p>
-    <p>La <strong>pérdida de velocidad dentro de la serie</strong> — cuánto más lenta es la última repetición que la primera — es la medida objetiva de proximidad al fallo que el sector lleva una década usando. Y tiene una propiedad que la hace ideal aquí: es un cociente entre dos medidas del mismo sensor en la misma serie, así que <strong>los errores sistemáticos se cancelan</strong>. No hace falta que la velocidad absoluta sea perfecta para que la pérdida relativa sea fiable.</p>
+  <p>La validez está publicada y es específica de este hardware: Apple Watch 7 contra captura óptica de laboratorio, 22 levantadores, 599 sentadillas. Con el reloj <strong>en la muñeca</strong>, correlación de 0,952 a 0,965 y error típico del 10 %; montándolo en la barra sube a 0,971-0,979, porque el brazo no es del todo solidario a la barra. El aparato de referencia del sector cuesta 2.200 dólares.</p>
+
+  <div class="break">
+    <h3>Y aquí hay que frenar, porque la narrativa cómoda no se sostiene</h3>
+    <p>El discurso habitual del sector es que la velocidad es objetiva y el RIR es subjetivo, y que por tanto la velocidad debería sustituirlo. <strong>La evidencia no respalda eso.</strong> Un atleta entrenado estima su RIR cerca del fallo con un error medio de 0,65 a 1 repetición. Los modelos <em>generales</em> que traducen velocidad a RIR se equivocan en más de dos repeticiones al 70 % del 1RM. Solo los modelos <strong>individualizados</strong> por persona bajan de dos. Los autores de la revisión más reciente lo dicen tal cual: son perspectivas complementarias, no intercambiables.</p>
+    <p>Peor todavía para el caso fácil: la validez de los acelerómetros de muñeca <strong>se hunde justo con cargas pesadas</strong>, que es donde más apetece usar esto. El wearable de VBT más estudiado cae a una correlación de 0,33 cerca del 1RM, mientras los encoders de cable mantienen la precisión en todo el rango.</p>
+    <p>Esto también rompe un argumento que yo mismo di antes de mirar los números: que la pérdida de velocidad se salva por ser un cociente que cancela sesgos. <strong>No se salva.</strong> El error no es un factor constante: crece cuando la barra va lenta. Y dentro de una serie llevada al fallo, las últimas repeticiones son precisamente las lentas — las que definen la pérdida. El cociente se lleva el error de la peor medida, no lo cancela.</p>
   </div>
 
-  <p>La validez está publicada y es específica de este hardware: Apple Watch 7 contra captura óptica de laboratorio, 22 levantadores, 599 sentadillas. Con el reloj <strong>en la muñeca</strong>, correlación de 0,952 a 0,965 y error típico de 0,064 m/s; montándolo en la barra sube a 0,971-0,979. Es correlación fuerte con el patrón oro. El aparato de referencia del sector cuesta 2.200 dólares.</p>
+  <div class="law">
+    <h3>Entonces qué sí, y es mejor que lo que creía</h3>
+    <p><strong>Dos campos dejan de teclearse, no tres.</strong> Las repeticiones se cuentan y el tempo se mide. El RIR se queda donde está — y eso está bien, porque el atleta acierta.</p>
+    <p>Lo que la velocidad da de verdad es <strong>comparación consigo mismo</strong>: la misma carga, el mismo ejercicio, otro día. Que hoy la barra vaya más lenta que hace tres semanas con noventa kilos es un dato objetivo, repetible y libre de opinión, y no necesita correlacionar con nada para ser útil. Eso es monitorización longitudinal, y es lo que el producto puede enseñar sin mentir.</p>
+    <p>Y lo que abre es el bucle: el modelo velocidad-a-RIR <strong>individualizado sí funciona</strong>. Nosotros vamos a tener, en la misma serie y durante meses, el RIR que el atleta teclea <em>y</em> la velocidad que el reloj mide. <strong>El RIR tecleado no es el rival de la velocidad: es su etiqueta de entrenamiento.</strong> Con suficientes series de una persona se puede ajustar su curva propia — que es exactamente lo que la literatura dice que hace falta y que nadie tiene, porque nadie recoge las dos cosas a la vez durante meses.</p>
+  </div>
 
   <div class="keep">
-    <h3>El fallo de los que ya lo intentaron es de arquitectura, no de sensor</h3>
-    <p>En ese mismo estudio el modo muñeca <strong>perdió 49 de 599 repeticiones por caídas de la conexión Bluetooth</strong>. Y las tres apps que hoy hacen esto solo con reloj no tienen ninguna validación propia publicada. El patrón común es que todas <em>transmiten</em> la señal en vivo a un teléfono y la procesan allí. Nosotros muestreamos, contamos y clasificamos <strong>dentro del reloj</strong>, y el teléfono recibe conclusiones. El punto de fallo del 8 % desaparece porque no existe el enlace.</p>
+    <h3>Una ventaja de arquitectura que sí se sostiene</h3>
+    <p>En ese estudio, el modo muñeca <strong>perdió 49 de 599 repeticiones</strong>, buena parte por caídas de la conexión mientras transmitía. Las tres apps que hoy hacen esto solo con reloj transmiten igual. Nosotros medimos y calculamos <strong>dentro del reloj</strong>: el teléfono recibe conclusiones. Esa parte del fallo desaparece porque no existe el enlace. La otra parte — que la muñeca captura peor que la barra por física — no la arregla ninguna arquitectura.</p>
   </div>
 
-  <p class="mut">Con una salvedad que hay que respetar al presentarlo: la pérdida de velocidad relativa es fiable, pero estimar el <strong>%1RM absoluto</strong> a partir de la velocidad no cancela ningún sesgo. Ese número sale con banda ancha y se etiqueta como estimación, con la misma escala de procedencia que ya usa el resto del producto. Se puede enseñar el uno; el otro alimenta el modelo pero no se presenta como una marca.</p>
+  <p class="mut">Y el <strong>%1RM estimado desde la velocidad no se presenta</strong>. El meta-análisis sobre 641 participantes dice que sobreestima el 1RM en 4,5 kg de media, un 3,7 %, con un error típico cercano al 10 % — y eso <strong>con encoders de laboratorio</strong>, no con un reloj. Los propios autores recomiendan el test directo cuando sea viable. Ese número puede alimentar el modelo con banda ancha, pero no se le enseña a nadie como si fuera una marca.</p>
 
   <h2 id="s6"><span class="n">06</span>La arquitectura — siete capas</h2>
 
@@ -400,8 +408,8 @@
       </tr>
       <tr>
         <td class="num">3</td>
-        <td><strong>Velocidad de la barra</strong> y pérdida de velocidad dentro de la serie.</td>
-        <td>Es el mayor salto de producto de la lista, y convierte el RIR en medida. Alimenta el parámetro de fuerza del predictor sin gastar una sesión en tests.</td>
+        <td><strong>Velocidad de la barra</strong>: comparación consigo mismo a igual carga, y la curva individual velocidad-RIR que solo se puede ajustar recogiendo las dos cosas a la vez.</td>
+        <td>Es el mayor salto de producto de la lista. No sustituye al RIR — lo calibra, y de paso alimenta el parámetro de fuerza del predictor sin gastar una sesión en tests.</td>
         <td><span class="pill ok">No</span><span class="src">validar contra algo, sí</span></td>
       </tr>
       <tr>
@@ -437,7 +445,7 @@
   </div>
 
   <div class="footer">
-    <p><strong>Fuentes principales.</strong> Soro, Brunner, Tanner &amp; Wattenhofer (2019), <em>Sensors</em> — 54 sujetos, muñeca, 10 movimientos de CrossFit. Strömbäck, Huang &amp; Radu (2020), MM-Fit. Morris, Saponas, Guillory &amp; Kelner (2014), RecoFit, CHI. Ishii et al. (2020), ExerSense. «Seven Things to Know about Exercise Classification with Inertial Sensing Wearables» (2024), <em>Sensors</em>. Validez del Apple Watch para velocidad de barra (2023), <em>Sports</em> — 22 levantadores, 599 repeticiones contra captura óptica. Documentación de Apple sobre <code>CMBatchedSensorManager</code> y WWDC23 §10179. Documentación del SDK de Connect IQ sobre acceso al acelerómetro.</p>
+    <p><strong>Fuentes principales.</strong> Soro, Brunner, Tanner &amp; Wattenhofer (2019), <em>Sensors</em> — 54 sujetos, muñeca, 10 movimientos de CrossFit. Strömbäck, Huang &amp; Radu (2020), MM-Fit. Morris, Saponas, Guillory &amp; Kelner (2014), RecoFit, CHI. Ishii et al. (2020), ExerSense. «Seven Things to Know about Exercise Classification with Inertial Sensing Wearables» (2024), <em>Sensors</em>. Validez del Apple Watch para velocidad de barra (2023), <em>Sports</em> — 22 levantadores, 599 repeticiones contra captura óptica. Revisión sistemática de dispositivos comerciales de monitorización de fuerza (2021). Modelado de la relación RIR-velocidad (2024) y umbral de pérdida de velocidad frente a RIR percibido (2025). Meta-análisis de datos individuales sobre validez predictiva del perfil carga-velocidad para el 1RM — 641 participantes. Documentación de Apple sobre <code>CMBatchedSensorManager</code> y WWDC23 §10179. Documentación del SDK de Connect IQ sobre acceso al acelerómetro.</p>
     <p><strong>Lo que no se verificó.</strong> Apple no publica presupuesto de batería para muestreo inercial continuo: hay que medirlo. No hay ninguna cifra publicada sobre trineo ni carry con un solo sensor de muñeca. El anuncio de Amazfit no trae datos de precisión. Y las licencias de RecoFit, MM-Fit y MyoGym no están claras: se asumen de investigación hasta que alguien las confirme por escrito.</p>
     <p>FAHYBRID · 6 de agosto de 2026 · propuesta, cero código escrito</p>
   </div>

@@ -25,11 +25,19 @@ al. 2019, 54 sujetos, 98,9 % en 10 clases que incluyen burpee y wall ball) ·
 agarrada y deja de moverse. Esas dos no se clasifican: las sitúa el orden fijo
 de la carrera.
 
-**El hallazgo grande está en fuerza:** en barra la muñeca *es* la barra, así que
-además de contar se mide la **velocidad de cada repetición** (Apple Watch 7 vs
-captura óptica: r=0,95, error 0,064 m/s, revisado por pares). La pérdida de
-velocidad intra-serie es un cociente → los sesgos se cancelan → **el RIR deja de
-ser una opinión tecleada**. Reps, tempo y RIR pasan de teclearse a medirse.
+**Fuerza — y aquí me corregí a mí mismo a media tarde.** En barra la muñeca *es*
+la barra y se mide la velocidad de cada repetición (Apple Watch 7 vs captura
+óptica: r=0,95, revisado por pares). Escribí que eso hacía del RIR una medida y
+que la pérdida intra-serie «cancela sesgos por ser un cociente». **Las dos cosas
+eran falsas** y las retiré: el atleta entrenado acierta su RIR con 0,65-1 rep de
+error, los modelos generales de velocidad fallan por más de 2, la validez del
+acelerómetro de muñeca **se hunde con cargas pesadas** (r=0,33 al 100 % 1RM), y
+el error crece cuando la barra va lenta — que son justo las últimas reps, las
+que definen la pérdida. El cociente arrastra el error, no lo cancela.
+**Lo que queda es mejor:** el modelo velocidad→RIR *individualizado* sí funciona,
+y nadie lo tiene porque nadie recoge ambas señales a la vez durante meses.
+**El RIR tecleado no es el rival de la velocidad: es su etiqueta.** Ver
+`docs/DECISIONS.md` (6-ago).
 
 **Ya existe media arquitectura:** el reloj corre el motor entero con
 `HKWorkoutSession` viva y `workout-processing`, hay canal bidireccional abierto,

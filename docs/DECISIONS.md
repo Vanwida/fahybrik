@@ -22,6 +22,27 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-06 · La velocidad de barra NO sustituye al RIR. Lo calibra — y el RIR tecleado es su etiqueta
+
+**Decidido:** cuando se mida la velocidad de la repetición con el reloj (fase 3 del plan de sensor), **el RIR auto-reportado se queda donde está**. No se retira, no se oculta, no se sustituye. Lo que se enseña de la velocidad es la **comparación del atleta consigo mismo a igual carga y ejercicio**; lo que NO se enseña es el %1RM estimado.
+
+**Por qué, contra la narrativa cómoda del sector.** El discurso habitual —"la velocidad es objetiva, el RIR es subjetivo, luego la velocidad es mejor"— **no está respaldado por la evidencia**, y en la primera redacción de la propuesta lo di por bueno antes de mirar los números:
+- Un atleta entrenado estima su RIR cerca del fallo con **0,65-1 repetición de error medio** (JSCR 2023/2024). Es bastante preciso.
+- Los modelos **generales** velocidad→RIR fallan por **más de 2 repeticiones al 70 % del 1RM**. Solo los **individualizados** por persona bajan de 2 (PMC10901726, 46 sujetos).
+- La correlación velocidad↔RIR percibido varía de r=0,1 a r=0,9 entre personas (media 0,6, r²≈0,3). Los autores concluyen literalmente que son «perspectivas complementarias, no intercambiables» (PMC12360324, 2.972 mediciones).
+- La validez de los acelerómetros de muñeca **se hunde con cargas pesadas**, que es donde más apetece usar esto: el wearable de VBT más estudiado cae a r=0,33 al 100 % del 1RM, mientras los encoders de cable mantienen precisión en todo el rango (PMC7900050).
+- El %1RM desde perfil carga-velocidad **sobreestima 4,5 kg (3,7 %)** con error típico del 9,8 %, y **sin diferencia entre perfil individual y general** — meta-análisis de datos individuales, 641 participantes (PMC10432349). Los autores recomiendan el test directo cuando sea viable.
+
+**El argumento propio que hubo que retirar.** Escribí que la pérdida de velocidad se salva por ser un cociente que cancela el sesgo. **Es falso.** El error del acelerómetro no es un factor constante: crece cuando la barra va lenta. Y las últimas repeticiones de una serie al fallo son justo las lentas, las que definen la pérdida. El cociente arrastra el error de la peor medida en vez de cancelarlo.
+
+**Lo que sí sale de aquí, y es mejor:** el modelo velocidad→RIR **individualizado sí funciona**, y nadie lo tiene porque nadie recoge las dos señales a la vez durante meses. Nosotros vamos a tener, en la misma serie, el RIR que teclea el atleta **y** la velocidad que mide el reloj. **El RIR tecleado no es el rival de la velocidad: es su etiqueta de entrenamiento.** Con suficientes series de una persona se ajusta su curva propia. Por eso la migración de la fase 3 guarda los dos juntos.
+
+**En consecuencia, no hacer:** no retirar el campo de RIR de la UI de fuerza cuando llegue la velocidad; no presentar el %1RM estimado desde velocidad como si fuera una marca; no validar la velocidad con un único número medio (va **por banda de carga**, porque el fallo está concentrado cerca del 1RM); y no extender a peso muerto ni press militar la validación publicada, que **solo existe para sentadilla** con reloj en muñeca.
+
+**Documentos:** `docs/reconocer-el-movimiento.html` §05 y `docs/plan-reconocer-movimiento.html` fase 3.
+
+---
+
 ## 2026-08-06 · Reconocer el movimiento es cosa de Apple Watch. Garmin queda descartado, y hay que saber por qué
 
 **Decidido:** el reconocimiento de movimiento por sensor inercial (contar repeticiones, separar trabajo de descanso, clasificar la estación, medir la velocidad de la barra) se construye **solo para Apple Watch**. En Garmin se sigue empujando el entreno por Connect IQ y el atleta confirma a toque, como hoy.

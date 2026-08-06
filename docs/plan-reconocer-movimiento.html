@@ -316,8 +316,8 @@
     <header>
       <div class="n">3</div>
       <div>
-        <h3>El RIR deja de ser una opinión</h3>
-        <p>La muñeca sigue a la barra, así que se puede medir a qué velocidad se movió cada repetición. Y la caída de velocidad dentro de la serie dice cuánto quedaba en el depósito, sin preguntar.</p>
+        <h3>La barra se mide, y el RIR se calibra <span class="pill warn">expectativa corregida</span></h3>
+        <p>La muñeca sigue a la barra, así que se puede medir a qué velocidad se movió cada repetición. Lo que <strong>no</strong> hace es sustituir al RIR: la evidencia dice que el atleta entrenado acierta con menos de una repetición de error, y que los modelos generales de velocidad fallan por más de dos. Lo que sí da es comparación consigo mismo a igual carga, y la curva individual que solo sale recogiendo las dos cosas a la vez.</p>
       </div>
     </header>
     <div class="body">
@@ -329,8 +329,10 @@
             <li><strong>Integrar la aceleración</strong> en la fase concéntrica, corrigiendo la gravedad con la orientación del dispositivo.</li>
             <li><strong>Anclar la deriva</strong> en las fases estáticas. Toda integración de acelerómetro deriva; el truco estándar es que al principio y al final de cada repetición la velocidad es cero, y eso da dos anclajes por repetición.</li>
             <li>Calcular por serie: <strong>velocidad media de la primera repetición, de la última, y la pérdida entre ambas</strong>. Más el recorrido y el tempo real.</li>
-            <li><strong>Validar contra vídeo a cámara lenta</strong> con marca en la barra, en un conjunto pequeño y en varios ejercicios. Publicar la banda de error obtenida, no la del paper.</li>
-            <li>Presentar la <strong>pérdida de velocidad</strong> al atleta y al coach. <strong>No</strong> presentar el %1RM estimado hasta que haya validación propia.</li>
+            <li><strong>Validar por banda de carga, no en global.</strong> La validez de los acelerómetros de muñeca se degrada al acercarse al 1RM — el wearable más estudiado cae a 0,33 de correlación ahí. Un número medio único escondería justo el fallo que importa.</li>
+            <li><strong>Marcar como no fiable</strong> lo que caiga en la banda de carga donde la validación propia no llegue al umbral. Se omite, no se enseña degradado.</li>
+            <li>Presentar la <strong>comparación consigo mismo a igual carga</strong>, que es lo que no depende de correlacionar con nada. <strong>No</strong> presentar el %1RM estimado: sobreestima un 3,7 % incluso con encoder de laboratorio.</li>
+            <li><strong>Guardar velocidad y RIR juntos</strong> en cada serie. Es el par que permite ajustar después la curva individual del atleta, que es lo único que la literatura da por válido para traducir velocidad a RIR.</li>
           </ol>
         </div>
         <div>
@@ -344,17 +346,19 @@
           </p>
           <h4>Migración</h4>
           <p><code>0160_set_velocity.sql</code> — sobre la serie ejecutada: <code>mean_velocity_first_m_s</code>, <code>mean_velocity_last_m_s</code>, <code>velocity_loss_pct</code>, <code>rom_m</code>, <code>velocity_confidence</code>.</p>
-          <h4>Por qué la pérdida sí y el %1RM no</h4>
-          <p class="mut" style="font-size:14px">La pérdida es un cociente entre dos medidas del mismo sensor en la misma serie: <strong>el sesgo se cancela</strong>. El %1RM absoluto no cancela nada y arrastra el error entero. Uno se enseña; el otro alimenta el modelo con banda ancha.</p>
+          <h4>Un argumento que hubo que retirar</h4>
+          <p class="mut" style="font-size:14px">La primera versión de este plan decía que la pérdida de velocidad se salva por ser un cociente que cancela el sesgo. <strong>No se salva.</strong> El error del acelerómetro no es un factor constante: crece cuando la barra va lenta. Y las últimas repeticiones de una serie al fallo son justo las lentas — las que definen la pérdida. El cociente arrastra el error de la peor medida. Por eso la validación va por banda de carga y por eso el titular de esta fase cambió.</p>
         </div>
       </div>
 
       <div class="acc">
         <h4>Criterio de aceptación</h4>
         <ul>
-          <li>Contra vídeo, correlación <strong>por encima de 0,90</strong> en velocidad media de repetición, en al menos tres ejercicios de barra distintos. El estudio publicado con este hardware da 0,95: por debajo de 0,90 la implementación está mal, no el sensor.</li>
+          <li>Contra vídeo, correlación <strong>por encima de 0,90 en la banda ligera-media</strong> (hasta el 80 % del 1RM), en al menos tres ejercicios de barra. El estudio publicado con este hardware da 0,95 en sentadilla: por debajo de 0,90 ahí, la implementación está mal, no el sensor.</li>
+          <li><strong>Curva de error declarada por banda de carga</strong>, no un número único. Se espera que empeore cerca del 1RM; lo que no se acepta es no saber cuánto.</li>
           <li>La <strong>pérdida de velocidad crece monótonamente</strong> dentro de una serie llevada al fallo. Si no lo hace, el estimador no sirve por muy buena que sea la correlación media.</li>
-          <li>Cero repeticiones perdidas por transporte: <strong>todo se calcula en el reloj</strong>, sin enlace vivo. El estudio publicado perdió el 8 % de las repeticiones por caídas de Bluetooth, y ese fallo aquí no puede existir.</li>
+          <li>Cero repeticiones perdidas <strong>por transporte</strong>: todo se calcula en el reloj, sin enlace vivo. La parte del 8 % que era del enlace desaparece; la que es de la física de la muñeca, no — y esa se declara.</li>
+          <li>Solo hay validación publicada de reloj-en-muñeca <strong>en sentadilla</strong>. Peso muerto y press militar los validamos nosotros o no se presentan.</li>
         </ul>
       </div>
     </div>
