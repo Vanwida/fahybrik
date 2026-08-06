@@ -169,6 +169,44 @@ private struct LeadHeightKey: PreferenceKey {
     }
 }
 
+// MARK: - Height distribution (rule 2 · *llenar*)
+
+/// The `llena` strategy of the contract's §6.1, made reusable — the sibling
+/// `CenteredScreen` never had.
+///
+/// `llena` means "esto se adapta a lo que haya": when the content does not reach
+/// the bottom, the leftover goes INTO the content (whichever child declares
+/// `.frame(maxHeight: .infinity)` absorbs it); when it outgrows the screen, it
+/// scrolls from the top. Both halves matter — a plain `ScrollView` only does the
+/// second, which is how a screen ends up piled at the top with dead height
+/// underneath, and a plain `VStack` only does the first, which clips at large
+/// Dynamic Type.
+///
+/// The mechanic: propose the visible height as a `minHeight` to the content. A
+/// stack holding a flexible child ACCEPTS that proposal and hands the slack to
+/// that child; a stack that outgrows it reports its natural height and the
+/// `ScrollView` takes over. The bottom safe area is subtracted for the same
+/// reason `CenteredScreen` subtracts it: an `.anchoredAction` footer lives there,
+/// and filling the height INCLUDING it pushes the last row under the button.
+///
+/// Callers own the padding — this only decides the height.
+struct FillingScreen<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        GeometryReader { proxy in
+            ScrollView {
+                content()
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: max(0, proxy.size.height - proxy.safeAreaInsets.bottom)
+                    )
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+}
+
 extension CenteredScreen where Lead == EmptyView {
     /// Pinned header + centred body. No title block to hold at the top.
     init(

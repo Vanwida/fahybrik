@@ -26,6 +26,7 @@ necesitarlo (así nacieron las duplicaciones del kit de HUD).
 |---|---|---|
 | Acción principal anclada abajo | `.anchoredAction { }` | `Theme/ScreenScaffold.swift` |
 | Repartir la altura / centrar | `CenteredScreen` | `Theme/ScreenScaffold.swift` |
+| Que el contenido LLENE el alto y scrollee si desborda | `FillingScreen` | `Theme/ScreenScaffold.swift` |
 | Estado vacío o de error | `RedesignEmptyState` (la salida es **obligatoria por tipo**) | `Theme/ScreenScaffold.swift` |
 | Hoja de 1-3 campos | `.compactSheet()` | `Theme/ScreenScaffold.swift` |
 | Botón primario | `ExpertPrimaryButton` | `Theme/` |
@@ -33,8 +34,17 @@ necesitarlo (así nacieron las duplicaciones del kit de HUD).
 | Número grande | `HeroNumber` | `Theme/Atoms.swift` |
 | Etiqueta en mayúsculas | `LabelText` · `SectionLabel` | `Theme/` |
 | Cifra monoespaciada | `MonoText` | `Theme/` |
+| Pastilla que enseña un DATO (no un control) | `InfoPill` | `Theme/Atoms.swift` |
+| Marcador de carga en frío | `SkeletonBar` | `Theme/Atoms.swift` |
 | Separador | `Hairline` | `Theme/` |
 | Punto de modalidad | `ModalityDot` | `Theme/RedesignComponents.swift` |
+| Insignias de sesión | `LibreBadge` · `TestBadge` · `SlotBadge` | `Theme/RedesignComponents.swift` |
+
+`FillingScreen` es la estrategia `llena` del §6.1 hecha pieza, y es la que faltaba: un
+`ScrollView` a secas solo resuelve el desbordamiento y deja el caso corto apilado arriba; un
+`VStack` a secas solo resuelve el caso corto y recorta a tamaño accesible. `FillingScreen` propone
+el alto visible al contenido, así que el hijo que declare `.frame(maxHeight: .infinity)` se queda
+el sobrante y, cuando el contenido crece, scrollea.
 
 **Prohibido**: pintar a mano un botón con `Text` + `frame` + `background`, escribir un estado
 vacío con un `CardSurface` y una frase, o dibujar un `Circle()` donde va un `ModalityDot`.
@@ -54,6 +64,8 @@ no puedan escribir el mismo dato de dos maneras.
 | Decimales | `Formato.esDecimal(_:)` | `42,4` — **jamás** `String(format:"%.1f")` en texto de cara al atleta |
 | Carga | `Formato.kg(_:)` | `82,5 kg` |
 | Unidad de ritmo | `Formato.UnidadRitmo` | `/km` · `/500m` · `/mi` |
+| Porcentaje | `Formato.porcentaje(fraccion:)` | `67 %` — entra una **fracción 0…1**, que es como lo sirve el servidor pese a llamarlo `pct` |
+| Fecha | `FechaES.larga(_:)` · `.corta(_:)` | `3 de julio` · `3 jul` — entra un ISO `YYYY-MM-DD` |
 
 **Las variantes se piden POR PARÁMETRO, nunca escribiendo una segunda función** — la
 segunda función es exactamente como nació este problema:

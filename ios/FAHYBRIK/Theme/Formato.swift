@@ -112,6 +112,26 @@ enum Formato {
         return "desde \(cifra)"
     }
 
+    // MARK: - Porcentaje
+
+    /// «67 %» a partir de una FRACCIÓN 0…1 — el cumplimiento de una semana, la
+    /// parte de un objetivo cubierta.
+    ///
+    /// Canónico NUEVO (§2.1), y existe sobre todo por la trampa: el servidor sirve
+    /// el cumplimiento como fracción con dos decimales (`compliance_pct` =
+    /// `round((hechas/planificadas) * 100) / 100` en
+    /// shared/domain/coach/macro-progress.ts) pese a llamarse «pct». Pintarlo tal
+    /// cual escribe «1 %» en una semana entera cumplida. Aquí se convierte UNA vez,
+    /// en el sitio que sabe que es una fracción.
+    ///
+    /// El espacio antes del signo es el de la norma en castellano, y es el mismo
+    /// que ya escribe la app en el resto de porcentajes de cara al atleta.
+    /// nil cuando no hay fracción: sin dato no se pinta un cero (§7).
+    static func porcentaje(fraccion: Double?) -> String? {
+        guard let fraccion else { return nil }
+        return "\(Int((fraccion * 100).rounded())) %"
+    }
+
     // MARK: - Ritmo
 
     /// La unidad del ritmo por modalidad. El literal lleva la `m` de «500m»: sin
@@ -363,5 +383,57 @@ enum Vocab {
     /// entra hoy no ha visto la escala nunca.
     static func rirTraducido(_ valor: Int) -> String {
         valor == 0 ? "\(rir) 0 · hasta el fallo" : "\(rir) \(valor) · deja \(valor) dentro"
+    }
+}
+
+// MARK: - Fechas en castellano (contrato §2 · §3)
+
+/// CÓMO SE ESCRIBE UNA FECHA de cara al atleta. Entra siempre un ISO
+/// «YYYY-MM-DD» del cable; sale castellano.
+///
+/// Vive aquí, con el resto de la grafía, y no dentro de la pantalla que lo
+/// necesitó primero: la app tiene ya varias copias locales de este mismo
+/// `DateFormatter` con `es_ES` (el panel de la pareja, el historial), que es
+/// exactamente cómo nacieron las catorce duraciones. Este es el canónico; las
+/// copias que queden se migran aquí, no se replican.
+///
+/// Los `DateFormatter` son estáticos a propósito: crearlos es caro y estas
+/// funciones se llaman dentro de listas.
+enum FechaES {
+    private static let entrada: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static let salidaLarga: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "d 'de' MMMM"
+        return f
+    }()
+
+    private static let salidaCorta: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
+    /// La fecha suelta, para hacer aritmética con ella. Nil si el ISO no se lee.
+    static func fecha(_ iso: String) -> Date? { entrada.date(from: iso) }
+
+    /// El ISO de una fecha — la vuelta de `fecha(_:)`.
+    static func iso(_ date: Date) -> String { entrada.string(from: date) }
+
+    /// «3 de julio». Nil cuando la fecha no se puede leer — nunca media frase.
+    static func larga(_ iso: String) -> String? {
+        fecha(iso).map { salidaLarga.string(from: $0) }
+    }
+
+    /// «3 jul».
+    static func corta(_ iso: String) -> String? {
+        fecha(iso).map { salidaCorta.string(from: $0) }
     }
 }
