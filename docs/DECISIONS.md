@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-06 · Reconocer el movimiento es cosa de Apple Watch. Garmin queda descartado, y hay que saber por qué
+
+**Decidido:** el reconocimiento de movimiento por sensor inercial (contar repeticiones, separar trabajo de descanso, clasificar la estación, medir la velocidad de la barra) se construye **solo para Apple Watch**. En Garmin se sigue empujando el entreno por Connect IQ y el atleta confirma a toque, como hoy.
+
+**Por qué, y esto es lo que evita que alguien lo re-explore dentro de seis meses:** Connect IQ **no expone el acelerómetro en crudo a terceros**. Lo que una app recibe es un valor cacheado que se refresca entre 1 y 25 Hz según el modelo, y las tareas en segundo plano están limitadas a ~30 s de ejecución cada 5 minutos. Con eso no se cuenta una repetición ni se detecta una transición — la literatura entera trabaja entre 20 y 100 Hz de señal continua. Garmin **sí** cuenta repeticiones en su firmware nativo (bien en movimientos aislados, mal en compuestos), pero ese acceso privilegiado no lo publica. Por eso no existe ninguna app de Connect IQ de terceros con conteo reputado: no es que nadie lo haya intentado, es que la plataforma no lo permite.
+
+**En Apple tampoco hay atajo, y eso también conviene saberlo:** `HKWorkoutEventType` es exhaustivo y **no tiene ningún evento de repetición ni de serie**; HealthKit no define un tipo de dato para reps; y el modo nativo de fuerza de watchOS no las cuenta. `motionPaused`/`motionResumed` son automáticos solo para *Running*. Todo el que hace esto se lo construye entero sobre Core Motion. Es mecanismo puro, que por la HARD RULE Nº0 es exactamente lo que nos toca poner en código.
+
+**La vía que sí existe:** `CMBatchedSensorManager` (watchOS 10+, Series 8/Ultra en adelante) entrega acelerómetro hasta 800 Hz y movimiento hasta 200 Hz en lotes de un segundo, **y exige una `HKWorkoutSession` activa** — condición que el reloj ya cumple con `workout-processing`. Fallback a `CMMotionManager` a 100 Hz donde no esté.
+
+**En consecuencia, no hacer:** no volver a plantear conteo de repeticiones ni detección de estación dentro de una app de Connect IQ; no buscar una API de Apple que devuelva reps (no existe); no diseñar el procesado en el teléfono (rompería el modo solo-reloj y duplicaría el camino); y no muestrear a 800 Hz para archivar — la literatura trabaja a 20-100 Hz y 800 Hz son 69 MB por hora que no se archivan.
+
+**Documento:** `docs/reconocer-el-movimiento.html` (6-ago) — propuesta completa, sin construir.
+
+---
+
 ## 2026-08-05 · Una vista por lo que estás haciendo (iOS + watchOS)
 
 **Qué se decidió.** Cada tipo de entreno tiene SU pantalla, en los dos dispositivos.

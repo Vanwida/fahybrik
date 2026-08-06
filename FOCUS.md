@@ -5,6 +5,61 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 6-ago · Que el reloj reconozca el movimiento (DISEÑO — sin construir)
+
+Alex pide un plan para que el reloj sepa qué está haciendo el atleta: las ocho
+estaciones de HYROX, y si se puede, también la fuerza (banca, peso muerto,
+sentadilla). → **`docs/reconocer-el-movimiento.html`**.
+
+**Lo que cambia el planteamiento: no es una capacidad, son cuatro**, y dos de
+ellas **no necesitan datos etiquetados** — detectar trabajo/descanso y contar
+repeticiones se resuelven con procesado de señal (la línea base de MM-Fit, *sin
+entrenar nada*, acierta el 96 % de las series dentro de ±1 rep). Clasificar el
+movimiento es la única que pide corpus, y es la que menos falta hace porque
+**el programa ya declara qué toca**. Orden invertido respecto al instinto.
+
+**Las ocho estaciones:** 2 ya resueltas por hardware (el PM5 emite ski y remo:
+medida, no inferencia) · 4 con evidencia publicada desde muñeca sola (Soro et
+al. 2019, 54 sujetos, 98,9 % en 10 clases que incluyen burpee y wall ball) ·
+**2 sin literatura ninguna** — sled push y farmer's carry, donde la muñeca va
+agarrada y deja de moverse. Esas dos no se clasifican: las sitúa el orden fijo
+de la carrera.
+
+**El hallazgo grande está en fuerza:** en barra la muñeca *es* la barra, así que
+además de contar se mide la **velocidad de cada repetición** (Apple Watch 7 vs
+captura óptica: r=0,95, error 0,064 m/s, revisado por pares). La pérdida de
+velocidad intra-serie es un cociente → los sesgos se cancelan → **el RIR deja de
+ser una opinión tecleada**. Reps, tempo y RIR pasan de teclearse a medirse.
+
+**Ya existe media arquitectura:** el reloj corre el motor entero con
+`HKWorkoutSession` viva y `workout-processing`, hay canal bidireccional abierto,
+y `MirrorTramo` ya le dice al reloj qué movimiento toca. Falta `CoreMotion` en
+el target del reloj (`ios/project.yml`) — hoy hay **cero** CoreMotion y **cero**
+CoreML en todo el repo. Punto único de inyección del contador:
+`FuerzaVivoView.swift:318`.
+
+**Garmin queda fuera y no es culpa nuestra:** Connect IQ no da acelerómetro
+crudo a terceros (valor cacheado 1-25 Hz, background capado a 30 s cada 5 min).
+Garmin se reserva el acceso privilegiado. Ahí se sigue empujando el entreno y se
+confirma a toque.
+
+**Urge lo mismo que en el predictor: GRABAR.** Solo uno de los cinco datasets
+públicos permite uso comercial con certeza (RecGym, CC BY 4.0) y es el menos
+útil; ninguno tiene trineo ni carry. El corpus hay que generarlo, la etiqueta
+débil la da el programa gratis en cada sesión completada, y **cada sesión que
+pasa sin grabar no vuelve**.
+
+**Pendiente de decisión de Alex:** (1) alcance de la primera tanda — solo el
+paso 0 (grabar) o del 0 al 3 (incluye velocidad de barra, línea de producto
+nueva); (2) **consentimiento y propiedad del dato antes del primer byte** — la
+señal inercial de muñeca es identificativa; es la arista que quedó abierta el
+4-ago y ahora tiene fecha límite.
+
+**Aviso de mercado:** Amazfit anunció el *Helio Strap Pro* en junio-2026
+diciendo cubrir los 8 movimientos de HYROX. Sin cifras ni paper. Merece mirada.
+
+---
+
 ## 6-ago · El entreno deja rastro, y hoy lo borramos al guardarlo (DISEÑO — sin construir)
 
 Alex enseña tres capturas de TrainingPeaks (no para copiarlo) y pregunta por las
