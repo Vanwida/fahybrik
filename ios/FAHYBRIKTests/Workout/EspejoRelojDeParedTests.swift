@@ -114,4 +114,71 @@ final class EspejoRelojDeParedTests: XCTestCase {
         XCTAssertEqual(p.sujeto, "1")
         XCTAssertEqual(p.segundoValor, "de 8 rondas")
     }
+
+    /// EL FALLO QUE CAZÓ ESCRIBIR ESTE ADAPTADOR: `objetivoLabel` en el cable
+    /// SÓLO salía de una pierna de correr (`session.currentRunLeg`), que en un
+    /// intervalo funcional siempre es nil. El segundo nivel de «intervals» —el
+    /// objetivo del coach— nunca llegaba a la muñeca en espejo, pese a que el
+    /// propio diseño lo señala como una de las dos cosas que separan esta
+    /// pantalla del EMOM.
+    func testIntervalsFuncionalMandaElRPEPorElCable() throws {
+        let rx = Prescription(scheme: .intervals, modality: .functional, sets: nil, rounds: 5,
+                              workS: 180, restS: 60, totalS: nil,
+                              target: .rpe(value: 9, min: nil, max: nil), note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Empuje de trineo", kind: .reps,
+                                 blockTitle: "Intervalos", blockPosition: 1, prescription: rx)
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Trineo", format: .intervals, estimatedDurationSeconds: 1_200,
+            blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+        s.start(); s.beginBlock(); s.stop()
+        s.primaryAdvance()
+
+        let p = try XCTUnwrap(try paginasEnLaMuneca(s).first)
+        XCTAssertEqual(p.segundoValor, "RPE 9", "el objetivo del bloque, no el de una pierna de correr que aquí no existe")
+    }
+
+    // MARK: - EN SOLITARIO: mismo guion, sin cable de por medio
+    //
+    // `GuionRelojDePared.estadoSolitario` es el adaptador que usa
+    // `RelojDeParedLiveView` cuando el reloj lleva el motor él solo. Aquí no
+    // hay trama que perder nada por el camino, así que estos tests comprueban
+    // lo que el espejo tenía que ADIVINAR y el solitario no: el total real de
+    // la ventana de trabajo.
+
+    func testSolitarioMinutoUnoIgualQueElEspejo() throws {
+        let s = deathBySession()
+        s.primaryAdvance()
+        let e = GuionRelojDePared.estadoSolitario(s)
+        let p = try XCTUnwrap(GuionRelojDePared.paginas(e, GuionRelojDePared.gestosSolitario(s)).first)
+        XCTAssertEqual(p.contexto, "Minuto 1")
+        XCTAssertEqual(p.sujeto, "5")
+    }
+
+    /// El intervalo funcional con RPE — el caso que el adaptador del CABLE
+    /// nunca podía pintar hasta esta noche, porque leía el objetivo de una
+    /// pierna de correr que aquí no existe. En solitario nunca tuvo ese
+    /// problema (no había cable de por medio), pero el mismo `Estado` prueba
+    /// que la fuente correcta (el target del bloque) es la que hay que leer.
+    func testSolitarioIntervalsConRPEEnSegundoNivel() throws {
+        let rx = Prescription(scheme: .intervals, modality: .functional, sets: nil, rounds: 5,
+                              workS: 180, restS: 60, totalS: nil,
+                              target: .rpe(value: 9, min: nil, max: nil), note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Empuje de trineo", kind: .reps,
+                                 blockTitle: "Intervalos", blockPosition: 1, prescription: rx)
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Trineo", format: .intervals, estimatedDurationSeconds: 1_200,
+            blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+        s.start(); s.beginBlock(); s.stop()
+        s.primaryAdvance()
+
+        let e = GuionRelojDePared.estadoSolitario(s)
+        XCTAssertEqual(e.objetivo, "RPE 9")
+        let p = try XCTUnwrap(GuionRelojDePared.paginas(e).first)
+        XCTAssertEqual(p.segundoValor, "RPE 9")
+        XCTAssertEqual(p.nota, WatchNota.loDicesTu)
+    }
 }

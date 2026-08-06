@@ -82,7 +82,17 @@ struct LiveFlowView: View {
             ContinuousLiveView(session: session)
         } else if let presentation {
             switch presentation {
-            case .rotating:   RotatingLiveView(session: session)
+            // EMOM lleva su plan y su fase propia (`RotatingLiveView`); el
+            // resto de la familia rotativa —intervals, tabata, death by,
+            // steady funcional— tiene el sujeto que le toca en
+            // `RelojDeParedLiveView` (`GuionRelojDePared`). Ver el comentario
+            // de cada vista para el porqué del reparto.
+            case .rotating:
+                if session.currentSegment?.isEMOM == true {
+                    RotatingLiveView(session: session)
+                } else {
+                    RelojDeParedLiveView(session: session)
+                }
             case .fixed:      FixedLiveView(session: session)
             case .continuous: ContinuousLiveView(session: session)
             case .setTable:   SetTableLiveView(session: session)

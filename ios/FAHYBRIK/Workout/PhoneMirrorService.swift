@@ -463,6 +463,13 @@ final class PhoneMirrorService {
         let objetivo = session.currentRunLeg.flatMap {
             RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo)
         }
+        // FUERA DE UNA PIERNA DE CORRER, `objetivo` (arriba) SIEMPRE ES NIL — no
+        // es una carencia, es que esa lógica es de ritmo y sólo tiene sentido
+        // corriendo. Un intervalo funcional (el trineo, la plancha) tiene su
+        // propio objetivo — RPE, no ritmo — y sin esto la muñeca nunca lo veía:
+        // el segundo nivel de `GuionRelojDePared.intervals` (que ES el objetivo
+        // cuando el coach escribió uno) se quedaba vacío siempre.
+        let objetivoFuncional = PrescriptionRenderer.targetLoad(seg?.prescription?.target)
 
         // En una serie de correr se cuentan SERIES, no piernas: un 3×1000 con sus
         // dos recuperaciones son cinco tramos y tres series, y «tramo 4 de 5» no
@@ -536,7 +543,7 @@ final class PhoneMirrorService {
             ventanaTotal: tramo.boxedSeconds.map { Double($0) },
             enTramoS: session.tramoElapsedSeconds,
             ritmoSecPorKm: ritmo,
-            objetivoLabel: objetivo?.label,
+            objetivoLabel: objetivo?.label ?? objetivoFuncional,
             objetivoEstado: objetivo.map { estadoWire($0.status) },
             zonaViva: session.liveZone?.rawValue,
             siguiente: session.nextTramoLine,

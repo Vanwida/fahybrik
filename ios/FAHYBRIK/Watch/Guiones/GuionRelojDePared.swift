@@ -240,4 +240,43 @@ enum GuionRelojDePared {
             tono: WatchTinte.urgente(e.quedaS)
         )
     }
+
+    // MARK: - El motor EN SOLITARIO → Estado
+    //
+    // El mismo papel que `GuionDelEspejo.relojDePared` hace para el cable, aquí
+    // para cuando el reloj lleva el motor él solo. Vive en el guion (compila en
+    // iOS) y no en la vista (sólo watchOS) para que la cadena motor→Estado se
+    // pueda testear sin un target de tests de watchOS — la misma razón por la
+    // que todo lo demás de `Watch/` se comparte.
+    static func estadoSolitario(_ session: WorkoutSession) -> Estado {
+        let formato = formatoDe(session.currentSegment?.formatScheme)
+        let esDeathBy = formato == .deathBy
+        return Estado(
+            formato: formato,
+            movimiento: session.currentSegment?.primaryMovement,
+            rondaActual: max(1, session.rotRoundIndex + 1),
+            totalRondas: (esDeathBy || session.rotTotalRounds <= 1) ? nil : session.rotTotalRounds,
+            enDescanso: session.rotPhase == .rest,
+            quedaS: session.rotPhaseRemaining,
+            // Sólo intervals lo pinta (el propio guion lo gatea): RPE/RIR/%RM
+            // del bloque, no de una pierna de correr — aquí no hay ninguna.
+            objetivo: PrescriptionRenderer.targetLoad(session.currentSegment?.prescription?.target),
+            repsDelMinuto: esDeathBy ? session.deathByTarget : nil,
+            zonaViva: session.liveZone,
+            bpm: session.liveHRBpm
+        )
+    }
+
+    static func gestosSolitario(_ session: WorkoutSession) -> Gestos {
+        Gestos(rendirse: { session.deathByFail() })
+    }
+
+    private static func formatoDe(_ scheme: PrescriptionScheme?) -> Formato {
+        switch scheme {
+        case .tabata: return .tabata
+        case .deathBy: return .deathBy
+        case .steady: return .steady
+        default: return .intervals
+        }
+    }
 }

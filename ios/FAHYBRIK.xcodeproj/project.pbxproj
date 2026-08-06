@@ -402,6 +402,7 @@
 		CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */; };
 		D0A40812E60DB25147E89856 /* FTMSControlStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */; };
 		D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D674AB748CF0731318E718C5 /* HistoryService.swift */; };
+		D115F253DC644B97ED51A6EC /* RelojDeParedLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D001A4A1CE72500F4573623 /* RelojDeParedLiveView.swift */; };
 		D156952A4869DE651B745F24 /* WatchPaleta.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF53E47F6A153DC164CEE57B /* WatchPaleta.swift */; };
 		D1A4F0CA3FE76E8B77D96AAC /* SegmentPayloadBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */; };
 		D1CCE0FB0BEEEA275FC8AAB3 /* DoblesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4075C7EACC5B3ADAD94F5E5 /* DoblesService.swift */; };
@@ -774,6 +775,7 @@
 		7A9BCAC54B1135B6D52A350D /* LifecycleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleService.swift; sourceTree = "<group>"; };
 		7AD3C6A28FF61ABCFDB1B26C /* ZoneCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneCoverageTests.swift; sourceTree = "<group>"; };
 		7C3D0E567A7CBA63A116A761 /* FreeDeclareMovementsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDeclareMovementsSheet.swift; sourceTree = "<group>"; };
+		7D001A4A1CE72500F4573623 /* RelojDeParedLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelojDeParedLiveView.swift; sourceTree = "<group>"; };
 		7D1C6D9394CB9C5A94F6D800 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountService.swift; sourceTree = "<group>"; };
 		7D9494B04303A5A577798CC7 /* ErgLiveStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgLiveStrip.swift; sourceTree = "<group>"; };
@@ -1483,6 +1485,7 @@
 				ACBF1518D4C8078575B404A7 /* MirrorHUDView.swift */,
 				B0275845B700EAF34FAE2F4D /* PauseFinishPage.swift */,
 				4F10ED5AE777292AA63A3454 /* ReadinessGlanceView.swift */,
+				7D001A4A1CE72500F4573623 /* RelojDeParedLiveView.swift */,
 				1AB02853595DE919DBE8644A /* RestBannerView.swift */,
 				0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */,
 				BAF9B84A8FC35C78460E38E5 /* SessionMapView.swift */,
@@ -2611,6 +2614,7 @@
 				E7B2F3FBA3005311ABD334B1 /* Prescription.swift in Sources */,
 				DF2AA640F12F4FB8C5D3CC3C /* PrescriptionRenderer.swift in Sources */,
 				01D3271B066FB3CDED234346 /* ReadinessGlanceView.swift in Sources */,
+				D115F253DC644B97ED51A6EC /* RelojDeParedLiveView.swift in Sources */,
 				882FB09C3E76582BFBF5DFD9 /* RestBannerView.swift in Sources */,
 				4DB2635ADEFABE694C8A79A0 /* RootView.swift in Sources */,
 				CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */,

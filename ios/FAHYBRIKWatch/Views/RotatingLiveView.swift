@@ -1,13 +1,16 @@
 import SwiftUI
 
-// ROTATING — el reloj manda (EMOM, Tabata, Intervals, Death By).
+// ROTATING — SÓLO EMOM. Tabata/intervals/death by/steady se fueron a
+// `RelojDeParedLiveView` (`GuionRelojDePared`), que les da a cada uno el sujeto
+// que le toca en vez de un crono compartido para los cuatro.
 //
-// Diseño (`watch-emom` + kit): el sujeto es la cuenta atrás del minuto/fase;
-// la tarea va en segundo nivel; el bisel drena la ventana; al marcar (si aplica)
-// el tinte pasa a recuperación. Página del cuerpo aparte.
-//
-// El modo lo pone el MOMENTO: en trabajo ojeada (gesto latente si hay que marcar);
-// en descanso/cambio, mando.
+// EMOM se queda aquí, con su lenguaje viejo, porque el guion nuevo que YA
+// existe para él (`GuionEmom`) pide tareas alternas por ronda y metros de
+// máquina leídos del móvil, y el motor en SOLITARIO no tiene todavía ni el
+// enganche a `PM5ConnectionStore` ni una acción de «marcar tarea» —
+// `accionEtiqueta`/`accionTap` de esta vista no ofrecen ninguna para EMOM
+// porque el motor no la tiene. Portarlo de verdad es una pieza aparte, no una
+// sustitución de fichero: se documenta aquí para que no se dé por hecho.
 struct RotatingLiveView: View {
     let session: WorkoutSession
 
@@ -67,8 +70,6 @@ struct RotatingLiveView: View {
             tono: countdownColor,
             segundoEtiqueta: segundoEtiqueta,
             segundoValor: segundoValor,
-            accion: accionEtiqueta,
-            onToca: accionTap,
             nota: notaProcedencia
         )
     }
@@ -78,7 +79,6 @@ struct RotatingLiveView: View {
     private var tinteLienzo: Color? {
         if isCountIn { return WatchTheme.orange }
         if phase == .rest { return WatchTheme.zoneGreen }
-        // Marcado Tabata / intervalo hecho: verde suave de “tuyo el resto”.
         return WatchTinte.color(for: session.liveZone)
     }
 
@@ -86,53 +86,30 @@ struct RotatingLiveView: View {
         if isCountIn {
             return min(1, max(0, countInRemaining / 3))
         }
-        let total: Double = {
-            if session.currentSegment?.isEMOM == true {
-                // Ventana típica 60 s; si hay plan, usa la fase.
-                return max(session.emomPhaseRemaining + 0.001, phaseTotalHint)
-            }
-            return max(session.rotPhaseRemaining + 0.001, phaseTotalHint)
-        }()
-        let rem = session.currentSegment?.isEMOM == true
-            ? session.emomPhaseRemaining
-            : session.rotPhaseRemaining
+        let total = max(session.emomPhaseRemaining + 0.001, 60)
+        let rem = session.emomPhaseRemaining
         if rem <= 0 { return 0 }
         return min(1, max(0, rem / total))
-    }
-
-    /// Mejor esfuerzo para el total de la fase (el engine expone remaining, no total).
-    private var phaseTotalHint: Double {
-        if session.currentSegment?.isEMOM == true {
-            return 60
-        }
-        // Tabata / intervals: si remaining es pequeño al final, el aro casi vacío ya basta.
-        return max(session.rotPhaseRemaining, 20)
     }
 
     // MARK: - Status / labels
 
     private var statusText: String {
-        guard let seg = session.currentSegment else { return "" }
-        guard let name = seg.formatScheme?.displayName ?? (seg.isEMOM ? "EMOM" : nil) else { return "" }
+        guard let seg = session.currentSegment, let name = seg.formatScheme?.displayName ?? (seg.isEMOM ? "EMOM" : nil)
+        else { return "" }
         if seg.isEMOM, let plan = seg.emomPlan {
             return "\(name) · \(session.emomIntervalIndex + 1) / \(plan.intervalCount)"
-        }
-        if session.rotTotalRounds > 0 {
-            return "\(name) · \(session.rotRoundIndex + 1) / \(session.rotTotalRounds)"
         }
         return name
     }
 
     private var contextoFase: String {
         if isCountIn { return statusText }
-        if session.currentSegment?.isEMOM == true {
-            if phase == .rest {
-                let ultima = isLastEmom
-                return ultima ? "Para · se acabó" : "Para · viene la \(session.emomIntervalIndex + 2)"
-            }
-            return statusText.isEmpty ? "Ronda" : statusText
+        if phase == .rest {
+            let ultima = isLastEmom
+            return ultima ? "Para · se acabó" : "Para · viene la \(session.emomIntervalIndex + 2)"
         }
-        return phase == .rest ? "Descanso" : statusText
+        return statusText.isEmpty ? "Ronda" : statusText
     }
 
     private var isLastEmom: Bool {
@@ -143,67 +120,32 @@ struct RotatingLiveView: View {
     private var modoActual: WatchModo {
         if isCountIn { return .ojeada }
         if phase == .rest { return .mando }
-        // Death By / Tabata piden toque → mando; EMOM trabajo → ojeada (gesto latente si hay).
-        switch session.currentSegment?.formatScheme {
-        case .tabata, .intervals, .deathBy: return .mando
-        default: return .ojeada
-        }
+        return .ojeada
     }
 
-    private var isCountIn: Bool {
-        session.emomCountInRemaining > 0 || session.isCondCountIn
-    }
-
-    private var countInRemaining: Double {
-        session.emomCountInRemaining > 0 ? session.emomCountInRemaining : session.condCountInRemaining
-    }
-
-    private var phase: WorkoutSession.RotatingPhase {
-        session.currentSegment?.isEMOM == true ? session.emomPhase : session.rotPhase
-    }
-
-    private var phaseKey: String {
-        "\(session.emomIntervalIndex)-\(session.rotRoundIndex)-\(phase)-\(isCountIn)"
-    }
+    private var isCountIn: Bool { session.emomCountInRemaining > 0 }
+    private var countInRemaining: Double { session.emomCountInRemaining }
+    private var phase: WorkoutSession.RotatingPhase { session.emomPhase }
+    private var phaseKey: String { "\(session.emomIntervalIndex)-\(phase)-\(isCountIn)" }
 
     private var countdownText: String {
         if isCountIn { return WatchFormat.countdown(countInRemaining) }
-        if session.currentSegment?.isEMOM == true {
-            return WatchFormat.countdown(session.emomPhaseRemaining)
-        }
-        if session.rotPhaseRemaining <= 0 { return WatchFormat.clock(session.lapElapsedSeconds) }
-        return WatchFormat.countdown(session.rotPhaseRemaining)
+        return WatchFormat.countdown(session.emomPhaseRemaining)
     }
 
     private var countdownColor: Color {
         if isCountIn { return WatchTheme.orange }
-        let remaining = session.currentSegment?.isEMOM == true
-            ? session.emomPhaseRemaining
-            : session.rotPhaseRemaining
-        return WatchTinte.urgente(remaining)
+        return WatchTinte.urgente(session.emomPhaseRemaining)
     }
 
     private var nowMovement: String? {
-        guard let seg = session.currentSegment else { return nil }
-        if seg.isEMOM, let plan = seg.emomPlan {
-            return plan.interval(session.emomIntervalIndex)?.movement
-        }
-        return seg.primaryMovement
+        guard let seg = session.currentSegment, seg.isEMOM, let plan = seg.emomPlan else { return nil }
+        return plan.interval(session.emomIntervalIndex)?.movement
     }
 
     private var nowWork: String? {
-        guard let seg = session.currentSegment else { return nil }
-        if seg.isEMOM, let plan = seg.emomPlan {
-            return plan.interval(session.emomIntervalIndex).flatMap(\.work)
-        }
-        if seg.formatScheme == .deathBy { return "Objetivo \(session.deathByTarget)" }
-        if seg.formatScheme == .tabata { return "Reps \(session.rotRepsThisRound)" }
-        return nil
-    }
-
-    private var segundoEtiqueta: String? {
-        if phase == .rest { return nowMovement != nil ? "Luego" : nil }
-        return nowWork != nil ? nil : nil
+        guard let seg = session.currentSegment, seg.isEMOM, let plan = seg.emomPlan else { return nil }
+        return plan.interval(session.emomIntervalIndex).flatMap(\.work)
     }
 
     private var segundoValor: String? {
@@ -217,32 +159,17 @@ struct RotatingLiveView: View {
         return nowWork ?? nowMovement
     }
 
+    private var segundoEtiqueta: String? {
+        phase == .rest && nowMovement != nil ? "Luego" : nil
+    }
+
     private var nextMovement: String? {
         guard let seg = session.currentSegment, seg.isEMOM, let plan = seg.emomPlan else { return nil }
         return plan.interval(session.emomIntervalIndex + 1)?.movement
     }
 
-    private var accionEtiqueta: String? {
-        switch session.currentSegment?.formatScheme {
-        case .tabata: return "Toca · + rep"
-        case .intervals: return "Toca · serie hecha"
-        case .deathBy: return "Toca · fallé"
-        default: return nil
-        }
-    }
-
-    private var accionTap: (() -> Void)? {
-        switch session.currentSegment?.formatScheme {
-        case .tabata: return { session.tabataAddRep(1) }
-        case .intervals: return { session.intervalsBoutDone() }
-        case .deathBy: return { session.deathByFail() }
-        default: return nil
-        }
-    }
-
     private var notaProcedencia: String? {
-        // EMOM a pulso (burpees etc.): lo dices tú. Sin inventar máquina.
-        guard session.currentSegment?.isEMOM == true, phase != .rest else { return nil }
+        guard phase != .rest else { return nil }
         if nowWork == nil, nowMovement != nil { return WatchNota.loDicesTu }
         return nil
     }
