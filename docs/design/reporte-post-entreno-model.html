@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El entreno deja rastro — modelo del reporte post-entreno</title>
+<style>
+  :root{
+    --bg:#0B0B0C; --surface:#141416; --elev:#1C1C1F; --sunken:#080809;
+    --fg:#F5F3F0; --muted:#9A938B; --faint:#6B6258;
+    --line:rgba(255,255,255,.07); --lineStrong:rgba(255,255,255,.12);
+    --accent:#F06A2A; --accentOn:#511900;
+    --ok:#3FB27F; --warn:#E0A32E; --danger:#E05252; --info:#4C8DF6;
+    --z1:#6B6258; --z2:#4C8DF6; --z3:#3FB27F; --z4:#E0A32E; --z5:#E05252;
+    --mono:ui-monospace,'SF Mono',Menlo,monospace;
+    --xs:4px; --s:8px; --m:12px; --l:16px; --xl:24px; --xxl:32px; --xxxl:48px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.62 -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:0 0 100px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 26px}
+  header{padding:72px 0 34px;border-bottom:1px solid var(--line);margin-bottom:46px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;margin-bottom:18px}
+  h1{font-size:clamp(32px,5vw,52px);line-height:1.02;margin:0 0 16px;
+    font-style:italic;font-weight:800;letter-spacing:-.03em}
+  h1 em{color:var(--accent);font-style:italic}
+  .sub{color:var(--muted);font-size:17.5px;max-width:64ch;margin:0}
+  h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+    margin:0 0 6px;font-weight:700;font-family:var(--mono)}
+  .h2sub{font-size:26px;font-weight:750;letter-spacing:-.02em;margin:0 0 22px;line-height:1.15}
+  section{margin-bottom:70px;scroll-margin-top:20px}
+  h3{font-size:18.5px;margin:34px 0 10px;font-weight:680;letter-spacing:-.012em}
+  h4{font-size:15px;margin:22px 0 8px;font-weight:680;color:var(--fg)}
+  p{max-width:74ch;color:#CFCAC6}
+  strong{color:var(--fg);font-weight:660}
+  code{font-family:var(--mono);font-size:.86em;background:var(--elev);padding:2px 6px;
+    border-radius:5px;color:#E8C9B4;border:1px solid var(--line);white-space:nowrap}
+  a{color:var(--accent)}
+
+  .lede{font-size:17px;color:#DCD7D2;max-width:70ch}
+
+  .callout{border-left:2.5px solid var(--accent);padding:2px 0 2px 18px;margin:24px 0;
+    color:#CFCAC6;max-width:74ch}
+  .bad{border-left-color:var(--danger)}
+  .good{border-left-color:var(--ok)}
+  .warn{border-left-color:var(--warn)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:18px 0}
+  th{text-align:left;padding:9px 10px;border-bottom:1px solid var(--lineStrong);color:var(--faint);
+    font-size:10px;letter-spacing:.11em;text-transform:uppercase;font-weight:700;
+    font-family:var(--mono);vertical-align:bottom}
+  td{padding:10px;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:top;color:#C8C3BF}
+  td:first-child{color:var(--fg);font-weight:600}
+  td.mono,th.mono{font-family:var(--mono);font-size:12px}
+  tr.strong td{background:rgba(240,106,42,.045)}
+  .yes{color:var(--ok);font-weight:700}
+  .no{color:var(--danger);font-weight:700}
+  .part{color:var(--warn);font-weight:700}
+  .tight td{padding:7px 10px}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin:20px 0}
+  .card h4{margin-top:0}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .stat .n{font-family:var(--mono);font-size:30px;font-weight:800;letter-spacing:-.03em;
+    font-style:italic;line-height:1}
+  .stat .n.bad{color:var(--danger)} .stat .n.ok{color:var(--ok)} .stat .n.warn{color:var(--warn)}
+  .stat .lab{font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.4}
+
+  pre{background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:#D8D3CE;margin:16px 0}
+  pre .c{color:var(--faint)}
+  pre .k{color:var(--accent)}
+  pre .n{color:var(--ok)}
+
+  .layers{margin:24px 0}
+  .layer{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line)}
+  .layer:last-child{border-bottom:none}
+  .layer .idx{font-family:var(--mono);font-size:11px;color:var(--accentOn);background:var(--accent);
+    border-radius:5px;padding:3px 7px;font-weight:800;flex-shrink:0;margin-top:2px}
+  .layer .body{flex:1}
+  .layer .t{font-weight:680;font-size:15.5px;margin-bottom:2px}
+  .layer .d{font-size:13.5px;color:var(--muted);line-height:1.5}
+
+  .ladder{display:flex;flex-direction:column;gap:0;margin:22px 0;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .rung{display:grid;grid-template-columns:118px 1fr 130px;gap:14px;padding:13px 16px;
+    border-bottom:1px solid var(--line);align-items:baseline;font-size:13.5px}
+  .rung:last-child{border-bottom:none}
+  .rung .lvl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    font-weight:700;color:var(--accent)}
+  .rung .st{font-family:var(--mono);font-size:11px;text-align:right}
+  .rung.have{background:rgba(63,178,127,.05)}
+  .rung.miss{background:rgba(224,82,82,.05)}
+
+  .zonebar{display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+  .zonebar div{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+    font-size:10px;font-weight:800;color:#000}
+
+  .caption{font-size:12.5px;color:var(--faint);margin:-8px 0 26px;font-style:italic;max-width:70ch}
+  .foot{border-top:1px solid var(--line);padding-top:26px;margin-top:60px;font-size:13px;color:var(--faint)}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:30px 0 0}
+  .toc a{font-size:12.5px;padding:6px 12px;border:1px solid var(--line);border-radius:7px;
+    text-decoration:none;color:var(--muted);background:var(--surface)}
+  .toc a:hover{border-color:var(--accent);color:var(--accent)}
+  ul,ol{max-width:74ch;color:#CFCAC6}
+  li{margin-bottom:7px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:700;padding:3px 8px;border-radius:5px;vertical-align:middle}
+  .tag.new{background:rgba(240,106,42,.16);color:var(--accent);border:1px solid rgba(240,106,42,.3)}
+  .tag.have{background:rgba(63,178,127,.13);color:var(--ok);border:1px solid rgba(63,178,127,.28)}
+  .tag.calc{background:rgba(76,141,246,.13);color:var(--info);border:1px solid rgba(76,141,246,.28)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Modelo de dominio · 6 de agosto de 2026</div>
+  <h1>El entreno deja rastro.<br>Hoy lo <em>borramos</em> al guardarlo.</h1>
+  <p class="sub">Medimos bien y tiramos casi todo. Lo que queda no da para decirle al atleta cómo
+  le fue, ni para calcular la carga de verdad, ni para alimentar la predicción. Este es el modelo
+  completo de lo que un entreno tiene que dejar escrito.</p>
+  <div class="toc">
+    <a href="#caso">El caso que lo destapa</a>
+    <a href="#principio">El principio</a>
+    <a href="#hoy">Lo que hay hoy</a>
+    <a href="#modelo">El modelo</a>
+    <a href="#matriz">Qué se mide, por modalidad</a>
+    <a href="#esquema">El esquema</a>
+    <a href="#derivados">Lo que se desbloquea</a>
+    <a href="#casos">Roto contra 12 casos</a>
+    <a href="#pantalla">Lo que ve el atleta</a>
+    <a href="#descartado">Lo descartado</a>
+    <a href="#riesgos">Riesgos</a>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="caso">
+  <h2>01 · El caso que lo destapa</h2>
+  <p class="h2sub">Nueve kilómetros de carrera que un reloj contó como 1,73</p>
+
+  <p class="lede">El entreno del 5 de agosto —<strong>TRANSICIONES CARRERA</strong>— eran dos bloques
+  de tres rondas, y cada ronda llevaba tres carreras de 500 m con estaciones intercaladas. Eso son
+  <strong>18 tramos de 500 m: nueve kilómetros de carrera</strong>. El reloj registró
+  <strong>1,73 km</strong> y un ritmo medio de <strong>42:25 min/km</strong>.</p>
+
+  <div class="callout bad">
+    <b>Por qué falló, y por qué no es culpa del reloj:</b> a un Garmin le diste «una actividad» de
+    1 h 13. No sabe que dentro había 18 salidas y 18 paradas, ni cuáles eran carrera y cuáles step
+    ups. Sin estructura, todo lo que puede hacer es promediar 73 minutos contra la distancia que su
+    GPS creyó ver — y un GPS que arranca y para en un box no ve casi nada. El 42:25/km no es un
+    error de medición: es la media de correr y de hacer burpees metidas en el mismo saco.
+  </div>
+
+  <p><strong>Ahí está nuestra ventaja, y es estructural:</strong> nosotros no tenemos que adivinar la
+  estructura, la escribimos nosotros. Sabemos que el minuto 22 era el tercer 500 de la segunda ronda
+  del bloque 1. Ningún reloj del mercado puede saber eso, porque el plan no vive en el reloj.</p>
+
+  <div class="callout warn">
+    <b>Pero hoy esa ventaja no la ejercemos.</b> Verificado en el código: el motor calcula el parcial
+    de cada ronda en vivo (<code>FixedStationSplit</code>, <code>LiveTramo.swift:169</code>), lo pinta
+    en el HUD… y lo borra al cerrar el tramo (<code>resetSegmentAccumulators()</code>). Al servidor
+    solo llega el marcador final del bloque. Y aunque quisiéramos mandarlo no cabría: la tabla tiene
+    <code>unique (execution_id, position)</code>, así que <b>físicamente no hay sitio para tres
+    rondas de la misma estación</b>.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="principio">
+  <h2>02 · El principio</h2>
+  <p class="h2sub">Un entreno no es un resumen: es una línea de tiempo con estructura conocida</p>
+
+  <p>Todo el modelo sale de una sola idea. Un entreno ejecutado son <strong>tres capas
+  independientes proyectadas sobre el mismo eje de tiempo</strong>:</p>
+
+  <div class="layers">
+    <div class="layer">
+      <span class="idx">1</span>
+      <div class="body">
+        <div class="t">ESTRUCTURA — la partición del tiempo en unidades con significado</div>
+        <div class="d">Sesión → bloque → ronda → tramo → serie. Es <b>nuestra</b>: la conocemos porque
+        la prescribimos. Es lo único que ningún dispositivo puede aportar.</div>
+      </div>
+    </div>
+    <div class="layer">
+      <span class="idx">2</span>
+      <div class="body">
+        <div class="t">MEDICIÓN — las señales continuas y los eventos discretos</div>
+        <div class="d">Pulso, ritmo, velocidad, cadencia, altitud, potencia, paladas, posición. Vienen
+        del reloj, del GPS, del PM5, de la cinta o de HealthKit. Ninguna sabe qué se estaba haciendo.</div>
+      </div>
+    </div>
+    <div class="layer">
+      <span class="idx">3</span>
+      <div class="body">
+        <div class="t">DECLARACIÓN — lo que dice el atleta</div>
+        <div class="d">RPE, sensación, reps que completó de verdad, el peso que puso, dónde le molesta.
+        Es dato de primera clase, no un adorno: en fuerza es <i>el</i> dato.</div>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>El reporte es la intersección:</strong> para cada unidad de la capa 1, los agregados de
+  la capa 2 restringidos a su ventana de tiempo, más lo declarado en la capa 3.</p>
+
+  <div class="callout good">
+    <b>La consecuencia de diseño, que es la decisión de fondo:</b> si guardamos la línea de tiempo
+    medida <i>y</i> las marcas de dónde empieza y acaba cada unidad de la estructura, <b>cualquier
+    pregunta futura es contestable</b> — incluso las que hoy no se nos ocurren. Si guardamos solo
+    agregados, cada pregunta que no anticipamos hoy queda perdida para siempre, porque el dato
+    original ya no existe.
+  </div>
+
+  <p>Por eso la respuesta a «guardar todo tipo de variables lo más preciso posible» no es una lista
+  más larga de columnas: <strong>es guardar el eje del tiempo</strong>. Los agregados se derivan de
+  él; de los agregados no se deriva nada.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="hoy">
+  <h2>03 · Lo que hay hoy</h2>
+  <p class="h2sub">Inventario honesto, medido contra producción</p>
+
+  <p>Antes de proponer nada, lo que de verdad hay. Todos los números salen de consultas a la base de
+  producción del 6 de agosto de 2026, no de suposiciones.</p>
+
+  <div class="grid3">
+    <div class="stat"><div class="n">85</div><div class="lab">ejecuciones registradas, de 6 atletas</div></div>
+    <div class="stat"><div class="n">221</div><div class="lab">tramos ejecutados</div></div>
+    <div class="stat"><div class="n ok">195</div><div class="lab">tramos con pulso medido</div></div>
+    <div class="stat"><div class="n">154</div><div class="lab">tramos con ritmo</div></div>
+    <div class="stat"><div class="n warn">18</div><div class="lab">tramos con reparto de zonas</div></div>
+    <div class="stat"><div class="n bad">7</div><div class="lab">tramos con calorías</div></div>
+    <div class="stat"><div class="n ok">80</div><div class="lab">series de fuerza con detalle</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">rutas GPS guardadas, nunca ninguna</div></div>
+    <div class="stat"><div class="n bad">0</div><div class="lab">rondas de circuito atribuidas</div></div>
+  </div>
+
+  <h3>Lo que ya funciona, y funciona bien</h3>
+  <p>El diagnóstico honesto es que <strong>medimos más de lo que parece</strong>. El contrato que va
+  del móvil al servidor (<code>SegmentPayloadBuilder.swift</code>) ya manda, por tramo: duración,
+  distancia, ritmo por km y por 500 m, potencia, paladas por minuto, pulso medio y máximo, calorías,
+  reparto de zonas, series de fuerza una a una, rondas de EMOM, inclinación de cinta, cadencia de
+  carrera, factor de arrastre, fuerzas de tirada y los splits del monitor. Y para la carrera
+  estructurada, la atribución de cada tramo a su papel (fuerte / suave).</p>
+
+  <p>También existe ya, y hay que reutilizarlo en vez de reinventarlo:</p>
+  <ul>
+    <li><code>set_executions</code> — la serie de fuerza con su carga, RIR, tempo y descanso. <b>80 filas reales.</b></li>
+    <li><code>workout_routes</code> — una fila por ejecución con la traza comprimida. Patrón correcto, <b>cero filas</b>.</li>
+    <li><code>hr-zones.ts</code> — zonas ancladas en <b>umbral</b>, escalera de 4 peldaños y 3 confianzas.</li>
+    <li><code>HRRecoveryCapture</code> — la caída de pulso a 60 s, ya bien hecha… pero solo se usa en los tests de calibración.</li>
+    <li><code>tss.ts</code> — los modos de intensidad por <b>potencia/FTP</b> y por <b>FC/LTHR</b> ya implementados y con tests, esperando dato.</li>
+  </ul>
+
+  <h3>Los cinco huecos, y ninguno es de pantalla</h3>
+
+  <div class="ladder">
+    <div class="rung miss">
+      <span class="lvl">Hueco 1</span>
+      <span><b>El eje del tiempo.</b> El motor acumula muestras de pulso durante el tramo, las reduce
+      a cinco números de zona y las borra. No queda curva, así que no hay deriva cardíaca, ni
+      recuperación, ni ritmo instantáneo, ni gráfica.</span>
+      <span class="st">crítico</span>
+    </div>
+    <div class="rung miss">
+      <span class="lvl">Hueco 2</span>
+      <span><b>La ronda.</b> <code>unique (execution_id, position)</code> impide guardar la misma
+      estación tres veces. Sin ronda no hay degradación entre rondas — que es <i>la</i> métrica de
+      HYROX.</span>
+      <span class="st">crítico</span>
+    </div>
+    <div class="rung miss">
+      <span class="lvl">Hueco 3</span>
+      <span><b>La cabecera de la sesión.</b> <code>workout_executions</code> guarda duración, RPE,
+      notas y marcador. Ni pulso, ni potencia, ni distancia total, ni calorías, ni desnivel. Por eso
+      el TSS solo puede salir del RPE.</span>
+      <span class="st">crítico</span>
+    </div>
+    <div class="rung miss">
+      <span class="lvl">Hueco 4</span>
+      <span><b>La altitud y el reloj de la traza.</b> <code>RoutePoint</code> es solo
+      <code>(lat, lon)</code>. La altitud y el instante vienen <i>gratis</i> en el mismo
+      <code>CLLocation</code> y se descartan. Sin ellos no hay desnivel ni splits por kilómetro.</span>
+      <span class="st">barato</span>
+    </div>
+    <div class="rung miss">
+      <span class="lvl">Hueco 5</span>
+      <span><b>La atribución de lo que ya tenemos.</b> Hay <b>102.910 muestras de pulso</b> en la
+      base, de 2022 a hoy — y solo <b>226</b> están ligadas a un entreno.</span>
+      <span class="st">gratis</span>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <b>El hallazgo que cambia el coste de todo esto.</b> Las muestras de pulso ya están guardadas
+    <i>con su hora</i>, y los tramos ya guardan <code>started_at</code> / <code>ended_at</code>.
+    Probado contra un entreno real: la sesión 188 (52 minutos) tiene <b>632 muestras dentro de su
+    ventana</b>, una cada 4,9 s de media. Es decir: <b>la deriva cardíaca, el reparto real de zonas,
+    la curva y la recuperación se pueden calcular ya — y retroactivamente sobre entrenos ya
+    hechos</b> — cruzando por ventana temporal. No hay que medir nada nuevo para eso: hay que cruzar.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="modelo">
+  <h2>04 · El modelo</h2>
+  <p class="h2sub">Cinco granularidades y una coordenada única</p>
+
+  <p>Un entreno híbrido tiene cinco niveles reales. Cualquier dato medido pertenece exactamente a
+  uno, y los de arriba se derivan de los de abajo — nunca al revés.</p>
+
+  <table>
+    <thead><tr><th style="width:110px">Nivel</th><th>Qué es</th><th style="width:230px">Ejemplo del brick</th><th style="width:100px">Hoy</th></tr></thead>
+    <tbody>
+      <tr><td>Sesión</td><td>El entreno entero, de la primera salida a la última parada</td><td class="mono">TRANSICIONES CARRERA</td><td><span class="part">parcial</span></td></tr>
+      <tr><td>Bloque</td><td>Una unidad de trabajo con su formato y su descanso propio</td><td class="mono">BLOQUE 1 · 3 rondas</td><td><span class="part">derivable</span></td></tr>
+      <tr class="strong"><td>Ronda</td><td>La repetición N del bloque. <b>Es lo que se repite</b></td><td class="mono">ronda 2 de 3</td><td><span class="no">no existe</span></td></tr>
+      <tr><td>Tramo</td><td>La ventana activa: una estación, una carrera, un ejercicio</td><td class="mono">500 m carrera</td><td><span class="yes">sí</span></td></tr>
+      <tr><td>Serie</td><td>Una serie de trabajo dentro de un tramo de fuerza</td><td class="mono">serie 3 de 4, 90 kg, RIR 1</td><td><span class="yes">sí</span></td></tr>
+      <tr class="strong"><td>Muestra</td><td>El eje del tiempo: pulso, ritmo, altitud instante a instante</td><td class="mono">146 ppm en el minuto 22</td><td><span class="no">se borra</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Una coordenada, no tres sistemas paralelos</h3>
+
+  <p>Ya existe un precedente: la migración 0146 añadió <code>leg_index</code> / <code>leg_role</code>
+  / <code>leg_phase</code> para atribuir los tramos de una carrera estructurada. Es una coordenada.
+  Si ahora añadimos otra para las rondas de un circuito y otra para las series, acabamos con tres
+  sistemas de coordenadas que no se hablan — exactamente el error que el propio
+  <code>DECISIONS.md</code> del 4 de agosto señala como recurrente.</p>
+
+  <div class="callout">
+    <b>La regla:</b> la posición dentro de la estructura es <b>una sola coordenada</b>
+    (bloque · ronda · tramo · serie). <code>leg_role</code> y <code>leg_phase</code> <b>no</b> son
+    coordenadas: son <i>cualificadores</i> —dicen qué papel juega ese tramo (fuerte, suave,
+    recuperación)— y se quedan como están.
+  </div>
+
+  <h3>Qué se guarda y qué se calcula al leer</h3>
+
+  <p>Una tentación clásica es guardar todo lo derivado. Otra es calcularlo todo al vuelo. Ninguna es
+  correcta; la línea la marca <strong>de qué depende cada número</strong>:</p>
+
+  <table class="tight">
+    <thead><tr><th style="width:150px">Regla</th><th>Por qué</th><th style="width:260px">Casos</th></tr></thead>
+    <tbody>
+      <tr><td>Se <b>guarda</b> lo que depende de la traza</td>
+          <td>Recalcularlo exige releer miles de muestras. Y la traza no cambia nunca.</td>
+          <td class="mono">deriva cardíaca · recuperación 60 s · desnivel · reparto de zonas · splits</td></tr>
+      <tr><td>Se <b>calcula al leer</b> lo que depende del atleta</td>
+          <td>El umbral y el FTP cambian con cada test. Un valor guardado se queda mintiendo.</td>
+          <td class="mono">TSS · IF · zona de cada muestra · % del umbral</td></tr>
+      <tr><td>Se <b>guarda</b> lo que declara el atleta</td>
+          <td>No es derivable de nada. Es su dato.</td>
+          <td class="mono">RPE · sensación · carga usada · reps reales · molestia</td></tr>
+    </tbody>
+  </table>
+
+  <p class="caption">Esta regla es la que evita el fallo que ya nos pasó con las zonas: guardar
+  <code>zone_seconds</code> calculado con un modelo de %FCmáx dejó al coach leyendo un reparto que
+  contradecía el modelo de umbral del servidor.</p>
+
+  <h3>Procedencia: cada número dice de dónde sale</h3>
+  <p>Con multi-fuente (nuestro motor, el reloj, Garmin, Polar, el PM5, o el atleta a mano) un número
+  sin origen es un número en el que no se puede confiar. El proyecto ya tiene la doctrina escrita
+  —<code>source</code> es el canal, la veracidad va en columna aparte (migración 0142)— y aquí se
+  aplica igual: la traza lleva su fuente por señal, no por fila.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="matriz">
+  <h2>05 · Qué se mide, por modalidad</h2>
+  <p class="h2sub">La matriz completa. Nada de esto es opcional por modalidad</p>
+
+  <p>Esta es la parte objetiva del dominio: qué variables tiene que llevar un entreno de cada tipo
+  para que el reporte sirva al atleta, al coach y a las analíticas. Las columnas dicen si el dato
+  <b>ya</b> lo tenemos, si es <b>nuevo</b>, o si se <b>calcula</b> de la traza.</p>
+
+  <h3>Correr — al aire libre y en cinta</h3>
+  <table class="tight">
+    <thead><tr><th>Variable</th><th style="width:150px">De dónde</th><th style="width:90px">Estado</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Distancia</td><td class="mono">GPS · cinta · HealthKit</td><td><span class="tag have">ya</span></td><td>Por tramo y total</td></tr>
+      <tr><td>Tiempo en movimiento vs total</td><td class="mono">reloj de la app</td><td><span class="tag new">nuevo</span></td><td>Hoy solo hay el total; sin él la media miente en un brick</td></tr>
+      <tr><td>Ritmo medio · mejor · por tramo</td><td class="mono">derivado</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Splits por kilómetro</td><td class="mono">traza</td><td><span class="tag calc">calc</span></td><td>Necesita el reloj en la traza</td></tr>
+      <tr><td>Pulso medio · máximo</td><td class="mono">correa · reloj</td><td><span class="tag have">ya</span></td><td>195 de 221 tramos ya lo tienen</td></tr>
+      <tr><td>Pulso mínimo</td><td class="mono">traza</td><td><span class="tag calc">calc</span></td><td>TrainingPeaks lo muestra; sale gratis de la curva</td></tr>
+      <tr><td>Reparto de zonas</td><td class="mono">traza + umbral</td><td><span class="tag calc">calc</span></td><td>Hoy lo calcula el móvil y se guarda congelado — pasa a calcularse al leer</td></tr>
+      <tr><td>Cadencia</td><td class="mono">reloj · HealthKit</td><td><span class="tag have">ya</span></td><td><code>run_cadence_spm</code></td></tr>
+      <tr><td>Desnivel + / −</td><td class="mono">GPS · barómetro</td><td><span class="tag new">nuevo</span></td><td>Se descarta hoy; viene en el mismo <code>CLLocation</code></td></tr>
+      <tr><td>Inclinación</td><td class="mono">cinta FTMS</td><td><span class="tag have">ya</span></td><td><code>incline_pct</code></td></tr>
+      <tr><td>Calorías</td><td class="mono">HealthKit</td><td><span class="tag new">nuevo</span></td><td>Solo 7 tramos de 221 lo tienen. Es el que preguntabas</td></tr>
+      <tr><td>Deriva cardíaca</td><td class="mono">traza</td><td><span class="tag calc">calc</span></td><td>El coach ya tiene un umbral configurable que nada alimenta</td></tr>
+      <tr><td>Recuperación a 60 s</td><td class="mono">traza post-esfuerzo</td><td><span class="tag calc">calc</span></td><td>El mecanismo ya existe, solo se usa en tests</td></tr>
+      <tr><td>Ruta</td><td class="mono">GPS</td><td><span class="tag have">ya</span></td><td>Tabla creada, cero filas escritas</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Ergómetro — remo, ski, bici</h3>
+  <table class="tight">
+    <thead><tr><th>Variable</th><th style="width:150px">De dónde</th><th style="width:90px">Estado</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Distancia · tiempo · ritmo /500 m</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Potencia media · pico</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td>Media sí; el <b>pico</b> exige la traza</td></tr>
+      <tr><td>Paladas por minuto</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Calorías · cal/hora</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td>La única modalidad donde ya salen bien</td></tr>
+      <tr><td>Factor de arrastre</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Fuerza de tirada media · pico</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Trabajo total (kJ)</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>Potencia × tiempo. TrainingPeaks lo enseña</td></tr>
+      <tr><td>Splits por intervalo</td><td class="mono">PM5</td><td><span class="tag have">ya</span></td><td>Ya se guardan y se pintan, estilo ErgData</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Fuerza</h3>
+  <table class="tight">
+    <thead><tr><th>Variable</th><th style="width:150px">De dónde</th><th style="width:90px">Estado</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Reps hechas vs prescritas, por serie</td><td class="mono">el atleta</td><td><span class="tag have">ya</span></td><td><code>set_executions</code>, 80 filas reales</td></tr>
+      <tr><td>Carga por serie</td><td class="mono">el atleta</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>RIR / RPE por serie</td><td class="mono">el atleta</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Tempo · descanso prescrito</td><td class="mono">prescripción</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Descanso <b>real</b></td><td class="mono">reloj de la app</td><td><span class="tag new">nuevo</span></td><td>Medible: el tiempo entre el fin de una serie y el inicio de la siguiente</td></tr>
+      <tr><td>Tonelaje</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>Σ reps × carga. La medida de volumen de fuerza</td></tr>
+      <tr><td>1RM estimado</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>De la mejor serie con RIR conocido</td></tr>
+      <tr><td>Pulso de la sesión</td><td class="mono">correa</td><td><span class="tag have">ya</span></td><td>Poco útil en fuerza, pero es lo que da el hrTSS del ejemplo (23)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Funcional — AMRAP, EMOM, For Time, circuitos, brick</h3>
+  <table class="tight">
+    <thead><tr><th>Variable</th><th style="width:150px">De dónde</th><th style="width:90px">Estado</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Marcador final (tiempo · rondas · reps)</td><td class="mono">el atleta · reloj</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr><td>Rondas de EMOM completadas</td><td class="mono">motor</td><td><span class="tag have">ya</span></td><td></td></tr>
+      <tr class="strong"><td><b>Tiempo por ronda</b></td><td class="mono">motor</td><td><span class="tag new">nuevo</span></td><td>Se calcula en vivo y se borra. <b>Es el dato del caso del brick</b></td></tr>
+      <tr class="strong"><td><b>Tiempo por estación dentro de la ronda</b></td><td class="mono">motor</td><td><span class="tag new">nuevo</span></td><td>Igual: existe en memoria, no hay dónde guardarlo</td></tr>
+      <tr><td>Degradación entre rondas</td><td class="mono">derivado</td><td><span class="tag calc">calc</span></td><td>Ronda 3 vs ronda 1. La métrica de HYROX</td></tr>
+      <tr><td>Tiempo de transición</td><td class="mono">motor</td><td><span class="tag new">nuevo</span></td><td>El «roxzone». El concepto ya existe en el dominio de carrera</td></tr>
+      <tr><td>Trabajo vs descanso</td><td class="mono">motor</td><td><span class="tag calc">calc</span></td><td>Densidad real de la sesión</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="esquema">
+  <h2>06 · El esquema</h2>
+  <p class="h2sub">Cuatro cambios. Ninguno rompe lo que ya existe</p>
+
+  <h3>1 · La sesión gana su cabecera medida</h3>
+  <p>Es el cambio con más efecto por menos código: <strong>desbloquea el TSS real</strong>, porque
+  los modos por pulso y por potencia ya están escritos y probados esperando estas columnas.</p>
+<pre><span class="c">-- workout_executions gana lo que hoy solo existe sumando tramos a mano</span>
+<span class="k">alter table</span> workout_executions <span class="k">add column</span>
+  avg_hr                 <span class="n">int</span>,        <span class="c">-- desbloquea hrTSS (modo 2 de tss.ts)</span>
+  max_hr                 <span class="n">int</span>,
+  min_hr                 <span class="n">int</span>,
+  avg_power_w            <span class="n">numeric</span>,    <span class="c">-- desbloquea pwrTSS (modo 1)</span>
+  total_distance_m       <span class="n">numeric</span>,
+  total_calories         <span class="n">numeric</span>,    <span class="c">-- lo que preguntabas</span>
+  elevation_gain_m       <span class="n">numeric</span>,
+  elevation_loss_m       <span class="n">numeric</span>,
+  moving_seconds         <span class="n">int</span>,        <span class="c">-- ≠ total: sin esto la media miente en un brick</span>
+  hr_recovery_60_bpm     <span class="n">int</span>,        <span class="c">-- HRRecoveryCapture ya lo sabe calcular</span>
+  decoupling_pct         <span class="n">numeric</span>;    <span class="c">-- el coach ya tiene su umbral configurable</span></pre>
+  <p class="caption">Todas nulas. «No se sabe» es null, nunca cero — es la ley §7 del contrato y la
+  razón por la que hoy no hay un TSS inventado en la base.</p>
+
+  <h3>2 · La ronda deja de ser imposible</h3>
+<pre><span class="c">-- El unique actual impide guardar la misma estación en dos rondas.</span>
+<span class="k">alter table</span> segment_executions
+  <span class="k">add column</span> round_index <span class="n">int</span> <span class="k">not null default</span> 0;
+
+<span class="k">alter table</span> segment_executions <span class="k">drop constraint</span> segment_executions_position_unique;
+<span class="k">alter table</span> segment_executions <span class="k">add constraint</span> segment_executions_position_unique
+  <span class="k">unique</span> (execution_id, position, round_index);</pre>
+  <div class="callout good">
+    <b>Por qué <code>default 0</code> y no nullable:</b> en Postgres dos nulls no colisionan, así que
+    un unique con nulls no protege de nada. Con 0 por defecto, las 221 filas existentes siguen
+    válidas y el constraint sigue haciendo su trabajo. Retrocompatible sin migrar datos.
+  </div>
+  <p>Con esto, el brick del 5 de agosto pasa de 5 filas ambiguas a <strong>30 filas exactas</strong>
+  (2 bloques × 3 rondas × 5 estaciones), cada una con su tiempo, su distancia y su pulso.</p>
+
+  <h3>3 · La traza — el eje del tiempo</h3>
+  <p>No hace falta inventar el patrón: <code>workout_routes</code> ya lo estableció —una fila por
+  ejecución, la serie comprimida en un campo, no fila por muestra. Se generaliza.</p>
+<pre><span class="k">create table</span> workout_traces (
+  execution_id   <span class="n">bigint</span> <span class="k">not null references</span> workout_executions(id) <span class="k">on delete cascade</span>,
+  signal         <span class="n">text</span> <span class="k">not null</span>,   <span class="c">-- hr | pace | power | cadence | altitude | distance</span>
+  source         biometric_source <span class="k">not null</span>,  <span class="c">-- quién midió ESTA señal</span>
+  started_at     <span class="n">timestamptz</span> <span class="k">not null</span>,
+  offsets_s      <span class="n">int[]</span> <span class="k">not null</span>,    <span class="c">-- muestreo irregular: el eje va explícito</span>
+  values         <span class="n">real[]</span> <span class="k">not null</span>,
+  <span class="k">primary key</span> (execution_id, signal, source)
+);</pre>
+  <p><strong>Por qué dos arrays y no fila por muestra:</strong> medido en producción, HealthKit
+  muestrea cada <strong>4,9 s</strong> con huecos de hasta 81 s. Una sesión de 90 min son ~1.100
+  valores por señal: unos 5 KB. A escala de 100 atletas entrenando 5 veces por semana, eso son
+  ~570 MB al año — manejable. Fila por muestra serían 26 millones de filas al año para lo mismo.</p>
+  <div class="callout warn">
+    <b>El hueco no se interpola.</b> Con saltos de 81 s, rellenar por interpolación fabricaría dato.
+    Los <code>offsets_s</code> explícitos dejan el hueco visible, y quien lea decide si ese tramo
+    tiene cobertura suficiente para responder — misma doctrina que la cobertura de intensidad del TSS.
+  </div>
+
+  <h3>4 · La traza de carrera gana altitud y reloj</h3>
+<pre><span class="c">// PolylineCodec.swift — hoy</span>
+<span class="k">struct</span> RoutePoint { <span class="k">let</span> lat: Double; <span class="k">let</span> lon: Double }
+
+<span class="c">// propuesto — los dos campos vienen YA en el CLLocation que descartamos</span>
+<span class="k">struct</span> RoutePoint { <span class="k">let</span> lat: Double; <span class="k">let</span> lon: Double
+                    <span class="k">let</span> altitude: Double?; <span class="k">let</span> t: TimeInterval }</pre>
+  <p>Con esos dos campos salen de golpe: desnivel acumulado, ritmo instantáneo, splits por kilómetro
+  reales y el mapa coloreado por ritmo o por pulso.</p>
+
+  <h3>Y lo que no cuesta ninguna migración</h3>
+  <div class="callout good">
+    <b>Atribuir las 102.910 muestras que ya están guardadas.</b> Un cruce por ventana temporal entre
+    <code>biometric_streams</code> y los <code>started_at</code>/<code>ended_at</code> que ya
+    guardamos rellena pulso, zonas, deriva y recuperación <b>sobre el histórico entero</b>, incluidos
+    entrenos de hace meses. Verificado: la sesión 188 recupera 632 muestras así. Es el mayor
+    rendimiento por unidad de trabajo de todo el documento.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="derivados">
+  <h2>07 · Lo que se desbloquea</h2>
+  <p class="h2sub">El reporte no es el fin: es el input que le falta a medio sistema</p>
+
+  <p>Pediste que esto sirva «para analíticas, predicción, etc.». No es una aspiración: hay piezas ya
+  construidas, con tests, esperando exactamente estos datos.</p>
+
+  <table>
+    <thead><tr><th style="width:190px">Se desbloquea</th><th>Qué había hoy</th><th>Con qué dato</th></tr></thead>
+    <tbody>
+      <tr class="strong"><td><b>TSS real</b></td>
+        <td>Solo RPE × duración. Una sesión sin RPE no puntúa nada, y eso deja huecos en las curvas de carga del coach.</td>
+        <td class="mono">avg_hr + umbral<br>avg_power_w + FTP</td></tr>
+      <tr><td>Factor de intensidad (IF)</td><td>Se calcula pero no se expone en ninguna pantalla</td><td class="mono">el mismo</td></tr>
+      <tr><td>Deriva cardíaca</td><td>El coach ya tiene <code>decoupling_target_pct</code> editable… que <b>ningún dato alimenta</b></td><td class="mono">traza de pulso + ritmo</td></tr>
+      <tr><td>Recuperación a 60 s</td><td>Implementada, pero solo para tests de calibración</td><td class="mono">traza post-esfuerzo</td></tr>
+      <tr><td><b>Durabilidad</b></td><td>Ya se decidió (4-ago) que es un parámetro del atleta <i>y del formato</i>. Sin dato real que la estime</td><td class="mono">deriva + degradación por ronda</td></tr>
+      <tr><td>Degradación en HYROX</td><td>Nada. Es la métrica que decide una carrera</td><td class="mono">round_index</td></tr>
+      <tr><td>Predicción de carrera</td><td>Se apoya en marcas y en el prior poblacional</td><td class="mono">ritmo sostenido bajo fatiga real</td></tr>
+      <tr><td>Progresión de fuerza</td><td>Series guardadas, sin tonelaje ni 1RM estimado</td><td class="mono">set_executions ya está</td></tr>
+      <tr><td>Zonas de verdad</td><td>Solo 18 tramos de 221 tienen reparto, y viene congelado del móvil</td><td class="mono">traza + umbral al leer</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>Un efecto de segundo orden que importa:</b> al calcular las zonas <i>al leer</i> en vez de
+    guardarlas congeladas, un atleta que se hace un test de umbral nuevo ve <b>todo su histórico
+    recalculado</b> contra su umbral real. Hoy arrastraría para siempre las zonas calculadas con el
+    modelo viejo.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="casos">
+  <h2>08 · Roto contra 12 casos reales</h2>
+  <p class="h2sub">Si un caso no entra, el modelo está mal — no el caso</p>
+
+  <p>Los tres primeros son tus capturas. Los demás salen del dominio que ya está en el repo.</p>
+
+  <table class="tight">
+    <thead><tr><th style="width:44px">#</th><th style="width:210px">Caso</th><th>Entra en el modelo</th><th style="width:78px">Veredicto</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">01</td><td><b>Brick de transiciones</b><br><span style="color:var(--faint)">2 bloques × 3 rondas × 5 estaciones</span></td>
+        <td>30 filas (bloque·ronda·tramo), cada carrera con su ritmo, cada estación con su tiempo, transiciones aparte. Los 9 km de carrera se cuentan bien porque sabemos cuáles son tramos de carrera.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">02</td><td><b>10 × 400 m</b><br><span style="color:var(--faint)">series de carrera puras</span></td>
+        <td>10 tramos fuertes + 10 de recuperación con <code>leg_role</code>. Ritmo por repetición, degradación, deriva. Ya casi funciona hoy.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">03</td><td><b>Fuerza parte alta 4 × 4</b><br><span style="color:var(--faint)">grupos A, B, C con RIR 2</span></td>
+        <td>4 bloques × 4 rondas × K estaciones; cada serie con carga y RIR reales. Tonelaje y 1RM estimado salen solos.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">04</td><td>Simulación HYROX completa<br><span style="color:var(--faint)">8 × 1 km + 8 estaciones</span></td>
+        <td>16 tramos, ronda = 1. El roxzone es el tramo de transición. Comparable contra la carrera real.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">05</td><td>Tirada larga en Z2<br><span style="color:var(--faint)">90 min continuos</span></td>
+        <td>Un tramo, traza completa. La deriva cardíaca es <i>el</i> dato de esta sesión, y hoy no existe.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">06</td><td>EMOM multi-máquina<br><span style="color:var(--faint)">remo + ski + cinta</span></td>
+        <td>Un lap por minuto de trabajo con su modalidad, ya implementado. La ronda le da el eje que le faltaba.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">07</td><td>Test de 2 km en remo</td>
+        <td>Un tramo, splits del PM5, potencia pico de la traza, recuperación a 60 s. Alimenta la calibración.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">08</td><td>Fartlek sin estructura fija</td>
+        <td>Un tramo con traza. Los cambios se detectan <i>de la traza</i>, no de la prescripción — el motor de forma de carrera ya lo hace.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">09</td><td>Entreno libre en el gimnasio<br><span style="color:var(--faint)">sin plan del coach</span></td>
+        <td>Mismo modelo; sin <code>template_segment_id</code>. El bloque se deriva del propio orden, no del plan.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">10</td><td>Sesión sin ningún dispositivo<br><span style="color:var(--faint)">solo el móvil en el suelo</span></td>
+        <td>Estructura + tiempos + lo declarado. Todo lo medido es null <i>declarado</i>, no cero. El reporte enseña menos, y lo dice.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">11</td><td>«Ya lo hice» a posteriori<br><span style="color:var(--faint)">sin cronómetro</span></td>
+        <td>Cabecera a mano, sin traza. <code>recorded_via = manual</code> ya lo distingue. Nada finge estar medido.</td><td class="yes">entra</td></tr>
+      <tr><td class="mono">12</td><td>El mismo entreno llega dos veces<br><span style="color:var(--faint)">app en vivo + Garmin después</span></td>
+        <td>La fusión por grupos de campos ya existe (migración 0108). La traza lleva su fuente <i>por señal</i>, así que dos fuentes conviven sin pisarse.</td><td class="yes">entra</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>El caso que forzó un cambio en el modelo:</b> el 09 (entreno libre). Si el bloque se derivara
+    del plan vía <code>template_segment_id</code>, un entreno libre se quedaría sin bloques. Por eso
+    <code>round_index</code> va en la fila de ejecución y no se deduce de la prescripción: <b>la
+    estructura de lo ejecutado es un hecho de lo ejecutado</b>, exista o no un plan detrás.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="pantalla">
+  <h2>09 · Lo que ve el atleta</h2>
+  <p class="h2sub">Al terminar, y meses después desde el calendario</p>
+
+  <p>Hay una incoherencia real que hay que arreglar en el mismo lote: <strong>hoy el atleta ve menos
+  inteligencia de un entreno pasado que justo al acabarlo</strong>. El resumen de carrera aplica el
+  motor de dominio (el ritmo de lo fuerte como sujeto, no la media cruda); la pantalla del histórico
+  se queda en el ritmo medio del tramo más largo.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Al terminar — el resumen</h4>
+      <p style="font-size:13.5px">Contesta «¿cómo me ha ido?». Es también el formulario donde declara
+      lo que solo él sabe.</p>
+      <ol style="font-size:13.5px;padding-left:18px">
+        <li><b>El titular</b> — el sujeto según lo que fue: marcador, ritmo de lo fuerte, distancia o tiempo</li>
+        <li><b>La forma del esfuerzo</b> — barra de zonas y curva de pulso (nueva: hoy no hay curva)</li>
+        <li><b>Los números</b> — solo los medidos: pulso, deriva, recuperación, potencia, calorías, desnivel</li>
+        <li><b>El desglose</b> — por bloque y ronda, con la degradación visible</li>
+        <li><b>Lo que declara</b> — RPE, sensación, molestia</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h4>Desde el calendario — el histórico</h4>
+      <p style="font-size:13.5px">Contesta «¿qué hice aquel día?». Solo lectura, y <b>con la misma
+      inteligencia</b> que el resumen del día.</p>
+      <ol style="font-size:13.5px;padding-left:18px">
+        <li>Lo mismo de arriba, ya guardado</li>
+        <li><b>Más</b>: el mapa de la ruta, los splits del monitor, la procedencia de cada número</li>
+        <li><b>Y lo que solo el tiempo da</b>: contra qué se compara — tu media de ese ejercicio, tu mejor marca, la última vez</li>
+      </ol>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:0">El calendario mensual y la
+      pantalla de detalle ya existen. Les falta el dato, no la pantalla.</p>
+    </div>
+  </div>
+
+  <h4>Un ejemplo de la diferencia, con el brick</h4>
+  <div class="card" style="padding:18px 20px">
+    <p style="font-size:12px;color:var(--faint);font-family:var(--mono);margin:0 0 12px">HOY — Y ASÍ LO CONTÓ EL RELOJ</p>
+    <div style="font-family:var(--mono);font-size:13px;color:var(--muted)">1:13:20 · 1,73 km · 42:25 /km · 944 kcal</div>
+    <p style="font-size:12px;color:var(--faint);font-family:var(--mono);margin:22px 0 12px">CON EL MODELO</p>
+    <div style="font-family:var(--mono);font-size:13px;color:var(--fg);line-height:1.9">
+      1:13:20 · <b>9,0 km corriendo</b> · 3:52 /km de media en carrera<br>
+      <span style="color:var(--muted)">BLOQUE 1</span> &nbsp;R1 <b>4:41</b> &nbsp; R2 <b>4:58</b> &nbsp; R3 <b>5:12</b> &nbsp;<span style="color:var(--warn)">−11 % del principio al final</span><br>
+      <span style="color:var(--muted)">BLOQUE 2</span> &nbsp;R1 <b>5:03</b> &nbsp; R2 <b>5:20</b> &nbsp; R3 <b>5:29</b> &nbsp;<span style="color:var(--warn)">−8 %</span><br>
+      <span style="color:var(--muted)">transiciones</span> 4:12 en total &nbsp;·&nbsp; <span style="color:var(--muted)">deriva</span> +6,1 %
+    </div>
+    <div class="zonebar" style="margin-top:16px">
+      <div style="width:8%;background:var(--z1)"></div>
+      <div style="width:14%;background:var(--z2)">14%</div>
+      <div style="width:31%;background:var(--z3)">31%</div>
+      <div style="width:36%;background:var(--z4)">36%</div>
+      <div style="width:11%;background:var(--z5)">11%</div>
+    </div>
+    <p style="font-size:11.5px;color:var(--faint);margin:4px 0 0;font-style:italic">Números de ejemplo
+    para enseñar la forma. Los reales salen de la traza.</p>
+  </div>
+  <p class="caption">La diferencia no es que haya más números: es que <b>el atleta se entera de que
+  se fue frenando</b>, que es justo lo que un entreno de transiciones viene a medir.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="descartado">
+  <h2>10 · Lo descartado, y por qué</h2>
+  <p class="h2sub">Lo que se borra sin dejar constancia es lo que alguien reconstruye en seis meses</p>
+
+  <table class="tight">
+    <thead><tr><th style="width:270px">Se descarta</th><th>Motivo</th></tr></thead>
+    <tbody>
+      <tr><td>Guardar el stream fila por muestra en <code>biometric_streams</code></td>
+        <td>Esa tabla es para métricas del día (pulso en reposo, VFC, peso, sueño). Meter 26 millones de filas al año de trazas de entreno la haría inservible para su propósito. La traza va en su tabla, con el patrón que ya probó <code>workout_routes</code>.</td></tr>
+      <tr><td>Guardar TSS e IF en columna</td>
+        <td>Dependen del umbral y del FTP, que cambian con cada test. Guardados se quedarían mintiendo sobre el histórico. Se calculan al leer, que es lo que ya hace <code>tss.ts</code>.</td></tr>
+      <tr><td>Una coordenada nueva por caso (ronda en circuitos, serie en fuerza, tramo en carrera)</td>
+        <td>Serían tres sistemas paralelos que no se hablan. Una sola coordenada bloque·ronda·tramo·serie, y <code>leg_role</code>/<code>leg_phase</code> se quedan como cualificadores, no como coordenadas.</td></tr>
+      <tr><td>Interpolar los huecos de la traza</td>
+        <td>Con saltos medidos de hasta 81 s, interpolar fabrica dato indistinguible del medido. El hueco se deja visible y quien lee decide si hay cobertura suficiente.</td></tr>
+      <tr><td>Calcular las zonas en el móvil</td>
+        <td>Ya causó el fallo del 28 de julio: tres modelos de zona que no coincidían. El servidor resuelve las zonas contra el umbral, una vez, y cada superficie pinta lo que le dan.</td></tr>
+      <tr><td>Estimar calorías cuando no las da ningún dispositivo</td>
+        <td>Una fórmula con peso y duración da un número plausible e inventado. §7: lo que no se mide, no se pinta.</td></tr>
+      <tr><td>Hacer <code>round_index</code> nullable</td>
+        <td>En Postgres dos nulls no colisionan, así que el unique dejaría de proteger. Con <code>default 0</code> las filas viejas siguen válidas y el constraint sigue vivo.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<section id="riesgos">
+  <h2>11 · Riesgos que veo</h2>
+  <p class="h2sub">Antes de construir, no después de que los encuentres tú</p>
+
+  <ol>
+    <li><b>El volumen de la traza.</b> Estimado en ~570 MB/año para 100 atletas, con muestreo real
+    medido (4,9 s). Si alguna fuente muestrea a 1 Hz, se cuadruplica. Mitigación: guardar a la
+    cadencia nativa de la fuente y no remuestrear al alza nunca.</li>
+
+    <li><b>La atribución por ventana temporal puede coger de más.</b> Vi en producción ejecuciones
+    solapadas (dos filas con el mismo rango de tiempo). Un cruce ingenuo asignaría las mismas
+    muestras a las dos. Hay que decidir la regla de desempate antes de escribir el cruce, no después.</li>
+
+    <li><b>El pulso de HealthKit no es nuestro motor.</b> Llega por sincronización asíncrona y puede
+    tardar. Un reporte que se pinta al terminar puede no tener aún la traza. El diseño tiene que
+    contemplar que el reporte <b>se enriquece después</b>, y que la pantalla lo diga en vez de
+    parecer incompleta.</li>
+
+    <li><b>La ronda cambia la relación ejecución↔prescripción.</b> Hoy es 1:1 por posición; con
+    rondas pasa a 1:N. Todo lo que lee tramos emparejándolos con el plan (la vista del coach, el
+    cumplimiento de ritmo) tiene que agregar por ronda o mostrará el mismo ejercicio repetido.
+    <b>Es el cambio con más superficie de impacto de los cuatro.</b></li>
+
+    <li><b>La degradación por ronda solo tiene sentido si las rondas son comparables.</b> En un
+    circuito con rondas distintas (escalera, chipper) comparar la 1 con la 3 no dice nada. Hace falta
+    saber cuándo la comparación es válida, y callarla cuando no lo es.</li>
+
+    <li><b>Método vs mecanismo.</b> El umbral de deriva, el de degradación y qué se considera «se
+    fue frenando» son juicio de entrenador: nacen como <b>dato editable del coach</b> con un valor
+    por defecto, nunca como constante. El mecanismo —cómo se calcula la deriva— sí es nuestro.</li>
+  </ol>
+</section>
+
+<div class="foot">
+  <p><b>Verificado contra:</b> base de producción (85 ejecuciones, 221 tramos, 102.910 muestras de
+  pulso, 6 atletas) · <code>shared/schema/workouts.ts</code> ·
+  <code>infra/migrations/{0001,0127,0142,0146}</code> ·
+  <code>ios/FAHYBRIK/Workout/{SegmentPayloadBuilder,WorkoutSession,LiveTramo,HRRecovery,PostWorkoutSummaryView}.swift</code> ·
+  <code>ios/FAHYBRIK/Workout/Outdoor/PolylineCodec.swift</code> ·
+  <code>shared/domain/training-load/tss.ts</code> · <code>shared/domain/methodology/hr-zones.ts</code> ·
+  <code>web/lib/execution/zone-seconds.ts</code> · <code>docs/CONTRATO-UI.md</code> §6.2bis y §7 ·
+  <code>docs/DECISIONS.md</code> (28-jul zonas y «no se sabe», 4-ago grupos de fuerza y resumen EMOM).</p>
+  <p>Los números del ejemplo del brick en la sección 09 son ilustrativos de la <i>forma</i> del
+  reporte, no medidas reales — la sesión que enseñaste se grabó en Garmin, no en la app.</p>
+</div>
+
+</div>
+</body>
+</html>

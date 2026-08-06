@@ -5,6 +5,49 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## 6-ago · El entreno deja rastro, y hoy lo borramos al guardarlo (DISEÑO — sin construir)
+
+Alex enseña tres capturas de TrainingPeaks (no para copiarlo) y pregunta por las
+kcal y por el reporte final de un entreno: quiere todas las variables posibles,
+guardadas en la base, para analíticas y predicción, y visibles después desde el
+calendario.
+
+**Diseño:** `docs/design/reporte-post-entreno-model.html` — modelo entero, roto
+contra 12 casos reales (los 3 suyos + 9 del dominio).
+
+**Lo que se encontró auditando antes de proponer nada:**
+- Las **kcal existen en el esquema pero no se miden en carrera** (solo erg/PM5):
+  7 tramos de 221 en producción las tienen. Su pregunta tenía razón de ser.
+- El resumen post-entreno **ya se diseñó completo** en su día (zonas, deriva,
+  recuperación 60s, potencia) y se recortó al construirlo. Lo dice el propio
+  Swift: *«Decoupling / recovery / power require sensor streams we don't capture
+  yet»* (`PostWorkoutSummaryView.swift:824`). El hueco no es de pantalla.
+- El motor **mide y tira**: `closeCurrentSegmentLap()` → `resetSegmentAccumulators()`
+  borra las muestras tras reducirlas a cinco números de zona.
+- **`unique (execution_id, position)`** hace físicamente imposible guardar un
+  circuito por rondas — el caso del brick que enseñó.
+- `RoutePoint` es `(lat, lon)`: **altitud y timestamp se descartan** aunque vienen
+  gratis en el mismo `CLLocation`. Sin ellos no hay desnivel ni splits.
+- `tss.ts` **ya tiene implementados y testeados** los modos por FC/LTHR y por
+  potencia/FTP, esperando dos columnas que no existen. Por eso el TSS de hoy sale
+  solo de RPE×duración.
+- **El hallazgo que abarata todo:** hay **102.910 muestras de pulso** en
+  `biometric_streams` (2022→hoy) y solo 226 ligadas a un entreno. Probado contra
+  la sesión 188: 632 muestras caen dentro de su ventana (una cada 4,9 s). Deriva,
+  zonas reales, curva y recuperación se pueden calcular **retroactivamente**
+  cruzando por tiempo, sin tocar iOS.
+
+**Cuatro cambios propuestos:** cabecera medida en `workout_executions` (desbloquea
+TSS real) · `round_index` con el unique ampliado · tabla `workout_traces` (patrón
+de `workout_routes`, no fila por muestra) · altitud y reloj en `RoutePoint`.
+
+**Riesgo mayor identificado:** la ronda convierte la relación ejecución↔prescripción
+de 1:1 a 1:N — toca todo lo que empareja tramos con el plan.
+
+**Pendiente de decisión de Alex.** No se ha construido nada.
+
+---
+
 ## 6-ago · El EMOM sabía si eras máquina — y nunca lo decía en la muñeca
 
 Bug de raíz encontrado revisando lo shipeado anoche: `GuionDelEspejo.emom()`
