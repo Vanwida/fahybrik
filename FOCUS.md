@@ -772,6 +772,32 @@ Alex pidió que el coach pueda montar **un test de ergo de 2 × 2 min que calibr
 
 ---
 
+## Cerrado el 6-ago · La jerarquía de fuentes de FC gobierna el número, no solo la etiqueta
+
+`WorkoutSession.injectLiveHR` ya tenía la jerarquía correcta entre pulso simultáneo
+(correa=3 > Watch/HealthKit=2 > PM5=1, ventana de 10 s) pero solo mandaba en la
+ETIQUETA de la tira de conexión: con dos fuentes activas (reloj+correa, o
+reloj+PM5 remando — normal, no un edge case), `avg_hr`/`liveHRBpm` se alimentaban
+de CUALQUIER lectura, así que `avg_hr` era la media de la unión de dos streams y
+un artefacto del PM5 podía colarse como `max_hr` del tramo aunque la correa nunca
+llegara ahí. Ahora la decisión de ownership se toma ANTES de tocar ningún
+acumulador — solo la fuente dueña alimenta el número y los cuatro agregados.
+Aditivo: `segment_executions.hr_source` (migración **0153, aplicada a producción**)
+dice de qué aparato salió el pulso, distinto de `source` (el tramo).
+11 tests nuevos/corregidos en `HRProvenanceTests` — dos de ellos **afirmaban el
+bug** («una lectura de menor prioridad sigue actualizando el valor en vivo»), así
+que el comportamiento erróneo estaba certificado por la suite. Detalle en
+`docs/DECISIONS.md` (2026-08-06).
+
+**El orden importó:** la 0153 fue a producción ANTES de integrar el código,
+porque el INSERT de `ingest-execution-segments.ts` referencia `hr_source` sin
+condicional — al revés habría roto TODO el ingest de segmentos, no solo el pulso.
+Verificado con ensayo en transacción revertida contra el esquema real: columna
+nullable creada, 221 filas intactas, CHECK rechazando valores fuera del
+vocabulario.
+
+---
+
 ## Cerrado el 30-jul · El lenguaje del entreno, en la app
 
 `docs/CONTRATO-UI.md` §10 fija el idioma de las vistas en vivo — **la zona tiñe el lienzo, un solo numeral, el sujeto ancla su centro, la acción no compite, y el trabajo no va en gris** — y ya no vive solo en el doble: **correr, fuerza y EMOM lo hablan en Swift**, con 730 líneas del HUD viejo muertas.

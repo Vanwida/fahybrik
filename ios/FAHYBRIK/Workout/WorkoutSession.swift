@@ -1960,6 +1960,10 @@ final class WorkoutSession {
         let hrSlice = Array(lapHRSamples[startIdx...])
         let avgHR = hrSlice.isEmpty ? nil : hrSlice.reduce(0, +) / hrSlice.count
         let maxHR = hrSlice.max()
+        // Which DEVICE measured this leg's pulse — the priority latch's current
+        // owner, tagged only when this leg actually had a sample (never invented
+        // off a stale session-level source from a leg with no HR at all).
+        let legHRSource: String? = hrSlice.isEmpty ? nil : hrSource?.rawValue
         // Per-leg zone seconds = the accumulation delta since GO.
         var zone: [Int: Double] = [:]
         for (k, v) in lapZoneAccumSec {
@@ -2005,7 +2009,8 @@ final class WorkoutSession {
             runLegRole: leg.kind.rawValue,
             runLegPhase: leg.phaseRole.rawValue,
             inclinePct: inclinePct,
-            runCadenceSpm: nil
+            runCadenceSpm: nil,
+            hrSource: legHRSource
         )
         laps.append(lap)
     }
@@ -2290,6 +2295,10 @@ final class WorkoutSession {
         let newAvgHR = lapHRSamples.isEmpty ? nil : lapHRSamples.reduce(0, +) / lapHRSamples.count
         let mergedAvgHR = newAvgHR ?? reopen?.avgHRBpm
         let mergedMaxHR = [lapHRSamples.max(), reopen?.maxHRBpm].compactMap { $0 }.max()
+        // Which DEVICE measured this segment's pulse — same "new wins, else keep
+        // the reopened lap's" merge as the HR values themselves above.
+        let newHRSource: String? = lapHRSamples.isEmpty ? nil : hrSource?.rawValue
+        let mergedHRSource = newHRSource ?? reopen?.hrSource
         var mergedZone = lapZoneAccumSec
         if let rz = reopen?.zoneSecondsByZone { for (k, v) in rz { mergedZone[k, default: 0] += v } }
         let mergedDistance = distance ?? reopen?.distanceCoveredMeters
@@ -2354,7 +2363,8 @@ final class WorkoutSession {
             avgCaloriesPerHour: avgCalPerHour ?? reopen?.avgCaloriesPerHour,
             peakDriveForceLbs: peakForce ?? reopen?.peakDriveForceLbs,
             avgDriveForceLbs: avgForce ?? reopen?.avgDriveForceLbs,
-            ergSplits: ergSplits ?? reopen?.ergSplits
+            ergSplits: ergSplits ?? reopen?.ergSplits,
+            hrSource: mergedHRSource
         )
         laps.append(lap)
         resetSegmentAccumulators()
@@ -2825,11 +2835,28 @@ final class WorkoutSession {
         // watch pauses the HK session alongside it (WatchWorkoutCoordinator
         // .togglePause), so no stream should feed through.
         guard !isPaused else { return }
-        // Every reading is real HR → it updates the live value and the lap
-        // aggregation regardless of who owns provenance. But the SOURCE label is a
-        // latch: a lower-priority reading (e.g. a PM5 strap under an active
-        // watch/strap stream) must not steal it. Only an equal-or-higher priority
-        // source takes over the provenance.
+        // OWNERSHIP decides BEFORE anything is recorded, not after. With two
+        // sources streaming at once (a chest strap + the Watch via HealthKit, or
+        // the Watch + a PM5-paired strap — both normal), only the source that OWNS
+        // this instant may feed the live number and every aggregate. A
+        // lower-priority reading while the owner is alive is real HR, but not the
+        // device this instant belongs to: accepting it blended two pulses into one
+        // meaningless average, let whichever reading arrived last win the
+        // on-screen number regardless of label, and let a weaker source's
+        // artifact become the tramo's recorded max. Same latch as before
+        // (strap=3 > healthkit=2 > pm5=1, `hrSourceStaleSeconds` quiet window) —
+        // it now gates the NUMBER too, not only the label.
+        let now = Date()
+        if let current = hrSource, source.priority < current.priority,
+           now.timeIntervalSince(hrSourceLastSeenAt) < Self.hrSourceStaleSeconds {
+            return   // the owner is alive — a lower-priority reading feeds nothing
+        }
+        // Either this source already owns the window, it is taking over (equal or
+        // higher priority), or the previous owner went quiet past the window and
+        // this is the handoff — a dead strap must not leave the session pulseless.
+        hrSource = source
+        hrSourceLastSeenAt = now
+
         liveHRBpm = bpm
         lapHRSamples.append(bpm)
         // The tramo's own peak, so the rest screen can show a REAL drop ("162 → 138")
@@ -2837,18 +2864,11 @@ final class WorkoutSession {
         noteTramoHR(bpm)
         // HRR effort tail — keep the last ~12 s of readings so a test finish can
         // derive hr_end (mean of the final 10 s of effort). Pruned every reading.
-        let now = Date()
         recentEffortHR.append((date: now, bpm: bpm))
         let cutoff = now.addingTimeInterval(-Self.effortTailKeepSeconds)
         while let first = recentEffortHR.first, first.date < cutoff {
             recentEffortHR.removeFirst()
         }
-        if let current = hrSource, source.priority < current.priority,
-           Date().timeIntervalSince(hrSourceLastSeenAt) < Self.hrSourceStaleSeconds {
-            return   // the owner is alive — a lower-priority reading never steals the label
-        }
-        hrSource = source
-        hrSourceLastSeenAt = Date()
     }
 
     /// Accumulates phone-GPS covered distance for the current RUN work. The provider

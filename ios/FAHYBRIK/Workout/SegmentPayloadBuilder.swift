@@ -172,7 +172,10 @@ enum SegmentPayloadBuilder {
                 // que no es un bout de carrera (ver LapRecord).
                 leg_index: lap.runLegIndex,
                 leg_role: lap.runLegRole,
-                leg_phase: lap.runLegPhase
+                leg_phase: lap.runLegPhase,
+                // Provenance of avg_hr/max_hr specifically — nil on every lap that
+                // never had a pulse (see LapRecord.hrSource).
+                hr_source: lap.hrSource
             )
         }
     }

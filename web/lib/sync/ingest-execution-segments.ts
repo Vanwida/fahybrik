@@ -12,14 +12,14 @@
 
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
-import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
+import { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
-export { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus };
+export { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus };
 
 // Canonical modality vocabulary — the single source of truth shared with the
 // analytics aggregation. iOS is expected to send one of these; anything else is
@@ -143,6 +143,11 @@ export const segmentInputSchema = z.object({
   incline_pct: z.number().nonnegative().optional(),
   avg_hr: z.number().int().min(30).max(260).optional(),
   max_hr: z.number().int().min(30).max(260).optional(),
+  // Provenance of avg_hr/max_hr specifically (mig 0153) — which device measured
+  // the pulse, resolved client-side by the live engine's HR-ownership latch.
+  // Distinct from `source` below (the TRAMO's movement provenance). Nullish so a
+  // segment with no HR, or a pre-0153 client, omits it cleanly.
+  hr_source: z.enum(HR_SOURCES).nullish(),
   calories: z.number().nonnegative().optional(),
   // Legacy alias kept for back-compat: = ACTUAL reps (or null when skipped).
   // Ingest prefers `reps_actual` when present; never coalesces a skip to 0.
@@ -397,7 +402,7 @@ export async function ingestExecutionSegments(args: {
         modality, distance_meters,
         avg_pace_s_per_500m, avg_pace_s_per_km, avg_power_w, stroke_rate_spm,
         run_cadence_spm, incline_pct,
-        avg_hr, max_hr, calories, reps_completed, weight_used_kg,
+        avg_hr, max_hr, hr_source, calories, reps_completed, weight_used_kg,
         reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
         emom_rounds_completed, emom_rounds_prescribed,
         leg_index, leg_role, leg_phase,
@@ -419,6 +424,7 @@ export async function ingestExecutionSegments(args: {
         ${sanitizeInclinePct(seg.incline_pct)},
         ${seg.avg_hr ?? null},
         ${seg.max_hr ?? null},
+        ${seg.hr_source ?? null},
         ${seg.calories ?? null},
         ${repsActual},
         ${seg.weight_used_kg ?? null},
@@ -455,6 +461,9 @@ export async function ingestExecutionSegments(args: {
         incline_pct         = coalesce(excluded.incline_pct, segment_executions.incline_pct),
         avg_hr              = coalesce(excluded.avg_hr, segment_executions.avg_hr),
         max_hr              = coalesce(excluded.max_hr, segment_executions.max_hr),
+        -- Same merge as avg_hr/max_hr above: this column is THEIR provenance, so
+        -- it must never disagree with which sync actually wrote them.
+        hr_source           = coalesce(excluded.hr_source, segment_executions.hr_source),
         calories            = coalesce(excluded.calories, segment_executions.calories),
         weight_used_kg      = coalesce(excluded.weight_used_kg, segment_executions.weight_used_kg),
         -- Honest-logging fields are a COHERENT group: the latest payload is the
