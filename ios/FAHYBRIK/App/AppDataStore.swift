@@ -240,11 +240,20 @@ final class AppDataStore {
         _ = await (i, p, r)
     }
 
-    /// Plan: the current week + the partner (for the "Con [X]" badges).
+    /// Plan: the current week, the macro progress and the partner (for the
+    /// "Con [X]" badges).
+    ///
+    /// The macro slice joined this group on 6-ago, when the Plan tab became the
+    /// screen that answers "¿dónde estoy dentro del bloque?": its header reads
+    /// "Semana N de M" and its footer opens PlanCicloView, and BOTH live on
+    /// /macro-progress. Without it here the position appeared only after a detour
+    /// through Inicio (the other screen that warms the slice), and the cycle
+    /// screen opened on a spinner instead of on its data.
     func loadPlanScreen(force: Bool = false) async {
         async let p: Void = refreshPlanWeek(force: force)
+        async let m: Void = refreshMacroProgress(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (p, pa)
+        _ = await (p, m, pa)
     }
 
     /// Perfil: identity, partner, subscription, the week (for the coach name) and

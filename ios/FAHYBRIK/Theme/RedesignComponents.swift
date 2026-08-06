@@ -98,6 +98,37 @@ struct LibreBadge: View {
     }
 }
 
+// MARK: - Test badge
+
+/// Amber pill marking a session whose purpose is to MEASURE (a test/benchmark
+/// that stores results into the athlete's profile), not to train. Mirrors
+/// `LibreBadge`'s compact shape but uses the amber `warning` role so a test reads
+/// as "do this fresh, it sets your numbers".
+///
+/// Lives here beside its siblings (`LibreBadge`, `SlotBadge`, `PartnerBadge`)
+/// since the 6-ago Plan rebuild: it used to be declared at the bottom of
+/// `PlanView.swift`, which is how a shared badge ends up looking like one
+/// screen's private business (contrato §0/§1).
+struct TestBadge: View {
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "stopwatch")
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+            Text("Test")
+                .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Theme.Color.warning)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, compact ? 2 : 3)
+        .background(Theme.Color.warningTint)
+        .clipShape(Capsule())
+        .accessibilityLabel("Sesión de test")
+    }
+}
+
 // MARK: - Session hero card
 
 /// The Inicio hero: an elevated card with an orange top-edge accent, an AM/PM

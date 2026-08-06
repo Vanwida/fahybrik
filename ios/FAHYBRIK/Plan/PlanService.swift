@@ -1,6 +1,9 @@
 import Foundation
 
-struct AthleteWeekDaySession: Codable, Identifiable {
+// `Equatable` es sintetizado (todos los campos lo son) y lo pide la proyección
+// del plan: `DiaDelPlan` lleva las sesiones de su día dentro, y sin esto SwiftUI
+// no puede saltarse un repintado del carril cuando la semana no ha cambiado.
+struct AthleteWeekDaySession: Codable, Identifiable, Equatable {
     var id: String { assignmentId }
     let assignmentId: String
     let slot: String
@@ -616,46 +619,12 @@ extension PlanService {
     }
 }
 
-extension PlanWeek {
-    static func from(api: AthletePlanWeekResponse) -> PlanWeek {
-        let todayIdx = api.week.days.firstIndex { $0.isoDate == api.week.todayIso } ?? 0
-        let days: [PlanDay] = api.week.days.map { d in
-            let primary = d.sessions.first
-            let title = primary?.title ?? (d.isRest ? "Descanso" : "Sin sesión")
-            return PlanDay(
-                assignmentId: primary?.assignmentId,
-                dayName: dayNameES(d.dayOfWeek),
-                dayNumber: dayNumberFromIso(d.isoDate),
-                title: title,
-                isRest: d.isRest || d.sessions.isEmpty,
-                status: primary?.status,
-                partnerVisibility: primary?.partnerVisibility
-            )
-        }
-        // weekLabel is the coach-authored freeform week label; `block` is the
-        // coach's current microciclo NAME (agnostic coach data — see
-        // shared/domain/coach/macro-progress.ts, never a phase sigla). Shown as-is.
-        let label = api.macroSummary.weekLabel
-            ?? api.macroSummary.block
-            ?? "Semana actual"
-        return PlanWeek(label: label, todayIndex: todayIdx, days: days)
-    }
-
-    private static func dayNameES(_ dow: Int) -> String {
-        switch dow {
-        case 1: return "LUN"
-        case 2: return "MAR"
-        case 3: return "MIE"
-        case 4: return "JUE"
-        case 5: return "VIE"
-        case 6: return "SAB"
-        default: return "DOM"
-        }
-    }
-
-    private static func dayNumberFromIso(_ iso: String) -> Int {
-        let parts = iso.split(separator: "-")
-        guard parts.count == 3, let d = Int(parts[2]) else { return 0 }
-        return d
-    }
-}
+// RETIRADO (6-ago): `PlanWeek` / `PlanDay` y este `PlanWeek.from(api:)`.
+//
+// Eran una proyección "una sesión por día" de la semana, y su comentario decía
+// que Inicio la consumía para deducir el próximo entreno. No era cierto: Inicio
+// lee `PlanService.nextWorkout(from:)`, que trabaja sobre la respuesta cruda.
+// Nadie construía ni leía un `PlanWeek` en toda la app — solo esta función lo
+// creaba, para nadie. Se fue con la reconstrucción de la pestaña Plan, que pinta
+// los días desde `SemanaDelPlan` (`Plan/PlanHoyModel.swift`) y sí modela los dos
+// entrenos de un mismo día, que es justo lo que esta proyección perdía.
