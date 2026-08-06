@@ -21,6 +21,41 @@ líneas que queden se quedan en review honestas. Copy de timeout en el diálogo
 
 ---
 
+## 6-ago (noche) · La pestaña Plan pasa a ser «hoy dentro del bloque» — CONSTRUIDO
+
+Alex enseña el mockup `plan-bloque` del doble y pide incorporarlo al plan real.
+Auditado antes de tocar Swift: `InicioView` y `PlanView` leían el MISMO
+`store.planWeek`, derivaban el MISMO `SessionMarkState` y navegaban al MISMO
+destino — dos renderizados de «qué toca hoy» con dos copys distintos. Decisión
+completa en `docs/DECISIONS.md` (6-ago).
+
+**Construido y en `feat/pm5-counter-sync`** (`d318781f`/`232d417d`/`ca893ae8`):
+`PlanView` (2023→582 líneas) es ahora el bloque + carril de 7 días + hoy en
+grande con su desglose real (`AssignmentDetail` solo de hoy, nunca la semana
+entera) + pie que abre `PlanCicloView` (nuevo, real: bloque actual + semana a
+semana con cumplimiento + próxima semana). `InicioView` pierde el héroe, la
+fila PM y «Hecho hoy»; conserva readiness/carrera/tendencias/pareja/pasos.
+Cuatro correcciones que el dato real impuso sobre el mockup (cinco estados de
+día no cuatro — `partial` existe y colapsarlo en «hecha» mentiría · `group`
+descartado, `estructural` sale del `format` del bloque sin schema nuevo ·
+«Semana N de M» no puede salir de `macro_progress` — sale de `week_label` ·
+`compliance_pct` es fracción 0–1, no porcentaje). Detalle completo en
+`docs/DECISIONS.md`.
+
+**Verificado independientemente** (no solo por quien lo construyó): `xcodebuild`
+limpio sin warnings nuevos, 41/41 tests nuevos en verde (`PlanHoyModelTests` +
+`FormatoTests`) tras resetear el simulador (el primer intento colgó con el
+flake ya conocido del runner). Doble re-sellado: `plan-bloque` → `construida`
+(difiere en un punto real: AM+PM es fila compacta, no está en el mockup de 4
+escenarios) · `plan-ciclo` sigue `propuesta` — lo construido es una v1 real
+pero deliberadamente más simple (una etapa, no la secuencia encadenada del
+mockup) porque `macro_summary.block` llega null del servidor.
+
+**Sin verificar: nadie lo ha visto con datos de un atleta real** (sin bearer de
+sesión en el entorno de build). Primera cosa que hacer.
+
+---
+
 ## 6-ago · Que el reloj reconozca el movimiento (DISEÑO — sin construir)
 
 Alex pide un plan para que el reloj sepa qué está haciendo el atleta: las ocho

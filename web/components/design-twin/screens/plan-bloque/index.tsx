@@ -25,13 +25,22 @@ export const meta: TwinMeta = {
   id: 'plan-bloque',
   titulo: 'El plan — la semana dentro del bloque',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
-  actualizado: '2026-07-29',
+  // `construida`, no `espejo`: el 6-ago se shipeó la fusión en Swift (docs/DECISIONS.md),
+  // pero esta pantalla del doble no se ha re-verificado campo a campo contra ese Swift —
+  // es la antesala honesta, no la certificación (regla del 3-ago).
+  estado: 'construida',
+  actualizado: '2026-08-06',
   descripcion:
     'Dónde estás hoy dentro del bloque y qué toca: el carril de siete días con sus sellos y la sesión de hoy en grande, con su duración solo cuando el plan la deja escrita. Por el pie se entra al ciclo. El día que no toca nada también tiene salida.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Plan/PlanView.swift',
+    'ios/FAHYBRIK/Plan/PlanHoyModel.swift',
+    'ios/FAHYBRIK/Plan/PlanHoyAtoms.swift',
+    'ios/FAHYBRIK/Plan/PlanHeroeHoy.swift',
+    'ios/FAHYBRIK/Plan/PlanAcciones.swift',
+  ],
   enApp:
-    'InicioView y PlanView existen por separado; la fusión que propone esta pantalla, no.',
+    'Construida: PlanView ya es esta fusión (InicioView perdió su héroe/fila PM/hecho-hoy el mismo día). Difiere en un punto real: la segunda sesión del día (AM+PM) es una fila compacta bajo el héroe, no está en este mockup de cuatro escenarios.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

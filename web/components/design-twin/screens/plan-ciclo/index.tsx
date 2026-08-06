@@ -21,10 +21,19 @@ export const meta: TwinMeta = {
   titulo: 'El plan — hacia dónde voy y cuánto queda',
   zona: 'Plan y hoy',
   estado: 'propuesta',
-  actualizado: '2026-07-29',
+  actualizado: '2026-08-06',
   descripcion:
     'Las etapas que tu coach ha publicado, en orden y con el nombre que él les puso, el cursor de hoy dentro de la que toca, lo que está marcado en el calendario y la carrera cerrando por abajo. Cero carga prevista: eso no se sabe.',
   fuentes: [],
+  // El 6-ago se shipeó una v1 REAL pero deliberadamente más simple que esta
+  // propuesta: `PlanCicloView.swift` — el bloque actual (nombre + «semana N de
+  // M»), semana a semana con su cumplimiento real, y la semana siguiente. Le
+  // falta la espina completa de esta pantalla (varias etapas encadenadas, sus
+  // hitos y la cuenta atrás de carrera): no había dato de servidor para eso el
+  // día del build (macro_summary.block llega null), así que se dejó fuera en
+  // vez de inventarlo. Sigue en `propuesta` — esto no es lo que hay en la app.
+  enApp:
+    'PlanCicloView.swift existe y es real, pero es una v1 más simple: una sola etapa (el microciclo actual) + su historial de semanas, no la secuencia de etapas de este mockup.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
