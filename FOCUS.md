@@ -49,11 +49,23 @@ públicos permite uso comercial con certeza (RecGym, CC BY 4.0) y es el menos
 débil la da el programa gratis en cada sesión completada, y **cada sesión que
 pasa sin grabar no vuelve**.
 
-**Pendiente de decisión de Alex:** (1) alcance de la primera tanda — solo el
-paso 0 (grabar) o del 0 al 3 (incluye velocidad de barra, línea de producto
-nueva); (2) **consentimiento y propiedad del dato antes del primer byte** — la
-señal inercial de muñeca es identificativa; es la arista que quedó abierta el
-4-ago y ahora tiene fecha límite.
+**Plan de ejecución:** → **`docs/plan-reconocer-movimiento.html`** — siete fases
+con archivos, migraciones (desde `0157`), criterio de aceptación medible por
+fase, contrato de datos, ajustes del coach con sus defectos, y los tres errores
+que hundirían esto. Hallazgo que abarata la validación: **el PM5 es verdad de
+referencia gratis** — sabe cuándo se rema y cuántas paladas van, sincronizado,
+así que valida las fases 1 y 2 sin grabar un vídeo.
+
+**ALCANCE DECIDIDO (Alex, 6-ago): fases 0 a 3.** Grabar · trabajo/descanso ·
+contador de repeticiones · velocidad de barra. Las cuatro son procesado de
+señal: **ninguna necesita corpus**. Las fases 4-6 (clasificador, alineador,
+bucle) quedan para después — Alex: «al final querré todo».
+
+**Bloqueante antes del primer byte de la fase 0:** consentimiento y propiedad
+del dato. La señal inercial de muñeca identifica a la persona por su forma de
+moverse. Es la arista que quedó abierta el 4-ago y ahora tiene fecha límite.
+Las fases 1-3 procesan en vivo y descartan, así que **pueden arrancar sin
+esperar**; lo que espera es ARCHIVAR.
 
 **Aviso de mercado:** Amazfit anunció el *Helio Strap Pro* en junio-2026
 diciendo cubrir los 8 movimientos de HYROX. Sin cifras ni paper. Merece mirada.
