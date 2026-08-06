@@ -73,6 +73,12 @@ interface CallArgs {
   temperature?: number;
   max_tokens?: number;
   /**
+   * Per-call abort budget (ms). Defaults to `LLM_CHAT_TIMEOUT_MS` (120s).
+   * Import photo assist passes a shorter value so a hung provider cannot burn
+   * the whole route `maxDuration` on a single dense line.
+   */
+  timeout_ms?: number;
+  /**
    * Cost-telemetry context (A7). Best-effort: when present, the call's token
    * usage is recorded in `llm_invocations`. Omit it and nothing is logged.
    */
@@ -129,11 +135,15 @@ export async function callCoachIaLlmJson(args: CallArgs): Promise<unknown> {
     if (routing) body.provider = routing;
   }
 
+  const timeoutMs = Math.max(
+    1_000,
+    args.timeout_ms ?? Number(process.env.LLM_CHAT_TIMEOUT_MS ?? 120_000),
+  );
   const res = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(Number(process.env.LLM_CHAT_TIMEOUT_MS ?? 120_000)),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');

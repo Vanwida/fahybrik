@@ -49,7 +49,18 @@ const PHOTO_ERROR_COPY: Record<string, string> = {
   invalid_request: `Sube entre 1 y ${MAX_PHOTOS} capturas para importar.`,
   vision_failed:
     'No se pudo leer alguna de las capturas. Prueba con una foto más nítida y con la semana entera a la vista.',
+  timeout:
+    'La lectura de las capturas está tardando demasiado. Prueba con menos capturas o una imagen más ligera.',
+  network_timeout:
+    'No se pudo descargar alguna captura a tiempo. Vuelve a intentarlo; si se repite, usa una imagen más ligera.',
+  empty_reading: 'No se ha reconocido ningún entreno en las capturas.',
+  week_overflow:
+    'Las capturas necesitan más semanas de las que quedan en este microciclo a partir de la semana elegida.',
 };
+
+/** Client abort under the route's 300s ceiling so the coach never sits on a
+ *  dead spinner after Vercel already killed the function (opaque 504, no JSON). */
+const PHOTO_CLIENT_TIMEOUT_MS = 275_000;
 
 async function readError(res: Response): Promise<{ code?: string; message?: string }> {
   try {
@@ -105,6 +116,9 @@ export function ImportWorkoutsDialog({
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
+        ...(sourceMode === 'photo'
+          ? { signal: AbortSignal.timeout(PHOTO_CLIENT_TIMEOUT_MS) }
+          : {}),
       });
       if (!res.ok) {
         setFormError(
@@ -147,8 +161,15 @@ export function ImportWorkoutsDialog({
       setReviewWeeks(model);
       setConfirmError(null);
       setPhase('review');
-    } catch {
-      setFormError('No se pudo conectar. Inténtalo de nuevo.');
+    } catch (err) {
+      const timedOut =
+        (err instanceof DOMException && err.name === 'TimeoutError') ||
+        (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError'));
+      setFormError(
+        timedOut && sourceMode === 'photo'
+          ? PHOTO_ERROR_COPY.timeout
+          : 'No se pudo conectar. Inténtalo de nuevo.',
+      );
     } finally {
       setExtracting(false);
     }

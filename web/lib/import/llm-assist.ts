@@ -60,16 +60,25 @@ function buildSystemPrompt(): string {
   ].join('\n');
 }
 
+export type BuildLlmAssistOptions = {
+  /** Per-call abort (ms). Photo import uses a shorter value; see `budgetLlmAssist`. */
+  timeout_ms?: number;
+};
+
 /**
  * Build the real `LlmAssist` for the orchestrator, or `undefined` when no model is
  * configured (env absent) — in which case the orchestrator keeps every grammar
  * review line untouched (no LLM-impostor). Best-effort: any failure (network,
  * bad JSON, schema miss) resolves to `null` so the honest review line survives.
  */
-export function buildLlmAssist(coach_id: number | bigint): LlmAssist | undefined {
+export function buildLlmAssist(
+  coach_id: number | bigint,
+  opts: BuildLlmAssistOptions = {},
+): LlmAssist | undefined {
   if (!isCoachIaLlmConfigured()) return undefined;
 
   const system = buildSystemPrompt();
+  const timeout_ms = opts.timeout_ms;
   return async (text: string): Promise<ParsedLine[] | null> => {
     try {
       const raw = await callCoachIaLlmJson({
@@ -77,6 +86,7 @@ export function buildLlmAssist(coach_id: number | bigint): LlmAssist | undefined
         user: `Línea densa a tipar:\n${text}`,
         temperature: 0.1,
         max_tokens: Number(process.env.LLM_CHAT_MAX_TOKENS_IMPORT ?? 1536),
+        ...(timeout_ms != null ? { timeout_ms } : {}),
         meta: { surface: 'import_notation', coach_id },
       });
       const parsed = llmResultSchema.safeParse(raw);
@@ -92,6 +102,70 @@ export function buildLlmAssist(coach_id: number | bigint): LlmAssist | undefined
     } catch {
       // Best-effort: keep the grammar's honest review line on any failure.
       return null;
+    }
+  };
+}
+
+/**
+ * Soft limits around an `LlmAssist` so a photo of a full TrainingPeaks week
+ * (dozens of grammar-`review` lines) cannot burn the route's `maxDuration`
+ * with sequential 120s LLM calls.
+ *
+ * INCIDENTE 2026-08-06: vision + place finished in ~20s; `buildImportProposal`
+ * then called assist once per review line with no cap → Vercel 504 after 300s
+ * and the client only saw "No se pudieron leer las capturas."
+ *
+ * When the cap or deadline is hit, returns `null` immediately (honest review
+ * line survives). Never throws — same contract as the unwrapped assist.
+ */
+export type BudgetLlmAssistOptions = {
+  /** Absolute wall-clock deadline (Date.now() + budget). */
+  deadlineAt: number;
+  /** Max model calls for this proposal. Further review lines stay review. */
+  maxCalls: number;
+  /**
+   * Do not start a new call unless at least this many ms remain before
+   * `deadlineAt`. Leaves headroom for exercise resolve + response serialize.
+   */
+  minRemainingMs: number;
+  logTag?: string;
+};
+
+export function budgetLlmAssist(
+  assist: LlmAssist | undefined,
+  opts: BudgetLlmAssistOptions,
+): LlmAssist | undefined {
+  if (!assist) return undefined;
+
+  let calls = 0;
+  let skipped = 0;
+  const tag = opts.logTag ?? '[import/llm-assist]';
+
+  return async (text: string): Promise<ParsedLine[] | null> => {
+    const remaining = opts.deadlineAt - Date.now();
+    if (calls >= opts.maxCalls || remaining < opts.minRemainingMs) {
+      skipped += 1;
+      if (skipped === 1 || skipped % 10 === 0) {
+        console.info(`${tag} assist_skipped`, {
+          calls,
+          skipped,
+          remaining_ms: remaining,
+          reason: calls >= opts.maxCalls ? 'max_calls' : 'budget',
+        });
+      }
+      return null;
+    }
+
+    calls += 1;
+    const t0 = Date.now();
+    try {
+      return await assist(text);
+    } finally {
+      console.info(`${tag} assist`, {
+        call: calls,
+        ms: Date.now() - t0,
+        remaining_ms: opts.deadlineAt - Date.now(),
+      });
     }
   };
 }

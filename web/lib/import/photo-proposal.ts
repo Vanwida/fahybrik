@@ -42,7 +42,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { idSchema } from '@fahybrid/shared/schema/_primitives';
 import { buildImportProposal, type ImportProposal, type LlmAssist } from './build-proposal';
-import { buildLlmAssist } from './llm-assist';
+import { buildLlmAssist, budgetLlmAssist } from './llm-assist';
 import { readWeekVision, ImportVisionError, type WeekVisionReading } from './vision-reader';
 import { visionReadingNotice } from '@/lib/dashboard/coach/ai/week-notices';
 import { ImportError } from './import-shared';
@@ -64,14 +64,28 @@ export const IMPORT_PHOTO_MAX_IMAGES = 10; // stays under callLlmJsonWithImage's
  * real margin for Vercel's own invocation overhead and response
  * serialization. Checked at each stage boundary: crossing it throws a clean,
  * translated `ImportError` instead of letting Vercel kill the function with
- * an opaque 504 the coach's client can't explain. Not a hard abort on
- * `buildImportProposal` itself (grammar + exercise resolution live in
- * build-proposal.ts / exercise-resolve.ts — out of this file's reach) — but
- * checking the budget right before that stage starts is what stops the LAST
- * leg of the chain from silently running into the wall with zero warning,
- * which is the scenario that actually paged someone.
+ * an opaque 504 the coach's client can't explain.
+ *
+ * The LAST leg (`buildImportProposal`) is also budgeted: every grammar
+ * `review` line used to fire a sequential LLM assist with a 120s provider
+ * timeout (INCIDENTE 2026-08-06 — vision placed in 20s, then 280s of assist
+ * until Vercel 504). `budgetLlmAssist` + a short per-call timeout stop that;
+ * leftover review lines stay honest `review` for the coach to fix, which is
+ * strictly better than handing them nothing after five minutes.
  */
 const PHOTO_BUDGET_MS = 260_000;
+
+/** Max dense-line LLM assists after vision. A full TrainingPeaks week has
+ *  many grammar-`review` lines; unlimited sequential assists was the 504. */
+const PHOTO_ASSIST_MAX_CALLS = Number(process.env.LLM_IMPORT_PHOTO_ASSIST_MAX ?? 4);
+
+/** Do not start another assist unless this much wall time remains inside
+ *  PHOTO_BUDGET_MS — leaves room for exercise resolve + response. */
+const PHOTO_ASSIST_MIN_REMAINING_MS = 25_000;
+
+/** Per-assist abort. Default chat timeout is 120s; four of those alone
+ *  exceed maxDuration even without vision. */
+const PHOTO_ASSIST_TIMEOUT_MS = Number(process.env.LLM_IMPORT_PHOTO_ASSIST_TIMEOUT_MS ?? 40_000);
 
 const importPhotoImageSchema = z
   .object({
@@ -239,13 +253,27 @@ export async function buildPhotoProposal(params: {
     weeks: placedWeeks.length,
   });
 
+  // Injected assist (tests) is left alone; production gets a short-timeout
+  // assist wrapped in a hard call/budget cap so dense weeks cannot 504.
+  const rawAssist =
+    params.llmAssist === null
+      ? undefined
+      : (params.llmAssist ??
+        buildLlmAssist(params.coach_id, { timeout_ms: PHOTO_ASSIST_TIMEOUT_MS }));
   const assist =
-    params.llmAssist === null ? undefined : (params.llmAssist ?? buildLlmAssist(params.coach_id));
+    params.llmAssist != null
+      ? rawAssist
+      : budgetLlmAssist(rawAssist, {
+          deadlineAt: startedAt + PHOTO_BUDGET_MS,
+          maxCalls: PHOTO_ASSIST_MAX_CALLS,
+          minRemainingMs: PHOTO_ASSIST_MIN_REMAINING_MS,
+          logTag: LOG_TAG,
+        });
 
   // Grammar + exercise resolution (parseNotationCell / resolveExercise) live
   // inside buildImportProposal (build-proposal.ts, exercise-resolve.ts) — out
-  // of this file's reach, so this can only time the stage as a whole, not
-  // instrument its internals.
+  // of this file's reach for fine-grained timing, but the assist itself is
+  // budgeted above so this stage can no longer burn the whole maxDuration.
   const resolveStartedAt = Date.now();
   const proposal = await buildImportProposal({
     coach_id: Number(params.coach_id),
@@ -255,6 +283,9 @@ export async function buildPhotoProposal(params: {
   });
   console.info(`${LOG_TAG} grammar_resolve`, {
     items: proposal.summary.total_items,
+    detected: proposal.summary.detected,
+    review: proposal.summary.review,
+    unresolved: proposal.summary.unresolved,
     ms: Date.now() - resolveStartedAt,
   });
 

@@ -5,6 +5,22 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Importar plan por foto (microciclo) — ARREGLADO
+
+**Síntoma:** «No se pudieron leer las capturas» al importar por imagen en un
+microciclo nuevo. Logs: visión OK (~20s) + `placed`, luego 504 a los 300s.
+
+**Causa:** tras la visión, `buildImportProposal` disparaba un LLM assist
+**secuencial sin tope** por cada línea `review` de la gramática. Una semana
+TrainingPeaks tiene decenas; cada llamada puede tardar hasta 120s → Vercel
+mata la función y el cliente solo ve el fallback genérico.
+
+**Fix:** `budgetLlmAssist` (máx 4 llamadas, deadline 260s, timeout 40s/call);
+líneas que queden se quedan en review honestas. Copy de timeout en el diálogo
++ abort del cliente a 275s.
+
+---
+
 ## 6-ago · Que el reloj reconozca el movimiento (DISEÑO — sin construir)
 
 Alex pide un plan para que el reloj sepa qué está haciendo el atleta: las ocho
