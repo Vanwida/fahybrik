@@ -109,6 +109,35 @@ final class FormatoTests: XCTestCase {
         XCTAssertNil(Formato.distancia(-10))
     }
 
+    // MARK: - Porcentaje
+
+    func testPorcentajeConvierteLaFraccionQueSirveElServidor() {
+        // `compliance_pct` llega como 0…1 pese al nombre (shared/domain/coach/
+        // macro-progress.ts). Pintarlo tal cual escribía «1 %» en una semana
+        // entera cumplida — este test existe para que eso no vuelva.
+        XCTAssertEqual(Formato.porcentaje(fraccion: 1.0), "100 %")
+        XCTAssertEqual(Formato.porcentaje(fraccion: 0.67), "67 %")
+        XCTAssertEqual(Formato.porcentaje(fraccion: 0.0), "0 %")
+    }
+
+    func testPorcentajeSinFraccionNoPintaCero() {
+        // Sin dato no se pinta un cero: un 0 % que nadie ha medido es una
+        // acusación inventada (contrato §7).
+        XCTAssertNil(Formato.porcentaje(fraccion: nil))
+    }
+
+    // MARK: - Fechas
+
+    func testFechaLargaYCortaEnCastellano() {
+        XCTAssertEqual(FechaES.larga("2026-07-03"), "3 de julio")
+        XCTAssertEqual(FechaES.corta("2026-07-03"), "3 jul")
+    }
+
+    func testFechaIlegibleNoDevuelveMediaFrase() {
+        XCTAssertNil(FechaES.larga("03/07/2026"))
+        XCTAssertNil(FechaES.corta(""))
+    }
+
     // MARK: - Carga
 
     func testKilosConComaYUnidad() {
