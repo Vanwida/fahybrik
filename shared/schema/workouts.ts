@@ -155,6 +155,16 @@ export type RepsStatus = (typeof REPS_STATUSES)[number];
 export const RX_SCALED_VALUES = ['rx', 'scaled'] as const;
 export type RxScaled = (typeof RX_SCALED_VALUES)[number];
 
+// Provenance of a segment's PULSE specifically (migration 0153) — distinct from
+// `biometricSource` (_primitives.ts), which is a whole-EXECUTION brand/apparatus
+// enum ('concept2', 'garmin'...). This is the narrower vocabulary the live
+// engine's HR-ownership latch (`WorkoutSession.HRSource` / `injectLiveHR`)
+// already resolves per instant: a generic BLE chest/arm strap, the Apple
+// Watch/iPhone via HealthKit, or a strap paired through the PM5. NULL on a
+// segment means no HR was measured, or the row predates this column.
+export const HR_SOURCES = ['strap', 'healthkit', 'pm5'] as const;
+export type HrSource = (typeof HR_SOURCES)[number];
+
 // One working set of a strength segment (table `set_executions`). The parent
 // segment keeps the back-compat aggregate (reps_completed = Σ reps_actual,
 // weight_used_kg = representative load); this carries the per-set honest detail.
@@ -192,6 +202,10 @@ export const segmentExecutionSchema = z.object({
   calories: z.number().nonnegative().nullable(),
   avg_hr: z.number().int().min(30).max(260).nullable(),
   max_hr: z.number().int().min(30).max(260).nullable(),
+  // Provenance of avg_hr/max_hr specifically (migration 0153) — nullable AND
+  // optional so a SELECT against a DB where the migration hasn't run yet (the
+  // column simply absent from the row) still parses.
+  hr_source: z.enum(HR_SOURCES).nullable().optional(),
   // Per-segment modality + modality-native intensity (migration 0045). The DB
   // columns are all nullable (plain text / numeric, no CHECK). `modality` is free
   // text on the column (writes are normalized to run|row|ski|bike|strength|other);

@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-06 · La prioridad de fuentes de FC gobierna el NÚMERO, no solo la etiqueta — y el pulso tiene su propia procedencia
+
+**Decidido:** `WorkoutSession.injectLiveHR` (motor en vivo) ya tenía una jerarquía de prioridad entre fuentes de pulso simultáneas (correa BLE=3 > Apple Watch/HealthKit=2 > PM5=1, con ventana de silencio `hrSourceStaleSeconds`=10 s para el traspaso). El fallo real: esa jerarquía solo decidía la ETIQUETA de la tira de conexión — `liveHRBpm`, `lapHRSamples` (de donde salen `avg_hr`/`max_hr`), el pico del tramo y la cola de HRR se alimentaban de CUALQUIER lectura, sin mirar quién era la dueña. Con dos fuentes activas a la vez (reloj + correa, o reloj + PM5 remando — ambos escenarios normales, no un edge case), `avg_hr` promediaba la unión de dos streams y un artefacto de la fuente más débil podía convertirse en el `max_hr` guardado del tramo. Ahora la decisión de ownership se toma ANTES de tocar ningún acumulador: solo la fuente dueña del instante alimenta el número y los cuatro agregados; una lectura de prioridad menor mientras la dueña sigue viva no entra a NADA (antes sí entraba a todo salvo a la etiqueta).
+
+**Y de forma aditiva:** `segment_executions` gana `hr_source` (migración **0153**, texto nullable, CHECK `strap|healthkit|pm5`) — de qué APARATO salió el pulso guardado, distinto de `source` (que describe el TRAMO: gps/pm5/treadmill/manual). `LapRecord.hrSource` / `SegmentExecutionDTO.hr_source` en Swift, `HR_SOURCES` en `shared/schema/workouts.ts` (mismo patrón que `REPS_STATUSES`/`RX_SCALED_VALUES`, no se reutiliza `biometricSource` porque es un vocabulario de marca/aparato a nivel de EJECUCIÓN entera, una pregunta distinta).
+
+**En consecuencia, no hacer:** no volver a separar "quién tiene la etiqueta" de "quién alimenta el dato" en ningún stream concurrente del motor en vivo — son la MISMA decisión de ownership, tomada una vez, antes de tocar cualquier acumulador. Y no confundir `source` (procedencia del tramo) con `hr_source` (procedencia del pulso): un tramo de cinta puede tener su única FC medida por el Watch.
+
+**Pendiente de aplicar (autoriza Alex siempre):** la migración 0153 está escrita pero SIN aplicar — ni en el branch de test ni en producción. El código de `web/lib/sync/ingest-execution-segments.ts` ya referencia la columna nueva en el INSERT/UPSERT, así que desplegarlo sin aplicar antes la migración rompe TODO el ingest de segmentos (no solo el HR), con el típico error de Postgres de columna inexistente.
+
+---
+
 ## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
 
 **Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.

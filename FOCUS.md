@@ -1,7 +1,7 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-30**
+Última actualización: **2026-08-06**
 
 ---
 
@@ -16,6 +16,25 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 **En curso / lo siguiente:** las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
 
 **Esperan decisión de Alex:** si guardamos la serie de ritmo (`execution_streams`) · el identificador de coach en el enlace público de captura · las tres filas «Pablo Amigo» (60/61/62) con los atletas repartidos · el modelo de las 5 estaciones de HYROX · borrar o revivir `methodology_blocks`/`methodology_rules` (motor muerto cuya forma sigue siendo un catálogo de fases) · la firma de distribución, que bloquea TestFlight.
+
+---
+
+## Cerrado el 6-ago · La jerarquía de fuentes de FC gobierna el número, no solo la etiqueta
+
+`WorkoutSession.injectLiveHR` ya tenía la jerarquía correcta entre pulso simultáneo
+(correa=3 > Watch/HealthKit=2 > PM5=1, ventana de 10 s) pero solo mandaba en la
+ETIQUETA de la tira de conexión: con dos fuentes activas (reloj+correa, o
+reloj+PM5 remando — normal, no un edge case), `avg_hr`/`liveHRBpm` se alimentaban
+de CUALQUIER lectura, así que `avg_hr` era la media de la unión de dos streams y
+un artefacto del PM5 podía colarse como `max_hr` del tramo aunque la correa nunca
+llegara ahí. Ahora la decisión de ownership se toma ANTES de tocar ningún
+acumulador — solo la fuente dueña alimenta el número y los cuatro agregados.
+Aditivo: `segment_executions.hr_source` (migración **0153, escrita y SIN
+aplicar**) dice de qué aparato salió el pulso, distinto de `source` (el tramo).
+11 tests nuevos/corregidos en `HRProvenanceTests`, 792 tests iOS en verde, build
+FAHYBRIK + FAHYBRIKWatch limpio, tsc web limpio. Detalle en `docs/DECISIONS.md`
+(2026-08-06). **Pendiente:** aplicar 0153 antes de desplegar el ingest — si no,
+rompe TODO el sync de segmentos, no solo el HR.
 
 ---
 

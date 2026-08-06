@@ -846,6 +846,16 @@ struct LapRecord: Codable, Identifiable {
     /// The monitor's own per-interval splits (ErgData interval table), captured
     /// verbatim from the PM5. Empty/nil when no split boundary fired this segment.
     var ergSplits: [PM5Split]? = nil
+
+    // MARK: HR provenance — el fallo de la mezcla de fuentes concurrentes (correa
+    // + Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
+    // treadmill/manual), no específicamente de qué aparato salió el pulso.
+    /// Provenance of the PULSE specifically — "strap" | "healthkit" | "pm5", nil
+    /// when this lap has no HR at all. Set from `WorkoutSession.hrSource` — the
+    /// single owning device the priority latch (`injectLiveHR`) already tracks —
+    /// at the instant this lap had any HR samples; nil otherwise. Defaulted so
+    /// older persisted snapshots and the freeform fallback keep building.
+    var hrSource: String? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -948,6 +958,14 @@ struct SegmentExecutionDTO: Codable {
     /// "warmup" | "main" | "cooldown". Un calentamiento es `kind: work` en la
     /// gramática, así que sin la fase no se distingue de una serie.
     var leg_phase: String? = nil
+
+    // HR provenance — el fallo de la mezcla de fuentes concurrentes (correa +
+    // Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
+    // treadmill/manual), no específicamente el pulso.
+    /// Provenance of `avg_hr`/`max_hr` — "strap" | "healthkit" | "pm5", null when
+    /// this segment has no HR at all. See `LapRecord.hrSource`. `var` with a
+    /// default so older payloads (watch relay, cached snapshots) keep building.
+    var hr_source: String? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit
