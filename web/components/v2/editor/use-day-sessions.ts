@@ -24,6 +24,12 @@ export function useDaySessions(initial: EditorSession[]) {
   const setSessionFocus = (uid: string, focus: string) =>
     setSessions((prev) => prev.map((s) => (s.uid === uid ? { ...s, focus } : s)));
 
+  // Nota del entreno (session.notes) — lo que el atleta lee antes de empezar.
+  // Mismo patrón que el título: autoritativa desde el input, y vaciarla la borra
+  // (el wire descarta el vacío y el serializer persiste el borrado).
+  const setSessionNote = (uid: string, notes: string) =>
+    setSessions((prev) => prev.map((s) => (s.uid === uid ? { ...s, notes } : s)));
+
   const addSession = () => {
     const slot = NEXT_SLOT[sessions.length] ?? 'extra';
     setSessions((prev) => [
@@ -182,6 +188,7 @@ export function useDaySessions(initial: EditorSession[]) {
   return {
     sessions,
     setSessionFocus,
+    setSessionNote,
     addSession,
     addBlockOfType,
     addBlocksToSession,

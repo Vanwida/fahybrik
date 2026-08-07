@@ -326,6 +326,7 @@ export function DayEditor({
                 <SessionPartCard
                   session={session}
                   onChangeFocus={(focus) => day.setSessionFocus(session.uid, focus)}
+                  onChangeNote={(notes) => day.setSessionNote(session.uid, notes)}
                   onSuggestTitle={() => suggestTitle(session)}
                   suggesting={suggestingUid === session.uid}
                   onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}

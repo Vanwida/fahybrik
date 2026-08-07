@@ -7,7 +7,8 @@
 // filas y la dosis común viven en BlockItemTable. El reorden de bloques sigue
 // siendo dnd-kit (puntero + teclado); «＋ Bloque» y «Desde la biblioteca» bajan
 // al pie de la sesión. La cabecera: chip de slot + título del entreno (display)
-// + Sugerir título + Redactar con IA — toda la función de siempre.
+// + Sugerir título + Redactar con IA, y debajo la NOTA del entreno — lo que el
+// coach le dice al atleta sobre él y que este lee en el brief previo del móvil.
 
 import { useState } from 'react';
 import {
@@ -29,9 +30,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ArchetypeId } from '@/lib/dashboard/v2/archetypes';
+import { SESSION_NOTES_MAX } from '@fahybrid/shared/schema/program-templates';
 import { MODALITY_META } from '@/components/v2/constants';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { NoteField } from './fields';
 import { BlockItemTable } from './BlockItemTable';
 import { ArchetypeGrid } from './ArchetypePicker';
 import { OptionalBadge } from './compositor-chrome';
@@ -46,6 +49,7 @@ const SLOT_LABEL: Record<EditorSession['slot'], string> = {
 export function SessionPartCard({
   session,
   onChangeFocus,
+  onChangeNote,
   onSuggestTitle,
   suggesting,
   onSuggestWorkout,
@@ -61,6 +65,8 @@ export function SessionPartCard({
 }: {
   session: EditorSession;
   onChangeFocus: (focus: string) => void;
+  /** Escribe la NOTA del entreno — lo que el atleta lee antes de empezarlo. */
+  onChangeNote: (notes: string) => void;
   onSuggestTitle: () => void;
   suggesting: boolean;
   /** Abre «Redactar con IA» para esta sesión (#33) — borradores que el coach inserta. */
@@ -102,54 +108,68 @@ export function SessionPartCard({
 
   return (
     <section className="overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
-      {/* Cabecera de la sesión */}
-      <header className="flex flex-wrap items-center gap-2.5 border-b border-[color:var(--v2-border)] px-4 py-3">
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-1 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
-          {SLOT_LABEL[session.slot]}
-          {session.time_hint ? ` · ${session.time_hint}` : ''}
-        </span>
-        <label className="sr-only" htmlFor={`focus-${session.uid}`}>
-          Título del entreno
-        </label>
-        <input
-          id={`focus-${session.uid}`}
-          type="text"
-          value={session.focus ?? ''}
-          maxLength={120}
-          onChange={(e) => onChangeFocus(e.target.value)}
-          placeholder="Título del entreno"
-          className="v2-display v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-transparent bg-transparent px-2 py-1 text-lg text-[color:var(--v2-fg)] transition-colors placeholder:text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border)] focus:border-[color:var(--v2-accent)]"
-        />
-        <div className="flex shrink-0 items-center gap-1.5">
-          {hasBlocks ? (
+      {/* Cabecera de la sesión: el TÍTULO del entreno y, debajo, lo que el coach
+          le dice al atleta sobre él. La nota va subordinada al título (el título
+          es el sujeto) pero SIEMPRE visible — el coach edita desde el móvil. */}
+      <header className="space-y-2 border-b border-[color:var(--v2-border)] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-1 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+            {SLOT_LABEL[session.slot]}
+            {session.time_hint ? ` · ${session.time_hint}` : ''}
+          </span>
+          <label className="sr-only" htmlFor={`focus-${session.uid}`}>
+            Título del entreno
+          </label>
+          <input
+            id={`focus-${session.uid}`}
+            type="text"
+            value={session.focus ?? ''}
+            maxLength={120}
+            onChange={(e) => onChangeFocus(e.target.value)}
+            placeholder="Título del entreno"
+            className="v2-display v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-transparent bg-transparent px-2 py-1 text-lg text-[color:var(--v2-fg)] transition-colors placeholder:text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border)] focus:border-[color:var(--v2-accent)]"
+          />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {hasBlocks ? (
+              <button
+                type="button"
+                onClick={onSuggestTitle}
+                disabled={suggesting}
+                title="Sugerir un título a partir del contenido del entreno"
+                className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-fg)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+              >
+                <MIcon name={suggesting ? 'progress_activity' : 'lightbulb'} size={15} />
+                <span className="hidden sm:inline">
+                  {suggesting ? 'Sugiriendo…' : 'Título'}
+                </span>
+              </button>
+            ) : null}
+            {/* Redactar con IA (#33) — borradores para ESTA sesión (correcto en AM+PM). */}
             <button
               type="button"
-              onClick={onSuggestTitle}
-              disabled={suggesting}
-              title="Sugerir un título a partir del contenido del entreno"
-              className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-fg)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+              onClick={onSuggestWorkout}
+              title="Coach IA redacta los bloques de esta sesión a partir de un foco"
+              className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
             >
-              <MIcon name={suggesting ? 'progress_activity' : 'lightbulb'} size={15} />
-              <span className="hidden sm:inline">
-                {suggesting ? 'Sugiriendo…' : 'Título'}
-              </span>
+              <MIcon name="draw" size={15} />
+              <span className="hidden sm:inline">Redactar</span>
             </button>
-          ) : null}
-          {/* Redactar con IA (#33) — borradores para ESTA sesión (correcto en AM+PM). */}
-          <button
-            type="button"
-            onClick={onSuggestWorkout}
-            title="Coach IA redacta los bloques de esta sesión a partir de un foco"
-            className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
-          >
-            <MIcon name="draw" size={15} />
-            <span className="hidden sm:inline">Redactar</span>
-          </button>
-          <span className="v2-num text-label text-[color:var(--v2-faint)]">
-            {session.blocks.length} {session.blocks.length === 1 ? 'bloque' : 'bloques'}
-            {totalMin > 0 ? ` · ~${totalMin} min` : ''}
-          </span>
+            <span className="v2-num text-label text-[color:var(--v2-faint)]">
+              {session.blocks.length} {session.blocks.length === 1 ? 'bloque' : 'bloques'}
+              {totalMin > 0 ? ` · ~${totalMin} min` : ''}
+            </span>
+          </div>
         </div>
+
+        <NoteField
+          id={`session-note-${session.uid}`}
+          label="Nota para el atleta"
+          hint="La lee en el móvil justo antes de empezar este entreno."
+          value={session.notes ?? ''}
+          placeholder="Hoy vamos a por el ritmo. No te pases en la primera serie."
+          maxLength={SESSION_NOTES_MAX}
+          onChange={onChangeNote}
+        />
       </header>
 
       {/* Bloques — secciones planas reordenables, separadas por hairlines. */}

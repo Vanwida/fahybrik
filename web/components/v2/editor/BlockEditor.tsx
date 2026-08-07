@@ -5,7 +5,8 @@
 // biblioteca. Edita UN bloque: cabecera con contexto + título grande + tag de
 // modalidad derivado del ejercicio (compositor-chrome), el formulario a medida
 // del arquetipo (ArchetypeBlockForm) o los tres ejes por línea como último
-// recurso, y al pie la barra fija «El atleta ve» con el Guardar bloque
+// recurso, la NOTA de cada línea (lo que el atleta lee al abrir ese ejercicio en
+// el móvil) y al pie la barra fija «El atleta ve» con el Guardar bloque
 // (AthleteSeesBar). Un bloque puede tener varias líneas (bloque comprometido =
 // carrera + wall balls); la vía legacy las edita una a una con su tira de
 // pestañas — exactamente el modelo de dominio (cada línea con SU modalidad/
@@ -15,10 +16,12 @@ import { useState } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { undosedLines, type UndosedLine } from '@/lib/dashboard/v2/block-dose';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import { ITEM_NOTES_MAX } from '@fahybrid/shared/schema/program-templates';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
 import { isStrengthModality } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { NoteField } from './fields';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthleteSeesBar } from './AthletePreviewLine';
@@ -248,9 +251,72 @@ export function BlockEditor({
         </div>
       )}
 
+      {/* La nota de cada línea, donde se pone su dosis: el ajuste de HOY para ese
+          ejercicio. Va aquí y no dentro de cada formulario de arquetipo porque es
+          del ITEM, no de la prescripción — así hay UN solo sitio donde escribirla
+          y las dos vías del compositor (arquetipo y legacy) la tienen igual. */}
+      {block.items.length > 0 ? (
+        <LineNotes
+          items={block.items}
+          onChangeNote={(uid, notes) => updateItem(uid, { notes })}
+        />
+      ) : null}
+
       {/* La barra fija del pie: «El atleta ve» en vivo + Guardar bloque. */}
       <AthleteSeesBar block={block} athleteName={athleteName} onSave={onSave} />
     </div>
+  );
+}
+
+/**
+ * La NOTA por línea prescrita — texto libre que el atleta lee al abrir ESE
+ * ejercicio en su móvil. Es el ajuste del día («baja la carga, vienes de la
+ * tirada del domingo»), NO la descripción ni las claves permanentes del
+ * ejercicio: eso se escribe una vez en la Biblioteca y vale para siempre. La
+ * pista bajo el campo lo dice, para que el coach no confunda las dos.
+ *
+ * Con una sola línea (casi todo el material del coach) el campo se titula solo y
+ * no hace falta encabezar la sección: el ejercicio es el que tiene delante. Con
+ * varias, la sección se encabeza una vez y cada campo lleva SU ejercicio.
+ */
+const LINE_NOTE_HINT =
+  'Es solo para este día. Lo que vale siempre va en la ficha del ejercicio de tu biblioteca.';
+
+function LineNotes({
+  items,
+  onChangeNote,
+}: {
+  items: EditorItem[];
+  onChangeNote: (uid: string, notes: string) => void;
+}) {
+  const single = items.length === 1;
+  return (
+    <section className="space-y-2.5">
+      {single ? null : (
+        <div className="space-y-0.5">
+          <span className="v2-micro block">Notas para el atleta</span>
+          <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
+            Las ve al abrir cada ejercicio en el móvil. {LINE_NOTE_HINT}
+          </p>
+        </div>
+      )}
+      {items.map((it) => (
+        <NoteField
+          key={it.uid}
+          id={`item-note-${it.uid}`}
+          label={
+            single
+              ? 'Nota para el atleta'
+              : it.exercise_name || 'Nota de la línea sin ejercicio'
+          }
+          hint={single ? `La ve al abrir este ejercicio en el móvil. ${LINE_NOTE_HINT}` : undefined}
+          value={it.notes ?? ''}
+          placeholder="Baja la carga, vienes de la tirada del domingo."
+          maxLength={ITEM_NOTES_MAX}
+          onChange={(v) => onChangeNote(it.uid, v)}
+        />
+      ))}
+    </section>
   );
 }
 
