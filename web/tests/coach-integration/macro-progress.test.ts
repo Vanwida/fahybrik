@@ -106,16 +106,65 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   test('past week below 50% completion is marked missed', async () => {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
+    const { microcycleId: microId } = await makeMicrocycle({
+      sql,
+      athleteId: fx.athleteId,
+      startIso: '2026-03-02',
+      endIso: '2026-03-08',
+      weekNumber: 1,
+    });
     const tplId = await makeTemplate({ fx, name: 's' });
     // Past week with 0/2 completed → missed (completed < scheduled*0.5).
     for (const d of WK1) {
-      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'missed' });
+      await makeAssignment({
+        fx,
+        templateId: tplId,
+        scheduledForIso: d,
+        status: 'missed',
+        microcycleId: microId,
+      });
     }
 
     const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
     const w1 = p.weeks.find((w) => w.week_start === '2026-03-02');
     expect(w1?.status).toBe('missed');
     expect(w1?.compliance_pct).toBe(0);
+  });
+
+  test('lo que NO es del plan no crea semanas de progreso', async () => {
+    // El bug real (7-ago): el atleta tenía entrenos libres y tests sueltos de
+    // semanas anteriores, y el «progreso del microciclo» los contaba como sus
+    // semanas — marcaba como ACTUAL una semana de entrenos propios y empujaba
+    // el microciclo recién asignado a la S4. El coach leía que su atleta iba
+    // por la semana 3 de un plan que no había empezado.
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'libre' });
+    // Entrenos SIN microciclo: libres del atleta, calibración ad-hoc, semana cero.
+    for (const d of WK1) {
+      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'completed' });
+    }
+    // Y una semana que SÍ es del plan.
+    const { microcycleId: microId } = await makeMicrocycle({
+      sql,
+      athleteId: fx.athleteId,
+      startIso: '2026-03-09',
+      endIso: '2026-03-15',
+      weekNumber: 1,
+    });
+    for (const d of WK2) {
+      await makeAssignment({
+        fx,
+        templateId: tplId,
+        scheduledForIso: d,
+        status: 'scheduled',
+        microcycleId: microId,
+      });
+    }
+
+    const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    // Solo la semana del plan. La de entrenos sueltos no existe para el progreso.
+    expect(p.weeks.map((w) => w.week_start)).toEqual(['2026-03-09']);
   });
 
   test('athlete with no macrocycle returns empty progress (no crash)', async () => {

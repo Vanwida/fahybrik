@@ -122,6 +122,16 @@ export async function buildMacroProgress(params: {
         count(*) filter (where wa.status = 'completed')::int as completed
       from workout_assignments wa
       where wa.athlete_id = ${params.athlete_id as number}
+        -- SOLO lo que pertenece a un microciclo. Sin esto, el «progreso del
+        -- microciclo» contaba TODA semana en que el atleta tuvo cualquier cosa:
+        -- entrenos libres suyos, tests sueltos, restos de pruebas. En el caso
+        -- real de Alex eso pintaba S1..S3 con entrenos de julio que no son de
+        -- ningún plan, marcaba S3 como la semana actual, y el microciclo recién
+        -- asignado (que arranca el lunes) aparecía como S4 — el coach leía que
+        -- su atleta iba por la semana 3 de un plan que no ha empezado.
+        -- Un microcycle_id null es exactamente «esto no es del plan»: lo llevan
+        -- los entrenos libres, la calibración y la semana cero, por diseño.
+        and wa.microcycle_id is not null
       group by 1
     )
     select
@@ -475,6 +485,10 @@ export async function buildAthleteMacroProgress(params: {
         count(*) filter (where wa.status = 'completed')::int as completed
       from workout_assignments wa
       where wa.athlete_id = ${params.athlete_id as number}
+        -- Mismo acotado que el ribbon del coach (arriba): el progreso del plan
+        -- solo cuenta lo que ES del plan. Un entreno libre del atleta no puede
+        -- crear una semana de su periodización.
+        and wa.microcycle_id is not null
       group by 1
     )
     select to_char(week_start, 'YYYY-MM-DD') as week_start, scheduled, completed
