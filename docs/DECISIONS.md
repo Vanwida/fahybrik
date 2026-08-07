@@ -10,6 +10,27 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-07 · La biblioteca de bloques no tiene 3 bugs de importador — tiene un parser viejo
+
+**El encargo original** («fase 2») pedía arreglar 3 bugs concretos del importador cazados leyendo `block_exercises` en crudo: %RM leído como reps (block 16), km/h leído como metros (block 43), descanso guardado como trabajo (block 37).
+
+**Verificado ANTES de tocar código: los 3 no reproducen en la gramática de hoy.** Se corrieron los 3 verbatims reales por `parseNotationCell` (shared/domain/import) tal cual está en producción:
+- `"4r every 2': 3 power clean 65-75% + 5 high box jump"` → `confidence:'review'`, verbatim conservado en `note`. La gramática se niega a inventar el reparto EMOM multi-movimiento en vez de leer «65» como reps.
+- `"Threshold cinta: 4x2'30'' a 17km/h – 2' trote a 11km/h"` → `target:{kind:'pace', value_s:212}` (ritmo correcto, no metros).
+- `"12 rounds x 400m run – 1' rest"` → `rest_s:60` (correcto), nunca `work_s`.
+
+**Conclusión: `block_exercises` no se generó con esta gramática.** Es de UN SCRIPT DE UN SOLO USO anterior (`infra/scripts/retype_run/_erg/_strength/_core_mobility/_functional_blocks.ts`, `parse_blocks_lib/_structured.ts`), previo al contrato de honestidad actual (degradar a `review`, nunca inventar). Arreglar "3 bugs del parser" habría sido perseguir un fantasma — el parser de hoy ya está bien; lo que hay que reparar son los DATOS que quedaron atrás.
+
+**Dry-run contra las 99 filas reales de coach 60** (`infra/scripts/repair_block_exercises_grammar.ts`, solo lectura): re-parsear el verbatim (`blocks.description`, Model A, fuente de verdad) y comparar contra `block_exercises` da 4 bloques enteramente vacíos + 18 filas vacías en bloques mixtos (22 rellenos limpios y seguros), ~53 bloques donde el fresco DIFIERE del guardado (mayoría: el fresco es estrictamente más completo, no contradictorio — necesita un diff por CAMPO, no una comparación JSON entera) y ~29 que ni la gramática de hoy resuelve (WODs/EMOMs multi-movimiento densos, correctamente a `review`).
+
+**Por qué NO se aplicó nada esta sesión:** el primer intento de `--apply` reveló un fallo de clasificación real (`paramsHasContent()` contaba `{sets:4}` — un contador sin reps ni carga — como "contenido", lo que escondía filas genuinamente vacías dentro de bloques con alguna fila buena). Corregirlo bien, más sustituir el match de ejercicio por nombre exacto por el resolutor real (`resolveExercise()`, fuzzy, `web/lib/import/exercise-resolve.ts`) y construir un diff por campo (no por objeto entero) es más trabajo del que cabía en la sesión. Aplicar sobre la ÚNICA biblioteca real de producción con un heurístico que ya se demostró roto habría violado la regla de cero datos falsos en cuentas reales.
+
+**En consecuencia, no hacer:** no reabrir esto como "arreglar 3 bugs" — el marco correcto es "re-tipar la biblioteca con la gramática actual". No aplicar `repair_block_exercises_grammar.ts` sin antes: (1) diff por campo, no por objeto entero serializado; (2) `resolveExercise()` real en vez de match de nombre exacto; (3) decidir qué hacer con los ~53 bloques "difieren" caso a caso o con una regla más fina que "estrictamente más completo = aplicar".
+
+**Dónde vive:** `infra/scripts/repair_block_exercises_grammar.ts` (solo lectura, documentado, listo para retomar).
+
+---
+
 ## 2026-08-06 · `plan-bloque` pasa a ser la pestaña Plan real — InicioView deja de duplicar «hoy»
 
 **Decidido:** el mockup `plan-bloque` (doble, `propuesta` desde el 29-jul: hoy en grande + carril de la semana + entrada al bloque) se construye en Swift y **sustituye el contenido de `PlanView`**. `InicioView` deja de pintar su propia versión de «qué toca hoy» — pierde `heroSection`, el `pmSession` de la segunda sesión y `hechoHoySection` — porque esa pregunta pasa a responderla el Plan, una sola vez. `InicioView` conserva lo que NO es plan: readiness, carril hacia la carrera, tendencias, entreno libre, panel de pareja, pasos.
