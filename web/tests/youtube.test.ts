@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   isValidYouTubeUrl,
+  parseYouTubeLink,
   parseYouTubeVideoId,
   youtubeEmbedUrl,
+  youtubeUrlSchema,
   youtubeWatchUrl,
 } from '@fahybrid/shared/youtube';
 
@@ -47,5 +49,41 @@ describe('youtubeWatchUrl', () => {
     expect(youtubeWatchUrl('dQw4w9WgXcQ')).toBe(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
+  });
+});
+
+// La verticalidad de un Short SOLO viaja en la forma de la URL. Si al guardar
+// se colapsa a `watch?v=`, iOS lo pinta en 16:9 con bandas negras — su rama
+// vertical está escrita pero nunca se ejecuta. Esto lo fija.
+describe('Shorts — la forma se conserva', () => {
+  it('distingue un Short de un vídeo normal al leerlo', () => {
+    expect(parseYouTubeLink('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toEqual({
+      id: 'dQw4w9WgXcQ',
+      isShort: true,
+    });
+    expect(parseYouTubeLink('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toEqual({
+      id: 'dQw4w9WgXcQ',
+      isShort: false,
+    });
+  });
+
+  it('GUARDA un Short como /shorts/, no como watch', () => {
+    expect(youtubeUrlSchema.parse('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe(
+      'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+    );
+  });
+
+  it('un vídeo normal se sigue guardando como watch', () => {
+    expect(youtubeUrlSchema.parse('https://youtu.be/dQw4w9WgXcQ')).toBe(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    expect(youtubeUrlSchema.parse('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+  });
+
+  it('el vacío sigue siendo null y lo inválido sigue fallando', () => {
+    expect(youtubeUrlSchema.parse('')).toBeNull();
+    expect(() => youtubeUrlSchema.parse('https://vimeo.com/123')).toThrow();
   });
 });
