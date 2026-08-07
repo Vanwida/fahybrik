@@ -30,7 +30,7 @@ import type { ScoredCandidate } from '@/lib/dashboard/exercises/near-match';
 import {
   collectMissingExercises,
   type MissingExercise,
-  type ResolvedToken,
+  type MissingExerciseDecisions,
 } from '@/lib/dashboard/v2/import-missing';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 
@@ -84,8 +84,11 @@ export function ImportMissingExercisesPanel({
   onClose,
 }: {
   weeks: ReviewWeek[];
-  /** Los tokens ya resueltos, para estampar sus ids en las líneas. */
-  onResolved: (resolved: ResolvedToken[]) => void;
+  /**
+   * Crear/fusionar + descartar. El caller estampa ids Y quita las líneas
+   * descartadas — sin lo segundo el confirm sigue bloqueado.
+   */
+  onResolved: (decisions: MissingExerciseDecisions) => void;
   onClose: () => void;
 }) {
   const missing = useMemo(() => collectMissingExercises(weeks), [weeks]);
@@ -95,6 +98,9 @@ export function ImportMissingExercisesPanel({
   const [candidates, setCandidates] = useState<Map<string, ScoredCandidate[]>>(new Map());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Feedback del «Todos → elige»: el select se resetea a vacío a propósito
+   *  (es un atajo, no un estado), y sin esto el coach cree que no hizo nada. */
+  const [groupApplied, setGroupApplied] = useState<Map<string, string>>(() => new Map());
 
   // Las coincidencias las busca el servidor: el catálogo vive allí y bajarse
   // cientos de ejercicios para compararlos en el navegador sería peor.
@@ -136,7 +142,7 @@ export function ImportMissingExercisesPanel({
 
   /** Todas las de una tarjeta a la misma modalidad: es el atajo que convierte
    *  treinta decisiones en media docena. */
-  const setGroupModality = (keys: string[], modality: Modality) => {
+  const setGroupModality = (title: string, keys: string[], modality: Modality) => {
     setDecisions((cur) => {
       const copy = new Map(cur);
       for (const key of keys) {
@@ -145,6 +151,12 @@ export function ImportMissingExercisesPanel({
           copy.set(key, { ...prev, modality, category: defaultCategoryForModality(modality) });
         }
       }
+      return copy;
+    });
+    const label = MODALITY_OPTIONS.find((o) => o.value === modality)?.label ?? modality;
+    setGroupApplied((cur) => {
+      const copy = new Map(cur);
+      copy.set(title, label);
       return copy;
     });
   };
@@ -162,15 +174,18 @@ export function ImportMissingExercisesPanel({
 
   const toCreate = missing.filter((m) => decisions.get(m.key)?.action === 'create');
   const toMerge = missing.filter((m) => decisions.get(m.key)?.action === 'merge');
+  const toDiscard = missing.filter((m) => decisions.get(m.key)?.action === 'discard');
   const pending = toCreate.filter((m) => blockers(decisions.get(m.key)!).length > 0);
-  const canSubmit = !saving && pending.length === 0 && toCreate.length + toMerge.length > 0;
+  // Se puede enviar solo descartando (sin crear): saca basura y desbloquea.
+  const canSubmit =
+    !saving && pending.length === 0 && toCreate.length + toMerge.length + toDiscard.length > 0;
 
   const submit = async () => {
     if (!canSubmit) return;
     setSaving(true);
     setError(null);
     try {
-      const resolved: ResolvedToken[] = [];
+      const resolved: MissingExerciseDecisions['resolved'] = [];
       for (const m of toMerge) {
         const d = decisions.get(m.key)!;
         if (d.mergeId) {
@@ -211,7 +226,10 @@ export function ImportMissingExercisesPanel({
         });
       }
 
-      onResolved(resolved);
+      onResolved({
+        resolved: [...resolved],
+        discardedKeys: toDiscard.map((m) => m.key),
+      });
     } catch {
       setError('No se pudo conectar. Inténtalo de nuevo.');
     } finally {
@@ -263,18 +281,24 @@ export function ImportMissingExercisesPanel({
                   {title}
                 </h3>
                 <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-                  Todos
+                  <span className="whitespace-nowrap">
+                    {groupApplied.get(title)
+                      ? `Todos: ${groupApplied.get(title)}`
+                      : 'Todos · modalidad'}
+                  </span>
                   <select
                     aria-label={`Modalidad para todos los ejercicios de ${title}`}
                     value=""
                     onChange={(e) => {
                       if (e.target.value) {
-                        setGroupModality(rows.map((r) => r.key), e.target.value as Modality);
+                        setGroupModality(title, rows.map((r) => r.key), e.target.value as Modality);
                       }
                     }}
                     className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
                   >
-                    <option value="">— elige —</option>
+                    <option value="">
+                      {groupApplied.get(title) ? 'cambiar…' : '— elige —'}
+                    </option>
                     {MODALITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
@@ -374,51 +398,57 @@ export function ImportMissingExercisesPanel({
                       ) : null}
 
                       {d.action === 'create' ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <select
-                            value={d.modality ?? ''}
-                            aria-label={`Modalidad de ${d.name || m.token}`}
-                            onChange={(e) => {
-                              const modality = e.target.value as Modality;
-                              patch(m.key, {
-                                modality,
-                                category: defaultCategoryForModality(modality),
-                              });
-                            }}
-                            className={cn(
-                              'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
-                              d.modality
-                                ? 'border-[color:var(--v2-border-strong)]'
-                                : 'border-dashed border-[color:var(--v2-warn)]',
-                            )}
-                          >
-                            <option value="">— modalidad —</option>
-                            {MODALITY_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={d.category ?? ''}
-                            aria-label={`Tipo de ${d.name || m.token}`}
-                            onChange={(e) =>
-                              patch(m.key, { category: e.target.value as ExerciseCategory })
-                            }
-                            className={cn(
-                              'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
-                              d.category
-                                ? 'border-[color:var(--v2-border-strong)]'
-                                : 'border-dashed border-[color:var(--v2-warn)]',
-                            )}
-                          >
-                            <option value="">— tipo —</option>
-                            {CATEGORY_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-1.5 text-nano text-[color:var(--v2-muted)]">
+                            <span className="font-semibold">Modalidad</span>
+                            <select
+                              value={d.modality ?? ''}
+                              aria-label={`Modalidad de ${d.name || m.token}`}
+                              onChange={(e) => {
+                                const modality = e.target.value as Modality;
+                                patch(m.key, {
+                                  modality,
+                                  category: defaultCategoryForModality(modality),
+                                });
+                              }}
+                              className={cn(
+                                'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
+                                d.modality
+                                  ? 'border-[color:var(--v2-border-strong)]'
+                                  : 'border-dashed border-[color:var(--v2-warn)]',
+                              )}
+                            >
+                              <option value="">— elige —</option>
+                              {MODALITY_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-nano text-[color:var(--v2-muted)]">
+                            <span className="font-semibold">Tipo</span>
+                            <select
+                              value={d.category ?? ''}
+                              aria-label={`Tipo de ${d.name || m.token}`}
+                              onChange={(e) =>
+                                patch(m.key, { category: e.target.value as ExerciseCategory })
+                              }
+                              className={cn(
+                                'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
+                                d.category
+                                  ? 'border-[color:var(--v2-border-strong)]'
+                                  : 'border-dashed border-[color:var(--v2-warn)]',
+                              )}
+                            >
+                              <option value="">— elige —</option>
+                              {CATEGORY_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           {m.evidence !== 'ninguna' && d.modality ? (
                             <span className="text-nano text-[color:var(--v2-warn)]">
                               {m.evidence === 'linea'
@@ -476,12 +506,19 @@ export function ImportMissingExercisesPanel({
                 className={saving ? 'animate-spin' : undefined}
               />
               {saving
-                ? 'Creando…'
-                : toMerge.length > 0 && toCreate.length > 0
-                  ? `Crear ${toCreate.length} y unir ${toMerge.length}`
-                  : toMerge.length > 0
-                    ? `Unir ${toMerge.length}`
-                    : `Crear ${toCreate.length}`}
+                ? 'Aplicando…'
+                : (() => {
+                    const parts: string[] = [];
+                    if (toCreate.length > 0) parts.push(`Crear ${toCreate.length}`);
+                    if (toMerge.length > 0) parts.push(`unir ${toMerge.length}`);
+                    if (toDiscard.length > 0 && toCreate.length + toMerge.length === 0) {
+                      return toDiscard.length === 1
+                        ? 'Descartar 1 y seguir'
+                        : `Descartar ${toDiscard.length} y seguir`;
+                    }
+                    if (parts.length === 0) return 'Aplicar';
+                    return parts.join(' y ');
+                  })()}
             </button>
           </div>
         </footer>

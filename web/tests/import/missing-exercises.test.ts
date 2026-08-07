@@ -8,11 +8,15 @@ import { describe, expect, test } from 'vitest';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 import {
+  applyMissingExerciseDecisions,
   applyResolvedTokens,
   collectMissingExercises,
   realMissingCount,
+  removeNonExerciseItems,
+  stripEmptyExerciseItems,
 } from '@/lib/dashboard/v2/import-missing';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
+import { totalUnresolved } from '@/lib/dashboard/v2/import-review';
 
 let seq = 0;
 const uid = (p: string) => `t-${p}-${++seq}`;
@@ -200,5 +204,81 @@ describe('estampar lo decidido cierra el círculo', () => {
   test('sin nada decidido, las semanas salen igual', () => {
     const weeks = [week([session('Fuerza', [{ name: 'Cat Cow' }])])];
     expect(applyResolvedTokens(weeks, [])).toEqual(weeks);
+  });
+});
+
+describe('descartar y líneas sin nombre desbloquean el confirmar', () => {
+  // El bug del 7-ago: el panel creaba 5 ejercicios y descartaba títulos/«A)»,
+  // pero esas líneas seguían en el modelo → «43 sin ejercicio del catálogo»
+  // y Confirmar muerto. Crear + descartar tiene que BAJAR el contador a 0.
+
+  test('descartar un título de tarjeta LO QUITA del import (no solo del catálogo)', () => {
+    const weeks = [
+      week([
+        session('FUERZA PARTE ALTA', [
+          { name: 'FUERZA PARTE ALTA' },
+          { name: 'Push Jerk' },
+        ]),
+      ]),
+    ];
+    const next = removeNonExerciseItems(weeks, ['fuerza parte alta']);
+    const items = next[0]!.days[0]!.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items));
+    expect(items.map((i) => i.exercise_name)).toEqual(['Push Jerk']);
+    expect(totalUnresolved(next)).toBe(1);
+  });
+
+  test('una línea sin nombre no es un ejercicio: se pliega a coach_note y deja de bloquear', () => {
+    const weeks = [
+      week([
+        session('Fuerza', [
+          { name: '' },
+          { name: 'Push Jerk' },
+        ]),
+      ]),
+    ];
+    // El helper de test pone name:'' — stripEmptyExerciseItems la saca.
+    const next = stripEmptyExerciseItems(weeks);
+    const blocks = next[0]!.days[0]!.sessions[0]!.blocks;
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.items.map((i) => i.exercise_name)).toEqual(['Push Jerk']);
+    expect(totalUnresolved(next)).toBe(1);
+  });
+
+  test('crear + descartar en un golpe: totalUnresolved llega a 0', () => {
+    const weeks = [
+      week([
+        session('FUERZA PARTE ALTA', [
+          { name: 'FUERZA PARTE ALTA' },
+          { name: 'A)' },
+          { name: 'Push Jerk' },
+          { name: '' },
+        ]),
+      ]),
+    ];
+    const next = applyMissingExerciseDecisions(weeks, {
+      resolved: [{ key: 'push jerk', exercise_id: 77, exercise_name: 'Push Jerk' }],
+      discardedKeys: ['fuerza parte alta', 'a)'],
+    });
+    expect(totalUnresolved(next)).toBe(0);
+    const items = next[0]!.days[0]!.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items));
+    expect(items).toEqual([
+      expect.objectContaining({ exercise_id: 77, exercise_name: 'Push Jerk' }),
+    ]);
+  });
+
+  test('el texto de una línea sin nombre se conserva en coach_note', () => {
+    const s = session('Bici', [{ name: 'Bici Libre Z2 45min' }]);
+    // Fuerza notes en la línea vacía-token vía mutación controlada.
+    s.blocks[0]!.items.push({
+      uid: uid('it'),
+      exercise_id: null,
+      exercise_name: '',
+      prescription: { scheme: 'steady', note: 'Z2 45 min en bici' },
+      notes: 'Z2 45 min en bici',
+    });
+    const next = stripEmptyExerciseItems([week([s])]);
+    const block = next[0]!.days[0]!.sessions[0]!.blocks[0]!;
+    expect(block.coach_note).toContain('Z2 45 min en bici');
+    expect(block.items).toHaveLength(1);
   });
 });

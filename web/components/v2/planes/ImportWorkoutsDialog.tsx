@@ -25,6 +25,7 @@ import {
   type MicroWeekRef,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
+import { stripEmptyExerciseItems } from '@/lib/dashboard/v2/import-missing';
 import type { ImportProposal } from '@/lib/import/build-proposal';
 import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 import { ImportReviewGrid } from './ImportReviewGrid';
@@ -135,7 +136,10 @@ export function ImportWorkoutsDialog({
         return;
       }
       const proposal = (await res.json()) as ImportProposal;
-      const model = buildReviewModel(proposal, microWeeks);
+      // stripEmptyExerciseItems: la gramática deja líneas con token vacío (prosa
+      // en notes) que bloqueaban «Confirmar N días» sin salir en «Crear los que
+      // faltan» — se pliegan a coach_note y salen del contador rojo.
+      let model = stripEmptyExerciseItems(buildReviewModel(proposal, microWeeks));
       setNotices(proposal.notices ?? []);
       // El coach dijo DÓNDE EMPIEZA, así que lo importado se coloca a partir de
       // ahí y no desde la primera semana: la 1ª leída va a la que eligió, la 2ª a
@@ -149,12 +153,15 @@ export function ImportWorkoutsDialog({
         const ordered = [...microWeeks].sort((a, b) => a.index - b.index);
         const start = ordered.findIndex((w) => w.id === targetWeekId);
         if (start >= 0) {
-          model.forEach((week, i) => {
+          model = model.map((week, i) => {
             const mw = ordered[start + i];
             // Más semanas leídas que semanas por delante: las que sobran se quedan
             // sin destino y la revisión las bloquea hasta que él diga dónde van.
-            week.target_week_id = mw?.id ?? null;
-            if (mw) week.week = mw.index + 1;
+            return {
+              ...week,
+              target_week_id: mw?.id ?? null,
+              week: mw ? mw.index + 1 : week.week,
+            };
           });
         }
       }

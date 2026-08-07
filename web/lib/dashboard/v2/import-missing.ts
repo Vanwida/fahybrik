@@ -28,6 +28,7 @@ import { modalityFrom } from '@fahybrid/shared/domain/import/label';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
+import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 
 /** De dónde salió la modalidad propuesta. `ninguna` = la tiene que elegir él. */
@@ -211,6 +212,119 @@ export interface ResolvedToken {
 }
 
 /**
+ * Resultado del panel «ejercicios que faltan». Crear/fusionar ESTAMPA ids;
+ * descartar QUITA la línea del import (si no, el confirm sigue bloqueado por
+ * «N líneas sin ejercicio» aunque el coach haya dicho que no era un ejercicio).
+ */
+export interface MissingExerciseDecisions {
+  resolved: readonly ResolvedToken[];
+  /** Claves normalizadas de tokens descartados (`MissingExercise.key`). */
+  discardedKeys: readonly string[];
+}
+
+/**
+ * Texto que no debe perderse al quitar una línea basura: nota de la línea o
+ * el token si solo era un rótulo legible. Vacío → no hay nada que conservar.
+ */
+function itemTextToPreserve(item: {
+  exercise_name: string;
+  notes?: string;
+  prescription: { note?: string | null };
+}): string {
+  const note = (item.notes ?? item.prescription.note ?? '').trim();
+  if (note) return note;
+  const name = item.exercise_name.trim();
+  // Rótulos de parseo («A)», «OPCIONAL») no aportan al coach como nota.
+  if (!name || !hasRealWord(name)) return '';
+  return name;
+}
+
+/**
+ * Quita del modelo de revisión las líneas que NO son ejercicios importables:
+ *   · sin nombre (la gramática dejó el token vacío — prosa en `notes`);
+ *   · claves que el coach DESCARTÓ en el panel de faltantes (títulos de tarjeta,
+ *     «A)», o un nombre que decidió no crear).
+ *
+ * El texto se pliega a `block.coach_note` (misma semántica que la prosa no tipada
+ * de la biblioteca). Los flags/proposed de esas líneas se tiran con ellas: si no,
+ * el día seguiría en rojo por uids fantasmas.
+ *
+ * Sin esto, «Crear los 5 que faltan» + descartar basura dejaba 40+ líneas sin
+ * id bloqueando Confirmar para siempre — el síntoma del 7-ago.
+ */
+export function removeNonExerciseItems(
+  weeks: readonly ReviewWeek[],
+  discardedKeys: readonly string[] = [],
+): ReviewWeek[] {
+  const discarded = new Set(
+    discardedKeys.map((k) => normalizeKey(k)).filter((k) => k.length > 0),
+  );
+  const shouldDrop = (item: {
+    exercise_id: number | null;
+    exercise_name: string;
+  }): boolean => {
+    if (item.exercise_id != null && Number(item.exercise_id) > 0) return false;
+    const name = item.exercise_name.trim();
+    if (!name) return true;
+    return discarded.has(normalizeKey(name));
+  };
+
+  return weeks.map((week) => ({
+    ...week,
+    days: week.days.map((day) => {
+      const removedUids = new Set<string>();
+      const sessions = day.sessions.map((session) => {
+        const blocks: EditorBlock[] = [];
+        for (const block of session.blocks) {
+          const kept: EditorItem[] = [];
+          const noteBits: string[] = [];
+          if (block.coach_note?.trim()) noteBits.push(block.coach_note.trim());
+          for (const item of block.items) {
+            if (shouldDrop(item)) {
+              removedUids.add(item.uid);
+              const text = itemTextToPreserve(item);
+              if (text) noteBits.push(text);
+            } else {
+              kept.push(item);
+            }
+          }
+          // Bloque vacío sin nota = basura de tarjeta entera; se cae.
+          if (kept.length === 0 && noteBits.length === 0) continue;
+          const next: EditorBlock = { ...block, items: kept };
+          if (noteBits.length > 0) next.coach_note = noteBits.join('\n');
+          else delete next.coach_note;
+          blocks.push(next);
+        }
+        return { ...session, blocks };
+      });
+      // Sesión sin bloques = no hay entreno; se cae (el día puede quedar en
+      // descanso si todas sus sesiones se vacían).
+      const nonEmptySessions = sessions.filter((s) => s.blocks.length > 0);
+      return {
+        ...day,
+        sessions: nonEmptySessions,
+        flags: day.flags.filter((f) => !removedUids.has(f.uid)),
+        proposed: day.proposed.filter((p) => !removedUids.has(p.item_uid)),
+        // Truncations de bloques que ya no existen no se pintan.
+        truncations: day.truncations.filter((t) =>
+          nonEmptySessions.some((s) => s.blocks.some((b) => b.uid === t.block_uid)),
+        ),
+      };
+    }),
+  }));
+}
+
+/**
+ * Limpieza al entrar en la revisión: saca las líneas sin nombre ANTES de que el
+ * coach vea «48 sin ejercicio» por basura de gramática. Los tokens con nombre
+ * (aunque sean títulos) se quedan — el panel de faltantes los premarca basura y
+ * el coach decide.
+ */
+export function stripEmptyExerciseItems(weeks: readonly ReviewWeek[]): ReviewWeek[] {
+  return removeNonExerciseItems(weeks, []);
+}
+
+/**
  * Estampa los ejercicios ya resueltos en TODAS las líneas que los usaban.
  *
  * Aquí se cierra el círculo sin maquinaria nueva: la línea pasa a tener
@@ -247,4 +361,17 @@ export function applyResolvedTokens(
       })),
     })),
   }));
+}
+
+/**
+ * Aplica el panel de faltantes de un golpe: estampa lo creado/fusionado Y quita
+ * lo descartado (+ las líneas sin nombre que siguieran colgadas). Es la única
+ * salida del panel — sin el segundo paso, «Crear N» no desbloqueaba Confirmar.
+ */
+export function applyMissingExerciseDecisions(
+  weeks: readonly ReviewWeek[],
+  decisions: MissingExerciseDecisions,
+): ReviewWeek[] {
+  const stamped = applyResolvedTokens(weeks, decisions.resolved);
+  return removeNonExerciseItems(stamped, decisions.discardedKeys);
 }

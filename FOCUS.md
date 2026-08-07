@@ -5,26 +5,29 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Importar plan por foto (microciclo) — DESPLEGADO
+## Ahora · Importar plan por foto — confirm desbloqueado (7-ago tarde)
 
-**Síntoma:** «No se pudieron leer las capturas» al importar por imagen en un
-microciclo nuevo. Logs: visión OK (~20s) + `placed`, luego 504 a los 300s.
+**Síntoma 2 (post-deploy del 504):** la visión + proposal llegan, se crean los
+N ejercicios que faltan, pero «Confirmar 6 días» sigue muerto con «43 líneas
+sin ejercicio del catálogo».
 
-**Causa:** tras la visión, `buildImportProposal` disparaba un LLM assist
-**secuencial sin tope** por cada línea `review` de la gramática. Una semana
-TrainingPeaks tiene decenas; cada llamada puede tardar hasta 120s → Vercel
-mata la función y el cliente solo ve el fallback genérico. El fix
-(`8037d14f`) existía en la rama pero **no estaba en producción** (prod
-seguía en `dce9eb40`).
+**Causa:** el panel solo ESTAMPABA ids de lo creado. Descartar un título/«A)»
+no quitaba la línea del import; y las líneas con token vacío (prosa de la
+gramática) ni salían en el panel y seguían contando en `totalUnresolved`.
 
-**Fix:** `budgetLlmAssist` (máx 4 llamadas, deadline 260s, timeout 40s/call);
-líneas que queden se quedan en review honestas. Copy de timeout en el diálogo
-+ abort del cliente a 275s.
+**Fix:** `stripEmptyExerciseItems` al entrar en review; al aplicar el panel,
+`applyMissingExerciseDecisions` estampa + quita descartes. UX del «Todos ·
+elige» muestra «Todos: Fuerza» al aplicar; labels Modalidad/Tipo.
 
-**Desplegado 7-ago:** `dpl_EcsQGCh85thWRu21b2UobY2oW8Wf` (READY/PROMOTED,
-sha `c9af8567`). Env prod+preview: `LLM_VISION_MODEL` y `LLM_CHAT_MODEL` →
-`x-ai/grok-4.5` (antes `x-ai/grok-4.3`; la visión ya iba bien con 4.3 — el
-504 no era el modelo).
+---
+
+## Antes · 504 del assist — DESPLEGADO
+
+**Síntoma:** visión OK (~20s) + `placed`, luego 504 a 300s. Fix `8037d14f`
+existía en la rama pero no en prod.
+
+**Desplegado 7-ago:** `dpl_EcsQGCh85thWRu21b2UobY2oW8Wf` + modelo
+`x-ai/grok-4.5` en vision/chat.
 
 ---
 

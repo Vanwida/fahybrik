@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { ImportDayReviewDrawer } from './ImportDayReviewDrawer';
 import { ImportMissingExercisesPanel } from './ImportMissingExercisesPanel';
 import {
-  applyResolvedTokens,
+  applyMissingExerciseDecisions,
   collectMissingExercises,
   realMissingCount,
 } from '@/lib/dashboard/v2/import-missing';
@@ -374,10 +374,15 @@ export function ImportReviewGrid({
               >
                 <MIcon name="library_add" size={14} />
                 {missingCount === 1
-                  ? 'Crear el ejercicio que falta'
-                  : `Crear los ${missingCount} ejercicios que faltan`}
+                  ? 'Resolver el ejercicio que falta'
+                  : `Resolver los ${missingCount} ejercicios que faltan`}
               </button>
-            ) : null}
+            ) : (
+              <p className="text-xs text-[color:var(--v2-muted)]">
+                Ábrelo el día y elige un ejercicio del catálogo, o exclúyelo con el
+                botón de arriba a la derecha.
+              </p>
+            )}
           </div>
         ) : incomplete > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
@@ -435,8 +440,8 @@ export function ImportReviewGrid({
       {creatingMissing ? (
         <ImportMissingExercisesPanel
           weeks={reviewWeeks}
-          onResolved={(resolved) => {
-            onChange(applyResolvedTokens(reviewWeeks, resolved));
+          onResolved={(decisions) => {
+            onChange(applyMissingExerciseDecisions(reviewWeeks, decisions));
             setCreatingMissing(false);
           }}
           onClose={() => setCreatingMissing(false)}
