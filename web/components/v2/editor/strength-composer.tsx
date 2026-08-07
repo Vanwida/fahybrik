@@ -7,11 +7,12 @@
 //   · Esquema: «Series iguales | Variar por serie» (ChipGroup de texto).
 //   · Iguales → series y reps con Stepper + chips frecuentes, objetivo por
 //     chips (%RM en banda de ticks con rango a dos toques, RIR 0-4, kg con
-//     paso 2,5), descanso por chips y tempo plegado.
+//     paso 2,5), descanso por chips y tempo plegado
+//     (strength-shared-controls).
 //   · Variar → la rejilla por serie (strength-pyramid): pirámides reales.
 // El teclado sigue disponible en todo («rango o teclado», el «otro» del
-// descanso, las celdas de la rejilla) — alternativa siempre, único camino nunca.
-// Edita `sets[]` del `Prescription` compartido; cero cambios de schema.
+// descanso, las celdas de la rejilla) — alternativa siempre, único camino
+// nunca. Edita `sets[]` del `Prescription` compartido; cero cambios de schema.
 
 import { useState } from 'react';
 import type {
@@ -23,20 +24,14 @@ import type {
 import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import { emptyTargetOfKind } from '@/lib/programming/prescription-model';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
-import { Stepper } from '@/components/v2/controls/Stepper';
-import { TickBand, type TickSelection } from '@/components/v2/controls/TickBand';
-import { cn } from '@/lib/utils';
-import { ClockCell, NumberCell } from './fields';
-import { TargetCell } from './target-cell';
 import {
-  PCT_TICK_VALUES,
-  PROPOSED_CELL,
+  Control,
   proposedAria,
-  REPS_CHIP_VALUES,
   RestChips,
   STRENGTH_REST_VALUES,
   TempoDisclosure,
 } from './dose-controls';
+import { SharedControls, SharedTargetValue } from './strength-shared-controls';
 import { StrengthPyramid } from './strength-pyramid';
 
 // Tipos de objetivo de un ejercicio de fuerza, en orden de uso real (%RM manda).
@@ -48,20 +43,7 @@ const OBJECTIVE_OPTIONS: { value: TargetKind; label: string }[] = [
   { value: 'bodyweight', label: 'Corporal' },
 ];
 
-const RIR_CHIP_VALUES = [0, 1, 2, 3, 4] as const;
-const RPE_CHIP_VALUES = [6, 7, 8, 9, 10] as const;
-const KG_STEP = 2.5;
-const MAX_SERIES_UI = 12; // tope del stepper; con más series (dato heredado) el tope crece solo
-
 type SchemeMode = 'iguales' | 'variar';
-
-// ── Lecturas compartidas ─────────────────────────────────────────────────────
-function scalarOf(t: Target | undefined): { lo: number | null; hi: number | null } {
-  if (!t || t.kind === 'bodyweight' || t.kind === 'pace' || t.kind === 'time_cap') {
-    return { lo: null, hi: null };
-  }
-  return { lo: t.min ?? t.value ?? null, hi: t.max ?? null };
-}
 
 /** ¿Las series difieren en algo (medida, objetivo, descanso o tempo)? */
 function setsAreVaried(sets: PrescriptionSet[]): boolean {
@@ -70,26 +52,6 @@ function setsAreVaried(sets: PrescriptionSet[]): boolean {
     JSON.stringify([setMeasure(s) ?? null, setTarget(s) ?? null, s.rest_s ?? null, s.tempo ?? null]);
   const first = key(sets[0]!);
   return sets.some((s) => key(s) !== first);
-}
-
-/** ¿El valor compartido necesita el teclado porque los chips no pueden pintarlo? */
-function needsKeyboard(kind: TargetKind, lo: number | null, hi: number | null): boolean {
-  if (lo == null) return false;
-  switch (kind) {
-    case 'percent_rm':
-      return (
-        !(PCT_TICK_VALUES as readonly number[]).includes(lo) ||
-        (hi != null && !(PCT_TICK_VALUES as readonly number[]).includes(hi))
-      );
-    case 'rir':
-      return hi != null || !(RIR_CHIP_VALUES as readonly number[]).includes(lo);
-    case 'rpe':
-      return hi != null || !(RPE_CHIP_VALUES as readonly number[]).includes(lo);
-    case 'kg':
-      return hi != null; // el rango de kg no cabe en un stepper de un solo número
-    default:
-      return false;
-  }
 }
 
 export function StrengthFields({
@@ -166,10 +128,11 @@ export function StrengthFields({
     );
   };
 
-  const seedSet = (): PrescriptionSet =>
-    sets.length > 0 ? { ...sets[sets.length - 1]! } : { measure: { kind: 'reps', value: 8 } };
-
-  const addSet = () => writeSets([...sets, seedSet()]);
+  const addSet = () =>
+    writeSets([
+      ...sets,
+      sets.length > 0 ? { ...sets[sets.length - 1]! } : { measure: { kind: 'reps', value: 8 } },
+    ]);
   const removeSet = (i: number) => writeSets(sets.filter((_, idx) => idx !== i));
   const applyDown = (i: number) => writeSets(sets.map((s, idx) => (idx > i ? { ...sets[i]! } : s)));
 
@@ -178,7 +141,7 @@ export function StrengthFields({
     setForcedMode(next);
     if (next === 'iguales' && sets.length > 0) {
       // Colapsar = la primera serie manda y se escribe N veces (copias, nunca
-      // la misma referencia compartida).
+      // la misma referencia compartida) — exactamente lo que hacía addSet.
       const shared = sets[0]!;
       writeSets(sets.map(() => ({ ...shared })));
     } else if (next === 'variar') {
@@ -209,8 +172,6 @@ export function StrengthFields({
     });
     writeSets(nextSets);
   };
-
-  const applySharedTarget = (t: Target | undefined) => applyShared({ target: t });
 
   if (sets.length === 0) {
     return (
@@ -247,7 +208,6 @@ export function StrengthFields({
       {mode === 'iguales' ? (
         <SharedControls
           sets={sets}
-          showRest={showRest}
           proposed={proposedShared}
           applyShared={applyShared}
           onCount={(n) => {
@@ -276,7 +236,7 @@ export function StrengthFields({
             modality={value.modality}
             kbOpen={kbOpen}
             onToggleKb={() => setKbOpen((v) => !v)}
-            onChange={applySharedTarget}
+            onChange={(t) => applyShared({ target: t })}
           />
         ) : null}
       </Control>
@@ -318,228 +278,6 @@ export function StrengthFields({
           Lo del trazo discontinuo no salía en la fuente: lo pusimos con tus valores por defecto.
         </p>
       ) : null}
-    </div>
-  );
-}
-
-// ── Los controles del modo «Series iguales» ──────────────────────────────────
-function SharedControls({
-  sets,
-  showRest,
-  proposed,
-  applyShared,
-  onCount,
-}: {
-  sets: PrescriptionSet[];
-  showRest: boolean;
-  proposed: { measure: boolean; target: boolean; rest: boolean };
-  applyShared: (patch: Partial<PrescriptionSet>) => void;
-  onCount: (n: number) => void;
-}) {
-  void showRest;
-  const measure = setMeasure(sets[0]!);
-  const reps = measure?.kind === 'reps' ? measure : undefined;
-
-  const stepReps = (v: number) => {
-    if (!reps) return;
-    const delta = v - reps.value;
-    applyShared({
-      measure: {
-        kind: 'reps',
-        value: v,
-        ...(reps.max !== undefined ? { max: Math.max(v, reps.max + delta) } : {}),
-      },
-    });
-  };
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Control label="Series">
-        <Stepper
-          value={sets.length}
-          min={1}
-          max={Math.max(MAX_SERIES_UI, sets.length)}
-          ariaLabel="Número de series"
-          onChange={onCount}
-        />
-      </Control>
-      <Control label="Reps por serie" proposed={proposed.measure}>
-        {reps ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Stepper
-              value={reps.value}
-              min={1}
-              max={100}
-              format={reps.max !== undefined ? (v) => `${v}-${reps.max}` : undefined}
-              ariaLabel={proposedAria('Reps por serie', proposed.measure)}
-              onChange={stepReps}
-            />
-            <ChipGroup
-              options={REPS_CHIP_VALUES.map((v) => ({ value: v, label: String(v) }))}
-              value={reps.max === undefined ? reps.value : null}
-              ariaLabel="Reps frecuentes"
-              onChange={(v) => applyShared({ measure: { kind: 'reps', value: v } })}
-            />
-          </div>
-        ) : measure?.kind === 'duration' ? (
-          // Trabajo por tiempo (planchas, isométricos): el reloj es el camino.
-          <ClockCell
-            seconds={measure.seconds}
-            ariaLabel={proposedAria('Tiempo por serie (m:ss)', proposed.measure)}
-            className="max-w-[7rem]"
-            onChange={(s) =>
-              applyShared({ measure: s == null ? undefined : { kind: 'duration', seconds: s } })
-            }
-          />
-        ) : (
-          <NumberCell
-            value={measure?.kind === 'distance' ? measure.meters : measure?.kind === 'calories' ? measure.value : null}
-            ariaLabel={proposedAria('Trabajo por serie', proposed.measure)}
-            min={0}
-            max={100000}
-            suffix={measure?.kind === 'distance' ? 'm' : measure?.kind === 'calories' ? 'cal' : undefined}
-            className="max-w-[8rem]"
-            onChange={(v) =>
-              applyShared({
-                measure:
-                  v == null
-                    ? undefined
-                    : measure?.kind === 'calories'
-                      ? { kind: 'calories', value: v }
-                      : measure?.kind === 'distance'
-                        ? { kind: 'distance', meters: v }
-                        : { kind: 'reps', value: v },
-              })
-            }
-          />
-        )}
-      </Control>
-    </div>
-  );
-}
-
-// ── El VALOR del objetivo compartido, con dedos y con teclado ────────────────
-function SharedTargetValue({
-  kind,
-  target,
-  modality,
-  kbOpen,
-  onToggleKb,
-  onChange,
-}: {
-  kind: TargetKind;
-  target: Target | undefined;
-  modality: Prescription['modality'];
-  kbOpen: boolean;
-  onToggleKb: () => void;
-  onChange: (t: Target | undefined) => void;
-}) {
-  const { lo, hi } = scalarOf(target);
-  const keyboard = kbOpen || needsKeyboard(kind, lo, hi);
-
-  const point = (v: number): Target => ({ kind, value: v }) as Target;
-
-  if (kind === 'bodyweight') {
-    return <p className="text-xs text-[color:var(--v2-muted)]">Sin carga externa.</p>;
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {kind === 'percent_rm' ? (
-        <>
-          <TickBand
-            values={PCT_TICK_VALUES}
-            selection={
-              keyboard || lo == null
-                ? null
-                : ({ min: lo, ...(hi != null ? { max: hi } : {}) } as TickSelection)
-            }
-            ariaLabel="%RM objetivo"
-            onChange={(sel) =>
-              onChange(
-                sel == null
-                  ? undefined
-                  : sel.max != null
-                    ? ({ kind, min: sel.min, max: sel.max } as Target)
-                    : point(sel.min),
-              )
-            }
-          />
-          <p className="text-label leading-snug text-[color:var(--v2-faint)]">
-            Toca un valor; toca otro y se convierte en rango (así entra el 65-80%).
-          </p>
-        </>
-      ) : kind === 'rir' ? (
-        <ChipGroup
-          options={RIR_CHIP_VALUES.map((v) => ({ value: v, label: String(v) }))}
-          value={keyboard ? null : lo}
-          ariaLabel="RIR objetivo"
-          onChange={(v) => onChange(point(v))}
-        />
-      ) : kind === 'rpe' ? (
-        <ChipGroup
-          options={RPE_CHIP_VALUES.map((v) => ({ value: v, label: String(v) }))}
-          value={keyboard ? null : lo}
-          ariaLabel="RPE objetivo"
-          onChange={(v) => onChange(point(v))}
-        />
-      ) : (
-        <Stepper
-          value={lo ?? 0}
-          min={0}
-          max={Math.max(300, lo ?? 0)}
-          step={KG_STEP}
-          format={(v) => String(v).replace('.', ',')}
-          ariaLabel="Carga en kg"
-          onChange={(v) => onChange(point(v))}
-        />
-      )}
-
-      {keyboard ? (
-        <div className="max-w-[16rem]">
-          <TargetCell
-            target={target}
-            modality={modality}
-            kind={kind}
-            ariaPrefix="Objetivo"
-            onChange={onChange}
-          />
-        </div>
-      ) : null}
-      <button
-        type="button"
-        aria-expanded={keyboard}
-        onClick={onToggleKb}
-        className="v2-focus rounded-[var(--v2-r-2xs)] text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-      >
-        {keyboard ? 'ocultar teclado' : 'rango o teclado'}
-      </button>
-    </div>
-  );
-}
-
-function Control({
-  label,
-  hint,
-  proposed = false,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  proposed?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn('space-y-1.5', proposed && `${PROPOSED_CELL} p-1`)}>
-      <span className="v2-micro flex items-baseline gap-2">
-        {label}
-        {hint ? (
-          <span className="font-medium normal-case tracking-normal text-[color:var(--v2-faint)]">
-            {hint}
-          </span>
-        ) : null}
-      </span>
-      {children}
     </div>
   );
 }

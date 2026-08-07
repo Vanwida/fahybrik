@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { formatDuration } from '@fahybrid/shared/domain/prescription';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
+import { cn } from '@/lib/utils';
 import { ClockCell, TextCell } from './fields';
 
 /** Reps frecuentes de fuerza (mock aprobado). El teclado cubre el resto. */
@@ -137,4 +138,32 @@ export const PROPOSED_CELL =
 /** La etiqueta accesible de un campo propuesto. */
 export function proposedAria(label: string, proposed: boolean): string {
   return proposed ? `${label}, propuesto` : label;
+}
+
+/** Un control del compositor: micro-etiqueta arriba, control debajo, y la
+ *  marca «propuesto» del importador cuando toca. */
+export function Control({
+  label,
+  hint,
+  proposed = false,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  proposed?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('space-y-1.5', proposed && `${PROPOSED_CELL} p-1`)}>
+      <span className="v2-micro flex items-baseline gap-2">
+        {label}
+        {hint ? (
+          <span className="font-medium normal-case tracking-normal text-[color:var(--v2-faint)]">
+            {hint}
+          </span>
+        ) : null}
+      </span>
+      {children}
+    </div>
+  );
 }
