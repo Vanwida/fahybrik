@@ -378,11 +378,19 @@ function ExerciseRow({
       >
         {MODALITY_LABELS[ex.modality]}
       </span>
+      {/* SIEMPRE visible, nunca `opacity-0 group-hover:opacity-100`: en un móvil
+          no existe el hover, así que este botón era invisible — y el dashboard
+          se usa desde el móvil (§9.3 del contrato). Se apoya en el COLOR para no
+          competir con el nombre del ejercicio, no en desaparecer. El que ya
+          tiene vídeo va en tinta plena porque es un dato de la fila; el resto,
+          apagado. Nada de naranja de marca: no es un color de dato (§9.1). */}
       <button
         type="button"
         onClick={() => onEdit(ex)}
-        aria-label={`Editar ${ex.name}`}
-        className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-opacity hover:text-[color:var(--v2-fg)] focus:opacity-100 group-hover:opacity-100"
+        aria-label={hasVideo ? `Editar ${ex.name} (tiene vídeo)` : `Editar ${ex.name}`}
+        className={`v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors hover:text-[color:var(--v2-fg)] ${
+          hasVideo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-faint)]'
+        }`}
         title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar — indicaciones y vídeo'}
       >
         <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
