@@ -83,6 +83,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
               exercise_category: 'strength',
               exercise_video_url: null,
               cues: null,
+              exercise_description: null,
               params_json: { sets: 5, reps: 5, load_pct: 75, rest_seconds: 120 },
               prescription_json: null,
               resolved_intensity: null,

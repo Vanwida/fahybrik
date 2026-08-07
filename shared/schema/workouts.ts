@@ -448,6 +448,14 @@ export const assignmentDetailItemSchema = z.object({
   exercise_category: z.string(),
   exercise_video_url: z.string().nullable(),
   cues: z.string().nullable(),
+  // La DESCRIPCIÓN larga del ejercicio — el apunte del coach que explica el
+  // gesto y da el consejo. Como `cues` y el vídeo, sale del merge por coach
+  // (`coalesce(override, base)`), así que es la voz de ESE coach.
+  //
+  // Se editaba, se guardaba y NUNCA se servía: iOS la decodifica desde hace
+  // tiempo y `ExerciseDetailView` tiene su sección «DESCRIPCIÓN» construida,
+  // que salía siempre vacía porque el endpoint no la emitía (7-ago-2026).
+  exercise_description: z.string().nullable(),
   // Flat, iOS-ready targets. Derived from `prescription_json` (the unified
   // measure/target model) when present on the segment, else from the stored
   // scalar params. Carries the reps/load/zone/pace/distance/calories the thin

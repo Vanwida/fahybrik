@@ -119,6 +119,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'hyrox_station',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
         {
           id: '11',
@@ -135,6 +136,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: 'https://yt/back-squat',
           exercise_cues: 'Pecho arriba',
+          exercise_description: null,
         },
       ],
     });
@@ -179,6 +181,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -220,6 +223,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -275,6 +279,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -314,6 +319,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
         // 8×400m intervals — distance only in prescription set measures.
         {
@@ -338,6 +344,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -373,6 +380,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -510,6 +518,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: 'cardio',
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('resolves a @Z4 run target to the absolute pace band from the profile', () => {
@@ -602,6 +611,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: 'strength',
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('resolves a %RM range to a kg range using the athlete 1RM', () => {
@@ -712,6 +722,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: category,
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('loads a free RUN workout (12×400m) — workout non-null, params derived from prescription', () => {
@@ -794,7 +805,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     id, position: 0, block_position: 0, block_format: null, block_title: null,
     params_json: {}, prescription_json, notes: null,
     exercise_id: '960', exercise_name: 'Run', exercise_slug: 'run',
-    exercise_category: 'cardio', exercise_video_url: null, exercise_cues: null,
+    exercise_category: 'cardio', exercise_video_url: null, exercise_cues: null, exercise_description: null,
   });
   const emittedStructure = (segRow: unknown, zoneProfiles?: unknown[]) =>
     buildAssignmentDetail({
@@ -894,7 +905,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
         params_json: {}, notes: null,
         prescription_json: { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 5 }, target: { kind: 'kg', value: 100 } }] },
         exercise_id: '962', exercise_name: 'Back Squat', exercise_slug: 'back-squat',
-        exercise_category: 'strength', exercise_video_url: null, exercise_cues: null,
+        exercise_category: 'strength', exercise_video_url: null, exercise_cues: null, exercise_description: null,
       }],
     });
     expect(result.workout!.blocks[0]!.items[0]!.prescription_json!.structure).toBeUndefined();

@@ -25,6 +25,7 @@ function makeItem(overrides: Partial<AssignmentDetailItem>): AssignmentDetailIte
     exercise_category: 'run',
     exercise_video_url: null,
     cues: null,
+    exercise_description: null,
     params_json: {},
     prescription_json: null,
     resolved_intensity: null,

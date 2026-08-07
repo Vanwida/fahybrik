@@ -204,6 +204,10 @@ export interface AssignmentDetailItem {
   exercise_category: string;
   exercise_video_url: string | null;
   cues: string | null;
+  // La descripción larga del ejercicio (merge por coach, igual que cues/vídeo):
+  // el apunte que explica el gesto. Se guardaba y no se servía — ver el schema
+  // compartido.
+  exercise_description: string | null;
   // Flat, iOS-ready targets. Derived from `prescription_json` (the unified
   // measure/target model) when present, else from the stored scalar params.
   params_json: AssignmentDetailParamsJson;
@@ -348,6 +352,7 @@ interface SegmentRow {
   exercise_category: string;
   exercise_video_url: string | null;
   exercise_cues: string | null;
+  exercise_description: string | null;
 }
 
 // =============================================================================
@@ -845,6 +850,7 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
     exercise_category: category,
     exercise_video_url: seg.exercise_video_url,
     cues: seg.exercise_cues,
+    exercise_description: seg.exercise_description,
     params_json: normalizeParams(source),
     prescription_json: emittedPrescription,
     resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),

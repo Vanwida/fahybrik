@@ -362,9 +362,12 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     let exerciseCategory: String   // strength | running | rowing | ski_erg | bike_erg | functional | mobility | other
     let exerciseVideoUrl: String?
     let cues: String?
-    // Long-form exercise description. Backend does not ship this column on the
-    // assignment-detail endpoint yet (only `cues`); decodes nil until it does,
-    // and ExerciseDetailView degrades honestly when absent.
+    // La descripción larga del ejercicio — el apunte del coach que explica el
+    // gesto. Llega ya resuelta por el merge del coach (su voz gana sobre la
+    // base), igual que `cues` y el vídeo. El endpoint la sirve desde el 7-ago-2026;
+    // antes se editaba y se guardaba pero no viajaba, así que la sección
+    // «DESCRIPCIÓN» de `ExerciseDetailView` salía siempre vacía. Sigue siendo
+    // opcional: un ejercicio sin descripción no pinta esa sección.
     let exerciseDescription: String?
     // Flat, iOS-ready scalar targets (the legacy path). Kept for back-compat and
     // for the live-execution engine.
