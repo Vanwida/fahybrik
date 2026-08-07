@@ -19,6 +19,7 @@ import {
 } from '@/lib/dashboard/v2/planes-model';
 import { MODALITY_META } from '@/components/v2/constants';
 import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
+import { DeleteWeekModal } from '@/components/v2/planes/DeleteWeekModal';
 
 const DAY_HEADERS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const;
 
@@ -84,6 +85,8 @@ export function MicrocicloV1({
   // Per-row in-flight week id (so only the duplicated row spins) + honest error.
   const [busyWeekId, setBusyWeekId] = useState<string | null>(null);
   const [errored, setErrored] = useState(false);
+  // Semana a borrar (abre el modal de confirmación) — null = cerrado.
+  const [deletingWeek, setDeletingWeek] = useState<{ id: string; label: string } | null>(null);
 
   // Duplica esa semana (clon puro enganchado justo después) reusando la MISMA
   // ruta/lógica que el editor de semana en foco. router.refresh() re-deriva la
@@ -153,19 +156,31 @@ export function MicrocicloV1({
                   <span className="text-xs font-bold text-[color:var(--v2-fg)]">
                     Semana {wi + 1}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => duplicateWeek(w.id)}
-                    disabled={busyWeekId !== null}
-                    title="Crea una copia idéntica de esta semana justo después"
-                    aria-label={`Duplicar semana ${wi + 1}`}
-                    className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-60"
-                  >
-                    <MIcon
-                      name={busyWeekId === w.id ? 'progress_activity' : 'content_copy'}
-                      size={14}
-                    />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => duplicateWeek(w.id)}
+                      disabled={busyWeekId !== null}
+                      title="Crea una copia idéntica de esta semana justo después"
+                      aria-label={`Duplicar semana ${wi + 1}`}
+                      className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+                    >
+                      <MIcon
+                        name={busyWeekId === w.id ? 'progress_activity' : 'content_copy'}
+                        size={14}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingWeek({ id: w.id, label: `Semana ${wi + 1}` })}
+                      disabled={busyWeekId !== null}
+                      title="Borra esta semana — para arreglar duplicados de más"
+                      aria-label={`Borrar semana ${wi + 1}`}
+                      className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-60"
+                    >
+                      <MIcon name="delete" size={14} />
+                    </button>
+                  </div>
                 </div>
                 <span className="truncate text-eyebrow text-[color:var(--v2-muted)]" title={w.label}>
                   {w.label}
@@ -188,6 +203,15 @@ export function MicrocicloV1({
           ))}
         </div>
       </div>
+
+      {deletingWeek ? (
+        <DeleteWeekModal
+          microcycleId={microcycle_id}
+          weekId={deletingWeek.id}
+          label={deletingWeek.label}
+          onClose={() => setDeletingWeek(null)}
+        />
+      ) : null}
     </div>
   );
 }

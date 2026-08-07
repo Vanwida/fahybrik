@@ -14,6 +14,7 @@ import {
   duplicateMonthTemplate as _duplicateMonthTemplate,
   updateMonthTemplate as _updateMonthTemplate,
   deleteMonthTemplate as _deleteMonthTemplate,
+  removeWeekFromMonth as _removeWeekFromMonth,
   cloneWeekTemplateRow,
   type ProgramMonthCreate,
   type ProgramMonthScratch,
@@ -97,6 +98,15 @@ export async function deleteMonthTemplate(params: {
   client?: Sql;
 }): Promise<void> {
   return _deleteMonthTemplate({ ...params, client: params.client ?? defaultSql });
+}
+
+export async function removeWeekFromMonth(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  week_id: number | bigint;
+  client?: Sql;
+}): Promise<void> {
+  return _removeWeekFromMonth({ ...params, client: params.client ?? defaultSql });
 }
 
 /** Empty 7-day rest week, serialized for jsonb (bigint → number). */

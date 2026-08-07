@@ -476,6 +476,13 @@ export async function updateMonthTemplate(params: {
  * referencia entrenos individuales (`templates`), no `program_week_templates`.
  * Al hacer `assign-month` el plan se materializa en assignments con template_id
  * de entrenos, por lo que borrar plantillas semana no rompe historial alguno.
+ *
+ * NO seguro si el microciclo es un ITEM de una secuencia (matriz nivel×días):
+ * `program_sequence_items.month_template_id` lleva `ON DELETE RESTRICT` a
+ * propósito — nunca se debe poder tirar en silencio un microciclo que una
+ * secuencia activa sigue usando. El DELETE de más abajo viola esa FK y
+ * postgres lo rechaza con SQLSTATE 23503; se traduce aquí a un error que el
+ * coach puede entender y accionar, en vez del genérico "no se pudo borrar".
  */
 export async function deleteMonthTemplate(params: {
   coach_id: number | bigint;
@@ -483,6 +490,69 @@ export async function deleteMonthTemplate(params: {
   client: Sql;
 }): Promise<void> {
   const { coach_id, month_id, client } = params;
+  try {
+    await client.begin(async (tx) => {
+      const owned = await tx<Array<{ id: string }>>`
+        select id::text from program_month_templates
+        where id = ${month_id as number} and coach_id = ${coach_id as number}
+        limit 1
+      `;
+      if (!owned[0]) {
+        throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
+      }
+      const weekIds = await tx<Array<{ week_template_id: string }>>`
+        select week_template_id::text from program_month_weeks
+        where month_template_id = ${month_id as number}
+      `;
+      await tx`delete from program_month_weeks where month_template_id = ${month_id as number}`;
+      if (weekIds.length > 0) {
+        const ids = weekIds.map((r: { week_template_id: string }) => Number(r.week_template_id));
+        await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
+      }
+      await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
+    });
+  } catch (err) {
+    if (err instanceof ProgramMonthError) throw err;
+    if (isForeignKeyViolation(err, 'program_sequence_items_month_template_id_fkey')) {
+      throw new ProgramMonthError(
+        'in_sequence',
+        'Este microciclo forma parte de una secuencia (nivel × días). Quítalo de la secuencia antes de borrarlo.',
+        409,
+      );
+    }
+    throw err;
+  }
+}
+
+/** SQLSTATE 23503 = foreign_key_violation; opcionalmente por constraint concreta. */
+function isForeignKeyViolation(err: unknown, constraintName?: string): boolean {
+  const e = err as { code?: string; constraint_name?: string } | null;
+  if (!e || e.code !== '23503') return false;
+  return constraintName === undefined || e.constraint_name === constraintName;
+}
+
+/**
+ * Quita UNA semana de un microciclo: desengancha la junction
+ * `program_month_weeks` y compacta las posiciones siguientes (sin huecos), y
+ * borra la `program_week_templates` que quedó huérfana — dentro de la
+ * relación mes↔semanas cada fila de semana pertenece a UN único microciclo
+ * (nunca se comparte entre dos: `appendEmptyWeekToMonth` y
+ * `duplicateWeekIntoMonth`/`cloneWeekTemplateRow` siempre crean una fila
+ * nueva), así que no hay riesgo de borrar una semana que otro microciclo
+ * todavía usa — verificado igualmente antes de borrar, nunca asumido.
+ *
+ * Reordena por POSICIÓN ASCENDENTE (al revés que `duplicateWeekIntoMonth`,
+ * que inserta y desplaza en descendente): al COMPACTAR un hueco hay que
+ * mover primero la posición más baja que queda por encima del hueco, o dos
+ * filas colisionarían en la misma posición a mitad de la operación.
+ */
+export async function removeWeekFromMonth(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  week_id: number | bigint;
+  client: Sql;
+}): Promise<void> {
+  const { coach_id, month_id, week_id, client } = params;
   await client.begin(async (tx) => {
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
@@ -492,16 +562,50 @@ export async function deleteMonthTemplate(params: {
     if (!owned[0]) {
       throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
     }
-    const weekIds = await tx<Array<{ week_template_id: string }>>`
-      select week_template_id::text from program_month_weeks
-      where month_template_id = ${month_id as number}
+
+    const junction = await tx<Array<{ position: number }>>`
+      select mw.position
+      from program_month_weeks mw
+      join program_week_templates w on w.id = mw.week_template_id
+      where mw.month_template_id = ${month_id as number}
+        and mw.week_template_id = ${week_id as number}
+        and w.coach_id = ${coach_id as number}
+      limit 1
     `;
-    await tx`delete from program_month_weeks where month_template_id = ${month_id as number}`;
-    if (weekIds.length > 0) {
-      const ids = weekIds.map((r: { week_template_id: string }) => Number(r.week_template_id));
-      await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
+    const removedPosition = junction[0]?.position;
+    if (removedPosition === undefined) {
+      throw new ProgramMonthError('not_found', 'Semana no encontrada en este microciclo', 404);
     }
-    await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
+
+    await tx`
+      delete from program_month_weeks
+      where month_template_id = ${month_id as number} and week_template_id = ${week_id as number}
+    `;
+
+    const toShift = await tx<Array<{ position: number }>>`
+      select position from program_month_weeks
+      where month_template_id = ${month_id as number} and position > ${removedPosition}
+      order by position asc
+    `;
+    for (const { position } of toShift) {
+      await tx`
+        update program_month_weeks
+        set position = ${position - 1}
+        where month_template_id = ${month_id as number} and position = ${position}
+      `;
+    }
+
+    // Defensivo, no asumido: comprobar que ninguna OTRA junction sigue
+    // apuntando a esta semana antes de borrar la fila de verdad.
+    const stillReferenced = await tx<Array<{ n: string }>>`
+      select count(*)::text as n from program_month_weeks where week_template_id = ${week_id as number}
+    `;
+    if (Number(stillReferenced[0]?.n ?? '0') === 0) {
+      await tx`
+        delete from program_week_templates
+        where id = ${week_id as number} and coach_id = ${coach_id as number}
+      `;
+    }
   });
 }
 

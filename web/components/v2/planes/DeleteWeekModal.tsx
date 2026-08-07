@@ -1,21 +1,24 @@
 'use client';
 
-// Confirmación destructiva de «Borrar microciclo» — DELETE real, error honesto,
-// y al borrar deja el lienzo (ya inexistente) rumbo a la biblioteca. Escape y
-// click en el scrim cierran. Extraído de MicrocicloV2 en el rediseño ago-2026
-// (mismo comportamiento, fichero propio para mantener el orquestador <500 líneas).
+// Confirmación destructiva de «Borrar semana» — quita UNA semana de su
+// microciclo (desengancha + compacta posiciones) sin tocar el resto. El caso
+// real que lo motivó: duplicar una semana por error varias veces y no tener
+// forma de deshacerlo. Mismo patrón que DeleteMicrocicloModal, con
+// router.refresh() en vez de navegar fuera (seguimos en el mismo microciclo).
 
 import { useEffect, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 
-export function DeleteMicrocicloModal({
+export function DeleteWeekModal({
   microcycleId,
-  name,
+  weekId,
+  label,
   onClose,
 }: {
   microcycleId: string;
-  name: string;
+  weekId: string;
+  label: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -34,10 +37,10 @@ export function DeleteMicrocicloModal({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/coach/program-months/${microcycleId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const res = await fetch(
+        `/api/coach/program-months/${microcycleId}/weeks/${weekId}`,
+        { method: 'DELETE', credentials: 'include' },
+      );
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
@@ -46,7 +49,8 @@ export function DeleteMicrocicloModal({
         setBusy(false);
         return;
       }
-      router.push('/biblioteca');
+      router.refresh();
+      onClose();
     } catch {
       setError('No se pudo borrar. Inténtalo de nuevo.');
       setBusy(false);
@@ -61,7 +65,7 @@ export function DeleteMicrocicloModal({
       <div
         role="dialog"
         aria-modal
-        aria-label="Borrar microciclo"
+        aria-label="Borrar semana"
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]"
       >
@@ -70,9 +74,10 @@ export function DeleteMicrocicloModal({
             <MIcon name="delete" size={20} />
           </span>
           <div className="min-w-0">
-            <h2 className="v2-display text-xl">Borrar microciclo</h2>
+            <h2 className="v2-display text-xl">Borrar semana</h2>
             <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
-              Vas a borrar «{name}» y todas sus semanas. Esta acción no se puede deshacer.
+              Vas a borrar «{label}» de este microciclo. Las semanas siguientes se
+              renumeran. Esta acción no se puede deshacer.
             </p>
           </div>
         </div>
@@ -95,7 +100,7 @@ export function DeleteMicrocicloModal({
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <MIcon name={busy ? 'progress_activity' : 'delete'} size={16} />
-            {busy ? 'Borrando…' : 'Borrar microciclo'}
+            {busy ? 'Borrando…' : 'Borrar semana'}
           </button>
         </div>
       </div>
