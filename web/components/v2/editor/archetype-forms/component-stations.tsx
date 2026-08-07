@@ -20,6 +20,7 @@ import { emptyTargetOfKind, targetScalar } from '@/lib/programming/prescription-
 import { OBJETIVO_LABEL } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
 import { Stepper } from '@/components/v2/controls/Stepper';
+import { cn } from '@/lib/utils';
 import { ExercisePickerField } from '../ExercisePickerField';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { RestChips, ROUND_REST_VALUES } from '../dose-controls';
@@ -58,16 +59,66 @@ export function FormatParamField({
     case 'rounds': {
       const label = format === 'emom' ? 'Minutos' : 'Rondas';
       const value = head?.rounds ?? 1;
+      const roundsMax = head?.rounds_max;
+      const isRange = roundsMax !== undefined;
+      const singularAria = format === 'emom' ? 'Minutos del EMOM' : 'Número de rondas';
+
+      // Rondas con dedos, fase 2: «3-4 rondas» es una banda (docs/DECISIONS.md,
+      // 2026-08-05 «Una medida de trabajo puede ser un RANGO»), no dos series —
+      // mismo patrón que Measure.max en Series iguales. El chip activa/desactiva
+      // `rounds_max`; el techo se edita con el MISMO Stepper que el suelo.
+      // `prescriptionToText`/`roundsIsRange` ya saben leer la banda: aquí solo
+      // se escribe el campo, no se reformatea nada.
+      const setValue = (v: number) => {
+        const patch: Partial<Prescription> = { rounds: v };
+        // El suelo no puede rebasar el techo — si crece por encima, el techo
+        // sube con él para no dejar una banda invertida (p. ej. 4-3).
+        if (isRange && roundsMax !== undefined && v > roundsMax) patch.rounds_max = v;
+        onPatch(patch);
+      };
+      const toggleRange = () => onPatch({ rounds_max: isRange ? undefined : value + 1 });
+
       return (
-        <Field label={label}>
-          {/* Rondas con dedos: SIN rango (3-4) — eso es fase 2. */}
-          <Stepper
-            value={value}
-            min={1}
-            max={Math.max(60, value)}
-            ariaLabel={format === 'emom' ? 'Minutos del EMOM' : 'Número de rondas'}
-            onChange={(v) => onPatch({ rounds: v })}
-          />
+        <Field label={label} className={isRange ? 'sm:col-span-2' : undefined}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Stepper value={value} min={1} max={Math.max(60, value)} ariaLabel={singularAria} onChange={setValue} />
+            {isRange ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="v2-micro normal-case tracking-normal text-[color:var(--v2-faint)]"
+                >
+                  hasta
+                </span>
+                <Stepper
+                  value={roundsMax}
+                  min={value}
+                  max={Math.max(60, roundsMax)}
+                  size="sm"
+                  ariaLabel={`${singularAria}, techo del rango`}
+                  onChange={(v) => onPatch({ rounds_max: v })}
+                />
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={toggleRange}
+              aria-pressed={isRange}
+              aria-label={
+                isRange
+                  ? `Quitar el rango de ${label.toLowerCase()}`
+                  : `Poner un rango de ${label.toLowerCase()}`
+              }
+              className={cn(
+                'v2-focus inline-flex h-[34px] shrink-0 items-center rounded-[var(--v2-r-pill)] border px-3 text-[13px] font-bold transition-colors',
+                isRange
+                  ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
+                  : 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+              )}
+            >
+              {isRange ? 'quitar rango' : '＋ rango'}
+            </button>
+          </div>
         </Field>
       );
     }
