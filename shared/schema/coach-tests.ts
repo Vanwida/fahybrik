@@ -34,12 +34,20 @@ export const coachTestResultInputSchema = z.discriminatedUnion('kind', [
 ]);
 export type CoachTestResultInput = z.infer<typeof coachTestResultInputSchema>;
 
-/** One scheduled occurrence: which week of the athlete's plan (1-based) + weekday
- *  (1 = Mon … 7 = Sun). A test may have several (re-tests in weeks 1, 6, 12…). */
+/** One scheduled occurrence: which week of the athlete's plan + weekday
+ *  (1 = Mon … 7 = Sun). A test may have several (re-tests in weeks 1, 6, 12…).
+ *
+ *  `week_offset = 0` es la SEMANA CERO: los días entre que el coach asigna el
+ *  plan y el lunes que arranca (migración 0157). Ahí el `day_of_week` es una
+ *  PREFERENCIA, no una promesa — la ventana mide de 1 a 7 días según el día en
+ *  que se asigne, así que lo que no cabe se desliza al siguiente hueco libre y
+ *  lo que no entra se informa. 1+ sigue siendo la semana N del plan, 1-based. */
 export const coachTestScheduleInputSchema = z.object({
-  week_offset: z.number().int().min(1).max(52),
+  week_offset: z.number().int().min(0).max(52),
   day_of_week: z.number().int().min(1).max(7),
   enabled: z.boolean().default(true),
+  /** Días libres que esta pieza pide DETRÁS. Un test duro pide 1; una movilidad 0. */
+  rest_days_after: z.number().int().min(0).max(3).default(0),
 });
 export type CoachTestScheduleInput = z.infer<typeof coachTestScheduleInputSchema>;
 
@@ -67,7 +75,10 @@ export const coachTestCreateSchema = z.object({
     .default([])
     .refine(uniqueSchedule, { message: 'Hay dos ocurrencias en la misma semana y día.' }),
 });
+/** Shape ya PARSEADO (defaults aplicados) — lo que consume el writer. Para
+ *  construir un payload a mano, usar `CoachTestCreateInput`. */
 export type CoachTestCreate = z.infer<typeof coachTestCreateSchema>;
+export type CoachTestCreateInput = z.input<typeof coachTestCreateSchema>;
 
 export const coachTestUpdateSchema = z.object({
   name: z.string().min(1).max(120).optional(),

@@ -119,6 +119,7 @@ export function TestsView({
         week_offset: s.week_offset,
         day_of_week: s.day_of_week,
         enabled: true,
+        rest_days_after: s.rest_days_after ?? 0,
       })),
     };
     const url = isCreate ? '/api/coach/tests' : `/api/coach/tests/${draft.id}`;

@@ -82,7 +82,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         format: 'test',
         enabled: true,
         results: [{ kind: 'calibration', target: 'row_zones' }],
-        schedule: [{ week_offset: 1, day_of_week: 5, enabled: true }],
+        schedule: [{ week_offset: 1, day_of_week: 5, enabled: true, rest_days_after: 0 }],
       },
       sql,
     );

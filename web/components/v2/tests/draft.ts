@@ -23,8 +23,11 @@ export type DraftResult =
   | { kind: 'baseline'; measure: StoreResultMeasure; unit: StoreResultUnit; label: string; optional: boolean };
 
 export interface DraftSchedule {
+  /** 0 = SEMANA CERO (los días antes de que arranque el plan); 1+ = semana N. */
   week_offset: number;
   day_of_week: number;
+  /** Días libres que la pieza pide detrás. Solo lo usa la semana cero al repartir. */
+  rest_days_after?: number;
 }
 
 /** The full test editing draft. `id === null` ⇒ creating. */
@@ -100,7 +103,11 @@ export function testToDraft(t: CoachCalibrationTest): TestDraft {
     format: t.format,
     enabled: t.enabled,
     results: t.results.map(resultToDraft),
-    schedule: t.schedules.map((s) => ({ week_offset: s.week_offset, day_of_week: s.day_of_week })),
+    schedule: t.schedules.map((s) => ({
+      week_offset: s.week_offset,
+      day_of_week: s.day_of_week,
+      rest_days_after: s.rest_days_after,
+    })),
   };
 }
 

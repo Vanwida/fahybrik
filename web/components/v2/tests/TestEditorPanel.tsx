@@ -247,21 +247,43 @@ export function TestEditorPanel({
                 key={i}
                 className="flex flex-wrap items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2"
               >
-                <label className="inline-flex items-center gap-1.5 text-label font-semibold text-[color:var(--v2-muted)]">
-                  Semana
-                  <input
-                    type="number"
-                    min={1}
-                    max={52}
-                    value={s.week_offset}
-                    onChange={(e) =>
-                      setSchedule(i, {
-                        week_offset: Math.min(52, Math.max(1, Number(e.target.value) || 1)),
-                      })
-                    }
-                    className="v2-focus h-7 w-14 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-center text-body text-[color:var(--v2-fg)]"
-                  />
-                </label>
+                {/* SEMANA CERO (week_offset 0): los días entre que asignas el
+                    plan y el lunes que arranca. La ventana mide de 1 a 7 días
+                    según cuándo asignes, así que ahí el día es una PREFERENCIA:
+                    lo que no cabe se desliza, y lo que no entra se dice. */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSchedule(i, { week_offset: s.week_offset === 0 ? 1 : 0 })
+                  }
+                  aria-pressed={s.week_offset === 0}
+                  title="Antes de que arranque el plan, en los días que queden libres"
+                  className={cn(
+                    'v2-focus h-7 rounded-[var(--v2-r-s)] px-2.5 text-label font-bold transition-colors',
+                    s.week_offset === 0
+                      ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                      : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+                  )}
+                >
+                  Antes de empezar
+                </button>
+                {s.week_offset === 0 ? null : (
+                  <label className="inline-flex items-center gap-1.5 text-label font-semibold text-[color:var(--v2-muted)]">
+                    Semana
+                    <input
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={s.week_offset}
+                      onChange={(e) =>
+                        setSchedule(i, {
+                          week_offset: Math.min(52, Math.max(1, Number(e.target.value) || 1)),
+                        })
+                      }
+                      className="v2-focus h-7 w-14 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-center text-body text-[color:var(--v2-fg)]"
+                    />
+                  </label>
+                )}
                 <div className="flex items-center gap-1">
                   {DOW_LABELS.map((lbl, idx) => {
                     const dow = idx + 1;
@@ -285,6 +307,27 @@ export function TestEditorPanel({
                     );
                   })}
                 </div>
+                {/* Solo en semana cero: ahí las piezas se reparten y hay que
+                    saber cuáles no pueden ir pegadas. En una semana del plan el
+                    día es fijo y no hay nada que deslizar. */}
+                {s.week_offset === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSchedule(i, { rest_days_after: (s.rest_days_after ?? 0) > 0 ? 0 : 1 })
+                    }
+                    aria-pressed={(s.rest_days_after ?? 0) > 0}
+                    title="Deja un día libre detrás — para un test que fatiga"
+                    className={cn(
+                      'v2-focus h-7 rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold transition-colors',
+                      (s.rest_days_after ?? 0) > 0
+                        ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                        : 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]',
+                    )}
+                  >
+                    + día libre detrás
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => removeSchedule(i)}

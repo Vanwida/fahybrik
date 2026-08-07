@@ -30,9 +30,12 @@ export interface CoachTestResult {
  *  (re-tests in weeks 1, 6, 12…), hence a child collection rather than columns. */
 export interface CoachTestSchedule {
   id: string;
+  /** 0 = SEMANA CERO (los días antes de que arranque el plan); 1+ = semana N, 1-based. */
   week_offset: number;
   day_of_week: number;
   enabled: boolean;
+  /** Días libres que esta pieza pide detrás. Solo lo usa la semana cero al colocar. */
+  rest_days_after: number;
 }
 
 export interface CoachCalibrationTest {
@@ -103,7 +106,7 @@ export async function listCoachTests(
       where test_id = any(${ids})
       order by sort_order asc, id asc`,
     client<ScheduleRow[]>`
-      select id::text, test_id::text, week_offset, day_of_week, enabled
+      select id::text, test_id::text, week_offset, day_of_week, enabled, rest_days_after
       from coach_test_schedule
       where test_id = any(${ids})
       order by week_offset asc, day_of_week asc`,
@@ -129,7 +132,13 @@ export async function listCoachTests(
   const schedulesByTest = new Map<string, CoachTestSchedule[]>();
   for (const s of scheduleRows) {
     const list = schedulesByTest.get(s.test_id) ?? [];
-    list.push({ id: s.id, week_offset: s.week_offset, day_of_week: s.day_of_week, enabled: s.enabled });
+    list.push({
+      id: s.id,
+      week_offset: s.week_offset,
+      day_of_week: s.day_of_week,
+      enabled: s.enabled,
+      rest_days_after: s.rest_days_after,
+    });
     schedulesByTest.set(s.test_id, list);
   }
 

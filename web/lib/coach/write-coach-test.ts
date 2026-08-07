@@ -170,10 +170,15 @@ async function insertSchedule(
   schedule: CoachTestCreate['schedule'],
 ): Promise<void> {
   for (const occ of schedule) {
+    // `rest_days_after` solo lo usa la semana cero al repartir la ventana; en las
+    // semanas del plan el día es fijo y no hay nada que deslizar. Se persiste
+    // igual para no perder lo que el coach declaró si mueve la pieza a la 0.
     await tx`
-      insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
-      values (${testId}, ${occ.week_offset}, ${occ.day_of_week}, ${occ.enabled})
-      on conflict (test_id, week_offset, day_of_week) do update set enabled = excluded.enabled
+      insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled, rest_days_after)
+      values (${testId}, ${occ.week_offset}, ${occ.day_of_week}, ${occ.enabled}, ${occ.rest_days_after ?? 0})
+      on conflict (test_id, week_offset, day_of_week) do update set
+        enabled = excluded.enabled,
+        rest_days_after = excluded.rest_days_after
     `;
   }
 }

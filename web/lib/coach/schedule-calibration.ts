@@ -12,7 +12,8 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
 import { listCoachTests } from '@/lib/coach/coach-tests';
-import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
+import { addDays, isoDateString, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import { planZeroWeek, type ZeroWeekItem } from '@fahybrid/shared/domain/coach/zero-week';
 
 /**
  * Insert ONE calibration-test session for the athlete, pointing at an already-cloned
@@ -109,6 +110,11 @@ export async function scheduleWeek1Calibration(params: {
   week1_monday: Date;
   /** The microcycle covering week 1 (later-week tests, week_offset>1, hang off no microcycle). */
   microcycle_id: string;
+  /**
+   * El día en que se asigna — el arranque de la ventana de la semana cero.
+   * Inyectable para poder fijarlo en un test; por defecto, hoy.
+   */
+  assigned_on?: Date;
 }): Promise<number> {
   const { client } = params;
   const athlete_id = Number(params.athlete_id);
@@ -128,12 +134,80 @@ export async function scheduleWeek1Calibration(params: {
   if (tests.length === 0) return 0;
 
   const week1MicrocycleId = Number(params.microcycle_id);
+
+  // ── SEMANA CERO (week_offset 0) ────────────────────────────────────────────
+  // Los días entre HOY y el lunes que arranca el plan. La ventana mide de 1 a 7
+  // días según cuándo se asigne, así que no se puede colocar por (semana, día) a
+  // ciegas como las semanas del plan: hay que repartir lo que quepa de verdad.
+  // `planZeroWeek` (puro, testeado) decide; aquí solo se escribe.
+  const zeroItems: Array<{ item: ZeroWeekItem; test: (typeof tests)[number] }> = [];
+  for (const test of tests) {
+    if (!test.template_id) continue;
+    for (const occ of test.schedules) {
+      if (!occ.enabled || occ.week_offset !== 0) continue;
+      zeroItems.push({
+        item: {
+          id: occ.id,
+          preferredDayOfWeek: occ.day_of_week,
+          restDaysAfter: occ.rest_days_after,
+        },
+        test,
+      });
+    }
+  }
+
   let injected = 0;
+
+  if (zeroItems.length > 0) {
+    const buffer = await zeroWeekBufferDays(client, coach_id);
+    // Los días del atleta que ya tienen algo: nunca se pisan (puede tener
+    // entrenos libres suyos, o una asignación anterior).
+    const busy = await client<{ iso: string }[]>`
+      select distinct scheduled_for::text as iso
+      from workout_assignments
+      where athlete_id = ${athlete_id}
+        and scheduled_for < ${isoDateString(params.week1_monday)}::date
+        and scheduled_for >= ${isoDateString(addDays(params.week1_monday, -7))}::date
+    `;
+    const plan = planZeroWeek({
+      assignedOn: params.assigned_on ?? startOfDayUtc(new Date()),
+      planStart: params.week1_monday,
+      bufferDays: buffer,
+      occupied: busy.map((b) => b.iso),
+      items: zeroItems.map((z) => z.item),
+    });
+
+    for (const placement of plan.placed) {
+      const entry = zeroItems.find((z) => z.item.id === placement.id);
+      if (!entry) continue;
+      const clone = await cloneTemplateAsInstance({
+        client,
+        source_template_id: Number(entry.test.template_id),
+        athlete_id,
+      });
+      if (!clone) continue;
+      await insertCalibrationAssignment({
+        client,
+        athlete_id,
+        test_id: Number(entry.test.id),
+        template_id: clone.template_id,
+        template_version: clone.version,
+        scheduled_for: placement.iso,
+        // La semana cero NO es del microciclo: no periodiza, no progresa, no es
+        // una semana del bloque. `microcycle_id` null, que es lo que el sistema
+        // ya hace con lo que vive fuera del plan.
+        microcycle_id: null,
+      });
+      injected += 1;
+    }
+  }
+
+  // ── Semanas del plan (week_offset >= 1), como siempre ──────────────────────
   for (const test of tests) {
     // A test with no workout content yet cannot be scheduled (nothing to run).
     if (!test.template_id) continue;
     // The coach's enabled occurrences (a test can repeat — re-tests in weeks 1, 6, 12…).
-    const occurrences = test.schedules.filter((s) => s.enabled);
+    const occurrences = test.schedules.filter((s) => s.enabled && s.week_offset >= 1);
     if (occurrences.length === 0) continue;
     // One per-athlete fork of the content, reused across this test's occurrences.
     const clone = await cloneTemplateAsInstance({
@@ -161,4 +235,12 @@ export async function scheduleWeek1Calibration(params: {
     }
   }
   return injected;
+}
+
+/** El margen de la semana cero que eligió el coach (método, no constante). */
+async function zeroWeekBufferDays(client: Sql, coach_id: number): Promise<number> {
+  const rows = await client<{ days: number }[]>`
+    select zero_week_buffer_days as days from coaches where id = ${coach_id} limit 1
+  `;
+  return rows[0]?.days ?? 1;
 }
