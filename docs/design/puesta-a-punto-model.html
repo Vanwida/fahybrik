@@ -112,8 +112,15 @@ tr:last-child td{border-bottom:none}
     <li><strong><code>coach_test_schedule</code></strong> — modela <code>(test, week_offset, day_of_week, enabled)</code>. Pablo ya los tiene programados: los 4 en <code>week_offset = 1</code>, días 2/3/5/6.</li>
     <li><strong><code>scheduleWeek1Calibration</code></strong> (<code>schedule-calibration.ts:104</code>) — el inyector. Clona el contenido por atleta, coloca cada test en su día, es idempotente.</li>
     <li><strong>Se llama desde el materializador único</strong> (<code>instantiate-program.ts:185</code>), por donde pasan las 7 vías de asignación. Ya es automático y universal.</li>
-    <li><strong>El bucle está cerrado</strong>: assignment → ejecución → captura → benchmark → <code>athlete_zone_profiles</code> (ritmos y zonas del atleta).</li>
+    <li><strong>El bucle está cerrado</strong>: assignment → ejecución → captura → <code>athlete_benchmarks</code> → de ahí salen <em>zonas y ritmos</em> (<code>athlete_zone_profiles</code>), <em>%RM</em> (máximos de fuerza versionados) y <em>una recolocación del nivel</em> del atleta desde dato real (<code>test-battery-bridge.ts:93-269</code>).</li>
+    <li><strong>Colocar un test en una fecha ya se sabe hacer</strong>: <code>applyTestToAthletes</code> (<code>apply-test.ts:53</code>) lo aplica a atletas con plan en marcha, con repetición opcional y <strong>detección de choques de día</strong> (<code>loadDayClashes</code>). Media lógica de colocación de la puesta a punto ya está escrita.</li>
+    <li><strong>Un test ES un entreno fechado</strong>: fila normal de <code>workout_assignments</code> con la FK <code>calibration_test_id</code>. No hay carril paralelo — se mueve, se borra y se ve como cualquier sesión.</li>
   </ul>
+</div>
+
+<div class="card danger">
+  <span class="tag danger">Contexto que cambia las expectativas</span>
+  <p style="margin:0">Esta maquinaria está <strong>prácticamente sin estrenar</strong>. En toda la producción hay <strong>2 asignaciones de test</strong>, las dos del mismo atleta (Alex) y del mismo test (batería 1RM). <em>5K control</em>, <em>Remo 2K</em> y <em>HYROX half-sim</em> llevan semanas configurados y habilitados <strong>sin llegar nunca a nadie</strong>, y <strong>ningún atleta tiene zonas derivadas de un test real</strong>. No estamos extendiendo un sistema rodado: estamos dándole el primer uso serio. Conviene contar con que aparezcan fallos de estreno.</p>
 </div>
 
 <p>Es decir: <strong>«qué contenido va en esos días» ya está resuelto y es dato del coach.</strong> No hay que inventar un editor nuevo ni pedirle a Pablo que escriba nada.</p>
@@ -137,7 +144,7 @@ tr:last-child td{border-bottom:none}
 
 <h3>Qué hay que añadir, exactamente</h3>
 <ol>
-  <li><strong>Permitir <code>week_offset = 0</code></strong> en <code>coach_test_schedule</code>: «antes de empezar». Una fila más de valores permitidos en una columna que ya existe — no una tabla nueva.</li>
+  <li><strong>Permitir <code>week_offset = 0</code></strong> en <code>coach_test_schedule</code>: «antes de empezar». Hoy está prohibido por partida doble — <code>CHECK (week_offset >= 1)</code> en la base y <code>z.number().min(1)</code> en <code>coach-tests.ts:40</code> — así que pide <strong>una migración que relaje el CHECK a >= 0</strong> y el zod correspondiente. Sigue sin ser tabla nueva ni concepto nuevo: es ensanchar en uno el rango de una columna que ya existe.</li>
   <li><strong>Colocación tolerante</strong>: el coach declara un día preferido, pero si ese día ya pasó cuando se da el alta, la pieza <em>se desliza</em> al siguiente día libre de la ventana. Lo que no quepa, no se hace — <strong>y se le dice al coach</strong>, nunca en silencio.</li>
   <li><strong>Margen antes del lunes</strong>: días de descanso obligatorio para no arrancar la semana 1 fatigado. Es <em>método</em> del coach (dato editable, defecto 1 día), no una constante nuestra.</li>
   <li><strong>Separación entre piezas</strong>: una batería de 1RM y un 5K control en días seguidos es mala programación. Cada test declara si pide un día libre detrás. También método del coach.</li>
@@ -198,6 +205,11 @@ tr:last-child td{border-bottom:none}
 <div class="card warn">
   <span class="tag warn">4 · Sigue habiendo un vacío que esto no tapa</span>
   <p style="margin:0">Con hueco 0-1 días, o si el coach no tiene tests, la puesta a punto está vacía y el atleta <strong>sigue viendo una semana muda</strong>. Por eso el mensaje «<em>tu plan empieza el lunes 10</em>» hace falta igual, independientemente de todo lo demás.</p>
+</div>
+
+<div class="card danger">
+  <span class="tag danger">5 · Bug ya existente · deriva de contrato en los tests</span>
+  <p style="margin:0">La pantalla de captura y el puente que guarda el resultado leen el contrato de <strong>sitios distintos</strong>: <code>assignment-detail.ts:390</code> lee <code>coach_test_results</code> <em>en vivo</em>, mientras <code>test-battery-bridge.ts:112</code> lee el <code>meta_json</code> <strong>congelado</strong> del template forkeado al atleta — y rechaza cualquier slug que no esté ahí. Si el coach edita qué mide un test <em>después</em> de que una sesión se haya forkeado, la app le pide al atleta los campos nuevos y al guardar recibe <strong>422 <code>unknown_slug</code></strong>. No es de este diseño, pero la puesta a punto multiplicaría los forks repartidos y por tanto la probabilidad de pisarlo.</p>
 </div>
 
 <div class="card info">
