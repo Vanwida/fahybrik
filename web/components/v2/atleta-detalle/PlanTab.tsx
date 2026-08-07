@@ -219,13 +219,39 @@ export function PlanTab({
 
   // The today-week (snapshot tiles stay anchored to it) vs the navigable active
   // week shown in the strip.
-  const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? plan.weeks[0];
+  //
+  // `todayWeek` es NULL cuando ninguna semana del plan contiene hoy — el caso
+  // real de un plan recién asignado, que siempre arranca en lunes y por tanto
+  // empieza DESPUÉS de hoy. Antes esto caía a `plan.weeks[0]`, así que la
+  // primera semana del plan se rotulaba «Esta semana» siendo la que viene: el
+  // coach leía como actual algo que aún no ha empezado.
+  const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? null;
   const todayWeekDays = todayWeek ? mapWeekToStripDays(todayWeek, athlete_id) : [];
   const clampedWeekIdx = Math.min(Math.max(weekIdx, 0), plan.weeks.length - 1);
   const activeWeek = plan.weeks[clampedWeekIdx] ?? todayWeek;
   const activeWeekDays = activeWeek ? mapWeekToStripDays(activeWeek, athlete_id) : [];
-  const isTodayWeek = activeWeek === todayWeek;
-  const weekLabel = isTodayWeek || !activeWeek ? 'Esta semana' : formatWeekRange(activeWeek);
+  const isTodayWeek = todayWeek !== null && activeWeek === todayWeek;
+  // El plan aún no ha arrancado: no hay «esta semana» que enseñar, así que la
+  // etiqueta dice el rango real en vez de mentir.
+  const planNotStarted = todayWeek === null;
+  // El primer día CON sesión de todo el plan — lo que el coach quiere saber
+  // («arranca el 10 ago»), no el lunes de la primera semana si esa semana
+  // empieza el martes.
+  const planStartLabel = planNotStarted
+    ? (() => {
+        const firstDay = plan.weeks
+          .flatMap((w) => w.days)
+          .find((d) => d.sessions.length > 0);
+        if (!firstDay) return null;
+        const [, m, day] = firstDay.iso_date.split('-');
+        return `${Number(day)} ${MONTHS_SHORT[Number(m) - 1] ?? ''}`;
+      })()
+    : null;
+  const weekLabel = !activeWeek
+    ? 'Esta semana'
+    : isTodayWeek
+      ? 'Esta semana'
+      : formatWeekRange(activeWeek);
   const canPrev = clampedWeekIdx > 0;
   const canNext = clampedWeekIdx < plan.weeks.length - 1;
 
@@ -336,6 +362,13 @@ export function PlanTab({
           <Panel title="Sesión de hoy" bodyClassName="flex flex-col gap-3">
             {todaySession ? (
               <TodaySessionCard session={todaySession} onOpen={setOpenSession} />
+            ) : planNotStarted ? (
+              // Hoy NO es un día de descanso: el plan todavía no ha empezado.
+              // Llamarlo descanso hacía pensar que estaba programado así.
+              <p className="py-4 text-center text-xs text-[color:var(--v2-muted)]">
+                El plan aún no ha empezado
+                {planStartLabel ? ` · arranca el ${planStartLabel}` : ''}
+              </p>
             ) : (
               <p className="py-4 text-center text-xs text-[color:var(--v2-muted)]">
                 Sin sesión programada hoy · día de descanso
