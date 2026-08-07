@@ -31,6 +31,7 @@ import { ExercisePicker } from './ExercisePicker';
 import { countItems, saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { NEXT_SLOT, useDaySessions } from './use-day-sessions';
+import { fetchTextSuggestions, type SessionNoteBlock } from './ai-text-suggest';
 import {
   putDay,
   putDayCopy,
@@ -43,6 +44,22 @@ import {
 export type { DayRailDay } from './DayRail';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
+
+/**
+ * El CONTENIDO de la sesión para las dos ayudas del modelo (el título y la nota
+ * del entreno). Se arma una sola vez: si mañana el servidor quiere saber algo
+ * más de un bloque, se añade AQUÍ y las dos superficies lo mandan igual.
+ */
+function sessionContentBlocks(session: EditorSession): SessionNoteBlock[] {
+  return session.blocks.map((b) => ({
+    title: b.title,
+    format: b.format,
+    items: b.items.map((it) => ({
+      exercise_name: it.exercise_name,
+      modality: it.prescription.modality,
+    })),
+  }));
+}
 
 // `embedded` = pintado como zoom DÍA del canvas del microciclo (un editor, dos
 // zooms: SEMANA ↔ DÍA). El nav de día llega en props planas: `onSelectDay(dia)`
@@ -129,16 +146,7 @@ export function DayEditor({
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          blocks: session.blocks.map((b) => ({
-            title: b.title,
-            format: b.format,
-            items: b.items.map((it) => ({
-              exercise_name: it.exercise_name,
-              modality: it.prescription.modality,
-            })),
-          })),
-        }),
+        body: JSON.stringify({ blocks: sessionContentBlocks(session) }),
       });
       if (!res.ok) return;
       const data = (await res.json()) as { title?: string };
@@ -149,6 +157,18 @@ export function DayEditor({
       setSuggestingUid(null);
     }
   };
+
+  // «Ayuda IA» de la NOTA del entreno — el mismo contexto que el título (esta
+  // sesión y lo que lleva dentro), pero devuelve VARIOS borradores: una nota es
+  // prosa, así que el coach elige uno y lo edita en vez de tragarse uno solo.
+  const suggestSessionNote = (session: EditorSession) =>
+    fetchTextSuggestions({
+      surface: 'coach_note',
+      context: {
+        ...(session.focus ? { session_title: session.focus } : {}),
+        blocks: sessionContentBlocks(session),
+      },
+    });
 
   // Pasar a Descanso oculta el editor de entreno — se cierra cualquier overlay
   // workout-only para que no quede colgando sobre el panel de descanso.
@@ -327,6 +347,7 @@ export function DayEditor({
                   session={session}
                   onChangeFocus={(focus) => day.setSessionFocus(session.uid, focus)}
                   onChangeNote={(notes) => day.setSessionNote(session.uid, notes)}
+                  onSuggestNote={() => suggestSessionNote(session)}
                   onSuggestTitle={() => suggestTitle(session)}
                   suggesting={suggestingUid === session.uid}
                   onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}

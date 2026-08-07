@@ -23,11 +23,19 @@ const sessionTitleItemSchema = z.object({
   modality: modalitySchema.optional(),
 });
 
-const sessionTitleBlockSchema = z.object({
+/**
+ * El CONTENIDO de una sesión tal como lo manda el editor de día: título/formato
+ * del bloque + sus ejercicios. Exportado porque la nota del entreno
+ * (`text-ai-suggest.ts`, superficie `coach_note`) se apoya en exactamente el
+ * mismo contexto — una sesión se describe UNA vez, no dos.
+ */
+export const sessionTitleBlockSchema = z.object({
   title: z.string().max(120).optional(),
   format: z.string().max(60).nullable().optional(),
   items: z.array(sessionTitleItemSchema).max(24).default([]),
 });
+
+export type SessionContentBlock = z.infer<typeof sessionTitleBlockSchema>;
 
 export const suggestSessionTitleRequestSchema = z
   .object({
@@ -146,7 +154,13 @@ async function llmSuggestTitle(args: {
   return title.length > 0 ? title : null;
 }
 
-function describeBlocks(blocks: SuggestSessionTitleRequest['blocks']): string {
+/**
+ * La sesión en texto plano para el prompt: un bloque por línea con sus
+ * ejercicios. Exportado y compartido con la nota del entreno — si mañana el
+ * contexto de una sesión se describe distinto, se cambia AQUÍ y las dos
+ * superficies lo heredan.
+ */
+export function describeBlocks(blocks: SessionContentBlock[]): string {
   if (blocks.length === 0) return '(sin bloques)';
   return blocks
     .map((b, i) => {

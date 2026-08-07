@@ -50,6 +50,7 @@ export function SessionPartCard({
   session,
   onChangeFocus,
   onChangeNote,
+  onSuggestNote,
   onSuggestTitle,
   suggesting,
   onSuggestWorkout,
@@ -67,6 +68,8 @@ export function SessionPartCard({
   onChangeFocus: (focus: string) => void;
   /** Escribe la NOTA del entreno — lo que el atleta lee antes de empezarlo. */
   onChangeNote: (notes: string) => void;
+  /** Pide borradores de esa nota a partir del contenido de la sesión (opcional). */
+  onSuggestNote?: () => Promise<string[]>;
   onSuggestTitle: () => void;
   suggesting: boolean;
   /** Abre «Redactar con IA» para esta sesión (#33) — borradores que el coach inserta. */
@@ -169,6 +172,7 @@ export function SessionPartCard({
           placeholder="Hoy vamos a por el ritmo. No te pases en la primera serie."
           maxLength={SESSION_NOTES_MAX}
           onChange={onChangeNote}
+          onSuggest={onSuggestNote}
         />
       </header>
 

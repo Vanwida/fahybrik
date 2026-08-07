@@ -22,6 +22,7 @@ import { isStrengthModality } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { NoteField } from './fields';
+import { fetchTextSuggestions } from './ai-text-suggest';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthleteSeesBar } from './AthletePreviewLine';
@@ -258,6 +259,7 @@ export function BlockEditor({
       {block.items.length > 0 ? (
         <LineNotes
           items={block.items}
+          blockTitle={block.title}
           onChangeNote={(uid, notes) => updateItem(uid, { notes })}
         />
       ) : null}
@@ -284,12 +286,27 @@ const LINE_NOTE_HINT =
 
 function LineNotes({
   items,
+  blockTitle,
   onChangeNote,
 }: {
   items: EditorItem[];
+  /** Sitúa el ejercicio dentro del entreno cuando se piden borradores. */
+  blockTitle: string;
   onChangeNote: (uid: string, notes: string) => void;
 }) {
   const single = items.length === 1;
+  // El contexto de esta ayuda es LA LÍNEA, no la sesión: ese ejercicio y SU
+  // dosis. Pedir borradores de «baja la carga» con el entreno entero delante
+  // devolvería consejos del entreno, no del movimiento que se está dosificando.
+  const suggestFor = (item: EditorItem) => () =>
+    fetchTextSuggestions({
+      surface: 'item_note',
+      context: {
+        ...(item.exercise_name ? { exercise_name: item.exercise_name } : {}),
+        ...(blockTitle ? { block_title: blockTitle } : {}),
+        prescription: item.prescription,
+      },
+    });
   return (
     <section className="space-y-2.5">
       {single ? null : (
@@ -314,6 +331,7 @@ function LineNotes({
           placeholder="Baja la carga, vienes de la tirada del domingo."
           maxLength={ITEM_NOTES_MAX}
           onChange={(v) => onChangeNote(it.uid, v)}
+          onSuggest={suggestFor(it)}
         />
       ))}
     </section>
