@@ -216,6 +216,37 @@ export function doseFirstLabel(seg: string, opts?: { structural?: boolean }): Do
   return note ? { token, note } : { token };
 }
 
+// ── «Opcional» block prefix (fase 2, ago-2026) ───────────────────────────────
+// Pablo marks a skippable block by typing the word IN the title itself
+// ("OPCIONAL: FUERZA PARTE ALTA (4 × 4)"), with a real typo variant seen in
+// production ("OPCIONA: REFUERZO HOMBRO" — microciclo 76, coach 60). This is
+// the SAME level of confidence as recognizing "RIR 2" or "%RM": an EXACT
+// prefix match, never an inference from tone/content. No prefix → the block
+// title is returned untouched and `optional` stays false — the caller
+// decides whether to omit the field entirely (see EditorBlock.optional).
+
+const OPTIONAL_TITLE_PREFIX_RE = /^\s*opciona(?:l)?\b\s*:?\s*/i;
+
+export interface OptionalTitleParse {
+  /** The title with the prefix removed (unchanged when there was none). */
+  title: string;
+  optional: boolean;
+}
+
+/** Strips a leading "OPCIONAL:"/"OPCIONA:" (typo-tolerant, case-insensitive,
+ *  colon and space both optional) from a block title and reports whether it
+ *  was there. Guards against emitting an empty title (a block whose ENTIRE
+ *  title was the marker keeps it verbatim instead — `weekDayPartSchema.title`
+ *  requires ≥1 char, and a title-less block is a worse outcome than one that
+ *  still reads "OPCIONAL"). */
+export function stripOptionalBlockPrefix(title: string): OptionalTitleParse {
+  const m = title.match(OPTIONAL_TITLE_PREFIX_RE);
+  if (!m) return { title, optional: false };
+  const stripped = title.slice(m[0].length).trim();
+  if (!stripped) return { title, optional: false };
+  return { title: stripped, optional: true };
+}
+
 // ── Titles, noise, continuations ─────────────────────────────────────────────
 
 /** An ALL-CAPS line with no dose ("DÍA LARGO MIXTO Z2", "CARRERA LARGA Z2",

@@ -505,6 +505,79 @@ describe('buildImportProposal — cards: orphan block-level dose redistribution'
   });
 });
 
+describe('buildImportProposal — «OPCIONAL»/«OPCIONA» block prefix (fase 2)', () => {
+  test('cards path: "OPCIONAL: FUERZA PARTE ALTA (4 × 4)" strips the prefix and marks the block optional', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 7,
+        dow: 'Domingo',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'OPCIONAL: FUERZA PARTE ALTA (4 × 4)',
+            lines: ['Press militar 4x4 @rir2'],
+          }),
+        ],
+      },
+    ]);
+    const block = wk.days[0]!.sessions[0]!.blocks[0]!;
+    expect(block.title).toBe('FUERZA PARTE ALTA (4 × 4)');
+    expect(block.optional).toBe(true);
+  });
+
+  test('cards path: the real typo "OPCIONA: REFUERZO HOMBRO" (microciclo 76) is tolerated the same way', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 7,
+        dow: 'Domingo',
+        stimulus: null,
+        session_text: null,
+        cards: [
+          card({
+            kind: 'workout',
+            title: 'OPCIONA: REFUERZO HOMBRO',
+            lines: ["Diagonal Band Pull Apart 3x8"],
+          }),
+        ],
+      },
+    ]);
+    const block = wk.days[0]!.sessions[0]!.blocks[0]!;
+    expect(block.title).toBe('REFUERZO HOMBRO');
+    expect(block.optional).toBe(true);
+  });
+
+  test('a title with no prefix is untouched and `optional` is absent, not false — never inferred from anywhere else', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 1,
+        dow: 'Lunes',
+        stimulus: null,
+        session_text: null,
+        cards: [card({ kind: 'workout', title: 'Fuerza tren inferior', lines: ['Deadlift 5r 10/10/8/6/4'] })],
+      },
+    ]);
+    const block = wk.days[0]!.sessions[0]!.blocks[0]!;
+    expect(block.title).toBe('Fuerza tren inferior');
+    expect(block.optional).toBeUndefined();
+  });
+
+  test('no-cards (Excel/pegado) path recognizes the same prefix on the day stimulus', async () => {
+    const wk = await proposalFor([
+      {
+        day_of_week: 2,
+        dow: 'Martes',
+        stimulus: 'OPCIONAL: Core final',
+        session_text: 'Plancha 3x45s',
+      },
+    ]);
+    const block = wk.days[0]!.sessions[0]!.blocks[0]!;
+    expect(block.title).toBe('Core final');
+    expect(block.optional).toBe(true);
+  });
+});
+
 describe('buildImportProposal — cards: lost prose lands in block.coach_note, not nowhere', () => {
   test('real fixture card ("Bici Libre Z2") keeps its prose aside as coach_note alongside the real work the title itself types', async () => {
     const wk = await proposalFor([

@@ -29,7 +29,11 @@ import {
   type ParseNotationCellOptions,
 } from '@fahybrid/shared/domain/import/notation';
 import { parseStrength } from '@fahybrid/shared/domain/import/strength';
-import { isNoiseLine, looksLikeBareMovementName } from '@fahybrid/shared/domain/import/label';
+import {
+  isNoiseLine,
+  looksLikeBareMovementName,
+  stripOptionalBlockPrefix,
+} from '@fahybrid/shared/domain/import/label';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { resolveExercise } from './exercise-resolve';
 import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
@@ -382,14 +386,20 @@ async function buildCardBlock(
   // field a library block already uses for verbatim prescription text
   // (WeekDayPart.coach_note) — never a new channel.
   const coachNote = [orphanText, cardLostProse(card)].filter((t): t is string => !!t).join('\n\n');
+  // "OPCIONAL: …"/"OPCIONA: …" (fase 2, ago-2026) — reconocimiento EXACTO del
+  // prefijo, igual que cualquier otro token de la gramática. Se lee sobre el
+  // título de la TARJETA (antes del truncado a 120) para no perder el prefijo
+  // si el título real es largo.
+  const optionalTitle = stripOptionalBlockPrefix(card.title ?? 'Sesión');
   const block: EditorBlock = {
     uid: uid('blk'),
     // El título es el de LA TARJETA, no la primera línea del estímulo del día —
     // ese era el bug: tres tarjetas cayendo bajo el título de la primera.
-    title: (card.title ?? 'Sesión').slice(0, 120),
+    title: optionalTitle.title.slice(0, 120),
     format: blockFormat(lines),
     group: structureGroup(card.title),
     ...(coachNote ? { coach_note: coachNote } : {}),
+    ...(optionalTitle.optional ? { optional: true } : {}),
     items,
   };
   return { block, flags };
@@ -543,11 +553,17 @@ export async function buildImportProposal(params: {
       const { items, flags } = await resolveLines(coach_id, sql, lines);
       countFlags(flags);
 
+      // "OPCIONAL: …"/"OPCIONA: …" — mismo reconocimiento que en el camino de
+      // tarjetas (buildCardBlock arriba): el Excel/pegado transcribe UN bloque
+      // por día titulado con el estímulo, y ese título puede llevar el mismo
+      // prefijo.
+      const optionalTitle = stripOptionalBlockPrefix(d.stimulus?.split('\n')[0] ?? 'Sesión');
       const block: EditorBlock = {
         uid: uid('blk'),
-        title: (d.stimulus?.split('\n')[0] ?? 'Sesión').slice(0, 120),
+        title: optionalTitle.title.slice(0, 120),
         format: blockFormat(lines),
         group: structureGroup(d.stimulus),
+        ...(optionalTitle.optional ? { optional: true } : {}),
         items,
       };
       const session: EditorSession = {
