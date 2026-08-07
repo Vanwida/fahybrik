@@ -1,45 +1,34 @@
 'use client';
 
-// BlockItemTable — SCREEN 8 type-specific item tables inside a session block.
-// The table SHAPE follows the block's dominant modality (the spec's four):
-//   - Calentamiento/movilidad: Movimiento | Tiempo/reps
-//   - Fuerza:                   Ejercicio | Series×reps | Intensidad | RPE | Descanso
-//   - Metcon:                   format pills + objetivo line + component rows
-//   - Carrera (tramos):         Tramo | Medida | Objetivo
-// These are DENSE READOUTS rendered from the structured Prescription via the
-// shared prescriptionToText (no free text). Each row links to the full BlockEditor
-// (via onEditItem) for axis-level edits; the table itself is the at-a-glance view
-// + the dashed "＋ añadir ejercicio/movimiento/tramo".
+// BlockItemTable — las filas de ejercicios de un bloque, PLANAS (rediseño de
+// microciclos, decisión 1): la dosis común del bloque se pinta UNA vez como
+// línea-botón mono que abre el compositor, y cada fila lleva su etiqueta A/B/C,
+// el nombre y solo su excepción o «hereda N×M». Si los items divergen de verdad,
+// cada fila pinta su dosis entera (shared-dose.ts decide, sin mentir agrupando).
+// Presentación derivada: el dato guardado no cambia. Tocar cualquier fila (o la
+// dosis) abre el compositor lateral; una fila sin ejercicio se marca en rojo y
+// el picker del compositor la resuelve — el gate del guardado ya la exige.
 
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
-import {
-  formatTarget,
-  prescriptionToText,
-  setMeasure,
-  setTarget,
-} from '@fahybrid/shared/domain/prescription';
 import { itemHasExercise } from '@/lib/dashboard/v2/item-validity';
 import { MIcon } from '@/components/ui/MIcon';
+import { cn } from '@/lib/utils';
+import { blockDoseView, type BlockDoseView } from './shared-dose';
 
-type TableKind = 'calentamiento' | 'fuerza' | 'metcon' | 'carrera';
-
-function tableKindFor(block: EditorBlock): TableKind {
-  // The table SHAPE follows the block's dominant MODALITY — agnostic, never a
-  // section/group. (`group` no longer participates: the day editor is a flat list.)
+// Etiqueta del botón «añadir» según lo que el bloque contiene (vocabulario de
+// box, no jerga): movimiento / ejercicio / componente / tramo.
+function addLabelFor(block: EditorBlock): string {
   const m = block.items[0]?.prescription.modality;
-  if (m === 'strength') return 'fuerza';
-  if (m === 'run') return 'carrera';
-  if (m === 'core' || m === 'mobility') return 'calentamiento';
-  // functional / erg / mixed / unset → metcon-style (format + components)
-  return 'metcon';
+  if (m === 'strength') return 'añadir ejercicio';
+  if (m === 'run') return 'añadir tramo';
+  if (m === 'core' || m === 'mobility') return 'añadir movimiento';
+  return 'añadir componente';
 }
 
-const ADD_LABEL: Record<TableKind, string> = {
-  calentamiento: 'añadir movimiento',
-  fuerza: 'añadir ejercicio',
-  metcon: 'añadir componente',
-  carrera: 'añadir tramo',
-};
+// Etiqueta A/B/C… de una fila (más allá de la Z, el número de orden).
+function rowTag(index: number): string {
+  return index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
+}
 
 export function BlockItemTable({
   block,
@@ -52,45 +41,61 @@ export function BlockItemTable({
   onAddItem: () => void;
   onMoveItem: (uid: string, dir: -1 | 1) => void;
 }) {
-  const kind = tableKindFor(block);
+  const dose = blockDoseView(block);
   const count = block.items.length;
+  const firstUid = block.items[0]?.uid;
 
   return (
     <div className="space-y-1.5">
-      {block.items.length === 0 ? (
-        <p className="px-1 py-1.5 text-xs text-[color:var(--v2-muted)]">Sin ejercicios todavía.</p>
-      ) : kind === 'metcon' ? (
-        <MetconTable block={block} onEditItem={onEditItem} onMoveItem={onMoveItem} />
+      {/* La dosis común / el marco del formato, UNA vez — botón que abre el
+          compositor. Sin dosis utilizable: aviso ámbar, nunca un cero inventado. */}
+      {firstUid && (dose.kind === 'shared' || dose.kind === 'frame') ? (
+        <button
+          type="button"
+          onClick={() => onEditItem(firstUid)}
+          className="v2-focus inline-flex max-w-full items-center gap-2.5 rounded-[var(--v2-r-s)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-1.5 text-left transition-colors hover:border-[color:var(--v2-border-strong)]"
+        >
+          <span className="v2-micro shrink-0">
+            {dose.kind === 'shared' ? 'Dosis común' : 'Formato'}
+          </span>
+          <span className="v2-num min-w-0 truncate text-body font-semibold text-[color:var(--v2-fg)]">
+            {dose.label}
+          </span>
+          <span className="shrink-0 text-label text-[color:var(--v2-faint)]">editar</span>
+        </button>
+      ) : null}
+      {firstUid && dose.kind === 'undosed' ? (
+        <button
+          type="button"
+          onClick={() => onEditItem(firstUid)}
+          className="v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-warn-soft)] px-3 py-1.5 text-left text-xs font-semibold text-[color:var(--v2-warn)] transition-colors"
+        >
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--v2-warn)]"
+          />
+          sin dosis · tócala y escríbela
+        </button>
+      ) : null}
+
+      {count === 0 ? (
+        <p className="px-1 py-1.5 text-xs text-[color:var(--v2-muted)]">
+          Sin ejercicios todavía.
+        </p>
       ) : (
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="v2-micro">
-              <th className="pb-1" scope="col" aria-label="Orden" />
-              {headersFor(kind).map((h, i) => (
-                <th
-                  key={h}
-                  className={i === 0 ? 'pb-1 pl-1' : 'pb-1 pr-1 text-right'}
-                  scope="col"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {block.items.map((it, i) => (
-              <ItemRow
-                key={it.uid}
-                item={it}
-                kind={kind}
-                index={i}
-                count={count}
-                onEdit={() => onEditItem(it.uid)}
-                onMove={(dir) => onMoveItem(it.uid, dir)}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div>
+          {block.items.map((it, i) => (
+            <ItemRow
+              key={it.uid}
+              item={it}
+              index={i}
+              count={count}
+              rx={rowRx(dose, i, count)}
+              onEdit={() => onEditItem(it.uid)}
+              onMove={(dir) => onMoveItem(it.uid, dir)}
+            />
+          ))}
+        </div>
       )}
 
       <button
@@ -99,26 +104,38 @@ export function BlockItemTable({
         className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
         <MIcon name="add" size={14} />
-        {ADD_LABEL[kind]}
+        {addLabelFor(block)}
       </button>
     </div>
   );
 }
 
-function headersFor(kind: TableKind): string[] {
-  switch (kind) {
-    case 'calentamiento':
-      return ['Movimiento', 'Tiempo / reps'];
-    case 'fuerza':
-      return ['Ejercicio', 'Series×reps', 'Intensidad', 'RPE', 'Desc'];
-    case 'carrera':
-      return ['Tramo', 'Medida', 'Objetivo'];
-    case 'metcon':
-      return [];
+// Qué pinta la columna derecha de la fila i según el veredicto de la dosis.
+type RowRx = { text: string; tone: 'strong' | 'muted' | 'warn' } | null;
+
+function rowRx(dose: BlockDoseView, i: number, count: number): RowRx {
+  switch (dose.kind) {
+    case 'shared': {
+      const exception = dose.exceptions[i];
+      if (exception) return { text: exception, tone: 'strong' };
+      // Con un solo ejercicio la dosis ya está entera en la línea de arriba.
+      if (count === 1) return null;
+      return { text: dose.inherit ? `hereda ${dose.inherit}` : 'hereda la dosis', tone: 'muted' };
+    }
+    case 'frame': {
+      const text = dose.doses[i];
+      return text ? { text, tone: 'muted' } : { text: 'sin dosis', tone: 'warn' };
+    }
+    case 'each': {
+      const text = dose.doses[i];
+      return text ? { text, tone: 'muted' } : { text: 'sin dosis', tone: 'warn' };
+    }
+    case 'undosed':
+      return null; // el aviso del bloque ya lo dice una vez
   }
 }
 
-// A compact ↑/↓ reorder control (the ONE reorder pattern used across the editor).
+// Un compacto ↑/↓ (el ÚNICO patrón de reorden de líneas del editor).
 function ReorderControl({
   index,
   count,
@@ -131,7 +148,7 @@ function ReorderControl({
   onMove: (dir: -1 | 1) => void;
 }) {
   return (
-    <span className="flex flex-col">
+    <span className="flex flex-col opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100">
       <button
         type="button"
         aria-label={`Subir ${label}`}
@@ -162,72 +179,26 @@ function ReorderControl({
 
 function ItemRow({
   item,
-  kind,
   index,
   count,
+  rx,
   onEdit,
   onMove,
 }: {
   item: EditorItem;
-  kind: TableKind;
   index: number;
   count: number;
+  rx: RowRx;
   onEdit: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
-  const p = item.prescription;
   const valid = itemHasExercise(item);
   const name = valid ? item.exercise_name || 'Ejercicio' : 'Línea sin ejercicio';
 
-  let cells: React.ReactNode;
-  if (kind === 'calentamiento' || kind === 'carrera') {
-    const measure = p.sets?.[0] ? setMeasure(p.sets[0]) : undefined;
-    const measureLabel = measure ? prescriptionToText({ scheme: 'sets', sets: [{ measure }] }) : '—';
-    const target = p.target ?? (p.sets?.[0] ? setTarget(p.sets[0]) : undefined);
-    if (kind === 'carrera') {
-      cells = (
-        <>
-          <td className="v2-num py-1 pr-2 text-right text-xs text-[color:var(--v2-muted)]">
-            {measureLabel}
-          </td>
-          <td className="v2-num py-1 pr-1 text-right text-xs text-[color:var(--v2-muted)]">
-            {target ? formatTarget(target) : '—'}
-          </td>
-        </>
-      );
-    } else {
-      cells = (
-        <td className="v2-num py-1 pr-1 text-right text-xs text-[color:var(--v2-muted)]">
-          {measureLabel}
-        </td>
-      );
-    }
-  } else {
-    // fuerza — series×reps | intensidad | rpe | descanso
-    const sets = p.sets ?? [];
-    const reps = sets[0] ? setMeasure(sets[0]) : undefined;
-    const repsStr = reps?.kind === 'reps' ? `${sets.length}×${reps.value}` : `${sets.length} series`;
-    const target = sets[0] ? setTarget(sets[0]) : undefined;
-    const isRpe = target?.kind === 'rpe';
-    const intensity = target && !isRpe ? formatTarget(target) : '—';
-    const rpe = isRpe && target.kind === 'rpe' ? `RPE ${target.value ?? '—'}` : '—';
-    const rest = sets.find((s) => s.rest_s)?.rest_s;
-    cells = (
-      <>
-        <td className="v2-num py-1 pr-2 text-right text-xs text-[color:var(--v2-fg)]">{repsStr}</td>
-        <td className="v2-num py-1 pr-2 text-right text-xs text-[color:var(--v2-muted)]">{intensity}</td>
-        <td className="v2-num py-1 pr-2 text-right text-xs text-[color:var(--v2-muted)]">{rpe}</td>
-        <td className="v2-num py-1 pr-1 text-right text-xs text-[color:var(--v2-muted)]">
-          {rest ? `${rest}s` : '—'}
-        </td>
-      </>
-    );
-  }
-
   return (
-    <tr
-      tabIndex={0}
+    <div
       role="button"
+      tabIndex={0}
       onClick={onEdit}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -235,118 +206,43 @@ function ItemRow({
           onEdit();
         }
       }}
-      className={
+      className={cn(
+        'group/row v2-focus flex cursor-pointer items-center gap-2.5 rounded-[var(--v2-r-s)] px-2 py-1.5 transition-colors',
         valid
-          ? 'v2-focus cursor-pointer border-t border-[color:var(--v2-border)] transition-colors hover:bg-[color:var(--v2-surface-2)]'
-          : 'v2-focus cursor-pointer border-t border-[color:var(--v2-border)] bg-[color:var(--v2-danger-soft)] transition-colors'
-      }
+          ? 'hover:bg-[color:var(--v2-surface-2)]'
+          : 'bg-[color:var(--v2-danger-soft)]',
+      )}
     >
-      <td className="w-5 py-1 align-middle">
-        <ReorderControl index={index} count={count} label={name} onMove={onMove} />
-      </td>
-      <td
-        className={
-          valid
-            ? 'py-1 pl-1 pr-2 text-sm font-medium text-[color:var(--v2-fg)]'
-            : 'py-1 pl-1 pr-2 text-sm font-medium text-[color:var(--v2-danger)]'
-        }
+      <span
+        aria-hidden
+        className="v2-num grid h-5 w-6 shrink-0 place-items-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-label font-bold text-[color:var(--v2-faint)]"
       >
-        {valid ? null : <MIcon name="error" size={13} className="mr-1 inline-block align-[-2px]" />}
+        {rowTag(index)}
+      </span>
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate text-sm font-semibold',
+          valid ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-danger)]',
+        )}
+      >
+        {valid ? null : (
+          <MIcon name="error" size={13} className="mr-1 inline-block align-[-2px]" />
+        )}
         {name}
-      </td>
-      {cells}
-    </tr>
-  );
-}
-
-// ── Metcon block: format pills + objetivo line + component rows ──────────────
-function MetconTable({
-  block,
-  onEditItem,
-  onMoveItem,
-}: {
-  block: EditorBlock;
-  onEditItem: (uid: string) => void;
-  onMoveItem: (uid: string, dir: -1 | 1) => void;
-}) {
-  const head = block.items[0]?.prescription;
-  const formatLabel = head ? schemeLabel(head.scheme) : 'Metcon';
-  const duration = head?.total_s
-    ? ` ${Math.round(head.total_s / 60)}'`
-    : head?.rounds
-      ? ` ${head.rounds} rondas`
-      : '';
-  const count = block.items.length;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-mod-circuito-soft)] px-2 py-0.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-mod-circuito)]">
-          {formatLabel}
-          {duration}
+      </span>
+      {rx ? (
+        <span
+          className={cn(
+            'max-w-[55%] truncate text-xs',
+            rx.tone === 'strong' && 'v2-num font-bold text-[color:var(--v2-fg)]',
+            rx.tone === 'muted' && 'v2-num text-[color:var(--v2-muted)]',
+            rx.tone === 'warn' && 'font-semibold text-[color:var(--v2-warn)]',
+          )}
+        >
+          {rx.text}
         </span>
-      </div>
-      <ul className="space-y-0.5">
-        {block.items.map((it, i) => {
-          const valid = itemHasExercise(it);
-          const label = valid ? it.exercise_name || 'Componente' : 'Componente sin ejercicio';
-          return (
-            <li
-              key={it.uid}
-              className={
-                valid
-                  ? 'flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-1.5 py-1 transition-colors hover:bg-[color:var(--v2-surface-2)]'
-                  : 'flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger-soft)] px-1.5 py-1'
-              }
-            >
-              <ReorderControl
-                index={i}
-                count={count}
-                label={label}
-                onMove={(dir) => onMoveItem(it.uid, dir)}
-              />
-              <button
-                type="button"
-                onClick={() => onEditItem(it.uid)}
-                className="v2-focus flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
-              >
-                <span
-                  className={
-                    valid
-                      ? 'truncate text-sm font-medium text-[color:var(--v2-fg)]'
-                      : 'flex items-center gap-1 truncate text-sm font-medium text-[color:var(--v2-danger)]'
-                  }
-                >
-                  {valid ? null : <MIcon name="error" size={13} />}
-                  {label}
-                </span>
-                <span className="v2-num shrink-0 text-xs text-[color:var(--v2-muted)]">
-                  {prescriptionToText(it.prescription) || '—'}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      ) : null}
+      <ReorderControl index={index} count={count} label={name} onMove={onMove} />
     </div>
   );
-}
-
-function schemeLabel(scheme: string): string {
-  switch (scheme) {
-    case 'amrap':
-      return 'AMRAP';
-    case 'emom':
-      return 'EMOM';
-    case 'for_time':
-      return 'For Time';
-    case 'intervals':
-      return 'Intervalos';
-    case 'rounds':
-      return 'Rondas';
-    case 'steady':
-      return 'Continuo';
-    default:
-      return 'Metcon';
-  }
 }
