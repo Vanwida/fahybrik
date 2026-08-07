@@ -186,64 +186,53 @@ struct ChipDia: View {
 /// trabajo, son el marco.
 struct FilaParteSesion: View {
     let parte: ParteDeSesion
+    /// Falso cuando la sesión tiene UN solo bloque: ahí el título del bloque
+    /// repite literalmente el título de la sesión (el caso real: una sesión
+    /// importada de un solo tramo, «Trainingpeaks · Semana 1» dos veces
+    /// seguidas) y encabezar la lista con él no dice nada — Alex, 7-ago:
+    /// «¿está en una lista? no tiene sentido». Con varios bloques el título SÍ
+    /// distingue uno de otro y se enseña siempre.
+    var mostrarTitulo: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: Theme.Spacing.s) {
-                ModalityDot(modality: parte.modalidad, size: 6)
-                    .opacity(parte.estructural ? 0.45 : 1)
-                Text(parte.titulo)
-                    .scaledFont(13, weight: parte.estructural ? .medium : .semibold, relativeTo: .footnote)
-                    .foregroundStyle(parte.estructural ? Theme.Color.muted : Theme.Color.foreground)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if parte.ejercicios > 0 {
-                    MonoText(
-                        text: "\(parte.ejercicios)",
-                        size: 12,
-                        color: parte.estructural ? Theme.Color.faint : Theme.Color.muted,
-                        escala: true
-                    )
-                    .lineLimit(1)
+            if mostrarTitulo {
+                HStack(spacing: Theme.Spacing.s) {
+                    ModalityDot(modality: parte.modalidad, size: 6)
+                        .opacity(parte.estructural ? 0.45 : 1)
+                    Text(parte.titulo)
+                        .scaledFont(13, weight: parte.estructural ? .medium : .semibold, relativeTo: .footnote)
+                        .foregroundStyle(parte.estructural ? Theme.Color.muted : Theme.Color.foreground)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if parte.ejercicios > 0 {
+                        MonoText(
+                            text: "\(parte.ejercicios)",
+                            size: 12,
+                            color: parte.estructural ? Theme.Color.faint : Theme.Color.muted,
+                            escala: true
+                        )
+                        .lineLimit(1)
+                    }
                 }
             }
             // Los NOMBRES, no un recuento: «3 ejercicios» no dice qué toca hoy —
-            // esto sí (Alex, 7-ago). El recuento de arriba se queda como ancla
-            // visual rápida; esta línea es la que de verdad se lee.
+            // esto sí (Alex, 7-ago).
             if !parte.resumenDeNombres.isEmpty {
                 Text(parte.resumenDeNombres)
-                    .scaledFont(12, weight: .medium, relativeTo: .caption)
-                    .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.muted)
-                    .lineLimit(2)
+                    .scaledFont(mostrarTitulo ? 12 : 13, weight: .medium, relativeTo: .footnote)
+                    .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.foreground)
+                    .lineLimit(mostrarTitulo ? 2 : 3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 6 + Theme.Spacing.s)
+                    .padding(.leading, mostrarTitulo ? 6 + Theme.Spacing.s : 0)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            parte.resumenDeNombres.isEmpty
-                ? parte.titulo
-                : "\(parte.titulo): \(parte.resumenDeNombres)"
+            !mostrarTitulo
+                ? (parte.resumenDeNombres.isEmpty ? parte.titulo : parte.resumenDeNombres)
+                : (parte.resumenDeNombres.isEmpty ? parte.titulo : "\(parte.titulo): \(parte.resumenDeNombres)")
         )
-    }
-}
-
-/// UNA CIFRA DE LA DOSIS con su palabra debajo. El dato pesa más que su etiqueta
-/// (§4): monoespaciada grande arriba, rótulo pequeño abajo.
-struct DatoClave: View {
-    let clave: ClaveDosis
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            MonoText(text: clave.valor, size: 22, weight: .bold, escala: true)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            LabelText(text: clave.etiqueta, color: Theme.Color.faint, size: 9)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(clave.etiqueta), \(clave.valor)")
     }
 }
 

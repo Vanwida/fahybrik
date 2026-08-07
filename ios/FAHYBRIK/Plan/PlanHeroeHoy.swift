@@ -112,7 +112,7 @@ struct HeroeSesion: View {
     private var listaDePartes: some View {
         VStack(alignment: .leading, spacing: 9) {
             ForEach(partes) { parte in
-                FilaParteSesion(parte: parte)
+                FilaParteSesion(parte: parte, mostrarTitulo: partes.count > 1)
             }
             if partesDeMas > 0 {
                 Text(partesDeMas == 1 ? "1 parte más" : "\(partesDeMas) partes más")
@@ -123,12 +123,14 @@ struct HeroeSesion: View {
         .padding(.top, 2)
     }
 
-    /// El sobrante NO se queda en una bolsa al final: entra aquí (§6.1). La NOTA
-    /// del coach para HOY gana este sitio cuando existe — las cifras de dosis se
-    /// repiten en cuanto tocas la card, la nota de hoy es lo único que solo se
-    /// dice aquí (Alex, 7-ago). Sin nota, las cifras de siempre. Sin ninguna de
-    /// las dos, el hueco se declara como lo que es — aire dentro de la tarjeta
-    /// del sujeto, nunca una franja muerta sobre la acción.
+    /// El sobrante NO se queda en una bolsa al final: entra aquí (§6.1). Es
+    /// SOLO para la nota del coach para HOY — nunca para la dosis (series,
+    /// carga, descanso): esa ya se ve en cuanto tocas la card y entras en el
+    /// ejercicio, y repetirla aquí es la fila muerta que Alex cazó el 7-ago
+    /// («eso son notas, si es que hay»; mostrar la dosis de un solo bloque como
+    /// si fuera la de la sesión entera fue el fallo original). Sin nota, el
+    /// hueco se declara como lo que es — aire dentro de la tarjeta del sujeto,
+    /// nunca una cifra que no se pidió.
     @ViewBuilder
     private var cifras: some View {
         if let nota = desglose.notaDelDia {
@@ -150,20 +152,8 @@ struct HeroeSesion: View {
             .frame(maxHeight: .infinity)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Nota de tu coach para hoy: \(nota)")
-        } else if desglose.claves.isEmpty {
-            Spacer(minLength: 0)
         } else {
-            VStack(spacing: Theme.Spacing.m) {
-                Spacer(minLength: 0)
-                Hairline()
-                HStack(alignment: .top, spacing: Theme.Spacing.m) {
-                    ForEach(desglose.claves) { clave in
-                        DatoClave(clave: clave)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .frame(maxHeight: .infinity)
+            Spacer(minLength: 0)
         }
     }
 }

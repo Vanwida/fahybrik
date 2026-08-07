@@ -339,20 +339,13 @@ struct ParteDeSesion: Identifiable, Equatable {
     }
 }
 
-/// Un número de la dosis y qué es, en una palabra. Como mucho tres por sesión.
-struct ClaveDosis: Identifiable, Equatable {
-    var id: String { "\(etiqueta)-\(valor)" }
-    let valor: String
-    let etiqueta: String
-}
-
 /// EL DESGLOSE DE UNA SESIÓN — lo que el héroe necesita y el resumen de fila no
-/// da: sus partes, su cabecera de formato y sus cifras clave.
+/// da: sus partes, su cabecera de formato y la nota de hoy.
 ///
 /// Todo sale de `AssignmentDetail` (el desglose real que el servidor sirve) y se
 /// escribe con los formateadores canónicos. Cuando la sesión no trae ninguna
-/// cifra, la lista sale vacía y el héroe no pinta nada: no se rellenan tres
-/// huecos por simetría (§7).
+/// parte, la lista sale vacía y el héroe no pinta nada: no se rellena por
+/// simetría (§7).
 struct DesgloseSesion: Equatable {
     let partes: [ParteDeSesion]
     /// La cabecera de formato del bloque principal, en castellano y con sus
@@ -360,22 +353,19 @@ struct DesgloseSesion: Equatable {
     /// y las partes estructurales, que no llevan reloj: ahí el título ya lo dice
     /// todo, y `PrescriptionScheme.displayName` está en inglés (§3).
     let formato: String?
-    let claves: [ClaveDosis]
     /// Lo que el coach escribió para ESTA sesión concreta — no la ficha
-    /// permanente del ejercicio. Cuando existe, GANA el sitio de las cifras: la
-    /// dosis (series/carga/descanso) se repite en cuanto tocas la card, pero la
-    /// nota de hoy es lo único que solo se dice aquí (Alex, 7-ago). `nil` cuando
-    /// el coach no escribió nada — ahí las cifras se quedan donde estaban.
+    /// permanente del ejercicio. Es lo ÚNICO que ocupa el sitio bajo las
+    /// partes: la dosis (series/carga/descanso) NUNCA vive aquí — el atleta ya
+    /// la ve en cuanto toca la card y entra en el ejercicio; repetirla en el
+    /// héroe es ruido, no información (Alex, 7-ago, tras ver la dosis de un
+    /// bloque de un único trabajo confundida con la de la sesión entera). Sin
+    /// nota, ese sitio se calla — nunca cae a números.
     let notaDelDia: String?
 
-    static let vacio = DesgloseSesion(partes: [], formato: nil, claves: [], notaDelDia: nil)
+    static let vacio = DesgloseSesion(partes: [], formato: nil, notaDelDia: nil)
 
-    /// Cuántas partes caben en el héroe sin desalojar a la dosis. A partir de ahí
-    /// la lista empujaría las cifras fuera de la tarjeta, y lo que importa es
-    /// cuántas partes tiene, no leerlas todas.
+    /// Cuántas partes caben en el héroe sin desbordar la tarjeta.
     static let maxPartes = 4
-    /// Cuántas cifras caben en una fila legible a tres metros.
-    static let maxClaves = 3
 
     static func desde(_ detalle: AssignmentDetail) -> DesgloseSesion {
         guard let workout = detalle.workout, !workout.blocks.isEmpty else { return .vacio }
@@ -397,22 +387,11 @@ struct DesgloseSesion: Equatable {
         let principal = noEstructurales.first ?? bloques[0]
         let prescripcion = principal.items.first?.prescription
 
-        // Las CIFRAS, en cambio, son la dosis de UN ejercicio concreto (series,
-        // carga, descanso) — solo se enseñan cuando hay un único bloque de
-        // trabajo real, porque ahí sí describen la sesión entera. Con dos o más
-        // (p. ej. «Fuerza parte alta» + «Refuerzo hombro», cada uno con su
-        // propia dosis) enseñar solo las del primero parece la dosis de TODO
-        // cuando es la de uno — el error que Alex cazó el 7-ago. Sin cifras
-        // aquí, el desglose por partes ya dice cuántos ejercicios hay en cada
-        // bloque, y tocar la card trae la dosis real de cada uno.
-        let claves = noEstructurales.count == 1 ? (prescripcion.map(Self.claves) ?? []) : []
-
         let notaLimpia = workout.coachNote?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         return DesgloseSesion(
             partes: partes,
             formato: prescripcion.flatMap(PrescriptionRenderer.wodHeader),
-            claves: claves,
             notaDelDia: (notaLimpia?.isEmpty == false) ? notaLimpia : nil
         )
     }
@@ -430,47 +409,6 @@ struct DesgloseSesion: Equatable {
     /// `Theme.Modality` ya sabe leer. Sin ninguna de las dos, nil → punto neutro.
     private static func modalidad(_ item: WorkoutItem) -> String? {
         item.prescription?.modality?.rawValue ?? item.exerciseCategory
-    }
-
-    /// LAS CIFRAS CLAVE de un bloque, en el orden en que se leen: qué trabajo,
-    /// contra qué, y cuánto descansas.
-    ///
-    /// Ni una se calcula aquí: todas salen de `PrescriptionRenderer`, que es el
-    /// canónico de la app para convertir una prescripción en texto (§2). Si el
-    /// coach no escribió la dosis —y en producción ~38 % de los bloques no la
-    /// escriben— la lista sale corta o vacía, que es la verdad.
-    private static func claves(_ p: Prescription) -> [ClaveDosis] {
-        var salida: [ClaveDosis] = []
-        let linea = PrescriptionRenderer.summaryLine(p)
-
-        if let trabajo = linea.headline {
-            // «4 × 5» en una tabla de series se llama series; «5 × 400 m» o
-            // «20:00» en un metcon es el trabajo.
-            let etiqueta = p.scheme.presentation == .setTable
-                ? Vocab.series.lowercased()
-                : "trabajo"
-            salida.append(ClaveDosis(valor: trabajo, etiqueta: etiqueta))
-        }
-
-        // El ritmo llega con el «@ » de un hueco de prescripción; en una celda con
-        // su propia etiqueta ese prefijo sobra.
-        if let ritmo = linea.pace {
-            let cifras = ritmo.hasPrefix("@ ") ? String(ritmo.dropFirst(2)) : ritmo
-            salida.append(ClaveDosis(valor: cifras, etiqueta: Vocab.ritmo.lowercased()))
-        } else if let zona = linea.zone {
-            salida.append(ClaveDosis(valor: zona.label, etiqueta: Vocab.zona.lowercased()))
-        } else if let carga = PrescriptionRenderer.targetLoad(p.sets?.first?.target ?? p.target) {
-            salida.append(ClaveDosis(valor: carga, etiqueta: Vocab.carga.lowercased()))
-        }
-
-        if let descansoS = p.sets?.first?.restS ?? p.restS, descansoS > 0 {
-            salida.append(ClaveDosis(
-                valor: Formato.clock(descansoS, subMinuto: .segundos),
-                etiqueta: Vocab.descanso.lowercased()
-            ))
-        }
-
-        return Array(salida.prefix(maxClaves))
     }
 }
 
