@@ -417,6 +417,32 @@ async function insertSlotAssignment(params: {
     if (templateId == null) return 0;
   }
 
+  // GUARDA DE DOBLE RESERVA. Materializar dos veces (dos clics del coach, o dos
+  // vías distintas sobre el mismo atleta) insertaba un SEGUNDO juego completo de
+  // sesiones en las mismas fechas, colgando del mismo microciclo y por tanto
+  // indistinguible del bueno. No había ni unique en la tabla ni comprobación
+  // aquí; las guardas existentes viven una capa por encima y ninguna mira la
+  // fecha (`assign-sequence.ts` lo documentaba: «instantiateMonthFromTemplate
+  // has NO dedup guard»).
+  //
+  // La identidad de una sesión materializada es (atleta, fecha, slot): el slot
+  // vive en `notes` como `slot:am` / `slot:pm` / `slot:3`… (ver
+  // `slotLabelForSessionIndex`), que es lo que este mismo insert escribe. Un
+  // entreno LIBRE del atleta (origin 'self') o un test de calibración no llevan
+  // ese `notes`, así que nunca bloquean — solo se deduplica contra otra
+  // materialización del mismo hueco.
+  //
+  // `on conflict` no sirve: la tabla no tiene índice único que lo soporte y
+  // añadirlo retroactivamente rompería los días con varias sesiones legítimas.
+  const dup = await params.client<Array<{ one: number }>>`
+    select 1 as one from workout_assignments
+    where athlete_id = ${params.athlete_id as number}
+      and scheduled_for = ${params.scheduled_for}::date
+      and notes = ${`slot:${params.slot}`}
+    limit 1
+  `;
+  if (dup.length > 0) return 0;
+
   await params.client`
     insert into workout_assignments (
       athlete_id,
