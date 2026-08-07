@@ -5,7 +5,29 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · card del Plan — build fresco instalado directo en el iPhone de Alex (7-ago noche)
+## Ahora · el editor de día ya resincroniza — DESPLEGADO en producción (7-ago noche)
+
+**Bug real, no cosmético, encontrado en la misma sesión de pruebas de arriba:**
+la nota que Alex escribió para «Puente de glúteo» se guardaba perfecta en la
+plantilla de la semana y nunca llegaba al atleta ya asignado. Rastreado hasta
+el fondo contra Neon real: `instantiateWeekIntoMicrocycle` materializa una
+COPIA DE UN SOLO INSTANTE, sin dejar ningún rastro de qué plantilla salió —
+no había forma de saber a qué microciclos ya asignados avisar cuando el coach
+edita después. Ver `docs/DECISIONS.md` (7-ago, «Asignar una semana deja de ser
+una copia de un solo instante») para el detalle completo.
+
+**Arreglado y DESPLEGADO** (`0d896d0a`, `dpl_8nVEsEtPSobU1yYUBpc3NMxyAWfi`,
+aliased a fahybrid.com): migración 0158 (`microcycles.source_week_template_id`,
+linaje) + `resyncWeekTemplateAssignments` (reusa el motor de materialización,
+reemplaza el contenido de cualquier asignación todavía `'scheduled'`, nunca
+toca una que el atleta ya completó/parcial/saltó) + el guardado del editor de
+día la llama automáticamente, best-effort. Verificado contra una rama Neon de
+test real (creada y borrada esta sesión, no mock): 2 tests nuevos
+(`resync-week-template.test.ts`) + el resto de `coach-integration/` (60/62 —
+2 fallos preexistentes de OTRA feature en curso, «#34 tests calibración»,
+sin relación con este cambio, verificado por `git log`/`git diff`).
+
+## Antes · card del Plan — build fresco instalado directo en el iPhone de Alex (7-ago noche)
 
 Alex probó la card de hoy en un build viejo (anterior a `a56b9b0b`) y reportó
 tres cosas: no veía los nombres de ejercicio ni la nota del entreno dentro de

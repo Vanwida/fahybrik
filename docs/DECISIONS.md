@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-07 · Asignar una semana deja de ser una copia de un solo instante
+
+**Decidido:** un microciclo ya asignado a un atleta ahora sabe de qué `program_week_templates` se materializó (`microcycles.source_week_template_id`, migración 0158), y guardar un día en el editor **resincroniza automáticamente** los microciclos con ese linaje: cada asignación todavía `'scheduled'` recibe el contenido fresco; cualquier otra (`'completed'`/`'partial'`/`'skipped'`/`'missed'`) se deja intacta siempre, porque el atleta ya actuó sobre ella.
+
+**Por qué:** verificado contra producción — Alex escribió una nota de coach para un ejercicio (Puente de glúteo) ya asignado a un atleta; la nota se guardó perfecto en la plantilla y **nunca llegó**, ni siquiera tras una re-materialización posterior no relacionada con su edición. La causa: `instantiateWeekIntoMicrocycle` copia la plantilla una vez y no deja ningún rastro de origen — no había forma de saber a qué microciclos avisar cuando la plantilla cambia. Es el comportamiento estándar de cualquier plataforma de coaching seria (TrainingPeaks, TrueCoach): editar un entreno no empezado se ve reflejado sin un paso de "republicar" aparte.
+
+**Cómo:** `insertSlotAssignment` pasó de decidir por existencia («¿ya hay fila? no la toco») a decidir por `status` («¿sigue 'scheduled'? la reemplazo»); es la misma guarda que ya usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts) para no pisar una decisión que el atleta ya tomó. `resyncWeekTemplateAssignments` reusa el mismo motor de materialización, best-effort por microciclo.
+
+**En consecuencia, no hacer:** no asumir que "ya está asignado" significa "protegido de ediciones futuras" en ningún flujo nuevo que toque `workout_assignments` — el resync corre automáticamente en cada guardado del día. No añadir un segundo mecanismo de "publicar/republicar" manual: el editor ya resincroniza solo.
+
+**Fuera de alcance a propósito:** si el coach BORRA una sesión entera del día después de asignarla, la asignación ya materializada no se borra sola (podría destruir historial visible al atleta) — queda huérfana. No es el caso que motivó esto; se documenta para que no sorprenda.
+
+**Dónde vive:** `infra/migrations/0158_microcycle_source_lineage.sql`, `web/lib/dashboard/coach/instantiate-program.ts` (`resolveOrCreateMicrocycle`, `insertSlotAssignment`, `resyncWeekTemplateAssignments`), `web/app/api/coach/program-weeks/[id]/day/route.ts`.
+
+---
+
 ## 2026-08-07 · «Circuito» pasa a ser un tipo de bloque real — deja de ser N líneas sueltas que copian los mismos números
 
 **Decidido:** un bloque de rondas con varias estaciones (el patrón HYROX/hybrid de "N rondas de M estaciones") deja de representarse como una lista plana de items que comparten `rounds`/`work_s`/`rest_s` copiados por convención de UI. Pasa a ser un tipo a nivel de BLOQUE: `rounds` (único), `pacing` (`por_tarea` — la ronda dura lo que tarde el atleta, sin reloj — o `por_reloj` con su `work_s`, un tope duro por estación) y descansos entre rondas / entre estaciones por separado. Las estaciones se quedan solo con su ejercicio y su objetivo, sin duplicar nada de bloque.
