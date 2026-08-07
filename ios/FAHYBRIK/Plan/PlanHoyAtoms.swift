@@ -373,6 +373,52 @@ struct CabeceraDelBloque: View {
     }
 }
 
+// MARK: - Un día completo, en lista (para hojear otra semana en el mismo sitio)
+
+/// Un día completo: su nombre, sus sesiones reales o «Descanso» cuando no hay
+/// ninguna. Es la fila que usa Plan al hojear la semana que viene EN LA MISMA
+/// pantalla — no hay una segunda vista para esto (7-ago-2026): un botón cambia
+/// qué semana alimenta este mismo sitio, nunca abre un destino nuevo.
+struct FilaDiaDeLaSemana: View {
+    let dia: DiaDelPlan
+    let onAbrir: (AthleteWeekDaySession) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            Text(String(dia.nombre.prefix(3)).uppercased())
+                .scaledFont(11, weight: .semibold, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(width: 36, alignment: .leading)
+                .padding(.top, 13)
+
+            if dia.sesiones.isEmpty {
+                Text("Descanso")
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.faint)
+                    .padding(.vertical, 13)
+                Spacer(minLength: 0)
+            } else {
+                VStack(spacing: Theme.Spacing.xs) {
+                    ForEach(dia.sesiones) { session in
+                        SessionCompactRow(
+                            slot: session.slot.lowercased().hasPrefix("pm") ? .pm : .am,
+                            title: session.title,
+                            meta: DuracionDeSesion.texto(session) ?? "Sin tiempo previsto",
+                            modality: session.modality,
+                            isFree: session.isSelfOrigin,
+                            onTap: { onAbrir(session) }
+                        )
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        .padding(.horizontal, 14)
+        .accessibilityElement(children: dia.sesiones.isEmpty ? .combine : .contain)
+        .accessibilityLabel(dia.sesiones.isEmpty ? "\(dia.nombre), descanso" : dia.nombre)
+    }
+}
+
 // MARK: - Elegir entre las dos sesiones de un día
 
 /// La hoja que sale al tocar un día con DOS entrenos. Es una PREGUNTA encima de

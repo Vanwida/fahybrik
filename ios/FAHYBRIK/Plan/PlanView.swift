@@ -74,12 +74,16 @@ struct PlanView: View {
     @State private var showPartnerPlan = false
     @State private var showHistory = false
     @State private var showCiclo = false
-    @State private var showProximaSemana = false
-    /// La sesión tocada dentro de «la semana que viene». Se abre en `onDismiss`
-    /// y no en el toque: levantar un cover mientras el anterior se está
-    /// cerrando se pierde a medias (mismo patrón que `diaAElegir`).
-    @State private var elegidaEnProximaSemana: AthleteWeekDaySession? = nil
     @State private var partner: PartnerInfo? = nil
+
+    // ── Hojear la semana que viene, EN EL MISMO SITIO (7-ago) ─────────────────
+    // Un botón cambia qué semana alimenta esta pantalla; no abre un destino
+    // nuevo. Solo lectura: nada se mueve ni se marca de una semana sin empezar.
+    @State private var verProximaSemana = false
+    @State private var semanaSiguiente: SemanaDelPlan? = nil
+    @State private var posicionSiguiente: PosicionEnBloque? = nil
+    @State private var cargandoSiguiente = false
+    @State private var falloSiguiente = false
 
     // ── Acciones que pueden fallar ────────────────────────────────────────────
     @State var actionError: String? = nil
@@ -132,20 +136,6 @@ struct PlanView: View {
         }
         .fullScreenCover(isPresented: $showHistory) {
             HistoryView(bearer: effectiveBearer, onClose: { showHistory = false })
-        }
-        .fullScreenCover(isPresented: $showProximaSemana, onDismiss: {
-            guard let elegida = elegidaEnProximaSemana else { return }
-            elegidaEnProximaSemana = nil
-            abrir(elegida)
-        }) {
-            PlanProximaSemanaView(
-                bearer: effectiveBearer,
-                onClose: { showProximaSemana = false },
-                onAbrir: { session in
-                    elegidaEnProximaSemana = session
-                    showProximaSemana = false
-                }
-            )
         }
         .fullScreenCover(isPresented: $showCiclo) {
             PlanCicloView(
@@ -205,30 +195,135 @@ struct PlanView: View {
         FillingScreen {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 cabeceraDeNavegacion
-                CabeceraDelBloque(
-                    nombre: semana.nombreBloque,
-                    posicion: posicion,
-                    intencion: semana.intencion
-                )
-                CarrilSemana(semana: semana, onDia: tocarDia) { dia in
-                    accionesDelDia(dia)
+                if hayProximaSemana || verProximaSemana {
+                    alternarSemana
                 }
-                heroe(semana)
-                if let segunda = sesionSecundaria {
-                    filaSegundaSesion(segunda)
+                if verProximaSemana {
+                    contenidoProximaSemana
+                } else {
+                    CabeceraDelBloque(
+                        nombre: semana.nombreBloque,
+                        posicion: posicion,
+                        intencion: semana.intencion
+                    )
+                    CarrilSemana(semana: semana, onDia: tocarDia) { dia in
+                        accionesDelDia(dia)
+                    }
+                    heroe(semana)
+                    if let segunda = sesionSecundaria {
+                        filaSegundaSesion(segunda)
+                    }
+                    EntradaAlCiclo(
+                        nombre: semana.nombreBloque,
+                        posicion: posicion,
+                        onAbrir: { showCiclo = true }
+                    )
                 }
-                EntradaAlCiclo(
-                    nombre: semana.nombreBloque,
-                    posicion: posicion,
-                    onAbrir: { showCiclo = true }
-                )
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.s)
         }
-        .refreshable { await cargar(force: true) }
-        .anchoredAction { accionAnclada }
+        .refreshable {
+            if verProximaSemana { await cargarSiguiente(force: true) } else { await cargar(force: true) }
+        }
+        .anchoredAction { if !verProximaSemana { accionAnclada } }
+    }
+
+    // MARK: - Hojear la semana que viene, en el mismo sitio
+
+    /// El botón que cambia qué semana alimenta esta pantalla — no un destino
+    /// nuevo (Alex, 7-ago). Solo aparece cuando de verdad hay una semana
+    /// siguiente que enseñar (§7).
+    private var alternarSemana: some View {
+        HStack {
+            Spacer(minLength: 0)
+            Button {
+                Haptics.light()
+                if verProximaSemana {
+                    verProximaSemana = false
+                } else {
+                    verProximaSemana = true
+                    Task { await cargarSiguiente() }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    if verProximaSemana {
+                        Image(systemName: "chevron.left")
+                        Text("Esta semana")
+                    } else {
+                        Text("Semana que viene")
+                        Image(systemName: "chevron.right")
+                    }
+                }
+                .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.accentText)
+            }
+        }
+    }
+
+    /// La semana siguiente, día a día, en el MISMO lugar que hoy ocupa la de
+    /// esta semana. Solo lectura: nada se mueve ni se marca desde aquí.
+    @ViewBuilder
+    private var contenidoProximaSemana: some View {
+        if cargandoSiguiente, semanaSiguiente == nil {
+            VStack(spacing: Theme.Spacing.s) {
+                ForEach(0..<6, id: \.self) { _ in SkeletonBar(height: 46, radius: Theme.Radius.m) }
+            }
+        } else if falloSiguiente, semanaSiguiente == nil {
+            RedesignEmptyState(
+                symbol: "wifi.exclamationmark",
+                title: "No pudimos cargar la semana que viene",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") {
+                    Haptics.light()
+                    Task { await cargarSiguiente(force: true) }
+                }
+            )
+        } else if let semanaSiguiente, semanaSiguiente.tieneAlgunaSesion {
+            CabeceraDelBloque(
+                nombre: semanaSiguiente.nombreBloque,
+                posicion: posicionSiguiente,
+                intencion: semanaSiguiente.intencion
+            )
+            VStack(spacing: 0) {
+                ForEach(semanaSiguiente.dias) { dia in
+                    FilaDiaDeLaSemana(dia: dia, onAbrir: abrir)
+                    if dia.id != semanaSiguiente.dias.last?.id { Hairline() }
+                }
+            }
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        } else {
+            RedesignEmptyState(
+                symbol: "calendar.badge.clock",
+                title: "Tu coach aún no ha publicado la semana que viene",
+                message: "En cuanto la publique la verás aquí.",
+                exit: .explained(note: "Las semanas se publican solas al cerrar la anterior.")
+            )
+        }
+    }
+
+    private func cargarSiguiente(force: Bool = false) async {
+        guard let token = effectiveBearer else {
+            falloSiguiente = true
+            return
+        }
+        if semanaSiguiente != nil, !force { return }
+        cargandoSiguiente = semanaSiguiente == nil
+        do {
+            let resp = try await PlanService.fetchWeek(bearer: token, weekOffset: 1)
+            semanaSiguiente = SemanaDelPlan.desde(resp)
+            posicionSiguiente = PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel)
+            falloSiguiente = false
+        } catch {
+            if semanaSiguiente == nil { falloSiguiente = true }
+        }
+        cargandoSiguiente = false
     }
 
     /// El héroe: la sesión de hoy en grande, o el día que no toca nada.
@@ -309,13 +404,6 @@ struct PlanView: View {
             }
             botonDeCromo(symbol: "calendar", etiqueta: "Historial de entrenos") {
                 showHistory = true
-            }
-            // Solo cuando el coach de verdad la publicó — nunca una salida a un
-            // sitio vacío (§7).
-            if hayProximaSemana {
-                botonDeCromo(symbol: "calendar.badge.clock", etiqueta: "Semana que viene") {
-                    showProximaSemana = true
-                }
             }
             if hasCoach {
                 botonDeCromo(symbol: "message", etiqueta: "Chat con tu coach") {
