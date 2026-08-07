@@ -5,7 +5,48 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · «semana cero» diseñada, sin construir — DESBLOQUEADO (7-ago noche)
+## Ahora · card del Plan — build fresco instalado directo en el iPhone de Alex (7-ago noche)
+
+Alex probó la card de hoy en un build viejo (anterior a `a56b9b0b`) y reportó
+tres cosas: no veía los nombres de ejercicio ni la nota del entreno dentro de
+la card, y el pull-to-refresh no le respondía. Las dos primeras ya estaban
+arregladas en código sin llegar a su móvil; la tercera era un bug real nuevo.
+
+**Arreglado esta tanda (`a56b9b0b`, `17e60d1a`):**
+- La card de hoy enseña los NOMBRES de los ejercicios del bloque, no un
+  recuento («3 ejercicios» → «Puente de glúteo, Marcha desde puente de
+  glúteo, +1 más»). Si el coach dejó nota para hoy, esa nota ocupa el sitio
+  de las cifras (se repiten en cuanto abres la sesión).
+- «Ver técnica» en el pre-entreno ahora abre la MISMA `ExerciseDetailView`
+  que ya usa `SessionExercisesSheet` (vídeo + consejos + descripción + nota),
+  y aparece también cuando el ejercicio solo tiene descripción, sin vídeo —
+  el caso real que Alex reportó (Puente de glúteo).
+- `FillingScreen.scrollBounceBehavior` era `.basedOnSize`: un día con poco
+  contenido llena exactamente el alto disponible, sin margen para rebotar, y
+  sin rebote `.refreshable` no tiene hueco donde aparecer. Pasado a `.always`.
+
+**Instalado directo en su iPhone físico** (`xcrun devicectl`, sin esperar
+TestFlight — sigue bloqueado por la firma pendiente, ver más abajo) para que
+la siguiente ronda de feedback sea contra código actual, no contra un build
+de hace varias iteraciones.
+
+**Auditoría grande en curso, PAUSADA a mitad:** Alex pidió analizar y luego
+diseñar de verdad el concepto «Series/Circuito» (rondas de varias estaciones
+en hybrid training) — hoy no existe como tipo, son N líneas sueltas que
+copian `rounds`/`work_s`/`rest_s` por convención de UI, y esa copia ya se
+demostró rota en producción (2 de 22 bloques circuito reales tienen el campo
+en una estación y no en otra). Auditados a fondo iOS+watch (motor en vivo,
+`LiveTramo.Cursor`), el editor web (`ComponentsForm.applyHead`) y los datos
+reales en Neon — modelo propuesto y aprobado por Alex en `docs/DECISIONS.md`
+(7-ago, «Circuito pasa a ser un tipo de bloque real»). **Sin construir
+todavía** — se interrumpió para atender el feedback en vivo de arriba. Quien
+retome: el modelo y los 3 hallazgos de investigación están en esa entrada de
+DECISIONS.md; falta escribir el schema compartido, el editor web, y el motor
++ reloj en iOS.
+
+---
+
+## Antes · «semana cero» diseñada, sin construir — DESBLOQUEADO (7-ago noche)
 
 **El refactor de Plan que bloqueaba esto ya cerró y compila.** `PlanView.swift`/
 `PlanHoyModel.swift`/`PlanHeroeHoy.swift`/`PlanHoyAtoms.swift` commiteados y

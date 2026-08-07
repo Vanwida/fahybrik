@@ -10,6 +10,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-07 · «Circuito» pasa a ser un tipo de bloque real — deja de ser N líneas sueltas que copian los mismos números
+
+**Decidido:** un bloque de rondas con varias estaciones (el patrón HYROX/hybrid de "N rondas de M estaciones") deja de representarse como una lista plana de items que comparten `rounds`/`work_s`/`rest_s` copiados por convención de UI. Pasa a ser un tipo a nivel de BLOQUE: `rounds` (único), `pacing` (`por_tarea` — la ronda dura lo que tarde el atleta, sin reloj — o `por_reloj` con su `work_s`, un tope duro por estación) y descansos entre rondas / entre estaciones por separado. Las estaciones se quedan solo con su ejercicio y su objetivo, sin duplicar nada de bloque.
+
+**Por qué:** auditado con 3 agentes en paralelo (iOS+watch, editor web, datos reales en Neon) antes de tocar nada. Los 22 bloques `circuit` multi-estación reales en producción son en verdad **3 patrones distintos bajo la misma etiqueta**: circuito por tarea (Sled Push+Lunge+Wallballs, 4 rounds, sin reloj — el caso HYROX real), circuito por reloj (Power Clean+Box Jump, 5 rounds, ventana 120s cada estación — EMOM con varios movimientos), y superserie mal etiquetada (Pull-up+Dip sin rounds ni reloj — ya existe el arquetipo correcto, solo hay que corregir la etiqueta). El mecanismo de "copiar por convención" (`applyHead` en `ComponentsForm.tsx`) ya se demostró roto en producción: **2 de los 22 grupos tienen el campo en una estación y no en la otra** — no son casos hipotéticos, son filas reales.
+
+Esto es también la causa raíz de dos síntomas que Alex reportó por separado: el ritmo fantasma "3:45/km" en el atleta (un `target` de cabecera huérfano que sobrevive porque no hay dueño de bloque que lo limpie) y la confusión de "ventana trabajo" (hoy se pide siempre, aunque el formato no tenga reloj — con `pacing` solo se pide cuando aplica, y nunca se calcula solo desde el ritmo estimado, porque eso convertiría un tope real del coach en una suposición).
+
+En el motor en vivo y en el reloj, el cursor por estación que YA EXISTE (`LiveTramo.Cursor.fixedStation`) estaba artificialmente restringido a la única pasada sin `rounds` (chipper/HYROX-sim). Se vuelve universal para cualquier bloque con `pacing`: el atleta siempre sabe ronda Y estación, nunca solo la ronda — hoy "ronda hecha" cierra las N estaciones de golpe con un solo tap, sin cursor interno.
+
+**Naming:** NO se llama "Series" — ese nombre ya está ocupado en el dominio (`GuionSeries.swift`, `RunSeriesDeSets.swift`: repeticiones de carrera, 3×1000m). Se llama **Circuito**, que además coincide con el valor `circuit` que ya usa `block_format` en la DB.
+
+**En consecuencia, no hacer:** no reintroducir `config_json: {}` como blob libre sin tipar — ya existía tipado en `WeekDayPartConfig` y estaba muerto (el editor v2 nunca lo leía ni escribía, `assignment-detail.ts` lo emitía siempre vacío con un comentario explícito de que "el studio aún no lo persiste"). No copiar `rounds`/`work_s`/`rest_s` en cada item nuevo — ese era el bug. No routear una superserie sin rounds/reloj hacia el arquetipo Circuito.
+
+**Fuera de este corte, a propósito:** la ruta de sesiones-biblioteca (`template_segments`, la de "Screen 5" / instancias por-atleta, distinta del editor de día que usa `slots_json`) no tiene ningún sitio a nivel de bloque donde guardar esto — no hay `config_json` ahí, el agrupador de bloque son solo columnas de texto repetidas por fila. Se audita y decide aparte antes de tocar su esquema — no se improvisa una columna nueva sin ver antes cuánto contenido circuito real vive ahí.
+
+**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIK/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
+
+---
+
 ## 2026-08-07 · La app no puede decir lo que un coach hace. Ni cuándo, ni cada cuánto
 
 **Decidido (Alex):** ninguna superficie del producto —copy de onboarding, estados vacíos, notificaciones— puede afirmar **qué hace un coach, cuándo lo hace o con qué cadencia**. Si la frase cambiaría según el coach, no puede estar cableada: o sale de un dato, o no se dice.
