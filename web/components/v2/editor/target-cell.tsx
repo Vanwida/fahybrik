@@ -15,14 +15,21 @@ export function TargetCell({
   target,
   modality,
   ariaPrefix,
+  kind: kindProp,
   onChange,
 }: {
   target: Target | undefined;
   modality: Prescription['modality'];
   ariaPrefix: string;
+  /**
+   * El TIPO del objetivo cuando el valor aún está vacío (sin `target` no hay de
+   * dónde leerlo y caería a RPE aunque el eje diga %RM). Lo pasa el compositor
+   * de fuerza, cuyo tipo lo fijan sus chips; el resto de llamadas no cambia.
+   */
+  kind?: Target['kind'];
   onChange: (t: Target | undefined) => void;
 }) {
-  const kind = target?.kind ?? 'rpe';
+  const kind = target?.kind ?? kindProp ?? 'rpe';
 
   if (kind === 'bodyweight') {
     return (
@@ -115,7 +122,8 @@ const SCALAR_SUFFIX: Partial<Record<Target['kind'], string>> = {
   rir: 'RIR',
 };
 
-function scalarBounds(kind: Target['kind']): { min: number; max: number } {
+/** Topes por tipo de objetivo — compartidos con la rejilla por serie (pirámide). */
+export function scalarBounds(kind: Target['kind']): { min: number; max: number } {
   switch (kind) {
     case 'percent_rm':
       return { min: 0, max: 200 };

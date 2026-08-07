@@ -24,8 +24,9 @@ import { getArchetype, seedArchetype } from '@/lib/dashboard/v2/archetypes';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { MIcon } from '@/components/ui/MIcon';
 import { ExercisePickerField } from '../ExercisePickerField';
+import { RestChips, STRENGTH_REST_VALUES } from '../dose-controls';
 import { SetsTableForm } from './SetsTableForm';
-import { ClockCell, Field } from './form-controls';
+import { Field } from './form-controls';
 
 /** Dos es el mínimo que hace que algo sea una superserie. */
 const MIN_EXERCISES = 2;
@@ -104,9 +105,12 @@ export function SupersetForm({
       <RotationStrip items={items} />
 
       <Field label="Descanso entre vueltas" hint="al terminar una serie de cada ejercicio">
-        <ClockCell
+        {/* Chips frecuentes + «—» honesto (sin descanso marcado) + «otro» de teclado. */}
+        <RestChips
           seconds={restS}
-          ariaLabel="Descanso entre vueltas (m:ss)"
+          values={STRENGTH_REST_VALUES}
+          allowNone
+          ariaLabel="Descanso entre vueltas"
           onChange={(s) => applyRest(s)}
         />
       </Field>
