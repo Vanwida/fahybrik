@@ -1,11 +1,11 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-06**
+Última actualización: **2026-08-07**
 
 ---
 
-## Ahora · Importar plan por foto (microciclo) — ARREGLADO
+## Ahora · Importar plan por foto (microciclo) — DESPLEGADO
 
 **Síntoma:** «No se pudieron leer las capturas» al importar por imagen en un
 microciclo nuevo. Logs: visión OK (~20s) + `placed`, luego 504 a los 300s.
@@ -13,11 +13,18 @@ microciclo nuevo. Logs: visión OK (~20s) + `placed`, luego 504 a los 300s.
 **Causa:** tras la visión, `buildImportProposal` disparaba un LLM assist
 **secuencial sin tope** por cada línea `review` de la gramática. Una semana
 TrainingPeaks tiene decenas; cada llamada puede tardar hasta 120s → Vercel
-mata la función y el cliente solo ve el fallback genérico.
+mata la función y el cliente solo ve el fallback genérico. El fix
+(`8037d14f`) existía en la rama pero **no estaba en producción** (prod
+seguía en `dce9eb40`).
 
 **Fix:** `budgetLlmAssist` (máx 4 llamadas, deadline 260s, timeout 40s/call);
 líneas que queden se quedan en review honestas. Copy de timeout en el diálogo
 + abort del cliente a 275s.
+
+**Desplegado 7-ago:** `dpl_EcsQGCh85thWRu21b2UobY2oW8Wf` (READY/PROMOTED,
+sha `c9af8567`). Env prod+preview: `LLM_VISION_MODEL` y `LLM_CHAT_MODEL` →
+`x-ai/grok-4.5` (antes `x-ai/grok-4.3`; la visión ya iba bien con 4.3 — el
+504 no era el modelo).
 
 ---
 
