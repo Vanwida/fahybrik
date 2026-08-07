@@ -319,29 +319,17 @@ struct PlanView: View {
             )
             .frame(maxHeight: .infinity)
             .contextMenu { accionesDeSesion(sesion) }
-        } else if let dia = diaMostradoActual, dia.esHoy {
-            // El descanso de HOY: con ayer y mañana, el marco de siempre.
+        } else if let dia = diaMostradoActual {
+            // El día sin nada — MISMA card, otro contenido. El marco de
+            // ayer/mañana solo cuando el día mostrado es HOY de verdad.
             HeroeDescanso(
                 dia: dia,
                 semana: semana ?? SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil),
                 medidoAyer: medidoAyer,
+                mostrarContexto: dia.esHoy && !verProximaSemana,
                 onAbrir: { abrir($0) }
             )
-        } else if let dia = diaMostradoActual {
-            // Un descanso que se hojeó A PROPÓSITO (no el de hoy): el marco de
-            // ayer/mañana es de HOY, aquí solo se declara el hueco de ESTE día.
-            VStack(spacing: Theme.Spacing.s) {
-                Spacer(minLength: 0)
-                LabelText(text: dia.etiquetaDeFecha, color: Theme.Color.accentText, size: 10)
-                Text("Descanso")
-                    .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Nada en el plan para este día.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxHeight: .infinity)
         } else if verProximaSemana {
             // La semana que viene existe (`hasNextWeek`) pero llegó vacía: el
             // coach todavía no le puso sesiones. Un hecho, no un error.

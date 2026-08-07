@@ -228,78 +228,6 @@ struct DatoClave: View {
     }
 }
 
-// MARK: - De dónde vienes y a dónde vas (el día de descanso)
-
-/// La tarjeta de ayer / mañana. Es un botón de verdad: del día vacío se sale por
-/// aquí, así que tiene que poder pulsarse y leerse con VoiceOver.
-struct TarjetaDia: View {
-    /// «Ayer» · «Mañana».
-    let cuando: String
-    /// «V 31» — la inicial del día y su número.
-    let dia: String
-    let titulo: String
-    var modalidad: String? = nil
-    /// Lo que se puede decir del día: lo MEDIDO si ya pasó, el reloj escrito (o
-    /// su razón) si está por venir. Nil = no hay nada que decir, y no se dice.
-    let detalle: String?
-    let hecha: Bool
-    let onPulsar: () -> Void
-
-    var body: some View {
-        Button {
-            Haptics.light()
-            onPulsar()
-        } label: {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                HStack(spacing: 6) {
-                    LabelText(text: cuando, color: Theme.Color.faint, size: 9)
-                    MonoText(text: dia, size: 10, color: Theme.Color.faint)
-                }
-                HStack(alignment: .top, spacing: 7) {
-                    ModalityDot(modality: modalidad, size: 7)
-                        .padding(.top, 5)
-                    Text(titulo)
-                        .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-                }
-                if let detalle {
-                    HStack(spacing: 6) {
-                        if hecha {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.Color.ok)
-                        }
-                        MonoText(
-                            text: detalle,
-                            size: 12,
-                            weight: .semibold,
-                            color: hecha ? Theme.Color.foreground : Theme.Color.muted,
-                            escala: true
-                        )
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel([cuando, dia, titulo, detalle].compactMap { $0 }.joined(separator: ", "))
-        .accessibilityAddTraits(.isButton)
-    }
-}
-
 // MARK: - La puerta al ciclo
 
 /// EL PIE — dice lo único que de verdad se sabe del bloque (cómo lo llamó el
@@ -414,5 +342,11 @@ struct CabeceraDelBloque: View {
                 .accessibilityLabel("Lo que busca tu coach esta semana: \(intencion)")
             }
         }
+        // El alto de UNA línea de intención, siempre. Sin esto, una semana en la
+        // que el coach no escribió nada sube el carril y toda la pantalla se
+        // recoloca respecto a una semana en la que sí escribió — la tercera cara
+        // del mismo fallo de «dos views distintas» (Alex, 7-ago). Una intención
+        // de dos o tres líneas sí crece: eso es contenido de verdad.
+        .frame(minHeight: 44, alignment: .top)
     }
 }
