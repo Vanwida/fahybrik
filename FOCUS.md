@@ -5,29 +5,48 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Rediseño del editor de microciclos — MOCKUP, pendiente de OK (7-ago)
+## Ahora · Rediseño del editor de microciclos — CONSTRUIDO Y EN PRODUCCIÓN (7-ago)
 
-Alex: la UI/UX del editor no da placer («parece un wordpress del 2000», espacios
-muertos, todo pequeño, demasiado teclado). Maqueta interactiva en
-**`docs/design/microciclos-editor-rediseno-mockup.html`** (Semana · Día ·
-Compositor, tema claro/oscuro con los tokens `--v2-*` reales, datos reales de la
-biblioteca — nada inventado).
+Alex aprobó la maqueta (`docs/design/microciclos-editor-rediseno-mockup.html`,
+un solo retoque: el stepper que se estiraba) y la fase 1 está desplegada en
+app.fahybrid.com (`dpl_BRv2QMgKtgBkDJFmvb2Ss1Yw5KvJ`). Encargo a 3 agentes en
+worktrees con contrato previo (`docs/design/contrato-rediseno-editor-microciclos.md`)
++ cimientos del líder (`web/components/v2/controls/`: Stepper con mantener-pulsado,
+ChipGroup, TickBand con rango a dos toques, useHoldRepeat).
 
-Las 4 ideas: (1) **dosis común del bloque se escribe UNA vez** y cada ejercicio
-solo lleva su excepción — muere la tabla que repetía 4×4·RIR2·90″ por fila;
-(2) **quickline** con la gramática real del importador (`parseNotationCell`,
-client-safe, ya probada en `RunStructureForm`) como forma principal de añadir
-bloques; (3) **compositor lateral** con steppers/chips/ticks en vez del modal
-de inputs (pirámide por serie con «aplicar hacia abajo», %RM en rango con dos
-toques); (4) el modelo enseña sus huecos reales: **rondas de circuito de
-verdad** (hoy se aplastan en sets del 1er ejercicio), descanso, «Opcional»
-como atributo, «sin dosis» visible y accionable.
+**Lo shipeado (fase 1, cero cambios de schema/API):**
+- **Semana**: tarjetas con bloques+dosis en mono y lomo de modalidad, weekstrip
+  (sesiones/bloques/ejercicios + barra apilada + chip «N bloques sin dosis» que
+  abre el primer día con hueco), día vacío compacto, puntitos en S1..SN
+  (`MicrocicloV2.tsx` + `semana-model.ts`/`WeekStrip`/`SemanaBoard`/`CopyIntoDayModal`).
+- **Día**: carril de días sticky (tira horizontal en móvil) + hoja plana; DOSIS
+  COMÚN derivada una vez por bloque con «hereda N×M» por fila (`shared-dose.ts`,
+  solo presentación); QUICKLINE con `parseNotationCell` en cliente (chips en
+  vivo, Enter inserta bloque tipado, honestidad: lo no entendido va a revisar
+  con verbatim en note, exercise_id JAMÁS inventado); drawer lateral derecho.
+- **Compositor**: steppers/chips por dedos (RIR 0-4, descansos, reps frecuentes),
+  %RM en TickBand con rango (65-80 real), pirámide por serie con ⇊ y bandas
+  «8-10» que se desplazan sin aplastarse, «El atleta ve» fijo al pie con Guardar,
+  modalidad como dato del ejercicio (0053), circuito con rondas/estaciones limpias.
+- **Integración (líder)**: modalidad del tablero con fallback a la prescripción
+  (los bloques importados traen `methodology_group_id` null y todo salía gris) y
+  des-duplicación de ejes en fuerza (el compositor es el dueño de la carga).
 
-De la exploración salieron además **3 bugs del importador** que ensucian la
-biblioteca y habrá que arreglar en raíz aparte del rediseño: %RM leído como
-reps (block 16), km/h como metros (block 43), descanso como trabajo (block 37).
+**Verificado en producción** con sesión Clerk real (sign-in ticket): semana con
+colores, día+drawer, claro/oscuro, 1440/390. tsc limpio (salvo el error
+preexistente del importador en `complete-gaps.test.ts:138`), 447 tests editor+
+import en verde, `quickline-grammar` intacto.
 
-**Sin construir nada en el editor real. Espera el OK/feedback de Alex sobre la maqueta.**
+**NO verificado aún**: biblioteca de bloques y SessionEditor (montan el mismo
+BlockEditor rediseñado — compilar compila, ojo visual pendiente) y el guardado
+end-to-end de un bloque editado en el drawer con datos reales.
+
+**FASE 2 (pendiente de OK, toca schema/Swift):** «Opcional» como atributo (hoy
+en el título), rondas en rango (3-4), rango de reps real en `Prescription`,
+biserie/superserie A1-A2 visible en la hoja. **Y los 3 bugs del importador**
+que ensucian la biblioteca (arreglo en raíz + reparación de datos): %RM leído
+como reps (block 16), km/h como metros (block 43), descanso como trabajo
+(block 37).
 
 ---
 
