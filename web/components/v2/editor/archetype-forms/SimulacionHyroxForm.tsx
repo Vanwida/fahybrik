@@ -17,7 +17,7 @@
 // Every item already carries a REAL exercise_id (from the factory), so the block
 // persists through the same serializer as any block — zero new persistence work.
 
-import type { Measure, Prescription, Target } from '@fahybrid/shared/domain/prescription';
+import type { Measure, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import {
@@ -33,7 +33,6 @@ import {
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
-  ClockCell,
   DistanceCell,
   Field,
   InlineToggle,
