@@ -69,8 +69,16 @@ struct MarcaDia: View {
 
 /// LOS SIETE DÍAS, de un vistazo. Es la MISMA semana que cuenta el héroe, vista
 /// de lejos: la inicial, el número, y el sello de cómo fue.
+///
+/// El hilo que baja del día DESTACADO hasta el héroe dice que son la misma
+/// cosa vista de lejos y de cerca (mock `plan-bloque/atoms.tsx`, `CarrilSemana`)
+/// — el detalle que faltaba en el primer intento del 7-ago.
 struct CarrilSemana<Menu: View>: View {
     let semana: SemanaDelPlan
+    /// El día que el héroe enseña ahora mismo — normalmente hoy, o el primero
+    /// con algo al hojear otra semana. `nil` = ningún día lleva el hilo ni el
+    /// realce (una semana sin ningún día destacado).
+    var idDestacado: String? = nil
     /// Qué hacer al tocar un día. El día de descanso también responde — dice que
     /// no hay nada, que es una respuesta.
     let onDia: (DiaDelPlan) -> Void
@@ -78,20 +86,48 @@ struct CarrilSemana<Menu: View>: View {
     /// Un día sin sesiones no produce ningún botón y entonces no hay menú.
     @ViewBuilder var menu: (DiaDelPlan) -> Menu
 
+    private var indiceDestacado: Int? {
+        guard let idDestacado else { return nil }
+        return semana.dias.firstIndex { $0.id == idDestacado }
+    }
+
     var body: some View {
         HStack(spacing: 2) {
             ForEach(semana.dias) { dia in
-                ChipDia(dia: dia) { onDia(dia) }
+                ChipDia(dia: dia, destacado: dia.id == idDestacado) { onDia(dia) }
                     .contextMenu { menu(dia) }
             }
+        }
+        .overlay(alignment: .bottom) { hilo }
+    }
+
+    @ViewBuilder
+    private var hilo: some View {
+        if let indiceDestacado {
+            GeometryReader { geo in
+                let ancho = geo.size.width / CGFloat(max(1, semana.dias.count))
+                let x = ancho * (CGFloat(indiceDestacado) + 0.5)
+                LinearGradient(
+                    colors: [Theme.Color.accent, Theme.Color.accent.opacity(0)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(width: 2, height: 13)
+                .clipShape(Capsule())
+                .position(x: x, y: geo.size.height + 6.5)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 }
 
-/// La ficha de un día: inicial arriba, número en medio, sello abajo. Hoy va sobre
-/// un fondo tintado con su filo, que es lo que ata el carril con el héroe.
+/// La ficha de un día: inicial arriba, número en medio, sello abajo. El día
+/// DESTACADO (normalmente hoy) va sobre un fondo tintado con su filo, que es lo
+/// que ata el carril con el héroe.
 struct ChipDia: View {
     let dia: DiaDelPlan
+    var destacado: Bool = false
     let onPulsar: () -> Void
 
     private var modalidades: [String?] { dia.modalidades }
@@ -105,12 +141,12 @@ struct ChipDia: View {
                 Text(dia.inicial)
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(Theme.Tracking.dataLabel)
-                    .foregroundStyle(dia.esHoy ? Theme.Color.accentText : Theme.Color.muted)
+                    .foregroundStyle(destacado ? Theme.Color.accentText : Theme.Color.muted)
                 MonoText(
                     text: "\(dia.numero)",
                     size: 15,
-                    weight: dia.esHoy ? .bold : .medium,
-                    color: dia.esHoy ? Theme.Color.foreground : Theme.Color.muted
+                    weight: destacado ? .bold : .medium,
+                    color: destacado ? Theme.Color.foreground : Theme.Color.muted
                 )
                 MarcaDia(
                     estado: dia.estado,
@@ -135,11 +171,11 @@ struct ChipDia: View {
     }
 
     private var fondo: Color {
-        dia.esHoy ? Theme.Color.accent.opacity(0.12) : Color.clear
+        destacado ? Theme.Color.accent.opacity(0.12) : Color.clear
     }
 
     private var borde: Color {
-        dia.esHoy ? Theme.Color.accent.opacity(0.45) : Color.clear
+        destacado ? Theme.Color.accent.opacity(0.45) : Color.clear
     }
 }
 
@@ -370,52 +406,6 @@ struct CabeceraDelBloque: View {
                 .accessibilityLabel("Lo que busca tu coach esta semana: \(intencion)")
             }
         }
-    }
-}
-
-// MARK: - Un día completo, en lista (para hojear otra semana en el mismo sitio)
-
-/// Un día completo: su nombre, sus sesiones reales o «Descanso» cuando no hay
-/// ninguna. Es la fila que usa Plan al hojear la semana que viene EN LA MISMA
-/// pantalla — no hay una segunda vista para esto (7-ago-2026): un botón cambia
-/// qué semana alimenta este mismo sitio, nunca abre un destino nuevo.
-struct FilaDiaDeLaSemana: View {
-    let dia: DiaDelPlan
-    let onAbrir: (AthleteWeekDaySession) -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.m) {
-            Text(String(dia.nombre.prefix(3)).uppercased())
-                .scaledFont(11, weight: .semibold, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(width: 36, alignment: .leading)
-                .padding(.top, 13)
-
-            if dia.sesiones.isEmpty {
-                Text("Descanso")
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.faint)
-                    .padding(.vertical, 13)
-                Spacer(minLength: 0)
-            } else {
-                VStack(spacing: Theme.Spacing.xs) {
-                    ForEach(dia.sesiones) { session in
-                        SessionCompactRow(
-                            slot: session.slot.lowercased().hasPrefix("pm") ? .pm : .am,
-                            title: session.title,
-                            meta: DuracionDeSesion.texto(session) ?? "Sin tiempo previsto",
-                            modality: session.modality,
-                            isFree: session.isSelfOrigin,
-                            onTap: { onAbrir(session) }
-                        )
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-        }
-        .padding(.horizontal, 14)
-        .accessibilityElement(children: dia.sesiones.isEmpty ? .combine : .contain)
-        .accessibilityLabel(dia.sesiones.isEmpty ? "\(dia.nombre), descanso" : dia.nombre)
     }
 }
 

@@ -178,7 +178,7 @@ struct HeroeDescanso: View {
                     .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
                     .multilineTextAlignment(.center)
-                Text("No hay nada en el plan para hoy. Recupera, hidrata y duerme.")
+                Text("No hay nada en el plan para hoy.")
                     .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
