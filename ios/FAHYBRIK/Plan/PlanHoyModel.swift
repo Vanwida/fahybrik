@@ -119,6 +119,11 @@ struct SemanaDelPlan: Equatable {
     /// El nombre que el coach le puso al bloque/microciclo. El sistema no bautiza
     /// fases: si el cable no lo trae, no hay nombre.
     let nombreBloque: String?
+    /// ISO del día en que empieza el trabajo YA programado, cuando cae después de
+    /// esta semana. Nil = no hay nada más adelante. Deja que la semana vacía diga
+    /// «empieza el lunes 10» en vez de «tu coach no ha publicado», que era falso
+    /// (docs/DECISIONS.md, 7-ago).
+    let planStartsOn: String?
 
     var hoy: DiaDelPlan? { indiceHoy.flatMap { dias.indices.contains($0) ? dias[$0] : nil } }
 
@@ -171,7 +176,8 @@ struct SemanaDelPlan: Equatable {
             // nombre real que viaja. `macro_summary.block` llega siempre nulo del
             // servidor (`buildAthleteMacroSummary` lo fija a null), así que
             // leerlo de ahí pintaría un hueco permanente.
-            nombreBloque: Self.limpio(resp.week.microcicloName)
+            nombreBloque: Self.limpio(resp.week.microcicloName),
+            planStartsOn: resp.week.planStartsOn
         )
     }
 
