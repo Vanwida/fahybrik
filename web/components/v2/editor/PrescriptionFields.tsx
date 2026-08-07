@@ -20,9 +20,10 @@
 //   - Circuito/Metcon: formato + componentes + objetivo/cap.
 
 import { useId } from 'react';
-import type { Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { ModalityTag } from './compositor-chrome';
 import {
   axesOf,
   applyErgSubmodality,
@@ -54,6 +55,7 @@ export function PrescriptionFields({
   value,
   onChange,
   proposedPaths,
+  lockedModality,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
@@ -65,6 +67,13 @@ export function PrescriptionFields({
    * nunca — ver la lista de lo que NO se rellena en lib/import/fill-defaults.ts.
    */
   proposedPaths?: ReadonlyMap<string, string>;
+  /**
+   * La modalidad que el EJERCICIO fija en esta línea (decisión 0053: la
+   * modalidad es intrínseca al ejercicio). Con ella el eje ① deja de ser una
+   * pregunta y se pinta como DATO («la pone el ejercicio»); sin ella (línea sin
+   * ejercicio, o el hatch avanzado) el eje sigue siendo elegible, como siempre.
+   */
+  lockedModality?: Modality | null;
 }) {
   const axes = axesOf(value);
   const formatId = useId();
@@ -81,29 +90,38 @@ export function PrescriptionFields({
 
   return (
     <div className="space-y-4">
-      {/* ── ① MODALIDAD ─────────────────────────────────────────────────── */}
-      <Axis label="Modalidad">
-        <SegmentedControl
-          options={MODALIDAD_OPTIONS}
-          value={axes.modalidad}
-          onChange={(m) => onChange(applyModalidad(value, m))}
-          ariaLabel="Modalidad"
-        />
-        {axes.modalidad === 'ergo' ? (
+      {/* ── ① MODALIDAD ─────────────────────────────────────────────────────
+          Con ejercicio elegido la modalidad es un DATO (intrínseca, 0053): se
+          pinta el tag y no se pregunta. El eje solo aparece cuando ningún
+          ejercicio la determina. */}
+      {lockedModality ? (
+        <Axis label="Modalidad">
+          <ModalityTag modality={lockedModality} fixedByExercise />
+        </Axis>
+      ) : (
+        <Axis label="Modalidad">
           <SegmentedControl
-            size="sm"
-            options={ERGO_SUBMODALITIES.map((o) => ({ value: o.value, label: o.label }))}
-            value={
-              value.modality === 'row' || value.modality === 'ski' || value.modality === 'bike'
-                ? value.modality
-                : 'row'
-            }
-            onChange={(m) => onChange(applyErgSubmodality(value, m))}
-            ariaLabel="Tipo de ergómetro"
-            className="ml-2"
+            options={MODALIDAD_OPTIONS}
+            value={axes.modalidad}
+            onChange={(m) => onChange(applyModalidad(value, m))}
+            ariaLabel="Modalidad"
           />
-        ) : null}
-      </Axis>
+          {axes.modalidad === 'ergo' ? (
+            <SegmentedControl
+              size="sm"
+              options={ERGO_SUBMODALITIES.map((o) => ({ value: o.value, label: o.label }))}
+              value={
+                value.modality === 'row' || value.modality === 'ski' || value.modality === 'bike'
+                  ? value.modality
+                  : 'row'
+              }
+              onChange={(m) => onChange(applyErgSubmodality(value, m))}
+              ariaLabel="Tipo de ergómetro"
+              className="ml-2"
+            />
+          ) : null}
+        </Axis>
+      )}
 
       {/* ── ② CÓMO SE MIDE ──────────────────────────────────────────────── */}
       <Axis label="Cómo se mide">

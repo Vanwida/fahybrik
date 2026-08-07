@@ -1,11 +1,15 @@
 'use client';
 
-// BlockEditor — the right panel of SCREEN 5 (and the block detail of SCREEN 8).
-// Edits ONE block: its title, its items (each an exercise + a Prescription), and
-// per item the adaptive PrescriptionFields + the "Vista previa atleta" line. A
-// block can hold several items (a compromised block = run + wall-balls); we edit
-// one item at a time via a compact item tab strip, exactly the domain model
-// (each item is its OWN modality/measure/target — never nested).
+// BlockEditor — el COMPOSITOR de dosis (rediseño del editor de microciclos):
+// el contenido del drawer del día y el panel derecho de los editores de
+// biblioteca. Edita UN bloque: cabecera con contexto + título grande + tag de
+// modalidad derivado del ejercicio (compositor-chrome), el formulario a medida
+// del arquetipo (ArchetypeBlockForm) o los tres ejes por línea como último
+// recurso, y al pie la barra fija «El atleta ve» con el Guardar bloque
+// (AthleteSeesBar). Un bloque puede tener varias líneas (bloque comprometido =
+// carrera + wall balls); la vía legacy las edita una a una con su tira de
+// pestañas — exactamente el modelo de dominio (cada línea con SU modalidad/
+// medida/objetivo, nunca anidadas).
 
 import { useState } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
@@ -17,10 +21,14 @@ import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';
-import { AthletePreviewLine } from './AthletePreviewLine';
+import { AthleteSeesBar } from './AthletePreviewLine';
+import {
+  CompositorHeader,
+  exerciseFixedModality,
+  QuickDoseLine,
+} from './compositor-chrome';
 import { ExercisePickerField } from './ExercisePickerField';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
-import { TextCell } from './fields';
 
 const EMPTY_PRESCRIPTION: Prescription = { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 8 } }] };
 
@@ -55,13 +63,13 @@ export function BlockEditor({
   // The archetype-first tailored form is the DEFAULT when the block resolves to a
   // pattern (explicit archetype_id or a known format). Only legacy/unknown blocks
   // with items fall back to the per-item axes editor.
-  const hasArchetypeForm =
-    block.items.length > 0 && patternForBlock(block.archetype_id, block.format) !== null;
+  const pattern = patternForBlock(block.archetype_id, block.format);
+  const hasArchetypeForm = block.items.length > 0 && pattern !== null;
 
   const undosed = undosedLines(block);
 
-  // Una propuesta se marca EN SU CAMPO solo si ese campo se está pintando: la
-  // tabla de series de fuerza de la línea ACTIVA. Las demás (otra pestaña, una
+  // Una propuesta se marca EN SU CAMPO solo si ese campo se está pintando: el
+  // compositor de fuerza de la línea ACTIVA. Las demás (otra pestaña, una
   // línea de cardio cuyo descanso se edita a nivel de bloque, un formulario de
   // arquetipo) no tienen dónde, y esas las dice la tira. Ninguna se calla.
   const stripLines = (block.items ?? [])
@@ -88,43 +96,29 @@ export function BlockEditor({
   const setItemPrescription = (uid: string, prescription: Prescription) =>
     updateItem(uid, { prescription });
 
+  // La quickline vive donde hay UN ejercicio de fuerza al que aplicar la dosis:
+  // el patrón de fuerza (sets_table) o la línea activa de la vía legacy. En una
+  // superserie o un circuito no está claro a qué ejercicio iría, así que no se
+  // enseña (los controles por ejercicio ya están delante).
+  const quickTarget: EditorItem | null =
+    pattern === 'sets_table'
+      ? block.items[0] ?? null
+      : !hasArchetypeForm && activeItem && isStrengthModality(activeItem.prescription.modality)
+        ? activeItem
+        : null;
+
+  const applyQuickDose = (item: EditorItem, parsed: Prescription) => {
+    const next: Prescription = {
+      ...item.prescription,
+      scheme: item.prescription.scheme === 'superset' ? 'superset' : 'sets',
+      sets: (parsed.sets ?? []).map((s) => ({ ...s })),
+    };
+    setItemPrescription(item.uid, next);
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Block header — editable title + actions */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <label className="min-w-0 flex-1 space-y-1.5">
-          <span className="v2-micro">Nombre del bloque</span>
-          <TextCell
-            value={block.title}
-            ariaLabel="Nombre del bloque"
-            maxLength={120}
-            placeholder="p. ej. Fuerza · Sentadilla"
-            onChange={(title) => onChange({ ...block, title })}
-          />
-        </label>
-        <div className="flex items-center gap-2">
-          {onDuplicate ? (
-            <button
-              type="button"
-              onClick={onDuplicate}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-            >
-              <MIcon name="content_copy" size={15} />
-              Duplicar
-            </button>
-          ) : null}
-          {onSave ? (
-            <button
-              type="button"
-              onClick={onSave}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-2 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-            >
-              <MIcon name="check" size={15} />
-              Guardar bloque
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <div className="flex min-h-full flex-col gap-4">
+      <CompositorHeader block={block} onChange={onChange} onDuplicate={onDuplicate} />
 
       {/* QUÉ falta, encima del formulario que lo arregla. Va AQUÍ y no dentro de
           ArchetypeBlockForm porque este componente pinta DOS vías (la de arquetipo
@@ -135,21 +129,24 @@ export function BlockEditor({
       {undosed.length > 0 ? <UndosedNotice lines={undosed} /> : null}
 
       {/* Lo propuesto por el importador se marca EN SU CAMPO cuando ese campo
-          existe, que es la tabla de series de fuerza. Un formulario de arquetipo
+          existe, que es el compositor de fuerza. Un formulario de arquetipo
           o una línea de cardio no tienen dónde: su descanso se edita a nivel de
           bloque y el importador nunca toca ese. Ahí lo dice esta tira, para que
           ninguna de las dos vías se calle una propuesta. */}
       {stripLines.length > 0 ? <ProposedStrip lines={stripLines} /> : null}
 
-      {/* DEFAULT — the archetype-first tailored form (the simple input). It owns
-          the exercise name, the type-specific fields, the phase tag, the athlete
-          preview AND the "Ajuste avanzado" hatch (the full axes, reused). */}
-      {hasArchetypeForm ? (
-        <ArchetypeBlockForm
-          block={block}
-          athleteName={athleteName}
-          onChange={onChange}
+      {quickTarget ? (
+        <QuickDoseLine
+          exerciseName={quickTarget.exercise_name}
+          onApply={(parsed) => applyQuickDose(quickTarget, parsed)}
         />
+      ) : null}
+
+      {/* DEFAULT — the archetype-first tailored form (the simple input). It owns
+          the exercise name, the type-specific fields AND the "Ajuste avanzado"
+          hatch (the full axes, reused). */}
+      {hasArchetypeForm ? (
+        <ArchetypeBlockForm block={block} onChange={onChange} />
       ) : block.items.length > 0 ? (
         // Legacy / unknown-format block — keep the per-item axes editor as fallback.
         <>
@@ -197,13 +194,8 @@ export function BlockEditor({
               <PrescriptionFields
                 value={activeItem.prescription}
                 proposedPaths={proposedPaths?.get(activeItem.uid)}
+                lockedModality={exerciseFixedModality(activeItem)}
                 onChange={(p) => setItemPrescription(activeItem.uid, p)}
-              />
-
-              <AthletePreviewLine
-                prescription={activeItem.prescription}
-                exerciseName={activeItem.exercise_name}
-                athleteName={athleteName}
               />
             </div>
           ) : null}
@@ -247,20 +239,13 @@ export function BlockEditor({
           )}
         </div>
       )}
+
+      {/* La barra fija del pie: «El atleta ve» en vivo + Guardar bloque. */}
+      <AthleteSeesBar block={block} athleteName={athleteName} onSave={onSave} />
     </div>
   );
 }
 
-/**
- * El aviso de dosis: dice QUÉ línea falla y POR QUÉ, con las palabras del gate.
- *
- * Los motivos van verbatim (`blockingReasons`) porque ya están escritos para el
- * coach y en español — reescribirlos aquí sería una segunda voz que se desincroniza
- * del gate que le bloquea el Confirmar.
- *
- * Con una sola línea (117 de las 119 piezas del coach) no se nombra el ejercicio:
- * es el que tiene delante, y decírselo sería ruido.
- */
 /**
  * Lo que puso el importador en líneas cuyo campo NO se está pintando: otra
  * pestaña, una línea de cardio (su descanso se edita a nivel de bloque) o un
@@ -293,6 +278,16 @@ function ProposedStrip({
   );
 }
 
+/**
+ * El aviso de dosis: dice QUÉ línea falla y POR QUÉ, con las palabras del gate.
+ *
+ * Los motivos van verbatim (`blockingReasons`) porque ya están escritos para el
+ * coach y en español — reescribirlos aquí sería una segunda voz que se desincroniza
+ * del gate que le bloquea el Confirmar.
+ *
+ * Con una sola línea (117 de las 119 piezas del coach) no se nombra el ejercicio:
+ * es el que tiene delante, y decírselo sería ruido.
+ */
 function UndosedNotice({ lines }: { lines: UndosedLine[] }) {
   const one = lines.length === 1;
   return (
