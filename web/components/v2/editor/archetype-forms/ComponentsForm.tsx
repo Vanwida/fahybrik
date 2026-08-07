@@ -285,5 +285,12 @@ function cleanScheme(p: Prescription): Prescription {
   for (const param of STRUCTURAL_PARAMS) {
     if (!keep.has(param)) delete out[param];
   }
+  // `rounds_max` (fase 2, ago-2026) es un companion de `rounds` — no es un
+  // FormatParam propio del catálogo, así que no lo cubre el bucle de arriba.
+  // Sin este borrado, cambiar de un formato con rango activo a uno sin
+  // `rounds` (p.ej. rounds→amrap) dejaba un `rounds_max` huérfano sin su
+  // `rounds` — hallazgo del agente de fase 2 stream A, no reproducible antes
+  // porque no existía UI para escribir `rounds_max`.
+  if (out.rounds === undefined) delete out.rounds_max;
   return out;
 }
