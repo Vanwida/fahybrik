@@ -193,7 +193,11 @@ const llmSuggestionsSchema = z.object({
 const NOTE_VOICE_RULES = [
   'Tuteas al atleta y hablas como su entrenador, en español de España.',
   'Cada propuesta es UNA sola frase, sin lista ni viñetas.',
-  'Nada de jerga técnica ni siglas: se entiende a la primera en el gimnasio.',
+  // Medido contra el modelo real: sin esta regla traduce los nombres del coach
+  // («wall balls» salió como «balón a la pared», «front squat» como «sentadilla
+  // frontal»). En el box nadie los llama así, y además el nombre es del coach.
+  'Los nombres de los ejercicios van EXACTAMENTE como te los paso: no los traduzcas ni los cambies. Si pone "wall balls", escribes "wall balls".',
+  'Nada de jerga NUESTRA (zonas, RPE, RIR, umbral, disposición, adherencia): se entiende a la primera en el gimnasio.',
   'Sin emojis, sin comillas y SIN guiones largos.',
   'No inventes NUNCA datos del atleta (marcas, pulsaciones, cargas previas, cansancio): no los conoces.',
 ];
