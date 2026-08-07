@@ -329,12 +329,15 @@ struct EntradaAlCiclo: View {
                 HStack(spacing: Theme.Spacing.s) {
                     VStack(alignment: .leading, spacing: 3) {
                         LabelText(text: "El bloque", color: Theme.Color.faint, size: 10)
-                        if let nombre {
-                            Text(nombre)
-                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .lineLimit(1)
-                        }
+                        // SIEMPRE se reserva esta línea, tenga o no nombre —
+                        // mismo motivo que `CabeceraDelBloque`: que el pie
+                        // cambie de alto según la semana es la raíz de que dos
+                        // pantallas con el mismo componente se vean distintas
+                        // (Alex, 7-ago).
+                        Text(nombre ?? " ")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1)
                         Text(subtitulo)
                             .scaledFont(12, weight: .medium, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)

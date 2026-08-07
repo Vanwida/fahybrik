@@ -365,16 +365,26 @@ struct DesgloseSesion: Equatable {
             )
         }
 
-        // El bloque PRINCIPAL es el primero que no es marco. Es el que da la
-        // cabecera de formato y las cifras: mezclar las de tres bloques haría una
-        // dosis que no existe en ninguno.
-        let principal = bloques.first { !Self.esEstructural($0.format) } ?? bloques[0]
+        // El bloque PRINCIPAL es el primero que no es marco — de ahí sale la
+        // cabecera de formato, que describe la SESIÓN entera (AMRAP, rondas…).
+        let noEstructurales = bloques.filter { !Self.esEstructural($0.format) }
+        let principal = noEstructurales.first ?? bloques[0]
         let prescripcion = principal.items.first?.prescription
+
+        // Las CIFRAS, en cambio, son la dosis de UN ejercicio concreto (series,
+        // carga, descanso) — solo se enseñan cuando hay un único bloque de
+        // trabajo real, porque ahí sí describen la sesión entera. Con dos o más
+        // (p. ej. «Fuerza parte alta» + «Refuerzo hombro», cada uno con su
+        // propia dosis) enseñar solo las del primero parece la dosis de TODO
+        // cuando es la de uno — el error que Alex cazó el 7-ago. Sin cifras
+        // aquí, el desglose por partes ya dice cuántos ejercicios hay en cada
+        // bloque, y tocar la card trae la dosis real de cada uno.
+        let claves = noEstructurales.count == 1 ? (prescripcion.map(Self.claves) ?? []) : []
 
         return DesgloseSesion(
             partes: partes,
             formato: prescripcion.flatMap(PrescriptionRenderer.wodHeader),
-            claves: prescripcion.map(Self.claves) ?? []
+            claves: claves
         )
     }
 
