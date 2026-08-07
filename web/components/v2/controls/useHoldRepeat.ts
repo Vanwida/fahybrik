@@ -15,7 +15,9 @@ export function useHoldRepeat(step: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interval = useRef<ReturnType<typeof setInterval> | null>(null);
   const stepRef = useRef(step);
-  stepRef.current = step;
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   const stop = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
