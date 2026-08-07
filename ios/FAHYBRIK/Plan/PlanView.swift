@@ -74,6 +74,11 @@ struct PlanView: View {
     @State private var showPartnerPlan = false
     @State private var showHistory = false
     @State private var showCiclo = false
+    @State private var showProximaSemana = false
+    /// La sesión tocada dentro de «la semana que viene». Se abre en `onDismiss`
+    /// y no en el toque: levantar un cover mientras el anterior se está
+    /// cerrando se pierde a medias (mismo patrón que `diaAElegir`).
+    @State private var elegidaEnProximaSemana: AthleteWeekDaySession? = nil
     @State private var partner: PartnerInfo? = nil
 
     // ── Acciones que pueden fallar ────────────────────────────────────────────
@@ -127,6 +132,20 @@ struct PlanView: View {
         }
         .fullScreenCover(isPresented: $showHistory) {
             HistoryView(bearer: effectiveBearer, onClose: { showHistory = false })
+        }
+        .fullScreenCover(isPresented: $showProximaSemana, onDismiss: {
+            guard let elegida = elegidaEnProximaSemana else { return }
+            elegidaEnProximaSemana = nil
+            abrir(elegida)
+        }) {
+            PlanProximaSemanaView(
+                bearer: effectiveBearer,
+                onClose: { showProximaSemana = false },
+                onAbrir: { session in
+                    elegidaEnProximaSemana = session
+                    showProximaSemana = false
+                }
+            )
         }
         .fullScreenCover(isPresented: $showCiclo) {
             PlanCicloView(
@@ -290,6 +309,13 @@ struct PlanView: View {
             }
             botonDeCromo(symbol: "calendar", etiqueta: "Historial de entrenos") {
                 showHistory = true
+            }
+            // Solo cuando el coach de verdad la publicó — nunca una salida a un
+            // sitio vacío (§7).
+            if hayProximaSemana {
+                botonDeCromo(symbol: "calendar.badge.clock", etiqueta: "Semana que viene") {
+                    showProximaSemana = true
+                }
             }
             if hasCoach {
                 botonDeCromo(symbol: "message", etiqueta: "Chat con tu coach") {

@@ -186,6 +186,7 @@
 		50601E45AAAA8D57DDFF27F7 /* WorkoutExecutionSpineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8F533B42B013698D985B07 /* WorkoutExecutionSpineTests.swift */; };
 		509970ECB9D565512B80B298 /* GuionDelEspejo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC57BD7FE1E4F6632C718FC /* GuionDelEspejo.swift */; };
 		51131F03B9B3EA4DA3F2C797 /* SetTableLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C429EF69DCC42F2FFC9B19 /* SetTableLiveView.swift */; };
+		516B09B4A988DE0CA41E3FEF /* PlanProximaSemanaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87CFBC74F2FFFAC1405816D6 /* PlanProximaSemanaView.swift */; };
 		517A4398F12E892D6A022EFA /* SplitsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C21B6769B4B2148CE65F68A /* SplitsView.swift */; };
 		531CE717424FD1028BF11717 /* Scale1to5Picker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2EE83EF9DB5A439E0F56FCC /* Scale1to5Picker.swift */; };
 		53B53649A6223F66E73784FF /* RunStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4536ACD9B240A6DDCDF325A8 /* RunStructureTests.swift */; };
@@ -813,6 +814,7 @@
 		87228089D767EEE08A4903B1 /* FormaDeCarrera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormaDeCarrera.swift; sourceTree = "<group>"; };
 		87970F791D2B64727255C626 /* WatchLienzo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLienzo.swift; sourceTree = "<group>"; };
 		87CB3A3902B72B4DD29B091F /* InicioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InicioView.swift; sourceTree = "<group>"; };
+		87CFBC74F2FFFAC1405816D6 /* PlanProximaSemanaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanProximaSemanaView.swift; sourceTree = "<group>"; };
 		87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultCaptureSheet.swift; sourceTree = "<group>"; };
 		880B505E261FD68366EE8498 /* DeviceDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiagnostics.swift; sourceTree = "<group>"; };
 		883BD3BAFDC4853754FC7DD0 /* HistoryCalendarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarTests.swift; sourceTree = "<group>"; };
@@ -1373,6 +1375,7 @@
 				EBB162384635C79BDC8AE7F8 /* PlanHeroeHoy.swift */,
 				76A9FA3AF0BBE29C6F3C285F /* PlanHoyAtoms.swift */,
 				E5B5FA9B3CD115B189B4652A /* PlanHoyModel.swift */,
+				87CFBC74F2FFFAC1405816D6 /* PlanProximaSemanaView.swift */,
 				C3A6F6A06597A99FDB74B021 /* PlanService.swift */,
 				7977DBCE8367B9C75CC6D124 /* PlanView.swift */,
 				4740D5816CDE34294FE7EDE7 /* Prescription.swift */,
@@ -2494,6 +2497,7 @@
 				CA4A79130CDB8743DDD55C13 /* PlanHeroeHoy.swift in Sources */,
 				22E1A040160E3DD43F919FF9 /* PlanHoyAtoms.swift in Sources */,
 				5A83C042D8BDB96D7B3E318F /* PlanHoyModel.swift in Sources */,
+				516B09B4A988DE0CA41E3FEF /* PlanProximaSemanaView.swift in Sources */,
 				17BB28C19D105D86E548A7A1 /* PlanService.swift in Sources */,
 				3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */,
 				383939F4F669E266EE9515A4 /* PolylineCodec.swift in Sources */,
