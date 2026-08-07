@@ -144,6 +144,14 @@ export interface EditorSession {
    * Editable in the day editor; empty/undefined = untitled.
    */
   focus?: string;
+  /**
+   * NOTA del entreno (`WeekSession.notes`): lo que el coach le dice al atleta
+   * sobre ESTA sesión ("hoy vamos a por el ritmo, no te pases en la primera
+   * serie"). Editable en el editor de día; al materializar viaja a
+   * `templates.coach_notes` y el atleta la lee en el brief previo del móvil.
+   * Vacía/undefined = sin nota.
+   */
+  notes?: string;
   blocks: EditorBlock[];
 }
 

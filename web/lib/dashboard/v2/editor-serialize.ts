@@ -11,8 +11,8 @@
 // ROUND-TRIP FIDELITY (the whole point): the editor view model is a SUBSET of the
 // persisted shape — the loader (mapPart/mapItem) only reads a handful of fields.
 // The persisted part also carries config_json, block_modifiers, athlete_note
-// (block level) and day/session-level focus/notes/template_id that the editor
-// never surfaces. Serializing naively from the editor model alone would WIPE
+// (block level) and day-level focus/notes/template_id that the editor never
+// surfaces. Serializing naively from the editor model alone would WIPE
 // those on every save. So every serializer takes the ORIGINAL loaded shape and
 // PRESERVES the fields the editor cannot edit, matching by `uid`. `coach_note`
 // is a middle case: the editor now CARRIES it (a source can set one — the
@@ -151,10 +151,14 @@ function serializePart(
 // ── Session ────────────────────────────────────────────────────────────────--
 // EditorSession → WeekSession. The editor's `slot` (am/pm/extra) is positional
 // only — the loader derives it from array index, so it is NOT persisted (lossless
-// because array order is preserved). kind/template_id/notes are preserved from the
-// original session matched by position. `focus` (the workout TITLE) is now editable
-// in the day editor, so it is taken AUTHORITATIVELY from the input: set when the
-// coach typed one, cleared when they emptied it (so clearing actually persists).
+// because array order is preserved). kind/template_id are preserved from the
+// original session matched by position. `focus` (the workout TITLE) and `notes`
+// (the coach's brief for this workout) are now BOTH editable in the day editor,
+// so both are taken AUTHORITATIVELY from the input: set when the coach typed one,
+// cleared when they emptied it (so clearing actually persists) — the same rule
+// `serializeItem` applies to a line's note. A caller that omits them therefore
+// clears them; that is deliberate and identical for the two fields, and the day
+// editor always sends its current value.
 function serializeSession(
   session: EditorSessionInput,
   original: WeekSession | undefined,
@@ -181,6 +185,10 @@ function serializeSession(
   const focus = session.focus?.trim();
   if (focus) next.focus = focus;
   else delete next.focus;
+
+  const notes = session.notes?.trim();
+  if (notes) next.notes = notes;
+  else delete next.notes;
 
   return next;
 }

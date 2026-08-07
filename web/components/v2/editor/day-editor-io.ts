@@ -32,6 +32,9 @@ export function sessionsToWire(sessions: EditorSession[]) {
     uid: s.uid,
     slot: s.slot,
     ...(s.focus && s.focus.trim() ? { focus: s.focus.trim() } : {}),
+    // Vacío es vacío: una nota que el coach nunca escribió (o que borró) NO viaja,
+    // y el serializer la deja ausente en vez de guardar un "" que parece contenido.
+    ...(s.notes && s.notes.trim() ? { notes: s.notes.trim() } : {}),
     blocks: s.blocks.map((b) => ({
       uid: b.uid,
       title: b.title,
@@ -43,7 +46,7 @@ export function sessionsToWire(sessions: EditorSession[]) {
         exercise_id: it.exercise_id,
         exercise_name: it.exercise_name,
         prescription: it.prescription,
-        ...(it.notes ? { notes: it.notes } : {}),
+        ...(it.notes && it.notes.trim() ? { notes: it.notes.trim() } : {}),
       })),
     })),
   }));

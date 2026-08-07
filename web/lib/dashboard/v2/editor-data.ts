@@ -297,6 +297,9 @@ function mapSession(s: DomainWeekSession, index: number): EditorSession {
     time_hint: slot === 'am' ? '08:00' : slot === 'pm' ? '18:00' : undefined,
     // Workout title round-trips from slots_json (WeekSession.focus).
     ...(s.focus ? { focus: s.focus } : {}),
+    // La NOTA del entreno también: sin hidratarla, abrir y guardar el día la
+    // borraría (el serializer la toma autoritativa del input, como el título).
+    ...(s.notes ? { notes: s.notes } : {}),
     blocks: (s.blocks ?? []).map((b, bi) => mapPart(b, bi)),
   };
 }
