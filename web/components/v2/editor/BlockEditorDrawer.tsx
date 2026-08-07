@@ -89,7 +89,9 @@ export function BlockEditorDrawer({
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <BlockEditor block={block} onChange={onChange} onAddItem={onAddItem} />
+          {/* Solo el day editor persiste `optional` (editor-serialize.ts) — ver
+              el comentario de CompositorHeader.showOptionalToggle. */}
+          <BlockEditor block={block} onChange={onChange} onAddItem={onAddItem} showOptionalToggle />
         </div>
       </aside>
     </ModalPortal>

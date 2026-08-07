@@ -109,6 +109,24 @@ export function useDaySessions(initial: EditorSession[]) {
     );
   };
 
+  // Alterna «Opcional» de un bloque (fase 2, ago-2026) — mismo patrón que
+  // renameBlock: autoritativo desde el input, el serializer lo persiste tal
+  // cual, incluida la vuelta a false (editor-serialize.ts, `?? false`).
+  const toggleOptional = (sessionUid: string, blockUid: string) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.uid === sessionUid
+          ? {
+              ...s,
+              blocks: s.blocks.map((b) =>
+                b.uid === blockUid ? { ...b, optional: !b.optional } : b,
+              ),
+            }
+          : s,
+      ),
+    );
+  };
+
   // Reordena un ejercicio dentro de su bloque (↑/↓).
   const moveItem = (sessionUid: string, blockUid: string, itemUid: string, dir: -1 | 1) => {
     setSessions((prev) =>
@@ -172,6 +190,7 @@ export function useDaySessions(initial: EditorSession[]) {
     updateBlock,
     reorderBlocks,
     renameBlock,
+    toggleOptional,
     moveItem,
     addPickedItemToBlock,
   };

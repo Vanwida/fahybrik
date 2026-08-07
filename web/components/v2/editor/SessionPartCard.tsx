@@ -34,6 +34,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { BlockItemTable } from './BlockItemTable';
 import { ArchetypeGrid } from './ArchetypePicker';
+import { OptionalBadge } from './compositor-chrome';
 import { blockMinutes, blockModalitySlug, blockTypeLabel } from './block-helpers';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = {
@@ -56,6 +57,7 @@ export function SessionPartCard({
   onAddItem,
   onRemoveBlock,
   onMoveItem,
+  onToggleOptional,
 }: {
   session: EditorSession;
   onChangeFocus: (focus: string) => void;
@@ -75,6 +77,8 @@ export function SessionPartCard({
   onAddItem: (blockUid: string) => void;
   onRemoveBlock: (blockUid: string) => void;
   onMoveItem: (blockUid: string, itemUid: string, dir: -1 | 1) => void;
+  /** Alterna «el bloque es un extra que el atleta puede saltarse» (fase 2). */
+  onToggleOptional: (blockUid: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const totalMin = session.blocks.reduce((acc, b) => acc + (blockMinutes(b) ?? 0), 0);
@@ -161,6 +165,7 @@ export function SessionPartCard({
                 onAddItem={() => onAddItem(block.uid)}
                 onRemove={() => onRemoveBlock(block.uid)}
                 onMoveItem={(itemUid, dir) => onMoveItem(block.uid, itemUid, dir)}
+                onToggleOptional={() => onToggleOptional(block.uid)}
               />
             ))}
           </div>
@@ -218,6 +223,7 @@ function SortableBlockCard({
   onAddItem,
   onRemove,
   onMoveItem,
+  onToggleOptional,
 }: {
   block: EditorBlock;
   onRename: (title: string) => void;
@@ -225,6 +231,7 @@ function SortableBlockCard({
   onAddItem: () => void;
   onRemove: () => void;
   onMoveItem: (itemUid: string, dir: -1 | 1) => void;
+  onToggleOptional: () => void;
 }) {
   const {
     attributes,
@@ -267,6 +274,17 @@ function SortableBlockCard({
         >
           <MIcon name="drag_indicator" size={18} />
         </button>
+        {/* «Opcional» (fase 2): siempre visible cuando ya lo es (es un estado,
+            no una herramienta); si no lo es, se comporta como «Quitar» — solo
+            al hover/foco, para no meter ruido en cada bloque de la lista. */}
+        <span
+          className={cn(
+            !block.optional &&
+              'opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100',
+          )}
+        >
+          <OptionalBadge optional={block.optional ?? false} onToggle={onToggleOptional} />
+        </span>
         <input
           type="text"
           value={block.title}

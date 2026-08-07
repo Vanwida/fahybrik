@@ -40,6 +40,7 @@ export function BlockEditor({
   onSave,
   onAddItem,
   proposedPaths,
+  showOptionalToggle,
 }: {
   block: EditorBlock;
   athleteName?: string;
@@ -53,6 +54,8 @@ export function BlockEditor({
    * comporta exactamente como siempre y no sabe que existen las importaciones.
    */
   proposedPaths?: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** Ver CompositorHeader — solo el day editor lo pasa (fase 2). */
+  showOptionalToggle?: boolean;
 }) {
   const [activeItemUid, setActiveItemUid] = useState<string | null>(
     block.items[0]?.uid ?? null,
@@ -118,7 +121,12 @@ export function BlockEditor({
 
   return (
     <div className="flex min-h-full flex-col gap-4">
-      <CompositorHeader block={block} onChange={onChange} onDuplicate={onDuplicate} />
+      <CompositorHeader
+        block={block}
+        onChange={onChange}
+        onDuplicate={onDuplicate}
+        showOptionalToggle={showOptionalToggle}
+      />
 
       {/* QUÉ falta, encima del formulario que lo arregla. Va AQUÍ y no dentro de
           ArchetypeBlockForm porque este componente pinta DOS vías (la de arquetipo
