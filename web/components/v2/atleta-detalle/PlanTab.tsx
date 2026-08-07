@@ -211,16 +211,21 @@ export function PlanTab({
   // only if no label was resolved.
   const blockName = plan.current_block_label ?? plan.current_block ?? '—';
   const blockWeek = plan.macro.block_week;
-  // El microciclo de la semana ACTUAL; si el plan aún no ha arrancado no hay
-  // ninguna, así que se nombra el que está a punto de empezar (la primera que
-  // viene). Sin esto el encabezado decía «Microciclo «—»» justo cuando el coach
-  // acaba de asignar uno con nombre.
-  const microName = plan.macro.phase_assignments.find(
-    (p) =>
-      p.microcycle_id ===
-      (plan.macro.weeks.find((w) => w.status === 'current') ??
-        plan.macro.weeks.find((w) => w.status === 'upcoming'))?.microcycle_id,
-  )?.name;
+  // El nombre del microciclo que toca: el de la semana ACTUAL, y si el plan aún
+  // no ha arrancado, el de la primera que viene.
+  //
+  // Se casa por FECHA, no por id: `phase_assignments[].microcycle_id` es el id
+  // del RECIBO (`athlete_month_assignments.id`), mientras que las semanas llevan
+  // el id de microciclo real de la asignación. Compararlos nunca casaba, así que
+  // el encabezado decía «Microciclo «—»» siempre — incluso con el plan en marcha.
+  const namedWeek =
+    plan.macro.weeks.find((w) => w.status === 'current') ??
+    plan.macro.weeks.find((w) => w.status === 'upcoming');
+  const microName = namedWeek
+    ? plan.macro.phase_assignments.find(
+        (p) => p.start_date <= namedWeek.week_start && p.end_date >= namedWeek.week_start,
+      )?.name
+    : undefined;
 
   const todaySession = findTodaySession(plan);
 
