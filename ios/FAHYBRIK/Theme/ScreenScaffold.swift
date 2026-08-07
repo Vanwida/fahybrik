@@ -202,7 +202,10 @@ struct FillingScreen<Content: View>: View {
                         minHeight: max(0, proxy.size.height - proxy.safeAreaInsets.bottom)
                     )
             }
-            .scrollBounceBehavior(.basedOnSize)
+            // `.always`, no `.basedOnSize`: un día corto llena exactamente el
+            // alto disponible, y sin margen para el rebote `.refreshable` no
+            // tiene hueco donde aparecer — tirar hacia abajo no hacía nada.
+            .scrollBounceBehavior(.always)
         }
     }
 }
