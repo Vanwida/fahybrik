@@ -8,15 +8,21 @@
 // pregunta; el eje solo aparece cuando no hay ejercicio que la determine.
 
 import { useState } from 'react';
-import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
+import type {
+  Modality,
+  Prescription,
+  PrescriptionSet,
+} from '@fahybrid/shared/domain/prescription';
 import { parseNotationCell } from '@fahybrid/shared/domain/import/notation';
-import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { archetypeForFormat, getArchetype } from '@/lib/dashboard/v2/archetypes';
 import {
   domainToAxisModalidad,
+  isStrengthModality,
   MODALIDAD_OPTIONS,
   modalityColorSlug,
 } from '@/lib/dashboard/v2/editor-axes';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { MIcon } from '@/components/ui/MIcon';
 
 /**
@@ -58,6 +64,128 @@ export function exerciseFixedModality(item: {
   // con ejercicio elegido, esa modalidad viene del catálogo, no de una pista.
   if (item.exercise_id != null) return item.prescription.modality ?? null;
   return null;
+}
+
+// ── Picker de formato: series rectas ↔ superserie (fase 2, ago-2026) ─────────
+// `scheme:'superset'`/`format:'superset'` ROTA los ejercicios del bloque
+// (A1→A2→A1→A2); `scheme:'sets'` los ejecuta en series rectas. Es una decisión
+// de BLOQUE, no de ejercicio suelto (DECISIONS.md 2026-08-05): todo el bloque
+// rota o ninguno. `SupersetForm` ya sabe EDITAR un bloque `superset` — lo que
+// faltaba era elegirlo desde un bloque de fuerza existente.
+
+/**
+ * ¿Este bloque puede alternar entre series rectas y superserie? Solo cuando
+ * ya está en uno de esos dos esquemas y tiene al menos dos ejercicios — un
+ * EMOM, un circuito o un WOD con un movimiento de fuerza dentro no entran
+ * aquí: su rotación la gobierna `rounds`/`work_s`, no este picker. La
+ * superserie es la pareja de `sets`, no de cualquier formato que rote.
+ */
+export function canPickBlockFormat(block: EditorBlock): boolean {
+  if (block.items.length < 2) return false;
+  const first = block.items[0];
+  if (!first) return false;
+  const modality = exerciseFixedModality(first) ?? first.prescription.modality;
+  if (!isStrengthModality(modality)) return false;
+  const scheme = first.prescription.scheme;
+  return scheme === 'sets' || scheme === 'superset';
+}
+
+/** Quita el descanso propio de una serie — al rotar lo hereda el bloque. */
+function withoutSetRest(set: PrescriptionSet): PrescriptionSet {
+  if (set.rest_s === undefined) return set;
+  const { rest_s: _rest_s, ...rest } = set;
+  void _rest_s;
+  return rest;
+}
+
+/** El descanso de vuelta que hereda una superserie recién convertida: el que
+ *  el coach YA tenía (por serie si es uniforme, si no el del bloque) — nunca
+ *  inventado (CONTRATO-UI §7: nada que parezca un dato que nadie eligió). */
+function inheritedRotationRest(first: EditorItem | undefined): number | undefined {
+  const p = first?.prescription;
+  if (!p) return undefined;
+  const setRest = (p.sets ?? []).find((s) => s.rest_s !== undefined)?.rest_s;
+  return setRest ?? p.rest_s;
+}
+
+/**
+ * Normaliza el bloque ENTERO entre series rectas y superserie. Al pasar a
+ * superserie el descanso por serie se retira y sube al bloque (el de la
+ * vuelta, A1→A2→descanso) — el mismo criterio que ya aplican
+ * `seedArchetype('superset')` y `SupersetForm`; al volver a series rectas el
+ * descanso de vuelta queda disponible como el de la primera serie
+ * (`prescriptionToText` y el compositor de fuerza ya caen a `rest_s` de
+ * bloque cuando ninguna serie lleva el suyo propio).
+ *
+ * `format`/`archetype_id` se fijan junto al `scheme` para que
+ * `patternForBlock` (que prioriza `archetype_id`) pinte el formulario
+ * correcto al instante, sin esperar a un recargado — PERO el arquetipo
+ * `strength` (patrón `sets_table`, `ArchetypeBlockForm`) solo edita el
+ * PRIMER item: es de un solo ejercicio por diseño. Con 2+ ejercicios en
+ * series rectas no hay arquetipo de bloque que los edite a todos, así que el
+ * bloque vuelve al editor por-item (legacy, el mismo que ya usan los bloques
+ * importados sin tipar): `format:'sets'` (el mismo canónico que
+ * `strength_block` — `LEGACY_FORMAT_ALIASES` los normaliza igual — sin el
+ * alias que dispara el arquetipo de un solo hueco) y SIN `archetype_id`, para
+ * que `patternForBlock` no fuerce un patrón que dejaría el segundo ejercicio
+ * invisible en el compositor. Con exactamente un ejercicio (el picker no
+ * llega a mostrarse con menos de dos, pero la función vale para cualquier
+ * bloque) sí vuelve al arquetipo `strength` de siempre.
+ */
+export function applyBlockFormat(block: EditorBlock, toSuperset: boolean): EditorBlock {
+  const scheme: Prescription['scheme'] = toSuperset ? 'superset' : 'sets';
+  const rotationRest = toSuperset ? inheritedRotationRest(block.items[0]) : undefined;
+  const items = block.items.map((it) => {
+    const prescription: Prescription = { ...it.prescription, scheme };
+    if (toSuperset) {
+      prescription.sets = (prescription.sets ?? []).map(withoutSetRest);
+      if (rotationRest !== undefined) prescription.rest_s = rotationRest;
+      else delete prescription.rest_s;
+    }
+    return { ...it, prescription };
+  });
+
+  // Se retira el archetype_id de origen en los dos sentidos: un bloque creado
+  // como 'superset' que vuelve a series rectas no puede arrastrarlo, ni al
+  // revés — cada rama de abajo lo fija (o lo omite) explícitamente.
+  const { archetype_id: _origin, ...withoutArchetype } = block;
+  void _origin;
+
+  if (toSuperset) {
+    return { ...withoutArchetype, format: 'superset', archetype_id: 'superset', items };
+  }
+  if (block.items.length > 1) {
+    return { ...withoutArchetype, format: 'sets', items };
+  }
+  return { ...withoutArchetype, format: 'strength_block', archetype_id: 'strength', items };
+}
+
+const BLOCK_FORMAT_OPTIONS = [
+  { value: 'sets' as const, label: 'Series rectas' },
+  { value: 'superset' as const, label: 'Superserie' },
+];
+
+function BlockFormatPicker({
+  block,
+  onChange,
+}: {
+  block: EditorBlock;
+  onChange: (next: EditorBlock) => void;
+}) {
+  const value: 'sets' | 'superset' =
+    block.items[0]?.prescription.scheme === 'superset' ? 'superset' : 'sets';
+  return (
+    <div className="space-y-1">
+      <p className="v2-micro">Formato</p>
+      <ChipGroup
+        mono={false}
+        options={BLOCK_FORMAT_OPTIONS}
+        value={value}
+        ariaLabel="Formato del bloque: series rectas o superserie"
+        onChange={(next) => onChange(applyBlockFormat(block, next === 'superset'))}
+      />
+    </div>
+  );
 }
 
 /**
@@ -102,6 +230,9 @@ export function CompositorHeader({
           className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-[26px] text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
         />
         {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
+        {canPickBlockFormat(block) ? (
+          <BlockFormatPicker block={block} onChange={onChange} />
+        ) : null}
       </div>
       {onDuplicate ? (
         <button
