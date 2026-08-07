@@ -123,6 +123,14 @@ struct AthleteWeekPayload: Codable {
     /// completeness; athlete-facing copy stays generic and never leaks the code.
     /// Wire `paused_reason` → `pausedReason`.
     let pausedReason: String?
+    /// ISO "YYYY-MM-DD" en que empieza el trabajo YA programado, cuando cae
+    /// después de esta semana. Nil = no hay nada programado más adelante.
+    ///
+    /// Sirve para que la semana vacía no mienta: un plan siempre arranca en lunes,
+    /// así que un atleta al que se le asigna un martes tiene días sin nada, y hasta
+    /// ahora la app le decía «tu coach aún no ha publicado tu plan» — falso, y el
+    /// atleta lo leía como negligencia de su coach. Wire `plan_starts_on`.
+    let planStartsOn: String?
     let days: [AthleteWeekDay]
 }
 

@@ -436,4 +436,17 @@ enum FechaES {
     static func corta(_ iso: String) -> String? {
         fecha(iso).map { salidaCorta.string(from: $0) }
     }
+
+    private static let salidaConDia: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "EEEE d 'de' MMMM"
+        return f
+    }()
+
+    /// «lunes 10 de agosto» — para anunciar una fecha FUTURA, donde el día de la
+    /// semana es justo lo que el atleta necesita para situarse. Nil si no se lee.
+    static func conDia(_ iso: String) -> String? {
+        fecha(iso).map { salidaConDia.string(from: $0) }
+    }
 }

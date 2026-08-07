@@ -108,6 +108,22 @@ export interface AthleteWeekPlan {
   paused: boolean;
   paused_since: string | null;
   paused_reason: string | null;
+  /**
+   * La fecha (ISO, lunes) en la que EMPIEZA el trabajo ya programado, cuando cae
+   * DESPUÉS de la ventana que se está sirviendo. `null` = no hay nada programado
+   * más adelante.
+   *
+   * Existe para que un estado vacío no mienta. Un plan siempre arranca en lunes
+   * (el materializador alinea a lunes), así que un atleta al que se le asigna el
+   * plan un martes tiene entre 1 y 7 días sin nada — y hasta hoy la app le decía
+   * «tu coach aún no ha publicado tu plan», que es FALSO: está publicado y
+   * empieza más tarde. El atleta lo leía como negligencia de su coach.
+   *
+   * Con esto el cliente distingue los dos vacíos: «se está preparando» (null) y
+   * «empieza el lunes 10» (fecha). NO afirma nada sobre lo que el coach hará ni
+   * cuándo — solo refleja lo que YA está programado (docs/DECISIONS.md, 7-ago).
+   */
+  plan_starts_on: string | null;
 }
 
 export async function buildAthleteWeekPlan(
@@ -196,7 +212,7 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, weekMeta, has_next_week, pausedState] = await Promise.all([
+  const [microciclo_name, weekMeta, has_next_week, pausedState, plan_starts_on] = await Promise.all([
     resolveMicrocicloName(microcycleId),
     // Coach-authored week meta from the source week template, resolved through the
     // assignment in ONE query: the athlete-facing "Foco de la semana"
@@ -207,6 +223,9 @@ export async function buildAthleteWeekPlan(
     hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
     // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
     loadPausedState(athlete_id),
+    // Cuándo empieza lo ya programado, si cae después de esta ventana — para que
+    // un estado vacío pueda decir «empieza el lunes 10» en vez de mentir.
+    firstScheduledAfter(athlete_id, weekEndIso),
   ]);
   const focus = weekMeta.focus;
 
@@ -288,7 +307,37 @@ export async function buildAthleteWeekPlan(
     paused: pausedState.paused,
     paused_since: pausedState.paused_since,
     paused_reason: pausedState.paused_reason,
+    // Null cuando no hay nada programado más adelante: el cliente dirá «se está
+    // preparando» en vez de afirmar que el coach no ha publicado.
+    plan_starts_on,
   };
+}
+
+/**
+ * La primera fecha con trabajo programado DESPUÉS de `afterIso`, o null.
+ *
+ * Misma verja de publicación que el resto del fichero (`hasPublishedWeek`): una
+ * semana todavía en borrador NO cuenta, porque para el atleta aún no existe.
+ * Devuelve la fecha del primer entreno, no el lunes de su semana — el copy dice
+ * literalmente cuándo empieza a entrenar, que es lo que pregunta el atleta.
+ */
+async function firstScheduledAfter(
+  athlete_id: number | bigint,
+  afterIso: string,
+): Promise<string | null> {
+  const rows = await sql<Array<{ starts_on: string }>>`
+    select min(wa.scheduled_for)::text as starts_on
+    from workout_assignments wa
+    where wa.athlete_id = ${athlete_id as number}
+      and wa.scheduled_for > ${afterIso}::date
+      and not exists (
+        select 1 from weekly_plans wp
+        where wp.athlete_id = ${athlete_id as number}
+          and wp.week_start = date_trunc('week', wa.scheduled_for)::date
+          and wp.status = 'draft'
+      )
+  `;
+  return rows[0]?.starts_on ?? null;
 }
 
 /**

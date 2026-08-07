@@ -133,6 +133,8 @@ describe('buildDoblesConnectedPlan', () => {
       paused: false,
       paused_since: null,
       paused_reason: null,
+      // Esta semana YA tiene contenido, así que no hay «empieza el…» que anunciar.
+      plan_starts_on: null,
     };
   }
 

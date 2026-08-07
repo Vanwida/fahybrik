@@ -465,19 +465,43 @@ struct PlanView: View {
         .refreshable { await cargar(force: true) }
     }
 
-    /// Vacío real: el atleta todavía no tiene semana publicada. La salida es
-    /// escribirle al coach — lo único que de verdad puede hacer desde aquí.
+    /// La semana no tiene sesiones. Son TRES vacíos distintos y decirlos mal tiene
+    /// coste real: durante meses esto afirmaba «tu coach aún no ha publicado tu
+    /// plan» incluso cuando el plan estaba publicado y solo empezaba más tarde —
+    /// el atleta lo leía como negligencia de su coach, y el propio coach perdía
+    /// tiempo buscando un fallo que no existía.
+    ///
+    /// 1. Hay plan y empieza más adelante → se dice la fecha exacta.
+    /// 2. Hay coach y no hay nada programado → se está preparando.
+    /// 3. No hay coach → la semana es suya para llenarla.
+    ///
+    /// Ninguno de los tres afirma qué hará el coach ni cuándo (docs/DECISIONS.md,
+    /// 7-ago): el caso 1 solo refleja lo que YA está programado.
     private var estadoSinPlan: some View {
-        RedesignEmptyState(
+        if let inicio = semana?.planStartsOn, let cuando = FechaES.conDia(inicio) {
+            return RedesignEmptyState(
+                symbol: "calendar.badge.clock",
+                title: "Tu plan empieza el \(cuando)",
+                message: "Esta semana no tienes sesiones. Ya está todo montado y te espera.",
+                exit: (semana?.hasNextWeek ?? false)
+                    ? .action(title: "Ver la semana que viene") {
+                        Haptics.light()
+                        verProximaSemana = true
+                        Task { await cargarSiguiente() }
+                    }
+                    : .explained(note: "Aparecerá aquí el mismo día."),
+                symbolColor: Theme.Color.accentText
+            )
+        }
+        return RedesignEmptyState(
             symbol: "calendar.badge.clock",
-            title: hasCoach ? "Tu coach aún no ha publicado tu plan" : "Tu semana está en blanco",
+            title: hasCoach ? "Tu plan se está preparando" : "Tu semana está en blanco",
             message: hasCoach
-                ? "En cuanto asigne tus sesiones las verás aquí, día a día."
+                ? "En cuanto tu coach lo asigne lo verás aquí, día a día."
                 : "Construye un entreno desde Inicio y aparecerá aquí, día a día.",
             exit: hasCoach
                 ? .action(title: "Escribir a tu coach") { Haptics.light(); showChat = true }
-                : .explained(note: "Los entrenos que montes tú aparecen en esta semana."),
-            note: hasCoach ? "Las semanas se publican solas al cerrar la anterior." : nil
+                : .explained(note: "Los entrenos que montes tú aparecen en esta semana.")
         )
     }
 

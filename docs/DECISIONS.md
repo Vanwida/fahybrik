@@ -10,6 +10,25 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-07 · La app no puede decir lo que un coach hace. Ni cuándo, ni cada cuánto
+
+**Decidido (Alex):** ninguna superficie del producto —copy de onboarding, estados vacíos, notificaciones— puede afirmar **qué hace un coach, cuándo lo hace o con qué cadencia**. Si la frase cambiaría según el coach, no puede estar cableada: o sale de un dato, o no se dice.
+
+**Por qué:** es la HARD RULE Nº0 aplicada al copy, que es por donde se estaba colando. `Day1Flow.swift` (en producción) le promete al atleta dos cosas que son *la metodología de un coach concreto*, no hechos del producto:
+
+- «**Tu coach te programará tus tests en la primera semana**» (+ el rótulo «SEMANA 1 · CALIBRACIÓN»). Un coach puede no usar tests, o ponerlos en la semana 4, o solo a quien vuelve de lesión.
+- «**Cada domingo tienes tu plan listo en la app**». Eso es una cadencia semanal con día fijo. Otro coach publica por bloques, o mensual, o cuando le da la gana.
+
+Lo revelador es que el mismo fichero YA razonaba bien en otro punto — *«WHICH tests and HOW MANY are the coach's call (data-driven), so we don't invent a canned 4-test set here»* — y aun así afirmaba el CUÁNDO. La disciplina se aplicó al catálogo y no al calendario.
+
+**La prueba que decide, y es la misma que la de HARD RULE Nº0:** *«¿otro coach competente lo haría distinto?»* Si sí, es método → dato, o silencio. «Tu coach ve tus resultados al terminar» sí es del producto (es el mecanismo). «Cada domingo» no lo es.
+
+**En consecuencia, no hacer:** no escribir copy que fije días, cadencias, número de sesiones, ni la existencia de tests. No prometer al atleta un comportamiento del coach que el producto no puede garantizar — cuando no se cumple, el atleta culpa a su coach de algo que dijo la app. Y no confundir *mecanismo* («tu coach recibe tus resultados») con *método* («cada domingo»): lo primero se puede afirmar, lo segundo nunca.
+
+**Corolario — no mentir por omisión:** el estado vacío de iOS decía «Tu coach aún no ha publicado tu plan» a un atleta cuyo plan SÍ estaba publicado y solo empezaba más tarde (`PlanView.swift:499`, verificado contra las 9 semanas `published` del atleta 64). Un estado vacío tiene que distinguir *no hay nada* de *hay y empieza el lunes*, porque el atleta lee lo segundo como negligencia de su coach.
+
+---
+
 ## 2026-08-07 · La biblioteca de bloques no tiene 3 bugs de importador — tiene un parser viejo
 
 **El encargo original** («fase 2») pedía arreglar 3 bugs concretos del importador cazados leyendo `block_exercises` en crudo: %RM leído como reps (block 16), km/h leído como metros (block 43), descanso guardado como trabajo (block 37).
