@@ -5,48 +5,86 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Rediseño del editor de microciclos — CONSTRUIDO Y EN PRODUCCIÓN (7-ago)
+## Ahora · Rediseño del editor de microciclos — FASE 1 + FASE 2 EN PRODUCCIÓN (7-ago)
 
-Alex aprobó la maqueta (`docs/design/microciclos-editor-rediseno-mockup.html`,
-un solo retoque: el stepper que se estiraba) y la fase 1 está desplegada en
-app.fahybrid.com (`dpl_BRv2QMgKtgBkDJFmvb2Ss1Yw5KvJ`). Encargo a 3 agentes en
-worktrees con contrato previo (`docs/design/contrato-rediseno-editor-microciclos.md`)
-+ cimientos del líder (`web/components/v2/controls/`: Stepper con mantener-pulsado,
-ChipGroup, TickBand con rango a dos toques, useHoldRepeat).
+Alex aprobó la maqueta (`docs/design/microciclos-editor-rediseno-mockup.html`)
+y las dos fases están desplegadas en app.fahybrid.com
+(`dpl_DeS3YXCUqzkFQqgum98Tmh8yZnNy`, último). Mismo patrón las dos veces:
+contrato escrito antes de construir + cimientos del líder + agentes en
+worktrees en paralelo + integración/QA en producción por el líder.
 
-**Lo shipeado (fase 1, cero cambios de schema/API):**
+**FASE 1 (cero cambios de schema/API):**
 - **Semana**: tarjetas con bloques+dosis en mono y lomo de modalidad, weekstrip
-  (sesiones/bloques/ejercicios + barra apilada + chip «N bloques sin dosis» que
-  abre el primer día con hueco), día vacío compacto, puntitos en S1..SN
-  (`MicrocicloV2.tsx` + `semana-model.ts`/`WeekStrip`/`SemanaBoard`/`CopyIntoDayModal`).
-- **Día**: carril de días sticky (tira horizontal en móvil) + hoja plana; DOSIS
-  COMÚN derivada una vez por bloque con «hereda N×M» por fila (`shared-dose.ts`,
-  solo presentación); QUICKLINE con `parseNotationCell` en cliente (chips en
-  vivo, Enter inserta bloque tipado, honestidad: lo no entendido va a revisar
-  con verbatim en note, exercise_id JAMÁS inventado); drawer lateral derecho.
-- **Compositor**: steppers/chips por dedos (RIR 0-4, descansos, reps frecuentes),
-  %RM en TickBand con rango (65-80 real), pirámide por serie con ⇊ y bandas
-  «8-10» que se desplazan sin aplastarse, «El atleta ve» fijo al pie con Guardar,
-  modalidad como dato del ejercicio (0053), circuito con rondas/estaciones limpias.
-- **Integración (líder)**: modalidad del tablero con fallback a la prescripción
-  (los bloques importados traen `methodology_group_id` null y todo salía gris) y
-  des-duplicación de ejes en fuerza (el compositor es el dueño de la carga).
+  (sesiones/bloques/ejercicios + barra apilada + chip «N bloques sin dosis»),
+  día vacío compacto, puntitos en S1..SN.
+- **Día**: carril de días sticky + hoja plana; DOSIS COMÚN derivada una vez por
+  bloque con «hereda N×M» por fila; QUICKLINE con `parseNotationCell` en
+  cliente (chips en vivo, honestidad: lo no entendido va a revisar, exercise_id
+  JAMÁS inventado); drawer lateral derecho.
+- **Compositor**: steppers/chips por dedos, %RM en TickBand con rango, pirámide
+  por serie, «El atleta ve» fijo al pie, modalidad como dato del ejercicio.
 
-**Verificado en producción** con sesión Clerk real (sign-in ticket): semana con
-colores, día+drawer, claro/oscuro, 1440/390. tsc limpio (salvo el error
-preexistente del importador en `complete-gaps.test.ts:138`), 447 tests editor+
-import en verde, `quickline-grammar` intacto.
+**FASE 2 — «venga la fase 2», construida el mismo día (cero migración SQL,
+`optional`/`rounds_max` viven en `slots_json` jsonb):**
+- **Cimientos del líder**: `Prescription.rounds_max` (mismo patrón que
+  `Measure.max`, 5-ago) + `WeekDayPart.optional`/`EditorBlock.optional`,
+  autoritativo desde el input del day editor. `prescriptionToText` ya renderiza
+  la banda de rondas.
+- **Stream A** — rango de rondas: chip «＋ rango» en `component-stations.tsx`,
+  cubre rounds/emom/intervals/for_time/tabata con un solo cambio.
+  **Encontró y reportó** (arreglado en integración): `cleanScheme()` no
+  limpiaba `rounds_max` huérfano al cambiar a un formato sin rondas.
+- **Stream B** — rango de reps en «Series iguales»: antes solo se podía
+  DESPLAZAR un rango existente, ahora se puede CREAR uno desde un punto
+  (chip fantasma «＋ rango» → Stepper de techo → «quitar rango» limpio).
+- **Stream C** — superserie visible y creable: picker «Series rectas |
+  Superserie» en el compositor (normaliza TODO el bloque a la vez, nunca un
+  ejercicio suelto — el bug que DECISIONS.md 5-ago documentó haber arreglado
+  una vez), etiquetas A1/A2/A3 en la hoja del día en vez de A/B/C cuando rota.
+  **Encontró y evitó**: el arquetipo `strength` solo edita el primer ejercicio;
+  volver a series rectas con 2+ ejercicios cae al editor legacy por-item en vez
+  de dejar el segundo ejercicio huérfano.
+- **Stream D** — «Opcional» de punta a punta: toggle en el header del bloque
+  (día + compositor), badge en Semana, el importador reconoce el prefijo
+  literal «OPCIONAL:»/«OPCIONA:» (typo real tolerado) y lo convierte en el
+  flag. **Backfill de producción aplicado y verificado dos veces** (por el
+  agente y de forma independiente por el líder): microciclo 76 (`program_week_
+  templates.id=180`, no 76 — el brief tenía el id equivocado, el agente lo
+  detectó contra la DB real antes de escribir), domingo, 2 bloques.
+- **Integración (líder)**: fusión de `rounds_max`/superserie/opcional en
+  `compositor-chrome.tsx` (los 3 streams tocaban el mismo header), arreglo de
+  `rounds_max` huérfano.
+- **Bug real cazado en QA de producción, no de fase 2**: cambiar de día en el
+  carril dejaba el panel mostrando el día ANTERIOR (cabecera y carril sí se
+  actualizaban) — `<DayEditor>` no llevaba `key` por semana+día, así que React
+  reutilizaba la instancia y `useState(initial)` sin resincronizar se quedaba
+  con las sesiones viejas. Arreglado con `key={dayKey}` en `MicrocicloV2.tsx`.
+  Estructural desde fase 1, no introducido por ningún stream de fase 2.
 
-**NO verificado aún**: biblioteca de bloques y SessionEditor (montan el mismo
-BlockEditor rediseñado — compilar compila, ojo visual pendiente) y el guardado
-end-to-end de un bloque editado en el drawer con datos reales.
+**Verificado en producción** con sesión Clerk real: los 4 huecos probados en
+vivo en el microciclo real de Alex (badge Opcional en Semana y Día, drawer con
+picker de superserie + etiquetas A1-A5 + rango de reps 8-12, navegación de día
+arreglada). tsc limpio (salvo el error preexistente `complete-gaps.test.ts:138`),
+698 tests editor+prescription+programming+import en verde (3242 la suite
+completa), 4 tests nuevos que fijan `rounds_max`/`optional` como contrato.
 
-**FASE 2 (pendiente de OK, toca schema/Swift):** «Opcional» como atributo (hoy
-en el título), rondas en rango (3-4), rango de reps real en `Prescription`,
-biserie/superserie A1-A2 visible en la hoja. **Y los 3 bugs del importador**
-que ensucian la biblioteca (arreglo en raíz + reparación de datos): %RM leído
-como reps (block 16), km/h como metros (block 43), descanso como trabajo
-(block 37).
+**NO verificado en vivo**: el control de rango de rondas de circuito (Stream A)
+— sí cubierto por sus 16 tests propios y revisión de código, pero ningún bloque
+del microciclo real usa ese archetype concreto (rounds/intervals) para probarlo
+sin crear un bloque de prueba en el dato real de Alex. Biblioteca de bloques y
+SessionEditor (montan el mismo BlockEditor rediseñado) sin pasada visual.
+
+**PENDIENTE — hallazgo de dominio, no bug de código**: los «3 bugs del
+importador» del encargo original NO reproducen en la gramática actual
+(verificado con los 3 verbatims reales antes de tocar nada). El problema real
+es que `block_exercises` se generó con un script de un solo uso ANTERIOR a
+esta gramática. Dry-run contra las 99 filas reales de coach 60
+(`infra/scripts/repair_block_exercises_grammar.ts`, solo lectura): 22 rellenos
+limpios (bloques/filas vacías) + ~53 casos donde el fresco es más completo que
+lo guardado (necesita diff por campo, no por objeto entero) + ~29 que ni la
+gramática de hoy resuelve (WODs densos, correctamente a `review`). Sin aplicar
+nada — el heurístico de «qué cuenta como contenido» tenía un fallo real.
+Detalle completo en `docs/DECISIONS.md` (7-ago).
 
 ---
 
