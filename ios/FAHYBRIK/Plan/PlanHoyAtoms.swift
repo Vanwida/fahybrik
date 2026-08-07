@@ -188,24 +188,43 @@ struct FilaParteSesion: View {
     let parte: ParteDeSesion
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            ModalityDot(modality: parte.modalidad, size: 6)
-                .opacity(parte.estructural ? 0.45 : 1)
-            Text(parte.titulo)
-                .scaledFont(13, weight: parte.estructural ? .medium : .semibold, relativeTo: .footnote)
-                .foregroundStyle(parte.estructural ? Theme.Color.muted : Theme.Color.foreground)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            MonoText(
-                text: "\(parte.ejercicios) \(parte.ejercicios == 1 ? "ejercicio" : "ejercicios")",
-                size: 12,
-                color: parte.estructural ? Theme.Color.faint : Theme.Color.muted,
-                escala: true
-            )
-            .lineLimit(1)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: Theme.Spacing.s) {
+                ModalityDot(modality: parte.modalidad, size: 6)
+                    .opacity(parte.estructural ? 0.45 : 1)
+                Text(parte.titulo)
+                    .scaledFont(13, weight: parte.estructural ? .medium : .semibold, relativeTo: .footnote)
+                    .foregroundStyle(parte.estructural ? Theme.Color.muted : Theme.Color.foreground)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if parte.ejercicios > 0 {
+                    MonoText(
+                        text: "\(parte.ejercicios)",
+                        size: 12,
+                        color: parte.estructural ? Theme.Color.faint : Theme.Color.muted,
+                        escala: true
+                    )
+                    .lineLimit(1)
+                }
+            }
+            // Los NOMBRES, no un recuento: «3 ejercicios» no dice qué toca hoy —
+            // esto sí (Alex, 7-ago). El recuento de arriba se queda como ancla
+            // visual rápida; esta línea es la que de verdad se lee.
+            if !parte.resumenDeNombres.isEmpty {
+                Text(parte.resumenDeNombres)
+                    .scaledFont(12, weight: .medium, relativeTo: .caption)
+                    .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.muted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 6 + Theme.Spacing.s)
+            }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(parte.titulo), \(parte.ejercicios) ejercicios")
+        .accessibilityLabel(
+            parte.resumenDeNombres.isEmpty
+                ? parte.titulo
+                : "\(parte.titulo): \(parte.resumenDeNombres)"
+        )
     }
 }
 

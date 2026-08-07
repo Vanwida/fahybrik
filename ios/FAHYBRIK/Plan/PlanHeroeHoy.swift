@@ -123,13 +123,34 @@ struct HeroeSesion: View {
         .padding(.top, 2)
     }
 
-    /// El sobrante NO se queda en una bolsa al final: entra aquí, y las cifras de
-    /// la dosis se colocan en su centro con el filo justo encima (§6.1). Sin
-    /// cifras que enseñar el hueco se declara como lo que es — aire dentro de la
-    /// tarjeta del sujeto, nunca una franja muerta sobre la acción.
+    /// El sobrante NO se queda en una bolsa al final: entra aquí (§6.1). La NOTA
+    /// del coach para HOY gana este sitio cuando existe — las cifras de dosis se
+    /// repiten en cuanto tocas la card, la nota de hoy es lo único que solo se
+    /// dice aquí (Alex, 7-ago). Sin nota, las cifras de siempre. Sin ninguna de
+    /// las dos, el hueco se declara como lo que es — aire dentro de la tarjeta
+    /// del sujeto, nunca una franja muerta sobre la acción.
     @ViewBuilder
     private var cifras: some View {
-        if desglose.claves.isEmpty {
+        if let nota = desglose.notaDelDia {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                Spacer(minLength: 0)
+                Hairline()
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    Image(systemName: "quote.opening")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text(nota)
+                        .scaledFont(14, weight: .medium, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxHeight: .infinity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Nota de tu coach para hoy: \(nota)")
+        } else if desglose.claves.isEmpty {
             Spacer(minLength: 0)
         } else {
             VStack(spacing: Theme.Spacing.m) {

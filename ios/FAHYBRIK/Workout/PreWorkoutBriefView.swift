@@ -50,8 +50,14 @@ struct PreWorkoutBriefView: View {
     var isBenchmark: Bool = false
     let onClose: () -> Void
 
-    // Per-exercise technique video opened in-app from a series row, when present.
-    @State private var segmentVideoUrl: String? = nil
+    // Ficha del ejercicio (vídeo + consejos + descripción + nota del día), abierta
+    // desde el botón "Ver técnica" de una fila. Antes esto solo guardaba la URL y
+    // abría un reproductor a solas: la descripción y los consejos del catálogo —
+    // que SÍ están cableados en `ExerciseDetailView` — quedaban sin ningún sitio
+    // desde donde llegar a ellos (Alex, 7-ago: «puse una descripción y no hay
+    // manera de verla en iOS»). Ahora es la MISMA ficha que `SessionExercisesSheet`
+    // ya usa — un solo lugar para toda la info del ejercicio, no dos.
+    @State private var techniqueItem: WorkoutItem? = nil
 
     // #8 — a session with running work starts through the full-screen pre-start
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
@@ -212,13 +218,8 @@ struct PreWorkoutBriefView: View {
                 onCancel: { showRunPreStart = false }
             )
         }
-        .sheet(isPresented: Binding(
-            get: { segmentVideoUrl != nil },
-            set: { if !$0 { segmentVideoUrl = nil } }
-        )) {
-            if let url = segmentVideoUrl {
-                YouTubeSheet(url: url, title: "Técnica")
-            }
+        .sheet(item: $techniqueItem) { item in
+            ExerciseDetailView(item: item)
         }
     }
 
@@ -867,13 +868,15 @@ struct PreWorkoutBriefView: View {
 
     @ViewBuilder
     private func techniqueButton(_ item: WorkoutItem) -> some View {
-        if let url = item.exerciseVideoUrl, YouTubeLinkParser.videoId(from: url) != nil {
+        let hasVideo = item.exerciseVideoUrl.flatMap { YouTubeLinkParser.videoId(from: $0) } != nil
+        let hasNotes = [item.exerciseDescription, item.cues].contains { ($0?.isEmpty == false) }
+        if hasVideo || hasNotes {
             Button {
                 Haptics.light()
-                segmentVideoUrl = url
+                techniqueItem = item
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "play.circle.fill")
+                    Image(systemName: hasVideo ? "play.circle.fill" : "info.circle.fill")
                         .font(.system(size: 14, weight: .semibold))
                     Text("Ver técnica")
                         .scaledFont(12, weight: .semibold, relativeTo: .caption)

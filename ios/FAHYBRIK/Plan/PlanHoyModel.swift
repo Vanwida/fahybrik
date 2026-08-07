@@ -300,11 +300,18 @@ struct PosicionEnBloque: Equatable {
 
 // MARK: - De qué está hecha la sesión de hoy
 
-/// Una PARTE de la sesión: un bloque del entreno, con cuántos ejercicios lleva.
+/// Una PARTE de la sesión: un bloque del entreno, con QUÉ ejercicios lleva.
+///
+/// Antes esto enseñaba un recuento («3 ejercicios») en vez de qué son — el
+/// atleta no sabe qué le toca hasta que entra en la sesión. Los nombres son
+/// lo que de verdad responde «qué voy a hacer hoy» de un vistazo (Alex, 7-ago).
 struct ParteDeSesion: Identifiable, Equatable {
     let id: String
     let titulo: String
-    let ejercicios: Int
+    /// Los nombres reales, en el orden del bloque. Nunca un recuento inventado:
+    /// si el bloque no trae ejercicios, la lista sale vacía.
+    let nombresEjercicios: [String]
+    var ejercicios: Int { nombresEjercicios.count }
     /// Calentamiento o vuelta a la calma: no son el trabajo, son el marco, y por
     /// eso van atenuados.
     ///
@@ -317,6 +324,19 @@ struct ParteDeSesion: Identifiable, Equatable {
     /// La modalidad que abre la parte — la de su PRIMER ejercicio. No se inventa
     /// una modalidad para el conjunto.
     let modalidad: String?
+
+    /// Cuántos nombres caben en la fila sin que la card los empuje a dos líneas.
+    static let maxNombresEnFila = 3
+
+    /// «Peso muerto rumano, Zancada búlgara + 1 más» — los nombres que caben,
+    /// con lo que sobra dicho como cifra, nunca leído entero ni cortado a ciegas.
+    var resumenDeNombres: String {
+        guard !nombresEjercicios.isEmpty else { return "" }
+        let visibles = nombresEjercicios.prefix(Self.maxNombresEnFila)
+        let restantes = nombresEjercicios.count - visibles.count
+        let base = visibles.joined(separator: ", ")
+        return restantes > 0 ? "\(base) + \(restantes) más" : base
+    }
 }
 
 /// Un número de la dosis y qué es, en una palabra. Como mucho tres por sesión.
@@ -341,8 +361,14 @@ struct DesgloseSesion: Equatable {
     /// todo, y `PrescriptionScheme.displayName` está en inglés (§3).
     let formato: String?
     let claves: [ClaveDosis]
+    /// Lo que el coach escribió para ESTA sesión concreta — no la ficha
+    /// permanente del ejercicio. Cuando existe, GANA el sitio de las cifras: la
+    /// dosis (series/carga/descanso) se repite en cuanto tocas la card, pero la
+    /// nota de hoy es lo único que solo se dice aquí (Alex, 7-ago). `nil` cuando
+    /// el coach no escribió nada — ahí las cifras se quedan donde estaban.
+    let notaDelDia: String?
 
-    static let vacio = DesgloseSesion(partes: [], formato: nil, claves: [])
+    static let vacio = DesgloseSesion(partes: [], formato: nil, claves: [], notaDelDia: nil)
 
     /// Cuántas partes caben en el héroe sin desalojar a la dosis. A partir de ahí
     /// la lista empujaría las cifras fuera de la tarjeta, y lo que importa es
@@ -359,7 +385,7 @@ struct DesgloseSesion: Equatable {
             ParteDeSesion(
                 id: bloque.uid,
                 titulo: bloque.title,
-                ejercicios: bloque.items.count,
+                nombresEjercicios: bloque.items.map(\.exerciseName),
                 estructural: Self.esEstructural(bloque.format),
                 modalidad: bloque.items.first.flatMap(Self.modalidad)
             )
@@ -381,10 +407,13 @@ struct DesgloseSesion: Equatable {
         // bloque, y tocar la card trae la dosis real de cada uno.
         let claves = noEstructurales.count == 1 ? (prescripcion.map(Self.claves) ?? []) : []
 
+        let notaLimpia = workout.coachNote?.trimmingCharacters(in: .whitespacesAndNewlines)
+
         return DesgloseSesion(
             partes: partes,
             formato: prescripcion.flatMap(PrescriptionRenderer.wodHeader),
-            claves: claves
+            claves: claves,
+            notaDelDia: (notaLimpia?.isEmpty == false) ? notaLimpia : nil
         )
     }
 
