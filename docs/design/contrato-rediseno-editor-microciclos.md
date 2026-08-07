@@ -43,7 +43,14 @@ función local o se anota en el informe — NUNCA se edita el fichero de otro.
   conviértelo en drawer lateral derecho `min(680px,94vw)`, scrim `--v2-scrim`, cierre con
   Escape y click en scrim, `role="dialog" aria-modal`.)
 - **COMPOSITOR**: `web/components/v2/editor/BlockEditor.tsx`, `PrescriptionFields.tsx`,
-  `prescription-field-groups.tsx` (el CONTENIDO del drawer).
+  `prescription-field-groups.tsx` y `archetype-forms/**` SALVO `archetype-forms/run-structure/`
+  (intocable: su QuickLine tiene la gramática pineada en tests). El CONTENIDO del drawer.
+- Frontera SEMANA↔DÍA (interfaz pineada, cada uno programa contra ella): DÍA exporta desde
+  `DayEditor.tsx` el tipo `DayRailDay = { dia: number; nombre: string; resumen: string;
+  modalidades: string[]; descanso: boolean }` y las props opcionales
+  `weekOutline?: DayRailDay[]` + `onSelectDay?: (dia: number) => void` (rail oculto si
+  faltan). SEMANA construye el outline desde sus datos de semana y pasa el handler de
+  soft-nav `?dia=` que ya usa. Ninguno de los dos espera al otro: props opcionales.
 - Frontera DÍA↔COMPOSITOR: DÍA posee el shell (posicionamiento, scrim, animación);
   COMPOSITOR posee todo lo de dentro incluida la barra fija inferior «El atleta ve … + Guardar».
 
