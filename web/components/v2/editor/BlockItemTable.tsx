@@ -25,8 +25,23 @@ function addLabelFor(block: EditorBlock): string {
   return 'añadir componente';
 }
 
-// Etiqueta A/B/C… de una fila (más allá de la Z, el número de orden).
-function rowTag(index: number): string {
+// ¿El bloque ROTA sus ejercicios (A1→A2→A1→A2) en vez de series rectas
+// (A/B/C)? Se mira `format` Y el `scheme` real de los items —un bloque
+// recargado/importado puede traer el segundo sin el primero— porque el
+// scheme es lo que de verdad ejecuta el motor (DECISIONS.md 2026-08-05).
+export function blockIsSuperset(block: EditorBlock): boolean {
+  return (
+    block.format === 'superset' ||
+    block.items.some((it) => it.prescription.scheme === 'superset')
+  );
+}
+
+// Etiqueta de fila: A1/A2/A3… en una superserie (misma grafía que usa Pablo
+// y que ya pinta SupersetForm — la rotación se lee sin abrir el compositor);
+// A/B/C… (más allá de la Z, el número de orden) en series rectas, donde no
+// hay rotación que marcar.
+export function rowTag(index: number, superset: boolean): string {
+  if (superset) return `A${index + 1}`;
   return index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
 }
 
@@ -44,6 +59,7 @@ export function BlockItemTable({
   const dose = blockDoseView(block);
   const count = block.items.length;
   const firstUid = block.items[0]?.uid;
+  const superset = blockIsSuperset(block);
 
   return (
     <div className="space-y-1.5">
@@ -90,6 +106,7 @@ export function BlockItemTable({
               item={it}
               index={i}
               count={count}
+              superset={superset}
               rx={rowRx(dose, i, count)}
               onEdit={() => onEditItem(it.uid)}
               onMove={(dir) => onMoveItem(it.uid, dir)}
@@ -181,6 +198,7 @@ function ItemRow({
   item,
   index,
   count,
+  superset,
   rx,
   onEdit,
   onMove,
@@ -188,6 +206,7 @@ function ItemRow({
   item: EditorItem;
   index: number;
   count: number;
+  superset: boolean;
   rx: RowRx;
   onEdit: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -215,9 +234,12 @@ function ItemRow({
     >
       <span
         aria-hidden
-        className="v2-num grid h-5 w-6 shrink-0 place-items-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-label font-bold text-[color:var(--v2-faint)]"
+        className={cn(
+          'v2-num grid h-5 shrink-0 place-items-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-label font-bold text-[color:var(--v2-faint)]',
+          superset ? 'w-7' : 'w-6',
+        )}
       >
-        {rowTag(index)}
+        {rowTag(index, superset)}
       </span>
       <span
         className={cn(
