@@ -39,6 +39,13 @@ import {
   collectMissingExercises,
   realMissingCount,
 } from '@/lib/dashboard/v2/import-missing';
+import {
+  applyGapPlan,
+  completeWeeksDoses,
+  hasCompletableGaps,
+  planGapResolution,
+} from '@/lib/dashboard/v2/import-complete-gaps';
+import type { ScoredCandidate } from '@/lib/dashboard/exercises/near-match';
 
 // `incomplete` shares the danger hue with `unresolved` because it shares the
 // consequence — both block Confirmar. Amber would promise the coach he can ship
@@ -116,9 +123,152 @@ export function ImportReviewGrid({
 }) {
   const [editing, setEditing] = useState<{ weekIdx: number; dayIdx: number } | null>(null);
   const [creatingMissing, setCreatingMissing] = useState(false);
+  const [completingGaps, setCompletingGaps] = useState(false);
+  const [gapError, setGapError] = useState<string | null>(null);
   // Cuántos NOMBRES distintos faltan, no cuántas líneas: 51 líneas de una semana
   // real son 30 nombres, y es por nombre por lo que se decide.
   const missingCount = realMissingCount(collectMissingExercises(reviewWeeks));
+  const canCompleteGaps = hasCompletableGaps(reviewWeeks);
+
+  /**
+   * Un clic: resuelve ejercicios (match / crear / descartar basura) y siembra
+   * dosis genéricas. El coach refina después en el microciclo.
+   */
+  const completeGaps = async () => {
+    if (completingGaps || !canCompleteGaps) return;
+    setCompletingGaps(true);
+    setGapError(null);
+    try {
+      const missing = collectMissingExercises(reviewWeeks);
+      const matchesByToken = new Map<string, ScoredCandidate[]>();
+      const tokens = missing.filter((m) => !m.notAnExercise).map((m) => m.token);
+      if (tokens.length > 0) {
+        const res = await fetch('/api/coach/exercises/missing', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tokens }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            matches?: Array<{ token: string; candidates: ScoredCandidate[] }>;
+          };
+          for (const m of data.matches ?? []) {
+            matchesByToken.set(m.token, m.candidates);
+          }
+        }
+      }
+
+      const planned = planGapResolution(missing, matchesByToken);
+      const plan = {
+        merge: [...planned.merge],
+        create: [...planned.create],
+        discardKeys: [...planned.discardKeys],
+      };
+      let created: Array<{ id: string; name: string }> = [];
+
+      if (plan.create.length > 0) {
+        const res = await fetch('/api/coach/exercises/bulk', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            exercises: plan.create.map((c) => ({
+              name: c.name,
+              category: c.category,
+              modality: c.modality,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            error?: {
+              code?: string;
+              message?: string;
+              details?: { collisions?: Array<{ name: string; existing: string }> };
+            };
+          } | null;
+          // Ya existen: fusionar con el match más cercano y reintentar el resto.
+          if (res.status === 409 && data?.error?.details?.collisions) {
+            const collisionNames = new Set(
+              data.error.details.collisions.map((c) => c.name.toLowerCase()),
+            );
+            const stillCreate = [];
+            for (const spec of plan.create) {
+              if (!collisionNames.has(spec.name.toLowerCase())) {
+                stillCreate.push(spec);
+                continue;
+              }
+              const cands = matchesByToken.get(spec.name) ?? [];
+              const best = cands[0];
+              if (best) {
+                plan.merge.push({
+                  key: spec.key,
+                  exercise_id: best.id,
+                  exercise_name: best.name,
+                });
+              } else {
+                setGapError(
+                  data.error?.message ??
+                    `«${spec.name}» ya está en tu catálogo. Ábrelo el día y únelo a mano.`,
+                );
+                return;
+              }
+            }
+            plan.create = stillCreate;
+            if (plan.create.length > 0) {
+              const retry = await fetch('/api/coach/exercises/bulk', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  exercises: plan.create.map((c) => ({
+                    name: c.name,
+                    category: c.category,
+                    modality: c.modality,
+                  })),
+                }),
+              });
+              if (!retry.ok) {
+                const err = (await retry.json().catch(() => null)) as {
+                  error?: { message?: string };
+                } | null;
+                setGapError(err?.error?.message ?? 'No se pudieron crear los ejercicios.');
+                return;
+              }
+              const body = (await retry.json()) as {
+                created: Array<{ id: string; name: string }>;
+              };
+              created = body.created;
+            }
+          } else {
+            setGapError(data?.error?.message ?? 'No se pudieron crear los ejercicios.');
+            return;
+          }
+        } else {
+          const body = (await res.json()) as {
+            created: Array<{ id: string; name: string }>;
+          };
+          created = body.created;
+        }
+      }
+
+      // Solo dosis (ejercicios ya resueltos) o plan completo.
+      if (
+        plan.create.length === 0 &&
+        plan.merge.length === 0 &&
+        plan.discardKeys.length === 0
+      ) {
+        onChange(completeWeeksDoses(reviewWeeks));
+      } else {
+        onChange(applyGapPlan(reviewWeeks, plan, created));
+      }
+    } catch {
+      setGapError('No se pudo completar. Inténtalo de nuevo.');
+    } finally {
+      setCompletingGaps(false);
+    }
+  };
 
   const setTarget = (weekIdx: number, target: string | null) => {
     onChange(reviewWeeks.map((w, i) => (i === weekIdx ? { ...w, target_week_id: target } : w)));
@@ -351,46 +501,61 @@ export function ImportReviewGrid({
       </div>
 
       <footer className="space-y-2 border-t border-[color:var(--v2-border)] px-5 py-3">
-        {error ? (
+        {error || gapError ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
-            {error}
+            {error ?? gapError}
           </p>
-        ) : unresolved > 0 ? (
-          /* La salida de un solo toque. Sin ella, una semana real obliga a abrir
-             el selector treinta veces, que es donde se abandona la función. */
-          <div className="flex flex-wrap items-center gap-2">
+        ) : unresolved > 0 || incomplete > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
               <MIcon name="error" size={14} />
-              {unresolved === 1
-                ? '1 línea sin ejercicio del catálogo.'
-                : `${unresolved} líneas sin ejercicio del catálogo.`}
+              {unresolved > 0
+                ? unresolved === 1
+                  ? '1 línea sin ejercicio del catálogo.'
+                  : `${unresolved} líneas sin ejercicio del catálogo.`
+                : incomplete === 1
+                  ? '1 línea sin dosis ejecutable.'
+                  : `${incomplete} líneas sin dosis ejecutable.`}
             </p>
-            {missingCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => setCreatingMissing(true)}
-                className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/50 px-2.5 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10"
-              >
-                <MIcon name="library_add" size={14} />
-                {missingCount === 1
-                  ? 'Resolver el ejercicio que falta'
-                  : `Resolver los ${missingCount} ejercicios que faltan`}
-              </button>
-            ) : (
-              <p className="text-xs text-[color:var(--v2-muted)]">
-                Ábrelo el día y elige un ejercicio del catálogo, o exclúyelo con el
-                botón de arriba a la derecha.
+            <div className="flex flex-wrap items-center gap-2">
+              {canCompleteGaps ? (
+                <button
+                  type="button"
+                  onClick={() => void completeGaps()}
+                  disabled={completingGaps || confirming}
+                  title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el microciclo."
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                >
+                  <MIcon
+                    name={completingGaps ? 'progress_activity' : 'auto_fix'}
+                    size={14}
+                    className={completingGaps ? 'animate-spin' : undefined}
+                  />
+                  {completingGaps ? 'Completando…' : 'Completar huecos'}
+                </button>
+              ) : null}
+              {missingCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCreatingMissing(true)}
+                  disabled={completingGaps}
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/50 px-2.5 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
+                >
+                  <MIcon name="library_add" size={14} />
+                  {missingCount === 1
+                    ? 'Elegir a mano'
+                    : `Elegir a mano (${missingCount})`}
+                </button>
+              ) : null}
+            </div>
+            {canCompleteGaps ? (
+              <p className="w-full text-nano text-[color:var(--v2-muted)]">
+                Rellena ejercicios y dosis de forma genérica. Entran marcados como
+                propuestos — los ajustas en el microciclo cuando quieras.
               </p>
-            )}
+            ) : null}
           </div>
-        ) : incomplete > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} />
-            {incomplete === 1
-              ? '1 línea dice el ejercicio pero no cuánto trabajo. Ábrela y prescríbela.'
-              : `${incomplete} líneas dicen el ejercicio pero no cuánto trabajo. Ábrelas y prescríbelas.`}
-          </p>
         ) : unmapped > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
@@ -407,7 +572,7 @@ export function ImportReviewGrid({
           <button
             type="button"
             onClick={onBack}
-            disabled={confirming}
+            disabled={confirming || completingGaps}
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
           >
             <MIcon name="arrow_back" size={16} />
@@ -424,7 +589,7 @@ export function ImportReviewGrid({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || completingGaps}
             className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
           >
             <MIcon name={confirming ? 'progress_activity' : 'download_done'} size={17} />

@@ -5,19 +5,19 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Importar plan por foto — confirm desbloqueado (7-ago tarde)
+## Ahora · Importar plan por foto — «Completar huecos» (7-ago)
 
-**Síntoma 2 (post-deploy del 504):** la visión + proposal llegan, se crean los
-N ejercicios que faltan, pero «Confirmar 6 días» sigue muerto con «43 líneas
-sin ejercicio del catálogo».
+Un clic en la revisión: resuelve ejercicios (match/crear/descartar basura) y
+siembra dosis genéricas marcadas como propuestas. El coach confirma y refina
+en el microciclo. Archivos: `import-complete-gaps.ts` + botón en
+`ImportReviewGrid`.
 
-**Causa:** el panel solo ESTAMPABA ids de lo creado. Descartar un título/«A)»
-no quitaba la línea del import; y las líneas con token vacío (prosa de la
-gramática) ni salían en el panel y seguían contando en `totalUnresolved`.
+---
 
-**Fix:** `stripEmptyExerciseItems` al entrar en review; al aplicar el panel,
-`applyMissingExerciseDecisions` estampa + quita descartes. UX del «Todos ·
-elige» muestra «Todos: Fuerza» al aplicar; labels Modalidad/Tipo.
+## Antes · confirm desbloqueado (7-ago tarde)
+
+Descartar basura + strip de líneas sin nombre: sin eso, crear 5 ejercicios
+dejaba 43 líneas bloqueando Confirmar.
 
 ---
 
