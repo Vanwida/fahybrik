@@ -704,6 +704,34 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.targetZone, HRZone(rawValue: 2))
     }
 
+    func test_warmupBlock_neverFolds_evenAuthoredAsRounds() throws {
+        // Un calentamiento montado como "rondas" (un activation flow real: 3
+        // rondas de 9 movimientos) satisface el mismo `runsConditioningTimer`
+        // que un AMRAP — antes se plegaba en UN tramo opaco con el título
+        // concatenando los nombres de los ejercicios, y "hecho" saltaba
+        // directo al siguiente bloque sin pasar por ninguno (Alex, 7-ago).
+        // El contrato es "calentamiento y vuelta a la calma NUNCA se pliegan",
+        // sea cual sea su formato — `StructuralBlockChecklist` necesita un
+        // tramo POR MOVIMIENTO para pintar la checklist.
+        let json = """
+        {
+          "assignment": { "id": "asg_wu", "athlete_id": "ath_wu", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Sesión", "blocks": [ { "uid": "b", "title": "Calentamiento - Activación general", "format": "rounds", "block_position": 0, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Assault Bike", "exercise_slug": "assault-bike", "exercise_category": "cardio",
+              "exercise_video_url": null, "cues": null, "params_json": { "duration_seconds": 120 },
+              "prescription_json": { "scheme": "rounds", "rounds": 3, "sets": [ { "measure": { "kind": "duration", "value": 120 } } ] }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Foam roll lower body", "exercise_slug": "foam-roll", "exercise_category": "mobility",
+              "exercise_video_url": null, "cues": null, "params_json": { "duration_seconds": 120 },
+              "prescription_json": { "scheme": "rounds", "rounds": 3, "sets": [ { "measure": { "kind": "duration", "value": 120 } } ] }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        XCTAssertEqual(plan.segments.count, 2, "Un tramo POR MOVIMIENTO — el calentamiento no se pliega aunque su formato lo permita.")
+        XCTAssertEqual(plan.segments[0].title, "Assault Bike", "El título de cada tramo es el del ejercicio, nunca una concatenación.")
+        XCTAssertEqual(plan.segments[1].title, "Foam roll lower body")
+        XCTAssertTrue(plan.segments.allSatisfy { $0.blockPhase == .warmup })
+    }
+
     // MARK: - Executed-session detail (`execution` block)
     //
     // Powers ExecutedWorkoutView (tap a DONE session → read-only what-you-logged).

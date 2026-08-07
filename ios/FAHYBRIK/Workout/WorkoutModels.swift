@@ -1250,6 +1250,24 @@ extension WorkoutPlan {
         let segments: [WorkoutSegment] = workout.blocks
             .sorted { $0.blockPosition < $1.blockPosition }
             .flatMap { block -> [WorkoutSegment] in
+                // Calentamiento y vuelta a la calma NUNCA se pliegan, sea cual sea su
+                // `format` — es el contrato que ya documentaban `conditioningFold` y
+                // `StructuralBlockChecklist` («un tramo por movimiento») pero que
+                // ningún guard comprobaba de verdad: los tres pliegues de abajo miran
+                // el FORMATO del bloque, no su FASE, así que un calentamiento montado
+                // como circuito/rondas (un activation flow de verdad, no un caso raro)
+                // se plegaba en un solo tramo opaco — el título salía concatenando los
+                // nombres de los 9 ejercicios y «hecho» saltaba directo al siguiente
+                // bloque sin pasar por ninguno (Alex, 7-ago). Cortar aquí, antes de
+                // los tres pliegues, es la única forma de que ninguno futuro repita el
+                // mismo fallo.
+                let phase = BlockPhase.classify(title: block.title)
+                if phase == .warmup || phase == .cooldown {
+                    return block.items.map { item in
+                        order += 1
+                        return segment(from: item, order: order, block: block)
+                    }
+                }
                 // An ALTERNATING EMOM is ONE block with several movements that the
                 // athlete cycles minute by minute (min1 wallballs / min2 run / min3
                 // wallballs …) — a SINGLE 15-min EMOM, not back-to-back ones. The
