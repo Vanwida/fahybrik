@@ -103,6 +103,13 @@ struct DiaDelPlan: Identifiable, Equatable {
         let titulos = sesiones.map(\.title).joined(separator: ", ")
         return "\(titulos), \(estado.etiqueta)"
     }
+
+    /// «Hoy · Lunes 10» cuando de verdad es hoy; «Lunes 10» para cualquier otro
+    /// día que se hojee. El prefijo «Hoy» es un HECHO, no una plantilla — un
+    /// día que no es hoy no puede llevarlo (§7).
+    var etiquetaDeFecha: String {
+        esHoy ? "Hoy · \(nombre) \(numero)" : "\(nombre) \(numero)"
+    }
 }
 
 // MARK: - La semana, resuelta

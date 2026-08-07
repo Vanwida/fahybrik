@@ -50,41 +50,43 @@ struct PlanView: View {
     @State private var cargando: Bool = true
     @State private var falloDeCarga: Bool = false
 
-    // ── El desglose de HOY (solo hoy: la semana entera encarecería la carga) ──
-    @State private var desgloseHoy: DesgloseSesion = .vacio
-    /// De QUÉ sesión es el desglose que hay en memoria. Sin esto, mover el
-    /// entreno de hoy y fallar la siguiente petición dejaría en pantalla los
-    /// bloques de OTRA sesión — un desglose real, de la sesión equivocada (§7).
-    @State private var desgloseDe: String? = nil
-    /// Los minutos MEDIDOS de la sesión de ayer — solo se piden el día que hoy es
-    /// descanso, que es cuando la tarjeta de ayer los enseña.
+    // ── El desglose del día MOSTRADO — sea hoy o uno que se hojeó ─────────────
+    // No hay «el desglose de hoy» y por separado «el de otro día»: hay UN solo
+    // día mostrado en cada momento, y esto es su desglose real (Alex, 7-ago:
+    // «si cada día es una card, cuando pasa el día se ve la card del día»).
+    @State private var desgloseMostrado: DesgloseSesion = .vacio
+    /// De QUÉ sesión es el desglose que hay en memoria. Sin esto, cambiar de
+    /// día y fallar la siguiente petición dejaría en pantalla los bloques de
+    /// OTRA sesión — un desglose real, de la sesión equivocada (§7).
+    @State private var desgloseDeMostrado: String? = nil
+    /// Los minutos MEDIDOS de la sesión de ayer — solo se piden cuando HOY (el
+    /// real, sin nada seleccionado) es descanso, que es cuando esa tarjeta
+    /// concreta los enseña.
     @State private var medidoAyer: Int? = nil
 
     // ── Navegación (los mismos destinos de siempre) ───────────────────────────
     @State var workoutLaunch: WorkoutLaunch? = nil
     @State private var executedLaunch: WorkoutLaunch? = nil
     @State var techniqueTarget: AthleteWeekDaySession? = nil
-    /// El día que el atleta tocó en el carril y lleva DOS sesiones: hay que
-    /// preguntarle cuál abre.
-    @State private var diaAElegir: DiaDelPlan? = nil
-    /// La sesión elegida en esa hoja. Se abre en `onDismiss` y no en el toque:
-    /// levantar un cover mientras la hoja se está cerrando se pierde a medias.
-    @State private var elegidaEnLaHoja: AthleteWeekDaySession? = nil
     @State var showChat = false
     @State private var showPartnerPlan = false
     @State private var showHistory = false
     @State private var showCiclo = false
     @State private var partner: PartnerInfo? = nil
 
-    // ── Hojear la semana que viene DESLIZANDO EL CARRIL (Alex, 7-ago) ─────────
-    // Sin botón: el gesto en la propia tira de días cambia qué semana alimenta
-    // esta misma pantalla — la composición no cambia, solo el dato. Solo
-    // lectura: nada se mueve ni se marca de una semana sin empezar.
+    // ── Un solo mecanismo: qué día muestra la card, ahora mismo (Alex, 7-ago) ─
+    // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO:
+    // cambian cuál es el día mostrado. La card que lo pinta es siempre la
+    // misma (`heroe(_:)`); solo cambia el dato. Nunca dos pantallas para lo
+    // mismo, nunca un salto a otro sitio por tocar un chip.
     @State private var verProximaSemana = false
     @State private var semanaSiguiente: SemanaDelPlan? = nil
     @State private var posicionSiguiente: PosicionEnBloque? = nil
     @State private var cargandoSiguiente = false
     @State private var falloSiguiente = false
+    /// El día elegido A MANO dentro de la semana visible. `nil` = el que toca
+    /// por defecto (hoy en esta semana; el primero con algo al hojear otra).
+    @State private var diaSeleccionadoId: String? = nil
 
     // ── Acciones que pueden fallar ────────────────────────────────────────────
     @State var actionError: String? = nil
@@ -104,6 +106,9 @@ struct PlanView: View {
         .overlay(alignment: .top) { actionErrorBanner }
         .animation(.spring(response: 0.42, dampingFraction: 0.9), value: actionError)
         .task { store.activate(bearer: effectiveBearer); await cargar() }
+        // El desglose real del día MOSTRADO — se pide cada vez que ese día
+        // cambia (por tocar un chip o por deslizar de semana), nunca antes.
+        .task(id: claveDeMostrado) { await cargarDetalleDeMostrado() }
         .modifier(PlanDialogos(
             undoTarget: $undoConfirmTarget,
             deleteFreeTarget: $deleteFreeTarget,
@@ -160,17 +165,6 @@ struct PlanView: View {
                 bearer: effectiveBearer
             )
         }
-        .sheet(item: $diaAElegir, onDismiss: {
-            guard let elegida = elegidaEnLaHoja else { return }
-            elegidaEnLaHoja = nil
-            abrir(elegida)
-        }) { dia in
-            ElegirSesionDelDia(dia: dia) { session in
-                elegidaEnLaHoja = session
-                diaAElegir = nil
-            }
-            .compactSheet()
-        }
     }
 
     /// Los CINCO estados que la pantalla resuelve (§5, más el plan en pausa, que
@@ -193,29 +187,22 @@ struct PlanView: View {
     // MARK: - La pantalla con datos
 
     private func pantalla(_ semana: SemanaDelPlan) -> some View {
-        // La semana que la pantalla enseña AHORA: la actual, o la que viene si
-        // se deslizó el carril. Todo lo de abajo lee de aquí — es la MISMA
-        // composición, solo cambia el dato (Alex, 7-ago: «se muestra igual la
-        // view, no te inventes una nueva»).
-        let visible = verProximaSemana ? (semanaSiguiente ?? semana) : semana
-        let posicionDeVisible = verProximaSemana ? posicionSiguiente : posicion
-
-        return FillingScreen {
+        FillingScreen {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 cabeceraDeNavegacion
                 CabeceraDelBloque(
-                    nombre: visible.nombreBloque,
-                    posicion: posicionDeVisible,
-                    intencion: visible.intencion
+                    nombre: semanaVisible?.nombreBloque,
+                    posicion: posicionVisible,
+                    intencion: semanaVisible?.intencion
                 )
-                carrilConGesto(visible)
-                heroe(visible)
-                if !verProximaSemana, let segunda = sesionSecundaria {
+                carrilConGesto
+                heroe
+                if let segunda = sesionSecundariaMostrada {
                     filaSegundaSesion(segunda)
                 }
                 EntradaAlCiclo(
-                    nombre: visible.nombreBloque,
-                    posicion: posicionDeVisible,
+                    nombre: semanaVisible?.nombreBloque,
+                    posicion: posicionVisible,
                     onAbrir: { showCiclo = true }
                 )
             }
@@ -223,44 +210,80 @@ struct PlanView: View {
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.s)
             .animation(.spring(response: 0.38, dampingFraction: 0.86), value: verProximaSemana)
+            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: diaSeleccionadoId)
         }
         .refreshable {
             if verProximaSemana { await cargarSiguiente(force: true) } else { await cargar(force: true) }
         }
-        .anchoredAction { if !verProximaSemana { accionAnclada } }
+        .anchoredAction { accionAnclada }
     }
 
-    // MARK: - Hojear la semana que viene deslizando el carril
+    // MARK: - Un solo mecanismo: seleccionar un día cambia qué muestra la card
+
+    /// La semana que la pantalla enseña AHORA: la actual, o la que viene si se
+    /// deslizó el carril. TODO lo de abajo lee de aquí — es la MISMA
+    /// composición siempre, solo cambia el dato (Alex, 7-ago).
+    private var semanaVisible: SemanaDelPlan? { verProximaSemana ? (semanaSiguiente ?? semana) : semana }
+    private var posicionVisible: PosicionEnBloque? { verProximaSemana ? posicionSiguiente : posicion }
+
+    /// El día que la card muestra: el que el atleta seleccionó a mano dentro de
+    /// la semana visible; si no seleccionó ninguno, hoy (en esta semana) o el
+    /// primero con algo (hojeando otra) — nunca se inventa un día (§7).
+    private func diaMostrado(_ semana: SemanaDelPlan) -> DiaDelPlan? {
+        if let id = diaSeleccionadoId, let dia = semana.dias.first(where: { $0.id == id }) {
+            return dia
+        }
+        return semana.hoy ?? semana.dias.first { !$0.sesiones.isEmpty }
+    }
+
+    private var diaMostradoActual: DiaDelPlan? { semanaVisible.flatMap(diaMostrado) }
+    private var sesionMostrada: AthleteWeekDaySession? { diaMostradoActual?.sesiones.first }
+
+    /// La OTRA sesión del día mostrado, cuando lleva dos (AM+PM) — de cualquier
+    /// día que se esté viendo, no solo hoy.
+    private var sesionSecundariaMostrada: AthleteWeekDaySession? {
+        guard let dia = diaMostradoActual, dia.sesiones.count > 1, let principal = sesionMostrada else { return nil }
+        return dia.sesiones.first { $0.assignmentId != principal.assignmentId }
+    }
+
+    /// Tocar un chip SELECCIONA ese día — no abre nada. Es el mismo mecanismo
+    /// que deslizar de semana: cambia qué día alimenta la MISMA card. Entrar al
+    /// detalle completo se hace tocando DENTRO de la card (Alex, 7-ago).
+    private func seleccionarDia(_ dia: DiaDelPlan) {
+        Haptics.light()
+        diaSeleccionadoId = dia.id
+    }
 
     /// El carril, con el gesto que cambia de semana. Deslizar a la izquierda
     /// pide la que viene; a la derecha, vuelve a esta — un solo salto, nunca
-    /// más allá de lo que el servidor confirmó que existe (`hasNextWeek`).
-    private func carrilConGesto(_ semana: SemanaDelPlan) -> some View {
-        CarrilSemana(semana: semana, idDestacado: diaDestacado(semana)?.id, onDia: tocarDia) { dia in
-            accionesDelDia(dia)
-        }
-        // `simultaneous`: un DragGesture normal en el contenedor se come el tap
-        // de los ChipDia hijos aunque tenga `minimumDistance` — así conviven.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 24)
-                .onEnded { valor in
-                    guard abs(valor.translation.width) > abs(valor.translation.height) else { return }
-                    if valor.translation.width < -40, !verProximaSemana, hayProximaSemana {
-                        Haptics.light()
-                        verProximaSemana = true
-                        Task { await cargarSiguiente() }
-                    } else if valor.translation.width > 40, verProximaSemana {
-                        Haptics.light()
-                        verProximaSemana = false
+    /// más allá de lo que el servidor confirmó que existe (`hasNextWeek`). Cada
+    /// salto de semana limpia la selección: se empieza en el día por defecto de
+    /// la semana a la que se llega, no en un id que ya no pertenece a ella.
+    @ViewBuilder
+    private var carrilConGesto: some View {
+        if let semanaVis = semanaVisible {
+            CarrilSemana(semana: semanaVis, idDestacado: diaMostrado(semanaVis)?.id, onDia: seleccionarDia) { dia in
+                accionesDelDia(dia)
+            }
+            // `simultaneous`: un DragGesture normal en el contenedor se come el
+            // tap de los ChipDia hijos aunque tenga `minimumDistance` — así conviven.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 24)
+                    .onEnded { valor in
+                        guard abs(valor.translation.width) > abs(valor.translation.height) else { return }
+                        if valor.translation.width < -40, !verProximaSemana, hayProximaSemana {
+                            Haptics.light()
+                            diaSeleccionadoId = nil
+                            verProximaSemana = true
+                            Task { await cargarSiguiente() }
+                        } else if valor.translation.width > 40, verProximaSemana {
+                            Haptics.light()
+                            diaSeleccionadoId = nil
+                            verProximaSemana = false
+                        }
                     }
-                }
-        )
-    }
-
-    /// El día que el héroe presenta: hoy en la semana actual; hojeando otra,
-    /// el primero que trae algo — nunca se inventa un día (§7).
-    private func diaDestacado(_ semana: SemanaDelPlan) -> DiaDelPlan? {
-        semana.hoy ?? semana.dias.first { !$0.sesiones.isEmpty }
+            )
+        }
     }
 
     private func cargarSiguiente(force: Bool = false) async {
@@ -281,31 +304,44 @@ struct PlanView: View {
         cargandoSiguiente = false
     }
 
-    /// El héroe: la sesión del día destacado en grande, o el día que no toca
-    /// nada. Hojeando otra semana el desglose real no se pide (solo el de HOY
-    /// se trae — pedirlo de un día cualquiera encarecería cada deslizamiento);
-    /// la tarjeta enseña lo que sí sabe sin fetch — título, formato, reloj — y
-    /// abrir la sesión trae el detalle completo, como en cualquier otro sitio.
+    /// El héroe: la sesión del día mostrado en grande —con su desglose REAL,
+    /// sea hoy o un día que se hojeó—, o el día que no toca nada. Una sola
+    /// composición para cualquier día; lo único que cambia es el dato.
     @ViewBuilder
-    private func heroe(_ semana: SemanaDelPlan) -> some View {
-        if let dia = diaDestacado(semana), let sesion = dia.sesiones.first {
-            let esHoy = dia.esHoy
+    private var heroe: some View {
+        if let dia = diaMostradoActual, let sesion = dia.sesiones.first {
             HeroeSesion(
                 dia: dia,
                 sesion: sesion,
-                desglose: esHoy ? desgloseHoy : .vacio,
+                desglose: desgloseMostrado,
                 marca: marca(sesion),
                 onAbrir: { abrir(sesion) }
             )
             .frame(maxHeight: .infinity)
-            .contextMenu { if esHoy { accionesDeSesion(sesion) } }
-        } else if let dia = semana.hoy {
+            .contextMenu { accionesDeSesion(sesion) }
+        } else if let dia = diaMostradoActual, dia.esHoy {
+            // El descanso de HOY: con ayer y mañana, el marco de siempre.
             HeroeDescanso(
                 dia: dia,
-                semana: semana,
+                semana: semana ?? SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil),
                 medidoAyer: medidoAyer,
                 onAbrir: { abrir($0) }
             )
+        } else if let dia = diaMostradoActual {
+            // Un descanso que se hojeó A PROPÓSITO (no el de hoy): el marco de
+            // ayer/mañana es de HOY, aquí solo se declara el hueco de ESTE día.
+            VStack(spacing: Theme.Spacing.s) {
+                Spacer(minLength: 0)
+                LabelText(text: dia.etiquetaDeFecha, color: Theme.Color.accentText, size: 10)
+                Text("Descanso")
+                    .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Nada en el plan para este día.")
+                    .scaledFont(13, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if verProximaSemana {
             // La semana que viene existe (`hasNextWeek`) pero llegó vacía: el
             // coach todavía no le puso sesiones. Un hecho, no un error.
@@ -407,20 +443,23 @@ struct PlanView: View {
         }
     }
 
-    /// Qué puede hacer el atleta AHORA, en una sola acción. Nunca ofrece empezar
-    /// algo que ya está hecho, ni promete una sesión que no existe.
+    /// Qué puede hacer el atleta AHORA con lo que la card enseña, en una sola
+    /// acción. Sigue al día MOSTRADO, sea hoy o uno que se hojeó — actuar sobre
+    /// una sesión que no es la que se ve en pantalla sería la propia mentira
+    /// que este botón existe para evitar.
     ///
-    /// Sin sesión de hoy y sin mañana que enseñar, no hay una TERCERA acción
-    /// que inventar: el pie (`EntradaAlCiclo`) ya ofrece «ver el ciclo entero»,
-    /// y una segunda entrada al mismo sitio es ruido, no una salida (encontrado
-    /// por Alex, 7-ago: dos botones para lo mismo).
+    /// «Ver lo de mañana» solo aplica al descanso de HOY sin seleccionar nada:
+    /// hojeando otro día ya se está mirando ESE día, no hace falta ofrecer
+    /// otro salto. Y sin sesión ni mañana, no hay una TERCERA acción que
+    /// inventar: el pie (`EntradaAlCiclo`) ya ofrece «ver el ciclo entero», y
+    /// una segunda entrada al mismo sitio es ruido, no una salida (Alex, 7-ago).
     private var accionDelDia: (titulo: String, hacer: () -> Void)? {
-        if let sesion = sesionPrincipal {
+        if let sesion = sesionMostrada {
             return marca(sesion).isFinished
                 ? ("VER LO QUE HICISTE", { executedLaunch = launch(sesion) })
                 : ("▶ EMPEZAR", { workoutLaunch = launch(sesion) })
         }
-        if let manana = semana?.sesionDeManana {
+        if !verProximaSemana, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
             return ("VER LO DE MAÑANA", { abrir(manana.sesion) })
         }
         return nil
@@ -483,7 +522,7 @@ struct PlanView: View {
                 symbol: "calendar.badge.clock",
                 title: "Tu plan empieza el \(cuando)",
                 message: "Esta semana no tienes sesiones. Ya está todo montado y te espera.",
-                exit: (semana?.hasNextWeek ?? false)
+                exit: hayProximaSemana
                     ? .action(title: "Ver la semana que viene") {
                         Haptics.light()
                         verProximaSemana = true
@@ -541,24 +580,7 @@ struct PlanView: View {
         return "En pausa desde el \(fecha)."
     }
 
-    // MARK: - Hoy, resuelto
-
-    /// Las sesiones REALES de hoy, en orden (mañana antes que tarde).
-    private var sesionesDeHoy: [AthleteWeekDaySession] {
-        (semana?.hoy?.sesiones ?? []).sorted { rangoDeSlot($0) < rangoDeSlot($1) }
-    }
-
-    /// La sesión que manda en el héroe: la primera que todavía queda por hacer y,
-    /// si ya están todas hechas, la primera del día (para poder abrir lo hecho).
-    private var sesionPrincipal: AthleteWeekDaySession? {
-        sesionesDeHoy.first { !marca($0).isFinished } ?? sesionesDeHoy.first
-    }
-
-    /// La otra sesión del día, cuando hay dos.
-    private var sesionSecundaria: AthleteWeekDaySession? {
-        guard sesionesDeHoy.count > 1, let principal = sesionPrincipal else { return nil }
-        return sesionesDeHoy.first { $0.assignmentId != principal.assignmentId }
-    }
+    // MARK: - Sesión, marca, lanzamiento
 
     func marca(_ session: AthleteWeekDaySession) -> SessionMarkState {
         SessionMarkState.of(status: session.status, assignmentId: session.assignmentId)
@@ -568,36 +590,23 @@ struct PlanView: View {
         session.slot.lowercased().hasPrefix("pm") ? .pm : .am
     }
 
-    private func rangoDeSlot(_ s: AthleteWeekDaySession) -> Int {
-        s.slot.lowercased().hasPrefix("pm") ? 1 : 0
-    }
-
     func launch(_ session: AthleteWeekDaySession) -> WorkoutLaunch {
         WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
     }
 
     // MARK: - Abrir
 
-    /// Tocar una sesión ROUTEA POR ESTADO: una terminada (hecha o a medias) abre
-    /// el detalle de lo que registraste; una pendiente abre la previa del entreno.
-    /// Un solo punto de decisión, para que hecho y pendiente no se confundan.
+    /// Tocar DENTRO de la card ROUTEA POR ESTADO: una sesión terminada (hecha o
+    /// a medias) abre el detalle de lo que registraste; una pendiente abre la
+    /// previa del entreno. Un solo punto de decisión, para que hecho y
+    /// pendiente no se confundan. Esto es lo único que sale de esta pantalla —
+    /// tocar un chip del carril YA NO llega aquí, solo selecciona (Alex, 7-ago).
     private func abrir(_ session: AthleteWeekDaySession) {
         guard !session.assignmentId.isEmpty else { return }
         if marca(session).isFinished {
             executedLaunch = launch(session)
         } else {
             workoutLaunch = launch(session)
-        }
-    }
-
-    /// Tocar un día del carril: con una sesión la abre; con dos pregunta cuál; sin
-    /// ninguna no hay nada que abrir y se responde con un toque háptico, no con
-    /// una pantalla vacía.
-    private func tocarDia(_ dia: DiaDelPlan) {
-        switch dia.sesiones.count {
-        case 0:  Haptics.light()
-        case 1:  abrir(dia.sesiones[0])
-        default: diaAElegir = dia
         }
     }
 
@@ -620,16 +629,15 @@ struct PlanView: View {
             aplicar(fresh)
             falloDeCarga = false
         } else if store.planWeek.hasLoaded {
-            semana = SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil)
+            semana = SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil)
             falloDeCarga = false
         } else {
             falloDeCarga = true
         }
         partner = store.partner.value?.partner
         cargando = false
-        // 3. Y solo entonces el desglose de HOY (y, si hoy es descanso, lo MEDIDO
-        //    de ayer). Nunca la semana entera: encarecería cada apertura.
-        await cargarDetalleDeHoy()
+        // El desglose del día mostrado lo dispara `.task(id: claveDeMostrado)`
+        // en el body — no hace falta pedirlo aquí también.
     }
 
     private func aplicar(_ resp: AthletePlanWeekResponse) {
@@ -645,32 +653,46 @@ struct PlanView: View {
         hayProximaSemana = resp.week.hasNextWeek ?? false
     }
 
-    /// El desglose REAL de la sesión de hoy — sus bloques, su cabecera de formato
-    /// y sus cifras. El resumen de fila (`shortPrescription`) es una frase y no
-    /// basta para el héroe.
-    private func cargarDetalleDeHoy() async {
+    // MARK: - El desglose del día MOSTRADO
+
+    /// La clave que dispara `cargarDetalleDeMostrado()`: cambia cada vez que
+    /// cambia CUÁL es el día mostrado — por semana, por selección o por la
+    /// sesión concreta. `.task(id:)` cancela y repite la petición sola.
+    private var claveDeMostrado: String {
+        "\(verProximaSemana)|\(diaSeleccionadoId ?? "")|\(sesionMostrada?.assignmentId ?? "")"
+    }
+
+    /// El desglose REAL del día que la card enseña AHORA — sus bloques, su
+    /// cabecera de formato y sus cifras. El resumen de fila (`shortPrescription`)
+    /// es una frase y no basta para la card, sea el día que sea (Alex, 7-ago:
+    /// «no me la enseñes vacía»).
+    private func cargarDetalleDeMostrado() async {
         guard let token = effectiveBearer else { return }
-        guard let sesion = sesionPrincipal else {
-            // Hoy es descanso: de fuera solo hace falta cuánto duró DE VERDAD la
-            // sesión de ayer. Sin ejecución no hay minutos, y no se rellenan.
-            desgloseHoy = .vacio
-            desgloseDe = nil
-            await cargarMedidoDeAyer(token: token)
+        guard let sesion = sesionMostrada else {
+            desgloseMostrado = .vacio
+            desgloseDeMostrado = nil
+            // Solo el descanso de HOY sin seleccionar nada enseña ayer medido —
+            // es el marco de `HeroeDescanso`, no el de un día hojeado aparte.
+            if !verProximaSemana, diaSeleccionadoId == nil {
+                await cargarMedidoDeAyer(token: token)
+            } else {
+                medidoAyer = nil
+            }
             return
         }
         medidoAyer = nil
-        // Cambió la sesión de hoy → lo que hay en pantalla ya no es suyo.
-        if desgloseDe != sesion.assignmentId {
-            desgloseHoy = .vacio
-            desgloseDe = sesion.assignmentId
+        // Cambió el día mostrado → lo que hay en pantalla ya no es suyo.
+        if desgloseDeMostrado != sesion.assignmentId {
+            desgloseMostrado = .vacio
+            desgloseDeMostrado = sesion.assignmentId
         }
         // La caché local repinta al instante; la red confirma después.
         if let cache = AssignmentDetailCache.load(sesion.assignmentId) {
-            desgloseHoy = DesgloseSesion.desde(cache)
+            desgloseMostrado = DesgloseSesion.desde(cache)
         }
         if let detalle = try? await PlanService.fetchAssignmentDetail(sesion.assignmentId, bearer: token) {
             AssignmentDetailCache.save(detalle)
-            desgloseHoy = DesgloseSesion.desde(detalle)
+            desgloseMostrado = DesgloseSesion.desde(detalle)
         }
     }
 

@@ -372,23 +372,28 @@ struct CabeceraDelBloque: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            if nombre != nil || posicion != nil {
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                    if let nombre {
-                        Text(nombre)
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Spacer(minLength: 0)
-                    }
-                    if let posicion {
-                        LabelText(text: posicion.texto, color: Theme.Color.muted, size: 10)
-                            .lineLimit(1)
-                    }
+            // SIEMPRE se reserva esta fila, tenga o no dato — nunca condicional
+            // a si el bloque tiene nombre. Cuando dependía de `nombre != nil ||
+            // posicion != nil`, una semana sin nombre publicado hacía que el
+            // carril de abajo subiera de sitio y la pantalla se viera distinta
+            // a la de una semana que sí lo tiene (Alex, 7-ago: «dos views
+            // diferentes» — el mismo componente, en dos posiciones distintas).
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                if let nombre {
+                    Text(nombre)
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Spacer(minLength: 0)
+                }
+                if let posicion {
+                    LabelText(text: posicion.texto, color: Theme.Color.muted, size: 10)
+                        .lineLimit(1)
                 }
             }
+            .frame(minHeight: 17, alignment: .leading)
             if let intencion {
                 HStack(alignment: .top, spacing: Theme.Spacing.m) {
                     RoundedRectangle(cornerRadius: 1, style: .continuous)
@@ -406,38 +411,5 @@ struct CabeceraDelBloque: View {
                 .accessibilityLabel("Lo que busca tu coach esta semana: \(intencion)")
             }
         }
-    }
-}
-
-// MARK: - Elegir entre las dos sesiones de un día
-
-/// La hoja que sale al tocar un día con DOS entrenos. Es una PREGUNTA encima de
-/// lo que estabas viendo, así que va en media pantalla (`compactSheet`), no en un
-/// cover: un cover es un sitio al que vas.
-struct ElegirSesionDelDia: View {
-    let dia: DiaDelPlan
-    let onElegir: (AthleteWeekDaySession) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            LabelText(text: "\(dia.nombre) \(dia.numero)", color: Theme.Color.accentText, size: 11)
-            Text("Dos entrenos ese día")
-                .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            ForEach(dia.sesiones) { session in
-                SessionCompactRow(
-                    slot: session.slot.lowercased().hasPrefix("pm") ? .pm : .am,
-                    title: session.title,
-                    meta: DuracionDeSesion.texto(session) ?? "Sin tiempo previsto",
-                    modality: session.modality,
-                    isFree: session.isSelfOrigin,
-                    onTap: { onElegir(session) }
-                )
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.l)
-        .background(Theme.Color.background.ignoresSafeArea())
     }
 }

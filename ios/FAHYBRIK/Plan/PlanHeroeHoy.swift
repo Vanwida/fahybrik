@@ -60,11 +60,7 @@ struct HeroeSesion: View {
 
     private var encabezado: some View {
         HStack(spacing: 7) {
-            LabelText(
-                text: "Hoy · \(dia.nombre) \(dia.numero)",
-                color: Theme.Color.accentText,
-                size: 10
-            )
+            LabelText(text: dia.etiquetaDeFecha, color: Theme.Color.accentText, size: 10)
             ModalityDot(modality: sesion.modality, size: 7)
             if sesion.isSelfOrigin { LibreBadge(compact: true) }
             if sesion.isTestSession { TestBadge(compact: true) }
