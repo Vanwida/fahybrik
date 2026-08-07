@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puesta a punto · los días antes de que arranque el plan</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,600;0,700;1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg:#faf8f4; --surface:#fff; --surface-2:#f3efe8; --border:rgba(28,25,23,.1);
+  --border-strong:rgba(28,25,23,.18); --fg:#1c1917; --muted:#6b6259; --faint:#9a9089;
+  --accent:#f06a2a; --ok:#1f9d57; --ok-soft:rgba(31,157,87,.1);
+  --warn:#b9751a; --warn-soft:rgba(185,117,26,.1);
+  --danger:#d63a3a; --danger-soft:rgba(214,58,58,.1);
+  --info:#2f7fce; --info-soft:rgba(47,127,206,.1);
+  --r-s:8px; --r-m:12px; --r-l:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1a1a1a; --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.16); --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,.14); --warn:#f2a52e; --warn-soft:rgba(242,165,46,.14);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,.14); --info:#4d9eeb; --info-soft:rgba(77,158,235,.14);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:Geist,system-ui,sans-serif;line-height:1.6;
+  -webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+.wrap{max-width:920px;margin:0 auto}
+h1{font-family:Archivo,sans-serif;font-weight:900;font-style:italic;font-size:clamp(30px,5vw,44px);
+  letter-spacing:-.02em;line-height:1.05;margin-bottom:10px}
+h2{font-family:Archivo,sans-serif;font-weight:900;font-style:italic;font-size:23px;letter-spacing:-.01em;
+  margin:44px 0 14px;padding-top:22px;border-top:1px solid var(--border)}
+h3{font-size:15px;font-weight:700;margin:24px 0 8px;letter-spacing:.01em}
+p{margin-bottom:13px;color:var(--fg)}
+.lede{font-size:17px;color:var(--muted);margin-bottom:6px}
+.meta{font-size:12.5px;color:var(--faint);font-family:'Geist Mono',monospace;margin-bottom:8px}
+code{font-family:'Geist Mono',monospace;font-size:.88em;background:var(--surface-2);
+  padding:1.5px 5px;border-radius:4px}
+strong{font-weight:700}
+ul,ol{margin:0 0 14px 22px}
+li{margin-bottom:7px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
+  padding:20px 22px;margin:18px 0}
+.card.ok{border-left:4px solid var(--ok)}
+.card.warn{border-left:4px solid var(--warn)}
+.card.danger{border-left:4px solid var(--danger)}
+.card.info{border-left:4px solid var(--info)}
+.tag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 9px;border-radius:5px;margin-bottom:9px}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.danger{background:var(--danger-soft);color:var(--danger)}
+.tag.info{background:var(--info-soft);color:var(--info)}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-strong)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+td.num,th.num{font-family:'Geist Mono',monospace;text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.gap-viz{display:flex;gap:3px;margin:14px 0;flex-wrap:wrap}
+.gap-viz .d{flex:1;min-width:62px;text-align:center;padding:9px 4px;border-radius:var(--r-s);
+  font-size:11px;font-weight:700;border:1px solid var(--border)}
+.gap-viz .d.gap{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.gap-viz .d.buf{background:var(--surface-2);color:var(--faint);border-style:dashed}
+.gap-viz .d.plan{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.gap-viz .d small{display:block;font-weight:500;font-size:10px;opacity:.75;margin-top:2px}
+.q{background:var(--surface-2);border-radius:var(--r-m);padding:16px 18px;margin:14px 0}
+.q b{display:block;margin-bottom:5px}
+.footnote{font-size:13px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="meta">FAHYBRID · diseño de dominio · 7 agosto 2026 · SIN CONSTRUIR</div>
+<h1>Puesta a punto</h1>
+<p class="lede">Los días huérfanos entre que el coach asigna un plan y el lunes que arranca. Hoy el atleta no ve nada. Este documento modela qué debería ver, y demuestra que casi toda la maquinaria ya existe.</p>
+
+<h2>El problema, con números reales</h2>
+
+<p>Un plan siempre arranca en <strong>lunes</strong>. No es una limitación de un botón: las 7 vías de asignación pasan por el mismo materializador (<code>instantiateMonthFromTemplate</code>), que ancla al lunes de la fecha que reciba. Es correcto — en este sistema una semana ES lunes-domingo en analíticas, adherencia y periodización.</p>
+
+<p>Pero la fecha por defecto es <em>el lunes siguiente</em> (<code>assign-sequence.ts:276</code>), así que el hueco va de 1 a 7 días:</p>
+
+<table>
+  <thead><tr><th>Das de alta un…</th><th class="num">Días huérfanos</th><th>Qué ve el atleta hoy</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Lunes</strong></td><td class="num">7</td><td>Nada durante una semana entera</td></tr>
+    <tr><td>Martes</td><td class="num">6</td><td>Nada</td></tr>
+    <tr><td>Miércoles</td><td class="num">5</td><td>Nada</td></tr>
+    <tr><td>Jueves</td><td class="num">4</td><td>Nada</td></tr>
+    <tr><td>Viernes <em>(el caso de hoy con Alex)</em></td><td class="num">3</td><td>Nada</td></tr>
+    <tr><td>Sábado</td><td class="num">2</td><td>Nada</td></tr>
+    <tr><td>Domingo</td><td class="num">1</td><td>Nada</td></tr>
+  </tbody>
+</table>
+
+<div class="card danger">
+  <span class="tag danger">El peor caso es el más probable</span>
+  <p style="margin:0">Dar de alta un <strong>lunes</strong> produce <strong>7 días</strong> de vacío — y el lunes es justo cuando un coach hace el papeleo semanal. Un atleta que paga el lunes abre la app y no tiene nada hasta el lunes siguiente.</p>
+</div>
+
+<h2>Lo que YA existe (y por eso esto no es un subsistema nuevo)</h2>
+
+<p>Antes de diseñar nada busqué qué había. La respuesta cambió el diseño entero:</p>
+
+<div class="card ok">
+  <span class="tag ok">Verificado en producción</span>
+  <ul style="margin-bottom:0">
+    <li><strong><code>coach_calibration_tests</code></strong> — Pablo ya tiene 4 tests reales creados: <em>5K control · Remo 2K · Batería 1RM · HYROX half-sim</em>.</li>
+    <li><strong><code>coach_test_schedule</code></strong> — modela <code>(test, week_offset, day_of_week, enabled)</code>. Pablo ya los tiene programados: los 4 en <code>week_offset = 1</code>, días 2/3/5/6.</li>
+    <li><strong><code>scheduleWeek1Calibration</code></strong> (<code>schedule-calibration.ts:104</code>) — el inyector. Clona el contenido por atleta, coloca cada test en su día, es idempotente.</li>
+    <li><strong>Se llama desde el materializador único</strong> (<code>instantiate-program.ts:185</code>), por donde pasan las 7 vías de asignación. Ya es automático y universal.</li>
+    <li><strong>El bucle está cerrado</strong>: assignment → ejecución → captura → benchmark → <code>athlete_zone_profiles</code> (ritmos y zonas del atleta).</li>
+  </ul>
+</div>
+
+<p>Es decir: <strong>«qué contenido va en esos días» ya está resuelto y es dato del coach.</strong> No hay que inventar un editor nuevo ni pedirle a Pablo que escriba nada.</p>
+
+<h2>El modelo: la puesta a punto es <code>week_offset = 0</code></h2>
+
+<p>Los días huérfanos <strong>siempre</strong> son la cola de la semana anterior a la semana 1. Eso encaja exacto con el modelo que ya existe:</p>
+
+<div class="gap-viz">
+  <div class="d gap">LUN<small>semana 0</small></div>
+  <div class="d gap">MAR<small>semana 0</small></div>
+  <div class="d gap">MIÉ<small>alta</small></div>
+  <div class="d gap">JUE<small>semana 0</small></div>
+  <div class="d gap">VIE<small>semana 0</small></div>
+  <div class="d buf">SÁB<small>margen</small></div>
+  <div class="d buf">DOM<small>margen</small></div>
+  <div class="d plan">LUN<small>arranca</small></div>
+</div>
+
+<p>Un alta en miércoles deja jueves y viernes libres (sábado y domingo son margen). Un alta en lunes deja seis. Un alta en domingo, ninguno. <strong>Es el mismo <code>day_of_week</code> de siempre, con la semana 0.</strong></p>
+
+<h3>Qué hay que añadir, exactamente</h3>
+<ol>
+  <li><strong>Permitir <code>week_offset = 0</code></strong> en <code>coach_test_schedule</code>: «antes de empezar». Una fila más de valores permitidos en una columna que ya existe — no una tabla nueva.</li>
+  <li><strong>Colocación tolerante</strong>: el coach declara un día preferido, pero si ese día ya pasó cuando se da el alta, la pieza <em>se desliza</em> al siguiente día libre de la ventana. Lo que no quepa, no se hace — <strong>y se le dice al coach</strong>, nunca en silencio.</li>
+  <li><strong>Margen antes del lunes</strong>: días de descanso obligatorio para no arrancar la semana 1 fatigado. Es <em>método</em> del coach (dato editable, defecto 1 día), no una constante nuestra.</li>
+  <li><strong>Separación entre piezas</strong>: una batería de 1RM y un 5K control en días seguidos es mala programación. Cada test declara si pide un día libre detrás. También método del coach.</li>
+  <li><strong>Saltar días ocupados</strong>: el atleta puede tener ya entrenos en esos días (el atleta 64 los tiene el 4-ago). Nunca doble-reservar.</li>
+</ol>
+
+<div class="card info">
+  <span class="tag info">Lo que NO hay que construir</span>
+  <p style="margin:0">Nada de «activar/desactivar» la puesta a punto. Los días están <strong>fechados</strong> y el plan también: no se solapan por construcción y se acaba solo cuando llega el lunes. La preocupación de que «siempre se active antes del plan» la resuelven las fechas, no una máquina de estados.</p>
+</div>
+
+<h2>La pregunta que decidía si el modelo se sostiene</h2>
+
+<p>Si el propósito de estos días es <strong>medir para prescribir bien</strong>, pero la semana 1 se materializa <em>en el momento de asignar</em> — antes de que el test exista — entonces el test llega tarde para su propio propósito y el modelo se cae.</p>
+
+<div class="card ok">
+  <span class="tag ok">Verificado — el test llega a tiempo</span>
+  <p style="margin:0">Las prescripciones guardan objetivos <strong>relativos</strong> (<code>@ Z2</code>, <code>@ 75% RM</code>, <code>@ RIR 2</code>), y los números absolutos se resuelven <strong>al leer la sesión</strong>, no al materializarla: <em>«el resolver del plan lee la fila versionada ACTUAL de <code>athlete_zone_profiles</code>»</em> (<code>zone-profile.ts:6</code>). Un test hecho el domingo escribe una versión nueva de zonas, y la sesión del lunes ya resuelve contra ella.</p>
+</div>
+
+<h2>Roto contra 12 casos reales</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Caso (datos de producción)</th><th>Qué hace el modelo</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td>Alex (64), N3·5d, alta viernes 7-ago</td><td>Hueco 3 días, margen 1 → 2 huecos útiles. Entran los 2 tests de más prioridad.</td></tr>
+    <tr><td class="num">2</td><td>Alta en <strong>lunes</strong></td><td>Hueco 7 → caben los 4 tests con separación. El caso peor pasa a ser el mejor.</td></tr>
+    <tr><td class="num">3</td><td>Alta en domingo</td><td>Hueco 1, margen 1 → 0 huecos. Puesta a punto vacía y honesta: «tu plan empieza mañana».</td></tr>
+    <tr><td class="num">4</td><td>Atleta 64 con entrenos ya el 4-ago</td><td>Día ocupado → se salta, nunca doble reserva.</td></tr>
+    <tr><td class="num">5</td><td>Gerard (N4) vs Alex (N3)</td><td>Listas distintas por nivel: el N4 mide más cosas que un principiante.</td></tr>
+    <tr><td class="num">6</td><td>Pablo, sin registros nunca</td><td>Primera vez absoluta → la puesta a punto es su onboarding real.</td></tr>
+    <tr><td class="num">7</td><td>Los 4 tests reales en 6 días con separación</td><td><strong>No caben todos.</strong> Por eso hace falta prioridad — y por eso hay que <em>decir</em> cuáles quedaron fuera.</td></tr>
+    <tr><td class="num">8</td><td>Vuelta de una pausa a mitad de semana</td><td>Mismo hueco, mismo mecanismo. Son dos casos de uso, un solo motor.</td></tr>
+    <tr><td class="num">9</td><td>El coach cambia la fecha de inicio</td><td>Se recolocan las piezas no hechas. Las ya completadas se quedan: son historial real.</td></tr>
+    <tr><td class="num">10</td><td>El atleta ignora la puesta a punto entera</td><td>El plan arranca igual. Pero el coach ve que falta el baseline con el que se prescribió.</td></tr>
+    <tr><td class="num">11</td><td>Test hecho el domingo, plan el lunes</td><td>Llega a tiempo (ver arriba): las zonas se resuelven al leer.</td></tr>
+    <tr><td class="num">12</td><td>Hueco 7 con lista de 3 piezas</td><td>Sobran 4 días vacíos. Correcto — pero el coach debería poder verlo y rellenarlo si quiere.</td></tr>
+  </tbody>
+</table>
+
+<h2>Dónde puede fallar</h2>
+
+<div class="card warn">
+  <span class="tag warn">1 · El guardián de idempotencia de hoy es demasiado ancho</span>
+  <p style="margin:0"><code>scheduleWeek1Calibration</code> se salta la inyección si el atleta tiene <strong>cualquier</strong> sesión de calibración <em>de toda su historia</em>. El atleta 64 hizo una en julio → <strong>por eso su plan nuevo del 10-ago no lleva ningún test</strong>. Para un modelo con re-tests esto es demasiado agresivo: debería mirar <em>esta</em> asignación, no la vida entera del atleta. Es un fallo ya existente que este trabajo destapa.</p>
+</div>
+
+<div class="card warn">
+  <span class="tag warn">2 · Un test es carga real</span>
+  <p style="margin:0">Un 5K control o una batería de 1RM no son «relleno»: fatigan. Si el margen antes del lunes se queda corto, la puesta a punto sabotea la semana 1. Por eso el margen y la separación son <strong>datos del coach</strong> y no constantes nuestras — pero un defecto malo hace daño igual. Propongo defecto de 1 día de margen y separación 1 en tests duros.</p>
+</div>
+
+<div class="card warn">
+  <span class="tag warn">3 · Las tareas que no son entreno</span>
+  <p style="margin:0">«Conecta tu reloj», «rellena el primer check-in» son exactamente lo que quieres en esos días, pero <strong>no son entrenos</strong>: no llevan prescripción ni carga ni cuentan adherencia. Meterlas como workout sería mentir en las analíticas. Caben en el modelo como <em>tarea</em> (se marca hecha, no se ejecuta), pero es una pieza aparte y la dejaría para una segunda fase.</p>
+</div>
+
+<div class="card warn">
+  <span class="tag warn">4 · Sigue habiendo un vacío que esto no tapa</span>
+  <p style="margin:0">Con hueco 0-1 días, o si el coach no tiene tests, la puesta a punto está vacía y el atleta <strong>sigue viendo una semana muda</strong>. Por eso el mensaje «<em>tu plan empieza el lunes 10</em>» hace falta igual, independientemente de todo lo demás.</p>
+</div>
+
+<h2>Lo que decide Alex</h2>
+
+<div class="q">
+  <b>1 · El nombre</b>
+  «Puesta a punto» (lo que propongo) · «Antes de empezar» · «Toma de contacto». <em>No</em> «Semana 0»: no es una semana, son 1-7 días.
+</div>
+
+<div class="q">
+  <b>2 · Alcance de la primera versión</b>
+  (a) Solo el mensaje «tu plan empieza el lunes 10» — pequeño, tapa el agujero feo, no resuelve el vacío.<br>
+  (b) Mensaje + puesta a punto con los tests que ya existen — el círculo cerrado.<br>
+  (c) Todo lo anterior + tareas sin entreno (conectar reloj, check-in).
+</div>
+
+<div class="q">
+  <b>3 · La fecha por defecto</b>
+  Hoy siempre es <em>el lunes siguiente</em>, así que dar de alta un lunes deja 7 días muertos. ¿Debería un alta en lunes arrancar <strong>ese mismo lunes</strong>? Reduce el peor caso de 7 días a 0, pero mete entrenos en un día ya empezado.
+</div>
+
+<p class="footnote">Nada de esto está construido. El modelo se apoya en <code>coach_calibration_tests</code>, <code>coach_test_schedule</code>, <code>scheduleWeek1Calibration</code> e <code>instantiate-program.ts:185</code>, todos verificados hoy contra el código y contra la base de producción.</p>
+
+</div>
+</body>
+</html>
