@@ -31,6 +31,7 @@ import {
   collectMissingExercises,
   type MissingExercise,
   type MissingExerciseDecisions,
+  type ResolvedToken,
 } from '@/lib/dashboard/v2/import-missing';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 
@@ -185,7 +186,7 @@ export function ImportMissingExercisesPanel({
     setSaving(true);
     setError(null);
     try {
-      const resolved: MissingExerciseDecisions['resolved'] = [];
+      const resolved: ResolvedToken[] = [];
       for (const m of toMerge) {
         const d = decisions.get(m.key)!;
         if (d.mergeId) {
