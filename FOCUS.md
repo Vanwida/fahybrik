@@ -25,10 +25,16 @@ arregladas en código sin llegar a su móvil; la tercera era un bug real nuevo.
   contenido llena exactamente el alto disponible, sin margen para rebotar, y
   sin rebote `.refreshable` no tiene hueco donde aparecer. Pasado a `.always`.
 
-**Instalado directo en su iPhone físico** (`xcrun devicectl`, sin esperar
-TestFlight — sigue bloqueado por la firma pendiente, ver más abajo) para que
-la siguiente ronda de feedback sea contra código actual, no contra un build
-de hace varias iteraciones.
+**Segunda ronda, contra ese build fresco (`1028c984`):** el hueco bajo las
+partes seguía cayendo a la dosis (series/carga/descanso) cuando la sesión
+tenía un solo bloque — nunca debe: ese hueco es SOLO la nota del coach, sin
+nota se calla. Y el bloque único repetía el título de la sesión («Trainingpeaks
+· Semana 1» dos veces) — el título del bloque ahora solo se enseña si hay más
+de uno que distinguir. Con esto, un día de un bloque y un día de cinco
+bloques usan la MISMA composición — antes lucían como dos diseños distintos.
+Borrado `ClaveDosis`/`DatoClave` (sin otro consumidor). 42/42 tests, instalado
+de nuevo directo en el iPhone físico (`xcrun devicectl`, sin esperar
+TestFlight — sigue bloqueado por la firma pendiente, ver más abajo).
 
 **Auditoría grande en curso, PAUSADA a mitad:** Alex pidió analizar y luego
 diseñar de verdad el concepto «Series/Circuito» (rondas de varias estaciones
