@@ -258,7 +258,7 @@ export function ComponentsForm({
           ))}
           {block.items.length === 0 ? (
             <p className="px-1 py-2 text-xs text-[color:var(--v2-muted)]">
-              Sin estaciones — añade el primer movimiento.
+              Sin estaciones: añade el primer movimiento.
             </p>
           ) : null}
         </div>

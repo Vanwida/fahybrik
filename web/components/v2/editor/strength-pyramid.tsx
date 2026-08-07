@@ -343,7 +343,7 @@ function PyramidCell({
     'v2-focus grid h-6 w-6 shrink-0 select-none place-items-center rounded-[var(--v2-r-2xs)] text-sm text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]';
 
   return (
-    <span className="flex items-center justify-center gap-0.5">
+    <span className="flex min-w-0 items-center justify-center gap-0.5">
       <button type="button" {...dec} aria-label={`${ariaLabel}: menos`} className={btn}>
         −
       </button>
@@ -361,7 +361,9 @@ function PyramidCell({
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         }}
         className={cn(
-          'v2-focus v2-num w-14 rounded-[var(--v2-r-2xs)] bg-transparent py-1 text-center text-sm font-bold text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:bg-[color:var(--v2-surface-2)]',
+          // w fluida con tope: en 390 la rejilla encoge sin desbordar (los −/＋
+          // táctiles siempre visibles caben junto a la cifra).
+          'v2-focus v2-num w-full min-w-8 max-w-14 rounded-[var(--v2-r-2xs)] bg-transparent py-1 text-center text-sm font-bold text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:bg-[color:var(--v2-surface-2)]',
           proposed && PROPOSED_CELL,
         )}
       />

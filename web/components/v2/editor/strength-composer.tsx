@@ -177,7 +177,7 @@ export function StrengthFields({
     return (
       <div className="space-y-2">
         <p className="px-1 py-1 text-xs text-[color:var(--v2-muted)]">
-          Sin series — añade la primera.
+          Sin series: añade la primera.
         </p>
         <button
           type="button"
