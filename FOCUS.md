@@ -5,7 +5,33 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Importar plan por foto — «Completar huecos» (7-ago)
+## Ahora · Rediseño del editor de microciclos — MOCKUP, pendiente de OK (7-ago)
+
+Alex: la UI/UX del editor no da placer («parece un wordpress del 2000», espacios
+muertos, todo pequeño, demasiado teclado). Maqueta interactiva en
+**`docs/design/microciclos-editor-rediseno-mockup.html`** (Semana · Día ·
+Compositor, tema claro/oscuro con los tokens `--v2-*` reales, datos reales de la
+biblioteca — nada inventado).
+
+Las 4 ideas: (1) **dosis común del bloque se escribe UNA vez** y cada ejercicio
+solo lleva su excepción — muere la tabla que repetía 4×4·RIR2·90″ por fila;
+(2) **quickline** con la gramática real del importador (`parseNotationCell`,
+client-safe, ya probada en `RunStructureForm`) como forma principal de añadir
+bloques; (3) **compositor lateral** con steppers/chips/ticks en vez del modal
+de inputs (pirámide por serie con «aplicar hacia abajo», %RM en rango con dos
+toques); (4) el modelo enseña sus huecos reales: **rondas de circuito de
+verdad** (hoy se aplastan en sets del 1er ejercicio), descanso, «Opcional»
+como atributo, «sin dosis» visible y accionable.
+
+De la exploración salieron además **3 bugs del importador** que ensucian la
+biblioteca y habrá que arreglar en raíz aparte del rediseño: %RM leído como
+reps (block 16), km/h como metros (block 43), descanso como trabajo (block 37).
+
+**Sin construir nada en el editor real. Espera el OK/feedback de Alex sobre la maqueta.**
+
+---
+
+## 7-ago · Importar plan por foto — «Completar huecos»
 
 Un clic en la revisión: resuelve ejercicios (match/crear/descartar basura) y
 siembra dosis genéricas marcadas como propuestas. El coach confirma y refina
