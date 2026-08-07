@@ -23,7 +23,6 @@ import { useId } from 'react';
 import type { Modality, Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
-import { ModalityTag } from './compositor-chrome';
 import {
   axesOf,
   applyErgSubmodality,
@@ -91,14 +90,11 @@ export function PrescriptionFields({
   return (
     <div className="space-y-4">
       {/* ── ① MODALIDAD ─────────────────────────────────────────────────────
-          Con ejercicio elegido la modalidad es un DATO (intrínseca, 0053): se
-          pinta el tag y no se pregunta. El eje solo aparece cuando ningún
+          Con ejercicio elegido la modalidad es un DATO (intrínseca, 0053) y la
+          cabecera del compositor ya la enseña como tag — repetirla aquí era la
+          primera duplicación del drawer. El eje solo aparece cuando ningún
           ejercicio la determina. */}
-      {lockedModality ? (
-        <Axis label="Modalidad">
-          <ModalityTag modality={lockedModality} fixedByExercise />
-        </Axis>
-      ) : (
+      {lockedModality ? null : (
         <Axis label="Modalidad">
           <SegmentedControl
             options={MODALIDAD_OPTIONS}
@@ -137,19 +133,25 @@ export function PrescriptionFields({
         />
       </Axis>
 
-      {/* ── ③ CONTRA QUÉ OBJETIVO ───────────────────────────────────────── */}
-      <Axis label="Contra qué objetivo">
-        <SegmentedControl
-          options={objetivoOptions}
-          value={
-            objetivoOptions.some((o) => o.value === axes.objetivo)
-              ? axes.objetivo
-              : objetivoOptions[0]!.value
-          }
-          onChange={(k) => onChange(applyObjetivo(value, k))}
-          ariaLabel="Contra qué objetivo"
-        />
-      </Axis>
+      {/* ── ③ CONTRA QUÉ OBJETIVO ───────────────────────────────────────────
+          En FUERZA la carga vive en los chips del compositor (%RM · kg · RIR ·
+          RPE · Corporal): repetir el eje encima era la segunda duplicación del
+          drawer. En el resto de modalidades el eje sigue fijando el KIND que
+          edita TargetCell. */}
+      {!isStrength ? (
+        <Axis label="Contra qué objetivo">
+          <SegmentedControl
+            options={objetivoOptions}
+            value={
+              objetivoOptions.some((o) => o.value === axes.objetivo)
+                ? axes.objetivo
+                : objetivoOptions[0]!.value
+            }
+            onChange={(k) => onChange(applyObjetivo(value, k))}
+            ariaLabel="Contra qué objetivo"
+          />
+        </Axis>
+      ) : null}
 
       {/* ── Conditioning format (only for circuito/metcon-style blocks) ──── */}
       {!isStrength ? (
