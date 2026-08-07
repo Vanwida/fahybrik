@@ -30,6 +30,12 @@ const RIR_CHIP_VALUES = [0, 1, 2, 3, 4] as const;
 const RPE_CHIP_VALUES = [6, 7, 8, 9, 10] as const;
 const KG_STEP = 2.5;
 const MAX_SERIES_UI = 12; // tope del stepper; con más series (dato heredado) el tope crece solo
+const MAX_REPS_UI = 100; // mismo tope que el Stepper de reps
+const REPS_RANGE_DEFAULT_SPAN = 2; // "12" → "12-14" al activar; el coach ajusta el techo después
+
+/** Botón fantasma para activar algo opcional (mismo lenguaje que «＋ tempo», «＋ serie»). */
+const GHOST_ADD_CLASS =
+  'v2-focus inline-flex h-[34px] items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-[13px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]';
 
 /** El par valor/rango de un objetivo escalar (%RM, kg, RIR, RPE…). */
 export function scalarOf(t: Target | undefined): { lo: number | null; hi: number | null } {
@@ -104,11 +110,49 @@ export function SharedControls({
             <Stepper
               value={reps.value}
               min={1}
-              max={100}
+              max={MAX_REPS_UI}
               format={reps.max !== undefined ? (v) => `${v}-${reps.max}` : undefined}
               ariaLabel={proposedAria('Reps por serie', proposed.measure)}
               onChange={stepReps}
             />
+            {reps.max === undefined ? (
+              reps.value < MAX_REPS_UI ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    applyShared({
+                      measure: {
+                        kind: 'reps',
+                        value: reps.value,
+                        max: Math.min(MAX_REPS_UI, reps.value + REPS_RANGE_DEFAULT_SPAN),
+                      },
+                    })
+                  }
+                  className={GHOST_ADD_CLASS}
+                >
+                  ＋ rango
+                </button>
+              ) : null
+            ) : (
+              <>
+                <Stepper
+                  value={reps.max}
+                  min={reps.value + 1}
+                  max={MAX_REPS_UI}
+                  size="sm"
+                  format={(v) => `hasta ${v}`}
+                  ariaLabel="Techo del rango de reps"
+                  onChange={(v) => applyShared({ measure: { kind: 'reps', value: reps.value, max: v } })}
+                />
+                <button
+                  type="button"
+                  onClick={() => applyShared({ measure: { kind: 'reps', value: reps.value } })}
+                  className="v2-focus rounded-[var(--v2-r-2xs)] text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+                >
+                  quitar rango
+                </button>
+              </>
+            )}
             <ChipGroup
               options={REPS_CHIP_VALUES.map((v) => ({ value: v, label: String(v) }))}
               value={reps.max === undefined ? reps.value : null}
