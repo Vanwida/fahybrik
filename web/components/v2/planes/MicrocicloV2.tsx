@@ -30,7 +30,7 @@ import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
 import { DeleteMicrocicloModal } from '@/components/v2/planes/DeleteMicrocicloModal';
 import { SemanaBoard, vtEnabled } from '@/components/v2/planes/SemanaBoard';
-import { weekModalities } from '@/components/v2/planes/semana-model';
+import { buildWeekOutline, weekModalities } from '@/components/v2/planes/semana-model';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
 
@@ -233,6 +233,16 @@ export function MicrocicloV2({
     navigate(`/microciclos/${microcycle_id}`);
   }, [activeDayIndex, navigate, microcycle_id]);
 
+  // Frontera SEMANA↔DÍA (contrato): el outline de la semana en foco para el rail
+  // del editor de día, y el salto a otro día (1..7) por el MISMO soft-nav `?dia`.
+  // Estables (useMemo/useCallback) para no re-envolver el nav en cada render.
+  const weekOutline = useMemo(() => (focus ? buildWeekOutline(focus.days) : []), [focus]);
+  const selectDay = useCallback(
+    (dia: number) =>
+      navigate(dayCanvasHref(microcycle_id, effectiveFocusIndex * 7 + dia - 1)),
+    [navigate, microcycle_id, effectiveFocusIndex],
+  );
+
   // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
   const [duplicating, setDuplicating] = useState(false);
@@ -376,12 +386,8 @@ export function MicrocicloV2({
             onNavigateDay={navigate}
             prevDayHref={prevDayHref}
             nextDayHref={nextDayHref}
-            // TODO(integración): descomentar cuando DÍA exporte `DayRailDay` y las
-            // props opcionales `weekOutline`/`onSelectDay` (frontera SEMANA↔DÍA
-            // pineada en el contrato). El outline se construye de los datos de
-            // semana ya presentes, con el builder listo en semana-model.ts:
-            //   weekOutline={focus ? buildWeekOutline(focus.days) : []}
-            //   onSelectDay={(dia) => navigate(dayCanvasHref(microcycle_id, dayBase + dia - 1))}
+            weekOutline={weekOutline}
+            onSelectDay={selectDay}
           />
         </section>
       ) : focus ? (
