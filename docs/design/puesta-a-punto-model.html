@@ -74,14 +74,33 @@ tr:last-child td{border-bottom:none}
 <div class="wrap">
 
 <div class="meta">FAHYBRID · diseño de dominio · 7 agosto 2026 · SIN CONSTRUIR</div>
-<h1>Puesta a punto</h1>
+<h1>Semana cero</h1>
 <p class="lede">Los días huérfanos entre que el coach asigna un plan y el lunes que arranca. Hoy el atleta no ve nada. Este documento modela qué debería ver, y demuestra que casi toda la maquinaria ya existe.</p>
+
+<div class="card ok">
+  <span class="tag ok">Dirección de Alex · 7-ago</span>
+  <ul style="margin-bottom:0">
+    <li><strong>Nombre: «semana cero»</strong> — va antes de la semana 1, y la numeración lo explica sola.</li>
+    <li><strong>Fuera de la periodización.</strong> Es un sistema aparte: no es una semana del microciclo, no progresa, no cuenta como carga planificada del bloque. Encaja con lo que el sistema ya hace: estas asignaciones nacen con <code>microcycle_id = null</code>.</li>
+    <li><strong>Opcional.</strong> El coach puede no poner nada; entonces la semana cero simplemente no existe para ese atleta.</li>
+    <li><strong>Se ARRASTRA, no se escribe.</strong> El coach coge algo que <em>ya tiene creado</em> y lo activa sobre el atleta. Nada de autoría uno a uno por cada alta — eso es trabajo manual que se olvida.</li>
+  </ul>
+</div>
 
 <h2>El problema, con números reales</h2>
 
-<p>Un plan siempre arranca en <strong>lunes</strong>. No es una limitación de un botón: las 7 vías de asignación pasan por el mismo materializador (<code>instantiateMonthFromTemplate</code>), que ancla al lunes de la fecha que reciba. Es correcto — en este sistema una semana ES lunes-domingo en analíticas, adherencia y periodización.</p>
+<p>Un plan siempre arranca en <strong>lunes</strong>. No es una limitación de un botón: las 6 vías de asignación pasan por el mismo materializador (<code>instantiateMonthFromTemplate</code>), que ancla al lunes de la fecha que reciba. Es correcto — en este sistema una semana ES lunes-domingo en analíticas, adherencia y periodización.</p>
 
-<p>Pero la fecha por defecto es <em>el lunes siguiente</em> (<code>assign-sequence.ts:276</code>), así que el hueco va de 1 a 7 días:</p>
+<div class="card danger">
+  <span class="tag danger">Corrección · son DOS huecos con causas opuestas, no uno</span>
+  <p>Dije en sesión que todas las vías arrancan «el lunes siguiente». <strong>Es falso, y la excepción es la más importante.</strong></p>
+  <ul style="margin-bottom:0">
+    <li><strong>Asignar un plan</strong> (<code>assign-sequence.ts:276</code>, vuelta de pausa en <code>athlete-lifecycle-plan.ts:73</code>) ancla al <strong>lunes SIGUIENTE</strong> → deja 1-7 días de vacío. Es el hueco que este documento modela.</li>
+    <li><strong>El alta por intake</strong> (<code>intake.ts:1197</code>) ancla a <strong>ESTE lunes</strong> — y es el camino por defecto. No deja vacío: <em>crea sesiones en días que ya pasaron</em>. El hueco inverso, y peor, porque nacen ya incumplidas.</li>
+  </ul>
+</div>
+
+<p>Para la vía de asignación, la fecha por defecto es el lunes siguiente, así que el hueco va de 1 a 7 días:</p>
 
 <table>
   <thead><tr><th>Das de alta un…</th><th class="num">Días huérfanos</th><th>Qué ve el atleta hoy</th></tr></thead>
@@ -125,7 +144,29 @@ tr:last-child td{border-bottom:none}
 
 <p>Es decir: <strong>«qué contenido va en esos días» ya está resuelto y es dato del coach.</strong> No hay que inventar un editor nuevo ni pedirle a Pablo que escriba nada.</p>
 
-<h2>El modelo: la puesta a punto es <code>week_offset = 0</code></h2>
+<h2>De dónde sale el contenido: dos fuentes, ninguna es escribir a mano</h2>
+
+<p>La semana cero se llena de dos sitios, y los dos son cosas que el coach <strong>ya tiene hechas</strong>:</p>
+
+<table>
+  <thead><tr><th>Fuente</th><th>Gesto del coach</th><th>Qué ya existe</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Sus tests de calibración</strong><br><span style="color:var(--muted);font-size:13px">5K control, Remo 2K, 1RM, half-sim</span></td>
+      <td>Ninguno — se colocan solos al asignar, como ya hacen en la semana 1</td>
+      <td><code>coach_calibration_tests</code> + <code>coach_test_schedule</code> + el inyector automático</td>
+    </tr>
+    <tr>
+      <td><strong>Su biblioteca</strong><br><span style="color:var(--muted);font-size:13px">un bloque o una sesión ya montada: movilidad, toma de contacto, activación</span></td>
+      <td><strong>Arrastrar / activar</strong> sobre el atleta</td>
+      <td>Biblioteca de bloques y sesiones + <code>applyTestToAthletes</code> como precedente del gesto «aplicar a atletas»</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Lo que hace falta construir no es un editor: es un <strong>preajuste reutilizable de semana cero</strong> — el coach lo compone <em>una vez</em> (por nivel, igual que las secuencias) y a partir de ahí cada alta lo hereda sin tocar nada. Poder retocarlo para un atleta concreto es un extra, no el camino principal.</p>
+
+<h2>El modelo: la semana cero es <code>week_offset = 0</code></h2>
 
 <p>Los días huérfanos <strong>siempre</strong> son la cola de la semana anterior a la semana 1. Eso encaja exacto con el modelo que ya existe:</p>
 
@@ -218,23 +259,48 @@ tr:last-child td{border-bottom:none}
   <p style="margin:0">La verja real es <code>hasPublishedWeek</code> (<code>week-plan.ts:406</code>): la semana siguiente se sirve <strong>si tiene asignaciones y no está en borrador</strong>. Las 9 semanas del atleta 64 están <code>published</code>, así que el <em>peek</em> funciona hoy. Lo que faltaba era el botón en iOS — añadido el 7-ago 15:31 (<code>a4f7ba60</code>, <code>a87c4a3b</code>): una build anterior a esa hora no lo tiene.</p>
 </div>
 
+<h2>Tres bugs confirmados que este trabajo destapa</h2>
+
+<p>Ninguno es de este diseño; los tres son de hoy y están verificados contra el código.</p>
+
+<div class="card danger">
+  <span class="tag danger">A · La app le miente al atleta cuando su plan aún no ha arrancado</span>
+  <p style="margin:0">El estado vacío de iOS dice literalmente «<strong>Tu coach aún no ha publicado tu plan</strong>» (<code>PlanView.swift:499</code>). En el caso de Alex eso es <strong>falso</strong>: sus 9 semanas están <code>published</code> en la base — simplemente empiezan el 10-ago. El mensaje no distingue «no hay nada» de «hay plan y empieza el lunes», y por eso el diagnóstico de esta sesión costó tres vueltas: <em>la app nos estaba dando una pista equivocada a los dos</em>. Es el arreglo más pequeño y más rentable de toda esta página.</p>
+</div>
+
+<div class="card danger">
+  <span class="tag danger">B · Dos clics del coach = dos juegos de entrenos, en silencio</span>
+  <p style="margin:0">No hay ningún <em>unique</em> en <code>workout_assignments</code> ni <code>on conflict</code> en el insert (<code>instantiate-program.ts:420</code>). El propio código lo reconoce por escrito: <em>«instantiateMonthFromTemplate has NO dedup guard (it double-inserts on re-call)»</em> (<code>assign-sequence.ts:211</code>). Las guardas existentes viven una capa por encima y ninguna mira la fecha; <code>/assign-month</code> y <code>/assign-draft</code> no tienen ninguna. Agravante: las duplicadas cuelgan del mismo microciclo, así que son <strong>indistinguibles</strong> de las buenas.</p>
+</div>
+
+<div class="card danger">
+  <span class="tag danger">C · El Día 1 de iOS promete cosas que el backend no cumple</span>
+  <p style="margin:0"><code>Day1Flow.swift</code> (384 líneas, ya construido y en producción) le dice al atleta «<em>Tu coach te programará tus tests en la primera semana</em>» y «<em>Cada domingo tienes tu plan listo en la app</em>». Lo primero no ocurre si el atleta ya hizo algún test alguna vez (el guardián de idempotencia); lo segundo no existe como mecanismo en ninguna parte. Son promesas de producto sin motor detrás.</p>
+</div>
+
 <h2>Lo que decide Alex</h2>
 
-<div class="q">
-  <b>1 · El nombre</b>
-  «Puesta a punto» (lo que propongo) · «Antes de empezar» · «Toma de contacto». <em>No</em> «Semana 0»: no es una semana, son 1-7 días.
+<div class="q" style="border-left:4px solid var(--ok)">
+  <b>1 · El nombre — DECIDIDO: «semana cero»</b>
+  Va antes de la semana 1 y la numeración se explica sola. Al atleta se le puede decir «Antes de empezar» si «semana cero» suena a jerga de coach.
 </div>
 
 <div class="q">
   <b>2 · Alcance de la primera versión</b>
   (a) Solo el mensaje «tu plan empieza el lunes 10» — pequeño, tapa el agujero feo, no resuelve el vacío.<br>
-  (b) Mensaje + puesta a punto con los tests que ya existen — el círculo cerrado.<br>
-  (c) Todo lo anterior + tareas sin entreno (conectar reloj, check-in).
+  (b) Mensaje + semana cero automática con los tests que ya existen — el círculo cerrado, cero trabajo nuevo para el coach.<br>
+  (c) Todo lo anterior + el preajuste arrastrable desde la biblioteca.<br>
+  (d) Todo + tareas sin entreno (conectar reloj, check-in).
 </div>
 
 <div class="q">
   <b>3 · La fecha por defecto</b>
-  Hoy siempre es <em>el lunes siguiente</em>, así que dar de alta un lunes deja 7 días muertos. ¿Debería un alta en lunes arrancar <strong>ese mismo lunes</strong>? Reduce el peor caso de 7 días a 0, pero mete entrenos en un día ya empezado.
+  En la vía de asignación siempre es <em>el lunes siguiente</em>, así que asignar un lunes deja 7 días muertos. ¿Debería arrancar <strong>ese mismo lunes</strong> cuando se asigna en lunes? Reduce el peor caso de 7 días a 0, pero mete entrenos en un día ya empezado. <em>(Y por el otro lado: el alta por intake hace justo lo contrario y crea días pasados — eso hay que arreglarlo caiga lo que caiga aquí.)</em>
+</div>
+
+<div class="q">
+  <b>4 · Qué arreglamos primero</b>
+  Los tres bugs de arriba son independientes de la puesta a punto. El <strong>A</strong> (la app miente) es pequeño y contesta directamente tu queja original. El <strong>B</strong> (doble reserva) es el más peligroso para el dato real. ¿Van antes, después, o en paralelo al diseño?
 </div>
 
 <p class="footnote">Nada de esto está construido. El modelo se apoya en <code>coach_calibration_tests</code>, <code>coach_test_schedule</code>, <code>scheduleWeek1Calibration</code> e <code>instantiate-program.ts:185</code>, todos verificados hoy contra el código y contra la base de producción.</p>
