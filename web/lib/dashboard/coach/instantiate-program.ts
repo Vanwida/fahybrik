@@ -235,6 +235,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
     week_start: weekStartIso,
     week_end: weekEndIso,
     week_number: params.week_number,
+    week_template_id: params.week_template_id,
   });
 
   const weekTpl = await getWeekTemplate({
@@ -295,6 +296,68 @@ export async function instantiateWeekIntoMicrocycle(params: {
   return { microcycle_id: microId, assignment_count: assignmentCount };
 }
 
+export type ResyncWeekTemplateResult = {
+  microcycles_checked: number;
+  assignments_resynced: number;
+};
+
+/**
+ * Resincroniza los microciclos YA ASIGNADOS que vinieron de esta plantilla de
+ * semana (linaje de 0158) — se llama tras cada guardado del editor de día para
+ * que una edición posterior de verdad llegue al atleta. Antes de esto, editar
+ * una semana ya asignada se guardaba bien en la plantilla y nunca salía de
+ * ahí: no había ni rastro de qué microciclos avisar (Alex, 7-ago: escribió una
+ * nota para un ejercicio ya asignado y no llegó nunca al atleta).
+ *
+ * Reusa el MISMO motor que la asignación inicial — `instantiateWeekIntoMicrocycle`
+ * vuelve a recorrer días/sesiones con el contenido fresco, y `insertSlotAssignment`
+ * decide por slot: 'scheduled' → reemplaza el contenido materializado; cualquier
+ * otro estado ('completed'/'partial'/'skipped'/'missed') → se deja intacto, el
+ * atleta ya actuó sobre esa fila. Nunca inventa asignaciones nuevas fuera de las
+ * que ya existían — resincroniza, no vuelve a repartir.
+ *
+ * Best-effort por microciclo, en su propia transacción: un atleta con un fallo
+ * no debe bloquear a los demás ni el guardado del día que disparó esto.
+ */
+export async function resyncWeekTemplateAssignments(params: {
+  coach_id: number | bigint;
+  week_template_id: number | bigint;
+  progression?: ProgressionSpec;
+  client?: Sql;
+}): Promise<ResyncWeekTemplateResult> {
+  const client = params.client ?? defaultSql;
+
+  const microcycles = await client<
+    Array<{ id: string; athlete_id: string; start_date: string; week_number: number }>
+  >`
+    select id::text, athlete_id::text, start_date::text, week_number
+    from microcycles
+    where source_week_template_id = ${Number(params.week_template_id)}
+  `;
+
+  let assignments_resynced = 0;
+  for (const mc of microcycles) {
+    try {
+      const result = await client.begin(async (tx) => {
+        return instantiateWeekIntoMicrocycle({
+          client: tx as unknown as Sql,
+          coach_id: params.coach_id,
+          athlete_id: Number(mc.athlete_id),
+          week_template_id: params.week_template_id,
+          week_start: parseIsoDate(mc.start_date),
+          week_number: mc.week_number,
+          progression: params.progression,
+        });
+      });
+      assignments_resynced += result.assignment_count;
+    } catch {
+      // best-effort — ver comentario de la función.
+    }
+  }
+
+  return { microcycles_checked: microcycles.length, assignments_resynced };
+}
+
 /**
  * Carga las preferencias de calendario del atleta (Step 5 disponibilidad +
  * Step 6 semana preferida) para condicionar EN QUÉ días caen las sesiones.
@@ -326,6 +389,12 @@ async function loadAthleteSchedulePrefs(
  * `athlete_month_assignments`, no este número), así que un nuevo plan que reinicia en
  * 1 continúa pasado el máximo del atleta para evitar colisiones con el unique
  * `(athlete_id, week_number)`.
+ *
+ * `week_template_id` (0158) se escribe SIEMPRE que se conoce, tanto al crear como
+ * al reusar uno existente — es el linaje que la resincronización usa para
+ * encontrar qué microciclos avisar cuando el coach edita la plantilla después de
+ * asignarla. `undefined` (entreno libre/import legacy sin plantilla detrás) deja
+ * la columna como estaba, nunca la borra.
  */
 async function resolveOrCreateMicrocycle(params: {
   client: Sql;
@@ -333,6 +402,7 @@ async function resolveOrCreateMicrocycle(params: {
   week_start: string;
   week_end: string;
   week_number: number;
+  week_template_id?: number | bigint;
 }): Promise<string> {
   const db = params.client as Sql;
   const existing = await db<Array<{ id: string }>>`
@@ -344,7 +414,15 @@ async function resolveOrCreateMicrocycle(params: {
     order by mc.start_date asc
     limit 1
   `;
-  if (existing[0]) return existing[0].id;
+  if (existing[0]) {
+    if (params.week_template_id != null) {
+      await db`
+        update microcycles set source_week_template_id = ${Number(params.week_template_id)}
+        where id = ${Number(existing[0].id)}
+      `;
+    }
+    return existing[0].id;
+  }
 
   const taken = await db<Array<{ max_week: number | null }>>`
     select max(week_number)::int as max_week
@@ -355,12 +433,13 @@ async function resolveOrCreateMicrocycle(params: {
   const weekNumber = params.week_number > maxWeek ? params.week_number : maxWeek + 1;
 
   const ins = await db<Array<{ id: string }>>`
-    insert into microcycles (athlete_id, week_number, start_date, end_date)
+    insert into microcycles (athlete_id, week_number, start_date, end_date, source_week_template_id)
     values (
       ${params.athlete_id as number},
       ${weekNumber},
       ${params.week_start}::date,
-      ${params.week_end}::date
+      ${params.week_end}::date,
+      ${params.week_template_id != null ? Number(params.week_template_id) : null}
     )
     returning id::text
   `;
@@ -434,14 +513,29 @@ async function insertSlotAssignment(params: {
   //
   // `on conflict` no sirve: la tabla no tiene índice único que lo soporte y
   // añadirlo retroactivamente rompería los días con varias sesiones legítimas.
-  const dup = await params.client<Array<{ one: number }>>`
-    select 1 as one from workout_assignments
+  //
+  // El `status` decide qué hacer con el duplicado, no solo si lo hay. Mientras
+  // sigue 'scheduled' el atleta no ha tocado nada — es seguro REEMPLAZAR su
+  // contenido por el recién materializado (resincronizar una edición posterior
+  // del coach, 0158). En cualquier otro estado ('completed'/'partial'/'skipped'/
+  // 'missed') el atleta ya actuó sobre esa fila: se deja intacta, siempre — la
+  // misma guarda que usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts).
+  const dup = await params.client<Array<{ id: string; status: string }>>`
+    select id::text, status::text from workout_assignments
     where athlete_id = ${params.athlete_id as number}
       and scheduled_for = ${params.scheduled_for}::date
       and notes = ${`slot:${params.slot}`}
     limit 1
   `;
-  if (dup.length > 0) return 0;
+  if (dup.length > 0) {
+    if (dup[0]!.status !== 'scheduled') return 0;
+    await params.client`
+      update workout_assignments
+      set template_id = ${templateId}, template_version = ${version}, updated_at = now()
+      where id = ${Number(dup[0]!.id)}
+    `;
+    return 1;
+  }
 
   await params.client`
     insert into workout_assignments (
