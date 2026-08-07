@@ -216,15 +216,30 @@ struct FilaParteSesion: View {
                     }
                 }
             }
-            // Los NOMBRES, no un recuento: «3 ejercicios» no dice qué toca hoy —
-            // esto sí (Alex, 7-ago).
-            if !parte.resumenDeNombres.isEmpty {
-                Text(parte.resumenDeNombres)
-                    .scaledFont(mostrarTitulo ? 12 : 13, weight: .medium, relativeTo: .footnote)
-                    .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.foreground)
-                    .lineLimit(mostrarTitulo ? 2 : 3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, mostrarTitulo ? 6 + Theme.Spacing.s : 0)
+            // Los NOMBRES, cada uno su fila — no un recuento, ni una frase con
+            // comas: «3 ejercicios» no dice qué toca hoy, y un párrafo se lee
+            // como una nota en vez de como una lista (Alex, 7-ago).
+            if !parte.nombresVisibles.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(parte.nombresVisibles, id: \.self) { nombre in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text("–")
+                                .scaledFont(mostrarTitulo ? 12 : 13, weight: .medium, relativeTo: .footnote)
+                                .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.muted)
+                            Text(nombre)
+                                .scaledFont(mostrarTitulo ? 12 : 13, weight: .medium, relativeTo: .footnote)
+                                .foregroundStyle(parte.estructural ? Theme.Color.faint : Theme.Color.foreground)
+                                .lineLimit(1)
+                        }
+                    }
+                    if parte.nombresDeMas > 0 {
+                        Text(parte.nombresDeMas == 1 ? "+ 1 más" : "+ \(parte.nombresDeMas) más")
+                            .scaledFont(mostrarTitulo ? 12 : 13, weight: .medium, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.faint)
+                            .padding(.leading, 12)
+                    }
+                }
+                .padding(.leading, mostrarTitulo ? 6 + Theme.Spacing.s : 0)
             }
         }
         .accessibilityElement(children: .ignore)

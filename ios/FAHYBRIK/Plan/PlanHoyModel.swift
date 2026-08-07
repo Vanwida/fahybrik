@@ -325,17 +325,21 @@ struct ParteDeSesion: Identifiable, Equatable {
     /// una modalidad para el conjunto.
     let modalidad: String?
 
-    /// Cuántos nombres caben en la fila sin que la card los empuje a dos líneas.
+    /// Cuántos nombres caben como filas antes de resumir el resto en una cifra.
     static let maxNombresEnFila = 3
 
-    /// «Peso muerto rumano, Zancada búlgara + 1 más» — los nombres que caben,
-    /// con lo que sobra dicho como cifra, nunca leído entero ni cortado a ciegas.
+    /// Los nombres que se pintan como filas propias — nunca como una frase.
+    /// «Puente de glúteo, Marcha desde puente de glúteo» leído de corrido no se
+    /// distingue de una nota; cada ejercicio es SU fila (Alex, 7-ago: «¿está en
+    /// una lista? no tiene sentido» — no lo era, era un párrafo).
+    var nombresVisibles: [String] { Array(nombresEjercicios.prefix(Self.maxNombresEnFila)) }
+    var nombresDeMas: Int { max(0, nombresEjercicios.count - nombresVisibles.count) }
+
+    /// Solo para VoiceOver, donde una frase sí es la forma correcta de leerlo.
     var resumenDeNombres: String {
         guard !nombresEjercicios.isEmpty else { return "" }
-        let visibles = nombresEjercicios.prefix(Self.maxNombresEnFila)
-        let restantes = nombresEjercicios.count - visibles.count
-        let base = visibles.joined(separator: ", ")
-        return restantes > 0 ? "\(base) + \(restantes) más" : base
+        let base = nombresVisibles.joined(separator: ", ")
+        return nombresDeMas > 0 ? "\(base) + \(nombresDeMas) más" : base
     }
 }
 
