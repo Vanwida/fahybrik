@@ -5,7 +5,43 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Rediseño del editor de microciclos — FASE 1 + FASE 2 EN PRODUCCIÓN (7-ago)
+## Ahora · PAUSADO a mitad — «semana cero» diseñada, sin construir (7-ago tarde)
+
+Alex para la sesión hasta que otra termine su refactor de la pantalla Plan.
+
+**Lo que queda por hacer al retomar:** construir la semana cero. Diseño cerrado
+en `docs/design/puesta-a-punto-model.html` (abrirlo). Resumen: es
+`week_offset = 0` en `coach_test_schedule` (hoy prohibido por `CHECK >= 1` en
+base y zod → pide migración que relaje a `>= 0`); se llena de DOS fuentes que el
+coach ya tiene hechas — sus tests de calibración (automáticos, ya hay inyector
+en `instantiate-program.ts:185`) y su biblioteca (arrastrar/activar). Preajuste
+reutilizable POR NIVEL, nunca autoría por atleta. Fuera de la periodización
+(`microcycle_id = null`, que ya es lo que pasa). Falta decidir alcance.
+
+**Bloqueo real:** otra sesión tiene `PlanView.swift` / `PlanHoyModel.swift` /
+`PlanHeroeHoy.swift` **sin commitear y sin compilar** (faltan `claveDeMostrado`,
+`cargarDetalleDeMostrado`, `desgloseHoy`, `desgloseDe`, `diaAElegir`). iOS no
+compila hasta que cierren.
+
+**Arreglado y desplegado hoy en esta tanda:**
+- La app dejaba de mentir: el vacío decía «tu coach aún no ha publicado tu plan»
+  con el plan YA publicado y empezando el lunes siguiente. Ahora son tres estados
+  honestos, con «Tu plan empieza el lunes 10 de agosto». Campo nuevo
+  `AthleteWeekPlan.plan_starts_on`.
+- Tres afirmaciones de MÉTODO fuera del copy (ver DECISIONS.md 7-ago: la app no
+  puede decir lo que un coach hace ni con qué cadencia).
+- Doble reserva: asignar dos veces ya no duplica los entrenos
+  (`instantiate-program.ts`, guarda por atleta+fecha+slot).
+
+**Hallazgos anotados, sin tocar:** el guardián de idempotencia de la calibración
+mira toda la vida del atleta (por eso el plan nuevo de Alex no lleva tests); el
+alta por intake ancla a ESTE lunes y crea días pasados; deriva de contrato en
+los tests (editar uno ya forkeado → 422 `unknown_slug`); la maquinaria de tests
+está sin estrenar (2 asignaciones en toda la producción).
+
+---
+
+## Antes · Rediseño del editor de microciclos — FASE 1 + FASE 2 EN PRODUCCIÓN (7-ago)
 
 Alex aprobó la maqueta (`docs/design/microciclos-editor-rediseno-mockup.html`)
 y las dos fases están desplegadas en app.fahybrid.com
