@@ -341,6 +341,7 @@ export function DayEditor({
                   onMoveItem={(blockUid, itemUid, dir) =>
                     day.moveItem(session.uid, blockUid, itemUid, dir)
                   }
+                  onToggleOptional={(blockUid) => day.toggleOptional(session.uid, blockUid)}
                 />
               </div>
             ))}

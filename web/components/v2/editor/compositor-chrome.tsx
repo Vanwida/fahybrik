@@ -18,6 +18,7 @@ import {
   modalityColorSlug,
 } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
+import { cn } from '@/lib/utils';
 
 /**
  * El tag de modalidad: un dato, no un control. `fixedByExercise` añade el
@@ -47,6 +48,54 @@ export function ModalityTag({
   );
 }
 
+/**
+ * OptionalBadge — el bloque es un EXTRA que el atleta puede saltarse (fase 2,
+ * ago-2026, DECISIONS.md 2026-08-05). Mismo componente en las TRES superficies
+ * que lo enseñan (hoja del día, compositor, tablero Semana — SessionPartCard,
+ * CompositorHeader, SemanaBoard.BlockLine) para que nunca puedan divergir
+ * visualmente. Estilo `.badge-op` del mock aprobado.
+ *
+ * Con `onToggle` es un CONTROL clicable (día/compositor: persiste vía
+ * `EditorBlock.optional`). Sin él es de SOLO LECTURA (Semana: la tarjeta
+ * entera ya es un `<Link>` — anidar un `<button>` ahí sería HTML inválido) y
+ * no pinta nada cuando no es opcional, porque el badge existe para DECIR
+ * "esto es opcional", no para invitar a tocarlo.
+ */
+export function OptionalBadge({
+  optional,
+  onToggle,
+}: {
+  optional: boolean;
+  onToggle?: () => void;
+}) {
+  const base =
+    'v2-focus inline-flex shrink-0 items-center rounded-[var(--v2-r-2xs)] px-1.5 py-[3px] text-[9px] font-extrabold uppercase leading-none tracking-wide transition-colors';
+  const onStyle =
+    'border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)]';
+
+  if (!onToggle) {
+    return optional ? <span className={cn(base, onStyle)}>Opcional</span> : null;
+  }
+
+  const offStyle =
+    'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]';
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={optional}
+      title={
+        optional
+          ? 'Quitar «opcional» — vuelve a ser obligatorio'
+          : 'Marcar como opcional — el atleta puede saltárselo'
+      }
+      className={cn(base, optional ? onStyle : offStyle)}
+    >
+      Opcional
+    </button>
+  );
+}
+
 /** La modalidad que el EJERCICIO fija en una línea (0053), o null si nada la fija. */
 export function exerciseFixedModality(item: {
   exercise_id: number | null;
@@ -69,10 +118,20 @@ export function CompositorHeader({
   block,
   onChange,
   onDuplicate,
+  showOptionalToggle = false,
 }: {
   block: EditorBlock;
   onChange: (next: EditorBlock) => void;
   onDuplicate?: () => void;
+  /**
+   * Enseña el toggle «Opcional» (fase 2). Por defecto OFF: solo el day editor
+   * (BlockEditorDrawer) persiste `optional` — la Biblioteca de bloques y el
+   * editor de sesión de la librería (BlockLibraryEditor/SessionEditor) guardan
+   * por otro camino (`blockWriteSchema`/`serializeSessionSegments`) que NO
+   * lleva este campo, así que enseñar el control ahí mentiría: el coach lo
+   * marcaría y se perdería al guardar. Honestidad del dato (CONTRATO-UI §7).
+   */
+  showOptionalToggle?: boolean;
 }) {
   const archetype = block.archetype_id
     ? getArchetype(block.archetype_id)
@@ -101,7 +160,17 @@ export function CompositorHeader({
           onChange={(e) => onChange({ ...block, title: e.target.value })}
           className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-[26px] text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
         />
-        {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
+        {shown || showOptionalToggle ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
+            {showOptionalToggle ? (
+              <OptionalBadge
+                optional={block.optional ?? false}
+                onToggle={() => onChange({ ...block, optional: !block.optional })}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {onDuplicate ? (
         <button
