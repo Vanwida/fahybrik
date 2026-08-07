@@ -5,23 +5,25 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · PAUSADO a mitad — «semana cero» diseñada, sin construir (7-ago tarde)
+## Ahora · «semana cero» diseñada, sin construir — DESBLOQUEADO (7-ago noche)
 
-Alex para la sesión hasta que otra termine su refactor de la pantalla Plan.
+**El refactor de Plan que bloqueaba esto ya cerró y compila.** `PlanView.swift`/
+`PlanHoyModel.swift`/`PlanHeroeHoy.swift`/`PlanHoyAtoms.swift` commiteados y
+verificados (`dd2c6e80`): build limpio, 41/41 tests. `claveDeMostrado`,
+`cargarDetalleDeMostrado`, `diaSeleccionadoId` ya existen; `desgloseHoy`,
+`desgloseDe`, `diaAElegir`, `tocarDia`, `ElegirSesionDelDia` quedaron borrados
+a propósito (el mecanismo nuevo — un solo día MOSTRADO, seleccionable por
+toque o deslizando semana — no los necesita). Quien retome puede tirar de
+`main`/`feat/pm5-counter-sync` sin esperar más.
 
-**Lo que queda por hacer al retomar:** construir la semana cero. Diseño cerrado
-en `docs/design/puesta-a-punto-model.html` (abrirlo). Resumen: es
+**Lo que queda por hacer:** construir la semana cero. Diseño cerrado en
+`docs/design/puesta-a-punto-model.html` (abrirlo). Resumen: es
 `week_offset = 0` en `coach_test_schedule` (hoy prohibido por `CHECK >= 1` en
 base y zod → pide migración que relaje a `>= 0`); se llena de DOS fuentes que el
 coach ya tiene hechas — sus tests de calibración (automáticos, ya hay inyector
 en `instantiate-program.ts:185`) y su biblioteca (arrastrar/activar). Preajuste
 reutilizable POR NIVEL, nunca autoría por atleta. Fuera de la periodización
 (`microcycle_id = null`, que ya es lo que pasa). Falta decidir alcance.
-
-**Bloqueo real:** otra sesión tiene `PlanView.swift` / `PlanHoyModel.swift` /
-`PlanHeroeHoy.swift` **sin commitear y sin compilar** (faltan `claveDeMostrado`,
-`cargarDetalleDeMostrado`, `desgloseHoy`, `desgloseDe`, `diaAElegir`). iOS no
-compila hasta que cierren.
 
 **Arreglado y desplegado hoy en esta tanda:**
 - La app dejaba de mentir: el vacío decía «tu coach aún no ha publicado tu plan»
