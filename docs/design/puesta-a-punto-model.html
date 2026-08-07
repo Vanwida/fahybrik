@@ -200,6 +200,12 @@ tr:last-child td{border-bottom:none}
   <p style="margin:0">Con hueco 0-1 días, o si el coach no tiene tests, la puesta a punto está vacía y el atleta <strong>sigue viendo una semana muda</strong>. Por eso el mensaje «<em>tu plan empieza el lunes 10</em>» hace falta igual, independientemente de todo lo demás.</p>
 </div>
 
+<div class="card info">
+  <span class="tag info">Corrección · no existe la «regla del sábado»</span>
+  <p>Durante esta sesión afirmé que el atleta no podía ojear la semana siguiente hasta el sábado. <strong>Es falso.</strong> El «unlocks Saturday» de <code>plan/week/route.ts:12</code> y <code>week-plan.ts:404</code> es un <em>comentario de intención</em>: no hay ninguna comprobación de día de la semana en el código.</p>
+  <p style="margin:0">La verja real es <code>hasPublishedWeek</code> (<code>week-plan.ts:406</code>): la semana siguiente se sirve <strong>si tiene asignaciones y no está en borrador</strong>. Las 9 semanas del atleta 64 están <code>published</code>, así que el <em>peek</em> funciona hoy. Lo que faltaba era el botón en iOS — añadido el 7-ago 15:31 (<code>a4f7ba60</code>, <code>a87c4a3b</code>): una build anterior a esa hora no lo tiene.</p>
+</div>
+
 <h2>Lo que decide Alex</h2>
 
 <div class="q">
