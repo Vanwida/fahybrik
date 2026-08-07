@@ -379,7 +379,15 @@ export function MicrocicloV2({
       {/* Body — DÍA zoom (embedded editor) or SEMANA zoom (weekstrip + board). */}
       {dayModel ? (
         <section className="vt-day-editor rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 sm:p-4">
+          {/* key por identidad SEMANA+DÍA (mismo `dayKey` de arriba): sin ella
+              React reutiliza la instancia al cambiar de día — DayEditor guarda
+              sus sesiones en useState(initial) sin resincronizar, así que el
+              panel se quedaba mostrando el día anterior mientras cabecera y
+              carril ya marcaban el nuevo (bug real, no cosmético, cazado en
+              QA de producción; day_of_week solo no basta porque dos semanas
+              comparten el mismo 1..7). */}
           <DayEditor
+            key={dayKey}
             model={dayModel}
             embedded
             onBackToWeek={closeDay}
