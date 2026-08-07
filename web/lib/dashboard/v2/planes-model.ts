@@ -74,6 +74,13 @@ export interface DayBlockInfo {
   lines: DayItemLine[];
   /** Total exercise items in the block (lines may be truncated). */
   item_count: number;
+  /**
+   * El bloque es un extra que el atleta puede saltarse (fase 2, ago-2026,
+   * `WeekDayPart.optional`). Ausente/false = obligatorio. Mismo dato que lee
+   * el day editor (SessionPartCard) — las dos superficies nunca pueden
+   * discrepar porque las dos lo leen del mismo `WeekDayPart`.
+   */
+  optional: boolean;
 }
 
 /** A session within a day (AM / PM …) with its coach focus + blocks. */
@@ -156,6 +163,7 @@ function blockInfo(block: WeekDayPart): DayBlockInfo {
       name: it.exercise_name,
       dose: itemDose(it),
     })),
+    optional: block.optional ?? false,
   };
 }
 

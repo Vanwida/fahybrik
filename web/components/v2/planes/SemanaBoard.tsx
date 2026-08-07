@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
+import { OptionalBadge } from '@/components/v2/editor/compositor-chrome';
 import { DAY_LABELS_FULL, dayCanvasHref, type DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 import type { DaySessionInfo, DayBlockInfo } from '@/lib/dashboard/v2/planes-model';
 import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
@@ -63,6 +64,7 @@ function BlockLine({ block }: { block: DayBlockInfo }) {
       }}
     >
       <div className="flex min-w-0 items-center gap-1.5">
+        <OptionalBadge optional={block.optional} />
         <span className="truncate text-label font-bold text-[color:var(--v2-fg)]">
           {block.title}
         </span>
