@@ -122,6 +122,13 @@ export interface EditorBlock {
    * hoy no tiene UI para editarlo, así que se preserva pero no se muestra.
    */
   coach_note?: string;
+  /**
+   * El bloque es un extra que el atleta puede saltarse (fase 2, ago-2026).
+   * Ausente/false = obligatorio, el comportamiento de siempre. Solo el day
+   * editor lo persiste; el resto de constructores de EditorBlock (biblioteca,
+   * IA, hyrox-template, quickline…) no lo tocan y queda implícitamente false.
+   */
+  optional?: boolean;
   items: EditorItem[];
 }
 

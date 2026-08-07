@@ -156,6 +156,9 @@ export function rawDayToWireSessions(day: WeekDay): EditorSessionInput[] {
       format: b.format,
       methodology_group_id: b.methodology_group_id ?? null,
       source_block_id: b.source_block_id ?? null,
+      // Un bloque OPCIONAL sigue siéndolo en la copia — dropearlo aquí sería
+      // perder el atributo en silencio, no solo un problema de tipos.
+      ...(b.optional ? { optional: true } : {}),
       items: (b.items ?? []).map((it) => ({
         uid: it.uid,
         exercise_id: Number(it.exercise_id),

@@ -138,6 +138,12 @@ function serializePart(
       : original?.coach_note != null
         ? { coach_note: original.coach_note }
         : {}),
+    // Autoritativo desde el input, como `format`/`title` arriba: el day editor
+    // SÍ tiene UI para esto (a diferencia de coach_note), así que el cliente
+    // siempre manda su valor actual — incluida la vuelta a false. `?? false`
+    // porque EditorBlock.optional es TS-opcional (otros constructores del tipo
+    // — biblioteca, IA, quickline — no lo tocan nunca).
+    optional: block.optional ?? false,
     items,
   };
 }

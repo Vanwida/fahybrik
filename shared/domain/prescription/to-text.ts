@@ -55,6 +55,12 @@ function rangeNum(min: number | undefined, max: number | undefined, value: numbe
   return lo === hi ? `${lo}` : `${lo}-${hi}`;
 }
 
+// "3 rondas" for a fixed count, "3-4 rondas" for a band — same rangeNum shape
+// every other axis (target, measure) already uses. Empty when rounds is unset.
+function roundsNum(p: Pick<Prescription, 'rounds' | 'rounds_max'>): string {
+  return rangeNum(p.rounds, p.rounds_max, undefined);
+}
+
 // ── Target formatting ───────────────────────────────────────────────────────
 export function formatTarget(t: Target): string {
   switch (t.kind) {
@@ -179,10 +185,10 @@ export function prescriptionToText(p: Prescription): string {
       lead = p.total_s !== undefined ? `AMRAP ${formatDuration(p.total_s)}` : 'AMRAP';
       break;
     case 'emom':
-      lead = p.rounds !== undefined ? `EMOM ${p.rounds}'` : 'EMOM';
+      lead = p.rounds !== undefined ? `EMOM ${roundsNum(p)}'` : 'EMOM';
       break;
     case 'for_time':
-      lead = p.rounds !== undefined ? `${p.rounds} rondas For Time` : 'For Time';
+      lead = p.rounds !== undefined ? `${roundsNum(p)} rondas For Time` : 'For Time';
       break;
     case 'tabata':
       lead =
@@ -220,8 +226,10 @@ export function prescriptionToText(p: Prescription): string {
     const uniformWork = nonEmpty.length === sets.length && new Set(works).size === 1;
     // A single representative set (the distance/cal stash of a conditioning
     // block) takes its multiplier from `rounds`; real per-set arrays count sets.
-    const count = sets.length > 1 ? sets.length : p.rounds ?? sets.length;
-    if (uniformWork) work = count > 1 ? `${count}×${works[0]}` : works[0]!;
+    const repSet = sets.length <= 1;
+    const count = repSet ? p.rounds ?? sets.length : sets.length;
+    const countStr = repSet ? roundsNum(p) || `${count}` : `${count}`;
+    if (uniformWork) work = count > 1 ? `${countStr}×${works[0]}` : works[0]!;
     else work = nonEmpty.join('/');
 
     targetStr = targetSequence(sets.map(setTarget));
@@ -241,8 +249,8 @@ export function prescriptionToText(p: Prescription): string {
       case 'intervals':
       case 'rounds': {
         const w = p.work_s !== undefined ? formatDuration(p.work_s) : '';
-        if (p.rounds !== undefined && w) work = `${p.rounds}×${w}`;
-        else if (p.rounds !== undefined) work = `${p.rounds} rondas`;
+        if (p.rounds !== undefined && w) work = `${roundsNum(p)}×${w}`;
+        else if (p.rounds !== undefined) work = `${roundsNum(p)} rondas`;
         else if (w) work = w;
         if (p.rest_s !== undefined && p.rest_s > 0) restStr = restToken(p.rest_s, p.modality);
         break;

@@ -477,7 +477,13 @@ export interface Prescription {
   scheme: PrescriptionScheme;
   modality?: Modality; // block/default modality for the line
   sets?: PrescriptionSet[]; // explicit per-set (strength pyramids / waves / interval bouts)
-  rounds?: number; // circuits / minutes (rounds, emom, intervals, tabata)
+  rounds?: number; // circuits / minutes (rounds, emom, intervals, tabata) — the FLOOR of the range
+  // RANGE (fase 2, ago-2026 — same shape as Measure.max): a coach who writes
+  // "3-4 rondas" is prescribing a BAND the athlete closes inside, same as a
+  // rep range. `rounds` stays the required floor so every existing reader
+  // (the live engine's round count, prescriptionToText, iOS) keeps working
+  // unchanged and simply runs the floor; `rounds_max` is additive.
+  rounds_max?: number;
   work_s?: number; // emom/interval/tabata work window
   rest_s?: number; // round/interval/tabata rest
   total_s?: number; // amrap/steady total, or for_time/chipper/ladder time CAP
@@ -503,12 +509,18 @@ function normalizePrescription(raw: Prescription): Prescription {
   return out;
 }
 
+/** True when the prescription's rounds prescribe a band ("3-4 rondas") rather than a fixed count. */
+export function roundsIsRange(p: Pick<Prescription, 'rounds' | 'rounds_max'>): boolean {
+  return p.rounds_max !== undefined && p.rounds !== undefined && p.rounds_max > p.rounds;
+}
+
 const prescriptionObjectSchema = z
   .object({
     scheme: prescriptionSchemeInputSchema,
     modality: modalitySchema.optional(),
     sets: z.array(prescriptionSetSchema).max(MAX_SETS).optional(),
     rounds: z.number().int().positive().optional(),
+    rounds_max: z.number().int().positive().optional(),
     work_s: z.number().nonnegative().optional(),
     rest_s: z.number().nonnegative().optional(),
     total_s: z.number().nonnegative().optional(),
@@ -520,7 +532,17 @@ const prescriptionObjectSchema = z
     structure: runStructureSchema.optional(), // #61 — structured running workout
     note: z.string().max(2000).optional(),
   })
-  .strict();
+  .strict()
+  // `rounds_max` must sit at or above `rounds` — a "4-3" band is a typo, not a range.
+  .superRefine((p, ctx) => {
+    if (p.rounds_max !== undefined && p.rounds !== undefined && p.rounds_max < p.rounds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'rounds_max must be at or above rounds',
+        path: ['rounds_max'],
+      });
+    }
+  });
 
 export const prescriptionSchema = prescriptionObjectSchema.transform((p) =>
   normalizePrescription(p as Prescription),

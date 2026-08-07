@@ -174,6 +174,13 @@ export const weekDayPartSchema = z.object({
   // en `coach_note` para los bloques de biblioteca. Aditivo y opcional: el
   // materializador y el PUT de program-weeks la ignoran.
   athlete_note: z.string().max(800).optional(),
+  // «Opcional» — el bloque es un extra que el atleta puede saltarse (fase 2,
+  // ago-2026). Antes de esto solo existía como texto ("OPCIONAL: ...") al
+  // principio del título — ver los bloques reales del microciclo 76. Atributo
+  // del BLOQUE (no de la sesión): las dos instancias reales encontradas son
+  // bloques sueltos, nunca una sesión entera. Aditivo; ausente = obligatorio,
+  // que es el comportamiento de siempre.
+  optional: z.boolean().optional(),
 });
 export type WeekDayPart = z.infer<typeof weekDayPartSchema>;
 
@@ -377,6 +384,11 @@ export const editorBlockInputSchema = z.object({
   // tiene UI para tocarlo) preservan el original vía el serializer, nunca lo
   // borran por omisión.
   coach_note: z.string().max(2000).optional(),
+  // Autoritativo desde el input cuando se envía, como `group`: el day editor
+  // manda siempre su valor actual una vez tiene UI para esto. Un caller que
+  // aún no lo conoce (copiar día, tests) simplemente lo omite → ausente/false
+  // en serializePart, nunca rompe.
+  optional: z.boolean().optional(),
   items: z.array(editorItemInputSchema).max(24).default([]),
 });
 export type EditorBlockInput = z.infer<typeof editorBlockInputSchema>;

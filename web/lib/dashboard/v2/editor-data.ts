@@ -311,6 +311,7 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     // heuristic only for legacy parts saved before `group` existed.
     group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
+    optional: part.optional ?? false,
     items: (part.items ?? []).map((it) => mapItem(it)),
   };
 }
