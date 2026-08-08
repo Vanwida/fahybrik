@@ -46,8 +46,11 @@ enum RunSegmentMeasure: Equatable {
 }
 
 /// How a recovery is taken. `parado` (standing rest) is timed → carries a duration.
-enum RunRecoveryMode: String, Codable, Equatable {
+/// `CaseIterable`/`Identifiable` para que el constructor pueda ofrecer los tres
+/// sin redeclararlos: la lista de modos vive aquí y en ningún sitio más.
+enum RunRecoveryMode: String, Codable, Equatable, CaseIterable, Identifiable {
     case trote, caminar, parado
+    var id: String { rawValue }
 }
 
 /// WHAT the work targets. `pace` is per km; `paceZone`/`hrZone` are coach zones the

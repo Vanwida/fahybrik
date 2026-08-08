@@ -273,6 +273,21 @@ final class FreeWorkoutDraft {
 
     static let maxTitle = 80
 
+    /// EL ENTRENO DE CORRER, con su gramática entera (`FreeRunPlan`).
+    ///
+    /// Correr no cabe en «N × la misma dosis + descanso», que es lo único que
+    /// saben decir los campos de arriba: una serie de verdad tiene su
+    /// recuperación con medida, objetivo y modo propios, y hay entrenos
+    /// (pirámide, fartlek, progresivo, cuestas) cuyos tramos no son iguales
+    /// entre sí. Cuando la modalidad es correr manda esto y los campos de bout
+    /// no se usan — ver `buildPrescription()`.
+    var runPlan: FreeRunPlan = .porDefecto
+
+    /// True cuando el borrador se gobierna por el plan de correr y no por el
+    /// formulario de bout. Un BENCHMARK de correr no entra: es un esfuerzo único
+    /// a tope contra tu marca, no un entreno que se compone.
+    var usaPlanDeCorrer: Bool { modality == .run && !isBenchmark }
+
     // Selecting a modality seeds its natural pace + clears an unsupported measure.
     func selectModality(_ m: FreeModality) {
         modality = m
@@ -307,6 +322,9 @@ final class FreeWorkoutDraft {
     /// HR zone) is present for everything the athlete or the coach PRESCRIBES, and
     /// absent only for a benchmark with no record to beat — see `BenchmarkFraming`.
     func buildPrescription() -> Prescription? {
+        guard modality != nil else { return nil }
+        // Correr no pasa por el paso de «Formato»: su esquema lo deduce el plan.
+        if usaPlanDeCorrer { return buildRunPrescription() }
         guard let modality, let format else { return nil }
         let measure = buildMeasure()
         let target = buildTarget()
@@ -353,6 +371,61 @@ final class FreeWorkoutDraft {
         }
     }
 
+    /// LA PRESCRIPCIÓN DE UN ENTRENO DE CORRER — la gramática, y debajo su
+    /// aproximación plana.
+    ///
+    /// `structure` es ADITIVO al cable por contrato (ver la cabecera de
+    /// `RunStructure`): un bloque que la lleva TAMBIÉN lleva los campos planos
+    /// de siempre, así que todo lo que aún no sabe leerla (la card del plan, la
+    /// puerta de bloque, el servidor) sigue viendo algo cierto en vez de un
+    /// hueco. Lo que NO se hace es aplanar con pérdida y callarlo: la verdad
+    /// completa viaja en `structure`, y el motor la prefiere siempre.
+    private func buildRunPrescription() -> Prescription? {
+        let estructura = runPlan.estructura()
+        // Los tramos del ENTRENO, no todo lo que se corre: un calentamiento
+        // también es «trabajo» por su rol, y aplanar con él delante hacía que la
+        // card de un 4×1000 a Z4 anunciara «10 min · Z2».
+        let trabajo = runPlan.tramosDelEntreno()
+        guard !trabajo.isEmpty else { return nil }
+
+        // Un solo tramo de trabajo es un rodaje; varios, una serie. El esquema
+        // plano dice ESO y nada más — quién manda es la gramática.
+        let esRodaje = trabajo.count == 1
+        let sets: [PrescriptionSet] = trabajo.map { leg in
+            PrescriptionSet(measure: Self.medidaPlana(leg), target: Self.objetivoPlano(leg),
+                            modality: .run, restS: nil, tempo: nil, note: nil)
+        }
+        var p = Prescription(
+            scheme: esRodaje ? .steady : .intervals,
+            modality: .run,
+            sets: sets,
+            rounds: esRodaje ? nil : trabajo.count,
+            workS: nil,
+            restS: nil,
+            totalS: esRodaje ? trabajo[0].durationSeconds : nil,
+            target: Self.objetivoPlano(trabajo[0]),
+            note: nil, start: nil, increment: nil
+        )
+        p.structure = estructura
+        return p
+    }
+
+    private static func medidaPlana(_ leg: RunLeg) -> Measure? {
+        if let m = leg.distanceMeters { return .distance(meters: Double(m)) }
+        if let s = leg.durationSeconds { return .duration(seconds: s) }
+        // Un tramo abierto no tiene medida y no se le fabrica una.
+        return nil
+    }
+
+    private static func objetivoPlano(_ leg: RunLeg) -> Target? {
+        switch leg.target {
+        case let .pace(v, mn, mx): return .pace(unit: .perKm, valueS: v, minS: mn, maxS: mx)
+        case let .hrZone(z):       return .hrZone(value: Double(z), min: nil, max: nil)
+        case let .rpe(v, mn, mx):  return .rpe(value: v, min: mn, max: mx)
+        case .paceZone, .unknown, .none: return nil
+        }
+    }
+
     // MARK: Build — runnable WorkoutPlan (mirrors WorkoutPlan.from)
     //
     // A single "Libre" block, ONE segment carrying the built prescription (the
@@ -360,21 +433,44 @@ final class FreeWorkoutDraft {
     // the generic grids / preview gate read — exactly like `mergedConditioningSegment`.
 
     func buildContext() -> FreeWorkoutContext? {
-        guard let modality, let format, let prescription = buildPrescription() else { return nil }
+        guard let modality, let prescription = buildPrescription() else { return nil }
+        // Correr llega aquí sin `format` a propósito: se saltó ese paso y su
+        // esquema sale de la prescripción, unas líneas más abajo.
+        guard usaPlanDeCorrer || format != nil else { return nil }
 
+        // Los escalares del segmento — la aproximación PLANA, la misma regla que
+        // en `buildRunPrescription`: describen el PRIMER tramo de trabajo cuando
+        // manda el plan de correr, y el bout cuando manda el formulario. Quien
+        // ejecuta lee la gramática; esto es para lo que aún no la lee.
+        let primerTramo: RunLeg? = usaPlanDeCorrer ? runPlan.tramosDelEntreno().first : nil
         let measure = buildMeasure()
         var distance: Double? = nil
         var duration: Int? = nil
-        if case let .distance(m, _) = measure { distance = m }
-        if case let .duration(s, _) = measure { duration = s }
+        if let primerTramo {
+            distance = primerTramo.distanceMeters.map(Double.init)
+            duration = primerTramo.durationSeconds
+        } else {
+            if case let .distance(m, _) = measure { distance = m }
+            if case let .duration(s, _) = measure { duration = s }
+        }
 
         // Scalar pace stored as sec/KM (the segment convention; the erg grid halves
         // it for /500m). Only when the target is a pace.
         let paceSecPerKm: Int? = {
+            if let primerTramo {
+                if case let .pace(v, mn, _) = primerTramo.target { return v ?? mn }
+                return nil
+            }
             guard targetKind == .pace, paceSeconds > 0 else { return nil }
             return modality.resolvedPaceUnit == .per500m ? paceSeconds * 2 : paceSeconds
         }()
-        let zone: HRZone? = targetKind == .hrZone ? HRZone(rawValue: hrZone) : nil
+        let zone: HRZone? = {
+            if let primerTramo {
+                if case let .hrZone(z) = primerTramo.target { return HRZone(rawValue: z) }
+                return nil
+            }
+            return targetKind == .hrZone ? HRZone(rawValue: hrZone) : nil
+        }()
 
         let segment = WorkoutSegment(
             order: 1,
@@ -398,7 +494,11 @@ final class FreeWorkoutDraft {
         let plan = WorkoutPlan(
             id: UUID(),
             name: resolvedTitle,
-            format: format.scheme,
+            // El formato sale de la PRESCRIPCIÓN, no del paso del formulario: son
+            // el mismo valor en todo el camino de bout (`buildPrescription` lo
+            // copia de ahí) y en el de correr lo decide el plan — un rodaje y una
+            // serie no se llaman igual aunque se monten en la misma pantalla.
+            format: prescription.scheme,
             estimatedDurationSeconds: estimatedSeconds,
             blockContext: benchmark?.blockContext ?? "Libre · no prescrito",
             zoneTargets: [],
@@ -437,6 +537,7 @@ final class FreeWorkoutDraft {
     /// "5 × 500 m · r 1:30 · @ 1:52 /500m". Reuses `PrescriptionRenderer` so the
     /// strings read exactly like the rest of the app.
     var previewLine: String {
+        if usaPlanDeCorrer { return runPlan.linea }
         guard let format else { return "" }
         let m = measureString
         let t = targetSuffix
@@ -479,6 +580,7 @@ final class FreeWorkoutDraft {
     private var targetSuffix: String { targetString.map { " · \($0)" } ?? "" }
 
     private var compactSummary: String {
+        if usaPlanDeCorrer { return runPlan.resumenCorto }
         guard let format else { return measureString }
         switch format {
         case .series:   return "\(rounds)×\(compactMeasure)"
@@ -506,6 +608,7 @@ final class FreeWorkoutDraft {
     // Rough duration estimate for the brief/plan card. Best-effort; 0 when the
     // bout can't be timed (a calorie bout without a power model).
     var estimatedSeconds: Int {
+        if usaPlanDeCorrer { return runPlan.segundosEstimados }
         guard let format else { return 0 }
         switch format {
         case .series, .rounds: return rounds * (boutSeconds + restSeconds)

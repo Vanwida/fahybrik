@@ -42,9 +42,17 @@ reportó y lo que salió al tirar del hilo en el código:
    pared (`LiveFlowView`); los metros viajan al METRO en el espejo (GPS y cinta);
    `GuionSeries` tiene página de recuperación EN MOVIMIENTO (contexto «Trota»,
    modo ojeada, segundo nivel = tu ritmo). 974 tests iOS verdes (+11).
-2. ⬜ **Constructor libre** hablando la gramática entera: recuperación con su
-   medida, su objetivo y su modo; y tramos heterogéneos (pirámide, fartlek,
-   progresivo), que hoy sólo sabe hacer N veces lo mismo.
+2. ✅ **Constructor libre** hablando la gramática entera. `FreeRunPlan` +
+   `FreeRunBuilderView`: calentamiento? · lista de bloques (cada uno con su
+   «repetir ×N» y sus tramos) · vuelta a la calma?, y cada tramo con rol
+   (correr | recuperar) × medida (distancia | tiempo | lo dices tú) × objetivo
+   (zona | ritmo | RPE | libre) × modo de recuperación × cuesta. Correr se salta
+   el paso «Formato» —su esquema lo deduce el plan— y emite `structure`, con los
+   campos planos viajando debajo (contrato aditivo del cable). Probado contra los
+   siete entrenos reales: serie, fartlek, pirámide, progresivo, tempo con sus
+   extremos, cuestas y rodaje largo con acelerones. Los tests cazaron que el
+   CALENTAMIENTO contaba como trabajo (la card de un 4×1000 Z4 anunciaba
+   «10 min Z2») → `tramosDelEntreno()`, la fase manda y no el rol.
 3. 🟡 **Pantallas de correr con color de zona** (idea de Alex: la zona en grande,
    la pantalla llenándose del color de la zona en gradiente hacia la siguiente).
    Hecho: el mecanismo que faltaba —DÓNDE de la banda estás— en shared
