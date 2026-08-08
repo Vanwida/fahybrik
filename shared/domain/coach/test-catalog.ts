@@ -20,21 +20,39 @@
 // dice explícitamente para que la UI no tenga que adivinarlo.
 //
 // NO es una lista cerrada: quien quiera otra cosa la monta a medida con el
-// editor de siempre. Esto cubre el 90 % en dos clics.
+// editor de siempre («Añadir ejercicio»). Esto son ATAJOS, nunca un límite.
+//
+// FUENTES (8-ago-2026) — esta lista NO sale de la intuición:
+//   · Curvas potencia/ritmo-duración estándar (Athletica field-testing playbook,
+//     British Rowing testing protocols): remo 500 m · 1 k · 2 k · 5 k; carrera
+//     400 m · 1 k · 5 k. De ahí salen las distancias, no de lo que sonaba bien.
+//   · Estaciones HYROX con sus distancias OFICIALES del rulebook 26/27:
+//     ski 1000 m, sled push 50 m (4×12,5), sled pull 50 m, burpees salto 80 m,
+//     remo 1000 m, farmers carry 200 m, zancadas sandbag 100 m, 100 wall balls.
+//   · Bici: el estándar de campo es el FTP de 20 min. Aquí se ofrece como «20
+//     min» midiendo DISTANCIA, no como FTP: el FTP se mide en vatios y el
+//     contrato de resultados (StoreResultMeasure) no tiene vatios todavía.
+//     Llamarlo FTP sin poder capturar vatios sería una etiqueta falsa.
 
 import type { Prescription } from '../prescription/types';
 
 /** Familia, tal y como el coach agrupa mentalmente. */
-export type TestFamily = 'fuerza' | 'ergo' | 'correr' | 'simulacion';
+export type TestFamily = 'fuerza' | 'ergo' | 'correr' | 'estaciones' | 'simulacion';
 
 export const TEST_FAMILY_LABEL: Record<TestFamily, string> = {
   fuerza: 'Fuerza · 1RM',
   ergo: 'Ergo',
   correr: 'Correr',
+  estaciones: 'Estaciones HYROX',
   simulacion: 'Simulación',
 };
 
-export const TEST_FAMILY_ORDER: readonly TestFamily[] = ['fuerza', 'ergo', 'correr', 'simulacion'];
+// Orden HYROX-first: somos específicos de HYROX/híbrido, así que lo primero que
+// ve el coach es la carrera y sus estaciones, no el 1RM. Correr va justo detrás
+// porque es la MITAD de la carrera (8 × 1 km), no un complemento.
+export const TEST_FAMILY_ORDER: readonly TestFamily[] = [
+  'simulacion', 'estaciones', 'correr', 'ergo', 'fuerza',
+];
 
 export interface TestPreset {
   /** Id estable — también el nombre por defecto del test que crea. */
@@ -69,6 +87,16 @@ function tiempo(modality: TestModality, seconds: number): Prescription {
   return { scheme: 'steady', modality, sets: [{ measure: { kind: 'duration', seconds } }], target: A_TOPE };
 }
 
+/** Una estación HYROX: trabajo funcional contra el reloj (lo que se mide es el
+ *  tiempo que tardas en cubrir la distancia / las repes de la estación). */
+function funcionalDistancia(meters: number): Prescription {
+  return { scheme: 'for_time', modality: 'functional', sets: [{ measure: { kind: 'distance', meters } }], target: A_TOPE };
+}
+
+function funcionalReps(value: number): Prescription {
+  return { scheme: 'for_time', modality: 'functional', sets: [{ measure: { kind: 'reps', value } }], target: A_TOPE };
+}
+
 /** Un 1RM: una repetición al máximo. El protocolo (subir en series) lo pone el
  *  coach en la nota si quiere; lo que se MIDE es la carga. */
 function unRM(): Prescription {
@@ -95,44 +123,68 @@ export const TEST_PRESETS: readonly TestPreset[] = [
   { id: 'Arrancada · 1RM', family: 'fuerza', label: 'Arrancada', hint: 'Se mide la carga · calibra tu 1RM',
     exercise: ['snatch'], exerciseLabel: 'Arrancada', prescription: unRM() },
 
-  // ── ERGO ─────────────────────────────────────────────────────────────────
-  { id: 'Remo 2 km', family: 'ergo', label: 'Remo 2 km', hint: 'Se mide el tiempo · calibra tus zonas de remo',
-    exercise: ['row', 'row-z2-long'], exerciseLabel: 'Remo', prescription: distancia('row', 2000) },
-  { id: 'Remo 1 km', family: 'ergo', label: 'Remo 1 km', hint: 'Se mide el tiempo · se guarda como marca',
-    exercise: ['row', 'row-z2-long'], exerciseLabel: 'Remo', prescription: distancia('row', 1000) },
+  // ── ERGO — la curva estándar de Concept2 ─────────────────────────────────
   { id: 'Remo 500 m', family: 'ergo', label: 'Remo 500 m', hint: 'Se mide el tiempo · se guarda como marca',
-    exercise: ['row', 'row-z2-long'], exerciseLabel: 'Remo', prescription: distancia('row', 500) },
-  { id: 'Ski 1 km', family: 'ergo', label: 'Ski 1 km', hint: 'Se mide el tiempo · calibra tus zonas de ski',
-    exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 1000) },
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 500) },
+  { id: 'Remo 1 km', family: 'ergo', label: 'Remo 1 km', hint: 'Se mide el tiempo · se guarda como marca',
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 1000) },
+  { id: 'Remo 2 km', family: 'ergo', label: 'Remo 2 km', hint: 'Se mide el tiempo · calibra tus zonas de remo',
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 2000) },
+  { id: 'Remo 5 km', family: 'ergo', label: 'Remo 5 km', hint: 'Se mide el tiempo · se guarda como marca',
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 5000) },
   { id: 'Ski 500 m', family: 'ergo', label: 'Ski 500 m', hint: 'Se mide el tiempo · se guarda como marca',
     exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 500) },
-  { id: 'Bici 10 min', family: 'ergo', label: 'Bici 10 min', hint: 'Se mide la distancia · se guarda como marca',
-    exercise: ['bike', 'bike-erg', 'assault-bike'], exerciseLabel: 'Bici', prescription: tiempo('bike', 600) },
+  { id: 'Ski 1 km', family: 'ergo', label: 'Ski 1 km', hint: 'Se mide el tiempo · calibra tus zonas de ski',
+    exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 1000) },
+  { id: 'Bici 20 min', family: 'ergo', label: 'Bici 20 min', hint: 'Se mide la distancia · se guarda como marca',
+    exercise: ['bike', 'bike-erg', 'assault-bike'], exerciseLabel: 'Bici', prescription: tiempo('bike', 1200) },
 
-  // ── CORRER ───────────────────────────────────────────────────────────────
-  { id: '5 km', family: 'correr', label: '5 km', hint: 'Se mide el tiempo · calibra tus zonas de carrera',
-    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 5000) },
-  { id: '3 km', family: 'correr', label: '3 km', hint: 'Se mide el tiempo · se guarda como marca',
-    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 3000) },
+  // ── CORRER — la curva estándar ritmo-duración ────────────────────────────
+  { id: '400 m', family: 'correr', label: '400 m', hint: 'Se mide el tiempo · se guarda como marca',
+    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 400) },
+  { id: '1 km', family: 'correr', label: '1 km', hint: 'Se mide el tiempo · se guarda como marca',
+    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 1000) },
   { id: '1 milla', family: 'correr', label: '1 milla', hint: 'Se mide el tiempo · se guarda como marca',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 1609) },
+  { id: '3 km', family: 'correr', label: '3 km', hint: 'Se mide el tiempo · se guarda como marca',
+    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 3000) },
+  { id: '5 km', family: 'correr', label: '5 km', hint: 'Se mide el tiempo · calibra tus zonas de carrera',
+    exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 5000) },
   { id: 'Cooper · 12 min', family: 'correr', label: 'Cooper · 12 min', hint: 'Se mide la distancia · se guarda como marca',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: tiempo('run', 720) },
   { id: 'Umbral · 30 min', family: 'correr', label: 'Umbral · 30 min', hint: 'Se mide la distancia · se guarda como marca',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: tiempo('run', 1800) },
 
+  // ── ESTACIONES HYROX — distancias oficiales del rulebook 26/27 ───────────
+  { id: 'Ski 1000 m · estación', family: 'estaciones', label: 'SkiErg 1000 m', hint: 'Se mide el tiempo · estación 1',
+    exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 1000) },
+  { id: 'Sled push 50 m', family: 'estaciones', label: 'Sled push 50 m', hint: 'Se mide el tiempo · estación 2 (4×12,5 m)',
+    exercise: ['hyrox-sled-push', 'sled-push'], exerciseLabel: 'Sled Push', prescription: funcionalDistancia(50) },
+  { id: 'Sled pull 50 m', family: 'estaciones', label: 'Sled pull 50 m', hint: 'Se mide el tiempo · estación 3',
+    exercise: ['hyrox-sled-pull'], exerciseLabel: 'Sled Pull', prescription: funcionalDistancia(50) },
+  { id: 'Burpees salto 80 m', family: 'estaciones', label: 'Burpees salto 80 m', hint: 'Se mide el tiempo · estación 4',
+    exercise: ['hyrox-burpee-broad-jump'], exerciseLabel: 'Burpee Broad Jump', prescription: funcionalDistancia(80) },
+  { id: 'Remo 1000 m · estación', family: 'estaciones', label: 'Remo 1000 m', hint: 'Se mide el tiempo · estación 5',
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 1000) },
+  { id: 'Farmers carry 200 m', family: 'estaciones', label: 'Farmers carry 200 m', hint: 'Se mide el tiempo · estación 6',
+    exercise: ['hyrox-farmer-carry', 'farmers-carry'], exerciseLabel: 'Farmers Carry', prescription: funcionalDistancia(200) },
+  { id: 'Zancadas sandbag 100 m', family: 'estaciones', label: 'Zancadas sandbag 100 m', hint: 'Se mide el tiempo · estación 7',
+    exercise: ['hyrox-sandbag-lunges'], exerciseLabel: 'Sandbag Lunges', prescription: funcionalDistancia(100) },
+  { id: '100 wall balls', family: 'estaciones', label: '100 wall balls', hint: 'Se mide el tiempo · estación 8',
+    exercise: ['hyrox-wall-balls', 'wall-balls'], exerciseLabel: 'Wall Balls', prescription: funcionalReps(100) },
+
   // ── SIMULACIÓN ───────────────────────────────────────────────────────────
   { id: 'HYROX completo', family: 'simulacion', label: 'HYROX completo', hint: '8 carreras + 8 estaciones · se mide el tiempo',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 1000), hyrox: 'full' },
-  // HYROX half NO está aquí a propósito: `createHyroxSimBlock` solo monta la
-  // carrera completa (8+8) y no acepta variante, así que ofrecer «half» pintaría
-  // una etiqueta que el contenido no cumple. Se añade cuando la plantilla sepa
-  // construirlo de verdad.
+  // HYROX half NO está a propósito: `createHyroxSimBlock` solo monta la carrera
+  // completa (8+8) y no acepta variante, así que ofrecer «half» pintaría una
+  // etiqueta que el contenido no cumple. Se añade cuando la plantilla lo sepa.
 ];
 
 export const TEST_PRESETS_BY_FAMILY: Record<TestFamily, readonly TestPreset[]> = {
   fuerza: TEST_PRESETS.filter((p) => p.family === 'fuerza'),
   ergo: TEST_PRESETS.filter((p) => p.family === 'ergo'),
   correr: TEST_PRESETS.filter((p) => p.family === 'correr'),
+  estaciones: TEST_PRESETS.filter((p) => p.family === 'estaciones'),
   simulacion: TEST_PRESETS.filter((p) => p.family === 'simulacion'),
 };
