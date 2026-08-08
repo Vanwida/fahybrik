@@ -1,67 +1,32 @@
 'use client';
 
-// #34 — the create/edit panel body for a coach calibration test. Fields: nombre,
-// formato, protocolo, RESULTADOS (what it measures + calibrates) and AGENDA (which
-// week(s) + day, repeatable). The single "Qué mide" select per result unifies the
-// measure + calibration choice: picking a catalog target calibrates (zonas/1RM);
-// picking a baseline measure just stores the number. This is what makes the rule
-// "distance/reps/calories ⇒ baseline" hold by construction — those measures only
-// exist under the baseline options, and every calibrating option is time/load.
+// #34 — el panel de crear/editar un test del coach. Un test ES UN ENTRENO: se
+// monta con el MISMO editor que cualquier sesión (bloques → ejercicio → campos
+// numéricos), y lo único suyo es el CUÁNDO (agenda). Nombre · Nota · Contenido ·
+// Agenda, y nada más.
+//
+// Ya NO se pregunta "qué mide" (2026-08-08): se DEDUCE del contenido — en un
+// esfuerzo máximo se mide la variable que no fijas (1000 m → tiempo; 10 min →
+// distancia; un lift a tope → carga). Preguntarlo aparte, en una lista abstracta
+// con su propio vocabulario, era decir dos veces lo mismo y romper el esquema
+// del resto de la app. Ver shared/domain/coach/test-derive.ts.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { SidePanel, Field, TextInput, TextArea } from '@/components/v2/periodizacion/SidePanel';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
-  CALIBRATION_TARGETS,
-  BASELINE_MEASURE_UNITS,
-  calibrationTargetByKey,
-} from '@fahybrid/shared/domain/coach/test-battery';
-import type { StoreResultUnit } from '@fahybrid/shared/schema/test-battery';
+  derivedMeasureFor,
+  calibrationLabelFor,
+} from '@fahybrid/shared/domain/coach/test-derive';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { ArchetypeGrid } from '@/components/v2/editor/ArchetypePicker';
-import { PanelButton, SelectInput } from './chrome';
-import {
-  type TestDraft,
-  type DraftResult,
-  encodeResultChoice,
-  decodeResultChoice,
-  defaultDraftResult,
-} from './draft';
-
-// Session shapes offered for a test (a curated subset of template_format).
-const FORMAT_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'test', label: 'Test / contrarreloj' },
-  { value: 'strength_block', label: 'Fuerza (1RM)' },
-  { value: 'hyrox_sim', label: 'Simulación HYROX' },
-];
+import { PanelButton } from './chrome';
+import { type TestDraft } from './draft';
 
 const DOW_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
-
-const UNIT_ES: Record<StoreResultUnit, string> = {
-  seconds: 'segundos',
-  meters: 'metros',
-  reps: 'repeticiones',
-  calories: 'calorías',
-  kg: 'kg',
-  bpm: 'bpm',
-};
-
-function resultHelp(r: DraftResult): string {
-  if (r.kind === 'calibration') {
-    const t = calibrationTargetByKey(r.target);
-    if (!t) return '';
-    return `Calibra ${t.coach_label.toLowerCase()} · se mide en ${UNIT_ES[t.unit]}.`;
-  }
-  return `Solo se guarda como referencia (aún no calibra zonas ni 1RM). Se mide en ${UNIT_ES[r.unit]}.`;
-}
-
-function resultPlaceholder(r: DraftResult): string {
-  if (r.kind === 'calibration') return calibrationTargetByKey(r.target)?.result_label ?? 'Resultado';
-  return BASELINE_MEASURE_UNITS.find((m) => m.measure === r.measure)?.label ?? 'Resultado';
-}
 
 export function TestEditorPanel({
   draft,
@@ -91,12 +56,31 @@ export function TestEditorPanel({
   const removeBlock = (i: number) =>
     onChange({ ...draft, content: draft.content.filter((_, j) => j !== i) });
 
-  const setResult = (i: number, r: DraftResult) => {
-    onChange({ ...draft, results: draft.results.map((x, j) => (j === i ? r : x)) });
-  };
-  const addResult = () => onChange({ ...draft, results: [...draft.results, defaultDraftResult()] });
-  const removeResult = (i: number) =>
-    onChange({ ...draft, results: draft.results.filter((_, j) => j !== i) });
+  // Qué medirá el test, leído del contenido que el coach acaba de construir.
+  // Se recalcula solo: cambia «1000 m» por «10 min» y esto pasa de tiempo a
+  // distancia sin que haya que tocar nada más.
+  const medido = useMemo(
+    () =>
+      draft.content.flatMap((b) =>
+        b.items.flatMap((it) => {
+          const d = derivedMeasureFor({
+            exercise_name: it.exercise_name,
+            prescription: it.prescription,
+          });
+          if (!d) return [];
+          return [{
+            uid: it.uid,
+            nombre: it.exercise_name || 'Sin ejercicio',
+            texto: `Se mide ${d.label}`,
+            calibra: calibrationLabelFor({
+              exercise_name: it.exercise_name,
+              prescription: it.prescription,
+            }),
+          }];
+        }),
+      ),
+    [draft.content],
+  );
 
   const setSchedule = (i: number, patch: Partial<TestDraft['schedule'][number]>) => {
     onChange({
@@ -132,20 +116,6 @@ export function TestEditorPanel({
           maxLength={120}
           autoFocus
         />
-      </Field>
-
-      <Field label="Formato" hint="la forma de la sesión">
-        <SelectInput
-          ariaLabel="Formato"
-          value={FORMAT_OPTIONS.some((f) => f.value === draft.format) ? draft.format : 'test'}
-          onChange={(v) => onChange({ ...draft, format: v })}
-        >
-          {FORMAT_OPTIONS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </SelectInput>
       </Field>
 
       <Field label="Nota" hint="la lee el atleta justo antes de empezar · opcional">
@@ -233,91 +203,37 @@ export function TestEditorPanel({
         ) : null}
       </div>
 
-      {/* Resultados */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
-            Resultados
+      {/* Qué mide — DEDUCIDO del contenido, no preguntado (test-derive.ts).
+          En un esfuerzo máximo se mide la variable que NO fijas: pones 1000 m y
+          se mide el tiempo; pones 10 min y se mide la distancia. Pedírselo
+          aparte al coach era decir dos veces lo mismo, y permitía que las dos
+          se contradijeran. */}
+      {medido.length > 0 ? (
+        <div>
+          <span className="mb-1.5 block text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
+            Qué mide
           </span>
-          <button
-            type="button"
-            onClick={addResult}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
-          >
-            <MIcon name="add" size={14} /> Añadir
-          </button>
-        </div>
-        <div className="flex flex-col gap-2.5">
-          {draft.results.map((r, i) => (
-            <div
-              key={i}
-              className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5"
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <SelectInput
-                    ariaLabel="Qué mide y calibra"
-                    value={encodeResultChoice(r)}
-                    onChange={(v) => setResult(i, decodeResultChoice(v, r.label, r.optional))}
-                  >
-                    <optgroup label="Calibra (zonas / 1RM)">
-                      {CALIBRATION_TARGETS.map((t) => (
-                        <option key={t.key} value={`cal:${t.key}`}>
-                          {t.coach_label}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Solo guardar el número (baseline)">
-                      {BASELINE_MEASURE_UNITS.map((m) => (
-                        <option key={m.measure} value={`base:${m.measure}`}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </SelectInput>
-                </div>
-                {draft.results.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => removeResult(i)}
-                    aria-label="Quitar resultado"
-                    className="v2-focus mt-0.5 flex h-[34px] w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
-                  >
-                    <MIcon name="close" size={15} />
-                  </button>
-                ) : null}
-              </div>
-              <div className="mt-1.5">
-                <TextInput
-                  value={r.label}
-                  onChange={(v) => setResult(i, { ...r, label: v })}
-                  placeholder={resultPlaceholder(r)}
-                  maxLength={60}
-                />
-              </div>
-              <label className="mt-1.5 flex cursor-pointer items-start gap-1.5 text-label leading-snug text-[color:var(--v2-muted)]">
-                <input
-                  type="checkbox"
-                  checked={r.optional}
-                  onChange={(e) => setResult(i, { ...r, optional: e.target.checked })}
-                  className="v2-focus mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--v2-accent)]"
-                />
-                <span>
-                  Opcional
-                  <span className="text-[color:var(--v2-faint)]">
-                    {' '}
-                    · la app la mide sola si puede; no bloquea completar el test
-                  </span>
+          <div className="flex flex-col gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
+            {medido.map((m) => (
+              <div key={m.uid} className="flex items-baseline justify-between gap-3 text-label">
+                <span className="truncate text-[color:var(--v2-fg)]">{m.nombre}</span>
+                <span className="shrink-0 text-[color:var(--v2-muted)]">
+                  {m.texto}
+                  {m.calibra ? (
+                    <span className="ml-1.5 font-bold text-[color:var(--v2-accent)]">
+                      · calibra {m.calibra}
+                    </span>
+                  ) : null}
                 </span>
-              </label>
-              <p className="mt-1 text-label leading-snug text-[color:var(--v2-faint)]">
-                {resultHelp(r)}
-              </p>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-label leading-snug text-[color:var(--v2-faint)]">
+            Se deduce de lo que fijas en cada bloque. Al terminar, la app rellena
+            la marca con lo que midió.
+          </p>
         </div>
-      </div>
-
+      ) : null}
       {/* Agenda */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">

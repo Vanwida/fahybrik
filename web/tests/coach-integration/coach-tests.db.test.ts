@@ -524,6 +524,88 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     expect(detail!.assignment.store_results[0]).toMatchObject({ measure: 'time', unit: 'seconds' });
   }, 60000);
 
+  // LO QUE MIDE SE DEDUCE (8-ago). El coach NO declara nada: monta el entreno con
+  // el editor de siempre y el sistema saca el contrato de ahí — en un esfuerzo
+  // máximo se mide la variable que no fijas.
+  test('el contrato de resultados se deduce del contenido: fijas metros → mides tiempo, fijas tiempo → mides metros', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const row = await makeExercise({ fx, name: 'Row', modality: 'row' });
+
+    // 1000 m de remo — distancia FIJA, así que lo que se mide es el TIEMPO. Y no
+    // calibra zonas: la fórmula de remo está anclada en 2K, no en 1000 m.
+    const mil = await createCoachTest(
+      fx.coachId,
+      {
+        name: '1000 m remo',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '1000 m', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'distance', meters: 1000 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(mil.results).toHaveLength(1);
+    expect(mil.results[0]).toMatchObject({ measure: 'time', unit: 'seconds', derives: 'none' });
+
+    // 10 min de remo — el reloj es el dato, así que se mide la DISTANCIA.
+    const diez = await createCoachTest(
+      fx.coachId,
+      {
+        name: '10 min remo',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '10 min', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'duration', seconds: 600 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(diez.results[0]).toMatchObject({ measure: 'distance', unit: 'meters', derives: 'none' });
+
+    // 2000 m de remo — ESE es el protocolo anclado, así que sí calibra zonas.
+    const dosK = await createCoachTest(
+      fx.coachId,
+      {
+        name: '2K remo propio',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '2K', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'distance', meters: 2000 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(dosK.results[0]).toMatchObject({
+      slug: 'row_2k', measure: 'time', unit: 'seconds', derives: 'row_zones', modality: 'row',
+    });
+  }, 60000);
+
   test('createCoachTest without content: falls back to the automatic no-dose mechanism, unchanged', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);

@@ -36,6 +36,8 @@ import type {
   CoachTestUpdate,
   CoachTestResultInput,
 } from '@fahybrid/shared/schema/coach-tests';
+import type { EditorBlockInput } from '@fahybrid/shared/schema/program-templates';
+import { deriveStoreResults } from '@fahybrid/shared/domain/coach/test-derive';
 import { materializeTestContent } from '@/lib/coach/calibration-content';
 import { listCoachTests, type CoachCalibrationTest } from '@/lib/coach/coach-tests';
 
@@ -82,6 +84,42 @@ function resolveResultSpec(input: CoachTestResultInput, testSlug: string): Store
     label: input.label,
     ...optional,
   };
+}
+
+/**
+ * El contrato de resultados DEDUCIDO del contenido que el coach construyó
+ * (test-derive.ts): fijas 1000 m → se mide el tiempo; fijas 10 min → la
+ * distancia; un levantamiento a tope → la carga. Necesita los slugs reales de
+ * los ejercicios (el 1RM se ancla en ellos), así que resuelve contra la DB.
+ * Devuelve [] cuando el contenido no fija nada medible — honesto: ese test no
+ * promete ningún número.
+ */
+async function deriveSpecsFromContent(
+  client: AnySql,
+  testSlug: string,
+  content: readonly EditorBlockInput[],
+): Promise<StoreResultSpec[]> {
+  const items = content.flatMap((b) => b.items);
+  if (items.length === 0) return [];
+
+  const ids = Array.from(
+    new Set(items.map((it) => Number(it.exercise_id)).filter((n) => Number.isFinite(n))),
+  );
+  const rows = ids.length
+    ? await client<Array<{ id: string; slug: string }>>`
+        select id::text as id, slug from exercises where id = any(${ids}::bigint[])
+      `
+    : [];
+  const slugById = new Map(rows.map((r) => [Number(r.id), r.slug]));
+
+  return deriveStoreResults(
+    testSlug,
+    items.map((it) => ({
+      exercise_name: it.exercise_name,
+      exercise_slug: it.exercise_id != null ? slugById.get(Number(it.exercise_id)) ?? null : null,
+      prescription: it.prescription,
+    })),
+  );
 }
 
 /** Resolve + validate all result inputs into coherent, unique specs. */
@@ -229,7 +267,11 @@ export async function createCoachTest(
 ): Promise<CoachCalibrationTest> {
   const cid = Number(coach_id);
   const slug = await uniqueTestSlug(client, cid, input.name);
-  const specs = resolveSpecs(input.results, slug);
+  // El contenido manda: si el coach construyó el entreno, lo que mide se deduce
+  // de él. `results` explícito sigue ganando (tests sembrados, callers viejos).
+  const specs = input.results?.length
+    ? resolveSpecs(input.results, slug)
+    : await deriveSpecsFromContent(client, slug, input.content ?? []);
   const primary_modality = primaryModalityOf(specs);
   const protocol = input.protocol?.trim() || null;
 
@@ -302,7 +344,14 @@ export async function updateCoachTest(
     input.protocol !== undefined ? (input.protocol?.trim() || null) : current.protocol;
   const enabled = input.enabled ?? current.enabled;
 
-  const specs = input.results ? resolveSpecs(input.results, current.slug) : null;
+  // Igual que al crear: si esta edición trae contenido, el contrato se re-deduce
+  // de él — así cambiar «1000 m» por «10 min» cambia solo lo que se mide, sin
+  // que el coach tenga que acordarse de tocar nada más.
+  const specs = input.results?.length
+    ? resolveSpecs(input.results, current.slug)
+    : input.content?.length
+      ? await deriveSpecsFromContent(client, current.slug, input.content)
+      : null;
   // primary_modality is re-derived only when the results change; otherwise kept.
   const primary_modality = specs ? primaryModalityOf(specs) : current.primary_modality;
   // Content changed IFF the caller sent the field at all — [] means "clear my

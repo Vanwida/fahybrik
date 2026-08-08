@@ -131,10 +131,6 @@ export function TestsView({
       setError('El nombre es obligatorio.');
       return;
     }
-    if (draft.results.length === 0) {
-      setError('Añade al menos un resultado.');
-      return;
-    }
     // Gate honesto (A3, item-validity.ts) — no es lo mismo un test SIN bloques
     // (mecanismo automático de siempre, válido) que un bloque con una línea sin
     // ejercicio: eso el servidor lo descarta en silencio al escribir
@@ -155,7 +151,8 @@ export function TestsView({
       format: draft.format,
       enabled: draft.enabled,
       content: draftContentToInput(draft.content),
-      results: draft.results.map(draftResultToInput),
+      // `results` ya NO viaja: el servidor lo deduce del contenido
+      // (test-derive.ts). Mandarlo aquí volvería a duplicar la verdad.
       schedule: draft.schedule.map((s) => ({
         week_offset: s.week_offset,
         day_of_week: s.day_of_week,

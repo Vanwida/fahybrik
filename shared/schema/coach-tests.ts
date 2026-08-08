@@ -79,7 +79,11 @@ export const coachTestCreateSchema = z.object({
   format: templateFormat,
   enabled: z.boolean().default(true),
   content: coachTestContentSchema.default([]),
-  results: z.array(coachTestResultInputSchema).min(1).max(10),
+  // Opcional desde que el contenido manda: lo que un test mide se DEDUCE de lo
+  // que el coach fijó al construirlo (test-derive.ts) — fijas 1000 m, se mide el
+  // tiempo. Se sigue aceptando explícito para los tests sembrados y para
+  // cualquier caller que ya lo calculaba; ausente + contenido = deducido.
+  results: z.array(coachTestResultInputSchema).min(1).max(10).optional(),
   schedule: z
     .array(coachTestScheduleInputSchema)
     .max(20)
