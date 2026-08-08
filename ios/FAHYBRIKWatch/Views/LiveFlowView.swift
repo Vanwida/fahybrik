@@ -70,15 +70,22 @@ struct LiveFlowView: View {
             // (.intervals / .steady). Falls through to the scalar presentation only if
             // the driver is somehow absent (never during an active session).
             StructuredRunLiveView(session: session, driver: driver)
-        } else if session.currentSegment?.kind == .running, presentation == .setTable {
-            // LAS DOS FUENTES NO ESCRIBEN EL MISMO FORMATO PARA LA MISMA COSA.
-            // El constructor de entreno libre escribe una serie de correr como
-            // `intervals`; el coach la escribe como `sets` con la distancia y el
-            // descanso dentro de cada set (plantilla 314, «3x1000m (1'30\" rest)»).
-            // Con el reparto por presentación a secas, la serie del COACH caía en la
-            // tabla de hierro: el mismo entreno se veía distinto según quién lo
-            // escribió. Corriendo nunca se pinta una tabla de series — manda lo que
-            // el reloj MIDE, no cómo se llama el formato.
+        } else if session.currentSegment?.kind == .running {
+            // CORRIENDO MANDA LO QUE EL RELOJ MIDE, NO CÓMO SE LLAME EL FORMATO.
+            //
+            // Las fuentes no escriben el mismo esquema para la misma cosa: el
+            // constructor libre escribe una serie de correr como `intervals`, el
+            // coach como `sets` (plantilla 314, «3x1000m»), y la gramática nativa
+            // como `structure`. Repartiendo por presentación, el mismo entreno caía
+            // en tres pantallas distintas según quién lo hubiera escrito — y una de
+            // las tres era el RELOJ DE PARED, el guion de burpees y planchas
+            // («sin GPS que valga, estás en el sitio»): sin metros, sin ritmo y en
+            // modo ciego mientras el atleta corría por la calle (8-ago).
+            //
+            // Por eso la rama de correr se resuelve ENTERA aquí y no deja caer nada
+            // al reparto de abajo: con tramos manda la pantalla de tramos (la rama
+            // de arriba), y sin ellos el rodaje. Las dos miden GPS, que es lo único
+            // que corriendo contesta la pregunta.
             ContinuousLiveView(session: session)
         } else if let presentation {
             switch presentation {

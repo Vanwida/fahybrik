@@ -239,6 +239,12 @@ struct MirrorTramo: Codable, Equatable {
     /// independiente de si el móvil está de verdad reportando metros: antes de
     /// este campo, toda ronda de EMOM viajaba como `.ojeada` sin excepción.
     var tareaEsErgo: Bool = false
+    /// La recuperación de una serie de correr que se hace EN MOVIMIENTO (el
+    /// trote de vuelta). Va aparte de `enDescanso` —que sigue siendo cierto—
+    /// porque lo que cambia no es la fase sino si hay algo que medir: con esto
+    /// la muñeca pinta metros, ritmo y zona en vez de una cuenta atrás pelada, y
+    /// deja de ofrecer controles a alguien que está corriendo.
+    var recuperacionEnMovimiento: Bool = false
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete

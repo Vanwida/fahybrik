@@ -328,7 +328,7 @@ targets:
       - path: FAHYBRIK/Plan/RunStructure.swift
       # La traducción de una tabla de `sets` a piernas de correr: `runStructureLegs`
       # la llama, así que tiene que compilar en el reloj igual que la gramática.
-      - path: FAHYBRIK/Plan/RunSeriesDeSets.swift
+      - path: FAHYBRIK/Plan/RunPiernasDerivadas.swift
       # The pure pace/target/goal domain (#68) — the wrist structured-run HUD reads
       # the SAME PaceTarget band, in/out judgment and RunLeg→goal/target bridge the
       # treadmill uses; the device-bound resolvers stay app-only in Devices/Treadmill.

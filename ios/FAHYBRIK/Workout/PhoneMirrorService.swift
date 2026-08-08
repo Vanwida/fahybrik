@@ -556,7 +556,8 @@ final class PhoneMirrorService {
                 : (seg?.formatScheme == .deathBy ? session.deathByTarget : nil),
             // EMOM: la ronda de AHORA, no si el móvil reporta metros — así una
             // ronda de ski sin cinta/PM5 conectado sigue siendo `.ojeada`.
-            tareaEsErgo: seg?.emomPlan?.interval(session.tramoRoundIndex)?.isErg ?? false
+            tareaEsErgo: seg?.emomPlan?.interval(session.tramoRoundIndex)?.isErg ?? false,
+            recuperacionEnMovimiento: session.isTramoRecuperandoEnMovimiento
         )
     }
 
@@ -616,10 +617,13 @@ final class PhoneMirrorService {
         let doblesKey = f.dobles.map { "\($0.role):\($0.station)" } ?? ""
         // The belt target is structural; the covered distance must UPDATE the ring as it
         // fills (the wrist can't tick distance locally — it doesn't know the belt speed),
-        // so a COARSE 10 m bucket rides in the key: it resends as meters accrue, at most
-        // once per frame, never per centimetre. Pace rides along on the resend.
+        // so the covered metres ride in the key AL METRO: it resends as meters accrue,
+        // at most once per frame (`frameInterval` ya lo capa a una por segundo), never
+        // per centimetre. Pace rides along on the resend. Iban en cubos de 10 m y a
+        // ritmo de carrera eso es un refresco cada tres segundos — el numeral se
+        // clavaba y luego saltaba de diez en diez.
         let beltTargetKey = f.beltTargetM.map { String(Int($0)) } ?? ""
-        let beltBucketKey = f.beltDistanceM.map { String(Int($0 / 10)) } ?? ""
+        let beltBucketKey = f.beltDistanceM.map { String(Int($0)) } ?? ""
         // Every whole second of a countdown / rest forces a frame so the wrist
         // can fire local 3-2-1 ticks even if a dedicated haptic packet is lost,
         // and so the re-based clock never drifts more than ~1 s.
@@ -641,18 +645,21 @@ final class PhoneMirrorService {
             campos.append(t.dosis ?? "")
             campos.append(t.rondaN.map(String.init) ?? "")
             campos.append(t.rondaTotal.map(String.init) ?? "")
-            campos.append(t.enDescanso ? "rest" : "work")
+            campos.append(t.enDescanso ? (t.recuperacionEnMovimiento ? "trote" : "rest") : "work")
             campos.append(t.cierre ?? "")
             campos.append(t.objetivoLabel ?? "")
             campos.append(t.objetivoEstado ?? "")
             campos.append(t.zonaViva.map(String.init) ?? "")
             campos.append(t.cargaKg.map { String(Int($0 * 10)) } ?? "")
             campos.append(t.reps.map(String.init) ?? "")
-            // Lo medido en la ventana entra en cubo GRUESO, igual que los metros de
-            // la cinta: sin él sólo refrescaba con el latido de 5 s y el numeral de
-            // «te faltan» daba saltos de cinco en cinco segundos. Con él llega al
-            // ritmo del cambio real y como mucho una vez por trama.
-            campos.append(t.hechoMedida.map { String(Int($0 / 10)) } ?? "")
+            // Lo medido en la ventana, AL METRO. Iba en cubos de 10 m, y corriendo
+            // eso es un refresco cada tres segundos: el numeral de «te faltan» se
+            // quedaba clavado y luego pegaba un salto de diez, que es exactamente
+            // la sensación de «no está contando» que dio la serie del 8-ago. Al
+            // metro no inunda nada, porque el emisor ya está capado a una trama por
+            // segundo (`frameInterval`) — el cubo grueso nunca ahorró tramas por
+            // debajo de ese techo, sólo las quitaba donde hacían falta.
+            campos.append(t.hechoMedida.map { String(Int($0)) } ?? "")
             // El RELOJ de la ventana, al segundo. La muñeca NO lo tickea local — pinta
             // `ventanaQueda` tal cual llega (GuionDelEspejo) — así que dejándolo fuera
             // de la clave solo se refrescaba con el latido de 5 s: la cuenta atrás se

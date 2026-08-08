@@ -75,6 +75,7 @@ struct StructuredRunLiveView: View {
     private var estado: GuionSeries.Estado {
         GuionSeries.Estado(
             fase: isRecovery ? .recupera : .trabajo,
+            enMovimiento: session.currentRunLeg?.recuperaEnMovimiento ?? false,
             // En la recuperación el número que importa es el de la serie que VIENE.
             serie: isRecovery ? (workLegNumberForNext ?? workLegTotal) : workLegNumber,
             totalSeries: workLegTotal,

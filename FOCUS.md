@@ -1,11 +1,60 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-08**
+Última actualización: **2026-08-09**
 
 ---
 
-## Ahora · Circuito llega a Biblioteca/tests + editor de contenido real para tests — DESPLEGADO (8-ago)
+## Ahora · CORRER, a fondo — Alex salió a hacer series y la app le sirvió de poco (8-ago)
+
+Alex salió a correr con el iPhone y el reloj, entreno LIBRE, unas series. Lo que
+reportó y lo que salió al tirar del hilo en el código:
+
+- **«No se pueden hacer series»** — y tiene razón de raíz, no de pintado. Hay
+  tres formas de escribir el mismo entreno y sólo dos llegaban al motor de
+  tramos: la gramática nativa (`structure`) ✓, la tabla de `sets` del coach ✓, y
+  las rondas de `intervals` del constructor libre ✗. La tercera caía al motor
+  rotativo binario trabajo/descanso.
+- **«Los metros se quedaban a cero»** — en la muñeca, una serie libre de correr
+  caía en `RelojDeParedLiveView`, el guion escrito para burpees y planchas
+  («sin GPS que valga, estás en el sitio»): sin metros, sin ritmo y en modo
+  ciego mientras corría por la calle.
+- **«Juraría que los ha contado mal / parecía que se los inventaba»** — no se
+  inventan: es GPS con filtro (descarta fixes >25 m de error, pasos <2 m o
+  >60 m). Lo que estaba mal era la VENTANA: fuera del motor de tramos se
+  pintaban los metros del BLOQUE contra un objetivo POR SERIE, así que en la
+  serie 2 arrastraban la 1 más el trote de vuelta.
+- **«La recuperación no es un descanso, es zona X»** — el modelo ya lo soporta
+  (una recuperación lleva su propia medida, su objetivo y su modo
+  trote/caminar/parado); quien no lo soportaba era el constructor libre, que
+  sólo escribe `restS: 90`. Y el diseño de la muñeca daba por hecho que el
+  atleta está de pie: congelaba el crono del tramo y dejaba de pintar metros.
+- **Saltos de diez en diez** — los metros viajaban al reloj en cubos de 10 m; a
+  ritmo de carrera, un refresco cada tres segundos.
+
+**Plan, 3 tandas:**
+
+1. 🟡 **Motor y modelo** (en curso). Una sola gramática para las tres fuentes.
+   Hecho: `RunPiernasDerivadas.swift` (antes `RunSeriesDeSets`) deriva tramos
+   también de `intervals`+`rounds`; `RunLeg.recuperaEnMovimiento` +
+   `WorkoutSession.tramoMide` (el crono del tramo ya no se congela en un trote de
+   vuelta, que es el denominador de su ritmo); correr nunca cae en el reloj de
+   pared (`LiveFlowView`); los metros viajan al METRO en el espejo (GPS y cinta);
+   `GuionSeries` tiene página de recuperación EN MOVIMIENTO (contexto «Trota»,
+   modo ojeada, segundo nivel = tu ritmo). 974 tests iOS verdes (+11).
+2. ⬜ **Constructor libre** hablando la gramática entera: recuperación con su
+   medida, su objetivo y su modo; y tramos heterogéneos (pirámide, fartlek,
+   progresivo), que hoy sólo sabe hacer N veces lo mismo.
+3. ⬜ **Pantallas de correr** con color de zona (idea de Alex: la zona en grande,
+   la pantalla llenándose del color de la zona en gradiente hacia la siguiente).
+   Se montan como pantalla `propuesta` del doble antes de tocar Swift.
+
+Pendiente y dicho: los cambios de iOS/watch están en el repo pero **no en el
+iPhone de Alex** — sólo los despliegues web le llegan solos.
+
+---
+
+## Antes · Circuito llega a Biblioteca/tests + editor de contenido real para tests — DESPLEGADO (8-ago)
 
 Las 4 piezas están cerradas y en `feat/pm5-counter-sync` (última: `0a235d79`).
 Desplegado a producción: `dpl_4H3THUFqCaSUefBJHJTPsYkkjU6h`, aliased a

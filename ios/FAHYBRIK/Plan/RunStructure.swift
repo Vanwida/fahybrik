@@ -250,6 +250,23 @@ struct RunLeg: Equatable {
 
     var isWork: Bool { kind == .work }
     var isRecovery: Bool { kind == .recovery }
+
+    /// UNA RECUPERACIÓN DE CORRER NO ES UN DESCANSO — y de esto sale media
+    /// pantalla.
+    ///
+    /// El diseño viejo daba por hecho que entre series el atleta está de pie
+    /// («jadeando y mirando el reloj», `GuionSeries`), así que congelaba el
+    /// cronómetro del tramo, dejaba de pintar metros y ofrecía controles. En una
+    /// serie de calle eso es falso la mayoría de las veces: la vuelta al principio
+    /// se trota, y ese trote es trabajo — tiene su zona, sus metros y su ritmo, y
+    /// es lo que separa una serie bien hecha de una mal hecha.
+    ///
+    /// Sólo `parado` para de verdad. Y cuando NO SE SABE el modo —que es lo que
+    /// llega hoy de las dos fuentes derivadas, porque ninguna lo escribe todavía—
+    /// se MIDE en vez de suponer: si el atleta trota, sus metros y su ritmo
+    /// aparecen; si se queda quieto, el GPS dice cero y no se pinta ningún ritmo.
+    /// Medir no inventa nada; suponer que está parado tira dato real.
+    var recuperaEnMovimiento: Bool { isRecovery && recoveryMode != .parado }
 }
 
 // Declared in an EXTENSION so the compiler still synthesizes the memberwise init
@@ -348,11 +365,14 @@ extension Prescription {
     /// structure by callers.
     var runStructureLegs: [RunLeg]? {
         guard let s = structure, !s.isEmpty else {
-            // Sin gramática nativa, la serie de correr que el COACH escribe como
-            // una tabla de `sets` (plantilla 314, «3x1000m») se traduce a las
-            // mismas piernas. Sin esto, esas sesiones no tenían cursor de tramo y
-            // la muñeca las pintaba como un rodaje. Ver `RunSeriesDeSets.swift`.
-            return runLegsDesdeSets
+            // Sin gramática nativa, la serie de correr se DERIVA de como la haya
+            // escrito quien la escribiera: la tabla de `sets` del coach
+            // (plantilla 314, «3x1000m») y las rondas de `intervals` del
+            // constructor libre («5 × 800 m · r 1:30») dan la misma lista de
+            // piernas. Sin esto, esas sesiones no tenían cursor de tramo y la
+            // muñeca las pintaba como un rodaje o —peor— con el guion del reloj
+            // de pared. Ver `RunPiernasDerivadas.swift`.
+            return runLegsDerivadas
         }
         let legs = s.expandedLegs()
         return legs.isEmpty ? nil : legs

@@ -145,6 +145,24 @@ extension WorkoutSession {
         return rotPhase == .rest && rotPhaseRemaining > 0
     }
 
+    /// LA RECUPERACIÓN DE UNA SERIE DE CORRER, CUANDO SE HACE EN MOVIMIENTO.
+    ///
+    /// Sigue siendo una recuperación —el atleta no está haciendo la serie— pero
+    /// no es una parada: se trota, y ese trote tiene metros, ritmo y zona. Es
+    /// una pregunta aparte de `isTramoResting` a propósito: la FASE no cambia
+    /// (todo el cableado del descanso sigue igual), lo que cambia es si hay algo
+    /// que medir. Ver `RunLeg.recuperaEnMovimiento`.
+    var isTramoRecuperandoEnMovimiento: Bool {
+        guard isRunStructureActive, !isRunCountIn, let leg = currentRunLeg else { return false }
+        return leg.recuperaEnMovimiento
+    }
+
+    /// True cuando algo MIDE la ventana en curso: el trabajo siempre, y la
+    /// recuperación cuando es en movimiento. Es lo que decide si el cronómetro
+    /// del tramo corre o se congela — congelarlo durante un trote de vuelta
+    /// dejaba el ritmo de la recuperación sin denominador y los metros a cero.
+    var tramoMide: Bool { !isTramoResting || isTramoRecuperandoEnMovimiento }
+
     /// Seconds left of the rest, for the countdown that IS the rest screen.
     var tramoRestRemaining: Double {
         if isRunStructureActive { return Swift.max(0, runLegRemaining) }
@@ -228,7 +246,9 @@ extension WorkoutSession {
     /// long is this bout taking", never "how long has the whole block been running",
     /// which is what it used to answer.
     var tramoElapsedSeconds: Double {
-        if isTramoResting, let last = lastTramoElapsedSeconds { return last }
+        // Congelado sólo cuando NADIE mide: en un trote de recuperación el reloj
+        // corre, porque es el denominador de su ritmo.
+        if !tramoMide, let last = lastTramoElapsedSeconds { return last }
         if tramoClockArmed { return 0 }
         return tramoWallClockSeconds
     }
@@ -244,7 +264,7 @@ extension WorkoutSession {
     /// he spent in it, not zero. A recorded zero is worse than a gap: it reads as a
     /// measurement.
     var tramoRecordedSeconds: Double {
-        if isTramoResting, let last = lastTramoElapsedSeconds { return last }
+        if !tramoMide, let last = lastTramoElapsedSeconds { return last }
         return tramoWallClockSeconds
     }
 

@@ -10,6 +10,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · Correr: una sola gramática de tramos, y la recuperación se MIDE
+
+**Decidido (1) — el esquema no decide nada; la modalidad sí.** Una prescripción
+de CORRER que describe más de un tramo se despliega a piernas
+(`RunPiernasDerivadas.swift`, antes `RunSeriesDeSets.swift`), la haya escrito la
+gramática nativa (`structure`), la tabla de `sets` del coach, o las rondas de
+`intervals` del constructor libre. Hasta hoy la tercera no producía tramos y
+caía al motor rotativo binario trabajo/descanso, que no tiene cursor: el mismo
+entreno se ejecutaba de dos maneras según quién lo hubiera escrito.
+
+**Dónde se para, y por qué ahí:** sólo `sets` (tabla de ≥2 filas) e `intervals`
+(`rounds > 1` con UNA dosis). El EMOM lo gobierna su minuto y la tabata su
+20/10 — los dos tienen motor propio y traducirlos los mataría, porque
+`onEnterSegment` da precedencia al cursor de tramos. `rounds` (presentación
+fija) tampoco: ahí la lista son ESTACIONES —la ruta de un HYROX sim, un
+chipper— y no repeticiones de un mismo tramo.
+
+**Decidido (2) — una recuperación de correr no es un descanso.** Sólo
+`recoveryMode == .parado` para de verdad (`RunLeg.recuperaEnMovimiento`).
+Cuando el modo NO SE SABE —que es lo que llega hoy de las dos fuentes
+derivadas, porque ninguna lo escribe todavía— se MIDE lo que pase en vez de
+suponerlo: el crono del tramo sigue corriendo (`WorkoutSession.tramoMide`), el
+GPS sigue sumando y la muñeca pinta el ritmo del trote. Si el atleta se queda
+quieto, el GPS dice cero y no se pinta ningún ritmo — no se afirma nada falso.
+
+**Por qué NO el default contrario:** dar por hecho «parado» también es una
+suposición, y encima es la que tira dato real. El diseño viejo la tenía
+cableada («de pie, jadeando y mirando el reloj», `GuionSeries`): congelaba el
+cronómetro del tramo y dejaba de pintar metros durante el trote de vuelta, que
+en una serie de calle es la mitad del volumen de carrera y lo que distingue una
+serie bien hecha de una mal hecha. Medir no inventa; suponer, sí.
+
+**En consecuencia, NO hacer:** no repartir pantallas de correr por
+`presentation` (el reparto por formato mandaba las series libres al RELOJ DE
+PARED, el guion de burpees y planchas, sin metros ni ritmo y en modo ciego);
+corriendo manda lo que el reloj MIDE. Y no volver a poner los metros en cubos
+gruesos en el espejo: el emisor ya está capado a una trama por segundo, así que
+el cubo de 10 m no ahorraba nada y a ritmo de carrera clavaba el numeral tres
+segundos antes de pegar un salto de diez.
+
+---
+
 ## 2026-08-08 · Circuito llega a la ruta Biblioteca/tests — `template_blocks`
 
 **Decidido:** la decisión de Circuito (7-ago, siguiente entrada) dejó a propósito

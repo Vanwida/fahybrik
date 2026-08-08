@@ -63,6 +63,11 @@ enum GuionSeries {
 
     struct Estado {
         var fase: Fase
+        /// La recuperación se hace TROTANDO (el caso normal en la calle), no de
+        /// pie. Cambia el modo, el sujeto del segundo nivel y la palabra: lo que
+        /// el atleta necesita mientras trota es saber si va lo bastante suave,
+        /// no una cuenta atrás pelada. Ver `RunLeg.recuperaEnMovimiento`.
+        var enMovimiento: Bool = false
         /// La serie en curso. Durante la recuperación, la que VIENE.
         var serie: Int
         var totalSeries: Int
@@ -98,12 +103,21 @@ enum GuionSeries {
     // MARK: - Páginas
 
     static func paginas(_ e: Estado, _ g: Gestos = Gestos()) -> [WatchPagina] {
-        let modo: WatchModo = e.fase == .recupera ? .mando : .ojeada
+        let modo: WatchModo = modoDe(e)
         let pulso = WatchPaginasComunes.pulso(bpm: e.bpm, zone: e.zonaViva, modo: modo)
         let resto = [pulso].compactMap { $0 }
 
         if e.fase == .recupera { return [paginaRecupera(e, g)] + resto }
         return [paginaTrabajo(e, g)] + resto
+    }
+
+    /// De pie y jadeando se decide (`mando`); trotando el brazo va en movimiento
+    /// y no se le pide nada a nadie (`ojeada`) — igual que dentro de la serie.
+    /// El gesto de adelantar la recuperación sigue existiendo trotando: el lienzo
+    /// simplemente no lo anuncia.
+    static func modoDe(_ e: Estado) -> WatchModo {
+        guard e.fase == .recupera else { return .ojeada }
+        return e.enMovimiento ? .ojeada : .mando
     }
 
     // MARK: - Trabajo
@@ -183,22 +197,47 @@ enum GuionSeries {
 
     private static func paginaRecupera(_ e: Estado, _ g: Gestos) -> WatchPagina {
         let (sujeto, unidad, tono) = sujetoDeRecuperacion(e)
+        let (etiqueta, valor) = segundoDeRecuperacion(e)
         return WatchPagina(
             id: "recupera",
-            contexto: "Descanso · viene la \(e.serie)",
-            // De pie, jadeando, con las manos libres. Aquí SÍ se decide.
-            modo: .mando,
+            // UNA RECUPERACIÓN CORRIENDO NO ES UN DESCANSO. «Descanso» delante de
+            // alguien que está trotando de vuelta es falso, y era la palabra que
+            // esta pantalla daba por hecha.
+            contexto: e.enMovimiento ? "Trota · viene la \(e.serie)"
+                                     : "Descanso · viene la \(e.serie)",
+            modo: modoDe(e),
             sujeto: sujeto,
             unidad: unidad,
             tono: tono ?? WatchTheme.ink,
-            // Lo que viene sólo se puede anunciar si el coach lo escribió. Sin
-            // tramo prescrito no se pinta «— m» ni un 0: la cuenta de series ya
-            // la lleva el contexto y el resto no lo sabe nadie.
-            segundoEtiqueta: e.loQueViene == nil ? nil : "Luego",
-            segundoValor: e.loQueViene,
-            accion: "Toca · ya",
+            segundoEtiqueta: etiqueta,
+            segundoValor: valor,
+            // Trotando el gesto sigue ahí pero no se anuncia (el lienzo no pinta
+            // la franja en `ojeada`): no se le pide una decisión a un brazo en
+            // movimiento, igual que dentro de la serie.
+            accion: e.enMovimiento ? nil : "Toca · ya",
             onToca: g.empezarYa
         )
+    }
+
+    /// El segundo nivel de la recuperación.
+    ///
+    /// Parado: lo que viene, que es la única pregunta que queda de pie. Trotando:
+    /// TU RITMO, porque la pregunta pasa a ser si vas lo bastante suave — trotar
+    /// la vuelta a 4:30 es lo que arruina la serie siguiente. Si el coach escribió
+    /// zona o ritmo para la recuperación, manda eso; si el GPS aún no mide, se
+    /// enseña el objetivo solo; y si no hay ni una cosa ni la otra, lo que viene.
+    private static func segundoDeRecuperacion(_ e: Estado) -> (String?, String?) {
+        if e.enMovimiento {
+            if let ritmo = e.ritmoSecPorKm {
+                return ("GPS", "\(WatchFormat.pace(ritmo))\(Formato.UnidadRitmo.porKm.rawValue)")
+            }
+            if let objetivo = e.objetivo { return ("Objetivo", objetivo.label) }
+        }
+        // Lo que viene sólo se puede anunciar si el coach lo escribió. Sin tramo
+        // prescrito no se pinta «— m» ni un 0: la cuenta de series ya la lleva el
+        // contexto y el resto no lo sabe nadie.
+        guard let viene = e.loQueViene else { return (nil, nil) }
+        return ("Luego", viene)
     }
 
     private static func sujetoDeRecuperacion(_ e: Estado) -> (String, String?, Color?) {

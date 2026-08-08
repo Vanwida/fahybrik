@@ -163,6 +163,7 @@ enum GuionDelEspejo {
     private static func series(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionSeries.Estado {
         GuionSeries.Estado(
             fase: t.enDescanso ? .recupera : .trabajo,
+            enMovimiento: t.recuperacionEnMovimiento,
             serie: t.rondaN ?? 1,
             totalSeries: t.rondaTotal ?? 1,
             cierre: cierre(t),
