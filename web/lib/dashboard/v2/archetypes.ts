@@ -17,6 +17,7 @@
 // FORM PATTERNS (STEADY · INTERVALS · SETS-TABLE · COMPONENTS) — true DRY.
 
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { V2Modality } from '@/components/v2/constants';
 import type { EditorBlock, EditorItem, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import {
@@ -280,6 +281,12 @@ const ACTIVATION_TARGET: Prescription['target'] = { kind: 'rpe', value: 3 };
 // coach pone de oficio entre series de fuerza submáxima.
 const SUPERSET_ROTATION_REST_S = 90;
 
+// Semilla del Circuito (docs/DECISIONS.md, 2026-08-07): rondas + pacing a nivel
+// de BLOQUE, editable desde ComponentsForm. 3 rondas / por tarea (sin reloj) es
+// el patrón HYROX real más frecuente del audit — nunca se inventa un `work_seconds`
+// sin que el coach elija «por reloj» primero.
+const DEFAULT_CIRCUIT_CONFIG: CircuitConfig = { rounds: 3, pacing: { kind: 'por_tarea' } };
+
 /**
  * Build a valid starting Prescription for a fresh block of the chosen archetype.
  * Reuses applyModalidad (shared prescription-model defaults) then lands on the
@@ -348,9 +355,12 @@ export function seedArchetype(id: ArchetypeId): Prescription {
       next.sets = [{ measure: { kind: 'reps', value: 15 } }];
       break;
     case 'rounds':
-      // Circuito / core — N rounds, components by reps|time.
-      next.rounds = 3;
-      next.rest_s = 60;
+      // Circuito / core — N rounds, components by reps|time. `rounds`/`rest_s`
+      // YA NO se siembran aquí: viven en `EditorBlock.circuit` (DEFAULT_CIRCUIT_CONFIG,
+      // createBlockFromArchetype abajo), no duplicados en la prescripción de la
+      // estación — ese doblado era el bug real de `applyHead`. Esta rama solo
+      // sirve a `circuit_core` (el único archetype con scheme 'rounds'), así que
+      // el retiro no afecta a ningún otro.
       next.sets = [{ measure: { kind: 'reps', value: 12 } }];
       break;
     default:
@@ -442,6 +452,10 @@ export function createBlockFromArchetype(
     format: archetype.format,
     archetype_id: id,
     ...(group ? { group } : {}),
+    // Circuito nace con una config de bloque válida (rounds + pacing son
+    // obligatorios en el schema) — el resto de archetypes no necesitan una
+    // porque su estructura vive en la Prescription sembrada arriba.
+    ...(id === 'circuit_core' ? { circuit: DEFAULT_CIRCUIT_CONFIG } : {}),
     items,
   };
 }

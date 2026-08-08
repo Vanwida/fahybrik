@@ -29,8 +29,20 @@ del entreno. Auditado hasta el fondo contra Neon real:
    separados entre estaciones y entre rondas) + tabla `template_blocks`
    (migración 0159, sin backfill a propósito — no se inventa `pacing`) +
    `assignment-detail.ts` ya sirve la config real en `config_json` cuando existe.
-2. Editor de día (`ComponentsForm.tsx`): UI de rounds/pacing a nivel de bloque,
-   fuera el `applyHead` que duplicaba campos por estación.
+2. ✅ Editor de día (`ComponentsForm.tsx`): UI de bloque real —
+   `CircuitConfigFields` (rounds Stepper, pacing por_tarea/por_reloj, ventana
+   de trabajo SOLO si por_reloj, dos descansos) edita `EditorBlock.circuit`
+   directo; fuera el `applyHead` que copiaba rounds/work_s/rest_s en CADA
+   estación (el mecanismo que ya divergió en 2 de 22 grupos reales). Solo se
+   activa para el bloque Circuito (`format === 'circuit'`) — WOD/EMOM/Tabata
+   siguen con `applyHead` tal cual, fuera de este corte. Circuito nuevo nace
+   con `circuit: {rounds:3, por_tarea}` (antes duplicaba rounds/rest_s en la
+   prescripción de la estación — ya no). Wireado round-trip completo:
+   `editor-data.ts`/`editor-serialize.ts` (mismo contrato "input manda,
+   si no se preserva" que `group`/`coach_note`) y `day-editor-io.ts`
+   (`sessionsToWire` no mandaba `group`/`optional`/`coach_note` al servidor
+   tampoco — gap preexistente fuera de este corte, solo se cerró para
+   `circuit`). Typecheck limpio, 1001 tests verdes (+8 nuevos), lint limpio.
 3. Motor en vivo iOS/watch (`WorkoutModels.swift`, `LiveTramo.swift`): leer el
    bloque en vez de campos copiados por ítem, arreglar el "3:45/km" huérfano,
    generalizar el cursor por estación. Fallback obligatorio a legacy — el motor
