@@ -408,6 +408,14 @@ export async function makeInlineMonthTemplate(params: {
       // Procedencia Biblioteca de Bloques (0037/0038) — el materializador
       // hidrata los items desde block_exercises del bloque referenciado.
       source_block_id?: number;
+      // Circuito (docs/DECISIONS.md, 2026-08-08) — cuando se da, el materializador
+      // debe escribir una fila en template_blocks para este block_position.
+      circuit?: {
+        rounds: number;
+        pacing: { kind: 'por_tarea' } | { kind: 'por_reloj'; work_seconds: number };
+        rest_between_stations_seconds?: number;
+        rest_between_rounds_seconds?: number;
+      };
     }>;
   }>;
   level?: string;
@@ -440,6 +448,7 @@ export async function makeInlineMonthTemplate(params: {
               params_json: it.params_json ?? {},
             })),
             ...(b.source_block_id != null ? { source_block_id: b.source_block_id } : {}),
+            ...(b.circuit ? { circuit: b.circuit } : {}),
           })),
         },
       ],

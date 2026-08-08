@@ -15,6 +15,7 @@ import type {
   WeekDayPart,
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   applyProgression,
@@ -714,8 +715,10 @@ async function materializeInlineSessionTemplate(params: {
     const blockFormat = (TEMPLATE_FORMATS as readonly string[]).includes(block.format)
       ? block.format
       : null;
+    let itemsInBlock = 0;
     for (const item of block.items ?? []) {
       if (!existingExerciseIds.has(Number(item.exercise_id))) continue;
+      itemsInBlock++;
       const paramsJson = JSON.parse(
         JSON.stringify(item.params_json ?? {}, (_, v) =>
           typeof v === 'bigint' ? Number(v) : v,
@@ -749,7 +752,45 @@ async function materializeInlineSessionTemplate(params: {
       `;
       position++;
     }
+
+    // Circuito (docs/DECISIONS.md, 2026-08-08): copia la config del bloque a
+    // template_blocks — solo si sobrevivió al menos un item real (si el bloque
+    // se quedó sin ejercicios existentes, no hay a qué block_position apuntar).
+    if (block.circuit && itemsInBlock > 0) {
+      await insertTemplateBlockCircuit(params.client, templateId, bi, block.circuit);
+    }
   }
 
   return templateId;
+}
+
+// Circuito (docs/DECISIONS.md, 2026-08-08): una fila por (template_id,
+// block_position) — nunca duplicado por item, esa duplicación era el bug que la
+// decisión original corrigió del otro lado. Usada por cada materializador que
+// copia un WeekDayPart a template_segments (hoy solo el inline; el de la
+// Biblioteca de sesiones no pasa por bloques de día).
+async function insertTemplateBlockCircuit(
+  client: Sql,
+  templateId: number,
+  blockPosition: number,
+  circuit: CircuitConfig,
+): Promise<void> {
+  const workSeconds = circuit.pacing.kind === 'por_reloj' ? circuit.pacing.work_seconds : null;
+  await client`
+    insert into template_blocks (
+      template_id, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    )
+    values (
+      ${templateId}, ${blockPosition}, ${circuit.rounds}, ${circuit.pacing.kind}, ${workSeconds},
+      ${circuit.rest_between_stations_seconds ?? null}, ${circuit.rest_between_rounds_seconds ?? null}
+    )
+    on conflict (template_id, block_position) do update set
+      rounds = excluded.rounds,
+      pacing = excluded.pacing,
+      work_seconds = excluded.work_seconds,
+      rest_between_stations_seconds = excluded.rest_between_stations_seconds,
+      rest_between_rounds_seconds = excluded.rest_between_rounds_seconds,
+      updated_at = now()
+  `;
 }
