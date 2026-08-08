@@ -43,11 +43,21 @@ del entreno. Auditado hasta el fondo contra Neon real:
    (`sessionsToWire` no mandaba `group`/`optional`/`coach_note` al servidor
    tampoco — gap preexistente fuera de este corte, solo se cerró para
    `circuit`). Typecheck limpio, 1001 tests verdes (+8 nuevos), lint limpio.
-3. Motor en vivo iOS/watch (`WorkoutModels.swift`, `LiveTramo.swift`): leer el
-   bloque en vez de campos copiados por ítem, arreglar el "3:45/km" huérfano,
-   generalizar el cursor por estación. Fallback obligatorio a legacy — el motor
-   que usan HOY los atletas activos de Pablo no puede cambiar de comportamiento
-   para nada existente.
+3. 🟡 Motor en vivo iOS/watch (`WorkoutModels.swift`) — **parcial, a propósito**:
+   `conditioningFold` ya lee `pacing` (por_tarea fuerza sin reloj SIEMPRE, ni con
+   leftover de item — la confusión de "ventana trabajo" pedida sin reloj), los
+   dos descansos viajan separados (`restS` = entre estaciones, `restBetweenRoundsS`
+   nuevo = tras la ronda), y el target de cabecera ("3:45/km huérfano") ya no se
+   presta del item 0 — solo sobrevive si TODOS los items coinciden. Fallback
+   legacy exacto cuando no hay `pacing` (todo bloque hoy). 958 tests iOS verdes.
+   **NO hecho, deliberadamente**: generalizar el cursor por estación
+   (`fixedListIsStations`/`Cursor.fixedStation`, `LiveTramo.swift`) a un
+   circuito real con rondas. Investigado a fondo: `StrikeList`/
+   `ForTimeContextStrip`/`StationSubject` asumen lista plana de un solo paso, y
+   el motor FIXED no tiene NINGÚN estado de descanso hoy (solo el motor
+   ROTATING lo tiene) — requiere un diseño propio, no cabía en un cambio
+   aditivo. Sigue pendiente como pieza propia (con pase de UX antes, por la
+   regla de prioridad UX del proyecto).
 4. Editor de tests real: bloques de verdad en vez de "Protocolo" en texto libre.
 
 Ver `docs/DECISIONS.md` (8-ago) para el detalle técnico completo una vez cierre.
