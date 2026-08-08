@@ -19,6 +19,7 @@ import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { ReorderRow, RowIconButton } from '@/components/v2/periodizacion/ReorderRow';
+import { blockAthleteLine } from '@/components/v2/editor/AthletePreviewLine';
 import { PanelButton, DialogScrim, ErrorBanner } from './chrome';
 import { TestEditorPanel } from './TestEditorPanel';
 import { AplicarTestSheet, type ApplyRosterEntry } from './AplicarTestSheet';
@@ -76,6 +77,25 @@ export function TestsView({
   const [confirmDelete, setConfirmDelete] = useState<CoachCalibrationTest | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
+  // VISTA PREVIA: ver un test sin entrar a editarlo (Alex, 8-ago). El contenido
+  // se pide una vez por test y se cachea — abrir y cerrar no vuelve a la red.
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const [previa, setPrevia] = useState<Record<string, EditorBlock[] | 'cargando'>>({});
+
+  const verTest = useCallback((t: CoachCalibrationTest) => {
+    setAbierto((prev) => (prev === t.id ? null : t.id));
+    if (previa[t.id] !== undefined || !t.template_id) return;
+    setPrevia((p) => ({ ...p, [t.id]: 'cargando' }));
+    void (async () => {
+      try {
+        const res = await fetch(`/api/coach/tests/${t.id}`);
+        const json = (await res.json().catch(() => null)) as { content?: EditorBlock[] } | null;
+        setPrevia((p) => ({ ...p, [t.id]: json?.content ?? [] }));
+      } catch {
+        setPrevia((p) => ({ ...p, [t.id]: [] }));
+      }
+    })();
+  }, [previa]);
 
   // ── Abrir «Editar» — el draft nace con content:[] (testToDraft es síncrono) y
   // se hidrata aparte con un GET dedicado (loadCoachTestContent, ver el
@@ -289,7 +309,19 @@ export function TestsView({
                   </>
                 }
               >
-                <div className="flex items-center gap-2.5">
+                <div
+                  className="flex cursor-pointer items-center gap-2.5"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={abierto === t.id}
+                  onClick={() => verTest(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      verTest(t);
+                    }
+                  }}
+                >
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
                     style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
@@ -330,7 +362,13 @@ export function TestsView({
                   >
                     Aplicar
                   </button>
+                  <MIcon
+                    name={abierto === t.id ? 'expand_less' : 'expand_more'}
+                    size={18}
+                    className="shrink-0 text-[color:var(--v2-faint)]"
+                  />
                 </div>
+                {abierto === t.id ? <PreviaTest bloques={previa[t.id]} nota={t.protocol} /> : null}
               </ReorderRow>
             ))}
 
@@ -510,5 +548,45 @@ function ConfirmDeleteDialog({
         </div>
       </div>
     </DialogScrim>
+  );
+}
+
+/**
+ * VISTA PREVIA de un test — verlo sin entrar a editarlo (Alex, 8-ago). Enseña lo
+ * que hará el atleta, con la MISMA frase que ya compone el editor
+ * (`blockAthleteLine`): reutilizada, no un segundo formateador que pudiera decir
+ * la dosis de otra manera que el resto de la app.
+ */
+function PreviaTest({
+  bloques,
+  nota,
+}: {
+  bloques: EditorBlock[] | 'cargando' | undefined;
+  nota: string | null;
+}) {
+  return (
+    <div className="mt-2.5 border-t border-[color:var(--v2-border)] pt-2.5 pl-9">
+      {nota ? (
+        <p className="mb-2 text-xs leading-snug text-[color:var(--v2-muted)]">{nota}</p>
+      ) : null}
+      {bloques === 'cargando' ? (
+        <p className="text-xs text-[color:var(--v2-faint)]">Cargando…</p>
+      ) : !bloques || bloques.length === 0 ? (
+        <p className="text-xs leading-snug text-[color:var(--v2-faint)]">
+          Sin sesión guiada: el atleta lo hace por su cuenta y anota el resultado.
+        </p>
+      ) : (
+        <ol className="flex flex-col gap-1">
+          {bloques.map((b, i) => (
+            <li key={b.uid} className="flex gap-2 text-xs leading-snug">
+              <span className="v2-num shrink-0 text-[color:var(--v2-faint)]">{i + 1}.</span>
+              <span className="min-w-0 text-[color:var(--v2-fg)]">
+                {blockAthleteLine(b) || b.title}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   );
 }
