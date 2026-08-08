@@ -1,11 +1,28 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-07**
+Última actualización: **2026-08-08**
 
 ---
 
-## Ahora · el editor de día ya resincroniza — DESPLEGADO en producción (7-ago noche)
+## Ahora · el panel «Nuevo test» ya no roba el foco al teclear — DESPLEGADO (8-ago)
+
+`SidePanel`/`AddMicrocicloPicker` enfocaban su contenedor en un `useEffect`
+con `[onClose]` de dependencia — `onClose` es una arrow function que el padre
+recrea en cada render, así que cada tecleo disparaba el efecto otra vez y le
+robaba el foco al input (Alex: «solo puedo 1 carácter a la vez, tengo que
+hacer clic»). El foco al abrir ahora corre UNA vez (deps vacías); el listener
+de Escape sigue dependiendo de `onClose` sin problema — no roba foco.
+`627fe068`, `dpl_EkZDLKEzwBoc12KjAdYKhbZ2dLAf`, aliased a fahybrid.com.
+
+**No verificado con clic real en navegador** — el dev server compartido
+(puerto 3901, de otra sesión) tenía la conexión a Neon caída en el momento;
+no se reinició por no ser mío. Diagnóstico por lectura de código: patrón muy
+conocido de React, encaja exacto con los tres síntomas reportados (borde
+naranja parpadeando = foco programático repetido, cursor que sale = foco
+robado, un carácter y clic = el efecto se re-dispara en cada tecleo).
+
+## Antes · el editor de día ya resincroniza — DESPLEGADO en producción (7-ago noche)
 
 **Bug real, no cosmético, encontrado en la misma sesión de pruebas de arriba:**
 la nota que Alex escribió para «Puente de glúteo» se guardaba perfecta en la
