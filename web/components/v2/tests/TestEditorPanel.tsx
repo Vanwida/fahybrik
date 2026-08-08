@@ -11,7 +11,7 @@
 // con su propio vocabulario, era decir dos veces lo mismo y romper el esquema
 // del resto de la app. Ver shared/domain/coach/test-derive.ts.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SidePanel, Field, TextInput, TextArea } from '@/components/v2/periodizacion/SidePanel';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,13 @@ import {
 } from '@fahybrid/shared/domain/coach/test-derive';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
+import { createHyroxSimBlock } from '@/lib/dashboard/v2/hyrox-template';
+import {
+  TEST_FAMILY_LABEL,
+  TEST_FAMILY_ORDER,
+  TEST_PRESETS_BY_FAMILY,
+  type TestPreset,
+} from '@fahybrid/shared/domain/coach/test-catalog';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { ArchetypeGrid } from '@/components/v2/editor/ArchetypePicker';
 import { PanelButton } from './chrome';
@@ -73,6 +80,52 @@ export function TestEditorPanel({
   contentLoading?: boolean;
 }) {
   const [blockPickerOpen, setBlockPickerOpen] = useState(false);
+
+  // slug del catálogo → ejercicio real. Es lo que permite que picar «Remo 2 km»
+  // deje el bloque montado y no un hueco que el coach tenga que rellenar. Si el
+  // ejercicio no existe en esta base, el preset entra igual con su nombre y el
+  // coach lo elige a mano: degrada, no rompe.
+  const [porSlug, setPorSlug] = useState<Map<string, { id: string; name: string }>>(new Map());
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/exercises?limit=2000', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { exercises?: Array<{ id: string; name: string; slug?: string }> } | null) => {
+        if (!vivo || !d?.exercises) return;
+        const m = new Map<string, { id: string; name: string }>();
+        for (const e of d.exercises) if (e.slug) m.set(e.slug, { id: e.id, name: e.name });
+        setPorSlug(m);
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /** Picar un test del catálogo: queda montado y el nombre se rellena solo. */
+  const pickPreset = (p: TestPreset) => {
+    const seq = draft.content.length + 1;
+    const nombre = draft.name.trim() || p.id;
+    if (p.hyrox) {
+      onChange({ ...draft, name: nombre, content: [...draft.content, createHyroxSimBlock()] });
+      return;
+    }
+    const hit = p.exercise.map((sl) => porSlug.get(sl)).find(Boolean);
+    const bloque: EditorBlock = {
+      uid: `test-blk-${seq}`,
+      title: p.label,
+      format: null,
+      items: [
+        {
+          uid: `test-it-${seq}`,
+          exercise_id: hit ? Number(hit.id) : null,
+          exercise_name: hit?.name ?? p.exerciseLabel,
+          prescription: p.prescription,
+        },
+      ],
+    };
+    onChange({ ...draft, name: nombre, content: [...draft.content, bloque] });
+  };
 
   const setBlock = (i: number, b: EditorBlock) =>
     onChange({ ...draft, content: draft.content.map((x, j) => (j === i ? b : x)) });
@@ -171,7 +224,7 @@ export function TestEditorPanel({
           <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
             Contenido
           </span>
-          {!blockPickerOpen ? (
+          {!blockPickerOpen && draft.content.length > 0 ? (
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -198,9 +251,40 @@ export function TestEditorPanel({
             Cargando el contenido…
           </p>
         ) : draft.content.length === 0 && !blockPickerOpen ? (
-          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
-            Vacío: el atleta lo hace por su cuenta, sin sesión guiada. Añade el ejercicio y su número (1000 m de remo, 5 km en cinta, 40 cal) para que la app se lo dirija y mida sola.
-          </p>
+          /* El catálogo, de entrada y sin un clic previo: es el camino del 90 %
+             de los tests. Picar uno lo deja montado y rellena el nombre. */
+          <div className="@container">
+            <p className="mb-3 text-label leading-snug text-[color:var(--v2-faint)]">
+              Elige el test y queda montado. El atleta lo ejecuta como un entreno
+              normal y la app mide el resultado sola.
+            </p>
+            <div className="flex flex-col gap-4">
+              {TEST_FAMILY_ORDER.map((fam) => (
+                <div key={fam}>
+                  <span className="mb-1.5 block text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-faint)]">
+                    {TEST_FAMILY_LABEL[fam]}
+                  </span>
+                  <div className="grid grid-cols-1 gap-2 @md:grid-cols-2 @2xl:grid-cols-3">
+                    {TEST_PRESETS_BY_FAMILY[fam].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => pickPreset(p)}
+                        className="v2-focus flex min-w-0 flex-col gap-0.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5 text-left transition-colors hover:border-[color:var(--v2-accent)]"
+                      >
+                        <span className="truncate text-body font-bold text-[color:var(--v2-fg)]">
+                          {p.label}
+                        </span>
+                        <span className="text-label leading-snug text-[color:var(--v2-muted)]">
+                          {p.hint}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : null}
 
         {draft.content.length > 0 ? (
