@@ -16,6 +16,8 @@ import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
+import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { ReorderRow, RowIconButton } from '@/components/v2/periodizacion/ReorderRow';
 import { PanelButton, DialogScrim, ErrorBanner } from './chrome';
 import { TestEditorPanel } from './TestEditorPanel';
@@ -25,6 +27,7 @@ import {
   emptyTestDraft,
   testToDraft,
   draftResultToInput,
+  draftContentToInput,
 } from './draft';
 
 const DOW = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
@@ -73,6 +76,33 @@ export function TestsView({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CoachCalibrationTest | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
+
+  // ── Abrir «Editar» — el draft nace con content:[] (testToDraft es síncrono) y
+  // se hidrata aparte con un GET dedicado (loadCoachTestContent, ver el
+  // docblock en lib/coach/coach-tests.ts). El panel se abre YA, sin esperar: el
+  // coach puede editar nombre/resultados/agenda mientras el contenido llega.
+  const openEdit = useCallback((t: CoachCalibrationTest) => {
+    setDraft(testToDraft(t));
+    setError(null);
+    if (!t.template_id) return;
+    setContentLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/coach/tests/${t.id}`);
+        const json = (await res.json().catch(() => null)) as { content?: EditorBlock[] } | null;
+        if (json?.content) {
+          const content = json.content;
+          setDraft((prev) => (prev && prev.id === t.id ? { ...prev, content } : prev));
+        }
+      } catch {
+        // Silencioso: el panel ya está abierto con contenido vacío — el coach
+        // puede seguir construyéndolo desde cero si la carga falla.
+      } finally {
+        setContentLoading(false);
+      }
+    })();
+  }, []);
 
   // ── Reorder (adjacent swap, persisted as the full order) ──────────────────
   const move = useCallback(
@@ -105,6 +135,16 @@ export function TestsView({
       setError('Añade al menos un resultado.');
       return;
     }
+    // Gate honesto (A3, item-validity.ts) — no es lo mismo un test SIN bloques
+    // (mecanismo automático de siempre, válido) que un bloque con una línea sin
+    // ejercicio: eso el servidor lo descarta en silencio al escribir
+    // (writeAuthoredContentSegments salta cualquier item sin exercise_id real),
+    // así que sin este gate el coach vería «Guardado» y perdería la línea.
+    const contentGate = saveGateFor(draft.content);
+    if (!contentGate.ok) {
+      setError(contentGate.reason!);
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -114,6 +154,7 @@ export function TestsView({
       protocol: draft.protocol.trim() || null,
       format: draft.format,
       enabled: draft.enabled,
+      content: draftContentToInput(draft.content),
       results: draft.results.map(draftResultToInput),
       schedule: draft.schedule.map((s) => ({
         week_offset: s.week_offset,
@@ -235,10 +276,7 @@ export function TestsView({
                     <RowIconButton
                       icon="edit"
                       label="Editar test"
-                      onClick={() => {
-                        setDraft(testToDraft(t));
-                        setError(null);
-                      }}
+                      onClick={() => openEdit(t)}
                     />
                     <RowIconButton
                       icon="delete"
@@ -305,6 +343,7 @@ export function TestsView({
               onSave={() => void save()}
               onClose={() => setDraft(null)}
               saving={saving}
+              contentLoading={contentLoading}
             />
           ) : null}
         </div>

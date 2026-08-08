@@ -8,6 +8,7 @@
 // "distance/reps/calories ⇒ baseline" hold by construction — those measures only
 // exist under the baseline options, and every calibrating option is time/load.
 
+import { useState } from 'react';
 import { SidePanel, Field, TextInput, TextArea } from '@/components/v2/periodizacion/SidePanel';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,10 @@ import {
   calibrationTargetByKey,
 } from '@fahybrid/shared/domain/coach/test-battery';
 import type { StoreResultUnit } from '@fahybrid/shared/schema/test-battery';
+import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
+import { BlockEditor } from '@/components/v2/editor/BlockEditor';
+import { ArchetypeGrid } from '@/components/v2/editor/ArchetypePicker';
 import { PanelButton, SelectInput } from './chrome';
 import {
   type TestDraft,
@@ -64,13 +69,28 @@ export function TestEditorPanel({
   onSave,
   onClose,
   saving,
+  contentLoading = false,
 }: {
   draft: TestDraft;
   onChange: (d: TestDraft) => void;
   onSave: () => void;
   onClose: () => void;
   saving: boolean;
+  /** El contenido de un test existente se hidrata aparte (GET), después de abrir
+   *  el panel — mientras llega, «Contenido» lo dice en vez de parecer vacío. */
+  contentLoading?: boolean;
 }) {
+  const [blockPickerOpen, setBlockPickerOpen] = useState(false);
+
+  const setBlock = (i: number, b: EditorBlock) =>
+    onChange({ ...draft, content: draft.content.map((x, j) => (j === i ? b : x)) });
+  const addBlock = (id: ArchetypeId) => {
+    onChange({ ...draft, content: [...draft.content, createBlockFromArchetype(id)] });
+    setBlockPickerOpen(false);
+  };
+  const removeBlock = (i: number) =>
+    onChange({ ...draft, content: draft.content.filter((_, j) => j !== i) });
+
   const setResult = (i: number, r: DraftResult) => {
     onChange({ ...draft, results: draft.results.map((x, j) => (j === i ? r : x)) });
   };
@@ -128,14 +148,90 @@ export function TestEditorPanel({
         </SelectInput>
       </Field>
 
-      <Field label="Protocolo" hint="qué hace el atleta · opcional">
+      <Field label="Nota" hint="la lee el atleta justo antes de empezar · opcional">
         <TextArea
           value={draft.protocol}
           onChange={(v) => onChange({ ...draft, protocol: v })}
-          placeholder="5 km a fondo. Calienta 10–15 min, luego 5 km al máximo sostenible."
+          placeholder="Calienta bien antes de salir a por todas."
           maxLength={4000}
         />
       </Field>
+
+      {/* Contenido — el bloque real de la sesión: ejercicio + dosis, igual que
+          un entreno normal (docs/DECISIONS.md, 2026-08-08). Sin bloques el test
+          sigue siendo válido: el atleta lo hace según sus resultados, sin una
+          sesión guiada (el mecanismo automático de siempre). */}
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
+            Contenido
+          </span>
+          {!blockPickerOpen ? (
+            <button
+              type="button"
+              onClick={() => setBlockPickerOpen(true)}
+              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+            >
+              <MIcon name="add" size={14} /> Añadir bloque
+            </button>
+          ) : null}
+        </div>
+
+        {contentLoading ? (
+          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
+            Cargando el contenido…
+          </p>
+        ) : draft.content.length === 0 && !blockPickerOpen ? (
+          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
+            Sin bloques: el atleta hace el test según sus resultados, sin una sesión guiada. Añade uno o más para construirla como un entreno normal.
+          </p>
+        ) : null}
+
+        {draft.content.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {draft.content.map((block, i) => (
+              <div
+                key={block.uid}
+                className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-label font-bold text-[color:var(--v2-faint)]">
+                    Bloque {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeBlock(i)}
+                    aria-label="Quitar bloque"
+                    className="v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+                  >
+                    <MIcon name="close" size={14} />
+                  </button>
+                </div>
+                <BlockEditor block={block} onChange={(next) => setBlock(i, next)} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {blockPickerOpen ? (
+          <div className="mt-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-3.5">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <span className="text-body font-bold text-[color:var(--v2-fg)]">
+                Elige el tipo de bloque
+              </span>
+              <button
+                type="button"
+                onClick={() => setBlockPickerOpen(false)}
+                aria-label="Cerrar el selector de tipo"
+                className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="close" size={16} />
+              </button>
+            </div>
+            <ArchetypeGrid onPick={addBlock} />
+          </div>
+        ) : null}
+      </div>
 
       {/* Resultados */}
       <div>
