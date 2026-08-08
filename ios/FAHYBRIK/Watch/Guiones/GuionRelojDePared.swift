@@ -256,8 +256,13 @@ enum GuionRelojDePared {
             movimiento: session.currentSegment?.primaryMovement,
             rondaActual: max(1, session.rotRoundIndex + 1),
             totalRondas: (esDeathBy || session.rotTotalRounds <= 1) ? nil : session.rotTotalRounds,
-            enDescanso: session.rotPhase == .rest,
-            quedaS: session.rotPhaseRemaining,
+            // `isTramoResting`/`tramoRestRemaining` y no `rotPhase`: son LA superficie
+            // de descanso, la misma que lee el espejo. Mirando solo el motor rotativo,
+            // el reloj decía «trabaja» mientras el móvil estaba descansando en todo lo
+            // que no fuese Tabata/intervalos — un EMOM, una carrera estructurada, el
+            // descanso entre estaciones de un circuito.
+            enDescanso: session.isTramoResting,
+            quedaS: session.isTramoResting ? session.tramoRestRemaining : session.rotPhaseRemaining,
             // Sólo intervals lo pinta (el propio guion lo gatea): RPE/RIR/%RM
             // del bloque, no de una pierna de correr — aquí no hay ninguna.
             objetivo: PrescriptionRenderer.targetLoad(session.currentSegment?.prescription?.target),

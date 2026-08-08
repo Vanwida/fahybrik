@@ -138,6 +138,10 @@ extension WorkoutSession {
         if currentSegment?.isEMOM == true {
             return emomCountInRemaining <= 0 && emomPhase == .rest && emomPhaseRemaining > 0
         }
+        // Descanso ENTRE ESTACIONES de una lista fija (el 2:00 del HCT). El motor
+        // FIXED no tenía fase de descanso y el `rest_s` prescrito no lo leía nadie:
+        // las estaciones encadenaban sin pausa y el atleta no sabía si parar.
+        if fixedRestRemaining > 0 { return true }
         return rotPhase == .rest && rotPhaseRemaining > 0
     }
 
@@ -145,6 +149,7 @@ extension WorkoutSession {
     var tramoRestRemaining: Double {
         if isRunStructureActive { return Swift.max(0, runLegRemaining) }
         if currentSegment?.isEMOM == true { return Swift.max(0, emomPhaseRemaining) }
+        if fixedRestRemaining > 0 { return fixedRestRemaining }
         return Swift.max(0, rotPhaseRemaining)
     }
 

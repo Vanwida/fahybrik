@@ -653,6 +653,15 @@ final class PhoneMirrorService {
             // «te faltan» daba saltos de cinco en cinco segundos. Con él llega al
             // ritmo del cambio real y como mucho una vez por trama.
             campos.append(t.hechoMedida.map { String(Int($0 / 10)) } ?? "")
+            // El RELOJ de la ventana, al segundo. La muñeca NO lo tickea local — pinta
+            // `ventanaQueda` tal cual llega (GuionDelEspejo) — así que dejándolo fuera
+            // de la clave solo se refrescaba con el latido de 5 s: la cuenta atrás se
+            // congelaba y saltaba de cinco en cinco, y el reloj se veía desincronizado
+            // del móvil en CUALQUIER entreno con ventana (el minuto del EMOM, el
+            // descanso de intervalos, el del circuito). Al segundo, como ya hacían
+            // `countdownSec` y `restSec` arriba: una trama por segundo como mucho, que
+            // es exactamente lo que esos dos ya aceptaban.
+            campos.append(t.ventanaQueda.map { String(max(0, Int(ceil($0)))) } ?? "")
             return campos.joined(separator: ",")
         }()
         let parts: [String] = [

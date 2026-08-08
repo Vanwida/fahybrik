@@ -168,6 +168,19 @@ final class WorkoutSession {
     var fixedRoundsDone: Int = 0
     private(set) var fixedRoundSplits: [FixedStationSplit] = []
 
+    /// DESCANSO ENTRE ESTACIONES de una lista fija (el 2:00 del HYROX Conditioning
+    /// Test entre remo y burpees). Hasta ahora el motor FIXED no tenía NINGUNA fase
+    /// de descanso: el `rest_s` que el coach prescribía se guardaba y no lo leía
+    /// nadie, así que las estaciones encadenaban sin pausa y el atleta no sabía si
+    /// parar (Alex, 8-ago). Alimenta `isTramoResting`, que es la ÚNICA superficie de
+    /// descanso — así el móvil y el reloj lo pintan con la pantalla que ya existe,
+    /// sin una segunda forma de decir lo mismo.
+    ///
+    /// Una simulación HYROX no prescribe descansos y sigue yendo seguida, que es lo
+    /// correcto: en carrera el reloj no para.
+    var fixedRestRemaining: Double = 0
+    private(set) var fixedRestTotal: Double = 0
+
     /// ROTATING formats (Tabata / Intervals / Death By) — the work/rest phase, the
     /// 0-based round index, the count-DOWN remaining in the current phase, and the
     /// Tabata per-round rep tally. `deathByFailed` ends a Death By on "Fallé".
@@ -1434,6 +1447,27 @@ final class WorkoutSession {
     // Time counts UP and closes when the cap is hit (the capped finish). An open
     // For Time has no deadline → it just counts up until "Hecho".
     private func tickFixed(dt: Double, seg: WorkoutSegment) {
+        // DESCANSO entre estaciones: mientras corre, la siguiente estación NO empieza
+        // — ni su reloj ni su goal automático. Si no se parara aquí, el 2:00 del
+        // protocolo se lo comería la estación siguiente sin que nadie lo viera.
+        if fixedRestRemaining > 0 {
+            let before = fixedRestRemaining
+            let after = before - dt
+            for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+                WorkoutAudio.shared.playTick()
+                Haptics.cueTick()
+            }
+            if after <= 0 {
+                fixedRestRemaining = 0
+                fixedRestTotal = 0
+                WorkoutAudio.shared.playIntervalStart()
+                Haptics.cueGo()
+            } else {
+                fixedRestRemaining = after
+            }
+            tickDeadline(dt: dt, seg: seg)
+            return
+        }
         // A CLOCK-measured station inside the route ("2 min de bici") ends on its own
         // seconds — the one station transition that needs no machine, because the
         // thing that measures it is the clock this tick is already running. Checked
@@ -1602,6 +1636,11 @@ final class WorkoutSession {
             WorkoutAudio.shared.playFinish()
             closeConditioningAndAdvance()
         } else {
+            // El descanso que prescribió la estación que ACABA de cerrarse (índice
+            // fixedRoundsDone - 1, ya movido el cursor). Solo entre estaciones: tras
+            // la última se cierra el bloque, y ahí el descanso lo pone el gate del
+            // siguiente bloque, no esto.
+            beginFixedRest(seg: currentSegment, closedStation: fixedRoundsDone - 1)
             WorkoutAudio.shared.playIntervalStart()
             // Open the new window HERE rather than on the next tick, so the station's
             // clock and its device counters start at the strike and not up to a
@@ -1609,6 +1648,31 @@ final class WorkoutSession {
             // once the key is stable.
             syncTramoIfNeeded()
         }
+    }
+
+    /// Arranca el descanso que la estación recién cerrada declaraba, si declaraba
+    /// alguno. Silencioso (0) para todo lo que no lo prescribe — una simulación
+    /// HYROX va seguida a propósito, así que aquí no aparece ninguna pausa que el
+    /// coach no haya pedido.
+    private func beginFixedRest(seg: WorkoutSegment?, closedStation: Int) {
+        guard let seg, seg.fixedListIsStations,
+              let rest = seg.rotationSet(at: closedStation)?.restS, rest > 0 else {
+            fixedRestRemaining = 0
+            fixedRestTotal = 0
+            return
+        }
+        fixedRestTotal = Double(rest)
+        fixedRestRemaining = Double(rest)
+    }
+
+    /// Cortar el descanso y entrar ya en la siguiente estación. El descanso de un
+    /// protocolo es parte del protocolo, así que expira solo; esto existe para el
+    /// atleta que decide seguir, no para saltárselo por defecto.
+    func skipFixedRest() {
+        guard fixedRestRemaining > 0 else { return }
+        fixedRestRemaining = 0
+        fixedRestTotal = 0
+        Haptics.light()
     }
 
     /// Undo the last For Time / Chipper / Ladder strike (a mis-tap), restoring the

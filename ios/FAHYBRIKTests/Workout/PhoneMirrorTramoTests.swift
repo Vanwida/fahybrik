@@ -145,6 +145,35 @@ final class PhoneMirrorTramoTests: XCTestCase {
         XCTAssertEqual(mirror.structuralKey(base), mirror.structuralKey(otroRitmo))
     }
 
+    /// EL RELOJ DE LA VENTANA, al segundo. La muñeca NO lo tickea local — pinta
+    /// `ventanaQueda` tal cual llega — así que fuera de la clave sólo se refrescaba
+    /// con el latido de 5 s: la cuenta atrás se congelaba y saltaba de cinco en
+    /// cinco, y el reloj se veía desincronizado del móvil en CUALQUIER entreno con
+    /// ventana (Alex, 8-ago). Un segundo distinto ⇒ trama nueva; el mismo segundo
+    /// con decimales distintos, NO (una trama por segundo como mucho).
+    func testElRelojDeLaVentanaEsEstructuralAlSegundo() {
+        let base = mirror.buildFrame(from: seriesLibres())
+        guard let t = base.tramo else { return XCTFail("sin tramo") }
+
+        func conVentana(_ queda: Double?) -> MirrorStateFrame {
+            var f = base
+            f.tramo = MirrorTramo(
+                formato: t.formato, modalidad: t.modalidad, etiqueta: t.etiqueta, dosis: t.dosis,
+                rondaN: t.rondaN, rondaTotal: t.rondaTotal, enDescanso: t.enDescanso,
+                cierre: t.cierre, objetivoMedida: t.objetivoMedida, hechoMedida: t.hechoMedida,
+                ventanaQueda: queda, ventanaTotal: t.ventanaTotal, enTramoS: t.enTramoS,
+                ritmoSecPorKm: t.ritmoSecPorKm, objetivoLabel: t.objetivoLabel,
+                objetivoEstado: t.objetivoEstado, zonaViva: t.zonaViva, siguiente: t.siguiente,
+                cargaKg: t.cargaKg, reps: t.reps)
+            return f
+        }
+
+        XCTAssertNotEqual(mirror.structuralKey(conVentana(30)), mirror.structuralKey(conVentana(29)),
+                          "un segundo menos tiene que llegar a la muñeca ya")
+        XCTAssertEqual(mirror.structuralKey(conVentana(29.9)), mirror.structuralKey(conVentana(29.2)),
+                       "dentro del mismo segundo NO se reenvía: el canal se inundaría")
+    }
+
     /// Un reloj anterior a este cambio (o una trama sin tramo) tiene que seguir
     /// decodificando: el campo es aditivo y opcional.
     func testUnaTramaSinTramoSigueSiendoValida() {
