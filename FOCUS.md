@@ -5,7 +5,13 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Circuito llega a Biblioteca/tests + editor de contenido real para tests — EN CURSO (8-ago)
+## Ahora · Circuito llega a Biblioteca/tests + editor de contenido real para tests — DESPLEGADO (8-ago)
+
+Las 4 piezas están cerradas y en `feat/pm5-counter-sync` (última: `0a235d79`).
+Desplegado a producción: `dpl_4H3THUFqCaSUefBJHJTPsYkkjU6h`, aliased a
+fahybrid.com. Migración 0159 (`template_blocks`) ya aplicada a Neon producción
+desde antes. iOS/watch: cambios en el repo, pendientes de instalar en el
+dispositivo físico de Alex (no es despliegue web).
 
 Alex señaló que el editor de "Nuevo test" (`/tests`) no construye nada real:
 "Protocolo" es texto libre, "Resultados" es una lista abstracta desconectada
