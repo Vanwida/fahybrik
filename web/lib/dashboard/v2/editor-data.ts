@@ -315,6 +315,10 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
     optional: part.optional ?? false,
+    // Circuito: pass-through tal cual (undefined = sin configurar todavía, el
+    // comportamiento legacy). Nunca se infiere ni se rellena aquí — solo el
+    // coach lo completa desde ComponentsForm.
+    circuit: part.circuit,
     items: (part.items ?? []).map((it) => mapItem(it)),
   };
 }

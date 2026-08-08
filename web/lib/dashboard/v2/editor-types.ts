@@ -7,6 +7,7 @@
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   recoveryActivitySchema,
+  type CircuitConfig,
   type RecoveryActivity,
   type RecoverySuggestion,
   type StructureGroup,
@@ -129,6 +130,16 @@ export interface EditorBlock {
    * IA, hyrox-template, quickline…) no lo tocan y queda implícitamente false.
    */
   optional?: boolean;
+  /**
+   * Circuito (docs/DECISIONS.md, 2026-08-07): rondas + pacing (por_tarea sin
+   * reloj | por_reloj con work_seconds) + descansos entre estaciones/rondas, a
+   * nivel de BLOQUE — no duplicado en cada estación (el bug real de `applyHead`
+   * que este campo reemplaza en ComponentsForm). Solo lo rellena el bloque
+   * Circuito/Core (`format === 'circuit'`); ausente = comportamiento legacy
+   * (estaciones sueltas sin rounds/pacing de bloque), incluido en cualquier
+   * otro archetype/formato del patrón `components`.
+   */
+  circuit?: CircuitConfig;
   items: EditorItem[];
 }
 

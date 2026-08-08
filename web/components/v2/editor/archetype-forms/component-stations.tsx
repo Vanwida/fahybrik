@@ -4,8 +4,12 @@
 // estructurales del formato (rediseño del editor de microciclos): cada estación
 // es una fila limpia — asa de orden, movimiento, medida en mono y objetivo —
 // sobre la MISMA estructura de datos de siempre (EditorItem con su
-// prescription.sets[0]). Sale de ComponentsForm para respetar el techo de 500
-// líneas; cero reglas de dominio nuevas.
+// prescription.sets[0]). `FormatParamField` es el otro campo de BLOQUE que
+// ComponentsForm enruta aquí (rounds/cap/ventana/descanso por-item, la
+// convención `applyHead` de siempre) — su hermano Circuito (rounds/pacing/
+// descansos del bloque, docs/DECISIONS.md 2026-08-07) vive en
+// `circuit-config-fields.tsx`, extraído para no repetir el mismo techo de 500
+// líneas que sacó esto de ComponentsForm. Cero reglas de dominio nuevas.
 
 import type {
   FormatParam,

@@ -138,6 +138,17 @@ function serializePart(
       : original?.coach_note != null
         ? { coach_note: original.coach_note }
         : {}),
+    // Circuito — misma regla que `group`/`source_block_id`/`coach_note`: input
+    // manda cuando se envía, si no se preserva el original. ComponentsForm
+    // siempre manda su `circuit` completo (rounds + pacing son obligatorios en
+    // el schema) mientras el bloque sea Circuito, así que en la práctica esto
+    // es autoritativo para ese archetype; un caller que no lo conoce (copiar
+    // día, tests viejos) simplemente lo omite y el original sobrevive.
+    ...(block.circuit != null
+      ? { circuit: block.circuit }
+      : original?.circuit != null
+        ? { circuit: original.circuit }
+        : {}),
     // Autoritativo desde el input, como `format`/`title` arriba: el day editor
     // SÍ tiene UI para esto (a diferencia de coach_note), así que el cliente
     // siempre manda su valor actual — incluida la vuelta a false. `?? false`
