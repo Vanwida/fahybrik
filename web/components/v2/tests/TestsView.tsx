@@ -26,7 +26,6 @@ import {
   type TestDraft,
   emptyTestDraft,
   testToDraft,
-  draftResultToInput,
   draftContentToInput,
 } from './draft';
 
@@ -258,9 +257,15 @@ export function TestsView({
       {isEmpty && !draft ? (
         <EmptyTests onCreate={() => setDraft(emptyTestDraft())} onRestore={restore} restoring={restoring} />
       ) : (
-        <div className={cn('grid items-start gap-4', draft ? 'lg:grid-cols-[1fr_360px]' : 'grid-cols-1')}>
+        // Editar un test es MONTAR UN ENTRENO, así que ocupa el ancho entero —
+        // igual que el editor de día (MicrocicloV2 → DayEditor). Antes vivía en
+        // una columna de 360 px con el listado al lado: media pantalla vacía a la
+        // izquierda y el selector de bloques partiendo los nombres a la derecha.
+        // Mientras editas, el listado se aparta; son cuatro filas y vuelves con
+        // Cancelar.
+        <div className="grid grid-cols-1 items-start gap-4">
           {/* list */}
-          <div className={cn('flex flex-col gap-2', draft ? 'hidden lg:flex' : undefined)}>
+          <div className={cn('flex flex-col gap-2', draft ? 'hidden' : undefined)}>
             {tests.map((t, i) => (
               <ReorderRow
                 key={t.id}
@@ -332,8 +337,9 @@ export function TestsView({
             <PurposeStrip onRestore={restore} restoring={restoring} />
           </div>
 
-          {/* side panel (create/edit) */}
+          {/* editor (crear/editar) — ancho completo, centrado como el del día */}
           {draft ? (
+            <div className="mx-auto w-full max-w-[880px]">
             <TestEditorPanel
               draft={draft}
               onChange={setDraft}
@@ -342,6 +348,7 @@ export function TestsView({
               saving={saving}
               contentLoading={contentLoading}
             />
+            </div>
           ) : null}
         </div>
       )}
