@@ -48,6 +48,15 @@ struct Prescription: Codable, Equatable {
     /// (see the extension) — a malformed structure degrades to nil, never failing
     /// the whole item.
     var structure: RunStructure? = nil
+    /// CIRCUITO (2026-08-07 DECISIONS): the gap AFTER a full round, before the next
+    /// one starts — kept SEPARATE from `restS`, which keeps its existing meaning
+    /// ("between stations", inside a round). Populated only by
+    /// `WorkoutBlock.conditioningFold` from the block's `rest_between_rounds_seconds`
+    /// config key; nil for every other prescription (EMOM/Tabata/intervals keep
+    /// reading `restS`/`rest_seconds` exactly as before — this field is additive,
+    /// never a replacement). `var` + default for the same back-compat reason as
+    /// `structure`: every existing call-site and cached snapshot keeps compiling.
+    var restBetweenRoundsS: Int? = nil
 }
 
 // Custom decode kept in an EXTENSION so the compiler still synthesizes the
@@ -60,6 +69,7 @@ struct Prescription: Codable, Equatable {
 extension Prescription {
     enum CodingKeys: String, CodingKey {
         case scheme, modality, sets, rounds, workS, restS, totalS, target, note, start, increment, structure
+        case restBetweenRoundsS
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -75,6 +85,7 @@ extension Prescription {
         start = try c.decodeIfPresent(Int.self, forKey: .start)
         increment = try c.decodeIfPresent(Int.self, forKey: .increment)
         structure = try? c.decodeIfPresent(RunStructure.self, forKey: .structure)
+        restBetweenRoundsS = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsS)
     }
 }
 
