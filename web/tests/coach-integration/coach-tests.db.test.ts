@@ -12,14 +12,19 @@
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 import { createCoachTest, updateCoachTest, CoachTestError } from '@/lib/coach/write-coach-test';
-import { listCoachTests } from '@/lib/coach/coach-tests';
+import { listCoachTests, loadCoachTestContent } from '@/lib/coach/coach-tests';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { addDays, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
-import { makeCoachAndAthlete, makeMicrocycle, type Fixture } from '../utils/db-fixtures';
+import {
+  makeCoachAndAthlete,
+  makeMicrocycle,
+  makeExercise,
+  type Fixture,
+} from '../utils/db-fixtures';
 
 describeWithDb('#34 coach calibration tests (real DB)', () => {
   const sql = getTestSql();
@@ -279,5 +284,152 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         }),
       ]),
     );
+  }, 60000);
+
+  test('createCoachTest with authored content: real blocks survive materialization + reload, including circuit config', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const sled = await makeExercise({ fx, name: 'Sled Push' });
+    const lunge = await makeExercise({ fx, name: 'Lunge' });
+
+    const created = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'HYROX half-sim propio',
+        protocol: 'Calienta 10 min antes de arrancar.',
+        format: 'hyrox_sim',
+        enabled: true,
+        content: [
+          {
+            uid: 'blk-1',
+            title: 'B · Estaciones (4 rounds)',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-1',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+              {
+                uid: 'it-2',
+                exercise_id: lunge,
+                exercise_name: 'Lunge',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'reps', value: 20 } }] },
+              },
+            ],
+            circuit: {
+              rounds: 4,
+              pacing: { kind: 'por_tarea' },
+              rest_between_stations_seconds: 15,
+              rest_between_rounds_seconds: 90,
+            },
+          },
+        ],
+        results: [
+          {
+            kind: 'baseline',
+            measure: 'time',
+            unit: 'seconds',
+            label: 'Tiempo half-sim',
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(created.template_id).toBeTruthy();
+
+    // template_segments carries the REAL prescription (not the generic
+    // no-dose anchor writeContentSegments would have produced).
+    const segs = await sql<Array<{ exercise_id: string; prescription_json: unknown }>>`
+      select exercise_id::text, prescription_json
+      from template_segments where template_id = ${Number(created.template_id)}
+      order by position
+    `;
+    expect(segs.map((s) => Number(s.exercise_id))).toEqual([sled, lunge]);
+    expect(segs.every((s) => s.prescription_json != null)).toBe(true);
+
+    // template_blocks carries the circuit config, at the right block_position.
+    const blocks = await sql<Array<{ rounds: number; pacing: string }>>`
+      select rounds, pacing::text as pacing from template_blocks
+      where template_id = ${Number(created.template_id)}
+    `;
+    expect(blocks).toEqual([{ rounds: 4, pacing: 'por_tarea' }]);
+
+    // loadCoachTestContent (the editor's GET-side reload) round-trips both the
+    // items AND the circuit config — this is what the "Editar" panel loads back.
+    const reloaded = await loadCoachTestContent(fx.coachId, Number(created.template_id!), sql);
+    expect(reloaded).toHaveLength(1);
+    expect(reloaded[0]!.items.map((it) => it.exercise_id)).toEqual([sled, lunge]);
+    expect(reloaded[0]!.circuit).toEqual({
+      rounds: 4,
+      pacing: { kind: 'por_tarea' },
+      rest_between_stations_seconds: 15,
+      rest_between_rounds_seconds: 90,
+    });
+
+    // Editing content REPLACES it (delete-then-rewrite) — never leaves the old
+    // station's row behind.
+    const updated = await updateCoachTest(
+      fx.coachId,
+      Number(created.id),
+      {
+        content: [
+          {
+            uid: 'blk-1',
+            title: 'Solo sled',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-1',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+            ],
+            circuit: { rounds: 6, pacing: { kind: 'por_tarea' } },
+          },
+        ],
+      },
+      sql,
+    );
+    const segsAfter = await sql<Array<{ exercise_id: string }>>`
+      select exercise_id::text from template_segments where template_id = ${Number(updated!.template_id)}
+    `;
+    expect(segsAfter.map((s) => Number(s.exercise_id))).toEqual([sled]);
+    const blocksAfter = await sql<Array<{ rounds: number }>>`
+      select rounds from template_blocks where template_id = ${Number(updated!.template_id)}
+    `;
+    expect(blocksAfter).toEqual([{ rounds: 6 }]);
+  }, 60000);
+
+  test('createCoachTest without content: falls back to the automatic no-dose mechanism, unchanged', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+
+    const created = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'Dominadas máx sin contenido',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [],
+        results: [{ kind: 'baseline', measure: 'reps', unit: 'reps', label: 'Dominadas máx' }],
+        schedule: [],
+      },
+      sql,
+    );
+    // No anchor exercise for a custom baseline with no modality → the generic
+    // fallback creates the template with ZERO segments (honest, per
+    // calibration-content.ts) rather than fabricating content.
+    const segs = await sql<Array<{ id: string }>>`
+      select id::text from template_segments where template_id = ${Number(created.template_id)}
+    `;
+    expect(segs).toHaveLength(0);
+
+    const reloaded = await loadCoachTestContent(fx.coachId, Number(created.template_id!), sql);
+    expect(reloaded).toEqual([]);
   }, 60000);
 });
