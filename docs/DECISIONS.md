@@ -10,6 +10,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · El constructor de correr habla la gramática, y el color es un dato
+
+**Decidido (1) — un entreno de correr se MONTA, no se rellena.** El constructor
+libre pasa de un formulario de bout («N × la misma dosis + descanso parado») a
+la gramática que el motor ya ejecutaba: `FreeRunPlan` = calentamiento? · lista
+de bloques (cada uno con su «repetir ×N» y sus tramos) · vuelta a la calma?, y
+cada tramo con rol × medida × objetivo × modo de recuperación × cuesta.
+
+**Por qué la lista de BLOQUES y no un solo grupo:** con un grupo entran la
+serie, el fartlek, la pirámide y el progresivo, pero no «60' suave + 6×30"
+fuerte», que son dos cosas distintas en el mismo entreno. Es exactamente la
+profundidad 2 que la gramática permite, sin pedirle al atleta que maneje un
+árbol.
+
+**Correr no pasa por el paso «Formato»:** su esquema (rodaje o serie) lo deduce
+el plan. Elegir antes una etiqueta que el plan puede desmentir es una pregunta
+sin respuesta correcta.
+
+**En consecuencia, NO hacer:** no preguntar por el rol para saber qué es el
+entreno — un calentamiento también «se corre» y contarlo como trabajo hacía que
+la card de un 4×1000 a Z4 anunciara «10 min · Z2», y dejaba empezar un plan que
+era sólo calentamiento. La FASE manda (`tramosDelEntreno()`).
+
+**Decidido (2) — la zona es un sujeto, y el color un dato.** Se añade el
+mecanismo que faltaba para poder pintarlo: DÓNDE de tu banda estás
+(`hrZonePosition` / `HRZoneProfile.posicion`), 0…1 más la zona hacia la que
+subes. «Z3» a 152 y a 159 dice lo mismo y uno de los dos está a un latido de Z4.
+El lienzo de la muñeca se llena del hue de tu zona hasta esa fracción y su borde
+deriva hacia el de la siguiente.
+
+**Es MECANISMO, no método:** las bandas las pone el coach y esto sólo dice en
+qué punto de la suya está el atleta; cambiarlas no toca una línea. Y la regla de
+honestidad no se toca: sin ancla de FC no hay zona, y sin zona no hay página ni
+color. En la última zona el degradado se queda en su propio color en vez de
+prometer una sexta.
+
+---
+
 ## 2026-08-09 · Correr: una sola gramática de tramos, y la recuperación se MIDE
 
 **Decidido (1) — el esquema no decide nada; la modalidad sí.** Una prescripción

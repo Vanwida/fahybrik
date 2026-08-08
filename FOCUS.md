@@ -53,7 +53,7 @@ reportó y lo que salió al tirar del hilo en el código:
    extremos, cuestas y rodaje largo con acelerones. Los tests cazaron que el
    CALENTAMIENTO contaba como trabajo (la card de un 4×1000 Z4 anunciaba
    «10 min Z2») → `tramosDelEntreno()`, la fase manda y no el rol.
-3. 🟡 **Pantallas de correr con color de zona** (idea de Alex: la zona en grande,
+3. ✅ **Pantallas de correr con color de zona** (idea de Alex: la zona en grande,
    la pantalla llenándose del color de la zona en gradiente hacia la siguiente).
    Hecho: el mecanismo que faltaba —DÓNDE de la banda estás— en shared
    (`hrZonePosition`) y en iOS (`HRZoneProfile.posicion`); pantalla `propuesta`
@@ -61,10 +61,24 @@ reportó y lo que salió al tirar del hilo en el código:
    y portado ya a Swift: `WatchLienzoZona` + `WatchPaginasComunes.zona`, wireado
    en rodaje y en series. El lienzo va en TODAS las páginas de una vista de
    correr, no sólo en la de zona. Sin umbral no hay página ni color (§7).
-   Falta: el resto del repaso de color de la muñeca y la UI de arranque.
 
-Pendiente y dicho: los cambios de iOS/watch están en el repo pero **no en el
-iPhone de Alex** — sólo los despliegues web le llegan solos.
+**Desplegado y en su mano:** web en producción (`fahybrik-ms9kihp3n`, la
+pantalla `watch-zona` del doble incluida) e iOS+watchOS instalados directamente
+en el iPhone de Alex (`00008110-001610123C99801E`, la app del reloj va embebida).
+
+**Lo que NO se ha hecho, dicho explícito:**
+- **«La UI de inicio de empezar es la antigua»** — no sé a qué pantalla se
+  refiere exactamente (¿los mosaicos de modalidad del constructor? ¿la ficha
+  previa? ¿la puerta del bloque?). El flujo de correr sí cambió de paso
+  (ahora modalidad → montar el entreno, sin «Formato»), pero eso es otra cosa.
+  Pendiente de que lo señale.
+- **El repaso de color del resto de la muñeca** — el lienzo de zona sólo entra
+  en las vistas de correr. Ergo, fuerza, EMOM y compañía siguen con el tinte
+  plano al 38 %.
+- **Deuda de lint preexistente en web** (10 errores en ficheros que no toqué:
+  `CarrerasTab`, `RendimientoTab`, `use-injuries`, `EvaluarSemanaPanel`,
+  `RunStructureForm`, varias rutas de API). No los toco porque son de otra
+  sesión en vuelo.
 
 ---
 
