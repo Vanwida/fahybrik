@@ -13,6 +13,7 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 import { createCoachTest, updateCoachTest, CoachTestError } from '@/lib/coach/write-coach-test';
 import { listCoachTests, loadCoachTestContent } from '@/lib/coach/coach-tests';
+import { applyTestToAthletes } from '@/lib/coach/apply-test';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
@@ -402,6 +403,125 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
       select rounds from template_blocks where template_id = ${Number(updated!.template_id)}
     `;
     expect(blocksAfter).toEqual([{ rounds: 6 }]);
+  }, 60000);
+
+  // LA CADENA ENTERA — lo que decide si esto sirve para algo (8-ago). El coach
+  // crea un test suyo con contenido REAL (40 cal de remo + un circuito de 4
+  // rondas), se lo aplica a un atleta el día que quiere, y lo que llega al móvil
+  // es un entreno normal: mismos items tipados con su Prescription (de ahí saca
+  // el motor en vivo qué mandarle al PM5: `fixedCalories(40)`), la config de
+  // circuito intacta, y ADEMÁS el contrato de resultados que hace que al acabar
+  // se capture la marca. Sin este test, cada eslabón estaba probado por separado
+  // y el fork perdía `template_blocks` por el camino sin que nadie se enterara.
+  test('la cadena entera: el coach crea un test suyo, se lo aplica a un atleta, y al móvil llega un entreno normal', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const row = await makeExercise({ fx, name: 'Row', modality: 'row' });
+    const sled = await makeExercise({ fx, name: 'Sled Push' });
+    const wallball = await makeExercise({ fx, name: 'Wall Ball' });
+
+    const test = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'Mi test de calorías',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'blk-erg',
+            title: '40 cal remo',
+            format: 'test',
+            items: [
+              {
+                uid: 'it-erg',
+                exercise_id: row,
+                exercise_name: 'Row',
+                prescription: {
+                  scheme: 'steady',
+                  modality: 'row',
+                  sets: [{ measure: { kind: 'calories', value: 40 } }],
+                  target: { kind: 'rpe', value: 10 },
+                },
+              },
+            ],
+          },
+          {
+            uid: 'blk-circuito',
+            title: 'Circuito 4 rondas',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-sled',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+              {
+                uid: 'it-wb',
+                exercise_id: wallball,
+                exercise_name: 'Wall Ball',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'reps', value: 20 } }] },
+              },
+            ],
+            circuit: { rounds: 4, pacing: { kind: 'por_tarea' }, rest_between_rounds_seconds: 90 },
+          },
+        ],
+        results: [{ kind: 'baseline', measure: 'time', unit: 'seconds', label: 'Tiempo total' }],
+        // Sin agenda: el coach lo pone cuando quiere, no en la semana 1 por defecto.
+        schedule: [],
+      },
+      sql,
+    );
+
+    // El coach se lo aplica al atleta el día que le da la gana (no semana 1).
+    const applied = await applyTestToAthletes({
+      coach_id: Number(fx.coachId),
+      test_id: Number(test.id),
+      athlete_ids: [Number(fx.athleteId)],
+      date: '2026-09-15',
+      client: sql,
+    });
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    expect(applied.data.applied[0]!.scheduled_for).toEqual(['2026-09-15']);
+
+    const [assignment] = await sql<{ id: string }[]>`
+      select id::text as id from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-09-15'::date
+    `;
+    expect(assignment).toBeTruthy();
+
+    // Lo que ve el móvil: un entreno normal, con sus dos bloques.
+    const detail = await loadAssignmentDetail({
+      sql,
+      athlete_id: BigInt(fx.athleteId),
+      assignment_id: BigInt(Number(assignment!.id)),
+    });
+    expect(detail?.workout).toBeTruthy();
+    expect(detail!.workout!.blocks).toHaveLength(2);
+
+    // Bloque 1 — el remo por calorías, tipado. Esto es lo que el motor traduce a
+    // `.fixedCalories(40)` para el PM5 (PM5WorkoutProgrammer.boutFixedSpec).
+    const erg = detail!.workout!.blocks[0]!;
+    const ergItem = erg.items[0]!;
+    expect(ergItem.exercise_name).toBe('Row');
+    expect(ergItem.prescription_json?.modality).toBe('row');
+    expect(ergItem.prescription_json?.sets?.[0]?.measure).toEqual({ kind: 'calories', value: 40 });
+
+    // Bloque 2 — el circuito conserva sus rondas al cruzar el fork per-atleta.
+    const circuito = detail!.workout!.blocks[1]!;
+    expect(circuito.items.map((i) => i.exercise_name)).toEqual(['Sled Push', 'Wall Ball']);
+    expect(circuito.config_json).toMatchObject({
+      rounds: 4,
+      pacing: 'por_tarea',
+      rest_between_rounds_seconds: 90,
+    });
+
+    // Y sigue siendo un TEST: el contrato de resultados viaja, que es lo que hace
+    // que iOS abra la captura de la marca al terminar (WorkoutContainer.testResult).
+    expect(detail!.assignment.store_results).toHaveLength(1);
+    expect(detail!.assignment.store_results[0]).toMatchObject({ measure: 'time', unit: 'seconds' });
   }, 60000);
 
   test('createCoachTest without content: falls back to the automatic no-dose mechanism, unchanged', async () => {

@@ -82,6 +82,24 @@ export async function cloneTemplateAsInstance(params: {
     order by position
   `;
 
+  // Circuito (`template_blocks`, migración 0159): la config de BLOQUE — rondas,
+  // pacing, los dos descansos — vive en su propia tabla, no en las filas de
+  // `template_segments`. Sin copiarla aquí el fork quedaba a medias: el atleta
+  // recibía las estaciones pero SIN sus rondas (un "4 rondas de sled+lunge"
+  // llegaba como una pasada suelta). Mismo `block_position`, que es la clave con
+  // la que `assignment-detail` las vuelve a casar con sus segmentos.
+  await params.client`
+    insert into template_blocks (
+      template_id, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    )
+    select
+      ${newId}, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    from template_blocks
+    where template_id = ${src}
+  `;
+
   return { template_id: newId, version: tplRows[0].version };
 }
 
