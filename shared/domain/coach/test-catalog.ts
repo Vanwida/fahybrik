@@ -71,6 +71,20 @@ export interface TestPreset {
   /** Bloque especial (HYROX) que se monta con su propia plantilla, no con esta
    *  prescripción. La UI lo detecta y delega. */
   hyrox?: 'full';
+  /** PROTOCOLO de varias estaciones (HYROX Conditioning Test): cuando está, el
+   *  preset monta UN BLOQUE POR ESTACIÓN en orden, y `prescription`/`exercise`
+   *  de arriba solo sirven de respaldo. */
+  stations?: readonly TestStation[];
+  /** Nota que se copia al test (el protocolo, para que el atleta lo lea antes). */
+  note?: string;
+}
+
+/** Una estación dentro de un protocolo de varias. */
+export interface TestStation {
+  label: string;
+  exercise: readonly string[];
+  exerciseLabel: string;
+  prescription: Prescription;
 }
 
 /** El esfuerzo de un test es siempre a tope: no se prescribe la intensidad, se
@@ -95,6 +109,22 @@ function funcionalDistancia(meters: number): Prescription {
 
 function funcionalReps(value: number): Prescription {
   return { scheme: 'for_time', modality: 'functional', sets: [{ measure: { kind: 'reps', value } }], target: A_TOPE };
+}
+
+/** Una ventana de tiempo a tope: fijas el reloj, se mide lo acumulado (metros en
+ *  un ergo, repeticiones en un movimiento funcional). `restS` es el descanso que
+ *  va DETRÁS de esa ventana, 0 cuando se encadena con la siguiente. */
+function ventana(
+  modality: TestModality | 'functional',
+  seconds: number,
+  restS: number,
+): Prescription {
+  return {
+    scheme: 'steady',
+    modality,
+    sets: [{ measure: { kind: 'duration', seconds }, ...(restS > 0 ? { rest_s: restS } : {}) }],
+    target: A_TOPE,
+  };
 }
 
 /** Un 1RM: una repetición al máximo. El protocolo (subir en series) lo pone el
@@ -156,7 +186,9 @@ export const TEST_PRESETS: readonly TestPreset[] = [
     exercise: ['run'], exerciseLabel: 'Correr', prescription: tiempo('run', 1800) },
 
   // ── ESTACIONES HYROX — distancias oficiales del rulebook 26/27 ───────────
-  { id: 'Ski 1000 m · estación', family: 'estaciones', label: 'SkiErg 1000 m', hint: 'Se mide el tiempo · estación 1',
+  // Ojo: la estación 1 de HYROX ES el protocolo anclado del ski (1000 m), así que
+  // esta sí recalibra zonas. Lo dice, en vez de dejar que el coach lo suponga.
+  { id: 'Ski 1000 m · estación', family: 'estaciones', label: 'SkiErg 1000 m', hint: 'Se mide el tiempo · calibra tus zonas de ski',
     exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 1000) },
   { id: 'Sled push 50 m', family: 'estaciones', label: 'Sled push 50 m', hint: 'Se mide el tiempo · estación 2 (4×12,5 m)',
     exercise: ['hyrox-sled-push', 'sled-push'], exerciseLabel: 'Sled Push', prescription: funcionalDistancia(50) },
@@ -174,6 +206,29 @@ export const TEST_PRESETS: readonly TestPreset[] = [
     exercise: ['hyrox-wall-balls', 'wall-balls'], exerciseLabel: 'Wall Balls', prescription: funcionalReps(100) },
 
   // ── SIMULACIÓN ───────────────────────────────────────────────────────────
+  // HYROX Conditioning Test — el benchmark estandarizado del deporte. Protocolo
+  // VERIFICADO contra dos fuentes que cuadran: el desglose estación a estación
+  // (Output Sports) suma 8+2 + 4+4+2 + 8+2 + 4 = 34:00 EXACTOS, que es la
+  // duración que declara la otra (Sustain Health). El 5 km NO va dentro del
+  // test: se aporta aparte como la mejor marca reciente, así que aquí no se
+  // monta — meterlo sería falsear el protocolo.
+  {
+    id: 'HYROX Conditioning Test',
+    family: 'simulacion',
+    label: 'HYROX Conditioning Test',
+    hint: '34 min · 5 estaciones a tope · el benchmark del deporte',
+    exercise: ['row'],
+    exerciseLabel: 'Remo',
+    prescription: ventana('row', 480, 120),
+    note: 'Protocolo HCT (34 min): 8 min de remo a tope · 2 min de descanso · 4 min de burpees con salto · 4 min de zancadas sin peso · 2 min de descanso · 8 min de ski a tope · 2 min de descanso · 4 min de wall balls. En los ergos cuentan los metros; en el resto, las repeticiones. Tu mejor 5 km reciente se aporta aparte.',
+    stations: [
+      { label: '8 min remo', exercise: ['row'], exerciseLabel: 'Remo', prescription: ventana('row', 480, 120) },
+      { label: '4 min burpees con salto', exercise: ['hyrox-burpee-broad-jump'], exerciseLabel: 'Burpee Broad Jump', prescription: ventana('functional', 240, 0) },
+      { label: '4 min zancadas', exercise: ['reverse-lunge'], exerciseLabel: 'Reverse Lunge', prescription: ventana('functional', 240, 120) },
+      { label: '8 min ski', exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: ventana('ski', 480, 120) },
+      { label: '4 min wall balls', exercise: ['hyrox-wall-balls', 'wall-balls'], exerciseLabel: 'Wall Balls', prescription: ventana('functional', 240, 0) },
+    ],
+  },
   { id: 'HYROX completo', family: 'simulacion', label: 'HYROX completo', hint: '8 carreras + 8 estaciones · se mide el tiempo',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 1000), hyrox: 'full' },
   // HYROX half NO está a propósito: `createHyroxSimBlock` solo monta la carrera

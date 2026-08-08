@@ -22,7 +22,11 @@
 // (test-battery.ts) y docs/DECISIONS.md.
 
 import type { Prescription } from '../prescription/types';
-import type { StoreResultSpec, StoreResultMeasure } from '../../schema/test-battery';
+import type {
+  StoreResultSpec,
+  StoreResultMeasure,
+  StoreResultUnit,
+} from '../../schema/test-battery';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -41,7 +45,7 @@ export interface DerivableItem {
 /** Lo que un bloque mide, ya resuelto y listo para enseñar al coach. */
 export interface DerivedMeasure {
   measure: StoreResultMeasure;
-  unit: 'seconds' | 'meters' | 'kg';
+  unit: StoreResultUnit;
   /** Cara-coach, tal cual se pinta: «Se mide el tiempo». */
   label: string;
 }
@@ -111,7 +115,10 @@ export function derivedMeasureFor(item: DerivableItem): DerivedMeasure | null {
     return { measure: 'time', unit: 'seconds', label: MEASURE_LABEL.time };
   }
   if (kind === 'duration') {
-    return { measure: 'reps', unit: 'meters', label: MEASURE_LABEL.reps };
+    // Fijas el reloj en un movimiento funcional (4 min de wall balls) → lo que se
+    // acumula son REPETICIONES. La unidad es 'reps', no metros: escribirlo mal
+    // guardaba la marca del atleta con la unidad de otra cosa.
+    return { measure: 'reps', unit: 'reps', label: MEASURE_LABEL.reps };
   }
   return null;
 }

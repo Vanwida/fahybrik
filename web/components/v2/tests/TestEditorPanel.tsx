@@ -110,21 +110,33 @@ export function TestEditorPanel({
       onChange({ ...draft, name: nombre, content: [...draft.content, createHyroxSimBlock()] });
       return;
     }
-    const hit = p.exercise.map((sl) => porSlug.get(sl)).find(Boolean);
-    const bloque: EditorBlock = {
-      uid: `test-blk-${seq}`,
-      title: p.label,
-      format: null,
-      items: [
-        {
-          uid: `test-it-${seq}`,
-          exercise_id: hit ? Number(hit.id) : null,
-          exercise_name: hit?.name ?? p.exerciseLabel,
-          prescription: p.prescription,
-        },
-      ],
-    };
-    onChange({ ...draft, name: nombre, content: [...draft.content, bloque] });
+    // Un PROTOCOLO (el HCT) monta un bloque por estación, en orden.
+    const fuentes = p.stations ?? [
+      { label: p.label, exercise: p.exercise, exerciseLabel: p.exerciseLabel, prescription: p.prescription },
+    ];
+    const bloques: EditorBlock[] = fuentes.map((st, k) => {
+      const hit = st.exercise.map((sl) => porSlug.get(sl)).find(Boolean);
+      return {
+        uid: `test-blk-${seq}-${k}`,
+        title: st.label,
+        format: null,
+        items: [
+          {
+            uid: `test-it-${seq}-${k}`,
+            exercise_id: hit ? Number(hit.id) : null,
+            exercise_name: hit?.name ?? st.exerciseLabel,
+            prescription: st.prescription,
+          },
+        ],
+      };
+    });
+    onChange({
+      ...draft,
+      name: nombre,
+      // La nota del protocolo solo se pone si el coach no había escrito la suya.
+      ...(p.note && !draft.protocol.trim() ? { protocol: p.note } : {}),
+      content: [...draft.content, ...bloques],
+    });
   };
 
   const setBlock = (i: number, b: EditorBlock) =>
