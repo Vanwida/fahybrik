@@ -28,6 +28,33 @@ import { type TestDraft } from './draft';
 
 const DOW_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 
+/**
+ * El bloque por defecto de un test: UN ESFUERZO. Sin `format` ni `archetype_id`,
+ * así que `patternForBlock` no resuelve ningún patrón y BlockEditor cae a su vía
+ * directa — selector de EJERCICIO + campos numéricos. Que es lo que un test es:
+ * «1000 m de remo», no una forma de sesión. Elegir antes «Carrera continua / WOD
+ * / EMOM» para acabar cambiando el ejercicio a mano era pedirle al coach que
+ * pasara por un vocabulario que no es el suyo aquí (Alex, 8-ago).
+ */
+function nuevoEsfuerzo(seq: number): EditorBlock {
+  return {
+    uid: `test-blk-${seq}`,
+    title: 'Esfuerzo',
+    format: null,
+    items: [
+      {
+        uid: `test-it-${seq}`,
+        exercise_id: null,
+        exercise_name: '',
+        prescription: {
+          scheme: 'steady',
+          sets: [{ measure: { kind: 'distance', meters: 1000 } }],
+        },
+      },
+    ],
+  };
+}
+
 export function TestEditorPanel({
   draft,
   onChange,
@@ -52,6 +79,14 @@ export function TestEditorPanel({
   const addBlock = (id: ArchetypeId) => {
     onChange({ ...draft, content: [...draft.content, createBlockFromArchetype(id)] });
     setBlockPickerOpen(false);
+  };
+  const addEsfuerzo = () =>
+    onChange({ ...draft, content: [...draft.content, nuevoEsfuerzo(draft.content.length + 1)] });
+  const addItemTo = (i: number) => {
+    const b = draft.content[i];
+    if (!b) return;
+    const extra = nuevoEsfuerzo(Date.now()).items[0]!;
+    setBlock(i, { ...b, items: [...b.items, extra] });
   };
   const removeBlock = (i: number) =>
     onChange({ ...draft, content: draft.content.filter((_, j) => j !== i) });
@@ -137,13 +172,24 @@ export function TestEditorPanel({
             Contenido
           </span>
           {!blockPickerOpen ? (
-            <button
-              type="button"
-              onClick={() => setBlockPickerOpen(true)}
-              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
-            >
-              <MIcon name="add" size={14} /> Añadir bloque
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={addEsfuerzo}
+                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+              >
+                <MIcon name="add" size={14} /> Añadir ejercicio
+              </button>
+              {/* Escape para el test que SÍ tiene forma: una simulación HYROX, un
+                  circuito, un EMOM. Secundario a propósito: es la excepción. */}
+              <button
+                type="button"
+                onClick={() => setBlockPickerOpen(true)}
+                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+              >
+                o un bloque con forma
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -153,7 +199,7 @@ export function TestEditorPanel({
           </p>
         ) : draft.content.length === 0 && !blockPickerOpen ? (
           <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
-            Sin bloques: el atleta hace el test según sus resultados, sin una sesión guiada. Añade uno o más para construirla como un entreno normal.
+            Vacío: el atleta lo hace por su cuenta, sin sesión guiada. Añade el ejercicio y su número (1000 m de remo, 5 km en cinta, 40 cal) para que la app se lo dirija y mida sola.
           </p>
         ) : null}
 
@@ -177,7 +223,11 @@ export function TestEditorPanel({
                     <MIcon name="close" size={14} />
                   </button>
                 </div>
-                <BlockEditor block={block} onChange={(next) => setBlock(i, next)} />
+                <BlockEditor
+                  block={block}
+                  onChange={(next) => setBlock(i, next)}
+                  onAddItem={() => addItemTo(i)}
+                />
               </div>
             ))}
           </div>
