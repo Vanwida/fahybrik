@@ -224,7 +224,7 @@ export function TestEditorPanel({
           <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
             Contenido
           </span>
-          {!blockPickerOpen && draft.content.length > 0 ? (
+          {!blockPickerOpen ? (
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -255,8 +255,11 @@ export function TestEditorPanel({
              de los tests. Picar uno lo deja montado y rellena el nombre. */
           <div className="@container">
             <p className="mb-3 text-label leading-snug text-[color:var(--v2-faint)]">
-              Elige el test y queda montado. El atleta lo ejecuta como un entreno
-              normal y la app mide el resultado sola.
+              <b className="text-[color:var(--v2-muted)]">Atajos</b> — picas uno y
+              queda montado. ¿Otra cosa (10 min de remo, 40 cal, lo que sea)? Dale
+              a <b className="text-[color:var(--v2-accent)]">Añadir ejercicio</b>{' '}
+              y lo montas tú: ejercicio, medida (distancia · tiempo · calorías ·
+              reps) y el número.
             </p>
             <div className="flex flex-col gap-4">
               {TEST_FAMILY_ORDER.map((fam) => (
