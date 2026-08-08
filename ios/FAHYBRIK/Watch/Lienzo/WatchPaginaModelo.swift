@@ -146,6 +146,48 @@ enum WatchPaginasComunes {
         )
     }
 
+    /// LA ZONA COMO SUJETO — la página que contesta «cómo de fuerte voy» sin
+    /// pedir que se lea un número.
+    ///
+    /// Es OTRA pregunta que la del pulso, y las dos son legítimas: «156 ppm»
+    /// dice cuántas pulsaciones tienes y sólo contesta la intensidad si el
+    /// atleta se sabe sus bandas de memoria; «Z3» la contesta directa, y el
+    /// color del lienzo la contesta sin ni siquiera leer.
+    ///
+    /// Sin zona NO SE PINTA (nil): no se insinúa un estado sobre una banda que
+    /// nadie ha medido (§7). El pulso sigue teniendo su página en ppm crudos.
+    ///
+    /// El veredicto contra el objetivo va en dos palabras y sin sermón — el
+    /// háptico de fuera de zona ya avisa, esto sólo dice de qué lado te fuiste.
+    /// Sin objetivo prescrito no hay veredicto: un rodaje libre no está «mal» a
+    /// ninguna intensidad.
+    static func zona(_ posicion: HRZoneProfile.Posicion?,
+                     bpm: Int?,
+                     objetivo: HRZone? = nil,
+                     modo: WatchModo = .ojeada) -> WatchPagina? {
+        guard let posicion else { return nil }
+        let z = posicion.zona
+        let veredicto: String? = {
+            guard let objetivo, objetivo != z else { return nil }
+            return z.rawValue > objetivo.rawValue ? "vas por encima" : "vas por debajo"
+        }()
+        return WatchPagina(
+            id: "zona",
+            contexto: objetivo == nil ? "Zona" : "Zona · objetivo Z\(objetivo!.rawValue)",
+            modo: modo,
+            sujeto: z.label,
+            tono: WatchTheme.zoneColor(z),
+            segundoEtiqueta: WatchZonaNombre.de(z),
+            // El estado sin el número que lo sostiene invita a desconfiar de él.
+            segundoValor: bpm.map { "\($0) ppm" } ?? "—",
+            segundoTono: veredicto == nil ? nil : WatchTheme.orangeSoft,
+            nota: veredicto,
+            // Que el numeral pegue un golpe al cambiar de zona ES el aviso: no
+            // hay que estar mirando la cifra para enterarse.
+            latido: z.rawValue
+        )
+    }
+
     static func tiempo(segundos: Double, contexto: String = "Llevas", nota: String? = nil, modo: WatchModo = .ojeada) -> WatchPagina {
         WatchPagina(
             id: "tiempo",

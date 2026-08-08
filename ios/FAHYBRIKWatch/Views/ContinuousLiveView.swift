@@ -13,8 +13,9 @@ struct ContinuousLiveView: View {
 
     var body: some View {
         WatchReloj(
-            paginas: GuionRodaje.paginas(estado, gestos),
+            paginas: GuionRodaje.paginas(estado, gestos) + paginasDeZona,
             tinte: WatchTinte.color(for: session.liveZone),
+            fondo: lienzoDeZona,
             bisel: bisel
         )
         .onChange(of: session.liveZone) { _, zone in
@@ -24,6 +25,24 @@ struct ContinuousLiveView: View {
                 WatchHaptics.warning()
             }
         }
+    }
+
+    // MARK: - La zona como sujeto (y como lienzo)
+
+    /// La página de zona va DETRÁS de las del guion: el sujeto del rodaje sigue
+    /// siendo el rodaje. Sin bandas o sin pulso no existe (§7).
+    private var paginasDeZona: [WatchPagina] {
+        [WatchPaginasComunes.zona(session.liveZonePosition,
+                                  bpm: session.liveHRBpm,
+                                  objetivo: session.currentSegment?.targetZone)].compactMap { $0 }
+    }
+
+    /// EL COLOR ES UN DATO. El lienzo se llena del hue de tu zona conforme te
+    /// acercas a la siguiente, en todas las páginas de la vista y no sólo en la
+    /// de zona: corriendo, saber si estás entrando o saliendo de la banda es la
+    /// pregunta de fondo, no una página que haya que ir a buscar.
+    private var lienzoDeZona: AnyView? {
+        session.liveZonePosition.map { AnyView(WatchLienzoZona(posicion: $0)) }
     }
 
     // MARK: - El motor → el guion

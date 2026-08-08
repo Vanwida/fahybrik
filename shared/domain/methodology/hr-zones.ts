@@ -252,3 +252,54 @@ export function zoneForBpm(bpm: number, zones: AthleteHrZones): HrZone | null {
 export function hrBandFor(zone: HrZone, zones: AthleteHrZones): HrZoneBand | null {
   return zones.bands.find((b) => b.zone === zone) ?? null;
 }
+
+/** DÓNDE estás dentro de tu zona, y hacia dónde vas. */
+export interface HrZonePosition {
+  zone: HrZone;
+  /**
+   * 0…1 dentro de la banda: 0 = acabas de entrar por abajo, 1 = estás a un
+   * latido de la siguiente. Sobre Z5 se satura a 1 — no hay más arriba.
+   */
+  fraction: number;
+  /** La zona hacia la que subes, o null en Z5 (no hay siguiente). */
+  next: HrZone | null;
+  /** La zona a la que caerías bajando, o null en Z1. */
+  previous: HrZone | null;
+}
+
+/**
+ * DÓNDE ESTÁS DENTRO DE TU ZONA — no sólo en cuál.
+ *
+ * «Z3» contesta en qué banda estás, y se queda a medias: a 145 y a 158 pone lo
+ * mismo, y uno de los dos está a punto de irse a Z4. Corriendo, eso es
+ * exactamente la información que gobierna si aprietas o aflojas, y hoy no la
+ * pinta nadie. Esta fracción es lo que deja que la pantalla se llene del color
+ * de la zona y vaya derivando hacia el color de la siguiente conforme te
+ * acercas — un dato que se lee sin enfocar la vista.
+ *
+ * MECANISMO, no método: las bandas las pone el coach (`AthleteHrZones`), esto
+ * sólo dice en qué punto de la suya está el atleta. Cambia el coach las bandas
+ * y esto sigue contestando bien sin tocar una línea.
+ *
+ * El suelo de Z1 es null a propósito en el modelo («no hay suelo para ir
+ * suave»): se toma 0 como base, así que un pulso de reposo da una fracción
+ * pequeña y uno de rodaje suave, una alta. Es cierto en los dos casos.
+ */
+export function hrZonePosition(bpm: number, zones: AthleteHrZones): HrZonePosition | null {
+  const zone = zoneForBpm(bpm, zones);
+  if (zone == null) return null;
+  const band = hrBandFor(zone, zones);
+  if (!band) return null;
+
+  const lo = band.min_bpm ?? 0;
+  const hi = band.max_bpm;
+  // Una banda degenerada (lo ≥ hi) no puede producir una fracción honesta: se
+  // dice que estás dentro y ya, en vez de dividir por cero o inventar medio.
+  const span = hi - lo;
+  const raw = span > 0 ? (bpm - lo) / span : 1;
+  const fraction = Math.min(1, Math.max(0, raw));
+
+  const next = zones.bands.find((b) => b.zone === zone + 1)?.zone ?? null;
+  const previous = zones.bands.find((b) => b.zone === zone - 1)?.zone ?? null;
+  return { zone, fraction, next, previous };
+}

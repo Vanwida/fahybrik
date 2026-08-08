@@ -8,7 +8,7 @@
 // was in Z3, pushing too hard.
 
 import { describe, expect, it } from 'vitest';
-import { resolveHrZones, resolveThresholdHr, zoneForBpm } from '@fahybrid/shared/domain/methodology';
+import { hrZonePosition, resolveHrZones, resolveThresholdHr, zoneForBpm } from '@fahybrid/shared/domain/methodology';
 
 /** What iOS used to do: classify against a fraction of the MAX. Kept here only
  *  to pin the divergence this model exists to remove. */
@@ -169,5 +169,51 @@ describe('the bands themselves', () => {
   it('refuses a nonsense reading rather than bucketing it', () => {
     expect(zoneForBpm(0, zones)).toBeNull();
     expect(zoneForBpm(Number.NaN, zones)).toBeNull();
+  });
+});
+
+// DÓNDE ESTÁS DENTRO DE TU ZONA — el dato que «Z3» no da.
+//
+// A 152 y a 159 el reloj ponía «Z3» en los dos casos, y uno de los dos está a
+// un latido de Z4. Corriendo, esa es la información que gobierna si aprietas o
+// aflojas, y es lo que deja que el lienzo del reloj se llene del color de tu
+// zona derivando hacia el de la siguiente (idea de Alex, 8-ago).
+//
+// MECANISMO, no método: las bandas las pone el coach y esto sólo dice en qué
+// punto de la suya está el atleta. Espejado en `HRZoneProfile.posicion` (iOS).
+describe('hrZonePosition — dónde dentro de la banda', () => {
+  const zones = resolveHrZones({ lthr_declared_bpm: 170 })!;
+
+  it('vale 0 al entrar por abajo y 1 a un latido de la siguiente', () => {
+    const z3 = zones.bands.find((b) => b.zone === 3)!;
+    expect(hrZonePosition(z3.min_bpm!, zones)!.fraction).toBeCloseTo(0, 3);
+    expect(hrZonePosition(z3.max_bpm, zones)!.fraction).toBeCloseTo(1, 3);
+  });
+
+  it('distingue dos pulsos de la MISMA zona', () => {
+    const z3 = zones.bands.find((b) => b.zone === 3)!;
+    const bajo = hrZonePosition(z3.min_bpm! + 1, zones)!;
+    const alto = hrZonePosition(z3.max_bpm - 1, zones)!;
+    expect(bajo.zone).toBe(alto.zone);
+    expect(bajo.fraction).toBeLessThan(alto.fraction);
+  });
+
+  it('Z1 se mide desde 0 porque no tiene suelo', () => {
+    const reposo = hrZonePosition(55, zones)!;
+    const suave = hrZonePosition(zones.bands[0]!.max_bpm - 2, zones)!;
+    expect(reposo.zone).toBe(1);
+    expect(reposo.previous).toBeNull();
+    expect(reposo.fraction).toBeLessThan(suave.fraction);
+  });
+
+  it('la última zona no tiene siguiente y satura en 1', () => {
+    const p = hrZonePosition(400, zones)!;
+    expect(p.zone).toBe(5);
+    expect(p.next).toBeNull();
+    expect(p.fraction).toBe(1);
+  });
+
+  it('sin lectura no hay posición', () => {
+    expect(hrZonePosition(0, zones)).toBeNull();
   });
 });

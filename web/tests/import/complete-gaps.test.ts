@@ -1,7 +1,7 @@
 // Completar huecos — un clic desbloquea el confirmar.
 
 import { describe, expect, test } from 'vitest';
-import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
+import type { EditorItem, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 import { totalIncomplete, totalUnresolved } from '@/lib/dashboard/v2/import-review';
 import {
@@ -53,9 +53,12 @@ function item(opts: {
   };
 }
 
+// `EditorItem`, no el tipo estrecho que devuelve el helper `item`: los tests que
+// pasan por `seedExecutableItem` reciben de vuelta un item ya completo (con su
+// esquema real, no el `'sets'` literal del helper) y no podían volver a entrar.
 function session(
   title: string,
-  items: ReturnType<typeof item>[],
+  items: EditorItem[],
 ): EditorSession {
   return {
     uid: uid('ses'),

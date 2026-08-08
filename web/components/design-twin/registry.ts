@@ -56,6 +56,10 @@ import * as watchDobles from './screens/watch-dobles';
 // no es ni correr ni ergo. Los cuatro los corta el reloj de pared; cada uno hace
 // otra pregunta, y por eso son cuatro sujetos y no cuatro banderas.
 import * as watchRelojDePared from './screens/watch-reloj-de-pared';
+// La undécima (9-ago): la zona como SUJETO. «Z3» a 145 y a 158 dice lo mismo, y
+// uno de los dos está a un latido de Z4 — así que el lienzo se llena del color
+// de tu zona conforme te acercas a la siguiente. Idea de Alex tras hacer series.
+import * as watchZona from './screens/watch-zona';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -113,6 +117,7 @@ export const SCREENS: TwinScreenModule[] = [
   watchAmrap,
   watchDobles,
   watchRelojDePared,
+  watchZona,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -146,6 +151,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
       'watch-amrap',
       'watch-dobles',
       'watch-reloj-de-pared',
+      'watch-zona',
     ],
   },
 ];

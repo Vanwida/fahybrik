@@ -717,6 +717,14 @@ final class WorkoutSession {
         return hrZones?.zone(forBpm: bpm)
     }
 
+    /// DÓNDE está dentro de su zona, y hacia dónde va. Lo que «Z3» no dice: a
+    /// 145 y a 158 pone lo mismo, y uno de los dos está a un latido de Z4.
+    /// Nil sin pulso o sin bandas — y entonces la página de zona no existe.
+    var liveZonePosition: HRZoneProfile.Posicion? {
+        guard let bpm = liveHRBpm else { return nil }
+        return hrZones?.posicion(forBpm: bpm)
+    }
+
     /// True when the THRESHOLD behind these bands was inferred rather than measured
     /// (label them "estimado"); false when it came from the athlete's own test.
     var hrZonesEstimated: Bool { hrZones?.estimated ?? false }

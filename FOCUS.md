@@ -45,9 +45,15 @@ reportó y lo que salió al tirar del hilo en el código:
 2. ⬜ **Constructor libre** hablando la gramática entera: recuperación con su
    medida, su objetivo y su modo; y tramos heterogéneos (pirámide, fartlek,
    progresivo), que hoy sólo sabe hacer N veces lo mismo.
-3. ⬜ **Pantallas de correr** con color de zona (idea de Alex: la zona en grande,
+3. 🟡 **Pantallas de correr con color de zona** (idea de Alex: la zona en grande,
    la pantalla llenándose del color de la zona en gradiente hacia la siguiente).
-   Se montan como pantalla `propuesta` del doble antes de tocar Swift.
+   Hecho: el mecanismo que faltaba —DÓNDE de la banda estás— en shared
+   (`hrZonePosition`) y en iOS (`HRZoneProfile.posicion`); pantalla `propuesta`
+   del doble `watch-zona` (tres escenarios: subiendo, con objetivo, sin umbral);
+   y portado ya a Swift: `WatchLienzoZona` + `WatchPaginasComunes.zona`, wireado
+   en rodaje y en series. El lienzo va en TODAS las páginas de una vista de
+   correr, no sólo en la de zona. Sin umbral no hay página ni color (§7).
+   Falta: el resto del repaso de color de la muñeca y la UI de arranque.
 
 Pendiente y dicho: los cambios de iOS/watch están en el repo pero **no en el
 iPhone de Alex** — sólo los despliegues web le llegan solos.

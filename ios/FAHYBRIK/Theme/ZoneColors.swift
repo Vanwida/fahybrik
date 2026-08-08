@@ -142,4 +142,39 @@ struct HRZoneProfile: Codable, Equatable {
         guard let band = band(for: zone), let low = band.minBpm, low <= band.maxBpm else { return nil }
         return low...band.maxBpm
     }
+
+    /// DÓNDE estás dentro de tu zona, y hacia dónde vas. Espejo de
+    /// `hrZonePosition` (shared/domain/methodology/hr-zones.ts).
+    struct Posicion: Equatable {
+        let zona: HRZone
+        /// 0…1 dentro de la banda: 0 = acabas de entrar por abajo, 1 = estás a
+        /// un latido de la siguiente.
+        let fraccion: Double
+        /// La zona hacia la que subes, o nil en la última (no hay siguiente).
+        let siguiente: HRZone?
+    }
+
+    /// DÓNDE ESTÁS DENTRO DE TU ZONA — no sólo en cuál.
+    ///
+    /// «Z3» se queda a medias: a 145 y a 158 pone lo mismo, y uno de los dos
+    /// está a punto de irse a Z4. Corriendo, eso es justo lo que gobierna si
+    /// aprietas o aflojas. Esta fracción es lo que deja que la pantalla se
+    /// llene del color de la zona y derive hacia el de la siguiente conforme te
+    /// acercas: un dato que se lee sin enfocar la vista.
+    ///
+    /// MECANISMO, no método: las bandas las pone el coach; esto sólo dice en
+    /// qué punto de la suya estás.
+    func posicion(forBpm bpm: Int) -> Posicion? {
+        guard let zona = zone(forBpm: bpm), let banda = band(for: zona) else { return nil }
+        // El suelo de Z1 es nil a propósito en el modelo («no hay suelo para ir
+        // suave»): se toma 0 como base.
+        let low = Double(banda.minBpm ?? 0)
+        let high = Double(banda.maxBpm)
+        // Una banda degenerada no puede dar una fracción honesta: se dice que
+        // estás dentro y ya, en vez de dividir por cero o inventar medio.
+        let span = high - low
+        let raw = span > 0 ? (Double(bpm) - low) / span : 1
+        let siguiente = HRZone(rawValue: zona.rawValue + 1).flatMap { band(for: $0) != nil ? $0 : nil }
+        return Posicion(zona: zona, fraccion: min(1, max(0, raw)), siguiente: siguiente)
+    }
 }

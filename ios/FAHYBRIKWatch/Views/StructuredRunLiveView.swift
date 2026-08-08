@@ -41,8 +41,9 @@ struct StructuredRunLiveView: View {
             countIn
         } else {
             WatchReloj(
-                paginas: GuionSeries.paginas(estado, gestos),
+                paginas: GuionSeries.paginas(estado, gestos) + paginasDeZona,
                 tinte: tinteLienzo,
+                fondo: lienzoDeZona,
                 bisel: bisel,
                 destello: destello
             )
@@ -109,6 +110,29 @@ struct StructuredRunLiveView: View {
 
     private var esPorTiempo: Bool {
         (session.currentRunLeg?.durationSeconds ?? 0) > 0
+    }
+
+    // MARK: - La zona como sujeto (y como lienzo)
+
+    /// Detrás de la página de la serie: el sujeto sigue siendo la serie. Sin
+    /// bandas o sin pulso no existe (§7). El objetivo que juzga es el del TRAMO
+    /// en curso — una serie a Z4 y su trote a Z1 no se juzgan contra lo mismo.
+    private var paginasDeZona: [WatchPagina] {
+        [WatchPaginasComunes.zona(session.liveZonePosition,
+                                  bpm: session.liveHRBpm,
+                                  objetivo: zonaObjetivoDelTramo)].compactMap { $0 }
+    }
+
+    private var zonaObjetivoDelTramo: HRZone? {
+        if case let .hrZone(z) = session.currentRunLeg?.target { return HRZone(rawValue: z) }
+        return session.currentSegment?.targetZone
+    }
+
+    /// En la RECUPERACIÓN manda el verde de recuperar, que es un estado y no una
+    /// zona; corriendo, el lienzo es tu zona llenándose hacia la siguiente.
+    private var lienzoDeZona: AnyView? {
+        guard !isRecovery, let p = session.liveZonePosition else { return nil }
+        return AnyView(WatchLienzoZona(posicion: p))
     }
 
     // MARK: - Bisel / tinte

@@ -24,6 +24,11 @@ struct WatchReloj: View {
     let paginas: [WatchPagina]
     /// Color de zona o de estado (recuperación). Nil = fondo negro, sin tinte.
     let tinte: Color?
+    /// Un lienzo PROPIO en vez del tinte plano. Lo usa la página de zona, cuyo
+    /// fondo no es un color sino un dato: la pantalla se llena del color de tu
+    /// zona conforme te acercas a la siguiente. Cuando viene, `tinte` se ignora —
+    /// los dos pintan lo mismo y superponerlos ensuciaría el hue.
+    var fondo: AnyView? = nil
     var bisel: AnyView? = nil
     var destello: WatchDestello = WatchDestello()
 
@@ -68,7 +73,11 @@ struct WatchReloj: View {
         GeometryReader { geo in
             ZStack {
                 WatchTheme.bg.ignoresSafeArea()
-                if let tinte, !atenuado {
+                if let fondo, !atenuado {
+                    // El lienzo de zona sustituye al tinte, no se suma: los dos
+                    // pintan lo mismo y superponerlos ensuciaría el hue.
+                    fondo.ignoresSafeArea()
+                } else if let tinte, !atenuado {
                     tinte.opacity(WatchTinte.maxOpacity)
                         .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
@@ -304,5 +313,52 @@ struct WatchReloj: View {
         if let s = p.segundoValor { parts.append(s) }
         if let a = p.accion { parts.append(a) }
         return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - El lienzo de ZONA
+//
+// EL COLOR COMO DATO, no como decoración. Idea de Alex (8-ago, tras salir a
+// hacer series): la zona en grande, cada zona con su color, y la pantalla
+// llenándose de ese color en degradado hacia el de la siguiente conforme te
+// acercas.
+//
+// Por qué funciona corriendo: «Z3» a 145 y a 158 pone lo mismo, y uno de los
+// dos está a un latido de irse a Z4. La ALTURA del relleno es esa diferencia, y
+// su borde superior deriva hacia el hue de la zona siguiente — así que el
+// atleta sabe si está entrando o saliendo sin enfocar la vista en una cifra. Al
+// cruzar, el lienzo cambia de color y el relleno vuelve abajo: el salto ES el
+// aviso, y no cuesta ni una línea de texto.
+//
+// En la ÚLTIMA zona no hay hacia dónde derivar y el degradado se queda en su
+// propio color: inventar un sexto hue prometería una zona que no existe.
+struct WatchLienzoZona: View {
+    let posicion: HRZoneProfile.Posicion
+
+    /// El relleno nunca desaparece del todo: al entrar en una zona por abajo hay
+    /// que poder ver QUÉ zona es, no un lienzo negro.
+    private static let altoMinimo: Double = 0.12
+    /// A sangre pura el numeral blanco se pierde sobre el ámbar; a este tope
+    /// el hue se lee y el texto se mantiene por encima de 4.5:1.
+    private static let opacidad: Double = 0.55
+    /// No se mezcla al 100 %: el borde tiene que leerse como el PASO hacia la
+    /// siguiente zona, no como si ya estuvieras en ella.
+    private static let derivaMax: Double = 0.85
+
+    var body: some View {
+        let mio = WatchTheme.zoneHex(posicion.zona)
+        let desde = WatchTheme.hex(mio)
+        let hasta = posicion.siguiente.map { WatchTheme.mezcla(mio, WatchTheme.zoneHex($0), Self.derivaMax) }
+            ?? desde
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                WatchTheme.bg
+                LinearGradient(colors: [desde, hasta], startPoint: .bottom, endPoint: .top)
+                    .frame(height: geo.size.height * max(Self.altoMinimo, posicion.fraccion))
+                    .opacity(Self.opacidad)
+                    .animation(.easeInOut(duration: 0.7), value: posicion.fraccion)
+                    .animation(.easeInOut(duration: 0.7), value: posicion.zona)
+            }
+        }
     }
 }

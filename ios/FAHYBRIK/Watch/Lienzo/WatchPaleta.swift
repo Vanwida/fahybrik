@@ -64,13 +64,32 @@ enum WatchTheme {
     // vivid mockup values so each dot/bar reads on #000. Kept here (not on HRZone)
     // because HRZone.color needs UIColor, unavailable on the watch.
     static func zoneColor(_ zone: HRZone) -> Color {
+        hex(zoneHex(zone))
+    }
+
+    /// El hue de cada zona como literal, para poder MEZCLARLOS. `zoneColor` sale
+    /// de aquí, así que no hay dos tablas que puedan divergir.
+    static func zoneHex(_ zone: HRZone) -> UInt32 {
         switch zone {
-        case .z1: return dim        // recovery — muted gray
-        case .z2: return zoneBlue   // aerobic base
-        case .z3: return zoneGreen  // tempo
-        case .z4: return zoneAmber  // threshold
-        case .z5: return zoneRed    // VO2 / red line
+        case .z1: return 0x8A8A8E   // recovery — muted gray (== dim)
+        case .z2: return 0x2A6CFF   // aerobic base
+        case .z3: return 0x2FD14F   // tempo
+        case .z4: return 0xFFB340   // threshold
+        case .z5: return 0xFF4D4D   // VO2 / red line
         }
+    }
+
+    /// Mezcla dos hues en sRGB. `k` = cuánto del segundo (0…1). Lo usa el lienzo
+    /// de zona para derivar del color de TU zona al de la siguiente conforme te
+    /// acercas — el degradado que hace que el estado se lea sin enfocar.
+    static func mezcla(_ a: UInt32, _ b: UInt32, _ k: Double) -> Color {
+        let t = min(1, max(0, k))
+        func canal(_ shift: UInt32) -> Double {
+            let ca = Double((a >> shift) & 0xFF)
+            let cb = Double((b >> shift) & 0xFF)
+            return (ca + (cb - ca) * t) / 255
+        }
+        return Color(.sRGB, red: canal(16), green: canal(8), blue: canal(0), opacity: 1)
     }
 
     // MARK: - Readiness zone
