@@ -30,8 +30,16 @@ export function AddMicrocicloPicker({
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
+  // Foco al abrir — UNA vez, deps vacías. Si dependiera de `onClose` (una
+  // arrow function que el padre recrea en cada render), cada tecleo en el
+  // buscador volvía a robarle el foco al input un carácter después de
+  // escribirlo — mismo bug que SidePanel.tsx (Alex, 8-ago).
   useEffect(() => {
     ref.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };

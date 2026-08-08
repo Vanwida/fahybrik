@@ -23,8 +23,17 @@ export function SidePanel({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // Foco al abrir — UNA vez, deps vacías. `onClose` es una arrow function que
+  // el padre recrea en cada render (típicamente `() => setDraft(null)`); si
+  // este efecto dependiera de ella, cada tecleo en un campo del panel volvía
+  // a disparar `ref.current.focus()` y le robaba el foco al input justo
+  // detrás de la primera letra — un clic por carácter (Alex, 8-ago).
   useEffect(() => {
     ref.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
