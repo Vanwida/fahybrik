@@ -51,6 +51,49 @@ corte, en curso (ver FOCUS.md).
 
 ---
 
+## 2026-08-08 · El motor FIXED no tiene fase de descanso — el cursor por estación queda aparte
+
+**Decidido:** `conditioningFold` (`WorkoutModels.swift`) ya consume `pacing`/los
+dos descansos/el target de cabecera del bloque Circuito (ver entrada de arriba
+para el modelo). La generalización del **cursor por estación** a un circuito
+real con rondas (`fixedListIsStations`/`Cursor.fixedStation`, `LiveTramo.swift`)
+se investigó a fondo y se dejó **fuera, a propósito** — no es un ajuste de 3
+líneas.
+
+**Por qué:** dos hallazgos cambian el alcance real:
+1. `StrikeList`, `ForTimeContextStrip` y `StationSubject`
+   (`WorkoutFormatHUDs.swift`) asumen una lista PLANA de un solo paso —
+   `StrikeList.rows` pinta exactamente M filas (las estaciones) sin repetición
+   por ronda, y cada "de N" lee un total único. Sin reescribir esas tres piezas,
+   un circuito de N rondas × M estaciones mostraría solo M filas y el total
+   equivocado.
+2. El motor `.fixed` (`tickFixed`/`markRoundDone`) **no tiene NINGÚN estado de
+   fase de descanso hoy** — las estaciones avanzan sin pausa. Solo el motor
+   `.rotating` (Tabata/Intervals/EMOM, `rotPhase`/`rotPhaseRemaining`) lo tiene.
+   Aplicar los dos descansos del Circuito en vivo pide una máquina de estados
+   nueva en el motor FIXED, no una extensión de 3 líneas.
+
+**En consecuencia:** un bloque circuito con rondas hoy sigue cerrando las N
+estaciones de una ronda con un solo tap (`closeConditioningAndAdvance()`) — más
+literal de lo que la entrada anterior asumía ("ronda hecha cierra las N
+estaciones de golpe" es, de hecho, exactamente lo que hace ahora mismo, no una
+aproximación). Sin regresión: es el comportamiento de siempre, nada lo empeora.
+
+**No hacer:** no intentar colar el cursor por estación como una extensión
+menor de esto. Es una pieza propia — máquina de fases nueva en el motor FIXED +
+reescribir las tres piezas de HUD — y por la regla de prioridad UX del
+proyecto, necesita su propio pase de diseño antes de tocar código (cómo se ve
+"ronda 2 de 4, estación 3 de 3", el HUD de descanso entre rondas).
+
+**Dónde vive:** `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`),
+`ios/FAHYBRIK/Plan/Prescription.swift` (`restBetweenRoundsS`),
+`ios/FAHYBRIK/Devices/Treadmill/RunTargetResolver.swift` (el consumidor real
+del target huérfano), `ios/FAHYBRIKTests/Workout/ConditioningFoldTests.swift`.
+Lo pendiente vive en `ios/FAHYBRIK/Workout/LiveTramo.swift` y
+`WorkoutFormatHUDs.swift` — sin tocar.
+
+---
+
 ## 2026-08-07 · Asignar una semana deja de ser una copia de un solo instante
 
 **Decidido:** un microciclo ya asignado a un atleta ahora sabe de qué `program_week_templates` se materializó (`microcycles.source_week_template_id`, migración 0158), y guardar un día en el editor **resincroniza automáticamente** los microciclos con ese linaje: cada asignación todavía `'scheduled'` recibe el contenido fresco; cualquier otra (`'completed'`/`'partial'`/`'skipped'`/`'missed'`) se deja intacta siempre, porque el atleta ya actuó sobre ella.

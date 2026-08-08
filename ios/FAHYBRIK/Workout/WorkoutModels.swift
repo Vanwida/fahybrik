@@ -1951,10 +1951,54 @@ extension WorkoutBlock {
         }
         let totalS = itemMax { $0.totalS } ?? configJson?.int("time_cap_seconds") ?? configJson?.int("total_seconds")
         let rounds = itemMax { $0.rounds } ?? configJson?.int("rounds")
-        let workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
-        let restS = itemFirst { $0.restS } ?? configJson?.int("rest_seconds")
+
+        // CIRCUITO (2026-08-07 DECISIONS): a block authored with a real `pacing` —
+        // "por_tarea" (no clock; the round ends whenever the athlete strikes the last
+        // station) or "por_reloj" (a hard per-station clock, `work_seconds`) — GATES
+        // `workS` explicitly instead of ever inferring one. `por_tarea` means "no
+        // clock cap", full stop: it wins over any legacy per-item leftover — this is
+        // the exact "ventana trabajo" confusion Alex reported, where a work window
+        // kept being asked for / applied on a format that has none. No `pacing` in
+        // `config_json` (every block today, and every non-circuit format forever)
+        // falls to the pre-existing legacy chain byte-for-byte.
+        let pacing = configJson?.string("pacing")
+        let workS: Int?
+        switch pacing {
+        case "por_tarea":
+            workS = nil
+        case "por_reloj":
+            workS = configJson?.int("work_seconds")
+        default:
+            workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
+        }
+
+        // Two SEPARATE rest windows (2026-08-07 DECISIONS): the gap INSIDE a round,
+        // between one station and the next — `restS`, its existing meaning, already
+        // correct — and the gap AFTER a full round, before the next one starts —
+        // `restBetweenRoundsS`, new. `rest_between_stations_seconds` only exists on a
+        // real Circuito block, so it slots in ahead of the legacy generic
+        // `rest_seconds` without ever shadowing it for EMOM/Tabata/intervals, which
+        // keep reading that key exactly as before.
+        let restS = itemFirst { $0.restS }
+            ?? configJson?.int("rest_between_stations_seconds")
+            ?? configJson?.int("rest_seconds")
+        let restBetweenRoundsS = configJson?.int("rest_between_rounds_seconds")
         let start = itemFirst { $0.start } ?? configJson?.int("start")
         let increment = itemFirst { $0.increment } ?? configJson?.int("increment")
+
+        // A block-level HEADER target is only honest when EVERY item genuinely
+        // shares the SAME one — a uniform interval pyramid ("5×400m @ threshold")
+        // where every bout carries the identical objective. Blindly taking item 0's
+        // target is the "3:45/km huérfano" bug (2026-08-07 DECISIONS): a mixed
+        // circuit's item 0 (say a Run station) keeps its own real pace, but that pace
+        // is not the BLOCK's — `RunTarget.resolve(from:)` (Devices/Treadmill/
+        // RunTargetResolver.swift) reads `segment.prescription?.target` directly, with
+        // no per-station awareness, and would show a leftover run pace as the target
+        // while the athlete is on Wallballs or Sled Push.
+        let firstTarget = items.first?.prescription?.target
+        let uniformTarget: Target? = (firstTarget != nil
+            && items.allSatisfy { $0.prescription?.target == firstTarget })
+            ? firstTarget : nil
 
         return Prescription(
             scheme: scheme,
@@ -1964,10 +2008,11 @@ extension WorkoutBlock {
             workS: workS,
             restS: restS,
             totalS: totalS,
-            target: items.first?.prescription?.target,
+            target: uniformTarget,
             note: nil,
             start: start,
-            increment: increment
+            increment: increment,
+            restBetweenRoundsS: restBetweenRoundsS
         )
     }
 }

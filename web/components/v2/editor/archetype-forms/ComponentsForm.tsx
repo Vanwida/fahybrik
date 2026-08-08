@@ -1,19 +1,28 @@
 'use client';
 
 // ComponentsForm — the COMPONENTS base pattern (WOD/Metcon · Circuito/Core ·
-// Fuerza-potencia/EMOM · Simulación HYROX routed here). A conditioning block is
-// NOT one nested prescription: per the domain model a "compromised" block is
-// MULTIPLE block items, each its OWN exercise + dosis (measure ± target) sharing
-// one block. So this form edits the EditorBlock's ITEM LIST:
-//   - Formato — the block-level scheme drawn from the shared metcon catalog
-//     (For Time | AMRAP | EMOM | Tabata | Death By | Series | Chipper | Escalera |
-//     Rondas), applied to every component (one block = one format).
-//   - Rondas (Stepper) / Time cap / Ventana / Descanso entre rondas (chips con
-//     el «—» honesto) — the scheme's structural fields, stored on EVERY item's
-//     prescription so the persisted shape stays coherent.
+// Fuerza-potencia/EMOM routed here; Simulación HYROX has its own dedicated
+// form). A conditioning block is NOT one nested prescription: per the domain
+// model a "compromised" block is MULTIPLE block items, each its OWN exercise +
+// dosis (measure ± target) sharing one block. So this form edits the
+// EditorBlock's ITEM LIST, branching on whether the block IS Circuito
+// (`format === 'circuit'`, docs/DECISIONS.md 2026-08-07):
+//   - Circuito (`isCircuit`) — CircuitConfigFields (component-stations.tsx)
+//     edits `EditorBlock.circuit` DIRECTLY: rondas + pacing (por_tarea sin
+//     reloj | por_reloj con work_seconds) + los dos descansos, a nivel de
+//     BLOQUE. Stations carry ONLY their own exercise + measure/target — no
+//     Formato picker, nothing copied onto items.
+//   - Every other format (WOD/EMOM/Tabata/…) — Formato — the block-level
+//     scheme drawn from the shared metcon catalog (For Time | AMRAP | EMOM |
+//     Tabata | Death By | Series | Chipper | Escalera | Rondas), applied to
+//     every component via `applyHead`: Rondas (Stepper) / Time cap / Ventana /
+//     Descanso (chips con el «—» honesto) stored on EVERY item's prescription
+//     so the persisted shape stays coherent. UNCHANGED — this convention is
+//     only wrong for the multi-station Circuito case that `circuit` replaces.
 //   - Estaciones — filas limpias en orden (component-stations): asa, movimiento,
-//     medida en mono y objetivo.
-// Edits the same EditorItem[] the serializer persists; zero free text.
+//     medida en mono y objetivo. Shared by both branches.
+// Edits the same EditorItem[] (+ `circuit` for Circuito) the serializer
+// persists; zero free text.
 
 import type {
   FormatParam,
@@ -21,8 +30,10 @@ import type {
   PrescriptionScheme,
 } from '@fahybrid/shared/domain/prescription';
 import { formatMeta, formatsByFamily } from '@fahybrid/shared/domain/prescription';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
+import { CircuitConfigFields } from './circuit-config-fields';
 import { ComponentStationRow, FormatParamField } from './component-stations';
 import { Field, InlineToggle } from './form-controls';
 
@@ -115,10 +126,21 @@ export function ComponentsForm({
 }) {
   const format = blockFormat(block);
   const head = blockHead(block);
+  // Circuito (docs/DECISIONS.md, 2026-08-07) is a type of its own: no Formato
+  // picker, no applyHead — its structural fields live in `block.circuit`,
+  // edited directly by CircuitConfigFields below. `format` is the STORED,
+  // authoritative classifier (set once at archetype creation and never
+  // touched by the inner Formato toggle, which only exists for the other
+  // branch), so it survives reload the same way `archetypeForFormat` does.
+  const isCircuit = block.format === 'circuit';
+
+  const setCircuit = (next: CircuitConfig) => onChange({ ...block, circuit: next });
 
   // Apply a block-level field (scheme / rounds / total_s / work_s / rest_s) to
   // EVERY item's prescription so the persisted shape stays coherent across the
-  // block (all components share the format + cap).
+  // block (all components share the format + cap). Only the non-Circuito
+  // branch calls this — Circuito's structural fields never touch item
+  // prescriptions (that duplication was the real bug this form replaces).
   const applyHead = (p: Partial<Prescription>) => {
     onChange({
       ...block,
@@ -187,15 +209,21 @@ export function ComponentsForm({
     });
 
   const addComponent = () => {
+    // Circuito: a new station carries ONLY its scheme + modality — never the
+    // head's rounds/work_s/rest_s/total_s. Spreading `head` here (like the
+    // non-Circuito branch does) is exactly how the old `applyHead` convention
+    // re-leaked block-level fields onto stations one at a time; the block's
+    // rounds/pacing/descansos live solely in `block.circuit` now.
+    const seed = isCircuit
+      ? { scheme: head?.scheme ?? ('rounds' as const), modality: head?.modality ?? 'functional' }
+      : { ...(head ?? { scheme: format }), modality: head?.modality ?? 'functional' };
     const next: EditorItem = {
       uid: `comp-${Date.now()}`,
       exercise_id: null,
       exercise_name: '',
       prescription: cleanScheme({
-        ...(head ?? { scheme: format }),
-        modality: head?.modality ?? 'functional',
+        ...seed,
         sets: [{ measure: { kind: 'reps', value: 10 } }],
-        // structural fields are inherited from the head via the spread above.
       }),
     };
     onChange({ ...block, items: [...block.items, next] });
@@ -215,34 +243,41 @@ export function ComponentsForm({
 
   return (
     <div className="space-y-4">
-      {/* Formato + per-format structural fields (driven by the catalog params) */}
-      <div className="space-y-3">
-        <Field label="Formato">
-          <InlineToggle
-            ariaLabel="Formato del bloque"
-            value={format}
-            options={FORMAT_OPTIONS}
-            onChange={setFormat}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(formatMeta(format)?.params ?? []).map((param) => (
-            <FormatParamField
-              key={param}
-              param={param}
-              format={format}
-              head={head}
-              onPatch={applyHead}
+      {isCircuit ? (
+        // Circuito: rounds/pacing/descansos a nivel de bloque — sin Formato
+        // picker (Circuito no es una de las 9 variantes del catálogo metcon).
+        <CircuitConfigFields config={block.circuit} onChange={setCircuit} />
+      ) : (
+        /* Formato + per-format structural fields (driven by the catalog params) */
+        <div className="space-y-3">
+          <Field label="Formato">
+            <InlineToggle
+              ariaLabel="Formato del bloque"
+              value={format}
+              options={FORMAT_OPTIONS}
+              onChange={setFormat}
             />
-          ))}
+          </Field>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(formatMeta(format)?.params ?? []).map((param) => (
+              <FormatParamField
+                key={param}
+                param={param}
+                format={format}
+                head={head}
+                onPatch={applyHead}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Estaciones, en el orden en que se hacen */}
       <div className="space-y-1.5">
         <span className="v2-micro">
-          Estaciones · en orden {format === 'amrap' || format === 'rounds' ? '(cada ronda)' : ''}
+          Estaciones · en orden{' '}
+          {isCircuit || format === 'amrap' || format === 'rounds' ? '(cada ronda)' : ''}
         </span>
         <div className="space-y-2">
           {block.items.map((it, i) => (

@@ -41,6 +41,10 @@ export function sessionsToWire(sessions: EditorSession[]) {
       format: b.format,
       methodology_group_id: b.methodology_group_id ?? null,
       source_block_id: b.source_block_id ?? null,
+      // Circuito (rounds/pacing/descansos de bloque) — solo lo lleva el bloque
+      // Circuito/Core; se omite la clave para el resto (el schema del wire lo
+      // define `.optional()`, nunca nullable, así que null lo rechazaría).
+      ...(b.circuit ? { circuit: b.circuit } : {}),
       items: b.items.map((it) => ({
         uid: it.uid,
         exercise_id: it.exercise_id,

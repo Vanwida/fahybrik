@@ -29,13 +29,35 @@ del entreno. Auditado hasta el fondo contra Neon real:
    separados entre estaciones y entre rondas) + tabla `template_blocks`
    (migración 0159, sin backfill a propósito — no se inventa `pacing`) +
    `assignment-detail.ts` ya sirve la config real en `config_json` cuando existe.
-2. Editor de día (`ComponentsForm.tsx`): UI de rounds/pacing a nivel de bloque,
-   fuera el `applyHead` que duplicaba campos por estación.
-3. Motor en vivo iOS/watch (`WorkoutModels.swift`, `LiveTramo.swift`): leer el
-   bloque en vez de campos copiados por ítem, arreglar el "3:45/km" huérfano,
-   generalizar el cursor por estación. Fallback obligatorio a legacy — el motor
-   que usan HOY los atletas activos de Pablo no puede cambiar de comportamiento
-   para nada existente.
+2. ✅ Editor de día (`ComponentsForm.tsx`): UI de bloque real —
+   `CircuitConfigFields` (rounds Stepper, pacing por_tarea/por_reloj, ventana
+   de trabajo SOLO si por_reloj, dos descansos) edita `EditorBlock.circuit`
+   directo; fuera el `applyHead` que copiaba rounds/work_s/rest_s en CADA
+   estación (el mecanismo que ya divergió en 2 de 22 grupos reales). Solo se
+   activa para el bloque Circuito (`format === 'circuit'`) — WOD/EMOM/Tabata
+   siguen con `applyHead` tal cual, fuera de este corte. Circuito nuevo nace
+   con `circuit: {rounds:3, por_tarea}` (antes duplicaba rounds/rest_s en la
+   prescripción de la estación — ya no). Wireado round-trip completo:
+   `editor-data.ts`/`editor-serialize.ts` (mismo contrato "input manda,
+   si no se preserva" que `group`/`coach_note`) y `day-editor-io.ts`
+   (`sessionsToWire` no mandaba `group`/`optional`/`coach_note` al servidor
+   tampoco — gap preexistente fuera de este corte, solo se cerró para
+   `circuit`). Typecheck limpio, 1001 tests verdes (+8 nuevos), lint limpio.
+3. 🟡 Motor en vivo iOS/watch (`WorkoutModels.swift`) — **parcial, a propósito**:
+   `conditioningFold` ya lee `pacing` (por_tarea fuerza sin reloj SIEMPRE, ni con
+   leftover de item — la confusión de "ventana trabajo" pedida sin reloj), los
+   dos descansos viajan separados (`restS` = entre estaciones, `restBetweenRoundsS`
+   nuevo = tras la ronda), y el target de cabecera ("3:45/km huérfano") ya no se
+   presta del item 0 — solo sobrevive si TODOS los items coinciden. Fallback
+   legacy exacto cuando no hay `pacing` (todo bloque hoy). 958 tests iOS verdes.
+   **NO hecho, deliberadamente**: generalizar el cursor por estación
+   (`fixedListIsStations`/`Cursor.fixedStation`, `LiveTramo.swift`) a un
+   circuito real con rondas. Investigado a fondo: `StrikeList`/
+   `ForTimeContextStrip`/`StationSubject` asumen lista plana de un solo paso, y
+   el motor FIXED no tiene NINGÚN estado de descanso hoy (solo el motor
+   ROTATING lo tiene) — requiere un diseño propio, no cabía en un cambio
+   aditivo. Sigue pendiente como pieza propia (con pase de UX antes, por la
+   regla de prioridad UX del proyecto).
 4. Editor de tests real: bloques de verdad en vez de "Protocolo" en texto libre.
 
 Ver `docs/DECISIONS.md` (8-ago) para el detalle técnico completo una vez cierre.
