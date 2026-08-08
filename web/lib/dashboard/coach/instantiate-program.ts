@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
@@ -769,8 +769,8 @@ async function materializeInlineSessionTemplate(params: {
 // decisión original corrigió del otro lado. Usada por cada materializador que
 // copia un WeekDayPart a template_segments (hoy solo el inline; el de la
 // Biblioteca de sesiones no pasa por bloques de día).
-async function insertTemplateBlockCircuit(
-  client: Sql,
+export async function insertTemplateBlockCircuit(
+  client: Sql | TransactionClient,
   templateId: number,
   blockPosition: number,
   circuit: CircuitConfig,

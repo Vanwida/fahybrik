@@ -24,7 +24,13 @@ import {
   specForCalibrationTarget,
   calibrationCoherenceError,
 } from '@fahybrid/shared/domain/coach/test-battery';
-import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
+import {
+  storeResultsSchema,
+  type StoreResultSpec,
+  type StoreResultMeasure,
+  type StoreResultUnit,
+  type StoreResultDerives,
+} from '@fahybrid/shared/schema/test-battery';
 import type {
   CoachTestCreate,
   CoachTestUpdate,
@@ -164,6 +170,38 @@ async function insertResults(
   }
 }
 
+/** The test's CURRENT result contract, in the StoreResultSpec shape
+ *  `materializeTestContent` needs — used when an edit touches content but not
+ *  results, so the meta_json rebuild still has the full, unchanged contract. */
+async function currentSpecs(tx: AnySql, testId: number): Promise<StoreResultSpec[]> {
+  const rows = await tx<
+    Array<{
+      slug: string;
+      label: string;
+      measure: StoreResultMeasure;
+      unit: StoreResultUnit;
+      derives: StoreResultDerives;
+      modality: string | null;
+      optional: boolean;
+    }>
+  >`
+    select slug, label, measure::text as measure, unit::text as unit, derives::text as derives,
+           modality, optional
+    from coach_test_results
+    where test_id = ${testId}
+    order by sort_order asc, id asc
+  `;
+  return rows.map((r) => ({
+    slug: r.slug,
+    label: r.label,
+    measure: r.measure,
+    unit: r.unit,
+    derives: r.derives,
+    ...(r.modality ? { modality: r.modality as StoreResultSpec['modality'] } : {}),
+    ...(r.optional ? { optional: true as const } : {}),
+  }));
+}
+
 async function insertSchedule(
   tx: AnySql,
   testId: number,
@@ -205,6 +243,7 @@ export async function createCoachTest(
       protocol,
       testSlug: slug,
       specs,
+      authoredContent: input.content,
     });
     const rows = await tx<{ id: string }[]>`
       insert into coach_calibration_tests
@@ -266,6 +305,11 @@ export async function updateCoachTest(
   const specs = input.results ? resolveSpecs(input.results, current.slug) : null;
   // primary_modality is re-derived only when the results change; otherwise kept.
   const primary_modality = specs ? primaryModalityOf(specs) : current.primary_modality;
+  // Content changed IFF the caller sent the field at all — [] means "clear my
+  // authored content, fall back to the automatic mechanism", distinct from
+  // omitting the field, which means "leave content untouched" (write-coach-test's
+  // usual convention, same as `results`/`schedule` above).
+  const contentChanged = input.content !== undefined;
 
   await client.begin(async (tx) => {
     // Identity fields — always fully set (defaults kept from `current`).
@@ -281,25 +325,32 @@ export async function updateCoachTest(
     `;
 
     // Content template: keep name/format/protocol in sync; rebuild segments +
-    // meta_json only when results changed.
+    // meta_json when results OR content changed (materializeTestContent always
+    // needs the FULL current specs, even when only content changed — fetch them
+    // when results themselves weren't part of this edit).
     let templateId = current.template_id ? Number(current.template_id) : null;
-    if (specs) {
+    if (specs || contentChanged) {
+      const effectiveSpecs = specs ?? (await currentSpecs(tx, tid));
       templateId = await materializeTestContent(tx, {
         coach_id: cid,
         name,
         format,
         protocol,
         testSlug: current.slug,
-        specs,
+        specs: effectiveSpecs,
         existingTemplateId: templateId,
+        authoredContent: input.content,
       });
       await tx`
         update coach_calibration_tests set template_id = ${templateId}
         where id = ${tid} and coach_id = ${cid}
       `;
-      // Replace the normalized result rows (source of truth).
-      await tx`delete from coach_test_results where test_id = ${tid}`;
-      await insertResults(tx, tid, specs);
+      if (specs) {
+        // Replace the normalized result rows (source of truth) only when the
+        // coach actually edited results — content-only edits leave them as-is.
+        await tx`delete from coach_test_results where test_id = ${tid}`;
+        await insertResults(tx, tid, specs);
+      }
     } else if (templateId != null) {
       // Results unchanged but name/format/protocol may have; keep the template's
       // display fields aligned (meta_json contract is unchanged).

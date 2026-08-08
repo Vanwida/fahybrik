@@ -139,6 +139,7 @@ describeWithDb('#34 athlete test-battery endpoints (real DB)', () => {
         protocol: null,
         format: 'test',
         enabled: true,
+        content: [],
         results: [{ kind: 'baseline', measure: 'hrr', unit: 'bpm', label: 'Recuperación FC 60s' }],
         schedule: [],
       },
@@ -246,7 +247,9 @@ describeWithDb('#34 athlete test-battery endpoints (real DB)', () => {
     const b2 = await loadBatteryStatus(fx.athleteId, sql);
     const t2 = b2.tests.find((t) => t.calibration_slug === 'tt_5k')!;
     expect(t2.result_captured).toBe(true);
-    expect(t2.result_label).toBe('21:40 · 32 bpm');
+    // El label cara-atleta usa "ppm" (español) — el unit interno sigue siendo
+    // 'bpm' (comprobado abajo), son cosas distintas (battery-status.ts:141).
+    expect(t2.result_label).toBe('21:40 · 32 ppm');
 
     // Y el benchmark hrr60 quedó en bpm.
     const [{ unit }] = await sql<{ unit: string }[]>`

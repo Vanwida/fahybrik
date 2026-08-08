@@ -40,8 +40,10 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     fixtures.push(fx);
 
     const res = await restoreDefaultTests(fx.coachId, sql);
-    expect(res.created + res.restored).toBe(4);
-    expect(res.tests).toHaveLength(4);
+    // DEFAULT_CALIBRATION_BATTERY has 5 protocols: the 4 week-1 tests + Umbral de
+    // pulso (unscheduled — lives in the catalog, doesn't land in week 1 uninvited).
+    expect(res.created + res.restored).toBe(5);
+    expect(res.tests).toHaveLength(5);
 
     const tests = await listCoachTests(fx.coachId, {}, sql);
     const bySlug = new Map(tests.map((t) => [t.slug, t]));
@@ -81,6 +83,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         protocol: null,
         format: 'test',
         enabled: true,
+        content: [],
         results: [{ kind: 'calibration', target: 'row_zones' }],
         schedule: [{ week_offset: 1, day_of_week: 5, enabled: true, rest_days_after: 0 }],
       },
@@ -99,6 +102,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         protocol: null,
         format: 'test',
         enabled: true,
+        content: [],
         results: [{ kind: 'baseline', measure: 'reps', unit: 'reps', label: 'Dominadas máx' }],
         schedule: [],
       },
@@ -116,6 +120,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
           protocol: null,
           format: 'test',
           enabled: true,
+          content: [],
           results: [{ kind: 'calibration', target: 'not_a_target' }],
           schedule: [],
         },
