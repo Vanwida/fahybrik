@@ -34,6 +34,7 @@ import {
   resolveRmLoad,
 } from '@fahybrid/shared/domain/strength';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 
 // A benchmark-slug → current-1RM lookup, built once per request from the
 // athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
@@ -171,6 +172,17 @@ export interface AssignmentDetailStoreResult {
   // #34 — an OPTIONAL result: iOS may auto-fill it (e.g. HRR from the HR stream) or let
   // the athlete skip it; it never blocks finishing the test. false = required.
   optional: boolean;
+}
+
+// Circuito (docs/DECISIONS.md, 2026-08-07): la config de bloque real de
+// `template_blocks`, ya resuelta a lo que un bloque necesita para saber si es
+// un circuito multi-estación. Ausente = sin config de circuito (comportamiento
+// legacy). Ver CircuitConfig en shared/schema/program-templates para el shape
+// que el day-editor (slots_json) escribe — esta es la MISMA forma para la ruta
+// Biblioteca/tests (template_segments).
+export interface AssignmentDetailCircuitBlock {
+  block_position: number;
+  config: CircuitConfig;
 }
 
 export interface AssignmentDetailWorkout {
@@ -461,6 +473,7 @@ export async function loadAssignmentDetail(
   // already has the assignment, we don't strip it out.
   let template: TemplateRow | null = null;
   let segments: SegmentRow[] = [];
+  let circuitBlocks: AssignmentDetailCircuitBlock[] = [];
 
   if (assignment.template_id) {
     const tplRows = await sql<TemplateRow[]>`
@@ -502,6 +515,41 @@ export async function loadAssignmentDetail(
         where s.template_id = ${assignment.template_id}::bigint
         order by s.block_position asc, s.position asc, s.id asc
       `;
+
+      // Circuito (template_blocks, migración 0159): config real de rounds/pacing/
+      // descansos por block_position, cuando el coach la definió. Ausente para la
+      // mayoría de templates hoy — comportamiento legacy intacto.
+      const circuitRows = await sql<
+        Array<{
+          block_position: number;
+          rounds: number;
+          pacing: string;
+          work_seconds: number | null;
+          rest_between_stations_seconds: number | null;
+          rest_between_rounds_seconds: number | null;
+        }>
+      >`
+        select block_position, rounds, pacing, work_seconds,
+               rest_between_stations_seconds, rest_between_rounds_seconds
+        from template_blocks
+        where template_id = ${assignment.template_id}::bigint
+      `;
+      circuitBlocks = circuitRows.map((r) => ({
+        block_position: r.block_position,
+        config: {
+          rounds: r.rounds,
+          pacing:
+            r.pacing === 'por_reloj'
+              ? { kind: 'por_reloj' as const, work_seconds: r.work_seconds ?? 0 }
+              : { kind: 'por_tarea' as const },
+          ...(r.rest_between_stations_seconds != null
+            ? { rest_between_stations_seconds: r.rest_between_stations_seconds }
+            : {}),
+          ...(r.rest_between_rounds_seconds != null
+            ? { rest_between_rounds_seconds: r.rest_between_rounds_seconds }
+            : {}),
+        },
+      }));
     }
   }
 
@@ -537,6 +585,7 @@ export async function loadAssignmentDetail(
     executionSegments,
     stationSplit,
     storeResults,
+    circuitBlocks,
   });
 }
 
@@ -632,6 +681,9 @@ export function buildAssignmentDetail(input: {
   // #34 — the calibration results to capture (from coach_test_results via the FK),
   // pre-resolved by loadAssignmentDetail. Default [] → a normal, non-test session.
   storeResults?: AssignmentDetailStoreResult[];
+  // Circuito (template_blocks), pre-resolved by loadAssignmentDetail. Default []
+  // → no block in this session has a circuit config (legacy behavior for all).
+  circuitBlocks?: AssignmentDetailCircuitBlock[];
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
   const stationSplit = input.stationSplit ?? null;
@@ -665,7 +717,7 @@ export function buildAssignmentDetail(input: {
   // survives the rest-day early return.
   if (!template) return base;
 
-  const blocks = buildBlocks(template, segments, zoneLookup, oneRms);
+  const blocks = buildBlocks(template, segments, zoneLookup, oneRms, input.circuitBlocks ?? []);
 
   // A template that resolves to ZERO renderable blocks (no segments) is NOT a
   // previewable / runnable / listable workout — it is the rest/empty state. We
@@ -688,6 +740,26 @@ export function buildAssignmentDetail(input: {
   return base;
 }
 
+// Circuito → config_json plano. Claves nuevas para iOS (Task #10, docs/DECISIONS.md
+// 2026-08-07): `rounds` reutiliza la clave que el fold YA lee vía fallback
+// (`configJson?.int("rounds")`); `pacing`/`rest_between_stations_seconds`/
+// `rest_between_rounds_seconds` son nuevas. `work_seconds` solo se emite bajo
+// `por_reloj` — nunca se pide un tope de reloj a un formato sin reloj.
+function circuitToConfigJson(config: CircuitConfig | undefined): Record<string, unknown> {
+  if (!config) return {};
+  return {
+    rounds: config.rounds,
+    pacing: config.pacing.kind,
+    ...(config.pacing.kind === 'por_reloj' ? { work_seconds: config.pacing.work_seconds } : {}),
+    ...(config.rest_between_stations_seconds != null
+      ? { rest_between_stations_seconds: config.rest_between_stations_seconds }
+      : {}),
+    ...(config.rest_between_rounds_seconds != null
+      ? { rest_between_rounds_seconds: config.rest_between_rounds_seconds }
+      : {}),
+  };
+}
+
 // Assemble the workout into LOGICAL blocks.
 //
 // Domain rule (Alex, 2026-06-05): a continuous workout — a HYROX simulation, a
@@ -705,8 +777,13 @@ function buildBlocks(
   segments: SegmentRow[],
   zoneLookup: ZoneLookup,
   oneRms: OneRmLookup,
+  circuitBlocks: AssignmentDetailCircuitBlock[],
 ): AssignmentDetailBlock[] {
   if (segments.length === 0) return [];
+
+  // Circuito, keyed by the AUTHORED block_position (never a post-merge index —
+  // see the note at config_json below for why that's always safe).
+  const circuitByPosition = new Map(circuitBlocks.map((c) => [c.block_position, c.config]));
 
   // 1. Group by authored block_position, preserving order.
   const groups = new Map<number, SegmentRow[]>();
@@ -766,10 +843,12 @@ function buildBlocks(
       block_position: m.pos,
       // No per-block coach note column yet; iOS treats null as absent.
       coach_note: null,
-      // Reserved for AMRAP rounds / time_cap_seconds / EMOM work/rest etc.
-      // Coach studio doesn't persist per-block config separately today, so
-      // this is an empty object until the studio adds it.
-      config_json: {},
+      // Circuito (template_blocks): real rounds/pacing/descansos cuando el coach
+      // los definió. Un bloque circuito SIEMPRE tiene >1 segmento, así que nunca
+      // entra en la fusión de fragmentos de arriba (esa solo junta bloques de UN
+      // segmento) — `m.pos` es siempre el `block_position` autorado original, el
+      // mismo que escribió el editor. Ausente en el mapa → `{}`, igual que hoy.
+      config_json: circuitToConfigJson(circuitByPosition.get(m.pos)),
       items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms)),
     };
   });

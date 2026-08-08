@@ -10,6 +10,47 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-08 · Circuito llega a la ruta Biblioteca/tests — `template_blocks`
+
+**Decidido:** la decisión de Circuito (7-ago, siguiente entrada) dejó a propósito
+sin auditar la ruta Biblioteca/tests (`template_segments`, distinta de
+`slots_json`). Auditada: 20 bloques circuito reales del coach + 10 ya
+materializados por atleta, con `rounds` metido en el título del bloque por
+falta de columna ("A · Sled (6 rounds)") — el mismo síntoma. Se extiende el
+mismo tipo `CircuitConfig` (`shared/schema/program-templates.ts`) a esta ruta
+vía una tabla hija normalizada, `template_blocks` (migración 0159): una fila
+por `(template_id, block_position)` con `rounds`/`pacing`/descansos separados
+entre estaciones y entre rondas — nunca duplicado por fila como hacía
+`block_title`/`block_format` en `template_segments`.
+
+**Por qué esto y no un backfill:** parsear `rounds` del título es extraer un
+hecho que el coach ya escribió; `pacing` no está escrito en ningún sitio —
+inventarlo con un default, aunque parezca razonable ("por_tarea", el caso
+HYROX típico), rompe la regla "no se sabe es un valor de primera clase"
+(28-jul). Los 30 grupos reales se quedan sin fila (= sin config de circuito,
+comportamiento legacy intacto) hasta que el coach los complete desde el editor.
+
+**Cómo llega al atleta:** `assignment-detail.ts` (`loadAssignmentDetail`)
+consulta `template_blocks` junto a los segmentos y `buildBlocks` sirve la
+config real en `AssignmentDetailBlock.config_json` (antes: literalmente `{}`
+siempre — comentario explícito de que "el studio aún no lo persiste"). Un
+bloque circuito tiene por definición >1 segmento, así que nunca puede caer en
+la fusión de fragmentos de un-solo-segmento que colapsa bloques — el
+`block_position` que llega a `config_json` es siempre el autorado original.
+
+**En consecuencia, no hacer:** no fusionar esto con el `weekDayPartConfigSchema`
+genérico (EMOM/Tabata/intervalos) — Circuito es un tipo cerrado y objetivamente
+correcto aparte, no otro cajón del blob. No asumir que `template_blocks` cubre
+ya el editor de día ni el motor en vivo — son piezas separadas de este mismo
+corte, en curso (ver FOCUS.md).
+
+**Dónde vive:** `shared/schema/program-templates.ts` (`circuitConfigSchema`,
+`circuitPacingSchema`), `infra/migrations/0159_template_blocks.sql`,
+`web/lib/athlete/assignment-detail.ts` (`AssignmentDetailCircuitBlock`,
+`circuitToConfigJson`, `buildBlocks`).
+
+---
+
 ## 2026-08-07 · Asignar una semana deja de ser una copia de un solo instante
 
 **Decidido:** un microciclo ya asignado a un atleta ahora sabe de qué `program_week_templates` se materializó (`microcycles.source_week_template_id`, migración 0158), y guardar un día en el editor **resincroniza automáticamente** los microciclos con ese linaje: cada asignación todavía `'scheduled'` recibe el contenido fresco; cualquier otra (`'completed'`/`'partial'`/`'skipped'`/`'missed'`) se deja intacta siempre, porque el atleta ya actuó sobre ella.

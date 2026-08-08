@@ -5,7 +5,42 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · el panel «Nuevo test» ya no roba el foco al teclear — DESPLEGADO (8-ago)
+## Ahora · Circuito llega a Biblioteca/tests + editor de contenido real para tests — EN CURSO (8-ago)
+
+Alex señaló que el editor de "Nuevo test" (`/tests`) no construye nada real:
+"Protocolo" es texto libre, "Resultados" es una lista abstracta desconectada
+del entreno. Auditado hasta el fondo contra Neon real:
+
+- El mecanismo correcto YA EXISTE (`Prescription`, el mismo tipo serie×medida×
+  objetivo de los entrenos normales) pero solo lo usan 2 de los 5 tests de
+  fábrica (5K, Remo 2K) — "Batería 1RM" y "HYROX half-sim" nacen sin contenido.
+- **Bug activo, ya manifestado en producción:** cualquier Guardar en el panel
+  borra el `prescription_json` real y lo sustituye por un ancla vacía —
+  el Remo 2K del coach 60 ya lo perdió (`updated_at` 26-jul). Recuperable con
+  "Restaurar batería por defecto".
+- Auditando la ruta Biblioteca (`template_segments`) para HYROX half-sim
+  apareció el hueco que la decisión de Circuito (7-ago, ver abajo) había
+  dejado pendiente a propósito: 20 bloques circuito reales del coach + 10 ya
+  materializados por atleta, con el `rounds` metido en el TÍTULO del bloque a
+  falta de columna — el mismo síntoma que motivó esa decisión, sin auditar aún.
+
+**Plan (Alex: "todo junto, retomando Circuito"), 4 piezas, foundational primero:**
+1. ✅ Tipo compartido `CircuitConfig` (rounds/pacing por_tarea·por_reloj/descansos
+   separados entre estaciones y entre rondas) + tabla `template_blocks`
+   (migración 0159, sin backfill a propósito — no se inventa `pacing`) +
+   `assignment-detail.ts` ya sirve la config real en `config_json` cuando existe.
+2. Editor de día (`ComponentsForm.tsx`): UI de rounds/pacing a nivel de bloque,
+   fuera el `applyHead` que duplicaba campos por estación.
+3. Motor en vivo iOS/watch (`WorkoutModels.swift`, `LiveTramo.swift`): leer el
+   bloque en vez de campos copiados por ítem, arreglar el "3:45/km" huérfano,
+   generalizar el cursor por estación. Fallback obligatorio a legacy — el motor
+   que usan HOY los atletas activos de Pablo no puede cambiar de comportamiento
+   para nada existente.
+4. Editor de tests real: bloques de verdad en vez de "Protocolo" en texto libre.
+
+Ver `docs/DECISIONS.md` (8-ago) para el detalle técnico completo una vez cierre.
+
+## Antes · el panel «Nuevo test» ya no roba el foco al teclear — DESPLEGADO (8-ago)
 
 `SidePanel`/`AddMicrocicloPicker` enfocaban su contenedor en un `useEffect`
 con `[onClose]` de dependencia — `onClose` es una arrow function que el padre
