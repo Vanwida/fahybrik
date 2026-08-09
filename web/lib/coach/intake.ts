@@ -1277,11 +1277,11 @@ async function sendWelcomeMessage(params: {
   // Notify the athlete.
   await params.client`
     insert into notifications (user_id, type, payload_json)
-    select a.user_id, 'chat_message', ${JSON.stringify({
+    select a.user_id, 'chat_message', ${params.client.json({
       kind: 'welcome',
       thread_id: threadId,
       coach_id: String(params.coach_id),
-    })}::jsonb
+    })}
     from athletes a
     where a.id = ${params.athlete_id as number}
   `;

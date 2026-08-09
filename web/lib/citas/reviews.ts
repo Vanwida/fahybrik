@@ -166,14 +166,18 @@ export async function proposeReview(args: {
   `;
   if (recent[0]) return { proposed: false, reason: 'recent_proposal' };
 
-  const payload = JSON.stringify({
-    kind: REVIEW_PROPOSED_NOTIFICATION_KIND,
-    athlete_id: String(athlete.athlete_id),
-    coach_id: String(args.coach_id),
-  });
+  // `sql.json(...)` y NO `JSON.stringify(...)::jsonb`: con la segunda forma
+  // postgres.js vuelve a serializar la cadena y la columna guarda un jsonb de
+  // tipo *string*, con lo que el `payload_json->>'kind'` de aquí arriba (el
+  // anti-spam) y el de getAthleteReviewState no encuentran NUNCA la propuesta
+  // que acaban de escribir — y el atleta recibe la misma propuesta una y otra vez.
   await sql`
     insert into notifications (user_id, type, payload_json)
-    values (${Number(athlete.user_id)}, 'system', ${payload}::jsonb)
+    values (${Number(athlete.user_id)}, 'system', ${sql.json({
+      kind: REVIEW_PROPOSED_NOTIFICATION_KIND,
+      athlete_id: String(athlete.athlete_id),
+      coach_id: String(args.coach_id),
+    })})
   `;
   return { proposed: true };
 }

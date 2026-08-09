@@ -132,7 +132,7 @@ export async function softDeleteAccount(input: SoftDeleteInput): Promise<SoftDel
       values (
         ${partnerId}::bigint,
         'system'::notification_type,
-        ${JSON.stringify(payload)}::jsonb
+        ${sql.json(payload)}
       )
     `;
     partnerNotified = true;

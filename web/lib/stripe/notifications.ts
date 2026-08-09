@@ -33,27 +33,30 @@ export async function notifyPaymentFailed(args: {
   `;
   const row = rows[0];
 
-  const payload = JSON.stringify({
+  // sql.json y no JSON.stringify::jsonb — ver docs/DECISIONS.md 2026-08-09
+  // (payload de aviso como objeto): la forma vieja guarda un jsonb de tipo
+  // string y ->>'kind' devuelve null en todos los lectores.
+  const payload = {
     kind: PAYMENT_FAILED_KIND,
     athlete_user_id: user_id.toString(),
-  });
+  };
 
   // Athlete notification.
   await client`
     insert into notifications (user_id, type, payload_json)
-    values (${user_id}, 'system', ${payload}::jsonb)
+    values (${user_id}, 'system', ${client.json(payload)})
   `;
 
   // Coach notification (best-effort — only if the athlete has a coach linked).
   if (row?.coach_user_id) {
-    const coachPayload = JSON.stringify({
+    const coachPayload = {
       kind: PAYMENT_FAILED_KIND,
       athlete_user_id: user_id.toString(),
       athlete_id: row.athlete_id,
-    });
+    };
     await client`
       insert into notifications (user_id, type, payload_json)
-      values (${BigInt(row.coach_user_id)}, 'system', ${coachPayload}::jsonb)
+      values (${BigInt(row.coach_user_id)}, 'system', ${client.json(coachPayload)})
     `;
   }
 }

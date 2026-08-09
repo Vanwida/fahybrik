@@ -226,7 +226,7 @@ export async function proposeNextMonthlyBlock(params: {
         values (
           ${Number(owner.user_id)},
           'monthly_block_pending'::notification_type,
-          ${JSON.stringify(payload)}::jsonb
+          ${client.json(payload)}
         )
       `;
     }

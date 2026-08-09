@@ -428,11 +428,11 @@ export async function applyAdjustment(params: ApplyParams): Promise<ApplyResult>
         values (
           ${u.user_id},
           'workout_edited',
-          ${JSON.stringify({
+          ${tx.json({
             kind: 'mass_adjustment',
             adjustment_id: String(adjustment_id),
             adjustment_type: params.payload.type,
-          })}::jsonb
+          })}
         )
       `;
     }
