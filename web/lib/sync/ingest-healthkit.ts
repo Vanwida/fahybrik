@@ -14,6 +14,7 @@
 // across sources.
 
 import type { Sql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import { markAssignmentDoneFromDevice } from './assignment-status';
 import { existsOverlappingExecution } from './execution-time-dedupe';
 import { canonicalizeHealthkitMetric } from './metric-map';
@@ -103,7 +104,7 @@ async function ingestWorkout(args: {
         ${workout.started_at},
         ${workout.duration_seconds},
         'seconds',
-        ${JSON.stringify(workout)}::jsonb
+        ${sql.json(toJsonValue(workout))}
       )
     `;
   }

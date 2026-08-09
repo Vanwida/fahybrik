@@ -29,6 +29,7 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import type {
   MassAdjustmentHistoryRow,
   MassAdjustmentPayload,
@@ -317,10 +318,10 @@ export async function applyAdjustment(params: ApplyParams): Promise<ApplyResult>
       ) values (
         ${Number(params.coach_id)},
         ${params.payload.type}::coach_mass_adjustment_type,
-        ${JSON.stringify(params.scope)}::jsonb,
-        ${JSON.stringify(params.payload)}::jsonb,
+        ${tx.json(toJsonValue(params.scope))},
+        ${tx.json(toJsonValue(params.payload))},
         ${targets.length},
-        ${JSON.stringify(targets.map((t) => ({ athlete_id: t.athlete_id, full_name: t.full_name })))}::jsonb,
+        ${tx.json(toJsonValue(targets.map((t) => ({ athlete_id: t.athlete_id, full_name: t.full_name }))))},
         ${Number(params.applied_by_user_id)},
         ${now.toISOString()}::timestamptz,
         ${rollback_deadline.toISOString()}::timestamptz
@@ -395,7 +396,7 @@ export async function applyAdjustment(params: ApplyParams): Promise<ApplyResult>
           insert into coach_mass_adjustment_targets (
             adjustment_id, athlete_id, assignment_id, prior_state_json
           ) values (
-            ${adjustment_id}, ${a.athlete_id}, ${a.id}, ${JSON.stringify(prior)}::jsonb
+            ${adjustment_id}, ${a.athlete_id}, ${a.id}, ${tx.json(toJsonValue(prior))}
           )
         `;
       }
@@ -408,12 +409,12 @@ export async function applyAdjustment(params: ApplyParams): Promise<ApplyResult>
         'coach_mass_adjustments',
         ${adjustment_id},
         'create',
-        ${JSON.stringify({
+        ${tx.json(toJsonValue({
           type: params.payload.type,
           scope_kind: params.scope.kind,
           athletes_affected_count: targets.length,
           rollback_deadline: rollback_deadline.toISOString(),
-        })}::jsonb
+        }))}
       )
     `;
 
@@ -533,7 +534,7 @@ export async function rollbackAdjustment(params: {
         'coach_mass_adjustments',
         ${Number(params.adjustment_id)},
         'restore',
-        ${JSON.stringify({ rolled_back_at: now.toISOString() })}::jsonb
+        ${tx.json(toJsonValue({ rolled_back_at: now.toISOString() }))}
       )
     `;
   });

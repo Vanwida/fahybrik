@@ -1,4 +1,5 @@
 import type { Sql, TransactionClient } from '../db';
+import { toJsonValue } from '../json-column';
 
 // Authorship registry — write side (see migration 0114). Two layers:
 //   COLD  recordAudit()  → one append-only audit_log row (permanent history).
@@ -48,7 +49,7 @@ export async function recordAudit(client: DbClient, entry: AuditEntry): Promise<
       ${entry.entity_type},
       ${entry.entity_id},
       ${entry.action},
-      ${JSON.stringify(entry.diff ?? {})}::jsonb
+      ${client.json(toJsonValue(entry.diff ?? {}))}
     )
   `;
 }

@@ -13,6 +13,7 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import {
   composeWelcomeDraft,
@@ -1062,7 +1063,7 @@ export async function commitIntake(params: {
     update athletes
     set intake_completed_at = ${now.toISOString()}::timestamptz,
         intake_by_coach_id = ${params.coach_id as number},
-        intake_notes_json = ${JSON.stringify(snapshot)}::jsonb,
+        intake_notes_json = ${client.json(toJsonValue(snapshot))},
         updated_at = now()
     where id = ${params.athlete_id as number}
   `;

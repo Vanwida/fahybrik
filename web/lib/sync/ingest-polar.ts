@@ -18,6 +18,7 @@
 //   * recharge → recovery (recoveryIndicator) + hrv (RMSSD).
 
 import type { Sql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { deriveLapIntensity } from '@/lib/garmin/lap-mapping';
@@ -172,7 +173,7 @@ async function writeSegments(args: {
         ${seg.modality}, ${intensity.avg_pace_s_per_km}, ${intensity.avg_pace_s_per_500m},
         ${intensity.avg_power_w}, ${intensity.stroke_rate_spm}, ${intensity.run_cadence_spm},
         ${POLAR_SOURCE},
-        ${JSON.stringify(seg.raw)}::jsonb
+        ${sql.json(toJsonValue(seg.raw))}
       )
     `;
   }
@@ -269,7 +270,7 @@ async function insertPolarStream(args: {
       ${ts},
       ${value},
       ${unit},
-      ${JSON.stringify(raw)}::jsonb
+      ${sql.json(toJsonValue(raw))}
     )
   `;
 }

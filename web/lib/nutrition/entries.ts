@@ -9,6 +9,7 @@
 // the client receives is `kcal: 123.4`, not `"123.4"`.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 
 export const NUTRITION_SOURCES = ['manual', 'barcode', 'photo'] as const;
 export type NutritionSource = (typeof NUTRITION_SOURCES)[number];
@@ -121,7 +122,7 @@ export async function createNutritionEntry(args: {
       ${i.unit ?? null},
       ${i.source ?? 'manual'},
       ${i.barcode ?? null},
-      ${i.raw === undefined || i.raw === null ? null : JSON.stringify(i.raw)}::jsonb
+      ${i.raw === undefined || i.raw === null ? null : client.json(toJsonValue(i.raw))}
     )
     returning ${client.unsafe(SELECT_COLS)}
   `;

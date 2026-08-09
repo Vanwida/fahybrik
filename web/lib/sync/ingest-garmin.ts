@@ -18,6 +18,7 @@
 // activityId, falling back to startTimeInSeconds when missing.
 
 import type { Sql } from '@/lib/db';
+import { coerceJson, toJsonValue } from '@/lib/json-column';
 import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
@@ -400,7 +401,7 @@ async function ingestGarminActivity(args: {
               ${intensity.stroke_rate_spm},
               ${intensity.run_cadence_spm},
               'garmin',
-              ${JSON.stringify(lap)}::jsonb
+              ${sql.json(toJsonValue(lap))}
             )
           `;
           pos += 1;
@@ -421,6 +422,7 @@ async function insertStream(args: {
   value: number | null | undefined;
   unit: string;
   externalId: string | undefined;
+  /** Cuerpo tal cual lo mandó Garmin (texto JSON): se guarda como OBJETO. */
   raw: string;
   source_workout_id?: string;
 }): Promise<number> {
@@ -464,7 +466,7 @@ async function insertStream(args: {
       ${ts},
       ${value},
       ${unit},
-      ${raw}::jsonb
+      ${sql.json(toJsonValue(coerceJson(raw)))}
     )
   `;
   return 1;
