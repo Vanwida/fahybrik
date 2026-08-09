@@ -1,0 +1,1726 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del coach: componer, publicar y seguir. Mockup del dashboard</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   TOKENS. Cero hex inventado.
+
+   Bloque 1 (--*)      valores copiados de web/app/[locale]/(v2)/v2-theme.css,
+                       regla `.v2-root[data-theme="dark"]`, que es la superficie
+                       viva del dashboard del coach. Convergen con los tokens de
+                       marca de web/app/globals.css (:root): mismo lienzo
+                       #0A0A0A, mismo naranja #F06A2A, mismas semánticas.
+   Bloque 2 (--tw-*)   valores copiados de
+                       web/app/[locale]/(design)/design/twin.css (`.twin-root`,
+                       tema oscuro). Son los del MÓVIL del atleta y viven en su
+                       propio ámbito (.phone) porque el doble no es el
+                       dashboard: sus grises son más cálidos y su naranja se
+                       apoya en un glifo marrón (#511900), no en negro.
+
+   Tipografías: las pilas declaradas en globals.css (--font-display-stack,
+   --font-sans-stack, --font-mono-stack). Sin CDN: si Archivo/Geist no están
+   instaladas, cae a SF Pro / system-ui sin romper la voz.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0a0a0a;
+  --surface:#141414;
+  --surface-2:#1a1a1a;
+  --elevated:#1f1f1f;
+  --border:rgba(255,255,255,.08);
+  --border-strong:rgba(255,255,255,.16);
+  --fg:#f5f5f5;
+  --muted:#a1a1a1;
+  --faint:#6e6e6e;
+
+  --accent:#f06a2a;
+  --accent-press:#d85a20;
+  --accent-fg:#0a0a0a;
+  --accent-soft:rgba(240,106,42,.14);
+
+  --ok:#3fc773;        --ok-soft:rgba(63,199,115,.14);
+  --warn:#f2a52e;      --warn-soft:rgba(242,165,46,.14);
+  --danger:#f2504f;    --danger-soft:rgba(242,80,79,.14);
+  --info:#4d9eeb;      --info-soft:rgba(77,158,235,.14);
+
+  --r-2xs:4px; --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+  --shadow-card:0 1px 0 rgba(255,255,255,.04) inset,0 1px 2px rgba(0,0,0,.4),0 12px 28px -12px rgba(0,0,0,.7);
+  --shadow-pop:0 16px 40px -12px rgba(0,0,0,.8);
+
+  --font-display:"Archivo","SF Pro Display",system-ui,sans-serif;
+  --font-sans:"Geist","SF Pro Text",system-ui,sans-serif;
+  --font-mono:"Geist Mono","SF Mono",ui-monospace,monospace;
+}
+
+*{box-sizing:border-box;margin:0}
+/* Los controles nativos (calendario, desplegable) se pintan en oscuro.
+   Sin esto el campo de fecha saca un icono claro sobre superficie negra. */
+html{-webkit-text-size-adjust:100%;color-scheme:dark}
+body{
+  background:var(--bg);color:var(--fg);
+  font:400 15px/1.55 var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent);
+  border-radius:inherit;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px 110px}
+
+/* ── Cabecera del documento ───────────────────────────────────────────── */
+.doc-head{padding:52px 0 26px}
+.eyebrow{
+  font:700 11px/1 var(--font-sans);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:16px;display:block;
+}
+h1{
+  font-family:var(--font-display);font-style:italic;font-weight:900;
+  font-size:clamp(28px,5vw,46px);line-height:1.03;letter-spacing:-.02em;
+  margin-bottom:18px;text-wrap:balance;
+}
+.lede{font-size:16px;line-height:1.6;color:var(--muted);max-width:66ch}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Pestañas de vista (pegadas arriba) ───────────────────────────────── */
+.viewtabs{
+  position:sticky;top:0;z-index:30;
+  display:flex;gap:4px;align-items:center;flex-wrap:wrap;
+  padding:10px 0;margin-bottom:32px;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+}
+.vtab{
+  display:inline-flex;align-items:baseline;gap:8px;
+  padding:9px 15px;border-radius:var(--r-pill);
+  border:1px solid transparent;color:var(--muted);
+  font:600 13.5px/1 var(--font-sans);white-space:nowrap;
+  transition:color .15s ease,background-color .15s ease,border-color .15s ease;
+}
+.vtab .n{font:700 11px/1 var(--font-mono);color:var(--faint)}
+.vtab:hover{color:var(--fg);border-color:var(--border-strong)}
+.vtab[aria-selected="true"]{
+  background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  color:var(--accent);
+}
+.vtab[aria-selected="true"] .n{color:var(--accent)}
+
+.view{display:none}
+.view.is-on{display:block;animation:fade .28s cubic-bezier(.22,1,.36,1) both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view.is-on{animation:none}}
+
+h2{
+  font-family:var(--font-display);font-style:italic;font-weight:900;
+  text-transform:uppercase;font-size:19px;letter-spacing:.005em;margin-bottom:8px;
+}
+h2 .n{color:var(--accent);margin-right:8px}
+.where{color:var(--muted);font-size:14.5px;line-height:1.6;max-width:74ch;margin-bottom:22px}
+.where b{color:var(--fg);font-weight:600}
+
+/* ── Marco de ventana ─────────────────────────────────────────────────── */
+.win{
+  border:1px solid var(--border-strong);border-radius:var(--r-l);overflow:hidden;
+  background:var(--surface);box-shadow:0 24px 60px rgba(0,0,0,.55);
+}
+.winbar{
+  display:flex;align-items:center;gap:8px;padding:11px 15px;
+  background:#0d0d0d;border-bottom:1px solid var(--border);
+}
+.winbar i{width:9px;height:9px;border-radius:var(--r-pill);background:#2e2e2e;display:block;flex:none}
+.winbar span{
+  margin-left:12px;font:500 11.5px/1 var(--font-mono);color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ── Cuerpo de la app: raíl + página ──────────────────────────────────── */
+.app{display:grid;grid-template-columns:206px 1fr;background:var(--bg);min-height:520px}
+.rail{border-right:1px solid var(--border);padding:16px 12px;background:var(--surface)}
+.rail-g{font:700 10px/1 var(--font-sans);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);padding:0 10px;margin:16px 0 8px}
+.rail-g:first-child{margin-top:0}
+.rail-i{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:8px 10px;border-radius:var(--r-s);color:var(--muted);
+  font:500 13.5px/1.2 var(--font-sans);
+}
+.rail-i:hover{color:var(--fg);background:var(--surface-2)}
+/* Marca de icono: en el mockup no hay fuente de iconos (sin CDN), así que el
+   hueco del icono se reserva en gris y no se finge con un glifo prestado. */
+.rail-i .g{width:16px;height:16px;flex:none;border-radius:5px;background:var(--surface-2)}
+.rail-i[aria-current]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.rail-i[aria-current] .g{background:color-mix(in srgb,var(--accent) 32%,transparent);border-color:transparent}
+.rail-i .b{
+  margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-pill);
+  background:var(--accent);color:var(--accent-fg);font:700 10px/18px var(--font-sans);text-align:center;
+}
+.rail-new{
+  margin-left:auto;font:700 8.5px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);
+}
+
+.page{padding:22px 24px 30px;min-width:0}
+.phead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+.ptitle{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:26px;
+  letter-spacing:-.01em;text-transform:uppercase;line-height:1.1}
+.psub{color:var(--muted);font-size:13.5px;line-height:1.55;max-width:58ch;margin-top:6px}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 16px;border-radius:var(--r-s);font:600 13.5px/1 var(--font-sans);white-space:nowrap;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease;
+}
+.btn-primary{background:var(--accent);color:var(--accent-fg);font-weight:700}
+.btn-primary:hover{background:var(--accent-press)}
+.btn-ghost{border:1px solid var(--border-strong);color:var(--fg)}
+.btn-ghost:hover{background:var(--surface-2);border-color:var(--muted)}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:var(--r-xs)}
+
+/* ── Sub pestañas Publicados / Biblioteca ─────────────────────────────── */
+.subtabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto}
+.stab{
+  display:inline-flex;align-items:center;gap:7px;padding:10px 14px;
+  border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted);
+  font:600 13.5px/1 var(--font-sans);white-space:nowrap;
+}
+.stab:hover{color:var(--fg)}
+.stab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.stab .c{font:600 11px/1 var(--font-mono);color:var(--muted)}
+.stab[aria-selected="true"] .c{color:var(--accent)}
+.tabpanel[hidden]{display:none}
+
+/* ── Chips de tipo ──────────────────────────────────────────────────────
+   El color sale del modelo (coach-com/modelo.ts): lo que pide acción se lleva
+   el naranja de marca, porque en la bandeja del atleta el color ES la cola de
+   trabajo. La nota informa y el foco acompaña, así que salen del naranja. */
+[data-t="protocolo"],[data-t="pregunta"],[data-t="tarea"]{--c:var(--accent)}
+[data-t="nota"]{--c:var(--muted)}
+[data-t="foco"]{--c:var(--info)}
+.chip-t{
+  display:inline-flex;align-items:center;padding:4px 9px;border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c);
+  font:700 10px/1 var(--font-sans);letter-spacing:.16em;white-space:nowrap;
+}
+
+/* ── La tabla de publicados ───────────────────────────────────────────── */
+.tblwrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-l);background:var(--surface)}
+.tbl{min-width:840px}
+.trow{
+  display:grid;
+  grid-template-columns:104px minmax(220px,1.7fr) 130px 132px 84px minmax(190px,1.2fr);
+  gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);
+}
+.trow:last-child{border-bottom:0}
+.thead{
+  border-bottom:1px solid var(--border);background:var(--surface-2);
+  position:sticky;top:0;
+}
+.thead span{font:700 10px/1 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tbody .trow{transition:background-color .15s ease}
+.tbody .trow:hover{background:var(--surface-2)}
+.trow.alert{box-shadow:inset 3px 0 0 0 var(--warn);background:color-mix(in srgb,var(--warn) 5%,transparent)}
+.trow.alert:hover{background:color-mix(in srgb,var(--warn) 8%,transparent)}
+
+.c-title{display:block;font:600 14px/1.35 var(--font-sans);color:var(--fg)}
+.c-sub{display:block;font:400 12px/1.4 var(--font-sans);color:var(--muted);margin-top:3px}
+.c-plain{font:500 13px/1.4 var(--font-sans);color:var(--muted)}
+.c-when{font:500 12px/1.3 var(--font-mono);color:var(--muted)}
+.k{display:none}
+
+.who{display:inline-flex;align-items:center;gap:7px;font:500 13px/1.3 var(--font-sans);color:var(--fg)}
+.av{
+  width:22px;height:22px;flex:none;border-radius:var(--r-pill);
+  background:var(--surface-2);border:1px solid var(--border-strong);
+  display:grid;place-items:center;font:700 10px/1 var(--font-sans);color:var(--muted);
+}
+.avstack{display:inline-flex;align-items:center}
+.avstack .av{margin-right:-7px;border-color:var(--surface)}
+.avstack .av:last-of-type{margin-right:0}
+
+/* Seguimiento: el estado del atleta, que es la columna por la que existe la lista */
+.st{display:inline-flex;align-items:center;gap:7px;font:600 12px/1.35 var(--font-sans);white-space:nowrap}
+.st .dot{width:6px;height:6px;border-radius:var(--r-pill);flex:none;background:currentColor}
+.st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.new{color:var(--accent)}
+.st.mut{color:var(--muted)} .st.info{color:var(--info)}
+.st-note{display:block;font:400 12px/1.4 var(--font-sans);color:var(--muted);margin-top:4px;white-space:normal}
+.st-note b{color:var(--fg);font-weight:600}
+.seg{display:flex;gap:3px;margin-top:6px;max-width:120px}
+.seg i{height:4px;flex:1;border-radius:var(--r-2xs);background:var(--surface-2)}
+.seg i.ok{background:var(--ok)} .seg i.seen{background:var(--muted)} .seg i.none{background:var(--accent)}
+
+.listnote{margin-top:14px;font:400 12.5px/1.5 var(--font-sans);color:var(--muted);max-width:88ch}
+.listnote b{color:var(--fg);font-weight:600}
+
+/* ── Biblioteca ───────────────────────────────────────────────────────── */
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:12px}
+.libcard{
+  border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);
+  padding:14px;display:flex;flex-direction:column;gap:9px;
+  transition:border-color .15s ease;
+}
+.libcard:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
+.libcard .nm{font:600 14.5px/1.3 var(--font-sans)}
+.libcard .mt{font:400 12.5px/1.45 var(--font-sans);color:var(--muted);flex:1}
+.libcard .ax{display:flex;gap:8px;margin-top:2px}
+.libcard.empty{
+  border-style:dashed;border-color:var(--border-strong);background:transparent;
+  align-items:flex-start;justify-content:center;gap:7px;
+}
+.libcard.empty .nm{color:var(--muted)}
+
+/* ══ EL COMPOSITOR ══════════════════════════════════════════════════════ */
+.composer{background:var(--bg);padding:20px 24px 28px}
+.chead{border-bottom:1px solid var(--border);padding-bottom:18px;margin-bottom:20px}
+.chead .ptitle{font-size:23px}
+.tchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tchip{
+  padding:8px 14px;border-radius:var(--r-pill);border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--muted);font:600 12.5px/1 var(--font-sans);
+  letter-spacing:.06em;text-transform:uppercase;
+  transition:color .15s ease,border-color .15s ease,background-color .15s ease;
+}
+.tchip:hover{color:var(--fg);border-color:var(--muted)}
+.tchip[aria-pressed="true"]{
+  background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 55%,transparent);
+  color:var(--accent);
+}
+.tchip-hint{font:400 12.5px/1.5 var(--font-sans);color:var(--muted);margin-top:11px;max-width:76ch}
+.tchip-hint b{color:var(--fg);font-weight:600}
+
+.cgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:28px;align-items:start}
+.cform{min-width:0;display:flex;flex-direction:column;gap:20px}
+.cform[hidden]{display:none}
+
+.field{display:flex;flex-direction:column;gap:8px}
+.flabel{font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.fhelp{font:400 12.5px/1.45 var(--font-sans);color:var(--muted)}
+.fhelp b{color:var(--fg);font-weight:600}
+
+.inp{
+  width:100%;background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:var(--r-s);padding:11px 13px;font:500 14px/1.4 var(--font-sans);color:var(--fg);
+  transition:border-color .15s ease;
+}
+.inp:hover{border-color:var(--muted)}
+.inp:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.inp-lg{font:700 19px/1.3 var(--font-display);font-style:italic;letter-spacing:-.01em;padding:12px 14px}
+textarea.inp{resize:vertical;min-height:64px;font-family:var(--font-sans);font-weight:400;font-size:13.5px}
+
+/* Pasos del protocolo */
+.steps{display:flex;flex-direction:column;gap:7px}
+.step{
+  display:grid;grid-template-columns:20px 74px minmax(0,1fr) 30px;gap:10px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:7px 9px;
+}
+.step:hover{border-color:var(--border-strong)}
+.step.writing{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--surface-2)}
+.grab{
+  color:var(--faint);text-align:center;cursor:grab;font:600 14px/1 var(--font-sans);
+  border-radius:var(--r-2xs);padding:4px 0;
+}
+.grab:hover{color:var(--muted)}
+.step .mk{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-xs);
+  padding:8px 9px;font:700 13px/1 var(--font-mono);color:var(--fg);text-align:right;width:100%;
+  font-variant-numeric:tabular-nums;
+}
+.step .mk:focus,.step .tx:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.step .tx{
+  background:transparent;border:1px solid transparent;border-radius:var(--r-xs);
+  padding:8px 8px;font:500 13.5px/1.35 var(--font-sans);color:var(--fg);width:100%;
+}
+.step .tx:hover{border-color:var(--border)}
+.step .rm{color:var(--faint);font:400 16px/1 var(--font-sans);padding:6px;border-radius:var(--r-2xs)}
+.step .rm:hover{color:var(--danger)}
+.caret{
+  display:inline-block;width:1.5px;height:15px;background:var(--accent);vertical-align:-3px;margin-left:1px;
+  animation:blink 1.05s steps(2,start) infinite;
+}
+@keyframes blink{to{visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.caret{animation:none}}
+.addstep{
+  align-self:flex-start;border:1px dashed var(--border-strong);border-radius:var(--r-s);
+  padding:9px 14px;color:var(--muted);font:600 12.5px/1 var(--font-sans);
+}
+.addstep:hover{color:var(--fg);border-color:var(--muted);border-style:solid}
+
+/* Interruptor */
+.toggle{display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.toggle input{
+  appearance:none;-webkit-appearance:none;flex:none;
+  width:40px;height:23px;border-radius:var(--r-pill);
+  background:var(--surface-2);border:1px solid var(--border-strong);
+  position:relative;cursor:pointer;transition:background-color .18s ease,border-color .18s ease;
+  margin-top:1px;
+}
+.toggle input::after{
+  content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:var(--r-pill);
+  background:var(--muted);transition:transform .18s cubic-bezier(.22,1,.36,1),background-color .18s ease;
+}
+.toggle input:checked{background:var(--accent);border-color:transparent}
+.toggle input:checked::after{transform:translateX(17px);background:var(--accent-fg)}
+.toggle input:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+.toggle .tt{font:600 13.5px/1.35 var(--font-sans)}
+.toggle .td{font:400 12.5px/1.45 var(--font-sans);color:var(--muted);margin-top:3px}
+
+/* Conjuntos de chips seleccionables (a quién, dónde le aparece) */
+.chipset{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 12px;border-radius:var(--r-pill);border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);font:500 13px/1 var(--font-sans);
+  transition:border-color .15s ease,color .15s ease,background-color .15s ease;
+}
+.chip:hover{color:var(--fg);border-color:var(--border-strong)}
+.chip[aria-pressed="true"]{
+  background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 50%,transparent);
+  color:var(--accent);font-weight:600;
+}
+.chip[aria-pressed="true"] .av{border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent)}
+.chip .av{width:20px;height:20px;font-size:9.5px}
+
+.cactions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding-top:18px;border-top:1px solid var(--border)}
+.cactions .btn-primary{padding:12px 22px;font-size:14px}
+.cactions .note{font:400 12.5px/1.45 var(--font-sans);color:var(--muted);flex:1;min-width:200px}
+
+/* ── Columna de la previa ─────────────────────────────────────────────── */
+.cprev{position:sticky;top:74px}
+.cprev>summary{
+  display:none;list-style:none;
+  padding:11px 16px;border:1px solid var(--border-strong);border-radius:var(--r-s);
+  color:var(--fg);font:600 13.5px/1 var(--font-sans);text-align:center;cursor:pointer;
+}
+.cprev>summary::-webkit-details-marker{display:none}
+.cprev>summary:hover{background:var(--surface-2)}
+.prevhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.prevhead .l{font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.prevhead .r{font:500 11.5px/1 var(--font-sans);color:var(--muted)}
+.prevfoot{font:400 12px/1.5 var(--font-sans);color:var(--muted);margin-top:12px;max-width:34ch}
+.prevfoot b{color:var(--fg);font-weight:600}
+
+/* ══ EL MÓVIL DEL ATLETA ════════════════════════════════════════════════
+   Ámbito propio: los tokens del doble (twin.css) no se mezclan con los del
+   dashboard. Un naranja igual, un gris distinto: el móvil es otro producto. */
+.phone{
+  --tw-bg:#0b0b0c;
+  --tw-surface:#141416;
+  --tw-surface-elev:#1c1c1f;
+  --tw-sunken:#080809;
+  --tw-fg:#f5f3f0;
+  --tw-muted:#9a938b;
+  --tw-faint:#6b6258;
+  --tw-hairline:rgba(255,255,255,.07);
+  --tw-hairline-strong:rgba(255,255,255,.12);
+  --tw-accent:#f06a2a;
+  --tw-accent-on:#511900;
+  --tw-ok:#3fc773;
+  --tw-warning:#f2a52e;
+  --tw-info:#4d9eeb;
+  --tw-sans:"SF Pro Text",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --tw-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+
+  width:100%;max-width:380px;margin:0 auto;
+  border-radius:46px;padding:11px;
+  background:linear-gradient(160deg,#2c2c2e,#141414 55%,#242426);
+  box-shadow:var(--shadow-pop);
+}
+/* El lienzo del doble es 402 × 874 pt (DeviceFrame.tsx, clase iPhone 17 Pro).
+   Aquí se reproduce a mano a ~0,89 de ese tamaño, respetando la proporción
+   (358 × 778). Estirar el alto para que quepa todo sería enseñar una pantalla
+   que el atleta no tiene: si aquí hay que desplazar, allí también. */
+.screen{
+  position:relative;border-radius:36px;overflow:hidden;
+  background:var(--tw-bg);color:var(--tw-fg);font-family:var(--tw-sans);
+  height:778px;display:flex;flex-direction:column;
+}
+.island{
+  position:absolute;top:9px;left:50%;transform:translateX(-50%);
+  width:78px;height:22px;border-radius:var(--r-pill);background:#000;z-index:3;
+}
+.statusbar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 22px 8px;font:600 11.5px/1 var(--tw-sans);color:var(--tw-fg);
+}
+.statusbar .sig{display:flex;gap:3px;align-items:flex-end}
+.statusbar .sig i{width:3px;background:var(--tw-fg);border-radius:1px;display:block}
+.scroll{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.homebar{
+  flex:none;height:22px;display:grid;place-items:center;
+}
+.homebar i{display:block;width:112px;height:4px;border-radius:2px;background:rgba(255,255,255,.28)}
+
+/* Cabecera de detalle (piezas.tsx · CabeceraDetalle) */
+.p-head{
+  flex:none;display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-bottom:1px solid var(--tw-hairline);
+}
+.p-back{
+  width:32px;height:32px;flex:none;border-radius:var(--r-pill);
+  background:var(--tw-surface-elev);border:1px solid var(--tw-hairline);
+  display:grid;place-items:center;color:var(--tw-fg);font:600 15px/1 var(--tw-sans);
+}
+.p-head-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.p-de{font:500 11.5px/1.2 var(--tw-sans);color:var(--tw-muted)}
+.p-acc{font:700 13px/1.1 var(--tw-mono);color:var(--tw-muted);font-variant-numeric:tabular-nums}
+
+.tw-chip{
+  display:inline-flex;align-items:center;padding:4px 9px;border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c);
+  font:700 10px/1 var(--tw-sans);letter-spacing:.16em;white-space:nowrap;
+}
+.phone [data-t="protocolo"],.phone [data-t="pregunta"],.phone [data-t="tarea"]{--c:var(--tw-accent)}
+.phone [data-t="nota"]{--c:var(--tw-muted)}
+.phone [data-t="foco"]{--c:var(--tw-info)}
+.tw-badge{
+  display:inline-flex;align-items:center;gap:5px;font:700 9.5px/1 var(--tw-sans);
+  letter-spacing:.14em;white-space:nowrap;
+}
+.tw-badge i{width:5px;height:5px;border-radius:var(--r-pill);background:currentColor;flex:none}
+
+/* El cuerpo desplaza como en el móvil de verdad: siete pasos, la nota y la CTA
+   no caben en una pantalla, y fingir que sí sería enseñar una pantalla que no
+   existe. Sin barra de desplazamiento, para que siga leyéndose como aparato. */
+.p-body{flex:1;display:flex;flex-direction:column;gap:16px;padding:16px 16px 24px;
+  overflow-y:auto;scrollbar-width:none}
+.p-body::-webkit-scrollbar{display:none}
+.p-body>*{flex:none}
+/* La pregunta es UNA decisión y cabe entera, centrada. */
+.p-body.centra{justify-content:center;overflow:hidden}
+.tw-display{font:italic 800 24px/1.1 var(--tw-sans);letter-spacing:-.01em;display:block}
+.tw-display.sm{font-size:21px}
+.tw-sub{font:400 13.5px/1.45 var(--tw-sans);color:var(--tw-muted);display:block}
+.tw-label{font:600 9.5px/1.1 var(--tw-sans);letter-spacing:.16em;text-transform:uppercase;color:var(--tw-muted)}
+.tw-card{
+  background:var(--tw-surface);border:1px solid var(--tw-hairline);border-radius:14px;overflow:hidden;
+}
+.tw-card.accent{border-left:3px solid var(--tw-accent)}
+.tw-bar{display:flex;gap:3px;height:4px;border-radius:2px;overflow:hidden;margin-top:2px}
+.tw-bar i{flex:1;border-radius:2px;background:var(--tw-sunken);display:block}
+.tw-bar i.on{background:var(--tw-ok)}
+
+.p-step{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:40px;position:relative}
+/* El separador arranca donde arranca el texto (16 de padding + 38 de columna +
+   12 de hueco = 66), igual que el `Hairline` sangrado de coach-protocolo. */
+.p-step+.p-step::before{
+  content:"";position:absolute;left:66px;right:0;top:0;height:1px;background:var(--tw-hairline);
+}
+.p-mk{flex:0 0 38px;text-align:right;font:700 13px/1.1 var(--tw-mono);font-variant-numeric:tabular-nums}
+.p-tx{flex:1;min-width:0;font:500 13px/1.3 var(--tw-sans)}
+.p-ci{flex:none;width:19px;height:19px;border-radius:var(--r-pill);border:1.6px solid var(--tw-faint)}
+.p-step.ghost{opacity:.55}
+.p-step.ghost .p-mk,.p-step.ghost .p-tx{color:var(--tw-muted)}
+.p-step.ghost .p-ci{border-style:dashed}
+.p-nota{padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.p-nota p{font:400 12.5px/1.45 var(--tw-sans);color:var(--tw-muted)}
+
+.p-foot{flex:none;padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.tw-cta{
+  width:100%;height:50px;border-radius:14px;background:var(--tw-accent);color:var(--tw-accent-on);
+  font:italic 800 16px/1 var(--tw-sans);letter-spacing:.06em;display:grid;place-items:center;
+}
+.tw-cta[disabled]{opacity:.4}
+.p-foot .fn{text-align:center;font:500 11.5px/1.35 var(--tw-sans);color:var(--tw-muted)}
+
+.p-notice{
+  border:1px solid color-mix(in srgb,var(--tw-warning) 40%,transparent);
+  background:color-mix(in srgb,var(--tw-warning) 11%,transparent);
+  border-radius:12px;padding:11px 13px;font:400 12.5px/1.45 var(--tw-sans);color:var(--tw-fg);
+}
+.p-opt{padding:14px;display:flex;gap:12px;align-items:flex-start}
+.p-opt .ci{flex:none;width:18px;height:18px;border-radius:var(--r-pill);border:1.6px solid var(--tw-faint);margin-top:1px}
+.p-opt .ot{font:600 15px/1.25 var(--tw-sans);display:block}
+.p-opt .oc{font:400 12.5px/1.4 var(--tw-sans);color:var(--tw-muted);margin-top:5px;display:block}
+
+.p-nav{
+  flex:none;padding:14px 16px 10px;border-bottom:1px solid var(--tw-hairline);
+}
+.p-nav .t{font:italic 800 21px/1.1 var(--tw-sans);letter-spacing:-.01em}
+.p-sec{font:600 9.5px/1.1 var(--tw-sans);letter-spacing:.16em;text-transform:uppercase;color:var(--tw-muted)}
+.p-cc{padding:14px;display:flex;gap:10px;align-items:flex-start}
+.p-cc .ci{flex:none;width:22px;height:22px;border-radius:var(--r-pill);border:1.7px solid var(--tw-faint);margin-top:2px}
+.p-cc .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.p-cc .rw{display:flex;align-items:center;gap:8px}
+.p-cc .ti{font:650 15px/1.25 var(--tw-sans)}
+.p-cc .rs{font:400 12.5px/1.4 var(--tw-sans);color:var(--tw-muted)}
+.p-list{padding:0 0 0 16px;display:flex;flex-direction:column;gap:5px}
+.p-list li{font:400 12.5px/1.4 var(--tw-sans);color:var(--tw-muted)}
+.p-obj{display:flex;align-items:baseline;gap:9px;justify-content:center;padding:4px 0}
+.p-obj .v{font:800 30px/1 var(--tw-mono);font-variant-numeric:tabular-nums}
+.p-obj .a{font:500 13px/1 var(--tw-sans);color:var(--tw-muted)}
+
+/* ══ VISTA 3 ════════════════════════════════════════════════════════════ */
+/* `stretch` y no `start`: con alturas libres, la tarjeta corta de cada fila
+   dejaba un hueco muerto debajo y las cuatro dejaban de leerse como un juego.
+   La línea de aterrizaje se ancla abajo, así que el aire sobrante queda dentro
+   del formulario, que es donde no molesta. */
+.minis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}
+.mini{
+  border:1px solid var(--border);border-radius:var(--r-l);background:var(--surface);
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.mini-h{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);
+  background:var(--surface-2);
+}
+.mini-h .nm{font:600 14px/1.2 var(--font-sans)}
+.mini-b{padding:15px 16px 17px;display:flex;flex-direction:column;gap:14px}
+.mini .flabel{font-size:10px}
+.mini .inp{padding:9px 11px;font-size:13px}
+.mini textarea.inp{min-height:52px;font-size:12.5px}
+.mini-land{
+  display:flex;gap:9px;align-items:flex-start;padding:12px 16px;margin-top:auto;
+  border-top:1px solid var(--border);background:color-mix(in srgb,var(--info) 6%,transparent);
+  font:400 12.5px/1.5 var(--font-sans);color:var(--muted);
+}
+.mini-land .ic{
+  flex:none;font:700 9px/1 var(--font-sans);letter-spacing:.1em;color:var(--info);
+  border:1px solid color-mix(in srgb,var(--info) 45%,transparent);border-radius:var(--r-2xs);
+  padding:4px 5px;margin-top:1px;
+}
+.mini-land b{color:var(--fg);font-weight:600}
+
+.opt{
+  display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:8px;align-items:start;
+  border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface-2);padding:9px;
+}
+/* Dos campos seguidos sin nombre no se distinguen: el segundo ES la
+   consecuencia, y es la pieza que separa esto de una encuesta. */
+.olab{display:block;font:700 9px/1 var(--font-sans);letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.olab+.inp+.olab,.inp+.olab{margin-top:9px}
+.opt .rm{color:var(--faint);font:400 16px/1 var(--font-sans);padding:6px;border-radius:var(--r-2xs);align-self:center}
+.opt .rm:hover{color:var(--danger)}
+.blocked{
+  display:flex;gap:9px;align-items:flex-start;border-radius:var(--r-s);
+  border:1px solid color-mix(in srgb,var(--warn) 38%,transparent);
+  background:var(--warn-soft);padding:10px 12px;
+  font:400 12.5px/1.45 var(--font-sans);color:var(--fg);
+}
+.blocked .ic{flex:none;color:var(--warn);font:700 13px/1.2 var(--font-sans)}
+.sec-row{display:grid;grid-template-columns:132px minmax(0,1fr);gap:8px;align-items:start}
+
+/* ── Pie de figura ────────────────────────────────────────────────────── */
+figure{margin:0}
+figcaption{margin-top:20px;max-width:80ch}
+figcaption .t{font:650 16px/1.35 var(--font-sans);margin-bottom:7px}
+figcaption .d{font:400 14.5px/1.65 var(--font-sans);color:var(--muted)}
+figcaption .d b{color:var(--fg);font-weight:600}
+figcaption .d+.d{margin-top:11px}
+
+/* ══ RESPONSIVE ═════════════════════════════════════════════════════════ */
+@media (max-width:1180px){
+  .cgrid{grid-template-columns:minmax(0,1fr);gap:24px}
+  .cprev{position:static;max-width:520px}
+}
+@media (max-width:1024px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+}
+@media (max-width:900px){
+  .minis{grid-template-columns:minmax(0,1fr)}
+  /* La tabla deja de ser tabla: seis columnas en 700px no se leen, se adivinan. */
+  .tblwrap{border:0;background:transparent;overflow:visible}
+  .tbl{min-width:0;display:flex;flex-direction:column;gap:10px}
+  .thead{display:none}
+  /* Cada fila pasa a ficha: el chip y el título mandan a lo ancho, el trío de
+     contexto se reparte en una línea y el seguimiento cierra abajo. */
+  .trow{
+    grid-template-columns:repeat(3,minmax(0,1fr));gap:11px 14px;padding:14px;
+    border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);
+  }
+  .trow.alert{box-shadow:inset 3px 0 0 0 var(--warn)}
+  .trow>span:nth-child(1),.trow>span:nth-child(2),.trow>span:nth-child(6){grid-column:1/-1}
+  /* Un rótulo «TIPO» encima de un chip que ya dice TAREA no informa de nada. */
+  .trow>span:nth-child(1) .k,.trow>span:nth-child(2) .k{display:none}
+  .k{
+    display:block;font:700 9.5px/1 var(--font-sans);letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:5px;
+  }
+  .seg{max-width:none}
+}
+@media (max-width:760px){
+  .wrap{padding:0 16px 72px}
+  .doc-head{padding:36px 0 20px}
+  .page,.composer{padding:18px 15px 24px}
+  .phead{gap:12px}
+  /* El botón de la previa sube por encima del formulario: al pie de una página
+     larga nadie lo encuentra, y la previa es justo lo que se consulta mientras
+     escribes. `order` en vez de mover el DOM, que en escritorio va a la derecha. */
+  .cprev{max-width:none;order:-1}
+  .cprev>summary{display:block}
+  .cprev[open]>summary{margin-bottom:16px}
+  .sec-row{grid-template-columns:minmax(0,1fr)}
+  .step{grid-template-columns:18px 64px minmax(0,1fr) 26px;gap:7px;padding:6px 7px}
+  figcaption .d{font-size:14px}
+}
+@media (max-width:560px){
+  /* Tres columnas de contexto en 390 px dejan «Día de carrera» en tres líneas. */
+  .trow{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:430px){
+  h2{font-size:17px}
+  .ptitle{font-size:22px}
+  .vtab{padding:8px 12px;font-size:12.5px}
+  .step{grid-template-columns:56px minmax(0,1fr) 26px}
+  .step .grab{display:none}
+  /* El móvil encoge con el ancho disponible, así que el alto baja con él para
+     no deformar la proporción del lienzo (2,174). */
+  .phone{padding:9px;border-radius:40px}
+  .screen{border-radius:31px;height:672px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-head">
+  <span class="eyebrow">FAHYBRID · Dashboard del coach · Del coach, el compositor</span>
+  <h1>Escribir un comunicado<br>y saber si lo ha hecho</h1>
+  <p class="lede">El atleta ya tiene sus cuatro pantallas: la bandeja, la pregunta, el protocolo y la nota. Falta el otro lado, donde el coach los <b>escribe, los publica y ve qué ha pasado con ellos</b>. El compositor es un formulario y nada más: una estructura que se toca, se cambia, se reordena y se guarda para volver a usarla. A la derecha, siempre, <b>el móvil del atleta con lo que acabas de escribir</b>.</p>
+</header>
+
+<nav class="viewtabs" role="tablist" aria-label="Vistas del mockup">
+  <button class="vtab" role="tab" aria-selected="true" aria-controls="v1" id="t1" data-view="v1"><span class="n">01</span> La lista</button>
+  <button class="vtab" role="tab" aria-selected="false" aria-controls="v2" id="t2" data-view="v2"><span class="n">02</span> El compositor</button>
+  <button class="vtab" role="tab" aria-selected="false" aria-controls="v3" id="t3" data-view="v3"><span class="n">03</span> Los otros cuatro</button>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VISTA 1 · LA LISTA
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="view is-on" id="v1" role="tabpanel" aria-labelledby="t1">
+  <h2><span class="n">01</span>La lista: qué le has mandado y qué ha hecho con ello</h2>
+  <p class="where">Vive en el raíl, dentro de <b>Entrenar</b>, justo debajo de Mensajes: es la otra mitad de hablar con el atleta. Mensajes conversa, esto se publica y se sigue. La sección se llama igual que la ve el atleta en su móvil, <b>Del coach</b>, para que el coach sepa siempre en qué cajón está escribiendo.</p>
+
+  <figure>
+  <div class="win">
+    <div class="winbar"><i></i><i></i><i></i><span>app.fahybrid.com/es/del-coach</span></div>
+    <div class="app">
+
+      <aside class="rail" aria-label="Navegación del dashboard">
+        <p class="rail-g">Entrenar</p>
+        <button class="rail-i"><span class="g"></span>Hoy</button>
+        <button class="rail-i"><span class="g"></span>Atletas</button>
+        <button class="rail-i"><span class="g"></span>Mensajes<span class="b">3</span></button>
+        <button class="rail-i" aria-current="page"><span class="g"></span>Del coach<span class="rail-new">nuevo</span></button>
+        <p class="rail-g">Método</p>
+        <button class="rail-i"><span class="g"></span>Periodización</button>
+        <button class="rail-i"><span class="g"></span>Biblioteca</button>
+        <button class="rail-i"><span class="g"></span>Tests</button>
+      </aside>
+
+      <div class="page">
+        <div class="phead">
+          <div>
+            <h3 class="ptitle">Del coach</h3>
+            <p class="psub">Lo que le mandas y no es conversación: protocolos, preguntas, tareas, notas y focos. Aquí ves si lo ha abierto, si lo ha hecho y qué te ha contestado.</p>
+          </div>
+          <button class="btn btn-primary" data-go="v2">+ Nuevo</button>
+        </div>
+
+        <div class="subtabs" role="tablist" aria-label="Secciones de Del coach">
+          <button class="stab" role="tab" aria-selected="true" aria-controls="pub" data-panel="pub">Publicados <span class="c">6</span></button>
+          <button class="stab" role="tab" aria-selected="false" aria-controls="bib" data-panel="bib">Biblioteca <span class="c">4</span></button>
+        </div>
+
+        <!-- ── PUBLICADOS ─────────────────────────────────────────────── -->
+        <div class="tabpanel" id="pub" role="tabpanel">
+          <div class="tblwrap">
+            <div class="tbl" role="table" aria-label="Comunicados publicados">
+              <div class="trow thead" role="row">
+                <span role="columnheader">Tipo</span>
+                <span role="columnheader">Comunicado</span>
+                <span role="columnheader">Dónde le aparece</span>
+                <span role="columnheader">A quién</span>
+                <span role="columnheader">Publicado</span>
+                <span role="columnheader">Seguimiento</span>
+              </div>
+
+              <div class="tbody">
+                <!-- 1 · lo que vence hoy y sigue sin hacer manda sobre todo lo demás -->
+                <div class="trow alert" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="tarea">TAREA</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">Empieza la beta-alanina</span>
+                    <span class="c-sub">Lleva pendiente desde mayo y ya no admite más retraso.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">En su bandeja</span></span>
+                  <span role="cell"><span class="k">A quién</span><span class="who"><span class="av">A</span>Alex</span></span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">hoy</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st warn"><span class="dot"></span>Vence hoy, sin hacer</span>
+                    <span class="st-note">Lo ha abierto esta mañana y no lo ha marcado.</span>
+                  </span>
+                </div>
+
+                <!-- 2 · el envío a grupo: el seguimiento deja de ser un estado y pasa a ser un reparto -->
+                <div class="trow" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="tarea">TAREA</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">Haz los tests de la semana 1</span>
+                    <span class="c-sub">Son los que fijan los ritmos de los tres primeros bloques.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">Sus tests</span></span>
+                  <span role="cell">
+                    <span class="k">A quién</span>
+                    <span class="who">
+                      <span class="avstack"><span class="av">A</span><span class="av">G</span><span class="av">M</span><span class="av">J</span></span>
+                      4 atletas
+                    </span>
+                  </span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">hoy</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st mut"><span class="dot"></span>1 hecho, 2 vistos, 1 sin abrir</span>
+                    <span class="seg" aria-hidden="true"><i class="ok"></i><i class="seen"></i><i class="seen"></i><i class="none"></i></span>
+                  </span>
+                </div>
+
+                <!-- 3 · cerrado, con el dato que el coach no tenía: los siete pasos marcados -->
+                <div class="trow" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="protocolo">PROTOCOLO</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">Calentamiento del día de carrera</span>
+                    <span class="c-sub">Siete pasos, cronometrados hacia atrás desde su salida.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">Día de carrera</span></span>
+                  <span role="cell"><span class="k">A quién</span><span class="who"><span class="av">A</span>Alex</span></span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">hoy</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st ok"><span class="dot"></span>Hecho, 7 de 7 pasos</span>
+                    <span class="st-note">Cerrado a las 10:12.</span>
+                  </span>
+                </div>
+
+                <!-- 4 · la respuesta se lee sin abrir nada: es el dato, no el acuse de recibo -->
+                <div class="trow" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="pregunta">PREGUNTA</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">¿Tu wave es el jueves o el sábado?</span>
+                    <span class="c-sub">Sin esto el taper se queda montado a ciegas.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">Su plan</span></span>
+                  <span role="cell"><span class="k">A quién</span><span class="who"><span class="av">A</span>Alex</span></span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">ayer</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st ok"><span class="dot"></span>Respondido</span>
+                    <span class="st-note">Contestó <b>«Sábado 14»</b>, el plan se queda como está.</span>
+                  </span>
+                </div>
+
+                <!-- 5 · una nota vista ya no reclama: leerla ERA el acto pendiente -->
+                <div class="trow" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="nota">NOTA</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">Tu plan, rehecho para Singles Pro</span>
+                    <span class="c-sub">Por qué el objetivo son 1:15 a 1:18 y cómo se reparten las 12 semanas.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">Su plan</span></span>
+                  <span role="cell"><span class="k">A quién</span><span class="who"><span class="av">A</span>Alex</span></span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">hoy</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st mut"><span class="dot"></span>Vista</span>
+                    <span class="st-note">La abrió dos veces. Una nota no pide más que eso.</span>
+                  </span>
+                </div>
+
+                <!-- 6 · el foco no se cierra nunca, así que no puede estar «pendiente» -->
+                <div class="trow" role="row">
+                  <span role="cell"><span class="k">Tipo</span><span class="chip-t" data-t="foco">FOCO</span></span>
+                  <span role="cell">
+                    <span class="k">Comunicado</span>
+                    <span class="c-title">Dormir más de 6 horas</span>
+                    <span class="c-sub">Sigue por debajo de 6 h desde mayo.</span>
+                  </span>
+                  <span role="cell"><span class="k">Dónde le aparece</span><span class="c-plain">Su check-in</span></span>
+                  <span role="cell"><span class="k">A quién</span><span class="who"><span class="av">A</span>Alex</span></span>
+                  <span role="cell"><span class="k">Publicado</span><span class="c-when">desde mayo</span></span>
+                  <span role="cell">
+                    <span class="k">Seguimiento</span>
+                    <span class="st info"><span class="dot"></span>Activo</span>
+                    <span class="st-note">No caduca. Se retira cuando tú lo retires.</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="listnote"><b>El orden no es por fecha.</b> Arriba va lo que todavía te reclama a ti (algo sin hacer, algo sin contestar) y debajo lo que ya está cerrado. Ordenar por fecha es lo que hace el chat, y es exactamente por lo que las cosas se pierden.</p>
+        </div>
+
+        <!-- ── BIBLIOTECA ─────────────────────────────────────────────── -->
+        <div class="tabpanel" id="bib" role="tabpanel" hidden>
+          <div class="lib">
+            <div class="libcard">
+              <span class="chip-t" data-t="protocolo" style="align-self:flex-start">PROTOCOLO</span>
+              <span class="nm">Calentamiento del día de carrera</span>
+              <span class="mt">7 pasos, de −40' a −5'. Con nota al final.</span>
+              <span class="ax"><button class="btn btn-primary btn-sm" data-go="v2">Usar</button><button class="btn btn-ghost btn-sm">Editar</button></span>
+            </div>
+            <div class="libcard">
+              <span class="chip-t" data-t="protocolo" style="align-self:flex-start">PROTOCOLO</span>
+              <span class="nm">Calentamiento de series</span>
+              <span class="mt">5 pasos, sin reloj. Para cualquier sesión de pista.</span>
+              <span class="ax"><button class="btn btn-primary btn-sm" data-go="v2">Usar</button><button class="btn btn-ghost btn-sm">Editar</button></span>
+            </div>
+            <div class="libcard">
+              <span class="chip-t" data-t="protocolo" style="align-self:flex-start">PROTOCOLO</span>
+              <span class="nm">Protocolo de test 5K</span>
+              <span class="mt">6 pasos. Calentamiento, salida y qué anotar al acabar.</span>
+              <span class="ax"><button class="btn btn-primary btn-sm" data-go="v2">Usar</button><button class="btn btn-ghost btn-sm">Editar</button></span>
+            </div>
+            <div class="libcard">
+              <span class="chip-t" data-t="nota" style="align-self:flex-start">NOTA</span>
+              <span class="nm">Semana de descarga: el porqué</span>
+              <span class="mt">3 secciones. Se explica una vez y sirve para todas las descargas.</span>
+              <span class="ax"><button class="btn btn-primary btn-sm" data-go="v2">Usar</button><button class="btn btn-ghost btn-sm">Editar</button></span>
+            </div>
+            <div class="libcard empty">
+              <span class="nm">Cuando no has guardado nada</span>
+              <span class="mt">Aquí no hay nada todavía. Al publicar un comunicado marca «Guardar en biblioteca» y aparecerá en esta lista para reutilizarlo con otro atleta, cambiando solo lo que cambie.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <figcaption>
+    <div class="t">La columna que justifica la sección es la última</div>
+    <div class="d">Tipo, título, dónde aparece, a quién y cuándo son contexto. <b>Seguimiento es el producto</b>: hoy el coach manda un mensaje y lo único que sabe es que se ha enviado. Aquí ve la respuesta escrita («Sábado 14»), los siete pasos marcados, la tarea que vence hoy y sigue abierta, y en un envío a cuatro atletas <b>quién falta</b> sin abrir nada.</div>
+    <div class="d">Una fila con problema se ve antes de leer: filo ámbar a la izquierda, fondo teñido y, sobre todo, arriba del todo. Y no hace falta un botón para saber qué hacer, porque el propio texto lo dice: lo ha abierto y no lo ha marcado.</div>
+  </figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VISTA 2 · EL COMPOSITOR
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="view" id="v2" role="tabpanel" aria-labelledby="t2">
+  <h2><span class="n">02</span>El compositor: un formulario, y a la derecha su móvil</h2>
+  <p class="where">Cinco chips arriba y el formulario cambia entero debajo, porque un protocolo y una pregunta no se escriben igual. La previa no es decoración: es <b>el control de calidad</b>. Si la frase se lee rara en el móvil de la derecha, se leerá rara en el suyo. Pruébalo cambiando de chip.</p>
+
+  <figure>
+  <div class="win">
+    <div class="winbar"><i></i><i></i><i></i><span>app.fahybrid.com/es/del-coach/nuevo</span></div>
+    <div class="composer">
+
+      <div class="chead">
+        <h3 class="ptitle">Nuevo comunicado</h3>
+        <div class="tchips" role="group" aria-label="Tipo de comunicado">
+          <button class="tchip" aria-pressed="true" data-tipo="protocolo">Protocolo</button>
+          <button class="tchip" aria-pressed="false" data-tipo="pregunta">Pregunta</button>
+          <button class="tchip" aria-pressed="false" data-tipo="tarea">Tarea</button>
+          <button class="tchip" aria-pressed="false" data-tipo="nota">Nota</button>
+          <button class="tchip" aria-pressed="false" data-tipo="foco">Foco</button>
+        </div>
+        <p class="tchip-hint">Cada uno le pide una cosa distinta: <b>marcar pasos</b>, <b>decidir</b>, <b>cerrar algo con fecha</b>, <b>entender</b> o <b>no olvidarse</b>. Elige por lo que quieres que haga, no por lo que quieres contarle.</p>
+      </div>
+
+      <div class="cgrid">
+        <!-- ── FORMULARIOS ─────────────────────────────────────────────── -->
+        <div class="cform" data-form="protocolo">
+          <div class="field">
+            <label class="flabel" for="p-tit">Título</label>
+            <input class="inp inp-lg" id="p-tit" value="Calentamiento del día de carrera">
+          </div>
+
+          <div class="field">
+            <span class="flabel">Los pasos</span>
+            <p class="fhelp">Se marcan uno a uno en su móvil. La marca de tiempo es opcional: si la pones, cuenta hacia atrás desde su salida.</p>
+            <div class="steps">
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−40'" aria-label="Marca de tiempo del paso 1">
+                <input class="tx" value="Movilidad de cadera y tobillo, 5'." aria-label="Texto del paso 1">
+                <button class="rm" aria-label="Quitar el paso 1">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−35'" aria-label="Marca de tiempo del paso 2">
+                <input class="tx" value="Trote progresivo 10', acabando a tu ritmo de carrera." aria-label="Texto del paso 2">
+                <button class="rm" aria-label="Quitar el paso 2">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−25'" aria-label="Marca de tiempo del paso 3">
+                <input class="tx" value="3 × 30&quot; de skipping y técnica." aria-label="Texto del paso 3">
+                <button class="rm" aria-label="Quitar el paso 3">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−20'" aria-label="Marca de tiempo del paso 4">
+                <input class="tx" value="Remo suave 4', damper 5." aria-label="Texto del paso 4">
+                <button class="rm" aria-label="Quitar el paso 4">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−12'" aria-label="Marca de tiempo del paso 5">
+                <input class="tx" value="2 aceleraciones de 60 m." aria-label="Texto del paso 5">
+                <button class="rm" aria-label="Quitar el paso 5">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−8'" aria-label="Marca de tiempo del paso 6">
+                <input class="tx" value="Openers: 5 wall balls y 5 burpees, tranquilos." aria-label="Texto del paso 6">
+                <button class="rm" aria-label="Quitar el paso 6">×</button>
+              </div>
+              <div class="step">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−5'" aria-label="Marca de tiempo del paso 7">
+                <input class="tx" value="Ropa de carrera, gel y a boxes." aria-label="Texto del paso 7">
+                <button class="rm" aria-label="Quitar el paso 7">×</button>
+              </div>
+              <!-- El paso vivo: a medio escribir, todavía sin entrar en la previa como paso de verdad -->
+              <div class="step writing">
+                <span class="grab" role="button" tabindex="0" aria-label="Reordenar este paso">≡</span>
+                <input class="mk" value="−3'" aria-label="Marca de tiempo del paso 8">
+                <input class="tx" value="Un sorbo de agua y" aria-label="Texto del paso 8">
+                <button class="rm" aria-label="Quitar el paso 8">×</button>
+              </div>
+            </div>
+            <button class="addstep">+ Añadir paso</button>
+          </div>
+
+          <div class="field">
+            <label class="flabel" for="p-nota">Nota final (opcional)</label>
+            <textarea class="inp" id="p-nota" rows="2">Nada de potenciación pesada: la evidencia no supera el efecto del propio calentamiento.</textarea>
+          </div>
+
+          <label class="toggle">
+            <input type="checkbox" checked>
+            <span>
+              <span class="tt">Guardar en biblioteca</span>
+              <span class="td">Queda como plantilla. La próxima vez la eliges, cambias los dos pasos que cambien y publicas.</span>
+            </span>
+          </label>
+
+          <div class="field">
+            <span class="flabel">A quién</span>
+            <div class="chipset" role="group" aria-label="A quién se lo mandas">
+              <button class="chip" aria-pressed="true"><span class="av">A</span>Alex</button>
+              <button class="chip" aria-pressed="false"><span class="av">G</span>Gerard</button>
+              <button class="chip" aria-pressed="false"><span class="av">M</span>Marc</button>
+              <button class="chip" aria-pressed="false"><span class="av">J</span>Jordi</button>
+              <button class="chip" aria-pressed="false">A un grupo…</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="flabel">Dónde le aparece</span>
+            <p class="fhelp">Decide en qué pantalla se lo encuentra: antes de entrenar, en su carrera, en su plan, o suelto en su bandeja.</p>
+            <div class="chipset" role="group" aria-label="Dónde le aparece">
+              <button class="chip" aria-pressed="false">Su plan</button>
+              <button class="chip" aria-pressed="false">Esta semana</button>
+              <button class="chip" aria-pressed="false">La sesión</button>
+              <button class="chip" aria-pressed="false">Sus tests</button>
+              <button class="chip" aria-pressed="true">Día de carrera</button>
+              <button class="chip" aria-pressed="false">Su check-in</button>
+              <button class="chip" aria-pressed="false">En su bandeja</button>
+            </div>
+          </div>
+
+          <div class="cactions">
+            <button class="btn btn-primary">Publicar</button>
+            <button class="btn btn-ghost">Guardar borrador</button>
+            <span class="note">Al publicar le llega el aviso y le aparece en Día de carrera. Podrás verlo aquí hasta que marque los siete pasos.</span>
+          </div>
+        </div>
+
+        <div class="cform" data-form="pregunta" hidden>
+          <div class="field">
+            <label class="flabel" for="q-tit">La pregunta</label>
+            <input class="inp inp-lg" id="q-tit" value="¿Tu wave es el jueves o el sábado?">
+          </div>
+          <div class="field">
+            <label class="flabel" for="q-ctx">Contexto</label>
+            <p class="fhelp">Por qué se lo preguntas. Sin esto contesta a ciegas.</p>
+            <textarea class="inp" id="q-ctx" rows="2">El taper está montado contando con el sábado 14. Si tu wave es el jueves 12, todo se adelanta dos días.</textarea>
+          </div>
+          <div class="field">
+            <span class="flabel">Las opciones</span>
+            <p class="fhelp">Entre 2 y 4. Cada una dice <b>qué le pasa a su plan</b> si la elige, y eso es lo que la separa de una encuesta.</p>
+            <div class="steps">
+              <div class="opt">
+                <div>
+                  <span class="olab">Opción</span>
+                  <input class="inp" value="Jueves 12" aria-label="Texto de la opción 1">
+                  <span class="olab">Si la elige</span>
+                  <input class="inp" value="Openers el martes 10 y carbos desde el lunes 9. El resto no cambia." aria-label="Consecuencia de la opción 1">
+                </div>
+                <button class="rm" aria-label="Quitar la opción 1">×</button>
+              </div>
+              <div class="opt">
+                <div>
+                  <span class="olab">Opción</span>
+                  <input class="inp" value="Sábado 14" aria-label="Texto de la opción 2">
+                  <span class="olab">Si la elige</span>
+                  <input class="inp" value="El plan se queda como está." aria-label="Consecuencia de la opción 2">
+                </div>
+                <button class="rm" aria-label="Quitar la opción 2">×</button>
+              </div>
+            </div>
+            <button class="addstep">+ Añadir opción</button>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" checked>
+            <span>
+              <span class="tt">Esto bloquea su plan</span>
+              <span class="td">Mientras no conteste, su plan se queda sin cerrar y se lo decimos en su bandeja y en su plan.</span>
+            </span>
+          </label>
+          <div class="field">
+            <span class="flabel">A quién</span>
+            <div class="chipset" role="group" aria-label="A quién se lo mandas">
+              <button class="chip" aria-pressed="true"><span class="av">A</span>Alex</button>
+              <button class="chip" aria-pressed="false"><span class="av">G</span>Gerard</button>
+              <button class="chip" aria-pressed="false"><span class="av">M</span>Marc</button>
+              <button class="chip" aria-pressed="false"><span class="av">J</span>Jordi</button>
+              <button class="chip" aria-pressed="false">A un grupo…</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="flabel">Dónde le aparece</span>
+            <div class="chipset" role="group" aria-label="Dónde le aparece">
+              <button class="chip" aria-pressed="true">Su plan</button>
+              <button class="chip" aria-pressed="false">Esta semana</button>
+              <button class="chip" aria-pressed="false">La sesión</button>
+              <button class="chip" aria-pressed="false">Sus tests</button>
+              <button class="chip" aria-pressed="false">Día de carrera</button>
+              <button class="chip" aria-pressed="false">Su check-in</button>
+              <button class="chip" aria-pressed="false">En su bandeja</button>
+            </div>
+          </div>
+          <div class="cactions">
+            <button class="btn btn-primary">Publicar</button>
+            <button class="btn btn-ghost">Guardar borrador</button>
+            <span class="note">Le sale la primera de su bandeja. Verás su respuesta escrita en la lista, sin abrir nada.</span>
+          </div>
+        </div>
+
+        <div class="cform" data-form="tarea" hidden>
+          <div class="field">
+            <label class="flabel" for="t-tit">Qué tiene que hacer</label>
+            <input class="inp inp-lg" id="t-tit" value="Empieza la beta-alanina">
+          </div>
+          <div class="field">
+            <label class="flabel" for="t-fec">Para cuándo</label>
+            <p class="fhelp">Una tarea sin fecha no se cierra nunca. El día que vence sube arriba de su bandeja en ámbar.</p>
+            <input class="inp" id="t-fec" type="date" value="2026-08-09" style="max-width:220px">
+          </div>
+          <div class="field">
+            <label class="flabel" for="t-por">El porqué</label>
+            <p class="fhelp">Sin el porqué es un recado, y los recados se posponen.</p>
+            <textarea class="inp" id="t-por" rows="2">Necesita 4 a 6 semanas de carga y lleva pendiente desde mayo. En septiembre ya no llega útil.</textarea>
+          </div>
+          <label class="toggle">
+            <input type="checkbox">
+            <span>
+              <span class="tt">Guardar en biblioteca</span>
+              <span class="td">Sirve para las tareas que repites cada temporada con cada atleta nuevo.</span>
+            </span>
+          </label>
+          <div class="field">
+            <span class="flabel">A quién</span>
+            <div class="chipset" role="group" aria-label="A quién se lo mandas">
+              <button class="chip" aria-pressed="true"><span class="av">A</span>Alex</button>
+              <button class="chip" aria-pressed="false"><span class="av">G</span>Gerard</button>
+              <button class="chip" aria-pressed="false"><span class="av">M</span>Marc</button>
+              <button class="chip" aria-pressed="false"><span class="av">J</span>Jordi</button>
+              <button class="chip" aria-pressed="false">A un grupo…</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="flabel">Dónde le aparece</span>
+            <div class="chipset" role="group" aria-label="Dónde le aparece">
+              <button class="chip" aria-pressed="false">Su plan</button>
+              <button class="chip" aria-pressed="false">Esta semana</button>
+              <button class="chip" aria-pressed="false">La sesión</button>
+              <button class="chip" aria-pressed="false">Sus tests</button>
+              <button class="chip" aria-pressed="false">Día de carrera</button>
+              <button class="chip" aria-pressed="false">Su check-in</button>
+              <button class="chip" aria-pressed="true">En su bandeja</button>
+            </div>
+          </div>
+          <div class="cactions">
+            <button class="btn btn-primary">Publicar</button>
+            <button class="btn btn-ghost">Guardar borrador</button>
+            <span class="note">No le abre pantalla: la marca con un toque desde la bandeja.</span>
+          </div>
+        </div>
+
+        <div class="cform" data-form="nota" hidden>
+          <div class="field">
+            <label class="flabel" for="n-tit">Título</label>
+            <input class="inp inp-lg" id="n-tit" value="Tu plan, rehecho para Singles Pro">
+          </div>
+          <div class="field">
+            <span class="flabel">Las secciones</span>
+            <p class="fhelp">Cada sección lleva su cabecera y su cuerpo. En su móvil se leen como capítulos, no como un párrafo largo.</p>
+            <div class="steps">
+              <div class="sec-row">
+                <input class="inp" value="Qué ha cambiado" aria-label="Cabecera de la sección 1">
+                <textarea class="inp" rows="3" aria-label="Cuerpo de la sección 1">Pasar a Singles Pro rompe 5 de las 6 premisas con las que estaba escrito tu plan: haces el 100 % de cada estación, cada trineo lleva 50 kg más, los wall balls suben 3 kg, el remo va a damper 7 y es una sesión al día, no dos.</textarea>
+              </div>
+              <div class="sec-row">
+                <input class="inp" value="Tu objetivo" aria-label="Cabecera de la sección 2">
+                <textarea class="inp" rows="3" aria-label="Cuerpo de la sección 2">1:15 a 1:18. La banda se cierra con los tests de la semana 1. Por qué no 1:05: ese número era de Doubles, con el trabajo repartido entre dos.</textarea>
+              </div>
+            </div>
+            <button class="addstep">+ Añadir sección</button>
+          </div>
+          <div class="field">
+            <label class="flabel" for="n-cruce">Enlazar a una pregunta o una tarea (opcional)</label>
+            <p class="fhelp">Al final de la nota le sale el enlace, para que conteste sin volver a buscarlo.</p>
+            <select class="inp" id="n-cruce" style="max-width:420px">
+              <option selected>Pregunta: ¿Tu wave es el jueves o el sábado?</option>
+              <option>Tarea: Haz los tests de la semana 1</option>
+              <option>Sin enlazar</option>
+            </select>
+          </div>
+          <label class="toggle">
+            <input type="checkbox">
+            <span>
+              <span class="tt">Guardar en biblioteca</span>
+              <span class="td">Las notas de método (por qué una descarga, por qué el damper 7) se escriben una vez y valen para todos.</span>
+            </span>
+          </label>
+          <div class="field">
+            <span class="flabel">A quién</span>
+            <div class="chipset" role="group" aria-label="A quién se lo mandas">
+              <button class="chip" aria-pressed="true"><span class="av">A</span>Alex</button>
+              <button class="chip" aria-pressed="false"><span class="av">G</span>Gerard</button>
+              <button class="chip" aria-pressed="false"><span class="av">M</span>Marc</button>
+              <button class="chip" aria-pressed="false"><span class="av">J</span>Jordi</button>
+              <button class="chip" aria-pressed="false">A un grupo…</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="flabel">Dónde le aparece</span>
+            <div class="chipset" role="group" aria-label="Dónde le aparece">
+              <button class="chip" aria-pressed="true">Su plan</button>
+              <button class="chip" aria-pressed="false">Esta semana</button>
+              <button class="chip" aria-pressed="false">La sesión</button>
+              <button class="chip" aria-pressed="false">Sus tests</button>
+              <button class="chip" aria-pressed="false">Día de carrera</button>
+              <button class="chip" aria-pressed="false">Su check-in</button>
+              <button class="chip" aria-pressed="false">En su bandeja</button>
+            </div>
+          </div>
+          <div class="cactions">
+            <button class="btn btn-primary">Publicar</button>
+            <button class="btn btn-ghost">Guardar borrador</button>
+            <span class="note">Una nota no pide acto: pide que la entienda. Sabrás si la ha abierto, y con eso basta.</span>
+          </div>
+        </div>
+
+        <div class="cform" data-form="foco" hidden>
+          <div class="field">
+            <label class="flabel" for="f-tit">El foco, en una línea</label>
+            <p class="fhelp">Lo que no se le puede olvidar en semanas. Una cosa, no tres.</p>
+            <input class="inp inp-lg" id="f-tit" value="Dormir más de 6 horas">
+          </div>
+          <div class="field">
+            <label class="flabel" for="f-por">Por qué es el foco</label>
+            <textarea class="inp" id="f-por" rows="3">Sigues en menos de 6 h desde mayo. Es lo único de esta lista que puede darte más minutos que cualquier sesión.</textarea>
+          </div>
+          <div class="field">
+            <span class="flabel">A quién</span>
+            <div class="chipset" role="group" aria-label="A quién se lo mandas">
+              <button class="chip" aria-pressed="true"><span class="av">A</span>Alex</button>
+              <button class="chip" aria-pressed="false"><span class="av">G</span>Gerard</button>
+              <button class="chip" aria-pressed="false"><span class="av">M</span>Marc</button>
+              <button class="chip" aria-pressed="false"><span class="av">J</span>Jordi</button>
+              <button class="chip" aria-pressed="false">A un grupo…</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="flabel">Dónde le aparece</span>
+            <div class="chipset" role="group" aria-label="Dónde le aparece">
+              <button class="chip" aria-pressed="false">Su plan</button>
+              <button class="chip" aria-pressed="false">Esta semana</button>
+              <button class="chip" aria-pressed="false">La sesión</button>
+              <button class="chip" aria-pressed="false">Sus tests</button>
+              <button class="chip" aria-pressed="false">Día de carrera</button>
+              <button class="chip" aria-pressed="true">Su check-in</button>
+              <button class="chip" aria-pressed="false">En su bandeja</button>
+            </div>
+          </div>
+          <div class="cactions">
+            <button class="btn btn-primary">Publicar</button>
+            <button class="btn btn-ghost">Guardar borrador</button>
+            <span class="note">El foco no caduca y no le reclama nada. Se queda fijo hasta que tú lo retires.</span>
+          </div>
+        </div>
+
+        <!-- ── LA PREVIA ───────────────────────────────────────────────── -->
+        <details class="cprev" data-collapse open>
+          <summary>Ver cómo le queda</summary>
+          <div class="prevhead">
+            <span class="l">Cómo le queda a Alex</span>
+            <span class="r">iPhone</span>
+          </div>
+
+          <!-- PROTOCOLO: reproducción de la pantalla coach-protocolo del doble -->
+          <div class="phone" data-phone="protocolo">
+            <div class="screen">
+              <div class="island" aria-hidden="true"></div>
+              <div class="statusbar"><span>9:41</span><span class="sig" aria-hidden="true"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span></div>
+              <div class="scroll">
+                <div class="p-head">
+                  <span class="p-back" aria-hidden="true">‹</span>
+                  <span class="p-head-t">
+                    <span class="tw-chip" data-t="protocolo">PROTOCOLO</span>
+                    <span class="p-de">De Pablo · hoy</span>
+                  </span>
+                  <span class="p-acc">0 de 7</span>
+                </div>
+                <div class="p-body">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <span class="tw-display">Calentamiento del día de carrera</span>
+                    <span class="tw-sub">Los tiempos cuentan hacia atrás desde tu salida.</span>
+                    <span class="tw-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                  </div>
+                  <div class="tw-card">
+                    <div class="p-step"><span class="p-mk">−40'</span><span class="p-tx">Movilidad de cadera y tobillo, 5'.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−35'</span><span class="p-tx">Trote progresivo 10', acabando a tu ritmo de carrera.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−25'</span><span class="p-tx">3 × 30&quot; de skipping y técnica.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−20'</span><span class="p-tx">Remo suave 4', damper 5.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−12'</span><span class="p-tx">2 aceleraciones de 60 m.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−8'</span><span class="p-tx">Openers: 5 wall balls y 5 burpees, tranquilos.</span><span class="p-ci"></span></div>
+                    <div class="p-step"><span class="p-mk">−5'</span><span class="p-tx">Ropa de carrera, gel y a boxes.</span><span class="p-ci"></span></div>
+                    <div class="p-step ghost"><span class="p-mk">−3'</span><span class="p-tx">Un sorbo de agua y<span class="caret" aria-hidden="true"></span></span><span class="p-ci"></span></div>
+                  </div>
+                  <div class="tw-card accent">
+                    <div class="p-nota">
+                      <span class="tw-label">Nota de Pablo</span>
+                      <p>Nada de potenciación pesada: la evidencia no supera el efecto del propio calentamiento.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="p-foot">
+                  <span class="tw-cta" aria-hidden="true" style="opacity:.4">Protocolo hecho</span>
+                  <span class="fn">Te quedan 7 pasos por marcar.</span>
+                </div>
+              </div>
+              <div class="homebar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+
+          <!-- PREGUNTA -->
+          <div class="phone" data-phone="pregunta" hidden>
+            <div class="screen">
+              <div class="island" aria-hidden="true"></div>
+              <div class="statusbar"><span>9:41</span><span class="sig" aria-hidden="true"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span></div>
+              <div class="scroll">
+                <div class="p-head">
+                  <span class="p-back" aria-hidden="true">‹</span>
+                  <span class="p-head-t">
+                    <span class="tw-chip" data-t="pregunta">PREGUNTA</span>
+                    <span class="p-de">De Pablo · ayer</span>
+                  </span>
+                  <span class="tw-badge" style="color:var(--tw-accent)"><i></i>NUEVO</span>
+                </div>
+                <div class="p-body centra">
+                  <span class="tw-display">¿Tu wave es el jueves o el sábado?</span>
+                  <span class="tw-sub">El taper está montado contando con el sábado 14. Si tu wave es el jueves 12, todo se adelanta dos días.</span>
+                  <div class="p-notice">Mientras no lo digas, el taper se queda montado contando con el sábado.</div>
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div class="tw-card">
+                      <div class="p-opt">
+                        <span class="ci"></span>
+                        <span><span class="ot">Jueves 12</span><span class="oc">Openers el martes 10 y carbos desde el lunes 9. El resto no cambia.</span></span>
+                      </div>
+                    </div>
+                    <div class="tw-card">
+                      <div class="p-opt">
+                        <span class="ci"></span>
+                        <span><span class="ot">Sábado 14</span><span class="oc">El plan se queda como está.</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+
+          <!-- TAREA: no abre pantalla, se marca desde la bandeja -->
+          <div class="phone" data-phone="tarea" hidden>
+            <div class="screen">
+              <div class="island" aria-hidden="true"></div>
+              <div class="statusbar"><span>9:41</span><span class="sig" aria-hidden="true"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span></div>
+              <div class="scroll">
+                <div class="p-nav"><span class="t">Del coach</span></div>
+                <div class="p-body" style="gap:12px">
+                  <span class="p-sec">Para hacer</span>
+                  <div class="tw-card">
+                    <div class="p-cc">
+                      <span class="ci"></span>
+                      <span class="bd">
+                        <span class="rw"><span class="tw-chip" data-t="tarea">TAREA</span><span style="flex:1"></span><span class="tw-badge" style="color:var(--tw-warning)"><i></i>VENCE HOY</span></span>
+                        <span class="ti">Empieza la beta-alanina</span>
+                        <span class="rs">Necesita 4 a 6 semanas de carga y lleva pendiente desde mayo. En septiembre ya no llega útil.</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="tw-card" style="opacity:.72">
+                    <div class="p-cc">
+                      <span class="ci"></span>
+                      <span class="bd">
+                        <span class="rw"><span class="tw-chip" data-t="tarea">TAREA</span><span style="flex:1"></span><span class="tw-badge" style="color:var(--tw-muted)"><i></i>VISTO</span></span>
+                        <span class="ti">Haz los tests de la semana 1</span>
+                        <span class="rs">Vence el domingo.</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+
+          <!-- NOTA -->
+          <div class="phone" data-phone="nota" hidden>
+            <div class="screen">
+              <div class="island" aria-hidden="true"></div>
+              <div class="statusbar"><span>9:41</span><span class="sig" aria-hidden="true"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span></div>
+              <div class="scroll">
+                <div class="p-head">
+                  <span class="p-back" aria-hidden="true">‹</span>
+                  <span class="p-head-t">
+                    <span class="tw-chip" data-t="nota">NOTA</span>
+                    <span class="p-de">De Pablo · hoy</span>
+                  </span>
+                  <span class="tw-badge" style="color:var(--tw-muted)"><i></i>VISTO</span>
+                </div>
+                <div class="p-body" style="gap:14px">
+                  <span class="tw-display sm">Tu plan, rehecho para Singles Pro</span>
+                  <div style="display:flex;flex-direction:column;gap:7px">
+                    <span class="tw-label">Qué ha cambiado</span>
+                    <span class="tw-sub">Pasar a Singles Pro rompe 5 de las 6 premisas con las que estaba escrito tu plan:</span>
+                    <ul class="p-list">
+                      <li>Haces el 100 % de cada estación, no la mitad.</li>
+                      <li>Cada trineo lleva 50 kg más.</li>
+                      <li>Los wall balls suben 3 kg.</li>
+                      <li>El remo va a damper 7.</li>
+                      <li>Una sesión al día, no dos.</li>
+                    </ul>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <span class="tw-label">Tu objetivo</span>
+                    <div class="tw-card" style="padding:14px">
+                      <div class="p-obj"><span class="v">1:15</span><span class="a">a</span><span class="v">1:18</span></div>
+                      <span class="tw-sub" style="text-align:center;font-size:12px;margin-top:6px">La banda se cierra con los tests de la semana 1.</span>
+                    </div>
+                  </div>
+                  <div class="tw-card accent">
+                    <div class="p-nota">
+                      <span class="tw-label">Falta que contestes</span>
+                      <p>Falta que me digas si tu wave es el jueves o el sábado.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+
+          <!-- FOCO -->
+          <div class="phone" data-phone="foco" hidden>
+            <div class="screen">
+              <div class="island" aria-hidden="true"></div>
+              <div class="statusbar"><span>9:41</span><span class="sig" aria-hidden="true"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span></div>
+              <div class="scroll">
+                <div class="p-nav"><span class="t">Del coach</span></div>
+                <div class="p-body" style="gap:12px">
+                  <span class="p-sec">Tu foco</span>
+                  <div class="tw-card">
+                    <div class="p-cc">
+                      <span class="bd">
+                        <span class="rw"><span class="tw-chip" data-t="foco">FOCO</span><span style="flex:1"></span><span class="tw-badge" style="color:var(--tw-muted)"><i></i>VISTO</span></span>
+                        <span class="ti">Dormir más de 6 horas</span>
+                        <span class="rs">Sigues en menos de 6 h desde mayo. Es lo único de esta lista que puede darte más minutos que cualquier sesión.</span>
+                      </span>
+                    </div>
+                  </div>
+                  <span class="p-sec" style="margin-top:6px">Para entender</span>
+                  <div class="tw-card" style="opacity:.72">
+                    <div class="p-cc">
+                      <span class="bd">
+                        <span class="rw"><span class="tw-chip" data-t="nota">NOTA</span><span style="flex:1"></span><span class="tw-badge" style="color:var(--tw-muted)"><i></i>VISTO</span></span>
+                        <span class="ti">Tu plan, rehecho para Singles Pro</span>
+                        <span class="rs">Por qué el objetivo son 1:15 a 1:18.</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+
+          <p class="prevfoot" data-note="protocolo"><b>La previa te sigue.</b> Siete pasos no caben de una en su pantalla, así que la previa se coloca en el paso que estás tocando. El octavo sale en gris porque lo estás escribiendo: hasta que no lo cierras no cuenta ni en la barra ni en el «0 de 7».</p>
+          <p class="prevfoot" data-note="pregunta" hidden><b>Las opciones son la respuesta.</b> No hay botón de enviar: toca una y ya está contestado, con la consecuencia delante para que no conteste a ciegas.</p>
+          <p class="prevfoot" data-note="tarea" hidden><b>Una tarea no abre pantalla.</b> Vive en la bandeja y se cierra con un toque en el círculo. Si vence hoy, sube arriba con el aviso en ámbar.</p>
+          <p class="prevfoot" data-note="nota" hidden><b>Una nota se lee por capítulos.</b> Las cifras salen de cifra y las listas de lista, no todo en el mismo párrafo gris. Al final, el enlace a lo que falta contestar.</p>
+          <p class="prevfoot" data-note="foco" hidden><b>El foco tampoco abre pantalla.</b> Se queda fijo arriba de su bandeja, no caduca y no le reclama nada: acompaña.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <figcaption>
+    <div class="t">Un formulario que se toca, no un texto que se redacta</div>
+    <div class="d">Todo lo que el coach escribe cae en un campo con nombre: el paso, su marca de tiempo, la opción, su consecuencia, la fecha de vencimiento, el porqué. <b>Cero texto libre</b>, y por eso al otro lado se puede pintar una barra de progreso, ordenar la bandeja por lo que bloquea y decir «respondió Sábado 14» en una lista. Un mensaje de chat no da nada de eso.</div>
+    <div class="d">La previa está pegada a la derecha mientras se hace scroll. En móvil se pliega detrás de <b>«Ver cómo le queda»</b>, porque en 390 px el formulario manda y la previa se consulta, no se vigila.</div>
+  </figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VISTA 3 · LOS OTROS CUATRO
+     ══════════════════════════════════════════════════════════════════════ -->
+<section class="view" id="v3" role="tabpanel" aria-labelledby="t3">
+  <h2><span class="n">03</span>Los otros cuatro, uno al lado del otro</h2>
+  <p class="where">Lo mismo que en el compositor, en pequeño y a la vez, para ver de un golpe <b>en qué se diferencian</b>: la pregunta pide una decisión con consecuencias, la tarea una fecha, la nota capítulos y el foco una sola línea. Debajo de cada uno, dónde aterriza en su móvil.</p>
+
+  <figure>
+  <div class="minis">
+
+    <!-- PREGUNTA -->
+    <div class="mini">
+      <div class="mini-h"><span class="chip-t" data-t="pregunta">PREGUNTA</span><span class="nm">Una decisión que bloquea el plan</span></div>
+      <div class="mini-b">
+        <div class="field">
+          <label class="flabel" for="m-q1">La pregunta</label>
+          <input class="inp" id="m-q1" value="¿Tu wave es el jueves o el sábado?">
+        </div>
+        <div class="field">
+          <label class="flabel" for="m-q2">Contexto</label>
+          <textarea class="inp" id="m-q2" rows="2">El taper está montado contando con el sábado 14. Si tu wave es el jueves 12, todo se adelanta dos días.</textarea>
+        </div>
+        <div class="field">
+          <span class="flabel">Opciones (de 2 a 4), cada una con su consecuencia</span>
+          <div class="opt">
+            <div>
+              <span class="olab">Opción</span>
+              <input class="inp" value="Jueves 12" aria-label="Texto de la opción 1">
+              <span class="olab">Si la elige</span>
+              <input class="inp" value="Openers el martes 10 y carbos desde el lunes 9." aria-label="Consecuencia de la opción 1">
+            </div>
+            <button class="rm" aria-label="Quitar la opción 1">×</button>
+          </div>
+          <div class="opt">
+            <div>
+              <span class="olab">Opción</span>
+              <input class="inp" value="Sábado 14" aria-label="Texto de la opción 2">
+              <span class="olab">Si la elige</span>
+              <input class="inp" value="El plan se queda como está." aria-label="Consecuencia de la opción 2">
+            </div>
+            <button class="rm" aria-label="Quitar la opción 2">×</button>
+          </div>
+          <button class="addstep">+ Añadir opción</button>
+        </div>
+        <div class="blocked">
+          <span class="ic" aria-hidden="true">!</span>
+          <span>Mientras no conteste: <b>el taper de las dos últimas semanas se queda sin cerrar</b>. Se lo decimos a él en su plan, y a ti en la lista.</span>
+        </div>
+      </div>
+      <p class="mini-land"><span class="ic">MÓVIL</span><span>Abre <b>pantalla propia</b> y le sale la primera de su bandeja, porque bloquea. También le aparece en su plan, que es lo que no se puede cerrar sin su respuesta.</span></p>
+    </div>
+
+    <!-- TAREA -->
+    <div class="mini">
+      <div class="mini-h"><span class="chip-t" data-t="tarea">TAREA</span><span class="nm">Una acción con fecha</span></div>
+      <div class="mini-b">
+        <div class="field">
+          <label class="flabel" for="m-t1">Qué tiene que hacer</label>
+          <input class="inp" id="m-t1" value="Empieza la beta-alanina">
+        </div>
+        <div class="field">
+          <label class="flabel" for="m-t2">Para cuándo</label>
+          <input class="inp" id="m-t2" type="date" value="2026-08-09" style="max-width:200px">
+          <span class="fhelp">Hoy. Al vencer sube arriba de su bandeja, en ámbar, hasta que la marque.</span>
+        </div>
+        <div class="field">
+          <label class="flabel" for="m-t3">El porqué</label>
+          <textarea class="inp" id="m-t3" rows="3">Necesita 4 a 6 semanas de carga y lleva pendiente desde mayo. En septiembre ya no llega útil.</textarea>
+        </div>
+        <div class="field">
+          <span class="flabel">Dónde le aparece</span>
+          <div class="chipset" role="group" aria-label="Dónde le aparece">
+            <button class="chip" aria-pressed="true">En su bandeja</button>
+            <button class="chip" aria-pressed="false">Sus tests</button>
+            <button class="chip" aria-pressed="false">Su plan</button>
+          </div>
+        </div>
+      </div>
+      <p class="mini-land"><span class="ic">MÓVIL</span><span><b>No abre pantalla</b>: se marca con un toque en el círculo, desde la bandeja. Es el único de los cinco que se cierra sin abrir nada.</span></p>
+    </div>
+
+    <!-- NOTA -->
+    <div class="mini">
+      <div class="mini-h"><span class="chip-t" data-t="nota">NOTA</span><span class="nm">El porqué, por capítulos</span></div>
+      <div class="mini-b">
+        <div class="field">
+          <label class="flabel" for="m-n1">Título</label>
+          <input class="inp" id="m-n1" value="Tu plan, rehecho para Singles Pro">
+        </div>
+        <div class="field">
+          <span class="flabel">Secciones: cabecera y cuerpo</span>
+          <div class="sec-row">
+            <input class="inp" value="Qué ha cambiado" aria-label="Cabecera de la sección 1">
+            <textarea class="inp" rows="4" aria-label="Cuerpo de la sección 1">Pasar a Singles Pro rompe 5 de las 6 premisas del plan: el 100 % de cada estación, 50 kg más de trineo, wall balls 3 kg arriba, damper 7 y una sesión al día.</textarea>
+          </div>
+          <div class="sec-row">
+            <input class="inp" value="Tu objetivo" aria-label="Cabecera de la sección 2">
+            <textarea class="inp" rows="2" aria-label="Cuerpo de la sección 2">1:15 a 1:18. La banda se cierra con los tests de la semana 1.</textarea>
+          </div>
+          <button class="addstep">+ Añadir sección</button>
+        </div>
+        <div class="field">
+          <label class="flabel" for="m-n2">Enlazar a una pregunta o una tarea</label>
+          <select class="inp" id="m-n2">
+            <option selected>Pregunta: ¿Tu wave es el jueves o el sábado?</option>
+            <option>Tarea: Haz los tests de la semana 1</option>
+            <option>Sin enlazar</option>
+          </select>
+        </div>
+      </div>
+      <p class="mini-land"><span class="ic">MÓVIL</span><span>Abre <b>pantalla propia</b> con las secciones como capítulos. Al final le sale el enlace a la pregunta, para que la conteste sin buscarla.</span></p>
+    </div>
+
+    <!-- FOCO -->
+    <div class="mini">
+      <div class="mini-h"><span class="chip-t" data-t="foco">FOCO</span><span class="nm">Lo que no se le puede olvidar</span></div>
+      <div class="mini-b">
+        <div class="field">
+          <label class="flabel" for="m-f1">El foco, en una línea</label>
+          <input class="inp" id="m-f1" value="Dormir más de 6 horas">
+        </div>
+        <div class="field">
+          <label class="flabel" for="m-f2">Por qué es el foco</label>
+          <textarea class="inp" id="m-f2" rows="3">Sigues en menos de 6 h desde mayo. Es lo único de esta lista que puede darte más minutos que cualquier sesión.</textarea>
+        </div>
+        <div class="field">
+          <span class="flabel">Dónde le aparece</span>
+          <div class="chipset" role="group" aria-label="Dónde le aparece">
+            <button class="chip" aria-pressed="true">Su check-in</button>
+            <button class="chip" aria-pressed="false">En su bandeja</button>
+            <button class="chip" aria-pressed="false">Esta semana</button>
+          </div>
+        </div>
+        <div class="blocked" style="border-color:var(--border-strong);background:var(--surface-2)">
+          <span class="ic" style="color:var(--muted)" aria-hidden="true">i</span>
+          <span>Sin fecha y sin cierre. <b>Un foco no le reclama nada</b>, así que su bandeja puede estar en calma aunque lo tenga puesto.</span>
+        </div>
+      </div>
+      <p class="mini-land"><span class="ic">MÓVIL</span><span><b>No abre pantalla</b>: se queda fijo arriba de su bandeja, encima de lo que hay que entender, y no caduca hasta que tú lo retires.</span></p>
+    </div>
+
+  </div>
+
+  <figcaption style="margin-top:26px">
+    <div class="t">Cinco formularios, cinco cosas distintas que pedirle</div>
+    <div class="d">La diferencia no es de estilo, es de qué se le pide: <b>marcar pasos</b> (protocolo), <b>decidir</b> (pregunta), <b>cerrar algo con fecha</b> (tarea), <b>entender</b> (nota) y <b>no olvidarse</b> (foco). Por eso tres abren pantalla propia y dos viven dentro de la bandeja: la forma del formulario y la forma de la pantalla son la misma decisión tomada dos veces.</div>
+  </figcaption>
+  </figure>
+</section>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* 1 · Cambiar de vista */
+  var tabs  = Array.prototype.slice.call(document.querySelectorAll('.vtab'));
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  function irA(id){
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t.dataset.view === id)); });
+    views.forEach(function(v){ v.classList.toggle('is-on', v.id === id); });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (id === 'v2') seguirAlCampoEditado();
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ irA(t.dataset.view); }); });
+  document.querySelectorAll('[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){ irA(b.dataset.go); });
+  });
+
+  /* 2 · Publicados / Biblioteca */
+  var stabs = Array.prototype.slice.call(document.querySelectorAll('.stab'));
+  stabs.forEach(function(s){
+    s.addEventListener('click', function(){
+      stabs.forEach(function(o){ o.setAttribute('aria-selected', String(o === s)); });
+      document.getElementById('pub').hidden = s.dataset.panel !== 'pub';
+      document.getElementById('bib').hidden = s.dataset.panel !== 'bib';
+    });
+  });
+
+  /* 3 · Cambiar de chip de tipo: cambia el formulario, la previa y su pie */
+  var tchips = Array.prototype.slice.call(document.querySelectorAll('.tchip'));
+  tchips.forEach(function(c){
+    c.addEventListener('click', function(){
+      var tipo = c.dataset.tipo;
+      tchips.forEach(function(o){ o.setAttribute('aria-pressed', String(o === c)); });
+      document.querySelectorAll('[data-form]').forEach(function(f){ f.hidden = f.dataset.form !== tipo; });
+      document.querySelectorAll('[data-phone]').forEach(function(p){ p.hidden = p.dataset.phone !== tipo; });
+      document.querySelectorAll('[data-note]').forEach(function(n){ n.hidden = n.dataset.note !== tipo; });
+      seguirAlCampoEditado();
+    });
+  });
+
+  /* 3 bis · La previa sigue al campo que estás tocando. El protocolo no cabe de
+     una en la pantalla del atleta (tampoco en la real), así que enseñar siempre
+     su cabecera dejaría fuera justo el paso que estás escribiendo. Se ajusta al
+     mostrarse, porque un elemento oculto no tiene caja y no acepta scroll. */
+  function seguirAlCampoEditado(){
+    document.querySelectorAll('[data-phone]:not([hidden]) .p-body').forEach(function(b){
+      b.scrollTop = b.scrollHeight;
+    });
+  }
+
+  /* 4 · Chips de selección (a quién, dónde le aparece): uno solo a la vez */
+  document.querySelectorAll('.chipset').forEach(function(set){
+    set.addEventListener('click', function(e){
+      var chip = e.target.closest('.chip');
+      if (!chip || !set.contains(chip)) return;
+      set.querySelectorAll('.chip').forEach(function(o){ o.setAttribute('aria-pressed', String(o === chip)); });
+    });
+  });
+
+  /* 5 · En móvil la previa nace plegada. matchMedia solo dispara al CRUZAR el
+        umbral, así que si el usuario la abre a mano en 390 px, se queda abierta. */
+  var ancho = window.matchMedia('(min-width: 761px)');
+  function sincronizarPrevia(){
+    document.querySelectorAll('[data-collapse]').forEach(function(d){ d.open = ancho.matches; });
+    seguirAlCampoEditado();
+  }
+  document.querySelectorAll('[data-collapse]').forEach(function(d){
+    d.addEventListener('toggle', seguirAlCampoEditado);
+  });
+  if (ancho.addEventListener) ancho.addEventListener('change', sincronizarPrevia);
+  else ancho.addListener(sincronizarPrevia);
+  sincronizarPrevia();
+})();
+</script>
+</body>
+</html>
