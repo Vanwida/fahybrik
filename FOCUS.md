@@ -143,6 +143,39 @@ Y después, las estructuras de metcon (ronda rotatoria, chipper continuo,
 EMOM/AMRAP con componentes): el esquema ya las soporta, la gramática no las sabe
 escribir.
 
+**Usando la app (9-ago) — dónde está de verdad el atasco.** Levanté el dashboard
+y planifiqué como un coach en vez de leer código. Tres cosas:
+
+1. **El sitio donde se planifica es una línea de texto libre** en el editor de
+   día, con este placeholder: `press banca 4x4 @78-80% r90 · 10x400m r1' · 45'
+   carrera z2`. O sea que TODO lo del importador es el camino diario del coach,
+   no una función de migración. **Y el propio ejemplo perdía el descanso**:
+   `r90` y `r1'` salían verdes tirándolo, porque el patrón exigía frontera de
+   palabra tras la señal y entre `r` y `9` no la hay. Arreglado (clase 24).
+2. **La palanca real es Periodización.** Cada nivel (N1–N5) × días/semana (3, 4,
+   5, 6) = 20 secuencias que se montan UNA vez, y después «todo atleta de N4 cae
+   en la variante de sus días y recorre la secuencia automáticamente». Eso es
+   1 coach → 100 atletas, y está bien pensado. **Está a `0/4` en N4**, que es
+   donde están 2 de los 3 atletas: montado y sin llenar.
+3. **56 de 99 bloques no se pueden prescribir** (29 sin dosis, 27 sin tipar).
+   Ese es el cuello de botella de todo lo anterior: no se pueden montar
+   secuencias con una biblioteca a medias.
+
+**Y el rescate NO era gramática de dosis.** Medí en seco los 54 bloques con
+prosa y sin tipar: **solo 6 entrarían** con el lector nuevo, y los seis son
+movilidad. Los otros 48 son **todos WODs** — `WOD 5r: 24 wall balls + 20m SB
+lunge + 14cal skierg – TC55'`, `EMOM 16' run/ski/farmer carry`, `45'' on/15''
+off x10r`, `4r X + 3r Y + 2r Z + 1r W`. El hueco es la **gramática de ESTRUCTURA
+del metcon**, no el vocabulario de dosis, y es justo el terreno donde este
+producto tiene que ganar a las apps de gimnasio. 🟡 En curso con el corpus real
+de los 48 como especificación.
+
+**Retirados los pesos de estación.** Estaban en `shared/domain/hyrox/stations.ts`
+sacados de un plan que era un EJEMPLO generado por IA, no una fuente. Ahora
+`hyroxStationLoad()` devuelve `null` para todo. Las distancias se quedan: esas sí
+vienen del rulebook citado en `test-catalog.ts`. Para rellenarlo hace falta el
+rulebook oficial y entero (mujeres, elite, doubles, edad).
+
 **Notación aprendida por coach — el cimiento que falta.** `coach_exercise_synonyms`
 (mig 0109) hace que el coach corrija UNA vez el nombre de un ejercicio y no vuelva
 a fallar. No existe nada equivalente para la NOTACIÓN: quien escriba `r 90"` o
