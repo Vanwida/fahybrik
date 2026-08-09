@@ -96,7 +96,10 @@ enum PM5WorkoutProgrammer {
             return seconds > 0 ? .fixedTime(seconds: seconds, pace: pace) : .justRow(pace: pace)
         case .calories(let cals, _):
             return cals > 0 ? .fixedCalories(calories: cals, pace: pace) : .justRow(pace: pace)
-        case .reps, .unknown:
+        // Reps y «al fallo» no son una pieza que el monitor pueda programar: no
+        // hay meta que contar hacia atrás. El remo va libre y quien cuenta es el
+        // atleta, igual que con una medida desconocida.
+        case .reps, .repsToFailure, .unknown:
             return .justRow(pace: pace)
         }
     }

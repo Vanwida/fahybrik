@@ -351,6 +351,13 @@ enum PrescriptionRenderer {
         case let .calories(v, _):
             guard v > 0 else { return nil }
             return "\(banda("\(v)") { "\(Int($0))" }) cal"
+        case .repsToFailure:
+            // Sin cifra A PROPÓSITO: la dosis es «las que salgan». Antes esto
+            // caía en `.unknown` y la medida se pintaba EN BLANCO — el atleta
+            // veía el ejercicio y ninguna dosis. El literal no lleva unidad
+            // detrás («4× al fallo», no «4× al fallo reps»), así que
+            // `deletreandoReps` no cambia nada aquí.
+            return Vocab.alFallo
         case .unknown:
             return nil
         }
@@ -360,10 +367,13 @@ enum PrescriptionRenderer {
     static func measureUnit(_ m: Measure?) -> String {
         guard let m else { return "" }
         switch m {
-        case .reps:                return "reps"
+        case .reps:                return Vocab.reps
         case .distance(let meters, _): return meters >= 1000 ? "km" : "m"
         case .duration:            return ""
         case .calories:            return ""
+        // El literal «al fallo» YA dice que son repeticiones; repetir la unidad
+        // detrás sobra. Se comporta como el reloj y las calorías: sin sufijo.
+        case .repsToFailure:       return ""
         case .unknown:             return ""
         }
     }
@@ -381,8 +391,11 @@ enum PrescriptionRenderer {
         switch t {
         case let .percentRM(v, mn, mx):
             return range(v, mn, mx, suffix: "% 1RM")
-        case let .kg(v, mn, mx):
-            return range(v, mn, mx, suffix: " kg")
+        case let .kg(v, mn, mx, implementos):
+            // «2×32 kg»: DOS implementos de 32, que es como se escribe y como se
+            // carga. Sin el ×2 el atleta lee 32 kg y coge una sola pesa.
+            let porImplemento = implementos.map { $0 > 1 ? "\($0)×" : "" } ?? ""
+            return range(v, mn, mx, prefix: porImplemento, suffix: " kg")
         case let .rpe(v, mn, mx):
             return range(v, mn, mx, prefix: "RPE ")
         case let .rir(v, mn, mx):
@@ -488,7 +501,7 @@ enum PrescriptionRenderer {
         guard let t else { return nil }
         switch t {
         case let .percentRM(v, _, _): return v.map { ("", "% 1RM", $0) }
-        case let .kg(v, _, _):        return v.map { ("", " kg", $0) }
+        case let .kg(v, _, _, _):     return v.map { ("", " kg", $0) }
         case let .rpe(v, _, _):       return v.map { ("RPE ", "", $0) }
         case let .rir(v, _, _):       return v.map { ("RIR ", "", $0) }
         case let .watts(v, _, _):     return v.map { ("", " W", $0) }

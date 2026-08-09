@@ -357,6 +357,11 @@ enum Vocab {
 
     /// Repeticiones. Como unidad de una cifra («5 reps») y como etiqueta.
     static let reps = "reps"
+    /// Repeticiones SIN número: las que salgan. Es la dosis de un «4× máx» o de
+    /// unos wall balls «máximo unbroken» — el coach no fija la cifra a propósito,
+    /// y es el atleta quien la produce. En el box se dice así, no «al máximo» ni
+    /// «AMRAP» (ver `Measure.repsToFailure`).
+    static let alFallo = "al fallo"
     /// Una serie de fuerza. `series` para el plural, que aquí no es regular en uso
     /// («Serie 2 de 4» / «4 series»).
     static let serie = "Serie"

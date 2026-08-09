@@ -293,6 +293,13 @@ enum Measure: Equatable {
     case distance(meters: Double, max: Double? = nil)
     case duration(seconds: Int, max: Int? = nil)
     case calories(Int, max: Int? = nil)
+    /// Repeticiones AL FALLO — «4× máx», «máximo unbroken». No lleva cifra a
+    /// propósito: la dosis es «las que salgan», y ponerle un número sería
+    /// inventarse lo que el coach decidió no fijar. Sin campos por eso mismo.
+    /// Espejo de `{ kind: 'reps_to_failure' }` en
+    /// `shared/domain/prescription/types.ts`; sin este caso el valor del cable
+    /// decodificaba a `.unknown` y la medida se pintaba EN BLANCO en el móvil.
+    case repsToFailure
     /// Unrecognized / malformed kind — kept so an unknown future measure never
     /// crashes the decode; the renderer simply skips it.
     case unknown
@@ -323,6 +330,8 @@ extension Measure: Codable {
         case "calories":
             self = .calories(Int((try? c.decode(Double.self, forKey: .value)) ?? 0),
                              max: max.map { Int($0) })
+        case "reps_to_failure":
+            self = .repsToFailure
         default:
             self = .unknown
         }
@@ -343,6 +352,8 @@ extension Measure: Codable {
         case let .calories(v, max):
             try c.encode("calories", forKey: .kind); try c.encode(v, forKey: .value)
             try c.encodeIfPresent(max, forKey: .max)
+        case .repsToFailure:
+            try c.encode("reps_to_failure", forKey: .kind)
         case .unknown:
             break
         }
@@ -359,6 +370,9 @@ extension Measure {
         case let .distance(m, _):  return m
         case let .duration(s, _):  return Double(s)
         case let .calories(v, _):  return Double(v)
+        // Al fallo NO tiene suelo: no hay cifra con la que calcular volumen ni
+        // prellenar nada. Devolver 0 sería peor — contaría como trabajo cero.
+        case .repsToFailure:       return nil
         case .unknown:             return nil
         }
     }
@@ -373,6 +387,7 @@ extension Measure {
         case let .distance(_, m):  max = m
         case let .duration(_, m):  max = m.map(Double.init)
         case let .calories(_, m):  max = m.map(Double.init)
+        case .repsToFailure:       max = nil
         case .unknown:             max = nil
         }
         guard let max, let suelo, max > suelo else { return nil }
@@ -398,7 +413,12 @@ enum PaceUnit: String, Codable, Equatable {
 
 enum Target: Equatable {
     case percentRM(value: Double?, min: Double?, max: Double?)
-    case kg(value: Double?, min: Double?, max: Double?)
+    /// Carga en kilos. `implementCount` = cuántos implementos se cargan A LA VEZ:
+    /// un farmers carry «2×32» son DOS de 32 kg, nunca uno de 64 (sumarlos es
+    /// mentira, y omitir el ×2 pierde la mitad del dato). Espejo de
+    /// `Target.kg.implement_count`. Ausente en todo JSON anterior: `nil` = un
+    /// solo implemento, que es el caso normal de una barra o una mancuerna.
+    case kg(value: Double?, min: Double?, max: Double?, implementCount: Int? = nil)
     case rpe(value: Double?, min: Double?, max: Double?)
     case rir(value: Double?, min: Double?, max: Double?)
     case bodyweight
@@ -427,6 +447,8 @@ enum Target: Equatable {
         case kind, value, min, max, unit
         // `value_s` / `min_s` / `max_s` arrive camelCased by convertFromSnakeCase.
         case valueS, minS, maxS
+        // `implement_count`, camelCased por el mismo convertFromSnakeCase.
+        case implementCount
     }
 }
 
@@ -439,7 +461,9 @@ extension Target: Codable {
         let max = try? c.decode(Double.self, forKey: .max)
         switch kind {
         case "percent_rm": self = .percentRM(value: value, min: min, max: max)
-        case "kg":         self = .kg(value: value, min: min, max: max)
+        case "kg":
+            let implementos = (try? c.decode(Double.self, forKey: .implementCount)).map { Int($0) }
+            self = .kg(value: value, min: min, max: max, implementCount: implementos)
         case "rpe":        self = .rpe(value: value, min: min, max: max)
         case "rir":        self = .rir(value: value, min: min, max: max)
         case "bodyweight": self = .bodyweight
@@ -473,7 +497,9 @@ extension Target: Codable {
         }
         switch self {
         case let .percentRM(v, mn, mx): try scalar("percent_rm", v, mn, mx)
-        case let .kg(v, mn, mx):        try scalar("kg", v, mn, mx)
+        case let .kg(v, mn, mx, implementos):
+            try scalar("kg", v, mn, mx)
+            try c.encodeIfPresent(implementos, forKey: .implementCount)
         case let .rpe(v, mn, mx):       try scalar("rpe", v, mn, mx)
         case let .rir(v, mn, mx):       try scalar("rir", v, mn, mx)
         case .bodyweight:               try c.encode("bodyweight", forKey: .kind)
@@ -536,7 +562,7 @@ extension PrescriptionSet {
     /// bodyweight target carries no absolute kg, so it stays nil (the athlete
     /// logs the real load they used).
     var prescribedLoadKg: Double? {
-        if case let .kg(value, min, _) = target { return value ?? min }
+        if case let .kg(value, min, _, _) = target { return value ?? min }
         return nil
     }
 
