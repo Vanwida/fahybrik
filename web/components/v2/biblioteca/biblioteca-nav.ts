@@ -6,13 +6,24 @@
 // `blocks.id` (editaba un bloque llamándolo sesión). Ahora recibe un
 // `templates.id` y los bloques viven en `/biblioteca/bloque/[id]`.
 
-export type BibliotecaTab = 'ejercicios' | 'bloques' | 'sesiones' | 'microciclos';
+// COMUNICADOS va al final y no dentro de la escalera: no es un peldaño de ella
+// (un comunicado no se compone de sesiones ni arma un microciclo), es el otro
+// contenido reutilizable del coach — lo que le publica al atleta fuera del
+// entreno. Ver docs/DECISIONS.md (2026-08-09 «El comunicado del coach»).
+
+export type BibliotecaTab =
+  | 'ejercicios'
+  | 'bloques'
+  | 'sesiones'
+  | 'microciclos'
+  | 'comunicados';
 
 export const BIBLIOTECA_TABS: readonly BibliotecaTab[] = [
   'ejercicios',
   'bloques',
   'sesiones',
   'microciclos',
+  'comunicados',
 ];
 
 /** Nuevo BLOQUE (pieza reutilizable) — editor de bloque, desde cero. */

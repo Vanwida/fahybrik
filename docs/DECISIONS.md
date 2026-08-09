@@ -10,6 +10,80 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · El umbral de una señal es MÉTODO — `coach_signal_thresholds` es su sitio
+
+**Decidido:** lo que el coach le publicó y el atleta no ha cerrado sube a **/hoy
+como señal** (`coach_attention_items`), con tres tipos nuevos —
+`communication_question_unanswered`, `communication_task_overdue`,
+`communication_protocol_unopened`— y **los días que deciden cuándo saltan son
+dato editable del coach**, no constantes. Nace la tabla
+`coach_signal_thresholds` (mig 0161, una fila por coach, columnas explícitas) y
+los defectos viven en `shared/domain/coach/signal-thresholds.ts`, **nunca como
+`default` de columna**. El barrido resuelve los vigentes UNA vez por coach
+(`web/lib/coach/signal-thresholds.ts → resolveEffectiveThresholds`) y se los pasa
+a los evaluadores: para eso el tipo se llamaba ya `EffectiveThresholds`.
+
+**Por qué:** que una pregunta sin responder reclame lo dice el modelo del
+comunicado (se cierra respondiendo) y eso es mecanismo. Cuántos días de silencio
+hacen falta antes de molestar al coach lo hace distinto cualquier otro entrenador
+competente, así que es método (HARD RULE Nº0). Y sin la señal, un comunicado
+publicado y nunca cerrado se queda esperando en la ficha de un atleta entre cien
+— exactamente el «push perdido» que la entidad venía a resolver.
+
+**Decisiones de modelo que tomó esta tanda:**
+- **La severidad se deriva del modelo, no de otro umbral.** Una pregunta que
+  `blocks` es crítica (deja el plan a medio cerrar); un protocolo cuyo evento es
+  HOY es crítico (o lo abre hoy o no lo abre); una tarea vencida sube a crítica
+  con el retraso que fija el coach. Ningún número mágico extra.
+- **Una tarea vencida dispara sin umbral**: vencer ya es la señal. Lo editable es
+  cuándo el retraso deja de ser un despiste.
+- **Sin fecha resoluble, el protocolo no dispara.** La fecha del ancla se busca
+  contra el evento del PROPIO atleta (su carrera planificada o su sesión de test
+  ya puesta en el plan) y, si `anchor_ref` nombra uno concreto, se exige ese. Un
+  ancla que no resuelve no es una señal con fecha aproximada: es no-señal.
+- **Pasado el evento, la señal se resuelve sola:** un protocolo de día de carrera
+  con la carrera detrás ya no puede hacerse.
+- **Agregan por atleta** (la tarjeta de /hoy es una por atleta y señal): se cita
+  al que manda —la pregunta más antigua, la tarea más atrasada, el evento más
+  próximo— y se dice cuántos más hay. El `dedupe_key` lleva el id de ese
+  comunicado, así que uno nuevo tras silenciar el anterior no queda tapado.
+
+**En consecuencia, no hacer:** no volver a escribir un umbral de señal como
+`const` — el sitio ya existe, se le añade columna. Y no leer las tres claves
+desde `SIGNAL_THRESHOLDS` en una superficie: los vigentes se piden a
+`resolveEffectiveThresholds`, o el /hoy del coach y su editor discreparán.
+
+**Estado:** el resto de umbrales de `signal-config.ts` siguen siendo constantes
+del sistema y se moverán columna a columna cuando dejen de ser aceptables.
+**Falta la pantalla de ajustes**: hoy los umbrales se editan por
+`GET|PUT /api/coach/signal-thresholds` y nada más — el mismo estado en que quedó
+`coach_import_defaults` (0149), que tampoco tiene UI. La migración 0161 **no está
+aplicada**; sin ella el resolutor sirve los defectos y nada se rompe.
+
+---
+
+## 2026-08-09 · La biblioteca de comunicados vive dentro de Biblioteca
+
+**Decidido:** las plantillas y los borradores de comunicado son una pestaña más
+de **Biblioteca** (`/biblioteca?tab=comunicados`), junto a ejercicios, bloques,
+sesiones y microciclos — no una sección de raíl propia. Y el **compositor es uno
+solo**: deja de recibir un atleta fijo para recibir `destinatarios[]` y un `modo`
+(`publicar` | `plantilla`), así que la ficha del atleta (un destinatario) y la
+Biblioteca (N destinatarios elegidos, o ninguno cuando se escribe un molde) usan
+el MISMO componente.
+
+**Por qué:** duplicar el compositor era garantizar que las dos copias se
+separasen a la primera regla nueva de un tipo. Y una plantilla es contenido
+reutilizable del coach, que es literalmente la definición de lo que vive en
+Biblioteca.
+
+**En consecuencia, no hacer:** no publicar nunca una plantilla. Publicar desde
+una plantilla escribe una COPIA (`is_template:false`) y publica esa; un borrador
+sí reusa su id. Lo impone además el CHECK `coach_communications_template_chk`, y
+la UI no puede ser la que lo descubra.
+
+---
+
 ## 2026-08-09 · El comunicado del coach: la comunicación estructurada es una entidad, no chat
 
 **Decidido:** todo lo que el coach entrega al atleta fuera de una sesión se

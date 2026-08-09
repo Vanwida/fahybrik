@@ -10,6 +10,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { CommunicationError } from './store';
 
 export interface RouteCtx {
@@ -66,7 +67,14 @@ export async function athleteCommunicationAct<T>(
   }
 
   try {
-    return jsonOk(await run({ athlete_id: session.athlete_id, communication_id, body }));
+    const result = await run({ athlete_id: session.athlete_id, communication_id, body });
+    // Los cuatro actos cambian lo que este comunicado le sigue reclamando, así
+    // que la señal del coach en /hoy se recalcula YA y no espera al barrido de
+    // los quince minutos: perseguir a quien acaba de responder es peor que no
+    // haber avisado. Best-effort, como en el resto de mutaciones — si falla, el
+    // barrido lo arregla solo.
+    void recomputeAthlete({ athlete_id: session.athlete_id }).catch(() => {});
+    return jsonOk(result);
   } catch (err) {
     return communicationErrorResponse(err, context);
   }

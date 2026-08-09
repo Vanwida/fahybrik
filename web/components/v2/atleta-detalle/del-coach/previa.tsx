@@ -83,6 +83,46 @@ export function PreviaMovil({ b, coachName }: { b: Borrador; coachName: string }
   );
 }
 
+/**
+ * La previa en su sitio dentro del compositor: pegada al lado mientras escribes
+ * en escritorio, plegada detrás de «Ver cómo le queda» en móvil, donde el
+ * formulario manda y la previa se consulta.
+ *
+ * Vive aquí y no en el compositor porque es DÓNDE se enseña la previa, no cómo se
+ * escribe el comunicado: los dos huecos son el mismo componente con distinta
+ * altura, y tenerlos separados es lo que hace que uno se quede sin el pie.
+ */
+export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string }) {
+  return (
+    <>
+      <div className="hidden lg:block lg:sticky lg:top-0">
+        <div className="mb-2.5 flex items-baseline justify-between gap-2">
+          <span className="v2-micro">Cómo le queda</span>
+          <span className="text-label text-[color:var(--v2-muted)]">Su móvil</span>
+        </div>
+        <div className="h-[min(600px,58vh)]">
+          <PreviaMovil b={b} coachName={coachName} />
+        </div>
+        <div className="mt-3">
+          <PieDePrevia b={b} />
+        </div>
+      </div>
+
+      <details className="lg:hidden">
+        <summary className="v2-focus cursor-pointer list-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-4 py-2.5 text-center text-body font-semibold text-[color:var(--v2-fg)]">
+          Ver cómo le queda
+        </summary>
+        <div className="mt-3 h-[520px]">
+          <PreviaMovil b={b} coachName={coachName} />
+        </div>
+        <div className="mt-3">
+          <PieDePrevia b={b} />
+        </div>
+      </details>
+    </>
+  );
+}
+
 /** La línea de debajo del móvil: qué está enseñando y qué NO. */
 export function PieDePrevia({ b }: { b: Borrador }) {
   const texto: Record<CommunicationKind, ReactNode> = {

@@ -17,7 +17,9 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
+import { resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
 import { evaluateAll } from '@/lib/coach/attention/evaluators';
+import { communicationClaims } from './communication-claims';
 import { attentionTag } from './queue';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getAthleteProgrammingStatus } from '@/lib/dashboard/coach/programming-status';
@@ -180,6 +182,8 @@ async function assembleFacts(
       (now.getTime() - (row.last_1on1_at ?? row.athlete_since).getTime()) / 86_400_000,
     ),
     has_upcoming_review: row.has_upcoming_review,
+
+    ...communicationClaims(row, now),
   };
 }
 
@@ -284,13 +288,18 @@ export async function recomputeCoach(params: {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
 
-  const facts = await rollupAthleteFacts({ coach_id: params.coach_id, now, client });
+  // Los umbrales VIGENTES de este coach: los del sistema con su fila encima. Se
+  // resuelven UNA vez por barrido — son método suyo, no una constante nuestra.
+  const [facts, thresholds] = await Promise.all([
+    rollupAthleteFacts({ coach_id: params.coach_id, now, client }),
+    resolveEffectiveThresholds(params.coach_id, client),
+  ]);
 
   let fired = 0;
   let cleared = 0;
   for (const f of facts) {
     try {
-      const results = evaluateAll(f, SIGNAL_THRESHOLDS, now);
+      const results = evaluateAll(f, thresholds, now);
       const removed = await persistAthlete(client, params.coach_id, f.athlete_id, results, now);
       fired += results.length;
       cleared += removed;
@@ -324,16 +333,14 @@ export async function recomputeAthlete(params: {
     if (!coachIdStr) return; // unassigned athlete — nothing to surface to a coach
     const coach_id = Number(coachIdStr);
 
-    const facts = await rollupAthleteFacts({
-      coach_id,
-      now,
-      client,
-      athlete_id: params.athlete_id,
-    });
+    const [facts, thresholds] = await Promise.all([
+      rollupAthleteFacts({ coach_id, now, client, athlete_id: params.athlete_id }),
+      resolveEffectiveThresholds(coach_id, client),
+    ]);
 
     for (const f of facts) {
       try {
-        const results = evaluateAll(f, SIGNAL_THRESHOLDS, now);
+        const results = evaluateAll(f, thresholds, now);
         await persistAthlete(client, coach_id, f.athlete_id, results, now);
       } catch (err) {
         captureRouteError(err, {

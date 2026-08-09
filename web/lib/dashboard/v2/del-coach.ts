@@ -13,6 +13,7 @@
 import {
   ANCHOR_LABEL,
   COMMUNICATION_ANCHORS,
+  COMMUNICATION_KINDS,
   compareInboxCommunications,
   createCommunicationSchema,
   type CoachAthleteCommunicationDTO,
@@ -280,6 +281,37 @@ function mensajeDe(code: string, original: string): string {
   if (code === 'too_small') return 'Falta rellenarlo.';
   if (code === 'too_big') return 'Te has pasado de largo.';
   return 'Revisa este campo.';
+}
+
+// ---------------------------------------------------------------------------
+// La biblioteca de comunicados: a quién se publica, cómo se busca, cómo se agrupa
+// ---------------------------------------------------------------------------
+
+/** La cabecera del compositor: el nombre si es uno, la cuenta si son varios. */
+export function paraQuien(nombres: string[]): string {
+  return nombres.length === 1 ? `Para ${nombres[0]}` : `Para ${nombres.length} atletas`;
+}
+
+/** Publicado, dicho por quién lo recibe. */
+export function avisoPublicado(nombres: string[]): string {
+  return nombres.length === 1
+    ? `Publicado. Le llega a ${nombres[0]}.`
+    : `Publicado. Les llega a ${nombres.length} atletas.`;
+}
+
+/** El buscador de la Biblioteca, contra lo que el coach recuerda de un comunicado:
+ *  cómo lo tituló y qué escribió arriba. `q` llega recortada y en minúsculas. */
+export function coincideComunicado(c: CoachCommunicationDTO, q: string): boolean {
+  return q ? `${c.title} ${c.body ?? ''}`.toLowerCase().includes(q) : true;
+}
+
+/** Repartidos por tipo y en el ORDEN del dominio: de lo que más le pide al atleta
+ *  a lo que sólo acompaña. Los tipos sin nada no salen. */
+export function porTipo<T extends { kind: CommunicationKind }>(cs: T[]) {
+  return COMMUNICATION_KINDS.map((kind) => ({
+    kind,
+    items: cs.filter((c) => c.kind === kind),
+  })).filter((g) => g.items.length > 0);
 }
 
 // ---------------------------------------------------------------------------

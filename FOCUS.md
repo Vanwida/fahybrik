@@ -39,9 +39,14 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   pasos reordenables, «Dónde le aparece» en palabras de entrenador, «Desde
   biblioteca…», previa del móvil sincronizada en vivo). 14 tests + QA visual
   1440/390.
-- ⏳ **T2b (en curso):** señales en /hoy (pregunta sin responder, tarea vencida,
-  protocolo sin abrir; umbrales = dato del coach) + vista de plantillas en
-  Biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
+- ✅ **T2b señales + Biblioteca:** 3 señales nuevas en /hoy (pregunta sin
+  responder, tarea vencida, protocolo sin abrir cerca de su fecha) con umbrales
+  como DATO del coach (mig 0161 aplicada + resolutor sobre defectos de shared;
+  API /api/coach/signal-thresholds) y pestaña «Comunicados» en Biblioteca con
+  «Publicar a…» reutilizando el compositor. 135 tests verdes en rama Neon.
+  Pendiente menor: UI de edición de umbrales en Ajustes (hoy solo API+default).
+- ⏳ **T3 (siguiente):** bandeja y detalles iOS + push en PushManager; al
+  shippear, las pantallas del doble pasan a «construida».
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 

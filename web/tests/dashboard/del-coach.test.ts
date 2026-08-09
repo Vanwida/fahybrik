@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
 import {
   aInput,
+  avisoPublicado,
   borradorVacio,
   carriles,
+  coincideComunicado,
   conTipo,
   cuantosReclaman,
   desdeComunicado,
   erroresDe,
   estaVencida,
+  paraQuien,
+  porTipo,
   seguimiento,
   venceEn,
   type Borrador,
@@ -231,5 +235,46 @@ describe('el borrador que se escribe en el compositor', () => {
     expect(b.sections[0]).toMatchObject({ label: 'Qué cambia', content: 'Baja el volumen.' });
     expect(b.anchor_kind).toBe('week');
     expect(b.save_to_library).toBe(false);
+  });
+});
+
+describe('publicar a uno o a varios', () => {
+  const marta = 'Marta Ruiz';
+
+  it('con uno se le nombra; con varios se cuentan, que es lo que el coach necesita ver', () => {
+    expect(paraQuien([marta])).toBe('Para Marta Ruiz');
+    expect(paraQuien([marta, 'Jon Sanz'])).toBe('Para 2 atletas');
+  });
+
+  it('el aviso de publicado concuerda en número', () => {
+    expect(avisoPublicado([marta])).toBe('Publicado. Le llega a Marta Ruiz.');
+    expect(avisoPublicado([marta, 'Jon Sanz', 'Ane Gil'])).toBe('Publicado. Les llega a 3 atletas.');
+  });
+});
+
+describe('la biblioteca de comunicados', () => {
+  const plantilla = (over: Partial<CoachAthleteCommunicationDTO> = {}) =>
+    dto({ is_template: true, status: 'draft', published_at: null, ...over });
+
+  it('se busca por el título y por lo que se escribió arriba, sin distinguir mayúsculas', () => {
+    const c = plantilla({ title: 'Calentamiento de carrera', body: 'Cuenta atrás desde tu salida.' });
+    expect(coincideComunicado(c, '')).toBe(true);
+    expect(coincideComunicado(c, 'calentamiento')).toBe(true);
+    expect(coincideComunicado(c, 'cuenta atrás')).toBe(true);
+    expect(coincideComunicado(c, 'remo')).toBe(false);
+  });
+
+  it('un cuerpo vacío no rompe la búsqueda', () => {
+    expect(coincideComunicado(plantilla({ title: 'Foco', body: null }), 'foco')).toBe(true);
+  });
+
+  it('se reparten por tipo en el orden del dominio y los tipos sin nada no salen', () => {
+    const grupos = porTipo([
+      plantilla({ id: '1', kind: 'note' }),
+      plantilla({ id: '2', kind: 'protocol' }),
+      plantilla({ id: '3', kind: 'note' }),
+    ]);
+    expect(grupos.map((g) => g.kind)).toEqual(['protocol', 'note']);
+    expect(grupos[1]?.items.map((c) => c.id)).toEqual(['1', '3']);
   });
 });

@@ -19,8 +19,9 @@ import { KIND_LABEL, type CoachCommunicationDTO } from '@fahybrid/shared/domain/
 import { ANCHOR_COACH_LABEL } from '@/lib/dashboard/v2/del-coach';
 import { borrarOArchivar, listarVista } from './api';
 
-/** Lo que distingue a una plantilla de otra de un vistazo: su tamaño y dónde cae. */
-function meta(c: CoachCommunicationDTO): string {
+/** Lo que distingue a una plantilla de otra de un vistazo: su tamaño y dónde cae.
+ *  Exportado porque la pestaña Comunicados enseña lo MISMO en su rejilla. */
+export function metaComunicado(c: CoachCommunicationDTO): string {
   const trozos: string[] = [];
   if (c.kind === 'protocol') trozos.push(`${c.items.length} ${c.items.length === 1 ? 'paso' : 'pasos'}`);
   if (c.kind === 'note') trozos.push(`${c.items.length} ${c.items.length === 1 ? 'sección' : 'secciones'}`);
@@ -29,31 +30,61 @@ function meta(c: CoachCommunicationDTO): string {
   return trozos.join(' · ');
 }
 
+/** Quitar uno de una lista que puede no estar cargada todavía. */
+function sin(id: string) {
+  return (prev: CoachCommunicationDTO[] | null) => prev?.filter((c) => c.id !== id) ?? prev;
+}
+
+/** Meterlo delante, o reemplazarlo si ya estaba (una edición no lo duplica). */
+function con(c: CoachCommunicationDTO) {
+  return (prev: CoachCommunicationDTO[] | null) => {
+    if (prev === null) return prev;
+    const i = prev.findIndex((x) => x.id === c.id);
+    if (i === -1) return [c, ...prev];
+    const next = [...prev];
+    next[i] = c;
+    return next;
+  };
+}
+
 /**
- * El estado de la biblioteca, fuera del panel a propósito: la carga se dispara
- * en el CLICK que abre el panel, no en un efecto de montaje. Traer datos es una
- * reacción a un acto del coach, no una sincronización con un sistema externo —
- * y montarlo como efecto es lo que enciende el aviso de renders en cascada.
+ * El estado de la biblioteca de comunicados del coach: sus plantillas y lo que
+ * tiene a medias. Vive fuera del panel porque lo usan las dos superficies que la
+ * enseñan — el desplegable «Desde biblioteca…» del compositor y la pestaña
+ * Comunicados de la Biblioteca, que es una rejilla de página entera.
+ *
+ * `cargar` NO toca estado antes del primer `await` a propósito: así la pestaña
+ * puede dispararla desde su efecto de montaje sin encender el aviso de renders en
+ * cascada. Por eso `cargando` se DERIVA en vez de guardarse: además deja una sola
+ * respuesta a «¿todavía no hay nada?».
  */
 export function useBiblioteca() {
   const [plantillas, setPlantillas] = useState<CoachCommunicationDTO[] | null>(null);
   const [borradores, setBorradores] = useState<CoachCommunicationDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(false);
   const [borrando, setBorrando] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    setCargando(true);
     const [t, d] = await Promise.all([listarVista('templates'), listarVista('drafts')]);
-    setCargando(false);
-    if (!t.ok || !d.ok) {
-      setError(t.ok ? (d as { mensaje: string }).mensaje : t.mensaje);
+    if (!t.ok) {
+      setError(t.mensaje);
+      return;
+    }
+    if (!d.ok) {
+      setError(d.mensaje);
       return;
     }
     setError(null);
     setPlantillas(t.data);
     setBorradores(d.data);
   }, []);
+
+  /** Limpiar el error es lo que hace el botón, no la carga: si no, «¿cuándo deja
+   *  de haber error?» tendría dos respuestas. */
+  const reintentar = useCallback(() => {
+    setError(null);
+    void cargar();
+  }, [cargar]);
 
   const borrar = useCallback(async (id: string) => {
     setBorrando(id);
@@ -63,10 +94,42 @@ export function useBiblioteca() {
       setError(r.mensaje);
       return;
     }
-    setBorradores((prev) => (prev ?? []).filter((c) => c.id !== id));
+    // Sale de las dos: desde la pestaña también se borran plantillas, y el
+    // servidor ya dijo que no existe — volver a pedir la lista sólo la haría
+    // parpadear. Y un fallo anterior deja de ser verdad: se retira con él.
+    setError(null);
+    setPlantillas(sin(id));
+    setBorradores(sin(id));
   }, []);
 
-  return { plantillas, borradores, error, cargando, borrando, cargar, borrar };
+  /** Un comunicado recién escrito entra en la lista que le toca por lo que ES. */
+  const guardado = useCallback((c: CoachCommunicationDTO) => {
+    if (c.is_template) {
+      setPlantillas(con(c));
+      setBorradores(sin(c.id));
+    } else {
+      setBorradores(con(c));
+      setPlantillas(sin(c.id));
+    }
+  }, []);
+
+  /** Un borrador que se publica deja de estar sin publicar: se va de la lista. */
+  const publicado = useCallback((id: string) => setBorradores(sin(id)), []);
+
+  const cargando = plantillas === null && borradores === null && error === null;
+
+  return {
+    plantillas,
+    borradores,
+    error,
+    cargando,
+    borrando,
+    cargar,
+    reintentar,
+    borrar,
+    guardado,
+    publicado,
+  };
 }
 
 export type EstadoBiblioteca = ReturnType<typeof useBiblioteca>;
@@ -85,7 +148,7 @@ export function PanelBiblioteca({
   onBorrado: (id: string) => void;
   onCerrar: () => void;
 }) {
-  const { plantillas, borradores, error, cargando, borrando, cargar, borrar } = estado;
+  const { plantillas, borradores, error, cargando, borrando, reintentar, borrar } = estado;
   const vacio =
     !cargando && plantillas !== null && borradores !== null && plantillas.length === 0 && borradores.length === 0;
 
@@ -108,7 +171,7 @@ export function PanelBiblioteca({
           <span className="text-label font-medium text-[color:var(--v2-danger)]">{error}</span>
           <button
             type="button"
-            onClick={() => void cargar()}
+            onClick={reintentar}
             className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 py-1 text-label font-semibold text-[color:var(--v2-danger)]"
           >
             <MIcon name="refresh" size={13} />
@@ -188,7 +251,9 @@ function Fila({
       </Pill>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">{c.title}</span>
-        <span className="truncate text-label text-[color:var(--v2-muted)]">{meta(c)}</span>
+        <span className="truncate text-label text-[color:var(--v2-muted)]">
+          {metaComunicado(c)}
+        </span>
       </span>
       {onBorrar ? (
         <button

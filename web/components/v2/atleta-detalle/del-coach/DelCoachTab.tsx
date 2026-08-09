@@ -134,11 +134,12 @@ export function DelCoachTab({
 
       {componiendo ? (
         <Compositor
-          athleteId={athleteId}
-          athleteName={athleteName}
+          modo="publicar"
+          // Desde la ficha el destinatario NO se elige: es este atleta y ya está.
+          destinatarios={[{ athlete_id: athleteId, full_name: athleteName }]}
           coachName={coachName}
           onCerrar={() => setComponiendo(false)}
-          onPublicado={(mensaje) => {
+          onHecho={(mensaje) => {
             setComponiendo(false);
             recargar(mensaje);
           }}
