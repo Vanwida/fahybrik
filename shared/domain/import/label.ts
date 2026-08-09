@@ -173,9 +173,14 @@ function stripDoseTokens(raw: string): string {
 // part of movement names ("walking lunge") and must survive.
 const REST_COMPOUND_RE = /\b(?:walking|caminando|trote)\s+(?:rest|descanso|recovery)\b/gi;
 
-// Connector / rest-cue words that are never part of a movement name.
+// Connector / rest-cue words that are never part of a movement name. "rec"
+// and the bare prefix "r" (arreglo #1's short rest dialects — dose.ts's
+// parseRest) join the list for the same reason "rest"/"descanso" are here:
+// by the time this runs, stripDoseTokens has already eaten any digit they
+// introduced (a clock or a "5r" rounds count), so a standalone survivor is
+// the cue word itself, never a real exercise fragment.
 const CONNECTOR_WORDS_RE =
-  /\b(?:a|al|de|en|x|cada|ritmo|max|rest|descanso|recovery|float|off|est[aá]tico)\b/gi;
+  /\b(?:a|al|de|en|x|cada|ritmo|max|rest|descanso|recovery|float|off|est[aá]tico|rec|r)\b/gi;
 
 export interface DoseFirstLabel {
   token: string;
@@ -264,6 +269,14 @@ export function isBlockTitle(line: string): boolean {
 export const TARGET_ONLY_RE =
   /^[\s—–-]*(?:(?:rpe|rir)\s*\d{1,2}(?:\s*[-–—]\s*\d{1,2})?|z(?:ona)?\s*[1-5](?:\s*[-–—]\s*z?[1-5])?)\s*$/i;
 
+// arreglo #5 — the TO-FAILURE marker: "máx"/"máximo" (+ "unbroken") (+
+// "reps"), or "amrap (de) reps". Exported so strength.ts's to-failure
+// reading and isNoiseLine's exception below share ONE source — the same gap
+// class the REST_CUE_SRC comment in dose.ts warns about (a dialect taught to
+// one reader and never to its sibling).
+export const FAILURE_MARKER_RE =
+  /\bm[aá]x(?:imo)?(?:\s+unbroken)?(?:\s+reps?)?\b|\bamrap\s+(?:de\s+)?reps?\b/i;
+
 /** A "noise" line carries no dosage to type: a header, a connector, a coach
  *  note, a parenthetical aside, prose, or a bare target directive. */
 export function isNoiseLine(line: string): boolean {
@@ -286,6 +299,20 @@ export function isNoiseLine(line: string): boolean {
   // but that only downgrades it to a review line, which still clutters the
   // screen with something the coach never wrote as work.
   if (COUNTER_LINE_RE.test(line)) return true;
+  // "Pull-ups máximo unbroken" / "Push-ups max reps" / "Burpees AMRAP de
+  // reps" carry NO digit of their own — a to-failure dose is still a
+  // complete, provable one (arreglo #5), so the blanket "no number → prose"
+  // rule right below must not eat it. Guarded the same way a bare movement
+  // name is (short, no leading coaching verb) so an unrelated sentence that
+  // happens to contain "máximo" ("Recuerda hacer el máximo esfuerzo") stays
+  // prose.
+  if (
+    FAILURE_MARKER_RE.test(line) &&
+    !PROSE_VERB_RE.test(n) &&
+    line.trim().split(/\s+/).filter(Boolean).length <= 8
+  ) {
+    return false;
+  }
   if (!/\d/.test(line)) return true; // no number anywhere → prose/header
   if (TARGET_ONLY_RE.test(line)) return true; // target with no dose → directive
   return false;

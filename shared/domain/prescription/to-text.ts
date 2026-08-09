@@ -68,8 +68,12 @@ export function formatTarget(t: Target): string {
       return 'peso corporal';
     case 'percent_rm':
       return `${rangeNum(t.min, t.max, t.value)}% RM`;
-    case 'kg':
-      return `${rangeNum(t.min, t.max, t.value)} kg`;
+    case 'kg': {
+      const body = `${rangeNum(t.min, t.max, t.value)} kg`;
+      // "2×32 kg" (per implement) reads correctly; a plain "32 kg" never
+      // silently becomes "64" — see Target.kg.implement_count.
+      return t.implement_count && t.implement_count > 1 ? `${t.implement_count}×${body}` : body;
+    }
     case 'rpe':
       return `RPE ${rangeNum(t.min, t.max, t.value)}`;
     case 'rir':
@@ -124,6 +128,8 @@ function formatMeasure(m: Measure): string {
       return formatDuration(m.seconds);
     case 'calories':
       return `${m.value} cal`;
+    case 'reps_to_failure':
+      return 'máx';
   }
 }
 

@@ -7,7 +7,10 @@
 
 import { type Prescription, type PrescriptionSet, type Target } from '../prescription/types';
 import {
+  parseClockSeconds,
+  parseDistanceInterval,
   parseEffortTarget,
+  parseImplementLoad,
   parseKg,
   parseLoadPctList,
   parseRepRange,
@@ -19,12 +22,19 @@ import {
   stripLoadPct,
   stripTargetTokens,
 } from './dose';
-import { doseFirstLabel, extractLabel, modalityFrom } from './label';
+import { doseFirstLabel, extractLabel, FAILURE_MARKER_RE, modalityFrom } from './label';
 import { finalizeDetected, type Parsed, type ParsedLine } from './result';
 
 /** "N rounds/rondas/series [c/rest] [:]" — the shared circuit header. */
 export const ROUNDS_HEADER_RE =
   /^\s*(\d+)\s*(?:rounds|rondas|series|vueltas)\b\s*(?:c\/\s*\d+\s*'(?:\s*\d+\s*'')?\s*)?[:.]?\s*/i;
+
+// arreglo #5 — the TO-FAILURE marker (FAILURE_MARKER_RE, ./label.ts — shared
+// with isNoiseLine's exception so a standalone marker is never dropped as
+// prose). Standalone → ONE set; "Nx<marker>" → N sets, each to failure.
+// `hasMetconKeyword` (./notation.ts) carves the "amrap (de) reps" phrase OUT
+// of its generic "amrap" WOD trigger so a line using it can reach here.
+const SETS_TO_FAILURE_RE = new RegExp(`(\\d+)\\s*x\\s*(?:${FAILURE_MARKER_RE.source})`, 'i');
 
 // ── Combos (one physical line → one typed line per movement) ─────────────────
 
@@ -226,11 +236,28 @@ export function parseStrength(seg: string): Parsed | null {
     ? parseInt(timedMax[1]!, 10) * (timedMax[2] === "'" ? 60 : 1)
     : undefined;
 
+  // arreglo #5 — TO-FAILURE reps ("4x max", "4x máximo unbroken", "AMRAP de
+  // reps"): no CLOCK before "max" — that is the timedMax case just above, a
+  // TIME-capped AMRAP-style set ("3' max" = "as many as you can in 3
+  // minutes", a real duration). This carries no time bound at all — "go
+  // until you fail, however long that takes" — so it is its OWN measure kind
+  // (reps_to_failure), never a fabricated rep count and never a duration.
+  // "Nx<marker>" sets its own count; a bare marker under a rounds/series
+  // header uses THAT count; a bare marker alone is one set.
+  let failureSets: number | undefined;
+  if (!perSetReps && timedSetSeconds === undefined) {
+    const nxFailure = seg.match(SETS_TO_FAILURE_RE);
+    if (nxFailure) failureSets = parseInt(nxFailure[1]!, 10);
+    else if (FAILURE_MARKER_RE.test(seg)) failureSets = setCount ?? 1;
+  }
+
   // Needs a real dosing signal: a per-set/NxM/reps-first scheme, a timed set,
-  // OR a set count with a load. Otherwise it is not confidently strength.
+  // a to-failure marker, OR a set count with a load. Otherwise it is not
+  // confidently strength.
   if (
     !perSetReps &&
     timedSetSeconds === undefined &&
+    failureSets === undefined &&
     !(setCount !== undefined && (loadList || kg !== undefined))
   ) {
     return null;
@@ -250,7 +277,7 @@ export function parseStrength(seg: string): Parsed | null {
   if (/\d\s*'{1,2}/.test(clockScan)) return null;
 
   const p: Prescription = { scheme: 'sets', modality: 'strength' };
-  const nSets = perSetReps?.length ?? setCount ?? 1;
+  const nSets = perSetReps?.length ?? failureSets ?? setCount ?? 1;
   const sets: PrescriptionSet[] = [];
   for (let i = 0; i < nSets; i++) {
     const s: PrescriptionSet = {};
@@ -261,6 +288,8 @@ export function parseStrength(seg: string): Parsed | null {
           : { kind: 'reps', value: perSetReps[i]! };
     } else if (timedSetSeconds !== undefined) {
       s.measure = { kind: 'duration', seconds: timedSetSeconds };
+    } else if (failureSets !== undefined) {
+      s.measure = { kind: 'reps_to_failure' };
     }
     const target =
       (usedRepsFirst ? repsFirstTarget : strengthTargetForSet(loadList, kg, i, nSets)) ?? effort;
@@ -272,7 +301,16 @@ export function parseStrength(seg: string): Parsed | null {
   if (perSide) p.note = perSide[0]!.replace(/\s+/g, ''); // the verbatim "8/lado"
   // Rep-scheme-FIRST lines ("30-25-20-15 Power Clean 40kg") have no text before
   // the first digit — the token is whatever words remain after the dose.
-  return { token: token ?? (extractLabel(seg) || doseFirstLabel(seg).token), prescription: p };
+  // A STANDALONE to-failure marker ("Pull-ups máximo unbroken") carries no
+  // digit at all — extractLabel's "everything before the first digit"
+  // heuristic then has nothing to stop at and swallows the marker itself
+  // into the token. Strip it first (harmless when a digit IS present too —
+  // "Dead hangs 4x max" still anchors on "4").
+  const tokenSource = failureSets !== undefined ? seg.replace(FAILURE_MARKER_RE, '') : seg;
+  return {
+    token: token ?? (extractLabel(tokenSource) || doseFirstLabel(tokenSource).token),
+    prescription: p,
+  };
 }
 
 /** Intensity for set `i`: a per-set %RM list (len==sets), a 2-value %RM RANGE,
@@ -294,6 +332,76 @@ function strengthTargetForSet(
   }
   if (kg !== undefined) return { kind: 'kg', value: kg };
   return undefined;
+}
+
+// ── Loaded distance/duration sets (arreglo #2/#3) ─────────────────────────────
+// "Sled Push 5x25 m @160 kg" / "Sandbag Lunges 4x50 m @30 kg" / "Farmers hold
+// 3x45 s @2x32" — N sets × a DISTANCE or DURATION measure: HYROX/functional
+// implement work (a sled push, a sandbag carry, a farmers hold) that is never
+// reps, which the grammar previously had no shape for — parseBout's
+// distance-interval fallback silently ate the sets and dropped any "@" load
+// (bout.ts now refuses these first, see its guard). `parseSetsByDurationWord`
+// stays LOCAL (not in dose.ts): unlike parseInterval (bout-shaped: rounds ×
+// work WINDOW, prime-clock only), this is sets × per-set TIME for a loaded
+// implement — a strength-family shape, reusing parseClockSeconds so every
+// clock spelling this file already reads (prime, colon, word) is understood
+// here too.
+
+function parseSetsByDurationWord(seg: string): { count: number; seconds: number } | null {
+  const head = seg.match(/(\d+)\s*x\s*(?=\d)/i);
+  if (!head) return null;
+  const tail = seg.slice(head.index! + head[0].length);
+  // The clock must start AT this exact position (not merely exist further
+  // into the tail) — else "5 series … 90 seg" could steal an unrelated later
+  // clock. Leading-anchored so only "Nx<clock>" itself is read.
+  const leading = tail.match(
+    /^\d+\s*(?:'\s*\d+\s*''|'{1,2}|(?:horas?|min(?:utos?)?|segundos?|seg\.?|s)\b)/i,
+  );
+  if (!leading) return null;
+  const seconds = parseClockSeconds(leading[0]);
+  if (seconds === undefined) return null;
+  return { count: parseInt(head[1]!, 10), seconds };
+}
+
+/** "Sled Push 5x25 m @160 kg" / "Farmers hold 3x45 s @2x32" — see the module
+ *  comment above. `modality:'functional'` (not 'strength'): completeness.ts's
+ *  strength bucket only accepts reps/duration measures, but this family is
+ *  objectively HYROX/functional implement work (a sled or a carry, never a
+ *  barbell) — and it IS textually provable, not a guess: the measure itself
+ *  (distance/duration instead of reps) is what strength.ts's OWN reps-only
+ *  reading can never produce.
+ *
+ *  A LOAD is REQUIRED for this function to claim a line — every one of the
+ *  four real examples it exists for carries an "@"/kg, and requiring it is
+ *  what keeps this from over-reaching: a BARE "Nx<seconds word>" with no load
+ *  ("6x90 seg strides") is a cardio interval the grammar cannot yet type
+ *  (parseDuration deliberately refuses it — reading only the "90 seg" half
+ *  would silently drop the "6x" repeat count) and must stay `review`, not be
+ *  rescued into a fabricated "functional" set here. The bare-distance case
+ *  needs no such guard SEPARATELY: parseBout already owns an unloaded
+ *  "Nx…m" line (a plain distance interval) and this function is never even
+ *  tried for it (parseBout only refuses when a load IS present — see its
+ *  guard) — but requiring a load uniformly is simpler than two rules.
+ */
+export function parseSetsByLoadedMeasure(seg: string): Parsed | null {
+  const implement = parseImplementLoad(seg);
+  const kg = implement ? undefined : parseKg(seg);
+  if (!implement && kg === undefined) return null;
+  const dist = parseDistanceInterval(seg);
+  const durn = dist ? null : parseSetsByDurationWord(seg);
+  if (!dist && !durn) return null;
+  const count = dist ? dist.rounds : durn!.count;
+  const target: Target = implement
+    ? { kind: 'kg', value: implement.value, implement_count: implement.implement_count }
+    : { kind: 'kg', value: kg! };
+  const sets: PrescriptionSet[] = Array.from({ length: count }, () => ({
+    measure: dist
+      ? { kind: 'distance', meters: dist.meters }
+      : { kind: 'duration', seconds: durn!.seconds },
+    target,
+  }));
+  const p: Prescription = { scheme: 'sets', modality: 'functional', sets };
+  return { token: extractLabel(seg) || doseFirstLabel(seg).token, prescription: p };
 }
 
 // ── Core work/rest parser ("Side plank 4x40''/20''") ─────────────────────────

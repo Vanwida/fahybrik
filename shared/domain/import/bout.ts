@@ -11,6 +11,7 @@ import {
   parseDistanceInterval,
   parseDistanceMeters,
   parseDuration,
+  parseImplementLoad,
   parseInterval,
   parseKg,
   parseLoadPctList,
@@ -55,6 +56,18 @@ export function parseBout(seg: string): Parsed | null {
   const dist = parseDistanceMeters(seg);
   const cap = parsePaceCap(seg);
   const rest = parseRest(seg);
+
+  // A "@"/kg LOAD clause on an Nx-shaped interval means implement work (Sled
+  // Push, Farmers Carry, Sandbag Lunges…) — strength.ts's
+  // parseSetsByLoadedMeasure owns that shape (score:'load', a SETS table,
+  // not a paced cardio interval). Refuse so it gets first refusal instead of
+  // this branch silently eating the sets and dropping the load (arreglo
+  // #2/#3's "CARGA PERDIDA"). Scoped to interval/distInterval specifically —
+  // a plain steady/zone bout that merely MENTIONS a kg for some other reason
+  // (no Nx shape) is untouched; only the "NxM[unit]" shape defers.
+  if ((interval || distInterval) && (parseImplementLoad(seg) || parseKg(seg) !== undefined)) {
+    return null;
+  }
 
   // A bout needs a bout signal. "duration + RPE" alone qualifies (class 2/9:
   // "5' RPE 3-4", "3' RPE 10") but ONLY on a line with no strength signal — a

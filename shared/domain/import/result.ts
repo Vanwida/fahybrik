@@ -5,11 +5,13 @@
 // the line to `review` with the verbatim text preserved — never a bad number.
 
 import {
+  type Measure,
   type Prescription,
   type PrescriptionScheme,
+  type Target,
   prescriptionSchema,
 } from '../prescription/types';
-import { foldText } from './dose';
+import { foldText, parseImplementLoad, parseKg, parseRest } from './dose';
 import { readGroupLabel, type GroupLabel } from './label';
 
 // `incomplete`: the exercise itself IS known (a real movement name), its
@@ -55,6 +57,112 @@ export interface Parsed {
 const DOSE_WORD_ONLY_RE =
   /^(?:rounds?|rondas?|vueltas?|series?|sets?|reps?|repeticiones?|veces|ejercicios?|exercises?|min(?:utos?)?|minutes?|seg(?:undos?)?|sec(?:onds?)?)$/;
 
+// ── Residue guard (arreglo #4) ─────────────────────────────────────────────
+// FAITHFUL OR REVIEW only holds when a PARTIAL match is caught too: a line
+// that gets its interval right but drops "@160 kg", or its distance right
+// but drops "rec 2:30", used to leave `prescriptionSchema` perfectly happy
+// (both are optional fields) and ship `detected` with a number silently
+// missing. This closes that gap at the ONE chokepoint every successful parse
+// already passes through: if the raw text carries a REST clause or an
+// "@"/kg LOAD clause the grammar knows how to read, but that value never
+// lands anywhere in the typed prescription, the line was faithful to only
+// PART of the text — the honesty contract says that is a `review`, not a
+// lucky `detected`.
+//
+// Scoped to these two clauses — not a fully generic "every number must
+// reappear" scan — because a generic scan cannot tell a genuinely CONSUMED
+// number from a dropped one without reproducing the whole grammar's own
+// logic: "10' caminando" legitimately reads its "10" as `total_s`, never
+// `rest_s` (the walk IS the bout, see bout.ts), and a naive scanner would
+// flag that as residue. Membership is checked BROADLY (anywhere among the
+// prescription's numbers, not specifically in `rest_s`/a kg target) so that
+// exact case — and any other legitimate repurposing — is never a false
+// positive: what matters is that the number is accounted for SOMEWHERE.
+
+function collectPrescriptionNumbers(p: Prescription): Set<number> {
+  const nums = new Set<number>();
+  const add = (n: number | undefined) => {
+    if (n !== undefined) nums.add(n);
+  };
+  add(p.rounds);
+  add(p.rounds_max);
+  add(p.work_s);
+  add(p.rest_s);
+  add(p.total_s);
+  add(p.start);
+  add(p.increment);
+  addTargetNumbers(p.target, nums);
+  if (p.pace_cap) {
+    add(p.pace_cap.max_s);
+    add(p.pace_cap.min_s);
+  }
+  add(p.hr_zone);
+  for (const s of p.sets ?? []) {
+    add(s.rest_s);
+    addMeasureNumbers(s.measure, nums);
+    addTargetNumbers(s.target, nums);
+    // Legacy scalar aliases — a set can carry these instead of measure/target
+    // pre-normalize; harmless to also scan post-normalize (they are unset).
+    add(s.reps);
+    add(s.duration_s);
+    add(s.distance_m);
+    add(s.rpe);
+    add(s.rir);
+    add(s.hr_zone);
+  }
+  // An "N rounds/series" header often survives ONLY as the sets array's
+  // LENGTH, never a literal `rounds` field (parseStrength never sets one).
+  if (p.sets && p.sets.length > 0) nums.add(p.sets.length);
+  return nums;
+}
+
+function addMeasureNumbers(m: Measure | undefined, nums: Set<number>): void {
+  if (!m) return;
+  if (m.kind === 'distance') nums.add(m.meters);
+  else if (m.kind === 'duration') nums.add(m.seconds);
+  else if (m.kind === 'reps' || m.kind === 'calories') nums.add(m.value);
+  if ('max' in m && m.max !== undefined) nums.add(m.max);
+}
+
+function addTargetNumbers(t: Target | undefined, nums: Set<number>): void {
+  if (!t) return;
+  if (t.kind === 'bodyweight') return;
+  if (t.kind === 'pace' || t.kind === 'time_cap') {
+    if (t.value_s !== undefined) nums.add(t.value_s);
+    if (t.min_s !== undefined) nums.add(t.min_s);
+    if (t.max_s !== undefined) nums.add(t.max_s);
+    return;
+  }
+  if (t.value !== undefined) nums.add(t.value);
+  if (t.min !== undefined) nums.add(t.min);
+  if (t.max !== undefined) nums.add(t.max);
+  if (t.kind === 'kg' && t.implement_count !== undefined) nums.add(t.implement_count);
+}
+
+/** A rest clause the raw text promises (any of parseRest's dialects) that
+ *  never lands anywhere in the typed prescription. */
+function hasUnconsumedRest(raw: string, p: Prescription): boolean {
+  const restSeconds = parseRest(raw);
+  if (restSeconds === undefined) return false;
+  return !collectPrescriptionNumbers(p).has(restSeconds);
+}
+
+/** A LOAD clause the raw text promises — a plain "160 kg" or a PER-IMPLEMENT
+ *  "@2x32" — that never lands anywhere in the typed prescription. The
+ *  per-implement reading is tried first so its `implement_count` (2) is ALSO
+ *  required to reappear, not just the per-unit weight (32) — dropping either
+ *  number is the same class of loss. */
+function hasUnconsumedLoad(raw: string, p: Prescription): boolean {
+  const nums = collectPrescriptionNumbers(p);
+  const implement = parseImplementLoad(raw);
+  if (implement) {
+    return !nums.has(implement.value) || !nums.has(implement.implement_count);
+  }
+  const kg = parseKg(raw);
+  if (kg === undefined) return false;
+  return !nums.has(kg);
+}
+
 /** Validate a typed prescription; on failure, downgrade the line to review with
  *  the raw text preserved (honesty contract). */
 export function finalizeDetected(
@@ -87,10 +195,21 @@ export function finalizeDetected(
   if (!parsed.success) {
     return reviewLine(raw, `typed prescription failed validation: ${parsed.error.message}`);
   }
+  const typed = parsed.data as Prescription;
+  // arreglo #4 — the residue guard: a rest clause or an "@"/kg load clause
+  // the text promises but the typed prescription never captured means this
+  // line was faithful to only PART of the text. See the module comment above
+  // `collectPrescriptionNumbers`.
+  if (hasUnconsumedRest(raw, typed)) {
+    return reviewLine(raw, 'a rest clause in the text was not captured in the typed prescription');
+  }
+  if (hasUnconsumedLoad(raw, typed)) {
+    return reviewLine(raw, 'a load ("@"/kg) clause in the text was not captured in the typed prescription');
+  }
   const groupLabel = readGroupLabel(raw);
   return {
     exercise_token: token,
-    prescription: parsed.data as Prescription,
+    prescription: typed,
     confidence: 'detected',
     review_reasons: [],
     ...(groupLabel ? { group_label: groupLabel } : {}),

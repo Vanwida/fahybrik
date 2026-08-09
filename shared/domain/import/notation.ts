@@ -52,6 +52,7 @@ import {
 import { parseBout } from './bout';
 import {
   parseCoreWorkRest,
+  parseSetsByLoadedMeasure,
   parseStrength,
   ROUNDS_HEADER_RE,
   tryRepPlusCombo,
@@ -193,7 +194,14 @@ const HYROX_STATION_RE =
 
 function hasMetconKeyword(seg: string): boolean {
   const n = foldText(seg);
-  if (/\b(wod|for ?time|amrap|emom|chipper|afap|hyrox|simulaci|death by|tabata|complex|intercal)\b/.test(n)) {
+  // "AMRAP de reps"/"AMRAP reps" qualifies ONE movement's rep count as
+  // TO-FAILURE (arreglo #5) — not a WOD announcement, which always names a
+  // time cap ("AMRAP 12'") or several components. Excluded from the generic
+  // "amrap" trigger below so a line using it reaches strength.ts's to-failure
+  // reading instead of falling to a blanket review.
+  const amrapAsFailureQualifier = /\bamrap\s+(?:de\s+)?reps?\b/.test(n);
+  if (/\bamrap\b/.test(n) && !amrapAsFailureQualifier) return true;
+  if (/\b(wod|for ?time|emom|chipper|afap|hyrox|simulaci|death by|tabata|complex|intercal)\b/.test(n)) {
     return true;
   }
   return /\btc\b|\(tc\b/.test(n); // time cap "(TC 12')"
@@ -227,6 +235,28 @@ function parseLine(line: string): ParsedLine[] {
       for (const l of parsed) {
         if (l.confidence === 'detected' && !l.prescription.target) {
           l.prescription.target = tailTarget;
+        }
+      }
+      return parsed;
+    }
+  }
+  // "6x800 m Z5, rec 2:30" / "…, descanso 2:30" — a trailing REST clause after
+  // a comma (arreglo #1's dialects). Extracted first, same reason as `todo`
+  // above: the comma would otherwise trip isDenseWod's multi-station
+  // heuristic — a rest annotation is not a second station. Anchored to a
+  // KNOWN rest cue immediately after the comma (never "any comma-tail") so
+  // this never swallows a genuine second station ("…, 5 thrusters 40kg");
+  // `parseRest` having to actually resolve a clock from it is the second gate.
+  const restTail = line.match(
+    /,\s*((?:c\/|cada|rec|r|rest|descanso|recuperaci[oó]n|recovery)\b.*)$/i,
+  );
+  if (restTail) {
+    const tailRest = parseRest(restTail[1]!);
+    if (tailRest !== undefined) {
+      const parsed = parseLine(line.slice(0, restTail.index!));
+      for (const l of parsed) {
+        if (l.confidence === 'detected' && l.prescription.rest_s === undefined) {
+          l.prescription.rest_s = tailRest;
         }
       }
       return parsed;
@@ -302,6 +332,12 @@ function parseSegment(line: string): ParsedLine {
   if (core) return finalizeDetected(core.token, core.prescription, line);
   const bout = parseBout(line);
   if (bout) return finalizeDetected(bout.token, bout.prescription, line);
+  // arreglo #2/#3 — distance/duration sets with an optional (possibly
+  // per-implement) load: "Sled Push 5x25 m @160 kg". Tried AFTER parseBout
+  // (which now refuses these — see its guard) and BEFORE parseStrength
+  // (reps-only): a movement measured in meters/seconds is never reps.
+  const loadedMeasure = parseSetsByLoadedMeasure(line);
+  if (loadedMeasure) return finalizeDetected(loadedMeasure.token, loadedMeasure.prescription, line);
   const strength = parseStrength(line);
   if (strength) return finalizeDetected(strength.token, strength.prescription, line);
   return reviewLine(line, 'no confident dose recognized');

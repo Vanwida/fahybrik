@@ -1,7 +1,7 @@
 // Completar huecos — un clic desbloquea el confirmar.
 
 import { describe, expect, test } from 'vitest';
-import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
+import type { EditorItem, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewWeek } from '@/lib/dashboard/v2/import-review';
 import { totalIncomplete, totalUnresolved } from '@/lib/dashboard/v2/import-review';
 import {
@@ -53,10 +53,14 @@ function item(opts: {
   };
 }
 
-function session(
-  title: string,
-  items: ReturnType<typeof item>[],
-): EditorSession {
+// `EditorItem[]`, not `ReturnType<typeof item>[]`: some callers pass a real
+// item back from `seedExecutableItem` (a full EditorItem, whose
+// `prescription.scheme` is the broad PrescriptionScheme union), not only the
+// `scheme:'sets'`-literal fixtures `item()` builds above. The narrower
+// fixtures still satisfy this (a literal 'sets' fits the broader union) —
+// pre-existing gap surfaced by an unrelated schema change, not this file's
+// own concern.
+function session(title: string, items: EditorItem[]): EditorSession {
   return {
     uid: uid('ses'),
     slot: 'am',
