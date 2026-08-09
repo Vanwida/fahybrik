@@ -171,6 +171,20 @@ y planifiqué como un coach en vez de leer código. Tres cosas:
    Ese es el cuello de botella de todo lo anterior: no se pueden montar
    secuencias con una biblioteca a medias.
 
+**El reparto REAL de la biblioteca a medias (medido, 54 bloques sin tipar):**
+
+| | | |
+|---|---|---|
+| **12** | entran con el lector de hoy | 6 de movilidad + 6 que cerró la gramática de metcon |
+| **22** | **incompletos EN ORIGEN** | el coach nombró el movimiento y no dijo cuánto |
+| **20** | límite del lector | EMOM no divisible, tope en rango, cadenas con un tramo sin dosis |
+
+**Los 22 no los rescata ninguna gramática.** `WOD For Time 4r: KB overhead lunge
++ thrusters + clean + TTB – TC12'` no tiene repeticiones porque el coach no las
+escribió. Eso deja de ser un problema de parser y pasa a ser de producto: hacer
+que completar esos 22 cueste minutos, y que un bloque nuevo no pueda nacer a
+medias. Es el siguiente trabajo real de la biblioteca.
+
 **Y el rescate NO era gramática de dosis.** Medí en seco los 54 bloques con
 prosa y sin tipar: **solo 6 entrarían** con el lector nuevo, y los seis son
 movilidad. Los otros 48 son **todos WODs** — `WOD 5r: 24 wall balls + 20m SB

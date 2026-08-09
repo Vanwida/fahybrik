@@ -377,6 +377,41 @@ segundos antes de pegar un salto de diez.
 
 ---
 
+## 2026-08-09 · La biblioteca no está a medias por el lector — está a medias en origen
+
+**Decidido tras medirlo, y en contra de la hipótesis con la que empecé.** Los 56
+bloques que un coach real no puede prescribir parecían un fallo de la gramática
+de importación. Medido en seco sobre sus 54 bloques con prosa y sin tipar, el
+reparto es otro:
+
+  · **12** entran con el lector de hoy (6 de movilidad + 6 que cerró la
+    gramática de estructura del metcon)
+  · **22** están **incompletos EN ORIGEN**: el coach nombró el movimiento y no
+    escribió cuánto («WOD For Time 4r: KB overhead lunge + thrusters + clean +
+    TTB – TC12'» no dice cuántos thrusters)
+  · **20** son límite real del lector, cada uno con su motivo verificado
+
+**La consecuencia:** los 22 no los recupera ninguna gramática, ni la mejor. No
+hay dosis que leer. Seguir metiendo lectores para ese 41% es trabajo tirado.
+
+**Lo que sí lo resuelve, y es de producto, no de parser:** que completar un
+bloque a medias cueste minutos y no una tarde, y que un bloque nuevo no pueda
+nacer sin dosis. La Biblioteca ya distingue honestamente los tres estados («sin
+tipar» / «sin dosis» / listo) y ya dice «N líneas sin dosis · ábrelo para
+completarlas» — el hueco es que completarlas sigue siendo abrir 22 bloques a
+mano, uno a uno.
+
+**NO hacer:** inventar la dosis que falta, ni por defecto ni por IA «razonable».
+Un peso o unas repeticiones que el coach no escribió son un entreno que él no
+prescribió. El contrato del importador (FIEL O REVISIÓN) vale igual aquí.
+
+**Cómo se encontró:** usando la app como coach, no leyendo código. Y el número
+hubo que reconciliarlo dos veces — mi primer arnés parseaba título+descripción y
+el título es una TRUNCACIÓN de la descripción, así que penalizaba a bloques que
+sí entran. El del agente era el correcto.
+
+---
+
 ## 2026-08-09 · El lector solo alcanzaba una esquina del modelo — y el rango mentía
 
 **Cómo se encontró (y por qué importa el método).** Tras horas afinando la
