@@ -45,8 +45,22 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   API /api/coach/signal-thresholds) y pestaña «Comunicados» en Biblioteca con
   «Publicar a…» reutilizando el compositor. 135 tests verdes en rama Neon.
   Pendiente menor: UI de edición de umbrales en Ajustes (hoy solo API+default).
-- ⏳ **T3 (siguiente):** bandeja y detalles iOS + push en PushManager; al
-  shippear, las pantallas del doble pasan a «construida».
+- ✅ **Nada se obliga (corrección de Alex, 9-ago):** el check es del PASO, no del
+  tipo. Mig **0162 aplicada** (`coach_communication_items.checkable`, default
+  true): un protocolo puede ser todo casillas, todo lectura o mezcla, y ya vale
+  con título + texto (se cae el mínimo de pasos). El «hecho» derivado cuenta
+  sólo las casillas y un protocolo sin ninguna deja de derivarse. Cada fila del
+  compositor lleva su alternador «Con casilla / Solo lectura» y la previa deja
+  de pintar círculo y botón de cierre cuando no hay nada que marcar. 68 tests
+  verdes en rama Neon.
+- ✅ **T3 iOS** (`6a03abf5`): módulo Comunicados completo — bandeja fiel al
+  doble, detalles por tipo (protocolo con `checkable` y solo-texto sin CTA,
+  responder de un toque), visto al abrir, push `coach_communication` con
+  deeplink, entrada desde Inicio con badge. Las 4 pantallas del doble pasan a
+  «construida». 1072 tests iOS verdes (+98). Pendiente: instalar en el iPhone.
+- ⏳ **Siguiente:** tanda de fidelidad al mock (bloques tipados de nota, el
+  camino embebido del plan real, enlace cruzado, previa que sigue) + la espina
+  como lenguaje de fases/ciclos (referencia que encantó a Alex: coach-nota).
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 

@@ -1,7 +1,7 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { publishCommunicationSchema } from '@fahybrid/shared/domain/coach-communications';
-import { publishCommunication } from '@/lib/coach/communications';
+import { publishCommunication } from '@/lib/coach/communications-publish';
 import { communicationErrorResponse, parseId, type RouteCtx } from '@/lib/communications/http';
 
 export const runtime = 'nodejs';

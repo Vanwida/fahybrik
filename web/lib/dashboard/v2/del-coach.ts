@@ -1,10 +1,13 @@
-// DEL COACH · la ficha del atleta — vocabulario de cara al coach y el borrador
-// que se escribe en el compositor.
+// DEL COACH · la ficha del atleta — vocabulario de cara al coach y cómo se lee
+// lo que le mandó a ESE atleta.
+//
+// Lo que el coach está ESCRIBIENDO vive aparte, en `del-coach-borrador.ts`: son
+// dos oficios distintos y sólo uno de los dos puede estar a medias.
 //
 // Client-safe a propósito (cero `server-only`, cero DB): lo importan la pestaña,
-// el compositor y la previa. La FUENTE del dominio sigue siendo
+// la lista y el detalle. La FUENTE del dominio sigue siendo
 // `@fahybrid/shared/domain/coach-communications` — aquí no se decide nada del
-// modelo, sólo cómo se DICE de cara al coach y cómo se sostiene a medio escribir.
+// modelo, sólo cómo se DICE de cara al coach.
 //
 // Por qué hay un mapa de anclas propio: el compartido habla en la voz del atleta
 // («Tu plan») y esta pantalla habla en la del coach («Su plan»). Es la misma
@@ -14,13 +17,12 @@ import {
   ANCHOR_LABEL,
   COMMUNICATION_ANCHORS,
   COMMUNICATION_KINDS,
+  checkableItems,
   compareInboxCommunications,
-  createCommunicationSchema,
   type CoachAthleteCommunicationDTO,
   type CoachCommunicationDTO,
   type CommunicationAnchor,
   type CommunicationKind,
-  type CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
 
 // ---------------------------------------------------------------------------
@@ -39,7 +41,7 @@ export const KIND_COACH_LABEL: Record<CommunicationKind, string> = {
 
 /** Qué le pide al atleta. Es lo que decide por cuál empieza el coach. */
 export const KIND_COACH_ASKS: Record<CommunicationKind, string> = {
-  protocol: 'marcar pasos',
+  protocol: 'seguir unos pasos',
   question: 'decidir',
   task: 'cerrar algo con fecha',
   note: 'entender',
@@ -65,222 +67,6 @@ export const ANCHOR_CHOICES: readonly CommunicationAnchor[] = COMMUNICATION_ANCH
 /** La etiqueta que verá el atleta, para el pie de ayuda del selector. */
 export function anchorAthleteLabel(anchor: CommunicationAnchor): string | null {
   return ANCHOR_LABEL[anchor];
-}
-
-// ---------------------------------------------------------------------------
-// El borrador que se escribe en el compositor
-// ---------------------------------------------------------------------------
-
-/** Una fila de la lista ordenada: paso de protocolo o sección de nota. */
-export interface FilaBorrador {
-  /** Clave estable de React mientras la fila no existe en la base de datos. */
-  key: string;
-  label: string;
-  content: string;
-}
-
-/** Una opción de pregunta con su consecuencia. */
-export interface OpcionBorrador {
-  key: string;
-  content: string;
-  consequence: string;
-}
-
-/**
- * Lo que hay escrito en el compositor. Es UNO y no cinco a propósito: al cambiar
- * de chip el coach no puede perder el título que acaba de escribir, así que el
- * estado guarda los campos de los cinco tipos y `aInput` se queda con los que le
- * tocan al tipo elegido.
- */
-export interface Borrador {
-  kind: CommunicationKind;
-  title: string;
-  /** Contexto (pregunta) · porqué (tarea, foco) · línea de entrada (protocolo, nota). */
-  body: string;
-  anchor_kind: CommunicationAnchor;
-  /** Protocolo. */
-  steps: FilaBorrador[];
-  final_note: string;
-  /** Pregunta. */
-  options: OpcionBorrador[];
-  blocks: boolean;
-  /** Tarea (ISO YYYY-MM-DD). */
-  due_date: string;
-  /** Nota. */
-  sections: FilaBorrador[];
-  /** Además de publicarlo, dejarlo como plantilla reutilizable. */
-  save_to_library: boolean;
-}
-
-let contador = 0;
-/** Clave local de fila. No es un id: sólo vive mientras la fila se escribe. */
-export function nuevaClave(): string {
-  contador += 1;
-  return `f${contador}`;
-}
-
-export function filaVacia(): FilaBorrador {
-  return { key: nuevaClave(), label: '', content: '' };
-}
-
-export function opcionVacia(): OpcionBorrador {
-  return { key: nuevaClave(), content: '', consequence: '' };
-}
-
-/** El ancla con la que nace cada tipo: la superficie donde ese tipo tiene sentido. */
-const ANCLA_POR_DEFECTO: Record<CommunicationKind, CommunicationAnchor> = {
-  protocol: 'session',
-  question: 'plan',
-  task: 'general',
-  note: 'plan',
-  focus: 'checkin',
-};
-
-/** Un protocolo nace con dos pasos y una pregunta con dos opciones: uno solo no
- *  es ni un protocolo ni una pregunta, y arrancar en blanco obliga a descubrir
- *  el botón de añadir antes de poder escribir nada. */
-export function borradorVacio(kind: CommunicationKind = 'protocol'): Borrador {
-  return {
-    kind,
-    title: '',
-    body: '',
-    anchor_kind: ANCLA_POR_DEFECTO[kind],
-    steps: [filaVacia(), filaVacia()],
-    final_note: '',
-    options: [opcionVacia(), opcionVacia()],
-    blocks: false,
-    due_date: '',
-    sections: [filaVacia(), filaVacia()],
-    save_to_library: false,
-  };
-}
-
-/** Cambiar de tipo conserva lo escrito y sólo mueve el ancla si el coach no la
- *  había tocado — cambiar de chip no puede deshacer una elección suya. */
-export function conTipo(b: Borrador, kind: CommunicationKind): Borrador {
-  const anclaIntacta = b.anchor_kind === ANCLA_POR_DEFECTO[b.kind];
-  return { ...b, kind, anchor_kind: anclaIntacta ? ANCLA_POR_DEFECTO[kind] : b.anchor_kind };
-}
-
-/**
- * Retomar un comunicado que ya existe (una plantilla de la biblioteca o un
- * borrador a medias) para personalizarlo antes de publicarlo. Los items vuelven
- * a ser filas locales: al publicar se reescriben enteros.
- */
-export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
-  const base = borradorVacio(dto.kind);
-  const filas = dto.items.map((i) => ({
-    key: nuevaClave(),
-    label: i.label ?? '',
-    content: i.content,
-  }));
-  return {
-    ...base,
-    kind: dto.kind,
-    title: dto.title,
-    body: dto.body ?? '',
-    anchor_kind: dto.anchor_kind,
-    steps: dto.kind === 'protocol' && filas.length > 0 ? filas : base.steps,
-    sections: dto.kind === 'note' && filas.length > 0 ? filas : base.sections,
-    options:
-      dto.kind === 'question' && dto.items.length > 0
-        ? dto.items.map((i) => ({
-            key: nuevaClave(),
-            content: i.content,
-            consequence: i.consequence ?? '',
-          }))
-        : base.options,
-    final_note: dto.final_note ?? '',
-    blocks: dto.blocks,
-    due_date: dto.due_date ?? '',
-    save_to_library: false,
-  };
-}
-
-/** Vacío = ausente. Un campo opcional en blanco se manda como null, nunca como
- *  cadena vacía: el esquema exige contenido cuando el campo existe. */
-function oNulo(v: string): string | null {
-  const t = v.trim();
-  return t.length > 0 ? t : null;
-}
-
-/**
- * El borrador tal y como lo pide la API. `anchor_ref` y `expires_at` viajan
- * ausentes porque el compositor todavía no los pregunta (ver FOCUS.md).
- */
-export function aInput(b: Borrador, is_template = false): CreateCommunicationInput {
-  const comun = {
-    title: b.title.trim(),
-    anchor_kind: b.anchor_kind,
-    is_template,
-  };
-
-  if (b.kind === 'protocol') {
-    return {
-      ...comun,
-      kind: 'protocol',
-      body: oNulo(b.body),
-      final_note: oNulo(b.final_note),
-      items: b.steps.map((s) => ({ label: oNulo(s.label), content: s.content.trim() })),
-    } as CreateCommunicationInput;
-  }
-  if (b.kind === 'question') {
-    return {
-      ...comun,
-      kind: 'question',
-      body: b.body.trim(),
-      blocks: b.blocks,
-      items: b.options.map((o) => ({
-        content: o.content.trim(),
-        consequence: oNulo(o.consequence),
-      })),
-    } as CreateCommunicationInput;
-  }
-  if (b.kind === 'task') {
-    return {
-      ...comun,
-      kind: 'task',
-      body: oNulo(b.body),
-      due_date: b.due_date,
-    } as CreateCommunicationInput;
-  }
-  if (b.kind === 'note') {
-    return {
-      ...comun,
-      kind: 'note',
-      body: oNulo(b.body),
-      items: b.sections.map((s) => ({ label: s.label.trim(), content: s.content.trim() })),
-    } as CreateCommunicationInput;
-  }
-  return { ...comun, kind: 'focus', body: b.body.trim() } as CreateCommunicationInput;
-}
-
-/**
- * Los mismos zod del servidor, en el cliente y ANTES de enviar: el coach ve el
- * fallo en el campo en vez de recibir un 422 sin sitio donde caerse. La clave es
- * la ruta del esquema («title», «items.0.content»), que es como la nombran los
- * campos del formulario.
- */
-export function erroresDe(b: Borrador): Record<string, string> {
-  const parsed = createCommunicationSchema.safeParse(aInput(b));
-  if (parsed.success) return {};
-  const errores: Record<string, string> = {};
-  for (const issue of parsed.error.issues) {
-    const clave = issue.path.join('.');
-    if (!errores[clave]) errores[clave] = mensajeDe(issue.code, issue.message);
-  }
-  return errores;
-}
-
-/** Los mensajes de zod están en inglés y hablan de esquemas. Aquí se dicen como
- *  los diría un entrenador; los que ya vienen escritos en el dominio se respetan. */
-function mensajeDe(code: string, original: string): string {
-  if (/^[A-Z]/.test(original) && !original.startsWith('Invalid') && !original.startsWith('String')) {
-    return original;
-  }
-  if (code === 'too_small') return 'Falta rellenarlo.';
-  if (code === 'too_big') return 'Te has pasado de largo.';
-  return 'Revisa este campo.';
 }
 
 // ---------------------------------------------------------------------------
@@ -428,11 +214,16 @@ export function seguimiento(c: CoachAthleteCommunicationDTO, hoy = hoyISO()): Se
   }
 
   if (c.kind === 'protocol') {
-    const total = c.items.length;
+    // Sólo cuentan los pasos con casilla: un protocolo puede ser texto leído, y
+    // «0 de 5 pasos» sobre cinco líneas que nadie marca sería mentira.
+    const total = checkableItems(c.items).length;
+    if (state === 'published') return { tono: 'accent', titular: 'Sin abrir', nota: null };
+    if (total === 0) {
+      return { tono: 'muted', titular: 'Leído', nota: 'No lleva nada que marcar: es para leer.' };
+    }
     if (state === 'done') {
       return { tono: 'ok', titular: `Hecho, ${total} de ${total} pasos`, nota: null };
     }
-    if (state === 'published') return { tono: 'accent', titular: 'Sin abrir', nota: null };
     return { tono: 'muted', titular: `Visto, ${marked_item_ids.length} de ${total} pasos`, nota: null };
   }
 

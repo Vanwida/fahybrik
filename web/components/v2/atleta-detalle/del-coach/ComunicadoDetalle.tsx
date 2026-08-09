@@ -15,6 +15,7 @@ import { Pill } from '@/components/v2/Pill';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import {
   KIND_LABEL,
+  checkableItems,
   type CoachAthleteCommunicationDTO,
 } from '@fahybrid/shared/domain/coach-communications';
 import { ANCHOR_COACH_LABEL, opcionElegida, seguimiento, venceEn } from '@/lib/dashboard/v2/del-coach';
@@ -39,6 +40,9 @@ export function ComunicadoDetalle({
   const marcados = new Set(c.athlete_state.marked_item_ids);
   const elegida = opcionElegida(c);
   const archivado = c.status === 'archived';
+  // Un protocolo de sólo lectura no se «cierra»: leerlo era el acto, y pedir un
+  // sello de cierre que nunca va a llegar deja la ficha con un hueco eterno.
+  const seMarca = checkableItems(c.items).length > 0;
 
   const retirar = async () => {
     setRetirando(true);
@@ -115,7 +119,7 @@ export function ComunicadoDetalle({
                   iso={c.athlete_state.answered_at}
                   vacio="Sin responder."
                 />
-              ) : c.kind === 'protocol' || c.kind === 'task' ? (
+              ) : c.kind === 'task' || (c.kind === 'protocol' && seMarca) ? (
                 <Sello etiqueta="Lo cerró" iso={c.athlete_state.done_at} vacio="Sin cerrar." />
               ) : null}
               {c.kind === 'task' && c.due_date ? (
@@ -143,11 +147,20 @@ export function ComunicadoDetalle({
                 const hecho = marcados.has(item.id);
                 return (
                   <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
-                    <MIcon
-                      name={hecho ? 'check_circle' : 'radio_button_unchecked'}
-                      size={17}
-                      className={hecho ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-faint)]'}
-                    />
+                    {/* Un paso de lectura no lleva círculo (ni apagado): no está
+                        pendiente, no se marca. El hueco mantiene la columna
+                        alineada cuando el protocolo mezcla los dos. */}
+                    {item.checkable ? (
+                      <MIcon
+                        name={hecho ? 'check_circle' : 'radio_button_unchecked'}
+                        size={17}
+                        className={
+                          hecho ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-faint)]'
+                        }
+                      />
+                    ) : (
+                      <span aria-hidden className="w-[17px] shrink-0" />
+                    )}
                     {item.label ? (
                       <span className="v2-num w-12 shrink-0 text-right text-label font-bold text-[color:var(--v2-muted)]">
                         {item.label}

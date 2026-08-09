@@ -21,7 +21,7 @@ import '@/app/[locale]/(design)/design/twin.css';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DeviceFrame } from '@/components/design-twin/DeviceFrame';
 import type { CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
-import type { Borrador } from '@/lib/dashboard/v2/del-coach';
+import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import { PantallaDelTipo, TIPO_TWIN } from './previa-pantallas';
 
 /** El bisel del doble: lienzo lógico del iPhone 17 Pro (402×874 pt) + 14 px de
@@ -125,11 +125,21 @@ export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string
 
 /** La línea de debajo del móvil: qué está enseñando y qué NO. */
 export function PieDePrevia({ b }: { b: Borrador }) {
+  // Un protocolo ya no es siempre una lista de casillas: el pie tiene que decir
+  // lo que este de aquí le va a pedir, no lo que le pide el tipo.
+  const hayCasillas = b.steps.some((s) => s.checkable && s.content.trim().length > 0);
+
   const texto: Record<CommunicationKind, ReactNode> = {
-    protocol: (
+    protocol: hayCasillas ? (
       <>
         <b>Se marca paso a paso.</b> La acción de abajo no se le enciende hasta que no queda
-        ninguno sin marcar, y ahí es cuando lo ves cerrado.
+        ninguna casilla sin marcar, y ahí es cuando lo ves cerrado. Los pasos en solo lectura no
+        cuentan: los lee y ya está.
+      </>
+    ) : (
+      <>
+        <b>Este no se marca: se lee.</b> Ningún paso lleva casilla, así que no le pide nada más
+        que abrirlo. Sabrás si lo ha abierto, y con eso basta.
       </>
     ),
     question: (

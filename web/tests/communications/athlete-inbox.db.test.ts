@@ -11,9 +11,10 @@ import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   createCommunication,
   deleteCommunication,
+  getCommunication,
   listCommunicationsForAthlete,
-  publishCommunication,
 } from '@/lib/coach/communications';
+import { publishCommunication } from '@/lib/coach/communications-publish';
 import {
   answerCommunication,
   listAthleteCommunications,
@@ -429,6 +430,99 @@ describeWithDb('la bandeja del atleta (DB real)', () => {
     expect(protocolo.tracking.recipients).toBe(1);
     expect(protocolo.tracking.done).toBe(1);
     expect(protocolo.athlete_state.athlete_id).toBe(String(athleteId));
+  });
+
+  // NADA SE OBLIGA: el check es del PASO, no del tipo (migración 0162,
+  // docs/DECISIONS.md 2026-08-09). Lo que se prueba aquí es la derivación, que
+  // es lo único que un mock no ejercita: el `done_at` sale de un CASE en SQL
+  // sobre dos tablas, y el que cuente una línea de lectura de más deja al
+  // protocolo abierto para siempre.
+  it('un protocolo mixto se cierra con sus casillas: las líneas de lectura no cuentan', async () => {
+    const id = await publish({
+      kind: 'protocol',
+      title: 'Día de carrera',
+      body: 'Los tiempos cuentan hacia atrás desde tu salida.',
+      items: [
+        { label: '−3 h', content: 'Desayuna lo de siempre', checkable: false },
+        { label: "−40'", content: 'Movilidad de cadera y tobillo' },
+        { label: "−20'", content: 'Dos series de 500 m progresivos' },
+      ],
+    });
+
+    const inbox = await listAthleteCommunications({ athlete_id: athleteId, sql });
+    const pasos = inbox.find((c) => c.id === id)!.items;
+    expect(pasos.map((p) => p.checkable)).toEqual([false, true, true]);
+
+    // Una línea de lectura no es un paso a medias: no lleva casilla que tocar.
+    await expect(
+      setCommunicationItemMark({
+        athlete_id: athleteId,
+        communication_id: id,
+        item_id: pasos[0]!.id,
+        done: true,
+        sql,
+      }),
+    ).rejects.toMatchObject({ code: 'not_checkable', status: 409 });
+
+    const primera = await setCommunicationItemMark({
+      athlete_id: athleteId,
+      communication_id: id,
+      item_id: pasos[1]!.id,
+      done: true,
+      sql,
+    });
+    expect(primera.done_at).toBeNull();
+
+    const segunda = await setCommunicationItemMark({
+      athlete_id: athleteId,
+      communication_id: id,
+      item_id: pasos[2]!.id,
+      done: true,
+      sql,
+    });
+    // Dos de TRES pasos, pero dos de DOS casillas: está hecho.
+    expect(segunda.marked_item_ids).toHaveLength(2);
+    expect(segunda.done_at).not.toBeNull();
+    expect(segunda.state).toBe('done');
+
+    // Y el agregado que ve el coach cuenta lo mismo: dos, no tres.
+    const detalle = await getCommunication({ coach_id: coachId, id, sql });
+    expect(detalle.recipients[0]!.marked_items).toBe(2);
+    expect(detalle.tracking.done).toBe(1);
+  });
+
+  it('un protocolo de sólo lectura no exige un hecho, y el que declare no se le retira', async () => {
+    const id = await publish({
+      kind: 'protocol',
+      title: 'Cómo comer el día antes',
+      items: [
+        { label: 'Comida', content: 'Arroz y pollo, sin nada nuevo', checkable: false },
+        { label: 'Cena', content: 'Ligera y temprano', checkable: false },
+      ],
+    });
+
+    const visto = await markCommunicationSeen({
+      athlete_id: athleteId,
+      communication_id: id,
+      sql,
+    });
+    // Leerlo ERA el acto: nadie le pide cerrar nada.
+    expect(visto.state).toBe('seen');
+    expect(visto.done_at).toBeNull();
+
+    const inbox = await listAthleteCommunications({ athlete_id: athleteId, sql });
+    const leido = inbox.find((c) => c.id === id)!;
+    expect(leido.claims_attention).toBe(false);
+
+    // El «hecho» explícito se admite por el mismo camino que una tarea, y no
+    // marca nada: no hay casillas que marcar.
+    const hecho = await markCommunicationDone({
+      athlete_id: athleteId,
+      communication_id: id,
+      sql,
+    });
+    expect(hecho.done_at).not.toBeNull();
+    expect(hecho.marked_item_ids).toEqual([]);
   });
 
   it('un atleta que no es del coach no devuelve lista vacía: no existe', async () => {

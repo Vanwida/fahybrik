@@ -1,22 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
+import type {
+  CoachAthleteCommunicationDTO,
+  CommunicationItemDTO,
+} from '@fahybrid/shared/domain/coach-communications';
 import {
-  aInput,
   avisoPublicado,
-  borradorVacio,
   carriles,
   coincideComunicado,
-  conTipo,
   cuantosReclaman,
-  desdeComunicado,
-  erroresDe,
   estaVencida,
   paraQuien,
   porTipo,
   seguimiento,
   venceEn,
-  type Borrador,
 } from '@/lib/dashboard/v2/del-coach';
+import {
+  aInput,
+  borradorVacio,
+  conTipo,
+  desdeComunicado,
+  erroresDe,
+  indicesEnviados,
+  type Borrador,
+} from '@/lib/dashboard/v2/del-coach-borrador';
 
 // Lo que se fija aquí es la parte de la pestaña «Del coach» que NO se ve en una
 // captura: en qué carril cae cada comunicado, qué frase resume el estado del
@@ -28,6 +34,18 @@ import {
 // eso se rompe igual con o sin Postgres delante.
 
 const HOY = '2026-08-09';
+
+/** Un item del DTO. Nace CON casilla, que es como nacen las filas del coach. */
+function item(over: Partial<CommunicationItemDTO> & { id: string }): CommunicationItemDTO {
+  return {
+    position: Number(over.id),
+    label: null,
+    content: `Paso ${over.id}`,
+    consequence: null,
+    checkable: true,
+    ...over,
+  };
+}
 
 function dto(over: Partial<CoachAthleteCommunicationDTO> = {}): CoachAthleteCommunicationDTO {
   return {
@@ -98,8 +116,13 @@ describe('el seguimiento, dicho en una línea', () => {
     const c = dto({
       kind: 'question',
       items: [
-        { id: '10', position: 1, label: null, content: 'Jueves 12', consequence: 'Todo se adelanta.' },
-        { id: '11', position: 2, label: null, content: 'Sábado 14', consequence: 'El plan se queda como está.' },
+        item({ id: '10', position: 1, content: 'Jueves 12', consequence: 'Todo se adelanta.' }),
+        item({
+          id: '11',
+          position: 2,
+          content: 'Sábado 14',
+          consequence: 'El plan se queda como está.',
+        }),
       ],
       athlete_state: {
         ...dto().athlete_state,
@@ -118,16 +141,40 @@ describe('el seguimiento, dicho en una línea', () => {
   it('un protocolo a medias dice por dónde va, no sólo que lo abrió', () => {
     const c = dto({
       kind: 'protocol',
-      items: [1, 2, 3, 4].map((n) => ({
-        id: String(n),
-        position: n,
-        label: null,
-        content: `Paso ${n}`,
-        consequence: null,
-      })),
+      items: [1, 2, 3, 4].map((n) => item({ id: String(n) })),
       athlete_state: { ...dto().athlete_state, state: 'seen', seen_at: 'x', marked_item_ids: ['1', '2'] },
     });
     expect(seguimiento(c, HOY).titular).toBe('Visto, 2 de 4 pasos');
+  });
+
+  it('un protocolo mixto cuenta las casillas, no las líneas de lectura', () => {
+    const c = dto({
+      kind: 'protocol',
+      items: [
+        item({ id: '1' }),
+        item({ id: '2' }),
+        item({ id: '3', checkable: false }),
+        item({ id: '4', checkable: false }),
+      ],
+      athlete_state: { ...dto().athlete_state, state: 'seen', seen_at: 'x', marked_item_ids: ['1'] },
+    });
+    expect(seguimiento(c, HOY).titular).toBe('Visto, 1 de 2 pasos');
+  });
+
+  it('un protocolo de sólo lectura no promete un cierre que no existe', () => {
+    const base = dto({
+      kind: 'protocol',
+      items: [item({ id: '1', checkable: false }), item({ id: '2', checkable: false })],
+    });
+    expect(seguimiento(base, HOY).titular).toBe('Sin abrir');
+
+    const leido = dto({
+      ...base,
+      athlete_state: { ...base.athlete_state, state: 'seen', seen_at: 'x', claims_attention: false },
+    });
+    const s = seguimiento(leido, HOY);
+    expect(s.titular).toBe('Leído');
+    expect(s.nota).toBe('No lleva nada que marcar: es para leer.');
   });
 
   it('un foco no reclama nada: acompaña', () => {
@@ -177,8 +224,8 @@ describe('el borrador que se escribe en el compositor', () => {
     title: 'Calentamiento del día de carrera',
     body: 'Los tiempos cuentan hacia atrás desde tu salida.',
     steps: [
-      { key: 'a', label: "−40'", content: 'Movilidad de cadera.' },
-      { key: 'b', label: '', content: 'Trote progresivo.' },
+      { key: 'a', label: "−40'", content: 'Movilidad de cadera.', checkable: true },
+      { key: 'b', label: '', content: 'Trote progresivo.', checkable: true },
     ],
     final_note: '',
   });
@@ -190,6 +237,48 @@ describe('el borrador que se escribe en el compositor', () => {
     expect(input.final_note).toBeNull();
     expect(input.items[1]?.label).toBeNull();
     expect(input.items[0]?.label).toBe("−40'");
+  });
+
+  it('cada paso lleva su casilla en el payload, y quitarla viaja', () => {
+    const b = protocoloLleno();
+    b.steps[1]!.checkable = false;
+    const input = aInput(b);
+    if (input.kind !== 'protocol') throw new Error('tipo inesperado');
+    expect(input.items.map((i) => i.checkable)).toEqual([true, false]);
+  });
+
+  it('un protocolo de sólo texto es válido: nada se obliga a marcarse', () => {
+    const soloTexto: Borrador = {
+      ...borradorVacio('protocol'),
+      title: 'Día de carrera',
+      body: 'Desayuna 3 h antes y bebe 500 ml en la hora previa.',
+      // Las dos filas con las que nace el formulario, sin tocar.
+    };
+    expect(erroresDe(soloTexto)).toEqual({});
+    const input = aInput(soloTexto);
+    if (input.kind !== 'protocol') throw new Error('tipo inesperado');
+    // Una fila en blanco no viaja como paso vacío: no es un paso.
+    expect(input.items).toEqual([]);
+  });
+
+  it('un protocolo sin pasos y sin texto no dice nada, y lo dice en «los pasos»', () => {
+    const vacio: Borrador = { ...borradorVacio('protocol'), title: 'Día de carrera' };
+    expect(erroresDe(vacio).items).toBe('Escribe al menos un paso, o una línea de texto que leer.');
+  });
+
+  it('una fila en blanco por delante no le roba el error a la de al lado', () => {
+    const b: Borrador = {
+      ...borradorVacio('protocol'),
+      title: 'Día de carrera',
+      steps: [
+        { key: 'a', label: '', content: '', checkable: true },
+        // A medias: marca de tiempo sin texto. El error es de ESTA fila.
+        { key: 'b', label: "−40'", content: '', checkable: true },
+      ],
+    };
+    const errores = erroresDe(b);
+    expect(indicesEnviados(b.steps).get('b')).toBe(0);
+    expect(errores['items.0.content']).toBeTruthy();
   });
 
   it('lo valida el MISMO esquema que el servidor, antes de enviar', () => {
@@ -227,7 +316,7 @@ describe('el borrador que se escribe en el compositor', () => {
       is_template: true,
       title: 'Semana de descarga: el porqué',
       anchor_kind: 'week',
-      items: [{ id: '9', position: 1, label: 'Qué cambia', content: 'Baja el volumen.', consequence: null }],
+      items: [item({ id: '9', position: 1, label: 'Qué cambia', content: 'Baja el volumen.' })],
     });
     const b = desdeComunicado(plantilla);
     expect(b.kind).toBe('note');

@@ -71,6 +71,7 @@ export type ItemRow = {
   label: string | null;
   content: string;
   consequence: string | null;
+  checkable: boolean;
 };
 
 export function rowToItemDto(r: ItemRow): CommunicationItemDTO {
@@ -80,6 +81,7 @@ export function rowToItemDto(r: ItemRow): CommunicationItemDTO {
     label: r.label,
     content: r.content,
     consequence: r.consequence,
+    checkable: r.checkable,
   };
 }
 
@@ -97,7 +99,7 @@ export async function loadItemsByCommunication(
 
   const rows = await client<ItemRow[]>`
     select id::text as id, communication_id::text as communication_id,
-           position, label, content, consequence
+           position, label, content, consequence, checkable
     from coach_communication_items
     where communication_id = any(${communicationIds}::bigint[])
     order by communication_id, position

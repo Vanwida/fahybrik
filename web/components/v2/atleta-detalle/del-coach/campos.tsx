@@ -187,6 +187,51 @@ export function Interruptor({
 }
 
 // ---------------------------------------------------------------------------
+// Casilla o lectura
+// ---------------------------------------------------------------------------
+
+/**
+ * Si un paso lleva casilla o es una línea que el atleta sólo lee.
+ *
+ * Va DENTRO de la fila del paso, así que no puede ser un `Interruptor`: sus
+ * 40 px de raíl y sus dos líneas de texto competirían con el paso, que es el
+ * sujeto. Es un botón que dice el estado en el que ESTÁ, y tocarlo lo cambia.
+ */
+export function AlternadorCasilla({
+  checkable,
+  onChange,
+  indice,
+}: {
+  checkable: boolean;
+  onChange: (v: boolean) => void;
+  /** Número del paso en voz alta, para distinguir un alternador de otro. */
+  indice: number;
+}) {
+  const estado = checkable ? 'Con casilla' : 'Solo lectura';
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checkable)}
+      aria-label={`Paso ${indice}: ${estado}`}
+      title={
+        checkable
+          ? 'Lo marca al hacerlo. Toca para dejarlo en solo lectura.'
+          : 'Solo lo lee. Toca para ponerle casilla.'
+      }
+      className={cn(
+        'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-[var(--v2-r-s)] border px-2.5 text-label font-semibold transition-colors',
+        checkable
+          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+          : 'border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+      )}
+    >
+      <MIcon name={checkable ? 'check_box' : 'notes'} size={15} />
+      {estado}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Chips de una sola elección
 // ---------------------------------------------------------------------------
 

@@ -16,9 +16,9 @@ import {
   deleteCommunication,
   getCommunication,
   listCommunications,
-  publishCommunication,
   updateCommunication,
 } from '@/lib/coach/communications';
+import { publishCommunication } from '@/lib/coach/communications-publish';
 import {
   createCommunicationSchema,
   type CreateCommunicationInput,
@@ -129,6 +129,8 @@ describeWithDb('comunicados del coach (DB real)', () => {
     expect(created.status).toBe('draft');
     expect(created.published_at).toBeNull();
     expect(created.items.map((i) => i.position)).toEqual([1, 2]);
+    // Un paso nace con casilla: quitarla es un acto del coach, no el defecto.
+    expect(created.items.every((i) => i.checkable)).toBe(true);
     expect(created.items[0]!.label).toBe("−40'");
     expect(created.items[1]!.content).toBe('Dos series de 500 m progresivos');
     expect(created.final_note).toContain('me escribes');
@@ -186,13 +188,83 @@ describeWithDb('comunicados del coach (DB real)', () => {
     expect(withDate.success).toBe(true);
   });
 
-  it('un protocolo sin pasos tampoco: sin pasos es una nota mal escrita', () => {
-    const parsed = createCommunicationSchema.safeParse({
+  it('un protocolo vacío no dice nada; con texto y sin pasos, sí', () => {
+    // Nada se obliga (0162): lo único que no puede ser un protocolo es estar
+    // vacío. Ni pasos ni texto = no hay nada que leer.
+    const vacio = createCommunicationSchema.safeParse({
       kind: 'protocol',
       title: 'Calentamiento del test',
       items: [],
     });
-    expect(parsed.success).toBe(false);
+    expect(vacio.success).toBe(false);
+
+    const soloTexto = createCommunicationSchema.safeParse({
+      kind: 'protocol',
+      title: 'Día de carrera',
+      body: 'Desayuna 3 h antes y bebe 500 ml en la hora previa.',
+    });
+    expect(soloTexto.success).toBe(true);
+  });
+
+  it('un paso nace con casilla, y el coach se la puede quitar', () => {
+    const parsed = createCommunicationSchema.parse({
+      kind: 'protocol',
+      title: 'Día de carrera',
+      items: [
+        { label: "−3 h", content: 'Desayuna' },
+        { label: "−40'", content: 'Movilidad', checkable: false },
+      ],
+    });
+    if (parsed.kind !== 'protocol') throw new Error('tipo inesperado');
+    expect(parsed.items.map((i) => i.checkable)).toEqual([true, false]);
+  });
+
+  it('un protocolo de sólo lectura se guarda entero, con sus pasos sin casilla', async () => {
+    const created = await createCommunication({
+      coach_id: coachId,
+      input: protocolInput('Día de carrera, para leer', {
+        anchor_kind: 'race',
+        anchor_ref: null,
+        final_note: null,
+        items: [
+          { label: '−3 h', content: 'Desayuna lo de siempre', checkable: false },
+          { label: '−1 h', content: '500 ml de agua con sales', checkable: false },
+        ],
+      }),
+      sql,
+    });
+
+    expect(created.items.map((i) => i.checkable)).toEqual([false, false]);
+    // Y sale a la app: no exige una sola casilla para publicarse.
+    const published = await publishCommunication({
+      coach_id: coachId,
+      id: created.id,
+      athlete_ids: [athleteA],
+      sql,
+    });
+    expect(published.recipients).toBe(1);
+  });
+
+  it('un protocolo de sólo texto también se publica: no hay mínimo de pasos', async () => {
+    const created = await createCommunication({
+      coach_id: coachId,
+      input: input({
+        kind: 'protocol',
+        title: 'Cómo se lee tu semana',
+        body: 'Los tiempos cuentan hacia atrás desde tu salida.',
+        anchor_kind: 'week',
+      }),
+      sql,
+    });
+    expect(created.items).toHaveLength(0);
+
+    const published = await publishCommunication({
+      coach_id: coachId,
+      id: created.id,
+      athlete_ids: [athleteA],
+      sql,
+    });
+    expect(published.recipients).toBe(1);
   });
 
   it('publicar a dos atletas crea dos destinatarios y dos avisos', async () => {

@@ -160,6 +160,26 @@ IA-redacta por decisión de Alex) y la app iOS siguen **por construir**.
 + `screens/coach-bandeja|coach-pregunta|coach-protocolo|coach-nota` — con el
 caso real del plan rehecho a Singles Pro como escenario.
 
+**Nada se obliga (corrección de Alex, mismo día):** el check es del **PASO**, no
+del tipo. El cimiento dio por hecho que un protocolo ES una lista de casillas
+(exigía ≥1 paso y todos marcables) y eso deja fuera lo que un entrenador escribe
+de verdad el día antes de una carrera: cuándo calentar, cuánta agua, cómo comer.
+Es texto para LEER, y ponerle una casilla a «desayuna 3 h antes» no mide si
+comió, mide si tocó un círculo. En consecuencia: `coach_communication_items`
+gana `checkable` (migración **0162**, default `true`, sólo significa algo en un
+protocolo — una opción se elige y una sección se lee, ahí es inerte); un
+protocolo puede ser **todo casillas, todo lectura o mezcla**; lo que el servidor
+exige pasa de «≥1 paso» a **«título + (texto O ≥1 paso)»** — lo único que no
+puede ser un protocolo es estar vacío; el `done_at` derivado cuenta **sólo los
+pasos con casilla** (marcar la última cierra, desmarcar reabre) y un protocolo
+**sin ninguna deja de derivarse**: su hecho, si lo hay, es declarado por el
+mismo camino que el de una tarea y no se le retira. Marcar un paso de lectura es
+un 409 (`not_checkable`): no es un paso a medias, es un paso que no se marca. La
+derivación vive en un solo sitio, `stampDone` en `web/lib/athlete/communications.ts`.
+
+**No hacer:** no volver a atar «lo que un tipo pide» al tipo. Si mañana una nota
+necesita una casilla, la lleva el ítem, no la tabla padre.
+
 ---
 
 ## 2026-08-09 · El payload de un aviso se guarda como OBJETO, no como cadena

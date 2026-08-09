@@ -15,8 +15,11 @@ import { NavBar, Pantalla, Seccion } from '@/components/design-twin/kit-composic
 import { S } from '@/components/design-twin/kit-composicion/tokens';
 import { ChipTipo } from '@/components/design-twin/coach-com/piezas';
 import type { TipoComunicado } from '@/components/design-twin/coach-com/modelo';
-import type { CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
-import type { Borrador } from '@/lib/dashboard/v2/del-coach';
+import {
+  checkableItems,
+  type CommunicationKind,
+} from '@fahybrid/shared/domain/coach-communications';
+import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 
 /** El mismo vocabulario dicho en los dos idiomas del repo: el dominio va en
  *  inglés y el doble se escribió en castellano. Cinco entradas, un solo sitio. */
@@ -90,6 +93,10 @@ function Cabecera({
 
 function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
   const pasos = b.steps.filter((p) => p.content.trim().length > 0);
+  // Sólo lo que lleva casilla tiene cuenta, barra y acción de cierre. Sin nada
+  // que marcar el protocolo se lee y ya está, y fingir un «0 de 5» sobre cinco
+  // líneas de lectura sería enseñarle un deber que no existe.
+  const marcables = checkableItems(pasos);
   const t = titulo(b);
 
   return (
@@ -100,29 +107,33 @@ function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
           kind="protocol"
           coachName={coachName}
           accesorio={
-            <Mono size={13} weight={700} color="var(--twin-muted)">
-              0 de {pasos.length}
-            </Mono>
+            marcables.length > 0 ? (
+              <Mono size={13} weight={700} color="var(--twin-muted)">
+                0 de {marcables.length}
+              </Mono>
+            ) : undefined
           }
         />
       }
       accion={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
-          <span className="tw-btn-primary" style={{ width: '100%', opacity: 0.4 }}>
-            Protocolo hecho
-          </span>
-          <span
-            style={{
-              textAlign: 'center',
-              font: '500 11.5px/1.35 var(--twin-font-sans)',
-              color: TENUE,
-            }}
-          >
-            {pasos.length === 1
-              ? 'Te queda 1 paso por marcar.'
-              : `Te quedan ${pasos.length} pasos por marcar.`}
-          </span>
-        </div>
+        marcables.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
+            <span className="tw-btn-primary" style={{ width: '100%', opacity: 0.4 }}>
+              Protocolo hecho
+            </span>
+            <span
+              style={{
+                textAlign: 'center',
+                font: '500 11.5px/1.35 var(--twin-font-sans)',
+                color: TENUE,
+              }}
+            >
+              {marcables.length === 1
+                ? 'Te queda 1 paso por marcar.'
+                : `Te quedan ${marcables.length} pasos por marcar.`}
+            </span>
+          </div>
+        ) : undefined
       }
     >
       <div
@@ -142,7 +153,7 @@ function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
               {b.body.trim()}
             </span>
           ) : null}
-          <BarraProgreso total={pasos.length} />
+          <BarraProgreso total={marcables.length} />
         </div>
 
         {pasos.length > 0 ? (
@@ -174,9 +185,13 @@ function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
                   >
                     {paso.content.trim()}
                   </span>
-                  <span style={{ flex: '0 0 auto', display: 'inline-flex', color: TENUE }}>
-                    <IconCircle size={21} />
-                  </span>
+                  {/* Sin casilla no se dibuja un círculo apagado: sería un
+                      deber pendiente donde sólo hay una línea que leer. */}
+                  {paso.checkable ? (
+                    <span style={{ flex: '0 0 auto', display: 'inline-flex', color: TENUE }}>
+                      <IconCircle size={21} />
+                    </span>
+                  ) : null}
                 </div>
               </div>
             ))}

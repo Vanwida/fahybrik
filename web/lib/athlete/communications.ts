@@ -207,8 +207,13 @@ export async function markCommunicationSeen(args: {
 
 /**
  * Hecho. Solo lo que pide un acto que se cierra: una tarea, o un protocolo
- * entero. Decir «hecho» de un protocolo marca TODOS sus pasos — si no, la
- * pantalla del atleta y la del coach contarían cosas distintas del mismo hecho.
+ * entero. Decir «hecho» de un protocolo marca todos sus pasos CON CASILLA — si
+ * no, la pantalla del atleta y la del coach contarían cosas distintas del mismo
+ * hecho. Los pasos de lectura no se tocan: no tienen nada que marcar.
+ *
+ * Un protocolo sin ninguna casilla también se admite aquí, por el mismo camino
+ * que una tarea: su «hecho» es declarado y no derivado. La app del atleta hoy no
+ * se lo ofrece (leerlo es el acto), pero el endpoint no lo prohíbe.
  *
  * Una pregunta se cierra respondiendo, no diciendo «hecho»; una nota y un foco
  * no se cierran: leerlos era el acto.
@@ -237,6 +242,7 @@ export async function markCommunicationDone(args: {
         select ${recipient.recipient_id}::bigint, i.id
         from coach_communication_items i
         where i.communication_id = ${recipient.communication_id}::bigint
+          and i.checkable
         on conflict (recipient_id, item_id) do nothing
       `;
     }
@@ -274,10 +280,14 @@ export async function answerCommunication(args: {
  * Marcar (o desmarcar) UN paso de un protocolo. La fila EXISTE = ese paso está
  * hecho, así que desmarcar la borra.
  *
+ * Sólo se marca lo que lleva casilla: un paso de lectura no es un paso a medias,
+ * es un paso que no se marca, y admitirlo aquí inventaría un estado que el
+ * atleta no puede ver ni retirar.
+ *
  * El `done_at` del protocolo se DERIVA de aquí y no se declara aparte: está
- * hecho cuando lo están todos sus pasos, y deja de estarlo si el atleta se
- * desmarca uno. Un «hecho» declarado por un lado y unos pasos a medias por otro
- * serían dos verdades sobre el mismo hecho.
+ * hecho cuando lo están todos sus pasos con casilla, y deja de estarlo si el
+ * atleta se desmarca uno. Un «hecho» declarado por un lado y unos pasos a medias
+ * por otro serían dos verdades sobre el mismo hecho.
  */
 export async function setCommunicationItemMark(args: {
   athlete_id: number | bigint;
@@ -295,7 +305,14 @@ export async function setCommunicationItemMark(args: {
       409,
     );
   }
-  await requireItem(client, recipient.communication_id, args.item_id);
+  const paso = await requireItem(client, recipient.communication_id, args.item_id);
+  if (!paso.checkable) {
+    throw new CommunicationError(
+      'not_checkable',
+      'Ese paso es para leerlo: no lleva casilla',
+      409,
+    );
+  }
 
   await client.begin(async (tx) => {
     if (args.done) {
@@ -323,9 +340,18 @@ export async function setCommunicationItemMark(args: {
 }
 
 /**
- * El `done_at` derivado de los pasos marcados: se sella cuando no queda ninguno
- * sin marcar y se retira en cuanto vuelve a quedar uno. `force` es el «hecho»
- * explícito, que llega justo después de marcarlos todos.
+ * EL «HECHO» DE UN PROTOCOLO, Y DÓNDE SE DECIDE: aquí, en un solo sitio.
+ *
+ * Se deriva de los pasos CON CASILLA (`checkable`, migración 0162): se sella
+ * cuando no queda ninguno sin marcar y se retira en cuanto vuelve a quedar uno.
+ * Los pasos de lectura no cuentan — nunca se marcan, así que contarlos dejaría
+ * el protocolo abierto para siempre.
+ *
+ * Un protocolo SIN ninguna casilla deja de derivarse: no hay nada de lo que
+ * derivar. Su `done_at` se queda como esté, y el único que puede ponerlo es el
+ * «hecho» explícito (`force`), igual que en una tarea. Por eso el caso sin
+ * casillas se resuelve ANTES que la derivación: si cayera en ella, cada acto
+ * posterior le borraría el hecho que declaró el atleta.
  */
 async function stampDone(
   tx: TransactionClient,
@@ -338,10 +364,12 @@ async function stampDone(
         when ${force}::boolean then coalesce(r.done_at, now())
         when (
           select count(*) from coach_communication_items i
-          where i.communication_id = r.communication_id
-        ) > 0 and not exists (
+          where i.communication_id = r.communication_id and i.checkable
+        ) = 0 then r.done_at
+        when not exists (
           select 1 from coach_communication_items i
           where i.communication_id = r.communication_id
+            and i.checkable
             and not exists (
               select 1 from coach_communication_item_marks m
               where m.recipient_id = r.id and m.item_id = i.id
@@ -360,13 +388,15 @@ async function requireItem(
   client: DbClient,
   communication_id: string,
   item_id: string | number,
-): Promise<void> {
-  const rows = await client<{ id: string }[]>`
-    select id::text as id from coach_communication_items
+): Promise<{ id: string; checkable: boolean }> {
+  const rows = await client<{ id: string; checkable: boolean }[]>`
+    select id::text as id, checkable from coach_communication_items
     where id = ${String(item_id)}::bigint and communication_id = ${communication_id}::bigint
     limit 1
   `;
-  if (!rows[0]) {
+  const row = rows[0];
+  if (!row) {
     throw new CommunicationError('unknown_item', 'Esa opción no es de este comunicado', 400);
   }
+  return row;
 }

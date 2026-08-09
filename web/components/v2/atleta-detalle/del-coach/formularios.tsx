@@ -23,12 +23,14 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import {
   filaVacia,
+  indicesEnviados,
   opcionVacia,
   type Borrador,
   type FilaBorrador,
   type OpcionBorrador,
-} from '@/lib/dashboard/v2/del-coach';
+} from '@/lib/dashboard/v2/del-coach-borrador';
 import {
+  AlternadorCasilla,
   AreaTexto,
   BotonAnadir,
   Campo,
@@ -82,6 +84,11 @@ export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
   const cambiarPaso = (i: number, patch: Partial<FilaBorrador>) =>
     set({ steps: b.steps.map((s, j) => (i === j ? { ...s, ...patch } : s)) });
 
+  // Las filas en blanco no viajan, así que el error de zod llega indexado sobre
+  // lo enviado: sin este mapa una fila vacía por delante movería el error rojo a
+  // la fila de al lado.
+  const enviados = indicesEnviados(b.steps);
+
   return (
     <>
       <Campo etiqueta="Título" htmlFor={`${idp}-titulo`} error={errores.title}>
@@ -99,7 +106,7 @@ export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
       <Campo
         etiqueta="Una línea de entrada (opcional)"
         htmlFor={`${idp}-entrada`}
-        ayuda="Se lee bajo el título, antes de los pasos. Sirve para decirle cómo se leen."
+        ayuda="Se lee bajo el título, antes de los pasos. Si no pones ningún paso, es lo único que lee."
         error={errores.body}
       >
         <Entrada
@@ -114,41 +121,49 @@ export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
 
       <Campo
         etiqueta="Los pasos"
-        ayuda="Se marcan uno a uno en su móvil. La marca de tiempo es opcional: si la pones, se lee como un reloj."
+        ayuda="Cada paso decide si lleva casilla. Con casilla lo marca al hacerlo; en solo lectura es una línea que lee, como el agua o la comida. La marca de tiempo es opcional: si la pones, se lee como un reloj."
         error={errores.items}
       >
         <FilasOrdenables
           filas={b.steps}
-          minimo={1}
+          minimo={0}
           nombreFila="paso"
           onMover={(d, h) => set({ steps: movida(b.steps, d, h) })}
           onQuitar={(i) => set({ steps: sinLa(b.steps, i) })}
-          render={(paso, i) => (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
-              <Entrada
-                value={paso.label}
-                maxLength={MAX_ITEM_LABEL_CHARS}
-                error={!!errorItem(errores, i, 'label')}
-                ariaLabel={`Marca de tiempo del paso ${i + 1}`}
-                onChange={(v) => cambiarPaso(i, { label: v })}
-                placeholder={ejemplo(i, "−40'")}
-                className="v2-num sm:w-[92px] sm:shrink-0 sm:text-right"
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
+          render={(paso, i) => {
+            // La fila que no viaja no puede tener error: no se ha enviado.
+            const enviado = enviados.get(paso.key) ?? -1;
+            const errorContenido = errorItem(errores, enviado, 'content');
+            return (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
                 <Entrada
-                  value={paso.content}
-                  maxLength={MAX_ITEM_CONTENT_CHARS}
-                  error={!!errorItem(errores, i, 'content')}
-                  ariaLabel={`Texto del paso ${i + 1}`}
-                  onChange={(v) => cambiarPaso(i, { content: v })}
-                  placeholder={ejemplo(i, "Movilidad de cadera y tobillo, 5'.")}
+                  value={paso.label}
+                  maxLength={MAX_ITEM_LABEL_CHARS}
+                  error={!!errorItem(errores, enviado, 'label')}
+                  ariaLabel={`Marca de tiempo del paso ${i + 1}`}
+                  onChange={(v) => cambiarPaso(i, { label: v })}
+                  placeholder={ejemplo(i, "−40'")}
+                  className="v2-num sm:w-[92px] sm:shrink-0 sm:text-right"
                 />
-                {errorItem(errores, i, 'content') ? (
-                  <ErrorCampo mensaje={errorItem(errores, i, 'content')!} />
-                ) : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Entrada
+                    value={paso.content}
+                    maxLength={MAX_ITEM_CONTENT_CHARS}
+                    error={!!errorContenido}
+                    ariaLabel={`Texto del paso ${i + 1}`}
+                    onChange={(v) => cambiarPaso(i, { content: v })}
+                    placeholder={ejemplo(i, "Movilidad de cadera y tobillo, 5'.")}
+                  />
+                  {errorContenido ? <ErrorCampo mensaje={errorContenido} /> : null}
+                </div>
+                <AlternadorCasilla
+                  checkable={paso.checkable}
+                  indice={i + 1}
+                  onChange={(v) => cambiarPaso(i, { checkable: v })}
+                />
               </div>
-            </div>
-          )}
+            );
+          }}
         />
         <BotonAnadir
           onClick={() => set({ steps: [...b.steps, filaVacia()] })}

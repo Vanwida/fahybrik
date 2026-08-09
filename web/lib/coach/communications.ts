@@ -85,6 +85,10 @@ function rowToDto(row: TrackedRow, items: CoachCommunicationDTO['items']): Coach
  * Las filas de la tabla hija que le tocan a cada tipo. Es UN sitio y no cinco:
  * los pasos de un protocolo, las opciones de una pregunta y las secciones de una
  * nota son la misma lista ordenada, y lo único que cambia es qué columnas usa.
+ *
+ * `checkable` sólo lo elige el coach en un PROTOCOLO. Fuera de ahí se escribe
+ * `true` y es inerte: una opción se elige y una sección se lee, y ninguna de las
+ * dos se marca (migración 0162).
  */
 function itemRowsFor(input: CreateCommunicationInput) {
   if (input.kind === 'task' || input.kind === 'focus') return [];
@@ -94,21 +98,25 @@ function itemRowsFor(input: CreateCommunicationInput) {
       label: null as string | null,
       content: option.content,
       consequence: option.consequence ?? null,
+      checkable: true,
     }));
   }
-  return input.items.map((item, index) => ({
+  if (input.kind === 'protocol') {
+    return input.items.map((paso, index) => ({
+      position: index + 1,
+      label: paso.label ?? null,
+      content: paso.content,
+      consequence: null as string | null,
+      checkable: paso.checkable,
+    }));
+  }
+  return input.items.map((seccion, index) => ({
     position: index + 1,
-    label: item.label ?? null,
-    content: item.content,
+    label: seccion.label,
+    content: seccion.content,
     consequence: null as string | null,
+    checkable: true,
   }));
-}
-
-/** Cuántos items exige el tipo para que el comunicado signifique algo. */
-function requiredItemCount(kind: CommunicationRow['kind']): { min: number; max: number } | null {
-  if (kind === 'protocol' || kind === 'note') return { min: 1, max: Number.MAX_SAFE_INTEGER };
-  if (kind === 'question') return { min: QUESTION_MIN_OPTIONS, max: QUESTION_MAX_OPTIONS };
-  return null;
 }
 
 // -----------------------------------------------------------------------------
@@ -307,6 +315,7 @@ async function insertItems(
       'label',
       'content',
       'consequence',
+      'checkable',
     )}
   `;
 }
@@ -435,133 +444,4 @@ export async function deleteCommunication(args: {
     `;
     return { id: row.id, outcome: 'archived' as const };
   });
-}
-
-// -----------------------------------------------------------------------------
-// Publicar
-// -----------------------------------------------------------------------------
-
-export type PublishResult = {
-  id: string;
-  published_at: string;
-  recipients: number;
-  new_recipients: number;
-};
-
-export async function publishCommunication(args: {
-  coach_id: number | bigint;
-  id: string | number;
-  athlete_ids: number[];
-  sql?: Sql;
-}): Promise<PublishResult> {
-  const client = args.sql ?? defaultSql;
-
-  const result = await client.begin(async (tx) => {
-    const rows = await tx<
-      { id: string; kind: CommunicationRow['kind']; title: string; body: string | null; status: string; is_template: boolean; published_at: Date | null }[]
-    >`
-      select id::text as id, kind, title, body, status, is_template, published_at
-      from coach_communications
-      where id = ${String(args.id)}::bigint and coach_id = ${args.coach_id as number}
-      for update
-    `;
-    const row = rows[0];
-    if (!row) throw notFound();
-    if (row.is_template) {
-      throw new CommunicationError(
-        'template_not_publishable',
-        'Una plantilla es un molde: duplícala para publicarla',
-        409,
-      );
-    }
-    if (row.status === 'archived') {
-      throw new CommunicationError('archived', 'Un comunicado archivado no se publica', 409);
-    }
-
-    // La forma se comprueba AQUÍ y no solo al crear: un borrador pudo quedarse a
-    // medias, y publicar una pregunta con una sola opción es publicar algo que
-    // el atleta no puede contestar.
-    const required = requiredItemCount(row.kind);
-    if (required) {
-      const counted = await tx<{ n: number }[]>`
-        select count(*)::int as n from coach_communication_items
-        where communication_id = ${row.id}::bigint
-      `;
-      const n = counted[0]?.n ?? 0;
-      if (n < required.min || n > required.max) {
-        throw new CommunicationError(
-          'incomplete',
-          'El comunicado no está completo para publicarse',
-          422,
-        );
-      }
-    }
-
-    // Solo a SU roster. Un id ajeno no es un 403 parcial: la publicación entera
-    // se rechaza, porque publicar "a casi todos" sin decirlo es peor que fallar.
-    const roster = await tx<{ id: string }[]>`
-      select id::text as id from athletes
-      where coach_id = ${args.coach_id as number} and id = any(${args.athlete_ids}::bigint[])
-    `;
-    if (roster.length !== args.athlete_ids.length) {
-      throw new CommunicationError(
-        'unknown_athlete',
-        'Algún atleta no pertenece a tu roster',
-        400,
-      );
-    }
-
-    const publishedAt =
-      row.published_at ??
-      (
-        await tx<{ published_at: Date }[]>`
-          update coach_communications
-          set status = 'published', published_at = now(), updated_at = now()
-          where id = ${row.id}::bigint
-          returning published_at
-        `
-      )[0]!.published_at;
-
-    // Re-publicar a más atletas es añadir destinatarios, nunca reiniciar a los
-    // que ya lo tenían: `do nothing` protege el estado que ya habían dejado.
-    const inserted = await tx<{ id: string }[]>`
-      insert into coach_communication_recipients (communication_id, athlete_id)
-      select ${row.id}::bigint, unnest(${args.athlete_ids}::bigint[])
-      on conflict (communication_id, athlete_id) do nothing
-      returning id::text as id
-    `;
-    const total = await tx<{ n: number }[]>`
-      select count(*)::int as n from coach_communication_recipients
-      where communication_id = ${row.id}::bigint
-    `;
-
-    return {
-      id: row.id,
-      kind: row.kind,
-      title: row.title,
-      body: row.body,
-      published_at: publishedAt.toISOString(),
-      recipients: total[0]?.n ?? 0,
-      new_recipients: inserted.length,
-    };
-  });
-
-  // El aviso va DESPUÉS de que la transacción cierre: un push lento no puede
-  // sostener abierta la fila del comunicado, y si el envío falla la publicación
-  // sigue siendo válida (la bandeja es el canal durable, el push la cortesía).
-  await notifyCommunicationPublished({
-    sql: client,
-    communication_id: result.id,
-    kind: result.kind,
-    title: result.title,
-    body: result.body,
-    athlete_ids: args.athlete_ids,
-  });
-
-  return {
-    id: result.id,
-    published_at: result.published_at,
-    recipients: result.recipients,
-    new_recipients: result.new_recipients,
-  };
 }

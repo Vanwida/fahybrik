@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 /**
  * Cinco, y son cinco porque cada uno pide una cosa distinta del atleta:
- * marcar pasos · decidir · cerrar una acción con fecha · entender · recordar.
+ * seguir unos pasos · decidir · cerrar una acción con fecha · entender · recordar.
  * Si algo no encaja en los cinco, el modelo está mal y se arregla aquí.
  */
 export const COMMUNICATION_KINDS = ['protocol', 'question', 'task', 'note', 'focus'] as const;
@@ -130,10 +130,18 @@ const commonFields = {
   expires_at: isoDateTime.nullish(),
 };
 
-/** Un paso de protocolo o una sección de nota: etiqueta opcional + contenido. */
-const contentItem = z.object({
+/**
+ * Un paso de protocolo: marca temporal opcional, contenido, y si lleva casilla.
+ *
+ * `checkable` es la corrección de Alex del 9-ago: NADA SE OBLIGA. Lo marcable es
+ * del PASO y no del tipo, porque lo que un entrenador escribe el día antes de
+ * una carrera (cuándo calentar, cuánta agua, cómo comer) es texto para leer, y
+ * ponerle una casilla no mide si comió: mide si tocó un círculo.
+ */
+const protocolStep = z.object({
   label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS).nullish(),
   content: z.string().trim().min(1).max(MAX_ITEM_CONTENT_CHARS),
+  checkable: z.boolean().default(true),
 });
 
 /** Una opción de pregunta: el texto y qué pasa si la eliges. */
@@ -148,14 +156,15 @@ const noteSection = z.object({
   content: z.string().trim().min(1).max(MAX_ITEM_CONTENT_CHARS),
 });
 
-export const createCommunicationSchema = z.discriminatedUnion('kind', [
-  // Un protocolo son sus pasos: sin pasos es una nota mal escrita.
+const communicationShape = z.discriminatedUnion('kind', [
+  // Un protocolo es lo que el coach quiere que pase antes de algo: unos pasos
+  // que se marcan, un texto que se lee, o las dos cosas. Nada se obliga.
   z.object({
     ...commonFields,
     kind: z.literal('protocol'),
     body: z.string().trim().max(MAX_BODY_CHARS).nullish(),
     final_note: z.string().trim().min(1).max(MAX_FINAL_NOTE_CHARS).nullish(),
-    items: z.array(contentItem).min(1).max(MAX_ITEMS),
+    items: z.array(protocolStep).max(MAX_ITEMS).default([]),
   }),
   // Una pregunta son sus opciones, y el contexto de por qué se pregunta.
   z.object({
@@ -186,6 +195,26 @@ export const createCommunicationSchema = z.discriminatedUnion('kind', [
     body: trimmedBody,
   }),
 ]);
+
+/**
+ * Lo único que un protocolo NO puede ser es estar vacío.
+ *
+ * Desde que el check es del paso, «tiene pasos» dejó de ser la prueba de que un
+ * protocolo dice algo: uno de día de carrera puede ser tres líneas de lectura, y
+ * otro puede ser sólo el texto de entrada. Lo que se exige es que haya ALGO que
+ * leer — pasos o cuerpo. Los otros cuatro tipos ya cierran su forma en su propio
+ * objeto (una pregunta con sus opciones, una tarea con su fecha).
+ */
+export const createCommunicationSchema = communicationShape.superRefine((value, ctx) => {
+  if (value.kind !== 'protocol') return;
+  if (value.items.length > 0) return;
+  if (value.body != null && value.body.trim().length > 0) return;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ['items'],
+    message: 'Escribe al menos un paso, o una línea de texto que leer.',
+  });
+});
 
 export type CreateCommunicationInput = z.infer<typeof createCommunicationSchema>;
 
@@ -229,6 +258,11 @@ export interface CommunicationItemDTO {
   content: string;
   /** Qué pasa si eliges esta opción. Solo en preguntas. */
   consequence: string | null;
+  /**
+   * ¿Lleva casilla? Solo significa algo en un paso de PROTOCOLO: una opción se
+   * elige y una sección se lee, así que ahí llega `true` y nadie lo mira.
+   */
+  checkable: boolean;
 }
 
 /** Lo que ve el ATLETA: el comunicado más SU estado. */
@@ -343,12 +377,21 @@ export function communicationState(marks: {
 }
 
 /**
+ * Los pasos que de verdad se marcan. Un protocolo puede no tener ninguno (el
+ * check es del paso, no del tipo), y entonces se lee y ya está: ni la barra de
+ * avance ni el «hecho» derivado tienen nada que contar.
+ */
+export function checkableItems<T extends { checkable: boolean }>(items: T[]): T[] {
+  return items.filter((i) => i.checkable);
+}
+
+/**
  * Lo que aún te reclama: sin ver, sin responder o sin hacer.
  *
  * Un protocolo o una nota ya vistos NO reclaman: leerlos ERA el acto pendiente
- * (el protocolo además se cierra solo al marcar su último paso). El foco no se
- * cierra nunca, y por eso tampoco reclama: si lo hiciera, la bandeja no podría
- * estar en calma jamás.
+ * (un protocolo con casillas además se cierra solo al marcar la última, y uno
+ * sin ninguna se cierra con haberlo leído). El foco no se cierra nunca, y por
+ * eso tampoco reclama: si lo hiciera, la bandeja no podría estar en calma jamás.
  */
 export function claimsAttention(kind: CommunicationKind, state: CommunicationState): boolean {
   if (state === 'published') return true;

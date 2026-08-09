@@ -45,10 +45,10 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import {
   coincideComunicado,
-  desdeComunicado,
   porTipo,
   KIND_COACH_ASKS,
 } from '@/lib/dashboard/v2/del-coach';
+import { desdeComunicado } from '@/lib/dashboard/v2/del-coach-borrador';
 
 /** El nombre con el que el atleta ve firmado un comunicado es el del club, y la
  *  previa del compositor lo enseña. Si no llega, la previa lo dice en genérico en

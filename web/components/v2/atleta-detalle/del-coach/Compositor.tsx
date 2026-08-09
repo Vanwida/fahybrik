@@ -32,16 +32,19 @@ import {
   ANCHOR_COACH_LABEL,
   KIND_COACH_ASKS,
   KIND_COACH_LABEL,
-  aInput,
   anchorAthleteLabel,
   avisoPublicado,
+  paraQuien,
+} from '@/lib/dashboard/v2/del-coach';
+import {
+  aInput,
   borradorVacio,
   conTipo,
   desdeComunicado,
   erroresDe,
-  paraQuien,
+  notaAlPublicar,
   type Borrador,
-} from '@/lib/dashboard/v2/del-coach';
+} from '@/lib/dashboard/v2/del-coach-borrador';
 import { actualizar, crear, publicar } from './api';
 import { PanelBiblioteca, useBiblioteca } from './biblioteca';
 import { Campo, ChipsUnicos, Interruptor } from './campos';
@@ -82,16 +85,8 @@ export interface CambioEnBiblioteca {
   publicadoId: string | null;
 }
 
-/** Qué pasa al publicar, dicho por tipo. Es la frase que evita el «¿y ahora qué?». */
-const NOTA_AL_PUBLICAR: Record<CommunicationKind, string> = {
-  protocol: 'Le llega el aviso y podrás ver por qué paso va, no sólo si lo ha abierto.',
-  question: 'Le sale la primera de su bandeja. Verás su respuesta escrita aquí, sin abrir nada.',
-  task: 'No le abre pantalla: la marca con un toque desde su bandeja. Si vence, sube en ámbar.',
-  note: 'Una nota no pide acto, pide que la entienda. Sabrás si la ha abierto, y con eso basta.',
-  focus: 'El foco no caduca y no le reclama nada. Se queda fijo hasta que tú lo retires.',
-};
-
-/** Lo mismo para un molde: lo que NO hace es justo lo que hay que decir. */
+/** Lo que le va a pasar al publicar lo dice el BORRADOR (`notaAlPublicar`): la
+ *  frase depende de lo escrito, no sólo del tipo. */
 const NOTA_AL_GUARDAR =
   'Una plantilla no le llega a nadie. Queda escrita para que la publiques cuando quieras, cambiando sólo lo que cambie.';
 
@@ -283,7 +278,7 @@ export function Compositor({
   const nota = esPlantilla
     ? NOTA_AL_GUARDAR
     : nombres.length > 0
-      ? NOTA_AL_PUBLICAR[b.kind]
+      ? notaAlPublicar(b)
       : NOTA_SIN_DESTINATARIOS;
 
   return (
