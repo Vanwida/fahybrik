@@ -23,6 +23,7 @@ import {
   stripTargetTokens,
 } from './dose';
 import { doseFirstLabel, extractLabel, FAILURE_MARKER_RE, modalityFrom } from './label';
+import { hasBodyweightMarker, parseKgRange, stripKnownTargetRanges } from './target';
 import { finalizeDetected, type Parsed, type ParsedLine } from './result';
 
 /** "N rounds/rondas/series [c/rest] [:]" — the shared circuit header. */
@@ -167,7 +168,13 @@ function parseRepsFirstMovement(
 // "Deadlift 5r 10/10/8/6/4"   "5 rounds c/2': 3 Power Clean 70-80%"
 
 export function parseStrength(seg: string): Parsed | null {
-  const stripped = stripTargetTokens(stripLoadPct(seg));
+  // stripKnownTargetRanges removes pace/pulse/watts/calorie-goal/kg-BAND
+  // tokens ("@150-170 kg", "130-150 ppm"…) before anything below ever tries
+  // a rep-sequence read — without it, `parseRepSeq` grabs a range's raw
+  // digits as a fabricated two-set rep sequence (the "40 REPS" class of bug
+  // ./target.ts's module comment documents; "@150-170 kg" alone used to
+  // destroy a clean "4x6" into 2 sets of [150,170] reps).
+  const stripped = stripTargetTokens(stripLoadPct(stripKnownTargetRanges(seg)));
   // "Sentadilla 4x12-15" — sets × a rep BAND, read before anything else can
   // misparse "12-15" as a 2-element sequence (12 reps, then 15).
   const setsByRange = parseSetsByRepRange(seg);
@@ -184,12 +191,21 @@ export function parseStrength(seg: string): Parsed | null {
   const reps = setsByRange || repRange ? null : parseRepSeq(stripped);
   const nxm = reps || setsByRange ? null : parseSetsByReps(seg);
   const loadList = parseLoadPctList(seg);
+  // A kg BAND ("@150-170 kg") wins over the single `kg` read below, which
+  // would otherwise keep only the hard extreme (parseKg's regex naturally
+  // lands on the number immediately before "kg" — the upper bound of a
+  // range written "low-high kg").
+  const kgRange = parseKgRange(seg);
   const kg = parseKg(seg);
   const rest = parseRest(seg);
   // Proximity-to-failure ("RIR 2", "RPE 8") is the intensity when the line
   // carries no %RM and no kg — which is most of a real strength block. It was
   // stripped before the rep read (above) and then never typed at all.
   const effort = parseEffortTarget(seg)?.target;
+  // "peso corporal" / "bodyweight" — a LOAD marker with no number, the
+  // lowest-priority intensity fallback (an explicit %RM/kg/RIR always wins
+  // when the line ALSO carries one; see the target-resolution chain below).
+  const bodyweight = hasBodyweightMarker(seg);
 
   const repsMax = setsByRange?.max ?? repRange?.max;
   let perSetReps =
@@ -292,7 +308,9 @@ export function parseStrength(seg: string): Parsed | null {
       s.measure = { kind: 'reps_to_failure' };
     }
     const target =
-      (usedRepsFirst ? repsFirstTarget : strengthTargetForSet(loadList, kg, i, nSets)) ?? effort;
+      (usedRepsFirst ? repsFirstTarget : strengthTargetForSet(kgRange, loadList, kg, i, nSets)) ??
+      effort ??
+      (bodyweight ? ({ kind: 'bodyweight' } satisfies Target) : undefined);
     if (target) s.target = target;
     if (rest !== undefined) s.rest_s = rest;
     sets.push(s);
@@ -313,14 +331,17 @@ export function parseStrength(seg: string): Parsed | null {
   };
 }
 
-/** Intensity for set `i`: a per-set %RM list (len==sets), a 2-value %RM RANGE,
- *  a single %RM, or a kg load. */
+/** Intensity for set `i`: a kg BAND (wins outright — see parseStrength), a
+ *  per-set %RM list (len==sets), a 2-value %RM RANGE, a single %RM, or a
+ *  single kg load. */
 function strengthTargetForSet(
+  kgRange: { min: number; max: number } | null,
   loadList: number[] | null,
   kg: number | undefined,
   i: number,
   nSets: number,
 ): Target | undefined {
+  if (kgRange) return { kind: 'kg', min: kgRange.min, max: kgRange.max };
   if (loadList) {
     if (loadList.length === nSets && nSets >= 2) return { kind: 'percent_rm', value: loadList[i]! };
     if (loadList.length >= 3) {

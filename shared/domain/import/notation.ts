@@ -50,6 +50,8 @@ import {
   TARGET_ONLY_RE,
 } from './label';
 import { parseBout } from './bout';
+import { parseBareTimedOrCalorieSets } from './measure';
+import { parseTimeCapTarget, PERCENT_MAX_HR_RE } from './target';
 import {
   parseCoreWorkRest,
   parseSetsByLoadedMeasure,
@@ -213,7 +215,16 @@ function isDenseWod(seg: string): boolean {
   const commaStations = seg.split(/,(?!\d)/).filter((p) => /\d/.test(p) && /[a-záéíóúñ]/i.test(p));
   if (commaStations.length >= 2) return true;
   // A suffixed distance ladder ("1200m / 800m / 400m …") without Nx groups.
-  const distTokens = seg.match(/\d+\s*k?m\b(?!\s*\/?\s*h)/gi) ?? [];
+  // `(?<![/\d])` excludes a distance unit that is itself the DENOMINATOR of a
+  // pace expression ("1:55/500m") — that "500m" is not a second station, it
+  // is the same clause as the "2000 m" earlier in the line, and counting it
+  // used to send every erg-pace line with a real dose ("Remo 2000 m a
+  // 1:55/500m") to review as a fake multi-station WOD. The `\d` half is
+  // load-bearing on its own, not decorative: blocking only "/" still lets the
+  // engine retry ONE position later — "500m" preceded by "/" is blocked, but
+  // its OWN second digit ("00m", preceded by the digit "5") is not, and that
+  // alone used to still count as a second "distance token".
+  const distTokens = seg.match(/(?<![/\d])\d+\s*k?m\b(?!\s*\/?\s*h)/gi) ?? [];
   if (distTokens.length >= 3) return true;
   if (distTokens.length >= 2 && seg.includes('/')) return true;
   // A HYROX station chained (+ / comma) with anything else → simulation piece.
@@ -222,6 +233,20 @@ function isDenseWod(seg: string): boolean {
 }
 
 // ── Line dispatch ────────────────────────────────────────────────────────────
+
+// Every comma-tail extraction below (`todo`/`restTail`/`capTail`) SLICES the
+// line and re-parses the part before the comma, then re-attaches the tail's
+// meaning onto whatever came back. That re-attachment only makes sense when
+// the sliced part actually typed: if it didn't (still `review`), committing
+// to the SLICED text anyway would silently drop the tail clause from the
+// review line's verbatim note — the honesty contract says a review line
+// preserves the FULL text, not "everything before the last comma". This
+// guard is the shared "only commit if it actually worked" check; a caller
+// that fails it falls through and lets the ORIGINAL, untruncated `line`
+// reach the next check (ladder/dense-WOD/chain/segment) instead.
+function allDetected(parsed: ParsedLine[]): boolean {
+  return parsed.length > 0 && parsed.every((l) => l.confidence === 'detected');
+}
 
 function parseLine(line: string): ParsedLine[] {
   // "10' row + 10' ski …, todo Z2" — a trailing ALL-bouts target clause. It is
@@ -232,12 +257,12 @@ function parseLine(line: string): ParsedLine[] {
     const tailTarget = parseZoneTarget(todo[1]!) ?? parseEffortTarget(todo[1]!)?.target;
     if (tailTarget && !/\d/.test(stripTargetTokens(todo[1]!))) {
       const parsed = parseLine(line.slice(0, todo.index!));
-      for (const l of parsed) {
-        if (l.confidence === 'detected' && !l.prescription.target) {
-          l.prescription.target = tailTarget;
+      if (allDetected(parsed)) {
+        for (const l of parsed) {
+          if (!l.prescription.target) l.prescription.target = tailTarget;
         }
+        return parsed;
       }
-      return parsed;
     }
   }
   // "6x800 m Z5, rec 2:30" / "…, descanso 2:30" — a trailing REST clause after
@@ -254,12 +279,28 @@ function parseLine(line: string): ParsedLine[] {
     const tailRest = parseRest(restTail[1]!);
     if (tailRest !== undefined) {
       const parsed = parseLine(line.slice(0, restTail.index!));
-      for (const l of parsed) {
-        if (l.confidence === 'detected' && l.prescription.rest_s === undefined) {
-          l.prescription.rest_s = tailRest;
+      if (allDetected(parsed)) {
+        for (const l of parsed) {
+          if (l.prescription.rest_s === undefined) l.prescription.rest_s = tailRest;
         }
+        return parsed;
       }
-      return parsed;
+    }
+  }
+  // "Row 500m, cap 1'50''" — a trailing TIME-CAP clause after a comma, same
+  // reason as `restTail` above: the comma would otherwise trip isDenseWod's
+  // multi-station heuristic on what is really one single capped effort.
+  const capTail = line.match(/,\s*((?:cap|tc)\b.*)$/i);
+  if (capTail) {
+    const tailCap = parseTimeCapTarget(capTail[1]!);
+    if (tailCap) {
+      const parsed = parseLine(line.slice(0, capTail.index!));
+      if (allDetected(parsed)) {
+        for (const l of parsed) {
+          if (!l.prescription.target) l.prescription.target = tailCap;
+        }
+        return parsed;
+      }
     }
   }
   const ladder = tryDistanceLadder(line);
@@ -338,8 +379,22 @@ function parseSegment(line: string): ParsedLine {
   // (reps-only): a movement measured in meters/seconds is never reps.
   const loadedMeasure = parseSetsByLoadedMeasure(line);
   if (loadedMeasure) return finalizeDetected(loadedMeasure.token, loadedMeasure.prescription, line);
+  // A timed or calorie-counted hold with NO load and NO cardio modality
+  // ("Plancha 3x45 s", "Plancha 3x40-45 s") — parseBout refused it (no bout
+  // signal) and parseSetsByLoadedMeasure refused it (no "@"/kg); tried
+  // BEFORE parseStrength so its reps-only reader never gets the chance to
+  // misread the clock/calorie digits as a fabricated rep sequence.
+  const bareMeasure = parseBareTimedOrCalorieSets(line);
+  if (bareMeasure) return finalizeDetected(bareMeasure.token, bareMeasure.prescription, line);
   const strength = parseStrength(line);
   if (strength) return finalizeDetected(strength.token, strength.prescription, line);
+  // "45 min al 72% FCmax" — never typed (see target.ts's PERCENT_MAX_HR_RE
+  // doc comment: resolving %-of-max-HR to a real bpm needs the athlete's OWN
+  // measured max, which this pure grammar never has), but recognized so the
+  // reason is honest instead of the generic catch-all below.
+  if (PERCENT_MAX_HR_RE.test(line)) {
+    return reviewLine(line, '% de FC máxima requiere la FC máxima medida del atleta — no derivable del texto');
+  }
   return reviewLine(line, 'no confident dose recognized');
 }
 

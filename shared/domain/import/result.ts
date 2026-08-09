@@ -13,6 +13,16 @@ import {
 } from '../prescription/types';
 import { foldText, parseImplementLoad, parseKg, parseRest } from './dose';
 import { readGroupLabel, type GroupLabel } from './label';
+import {
+  OUT_OF_MODEL_PACE_RE,
+  parseCaloriesGoalTarget,
+  parseHrBpmTarget,
+  parseKgRange,
+  parsePaceClockTarget,
+  parseTimeCapTarget,
+  parseWattsTarget,
+  PERCENT_MAX_HR_RE,
+} from './target';
 
 // `incomplete`: the exercise itself IS known (a real movement name), its
 // dosage is not — never `detected` (that claims full confidence) and never
@@ -147,13 +157,17 @@ function hasUnconsumedRest(raw: string, p: Prescription): boolean {
   return !collectPrescriptionNumbers(p).has(restSeconds);
 }
 
-/** A LOAD clause the raw text promises — a plain "160 kg" or a PER-IMPLEMENT
- *  "@2x32" — that never lands anywhere in the typed prescription. The
- *  per-implement reading is tried first so its `implement_count` (2) is ALSO
- *  required to reappear, not just the per-unit weight (32) — dropping either
- *  number is the same class of loss. */
+/** A LOAD clause the raw text promises — a kg BAND ("@150-170 kg"), a plain
+ *  "160 kg", or a PER-IMPLEMENT "@2x32" — that never lands anywhere in the
+ *  typed prescription. Tried in that order (band, then per-implement, then
+ *  plain) because a range's own upper bound would otherwise satisfy the
+ *  plain-kg check on its own and mask a dropped lower bound. */
 function hasUnconsumedLoad(raw: string, p: Prescription): boolean {
   const nums = collectPrescriptionNumbers(p);
+  const kgRange = parseKgRange(raw);
+  if (kgRange) {
+    return !nums.has(kgRange.min) || !nums.has(kgRange.max);
+  }
   const implement = parseImplementLoad(raw);
   if (implement) {
     return !nums.has(implement.value) || !nums.has(implement.implement_count);
@@ -161,6 +175,39 @@ function hasUnconsumedLoad(raw: string, p: Prescription): boolean {
   const kg = parseKg(raw);
   if (kg === undefined) return false;
   return !nums.has(kg);
+}
+
+/**
+ * The SAME class of guard as `hasUnconsumedLoad`, extended to the intensity
+ * axes ./target.ts taught this grammar: a ritmo, a pulso, unos vatios, una
+ * meta de calorías, o un tope de tiempo that the raw text plainly carries but
+ * the typed prescription's target — wherever it ended up, block-level or
+ * per-set — never absorbed. Without this, a line with a STRONG bout signal
+ * (a modality word) could win the `target` slot with something else entirely
+ * (or nothing), and the pace/pulse/watts the coach actually wrote vanished
+ * with the line still shipping `detected` — the exact "vatios: verde,
+ * OBJETIVO PERDIDO" failure the baseline measured. Reuses
+ * `addTargetNumbers` — already generic over every Target kind — so no kind
+ * needed its own bespoke comparison here.
+ */
+function hasUnconsumedNewAxisTarget(raw: string, p: Prescription): boolean {
+  const consumed = collectPrescriptionNumbers(p);
+  const candidates: Array<Target | null> = [
+    parsePaceClockTarget(raw),
+    parseHrBpmTarget(raw),
+    parseWattsTarget(raw),
+    parseCaloriesGoalTarget(raw),
+    parseTimeCapTarget(raw),
+  ];
+  for (const t of candidates) {
+    if (!t) continue;
+    const need = new Set<number>();
+    addTargetNumbers(t, need);
+    for (const n of need) {
+      if (!consumed.has(n)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -196,6 +243,26 @@ function hasAnyTarget(p: Prescription): boolean {
 function hasUnconsumedReferenceTarget(raw: string, p: Prescription): boolean {
   if (hasAnyTarget(p)) return false;
   return REFERENCE_TARGET_RE.test(foldText(raw));
+}
+
+/** "72% FCmax" with NO target captured anywhere — same two brakes as
+ *  `hasUnconsumedReferenceTarget` (only fires with zero target already, never
+ *  overrides a target that DID land). See target.ts's PERCENT_MAX_HR_RE doc
+ *  comment for why this is recognized but never typed. */
+function hasUnconsumedPercentMaxHr(raw: string, p: Prescription): boolean {
+  if (hasAnyTarget(p)) return false;
+  return PERCENT_MAX_HR_RE.test(raw);
+}
+
+/** "3:50/1000m" — a pace clock in a unit outside the model (PaceUnit is only
+ *  per_km/per_500m/per_mile). Same two brakes again: only fires with zero
+ *  target already captured, and only when the KNOWN-unit reader
+ *  (`parsePaceClockTarget`) found nothing — a recognized unit that DID land
+ *  is `hasUnconsumedNewAxisTarget`'s job, not this one's. */
+function hasUnconsumedOutOfModelPace(raw: string, p: Prescription): boolean {
+  if (hasAnyTarget(p)) return false;
+  if (parsePaceClockTarget(raw)) return false;
+  return OUT_OF_MODEL_PACE_RE.test(raw);
 }
 
 /** Validate a typed prescription; on failure, downgrade the line to review with
@@ -241,10 +308,28 @@ export function finalizeDetected(
   if (hasUnconsumedLoad(raw, typed)) {
     return reviewLine(raw, 'a load ("@"/kg) clause in the text was not captured in the typed prescription');
   }
+  if (hasUnconsumedNewAxisTarget(raw, typed)) {
+    return reviewLine(
+      raw,
+      'un ritmo, pulso, vatiaje, meta de calorías o tope de tiempo del texto no aterrizó en la prescripción tipada',
+    );
+  }
+  if (hasUnconsumedOutOfModelPace(raw, typed)) {
+    return reviewLine(
+      raw,
+      'un ritmo escrito en una unidad fuera del modelo (solo /km, /500m, /mile) — nunca se convierte a otra, se revisa',
+    );
+  }
   if (hasUnconsumedReferenceTarget(raw, typed)) {
     return reviewLine(
       raw,
       'el texto fija el objetivo por referencia («a split de carrera», «@race pace») y la prescripción quedó sin ninguno',
+    );
+  }
+  if (hasUnconsumedPercentMaxHr(raw, typed)) {
+    return reviewLine(
+      raw,
+      '% de FC máxima requiere la FC máxima medida del atleta — no derivable del texto, y la prescripción quedó sin objetivo',
     );
   }
   const groupLabel = readGroupLabel(raw);
