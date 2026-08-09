@@ -45,6 +45,26 @@ struct DefaultFalse: Codable, Equatable, Hashable {
     }
 }
 
+/// A Bool that decodes to TRUE when the value is null or the key is absent.
+///
+/// The mirror of `DefaultFalse`, for the flags whose safe default is "yes": a
+/// protocol step's `checkable` is the first one (a server that predates the
+/// field only ever sent steps with a checkbox, so an absent key means true —
+/// defaulting it to false would silently strip every checkbox from an older
+/// payload).
+@propertyWrapper
+struct DefaultTrue: Codable, Equatable, Hashable {
+    var wrappedValue: Bool
+    init(wrappedValue: Bool = true) { self.wrappedValue = wrappedValue }
+    init(from decoder: Decoder) throws {
+        wrappedValue = (try? decoder.singleValueContainer().decode(Bool.self)) ?? true
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(wrappedValue)
+    }
+}
+
 // Absent-key tolerance: a MISSING key would make the synthesized parent decode throw
 // before the wrapper runs — supply the wrapper's default instead. `try?` also covers a
 // present-but-wrong-TYPE value (e.g. a list arriving as a string). `throws` on the
@@ -58,5 +78,8 @@ extension KeyedDecodingContainer {
     }
     func decode(_ type: DefaultFalse.Type, forKey key: Key) throws -> DefaultFalse {
         ((try? decodeIfPresent(DefaultFalse.self, forKey: key)) ?? nil) ?? DefaultFalse()
+    }
+    func decode(_ type: DefaultTrue.Type, forKey key: Key) throws -> DefaultTrue {
+        ((try? decodeIfPresent(DefaultTrue.self, forKey: key)) ?? nil) ?? DefaultTrue()
     }
 }

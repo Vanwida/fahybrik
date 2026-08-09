@@ -19,11 +19,17 @@ export const meta: TwinMeta = {
   id: 'coach-nota',
   titulo: 'Del coach — el porqué del plan',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-08-09',
   descripcion:
     'El briefing del plan rehecho para Singles Pro por secciones: qué ha cambiado, la banda de objetivo en grande, el reparto de las seis sesiones y las doce semanas como espina, con descargas y simulacro marcados.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Comunicados/ComunicadoNotaView.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadoModels.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosService.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosAcciones.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosPiezas.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

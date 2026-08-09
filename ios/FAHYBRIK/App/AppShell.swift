@@ -26,6 +26,12 @@ struct AppShell: View {
     @State private var selection: AppTab = .inicio
     // Chat presentation — raised from any main-screen header via `\.openChat`.
     @State private var showChat = false
+    // «Del coach» — la bandeja de comunicados, levantada desde la cabecera de
+    // Inicio (`\.openCoachInbox`) o por un push. Con id abre ESE comunicado.
+    @State private var showCoachInbox = false
+    @State private var coachInboxId: String?
+    /// El vacío de la bandeja sale al chat: se apunta y se abre al cerrarse ella.
+    @State private var chatTrasBandeja = false
     // The LIVE session bearer — single source of truth (AuthState), injected via
     // the environment, NOT a UserDefaults/@State snapshot frozen at init. The old
     // snapshot could win over a rotated token and, worse, keep feeding a bearer
@@ -114,6 +120,27 @@ struct AppShell: View {
             ChatView(bearer: bearer)
                 .environment(store)
         }
+        // La bandeja «Del coach», por el mismo camino que el chat: un cover que
+        // re-inyecta la porción compartida (un valor de entorno @Observable NO
+        // cruza la frontera de una presentación). FREE no tiene coach, así que
+        // ni el abridor ni el cover pueden levantarse.
+        .environment(\.openCoachInbox) { id in
+            guard hasCoach else { return }
+            coachInboxId = id
+            showCoachInbox = true
+        }
+        .fullScreenCover(isPresented: $showCoachInbox, onDismiss: {
+            // Dos covers no pueden levantarse a la vez sobre el mismo
+            // presentador: la salida al chat del vacío se apunta aquí y se abre
+            // cuando la bandeja ya se ha ido.
+            guard chatTrasBandeja else { return }
+            chatTrasBandeja = false
+            showChat = true
+        }) {
+            ComunicadosBandejaView(bearer: bearer, abrirId: coachInboxId)
+                .environment(store)
+                .environment(\.openChat) { chatTrasBandeja = true }
+        }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -121,8 +148,9 @@ struct AppShell: View {
             // A dead bearer (401 on any slice) clears the session and routes to
             // login — instead of the SWR engine silently keeping stale cache.
             store.onUnauthorized = { auth.handleUnauthorized() }
-            // FREE: no coach thread exists — the chat slices are never fetched.
-            store.chatEnabled = hasCoach
+            // FREE: sin coach no hay hilo ni comunicados — ni las porciones del
+            // chat ni la de la bandeja se piden nunca.
+            store.hasCoach = hasCoach
             store.activate(bearer: bearer)
             await store.warm()
             // Deliver whatever the offline queue captured in earlier sessions,
@@ -156,6 +184,13 @@ struct AppShell: View {
         // FREE never receives chat pushes (no thread); guard anyway so a stray
         // payload can't raise a dead chat cover.
         case .chat: if hasCoach { showChat = true }
+        // Un comunicado: se abre la bandeja, y con el id que trae el aviso, ESE
+        // comunicado — no una lista donde haya que volver a buscarlo.
+        case .coachInbox(let id):
+            if hasCoach {
+                coachInboxId = id
+                showCoachInbox = true
+            }
         }
         pushRouter.pendingDestination = nil
     }

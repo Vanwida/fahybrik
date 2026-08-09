@@ -327,6 +327,11 @@ struct InicioView: View {
         ZStack {
             Wordmark(size: 26)
             HStack(spacing: 12) {
+                // «Del coach»: la bandeja de comunicados, con el globito de lo
+                // que te reclama. Va a la IZQUIERDA y no junto al chat porque un
+                // tercer control a la derecha se come el logotipo centrado en
+                // cuanto la pantalla es la de un iPhone pequeño.
+                CoachInboxHeaderButton()
                 Spacer(minLength: 8)
                 // Persistent chat affordance (icon + unread badge) → coach thread.
                 ChatHeaderButton()

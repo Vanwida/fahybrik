@@ -454,4 +454,42 @@ enum FechaES {
     static func conDia(_ iso: String) -> String? {
         fecha(iso).map { salidaConDia.string(from: $0) }
     }
+
+    private static let salidaDiaSemana: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "EEEE"
+        return f
+    }()
+
+    /// «domingo» — el día de la semana, suelto. Dentro de los próximos siete
+    /// días sitúa mejor que una fecha: nadie sabe de memoria qué día cae el 17.
+    static func diaSemana(_ date: Date) -> String {
+        salidaDiaSemana.string(from: date)
+    }
+
+    /// «hoy» · «ayer» · «hace 3 días» · «el 12 de julio».
+    ///
+    /// Cuánto hace que pasó algo, dicho como lo dice una persona. Pasada una
+    /// semana la cuenta deja de informar («hace 34 días» no sitúa a nadie) y
+    /// gana la fecha.
+    ///
+    /// Vive aquí, con el resto de la grafía: la app tiene ya varias copias
+    /// locales de esta misma cuenta y esta es la canónica — las que queden se
+    /// migran, no se replican.
+    static func hace(_ date: Date, ahora: Date = Date()) -> String {
+        let cal = Calendar.current
+        let dias = cal.dateComponents(
+            [.day],
+            from: cal.startOfDay(for: date),
+            to: cal.startOfDay(for: ahora)
+        ).day ?? 0
+        switch dias {
+        case ..<0:  return larga(iso(date)).map { "el \($0)" } ?? "hoy"
+        case 0:     return "hoy"
+        case 1:     return "ayer"
+        case 2...6: return "hace \(dias) días"
+        default:    return larga(iso(date)).map { "el \($0)" } ?? "hace \(dias) días"
+        }
+    }
 }

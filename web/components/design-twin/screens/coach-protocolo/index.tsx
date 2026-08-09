@@ -18,13 +18,17 @@ export const meta: TwinMeta = {
   id: 'coach-protocolo',
   titulo: 'Del coach — el protocolo',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-08-09',
   descripcion:
     'El calentamiento del día de carrera como pasos marcables, con la marca temporal en mono contando hacia atrás desde la salida. La CTA de cerrarlo no se activa hasta que están los siete.',
-  fuentes: [],
-  enApp:
-    'La previa del entreno ya tiene un warmupChecklist que siempre llega vacío, y el protocolo de un test viaja hoy como texto plano en la nota del entreno.',
+  fuentes: [
+    'ios/FAHYBRIK/Comunicados/ComunicadoProtocoloView.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadoModels.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosService.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosAcciones.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosPiezas.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

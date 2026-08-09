@@ -18,11 +18,17 @@ export const meta: TwinMeta = {
   id: 'coach-pregunta',
   titulo: 'Del coach — la pregunta que bloquea',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-08-09',
   descripcion:
     'Una decisión con dos opciones y la consecuencia de cada una escrita al lado. Se contesta con un toque y el coach lo ve: ni encuesta a ciegas ni mensaje que se pierde en el hilo.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Comunicados/ComunicadoPreguntaView.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadoModels.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosService.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosAcciones.swift',
+    'ios/FAHYBRIK/Comunicados/ComunicadosPiezas.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

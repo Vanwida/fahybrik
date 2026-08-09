@@ -85,6 +85,7 @@ final class AppDataStore {
     var runningAnalysis = Slice<RunningAnalysis>()          // /running-analysis  — Inicio ("Tu progreso · carrera") + Carreras
     var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread) + Chat (coach identity)
     var chatMessages = Slice<[ChatMessageDTO]>()            // /chat/threads/me/messages — Chat (message history)
+    var communications = Slice<ComunicadosInbox>()          // /athlete/communications — Inicio (globito) + Del coach
     var partner = Slice<PartnerEnvelope>()                  // /athlete/partner   — Inicio, Plan, Perfil
     var subscription = Slice<SubscriptionInfo>()            // /stripe/subscription — Perfil
 
@@ -107,11 +108,23 @@ final class AppDataStore {
     /// surface (bell dot, coach-note row) agrees.
     var unreadCount: Int { max(0, chatThread.value?.unreadForAthlete ?? 0) }
 
-    /// FREE tier (athlete without coach): there is no coach thread, so the chat
-    /// slices are never fetched — the free surface shows no chat affordance and
-    /// a pointless request (or its error noise) never fires. Set by AppShell
-    /// from AuthState.hasCoach before the first warm.
-    var chatEnabled: Bool = true
+    /// La bandeja «Del coach», ya repartida en sus cajones. Vacía mientras no
+    /// haya cargado — la pantalla distingue «cargando» de «no hay nada» con
+    /// `communications.hasLoaded`, no con esto.
+    var bandejaComunicados: BandejaComunicados {
+        BandejaComunicados.agrupar(communications.value?.communications ?? [])
+    }
+
+    /// Lo que la bandeja sigue reclamando — el globito de la cabecera. Sale del
+    /// estado LOCAL (misma regla que el servidor) para que un paso marcado sin
+    /// cobertura descuente al momento en vez de esperar a la próxima carga.
+    var comunicadosPendientes: Int { bandejaComunicados.pendientes }
+
+    /// FREE tier (athlete without coach): sin coach no hay hilo ni comunicados,
+    /// así que esas porciones no se piden nunca — la superficie libre no enseña
+    /// ni el chat ni la bandeja, y no dispara peticiones inútiles (ni su ruido de
+    /// error). Set by AppShell from AuthState.hasCoach before the first warm.
+    var hasCoach: Bool = true
 
     /// The bearer this in-memory data belongs to. Slices are cleared / rescoped
     /// when it changes (sign-out, athlete switch) so one athlete never sees
@@ -157,6 +170,7 @@ final class AppDataStore {
             runningAnalysis = snapshot.runningAnalysis
             chatThread = snapshot.chatThread
             chatMessages = snapshot.chatMessages
+            communications = snapshot.communications
             partner = snapshot.partner
             subscription = snapshot.subscription
             racesHub = snapshot.racesHub
@@ -179,6 +193,7 @@ final class AppDataStore {
         runningAnalysis = .init()
         chatThread = .init()
         chatMessages = .init()
+        communications = .init()
         partner = .init()
         subscription = .init()
         racesHub = .init()
@@ -202,9 +217,10 @@ final class AppDataStore {
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
+        async let co: Void = refreshCommunications(force: force)
         async let pa: Void = refreshPartner(force: force)
         async let s: Void = refreshSubscription(force: force)
-        _ = await (i, p, m, r, sm, ra, c, pa, s)
+        _ = await (i, p, m, r, sm, ra, c, co, pa, s)
     }
 
     /// Inicio: identity, plan, macro progress, readiness, the running analysis +
@@ -217,8 +233,9 @@ final class AppDataStore {
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
+        async let co: Void = refreshCommunications(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (i, p, m, r, sm, ra, c, pa)
+        _ = await (i, p, m, r, sm, ra, c, co, pa)
     }
 
     /// FREE home (no coach): identity + the week — the strip of their own built
@@ -379,7 +396,7 @@ final class AppDataStore {
     }
 
     func refreshChatThread(force: Bool = false) async {
-        guard chatEnabled else { return }
+        guard hasCoach else { return }
         await revalidate(get: { self.chatThread }, set: { self.chatThread = $0 }, force: force) {
             try await ChatService.fetchThread(bearer: $0)
         }
@@ -388,7 +405,7 @@ final class AppDataStore {
     func refreshChatMessages(force: Bool = false) async {
         // Throwing fetch so a failed revalidation keeps the last good history
         // (SWR / offline-first), instead of nil wiping the cached conversation.
-        guard chatEnabled else { return }
+        guard hasCoach else { return }
         await revalidate(get: { self.chatMessages }, set: { self.chatMessages = $0 }, force: force) {
             try await ChatService.fetchMessages(bearer: $0)
         }
@@ -421,6 +438,35 @@ final class AppDataStore {
         list.removeAll { $0.id == id }
         guard list.count != before else { return }
         chatMessages.setLoaded(list)
+        persist()
+    }
+
+    /// La bandeja «Del coach». Sin coach no existe, así que no se pide.
+    func refreshCommunications(force: Bool = false) async {
+        guard hasCoach else { return }
+        await revalidate(get: { self.communications }, set: { self.communications = $0 }, force: force) {
+            try await ComunicadosService.fetchInbox(bearer: $0)
+        }
+    }
+
+    /// Guarda un comunicado ya modificado —por un acto del atleta o por la
+    /// respuesta del servidor a ese acto— en la bandeja cacheada, y persiste.
+    ///
+    /// El acto se pinta AL MOMENTO y sobrevive a un cierre de la app: el atleta
+    /// marca el paso de su calentamiento en el pasillo de boxes, sin cobertura, y
+    /// lo que ve tiene que seguir ahí cuando vuelva a abrir. El envío lo persigue
+    /// la cola (ver `ComunicadoActOutcome`).
+    func applyCommunication(_ comunicado: Comunicado) {
+        guard let inbox = communications.value else { return }
+        var lista = inbox.communications
+        guard let idx = lista.firstIndex(where: { $0.id == comunicado.id }) else { return }
+        lista[idx] = comunicado
+        // `pending` se vuelve a contar con la MISMA regla que usa el servidor: si
+        // se dejara el número que vino con la carga, el globito seguiría
+        // enseñando un pendiente que el atleta acaba de cerrar.
+        communications.setLoaded(
+            ComunicadosInbox(communications: lista, pending: lista.filter(\.reclama).count)
+        )
         persist()
     }
 
@@ -570,6 +616,7 @@ final class AppDataStore {
             runningAnalysis: runningAnalysis,
             chatThread: chatThread,
             chatMessages: chatMessages,
+            communications: communications,
             partner: partner,
             subscription: subscription,
             racesHub: racesHub,
@@ -601,6 +648,7 @@ enum AppDataPersistence {
         var runningAnalysis: Slice<RunningAnalysis>
         var chatThread: Slice<ChatThreadDTO>
         var chatMessages: Slice<[ChatMessageDTO]>
+        var communications: Slice<ComunicadosInbox>
         var partner: Slice<PartnerEnvelope>
         var subscription: Slice<SubscriptionInfo>
         var racesHub: Slice<RacesHubResponse>
@@ -617,7 +665,9 @@ enum AppDataPersistence {
     // v6 adds the ANALÍTICAS section cache (one slice per section × period). An
     // older blob has a different shape, so its decode simply fails (→ start clean,
     // refetch on launch) — no migration code, no stale-shape risk.
-    private static let key = "fahybrik.appDataStore.v6"
+    // v7 adds the coach-communications inbox («Del coach»), cached so lo que el
+    // atleta marcó sin cobertura siga ahí al reabrir la app.
+    private static let key = "fahybrik.appDataStore.v7"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
