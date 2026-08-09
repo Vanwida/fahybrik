@@ -186,17 +186,49 @@ describe('parseNotationCell — full real Capa-2 cells', () => {
     expect(review[0]!.prescription.note).toContain('broad jump');
   });
 
-  test('S3 Lunes: whole dense WOD cell → every line review, nothing fabricated', () => {
+  test('S3 Lunes: the metcon STRUCTURE grammar now reads two of its five lines faithfully', () => {
+    // UPDATED — this used to assert "every line review" (the grammar could not
+    // decompose ANY dense WOD yet). It fixed a LIMITATION, not a contract: two
+    // of these five physical lines are a shared-round-header "+"-chain where
+    // EVERY component carries its own provable measure (25m @170kg, 500m) —
+    // exactly shared/domain/import/structure.ts's tryRoundsComponents shape —
+    // so they now decompose FAITHFULLY, one line per movement. The other
+    // three (the bare title+cap, the run/lunge/farmer-carry ladder-with-
+    // annotation, and the standalone "Finisher …" with no chain to attach to)
+    // still carry no provable structure and correctly stay review, verbatim.
     const lines = parseNotationCell(S3_LUNES);
-    expect(lines.length).toBeGreaterThan(0);
-    expect(lines.every((l) => l.confidence === 'review')).toBe(true);
-    // Honesty: not a single review line invents sets/rounds/targets.
-    for (const l of lines) {
+    const detected = lines.filter((l) => l.confidence === 'detected');
+    const review = lines.filter((l) => l.confidence === 'review');
+
+    expect(detected.map((l) => l.exercise_token)).toEqual(['sled push', 'ski', 'sled pull', 'row']);
+    for (const l of detected) {
+      expect(l.prescription.scheme).toBe('for_time');
+      expect(l.prescription.rounds).toBe(3);
+      expect(l.review_reasons).toHaveLength(0);
+    }
+    expect(detected[0]!.prescription.sets![0]).toEqual({
+      measure: { kind: 'distance', meters: 25 },
+      target: { kind: 'kg', value: 170 },
+    });
+    expect(detected[1]!.prescription.sets![0]).toEqual({ measure: { kind: 'distance', meters: 500 } });
+    expect(detected[2]!.prescription.sets![0]!.target).toEqual({ kind: 'kg', value: 140 });
+    expect(detected[1]!.prescription.modality).toBe('ski');
+    expect(detected[3]!.prescription.modality).toBe('row');
+
+    // The remaining three lines are exactly as honest as before: no fabricated
+    // sets/rounds/target, verbatim text kept.
+    expect(review).toHaveLength(3);
+    for (const l of review) {
       expect(l.prescription.sets).toBeUndefined();
       expect(l.prescription.rounds).toBeUndefined();
       expect(l.prescription.target).toBeUndefined();
       expect(typeof l.prescription.note).toBe('string');
     }
+    expect(review.map((l) => l.prescription.note)).toEqual([
+      `WOD LARGO (TC 55')`,
+      `1200m / 800m / 400m run intercalando KB OH lunge y farmer carry`,
+      `Finisher 75 wall ball 9kg`,
+    ]);
   });
 });
 

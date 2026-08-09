@@ -238,15 +238,26 @@ export function hasBodyweightMarker(raw: string): boolean {
 }
 
 // ── Time cap ──────────────────────────────────────────────────────────────
-// A CLOCK TO BEAT ("cap 8'", "TC 90''", "cap 8-9'") — see Target.time_cap's
-// doc comment in types.ts (born for the roxzone, generalizes to any capped
-// single effort). A WOD-level "(TC 12')" on a multi-station line never
-// reaches this reader: hasMetconKeyword's own `\(tc\b` trigger already routes
-// that whole line to review before dispatch gets here (notation.ts) — so
-// this only ever fires on the single-bout/single-movement shape the kind
-// was built for.
-
-const TIME_CAP_CUE_RE = /\b(?:cap|tc)\b\.?\s*:?\s*/i;
+// A CLOCK TO BEAT ("cap 8'", "TC 90''", "cap 8-9'", "TC55'") — see
+// Target.time_cap's doc comment in types.ts (born for the roxzone,
+// generalizes to any capped single effort). A WOD-level "(TC 12')" on a
+// multi-station line never reaches this reader: hasMetconKeyword's own
+// `\(tc\b` trigger already routes that whole line to review before dispatch
+// gets here (notation.ts) — so this only ever fires on the single-bout/
+// single-movement shape the kind was built for, or on ./structure.ts's own
+// WOD-level extraction (which reuses this exact cue).
+//
+// `(?![a-záéíóúñ])` replaces a trailing `\b`: Pablo glues the cue straight to
+// its digits ("TC55'", no space), and `\b` requires a WORD→NON-WORD
+// transition — between "C" and "5" both sides are word characters, so a
+// plain `\bcap|tc\b` never fires on the glued form at all (the same class of
+// gap as "simulaci"/"intercal" elsewhere in this grammar not matching their
+// own longer host words). The lookahead only forbids another LETTER right
+// after the cue (so "capitán"/"capacidad" still correctly never match) while
+// freely allowing a digit, punctuation, whitespace or end-of-string — and the
+// LEADING `\b` is untouched, so "handicap2" still refuses (no boundary before
+// "cap" inside it).
+export const TIME_CAP_CUE_RE = /\b(?:cap|tc)(?![a-záéíóúñ])\.?\s*:?\s*/i;
 const CLOCK_UNIT_ALT = "'{1,2}|min(?:utos?)?\\b|seg(?:undos?)?\\.?\\b|s\\b|horas?\\b";
 
 export function parseTimeCapTarget(raw: string): Target | null {
