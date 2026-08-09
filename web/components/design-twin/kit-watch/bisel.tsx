@@ -153,6 +153,126 @@ export function AroSegmentado({
 }
 
 /**
+ * El gris de una recuperación en el aro de estructura. Es el `dim` del tema y no
+ * un blanco al X %: lo que separa un tramo suave de uno fuerte tiene que ser un
+ * color con significado, y un significado no se improvisa con una opacidad.
+ */
+const COLOR_RECUPERA = W.dim;
+
+/**
+ * El brillo dice DÓNDE ESTÁS. Lo hecho a plena luz, lo de ahora a media, lo que
+ * viene apenas insinuado — lo justo para leer el ritmo del entreno de reojo sin
+ * que lo pendiente compita con el tramo que estás corriendo.
+ */
+const BRILLO = { hecho: 1, enCurso: 0.4, pendiente: 0.16 } as const;
+
+/** Hecho, en curso, por venir: el segundo eje del modelo, y no hay más casos. */
+function brillo(i: number, enCurso: number): number {
+  if (i < enCurso) return BRILLO.hecho;
+  if (i === enCurso) return BRILLO.enCurso;
+  return BRILLO.pendiente;
+}
+
+/** Un arco del bisel: un tramo de la fase que se está corriendo. */
+export interface ArcoDeTramo {
+  trabajo: boolean;
+  /**
+   * Peso relativo del arco. No es una unidad: es la parte del perímetro que le
+   * toca. Cómo se reparte, en `FormaDelAro.pesos` (por orden de evidencia).
+   */
+  peso: number;
+}
+
+/**
+ * EL ARO DE ESTRUCTURA — el on/off de la serie entera, un arco por tramo.
+ *
+ * `AroSegmentado` sólo sabe contar repeticiones iguales, así que un 5×(1200 m +
+ * trote de 90'') salía como cinco trozos idénticos y, al entrar la recuperación,
+ * el aro se cambiaba por otro que drena: la mitad del entreno no existía en el
+ * bisel, y la referencia de dónde estabas desaparecía justo en el tramo en el
+ * que hay tiempo para mirarla. Aquí se dibuja la fase entera y en orden.
+ *
+ * Dos ejes y ninguna excepción (espejo de `FormaDelAro` y `WatchAroEstructura`):
+ *   · el HUE dice QUÉ ES el tramo — trabajo naranja, recuperación gris;
+ *   · el BRILLO dice DÓNDE ESTÁS — hecho, en curso, por venir.
+ * Con eso se leen de reojo las dos preguntas de una serie: cuántas fuertes
+ * quedan y por cuál vas.
+ *
+ * El segmentado sigue mandando donde los trozos SÍ son iguales (fuerza, ergo, el
+ * reloj de pared): allí contar repeticiones es la verdad, y esto dibujaría una
+ * desigualdad que no existe.
+ */
+export function AroEstructura({
+  arcos,
+  enCurso,
+  fraccion,
+}: {
+  arcos: ArcoDeTramo[];
+  /** Índice del tramo que se está corriendo dentro de `arcos`. */
+  enCurso: number;
+  /**
+   * Avance dentro de ese tramo, de 0 a 1. Cero cuando nadie lo mide: el arco se
+   * queda a medio brillo y no promete una fracción que no existe.
+   */
+  fraccion: number;
+}) {
+  if (arcos.length === 0) return null;
+  const bruto = arcos.map((a) => Math.max(0, a.peso));
+  const suma = bruto.reduce((a, p) => a + p, 0);
+  // Sin pesos utilizables el aro no se calla: reparte a partes iguales y sigue
+  // diciendo el on/off y por dónde vas, que es lo único que había prometido.
+  const pesos = suma > 0 ? bruto : bruto.map(() => 1);
+  const total = suma > 0 ? suma : arcos.length;
+  // El hueco se estrecha con el número de arcos: fijo, un 12×400 con sus
+  // recuperaciones (24 arcos) sería más hueco que aro.
+  const hueco = Math.min(6, PERIMETRO / (arcos.length * 4));
+  const avance = Math.min(1, Math.max(0, fraccion));
+  // Los arranques se acumulan ANTES del render, igual que en `AroTramos`: mutar
+  // una variable mientras se pinta es lo que hace que el segundo render salga
+  // distinto del primero.
+  const arranques = pesos.reduce<number[]>(
+    (acc, p) => [...acc, acc[acc.length - 1]! + (p / total) * PERIMETRO],
+    [0],
+  );
+  return (
+    <Aro via={false}>
+      {arcos.map((arco, i) => {
+        const inicio = arranques[i]! + hueco / 2;
+        const largo = Math.max(0, (pesos[i]! / total) * PERIMETRO - hueco);
+        const color = arco.trabajo ? COLOR_ARO : COLOR_RECUPERA;
+        const relleno = i === enCurso ? largo * avance : 0;
+        return (
+          <g key={i}>
+            <path
+              d={TRAZADO}
+              fill="none"
+              stroke={color}
+              strokeOpacity={brillo(i, enCurso)}
+              strokeWidth={GROSOR}
+              strokeLinecap="butt"
+              strokeDasharray={`${largo} ${PERIMETRO}`}
+              strokeDashoffset={-inicio}
+            />
+            {relleno > 0 ? (
+              <path
+                d={TRAZADO}
+                fill="none"
+                stroke={color}
+                strokeWidth={GROSOR}
+                strokeLinecap="butt"
+                strokeDasharray={`${relleno} ${PERIMETRO}`}
+                strokeDashoffset={-inicio}
+                style={{ transition: 'stroke-dasharray 900ms linear' }}
+              />
+            ) : null}
+          </g>
+        );
+      })}
+    </Aro>
+  );
+}
+
+/**
  * EL ARO DE TRAMOS — la forma de lo que llevas (o de lo que acabas), en el bisel.
  *
  * Es `AroSegmentado` cuando los trozos NO miden lo mismo: la ruta de un For

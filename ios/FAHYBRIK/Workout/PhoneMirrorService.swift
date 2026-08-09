@@ -471,6 +471,11 @@ final class PhoneMirrorService {
         // cuando el coach escribió uno) se quedaba vacío siempre.
         let objetivoFuncional = PrescriptionRenderer.targetLoad(seg?.prescription?.target)
 
+        // La forma de la parte que se corre, para el aro de la muñeca. Se calcula
+        // con la MISMA función que usa el reloj en solitario: dos vías que dibujan
+        // el mismo entreno no pueden tener dos reglas de reparto.
+        let forma = FormaDelAro.fase(legs: session.currentRunLegs ?? [], indice: session.runLegIndex)
+
         // En una serie de correr se cuentan SERIES, no piernas: un 3×1000 con sus
         // dos recuperaciones son cinco tramos y tres series, y «tramo 4 de 5» no
         // le dice nada a nadie. La regla vive en RunLegDisplay para que el móvil y
@@ -557,7 +562,10 @@ final class PhoneMirrorService {
             // EMOM: la ronda de AHORA, no si el móvil reporta metros — así una
             // ronda de ski sin cinta/PM5 conectado sigue siendo `.ojeada`.
             tareaEsErgo: seg?.emomPlan?.interval(session.tramoRoundIndex)?.isErg ?? false,
-            recuperacionEnMovimiento: session.isTramoRecuperandoEnMovimiento
+            recuperacionEnMovimiento: session.isTramoRecuperandoEnMovimiento,
+            forma: forma?.arcos.map { MirrorArco(trabajo: $0.trabajo, peso: $0.peso) },
+            formaIndice: forma?.enCurso,
+            parte: session.currentRunLeg?.phaseRole.rawValue
         )
     }
 
@@ -669,6 +677,13 @@ final class PhoneMirrorService {
             // `countdownSec` y `restSec` arriba: una trama por segundo como mucho, que
             // es exactamente lo que esos dos ya aceptaban.
             campos.append(t.ventanaQueda.map { String(max(0, Int(ceil($0)))) } ?? "")
+            // La FORMA del aro y dónde estás dentro de ella: cambia una vez por
+            // tramo, y es lo único que mueve el on/off del bisel. Del reparto
+            // basta el número de arcos —los pesos no cambian dentro de una parte—
+            // y la parte en curso, que decide cómo se llama la pantalla.
+            campos.append(t.forma.map { String($0.count) } ?? "")
+            campos.append(t.formaIndice.map(String.init) ?? "")
+            campos.append(t.parte ?? "")
             return campos.joined(separator: ",")
         }()
         let parts: [String] = [

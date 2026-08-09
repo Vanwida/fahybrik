@@ -57,7 +57,8 @@ struct StructuredRunLiveView: View {
             paginas: [
                 WatchPagina(
                     id: "countin",
-                    contexto: "Serie \(workLegNumber) / \(workLegTotal)",
+                    contexto: RunLegDisplay.nombreDeParte(session.currentRunLeg?.phaseRole ?? .main)
+                        ?? "Serie \(workLegNumber) / \(workLegTotal)",
                     modo: .ojeada,
                     sujeto: WatchFormat.countdown(session.runCountInRemaining),
                     tono: WatchTheme.orange,
@@ -77,6 +78,7 @@ struct StructuredRunLiveView: View {
         GuionSeries.Estado(
             fase: isRecovery ? .recupera : .trabajo,
             enMovimiento: session.currentRunLeg?.recuperaEnMovimiento ?? false,
+            parte: session.currentRunLeg?.phaseRole ?? .main,
             // En la recuperación el número que importa es el de la serie que VIENE.
             serie: isRecovery ? (workLegNumberForNext ?? workLegTotal) : workLegNumber,
             totalSeries: workLegTotal,
@@ -137,18 +139,31 @@ struct StructuredRunLiveView: View {
 
     // MARK: - Bisel / tinte
 
+    /// EL ARO ES LA ESTRUCTURA ENTERA — el on/off de la serie alrededor del
+    /// lienzo (trabajo naranja, recuperación gris). Antes dibujaba SÓLO las
+    /// piernas de trabajo y en la recuperación se cambiaba por un aro que drena:
+    /// la mitad del entreno no existía en el bisel y la referencia de dónde
+    /// estabas desaparecía justo en el tramo en el que hay tiempo para mirarla.
+    /// El reparto de los arcos vive en `FormaDelAro`, compartido con el cable.
     private var bisel: AnyView? {
-        if isRecovery {
-            if let total = session.currentRunLeg?.durationSeconds, total > 0 {
-                return WatchAroContinuo(remaining: session.runLegRemaining / Double(total)).watchBisel()
-            }
-            return WatchAroContinuo(remaining: 1).watchBisel()
+        if let forma = FormaDelAro.fase(legs: session.currentRunLegs ?? [], indice: session.runLegIndex) {
+            return WatchAroEstructura(
+                arcos: forma.arcos,
+                enCurso: forma.enCurso,
+                fraccion: fraccionDelTramo
+            ).watchBisel()
         }
-        return WatchAroSegmentado(
-            total: max(1, workLegTotal),
-            hechas: max(0, workLegNumber - 1),
-            fraccion: workFraction
-        ).watchBisel()
+        // Una fase de un solo tramo (el calentamiento, un rodaje) no es una
+        // estructura: ahí manda el aro que drena, y sólo si algo lo cierra.
+        if let total = session.currentRunLeg?.durationSeconds, total > 0 {
+            return WatchAroContinuo(remaining: session.runLegRemaining / Double(total)).watchBisel()
+        }
+        if let metros = session.currentRunLeg?.distanceMeters, metros > 0 {
+            return WatchAroContinuo(
+                remaining: max(0, 1 - driver.legCoveredMeters / Double(metros))
+            ).watchBisel()
+        }
+        return nil
     }
 
     private var tinteLienzo: Color? {
@@ -175,12 +190,6 @@ struct StructuredRunLiveView: View {
         return i < legs.count ? legs[i] : nil
     }
 
-    /// Sólo las piernas de TRABAJO cuentan como serie (una recuperación no es
-    /// «la serie 3»), y por eso el aro se segmenta con ellas y no con los tramos.
-    private var workLegs: [RunLeg] {
-        (session.currentRunLegs ?? []).filter(\.isWork)
-    }
-
     /// La MISMA regla que manda el cable (RunLegDisplay.serie): tenía aquí su
     /// propia copia y dos copias de una cuenta acaban discrepando.
     private var serie: (n: Int, total: Int) {
@@ -197,7 +206,9 @@ struct StructuredRunLiveView: View {
         return n <= workLegTotal ? n : nil
     }
 
-    private var workFraction: Double {
+    /// Lo que llevas hecho del tramo EN CURSO, sea trabajo o recuperación (0…1).
+    /// Cero cuando nadie lo mide — un tramo que cierras tú no tiene fracción.
+    private var fraccionDelTramo: Double {
         guard let leg = session.currentRunLeg else { return 0 }
         if let target = leg.distanceMeters, target > 0 {
             return min(1, max(0, driver.legCoveredMeters / Double(target)))

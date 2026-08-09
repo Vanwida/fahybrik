@@ -2,25 +2,33 @@
 
 // Las series de calle, en la muñeca. Ver `guion.ts` para el porqué de los dos
 // modos y de los dos escenarios.
+//
+// EL BISEL DIBUJA LA FASE ENTERA, no la serie en la que estás: los cinco tramos
+// fuertes en naranja y sus cinco trotes en gris, y el brillo diciendo cuáles ya
+// están hechos. Antes eran dos aros distintos —uno que contaba series y otro que
+// drenaba en la recuperación—, así que la mitad del entreno no salía en el aro y
+// la referencia de dónde estabas se perdía justo al parar. El reparto y los dos
+// ejes (hue = qué es, brillo = dónde estás) viven en `kit-watch/bisel.tsx`, y su
+// original en `FormaDelAro` + `WatchAroEstructura`.
 
 import { useState } from 'react';
 import { useTicker } from '../../sim';
-import { AroContinuo, AroSegmentado, Reloj, W, tinteDe, type EstadoDestello } from '../../kit-watch';
+import { AroEstructura, Reloj, W, tinteDe, type ArcoDeTramo, type EstadoDestello } from '../../kit-watch';
 import { SERIES_CALLE, SIN_ANCLA } from '../../datos-reloj';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
-import { DESDE_S, bpmDe, cierreM, metrosDe, paginas, type Estado } from './guion';
+import { DESDE_S, anterior, bpmDe, cierreM, metrosDe, paginas, type Estado } from './guion';
 
 export const meta: TwinMeta = {
   id: 'watch-series',
   titulo: 'Muñeca · series de calle',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-08-03',
+  actualizado: '2026-08-09',
   descripcion:
-    'Dentro de la serie se mira y no se toca; en la recuperación se decide. Y si el coach no escribió los metros, el tramo lo cierras tú y el reloj deja de prometer cuánto falta.',
+    'El bisel dibuja la fase entera —las cinco series en naranja y sus cinco trotes en gris— y el brillo dice por cuál vas. Dentro de la serie se mira y no se toca; en la recuperación se decide. Y si el coach no escribió los metros, el tramo lo cierras tú y el reloj deja de prometer cuánto falta.',
   fuentes: [],
   enApp:
-    'StructuredRunLiveView shipea ritmo por tramo, banda de objetivo y recuperación; el afinado sigue aquí.',
+    'StructuredRunLiveView shipea el aro de estructura (FormaDelAro), ritmo por tramo, banda de objetivo y recuperación; el afinado sigue aquí.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };
@@ -39,6 +47,48 @@ export const escenarios: TwinEscenario[] = [
       'El coach escribe 1200 m por serie. Entonces sí manda lo que falta, el hito cierra el tramo solo, el aro puede llenarse y la pantalla deja de ser un botón mientras corres.',
   },
 ];
+
+/**
+ * LA FASE ENTERA, DIBUJADA EN EL BISEL — cinco series y sus cinco trotes.
+ *
+ * Van los diez tramos y no cinco porque la fase es cinco veces (serie +
+ * recuperación): el trote también es entreno, y hasta ahora no existía en el
+ * aro justo en el rato en el que hay tiempo para mirarlo.
+ *
+ * Y PESAN TODOS IGUAL, que es el último peldaño del reparto por orden de
+ * evidencia (`FormaDelAro.pesos`) y aquí se llega hasta él en los DOS
+ * escenarios: de la serie no se saben los segundos —el ritmo lo mide el GPS,
+ * nadie escribió uno— y de la recuperación no se saben los metros —son 90 s de
+ * trote—. Sin una unidad común a los diez tramos no hay proporción que
+ * prometer, así que el aro dice lo que sí sabe: el on/off y por dónde vas.
+ */
+const ARCOS: ArcoDeTramo[] = Array.from({ length: SERIES_CALLE.total * 2 }, (_, i) => ({
+  trabajo: i % 2 === 0,
+  peso: 1,
+}));
+
+/**
+ * El tramo en curso dentro de esa lista: cada serie ocupa dos, el trabajo en el
+ * índice par y su recuperación en el impar. Durante la recuperación `serie` ya
+ * es la que VIENE, así que la que corre es la anterior.
+ */
+function tramoEnCurso(e: Estado): number {
+  if (e.fase === 'recupera') return (anterior(e.serie) - 1) * 2 + 1;
+  return (e.serie - 1) * 2;
+}
+
+/**
+ * EL RELLENO DEL TRAMO EN CURSO ES UNA PREDICCIÓN, y sólo se puede predecir
+ * contra un total que alguien sepa. La recuperación lo tiene siempre (90 s que
+ * cuenta el reloj); la serie, sólo cuando el coach escribió los metros. Sin
+ * ellos se queda a cero: el arco a medio brillo ya dice «estás en la tercera de
+ * cinco», que es verdad, y no «llevas media serie», que nadie sabe.
+ */
+function fraccionDelTramo(e: Estado): number {
+  if (e.fase === 'recupera') return e.t / SERIES_CALLE.recuperacionS;
+  if (e.objetivoM == null) return 0;
+  return Math.min(1, metrosDe(e.t) / e.objetivoM);
+}
 
 function inicial(escenario: string): Estado {
   // Las dos arrancan en el mismo punto de la serie (1.000 m dentro) para que la
@@ -91,8 +141,6 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   });
 
   const enRecuperacion = e.fase === 'recupera';
-  const queda = Math.max(0, SERIES_CALLE.recuperacionS - e.t);
-  const objetivo = e.objetivoM;
 
   return (
     <Reloj
@@ -100,20 +148,10 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       // En la recuperación el lienzo es el VERDE de recuperar, que es un estado
       // y no una zona; corriendo es tu zona, si es que la hay — y hoy no la hay.
       tinte={enRecuperacion ? W.zoneGreen : tinteDe(bpmDe(e), e.ancla)}
+      // El aro NO cambia de tipo al entrar la recuperación: es la misma fase y
+      // el mismo dibujo, y lo único que se mueve es dónde estás dentro de él.
       bisel={
-        enRecuperacion ? (
-          <AroContinuo fraccion={queda / SERIES_CALLE.recuperacionS} />
-        ) : (
-          <AroSegmentado
-            total={SERIES_CALLE.total}
-            hechas={e.serie - 1}
-            // EL RELLENO DEL TRAMO EN CURSO ES UNA PREDICCIÓN, y sólo se puede
-            // predecir contra un total prescrito. Sin objetivo se queda a cero:
-            // el aro dice «vas por la tercera de cinco», que es verdad, y no
-            // «llevas media serie», que nadie sabe.
-            fraccion={objetivo == null ? 0 : Math.min(1, metrosDe(e.t) / objetivo)}
-          />
-        )
+        <AroEstructura arcos={ARCOS} enCurso={tramoEnCurso(e)} fraccion={fraccionDelTramo(e)} />
       }
       destello={destello}
       onLog={onLog}

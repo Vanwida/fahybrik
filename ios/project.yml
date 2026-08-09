@@ -339,6 +339,10 @@ targets:
       # Pure display formatting for the wrist tramo HUD (#68) — measure label, per-leg
       # pace, objetivo in/out judgment, next-leg preview.
       - path: FAHYBRIK/Plan/RunLegDisplay.swift
+      # La forma de la fase que se corre (el on/off del bisel): un arco por tramo
+      # con su peso. La calcula el reloj para su propio aro y el móvil para el que
+      # manda por el cable, así que la regla del reparto vive en un solo sitio.
+      - path: FAHYBRIK/Plan/FormaDelAro.swift
       # The wrist's DISTANCE-leg auto-close driver (#68). Instantiated by the watch
       # coordinator (workout lifetime); shared into both targets like WatchWireModels
       # so its tick() is unit-tested from FAHYBRIKTests.

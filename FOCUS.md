@@ -62,6 +62,22 @@ reportó y lo que salió al tirar del hilo en el código:
    en rodaje y en series. El lienzo va en TODAS las páginas de una vista de
    correr, no sólo en la de zona. Sin umbral no hay página ni color (§7).
 
+4. ✅ **El aro on/off de la serie** (Alex, 9-ago: «serie on naranja, serie off
+   gris»). Tenía razón en que estaba a medias: el marcador existía como
+   `AroTramos` en el doble (para el resumen) pero la pantalla en vivo contaba
+   SÓLO piernas de trabajo y en la recuperación se cambiaba por un aro que
+   drena — la mitad del entreno no existía en el bisel. Ahora el aro dibuja la
+   fase entera: hue = qué es (trabajo naranja / recuperación gris), brillo =
+   dónde estás (hecho / en curso / por venir). El ancho de cada arco se reparte
+   por orden de evidencia (`FormaDelAro`): segundos si se saben todos, metros si
+   todos van por distancia, iguales si no — nunca estimando con un ritmo que
+   nadie escribió. Va en las DOS vías (reloj en solitario y espejo del móvil, con
+   la forma viajando por el cable) y en el doble (`watch-series`).
+   De paso salió un fallo de la misma raíz: contar por ROL hacía que un
+   «10' + 5×800» dijera «Serie 1 / 6» calentando. La FASE manda: `serie` cuenta
+   sólo la parte principal y cada parte se llama por su nombre. 1019 tests iOS
+   verdes (+19).
+
 **Desplegado y en su mano:** web en producción (`fahybrik-ms9kihp3n`, la
 pantalla `watch-zona` del doble incluida) e iOS+watchOS instalados directamente
 en el iPhone de Alex (`00008110-001610123C99801E`, la app del reloj va embebida).
@@ -75,6 +91,10 @@ en el iPhone de Alex (`00008110-001610123C99801E`, la app del reloj va embebida)
 - **El repaso de color del resto de la muñeca** — el lienzo de zona sólo entra
   en las vistas de correr. Ergo, fuerza, EMOM y compañía siguen con el tinte
   plano al 38 %.
+- **El aro on/off SÓLO en correr.** Fuerza, ergo y el reloj de pared siguen con
+  el aro segmentado por repeticiones: ahí los trozos son iguales y el «off» es
+  un descanso que no se ejecuta. Si algún día un descanso de fuerza tiene que
+  verse en el bisel, la pieza ya existe (`WatchAroEstructura`).
 - **Deuda de lint preexistente en web** (10 errores en ficheros que no toqué:
   `CarrerasTab`, `RendimientoTab`, `use-injuries`, `EvaluarSemanaPanel`,
   `RunStructureForm`, varias rutas de API). No los toco porque son de otra

@@ -118,7 +118,7 @@ function pico(serie: number): number {
 }
 
 /** La serie que acaba de cerrarse, vista desde la recuperación. */
-function anterior(serie: number): number {
+export function anterior(serie: number): number {
   return serie === 1 ? SERIES_CALLE.total : serie - 1;
 }
 

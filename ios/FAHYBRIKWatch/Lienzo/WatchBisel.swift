@@ -17,6 +17,16 @@ private enum Bisel {
     static let colorVia = Color.white.opacity(0.12)
     /// Hueco entre segmentos del aro troceado (pt a lo largo del perímetro).
     static let huecoSegmento: CGFloat = 0.035
+
+    /// El gris de una recuperación en el aro de estructura. Es el `dim` de la
+    /// paleta y no un blanco al X %: lo que separa un tramo suave de uno fuerte
+    /// tiene que ser un color del tema, no una opacidad suelta.
+    static let colorRecupera = WatchTheme.dim
+    /// El BRILLO dice dónde estás. Hecho a plena luz, el de ahora a media, lo que
+    /// viene apenas insinuado — lo justo para leer el ritmo del entreno de reojo.
+    static let brilloHecho: Double = 1
+    static let brilloEnCurso: Double = 0.40
+    static let brilloPendiente: Double = 0.16
 }
 
 // MARK: - El trazado: la FORMA DE LA PANTALLA, no un círculo
@@ -130,6 +140,63 @@ struct WatchAroSegmentado: View {
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.35), value: hechas)
         .animation(.linear(duration: 0.6), value: fraccion)
+    }
+}
+
+// MARK: - Aro de estructura
+
+/// EL ON/OFF DE LA SERIE ENTERA — un arco por tramo de la fase, en orden.
+///
+/// Dos ejes y ninguna excepción (ver `FormaDelAro`): el HUE dice qué es el tramo
+/// —trabajo naranja, recuperación gris— y el BRILLO dice dónde estás —hecho, en
+/// curso, por venir—. El aro segmentado de arriba sigue valiendo para lo que se
+/// cuenta por repeticiones iguales (fuerza, ergo); esto vale cuando los trozos
+/// no son iguales Y la mitad de ellos son recuperación.
+struct WatchAroEstructura: View {
+    let arcos: [ArcoDeTramo]
+    let enCurso: Int
+    /// Avance dentro del tramo en curso (0…1). Cero cuando nadie lo mide: el arco
+    /// se queda a medio brillo y no promete una fracción que no existe.
+    let fraccion: Double
+
+    var body: some View {
+        let pesos = arcos.map { max(0, $0.peso) }
+        let suma = pesos.reduce(0, +)
+        let total = suma > 0 ? suma : Double(max(1, arcos.count))
+        // El hueco se estrecha con el número de arcos: fijo, un 12×400 con sus
+        // recuperaciones (23 arcos) sería más hueco que aro.
+        let hueco = min(Bisel.huecoSegmento, 1.0 / (Double(max(1, arcos.count)) * 4))
+        let avance = min(1, max(0, fraccion))
+
+        ZStack {
+            ForEach(Array(arcos.enumerated()), id: \.offset) { i, arco in
+                let inicio = pesos.prefix(i).reduce(0, +) / total
+                let ancho = (suma > 0 ? max(0, arco.peso) : 1) / total
+                let desde = inicio + hueco / 2
+                let hasta = max(desde, inicio + ancho - hueco / 2)
+                let color = arco.trabajo ? Bisel.colorAro : Bisel.colorRecupera
+
+                BiselTrazado(inset: Bisel.inset)
+                    .trim(from: desde, to: hasta)
+                    .stroke(color.opacity(brillo(i)),
+                            style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
+
+                if i == enCurso, avance > 0 {
+                    BiselTrazado(inset: Bisel.inset)
+                        .trim(from: desde, to: max(desde, desde + (hasta - desde) * avance))
+                        .stroke(color, style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.35), value: enCurso)
+        .animation(.linear(duration: 0.6), value: fraccion)
+    }
+
+    private func brillo(_ i: Int) -> Double {
+        if i < enCurso { return Bisel.brilloHecho }
+        if i == enCurso { return Bisel.brilloEnCurso }
+        return Bisel.brilloPendiente
     }
 }
 

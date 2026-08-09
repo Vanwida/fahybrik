@@ -10,6 +10,47 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · El bisel dibuja la ESTRUCTURA, y la fase manda sobre el rol
+
+**Decidido (1) — el aro del reloj es la parte entera que se corre, no la cuenta
+de series.** Un arco por tramo, en orden, con dos ejes y ninguna excepción: el
+**hue** dice QUÉ ES el tramo (trabajo naranja, recuperación gris) y el **brillo**
+dice DÓNDE ESTÁS (hecho / en curso / por venir). Hasta hoy el aro contaba sólo
+las piernas de trabajo y, al entrar la recuperación, se cambiaba por un aro que
+drena: la mitad del entreno no existía en el bisel y la referencia de por dónde
+ibas desaparecía justo en el tramo en el que hay tiempo para mirarla.
+
+**El ancho de cada arco, por orden de evidencia** (`FormaDelAro.pesos`): si se
+saben los segundos de TODOS los tramos —escritos, o los metros a un ritmo
+escrito, incluida la banda que el servidor ya resolvió contra el benchmark del
+atleta— pesa por segundos; si no, y todos van por distancia, pesa por metros; si
+no, todos pesan igual. **NO hacer:** inventar un ritmo para poder estimar. Un
+arco promete «esto es esta parte de lo que queda» y estimarlo con un número que
+nadie escribió es la pantalla que se inventa los datos.
+
+**Por FASE y no por bloque:** un calentamiento de 10' junto a cinco de 800 m es
+una sola cosa en marcha pegada a una estructura; mezclarlos en el mismo aro se
+come la resolución de la serie, que es lo que de verdad se mira corriendo. Una
+fase de un solo tramo no es una estructura: ahí sigue mandando el aro continuo.
+
+**Una sola regla de reparto para las dos vías:** el móvil manda la forma por el
+cable (`MirrorTramo.forma`) calculada con la MISMA función que usa el reloj en
+solitario. Dos vías que dibujan el mismo entreno no pueden tener dos reglas.
+
+**Decidido (2) — la FASE manda sobre el ROL también al contar series.** Un
+calentamiento es una pierna de trabajo, así que contando por rol un «10' + 5×800»
+anunciaba «Serie 1 / 6» mientras el atleta trotaba para entrar en calor.
+`RunLegDisplay.serie` cuenta sólo la parte principal, y cada parte se llama por
+su nombre («Calentamiento», «Vuelta a la calma») en vez de fingir un número. Es
+la misma regla que ya gobernaba el constructor (`tramosDelEntreno()`): cuando un
+fallo aparece dos veces en dos sitios, lo que está mal es la regla, no el sitio.
+
+**Alcance, dicho explícito:** fuerza, ergo y el reloj de pared siguen con el aro
+segmentado por repeticiones — ahí los trozos SÍ son iguales y el «off» es un
+descanso que no se ejecuta, no un tramo con su zona y sus metros.
+
+---
+
 ## 2026-08-09 · El constructor de correr habla la gramática, y el color es un dato
 
 **Decidido (1) — un entreno de correr se MONTA, no se rellena.** El constructor

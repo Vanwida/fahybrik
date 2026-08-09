@@ -174,4 +174,76 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(s.liveProgressText, "TRAMO 1/2")
         XCTAssertEqual(s.liveBlockName, "Series")
     }
+
+    // MARK: - La FORMA del aro viaja por el cable (el on/off del bisel)
+    //
+    // Sin esto la muñeca sólo sabía CONTAR series de trabajo, así que dibujaba
+    // cinco trozos iguales y hacía desaparecer las recuperaciones: la mitad del
+    // entreno no existía en el aro, justo en el tramo en el que hay tiempo para
+    // mirarlo.
+
+    func testLaFormaDeLaSerieViajaConSusPesosYSuIndice() {
+        let s = structuredSession([main([
+            work(.distance(m: 800), .hrZone(4)), rec(.distance(m: 400), .trote),
+            work(.distance(m: 800), .hrZone(4)), rec(.distance(m: 400), .trote),
+            work(.distance(m: 800), .hrZone(4)),
+        ])])
+        s.primaryAdvance()                       // → tramo 0
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.forma?.map(\.trabajo), [true, false, true, false, true])
+        XCTAssertEqual(f.tramo?.forma?.map(\.peso), [800, 400, 800, 400, 800])
+        XCTAssertEqual(f.tramo?.formaIndice, 0)
+        XCTAssertEqual(f.tramo?.parte, "main")
+
+        // Y la muñeca la lee como estructura, no como cuenta de series.
+        guard case let .estructura(arcos, enCurso, _) = GuionDelEspejo.aro(f) else {
+            return XCTFail("el aro del espejo tiene que ser la estructura")
+        }
+        XCTAssertEqual(arcos.count, 5)
+        XCTAssertEqual(enCurso, 0)
+    }
+
+    func testAlEntrarLaRecuperacionElAroAvanzaUnArcoEnVezDeDesaparecer() {
+        let s = structuredSession([main([
+            work(.duration(s: 60)), rec(.duration(s: 30), .trote), work(.duration(s: 60)),
+        ])])
+        s.primaryAdvance()                       // → tramo 0 (trabajo)
+        s.primaryAdvance()                       // → tramo 1 (recuperación)
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.enDescanso, true)
+        XCTAssertEqual(f.tramo?.formaIndice, 1)
+        guard case let .estructura(arcos, enCurso, _) = GuionDelEspejo.aro(f) else {
+            return XCTFail("la recuperación también es un arco")
+        }
+        XCTAssertEqual(enCurso, 1)
+        XCTAssertEqual(arcos[1].trabajo, false)
+    }
+
+    func testUnRodajeNoMandaFormaYElAroSigueSiendoElDeSiempre() {
+        let s = structuredSession([main([work(.duration(s: 1200), .hrZone(2))])])
+        s.primaryAdvance()
+        let f = mirror.buildFrame(from: s)
+        XCTAssertNil(f.tramo?.forma, "un solo tramo no es una estructura")
+        if case .estructura = GuionDelEspejo.aro(f) { XCTFail("no hay estructura que dibujar") }
+    }
+
+    // MARK: - La parte manda sobre el rol
+    //
+    // Un calentamiento también es una pierna de TRABAJO: contando por rol, un
+    // 10' + 3×800 anunciaba «Serie 1 / 4» mientras el atleta trotaba para entrar
+    // en calor.
+
+    func testElCalentamientoNoEsLaSerieUno() {
+        let estructura: RunStructure = [
+            RunPhase(role: .warmup, elements: [work(.duration(s: 600), .hrZone(2))]),
+            main([work(.distance(m: 800), .hrZone(4)), rec(.distance(m: 400), .trote),
+                  work(.distance(m: 800), .hrZone(4))]),
+        ]
+        let s = structuredSession(estructura)
+        s.primaryAdvance()                       // → el calentamiento
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.parte, "warmup")
+        XCTAssertEqual(f.tramo?.rondaTotal, 2, "las series son las de la parte principal")
+        XCTAssertNil(f.tramo?.forma, "el calentamiento es una sola cosa en marcha")
+    }
 }

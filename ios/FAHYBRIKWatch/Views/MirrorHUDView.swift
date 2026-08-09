@@ -182,6 +182,8 @@ struct MirrorHUDView: View {
             return WatchAroContinuo(remaining: queda).watchBisel()
         case let .segmentado(total, hechas, fraccion):
             return WatchAroSegmentado(total: total, hechas: hechas, fraccion: fraccion).watchBisel()
+        case let .estructura(arcos, enCurso, fraccion):
+            return WatchAroEstructura(arcos: arcos, enCurso: enCurso, fraccion: fraccion).watchBisel()
         }
     }
 

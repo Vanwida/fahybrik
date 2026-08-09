@@ -75,6 +75,17 @@ enum RunLegDisplay {
         }
     }
 
+    /// EL NOMBRE DE LA PARTE de cara al atleta. `nil` en la principal, donde el
+    /// contexto lo lleva la cuenta de series — y por eso es un opcional y no un
+    /// tercer literal: el sitio donde se decide qué se escribe es uno solo.
+    static func nombreDeParte(_ role: RunPhaseRole) -> String? {
+        switch role {
+        case .warmup:   return "Calentamiento"
+        case .cooldown: return "Vuelta a la calma"
+        case .main:     return nil
+        }
+    }
+
     /// LA SERIE que el atleta está haciendo, sobre el total de SERIES.
     ///
     /// Cuenta sólo las piernas de TRABAJO: una recuperación no es «la serie 3», y
@@ -82,10 +93,23 @@ enum RunLegDisplay {
     /// Vive aquí y no en cada pantalla porque el móvil, el reloj en solitario y el
     /// cable del espejo tienen que contar igual — si no, la muñeca dice «2 de 5»
     /// donde el teléfono dice «3 de 9» y una de las dos miente.
+    ///
+    /// Y cuenta sólo las de la fase PRINCIPAL: un calentamiento también es una
+    /// pierna de trabajo, así que contándolo todo un 10' + 5×800 anunciaba «serie
+    /// 1 de 6» mientras el atleta trotaba para entrar en calor. La fase manda
+    /// sobre el rol — la misma regla que gobierna el constructor
+    /// (`FreeRunPlan.tramosDelEntreno`) y el bisel (`FormaDelAro`).
     static func serie(legs: [RunLeg], indice: Int) -> (n: Int, total: Int) {
-        let total = max(1, legs.filter(\.isWork).count)
-        let hechas = legs.prefix(max(0, indice)).filter(\.isWork).count
-        let enTrabajo = legs.indices.contains(indice) ? legs[indice].isWork : false
+        let principales = legs.filter { $0.phaseRole == .main }
+        // Sin fase principal (una estructura que sólo calienta) no hay serie que
+        // contar y se cuenta lo que hay, antes que devolver un cero.
+        let cuentan = principales.isEmpty ? legs : principales
+        let total = max(1, cuentan.filter(\.isWork).count)
+        let hechas = legs.prefix(max(0, indice))
+            .filter { $0.isWork && (principales.isEmpty || $0.phaseRole == .main) }
+            .count
+        let leg = legs.indices.contains(indice) ? legs[indice] : nil
+        let enTrabajo = (leg?.isWork ?? false) && (principales.isEmpty || leg?.phaseRole == .main)
         return (n: min(max(1, enTrabajo ? hechas + 1 : hechas), total), total: total)
     }
 

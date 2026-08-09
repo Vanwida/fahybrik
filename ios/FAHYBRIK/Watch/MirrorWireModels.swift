@@ -245,6 +245,26 @@ struct MirrorTramo: Codable, Equatable {
     /// la muñeca pinta metros, ritmo y zona en vez de una cuenta atrás pelada, y
     /// deja de ofrecer controles a alguien que está corriendo.
     var recuperacionEnMovimiento: Bool = false
+    /// LA FORMA de la parte que se está corriendo — un arco por tramo, en orden,
+    /// diciendo si es trabajo o recuperación y cuánto pesa (ver `FormaDelAro`).
+    /// Sin esto la muñeca sólo sabía CONTAR series de trabajo, así que el bisel
+    /// dibujaba cinco trozos iguales y hacía desaparecer las recuperaciones: la
+    /// mitad del entreno no existía en el aro. Nil fuera de una serie de correr.
+    var forma: [MirrorArco]? = nil
+    /// La posición del tramo en curso dentro de `forma`.
+    var formaIndice: Int? = nil
+    /// `RunPhaseRole` del tramo. Un calentamiento también es una pierna de
+    /// trabajo: sin esto la muñeca lo llamaba «Serie 1 / 6».
+    var parte: String? = nil
+}
+
+/// Un arco del bisel: un tramo de la parte que se corre, con su peso relativo.
+/// Espejo en el cable de `ArcoDeTramo` — el reparto lo calcula el móvil con la
+/// MISMA función que usa el reloj en solitario, para que las dos vías no puedan
+/// dibujar aros distintos del mismo entreno.
+struct MirrorArco: Codable, Equatable {
+    let trabajo: Bool
+    let peso: Double
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete

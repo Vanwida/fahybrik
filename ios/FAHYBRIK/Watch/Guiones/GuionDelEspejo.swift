@@ -164,6 +164,9 @@ enum GuionDelEspejo {
         GuionSeries.Estado(
             fase: t.enDescanso ? .recupera : .trabajo,
             enMovimiento: t.recuperacionEnMovimiento,
+            // La parte del entreno viaja por el cable: sin ella el calentamiento
+            // de una serie llegaba a la muñeca como «Serie 1 / 6».
+            parte: t.parte.flatMap(RunPhaseRole.init(rawValue:)) ?? .main,
             serie: t.rondaN ?? 1,
             totalSeries: t.rondaTotal ?? 1,
             cierre: cierre(t),
@@ -324,25 +327,29 @@ enum GuionDelEspejo {
         case ninguno
         case continuo(queda: Double)
         case segmentado(total: Int, hechas: Int, fraccion: Double)
+        /// El on/off de una serie de correr: un arco por tramo, trabajo y
+        /// recuperación (ver `FormaDelAro`). Sólo existe cuando el móvil manda la
+        /// forma — nunca se reconstruye aquí a partir de la cuenta de series.
+        case estructura(arcos: [ArcoDeTramo], enCurso: Int, fraccion: Double)
     }
 
     static func aro(_ f: MirrorStateFrame) -> Aro {
         guard let t = f.tramo else { return .ninguno }
+        // LA FORMA MANDA SOBRE LA CUENTA. Si el móvil sabe dibujar la parte
+        // entera, el bisel la dibuja: contar sólo series de trabajo era lo que
+        // hacía desaparecer la mitad del entreno del aro.
+        if let forma = t.forma, forma.count > 1, let i = t.formaIndice, forma.indices.contains(i) {
+            return .estructura(
+                arcos: forma.map { ArcoDeTramo(trabajo: $0.trabajo, peso: $0.peso) },
+                enCurso: i,
+                fraccion: fraccionDelTramo(t)
+            )
+        }
         switch guionPara(t) {
         case .series, .fuerza, .ergo, .ruta:
             guard let total = t.rondaTotal, total > 1 else { return aroContinuo(t) }
             let hechas = max(0, (t.rondaN ?? 1) - 1)
-            let fraccion: Double
-            if let obj = t.objetivoMedida, obj > 0, let hecho = t.hechoMedida {
-                fraccion = min(1, max(0, hecho / obj))
-            } else if let queda = t.ventanaQueda, let tot = t.ventanaTotal, tot > 0 {
-                fraccion = min(1, max(0, 1 - queda / tot))
-            } else {
-                // El segmento en curso no se rellena si nadie mide su avance —
-                // el aro sigue diciendo POR QUÉ serie vas, no cuánto llevas.
-                fraccion = 0
-            }
-            return .segmentado(total: total, hechas: hechas, fraccion: fraccion)
+            return .segmentado(total: total, hechas: hechas, fraccion: fraccionDelTramo(t))
         case .relojDePared:
             // Sólo intervals y tabata cuentan RONDAS — el aro de la tabla de la
             // pantalla nueva («segmentado, una por serie» / «segmentado, 8»).
@@ -360,6 +367,20 @@ enum GuionDelEspejo {
         case .rodaje, .emom, .ninguno:
             return aroContinuo(t)
         }
+    }
+
+    /// LO QUE LLEVAS DEL TRAMO EN CURSO (0…1). Por medida si alguien la mide, por
+    /// reloj si lo cierra un reloj, y CERO cuando no lo sabe nadie: el arco en
+    /// curso se queda encendido sin rellenar, que es la verdad — el aro dice por
+    /// dónde vas, no cuánto llevas de algo que nadie mide.
+    private static func fraccionDelTramo(_ t: MirrorTramo) -> Double {
+        if let obj = t.objetivoMedida, obj > 0, let hecho = t.hechoMedida {
+            return min(1, max(0, hecho / obj))
+        }
+        if let queda = t.ventanaQueda, let total = t.ventanaTotal, total > 0 {
+            return min(1, max(0, 1 - queda / total))
+        }
+        return 0
     }
 
     private static func aroContinuo(_ t: MirrorTramo) -> Aro {

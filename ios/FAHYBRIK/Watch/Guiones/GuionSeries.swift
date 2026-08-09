@@ -68,6 +68,12 @@ enum GuionSeries {
         /// el atleta necesita mientras trota es saber si va lo bastante suave,
         /// no una cuenta atrás pelada. Ver `RunLeg.recuperaEnMovimiento`.
         var enMovimiento: Bool = false
+        /// LA PARTE DEL ENTRENO en la que cae este tramo. Un calentamiento
+        /// también es una pierna de trabajo, así que sin esto la línea más leída
+        /// de la pantalla llamaba «Serie 1 / 6» a los diez minutos de trotar para
+        /// entrar en calor. La fase manda sobre el rol, igual que en el
+        /// constructor y en el bisel (`FormaDelAro`).
+        var parte: RunPhaseRole = .main
         /// La serie en curso. Durante la recuperación, la que VIENE.
         var serie: Int
         var totalSeries: Int
@@ -120,13 +126,21 @@ enum GuionSeries {
         return e.enMovimiento ? .ojeada : .mando
     }
 
+    /// CADA PARTE SE LLAMA POR SU NOMBRE. Sólo en la principal hay series que
+    /// contar; un calentamiento y una vuelta a la calma no son «la serie 1», y
+    /// llamarlas así fue exactamente el fallo de contar por rol y no por fase.
+    private static func contextoDeParte(_ e: Estado) -> String {
+        RunLegDisplay.nombreDeParte(e.parte)
+            ?? "Serie \(e.serie) / \(max(e.totalSeries, e.serie))"
+    }
+
     // MARK: - Trabajo
 
     private static func paginaTrabajo(_ e: Estado, _ g: Gestos) -> WatchPagina {
         // Con hito, el sujeto son los metros que FALTAN — y el contexto lo dice,
         // porque «326 m» a secas no distingue llevar de faltar (mismo patrón que
         // «REMO · TE FALTAN» en el ergo del doble).
-        let base = "Serie \(e.serie) / \(max(e.totalSeries, e.serie))"
+        let base = contextoDeParte(e)
         let contexto = { if case .hito = e.cierre { return base + " · te faltan" } else { return base } }()
         let (sujeto, unidad) = sujetoDeTrabajo(e)
         let (etiqueta, valor, tono) = segundoDeTrabajo(e)
@@ -203,8 +217,13 @@ enum GuionSeries {
             // UNA RECUPERACIÓN CORRIENDO NO ES UN DESCANSO. «Descanso» delante de
             // alguien que está trotando de vuelta es falso, y era la palabra que
             // esta pantalla daba por hecha.
-            contexto: e.enMovimiento ? "Trota · viene la \(e.serie)"
-                                     : "Descanso · viene la \(e.serie)",
+            // Y fuera de la parte principal no hay serie que anunciar: el número
+            // se calla en vez de inventarse un «viene la 1» en un calentamiento.
+            contexto: {
+                let palabra = e.enMovimiento ? "Trota" : "Descanso"
+                guard e.parte == .main else { return palabra }
+                return "\(palabra) · viene la \(e.serie)"
+            }(),
             modo: modoDe(e),
             sujeto: sujeto,
             unidad: unidad,
