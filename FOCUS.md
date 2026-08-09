@@ -57,7 +57,7 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   doble, detalles por tipo (protocolo con `checkable` y solo-texto sin CTA,
   responder de un toque), visto al abrir, push `coach_communication` con
   deeplink, entrada desde Inicio con badge. Las 4 pantallas del doble pasan a
-  «construida». 1072 tests iOS verdes (+98). Pendiente: instalar en el iPhone.
+  «construida». 1072 tests iOS verdes (+98). Instalada en el iPhone de Alex.
 - ⏳ **Siguiente:** tanda de fidelidad al mock (bloques tipados de nota, el
   camino embebido del plan real, enlace cruzado, previa que sigue) + la espina
   como lenguaje de fases/ciclos (referencia que encantó a Alex: coach-nota).
