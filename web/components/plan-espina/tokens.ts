@@ -18,6 +18,14 @@ export interface TokensEspina {
   muted: string;
   fontSans: string;
   fontMono: string;
+  /**
+   * La clase de anillo de foco de la superficie, para cuando un nodo se puede
+   * tocar. Va aquí y no dentro del componente porque el anillo es vocabulario de
+   * la superficie igual que el color: el dashboard tiene el suyo (WCAG 2.4.7) y
+   * el móvil simulado no tiene teclado. Ausente = el nodo confía en el anillo
+   * del navegador.
+   */
+  claseFoco?: string;
 }
 
 /** La app del atleta y todo lo que se dibuja dentro de su móvil (la previa del
@@ -39,6 +47,7 @@ export const TOKENS_V2: TokensEspina = {
   muted: 'var(--v2-muted)',
   fontSans: 'inherit',
   fontMono: 'var(--font-mono)',
+  claseFoco: 'v2-focus',
 };
 
 /**

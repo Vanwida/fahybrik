@@ -97,15 +97,19 @@ export function LevelDetailPanel({
     setDupDays(null);
   }, [refetch]);
 
-  // Preview for a filled cell: count + total weeks + per-item sparkline.
+  // Preview for a filled cell: count + total weeks + the ordered microciclos, by
+  // NAME. The name travels because the preview draws the espina, and a path
+  // without the coach's own labels is the grey bar we replaced. `null` = the
+  // microciclo is no longer in the library, and the node says so.
   const previewFor = useCallback(
     (seq: V2Sequence | undefined): SequenceCellPreview | null => {
       if (!seq) return null;
       let totalWeeks = 0;
       const segments = seq.items.map((it) => {
-        const weeks = microById.get(it.month_template_id)?.week_count ?? 0;
+        const micro = microById.get(it.month_template_id);
+        const weeks = micro?.week_count ?? 0;
         totalWeeks += weeks;
-        return { weeks };
+        return { name: micro?.name ?? null, weeks };
       });
       return {
         microciclo_count: seq.items.length,

@@ -1,11 +1,16 @@
 'use client';
 
 // SequenceEditor — the heart of Secuencias. Opens on a matrix cell (level × days)
-// and builds the ORDERED chain of microciclos the athlete walks through. Each card
+// and builds the ORDERED chain of microciclos the athlete walks through. Each node
 // = one microciclo (referenced via month_template_id, never copied) with its order,
-// name and weeks. Cards reorder by drag (HTML5, adjacent-swap like ReorderRow) with
-// keyboard ↑/↓ fallback; the order IS the periodization. Below: the running total
+// name and weeks. Nodes reorder by drag (HTML5, adjacent-swap like ReorderRow) with
+// a keyboard ↑/↓ fallback; the order IS the periodization. Below: the running total
 // ribbon + the end/progression panel.
+//
+// The chain is drawn as LA ESPINA (<CadenaEspina>) — the same shared vertical path
+// the athlete sees on his phone and inside his coach's note, so the coach builds
+// the sequence reading exactly what the athlete will read («S1-S4 · Primer mes»).
+// See docs/DECISIONS.md 2026-08-09: a path is never redrawn per screen.
 //
 // SAVE = PUT /api/coach/sequences (the atomic full-set cell save): the ordered items
 // (the server derives 1..N positions from array order) + end_policy + progression.
@@ -14,7 +19,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
 import type {
@@ -28,6 +32,8 @@ import type {
 } from '@/lib/dashboard/v2/secuencias';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { AddMicrocicloPicker } from './AddMicrocicloPicker';
+import { CadenaEspina } from './CadenaEspina';
+import type { EslabonCadena } from './cadena';
 import { EndPolicyPanel } from './EndPolicyPanel';
 
 // A working item: the persisted month_template_id + a client-only key so React can
@@ -91,10 +97,25 @@ export function SequenceEditor({
     [microciclos],
   );
 
-  const totalWeeks = useMemo(
-    () => items.reduce((sum, it) => sum + (microById.get(it.month_template_id)?.week_count ?? 0), 0),
-    [items, microById],
+  // Los eslabones tal y como los lee el camino: el nombre en `null` cuando el
+  // microciclo ya no está en la biblioteca (así el nodo lo dice en vez de
+  // pintarse vacío) y en cuántas celdas más aparece.
+  const eslabones = useMemo<EslabonCadena[]>(
+    () =>
+      items.map((it) => {
+        const micro = microById.get(it.month_template_id);
+        return {
+          clave: it.key,
+          month_template_id: it.month_template_id,
+          nombre: micro?.name ?? null,
+          semanas: micro?.week_count ?? 0,
+          usos: usageById[it.month_template_id] ?? 1,
+        };
+      }),
+    [items, microById, usageById],
   );
+
+  const totalWeeks = useMemo(() => eslabones.reduce((sum, e) => sum + e.semanas, 0), [eslabones]);
 
   // ── Chain mutations ───────────────────────────────────────────────────────
   const move = useCallback((index: number, delta: -1 | 1) => {
@@ -227,32 +248,21 @@ export function SequenceEditor({
         </div>
       ) : null}
 
-      {/* the chain */}
-      <div className="flex flex-wrap items-stretch gap-0">
-        {items.map((it, i) => {
-          const micro = microById.get(it.month_template_id);
-          return (
-            <div key={it.key} className="flex items-stretch">
-              <MicrocicloCard
-                order={i + 1}
-                index={i}
-                total={items.length}
-                name={micro?.name ?? 'Microciclo eliminado'}
-                weeks={micro?.week_count ?? 0}
-                missing={!micro}
-                onMove={move}
-                onRemove={() => remove(it.key)}
-              />
-              <div className="flex w-[26px] items-center justify-center text-lg font-bold text-[color:var(--v2-accent)]">
-                →
-              </div>
-            </div>
-          );
-        })}
-        <AddCard onClick={() => setPickerOpen(true)} levelName={level.name} days={days} empty={isEmpty} />
+      {/* the chain, as the path the athlete will walk */}
+      <div className="max-w-[560px]">
+        <CadenaEspina
+          eslabones={eslabones}
+          onMove={move}
+          onRemove={remove}
+          onAdd={() => setPickerOpen(true)}
+          levelName={level.name}
+          days={days}
+        />
       </div>
 
-      {/* running total */}
+      {/* running total — the proportion bar is gone: the espina already writes
+          each microciclo's week range, so a second, nameless reading of the same
+          thing was noise. */}
       {!isEmpty ? (
         <div className="mt-3.5 flex flex-wrap items-center gap-3 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-3.5 py-2.5 text-xs text-[color:var(--v2-muted)]">
           <span>
@@ -260,7 +270,6 @@ export function SequenceEditor({
             {items.length === 1 ? 'microciclo' : 'microciclos'} ·{' '}
             <b className="v2-num text-[color:var(--v2-fg)]">{totalWeeks}</b> semanas en total
           </span>
-          <TotalBar items={items} microById={microById} />
           {endPolicy === 'repeat' && progressionPct != null ? (
             <span className="text-[color:var(--v2-faint)]">↻ vuelve a empezar con +{progressionPct}%</span>
           ) : endPolicy === 'level_up' ? (
@@ -317,185 +326,6 @@ export function SequenceEditor({
           onClose={() => setCreateOpen(false)}
         />
       ) : null}
-    </div>
-  );
-}
-
-// ── Microciclo card ─────────────────────────────────────────────────────────────
-
-function MicrocicloCard({
-  order,
-  index,
-  total,
-  name,
-  weeks,
-  missing,
-  onMove,
-  onRemove,
-}: {
-  order: number;
-  index: number;
-  total: number;
-  name: string;
-  weeks: number;
-  missing: boolean;
-  onMove: (index: number, delta: -1 | 1) => void;
-  onRemove: () => void;
-}) {
-  const onDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const from = Number.parseInt(e.dataTransfer.getData('text/plain'), 10);
-    if (!Number.isFinite(from) || from === index) return;
-    const delta: -1 | 1 = from < index ? 1 : -1;
-    let cur = from;
-    while (cur !== index) {
-      onMove(cur, delta);
-      cur += delta;
-    }
-  };
-
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={cn(
-        'group relative flex w-[188px] flex-col gap-2.5 rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] p-3',
-        missing ? 'border-[color:var(--v2-danger)]' : 'border-[color:var(--v2-border)]',
-      )}
-    >
-      {/* remove (hover) */}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Quitar de la secuencia (no lo borra de la biblioteca)"
-        title="Quitar de la secuencia (no lo borra de la biblioteca)"
-        className="v2-focus absolute -right-2 -top-2 hidden h-5 w-5 items-center justify-center rounded-full border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] text-[color:var(--v2-muted)] transition-colors group-hover:flex hover:text-[color:var(--v2-danger)]"
-      >
-        <MIcon name="close" size={12} />
-      </button>
-
-      <div className="flex items-center gap-2">
-        <span
-          className="shrink-0 cursor-grab select-none text-[color:var(--v2-faint)] active:cursor-grabbing"
-          title="Arrastra para reordenar"
-          aria-hidden
-        >
-          <MIcon name="drag_indicator" size={16} />
-        </span>
-        <span className="v2-num flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]">
-          {order}
-        </span>
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-body font-bold',
-            missing ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-fg)]',
-          )}
-          title={name}
-        >
-          {name}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-        <MIcon name="date_range" size={13} className="opacity-70" />
-        <b className="v2-num">{weeks}</b> {weeks === 1 ? 'semana' : 'semanas'}
-      </div>
-
-      {/* reorder fallback (keyboard / touch) */}
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onMove(index, -1)}
-          disabled={index === 0}
-          aria-label="Mover antes"
-          className={cn(
-            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
-            index === 0 ? 'cursor-not-allowed opacity-30' : 'hover:text-[color:var(--v2-fg)]',
-          )}
-        >
-          <MIcon name="chevron_left" size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onMove(index, 1)}
-          disabled={index === total - 1}
-          aria-label="Mover después"
-          className={cn(
-            'v2-focus flex h-[18px] flex-1 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors',
-            index === total - 1 ? 'cursor-not-allowed opacity-30' : 'hover:text-[color:var(--v2-fg)]',
-          )}
-        >
-          <MIcon name="chevron_right" size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AddCard({
-  onClick,
-  levelName,
-  days,
-  empty,
-}: {
-  onClick: () => void;
-  levelName: string;
-  days: number;
-  empty: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="v2-focus flex min-h-[128px] w-[188px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 text-center text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
-    >
-      <MIcon name="add" size={22} />
-      <span className="text-label font-bold">Añadir microciclo</span>
-      {empty ? (
-        <span className="text-eyebrow font-normal leading-snug text-[color:var(--v2-faint)]">
-          Encadena microciclos para montar la periodización de {levelName} · {days} días
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-// The running-total ribbon's segmented bar — one segment per microciclo, width ∝
-// weeks.
-function TotalBar({
-  items,
-  microById,
-}: {
-  items: DraftItem[];
-  microById: Map<string, V2SequenceMicrociclo>;
-}) {
-  const segs = items.map((it) => ({
-    weeks: Math.max(microById.get(it.month_template_id)?.week_count ?? 1, 1),
-  }));
-  const total = segs.reduce((sum, s) => sum + s.weeks, 0);
-  if (total === 0) return null;
-  return (
-    <div className="flex h-2 max-w-[420px] flex-1 items-center gap-[2px]" aria-hidden>
-      {segs.map((s, i) => (
-        <span
-          key={i}
-          className="h-2 rounded-[var(--v2-r-3xs)]"
-          style={{
-            width: `${(s.weeks / total) * 100}%`,
-            background: 'var(--v2-muted)',
-          }}
-        />
-      ))}
     </div>
   );
 }

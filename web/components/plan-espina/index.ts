@@ -3,7 +3,7 @@
 // Quien la use importa de aquí y nunca de los ficheros de dentro — así el día que
 // el dibujo se parta en más piezas, ninguna pantalla se entera.
 
-export { Espina, type TramoEspina } from './Espina';
+export { Espina, GEOMETRIA_ESPINA, type FormaEspina, type TramoEspina } from './Espina';
 export { tramosDesdePlan } from './desde-plan';
 export {
   TOKENS_TWIN,

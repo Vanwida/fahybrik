@@ -7,13 +7,28 @@
 // el cursor de hoy dentro y la carrera cerrando por abajo.
 //
 // ---------------------------------------------------------------------------
+// LA ESPINA ES EL SUJETO DE ESTA PANTALLA
+// ---------------------------------------------------------------------------
+//
+// El ciclo se pinta con `web/components/plan-espina`, la MISMA pieza que dibuja
+// el camino en la nota del coach y en la periodización del dashboard. No es un
+// parecido: es el mismo componente con los tokens de esta superficie. Un camino
+// redibujado por pantalla son tres caminos distintos a los dos meses, y el
+// atleta que ve «S5-S8 · Base 1» en la nota de su coach tiene que ver
+// exactamente eso aquí (docs/DECISIONS.md 2026-08-09).
+//
+// Lo que decide QUÉ dice cada parada está en `espina.ts` y es puro; lo que
+// cuelga de cada parada —las marcas de semana, lo que hay en el calendario, la
+// declaración del hueco, la cuenta atrás— está en `atoms.tsx`.
+//
+// ---------------------------------------------------------------------------
 // LA LEY QUE MANDA SOBRE ESTA PANTALLA
 // ---------------------------------------------------------------------------
 //
 // El futuro tiene dos mitades y solo una se sabe (la cabecera de `plan/modelo.ts`
 // lo deja escrito):
 //
-//   · La ESTRUCTURA está DECIDIDA — cuántas etapas hay, en qué orden, cuántas
+//   · La ESTRUCTURA está DECIDIDA — cuántos tramos hay, en qué orden, cuántas
 //     semanas dura cada uno, cómo los llamó el coach, dónde caes hoy, qué tests
 //     están marcados y cuándo es la carrera. Nada de eso depende de lo que el
 //     atleta haga, así que se pinta con seguridad.
@@ -23,37 +38,29 @@
 //     sustituir esa mentira. Las marcas de semana son POSICIÓN, no cantidad:
 //     todas miden lo mismo y la única distinta es la de hoy.
 //
-// AGNÓSTICO: la etiqueta de una etapa es `Tramo.nombre`, o sea lo que escribió
-// el coach («Acumulación», «Base 1», «Testing»). La migración 0064 borró la
-// entidad «fase», así que aquí no hay catálogo, ni orden de fases asumido, ni
-// una sola constante con un nombre de fase dentro. Un tramo sin nombre se
-// pintaría sin etiqueta.
+// AGNÓSTICO: la etiqueta de un tramo es `Tramo.nombre`, o sea lo que escribió el
+// coach («Acumulación», «Base 1», «Testing»). La migración 0064 borró la entidad
+// «fase», así que aquí no hay catálogo, ni orden de fases asumido, ni una sola
+// constante con un nombre de fase dentro. El color de un tramo es su POSICIÓN,
+// nunca lo que dice su nombre.
 //
 // ---------------------------------------------------------------------------
 // LA ALTURA (§6.1) — `llena`, y degrada a `centra`
 // ---------------------------------------------------------------------------
 //
-// El cuerpo es LA ESPINA: las etapas en orden, de arriba abajo. El sobrante
-// entra EN LAS FILAS y nunca en una cola debajo, y se reparte por peso entre
-// las tres cosas que pueden pagarlo:
-//
-//   · la etapa ACTUAL (3) — se abre y enseña sus semanas y sus hitos;
-//   · el HUECO declarado (2) — cuando lo publicado se acaba y no hay siguiente,
-//     el agujero es un hecho de la estructura y se dibuja como tal;
-//   · la CARRERA (1) — la que da sentido a todo lo de arriba (§6.2).
-//
-// Sin ningún tramo publicado no hay espina que repartir: entonces es un Vacío y
-// degrada a `centra`, con su salida obligatoria.
+// El cuerpo es LA ESPINA. El sobrante entra EN LAS PARADAS y nunca en una cola
+// debajo; el reparto por peso está en `atoms.tsx`. Sin ningún tramo publicado no
+// hay camino que repartir: entonces es un Vacío y degrada a `centra`, con su
+// salida obligatoria.
 
 import { useState } from 'react';
-import { SP } from '../../kit';
+import { Espina, GEOMETRIA_ESPINA, TOKENS_TWIN } from '@/components/plan-espina';
 import { EstadoCentrado } from '../../kit-composicion/estados';
 import { Accion, Cromo, Cuerpo, Lienzo, Numeral, Sujeto, entradaStyle } from '../../plan/atoms';
 import { escenarioPlan } from '../../plan/datos';
 import {
   TEXTO_AL_ACABAR,
   cuandoElHito,
-  estadoDeTramo,
   hitosDelCiclo,
   plural,
   proximoHito,
@@ -62,35 +69,12 @@ import {
   type Ciclo,
 } from '../../plan/modelo';
 import { fmtClock, useTimeline } from '../../sim';
-import { FilaCarrera, FilaTramo, Hueco, RAIL } from './atoms';
+import { tramosDelCiclo } from './atoms';
+import { LO_PUBLICA_EL_COACH, hayHueco, nivelDeLoPublicado } from './espina';
 
-/** Sangría que alinea el texto suelto de la espina con el de las filas. */
-const SANGRIA = SP.m + RAIL + SP.m;
-
-/**
- * El nivel que declara lo publicado: el de la etapa donde caes hoy, o el que
- * comparten TODOS cuando hoy no cae en ninguno. Si declaran niveles distintos y
- * no hay cursor, no existe «el nivel del ciclo» y no se pinta ninguno.
- *
- * Se resuelve aquí una sola vez para que el nivel salga UNA vez en el cromo en
- * lugar de repetirse en las tres filas: una fila solo lo dice cuando se sale de
- * lo que declara el resto, que es justo cuando el dato informa de algo.
- */
-function nivelDeLoPublicado(ciclo: Ciclo): string | null {
-  const actual = ciclo.tramos[ciclo.indiceActual];
-  if (actual) return actual.nivel;
-  const niveles = new Set(ciclo.tramos.map((t) => t.nivel));
-  return niveles.size === 1 ? (ciclo.tramos[0]?.nivel ?? null) : null;
-}
-
-/**
- * ¿La espina tiene un agujero al final? Dos procedencias, un mismo hecho: o hoy
- * no cae dentro de ninguna etapa, o la última etapa no declara qué pasa al
- * acabar. En los dos casos lo que viene después NO se sabe, y se dice.
- */
-function hayHueco(ciclo: Ciclo): boolean {
-  return ciclo.indiceActual < 0 || ciclo.alAcabar === null;
-}
+/** El ancho de la columna del raíl más su aire — alinea el texto suelto del pie
+ *  con el de las paradas. Los dos valores salen de la pieza, no se repiten. */
+const SANGRIA = GEOMETRIA_ESPINA.rail + GEOMETRIA_ESPINA.aire;
 
 export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (linea: string) => void }) {
   const [visible, setVisible] = useState(false);
@@ -100,7 +84,6 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
   const nivel = nivelDeLoPublicado(ciclo);
   const totalSemanas = semanasDelCiclo(ciclo);
   const semanaCiclo = semanaDelCiclo(ciclo);
-  const hueco = hayHueco(ciclo);
 
   const guion = guionDelCiclo(ciclo);
   useTimeline([
@@ -108,7 +91,7 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
     ...guion.map((linea, i) => ({ at: 700 + i * 540, run: () => onLog(linea) })),
   ]);
 
-  // Sin estructura publicada no hay espina que repartir: el arquetipo degrada a
+  // Sin estructura publicada no hay camino que repartir: el arquetipo degrada a
   // Vacío (§6.2) y se centra, con la salida declarada. Este atleta nunca ha
   // tenido plan, así que tampoco hay de dónde venir: no se finge un pasado.
   if (ciclo.tramos.length === 0) {
@@ -127,7 +110,7 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
           <EstadoCentrado
             titulo="Aún no tienes plan"
             cuerpo="Cuando tu coach publique tu primera etapa, aquí verás por dónde vas y cuánto queda."
-            salida={{ tipo: 'depende', quien: 'tu coach', cuando: 'Todavía no hay fecha' }}
+            salida={{ tipo: 'depende', ...LO_PUBLICA_EL_COACH }}
           />
         </div>
       </Lienzo>
@@ -157,9 +140,9 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
         <Sujeto
           titulo={tramoActual.nombre}
           cifra={<Numeral sufijo={`de ${tramoActual.semanas}`}>{ciclo.semanaEnTramo}</Numeral>}
-          // La escala del ciclo solo se dice cuando NO coincide con la del
-          // etapa: con una única etapa publicada las dos cuentas son la misma
-          // y repetirla sería ruido.
+          // La escala del ciclo solo se dice cuando NO coincide con la de la
+          // etapa: con una única etapa publicada las dos cuentas son la misma y
+          // repetirla sería ruido.
           pie={
             ciclo.tramos.length > 1 && semanaCiclo !== null
               ? `Semana ${semanaCiclo} de ${totalSemanas} del ciclo`
@@ -168,54 +151,37 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
           visible={visible}
         />
       ) : (
-        // Hoy no cae en ninguna etapa. No hay cifra que inventar: el sujeto es
-        // el hecho, no un contador puesto a cero.
-        <Sujeto
-          titulo="Sin etapa activa"
-          pie="Hoy no cae dentro de ninguna de tus etapas."
-          visible={visible}
-        />
+        // Hoy no cae en ninguna etapa. No hay cifra que inventar: el sujeto es el
+        // hecho, no un contador puesto a cero.
+        <Sujeto titulo="Sin etapa activa" pie="Hoy no cae dentro de ninguna de tus etapas." visible={visible} />
       )}
 
       <Cuerpo>
-        {/* `llena`: el interior se estira hasta el alto para que las filas
+        {/* `llena`: el interior se estira hasta el alto para que las paradas
             puedan repartirse el sobrante, y scrollea solo si de verdad desborda
             (un coach con ocho etapas publicadas). */}
         <div className="twin-scroll" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', gap: SP.s }}>
-            {ciclo.tramos.map((tramo, i) => (
-              <FilaTramo
-                key={i}
-                tramo={tramo}
-                estado={estadoDeTramo(i, ciclo.indiceActual)}
-                cursor={i === ciclo.indiceActual ? ciclo.semanaEnTramo : null}
-                nivelComun={nivel}
-                visible={visible}
-                retardo={140 + i * 70}
-                onLog={onLog}
-              />
-            ))}
+          <Espina
+            tokens={TOKENS_TWIN}
+            tramos={tramosDelCiclo(ciclo, onLog)}
+            style={{ flex: '1 0 auto', ...entradaStyle(visible, 140) }}
+          />
 
-            {hueco ? (
-              <Hueco ciclo={ciclo} visible={visible} />
-            ) : ciclo.alAcabar ? (
-              // La secuencia SÍ declara qué pasa al acabar: entonces no hay
-              // agujero, hay una regla, y se dice en una línea.
-              <p
-                style={{
-                  margin: 0,
-                  paddingLeft: SANGRIA,
-                  font: '500 12px/1.4 var(--twin-font-sans)',
-                  color: 'var(--twin-muted)',
-                  ...entradaStyle(visible, 340),
-                }}
-              >
-                {TEXTO_AL_ACABAR[ciclo.alAcabar]}
-              </p>
-            ) : null}
-
-            {ciclo.carrera ? <FilaCarrera carrera={ciclo.carrera} visible={visible} onLog={onLog} /> : null}
-          </div>
+          {/* La secuencia SÍ declara qué pasa al acabar: entonces no hay
+              agujero, hay una regla, y se dice en una línea bajo el camino. */}
+          {!hayHueco(ciclo) && ciclo.alAcabar ? (
+            <p
+              style={{
+                margin: 0,
+                paddingLeft: SANGRIA,
+                font: '500 12px/1.4 var(--twin-font-sans)',
+                color: 'var(--twin-muted)',
+                ...entradaStyle(visible, 340),
+              }}
+            >
+              {TEXTO_AL_ACABAR[ciclo.alAcabar]}
+            </p>
+          ) : null}
         </div>
       </Cuerpo>
     </Lienzo>
@@ -231,7 +197,7 @@ function guionDelCiclo(ciclo: Ciclo): string[] {
   if (ciclo.tramos.length === 0) {
     return [
       '0:00 · Atleta recién dado de alta: ninguna etapa publicada y ninguna carrera',
-      '0:01 · Sin estructura no hay espina que repartir: degrada a Vacío y centra',
+      '0:01 · Sin estructura no hay camino que repartir: degrada a Vacío y centra',
       '0:02 · Nunca ha tenido plan, así que tampoco hay de dónde venir',
     ];
   }
@@ -243,7 +209,7 @@ function guionDelCiclo(ciclo: Ciclo): string[] {
     tramo && ciclo.semanaEnTramo !== null
       ? `0:00 · «${tramo.nombre}», semana ${ciclo.semanaEnTramo} de ${tramo.semanas}`
       : '0:00 · Hoy no cae dentro de ninguna etapa: no hay cursor que pintar',
-    `0:01 · ${plural(ciclo.tramos.length, 'etapa publicada', 'etapas publicadas')}, ${semanasDelCiclo(ciclo)} semanas en total`,
+    `0:01 · ${plural(ciclo.tramos.length, 'etapa publicada', 'etapas publicadas')}, ${semanasDelCiclo(ciclo)} semanas en total · el camino es la espina compartida`,
     marcas.length > 0
       ? `0:02 · ${plural(marcas.length, 'marca en el calendario', 'marcas en el calendario')}${
           proximo ? ` · la próxima, ${proximo.hito.nombre} (${cuandoElHito(proximo.hito)})` : ''
@@ -251,11 +217,11 @@ function guionDelCiclo(ciclo: Ciclo): string[] {
       : '0:02 · Ninguna marca en el calendario de lo publicado: no se pinta ninguna',
     ciclo.alAcabar
       ? `0:03 · ${TEXTO_AL_ACABAR[ciclo.alAcabar]}`
-      : '0:03 · Lo publicado se acaba y no hay siguiente: el hueco se declara y se dice de quién depende',
+      : '0:03 · Lo publicado se acaba y no hay siguiente: el camino se rompe y se dice de quién depende',
     carrera
       ? `0:04 · ${carrera.nombre} en ${carrera.enDias} días${
           carrera.objetivoS !== null ? ` · objetivo ${fmtClock(carrera.objetivoS)}` : ''
         }`
-      : '0:04 · Sin carrera objetivo: la espina cierra sin meta',
+      : '0:04 · Sin carrera objetivo: el camino cierra sin meta',
   ];
 }

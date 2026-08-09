@@ -9,6 +9,10 @@
 // publicada —qué etapas hay, en qué orden, dónde caes hoy, qué está marcado y
 // cuándo es la carrera— que es lo único del futuro que de verdad se sabe.
 //
+// Y se pinta con LA ESPINA (`web/components/plan-espina`), el mismo camino
+// vertical de la nota del coach y de la periodización del dashboard: mismos
+// rótulos de semana («S5-S8»), mismo color por posición, mismo «estás aquí».
+//
 // Lo que NO hay, y es el motivo de que exista: ni una barra de carga, de volumen
 // o de intensidad prevista. El resultado medido del futuro depende de lo que el
 // atleta haga, así que dibujarlo sería mentir (CONTRATO-UI §7).
@@ -21,9 +25,9 @@ export const meta: TwinMeta = {
   titulo: 'El plan — hacia dónde voy y cuánto queda',
   zona: 'Plan y hoy',
   estado: 'propuesta',
-  actualizado: '2026-08-06',
+  actualizado: '2026-08-09',
   descripcion:
-    'Las etapas que tu coach ha publicado, en orden y con el nombre que él les puso, el cursor de hoy dentro de la que toca, lo que está marcado en el calendario y la carrera cerrando por abajo. Cero carga prevista: eso no se sabe.',
+    'El ciclo entero como camino vertical: las etapas que tu coach ha publicado, en orden y con el nombre que él les puso, «estás aquí» sobre la que toca, lo que está marcado en el calendario, el agujero declarado donde se acaba lo publicado y la carrera cerrando por abajo. Cero carga prevista: eso no se sabe.',
   fuentes: [],
   // El 6-ago se shipeó una v1 REAL pero deliberadamente más simple que esta
   // propuesta: `PlanCicloView.swift` — el bloque actual (nombre + «semana N de
@@ -33,7 +37,7 @@ export const meta: TwinMeta = {
   // día del build (macro_summary.block llega null), así que se dejó fuera en
   // vez de inventarlo. Sigue en `propuesta` — esto no es lo que hay en la app.
   enApp:
-    'PlanCicloView.swift existe y es real, pero es una v1 más simple: una sola etapa (el microciclo actual) + su historial de semanas, no la secuencia de etapas de este mockup.',
+    'PlanCicloView.swift existe y es real, pero es una v1 más simple: una sola etapa (el microciclo actual) + su historial de semanas, no el camino de etapas encadenadas de este mockup. La espina compartida tampoco está portada a Swift todavía.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
@@ -43,27 +47,27 @@ export const meta: TwinMeta = {
 export const escenarios: TwinEscenario[] = [
   {
     id: 'alta-nueva',
-    titulo: 'Recién dado de alta · sin nada',
+    titulo: 'Sin plan · recién dado de alta',
     descripcion:
-      'Cero etapas y cero carreras: no hay espina que repartir, así que el arquetipo degrada a Vacío y centra. La salida es obligatoria y no es una acción suya: lo publica su coach.',
+      'Cero etapas y cero carreras: no hay camino que repartir, así que el arquetipo degrada a Vacío y centra. La salida es obligatoria y no es una acción suya: lo publica su coach.',
   },
   {
     id: 'sin-publicar',
-    titulo: 'Hoy en producción · lo publicado se acabó',
+    titulo: 'Sin plan activo · lo publicado se acabó',
     descripcion:
-      'El atleta real: su etapa terminó el 26-jul y no hay ni una asignación futura en toda la base. Aquí SÍ hay de dónde venir, así que la espina enseña la etapa y el agujero del final se declara con su dueño.',
+      'El atleta real: su etapa terminó el 26-jul y no hay ni una asignación futura en toda la base. Aquí SÍ hay de dónde venir, así que el camino enseña la etapa y luego se rompe: nodo discontinuo, «aquí acaba lo publicado» y su dueño.',
   },
   {
     id: 'coach',
-    titulo: 'Dentro de «Acumulación» · semana 1 de 2',
+    titulo: 'Ciclo recién empezado · S1 de «Acumulación»',
     descripcion:
-      'Una sola etapa publicada, sin secuencia detrás: no se sabe qué viene después y se dice. La etapa se abre con sus semanas y la carrera cierra a 105 días.',
+      'Una sola etapa publicada, sin secuencia detrás: no se sabe qué viene después y se dice. El nodo de hoy lleva anillo y sus semanas debajo; la carrera cierra el camino a 105 días.',
   },
   {
     id: 'secuencia',
-    titulo: 'Tres etapas encadenadas · cursor en el segundo',
+    titulo: 'Mitad de ciclo · tres etapas, cursor en la segunda',
     descripcion:
-      'El caso lleno: «Primer mes» → «Base 1» → «Testing», cuatro semanas cada una. Un test con fecha en la etapa de hoy y cuatro por posición en «Testing», que se enseñan como lo que se sabe: «semana 1 · martes».',
+      'El caso lleno: «Primer mes» (S1-S4) → «Base 1» (S5-S8) → «Testing» (S9-S12). La primera ya pasó y baja de tinta, la de hoy lleva «Estás aquí, semana 2», y las marcas del calendario rellenan sus nodos.',
   },
 ];
 

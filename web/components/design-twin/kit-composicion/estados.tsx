@@ -9,7 +9,7 @@
 //   · `HuecoMuerto` — la regla del alto medida en vivo. Se pinta solo en los
 //     escenarios «HOY», para que el problema se VEA antes de aprobar el arreglo.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chevron, Etiqueta, Hairline } from './chrome';
 import { R, S } from './tokens';
 
@@ -93,23 +93,44 @@ export function EstadoCentrado({
           ) : null}
         </div>
       ) : (
-        // No hay acción posible: entonces se DICE quién la desbloquea y cuándo.
-        // Esto sigue siendo una salida — lo que no vale es callarse.
-        <div
-          style={{
-            marginTop: S.xs,
-            padding: `${S.m}px ${S.l}px`,
-            borderRadius: R.l,
-            border: '1px dashed var(--twin-hairline-strong)',
-            font: '500 13px/1.45 var(--twin-font-sans)',
-            color: 'var(--twin-muted)',
-          }}
-        >
-          Lo publica <b style={{ color: 'var(--twin-fg)', fontWeight: 650 }}>{salida.quien}</b>
-          <br />
-          {salida.cuando}
-        </div>
+        <DeclaracionDepende quien={salida.quien} cuando={salida.cuando} style={{ marginTop: S.xs }} />
       )}
+    </div>
+  );
+}
+
+/**
+ * No hay acción posible: entonces se DICE quién la desbloquea y cuándo. Esto
+ * sigue siendo una salida — lo que no vale es callarse.
+ *
+ * Vive suelta porque el mismo hecho aparece en dos sitios y tiene que sonar
+ * IGUAL en los dos: centrada en un Vacío («aún no tienes plan») y colgando de un
+ * nodo del camino («aquí acaba lo publicado»). Dos redacciones del mismo hueco
+ * se leerían como dos huecos distintos.
+ */
+export function DeclaracionDepende({
+  quien,
+  cuando,
+  style,
+}: {
+  quien: string;
+  cuando: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        padding: `${S.m}px ${S.l}px`,
+        borderRadius: R.l,
+        border: '1px dashed var(--twin-hairline-strong)',
+        font: '500 13px/1.45 var(--twin-font-sans)',
+        color: 'var(--twin-muted)',
+        ...style,
+      }}
+    >
+      Lo publica <b style={{ color: 'var(--twin-fg)', fontWeight: 650 }}>{quien}</b>
+      <br />
+      {cuando}
     </div>
   );
 }
