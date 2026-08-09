@@ -39,6 +39,17 @@ elimina); el protocolo de un test deja de viajar como texto copiado a
 respuesta estructurada a un check-in o a un dolor es un comunicado anclado a
 ese evento; `coach_guidance` se generaliza dentro del modelo o se absorbe.
 
+**Dónde vive en el dashboard (corrección de Alex, mismo día):** NO hay pestaña
+global de comunicados. Con 100 atletas, el coach piensa en EL atleta, no en la
+feature: el seguimiento (qué le comunicó y qué hizo con ello) vive en la
+**ficha del atleta**, el compositor se abre desde ahí (personalizando desde
+plantilla o en blanco), la **biblioteca** de plantillas vive dentro de
+Biblioteca como el resto de contenido reutilizable, y lo que reclama atención
+(pregunta sin responder, tarea vencida, protocolo sin abrir) entra en **/hoy
+como señal** de `coach_attention_items`, con umbrales como dato del coach.
+**No hacer:** no añadir una sección de raíl que obligue a buscar un nombre
+entre cincuenta; la vista global del mockup original queda descartada.
+
 **Estado:** dirección validada por Alex sobre el doble (9-ago); sin migración
 aún. El compositor del coach (crear desde contexto, IA redacta el borrador
 estructurado, biblioteca de plantillas, seguimiento visto/hecho por atleta)

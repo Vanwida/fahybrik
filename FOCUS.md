@@ -21,14 +21,15 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   `coach-pregunta` (el wave jueves/sábado, se responde con un toque) ·
   `coach-protocolo` (calentamiento de día de carrera, pasos marcables) ·
   `coach-nota` (el briefing legible por secciones). Validado por Alex en vivo.
-- ✅ **Mockup del compositor del coach** — `docs/design/del-coach-compositor.html`
-  (3 vistas: la lista con seguimiento por atleta y pestaña Biblioteca · el
-  compositor de protocolo con la previa del móvil del atleta al lado · los
-  otros 4 formularios). Decisión de Alex: **formulario puro, sin IA-redacta**;
-  fácil para el coach. La sección vive en el raíl bajo Mensajes: Mensajes
-  conversa, Del coach publica. Pendiente su OK para construirlo.
-- ⏳ **Después:** entidad en DB + endpoints + página real del dashboard +
-  bandeja y detalle en iOS + push.
+- ✅ **Mockup del compositor del coach** — `docs/design/del-coach-compositor.html`.
+  Validado: formulario puro (sin IA-redacta) + previa del móvil + biblioteca.
+  **Corrección de Alex:** la vista global (pestaña de raíl) queda descartada —
+  el seguimiento vive en la FICHA del atleta, lo urgente entra como señal en
+  /hoy, y la biblioteca de plantillas dentro de Biblioteca (ver DECISIONS).
+- 🟡 **T1 en curso (agente):** mig 0160 (comunicados+items+recipients+marks) +
+  shared + endpoints coach/atleta + push `coach_communication` + tests Neon.
+- ⏳ **T2:** ficha del atleta con «Del coach» + compositor + señales /hoy +
+  biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 
