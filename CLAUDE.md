@@ -104,7 +104,7 @@ Reference: **Whoop app** for dark + dense + premium athletic vibe. Brand: black 
 - Mark tasks completed via TaskUpdate immediately on finish
 - Use SendMessage for inter-agent coordination
 - Cross-cutting changes: write a mini-map in chat before executing
-- **Worktrees de agente: `main` está PARADA hace meses.** Un worktree recién creado nace de la rama por defecto, no de la rama de trabajo — se arranca cientos de commits por detrás y se acaba midiendo y arreglando contra código viejo. Lo automatiza `.claude/hooks/worktree-al-dia.sh` (`SessionStart`), que adelanta el worktree a la rama del checkout principal con `--ff-only` y se niega si ya hay commits propios. Si trabajas en `.claude/worktrees/agent-*` y sospechas que no corrió: `git rev-list --count HEAD..<rama-de-trabajo>` tiene que dar 0 antes de tocar nada.
+- **Worktrees de agente: `main` está PARADA hace meses.** Un worktree recién creado nace de la rama por defecto, no de la rama de trabajo — se arranca cientos de commits por detrás y se acaba midiendo y arreglando contra código viejo. Lo automatiza `worktree-al-dia.sh` en `SessionStart`, que adelanta el worktree a la rama del checkout principal con `--ff-only` y se niega si ya hay commits propios. **El registro que cuenta es el de nivel USUARIO** (`~/.claude/settings.json` + `~/.claude/hooks/`): registrarlo solo aquí no sirve, porque el worktree se crea desde un commit viejo que no contiene ni el script ni su registro. La copia de este repo es la fuente versionada, no el disparador. Si trabajas en `.claude/worktrees/agent-*` y sospechas que no corrió: `git rev-list --count HEAD..<rama-de-trabajo>` tiene que dar 0 antes de tocar nada.
 
 ## Verification protocol
 
