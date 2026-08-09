@@ -24,14 +24,18 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import {
   CommunicationError,
+  attachCamino,
   communicationColumns,
   iso,
   loadItemsByCommunication,
+  loadLinkedForAthlete,
   loadMarksByRecipient,
+  needsCamino,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
+import { resolvePlanPath } from '@/lib/plan/camino';
 
 type InboxRow = CommunicationRow & {
   coach_name: string | null;
@@ -78,6 +82,19 @@ export async function listAthleteCommunications(args: {
     client,
     rows.map((r) => r.recipient_id),
   );
+  const linked = await loadLinkedForAthlete(
+    client,
+    rows.flatMap((r) => (r.linked_communication_id ? [r.linked_communication_id] : [])),
+    args.athlete_id,
+  );
+
+  // Su camino, una vez para toda la bandeja y sólo si alguna nota lo pide. Sin
+  // plan activo viaja null y la app no lo pinta: un camino de cero pasos sería
+  // decirle que su plan está vacío cuando lo que pasa es que aún no empieza.
+  const pideCamino = [...items.values()].some(needsCamino);
+  const camino = pideCamino
+    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
+    : null;
 
   const inbox = rows.map((row): AthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
@@ -98,7 +115,7 @@ export async function listAthleteCommunications(args: {
       // Publicado por definición (lo filtra la consulta): nunca es null aquí.
       published_at: iso(row.published_at)!,
       coach_name: row.coach_name,
-      items: items.get(row.id) ?? [],
+      items: attachCamino(items.get(row.id) ?? [], camino),
       state,
       seen_at,
       done_at,
@@ -106,6 +123,11 @@ export async function listAthleteCommunications(args: {
       answered_at,
       marked_item_ids: marks.get(row.recipient_id) ?? [],
       claims_attention: claimsAttention(row.kind, state),
+      // El enlace sólo viaja si el enlazado también es suyo: si no, le estaría
+      // enseñando que existe algo que no puede abrir.
+      linked: row.linked_communication_id
+        ? (linked.get(row.linked_communication_id) ?? null)
+        : null,
     };
   });
 

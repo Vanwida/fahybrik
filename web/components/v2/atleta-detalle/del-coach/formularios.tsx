@@ -47,6 +47,12 @@ export interface PropsFormulario {
   errores: Record<string, string>;
   /** Prefijo de los `id` para que dos compositores abiertos no compartan label. */
   idp: string;
+  /**
+   * La fila que el coach está tocando, por su clave — o null al soltarla. Es lo
+   * que hace que la previa se coloque en lo que estás escribiendo en vez de
+   * obligarte a buscarlo dentro del móvil.
+   */
+  onFoco: (key: string | null) => void;
 }
 
 /** Mover una fila de sitio sin mutar la lista. */
@@ -80,7 +86,7 @@ function ejemplo(i: number, texto: string): string | undefined {
 // Protocolo
 // ---------------------------------------------------------------------------
 
-export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
+export function FormProtocolo({ b, set, errores, idp, onFoco }: PropsFormulario) {
   const cambiarPaso = (i: number, patch: Partial<FilaBorrador>) =>
     set({ steps: b.steps.map((s, j) => (i === j ? { ...s, ...patch } : s)) });
 
@@ -135,7 +141,11 @@ export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
             const enviado = enviados.get(paso.key) ?? -1;
             const errorContenido = errorItem(errores, enviado, 'content');
             return (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
+              <div
+                className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2"
+                onFocusCapture={() => onFoco(paso.key)}
+                onBlurCapture={() => onFoco(null)}
+              >
                 <Entrada
                   value={paso.label}
                   maxLength={MAX_ITEM_LABEL_CHARS}
@@ -192,7 +202,7 @@ export function FormProtocolo({ b, set, errores, idp }: PropsFormulario) {
 // Pregunta
 // ---------------------------------------------------------------------------
 
-export function FormPregunta({ b, set, errores, idp }: PropsFormulario) {
+export function FormPregunta({ b, set, errores, idp, onFoco }: PropsFormulario) {
   const cambiarOpcion = (i: number, patch: Partial<OpcionBorrador>) =>
     set({ options: b.options.map((o, j) => (i === j ? { ...o, ...patch } : o)) });
 
@@ -245,7 +255,11 @@ export function FormPregunta({ b, set, errores, idp }: PropsFormulario) {
           onMover={(d, h) => set({ options: movida(b.options, d, h) })}
           onQuitar={(i) => set({ options: sinLa(b.options, i) })}
           render={(opcion, i) => (
-            <>
+            <div
+              className="flex flex-col gap-2"
+              onFocusCapture={() => onFoco(opcion.key)}
+              onBlurCapture={() => onFoco(null)}
+            >
               <div className="flex flex-col gap-1">
                 <RotuloFila>Opción</RotuloFila>
                 <Entrada
@@ -271,7 +285,7 @@ export function FormPregunta({ b, set, errores, idp }: PropsFormulario) {
                   placeholder={ejemplo(i, 'El plan se queda como está.')}
                 />
               </div>
-            </>
+            </div>
           )}
         />
         <BotonAnadir
@@ -347,98 +361,6 @@ export function FormTarea({ b, set, errores, idp }: PropsFormulario) {
 }
 
 // ---------------------------------------------------------------------------
-// Nota
-// ---------------------------------------------------------------------------
-
-export function FormNota({ b, set, errores, idp }: PropsFormulario) {
-  const cambiarSeccion = (i: number, patch: Partial<FilaBorrador>) =>
-    set({ sections: b.sections.map((s, j) => (i === j ? { ...s, ...patch } : s)) });
-
-  return (
-    <>
-      <Campo etiqueta="Título" htmlFor={`${idp}-titulo`} error={errores.title}>
-        <Entrada
-          id={`${idp}-titulo`}
-          grande
-          value={b.title}
-          maxLength={MAX_TITLE_CHARS}
-          error={!!errores.title}
-          onChange={(v) => set({ title: v })}
-          placeholder="Tu plan, rehecho para Singles Pro"
-        />
-      </Campo>
-
-      <Campo
-        etiqueta="Una línea de entrada (opcional)"
-        htmlFor={`${idp}-entrada`}
-        ayuda="Lo que se lee bajo el título, antes del primer capítulo."
-        error={errores.body}
-      >
-        <Entrada
-          id={`${idp}-entrada`}
-          value={b.body}
-          maxLength={MAX_BODY_CHARS}
-          error={!!errores.body}
-          onChange={(v) => set({ body: v })}
-          placeholder="Por qué el objetivo son 1:15 a 1:18."
-        />
-      </Campo>
-
-      <Campo
-        etiqueta="Las secciones"
-        ayuda="Cada sección lleva su cabecera y su cuerpo. En su móvil se leen como capítulos, no como un párrafo largo."
-        error={errores.items}
-      >
-        <FilasOrdenables
-          filas={b.sections}
-          minimo={1}
-          nombreFila="sección"
-          onMover={(d, h) => set({ sections: movida(b.sections, d, h) })}
-          onQuitar={(i) => set({ sections: sinLa(b.sections, i) })}
-          render={(seccion, i) => (
-            <div className="flex flex-col gap-2 md:flex-row md:items-start">
-              <div className="flex flex-col gap-1 md:w-[160px] md:shrink-0">
-                <Entrada
-                  value={seccion.label}
-                  maxLength={MAX_ITEM_LABEL_CHARS}
-                  error={!!errorItem(errores, i, 'label')}
-                  ariaLabel={`Cabecera de la sección ${i + 1}`}
-                  onChange={(v) => cambiarSeccion(i, { label: v })}
-                  placeholder={ejemplo(i, 'Qué ha cambiado')}
-                />
-                {errorItem(errores, i, 'label') ? (
-                  <ErrorCampo mensaje={errorItem(errores, i, 'label')!} />
-                ) : null}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <AreaTexto
-                  rows={3}
-                  value={seccion.content}
-                  maxLength={MAX_ITEM_CONTENT_CHARS}
-                  error={!!errorItem(errores, i, 'content')}
-                  ariaLabel={`Cuerpo de la sección ${i + 1}`}
-                  onChange={(v) => cambiarSeccion(i, { content: v })}
-                  placeholder={ejemplo(i, 'Pasar a Singles Pro rompe 5 de las 6 premisas del plan.')}
-                />
-                {errorItem(errores, i, 'content') ? (
-                  <ErrorCampo mensaje={errorItem(errores, i, 'content')!} />
-                ) : null}
-              </div>
-            </div>
-          )}
-        />
-        <BotonAnadir
-          onClick={() => set({ sections: [...b.sections, filaVacia()] })}
-          disabled={b.sections.length >= MAX_ITEMS}
-        >
-          + Añadir sección
-        </BotonAnadir>
-      </Campo>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Foco
 // ---------------------------------------------------------------------------
 
@@ -477,11 +399,15 @@ export function FormFoco({ b, set, errores, idp }: PropsFormulario) {
   );
 }
 
-/** El formulario que le toca al tipo elegido. */
+/**
+ * El formulario que le toca al tipo elegido, menos la NOTA: la suya vive en
+ * `formulario-nota.tsx` y pide dos cosas que sólo el compositor tiene (los
+ * candidatos a enlazar y a quién avisar del foco), así que la enruta él. Un
+ * enrutador que fingiera saberlo obligaría a pasarle esas dos props a los cinco.
+ */
 export function FormularioDelTipo(props: PropsFormulario) {
   if (props.b.kind === 'protocol') return <FormProtocolo {...props} />;
   if (props.b.kind === 'question') return <FormPregunta {...props} />;
   if (props.b.kind === 'task') return <FormTarea {...props} />;
-  if (props.b.kind === 'note') return <FormNota {...props} />;
   return <FormFoco {...props} />;
 }

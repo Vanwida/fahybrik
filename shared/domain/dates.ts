@@ -197,3 +197,33 @@ export function zonedWallClockToUtc(
 export function mondayOfWeekInBox(instant: Date): Date {
   return mondayOfWeek(startOfDayInBox(instant));
 }
+
+/** Los meses en castellano. Vocabulario, no lógica: aquí porque quien escribe
+ *  una fecha para un atleta no puede tener su propia lista. */
+const MESES_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
+
+/**
+ * Un día del calendario dicho como se dice en voz alta: «25 de octubre».
+ *
+ * Sin año a propósito — dentro de un plan de doce semanas el año no aporta nada
+ * y alarga la línea. Una fecha que no se puede leer vuelve tal cual: es un dato
+ * roto y disfrazarlo lo esconde.
+ */
+export function longDateEs(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d || m < 1 || m > 12) return iso;
+  return `${d} de ${MESES_ES[m - 1]}`;
+}

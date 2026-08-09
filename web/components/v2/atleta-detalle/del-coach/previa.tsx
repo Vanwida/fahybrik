@@ -21,7 +21,9 @@ import '@/app/[locale]/(design)/design/twin.css';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DeviceFrame } from '@/components/design-twin/DeviceFrame';
 import type { CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
-import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
+import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
+import { pintaCamino, type Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
+import { pedirCamino } from './api';
 import { PantallaDelTipo, TIPO_TWIN } from './previa-pantallas';
 
 /** El bisel del doble: lienzo lógico del iPhone 17 Pro (402×874 pt) + 14 px de
@@ -41,7 +43,17 @@ const MARCO_ALTO = 874 + 28;
  * dentro se escala desde la esquina. El marco recibe su tamaño natural, de modo
  * que su propia escala se queda en 1 y no hay dos escalados encadenados.
  */
-export function PreviaMovil({ b, coachName }: { b: Borrador; coachName: string }) {
+export function PreviaMovil({
+  b,
+  coachName,
+  foco,
+  camino,
+}: {
+  b: Borrador;
+  coachName: string;
+  foco: string | null;
+  camino: PlanPathDTO | null;
+}) {
   const hueco = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(0);
 
@@ -54,6 +66,30 @@ export function PreviaMovil({ b, coachName }: { b: Borrador; coachName: string }
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // LA PREVIA TE SIGUE: al tocar un paso o una sección, el móvil se coloca en
+  // ella. Sin esto, escribir la quinta sección de una nota obliga a arrastrar
+  // dentro del móvil para comprobar lo que acabas de escribir — y a la tercera
+  // vez ya no se comprueba.
+  //
+  // Se mueve SÓLO el scroll de dentro del marco: `scrollIntoView` arrastraría
+  // también el diálogo del compositor, y el formulario se iría de sitio bajo el
+  // cursor del coach. El desplazamiento se mide con rectángulos (que llegan ya
+  // escalados por el `transform` de abajo) y se divide por la escala, porque
+  // `scrollTop` va en las unidades sin escalar del propio elemento.
+  useEffect(() => {
+    if (!foco || escala <= 0) return;
+    const raiz = hueco.current;
+    if (!raiz) return;
+    const scroller = raiz.querySelector<HTMLElement>('.twin-scroll');
+    const fila = raiz.querySelector<HTMLElement>(`[data-fila="${CSS.escape(foco)}"]`);
+    if (!scroller || !fila) return;
+
+    const caja = scroller.getBoundingClientRect();
+    const suya = fila.getBoundingClientRect();
+    const centrado = suya.top - caja.top - (caja.height - suya.height) / 2;
+    scroller.scrollTo({ top: Math.max(0, scroller.scrollTop + centrado / escala), behavior: 'smooth' });
+  }, [foco, escala]);
 
   return (
     <div ref={hueco} className="relative grid h-full w-full place-items-center">
@@ -74,7 +110,7 @@ export function PreviaMovil({ b, coachName }: { b: Borrador; coachName: string }
               role="img"
               aria-label={`Previsualización: cómo le queda ${TIPO_TWIN[b.kind]} en su móvil`}
             >
-              <PantallaDelTipo b={b} coachName={coachName} />
+              <PantallaDelTipo b={b} coachName={coachName} foco={foco} camino={camino} />
             </div>
           </DeviceFrame>
         </div>
@@ -92,7 +128,21 @@ export function PreviaMovil({ b, coachName }: { b: Borrador; coachName: string }
  * escribe el comunicado: los dos huecos son el mismo componente con distinta
  * altura, y tenerlos separados es lo que hace que uno se quede sin el pie.
  */
-export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string }) {
+export function ColumnaPrevia({
+  b,
+  coachName,
+  foco,
+  athleteId,
+}: {
+  b: Borrador;
+  coachName: string;
+  foco: string | null;
+  /** El destinatario, cuando es UNO. Null escribiendo para varios o para la
+   *  biblioteca: ahí no hay un plan que enseñar. */
+  athleteId: string | null;
+}) {
+  const camino = useCaminoDelDestinatario(b, athleteId);
+
   return (
     <>
       <div className="hidden lg:block lg:sticky lg:top-0">
@@ -101,7 +151,7 @@ export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string
           <span className="text-label text-[color:var(--v2-muted)]">Su móvil</span>
         </div>
         <div className="h-[min(600px,58vh)]">
-          <PreviaMovil b={b} coachName={coachName} />
+          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -113,7 +163,7 @@ export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string
           Ver cómo le queda
         </summary>
         <div className="mt-3 h-[520px]">
-          <PreviaMovil b={b} coachName={coachName} />
+          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -121,6 +171,39 @@ export function ColumnaPrevia({ b, coachName }: { b: Borrador; coachName: string
       </details>
     </>
   );
+}
+
+/**
+ * El camino REAL del destinatario, para que la previa enseñe su plan y no un
+ * dibujo de ejemplo. Se pide sólo cuando hace falta: si la nota no lleva sección
+ * de camino, o se está escribiendo para varios (ahí no hay UN plan), no se pide
+ * nada y la previa dice que cada uno ve el suyo.
+ */
+function useCaminoDelDestinatario(b: Borrador, athleteId: string | null): PlanPathDTO | null {
+  // Se guarda DE QUIÉN es lo cargado, no sólo el camino: sin eso, al cambiar de
+  // destinatario la previa pintaría el plan del anterior hasta que contestara la
+  // segunda llamada, que es enseñarle a un atleta el plan de otro.
+  const [cargado, setCargado] = useState<{ athleteId: string; camino: PlanPathDTO | null } | null>(
+    null,
+  );
+  const haceFalta = pintaCamino(b);
+
+  useEffect(() => {
+    if (!haceFalta || !athleteId) return;
+    let vigente = true;
+    void (async () => {
+      const r = await pedirCamino(athleteId);
+      // Un fallo deja la previa sin camino, que ya tiene su propia frase. Nunca
+      // un dibujo de ejemplo: sería enseñar un plan que no es de nadie.
+      if (vigente) setCargado({ athleteId, camino: r.ok ? r.data : null });
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [haceFalta, athleteId]);
+
+  if (!haceFalta || !athleteId) return null;
+  return cargado?.athleteId === athleteId ? cargado.camino : null;
 }
 
 /** La línea de debajo del móvil: qué está enseñando y qué NO. */

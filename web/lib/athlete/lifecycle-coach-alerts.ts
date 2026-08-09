@@ -17,6 +17,7 @@
 
 import { Resend } from 'resend';
 import { sql } from '@/lib/db';
+import { longDateEs } from '@fahybrid/shared/domain/dates';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { appBase, brandShell, ctaButton, escapeHtml } from '@/lib/leads/email-shell';
@@ -64,17 +65,6 @@ async function loadAthleteCard(athlete_id: bigint): Promise<AthleteCard | null> 
   };
 }
 
-/** ES date for a coach-facing line: "12 de agosto". */
-function longDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-  ];
-  return `${d} de ${months[m - 1]}`;
-}
-
 function tenureLine(card: AthleteCard): string {
   const m = card.months_with_coach;
   if (m === null || m < 1) return 'Lleva menos de un mes contigo.';
@@ -117,7 +107,7 @@ export async function alertCoachPauseStarted(input: {
   const card = await loadAthleteCard(input.athlete_id);
   if (!card) return;
   const motivo = PAUSE_REASON_LABELS[input.reason];
-  const vuelve = longDate(input.returns_on);
+  const vuelve = longDateEs(input.returns_on);
 
   await notifyCoach({
     sql,
@@ -161,7 +151,7 @@ export async function alertCoachBajaScheduled(input: {
   const card = await loadAthleteCard(input.athlete_id);
   if (!card) return;
   const motivo = PAUSE_REASON_LABELS[input.reason];
-  const dia = longDate(input.scheduled_for);
+  const dia = longDateEs(input.scheduled_for);
 
   await notifyCoach({
     sql,

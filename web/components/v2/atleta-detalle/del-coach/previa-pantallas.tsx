@@ -9,7 +9,7 @@
 // porque estas pantallas leen el BORRADOR que el coach está escribiendo, no el
 // escenario cableado de la tanda del doble.
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Card, Display, Hairline, IconCircle, Label, Mono, Notice } from '@/components/design-twin/kit';
 import { NavBar, Pantalla, Seccion } from '@/components/design-twin/kit-composicion/chrome';
 import { S } from '@/components/design-twin/kit-composicion/tokens';
@@ -20,6 +20,8 @@ import {
   type CommunicationKind,
 } from '@fahybrid/shared/domain/coach-communications';
 import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
+import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
+import { PreviaNota } from './previa-nota';
 
 /** El mismo vocabulario dicho en los dos idiomas del repo: el dominio va en
  *  inglés y el doble se escribió en castellano. Cinco entradas, un solo sitio. */
@@ -42,11 +44,40 @@ function titulo(b: Borrador): { texto: string; color: string } {
 /** La pantalla que le toca al tipo. Tres abren pantalla propia; la tarea y el
  *  foco viven dentro de la bandeja, que es la misma decisión de diseño tomada
  *  desde el otro lado. */
-export function PantallaDelTipo({ b, coachName }: { b: Borrador; coachName: string }) {
-  if (b.kind === 'protocol') return <PreviaProtocolo b={b} coachName={coachName} />;
-  if (b.kind === 'question') return <PreviaPregunta b={b} coachName={coachName} />;
-  if (b.kind === 'note') return <PreviaNota b={b} coachName={coachName} />;
+export function PantallaDelTipo({
+  b,
+  coachName,
+  foco,
+  camino,
+}: {
+  b: Borrador;
+  coachName: string;
+  /** La fila que el coach está tocando. La previa se coloca en ella y la marca. */
+  foco: string | null;
+  /** El plan REAL del destinatario, para la sección «camino». */
+  camino: PlanPathDTO | null;
+}) {
+  if (b.kind === 'protocol') return <PreviaProtocolo b={b} coachName={coachName} foco={foco} />;
+  if (b.kind === 'question') return <PreviaPregunta b={b} coachName={coachName} foco={foco} />;
+  if (b.kind === 'note') {
+    return (
+      <PreviaNota
+        b={b}
+        cabecera={<Cabecera kind="note" coachName={coachName} />}
+        foco={foco}
+        camino={camino}
+      />
+    );
+  }
   return <PreviaBandeja b={b} />;
+}
+
+/** El anillo de la fila que se está editando. Vive aquí y en `previa-nota.tsx`
+ *  con la misma forma porque es el mismo gesto: señalar dónde estás. */
+export function anilloDeFoco(activa: boolean): CSSProperties {
+  return activa
+    ? { borderRadius: 12, outline: '1.5px solid var(--twin-accent)', outlineOffset: 2 }
+    : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +122,7 @@ function Cabecera({
 // Protocolo
 // ---------------------------------------------------------------------------
 
-function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
+function PreviaProtocolo({ b, coachName, foco }: { b: Borrador; coachName: string; foco: string | null }) {
   const pasos = b.steps.filter((p) => p.content.trim().length > 0);
   // Sólo lo que lleva casilla tiene cuenta, barra y acción de cierre. Sin nada
   // que marcar el protocolo se lee y ya está, y fingir un «0 de 5» sobre cinco
@@ -159,7 +190,7 @@ function PreviaProtocolo({ b, coachName }: { b: Borrador; coachName: string }) {
         {pasos.length > 0 ? (
           <Card padding={0}>
             {pasos.map((paso, i) => (
-              <div key={paso.key}>
+              <div key={paso.key} data-fila={paso.key} style={anilloDeFoco(paso.key === foco)}>
                 {i > 0 ? <Hairline style={{ marginLeft: S.l + 38 + S.m }} /> : null}
                 <div
                   style={{
@@ -231,7 +262,7 @@ function BarraProgreso({ total }: { total: number }) {
 // Pregunta
 // ---------------------------------------------------------------------------
 
-function PreviaPregunta({ b, coachName }: { b: Borrador; coachName: string }) {
+function PreviaPregunta({ b, coachName, foco }: { b: Borrador; coachName: string; foco: string | null }) {
   const opciones = b.options.filter((o) => o.content.trim().length > 0);
   const t = titulo(b);
 
@@ -264,7 +295,8 @@ function PreviaPregunta({ b, coachName }: { b: Borrador; coachName: string }) {
         {opciones.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
             {opciones.map((o) => (
-              <Card key={o.key} padding={S.l}>
+              <div key={o.key} data-fila={o.key} style={anilloDeFoco(o.key === foco)}>
+              <Card padding={S.l}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: S.m }}>
                   <span style={{ color: TENUE, display: 'inline-flex', paddingTop: 1 }}>
                     <IconCircle size={19} />
@@ -281,61 +313,11 @@ function PreviaPregunta({ b, coachName }: { b: Borrador; coachName: string }) {
                   </span>
                 </div>
               </Card>
+              </div>
             ))}
           </div>
         ) : (
           <Vacia texto="Escribe la primera opción y aparecerá aquí." />
-        )}
-      </div>
-    </Pantalla>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Nota
-// ---------------------------------------------------------------------------
-
-function PreviaNota({ b, coachName }: { b: Borrador; coachName: string }) {
-  const secciones = b.sections.filter((s) => s.content.trim() || s.label.trim());
-  const t = titulo(b);
-
-  return (
-    <Pantalla estrategia="llena" cabecera={<Cabecera kind="note" coachName={coachName} />}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: S.l,
-          padding: `${S.l}px ${S.l}px ${S.xl}px`,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: S.s }}>
-          <Display size={26} color={t.color}>
-            {t.texto}
-          </Display>
-          {b.body.trim() ? (
-            <span style={{ font: '400 13.5px/1.45 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-              {b.body.trim()}
-            </span>
-          ) : null}
-        </div>
-
-        {secciones.length > 0 ? (
-          secciones.map((s) => (
-            <Card key={s.key} padding={S.l}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
-                <Label size={10} color={s.label.trim() ? 'var(--twin-muted)' : TENUE}>
-                  {s.label.trim() || 'Sin cabecera'}
-                </Label>
-                <Hairline />
-                <span style={{ font: '400 14px/1.5 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
-                  {s.content.trim()}
-                </span>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <Vacia texto="Escribe la primera sección y aparecerá aquí." />
         )}
       </div>
     </Pantalla>

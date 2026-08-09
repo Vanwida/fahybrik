@@ -240,14 +240,18 @@ export function ChipsUnicos<T extends string>({
   valor,
   onChange,
   ariaLabel,
+  compacto,
 }: {
   opciones: ReadonlyArray<{ value: T; label: string }>;
   valor: T;
   onChange: (v: T) => void;
   ariaLabel: string;
+  /** Dentro de una fila, no encabezando el formulario: el chip se encoge para no
+   *  competir con el campo que rotula. */
+  compacto?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label={ariaLabel}>
+    <div className={cn('flex flex-wrap', compacto ? 'gap-1' : 'gap-2')} role="group" aria-label={ariaLabel}>
       {opciones.map((o) => {
         const activo = o.value === valor;
         return (
@@ -257,7 +261,8 @@ export function ChipsUnicos<T extends string>({
             aria-pressed={activo}
             onClick={() => onChange(o.value)}
             className={cn(
-              'v2-focus inline-flex items-center rounded-[var(--v2-r-pill)] border px-3 py-1.5 text-body transition-colors',
+              'v2-focus inline-flex items-center rounded-[var(--v2-r-pill)] border transition-colors',
+              compacto ? 'px-2.5 py-1 text-label' : 'px-3 py-1.5 text-body',
               activo
                 ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] font-semibold text-[color:var(--v2-accent)]'
                 : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -268,6 +273,31 @@ export function ChipsUnicos<T extends string>({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * El aviso de una fila: lo que hay que saber ANTES de que el servidor diga que
+ * no. No es un error todavía (nada está mal escrito), es la condición que le
+ * falta a lo que acabas de elegir.
+ */
+export function AvisoFila({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-2.5 py-1.5 text-label leading-relaxed text-[color:var(--v2-fg)]">
+      <MIcon name="info" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/** La línea de una sección que no se teclea: dice de dónde sale lo que se va a
+ *  ver, para que un campo ausente no se lea como un campo que falta. */
+export function LineaDeEmbed({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] px-2.5 py-2 text-label leading-relaxed text-[color:var(--v2-muted)]">
+      <MIcon name="route" size={14} className="mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </p>
   );
 }
 

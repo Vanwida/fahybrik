@@ -14,6 +14,14 @@
 
 import { z } from 'zod';
 
+// Este sigue siendo EL import del comunicado: los dos módulos de al lado se
+// reexportan enteros y nadie tiene que saber que existen. Están partidos porque
+// cada uno tiene un público distinto — el orden de la bandeja es lo único que
+// corre en las DOS puntas, y el contrato de lectura es la cara que ven los tres
+// clientes (iOS, el atleta en web, el dashboard).
+export * from './coach-communications-inbox';
+export * from './coach-communications-dto';
+
 // ---------------------------------------------------------------------------
 // Los cinco tipos, las siete anclas, los tres estados
 // ---------------------------------------------------------------------------
@@ -52,6 +60,30 @@ export type CommunicationState = (typeof COMMUNICATION_STATES)[number];
 /** Qué vistas pide el coach de su lista. */
 export const COMMUNICATION_VIEWS = ['published', 'templates', 'drafts'] as const;
 export type CommunicationView = (typeof COMMUNICATION_VIEWS)[number];
+
+/**
+ * Cómo se pinta una sección de NOTA. Son cuatro porque un briefing real mezcla
+ * cuatro cosas que se leen en cuatro momentos distintos, y metidas en el mismo
+ * párrafo gris la del medio no se encuentra tres meses después:
+ *
+ *   texto    — la prosa: el porqué, lo que cambió
+ *   cifra    — el número que el atleta viene a buscar, en grande y en mono
+ *   reparto  — una PROPORCIÓN, que se lee de un vistazo en una barra
+ *   camino   — por dónde va a pasar: NO se teclea, se resuelve con SU plan
+ *
+ * Es propiedad de la SECCIÓN y no de la nota (una nota mezcla las cuatro), y
+ * fuera de una nota es inerte: un paso de protocolo y una opción de pregunta
+ * llevan `texto` y nadie lo mira. Misma lección que `checkable` (migración 0162).
+ */
+export const COMMUNICATION_DISPLAYS = ['texto', 'cifra', 'reparto', 'camino'] as const;
+export type CommunicationDisplay = (typeof COMMUNICATION_DISPLAYS)[number];
+
+/**
+ * El camino sólo tiene sentido colgado del plan o de la semana: es la estructura
+ * de las próximas semanas, y dibujarla dentro de una nota anclada a una sesión
+ * suelta sería enseñar el mapa entero para hablar de una parada.
+ */
+export const CAMINO_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week'];
 
 // ---------------------------------------------------------------------------
 // Cara al atleta
@@ -102,6 +134,13 @@ export const MAX_ITEM_CONSEQUENCE_CHARS = 300;
 export const MAX_ANCHOR_REF_CHARS = 120;
 /** Pasos de un protocolo o secciones de una nota. */
 export const MAX_ITEMS = 40;
+/** Una cifra es una cifra: «1:15 a 1:18», «68 kg». Si no cabe aquí, es texto. */
+export const MAX_FIGURE_CHARS = 40;
+export const MAX_SEGMENT_LABEL_CHARS = 40;
+/** Con uno no hay reparto que ver, y con más de seis la barra deja de leerse
+ *  de un vistazo, que es lo único que un reparto sabe hacer mejor que una frase. */
+export const REPARTO_MIN_SEGMENTS = 2;
+export const REPARTO_MAX_SEGMENTS = 6;
 /** Una pregunta con una opción no es una pregunta; con cinco es un formulario. */
 export const QUESTION_MIN_OPTIONS = 2;
 export const QUESTION_MAX_OPTIONS = 4;
@@ -150,11 +189,75 @@ const optionItem = z.object({
   consequence: z.string().trim().min(1).max(MAX_ITEM_CONSEQUENCE_CHARS).nullish(),
 });
 
-/** Una sección de nota SIEMPRE lleva cabecera: sin ella no es una sección. */
-const noteSection = z.object({
-  label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
-  content: z.string().trim().min(1).max(MAX_ITEM_CONTENT_CHARS),
+/** Un trozo de un reparto: cuánto pesa y cómo se llama. Cero peso no es un
+ *  trozo, es una parte que no existe ocupando sitio en la barra. */
+const repartoSegment = z.object({
+  value_num: z.number().finite().positive(),
+  label: z.string().trim().min(1).max(MAX_SEGMENT_LABEL_CHARS),
 });
+
+/**
+ * Una sección de nota, por su FORMA. Cada forma dice qué es cada campo, y por eso
+ * es una unión y no un objeto con todo opcional: un objeto laxo dejaría escribir
+ * una cifra con segmentos, que no significa nada.
+ *
+ * `label` cambia de papel a propósito — igual que en la tabla, donde es la marca
+ * de tiempo de un paso y la cabecera de una sección:
+ *   · texto · reparto · camino → es la CABECERA, y es obligatoria (sin ella no
+ *     es una sección, es un párrafo suelto)
+ *   · cifra → es el PIE que va bajo el número («la banda se cierra con los tests
+ *     de la semana 1»), y es opcional: una cifra sin matiz se sostiene sola. Ahí
+ *     no hay cabecera porque el número ES el titular.
+ *
+ * `content` sólo existe donde se teclea: un reparto ES sus segmentos y un camino
+ * ES el plan del atleta.
+ */
+const noteSectionShape = z.discriminatedUnion('display', [
+  z.object({
+    display: z.literal('texto'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+    content: z.string().trim().min(1).max(MAX_ITEM_CONTENT_CHARS),
+  }),
+  z.object({
+    display: z.literal('cifra'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS).nullish(),
+    content: z.string().trim().min(1).max(MAX_FIGURE_CHARS),
+  }),
+  z.object({
+    display: z.literal('reparto'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+    segments: z.array(repartoSegment).min(REPARTO_MIN_SEGMENTS).max(REPARTO_MAX_SEGMENTS),
+  }),
+  z.object({
+    display: z.literal('camino'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+  }),
+]);
+
+/**
+ * La sección tal y como llega por el cable. Una sin `display` es una sección de
+ * las de antes de la 0163 (y las que sigue mandando iOS): vale `texto`, que es
+ * exactamente lo que era. Sin este relleno la unión rechazaría todo lo que ya
+ * funciona, y una migración aditiva no puede romper a quien no se ha enterado.
+ */
+const noteSection = z.preprocess(
+  (raw) =>
+    raw !== null && typeof raw === 'object' && !('display' in raw) ? { ...raw, display: 'texto' } : raw,
+  noteSectionShape,
+);
+
+/**
+ * El enlace cruzado: el comunicado que le falta a éste para cerrarse. Uno, no
+ * varios — un briefing que apuntara a cinco sitios ya no diría «esto es lo que
+ * queda pendiente», sería un índice. Que sea del MISMO coach y no esté archivado
+ * lo comprueba el servidor, que es donde se puede mirar la tabla.
+ */
+const linkedField = {
+  linked_communication_id: z
+    .union([z.number().int().positive(), z.string().regex(/^\d+$/)])
+    .nullish()
+    .transform((v) => (v == null ? null : String(v))),
+};
 
 const communicationShape = z.discriminatedUnion('kind', [
   // Un protocolo es lo que el coach quiere que pase antes de algo: unos pasos
@@ -177,13 +280,15 @@ const communicationShape = z.discriminatedUnion('kind', [
   // Una tarea sin fecha es un recado: la fecha es obligatoria.
   z.object({
     ...commonFields,
+    ...linkedField,
     kind: z.literal('task'),
     body: z.string().trim().max(MAX_BODY_CHARS).nullish(),
     due_date: isoDate,
   }),
-  // Una nota son sus secciones.
+  // Una nota son sus secciones, cada una con su forma.
   z.object({
     ...commonFields,
+    ...linkedField,
     kind: z.literal('note'),
     body: z.string().trim().max(MAX_BODY_CHARS).nullish(),
     items: z.array(noteSection).min(1).max(MAX_ITEMS),
@@ -206,6 +311,21 @@ const communicationShape = z.discriminatedUnion('kind', [
  * objeto (una pregunta con sus opciones, una tarea con su fecha).
  */
 export const createCommunicationSchema = communicationShape.superRefine((value, ctx) => {
+  // El camino se dibuja con el plan del atleta, así que la nota tiene que estar
+  // colgada de él. Anclada a una sesión suelta enseñaría el mapa entero para
+  // hablar de una parada — y el atleta lo leería como un plan nuevo.
+  if (value.kind === 'note') {
+    const camino = value.items.findIndex((s) => s.display === 'camino');
+    if (camino >= 0 && !CAMINO_ANCHORS.includes(value.anchor_kind)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['items', camino, 'display'],
+        message: 'El camino sólo se dibuja en una nota de su plan o de su semana.',
+      });
+    }
+    return;
+  }
+
   if (value.kind !== 'protocol') return;
   if (value.items.length > 0) return;
   if (value.body != null && value.body.trim().length > 0) return;
@@ -246,223 +366,3 @@ export const markCommunicationItemSchema = z.object({
   done: z.boolean(),
 });
 
-// ---------------------------------------------------------------------------
-// El contrato de lectura (snake_case — convención Swift Codable)
-// ---------------------------------------------------------------------------
-
-export interface CommunicationItemDTO {
-  id: string;
-  position: number;
-  /** Marca temporal del paso o cabecera de sección. Null en las opciones. */
-  label: string | null;
-  content: string;
-  /** Qué pasa si eliges esta opción. Solo en preguntas. */
-  consequence: string | null;
-  /**
-   * ¿Lleva casilla? Solo significa algo en un paso de PROTOCOLO: una opción se
-   * elige y una sección se lee, así que ahí llega `true` y nadie lo mira.
-   */
-  checkable: boolean;
-}
-
-/** Lo que ve el ATLETA: el comunicado más SU estado. */
-export interface AthleteCommunicationDTO {
-  id: string;
-  kind: CommunicationKind;
-  title: string;
-  body: string | null;
-  final_note: string | null;
-  anchor_kind: CommunicationAnchor;
-  anchor_ref: string | null;
-  due_date: string | null;
-  expires_at: string | null;
-  blocks: boolean;
-  published_at: string;
-  coach_name: string | null;
-  items: CommunicationItemDTO[];
-  state: CommunicationState;
-  seen_at: string | null;
-  done_at: string | null;
-  answered_item_id: string | null;
-  answered_at: string | null;
-  /** Los pasos que este atleta ya lleva marcados. */
-  marked_item_ids: string[];
-  /** ¿Sigue reclamándole algo? Lo calcula el servidor para que no haya dos verdades. */
-  claims_attention: boolean;
-}
-
-/** El seguimiento agregado que ve el COACH en su lista. */
-export interface CommunicationTracking {
-  recipients: number;
-  seen: number;
-  done: number;
-  answered: number;
-}
-
-/** El estado de UN atleta dentro de un comunicado, en el detalle del coach. */
-export interface CommunicationRecipientDTO {
-  athlete_id: string;
-  athlete_full_name: string;
-  state: CommunicationState;
-  seen_at: string | null;
-  done_at: string | null;
-  answered_item_id: string | null;
-  answered_at: string | null;
-  marked_items: number;
-}
-
-/** Lo que ve el COACH: el comunicado, su estado editorial y su seguimiento. */
-export interface CoachCommunicationDTO {
-  id: string;
-  kind: CommunicationKind;
-  title: string;
-  body: string | null;
-  final_note: string | null;
-  anchor_kind: CommunicationAnchor;
-  anchor_ref: string | null;
-  due_date: string | null;
-  expires_at: string | null;
-  blocks: boolean;
-  is_template: boolean;
-  status: CommunicationStatus;
-  published_at: string | null;
-  created_at: string;
-  updated_at: string;
-  items: CommunicationItemDTO[];
-  tracking: CommunicationTracking;
-}
-
-export interface CoachCommunicationDetailDTO extends CoachCommunicationDTO {
-  recipients: CommunicationRecipientDTO[];
-}
-
-/**
- * El estado de UN atleta dentro de UN comunicado, con el detalle por paso.
- *
- * Es lo que el coach mira desde la ficha de ese atleta: no le sirve saber que
- * "3 de 8 lo han hecho", le sirve saber qué hizo ESTE con lo que le mandó — y en
- * un protocolo, por qué paso se quedó.
- */
-export interface CommunicationAthleteStateDTO {
-  athlete_id: string;
-  state: CommunicationState;
-  seen_at: string | null;
-  done_at: string | null;
-  answered_item_id: string | null;
-  answered_at: string | null;
-  marked_item_ids: string[];
-  /** ¿Le sigue reclamando algo? La misma regla que usa su bandeja. */
-  claims_attention: boolean;
-}
-
-/** Un comunicado visto desde la ficha de un atleta concreto. */
-export interface CoachAthleteCommunicationDTO extends CoachCommunicationDTO {
-  athlete_state: CommunicationAthleteStateDTO;
-}
-
-// ---------------------------------------------------------------------------
-// Mecanismo: el estado, lo que reclama, y el orden de la bandeja
-// ---------------------------------------------------------------------------
-
-/** El estado del atleta, derivado de sus sellos. Una sola verdad, aquí. */
-export function communicationState(marks: {
-  seen_at: string | null;
-  done_at: string | null;
-  answered_at: string | null;
-}): CommunicationState {
-  if (marks.answered_at) return 'answered';
-  if (marks.done_at) return 'done';
-  if (marks.seen_at) return 'seen';
-  return 'published';
-}
-
-/**
- * Los pasos que de verdad se marcan. Un protocolo puede no tener ninguno (el
- * check es del paso, no del tipo), y entonces se lee y ya está: ni la barra de
- * avance ni el «hecho» derivado tienen nada que contar.
- */
-export function checkableItems<T extends { checkable: boolean }>(items: T[]): T[] {
-  return items.filter((i) => i.checkable);
-}
-
-/**
- * Lo que aún te reclama: sin ver, sin responder o sin hacer.
- *
- * Un protocolo o una nota ya vistos NO reclaman: leerlos ERA el acto pendiente
- * (un protocolo con casillas además se cierra solo al marcar la última, y uno
- * sin ninguna se cierra con haberlo leído). El foco no se cierra nunca, y por
- * eso tampoco reclama: si lo hiciera, la bandeja no podría estar en calma jamás.
- */
-export function claimsAttention(kind: CommunicationKind, state: CommunicationState): boolean {
-  if (state === 'published') return true;
-  if (kind === 'question') return state !== 'answered';
-  if (kind === 'task') return state !== 'done';
-  return false;
-}
-
-/** La bandeja en calma: nada sin ver, nada sin responder, nada sin hacer. */
-export function inboxIsClear(items: { kind: CommunicationKind; state: CommunicationState }[]) {
-  return items.every((c) => !claimsAttention(c.kind, c.state));
-}
-
-/**
- * En qué cajón de la bandeja cae. Menor = más arriba.
- *
- * El orden no es una preferencia estética: es lo que decide qué ve el atleta con
- * el pulgar en la pantalla. Primero lo que BLOQUEA (una pregunta sin responder
- * deja el plan a medio cerrar), luego lo que VENCE, luego lo que aún no ha
- * abierto, y el foco por delante de lo ya resuelto porque justamente no se cierra
- * nunca — si cayera al fondo, dejaría de ser el foco.
- */
-export const INBOX_BUCKET = {
-  blockingQuestion: 0,
-  openQuestion: 1,
-  openTask: 2,
-  unseen: 3,
-  focus: 4,
-  settled: 5,
-} as const;
-
-export function inboxBucket(c: {
-  kind: CommunicationKind;
-  state: CommunicationState;
-  blocks: boolean;
-}): number {
-  if (c.kind === 'question' && c.state !== 'answered') {
-    return c.blocks ? INBOX_BUCKET.blockingQuestion : INBOX_BUCKET.openQuestion;
-  }
-  if (c.kind === 'task' && c.state !== 'done') return INBOX_BUCKET.openTask;
-  if (c.state === 'published') return INBOX_BUCKET.unseen;
-  if (c.kind === 'focus') return INBOX_BUCKET.focus;
-  return INBOX_BUCKET.settled;
-}
-
-type SortableCommunication = Pick<
-  AthleteCommunicationDTO,
-  'kind' | 'state' | 'blocks' | 'due_date' | 'published_at' | 'id'
->;
-
-/**
- * El orden de la bandeja: por cajón, y dentro del cajón lo que antes vence
- * (tareas) o lo más reciente (todo lo demás). El id desempata para que dos
- * lecturas seguidas nunca devuelvan órdenes distintos.
- */
-export function compareInboxCommunications(
-  a: SortableCommunication,
-  b: SortableCommunication,
-): number {
-  const bucket = inboxBucket(a) - inboxBucket(b);
-  if (bucket !== 0) return bucket;
-
-  if (a.kind === 'task' && b.kind === 'task' && a.due_date && b.due_date && a.due_date !== b.due_date) {
-    return a.due_date < b.due_date ? -1 : 1;
-  }
-
-  if (a.published_at !== b.published_at) return a.published_at < b.published_at ? 1 : -1;
-  return Number(b.id) - Number(a.id);
-}
-
-/** Ordena una bandeja completa sin mutar la entrada. */
-export function sortInbox<T extends SortableCommunication>(items: T[]): T[] {
-  return [...items].sort(compareInboxCommunications);
-}

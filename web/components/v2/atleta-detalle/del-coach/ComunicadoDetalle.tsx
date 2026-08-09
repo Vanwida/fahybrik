@@ -20,6 +20,7 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import { ANCHOR_COACH_LABEL, opcionElegida, seguimiento, venceEn } from '@/lib/dashboard/v2/del-coach';
 import { borrarOArchivar } from './api';
+import { EnlaceDelDetalle, SeccionesDeNota } from './detalle-nota';
 import { LineaSeguimiento } from './lista';
 
 export function ComunicadoDetalle({
@@ -215,21 +216,9 @@ export function ComunicadoDetalle({
             </ul>
           ) : null}
 
-          {c.kind === 'note' && c.items.length > 0 ? (
-            <ul className="flex flex-col gap-3">
-              {c.items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] p-3"
-                >
-                  {item.label ? <span className="v2-micro">{item.label}</span> : null}
-                  <span className="whitespace-pre-line text-body leading-relaxed text-[color:var(--v2-fg)]">
-                    {item.content}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          {c.kind === 'note' ? <SeccionesDeNota items={c.items} /> : null}
+
+          <EnlaceDelDetalle linked={c.linked} />
 
           {c.final_note ? (
             <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border-l-2 border-[color:var(--v2-accent)] bg-[color:var(--v2-surface-2)] p-3">

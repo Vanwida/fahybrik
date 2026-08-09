@@ -8,10 +8,12 @@
 // patrón que ya nos costó caro con los formateadores.
 
 import type {
+  CoachAthleteCommunicationDTO,
   CoachCommunicationDTO,
   CoachCommunicationDetailDTO,
   CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
+import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 
 export type Resultado<T> = { ok: true; data: T } | { ok: false; mensaje: string };
 
@@ -43,6 +45,35 @@ export async function listarVista(
     `/api/coach/communications?view=${view}`,
   );
   return r.ok ? { ok: true, data: r.data.communications } : r;
+}
+
+/** Lo publicado a UN atleta, con su estado. Es la lectura de la ficha, y también
+ *  de dónde salen los candidatos a enlazar cuando se escribe para él. */
+export async function listarDeAtleta(
+  athlete_id: string,
+): Promise<Resultado<CoachAthleteCommunicationDTO[]>> {
+  const r = await pedir<{ communications: CoachAthleteCommunicationDTO[] }>(
+    `/api/coach/communications?athlete_id=${athlete_id}`,
+  );
+  return r.ok ? { ok: true, data: r.data.communications } : r;
+}
+
+/** Lo que el coach ya tiene publicado. Los candidatos a enlazar cuando se
+ *  escribe sin un solo destinatario delante (biblioteca, varios atletas). */
+export async function listarPublicados(): Promise<Resultado<CoachCommunicationDTO[]>> {
+  const r = await pedir<{ communications: CoachCommunicationDTO[] }>(
+    '/api/coach/communications?view=published',
+  );
+  return r.ok ? { ok: true, data: r.data.communications } : r;
+}
+
+/** La espina del plan de un atleta. La usa la PREVIA para enseñar su camino de
+ *  verdad mientras el coach escribe, en vez de un dibujo de ejemplo. */
+export async function pedirCamino(athlete_id: string): Promise<Resultado<PlanPathDTO | null>> {
+  const r = await pedir<{ camino: PlanPathDTO | null }>(
+    `/api/coach/athletes/${athlete_id}/camino`,
+  );
+  return r.ok ? { ok: true, data: r.data.camino } : r;
 }
 
 /** Nace como borrador (o como molde, si `is_template`). Publicar es otro acto. */

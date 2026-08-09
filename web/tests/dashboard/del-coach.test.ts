@@ -20,6 +20,7 @@ import {
   conTipo,
   desdeComunicado,
   erroresDe,
+  filaVacia,
   indicesEnviados,
   type Borrador,
 } from '@/lib/dashboard/v2/del-coach-borrador';
@@ -43,6 +44,9 @@ function item(over: Partial<CommunicationItemDTO> & { id: string }): Communicati
     content: `Paso ${over.id}`,
     consequence: null,
     checkable: true,
+    display: 'texto',
+    segments: [],
+    camino: null,
     ...over,
   };
 }
@@ -66,6 +70,7 @@ function dto(over: Partial<CoachAthleteCommunicationDTO> = {}): CoachAthleteComm
     updated_at: '2026-08-08T09:00:00.000Z',
     items: [],
     tracking: { recipients: 1, seen: 0, done: 0, answered: 0 },
+    linked: null,
     athlete_state: {
       athlete_id: '63',
       state: 'published',
@@ -224,8 +229,8 @@ describe('el borrador que se escribe en el compositor', () => {
     title: 'Calentamiento del día de carrera',
     body: 'Los tiempos cuentan hacia atrás desde tu salida.',
     steps: [
-      { key: 'a', label: "−40'", content: 'Movilidad de cadera.', checkable: true },
-      { key: 'b', label: '', content: 'Trote progresivo.', checkable: true },
+      { ...filaVacia(), key: 'a', label: "−40'", content: 'Movilidad de cadera.' },
+      { ...filaVacia(), key: 'b', content: 'Trote progresivo.' },
     ],
     final_note: '',
   });
@@ -271,9 +276,9 @@ describe('el borrador que se escribe en el compositor', () => {
       ...borradorVacio('protocol'),
       title: 'Día de carrera',
       steps: [
-        { key: 'a', label: '', content: '', checkable: true },
+        { ...filaVacia(), key: 'a' },
         // A medias: marca de tiempo sin texto. El error es de ESTA fila.
-        { key: 'b', label: "−40'", content: '', checkable: true },
+        { ...filaVacia(), key: 'b', label: "−40'" },
       ],
     };
     const errores = erroresDe(b);

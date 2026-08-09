@@ -58,9 +58,19 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   responder de un toque), visto al abrir, push `coach_communication` con
   deeplink, entrada desde Inicio con badge. Las 4 pantallas del doble pasan a
   «construida». 1072 tests iOS verdes (+98). Instalada en el iPhone de Alex.
-- ⏳ **Siguiente:** tanda de fidelidad al mock (bloques tipados de nota, el
-  camino embebido del plan real, enlace cruzado, previa que sigue) + la espina
-  como lenguaje de fases/ciclos (referencia que encantó a Alex: coach-nota).
+- ✅ **Fidelidad al mock** (mig 0163): secciones de nota con FORMA (texto ·
+  cifra · reparto · **el camino**), el camino DERIVADO del plan real (tramo =
+  microciclo, etiqueta = su nombre, hitos demostrables, color por posición —
+  ver DECISIONS «El camino se deriva»), enlace cruzado entre comunicados,
+  previa que sigue a lo que editas, y la **espina como pieza compartida**
+  (`web/components/plan-espina/`) consumida por previa y doble.
+- ✅ **Avisos editables en Ajustes** («Avisos de lo que publicas»: los 3
+  umbrales con su valor de serie y restaurar) y ✅ **auditoría jsonb** de TODO
+  lib/ (nutrition, sync garmin/healthkit/polar, weekly-review/evaluation,
+  audit_log…) con lectores verificados por columna y tests.
+- ⏳ **Siguiente:** llevar la espina a la vista de ciclo del atleta y a
+  Periodización (tarea #7) + render del camino en la nota de iOS. Tests
+  frágiles ajenos anotados en tarea #8.
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 

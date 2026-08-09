@@ -21,7 +21,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { ModalPortal } from '@/components/v2/editor/ModalPortal';
-import { cn } from '@/lib/utils';
 import {
   COMMUNICATION_KINDS,
   type CoachCommunicationDTO,
@@ -48,8 +47,15 @@ import {
 import { actualizar, crear, publicar } from './api';
 import { PanelBiblioteca, useBiblioteca } from './biblioteca';
 import { Campo, ChipsUnicos, Interruptor } from './campos';
+import { EnlaceCruzado, useCandidatosEnlace } from './enlace';
+import { FormNota } from './formulario-nota';
 import { FormularioDelTipo } from './formularios';
+import { PieCompositor } from './pie-compositor';
 import { ColumnaPrevia } from './previa';
+
+/** Los dos tipos que dicen «esto sale de aquello». Un protocolo, una pregunta y
+ *  un foco se sostienen solos: enlazarlos sería decorar. */
+const TIPOS_QUE_ENLAZAN: readonly CommunicationKind[] = ['note', 'task'];
 
 /** Qué acto está haciendo el compositor. */
 export type ModoCompositor = 'publicar' | 'plantilla';
@@ -105,7 +111,12 @@ function tieneContenido(b: Borrador): boolean {
     b.body.trim().length > 0 ||
     b.final_note.trim().length > 0 ||
     b.due_date.length > 0 ||
-    [...b.steps, ...b.sections].some((f) => f.label.trim() || f.content.trim()) ||
+    [...b.steps, ...b.sections].some(
+      (f) =>
+        f.label.trim() ||
+        f.content.trim() ||
+        f.segments.some((s) => s.value.trim() || s.label.trim()),
+    ) ||
     b.options.some((o) => o.content.trim() || o.consequence.trim())
   );
 }
@@ -139,6 +150,13 @@ export function Compositor({
   const [enviando, setEnviando] = useState<'publicar' | 'borrador' | 'plantilla' | null>(null);
   const [fallo, setFallo] = useState<string | null>(null);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
+  /** La fila que el coach está tocando: la previa se coloca sola en ella. */
+  const [foco, setFoco] = useState<string | null>(null);
+
+  // Escribiendo para UN atleta, lo enlazable es lo que se le ha publicado a ÉL.
+  // Para varios (o para la biblioteca) no hay «él», así que es lo del coach.
+  const unico = destinatarios.length === 1 ? destinatarios[0]!.athlete_id : null;
+  const candidatos = useCandidatosEnlace(unico);
 
   const nombres = useMemo(() => destinatarios.map((d) => d.full_name), [destinatarios]);
   const errores = useMemo(() => erroresDe(b), [b]);
@@ -371,7 +389,25 @@ export function Compositor({
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex min-w-0 flex-col gap-5">
-              <FormularioDelTipo b={b} set={set} errores={erroresVisibles} idp="comp" />
+              {b.kind === 'note' ? (
+                <FormNota b={b} set={set} errores={erroresVisibles} idp="comp" onFoco={setFoco} />
+              ) : (
+                <FormularioDelTipo
+                  b={b}
+                  set={set}
+                  errores={erroresVisibles}
+                  idp="comp"
+                  onFoco={setFoco}
+                />
+              )}
+
+              {TIPOS_QUE_ENLAZAN.includes(b.kind) ? (
+                <EnlaceCruzado
+                  valor={b.linked_communication_id}
+                  candidatos={candidatos}
+                  onChange={(v) => set({ linked_communication_id: v })}
+                />
+              ) : null}
 
               <Campo
                 etiqueta="Dónde le aparece"
@@ -403,79 +439,22 @@ export function Compositor({
             </div>
 
             {/* Escritorio: pegada mientras escribes. Móvil: plegada. */}
-            <ColumnaPrevia b={b} coachName={coachName} />
+            <ColumnaPrevia b={b} coachName={coachName} foco={foco} athleteId={unico} />
           </div>
         </div>
 
-        {/* ── Pie: publicar, guardar, y qué va a pasar ────────────────────── */}
-        <div className="flex shrink-0 flex-col gap-2.5 border-t border-[color:var(--v2-border)] p-4 sm:p-5">
-          {fallo ? (
-            <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2 text-label font-medium text-[color:var(--v2-danger)]">
-              {fallo}
-            </p>
-          ) : null}
-          {mostrarErrores && hayErrores ? (
-            <p className="text-label font-medium text-[color:var(--v2-danger)]">
-              Falta algo por rellenar. Los campos en rojo dicen qué.
-            </p>
-          ) : null}
-          {confirmarCierre ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-3 py-2">
-              <span className="text-label font-medium text-[color:var(--v2-fg)]">
-                Tienes cosas escritas. Si cierras ahora se pierden.
-              </span>
-              <span className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setConfirmarCierre(false)}
-                  className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-                >
-                  Seguir escribiendo
-                </button>
-                <button
-                  type="button"
-                  onClick={onCerrar}
-                  className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-semibold text-[color:var(--v2-fg)]"
-                >
-                  Cerrar y perderlo
-                </button>
-              </span>
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => void principal.hacer()}
-              disabled={ocupado}
-              className={cn(
-                'v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-s)] px-5 text-body font-bold transition-opacity',
-                'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:opacity-90 disabled:opacity-50',
-              )}
-            >
-              {enviando === principal.clave ? (
-                <MIcon name="progress_activity" size={16} className="animate-spin" />
-              ) : null}
-              {principal.texto}
-            </button>
-            {principal.clave === 'publicar' ? (
-              <button
-                type="button"
-                onClick={() => void guardarBorrador()}
-                disabled={ocupado}
-                className="v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-4 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
-              >
-                {enviando === 'borrador' ? (
-                  <MIcon name="progress_activity" size={16} className="animate-spin" />
-                ) : null}
-                Guardar sin publicar
-              </button>
-            ) : null}
-            <span className="min-w-[200px] flex-1 text-label leading-relaxed text-[color:var(--v2-muted)]">
-              {nota}
-            </span>
-          </div>
-        </div>
+        <PieCompositor
+          fallo={fallo}
+          faltaAlgo={mostrarErrores && hayErrores}
+          confirmarCierre={confirmarCierre}
+          onSeguirEscribiendo={() => setConfirmarCierre(false)}
+          onCerrarYPerder={onCerrar}
+          principal={principal}
+          ofreceBorrador={principal.clave === 'publicar'}
+          onGuardarBorrador={() => void guardarBorrador()}
+          enviando={enviando}
+          nota={nota}
+        />
       </div>
       </div>
     </ModalPortal>

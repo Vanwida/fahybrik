@@ -8,6 +8,7 @@
 // gris. Son tres cosas distintas, se leen en tres momentos distintos, y el
 // atleta vuelve a la del medio en octubre sin querer releer las otras dos.
 
+import { Espina, TOKENS_TWIN } from '@/components/plan-espina';
 import { Mono } from '../../kit';
 import { S } from '../../kit-composicion/tokens';
 import {
@@ -135,71 +136,27 @@ function Reparto({ titular, partes }: { titular: string; partes: ParteReparto[] 
  * Las doce semanas como espina vertical. El color del nodo es la fase, así que
  * las descargas y el simulacro se ven de un vistazo sin leer una palabra: son
  * justo lo que el atleta busca cuando vuelve aquí en octubre.
+ *
+ * El DIBUJO ya no vive aquí: es `web/components/plan-espina`, compartido con la
+ * previa del compositor y con lo que venga (periodización, la vista de un
+ * ciclo). Lo que se queda es lo que sí es de este escenario — que en el caso
+ * real la fase la elige el coach y aquí es dato cableado del doble.
  */
 function LineaTiempo({ hitos }: { hitos: HitoPlan[] }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {hitos.map((h, i) => (
-        <Hito key={h.semanas} hito={h} primero={i === 0} ultimo={i === hitos.length - 1} />
-      ))}
-    </div>
-  );
-}
-
-const RAIL = 13;
-const NODO = 9;
-
-function Hito({ hito, primero, ultimo }: { hito: HitoPlan; primero: boolean; ultimo: boolean }) {
-  const color = COLOR_FASE[hito.fase];
-  const destacado = hito.fase === 'descarga' || hito.fase === 'simulacro';
-
-  return (
-    <div style={{ display: 'flex', gap: S.m, alignItems: 'stretch' }}>
-      <div style={{ flex: `0 0 ${RAIL}px`, position: 'relative', display: 'flex', justifyContent: 'center' }}>
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            top: primero ? 12 : 0,
-            bottom: ultimo ? 'auto' : 0,
-            height: ultimo ? 12 : undefined,
-            width: 1,
-            background: 'var(--twin-hairline-strong)',
-          }}
-        />
-        <span
-          aria-hidden
-          style={{
-            position: 'relative',
-            marginTop: 8,
-            width: NODO,
-            height: NODO,
-            borderRadius: '50%',
-            flex: '0 0 auto',
-            background: destacado ? color : 'var(--twin-bg)',
-            border: `1.6px solid ${color}`,
-            boxShadow: destacado ? `0 0 0 3px color-mix(in srgb, ${color} 22%, transparent)` : 'none',
-          }}
-        />
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, padding: `4px 0 ${S.m}px` }}>
-        <Mono size={11} weight={700} color={color} style={{ letterSpacing: '0.06em' }}>
-          {hito.semanas}
-        </Mono>
-        <span
-          style={{
-            font: `${destacado ? 650 : 550} 14px/1.3 var(--twin-font-sans)`,
-            color: 'var(--twin-fg)',
-          }}
-        >
-          {hito.titulo}
-        </span>
-        {hito.detalle ? (
-          <span style={{ font: '400 12.5px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-            {hito.detalle}
-          </span>
-        ) : null}
-      </div>
-    </div>
+    <Espina
+      tokens={TOKENS_TWIN}
+      tramos={hitos.map((h) => ({
+        clave: h.semanas,
+        semanas: h.semanas,
+        titulo: h.titulo,
+        detalle: h.detalle,
+        color: COLOR_FASE[h.fase],
+        // Lo que rompe la rutina: la descarga y el simulacro. En el plan REAL
+        // esto lo decide el servidor (una simulación o unos tests en esa
+        // semana), porque no hay catálogo de fases desde la migración 0064.
+        destacado: h.fase === 'descarga' || h.fase === 'simulacro',
+      }))}
+    />
   );
 }

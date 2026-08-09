@@ -12,9 +12,11 @@
 // nada del modelo, sólo cómo se sostiene a medio escribir.
 
 import {
+  CAMINO_ANCHORS,
   createCommunicationSchema,
   type CoachCommunicationDTO,
   type CommunicationAnchor,
+  type CommunicationDisplay,
   type CommunicationKind,
   type CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
@@ -23,15 +25,30 @@ import {
 // La forma del borrador
 // ---------------------------------------------------------------------------
 
+/** Un trozo de un reparto mientras se escribe. `value` es texto porque sale de
+ *  un `input`: se convierte a número una sola vez, al salir por el cable. */
+export interface SegmentoBorrador {
+  key: string;
+  value: string;
+  label: string;
+}
+
 /** Una fila de la lista ordenada: paso de protocolo o sección de nota. */
 export interface FilaBorrador {
-  /** Clave estable de React mientras la fila no existe en la base de datos. */
+  /** Clave estable de React mientras la fila no existe en la base de datos.
+   *  También es lo que sigue la previa para colocarse en lo que estás editando. */
   key: string;
   label: string;
   content: string;
   /** Sólo en un paso de protocolo: si lleva casilla o es una línea que se lee.
    *  Una sección de nota lo arrastra sin usarlo (las dos son la misma fila). */
   checkable: boolean;
+  /** Sólo en una sección de nota: cómo se pinta. Un paso de protocolo lo
+   *  arrastra en `texto` y nadie lo mira, igual que la sección hace con
+   *  `checkable`. */
+  display: CommunicationDisplay;
+  /** Sólo en una sección con forma de reparto. */
+  segments: SegmentoBorrador[];
 }
 
 /** Una opción de pregunta con su consecuencia. */
@@ -63,6 +80,8 @@ export interface Borrador {
   due_date: string;
   /** Nota. */
   sections: FilaBorrador[];
+  /** Nota y tarea: a qué otro comunicado apunta. Vacío = a ninguno. */
+  linked_communication_id: string;
   /** Además de publicarlo, dejarlo como plantilla reutilizable. */
   save_to_library: boolean;
 }
@@ -74,10 +93,28 @@ export function nuevaClave(): string {
   return `f${contador}`;
 }
 
-/** Una fila nace CON casilla: es lo que el coach espera de un protocolo, y
- *  quitarla es un toque. Al revés obligaría a encenderlas una a una. */
+export function segmentoVacio(): SegmentoBorrador {
+  return { key: nuevaClave(), value: '', label: '' };
+}
+
+/**
+ * Una fila nace CON casilla y en forma de TEXTO: es lo que el coach espera de un
+ * protocolo y de una sección, y cambiarlo es un toque. Al revés obligaría a
+ * encender la casilla o elegir forma en cada una.
+ *
+ * Los dos segmentos nacen con ella aunque la forma sea texto: el día que la pase
+ * a reparto ya tiene dónde escribir, en vez de descubrir antes el botón de
+ * añadir. Es la misma decisión que los dos pasos con los que nace un protocolo.
+ */
 export function filaVacia(): FilaBorrador {
-  return { key: nuevaClave(), label: '', content: '', checkable: true };
+  return {
+    key: nuevaClave(),
+    label: '',
+    content: '',
+    checkable: true,
+    display: 'texto',
+    segments: [segmentoVacio(), segmentoVacio()],
+  };
 }
 
 export function opcionVacia(): OpcionBorrador {
@@ -108,6 +145,7 @@ export function borradorVacio(kind: CommunicationKind = 'protocol'): Borrador {
     blocks: false,
     due_date: '',
     sections: [filaVacia(), filaVacia()],
+    linked_communication_id: '',
     save_to_library: false,
   };
 }
@@ -126,11 +164,19 @@ export function conTipo(b: Borrador, kind: CommunicationKind): Borrador {
  */
 export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
   const base = borradorVacio(dto.kind);
-  const filas = dto.items.map((i) => ({
+  const filas: FilaBorrador[] = dto.items.map((i) => ({
     key: nuevaClave(),
     label: i.label ?? '',
     content: i.content,
     checkable: i.checkable,
+    display: i.display,
+    // Los segmentos guardados vuelven a ser filas locales. Si venía sin ellos
+    // (todo lo que no es un reparto) se le ponen los dos de partida, para que
+    // cambiarle la forma no le deje el formulario en blanco.
+    segments:
+      i.segments.length > 0
+        ? i.segments.map((s) => ({ key: nuevaClave(), value: String(s.value_num), label: s.label }))
+        : [segmentoVacio(), segmentoVacio()],
   }));
   return {
     ...base,
@@ -151,6 +197,7 @@ export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
     final_note: dto.final_note ?? '',
     blocks: dto.blocks,
     due_date: dto.due_date ?? '',
+    linked_communication_id: dto.linked?.id ?? '',
     save_to_library: false,
   };
 }
@@ -194,12 +241,54 @@ export function indicesEnviados(steps: FilaBorrador[]): Map<string, number> {
  * El borrador tal y como lo pide la API. `anchor_ref` y `expires_at` viajan
  * ausentes porque el compositor todavía no los pregunta (ver FOCUS.md).
  */
+/**
+ * Una sección, con la forma que le toca. Cada forma manda campos distintos —una
+ * cifra no tiene segmentos y un camino no tiene contenido— porque el esquema es
+ * una unión: mandarlo todo «por si acaso» dejaría pasar una cifra con reparto,
+ * que no significa nada.
+ *
+ * En una CIFRA, `label` es el pie y puede faltar. En las otras tres es la
+ * cabecera y el esquema la exige.
+ */
+function seccionAInput(s: FilaBorrador) {
+  if (s.display === 'reparto') {
+    return {
+      display: 'reparto' as const,
+      label: s.label.trim(),
+      // Sin filtrar los vacíos a propósito: con un mínimo de dos, una fila en
+      // blanco tiene que dar SU error en SU sitio, no desaparecer y convertirse
+      // en un «faltan segmentos» que no dice cuál.
+      segments: s.segments.map((seg) => ({ value_num: Number(seg.value), label: seg.label.trim() })),
+    };
+  }
+  if (s.display === 'camino') {
+    return { display: 'camino' as const, label: s.label.trim() };
+  }
+  if (s.display === 'cifra') {
+    return { display: 'cifra' as const, label: oNulo(s.label), content: s.content.trim() };
+  }
+  return { display: 'texto' as const, label: s.label.trim(), content: s.content.trim() };
+}
+
+/** ¿Esta nota dibuja el camino? Decide si el ancla tiene que ser plan o semana. */
+export function pintaCamino(b: Borrador): boolean {
+  return b.kind === 'note' && b.sections.some((s) => s.display === 'camino');
+}
+
+/** ¿El ancla elegida deja dibujar el camino? Es la regla del esquema, dicha
+ *  donde el formulario puede avisar antes de que el servidor diga que no. */
+export function anclaSirveParaCamino(b: Borrador): boolean {
+  return CAMINO_ANCHORS.includes(b.anchor_kind);
+}
+
 export function aInput(b: Borrador, is_template = false): CreateCommunicationInput {
   const comun = {
     title: b.title.trim(),
     anchor_kind: b.anchor_kind,
     is_template,
   };
+  // El enlace sólo lo admiten los dos tipos que dicen «esto sale de aquello».
+  const enlace = oNulo(b.linked_communication_id);
 
   if (b.kind === 'protocol') {
     return {
@@ -235,6 +324,7 @@ export function aInput(b: Borrador, is_template = false): CreateCommunicationInp
       kind: 'task',
       body: oNulo(b.body),
       due_date: b.due_date,
+      linked_communication_id: enlace,
     } as CreateCommunicationInput;
   }
   if (b.kind === 'note') {
@@ -242,7 +332,8 @@ export function aInput(b: Borrador, is_template = false): CreateCommunicationInp
       ...comun,
       kind: 'note',
       body: oNulo(b.body),
-      items: b.sections.map((s) => ({ label: s.label.trim(), content: s.content.trim() })),
+      items: b.sections.map(seccionAInput),
+      linked_communication_id: enlace,
     } as CreateCommunicationInput;
   }
   return { ...comun, kind: 'focus', body: b.body.trim() } as CreateCommunicationInput;

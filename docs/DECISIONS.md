@@ -182,6 +182,41 @@ necesita una casilla, la lleva el ítem, no la tabla padre.
 
 ---
 
+## 2026-08-09 · El camino se DERIVA del plan, no se teclea — y la nota tiene formas
+
+**Decidido:** las secciones de una nota declaran su FORMA (`display`: texto |
+cifra | reparto | camino) y el contrato la transporta tipada — aplanarla a
+texto fue la pérdida que Alex cazó («a veces haces un mock y luego no ponemos
+cosas que estaban en el mock»). El reparto guarda sus segmentos en tabla
+propia (`coach_communication_item_segments`), y los comunicados pueden
+enlazarse (`linked_communication_id`: la nota lleva al pie su pregunta).
+Migración 0163.
+
+**El camino (la espina que encantó a Alex) se deriva, no se teclea:** un item
+`camino` no tiene contenido — al servir la nota, el servidor resuelve la
+espina del plan REAL del atleta. Sus reglas, atadas a la 0064:
+- **Nodo = TRAMO de microciclo** (las semanas seguidas de un
+  `program_month_template` en `athlete_month_assignments`): el orden de los
+  microciclos ES la periodización; no existe entidad fase.
+- **La etiqueta del tramo es el NOMBRE del microciclo** — vocabulario del
+  coach, sin interpretar: si él lo llama «Descarga», se lee «Descarga».
+  **No hacer:** no emitir una bandera `descarga` deducida del nombre ni del
+  recuento de sesiones — sería cablear el método o inventarse un dato.
+- **Hitos solo demostrables:** simulación (`format = 'hyrox_sim'`) o test de
+  calibración asignado, con su fecha.
+- **Color por POSICIÓN del tramo** con paleta estable (añadir un tramo no
+  recolorea los previos). El día que un coach pueda nombrar y colorear sus
+  ciclos, la función de color lee esa columna (está señalado en el código).
+- Sin plan activo → `camino: null` y el cliente no lo pinta.
+
+**La espina es una pieza compartida** (`web/components/plan-espina/`):
+la consumen la previa del compositor y el doble coach-nota, y es la forma
+canónica de pintar un ciclo para las superficies de fases/ciclos que vienen
+(vista de ciclo del atleta, Periodización). **No hacer:** no volver a dibujar
+una espina local por pantalla.
+
+---
+
 ## 2026-08-09 · El payload de un aviso se guarda como OBJETO, no como cadena
 
 **Decidido:** todo `notifications.payload_json` se escribe con `sql.json(objeto)`.

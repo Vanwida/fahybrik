@@ -9,32 +9,40 @@ import 'server-only';
 // fecha, y que solo se publique a atletas de SU roster. Nada de esto es opinión
 // de entrenador — es lo que hace que el tipo signifique lo que dice.
 
-import type { Sql, TransactionClient } from '@/lib/db';
+import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
-  QUESTION_MAX_OPTIONS,
-  QUESTION_MIN_OPTIONS,
   type CoachAthleteCommunicationDTO,
   type CoachCommunicationDTO,
   type CoachCommunicationDetailDTO,
   type CommunicationRecipientDTO,
   type CommunicationView,
   type CreateCommunicationInput,
+  type LinkedCommunicationDTO,
   type UpdateCommunicationInput,
   claimsAttention,
   communicationState,
 } from '@fahybrid/shared/domain/coach-communications';
 import {
   CommunicationError,
+  attachCamino,
   communicationColumns,
   iso,
   loadItemsByCommunication,
+  loadLinkedForCoach,
   loadMarksByRecipient,
+  needsCamino,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
-import { notifyCommunicationPublished } from './communications-notify';
+import { resolvePlanPath } from '@/lib/plan/camino';
+import {
+  insertItems,
+  kindOnlyFields,
+  linkedOf,
+  requireLinkable,
+} from './communications-rows';
 
 type TrackedRow = CommunicationRow & {
   recipients: number;
@@ -54,9 +62,14 @@ const trackingColumns = (client: DbClient) => client`
   where r.communication_id = c.id
 `;
 
-function rowToDto(row: TrackedRow, items: CoachCommunicationDTO['items']): CoachCommunicationDTO {
+function rowToDto(
+  row: TrackedRow,
+  items: CoachCommunicationDTO['items'],
+  linked: LinkedCommunicationDTO | null = null,
+): CoachCommunicationDTO {
   return {
     id: row.id,
+    linked,
     kind: row.kind,
     title: row.title,
     body: row.body,
@@ -79,44 +92,6 @@ function rowToDto(row: TrackedRow, items: CoachCommunicationDTO['items']): Coach
       answered: row.answered,
     },
   };
-}
-
-/**
- * Las filas de la tabla hija que le tocan a cada tipo. Es UN sitio y no cinco:
- * los pasos de un protocolo, las opciones de una pregunta y las secciones de una
- * nota son la misma lista ordenada, y lo único que cambia es qué columnas usa.
- *
- * `checkable` sólo lo elige el coach en un PROTOCOLO. Fuera de ahí se escribe
- * `true` y es inerte: una opción se elige y una sección se lee, y ninguna de las
- * dos se marca (migración 0162).
- */
-function itemRowsFor(input: CreateCommunicationInput) {
-  if (input.kind === 'task' || input.kind === 'focus') return [];
-  if (input.kind === 'question') {
-    return input.items.map((option, index) => ({
-      position: index + 1,
-      label: null as string | null,
-      content: option.content,
-      consequence: option.consequence ?? null,
-      checkable: true,
-    }));
-  }
-  if (input.kind === 'protocol') {
-    return input.items.map((paso, index) => ({
-      position: index + 1,
-      label: paso.label ?? null,
-      content: paso.content,
-      consequence: null as string | null,
-      checkable: paso.checkable,
-    }));
-  }
-  return input.items.map((seccion, index) => ({
-    position: index + 1,
-    label: seccion.label,
-    content: seccion.content,
-    consequence: null as string | null,
-    checkable: true,
-  }));
 }
 
 // -----------------------------------------------------------------------------
@@ -152,7 +127,22 @@ export async function listCommunications(args: {
     client,
     rows.map((r) => r.id),
   );
-  return rows.map((row) => rowToDto(row, items.get(row.id) ?? []));
+  const linked = await loadLinkedForCoach(client, enlaces(rows));
+  return rows.map((row) => rowToDto(row, items.get(row.id) ?? [], enlaceDe(row, linked)));
+}
+
+/** Los ids enlazados de una tanda, sin los que no enlazan a nada. */
+function enlaces(rows: { linked_communication_id: string | null }[]): string[] {
+  return rows.flatMap((r) => (r.linked_communication_id ? [r.linked_communication_id] : []));
+}
+
+/** El enlace resuelto de una fila. Ausente del mapa = no le toca verlo (es la
+ *  regla del atleta) o ya no existe. */
+function enlaceDe(
+  row: { linked_communication_id: string | null },
+  mapa: Map<string, LinkedCommunicationDTO>,
+): LinkedCommunicationDTO | null {
+  return row.linked_communication_id ? (mapa.get(row.linked_communication_id) ?? null) : null;
 }
 
 /**
@@ -210,6 +200,15 @@ export async function listCommunicationsForAthlete(args: {
     client,
     rows.map((r) => r.recipient_id),
   );
+  const linked = await loadLinkedForCoach(client, enlaces(rows));
+
+  // El camino de la ficha se dibuja con el plan de ESTE atleta: es lo que él va
+  // a ver en su móvil, y el coach tiene que estar mirando lo mismo. Una sola
+  // consulta para toda la ficha, y sólo si alguna sección la pide.
+  const pideCamino = [...items.values()].some(needsCamino);
+  const camino = pideCamino
+    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
+    : null;
 
   return rows.map((row): CoachAthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
@@ -217,7 +216,7 @@ export async function listCommunicationsForAthlete(args: {
     const answered_at = iso(row.answered_at);
     const state = communicationState({ seen_at, done_at, answered_at });
     return {
-      ...rowToDto(row, items.get(row.id) ?? []),
+      ...rowToDto(row, attachCamino(items.get(row.id) ?? [], camino), enlaceDe(row, linked)),
       athlete_state: {
         athlete_id: String(args.athlete_id),
         state,
@@ -293,42 +292,17 @@ export async function getCommunication(args: {
     marked_items: r.marked_items,
   }));
 
-  return { ...rowToDto(row, items.get(row.id) ?? []), recipients: detail };
+  const linked = await loadLinkedForCoach(client, enlaces([row]));
+  return { ...rowToDto(row, items.get(row.id) ?? [], enlaceDe(row, linked)), recipients: detail };
 }
 
 // -----------------------------------------------------------------------------
 // Escritura
+//
+// Cómo se traduce lo escrito a filas (qué columna usa cada tipo, qué se valida
+// antes de guardar) vive en `communications-rows.ts`: aquí quedan los tres actos
+// —crear, editar, retirar— y sus reglas de ciclo de vida.
 // -----------------------------------------------------------------------------
-
-async function insertItems(
-  tx: TransactionClient,
-  communication_id: string,
-  input: CreateCommunicationInput,
-): Promise<void> {
-  const rows = itemRowsFor(input).map((r) => ({ ...r, communication_id }));
-  if (rows.length === 0) return;
-  await tx`
-    insert into coach_communication_items ${tx(
-      rows,
-      'communication_id',
-      'position',
-      'label',
-      'content',
-      'consequence',
-      'checkable',
-    )}
-  `;
-}
-
-/** Los campos que solo existen en un tipo. Se escriben null en los demás para
- *  que la fila no pueda contradecir a su propio tipo. */
-function kindOnlyFields(input: CreateCommunicationInput) {
-  return {
-    final_note: input.kind === 'protocol' ? (input.final_note ?? null) : null,
-    due_date: input.kind === 'task' ? input.due_date : null,
-    blocks: input.kind === 'question' ? input.blocks : false,
-  };
-}
 
 export async function createCommunication(args: {
   coach_id: number | bigint;
@@ -339,16 +313,21 @@ export async function createCommunication(args: {
   const { input } = args;
   const extra = kindOnlyFields(input);
 
+  const linked = linkedOf(input);
+
   const id = await client.begin(async (tx) => {
+    if (linked) await requireLinkable(tx, args.coach_id, linked);
     const inserted = await tx<{ id: string }[]>`
       insert into coach_communications (
         coach_id, kind, title, body, final_note,
-        anchor_kind, anchor_ref, due_date, expires_at, blocks, is_template
+        anchor_kind, anchor_ref, due_date, expires_at, blocks, is_template,
+        linked_communication_id
       ) values (
         ${args.coach_id as number}, ${input.kind}, ${input.title}, ${input.body ?? null},
         ${extra.final_note}, ${input.anchor_kind},
         ${input.anchor_kind === 'general' ? null : (input.anchor_ref ?? null)},
-        ${extra.due_date}, ${input.expires_at ?? null}, ${extra.blocks}, ${input.is_template}
+        ${extra.due_date}, ${input.expires_at ?? null}, ${extra.blocks}, ${input.is_template},
+        ${linked}
       )
       returning id::text as id
     `;
@@ -392,6 +371,9 @@ export async function updateCommunication(args: {
       );
     }
 
+    const linked = linkedOf(input);
+    if (linked) await requireLinkable(tx, args.coach_id, linked);
+
     await tx`
       update coach_communications set
         kind = ${input.kind},
@@ -404,6 +386,7 @@ export async function updateCommunication(args: {
         expires_at = ${input.expires_at ?? null},
         blocks = ${extra.blocks},
         is_template = ${input.is_template},
+        linked_communication_id = ${linked},
         updated_at = now()
       where id = ${row.id}::bigint
     `;
