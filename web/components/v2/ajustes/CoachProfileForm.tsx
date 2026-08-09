@@ -13,30 +13,15 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Card } from '@/components/v2/Card';
 import { TagInput } from './TagInput';
+import {
+  ajustesButtonGhost as BTN_GHOST,
+  ajustesButtonPrimary as BTN_PRIMARY,
+  ajustesButtonSecondary as BTN_SECONDARY,
+  ajustesField as FIELD,
+} from './controls';
 import { COACH_PROFILE_LIMITS } from '@/lib/coach/profile-schema';
 import type { CoachProfile } from '@/lib/coach/profile';
 import { cn } from '@/lib/utils';
-
-const FIELD = cn(
-  'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-  'bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)]',
-  'outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]',
-);
-
-const BTN_PRIMARY = cn(
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-m)]',
-  'bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-semibold text-[color:var(--v2-accent-fg)]',
-  'disabled:cursor-not-allowed disabled:opacity-50',
-);
-const BTN_SECONDARY = cn(
-  'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-  'bg-[color:var(--v2-surface)] px-3 py-1.5 text-sm font-semibold text-[color:var(--v2-fg)]',
-  'hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50',
-);
-const BTN_GHOST = cn(
-  'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1.5',
-  'text-sm font-medium text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]',
-);
 
 // One-tap suggestions only — the coach can type anything; these never constrain
 // what's stored (no enum), they just speed up the common picks.
