@@ -21,20 +21,31 @@
 // the PRO figure sitting where an Open default is expected). Neither is
 // touched by this change; wiring them to this module is a follow-up.
 //
-// GROUND TRUTH — do not extend this file without a cited source (repo rule:
-// "NO inventar — todo ground truth").
+// GROUND TRUTH — este fichero NO lleva cargas, y es a propósito.
 // ---------------------------------------------------------------------------
-// Source: /Users/alexsolecarretero/Public/projects/health-planning/training/
-// plan-95d-hyrox-singles-pro.md, §0 — which itself cites pace-club.com and
-// hycrew.com. Every number below is the OPEN or PRO **MEN'S** standard from
-// that source. Nothing else was supplied, so nothing else is written here —
-// see the TODO list below for exactly what's missing.
+// Las DISTANCIAS/repeticiones de abajo sí tienen fuente: son el rulebook 26/27
+// citado en `shared/domain/coach/test-catalog.ts`, que llegó al repo por su
+// cuenta y antes que este módulo.
 //
-// SEASON — versioned data, not a `const` cabled forever. HYROX revises specs
-// most seasons; HARD RULE Nº0 also applies here even with no coach in sight —
-// this is OUR reference data (every coach on the platform races the same
-// rulebook), maintained per season, not one coach's method. Bump
-// `HYROX_RULEBOOK_SEASON` and the numbers below together when it changes.
+// Las CARGAS (kg de trineo, kg de farmers, kg de sandbag, kg de wall ball,
+// damper de los ergos) estuvieron aquí un rato con números concretos, y se han
+// retirado: venían de un documento que el usuario describió explícitamente como
+// «uno que me ha hecho la IA» y que había pasado como plan de ejemplo. Un
+// ejemplo sirve para ROMPER el modelo, nunca para poblarlo — y salida de un
+// modelo de lenguaje no es una fuente por mucho que el propio documento cite
+// webs por dentro. Un peso inventado aquí es un atleta entrenando mal.
+//
+// `hyroxStationLoad()` devuelve `null` para todo mientras esto siga vacío, que
+// es la respuesta honesta: «no lo sabemos». La FORMA sí está modelada y
+// probada (single / per_implement / sled / damper, por división y género), así
+// que rellenar esto cuando llegue el rulebook oficial es escribir datos, no
+// rediseñar nada.
+//
+// PARA RELLENARLO hace falta una fuente citable: el rulebook oficial de HYROX
+// de la temporada, o el usuario diciendo el número como dato suyo. Y hace falta
+// entero, no solo la mitad: masculino Y femenino, open/pro/elite, singles y
+// doubles/relay, y los tramos de edad.
+
 export const HYROX_RULEBOOK_SEASON = '26/27' as const;
 //
 // TODO — cells with no source yet. Never fill one with a guess or a fallback
@@ -132,10 +143,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'ski',
     measure: { kind: 'distance', meters: 1000 },
     aliases: ['ski', 'skierg', 'ski erg', 'skierg 1000m', 'skierg 1km'],
-    loads: [
-      { division: 'open', gender: 'any', load: { kind: 'damper', setting: 6 } },
-      { division: 'pro', gender: 'any', load: { kind: 'damper', setting: 7 } },
-    ],
+    loads: [],
   },
   {
     order: 2,
@@ -144,10 +152,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'functional',
     measure: { kind: 'distance', meters: 50 }, // 4 × 12.5 m lengths
     aliases: ['sled push', 'hyrox sled push', 'sled push 50m'],
-    loads: [
-      { division: 'open', gender: 'men', load: { kind: 'sled', kg: 152 } },
-      { division: 'pro', gender: 'men', load: { kind: 'sled', kg: 202 } },
-    ],
+    loads: [],
   },
   {
     order: 3,
@@ -156,10 +161,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'functional',
     measure: { kind: 'distance', meters: 50 }, // 4 × 12.5 m lengths
     aliases: ['sled pull', 'hyrox sled pull', 'sled pull 50m'],
-    loads: [
-      { division: 'open', gender: 'men', load: { kind: 'sled', kg: 103 } },
-      { division: 'pro', gender: 'men', load: { kind: 'sled', kg: 153 } },
-    ],
+    loads: [],
   },
   {
     order: 4,
@@ -184,10 +186,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'row',
     measure: { kind: 'distance', meters: 1000 },
     aliases: ['row', 'rowing', 'remo', 'row 1km', 'row 1000m', 'rowing 1km'],
-    loads: [
-      { division: 'open', gender: 'any', load: { kind: 'damper', setting: 6 } },
-      { division: 'pro', gender: 'any', load: { kind: 'damper', setting: 7 } },
-    ],
+    loads: [],
   },
   {
     order: 6,
@@ -196,10 +195,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'functional',
     measure: { kind: 'distance', meters: 200 },
     aliases: ['farmers carry', 'farmer carry', 'farmers', 'farmer', 'farmers carry 200m'],
-    loads: [
-      { division: 'open', gender: 'men', load: { kind: 'per_implement', kg: 24, implements: 2 } },
-      { division: 'pro', gender: 'men', load: { kind: 'per_implement', kg: 32, implements: 2 } },
-    ],
+    loads: [],
   },
   {
     order: 7,
@@ -208,10 +204,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'functional',
     measure: { kind: 'distance', meters: 100 },
     aliases: ['sandbag lunges', 'sandbag lunge', 'lunges', 'sb lunge', 'sandbag lunges 100m'],
-    loads: [
-      { division: 'open', gender: 'men', load: { kind: 'single', kg: 20 } },
-      { division: 'pro', gender: 'men', load: { kind: 'single', kg: 30 } },
-    ],
+    loads: [],
   },
   {
     order: 8,
@@ -220,10 +213,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     modality: 'functional',
     measure: { kind: 'reps', value: 100 },
     aliases: ['wall balls', 'wall ball', 'wallballs', 'wb', 'wall balls 100'],
-    loads: [
-      { division: 'open', gender: 'men', load: { kind: 'single', kg: 6 } },
-      { division: 'pro', gender: 'men', load: { kind: 'single', kg: 9 } },
-    ],
+    loads: [],
   },
 ];
 

@@ -90,50 +90,43 @@ describe('resolveHyroxStation · acepta slug real o token suelto', () => {
   });
 });
 
-describe('hyroxStationLoad · Open vs Pro, hombres (la única fuente que tenemos)', () => {
-  test('sled push: 152 kg Open · 202 kg Pro — TOTAL, no por implemento', () => {
-    expect(hyroxStationLoad('hyrox-sled-push', 'open', 'men')).toEqual({ kind: 'sled', kg: 152 });
-    expect(hyroxStationLoad('hyrox-sled-push', 'pro', 'men')).toEqual({ kind: 'sled', kg: 202 });
+describe('hyroxStationLoad · HOY no hay ninguna carga con fuente', () => {
+  // Este bloque fijaba números concretos (152/202 kg de trineo, 2×24 de
+  // farmers, 6/9 de wall ball). Se han retirado del módulo: venían de un
+  // documento que el usuario describió como «uno que me ha hecho la IA» y que
+  // había pasado como plan de EJEMPLO. Un ejemplo sirve para romper el modelo,
+  // nunca para poblarlo, y salida de un modelo de lenguaje no es una fuente por
+  // mucho que el documento cite webs por dentro.
+  //
+  // Lo que se prueba ahora es lo único que es cierto: que el módulo NO adivina.
+  // Cuando llegue el rulebook oficial se rellena la tabla y estos tests se
+  // convierten otra vez en aserciones de valor — la FORMA ya está modelada y
+  // probada abajo.
+  test('ninguna estación devuelve carga, en ninguna división ni género', () => {
+    for (const st of HYROX_STATIONS) {
+      for (const division of ['open', 'pro', 'elite'] as const) {
+        for (const gender of ['men', 'women', 'mixed'] as const) {
+          expect(hyroxStationLoad(st.slug, division, gender), `${st.slug} ${division} ${gender}`).toBeNull();
+        }
+      }
+    }
   });
 
-  test('sled pull: 103 kg Open · 153 kg Pro', () => {
-    expect(hyroxStationLoad('hyrox-sled-pull', 'open', 'men')).toEqual({ kind: 'sled', kg: 103 });
-    expect(hyroxStationLoad('hyrox-sled-pull', 'pro', 'men')).toEqual({ kind: 'sled', kg: 153 });
-  });
-
-  test('farmers carry: POR implemento — 2×24 kg Open, jamás "48 kg"', () => {
-    expect(hyroxStationLoad('hyrox-farmer-carry', 'open', 'men')).toEqual({
-      kind: 'per_implement',
-      kg: 24,
-      implements: 2,
-    });
-    expect(hyroxStationLoad('hyrox-farmer-carry', 'pro', 'men')).toEqual({
-      kind: 'per_implement',
-      kg: 32,
-      implements: 2,
-    });
-  });
-
-  test('sandbag lunges: 20 kg Open · 30 kg Pro', () => {
-    expect(hyroxStationLoad('hyrox-sandbag-lunges', 'open', 'men')).toEqual({ kind: 'single', kg: 20 });
-    expect(hyroxStationLoad('hyrox-sandbag-lunges', 'pro', 'men')).toEqual({ kind: 'single', kg: 30 });
-  });
-
-  test('wall balls: 6 kg Open · 9 kg Pro', () => {
-    expect(hyroxStationLoad('hyrox-wall-balls', 'open', 'men')).toEqual({ kind: 'single', kg: 6 });
-    expect(hyroxStationLoad('hyrox-wall-balls', 'pro', 'men')).toEqual({ kind: 'single', kg: 9 });
-  });
-
-  test('ergos: damper 6 Open · damper 7 Pro, en ski Y en row', () => {
-    expect(hyroxStationLoad('ski-erg', 'open', 'men')).toEqual({ kind: 'damper', setting: 6 });
-    expect(hyroxStationLoad('ski-erg', 'pro', 'men')).toEqual({ kind: 'damper', setting: 7 });
-    expect(hyroxStationLoad('row', 'open', 'men')).toEqual({ kind: 'damper', setting: 6 });
-    expect(hyroxStationLoad('row', 'pro', 'men')).toEqual({ kind: 'damper', setting: 7 });
-  });
-
-  test('el damper no varía por género — la fuente no lo separa, así que responde igual en vez de esconderlo', () => {
-    expect(hyroxStationLoad('ski-erg', 'open', 'women')).toEqual({ kind: 'damper', setting: 6 });
-    expect(hyroxStationLoad('row', 'pro', 'women')).toEqual({ kind: 'damper', setting: 7 });
+  test('las estaciones CON eje de carga lo declaran vacío, no ausente', () => {
+    // La diferencia importa y son tres estados distintos:
+    //   `loads: [...]` → lleva carga y la sabemos
+    //   `loads: []`    → lleva carga y NO la sabemos  ← hoy, todas
+    //   sin campo      → no lleva carga (burpee broad jump: peso corporal)
+    // Colapsar los dos últimos diría que un trineo no lleva peso, que es falso.
+    const sinEjeDeCarga = new Set(['hyrox-burpee-broad-jump']);
+    for (const st of HYROX_STATIONS) {
+      if (sinEjeDeCarga.has(st.slug)) {
+        expect(st.loads, st.slug).toBeUndefined();
+        continue;
+      }
+      expect(Array.isArray(st.loads), st.slug).toBe(true);
+      expect(st.loads!.length, st.slug).toBe(0);
+    }
   });
 });
 
