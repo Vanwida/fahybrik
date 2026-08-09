@@ -171,6 +171,56 @@ segundos antes de pegar un salto de diez.
 
 ---
 
+## 2026-08-09 · La gramática hablaba UN dialecto — y «verde» tenía que dejar de ser gratis
+
+**El hallazgo.** Alex trajo su propio plan de 95 días y preguntó qué pasaría al
+importarlo. Medido, no estimado: de 25 líneas reales, **4 entraban limpias**. Lo
+grave no eran los fallos sino los aciertos a medias — la misma serie con el
+descanso escrito de siete formas estándar, y sólo `c/2'30"` (la notación de un
+coach concreto) lo capturaba; `rec 150s` y `(rec 2:30)` salían **verdes tirando
+el descanso**, y `, rec 2:30` tumbaba la línea por culpa de una coma. Un
+descanso no es adorno: separa un 6×800 de VO2max de uno de umbral.
+
+**Por qué importa más allá del caso:** es la HARD RULE Nº0 filtrándose al
+parser. La gramática daba por hecho que todo el mundo escribe como el coach
+contra el que se escribió. Con miles de coaches, cada uno trae su dialecto.
+
+**Decidido (1) — el disparador de la IA estaba mal puesto.** Escalaba cuando la
+gramática FALLABA; ahora escala cuando la gramática **puede haber perdido
+algo**. Si al terminar de tipar queda un número sin consumir (un `@160 kg`, un
+`rec 2:30`), la línea no puede salir `detected`. Antes, una línea verde-con-
+pérdida ni siquiera llegaba al modelo de segunda pasada que podría haberla
+rescatado — la gramática ya había cantado victoria. Idea de Alex, y es la buena.
+
+**Decidido (2) — un objetivo por REFERENCIA cuenta como pérdida.** El guardia
+anterior compara números y «a split de carrera» no lleva ninguno, así que
+`SkiErg 3x1000 m a split de carrera` salía verde como «3×1000 m» a secas: el
+coach escribía el ritmo, el atleta recibía metros pelados. Estas frases
+(«@race pace», «a umbral», «a peso de carrera», «all-out») son objetivos
+DERIVADOS del test del atleta o de su división; hasta que se resuelvan de
+verdad, lo honesto es revisar. **NO hacer:** un detector genérico de prosa —
+ancla en la preposición («a split de»), nunca en la palabra suelta, o
+«Bulgarian split squat» deja de tipar.
+
+**Decidido (3) — dos formas nuevas en el modelo de prescripción, aditivas:**
+`Target.kg.implement_count` (un farmers 2×32 son DOS implementos de 32; guardar
+64 es mentira y guardar 32 a secas pierde información) y
+`Measure.kind:'reps_to_failure'` (medida al fallo, sin campos: «4× máx»,
+«máximo unbroken»). Las líneas de trineo/sandbag/farmers tipan con
+`modality:'functional'`, no `'strength'`, porque `completeness.ts` exige medida
+reps/duration para fuerza y éstas van por distancia o tiempo.
+
+**Resultado medido:** 4 → **14 líneas limpias de 25**, y **cero pérdidas
+silenciosas**: las 11 restantes son revisión honesta con el texto intacto.
+
+**Deuda consciente:** `shared/domain/import/dose.ts` queda en 550 líneas (ya
+estaba en 513 antes, por encima del techo de 500). Partirlo es un refactor
+cross-cutting propio, no se hizo aquí. Y en iOS `reps_to_failure` decodifica a
+`.unknown` sin crashear pero el renderer lo salta, e `implement_count` se
+descarta — pendiente de pintarlos.
+
+---
+
 ## 2026-08-09 · Las 8 estaciones HYROX tienen una fuente única — `shared/domain/hyrox/stations.ts`
 
 **Decidido:** las distancias/repeticiones oficiales de las 8 estaciones vivían

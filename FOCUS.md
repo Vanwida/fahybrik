@@ -54,12 +54,29 @@ cuando la gramática *puede haber perdido algo*. Si al terminar de tipar queda u
 número sin consumir, la línea no puede salir verde. Hoy una línea verde-con-
 pérdida ni siquiera llega al modelo que podría rescatarla.
 
-**Tanda 1 — en curso.** ✅ `shared/domain/hyrox/stations.ts`: fuente única de las
-8 estaciones (orden, slug real de `exercises`, medida canónica, carga por
-división/género). Open/Pro **sólo hombres** —única fuente dada—, todo lo demás
-`null` explícito y nunca un fallback al número masculino; `test-catalog.ts` ya lo
-consume. 🟡 Gramática de dosis (dialectos de descanso, carga sobre
-distancia/tiempo, carga por implemento, guardia de residuo, medida al fallo).
+**Tanda 1 — CERRADA.** Medido sobre las 25 líneas reales del plan:
+**4 → 14 entran limpias, y CERO pérdidas silenciosas** (las 11 restantes son
+revisión honesta con el texto intacto). Las 8 stations tipan con su carga.
+
+- ✅ `shared/domain/hyrox/stations.ts`: fuente única de las 8 estaciones (orden,
+  slug real de `exercises`, medida canónica, carga por división/género). Open/Pro
+  **sólo hombres** —única fuente dada—, todo lo demás `null` explícito y nunca un
+  fallback al número masculino; `test-catalog.ts` ya lo consume.
+- ✅ Gramática de dosis: dialectos de descanso (`cada` / `rec` / `r` / entre
+  paréntesis / tras coma — antes SÓLO `c/2'30"`), carga sobre distancia y tiempo,
+  `Target.kg.implement_count` (un farmers 2×32 son dos de 32, jamás 64),
+  `Measure.kind:'reps_to_failure'`, y los dos guardias de honestidad.
+- ✅ Guardia de **objetivo por referencia**: el guardia del agente compara
+  NÚMEROS, así que «a split de carrera» se le escapaba entero y la línea salía
+  verde con la distancia y sin intensidad ninguna. Ahora baja a revisión. Ancla
+  en la preposición, no en la palabra: «Bulgarian split squat» sigue verde.
+
+**Círculo abierto en iOS** (no rompe nada, pero deja al atleta a medias):
+`Measure` en `ios/FAHYBRIK/Plan/Prescription.swift` tiene salida `.unknown`, así
+que `reps_to_failure` decodifica sin crashear pero **el renderer lo salta** — un
+«4× máx» se vería en blanco. Y `Target.kg` no decodifica `implement_count`, así
+que un farmers 2×32 se pinta «32 kg» y se pierde el «×2». Dos casos aditivos,
+pequeños, pendientes.
 
 **Tanda 2 — decidida, sin empezar.** Objetivo **derivado** (`Z5 (P5k)`,
 `@race pace − 5 s/km`, `split del test − 3 s`), resuelto al ABRIR la sesión y no
