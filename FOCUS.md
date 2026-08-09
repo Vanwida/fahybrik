@@ -95,12 +95,46 @@ fallo»; sin suelo ni techo, que contarlo como 0 lo borraría del volumen) y
 reps: no es pieza programable, cuenta el atleta. BUILD SUCCEEDED en app y reloj,
 1027 tests iOS verdes, 8 nuevos que fijan las dos regresiones.
 
-**Tanda 2 — decidida, sin empezar.** Objetivo **derivado** (`Z5 (P5k)`,
-`@race pace − 5 s/km`, `split del test − 3 s`), resuelto al ABRIR la sesión y no
-al importar, para que un re-test mueva el plan entero — es el listón contra Runna
-y hoy no existe. Y las estructuras de metcon (ronda rotatoria, chipper continuo,
+**El vocabulario del modelo, CERRADO (9-ago).** Barriendo `types.ts` como
+especificación —y no el documento que teníamos delante— salió que de **11
+objetivos la gramática solo alcanzaba 4, y de 5 medidas solo 2**. RITMO no
+entraba ni en `/km` ni en `/500m`: un coach de resistencia no podía escribir una
+línea de su método, y eso es la mitad de HYROX más las dos estaciones de ergo. Y
+lo peor no era lo que faltaba sino lo que mentía: un rango sin unidad conocida lo
+cazaba el lector de repeticiones, así que «45 min entre 130-150 ppm» salía verde
+como dos series de 130 y 150 REPS, y «Peso muerto 4x6 @150-170 kg» destruía el
+4x6 entero.
+
+Cerrado: ritmo (los tres formatos), pulso ppm/bpm, vatios, calorías como objetivo
+y como medida, tiempo como medida, peso corporal, tope de tiempo, y las bandas de
+verdad en distancia y kg. `%FCmax` se reconoce y va a revisión — el modelo no
+tiene ese objetivo y derivarlo exige la FCmáx MEDIDA, nunca la fórmula de edad.
+`dose.ts` partido en `target.ts` + `measure.ts` (estaba por encima del techo).
+
+Sin cerrar y medido aquí: la banda de kg sobre medida de DISTANCIA
+(`Sled Push 5x25 m @150-170 kg`) va a revisión. Es el guardia de residuo
+funcionando — antes salía verde con 170, el extremo duro.
+
+**Tanda siguiente — decidida, sin empezar.** Objetivo **derivado**. Y el hallazgo
+que la reduce: el resolutor **ya existe**. `shared/domain/methodology/zones.ts`
+traduce una etiqueta de coach («Z2», «race pace», «split 2:00», «Z4 row») en un
+`Target` por atleta, con las bandas en dato editable del coach (mig 0061) y
+marcando `.estimated` cuando tira de fallback. Y `shared/domain/running/vdot.ts`
+implementa Daniels, el estándar de mercado. Falta CONECTARLO: el importador no le
+pasa nunca la etiqueta, su vocabulario es canónico («race pace») y el coach
+escribe «a split de carrera», y `resolveTarget` no está en la lectura del plan
+del atleta (sí en dobles y en un script). Cero mecanismo nuevo.
+
+Y después, las estructuras de metcon (ronda rotatoria, chipper continuo,
 EMOM/AMRAP con componentes): el esquema ya las soporta, la gramática no las sabe
 escribir.
+
+**Notación aprendida por coach — el cimiento que falta.** `coach_exercise_synonyms`
+(mig 0109) hace que el coach corrija UNA vez el nombre de un ejercicio y no vuelva
+a fallar. No existe nada equivalente para la NOTACIÓN: quien escriba `r 90"` o
+`RP` cae a revisión para siempre, cada semana. Eso es lo que hace que un coach
+pruebe dos semanas y se vaya, y es lo que permite que el coach que está en cola
+entre sin que escribamos su dialecto a mano.
 
 **Tanda 3 — diseñada, sin empezar.** El **plan personal**: contenedor de plan
 para UN atleta, dentro de su perfil, fuera de la biblioteca de microciclos. La

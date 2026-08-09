@@ -322,6 +322,60 @@ segundos antes de pegar un salto de diez.
 
 ---
 
+## 2026-08-09 · El lector solo alcanzaba una esquina del modelo — y el rango mentía
+
+**Cómo se encontró (y por qué importa el método).** Tras horas afinando la
+gramática contra un plan concreto, Alex preguntó «¿esa tabla es un ejemplo o es
+todo?». Barrer `shared/domain/prescription/types.ts` COMO ESPECIFICACIÓN —los 11
+objetivos y las 5 medidas que el modelo declara, uno por uno, aunque nadie los
+hubiera mencionado— destapó que la gramática alcanzaba **4 objetivos y 2
+medidas**. Ningún ejemplo que teníamos delante lo enseñaba. La regla que sale de
+aquí: el inventario de casos lo da el modelo, jamás el ejemplo.
+
+**Lo que faltaba, y era medio deporte.** RITMO no entraba en ninguno de sus tres
+formatos. `/km` son los 8 km de una carrera HYROX; `/500m` son remo y ski, dos de
+las ocho estaciones. Un coach de resistencia no podía escribir una sola línea de
+su método. Tampoco entraban pulso, vatios, calorías (ni como objetivo ni como
+medida), tiempo como medida, peso corporal ni tope de tiempo.
+
+**Lo que MENTÍA, que era peor.** El lector de secuencias de repeticiones no tenía
+conciencia de unidad, así que cazaba cualquier rango como reps sueltas: «45 min
+entre 130-150 ppm» salía **verde** como dos series de 130 y 150 reps, y «Peso
+muerto 4x6 @150-170 kg» salía verde como dos series de 150 y 170 reps **con el
+4x6 desaparecido**. El saneo de raíz: todo lector de rango se retira del texto
+ANTES de que el de repeticiones lo vea — el mismo patrón que el fichero ya usaba
+para los porcentajes, aplicado donde faltaba.
+
+**Decidido — el rango es ciudadano de primera.** Un coach que prescribe
+`4x12-15 @70-75%` y otro que prescribe `4x12 @72%` están los dos escribiendo
+bien; la banda es una decisión metodológica (autorregulación), no una
+imprecisión. Aplanarla al extremo duro es prescribir otro entreno. **NO hacer:**
+guardar solo un extremo «porque el modelo ya tiene el suelo».
+
+**Decidido — `%FCmax` se reconoce pero NO se deriva.** No es miembro del enum de
+objetivos: el modelo tiene `hr_bpm` (absoluto) y `hr_zone` (índice). Convertir un
+72% a pulsaciones exige la FCmáx **medida** del atleta, y eso es resolución contra
+sus marcas, no gramática. Va a revisión con razón honesta. **NO hacer:** tipar
+con la fórmula 220−edad.
+
+**Decidido — `dose.ts` se parte por responsabilidad.** Estaba en 550 líneas, por
+encima del techo de 500, antes de esta tanda. Ahora `target.ts` (los 11
+objetivos) y `measure.ts` (las 5 medidas), con el traslado puro en un commit
+separado del de comportamiento para que el diff sea auditable contra los 138
+tests de fidelidad.
+
+**Tests de contrato superados, no borrados.** Dos casos de las clases 11 y 15
+fijaban `review` para «6x90 seg strides» explicando en su propio comentario que
+«the grammar has no word-interval reader yet». Codificaban la limitación, no el
+contrato: ahora tipa, y la garantía que sí protegían —que el «6x» no se pierda
+silenciosamente— se mantiene verificada. La supersesión está escrita en el test.
+
+**Sin cerrar:** la banda de kg sobre medida de DISTANCIA
+(`Sled Push 5x25 m @150-170 kg`) va a revisión. Es el guardia de residuo
+funcionando: antes salía verde con 170. Honesto, pero pendiente.
+
+---
+
 ## 2026-08-09 · La gramática hablaba UN dialecto — y «verde» tenía que dejar de ser gratis
 
 **El hallazgo.** Alex trajo su propio plan de 95 días y preguntó qué pasaría al
