@@ -14,6 +14,9 @@ struct ComunicadoDetalleView: View {
     let comunicado: Comunicado
     let acciones: ComunicadosAcciones
     let onVolver: () -> Void
+    /// Abre el comunicado que éste lleva al pie. La pila la lleva la bandeja: un
+    /// detalle no sabe navegar, sabe qué le falta.
+    var onAbrirEnlazado: (String) -> Void = { _ in }
 
     var body: some View {
         Group {
@@ -23,7 +26,11 @@ struct ComunicadoDetalleView: View {
             case .pregunta:
                 ComunicadoPreguntaView(comunicado: comunicado, acciones: acciones, onVolver: onVolver)
             case .nota:
-                ComunicadoNotaView(comunicado: comunicado, onVolver: onVolver)
+                ComunicadoNotaView(
+                    comunicado: comunicado,
+                    onVolver: onVolver,
+                    onAbrirEnlazado: onAbrirEnlazado
+                )
             case .tarea:
                 ComunicadoTareaView(comunicado: comunicado, acciones: acciones, onVolver: onVolver)
             case .foco:

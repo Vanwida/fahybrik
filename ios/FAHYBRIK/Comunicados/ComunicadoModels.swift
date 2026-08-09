@@ -140,6 +140,23 @@ struct ComunicadoItem: Codable, Identifiable, Equatable {
     /// Solo significa algo en un protocolo. Por defecto SÍ, para que una
     /// respuesta anterior al campo no se quede sin una sola casilla.
     @DefaultTrue var checkable: Bool = true
+
+    // Lo que hace de una sección de NOTA algo más que un párrafo (migración
+    // 0163). Los tres son inertes fuera de una nota, y los tres tienen que
+    // poder faltar: una respuesta anterior al campo se comporta como antes.
+    // El vocabulario y las reglas, en `ComunicadoFormas.swift`.
+
+    /// Cómo se pinta, tal y como llega. Cadena y no enum a propósito: una forma
+    /// que este binario no conozca se lee como texto (`forma`) en vez de tirar
+    /// la sección, que dejaría un capítulo en blanco en medio del briefing.
+    var display: String? = nil
+    /// Los trozos de un reparto, en orden. Vacío en todo lo demás.
+    @LossyArray var segments: [TrozoReparto] = []
+    /// La espina del plan de ESE atleta, resuelta al servir — nunca guardada:
+    /// si se guardara, el día que le cambien el plan la nota seguiría contando
+    /// el viejo. Nil cuando la sección no es un camino o cuando no hay plan, y
+    /// entonces no se pinta nada en vez de dibujar un camino inventado.
+    var camino: CaminoDelPlan? = nil
 }
 
 /// El comunicado más MI estado con él.
@@ -182,6 +199,11 @@ struct Comunicado: Codable, Identifiable, Equatable {
     /// de hace un rato. Se pinta con `reclama`, que aplica la MISMA regla sobre
     /// el estado local — y un test comprueba que las dos coinciden.
     let claimsAttention: Bool
+
+    /// A qué otro comunicado apunta éste, con MI estado con él. Sólo llega si a
+    /// mí también me lo publicaron: si no, el pie me estaría enseñando que
+    /// existe algo que no puedo abrir.
+    var linked: ComunicadoEnlazado? = nil
 }
 
 // MARK: - Mecanismo: estado, lo que reclama, y el orden

@@ -153,7 +153,15 @@ struct ComunicadosBandejaView: View {
     private func destino(_ id: String) -> some View {
         if let c = store.bandejaComunicados.todos.first(where: { $0.id == id }),
            let acciones {
-            ComunicadoDetalleView(comunicado: c, acciones: acciones) { ruta.removeLast() }
+            ComunicadoDetalleView(
+                comunicado: c,
+                acciones: acciones,
+                onVolver: { ruta.removeLast() },
+                // El pie de una nota lleva a otro comunicado: se APILA, no se
+                // sustituye — volver tiene que devolverte al briefing que
+                // estabas leyendo, no sacarte a la lista.
+                onAbrirEnlazado: { ruta.append($0) }
+            )
         } else {
             CenteredScreen {
                 RedesignEmptyState(

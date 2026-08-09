@@ -68,8 +68,15 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   umbrales con su valor de serie y restaurar) y ✅ **auditoría jsonb** de TODO
   lib/ (nutrition, sync garmin/healthkit/polar, weekly-review/evaluation,
   audit_log…) con lectores verificados por columna y tests.
-- ⏳ **Siguiente:** llevar la espina a la vista de ciclo del atleta y a
-  Periodización (tarea #7) + render del camino en la nota de iOS. Tests
+- ✅ **La espina, lenguaje canónico de ciclos** (tarea #7): `plan-ciclo` del
+  doble re-propuesto espina-first («estás aquí, semana N», calendario por
+  tramo, la carrera cerrando el camino) · Periodización pinta cada secuencia
+  con la MISMA pieza (`web/components/plan-espina/`) sin tocar la edición ·
+  iOS renderiza las 4 formas de la nota (cifra, reparto, camino, enlace) con
+  `EspinaDelPlan` reutilizable en `ios/FAHYBRIK/Plan/Espina/`. 27 tests web
+  + 1096 iOS verdes.
+- ⏳ **Pendiente de validación de Alex:** la propuesta `plan-ciclo` del doble
+  (si la valida, se porta a la pestaña Plan de iOS con EspinaDelPlan). Tests
   frágiles ajenos anotados en tarea #8.
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)

@@ -35,7 +35,7 @@ final class ComunicadosRenderTests: XCTestCase {
     func testBandejaDeLaSemanaQueSeRehaceElPlan() {
         let imagen = render(
             ListaComunicados(
-                bandeja: BandejaComunicados.agrupar(Fixtures.semanaFuerte),
+                bandeja: BandejaComunicados.agrupar(EscenariosComunicados.semanaFuerte),
                 onAbrir: { _ in },
                 onMarcarTarea: { _ in }
             ),
@@ -47,7 +47,7 @@ final class ComunicadosRenderTests: XCTestCase {
 
     @MainActor
     func testBandejaAlDiaDiceQueEstaEnCalma() {
-        let bandeja = BandejaComunicados.agrupar(Fixtures.alDia)
+        let bandeja = BandejaComunicados.agrupar(EscenariosComunicados.alDia)
         XCTAssertTrue(bandeja.enCalma)
         let imagen = render(
             ListaComunicados(bandeja: bandeja, onAbrir: { _ in }, onMarcarTarea: { _ in }),
@@ -80,7 +80,7 @@ final class ComunicadosRenderTests: XCTestCase {
 
     @MainActor
     func testProtocoloPasosYAvance() {
-        let p = Fixtures.protocolo(marcados: ["9101", "9102"])
+        let p = EscenariosComunicados.protocolo(marcados: ["9101", "9102"])
         let imagen = render(
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 CabeceraComunicado(comunicado: p, onVolver: {}) {
@@ -121,7 +121,7 @@ final class ComunicadosRenderTests: XCTestCase {
     /// abajo. Pedirle que confirme lo que acaba de leer no mide nada.
     @MainActor
     func testProtocoloDeLecturaNoEnsenaAvanceNiCTA() {
-        let p = Fixtures.protocoloDeLectura
+        let p = EscenariosComunicados.protocoloDeLectura
         XCTAssertFalse(p.tienePasosMarcables)
         XCTAssertFalse(p.puedeMarcarseHecho)
         let imagen = render(
@@ -154,7 +154,7 @@ final class ComunicadosRenderTests: XCTestCase {
 
     @MainActor
     func testPreguntaConSusConsecuencias() {
-        let p = Fixtures.pregunta()
+        let p = EscenariosComunicados.pregunta()
         let imagen = render(
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 CabeceraComunicado(comunicado: p, onVolver: {}) {
@@ -184,7 +184,7 @@ final class ComunicadosRenderTests: XCTestCase {
 
     @MainActor
     func testNotaPorSecciones() {
-        let n = Fixtures.nota
+        let n = EscenariosComunicados.nota
         let imagen = render(
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 CabeceraComunicado(comunicado: n, onVolver: {}) {
@@ -217,162 +217,97 @@ final class ComunicadosRenderTests: XCTestCase {
         XCTAssertNotNil(imagen)
     }
 
-    // MARK: - Escenarios
-
-    enum Fixtures {
-        static func comunicado(
-            id: String,
-            kind: ComunicadoTipo,
-            title: String,
-            body: String? = nil,
-            finalNote: String? = nil,
-            ancla: ComunicadoAncla = .general,
-            state: ComunicadoEstado = .publicado,
-            blocks: Bool = false,
-            dueDate: String? = nil,
-            items: [ComunicadoItem] = [],
-            marcados: [String] = [],
-            answered: String? = nil,
-            publicado: String = "2026-08-09T07:00:00Z"
-        ) -> Comunicado {
-            let seen: Date? = state == .publicado ? nil : Date(timeIntervalSince1970: 1_000)
-            let done: Date? = state == .hecho ? Date(timeIntervalSince1970: 2_000) : nil
-            let answeredAt: Date? = state == .respondido ? Date(timeIntervalSince1970: 3_000) : nil
-            return Comunicado(
-                id: id, kind: kind, title: title, body: body, finalNote: finalNote,
-                anchorKind: ancla, anchorRef: nil, dueDate: dueDate, expiresAt: nil,
-                blocks: blocks,
-                publishedAt: ISO8601DateFormatters.parse(publicado)!,
-                coachName: "Pablo Amigo", items: items, state: state,
-                seenAt: seen, doneAt: done, answeredItemId: answered, answeredAt: answeredAt,
-                markedItemIds: marcados,
-                claimsAttention: Comunicado.reclama(kind: kind, state: state)
-            )
-        }
-
-        static func pregunta(state: ComunicadoEstado = .publicado, answered: String? = nil) -> Comunicado {
-            comunicado(
-                id: "101", kind: .pregunta,
-                title: "¿Tu wave es el jueves o el sábado?",
-                body: "El taper está montado contando con el sábado 14. Si tu wave es el jueves 12, todo se adelanta dos días.",
-                ancla: .plan, state: state, blocks: true,
-                items: [
-                    ComunicadoItem(id: "9001", position: 0, label: nil, content: "Jueves 12",
-                                   consequence: "Openers el martes 10 y carbos desde el lunes 9. El resto no cambia."),
-                    ComunicadoItem(id: "9002", position: 1, label: nil, content: "Sábado 14",
-                                   consequence: "El plan se queda como está."),
-                ],
-                answered: answered,
-                publicado: "2026-08-08T09:12:00Z"
-            )
-        }
-
-        static func paso(
-            _ id: String, _ marca: String, _ texto: String, checkable: Bool = true
-        ) -> ComunicadoItem {
-            ComunicadoItem(
-                id: id, position: 0, label: marca, content: texto,
-                consequence: nil, checkable: checkable
-            )
-        }
-
-        /// Siete pasos, y dos de ellos son para LEER (la hidratación y el gel):
-        /// ponerle casilla a beber agua no mide si bebió, mide si tocó un
-        /// círculo. Es el caso mezclado, que es el normal.
-        static let pasos: [ComunicadoItem] = [
-            paso("9101", "−40'", "Movilidad de cadera y tobillo, 5'."),
-            paso("9102", "−35'", "Trote progresivo 10', acabando a tu ritmo de carrera."),
-            paso("9103", "−30'", "Desde aquí, sorbos cortos de agua con sales.", checkable: false),
-            paso("9104", "−25'", "3 × 30\" de skipping y técnica."),
-            paso("9105", "−12'", "2 aceleraciones de 60 m."),
-            paso("9106", "−8'", "Openers: 5 wall balls y 5 burpees, tranquilos."),
-            paso("9107", "−5'", "El gel, con agua y sin prisa.", checkable: false),
-        ]
-
-        static func protocolo(marcados: [String] = []) -> Comunicado {
-            comunicado(
-                id: "102", kind: .protocolo,
-                title: "Calentamiento del día de carrera",
-                finalNote: "Nada de potenciación pesada: la evidencia no supera el efecto del propio calentamiento.",
-                ancla: .carrera,
-                state: marcados.isEmpty ? .publicado : .visto,
-                items: pasos, marcados: marcados
-            )
-        }
-
-        /// Un protocolo SIN un solo paso: título, cuerpo y nota final. Se lee y
-        /// ya está — ni avance ni «hecho».
-        static let protocoloDeLectura = comunicado(
-            id: "107", kind: .protocolo,
-            title: "Cómo comer la víspera",
-            body: "Cena pronto y sin fibra: arroz, pollo y poco más. Desayuna 3 h antes de tu salida, con lo de siempre, y no estrenes nada.",
-            finalNote: "Si te levantas con el estómago cerrado, tira de líquido y no fuerces el sólido.",
-            ancla: .carrera
+    /// LA NOTA COMPLETA — las cuatro formas y el pie que la cierra.
+    ///
+    /// Es el caso de diseño: el porqué en prosa, la banda del objetivo en mono,
+    /// el reparto de la semana en barra, las once semanas en espina, y abajo la
+    /// pregunta de la que depende. Se dibuja `CuerpoDeLaNota`, que es LO QUE SE
+    /// ENVÍA — no una copia del montaje.
+    @MainActor
+    func testNotaConSusCuatroFormasYSuPie() {
+        let n = EscenariosComunicados.notaConFormas()
+        XCTAssertEqual(n.seccionesVisibles.map(\.forma), [.texto, .cifra, .reparto, .camino])
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CabeceraComunicado(comunicado: n, onVolver: {}) {
+                    InsigniaComunicado(insignia: n.insignia(hoy: Self.hoy))
+                }
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-formas",
+            alto: Self.lienzoLargo.height
         )
+        XCTAssertNotNil(imagen)
+    }
 
-        static let nota = comunicado(
-            id: "106", kind: .nota,
-            title: "Tu plan, rehecho para Singles Pro",
-            body: "Por qué el objetivo son 1:15 a 1:18 y cómo se reparten las 12 semanas.",
-            ancla: .plan,
-            items: [
-                ComunicadoItem(id: "9601", position: 0, label: "Qué ha cambiado",
-                               content: "Pasar a Singles Pro rompe 5 de las 6 premisas del plan: haces el 100 % de cada estación, cada trineo lleva 50 kg más, los wall balls suben 3 kg y el remo va a damper 7.",
-                               consequence: nil),
-                ComunicadoItem(id: "9602", position: 1, label: "Tu objetivo",
-                               content: "La banda se cierra con los tests de la semana 1. Tu referencia real es el Singles Open de hace un año, 1h09, y el salto de Open a Pro cuesta entre 5 y 9 minutos.",
-                               consequence: nil),
-            ]
+    /// La misma nota con la pregunta ya contestada: el pie no desaparece, pasa a
+    /// ser el recibo de lo que decidió.
+    @MainActor
+    func testNotaConElPieYaResuelto() {
+        let n = EscenariosComunicados.notaConFormas(enlaceResuelto: true)
+        XCTAssertEqual(n.linked?.linea, "Ya la contestaste.")
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-formas-resuelta",
+            alto: Self.lienzoLargo.height
         )
+        XCTAssertNotNil(imagen)
+    }
 
-        static let foco = comunicado(
-            id: "105", kind: .foco,
-            title: "Dormir más de 6 horas",
-            body: "Sigues en menos de 6 h desde mayo. Es lo único de esta lista que puede darte más minutos que cualquier sesión.",
-            ancla: .checkin, state: .visto,
-            publicado: "2026-05-04T07:00:00Z"
+    /// LA ESPINA SOLA, que es la pieza que se va a reutilizar en la vista de un
+    /// ciclo: el color dice de qué tramo es cada nodo, el relleno dice qué rompe
+    /// la rutina y el anillo dice dónde estás.
+    @MainActor
+    func testEspinaDelPlan() {
+        let imagen = render(
+            VStack(alignment: .leading) {
+                EspinaDelPlan(camino: EscenariosComunicados.camino)
+                    .padding(Theme.Spacing.l)
+                Spacer(minLength: 0)
+            },
+            nombre: "plan-espina"
         )
+        XCTAssertNotNil(imagen)
+    }
 
-        /// La semana en la que se rehace el plan: la pregunta bloquea, una tarea
-        /// venció y otra vence el domingo, el protocolo va por tres de siete.
-        static let semanaFuerte: [Comunicado] = [
-            pregunta(),
-            comunicado(
-                id: "103", kind: .tarea, title: "Empieza la beta-alanina",
-                body: "Necesita 4 a 6 semanas de carga y lleva pendiente desde mayo.",
-                dueDate: "2026-08-09"
-            ),
-            protocolo(marcados: ["9101", "9102", "9103"]),
-            comunicado(
-                id: "104", kind: .tarea, title: "Haz los tests de la semana 1",
-                body: "Sin ellos, los bloques 1 a 3 van con ritmos estimados.",
-                ancla: .test, dueDate: "2026-08-16"
-            ),
-            foco,
-            nota,
-        ]
+    /// La misma espina en CLARO. El doble sólo se ha mirado en oscuro, pero la
+    /// app sigue la apariencia del sistema: el tono del primer tramo no puede
+    /// ser el naranja de marca cuando se escribe, porque sobre lienzo blanco no
+    /// llega a 4,5:1. Esta captura es la que enseña que sí se lee.
+    @MainActor
+    func testEspinaDelPlanEnClaro() {
+        let imagen = render(
+            VStack(alignment: .leading) {
+                EspinaDelPlan(camino: EscenariosComunicados.camino)
+                    .padding(Theme.Spacing.l)
+                Spacer(minLength: 0)
+            },
+            nombre: "plan-espina-claro",
+            esquema: .light
+        )
+        XCTAssertNotNil(imagen)
+    }
 
-        /// Lo mismo, resuelto. La calma es información.
-        static let alDia: [Comunicado] = [
-            pregunta(state: .respondido, answered: "9002"),
-            comunicado(
-                id: "103", kind: .tarea, title: "Empieza la beta-alanina",
-                body: "Necesita 4 a 6 semanas de carga.", state: .hecho, dueDate: "2026-08-09"
-            ),
-            comunicado(
-                id: "104", kind: .tarea, title: "Haz los tests de la semana 1",
-                ancla: .test, state: .hecho, dueDate: "2026-08-16"
-            ),
-            comunicado(
-                id: "102", kind: .protocolo, title: "Calentamiento del día de carrera",
-                ancla: .carrera, state: .hecho, items: pasos, marcados: pasos.map(\.id)
-            ),
-            foco,
-            comunicado(
-                id: "106", kind: .nota, title: "Tu plan, rehecho para Singles Pro",
-                body: "Por qué el objetivo son 1:15 a 1:18.", ancla: .plan, state: .visto
-            ),
-        ]
+    /// Sin plan asignado el camino llega nulo, y entonces esa sección NO se
+    /// pinta: ni tarjeta ni hueco. La nota se queda con las otras tres.
+    @MainActor
+    func testNotaSinPlan_noDejaElHuecoDelCamino() {
+        let n = EscenariosComunicados.notaConFormas(conCamino: false)
+        XCTAssertEqual(n.items.count, 4)
+        XCTAssertEqual(n.seccionesVisibles.map(\.forma), [.texto, .cifra, .reparto])
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-sin-plan",
+            alto: Self.lienzoLargo.height
+        )
+        XCTAssertNotNil(imagen)
     }
 
     // MARK: - Render
@@ -387,14 +322,19 @@ final class ComunicadosRenderTests: XCTestCase {
     }
 
     @MainActor
-    private func render(_ vista: some View, nombre: String, alto: CGFloat? = nil) -> UIImage? {
+    private func render(
+        _ vista: some View,
+        nombre: String,
+        alto: CGFloat? = nil,
+        esquema: ColorScheme = .dark
+    ) -> UIImage? {
         let renderer = ImageRenderer(
             content: ZStack {
                 Theme.Color.background
                 vista
             }
             .frame(width: Self.lienzo.width, height: alto ?? Self.lienzo.height)
-            .environment(\.colorScheme, .dark)
+            .environment(\.colorScheme, esquema)
         )
         renderer.scale = 3
         guard let imagen = renderer.uiImage else { return nil }
