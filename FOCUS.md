@@ -5,7 +5,63 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · CORRER, a fondo — Alex salió a hacer series y la app le sirvió de poco (8-ago)
+## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
+
+Alex trajo su propio plan de 95 días en markdown (`health-planning/training/
+plan-95d-hyrox-singles-pro.md`) y preguntó qué pasaría al importarlo. Medido
+contra la gramática real, no estimado: **4 de 25 líneas entran limpias**, y lo
+grave no son los fallos sino los aciertos a medias.
+
+**El hallazgo raíz.** La misma serie, el descanso escrito de siete formas
+estándar: sólo `c/2'30"` —la notación de Pablo— captura el descanso. `rec 150s`,
+`cada 2'30"`, `(rec 2:30)` salen **`detected` tirando el descanso**; `, rec 2:30`
+tumba la línea entera a revisión por culpa de la coma. Y un descanso no es
+decoración: separa un 6×800 de VO2max de uno de umbral. Igual con la carga:
+`Sandbag Lunges 4×50 m @30 kg` sale verde sin los 30 kg, y
+`Farmers hold 3×45 s @2×32` se lee como **2 series de 32 reps**.
+
+Esto es la HARD RULE Nº0 filtrándose al parser: la gramática da por hecho que
+todo el mundo escribe como un coach concreto.
+
+**El arreglo estructural** (idea de Alex, y es la buena): el disparador de la IA
+está mal puesto. Hoy escala cuando la gramática *falla*; tiene que escalar
+cuando la gramática *puede haber perdido algo*. Si al terminar de tipar queda un
+número sin consumir, la línea no puede salir verde. Hoy una línea verde-con-
+pérdida ni siquiera llega al modelo que podría rescatarla.
+
+**Tanda 1 — en curso.** ✅ `shared/domain/hyrox/stations.ts`: fuente única de las
+8 estaciones (orden, slug real de `exercises`, medida canónica, carga por
+división/género). Open/Pro **sólo hombres** —única fuente dada—, todo lo demás
+`null` explícito y nunca un fallback al número masculino; `test-catalog.ts` ya lo
+consume. 🟡 Gramática de dosis (dialectos de descanso, carga sobre
+distancia/tiempo, carga por implemento, guardia de residuo, medida al fallo).
+
+**Tanda 2 — decidida, sin empezar.** Objetivo **derivado** (`Z5 (P5k)`,
+`@race pace − 5 s/km`, `split del test − 3 s`), resuelto al ABRIR la sesión y no
+al importar, para que un re-test mueva el plan entero — es el listón contra Runna
+y hoy no existe. Y las estructuras de metcon (ronda rotatoria, chipper continuo,
+EMOM/AMRAP con componentes): el esquema ya las soporta, la gramática no las sabe
+escribir.
+
+**Tanda 3 — diseñada, sin empezar.** El **plan personal**: contenedor de plan
+para UN atleta, dentro de su perfil, fuera de la biblioteca de microciclos. La
+diferencia estructural encontrada: `program_week_templates` lleva
+`level_id`+`phase_id` porque está hecho para emparejarse con un GRUPO (nivel ×
+fase); un plan para una persona no tiene nivel que emparejar. Fases opcionales,
+nunca obligatorias.
+
+**Deuda encontrada, no arreglada aún:** `web/lib/dashboard/v2/hyrox-template.ts`
+y `web/lib/templates/station-defaults.ts` tienen cada uno su propia copia de las
+distancias/cargas. La segunda ha derivado: una sola carga por estación sin
+partir Open/Pro, y su wall ball de 9 kg es el valor **Pro** puesto donde se
+espera un default Open.
+
+**Pendiente de fuente oficial:** cargas femeninas, división elite, doubles/relay
+y grupos de edad. El documento de Alex sólo trae los masculinos de Open y Pro.
+
+---
+
+## Antes · CORRER, a fondo — Alex salió a hacer series y la app le sirvió de poco (8-ago)
 
 Alex salió a correr con el iPhone y el reloj, entreno LIBRE, unas series. Lo que
 reportó y lo que salió al tirar del hilo en el código:
