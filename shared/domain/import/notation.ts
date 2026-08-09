@@ -51,6 +51,7 @@ import {
 } from './label';
 import { parseBout } from './bout';
 import { parseBareTimedOrCalorieSets } from './measure';
+import { tryMetconStructure } from './structure';
 import { parseTimeCapTarget, PERCENT_MAX_HR_RE } from './target';
 import {
   parseCoreWorkRest,
@@ -305,6 +306,12 @@ function parseLine(line: string): ParsedLine[] {
   }
   const ladder = tryDistanceLadder(line);
   if (ladder) return ladder;
+  // Metcon STRUCTURE (rounds of components, EMOM/work-rest chains, EMOM
+  // rotation) — tried before the dense-WOD blanket review so a line that
+  // fully decomposes never falls into it. FAITHFUL OR REVIEW on its own: it
+  // returns null (never a partial group) unless every component/piece typed.
+  const structure = tryMetconStructure(line);
+  if (structure) return structure;
   if (isDenseWod(line)) {
     return [reviewLine(line, 'dense multi-station WOD/sim — verbatim kept for LLM/coach')];
   }

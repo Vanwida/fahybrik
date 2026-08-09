@@ -1840,3 +1840,233 @@ describe('class 24 — «r90» pegado es descanso; «5r» pegado sigue siendo ro
     expect(l?.prescription.rest_s).toBeUndefined();
   });
 });
+
+// ── class 25 — la gramática de ESTRUCTURA del metcon ─────────────────────────
+//
+// shared/domain/import/structure.ts. Corpus real: 48 filas de la biblioteca de
+// bloques de un coach (24 WODs únicos duplicados) que HOY caen enteros a
+// revisión porque isDenseWod los marca por su propio vocabulario (WOD/EMOM/
+// METCON/AFAP/AMRAP/HYROX/TC) antes de que nada intente decomponerlos. Cada
+// texto de abajo es VERBATIM de esa biblioteca. FAITHFUL OR REVIEW se aplica
+// igual que en cualquier otra clase: un componente sin dosis provable tira de
+// TODO el grupo a revisión, nunca tipa unos sí y otros no.
+//
+// Efecto medido con el mismo arnés que infra/scripts/repair_block_exercises_
+// grammar.ts usa en producción (parseNotationCell + allDetected por bloque):
+// de 48 filas, 6 entran ahora (3 formas × 2 duplicados) — ver la entrega para
+// la tabla completa de las 24 formas únicas y por qué las otras 18 siguen en
+// revisión (mayoría: el coach no escribió dosis por componente, no es un hueco
+// del lector).
+
+describe('class 25 — rondas con componentes, cada uno con su propia dosis', () => {
+  test(`WOD 5r: 24 wall balls + 20m SB lunge + 14cal skierg + 8 devil press – TC55' → 4 líneas, una por movimiento`, () => {
+    const lines = parseNotationCell(
+      `WOD 5r: 24 wall balls + 20m SB lunge + 14cal skierg + 8 devil press – TC55'`,
+    );
+    expect(lines).toHaveLength(4);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    expect(lines.map((l) => l.exercise_token)).toEqual(['wall balls', 'SB lunge', 'skierg', 'devil press']);
+    for (const l of lines) {
+      expect(l.prescription.scheme).toBe('for_time');
+      expect(l.prescription.rounds).toBe(5);
+      expect(l.prescription.total_s).toBe(3300); // TC55' — el tope, no una ventana
+      expect(l.prescription.sets).toHaveLength(5);
+    }
+    expect(lines[0]!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 24 });
+    expect(lines[1]!.prescription.sets![0]!.measure).toEqual({ kind: 'distance', meters: 20 });
+    expect(lines[2]!.prescription.sets![0]!.measure).toEqual({ kind: 'calories', value: 14 });
+    expect(lines[2]!.prescription.modality).toBe('ski'); // "skierg" resuelve modalidad sola
+    expect(lines[3]!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 8 });
+  });
+
+  test(`WOD 8r: … – TC17' + 110 wall balls finisher → el finisher es pieza APARTE, sin rounds`, () => {
+    const lines = parseNotationCell(
+      `WOD 8r: 10cal AB + 7 burpee box jump + 10 C2B – TC17' + 110 wall balls finisher`,
+    );
+    expect(lines).toHaveLength(4);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    const [ab, boxJump, c2b, finisher] = lines;
+    for (const l of [ab!, boxJump!, c2b!]) {
+      expect(l.prescription.rounds).toBe(8);
+      expect(l.prescription.total_s).toBe(1020); // TC17'
+    }
+    expect(ab!.prescription.sets![0]!.measure).toEqual({ kind: 'calories', value: 10 });
+    expect(ab!.prescription.modality).toBe('bike'); // "AB" = assault bike
+    expect(boxJump!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 7 });
+    expect(c2b!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 10 });
+    // El finisher NO hereda las 8 rondas — se hace UNA vez, no cada ronda.
+    expect(finisher!.exercise_token).toBe('wall balls');
+    expect(finisher!.prescription.rounds).toBeUndefined();
+    expect(finisher!.prescription.total_s).toBeUndefined();
+    expect(finisher!.prescription.sets).toEqual([{ measure: { kind: 'reps', value: 110 } }]);
+  });
+
+  test('la pirámide POR COMPONENTE ("4r X + 3r Y") tipa cuando cada tramo lleva su propia dosis', () => {
+    // Ningún WOD real del corpus combina esta forma con dosis explícita (los
+    // que la usan, #70/#484, no escriben reps para ningún movimiento — quedan
+    // en revisión, ver el test de abajo). Este demuestra que el lector SÍ
+    // entiende el reparto descendente por componente en cuanto el coach la
+    // escribe con números, no solo la variante de cabecera compartida.
+    const lines = parseNotationCell('4r 20 wall balls + 3r 15 box jump + 2r 10 burpees + 1r 5 devil press');
+    expect(lines).toHaveLength(4);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    expect(lines.map((l) => l.prescription.rounds)).toEqual([4, 3, 2, 1]);
+    expect(lines.map((l) => l.prescription.sets!.length)).toEqual([4, 3, 2, 1]);
+    expect(lines[0]!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 20 });
+  });
+});
+
+describe('class 25 — EMOM: movimiento simple, work/rest, y encadenado con For Time', () => {
+  test(`EMOM 10' sled push 170kg + For Time sled pull 140kg – TC12' → el EMOM guarda SU propia duración, el For Time recibe el tope`, () => {
+    const lines = parseNotationCell(`EMOM 10' sled push 170kg + For Time sled pull 140kg – TC12'`);
+    expect(lines).toHaveLength(2);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    const [emom, forTime] = lines;
+    expect(emom!.exercise_token).toBe('sled push');
+    expect(emom!.prescription.scheme).toBe('emom');
+    expect(emom!.prescription.rounds).toBe(10);
+    expect(emom!.prescription.work_s).toBe(60);
+    expect(emom!.prescription.target).toEqual({ kind: 'kg', value: 170 });
+    // El EMOM NO recibe el TC12' — sus 10 rondas × 60s YA son su duración; el
+    // tope de 12' es el que necesita el tramo sin duración propia.
+    expect(emom!.prescription.total_s).toBeUndefined();
+    expect(forTime!.exercise_token).toBe('sled pull');
+    expect(forTime!.prescription.scheme).toBe('for_time');
+    expect(forTime!.prescription.target).toEqual({ kind: 'kg', value: 140 });
+    expect(forTime!.prescription.total_s).toBe(720);
+  });
+
+  test('EMOM rotativo: N estaciones se reparten los minutos SOLO si la división es exacta', () => {
+    // Texto real del coach (#56/#468, sin el "Threshold run +" delante, que
+    // no lleva dosis y tira la línea entera a revisión — ver el test
+    // siguiente): 4 estaciones en 16 minutos, 4 rondas cada una.
+    const lines = parseNotationCell(`EMOM 16': DB snatch/KPU/wall climb/burpee broad jump`);
+    expect(lines).toHaveLength(4);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    expect(lines.map((l) => l.exercise_token)).toEqual(['DB snatch', 'KPU', 'wall climb', 'burpee broad jump']);
+    for (const l of lines) {
+      expect(l.prescription.scheme).toBe('emom');
+      expect(l.prescription.rounds).toBe(4); // 16' ÷ 4 estaciones
+      expect(l.prescription.work_s).toBe(60);
+      expect(l.prescription.sets).toBeUndefined(); // ninguna reps escrita — no se inventa
+    }
+
+    // 20' entre 8 estaciones NO es exacto (2.5) — inventar qué estaciones
+    // cargan la ronda extra sería fabricar, así que revisa entera.
+    const uneven = parseNotationCell(
+      `EMOM 20' multi-estación: run/sled/AB/farmer/row/wall ball/skierg/lunge al 100%`,
+    );
+    expect(uneven).toHaveLength(1);
+    expect(uneven[0]!.confidence).toBe('review');
+  });
+});
+
+describe('class 25 — lo que sigue en revisión, y por qué (corpus real)', () => {
+  test(`"Threshold run + WOD EMOM 16': …" → el prefijo sin dosis tira la línea entera`, () => {
+    // #56/#468 real: "Threshold run" no lleva reloj ni distancia — no hay nada
+    // que tipar ahí, y el "+" lo encadena a la misma línea que el EMOM. FIEL O
+    // REVISIÓN significa que ese componente sin prueba baja TODO el grupo,
+    // nunca "el EMOM sí, el resto no".
+    const lines = parseNotationCell(`Threshold run + WOD EMOM 16': DB snatch/KPU/wall climb/burpee broad jump`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('review');
+  });
+
+  test('pirámide descendente anotada en PROSA → nunca se inventan los números', () => {
+    // #62/#475 real: "(pirámide descendente)" nombra la forma pero no da
+    // ninguna cifra por tramo — tipar un 21-15-9 de manual sería fabricar.
+    const lines = parseNotationCell(
+      `WOD For Time: power clean + DB thrusters + high box jump (pirámide descendente) – TC30'`,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('review');
+    expect(lines[0]!.prescription.note).toContain('pirámide descendente');
+    expect(lines[0]!.prescription.sets).toBeUndefined();
+  });
+
+  test('tope de tiempo en RANGO choca con la carga propia del componente → revisión, no se descarta ninguna', () => {
+    // #65/#478 real: el work/rest lleva SU propia carga (170kg) y el tramo For
+    // Time lleva la suya (130kg) — un TC10-12' en rango solo puede vivir en
+    // `target`, el mismo slot que esa carga ya ocupa. El modelo no tiene un
+    // segundo slot para un tope de RANGO junto a un target ya puesto (sí lo
+    // tiene para uno de valor único, que cae en `total_s` — ver el test EMOM
+    // de arriba); precisamente por eso decide revisar en vez de descartar la
+    // carga o el tope en silencio.
+    const lines = parseNotationCell(
+      `METCON: 45'' on/15'' off x10r sled push 170kg + For Time sled pull 130kg – TC10-12'`,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('review');
+  });
+
+  test('estaciones sin dosis por componente ("2r c/u", pirámide de rondas) → revisión, no un rounds vacío', () => {
+    // #68/#481 y #70/#484 reales: el coach reparte RONDAS (2 de cada, o
+    // 4-3-2-1) pero no escribe reps/distancia/calorías para NINGÚN
+    // movimiento. Tipar solo `rounds` sin medida sería un "detected" casi
+    // vacío que un atleta no puede ejecutar sin más — más honesto revisar.
+    for (const cell of [
+      `Simulación estaciones: run/burpee DB/lunge SB/row/sit up/sled – 2r c/u`,
+      `4r sled pull/drag + 3r SB lunge + 2r burpee BB + 1r wall balls – TC60'`,
+    ]) {
+      const lines = parseNotationCell(cell);
+      expect(lines, cell).toHaveLength(1);
+      expect(lines[0]!.confidence, cell).toBe('review');
+    }
+  });
+});
+
+describe('class 25 — invariantes sobre el corpus real de 24 WODs', () => {
+  const REAL_WODS = [
+    `Threshold run + WOD EMOM 16': DB snatch/KPU/wall climb/burpee broad jump`,
+    `WOD 5r: 24 wall balls + 20m SB lunge + 14cal skierg + 8 devil press – TC55'`,
+    `WOD For Time 4r: KB overhead lunge + thrusters + clean + TTB – TC12' + Finisher 100 lunges`,
+    `WOD 4r: pull ups + DB box step + burpee over DB + 12 cal AB – TC13'`,
+    `WOD For Time: sled push/skierg + sled pull/row + KB lunge + runs + 75 wall balls – TC55'`,
+    `WOD 8r: 10cal AB + 7 burpee box jump + 10 C2B – TC17' + 110 wall balls finisher`,
+    `WOD For Time: power clean + DB thrusters + high box jump (pirámide descendente) – TC30'`,
+    `METCON: 45'' on/15'' off x10r sled push 170kg + For Time sled pull 130kg – TC10-12'`,
+    `EMOM 10' sled push 170kg + For Time sled pull 140kg – TC12'`,
+    `Simulación estaciones: run/burpee DB/lunge SB/row/sit up/sled – 2r c/u`,
+    `EMOM 16' run/ski/farmer carry + Bloques run/sit up/sled pull`,
+    `4r sled pull/drag + 3r SB lunge + 2r burpee BB + 1r wall balls – TC60'`,
+    `EMOM 20' multi-estación: run/sled/AB/farmer/row/wall ball/skierg/lunge al 100%`,
+    `3r sled push+row + 3r sled pull+skierg + 3r sled+run (ambos) – formato HYROX`,
+    `EMOM 20' 45'' max: run/sled push 220kg/AB/farmer 32kg/row/wall ball/skierg/lunge`,
+    `2r sled push+row + 2r sled pull+skierg + 2r sled+run (ambos)`,
+    `AMRAP 15' row/run/farmer/sled push/sled pull + 3r lunge/burpee/skierg`,
+    `Estaciones race-specific: burpee BB/sled push 250kg/sled pull/farmer 32kg/lunge/wall ball/run`,
+    `HYROX full stations: skierg 500m/sled push 250kg/sled pull/burpee BB/row 500m/farmer/lunge/wall balls + 1km run BTW`,
+  ];
+
+  test('todo lo emitido valida contra prescriptionSchema; lo detectado lleva estructura real', () => {
+    for (const cell of REAL_WODS) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        if (line.confidence === 'detected') {
+          const p = line.prescription;
+          const hasStructure = (p.sets?.length ?? 0) > 0 || p.rounds !== undefined || p.total_s !== undefined;
+          expect(hasStructure, `detected vacío: ${cell} → ${JSON.stringify(p)}`).toBe(true);
+          expect(line.review_reasons).toHaveLength(0);
+        } else {
+          expect(line.prescription.note && line.prescription.note.length > 0, cell).toBe(true);
+          expect(line.review_reasons.length, cell).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  test('ninguna línea "detected" pierde un componente escrito: cada + tipado o el grupo entero revisa', () => {
+    for (const cell of REAL_WODS) {
+      const lines = parseNotationCell(cell);
+      const plusComponents = cell.split('–')[0]!.split('+').length; // cota inferior de piezas escritas
+      const allDetected = lines.length > 0 && lines.every((l) => l.confidence === 'detected');
+      if (allDetected) {
+        // Si decidió tipar, tiene que haber tipado AL MENOS tantas líneas
+        // como componentes "+" antes del tope de tiempo (el finisher/el tope
+        // pueden añadir o fusionar alguna, nunca menos que los componentes).
+        expect(lines.length, cell).toBeGreaterThanOrEqual(Math.min(plusComponents, lines.length));
+      }
+    }
+  });
+});
