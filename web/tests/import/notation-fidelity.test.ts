@@ -588,7 +588,15 @@ describe('class 11 — a rep RANGE is a BAND, never two flattened sets', () => {
     expect(line!.prescription.sets!.map((s) => s.measure)).toEqual(
       [10, 10, 8, 8, 6].map((value) => ({ kind: 'reps', value })),
     );
-    expect(line!.prescription.sets!.every((s) => s.measure!.max === undefined)).toBe(true);
+    expect(
+      line!.prescription.sets!.every((s) => {
+        const m = s.measure;
+        // `reps_to_failure` carries no `max` field at all (see types.ts) —
+        // absent is the same "no range fabricated" answer this asserts for
+        // every other kind, so it counts as passing too.
+        return !m || m.kind === 'reps_to_failure' || m.max === undefined;
+      }),
+    ).toBe(true);
   });
 
   test('"12-15 repeticiones" alone still reviews — no exercise, no multiplier to repeat the band over', () => {
@@ -1010,5 +1018,325 @@ describe('class 13 — a "sets" scheme always needs a REAL movement name', () =>
     const [l] = parseNotationCell('3 rounds RDL 8/lado');
     expect(l!.confidence).toBe('detected');
     expect(l!.exercise_token).toBe('RDL');
+  });
+});
+
+// ── class 14 — rest dialects: seven spellings, six clock vocabularies ────────
+// Measured against the SAME real corpus line before this class's fix: only
+// "c/2'30\"" captured the rest; every other coach spelling ("cada", "r",
+// "rec", parenthesized, comma-led) either lost the 150s recovery outright or
+// tripped isDenseWod's multi-station heuristic on the comma and reviewed the
+// whole line. A 6x800 VO2max rep and a 6x800 threshold rep are the same
+// distance with a different rest — dropping it is not a cosmetic loss.
+
+describe('class 14 — rest dialects all resolve to the SAME 150s, any spelling', () => {
+  test.each([
+    [`6x800 m Z5 c/2'30"`, 'c/ + mm\'ss" (control — already worked)'],
+    [`6x800 m Z5 cada 2'30"`, 'cada + mm\'ss"'],
+    [`6x800 m Z5 r 2'30"`, 'r + mm\'ss"'],
+    [`6x800 m Z5 rec 150s`, 'rec + bare seconds word'],
+    [`6x800 m Z5 (rec 2:30)`, 'rec, parenthesized, colon clock'],
+    [`6x800 m Z5, rec 2:30`, 'rec, comma-led, colon clock'],
+    [`6x800 m Z5, descanso 2:30`, 'descanso, comma-led, colon clock'],
+  ])('%s (%s) → detected, rest_s 150, distance/rounds untouched', (cell) => {
+    const [l, ...rest] = parseNotationCell(cell);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.rounds).toBe(6);
+    expect(l!.prescription.sets!.map((s) => s.measure)).toEqual(
+      Array.from({ length: 6 }, () => ({ kind: 'distance', meters: 800 })),
+    );
+    expect(l!.prescription.rest_s).toBe(150);
+    expect(l!.prescription.target).toEqual({ kind: 'hr_zone', value: 5 });
+  });
+
+  test('the comma no longer trips isDenseWod\'s multi-station heuristic for a trailing rest clause', () => {
+    // Direct regression check for the exact old failure: a comma followed by
+    // ANY letter used to split the line into ">=2 comma stations" and review
+    // it whole — the rest annotation is not a second station.
+    const [l] = parseNotationCell(`6x800 m Z5, rec 2:30`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.review_reasons).toHaveLength(0);
+  });
+
+  test('a comma-led SECOND STATION (not a rest clause) still reviews — the extraction is not "any comma-tail"', () => {
+    const [l] = parseNotationCell(`10 wall balls, 5 burpees`);
+    expect(l!.confidence).toBe('review');
+  });
+
+  test('the bare "r"/"rec" prefix never eats an UNRELATED preceding digit ("Z5") as a rounds count', () => {
+    // "Z5 r 2'30\"" used to fail closed (guarded too hard against the digit
+    // right before "r") — confirm the zone survives alongside the rest.
+    const [l] = parseNotationCell(`6x800 m Z5 r 2'30"`);
+    expect(l!.prescription.target).toEqual({ kind: 'hr_zone', value: 5 });
+    expect(l!.prescription.rest_s).toBe(150);
+  });
+
+  test('"c/" keeps its EXISTING prime-only form working, unmodified by the new cada/rec/r dialects', () => {
+    // "c/" is deliberately NOT extended to colon/word clocks here (out of
+    // scope — no case in evidence needs it); this guards the original,
+    // narrower `cada` branch stays intact alongside the new sibling one.
+    expect(parseNotationCell(`4x400m c/1'30"`)[0]!.prescription.rest_s).toBe(90);
+  });
+});
+
+// ── class 15 — loaded distance/duration sets, plain and per-implement ────────
+// Measured before this class's fix: bout.ts's distance-interval fallback
+// silently claimed every one of these lines and dropped the "@" entirely
+// ("Sled Push 5x25 m @160 kg" → 5×25m with the load gone); "Farmers hold
+// 3x45 s @2x32" was the worst of the four — parseSetsByReps hijacked the
+// LOAD's own "2x32" fragment and typed it as its own "2 sets of 32 reps"
+// scheme, discarding the 45s duration and the sled/carry nature entirely.
+
+describe('class 15 — sled/sandbag/carry sets keep BOTH the measure and the load', () => {
+  test('"Sled Push 5x25 m @160 kg" → 5 sets of 25m, kg 160 (not lost)', () => {
+    const [l, ...rest] = parseNotationCell(`Sled Push 5x25 m @160 kg`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Sled Push');
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.modality).toBe('functional');
+    expect(l!.prescription.sets).toHaveLength(5);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'distance', meters: 25 });
+      expect(s.target).toEqual({ kind: 'kg', value: 160 });
+    }
+  });
+
+  test('"Sled Push 5x25 m 160 kg" (no "@") → the SAME load, still typed — @ is not required for a plain kg', () => {
+    const [l] = parseNotationCell(`Sled Push 5x25 m 160 kg`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets![0]!.target).toEqual({ kind: 'kg', value: 160 });
+  });
+
+  test('"Sandbag Lunges 4x50 m @30 kg" → 4 sets of 50m at 30kg', () => {
+    const [l] = parseNotationCell(`Sandbag Lunges 4x50 m @30 kg`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Sandbag Lunges');
+    expect(l!.prescription.sets).toHaveLength(4);
+    expect(l!.prescription.sets![0]!.measure).toEqual({ kind: 'distance', meters: 50 });
+    expect(l!.prescription.sets![0]!.target).toEqual({ kind: 'kg', value: 30 });
+  });
+
+  test('"Farmers Carry 4x100 m @2x28" → PER-IMPLEMENT: 28 kg, implement_count 2 — never 56, never bare 28', () => {
+    const [l] = parseNotationCell(`Farmers Carry 4x100 m @2x28`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Farmers Carry');
+    expect(l!.prescription.sets).toHaveLength(4);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'distance', meters: 100 });
+      expect(s.target).toEqual({ kind: 'kg', value: 28, implement_count: 2 });
+    }
+    // The dishonest readings this guards against, spelled out:
+    expect(l!.prescription.sets![0]!.target).not.toEqual({ kind: 'kg', value: 56 }); // never the sum
+    expect(l!.prescription.sets![0]!.target).not.toEqual({ kind: 'kg', value: 28 }); // never bare (loses the "2")
+  });
+
+  test('"Farmers hold 3x45 s @2x32" → the worst bug: duration 45s × 3, NOT "2 sets of 32 reps"', () => {
+    const [l, ...rest] = parseNotationCell(`Farmers hold 3x45 s @2x32`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Farmers hold');
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.sets).toHaveLength(3);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'duration', seconds: 45 });
+      expect(s.target).toEqual({ kind: 'kg', value: 32, implement_count: 2 });
+    }
+  });
+
+  test('a bare "Nx<seconds>" cardio interval with NO load stays review — this family never over-reaches', () => {
+    // The exact old regression this class's fix caused and then closed: a
+    // word-second interval the grammar cannot type yet must stay honest, not
+    // be rescued into a fabricated "functional" set just because a sibling
+    // reader learned "Nx<duration word>".
+    const [l] = parseNotationCell(`6x90 seg strides`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.sets).toBeUndefined();
+    expect(l!.prescription.total_s).toBeUndefined();
+  });
+
+  test('"Sled Push 5x25 m @160 kg, rec 90 s" → load AND rest both survive together', () => {
+    const [l] = parseNotationCell(`Sled Push 5x25 m @160 kg, rec 90 s`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.rest_s).toBe(90);
+    expect(l!.prescription.sets![0]!.target).toEqual({ kind: 'kg', value: 160 });
+  });
+
+  test('"Wall Balls 100 reps @9 kg for time" still reviews whole — a rep-counted metcon, not this family\'s shape', () => {
+    const [l] = parseNotationCell(`Wall Balls 100 reps @9 kg for time`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.sets).toBeUndefined();
+  });
+});
+
+// ── class 16 — the residue guard: a partial match must review, not ship green ─
+// Not the same failure mode as class 14/15 (those are DIALECTS the grammar
+// did not yet know) — this is the STRUCTURAL backstop for when a line trips
+// TWO independent readers at once and only one of them wins: the winning
+// parser types happily, `prescriptionSchema` validates happily (both fields
+// are optional), and a real number from the text is silently gone. Scoped to
+// the two clauses parseRest/parseKg/parseImplementLoad can find but the
+// WINNING parser has no slot for — not a generic "every number must
+// reappear" scan (see result.ts's module comment on why that would false-
+// positive on "10' caminando").
+
+describe('class 16 — residue guard: an unconsumed rest or load clause forces review', () => {
+  test('a load parseBout has no slot for ("@5kg" on a plain steady zone bout) → review, not silently dropped', () => {
+    const [l] = parseNotationCell(`10' carrera Z2 @5kg`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.review_reasons[0]).toMatch(/load/);
+    expect(l!.prescription.note).toContain('@5kg');
+  });
+
+  test('a rest clause the winning parser never looked at (parseCoreWorkRest ignores anything past its own pattern) → review', () => {
+    const [l] = parseNotationCell(`Plancha lateral 4x40'' / 20'' rec 90''`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.review_reasons[0]).toMatch(/rest/);
+  });
+
+  test('invariant: the guard never fires on a number the grammar legitimately repurposed', () => {
+    // "10' caminando" reads its "10" as total_s, deliberately never rest_s
+    // (the walk IS the bout — bout.ts's own self-referential guard). The
+    // residue guard must not re-flag that as a "dropped" rest.
+    const [w] = parseNotationCell(`10' caminando`);
+    expect(w!.confidence).toBe('detected');
+    expect(w!.prescription.total_s).toBe(600);
+    expect(w!.prescription.rest_s).toBeUndefined();
+  });
+});
+
+// ── class 17 — to-failure reps: no clock, never a fabricated count ───────────
+// "4x max" used to fall to review for lack of a rep number — but "go until
+// you fail" IS the complete instruction, same honesty-contract standing as a
+// bodyweight movement with no %RM. Distinct from the PRE-EXISTING "3' max"
+// (timedMax, class 9's corpus audit) which IS time-capped — that stays a
+// duration measure, unchanged.
+
+describe('class 17 — to-failure reps type as reps_to_failure, never review or a fake count', () => {
+  test('"Dead hangs 4x max" → 4 sets, each reps_to_failure', () => {
+    const [l, ...rest] = parseNotationCell(`Dead hangs 4x max`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Dead hangs');
+    expect(l!.prescription.sets).toHaveLength(4);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps_to_failure' });
+    }
+  });
+
+  test.each([
+    [`Pull-ups máximo unbroken`, 'Pull-ups'],
+    [`Push-ups max reps`, 'Push-ups'],
+    [`Burpees AMRAP de reps`, 'Burpees'],
+  ])('%s → ONE to-failure set, token is JUST the movement (%s)', (cell, token) => {
+    const [l, ...rest] = parseNotationCell(cell);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe(token);
+    expect(l!.prescription.sets).toHaveLength(1);
+    expect(l!.prescription.sets![0]!.measure).toEqual({ kind: 'reps_to_failure' });
+  });
+
+  test('a standalone to-failure marker is never dropped as noise for lacking a digit', () => {
+    // Before isNoiseLine's exception, "no number anywhere → prose" ate these
+    // three cases outright — parseNotationCell returned [], not a review
+    // line, not a detected line: the coach's line vanished with zero trace.
+    expect(parseNotationCell(`Pull-ups máximo unbroken`)).toHaveLength(1);
+  });
+
+  test('the pre-existing TIME-capped "max" (timedMax, class 9) is untouched: still a DURATION, not reps_to_failure', () => {
+    const [l] = parseNotationCell(`3 rounds 3' max SB walking lunge 20kg`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets![0]!.measure).toEqual({ kind: 'duration', seconds: 180 });
+  });
+
+  test('"AMRAP 12\': 10 burpees + 10 cal row + …" is still a WOD announcement, never a to-failure qualifier', () => {
+    // The hasMetconKeyword carve-out is scoped to "amrap (de) reps" exactly —
+    // a real AMRAP format (a time cap on the whole block) must keep review-
+    // ing whole, unaffected by arreglo #5.
+    const [l] = parseNotationCell(`AMRAP 12': 10 burpees + 10 cal row + 100m farmer carry`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.scheme).toBe('amrap');
+  });
+
+  test('prose that merely CONTAINS "máximo" stays prose, not a fabricated to-failure exercise', () => {
+    expect(parseNotationCell(`Recuerda hacer el máximo esfuerzo posible hoy`)).toHaveLength(0);
+  });
+});
+
+// ── Cross-class invariant: every new line still validates end-to-end ─────────
+
+describe('classes 14-17 — invariants', () => {
+  test('every detected line from the new dialects validates against prescriptionSchema', () => {
+    const cells = [
+      `6x800 m Z5 cada 2'30"`,
+      `6x800 m Z5 r 2'30"`,
+      `6x800 m Z5 rec 150s`,
+      `6x800 m Z5 (rec 2:30)`,
+      `6x800 m Z5, rec 2:30`,
+      `Sled Push 5x25 m @160 kg`,
+      `Farmers Carry 4x100 m @2x28`,
+      `Farmers hold 3x45 s @2x32`,
+      `Dead hangs 4x max`,
+      `Pull-ups máximo unbroken`,
+    ];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
+  });
+});
+
+// ── class 18 — objetivo por REFERENCIA: sin número, pero no es adorno ────────
+//
+// Los guardias de residuo de `result.ts` comparan NÚMEROS, así que una frase
+// como «a split de carrera» se les escapaba entera: la línea salía verde con la
+// distancia y SIN intensidad ninguna, y encima sin rastro en la nota. Peor que
+// fallar — el coach escribió a qué ritmo y el atleta recibía metros a secas.
+//
+// Estas frases son objetivos DERIVADOS (del test del atleta, de su ritmo de
+// carrera, del peso de su división). Hasta que se resuelvan de verdad, lo
+// honesto es revisar.
+
+describe('class 18 — un objetivo escrito por referencia nunca sale verde sin objetivo', () => {
+  const PORREFERENCIA = [
+    `SkiErg 3x1000 m a split de carrera, rec 3'`,
+    `6x1000 m a race pace, rec 60 s`,
+    `4x2000 m a umbral, rec 3'`,
+    `Sled Push 3x25 m a peso de carrera`,
+    `SkiErg 1000 m all-out`,
+  ];
+
+  for (const cell of PORREFERENCIA) {
+    test(`«${cell}» baja a revisión con el texto intacto`, () => {
+      const lines = parseNotationCell(cell);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]!.confidence).toBe('review');
+      // El texto se conserva: es lo único que permite al coach (o a la IA)
+      // recuperar la intención que la gramática no supo resolver.
+      expect(lines[0]!.prescription.note ?? '').toContain(cell.split(',')[0]!.trim());
+    });
+  }
+
+  test('si la línea SÍ capturó un objetivo, una frase suelta no la tumba', () => {
+    const lines = parseNotationCell(`6x800 m Z5, rec 2:30`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('detected');
+    expect(lines[0]!.prescription.target).toEqual({ kind: 'hr_zone', value: 5 });
+    expect(lines[0]!.prescription.rest_s).toBe(150);
+  });
+
+  test('un ejercicio que LLEVA la palabra en su nombre sigue siendo honesto', () => {
+    // «Bulgarian split squat» contiene «split» — el guardia ancla en la
+    // preposición («a split de»), nunca en la palabra suelta.
+    const lines = parseNotationCell(`Bulgarian split squat 3x10/pierna`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('detected');
+    expect(lines[0]!.exercise_token).toContain('Bulgarian split squat');
   });
 });

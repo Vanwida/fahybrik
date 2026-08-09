@@ -34,6 +34,9 @@ function targetToParams(target: Target, out: ScalarParams): void {
     case 'kg': {
       const v = target.value ?? target.min ?? target.max;
       if (v !== undefined) out.load_kg = v;
+      // Per-implement (farmers-carry-style "2×32"): the count travels
+      // alongside the per-unit weight already in load_kg, never summed in.
+      if (target.implement_count !== undefined) out.load_implements = target.implement_count;
       break;
     }
     case 'rpe': {
@@ -209,7 +212,11 @@ export function prescriptionToParams(p: Prescription): ScalarParams {
   return out;
 }
 
-// Collect the numeric value of a measure kind across sets.
+// Collect the numeric value of a measure kind across sets. Callers only ever
+// pass 'duration' | 'distance' | 'calories' (never 'reps'/'reps_to_failure');
+// the explicit kind checks below (rather than a catch-all `else`) are what
+// keep this well-typed against `reps_to_failure`, which carries no value at
+// all — an unmatched kind simply contributes nothing.
 function collectMeasure(sets: PrescriptionSet[], kind: Measure['kind']): number[] {
   const out: number[] = [];
   for (const s of sets) {
@@ -217,7 +224,7 @@ function collectMeasure(sets: PrescriptionSet[], kind: Measure['kind']): number[
     if (!m || m.kind !== kind) continue;
     if (m.kind === 'distance') out.push(m.meters);
     else if (m.kind === 'duration') out.push(m.seconds);
-    else out.push(m.value);
+    else if (m.kind === 'reps' || m.kind === 'calories') out.push(m.value);
   }
   return out;
 }

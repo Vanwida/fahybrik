@@ -260,6 +260,24 @@ const REST_CUE_SRC = '(?:rest|descanso|recuperaci[oó]n|recovery)';
 export function parseRest(raw: string): number | undefined {
   const cada = raw.match(/c\/\s*(\d+)\s*'\s*(?:(\d+)\s*'')?/i);
   if (cada) return parseInt(cada[1]!, 10) * 60 + (cada[2] ? parseInt(cada[2], 10) : 0);
+  // Short PREFIX markers beyond "c/" — "cada", "rec", "r" — read as recovery
+  // when they sit DIRECTLY before a clock, in ANY vocabulary this file knows
+  // (prime, colon, word), by delegating to parseClockSeconds on the text
+  // right after the marker. Tightly anchored — cue, optional ':', optional
+  // space, THEN a digit, nothing else between — so a stray "r" elsewhere
+  // never fires without ALSO looking like a clock introduction. The bare "r"
+  // form additionally needs `\b` on BOTH sides: parseSetCount's "5r" ROUNDS
+  // abbreviation sits digit-adjacent with no boundary before "r", so it can
+  // never match here regardless of what follows (no separate digit-lookbehind
+  // guard needed — one nearly shadowed a REAL case, "Z5 r 2'30''", a zone
+  // number that merely happens to sit before this cue for an unrelated
+  // reason; "cada"/"rec" never collide with a rounds abbreviation at all).
+  const prefixCue = raw.match(/\b(?:cada|rec|r)\b\s*:?\s*(?=\d)/i);
+  if (prefixCue) {
+    const tail = raw.slice(prefixCue.index! + prefixCue[0].length);
+    const clock = parseClockSeconds(tail);
+    if (clock !== undefined) return clock;
+  }
   const cue = /(?:rest|descanso|walking|float|trote|est[aá]tico|off|caminando)/i;
   const mm = raw.match(/(\d+)\s*'\s*(\d+)\s*''/);
   if (mm && cue.test(raw)) return parseInt(mm[1]!, 10) * 60 + parseInt(mm[2]!, 10);
@@ -494,6 +512,25 @@ export function stripLoadPct(seg: string): string {
 export function parseKg(seg: string): number | undefined {
   const m = seg.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
   return m ? parseFloat(m[1]!.replace(',', '.')) : undefined;
+}
+
+/** "@2x32" / "@2x32kg" (farmers-carry-style, PER IMPLEMENT): N implements × M
+ *  kg EACH — "Farmers Carry 4x100 m @2x28" is two 28 kg kettlebells, never
+ *  the summed 56 (see Target.kg.implement_count). Requires the "@" — that is
+ *  this notation's ONLY intensity marker, so an @-introduced "NxM" can only
+ *  be a load; a BARE "2x32" elsewhere keeps its OWN meaning (sets×reps,
+ *  parseSetsByReps) and must never be hijacked (the worst of the load bugs:
+ *  "3x45 s @2x32" used to read as "2 sets of 32 reps"). `count` must be >=2 —
+ *  "@1x32" carries no useful "each" signal over a plain "32 kg".
+ */
+export function parseImplementLoad(
+  raw: string,
+): { value: number; implement_count: number } | undefined {
+  const m = raw.match(/@\s*(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(?:kg)?\b/i);
+  if (!m) return undefined;
+  const count = parseInt(m[1]!, 10);
+  if (!(count >= 2)) return undefined;
+  return { value: parseFloat(m[2]!.replace(',', '.')), implement_count: count };
 }
 
 /** Number of sets from "N rounds/rondas/series" or "Nr" anywhere in the seg. */

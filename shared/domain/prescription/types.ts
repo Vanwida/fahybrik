@@ -50,6 +50,7 @@ const PACE_MAX_S = 36000; // 10h per unit — a sanity ceiling, not a real pace
 const TIME_CAP_MAX_S = 7200;
 const CAL_MAX = 100000; // sanity ceiling for a single line's calories
 const WATTS_MAX = 2000; // erg power ceiling (a single line never exceeds this)
+const MAX_IMPLEMENTS = 20; // sanity ceiling for Target.kg.implement_count — nobody carries 20 kettlebells
 
 // ── Modality ────────────────────────────────────────────────────────────────
 // What discipline the line trains. Drives sensible defaults (an erg line targets
@@ -95,7 +96,13 @@ export const paceUnitSchema = z.enum(['per_km', 'per_500m', 'per_mile']);
 
 export type Target =
   | { kind: 'percent_rm'; value?: number; min?: number; max?: number } // %1RM, 0-200
-  | { kind: 'kg'; value?: number; min?: number; max?: number }
+  // `implement_count` (import #: carga por implemento) — "2×32 kg" (two 32 kg
+  // kettlebells/dumbbells, farmers-carry-style) is NEITHER "64 kg" (nobody
+  // carries the summed load in one hand) NOR a bare "32 kg" (that drops the
+  // fact there are TWO loaded implements). `value`/`min`/`max` stay the
+  // PER-IMPLEMENT weight; `implement_count` names how many. Omitted (or 1)
+  // behaves exactly like today: a single total load.
+  | { kind: 'kg'; value?: number; min?: number; max?: number; implement_count?: number }
   | { kind: 'rpe'; value?: number; min?: number; max?: number } // 0-10
   | { kind: 'rir'; value?: number; min?: number; max?: number } // >= 0
   | { kind: 'bodyweight' }
@@ -169,6 +176,21 @@ function scalarTargetObject(kind: string) {
     .strict();
 }
 
+// `kg` carries one extra optional field the other scalar targets do not —
+// see Target's `implement_count` doc comment above. A dedicated object
+// (rather than reusing scalarTargetObject) because `implement_count` on, say,
+// an `rpe` target would be nonsense; z.discriminatedUnion members must stay
+// plain ZodObjects, so this mirrors scalarTargetObject's shape by hand.
+const kgTargetObject = z
+  .object({
+    kind: z.literal('kg'),
+    value: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    min: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    max: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    implement_count: z.number().int().min(1).max(MAX_IMPLEMENTS).optional(),
+  })
+  .strict();
+
 const bodyweightTargetObject = z.object({ kind: z.literal('bodyweight') }).strict();
 
 const paceTargetObject = z
@@ -194,7 +216,7 @@ const timeCapTargetObject = z
 
 const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('percent_rm'),
-  scalarTargetObject('kg'),
+  kgTargetObject,
   scalarTargetObject('rpe'),
   scalarTargetObject('rir'),
   bodyweightTargetObject,
@@ -326,18 +348,31 @@ export type Measure =
   | { kind: 'reps'; value: number; max?: number }
   | { kind: 'distance'; meters: number; max?: number }
   | { kind: 'duration'; seconds: number; max?: number }
-  | { kind: 'calories'; value: number; max?: number };
+  | { kind: 'calories'; value: number; max?: number }
+  // "4×máx" / "máximo unbroken" / "AMRAP de reps" — the athlete goes until
+  // failure; the honesty contract forbids inventing a rep count, so this is
+  // its own kind (never a `{kind:'reps'}` with a fabricated `value`, and
+  // never a 0 — 0 reps is not what "max reps" means). Its own discriminant
+  // rather than an optional flag on `reps` so `reps.value` STAYS required —
+  // every reader that already assumes a real number there keeps that
+  // guarantee unchanged.
+  | { kind: 'reps_to_failure' };
 
 export type MeasureKind = Measure['kind'];
 
-/** The lower bound of a measure, whatever its kind names the field. */
-export function measureFloor(m: Measure): number {
-  return m.kind === 'distance' ? m.meters : m.kind === 'duration' ? m.seconds : m.value;
+/** The lower bound of a measure, or `undefined` for `reps_to_failure` — it
+ *  deliberately states no number (the count is unknown until performed). */
+export function measureFloor(m: Measure): number | undefined {
+  if (m.kind === 'distance') return m.meters;
+  if (m.kind === 'duration') return m.seconds;
+  if (m.kind === 'reps_to_failure') return undefined;
+  return m.value; // reps | calories
 }
 
 /** True when the measure prescribes a band ("12-15 reps") rather than a point. */
 export function measureIsRange(m: Measure): boolean {
-  return m.max !== undefined && m.max > measureFloor(m);
+  if (m.kind === 'reps_to_failure') return false;
+  return m.max !== undefined && m.max > (measureFloor(m) ?? 0);
 }
 
 const maxReps = z.number().int().nonnegative().optional();
@@ -362,10 +397,13 @@ export const measureSchema: z.ZodType<Measure> = z
         max: maxAmount.and(z.number().max(CAL_MAX).optional()),
       })
       .strict(),
+    z.object({ kind: z.literal('reps_to_failure') }).strict(),
   ])
   .superRefine((m, ctx) => {
     const measure = m as Measure;
-    if (measure.max !== undefined && measure.max < measureFloor(measure)) {
+    if (measure.kind === 'reps_to_failure') return; // no floor to compare — nothing to refine
+    const floor = measureFloor(measure);
+    if (measure.max !== undefined && floor !== undefined && measure.max < floor) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'measure.max must be at or above the measure floor',

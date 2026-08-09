@@ -30,6 +30,9 @@ const STEP_BY_MEASURE: Record<Measure['kind'], number> = {
   duration: 5,
   distance: 50,
   calories: 5,
+  // "máx" carries no number to step — stepMeasure below no-ops for this kind,
+  // so the value here is never actually applied; 0 documents that plainly.
+  reps_to_failure: 0,
 };
 const STEP_BY_TARGET: Partial<Record<TargetKind, number>> = {
   percent_rm: 1,
@@ -85,6 +88,8 @@ function measureDisplay(m: Measure | undefined): string {
       return rangeText(m.meters, m.max ?? null);
     case 'calories':
       return rangeText(m.value, m.max ?? null);
+    case 'reps_to_failure':
+      return 'máx';
   }
 }
 
@@ -96,6 +101,10 @@ function stepMeasure(m: Measure | undefined, delta: number): Measure {
       return { ...base, seconds: shift(base.seconds), ...(base.max !== undefined ? { max: shift(base.max) } : {}) };
     case 'distance':
       return { ...base, meters: shift(base.meters), ...(base.max !== undefined ? { max: shift(base.max) } : {}) };
+    case 'reps_to_failure':
+      // Nothing to shift — "máx" carries no number. A no-op keeps the ±
+      // control harmless instead of crashing on a set imported as to-failure.
+      return base;
     default:
       return { ...base, value: shift(base.kind === 'reps' ? Math.round(base.value) : base.value), ...(base.max !== undefined ? { max: shift(base.max) } : {}) };
   }
@@ -110,6 +119,9 @@ function commitMeasure(m: Measure | undefined, raw: string): Measure | undefined
   const r = parseRange(raw);
   if (!r) return undefined;
   if (kind === 'distance') return { kind, meters: r.lo, ...(r.hi !== undefined ? { max: r.hi } : {}) };
+  // Typing a concrete number over a "máx" cell commits a real rep count —
+  // the coach is replacing "to failure" with a known target, not editing one.
+  if (kind === 'reps_to_failure') return { kind: 'reps', value: r.lo, ...(r.hi !== undefined ? { max: r.hi } : {}) };
   return { kind, value: r.lo, ...(r.hi !== undefined ? { max: r.hi } : {}) };
 }
 

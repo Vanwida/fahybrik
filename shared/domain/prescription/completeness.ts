@@ -131,6 +131,7 @@ const MEASURE_LABEL: Record<Measure['kind'], string> = {
   distance: 'distancia',
   duration: 'tiempo',
   calories: 'calorías',
+  reps_to_failure: 'repeticiones al fallo',
 };
 
 /** The set's effective target: its own, else the block-level one it inherits. */
@@ -211,7 +212,7 @@ export function checkPrescriptionCompleteness(
         issues.push(blocking('Fuerza sin series: hacen falta series con repeticiones y carga.'));
         break;
       }
-      requireSetMeasures(sets, ['reps', 'duration'], 'Fuerza', issues);
+      requireSetMeasures(sets, ['reps', 'duration', 'reps_to_failure'], 'Fuerza', issues);
       if (needsTarget) {
         requireSetTargets(sets, p, LOAD_TARGETS, 'carga (%RM, kg, RIR o RPE)', issues);
         // Rest between strength sets is part of the dose, not a nicety: the same
@@ -225,14 +226,19 @@ export function checkPrescriptionCompleteness(
     }
     case 'core':
     case 'mobility': {
-      requireSetMeasures(sets, ['reps', 'duration'], 'Core/movilidad', issues);
+      requireSetMeasures(sets, ['reps', 'duration', 'reps_to_failure'], 'Core/movilidad', issues);
       break;
     }
     case 'functional': {
       // A WOD movement's dose is its measure; the intensity is the cap/format, so
       // no per-set target is required (10 burpees is 10 burpees).
       if (!CAPPED_SCHEMES.has(p.scheme)) {
-        requireSetMeasures(sets, ['reps', 'distance', 'duration', 'calories'], 'Funcional', issues);
+        requireSetMeasures(
+          sets,
+          ['reps', 'distance', 'duration', 'calories', 'reps_to_failure'],
+          'Funcional',
+          issues,
+        );
       }
       break;
     }

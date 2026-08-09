@@ -278,6 +278,11 @@ function defaultMeasureOfKind(kind: MeasureKind): Measure {
       return { kind: 'duration', seconds: 600 };
     case 'calories':
       return { kind: 'calories', value: 15 };
+    // Not offered by MEDIDA_OPTIONS below (a coach composing from scratch
+    // always states a number) — reachable only as an IMPORTED set's existing
+    // kind, which carries no fields to default.
+    case 'reps_to_failure':
+      return { kind: 'reps_to_failure' };
   }
 }
 
