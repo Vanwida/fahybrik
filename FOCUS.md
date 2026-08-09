@@ -72,12 +72,11 @@ revisión honesta con el texto intacto). Las 8 stations tipan con su carga.
   verde con la distancia y sin intensidad ninguna. Ahora baja a revisión. Ancla
   en la preposición, no en la palabra: «Bulgarian split squat» sigue verde.
 
-**Círculo abierto en iOS** (no rompe nada, pero deja al atleta a medias):
-`Measure` en `ios/FAHYBRIK/Plan/Prescription.swift` tiene salida `.unknown`, así
-que `reps_to_failure` decodifica sin crashear pero **el renderer lo salta** — un
-«4× máx» se vería en blanco. Y `Target.kg` no decodifica `implement_count`, así
-que un farmers 2×32 se pinta «32 kg» y se pierde el «×2». Dos casos aditivos,
-pequeños, pendientes.
+**Círculo iOS — CERRADO.** `Measure.repsToFailure` (copy `Vocab.alFallo` = «al
+fallo»; sin suelo ni techo, que contarlo como 0 lo borraría del volumen) y
+`Target.kg(…, implementCount:)` → «2×32 kg». El PM5 trata «al fallo» como las
+reps: no es pieza programable, cuenta el atleta. BUILD SUCCEEDED en app y reloj,
+1027 tests iOS verdes, 8 nuevos que fijan las dos regresiones.
 
 **Tanda 2 — decidida, sin empezar.** Objetivo **derivado** (`Z5 (P5k)`,
 `@race pace − 5 s/km`, `split del test − 3 s`), resuelto al ABRIR la sesión y no
