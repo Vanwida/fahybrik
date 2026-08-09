@@ -7,7 +7,8 @@
 // verbatim, never invented (resolution to the catalog is a later concern).
 
 import type { Modality } from '../prescription/types';
-import { foldText, paceUnitFrom, stripTargetTokens } from './dose';
+import { foldText, stripTargetTokens } from './dose';
+import { paceUnitFrom, stripKnownTargetRanges } from './target';
 
 // ── Modality ─────────────────────────────────────────────────────────────────
 // Order matters: erg/run keywords first so "cinta … walking rest" reads run,
@@ -149,11 +150,20 @@ export function extractLabel(seg: string): string {
 // exercise words. Names carry no digits (Pablo's movements never do), so any
 // surviving number is dose debris and is dropped too.
 function stripDoseTokens(raw: string): string {
-  return raw
+  return stripKnownTargetRanges(raw) // pulso/vatios/calorías-objetivo/kg-banda/%FCmax — ./target.ts
     .replace(/\d+\s*x\s*\([^)]*\)/g, ' ') // 5x(4' Z3 / 1' Z2) — consumed by the paren-interval parser
     .replace(/\d+(?:[.,]\d+)?\s*km\s*\/\s*h/gi, ' ')
     .replace(/\d+\s*'\s*\d*\s*'{0,2}\s*\/\s*(?:km|500\s*m?|mi|milla)/gi, ' ')
     .replace(/\d+:[0-5]?\d\s*(?:min\s*)?\/\s*(?:km|500\s*m?|mi|milla)/gi, ' ') // colon pace: "3:45 min/km"
+    // "6x90 seg" / "3x4-5 min" — an Nx WORD-clock interval window (point or
+    // range), tried BEFORE the generic bare "Nx<number>" sweep right below so
+    // that one never strips just the number and strands the unit word
+    // ("seg"/"min") as leftover token debris.
+    .replace(
+      /\d+\s*x\s*\d+\s*[-–]\s*\d+\s*(?:min(?:utos?)?|seg(?:undos?)?\.?|s|horas?)\b/gi,
+      ' ',
+    )
+    .replace(/\d+\s*x\s*\d+\s*(?:min(?:utos?)?|seg(?:undos?)?\.?|s|horas?)\b/gi, ' ')
     .replace(/\d+\s*x\s*\d+\s*(?:''|'|m\b)?/gi, ' ')
     .replace(/\d+\s*h\s*\d+\s*'/g, ' ')
     .replace(/\d+\s*h\b/gi, ' ')

@@ -8,7 +8,7 @@
 // SECONDS — always; a single `'` is MINUTES. No parser may consume one quote of
 // a `''` pair (the old parseInterval bug read 6x30'' as 30 MINUTES).
 
-import type { PaceCap, PaceUnit, Target } from '../prescription/types';
+import type { Target } from '../prescription/types';
 
 // ── Text normalization ───────────────────────────────────────────────────────
 // Pablo writes seconds as a straight double-quote (45"), two single-quotes
@@ -58,20 +58,34 @@ function wordClockToSeconds(n: number, unit: string): number {
   return n; // segundos / seg / s
 }
 
+// A colon/word clock must never be read as a plain duration/rest when it is
+// really the START of a pace expression (shared by parseClockSeconds and
+// parseDuration — was duplicated identically in each; hoisted once, DRY).
+// Two lookaheads: (1) immediately before "/<any unit>" — not just the three
+// PaceUnit knows, so an out-of-model pace ("/1000m", rowing) stays honest
+// review instead of reading its clock half as an unrelated duration and
+// stranding the unit as debris; (2) immediately before a RANGE continuation
+// into a pace unit ("-4:45/km") — without it, "4:30-4:45/km" read its OWN
+// first half as a bare 270s duration, since (1) alone only checks what sits
+// DIRECTLY adjacent and a dash gets in the way.
+const PACE_GUARD =
+  '(?!\\s*(?:min\\s*)?\\/\\s*\\d*[a-záéíóúñ]+)' +
+  '(?!\\s*[-–]\\s*\\d+:[0-5]?\\d\\s*(?:min\\s*)?\\/\\s*\\d*[a-záéíóúñ]+)';
+
 /** Any single clock literal → seconds: "1h15'"→4500 · "3'30''"→210 · "3'"→180 ·
  *  "30''"→30 · "1h"→3600 · "90 seg"/"90s"→90 · "2 min"→120 · "1 hora"→3600 ·
  *  "1:30"→90 (m:ss) · "1:20:00"→4800 (h:mm:ss). Order matters: the compound
  *  prime forms first so a `''` never loses a quote to the minutes reader; the
  *  word/colon forms are TrainingPeaks' vocabulary, tried only once no prime
  *  form matched. A pace clock ("3:45 min/km") is NOT a duration — both new
- *  forms refuse to fire immediately before a pace unit, and the word form
- *  refuses to fire on a number that is itself the ss half of an m:ss pace
- *  (the `(?<!:)` lookbehind), so "3:45 min/km" is never misread as 45 min.
- *  `(?<!\d)` on every new form anchors the number to ITS OWN start — without
- *  it, a lookbehind that blocks the true start of a number (e.g. the "9" of
- *  "90") lets the engine backtrack into the number's OWN trailing digit (the
- *  "0" of "90") and fabricate a match from a digit that was never a number on
- *  its own. */
+ *  forms refuse to fire immediately before a pace unit (PACE_GUARD above),
+ *  and the word form refuses to fire on a number that is itself the ss half
+ *  of an m:ss pace (the `(?<!:)` lookbehind), so "3:45 min/km" is never
+ *  misread as 45 min. `(?<!\d)` on every new form anchors the number to ITS
+ *  OWN start — without it, a lookbehind that blocks the true start of a
+ *  number (e.g. the "9" of "90") lets the engine backtrack into the number's
+ *  OWN trailing digit (the "0" of "90") and fabricate a match from a digit
+ *  that was never a number on its own. */
 export function parseClockSeconds(raw: string): number | undefined {
   const hm = raw.match(/(\d+)\s*h\s*(\d+)\s*'/i);
   if (hm) return parseInt(hm[1]!, 10) * 3600 + parseInt(hm[2]!, 10) * 60;
@@ -83,7 +97,6 @@ export function parseClockSeconds(raw: string): number | undefined {
   if (min) return parseInt(min[1]!, 10) * 60;
   const sec = raw.match(/(\d+)\s*''/);
   if (sec) return parseInt(sec[1]!, 10);
-  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
   const word = raw.match(
     new RegExp(
       `(?<!\\d)(?<!:)(\\d+)\\s*(horas?|min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
@@ -123,7 +136,6 @@ export function parseDuration(raw: string): number | undefined {
   // longer sees, so it would match a fabricated "0 seg" = 0s instead of
   // refusing the line. Anchoring every number to its OWN start closes that.
   const NOT_INTERVAL_GUARD = '(?<!\\d)(?<!x\\s{0,3})';
-  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
   const word = raw.match(
     new RegExp(
       `(?<!:)${NOT_INTERVAL_GUARD}(\\d+)\\s*(min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
@@ -377,72 +389,6 @@ export function stripTargetTokens(raw: string): string {
   return raw
     .replace(/\b(?:rpe|rir)\s*\d{1,2}(?:\s*[-–—]\s*\d{1,2})?/gi, ' ')
     .replace(/\bz(?:ona)?\s*[1-5](?:\s*[-–—]\s*z?(?:ona)?\s*[1-5])?\b/gi, ' ');
-}
-
-// ── Pace ─────────────────────────────────────────────────────────────────────
-
-const SECONDS_PER_HOUR = 3600;
-
-/** "15,5km/h" / "17 km/h" → seconds-per-km pace. */
-export function parsePaceKmh(raw: string): { unit: PaceUnit; value_s: number } | null {
-  const m = raw.match(/(\d+(?:[.,]\d+)?)\s*km\s*\/\s*h/i);
-  if (!m) return null;
-  const kmh = parseFloat(m[1]!.replace(',', '.'));
-  if (!(kmh > 0)) return null;
-  return { unit: 'per_km', value_s: Math.round(SECONDS_PER_HOUR / kmh) };
-}
-
-export function paceUnitFrom(raw: string): PaceUnit | null {
-  if (/\/\s*500\s*m?/i.test(raw)) return 'per_500m';
-  if (/\/\s*(?:mi|mile|milla)/i.test(raw)) return 'per_mile';
-  if (/\/\s*km/i.test(raw)) return 'per_km';
-  return null;
-}
-
-/** An explicit clock pace with a unit: "3'50/km" → 230 s/km;
- *  "3'40-3'50/km" → a min/max range. Returns a pace Target or null. */
-export function parsePaceClockTarget(raw: string): Target | null {
-  const unit = paceUnitFrom(raw);
-  if (!unit) return null;
-  const range = raw.match(/(\d+)\s*'\s*(\d+)\s*''?\s*[-–]\s*(\d+)\s*'\s*(\d+)/);
-  if (range) {
-    const lo = parseInt(range[1]!, 10) * 60 + parseInt(range[2]!, 10);
-    const hi = parseInt(range[3]!, 10) * 60 + parseInt(range[4]!, 10);
-    if (lo <= hi) return { kind: 'pace', unit, min_s: lo, max_s: hi };
-  }
-  const point = raw.match(/(\d+)\s*'\s*(\d+)\s*(?:'')?\s*\/\s*(?:km|500|mi|milla)/i);
-  if (point) {
-    return { kind: 'pace', unit, value_s: parseInt(point[1]!, 10) * 60 + parseInt(point[2]!, 10) };
-  }
-  // TrainingPeaks colon form: "3:45 min/km" → 225 s/km; "1:54 /500m" → 114
-  // s/500m. A pace clock is always m:ss (never h:mm:ss — nobody paces per hour).
-  const colonPoint = raw.match(/(\d+):([0-5]?\d)\s*(?:min\s*)?\/\s*(?:km|500\s*m?|mi|milla)/i);
-  if (colonPoint) {
-    return {
-      kind: 'pace',
-      unit,
-      value_s: parseInt(colonPoint[1]!, 10) * 60 + parseInt(colonPoint[2]!, 10),
-    };
-  }
-  return null;
-}
-
-/** A secondary PACE CAP: "(no más de 6'/km)" ⇒ slowest-allowed ceiling (max_s);
- *  "(no más rápido de 6'/km)" ⇒ fastest-allowed floor (min_s). Only fires when a
- *  cap PHRASE sits near a clock+unit pace. */
-export function parsePaceCap(raw: string): PaceCap | null {
-  const unit = paceUnitFrom(raw);
-  if (!unit) return null;
-  const clock = raw.match(/(\d+)\s*'\s*(?:(\d+)\s*(?:'')?)?\s*\/\s*(?:km|500|mi|milla)/i);
-  if (!clock) return null;
-  const seconds = parseInt(clock[1]!, 10) * 60 + (clock[2] ? parseInt(clock[2], 10) : 0);
-  if (!(seconds > 0)) return null;
-  const n = foldText(raw);
-  const faster = /no m[aá]s rapido|no bajar de|minimo|mas rapido que/.test(n);
-  const slower = /no m[aá]s lento|no m[aá]s de|maximo|sin pasar de|no pasar de|no superar/.test(n);
-  if (faster) return { unit, min_s: seconds };
-  if (slower) return { unit, max_s: seconds };
-  return null;
 }
 
 // ── Strength numerics ────────────────────────────────────────────────────────
