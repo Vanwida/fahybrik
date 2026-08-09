@@ -284,11 +284,34 @@ export function parseRest(raw: string): number | undefined {
   // guard needed — one nearly shadowed a REAL case, "Z5 r 2'30''", a zone
   // number that merely happens to sit before this cue for an unrelated
   // reason; "cada"/"rec" never collide with a rounds abbreviation at all).
-  const prefixCue = raw.match(/\b(?:cada|rec|r)\b\s*:?\s*(?=\d)/i);
+  // La señal puede ir PEGADA al número — «r90», «rec90», «r1'». Es la grafía
+  // más corta y la más usada al escribir a mano, y es literalmente la que el
+  // propio editor de día le propone al coach en su placeholder
+  // («press banca 4x4 @78-80% r90 · 10x400m r1'»). Con `\b` detrás de la señal
+  // no entraba ninguna: entre `r` y `9` no hay frontera de palabra, así que el
+  // descanso se perdía EN VERDE en la pantalla donde el coach escribe.
+  //
+  // Lo que sí hay que seguir excluyendo es la abreviatura de RONDAS, que es la
+  // misma letra al otro lado del número: «5r 10-10-8-8-6» son 5 rondas, no un
+  // descanso. Por eso la señal no puede ir precedida de dígito. Y no puede ir
+  // seguida de letra, o «rounds» y «rest» se comerían la `r`.
+  const prefixCue = raw.match(
+    /(?<![\dA-Za-zÁÉÍÓÚÑáéíóúñ])(?:cada|rec|r)(?![a-záéíóúñ])\s*:?\s*(?=\d)/i,
+  );
   if (prefixCue) {
+    const cueText = prefixCue[0].trim().toLowerCase();
     const tail = raw.slice(prefixCue.index! + prefixCue[0].length);
     const clock = parseClockSeconds(tail);
     if (clock !== undefined) return clock;
+    // Número DESNUDO tras una señal de descanso explícita: son segundos. Es la
+    // convención universal («r90», «rec 60», «descanso 45»); nadie escribe
+    // «r90» queriendo decir noventa minutos. Se excluye `cada`, que introduce
+    // un ciclo y no un descanso («cada 2'» es cada dos minutos), y ahí un
+    // número sin unidad no significa lo mismo.
+    if (cueText !== 'cada') {
+      const desnudo = tail.match(/^(\d+)(?![\d.,:'"]|\s*(?:m\b|km|kg|%))/);
+      if (desnudo) return parseInt(desnudo[1]!, 10);
+    }
   }
   const cue = /(?:rest|descanso|walking|float|trote|est[aá]tico|off|caminando)/i;
   const mm = raw.match(/(\d+)\s*'\s*(\d+)\s*''/);

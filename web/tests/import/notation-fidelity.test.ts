@@ -1783,3 +1783,60 @@ describe('class 23 — objetivos que se perdían en verde: vatios, calorías, pe
     }
   });
 });
+
+// ── class 24 — la señal de descanso PEGADA al número ────────────────────────
+//
+// «r90», «rec90», «r1'» es la grafía más corta y la más usada al escribir a
+// mano — y es literalmente la que el editor de día le propone al coach en su
+// placeholder: «press banca 4x4 @78-80% r90 · 10x400m r1'». No entraba
+// ninguna: el patrón exigía frontera de palabra tras la señal, y entre `r` y
+// `9` no la hay. El descanso se perdía EN VERDE en la pantalla donde el coach
+// escribe, que es el peor sitio donde se puede perder un dato.
+//
+// El caso que hay que seguir protegiendo es la misma letra al OTRO lado del
+// número: «5r» son 5 rondas, jamás un descanso.
+
+describe('class 24 — «r90» pegado es descanso; «5r» pegado sigue siendo rondas', () => {
+  test('el placeholder del editor de día entra ENTERO, descanso incluido', () => {
+    // En FUERZA el descanso vive por serie (un coach puede variarlo entre
+    // series); en una serie de intervalos es uno solo para toda la tanda. Cada
+    // uno se comprueba donde el modelo lo pone de verdad.
+    const press = parseNotationCell('press banca 4x4 @78-80% r90');
+    expect(press).toHaveLength(1);
+    expect(press[0]!.confidence).toBe('detected');
+    expect(press[0]!.prescription.sets).toHaveLength(4);
+    expect(press[0]!.prescription.sets!.every((s) => s.rest_s === 90)).toBe(true);
+
+    const series = parseNotationCell(`10x400m r1'`);
+    expect(series).toHaveLength(1);
+    expect(series[0]!.confidence).toBe('detected');
+    expect(series[0]!.prescription.rest_s).toBe(60);
+    expect(series[0]!.prescription.sets).toHaveLength(10);
+  });
+
+  test('un número desnudo tras la señal son SEGUNDOS, con y sin espacio', () => {
+    for (const cell of ['Sentadilla 4x8 r90', 'Sentadilla 4x8 rec 90', 'Sentadilla 4x8 r 90']) {
+      const l = parseNotationCell(cell)[0];
+      expect(l!.confidence, cell).toBe('detected');
+      expect(l!.prescription.sets!.every((s) => s.rest_s === 90), cell).toBe(true);
+    }
+  });
+
+  test('«5r» sigue siendo RONDAS y no fabrica un descanso', () => {
+    const l = parseNotationCell('Back Squat 5r 10-10-8-8-6')[0];
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets).toHaveLength(5);
+    expect(l!.prescription.rest_s).toBeUndefined();
+    expect(l!.prescription.sets!.some((s) => s.rest_s !== undefined)).toBe(false);
+  });
+
+  test('«cada» introduce un ciclo, no un descanso: un número desnudo NO se lee ahí', () => {
+    const l = parseNotationCell('Sentadilla 4x8 cada 90')[0];
+    expect(l?.prescription.rest_s).toBeUndefined();
+  });
+
+  test('una palabra que empieza por r no se come la señal', () => {
+    const l = parseNotationCell('3 rounds 12 wall balls')[0];
+    expect(l?.prescription.rest_s).toBeUndefined();
+  });
+});
