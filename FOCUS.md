@@ -26,10 +26,15 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   **Corrección de Alex:** la vista global (pestaña de raíl) queda descartada —
   el seguimiento vive en la FICHA del atleta, lo urgente entra como señal en
   /hoy, y la biblioteca de plantillas dentro de Biblioteca (ver DECISIONS).
-- 🟡 **T1 en curso (agente):** mig 0160 (comunicados+items+recipients+marks) +
-  shared + endpoints coach/atleta + push `coach_communication` + tests Neon.
-- ⏳ **T2:** ficha del atleta con «Del coach» + compositor + señales /hoy +
-  biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
+- ✅ **T1 cimiento:** mig 0160 APLICADA (comunicados+items+recipients+marks) +
+  `shared/domain/coach-communications.ts` + endpoints coach (CRUD, publish
+  todo-o-nada, `?athlete_id` para la ficha) y atleta (bandeja, seen/done/
+  answer/marks) + push `coach_communication` + 30 tests verdes en rama Neon.
+  De propina: cazado y arreglado el footgun `JSON.stringify(...)::jsonb` en
+  TODOS los inserts de `notifications.payload_json` (8 sitios; ver DECISIONS
+  «payload como OBJETO»; queda tarea de auditoría para las demás columnas).
+- ⏳ **T2 (siguiente):** ficha del atleta con «Del coach» + compositor + señales
+  /hoy + biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 

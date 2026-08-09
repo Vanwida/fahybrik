@@ -31,6 +31,7 @@ describe('webUrlForNotification', () => {
       'milestone',
       'system',
       'plan_published',
+      'coach_communication',
       'week_adjustment_pending',
       'monthly_block_pending',
       'intake_pending',

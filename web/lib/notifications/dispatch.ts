@@ -13,6 +13,7 @@
 // el móvil del coach sin trabajo por-trigger. Quién tiene qué dispositivo lo
 // deciden las tablas (apns_push_tokens / web_push_subscriptions), no el caller.
 
+import type postgres from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sendPush } from '@/lib/push/apns';
 import { sendWebPush } from '@/lib/push/webpush';
@@ -27,6 +28,9 @@ export type NotificationType =
   | 'system'
   // Athlete-facing: weekly plan published by the publish-weekly-plans cron.
   | 'plan_published'
+  // Athlete-facing: el coach publica un comunicado (protocolo, pregunta, tarea,
+  // nota o foco) — docs/DECISIONS.md 2026-08-09.
+  | 'coach_communication'
   // Coach inbox triggers (phase 1c):
   | 'week_adjustment_pending'
   | 'monthly_block_pending'
@@ -60,6 +64,11 @@ export function webUrlForNotification(
       ? `/mensajes?hilo=${thread}`
       : '/mensajes';
   }
+  // El comunicado NO tiene pestaña propia en el dashboard a propósito
+  // (docs/DECISIONS.md 2026-08-09, corrección de Alex: el seguimiento vive en la
+  // ficha del atleta y lo que reclama atención entra en /hoy como señal), así
+  // que su aviso cae también en el triaje.
+  //
   // Los pendientes del coach (ajuste semanal, bloque mensual, intake) viven en
   // el triaje de /hoy; cualquier tipo futuro sin pantalla propia también.
   return '/hoy';
@@ -67,9 +76,16 @@ export function webUrlForNotification(
 
 export async function dispatchNotification(input: DispatchInput): Promise<{ id: string }> {
   const { sql, user_id, type, payload, push } = input;
+  // `sql.json(...)` y NO `JSON.stringify(...)::jsonb`: con la segunda forma
+  // postgres.js tipa el parámetro como jsonb por el cast y vuelve a serializar
+  // la cadena, así que la columna acaba guardando un jsonb de tipo *string*
+  // ("{\"kind\":…}") en vez del objeto. Con eso `payload_json->>'kind'` devuelve
+  // NULL siempre, que es lo que deja sin efecto los anti-spam de
+  // lib/notifications/triggers.ts y lib/citas/reviews.ts y lo que hace que la
+  // bandeja del dashboard lea un payload vacío.
   const rows = await sql<{ id: string }[]>`
     insert into notifications (user_id, type, payload_json)
-    values (${user_id as unknown as number}, ${type}::notification_type, ${JSON.stringify(payload)}::jsonb)
+    values (${user_id as unknown as number}, ${type}::notification_type, ${sql.json(payload as postgres.JSONValue)})
     returning id::text
   `;
   const id = rows[0]!.id;

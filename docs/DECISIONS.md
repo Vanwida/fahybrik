@@ -50,14 +50,80 @@ como señal** de `coach_attention_items`, con umbrales como dato del coach.
 **No hacer:** no añadir una sección de raíl que obligue a buscar un nombre
 entre cincuenta; la vista global del mockup original queda descartada.
 
-**Estado:** dirección validada por Alex sobre el doble (9-ago); sin migración
-aún. El compositor del coach (crear desde contexto, IA redacta el borrador
-estructurado, biblioteca de plantillas, seguimiento visto/hecho por atleta)
-está definido a nivel de modelo y **sin diseñar en pantalla**.
+**Estado:** dirección validada por Alex sobre el doble (9-ago). **Cimiento
+construido el mismo día** — migración `0160_coach_communications` aplicada
+(cuatro tablas: comunicado · items · destinatarios · marcas de paso), vocabulario
+y validadores en `shared/domain/coach-communications.ts`, servicios en
+`web/lib/coach|athlete/communications.ts` y los endpoints de coach y atleta. La
+página del dashboard (ficha del atleta + compositor de formulario puro, SIN
+IA-redacta por decisión de Alex) y la app iOS siguen **por construir**.
+
+**Decisiones que tomó el cimiento (mecanismo, no método):**
+- **Una sola tabla hija** para pasos de protocolo, opciones de pregunta y
+  secciones de nota: las tres son una lista ORDENADA de contenido del coach, y
+  partirlas en tres sería el mismo modelo escrito tres veces.
+- **`done_at` de un protocolo se DERIVA de sus pasos marcados** (hecho cuando no
+  queda ninguno sin marcar; desmarcar uno lo reabre) y el «hecho» explícito marca
+  todos los pasos. Un hecho declarado por un lado y unos pasos a medias por otro
+  serían dos verdades del mismo hecho.
+- **Una pregunta se cierra respondiendo**, nunca con «hecho»; una nota y un foco
+  no se cierran (leerlos ERA el acto). Pedir «hecho» sobre ellos es un 409.
+- **`blocks` es columna** (solo en preguntas): la pregunta que bloquea el plan ya
+  la dibuja el doble y no puede vivir fuera del modelo.
+- **Un comunicado del que no eres destinatario responde 404, no 403:** un 403
+  confirmaría que ese id es de alguien.
+- **Editar solo borradores y plantillas**, y siempre el comunicado entero:
+  cambiarle el suelo a quien ya marcó tres pasos es corromper su historial.
+  Borrar un borrador lo borra; borrar lo publicado lo ARCHIVA.
+- **Publicar valida el roster entero o falla entero:** publicar «a casi todos» en
+  silencio es peor que fallar.
+- **La lectura de la FICHA es `GET /api/coach/communications?athlete_id=NN`** —
+  lo comunicado a ESE atleta con su estado y los pasos que lleva marcados,
+  archivados incluidos (la ficha es historial, no bandeja). Un atleta que no es
+  del coach responde 404: una lista vacía diría «no le has comunicado nada».
 
 **Dónde vive:** la tanda «Del coach» del doble — `web/components/design-twin/coach-com/`
 + `screens/coach-bandeja|coach-pregunta|coach-protocolo|coach-nota` — con el
 caso real del plan rehecho a Singles Pro como escenario.
+
+---
+
+## 2026-08-09 · El payload de un aviso se guarda como OBJETO, no como cadena
+
+**Decidido:** todo `notifications.payload_json` se escribe con `sql.json(objeto)`.
+Nunca con `${JSON.stringify(objeto)}::jsonb`.
+
+**Por qué:** con la segunda forma postgres.js tipa el parámetro como jsonb por el
+cast y vuelve a serializar la cadena, así que la columna acaba guardando un jsonb
+de **tipo string** (`"{\"kind\":…}"`). Consecuencia: `payload_json->>'clave'`
+devuelve **NULL siempre**. Se descubrió construyendo el comunicado (el aviso se
+escribía bien pero no se podía consultar por su `communication_id`) y dejaba
+muertos dos anti-spam reales: `lib/citas/reviews.ts` reproponía la misma revisión
+1:1 indefinidamente (su propio test estaba en rojo) y el de
+`lib/notifications/triggers.ts` no deduplicaba el aviso de check-in saltado.
+Además la bandeja del dashboard (`lib/dashboard/notifications/inbox.ts`) tipa
+`payload_json` como objeto y recibía una cadena. Es la misma trampa ya anotada
+para los adjuntos del chat.
+
+**Hecho:** corregidos el embudo (`lib/notifications/dispatch.ts`, por donde pasa
+todo aviso con push) y `lib/citas/reviews.ts`. Test de regresión en
+`web/tests/notifications/payload-shape.db.test.ts`.
+
+**Hecho también (mismo día):** los siete sitios restantes con la misma trampa
+sobre `notifications.payload_json` — `lib/coach/intake.ts`,
+`lib/coach/mass-adjustments.ts`, `lib/partner/cascade.ts`,
+`lib/dashboard/coach/doubles-pairs.ts`,
+`lib/dashboard/coach/monthly-block-proposal.ts`,
+`lib/athlete/account-deletion.ts`, `lib/stripe/notifications.ts`. Las filas
+ANTIGUAS siguen guardadas como cadena: ningún lector las recuperaba ya, así que
+no hay backfill que hacer.
+
+**Pendiente (auditoría aparte, lectores propios):** las DEMÁS columnas jsonb
+escritas con `JSON.stringify(...)::jsonb` fuera de `notifications` —
+`intake_notes_json` (lib/coach/intake.ts), `audit_log.diff_json` y las columnas
+propias de `coach_mass_adjustments` (scope/payload/targets/prior). Ahí el
+lector puede estar contando con la forma doblada: hay que verificar lectura y
+escritura JUNTAS antes de tocar, o se repite el bug de los adjuntos al revés.
 
 ---
 
