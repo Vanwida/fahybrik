@@ -539,6 +539,23 @@ struct TreadmillHUDView: View {
     /// EL SUJETO de la tarjeta. Con ritmo medido, el ritmo y su veredicto; sin él, la
     /// siguiente verdad disponible y el PORQUÉ de que no haya ritmo.
     ///
+    /// El objetivo, y al lado la velocidad que hay que MARCAR en la consola.
+    ///
+    /// El coach prescribe en ritmo, que es su idioma; la cinta se marca en km/h, que
+    /// es el de la máquina. Mientras la cinta no acepte que la app le fije la
+    /// velocidad —hoy no lo hace ninguna de las que hemos encontrado— la cuenta la
+    /// hace el atleta a mano y sudando, y equivocarla es correr otra sesión. Se la
+    /// damos hecha, redondeada al escalón que su consola admite de verdad.
+    ///
+    /// Sólo cuando le toca marcarla a él: si la app pudiera fijar la velocidad,
+    /// darle un número que teclear sería ruido.
+    private func objetivoConMarca(_ objetivo: String) -> String {
+        guard !model.canControlSpeed,
+              let marca = model.runTarget.velocidadDeCinta(step: model.escalonDeVelocidad)
+        else { return "Objetivo \(objetivo)" }
+        return "Objetivo \(objetivo) · pon \(marca)"
+    }
+
     /// Rótulo y cifra viajan JUNTOS a propósito: poner «Ritmo» encima de un cronómetro
     /// es mentir igual (§7), y es el error más difícil de ver porque cada mitad, por su
     /// cuenta, es correcta. Y sin medida no hay veredicto: el borde de color y el «vas
@@ -566,7 +583,13 @@ struct TreadmillHUDView: View {
                 }
                 if ritmo != nil, let objetivo = model.runTarget.objetivoLabel {
                     HStack(spacing: 8) {
-                        Text("Objetivo \(objetivo)")
+                        // El objetivo va en RITMO, que es el idioma del coach; la consola
+                        // se marca en km/h, que es el idioma de la máquina. Mientras la
+                        // cinta no acepte que la app le fije la velocidad —hoy, ninguna—
+                        // el atleta hace la cuenta a mano y sudando. Se la damos hecha, y
+                        // sólo cuando le toca marcarla a él: si la app pudiera fijarla,
+                        // decirle un número sería ruido.
+                        Text(objetivoConMarca(objetivo))
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
                             .foregroundStyle(Theme.Color.foreground)
                         if let cue = status.cue {

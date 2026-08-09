@@ -21,11 +21,66 @@ extension TreadmillMath {
         return Int((3600.0 / kmh).rounded())
     }
 
+    /// Running pace (seconds per km) → belt speed in km/h, redondeado al ESCALÓN
+    /// que la cinta acepta de verdad.
+    ///
+    /// La inversa de `paceSecPerKm(fromSpeedKmh:)`, y hace falta por un motivo muy
+    /// concreto: en las cintas que hemos encontrado la app NO puede fijar la
+    /// velocidad por BLE (la máquina no declara el control, o lo rechaza). O sea
+    /// que el atleta la marca a mano. Si el coach prescribe 4:30/km, alguien tiene
+    /// que hacer 60÷4,5 — y hacerlo sudando, a mitad del calentamiento, es cómo se
+    /// acaba corriendo otra sesión.
+    ///
+    /// `step` sale del Supported Speed Range que la propia cinta publica (FTMS);
+    /// 0,1 km/h es el incremento universal cuando la máquina no lo dice. Se
+    /// redondea AL ESCALÓN porque un «13,33» no se puede marcar en ninguna consola:
+    /// un número que el atleta no puede introducir no es una ayuda, es ruido.
+    static func speedKmh(fromPaceSecPerKm pace: Int, step: Double = 0.1) -> Double? {
+        guard pace > 0 else { return nil }
+        let bruto = 3600.0 / Double(pace)
+        guard bruto >= TreadmillConstants.minMovingSpeedKmh else { return nil }
+        let escalon = step > 0 ? step : 0.1
+        return (bruto / escalon).rounded() * escalon
+    }
+
     /// Integrate one telemetry step into covered distance (speed × dt). Used for
     /// treadmills that don't report cumulative distance in their FTMS packets.
     static func advanceDistance(_ meters: Double, speedKmh: Double, dt: TimeInterval) -> Double {
         guard dt > 0, speedKmh > 0 else { return meters }
         return meters + (speedKmh / 3.6) * dt
+    }
+}
+
+// MARK: - «Pon X en la cinta» — el objetivo de ritmo traducido a la consola
+
+extension RunTarget {
+    /// Qué velocidad marcar en la cinta para cumplir ESTE objetivo, ya escrita.
+    /// Nil cuando el objetivo no es de ritmo (una zona de pulso no se marca en la
+    /// consola: la cinta no sabe tu pulso) o cuando no hay ritmo que convertir.
+    ///
+    /// Una BANDA de ritmo se invierte al pasar a velocidad —el ritmo rápido es la
+    /// velocidad ALTA— así que los extremos se cruzan. Pintarla sin cruzarlos
+    /// mandaría al atleta al extremo contrario del que le pidió el coach.
+    func velocidadDeCinta(step: Double = 0.1) -> String? {
+        guard case let .pace(t) = self else { return nil }
+
+        func kmh(_ secPerKm: Int?) -> Double? {
+            guard let secPerKm else { return nil }
+            return TreadmillMath.speedKmh(fromPaceSecPerKm: secPerKm, step: step)
+        }
+        // fastS (ritmo más rápido) → velocidad MÁS ALTA, y al revés.
+        let alta = kmh(t.fastS)
+        let baja = kmh(t.slowS)
+
+        if let alta, let baja {
+            // Una banda que redondea al mismo escalón no es una banda: se dice una vez.
+            if alta == baja { return Formato.esDecimal(alta, siempreDecimales: true) }
+            return "\(Formato.esDecimal(baja, siempreDecimales: true))–\(Formato.esDecimal(alta, siempreDecimales: true))"
+        }
+        if let alta { return "≥ \(Formato.esDecimal(alta, siempreDecimales: true))" }
+        if let baja { return "≤ \(Formato.esDecimal(baja, siempreDecimales: true))" }
+        guard let punto = kmh(t.single) else { return nil }
+        return Formato.esDecimal(punto, siempreDecimales: true)
     }
 }
 

@@ -327,6 +327,11 @@ final class TreadmillHUDModel {
     /// machines at all). False today on every belt we've met, so the athlete sets the speed
     /// on the console and we read what he ran.
     var canControlSpeed: Bool { controlCapability.offersSpeedControl }
+    /// El escalón de velocidad que la consola admite de verdad, leído del Supported
+    /// Speed Range que la propia cinta publica (FTMS). 0,1 km/h cuando la máquina no
+    /// lo dice: es el incremento universal, y redondear a algo que la consola no
+    /// acepta convierte la ayuda en ruido («pon 13,33» no se puede marcar).
+    var escalonDeVelocidad: Double { controlCapability.speed?.step ?? 0.1 }
     /// The same judgment for INCLINE, judged separately: a belt that takes an incline and
     /// refuses a speed gets exactly one control, not zero and not two.
     var canControlIncline: Bool { controlCapability.offersInclineControl }
