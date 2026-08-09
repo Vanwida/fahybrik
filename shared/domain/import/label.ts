@@ -7,7 +7,8 @@
 // verbatim, never invented (resolution to the catalog is a later concern).
 
 import type { Modality } from '../prescription/types';
-import { foldText, paceUnitFrom, stripTargetTokens } from './dose';
+import { foldText, stripTargetTokens } from './dose';
+import { paceUnitFrom } from './target';
 
 // ── Modality ─────────────────────────────────────────────────────────────────
 // Order matters: erg/run keywords first so "cinta … walking rest" reads run,

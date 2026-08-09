@@ -7,7 +7,6 @@
 import { type Prescription, type Target } from '../prescription/types';
 import {
   countIntervalGroups,
-  paceUnitFrom,
   parseDistanceInterval,
   parseDistanceMeters,
   parseDuration,
@@ -15,9 +14,6 @@ import {
   parseInterval,
   parseKg,
   parseLoadPctList,
-  parsePaceCap,
-  parsePaceClockTarget,
-  parsePaceKmh,
   parseParenInterval,
   parseRepSeq,
   parseRest,
@@ -26,6 +22,7 @@ import {
   stripLoadPct,
   stripTargetTokens,
 } from './dose';
+import { paceUnitFrom, parsePaceCap, parsePaceClockTarget, parsePaceKmh } from './target';
 import {
   cardioModalities,
   type DoseFirstLabel,
