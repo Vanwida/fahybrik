@@ -658,15 +658,22 @@ describe('class 11 — clock vocabulary: words and colons, not just the prime', 
     );
   });
 
-  test('a word/colon clock still attached to an unconsumed "Nx" reviews rather than fabricating', () => {
-    // "6x90 seg" is a 6-round × 90-second interval; the grammar has no
-    // word-interval reader yet, so reading just "90 seg" as a bare duration
-    // would silently drop the "6x" repeat count. Honesty: review, not a
-    // fabricated single 90s bout (and NOT "6 sets of 90 reps" either).
+  test('a word-clock "Nx" interval types once measure.ts learns the vocabulary — the repeat count survives', () => {
+    // SUPERSEDED (matriz de objetivos/medidas, prioridad 2 — tiempo como
+    // medida): "6x90 seg" IS a real 6-round × 90-second interval, and
+    // "strides" is a recognized run keyword; parseIntervalWordClock
+    // (./measure.ts) now reads it as a proper interval bout. The ORIGINAL
+    // guarantee this test protected still holds — the "6x" repeat count is
+    // never silently dropped by reading just "90 seg" as a bare duration:
+    // rounds=6 survives, not a fabricated single 90s bout and not "6 sets of
+    // 90 reps" either.
     const [l] = parseNotationCell('6x90 seg strides');
-    expect(l!.confidence).toBe('review');
-    expect(l!.prescription.sets).toBeUndefined();
-    expect(l!.prescription.total_s).toBeUndefined();
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.rounds).toBe(6);
+    expect(l!.prescription.work_s).toBe(90);
+    expect(l!.prescription.modality).toBe('run');
+    expect(l!.exercise_token).toBe('strides');
   });
 });
 
@@ -1146,15 +1153,20 @@ describe('class 15 — sled/sandbag/carry sets keep BOTH the measure and the loa
     }
   });
 
-  test('a bare "Nx<seconds>" cardio interval with NO load stays review — this family never over-reaches', () => {
-    // The exact old regression this class's fix caused and then closed: a
-    // word-second interval the grammar cannot type yet must stay honest, not
-    // be rescued into a fabricated "functional" set just because a sibling
-    // reader learned "Nx<duration word>".
+  test('a bare "Nx<seconds>" cardio interval with NO load types via the plain interval reader, never this LOADED family', () => {
+    // SUPERSEDED (matriz de objetivos/medidas, prioridad 2): "6x90 seg
+    // strides" now types — bout.ts's plain cardio interval (measure.ts's
+    // parseIntervalWordClock), gated on "strides" being a real run keyword.
+    // What THIS family (parseSetsByLoadedMeasure) must still never do is
+    // over-reach into it: no load here (no "@"/kg), so the loaded-measure
+    // reader still refuses — the guarantee that matters is `scheme:'sets'`
+    // never appears with a fabricated `functional`/kg target for a line that
+    // carries no load evidence at all.
     const [l] = parseNotationCell(`6x90 seg strides`);
-    expect(l!.confidence).toBe('review');
-    expect(l!.prescription.sets).toBeUndefined();
-    expect(l!.prescription.total_s).toBeUndefined();
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.modality).toBe('run');
+    expect(l!.prescription.target).toBeUndefined();
   });
 
   test('"Sled Push 5x25 m @160 kg, rec 90 s" → load AND rest both survive together', () => {
@@ -1338,5 +1350,436 @@ describe('class 18 — un objetivo escrito por referencia nunca sale verde sin o
     expect(lines).toHaveLength(1);
     expect(lines[0]!.confidence).toBe('detected');
     expect(lines[0]!.exercise_token).toContain('Bulgarian split squat');
+  });
+});
+
+// ── class 19 — ritmo: /km, /500m, /mile, exacto y rango ──────────────────────
+// Antes de esta clase, NINGUNA de estas líneas tipaba: `isDenseWod` contaba
+// el "/500m" de la propia pace como una segunda "estación" de distancia, la
+// forma reloj de un rango ("4:30-4:45/km") no existía, y su primera mitad se
+// releía como una duración suelta (270s de "recorrido" para un simple
+// objetivo de ritmo). ./target.ts cierra ambos ejes: `parsePaceClockTarget`
+// gana rango en prime Y reloj, y dose.ts's PACE_GUARD aprende a no leer el
+// primer número de un rango como si fuera un `total_s`.
+
+describe('class 19 — ritmo: /km, /500m, /mile, exacto y rango', () => {
+  test('ritmo/km exacto: "10 km a 4:30/km" → distancia + pace, sin total_s fabricado', () => {
+    const [l, ...rest] = parseNotationCell(`10 km a 4:30/km`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets).toEqual([{ measure: { kind: 'distance', meters: 10000 } }]);
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_km', value_s: 270 });
+    expect(l!.prescription.total_s).toBeUndefined();
+  });
+
+  test('ritmo/km RANGO: "10 km a 4:30-4:45/km" → min_s/max_s, y el primer número no se lee como duración', () => {
+    const [l] = parseNotationCell(`10 km a 4:30-4:45/km`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_km', min_s: 270, max_s: 285 });
+    // El bug que esta clase cierra: "4:30" (el primer número del rango)
+    // NUNCA debe leerse como un total_s de 270s independiente del ritmo.
+    expect(l!.prescription.total_s).toBeUndefined();
+  });
+
+  test('ritmo/500m exacto: "Remo 2000 m a 1:55/500m" → ya no cae en el falso positivo de WOD denso', () => {
+    // Antes: el "/500m" contaba como una SEGUNDA estación de distancia para
+    // isDenseWod, y la línea entera se iba a revisión pese a llevar dosis real.
+    const [l, ...rest] = parseNotationCell(`Remo 2000 m a 1:55/500m`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.modality).toBe('row');
+    expect(l!.prescription.sets).toEqual([{ measure: { kind: 'distance', meters: 2000 } }]);
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_500m', value_s: 115 });
+  });
+
+  test('ritmo/500m RANGO dentro de un intervalo: "Remo 3x500 m a 1:50-1:55/500m"', () => {
+    const [l] = parseNotationCell(`Remo 3x500 m a 1:50-1:55/500m`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.rounds).toBe(3);
+    expect(l!.prescription.sets!.map((s) => s.measure)).toEqual(
+      Array.from({ length: 3 }, () => ({ kind: 'distance', meters: 500 })),
+    );
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_500m', min_s: 110, max_s: 115 });
+  });
+
+  test('ritmo/mile exacto + rango: la distancia en millas también convierte a metros', () => {
+    const [exacto] = parseNotationCell(`Run 5 millas a 7:30/mile`);
+    expect(exacto!.confidence).toBe('detected');
+    expect(exacto!.prescription.modality).toBe('run');
+    expect(exacto!.prescription.sets).toEqual([{ measure: { kind: 'distance', meters: 8047 } }]);
+    expect(exacto!.prescription.target).toEqual({ kind: 'pace', unit: 'per_mile', value_s: 450 });
+
+    const [rango] = parseNotationCell(`Run 5 millas a 7:30-7:45/mile`);
+    expect(rango!.confidence).toBe('detected');
+    expect(rango!.prescription.target).toEqual({
+      kind: 'pace',
+      unit: 'per_mile',
+      min_s: 450,
+      max_s: 465,
+    });
+  });
+
+  test('ritmo de MINUTO ENTERO ("6\'/km", sin segundos) tipa como objetivo PRIMARIO, no solo como cap', () => {
+    // Antes, la forma sin segundos solo la leía parsePaceCap (el cap
+    // secundario) — como objetivo primario, "6'/km" no producía nada.
+    const [l] = parseNotationCell(`Run a 6'/km`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.modality).toBe('run');
+    expect(l!.prescription.target).toEqual({ kind: 'pace', unit: 'per_km', value_s: 360 });
+  });
+
+  test('unidad FUERA del modelo ("/1000m") nunca se inventa ni se convierte — a revisión, texto intacto', () => {
+    // El enum de PaceUnit es per_km | per_500m | per_mile. Un remero que
+    // pacea por 1000m es real, pero el modelo no lo tiene: la línea debe
+    // quedarse honesta, no inventarse un cuarto PaceUnit ni releer el reloj
+    // como si fuera una duración suelta (bug relacionado que esta misma
+    // clase cierra en dose.ts's PACE_GUARD).
+    const [l] = parseNotationCell(`Remo 5000 m a 3:50/1000m`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.note).toBe('Remo 5000 m a 3:50/1000m');
+    expect(l!.prescription.target).toBeUndefined();
+    expect(l!.prescription.total_s).toBeUndefined();
+  });
+
+  test('invariantes: cada línea de esta clase valida contra prescriptionSchema', () => {
+    const cells = [
+      `10 km a 4:30/km`,
+      `10 km a 4:30-4:45/km`,
+      `Remo 2000 m a 1:55/500m`,
+      `Remo 3x500 m a 1:50-1:55/500m`,
+      `Run 5 millas a 7:30/mile`,
+      `Run 5 millas a 7:30-7:45/mile`,
+      `Run a 6'/km`,
+    ];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
+  });
+});
+
+// ── class 20 — tiempo y calorías como MEDIDA, nunca como reps ────────────────
+// "Plancha 3x45 s" y "Assault bike 5x15 cal" antes caían en review por falta
+// de lector; su forma RANGO ("3x40-45 s", "5x12-15 cal") era peor: dose.ts's
+// parseRepSeq, sin conciencia de unidad, leía "40" y "45" (o "12"/"15") como
+// dos reps sueltas — una plancha "de 40 y 45 repeticiones". measure.ts cierra
+// el eje entero: un "Nx<reloj>" con modalidad de bout es un INTERVALO
+// (bout.ts); sin modalidad y sin carga es una SERIE cronometrada
+// (parseBareTimedOrCalorieSets) — nunca reps.
+
+describe('class 20 — tiempo y calorías como MEDIDA, nunca como reps', () => {
+  test('tiempo exacto, sin modalidad → scheme sets, duración por serie, NUNCA reps', () => {
+    const [l, ...rest] = parseNotationCell(`Plancha 3x45 s`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Plancha');
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 3 }, () => ({ measure: { kind: 'duration', seconds: 45 } })),
+    );
+  });
+
+  test('tiempo RANGO, sin modalidad → banda por serie (measure.max), no "40 REPS" fabricados', () => {
+    const [l] = parseNotationCell(`Plancha 3x40-45 s`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 3 }, () => ({ measure: { kind: 'duration', seconds: 40, max: 45 } })),
+    );
+  });
+
+  test('tiempo exacto CON modalidad de bout → intervalo, no serie: "Remo 3x4 min"', () => {
+    const [l] = parseNotationCell(`Remo 3x4 min`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.modality).toBe('row');
+    expect(l!.prescription.rounds).toBe(3);
+    expect(l!.prescription.work_s).toBe(240);
+  });
+
+  test('tiempo RANGO con modalidad de bout → banda por ronda vía measure.max', () => {
+    const [l] = parseNotationCell(`Remo 3x4-5 min`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.rounds).toBe(3);
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 3 }, () => ({ measure: { kind: 'duration', seconds: 240, max: 300 } })),
+    );
+  });
+
+  test('calorías-MEDIDA exacto: "Assault bike 5x15 cal" → intervalo de calorías, sin objetivo fabricado', () => {
+    const [l, ...rest] = parseNotationCell(`Assault bike 5x15 cal`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.modality).toBe('bike');
+    expect(l!.prescription.rounds).toBe(5);
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 5 }, () => ({ measure: { kind: 'calories', value: 15 } })),
+    );
+    // Sin objetivo de calorías: nada en el texto lo prometía aparte de la
+    // propia medida — el guardia de residuo no debe fabricar uno.
+    expect(l!.prescription.target).toBeUndefined();
+  });
+
+  test('calorías-MEDIDA RANGO: "Assault bike 5x12-15 cal" → banda por ronda, sin fuga a objetivo', () => {
+    const [l] = parseNotationCell(`Assault bike 5x12-15 cal`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 5 }, () => ({ measure: { kind: 'calories', value: 12, max: 15 } })),
+    );
+    // El bug que esta clase cierra: el "15" (techo de la medida) NO debe
+    // releerse también como una meta de calorías de bloque ("15 cal" suelto).
+    expect(l!.prescription.target).toBeUndefined();
+  });
+
+  test('invariantes: cada línea de esta clase valida contra prescriptionSchema', () => {
+    const cells = [
+      `Plancha 3x45 s`,
+      `Plancha 3x40-45 s`,
+      `Remo 3x4 min`,
+      `Remo 3x4-5 min`,
+      `Assault bike 5x15 cal`,
+      `Assault bike 5x12-15 cal`,
+    ];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
+  });
+});
+
+// ── class 21 — pulso: ppm/bpm, y %FCmax que se queda honesto ─────────────────
+// El pulso absoluto ("140 ppm") es un objetivo distinto de la zona ("Z2") y
+// del %FCmax ("72% FCmax") — el primero es un número que el coach escribió y
+// se lee tal cual; el segundo exige la FC máxima MEDIDA del atleta, que esta
+// gramática pura nunca tiene, así que NUNCA se deriva con una fórmula — se
+// reconoce y se manda a revisión con el texto intacto (decisión confirmada:
+// no es un hueco, es la frontera correcta del modelo).
+
+describe('class 21 — pulso: ppm/bpm exacto y rango, %FCmax honesto', () => {
+  test('pulso ppm exacto: "45 min a 140 ppm" → hr_bpm, token limpio (sin "ppm" colado)', () => {
+    const [l, ...rest] = parseNotationCell(`45 min a 140 ppm`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.total_s).toBe(2700);
+    expect(l!.prescription.target).toEqual({ kind: 'hr_bpm', value: 140 });
+    expect(l!.exercise_token).not.toContain('ppm');
+  });
+
+  test('pulso ppm RANGO: "45 min a 130-150 ppm" → min/max, nunca "130 REPS"', () => {
+    const [l] = parseNotationCell(`45 min a 130-150 ppm`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({ kind: 'hr_bpm', min: 130, max: 150 });
+    expect(l!.prescription.scheme).not.toBe('sets');
+  });
+
+  test('pulso en bpm (inglés) también tipa: "20 min a 140 bpm"', () => {
+    const [l] = parseNotationCell(`20 min a 140 bpm`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({ kind: 'hr_bpm', value: 140 });
+  });
+
+  test('%FCmax exacto y rango → revisión, texto intacto, NUNCA hr_bpm formula-derivado', () => {
+    const [exacto] = parseNotationCell(`45 min al 72% FCmax`);
+    expect(exacto!.confidence).toBe('review');
+    expect(exacto!.prescription.note).toBe('45 min al 72% FCmax');
+    expect(exacto!.prescription.target).toBeUndefined();
+
+    const [rango] = parseNotationCell(`45 min al 70-75% FCmax`);
+    expect(rango!.confidence).toBe('review');
+    expect(rango!.prescription.target).toBeUndefined();
+  });
+
+  test('%FCmax CON modalidad de bout (señal fuerte) también revisa — el guardia de residuo lo atrapa', () => {
+    // Sin este guardia, "Bici" ya basta para que parseBout tipe un steady con
+    // total_s y SIN objetivo — verde con el 72% perdido en silencio.
+    const [l] = parseNotationCell(`Bici 45 min al 72% FCmax`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.review_reasons[0]).toMatch(/FC máxima/);
+  });
+
+  test('invariantes: cada línea de esta clase valida contra prescriptionSchema', () => {
+    const cells = [`45 min a 140 ppm`, `45 min a 130-150 ppm`, `20 min a 140 bpm`];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
+  });
+});
+
+// ── class 22 — bandas que se aplanaban: distancia y kg ───────────────────────
+// "6x800-1000 m Z5" tipaba verde con SOLO 800 — el techo (1000) desaparecía
+// sin dejar rastro. "Peso muerto 4x6 @150-170 kg" era mucho peor: el "4x6"
+// (4 series de 6 reps) se perdía ENTERO y la línea salía como 2 series de
+// [150, 170] reps — una prescripción absurda que parseRepSeq fabricaba
+// leyendo el rango de carga como si fueran repeticiones sueltas.
+
+describe('class 22 — bandas que se aplanaban: distancia y kg', () => {
+  test('distancia en banda: "6x800-1000 m Z5" → measure.max=1000, el techo ya no se pierde', () => {
+    const [l, ...rest] = parseNotationCell(`6x800-1000 m Z5`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.scheme).toBe('intervals');
+    expect(l!.prescription.rounds).toBe(6);
+    expect(l!.prescription.sets).toEqual(
+      Array.from({ length: 6 }, () => ({ measure: { kind: 'distance', meters: 800, max: 1000 } })),
+    );
+    expect(l!.prescription.target).toEqual({ kind: 'hr_zone', value: 5 });
+  });
+
+  test('REGRESIÓN con nombre propio — "Peso muerto 4x6 @150-170 kg": el bug más destructivo del lote', () => {
+    // Antes: parseRepSeq cazaba "150-170" (de dentro de "@150-170 kg") como
+    // una secuencia de reps, el "4x6" desaparecía por completo, y la línea
+    // salía verde como 2 series de 150 y 170 REPS de peso muerto — una
+    // prescripción físicamente absurda, no solo "el techo perdido".
+    const [l, ...rest] = parseNotationCell(`Peso muerto 4x6 @150-170 kg`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Peso muerto');
+    expect(l!.prescription.scheme).toBe('sets');
+    expect(l!.prescription.sets).toHaveLength(4);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps', value: 6 });
+      expect(s.target).toEqual({ kind: 'kg', min: 150, max: 170 });
+    }
+  });
+
+  test('la banda de kg SIN "@" también tipa: "Sentadilla 5x5 150-170 kg"', () => {
+    const [l] = parseNotationCell(`Sentadilla 5x5 150-170 kg`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.sets).toHaveLength(5);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps', value: 5 });
+      expect(s.target).toEqual({ kind: 'kg', min: 150, max: 170 });
+    }
+  });
+
+  test('invariantes: cada línea de esta clase valida contra prescriptionSchema', () => {
+    const cells = [`6x800-1000 m Z5`, `Peso muerto 4x6 @150-170 kg`, `Sentadilla 5x5 150-170 kg`];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
+  });
+});
+
+// ── class 23 — objetivos que se perdían en verde ─────────────────────────────
+// Vatios, calorías-objetivo, peso corporal y tope de tiempo tipaban verde
+// (bout.ts ya sabía leer la modalidad/duración/distancia) pero el OBJETIVO
+// mismo se descartaba en silencio — el texto lo prometía y la prescripción
+// tipada no llevaba ninguno. El guardia de residuo (hasUnconsumedNewAxisTarget)
+// es la red que impide que esto vuelva a pasar con un eje futuro.
+
+describe('class 23 — objetivos que se perdían en verde: vatios, calorías, peso corporal, tope de tiempo', () => {
+  test('vatios exacto y rango: "Bici 20 min a 250 W" / "…220-250 W"', () => {
+    const [exacto] = parseNotationCell(`Bici 20 min a 250 W`);
+    expect(exacto!.confidence).toBe('detected');
+    expect(exacto!.prescription.modality).toBe('bike');
+    expect(exacto!.prescription.total_s).toBe(1200);
+    expect(exacto!.prescription.target).toEqual({ kind: 'watts', value: 250 });
+
+    const [rango] = parseNotationCell(`Bici 20 min a 220-250 W`);
+    expect(rango!.confidence).toBe('detected');
+    expect(rango!.prescription.target).toEqual({ kind: 'watts', min: 220, max: 250 });
+  });
+
+  test('calorías-OBJETIVO exacto y rango: "Remo 10 min 150 cal" — nunca se confunde con la medida', () => {
+    const [exacto] = parseNotationCell(`Remo 10 min 150 cal`);
+    expect(exacto!.confidence).toBe('detected');
+    expect(exacto!.prescription.modality).toBe('row');
+    expect(exacto!.prescription.total_s).toBe(600);
+    expect(exacto!.prescription.target).toEqual({ kind: 'calories', value: 150 });
+    expect(exacto!.prescription.sets).toBeUndefined(); // no es una medida por serie
+
+    const [rango] = parseNotationCell(`Remo 10 min 140-150 cal`);
+    expect(rango!.confidence).toBe('detected');
+    expect(rango!.prescription.target).toEqual({ kind: 'calories', min: 140, max: 150 });
+  });
+
+  test('peso corporal: "Fondos 4x12 peso corporal" → target bodyweight en cada serie, no perdido', () => {
+    const [l, ...rest] = parseNotationCell(`Fondos 4x12 peso corporal`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.exercise_token).toBe('Fondos');
+    expect(l!.prescription.sets).toHaveLength(4);
+    for (const s of l!.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps', value: 12 });
+      expect(s.target).toEqual({ kind: 'bodyweight' });
+    }
+  });
+
+  test('tope de tiempo en un esfuerzo simple: "Row 500m, cap 1\'50\'\'" → time_cap, no revisión', () => {
+    // La coma ya no dispara el falso positivo de "segunda estación" — el
+    // "cap" se extrae igual que ya se hacía con el descanso tras coma.
+    const [l, ...rest] = parseNotationCell(`Row 500m, cap 1'50''`);
+    expect(rest).toHaveLength(0);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.modality).toBe('row');
+    expect(l!.prescription.sets).toEqual([{ measure: { kind: 'distance', meters: 500 } }]);
+    expect(l!.prescription.target).toEqual({ kind: 'time_cap', value_s: 110 });
+  });
+
+  test('tope de tiempo en RANGO: "Row 100m, cap 18-20\'\'" → min_s/max_s, banda a batir', () => {
+    // Forma soportada: números desnudos con UNA unidad al final ("18-20''",
+    // "8-9'") — la misma convención que el resto de rangos de esta gramática
+    // ("70-80%", "12-15 reps"). Un reloj COMPUESTO en ambos lados
+    // ("1'50''-2'00''") queda fuera de alcance — nota explícita en la
+    // entrega, no un caso silenciosamente mal resuelto.
+    const [l] = parseNotationCell(`Row 100m, cap 18-20''`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.modality).toBe('row');
+    expect(l!.prescription.target).toEqual({ kind: 'time_cap', min_s: 18, max_s: 20 });
+  });
+
+  test('un WOD denso NOMBRADO con su propio tope ("Fran for time, cap 8 min") sigue en revisión ENTERA', () => {
+    // Correcto por diseño: "Fran" es un WOD de referencia con varios
+    // movimientos que esta gramática no decompone — la extracción de "cap"
+    // no debe rescatar dosis de una línea que la honestidad ya manda a
+    // revisión por otro motivo, y el texto COMPLETO (con el "cap" incluido)
+    // debe sobrevivir en la nota, no solo la mitad antes de la coma.
+    const [l] = parseNotationCell(`Fran for time, cap 8 min`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.prescription.note).toBe('Fran for time, cap 8 min');
+  });
+
+  test('guardia de residuo: un objetivo escrito que PIERDE el slot por otro más fuerte fuerza revisión', () => {
+    // "Z2" gana el slot de target; los "250 W" nunca aterrizan en ningún
+    // sitio de la prescripción — debe revisar, no ir verde con la zona sola.
+    const [l] = parseNotationCell(`Bici 20 min Z2 a 250 W`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.review_reasons[0]).toMatch(/vatiaje|ritmo|pulso/);
+  });
+
+  test('invariantes: cada línea DETECTED de esta clase valida contra prescriptionSchema', () => {
+    const cells = [
+      `Bici 20 min a 250 W`,
+      `Bici 20 min a 220-250 W`,
+      `Remo 10 min 150 cal`,
+      `Remo 10 min 140-150 cal`,
+      `Fondos 4x12 peso corporal`,
+      `Row 500m, cap 1'50''`,
+      `Row 100m, cap 18-20''`,
+    ];
+    for (const cell of cells) {
+      for (const line of parseNotationCell(cell)) {
+        const res = safeParsePrescription(line.prescription);
+        expect(res.success, `invalid: ${cell} → ${JSON.stringify(line.prescription)}`).toBe(true);
+        expect(line.confidence).toBe('detected');
+      }
+    }
   });
 });
