@@ -58,20 +58,34 @@ function wordClockToSeconds(n: number, unit: string): number {
   return n; // segundos / seg / s
 }
 
+// A colon/word clock must never be read as a plain duration/rest when it is
+// really the START of a pace expression (shared by parseClockSeconds and
+// parseDuration — was duplicated identically in each; hoisted once, DRY).
+// Two lookaheads: (1) immediately before "/<any unit>" — not just the three
+// PaceUnit knows, so an out-of-model pace ("/1000m", rowing) stays honest
+// review instead of reading its clock half as an unrelated duration and
+// stranding the unit as debris; (2) immediately before a RANGE continuation
+// into a pace unit ("-4:45/km") — without it, "4:30-4:45/km" read its OWN
+// first half as a bare 270s duration, since (1) alone only checks what sits
+// DIRECTLY adjacent and a dash gets in the way.
+const PACE_GUARD =
+  '(?!\\s*(?:min\\s*)?\\/\\s*\\d*[a-záéíóúñ]+)' +
+  '(?!\\s*[-–]\\s*\\d+:[0-5]?\\d\\s*(?:min\\s*)?\\/\\s*\\d*[a-záéíóúñ]+)';
+
 /** Any single clock literal → seconds: "1h15'"→4500 · "3'30''"→210 · "3'"→180 ·
  *  "30''"→30 · "1h"→3600 · "90 seg"/"90s"→90 · "2 min"→120 · "1 hora"→3600 ·
  *  "1:30"→90 (m:ss) · "1:20:00"→4800 (h:mm:ss). Order matters: the compound
  *  prime forms first so a `''` never loses a quote to the minutes reader; the
  *  word/colon forms are TrainingPeaks' vocabulary, tried only once no prime
  *  form matched. A pace clock ("3:45 min/km") is NOT a duration — both new
- *  forms refuse to fire immediately before a pace unit, and the word form
- *  refuses to fire on a number that is itself the ss half of an m:ss pace
- *  (the `(?<!:)` lookbehind), so "3:45 min/km" is never misread as 45 min.
- *  `(?<!\d)` on every new form anchors the number to ITS OWN start — without
- *  it, a lookbehind that blocks the true start of a number (e.g. the "9" of
- *  "90") lets the engine backtrack into the number's OWN trailing digit (the
- *  "0" of "90") and fabricate a match from a digit that was never a number on
- *  its own. */
+ *  forms refuse to fire immediately before a pace unit (PACE_GUARD above),
+ *  and the word form refuses to fire on a number that is itself the ss half
+ *  of an m:ss pace (the `(?<!:)` lookbehind), so "3:45 min/km" is never
+ *  misread as 45 min. `(?<!\d)` on every new form anchors the number to ITS
+ *  OWN start — without it, a lookbehind that blocks the true start of a
+ *  number (e.g. the "9" of "90") lets the engine backtrack into the number's
+ *  OWN trailing digit (the "0" of "90") and fabricate a match from a digit
+ *  that was never a number on its own. */
 export function parseClockSeconds(raw: string): number | undefined {
   const hm = raw.match(/(\d+)\s*h\s*(\d+)\s*'/i);
   if (hm) return parseInt(hm[1]!, 10) * 3600 + parseInt(hm[2]!, 10) * 60;
@@ -83,7 +97,6 @@ export function parseClockSeconds(raw: string): number | undefined {
   if (min) return parseInt(min[1]!, 10) * 60;
   const sec = raw.match(/(\d+)\s*''/);
   if (sec) return parseInt(sec[1]!, 10);
-  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
   const word = raw.match(
     new RegExp(
       `(?<!\\d)(?<!:)(\\d+)\\s*(horas?|min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
@@ -123,7 +136,6 @@ export function parseDuration(raw: string): number | undefined {
   // longer sees, so it would match a fabricated "0 seg" = 0s instead of
   // refusing the line. Anchoring every number to its OWN start closes that.
   const NOT_INTERVAL_GUARD = '(?<!\\d)(?<!x\\s{0,3})';
-  const PACE_GUARD = '(?!\\s*(?:min\\s*)?\\/\\s*(?:km|500\\s*m?|mi|milla))';
   const word = raw.match(
     new RegExp(
       `(?<!:)${NOT_INTERVAL_GUARD}(\\d+)\\s*(min(?:utos?)?|segundos?|seg\\.?|s)\\b${PACE_GUARD}`,
