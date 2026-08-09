@@ -1,11 +1,36 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-08**
+Última actualización: **2026-08-09**
 
 ---
 
-## Ahora · Circuito llega a Biblioteca/tests + editor de contenido real para tests — DESPLEGADO (8-ago)
+## Ahora · Las 8 estaciones HYROX tienen una fuente única — commiteado, sin mergear a `feat/pm5-counter-sync` (9-ago)
+
+`shared/domain/hyrox/stations.ts` nuevo: orden 1-8, el slug real de
+`exercises` por estación, la medida canónica de carrera, y la carga por
+(división, género) — Open/Pro **solo hombres** (única fuente que dio Alex),
+todo lo demás (mujeres, elite, doubles/relay, edad) `null` explícito, jamás
+un fallback al número de hombres. `shared/domain/coach/test-catalog.ts`
+(familia `estaciones`) ya lo consume — mismos valores exactos que antes,
+ahora con un solo origen en vez de retipeados.
+
+Encontrado de paso, **NO tocado** (fuera de lo pedido): `hyrox-template.ts` y
+`station-defaults.ts` tienen cada uno su propia copia independiente de estas
+mismas distancias/cargas — la segunda ya derivada (una sola carga por
+estación sin partir Open/Pro; su wall ball de 9 kg es en realidad el valor
+PRO puesto donde se espera un default Open). Wirearlos a la fuente única es
+follow-up, no incluido aquí. Detalle completo en `docs/DECISIONS.md` (9-ago).
+
+Verificado: typecheck limpio (salvo el preexistente `complete-gaps.
+test.ts:138`, ya documentado más abajo), lint idéntico al baseline (0
+hallazgos en los ficheros tocados), suite completa 3212 tests verdes +29
+nuevos, 0 fallos, 380 skips honestos (`TEST_DATABASE_URL` sin configurar en
+este entorno). Trabajo en el worktree `worktree-agent-adb0218c5fe04c645`,
+adelantado a `origin/feat/pm5-counter-sync` antes de empezar — pendiente de
+mergear a la rama compartida.
+
+## Antes · Circuito llega a Biblioteca/tests + editor de contenido real para tests — DESPLEGADO (8-ago)
 
 Las 4 piezas están cerradas y en `feat/pm5-counter-sync` (última: `0a235d79`).
 Desplegado a producción: `dpl_4H3THUFqCaSUefBJHJTPsYkkjU6h`, aliased a

@@ -26,15 +26,18 @@
 //   · Curvas potencia/ritmo-duración estándar (Athletica field-testing playbook,
 //     British Rowing testing protocols): remo 500 m · 1 k · 2 k · 5 k; carrera
 //     400 m · 1 k · 5 k. De ahí salen las distancias, no de lo que sonaba bien.
-//   · Estaciones HYROX con sus distancias OFICIALES del rulebook 26/27:
-//     ski 1000 m, sled push 50 m (4×12,5), sled pull 50 m, burpees salto 80 m,
-//     remo 1000 m, farmers carry 200 m, zancadas sandbag 100 m, 100 wall balls.
+//   · Estaciones HYROX: las 8 medidas oficiales (rulebook 26/27) YA NO se
+//     retipean aquí — se leen de `shared/domain/hyrox/stations.ts`, la fuente
+//     única (también dueña de la carga por división/género). Este fichero
+//     solo decide CÓMO se prueba cada una (steady/for_time, modalidad
+//     ski/row/functional), nunca CUÁNTO mide.
 //   · Bici: el estándar de campo es el FTP de 20 min. Aquí se ofrece como «20
 //     min» midiendo DISTANCIA, no como FTP: el FTP se mide en vatios y el
 //     contrato de resultados (StoreResultMeasure) no tiene vatios todavía.
 //     Llamarlo FTP sin poder capturar vatios sería una etiqueta falsa.
 
 import type { Prescription } from '../prescription/types';
+import { resolveHyroxStationBySlug, type HyroxStationSlug } from '../hyrox/stations';
 
 /** Familia, tal y como el coach agrupa mentalmente. */
 export type TestFamily = 'fuerza' | 'ergo' | 'correr' | 'estaciones' | 'simulacion';
@@ -109,6 +112,19 @@ function funcionalDistancia(meters: number): Prescription {
 
 function funcionalReps(value: number): Prescription {
   return { scheme: 'for_time', modality: 'functional', sets: [{ measure: { kind: 'reps', value } }], target: A_TOPE };
+}
+
+/** Medida oficial de una estación HYROX — SIEMPRE desde la fuente única
+ *  (shared/domain/hyrox/stations), nunca un número suelto en este fichero. */
+function estacionMetros(slug: HyroxStationSlug): number {
+  const m = resolveHyroxStationBySlug(slug)?.measure;
+  if (!m || m.kind !== 'distance') throw new Error(`estación sin medida de distancia: ${slug}`);
+  return m.meters;
+}
+function estacionReps(slug: HyroxStationSlug): number {
+  const m = resolveHyroxStationBySlug(slug)?.measure;
+  if (!m || m.kind !== 'reps') throw new Error(`estación sin medida de repeticiones: ${slug}`);
+  return m.value;
 }
 
 /** Una ventana de tiempo a tope: fijas el reloj, se mide lo acumulado (metros en
@@ -189,21 +205,21 @@ export const TEST_PRESETS: readonly TestPreset[] = [
   // Ojo: la estación 1 de HYROX ES el protocolo anclado del ski (1000 m), así que
   // esta sí recalibra zonas. Lo dice, en vez de dejar que el coach lo suponga.
   { id: 'Ski 1000 m · estación', family: 'estaciones', label: 'SkiErg 1000 m', hint: 'Se mide el tiempo · calibra tus zonas de ski',
-    exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', 1000) },
+    exercise: ['ski', 'ski-erg', 'skierg'], exerciseLabel: 'SkiErg', prescription: distancia('ski', estacionMetros('ski-erg')) },
   { id: 'Sled push 50 m', family: 'estaciones', label: 'Sled push 50 m', hint: 'Se mide el tiempo · estación 2 (4×12,5 m)',
-    exercise: ['hyrox-sled-push', 'sled-push'], exerciseLabel: 'Sled Push', prescription: funcionalDistancia(50) },
+    exercise: ['hyrox-sled-push', 'sled-push'], exerciseLabel: 'Sled Push', prescription: funcionalDistancia(estacionMetros('hyrox-sled-push')) },
   { id: 'Sled pull 50 m', family: 'estaciones', label: 'Sled pull 50 m', hint: 'Se mide el tiempo · estación 3',
-    exercise: ['hyrox-sled-pull'], exerciseLabel: 'Sled Pull', prescription: funcionalDistancia(50) },
+    exercise: ['hyrox-sled-pull'], exerciseLabel: 'Sled Pull', prescription: funcionalDistancia(estacionMetros('hyrox-sled-pull')) },
   { id: 'Burpees salto 80 m', family: 'estaciones', label: 'Burpees salto 80 m', hint: 'Se mide el tiempo · estación 4',
-    exercise: ['hyrox-burpee-broad-jump'], exerciseLabel: 'Burpee Broad Jump', prescription: funcionalDistancia(80) },
+    exercise: ['hyrox-burpee-broad-jump'], exerciseLabel: 'Burpee Broad Jump', prescription: funcionalDistancia(estacionMetros('hyrox-burpee-broad-jump')) },
   { id: 'Remo 1000 m · estación', family: 'estaciones', label: 'Remo 1000 m', hint: 'Se mide el tiempo · estación 5',
-    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', 1000) },
+    exercise: ['row'], exerciseLabel: 'Remo', prescription: distancia('row', estacionMetros('row')) },
   { id: 'Farmers carry 200 m', family: 'estaciones', label: 'Farmers carry 200 m', hint: 'Se mide el tiempo · estación 6',
-    exercise: ['hyrox-farmer-carry', 'farmers-carry'], exerciseLabel: 'Farmers Carry', prescription: funcionalDistancia(200) },
+    exercise: ['hyrox-farmer-carry', 'farmers-carry'], exerciseLabel: 'Farmers Carry', prescription: funcionalDistancia(estacionMetros('hyrox-farmer-carry')) },
   { id: 'Zancadas sandbag 100 m', family: 'estaciones', label: 'Zancadas sandbag 100 m', hint: 'Se mide el tiempo · estación 7',
-    exercise: ['hyrox-sandbag-lunges'], exerciseLabel: 'Sandbag Lunges', prescription: funcionalDistancia(100) },
+    exercise: ['hyrox-sandbag-lunges'], exerciseLabel: 'Sandbag Lunges', prescription: funcionalDistancia(estacionMetros('hyrox-sandbag-lunges')) },
   { id: '100 wall balls', family: 'estaciones', label: '100 wall balls', hint: 'Se mide el tiempo · estación 8',
-    exercise: ['hyrox-wall-balls', 'wall-balls'], exerciseLabel: 'Wall Balls', prescription: funcionalReps(100) },
+    exercise: ['hyrox-wall-balls', 'wall-balls'], exerciseLabel: 'Wall Balls', prescription: funcionalReps(estacionReps('hyrox-wall-balls')) },
 
   // ── SIMULACIÓN ───────────────────────────────────────────────────────────
   // HYROX Conditioning Test — el benchmark estandarizado del deporte. Protocolo

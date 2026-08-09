@@ -10,6 +10,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · Las 8 estaciones HYROX tienen una fuente única — `shared/domain/hyrox/stations.ts`
+
+**Decidido:** las distancias/repeticiones oficiales de las 8 estaciones vivían
+retipeadas a mano en `test-catalog.ts` (familia `estaciones`), que además las
+volvía a citar en su propio comentario de cabecera. Ahora hay un único dueño:
+orden 1-8, el slug real de `exercises` (verificado contra el
+`STATION_CATALOGUE` de `station-detail.ts`), la medida canónica de carrera, y
+la carga por (división, género) — reusando `RaceDivision`/`RaceGender`
+(`shared/schema/races.ts`) en vez de inventar un enum paralelo. Fuente:
+`plan-95d-hyrox-singles-pro.md` §0 (pace-club.com + hycrew.com), rulebook
+26/27, solo HOMBRES Open/Pro — toda celda sin fuente (mujeres, elite,
+doubles/relay, grupos de edad) devuelve `null`, nunca el número de hombres.
+La carga no se aplana a un escalar: `single` (un implemento), `per_implement`
+(farmers carry: 2×24 kg, nunca "48 kg"), `sled` (masa total empujada/
+arrastrada), `damper` (ajuste de máquina, no una masa — y no varía por
+género porque la fuente no lo separa, no porque se asuma que sí).
+
+**En consecuencia, no hacer:** no volver a escribir un número de estación
+HYROX suelto en otro fichero — importar de `shared/domain/hyrox/stations.ts`.
+No rellenar una celda sin fuente citada (ver el TODO en la cabecera del
+fichero: pesos femeninos, división elite, doubles/relay, grupos de edad,
+altura del target de wall ball por género).
+
+**Encontrado de paso, NO tocado en este corte (fuera de lo pedido):**
+`web/lib/dashboard/v2/hyrox-template.ts` (plantilla de simulación) y
+`web/lib/templates/station-defaults.ts` (prefill del editor de bloques)
+tienen cada uno su PROPIA copia independiente de estas mismas distancias/
+cargas. `hyrox-template.ts` coincide con los números de aquí; `station-
+defaults.ts` ya había derivado — una sola carga por estación sin partir
+Open/Pro, y su wall ball de 9 kg es en realidad el valor PRO puesto donde se
+espera un default Open. Ninguno de los dos se tocó; wirearlos a esta fuente
+es follow-up, no incluido en este corte.
+
+**Dónde vive:** `shared/domain/hyrox/stations.ts` (nuevo).
+`shared/domain/coach/test-catalog.ts` lo consume vía `estacionMetros`/
+`estacionReps` (mismos valores de antes, ahora con un solo origen). Tests:
+`web/tests/hyrox/stations.test.ts`.
+
 ## 2026-08-08 · Circuito llega a la ruta Biblioteca/tests — `template_blocks`
 
 **Decidido:** la decisión de Circuito (7-ago, siguiente entrada) dejó a propósito
