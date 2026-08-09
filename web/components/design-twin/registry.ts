@@ -60,6 +60,16 @@ import * as watchRelojDePared from './screens/watch-reloj-de-pared';
 // uno de los dos está a un latido de Z4 — así que el lienzo se llena del color
 // de tu zona conforme te acercas a la siguiente. Idea de Alex tras hacer series.
 import * as watchZona from './screens/watch-zona';
+// «Del coach» (9-ago): comunicación estructurada coach→atleta FUERA del chat.
+// El chat conversa; un comunicado se publica y se rastrea. Nace del caso real
+// del plan rehecho a Singles Pro, donde todo lo que había que decirle —el
+// porqué del objetivo, un calentamiento de siete pasos, dos tareas con fecha y
+// una pregunta que bloquea el taper— viajó por el chat con el mismo peso y el
+// mismo estado que un «ok»: ninguno. El modelo entero vive en `coach-com/`.
+import * as coachBandeja from './screens/coach-bandeja';
+import * as coachPregunta from './screens/coach-pregunta';
+import * as coachProtocolo from './screens/coach-protocolo';
+import * as coachNota from './screens/coach-nota';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -118,6 +128,13 @@ export const SCREENS: TwinScreenModule[] = [
   watchDobles,
   watchRelojDePared,
   watchZona,
+  // La tanda «Del coach» (9-ago): la bandeja primero, porque es la que da
+  // sentido a las otras tres; los detalles después, en el orden en que se
+  // abren desde ella.
+  coachBandeja,
+  coachPregunta,
+  coachProtocolo,
+  coachNota,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {

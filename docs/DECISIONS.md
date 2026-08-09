@@ -10,6 +10,46 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-09 · El comunicado del coach: la comunicación estructurada es una entidad, no chat
+
+**Decidido:** todo lo que el coach entrega al atleta fuera de una sesión se
+modela como UNA entidad, el **comunicado**: **tipo** (protocolo con pasos
+marcables | pregunta con opciones que bloquea | tarea con fecha límite |
+nota-briefing por secciones | foco persistente) × **ancla** (plan | semana |
+sesión | test | carrera | check-in | general; el ancla decide dónde aflora en
+la app) × **ciclo de vida** (publicado → visto → hecho/respondido, no solo
+`read_at`). La frontera con el chat: **el chat conversa; el comunicado se
+publica y se rastrea.**
+
+**Por qué:** hoy todo lo no-sesión viaja por `chat_messages.body` (texto plano,
+sin tipo, sin estado, sin cumplimiento) y el repo acumula piezas a medio nacer
+que son este mismo concepto sin nombre: `race_plans` (0008, tabla muerta sin un
+solo lector), `WorkoutPlan.warmupChecklist` en iOS (renderer hecho, llega
+siempre vacío), `coach_guidance` (consejos de primera clase pero solo 2
+contextos de dobles), el `coach_note` por bloque que el coach escribe y
+`assignment-detail` descarta, `recovery_suggestions` que el servidor emite y
+iOS no decodifica — y ninguna bandeja del atleta: un push perdido es un mensaje
+perdido.
+
+**En consecuencia, no hacer:** no construir cinco features paralelas (una por
+tipo) ni un segundo chat. Cuando se construya la entidad, **absorbe en vez de
+sumar**: `race_plans` = nota+protocolo anclados a carrera (y la tabla muerta se
+elimina); el protocolo de un test deja de viajar como texto copiado a
+`templates.coach_notes`; `warmupChecklist` se alimenta de un protocolo; la
+respuesta estructurada a un check-in o a un dolor es un comunicado anclado a
+ese evento; `coach_guidance` se generaliza dentro del modelo o se absorbe.
+
+**Estado:** dirección validada por Alex sobre el doble (9-ago); sin migración
+aún. El compositor del coach (crear desde contexto, IA redacta el borrador
+estructurado, biblioteca de plantillas, seguimiento visto/hecho por atleta)
+está definido a nivel de modelo y **sin diseñar en pantalla**.
+
+**Dónde vive:** la tanda «Del coach» del doble — `web/components/design-twin/coach-com/`
++ `screens/coach-bandeja|coach-pregunta|coach-protocolo|coach-nota` — con el
+caso real del plan rehecho a Singles Pro como escenario.
+
+---
+
 ## 2026-08-09 · El bisel dibuja la ESTRUCTURA, y la fase manda sobre el rol
 
 **Decidido (1) — el aro del reloj es la parte entera que se corre, no la cuenta

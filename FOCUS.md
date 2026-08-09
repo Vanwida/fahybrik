@@ -5,6 +5,28 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · DEL COACH — comunicación estructurada fuera del chat (9-ago)
+
+Idea de Alex: lo que hoy el coach solo puede decir por chat (un protocolo, una
+pregunta que bloquea el plan, una tarea con fecha, el porqué de un cambio, un
+foco) pasa a ser una entidad publicable y rastreable, el **comunicado**: tipo
+(protocolo | pregunta | tarea | nota | foco) × ancla (plan | semana | sesión |
+test | carrera | check-in | general) × ciclo de vida (publicado → visto →
+hecho/respondido). El chat conversa; el comunicado se publica. Modelo y
+absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
+`docs/DECISIONS.md` (2026-08-09).
+
+- ✅ **Doble: tanda «Del coach»** — 4 pantallas `propuesta` con el caso real del
+  plan rehecho a Singles Pro: `coach-bandeja` (la bandeja que hoy no existe) ·
+  `coach-pregunta` (el wave jueves/sábado, se responde con un toque) ·
+  `coach-protocolo` (calentamiento de día de carrera, pasos marcables) ·
+  `coach-nota` (el briefing legible por secciones). Validado por Alex en vivo.
+- ⏳ **Siguiente: el compositor del coach** en el dashboard — crear desde
+  contexto (editor del plan, señal de /hoy, ficha del atleta), la IA convierte
+  el borrador suelto en la pieza estructurada, biblioteca de plantillas,
+  seguimiento visto/hecho por atleta. Diseño de pantalla pendiente de su OK.
+- ⏳ **Después:** entidad en DB + endpoints + bandeja y detalle en iOS + push.
+
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 
 Alex trajo su propio plan de 95 días en markdown (`health-planning/training/
