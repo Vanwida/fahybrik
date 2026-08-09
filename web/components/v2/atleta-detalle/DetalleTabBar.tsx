@@ -28,14 +28,18 @@ const TAB_LABEL: Record<AtletaTab, string> = {
   rendimiento: 'Rendimiento',
   pagos: 'Pagos',
   mensajes: 'Mensajes',
+  'del-coach': 'Del coach',
 };
 
 export function DetalleTabBar({
   athlete_id,
   active,
+  badges,
 }: {
   athlete_id: string;
   active: AtletaTab;
+  /** Cuántas cosas reclaman atención en cada pestaña. 0 o ausente = sin insignia. */
+  badges?: Partial<Record<AtletaTab, number>>;
 }) {
   const activeRef = useRef<HTMLAnchorElement>(null);
 
@@ -50,6 +54,7 @@ export function DetalleTabBar({
       <Rail className="gap-1 pb-0">
         {ATLETA_TABS.map((tab) => {
           const isActive = tab === active;
+          const badge = badges?.[tab] ?? 0;
           return (
             <Link
               key={tab}
@@ -57,13 +62,22 @@ export function DetalleTabBar({
               href={`/atletas/${athlete_id}?tab=${tab}`}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'v2-focus relative shrink-0 whitespace-nowrap px-3 py-2.5 text-body font-semibold transition-colors',
+                'v2-focus relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-body font-semibold transition-colors',
                 isActive
                   ? 'text-[color:var(--v2-fg)]'
                   : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
               )}
             >
               {TAB_LABEL[tab]}
+              {badge > 0 ? (
+                <span
+                  aria-label={`${badge} sin resolver`}
+                  className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[var(--v2-r-pill)] px-1 text-nano font-bold"
+                  style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
+                >
+                  {badge}
+                </span>
+              ) : null}
               <span
                 aria-hidden
                 className={cn(

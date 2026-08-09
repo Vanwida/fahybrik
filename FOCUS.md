@@ -33,8 +33,15 @@ absorciones (race_plans muerta, warmupChecklist vacío, coach_guidance…):
   De propina: cazado y arreglado el footgun `JSON.stringify(...)::jsonb` en
   TODOS los inserts de `notifications.payload_json` (8 sitios; ver DECISIONS
   «payload como OBJETO»; queda tarea de auditoría para las demás columnas).
-- ⏳ **T2 (siguiente):** ficha del atleta con «Del coach» + compositor + señales
-  /hoy + biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
+- ✅ **T2a ficha + compositor:** pestaña «Del coach» en la ficha del atleta
+  (lista con estado de un vistazo, detalle con seguimiento fino, vacío que
+  explica la frontera con el chat) + compositor fiel al mockup (chips de tipo,
+  pasos reordenables, «Dónde le aparece» en palabras de entrenador, «Desde
+  biblioteca…», previa del móvil sincronizada en vivo). 14 tests + QA visual
+  1440/390.
+- ⏳ **T2b (en curso):** señales en /hoy (pregunta sin responder, tarea vencida,
+  protocolo sin abrir; umbrales = dato del coach) + vista de plantillas en
+  Biblioteca. **T3:** bandeja y detalles iOS + push en PushManager.
 
 ## Ahora · El importador habla UN dialecto — y el plan personal como entidad (9-ago)
 

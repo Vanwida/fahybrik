@@ -23,6 +23,7 @@ import type { JointSession } from '@/lib/dashboard/coach/athlete-profile-shell';
 import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { AthleteReviewState } from '@/lib/citas/reviews';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_RUN_5K,
@@ -93,7 +94,9 @@ export interface TestProgressionRow {
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'pagos', 'mensajes'] as const;
+// `del-coach` cierra la pareja con `mensajes` y por eso va justo detrás: el chat
+// conversa, el comunicado se publica y se rastrea (docs/DECISIONS.md 2026-08-09).
+export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'pagos', 'mensajes', 'del-coach'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 
@@ -286,6 +289,11 @@ export interface V2AthleteDetalle {
    *  propuesta pendiente y si toca (due). null si el load degradó. Alimenta el panel al
    *  frente del tab 1:1. */
   review: AthleteReviewState | null;
+  /** Del coach: lo que se le ha PUBLICADO a este atleta con SU estado (visto, hecho,
+   *  respondido y los pasos marcados), archivados incluidos — la ficha es historial,
+   *  no bandeja. Vacío = todavía no se le ha publicado nada. Se lee con la ficha
+   *  porque la insignia de la pestaña la necesita desde cualquier otra pestaña. */
+  communications: CoachAthleteCommunicationDTO[];
 }
 
 // Re-export so the client tab components import the type from this client-safe

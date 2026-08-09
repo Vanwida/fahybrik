@@ -28,18 +28,24 @@ import { BiometriaTab } from './BiometriaTab';
 import { RendimientoTab } from './RendimientoTab';
 import { PagosTab } from './PagosTab';
 import { MensajesTab } from './MensajesTab';
+import { DelCoachTab } from './del-coach/DelCoachTab';
 import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
 import { ReviewPanel } from './reviews/ReviewPanel';
+import { cuantosReclaman } from '@/lib/dashboard/v2/del-coach';
 import { selectPerfilTab, type V2AthleteDetalle, type AtletaTab } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export function AthleteDetalle({
   detalle,
   tab,
+  coachName,
 }: {
   detalle: V2AthleteDetalle;
   tab: AtletaTab;
+  /** El nombre del club: es con el que el atleta ve firmado un comunicado. */
+  coachName: string;
 }) {
   const { header } = detalle;
+  const comunicados = detalle.communications ?? [];
 
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
@@ -54,7 +60,11 @@ export function AthleteDetalle({
           training_days={detalle.training_days}
         />
         <div className="mt-2.5 -mb-px">
-          <DetalleTabBar athlete_id={header.athlete_id} active={tab} />
+          <DetalleTabBar
+            athlete_id={header.athlete_id}
+            active={tab}
+            badges={{ 'del-coach': cuantosReclaman(comunicados) }}
+          />
         </div>
       </div>
 
@@ -129,6 +139,13 @@ export function AthleteDetalle({
             billing={detalle.billing}
             invoices={detalle.invoices}
             athleteId={header.athlete_id}
+          />
+        ) : tab === 'del-coach' ? (
+          <DelCoachTab
+            athleteId={header.athlete_id}
+            athleteName={header.full_name}
+            coachName={coachName}
+            communications={comunicados}
           />
         ) : (
           <MensajesTab

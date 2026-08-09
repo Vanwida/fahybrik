@@ -35,5 +35,13 @@ export default async function V2AthleteDetailPage({
   if (!detalle) notFound();
 
   const { tab } = await searchParams;
-  return <AthleteDetalle detalle={detalle} tab={normalizeAtletaTab(tab)} />;
+  // El club es con quien el atleta cree que habla: es el nombre que la app le
+  // pone a un comunicado (`coaches.full_name`), no el del miembro que lo escribe.
+  return (
+    <AthleteDetalle
+      detalle={detalle}
+      tab={normalizeAtletaTab(tab)}
+      coachName={session.club_name}
+    />
+  );
 }

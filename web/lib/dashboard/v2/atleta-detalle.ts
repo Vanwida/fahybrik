@@ -40,6 +40,7 @@ import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { listCoachTests } from '@/lib/coach/coach-tests';
+import { listCommunicationsForAthlete } from '@/lib/coach/communications';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
@@ -329,6 +330,7 @@ export async function loadAthleteDetalle(params: {
     review,
     battery,
     testLibrary,
+    communications,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -356,6 +358,10 @@ export async function loadAthleteDetalle(params: {
     // Degrades to empty — a test hiccup never 500s the ficha.
     loadBatteryStatus(athlete_id, client).catch(() => ({ total: 0, completed: 0, tests: [] })),
     listCoachTests(Number(coach_id), { onlyEnabled: true }, client).catch(() => []),
+    // Del coach: lo publicado a ESTE atleta con su estado. Se lee con la ficha
+    // (y no al abrir la pestaña) porque la insignia de «te reclama algo» tiene
+    // que verse estando en cualquier otra pestaña. Degrada a vacío como el resto.
+    listCommunicationsForAthlete({ coach_id, athlete_id, sql: client }).catch(() => []),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -441,6 +447,7 @@ export async function loadAthleteDetalle(params: {
     joint_sessions: shell.joint_sessions,
     sessions,
     review,
+    communications,
   };
 }
 
