@@ -31,6 +31,7 @@ import {
   colorEstado,
   estadoRitmo,
   fmtDistancia,
+  fmtDistanciaCubierta,
   fmtElapsed,
   guionCalle,
   objetivoLabel,
@@ -141,7 +142,7 @@ export function HUDCalle({
           etiqueta={voz ? 'Silenciar avisos de voz' : 'Activar avisos de voz'}
           color={voz ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}
         />
-        <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Cerrar" />
+        <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Salir del entreno" />
       </div>
 
       <MapaRuta metros={estado.segM} calidad={calidad} pausado={autoPausada || pausaManual} alto={horizontal ? 120 : 250} />
@@ -198,7 +199,7 @@ export function HUDCalle({
                   {ritmo !== null ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
-                        Objetivo {objetivoLabel()} /km
+                        Objetivo {objetivoLabel()}
                       </span>
                       {palabraEstadoCalle(estadoObj) && (
                         <span
@@ -223,7 +224,9 @@ export function HUDCalle({
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              <Celda etiqueta="Distancia" valor={fmtDistancia(estado.segM)} />
+              {/* La distancia CUBIERTA lleva sus dos decimales (`Formato.distanciaCubierta`):
+                  en una medida los ceros son el dato. La dosis del tramo, abajo, va con uno. */}
+              <Celda etiqueta="Distancia" valor={fmtDistanciaCubierta(estado.segM)} />
               <Celda etiqueta="Tiempo" valor={fmtElapsed(estado.legS)} />
               <Celda
                 etiqueta="Pulso"

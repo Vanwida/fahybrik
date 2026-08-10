@@ -41,9 +41,10 @@ import {
   colorEstado,
   estadoRitmo,
   fmt1,
-  fmtDistanciaCinta,
+  fmtDistanciaCubierta,
   fmtElapsed,
   lineaLecturaCinta,
+  objetivoConMarca,
   objetivoLabel,
   palabraEstadoCinta,
   pulsoEn,
@@ -144,7 +145,7 @@ export function HUDCinta({
         etiqueta={voz ? 'Silenciar avisos de voz' : 'Activar avisos de voz'}
         color={voz ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}
       />
-      <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Cerrar" />
+      <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Salir del entreno" />
     </div>
   );
 
@@ -205,7 +206,7 @@ export function HUDCinta({
               {stepperInclinacion}
               <NotaPlana icono="speedometer">{NOTA_VELOCIDAD_MANUAL}</NotaPlana>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                <Celda etiqueta="Metros" valor={fmtDistanciaCinta(estado.legM)} />
+                <Celda etiqueta="Metros" valor={fmtDistanciaCubierta(estado.legM)} />
                 <Celda etiqueta="Tiempo" valor={fmtElapsed(estado.legS).replace(/^0/, '')} />
                 <Celda
                   etiqueta="Pulso"
@@ -270,7 +271,7 @@ export function HUDCinta({
                 {ritmo !== null ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
-                      Objetivo {objetivoLabel()} /km
+                      {objetivoConMarca()}
                     </span>
                     {cue && (
                       <span
@@ -354,8 +355,8 @@ export function HUDCinta({
           {!enRecuperacion && (
             <ProgresoObjetivo
               caption="Distancia del tramo"
-              primary={fmtDistanciaCinta(estado.legM)}
-              secondary={fmtDistanciaCinta(tramo.metros ?? 0)}
+              primary={fmtDistanciaCubierta(estado.legM)}
+              secondary={fmtDistanciaCubierta(tramo.metros ?? 0)}
               elapsed={fmtElapsed(estado.legS).replace(/^0/, '')}
               fraction={fraccionTramo(tramo, estado)}
               complete={fraccionTramo(tramo, estado) >= 1}

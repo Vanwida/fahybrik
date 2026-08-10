@@ -22,6 +22,12 @@ import {
   reloj,
   type TramoCarrera,
 } from '@/components/design-twin/datos-reales';
+import {
+  BLOQUE,
+  objetivoConMarca,
+  objetivoLabel,
+  velocidadDeCinta,
+} from '@/components/design-twin/screens/run-live/data';
 
 const FARTLEK = FARTLEK_16X500.bloques[0].items[0];
 
@@ -114,6 +120,29 @@ describe('design-twin · un descanso de verdad sigue diciéndose descanso', () =
     expect(fraseDeRecuperacion({ tipo: 'recuperacion', segundos: 120, modo: 'trote' })).toBe(
       'recuperación 2:00 suave'
     );
+  });
+});
+
+describe('design-twin · el bloque de «Correr en vivo» dice lo que pinta la app', () => {
+  it('la fila de la puerta sale de la estructura, no de un literal', () => {
+    expect(BLOQUE.filas[0].trabajo).toBe('4 × 1 km · @ 4:35/km · recuperación 2:00 suave');
+  });
+
+  it('la cabecera de formato la escribe `wodHeader`: «Series», no «Intervalos»', () => {
+    expect(BLOQUE.formato).toBe('Series · 4 series');
+  });
+
+  it('el objetivo lleva su unidad PEGADA, y la cinta dice qué marcar', () => {
+    expect(objetivoLabel()).toBe('4:35/km');
+    // 4:35/km = 13,09 km/h, redondeado al escalón de 0,1 que publica la consola.
+    expect(velocidadDeCinta()).toBe('13,1');
+    expect(objetivoConMarca()).toBe('Objetivo 4:35/km · pon 13,1');
+    // Si la app pudiera fijar la velocidad, darle un número que teclear es ruido.
+    expect(objetivoConMarca(true)).toBe('Objetivo 4:35/km');
+  });
+
+  it('una consola de escalón 0,5 dice un número que SÍ se puede marcar', () => {
+    expect(velocidadDeCinta(0.5)).toBe('13,0');
   });
 });
 
