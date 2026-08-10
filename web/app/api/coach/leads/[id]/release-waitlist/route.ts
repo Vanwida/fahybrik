@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
+import { coachOwnsLead } from '@/lib/leads/store';
 import { releaseAndNotifyLead } from '@/lib/leads/waitlist';
 
 export const runtime = 'nodejs';
@@ -55,6 +56,13 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   try {
+    // Tenancy (coachOwnsLead rule): an alien club's lead reads as nonexistent — 404 BEFORE
+    // the release path, so nothing gets stamped or emailed. The shared releaseAndNotifyLead
+    // stays coach-agnostic because the automatic FIFO release (system) also runs through it.
+    if (!(await coachOwnsLead(session.coach_id, leadId))) {
+      return jsonError('not_found', 'Lead no encontrado', 404);
+    }
+
     // Shared stamp+notify path (also used by the automatic FIFO release). This override just
     // jumps the queue — it releases THIS lead regardless of FIFO position.
     const { found, released, emailed } = await releaseAndNotifyLead(leadId);

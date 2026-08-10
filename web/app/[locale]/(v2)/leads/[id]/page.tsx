@@ -28,7 +28,8 @@ export default async function V2LeadDetailPage({
   if (!Number.isFinite(leadId) || !Number.isInteger(leadId) || leadId <= 0) notFound();
 
   const [lead, levels] = await Promise.all([
-    getLeadDetail(BigInt(leadId)),
+    // Tenancy: scoped to the session's club (coachOwnsLead rule) — an alien lead → notFound().
+    getLeadDetail(BigInt(leadId), session.coach_id),
     listCoachLevels(session.coach_id),
   ]);
   if (!lead) notFound();

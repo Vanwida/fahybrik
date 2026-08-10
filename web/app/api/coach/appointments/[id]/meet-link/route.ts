@@ -34,7 +34,12 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
   }
 
   try {
-    const a = await setAppointmentMeetLink({ id: BigInt(id), meet_link: parsed.data.meet_link });
+    // Tenancy: scoped to the session's club through the cita's lead — an alien cita 404s.
+    const a = await setAppointmentMeetLink({
+      id: BigInt(id),
+      coach_id: session.coach_id,
+      meet_link: parsed.data.meet_link,
+    });
     // Re-send the confirmation with the fresh link only if the appointment is confirmed.
     if (a.status === 'aceptada') {
       // #40: presencial → include the box address in the re-sent confirmation.
