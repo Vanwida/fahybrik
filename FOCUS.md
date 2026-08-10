@@ -27,7 +27,13 @@ semana encadenable), `get_session` por fecha o id (prescrito vs ejecutado por
 tramo, orquestación extraída a `lib/coach/session-detail.ts` y compartida con
 la ruta), `get_races` (predicho vs real), `search_library`, `search_methodology`
 (RAG, distingue «sin corpus» de «sin resultados»), `list_communications`.
-53/53 tests en rama Neon. Siguientes fases:
+53/53 tests en rama Neon. **F2 en producción y F3 construida** (10-ago):
+`create_session` / `edit_day` / `move_session` con prescripción tipada
+(schema del dominio en el inputSchema + gramática en la descripción),
+completitud como portón, sesión AUTORADA (no fork), visibilidad real dicha
+en cada read-back, audit canal `mcp` (mig 0165 aplicada). 58/58 tests MCP.
+Ver DECISIONS 2026-08-10 (visibilidad de semana + derivadas F3).
+Siguientes fases:
 F2 lecturas completas → F3 escrituras de día (borrador-primero) → F4
 comunicados/publicar → F5 Grok + entitlement de pago.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).

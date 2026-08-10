@@ -137,7 +137,7 @@
   <div class="rule"></div>
   <ul>
     <li><b>El humano ya está en el loop.</b> Los clientes MCP (Claude, Grok) piden confirmación del coach antes de cada tool call de escritura. Nuestra parte: que la tool devuelva una <b>lectura exacta</b> de lo que va a quedar («Marc · mar 18-ago · Rodaje 90:00 · Z2»), para que lo que se confirma sea inequívoco.</li>
-    <li><b>Borrador primero, publicar aparte.</b> Es la semántica que el dominio ya tiene (planes <code>draft → published</code>): editar el plan no lo enseña al atleta; hacérselo llegar es una llamada explícita a <code>publish_week</code>. Un error de dictado nunca llega al móvil del atleta.</li>
+    <li><b>La visibilidad se dice en voz alta, no se inventa.</b> <i>(Corregido en F3: el plan original decía «borrador primero», y el dominio real no funciona así.)</i> Quien decide si el atleta ve una semana es su fila de <code>weekly_plans</code> — y <b>sin fila, la semana es visible</b>; solo un <code>draft</code> explícito esconde. Las tools no inventan estados: leen la fila real y cada read-back declara el efecto («publicado: lo ve ya en su app» / «borrador: no lo ve hasta que publiques»). Tocar una semana publicada llega al atleta al momento, exactamente igual que desde el dashboard.</li>
     <li><b>Todo auditado.</b> Cada escritura estampa <code>audit_log</code> con canal <code>mcp</code>. Se puede responder siempre a «¿esto lo cambié yo desde el chat o desde el dashboard?».</li>
     <li><b>Tenancy dura.</b> Recursos de otro coach → 404, en la capa de servicio, no en el handler.</li>
   </ul>

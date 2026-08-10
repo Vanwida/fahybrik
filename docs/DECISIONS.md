@@ -10,6 +10,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · La visibilidad de una semana la decide su fila de `weekly_plans` — y SIN fila, SE VE
+
+**Decidido (constatado en F3 del conector y elevado a doctrina):** el portón que decide si
+el atleta ve una semana es `not exists (weekly_plans … status='draft')`
+(`web/lib/athlete/week-plan.ts:185`, repetido en :337 y :471). Solo un `draft` explícito
+esconde; `published`, `archived` y **la ausencia de fila** se ven. Ni la creación de sesión
+del panel ni el PATCH de día tocan `weekly_plans`. En consecuencia, cualquier superficie de
+escritura (dashboard, MCP, futuras) **no inventa estados de borrador propios**: lee la fila
+real (`weekVisibility`, `web/lib/mcp/shape-write.ts`) y declara el efecto en su respuesta
+(«publicado: lo ve ya» / «borrador: no lo ve hasta publicar»). El plan del conector decía
+«borrador primero» — corregido en `docs/mcp-conector-coach.html` §04.
+
+**Derivadas de F3:**
+- **Sesión AUTORADA, no solo fork:** `createDaySession` solo sabía copiar una plantilla
+  (sin `template_id`, la más reciente — arrastrando formato/calentamiento/notas de OTRO
+  entreno al móvil del atleta). Nueva primitiva `createAuthoredInstance`
+  (`template-instance.ts`, la «instancia autorada» que la mig 0083 ya nombraba,
+  `instance_of_template_id` NULL), seleccionable con `content_source`; el panel sigue en
+  `'fork'` por defecto y se comporta idéntico. Una sesión dictada por MCP nace autorada.
+- **Canal de auditoría:** mig **0165 aplicada** — `audit_log.channel` (`'dashboard'`
+  default, `'mcp'` en el conector; sin CHECK a propósito, el portón es el tipo
+  `AuditChannel` en `record-edit.ts`). Responde «¿esto lo cambié desde el chat o desde
+  el panel?».
+- **Dato corrupto arreglado en prod:** `template_segments` 2594/2685 llevaban
+  `target.kind='pace_500m'` (no existe en la unión canónica) → corregidos a
+  `{kind:'pace', unit:'per_500m', value_s}`. Si aparece otro, el canon es `Target` de
+  `shared/domain/prescription/types.ts`, no inventar kinds.
+
+**En consecuencia, no hacer:** no añadir capas de borrador nuevas sobre `weekly_plans`;
+no crear sesiones vía fork «por defecto» desde superficies conversacionales; no escribir
+en `audit_log` sin canal.
+
+---
+
 ## 2026-08-10 · El conector MCP es una CARA más de la app, no un servicio nuevo
 
 **Decidido:** el coach mira y edita su club desde su asistente (Claude hoy, Grok después)
