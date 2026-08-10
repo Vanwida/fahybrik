@@ -153,6 +153,7 @@ struct ListaComunicados: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 HStack(spacing: Theme.Spacing.s) {
                     ChipTipoComunicado(tipo: .foco)
+                    GlifoAudioComunicado(comunicado: foco)
                     Spacer(minLength: Theme.Spacing.s)
                     InsigniaComunicado(insignia: foco.insignia())
                 }

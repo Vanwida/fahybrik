@@ -24,6 +24,7 @@ import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneWeekSecondsDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { HrAnchorConfidence, HrAnchorSource } from '@fahybrid/shared/domain/methodology';
+import { HR_ANCHOR_LABEL } from '@fahybrid/shared/domain/methodology';
 
 /**
  * Ventana por defecto: la que la gráfica enseña de entrada. Sale de su catálogo
@@ -264,7 +265,7 @@ export async function loadZoneWindow(args: {
   client?: Sql;
 }): Promise<{
   weeks_data: WeeklyZoneWeek[];
-  anchor: { source: HrAnchorSource; lthr_bpm: number } | null;
+  anchor: { source: HrAnchorSource; lthr_bpm: number; source_label: string } | null;
 }> {
   const client = args.client ?? defaultSql;
   const weeks = Math.min(WEEKLY_ZONES_MAX_WEEKS, Math.max(1, Math.trunc(args.weeks)));
@@ -277,10 +278,16 @@ export async function loadZoneWindow(args: {
   ]);
 
   const dominante = computed.anchors.find((a) => a.anchor != null && a.lthr_bpm != null);
+  // `source_label` viaja escrito por el servidor: una sola redacción del ancla
+  // en todas las superficies, ninguna app inventa la suya.
   return {
     weeks_data,
     anchor: dominante
-      ? { source: dominante.anchor as HrAnchorSource, lthr_bpm: dominante.lthr_bpm as number }
+      ? {
+          source: dominante.anchor as HrAnchorSource,
+          lthr_bpm: dominante.lthr_bpm as number,
+          source_label: HR_ANCHOR_LABEL[dominante.anchor as HrAnchorSource],
+        }
       : null,
   };
 }

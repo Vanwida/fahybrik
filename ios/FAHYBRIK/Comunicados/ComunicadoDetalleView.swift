@@ -48,23 +48,33 @@ struct ComunicadoDetalleView: View {
 
 /// El titular del detalle. El ancla va DEBAJO y en micro: de dónde cuelga
 /// informa, pero no es lo que el atleta viene a leer.
+///
+/// Y debajo, si lo lleva, la VOZ del coach. Vive en el titular —y no en cada uno
+/// de los cinco cuerpos— porque es de quién te habla y no de lo que te pide: así
+/// suena igual en una nota que en un protocolo, y un sexto tipo de comunicado no
+/// nacería mudo por olvido.
 struct TituloComunicado: View {
     let comunicado: Comunicado
     var tamano: CGFloat = 26
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            Text(comunicado.title)
-                .scaledFont(tamano, weight: .heavy, relativeTo: .title2, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-            if let ancla = comunicado.anchorKind.etiqueta {
-                LabelText(text: ancla, color: Theme.Color.faint, size: 9.5)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                Text(comunicado.title)
+                    .scaledFont(tamano, weight: .heavy, relativeTo: .title2, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let ancla = comunicado.anchorKind.etiqueta {
+                    LabelText(text: ancla, color: Theme.Color.faint, size: 9.5)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            AudioDelComunicado(comunicado: comunicado)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

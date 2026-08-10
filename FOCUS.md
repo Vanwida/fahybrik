@@ -149,8 +149,16 @@ workout_traces, bandas y objetivo de polarización a dato del coach).
 - Hallazgo de producto: CERO umbrales medidos en la población y atletas sin
   dob/FCmáx: la gráfica lo dice en palabras. Detección automática de umbral
   (nivel Garmin) aprobada como tanda posterior (tarea #11). Mina Garmin: #9.
-- ⏳ Siguiente del plan: T2 feedback publicable (rangos + forma grafica de
-  nota + render iOS) → T3 comparativa → T4 histórico HealthKit → T5 audio.
+- ✅ **T2 feedback publicable** (migs 0169, web `88cd7e9d`+`a147220d`, iOS):
+  rangos marcables sobre la gráfica («Ojo aquí / Así sí», dato estructurado),
+  «Dar feedback» abre el compositor con la nota premontada, forma `grafica`
+  con ventana ABSOLUTA congelada al marcar, audio opcional en cualquier
+  comunicado (almacén del coach + proxy por destino), y en iOS la gráfica
+  dentro de la nota (`ZonasSemanaView` reutilizable) + reproductor. La frase
+  del ancla la escribe el SERVIDOR (`source_label`): una sola voz. 100 tests
+  web + 1147 iOS. Lección grabada: build en worktree fijado antes de Vercel.
+- ⏳ Siguiente del plan de zonas: T3 comparativa por periodos → T4 histórico
+  HealthKit → T5 hecho (audio entró en T2). Aparte: #11 detección de umbral.
 
 ## Antes · DEL COACH — comunicación estructurada fuera del chat (9-ago)
 

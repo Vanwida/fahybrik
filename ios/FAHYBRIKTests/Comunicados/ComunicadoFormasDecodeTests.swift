@@ -5,12 +5,13 @@ import XCTest
 // (`shared/domain/coach-communications-dto.ts` + `web/lib/athlete/communications.ts`,
 // migración 0163).
 //
-// Lo que se prueba aquí es lo que se perdería sin darse cuenta: que las cuatro
+// Lo que se prueba aquí es lo que se perdería sin darse cuenta: que las cinco
 // formas llegan tipadas, que el camino trae la espina entera con su tono y su
-// «estás aquí», que el enlace del pie trae MI estado, y —sobre todo— que nada
-// de esto tira una sección ni la nota cuando falta o cuando llega algo que este
-// binario no conoce. Un briefing al que le desaparece un capítulo se lee como
-// si el coach no lo hubiera escrito.
+// «estás aquí», que la gráfica trae sus semanas con sus huecos y los rangos que
+// el coach marcó encima, que el enlace del pie trae MI estado, y —sobre todo—
+// que nada de esto tira una sección ni la nota cuando falta o cuando llega algo
+// que este binario no conoce. Un briefing al que le desaparece un capítulo se
+// lee como si el coach no lo hubiera escrito.
 final class ComunicadoFormasDecodeTests: XCTestCase {
 
     private func decodeNota(_ json: String) throws -> Comunicado {
@@ -272,6 +273,156 @@ final class ComunicadoFormasDecodeTests: XCTestCase {
         XCTAssertFalse(nota.items[0].tieneAlgoQuePintar)
     }
 
+    // MARK: - La gráfica
+
+    /// La sección de feedback entera: la ventana, las semanas MEDIDAS (sólo
+    /// ésas), el ancla de las bandas y los dos tramos que el coach marcó.
+    static let graficaJSON = """
+    "content": "", "display": "grafica", "segments": [],
+    "grafica": {
+      "week_start": "2026-02-23", "weeks": 4, "modality": null,
+      "weeks_data": [
+        { "week_start": "2026-02-23", "z1_s": 600, "z2_s": 900, "z3_s": 1500,
+          "z4_s": 3000, "z5_s": 1980, "no_hr_s": 2700, "total_s": 10680 },
+        { "week_start": "2026-03-09", "z1_s": 2400, "z2_s": 4200, "z3_s": 1500,
+          "z4_s": 1200, "z5_s": 240, "no_hr_s": 900, "total_s": 10440 }
+      ],
+      "anchor": { "source": "lthr_measured", "lthr_bpm": 168 },
+      "ranges": [
+        { "label": "Sierra: todo a tope, nada de base", "tone": "atencion",
+          "week_start": "2026-02-23", "week_end": "2026-03-02" },
+        { "label": "La base sube y se sostiene", "tone": "bien",
+          "week_start": "2026-03-09", "week_end": "2026-03-16" }
+      ]
+    }
+    """
+
+    func test_grafica_traeSusSemanasSusRangosYSuAncla() throws {
+        let seccion = try decodeNota(Self.seccionSuelta(Self.graficaJSON)).items[0]
+        XCTAssertEqual(seccion.forma, .grafica)
+        // La gráfica NO se teclea: es un embed que el servidor resuelve al servir.
+        XCTAssertFalse(seccion.forma.seTeclea)
+        XCTAssertTrue(seccion.content.isEmpty)
+
+        let g = try XCTUnwrap(seccion.grafica)
+        XCTAssertEqual(g.weeks, 4)
+        XCTAssertNil(g.modality)
+        // Sólo llegan las semanas CON dato: las otras dos son ausencia.
+        XCTAssertEqual(g.weeksData.map(\.weekStart), ["2026-02-23", "2026-03-09"])
+        XCTAssertEqual(g.celdas.count, 4)
+        XCTAssertEqual(g.celdas.map { $0.semana != nil }, [true, false, true, false])
+        XCTAssertEqual(g.semanasSinDato, 2)
+        XCTAssertEqual(g.anchor?.lthrBpm, 168)
+        XCTAssertEqual(g.anchor?.source, "lthr_measured")
+        // El servidor todavía no manda la frase; el ancla se dice igual.
+        XCTAssertNil(g.anchor?.sourceLabel)
+        XCTAssertEqual(g.rangosDibujados.map(\.desde), [0, 2])
+        XCTAssertEqual(g.rangosDibujados.map(\.hasta), [1, 3])
+        XCTAssertEqual(g.rangosDibujados.map(\.tono), [.atencion, .bien])
+        XCTAssertTrue(seccion.tieneAlgoQuePintar)
+    }
+
+    /// Nula significa que esta sección NO es una gráfica: el servidor manda la
+    /// config siempre que lo es. Entonces no hay nada que dibujar ni que
+    /// explicar, y la sección se salta entera sin dejar hueco.
+    func test_graficaNula_noDejaHueco() throws {
+        let json = Self.seccionSuelta(#""content": "", "display": "grafica", "grafica": null"#)
+        let nota = try decodeNota(json)
+        XCTAssertEqual(nota.items[0].forma, .grafica)
+        XCTAssertNil(nota.items[0].grafica)
+        XCTAssertFalse(nota.items[0].tieneAlgoQuePintar)
+        XCTAssertTrue(nota.seccionesVisibles.isEmpty)
+    }
+
+    /// LA GRÁFICA VACÍA SÍ SE PINTA. La config llega entera y lo que va vacío es
+    /// la lista de semanas: eso no es «no hay sección», es un estado con algo que
+    /// decir, y esconderlo dejaría al atleta sin saber que su coach fue a
+    /// mirarlo. Lo que no se pinta jamás es un suelo de ceros.
+    func test_graficaSinSemanasMedidas_sePintaComoVacioHonesto() throws {
+        let json = Self.seccionSuelta("""
+        "content": "", "display": "grafica",
+        "grafica": { "week_start": "2026-02-23", "weeks": 4, "weeks_data": [],
+                     "anchor": null, "ranges": [] }
+        """)
+        let seccion = try decodeNota(json).items[0]
+        let g = try XCTUnwrap(seccion.grafica)
+        XCTAssertTrue(g.estaVacia)
+        XCTAssertTrue(seccion.tieneAlgoQuePintar)
+        // La ventana sigue estando, que es lo que sitúa al atleta.
+        XCTAssertEqual(g.celdas.count, 4)
+        XCTAssertEqual(PalabrasDeZonas.ventana(g), "23 feb a 16 mar")
+        // Sin ancla el motivo es otro: no es que falten entrenos, es que sin
+        // umbral no se puede repartir nada.
+        XCTAssertEqual(
+            PalabrasDeZonas.vacio(g),
+            "Todavía no sabemos tu umbral, así que tu tiempo no se puede repartir en zonas."
+        )
+    }
+
+    /// Una semana mal formada se cae SOLA. La gráfica sigue llegando con el
+    /// resto, en vez de dejar la sección en blanco por una fila rota.
+    func test_semanaMalFormada_noSeLlevaLaGraficaEntera() throws {
+        let json = Self.seccionSuelta("""
+        "content": "", "display": "grafica",
+        "grafica": { "week_start": "2026-02-23", "weeks": 2, "weeks_data": [
+          { "week_start": "2026-02-23", "z1_s": 600, "z2_s": 900, "z3_s": 0,
+            "z4_s": 0, "z5_s": 0, "no_hr_s": 0, "total_s": 1500 },
+          { "z1_s": 600 }
+        ], "ranges": [] }
+        """)
+        let g = try XCTUnwrap(decodeNota(json).items[0].grafica)
+        XCTAssertEqual(g.weeksData.map(\.weekStart), ["2026-02-23"])
+    }
+
+    /// A una semana a la que le falta una zona le falta esa zona, no la semana:
+    /// tirar la fila entera enseñaría un hueco donde sí hubo entreno. Y los
+    /// segundos llegan a veces con decimales (Postgres sirve `numeric`).
+    func test_semanaTolerante_zonaAusenteYSegundosDecimales() throws {
+        let json = Self.seccionSuelta("""
+        "content": "", "display": "grafica",
+        "grafica": { "week_start": "2026-02-23", "weeks": 1, "weeks_data": [
+          { "week_start": "2026-02-23", "z1_s": 600.4, "z2_s": 1799.6, "no_hr_s": 0 }
+        ], "ranges": [] }
+        """)
+        let semana = try XCTUnwrap(decodeNota(json).items[0].grafica?.weeksData.first)
+        XCTAssertEqual(semana.z1S, 600)
+        XCTAssertEqual(semana.z2S, 1_800)
+        XCTAssertEqual(semana.z3S, 0)
+        XCTAssertEqual(semana.z5S, 0)
+        XCTAssertEqual(semana.segundos, 2_400)
+        XCTAssertNil(semana.totalS)
+    }
+
+    // MARK: - La voz del coach
+
+    func test_audio_llegaEnCualquierTipo() throws {
+        let json = Self.seccionSuelta(
+            #""content": "El porqué.""#,
+            extra: #""audio_url": "https://app.fahybrid.com/api/chat/attachments/voz.m4a", "audio_seconds": 134"#
+        )
+        let nota = try decodeNota(json)
+        XCTAssertTrue(nota.tieneAudio)
+        XCTAssertEqual(nota.audioSeconds, 134)
+        XCTAssertEqual(nota.audioUrl, "https://app.fahybrid.com/api/chat/attachments/voz.m4a")
+    }
+
+    /// Sin los campos —una respuesta anterior a que existieran— el comunicado se
+    /// comporta exactamente como antes: sin fila de audio y sin glifo.
+    func test_sinAudio_noSeInventa() throws {
+        let nota = try decodeNota(Self.notaJSON)
+        XCTAssertFalse(nota.tieneAudio)
+        XCTAssertNil(nota.audioUrl)
+        XCTAssertNil(nota.audioSeconds)
+    }
+
+    /// Una URL vacía es no tener audio: pintar el reproductor prometería algo
+    /// que al tocarlo no suena.
+    func test_audioVacio_esNoTenerAudio() throws {
+        let json = Self.seccionSuelta(#""content": "El porqué.""#,
+                                      extra: #""audio_url": "   ", "audio_seconds": null"#)
+        XCTAssertFalse(try decodeNota(json).tieneAudio)
+    }
+
     // MARK: - El enlace del pie
 
     func test_enlace_llegaConMiEstadoYConLoQueBloquea() throws {
@@ -333,19 +484,38 @@ final class ComunicadoFormasDecodeTests: XCTestCase {
         XCTAssertEqual(vuelta.seccionesVisibles.count, 4)
     }
 
+    /// Y la gráfica y la voz, por el mismo sitio: un arranque en frío sin
+    /// cobertura tiene que abrir el feedback ENTERO, no un texto suelto.
+    func test_graficaYAudio_roundTripPorLaCacheEnDisco() throws {
+        let json = Self.seccionSuelta(
+            Self.graficaJSON,
+            extra: #""audio_url": "https://app.fahybrid.com/api/chat/attachments/voz.m4a", "audio_seconds": 134"#
+        )
+        let original = try decodeNota(json)
+        let vuelta = try JSONDecoder().decode(Comunicado.self, from: JSONEncoder().encode(original))
+        XCTAssertEqual(vuelta.items.map(\.grafica), original.items.map(\.grafica))
+        XCTAssertEqual(vuelta.audioUrl, original.audioUrl)
+        XCTAssertEqual(vuelta.audioSeconds, original.audioSeconds)
+        XCTAssertTrue(vuelta.tieneAudio)
+        XCTAssertEqual(vuelta.seccionesVisibles.count, 1)
+        XCTAssertEqual(vuelta.items[0].grafica?.rangosDibujados.count, 2)
+    }
+
     // MARK: - Arnés
 
     /// Una nota con UNA sección, para probar un caso raro sin arrastrar las
-    /// cuatro formas detrás. `campos` es la sección entera menos su id, su
+    /// cinco formas detrás. `campos` es la sección entera menos su id, su
     /// posición y su etiqueta: cada prueba escribe lo que le importa, incluido
     /// `content`, que el servidor manda siempre (vacío en las formas que no se
-    /// teclean).
-    private static func seccionSuelta(_ campos: String) -> String {
+    /// teclean). `extra` son campos del COMUNICADO, para lo que no vive dentro
+    /// de una sección (la voz del coach).
+    private static func seccionSuelta(_ campos: String, extra: String? = nil) -> String {
         """
         {
           "id": "900", "kind": "note", "title": "Una nota", "body": null, "final_note": null,
           "anchor_kind": "plan", "anchor_ref": null, "due_date": null, "expires_at": null,
           "blocks": false, "published_at": "2026-08-09T06:00:00Z", "coach_name": null,
+          \(extra.map { "\($0)," } ?? "")
           "items": [
             { "id": "9001", "position": 0, "label": "Una sección", "consequence": null, \(campos) }
           ],

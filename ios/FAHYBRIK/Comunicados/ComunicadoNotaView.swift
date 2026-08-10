@@ -85,8 +85,9 @@ struct CuerpoDeLaNota: View {
 }
 
 /// Cómo se OYE una sección. Un texto y una cifra se leen de corrido en una sola
-/// parada; un reparto y un camino son varias cosas dentro de una, y aplanarlos
-/// dejaría doce tramos en una sola frase que nadie puede recorrer.
+/// parada; un reparto, un camino y una gráfica son varias cosas dentro de una, y
+/// aplanarlos dejaría veinticuatro semanas en una sola frase que nadie puede
+/// recorrer.
 private struct VozDeLaSeccion: ViewModifier {
     let forma: ComunicadoForma
 
@@ -94,7 +95,7 @@ private struct VozDeLaSeccion: ViewModifier {
         switch forma {
         case .texto, .cifra:
             content.accessibilityElement(children: .combine)
-        case .reparto, .camino:
+        case .reparto, .camino, .grafica:
             content.accessibilityElement(children: .contain)
         }
     }

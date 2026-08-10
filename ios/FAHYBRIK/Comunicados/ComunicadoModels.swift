@@ -157,6 +157,14 @@ struct ComunicadoItem: Codable, Identifiable, Equatable {
     /// el viejo. Nil cuando la sección no es un camino o cuando no hay plan, y
     /// entonces no se pinta nada en vez de dibujar un camino inventado.
     var camino: CaminoDelPlan? = nil
+    /// Sus semanas en zonas, con los rangos que el coach marcó encima. Se
+    /// resuelve al servir por lo mismo que el camino: lo que se guardó fue la
+    /// CONFIG (ventana, filtro, rangos) y no la imagen, así que la nota de julio
+    /// se sigue dibujando con lo que hoy sabemos de aquellas semanas.
+    ///
+    /// Nil cuando la sección no es una gráfica, o cuando de ese atleta todavía
+    /// no hay una sola semana medida.
+    var grafica: GraficaDeZonas? = nil
 }
 
 /// El comunicado más MI estado con él.
@@ -183,6 +191,24 @@ struct Comunicado: Codable, Identifiable, Equatable {
     let coachName: String?
     /// Una fila mal formada se cae sola en vez de llevarse la bandeja entera.
     @LossyArray var items: [ComunicadoItem]
+
+    // La voz del coach. UNA por comunicado, opcional, y en los CINCO tipos: la
+    // explicación hablada es la mitad del valor de un feedback, y hoy vive en un
+    // audio de mensajería que nadie vuelve a encontrar. Los dos campos pueden
+    // faltar (una respuesta anterior al campo se comporta igual que antes).
+
+    /// Dónde están los bytes. Se reproduce DENTRO del comunicado, sin salir a
+    /// ningún sitio.
+    var audioUrl: String? = nil
+    /// Cuánto dura, para poder decirlo antes de descargarlo. Nil = se sabrá al
+    /// abrirlo; nunca se inventa un «0:00».
+    var audioSeconds: Int? = nil
+
+    /// ¿Trae voz? Un `audio_url` vacío es lo mismo que no traerla: la fila del
+    /// reproductor no se pinta para no prometer un audio que no suena.
+    var tieneAudio: Bool {
+        !(audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
 
     // Los sellos del destinatario. `var` porque un acto del atleta los mueve
     // localmente antes de que el servidor conteste (y sin conexión, sin que
@@ -402,75 +428,4 @@ struct ComunicadoRecipientState: Codable, Equatable {
     let answeredItemId: String?
     let answeredAt: Date?
     let markedItemIds: [String]
-}
-
-// MARK: - La bandeja
-
-/// La bandeja ya repartida en sus cajones. El ORDEN dentro de cada cajón es el
-/// del servidor y no se toca: lo pone el dominio compartido (primero lo que
-/// bloquea, luego lo que vence, luego lo que no has abierto) y reordenarlo aquí
-/// sería tener dos criterios de qué es urgente.
-struct BandejaComunicados: Equatable {
-    /// Las preguntas, arriba del todo. Una decisión que cambia el plan no puede
-    /// competir por sitio con una nota.
-    var preguntas: [Comunicado] = []
-    /// Lo que pide un acto que se cierra: protocolos y tareas.
-    var paraHacer: [Comunicado] = []
-    /// El foco, que no caduca.
-    var focos: [Comunicado] = []
-    var notas: [Comunicado] = []
-
-    var estaVacia: Bool {
-        preguntas.isEmpty && paraHacer.isEmpty && focos.isEmpty && notas.isEmpty
-    }
-
-    /// Todo lo que sigue reclamando algo — el globito de la cabecera.
-    var pendientes: Int {
-        todos.filter(\.reclama).count
-    }
-
-    /// Lo pendiente DENTRO de «Para hacer», que es lo que dice su accesorio.
-    var pendientesParaHacer: Int {
-        paraHacer.filter(\.reclama).count
-    }
-
-    /// La bandeja en calma: nada sin ver, nada sin responder, nada sin hacer.
-    var enCalma: Bool { pendientes == 0 }
-
-    var todos: [Comunicado] {
-        preguntas + paraHacer + focos + notas
-    }
-
-    /// El reparto es por TIPO, no por estado: una pregunta respondida sigue
-    /// siendo la pregunta (enseña lo que elegiste, que en octubre es justo lo
-    /// que el atleta viene a buscar) y una tarea hecha se queda tachada en su
-    /// sitio en vez de desaparecer.
-    static func agrupar(_ comunicados: [Comunicado]) -> BandejaComunicados {
-        var bandeja = BandejaComunicados()
-        for c in comunicados {
-            switch c.kind {
-            case .pregunta:            bandeja.preguntas.append(c)
-            case .protocolo, .tarea:   bandeja.paraHacer.append(c)
-            case .foco:                bandeja.focos.append(c)
-            case .nota:                bandeja.notas.append(c)
-            }
-        }
-        return bandeja
-    }
-}
-
-/// La respuesta de la bandeja. `pending` lo cuenta el servidor con la misma
-/// regla que `reclama`; se decodifica para poder comprobar que las dos
-/// coinciden, pero lo que se pinta sale siempre del estado local (que sí sabe
-/// lo que el atleta acaba de marcar sin conexión).
-struct ComunicadosInbox: Codable, Equatable {
-    @LossyArray var communications: [Comunicado]
-    let pending: Int
-
-    static let vacia = ComunicadosInbox(communications: [], pending: 0)
-
-    init(communications: [Comunicado], pending: Int) {
-        self._communications = LossyArray(wrappedValue: communications)
-        self.pending = pending
-    }
 }

@@ -221,6 +221,7 @@ struct TarjetaComunicado<Pie: View>: View {
                 if let ancla = comunicado.anchorKind.etiqueta {
                     LabelText(text: ancla, color: Theme.Color.faint, size: 9.5)
                 }
+                GlifoAudioComunicado(comunicado: comunicado)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .bold))

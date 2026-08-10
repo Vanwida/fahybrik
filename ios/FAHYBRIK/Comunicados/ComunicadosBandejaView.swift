@@ -49,6 +49,10 @@ struct ComunicadosBandejaView: View {
                     destino(id)
                 }
         }
+        // La sesión baja por el entorno para que la voz del coach pueda ir a por
+        // sus bytes desde cualquier detalle, sin cruzar el bearer por los cinco
+        // cuerpos hasta llegar a una fila.
+        .environment(\.bearerDeSesion, bearer)
         .task {
             if acciones == nil { acciones = ComunicadosAcciones(store: store, bearer: bearer) }
             await store.refreshCommunications()

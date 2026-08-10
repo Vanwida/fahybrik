@@ -16,21 +16,29 @@ import Foundation
 
 // MARK: - Cómo se pinta una sección
 
-/// Cuatro, porque un briefing real mezcla cuatro cosas:
+/// Cinco, porque un briefing real mezcla cinco cosas:
 ///
 ///   texto   — la prosa: el porqué, lo que cambió
 ///   cifra   — el número que el atleta viene a buscar, en grande y en mono
 ///   reparto — una PROPORCIÓN, que se lee de un vistazo en una barra
 ///   camino  — por dónde va a pasar: NO se teclea, se resuelve con SU plan
+///   grafica — lo que ha hecho de verdad: tampoco se teclea, se resuelve con SUS
+///             semanas medidas y con los rangos que el coach marcó encima
 ///
-/// Es propiedad de la SECCIÓN y no de la nota (una nota mezcla las cuatro), y
-/// fuera de una nota es inerte: un paso de protocolo y una opción de pregunta
-/// llegan como `texto` y nadie lo mira.
+/// La quinta no abre un sexto tipo de comunicado y eso es la decisión de fondo:
+/// «dar feedback» es una NOTA con una forma más. Un tipo aparte partiría el
+/// modelo en «nota» y «nota con datos» y duplicaría bandeja, señales y
+/// seguimiento para contar lo mismo.
+///
+/// Es propiedad de la SECCIÓN y no de la nota (una nota las mezcla), y fuera de
+/// una nota es inerte: un paso de protocolo y una opción de pregunta llegan como
+/// `texto` y nadie lo mira.
 enum ComunicadoForma: String, CaseIterable {
     case texto
     case cifra
     case reparto
     case camino
+    case grafica
 
     /// Lo que llega por el cable, con dos tolerancias que no son lo mismo:
     ///
@@ -44,12 +52,13 @@ enum ComunicadoForma: String, CaseIterable {
         self = cable.flatMap(ComunicadoForma.init(rawValue:)) ?? .texto
     }
 
-    /// ¿Se teclea su contenido? El reparto ES sus segmentos y el camino ES el
-    /// plan del atleta: en los dos, `content` llega vacío a propósito.
+    /// ¿Se teclea su contenido? El reparto ES sus segmentos, el camino ES el plan
+    /// del atleta y la gráfica SON sus semanas medidas: en los tres, `content`
+    /// llega vacío a propósito.
     var seTeclea: Bool {
         switch self {
         case .texto, .cifra: return true
-        case .reparto, .camino: return false
+        case .reparto, .camino, .grafica: return false
         }
     }
 }
@@ -155,6 +164,16 @@ extension ComunicadoItem {
             return trozos.contains { $0.valueNum > 0 }
         case .camino:
             return !(camino?.estaVacio ?? true)
+        case .grafica:
+            // Basta con que la gráfica llegue. Sin semanas medidas SÍ se pinta,
+            // porque ahí tiene algo que decir y son palabras: «de estas semanas
+            // todavía no hay entrenos con pulso» informa, y esconder la sección
+            // dejaría al atleta sin saber que su coach fue a mirarlo.
+            //
+            // Nula significa otra cosa: que esta sección no es una gráfica. El
+            // servidor manda la config SIEMPRE que lo es (ventana, filtro y sus
+            // rangos), y lo que se queda vacío es la lista de semanas.
+            return grafica != nil
         }
     }
 

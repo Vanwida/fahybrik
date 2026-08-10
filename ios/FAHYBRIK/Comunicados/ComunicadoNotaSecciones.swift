@@ -40,6 +40,10 @@ struct SeccionDeNota: View {
             if let camino = seccion.camino {
                 EspinaDelPlan(camino: camino)
             }
+        case .grafica:
+            if let grafica = seccion.grafica {
+                GraficaDeNota(grafica: grafica)
+            }
         case .texto, .cifra:
             Text(seccion.content)
                 .scaledFont(14, relativeTo: .callout)
@@ -163,6 +167,31 @@ private struct RepartoDeNota: View {
     /// Dicho de corrido para quien lo escucha: la barra no dice nada en voz alta.
     private var etiquetaDeVoz: String {
         trozos.map { "\($0.cantidad) \($0.label)" }.joined(separator: ", ")
+    }
+}
+
+// MARK: - La gráfica
+
+/// SUS SEMANAS, y encima lo que el coach marcó sobre ellas.
+///
+/// El dibujo es el de `ZonasSemanaView`, que es la misma pieza que va a sus
+/// Analíticas: lo que se añade aquí es el pie del ANCLA, porque dentro de una
+/// nota la gráfica llega sin la pantalla que normalmente explica de dónde salen
+/// las bandas. Una banda estimada que se lee como medida es cómo un número que
+/// nadie midió acaba siendo la prueba de algo.
+private struct GraficaDeNota: View {
+    let grafica: GraficaDeZonas
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            ZonasSemanaView(grafica: grafica)
+            if let ancla = grafica.anchor {
+                Text(PalabrasDeZonas.ancla(ancla))
+                    .scaledFont(11.5, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

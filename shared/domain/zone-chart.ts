@@ -158,7 +158,9 @@ export interface ZoneChartDTO {
   modality: string | null;
   weeks_data: ZoneWeekSecondsDTO[];
   /** Con qué umbral se repartió. Null = el atleta no tiene ancla, y entonces
-   *  todo lo medido cae en «sin zona»: la pantalla tiene que poder decirlo. */
-  anchor: { source: HrAnchorSource; lthr_bpm: number } | null;
+   *  todo lo medido cae en «sin zona»: la pantalla tiene que poder decirlo.
+   *  `source_label` es la frase del SERVIDOR (HR_ANCHOR_LABEL): una sola voz
+   *  en todas las superficies, ninguna app redacta la suya. */
+  anchor: { source: HrAnchorSource; lthr_bpm: number; source_label: string } | null;
   ranges: ZoneRangeDTO[];
 }

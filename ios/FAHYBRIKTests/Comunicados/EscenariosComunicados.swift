@@ -25,7 +25,9 @@ enum EscenariosComunicados {
         items: [ComunicadoItem] = [],
         marcados: [String] = [],
         answered: String? = nil,
-        publicado: String = "2026-08-09T07:00:00Z"
+        publicado: String = "2026-08-09T07:00:00Z",
+        audioUrl: String? = nil,
+        audioSeconds: Int? = nil
     ) -> Comunicado {
         let seen: Date? = state == .publicado ? nil : Date(timeIntervalSince1970: 1_000)
         let done: Date? = state == .hecho ? Date(timeIntervalSince1970: 2_000) : nil
@@ -35,7 +37,8 @@ enum EscenariosComunicados {
             anchorKind: ancla, anchorRef: nil, dueDate: dueDate, expiresAt: nil,
             blocks: blocks,
             publishedAt: ISO8601DateFormatters.parse(publicado)!,
-            coachName: "Pablo Amigo", items: items, state: state,
+            coachName: "Pablo Amigo", items: items,
+            audioUrl: audioUrl, audioSeconds: audioSeconds, state: state,
             seenAt: seen, doneAt: done, answeredItemId: answered, answeredAt: answeredAt,
             markedItemIds: marcados,
             claimsAttention: Comunicado.reclama(kind: kind, state: state)
@@ -158,13 +161,72 @@ enum EscenariosComunicados {
         _ id: String, _ posicion: Int, etiqueta: String?, contenido: String = "",
         forma: ComunicadoForma = .texto,
         trozos: [TrozoReparto] = [],
-        camino: CaminoDelPlan? = nil
+        camino: CaminoDelPlan? = nil,
+        grafica: GraficaDeZonas? = nil
     ) -> ComunicadoItem {
         ComunicadoItem(
             id: id, position: posicion, label: etiqueta, content: contenido,
-            consequence: nil, display: forma.rawValue, segments: trozos, camino: camino
+            consequence: nil, display: forma.rawValue, segments: trozos,
+            camino: camino, grafica: grafica
         )
     }
+
+    // MARK: Las zonas de seis meses
+
+    /// El lunes en el que arranca la ventana de ejemplo.
+    static let primeraSemana = "2026-02-23"
+
+    /// SEIS MESES DE ZONAS, inventados para enseñar la forma: diez semanas de
+    /// sierra (todo arriba, mucho tiempo sin repartir porque aún no había reloj)
+    /// y catorce de base creciendo. La semana 13 no tiene dato a propósito: el
+    /// hueco es la mitad de lo que esta gráfica cuenta, y una gráfica de prueba
+    /// sin un solo hueco no prueba nada.
+    ///
+    /// Ningún número de aquí es de un atleta real.
+    static let semanasEnZonas: [SemanaEnZonas] = (0..<24).compactMap { i in
+        guard i != 12 else { return nil }
+        let lunes = Semanas.mas(primeraSemana, i)
+        if i < 10 {
+            let punta = 1 + (i % 3)
+            return SemanaEnZonas(
+                weekStart: lunes,
+                z1S: 600 + i * 40, z2S: 900 + i * 60, z3S: 1_500 + i * 90,
+                z4S: 2_400 + punta * 600, z5S: 1_500 + punta * 480,
+                noHrS: 2_700 - i * 120
+            )
+        }
+        let crece = i - 10
+        return SemanaEnZonas(
+            weekStart: lunes,
+            z1S: 2_400 + crece * 220, z2S: 4_200 + crece * 420, z3S: 1_500 + crece * 60,
+            z4S: 1_200, z5S: 240 + crece * 20,
+            noHrS: max(0, 900 - crece * 90)
+        )
+    }
+
+    /// La gráfica con los dos rangos que el coach marcó encima. Es DATO: por eso
+    /// se vuelve a dibujar en el móvil en vez de llegar como una captura.
+    static let graficaDeZonas = GraficaDeZonas(
+        weekStart: primeraSemana,
+        weeks: 24,
+        modality: nil,
+        weeksData: semanasEnZonas,
+        anchor: AnclaDeZonas(source: "lthr_measured", lthrBpm: 168),
+        ranges: [
+            RangoDeZonas(
+                label: "Sierra: todo a tope, nada de base",
+                tone: "atencion",
+                weekStart: primeraSemana,
+                weekEnd: Semanas.mas(primeraSemana, 9)
+            ),
+            RangoDeZonas(
+                label: "La base sube y se sostiene",
+                tone: "bien",
+                weekStart: Semanas.mas(primeraSemana, 14),
+                weekEnd: Semanas.mas(primeraSemana, 23)
+            ),
+        ]
+    )
 
     /// La nota del plan rehecho, con sus cuatro formas y la pregunta al pie.
     static func notaConFormas(
@@ -198,6 +260,46 @@ enum EscenariosComunicados {
             state: enlaceResuelto ? .respondido : .publicado
         )
         return n
+    }
+
+    /// La MISMA ventana de un atleta al que todavía no le hemos medido nada: la
+    /// config entera (el coach la miró y la marcó) y ni una semana con dato. Es
+    /// el estado vacío honesto, no una sección que desaparece.
+    static let graficaSinSemanas = GraficaDeZonas(
+        weekStart: primeraSemana,
+        weeks: 24,
+        modality: nil,
+        weeksData: [],
+        anchor: AnclaDeZonas(source: "lthr_measured", lthrBpm: 168),
+        ranges: []
+    )
+
+    /// EL FEEDBACK — que por debajo es una nota y nada más. La gráfica con sus
+    /// rangos, lo que el coach ve escrito, y su voz encima explicándolo.
+    ///
+    /// La gráfica se pasa entera para poder mirar los tres estados: la que
+    /// dibuja, la que llega vacía (`graficaSinSemanas`) y la sección que no es
+    /// una gráfica (`nil`).
+    static func notaDeFeedback(
+        grafica: GraficaDeZonas? = graficaDeZonas,
+        conAudio: Bool = true
+    ) -> Comunicado {
+        comunicado(
+            id: "108", kind: .nota,
+            title: "Tus seis meses, y lo que veo",
+            body: "Te he marcado dos tramos sobre tu gráfica. El audio va sobre eso.",
+            ancla: .plan,
+            items: [
+                seccion("9801", 0, etiqueta: "Tus seis meses en zonas", forma: .grafica,
+                        grafica: grafica),
+                seccion("9802", 1, etiqueta: "Lo que veo",
+                        contenido: "La progresión de cargas es aburrida, pero permite progresiones y no estancamientos. Estás desplazando tu zona de inestabilidad a la derecha."),
+            ],
+            // Una RUTA del servidor, que es como llega: se resuelve contra la
+            // base y se pide con el bearer, igual que un adjunto del chat.
+            audioUrl: conAudio ? "/api/communications/audio/2026/08/voz-feedback.m4a" : nil,
+            audioSeconds: conAudio ? 134 : nil
+        )
     }
 
     static let foco = comunicado(

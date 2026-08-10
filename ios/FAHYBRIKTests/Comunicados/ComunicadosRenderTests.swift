@@ -310,6 +310,167 @@ final class ComunicadosRenderTests: XCTestCase {
         XCTAssertNotNil(imagen)
     }
 
+    // MARK: - El feedback
+
+    /// EL FEEDBACK ENTERO — que por debajo es una nota y nada más: la gráfica con
+    /// los dos tramos que el coach marcó, su voz encima, y lo que ve escrito.
+    ///
+    /// Es el caso de diseño de la tanda: si esto no se sostiene en 402 puntos de
+    /// ancho, el feedback no existe en el móvil por muy bien que se marque en el
+    /// escritorio.
+    @MainActor
+    func testNotaDeFeedbackConSuGraficaYSuVoz() {
+        let n = EscenariosComunicados.notaDeFeedback()
+        XCTAssertEqual(n.seccionesVisibles.map(\.forma), [.grafica, .texto])
+        XCTAssertTrue(n.tieneAudio)
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CabeceraComunicado(comunicado: n, onVolver: {}) {
+                    InsigniaComunicado(insignia: n.insignia(hoy: Self.hoy))
+                }
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-feedback",
+            alto: Self.lienzoLargo.height
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// De este atleta todavía no hay una sola semana medida. La sección NO
+    /// desaparece: enseña qué periodo miró el coach y por qué está en blanco.
+    /// Ni un eje con rejilla vacía, ni un suelo de ceros, ni un hueco mudo.
+    @MainActor
+    func testNotaDeFeedbackSinSemanasMedidas_loDiceConPalabras() {
+        let n = EscenariosComunicados.notaDeFeedback(
+            grafica: EscenariosComunicados.graficaSinSemanas
+        )
+        XCTAssertEqual(n.seccionesVisibles.map(\.forma), [.grafica, .texto])
+        XCTAssertTrue(EscenariosComunicados.graficaSinSemanas.estaVacia)
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-feedback-vacia"
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// Y una sección que NO es una gráfica (llega nula) se salta entera: ahí no
+    /// hay ni dibujo ni nada que explicar.
+    @MainActor
+    func testNotaDeFeedbackConSeccionQueNoEsGrafica_noDejaHueco() {
+        let n = EscenariosComunicados.notaDeFeedback(grafica: nil)
+        XCTAssertEqual(n.items.count, 2)
+        XCTAssertEqual(n.seccionesVisibles.map(\.forma), [.texto])
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-feedback-sin-grafica"
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// Sin voz, ni fila de reproductor ni hueco donde iría.
+    @MainActor
+    func testNotaDeFeedbackSinVoz_noPintaElReproductor() {
+        let n = EscenariosComunicados.notaDeFeedback(conAudio: false)
+        XCTAssertFalse(n.tieneAudio)
+        let imagen = render(
+            VStack(alignment: .leading, spacing: 0) {
+                CuerpoDeLaNota(comunicado: n)
+                Spacer(minLength: 0)
+            },
+            nombre: "coach-nota-feedback-sin-voz",
+            alto: Self.lienzoLargo.height
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// LA GRÁFICA SOLA, que es la pieza que se va a reutilizar en sus Analíticas:
+    /// veinticuatro semanas apiladas, el hueco de la que no se midió, el gris
+    /// rayado de lo que no se pudo repartir y los rangos del coach debajo.
+    @MainActor
+    func testGraficaDeZonas() {
+        let imagen = render(
+            VStack(alignment: .leading) {
+                CardSurface {
+                    ZonasSemanaView(grafica: EscenariosComunicados.graficaDeZonas)
+                }
+                .padding(Theme.Spacing.l)
+                Spacer(minLength: 0)
+            },
+            nombre: "zonas-semanas"
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// La misma gráfica en CLARO. La escala de zonas se oscurece para el lienzo
+    /// blanco (`HRZone.color`), y esta captura es la que enseña que las cinco
+    /// bandas siguen distinguiéndose entre ellas y del gris rayado.
+    @MainActor
+    func testGraficaDeZonasEnClaro() {
+        let imagen = render(
+            VStack(alignment: .leading) {
+                CardSurface {
+                    ZonasSemanaView(grafica: EscenariosComunicados.graficaDeZonas)
+                }
+                .padding(Theme.Spacing.l)
+                Spacer(minLength: 0)
+            },
+            nombre: "zonas-semanas-claro",
+            esquema: .light
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// Una ventana corta con la mitad de las semanas sin medir: el hueco NO es un
+    /// cero, y por eso no hay barra sino una marca fina bajo la base.
+    @MainActor
+    func testGraficaDeZonasConHuecos() {
+        let g = GraficaDeZonas(
+            weekStart: "2026-06-01", weeks: 8, modality: "run",
+            weeksData: [
+                SemanaEnZonas(weekStart: "2026-06-01", z1S: 1_800, z2S: 3_600, z3S: 900),
+                SemanaEnZonas(weekStart: "2026-06-15", z1S: 600, z2S: 1_200, noHrS: 2_400),
+                SemanaEnZonas(weekStart: "2026-07-06", z1S: 2_400, z2S: 5_400, z4S: 900),
+            ],
+            anchor: AnclaDeZonas(source: "from_age", lthrBpm: 154),
+            ranges: []
+        )
+        XCTAssertEqual(g.semanasSinDato, 5)
+        let imagen = render(
+            VStack(alignment: .leading) {
+                CardSurface {
+                    ZonasSemanaView(grafica: g)
+                }
+                .padding(Theme.Spacing.l)
+                Spacer(minLength: 0)
+            },
+            nombre: "zonas-semanas-huecos"
+        )
+        XCTAssertNotNil(imagen)
+    }
+
+    /// En la bandeja, lo que lleva voz lo dice sin abrirse: un glifo discreto y
+    /// su duración, en la misma línea del ancla.
+    @MainActor
+    func testBandejaConVozEnLaTarjeta() {
+        let bandeja = BandejaComunicados.agrupar(
+            EscenariosComunicados.semanaFuerte + [EscenariosComunicados.notaDeFeedback()]
+        )
+        XCTAssertEqual(bandeja.notas.filter(\.tieneAudio).count, 1)
+        let imagen = render(
+            ListaComunicados(bandeja: bandeja, onAbrir: { _ in }, onMarcarTarea: { _ in }),
+            nombre: "coach-bandeja-con-voz",
+            alto: Self.lienzoLargo.height
+        )
+        XCTAssertNotNil(imagen)
+    }
+
     // MARK: - Render
 
     @ViewBuilder
