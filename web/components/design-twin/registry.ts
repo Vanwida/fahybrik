@@ -70,6 +70,12 @@ import * as coachBandeja from './screens/coach-bandeja';
 import * as coachPregunta from './screens/coach-pregunta';
 import * as coachProtocolo from './screens/coach-protocolo';
 import * as coachNota from './screens/coach-nota';
+// Muchas rondas (10-ago): la lista del vivo pinta una fila por ronda y la
+// ranura no scrollea, así que a partir de cuatro EMPUJA — es el agujero que ese
+// mismo día dejó EMPEZAR fuera de pantalla y que docs/DECISIONS.md dejó abierto
+// como decisión de UX. La respuesta no vale para las 16 estaciones de un HYROX
+// (ahí cada fila dice algo distinto): vale para las RONDAS, que se repiten.
+import * as vivoRondas from './screens/vivo-rondas';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -135,6 +141,7 @@ export const SCREENS: TwinScreenModule[] = [
   coachPregunta,
   coachProtocolo,
   coachNota,
+  vivoRondas,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -151,7 +158,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
   { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
   {
     grupo: 'En vivo, por quién gobierna',
-    ids: ['vivo-correr', 'vivo-erg', 'vivo-fuerza', 'vivo-emom', 'vivo-fortime', 'vivo-amrap', 'vivo-dobles'],
+    ids: ['vivo-correr', 'vivo-erg', 'vivo-fuerza', 'vivo-emom', 'vivo-fortime', 'vivo-amrap', 'vivo-dobles', 'vivo-rondas'],
   },
   { grupo: 'Al terminar', ids: ['resumen-carrera'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
