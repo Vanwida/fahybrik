@@ -27,9 +27,16 @@
 //      AVISO en la respuesta, nunca como error: negarle un rodaje suave porque no
 //      declaró el ritmo sería enmendarle la plana.
 //
-// La prescripción se NORMALIZA antes de persistir (`safeParsePrescription`, la
-// variante con transform): un alias antiguo entra y sale canónico, así que por el
-// conector nunca se escribe una forma que después haya que degradar al leer.
+// LA NORMALIZACIÓN VA ANTES DE LOS PORTONES, NO DESPUÉS. La prescripción se
+// canoniza (`safeParsePrescription`, la variante con transform: un alias antiguo
+// entra y sale canónico) Y se le deriva el plano de su estructura
+// (`withFlatFromStructure`) en `normalizeContentBlocks`, ANTES de juzgarla. Si no,
+// los portones opinan sobre una prescripción distinta de la que se persiste — que
+// es exactamente lo que pasó el 10-ago-2026: un fartlek dictado con la zona DENTRO
+// de `structure` (y sin plano, porque el cliente no tiene por qué escribirlo)
+// volvió con el aviso «Run — Sin objetivo: falta ritmo, zona, pulso o RPE» encima
+// de un entreno que declaraba Z4 en cada tramo. Completitud, aviso y lectura de
+// vuelta miran ahora la MISMA prescripción que acaba en la base de datos.
 
 import { z } from 'zod';
 import {
@@ -41,6 +48,7 @@ import {
   prescriptionObjectSchemaRaw,
   prescriptionToText,
   safeParsePrescription,
+  withFlatFromStructure,
   type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
@@ -122,6 +130,31 @@ export const contentBlocksArg = z
 export type ContentBlock = z.infer<typeof blockSchema>;
 
 /**
+ * Los mismos bloques con la prescripción YA canónica y con el plano derivado de su
+ * estructura. Es lo único que ven los portones, el serializador y la lectura de
+ * vuelta: el tipo obliga a normalizar antes de juzgar (ver la nota de arriba).
+ */
+export type NormalizedContentBlock = Omit<ContentBlock, 'items'> & {
+  items: Array<Omit<ContentBlock['items'][number], 'prescription'> & { prescription: Prescription }>;
+};
+
+/**
+ * La prescripción de cada línea en su forma canónica y con el plano completo.
+ * Idempotente: normalizar lo ya normalizado no cambia nada (el transform de Zod
+ * deja lo canónico igual, y `withFlatFromStructure` no toca una prescripción que
+ * ya declara su dosis plana).
+ */
+export function normalizeContentBlocks(blocks: ContentBlock[]): NormalizedContentBlock[] {
+  return blocks.map((block) => ({
+    ...block,
+    items: block.items.map((item) => ({
+      ...item,
+      prescription: withFlatFromStructure(normalizePrescription(item.prescription)),
+    })),
+  }));
+}
+
+/**
  * La gramática de la prescripción, dicha para el cliente DENTRO de la descripción
  * de la tool. Es la misma que aprende el importador y la que valida el Zod de
  * arriba (`grammar-prompt.ts` la deriva del propio esquema), así que un asistente
@@ -159,7 +192,8 @@ export class ContentError extends Error {
  */
 export async function resolveContentExercises(params: {
   coach_id: number | bigint;
-  blocks: ContentBlock[];
+  /** Solo se leen los `exercise_id`, así que sirve cualquiera de las dos formas. */
+  blocks: Array<{ items: Array<{ exercise_id: number }> }>;
   client?: Sql;
 }): Promise<Map<number, ContentExercise>> {
   const client = params.client ?? defaultSql;
@@ -211,7 +245,7 @@ export interface ContentGateResult {
  * llamada por línea: `blocking` bloquea, `advisory` avisa.
  */
 export function gateContent(
-  blocks: ContentBlock[],
+  blocks: NormalizedContentBlock[],
   exercises: Map<number, ContentExercise>,
 ): ContentGateResult {
   const blocking: string[] = [];
@@ -221,7 +255,7 @@ export function gateContent(
     for (const item of block.items) {
       const exercise = exercises.get(item.exercise_id);
       const name = exercise?.name ?? `ejercicio ${item.exercise_id}`;
-      const check = checkPrescriptionCompleteness(item.prescription as Prescription, {
+      const check = checkPrescriptionCompleteness(item.prescription, {
         modality: exercise?.modality ?? null,
       });
       if (!isExecutable(check)) {
@@ -242,12 +276,11 @@ export function gateContent(
 // ── De los bloques a las filas ───────────────────────────────────────────────
 
 /**
- * Los bloques, serializados con el serializador del editor. Aquí se normaliza cada
- * prescripción (los alias antiguos salen canónicos) antes de que el serializador
- * derive `params_json`, para que las dos columnas cuenten lo mismo.
+ * Los bloques, serializados con el serializador del editor — el mismo que deriva
+ * `params_json` de la prescripción, así que las dos columnas cuentan lo mismo.
  */
 export function contentToSegments(
-  blocks: ContentBlock[],
+  blocks: NormalizedContentBlock[],
   exercises: Map<number, ContentExercise>,
 ): SessionSegmentInput[] {
   return serializeSessionSegments(
@@ -257,7 +290,7 @@ export function contentToSegments(
       items: block.items.map((item) => ({
         exercise_id: item.exercise_id,
         exercise_name: exercises.get(item.exercise_id)?.name ?? '',
-        prescription: normalizePrescription(item.prescription),
+        prescription: item.prescription,
         ...(item.notes ? { notes: item.notes } : {}),
       })),
     })),
@@ -269,7 +302,7 @@ export function contentToSegments(
  * primera prescripción — que ES el mismo eje (un bloque tiene un formato, y sus
  * líneas lo comparten; ver `PrescriptionScheme`). Nunca se inventa un tercero.
  */
-function blockFormat(block: ContentBlock): string {
+function blockFormat(block: NormalizedContentBlock): string {
   if (block.format) return block.format;
   const scheme = block.items[0]?.prescription.scheme;
   return (scheme ? normalizeFormat(scheme) : undefined) ?? FALLBACK_SESSION_FORMAT;
@@ -280,7 +313,7 @@ function blockFormat(block: ContentBlock): string {
  * que la app usa para decir de qué va el entreno cuando no mira dentro; sale del
  * contenido, no de una plantilla ajena de la que se hubiera copiado.
  */
-export function sessionFormatFor(blocks: ContentBlock[]): string {
+export function sessionFormatFor(blocks: NormalizedContentBlock[]): string {
   return blocks[0] ? blockFormat(blocks[0]) : FALLBACK_SESSION_FORMAT;
 }
 
@@ -302,17 +335,17 @@ function normalizePrescription(raw: ContentBlock['items'][number]['prescription'
 
 /** Una línea escrita como se lee: «Sentadilla 3×5 @ RIR 2 · descanso 2'30''». */
 export function contentLine(
-  item: ContentBlock['items'][number],
+  item: NormalizedContentBlock['items'][number],
   exercises: Map<number, ContentExercise>,
 ): string {
   const name = exercises.get(item.exercise_id)?.name ?? `ejercicio ${item.exercise_id}`;
-  const dose = prescriptionToText(item.prescription as Prescription).trim();
+  const dose = prescriptionToText(item.prescription).trim();
   return dose ? `${name} ${dose}` : name;
 }
 
 /** Los bloques escritos, con sus líneas ya legibles — lo que se confirma. */
 export function contentReadback(
-  blocks: ContentBlock[],
+  blocks: NormalizedContentBlock[],
   exercises: Map<number, ContentExercise>,
 ): Array<{ title: string; format: string; lines: string[] }> {
   return blocks.map((block) => ({

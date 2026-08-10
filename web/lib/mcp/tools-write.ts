@@ -53,9 +53,11 @@ import {
   contentReadback,
   contentToSegments,
   gateContent,
+  normalizeContentBlocks,
   resolveContentExercises,
   sessionFormatFor,
   type ContentBlock,
+  type NormalizedContentBlock,
 } from './write-content';
 import { moveResumen, weekVisibility, writeResumen } from './shape-write';
 
@@ -119,7 +121,7 @@ export function registerWriteTools(server: McpServer): void {
 
         const prepared = await prepareContent({ coach_id, blocks: args.blocks });
         if ('error' in prepared) return fail(prepared.error);
-        const { exercises, segments } = prepared;
+        const { blocks, exercises, segments } = prepared;
 
         // La sesión nace AUTORADA (instancia vacía), no copiando una plantilla
         // cualquiera: un fork arrastraría el formato, el calentamiento y la nota
@@ -132,7 +134,7 @@ export function registerWriteTools(server: McpServer): void {
             iso_date: args.date,
             display_title: args.title,
             content_source: 'authored',
-            format: sessionFormatFor(args.blocks),
+            format: sessionFormatFor(blocks),
           });
         } catch (err) {
           if (err instanceof DaySessionError) return fail(err.message);
@@ -185,7 +187,7 @@ export function registerWriteTools(server: McpServer): void {
             athlete_name: athlete.full_name,
             iso_date: args.date,
             title: args.title,
-            blocks: contentReadback(args.blocks, exercises),
+            blocks: contentReadback(blocks, exercises),
             visibility,
             avisos: prepared.avisos,
           },
@@ -336,7 +338,7 @@ export function registerWriteTools(server: McpServer): void {
             athlete_name: day.athlete_name,
             iso_date: args.date,
             title,
-            blocks: contentReadback(args.blocks, prepared.exercises),
+            blocks: contentReadback(prepared.blocks, prepared.exercises),
             /** Las otras sesiones de ese día no se han tocado: se dicen para que quede claro. */
             untouched_sessions: day.sessions
               .filter((s) => s.assignment_id !== target.assignment_id)
@@ -499,24 +501,38 @@ function itemCount(blocks: ContentBlock[]): number {
  * Los tres portones seguidos, y las filas listas para escribir. Devuelve
  * `{ error }` con una frase accionable en vez de lanzar: un rechazo de dosis no es
  * una excepción, es la respuesta.
+ *
+ * Lo PRIMERO es normalizar (canónico + plano derivado de la estructura): a partir
+ * de ahí todo — completitud, avisos, serialización y lectura de vuelta — habla de
+ * `blocks`, la prescripción que de verdad se persiste. Ver la nota de
+ * `write-content.ts`.
  */
 async function prepareContent(params: { coach_id: bigint; blocks: ContentBlock[] }): Promise<
   | { error: string }
   | {
+      blocks: NormalizedContentBlock[];
       exercises: Awaited<ReturnType<typeof resolveContentExercises>>;
       segments: ReturnType<typeof contentToSegments>;
       avisos: string[];
     }
 > {
-  let exercises: Awaited<ReturnType<typeof resolveContentExercises>>;
+  let blocks: NormalizedContentBlock[];
   try {
-    exercises = await resolveContentExercises({ coach_id: params.coach_id, blocks: params.blocks });
+    blocks = normalizeContentBlocks(params.blocks);
   } catch (err) {
     if (err instanceof ContentError) return { error: err.message };
     throw err;
   }
 
-  const gate = gateContent(params.blocks, exercises);
+  let exercises: Awaited<ReturnType<typeof resolveContentExercises>>;
+  try {
+    exercises = await resolveContentExercises({ coach_id: params.coach_id, blocks });
+  } catch (err) {
+    if (err instanceof ContentError) return { error: err.message };
+    throw err;
+  }
+
+  const gate = gateContent(blocks, exercises);
   if (gate.blocking.length > 0) {
     return {
       error:
@@ -527,8 +543,9 @@ async function prepareContent(params: { coach_id: bigint; blocks: ContentBlock[]
 
   try {
     return {
+      blocks,
       exercises,
-      segments: contentToSegments(params.blocks, exercises),
+      segments: contentToSegments(blocks, exercises),
       avisos: gate.avisos,
     };
   } catch (err) {
