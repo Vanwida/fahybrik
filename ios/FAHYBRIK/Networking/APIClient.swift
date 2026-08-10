@@ -9,6 +9,24 @@ enum APIBase {
         }
         return URL(string: "https://app.fahybrid.com")!
     }
+
+    /// Una referencia de fichero de un DTO, resuelta contra esta base.
+    ///
+    /// El servidor sirve unas como RUTA («/api/communications/audio/…», que es lo
+    /// que sobrevive a cambiar de entorno) y otras ya absolutas. Las dos tienen
+    /// que acabar apuntando al mismo sitio, y quien las consume no puede tener
+    /// que saber cuál le tocó.
+    ///
+    /// Una que ya viene absoluta se devuelve TAL CUAL, sin re-normalizar: es la
+    /// clave con la que la caché de media guarda sus bytes, y cambiarle un
+    /// carácter la haría descargar otra vez lo que ya tiene.
+    static func absoluta(_ referencia: String?) -> String? {
+        guard let limpia = referencia?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !limpia.isEmpty
+        else { return nil }
+        if limpia.contains("://") { return limpia }
+        return URL(string: limpia, relativeTo: url)?.absoluteURL.absoluteString
+    }
 }
 
 enum APIError: Error {
