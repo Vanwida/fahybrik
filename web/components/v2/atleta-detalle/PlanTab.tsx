@@ -416,20 +416,38 @@ export function PlanTab({
         </div>
       </div>
 
-      {/* Microcycle progress strip */}
-      <section className="flex flex-col gap-2.5">
-        <h3 className="v2-micro">Progreso del microciclo</h3>
-        <div className="flex flex-wrap gap-2">
-          {macroWeeks.map((w, i) => (
-            <MiniWeekCard
-              key={w.week_start}
-              label={`S${i + 1}`}
-              pct={w.compliance_pct != null ? Math.round(w.compliance_pct) : null}
-              status={w.status}
-            />
-          ))}
-        </div>
-      </section>
+      {/* LA FORMA DEL PLAN, arriba del todo.
+          Un coach que abre la ficha de un atleta pregunta tres cosas y en este
+          orden: QUÉ está siguiendo · QUÉ hace hoy · CÓMO va. Hasta hoy la
+          primera estaba la última —la cadena y los planes personales vivían al
+          fondo de la columna derecha, debajo de «Ejecución reciente»— y por eso
+          no se encontraban.
+
+          La cadena SUSTITUYE a la antigua tira «Progreso del microciclo»: dice
+          lo mismo (las semanas y su cumplimiento) y además dice de qué tramo es
+          cada una y qué viene después. Una tira a todo el ancho para enseñar una
+          sola semana al 1% era desproporcionada y no contaba el plan. */}
+      <CadenaPersonalPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
+
+      {/* La tira de semanas se mantiene SOLO cuando el atleta no tiene cadena
+          personal (sigue la periodización por nivel): ahí no hay tramos que
+          encadenar y las semanas del microciclo asignado son toda la forma que
+          hay que enseñar. */}
+      {!plan.is_personal ? (
+        <section className="flex flex-col gap-2.5">
+          <h3 className="v2-micro">Progreso del microciclo</h3>
+          <div className="flex flex-wrap gap-2">
+            {macroWeeks.map((w, i) => (
+              <MiniWeekCard
+                key={w.week_start}
+                label={`S${i + 1}`}
+                pct={w.compliance_pct != null ? Math.round(w.compliance_pct) : null}
+                status={w.status}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Two columns */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.1fr_1fr]">
@@ -494,6 +512,13 @@ export function PlanTab({
               <p className="text-center text-xs text-[color:var(--v2-muted)]">Semana sin datos</p>
             )}
           </Panel>
+
+          {/* Planes personales — borradores SIN fecha todavía. Estaban al fondo
+              de la columna derecha, detrás de «Ejecución reciente», y no se
+              encontraban. Aquí abajo a la izquierda llenan el hueco que dejaba
+              la semana y quedan a la vista sin competir con la cadena, que es
+              lo que de verdad está en marcha. */}
+          <PlanesPersonalesPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
         </div>
 
         {/* RIGHT */}
@@ -566,20 +591,9 @@ export function PlanTab({
           {/* Soft INFO — cumplió la semana pero en distinto orden/día (sin penalización) */}
           {resumen?.order_altered ? <OrderAlteredNotice /> : null}
 
-          <div className="flex flex-wrap gap-2">
-            <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
-          </div>
-
-          {/* La cadena de microciclos — «Base» → «Descarga» → «Build» → …, uno
-              detrás de otro, tal y como el atleta la ve en su propio camino
-              (Espina). Añadir/reordenar/editar/borrar vive aquí. */}
-          <CadenaPersonalPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
-
-          {/* Planes personales (0164) — borradores sin fecha todavía: empezar
-              uno en blanco, o reabrir uno construido antes. El camino
-              principal para uno YA con fecha es "Personalizar plan" (header)
-              o "Añadir microciclo" (cadena, arriba). */}
-          <PlanesPersonalesPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
+          {/* El botón «Mensaje» que había aquí se ha quitado: ya existe en la
+              cabecera de la ficha, a dos dedos de distancia, y repetirlo en
+              mitad de la columna sólo añadía ruido. */}
         </div>
       </div>
     </div>

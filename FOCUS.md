@@ -120,7 +120,21 @@ días de muestras, la polarización actual cuenta muestras del sofá (bug, se
 arregla en T1) → **T1 = el MOTOR** (integrar por intervalo, cruce por ventana,
 reconstructor retroactivo de ~103k muestras ya guardadas, escritor de
 workout_traces, bandas y objetivo de polarización a dato del coach).
-Pendiente: OK de Alex al plan para arrancar T1. Mina Garmin anotada (tarea #9).
+- ✅ **T1a motor** (`74da16fa`, mig 0168 APLICADA + reconstructor EJECUTADO en
+  prod: 206 tramos, 39 con zona, resto declarado sin dato): segundos-por-zona
+  por TRAMO (sesión mixta reparte por modalidad), cómputo por intervalo con
+  hueco = sin-pulso, método FC del coach como dato (bandas + objetivo 80/0/20),
+  polarización arreglada (agrega segundos EN SQL, muere el pulso del sofá),
+  ingesta de workout_traces estrenada, API semanal con tramos del plan.
+- ✅ **T1b gráfica**: panel «Tiempo en zonas» en Rendimiento de la ficha —
+  barras semanales con la escala --z*, huecos contados (jamás ceros), ventana
+  3/6/12m, filtro por modalidad, banda de tramos bajo el eje, línea de
+  confianza del ancla y enlace a programar el test de umbral. QA con dato real.
+- Hallazgo de producto: CERO umbrales medidos en la población y atletas sin
+  dob/FCmáx: la gráfica lo dice en palabras. Detección automática de umbral
+  (nivel Garmin) aprobada como tanda posterior (tarea #11). Mina Garmin: #9.
+- ⏳ Siguiente del plan: T2 feedback publicable (rangos + forma grafica de
+  nota + render iOS) → T3 comparativa → T4 histórico HealthKit → T5 audio.
 
 ## Antes · DEL COACH — comunicación estructurada fuera del chat (9-ago)
 

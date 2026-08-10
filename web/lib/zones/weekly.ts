@@ -16,6 +16,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { DEFAULT_ZONE_WINDOW, zoneWindowWeeks } from '@/lib/zones/chart';
 import { resolvePlanPath } from '@/lib/plan/camino';
 import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
@@ -23,8 +24,13 @@ import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
 import type { HrAnchorConfidence, HrAnchorSource } from '@fahybrid/shared/domain/methodology';
 
-/** Ventana por defecto: medio año, la que el plan aprobado enseña de entrada. */
-export const WEEKLY_ZONES_DEFAULT_WEEKS = 26;
+/**
+ * Ventana por defecto: la que la gráfica enseña de entrada. Sale de su catálogo
+ * (`lib/zones/chart.ts`, cliente) y no de un 26 escrito aquí: con el número en
+ * dos sitios, cambiar el defecto de la pantalla dejaba a la API sirviendo otra
+ * ventana y nadie se enteraba hasta ver la gráfica corta.
+ */
+export const WEEKLY_ZONES_DEFAULT_WEEKS = zoneWindowWeeks(DEFAULT_ZONE_WINDOW);
 /** Un año y pico. Más allá la gráfica deja de leerse en una pantalla. */
 export const WEEKLY_ZONES_MAX_WEEKS = 78;
 

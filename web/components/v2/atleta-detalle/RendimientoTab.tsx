@@ -24,6 +24,7 @@ import {
   RunningEconomyPanel,
   ThresholdWorkPanel,
 } from './rendimiento/PhysiologyPanels';
+import { ZonasPanel } from './rendimiento/ZonasPanel';
 import { PerfTile, readinessTone } from './rendimiento/ui';
 import { EM_DASH, fmtInt, fmtPace, lastNonNull } from './rendimiento/format';
 import type { PerformancePayload } from '@/lib/dashboard/coach/deep-dive-performance';
@@ -146,22 +147,27 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
       {/* 1 · Disposición */}
       <ReadinessPanel history={history} gap={performance.race_readiness_gap} />
 
-      {/* 2 · Polarization 80/0/20 */}
+      {/* 2 · Tiempo en zonas — la evidencia semanal de la que sale la
+             polarización de abajo. Va antes a propósito: el reparto medido
+             primero, el veredicto sobre él después. */}
+      <ZonasPanel athleteId={athleteId} />
+
+      {/* 3 · Polarization 80/0/20 */}
       <PolarizationPanel
         byWindow={performance.polarization_by_window}
         history={performance.polarization_history}
       />
 
-      {/* 3 · Top exercises */}
+      {/* 4 · Top exercises */}
       <ExercisesPanel exercises={performance.exercises} />
 
-      {/* 4 · Running economy + 5 · Lactate threshold */}
+      {/* 5 · Running economy + 6 · Lactate threshold */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <RunningEconomyPanel series={performance.running_economy} />
         <ThresholdWorkPanel series={performance.threshold_work} />
       </div>
 
-      {/* 6 · Anaerobic capacity + 7 · HYROX prediction */}
+      {/* 7 · Anaerobic capacity + 8 · HYROX prediction */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <AnaerobicPanel series={performance.anaerobic_capacity} />
         <HyroxPredictionPanel prediction={performance.hyrox_prediction} />
