@@ -877,11 +877,18 @@ struct ActiveWorkoutView: View {
         // regla viene a quitar. Un EMOM cuyo tramo es correr NO entra: ahí manda el
         // minuto, y el cover se abría precisamente encima de él y lo tapaba.
         if session.currentSegment?.kind == .running,
-           session.currentSegment?.isEMOM != true,
-           // La puerta del bloque tiene la pantalla y todavía no ha empezado nada:
-           // estas dos superficies encienden GPS, cinta y Live Activity al aparecer,
-           // y eso no se hace hasta que el atleta le da a EMPEZAR.
-           !session.isAwaitingBlockStart {
+           session.currentSegment?.isEMOM != true {
+            // UN TRAMO DE CORRER SE RESUELVE AQUÍ DENTRO, SIEMPRE. O es una de las dos
+            // pantallas de correr, o no hay superficie — nunca cae a la de otro
+            // formato. La condición de la puerta vivía arriba, en el `if`, así que
+            // mientras el bloque estaba parado un tramo de carrera SEGUÍA bajando por
+            // la cadena y acababa en el reloj de acondicionamiento (o, sin esquema, en
+            // el suelo de hierro): dos formatos pintando una carrera.
+            //
+            // La puerta del bloque tiene la pantalla y todavía no ha empezado nada:
+            // estas dos superficies encienden GPS, cinta y Live Activity al aparecer,
+            // y eso no se hace hasta que el atleta le da a EMPEZAR.
+            guard !session.isAwaitingBlockStart else { return nil }
             switch session.runEnvironment {
             case .treadmill: return .correrCinta
             case .outdoor:   return .correrFuera

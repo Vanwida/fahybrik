@@ -654,9 +654,24 @@ extension WorkoutSegment {
 
     /// True when this segment runs a NON-EMOM conditioning timer (For Time, AMRAP,
     /// Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim).
-    /// EMOM is excluded — it keeps its own dedicated engine (`isEMOM`).
+    ///
+    /// QUIÉN CONDUCE EL TRAMO SE DECIDE UNA VEZ, Y AQUÍ. El motor lo tiene claro
+    /// desde el #61 (`WorkoutSession.onEnterSegment`): la ESTRUCTURA de carrera manda
+    /// sobre el rotativo, y el EMOM tiene su propio motor. Esta propiedad —que es la
+    /// que leen las PANTALLAS— solo excluía el EMOM, así que una serie de correr con
+    /// estructura decía «yo llevo reloj de acondicionamiento» aunque el que la
+    /// conducía fuese el cursor de tramos. El resultado, con datos reales (Fartlek
+    /// 16×500 m Z4, 10-ago): la pantalla de antes de empezar montaba debajo un
+    /// `ForTimeLiveHUD` con sus 16 rondas sin recortar —unos 2.000 pt en una pantalla
+    /// de 874— así que el `ZStack` del entreno activo crecía más que el móvil, la
+    /// puerta del bloque quedaba centrada en ese alto y al atleta solo le llegaba una
+    /// franja de «LO QUE VIENE»: sin título y, sobre todo, sin EMPEZAR. Pantalla en
+    /// blanco y entreno imposible de arrancar.
+    ///
+    /// Con la exclusión, la cadena de la vista (`superficieViva` → `modalityHUD`)
+    /// dice de la carrera estructurada lo que ya decía el motor: no es esto.
     var isConditioningTimer: Bool {
-        guard let s = formatScheme, !isEMOM else { return false }
+        guard let s = formatScheme, !isEMOM, !hasRunStructure else { return false }
         return s.runsConditioningTimer
     }
 
