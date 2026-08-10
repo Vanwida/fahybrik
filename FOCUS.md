@@ -63,12 +63,19 @@ en la raíz (la precedencia del motor se escribe una vez), y de paso la dosis se
 cuenta desde la estructura: «16 × 500 m · Z4 · recuperación 1:00 suave en Z2» —
 un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIONS
 2026-08-10 (las dos entradas de arriba).
-**Abierto de ahí, decisión de UX:** una lista de rondas de un metcon REAL de 16
-rondas que nadie mide (`StrikeList`) sigue midiendo más que la pantalla, y la
-ranura del vivo no scrollea en vertical (ancla del sujeto, §10.3). Pantallas del
-doble desfasadas por el cambio de copy: `gate-bloque`, `sesion-previa`,
-`run-live` (esta escribe «1000 m · @4:35 /km · 4× · descanso 2:00», que ya no es
-lo que pinta Swift).
+**Cerrado el resto del hilo (10-ago tarde):**
+- Espejos del doble al día tras el cambio de Swift (`gate-bloque`,
+  `sesion-previa` con la dosis estructurada y el OFF activo; `run-live`
+  re-verificada y degradada a `construida` porque ya mentía desde el 29-jul —
+  lista de lo que falta en el propio fichero). 927 tests del doble.
+- El desborde de rondas del vivo tiene PROPUESTA en el doble:
+  `/es/design/vivo-rondas` — la lista con cursor abierto, umbral derivado del
+  marco (5 listadas, cursor desde la 6ª), anclada a bloques reales (el WOD de
+  4 rondas YA desborda hoy). Ver DECISIONS «Rondas ≠ estaciones». **Pendiente:
+  OK de Alex a la propuesta → portar a Swift (`StrikeList`)**. El bug sigue
+  vivo en la app hasta entonces.
+- Pendiente de Alex además: probar el EMPEZAR arreglado en su iPhone (el fix
+  está commiteado; instalar necesita su móvil alcanzable o Xcode).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 

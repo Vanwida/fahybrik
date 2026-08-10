@@ -66,6 +66,35 @@ secuencia en METROS con la unidad una vez («1200/1000/800 m»), porque
 
 ---
 
+## 2026-08-10 · Rondas ≠ estaciones: la lista del vivo con muchas rondas se colapsa a CURSOR, no a otra pantalla
+
+**Decidido (cierra la pregunta que dejó abierta la entrada del blanco de EMPEZAR):** una
+lista de N **estaciones** es heterogénea y colapsarla destruye información (eso ya lo
+resuelve la ventana de tres + hoja de `vivo-fortime`); una lista de N **rondas** es
+homogénea — la fila 12 repite la 11 — así que a partir del umbral la lista NO se
+sustituye por otra metáfora: se queda **la misma lista con el cursor abierto** (cerrada
+arriba tachada con su parcial, la actual en el numeral grande «RONDA 4/8», la siguiente
+insinuada), trabajo escrito UNA vez en la banda (§10.6), hilo fino de progreso, sin
+scroll (ancla del sujeto §10.3). Con pocas rondas manda el trabajo y la cuenta baja al
+cromo; con muchas se invierte. **El umbral no es una constante de gusto: sale de la
+aritmética del marco** (213 pt de apoyos, fila de 35 pt con el trabajo fuera → 5 rondas
+listadas, cursor desde la 6ª) y vive calculado en `data.ts` de la pantalla.
+
+**Dato que lo ancla:** el corpus real no tiene ningún metcon de 16 rondas (escalera
+real: 4/6/8/10/12) y **el de 4 rondas ya desborda hoy** (fila actual de 54 pt × 2
+líneas). Los escenarios de la propuesta son verbatim de `blocks.description`.
+
+**Dónde vive:** pantalla `propuesta` del doble `web/components/design-twin/screens/
+vivo-rondas/` (+ átomos compartidos subidos a `kit-vivo`). Pendiente de validación de
+Alex; Swift (`StrikeList`) NO está tocado — el desborde sigue vivo en la app hasta que
+la propuesta se apruebe y se porte.
+
+**En consecuencia, no hacer:** no meter scroll vertical en la ranura del vivo; no
+inventar una metáfora nueva para rondas; no fijar el umbral como constante suelta (se
+deriva del marco); no portar a Swift sin el OK sobre la propuesta.
+
+---
+
 ## 2026-08-10 · La `structure` de carrera es ADITIVA al plano — y lo garantiza el ESCRITOR, no la buena fe
 
 **Decidido (tras el primer fartlek dictado por MCP):** una prescripción que lleva
