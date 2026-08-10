@@ -6,6 +6,7 @@ import {
   updatePersonalTramoMeta,
   deletePersonalTramoFromChain,
 } from '@/lib/dashboard/coach/personal-plan-chain-mutations';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,7 @@ export async function PATCH(
       athlete_id: Number(parsedId.data.id),
       month_template_id,
       payload: body,
+      actor: coachActor(session),
     });
     return jsonOk({ tramo: result });
   } catch (err) {
@@ -79,6 +81,7 @@ export async function DELETE(
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
       month_template_id,
+      actor: coachActor(session),
     });
     return jsonOk({ deleted: result });
   } catch (err) {

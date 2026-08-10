@@ -5,6 +5,7 @@ import {
   PersonalChainError,
   movePersonalTramoInChain,
 } from '@/lib/dashboard/coach/personal-plan-chain-mutations';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,7 @@ export async function POST(
       athlete_id: Number(parsedId.data.id),
       month_template_id,
       payload: body,
+      actor: coachActor(session),
     });
     return jsonOk({ move: result });
   } catch (err) {

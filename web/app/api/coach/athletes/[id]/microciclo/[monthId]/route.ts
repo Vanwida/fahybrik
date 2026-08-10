@@ -5,6 +5,7 @@ import {
   ProgramMonthError,
   deletePersonalPlanForAthlete,
 } from '@/lib/dashboard/coach/personal-plans';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,7 @@ export async function DELETE(
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
       month_template_id,
+      actor: coachActor(session),
     });
     return jsonOk({ deleted: result });
   } catch (err) {
