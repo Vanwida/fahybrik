@@ -3,7 +3,10 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { cloneTemplateAsInstance } from './template-instance';
+import { createAuthoredInstance, cloneTemplateAsInstance } from './template-instance';
+
+/** Formato de una sesión autorada cuyo autor no dice ninguno: la tabla de series. */
+const AUTHORED_DEFAULT_FORMAT = 'sets';
 
 export class DaySessionError extends Error {
   constructor(
@@ -163,6 +166,17 @@ export async function updateDaySession(params: {
   return { assignment_id: updated[0].id };
 }
 
+/**
+ * DE DÓNDE SALE EL CONTENIDO de la sesión que se crea. Las dos formas de que una
+ * asignación tenga su instancia privada (ver `template-instance.ts`):
+ *   · fork     — copia de una plantilla de la biblioteca (`template_id`, o la más
+ *                reciente del coach). El defecto histórico y lo que hace el panel.
+ *   · authored — instancia VACÍA que el que llama rellena a continuación con el
+ *                contenido tipado que le han dictado. No hay plantilla de origen,
+ *                así que no se arrastra el formato ni el calentamiento de otra.
+ */
+export type DaySessionContentSource = 'fork' | 'authored';
+
 export async function createDaySession(params: {
   coach_id: number | bigint;
   athlete_id: number;
@@ -170,8 +184,12 @@ export async function createDaySession(params: {
   display_title?: string | null | undefined;
   notes?: string | null | undefined;
   template_id?: number | undefined;
+  /** Ver `DaySessionContentSource`. Por defecto `fork` — el camino de siempre. */
+  content_source?: DaySessionContentSource | undefined;
+  /** Solo en `authored`: el formato de la sesión. Sin esto, `sets`. */
+  format?: string | undefined;
   client?: Sql | undefined;
-}): Promise<{ assignment_id: string }> {
+}): Promise<{ assignment_id: string; template_id: number }> {
   const client = params.client ?? defaultSql;
   await assertCoachOwnsAthlete({
     client,
@@ -190,18 +208,29 @@ export async function createDaySession(params: {
     iso_date: params.iso_date,
   });
 
-  const sourceTemplateId =
-    params.template_id ??
-    (await resolveDefaultTemplateId({ client, coach_id: params.coach_id }));
-
-  // Per-athlete plan bifurcation: the assignment owns a private INSTANCE (fork)
-  // of the chosen library template, never a shared reference — so later edits to
-  // this day stay isolated and library edits never reach this athlete.
-  const instance = await cloneTemplateAsInstance({
-    client,
-    source_template_id: sourceTemplateId,
-    athlete_id: params.athlete_id,
-  });
+  // Per-athlete plan bifurcation: the assignment owns a private INSTANCE, never a
+  // shared reference — so later edits to this day stay isolated and library edits
+  // never reach this athlete. Forkeada de una plantilla o autorada vacía, pero
+  // SIEMPRE propia (ver `DaySessionContentSource`).
+  let instance: { template_id: number; version: number } | null;
+  if (params.content_source === 'authored') {
+    instance = await createAuthoredInstance({
+      client,
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      name: params.display_title?.trim() || 'Entreno',
+      format: params.format ?? AUTHORED_DEFAULT_FORMAT,
+    });
+  } else {
+    const sourceTemplateId =
+      params.template_id ??
+      (await resolveDefaultTemplateId({ client, coach_id: params.coach_id }));
+    instance = await cloneTemplateAsInstance({
+      client,
+      source_template_id: sourceTemplateId,
+      athlete_id: params.athlete_id,
+    });
+  }
   if (!instance) {
     throw new DaySessionError('no_templates', 'La plantilla de origen no existe', 400);
   }
@@ -234,5 +263,7 @@ export async function createDaySession(params: {
     )
     returning id::text
   `;
-  return { assignment_id: ins[0]!.id };
+  // El `template_id` sale también: quien crea una sesión `authored` necesita saber
+  // en qué instancia escribir el contenido, y hoy solo lo sabía esta función.
+  return { assignment_id: ins[0]!.id, template_id: templateId };
 }

@@ -103,6 +103,48 @@ export async function cloneTemplateAsInstance(params: {
   return { template_id: newId, version: tplRows[0].version };
 }
 
+/**
+ * La OTRA forma de nacer de una instancia: AUTORADA, no forkeada.
+ *
+ * `cloneTemplateAsInstance` copia un entreno que ya existe. Pero una sesión que el
+ * coach dicta de cero («añádele el martes un rodaje de 90' en Z2») no sale de
+ * ninguna plantilla: no hay origen que copiar. Forkear una cualquiera para tener
+ * dónde escribir arrastra lo que ESA traía —su formato, su calentamiento, su nota
+ * al atleta, su config de circuito— dentro de un entreno que no tiene nada que ver,
+ * y el atleta lo lee en su móvil. Por eso la instancia autorada es una PRIMITIVA
+ * hermana y vive aquí, junto al fork: son las dos maneras de que un
+ * `workout_assignments` tenga su copia privada, y la ley «toda asignación posee una
+ * instancia 1:1» se sigue cumpliendo por construcción.
+ *
+ * `instance_of_template_id` queda NULL, que es exactamente lo que 0083 definió
+ * para una instancia autorada en línea (no hay linaje que registrar).
+ *
+ * Devuelve `{ template_id, version }` con la misma forma que el fork, para que el
+ * que llama no tenga que saber por qué camino vino.
+ */
+export async function createAuthoredInstance(params: {
+  client: Sql;
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  /** El nombre que lee el atleta (`templates.name`). */
+  name: string;
+  /** `templates.format` — el formato de la sesión, no del bloque. */
+  format: string;
+}): Promise<{ template_id: number; version: number }> {
+  const rows = await params.client<Array<{ id: string; version: number }>>`
+    insert into templates (coach_id, name, format, version, instance_athlete_id)
+    values (
+      ${Number(params.coach_id)},
+      ${params.name},
+      ${params.format}::template_format,
+      1,
+      ${Number(params.athlete_id)}
+    )
+    returning id::text as id, version
+  `;
+  return { template_id: Number(rows[0]!.id), version: rows[0]!.version };
+}
+
 // ── Per-athlete day edit (Fase 2) ─────────────────────────────────────────────
 // The coach edits ONE day of an athlete's plan. A day's content is an INSTANCE
 // `templates` row (`template_segments`), so editing reuses the exact session
