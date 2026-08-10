@@ -482,8 +482,10 @@ function buildProgressionSpec(
   return { appliesTo, pct, loops };
 }
 
-/** Item at a given 1-indexed position (by value, not array index — robust to gaps). */
-function itemAtPosition(
+/** Item at a given 1-indexed position (by value, not array index — robust to gaps).
+ *  Exported: revert-personal-plan.ts reuses this to resolve the sequence item a
+ *  detached athlete_sequence_progress cursor points at. */
+export function itemAtPosition(
   sequence: ProgramSequence,
   position: number,
 ): ProgramSequenceItem | null {
@@ -790,8 +792,12 @@ async function resolveLevelUp(
 // Small shared helpers (DRY across the advancement paths).
 // ---------------------------------------------------------------------------
 
-/** Load a sequence cell by its id (coach-scoped), reusing the existing cell loader. */
-async function loadSequenceById(
+/** Load a sequence cell by its id (coach-scoped), reusing the existing cell
+ *  loader. Exported: revert-personal-plan.ts loads the exact sequence a
+ *  detached cursor's `sequence_id` points at (never re-resolved from the
+ *  athlete's CURRENT level/days, which may have drifted since — same discipline
+ *  advanceSequenceForAthlete already follows for this same reason). */
+export async function loadSequenceById(
   sequenceId: number,
   coachId: number | bigint,
   client: Sql,
@@ -813,8 +819,10 @@ async function loadSequenceById(
  * Used by every advance path (mid-sequence, loop, level-up) so advancing to a
  * multi-week microciclo surfaces only its first week — the Saturday cron unlocks
  * the rest. The initial assign (assignSequenceToAthlete) staggers identically.
+ * Exported: revert-personal-plan.ts reuses this verbatim to re-materialize the
+ * sequence item a "volver a la periodización" resumes at.
  */
-async function materializeItem(params: {
+export async function materializeItem(params: {
   coachId: number | bigint;
   athleteId: number;
   monthTemplateId: number | bigint;
