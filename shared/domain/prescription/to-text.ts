@@ -7,6 +7,7 @@
 //   "3×3' @ RPE 8 · r2'"                (erg interval)
 //   "45' @ Z2"                          (steady)
 //   "AMRAP 12'" / "EMOM 10'" / "3 rondas For Time · cap 12'"
+//   "16×(500m @ Z4 / 1' trote Z2)"      (#61 run structure — narrated, see below)
 //
 // Conventions (locked against docs/design/ux-redesign mockups):
 //   - uniform sets collapse to "N×work"; varied sets list the sequence "10/10/8".
@@ -19,6 +20,16 @@
 
 import type { Measure, Modality, Prescription, PrescriptionSet, Target } from './types';
 import { prescriptionTarget, setMeasure, setTarget } from './types';
+import {
+  isRepeat,
+  mainPhase,
+  phaseByRole,
+  type Element,
+  type RunStructure,
+  type Segment,
+  type SegmentMeasure,
+} from './run-structure';
+import { segmentTargetToLegacy } from './run-structure-convert';
 
 // ── Duration / pace formatting ──────────────────────────────────────────────
 const PACE_UNIT_LABEL: Record<string, string> = {
@@ -179,12 +190,143 @@ function targetSequence(targets: (Target | undefined)[]): string {
   return formatted.join('/');
 }
 
+// ── #61 · La estructura, narrada ────────────────────────────────────────────
+// Un run ESTRUCTURADO sabe más que su plano. El plano de este fartlek dice
+// "16×500m @ Z4 · r1'" y degrada a «descanso» una recuperación que es 1' AL TROTE
+// en Z2 — trotar no es pararse, y eso es entreno prescrito, no un adorno. Cuando
+// hay `structure` se narra ella, con el MISMO vocabulario de arriba
+// (formatMeasure/formatTarget/la grafía "rX" del descanso): cero grafías nuevas.
+//
+//   16×(500m @ Z4 / 1' trote Z2)              series con recuperación activa
+//   3×(4×400m @ RPE 9 / r1' / r3')            anidado → paréntesis
+//   1000m @ Z2 / 1000m @ Z3 / 1000m @ Z4      progresivo → tramo a tramo
+//   8×(45'' @ RPE 8-9 al 8% / 2' caminar)     cuesta / cinta: la pendiente va
+//
+// La INCLINACIÓN va en la línea porque cambia el entreno (una cuesta al 8% no es
+// llano) y es lo que el coach confirma al leer la vuelta. La CADENCIA no: es una
+// guía de técnica del tramo, se ve en el detalle y aquí solo alargaría la frase.
+//
+// DEGRADACIONES, dichas una vez:
+//   · Varias fases → se narra la PRINCIPAL y el resto se suma («con calentamiento
+//     y vuelta»). Esto es UNA línea de tarjeta, no el entreno entero.
+//   · Pasado MAX_STRUCTURE_CHARS (una pirámide de catorce tramos) el plano resume
+//     mejor que una enumeración que nadie lee → se cae al plano. Solo si el plano
+//     DICE algo: sobre una prescripción que es estructura sola (las que se
+//     escribieron antes del 10-ago-2026), una línea larga siempre gana a una muda.
+//   · Estructura ilegible (sin fase principal, un tramo sin medida, un objetivo
+//     que no sabemos escribir) → el plano de siempre. Nunca peor que antes.
+const SEGMENT_JOIN = ' / ';
+/** Lo que cabe en la línea de dosis de una tarjeta; por encima, resume el plano. */
+const MAX_STRUCTURE_CHARS = 96;
+const PHASE_EXTRA_WORD: Record<'warmup' | 'cooldown', string> = {
+  warmup: 'calentamiento',
+  cooldown: 'vuelta',
+};
+
+function segmentMeasureText(m: SegmentMeasure | undefined): string | null {
+  if (!m) return null;
+  if (m.type === 'distance') return formatMeasure({ kind: 'distance', meters: m.m });
+  if (m.type === 'duration') return formatMeasure({ kind: 'duration', seconds: m.s });
+  return null;
+}
+
+// El objetivo del tramo, escrito como lo escribe el plano: la zona sale "Z4" (el
+// canal legacy colapsa ritmo y FC, igual que en la dosis plana) y el ritmo
+// "4:10/km". `null` = había objetivo y no sabemos escribirlo → cae al plano.
+function segmentTargetText(seg: Segment): string | null {
+  if (!seg.target) return '';
+  const legacy = segmentTargetToLegacy(seg.target);
+  if (!legacy) return null;
+  return formatTarget(legacy);
+}
+
+/** «al 8%» / «al 6,5%» — la pendiente de una cuesta o de la cinta. */
+function inclineText(seg: Segment): string {
+  const pct = seg.incline_pct;
+  if (pct === undefined || pct <= 0) return '';
+  return `al ${String(pct).replace('.', ',')}%`;
+}
+
+function segmentText(seg: Segment): string | null {
+  const measure = segmentMeasureText(seg.measure);
+  if (!measure) return null;
+  const target = segmentTargetText(seg);
+  if (target === null) return null;
+  const incline = inclineText(seg);
+  if (seg.kind === 'work') {
+    const work = target ? `${measure} @ ${target}` : measure;
+    return incline ? `${work} ${incline}` : work;
+  }
+  // Recuperación: la PALABRA dice cómo se recupera. Parada (o sin decir cómo) y
+  // sin objetivo es el descanso de siempre, con la grafía de `restToken`: "r1'".
+  const mode = seg.recovery_mode;
+  if (!target && !incline && (mode === undefined || mode === 'parado')) return `r${measure}`;
+  return [measure, mode ?? '', target, incline].filter(Boolean).join(' ');
+}
+
+function elementText(el: Element): string | null {
+  if (!isRepeat(el)) return segmentText(el);
+  if (!Array.isArray(el.elements) || el.elements.length === 0) return null;
+  const parts: string[] = [];
+  for (const child of el.elements) {
+    const text = elementText(child);
+    if (!text) return null;
+    parts.push(text);
+  }
+  // Un solo tramo repetido es el "4×1000m" de siempre; dos o más piden paréntesis
+  // para que se vea dónde acaba la repetición.
+  const body = parts.join(SEGMENT_JOIN);
+  return parts.length === 1 ? `${el.times}×${body}` : `${el.times}×(${body})`;
+}
+
+/** La fase principal narrada, o `null` si la estructura no se puede leer. */
+function structureText(structure: RunStructure): string | null {
+  const main = mainPhase(structure);
+  if (!main || !Array.isArray(main.elements) || main.elements.length === 0) return null;
+  const parts: string[] = [];
+  for (const el of main.elements) {
+    const text = elementText(el);
+    if (!text) return null;
+    parts.push(text);
+  }
+  return parts.join(SEGMENT_JOIN);
+}
+
+/** «con calentamiento y vuelta» — lo que la línea no narra, pero está. */
+function phasesExtraText(structure: RunStructure): string {
+  const words = (['warmup', 'cooldown'] as const)
+    .filter((role) => phaseByRole(structure, role))
+    .map((role) => PHASE_EXTRA_WORD[role]);
+  return words.length > 0 ? `con ${words.join(' y ')}` : '';
+}
+
 // ── Main renderer ───────────────────────────────────────────────────────────
 export function prescriptionToText(p: Prescription): string {
-  const sets: PrescriptionSet[] = p.sets ?? [];
-  const hasSets = sets.length > 0;
+  const out: string[] = [];
+  const lead = schemeLead(p);
+  if (lead) out.push(lead);
 
-  // Scheme lead — the timed/scored formats announce themselves first.
+  // La estructura manda cuando existe y se puede narrar: el plano diría la MISMA
+  // dosis, pero perdiendo los tramos y la recuperación activa. El plano solo gana
+  // cuando la narración no cabe en una línea Y él sí tiene algo que decir.
+  const structure = p.structure && p.structure.length > 0 ? p.structure : null;
+  const structured = structure ? structureText(structure) : null;
+  const fits = structured !== null && structured.length <= MAX_STRUCTURE_CHARS;
+  const flat = fits ? [] : flatFields(p);
+  if (structure && structured !== null && (fits || flat.length === 0)) {
+    out.push(structured);
+    const extra = phasesExtraText(structure);
+    if (extra) out.push(extra);
+  } else {
+    out.push(...flat);
+  }
+
+  if (p.note) out.push(p.note);
+  return out.join(' · ').trim();
+}
+
+// Scheme lead — the timed/scored formats announce themselves first.
+function schemeLead(p: Prescription): string {
   let lead = '';
   switch (p.scheme) {
     case 'amrap':
@@ -217,6 +359,14 @@ export function prescriptionToText(p: Prescription): string {
     default:
       break;
   }
+  return lead;
+}
+
+// El PLANO: la dosis escalar (sets · rounds · work_s/total_s · rest_s · objetivo),
+// que es todo lo que hay cuando no hay estructura — y el resumen al que se cae.
+function flatFields(p: Prescription): string[] {
+  const sets: PrescriptionSet[] = p.sets ?? [];
+  const hasSets = sets.length > 0;
 
   let work = '';
   let targetStr = '';
@@ -286,19 +436,17 @@ export function prescriptionToText(p: Prescription): string {
     if (blockTarget) targetStr = formatTarget(blockTarget);
   }
 
-  // Assemble: lead · work @ target · rest · cap · tempo · note.
+  // Assemble: work @ target · rest · cap · tempo (el lead y la nota los pone
+  // `prescriptionToText`, que es quien también decide plano vs estructura).
   let head = work;
   if (targetStr) head = head ? `${head} @ ${targetStr}` : targetStr;
 
   const out: string[] = [];
-  if (lead) out.push(lead);
   if (head) out.push(head);
   if (restStr) out.push(restStr);
   if (p.scheme === 'for_time' && p.total_s !== undefined) {
     out.push(`cap ${formatDuration(p.total_s)}`);
   }
   if (tempoStr) out.push(tempoStr);
-  if (p.note) out.push(p.note);
-
-  return out.join(' · ').trim();
+  return out;
 }

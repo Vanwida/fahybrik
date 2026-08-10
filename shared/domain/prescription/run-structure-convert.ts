@@ -243,7 +243,10 @@ export function legacyToStructure(p: Prescription): RunStructure | null {
 }
 
 // ── SegmentTarget → legacy Target (the flatten target) ───────────────────────
-function segmentTargetToLegacy(t: SegmentTarget | null): Target | undefined {
+// Exported because `to-text` narrates a structure with the SAME vocabulary as the
+// flat dose (`formatTarget`): one mapping SegmentTarget→Target, so the zone the
+// coach reads inside "16×(500m @ Z4 …)" is written exactly like the plain one.
+export function segmentTargetToLegacy(t: SegmentTarget | null): Target | undefined {
   if (!t) return undefined;
   switch (t.type) {
     case 'pace': {
