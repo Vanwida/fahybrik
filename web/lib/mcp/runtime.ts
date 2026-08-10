@@ -12,11 +12,19 @@
 // pregunta, no la siguiente reconexión). Los errores de propiedad de las libs se
 // traducen aquí a UNA frase, la misma para «no existe» y para «es de otro club»:
 // confirmar que un id existe en otro sitio ya sería la fuga.
+//
+// Y por esa misma puerta pasa el PORTÓN COMERCIAL: el conector es un add-on que
+// el club contrata (migración 0167), así que a «¿de quién es esta pregunta?» le
+// sigue «¿tiene ese club el conector?». Va aquí y no en `auth.ts` porque son dos
+// preguntas distintas: quién eres lo contesta la identidad, qué tienes contratado
+// lo contesta el negocio, y el dashboard resuelve la primera sin necesitar la
+// segunda.
 
 import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { sql } from '@/lib/db';
+import { hasEntitlement } from '@/lib/coach/entitlements';
 import { AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
 import { AthletePlanError } from '@/lib/dashboard/coach/athlete-plan';
 import { CoachRacesError } from '@/lib/races/coach-races';
@@ -56,6 +64,20 @@ export const isoDateArg = z
  */
 export const NO_SUCH_ATHLETE_MESSAGE =
   'No hay ningún atleta tuyo con ese identificador. Pide la lista con list_athletes y usa el athlete_id que salga ahí.';
+
+/**
+ * Lo que se le dice al asistente cuando quien pregunta SÍ es coach de un club,
+ * pero ese club no tiene el conector contratado.
+ *
+ * Escrito para que el coach lo lea tal cual: dice qué falta y qué lo arregla, sin
+ * URLs que hoy no existen y sin hablar de precios (eso es una conversación con
+ * una persona, no un mensaje de error). Deliberadamente distinto de
+ * `NOT_A_COACH_MESSAGE`: ahí el problema es la cuenta con la que se conectó, aquí
+ * la cuenta es la correcta y lo que falta es el add-on. Confundirlos mandaría al
+ * coach a reconectar con otra cuenta para nada.
+ */
+export const NO_CONNECTOR_MESSAGE =
+  'Tu club no tiene el conector activado, así que no puedo ver ni tocar nada de tus atletas. El conector se activa desde FAHYBRID.';
 
 /**
  * Every answer is JSON plus `_resumen`, the one line a person would have said.
@@ -131,9 +153,16 @@ export async function resolveOwnedAthletes(params: {
 
 /**
  * Runs a tool body with the coach resolved from the token, turning the expected
- * refusals into readable text instead of a stack trace: not a coach, and a
- * resource that is not his. Anything else rethrows — a DB outage must not be
- * dressed up as a clean answer.
+ * refusals into readable text instead of a stack trace: not a coach, club without
+ * the connector, and a resource that is not his. Anything else rethrows — a DB
+ * outage must not be dressed up as a clean answer.
+ *
+ * El portón del add-on se comprueba ANTES de entrar al cuerpo, así que ninguna de
+ * las tools (ni las que leen ni las que escriben) puede olvidárselo ni devolver un
+ * dato de refilón en el camino. Es UNA consulta indexada por llamada. No se
+ * resuelve junto a la membresía (`getCoachSessionForClerkUser`) porque ese SELECT
+ * lo comparte el dashboard, que no tiene por qué cargar con una pregunta
+ * comercial que no le afecta.
  *
  * Las cuatro libs que se consultan levantan su propio error de propiedad
  * (`AthleteDeepDiveError`, `AthletePlanError`, `CoachRacesError`,
@@ -159,6 +188,11 @@ export async function withCoach(
 ): Promise<CallToolResult> {
   try {
     const coach = await coachFromAuthInfo(authInfo);
+    const entitled = await hasEntitlement({
+      coach_id: coach.coach_id,
+      feature: 'mcp_connector',
+    });
+    if (!entitled) return fail(NO_CONNECTOR_MESSAGE);
     return await body(coach.coach_id, coach.full_name, coach);
   } catch (err) {
     if (err instanceof McpNotACoachError) return fail(err.message);
