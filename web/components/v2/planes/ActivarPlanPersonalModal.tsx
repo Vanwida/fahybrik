@@ -12,17 +12,7 @@ import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
-
-function upcomingMondayIso(): string {
-  const d = new Date();
-  const dow = d.getDay();
-  const daysUntilMonday = (1 - dow + 7) % 7;
-  d.setDate(d.getDate() + daysUntilMonday);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
 
 export function ActivarPlanPersonalModal({
   athleteId,

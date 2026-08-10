@@ -15,24 +15,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
 
 interface RosterAthlete {
   athlete_id: string;
   full_name: string;
   level_name: string | null;
-}
-
-/** This/next Monday (local) as YYYY-MM-DD — the materializer Monday-aligns the
- *  start anyway, so we default to a Monday for an honest preview. */
-function upcomingMondayIso(): string {
-  const d = new Date();
-  const dow = d.getDay(); // 0 Sun … 6 Sat
-  const daysUntilMonday = (1 - dow + 7) % 7;
-  d.setDate(d.getDate() + daysUntilMonday);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 export function AsignarAtletaModal({
