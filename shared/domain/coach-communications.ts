@@ -26,6 +26,11 @@ import {
   RANGE_TONES,
   rangoDentroDeVentana,
 } from './zone-chart';
+import {
+  COMPARE_MAX_WEEKS,
+  COMPARE_MIN_WEEKS,
+  comparacionEnOrden,
+} from './zone-compare';
 
 // Este sigue siendo EL import del comunicado: los dos módulos de al lado se
 // reexportan enteros y nadie tiene que saber que existen. Están partidos porque
@@ -85,6 +90,9 @@ export type CommunicationView = (typeof COMMUNICATION_VIEWS)[number];
  *   camino   — por dónde va a pasar: NO se teclea, se resuelve con SU plan
  *   grafica  — su tiempo en zonas de un periodo, con los rangos que el coach
  *              marcó encima: tampoco se teclea, se resuelve con SUS datos
+ *   comparativa — dos periodos de la misma longitud, enfrentados. La grafica
+ *              enseña la FORMA de una serie; ésta, el SALDO de un antes contra
+ *              un después. Misma materia prima, otra pregunta
  *
  * Es propiedad de la SECCIÓN y no de la nota (una nota las mezcla), y fuera de
  * una nota es inerte: un paso de protocolo y una opción de pregunta llevan
@@ -95,7 +103,14 @@ export type CommunicationView = (typeof COMMUNICATION_VIEWS)[number];
  * contar lo mismo. En la pantalla el botón dice «Dar feedback», que es lo que el
  * coach cree que está haciendo; que por debajo sea una nota es asunto nuestro.
  */
-export const COMMUNICATION_DISPLAYS = ['texto', 'cifra', 'reparto', 'camino', 'grafica'] as const;
+export const COMMUNICATION_DISPLAYS = [
+  'texto',
+  'cifra',
+  'reparto',
+  'camino',
+  'grafica',
+  'comparativa',
+] as const;
 export type CommunicationDisplay = (typeof COMMUNICATION_DISPLAYS)[number];
 
 /**
@@ -112,6 +127,11 @@ export const CAMINO_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week'];
  * sesión, un test, una carrera o un check-in: son un día, y esto son meses.
  */
 export const GRAFICA_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week', 'general'];
+
+/** La comparativa cuelga de lo mismo que la gráfica y por lo mismo: habla de
+ *  meses de entreno, así que colgada de una sesión, un test, una carrera o un
+ *  check-in estaría hablando de un día. */
+export const COMPARATIVA_ANCHORS: readonly CommunicationAnchor[] = GRAFICA_ANCHORS;
 
 
 // ---------------------------------------------------------------------------
@@ -317,6 +337,22 @@ const noteSectionShape = z.discriminatedUnion('display', [
       .transform((v) => v ?? null),
     ranges: z.array(graficaRange).max(GRAFICA_MAX_RANGES).default([]),
   }),
+  // La comparativa tampoco se teclea: son dos periodos y el servidor los suma
+  // con los segundos por zona de ESE atleta al servirla.
+  //
+  // UN SOLO `weeks` PARA LOS DOS LADOS, y no es ahorro de campos: catorce semanas
+  // le ganan a diez siempre, así que dos ventanas de distinta longitud harían que
+  // el titular dijera que el calendario es más largo, no que el atleta entrenó
+  // más. Que no se solapen se comprueba abajo, donde el error se puede colocar.
+  z.object({
+    display: z.literal('comparativa'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+    /** El ANTES. */
+    a_start: isoMonday,
+    /** El DESPUÉS. */
+    b_start: isoMonday,
+    weeks: z.number().int().min(COMPARE_MIN_WEEKS).max(COMPARE_MAX_WEEKS),
+  }),
 ]);
 
 /**
@@ -420,6 +456,27 @@ export const createCommunicationSchema = communicationShape.superRefine((value, 
     }
 
     value.items.forEach((seccion, i) => {
+      if (seccion.display === 'comparativa') {
+        if (!COMPARATIVA_ANCHORS.includes(value.anchor_kind)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['items', i, 'display'],
+            message:
+              'La comparativa cuelga de su plan, de esta semana o de nada: son meses, no un día.',
+          });
+        }
+        // Ni una semana puede caer en los dos lados: se contaría dos veces y el
+        // delta se comería a sí mismo. Se señala el arranque del DESPUÉS, que es
+        // lo que el coach acaba de mover cuando esto pasa.
+        if (!comparacionEnOrden(seccion)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['items', i, 'b_start'],
+            message: 'Los dos periodos se pisan. El segundo empieza cuando termina el primero.',
+          });
+        }
+        return;
+      }
       if (seccion.display !== 'grafica') return;
       if (!GRAFICA_ANCHORS.includes(value.anchor_kind)) {
         ctx.addIssue({

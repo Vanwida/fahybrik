@@ -52,6 +52,9 @@ type FilaAEscribir = {
   display: CommunicationDisplay;
   /** Sólo una gráfica la lleva: el periodo del que habla y por qué se filtra. */
   grafica: { week_start: string; weeks: number; modality: string | null } | null;
+  /** Sólo una comparativa la lleva: los dos periodos que enfrenta y su largo,
+   *  que es UNO para los dos lados. */
+  comparativa: { a_start: string; b_start: string; weeks: number } | null;
   /** Los trozos de un reparto o los rangos de una gráfica. Se escriben en su
    *  tabla hija, no en la fila. */
   marcas: MarcaAEscribir[];
@@ -70,6 +73,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       checkable: true,
       display: 'texto',
       grafica: null,
+      comparativa: null,
       marcas: SIN_MARCAS,
     }));
   }
@@ -82,14 +86,15 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       checkable: paso.checkable,
       display: 'texto',
       grafica: null,
+      comparativa: null,
       marcas: SIN_MARCAS,
     }));
   }
-  // Una sección de nota: cada forma dice qué es cada campo. Las tres que no se
+  // Una sección de nota: cada forma dice qué es cada campo. Las CUATRO que no se
   // teclean escriben `content` vacío — un reparto ES sus segmentos, un camino ES
-  // el plan del atleta y una gráfica ES su tiempo en zonas —, y un texto de
-  // relleno sería un dato que nadie escribió (el CHECK de la 0169 lo permite
-  // sólo en esas tres).
+  // el plan del atleta, una gráfica ES su tiempo en zonas y una comparativa SON
+  // sus dos periodos —, y un texto de relleno sería un dato que nadie escribió
+  // (el CHECK de la 0170 lo permite sólo en esas cuatro).
   return input.items.map((seccion, index) => {
     const comun = {
       position: index + 1,
@@ -103,6 +108,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
         label: seccion.label,
         content: '',
         grafica: null,
+        comparativa: null,
         marcas: seccion.segments.map((s, i) => ({
           position: i + 1,
           label: s.label,
@@ -123,6 +129,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
           weeks: seccion.weeks,
           modality: seccion.modality,
         },
+        comparativa: null,
         marcas: seccion.ranges.map((r, i) => ({
           position: i + 1,
           label: r.label,
@@ -133,8 +140,29 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
         })),
       };
     }
+    if (seccion.display === 'comparativa') {
+      return {
+        ...comun,
+        label: seccion.label,
+        content: '',
+        grafica: null,
+        comparativa: {
+          a_start: seccion.a_start,
+          b_start: seccion.b_start,
+          weeks: seccion.weeks,
+        },
+        marcas: SIN_MARCAS,
+      };
+    }
     if (seccion.display === 'camino') {
-      return { ...comun, label: seccion.label, content: '', grafica: null, marcas: SIN_MARCAS };
+      return {
+        ...comun,
+        label: seccion.label,
+        content: '',
+        grafica: null,
+        comparativa: null,
+        marcas: SIN_MARCAS,
+      };
     }
     // En una cifra `label` es el PIE y puede faltar; en un texto es la cabecera
     // y el esquema ya la exige.
@@ -143,6 +171,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       label: seccion.label ?? null,
       content: seccion.content,
       grafica: null,
+      comparativa: null,
       marcas: SIN_MARCAS,
     };
   });
@@ -170,6 +199,9 @@ export async function insertItems(
         grafica_week_start: r.grafica?.week_start ?? null,
         grafica_weeks: r.grafica?.weeks ?? null,
         grafica_modality: r.grafica?.modality ?? null,
+        compare_a_start: r.comparativa?.a_start ?? null,
+        compare_b_start: r.comparativa?.b_start ?? null,
+        compare_weeks: r.comparativa?.weeks ?? null,
       })),
       'communication_id',
       'position',
@@ -181,6 +213,9 @@ export async function insertItems(
       'grafica_week_start',
       'grafica_weeks',
       'grafica_modality',
+      'compare_a_start',
+      'compare_b_start',
+      'compare_weeks',
     )}
   `;
 

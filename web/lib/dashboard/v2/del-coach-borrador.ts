@@ -13,6 +13,7 @@
 
 import {
   CAMINO_ANCHORS,
+  COMPARATIVA_ANCHORS,
   GRAFICA_ANCHORS,
   createCommunicationSchema,
   type CoachCommunicationDTO,
@@ -22,8 +23,10 @@ import {
   type CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
 import type { RangeTone, ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import type { SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { DEFAULT_ZONE_WINDOW, addWeeks, mondayOf, zoneWindowWeeks } from '@/lib/zones/chart';
+import { parPorDefecto, type ParDePeriodos } from '@/lib/zones/comparativa';
 
 // ---------------------------------------------------------------------------
 // La forma del borrador
@@ -75,6 +78,9 @@ export interface FilaBorrador {
   segments: SegmentoBorrador[];
   /** Sólo en una sección con forma de gráfica. */
   grafica: GraficaBorrador;
+  /** Sólo en una sección con forma de comparativa: qué dos periodos enfrenta y
+   *  de cuánto es cada lado (uno solo para los dos, a propósito). */
+  comparativa: ParDePeriodos;
 }
 
 /** Una opción de pregunta con su consecuencia. */
@@ -145,6 +151,7 @@ export function filaVacia(): FilaBorrador {
     display: 'texto',
     segments: [segmentoVacio(), segmentoVacio()],
     grafica: ventanaPorDefecto(),
+    comparativa: parPorDefecto(),
   };
 }
 
@@ -235,6 +242,10 @@ export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
     // que el coach escribió, y sin ella retomar un borrador con gráfica dentro
     // le devolvería la ventana por defecto en vez de la suya.
     grafica: graficaDeDto(i.grafica),
+    // Lo mismo con los dos periodos de una comparativa: la config viaja siempre
+    // aunque los totales no se hayan podido sumar (la biblioteca no tiene atleta
+    // al que sumárselos).
+    comparativa: comparativaDeDto(i.comparativa),
   }));
   return {
     ...base,
@@ -275,6 +286,14 @@ function graficaDeDto(g: ZoneChartDTO | null): GraficaBorrador {
     modality: (g.modality as SegmentModality | null) ?? null,
     ranges: g.ranges.map((r) => ({ key: nuevaClave(), ...r })),
   };
+}
+
+/** Los dos periodos guardados vuelven a ser estado local. Sin ellos (cualquier
+ *  forma que no sea comparativa) se cae al par por defecto, para que cambiarle la
+ *  forma a una sección no deje el formulario en blanco. */
+function comparativaDeDto(c: ZoneComparisonDTO | null): ParDePeriodos {
+  if (c == null) return parPorDefecto();
+  return { a_start: c.a.week_start, b_start: c.b.week_start, weeks: c.weeks };
 }
 
 // ---------------------------------------------------------------------------
@@ -357,6 +376,15 @@ function seccionAInput(s: FilaBorrador) {
       })),
     };
   }
+  if (s.display === 'comparativa') {
+    return {
+      display: 'comparativa' as const,
+      label: s.label.trim(),
+      a_start: s.comparativa.a_start,
+      b_start: s.comparativa.b_start,
+      weeks: s.comparativa.weeks,
+    };
+  }
   if (s.display === 'cifra') {
     return { display: 'cifra' as const, label: oNulo(s.label), content: s.content.trim() };
   }
@@ -378,6 +406,18 @@ export function pintaGrafica(b: Borrador): boolean {
  *  periodo de entrenos sigue siendo cierto colgado de nada. */
 export function anclaSirveParaGrafica(b: Borrador): boolean {
   return GRAFICA_ANCHORS.includes(b.anchor_kind);
+}
+
+/** ¿Esta nota lleva una comparativa? Decide si hay que pedirle los dos periodos
+ *  al atleta para la previa, y si el ancla elegida vale. */
+export function pintaComparativa(b: Borrador): boolean {
+  return b.kind === 'note' && b.sections.some((s) => s.display === 'comparativa');
+}
+
+/** ¿El ancla elegida deja dibujar la comparativa? Las mismas tres que la
+ *  gráfica: son meses de entreno, no un día. */
+export function anclaSirveParaComparativa(b: Borrador): boolean {
+  return COMPARATIVA_ANCHORS.includes(b.anchor_kind);
 }
 
 /** ¿El ancla elegida deja dibujar el camino? Es la regla del esquema, dicha

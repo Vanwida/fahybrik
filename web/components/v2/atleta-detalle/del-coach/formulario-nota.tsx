@@ -26,6 +26,7 @@ import {
 import { MIcon } from '@/components/ui/MIcon';
 import {
   anclaSirveParaCamino,
+  anclaSirveParaComparativa,
   anclaSirveParaGrafica,
   filaVacia,
   segmentoVacio,
@@ -33,6 +34,8 @@ import {
   type GraficaBorrador,
   type SegmentoBorrador,
 } from '@/lib/dashboard/v2/del-coach-borrador';
+import type { ParDePeriodos } from '@/lib/zones/comparativa';
+import { SeccionComparativa } from './formulario-comparativa';
 import { SeccionGrafica } from './formulario-grafica';
 import {
   AreaTexto,
@@ -48,15 +51,16 @@ import {
 } from './campos';
 import type { PropsFormulario } from './formularios';
 
-/** Cómo se llama cada forma para el coach. «El camino» y «Sus zonas» llevan
- *  artículo porque no son formatos de texto como las otras tres: son cosas que
- *  se dibujan solas con los datos del atleta. */
+/** Cómo se llama cada forma para el coach. Las tres últimas se nombran distinto
+ *  a propósito: no son formatos de texto como las tres primeras, son cosas que se
+ *  dibujan solas con los datos del atleta. */
 const FORMAS: ReadonlyArray<{ value: CommunicationDisplay; label: string }> = [
   { value: 'texto', label: 'Texto' },
   { value: 'cifra', label: 'Cifra' },
   { value: 'reparto', label: 'Reparto' },
   { value: 'camino', label: 'El camino' },
   { value: 'grafica', label: 'Sus zonas' },
+  { value: 'comparativa', label: 'Antes y ahora' },
 ];
 
 /** Qué es esta sección, en una línea, debajo del selector. */
@@ -66,6 +70,7 @@ const QUE_ES: Record<CommunicationDisplay, string> = {
   reparto: 'Una proporción. Se lee de un vistazo en una barra, sin contar.',
   camino: 'Sus semanas como camino, con dónde está hoy y lo que rompe la rutina.',
   grafica: 'Su tiempo en zonas de un periodo, con los rangos que tú marques.',
+  comparativa: 'Dos periodos enfrentados: las horas de cada uno y qué ha cambiado.',
 };
 
 function sinLa<T>(xs: T[], index: number): T[] {
@@ -147,6 +152,7 @@ export function FormNota({ b, set, errores, idp, onFoco }: PropsFormulario) {
                 errores={errores}
                 anclaSirve={anclaSirveParaCamino(b)}
                 anclaSirveGrafica={anclaSirveParaGrafica(b)}
+                anclaSirveComparativa={anclaSirveParaComparativa(b)}
                 onCambiar={(patch) => cambiar(i, patch)}
               />
             </div>
@@ -169,6 +175,7 @@ function Seccion({
   errores,
   anclaSirve,
   anclaSirveGrafica,
+  anclaSirveComparativa,
   onCambiar,
 }: {
   seccion: FilaBorrador;
@@ -176,9 +183,30 @@ function Seccion({
   errores: Record<string, string>;
   anclaSirve: boolean;
   anclaSirveGrafica: boolean;
+  anclaSirveComparativa: boolean;
   onCambiar: (patch: Partial<FilaBorrador>) => void;
 }) {
   const err = (campo: string) => errores[`items.${indice}.${campo}`];
+
+  if (seccion.display === 'comparativa') {
+    return (
+      <div className="flex flex-col gap-2">
+        <Cabecera
+          valor={seccion.label}
+          indice={indice}
+          error={err('label')}
+          ejemplo="Antes y ahora, 3 meses contra 3"
+          onChange={(v) => onCambiar({ label: v })}
+        />
+        <SeccionComparativa
+          comparativa={seccion.comparativa}
+          indice={indice}
+          anclaSirve={anclaSirveComparativa}
+          onCambiar={(comparativa: ParDePeriodos) => onCambiar({ comparativa })}
+        />
+      </div>
+    );
+  }
 
   if (seccion.display === 'grafica') {
     return (

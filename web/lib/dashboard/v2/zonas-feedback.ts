@@ -23,6 +23,7 @@ import {
   type FilaBorrador,
   type RangoBorrador,
 } from './del-coach-borrador';
+import type { ParDePeriodos } from '@/lib/zones/comparativa';
 
 /**
  * Los tres tonos, dichos para el COACH: no son etiquetas de calidad, son lo que
@@ -113,5 +114,46 @@ export function notaDeFeedback(args: {
     title: cabeceraDeGrafica(args.weeks),
     anchor_kind: 'plan',
     sections: [grafica, explicacion],
+  };
+}
+
+/**
+ * Cómo se titula la sección que enfrenta dos periodos. Habla de lo que se
+ * compara —el largo de cada lado— y no de las fechas: las fechas ya las dice el
+ * propio bloque, con las etiquetas que escribe el servidor.
+ */
+export function cabeceraDeComparativa(weeks: number): string {
+  const meses = Math.round(weeks / SEMANAS_POR_MES);
+  if (meses <= 1) return 'Antes y ahora, mes contra mes';
+  return `Antes y ahora, ${meses} meses contra ${meses}`;
+}
+
+/**
+ * La nota premontada que abre el compositor desde la COMPARATIVA.
+ *
+ * La gemela de `notaDeFeedback`, y por la misma razón dos secciones: la
+ * comparativa dice QUÉ cambió y el capítulo de texto dice qué significa. Sin el
+ * segundo, el atleta recibiría dos barras y ninguna frase.
+ */
+export function notaDeComparativa(periodos: ParDePeriodos): Borrador {
+  const base = borradorVacio('note');
+  const comparativa: FilaBorrador = {
+    ...filaVacia(),
+    display: 'comparativa',
+    label: cabeceraDeComparativa(periodos.weeks),
+    comparativa: { ...periodos },
+  };
+  const explicacion: FilaBorrador = {
+    ...filaVacia(),
+    display: 'texto',
+    label: 'Lo que veo',
+    content: '',
+  };
+
+  return {
+    ...base,
+    title: cabeceraDeComparativa(periodos.weeks),
+    anchor_kind: 'plan',
+    sections: [comparativa, explicacion],
   };
 }

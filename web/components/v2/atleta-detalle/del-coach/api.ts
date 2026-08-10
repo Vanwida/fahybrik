@@ -15,6 +15,7 @@ import type {
 } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ComparePresetDTO, ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 
 export type Resultado<T> = { ok: true; data: T } | { ok: false; mensaje: string };
 
@@ -95,6 +96,31 @@ export async function pedirZonas(
     `/api/coach/athletes/${athlete_id}/zones/window?${qs}`,
   );
   return r.ok ? { ok: true, data: r.data.chart } : r;
+}
+
+/**
+ * Dos periodos de un atleta, sumados y enfrentados, más los ATAJOS que salen de
+ * sus fechas reales (cuándo entró, cuándo arrancó su plan).
+ *
+ * Sin `periodos` contesta con el atajo de entrada: es como se abre el mando de la
+ * ficha, con una comparación de verdad delante en vez de dos calendarios en
+ * blanco. Los atajos viajan siempre, también cuando se piden fechas a mano, para
+ * que las pastillas no se vacíen al tocar nada.
+ */
+export async function pedirComparativa(
+  athlete_id: string,
+  periodos?: { a_start: string; b_start: string; weeks: number },
+): Promise<Resultado<{ presets: ComparePresetDTO[]; comparativa: ZoneComparisonDTO | null }>> {
+  const qs = periodos
+    ? `?${new URLSearchParams({
+        a: periodos.a_start,
+        b: periodos.b_start,
+        weeks: String(periodos.weeks),
+      })}`
+    : '';
+  return pedir<{ presets: ComparePresetDTO[]; comparativa: ZoneComparisonDTO | null }>(
+    `/api/coach/athletes/${athlete_id}/zones/compare${qs}`,
+  );
 }
 
 /**

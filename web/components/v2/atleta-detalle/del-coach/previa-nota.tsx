@@ -20,6 +20,10 @@ import { S } from '@/components/design-twin/kit-composicion/tokens';
 import { Espina, TOKENS_TWIN, TONOS_TWIN, colorDelTono, tramosDesdePlan } from '@/components/plan-espina';
 import { ZonasChart } from '../rendimiento/ZonasChart';
 import {
+  COMPARE_METRICS_EMBED,
+  ZonasComparativa,
+} from '../rendimiento/ZonasComparativa';
+import {
   buildWindowCells,
   rangeBands,
   ZONE_METRICS_EMBED,
@@ -27,6 +31,7 @@ import {
 } from '@/lib/zones/chart';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import type { Borrador, FilaBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
 
 const TENUE = 'var(--twin-faint)';
@@ -53,6 +58,7 @@ export function PreviaNota({
   foco,
   camino,
   zonas,
+  comparativas,
 }: {
   b: Borrador;
   cabecera: React.ReactNode;
@@ -62,6 +68,8 @@ export function PreviaNota({
   camino: PlanPathDTO | null;
   /** Sus barras de tiempo en zonas ya resueltas, por clave de sección. */
   zonas: Map<string, ZoneChartDTO>;
+  /** Sus dos periodos ya sumados, por clave de sección. */
+  comparativas: Map<string, ZoneComparisonDTO>;
 }) {
   const secciones = b.sections.filter(escrita);
   const t = b.title.trim();
@@ -92,7 +100,12 @@ export function PreviaNota({
             <div key={s.key} data-fila={s.key} style={anillo(s.key === foco)}>
               <Card padding={S.l}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
-                  <Seccion seccion={s} camino={camino} zonas={zonas} />
+                  <Seccion
+                    seccion={s}
+                    camino={camino}
+                    zonas={zonas}
+                    comparativas={comparativas}
+                  />
                 </div>
               </Card>
             </div>
@@ -108,7 +121,7 @@ export function PreviaNota({
 /** Una sección cuenta en cuanto tiene algo escrito. El camino cuenta siempre:
  *  no se teclea, así que esperar a que tenga texto sería no enseñarlo nunca. */
 function escrita(s: FilaBorrador): boolean {
-  if (s.display === 'camino' || s.display === 'grafica') return true;
+  if (s.display === 'camino' || s.display === 'grafica' || s.display === 'comparativa') return true;
   if (s.display === 'reparto') {
     return Boolean(s.label.trim()) || s.segments.some((seg) => seg.value.trim() || seg.label.trim());
   }
@@ -119,10 +132,12 @@ function Seccion({
   seccion,
   camino,
   zonas,
+  comparativas,
 }: {
   seccion: FilaBorrador;
   camino: PlanPathDTO | null;
   zonas: Map<string, ZoneChartDTO>;
+  comparativas: Map<string, ZoneComparisonDTO>;
 }) {
   if (seccion.display === 'cifra') return <Cifra seccion={seccion} />;
 
@@ -138,6 +153,8 @@ function Seccion({
         <Camino camino={camino} />
       ) : seccion.display === 'grafica' ? (
         <Grafica seccion={seccion} chart={zonas.get(seccion.key) ?? null} />
+      ) : seccion.display === 'comparativa' ? (
+        <Comparativa comparativa={comparativas.get(seccion.key) ?? null} />
       ) : (
         <span style={{ font: '400 14px/1.5 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
           {seccion.content.trim()}
@@ -296,6 +313,32 @@ function Grafica({ seccion, chart }: { seccion: FilaBorrador; chart: ZoneChartDT
       ariaLabel={`Su tiempo en zonas, ${seccion.grafica.weeks} semanas`}
       tokens={ZONE_TOKENS_TWIN}
       metrics={ZONE_METRICS_EMBED}
+    />
+  );
+}
+
+/**
+ * LOS DOS PERIODOS, con los datos REALES del atleta.
+ *
+ * El MISMO componente que dibuja la ficha (`ZonasComparativa`), con la paleta del
+ * móvil y la medida embebida. Una copia del bloque para el móvil sería la
+ * bifurcación de siempre, y entonces esta previa dejaría de servir para lo único
+ * que sirve.
+ *
+ * Sin respuesta todavía se dice con palabras. Nunca dos barras de ejemplo: sería
+ * enseñarle al coach una comparación que no es de nadie.
+ */
+function Comparativa({ comparativa }: { comparativa: ZoneComparisonDTO | null }) {
+  if (comparativa == null) {
+    return (
+      <Vacia texto="Aquí van sus dos periodos enfrentados: las horas de cada uno, el reparto por zona y lo que ha cambiado. Cada atleta ve los suyos." />
+    );
+  }
+  return (
+    <ZonasComparativa
+      comparativa={comparativa}
+      tokens={ZONE_TOKENS_TWIN}
+      metrics={COMPARE_METRICS_EMBED}
     />
   );
 }

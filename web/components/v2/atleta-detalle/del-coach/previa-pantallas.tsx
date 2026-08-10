@@ -22,6 +22,7 @@ import {
 import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import { PreviaNota } from './previa-nota';
 
 /** El mismo vocabulario dicho en los dos idiomas del repo: el dominio va en
@@ -51,6 +52,7 @@ export function PantallaDelTipo({
   foco,
   camino,
   zonas,
+  comparativas,
 }: {
   b: Borrador;
   coachName: string;
@@ -61,6 +63,8 @@ export function PantallaDelTipo({
   /** Sus barras de tiempo en zonas, por clave de sección: cada gráfica de la
    *  nota puede mirar un periodo distinto. */
   zonas: Map<string, ZoneChartDTO>;
+  /** Sus dos periodos ya sumados, por clave de sección. */
+  comparativas: Map<string, ZoneComparisonDTO>;
 }) {
   if (b.kind === 'protocol') return <PreviaProtocolo b={b} coachName={coachName} foco={foco} />;
   if (b.kind === 'question') return <PreviaPregunta b={b} coachName={coachName} foco={foco} />;
@@ -72,6 +76,7 @@ export function PantallaDelTipo({
         foco={foco}
         camino={camino}
         zonas={zonas}
+        comparativas={comparativas}
       />
     );
   }

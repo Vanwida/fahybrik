@@ -31,6 +31,7 @@ import {
   todayIso,
 } from './ZonasAvisos';
 import { ZonasChart } from './ZonasChart';
+import { ZonasComparar } from './ZonasComparar';
 import { BarraDeMarcado, ZonasMarcas } from './ZonasMarcas';
 import { ZonasTabla } from './ZonasTabla';
 import {
@@ -46,8 +47,8 @@ import {
   type ZoneWindowKey,
 } from '@/lib/zones/chart';
 import { GRAFICA_MAX_WEEKS } from '@fahybrid/shared/domain/zone-chart';
-import { notaDeFeedback, nuevoRango } from '@/lib/dashboard/v2/zonas-feedback';
-import type { RangoBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
+import { notaDeComparativa, notaDeFeedback, nuevoRango } from '@/lib/dashboard/v2/zonas-feedback';
+import type { Borrador, RangoBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import type { SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import type { WeeklyZonesPayload } from '@/lib/zones/weekly';
 
@@ -101,8 +102,14 @@ export function ZonasPanel({
   const [marcando, setMarcando] = useState(false);
   const [desde, setDesde] = useState<string | null>(null);
   const [rangos, setRangos] = useState<RangoBorrador[]>([]);
-  const [componiendo, setComponiendo] = useState(false);
+  // La nota premontada que abre el compositor. Null = cerrado. Se guarda ENTERA
+  // y no un interruptor porque hay dos puertas —la gráfica marcada y la
+  // comparativa— y cada una monta una nota distinta.
+  const [componiendo, setComponiendo] = useState<Borrador | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // El mando de comparar arranca cerrado: la pregunta de esta pantalla es «cómo
+  // ha entrenado», y «antes contra ahora» es la segunda, no la primera.
+  const [comparando, setComparando] = useState(false);
 
   // Qué se está pidiendo ahora mismo. «Cargando» se DEDUCE de comparar esto con
   // lo último que llegó, en vez de encenderlo a mano al empezar cada petición:
@@ -207,17 +214,24 @@ export function ZonasPanel({
     <Panel
       title="Tiempo en zonas"
       action={
-        hasData ? (
-          <button
-            type="button"
-            onClick={() => setShowTable((v) => !v)}
-            aria-expanded={showTable}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+        <div className="flex items-center gap-3">
+          <BotonDePanel
+            icon="compare_arrows"
+            activo={comparando}
+            onClick={() => setComparando((v) => !v)}
           >
-            <MIcon name={showTable ? 'bar_chart' : 'table_rows'} size={14} />
-            {showTable ? 'Ver la gráfica' : 'Ver la tabla'}
-          </button>
-        ) : null
+            {comparando ? 'Cerrar la comparación' : 'Comparar'}
+          </BotonDePanel>
+          {hasData ? (
+            <BotonDePanel
+              icon={showTable ? 'bar_chart' : 'table_rows'}
+              activo={showTable}
+              onClick={() => setShowTable((v) => !v)}
+            >
+              {showTable ? 'Ver la gráfica' : 'Ver la tabla'}
+            </BotonDePanel>
+          ) : null}
+        </div>
       }
     >
       <div className="flex flex-col gap-4">
@@ -227,6 +241,13 @@ export function ZonasPanel({
           modality={modality}
           onModality={setModality}
         />
+
+        {comparando ? (
+          <ZonasComparar
+            athleteId={athleteId}
+            onDarFeedback={(periodos) => setComponiendo(notaDeComparativa(periodos))}
+          />
+        ) : null}
 
         {aviso ? (
           <div
@@ -288,7 +309,7 @@ export function ZonasPanel({
                     setMarcando((v) => !v);
                     setDesde(null);
                   }}
-                  onDarFeedback={() => setComponiendo(true)}
+                  onDarFeedback={() => setComponiendo(notaDeFeedback({ ...ventana, rangos }))}
                 />
                 <ZonasMarcas rangos={rangos} onCambiar={cambiarRango} onQuitar={quitarRango} />
               </>
@@ -323,12 +344,13 @@ export function ZonasPanel({
           modo="publicar"
           destinatarios={[{ athlete_id: athleteId, full_name: athleteName }]}
           coachName={coachName}
-          // Ya montada: la gráfica del periodo que está mirando, con sus marcas,
-          // y un capítulo en blanco para lo que quiera explicar.
-          partida={{ b: notaDeFeedback({ ...ventana, rangos }), id: null }}
-          onCerrar={() => setComponiendo(false)}
+          // Ya montada por la puerta desde la que se entró: la gráfica del periodo
+          // con sus marcas, o los dos periodos enfrentados. Y en las dos, un
+          // capítulo en blanco para lo que el coach quiera explicar.
+          partida={{ b: componiendo, id: null }}
+          onCerrar={() => setComponiendo(null)}
           onHecho={(mensaje) => {
-            setComponiendo(false);
+            setComponiendo(null);
             // Las marcas ya viven dentro de la nota publicada: dejarlas encima de
             // la gráfica invitaría a mandar la misma dos veces.
             setRangos([]);
@@ -345,6 +367,34 @@ export function ZonasPanel({
 }
 
 // ── Los mandos ────────────────────────────────────────────────────────────────
+
+/** Un mando de la cabecera del panel. Los dos son el mismo botón (mirar de otra
+ *  forma lo que ya está a la vista), así que son un solo componente. */
+function BotonDePanel({
+  icon,
+  activo,
+  onClick,
+  children,
+}: {
+  icon: string;
+  activo: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={activo}
+      className={`v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold transition-colors hover:text-[color:var(--v2-fg)] ${
+        activo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-muted)]'
+      }`}
+    >
+      <MIcon name={icon} size={14} />
+      {children}
+    </button>
+  );
+}
 
 function Controles({
   windowKey,

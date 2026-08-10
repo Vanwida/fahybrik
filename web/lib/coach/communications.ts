@@ -26,6 +26,7 @@ import {
 import {
   CommunicationError,
   attachCamino,
+  attachComparativas,
   attachGraficas,
   communicationColumns,
   iso,
@@ -33,13 +34,16 @@ import {
   loadLinkedForCoach,
   loadMarksByRecipient,
   needsCamino,
+  needsComparativa,
   needsGrafica,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
 import { resolveGraficas } from '@/lib/communications/grafica';
+import { resolveComparativas } from '@/lib/communications/comparativa';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import { resolvePlanPath } from '@/lib/plan/camino';
 import {
   audioOf,
@@ -223,6 +227,12 @@ export async function listCommunicationsForAthlete(args: {
     ? await resolveGraficas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
     : new Map<string, ZoneChartDTO>();
 
+  // Y las comparativas, con las mismas dos reglas: una suma por PAR de periodos
+  // distinto, y sólo si alguna sección la pide.
+  const comparativas = [...items.values()].some(needsComparativa)
+    ? await resolveComparativas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
+    : new Map<string, ZoneComparisonDTO>();
+
   return rows.map((row): CoachAthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
     const done_at = iso(row.done_at);
@@ -231,7 +241,10 @@ export async function listCommunicationsForAthlete(args: {
     return {
       ...rowToDto(
         row,
-        attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
+        attachComparativas(
+          attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
+          comparativas,
+        ),
         enlaceDe(row, linked),
       ),
       athlete_state: {

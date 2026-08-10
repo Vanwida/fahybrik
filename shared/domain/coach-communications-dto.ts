@@ -13,6 +13,7 @@
 
 import type { PlanPathDTO } from './plan-path';
 import type { ZoneChartDTO } from './zone-chart';
+import type { ZoneComparisonDTO } from './zone-compare';
 import type {
   CommunicationAnchor,
   CommunicationDisplay,
@@ -79,6 +80,17 @@ export interface CommunicationItemDTO {
    * dibujar seis meses de suelo como si el atleta no hubiera entrenado.
    */
   grafica: ZoneChartDTO | null;
+  /**
+   * Los dos periodos de ESE atleta, sumados y enfrentados. Se resuelve al servir
+   * por la misma razón que el camino y la gráfica: guardados, los totales
+   * seguirían contando lo que se sabía el día que se escribió la nota.
+   *
+   * Null cuando la sección no es una comparativa o cuando no hay atleta al que
+   * resolvérsela (la biblioteca del coach). Un periodo SIN dato no la anula: sale
+   * con los totales a cero y `weeks_with_data` a cero, que son dos cosas
+   * distintas y el cliente las dice distinto — «no entrenó» y «no lo sabemos».
+   */
+  comparativa: ZoneComparisonDTO | null;
 }
 
 /**

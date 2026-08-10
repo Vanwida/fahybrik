@@ -157,8 +157,17 @@ workout_traces, bandas y objetivo de polarización a dato del coach).
   dentro de la nota (`ZonasSemanaView` reutilizable) + reproductor. La frase
   del ancla la escribe el SERVIDOR (`source_label`): una sola voz. 100 tests
   web + 1147 iOS. Lección grabada: build en worktree fijado antes de Vercel.
-- ⏳ Siguiente del plan de zonas: T3 comparativa por periodos → T4 histórico
-  HealthKit → T5 hecho (audio entró en T2). Aparte: #11 detección de umbral.
+- ✅ **T3 comparativa por periodos** (mig 0170): presets con las fechas REALES
+  del atleta (antes/después del alta, antes/con el plan — desactivado con el
+  motivo escrito si no hay plan —, trimestres) + a medida; dos columnas con
+  reparto % por zona, horas y delta en palabras; embebible en la nota
+  (display `comparativa`, misma longitud ambos lados, labels del servidor);
+  el hueco declarado, jamás ceros. 59 tests. iOS render: tanda posterior.
+- ✅ **Mina #9 desactivada** (`9b24dc08`): el webhook de Garmin FUSIONA por
+  precedencia de campo (segment-fusion) y ya no borra los tramos del vivo ni
+  sus zone_seconds. 17+7 tests.
+- ⏳ Siguiente: T4 histórico HealthKit → iOS render de la comparativa →
+  #11 detección de umbral → #13 instalar iPhone cuando esté a mano.
 
 ## Antes · DEL COACH — comunicación estructurada fuera del chat (9-ago)
 

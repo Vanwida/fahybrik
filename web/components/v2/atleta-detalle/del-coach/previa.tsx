@@ -23,8 +23,9 @@ import { DeviceFrame } from '@/components/design-twin/DeviceFrame';
 import type { CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import { pintaCamino, type Borrador, type FilaBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
-import { pedirCamino, pedirZonas } from './api';
+import { pedirCamino, pedirComparativa, pedirZonas } from './api';
 import { PantallaDelTipo, TIPO_TWIN } from './previa-pantallas';
 
 /** El bisel del doble: lienzo lógico del iPhone 17 Pro (402×874 pt) + 14 px de
@@ -50,12 +51,14 @@ export function PreviaMovil({
   foco,
   camino,
   zonas,
+  comparativas,
 }: {
   b: Borrador;
   coachName: string;
   foco: string | null;
   camino: PlanPathDTO | null;
   zonas: Map<string, ZoneChartDTO>;
+  comparativas: Map<string, ZoneComparisonDTO>;
 }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(0);
@@ -113,7 +116,14 @@ export function PreviaMovil({
               role="img"
               aria-label={`Previsualización: cómo le queda ${TIPO_TWIN[b.kind]} en su móvil`}
             >
-              <PantallaDelTipo b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
+              <PantallaDelTipo
+                b={b}
+                coachName={coachName}
+                foco={foco}
+                camino={camino}
+                zonas={zonas}
+                comparativas={comparativas}
+              />
             </div>
           </DeviceFrame>
         </div>
@@ -146,6 +156,7 @@ export function ColumnaPrevia({
 }) {
   const camino = useCaminoDelDestinatario(b, athleteId);
   const zonas = useZonasDelDestinatario(b, athleteId);
+  const comparativas = useComparativasDelDestinatario(b, athleteId);
 
   return (
     <>
@@ -155,7 +166,14 @@ export function ColumnaPrevia({
           <span className="text-label text-[color:var(--v2-muted)]">Su móvil</span>
         </div>
         <div className="h-[min(600px,58vh)]">
-          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
+          <PreviaMovil
+            b={b}
+            coachName={coachName}
+            foco={foco}
+            camino={camino}
+            zonas={zonas}
+            comparativas={comparativas}
+          />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -167,7 +185,14 @@ export function ColumnaPrevia({
           Ver cómo le queda
         </summary>
         <div className="mt-3 h-[520px]">
-          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
+          <PreviaMovil
+            b={b}
+            coachName={coachName}
+            foco={foco}
+            camino={camino}
+            zonas={zonas}
+            comparativas={comparativas}
+          />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -263,10 +288,71 @@ function useZonasDelDestinatario(b: Borrador, athleteId: string | null): Map<str
   return porSeccion;
 }
 
+/**
+ * Los DOS PERIODOS del destinatario, uno por sección con comparativa.
+ *
+ * El gemelo de `useZonasDelDestinatario`, con las mismas dos reglas: se piden por
+ * PAR de periodos y no por sección (dos comparativas iguales comparten
+ * respuesta), y se guarda de quién es lo cargado — al cambiar de destinatario,
+ * enseñar lo del anterior sería enseñarle a un atleta los datos de otro.
+ */
+function useComparativasDelDestinatario(
+  b: Borrador,
+  athleteId: string | null,
+): Map<string, ZoneComparisonDTO> {
+  const [cargado, setCargado] = useState<{
+    athleteId: string;
+    porPar: Map<string, ZoneComparisonDTO>;
+  }>(() => ({ athleteId: '', porPar: new Map() }));
+
+  const secciones = b.kind === 'note' ? b.sections.filter((s) => s.display === 'comparativa') : [];
+  const firma = secciones.map(claveDePar).join(';');
+
+  useEffect(() => {
+    if (!athleteId || firma.length === 0) return;
+    let vigente = true;
+    const claves = [...new Set(firma.split(';'))];
+    void (async () => {
+      const nuevas = new Map<string, ZoneComparisonDTO>();
+      await Promise.all(
+        claves.map(async (clave) => {
+          const [a_start, b_start, weeks] = clave.split('|');
+          const r = await pedirComparativa(athleteId, {
+            a_start: a_start!,
+            b_start: b_start!,
+            weeks: Number(weeks),
+          });
+          // Un fallo (o dos periodos que se pisan, que el servidor rechaza) deja
+          // esa sección sin totales, y la previa ya tiene su frase. Nunca dos
+          // barras de ejemplo: sería enseñar datos que no son de nadie.
+          if (r.ok && r.data.comparativa) nuevas.set(clave, r.data.comparativa);
+        }),
+      );
+      if (vigente) setCargado({ athleteId, porPar: nuevas });
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [athleteId, firma]);
+
+  const porSeccion = new Map<string, ZoneComparisonDTO>();
+  if (!athleteId || cargado.athleteId !== athleteId) return porSeccion;
+  for (const s of secciones) {
+    const suya = cargado.porPar.get(claveDePar(s));
+    if (suya) porSeccion.set(s.key, suya);
+  }
+  return porSeccion;
+}
+
 /** Dos secciones que miran el mismo periodo con el mismo filtro son una sola
  *  petición. La misma clave que usa el servidor al resolverlas. */
 function claveDeVentana(s: FilaBorrador): string {
   return `${s.grafica.week_start}|${s.grafica.weeks}|${s.grafica.modality ?? '*'}`;
+}
+
+/** Y dos que enfrentan los mismos dos periodos, también. */
+function claveDePar(s: FilaBorrador): string {
+  return `${s.comparativa.a_start}|${s.comparativa.b_start}|${s.comparativa.weeks}`;
 }
 
 /** La línea de debajo del móvil: qué está enseñando y qué NO. */

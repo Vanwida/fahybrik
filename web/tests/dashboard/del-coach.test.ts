@@ -48,6 +48,7 @@ function item(over: Partial<CommunicationItemDTO> & { id: string }): Communicati
     segments: [],
     camino: null,
     grafica: null,
+    comparativa: null,
     ...over,
   };
 }

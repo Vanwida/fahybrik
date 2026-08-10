@@ -17,7 +17,10 @@ export function ChipGroup<T extends string | number>({
   mono = true,
   className,
 }: {
-  options: readonly { value: T; label: string; hint?: string }[];
+  /** `disabled` deja la pastilla A LA VISTA pero apagada: una opción que
+   *  desaparece manda al coach a buscar algo que recuerda haber visto. El motivo
+   *  se dice en texto al lado del grupo, no sólo en un `title` que nadie lee. */
+  options: readonly { value: T; label: string; hint?: string; disabled?: boolean }[];
   value: T | null;
   onChange: (next: T) => void;
   ariaLabel: string;
@@ -35,10 +38,12 @@ export function ChipGroup<T extends string | number>({
             type="button"
             role="radio"
             aria-checked={on}
+            disabled={o.disabled}
             onClick={() => onChange(o.value)}
             className={cn(
               'v2-focus inline-flex h-[34px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-3.5 text-[13px] font-bold transition-colors',
               mono && 'v2-num',
+              o.disabled && 'cursor-not-allowed opacity-45',
               on
                 ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
                 : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

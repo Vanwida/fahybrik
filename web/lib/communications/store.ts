@@ -21,6 +21,10 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
 import type { RangeTone, ZoneChartDTO, ZoneRangeDTO } from '@fahybrid/shared/domain/zone-chart';
+import {
+  etiquetaDePeriodo,
+  type ZoneComparisonDTO,
+} from '@fahybrid/shared/domain/zone-compare';
 
 /** Pool o transacción: todo helper de aquí sirve para los dos. */
 export type DbClient = Sql | TransactionClient;
@@ -90,6 +94,9 @@ export type ItemRow = {
   grafica_week_start: string | null;
   grafica_weeks: number | null;
   grafica_modality: string | null;
+  compare_a_start: string | null;
+  compare_b_start: string | null;
+  compare_weeks: number | null;
 };
 
 /**
@@ -118,6 +125,46 @@ function graficaDeFila(r: ItemRow): ZoneChartDTO | null {
   };
 }
 
+/**
+ * La CONFIG de una comparativa, sin resolver: los dos periodos y su largo. Como
+ * la de la gráfica, viaja SIEMPRE —también en las lecturas sin atleta delante—
+ * porque es lo que el coach eligió, y sin ella el compositor no podría volver a
+ * abrir un borrador con su comparativa dentro.
+ *
+ * Lo que falta son los TOTALES, que dependen del atleta que mira y los rellena
+ * `resolveComparativas` al servir. Las etiquetas se ponen aquí en su forma
+ * neutra —el rango de fechas— y el resolutor las reescribe cuando sabe de quién
+ * son esos periodos: sin atleta no hay ni alta ni plan de los que puedan
+ * llamarse «Antes del plan».
+ */
+function comparativaDeFila(r: ItemRow): ZoneComparisonDTO | null {
+  if (
+    r.display !== 'comparativa' ||
+    r.compare_a_start == null ||
+    r.compare_b_start == null ||
+    r.compare_weeks == null
+  ) {
+    return null;
+  }
+  const weeks = r.compare_weeks;
+  const sinAnclas = { alta: null, plan: null };
+  const vacio = { z1_s: 0, z2_s: 0, z3_s: 0, z4_s: 0, z5_s: 0, no_hr_s: 0, total_s: 0, weeks_with_data: 0 };
+  return {
+    weeks,
+    a: {
+      week_start: r.compare_a_start,
+      label: etiquetaDePeriodo({ week_start: r.compare_a_start, weeks, lado: 'a', anclas: sinAnclas }),
+      ...vacio,
+    },
+    b: {
+      week_start: r.compare_b_start,
+      label: etiquetaDePeriodo({ week_start: r.compare_b_start, weeks, lado: 'b', anclas: sinAnclas }),
+      ...vacio,
+    },
+    anchor: null,
+  };
+}
+
 export function rowToItemDto(
   r: ItemRow,
   segments: CommunicationSegmentDTO[] = [],
@@ -138,6 +185,7 @@ export function rowToItemDto(
     // toda lectura sin un atleta delante — la biblioteca del coach, por ejemplo.
     camino: null,
     grafica: grafica ? { ...grafica, ranges } : null,
+    comparativa: comparativaDeFila(r),
   };
 }
 
@@ -157,7 +205,10 @@ export async function loadItemsByCommunication(
     select id::text as id, communication_id::text as communication_id,
            position, label, content, consequence, checkable, display,
            to_char(grafica_week_start, 'YYYY-MM-DD') as grafica_week_start,
-           grafica_weeks, grafica_modality
+           grafica_weeks, grafica_modality,
+           to_char(compare_a_start, 'YYYY-MM-DD') as compare_a_start,
+           to_char(compare_b_start, 'YYYY-MM-DD') as compare_b_start,
+           compare_weeks
     from coach_communication_items
     where communication_id = any(${communicationIds}::bigint[])
     order by communication_id, position
@@ -280,6 +331,27 @@ export function attachGraficas(
 /** ¿Hay alguna sección que necesite los segundos por zona del atleta? */
 export function needsGrafica(items: CommunicationItemDTO[]): boolean {
   return items.some((i) => i.display === 'grafica' && i.grafica != null);
+}
+
+/**
+ * Le pone a las secciones «comparativa» los totales que les tocan, por id de
+ * sección. Por sección y no una para todas, por lo mismo que la gráfica: cada una
+ * enfrenta su propio par de periodos.
+ */
+export function attachComparativas(
+  items: CommunicationItemDTO[],
+  resueltas: Map<string, ZoneComparisonDTO>,
+): CommunicationItemDTO[] {
+  if (resueltas.size === 0) return items;
+  return items.map((i) => {
+    const resuelta = resueltas.get(i.id);
+    return resuelta ? { ...i, comparativa: resuelta } : i;
+  });
+}
+
+/** ¿Hay alguna sección que necesite sumar dos periodos del atleta? */
+export function needsComparativa(items: CommunicationItemDTO[]): boolean {
+  return items.some((i) => i.display === 'comparativa' && i.comparativa != null);
 }
 
 /**

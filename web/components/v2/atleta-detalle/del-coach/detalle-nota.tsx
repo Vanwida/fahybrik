@@ -13,6 +13,7 @@
 
 import { Espina, TOKENS_V2, TONOS_V2, colorDelTono, tramosDesdePlan } from '@/components/plan-espina';
 import { ZonasChart } from '../rendimiento/ZonasChart';
+import { ZonasComparativa } from '../rendimiento/ZonasComparativa';
 import { buildWindowCells, rangeBands, ZONE_METRICS_EMBED } from '@/lib/zones/chart';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
@@ -61,6 +62,8 @@ function Seccion({ item }: { item: CommunicationItemDTO }) {
         <Camino item={item} />
       ) : item.display === 'grafica' ? (
         <Grafica item={item} />
+      ) : item.display === 'comparativa' ? (
+        <Comparativa item={item} />
       ) : (
         <span className="whitespace-pre-line text-body leading-relaxed text-[color:var(--v2-fg)]">
           {item.content}
@@ -159,6 +162,30 @@ function Grafica({ item }: { item: CommunicationItemDTO }) {
         ariaLabel={`Su tiempo en zonas, ${chart.weeks} semanas`}
         metrics={ZONE_METRICS_EMBED}
       />
+    </div>
+  );
+}
+
+/**
+ * Los dos periodos de ESE atleta, enfrentados como los tiene él delante.
+ *
+ * El MISMO bloque que el mando «Comparar» de Rendimiento, con los tokens del
+ * dashboard: aquí no se está previsualizando su móvil, se está releyendo lo que
+ * se le mandó. Y es el mismo dato, no una copia que pueda desfasarse.
+ */
+function Comparativa({ item }: { item: CommunicationItemDTO }) {
+  const cmp = item.comparativa;
+  if (!cmp) {
+    return (
+      <span className="text-label leading-relaxed text-[color:var(--v2-muted)]">
+        Los dos periodos de esta sección se suman con los datos del atleta que la mira. Aquí no hay
+        ninguno delante.
+      </span>
+    );
+  }
+  return (
+    <div className="pt-1">
+      <ZonasComparativa comparativa={cmp} />
     </div>
   );
 }

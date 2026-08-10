@@ -266,6 +266,14 @@ export async function loadZoneWindow(args: {
 }): Promise<{
   weeks_data: WeeklyZoneWeek[];
   anchor: { source: HrAnchorSource; lthr_bpm: number; source_label: string } | null;
+  /**
+   * TODOS los umbrales que repartieron estos segundos, de más a menos tramos.
+   * Casi siempre es uno; son dos cuando el atleta se midió por el camino, y
+   * entonces parte de lo que la ventana enseña es de la medición y no del
+   * entreno. `anchor` es el primero de esta lista — quien sólo necesite rotular
+   * la gráfica mira ahí y no se entera de que existe.
+   */
+  anchors: Array<{ source: HrAnchorSource; lthr_bpm: number; segments: number }>;
 }> {
   const client = args.client ?? defaultSql;
   const weeks = Math.min(WEEKLY_ZONES_MAX_WEEKS, Math.max(1, Math.trunc(args.weeks)));
@@ -277,18 +285,28 @@ export async function loadZoneWindow(args: {
     computedWith(client, args.athlete_id, ventana, modality),
   ]);
 
-  const dominante = computed.anchors.find((a) => a.anchor != null && a.lthr_bpm != null);
+  // Ya vienen ordenados por peso (`computedWith`), así que el primero es el
+  // dominante y la lista entera dice si en la ventana convivió más de uno.
+  const anchors = computed.anchors
+    .filter((a) => a.anchor != null && a.lthr_bpm != null)
+    .map((a) => ({
+      source: a.anchor as HrAnchorSource,
+      lthr_bpm: a.lthr_bpm as number,
+      segments: a.segments,
+    }));
+  const dominante = anchors[0];
   // `source_label` viaja escrito por el servidor: una sola redacción del ancla
   // en todas las superficies, ninguna app inventa la suya.
   return {
     weeks_data,
     anchor: dominante
       ? {
-          source: dominante.anchor as HrAnchorSource,
-          lthr_bpm: dominante.lthr_bpm as number,
-          source_label: HR_ANCHOR_LABEL[dominante.anchor as HrAnchorSource],
+          source: dominante.source,
+          lthr_bpm: dominante.lthr_bpm,
+          source_label: HR_ANCHOR_LABEL[dominante.source],
         }
       : null,
+    anchors,
   };
 }
 
