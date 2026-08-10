@@ -33,9 +33,15 @@ la ruta), `get_races` (predicho vs real), `search_library`, `search_methodology`
 completitud como portón, sesión AUTORADA (no fork), visibilidad real dicha
 en cada read-back, audit canal `mcp` (mig 0165 aplicada). 58/58 tests MCP.
 Ver DECISIONS 2026-08-10 (visibilidad de semana + derivadas F3).
-Siguientes fases:
-F2 lecturas completas → F3 escrituras de día (borrador-primero) → F4
-comunicados/publicar → F5 Grok + entitlement de pago.
+**F4 construida** (10-ago): `publish_week` (ancla al lunes, dice si ya estaba
+publicada), `publish_communication` (unión por `kind` en el inputSchema,
+todo-o-nada con vuelta atrás, push por el mismo camino que el panel),
+`send_message` (mismo cubo de rate limit que el panel), `add_note`. 16 tools,
+72/72 tests MCP + 124 de comunicados/chat sin regresión. Auditoría solo donde
+el panel audita (las 4 de F4 no auditan porque el panel tampoco — el dominio
+ya registra `approved_by`/`published_at`/el propio mensaje).
+**Queda F5:** registro en Grok (necesita cuenta de Alex), entitlement de pago
+(precio = decisión de Alex), sección del conector en el manual vivo /guia.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
