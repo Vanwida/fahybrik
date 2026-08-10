@@ -52,6 +52,9 @@ import Section38 from './38-historial-del-atleta';
 // zonas de pulso personalizadas por la FC máxima real del atleta.
 import Section39 from './39-remo-y-ergometros';
 import Section40 from './40-zonas-de-pulso';
+// El conector del coach con su asistente (área "Herramientas"): mirar el club,
+// tocar el plan y publicar desde el chat, con las mismas reglas que el panel.
+import Section41 from './41-el-conector-con-tu-asistente';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -97,4 +100,5 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'historial-del-atleta': Section38,
   'remo-y-ergometros': Section39,
   'zonas-de-pulso': Section40,
+  'el-conector-con-tu-asistente': Section41,
 };
