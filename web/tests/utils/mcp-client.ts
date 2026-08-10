@@ -95,16 +95,25 @@ export function errorText(res: ToolResult): string {
 
 /**
  * Siembra un login de coach real: un `users.clerk_user_id` con su membresía en el
- * club, que es lo que resuelve `getCoachSessionForClerkUser` en producción.
+ * club, que es lo que resuelve `getCoachSessionForClerkUser` en producción, MÁS el
+ * entitlement del conector, que es lo que resuelve el portón de `withCoach`.
  * Devuelve el clerk id y apunta el user id en `userIds` para el teardown.
+ *
+ * El entitlement viene puesto por defecto porque el club que habla por el conector
+ * lo tiene contratado: es el estado normal, y lo que cada suite quiere ejercitar es
+ * su dominio, no el portón. `connector` lo baja a propósito para las suites que SÍ
+ * prueban el portón. No hace falta limpiarlo: `coach_entitlements.coach_id` va con
+ * `on delete cascade` (mig 0167), así que se va con su club.
  */
 export async function seedCoachLogin(params: {
   sql: import('@/lib/db').Sql;
   coachId: number;
   tag: string;
   userIds: number[];
+  /** 'active' (defecto) · 'inactive' = contratado y cortado · 'none' = sin fila. */
+  connector?: 'active' | 'inactive' | 'none';
 }): Promise<string> {
-  const { sql, coachId, tag, userIds } = params;
+  const { sql, coachId, tag, userIds, connector = 'active' } = params;
   const clerkUserId = uniqClerkId(tag);
   const rows = await sql<Array<{ id: string }>>`
     insert into users (email, role, clerk_user_id, full_name)
@@ -122,5 +131,17 @@ export async function seedCoachLogin(params: {
     insert into coach_members (coach_id, user_id, membership_role)
     values (${coachId}, ${userId}, 'coach')
   `;
+  if (connector !== 'none') {
+    // `do update` y no `do nothing`: si una suite siembra dos logins del MISMO
+    // club, el estado del conector que vale es el último que se pidió, no el
+    // primero que llegó.
+    await sql`
+      insert into coach_entitlements (coach_id, feature, status, source)
+      values (${coachId}, 'mcp_connector', ${connector}, 'founder')
+      on conflict (coach_id, feature) do update set
+        status = excluded.status,
+        updated_at = now()
+    `;
+  }
   return clerkUserId;
 }
