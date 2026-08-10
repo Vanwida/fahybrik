@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { resolveAthleteHrMethod } from '@/lib/coach/hr-method';
 import { BENCH_LTHR } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { hrZoneFractionsFrom } from '@fahybrid/shared/domain/coach/hr-method';
 import {
   HR_ANCHOR_LABEL,
   resolveHrZones,
@@ -100,15 +102,25 @@ export async function loadHrAnchors(
 /**
  * The athlete's five HR bands, or null when nothing anchors them.
  *
- * Null is a legitimate, common answer: as of today not one athlete in the
- * database has a measured max HR, and only three have a birth date. Surfaces are
- * expected to handle it, because handling it is the honest behaviour.
+ * Null is a legitimate, common answer: as of today only one athlete in the
+ * database has a measured max HR, three have a birth date and NOT ONE has a
+ * threshold benchmark. Surfaces are expected to handle it, because handling it
+ * is the honest behaviour.
+ *
+ * WHERE the bands cut comes from the athlete's COACH (mig 0168) — his method,
+ * his numbers, our defaults until he moves them. Resolved here and not by each
+ * caller so the phone, the watch alert, the time-in-zone engine and the coach's
+ * analytics cannot end up painting four different Z2.
  */
 export async function loadAthleteHrZones(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<AthleteHrZones | null> {
-  return resolveHrZones(await loadHrAnchors(athlete_id, client));
+  const [anchors, method] = await Promise.all([
+    loadHrAnchors(athlete_id, client),
+    resolveAthleteHrMethod(athlete_id, client),
+  ]);
+  return resolveHrZones(anchors, hrZoneFractionsFrom(method));
 }
 
 // ── The wire shape ───────────────────────────────────────────────────────────

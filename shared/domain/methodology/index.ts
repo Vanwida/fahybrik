@@ -18,6 +18,7 @@ export * from './rule';
 export * from './conflict';
 export * from './zone-model';
 export * from './hr-zones';
+export * from './time-in-zone';
 export * from './zones';
 export * from './segment-resolve';
 export * from './zone-onboarding';

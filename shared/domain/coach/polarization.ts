@@ -11,15 +11,28 @@
 // the cohort builder emits, so the synthetic branch was not an edge case — it was
 // the only branch that ever ran. The honest answer is null, and a null
 // polarization means the line is not painted at all.
+//
+// EL OBJETIVO YA NO VIVE AQUÍ (10-ago-2026). El 80/0/20 estaba escrito dos veces
+// —esta constante y otra igual con otro nombre en
+// `web/lib/dashboard/coach/deep-dive-performance.ts`— y es MÉTODO del coach, no
+// mecanismo nuestro. Ahora nace en `coach/hr-method.ts` como defecto editable y
+// esto lo lee de ahí: una sola cifra, un solo sitio. Las lecturas de COHORTE
+// (briefing y repaso semanal) miran a varios atletas de un mismo coach a la vez,
+// así que usan el objetivo por defecto mientras no reciban el suyo resuelto.
 
-export interface PolarizationSplit {
-  low: number;
-  mid: number;
-  high: number;
-}
+import {
+  DEFAULT_COACH_HR_METHOD,
+  polarizationDriftFrom,
+  polarizationTargetFrom,
+  type PolarizationSplit,
+} from './hr-method';
 
-/** The polarization the coach is steering toward: mostly easy, nothing in the middle. */
-export const TARGET_POLARIZATION: PolarizationSplit = { low: 80, mid: 0, high: 20 };
+export type { PolarizationSplit };
+
+/** The polarization the coach is steering toward: mostly easy, nothing in the
+ *  middle. THE SYSTEM DEFAULT — a coach with his own row overrides it. */
+export const TARGET_POLARIZATION: PolarizationSplit =
+  polarizationTargetFrom(DEFAULT_COACH_HR_METHOD);
 
 /**
  * Mean zone split across the athletes that HAVE one. Null when none does —
@@ -48,11 +61,23 @@ export function aggregatePolarization(
   };
 }
 
-/** How far a split has drifted from the target, in percentage points. */
-export function polarizationDrift(split: PolarizationSplit): number {
+/**
+ * How far a split has drifted from the target, in percentage points.
+ *
+ * The MAXIMUM single-band deviation, which is what the cohort headline has
+ * always meant here ("Z3 drifted +14"). The athlete's ficha reads the SUM
+ * instead (`polarizationDriftFrom`) because it compares one athlete's weeks
+ * against each other — two different questions, each with its own name.
+ */
+export function polarizationDrift(
+  split: PolarizationSplit,
+  target: PolarizationSplit = TARGET_POLARIZATION,
+): number {
   return Math.max(
-    Math.abs(split.low - TARGET_POLARIZATION.low),
-    Math.abs(split.mid - TARGET_POLARIZATION.mid),
-    Math.abs(split.high - TARGET_POLARIZATION.high),
+    Math.abs(split.low - target.low),
+    Math.abs(split.mid - target.mid),
+    Math.abs(split.high - target.high),
   );
 }
+
+export { polarizationDriftFrom };

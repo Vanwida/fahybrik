@@ -73,14 +73,27 @@ const TANAKA_SLOPE = 0.7;
 /** LTHR ≈ 0.88 · HRmax (spec §5) when only a maximum is known. */
 const LTHR_FROM_HRMAX = 0.88;
 
+/** Where the five bands start and end, as fractions of LTHR. */
+export type HrZoneFractions = Record<HrZone, { lo: number; hi: number }>;
+
 /**
  * The zone bands as fractions of LTHR (spec §5 hr_zone_matrix). Z4 straddles 1.0
  * because the threshold IS the Z4 band — the same shape as the pace model, where
  * the test result is the Z4 lower bound.
  *
- * THE SINGLE SOURCE. Nothing else in the codebase may hold a zone fraction.
+ * THE SYSTEM DEFAULT, not a law (10-ago-2026). WHERE the bands cut is the
+ * coach's METHOD, not our mechanism: another competent coach would put Z2's
+ * ceiling somewhere else, so these nine numbers are the value a coach who has
+ * never touched anything gets, and `coach_hr_method` is where he moves them
+ * (HARD RULE Nº0). What stays OURS is everything around them — that a zone is a
+ * fraction of the THRESHOLD, the order of the anchor's evidence, and
+ * `zoneForBpm`.
+ *
+ * Still the single source: nothing else in the codebase may hold a zone
+ * fraction, and the coach's row is read through
+ * `shared/domain/coach/hr-method.ts`, which builds its defaults from HERE.
  */
-const HR_ZONE_FRACTIONS: Record<HrZone, { lo: number; hi: number }> = {
+export const DEFAULT_HR_ZONE_FRACTIONS: HrZoneFractions = {
   1: { lo: 0.0, hi: 0.81 },
   2: { lo: 0.82, hi: 0.88 },
   3: { lo: 0.89, hi: 0.94 },
@@ -208,12 +221,21 @@ export function resolveThresholdHr(a: HrAnchors): ResolvedThresholdHr | null {
  * Pure. Every surface (iOS HUD, watch alert, coach analytics, time-in-zone)
  * resolves through here, so a band cannot mean two things in two places.
  */
-export function resolveHrZones(a: HrAnchors): AthleteHrZones | null {
+export function resolveHrZones(
+  a: HrAnchors,
+  /**
+   * Where the bands cut. The COACH's, when the caller has resolved his row;
+   * ours by default, so every surface that has no coach in hand (the pure
+   * model tests, the design twin) behaves exactly as it did before the bands
+   * became data.
+   */
+  fractions: HrZoneFractions = DEFAULT_HR_ZONE_FRACTIONS,
+): AthleteHrZones | null {
   const anchor = resolveThresholdHr(a);
   if (!anchor) return null;
 
   const bands: HrZoneBand[] = HR_ZONES.map((zone) => {
-    const f = HR_ZONE_FRACTIONS[zone];
+    const f = fractions[zone];
     return {
       zone,
       // Z1 has no floor: any pulse below the Z2 entry is recovery.

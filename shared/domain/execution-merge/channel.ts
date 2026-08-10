@@ -71,6 +71,61 @@ export function fidelityRank(cls: MergeFieldClass, channel: MergeChannel): numbe
   return idx === -1 ? -1 : order.length - idx;
 }
 
+// ── Fidelidad de una SERIE DE PULSO ──────────────────────────────────────────
+//
+// Un mismo entreno puede traer dos series de FC del mismo minuto: la de la
+// correa y la del reloj. `workout_traces` las guarda en filas separadas a
+// propósito (la fuente va en la clave, mig 0156) porque ninguna es «la mala» —
+// pero para contar minutos en zona hay que elegir UNA, o ese minuto se cuenta
+// dos veces.
+//
+// Por qué no vale `fidelityRank`: aquella escala ordena CANALES de ingesta para
+// fusionar los totales de una ejecución, y en la clase `segments` el canal
+// `device_stream` está deliberadamente ausente (un esqueleto de Apple Health no
+// trae detalle por vuelta). Una serie de HealthKit sí es una medida real, así
+// que rankearla por ahí la descartaría entera. La pregunta aquí es otra y más
+// simple: ¿DÓNDE se midió el pulso?
+//
+// El pecho gana a la muñeca. Un electrodo lee el latido eléctrico; un sensor
+// óptico lo infiere de la luz reflejada, y se despista con el movimiento — que
+// es justo lo que hay en un entreno. Mayor = mejor; los empates los rompe el
+// orden de llegada, así que la elección es determinista.
+//
+// HUECO CONOCIDO: una correa BLE genérica no tiene todavía un valor propio en
+// `biometric_source` (el enum nombra marcas y aparatos, no sensores), así que
+// hoy solo se distingue la que entra emparejada por el PM5. Cuando el motor en
+// vivo empiece a escribir trazas y ese valor exista, entra aquí como la fila más
+// alta y nada más cambia.
+export const HR_TRACE_FIDELITY: Readonly<Record<BiometricSource, number>> = {
+  // Correa de pecho: la que va emparejada al PM5 y la propia de Polar, cuya
+  // serie de sesión sale de su banda cuando hay banda.
+  concept2: 3,
+  polar: 3,
+  // La serie propia del aparato del atleta. Muñeca, pero medida y transmitida
+  // por quien fabricó el sensor, sin pasar por ningún espejo.
+  garmin: 2,
+  coros: 2,
+  suunto: 2,
+  wahoo: 2,
+  whoop: 2,
+  amazfit: 2,
+  // El espejo de Apple Health: casi siempre el sensor óptico del Watch, y a
+  // veces la copia de otro aparato que ya está más arriba en esta lista.
+  healthkit: 1,
+  oura: 1,
+  // No miden pulso, o no lo miden ellos: una cinta y el GPS dan velocidad y
+  // posición, y «a mano» no es una medida. Una traza de FC con estas fuentes es
+  // una traza que no debería existir, y con 0 nunca gana.
+  treadmill: 0,
+  gps: 0,
+  manual: 0,
+};
+
+/** Cuánto vale la serie de FC de esta fuente. 0 = no puede aportar pulso. */
+export function hrTraceFidelity(source: BiometricSource): number {
+  return HR_TRACE_FIDELITY[source] ?? 0;
+}
+
 // Reconstruct the ingest CHANNEL of an ALREADY-PERSISTED execution source, so
 // the deferred reconciler (Fase 2) can decide device-vs-OCR without a stored
 // channel column (Fork B: no dead weight). Current-reality mapping:
