@@ -1,7 +1,53 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-09**
+Última actualización: **2026-08-10**
+
+---
+
+## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
+
+Lista explícita porque el hilo se ramificó mucho y se perdía el rastro de qué
+quedaba vivo. Lo tachado está hecho y verificado; lo demás no está empezado.
+
+**Importación de un documento**
+- [x] Gramática de dosis: descanso en cualquier dialecto, carga sobre distancia
+      y tiempo, carga por implemento, medida al fallo
+- [x] Vocabulario completo del modelo: ritmo `/km` `/500m`, pulso, vatios,
+      calorías, tiempo como medida, peso corporal, tope, y las BANDAS sin aplanar
+- [x] Estructura del metcon: rondas con componentes, EMOM, work/rest, finisher
+- [x] `r90` / `r1'` pegados — el propio placeholder del editor los perdía
+- [ ] 🟡 **Lector de DOCUMENTO** (en curso): cabeceras→días/semanas, y sobre todo
+      la TABLA con una columna por semana, que hoy se queda la primera columna y
+      tira el resto EN VERDE. Es lo que falta para importar un md de verdad
+- [ ] **Trocear por semanas antes de la IA**: no mandarle 690 líneas de golpe.
+      Una semana por llamada — más barato, más fiel, y esquiva el tope de
+      caracteres y el 504 del incidente del 6-ago
+- [ ] Subir un fichero entero: hoy pegar admite 20.000 caracteres y UN día
+- [ ] `Calentamiento C` → resolver la referencia contra los protocolos con
+      nombre del propio documento. Hoy se evapora sin dejar rastro
+- [ ] Notación aprendida por coach, hermana de `coach_exercise_synonyms` (0109):
+      el coach corrige su dialecto una vez y no vuelve a fallar
+
+**Planificar**
+- [ ] **Plan personal de UN atleta** — DISEÑADO Y SIN EMPEZAR. Contenedor propio
+      dentro del perfil del atleta, fuera de la biblioteca y fuera de la matriz
+      nivel×días. La diferencia estructural: `program_week_templates` lleva
+      `level_id`+`phase_id` porque está hecho para emparejarse con un GRUPO; un
+      plan para una persona no tiene nivel que emparejar. Fases opcionales,
+      longitud la que decida el coach
+- [ ] **Completar los 22 bloques incompletos en origen** en minutos, no en una
+      tarde — y que un bloque nuevo no pueda nacer sin dosis
+- [ ] Conectar el resolutor de objetivos derivados (`methodology/zones.ts`, ya
+      existe y ya es estándar) a la lectura del plan del atleta, para que un
+      re-test mueva las semanas siguientes solo
+- [ ] Las 20 secuencias de Periodización (5 niveles × 4 variantes de días) —
+      contenido, no código: están a 0/4 en el nivel donde hay atletas
+
+**Deuda conocida**
+- [ ] Banda de kg sobre medida de DISTANCIA (`5x25 m @150-170 kg`) va a revisión
+- [ ] Pesos de estación por división: retirados por no tener fuente. Hace falta
+      el rulebook oficial y ENTERO (mujeres, elite, doubles, tramos de edad)
 
 ---
 
