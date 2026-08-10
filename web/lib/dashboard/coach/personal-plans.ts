@@ -20,8 +20,11 @@ import { ProgramMonthError } from '@fahybrid/shared/domain/coach/program-months'
 
 export { ProgramMonthError };
 
-const MICROCICLO_MIN_WEEKS = 1;
-const MICROCICLO_MAX_WEEKS = 20;
+// Exportadas: `personal-plan-chain-mutations.ts` reusa los mismos límites para
+// "añadir microciclo a la cadena" y para el tope de "alargar" — una sola fuente
+// de los bordes 1..20, nunca dos números que puedan divergir.
+export const MICROCICLO_MIN_WEEKS = 1;
+export const MICROCICLO_MAX_WEEKS = 20;
 
 /** Body validation for POST /api/coach/athletes/[id]/microciclo — no `level_id`:
  *  a plan built for one person has no level to pair against (0164). */
@@ -47,6 +50,13 @@ export interface PersonalPlanListItem {
    *  Surfaced so the confirm dialog can say exactly what survives, in numbers,
    *  before the coach commits (see retirePersonalPlan). */
   completed_count: number;
+  /** True when this template has at least one `athlete_month_assignments` row
+   *  — it's DATED, part of the athlete's real timeline. False = still a bare
+   *  container (the "empezar de cero" path before "Poner en marcha"). The
+   *  chain view (`personal-plan-chain.ts`) owns every assigned plan; this flat
+   *  panel only lists the un-dated ones — a plan can't be managed from both
+   *  places at once without the two silently disagreeing on its dates. */
+  is_assigned: boolean;
 }
 
 /**
@@ -68,6 +78,7 @@ export async function listPersonalPlansForAthlete(params: {
       is_current: boolean;
       pending_count: number;
       completed_count: number;
+      is_assigned: boolean;
     }>
   >`
     select
@@ -82,7 +93,11 @@ export async function listPersonalPlansForAthlete(params: {
           and current_date between ama.start_date and ama.end_date
       ) as is_current,
       coalesce(counts.pending, 0)::int as pending_count,
-      coalesce(counts.completed, 0)::int as completed_count
+      coalesce(counts.completed, 0)::int as completed_count,
+      exists (
+        select 1 from athlete_month_assignments ama3
+        where ama3.month_template_id = m.id and ama3.athlete_id = ${params.athlete_id as number}
+      ) as is_assigned
     from program_month_templates m
     left join (
       select month_template_id, count(*)::int as cnt
@@ -122,11 +137,66 @@ function emptyWeekSlotsJson(): any {
 }
 
 /**
- * Crea un plan personal DESDE CERO (camino secundario, 0164): un
- * `program_month_templates` con `athlete_id` puesto + N semanas vacías, en una
- * transacción. Sin `level_id` — un plan para una persona no se empareja por
- * nivel. Nunca toca la biblioteca ni la matriz de secuencias (ninguna de las dos
- * lo lista, `listMonthTemplates`/`saveCoachSequence` filtran `athlete_id is null`).
+ * Inserta el CONTENEDOR de un microciclo personal: `program_month_templates`
+ * (`athlete_id` puesto, sin `level_id` — un plan para una persona no se
+ * empareja por nivel) + N `program_week_templates` vacías + su junction. Debe
+ * ejecutarse DENTRO de una transacción ya abierta por el llamador; no valida
+ * ownership del atleta (eso lo hace el llamador antes de abrir la suya).
+ *
+ * ÚNICA fuente de este insert — lo comparten `createPersonalMonthTemplateFromScratch`
+ * (camino "empezar de cero": el contenedor se queda sin fechas hasta que el coach
+ * lo activa a mano) y `addPersonalTramoToChain` (camino "encadenar":
+ * `personal-plan-chain-mutations.ts`, el contenedor se materializa al momento
+ * con la fecha que le toca en la cadena). Los dos crean EXACTAMENTE el mismo
+ * contenedor; sólo cambia qué pasa justo después.
+ */
+export async function insertEmptyPersonalMonthTemplate(params: {
+  tx: TransactionClient;
+  coach_id: number;
+  athlete_id: number;
+  name: string;
+  week_count: number;
+}): Promise<{ id: string; weeks: Array<{ id: string; week_index: number }> }> {
+  const { tx, coach_id, athlete_id, name, week_count } = params;
+  const slotsJson = emptyWeekSlotsJson();
+
+  const monthRows = await tx<Array<{ id: string }>>`
+    insert into program_month_templates (coach_id, name, athlete_id)
+    values (${coach_id}, ${name}, ${athlete_id})
+    returning id::text
+  `;
+  const monthId = monthRows[0]!.id;
+
+  const weeks: Array<{ id: string; week_index: number }> = [];
+  for (let i = 0; i < week_count; i++) {
+    const weekName = `${name} · Semana ${i + 1}`;
+    const weekRows = await tx<Array<{ id: string }>>`
+      insert into program_week_templates (
+        coach_id, name, athlete_id, focus, slots_json
+      )
+      values (
+        ${coach_id}, ${weekName}, ${athlete_id}, null, ${tx.json(slotsJson)}
+      )
+      returning id::text
+    `;
+    const weekId = weekRows[0]!.id;
+    weeks.push({ id: weekId, week_index: i });
+
+    await tx`
+      insert into program_month_weeks (month_template_id, week_template_id, position)
+      values (${Number(monthId)}, ${Number(weekId)}, ${i})
+    `;
+  }
+
+  return { id: monthId, weeks };
+}
+
+/**
+ * Crea un plan personal DESDE CERO (camino secundario, 0164): el contenedor
+ * (`insertEmptyPersonalMonthTemplate`) validado por ownership, en una
+ * transacción. Nunca toca la biblioteca ni la matriz de secuencias (ninguna de
+ * las dos lo lista, `listMonthTemplates`/`saveCoachSequence` filtran
+ * `athlete_id is null`).
  *
  * Devuelve el id; el llamador navega al editor existente (`/microciclos/[id]`),
  * que ya sabe editar días sin cambios.
@@ -145,10 +215,8 @@ export async function createPersonalMonthTemplateFromScratch(params: {
   const client = params.client ?? defaultSql;
   const coach_id = Number(params.coach_id);
   const athlete_id = Number(params.athlete_id);
-  const slotsJson = emptyWeekSlotsJson();
 
-  let monthId = '';
-  const weeks: Array<{ id: string; week_index: number }> = [];
+  let result: { id: string; weeks: Array<{ id: string; week_index: number }> } | null = null;
 
   await client.begin(async (tx) => {
     // Ownership guard: the athlete must belong to this coach.
@@ -158,36 +226,16 @@ export async function createPersonalMonthTemplateFromScratch(params: {
     if (!owned[0]) {
       throw new ProgramMonthError('not_found', 'Atleta no encontrado', 404);
     }
-
-    const monthRows = await tx<Array<{ id: string }>>`
-      insert into program_month_templates (coach_id, name, athlete_id)
-      values (${coach_id}, ${body.name}, ${athlete_id})
-      returning id::text
-    `;
-    monthId = monthRows[0]!.id;
-
-    for (let i = 0; i < body.week_count; i++) {
-      const weekName = `${body.name} · Semana ${i + 1}`;
-      const weekRows = await tx<Array<{ id: string }>>`
-        insert into program_week_templates (
-          coach_id, name, athlete_id, focus, slots_json
-        )
-        values (
-          ${coach_id}, ${weekName}, ${athlete_id}, null, ${tx.json(slotsJson)}
-        )
-        returning id::text
-      `;
-      const weekId = weekRows[0]!.id;
-      weeks.push({ id: weekId, week_index: i });
-
-      await tx`
-        insert into program_month_weeks (month_template_id, week_template_id, position)
-        values (${Number(monthId)}, ${Number(weekId)}, ${i})
-      `;
-    }
+    result = await insertEmptyPersonalMonthTemplate({
+      tx: tx as unknown as TransactionClient,
+      coach_id,
+      athlete_id,
+      name: body.name,
+      week_count: body.week_count,
+    });
   });
 
-  return { id: monthId, weeks };
+  return result!;
 }
 
 // =============================================================================

@@ -20,6 +20,7 @@ import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
 import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
 import { PersonalizarPlanModal } from './PersonalizarPlanModal';
 import { VolverPeriodizacionModal } from './VolverPeriodizacionModal';
+import { CadenaPersonalPanel } from './CadenaPersonalPanel';
 import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
@@ -569,9 +570,15 @@ export function PlanTab({
             <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
           </div>
 
-          {/* Planes personales (0164) — camino secundario (empezar de cero) +
-              reabrir uno construido antes. El camino principal es el botón
-              "Personalizar plan" del header, que parte de lo que ya hay. */}
+          {/* La cadena de microciclos — «Base» → «Descarga» → «Build» → …, uno
+              detrás de otro, tal y como el atleta la ve en su propio camino
+              (Espina). Añadir/reordenar/editar/borrar vive aquí. */}
+          <CadenaPersonalPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
+
+          {/* Planes personales (0164) — borradores sin fecha todavía: empezar
+              uno en blanco, o reabrir uno construido antes. El camino
+              principal para uno YA con fecha es "Personalizar plan" (header)
+              o "Añadir microciclo" (cadena, arriba). */}
           <PlanesPersonalesPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
         </div>
       </div>

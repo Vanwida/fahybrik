@@ -49,6 +49,12 @@ export function planPathTone(position: number): number {
 
 /** Un tramo del camino: las semanas seguidas de UN microciclo del coach. */
 export interface PlanPathSegmentDTO {
+  /** athlete_month_assignments.id — el recibo que materializó este tramo. Lo
+   *  necesita cualquier superficie que EDITE la cadena (el coach); la lectura
+   *  pura (nota, móvil del atleta) lo ignora. */
+  assignment_id: string;
+  /** program_month_templates.id detrás de este tramo — de biblioteca o personal. */
+  month_template_id: string;
   /** Su sitio en el plan (0-based). Es lo que decide el tono. */
   position: number;
   /** Índice de su primera semana dentro del plan entero (1-based). */
