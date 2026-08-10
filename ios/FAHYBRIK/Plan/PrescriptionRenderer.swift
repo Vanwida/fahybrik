@@ -238,14 +238,7 @@ enum PrescriptionRenderer {
 
         // El titular. Sin medida en algún tramo no hay dosis que sumar (§7): manda el
         // aplanado.
-        let dosis = trabajos.compactMap { measureWork($0.measure.asMeasure) }
-        guard dosis.count == trabajos.count, let primera = dosis.first else { return nil }
-        let headline: String
-        if dosis.allSatisfy({ $0 == primera }) {
-            headline = trabajos.count > 1 ? "\(trabajos.count) \(Formato.signoPor) \(primera)" : primera
-        } else {
-            headline = secuenciaDeDosis(dosis)
-        }
+        guard let headline = tituloDeTrabajos(trabajos) else { return nil }
 
         // El objetivo del trabajo, sólo si es el MISMO en todos los tramos.
         let objetivo: RunSegmentTarget? = {
@@ -315,17 +308,37 @@ enum PrescriptionRenderer {
         }
     }
 
-    /// «1200/1000/800 m» — la secuencia de una pirámide con la unidad escrita UNA vez,
-    /// la misma grafía con la que `measureWork` escribe una banda. Sin unidad común
-    /// (una mezcla de metros y minutos) se dicen enteras, que sigue siendo cierto.
-    private static func secuenciaDeDosis(_ dosis: [String]) -> String {
-        let unidades = Set(dosis.compactMap { $0.split(separator: " ").dropFirst().first.map(String.init) })
-        guard unidades.count == 1, let unidad = unidades.first,
-              dosis.allSatisfy({ $0.contains(" ") }) else {
-            return dosis.joined(separator: "/")
+    /// EL TITULAR DEL TRABAJO: «16 × 500 m» cuando los tramos son iguales,
+    /// «1200/1000/800 m» cuando no.
+    ///
+    /// La secuencia se escribe desde los METROS, no juntando lo que diría el
+    /// formateador de cada tramo por separado: `Formato.distancia` pasa a kilómetros a
+    /// partir de 1.000 —lo correcto para UNA dosis, «1 km»— y una pirámide salía
+    /// «1,2 km/1 km/800 m», que no se lee ni se compara. Una serie de pista se escribe
+    /// en metros y con la unidad UNA vez, como la escribe el coach en la pizarra.
+    /// Nil cuando algún tramo no declara medida: sin dosis completa manda el aplanado.
+    private static func tituloDeTrabajos(_ trabajos: [RunLeg]) -> String? {
+        func repetido(_ dosis: String) -> String {
+            trabajos.count > 1 ? "\(trabajos.count) \(Formato.signoPor) \(dosis)" : dosis
         }
-        let cifras = dosis.compactMap { $0.split(separator: " ").first.map(String.init) }
-        return "\(cifras.joined(separator: "/")) \(unidad)"
+        let metros = trabajos.compactMap(\.distanceMeters)
+        if metros.count == trabajos.count, let primero = metros.first {
+            guard !metros.allSatisfy({ $0 == primero }) else {
+                return Formato.distancia(Double(primero)).map(repetido)
+            }
+            return "\(metros.map(String.init).joined(separator: "/")) m"
+        }
+        let segundos = trabajos.compactMap(\.durationSeconds)
+        if segundos.count == trabajos.count, let primero = segundos.first {
+            func reloj(_ s: Int) -> String { Formato.clock(s, subMinuto: .segundos) }
+            guard !segundos.allSatisfy({ $0 == primero }) else { return repetido(reloj(primero)) }
+            return segundos.map(reloj).joined(separator: "/")
+        }
+        // Tramos de distinta NATURALEZA en la misma serie (unos por metros, otros por
+        // tiempo): no hay unidad que compartir, así que cada uno se dice entero.
+        let dosis = trabajos.compactMap { measureWork($0.measure.asMeasure) }
+        guard dosis.count == trabajos.count, let primera = dosis.first else { return nil }
+        return dosis.allSatisfy({ $0 == primera }) ? repetido(primera) : dosis.joined(separator: "/")
     }
 
     // MARK: - Cabecera de formato (todo esquema con reloj)
