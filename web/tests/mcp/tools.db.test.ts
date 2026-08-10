@@ -58,11 +58,12 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
     await closeTestSql();
   });
 
-  test('el servidor anuncia exactamente sus 12 tools, y quién lee y quién escribe', async () => {
+  test('el servidor anuncia exactamente sus 16 tools, y quién lee y quién escribe', async () => {
     const { client, close } = await connectAs(coachAClerkId);
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual([
+        'add_note',
         'create_session',
         'edit_day',
         'get_athlete',
@@ -73,13 +74,24 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
         'list_athletes',
         'list_communications',
         'move_session',
+        'publish_communication',
+        'publish_week',
         'search_library',
         'search_methodology',
+        'send_message',
       ]);
       // El hint de lectura es lo que le dice al cliente que no hace falta pedir
-      // confirmación al coach; las tres del día lo declaran en FALSO justamente
-      // para que SÍ la pida antes de tocar el plan de nadie.
-      const WRITERS = new Set(['create_session', 'edit_day', 'move_session']);
+      // confirmación al coach; las siete que escriben lo declaran en FALSO
+      // justamente para que SÍ la pida antes de tocar o soltar nada.
+      const WRITERS = new Set([
+        'add_note',
+        'create_session',
+        'edit_day',
+        'move_session',
+        'publish_communication',
+        'publish_week',
+        'send_message',
+      ]);
       for (const t of tools) {
         expect(t.annotations?.readOnlyHint, t.name).toBe(!WRITERS.has(t.name));
         expect(t.description).toBeTruthy();
