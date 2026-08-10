@@ -62,6 +62,8 @@ const HITOS_EN_LA_LINEA = 2;
 const NOMBRE_QUE_CABE = 34;
 
 type AsignacionRow = {
+  assignment_id: string;
+  month_template_id: string;
   name: string;
   start_date: string;
   end_date: string;
@@ -92,6 +94,8 @@ export async function resolvePlanPath(args: {
 
   const asignaciones = await client<AsignacionRow[]>`
     select
+      ama.id::text                                          as assignment_id,
+      ama.month_template_id::text                           as month_template_id,
       m.name                                                as name,
       to_char(ama.start_date, 'YYYY-MM-DD')                 as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')                 as end_date,
@@ -115,7 +119,14 @@ export async function resolvePlanPath(args: {
     const inicio = mondayOfWeek(parseIsoDate(row.start_date));
     const porFechas = Math.floor(diffDays(mondayOfWeek(parseIsoDate(row.end_date)), inicio) / 7) + 1;
     const semanas = row.week_count > 0 ? row.week_count : Math.max(1, porFechas);
-    return { name: row.name, inicio, semanas, fin: addDays(inicio, semanas * 7 - 1) };
+    return {
+      assignment_id: row.assignment_id,
+      month_template_id: row.month_template_id,
+      name: row.name,
+      inicio,
+      semanas,
+      fin: addDays(inicio, semanas * 7 - 1),
+    };
   });
 
   const primerLunes = ventanas[0]!.inicio;
@@ -135,6 +146,8 @@ export async function resolvePlanPath(args: {
     const mios = hitos.filter((h) => h.dia >= v.inicio && h.dia <= v.fin);
 
     return {
+      assignment_id: v.assignment_id,
+      month_template_id: v.month_template_id,
       position,
       first_week,
       week_count: v.semanas,

@@ -1,11 +1,12 @@
 'use client';
 
-// PLANES PERSONALES (0164, camino secundario — "empezar de cero") — every
-// microciclo built for exactly this athlete: lists them, opens the existing
-// microciclo editor, and lets the coach start a new empty one. The PRIMARY way
-// to get a personal plan is "Personalizar plan" (forks what the athlete already
-// has, see PersonalizarPlanModal) — this panel is for the from-scratch case, or
-// for reopening a personal plan built earlier.
+// PLANES PERSONALES (0164, camino secundario — "empezar de cero") — los
+// microciclos personales de este atleta que TODAVÍA NO TIENEN FECHA: crea uno
+// en blanco, ábrelo en el editor, bórralo. En cuanto un microciclo personal
+// tiene fecha (esta pantalla lo creó y luego se activó, o nació ya encadenado
+// desde «Añadir microciclo» en la cadena de arriba) pasa a vivir SÓLO en
+// `CadenaPersonalPanel` — un plan con fecha no se gestiona desde dos sitios a
+// la vez, o acabarían diciendo cosas distintas de las mismas fechas.
 
 import { useEffect, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -22,6 +23,7 @@ interface PersonalPlan {
   is_current: boolean;
   pending_count: number;
   completed_count: number;
+  is_assigned: boolean;
 }
 
 const MIN_WEEKS = 1;
@@ -61,6 +63,10 @@ export function PlanesPersonalesPanel({
       alive = false;
     };
   }, [athleteId]);
+
+  // Sólo los que TODAVÍA no tienen fecha — los que ya la tienen se gestionan
+  // desde la cadena (ver cabecera del archivo).
+  const drafts = plans?.filter((p) => !p.is_assigned) ?? null;
 
   const canSubmit = name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= MAX_WEEKS && !submitting;
 
@@ -153,7 +159,7 @@ export function PlanesPersonalesPanel({
         </div>
       ) : null}
 
-      {plans === null ? (
+      {drafts === null ? (
         loadError ? (
           <p className="py-2 text-center text-xs text-[color:var(--v2-danger)]">
             No se pudieron cargar los planes personales.
@@ -161,14 +167,14 @@ export function PlanesPersonalesPanel({
         ) : (
           <p className="py-2 text-center text-xs text-[color:var(--v2-muted)]">Cargando…</p>
         )
-      ) : plans.length === 0 && !creating ? (
+      ) : drafts.length === 0 && !creating ? (
         <p className="py-2 text-center text-xs text-[color:var(--v2-muted)]">
-          Sin planes personales todavía. «Personalizar plan» arriba parte de lo que ya tiene; «Nuevo»
-          empieza uno en blanco.
+          Sin borradores sin fecha. «Nuevo» empieza un microciclo en blanco para rellenar antes de
+          ponerle fecha — para encadenarlo ya con fecha, usa «Añadir microciclo» arriba.
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
-          {plans.map((p) => (
+          {drafts.map((p) => (
             <li
               key={p.id}
               className="flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] transition-colors hover:border-[color:var(--v2-border-strong)]"
