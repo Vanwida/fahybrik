@@ -22,8 +22,12 @@ vivo, conector «FAHYBRID» añadido en el claude.ai de Alex
 pantalla de consentimiento (Claude auto-registrado vía DCR, `resource`
 correcto). **GATE F1 CUMPLIDO (10-ago):** Alex autorizó y probó en su Claude —
 briefing, señales, carga y roster respondiendo con datos reales de producción.
-**F2 en construcción** (plan/sesiones/carreras/biblioteca/RAG/comunicados).
-Siguientes fases:
+**F2 construida** (10-ago): 6 tools de lectura más — `get_plan` (macro/mes/
+semana encadenable), `get_session` por fecha o id (prescrito vs ejecutado por
+tramo, orquestación extraída a `lib/coach/session-detail.ts` y compartida con
+la ruta), `get_races` (predicho vs real), `search_library`, `search_methodology`
+(RAG, distingue «sin corpus» de «sin resultados»), `list_communications`.
+53/53 tests en rama Neon. Siguientes fases:
 F2 lecturas completas → F3 escrituras de día (borrador-primero) → F4
 comunicados/publicar → F5 Grok + entitlement de pago.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
