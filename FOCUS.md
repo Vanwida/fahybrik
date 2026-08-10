@@ -5,6 +5,19 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Abierto · Conector MCP del coach (10-ago) — plan hecho, pendiente OK
+
+Idea de Alex: el coach mira y edita su club desde su asistente (Claude en el
+móvil hoy, Grok después) vía un conector MCP remoto. Un solo servidor sirve a
+todos los asistentes; se venderá como add-on por coach. Plan completo en
+`docs/mcp-conector-coach.html`: capa fina sobre `lib/` (cero lógica nueva),
+OAuth Clerk, 16 tools tipadas contra `shared/domain/prescription`,
+borrador-primero + audit canal `mcp`. Decisión fijada: `mcp-handler` 1.x
+(la 2.x exige zod 4; monorepo en 3.23.8). **Siguiente: OK de Alex → Fase 1**
+(esqueleto + auth + 3 tools de lectura, gate = funcionando en Claude iPhone).
+De la auditoría salió un bug de tenancy (5 rutas de citas/leads sin filtro
+`coach_id`) — arreglo en curso en agente aparte.
+
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 
 Lista explícita porque el hilo se ramificó mucho y se perdía el rastro de qué

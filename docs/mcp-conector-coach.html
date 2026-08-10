@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conector MCP del coach — plan v1</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#141414; --panel2:#1c1c1c; --line:#2a2a2a;
+    --ink:#f2f2f0; --muted:#9a9a94; --dim:#6b6b66;
+    --orange:#ff5a1f; --orange-soft:#ff7a45;
+    --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 0 96px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 28px}
+  header{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+  .kicker{color:var(--orange);font-weight:800;font-style:italic;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+  h1{font-size:44px;line-height:1.08;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:14px 0 12px}
+  .sub{color:var(--muted);max-width:70ch}
+  h2{font-size:24px;font-weight:800;font-style:italic;letter-spacing:-.01em;margin:56px 0 6px}
+  h2 .n{color:var(--orange);margin-right:10px}
+  h3{font-size:16px;font-weight:700;margin:28px 0 8px}
+  p{margin:10px 0;color:#d6d6d0;max-width:78ch}
+  .lead{color:var(--ink)}
+  section{padding-top:8px}
+  .rule{height:2px;width:44px;background:var(--orange);margin:10px 0 18px}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th{color:var(--dim);text-transform:uppercase;font-size:11px;letter-spacing:.1em;text-align:left;padding:8px 12px;border-bottom:1px solid var(--line)}
+  td{padding:10px 12px;border-bottom:1px solid #1e1e1e;vertical-align:top;color:#d6d6d0}
+  tr:last-child td{border-bottom:none}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+  code{font-family:var(--mono);font-size:13px;background:#1f1f1f;border:1px solid #2c2c2c;border-radius:5px;padding:1px 6px;color:#ffd9c7;white-space:nowrap}
+  td code{font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;border-radius:99px;padding:2px 10px;text-transform:uppercase}
+  .tag.r{background:rgba(74,222,128,.12);color:var(--ok)}
+  .tag.w{background:rgba(255,90,31,.14);color:var(--orange-soft)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card h4{font-size:13px;font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);margin-bottom:8px}
+  .card p{font-size:14px;margin:6px 0;max-width:none}
+  .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0;font-size:14px}
+  .flow .node{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600}
+  .flow .node small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+  .flow .arr{color:var(--orange);font-weight:700}
+  ul{margin:10px 0 10px 22px;color:#d6d6d0}
+  li{margin:6px 0;max-width:76ch}
+  .risk td:first-child{font-weight:600;color:var(--ink)}
+  .phase{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #1e1e1e}
+  .phase:last-child{border-bottom:none}
+  .phase .num{flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;color:var(--orange)}
+  .phase h4{font-size:15px;font-weight:700;margin-bottom:4px}
+  .phase p{font-size:14px;margin:2px 0}
+  .note{background:var(--panel);border-left:3px solid var(--orange);border-radius:0 10px 10px 0;padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .note b{color:var(--ink)}
+  .muted{color:var(--muted)}
+  footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+  @media (max-width:640px){h1{font-size:32px}.wrap{padding:0 18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">FAHYBRID · Plan de construcción · 10-ago-2026</div>
+  <h1>El coach habla con su club<br>desde cualquier asistente</h1>
+  <p class="sub">Un conector MCP remoto sobre la app existente: el coach, desde la app de Claude en el móvil (y después Grok), mira a un atleta, le toca el plan y publica — en lenguaje natural, con los mismos datos y las mismas reglas que el dashboard.</p>
+</header>
+
+<section>
+  <h2><span class="n">01</span>La visión</h2>
+  <div class="rule"></div>
+  <p class="lead">El coach está en el gym, no en casa. Un atleta le pregunta algo. En vez de abrir el dashboard, le habla a su asistente: <i>«¿cómo va Marc esta semana?»</i> → readiness, adherencia y semana en curso, razonados. <i>«Pues añádele el día de descanso un rodaje de 90 minutos en Z2»</i> → la sesión queda creada, tipada y auditada, y el coach decide cuándo la publica.</p>
+  <p>Es también modelo de negocio: el conector se vende como add-on por coach/mes. El coste de inferencia lo paga el asistente del coach, no nosotros.</p>
+</section>
+
+<section>
+  <h2><span class="n">02</span>Arquitectura</h2>
+  <div class="rule"></div>
+  <div class="flow">
+    <div class="node">Claude / Grok<small>web · iOS · Android</small></div>
+    <div class="arr">→</div>
+    <div class="node">OAuth Clerk<small>token por coach</small></div>
+    <div class="arr">→</div>
+    <div class="node"><code>/api/mcp</code><small>fahybrik-web · Vercel</small></div>
+    <div class="arr">→</div>
+    <div class="node">lib/ de coach<small>las mismas funciones del dashboard</small></div>
+    <div class="arr">→</div>
+    <div class="node">Neon<small>tenancy por coach_id</small></div>
+  </div>
+  <p>No hay servicio nuevo ni HTTP contra nuestra propia API: los handlers de <code>/api/coach</code> son wrappers finos y la capa <code>lib/</code> ya se consume sin request (16 páginas RSC lo hacen hoy). Las tools MCP llaman a <b>las mismas funciones con la misma firma</b> <code>fn({coach_id, ...})</code>: una sola fuente de verdad, cero lógica duplicada.</p>
+  <div class="cards">
+    <div class="card"><h4>Transporte</h4><p>Streamable HTTP en el propio Next.js con <code>mcp-handler</code> <b>1.x</b>. La 2.x exige zod 4 y el monorepo entero está en zod 3.23.8; la 1.x habla el protocolo que Claude, Grok y ChatGPT usan hoy. Migrar a 2.x queda como follow-up ligado a la subida de zod.</p></div>
+    <div class="card"><h4>Auth</h4><p>OAuth de Clerk con <code>@clerk/mcp-tools</code>: <code>withMcpAuth</code> + <code>verifyClerkToken</code>, endpoints <code>.well-known</code> públicos, clientes pre-registrados (CIMD) en el dashboard de Clerk. La ruta MCP queda fuera de <code>isProtectedRoute</code> en <code>proxy.ts</code>, igual que ya hace el lado atleta con su Bearer.</p></div>
+    <div class="card"><h4>Identidad</h4><p>El token da el <code>userId</code> de Clerk; el <code>coach_id</code> se resuelve con la misma query de <code>coach_members</code> que usa la sesión web (hay que exportar el resolver interno de <code>coach-session.ts</code>). Todo tool call lleva ese <code>coach_id</code>: mismo aislamiento que el dashboard.</p></div>
+    <div class="card"><h4>Guardarraíles</h4><p>Perfil nuevo en el rate limiter existente (<code>rate_limit_buckets</code>) y toda escritura pasa por <code>recordAudit</code> con canal <code>mcp</code>: en el historial se distingue qué hizo el coach desde el dashboard y qué desde el asistente.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">03</span>Las tools — v1</h2>
+  <div class="rule"></div>
+  <p>Cada tool mapea 1:1 a una función de <code>lib/</code> que ya existe y ya está probada. Nombres en inglés (convención MCP), descripciones en castellano de entrenador.</p>
+
+  <h3>Lectura</h3>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>Tool</th><th>Qué responde</th><th>Reutiliza</th></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>get_briefing</code></td><td>El día del coach: quién necesita atención y por qué</td><td><code>lib/coach/briefing.ts</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>list_athletes</code></td><td>Roster con readiness, adherencia y señales por atleta</td><td><code>cohort.ts::buildCohort</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>get_athlete</code></td><td>Ficha completa: readiness, adherencia, lesiones, notas, señales</td><td><code>athlete-deep-dive.ts</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>get_plan</code></td><td>Plan del atleta en vista macro / mes / semana</td><td><code>athlete-plan.ts</code> + <code>camino.ts</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>get_session</code></td><td>Una sesión: prescrito vs ejecutado, cumplimiento por tramo</td><td><code>assignment-detail.ts</code> + <code>run-compliance</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>get_races</code></td><td>Carreras del atleta, objetivo, predicho vs real</td><td><code>coach-races.ts</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>search_library</code></td><td>Ejercicios, bloques y plantillas del coach</td><td><code>blocks.ts</code> / <code>templates.ts</code> / catálogo</td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>search_methodology</code></td><td>La metodología del coach vía RAG («¿qué digo yo del taper?»)</td><td><code>lib/rag/retrieve.ts</code></td></tr>
+    <tr><td><span class="tag r">R</span></td><td><code>list_communications</code></td><td>Comunicados y su seguimiento (visto / hecho / respondido)</td><td><code>lib/coach/communications.ts</code></td></tr>
+  </table></div>
+
+  <h3>Escritura</h3>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>Tool</th><th>Qué hace</th><th>Reutiliza</th></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>create_session</code></td><td>Sesión nueva en un día, con prescripción tipada completa</td><td><code>day-sessions.ts</code> + <code>template-instance.ts</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>edit_day</code></td><td>Edita el día del atleta: items, dosis, targets</td><td><code>template-instance.ts::updateAthleteInstanceDay</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>move_session</code></td><td>Mueve una sesión a otra fecha</td><td><code>deep-dive-plan.ts::rescheduleAssignment</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>publish_week</code></td><td>Publica una semana (o varias) al atleta</td><td><code>publish-week.ts::publishWeek</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>publish_communication</code></td><td>Protocolo, pregunta, tarea, nota o foco — tipado, a N atletas</td><td><code>communications-publish.ts</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>send_message</code></td><td>Mensaje de chat al atleta</td><td><code>chat/service.ts::sendMessage</code></td></tr>
+    <tr><td><span class="tag w">W</span></td><td><code>add_note</code></td><td>Nota interna del coach en la ficha</td><td><code>athlete-deep-dive.ts::appendNote</code></td></tr>
+  </table></div>
+
+  <div class="note"><b>La prescripción viaja tipada, nunca en texto.</b> Las tools de escritura hablan el modelo canónico de <code>shared/domain/prescription</code> (medida × objetivo × modalidad, 17 formatos, gramática de carrera). La gramática ya existe explicada para LLMs (<code>grammar-prompt.ts</code>, la usa el importador) y se inyecta en las descripciones de las tools; la validación es el mismo Zod del dominio, y sus errores vuelven legibles para que el asistente se corrija solo. <code>completeness.ts</code> es el segundo portón: lo mal dosificado no entra.</div>
+</section>
+
+<section>
+  <h2><span class="n">04</span>Semántica de seguridad de las escrituras</h2>
+  <div class="rule"></div>
+  <ul>
+    <li><b>El humano ya está en el loop.</b> Los clientes MCP (Claude, Grok) piden confirmación del coach antes de cada tool call de escritura. Nuestra parte: que la tool devuelva una <b>lectura exacta</b> de lo que va a quedar («Marc · mar 18-ago · Rodaje 90:00 · Z2»), para que lo que se confirma sea inequívoco.</li>
+    <li><b>Borrador primero, publicar aparte.</b> Es la semántica que el dominio ya tiene (planes <code>draft → published</code>): editar el plan no lo enseña al atleta; hacérselo llegar es una llamada explícita a <code>publish_week</code>. Un error de dictado nunca llega al móvil del atleta.</li>
+    <li><b>Todo auditado.</b> Cada escritura estampa <code>audit_log</code> con canal <code>mcp</code>. Se puede responder siempre a «¿esto lo cambié yo desde el chat o desde el dashboard?».</li>
+    <li><b>Tenancy dura.</b> Recursos de otro coach → 404, en la capa de servicio, no en el handler.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">05</span>Stress-test — 10 frases reales contra el modelo</h2>
+  <div class="rule"></div>
+  <p class="muted" style="font-size:14px">Casos derivados de la visión dictada (mirar atleta · tocar el día · tocar el plan) cruzada con las superficies que la app ya tiene. Todos resuelven con tools tipadas, cero texto libre.</p>
+  <div class="tblwrap"><table>
+    <tr><th>El coach dice…</th><th>Se resuelve con</th></tr>
+    <tr><td>«¿Cómo va Marc esta semana?»</td><td><code>get_athlete</code> + <code>get_plan(week)</code></td></tr>
+    <tr><td>«Añádele un rodaje de 90 min en Z2 el día de descanso de la semana que viene»</td><td><code>create_session</code> — measure <code>duration 5400s</code> × target <code>hr_zone 2</code> × modality <code>run</code></td></tr>
+    <tr><td>«Cámbiale el 5×5 de sentadilla a 3×5 con 2 de RIR»</td><td><code>get_plan(week)</code> → <code>edit_day</code> — sets tipados, target <code>rir 2</code></td></tr>
+    <tr><td>«Muévele la sesión del jueves al sábado»</td><td><code>move_session(to_iso_date)</code></td></tr>
+    <tr><td>«¿Quién está en rojo hoy?»</td><td><code>get_briefing</code> / <code>list_athletes</code></td></tr>
+    <tr><td>«Publica el protocolo de calentamiento del día de carrera a los que corren Valencia»</td><td><code>publish_communication(protocol, athlete_ids)</code></td></tr>
+    <tr><td>«¿Cómo fue la sesión de ayer respecto a lo que le puse?»</td><td><code>get_session</code> — prescrito vs ejecutado por tramo</td></tr>
+    <tr><td>«¿Qué digo yo sobre el taper de la última semana?»</td><td><code>search_methodology</code> (RAG)</td></tr>
+    <tr><td>«Dile que el jueves hacemos la revisión en el box»</td><td><code>send_message</code></td></tr>
+    <tr><td>«Apúntame en su ficha que le molesta el aductor al patinar»</td><td><code>add_note</code> (nota interna, no lesión formal)</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">06</span>Riesgos y mitigación</h2>
+  <div class="rule"></div>
+  <div class="tblwrap"><table class="risk">
+    <tr><th>Riesgo</th><th>Mitigación</th></tr>
+    <tr><td>Claude.ai ↔ OAuth de Clerk: hay un issue reportado (abr-2026) de conexión fallida que sí funcionaba vía <code>mcp-remote</code></td><td>La Fase 1 es exactamente esto: esqueleto + 3 tools y conectar Claude web/iOS de verdad antes de construir el resto. Si muerde, se depura con <code>mcp-remote</code> como hizo el reporter.</td></tr>
+    <tr><td>El asistente rellena mal la prescripción (alucina parámetros, atleta equivocado)</td><td>Zod del dominio como portón + errores legibles + read-back inequívoco en la confirmación + borrador-primero + audit con deshacer manual.</td></tr>
+    <tr><td>zod 4 requerido por <code>mcp-handler</code> 2.x vs zod 3.23.8 del monorepo</td><td>Decidido: 1.x hoy, migración a 2.x como follow-up cuando el monorepo suba de zod. Sin bloqueo.</td></tr>
+    <tr><td>Datos de salud del atleta (HRV, lesiones) atraviesan la cuenta del asistente del coach</td><td>Para la fase de pruebas internas, aceptable. Antes de venderlo: consentimiento del atleta + cláusula en condiciones. Queda anotado como requisito de comercialización, no de v1.</td></tr>
+    <tr><td>Divergencias conocidas del dominio (hr_zone 1..5 canónico vs 1..7 en schemas paralelos)</td><td>El MCP habla SOLO el canónico (<code>prescription/types.ts</code>). No arrastra los vocabularios paralelos; esa deuda se arregla donde vive.</td></tr>
+    <tr><td>ChatGPT: conectores custom con escritura restringidos a Business/Enterprise y solo web</td><td>Fuera de v1, declarado. Cuando lo abran, el mismo servidor sirve.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">07</span>Fases</h2>
+  <div class="rule"></div>
+  <div class="phase"><div class="num">1</div><div><h4>Esqueleto + auth + primeras lecturas</h4><p>Ruta <code>/api/mcp</code> con <code>mcp-handler</code> 1.x, OAuth Clerk completo (<code>.well-known</code>, CIMD, consent), resolver de coach por <code>userId</code>, y 3 tools: <code>get_briefing</code>, <code>list_athletes</code>, <code>get_athlete</code>. <b>Gate de fase: conectado y funcionando en Claude web + iPhone.</b></p></div></div>
+  <div class="phase"><div class="num">2</div><div><h4>Lectura completa</h4><p><code>get_plan</code>, <code>get_session</code>, <code>get_races</code>, <code>search_library</code>, <code>search_methodology</code>, <code>list_communications</code>. Con esto el caso «mirar un atleta desde el gym» está entero.</p></div></div>
+  <div class="phase"><div class="num">3</div><div><h4>Escritura del día</h4><p><code>create_session</code>, <code>edit_day</code>, <code>move_session</code> con prescripción tipada, borrador-primero, read-back, audit canal <code>mcp</code> y rate limit. Los 10 casos del stress-test pasan de verdad, dictados contra el club real.</p></div></div>
+  <div class="phase"><div class="num">4</div><div><h4>Comunicación y publicación</h4><p><code>publish_week</code>, <code>publish_communication</code>, <code>send_message</code>, <code>add_note</code>. El ciclo completo: mirar → tocar → publicar → avisar.</p></div></div>
+  <div class="phase"><div class="num">5</div><div><h4>Distribución y negocio</h4><p>Registro del conector en Grok, flag de entitlement por coach (add-on de pago vía Stripe), guía del coach en el manual vivo. ChatGPT cuando abra escrituras fuera de Enterprise.</p></div></div>
+</section>
+
+<section>
+  <h2><span class="n">08</span>Fuera de v1 — declarado</h2>
+  <div class="rule"></div>
+  <ul>
+    <li>Asignar secuencias/microciclos y ajustes masivos por MCP (existe en lib, pero son operaciones de sofá, no de gym; entran cuando las de día estén rodadas).</li>
+    <li>Citas, leads, intake, importador y ajustes del coach: siguen siendo del dashboard.</li>
+    <li>Nuestro propio chat con API cobrando margen de tokens: se decide después de validar uso real del conector.</li>
+    <li>Borrar sesiones desde MCP: hoy ni siquiera existe DELETE en la API de coach; no lo estrena el conector.</li>
+  </ul>
+</section>
+
+<footer>
+  FAHYBRID · Conector MCP del coach · Plan v1 · 10-ago-2026 · Fuentes: inventario de 143 rutas de /api/coach, shared/domain completo, auth Clerk 7.4.2, docs oficiales de mcp-handler y @clerk/mcp-tools
+</footer>
+
+</div>
+</body>
+</html>
