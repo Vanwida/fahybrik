@@ -11,11 +11,17 @@
 // snapshot congelado por carrera: revisar el historial entero serían decenas de
 // consultas para contestar algo que no se pregunta.
 
-import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getAthleteRacesForCoach } from '@/lib/races/coach-races';
 import { buildPredictionReview } from '@/lib/athlete/prediction-review';
-import { NO_SUCH_ATHLETE_MESSAGE, fail, ok, resolveOwnedAthlete, withCoach } from './runtime';
+import {
+  NO_SUCH_ATHLETE_MESSAGE,
+  athleteIdArg,
+  fail,
+  ok,
+  resolveOwnedAthlete,
+  withCoach,
+} from './runtime';
 import { racesResumen, toRaces } from './shape-races';
 
 export function registerRacesTools(server: McpServer): void {
@@ -25,13 +31,7 @@ export function registerRacesTools(server: McpServer): void {
       title: 'Las carreras del atleta',
       description:
         'Las carreras del atleta: a cuál apunta el plan y con qué objetivo de tiempo, las que tiene en el calendario con su cuenta atrás, y las que ya corrió con su resultado, puesto y parciales. Incluye, de la última con resultado, lo que se le predijo contra lo que hizo de verdad.',
-      inputSchema: {
-        athlete_id: z
-          .number()
-          .int()
-          .positive()
-          .describe('El athlete_id tal y como lo devuelve list_athletes.'),
-      },
+      inputSchema: { athlete_id: athleteIdArg },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     (args, extra) =>

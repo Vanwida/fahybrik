@@ -13,6 +13,7 @@
 // traducen aquí a UNA frase, la misma para «no existe» y para «es de otro club»:
 // confirmar que un id existe en otro sitio ya sería la fuga.
 
+import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { sql } from '@/lib/db';
@@ -22,6 +23,31 @@ import { CoachRacesError } from '@/lib/races/coach-races';
 import { CommunicationError } from '@/lib/communications/store';
 import type { CoachSession } from '@/lib/auth/coach-session';
 import { McpNotACoachError, coachFromAuthInfo } from './auth';
+
+/**
+ * A QUIÉN se refiere la pregunta. Uno solo, y siempre el que salió de
+ * `list_athletes`: el conector no acepta nombres como identidad porque dos atletas
+ * del mismo club pueden llamarse igual, y equivocarse de atleta al ESCRIBIR es el
+ * fallo más caro que este servidor puede cometer.
+ *
+ * Vive aquí porque lo piden todas las familias de tools (la ficha, el plan, las
+ * carreras, los comunicados y las cinco escrituras): una sola declaración, y cada
+ * tool le pone su `.describe()` encima si necesita matizar.
+ */
+export const athleteIdArg = z
+  .number()
+  .int()
+  .positive()
+  .describe('El athlete_id tal y como lo devuelve list_athletes.');
+
+/**
+ * Una fecha del calendario, en la única grafía que el conector acepta. El formato
+ * se valida en el esquema (y no al leerlo) para que un «4 de agosto» vuelva como
+ * error de campo con la forma esperada, en vez de llegar a un `::date` de Postgres.
+ */
+export const isoDateArg = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va en formato AAAA-MM-DD');
 
 /**
  * Lo que se le dice al asistente cuando pide un atleta que no es del club que
@@ -73,6 +99,34 @@ export async function resolveOwnedAthlete(params: {
     limit 1
   `;
   return rows[0] ?? null;
+}
+
+/**
+ * Los atletas de una tanda, si TODOS son de este coach. Devuelve la lista en el
+ * orden pedido, o los ids que no son suyos — nunca una lista a medias.
+ *
+ * El todo-o-nada es del dominio, no una comodidad: publicar «a casi todos» sin
+ * decirlo es peor que fallar (`publishCommunication` levanta el mismo rechazo
+ * dentro de su transacción). Aquí se resuelve ANTES de escribir para poder decir
+ * QUÉ id sobra, y para tener los NOMBRES con los que se lee la respuesta.
+ */
+export async function resolveOwnedAthletes(params: {
+  coach_id: number | bigint;
+  athlete_ids: number[];
+}): Promise<
+  | { athletes: Array<{ athlete_id: string; full_name: string }> }
+  | { missing: number[] }
+> {
+  const wanted = [...new Set(params.athlete_ids)];
+  const rows = await sql<Array<{ athlete_id: string; full_name: string }>>`
+    select id::text as athlete_id, full_name
+    from athletes
+    where id = any(${wanted}::bigint[]) and coach_id = ${params.coach_id as number}
+  `;
+  const found = new Map(rows.map((r) => [Number(r.athlete_id), r]));
+  const missing = wanted.filter((id) => !found.has(id));
+  if (missing.length > 0) return { missing };
+  return { athletes: wanted.map((id) => found.get(id)!) };
 }
 
 /**

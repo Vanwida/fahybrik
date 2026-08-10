@@ -37,7 +37,15 @@ import { InvalidAuthoringLineError } from '@/lib/dashboard/v2/editor-serialize';
 import { AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
 import { PLAN_SLOT, rescheduleAssignment } from '@/lib/coach/deep-dive-plan';
 import { prescriptionToText, type Prescription } from '@fahybrid/shared/domain/prescription';
-import { NO_SUCH_ATHLETE_MESSAGE, fail, ok, resolveOwnedAthlete, withCoach } from './runtime';
+import {
+  NO_SUCH_ATHLETE_MESSAGE,
+  athleteIdArg,
+  fail,
+  isoDateArg,
+  ok,
+  resolveOwnedAthlete,
+  withCoach,
+} from './runtime';
 import {
   ContentError,
   contentBlocksArg,
@@ -50,16 +58,6 @@ import {
   type ContentBlock,
 } from './write-content';
 import { moveResumen, weekVisibility, writeResumen } from './shape-write';
-
-const athleteIdArg = z
-  .number()
-  .int()
-  .positive()
-  .describe('El athlete_id tal y como lo devuelve list_athletes.');
-
-const isoDateArg = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va en formato AAAA-MM-DD');
 
 const sessionIdArg = z
   .number()

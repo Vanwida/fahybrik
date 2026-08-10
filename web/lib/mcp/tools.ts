@@ -31,7 +31,7 @@ import { buildBriefing } from '@/lib/coach/briefing';
 import { buildAthleteDeepDive } from '@/lib/coach/athlete-deep-dive';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
 import { countUnreadForCoach } from '@/lib/chat/service';
-import { ok, withCoach } from './runtime';
+import { athleteIdArg, ok, withCoach } from './runtime';
 import { registerCommunicationsTools } from './tools-comms';
 import { registerLibraryTools } from './tools-library';
 import { registerPlanTools } from './tools-plan';
@@ -129,13 +129,7 @@ export function registerCoachTools(server: McpServer): void {
       title: 'Ficha de un atleta',
       description:
         'La ficha completa de un atleta: cómo está de fresco, cómo lleva la adherencia, qué ha entrenado estos días, sus mejores marcas, lo que él mismo ha reportado y las notas del coach. Es la respuesta a "cómo va X".',
-      inputSchema: {
-        athlete_id: z
-          .number()
-          .int()
-          .positive()
-          .describe('El athlete_id tal y como lo devuelve list_athletes.'),
-      },
+      inputSchema: { athlete_id: athleteIdArg },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     (args, extra) =>

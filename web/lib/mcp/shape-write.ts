@@ -36,6 +36,106 @@ export interface WeekVisibility {
   text: string;
 }
 
+/** Lo que `weekly_plans` dice de UNA semana, sin interpretar todavía. */
+export interface WeekState {
+  state: WeekPublishState;
+  /** Solo en 'draft': quién lo suelta (el sábado el cron, o el coach a mano). */
+  delivery_mode: DeliveryMode | null;
+}
+
+/** El lunes de la semana en que cae `iso_date` — la clave de `weekly_plans`. */
+export function weekStartOf(iso_date: string): string {
+  return isoDateString(mondayOfWeek(parseIsoDate(iso_date)));
+}
+
+/**
+ * Lo que `weekly_plans` dice de N semanas de un atleta, de UNA consulta.
+ *
+ * Devuelve entrada para TODAS las semanas pedidas, no solo para las que tienen
+ * fila: la ausencia de fila es un estado del dominio (`sin_marcar`, y se VE), y
+ * dejarla fuera del mapa obligaría a cada llamante a recordar esa doctrina por su
+ * cuenta. Aquí se recuerda una vez.
+ */
+export async function weekStates(params: {
+  athlete_id: number | bigint;
+  week_starts: string[];
+  client?: Sql;
+}): Promise<Map<string, WeekState>> {
+  const client = params.client ?? defaultSql;
+  const weeks = [...new Set(params.week_starts)];
+
+  const rows =
+    weeks.length === 0
+      ? []
+      : await client<Array<{ week_start: string; status: string; delivery_mode: string }>>`
+          select to_char(week_start, 'YYYY-MM-DD') as week_start,
+                 status::text as status,
+                 delivery_mode
+          from weekly_plans
+          where athlete_id = ${Number(params.athlete_id)}
+            and week_start = any(${weeks}::date[])
+        `;
+
+  const byWeek = new Map(rows.map((r) => [r.week_start, r]));
+  return new Map(
+    weeks.map((week): [string, WeekState] => {
+      const row = byWeek.get(week);
+      if (!row) return [week, { state: 'sin_marcar', delivery_mode: null }];
+      const state = row.status as Exclude<WeekPublishState, 'sin_marcar'>;
+      return [
+        week,
+        {
+          state,
+          delivery_mode:
+            state !== 'draft'
+              ? null
+              : row.delivery_mode === DELIVERY_MODE.manual
+                ? DELIVERY_MODE.manual
+                : DELIVERY_MODE.scheduled,
+        },
+      ];
+    }),
+  );
+}
+
+/** El estado de una semana, dicho como lo lee el coach. */
+export function visibilityOf(week_start: string, week: WeekState): WeekVisibility {
+  if (week.state === 'sin_marcar') {
+    return {
+      week_start,
+      state: 'sin_marcar',
+      delivery_mode: null,
+      athlete_sees_it: true,
+      text: 'publicado: lo ve ya en su app (esa semana no está marcada como borrador)',
+    };
+  }
+
+  if (week.state === 'draft') {
+    return {
+      week_start,
+      state: 'draft',
+      delivery_mode: week.delivery_mode,
+      athlete_sees_it: false,
+      text:
+        week.delivery_mode === DELIVERY_MODE.manual
+          ? 'borrador: el atleta NO lo ve hasta que publiques esa semana'
+          : 'borrador: el atleta NO lo ve todavía; esa semana se le abre sola el sábado',
+    };
+  }
+
+  return {
+    week_start,
+    state: week.state,
+    delivery_mode: null,
+    athlete_sees_it: true,
+    // 'archived' no esconde nada: el portón del móvil solo esconde 'draft'.
+    text:
+      week.state === 'published'
+        ? 'publicado: lo ve ya en su app'
+        : 'semana archivada, pero el atleta la sigue viendo (solo el borrador la esconde)',
+  };
+}
+
 /**
  * Si el atleta ve la semana de `iso_date`, leído de `weekly_plans`. El lunes se
  * calcula con el mismo `mondayOfWeek` que usan los escritores del ciclo
@@ -47,54 +147,13 @@ export async function weekVisibility(params: {
   iso_date: string;
   client?: Sql;
 }): Promise<WeekVisibility> {
-  const client = params.client ?? defaultSql;
-  const weekStart = isoDateString(mondayOfWeek(parseIsoDate(params.iso_date)));
-
-  const rows = await client<Array<{ status: string; delivery_mode: string }>>`
-    select status::text as status, delivery_mode
-    from weekly_plans
-    where athlete_id = ${Number(params.athlete_id)}
-      and week_start = ${weekStart}::date
-    limit 1
-  `;
-
-  const row = rows[0];
-  if (!row) {
-    return {
-      week_start: weekStart,
-      state: 'sin_marcar',
-      delivery_mode: null,
-      athlete_sees_it: true,
-      text: 'publicado: lo ve ya en su app (esa semana no está marcada como borrador)',
-    };
-  }
-
-  const state = row.status as Exclude<WeekPublishState, 'sin_marcar'>;
-  if (state === 'draft') {
-    const mode = row.delivery_mode === DELIVERY_MODE.manual ? DELIVERY_MODE.manual : DELIVERY_MODE.scheduled;
-    return {
-      week_start: weekStart,
-      state,
-      delivery_mode: mode,
-      athlete_sees_it: false,
-      text:
-        mode === DELIVERY_MODE.manual
-          ? 'borrador: el atleta NO lo ve hasta que publiques esa semana'
-          : 'borrador: el atleta NO lo ve todavía; esa semana se le abre sola el sábado',
-    };
-  }
-
-  return {
-    week_start: weekStart,
-    state,
-    delivery_mode: null,
-    athlete_sees_it: true,
-    // 'archived' no esconde nada: el portón del móvil solo esconde 'draft'.
-    text:
-      state === 'published'
-        ? 'publicado: lo ve ya en su app'
-        : 'semana archivada, pero el atleta la sigue viendo (solo el borrador la esconde)',
-  };
+  const weekStart = weekStartOf(params.iso_date);
+  const states = await weekStates({
+    athlete_id: params.athlete_id,
+    week_starts: [weekStart],
+    ...(params.client ? { client: params.client } : {}),
+  });
+  return visibilityOf(weekStart, states.get(weekStart)!);
 }
 
 // ── Resúmenes de una línea ───────────────────────────────────────────────────

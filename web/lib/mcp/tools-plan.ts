@@ -22,7 +22,14 @@ import { sql } from '@/lib/db';
 import { buildAthletePlan, type PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import { loadCoachSessionDetail } from '@/lib/coach/session-detail';
 import { loadSessionContentSummaries } from '@/lib/coach/session-content';
-import { NO_SUCH_ATHLETE_MESSAGE, fail, ok, withCoach } from './runtime';
+import {
+  NO_SUCH_ATHLETE_MESSAGE,
+  athleteIdArg,
+  fail,
+  isoDateArg,
+  ok,
+  withCoach,
+} from './runtime';
 import {
   planResumen,
   sessionChoiceResumen,
@@ -35,16 +42,6 @@ import {
 } from './shape-plan';
 
 const PLAN_VIEWS = ['macro', 'month', 'week'] as const;
-
-const athleteIdArg = z
-  .number()
-  .int()
-  .positive()
-  .describe('El athlete_id tal y como lo devuelve list_athletes.');
-
-const isoDateArg = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va en formato AAAA-MM-DD');
 
 export function registerPlanTools(server: McpServer): void {
   server.registerTool(

@@ -20,7 +20,14 @@ import {
   listCommunications,
   listCommunicationsForAthlete,
 } from '@/lib/coach/communications';
-import { NO_SUCH_ATHLETE_MESSAGE, fail, ok, resolveOwnedAthlete, withCoach } from './runtime';
+import {
+  NO_SUCH_ATHLETE_MESSAGE,
+  athleteIdArg,
+  fail,
+  ok,
+  resolveOwnedAthlete,
+  withCoach,
+} from './runtime';
 import {
   athleteCommsResumen,
   coachCommsResumen,
@@ -36,10 +43,7 @@ export function registerCommunicationsTools(server: McpServer): void {
       description:
         'Los comunicados del coach —protocolos, preguntas, tareas, notas y focos— con su seguimiento: quién lo ha visto, quién lo ha hecho y quién ha contestado qué. Con athlete_id devuelve lo que le has mandado a ESE atleta y en qué estado lo tiene él; sin athlete_id, tu lista (publicados, plantillas o borradores).',
       inputSchema: {
-        athlete_id: z
-          .number()
-          .int()
-          .positive()
+        athlete_id: athleteIdArg
           .optional()
           .describe(
             'El athlete_id de list_athletes, para ver lo que le has comunicado a él con su estado.',
