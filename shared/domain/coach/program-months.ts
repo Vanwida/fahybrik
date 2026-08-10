@@ -83,6 +83,18 @@ export type MonthTemplateWithWeeks = {
   weeks: MonthTemplateWeekFull[];
 };
 
+/**
+ * The coach's LIBRARY microciclos — reusable, matched by level, the picker
+ * source for Biblioteca and the Secuencias (nivel×días) matrix.
+ *
+ * `athlete_id is null` (0164) is load-bearing, not defensive: without it a
+ * personal plan forked for one athlete would appear as a pickable microciclo
+ * for every OTHER athlete of the coach — inside the shared library AND
+ * addable to the level×días periodization. Every caller of this function
+ * (biblioteca, secuencias, the generic `/api/coach/program-months` list) wants
+ * ONLY the reusable set; a personal plan is read through its own athlete-scoped
+ * path (`listPersonalPlansForAthlete`), never through here.
+ */
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
   client: Sql;
@@ -122,6 +134,7 @@ export async function listMonthTemplates(params: {
       limit 1
     ) fw on true
     where m.coach_id = ${params.coach_id as number}
+      and m.athlete_id is null
     order by m.updated_at desc
   `;
 }
@@ -245,45 +258,81 @@ export async function upsertMonthTemplate(params: {
  * Canonical clone of ONE `program_week_templates` row into a NEW row of the same
  * coach, inside transaction `tx`. SINGLE SOURCE of the week-clone column list for
  * EVERY duplication path (duplicate a week inside a microciclo, deep-clone a whole
- * microciclo, copy a matrix cell) so no path silently drops a column.
+ * microciclo, copy a matrix cell, fork a personal plan) so no path silently drops
+ * a column.
  *
  * Pure clone: `slots_json` copied VERBATIM via insert…select (an independent jsonb
  * document, never a shared ref); `exercise_id`, `level_id`, `athlete_profile` and
  * `week_number` preserved; NO dates, NO load/%RM adjustment. `nameSuffix` is
  * concatenated to the name ('' = identical name).
  *
+ * `athleteIdOverride` (0164) decides who owns the clone:
+ *   · undefined (default) → PRESERVE the source row's `athlete_id`. This is the
+ *     correct default for every existing "duplicate" path — a library week clones
+ *     into another library week (athlete_id stays null), a personal week clones
+ *     into another week for the SAME athlete. Without this the clone would
+ *     silently drop athlete_id (not in a bare column list) and a "Duplicar" on a
+ *     personal plan would leak its content into the shared library.
+ *   · a value (including `null`) → RETARGET explicitly. Personalizing a plan uses
+ *     this to fork a LIBRARY week (athlete_id null) onto one athlete.
+ *
  * Content columns = every column that is NOT the identity `id` / `created_at` /
  * `updated_at`, per the live schema (infra/migrations 0014 → 0015 → 0044 → 0063 →
- * 0064): coach_id, name, level_id, focus, coach_notes, athlete_profile,
- * week_number, slots_json.
+ * 0064 → 0164): coach_id, name, level_id, focus, coach_notes, athlete_profile,
+ * week_number, slots_json, athlete_id.
  */
 export async function cloneWeekTemplateRow(params: {
   tx: TransactionSql;
   coach_id: number | bigint;
   week_id: number | bigint;
   nameSuffix?: string;
+  athleteIdOverride?: number | bigint | null;
 }): Promise<string> {
   const { tx } = params;
   const coach_id = Number(params.coach_id);
   const week_id = Number(params.week_id);
   const suffix = params.nameSuffix ?? '';
-  const cloned = await tx<Array<{ id: string }>>`
-    insert into program_week_templates (
-      coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json
-    )
-    select
-      coach_id,
-      name || ${suffix},
-      level_id,
-      focus,
-      coach_notes,
-      athlete_profile,
-      week_number,
-      slots_json
-    from program_week_templates
-    where id = ${week_id} and coach_id = ${coach_id}
-    returning id::text
-  `;
+  const overrideGiven = params.athleteIdOverride !== undefined;
+  const overrideValue =
+    params.athleteIdOverride == null ? null : Number(params.athleteIdOverride);
+
+  const cloned = overrideGiven
+    ? await tx<Array<{ id: string }>>`
+        insert into program_week_templates (
+          coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json, athlete_id
+        )
+        select
+          coach_id,
+          name || ${suffix},
+          level_id,
+          focus,
+          coach_notes,
+          athlete_profile,
+          week_number,
+          slots_json,
+          ${overrideValue}
+        from program_week_templates
+        where id = ${week_id} and coach_id = ${coach_id}
+        returning id::text
+      `
+    : await tx<Array<{ id: string }>>`
+        insert into program_week_templates (
+          coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json, athlete_id
+        )
+        select
+          coach_id,
+          name || ${suffix},
+          level_id,
+          focus,
+          coach_notes,
+          athlete_profile,
+          week_number,
+          slots_json,
+          athlete_id
+        from program_week_templates
+        where id = ${week_id} and coach_id = ${coach_id}
+        returning id::text
+      `;
   if (!cloned[0]) {
     throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
   }
@@ -313,8 +362,10 @@ export async function cloneMonthTemplateDeep(params: {
   const source_month_id = Number(params.source_month_id);
   const suffix = params.nameSuffix ?? '';
 
-  const srcRows = await tx<Array<{ name: string; level_id: string | null }>>`
-    select name, level_id::text
+  const srcRows = await tx<
+    Array<{ name: string; level_id: string | null; athlete_id: string | null }>
+  >`
+    select name, level_id::text, athlete_id::text
     from program_month_templates
     where id = ${source_month_id} and coach_id = ${coach_id}
     limit 1
@@ -338,9 +389,14 @@ export async function cloneMonthTemplateDeep(params: {
     order by mw.position
   `;
 
+  // athlete_id is PRESERVED from the source (0164): duplicating a library
+  // microciclo (athlete_id null) stays library; duplicating a personal plan
+  // (unreachable from the UI today, but never leaked if it ever is) stays
+  // personal to the SAME athlete — it never becomes a library row by accident.
+  const sourceAthleteId = src.athlete_id !== null ? Number(src.athlete_id) : null;
   const monthRows = await tx<Array<{ id: string }>>`
-    insert into program_month_templates (coach_id, name, level_id)
-    values (${coach_id}, ${`${src.name}${suffix}`}, ${targetLevelId})
+    insert into program_month_templates (coach_id, name, level_id, athlete_id)
+    values (${coach_id}, ${`${src.name}${suffix}`}, ${targetLevelId}, ${sourceAthleteId})
     returning id::text
   `;
   const newMonthId = monthRows[0]!.id;
