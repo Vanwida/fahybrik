@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Las zonas cuentan la historia, y el coach la firma</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1e; --line:#2a2a2e;
+    --ink:#f5f5f4; --muted:#a1a1aa; --dim:#71717a;
+    --orange:#ff5721; --orange-soft:#ff764b;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --blue:#60a5fa;
+    /* Zonas de FC: los tokens del sistema (web/app/globals.css). Nunca naranja
+       aqui: el naranja es la marca y pinta el PLAN, no la intensidad. */
+    --z1:#C7C7C7; --z2:#4D9EEB; --z3:#4DC773; --z4:#F2B833; --z5:#EB4D4D;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 20px 120px}
+  h1{font-size:30px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:0 0 6px;line-height:1.12}
+  h1 .n{color:var(--orange)}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+  .meta{color:var(--dim);font-size:12.5px;font-family:var(--mono);margin-bottom:34px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--orange-soft);margin:52px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;font-weight:700;margin:26px 0 8px}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted)}
+  b{color:var(--ink)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
+    padding:1.5px 6px;border-radius:5px;color:#ffd9c9;white-space:nowrap}
+  /* En móvil un identificador largo no puede empujar la página entera: ahí sí
+     parte, porque el cuerpo NUNCA se desplaza en horizontal. */
+  @media(max-width:560px){code{white-space:normal;overflow-wrap:anywhere}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .tldr{background:linear-gradient(180deg,#1a120d,#141416);border:1px solid #4a2a17}
+  .tldr b{color:var(--orange-soft)}
+  .rule{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .rule .k{flex:0 0 auto;font-size:18px;line-height:1.3}
+  .grid{display:grid;gap:12px}
+  @media(min-width:680px){.grid.s2{grid-template-columns:1fr 1fr}}
+  .src{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .src h4{margin:0 0 4px;font-size:15px;font-weight:700}
+  .src .tag{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.45}
+  .src ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
+  .src li{margin:3px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase}
+  td .who{font-family:var(--mono);font-size:12px}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+  .scroll table{margin:0}.scroll th,.scroll td{white-space:nowrap}
+  .scroll table.prose{min-width:600px}
+  .scroll table.prose th,.scroll table.prose td{white-space:normal}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .ok{background:rgba(52,211,153,.13);color:var(--green)}
+  .warn{background:rgba(251,191,36,.13);color:var(--amber)}
+  .bad{background:rgba(248,113,113,.13);color:var(--red)}
+  .neu{background:rgba(96,165,250,.13);color:var(--blue)}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+    font-family:var(--mono);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
+  .flow .arw{color:var(--orange)}
+  .state{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:14px 0}
+  .state.g{border-color:var(--green)} .state.a{border-color:var(--amber)}
+  .state.r{border-color:var(--red)} .state.b{border-color:var(--blue)}
+  .state .nm{font-weight:700;font-family:var(--mono);font-size:13.5px}
+  .note{font-size:13px;color:var(--dim);font-style:italic;margin-top:10px}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:12.5px;font-family:var(--mono);line-height:1.7}
+
+  /* ── quote del caso real ─────────────────────────────────────────────── */
+  .quotes{display:grid;gap:10px;margin:14px 0}
+  @media(min-width:680px){.quotes{grid-template-columns:1fr 1fr}}
+  .q{background:var(--surface-2);border-left:2px solid var(--orange);border-radius:0 10px 10px 0;
+    padding:12px 14px;font-size:14px;line-height:1.5}
+  .q .w{color:var(--dim);font-size:11.5px;font-family:var(--mono);display:block;margin-top:6px}
+
+  /* ── wireframes ──────────────────────────────────────────────────────── */
+  .wf{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin:16px 0;overflow:hidden}
+  .wf-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between;
+    padding:14px 18px 0}
+  .wf-t{font-weight:700;font-size:15px}
+  .wf-t .path{font-family:var(--mono);font-size:11.5px;color:var(--dim);font-weight:400;margin-left:8px}
+  .wf-body{padding:12px 18px 18px}
+  .ctrls{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+  .ctrl{font-size:12px;font-family:var(--mono);color:var(--muted);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+  .ctrl.on{background:rgba(255,87,33,.14);border-color:#5a3018;color:var(--orange-soft)}
+  /* La gráfica es densa (24 semanas): en pantalla estrecha se desplaza dentro de
+     su caja en vez de encoger hasta ser ilegible. El cuerpo nunca se mueve. */
+  .plot{overflow-x:auto;padding-bottom:4px}
+  .plot-hint{display:none;font-size:11.5px;color:var(--dim);font-family:var(--mono);margin:6px 0 0}
+  @media(max-width:560px){.plot-hint{display:block}}
+  .plot svg{display:block;width:100%;height:auto;min-width:700px}
+  .plot.sm svg{min-width:520px}
+  svg text{font-family:var(--sans)}
+  .gl{stroke:var(--line);stroke-width:1}
+  .axis{stroke:#3a3a40;stroke-width:1}
+  .ytick,.xtick{fill:var(--dim);font-size:13px;font-family:var(--mono)}
+  .ytick{text-anchor:end}
+  .xtick{text-anchor:middle}
+  .axis-lbl{fill:var(--dim);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+  .cap{fill:var(--muted);font-size:13px;font-family:var(--mono);text-anchor:middle}
+  /* La espina del plan, tumbada: tonos de MARCA, nunca de zona */
+  .tramo{stroke-width:1}
+  .t1{fill:rgba(255,87,33,.30);stroke:rgba(255,118,75,.75)}
+  .t2{fill:rgba(255,87,33,.23);stroke:rgba(255,118,75,.60)}
+  .t3{fill:rgba(255,87,33,.16);stroke:rgba(255,118,75,.46)}
+  .t4{fill:rgba(255,87,33,.10);stroke:rgba(255,118,75,.34)}
+  .tramo-void{fill:none;stroke:var(--line);stroke-width:1}
+  .tramo-lbl{fill:var(--orange-soft);font-size:13px;font-weight:700;text-anchor:middle}
+  .tramo-lbl.void{fill:var(--dim);font-weight:400}
+  /* Rangos marcados por el coach */
+  .rango{stroke-width:1}
+  .rango.atencion{fill:rgba(251,191,36,.09);stroke:rgba(251,191,36,.55)}
+  .rango.bien{fill:rgba(52,211,153,.09);stroke:rgba(52,211,153,.55)}
+  .rango-lbl{font-size:12.5px;font-weight:600}
+  .rango-lbl.atencion{fill:var(--amber)} .rango-lbl.bien{fill:var(--green)}
+
+  /* ── leyenda de zonas ────────────────────────────────────────────────── */
+  .leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 0 2px;font-size:12.5px;color:var(--muted)}
+  .leg span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .sw.hole{background:repeating-linear-gradient(45deg,#3f3f46 0 2px,transparent 2px 5px);
+    box-shadow:inset 0 0 0 1px #3f3f46}
+
+  /* ── comparativa ─────────────────────────────────────────────────────── */
+  .cmp{display:grid;gap:16px}
+  .cmp-row .lbl{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+  .cmp-row .nm{font-size:13.5px;font-weight:600}
+  .cmp-row .hrs{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .cmp-row .hrs b{color:var(--ink)}
+  .bar100{display:flex;gap:2px;height:26px;border-radius:5px;overflow:hidden}
+  .bar100 i{display:block}
+  .bar100 i.hole{background:repeating-linear-gradient(45deg,#3f3f46 0 2px,transparent 2px 5px);
+    box-shadow:inset 0 0 0 1px #3f3f46}
+  .deltas{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .dl{font-family:var(--mono);font-size:11.5px;padding:3px 9px;border-radius:6px;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px}
+  .dl b{font-weight:700;color:var(--ink)}
+
+  /* ── compositor ──────────────────────────────────────────────────────── */
+  .comp{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .sec{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin:8px 0}
+  .sec .form{font-family:var(--mono);font-size:10.5px;color:var(--orange-soft);letter-spacing:.08em;
+    text-transform:uppercase;display:block;margin-bottom:5px}
+  .sec .h{font-size:13.5px;font-weight:600}
+  .sec .txt{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .sec.embed{border-style:dashed;border-color:#4a2a17;background:rgba(255,87,33,.04)}
+  .mini{display:flex;gap:1px;height:34px;align-items:flex-end;margin-top:8px}
+  .mini i{flex:1;border-radius:1px 1px 0 0;background:var(--z2);opacity:.75}
+  .audio{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);
+    font-family:var(--mono);background:var(--surface);border:1px solid var(--line);
+    border-radius:9px;padding:9px 13px;margin:8px 0}
+  .wave{display:flex;gap:3px;align-items:center;flex:1;height:20px}
+  .wave i{flex:0 0 3px;background:var(--orange);opacity:.55;border-radius:2px}
+  .steps{counter-reset:s;margin:14px 0;padding:0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:0 0 0 34px;margin:12px 0;font-size:14.5px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:22px;height:22px;
+    border-radius:7px;background:var(--surface-2);border:1px solid var(--line);color:var(--orange-soft);
+    font-family:var(--mono);font-size:12px;font-weight:700;display:grid;place-items:center}
+  .tanda{display:flex;gap:14px;padding:14px 0;border-top:1px dashed var(--line)}
+  .tanda:first-of-type{border-top:none}
+  .tanda .id{flex:0 0 46px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--orange)}
+  .tanda .bd{flex:1;font-size:14px}
+  .tanda .bd .t{font-weight:600;color:var(--ink);display:block;margin-bottom:2px}
+  .tanda .bd .d{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Las zonas cuentan la historia, <span class="n">y el coach la firma</span></h1>
+  <p class="sub">Análisis de tiempo en zonas por semana en la ficha del atleta, y el feedback publicable que sale de ahí en tres toques.</p>
+  <p class="meta">FASE DE DISEÑO · 10-ago-2026 · mapeado contra hr-zones.ts · polarization.ts · deep-dive-performance.ts · precedence.ts · 0156_workout_traces · 0161_coach_signal_thresholds · 0163_communication_note_blocks</p>
+
+  <div class="card tldr">
+    <div class="rule"><span class="k">🖊️</span><div><b>La gráfica no es el entregable: el entregable es la gráfica FIRMADA.</b> Un pantallazo de TrainingPeaks con un círculo rojo a mano no se puede volver a pintar, ni buscar, ni seguir, ni saber si el atleta lo ha leído. Un rango de semanas marcado sí: es dato, se redibuja a cualquier tamaño y viaja dentro de un comunicado que ya tiene visto y seguimiento.</div></div>
+    <div class="rule"><span class="k">🧱</span><div><b>Cero rueda reinventada.</b> La gráfica es la canónica del sector (tiempo semanal en zonas, barras apiladas), exactamente como la conoce cualquier entrenador. Lo nuestro son las tres cosas que TrainingPeaks no hace: atarla al PLAN, publicarla como comunicado, y callarse cuando no lo sabe.</div></div>
+    <div class="rule"><span class="k">🚫</span><div><b>Sin sexto tipo de comunicado.</b> El feedback es una NOTA con una forma de sección más, <code>display = 'grafica'</code>, la quinta junto a <code>texto</code>, <code>cifra</code>, <code>reparto</code> y <code>camino</code>. En la UI se llama «Dar feedback»; el modelo no se entera, y la bandeja, las señales y el seguimiento siguen siendo unos.</div></div>
+    <div class="rule"><span class="k">🧪</span><div><b>Y hoy el dato todavía no está.</b> Solo 18 de 221 tramos ejecutados tienen reparto de zonas congelado, y ni Polar ni Garmin entregan serie. Por eso la tanda 1 es el MOTOR y no la pantalla: reconstruir el pasado con las ~103.000 muestras de pulso que ya hay en producción, y empezar a guardar serie hacia delante. La gráfica gana valor conforme el motor acumula, y eso se dice en la propia pantalla.</div></div>
+  </div>
+
+  <h2>1 · De dónde nace</h2>
+  <p class="muted">Esto no sale de una lluvia de ideas. Sale de un entrenador de verdad, dándole feedback a Pablo.</p>
+  <p>El coach de Pablo (lleva olímpicos de esquí nórdico) le mandó tres cosas: una gráfica de TrainingPeaks con el tiempo semanal en zonas de FC de los últimos 180 días, la misma gráfica pintada a mano con dos círculos, y unos audios explicándola.</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4><span style="color:var(--red)">◯</span> El círculo rojo</h4>
+      <div class="tag">las primeras semanas</div>
+      <ul><li>El «patrón en sierra» del CrossFit y el HYROX: vas a tope, revientas, descansas. Picos altos, valles vacíos, cero constancia.</li></ul>
+    </div>
+    <div class="src">
+      <h4><span style="color:var(--green)">◯</span> El círculo verde</h4>
+      <div class="tag">las últimas semanas</div>
+      <ul><li>La base acumulándose con constancia: el volumen suave crece semana a semana y sostiene lo demás.</li></ul>
+    </div>
+  </div>
+  <div class="quotes">
+    <div class="q">«La progresión de cargas es aburrida, pero permite progresiones y no estancamientos.»<span class="w">el coach de Pablo, en audio</span></div>
+    <div class="q">«Estás desplazando tu zona de inestabilidad a la derecha: lo que era Z5 baja ahora es Z4 alta.»<span class="w">el coach de Pablo, en audio</span></div>
+    <div class="q">«Las gráficas te lo dicen todo.» · «Que tenga sustento todo lo que se hace.»<span class="w">Pablo, textual</span></div>
+    <div class="q">«Feedback comparativo de los tres meses previos contra los tres conmigo.»<span class="w">Pablo, textual: la petición más fina de todas</span></div>
+  </div>
+  <div class="card">
+    <div class="rule"><span class="k">🎯</span><div><b>La conclusión, y el encargo:</b> el feedback de calidad es gráfica más marcas más explicación. Hoy eso requiere TrainingPeaks, un pantallazo, un rotulador y tres audios sueltos por WhatsApp. Nuestro trabajo es que salga de la app en tres toques, con el rastro puesto.</div></div>
+  </div>
+
+  <h2>2 · El principio</h2>
+  <p>Ayudar al coach a <b>EXPLICAR su método</b> con los datos del atleta delante. No a descubrirlo, no a puntuarlo: a explicarlo. El coach ya sabe lo que quiere decir; lo que no tiene es la superficie donde decirlo con la evidencia pegada.</p>
+  <p class="muted">Por eso la gráfica es la de siempre y no una invención nuestra. Un entrenador competente la lee sin manual, y esa familiaridad es una funcionalidad, no una renuncia. Nuestra diferencia son tres cosas concretas:</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4>a · Conectada al PLAN</h4>
+      <ul><li>Debajo del eje del tiempo van los tramos del plan, la espina que ya existe (<code>plan-path.ts</code>) tumbada. «Aquí empezó Base 1» deja de ser algo que el coach recuerda y pasa a estar dibujado.</li></ul>
+    </div>
+    <div class="src">
+      <h4>b · Publicable como feedback</h4>
+      <ul><li>Con visto y seguimiento, porque es el comunicado que ya existe. La gráfica no se queda en la ficha del coach: llega al móvil del atleta y sabemos si la ha leído.</li></ul>
+    </div>
+    <div class="src">
+      <h4>c · Honesta con lo que no sabe</h4>
+      <ul><li>Un atleta sin anclas de FC no tiene zonas, y entonces no se le pintan. El hueco se ve, se nombra y se explica. Nunca se rellena con un umbral inventado.</li></ul>
+    </div>
+    <div class="src">
+      <h4>d · Y por eso es nuestra</h4>
+      <ul><li>Las tres de arriba requieren tener el plan, el canal y el modelo de zonas en la misma casa. TrainingPeaks tiene la gráfica y no tiene ninguna de las tres.</li></ul>
+    </div>
+  </div>
+
+  <h2>3 · El modelo</h2>
+  <p class="muted">Qué es mecanismo nuestro (va en código) y qué es método del coach (nace como dato editable, con nuestro valor de hoy como defecto).</p>
+  <div class="scroll">
+  <table class="prose">
+    <thead><tr><th>Pieza</th><th>De quién</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td>Clasificar un latido en una banda</td><td class="who"><span class="pill neu">mecanismo</span></td><td class="muted"><code>zoneForBpm</code> contra las bandas resueltas. Igual para todos los coaches</td></tr>
+      <tr><td>Agregar por semana, lunes a domingo</td><td class="who"><span class="pill neu">mecanismo</span></td><td class="muted">Snap al lunes hacia atrás, como todo el producto</td></tr>
+      <tr><td>Congelar las bandas en la fecha del entreno</td><td class="who"><span class="pill neu">mecanismo</span></td><td class="muted">Un minuto ya contado no se recuenta solo</td></tr>
+      <tr><td>Orden de evidencia del ancla</td><td class="who"><span class="pill neu">mecanismo</span></td><td class="muted">Medido &gt; declarado &gt; estimado, ya escrito en <code>resolveThresholdHr</code></td></tr>
+      <tr><td>Dónde cortan las cinco bandas</td><td class="who"><span class="pill ok">método</span></td><td class="muted">Las fracciones de LTHR de <code>HR_ZONE_FRACTIONS</code> son NUESTRO defecto. Otro entrenador las pondría en otro sitio</td></tr>
+      <tr><td>Qué reparto de zonas considera «bueno»</td><td class="who"><span class="pill ok">método</span></td><td class="muted">El sistema no opina. Solo dibuja el reparto y deja que el coach lo firme</td></tr>
+      <tr><td>Los nombres y el orden de los tramos</td><td class="who"><span class="pill ok">método</span></td><td class="muted">Son sus microciclos. No hay catálogo de fases desde la 0064</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>El dato nuevo: minutos por zona, POR ENTRENO</h3>
+  <p>Una tabla propia, una fila por ejecución y zona: la zona (1 a 5, o el hueco), los segundos, con qué ancla y qué bandas se computó, y de qué fuente salió. Por entreno y no por semana, porque la semana es una suma y el entreno es el hecho: si mañana el coach quiere ver el reparto de un mes, de un tramo o de un tipo de sesión, la suma ya está donde toca.</p>
+  <div class="flow">
+    traza de FC <span class="arw">→</span> bandas vigentes ese día <span class="arw">→</span> segundos por zona (congelado) <span class="arw">→</span> suma por semana <span class="arw">→</span> gráfica
+  </div>
+  <div class="card">
+    <div class="rule"><span class="k">🧊</span><div><b>Se congela, y descongelarlo es un gesto explícito.</b> Los minutos se calculan con las bandas vigentes <i>en la fecha del entreno</i> y se guardan. Si el coach corrige después las anclas del atleta (llega un test de umbral, por ejemplo), recomputar el histórico es un botón que alguien pulsa, jamás un efecto silencioso. Una gráfica que cambia sola de forma cuando nadie la ha tocado deja de ser evidencia.</div></div>
+  </div>
+
+  <h3>De dónde salen los segundos</h3>
+  <p class="muted">Aquí hay que ser preciso, porque hay tres candidatos y solo uno produce minutos en NUESTRA escalera.</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4><code>workout_traces</code> <span class="pill ok">la fuente</span></h4>
+      <div class="tag">migración 0156 · <code>signal = 'heart_rate'</code> · offsets_s + values</div>
+      <ul>
+        <li>La serie cruda, muestra a muestra, con el eje del tiempo explícito. La clasificamos NOSOTROS con las bandas del atleta</li>
+        <li>La escribe tanto el entreno en vivo como la ingesta de HealthKit, Polar y Garmin</li>
+        <li>La clave incluye la fuente, así que correa y reloj conviven sin pisarse y se elige por fidelidad</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4><code>zone_seconds</code> del aparato <span class="pill warn">otra escalera</span></h4>
+      <div class="tag">dentro de <code>raw_lap_data_json</code> · lo escribe la ingesta y la captura por OCR</div>
+      <ul>
+        <li>Son los segundos por zona que ya trae calculados el reloj, o los que se leyeron de una foto</li>
+        <li><b>Están en la escalera del aparato, no en la nuestra</b>: Garmin reparte por porcentaje de FC máxima. Su «Z3» y el nuestro no son la misma banda</li>
+        <li>Se guardan con su método y NO se mezclan en la misma pila. Ese apilado exacto fue el bug de julio</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="border-color:#4a2a17">
+    <div class="rule"><span class="k">⚠️</span><div><b>Corrección al plan de partida:</b> <code>biometric_streams</code> <u>no</u> es una fuente aquí. Es una fila por lectura, pensada para métricas del DÍA (pulso en reposo, VFC, peso, sueño, pasos), y su enum está cerrado a 16 valores. Es exactamente lo que la 0156 explica que <i>no</i> debe llevar trazas de entreno. La fuente es <code>workout_traces</code>, y el guard anti doble transporte que ya existe en las ingestas se reutiliza igual.</div></div>
+  </div>
+
+  <h3>«No se sabe» es un valor, y tiene dos motivos distintos</h3>
+  <p class="muted">El hueco no es un error de dibujo: es información, y el coach actúa distinto según por qué está ahí.</p>
+  <div class="state a"><span class="nm">sin pulso</span>: el entreno no trajo FC. <span class="muted">Fuerza en seco, WOD sin banda, el atleta se dejó el reloj. Lo que hay que arreglar es la captura del dato.</span></div>
+  <div class="state r"><span class="nm">sin umbral</span>: hubo pulso, pero el atleta no tiene ancla. <span class="muted"><code>resolveHrZones</code> devuelve null y nos negamos a clasificar. Lo que hay que hacer es el test de umbral. Un atleta entero puede estar así, y su gráfica será una columna gris honesta.</span></div>
+  <p>En la gráfica los dos son la misma banda gris rayada, etiquetada <b>«Sin zona»</b>, porque a escala de semana ambos significan lo mismo: ese tiempo no se puede repartir. El motivo va en el detalle y en la tabla, que es donde el coach decide qué hacer. La banda de confianza del ancla (medida, declarada o estimada) se enseña como ya lo hace el sistema, y una gráfica levantada sobre un umbral estimado lo dice en su cabecera.</p>
+  <p class="note">El aro de después de un entreno seguirá diciendo «Sin pulso», que ahí es literalmente el único motivo posible. La palabra cambia porque el hecho cambia, no por descuido.</p>
+
+  <h2>4 · El estado real del dato, y por qué el plan empieza por el motor</h2>
+  <p>Hoy, si pintáramos esta gráfica tal cual, seis meses saldrían casi todo hueco. No es una razón para no construirla: es la razón exacta de que la tanda 1 sea el MOTOR y no la pantalla.</p>
+  <div class="scroll">
+  <table class="prose">
+    <thead><tr><th>Fuente</th><th>Qué hay HOY</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td>Reparto congelado del móvil</td><td class="who"><span class="pill bad">18 de 221</span></td><td class="muted">El entreno en vivo guarda su reparto por zonas, pero solo lo tienen 18 de los 221 tramos ejecutados. Es el 8%</td></tr>
+      <tr><td>Muestras de pulso con hora</td><td class="who"><span class="pill ok">~103.000</span></td><td class="muted">Ya están en producción. Cruzadas por ventana con los tramos ejecutados, <b>reconstruyen las zonas del histórico</b>. Es el activo grande y nadie lo está usando</td></tr>
+      <tr><td>Apple Health</td><td class="who"><span class="pill warn">30 días</span></td><td class="muted">Sube muestras de pulso con techo de 30 días, y <b>solo en el primer sync</b>. Los entrenos sí llegan sin techo de fecha</td></tr>
+      <tr><td>Polar y Garmin</td><td class="who"><span class="pill bad">sin serie</span></td><td class="muted">Entregan una media por sesión, no la serie. De ahí no salen minutos por zona en ninguna escalera</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="card">
+    <div class="rule"><span class="k">📈</span><div><b>La gráfica gana valor conforme el motor acumula, y eso se dice en voz alta.</b> No se enseña una ventana de seis meses vacía como si el atleta no hubiera entrenado: se dice cuántas semanas tienen cobertura y desde cuándo. Vender la pantalla antes de que el dato exista es exactamente cómo se pierde la confianza de un coach que sabe leer una gráfica.</div></div>
+  </div>
+
+  <h3>Lo que el motor tiene que hacer bien desde el primer día</h3>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Integrar por INTERVALO, jamás contar filas</h4>
+      <div class="tag">medido: cadencia ~4,9 s de media, huecos de hasta 81 s</div>
+      <ul>
+        <li>Una fila no es un segundo. Contar muestras hace que un minuto denso pese lo mismo que uno ralo</li>
+        <li>Cada muestra aporta el intervalo hasta la siguiente, y el hueco largo se declara como banda «sin pulso»</li>
+        <li>El hueco NO se reparte entre las zonas vecinas: rellenarlo es fabricar dato indistinguible del medido</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Solo pulso DE ENTRENO, nunca el de vivir</h4>
+      <div class="tag">el bug que se arregla en esta tanda</div>
+      <ul>
+        <li>Las muestras se cruzan por ventana con los tramos ejecutados</li>
+        <li>Hoy <code>deep-dive-performance.ts</code> lee <code>biometric_streams</code> por fecha y ya está, sin atarlo a ningún entreno: el pulso de dormir y el de estar sentado entran en la polarización del coach y le inflan la base</li>
+        <li>Es el mismo dato y la misma pantalla, así que se arregla aquí y no en una tarea aparte</li>
+      </ul>
+    </div>
+  </div>
+  <div class="state b"><span class="nm">reconstructor retroactivo</span>: sobre las ~103.000 muestras ya guardadas. <span class="muted">No es una idea nueva: <code>docs/design/reporte-post-entreno-model.html</code> ya propuso esta pieza. Se cita y se reutiliza, no se reinventa.</span></div>
+  <div class="state g"><span class="nm">serie durable hacia delante</span>: empezar a escribir <code>workout_traces</code>. <span class="muted">La tabla y su Zod existen desde <code>3f151648</code> y <b>no tienen un solo escritor</b>. El archivo que tiene que durar toda la vida deportiva del atleta empieza el día que alguien escriba en él.</span></div>
+  <div class="state b"><span class="nm">precedencia correa contra reloj</span>: vía <code>shared/domain/execution-merge/precedence.ts</code>. <span class="muted">Un entreno puede traer dos series del mismo minuto. El ranking por fidelidad ya está escrito: se usa, para no contar ese minuto dos veces.</span></div>
+  <div class="state a"><span class="nm">agregación en Postgres</span>: <code>date_trunc</code> y buckets, no un bucle en Node. <span class="muted">Son del orden de 10⁵ filas por atleta. La lectura de hoy las trae todas al proceso, y la del histórico repite la consulta doce veces, una por semana.</span></div>
+
+  <div class="card" style="border-color:#4a2a17">
+    <div class="rule"><span class="k">⚖️</span><div><b>Riesgo de HARD RULE Nº0, y se corrige en esta obra.</b> Dos números que son MÉTODO del coach viven hoy como constantes: los cortes de banda (<code>HR_ZONE_FRACTIONS</code>) y el objetivo de polarización 80/0/20, este último además <u>duplicado</u> en <code>shared/domain/coach/polarization.ts</code> y en <code>web/lib/dashboard/coach/deep-dive-performance.ts</code>. Otro entrenador competente los pondría en otro sitio, así que pasan a dato editable con nuestro valor de hoy como defecto, por el patrón que la 0161 ya dejó montado: fila del coach mezclada sobre los defectos del sistema, y un coach que no toca nada se comporta igual que hoy.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="rule"><span class="k">🎨</span><div><b>Decidido, porque hay dos escalas y no coinciden:</b> en el repo conviven <code>--z1..--z5</code> (cinco bandas de FRECUENCIA CARDIACA, alineadas con <code>ZoneColors</code> de iOS) y <code>--v2-z1..--v2-z6</code> (seis bandas de RITMO, donde Z1 es verde y el ámbar cae en Z3). Esta gráfica es de frecuencia cardiaca, así que usa <b><code>--z*</code></b>. Mezclarlas haría que «verde» significara recuperación en una pantalla y tempo en la de al lado.</div></div>
+  </div>
+
+  <h2>5 · Las superficies</h2>
+  <p class="muted">Por orden de aparición. Coach primero, atleta después, que es lo que piden los audios.</p>
+
+  <h3>A · Ficha del atleta, pestaña Rendimiento: la gráfica</h3>
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-t">Tiempo en zonas <span class="path">/coach/atletas/[id] · Rendimiento</span></div>
+    </div>
+    <div class="wf-body">
+      <div class="ctrls">
+        <span class="ctrl">3 meses</span><span class="ctrl on">6 meses</span><span class="ctrl">1 año</span>
+        <span style="width:10px"></span>
+        <span class="ctrl on">Todos los tipos</span><span class="ctrl">Correr</span><span class="ctrl">Fuerza</span><span class="ctrl">WOD</span><span class="ctrl">Ergo</span>
+      </div>
+      <div class="plot">
+    <svg viewBox="0 0 940 356" role="img" aria-label="Tiempo semanal en zonas de frecuencia cardiaca, 24 semanas de ejemplo">
+      <defs>
+        <pattern id="sinzona" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="#232326"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#55555d" stroke-width="2"/>
+        </pattern>
+      </defs>
+      <line x1="54" y1="286.0" x2="910" y2="286.0" class="gl"/>
+      <text x="44" y="290.0" class="ytick">0</text>
+      <line x1="54" y1="228.2" x2="910" y2="228.2" class="gl"/>
+      <text x="44" y="232.2" class="ytick">2h</text>
+      <line x1="54" y1="170.4" x2="910" y2="170.4" class="gl"/>
+      <text x="44" y="174.4" class="ytick">4h</text>
+      <line x1="54" y1="112.7" x2="910" y2="112.7" class="gl"/>
+      <text x="44" y="116.7" class="ytick">6h</text>
+      <line x1="54" y1="54.9" x2="910" y2="54.9" class="gl"/>
+      <text x="44" y="58.9" class="ytick">8h</text>
+      <rect x="60.8" y="274" width="22" height="12" fill="var(--z1)"/>
+      <rect x="60.8" y="254.7" width="22" height="17.3" fill="var(--z2)"/>
+      <rect x="60.8" y="228.2" width="22" height="24.5" fill="var(--z3)"/>
+      <rect x="60.8" y="194.5" width="22" height="31.7" fill="var(--z4)"/>
+      <rect x="60.8" y="172.9" width="22" height="19.7" fill="var(--z5)"/>
+      <path d="M60.8 170.9V148a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V170.9Z" fill="url(#sinzona)"/>
+      <rect x="96.5" y="278.8" width="22" height="7.2" fill="var(--z1)"/>
+      <rect x="96.5" y="264.3" width="22" height="12.4" fill="var(--z2)"/>
+      <rect x="96.5" y="245.1" width="22" height="17.3" fill="var(--z3)"/>
+      <rect x="96.5" y="204.1" width="22" height="38.9" fill="var(--z4)"/>
+      <rect x="96.5" y="175.3" width="22" height="26.9" fill="var(--z5)"/>
+      <path d="M96.5 173.29999999999998V157.6a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V173.29999999999998Z" fill="url(#sinzona)"/>
+      <rect x="132.2" y="271.6" width="22" height="14.4" fill="var(--z1)"/>
+      <rect x="132.2" y="245.1" width="22" height="24.5" fill="var(--z2)"/>
+      <rect x="132.2" y="216.2" width="22" height="26.9" fill="var(--z3)"/>
+      <rect x="132.2" y="170.4" width="22" height="43.7" fill="var(--z4)"/>
+      <rect x="132.2" y="144" width="22" height="24.5" fill="var(--z5)"/>
+      <path d="M132.2 142V114.3a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V142Z" fill="url(#sinzona)"/>
+      <rect x="167.8" y="281.2" width="22" height="4.8" fill="var(--z1)"/>
+      <rect x="167.8" y="271.6" width="22" height="7.6" fill="var(--z2)"/>
+      <rect x="167.8" y="257.1" width="22" height="12.4" fill="var(--z3)"/>
+      <rect x="167.8" y="235.4" width="22" height="19.7" fill="var(--z4)"/>
+      <rect x="167.8" y="221" width="22" height="12.4" fill="var(--z5)"/>
+      <path d="M167.8 219V210.6a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V219Z" fill="url(#sinzona)"/>
+      <rect x="203.5" y="276.4" width="22" height="9.6" fill="var(--z1)"/>
+      <rect x="203.5" y="259.5" width="22" height="14.9" fill="var(--z2)"/>
+      <rect x="203.5" y="228.2" width="22" height="29.3" fill="var(--z3)"/>
+      <rect x="203.5" y="180.1" width="22" height="46.1" fill="var(--z4)"/>
+      <rect x="203.5" y="146.4" width="22" height="31.7" fill="var(--z5)"/>
+      <path d="M203.5 144.4V123.9a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V144.4Z" fill="url(#sinzona)"/>
+      <rect x="239.2" y="274" width="22" height="12" fill="var(--z1)"/>
+      <rect x="239.2" y="259.5" width="22" height="12.4" fill="var(--z2)"/>
+      <rect x="239.2" y="237.9" width="22" height="19.7" fill="var(--z3)"/>
+      <rect x="239.2" y="199.3" width="22" height="36.5" fill="var(--z4)"/>
+      <rect x="239.2" y="168" width="22" height="29.3" fill="var(--z5)"/>
+      <path d="M239.2 166.10000000000002V152.8a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V166.10000000000002Z" fill="url(#sinzona)"/>
+      <rect x="274.8" y="278.8" width="22" height="7.2" fill="var(--z1)"/>
+      <rect x="274.8" y="266.7" width="22" height="10" fill="var(--z2)"/>
+      <rect x="274.8" y="249.9" width="22" height="14.9" fill="var(--z3)"/>
+      <rect x="274.8" y="223.4" width="22" height="24.5" fill="var(--z4)"/>
+      <rect x="274.8" y="204.1" width="22" height="17.3" fill="var(--z5)"/>
+      <path d="M274.8 202.20000000000002V191.3a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V202.20000000000002Z" fill="url(#sinzona)"/>
+      <rect x="310.5" y="271.6" width="22" height="14.4" fill="var(--z1)"/>
+      <rect x="310.5" y="247.5" width="22" height="22.1" fill="var(--z2)"/>
+      <rect x="310.5" y="213.8" width="22" height="31.7" fill="var(--z3)"/>
+      <rect x="310.5" y="163.2" width="22" height="48.6" fill="var(--z4)"/>
+      <rect x="310.5" y="127.1" width="22" height="34.1" fill="var(--z5)"/>
+      <path d="M310.5 125.1V99.8a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V125.1Z" fill="url(#sinzona)"/>
+      <rect x="346.2" y="281.2" width="22" height="4.8" fill="var(--z1)"/>
+      <rect x="346.2" y="271.6" width="22" height="7.6" fill="var(--z2)"/>
+      <rect x="346.2" y="259.5" width="22" height="10" fill="var(--z3)"/>
+      <rect x="346.2" y="240.3" width="22" height="17.3" fill="var(--z4)"/>
+      <rect x="346.2" y="228.2" width="22" height="10" fill="var(--z5)"/>
+      <path d="M346.2 226.2V220.2a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V226.2Z" fill="url(#sinzona)"/>
+      <rect x="381.8" y="274" width="22" height="12" fill="var(--z1)"/>
+      <rect x="381.8" y="254.7" width="22" height="17.3" fill="var(--z2)"/>
+      <rect x="381.8" y="225.8" width="22" height="26.9" fill="var(--z3)"/>
+      <rect x="381.8" y="182.5" width="22" height="41.3" fill="var(--z4)"/>
+      <rect x="381.8" y="153.6" width="22" height="26.9" fill="var(--z5)"/>
+      <path d="M381.8 151.6V133.5a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V151.6Z" fill="url(#sinzona)"/>
+      <rect x="417.5" y="257.1" width="22" height="28.9" fill="var(--z1)"/>
+      <rect x="417.5" y="218.6" width="22" height="36.5" fill="var(--z2)"/>
+      <rect x="417.5" y="199.3" width="22" height="17.3" fill="var(--z3)"/>
+      <rect x="417.5" y="182.5" width="22" height="14.9" fill="var(--z4)"/>
+      <rect x="417.5" y="177.7" width="22" height="2.8" fill="var(--z5)"/>
+      <path d="M417.5 175.7V160a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V175.7Z" fill="url(#sinzona)"/>
+      <rect x="453.2" y="252.3" width="22" height="33.7" fill="var(--z1)"/>
+      <rect x="453.2" y="206.6" width="22" height="43.7" fill="var(--z2)"/>
+      <rect x="453.2" y="184.9" width="22" height="19.7" fill="var(--z3)"/>
+      <rect x="453.2" y="168" width="22" height="14.9" fill="var(--z4)"/>
+      <rect x="453.2" y="162.3" width="22" height="3.8" fill="var(--z5)"/>
+      <path d="M453.2 160.3V147a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V160.3Z" fill="url(#sinzona)"/>
+      <rect x="488.8" y="247.5" width="22" height="38.5" fill="var(--z1)"/>
+      <rect x="488.8" y="194.5" width="22" height="51" fill="var(--z2)"/>
+      <rect x="488.8" y="170.4" width="22" height="22.1" fill="var(--z3)"/>
+      <rect x="488.8" y="151.2" width="22" height="17.3" fill="var(--z4)"/>
+      <rect x="488.8" y="144" width="22" height="5.2" fill="var(--z5)"/>
+      <path d="M488.8 142V131.1a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V142Z" fill="url(#sinzona)"/>
+      <rect x="524.5" y="249.9" width="22" height="36.1" fill="var(--z1)"/>
+      <rect x="524.5" y="199.3" width="22" height="48.6" fill="var(--z2)"/>
+      <rect x="524.5" y="177.7" width="22" height="19.7" fill="var(--z3)"/>
+      <rect x="524.5" y="163.2" width="22" height="12.4" fill="var(--z4)"/>
+      <rect x="524.5" y="158.4" width="22" height="2.8" fill="var(--z5)"/>
+      <path d="M524.5 156.4V148a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V156.4Z" fill="url(#sinzona)"/>
+      <rect x="560.2" y="242.7" width="22" height="43.3" fill="var(--z1)"/>
+      <rect x="560.2" y="182.5" width="22" height="58.2" fill="var(--z2)"/>
+      <rect x="560.2" y="156" width="22" height="24.5" fill="var(--z3)"/>
+      <rect x="560.2" y="136.7" width="22" height="17.3" fill="var(--z4)"/>
+      <rect x="560.2" y="129.5" width="22" height="5.2" fill="var(--z5)"/>
+      <path d="M560.2 127.5V119.1a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V127.5Z" fill="url(#sinzona)"/>
+      <rect x="595.8" y="240.3" width="22" height="45.7" fill="var(--z1)"/>
+      <rect x="595.8" y="175.3" width="22" height="63" fill="var(--z2)"/>
+      <rect x="595.8" y="146.4" width="22" height="26.9" fill="var(--z3)"/>
+      <rect x="595.8" y="124.7" width="22" height="19.7" fill="var(--z4)"/>
+      <rect x="595.8" y="116" width="22" height="6.7" fill="var(--z5)"/>
+      <path d="M595.8 114V108a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V114Z" fill="url(#sinzona)"/>
+      <rect x="631.5" y="235.4" width="22" height="50.6" fill="var(--z1)"/>
+      <rect x="631.5" y="165.6" width="22" height="67.8" fill="var(--z2)"/>
+      <rect x="631.5" y="136.7" width="22" height="26.9" fill="var(--z3)"/>
+      <rect x="631.5" y="115.1" width="22" height="19.7" fill="var(--z4)"/>
+      <rect x="631.5" y="105.4" width="22" height="7.6" fill="var(--z5)"/>
+      <path d="M631.5 103.4V97.4a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V103.4Z" fill="url(#sinzona)"/>
+      <rect x="667.2" y="245.1" width="22" height="40.9" fill="var(--z1)"/>
+      <rect x="667.2" y="189.7" width="22" height="53.4" fill="var(--z2)"/>
+      <rect x="667.2" y="168" width="22" height="19.7" fill="var(--z3)"/>
+      <rect x="667.2" y="153.6" width="22" height="12.4" fill="var(--z4)"/>
+      <rect x="667.2" y="147.8" width="22" height="3.8" fill="var(--z5)"/>
+      <path d="M667.2 145.79999999999998V142.2a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V145.79999999999998Z" fill="url(#sinzona)"/>
+      <rect x="702.8" y="233" width="22" height="53" fill="var(--z1)"/>
+      <rect x="702.8" y="158.4" width="22" height="72.6" fill="var(--z2)"/>
+      <rect x="702.8" y="127.1" width="22" height="29.3" fill="var(--z3)"/>
+      <rect x="702.8" y="103" width="22" height="22.1" fill="var(--z4)"/>
+      <rect x="702.8" y="93.4" width="22" height="7.6" fill="var(--z5)"/>
+      <path d="M702.8 91.39999999999999V87.8a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V91.39999999999999Z" fill="url(#sinzona)"/>
+      <rect x="738.5" y="228.2" width="22" height="57.8" fill="var(--z1)"/>
+      <rect x="738.5" y="148.8" width="22" height="77.4" fill="var(--z2)"/>
+      <rect x="738.5" y="115.1" width="22" height="31.7" fill="var(--z3)"/>
+      <rect x="738.5" y="91" width="22" height="22.1" fill="var(--z4)"/>
+      <rect x="738.5" y="80.4" width="22" height="8.6" fill="var(--z5)"/>
+      <path d="M738.5 78.4V75.7a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V78.4Z" fill="url(#sinzona)"/>
+      <rect x="774.2" y="225.8" width="22" height="60.2" fill="var(--z1)"/>
+      <rect x="774.2" y="141.6" width="22" height="82.3" fill="var(--z2)"/>
+      <rect x="774.2" y="107.9" width="22" height="31.7" fill="var(--z3)"/>
+      <rect x="774.2" y="81.4" width="22" height="24.5" fill="var(--z4)"/>
+      <rect x="774.2" y="69.3" width="22" height="10" fill="var(--z5)"/>
+      <path d="M774.2 67.3V66.1a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V67.3Z" fill="url(#sinzona)"/>
+      <rect x="809.8" y="237.9" width="22" height="48.1" fill="var(--z1)"/>
+      <rect x="809.8" y="172.9" width="22" height="63" fill="var(--z2)"/>
+      <rect x="809.8" y="146.4" width="22" height="24.5" fill="var(--z3)"/>
+      <rect x="809.8" y="127.1" width="22" height="17.3" fill="var(--z4)"/>
+      <rect x="809.8" y="119.9" width="22" height="5.2" fill="var(--z5)"/>
+      <path d="M809.8 117.9V116.7a4 4 0 0 1 4 -4h14a4 4 0 0 1 4 4V117.9Z" fill="url(#sinzona)"/>
+      <rect x="845.5" y="221" width="22" height="65" fill="var(--z1)"/>
+      <rect x="845.5" y="131.9" width="22" height="87.1" fill="var(--z2)"/>
+      <rect x="845.5" y="95.8" width="22" height="34.1" fill="var(--z3)"/>
+      <rect x="845.5" y="69.3" width="22" height="24.5" fill="var(--z4)"/>
+      <rect x="845.5" y="55.9" width="22" height="11.5" fill="var(--z5)"/>
+      <path d="M845.5 53.9V53.9a3.8 3.8 0 0 1 3.8 -3.8h14.4a3.8 3.8 0 0 1 3.8 3.8V53.9Z" fill="url(#sinzona)"/>
+      <rect x="881.2" y="218.6" width="22" height="67.4" fill="var(--z1)"/>
+      <rect x="881.2" y="124.7" width="22" height="91.9" fill="var(--z2)"/>
+      <rect x="881.2" y="86.2" width="22" height="36.5" fill="var(--z3)"/>
+      <rect x="881.2" y="57.3" width="22" height="26.9" fill="var(--z4)"/>
+      <rect x="881.2" y="42.9" width="22" height="12.4" fill="var(--z5)"/>
+      <path d="M881.2 40.8V40.8a2.8 2.8 0 0 1 2.8 -2.8h16.4a2.8 2.8 0 0 1 2.8 2.8V40.8Z" fill="url(#sinzona)"/>
+      <text x="321.5" y="86.8" class="cap">6h 35m</text>
+      <text x="892.2" y="29.0" class="cap">8h 35m</text>
+      <line x1="54" y1="286" x2="910" y2="286" class="axis"/>
+      <text x="71.8" y="304" class="xtick">sem 1</text>
+      <text x="178.8" y="304" class="xtick">4</text>
+      <text x="321.5" y="304" class="xtick">8</text>
+      <text x="464.2" y="304" class="xtick">12</text>
+      <text x="606.8" y="304" class="xtick">16</text>
+      <text x="749.5" y="304" class="xtick">20</text>
+      <text x="892.2" y="304" class="xtick">24</text>
+      <rect x="55.0" y="314" width="354.7" height="22" rx="5" class="tramo-void"/>
+      <text x="232.3" y="329" class="tramo-lbl void">Antes del plan</text>
+      <rect x="411.7" y="314" width="140.7" height="22" rx="5" class="tramo t1"/>
+      <text x="482.0" y="329" class="tramo-lbl">Base 1</text>
+      <rect x="554.3" y="314" width="140.7" height="22" rx="5" class="tramo t2"/>
+      <text x="624.7" y="329" class="tramo-lbl">Base 2</text>
+      <rect x="697.0" y="314" width="140.7" height="22" rx="5" class="tramo t3"/>
+      <text x="767.3" y="329" class="tramo-lbl">Específico</text>
+      <rect x="839.7" y="314" width="69.3" height="22" rx="5" class="tramo t4"/>
+      <text x="874.3" y="329" class="tramo-lbl">Afinado</text>
+    </svg>
+      </div>
+      <p class="plot-hint">desliza la gráfica para ver las 24 semanas</p>
+      <div class="leg">
+        <span><i class="sw" style="background:var(--z1)"></i>Z1 suave</span>
+        <span><i class="sw" style="background:var(--z2)"></i>Z2 base</span>
+        <span><i class="sw" style="background:var(--z3)"></i>Z3 tempo</span>
+        <span><i class="sw" style="background:var(--z4)"></i>Z4 umbral</span>
+        <span><i class="sw" style="background:var(--z5)"></i>Z5 máximo</span>
+        <span><i class="sw hole"></i>Sin zona</span>
+      </div>
+      <p class="note" style="margin-top:14px">Datos de ejemplo, inventados para enseñar la forma: 24 semanas donde las diez primeras son la sierra y las catorce siguientes son la base creciendo. Ningún número de esta gráfica es de un atleta real.</p>
+    </div>
+  </div>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Lo que se ve sin explicar nada</h4>
+      <ul>
+        <li>Ventana de 6 meses por defecto, con 3 meses y 1 año a un toque</li>
+        <li>Filtro por tipo de entreno, el mismo que traía la gráfica de referencia</li>
+        <li>Debajo del eje, la banda de tramos del plan, en tonos de marca</li>
+        <li>El gris rayado dice cuánto tiempo no se pudo repartir, y cómo encoge</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Reglas de construcción, no de gusto</h4>
+      <ul>
+        <li>Barras de 22px con aire, tope de 24: el hueco separa, nunca un borde</li>
+        <li>Separador de 2px entre segmentos, y el orden Z1 abajo siempre fijo</li>
+        <li>Un solo eje Y, cinco marcas, rejilla de un punto sobre el fondo</li>
+        <li>Etiqueta directa solo en los dos extremos, jamás en las 24 barras</li>
+        <li>Su vista de tabla al lado, que es donde el valor exacto siempre está</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">El naranja no aparece nunca dentro de la gráfica. Es la marca, y aquí pinta el PLAN (los tramos), así que dato y estructura no se pueden confundir ni de reojo. Los tonos de zona son los del sistema, los mismos del aro del reloj.</p>
+
+  <h3>B · «Dar feedback»: el gesto que lo une todo</h3>
+  <p>Sobre la misma gráfica, el coach <b>marca rangos de semanas</b>. Cada marca lleva una etiqueta corta y un tono: llamada de atención, bien, o neutro. Es <b>dato estructurado, no dibujo libre</b>, y esa es la decisión de fondo de toda la tanda: un círculo a mano es un pantallazo muerto, mientras que un rango es un dato que se vuelve a pintar en cualquier pantalla, a cualquier tamaño, y se puede buscar seis meses después.</p>
+  <div class="wf">
+    <div class="wf-head"><div class="wf-t">Dos rangos marcados sobre la misma gráfica</div></div>
+    <div class="wf-body">
+      <div class="plot sm">
+<svg viewBox="0 0 620 190" role="img" aria-label="La misma gráfica con dos rangos de semanas marcados por el coach">
+      <defs>
+        <pattern id="sinzona2" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="#232326"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#55555d" stroke-width="2"/>
+        </pattern>
+      </defs>
+      <rect x="11" y="34" width="248" height="134" rx="4" class="rango atencion"/>
+      <text x="16.0" y="26" class="rango-lbl atencion">Sierra: todo a tope, nada de base</text>
+      <rect x="361" y="34" width="248" height="134" rx="4" class="rango bien"/>
+      <text x="366.0" y="26" class="rango-lbl bien">La base sube y se sostiene</text>
+      <rect x="15" y="162.1" width="15" height="5.9" fill="var(--z1)"/>
+      <rect x="15" y="152.6" width="15" height="8" fill="var(--z2)"/>
+      <rect x="15" y="139.6" width="15" height="11.5" fill="var(--z3)"/>
+      <rect x="15" y="123" width="15" height="15.1" fill="var(--z4)"/>
+      <rect x="15" y="112.3" width="15" height="9.2" fill="var(--z5)"/>
+      <path d="M15 110.8V101.1a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V110.8Z" fill="url(#sinzona2)"/>
+      <rect x="40" y="164.4" width="15" height="3.6" fill="var(--z1)"/>
+      <rect x="40" y="157.3" width="15" height="5.6" fill="var(--z2)"/>
+      <rect x="40" y="147.9" width="15" height="8" fill="var(--z3)"/>
+      <rect x="40" y="127.7" width="15" height="18.6" fill="var(--z4)"/>
+      <rect x="40" y="113.5" width="15" height="12.7" fill="var(--z5)"/>
+      <path d="M40 112V105.8a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V112Z" fill="url(#sinzona2)"/>
+      <rect x="65" y="160.9" width="15" height="7.1" fill="var(--z1)"/>
+      <rect x="65" y="147.9" width="15" height="11.5" fill="var(--z2)"/>
+      <rect x="65" y="133.6" width="15" height="12.7" fill="var(--z3)"/>
+      <rect x="65" y="111.1" width="15" height="21" fill="var(--z4)"/>
+      <rect x="65" y="98.1" width="15" height="11.5" fill="var(--z5)"/>
+      <path d="M65 96.6V84.5a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V96.6Z" fill="url(#sinzona2)"/>
+      <rect x="90" y="165.6" width="15" height="2.4" fill="var(--z1)"/>
+      <rect x="90" y="160.9" width="15" height="3.2" fill="var(--z2)"/>
+      <rect x="90" y="153.8" width="15" height="5.6" fill="var(--z3)"/>
+      <rect x="90" y="143.1" width="15" height="9.2" fill="var(--z4)"/>
+      <rect x="90" y="136" width="15" height="5.6" fill="var(--z5)"/>
+      <path d="M90 134.5V131.9a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V134.5Z" fill="url(#sinzona2)"/>
+      <rect x="115" y="163.3" width="15" height="4.7" fill="var(--z1)"/>
+      <rect x="115" y="155" width="15" height="6.8" fill="var(--z2)"/>
+      <rect x="115" y="139.6" width="15" height="13.9" fill="var(--z3)"/>
+      <rect x="115" y="115.9" width="15" height="22.2" fill="var(--z4)"/>
+      <rect x="115" y="99.3" width="15" height="15.1" fill="var(--z5)"/>
+      <path d="M115 97.7V89.2a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V97.7Z" fill="url(#sinzona2)"/>
+      <rect x="140" y="162.1" width="15" height="5.9" fill="var(--z1)"/>
+      <rect x="140" y="155" width="15" height="5.6" fill="var(--z2)"/>
+      <rect x="140" y="144.3" width="15" height="9.2" fill="var(--z3)"/>
+      <rect x="140" y="125.3" width="15" height="17.5" fill="var(--z4)"/>
+      <rect x="140" y="109.9" width="15" height="13.9" fill="var(--z5)"/>
+      <path d="M140 108.4V103.4a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V108.4Z" fill="url(#sinzona2)"/>
+      <rect x="165" y="164.4" width="15" height="3.6" fill="var(--z1)"/>
+      <rect x="165" y="158.5" width="15" height="4.4" fill="var(--z2)"/>
+      <rect x="165" y="150.2" width="15" height="6.8" fill="var(--z3)"/>
+      <rect x="165" y="137.2" width="15" height="11.5" fill="var(--z4)"/>
+      <rect x="165" y="127.7" width="15" height="8" fill="var(--z5)"/>
+      <path d="M165 126.2V122.4a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V126.2Z" fill="url(#sinzona2)"/>
+      <rect x="190" y="160.9" width="15" height="7.1" fill="var(--z1)"/>
+      <rect x="190" y="149" width="15" height="10.4" fill="var(--z2)"/>
+      <rect x="190" y="132.4" width="15" height="15.1" fill="var(--z3)"/>
+      <rect x="190" y="107.6" width="15" height="23.4" fill="var(--z4)"/>
+      <rect x="190" y="89.8" width="15" height="16.3" fill="var(--z5)"/>
+      <path d="M190 88.30000000000001V77.4a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V88.30000000000001Z" fill="url(#sinzona2)"/>
+      <rect x="215" y="165.6" width="15" height="2.4" fill="var(--z1)"/>
+      <rect x="215" y="160.9" width="15" height="3.2" fill="var(--z2)"/>
+      <rect x="215" y="155" width="15" height="4.4" fill="var(--z3)"/>
+      <rect x="215" y="145.5" width="15" height="8" fill="var(--z4)"/>
+      <rect x="215" y="139.6" width="15" height="4.4" fill="var(--z5)"/>
+      <path d="M215 138V136.6a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V138Z" fill="url(#sinzona2)"/>
+      <rect x="240" y="162.1" width="15" height="5.9" fill="var(--z1)"/>
+      <rect x="240" y="152.6" width="15" height="8" fill="var(--z2)"/>
+      <rect x="240" y="138.4" width="15" height="12.7" fill="var(--z3)"/>
+      <rect x="240" y="117" width="15" height="19.8" fill="var(--z4)"/>
+      <rect x="240" y="102.8" width="15" height="12.7" fill="var(--z5)"/>
+      <path d="M240 101.4V94a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V101.4Z" fill="url(#sinzona2)"/>
+      <rect x="265" y="153.8" width="15" height="14.2" fill="var(--z1)"/>
+      <rect x="265" y="134.8" width="15" height="17.5" fill="var(--z2)"/>
+      <rect x="265" y="125.3" width="15" height="8" fill="var(--z3)"/>
+      <rect x="265" y="117" width="15" height="6.8" fill="var(--z4)"/>
+      <rect x="265" y="114.7" width="15" height="1.2" fill="var(--z5)"/>
+      <path d="M265 113.2V107a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V113.2Z" fill="url(#sinzona2)"/>
+      <rect x="290" y="151.4" width="15" height="16.6" fill="var(--z1)"/>
+      <rect x="290" y="128.9" width="15" height="21" fill="var(--z2)"/>
+      <rect x="290" y="118.2" width="15" height="9.2" fill="var(--z3)"/>
+      <rect x="290" y="109.9" width="15" height="6.8" fill="var(--z4)"/>
+      <rect x="290" y="107.1" width="15" height="1.3" fill="var(--z5)"/>
+      <path d="M290 105.6V100.6a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V105.6Z" fill="url(#sinzona2)"/>
+      <rect x="315" y="149" width="15" height="19" fill="var(--z1)"/>
+      <rect x="315" y="123" width="15" height="24.6" fill="var(--z2)"/>
+      <rect x="315" y="111.1" width="15" height="10.4" fill="var(--z3)"/>
+      <rect x="315" y="101.6" width="15" height="8" fill="var(--z4)"/>
+      <rect x="315" y="98.1" width="15" height="2.1" fill="var(--z5)"/>
+      <path d="M315 96.6V92.8a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V96.6Z" fill="url(#sinzona2)"/>
+      <rect x="340" y="150.2" width="15" height="17.8" fill="var(--z1)"/>
+      <rect x="340" y="125.3" width="15" height="23.4" fill="var(--z2)"/>
+      <rect x="340" y="114.7" width="15" height="9.2" fill="var(--z3)"/>
+      <rect x="340" y="107.6" width="15" height="5.6" fill="var(--z4)"/>
+      <rect x="340" y="105.2" width="15" height="1.2" fill="var(--z5)"/>
+      <path d="M340 103.69999999999999V101.1a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V103.69999999999999Z" fill="url(#sinzona2)"/>
+      <rect x="365" y="146.7" width="15" height="21.3" fill="var(--z1)"/>
+      <rect x="365" y="117" width="15" height="28.1" fill="var(--z2)"/>
+      <rect x="365" y="104" width="15" height="11.5" fill="var(--z3)"/>
+      <rect x="365" y="94.5" width="15" height="8" fill="var(--z4)"/>
+      <rect x="365" y="91" width="15" height="2.1" fill="var(--z5)"/>
+      <path d="M365 89.5V86.9a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V89.5Z" fill="url(#sinzona2)"/>
+      <rect x="390" y="145.5" width="15" height="22.5" fill="var(--z1)"/>
+      <rect x="390" y="113.5" width="15" height="30.5" fill="var(--z2)"/>
+      <rect x="390" y="99.3" width="15" height="12.7" fill="var(--z3)"/>
+      <rect x="390" y="88.6" width="15" height="9.2" fill="var(--z4)"/>
+      <rect x="390" y="84.3" width="15" height="2.8" fill="var(--z5)"/>
+      <path d="M390 82.80000000000001V81.4a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V82.80000000000001Z" fill="url(#sinzona2)"/>
+      <rect x="415" y="143.1" width="15" height="24.9" fill="var(--z1)"/>
+      <rect x="415" y="108.7" width="15" height="32.9" fill="var(--z2)"/>
+      <rect x="415" y="94.5" width="15" height="12.7" fill="var(--z3)"/>
+      <rect x="415" y="83.9" width="15" height="9.2" fill="var(--z4)"/>
+      <rect x="415" y="79.1" width="15" height="3.2" fill="var(--z5)"/>
+      <path d="M415 77.60000000000001V76.2a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V77.60000000000001Z" fill="url(#sinzona2)"/>
+      <rect x="440" y="147.9" width="15" height="20.1" fill="var(--z1)"/>
+      <rect x="440" y="120.6" width="15" height="25.8" fill="var(--z2)"/>
+      <rect x="440" y="109.9" width="15" height="9.2" fill="var(--z3)"/>
+      <rect x="440" y="102.8" width="15" height="5.6" fill="var(--z4)"/>
+      <rect x="440" y="100" width="15" height="1.3" fill="var(--z5)"/>
+      <path d="M440 98.4V98.2a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V98.4Z" fill="url(#sinzona2)"/>
+      <rect x="465" y="141.9" width="15" height="26.1" fill="var(--z1)"/>
+      <rect x="465" y="105.2" width="15" height="35.2" fill="var(--z2)"/>
+      <rect x="465" y="89.8" width="15" height="13.9" fill="var(--z3)"/>
+      <rect x="465" y="77.9" width="15" height="10.4" fill="var(--z4)"/>
+      <rect x="465" y="73.2" width="15" height="3.2" fill="var(--z5)"/>
+      <path d="M465 71.60000000000001V71.4a3 3 0 0 1 3 -3h9a3 3 0 0 1 3 3V71.60000000000001Z" fill="url(#sinzona2)"/>
+      <rect x="490" y="139.6" width="15" height="28.4" fill="var(--z1)"/>
+      <rect x="490" y="100.4" width="15" height="37.6" fill="var(--z2)"/>
+      <rect x="490" y="83.9" width="15" height="15.1" fill="var(--z3)"/>
+      <rect x="490" y="72" width="15" height="10.4" fill="var(--z4)"/>
+      <rect x="490" y="66.8" width="15" height="3.7" fill="var(--z5)"/>
+      <path d="M490 65.3V65.3a2.8 2.8 0 0 1 2.8 -2.8h9.4a2.8 2.8 0 0 1 2.8 2.8V65.3Z" fill="url(#sinzona2)"/>
+      <rect x="515" y="138.4" width="15" height="29.6" fill="var(--z1)"/>
+      <rect x="515" y="96.9" width="15" height="40" fill="var(--z2)"/>
+      <rect x="515" y="80.3" width="15" height="15.1" fill="var(--z3)"/>
+      <rect x="515" y="67.3" width="15" height="11.5" fill="var(--z4)"/>
+      <rect x="515" y="61.3" width="15" height="4.4" fill="var(--z5)"/>
+      <path d="M515 59.9V59.9a2.1 2.1 0 0 1 2.1 -2.1h10.8a2.1 2.1 0 0 1 2.1 2.1V59.9Z" fill="url(#sinzona2)"/>
+      <rect x="540" y="144.3" width="15" height="23.7" fill="var(--z1)"/>
+      <rect x="540" y="112.3" width="15" height="30.5" fill="var(--z2)"/>
+      <rect x="540" y="99.3" width="15" height="11.5" fill="var(--z3)"/>
+      <rect x="540" y="89.8" width="15" height="8" fill="var(--z4)"/>
+      <rect x="540" y="86.2" width="15" height="2.1" fill="var(--z5)"/>
+      <path d="M540 84.8V84.8a2.1 2.1 0 0 1 2.1 -2.1h10.8a2.1 2.1 0 0 1 2.1 2.1V84.8Z" fill="url(#sinzona2)"/>
+      <rect x="565" y="136" width="15" height="32" fill="var(--z1)"/>
+      <rect x="565" y="92.1" width="15" height="42.4" fill="var(--z2)"/>
+      <rect x="565" y="74.4" width="15" height="16.3" fill="var(--z3)"/>
+      <rect x="565" y="61.3" width="15" height="11.5" fill="var(--z4)"/>
+      <rect x="565" y="54.7" width="15" height="5.1" fill="var(--z5)"/>
+      <path d="M565 53.199999999999996V53.199999999999996a1.3 1.3 0 0 1 1.3 -1.3h12.4a1.3 1.3 0 0 1 1.3 1.3V53.199999999999996Z" fill="url(#sinzona2)"/>
+      <rect x="590" y="134.8" width="15" height="33.2" fill="var(--z1)"/>
+      <rect x="590" y="88.6" width="15" height="44.7" fill="var(--z2)"/>
+      <rect x="590" y="69.6" width="15" height="17.5" fill="var(--z3)"/>
+      <rect x="590" y="55.4" width="15" height="12.7" fill="var(--z4)"/>
+      <rect x="590" y="48.3" width="15" height="5.6" fill="var(--z5)"/>
+      <path d="M590 47.1V47.1a1.2 1.2 0 0 1 1.2 -1.2h12.6a1.2 1.2 0 0 1 1.2 1.2V47.1Z" fill="url(#sinzona2)"/>
+      <line x1="10" y1="168" x2="610" y2="168" class="axis"/>
+      <text x="22.5" y="184" class="xtick">sem 1</text>
+      <text x="197.5" y="184" class="xtick">sem 8</text>
+      <text x="397.5" y="184" class="xtick">sem 16</text>
+      <text x="597.5" y="184" class="xtick">sem 24</text>
+    </svg>
+      </div>
+    </div>
+  </div>
+  <ol class="steps">
+    <li>El coach arrastra sobre las semanas 1 a 10, escribe «Sierra: todo a tope, nada de base» y elige el tono de aviso.</li>
+    <li>Arrastra sobre las 15 a 24, escribe «La base sube y se sostiene», tono bueno.</li>
+    <li>Pulsa <b>«Dar feedback»</b>, y se abre el compositor con la nota ya montada.</li>
+  </ol>
+  <div class="grid s2">
+    <div class="wf" style="margin:0">
+      <div class="wf-head"><div class="wf-t">El compositor, ya relleno <span class="path">nota</span></div></div>
+      <div class="wf-body">
+        <div class="comp">
+          <div class="sec embed">
+            <span class="form">gráfica · embed</span>
+            <span class="h">Tus seis meses en zonas</span>
+            <div class="mini">
+              <i style="height:38%"></i><i style="height:34%"></i><i style="height:46%"></i><i style="height:21%"></i><i style="height:44%"></i><i style="height:36%"></i><i style="height:26%"></i><i style="height:50%"></i><i style="height:18%"></i><i style="height:41%"></i><i style="height:34%"></i><i style="height:37%"></i><i style="height:42%"></i><i style="height:37%"></i><i style="height:45%"></i><i style="height:48%"></i><i style="height:51%"></i><i style="height:39%"></i><i style="height:53%"></i><i style="height:57%"></i><i style="height:59%"></i><i style="height:46%"></i><i style="height:62%"></i><i style="height:65%"></i>
+            </div>
+            <div class="txt">Se guarda la CONFIG, no la imagen: métrica, ventana, filtro y los dos rangos. Se dibuja sola con los datos del atleta al servirla, igual que <code>camino</code>.</div>
+          </div>
+          <div class="sec">
+            <span class="form">texto</span>
+            <span class="h">Lo que veo</span>
+            <div class="txt">La progresión de cargas es aburrida, pero permite progresiones y no estancamientos. Estás desplazando tu zona de inestabilidad a la derecha.</div>
+          </div>
+          <div class="audio">
+            <span style="color:var(--orange)">▶</span>
+            <span class="wave"><i style="height:30%"></i><i style="height:65%"></i><i style="height:100%"></i><i style="height:45%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:95%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:50%"></i><i style="height:85%"></i><i style="height:40%"></i></span>
+            <span>2:14</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="src">
+      <h4>Por qué NO hay un sexto tipo</h4>
+      <ul>
+        <li>Los tipos de comunicado son cinco y cerrados: <code>protocol</code>, <code>question</code>, <code>task</code>, <code>note</code>, <code>focus</code></li>
+        <li>Un sexto tipo «feedback» partiría el modelo en «nota» y «nota con datos», y duplicaría bandeja, señales y seguimiento para contar lo mismo</li>
+        <li>Lo que cambia no es el tipo, es la FORMA de una sección: <code>display</code> pasa de cuatro valores a cinco</li>
+        <li>Igual que <code>camino</code>, la forma <code>grafica</code> no se teclea: es un embed que el servidor resuelve al servir</li>
+        <li>En la UI el botón dice «Dar feedback», porque es lo que el coach cree que está haciendo. Que por debajo sea una nota es asunto nuestro</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>C · La comparativa por periodos</h3>
+  <p>La petición más fina de Pablo, textual: «feedback comparativo de los tres meses previos contra los tres conmigo». Dos periodos lado a lado: horas, reparto por zona y la diferencia.</p>
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-t">Antes contra ahora</div>
+      <div class="ctrls" style="margin:0"><span class="ctrl on">Antes del plan / con el plan</span><span class="ctrl">Trimestre a trimestre</span><span class="ctrl">A medida</span></div>
+    </div>
+    <div class="wf-body">
+      <div class="cmp">
+        <div class="cmp-row">
+          <div class="lbl">
+            <span class="nm">Semanas 1 a 10 · antes del plan</span>
+            <span class="hrs">46h 40m en total · <b>4h 40m por semana</b></span>
+          </div>
+          <div class="bar100">
+            <i style="width:7%;background:var(--z1)"></i><i style="width:13%;background:var(--z2)"></i><i style="width:17%;background:var(--z3)"></i><i style="width:27%;background:var(--z4)"></i><i style="width:19%;background:var(--z5)"></i><i class="hole" style="width:17%"></i>
+          </div>
+        </div>
+        <div class="cmp-row">
+          <div class="lbl">
+            <span class="nm">Semanas 11 a 24 · con el plan</span>
+            <span class="hrs">88h 47m en total · <b>6h 21m por semana</b></span>
+          </div>
+          <div class="bar100">
+            <i style="width:26%;background:var(--z1)"></i><i style="width:36%;background:var(--z2)"></i><i style="width:15%;background:var(--z3)"></i><i style="width:12%;background:var(--z4)"></i><i style="width:5%;background:var(--z5)"></i><i class="hole" style="width:6%"></i>
+          </div>
+        </div>
+      </div>
+      <div class="deltas">
+        <span class="dl"><i class="sw" style="background:var(--z1)"></i>Z1 <b>+19 pts</b></span>
+        <span class="dl"><i class="sw" style="background:var(--z2)"></i>Z2 <b>+23 pts</b></span>
+        <span class="dl"><i class="sw" style="background:var(--z3)"></i>Z3 <b>−2 pts</b></span>
+        <span class="dl"><i class="sw" style="background:var(--z4)"></i>Z4 <b>−15 pts</b></span>
+        <span class="dl"><i class="sw" style="background:var(--z5)"></i>Z5 <b>−14 pts</b></span>
+        <span class="dl"><i class="sw hole"></i>Sin zona <b>−11 pts</b></span>
+        <span class="dl">Volumen <b>+1h 41m por semana</b></span>
+      </div>
+      <p class="note">Los deltas van en tinta neutra a propósito: pintar de verde «más Z1» sería el sistema opinando sobre qué reparto es bueno, y eso es método del coach, no mecanismo nuestro. Quien dice si esto está bien es él, con su marca y su texto.</p>
+      <p class="note">Los mismos datos de ejemplo, agregados. La historia se lee sola: la base sube 42 puntos entre Z1 y Z2, el techo baja 29, y el gris encoge porque por el camino el atleta conectó el reloj y midió su umbral.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="rule"><span class="k">➗</span><div><b>Dos periodos de distinta longitud NO se comparan por horas totales.</b> Catorce semanas le ganan a diez siempre, y el número diría algo que no es. Se comparan por <b>horas por semana</b> y por <b>reparto en porcentaje</b>, que es lo que el titular enseña arriba. El total se sigue viendo, en gris, porque es cierto y sitúa; simplemente no es la comparación.</div></div>
+  </div>
+  <p class="muted">Vive en la ficha, y se embebe en una nota como otra config de la misma forma <code>grafica</code>. Es la misma pieza contando otra cosa, no una segunda pieza.</p>
+
+  <h3>D · Audio en el comunicado</h3>
+  <p>El grabador de nota de voz que ya existe en el chat, reutilizado en el compositor. Uno por comunicado, opcional, en cualquiera de los cinco tipos. En la bandeja de iOS se reproduce en línea, dentro de la nota, sin salir a ningún sitio.</p>
+  <p class="muted">Es el calco directo del «ahora te hago un podcast» del coach de Pablo. La explicación hablada sobre la gráfica es la mitad del valor de ese feedback, y hoy vive en un WhatsApp que nadie vuelve a encontrar.</p>
+
+  <h3>E · El atleta</h3>
+  <p>Después, y a propósito. La misma gráfica en sus Analíticas de iOS, con el mismo lenguaje de color que ya ve en el aro del reloj. La nota con el feedback le llega hoy por la bandeja sin construir nada nuevo: en cuanto la forma <code>grafica</code> sepa dibujarse en iOS (tanda 2), el atleta la recibe entera.</p>
+
+  <h2>6 · El histórico del reloj</h2>
+  <p>Lo que hace posible el «antes contra conmigo» desde el día 1. Sin histórico, un atleta que entra hoy no tiene «antes», y la comparativa que Pablo pide tarda tres meses en existir.</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Apple Health <span class="pill ok">retroactivo</span></h4>
+      <ul>
+        <li>HealthKit sirve el histórico completo, hacia atrás</li>
+        <li>Al conectar salud, se ofrece importarlo, con consentimiento explícito de un toque</li>
+        <li><b>Jamás automático.</b> La regla de dispositivos de la casa no tiene excepciones: toque más confirmación, siempre</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Polar y Garmin <span class="pill warn">desde hoy</span></h4>
+      <ul>
+        <li>Sus APIs solo entregan desde el momento de la autorización</li>
+        <li>Es una limitación suya, no nuestra, y se declara en la UI con una línea en vez de dejar que el atleta la descubra</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">TrainingPeaks hace exactamente esto, y es literalmente lo que permitió que Pablo recibiera un feedback comparativo real de sus 180 días previos.</p>
+
+  <h2>7 · Qué NO hacemos, y por qué</h2>
+  <div class="scroll">
+  <table class="prose">
+    <thead><tr><th>Lo que no</th><th>Por qué no</th></tr></thead>
+    <tbody>
+      <tr><td>Dibujo libre sobre la gráfica</td><td class="muted">Es un pantallazo muerto: no se redibuja, no se busca, no se adapta al móvil. Un rango marcado hace lo mismo y sigue siendo dato</td></tr>
+      <tr><td>Un sexto tipo de comunicado «feedback»</td><td class="muted">Partiría el modelo en «nota» y «nota con datos», y duplicaría bandeja, señales y seguimiento. Es una nota con una sección más</td></tr>
+      <tr><td>CTL, ATL, TSS y compañía en esta tanda</td><td class="muted">Otra conversación y otro modelo. Meterlo aquí convierte una gráfica que se lee sola en un panel que hay que explicar</td></tr>
+      <tr><td>Recalcular zonas históricas en silencio</td><td class="muted">Una gráfica que cambia de forma sin que nadie la toque deja de ser evidencia. Recomputar es un botón</td></tr>
+      <tr><td>Zonas a atletas sin anclas</td><td class="muted">Una banda etiquetada pero fabricada es peor que una ausente: a simple vista no se distingue de una real, y acaba decidiendo la carga de la semana siguiente</td></tr>
+      <tr><td>Mezclar los <code>zone_seconds</code> del aparato con los nuestros</td><td class="muted">Son escaleras distintas. Apilarlas juntas es exactamente el bug de los tres modelos de zona que se cerró el 28 de julio</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>8 · Tandas de construcción</h2>
+  <div class="card" style="padding:8px 22px">
+    <div class="tanda"><div class="id">T1</div><div class="bd"><span class="t">El motor de verdad, y la gráfica en la ficha</span><span class="d">Tabla de minutos por zona con su ancla y su método, agregación semanal, API, y la gráfica con la banda de tramos del plan debajo. Es la tanda grande, y son seis piezas:<br>
+      <b>a.</b> integrar por intervalo entre muestras, jamás contar filas, con el hueco declarado como «sin pulso».<br>
+      <b>b.</b> solo pulso de entreno, cruzado por ventana con los tramos: aquí se arregla el bug de la polarización actual.<br>
+      <b>c.</b> reconstructor retroactivo sobre las ~103.000 muestras ya guardadas, reutilizando lo que <code>reporte-post-entreno-model.html</code> ya propuso.<br>
+      <b>d.</b> empezar a escribir <code>workout_traces</code> hacia delante, que hoy no tiene escritores.<br>
+      <b>e.</b> precedencia correa contra reloj, para no contar el mismo minuto dos veces.<br>
+      <b>f.</b> agregación semanal en Postgres, no en Node.<br>
+      Y con ella, los dos números de método que hoy son constantes pasan a dato editable del coach.</span></div></div>
+    <div class="tanda"><div class="id">T2</div><div class="bd"><span class="t">El feedback</span><span class="d">Rangos marcables sobre la gráfica, forma <code>grafica</code> de sección de nota (migración: <code>display</code> admite un quinto valor, más la config del embed), y el render en iOS para que el atleta la reciba entera.</span></div></div>
+    <div class="tanda"><div class="id">T3</div><div class="bd"><span class="t">La comparativa por periodos</span><span class="d">En la ficha, y embebible en la nota como otra config de la misma forma. Reutiliza el motor de T1 sin tocarlo.</span></div></div>
+    <div class="tanda"><div class="id">T4</div><div class="bd"><span class="t">El histórico, hasta donde cada API deja</span><span class="d">Los ENTRENOS de Apple Health ya llegan sin techo de fecha; lo que falta es el backfill de MUESTRAS más allá de 30 días con consentimiento explícito, y que reconectar rellene el pasado (hoy el ancla solo mira hacia delante). Polar entrega hasta 90 días por petición: nuestro recorte a 28 es propio, así que se amplía sin pedirle permiso a nadie. Garmin, cero histórico hasta que aprueben el partner. Es lo que hace que la comparativa de T3 tenga «antes» el primer día.</span></div></div>
+    <div class="tanda"><div class="id">T5</div><div class="bd"><span class="t">Audio en el comunicado</span><span class="d">El grabador del chat reutilizado en el compositor, y reproducción en línea en la bandeja de iOS. Vale para los cinco tipos, no solo para el feedback.</span></div></div>
+  </div>
+  <p class="muted">Cada tanda con su verificación (tests contra una rama de Neon de verdad, más QA visual a 390, 768 y 1440) y su despliegue, como siempre. T1 y T2 se pueden solapar poco: T2 necesita el dato de T1 para probar nada de verdad.</p>
+
+  <h2>9 · Dónde puede fallar</h2>
+  <p class="muted">Lo que veo hoy, dicho antes de construir y no después de que se encuentre.</p>
+  <div class="state r"><span class="nm">1 · El esquema de los rangos</span><br><span class="muted"><code>coach_communication_item_segments</code> obliga a <code>value_num &gt; 0</code>, y un rango de semanas no tiene valor: tiene desde, hasta, etiqueta y tono. O la columna se hace opcional con un check por forma, o los rangos van a su propia tabla. Es la única decisión de esquema que T2 tiene que cerrar antes de escribir la migración, y prefiero cerrarla entonces, con el código delante.</span></div>
+  <div class="state a"><span class="nm">2 · Cuánto histórico tiene traza</span><br><span class="muted"><code>workout_traces</code> nació en la 0156, o sea hace nada. El backfill de T1 solo alcanza a lo que ya está ingerido con serie; lo de más atrás depende de T4. Riesgo real: enseñar la gráfica en T1 y que los primeros meses salgan grises por falta de traza, no por falta de umbral. Hay que distinguirlo en la UI o el coach leerá mal su propio dato.</span></div>
+  <div class="state a"><span class="nm">3 · El congelado sorprende</span><br><span class="muted">Un atleta sin umbral en la semana 3 que lo mide en la 12 verá un hueco gris en las primeras semanas que NO se rellena solo. Es correcto y es deliberado, pero es contraintuitivo: necesita una línea de copy junto al botón de recomputar, o parecerá un fallo.</span></div>
+  <div class="state b"><span class="nm">4 · Z3 y Z4 se parecen bajo daltonismo</span><br><span class="muted">Medido, no estimado: el verde de Z3 y el ámbar de Z4 quedan a ΔE 6,2 en protanopia, dentro de la banda que solo es legal con codificación secundaria. La tenemos por diseño y hay que mantenerla: separador de 2px, orden vertical fijo, leyenda siempre presente y vista de tabla. No es un adorno, es lo que hace la gráfica legible para todo el mundo.</span></div>
+
+  <div class="state r"><span class="nm">5 · El webhook de Garmin borra los tramos medidos en vivo</span><br><span class="muted">Mina conocida, tarea aparte, y NO es de esta obra. Pero toca justo este dato: al reescribir la ejecución con sus vueltas se lleva por delante los tramos que midió el móvil, o sea los 18 únicos que hoy tienen reparto de zonas congelado. Mientras siga abierta, el activo que T1 quiere reconstruir puede encoger solo.</span></div>
+  <div class="state a"><span class="nm">6 · La lectura de polarización de hoy no aguanta el motor</span><br><span class="muted">Trae todas las filas al proceso sin agregar en SQL, y el histórico repite la consulta doce veces, una por semana. Con del orden de 10⁵ filas por atleta ya va justa; conforme el motor acumule, revienta. Por eso la agregación en Postgres es la pieza (f) de T1 y no una optimización para más adelante.</span></div>
+
+  <div class="foot">
+    docs/design/zonas-feedback-model.html · fase de diseño · 10-ago-2026<br>
+    Mapeado contra: shared/domain/methodology/hr-zones.ts · shared/domain/plan-path.ts · shared/domain/coach-communications.ts · web/components/design-twin/zonas.ts · web/app/globals.css · v2-theme.css · shared/domain/coach/polarization.ts · web/lib/dashboard/coach/deep-dive-performance.ts · shared/domain/execution-merge/precedence.ts · docs/design/reporte-post-entreno-model.html · 0001_init · 0156_workout_traces · 0161_coach_signal_thresholds · 0160_coach_communications · 0163_communication_note_blocks
+  </div>
+
+</div>
+</body>
+</html>

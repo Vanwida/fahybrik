@@ -91,7 +91,22 @@ quedaba vivo. Lo tachado está hecho y verificado; lo demás no está empezado.
 
 ---
 
-## Ahora · DEL COACH — comunicación estructurada fuera del chat (9-ago)
+## Ahora · ZONAS + FEEDBACK — las gráficas que firman el método (10-ago)
+
+Nace del caso real: el coach de Pablo (olímpicos de esquí nórdico) le mandó la
+gráfica de tiempo-en-zonas de TrainingPeaks pintada a mano + audios. Plan
+completo en **`docs/design/zonas-feedback-model.html`** (9 secciones): la
+gráfica canónica del sector en la ficha del atleta con la espina en el eje,
+«Dar feedback» = nota con forma `grafica` (embed derivado, rangos marcados
+como dato), comparativa por periodos, audio en el comunicado, histórico del
+reloj. Ground truth duro: solo 18/221 tramos con zonas medidas, HealthKit 30
+días de muestras, la polarización actual cuenta muestras del sofá (bug, se
+arregla en T1) → **T1 = el MOTOR** (integrar por intervalo, cruce por ventana,
+reconstructor retroactivo de ~103k muestras ya guardadas, escritor de
+workout_traces, bandas y objetivo de polarización a dato del coach).
+Pendiente: OK de Alex al plan para arrancar T1. Mina Garmin anotada (tarea #9).
+
+## Antes · DEL COACH — comunicación estructurada fuera del chat (9-ago)
 
 Idea de Alex: lo que hoy el coach solo puede decir por chat (un protocolo, una
 pregunta que bloquea el plan, una tarea con fecha, el porqué de un cambio, un
