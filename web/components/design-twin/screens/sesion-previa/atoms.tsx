@@ -5,9 +5,16 @@
 // solo, sin un «— reps» ni un 0 de relleno (CONTRATO-UI §7).
 
 import type { CSSProperties, ReactNode } from 'react';
-import { COLOR_MODALIDAD, dosisConSeries, type BloqueReal, type ItemReal } from '../../datos-reales';
+import {
+  COLOR_MODALIDAD,
+  dosisConSeries,
+  dosisDeCarrera,
+  reloj,
+  type BloqueReal,
+  type ItemReal,
+} from '../../datos-reales';
 import { IconChevron, Label, SP } from '../../kit';
-import { descansoTexto, fichaDe, palabraMovimientos } from './data';
+import { fichaDe, palabraMovimientos } from './data';
 import { FrameVideo } from './siluetas';
 
 /** Ancho de la miniatura de fila. 84 es lo que cabe dejando la dosis legible. */
@@ -81,9 +88,20 @@ export function Material({ cosas }: { cosas: string[] }) {
 
 export function LineaDosis({ item, grande = false }: { item: ItemReal; grande?: boolean }) {
   const dosis = dosisConSeries(item);
+  const carrera = dosisDeCarrera(item);
   const extras: string[] = [];
-  if (item.objetivo) extras.push(item.objetivo);
-  if (item.descansoS) extras.push(`descanso ${descansoTexto(item.descansoS)}`);
+  if (carrera) {
+    // Una carrera con ESTRUCTURA se cuenta por sus tramos: el objetivo y la
+    // recuperación salen de ellos, no del aplanado que hay al lado — que aquí
+    // escribía «descanso 1:00» de un minuto que se corre al trote en Z2.
+    if (carrera.objetivo) extras.push(carrera.objetivo);
+    if (carrera.detalle) extras.push(carrera.detalle);
+  } else {
+    if (item.objetivo) extras.push(item.objetivo);
+    // «45s» por debajo del minuto, reloj a partir de ahí: la variante en segundos
+    // de `Formato.clock`, que es con la que la app escribe los descansos.
+    if (item.descansoS) extras.push(`descanso ${reloj(item.descansoS, 'segundos')}`);
+  }
   if (!dosis && extras.length === 0) return null;
 
   return (

@@ -18,6 +18,7 @@ import { useState } from 'react';
 import {
   BACK_SQUAT,
   CIRCUITO_PIERNA,
+  FARTLEK_16X500,
   HYROX,
   dosisConSeries,
   reloj,
@@ -48,7 +49,7 @@ export const meta: TwinMeta = {
   titulo: 'La ficha de la sesión, con el vídeo',
   zona: 'Plan y hoy',
   estado: 'construida',
-  actualizado: '2026-07-29',
+  actualizado: '2026-08-10',
   descripcion:
     'Lo que ves antes de empezar: qué toca, por qué te lo manda el coach y cómo se hace cada movimiento. Un vídeo por ejercicio y «Empezar» siempre abajo.',
   fuentes: [
@@ -76,6 +77,12 @@ export const escenarios: TwinEscenario[] = [
     titulo: 'Circuito de pierna · cuatro sin dosis',
     descripcion: 'El plan real con cuatro movimientos que el coach dejó sin cuánto. Se pintan con el nombre solo.',
   },
+  {
+    id: 'fartlek',
+    titulo: 'Fartlek 16 × 500 m en Z4',
+    descripcion:
+      'Un solo ítem con estructura: la ficha dice las dieciséis series y que el minuto de en medio se trota, no se descansa.',
+  },
 ];
 
 interface Guion {
@@ -88,6 +95,7 @@ const GUIONES: Record<string, Guion> = {
   'coach-completa': { sesion: HYROX },
   detalle: { sesion: BACK_SQUAT, abrir: 'Back Squat' },
   huecos: { sesion: CIRCUITO_PIERNA },
+  fartlek: { sesion: FARTLEK_16X500 },
 };
 
 function guionDe(id: string): Guion {
