@@ -9,6 +9,14 @@
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { SegmentedControl } from '@/components/v2/SegmentedControl';
+
+type StartChoice = 'current_week' | 'next_week';
+
+const startOptions = [
+  { value: 'current_week' as const, label: 'Esta semana' },
+  { value: 'next_week' as const, label: 'La semana que viene' },
+];
 
 export function PersonalizarPlanModal({
   athleteId,
@@ -26,6 +34,7 @@ export function PersonalizarPlanModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const [start, setStart] = useState<StartChoice>('current_week');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +46,8 @@ export function PersonalizarPlanModal({
       const res = await fetch(`/api/coach/athletes/${athleteId}/personalize-plan`, {
         method: 'POST',
         credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ start }),
       });
       const body = (await res.json().catch(() => null)) as
         | { personalize?: { month_template_id: string }; error?: { message?: string } }
@@ -83,12 +94,23 @@ export function PersonalizarPlanModal({
           <p className="text-sm text-[color:var(--v2-fg)]">
             Vas a coger el plan de <span className="font-semibold">{athleteName}</span> —{' '}
             «{currentBlockName}»{currentWeek != null ? ` (semana ${currentWeek})` : ''} — y
-            convertirlo en un plan solo para {athleteName}, desde esta semana en adelante.
+            convertirlo en un plan solo para {athleteName}.
           </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="v2-micro">Empieza</span>
+            <SegmentedControl
+              options={startOptions}
+              value={start}
+              onChange={setStart}
+              ariaLabel="Cuándo empieza el plan personal"
+            />
+          </label>
           <ul className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 text-xs text-[color:var(--v2-muted)]">
             <li className="flex items-start gap-2">
               <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
-              Lo ya hecho no cambia — solo se copia desde la semana en curso.
+              {start === 'next_week'
+                ? 'Esta semana sigue igual — lo ya hecho nunca cambia.'
+                : 'Lo ya hecho no cambia — solo se copia desde la semana en curso.'}
             </li>
             <li className="flex items-start gap-2">
               <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />

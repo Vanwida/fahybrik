@@ -86,6 +86,13 @@ export class InstantiateProgramError extends Error {
   }
 }
 
+/** SQLSTATE 23P01 = exclusion_violation — the 0166 GiST constraint on
+ *  athlete_month_assignments firing. Same inline-check style as the codebase's
+ *  other Postgres-error translations (e.g. delete-exercise.ts's 23503 check). */
+function isExclusionViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === '23P01';
+}
+
 export async function instantiateMonthFromTemplate(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
@@ -136,47 +143,67 @@ export async function instantiateMonthFromTemplate(params: {
   const microcycleIds: string[] = [];
   let monthAssignmentId = '0';
 
-  await client.begin(async (tx) => {
-    for (let wi = 0; wi < month.weeks.length; wi++) {
-      const weekMeta = month.weeks[wi]!;
-      const weekStart = addDays(startMonday, wi * 7);
+  try {
+    await client.begin(async (tx) => {
+      for (let wi = 0; wi < month.weeks.length; wi++) {
+        const weekMeta = month.weeks[wi]!;
+        const weekStart = addDays(startMonday, wi * 7);
 
-      const weekRes = await instantiateWeekIntoMicrocycle({
-        client: tx as unknown as Sql,
-        coach_id: params.coach_id,
-        athlete_id: params.athlete_id,
-        week_template_id: Number(weekMeta.week_template_id),
-        week_start: weekStart,
-        week_number: wi + 1,
-        progression: params.progression,
-      });
-      microcycleIds.push(weekRes.microcycle_id);
-      assignmentCount += weekRes.assignment_count;
+        const weekRes = await instantiateWeekIntoMicrocycle({
+          client: tx as unknown as Sql,
+          coach_id: params.coach_id,
+          athlete_id: params.athlete_id,
+          week_template_id: Number(weekMeta.week_template_id),
+          week_start: weekStart,
+          week_number: wi + 1,
+          progression: params.progression,
+        });
+        microcycleIds.push(weekRes.microcycle_id);
+        assignmentCount += weekRes.assignment_count;
+      }
+
+      const assignRows = await tx<Array<{ id: string }>>`
+        insert into athlete_month_assignments (
+          athlete_id,
+          month_template_id,
+          start_date,
+          end_date,
+          microcycle_ids,
+          assignment_count,
+          created_by_coach_id
+        )
+        values (
+          ${params.athlete_id as number},
+          ${params.month_template_id as number},
+          ${startIso}::date,
+          ${endIso}::date,
+          ${microcycleIds.map(Number)}::bigint[],
+          ${assignmentCount},
+          ${params.coach_id as number}
+        )
+        returning id::text
+      `;
+      monthAssignmentId = assignRows[0]!.id;
+    });
+  } catch (err) {
+    // 0166: the database refuses two athlete_month_assignments with overlapping
+    // date windows for the same athlete (23P01 = exclusion_violation, the GiST
+    // constraint added in that migration). EVERY caller that can end up here
+    // (personalize, assign-month, assign-sequence initial/advance/loop/level-up)
+    // funnels through this one INSERT, so catching it ONCE, here, protects all of
+    // them uniformly — each already maps InstantiateProgramError through its own
+    // error type (see assign-sequence.ts's materializeItem, personalize-plan.ts),
+    // so this reaches the coach as a clean, readable message instead of a raw
+    // Postgres error / 500.
+    if (isExclusionViolation(err)) {
+      throw new InstantiateProgramError(
+        'overlapping_plan',
+        'Este atleta ya tiene un plan asignado que se solapa con estas fechas.',
+        409,
+      );
     }
-
-    const assignRows = await tx<Array<{ id: string }>>`
-      insert into athlete_month_assignments (
-        athlete_id,
-        month_template_id,
-        start_date,
-        end_date,
-        microcycle_ids,
-        assignment_count,
-        created_by_coach_id
-      )
-      values (
-        ${params.athlete_id as number},
-        ${params.month_template_id as number},
-        ${startIso}::date,
-        ${endIso}::date,
-        ${microcycleIds.map(Number)}::bigint[],
-        ${assignmentCount},
-        ${params.coach_id as number}
-      )
-      returning id::text
-    `;
-    monthAssignmentId = assignRows[0]!.id;
-  });
+    throw err;
+  }
 
   // #34: on the athlete's FIRST plan, auto-schedule the week-1 calibration battery
   // (Fork A: auto + coach override). Best-effort — a battery hiccup must never fail

@@ -19,10 +19,13 @@ import { getTargetRaceRow } from './target-race';
  * "semana N de M", never periodization jargon.
  *
  * Resolution: the assignment whose [start_date, end_date] window contains `on_date`
- * (most recent wins). `week_index` = which Mon–Sun week within that window today
- * falls in (1-based); `week_count` = the assignment's week count (its
- * `microcycle_ids[]`, with a date-span fallback). Returns null when today is outside
- * any materialized microciclo (free-planned / between plans).
+ * (most recent `start_date` wins; `id desc` breaks a tie deterministically — 0166's
+ * database constraint means two rows can no longer genuinely OVERLAP, but this
+ * still matters for two rows sharing the exact same `start_date` back-to-back).
+ * `week_index` = which Mon–Sun week within that window today falls in (1-based);
+ * `week_count` = the assignment's week count (its `microcycle_ids[]`, with a
+ * date-span fallback). Returns null when today is outside any materialized
+ * microciclo (free-planned / between plans).
  */
 export type CurrentMicrociclo = {
   /** athlete_month_assignments.id — the coach "microciclo" (assignment receipt) id. */
@@ -88,7 +91,7 @@ export async function getCurrentMicrociclo(params: {
     where ama.athlete_id = ${params.athlete_id as number}
       and ama.start_date <= ${todayIso}::date
       and ama.end_date   >= ${todayIso}::date
-    order by ama.start_date desc
+    order by ama.start_date desc, ama.id desc
     limit 1
   `;
   const r = rows[0];
