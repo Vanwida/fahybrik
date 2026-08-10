@@ -30,9 +30,10 @@ quedaba vivo. Lo tachado está hecho y verificado; lo demás no está empezado.
       calorías, tiempo como medida, peso corporal, tope, y las BANDAS sin aplanar
 - [x] Estructura del metcon: rondas con componentes, EMOM, work/rest, finisher
 - [x] `r90` / `r1'` pegados — el propio placeholder del editor los perdía
-- [ ] 🟡 **Lector de DOCUMENTO** (en curso): cabeceras→días/semanas, y sobre todo
-      la TABLA con una columna por semana, que hoy se queda la primera columna y
-      tira el resto EN VERDE. Es lo que falta para importar un md de verdad
+- [x] **Lector de DOCUMENTO**: cabeceras→días/semanas y la TABLA con una columna
+      por semana. `| Back Squat | 4×6 @72% | 5×5 @76% | 5×4 @80% |` ya sale como
+      tres celdas etiquetadas con su semana; antes se quedaba la primera y tiraba
+      dos en verde. 378 celdas del documento real, 112 líneas tipadas
 - [ ] **Trocear por semanas antes de la IA**: no mandarle 690 líneas de golpe.
       Una semana por llamada — más barato, más fiel, y esquiva el tope de
       caracteres y el 504 del incidente del 6-ago
@@ -43,12 +44,11 @@ quedaba vivo. Lo tachado está hecho y verificado; lo demás no está empezado.
       el coach corrige su dialecto una vez y no vuelve a fallar
 
 **Planificar**
-- [ ] **Plan personal de UN atleta** — DISEÑADO Y SIN EMPEZAR. Contenedor propio
-      dentro del perfil del atleta, fuera de la biblioteca y fuera de la matriz
-      nivel×días. La diferencia estructural: `program_week_templates` lleva
-      `level_id`+`phase_id` porque está hecho para emparejarse con un GRUPO; un
-      plan para una persona no tiene nivel que emparejar. Fases opcionales,
-      longitud la que decida el coach
+- [x] **Plan personal de UN atleta** (mig 0164). Se personaliza PARTIENDO del
+      plan que ya tiene: copia profunda desde la semana en curso, la plantilla de
+      origen queda intacta (test en rama Neon real), el pasado no se reescribe y
+      el desenganche de la periodización se explica antes de confirmar. Falta:
+      etiqueta en iOS, botón de volver a la periodización, y archivar
 - [ ] **Completar los 22 bloques incompletos en origen** en minutos, no en una
       tarde — y que un bloque nuevo no pueda nacer sin dosis
 - [ ] Conectar el resolutor de objetivos derivados (`methodology/zones.ts`, ya
@@ -56,6 +56,13 @@ quedaba vivo. Lo tachado está hecho y verificado; lo demás no está empezado.
       re-test mueva las semanas siguientes solo
 - [ ] Las 20 secuencias de Periodización (5 niveles × 4 variantes de días) —
       contenido, no código: están a 0/4 en el nivel donde hay atletas
+
+**Del plan personal, sin cerrar**
+- [ ] En iOS no hay etiqueta que le diga al atleta que su plan es personal — ya
+      lo entrena, solo falta decírselo
+- [ ] Volver a la periodización: los datos lo permiten (plantilla intacta,
+      cursor preservado en `detached`), el botón no está
+- [ ] Archivar un plan personal sin borrarlo
 
 **Deuda conocida**
 - [ ] Banda de kg sobre medida de DISTANCIA (`5x25 m @150-170 kg`) va a revisión
