@@ -440,6 +440,19 @@ export async function copyWeekContentInto(params: {
   return { copied_week_ids: targets.map((t) => t.id) };
 }
 
+/** Who a microciclo belongs to (0164): null/null = shared library. Set = a
+ *  personal plan for exactly that athlete — the editor reads this to hide
+ *  library-only actions ("Asignar a atleta" doesn't apply to a plan already
+ *  tied to one person) and show whose plan it is instead. */
+export type MonthTemplateOwner = {
+  athlete_id: string | null;
+  athlete_name: string | null;
+};
+
+export type MonthTemplateWithWeeksOwned = Omit<MonthTemplateWithWeeks, 'month'> & {
+  month: MonthTemplateWithWeeks['month'] & MonthTemplateOwner;
+};
+
 /**
  * Carga un microciclo (mes) + sus 4 (o N) semanas con `slots_json` parseado,
  * validando ownership por coach. Devuelve `null` si el mes no existe o no
@@ -451,25 +464,31 @@ export async function loadMonthTemplateWithWeeks(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   client?: Sql;
-}): Promise<MonthTemplateWithWeeks | null> {
+}): Promise<MonthTemplateWithWeeksOwned | null> {
   const client = params.client ?? defaultSql;
 
   // Level is AGNOSTIC: the coach's athlete_levels.name (via level_id), '' when no
   // level is set. There is no phase entity — the order of microciclos IS the
-  // periodization.
+  // periodization. athlete_id/athlete_name (0164) surface ownership so the editor
+  // can tell a personal plan apart from a library microciclo.
   const monthRows = await client<
     Array<{
       id: string;
       name: string;
       level: string;
+      athlete_id: string | null;
+      athlete_name: string | null;
     }>
   >`
     select
       m.id::text,
       m.name,
-      coalesce(al.name, '') as level
+      coalesce(al.name, '') as level,
+      m.athlete_id::text as athlete_id,
+      ath.full_name as athlete_name
     from program_month_templates m
     left join athlete_levels al on al.id = m.level_id
+    left join athletes ath on ath.id = m.athlete_id
     where m.id = ${Number(params.month_id)} and m.coach_id = ${Number(params.coach_id)}
     limit 1
   `;
