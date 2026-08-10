@@ -119,6 +119,31 @@ const coachSessionByEmail = (email: string, jti: string) =>
 const coachSessionByClerkUserId = (clerkUserId: string, jti: string) =>
   resolveCoachSession({ clerk: clerkUserId }, jti);
 
+/**
+ * Resolve the coach session for a Clerk user id with NO Clerk request context.
+ *
+ * `getCoachSession()` below reads the identity from the browser's Clerk session
+ * cookie. The MCP connector has no cookie and no Clerk session at all: it
+ * carries an OAuth access token whose subject is a Clerk user id. This is the
+ * SAME resolver reached with that id directly (`coach_members` first, legacy
+ * `coaches.user_id` owner link as fallback) — one query, no second SELECT to
+ * drift from this one.
+ *
+ * Two deliberate differences from the cookie path:
+ *   - It does NOT provision. Joining a club off the allowlist is a
+ *     first-login-through-the-browser concern; a token whose user is not
+ *     already a member is simply not a coach here → null.
+ *   - `jti` is empty. An OAuth access token has no Clerk SESSION id, and
+ *     inventing one would put a value in that field that names nothing. No
+ *     coach-session callsite reads `jti` (only the legacy athlete/magic-link
+ *     paths do), so empty is both honest and inert.
+ */
+export function getCoachSessionForClerkUser(
+  clerkUserId: string,
+): Promise<CoachSession | null> {
+  return coachSessionByClerkUserId(clerkUserId, '');
+}
+
 /** Resolve the coach session for a DB user id, or null if not a club member. */
 const coachSessionByUserId = (userId: bigint, jti: string) =>
   resolveCoachSession({ uid: userId }, jti);
