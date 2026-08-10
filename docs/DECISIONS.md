@@ -476,6 +476,48 @@ segundos antes de pegar un salto de diez.
 
 ---
 
+## 2026-08-10 · Las fases de un plan personal son TRAMOS ENCADENADOS, no etiquetas por semana
+
+**Se descartó trabajo terminado, y la culpa es de la premisa.** Se encargó «que el
+coach pueda colocar fases a lo largo de un plan personal» afirmando en el encargo
+que `methodology_phases` (0052) y `program_week_templates.phase_id` (0063) seguían
+vivos. **No lo estaban:** la migración **0064** borró el catálogo entero y todos
+los `phase_id`, un paso después de que la 0063 los creara. El encargo se escribió
+leyendo ficheros de migración sueltos en vez de este registro, que es justo lo que
+`CLAUDE.md` obliga a leer antes de rediseñar dominio.
+
+El agente lo verificó contra el repo, avisó de que la premisa era falsa, construyó
+una alternativa (tres columnas planas `phase_label`/`phase_tone`/`phase_is_deload`
+en `program_week_templates`, sin tabla catálogo) y **dejó su migración 0167 SIN
+aplicar** pidiendo que se leyera el razonamiento antes. Hizo lo correcto en las
+tres cosas.
+
+**Decidido: se descarta.** No por su calidad, sino porque la decisión de julio ya
+respondía a la pregunta, y con un modelo más simple:
+
+> Una fase **es** un tramo. Un tramo es un microciclo con el **nombre que le pone
+> el coach**, su duración, y su **posición en la cadena**.
+
+Eso ya está construido y vivo: `shared/domain/plan-path.ts` dibuja la espina y
+`web/lib/plan/camino.ts` encadena los tramos por `athlete_month_assignments`. Un
+plan de 14 semanas con Base / descarga / Build / descarga / Pico / Taper **no es
+un plan con seis etiquetas dentro: son seis tramos encadenados**.
+
+Y encaja con lo de esta misma mañana: la restricción `EXCLUDE` de la 0166 (dos
+planes de un atleta no pueden solaparse en fechas) es exactamente lo que garantiza
+que una cadena de tramos sea una cadena limpia.
+
+**Lo que falta de verdad, y es mucho menos:** hoy personalizar crea UN tramo de N
+semanas. Falta poder **encadenar varios tramos personales** al mismo atleta y
+verlos en la espina que ya existe.
+
+**En consecuencia, NO hacer:** no reintroducir fases como atributo de la semana ni
+del mes, con ningún nombre ni forma —columna plana incluida—; y no volver a
+escribir un encargo de dominio sin leer ESTE fichero primero. La rama descartada
+es `worktree-agent-a5d58e9d1fd1ff9b7` por si alguien quiere ver el compositor.
+
+---
+
 ## 2026-08-09 · La biblioteca no está a medias por el lector — está a medias en origen
 
 **Decidido tras medirlo, y en contra de la hipótesis con la que empecé.** Los 56
