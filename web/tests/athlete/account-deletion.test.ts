@@ -27,6 +27,8 @@ function makeFakeSql(scripted: Array<unknown[]>): { sql: Sql; calls: Call[] } {
     const next = scripted[cursor++] ?? [];
     return Promise.resolve(next);
   };
+  // Como el driver real: sql.json(v) liga el objeto como parámetro jsonb.
+  (tag as unknown as { json: (v: unknown) => unknown }).json = (v: unknown) => v;
   return { sql: tag as unknown as Sql, calls };
 }
 
@@ -97,8 +99,10 @@ describe('softDeleteAccount', () => {
     // Partner notify uses 'system' notification type with partner_left kind.
     expect(calls[5]!.raw).toMatch(/insert into notifications/i);
     expect(calls[5]!.raw).toMatch(/'system'::notification_type/);
+    // El payload viaja como OBJETO (sql.json), ya no como cadena a buscar.
     const payload = calls[5]!.values.find(
-      (v): v is string => typeof v === 'string' && v.includes('partner_left'),
+      (v): v is { kind: string } =>
+        typeof v === 'object' && v != null && (v as { kind?: string }).kind === 'partner_left',
     );
     expect(payload).toBeDefined();
 

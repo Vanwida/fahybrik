@@ -28,7 +28,8 @@ describe('notifyPaymentFailed', () => {
     await notifyPaymentFailed({ client: fake, user_id: BigInt(10) });
     expect(inserts.length).toBe(1);
     expect(inserts[0].user_id).toBe(BigInt(10));
-    expect(JSON.parse(inserts[0].payload)).toMatchObject({ kind: 'payment_failed' });
+    // El payload viaja como OBJETO (sql.json), ya no como cadena a parsear.
+    expect(inserts[0].payload).toMatchObject({ kind: 'payment_failed' });
   });
 
   it('also notifies the coach when the athlete has one linked', async () => {
@@ -39,7 +40,7 @@ describe('notifyPaymentFailed', () => {
     const coachNotif = inserts.find((i) => i.user_id === BigInt(77));
     expect(athleteNotif).toBeTruthy();
     expect(coachNotif).toBeTruthy();
-    expect(JSON.parse(coachNotif!.payload)).toMatchObject({
+    expect(coachNotif!.payload).toMatchObject({
       kind: 'payment_failed',
       athlete_id: '50',
     });

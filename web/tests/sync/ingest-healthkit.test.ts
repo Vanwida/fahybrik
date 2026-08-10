@@ -46,6 +46,8 @@ function makeFakeSql(opts?: { dedupeResult?: unknown[] }): {
     selects.push({ raw, values });
     return Promise.resolve(dedupeResult);
   };
+  // Como el driver real: sql.json(v) liga el objeto como parámetro jsonb.
+  (tag as unknown as { json: (v: unknown) => unknown }).json = (v: unknown) => v;
   return { sql: tag as unknown as Sql, inserts, selects };
 }
 
@@ -166,6 +168,8 @@ function makeRoutedFakeSql(routes: {
     }
     return Promise.resolve([]);
   };
+  // Como el driver real: sql.json(v) liga el objeto como parámetro jsonb.
+  (tag as unknown as { json: (v: unknown) => unknown }).json = (v: unknown) => v;
   return { sql: tag as unknown as Sql, calls };
 }
 
