@@ -46,6 +46,12 @@ entitlement por club (`coach_entitlements`, mig 0167 aplicada, lista blanca,
 club 60 = founder; ver DECISIONS). 77/77 tests MCP.
 **Queda de F5:** registro en Grok (necesita cuenta de Alex) y precio del
 add-on (decisión de Alex). Stripe se cablea cuando haya precio.
+**Primer bug real cazado por el test de Alex (fartlek dictado):** el cliente
+convirtió perfecto a estructura tipada; el hueco era nuestro — prescripción
+solo-estructura queda MUDA en todos los resúmenes. Raíz arreglada
+(`withFlatFromStructure` en los serializadores; ver DECISIONS), fila real
+backfilleada, título limpio. Mejora pendiente anotada: `to-text` podría
+narrar la estructura fina (16×(500m Z3 / 1' trote Z2)) en vez del flatten.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)

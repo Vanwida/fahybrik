@@ -10,6 +10,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · La `structure` de carrera es ADITIVA al plano — y lo garantiza el ESCRITOR, no la buena fe
+
+**Decidido (tras el primer fartlek dictado por MCP):** una prescripción que lleva
+`structure` (#61) DEBE llevar también la dosis plana (sets/rounds/rest_s…). El contrato
+ya estaba declarado en el wire de iOS (`Prescription.swift`: «a block that carries
+structure ALSO carries the flat») y el dominio traía el conversor
+(`structureToLegacy` / `prescriptionFromStructure`, run-structure-convert.ts) **sin un
+solo caller**. Ahora lo garantiza el escritor: `withFlatFromStructure()` aplicado en
+`serializeSessionSegments` y `serializeBlockExercises` — si el autor declaró plano, el
+suyo manda; si no, se deriva del flatten. Sin esto, una prescripción solo-estructura es
+canónica y válida pero **muda**: `params_json` queda `{}`, `to-text` no habla structure,
+y la dosis solo vive en el título si el cliente tuvo la ocurrencia de escribirla ahí.
+
+**Lo que este caso enseñó del conector:** el cliente LLM lo hizo BIEN (convirtió
+«fartlek 16x500 Z3 / 1' Z2» a estructura tipada perfecta, sin que «fartlek» exista como
+formato); el hueco era nuestro. De propina, las descripciones de `create_session`
+dejan dicho que el título es SOLO el nombre — la dosis jamás va escrita en él.
+
+**En consecuencia, no hacer:** no enseñar a `to-text`/lectores a «tolerar» estructura
+sola en vez de arreglar el escritor (parche en N sitios vs raíz en 1); no confiar en
+que el cliente rellene el plano; no borrar `structure` al derivar (la estructura sigue
+siendo la verdad para vivo/cumplimiento; el plano es el resumen lossy).
+
+---
+
 ## 2026-08-10 · Los add-ons se venden por club: `coach_entitlements` (0167), y el portón concede por LISTA BLANCA
 
 **Decidido:** el conector MCP (y todo add-on futuro) se gatea con la tabla genérica
