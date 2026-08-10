@@ -343,5 +343,24 @@ export function prescriptionFromStructure(
   return p;
 }
 
+/**
+ * Enforce the additive wire contract on an already-authored prescription: a
+ * prescription that carries `structure` must ALSO carry the flat fields (iOS
+ * `Prescription.swift` decodes the flat; summary surfaces and `params_json`
+ * derive from it). If the author already stated any flat dose, theirs wins and
+ * nothing is touched. Discovered the hard way (10-ago-2026): a structure-only
+ * fartlek rendered as a bare title everywhere except the live engine.
+ */
+export function withFlatFromStructure(p: Prescription): Prescription {
+  if (!p.structure) return p;
+  const hasFlat =
+    (p.sets && p.sets.length > 0) ||
+    p.rounds != null ||
+    p.work_s != null ||
+    p.total_s != null;
+  if (hasFlat) return p;
+  return { ...structureToLegacy(p.structure), ...p };
+}
+
 // Re-export for callers that only import the convert module.
 export { isRepeat };

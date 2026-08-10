@@ -29,7 +29,7 @@
 // slips through (a stale client, a direct API call), and the routes turn it into
 // an explicit 400 — surfacing the bad line instead of fabricating a fake success.
 
-import { prescriptionToParams } from '@fahybrid/shared/domain/prescription';
+import { prescriptionToParams, withFlatFromStructure } from '@fahybrid/shared/domain/prescription';
 import type {
   EditorBlockInput,
   EditorItemInput,
@@ -365,7 +365,8 @@ export function serializeBlockExercises(
         block_position: blockPosition,
         block_format: block.format ?? null,
         block_title: block.title || null,
-        prescription_json: item.prescription,
+        // structure is ADDITIVE on the wire: derive the flat dose when missing
+        prescription_json: withFlatFromStructure(item.prescription),
         notes: item.notes != null && item.notes !== '' ? item.notes : null,
       });
     }
@@ -386,15 +387,18 @@ export function serializeSessionSegments(
   const segments: SessionSegmentInput[] = [];
   blocks.forEach((block, blockPosition) => {
     for (const item of block.items) {
+      // structure is ADDITIVE on the wire: derive the flat dose when missing,
+      // so params_json and every summary surface keep speaking
+      const prescription = withFlatFromStructure(item.prescription);
       segments.push({
         exercise_id: Number(item.exercise_id),
         exercise_name: item.exercise_name,
         block_position: blockPosition,
         block_format: (block.format ?? null) as WeekDayPart['format'] | null,
         block_title: block.title || null,
-        params_json: prescriptionToParams(item.prescription),
+        params_json: prescriptionToParams(prescription),
         notes: item.notes != null && item.notes !== '' ? item.notes : null,
-        prescription_json: item.prescription,
+        prescription_json: prescription,
       });
     }
   });

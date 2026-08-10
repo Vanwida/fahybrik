@@ -103,7 +103,9 @@ export function registerWriteTools(server: McpServer): void {
           .string()
           .min(1)
           .max(200)
-          .describe('El nombre que lee el atleta: «Rodaje largo», «Fuerza tren inferior».'),
+          .describe(
+            'El nombre que lee el atleta: «Rodaje largo», «Fartlek», «Fuerza tren inferior». SOLO el nombre: la dosis (series, distancias, zonas, descansos) va SIEMPRE tipada en las líneas de los bloques, nunca escrita en el título.',
+          ),
         blocks: contentBlocksArg.describe(
           'Los bloques de la sesión, en el orden en que se hacen. Cada bloque, sus líneas; cada línea, su ejercicio y su dosis tipada.',
         ),
