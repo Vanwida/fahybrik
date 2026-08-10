@@ -35,7 +35,8 @@ export async function GET(_req: Request, ctx: Ctx): Promise<NextResponse> {
   const leadId = parseLeadId(id);
   if (leadId == null) return jsonError('invalid_id', 'id debe ser un entero positivo', 400);
 
-  const lead = await getLeadDetail(leadId);
+  // Tenancy: scoped to the session's club (coachOwnsLead rule) — an alien lead 404s.
+  const lead = await getLeadDetail(leadId, session.coach_id);
   if (!lead) return jsonError('not_found', 'Lead no encontrado', 404);
   return jsonOk({ lead });
 }
@@ -66,8 +67,8 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     const actor = coachActor(session);
     const lead =
       status === 'nuevo'
-        ? await reopenLead({ id: leadId, actor })
-        : await transitionLeadStatus({ id: leadId, to: status, actor });
+        ? await reopenLead({ id: leadId, coach_id: session.coach_id, actor })
+        : await transitionLeadStatus({ id: leadId, to: status, coach_id: session.coach_id, actor });
     return jsonOk({ lead });
   } catch (err) {
     if (err instanceof LeadTransitionError) return jsonError(err.code, err.message, err.status);

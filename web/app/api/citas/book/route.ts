@@ -68,6 +68,9 @@ export async function POST(req: Request) {
       if (m.meet_link) {
         await setAppointmentMeetLink({
           id: BigInt(res.appointment.id),
+          // Ruta pública sin sesión de coach: sella el link de la cita que ESTA request
+          // acaba de crear (id de bookAppointment, no del cliente) → scope de confianza.
+          coach_id: null,
           meet_link: m.meet_link,
           google_event_id: m.event_id ?? null,
         });

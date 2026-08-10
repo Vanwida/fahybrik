@@ -10,6 +10,35 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · Tenancy del embudo: un lead responde a su dueño; «sin asignar» responde a cualquiera
+
+**Decidido:** las superficies coach del embudo que actúan sobre UN lead concreto (ficha,
+transición de pipeline, reabrir, liberar plaza) y sobre sus citas (actuar, sellar Meet link)
+se filtran por dueño con **una sola regla**, `coachOwnsLead` (`web/lib/leads/store.ts`):
+`leads.coach_id = coach` **o** `coach_id IS NULL`. Un lead asignado a otro club responde
+**404** (not_found — la existencia no se filtra, nunca 403). Un lead «sin asignar» (NULL,
+mig. 0147) sigue siendo accionable por cualquier club autenticado: alguien tiene que
+triarlo y la captura es el negocio (misma lectura fail-open que el cupo). Las citas no
+tienen `coach_id` propio (0093): su dueño ES el dueño de su lead, y el scope entra por
+`appointmentWithLead`; la ruta pública de reserva sella el link con scope de confianza
+(`coach_id: null`) porque opera sobre la fila que ella misma acaba de crear.
+
+**Qué NO se tocó y por qué:** `coach_availability_exceptions` (y todo el sistema de
+disponibilidad/huecos) **no tiene dueño posible** — 0093 lo dejó club-global a propósito
+(unique global en `fecha`, `setAvailability` reemplaza la tabla entera). Filtrar su DELETE
+exigiría rediseñar el sistema de citas entero (obra multi-coach), no un filtro. El listado
+de leads (`listLeadsForCoach`) y la waitlist siguen club-global por el mismo motivo.
+
+**En consecuencia, no hacer:** no rellenar `coach_id` NULL con un dueño por descarte para
+"simplificar" el predicado (es el fallo que la 0147 cerró); no convertir el 404 de recurso
+ajeno en 403; no añadir `coach_id` a `appointments` mientras el dueño derive del lead.
+
+**Dónde vive:** `web/lib/leads/store.ts` (`coachOwnsLead` + transición/reabrir),
+`web/lib/dashboard/coach/leads.ts` (`getLeadDetail`), `web/lib/citas/store.ts`
+(`actOnAppointment`, `setAppointmentMeetLink`), tests en `web/tests/leads/tenancy.db.test.ts`.
+
+---
+
 ## 2026-08-09 · El umbral de una señal es MÉTODO — `coach_signal_thresholds` es su sitio
 
 **Decidido:** lo que el coach le publicó y el atleta no ha cerrado sube a **/hoy

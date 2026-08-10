@@ -1,6 +1,8 @@
 // Coach-dashboard leads data layer. Reads the standalone `leads` table (web-onboarding
-// prospects — migration 0092). Leads have NO coach_id (single-coach launch): every lead
-// belongs to the one coach, so there is no per-coach scoping here. Fully isolated from
+// prospects — migration 0092). Since 0147 a lead has a DUEÑO (`leads.coach_id`, stamped
+// at capture; NULL = «sin asignar»): the per-lead reads here scope by it — see
+// `coachOwnsLead` (lib/leads/store.ts) for the rule. The LIST is still club-global
+// (single-club today; scoping it is part of the multi-coach obra). Fully isolated from
 // the athletes roster (different table, no joins) — a lead is never an athlete until the
 // alta flow (task #5) converts it.
 
@@ -282,9 +284,13 @@ async function listLeadTimeline(id: bigint): Promise<LeadTimelineEvent[]> {
   }));
 }
 
-export async function getLeadDetail(id: bigint): Promise<LeadDetail | null> {
+/** The lead's full ficha, scoped to the acting coach (coachOwnsLead rule: theirs or
+ *  unassigned). Another club's lead reads as null → the caller 404s / notFound()s. */
+export async function getLeadDetail(id: bigint, coach_id: bigint | number): Promise<LeadDetail | null> {
   const rows = await sql<Record<string, unknown>[]>`
-    select * from leads where id = ${Number(id)} limit 1
+    select * from leads
+    where id = ${Number(id)} and (coach_id = ${Number(coach_id)} or coach_id is null)
+    limit 1
   `;
   const r = rows[0];
   if (!r) return null;

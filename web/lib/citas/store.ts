@@ -2,8 +2,12 @@
 // the slot computation (via the shared pure engine), and the coach status machine with
 // its side-effects (accept → lead advances to `agendado`, meet link via adapter/manual).
 //
-// Single-coach launch: no coach_id scoping (one coach). Add a coach_id filter here when
-// the product goes multi-coach. Timezone Europe/Madrid throughout (shared/domain/dates).
+// Tenancy: an appointment has NO coach_id of its own (0093) — it belongs to the club
+// that owns its LEAD (`leads.coach_id`, mig. 0147). The coach-facing entry points
+// (actOnAppointment, setAppointmentMeetLink) therefore scope through the lead, with the
+// `coachOwnsLead` rule (lib/leads/store.ts): theirs or unassigned; another club's → 404.
+// Slots + availability stay club-global on purpose (0093: those tables have no owner
+// until the multi-coach obra). Timezone Europe/Madrid throughout (shared/domain/dates).
 
 import { sql } from '@/lib/db';
 import { isRowWaitlisted } from '@/lib/leads/waitlist';
@@ -345,7 +349,15 @@ export interface AppointmentWithLead extends AppointmentView {
   google_event_id: string | null;
 }
 
-async function appointmentWithLead(id: bigint): Promise<AppointmentWithLead | null> {
+/** The appointment + its lead, optionally scoped to a coach. `coach_id = null` skips the
+ *  tenancy predicate (trusted internal caller); a bigint scopes via the lead's owner
+ *  (coachOwnsLead rule: theirs or unassigned). Review appointments (lead_id null) never
+ *  resolve here — the inner join is deliberate (see lib/citas/reviews.ts). */
+async function appointmentWithLead(id: bigint, coach_id: bigint | null): Promise<AppointmentWithLead | null> {
+  const scope =
+    coach_id === null
+      ? sql``
+      : sql`and (l.coach_id = ${Number(coach_id)} or l.coach_id is null)`;
   const rows = await sql<
     {
       id: string;
@@ -367,7 +379,7 @@ async function appointmentWithLead(id: bigint): Promise<AppointmentWithLead | nu
            a.requested_start, a.duration_minutes, a.status::text as status, a.meet_link,
            a.modality::text as modality, a.coach_note, a.google_event_id
     from appointments a join leads l on l.id = a.lead_id
-    where a.id = ${Number(id)} limit 1
+    where a.id = ${Number(id)} ${scope} limit 1
   `;
   const a = rows[0];
   return a
@@ -400,14 +412,19 @@ export interface ActOnAppointmentResult {
  *   • accept  → status=aceptada; lead advances to `agendado` (forward-only); meet_link
  *     set from the provided value (or left null → the adapter/manual paste fills it later).
  * Returns the updated appointment; the ROUTE fires the matching email.
+ *
+ * Tenancy: scoped through the lead's owner (coachOwnsLead rule) — another club's cita
+ * reads as nonexistent → not_found 404.
  */
 export async function actOnAppointment(args: {
   id: bigint;
+  /** The acting coach (session.coach_id) — the cita's lead must be theirs or unassigned. */
+  coach_id: bigint;
   action: CoachAppointmentAction;
   meet_link?: string;
   coach_note?: string;
 }): Promise<ActOnAppointmentResult> {
-  const current = await appointmentWithLead(args.id);
+  const current = await appointmentWithLead(args.id, args.coach_id);
   if (!current) throw new CitasError('not_found', 'Cita no encontrada', 404);
 
   const to = APPOINTMENT_ACTION_TO_STATUS[args.action];
@@ -441,19 +458,26 @@ export async function actOnAppointment(args: {
     }
   });
 
-  const updated = await appointmentWithLead(args.id);
+  const updated = await appointmentWithLead(args.id, args.coach_id);
   if (!updated) throw new CitasError('not_found', 'Cita no encontrada', 404);
   return { appointment: updated, newStatus: to };
 }
 
-/** Paste/replace the Meet link on an existing appointment (re-sends the email in the route). */
+/** Paste/replace the Meet link on an existing appointment (re-sends the email in the route).
+ *  Tenancy: `coach_id` scopes through the lead's owner (coachOwnsLead rule) → alien cita 404;
+ *  `null` = trusted internal caller (the public booking route sealing the link on the
+ *  appointment it created in this same request — there is no coach session there). */
 export async function setAppointmentMeetLink(args: {
   id: bigint;
+  /** Acting coach, or null for the trusted post-booking path. */
+  coach_id: bigint | null;
   meet_link: string;
   /** Persisted alongside the link when the meeting was auto-created via Google, so
    *  a later cancel can delete the calendar event. */
   google_event_id?: string | null;
 }): Promise<AppointmentWithLead> {
+  const current = await appointmentWithLead(args.id, args.coach_id);
+  if (!current) throw new CitasError('not_found', 'Cita no encontrada', 404);
   const rows = await sql<{ id: string }[]>`
     update appointments
       set meet_link = ${args.meet_link},
@@ -462,7 +486,7 @@ export async function setAppointmentMeetLink(args: {
     where id = ${Number(args.id)} returning id::text as id
   `;
   if (!rows[0]) throw new CitasError('not_found', 'Cita no encontrada', 404);
-  const updated = await appointmentWithLead(args.id);
+  const updated = await appointmentWithLead(args.id, args.coach_id);
   if (!updated) throw new CitasError('not_found', 'Cita no encontrada', 404);
   return updated;
 }

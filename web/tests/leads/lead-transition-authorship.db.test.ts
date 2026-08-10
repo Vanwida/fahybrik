@@ -15,6 +15,7 @@ describeWithDb('lead transition authorship (real DB)', () => {
   const sql = getTestSql();
   const emails: string[] = [];
   let actorUserId = BigInt(0);
+  let actorCoachId = BigInt(0);
   const actorEmail = `lead-actor-${Date.now()}@test.local`;
 
   function uniqueLeadEmail(): string {
@@ -29,6 +30,13 @@ describeWithDb('lead transition authorship (real DB)', () => {
       returning id::text as id
     `;
     actorUserId = BigInt(u[0]!.id);
+    // The tenancy-scoped signatures need an acting club; the seeded lead below has
+    // coach_id NULL («sin asignar»), which any authenticated club may act on.
+    const c = await sql<Array<{ id: string }>>`
+      insert into coaches (user_id, full_name) values (${Number(actorUserId)}, 'Gerard Club')
+      returning id::text as id
+    `;
+    actorCoachId = BigInt(c[0]!.id);
   });
 
   afterEach(async () => {
@@ -45,6 +53,7 @@ describeWithDb('lead transition authorship (real DB)', () => {
   });
 
   afterAll(async () => {
+    await sql`delete from coaches where id = ${Number(actorCoachId)}`;
     await sql`delete from users where email = ${actorEmail}`;
     await closeTestSql();
   });
@@ -60,6 +69,7 @@ describeWithDb('lead transition authorship (real DB)', () => {
     const res = await transitionLeadStatus({
       id: leadId,
       to: 'contactado',
+      coach_id: actorCoachId,
       actor: { kind: 'coach', user_id: actorUserId },
     });
     expect(res.status).toBe('contactado');
@@ -93,7 +103,7 @@ describeWithDb('lead transition authorship (real DB)', () => {
     expect(audit[0]!.kind).toBe('coach');
 
     // The loader surfaces the timeline with the resolved changer name.
-    const detail = await getLeadDetail(leadId);
+    const detail = await getLeadDetail(leadId, actorCoachId);
     expect(detail?.timeline).toHaveLength(1);
     expect(detail?.timeline[0]!.to_status).toBe('contactado');
     expect(detail?.timeline[0]!.changed_by_name).toBe('Gerard Coach');
