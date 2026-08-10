@@ -147,6 +147,13 @@ export const RATE_LIMITS = {
   // Public RGPD unsubscribe (token-gated, idempotent). Generous — a real person confirms
   // once — but capped to blunt token enumeration / scripted abuse.
   leadsUnsubscribe: { endpoint: 'leads-unsubscribe', limit: 20, windowSec: 60 * 10 },
+  // Coach MCP connector (/api/mcp), throttled per COACH, not per IP: the caller
+  // is the assistant's datacentre, so an IP says nothing about who is asking.
+  // These are conversational READS — one question from the coach routinely fans
+  // out into several tool calls, and the assistant re-reads to check itself — so
+  // the ceiling is high enough to never interrupt a real conversation while
+  // still bounding a runaway agent loop against the club's data.
+  mcp: { endpoint: 'mcp', limit: 120, windowSec: 60 },
 } as const;
 
 /**
