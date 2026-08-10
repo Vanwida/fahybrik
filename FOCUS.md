@@ -15,9 +15,14 @@ OAuth Clerk completo (`.well-known` + CIMD/DCR), resolver token→coach, tools
 `get_briefing` / `list_athletes` / `get_athlete`, rate limit `mcp`, 29/29
 tests en rama Neon. Cazado y esquivado un bug del helper de Clerk que
 publicaba mal el `resource` (el síntoma del issue Claude↔Clerk de abril).
-**Gate pendiente:** activar DCR en el dashboard de Clerk (PRODUCTION →
-OAuth applications), desplegar, y conectar desde Claude web + iPhone de Alex
-(URL del conector: `https://app.fahybrid.com/api/mcp`). Siguientes fases:
+**Desplegado en producción y conectado (10-ago):** DCR activado por API
+(`instance/oauth_application_settings`), `.well-known` + 401 verificados en
+vivo, conector «FAHYBRID» añadido en el claude.ai de Alex
+(`https://app.fahybrid.com/api/mcp`) y handshake OAuth completo hasta la
+pantalla de consentimiento (Claude auto-registrado vía DCR, `resource`
+correcto). **Gate restante:** Allow de Alex en el consentimiento + probar
+las 3 tools en Claude web y iPhone. Verificado en DB: alexsole@gmail.com y
+alex@fahybrid.com resuelven ambos al club 60. Siguientes fases:
 F2 lecturas completas → F3 escrituras de día (borrador-primero) → F4
 comunicados/publicar → F5 Grok + entitlement de pago.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
