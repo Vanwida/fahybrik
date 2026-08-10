@@ -95,3 +95,51 @@ final class DosisAlFalloYPorImplementoTests: XCTestCase {
         XCTAssertEqual(implementos, 2)
     }
 }
+
+// El objetivo va en RITMO, que es el idioma del coach; la consola de la cinta se
+// marca en km/h, que es el de la máquina. Y en las cintas que hemos encontrado la
+// app no puede fijar la velocidad por BLE, así que la cuenta la hace el atleta
+// a mano y sudando. Estos tests fijan que se la damos hecha y bien.
+final class VelocidadDeCintaTests: XCTestCase {
+    func testElEjemploDelCoach() {
+        // «correr a 14» ↔ 4:17/km, las dos direcciones.
+        XCTAssertEqual(TreadmillMath.paceSecPerKm(fromSpeedKmh: 14), 257)
+        XCTAssertEqual(TreadmillMath.speedKmh(fromPaceSecPerKm: 257), 14.0)
+    }
+
+    func testSeRedondeaAlEscalonDeLaConsola() throws {
+        // 3600/270 = 13,333… No se puede marcar. Con escalón de 0,1 → 13,3;
+        // en una consola que va de medio en medio → 13,5.
+        let fino = try XCTUnwrap(TreadmillMath.speedKmh(fromPaceSecPerKm: 270))
+        let grueso = try XCTUnwrap(TreadmillMath.speedKmh(fromPaceSecPerKm: 270, step: 0.5))
+        XCTAssertEqual(fino, 13.3, accuracy: 0.001)
+        XCTAssertEqual(grueso, 13.5, accuracy: 0.001)
+    }
+
+    func testLaIdaYVueltaNoSeDesvia() {
+        // El número que le damos tiene que devolver el ritmo pedido dentro de la
+        // tolerancia que el propio modelo usa para un objetivo de punto (±8 s).
+        for pace in [240, 257, 270, 285, 300, 330] {
+            let kmh = try! XCTUnwrap(TreadmillMath.speedKmh(fromPaceSecPerKm: pace))
+            let vuelta = try! XCTUnwrap(TreadmillMath.paceSecPerKm(fromSpeedKmh: kmh))
+            XCTAssertLessThanOrEqual(abs(vuelta - pace), PaceTarget.singleToleranceSecPerKm, "\(pace)")
+        }
+    }
+
+    func testLaBandaSeCruza() {
+        // 4:30–4:45/km: el ritmo RÁPIDO es la velocidad ALTA. Si no se cruzan los
+        // extremos, el atleta corre al contrario de lo que le pidieron.
+        let objetivo = RunTarget.pace(PaceTarget(single: nil, fastS: 270, slowS: 285))
+        XCTAssertEqual(objetivo.velocidadDeCinta(), "12,6–13,3")
+    }
+
+    func testUnaZonaDePulsoNoSeMarcaEnLaConsola() {
+        // La cinta no sabe tu pulso: no hay número que dar, y no se inventa.
+        XCTAssertNil(RunTarget.zone(.z2).velocidadDeCinta())
+        XCTAssertNil(RunTarget.none.velocidadDeCinta())
+    }
+
+    func testLaCintaParadaNoTieneRitmo() {
+        XCTAssertNil(TreadmillMath.paceSecPerKm(fromSpeedKmh: 0))
+    }
+}
