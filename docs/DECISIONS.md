@@ -10,6 +10,62 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · Quién CONDUCE un tramo se decide una vez, y las pantallas leen eso — no el esquema
+
+**El fallo que lo obligó:** el fartlek dictado por MCP (16 × 500 m Z4 + 1' suave en Z2,
+asignación 411) pintaba bien la ficha y, al tocar EMPEZAR, dejaba la pantalla EN BLANCO:
+una franja de «LO QUE VIENE», sin título y **sin botón de EMPEZAR**. El entreno no se
+podía arrancar.
+
+**La raíz:** el motor tiene la precedencia clara desde el #61 —estructura de carrera >
+EMOM > rotativo (`WorkoutSession.onEnterSegment`)— pero la propiedad que leen las
+PANTALLAS, `WorkoutSegment.isConditioningTimer`, sólo excluía el EMOM. Una serie de
+correr con `structure` (cuyo esquema plano ES `intervals`/`steady`) seguía declarándose
+«reloj de acondicionamiento», así que `ActiveWorkoutView` le montaba debajo un
+`ForTimeLiveHUD` con sus 16 filas de ronda sin recortar: ~2.600 pt en una pantalla de
+874. El `ZStack` del entreno creció con él y la puerta del bloque —hermana suya en ese
+mismo `ZStack`— quedó centrada en un alto imposible: título fuera por arriba, EMPEZAR
+fuera por abajo.
+
+**Decidido:** la precedencia de motores se escribe UNA vez y es la que leen las
+pantallas. `isConditioningTimer` excluye la carrera con estructura igual que ya excluía
+el EMOM, y `superficieViva` resuelve un tramo de correr DENTRO de su propia rama (o una
+de las dos pantallas de correr, o ninguna superficie) en vez de dejarlo caer por la
+cadena hasta el formato de otro.
+
+**En consecuencia, no hacer:** no arreglarlo en la vista de turno (la puerta del bloque
+era el síntoma, no la causa: el mismo agujero pintaba un For Time debajo de cualquier
+carrera estructurada); no dar por sentado que una lista de rondas cabe en la pantalla
+—sigue abierto que un metcon REAL de 16 rondas que nadie mide revienta igual el alto
+(`StrikeList` no recorta ni scrollea, y la ranura del vivo no scrollea en vertical por
+el ancla del sujeto del §10.3): es decisión de UX, no de código.
+
+---
+
+## 2026-08-10 · Una recuperación que se CORRE no se llama «descanso»
+
+**Decidido:** cuando hay `structure`, la línea de dosis se cuenta desde la estructura y
+la recuperación se dice como se hace: «recuperación 1:00 suave en Z2» (`suave` /
+`caminando` salen de `RunLegDisplay.recoveryModeWord`, la misma palabra que dicen el
+vivo y la muñeca). Se dice «descanso» exactamente en dos casos: modo `parado`, y modo
+NO DECLARADO — que es lo que llega de una prescripción plana, donde el número nació de
+un `rest_s` y «descanso» es literalmente lo que el coach escribió.
+
+**Por qué:** el aplanado (un set + un `rest_s`) miente dos veces sobre un fartlek —
+pierde el ×16 (un 16×500 se leía «500 m») y llama «descanso» a un minuto que se corre.
+Un atleta que lee «descanso» se queda parado, y el fartlek pierde el sentido. La
+estructura sabe las dos cosas.
+
+**En consecuencia, no hacer:** no escribir la dosis dos veces (el titular sale de UN
+formateador, `PrescriptionRenderer.summaryLine`, que es el que ya leen la previa, la
+puerta, la ficha del ejercicio, el espejo del reloj y el resumen de carrera); no
+resumir lo que no es uniforme (objetivos o recuperaciones distintas entre tramos NO se
+colapsan a la primera — §7); no colapsar una pirámide a su primer tramo, y escribir su
+secuencia en METROS con la unidad una vez («1200/1000/800 m»), porque
+`Formato.distancia` pasa a km a partir de 1.000 y «1,2 km/1 km/800 m» no se compara.
+
+---
+
 ## 2026-08-10 · La `structure` de carrera es ADITIVA al plano — y lo garantiza el ESCRITOR, no la buena fe
 
 **Decidido (tras el primer fartlek dictado por MCP):** una prescripción que lleva

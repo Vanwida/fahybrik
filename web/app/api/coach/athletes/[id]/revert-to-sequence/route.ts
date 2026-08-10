@@ -5,6 +5,7 @@ import {
   RevertPersonalPlanError,
   revertPersonalPlanForAthlete,
 } from '@/lib/dashboard/coach/revert-personal-plan';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,7 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
     const result = await revertPersonalPlanForAthlete({
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
+      actor: coachActor(session),
     });
     return jsonOk({ revert: result });
   } catch (err) {

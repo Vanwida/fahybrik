@@ -11,6 +11,7 @@ import {
 } from '@/lib/dashboard/coach/personal-plan-chain-mutations';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('addPersonalTramoToChain (DB real)', () => {
   const sql = getTestSql();
@@ -50,10 +51,12 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
       client: sql,
     });
 
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const base = await addPersonalTramoToChain({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -62,6 +65,7 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 3 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -98,11 +102,13 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
 
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     await expect(
       addPersonalTramoToChain({
         coach_id: fx.coachId,
         athlete_id: fx.athleteId,
         payload: { name: 'Base', week_count: 2 },
+        actor,
         client: sql,
       }),
     ).rejects.toMatchObject({
@@ -115,6 +121,7 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
         coach_id: fx.coachId,
         athlete_id: fx.athleteId,
         payload: { name: 'Base', week_count: 2 },
+        actor,
         client: sql,
       });
     } catch (e) {
@@ -143,11 +150,13 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
       client: sql,
     });
 
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     await expect(
       addPersonalTramoToChain({
         coach_id: fx.coachId,
         athlete_id: fx.athleteId,
         payload: { name: '   ', week_count: 2 },
+        actor,
         client: sql,
       }),
     ).rejects.toMatchObject({ code: 'invalid_payload' });
@@ -157,6 +166,7 @@ describeWithDb('addPersonalTramoToChain (DB real)', () => {
         coach_id: fx.coachId,
         athlete_id: fx.athleteId,
         payload: { name: 'Base', week_count: 99 },
+        actor,
         client: sql,
       }),
     ).rejects.toMatchObject({ code: 'invalid_payload' });

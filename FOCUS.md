@@ -53,6 +53,22 @@ solo-estructura queda MUDA en todos los resúmenes. Raíz arreglada
 backfilleada, título limpio. Mejora pendiente anotada: `to-text` podría
 narrar la estructura fina (16×(500m Z3 / 1' trote Z2)) en vez del flatten.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
+**Segundo bug real del mismo fartlek, en iOS (10-ago, ARREGLADO):** en el móvil,
+la ficha se veía bien y al tocar EMPEZAR la pantalla salía EN BLANCO, sin botón
+de empezar. La raíz no era la puerta del bloque: `isConditioningTimer` —la
+propiedad que leen las PANTALLAS— no excluía la carrera con estructura, así que
+al tramo se le montaba debajo un `ForTimeLiveHUD` de 16 filas (~3 pantallas de
+alto) y la puerta quedaba centrada en ese alto, con el EMPEZAR fuera. Arreglado
+en la raíz (la precedencia del motor se escribe una vez), y de paso la dosis se
+cuenta desde la estructura: «16 × 500 m · Z4 · recuperación 1:00 suave en Z2» —
+un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIONS
+2026-08-10 (las dos entradas de arriba).
+**Abierto de ahí, decisión de UX:** una lista de rondas de un metcon REAL de 16
+rondas que nadie mide (`StrikeList`) sigue midiendo más que la pantalla, y la
+ranura del vivo no scrollea en vertical (ancla del sujeto, §10.3). Pantallas del
+doble desfasadas por el cambio de copy: `gate-bloque`, `sesion-previa`,
+`run-live` (esta escribe «1000 m · @4:35 /km · 4× · descanso 2:00», que ya no es
+lo que pinta Swift).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 

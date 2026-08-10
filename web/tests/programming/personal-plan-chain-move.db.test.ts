@@ -18,6 +18,7 @@ import {
   makeTemplate,
   type Fixture,
 } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('movePersonalTramoInChain (DB real)', () => {
   const sql = getTestSql();
@@ -51,10 +52,12 @@ describeWithDb('movePersonalTramoInChain (DB real)', () => {
       start_date: isoDateString(thisMonday),
       client: sql,
     });
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const base = await addPersonalTramoToChain({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -62,6 +65,7 @@ describeWithDb('movePersonalTramoInChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 3 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -97,6 +101,7 @@ describeWithDb('movePersonalTramoInChain (DB real)', () => {
         athlete_id: fx.athleteId,
         month_template_id: Number(base.month_template_id),
         payload: { direction: 'down' },
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
         client: sql,
       });
     } catch (e) {
@@ -129,6 +134,7 @@ describeWithDb('movePersonalTramoInChain (DB real)', () => {
       athlete_id: fx.athleteId,
       month_template_id: Number(build.month_template_id),
       payload: { direction: 'up' },
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     expect(result.moved).toHaveLength(2);
@@ -177,6 +183,7 @@ describeWithDb('movePersonalTramoInChain (DB real)', () => {
         athlete_id: fx.athleteId,
         month_template_id: Number(base.month_template_id),
         payload: { direction: 'up' },
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
         client: sql,
       }),
     ).rejects.toMatchObject({ code: 'no_neighbor' });

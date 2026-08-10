@@ -6,6 +6,7 @@ import {
   personalizePlanForAthlete,
 } from '@/lib/dashboard/coach/personalize-plan';
 import { personalizePlanInputSchema } from '@fahybrid/shared/schema/personalize-plan';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
       start: parsed.data.start,
+      actor: coachActor(session),
     });
     return jsonOk({ personalize: result });
   } catch (err) {

@@ -17,6 +17,7 @@ import { instantiateMonthFromTemplate } from '@/lib/dashboard/coach/instantiate-
 import type { Sql } from '@/lib/db';
 import { closeTestSql, describeWithDb, getTestDbUrl, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('athlete_month_assignments — invariante de no-solape (0166)', () => {
   const sql = getTestSql();
@@ -96,11 +97,13 @@ describeWithDb('athlete_month_assignments — invariante de no-solape (0166)', (
     });
 
     try {
+      const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
       const outcomes = await Promise.allSettled([
-        personalizePlanForAthlete({ coach_id: fx.coachId, athlete_id: fx.athleteId, client: sql }),
+        personalizePlanForAthlete({ coach_id: fx.coachId, athlete_id: fx.athleteId, actor, client: sql }),
         personalizePlanForAthlete({
           coach_id: fx.coachId,
           athlete_id: fx.athleteId,
+          actor,
           client: secondConn as unknown as Sql,
         }),
       ]);

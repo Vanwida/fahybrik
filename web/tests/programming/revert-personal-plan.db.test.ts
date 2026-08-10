@@ -15,6 +15,7 @@ import {
 import { createPersonalMonthTemplateFromScratch } from '@/lib/dashboard/coach/personal-plans';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('revertPersonalPlanForAthlete (DB real)', () => {
   const sql = getTestSql();
@@ -69,6 +70,7 @@ describeWithDb('revertPersonalPlanForAthlete (DB real)', () => {
     const personalized = await personalizePlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     fx.monthTemplates.push({ monthId: Number(personalized.month_template_id), weekIds: [] });
@@ -85,6 +87,7 @@ describeWithDb('revertPersonalPlanForAthlete (DB real)', () => {
     const reverted = await revertPersonalPlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     expect(reverted.materialized_month_template_id).toBe(sourceMonthId);
@@ -132,13 +135,19 @@ describeWithDb('revertPersonalPlanForAthlete (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Plan desde cero', week_count: 1 },
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     fx.monthTemplates.push({ monthId: Number(created.id), weekIds: created.weeks.map((w) => Number(w.id)) });
 
     // Nunca activado (ningún assign-month) → no hay plan "actual" que revertir.
     await expect(
-      revertPersonalPlanForAthlete({ coach_id: fx.coachId, athlete_id: fx.athleteId, client: sql }),
+      revertPersonalPlanForAthlete({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
+        client: sql,
+      }),
     ).rejects.toMatchObject({ code: 'not_personal' });
   });
 
@@ -146,7 +155,12 @@ describeWithDb('revertPersonalPlanForAthlete (DB real)', () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
     await expect(
-      revertPersonalPlanForAthlete({ coach_id: fx.coachId, athlete_id: fx.athleteId, client: sql }),
+      revertPersonalPlanForAthlete({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
+        client: sql,
+      }),
     ).rejects.toBeInstanceOf(RevertPersonalPlanError);
   });
 });

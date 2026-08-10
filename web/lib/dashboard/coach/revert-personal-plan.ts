@@ -38,6 +38,7 @@ import {
 } from './assign-sequence';
 import { retirePersonalPlan, type RetirePersonalPlanResult } from './personal-plans';
 import type { InstantiateMonthResult } from './instantiate-program';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export class RevertPersonalPlanError extends Error {
   constructor(
@@ -96,6 +97,10 @@ export async function canRevertToSequence(params: {
 export async function revertPersonalPlanForAthlete(params: {
   coach_id: number | bigint;
   athlete_id: number;
+  /** Quién revierte a la periodización — entra en la fila de auditoría. */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<RevertPersonalPlanResult> {
   const client = params.client ?? defaultSql;
@@ -167,6 +172,36 @@ export async function revertPersonalPlanForAthlete(params: {
       set status = 'active', updated_at = now()
       where id = ${Number(progress.id)}
     `;
+
+    // Auditoría DENTRO de esta misma transacción. entity_type distinto de
+    // retirePersonalPlan/deletePersonalPlanForAthlete a propósito: la fila que
+    // ESTA función mueve de verdad es athlete_sequence_progress (detached →
+    // active) — el plan personal retirado va como contexto en el diff, no
+    // como entity, porque para esta operación "volver" es lo que pasó, no
+    // "borrar". action 'restore' (no 'delete'): retirePersonalPlan es el
+    // mismo mecanismo que usa el borrado suelto, pero aquí es un efecto
+    // secundario de resucitar la secuencia, no el propósito de la llamada.
+    await recordAudit(tx, {
+      entity_type: 'athlete_sequence_progress',
+      entity_id: BigInt(progress.id),
+      action: 'restore',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        sequence_id: Number(progress.sequence_id),
+        resumed_position: progress.current_position,
+        resumed_month_template_id: Number(item.month_template_id),
+        retired_personal_plan: {
+          month_template_id: Number(current.month_template_id),
+          deleted_sessions: retired.deleted_sessions,
+          preserved_sessions: retired.preserved_sessions,
+          deleted_microcycles: retired.deleted_microcycles,
+          was_current: retired.was_current,
+        },
+      },
+    });
 
     return {
       sequenceId: Number(progress.sequence_id),

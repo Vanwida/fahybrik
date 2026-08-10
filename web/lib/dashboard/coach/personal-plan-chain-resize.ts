@@ -15,6 +15,7 @@ import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/sh
 import { instantiateWeekIntoMicrocycle } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { tramoSafety, PersonalChainError } from './personal-plan-chain-reflow';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export type ResizeInPlaceResult = { end_date: string; week_count: number };
 
@@ -38,14 +39,19 @@ export async function resizeAssignmentInPlace(params: {
   coach_id: number;
   athlete_id: number;
   month_template_id: number;
+  /** Quién redimensiona — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client: Sql;
 }): Promise<ResizeInPlaceResult | null> {
-  const { coach_id, athlete_id, month_template_id, client } = params;
+  const { coach_id, athlete_id, month_template_id, actor, channel, client } = params;
 
   const assignmentRows = await client<
-    Array<{ id: string; start_date: string; microcycle_ids: string[] | null }>
+    Array<{ id: string; start_date: string; end_date: string; microcycle_ids: string[] | null }>
   >`
-    select id::text, to_char(start_date, 'YYYY-MM-DD') as start_date, microcycle_ids
+    select id::text, to_char(start_date, 'YYYY-MM-DD') as start_date,
+           to_char(end_date, 'YYYY-MM-DD') as end_date, microcycle_ids
     from athlete_month_assignments
     where athlete_id = ${athlete_id} and month_template_id = ${month_template_id}
     limit 1
@@ -104,6 +110,29 @@ export async function resizeAssignmentInPlace(params: {
             assignment_count = ${totalCount[0]?.n ?? 0}
         where id = ${Number(assignment.id)}
       `;
+
+      // Auditoría DENTRO de esta transacción — es un commit REAL distinto del
+      // de updatePersonalTramoMeta (que ya audita el nombre/nº de semanas
+      // objetivo del contenedor en la suya propia): esta es la que de verdad
+      // materializa/borra sesiones sobre el recibo. Alargar no borra nada, así
+      // que no hay número de sesiones que reportar aquí.
+      await recordAudit(tx, {
+        entity_type: 'program_month_templates',
+        entity_id: BigInt(month_template_id),
+        action: 'update',
+        actor,
+        ...(channel ? { channel } : {}),
+        diff: {
+          athlete_id,
+          coach_id,
+          resize: 'grow',
+          week_count_before: oldCount,
+          week_count_after: newCount,
+          end_date_before: assignment.end_date,
+          end_date_after: newEnd,
+        },
+      });
+
       return { end_date: newEnd };
     });
     await markFutureWeeksDraft({
@@ -130,8 +159,13 @@ export async function resizeAssignmentInPlace(params: {
   const newEnd = isoDateString(addDays(startMonday, newCount * 7 - 1));
   await client.begin(async (txRaw) => {
     const tx = txRaw as unknown as Sql;
+    let deletedSessions = 0;
     if (removedIds.length > 0) {
-      await tx`delete from workout_assignments where microcycle_id = any(${removedIds}::bigint[])`;
+      const deletedRows = await tx<Array<{ id: string }>>`
+        delete from workout_assignments where microcycle_id = any(${removedIds}::bigint[])
+        returning id
+      `;
+      deletedSessions = deletedRows.length;
       await tx`delete from microcycles where id = any(${removedIds}::bigint[])`;
     }
     // Igual que personalize-plan.ts al recortar el recibo viejo: `assignment_count`
@@ -147,6 +181,30 @@ export async function resizeAssignmentInPlace(params: {
           assignment_count = ${survivorCount[0]?.n ?? 0}
       where id = ${Number(assignment.id)}
     `;
+
+    // Auditoría DENTRO de esta transacción — ver el comentario de la rama
+    // ALARGAR arriba. `preserved_sessions` es siempre 0 aquí: `tramoSafety`
+    // ya rechazó la operación entera (arriba, fuera de esta tx) si alguna de
+    // las semanas a quitar tenía algo ejecutado, así que si llegamos aquí
+    // ninguna de las borradas lo estaba.
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(month_template_id),
+      action: 'update',
+      actor,
+      ...(channel ? { channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        resize: 'shrink',
+        week_count_before: oldCount,
+        week_count_after: newCount,
+        end_date_before: assignment.end_date,
+        end_date_after: newEnd,
+        deleted_sessions: deletedSessions,
+        preserved_sessions: 0,
+      },
+    });
   });
   return { end_date: newEnd, week_count: newCount };
 }
