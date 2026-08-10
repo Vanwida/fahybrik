@@ -1,7 +1,7 @@
 // Un cliente MCP de verdad contra el servidor de tools, por memoria.
 //
 // POR QUÉ ASÍ Y NO LLAMANDO A LOS HANDLERS. Montando el servidor con
-// `registerCoachReadTools` y conectando un `Client` real por `InMemoryTransport` se
+// `registerCoachTools` y conectando un `Client` real por `InMemoryTransport` se
 // ejerce el CONTRATO MCP completo: el listado de tools, la validación Zod de los
 // argumentos y la forma del resultado. Llamar a los handlers a pelo se saltaría
 // justo lo que puede romperse sin avisar (que el SDK, mcp-handler y el zod 3 del
@@ -20,7 +20,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import type { JSONRPCMessage, RequestId } from '@modelcontextprotocol/sdk/types.js';
-import { registerCoachReadTools } from '@/lib/mcp/tools';
+import { registerCoachTools } from '@/lib/mcp/tools';
 
 export type ToolResult = {
   content: Array<{ type: string; text?: string }>;
@@ -42,7 +42,7 @@ export function uniqClerkId(tag: string): string {
  */
 export async function connectAs(clerkUserId: string | null): Promise<McpTestClient> {
   const server = new McpServer({ name: 'fahybrid-coach-test', version: '1.0.0' });
-  registerCoachReadTools(server);
+  registerCoachTools(server);
 
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   if (clerkUserId !== null) {

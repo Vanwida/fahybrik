@@ -1,4 +1,5 @@
-// The coach's read tools — el club entero de lectura (docs/mcp-conector-coach.html).
+// Las tools del coach — el club entero (docs/mcp-conector-coach.html): de lectura,
+// y las tres del día que escriben (`tools-write.ts`).
 //
 // Each tool is a thin mouth over a function the dashboard already calls, reached
 // WITHOUT an HTTP hop: `lib/coach/*` takes `{ coach_id, … }` and is consumed
@@ -6,8 +7,8 @@
 // apart, because there is only one implementation to drift.
 //
 // AQUÍ VIVEN LAS TOOLS DEL ATLETA (su día, su lista, su ficha). Las demás están
-// repartidas por dominio en `tools-plan.ts`, `tools-races.ts`, `tools-library.ts` y
-// `tools-comms.ts`, y se registran todas desde `registerCoachReadTools` — un solo
+// repartidas por dominio en `tools-plan.ts`, `tools-races.ts`, `tools-library.ts`,
+// `tools-comms.ts` y `tools-write.ts`, y se registran todas desde `registerCoachTools` — un solo
 // sitio dice qué habla el conector. Las tres piezas que comparten (`ok`, `fail`,
 // `withCoach`) viven en `runtime.ts`, que es de quien las importan todos.
 //
@@ -35,6 +36,7 @@ import { registerCommunicationsTools } from './tools-comms';
 import { registerLibraryTools } from './tools-library';
 import { registerPlanTools } from './tools-plan';
 import { registerRacesTools } from './tools-races';
+import { registerWriteTools } from './tools-write';
 import {
   athleteResumen,
   athletesResumen,
@@ -46,7 +48,7 @@ import {
 /** The plan an athlete is on. Matches `subscriptions.plan_type` exactly. */
 const MODALITY = ['individual', 'dobles', 'pro_elite'] as const;
 
-export function registerCoachReadTools(server: McpServer): void {
+export function registerCoachTools(server: McpServer): void {
   server.registerTool(
     'get_briefing',
     {
@@ -153,4 +155,7 @@ export function registerCoachReadTools(server: McpServer): void {
   registerRacesTools(server);
   registerLibraryTools(server);
   registerCommunicationsTools(server);
+  // Y las del día que SÍ escriben. Van al final a propósito: el orden en que se
+  // registran es el orden en que las lee el asistente, y primero se mira.
+  registerWriteTools(server);
 }

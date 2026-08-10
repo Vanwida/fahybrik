@@ -26,7 +26,7 @@ import { createMcpHandler, withMcpAuth } from 'mcp-handler';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { clerkUserIdFromAuthInfo, verifyMcpToken } from '@/lib/mcp/auth';
 import { MCP_BASE_PATH, MCP_RESOURCE_METADATA_PATH } from '@/lib/mcp/paths';
-import { registerCoachReadTools } from '@/lib/mcp/tools';
+import { registerCoachTools } from '@/lib/mcp/tools';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const handler = createMcpHandler(
-  registerCoachReadTools,
+  registerCoachTools,
   { serverInfo: { name: 'fahybrid-coach', version: '1.0.0' } },
   { basePath: MCP_BASE_PATH, disableSse: true },
 );

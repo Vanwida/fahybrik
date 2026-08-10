@@ -20,6 +20,7 @@ import { AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
 import { AthletePlanError } from '@/lib/dashboard/coach/athlete-plan';
 import { CoachRacesError } from '@/lib/races/coach-races';
 import { CommunicationError } from '@/lib/communications/store';
+import type { CoachSession } from '@/lib/auth/coach-session';
 import { McpNotACoachError, coachFromAuthInfo } from './auth';
 
 /**
@@ -94,11 +95,17 @@ export async function resolveOwnedAthlete(params: {
  */
 export async function withCoach(
   authInfo: AuthInfo | undefined,
-  body: (coach_id: bigint, coach_name: string) => Promise<CallToolResult>,
+  body: (
+    coach_id: bigint,
+    coach_name: string,
+    /** La sesión entera, para lo que necesita más que el club: la auditoría
+     *  necesita el `user_id` de la PERSONA que dictó la escritura, no del club. */
+    session: CoachSession,
+  ) => Promise<CallToolResult>,
 ): Promise<CallToolResult> {
   try {
     const coach = await coachFromAuthInfo(authInfo);
-    return await body(coach.coach_id, coach.full_name);
+    return await body(coach.coach_id, coach.full_name, coach);
   } catch (err) {
     if (err instanceof McpNotACoachError) return fail(err.message);
     if (err instanceof AthleteDeepDiveError) return fail(NO_SUCH_ATHLETE_MESSAGE);
