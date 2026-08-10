@@ -156,6 +156,12 @@ enum PrescriptionRenderer {
     // attach pace / zone / load / RPE / rest as secondary detail.
 
     static func summaryLine(_ p: Prescription) -> Line {
+        // UNA CARRERA CON ESTRUCTURA SE CUENTA POR SU ESTRUCTURA. El aplanado (un set,
+        // un `rest_s`) es el SUELO para lo que no la trae; cuando la trae, decirlo con
+        // el suelo miente dos veces: pierde el ×N (un 16×500 se leía «500 m») y llama
+        // «descanso» a un minuto que se corre al trote en Z2 — el atleta lee eso y se
+        // queda parado, que es justo lo contrario del entreno.
+        if let estructurada = structuredRunLine(p) { return estructurada }
         let set = p.sets?.first
         let measure = set?.measure
         // Intensity precedence: a per-set target overrides the block-level one
@@ -197,6 +203,129 @@ enum PrescriptionRenderer {
             detail: detail.isEmpty ? nil : detail.joined(separator: " · "),
             zone: zone
         )
+    }
+
+    // MARK: - La dosis de una carrera ESTRUCTURADA
+    //
+    // La gramática de correr (#61) es un árbol de fases con su repetición, y cada tramo
+    // lleva SU medida, SU objetivo y —la recuperación— SU modo. Todo eso cabe en la
+    // línea de una tarjeta si se dice lo que define la sesión:
+    //
+    //     titular   → el trabajo de la fase PRINCIPAL: «16 × 500 m», y si los tramos
+    //                 son desiguales la secuencia, «1200/1000/800 m» (una pirámide no
+    //                 se colapsa a su primer tramo).
+    //     objetivo  → la zona / el ritmo / el RPE del trabajo, cuando TODOS los tramos
+    //                 llevan el mismo. Si difieren no se resume: uno de ellos pintado
+    //                 sobre los demás sería falso (§7).
+    //     detalle   → LA RECUPERACIÓN, dicha como se hace (ver `fraseDeRecuperacion`).
+    //
+    // Se cuenta la fase principal, no el árbol entero: un calentamiento también es
+    // trabajo, y contándolo un «10' + 5×800» anunciaría «6 × …». Misma regla que
+    // `RunLegDisplay.serie` y el bisel.
+    //
+    // Nil cuando no hay estructura o cuando no queda nada honesto que decir de ella —
+    // y entonces manda el aplanado, que es el suelo de siempre.
+
+    static func structuredRunLine(_ p: Prescription) -> Line? {
+        guard let structure = p.structure, !structure.isEmpty else { return nil }
+        let legs = structure.expandedLegs()
+        let principales = legs.filter { $0.phaseRole == .main }
+        // Una estructura que sólo calienta no tiene fase principal: se cuenta lo que
+        // hay, igual que hace el contador de series.
+        let cuentan = principales.isEmpty ? legs : principales
+        let trabajos = cuentan.filter(\.isWork)
+        guard !trabajos.isEmpty else { return nil }
+
+        // El titular. Sin medida en algún tramo no hay dosis que sumar (§7): manda el
+        // aplanado.
+        let dosis = trabajos.compactMap { measureWork($0.measure.asMeasure) }
+        guard dosis.count == trabajos.count, let primera = dosis.first else { return nil }
+        let headline: String
+        if dosis.allSatisfy({ $0 == primera }) {
+            headline = trabajos.count > 1 ? "\(trabajos.count) \(Formato.signoPor) \(primera)" : primera
+        } else {
+            headline = secuenciaDeDosis(dosis)
+        }
+
+        // El objetivo del trabajo, sólo si es el MISMO en todos los tramos.
+        let objetivo: RunSegmentTarget? = {
+            let primero = trabajos[0].target
+            return trabajos.allSatisfy { $0.target == primero } ? primero : nil
+        }()
+        var pace: String? = nil
+        var zone: HRZone? = nil
+        var detalle: [String] = []
+        switch objetivo {
+        case let .pace(valueS, minS, maxS):
+            // El mismo «@ 4:00–4:14/km» del resto de la app: un solo formateador (§2).
+            pace = paceString(.pace(unit: .perKm, valueS: valueS, minS: minS, maxS: maxS), isErg: false)
+        case let .paceZone(z), let .hrZone(z):
+            zone = HRZone(rawValue: z)
+        case .rpe:
+            if let rpe = trabajos[0].rpeLabel { detalle.append(rpe) }
+        case .unknown, .none:
+            break
+        }
+
+        // La recuperación. Todas iguales o no se resume — una distinta por serie no
+        // cabe en una línea, y decir sólo la primera sería inventarse las demás.
+        let recuperaciones = cuentan.filter(\.isRecovery)
+        if let primeraRec = recuperaciones.first {
+            let iguales = recuperaciones.allSatisfy {
+                $0.measure == primeraRec.measure
+                    && $0.recoveryMode == primeraRec.recoveryMode
+                    && $0.target == primeraRec.target
+            }
+            if iguales, let frase = fraseDeRecuperacion(primeraRec) { detalle.append(frase) }
+        } else if let restS = p.restS, restS > 0 {
+            // La estructura no declara recuperaciones pero el plano sí trae un descanso
+            // entre tramos: es un dato real del coach y no se tira.
+            detalle.append("descanso \(Formato.clock(restS, subMinuto: .segundos))")
+        }
+
+        return Line(headline: headline,
+                    pace: pace,
+                    detail: detalle.isEmpty ? nil : detalle.joined(separator: " · "),
+                    zone: zone)
+    }
+
+    /// LA RECUPERACIÓN, DICHA COMO SE HACE — «recuperación 1:00 suave en Z2».
+    ///
+    /// Un minuto al trote en Z2 NO es un descanso, y llamarlo así hace que el atleta lo
+    /// haga mal: se queda parado, y el fartlek entero pierde el sentido (el OFF también
+    /// se corre). Sólo se dice «descanso» cuando de verdad se para —modo `parado`— y
+    /// cuando el modo NO SE SABE, que es lo que llega de una prescripción plana: allí el
+    /// número nació de un `rest_s`, así que «descanso» es exactamente lo que el coach
+    /// escribió y no se le cambia la palabra.
+    ///
+    /// La palabra del modo sale de `RunLegDisplay.recoveryModeWord`, la misma que dicen
+    /// el entreno en vivo y la muñeca: la previa no puede llamarlo de otra manera.
+    static func fraseDeRecuperacion(_ leg: RunLeg) -> String? {
+        guard leg.isRecovery, let medida = measureWork(leg.measure.asMeasure) else { return nil }
+        switch leg.recoveryMode {
+        case .parado, .none:
+            return "descanso \(medida)"
+        case .trote, .caminar:
+            let modo = RunLegDisplay.recoveryModeWord(leg.recoveryMode)
+            let zona = leg.zoneLabel.map { "en \($0)" }
+            return ["recuperación", medida, modo, zona]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+    }
+
+    /// «1200/1000/800 m» — la secuencia de una pirámide con la unidad escrita UNA vez,
+    /// la misma grafía con la que `measureWork` escribe una banda. Sin unidad común
+    /// (una mezcla de metros y minutos) se dicen enteras, que sigue siendo cierto.
+    private static func secuenciaDeDosis(_ dosis: [String]) -> String {
+        let unidades = Set(dosis.compactMap { $0.split(separator: " ").dropFirst().first.map(String.init) })
+        guard unidades.count == 1, let unidad = unidades.first,
+              dosis.allSatisfy({ $0.contains(" ") }) else {
+            return dosis.joined(separator: "/")
+        }
+        let cifras = dosis.compactMap { $0.split(separator: " ").first.map(String.init) }
+        return "\(cifras.joined(separator: "/")) \(unidad)"
     }
 
     // MARK: - Cabecera de formato (todo esquema con reloj)

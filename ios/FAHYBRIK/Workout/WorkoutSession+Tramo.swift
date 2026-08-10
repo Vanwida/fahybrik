@@ -523,17 +523,10 @@ extension WorkoutSession {
 
 // MARK: - Run leg measure → the shared Measure union
 
+// `asMeasure` vivía aquí, privada, y la previa no podía leerla para decir la dosis
+// de una estructura: se ha mudado a `RunStructure.swift`, junto a la gramática, que
+// es de donde la leen ahora el tramo Y el formateador.
 private extension RunSegmentMeasure {
-    /// The structured-run grammar carries its own measure union; the tramo speaks
-    /// the shared one. One conversion, here, rather than a second switch per caller.
-    var asMeasure: Measure? {
-        switch self {
-        case .distance(let m):  return .distance(meters: Double(m))
-        case .duration(let s):  return .duration(seconds: s)
-        case .unknown:          return nil
-        }
-    }
-
     var durationSeconds: Int? {
         if case let .duration(s) = self { return s }
         return nil

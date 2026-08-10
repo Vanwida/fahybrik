@@ -324,6 +324,20 @@ extension RunStructure {
 // lives in RunStructureExecution.swift, which is app-only because the RunTarget /
 // PaceTarget / SegmentGoal types are (the watch has no treadmill HUD).
 
+extension RunSegmentMeasure {
+    /// The structured-run grammar carries its OWN measure union; el tramo en vivo y el
+    /// formateador de dosis hablan la compartida (`Measure`). UNA conversión, aquí, en
+    /// vez de un segundo `switch` en cada quien la necesite — vivía privada dentro de
+    /// `WorkoutSession+Tramo` y la previa no podía leerla.
+    var asMeasure: Measure? {
+        switch self {
+        case .distance(let m):  return .distance(meters: Double(m))
+        case .duration(let s):  return .duration(seconds: s)
+        case .unknown:          return nil
+        }
+    }
+}
+
 extension RunLeg {
     /// The distance goal in metres, when this leg is distance-measured (> 0), else nil.
     var distanceMeters: Int? {
