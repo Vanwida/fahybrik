@@ -12,8 +12,9 @@ import 'server-only';
 // microciclo uses.
 
 import { z } from 'zod';
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
 import { ProgramMonthError } from '@fahybrid/shared/domain/coach/program-months';
 
@@ -38,6 +39,14 @@ export interface PersonalPlanListItem {
   /** True when THIS template is the athlete's live plan right now (an
    *  athlete_month_assignments window that contains today points at it). */
   is_current: boolean;
+  /** Sessions still `scheduled` (or missed/skipped — never actually performed) —
+   *  what "Borrar" / "Volver a la periodización" would remove. */
+  pending_count: number;
+  /** Sessions the athlete already performed (status `completed`, or a real
+   *  `workout_executions` row) — what deleting or reverting always PRESERVES.
+   *  Surfaced so the confirm dialog can say exactly what survives, in numbers,
+   *  before the coach commits (see retirePersonalPlan). */
+  completed_count: number;
 }
 
 /**
@@ -57,6 +66,8 @@ export async function listPersonalPlansForAthlete(params: {
       week_count: number;
       updated_at: string;
       is_current: boolean;
+      pending_count: number;
+      completed_count: number;
     }>
   >`
     select
@@ -69,13 +80,29 @@ export async function listPersonalPlansForAthlete(params: {
         where ama.month_template_id = m.id
           and ama.athlete_id = ${params.athlete_id as number}
           and current_date between ama.start_date and ama.end_date
-      ) as is_current
+      ) as is_current,
+      coalesce(counts.pending, 0)::int as pending_count,
+      coalesce(counts.completed, 0)::int as completed_count
     from program_month_templates m
     left join (
       select month_template_id, count(*)::int as cnt
       from program_month_weeks
       group by month_template_id
     ) w on w.month_template_id = m.id
+    left join lateral (
+      select
+        count(*) filter (
+          where wa.status <> 'completed' and we.assignment_id is null
+        ) as pending,
+        count(*) filter (
+          where wa.status = 'completed' or we.assignment_id is not null
+        ) as completed
+      from athlete_month_assignments ama
+      cross join lateral unnest(ama.microcycle_ids) as mc(id)
+      join workout_assignments wa on wa.microcycle_id = mc.id
+      left join workout_executions we on we.assignment_id = wa.id
+      where ama.month_template_id = m.id and ama.athlete_id = ${params.athlete_id as number}
+    ) counts on true
     where m.coach_id = ${params.coach_id as number}
       and m.athlete_id = ${params.athlete_id as number}
     order by m.updated_at desc
@@ -161,4 +188,185 @@ export async function createPersonalMonthTemplateFromScratch(params: {
   });
 
   return { id: monthId, weeks };
+}
+
+// =============================================================================
+// BORRAR UN PLAN PERSONAL — hasta 0166 no existía ninguna forma de hacerlo. Un
+// plan personal no es una fila: es un recibo (athlete_month_assignments), unas
+// semanas propias (program_week_templates con athlete_id puesto) y el contenedor
+// (program_month_templates). Borrar "bien" respeta UNA regla dura, sin
+// excepciones: **nunca se borra una sesión ya ejecutada**. `retirePersonalPlan`
+// es el mecanismo compartido — lo usa tanto "Borrar" (este archivo) como "Volver
+// a la periodización" (revert-personal-plan.ts), porque las dos acciones
+// terminan haciendo EXACTAMENTE lo mismo con el plan que se retira: lo pendiente
+// desaparece, lo ejecutado se queda como historial (ya no colgado de ningún plan
+// vivo, pero intacto — el historial del atleta se lee por fecha, no a través de
+// un plan). Nunca se niega el borrado por tener sesiones completadas: negarlo
+// dejaría al coach sin forma de limpiar un plan para siempre; en vez de eso se
+// LIMITA a lo pendiente (ver DECISIONS / la entrega de #<id> para el porqué).
+// =============================================================================
+
+export type RetirePersonalPlanResult = {
+  /** Sesiones pendientes borradas (scheduled/missed/skipped — nunca ejecutadas). */
+  deleted_sessions: number;
+  /** Sesiones YA ejecutadas (completed, o con workout_executions real) que
+   *  sobreviven — huérfanas de plan, pero intactas en el historial del atleta. */
+  preserved_sessions: number;
+  /** Microciclos que se quedaron sin ninguna sesión tras el borrado, y por
+   *  tanto se retiraron también (nunca uno con historial superviviente). */
+  deleted_microcycles: number;
+  /** True si este plan era el que el atleta ve HOY (su ventana contenía la
+   *  fecha de hoy) — así el caller puede avisar "esto es lo que tiene AHORA". */
+  was_current: boolean;
+};
+
+/**
+ * Retira un plan personal COMPLETO de un atleta: sus sesiones pendientes, los
+ * microciclos que se quedan vacíos, el/los recibo(s) (athlete_month_assignments
+ * — normalmente uno, pero se procesan todos por si acaso) y la plantilla +
+ * semanas propias. Debe correr DENTRO de una transacción ya abierta por el
+ * caller (que también es quien toma el advisory lock por atleta — ver
+ * `deletePersonalPlanForAthlete` / `revertPersonalPlanForAthlete`, el mismo
+ * namespace `hashtext('athlete_plan_mutation')` que usa personalize-plan.ts,
+ * así que las tres operaciones se serializan entre sí para el mismo atleta).
+ *
+ * Nunca toca `program_month_templates` cuyo `athlete_id` sea NULL (biblioteca)
+ * — ownership check explícito abajo, no asumido.
+ */
+export async function retirePersonalPlan(params: {
+  tx: TransactionClient;
+  coach_id: number;
+  athlete_id: number;
+  month_template_id: number;
+}): Promise<RetirePersonalPlanResult> {
+  const { tx, coach_id, athlete_id, month_template_id } = params;
+
+  const owned = await tx<Array<{ id: string }>>`
+    select id::text from program_month_templates
+    where id = ${month_template_id} and coach_id = ${coach_id} and athlete_id = ${athlete_id}
+    limit 1
+  `;
+  if (!owned[0]) {
+    throw new ProgramMonthError(
+      'not_found',
+      'Este plan personal no existe, no es tuyo, o no es de este atleta',
+      404,
+    );
+  }
+
+  const todayIso = isoDateString(startOfDayInBox(new Date()));
+
+  // Normalmente hay 0 (nunca activado) o 1 recibo, pero se procesan todos por
+  // si un estado histórico dejó más de uno.
+  const assignments = await tx<
+    Array<{ id: string; microcycle_ids: string[]; start_date: string; end_date: string }>
+  >`
+    select id::text, microcycle_ids, to_char(start_date, 'YYYY-MM-DD') as start_date,
+           to_char(end_date, 'YYYY-MM-DD') as end_date
+    from athlete_month_assignments
+    where athlete_id = ${athlete_id} and month_template_id = ${month_template_id}
+  `;
+  const wasCurrent = assignments.some((a) => a.start_date <= todayIso && a.end_date >= todayIso);
+  const microcycleIds = Array.from(
+    new Set(assignments.flatMap((a) => (a.microcycle_ids ?? []).map(Number))),
+  );
+
+  let deletedSessions = 0;
+  let preservedSessions = 0;
+  let deletedMicrocycles = 0;
+
+  if (microcycleIds.length > 0) {
+    // La regla dura: completed, O con una ejecución real asociada, sobrevive
+    // SIEMPRE — sin excepción, sin importar cuántas sean.
+    const sessions = await tx<Array<{ id: string; preserve: boolean }>>`
+      select wa.id::text,
+        (
+          wa.status = 'completed'
+          or exists (select 1 from workout_executions we where we.assignment_id = wa.id)
+        ) as preserve
+      from workout_assignments wa
+      where wa.microcycle_id = any(${microcycleIds}::bigint[])
+    `;
+    const toDelete = sessions.filter((s) => !s.preserve).map((s) => Number(s.id));
+    preservedSessions = sessions.length - toDelete.length;
+    if (toDelete.length > 0) {
+      await tx`delete from workout_assignments where id = any(${toDelete}::bigint[])`;
+      deletedSessions = toDelete.length;
+    }
+
+    // Microciclos que se quedaron sin NINGUNA sesión (ni siquiera preservada) —
+    // los que sí conservan una completada se dejan en pie, como historial.
+    const emptied = await tx<Array<{ id: string }>>`
+      select mc.id::text from microcycles mc
+      where mc.id = any(${microcycleIds}::bigint[])
+        and not exists (select 1 from workout_assignments wa where wa.microcycle_id = mc.id)
+    `;
+    if (emptied.length > 0) {
+      const emptiedIds = emptied.map((r) => Number(r.id));
+      await tx`delete from microcycles where id = any(${emptiedIds}::bigint[])`;
+      deletedMicrocycles = emptiedIds.length;
+    }
+  }
+
+  // El/los recibo(s) desaparecen SIEMPRE, haya o no historial superviviente —
+  // un recibo es un puntero (microcycle_ids es un array, no una FK), nunca un
+  // contenedor: borrarlo no toca nada de lo de arriba.
+  if (assignments.length > 0) {
+    const assignmentIds = assignments.map((a) => Number(a.id));
+    await tx`delete from athlete_month_assignments where id = any(${assignmentIds}::bigint[])`;
+  }
+
+  // La plantilla + sus semanas propias — misma cascada que deleteMonthTemplate
+  // usa para la biblioteca (program-months.ts): month_template_id → cascade a
+  // program_month_weeks (0014) → limpieza explícita de las program_week_templates
+  // que se quedan huérfanas (RESTRICT hasta que su junction desaparece).
+  const weekIds = await tx<Array<{ week_template_id: string }>>`
+    select week_template_id::text from program_month_weeks
+    where month_template_id = ${month_template_id}
+  `;
+  await tx`delete from program_month_weeks where month_template_id = ${month_template_id}`;
+  if (weekIds.length > 0) {
+    const ids = weekIds.map((r) => Number(r.week_template_id));
+    await tx`
+      delete from program_week_templates
+      where id = any(${ids}::bigint[]) and coach_id = ${coach_id}
+    `;
+  }
+  await tx`delete from program_month_templates where id = ${month_template_id} and coach_id = ${coach_id}`;
+
+  return {
+    deleted_sessions: deletedSessions,
+    preserved_sessions: preservedSessions,
+    deleted_microcycles: deletedMicrocycles,
+    was_current: wasCurrent,
+  };
+}
+
+/**
+ * Borra un plan personal por completo (endpoint DELETE
+ * /api/coach/athletes/[id]/microciclo/[monthId]). Advisory-lock scoped al
+ * atleta — el mismo namespace que personalize-plan.ts y
+ * revert-personal-plan.ts — así que no puede correr a la vez que un
+ * "Personalizar"/"Volver a la periodización" a medio hacer del mismo atleta.
+ */
+export async function deletePersonalPlanForAthlete(params: {
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  month_template_id: number | bigint;
+  client?: Sql;
+}): Promise<RetirePersonalPlanResult> {
+  const client = params.client ?? defaultSql;
+  const coach_id = Number(params.coach_id);
+  const athlete_id = Number(params.athlete_id);
+  const month_template_id = Number(params.month_template_id);
+
+  return client.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
+    return retirePersonalPlan({
+      tx: tx as unknown as TransactionClient,
+      coach_id,
+      athlete_id,
+      month_template_id,
+    });
+  });
 }

@@ -11,6 +11,7 @@ import {
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
+import { canRevertToSequence } from './revert-personal-plan';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
@@ -57,6 +58,12 @@ export interface AthletePlanPayload {
    *  this athlete, not the shared level×días periodización. Drives whether the
    *  ficha offers "Personalizar plan" or shows the athlete is already on one. */
   is_personal: boolean;
+  /** True when `is_personal` AND the personal plan came from forking the
+   *  periodización (a detached athlete_sequence_progress cursor exists to
+   *  resume) — drives whether the ficha offers "Volver a la periodización".
+   *  Always false when `is_personal` is false, or when the personal plan was
+   *  built from scratch (nothing to revert TO — see revert-personal-plan.ts). */
+  can_revert_to_sequence: boolean;
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
   total_sessions: number;
@@ -64,6 +71,10 @@ export interface AthletePlanPayload {
    *  published) + the assignment id the Publicar action targets. null when the
    *  athlete has no upcoming microciclo. */
   microciclo: MicrocicloPublishState | null;
+  /** #4 — a plan scheduled to start AFTER today, queued up behind whatever is
+   *  showing above (which may itself be `current_block`, still live, or nothing
+   *  at all). null when nothing is scheduled ahead. */
+  upcoming_plan: { name: string; start_date: string } | null;
 }
 
 export class AthletePlanError extends Error {
@@ -103,19 +114,45 @@ function computeRange(
   return { start: addDays(mon, -84), end: addDays(mon, 27) };
 }
 
-async function resolveLatestMonthSpan(params: {
+/**
+ * Which assignment governs the ficha's week view. NOT simply "the one with the
+ * latest start_date" — since #4 (start date at assign/personalize) a coach can
+ * schedule a plan AHEAD while the athlete is still living out a current one, so
+ * "latest start_date" would jump the whole page to a plan that hasn't started
+ * yet and bury the one actually running today. Priority: the assignment whose
+ * window CONTAINS today; else the soonest upcoming one (a scheduled-but-not-
+ * yet-active plan — PlanTab's `planNotStarted`/`planStartLabel` already render
+ * this honestly once it's the one resolved here); else, defensively, the most
+ * recent past one (should not normally happen — every athlete with any history
+ * has either a current or an upcoming assignment).
+ */
+async function resolveRelevantMonthSpan(params: {
   athlete_id: number;
+  today_iso: string;
   client: Sql;
 }): Promise<MonthAssignmentSpan | null> {
   const rows = await params.client<
     Array<{ start_date: string; end_date: string }>
   >`
-    select
-      to_char(start_date, 'YYYY-MM-DD') as start_date,
-      to_char(end_date, 'YYYY-MM-DD') as end_date
-    from athlete_month_assignments
-    where athlete_id = ${params.athlete_id}
-    order by start_date desc
+    select start_date, end_date
+    from (
+      select
+        to_char(start_date, 'YYYY-MM-DD') as start_date,
+        to_char(end_date, 'YYYY-MM-DD') as end_date,
+        case
+          when start_date <= ${params.today_iso}::date and end_date >= ${params.today_iso}::date then 0
+          when start_date > ${params.today_iso}::date then 1
+          else 2
+        end as priority,
+        id
+      from athlete_month_assignments
+      where athlete_id = ${params.athlete_id}
+    ) ranked
+    order by
+      priority asc,
+      case when priority = 1 then start_date end asc,
+      case when priority = 2 then start_date end desc,
+      id desc
     limit 1
   `;
   const row = rows[0];
@@ -124,6 +161,27 @@ async function resolveLatestMonthSpan(params: {
     start: parseIsoDate(row.start_date),
     end: parseIsoDate(row.end_date),
   };
+}
+
+/** The soonest assignment scheduled to start AFTER today (#4) — a plan the coach
+ *  has queued up but that isn't live yet. null when there is none. Feeds the
+ *  ficha's "programado" notice so a plan scheduled ahead is never silently
+ *  invisible while a current one is still showing. */
+async function resolveUpcomingPlan(params: {
+  athlete_id: number;
+  today_iso: string;
+  client: Sql;
+}): Promise<{ name: string; start_date: string } | null> {
+  const rows = await params.client<Array<{ name: string; start_date: string }>>`
+    select m.name, to_char(ama.start_date, 'YYYY-MM-DD') as start_date
+    from athlete_month_assignments ama
+    join program_month_templates m on m.id = ama.month_template_id
+    where ama.athlete_id = ${params.athlete_id}
+      and ama.start_date > ${params.today_iso}::date
+    order by ama.start_date asc, ama.id asc
+    limit 1
+  `;
+  return rows[0] ?? null;
 }
 
 function resolvePlanAnchor(base: Date, monthSpan: MonthAssignmentSpan | null): Date {
@@ -164,7 +222,9 @@ export async function buildAthletePlan(params: {
   const todayIso = isoDateString(startOfDayUtc(new Date()));
 
   const monthSpan =
-    view === 'month' ? await resolveLatestMonthSpan({ athlete_id: params.athlete_id, client }) : null;
+    view === 'month'
+      ? await resolveRelevantMonthSpan({ athlete_id: params.athlete_id, today_iso: todayIso, client })
+      : null;
   const anchor = resolvePlanAnchor(baseAnchor, monthSpan);
   const range = computeRange(view, anchor, monthSpan);
 
@@ -245,6 +305,18 @@ export async function buildAthletePlan(params: {
   const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
   const microciclo = await loadMicrocicloPublishState({ athlete_id: params.athlete_id, client });
+  const upcoming_plan = await resolveUpcomingPlan({
+    athlete_id: params.athlete_id,
+    today_iso: todayIso,
+    client,
+  });
+
+  const isPersonal = micro?.template_athlete_id != null;
+  // Only worth the extra query when the athlete IS on a personal plan — the
+  // common case (not personal) skips it entirely.
+  const canRevert = isPersonal
+    ? await canRevertToSequence({ athlete_id: params.athlete_id, client })
+    : false;
 
   // Current microciclo label = the coach's microciclo NAME (agnostic), null when
   // there's no active microciclo.
@@ -258,10 +330,12 @@ export async function buildAthletePlan(params: {
     range_end: endIso,
     current_block: micro?.name ?? null,
     current_block_label,
-    is_personal: micro?.template_athlete_id != null,
+    is_personal: isPersonal,
+    can_revert_to_sequence: canRevert,
     weeks,
     macro,
     total_sessions: rows.length,
     microciclo,
+    upcoming_plan,
   };
 }

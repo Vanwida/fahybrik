@@ -26,6 +26,7 @@ import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 import type { V2AsignacionSugeridaCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
+import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
 
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
@@ -68,6 +69,11 @@ function ProposalCard({
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #4 — start date is a real choice here too, not just on assign-month/
+  // personalize. Defaults to the SAME next-Monday the server would pick on its
+  // own (assignSequenceInputSchema.start_date is optional), so leaving it alone
+  // reproduces the historical one-click behaviour exactly.
+  const [startDate, setStartDate] = useState(upcomingMondayIso());
 
   async function handleAssign() {
     if (assigning) return;
@@ -77,8 +83,7 @@ function ProposalCard({
       const res = await fetch(`/api/coach/athletes/${card.athlete_id}/assign-sequence`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Body optional — the server defaults the start to next Monday.
-        body: '{}',
+        body: JSON.stringify({ start_date: startDate }),
       });
       if (res.ok) {
         onAssigned(card.athlete_id);
@@ -123,6 +128,19 @@ function ProposalCard({
         </span>{' '}
         <span className="text-[color:var(--v2-faint)]">({weeksLabel})</span>
       </p>
+
+      {/* #4 — compact, always-editable start date (defaults to next Monday, the
+          same default the server picks with no body at all). */}
+      <label className="mt-1.5 flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
+        <MIcon name="event" size={13} className="shrink-0" />
+        Empieza
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="v2-focus v2-num h-6 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-1.5 text-label text-[color:var(--v2-fg)]"
+        />
+      </label>
 
       {error ? (
         <p className="mt-1.5 text-label font-medium text-[color:var(--v2-danger)]">{error}</p>

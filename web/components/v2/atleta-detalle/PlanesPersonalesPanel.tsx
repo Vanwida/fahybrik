@@ -12,6 +12,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { Panel } from './parts';
+import { BorrarPlanPersonalModal } from './BorrarPlanPersonalModal';
 
 interface PersonalPlan {
   id: string;
@@ -19,13 +20,23 @@ interface PersonalPlan {
   week_count: number;
   updated_at: string;
   is_current: boolean;
+  pending_count: number;
+  completed_count: number;
 }
 
 const MIN_WEEKS = 1;
 const MAX_WEEKS = 20;
 const DEFAULT_WEEKS = 4;
 
-export function PlanesPersonalesPanel({ athleteId }: { athleteId: string }) {
+export function PlanesPersonalesPanel({
+  athleteId,
+  athleteName,
+}: {
+  athleteId: string;
+  /** Optional — unavailable on the empty-plan ficha branch, where this panel
+   *  still renders but no AthletePlanPayload exists yet to read a name from. */
+  athleteName?: string;
+}) {
   const router = useRouter();
   const [plans, setPlans] = useState<PersonalPlan[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -34,6 +45,7 @@ export function PlanesPersonalesPanel({ athleteId }: { athleteId: string }) {
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PersonalPlan | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -157,10 +169,13 @@ export function PlanesPersonalesPanel({ athleteId }: { athleteId: string }) {
       ) : (
         <ul className="flex flex-col gap-1.5">
           {plans.map((p) => (
-            <li key={p.id}>
+            <li
+              key={p.id}
+              className="flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+            >
               <Link
                 href={`/microciclos/${p.id}`}
-                className="v2-focus flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 py-2 text-sm transition-colors hover:border-[color:var(--v2-border-strong)]"
+                className="v2-focus flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-sm"
               >
                 <span className="truncate font-medium text-[color:var(--v2-fg)]">{p.name}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
@@ -175,10 +190,32 @@ export function PlanesPersonalesPanel({ athleteId }: { athleteId: string }) {
                   <MIcon name="chevron_right" size={16} className="text-[color:var(--v2-faint)]" />
                 </span>
               </Link>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(p)}
+                title={`Borrar «${p.name}»`}
+                aria-label={`Borrar «${p.name}»`}
+                className="v2-focus mr-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-danger)]/10 hover:text-[color:var(--v2-danger)]"
+              >
+                <MIcon name="delete" size={15} />
+              </button>
             </li>
           ))}
         </ul>
       )}
+      {deleteTarget ? (
+        <BorrarPlanPersonalModal
+          athleteId={athleteId}
+          athleteName={athleteName ?? 'este atleta'}
+          monthTemplateId={deleteTarget.id}
+          planName={deleteTarget.name}
+          pendingCount={deleteTarget.pending_count}
+          completedCount={deleteTarget.completed_count}
+          isCurrent={deleteTarget.is_current}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={(deletedId) => setPlans((prev) => prev?.filter((x) => x.id !== deletedId) ?? prev)}
+        />
+      ) : null}
     </Panel>
   );
 }

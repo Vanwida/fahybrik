@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
 import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
 import { PersonalizarPlanModal } from './PersonalizarPlanModal';
+import { VolverPeriodizacionModal } from './VolverPeriodizacionModal';
 import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
@@ -193,6 +194,9 @@ export function PlanTab({
   // CURRENT microciclo into a bespoke one. Lives here (not inside the empty-plan
   // branch) since it needs a real current plan to fork FROM.
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
+  // Volver a la periodización (0166) — the inverse action, only ever offered
+  // when there's a detached sequence cursor to resume (plan.can_revert_to_sequence).
+  const [revertOpen, setRevertOpen] = useState(false);
 
   if (!plan || plan.total_sessions === 0) {
     return (
@@ -344,6 +348,19 @@ export function PlanTab({
               borrador
             </Pill>
           )}
+          {/* #4 — a plan already scheduled to start after today, queued up behind
+              whatever is showing above. Named explicitly ("programado") so it's
+              never confused with what's live right now. */}
+          {plan.upcoming_plan ? (
+            <Pill
+              tone="neutral"
+              variant="soft"
+              title={`Empieza el ${plan.upcoming_plan.start_date}`}
+            >
+              <MIcon name="event_upcoming" size={12} />
+              programado: «{plan.upcoming_plan.name}»
+            </Pill>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Publicar microciclo — flips every draft week of the assigned microciclo
@@ -366,9 +383,14 @@ export function PlanTab({
               <MIcon name="arrow_forward" size={15} />
             </Link>
           ) : null}
-          {/* Personalizar plan (0164) — el camino principal a un plan personal:
-              parte de lo que el atleta YA tiene, no de cero. No aplica si ya está
-              en un plan personal (no hay periodización de la que desengancharse). */}
+          {/* Personalizar plan (0164) / Volver a la periodización (0166) — se
+              excluyen mutuamente y cada uno solo aparece cuando de verdad aplica
+              (nunca deshabilitado con un error después):
+                · no personal            → Personalizar plan.
+                · personal, forkeado     → Volver a la periodización (hay un
+                  cursor de secuencia detached al que reenganchar).
+                · personal, desde cero   → ninguno de los dos — no hay ni
+                  periodización activa que dejar ni una a la que volver. */}
           {!plan.is_personal ? (
             <button
               type="button"
@@ -378,6 +400,16 @@ export function PlanTab({
             >
               <MIcon name="auto_fix_high" size={15} />
               Personalizar plan
+            </button>
+          ) : plan.can_revert_to_sequence ? (
+            <button
+              type="button"
+              onClick={() => setRevertOpen(true)}
+              title="Deja el plan personal y retoma la periodización por nivel"
+              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+            >
+              <MIcon name="history" size={15} />
+              Volver a la periodización
             </button>
           ) : null}
         </div>
@@ -540,7 +572,7 @@ export function PlanTab({
           {/* Planes personales (0164) — camino secundario (empezar de cero) +
               reabrir uno construido antes. El camino principal es el botón
               "Personalizar plan" del header, que parte de lo que ya hay. */}
-          <PlanesPersonalesPanel athleteId={athlete_id} />
+          <PlanesPersonalesPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
         </div>
       </div>
     </div>
@@ -559,6 +591,14 @@ export function PlanTab({
         currentBlockName={microName ?? blockName}
         currentWeek={blockWeek}
         onClose={() => setPersonalizeOpen(false)}
+      />
+    ) : null}
+    {revertOpen ? (
+      <VolverPeriodizacionModal
+        athleteId={athlete_id}
+        athleteName={plan.athlete_name}
+        personalPlanName={microName ?? blockName}
+        onClose={() => setRevertOpen(false)}
       />
     ) : null}
     </>
