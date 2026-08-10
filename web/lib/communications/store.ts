@@ -20,6 +20,7 @@ import {
   type LinkedCommunicationDTO,
 } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
+import type { RangeTone, ZoneChartDTO, ZoneRangeDTO } from '@fahybrid/shared/domain/zone-chart';
 
 /** Pool o transacción: todo helper de aquí sirve para los dos. */
 export type DbClient = Sql | TransactionClient;
@@ -59,6 +60,8 @@ export type CommunicationRow = {
   created_at: Date;
   updated_at: Date;
   linked_communication_id: string | null;
+  audio_url: string | null;
+  audio_seconds: number | null;
 };
 
 /**
@@ -71,7 +74,8 @@ export const communicationColumns = (client: DbClient) => client`
   c.id::text as id, c.kind, c.title, c.body, c.final_note,
   c.anchor_kind, c.anchor_ref, c.due_date::text as due_date, c.expires_at,
   c.blocks, c.is_template, c.status, c.published_at, c.created_at, c.updated_at,
-  c.linked_communication_id::text as linked_communication_id
+  c.linked_communication_id::text as linked_communication_id,
+  c.audio_url, c.audio_seconds
 `;
 
 export type ItemRow = {
@@ -83,9 +87,43 @@ export type ItemRow = {
   consequence: string | null;
   checkable: boolean;
   display: CommunicationDisplay;
+  grafica_week_start: string | null;
+  grafica_weeks: number | null;
+  grafica_modality: string | null;
 };
 
-export function rowToItemDto(r: ItemRow, segments: CommunicationSegmentDTO[] = []): CommunicationItemDTO {
+/**
+ * La CONFIG de una gráfica, sin resolver: el periodo, el filtro y las marcas que
+ * el coach dibujó. Sale de la fila y viaja SIEMPRE, incluso en las lecturas sin
+ * atleta delante (la biblioteca), porque es contenido que él escribió — igual
+ * que los trozos de un reparto — y sin ella el compositor no podría volver a
+ * abrir un borrador con su gráfica dentro.
+ *
+ * Lo que falta ahí son las BARRAS (`weeks_data`) y el ancla con la que salieron:
+ * eso depende del atleta que mira y lo rellena `resolveGraficas` al servir. Una
+ * gráfica con `weeks_data` vacío es honesta y se dice con palabras («todavía no
+ * hay dato de ese periodo»), nunca se pinta como un suelo de ceros.
+ */
+function graficaDeFila(r: ItemRow): ZoneChartDTO | null {
+  if (r.display !== 'grafica' || r.grafica_week_start == null || r.grafica_weeks == null) {
+    return null;
+  }
+  return {
+    week_start: r.grafica_week_start,
+    weeks: r.grafica_weeks,
+    modality: r.grafica_modality,
+    weeks_data: [],
+    anchor: null,
+    ranges: [],
+  };
+}
+
+export function rowToItemDto(
+  r: ItemRow,
+  segments: CommunicationSegmentDTO[] = [],
+  ranges: ZoneRangeDTO[] = [],
+): CommunicationItemDTO {
+  const grafica = graficaDeFila(r);
   return {
     id: r.id,
     position: r.position,
@@ -99,6 +137,7 @@ export function rowToItemDto(r: ItemRow, segments: CommunicationSegmentDTO[] = [
     // servir (`attachCamino`). Aquí siempre sale null, que es lo correcto en
     // toda lectura sin un atleta delante — la biblioteca del coach, por ejemplo.
     camino: null,
+    grafica: grafica ? { ...grafica, ranges } : null,
   };
 }
 
@@ -116,20 +155,23 @@ export async function loadItemsByCommunication(
 
   const rows = await client<ItemRow[]>`
     select id::text as id, communication_id::text as communication_id,
-           position, label, content, consequence, checkable, display
+           position, label, content, consequence, checkable, display,
+           to_char(grafica_week_start, 'YYYY-MM-DD') as grafica_week_start,
+           grafica_weeks, grafica_modality
     from coach_communication_items
     where communication_id = any(${communicationIds}::bigint[])
     order by communication_id, position
   `;
   if (rows.length === 0) return grouped;
 
-  const segments = await loadSegmentsByItem(
+  const marcas = await loadSegmentsByItem(
     client,
-    rows.filter((r) => r.display === 'reparto').map((r) => r.id),
+    rows.filter((r) => r.display === 'reparto' || r.display === 'grafica').map((r) => r.id),
   );
 
   for (const row of rows) {
-    const dto = rowToItemDto(row, segments.get(row.id) ?? []);
+    const suyas = marcas.get(row.id);
+    const dto = rowToItemDto(row, suyas?.segments ?? [], suyas?.ranges ?? []);
     const list = grouped.get(row.communication_id);
     if (list) list.push(dto);
     else grouped.set(row.communication_id, [dto]);
@@ -137,31 +179,64 @@ export async function loadItemsByCommunication(
   return grouped;
 }
 
-/** Los trozos de los repartos de una tanda de items, en una sola consulta. */
+/**
+ * Las marcas de una tanda de items, en una sola consulta y ya separadas por lo
+ * que son.
+ *
+ * Los trozos de un reparto y los rangos de una gráfica comparten tabla (misma
+ * lista ordenada colgando de una sección, migración 0169) pero NO comparten
+ * significado: uno PESA y el otro marca un PERIODO. Se separan aquí, una vez,
+ * leyendo la propia fila —lleva valor o lleva fechas, nunca las dos, y el CHECK
+ * de la tabla lo garantiza— para que ninguna pantalla tenga que adivinarlo.
+ */
 async function loadSegmentsByItem(
   client: DbClient,
   itemIds: string[],
-): Promise<Map<string, CommunicationSegmentDTO[]>> {
-  const grouped = new Map<string, CommunicationSegmentDTO[]>();
+): Promise<Map<string, { segments: CommunicationSegmentDTO[]; ranges: ZoneRangeDTO[] }>> {
+  const grouped = new Map<string, { segments: CommunicationSegmentDTO[]; ranges: ZoneRangeDTO[] }>();
   if (itemIds.length === 0) return grouped;
 
-  const rows = await client<{ item_id: string; position: number; value_num: string; label: string }[]>`
-    select item_id::text as item_id, position, value_num::text as value_num, label
+  const rows = await client<
+    {
+      item_id: string;
+      position: number;
+      value_num: string | null;
+      label: string;
+      week_start: string | null;
+      week_end: string | null;
+      tone: RangeTone | null;
+    }[]
+  >`
+    select item_id::text as item_id, position, value_num::text as value_num, label,
+           to_char(week_start, 'YYYY-MM-DD') as week_start,
+           to_char(week_end,   'YYYY-MM-DD') as week_end,
+           tone
     from coach_communication_item_segments
     where item_id = any(${itemIds}::bigint[])
     order by item_id, position
   `;
   for (const row of rows) {
+    let entry = grouped.get(row.item_id);
+    if (!entry) {
+      entry = { segments: [], ranges: [] };
+      grouped.set(row.item_id, entry);
+    }
+    if (row.week_start != null && row.week_end != null && row.tone != null) {
+      entry.ranges.push({
+        week_start: row.week_start,
+        week_end: row.week_end,
+        label: row.label,
+        tone: row.tone,
+      });
+      continue;
+    }
     // `numeric` llega como cadena de postgres.js (no cabe siempre en un double
     // y por eso el driver no lo convierte): el número se hace aquí, una vez.
-    const dto: CommunicationSegmentDTO = {
+    entry.segments.push({
       position: row.position,
       value_num: Number(row.value_num),
       label: row.label,
-    };
-    const list = grouped.get(row.item_id);
-    if (list) list.push(dto);
-    else grouped.set(row.item_id, [dto]);
+    });
   }
   return grouped;
 }
@@ -180,6 +255,31 @@ export function attachCamino(items: CommunicationItemDTO[], camino: PlanPathDTO 
 /** ¿Hay alguna sección que necesite el plan? Decide si la consulta se hace. */
 export function needsCamino(items: CommunicationItemDTO[]): boolean {
   return items.some((i) => i.display === 'camino');
+}
+
+/**
+ * Le pone a las secciones «grafica» las barras que les tocan, por id de sección.
+ *
+ * Por SECCIÓN y no una para todas (que es como se resuelve el camino) porque
+ * cada gráfica lleva su propio periodo y su propio filtro: dos secciones de la
+ * misma nota pueden mirar seis meses de todo y tres meses de correr. Lo que
+ * viene resuelto son las barras y el ancla; el periodo, el filtro y las marcas ya
+ * estaban en la fila y no se tocan.
+ */
+export function attachGraficas(
+  items: CommunicationItemDTO[],
+  resueltas: Map<string, ZoneChartDTO>,
+): CommunicationItemDTO[] {
+  if (resueltas.size === 0) return items;
+  return items.map((i) => {
+    const resuelta = resueltas.get(i.id);
+    return resuelta ? { ...i, grafica: resuelta } : i;
+  });
+}
+
+/** ¿Hay alguna sección que necesite los segundos por zona del atleta? */
+export function needsGrafica(items: CommunicationItemDTO[]): boolean {
+  return items.some((i) => i.display === 'grafica' && i.grafica != null);
 }
 
 /**

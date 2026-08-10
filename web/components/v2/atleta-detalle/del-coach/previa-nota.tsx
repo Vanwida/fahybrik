@@ -18,7 +18,15 @@ import { Card, Display, Hairline, Label, Mono } from '@/components/design-twin/k
 import { Pantalla } from '@/components/design-twin/kit-composicion/chrome';
 import { S } from '@/components/design-twin/kit-composicion/tokens';
 import { Espina, TOKENS_TWIN, TONOS_TWIN, colorDelTono, tramosDesdePlan } from '@/components/plan-espina';
+import { ZonasChart } from '../rendimiento/ZonasChart';
+import {
+  buildWindowCells,
+  rangeBands,
+  ZONE_METRICS_EMBED,
+  ZONE_TOKENS_TWIN,
+} from '@/lib/zones/chart';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
+import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { Borrador, FilaBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
 
 const TENUE = 'var(--twin-faint)';
@@ -44,6 +52,7 @@ export function PreviaNota({
   cabecera,
   foco,
   camino,
+  zonas,
 }: {
   b: Borrador;
   cabecera: React.ReactNode;
@@ -51,6 +60,8 @@ export function PreviaNota({
   foco: string | null;
   /** El plan REAL del destinatario. Null = no hay uno solo, o no tiene plan. */
   camino: PlanPathDTO | null;
+  /** Sus barras de tiempo en zonas ya resueltas, por clave de sección. */
+  zonas: Map<string, ZoneChartDTO>;
 }) {
   const secciones = b.sections.filter(escrita);
   const t = b.title.trim();
@@ -81,7 +92,7 @@ export function PreviaNota({
             <div key={s.key} data-fila={s.key} style={anillo(s.key === foco)}>
               <Card padding={S.l}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: S.m }}>
-                  <Seccion seccion={s} camino={camino} />
+                  <Seccion seccion={s} camino={camino} zonas={zonas} />
                 </div>
               </Card>
             </div>
@@ -97,14 +108,22 @@ export function PreviaNota({
 /** Una sección cuenta en cuanto tiene algo escrito. El camino cuenta siempre:
  *  no se teclea, así que esperar a que tenga texto sería no enseñarlo nunca. */
 function escrita(s: FilaBorrador): boolean {
-  if (s.display === 'camino') return true;
+  if (s.display === 'camino' || s.display === 'grafica') return true;
   if (s.display === 'reparto') {
     return Boolean(s.label.trim()) || s.segments.some((seg) => seg.value.trim() || seg.label.trim());
   }
   return Boolean(s.content.trim() || s.label.trim());
 }
 
-function Seccion({ seccion, camino }: { seccion: FilaBorrador; camino: PlanPathDTO | null }) {
+function Seccion({
+  seccion,
+  camino,
+  zonas,
+}: {
+  seccion: FilaBorrador;
+  camino: PlanPathDTO | null;
+  zonas: Map<string, ZoneChartDTO>;
+}) {
   if (seccion.display === 'cifra') return <Cifra seccion={seccion} />;
 
   return (
@@ -117,6 +136,8 @@ function Seccion({ seccion, camino }: { seccion: FilaBorrador; camino: PlanPathD
         <Reparto seccion={seccion} />
       ) : seccion.display === 'camino' ? (
         <Camino camino={camino} />
+      ) : seccion.display === 'grafica' ? (
+        <Grafica seccion={seccion} chart={zonas.get(seccion.key) ?? null} />
       ) : (
         <span style={{ font: '400 14px/1.5 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
           {seccion.content.trim()}
@@ -238,6 +259,45 @@ function Camino({ camino }: { camino: PlanPathDTO | null }) {
     );
   }
   return <Espina tokens={TOKENS_TWIN} tramos={tramosDesdePlan(camino, TONOS_TWIN)} />;
+}
+
+/**
+ * LA GRÁFICA, con los datos REALES del atleta y las marcas del coach encima.
+ *
+ * Es el MISMO componente que dibuja la ficha (`ZonasChart`), con la paleta del
+ * móvil y la medida embebida: sin eje Y, sin rótulos y con las barras finas,
+ * porque dentro de una tarjeta lo que se lee es la FORMA de la serie y no cada
+ * semana suelta. Una copia del dibujo para el móvil sería la bifurcación de
+ * siempre, y entonces esta previa dejaría de servir para lo único que sirve.
+ *
+ * Sin ni una semana con dato se dice con palabras. Pintar seis meses de suelo
+ * sería enseñarle al atleta que no entrenó cuando lo que pasa es que no medimos.
+ */
+function Grafica({ seccion, chart }: { seccion: FilaBorrador; chart: ZoneChartDTO | null }) {
+  const marcas = seccion.grafica.ranges.filter((r) => r.label.trim().length > 0);
+
+  if (chart == null || chart.weeks_data.length === 0) {
+    return (
+      <Vacia texto="Aquí va su tiempo en zonas del periodo que elijas. De estas semanas todavía no hay ni un entreno con pulso medido, así que no hay nada que repartir." />
+    );
+  }
+
+  const cells = buildWindowCells({
+    weeks_data: chart.weeks_data,
+    week_start: seccion.grafica.week_start,
+    weeks: seccion.grafica.weeks,
+  });
+
+  return (
+    <ZonasChart
+      cells={cells}
+      bands={[]}
+      ranges={rangeBands(cells, marcas)}
+      ariaLabel={`Su tiempo en zonas, ${seccion.grafica.weeks} semanas`}
+      tokens={ZONE_TOKENS_TWIN}
+      metrics={ZONE_METRICS_EMBED}
+    />
+  );
 }
 
 /** El anillo de la sección que se está editando: la previa no sólo se coloca en

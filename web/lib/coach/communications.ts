@@ -26,18 +26,23 @@ import {
 import {
   CommunicationError,
   attachCamino,
+  attachGraficas,
   communicationColumns,
   iso,
   loadItemsByCommunication,
   loadLinkedForCoach,
   loadMarksByRecipient,
   needsCamino,
+  needsGrafica,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
+import { resolveGraficas } from '@/lib/communications/grafica';
+import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 import { resolvePlanPath } from '@/lib/plan/camino';
 import {
+  audioOf,
   insertItems,
   kindOnlyFields,
   linkedOf,
@@ -79,6 +84,8 @@ function rowToDto(
     due_date: row.due_date,
     expires_at: iso(row.expires_at),
     blocks: row.blocks,
+    audio_url: row.audio_url,
+    audio_seconds: row.audio_seconds,
     is_template: row.is_template,
     status: row.status,
     published_at: iso(row.published_at),
@@ -210,13 +217,23 @@ export async function listCommunicationsForAthlete(args: {
     ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
     : null;
 
+  // Las gráficas se resuelven con los datos de ESTE atleta por la misma razón
+  // que el camino: el coach tiene que estar mirando exactamente lo que él ve.
+  const graficas = [...items.values()].some(needsGrafica)
+    ? await resolveGraficas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
+    : new Map<string, ZoneChartDTO>();
+
   return rows.map((row): CoachAthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
     const done_at = iso(row.done_at);
     const answered_at = iso(row.answered_at);
     const state = communicationState({ seen_at, done_at, answered_at });
     return {
-      ...rowToDto(row, attachCamino(items.get(row.id) ?? [], camino), enlaceDe(row, linked)),
+      ...rowToDto(
+        row,
+        attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
+        enlaceDe(row, linked),
+      ),
       athlete_state: {
         athlete_id: String(args.athlete_id),
         state,
@@ -314,6 +331,7 @@ export async function createCommunication(args: {
   const extra = kindOnlyFields(input);
 
   const linked = linkedOf(input);
+  const audio = audioOf(input, args.coach_id);
 
   const id = await client.begin(async (tx) => {
     if (linked) await requireLinkable(tx, args.coach_id, linked);
@@ -321,13 +339,13 @@ export async function createCommunication(args: {
       insert into coach_communications (
         coach_id, kind, title, body, final_note,
         anchor_kind, anchor_ref, due_date, expires_at, blocks, is_template,
-        linked_communication_id
+        linked_communication_id, audio_url, audio_seconds
       ) values (
         ${args.coach_id as number}, ${input.kind}, ${input.title}, ${input.body ?? null},
         ${extra.final_note}, ${input.anchor_kind},
         ${input.anchor_kind === 'general' ? null : (input.anchor_ref ?? null)},
         ${extra.due_date}, ${input.expires_at ?? null}, ${extra.blocks}, ${input.is_template},
-        ${linked}
+        ${linked}, ${audio.url}, ${audio.seconds}
       )
       returning id::text as id
     `;
@@ -373,6 +391,7 @@ export async function updateCommunication(args: {
 
     const linked = linkedOf(input);
     if (linked) await requireLinkable(tx, args.coach_id, linked);
+    const audio = audioOf(input, args.coach_id);
 
     await tx`
       update coach_communications set
@@ -387,6 +406,8 @@ export async function updateCommunication(args: {
         blocks = ${extra.blocks},
         is_template = ${input.is_template},
         linked_communication_id = ${linked},
+        audio_url = ${audio.url},
+        audio_seconds = ${audio.seconds},
         updated_at = now()
       where id = ${row.id}::bigint
     `;

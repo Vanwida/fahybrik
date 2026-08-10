@@ -13,6 +13,19 @@
 // el mismo módulo describe el contrato que consume iOS (respuestas snake_case).
 
 import { z } from 'zod';
+import { SEGMENT_MODALITIES } from './segment-modality';
+// La gráfica es de las ZONAS, no del comunicado: su contrato, sus topes y la
+// aritmética de su ventana viven en `zone-chart` — igual que los del camino
+// viven en `plan-path`. Aquí sólo se dice cómo se ESCRIBE dentro de una nota.
+import {
+  esLunesIso,
+  GRAFICA_MAX_RANGES,
+  GRAFICA_MAX_WEEKS,
+  GRAFICA_MIN_WEEKS,
+  MAX_RANGE_LABEL_CHARS,
+  RANGE_TONES,
+  rangoDentroDeVentana,
+} from './zone-chart';
 
 // Este sigue siendo EL import del comunicado: los dos módulos de al lado se
 // reexportan enteros y nadie tiene que saber que existen. Están partidos porque
@@ -62,20 +75,27 @@ export const COMMUNICATION_VIEWS = ['published', 'templates', 'drafts'] as const
 export type CommunicationView = (typeof COMMUNICATION_VIEWS)[number];
 
 /**
- * Cómo se pinta una sección de NOTA. Son cuatro porque un briefing real mezcla
- * cuatro cosas que se leen en cuatro momentos distintos, y metidas en el mismo
+ * Cómo se pinta una sección de NOTA. Son cinco porque un briefing real mezcla
+ * cinco cosas que se leen en cinco momentos distintos, y metidas en el mismo
  * párrafo gris la del medio no se encuentra tres meses después:
  *
  *   texto    — la prosa: el porqué, lo que cambió
  *   cifra    — el número que el atleta viene a buscar, en grande y en mono
  *   reparto  — una PROPORCIÓN, que se lee de un vistazo en una barra
  *   camino   — por dónde va a pasar: NO se teclea, se resuelve con SU plan
+ *   grafica  — su tiempo en zonas de un periodo, con los rangos que el coach
+ *              marcó encima: tampoco se teclea, se resuelve con SUS datos
  *
- * Es propiedad de la SECCIÓN y no de la nota (una nota mezcla las cuatro), y
- * fuera de una nota es inerte: un paso de protocolo y una opción de pregunta
- * llevan `texto` y nadie lo mira. Misma lección que `checkable` (migración 0162).
+ * Es propiedad de la SECCIÓN y no de la nota (una nota las mezcla), y fuera de
+ * una nota es inerte: un paso de protocolo y una opción de pregunta llevan
+ * `texto` y nadie lo mira. Misma lección que `checkable` (migración 0162).
+ *
+ * NO hay un sexto TIPO de comunicado para el feedback: partiría el modelo en
+ * «nota» y «nota con datos» y duplicaría bandeja, señales y seguimiento para
+ * contar lo mismo. En la pantalla el botón dice «Dar feedback», que es lo que el
+ * coach cree que está haciendo; que por debajo sea una nota es asunto nuestro.
  */
-export const COMMUNICATION_DISPLAYS = ['texto', 'cifra', 'reparto', 'camino'] as const;
+export const COMMUNICATION_DISPLAYS = ['texto', 'cifra', 'reparto', 'camino', 'grafica'] as const;
 export type CommunicationDisplay = (typeof COMMUNICATION_DISPLAYS)[number];
 
 /**
@@ -84,6 +104,15 @@ export type CommunicationDisplay = (typeof COMMUNICATION_DISPLAYS)[number];
  * suelta sería enseñar el mapa entero para hablar de una parada.
  */
 export const CAMINO_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week'];
+
+/**
+ * La gráfica admite un ancla más que el camino: `general`. El camino habla del
+ * plan y sin plan no es nada; la gráfica habla de lo que el atleta ha entrenado,
+ * que sigue siendo cierto colgado de nada. Lo que no cabe es colgarla de una
+ * sesión, un test, una carrera o un check-in: son un día, y esto son meses.
+ */
+export const GRAFICA_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week', 'general'];
+
 
 // ---------------------------------------------------------------------------
 // Cara al atleta
@@ -147,6 +176,13 @@ export const QUESTION_MAX_OPTIONS = 4;
 /** A cuántos atletas se puede publicar de una vez. */
 export const MAX_PUBLISH_RECIPIENTS = 100;
 
+/**
+ * Media hora de audio en un comunicado. Es un tope de cordura, no el que suele
+ * morder: el grabador entrega WAV de 16 kHz mono (~2 MB/min) y el tope de bytes
+ * del almacén (25 MB, el mismo del chat) corta antes, sobre los catorce minutos.
+ */
+export const MAX_AUDIO_SECONDS = 1800;
+
 // ---------------------------------------------------------------------------
 // Esquemas de escritura (server-side en TODA mutación)
 // ---------------------------------------------------------------------------
@@ -162,8 +198,23 @@ const anchorFields = {
   anchor_ref: z.string().trim().min(1).max(MAX_ANCHOR_REF_CHARS).nullish(),
 };
 
+/**
+ * La nota de voz, en CUALQUIERA de los cinco tipos y como mucho una. Van juntas
+ * o no va ninguna (lo comprueba el refinamiento de abajo): una duración sin
+ * audio no es nada, y un audio sin duración deja al reproductor sin poder
+ * rotularse antes de descargar un solo byte.
+ *
+ * Que la URL sea de NUESTRO proxy —y no de cualquier sitio de internet— lo
+ * comprueba el servidor, que es el único que sabe en qué dominio vive.
+ */
+const audioFields = {
+  audio_url: z.string().url().max(1000).nullish(),
+  audio_seconds: z.number().int().positive().max(MAX_AUDIO_SECONDS).nullish(),
+};
+
 const commonFields = {
   ...anchorFields,
+  ...audioFields,
   title: trimmedTitle,
   is_template: z.boolean().default(false),
   expires_at: isoDateTime.nullish(),
@@ -194,6 +245,18 @@ const optionItem = z.object({
 const repartoSegment = z.object({
   value_num: z.number().finite().positive(),
   label: z.string().trim().min(1).max(MAX_SEGMENT_LABEL_CHARS),
+});
+
+const isoMonday = isoDate.refine(esLunesIso, 'Una semana empieza en lunes.');
+
+/** Una marca del coach sobre la gráfica: de qué semana a qué semana, cómo se
+ *  llama y con qué tono. Ambas puntas inclusive — marcar una semana suelta es
+ *  `week_start === week_end`, y es legítimo. */
+const graficaRange = z.object({
+  week_start: isoMonday,
+  week_end: isoMonday,
+  label: z.string().trim().min(1).max(MAX_RANGE_LABEL_CHARS),
+  tone: z.enum(RANGE_TONES),
 });
 
 /**
@@ -231,6 +294,28 @@ const noteSectionShape = z.discriminatedUnion('display', [
   z.object({
     display: z.literal('camino'),
     label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+  }),
+  // La gráfica tampoco se teclea: lo que se guarda es la CONFIG (qué periodo,
+  // qué filtro, qué rangos) y el servidor la dibuja con los segundos por zona de
+  // ESE atleta al servirla. Si se guardaran las barras, la nota seguiría
+  // contando los datos del día que se escribió aunque después llegara el entreno
+  // que faltaba — que es el mismo fallo que `camino` vino a evitar.
+  //
+  // La ventana es ABSOLUTA (un lunes y un número de semanas) y no «los últimos
+  // seis meses»: los rangos son fechas, así que una ventana que se moviera con
+  // el reloj los dejaría fuera de su propia gráfica.
+  z.object({
+    display: z.literal('grafica'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+    week_start: isoMonday,
+    weeks: z.number().int().min(GRAFICA_MIN_WEEKS).max(GRAFICA_MAX_WEEKS),
+    // Null = todo el volumen. El filtro es por TRAMO, así que una sesión mixta
+    // reparte sus minutos entre correr, fuerza y ergo.
+    modality: z
+      .enum(SEGMENT_MODALITIES)
+      .nullish()
+      .transform((v) => v ?? null),
+    ranges: z.array(graficaRange).max(GRAFICA_MAX_RANGES).default([]),
   }),
 ]);
 
@@ -311,10 +396,20 @@ const communicationShape = z.discriminatedUnion('kind', [
  * objeto (una pregunta con sus opciones, una tarea con su fecha).
  */
 export const createCommunicationSchema = communicationShape.superRefine((value, ctx) => {
-  // El camino se dibuja con el plan del atleta, así que la nota tiene que estar
-  // colgada de él. Anclada a una sesión suelta enseñaría el mapa entero para
-  // hablar de una parada — y el atleta lo leería como un plan nuevo.
+  // El audio va entero o no va. Vale para los cinco tipos, así que se comprueba
+  // antes de repartir por tipo.
+  if ((value.audio_url == null) !== (value.audio_seconds == null)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['audio_url'],
+      message: 'La nota de voz viaja con su duración, o no viaja.',
+    });
+  }
+
   if (value.kind === 'note') {
+    // El camino se dibuja con el plan del atleta, así que la nota tiene que
+    // estar colgada de él. Anclada a una sesión suelta enseñaría el mapa entero
+    // para hablar de una parada — y el atleta lo leería como un plan nuevo.
     const camino = value.items.findIndex((s) => s.display === 'camino');
     if (camino >= 0 && !CAMINO_ANCHORS.includes(value.anchor_kind)) {
       ctx.addIssue({
@@ -323,6 +418,31 @@ export const createCommunicationSchema = communicationShape.superRefine((value, 
         message: 'El camino sólo se dibuja en una nota de su plan o de su semana.',
       });
     }
+
+    value.items.forEach((seccion, i) => {
+      if (seccion.display !== 'grafica') return;
+      if (!GRAFICA_ANCHORS.includes(value.anchor_kind)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['items', i, 'display'],
+          message: 'La gráfica cuelga de su plan, de esta semana o de nada: son meses, no un día.',
+        });
+      }
+      // Un rango fuera de la ventana no se recorta ni se tira: se rechaza. Las
+      // dos alternativas cambiarían en silencio lo que el coach marcó, y una
+      // marca movida es peor que una marca que no se pudo guardar.
+      seccion.ranges.forEach((rango, r) => {
+        if (rangoDentroDeVentana(seccion, rango)) return;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['items', i, 'ranges', r, 'week_start'],
+          message:
+            rango.week_end < rango.week_start
+              ? 'Esa marca acaba antes de empezar.'
+              : 'Esa marca se sale del periodo que enseña la gráfica.',
+        });
+      });
+    });
     return;
   }
 

@@ -22,6 +22,7 @@ import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
+import type { ZoneWeekSecondsDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { HrAnchorConfidence, HrAnchorSource } from '@fahybrid/shared/domain/methodology';
 
 /**
@@ -34,18 +35,13 @@ export const WEEKLY_ZONES_DEFAULT_WEEKS = zoneWindowWeeks(DEFAULT_ZONE_WINDOW);
 /** Un año y pico. Más allá la gráfica deja de leerse en una pantalla. */
 export const WEEKLY_ZONES_MAX_WEEKS = 78;
 
-export interface WeeklyZoneWeek {
-  /** Lunes de la semana, en la zona horaria del atleta. */
-  week_start: string;
-  z1_s: number;
-  z2_s: number;
-  z3_s: number;
-  z4_s: number;
-  z5_s: number;
-  /** Tiempo medido que no se pudo repartir — la banda gris de la gráfica. */
-  no_hr_s: number;
-  total_s: number;
-}
+/**
+ * Una semana repartida. Es EL MISMO tipo que viaja dentro de una nota firmada
+ * (`ZoneWeekSecondsDTO`, el contrato compartido con iOS): con dos definiciones,
+ * el día que el motor gane una banda la pantalla del coach y la del atleta
+ * dejarían de contar lo mismo sin que nada dejara de compilar.
+ */
+export type WeeklyZoneWeek = ZoneWeekSecondsDTO;
 
 export interface WeeklyZonesMeta {
   weeks_requested: number;
@@ -91,17 +87,6 @@ export interface WeeklyZonesPayload {
 /** Modalidades por las que se puede filtrar. Las del ingest, sin inventar ninguna. */
 export const ZONE_MODALITIES = SEGMENT_MODALITIES;
 
-type WeekRow = {
-  week_start: string;
-  z1_s: number;
-  z2_s: number;
-  z3_s: number;
-  z4_s: number;
-  z5_s: number;
-  no_hr_s: number;
-  total_s: number;
-};
-
 /**
  * Reparto semanal de tiempo en zonas de un atleta, más el plan de fondo.
  *
@@ -124,9 +109,10 @@ export async function loadWeeklyZones(args: {
   const modality = args.modality ?? null;
   const since = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
 
+  const ventana: Ventana = { kind: 'rodante', since, until: now };
   const [rows, computed, anchorZones, planPath] = await Promise.all([
-    weekRows(client, args.athlete_id, since, now, modality),
-    computedWith(client, args.athlete_id, since, now, modality),
+    weekRows(client, args.athlete_id, ventana, modality),
+    computedWith(client, args.athlete_id, ventana, modality),
     loadAthleteHrZones(args.athlete_id, client),
     resolvePlanPath({ athlete_id: args.athlete_id, sql: client }),
   ]);
@@ -158,6 +144,46 @@ export async function loadWeeklyZones(args: {
 }
 
 /**
+ * DE QUÉ TROZO DEL CALENDARIO SE HABLA, y son dos cosas distintas:
+ *
+ *   · `rodante` — «los últimos N meses», que es lo que mira el coach en la ficha
+ *     y se mueve con el reloj.
+ *   · `fija` — un periodo del calendario, del lunes X y N semanas. Es lo que
+ *     lleva dentro una nota firmada: se congela al escribirla para que el atleta
+ *     que la abre en octubre lea exactamente la misma historia.
+ *
+ * Las dos alimentan LA MISMA agregación: lo único que cambia es el filtro, y por
+ * eso viven como un fragmento y no como dos consultas que a los dos meses ya no
+ * cuentan lo mismo.
+ */
+type Ventana =
+  | { kind: 'rodante'; since: Date; until: Date }
+  | { kind: 'fija'; week_start: string; weeks: number };
+
+/**
+ * El filtro temporal de cada clase de ventana.
+ *
+ * La fija compara por el DÍA LOCAL del atleta y no por instantes, porque es lo
+ * mismo por lo que se agrupa (`date_trunc('week', … at time zone …)`): con
+ * bordes en UTC, un entreno del domingo por la noche caería en la semana de al
+ * lado y la primera y la última barra saldrían recortadas.
+ */
+function ventanaFilter(client: Sql, v: Ventana) {
+  if (v.kind === 'rodante') {
+    return client`
+      coalesce(we.ended_at, we.started_at) >= ${v.since.toISOString()}::timestamptz
+      and coalesce(we.ended_at, we.started_at) <= ${v.until.toISOString()}::timestamptz
+    `;
+  }
+  return client`
+    (coalesce(we.ended_at, we.started_at) at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
+      >= ${v.week_start}::date
+    and (coalesce(we.ended_at, we.started_at) at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
+      < ${v.week_start}::date + ${v.weeks * 7}::int
+  `;
+}
+
+/**
  * La modalidad CANÓNICA de un tramo, resuelta en SQL. La columna es texto libre
  * y guarda valores fuera del vocabulario (`functional`, y 5 filas a null, medido
  * el 10-ago-2026): todo lo que no está en la lista es «otro», igual que hace
@@ -176,11 +202,10 @@ function modalityFilter(client: Sql, modality: SegmentModality | null) {
 async function weekRows(
   client: Sql,
   athlete_id: number,
-  since: Date,
-  until: Date,
+  ventana: Ventana,
   modality: SegmentModality | null,
 ): Promise<WeeklyZoneWeek[]> {
-  return client<WeekRow[]>`
+  return client<WeeklyZoneWeek[]>`
     select
       to_char(
         date_trunc(
@@ -201,8 +226,7 @@ async function weekRows(
     join workout_executions we on we.id = se.execution_id
     join athletes a on a.id = we.athlete_id
     where we.athlete_id = ${athlete_id}
-      and coalesce(we.ended_at, we.started_at) >= ${since.toISOString()}::timestamptz
-      and coalesce(we.ended_at, we.started_at) <= ${until.toISOString()}::timestamptz
+      and ${ventanaFilter(client, ventana)}
       and ${modalityFilter(client, modality)}
     group by 1
     -- Una semana entera a cero no es una semana medida: es una semana sin nada
@@ -212,12 +236,60 @@ async function weekRows(
   `;
 }
 
+/**
+ * EL TIEMPO EN ZONAS DE UN PERIODO CONGELADO — lo que lleva dentro una nota
+ * firmada por el coach (`display = 'grafica'`, migración 0169).
+ *
+ * Misma agregación que la ficha, con dos diferencias que son el punto entero:
+ *
+ *   · La ventana es FIJA. No se pide «26 semanas hacia atrás» sino «desde este
+ *     lunes, 26 semanas»: si se moviera con el reloj, las marcas que el coach
+ *     dibujó encima —que son fechas— se quedarían fuera de su propia gráfica.
+ *   · El ancla que se devuelve es con la que se computaron ESTOS segundos, no la
+ *     vigente hoy. Los segundos están congelados desde la 0168, así que decir el
+ *     ancla de hoy sería rotular una gráfica con un umbral que no la hizo. Si en
+ *     la ventana convivieran dos (porque el atleta se midió por el camino), se
+ *     dice la que pesa en más tramos.
+ *
+ * Sin `plan_segments` ni `meta` a propósito: dentro de una nota la banda del plan
+ * y el recuento de semanas sin dato no caben, y traerlos costaría dos consultas
+ * más por cada nota de la bandeja.
+ */
+export async function loadZoneWindow(args: {
+  athlete_id: number;
+  /** Lunes de la primera semana. */
+  week_start: string;
+  weeks: number;
+  modality?: SegmentModality | null;
+  client?: Sql;
+}): Promise<{
+  weeks_data: WeeklyZoneWeek[];
+  anchor: { source: HrAnchorSource; lthr_bpm: number } | null;
+}> {
+  const client = args.client ?? defaultSql;
+  const weeks = Math.min(WEEKLY_ZONES_MAX_WEEKS, Math.max(1, Math.trunc(args.weeks)));
+  const modality = args.modality ?? null;
+  const ventana: Ventana = { kind: 'fija', week_start: args.week_start, weeks };
+
+  const [weeks_data, computed] = await Promise.all([
+    weekRows(client, args.athlete_id, ventana, modality),
+    computedWith(client, args.athlete_id, ventana, modality),
+  ]);
+
+  const dominante = computed.anchors.find((a) => a.anchor != null && a.lthr_bpm != null);
+  return {
+    weeks_data,
+    anchor: dominante
+      ? { source: dominante.anchor as HrAnchorSource, lthr_bpm: dominante.lthr_bpm as number }
+      : null,
+  };
+}
+
 /** Resumen de con qué ancla y de qué fuente salió lo que se está enseñando. */
 async function computedWith(
   client: Sql,
   athlete_id: number,
-  since: Date,
-  until: Date,
+  ventana: Ventana,
   modality: SegmentModality | null,
 ): Promise<{
   anchors: WeeklyZonesMeta['computed_with'];
@@ -239,9 +311,11 @@ async function computedWith(
     from segment_zone_seconds z
     join segment_executions se on se.id = z.segment_execution_id
     join workout_executions we on we.id = se.execution_id
+    -- El atleta entra por su ZONA HORARIA, que es lo que usa el filtro de una
+    -- ventana fija para no recortar la primera y la última barra.
+    join athletes a on a.id = we.athlete_id
     where we.athlete_id = ${athlete_id}
-      and coalesce(we.ended_at, we.started_at) >= ${since.toISOString()}::timestamptz
-      and coalesce(we.ended_at, we.started_at) <= ${until.toISOString()}::timestamptz
+      and ${ventanaFilter(client, ventana)}
       and ${modalityFilter(client, modality)}
     group by 1, 2, 3
     order by segments desc

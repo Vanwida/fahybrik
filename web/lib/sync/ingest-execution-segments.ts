@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
 
@@ -21,11 +22,11 @@ import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-w
 // sync layer's public surface stays self-contained for callers/tests.
 export { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus };
 
-// Canonical modality vocabulary — the single source of truth shared with the
-// analytics aggregation. iOS is expected to send one of these; anything else is
-// normalised to 'other'. Kept narrow on purpose so run-vs-row buckets are stable.
-export const SEGMENT_MODALITIES = ['run', 'row', 'ski', 'bike', 'strength', 'other'] as const;
-export type SegmentModality = (typeof SEGMENT_MODALITIES)[number];
+// Canonical modality vocabulary. The single source moved to `shared/domain` when
+// the coach's note gained a zone chart with a modality filter: that write schema
+// runs in the BROWSER and cannot import this module (it pulls in the database).
+// Re-exported here so every existing caller keeps its import path.
+export { SEGMENT_MODALITIES, type SegmentModality };
 
 // Physiological bands for the two running signals (mig 0124), mirroring the DB
 // CHECK constraints. The ingest layer range-gates device values to these bands

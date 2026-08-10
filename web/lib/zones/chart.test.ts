@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildWeekCells,
+  buildWindowCells,
   chartLayout,
+  EMBED_ANCHO_MINIMO,
+  rangeBands,
+  ZONE_METRICS_EMBED,
   formatDuration,
   formatWeekShort,
   missingWeeksPhrase,
@@ -21,6 +25,7 @@ import {
 } from '@/lib/zones/chart';
 import type { WeeklyZoneWeek } from '@/lib/zones/weekly';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
+import { GRAFICA_MAX_WEEKS } from '@fahybrid/shared/domain/zone-chart';
 
 const M = 60;
 const H = 3600;
@@ -376,5 +381,103 @@ describe('zoneWindowWeeks', () => {
     expect(zoneWindowWeeks('3m')).toBe(13);
     expect(zoneWindowWeeks('6m')).toBe(26);
     expect(zoneWindowWeeks('12m')).toBe(52);
+  });
+});
+
+// ── LA VENTANA CONGELADA DE UNA NOTA FIRMADA ─────────────────────────────────
+
+describe('buildWindowCells', () => {
+  it('dibuja EXACTAMENTE las semanas del periodo, ni una más', () => {
+    const cells = buildWindowCells({
+      weeks_data: [week('2026-05-04', { z2_s: H })],
+      week_start: '2026-05-04',
+      weeks: 4,
+    });
+    expect(cells.map((c) => c.week_start)).toEqual([
+      '2026-05-04',
+      '2026-05-11',
+      '2026-05-18',
+      '2026-05-25',
+    ]);
+  });
+
+  it('no crece con el reloj: un dato posterior al periodo no entra en el eje', () => {
+    const cells = buildWindowCells({
+      weeks_data: [week('2026-05-04', { z2_s: H }), week('2026-07-06', { z5_s: H })],
+      week_start: '2026-05-04',
+      weeks: 3,
+    });
+    expect(cells).toHaveLength(3);
+    expect(cells.some((c) => c.week_start === '2026-07-06')).toBe(false);
+  });
+
+  it('una semana sin dato deja hueco, nunca un cero', () => {
+    const cells = buildWindowCells({
+      weeks_data: [week('2026-05-11', { z2_s: H })],
+      week_start: '2026-05-04',
+      weeks: 2,
+    });
+    expect(cells[0]!.week).toBeNull();
+    expect(cells[1]!.week).not.toBeNull();
+  });
+});
+
+// ── LAS MARCAS DEL COACH ─────────────────────────────────────────────────────
+
+describe('rangeBands', () => {
+  const cells = buildWindowCells({ weeks_data: [], week_start: '2026-05-04', weeks: 5 });
+
+  it('alinea la marca con sus celdas, ambas puntas inclusive', () => {
+    const [b] = rangeBands(cells, [
+      { week_start: '2026-05-11', week_end: '2026-05-25', label: 'Sierra', tone: 'atencion' },
+    ]);
+    expect(b!.from).toBe(1);
+    expect(b!.to).toBe(3);
+    expect(b!.label).toBe('Sierra');
+  });
+
+  it('una semana suelta es una marca de una celda', () => {
+    const [b] = rangeBands(cells, [
+      { week_start: '2026-05-18', week_end: '2026-05-18', label: 'Ojo', tone: 'bien' },
+    ]);
+    expect(b!.from).toBe(2);
+    expect(b!.to).toBe(2);
+  });
+
+  it('recorta la que asoma por un borde y descarta la que no pisa el periodo', () => {
+    const bands = rangeBands(cells, [
+      { week_start: '2026-04-06', week_end: '2026-05-11', label: 'Viene de antes', tone: 'neutro' },
+      { week_start: '2026-08-03', week_end: '2026-08-10', label: 'Fuera', tone: 'neutro' },
+    ]);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.from).toBe(0);
+    expect(bands[0]!.to).toBe(1);
+  });
+
+  it('dos marcas del mismo tramo no comparten clave', () => {
+    const bands = rangeBands(cells, [
+      { week_start: '2026-05-04', week_end: '2026-05-11', label: 'Una', tone: 'bien' },
+      { week_start: '2026-05-04', week_end: '2026-05-11', label: 'Otra', tone: 'atencion' },
+    ]);
+    expect(bands[0]!.key).not.toBe(bands[1]!.key);
+  });
+});
+
+// ── LA MEDIDA EMBEBIDA ───────────────────────────────────────────────────────
+
+describe('chartLayout embebido', () => {
+  it('medio año cabe dentro de la tarjeta sin scroll horizontal', () => {
+    const { width } = chartLayout(EMBED_ANCHO_MINIMO, 26, ZONE_METRICS_EMBED);
+    expect(width).toBeLessThanOrEqual(EMBED_ANCHO_MINIMO);
+  });
+
+  it('la ventana MÁS LARGA que se puede firmar también cabe', () => {
+    const { width } = chartLayout(EMBED_ANCHO_MINIMO, GRAFICA_MAX_WEEKS, ZONE_METRICS_EMBED);
+    expect(width).toBeLessThanOrEqual(EMBED_ANCHO_MINIMO);
+  });
+
+  it('la barra nunca desaparece: siempre queda algo que ver', () => {
+    const { barW } = chartLayout(EMBED_ANCHO_MINIMO, GRAFICA_MAX_WEEKS, ZONE_METRICS_EMBED);
+    expect(barW).toBeGreaterThanOrEqual(2);
   });
 });

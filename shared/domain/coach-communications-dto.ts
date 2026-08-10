@@ -12,6 +12,7 @@
 // decodificador no elige rama.
 
 import type { PlanPathDTO } from './plan-path';
+import type { ZoneChartDTO } from './zone-chart';
 import type {
   CommunicationAnchor,
   CommunicationDisplay,
@@ -51,7 +52,12 @@ export interface CommunicationItemDTO {
    * llega `texto` y es inerte (migración 0163).
    */
   display: CommunicationDisplay;
-  /** Los trozos de un reparto, en orden. Vacío en todo lo demás. */
+  /**
+   * Los trozos de un reparto, en orden. Vacío en todo lo demás — los rangos de
+   * una gráfica comparten tabla con éstos pero NO viajan aquí: un rango marca un
+   * periodo y no pesa nada, así que meterlo en la misma lista obligaría a todo
+   * decodificador a preguntarse qué es cada fila. Viajan dentro de `grafica`.
+   */
   segments: CommunicationSegmentDTO[];
   /**
    * La espina del plan de ESE atleta, resuelta al servir (nunca guardada: si se
@@ -61,6 +67,18 @@ export interface CommunicationItemDTO {
    * entonces el cliente no la pinta, en vez de dibujar un camino inventado.
    */
   camino: PlanPathDTO | null;
+  /**
+   * El tiempo en zonas de ESE atleta dentro de la ventana que el coach guardó,
+   * con sus marcas encima. Se resuelve al servir por la misma razón que el
+   * camino: si se guardaran las barras, la nota seguiría contando los datos del
+   * día que se escribió aunque después llegara el entreno que faltaba.
+   *
+   * Null cuando la sección no es una gráfica, cuando no hay atleta al que
+   * resolvérsela (la biblioteca del coach) o cuando en toda la ventana no hay
+   * ni una semana con dato — y entonces el cliente no la pinta, en vez de
+   * dibujar seis meses de suelo como si el atleta no hubiera entrenado.
+   */
+  grafica: ZoneChartDTO | null;
 }
 
 /**
@@ -90,6 +108,14 @@ export interface AthleteCommunicationDTO {
   due_date: string | null;
   expires_at: string | null;
   blocks: boolean;
+  /**
+   * La nota de voz del coach, si la grabó. Es la URL de NUESTRO proxy
+   * autenticado: se pide con la misma credencial que el resto de la bandeja y se
+   * reproduce EN LÍNEA, dentro del comunicado, sin salir a ningún sitio.
+   */
+  audio_url: string | null;
+  /** Cuánto dura, para poder rotular «2:14» antes de descargar un byte. */
+  audio_seconds: number | null;
   published_at: string;
   coach_name: string | null;
   items: CommunicationItemDTO[];
@@ -138,6 +164,10 @@ export interface CoachCommunicationDTO {
   due_date: string | null;
   expires_at: string | null;
   blocks: boolean;
+  /** Su nota de voz, la misma que oye el atleta. Al coach le llega siempre: la
+   *  ficha es donde relee lo que le mandó, audio incluido. */
+  audio_url: string | null;
+  audio_seconds: number | null;
   is_template: boolean;
   status: CommunicationStatus;
   published_at: string | null;

@@ -26,11 +26,14 @@ import {
 import { MIcon } from '@/components/ui/MIcon';
 import {
   anclaSirveParaCamino,
+  anclaSirveParaGrafica,
   filaVacia,
   segmentoVacio,
   type FilaBorrador,
+  type GraficaBorrador,
   type SegmentoBorrador,
 } from '@/lib/dashboard/v2/del-coach-borrador';
+import { SeccionGrafica } from './formulario-grafica';
 import {
   AreaTexto,
   AvisoFila,
@@ -45,13 +48,15 @@ import {
 } from './campos';
 import type { PropsFormulario } from './formularios';
 
-/** Cómo se llama cada forma para el coach. «El camino» lleva artículo porque no
- *  es un formato de texto como las otras tres: es una cosa que se dibuja sola. */
+/** Cómo se llama cada forma para el coach. «El camino» y «Sus zonas» llevan
+ *  artículo porque no son formatos de texto como las otras tres: son cosas que
+ *  se dibujan solas con los datos del atleta. */
 const FORMAS: ReadonlyArray<{ value: CommunicationDisplay; label: string }> = [
   { value: 'texto', label: 'Texto' },
   { value: 'cifra', label: 'Cifra' },
   { value: 'reparto', label: 'Reparto' },
   { value: 'camino', label: 'El camino' },
+  { value: 'grafica', label: 'Sus zonas' },
 ];
 
 /** Qué es esta sección, en una línea, debajo del selector. */
@@ -60,6 +65,7 @@ const QUE_ES: Record<CommunicationDisplay, string> = {
   cifra: 'El número que viene a buscar, en grande. Debajo, el matiz.',
   reparto: 'Una proporción. Se lee de un vistazo en una barra, sin contar.',
   camino: 'Sus semanas como camino, con dónde está hoy y lo que rompe la rutina.',
+  grafica: 'Su tiempo en zonas de un periodo, con los rangos que tú marques.',
 };
 
 function sinLa<T>(xs: T[], index: number): T[] {
@@ -140,6 +146,7 @@ export function FormNota({ b, set, errores, idp, onFoco }: PropsFormulario) {
                 indice={i}
                 errores={errores}
                 anclaSirve={anclaSirveParaCamino(b)}
+                anclaSirveGrafica={anclaSirveParaGrafica(b)}
                 onCambiar={(patch) => cambiar(i, patch)}
               />
             </div>
@@ -161,15 +168,39 @@ function Seccion({
   indice,
   errores,
   anclaSirve,
+  anclaSirveGrafica,
   onCambiar,
 }: {
   seccion: FilaBorrador;
   indice: number;
   errores: Record<string, string>;
   anclaSirve: boolean;
+  anclaSirveGrafica: boolean;
   onCambiar: (patch: Partial<FilaBorrador>) => void;
 }) {
   const err = (campo: string) => errores[`items.${indice}.${campo}`];
+
+  if (seccion.display === 'grafica') {
+    return (
+      <div className="flex flex-col gap-2">
+        <Cabecera
+          valor={seccion.label}
+          indice={indice}
+          error={err('label')}
+          ejemplo="Tus últimos 6 meses en zonas"
+          onChange={(v) => onCambiar({ label: v })}
+        />
+        <SeccionGrafica
+          grafica={seccion.grafica}
+          indice={indice}
+          anclaSirve={anclaSirveGrafica}
+          onCambiar={(patch: Partial<GraficaBorrador>) =>
+            onCambiar({ grafica: { ...seccion.grafica, ...patch } })
+          }
+        />
+      </div>
+    );
+  }
 
   if (seccion.display === 'camino') {
     return (

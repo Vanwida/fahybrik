@@ -25,16 +25,20 @@ import {
 import {
   CommunicationError,
   attachCamino,
+  attachGraficas,
   communicationColumns,
   iso,
   loadItemsByCommunication,
   loadLinkedForAthlete,
   loadMarksByRecipient,
   needsCamino,
+  needsGrafica,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
+import { resolveGraficas } from '@/lib/communications/grafica';
+import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 import { resolvePlanPath } from '@/lib/plan/camino';
 
 type InboxRow = CommunicationRow & {
@@ -96,6 +100,13 @@ export async function listAthleteCommunications(args: {
     ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
     : null;
 
+  // Y sus barras de tiempo en zonas, una consulta por PERIODO distinto (no por
+  // sección): el feedback del coach suele mirar el mismo trozo de calendario en
+  // todas sus gráficas.
+  const graficas = [...items.values()].some(needsGrafica)
+    ? await resolveGraficas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
+    : new Map<string, ZoneChartDTO>();
+
   const inbox = rows.map((row): AthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
     const done_at = iso(row.done_at);
@@ -112,10 +123,12 @@ export async function listAthleteCommunications(args: {
       due_date: row.due_date,
       expires_at: iso(row.expires_at),
       blocks: row.blocks,
+      audio_url: row.audio_url,
+      audio_seconds: row.audio_seconds,
       // Publicado por definición (lo filtra la consulta): nunca es null aquí.
       published_at: iso(row.published_at)!,
       coach_name: row.coach_name,
-      items: attachCamino(items.get(row.id) ?? [], camino),
+      items: attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
       state,
       seen_at,
       done_at,

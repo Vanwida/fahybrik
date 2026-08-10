@@ -133,7 +133,11 @@ export function AthleteDetalle({
         ) : tab === 'biometria' ? (
           <BiometriaTab body={detalle.body} />
         ) : tab === 'rendimiento' ? (
-          <RendimientoTab athleteId={header.athlete_id} />
+          <RendimientoTab
+            athleteId={header.athlete_id}
+            athleteName={header.full_name}
+            coachName={coachName}
+          />
         ) : tab === 'pagos' ? (
           <PagosTab
             billing={detalle.billing}

@@ -9,6 +9,7 @@
 
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { GrabadorDeAudio, type AudioDelComunicado } from './audio';
 
 /** Qué está mandándose ahora mismo. Null = nada en vuelo. */
 export type Enviando = 'publicar' | 'borrador' | 'plantilla' | null;
@@ -31,6 +32,8 @@ export function PieCompositor({
   onGuardarBorrador,
   enviando,
   nota,
+  audio,
+  onAudio,
 }: {
   /** Lo que contestó el servidor cuando dijo que no. */
   fallo: string | null;
@@ -46,6 +49,9 @@ export function PieCompositor({
   enviando: Enviando;
   /** Qué le va a pasar al atleta con ESTE borrador. */
   nota: string;
+  /** La nota de voz ya subida, si la hay. Vale para los cinco tipos. */
+  audio: AudioDelComunicado;
+  onAudio: (audio: AudioDelComunicado) => void;
 }) {
   const ocupado = enviando !== null;
 
@@ -84,6 +90,10 @@ export function PieCompositor({
           </span>
         </div>
       ) : null}
+
+      {/* La voz va ARRIBA del botón que publica: es lo último que el coach añade
+          y lo primero que tiene que poder repasar antes de mandarlo. */}
+      <GrabadorDeAudio audio={audio} onCambiar={onAudio} disabled={ocupado} />
 
       <div className="flex flex-wrap items-center gap-2.5">
         <button

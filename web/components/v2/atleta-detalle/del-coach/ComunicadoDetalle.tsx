@@ -21,6 +21,7 @@ import {
 import { ANCHOR_COACH_LABEL, opcionElegida, seguimiento, venceEn } from '@/lib/dashboard/v2/del-coach';
 import { borrarOArchivar } from './api';
 import { EnlaceDelDetalle, SeccionesDeNota } from './detalle-nota';
+import { AudioDelDetalle } from './detalle-audio';
 import { LineaSeguimiento } from './lista';
 
 export function ComunicadoDetalle({
@@ -217,6 +218,8 @@ export function ComunicadoDetalle({
           ) : null}
 
           {c.kind === 'note' ? <SeccionesDeNota items={c.items} /> : null}
+
+          <AudioDelDetalle url={c.audio_url} seconds={c.audio_seconds} />
 
           <EnlaceDelDetalle linked={c.linked} />
 

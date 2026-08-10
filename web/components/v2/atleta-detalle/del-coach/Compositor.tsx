@@ -111,6 +111,8 @@ function tieneContenido(b: Borrador): boolean {
     b.body.trim().length > 0 ||
     b.final_note.trim().length > 0 ||
     b.due_date.length > 0 ||
+    b.audio != null ||
+    b.sections.some((s) => s.display === 'grafica' && s.grafica.ranges.length > 0) ||
     [...b.steps, ...b.sections].some(
       (f) =>
         f.label.trim() ||
@@ -454,6 +456,8 @@ export function Compositor({
           onGuardarBorrador={() => void guardarBorrador()}
           enviando={enviando}
           nota={nota}
+          audio={b.audio}
+          onAudio={(audio) => set({ audio })}
         />
       </div>
       </div>

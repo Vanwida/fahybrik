@@ -14,6 +14,7 @@ import type {
   CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
+import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 
 export type Resultado<T> = { ok: true; data: T } | { ok: false; mensaje: string };
 
@@ -74,6 +75,47 @@ export async function pedirCamino(athlete_id: string): Promise<Resultado<PlanPat
     `/api/coach/athletes/${athlete_id}/camino`,
   );
   return r.ok ? { ok: true, data: r.data.camino } : r;
+}
+
+/**
+ * El tiempo en zonas de un atleta en un periodo CONGELADO. Lo usa la PREVIA para
+ * enseñar la gráfica que el atleta va a recibir de verdad, con sus datos, en vez
+ * de un dibujo de ejemplo.
+ */
+export async function pedirZonas(
+  athlete_id: string,
+  ventana: { week_start: string; weeks: number; modality: string | null },
+): Promise<Resultado<ZoneChartDTO>> {
+  const qs = new URLSearchParams({
+    week_start: ventana.week_start,
+    weeks: String(ventana.weeks),
+  });
+  if (ventana.modality) qs.set('modality', ventana.modality);
+  const r = await pedir<{ chart: ZoneChartDTO }>(
+    `/api/coach/athletes/${athlete_id}/zones/window?${qs}`,
+  );
+  return r.ok ? { ok: true, data: r.data.chart } : r;
+}
+
+/**
+ * Prepara la subida de una nota de voz y devuelve dónde ponerla. La carpeta es
+ * la del COACH, así que no se le pasa ningún atleta: el mismo audio lo van a oír
+ * todos los destinatarios del comunicado.
+ */
+export async function pedirSubidaDeAudio(fichero: File): Promise<
+  Resultado<{ upload_url: string; audio_url: string; content_type: string }>
+> {
+  return pedir<{ upload_url: string; audio_url: string; content_type: string }>(
+    '/api/coach/communications/audio-url',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filename: fichero.name,
+        mime_type: fichero.type || undefined,
+        size_bytes: fichero.size,
+      }),
+    },
+  );
 }
 
 /** Nace como borrador (o como molde, si `is_template`). Publicar es otro acto. */

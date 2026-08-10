@@ -37,7 +37,18 @@ const GEN_FMT = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid',
 });
 
-export function RendimientoTab({ athleteId }: { athleteId: string }) {
+export function RendimientoTab({
+  athleteId,
+  athleteName,
+  coachName,
+}: {
+  athleteId: string;
+  athleteName: string;
+  /** El nombre con el que el atleta ve firmados los comunicados (el del club).
+   *  Baja hasta aquí porque «Dar feedback» abre el compositor desde la gráfica
+   *  de zonas, sin pasar por la pestaña «Del coach». */
+  coachName: string;
+}) {
   const [performance, setPerformance] = useState<PerformancePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -150,7 +161,7 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
       {/* 2 · Tiempo en zonas — la evidencia semanal de la que sale la
              polarización de abajo. Va antes a propósito: el reparto medido
              primero, el veredicto sobre él después. */}
-      <ZonasPanel athleteId={athleteId} />
+      <ZonasPanel athleteId={athleteId} athleteName={athleteName} coachName={coachName} />
 
       {/* 3 · Polarization 80/0/20 */}
       <PolarizationPanel

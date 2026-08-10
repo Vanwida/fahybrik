@@ -15,7 +15,24 @@ import type {
   CommunicationDisplay,
   CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
+import type { RangeTone } from '@fahybrid/shared/domain/zone-chart';
 import { CommunicationError } from '@/lib/communications/store';
+import { audioPathnameFromUrl, coachIdFromAudioPathname } from '@/lib/communications/audio';
+
+/**
+ * Una marca que cuelga de una sección: o PESA (el trozo de un reparto) o marca
+ * un PERIODO (el rango de una gráfica), nunca las dos. Comparten tabla y forma
+ * de escribirse porque son la misma lista ordenada; lo que las separa lo
+ * garantiza el CHECK de la 0169, no un `if` repartido por el código.
+ */
+type MarcaAEscribir = {
+  position: number;
+  label: string;
+  value_num: number | null;
+  week_start: string | null;
+  week_end: string | null;
+  tone: RangeTone | null;
+};
 
 /**
  * Las filas de la tabla hija que le tocan a cada tipo. Es UN sitio y no cinco:
@@ -33,11 +50,14 @@ type FilaAEscribir = {
   consequence: string | null;
   checkable: boolean;
   display: CommunicationDisplay;
-  /** Sólo un reparto los lleva. Se escriben en su tabla, no en la fila. */
-  segments: { position: number; value_num: number; label: string }[];
+  /** Sólo una gráfica la lleva: el periodo del que habla y por qué se filtra. */
+  grafica: { week_start: string; weeks: number; modality: string | null } | null;
+  /** Los trozos de un reparto o los rangos de una gráfica. Se escriben en su
+   *  tabla hija, no en la fila. */
+  marcas: MarcaAEscribir[];
 };
 
-const SIN_SEGMENTOS: FilaAEscribir['segments'] = [];
+const SIN_MARCAS: MarcaAEscribir[] = [];
 
 export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
   if (input.kind === 'task' || input.kind === 'focus') return [];
@@ -49,7 +69,8 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       consequence: option.consequence ?? null,
       checkable: true,
       display: 'texto',
-      segments: SIN_SEGMENTOS,
+      grafica: null,
+      marcas: SIN_MARCAS,
     }));
   }
   if (input.kind === 'protocol') {
@@ -60,13 +81,15 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       consequence: null,
       checkable: paso.checkable,
       display: 'texto',
-      segments: SIN_SEGMENTOS,
+      grafica: null,
+      marcas: SIN_MARCAS,
     }));
   }
-  // Una sección de nota: cada forma dice qué es cada campo. Las dos que no se
-  // teclean escriben `content` vacío — un reparto ES sus segmentos y un camino
-  // ES el plan del atleta, y un texto de relleno sería un dato que nadie
-  // escribió (el CHECK de la 0163 lo permite sólo en esas dos).
+  // Una sección de nota: cada forma dice qué es cada campo. Las tres que no se
+  // teclean escriben `content` vacío — un reparto ES sus segmentos, un camino ES
+  // el plan del atleta y una gráfica ES su tiempo en zonas —, y un texto de
+  // relleno sería un dato que nadie escribió (el CHECK de la 0169 lo permite
+  // sólo en esas tres).
   return input.items.map((seccion, index) => {
     const comun = {
       position: index + 1,
@@ -79,15 +102,39 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
         ...comun,
         label: seccion.label,
         content: '',
-        segments: seccion.segments.map((s, i) => ({
+        grafica: null,
+        marcas: seccion.segments.map((s, i) => ({
           position: i + 1,
-          value_num: s.value_num,
           label: s.label,
+          value_num: s.value_num,
+          week_start: null,
+          week_end: null,
+          tone: null,
+        })),
+      };
+    }
+    if (seccion.display === 'grafica') {
+      return {
+        ...comun,
+        label: seccion.label,
+        content: '',
+        grafica: {
+          week_start: seccion.week_start,
+          weeks: seccion.weeks,
+          modality: seccion.modality,
+        },
+        marcas: seccion.ranges.map((r, i) => ({
+          position: i + 1,
+          label: r.label,
+          value_num: null,
+          week_start: r.week_start,
+          week_end: r.week_end,
+          tone: r.tone,
         })),
       };
     }
     if (seccion.display === 'camino') {
-      return { ...comun, label: seccion.label, content: '', segments: SIN_SEGMENTOS };
+      return { ...comun, label: seccion.label, content: '', grafica: null, marcas: SIN_MARCAS };
     }
     // En una cifra `label` es el PIE y puede faltar; en un texto es la cabecera
     // y el esquema ya la exige.
@@ -95,7 +142,8 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       ...comun,
       label: seccion.label ?? null,
       content: seccion.content,
-      segments: SIN_SEGMENTOS,
+      grafica: null,
+      marcas: SIN_MARCAS,
     };
   });
 }
@@ -119,6 +167,9 @@ export async function insertItems(
         consequence: r.consequence,
         checkable: r.checkable,
         display: r.display,
+        grafica_week_start: r.grafica?.week_start ?? null,
+        grafica_weeks: r.grafica?.weeks ?? null,
+        grafica_modality: r.grafica?.modality ?? null,
       })),
       'communication_id',
       'position',
@@ -127,13 +178,16 @@ export async function insertItems(
       'consequence',
       'checkable',
       'display',
+      'grafica_week_start',
+      'grafica_weeks',
+      'grafica_modality',
     )}
   `;
 
-  const conSegmentos = filas.filter((f) => f.segments.length > 0);
-  if (conSegmentos.length === 0) return;
+  const conMarcas = filas.filter((f) => f.marcas.length > 0);
+  if (conMarcas.length === 0) return;
 
-  // Los segmentos van DESPUÉS porque cuelgan del id que acaba de nacer, y se
+  // Las marcas van DESPUÉS porque cuelgan del id que acaba de nacer, y se
   // enlazan releyendo por `position` en vez de por el orden de un `returning`:
   // `position` es único por comunicado (lo garantiza `..._items_uq`), así que la
   // correspondencia es exacta y no hay forma de colgarle a un reparto los trozos
@@ -144,21 +198,27 @@ export async function insertItems(
   `;
   const porPosicion = new Map(escritas.map((r) => [r.position, r.id]));
 
-  const segmentos = conSegmentos.flatMap((fila) =>
-    fila.segments.map((s) => ({
+  const marcas = conMarcas.flatMap((fila) =>
+    fila.marcas.map((m) => ({
       item_id: porPosicion.get(fila.position)!,
-      position: s.position,
-      value_num: s.value_num,
-      label: s.label,
+      position: m.position,
+      value_num: m.value_num,
+      label: m.label,
+      week_start: m.week_start,
+      week_end: m.week_end,
+      tone: m.tone,
     })),
   );
   await tx`
     insert into coach_communication_item_segments ${tx(
-      segmentos,
+      marcas,
       'item_id',
       'position',
       'value_num',
       'label',
+      'week_start',
+      'week_end',
+      'tone',
     )}
   `;
 }
@@ -192,6 +252,34 @@ export async function requireLinkable(
       422,
     );
   }
+}
+
+/**
+ * La nota de voz del input, comprobada.
+ *
+ * Dos cosas, y las dos son de seguridad y no de forma:
+ *   · Que la URL sea de NUESTRO proxy. Sin esto, un comunicado podría guardar un
+ *     enlace a cualquier sitio de internet y la app del atleta iría a pedirle
+ *     bytes a un dominio ajeno con su sesión abierta.
+ *   · Que la carpeta sea la de ESTE coach. El proxy sirve un audio a quien sea
+ *     destinatario de un comunicado publicado que lo referencia, así que apuntar
+ *     al audio de otro coach y publicarlo se lo entregaría a atletas que no
+ *     tienen nada que ver con él.
+ *
+ * Que vayan los dos campos o ninguno ya lo exige el esquema compartido.
+ */
+export function audioOf(
+  input: CreateCommunicationInput,
+  coach_id: number | bigint,
+): { url: string | null; seconds: number | null } {
+  const url = input.audio_url ?? null;
+  if (url == null) return { url: null, seconds: null };
+
+  const pathname = audioPathnameFromUrl(url);
+  if (pathname == null || coachIdFromAudioPathname(pathname) !== BigInt(coach_id)) {
+    throw new CommunicationError('invalid_audio', 'Ese audio no es de este comunicado', 422);
+  }
+  return { url, seconds: input.audio_seconds ?? null };
 }
 
 /** El enlace del input, si el tipo lo admite. Sólo una nota y una tarea apuntan

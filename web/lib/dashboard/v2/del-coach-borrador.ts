@@ -13,6 +13,7 @@
 
 import {
   CAMINO_ANCHORS,
+  GRAFICA_ANCHORS,
   createCommunicationSchema,
   type CoachCommunicationDTO,
   type CommunicationAnchor,
@@ -20,6 +21,9 @@ import {
   type CommunicationKind,
   type CreateCommunicationInput,
 } from '@fahybrid/shared/domain/coach-communications';
+import type { RangeTone, ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import type { SegmentModality } from '@fahybrid/shared/domain/segment-modality';
+import { DEFAULT_ZONE_WINDOW, addWeeks, mondayOf, zoneWindowWeeks } from '@/lib/zones/chart';
 
 // ---------------------------------------------------------------------------
 // La forma del borrador
@@ -31,6 +35,26 @@ export interface SegmentoBorrador {
   key: string;
   value: string;
   label: string;
+}
+
+/** Una marca del coach sobre la gráfica, mientras se escribe. Las fechas ya son
+ *  lunes (las pone el clic sobre una barra) y sólo la etiqueta se teclea. */
+export interface RangoBorrador {
+  key: string;
+  week_start: string;
+  week_end: string;
+  label: string;
+  tone: RangeTone;
+}
+
+/** La config de una sección con forma de gráfica: de qué periodo habla, por qué
+ *  se filtra y qué marcó el coach encima. Las BARRAS no están aquí — se
+ *  resuelven al servir con los datos del atleta. */
+export interface GraficaBorrador {
+  week_start: string;
+  weeks: number;
+  modality: SegmentModality | null;
+  ranges: RangoBorrador[];
 }
 
 /** Una fila de la lista ordenada: paso de protocolo o sección de nota. */
@@ -49,6 +73,8 @@ export interface FilaBorrador {
   display: CommunicationDisplay;
   /** Sólo en una sección con forma de reparto. */
   segments: SegmentoBorrador[];
+  /** Sólo en una sección con forma de gráfica. */
+  grafica: GraficaBorrador;
 }
 
 /** Una opción de pregunta con su consecuencia. */
@@ -82,6 +108,10 @@ export interface Borrador {
   sections: FilaBorrador[];
   /** Nota y tarea: a qué otro comunicado apunta. Vacío = a ninguno. */
   linked_communication_id: string;
+  /** La nota de voz ya subida, en cualquiera de los cinco tipos. Null = ninguna.
+   *  Se sube en cuanto se corta la grabación, no al publicar: así el fallo se ve
+   *  cuando todavía se puede volver a grabar. */
+  audio: { url: string; seconds: number } | null;
   /** Además de publicarlo, dejarlo como plantilla reutilizable. */
   save_to_library: boolean;
 }
@@ -114,7 +144,29 @@ export function filaVacia(): FilaBorrador {
     checkable: true,
     display: 'texto',
     segments: [segmentoVacio(), segmentoVacio()],
+    grafica: ventanaPorDefecto(),
   };
+}
+
+/**
+ * La ventana con la que nace una gráfica: la misma que la pantalla enseña de
+ * entrada, terminando en la semana en curso. Es lo que el coach acaba de estar
+ * mirando en la ficha, así que cambiar de forma no le mueve el periodo bajo los
+ * pies.
+ */
+export function ventanaPorDefecto(weeks = zoneWindowWeeks(DEFAULT_ZONE_WINDOW)): GraficaBorrador {
+  return { ...ventanaQueAcabaHoy(weeks), modality: null, ranges: [] };
+}
+
+/** El periodo de `weeks` semanas que TERMINA en la semana de hoy. Al cambiar el
+ *  tamaño de la ventana se mueve el principio y no el final: el coach está
+ *  mirando lo reciente y estirar la ventana es pedir más pasado, no otro tramo. */
+export function ventanaQueAcabaHoy(weeks: number): { week_start: string; weeks: number } {
+  const hoy = new Date();
+  const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dd = String(hoy.getDate()).padStart(2, '0');
+  const ultimoLunes = mondayOf(`${hoy.getFullYear()}-${mm}-${dd}`);
+  return { week_start: addWeeks(ultimoLunes, -(weeks - 1)), weeks };
 }
 
 export function opcionVacia(): OpcionBorrador {
@@ -146,6 +198,7 @@ export function borradorVacio(kind: CommunicationKind = 'protocol'): Borrador {
     due_date: '',
     sections: [filaVacia(), filaVacia()],
     linked_communication_id: '',
+    audio: null,
     save_to_library: false,
   };
 }
@@ -177,6 +230,11 @@ export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
       i.segments.length > 0
         ? i.segments.map((s) => ({ key: nuevaClave(), value: String(s.value_num), label: s.label }))
         : [segmentoVacio(), segmentoVacio()],
+    // La config de la gráfica viaja SIEMPRE en el DTO aunque no se haya podido
+    // resolver (la biblioteca no tiene atleta al que dibujársela): es contenido
+    // que el coach escribió, y sin ella retomar un borrador con gráfica dentro
+    // le devolvería la ventana por defecto en vez de la suya.
+    grafica: graficaDeDto(i.grafica),
   }));
   return {
     ...base,
@@ -198,7 +256,24 @@ export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
     blocks: dto.blocks,
     due_date: dto.due_date ?? '',
     linked_communication_id: dto.linked?.id ?? '',
+    audio:
+      dto.audio_url != null && dto.audio_seconds != null
+        ? { url: dto.audio_url, seconds: dto.audio_seconds }
+        : null,
     save_to_library: false,
+  };
+}
+
+/** La config guardada vuelve a ser estado local. Sin ella (cualquier forma que
+ *  no sea gráfica) se cae al periodo por defecto, para que cambiarle la forma a
+ *  una sección no deje el formulario en blanco. */
+function graficaDeDto(g: ZoneChartDTO | null): GraficaBorrador {
+  if (g == null) return ventanaPorDefecto();
+  return {
+    week_start: g.week_start,
+    weeks: g.weeks,
+    modality: (g.modality as SegmentModality | null) ?? null,
+    ranges: g.ranges.map((r) => ({ key: nuevaClave(), ...r })),
   };
 }
 
@@ -264,6 +339,24 @@ function seccionAInput(s: FilaBorrador) {
   if (s.display === 'camino') {
     return { display: 'camino' as const, label: s.label.trim() };
   }
+  if (s.display === 'grafica') {
+    return {
+      display: 'grafica' as const,
+      label: s.label.trim(),
+      week_start: s.grafica.week_start,
+      weeks: s.grafica.weeks,
+      modality: s.grafica.modality,
+      // Sin filtrar las marcas sin etiquetar a propósito: una marca a medias
+      // tiene que dar SU error en SU sitio, no desaparecer del payload y dejar
+      // al coach preguntándose dónde fue el rango que acababa de dibujar.
+      ranges: s.grafica.ranges.map((r) => ({
+        week_start: r.week_start,
+        week_end: r.week_end,
+        label: r.label.trim(),
+        tone: r.tone,
+      })),
+    };
+  }
   if (s.display === 'cifra') {
     return { display: 'cifra' as const, label: oNulo(s.label), content: s.content.trim() };
   }
@@ -273,6 +366,18 @@ function seccionAInput(s: FilaBorrador) {
 /** ¿Esta nota dibuja el camino? Decide si el ancla tiene que ser plan o semana. */
 export function pintaCamino(b: Borrador): boolean {
   return b.kind === 'note' && b.sections.some((s) => s.display === 'camino');
+}
+
+/** ¿Esta nota lleva una gráfica? Decide si hay que pedirle los datos al atleta
+ *  para la previa, y si el ancla elegida vale. */
+export function pintaGrafica(b: Borrador): boolean {
+  return b.kind === 'note' && b.sections.some((s) => s.display === 'grafica');
+}
+
+/** ¿El ancla elegida deja dibujar la gráfica? Admite una más que el camino: un
+ *  periodo de entrenos sigue siendo cierto colgado de nada. */
+export function anclaSirveParaGrafica(b: Borrador): boolean {
+  return GRAFICA_ANCHORS.includes(b.anchor_kind);
 }
 
 /** ¿El ancla elegida deja dibujar el camino? Es la regla del esquema, dicha
@@ -286,6 +391,8 @@ export function aInput(b: Borrador, is_template = false): CreateCommunicationInp
     title: b.title.trim(),
     anchor_kind: b.anchor_kind,
     is_template,
+    audio_url: b.audio?.url ?? null,
+    audio_seconds: b.audio?.seconds ?? null,
   };
   // El enlace sólo lo admiten los dos tipos que dicen «esto sale de aquello».
   const enlace = oNulo(b.linked_communication_id);

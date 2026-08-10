@@ -12,6 +12,8 @@
 // aquí no se está previsualizando su móvil, se está leyendo el historial.
 
 import { Espina, TOKENS_V2, TONOS_V2, colorDelTono, tramosDesdePlan } from '@/components/plan-espina';
+import { ZonasChart } from '../rendimiento/ZonasChart';
+import { buildWindowCells, rangeBands, ZONE_METRICS_EMBED } from '@/lib/zones/chart';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import {
@@ -57,6 +59,8 @@ function Seccion({ item }: { item: CommunicationItemDTO }) {
         <Reparto segmentos={item.segments} />
       ) : item.display === 'camino' ? (
         <Camino item={item} />
+      ) : item.display === 'grafica' ? (
+        <Grafica item={item} />
       ) : (
         <span className="whitespace-pre-line text-body leading-relaxed text-[color:var(--v2-fg)]">
           {item.content}
@@ -117,6 +121,44 @@ function Camino({ item }: { item: CommunicationItemDTO }) {
   return (
     <div className="pt-1">
       <Espina tokens={TOKENS_V2} tramos={tramosDesdePlan(item.camino, TONOS_V2)} />
+    </div>
+  );
+}
+
+/**
+ * La gráfica de ESE atleta en el periodo que el coach congeló, con sus marcas.
+ *
+ * Es el MISMO componente que dibuja la ficha, con la medida embebida: dentro de
+ * una tarjeta de historial lo que se lee es la forma de la serie. Y es el mismo
+ * dato que tiene el atleta delante, no una copia que pueda desfasarse.
+ *
+ * Sin ni una semana con dato se dice, no se pinta un suelo de ceros: el coach
+ * tiene que saber que lo que le llegó al atleta fue una gráfica vacía.
+ */
+function Grafica({ item }: { item: CommunicationItemDTO }) {
+  const chart = item.grafica;
+  if (!chart || chart.weeks_data.length === 0) {
+    return (
+      <span className="text-label leading-relaxed text-[color:var(--v2-muted)]">
+        De ese periodo no hay ni un entreno con pulso medido, así que a él le aparece vacía. En
+        cuanto lleguen entrenos con pulso, la gráfica de esta nota los tendrá.
+      </span>
+    );
+  }
+  const cells = buildWindowCells({
+    weeks_data: chart.weeks_data,
+    week_start: chart.week_start,
+    weeks: chart.weeks,
+  });
+  return (
+    <div className="pt-1">
+      <ZonasChart
+        cells={cells}
+        bands={[]}
+        ranges={rangeBands(cells, chart.ranges)}
+        ariaLabel={`Su tiempo en zonas, ${chart.weeks} semanas`}
+        metrics={ZONE_METRICS_EMBED}
+      />
     </div>
   );
 }

@@ -13,9 +13,10 @@
 //
 // NO lleva 'server-only': lo importa el navegador.
 
-import type { SegmentModality } from '@/lib/sync/ingest-execution-segments';
+import type { SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import type { WeeklyZoneWeek } from '@/lib/zones/weekly';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
+import { GRAFICA_MAX_WEEKS, type RangeTone, type ZoneRangeDTO } from '@fahybrid/shared/domain/zone-chart';
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -87,6 +88,86 @@ export const ZONE_PART_COLOR_VAR: Record<ZoneKey, string> = {
   z3: '--z3',
   z4: '--z4',
   z5: '--z5',
+};
+
+// ── LOS DOS ESPACIOS DE COLOR EN LOS QUE SE DIBUJA ────────────────────────────
+//
+// La misma gráfica se pinta en el dashboard del coach (`--v2-*`) y dentro del
+// móvil del atleta (`--twin-*`, negros más cálidos y su propia escala de zonas).
+// El componente no conoce ni un color: recibe estas variables y las escribe tal
+// cual, igual que hace la espina del plan (`components/plan-espina/tokens.ts`).
+//
+// Tenerlas aquí es lo que impide la bifurcación de siempre: una copia del dibujo
+// por superficie, que a los dos meses ya no son el mismo dibujo. La previa del
+// compositor tiene que enseñar EXACTAMENTE lo que verá el atleta.
+
+export interface ZoneChartTokens {
+  /** Las cinco bandas de frecuencia cardiaca, de Z1 a Z5. */
+  zone: Record<ZoneKey, string>;
+  /** El fondo del rayado de «sin zona» y su trama. */
+  hatchBg: string;
+  hatchLine: string;
+  grid: string;
+  axis: string;
+  fg: string;
+  muted: string;
+  faint: string;
+  /** El PLAN, que nunca entra dentro del área de datos. */
+  accent: string;
+  /** Los tres tonos de una marca del coach. */
+  tone: Record<RangeTone, string>;
+  /**
+   * La mono con la que se escriben los números del eje. Va en los tokens y no en
+   * una clase del dashboard (`.v2-num`) porque la previa se dibuja DENTRO del
+   * móvil: con la clase, las horas de su gráfica saldrían en la tipografía del
+   * escritorio y el coach aprobaría algo que su atleta no va a ver.
+   */
+  fontMono: string;
+}
+
+/** El dashboard del coach. */
+export const ZONE_TOKENS_V2: ZoneChartTokens = {
+  zone: { z1: 'var(--z1)', z2: 'var(--z2)', z3: 'var(--z3)', z4: 'var(--z4)', z5: 'var(--z5)' },
+  hatchBg: 'var(--v2-surface-2)',
+  hatchLine: 'var(--v2-faint)',
+  grid: 'var(--v2-border)',
+  axis: 'var(--v2-border-strong)',
+  fg: 'var(--v2-fg)',
+  muted: 'var(--v2-muted)',
+  faint: 'var(--v2-faint)',
+  accent: 'var(--v2-accent)',
+  tone: {
+    atencion: 'var(--v2-warn)',
+    bien: 'var(--v2-ok)',
+    neutro: 'var(--v2-muted)',
+  },
+  fontMono: 'var(--v2-font-mono)',
+};
+
+/** La app del atleta y todo lo que se dibuja dentro de su móvil — la previa del
+ *  compositor incluida: ahí se está enseñando SU pantalla, no la del coach. */
+export const ZONE_TOKENS_TWIN: ZoneChartTokens = {
+  zone: {
+    z1: 'var(--twin-z1)',
+    z2: 'var(--twin-z2)',
+    z3: 'var(--twin-z3)',
+    z4: 'var(--twin-z4)',
+    z5: 'var(--twin-z5)',
+  },
+  hatchBg: 'var(--twin-surface-elevated)',
+  hatchLine: 'var(--twin-faint)',
+  grid: 'var(--twin-hairline)',
+  axis: 'var(--twin-hairline-strong)',
+  fg: 'var(--twin-fg)',
+  muted: 'var(--twin-muted)',
+  faint: 'var(--twin-faint)',
+  accent: 'var(--twin-accent)',
+  tone: {
+    atencion: 'var(--twin-warning)',
+    bien: 'var(--twin-ok)',
+    neutro: 'var(--twin-muted)',
+  },
+  fontMono: 'var(--twin-font-mono)',
 };
 
 // ── EL FILTRO POR TIPO DE ENTRENO ─────────────────────────────────────────────
@@ -183,6 +264,73 @@ export function buildWeekCells(args: {
     cells.push({ week_start: iso, week: byWeek.get(iso) ?? null });
   }
   return cells;
+}
+
+/**
+ * La rejilla de una ventana FIJA: exactamente las semanas que el coach firmó, ni
+ * una más ni una menos.
+ *
+ * Es la otra mitad de `buildWeekCells`, y son dos funciones y no una con un
+ * parámetro porque responden a preguntas distintas. Aquel eje persigue a HOY
+ * (mirando la ficha, la ausencia reciente es lo que importa); éste está
+ * congelado, porque una nota firmada habla de un periodo cerrado y crecer con el
+ * reloj le añadiría semanas vacías al final que el coach nunca vio.
+ */
+export function buildWindowCells(args: {
+  weeks_data: readonly WeeklyZoneWeek[];
+  week_start: string;
+  weeks: number;
+}): ZoneWeekCell[] {
+  const byWeek = new Map<string, WeeklyZoneWeek>();
+  for (const w of args.weeks_data) byWeek.set(mondayOf(w.week_start), w);
+
+  const first = mondayOf(args.week_start);
+  const count = Math.max(1, Math.trunc(args.weeks));
+  const cells: ZoneWeekCell[] = [];
+  for (let i = 0; i < count; i++) {
+    const iso = addWeeks(first, i);
+    cells.push({ week_start: iso, week: byWeek.get(iso) ?? null });
+  }
+  return cells;
+}
+
+// ── LAS MARCAS DEL COACH, ENCIMA DE LAS BARRAS ────────────────────────────────
+
+export interface ZoneRangeBand extends ZoneRangeDTO {
+  key: string;
+  /** Índice de la primera y la última celda que ocupa, ambas inclusive. */
+  from: number;
+  to: number;
+}
+
+/**
+ * Las marcas alineadas con las semanas de arriba, en índices de celda.
+ *
+ * Una marca que no pisa la ventana no se dibuja y la que la pisa a medias se
+ * recorta AL DIBUJARLA — no al guardarla: el dato sigue diciendo lo que el coach
+ * señaló, y lo que se ajusta es el rectángulo, que no puede salirse del lienzo.
+ * Es la misma regla que la banda del plan.
+ */
+export function rangeBands(
+  cells: readonly ZoneWeekCell[],
+  ranges: readonly ZoneRangeDTO[],
+): ZoneRangeBand[] {
+  if (cells.length === 0) return [];
+  const indice = new Map(cells.map((c, i) => [c.week_start, i] as const));
+  const primera = cells[0]!.week_start;
+  const ultima = cells[cells.length - 1]!.week_start;
+
+  const bands: ZoneRangeBand[] = [];
+  ranges.forEach((r, i) => {
+    if (r.week_end < primera || r.week_start > ultima) return;
+    const from = indice.get(r.week_start) ?? (r.week_start < primera ? 0 : -1);
+    const to = indice.get(r.week_end) ?? (r.week_end > ultima ? cells.length - 1 : -1);
+    if (from < 0 || to < 0 || to < from) return;
+    // La clave lleva el índice porque dos marcas pueden cubrir el mismo tramo con
+    // etiquetas distintas, y React necesita distinguirlas.
+    bands.push({ ...r, key: `${i}-${r.week_start}-${r.week_end}`, from, to });
+  });
+  return bands;
 }
 
 // ── LA PILA DE UNA BARRA ──────────────────────────────────────────────────────
@@ -318,14 +466,37 @@ export function zoneScale(maxSeconds: number): ZoneScale {
 
 // ── EL ANCHO ──────────────────────────────────────────────────────────────────
 
-/** Márgenes del dibujo: la izquierda es el sitio de las marcas del eje Y. */
-export const CHART_PAD_L = 46;
+/** Margen derecho del dibujo. El izquierdo es el sitio de las marcas del eje Y y
+ *  lo pone cada medida (`ZoneChartMetrics.padL`): la gráfica embebida no las
+ *  escribe, así que ahí ese hueco sería aire desperdiciado dentro de un móvil. */
 export const CHART_PAD_R = 10;
 
 /** Lo que ocupa una semana. Por debajo del mínimo la gráfica scrollea; por
  *  encima del máximo las barras quedarían sueltas, cada una en su descampado. */
 const SLOT_MIN = 34;
 const SLOT_MAX = 64;
+/**
+ * Lo más estrecho en lo que se dibuja una gráfica embebida: una tarjeta dentro
+ * del móvil del atleta (lienzo lógico de 402 pt menos el aire de la tarjeta).
+ */
+export const EMBED_ANCHO_MINIMO = 360;
+/** El margen izquierdo de la medida embebida: no escribe marcas de eje Y. */
+const EMBED_PAD_L = 2;
+
+/**
+ * El mínimo cuando la gráfica va DENTRO de algo (una nota, su móvil): ahí NO
+ * puede scrollear en horizontal — nadie descubre que hay más gráfica a la
+ * derecha dentro de una tarjeta, así que lo que no cabe, no existe.
+ *
+ * Se DERIVA del peor caso en vez de escribirse a mano: la ventana más larga que
+ * el coach puede firmar, metida en la tarjeta más estrecha. El día que se admita
+ * una ventana más larga, las barras se estrechan solas en vez de empezar a
+ * scrollear sin que nadie se entere. Salen finas, y está bien: lo que se lee ahí
+ * es la FORMA de la serie, no cada semana suelta.
+ */
+const SLOT_MIN_EMBEBIDA = Math.floor(
+  (EMBED_ANCHO_MINIMO - EMBED_PAD_L - CHART_PAD_R) / GRAFICA_MAX_WEEKS,
+);
 /** La barra nunca llena su hueco: el aire es lo que separa una semana de otra. */
 const BAR_MAX = 24;
 const BAR_MIN = 9;
@@ -348,14 +519,84 @@ export interface ChartLayout {
  * `boxW` a 0 (primer pintado, servidor) cae al mínimo: se dibuja la versión
  * estrecha y la medida real la corrige en el mismo frame.
  */
-export function chartLayout(boxW: number, cellCount: number): ChartLayout {
+export function chartLayout(
+  boxW: number,
+  cellCount: number,
+  medida: ZoneChartMetrics = ZONE_METRICS_FULL,
+): ChartLayout {
   const n = Math.max(1, cellCount);
-  const available = Math.max(0, boxW - CHART_PAD_L - CHART_PAD_R);
+  const available = Math.max(0, boxW - medida.padL - CHART_PAD_R);
   const raw = available > 0 ? available / n : 0;
-  const slot = Math.min(SLOT_MAX, Math.max(SLOT_MIN, raw));
-  const barW = Math.max(BAR_MIN, Math.min(BAR_MAX, slot - BAR_AIR));
-  return { slot, barW, width: CHART_PAD_L + slot * n + CHART_PAD_R };
+  const slot = Math.min(SLOT_MAX, Math.max(medida.slotMin, raw));
+  const barW = Math.max(
+    medida.barMin,
+    Math.min(BAR_MAX, slot - (medida.compacta ? Math.min(3, slot / 3) : BAR_AIR)),
+  );
+  return { slot, barW, width: medida.padL + slot * n + CHART_PAD_R };
 }
+
+// ── LAS DOS MEDIDAS DEL DIBUJO ────────────────────────────────────────────────
+//
+// La misma gráfica se pinta a dos tamaños: la GRANDE de la ficha, donde el coach
+// la lee semana a semana y le marca rangos, y la EMBEBIDA de una nota, que va
+// dentro de una tarjeta en un móvil. No son dos gráficas: es la misma con menos
+// aire, sin rótulos directos y sin la banda del plan (que dentro de una nota
+// sería un segundo tema encima del que se está contando).
+//
+// Vive aquí y no en el componente para que la aritmética del ancho sepa a qué
+// medida está dibujando — que es de donde salían los desfases de un píxel.
+
+export interface ZoneChartMetrics {
+  /** Del borde de arriba a la línea base. */
+  plotH: number;
+  /** Aire por encima para el rótulo del pico. */
+  top: number;
+  padL: number;
+  slotMin: number;
+  barMin: number;
+  /** Separación entre bandas, en color de fondo. */
+  segGap: number;
+  /** Redondeo del extremo de la barra. */
+  capR: number;
+  /** ¿Se rotula el valor encima del pico y de la última semana? */
+  rotulaExtremos: boolean;
+  /** ¿Se escriben las marcas del eje Y? */
+  ejeY: boolean;
+  /** Cuántas fechas como mucho en el eje X. */
+  maxFechas: number;
+  compacta: boolean;
+}
+
+export const ZONE_METRICS_FULL: ZoneChartMetrics = {
+  plotH: 236,
+  top: 22,
+  // El hueco de la izquierda es el de «6h 35m» con aire: las marcas del eje Y.
+  padL: 46,
+  slotMin: SLOT_MIN,
+  barMin: BAR_MIN,
+  segGap: 2,
+  capR: 4,
+  rotulaExtremos: true,
+  ejeY: true,
+  maxFechas: 8,
+  compacta: false,
+};
+
+/** Dentro de una nota: sin eje Y (el número que importa lo dice el texto del
+ *  coach), sin rótulos directos y con las barras pegadas. */
+export const ZONE_METRICS_EMBED: ZoneChartMetrics = {
+  plotH: 104,
+  top: 6,
+  padL: EMBED_PAD_L,
+  slotMin: SLOT_MIN_EMBEBIDA,
+  barMin: 2,
+  segGap: 0,
+  capR: 1.5,
+  rotulaExtremos: false,
+  ejeY: false,
+  maxFechas: 3,
+  compacta: true,
+};
 
 // ── LOS TRAMOS DEL PLAN, TUMBADOS BAJO EL EJE ─────────────────────────────────
 

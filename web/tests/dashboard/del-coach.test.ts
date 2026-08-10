@@ -47,6 +47,7 @@ function item(over: Partial<CommunicationItemDTO> & { id: string }): Communicati
     display: 'texto',
     segments: [],
     camino: null,
+    grafica: null,
     ...over,
   };
 }
@@ -58,6 +59,8 @@ function dto(over: Partial<CoachAthleteCommunicationDTO> = {}): CoachAthleteComm
     title: 'Empieza la beta-alanina',
     body: null,
     final_note: null,
+    audio_url: null,
+    audio_seconds: null,
     anchor_kind: 'general',
     anchor_ref: null,
     due_date: null,

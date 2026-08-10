@@ -22,8 +22,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DeviceFrame } from '@/components/design-twin/DeviceFrame';
 import type { CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
 import type { PlanPathDTO } from '@fahybrid/shared/domain/plan-path';
-import { pintaCamino, type Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
-import { pedirCamino } from './api';
+import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
+import { pintaCamino, type Borrador, type FilaBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
+import { pedirCamino, pedirZonas } from './api';
 import { PantallaDelTipo, TIPO_TWIN } from './previa-pantallas';
 
 /** El bisel del doble: lienzo lógico del iPhone 17 Pro (402×874 pt) + 14 px de
@@ -48,11 +49,13 @@ export function PreviaMovil({
   coachName,
   foco,
   camino,
+  zonas,
 }: {
   b: Borrador;
   coachName: string;
   foco: string | null;
   camino: PlanPathDTO | null;
+  zonas: Map<string, ZoneChartDTO>;
 }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(0);
@@ -110,7 +113,7 @@ export function PreviaMovil({
               role="img"
               aria-label={`Previsualización: cómo le queda ${TIPO_TWIN[b.kind]} en su móvil`}
             >
-              <PantallaDelTipo b={b} coachName={coachName} foco={foco} camino={camino} />
+              <PantallaDelTipo b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
             </div>
           </DeviceFrame>
         </div>
@@ -142,6 +145,7 @@ export function ColumnaPrevia({
   athleteId: string | null;
 }) {
   const camino = useCaminoDelDestinatario(b, athleteId);
+  const zonas = useZonasDelDestinatario(b, athleteId);
 
   return (
     <>
@@ -151,7 +155,7 @@ export function ColumnaPrevia({
           <span className="text-label text-[color:var(--v2-muted)]">Su móvil</span>
         </div>
         <div className="h-[min(600px,58vh)]">
-          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} />
+          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -163,7 +167,7 @@ export function ColumnaPrevia({
           Ver cómo le queda
         </summary>
         <div className="mt-3 h-[520px]">
-          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} />
+          <PreviaMovil b={b} coachName={coachName} foco={foco} camino={camino} zonas={zonas} />
         </div>
         <div className="mt-3">
           <PieDePrevia b={b} />
@@ -204,6 +208,65 @@ function useCaminoDelDestinatario(b: Borrador, athleteId: string | null): PlanPa
 
   if (!haceFalta || !athleteId) return null;
   return cargado?.athleteId === athleteId ? cargado.camino : null;
+}
+
+/**
+ * Las barras de tiempo en zonas del destinatario, una por sección con gráfica.
+ *
+ * Se piden por PERIODO y no por sección: dos gráficas de la misma nota que miren
+ * lo mismo comparten la respuesta. Se guarda DE QUIÉN es lo cargado por la misma
+ * razón que el camino — al cambiar de destinatario, enseñar lo del anterior
+ * sería enseñarle a un atleta los datos de otro.
+ */
+function useZonasDelDestinatario(b: Borrador, athleteId: string | null): Map<string, ZoneChartDTO> {
+  const [cargado, setCargado] = useState<{ athleteId: string; porVentana: Map<string, ZoneChartDTO> }>(
+    () => ({ athleteId: '', porVentana: new Map() }),
+  );
+
+  const secciones = b.kind === 'note' ? b.sections.filter((s) => s.display === 'grafica') : [];
+  // La firma de lo pedido: si no cambia, no se vuelve a pedir aunque el coach
+  // siga escribiendo el texto de al lado.
+  const firma = secciones.map((s) => claveDeVentana(s)).join(';');
+
+  useEffect(() => {
+    if (!athleteId || firma.length === 0) return;
+    let vigente = true;
+    const claves = [...new Set(firma.split(';'))];
+    void (async () => {
+      const nuevas = new Map<string, ZoneChartDTO>();
+      await Promise.all(
+        claves.map(async (clave) => {
+          const [week_start, weeks, modality] = clave.split('|');
+          const r = await pedirZonas(athleteId, {
+            week_start: week_start!,
+            weeks: Number(weeks),
+            modality: modality === '*' ? null : (modality ?? null),
+          });
+          // Un fallo deja esa gráfica sin barras, y la previa ya tiene su frase.
+          // Nunca un dibujo de ejemplo: sería enseñar datos que no son de nadie.
+          if (r.ok) nuevas.set(clave, r.data);
+        }),
+      );
+      if (vigente) setCargado({ athleteId, porVentana: nuevas });
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [athleteId, firma]);
+
+  const porSeccion = new Map<string, ZoneChartDTO>();
+  if (!athleteId || cargado.athleteId !== athleteId) return porSeccion;
+  for (const s of secciones) {
+    const chart = cargado.porVentana.get(claveDeVentana(s));
+    if (chart) porSeccion.set(s.key, chart);
+  }
+  return porSeccion;
+}
+
+/** Dos secciones que miran el mismo periodo con el mismo filtro son una sola
+ *  petición. La misma clave que usa el servidor al resolverlas. */
+function claveDeVentana(s: FilaBorrador): string {
+  return `${s.grafica.week_start}|${s.grafica.weeks}|${s.grafica.modality ?? '*'}`;
 }
 
 /** La línea de debajo del móvil: qué está enseñando y qué NO. */
