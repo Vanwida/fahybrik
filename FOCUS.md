@@ -5,18 +5,22 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Abierto · Conector MCP del coach (10-ago) — plan hecho, pendiente OK
+## Ahora · Conector MCP del coach (10-ago) — F1 construida, desplegando
 
-Idea de Alex: el coach mira y edita su club desde su asistente (Claude en el
-móvil hoy, Grok después) vía un conector MCP remoto. Un solo servidor sirve a
-todos los asistentes; se venderá como add-on por coach. Plan completo en
-`docs/mcp-conector-coach.html`: capa fina sobre `lib/` (cero lógica nueva),
-OAuth Clerk, 16 tools tipadas contra `shared/domain/prescription`,
-borrador-primero + audit canal `mcp`. Decisión fijada: `mcp-handler` 1.x
-(la 2.x exige zod 4; monorepo en 3.23.8). **Siguiente: OK de Alex → Fase 1**
-(esqueleto + auth + 3 tools de lectura, gate = funcionando en Claude iPhone).
-De la auditoría salió un bug de tenancy (5 rutas de citas/leads sin filtro
-`coach_id`) — arreglo en curso en agente aparte.
+El coach mira y edita su club desde su asistente (Claude en el móvil hoy,
+Grok después) vía conector MCP remoto; se venderá como add-on por coach.
+Plan y fases: `docs/mcp-conector-coach.html` · decisión y gotchas: DECISIONS
+2026-08-10. **F1 hecha** (OK de Alex al plan): `/api/mcp` con mcp-handler 1.x,
+OAuth Clerk completo (`.well-known` + CIMD/DCR), resolver token→coach, tools
+`get_briefing` / `list_athletes` / `get_athlete`, rate limit `mcp`, 29/29
+tests en rama Neon. Cazado y esquivado un bug del helper de Clerk que
+publicaba mal el `resource` (el síntoma del issue Claude↔Clerk de abril).
+**Gate pendiente:** activar DCR en el dashboard de Clerk (PRODUCTION →
+OAuth applications), desplegar, y conectar desde Claude web + iPhone de Alex
+(URL del conector: `https://app.fahybrid.com/api/mcp`). Siguientes fases:
+F2 lecturas completas → F3 escrituras de día (borrador-primero) → F4
+comunicados/publicar → F5 Grok + entitlement de pago.
+De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 

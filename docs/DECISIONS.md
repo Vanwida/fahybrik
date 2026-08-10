@@ -10,6 +10,42 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · El conector MCP es una CARA más de la app, no un servicio nuevo
+
+**Decidido:** el coach mira y edita su club desde su asistente (Claude hoy, Grok después)
+vía un **servidor MCP remoto dentro de fahybrik-web**: ruta `app/api/[transport]/route.ts`
+(→ `/api/mcp`, Streamable HTTP) con `mcp-handler` **1.x** + OAuth de Clerk
+(`@clerk/mcp-tools`: `withMcpAuth` + `verifyClerkToken`, metadata en `/.well-known/*`).
+Las tools llaman a las **mismas funciones de `lib/` que el dashboard** con la firma
+canónica `fn({coach_id, ...})` — cero lógica duplicada, cero HTTP contra la propia API.
+La identidad entra por token OAuth → `getCoachSessionForClerkUser()` (mismo SELECT de
+membresía que la sesión web, refactorizado para compartirse). Rate limit: perfil `mcp`
+(120/min) keyed por **usuario** de Clerk, no por coach — un bucket por coach no puede
+proteger la query que produce su propia clave, y throttlea al humano, no al club entero.
+Plan completo y fases: `docs/mcp-conector-coach.html`.
+
+**Por qué 1.x y no 2.x:** `mcp-handler` 2.x exige `@modelcontextprotocol/server` 2.x;
+la 1.x (SDK 1.26.0 fijado) habla el protocolo que Claude/Grok/ChatGPT consumen hoy y
+convive con el zod del monorepo. Migrar es otra obra. **SSE apagado** (`disableSse`):
+el SSE de mcp-handler 1.x exige Redis, que no está en el stack a propósito.
+
+**Gotcha cazado (no repetir):** `protectedResourceHandlerClerk` cablea el identificador
+del recurso al ORIGEN de la petición — para un servidor bajo `/api/mcp` publica un
+`resource` que no cuadra y el cliente OAuth aborta sin decir por qué (el síntoma del
+issue Claude↔Clerk de abr-2026). Se usa `generateClerkProtectedResourceMetadata` con el
+identificador correcto; los paths viven derivados unos de otros en `web/lib/mcp/paths.ts`.
+
+**En consecuencia, no hacer:** no montar el MCP como servicio/deploy aparte; no escribir
+tools que acepten prescripción en texto libre (hablan `shared/domain/prescription`, y las
+escrituras — F3 — nacen borrador-primero con audit canal `mcp`); no exponer escrituras sin
+read-back inequívoco; no usar los helpers `protectedResourceHandler*` de Clerk tal cual
+bajo un path anidado.
+
+**Dónde vive:** `web/app/api/[transport]/route.ts`, `web/lib/mcp/*`,
+`web/app/.well-known/*`, tests en `web/tests/mcp/`.
+
+---
+
 ## 2026-08-10 · Tenancy del embudo: un lead responde a su dueño; «sin asignar» responde a cualquiera
 
 **Decidido:** las superficies coach del embudo que actúan sobre UN lead concreto (ficha,
