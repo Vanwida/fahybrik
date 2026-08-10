@@ -13,6 +13,7 @@ import {
 } from '@/lib/dashboard/coach/personal-plans';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
   const sql = getTestSql();
@@ -45,6 +46,7 @@ describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
     const personalized = await personalizePlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     fx.monthTemplates.push({ monthId: Number(personalized.month_template_id), weekIds: [] });
@@ -82,6 +84,7 @@ describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       month_template_id: monthTemplateId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
 
@@ -120,6 +123,7 @@ describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
         coach_id: fx.coachId,
         athlete_id: fx.athleteId,
         month_template_id: monthTemplateId,
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
         client: sql,
       }),
     ).rejects.toBeInstanceOf(ProgramMonthError);
@@ -146,6 +150,7 @@ describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
     const personalized = await personalizePlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     const monthTemplateId = Number(personalized.month_template_id);
@@ -155,6 +160,7 @@ describeWithDb('deletePersonalPlanForAthlete (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       month_template_id: monthTemplateId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
 

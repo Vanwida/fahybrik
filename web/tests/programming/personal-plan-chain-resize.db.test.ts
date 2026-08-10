@@ -19,6 +19,7 @@ import {
   makeTemplate,
   type Fixture,
 } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   const sql = getTestSql();
@@ -46,6 +47,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   test('acortar por debajo del suelo se niega con el nº exacto de semanas que bloquean', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
     const { monthId: sourceMonthId } = await makeMonthTemplate({
       fx,
@@ -66,6 +68,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 3 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -73,6 +76,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -98,6 +102,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
         athlete_id: fx.athleteId,
         month_template_id: Number(base.month_template_id),
         payload: { week_count: 1 },
+        actor,
         client: sql,
       });
     } catch (e) {
@@ -120,6 +125,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   test('acortar hasta el suelo exacto funciona y recoloca lo que viene detrás', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
     const { monthId: sourceMonthId } = await makeMonthTemplate({
       fx,
@@ -140,6 +146,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 3 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -147,6 +154,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -157,6 +165,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       athlete_id: fx.athleteId,
       month_template_id: Number(base.month_template_id),
       payload: { week_count: 2 },
+      actor,
       client: sql,
     });
     expect(result.week_count).toBe(2);
@@ -186,6 +195,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   test('alargar añade semanas vacías al final y empuja lo siguiente', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
     const { monthId: sourceMonthId } = await makeMonthTemplate({
       fx,
@@ -205,6 +215,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -212,6 +223,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -221,6 +233,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       athlete_id: fx.athleteId,
       month_template_id: Number(base.month_template_id),
       payload: { week_count: 4 },
+      actor,
       client: sql,
     });
     expect(result.week_count).toBe(4);
@@ -232,6 +245,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   test('alargar funciona aunque la PRIMERA semana del tramo ya tenga una sesión ejecutada — sólo se toca la punta', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
     const { monthId: sourceMonthId } = await makeMonthTemplate({
       fx,
@@ -251,6 +265,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -271,6 +286,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       athlete_id: fx.athleteId,
       month_template_id: Number(base.month_template_id),
       payload: { week_count: 5 },
+      actor,
       client: sql,
     });
     expect(result.week_count).toBe(5);
@@ -296,6 +312,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   test('renombrar sin tocar semanas no dispara reflow ni mueve nada', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
     const { monthId: sourceMonthId } = await makeMonthTemplate({
       fx,
@@ -314,6 +331,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -323,6 +341,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       athlete_id: fx.athleteId,
       month_template_id: Number(base.month_template_id),
       payload: { name: 'Base sólida' },
+      actor,
       client: sql,
     });
     expect(result.name).toBe('Base sólida');

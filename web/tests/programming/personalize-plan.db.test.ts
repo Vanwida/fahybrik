@@ -17,6 +17,7 @@ import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { saveCoachSequence, SaveSequenceError } from '@/lib/dashboard/coach/sequences';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('personalizePlanForAthlete (DB real)', () => {
   const sql = getTestSql();
@@ -85,6 +86,7 @@ describeWithDb('personalizePlanForAthlete (DB real)', () => {
     const result = await personalizePlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     fx.monthTemplates.push({ monthId: Number(result.month_template_id), weekIds: [] });
@@ -225,6 +227,7 @@ describeWithDb('personalizePlanForAthlete (DB real)', () => {
     const result = await personalizePlanForAthlete({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
     fx.monthTemplates.push({ monthId: Number(result.month_template_id), weekIds: [] });
@@ -254,7 +257,12 @@ describeWithDb('personalizePlanForAthlete (DB real)', () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
     await expect(
-      personalizePlanForAthlete({ coach_id: fx.coachId, athlete_id: fx.athleteId, client: sql }),
+      personalizePlanForAthlete({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
+        client: sql,
+      }),
     ).rejects.toMatchObject({ code: 'no_active_plan' });
   });
 });

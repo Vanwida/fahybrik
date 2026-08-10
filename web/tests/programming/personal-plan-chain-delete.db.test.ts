@@ -20,6 +20,7 @@ import {
   makeTemplate,
   type Fixture,
 } from '../utils/db-fixtures';
+import { coachActor } from '@/lib/audit/record-edit';
 
 describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
   const sql = getTestSql();
@@ -59,10 +60,12 @@ describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
       start_date: isoDateString(mondayOfWeek(new Date())),
       client: sql,
     });
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
     const base = await addPersonalTramoToChain({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Base', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(base.month_template_id));
@@ -70,6 +73,7 @@ describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Build', week_count: 3 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(build.month_template_id));
@@ -77,6 +81,7 @@ describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       payload: { name: 'Peak', week_count: 2 },
+      actor,
       client: sql,
     });
     await trackForCleanup(fx, Number(peak.month_template_id));
@@ -93,6 +98,7 @@ describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       month_template_id: Number(build.month_template_id),
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
 
@@ -156,6 +162,7 @@ describeWithDb('deletePersonalTramoFromChain (DB real)', () => {
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,
       month_template_id: Number(build.month_template_id),
+      actor: coachActor({ user_id: BigInt(fx.coachUserId) }),
       client: sql,
     });
 
