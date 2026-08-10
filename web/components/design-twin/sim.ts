@@ -8,7 +8,7 @@
 // guion de pasos con tiempos. El remount por escenario garantiza que cada
 // reproducción parte de cero.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface TimelineStep {
   /** Milisegundos desde el arranque del escenario. */
@@ -53,6 +53,50 @@ export function useElapsed(running = true): number {
   const [s, setS] = useState(0);
   useTicker(running, setS);
   return s;
+}
+
+export interface CronoComprimido {
+  /** Segundos SIMULADOS desde que se abrió la escena. */
+  t: number;
+  pausado: boolean;
+  alternarPausa: () => void;
+}
+
+/**
+ * El crono de un bloque en vivo: comprimido y pausable.
+ *
+ * `simX` es cuántos segundos de entreno avanza el doble por segundo real. Sin
+ * comprimir, un suceso que llega al minuto y medio no lo ve nadie que esté
+ * revisando la pantalla, y el suceso es justo lo que hay que juzgar. La
+ * compresión es UNIFORME: todo lo que se pinta deriva del MISMO segundo
+ * simulado, así que ninguna cifra puede contradecir a otra.
+ *
+ * `useTicker` cuenta desde que arranca, así que al reanudar hay que sumar lo
+ * acumulado antes o el crono retrocedería. En un bloque donde el tiempo es la
+ * puntuación, no puede perder un segundo por una pausa.
+ *
+ * Vive aquí y no dentro de una pantalla desde el 10-ago, cuando la segunda
+ * familia en vivo lo necesitó: un segundo reloj escrito «solo para esta
+ * pantalla» es exactamente lo que el CONTRATO-UI §2 vino a cortar.
+ */
+export function useCronoComprimido(simX: number): CronoComprimido {
+  const [base, setBase] = useState(0);
+  const [tick, setTick] = useState(0);
+  const [corriendo, setCorriendo] = useState(true);
+
+  useTicker(corriendo, (s) => setTick(s * simX));
+
+  const alternarPausa = useCallback(() => {
+    setCorriendo((c) => {
+      if (c) {
+        setBase((b) => b + tick);
+        setTick(0);
+      }
+      return !c;
+    });
+  }, [tick]);
+
+  return { t: base + tick, pausado: !corriendo, alternarPausa };
 }
 
 // ---------------------------------------------------------------------------
