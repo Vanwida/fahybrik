@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-10 · Los add-ons se venden por club: `coach_entitlements` (0167), y el portón concede por LISTA BLANCA
+
+**Decidido:** el conector MCP (y todo add-on futuro) se gatea con la tabla genérica
+`coach_entitlements` (mig **0167 aplicada**: `coach_id × feature` únicos, `status`,
+`source`, FK con `on delete cascade` — un entitlement sin su club no nombra nada).
+El portón (`web/lib/coach/entitlements.ts::hasEntitlement`, consumido en
+`web/lib/mcp/runtime.ts::withCoach` ANTES del cuerpo de toda tool) concede **solo** con
+`status='active'`: cuando Stripe traiga `past_due`/`canceled`/`trialing`, cierra por
+defecto y abrir un estado nuevo exige tocar el resolutor a mano — jamás conceder por
+`status <> 'inactive'`. Sin entitlement → frase propia (`NO_CONNECTOR_MESSAGE`),
+DISTINTA de «esta cuenta no es de ningún coach»: allí sobra reconectar con otra cuenta,
+aquí falta el add-on. Sin CHECK de enum en `feature` (mismo criterio que
+`audit_log.channel`): el portón es el tipo `EntitlementFeature`. Alta fundadora: club 60
+(`source='founder'`), única fila en main. El precio del add-on NO está decidido — es de
+Alex; el mecanismo no lo necesita.
+
+**En consecuencia, no hacer:** no gatear features comerciales con flags sueltos en
+`coaches`; no conceder por exclusión de estados; no cargar el SELECT de membresía
+(compartido con el dashboard) con la pregunta comercial.
+
+---
+
 ## 2026-08-10 · La visibilidad de una semana la decide su fila de `weekly_plans` — y SIN fila, SE VE
 
 **Decidido (constatado en F3 del conector y elevado a doctrina):** el portón que decide si

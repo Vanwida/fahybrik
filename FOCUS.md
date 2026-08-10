@@ -40,8 +40,12 @@ todo-o-nada con vuelta atrás, push por el mismo camino que el panel),
 72/72 tests MCP + 124 de comunicados/chat sin regresión. Auditoría solo donde
 el panel audita (las 4 de F4 no auditan porque el panel tampoco — el dominio
 ya registra `approved_by`/`published_at`/el propio mensaje).
-**Queda F5:** registro en Grok (necesita cuenta de Alex), entitlement de pago
-(precio = decisión de Alex), sección del conector en el manual vivo /guia.
+**F5 construida** (10-ago): guía del coach en `/guia` (sección 41 «El conector
+con tu asistente», Herramientas, copy contrastado contra el código) +
+entitlement por club (`coach_entitlements`, mig 0167 aplicada, lista blanca,
+club 60 = founder; ver DECISIONS). 77/77 tests MCP.
+**Queda de F5:** registro en Grok (necesita cuenta de Alex) y precio del
+add-on (decisión de Alex). Stripe se cablea cuando haya precio.
 De la auditoría salió además el arreglo de tenancy del embudo (ver DECISIONS).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
