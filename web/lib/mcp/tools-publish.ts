@@ -110,6 +110,15 @@ export function registerPublishTools(server: McpServer): void {
         const athlete = await resolveOwnedAthlete({ coach_id, athlete_id: args.athlete_id });
         if (!athlete) return fail(NO_SUCH_ATHLETE_MESSAGE);
 
+        // Las dos formas a la vez se RECHAZAN, no se mezclan: es la misma regla que
+        // el esquema del panel (`publishWeekInputSchema`), y quedarse con una
+        // callando la otra publicaría algo distinto de lo que el coach confirmó.
+        if (args.week_start != null && args.week_starts != null) {
+          return fail(
+            'Indica week_start (una semana) o week_starts (un bloque), no las dos. ' +
+              'No he publicado nada.',
+          );
+        }
         const asked = args.week_starts ?? (args.week_start ? [args.week_start] : []);
         if (asked.length === 0) {
           return fail(

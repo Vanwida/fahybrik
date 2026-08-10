@@ -180,6 +180,8 @@ describeWithDb('MCP · publicar y avisar (DB real)', () => {
         sessions: 1,
         athlete_sees_it: true,
       });
+      // Era un borrador MANUAL: estaba esperándole a él, no al cron del sábado.
+      expect(weeks[0]!.was_text).toContain('esperando que la publicaras');
       expect(body.athlete_name).toBe('Test Athlete');
       expect(body._resumen as string).toContain('ya la ve');
       expect(body.avisos).toEqual([]);
@@ -280,6 +282,23 @@ describeWithDb('MCP · publicar y avisar (DB real)', () => {
       );
       expect((body.weeks as Json[])[0]).toMatchObject({ was: 'sin_marcar', sessions: 0 });
       expect((body.avisos as string[]).join(' ')).toContain('no tiene');
+    } finally {
+      await close();
+    }
+  });
+
+  test('publish_week: pedir una semana Y un bloque a la vez no se mezcla, se rechaza', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const text = errorText(
+        await call(client, 'publish_week', {
+          athlete_id: clubA.athleteId,
+          week_start: EMPTY_MONDAY,
+          week_starts: [THIS_MONDAY],
+        }),
+      );
+      expect(text).toContain('no las dos');
+      expect(text).toContain('No he publicado nada');
     } finally {
       await close();
     }

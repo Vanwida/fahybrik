@@ -29,13 +29,28 @@ const PREVIEW_MAX_CHARS = 120;
 
 // ── Semanas publicadas ───────────────────────────────────────────────────────
 
-/** Cómo estaba una semana ANTES de publicarla, dicho para el coach. */
-const WAS_TEXT: Record<WeekPublishState, string> = {
-  draft: 'estaba en borrador',
-  sin_marcar: 'no estaba marcada (el atleta ya la veía)',
-  published: 'ya estaba publicada',
-  archived: 'estaba archivada (el atleta la seguía viendo)',
-};
+/**
+ * Cómo estaba una semana ANTES de publicarla, dicho para el coach.
+ *
+ * El borrador se parte en dos porque son dos cosas distintas para él: uno
+ * `manual` estaba esperándole a ÉL, y uno `scheduled` se le habría abierto solo el
+ * sábado — publicarlo es ADELANTARLO, y eso hay que decirlo o el coach no sabe que
+ * ha cambiado el calendario de entrega.
+ */
+function wasText(week: WeekState): string {
+  switch (week.state) {
+    case 'draft':
+      return week.delivery_mode === 'manual'
+        ? 'estaba en borrador, esperando que la publicaras'
+        : 'estaba en borrador y se le habría abierto sola el sábado: se la has adelantado';
+    case 'sin_marcar':
+      return 'no estaba marcada (el atleta ya la veía)';
+    case 'published':
+      return 'ya estaba publicada';
+    case 'archived':
+      return 'estaba archivada (el atleta la seguía viendo)';
+  }
+}
 
 export interface PublishedWeek {
   week_start: string;
@@ -82,12 +97,12 @@ export function publishedWeeks(params: {
   sessions: Map<string, number>;
 }): PublishedWeek[] {
   return params.week_starts.map((week) => {
-    const was = params.before.get(week)?.state ?? 'sin_marcar';
+    const before = params.before.get(week) ?? { state: 'sin_marcar' as const, delivery_mode: null };
     return {
       week_start: week,
-      was,
-      was_text: WAS_TEXT[was],
-      already_published: was === 'published',
+      was: before.state,
+      was_text: wasText(before),
+      already_published: before.state === 'published',
       sessions: params.sessions.get(week) ?? 0,
       athlete_sees_it: true as const,
     };
