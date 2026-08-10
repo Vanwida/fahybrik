@@ -18,6 +18,8 @@ import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
 import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
+import { PersonalizarPlanModal } from './PersonalizarPlanModal';
+import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
 import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
@@ -187,23 +189,30 @@ export function PlanTab({
     ? Math.max(0, plan.weeks.findIndex((w) => w.days.some((d) => d.is_today)))
     : 0;
   const [weekIdx, setWeekIdx] = useState(initialWeekIdx);
+  // Personalizar plan (0164) — the confirmation modal that forks the athlete's
+  // CURRENT microciclo into a bespoke one. Lives here (not inside the empty-plan
+  // branch) since it needs a real current plan to fork FROM.
+  const [personalizeOpen, setPersonalizeOpen] = useState(false);
 
   if (!plan || plan.total_sessions === 0) {
     return (
-      <EmptyState
-        icon="event_busy"
-        title="Sin plan asignado todavía"
-        description="Cuando el atleta esté clasificado, su secuencia se propone en Hoy para asignarla en un clic."
-        action={
-          <Link
-            href="/hoy"
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="play_arrow" size={17} />
-            Asignar secuencia en Hoy
-          </Link>
-        }
-      />
+      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4">
+        <EmptyState
+          icon="event_busy"
+          title="Sin plan asignado todavía"
+          description="Cuando el atleta esté clasificado, su secuencia se propone en Hoy para asignarla en un clic — o empieza un plan a medida solo para él."
+          action={
+            <Link
+              href="/hoy"
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="play_arrow" size={17} />
+              Asignar secuencia en Hoy
+            </Link>
+          }
+        />
+        <PlanesPersonalesPanel athleteId={athlete_id} />
+      </div>
     );
   }
 
@@ -308,6 +317,14 @@ export function PlanTab({
             {blockName}
             {blockWeek != null ? ` · sem ${blockWeek}` : ''}
           </Pill>
+          {/* Plan personal (0164) — este microciclo es solo de este atleta, no
+              viene de la periodización por nivel×días. */}
+          {plan.is_personal ? (
+            <Pill tone="accent" variant="soft" title="Este plan es solo de este atleta">
+              <MIcon name="person" size={12} />
+              plan personal
+            </Pill>
+          ) : null}
           {/* Honest publish badge — derived from the microciclo's real weekly_plans
               state, never hardcoded. */}
           {!plan.microciclo || plan.microciclo.session_count === 0 ? (
@@ -348,6 +365,20 @@ export function PlanTab({
               Abrir en editor de día
               <MIcon name="arrow_forward" size={15} />
             </Link>
+          ) : null}
+          {/* Personalizar plan (0164) — el camino principal a un plan personal:
+              parte de lo que el atleta YA tiene, no de cero. No aplica si ya está
+              en un plan personal (no hay periodización de la que desengancharse). */}
+          {!plan.is_personal ? (
+            <button
+              type="button"
+              onClick={() => setPersonalizeOpen(true)}
+              title="Convierte el plan actual en uno a medida para este atleta"
+              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+            >
+              <MIcon name="auto_fix_high" size={15} />
+              Personalizar plan
+            </button>
           ) : null}
         </div>
       </div>
@@ -505,6 +536,11 @@ export function PlanTab({
           <div className="flex flex-wrap gap-2">
             <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
           </div>
+
+          {/* Planes personales (0164) — camino secundario (empezar de cero) +
+              reabrir uno construido antes. El camino principal es el botón
+              "Personalizar plan" del header, que parte de lo que ya hay. */}
+          <PlanesPersonalesPanel athleteId={athlete_id} />
         </div>
       </div>
     </div>
@@ -514,6 +550,15 @@ export function PlanTab({
         athleteId={athlete_id}
         assignmentId={openSession}
         onClose={() => setOpenSession(null)}
+      />
+    ) : null}
+    {personalizeOpen ? (
+      <PersonalizarPlanModal
+        athleteId={athlete_id}
+        athleteName={plan.athlete_name}
+        currentBlockName={microName ?? blockName}
+        currentWeek={blockWeek}
+        onClose={() => setPersonalizeOpen(false)}
       />
     ) : null}
     </>
