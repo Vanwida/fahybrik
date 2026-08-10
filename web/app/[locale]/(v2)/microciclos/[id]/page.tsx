@@ -88,6 +88,14 @@ export default async function V2MicrocicloPage({
         )
       : null;
 
+  // A PERSONAL plan (0164) has no level to pair against — athlete_id/athlete_name
+  // tell the editor whose it is, so it can swap the library "Asignar a atleta"
+  // action for the athlete context + an activate-in-place flow instead.
+  const owner =
+    full.month.athlete_id != null
+      ? { athlete_id: full.month.athlete_id, athlete_name: full.month.athlete_name ?? '' }
+      : null;
+
   return (
     <MicrocicloEditor
       microcycle_id={id}
@@ -95,6 +103,7 @@ export default async function V2MicrocicloPage({
       level={full.month.level}
       weeks={weeks}
       dayModel={dayModel}
+      owner={owner}
     />
   );
 }

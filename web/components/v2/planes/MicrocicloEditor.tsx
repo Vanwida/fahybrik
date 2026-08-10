@@ -189,12 +189,19 @@ function MicrocicloNameEditor({
   );
 }
 
+/** Whose personal plan this is (0164). null = a library microciclo. */
+export interface MicrocicloOwner {
+  athlete_id: string;
+  athlete_name: string;
+}
+
 export function MicrocicloEditor({
   microcycle_id,
   name,
   level,
   weeks,
   dayModel,
+  owner = null,
 }: {
   microcycle_id: string;
   name: string;
@@ -202,6 +209,7 @@ export function MicrocicloEditor({
   weeks: MicroWeek[];
   /** DÍA zoom level: present iff `?dia=N` resolved to a real day server-side. */
   dayModel?: DayEditorModel | null;
+  owner?: MicrocicloOwner | null;
 }) {
   const [view, setView] = useState<ViewMode>('foco');
   const [importOpen, setImportOpen] = useState(false);
@@ -248,6 +256,7 @@ export function MicrocicloEditor({
             name={name}
             weeks={weeks}
             dayModel={dayModel}
+            owner={owner}
           />
         ) : (
           <MicrocicloV1 microcycle_id={microcycle_id} weeks={weeks} />

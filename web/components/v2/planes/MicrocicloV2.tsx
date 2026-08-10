@@ -25,10 +25,12 @@ import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import { dayCanvasHref, duplicateWeekInMonth } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MODALITY_META } from '@/components/v2/constants';
-import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
+import type { MicroWeek, MicrocicloOwner } from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
+import { ActivarPlanPersonalModal } from '@/components/v2/planes/ActivarPlanPersonalModal';
 import { DeleteMicrocicloModal } from '@/components/v2/planes/DeleteMicrocicloModal';
+import { Pill } from '@/components/v2/Pill';
 import { SemanaBoard, vtEnabled } from '@/components/v2/planes/SemanaBoard';
 import { buildWeekOutline, weekModalities } from '@/components/v2/planes/semana-model';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
@@ -172,6 +174,7 @@ export function MicrocicloV2({
   name,
   weeks,
   dayModel,
+  owner = null,
 }: {
   microcycle_id: string;
   /** Microciclo template name (for "Asignar a atleta" + the delete confirm). */
@@ -179,6 +182,10 @@ export function MicrocicloV2({
   weeks: MicroWeek[];
   /** DÍA zoom level: the open day's editor model (`?dia=N`). null = full week. */
   dayModel?: DayEditorModel | null;
+  /** Whose PERSONAL plan this is (0164); null = a library microciclo. Swaps
+   *  "Asignar a atleta" (which implies picking ANY athlete — meaningless once a
+   *  plan already belongs to one) for the athlete context + an in-place activate. */
+  owner?: MicrocicloOwner | null;
 }) {
   const router = useRouter();
   const [focusIndex, setFocusIndex] = useState(0);
@@ -354,14 +361,31 @@ export function MicrocicloV2({
             <MIcon name="delete" size={15} />
             Borrar
           </button>
-          <button
-            type="button"
-            onClick={() => setAssignOpen(true)}
-            title="Asigna este microciclo a un atleta (en borrador)"
-            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="assignment_ind" size={15} /> Asignar a atleta
-          </button>
+          {owner ? (
+            <>
+              <Pill tone="accent" variant="soft" className="h-8">
+                <MIcon name="person" size={14} />
+                Plan personal de {owner.athlete_name}
+              </Pill>
+              <button
+                type="button"
+                onClick={() => setAssignOpen(true)}
+                title="Elige desde qué lunes este atleta ve el plan"
+                className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+              >
+                <MIcon name="play_arrow" size={15} /> Poner en marcha
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAssignOpen(true)}
+              title="Asigna este microciclo a un atleta (en borrador)"
+              className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="assignment_ind" size={15} /> Asignar a atleta
+            </button>
+          )}
         </div>
       </div>
 
@@ -428,8 +452,17 @@ export function MicrocicloV2({
         />
       ) : null}
 
-      {/* Asignar a atleta — closes the library→athlete loop (assign in draft). */}
-      {assignOpen ? (
+      {/* Asignar a atleta — closes the library→athlete loop (assign in draft).
+          A PERSONAL plan skips the roster picker (it already belongs to one
+          athlete) and activates in place instead. */}
+      {assignOpen && owner ? (
+        <ActivarPlanPersonalModal
+          athleteId={owner.athlete_id}
+          athleteName={owner.athlete_name}
+          monthTemplateId={microcycle_id}
+          onClose={() => setAssignOpen(false)}
+        />
+      ) : assignOpen ? (
         <AsignarAtletaModal
           monthTemplateId={microcycle_id}
           monthName={name}

@@ -53,6 +53,10 @@ export interface AthletePlanPayload {
   current_block: string | null;
   /** Same microciclo NAME — display label. null when none active. */
   current_block_label: string | null;
+  /** True when the CURRENT microciclo is a personal plan (0164) — built for just
+   *  this athlete, not the shared level×días periodización. Drives whether the
+   *  ficha offers "Personalizar plan" or shows the athlete is already on one. */
+  is_personal: boolean;
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
   total_sessions: number;
@@ -254,6 +258,7 @@ export async function buildAthletePlan(params: {
     range_end: endIso,
     current_block: micro?.name ?? null,
     current_block_label,
+    is_personal: micro?.template_athlete_id != null,
     weeks,
     macro,
     total_sessions: rows.length,

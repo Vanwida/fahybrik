@@ -99,6 +99,11 @@ export async function resolvePlanPath(args: {
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
     where ama.athlete_id = ${args.athlete_id as number}
+      -- A receipt trimmed to zero weeks (personalize-plan.ts closes an old
+      -- receipt this way when a fork replaces it in full, 0164) has nothing to
+      -- draw: it would otherwise floor to a phantom 1-week node with no real
+      -- dates behind it.
+      and coalesce(array_length(ama.microcycle_ids, 1), 0) > 0
     order by ama.start_date asc
   `;
   if (asignaciones.length === 0) return null;
