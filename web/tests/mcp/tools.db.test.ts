@@ -1,95 +1,18 @@
-// Las tres tools de lectura del conector, habladas por un cliente MCP de verdad.
-//
-// POR QUÉ ASÍ Y NO LLAMANDO A LAS FUNCIONES
-// -----------------------------------------
-// El servidor se monta con `registerCoachReadTools` y se conecta a un `Client`
-// real por `InMemoryTransport`, así que lo que se ejerce es el CONTRATO MCP
-// completo: el listado de tools, la validación Zod de los argumentos y la forma
-// del resultado. Llamar a los handlers a pelo se saltaría justo lo que puede
-// romperse sin avisar (que el SDK, mcp-handler y el zod 3 del monorepo se
-// entiendan al generar el JSON Schema de cada tool).
-//
-// CERO MOCKS. La identidad no se simula: se siembra un `users.clerk_user_id` real
-// con su membresía y el `authInfo` que el transporte inyecta es exactamente la
-// forma que produce `verifyClerkToken` (`extra.userId`). El coach se resuelve
-// contra la rama, como en producción. Solo la red de Clerk queda fuera, porque el
-// token ya viene verificado en ese punto.
+// Las tools del ATLETA (su día, su lista, su ficha), habladas por un cliente MCP
+// de verdad. El cliente, la identidad sembrada y los helpers viven en
+// `tests/utils/mcp-client.ts`, que es de quien tiran también las suites de las
+// demás tools del conector.
 //
 // LO QUE MÁS IMPORTA de esta suite: el caso cruzado. Un club pidiendo la ficha de
 // un atleta del otro tiene que llevarse un error legible y NI UN DATO.
 
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
-import type { JSONRPCMessage, RequestId } from '@modelcontextprotocol/sdk/types.js';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
-import { registerCoachReadTools } from '@/lib/mcp/tools';
+import { call, connectAs, payload, seedCoachLogin, uniqClerkId } from '../utils/mcp-client';
 import { NOT_A_COACH_MESSAGE } from '@/lib/mcp/auth';
 
-type ToolResult = {
-  content: Array<{ type: string; text?: string }>;
-  structuredContent?: Record<string, unknown>;
-  isError?: boolean;
-};
-
-function uniqClerkId(tag: string): string {
-  return `clerk-mcp-tools-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
-
-/**
- * A connected client whose every message carries the auth of `clerkUserId` —
- * the same place `withMcpAuth` + mcp-handler put it (`extra.authInfo` on the
- * transport message), so the tools read it through the production path.
- */
-async function connectAs(clerkUserId: string): Promise<{ client: Client; close: () => Promise<void> }> {
-  const server = new McpServer({ name: 'fahybrid-coach-test', version: '1.0.0' });
-  registerCoachReadTools(server);
-
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const authInfo: AuthInfo = {
-    token: 'test-oauth-token',
-    clientId: 'test-mcp-client',
-    scopes: [],
-    extra: { userId: clerkUserId },
-  };
-  const rawSend = clientTransport.send.bind(clientTransport);
-  clientTransport.send = (
-    message: JSONRPCMessage,
-    options?: { relatedRequestId?: RequestId; authInfo?: AuthInfo },
-  ) => rawSend(message, { ...options, authInfo });
-
-  const client = new Client({ name: 'test-client', version: '1.0.0' });
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-
-  return {
-    client,
-    close: async () => {
-      await client.close();
-      await server.close();
-    },
-  };
-}
-
-async function call(
-  client: Client,
-  name: string,
-  args: Record<string, unknown> = {},
-): Promise<ToolResult> {
-  return (await client.callTool({ name, arguments: args })) as ToolResult;
-}
-
-/** The JSON body of a successful tool answer. */
-function payload(res: ToolResult): Record<string, unknown> {
-  expect(res.isError).not.toBe(true);
-  const text = res.content[0]?.text;
-  expect(typeof text).toBe('string');
-  return JSON.parse(text!) as Record<string, unknown>;
-}
-
-describeWithDb('MCP · las 3 tools de lectura (DB real)', () => {
+describeWithDb('MCP · las tools del atleta (DB real)', () => {
   const sql = getTestSql();
   const cleanups: Array<() => Promise<void>> = [];
   const userIds: number[] = [];
@@ -100,35 +23,14 @@ describeWithDb('MCP · las 3 tools de lectura (DB real)', () => {
   let coachBClerkId = '';
   let strangerClerkId = '';
 
-  async function seedCoachLogin(fx: Fixture, tag: string): Promise<string> {
-    const clerkUserId = uniqClerkId(tag);
-    const rows = await sql<Array<{ id: string }>>`
-      insert into users (email, role, clerk_user_id, full_name)
-      values (
-        ${`mcp-tools-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`},
-        'coach',
-        ${clerkUserId},
-        ${`Coach ${tag}`}
-      )
-      returning id::text as id
-    `;
-    const userId = Number(rows[0]!.id);
-    userIds.push(userId);
-    await sql`
-      insert into coach_members (coach_id, user_id, membership_role)
-      values (${fx.coachId}, ${userId}, 'coach')
-    `;
-    return clerkUserId;
-  }
-
   beforeAll(async () => {
     await sql`select 1 as ok`;
     clubA = await makeCoachAndAthlete(sql);
     clubB = await makeCoachAndAthlete(sql);
     cleanups.push(clubA.cleanup, clubB.cleanup);
 
-    coachAClerkId = await seedCoachLogin(clubA, 'a');
-    coachBClerkId = await seedCoachLogin(clubB, 'b');
+    coachAClerkId = await seedCoachLogin({ sql, coachId: clubA.coachId, tag: 'atl-a', userIds });
+    coachBClerkId = await seedCoachLogin({ sql, coachId: clubB.coachId, tag: 'atl-b', userIds });
 
     // Un login real que no es coach de ningún club.
     strangerClerkId = uniqClerkId('stranger');
@@ -156,17 +58,23 @@ describeWithDb('MCP · las 3 tools de lectura (DB real)', () => {
     await closeTestSql();
   });
 
-  test('el servidor anuncia exactamente las 3 tools, y solo de lectura', async () => {
+  test('el servidor anuncia exactamente sus 9 tools, y todas de lectura', async () => {
     const { client, close } = await connectAs(coachAClerkId);
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual([
         'get_athlete',
         'get_briefing',
+        'get_plan',
+        'get_races',
+        'get_session',
         'list_athletes',
+        'list_communications',
+        'search_library',
+        'search_methodology',
       ]);
-      // Ninguna escribe todavía (fase 1). El hint es lo que le dice al cliente
-      // que no hace falta pedir confirmación al coach para leer.
+      // Ninguna escribe todavía: el conector solo lee. El hint es lo que le dice
+      // al cliente que no hace falta pedir confirmación al coach para leer.
       for (const t of tools) {
         expect(t.annotations?.readOnlyHint).toBe(true);
         expect(t.description).toBeTruthy();
@@ -374,17 +282,25 @@ describeWithDb('MCP · las 3 tools de lectura (DB real)', () => {
     }
   });
 
-  test('token válido de quien no es coach: las 3 tools se niegan con la misma frase', async () => {
+  test('token válido de quien no es coach: TODAS las tools se niegan igual', async () => {
     const { client, close } = await connectAs(strangerClerkId);
     try {
+      // Las nueve, no solo las del atleta: un login sin club no puede colarse por
+      // la puerta de atrás de la que se añadió más tarde.
       for (const [name, args] of [
         ['get_briefing', {}],
         ['list_athletes', {}],
         ['get_athlete', { athlete_id: 1 }],
+        ['get_plan', { athlete_id: 1, view: 'week' }],
+        ['get_session', { athlete_id: 1, date: '2026-08-03' }],
+        ['get_races', { athlete_id: 1 }],
+        ['search_library', { query: 'remo' }],
+        ['search_methodology', { query: 'tapering' }],
+        ['list_communications', {}],
       ] as const) {
         const res = await call(client, name, args);
         expect(res.isError, `${name} debería negarse`).toBe(true);
-        expect(res.content[0]?.text).toBe(NOT_A_COACH_MESSAGE);
+        expect(res.content[0]?.text, `${name}`).toBe(NOT_A_COACH_MESSAGE);
       }
     } finally {
       await close();
@@ -394,18 +310,13 @@ describeWithDb('MCP · las 3 tools de lectura (DB real)', () => {
   test('sin authInfo en la petición no se llega a ningún dato', async () => {
     // El 401 lo pone withMcpAuth antes de esto; la tool es la segunda cerradura,
     // para que un fallo de cableado del transporte no se convierta en acceso.
-    const server = new McpServer({ name: 'fahybrid-coach-test', version: '1.0.0' });
-    registerCoachReadTools(server);
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const client = new Client({ name: 'test-client', version: '1.0.0' });
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const { client, close } = await connectAs(null);
     try {
       const res = await call(client, 'get_briefing');
       expect(res.isError).toBe(true);
       expect(res.content[0]?.text).toBe(NOT_A_COACH_MESSAGE);
     } finally {
-      await client.close();
-      await server.close();
+      await close();
     }
   });
 });

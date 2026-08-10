@@ -42,7 +42,14 @@ type PerceivedDifficulty = (typeof PERCEIVED_DIFFICULTY)[number];
  * la misma fila de la que cuelga el copy de cada superficie.
  */
 export type CoachSessionDetailResult =
-  | { ok: true; session: CoachSessionDetail }
+  | {
+      ok: true;
+      session: CoachSessionDetail;
+      /** De quién es la sesión. Sale de la MISMA fila que comprueba la propiedad,
+       *  para que quien encabece una frase con el nombre no tenga que ir a por él
+       *  (el coach no piensa en ids). */
+      athlete_name: string;
+    }
   | { ok: false; reason: 'athlete_not_found' | 'session_not_found' };
 
 /**
@@ -59,8 +66,8 @@ export async function loadCoachSessionDetail(params: {
 }): Promise<CoachSessionDetailResult> {
   const { sql, coach_id, athlete_id, assignment_id } = params;
 
-  const ownership = await sql<Array<{ id: string }>>`
-    select id::text from athletes
+  const ownership = await sql<Array<{ id: string; full_name: string }>>`
+    select id::text, full_name from athletes
     where id = ${athlete_id} and coach_id = ${coach_id as number}
     limit 1
   `;
@@ -123,6 +130,7 @@ export async function loadCoachSessionDetail(params: {
 
   return {
     ok: true,
+    athlete_name: ownership[0].full_name,
     session: {
       assignment_id: detail.assignment.id,
       iso_date: detail.assignment.scheduled_for,

@@ -1,9 +1,15 @@
-// The coach's read tools — phase 1 of the connector (docs/mcp-conector-coach.html).
+// The coach's read tools — el club entero de lectura (docs/mcp-conector-coach.html).
 //
 // Each tool is a thin mouth over a function the dashboard already calls, reached
 // WITHOUT an HTTP hop: `lib/coach/*` takes `{ coach_id, … }` and is consumed
 // directly by RSC pages today. So the connector and the dashboard cannot drift
 // apart, because there is only one implementation to drift.
+//
+// AQUÍ VIVEN LAS TOOLS DEL ATLETA (su día, su lista, su ficha). Las demás están
+// repartidas por dominio en `tools-plan.ts`, `tools-races.ts`, `tools-library.ts` y
+// `tools-comms.ts`, y se registran todas desde `registerCoachReadTools` — un solo
+// sitio dice qué habla el conector. Las tres piezas que comparten (`ok`, `fail`,
+// `withCoach`) viven en `runtime.ts`, que es de quien las importan todos.
 //
 // TENANCY. No tool ever trusts an id from the client as a scope. The `coach_id`
 // comes from the OAuth token on every single call (`coachFromAuthInfo`), and the
@@ -19,14 +25,16 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { buildCohort } from '@/lib/coach/cohort';
 import { buildBriefing } from '@/lib/coach/briefing';
-import { buildAthleteDeepDive, AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
+import { buildAthleteDeepDive } from '@/lib/coach/athlete-deep-dive';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
 import { countUnreadForCoach } from '@/lib/chat/service';
-import { McpNotACoachError, coachFromAuthInfo } from './auth';
+import { ok, withCoach } from './runtime';
+import { registerCommunicationsTools } from './tools-comms';
+import { registerLibraryTools } from './tools-library';
+import { registerPlanTools } from './tools-plan';
+import { registerRacesTools } from './tools-races';
 import {
   athleteResumen,
   athletesResumen,
@@ -37,55 +45,6 @@ import {
 
 /** The plan an athlete is on. Matches `subscriptions.plan_type` exactly. */
 const MODALITY = ['individual', 'dobles', 'pro_elite'] as const;
-
-/**
- * Every answer is JSON plus `_resumen`, the one line a person would have said.
- * `structuredContent` carries the same object so a client that understands it
- * gets the data typed instead of re-parsing a string out of the text block.
- */
-function ok(payload: Record<string, unknown>, resumen: string): CallToolResult {
-  const body = { _resumen: resumen, ...payload };
-  return {
-    content: [{ type: 'text', text: JSON.stringify(body, null, 2) }],
-    structuredContent: body,
-  };
-}
-
-/**
- * A refusal the assistant can read out loud and act on. `isError` is what stops
- * it from treating the sentence as data and telling the coach his athlete has a
- * readiness of "no encontrado".
- */
-function fail(message: string): CallToolResult {
-  return { content: [{ type: 'text', text: message }], isError: true };
-}
-
-/**
- * Runs a tool body with the coach resolved from the token, turning the two
- * expected refusals into readable text instead of a stack trace: not a coach,
- * and an athlete that is not his. Anything else rethrows — a DB outage must not
- * be dressed up as a clean answer.
- */
-async function withCoach(
-  authInfo: AuthInfo | undefined,
-  body: (coach_id: bigint, coach_name: string) => Promise<CallToolResult>,
-): Promise<CallToolResult> {
-  try {
-    const coach = await coachFromAuthInfo(authInfo);
-    return await body(coach.coach_id, coach.full_name);
-  } catch (err) {
-    if (err instanceof McpNotACoachError) return fail(err.message);
-    if (err instanceof AthleteDeepDiveError) {
-      // 'forbidden' (another club's athlete) is answered exactly like
-      // 'not_found', same as the dashboard API: confirming that an id exists
-      // somewhere else is itself the leak.
-      return fail(
-        'No hay ningún atleta tuyo con ese identificador. Pide la lista con list_athletes y usa el athlete_id que salga ahí.',
-      );
-    }
-    throw err;
-  }
-}
 
 export function registerCoachReadTools(server: McpServer): void {
   server.registerTool(
@@ -187,4 +146,11 @@ export function registerCoachReadTools(server: McpServer): void {
         return ok({ athlete: detail }, athleteResumen(detail));
       }),
   );
+
+  // El resto del club, por dominio. El orden es el del uso: del atleta a su plan,
+  // de su plan a sus carreras, y de ahí a lo que el coach guarda y le dice.
+  registerPlanTools(server);
+  registerRacesTools(server);
+  registerLibraryTools(server);
+  registerCommunicationsTools(server);
 }
