@@ -1181,12 +1181,17 @@ async function materializeFirstMicrocicloDraft(params: {
     '@fahybrid/shared/domain/dates'
   );
 
-  // The coach's first month template (a microciclo). No month templates yet →
-  // no draft (degrade gracefully; Pablo programs the first microciclo manually).
+  // The coach's first LIBRARY month template (a microciclo) — athlete_id is null
+  // (0164) is load-bearing here: without it, the lowest-id row could be another
+  // athlete's PERSONAL plan (e.g. the coach's own test plan), and this brand-new
+  // athlete would be bootstrapped straight onto a stranger's bespoke content. No
+  // library month templates yet → no draft (degrade gracefully; Pablo programs
+  // the first microciclo manually).
   const tplRows = await params.client<Array<{ id: string; name: string }>>`
     select id::text, name
     from program_month_templates
     where coach_id = ${Number(params.coach_id)}
+      and athlete_id is null
     order by id asc
     limit 1
   `;

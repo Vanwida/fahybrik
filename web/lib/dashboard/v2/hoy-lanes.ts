@@ -393,6 +393,11 @@ export async function fetchAsignacionSugeridaCards(
                WHERE pmw.month_template_id = pmt.id)::int AS week_count
       FROM program_month_templates pmt
       WHERE pmt.id = ANY(${monthIds}::bigint[])
+        -- Defensive (0164): a sequence item can never legally point at a personal
+        -- plan (saveCoachSequence rejects it at write time) — this is a second
+        -- backstop so a future write-path regression degrades to "no preview"
+        -- instead of showing one athlete's bespoke plan on another's card.
+        AND pmt.athlete_id IS NULL
     `;
     const byTemplate = new Map<string, { name: string; week_count: number }>();
     for (const p of previews) {
@@ -541,7 +546,8 @@ export async function fetchSiguienteMicrocicloCards(
            psi.month_template_id::text AS month_template_id,
            pmt.name AS month_name
     FROM program_sequence_items psi
-    LEFT JOIN program_month_templates pmt ON pmt.id = psi.month_template_id
+    -- Defensive (0164), same backstop as fetchAsignacionSugeridaCards above.
+    LEFT JOIN program_month_templates pmt ON pmt.id = psi.month_template_id AND pmt.athlete_id IS NULL
     WHERE psi.sequence_id = ANY(${seqIds}::bigint[])
     ORDER BY psi.sequence_id, psi.position
   `;

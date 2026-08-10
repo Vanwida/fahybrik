@@ -50,7 +50,9 @@ export async function loadPipelineProgress(
     select
       (select count(*) from athlete_levels         where coach_id = ${cid})::text as levels,
       (select count(*) from blocks                 where coach_id = ${cid})::text as sesiones,
-      (select count(*) from program_month_templates where coach_id = ${cid})::text as microciclos,
+      -- athlete_id is null (0164): this step tracks the coach's REUSABLE library,
+      -- not a one-off personal plan they built for a single athlete.
+      (select count(*) from program_month_templates where coach_id = ${cid} and athlete_id is null)::text as microciclos,
       (select count(*) from program_sequences      where coach_id = ${cid})::text as secuencias
   `;
   const r = rows[0];
