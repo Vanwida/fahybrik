@@ -17,6 +17,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
 import { ProgramMonthError } from '@fahybrid/shared/domain/coach/program-months';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export { ProgramMonthError };
 
@@ -205,6 +206,10 @@ export async function createPersonalMonthTemplateFromScratch(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   payload: unknown;
+  /** Quién crea el contenedor — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<{ id: string; weeks: Array<{ id: string; week_index: number }> }> {
   const parsed = programMonthPersonalScratchSchema.safeParse(params.payload);
@@ -226,12 +231,33 @@ export async function createPersonalMonthTemplateFromScratch(params: {
     if (!owned[0]) {
       throw new ProgramMonthError('not_found', 'Atleta no encontrado', 404);
     }
-    result = await insertEmptyPersonalMonthTemplate({
+    const created = await insertEmptyPersonalMonthTemplate({
       tx: tx as unknown as TransactionClient,
       coach_id,
       athlete_id,
       name: body.name,
       week_count: body.week_count,
+    });
+    result = created;
+
+    // Auditoría DENTRO de la misma transacción (ver personalize-plan.ts): un
+    // contenedor "empezar de cero" también es un plan personal nuevo — mismo
+    // action 'create' que forkear, mismo entity_type que el resto de la
+    // familia de tramos, para que el historial de un month_template_id se
+    // pueda leer entero sin importar por qué camino nació.
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(created.id),
+      action: 'create',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        name: body.name,
+        week_count: body.week_count,
+        origin: 'from_scratch',
+      },
     });
   });
 
@@ -401,6 +427,10 @@ export async function deletePersonalPlanForAthlete(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   month_template_id: number | bigint;
+  /** Quién borra el plan — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<RetirePersonalPlanResult> {
   const client = params.client ?? defaultSql;
@@ -410,11 +440,36 @@ export async function deletePersonalPlanForAthlete(params: {
 
   return client.begin(async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
-    return retirePersonalPlan({
+    const result = await retirePersonalPlan({
       tx: tx as unknown as TransactionClient,
       coach_id,
       athlete_id,
       month_template_id,
     });
+
+    // Auditoría DENTRO de la transacción de retirePersonalPlan (ver su
+    // cabecera: la función compartida NUNCA audita por sí misma porque la
+    // reusan tres llamadores con acciones distintas — 'delete' aquí, 'delete'
+    // también en deletePersonalTramoFromChain, 'restore' en
+    // revertPersonalPlanForAthlete). El número que antes no se podía saber —
+    // cuántas sesiones desaparecieron y cuántas sobrevivieron por estar ya
+    // ejecutadas — va literal en el diff.
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(month_template_id),
+      action: 'delete',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        deleted_sessions: result.deleted_sessions,
+        preserved_sessions: result.preserved_sessions,
+        deleted_microcycles: result.deleted_microcycles,
+        was_current: result.was_current,
+      },
+    });
+
+    return result;
   });
 }

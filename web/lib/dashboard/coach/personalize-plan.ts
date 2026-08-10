@@ -65,6 +65,7 @@ import {
   type InstantiateMonthResult,
 } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export class PersonalizePlanError extends Error {
   constructor(
@@ -125,6 +126,10 @@ export async function personalizePlanForAthlete(params: {
   coach_id: number | bigint;
   athlete_id: number;
   start?: PersonalizeStartChoice;
+  /** Quién ejecuta el fork — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<PersonalizePlanResult> {
   const client = params.client ?? defaultSql;
@@ -296,6 +301,36 @@ export async function personalizePlanForAthlete(params: {
       where athlete_id = ${athlete_id} and status = 'active'
       returning id::text
     `;
+
+    // Auditoría (0114/0165) DENTRO de esta misma transacción: si el fork se
+    // deshace, su rastro se deshace con él — nunca un registro que sobreviva a
+    // un rollback. entity_id es el mes NUEVO (lo que se está creando); el diff
+    // recoge lo suficiente para reconstruir el fork sin volver a leer la app:
+    // de dónde viene, desde qué semana, y qué pasó con el recibo viejo.
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(newMonthId),
+      action: 'create',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        name: forkName,
+        start_choice: startChoice,
+        start_date: forkStartMonday,
+        week_count: weeksToFork.length,
+        forked_from_week: fromPosition + 1,
+        source_month_template_id: sourceMonthId,
+        source_name: src.name,
+        old_assignment: {
+          id: Number(oldAssignment.id),
+          start_date_before: oldAssignment.start_date,
+          outcome: oldAssignmentOutcome,
+        },
+        sequence_detached: detachRows.length > 0,
+      },
+    });
 
     return {
       newMonthId,

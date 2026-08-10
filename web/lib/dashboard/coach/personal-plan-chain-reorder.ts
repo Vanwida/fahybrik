@@ -21,6 +21,7 @@ import {
   type PersonalTramoRow,
   type ReflowStep,
 } from './personal-plan-chain-reflow';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export { PersonalChainError };
 
@@ -49,6 +50,10 @@ export async function movePersonalTramoInChain(params: {
   athlete_id: number | bigint;
   month_template_id: number | bigint;
   payload: unknown;
+  /** Quién reordena — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<MovePersonalTramoResult> {
   const parsed = moveDirectionSchema.safeParse(params.payload);
@@ -95,6 +100,42 @@ export async function movePersonalTramoInChain(params: {
       [second.month_template_id, second],
     ]);
     const steps = await planPersonalReflow({ client: tx, anchor_start: first.start_date, desired, current });
+
+    // Auditoría DENTRO de esta transacción — planPersonalReflow ya validó
+    // (arriba, mismo lock) que ninguno de los dos tiene sesiones ejecutadas,
+    // así que las fechas de `steps` son las que de verdad se van a aplicar en
+    // la fase 2. entity_id es el tramo que el coach pulsó "mover"; el vecino
+    // (el otro lado del swap) va en el diff, no como entity — un swap es una
+    // operación, no dos.
+    const selfStep = steps.find((s) => s.month_template_id === month_template_id) ?? null;
+    const neighborStep = steps.find((s) => s.month_template_id !== month_template_id) ?? null;
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(month_template_id),
+      action: 'update',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        direction,
+        self: selfStep && {
+          month_template_id: selfStep.month_template_id,
+          name: selfStep.name,
+          start_before: selfStep.old_start,
+          start_after: selfStep.new_start,
+          end_after: selfStep.new_end,
+        },
+        neighbor: neighborStep && {
+          month_template_id: neighborStep.month_template_id,
+          name: neighborStep.name,
+          start_before: neighborStep.old_start,
+          start_after: neighborStep.new_start,
+          end_after: neighborStep.new_end,
+        },
+      },
+    });
+
     return { steps };
   });
 
@@ -134,6 +175,10 @@ export async function deletePersonalTramoFromChain(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   month_template_id: number | bigint;
+  /** Quién borra el tramo — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<DeletePersonalTramoResult> {
   const client = params.client ?? defaultSql;
@@ -175,6 +220,35 @@ export async function deletePersonalTramoFromChain(params: {
       const current = new Map<number, PersonalTramoRow>(rest.map((t) => [t.month_template_id, t]));
       steps = await planPersonalReflow({ client: tx, anchor_start: target.start_date, desired, current });
     }
+
+    // Auditoría DENTRO de esta transacción (mismo motivo que
+    // deletePersonalPlanForAthlete en personal-plans.ts: retirePersonalPlan no
+    // audita por sí misma porque la reusan tres llamadores con acciones
+    // distintas). El número que antes no se podía saber va literal en el
+    // diff; reflow_candidates son los tramos que, si la fase 2 tiene éxito,
+    // se recolocarán para cerrar el hueco (ya validados libres de ejecutadas
+    // por planPersonalReflow, arriba, mismo lock).
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(month_template_id),
+      action: 'delete',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        name: target.name,
+        start_date: target.start_date,
+        end_date: target.end_date,
+        deleted_sessions: retired.deleted_sessions,
+        preserved_sessions: retired.preserved_sessions,
+        deleted_microcycles: retired.deleted_microcycles,
+        was_current: retired.was_current,
+        reflow_candidates: steps
+          .filter((s) => s.moved)
+          .map((s) => ({ month_template_id: s.month_template_id, start_after: s.new_start, end_after: s.new_end })),
+      },
+    });
 
     return { retired, steps };
   });

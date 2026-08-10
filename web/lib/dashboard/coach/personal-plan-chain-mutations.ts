@@ -45,6 +45,7 @@ import {
   PersonalChainError,
   type PersonalTramoRow,
 } from './personal-plan-chain-reflow';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export { PersonalChainError };
 
@@ -84,6 +85,10 @@ export async function addPersonalTramoToChain(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   payload: unknown;
+  /** Quién añade el tramo — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<AddPersonalTramoResult> {
   const parsed = addPersonalTramoSchema.safeParse(params.payload);
@@ -139,6 +144,27 @@ export async function addPersonalTramoToChain(params: {
       where athlete_id = ${athlete_id} and status = 'active'
       returning id::text
     `;
+
+    // Auditoría DENTRO de la transacción (ver personalize-plan.ts): mismo
+    // entity_type que el resto de la familia de tramos, para que el
+    // historial de un month_template_id se lea entero sin importar por qué
+    // camino nació (fork, desde cero, o encadenado aquí).
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(created.id),
+      action: 'create',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        name: body.name,
+        week_count: body.week_count,
+        start_date: startIso,
+        chained_after_end: lastEnd,
+        sequence_detached: detachRows.length > 0,
+      },
+    });
 
     return { monthId: Number(created.id), startIso, sequenceDetached: detachRows.length > 0 };
   });
@@ -220,6 +246,10 @@ export async function updatePersonalTramoMeta(params: {
   athlete_id: number | bigint;
   month_template_id: number | bigint;
   payload: unknown;
+  /** Quién edita el tramo — entra en la fila de auditoría (audit_log). */
+  actor: Actor;
+  /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<UpdatePersonalTramoResult> {
   const parsed = updatePersonalTramoSchema.safeParse(params.payload);
@@ -304,6 +334,33 @@ export async function updatePersonalTramoMeta(params: {
       }
     }
 
+    // Auditoría DENTRO de esta transacción: cubre el nombre y el nº de
+    // semanas OBJETIVO del contenedor (program_month_templates +
+    // program_month_weeks, lo que esta fase realmente escribió). El
+    // redimensionado EN SITIO del recibo (athlete_month_assignments,
+    // incluidas las sesiones que se borran al acortar) vive en su propia
+    // transacción — resizeAssignmentInPlace (personal-plan-chain-resize.ts)
+    // — y audita ahí, con su propia fila, porque es un commit real distinto
+    // (ver el comentario de ese archivo). reflow_candidates son los tramos
+    // que, SI el resize seguido tiene éxito, se recolocarán detrás de éste
+    // — un plan, no todavía un hecho confirmado por esta fila.
+    await recordAudit(tx, {
+      entity_type: 'program_month_templates',
+      entity_id: BigInt(month_template_id),
+      action: 'update',
+      actor: params.actor,
+      ...(params.channel ? { channel: params.channel } : {}),
+      diff: {
+        athlete_id,
+        coach_id,
+        name_before: currentName,
+        name_after: newName,
+        week_count_before: currentWeekCount,
+        week_count_after: targetWeekCount,
+        reflow_candidates: rest.map((t) => t.month_template_id),
+      },
+    });
+
     return { name: newName, targetWeekCount, delta, mineStartDate: mine?.start_date ?? null, rest };
   });
 
@@ -325,7 +382,14 @@ export async function updatePersonalTramoMeta(params: {
     };
   }
 
-  const resized = await resizeAssignmentInPlace({ coach_id, athlete_id, month_template_id, client });
+  const resized = await resizeAssignmentInPlace({
+    coach_id,
+    athlete_id,
+    month_template_id,
+    actor: params.actor,
+    channel: params.channel,
+    client,
+  });
   const newEnd = resized?.end_date ?? null;
 
   let reflowed: UpdatePersonalTramoResult['reflowed'] = [];
