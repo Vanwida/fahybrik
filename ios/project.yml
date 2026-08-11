@@ -60,6 +60,12 @@ targets:
       - sdk: HealthKit.framework
       - sdk: CoreBluetooth.framework
       - sdk: CoreLocation.framework
+      # El BARÓMETRO del teléfono (CMAltimeter) — la altitud de una carrera al aire
+      # libre, que hasta ahora no se capturaba en absoluto. Sin ella no hay desnivel
+      # acumulado ni ritmo ajustado por pendiente. La vertical del GPS no vale para
+      # eso (decenas de metros de error); el barómetro sí, y el GPS le pone el cero.
+      # Ver FAHYBRIK/Workout/Outdoor/RunAltimeter.swift.
+      - sdk: CoreMotion.framework
       - sdk: ARKit.framework
       - sdk: RealityKit.framework
       - sdk: AVFoundation.framework
@@ -192,6 +198,11 @@ targets:
         NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
         NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu cinta y con tu Concept2 para leer ritmo, velocidad e inclinación en vivo, y con tu reloj o banda para tu pulso durante el entreno."
         NSLocationWhenInUseUsageDescription: "FAHYBRID usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
+        #   Movimiento → RunAltimeter (CMAltimeter) en una carrera al aire libre. Se
+        #                pide junto con el GPS al empezar a correr fuera, nunca en
+        #                cinta ni en el gimnasio. Si no se da, la carrera se guarda
+        #                igual: se queda sin desnivel, no sin carrera.
+        NSMotionUsageDescription: "FAHYBRID usa los sensores del móvil en tus carreras al aire libre para medir el desnivel que subes y bajas. Si no lo activas, tu carrera se guarda igual, pero sin desnivel."
     settings:
       # Per-configuration runtime environment. Referenced by the Info.plist keys
       # FahybrikApiBase / FahybrikDemoEntry above and expanded at build time.
@@ -395,6 +406,12 @@ targets:
       - path: FAHYBRIK/Workout/CountdownFormat.swift
       - path: FAHYBRIK/Workout/WorkoutAudio.swift
       - path: FAHYBRIK/Workout/Persistence/WorkoutStateStore.swift
+      # EL NEGATIVO DE LA SESIÓN: el buffer de las series medidas. `WorkoutSession` lo
+      # tiene como propiedad, así que tiene que compilar en el reloj con el motor.
+      # Foundation puro. La SUBIDA (WorkoutTraceUploader) se queda en el teléfono con
+      # el resto de lo que habla con la red — la muñeca releva por el cable.
+      - path: FAHYBRIK/Workout/Trace/WorkoutTraceRecorder.swift
+      - path: FAHYBRIK/Workout/WorkoutSession+Trace.swift
       # Reconocer el movimiento (6-ago plan): algoritmos puros de señal + pipeline.
       # CoreMotion solo vive en FAHYBRIKWatch/Sensor/SensorCapture.swift.
       - path: FAHYBRIK/Sensor
