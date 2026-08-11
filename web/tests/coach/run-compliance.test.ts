@@ -84,6 +84,7 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     peak_drive_force_lbs: null,
     avg_drive_force_lbs: null,
     erg_splits: null,
+    run_splits: null,
     source: null,
     zone_seconds: null,
     leg_index: null,

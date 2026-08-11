@@ -21,6 +21,7 @@
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
+import { groupRunSplits, type RunLegSplitItem } from '@/lib/execution/run-splits';
 import { parseZoneSeconds, type ZoneSeconds } from '@/lib/execution/zone-seconds';
 import {
   SEGMENT_LEG_PHASES,
@@ -65,6 +66,16 @@ export interface SegmentActual {
   peak_drive_force_lbs: number | null;
   avg_drive_force_lbs: number | null;
   erg_splits: ErgSplitItem[] | null;
+  /** El equivalente de `erg_splits` para una carrera estructurada (#66) — mismo
+   *  patrón, mismo nivel, misma forma, ver `run-splits.ts`. La diferencia es DE
+   *  DÓNDE sale: el PM5 anida sus intervalos en UNA fila; una carrera de series
+   *  graba CADA tramo como su propia fila (leg_index/leg_role/leg_phase, mig
+   *  0146). Por eso esto no sale de `raw_lap_data_json` sino de agrupar las
+   *  filas hermanas por `item_uid` — y por eso solo la fila `leg_index === 0`
+   *  de cada grupo lo lleva (la "portadora"): las demás siguen siendo su propio
+   *  `SegmentActual` de siempre, sin tocar. Null fuera de una carrera
+   *  estructurada, o en cualquier fila que no sea la portadora de su grupo. */
+  run_splits: RunLegSplitItem[] | null;
   /** WHICH APPARATUS measured THIS tramo — the raw `segment_executions.source`
    * token ('pm5', 'treadmill', 'gps', 'healthkit', 'manual', …). The execution's
    * own `source` is only the principal one, so a mixed session (erg + treadmill)
@@ -163,7 +174,7 @@ function durationSeconds(started: string | null, ended: string | null): number |
 
 /** Pure mapper: DB rows → coach-facing actuals (testable without a DB). */
 export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
-  return rows.map((r) => ({
+  const mapped: SegmentActual[] = rows.map((r) => ({
     position: r.position,
     item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
     modality: toModality(r.modality),
@@ -188,8 +199,19 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     leg_role: toLegRole(r.leg_role),
     leg_phase: toLegPhase(r.leg_phase),
     is_structural: r.is_structural ?? false,
+    run_splits: null,
     ...ergFields(r.raw_lap_data_json),
   }));
+
+  // Segunda pasada, en memoria (sin consulta extra: las columnas ya están
+  // todas en `mapped`) — agrupa los tramos de cada carrera estructurada y los
+  // cuelga de su fila portadora (leg_index === 0). Ver run-splits.ts.
+  const runSplitsByCarrierPosition = groupRunSplits(mapped);
+  if (runSplitsByCarrierPosition.size === 0) return mapped;
+  return mapped.map((m) => {
+    const splits = runSplitsByCarrierPosition.get(m.position);
+    return splits ? { ...m, run_splits: splits } : m;
+  });
 }
 
 /** Fold the erg detail out of raw_lap_data_json into the flat SegmentActual erg
