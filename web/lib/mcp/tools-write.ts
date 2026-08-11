@@ -150,6 +150,8 @@ export function registerWriteTools(server: McpServer): void {
             athlete_id: args.athlete_id,
             iso_date: args.date,
             payload: { template_id: created.template_id, name: args.title, segments },
+            actor: coachActor(session),
+            channel: 'mcp',
           });
         } catch (err) {
           await rollbackCreatedSession({
@@ -309,6 +311,8 @@ export function registerWriteTools(server: McpServer): void {
             athlete_id: args.athlete_id,
             iso_date: args.date,
             payload: { template_id: Number(target.template_id), name: title, segments: prepared.segments },
+            actor: coachActor(session),
+            channel: 'mcp',
           });
         } catch (err) {
           const why = contentWriteError(err);

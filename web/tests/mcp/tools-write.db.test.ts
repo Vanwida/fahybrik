@@ -446,14 +446,18 @@ describeWithDb('MCP · escrituras del día (DB real)', () => {
       expect((untouched.session as Json).title).toBe('Rodaje suave');
       expect(otherPrescribed.blocks[0]!.items[0]!.dose).toBe("90' @ Z2");
 
-      // Auditoría del cambio: sobre la instancia, por canal mcp.
+      // Auditoría del cambio: sobre la instancia, por canal mcp. Reescribir el
+      // contenido de un día deja AHORA su propia entrada (borra e inserta los
+      // segmentos: es la escritura más destructiva que hay), así que hay una por
+      // escritura — la de crear la sesión y la de editarla. Se afirma lo que
+      // importa, que todas digan quién y por dónde, no cuántas son.
       const audit = await sql<Array<{ action: string; channel: string }>>`
         select action::text as action, channel from audit_log
         where entity_type = 'templates'
           and entity_id = (select template_id from workout_assignments where id = ${Number(target.session_id)})
       `;
-      expect(audit).toHaveLength(1);
-      expect(audit[0]).toMatchObject({ action: 'update', channel: 'mcp' });
+      expect(audit.length).toBeGreaterThanOrEqual(1);
+      for (const row of audit) expect(row).toMatchObject({ action: 'update', channel: 'mcp' });
     } finally {
       await close();
     }

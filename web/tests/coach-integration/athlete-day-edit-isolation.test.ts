@@ -26,6 +26,9 @@ import { makeCoachAndAthlete, makeExercise, type Fixture } from '../utils/db-fix
 
 const DATE = '2026-07-01';
 
+/** Guardar un día exige actor — sin él no habría rastro de quién lo cambió. */
+const ACTOR = { kind: 'system', user_id: null } as const;
+
 const presc = (reps: number, pct: number): Prescription => ({
   scheme: 'sets',
   modality: 'strength',
@@ -125,6 +128,7 @@ describeWithDb('per-athlete day edit — instance isolation (real DB)', () => {
       athlete_id: athleteA,
       iso_date: DATE,
       client: sql,
+      actor: ACTOR,
       payload: {
         template_id: instA.template_id,
         name: 'A — edited leg day',
@@ -144,6 +148,19 @@ describeWithDb('per-athlete day edit — instance isolation (real DB)', () => {
     const aName = await sql<Array<{ name: string }>>`select name from templates where id = ${instA.template_id}`;
     expect(aName[0]!.name).toBe('A — edited leg day');
 
+    // RASTRO: reescribir un día borra e inserta segmentos, así que tiene que
+    // quedar registrado quién y sobre qué día — o «¿quién cambió este entreno?»
+    // no se puede contestar (11-ago: costó una investigación entera).
+    const trail = await sql<Array<{ action: string; channel: string; diff_json: unknown }>>`
+      select action::text, channel::text, diff_json
+      from audit_log
+      where entity_type = 'templates' and entity_id = ${instA.template_id}
+      order by created_at desc limit 1`;
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.action).toBe('update');
+    expect(trail[0]!.channel).toBe('dashboard');
+    expect(trail[0]!.diff_json).toMatchObject({ athlete_id: athleteA, iso_date: DATE, segments: 1 });
+
     // ISOLATION: library L and sibling instance B are byte-for-byte unchanged.
     expect(await segsOf(libId)).toEqual(libBefore);
     expect(await segsOf(instB.template_id)).toEqual(bBefore);
@@ -151,14 +168,14 @@ describeWithDb('per-athlete day edit — instance isolation (real DB)', () => {
     // GUARD: cannot edit the LIBRARY row through A's route (instance_athlete_id null).
     await expect(
       updateAthleteInstanceDay({
-        coach_id: coach, athlete_id: athleteA, iso_date: DATE, client: sql,
+        coach_id: coach, athlete_id: athleteA, iso_date: DATE, client: sql, actor: ACTOR,
         payload: { template_id: libId, segments: [{ exercise_id: exA, block_position: 0, prescription_json: presc(1, 1) }] },
       }),
     ).rejects.toThrow();
     // GUARD: cannot edit B's instance through A's route.
     await expect(
       updateAthleteInstanceDay({
-        coach_id: coach, athlete_id: athleteA, iso_date: DATE, client: sql,
+        coach_id: coach, athlete_id: athleteA, iso_date: DATE, client: sql, actor: ACTOR,
         payload: { template_id: instB.template_id, segments: [{ exercise_id: exA, block_position: 0, prescription_json: presc(1, 1) }] },
       }),
     ).rejects.toThrow();

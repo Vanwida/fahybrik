@@ -1,4 +1,5 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
+import { coachActor } from '@/lib/audit/record-edit';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
 import { updateAthleteInstanceDay } from '@/lib/dashboard/coach/template-instance';
@@ -41,6 +42,7 @@ export async function PATCH(
       athlete_id: Number(parsedId.data.id),
       iso_date: date,
       payload,
+      actor: coachActor(session),
     });
     return jsonOk({ ok: true, template_id: result.template_id });
   } catch (err) {

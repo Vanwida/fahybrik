@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 import {
   TemplateError,
   templateSegmentInputSchema,
@@ -178,6 +179,11 @@ export async function updateAthleteInstanceDay(params: {
   athlete_id: number | bigint;
   iso_date: string;
   payload: unknown;
+  /** Quién guarda. Obligatorio: sin actor no hay rastro, y este es el ÚNICO
+   *  camino por el que se reescribe el contenido de un día del atleta. */
+  actor: Actor;
+  /** Por dónde entró. Omitido = el panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<{ template_id: number }> {
   const parsed = athleteDayContentSchema.safeParse(params.payload);
@@ -223,6 +229,26 @@ export async function updateAthleteInstanceDay(params: {
       segments,
     },
     client,
+  });
+
+  // Reescribir un día BORRA los segmentos y los vuelve a insertar: es la
+  // escritura más destructiva del panel y era la única sin rastro, mientras el
+  // conector sí lo dejaba. Esa asimetría costó una investigación entera el
+  // 11-ago para contestar «¿quién cambió este entreno?». Va después del write:
+  // si el write falla no hay entrada, y nunca al revés (rastro de algo que no
+  // pasó). Aquí pasan LAS DOS superficies, así que ninguna puede escaparse.
+  await recordAudit(client, {
+    entity_type: 'templates',
+    entity_id: BigInt(body.template_id),
+    action: 'update',
+    actor: params.actor,
+    channel: params.channel,
+    diff: {
+      athlete_id: ath,
+      iso_date: params.iso_date,
+      segments: segments.length,
+      ...(body.name !== undefined ? { name: body.name } : {}),
+    },
   });
 
   return { template_id: body.template_id };
