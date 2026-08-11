@@ -13,6 +13,10 @@ import SwiftUI
 //
 // LA COMPOSICIÓN, de arriba abajo
 // -------------------------------
+//   · Cromo superior    — el ciclo, el historial y el chat. La PUERTA AL CICLO
+//                         vive aquí desde el 11-ago (Alex): estaba al pie como
+//                         una tarjeta de dos líneas que se comía alto del héroe
+//                         para decir lo que la cabecera ya dice.
 //   · CabeceraDelBloque — el bloque, «Semana N de M» y la línea del coach.
 //   · CarrilSemana      — los siete días con su sello. Tocar un día lo abre;
 //                         pulsación larga saca sus acciones (mover · técnica ·
@@ -20,12 +24,11 @@ import SwiftUI
 //   · Héroe             — la sesión de hoy en grande, o el día de descanso. Una
 //                         SEGUNDA sesión del día va como fila compacta debajo,
 //                         no como un segundo héroe.
-//   · EntradaAlCiclo    — la puerta a `PlanCicloView`, de alto fijo.
 //   · Acción anclada    — empezar hoy · ver lo hecho · ver lo de mañana.
 //
-// ALTURA (contrato §6.1): la pantalla es `llena` — el cromo de arriba y la puerta
-// de abajo son fijos y TODO el sobrante se lo lleva el héroe, que es el sujeto.
-// El día de descanso degrada a `centra`.
+// ALTURA (contrato §6.1): la pantalla es `llena` — el cromo de arriba es fijo y
+// TODO el sobrante se lo lleva el héroe, que es el sujeto. El día de descanso
+// degrada a `centra`.
 //
 // Las mutaciones (mover · marcar · deshacer · borrar) y sus menús viven en
 // `PlanAcciones.swift`; las piezas, en `PlanHoyAtoms.swift` y `PlanHeroeHoy.swift`.
@@ -144,14 +147,10 @@ struct PlanView: View {
             HistoryView(bearer: effectiveBearer, onClose: { showHistory = false })
         }
         .fullScreenCover(isPresented: $showCiclo) {
-            PlanCicloView(
-                bearer: effectiveBearer,
-                nombreBloque: semana?.nombreBloque,
-                posicion: posicion,
-                hayProximaSemana: hayProximaSemana,
-                onClose: { showCiclo = false }
-            )
-            .environment(store)
+            // El sujeto del ciclo sale de su propio camino, no de esta pantalla:
+            // pasarle el nombre del bloque sería una segunda fuente del mismo dato.
+            PlanCicloView(bearer: effectiveBearer, onClose: { showCiclo = false })
+                .environment(store)
         }
         .sheet(isPresented: $showChat) {
             // A custom @Observable environment value does NOT cross a presentation
@@ -200,11 +199,6 @@ struct PlanView: View {
                 if let segunda = sesionSecundariaMostrada {
                     filaSegundaSesion(segunda)
                 }
-                EntradaAlCiclo(
-                    nombre: semanaVisible?.nombreBloque,
-                    posicion: posicionVisible,
-                    onAbrir: { showCiclo = true }
-                )
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
@@ -370,8 +364,12 @@ struct PlanView: View {
 
     // MARK: - Cromo superior
 
-    /// El cromo de la pestaña: chip de Dobles, historial y chat. Sin logo — el
-    /// logo vive en Inicio.
+    /// El cromo de la pestaña: chip de Dobles, ciclo, historial y chat. Sin logo
+    /// — el logo vive en Inicio.
+    ///
+    /// El ciclo va PRIMERO de los tres iconos porque es el único que habla del
+    /// plan que se está mirando: el historial y el chat son sitios a los que se va
+    /// desde cualquier parte.
     var cabeceraDeNavegacion: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.s) {
             Spacer(minLength: Theme.Spacing.s)
@@ -395,6 +393,9 @@ struct PlanView: View {
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
+            }
+            botonDeCromo(symbol: "square.stack.3d.up", etiqueta: "Ver el ciclo entero") {
+                showCiclo = true
             }
             botonDeCromo(symbol: "calendar", etiqueta: "Historial de entrenos") {
                 showHistory = true
@@ -439,8 +440,8 @@ struct PlanView: View {
     /// «Ver lo de mañana» solo aplica al descanso de HOY sin seleccionar nada:
     /// hojeando otro día ya se está mirando ESE día, no hace falta ofrecer
     /// otro salto. Y sin sesión ni mañana, no hay una TERCERA acción que
-    /// inventar: el pie (`EntradaAlCiclo`) ya ofrece «ver el ciclo entero», y
-    /// una segunda entrada al mismo sitio es ruido, no una salida (Alex, 7-ago).
+    /// inventar: el cromo de arriba ya lleva al ciclo entero, y una segunda
+    /// entrada al mismo sitio es ruido, no una salida (Alex, 7-ago).
     private var accionDelDia: (titulo: String, hacer: () -> Void)? {
         if let sesion = sesionMostrada {
             return marca(sesion).isFinished

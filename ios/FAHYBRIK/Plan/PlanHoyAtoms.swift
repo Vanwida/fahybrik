@@ -251,67 +251,13 @@ struct FilaParteSesion: View {
     }
 }
 
-// MARK: - La puerta al ciclo
-
-/// EL PIE — dice lo único que de verdad se sabe del bloque (cómo lo llamó el
-/// coach y por qué semana vas) y abre la pantalla que cuenta hacia dónde va.
-///
-/// NO crece: una puerta de dos líneas no se gana alto. Todo el sobrante se lo
-/// lleva el héroe, que es el sujeto de la pantalla (§6.1/§6.2).
-struct EntradaAlCiclo: View {
-    let nombre: String?
-    let posicion: PosicionEnBloque?
-    let onAbrir: () -> Void
-
-    /// «Semana 3 de 6 · ver el ciclo entero», o solo la invitación cuando el
-    /// servidor no dice por qué semana vas.
-    private var subtitulo: String {
-        guard let posicion else { return "Ver el ciclo entero" }
-        return "\(posicion.texto) · ver el ciclo entero"
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Hairline()
-            Button {
-                Haptics.light()
-                onAbrir()
-            } label: {
-                HStack(spacing: Theme.Spacing.s) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        LabelText(text: "El bloque", color: Theme.Color.faint, size: 10)
-                        // SIEMPRE se reserva esta línea, tenga o no nombre —
-                        // mismo motivo que `CabeceraDelBloque`: que el pie
-                        // cambie de alto según la semana es la raíz de que dos
-                        // pantallas con el mismo componente se vean distintas
-                        // (Alex, 7-ago).
-                        Text(nombre ?? " ")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                        Text(subtitulo)
-                            .scaledFont(12, weight: .medium, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                .padding(.top, 11)
-                .padding(.bottom, 2)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                [nombre, subtitulo].compactMap { $0 }.joined(separator: ", ")
-            )
-            .accessibilityAddTraits(.isButton)
-        }
-    }
-}
+// RETIRADO (11-ago): `EntradaAlCiclo`, el pie que abría la vista del ciclo.
+//
+// Era una tarjeta de tres líneas anclada abajo que repetía lo que la cabecera ya
+// dice (el nombre del bloque y «Semana N de M») y le quitaba alto al héroe, que
+// es el sujeto de la pantalla. La puerta al ciclo pasa al CROMO SUPERIOR de
+// `PlanView`, con el mismo símbolo del bloque (`square.stack.3d.up`), junto al
+// historial y al chat — un icono no le quita alto a nada (Alex, 11-ago).
 
 // MARK: - La cabecera del bloque
 
