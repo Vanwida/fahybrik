@@ -565,6 +565,22 @@ enum FechaES {
     /// El ISO de una fecha — la vuelta de `fecha(_:)`.
     static func iso(_ date: Date) -> String { entrada.string(from: date) }
 
+    /// Cuántos DÍAS de calendario faltan hasta `iso` (negativo = ya pasó).
+    ///
+    /// Cuenta por día natural y no por horas: entre las 23:00 de hoy y mañana a
+    /// las 00:30 hay hora y media, pero es MAÑANA — restar intervalos daría 0 y la
+    /// app diría «hoy» el día que no es. Nil cuando el ISO no se lee, para que
+    /// quien lo pida no pinte una cuenta atrás inventada.
+    static func diasHasta(_ iso: String, desde ahora: Date = Date()) -> Int? {
+        guard let destino = fecha(iso) else { return nil }
+        let cal = Calendar(identifier: .gregorian)
+        return cal.dateComponents(
+            [.day],
+            from: cal.startOfDay(for: ahora),
+            to: cal.startOfDay(for: destino)
+        ).day
+    }
+
     /// «3 de julio». Nil cuando la fecha no se puede leer — nunca media frase.
     static func larga(_ iso: String) -> String? {
         fecha(iso).map { salidaLarga.string(from: $0) }

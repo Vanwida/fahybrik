@@ -32,6 +32,66 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · La vista del ciclo es un CAMINO, no un boletín. Y el pie del 6-ago se retira
+
+**Decidido (directiva de Alex, 11-ago):** la pestaña Plan mueve la entrada al ciclo
+del PIE al CROMO SUPERIOR (icono `square.stack.3d.up`, el mismo símbolo del bloque,
+antes de calendario y chat), y `PlanCicloView` se reconstruye espina-first portando
+la propuesta que ya existía en el doble (`web/components/design-twin/screens/plan-ciclo/`).
+
+**Esto REVIERTE a propósito la decisión del 6-ago** («el botón de pie “El bloque”
+necesita un destino real»). Lo que se retira, y por qué:
+
+- **`EntradaAlCiclo`** (`Plan/PlanHoyAtoms.swift`): una tarjeta de tres líneas
+  anclada al pie que repetía lo que `CabeceraDelBloque` ya dice —nombre del bloque y
+  «Semana N de M»— y le quitaba alto al héroe, que es el sujeto de la pantalla. Un
+  icono en el cromo no le quita alto a nada. **Borrada**, no dejada muerta: solo la
+  usaba `PlanView`.
+- **El cumplimiento «Semana a semana»** de la v1 del ciclo, con `FilaSemanaDelCiclo`
+  y su barra de porcentaje. Dos razones: es PASADO y esta pantalla responde adónde
+  vas; y obligaba a pintar una barra sin listón, cuando dónde está el listón de una
+  semana buena es MÉTODO del coach (HARD RULE Nº0). **Borrado**, junto con
+  `RangoDeSemana`, que se quedaba huérfano.
+- **La sección «La próxima semana»** (`FilaDiaProximo`). Esa pregunta ya la responde
+  el carril del Plan deslizando a la izquierda — era el duplicado exacto que se
+  arregló el 6-ago, reintroducido en otra pantalla. **Borrado.**
+
+**El cable nuevo:** `GET /api/athlete/plan/ciclo` →
+`{ camino: PlanPathDTO + por tramo { level, events[] } | null, al_acabar: "repeat" | null,
+carrera: { name, date, goal_time_s } | null }`. El ciclo deja de leerse de
+`/macro-progress` (que solo sabe de cumplimiento semanal) y pasa a su propia porción
+cache-first en el store, calentada con la pestaña Plan.
+
+- `level` y `events` son **aditivos** en `TramoDelPlan`: el mismo camino viaja dentro
+  de una nota del coach y ese payload no los trae. En Swift van como `var` con
+  defecto — un `let` con valor inicial se queda FUERA del decode sintetizado y nunca
+  llegaría del cable.
+- `al_acabar` se guarda **cruda** y se interpreta aparte. Hoy solo existe `repeat` en
+  producción; cualquier otro valor se lee como «no se sabe» y el camino dibuja su
+  hueco. **No hacer:** no inventar frases para valores del enum que aún no existen.
+
+**La ley de la pantalla, que es la del doble:** la ESTRUCTURA está decidida y se
+pinta con seguridad (qué etapas hay, cuánto duran, cómo las llamó el coach, dónde
+cae hoy, qué está en el calendario, cuándo es la carrera); el RESULTADO MEDIDO del
+futuro no se sabe. **No hacer:** ni una barra de carga, de volumen o de intensidad
+prevista — las marcas de semana son POSICIÓN, no cantidad (todas miden lo mismo y
+solo cambia la de hoy), y el objetivo de la carrera solo se escribe si el atleta se
+lo puso.
+
+**La espina sigue siendo UNA** (`Plan/Espina/EspinaDelPlan.swift`): se extiende de
+forma aditiva (`forma` tramo/meta/hueco, `pasado`, `crece`, `contenido`, `etiqueta`)
+en vez de que el ciclo se dibuje su propio raíl. **No hacer:** no volver a dibujar
+una espina local por pantalla (misma regla que el 9-ago).
+
+**Divergencia consciente respecto al doble:** el texto de una parada pasada baja a
+`muted` y no al 45 % de su tono. El doble solo se ha mirado en oscuro; sobre lienzo
+claro ese 45 % se queda muy por debajo de 4,5:1 y el rótulo de semanas deja de
+leerse. Y el reparto vertical del sobrante es EQUITATIVO entre las paradas que
+crecen, no 3:2:1:1 — SwiftUI no reparte por peso, y una implementación con
+`GeometryReader` medía mal con contenido dinámico.
+
+---
+
 ## 2026-08-11 (noche) · La carrera guarda su NEGATIVO: se persiste lo medido, se deriva lo demás
 
 **Contexto:** análisis completo en `docs/correr-analitica.html`. Una carrera son

@@ -21,6 +21,25 @@ import Foundation
 // cuando no llega, con la misma regla, para que nadie pinte dos escalas
 // distintas del mismo plan.
 
+/// UN HITO YA PUESTO EN EL CALENDARIO dentro de un tramo: un simulacro o un
+/// test. Existe porque alguien lo programó, así que se pinta con seguridad
+/// aunque caiga en el futuro — a diferencia de un resultado, que no se sabe.
+///
+/// `milestone` del tramo dice que ahí DENTRO pasa algo; esto dice QUÉ y CUÁNDO.
+/// Los dos viajan porque responden a preguntas distintas: el primero decide el
+/// dibujo del nodo, el segundo llena la lista de «En el calendario».
+struct HitoDelTramo: Codable, Equatable {
+    /// «sim» | «test». Cadena y no enum a propósito: una clase que este binario
+    /// no conozca se sigue pintando con su nombre y su fecha en vez de tumbar el
+    /// tramo entero. Hoy no cambia el dibujo, así que no hay nada que mapear.
+    let kind: String
+    /// El nombre tal cual: `templates.name` o `coach_calibration_tests.name`.
+    let title: String
+    /// «YYYY-MM-DD». Cadena por lo mismo que `startDate`: una fecha suelta no es
+    /// un ISO 8601 completo y decodificarla como `Date` tumbaría el hito.
+    let date: String
+}
+
 /// Un tramo del camino: las semanas seguidas de UN microciclo del coach.
 struct TramoDelPlan: Codable, Equatable {
     /// Su sitio en el plan (0-based). Es lo que decide el tono.
@@ -51,6 +70,17 @@ struct TramoDelPlan: Codable, Equatable {
     /// El tono, ya derivado por el servidor. Opcional para que un payload sin él
     /// no tumbe el tramo: se vuelve a derivar de la posición (`tono`).
     let tone: Int?
+    /// El nivel que declara este tramo (`athlete_levels.label`, vocabulario del
+    /// coach). Nil = no declara ninguno.
+    ///
+    /// ADITIVO y con defecto: el camino que viaja dentro de una nota del coach no
+    /// trae este campo y tiene que seguir decodificando exactamente igual. `var` y
+    /// no `let` porque un `let` con valor inicial se queda FUERA del decode
+    /// sintetizado (y entonces nunca llegaría del cable).
+    var level: String? = nil
+    /// Lo que ya está puesto en el calendario dentro de este tramo, en orden.
+    /// Vacío = nada programado, y entonces no hay lista que pintar.
+    @LossyArray var events: [HitoDelTramo] = []
 
     /// El tono que le toca: el que manda el servidor o, si no viene, el de su
     /// posición. Una sola regla, escrita dos veces a propósito — el cliente

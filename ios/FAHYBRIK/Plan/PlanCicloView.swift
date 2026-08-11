@@ -1,63 +1,67 @@
 import SwiftUI
 
-// EL BLOQUE — de dónde vienes y qué viene después.
+// EL CICLO — el camino hacia tu objetivo.
 //
-// POR QUÉ EXISTE (docs/DECISIONS.md, 6-ago-2026)
-// ----------------------------------------------
-// El pie de la pestaña Plan necesitaba un destino real: un botón que no lleva a
-// ningún sitio es peor que no tener botón. Y el dato que hacía falta ya se pedía
-// —`GET /api/athlete/macro-progress`— y no lo pintaba nadie.
+// De dónde vienes, en qué punto estás y qué hay marcado por delante. No enseña
+// ningún entreno: enseña la ESTRUCTURA que el coach ha publicado, en orden, con
+// el cursor de hoy dentro y la carrera cerrando por abajo.
 //
-// LO QUE ESTA PANTALLA NO HACE, Y ES DELIBERADO
-// ---------------------------------------------
-// No dibuja una rampa de volumen previsto. Lo planificado se pinta con seguridad
-// (qué semanas hay, qué se cumplió); lo MEDIDO del futuro no existe todavía, y
-// una curva de carga para dentro de tres semanas afirma cuánto va a entrenar
-// alguien que aún no ha entrenado (contrato §7).
+// ---------------------------------------------------------------------------
+// LA ESPINA ES EL SUJETO DE ESTA PANTALLA
+// ---------------------------------------------------------------------------
 //
-// Y no emite ningún VEREDICTO sobre el cumplimiento. Dónde está el listón de una
-// semana buena es MÉTODO del coach, no mecanismo nuestro (HARD RULE Nº0): aquí se
-// enseña el porcentaje real y una barra neutra, nunca un verde/rojo que fije un
-// umbral que ningún coach ha elegido.
+// El ciclo se pinta con `EspinaDelPlan`, la MISMA pieza que dibuja el camino en
+// la nota del coach. No es un parecido: es el mismo componente. Un camino
+// redibujado por pantalla son dos caminos distintos a los dos meses, y el atleta
+// que ve «S5-S8 · Base 1» en la nota de su coach tiene que ver exactamente eso
+// aquí (docs/DECISIONS.md, 9-ago-2026).
+//
+// Lo que decide QUÉ dice cada parada está en `CicloDelPlan.swift` y es puro; lo
+// que cuelga de cada parada —las marcas de semana, lo que hay en el calendario,
+// la declaración del hueco, la cuenta atrás— está en `PlanCicloAtoms.swift`.
+//
+// ---------------------------------------------------------------------------
+// QUÉ DESAPARECIÓ DE LA v1, Y ES DELIBERADO (Alex, 11-ago-2026)
+// ---------------------------------------------------------------------------
+//
+// La v1 (6-ago) era una lista de cumplimiento semana a semana más un adelanto de
+// la próxima semana. Las dos cosas se van:
+//
+//   · El cumplimiento es PASADO, y esta pantalla responde adónde vas. El
+//     porcentaje semana a semana además obligaba a pintar una barra sin listón —
+//     dónde está el listón de una semana buena es MÉTODO del coach, no mecanismo
+//     nuestro (HARD RULE Nº0).
+//   · «La próxima semana» ya la responde la pestaña Plan deslizando el carril: dos
+//     sitios para la misma pregunta es lo que se arregló el 6-ago, no algo que
+//     reintroducir aquí.
+//
+// Y no dibuja ninguna rampa de carga prevista: lo planificado se pinta con
+// seguridad (qué tramos hay, cuánto duran, qué está en el calendario); lo MEDIDO
+// del futuro no existe todavía. Las marcas de semana son POSICIÓN, no cantidad.
+//
+// ALTURA (contrato §6.1): la pantalla es `llena` — el cromo, el sujeto y la
+// acción son fijos, y TODO el sobrante entra EN LAS PARADAS del camino. Sin un
+// solo tramo publicado no hay camino que repartir: degrada a `centra`.
 struct PlanCicloView: View {
     let bearer: String?
-    /// El nombre que el coach le puso al bloque. Llega ya resuelto desde el Plan:
-    /// es el mismo microciclo publicado, y pedirlo dos veces sería otra fuente.
-    let nombreBloque: String?
-    let posicion: PosicionEnBloque?
-    /// True cuando existe una semana siguiente ya publicada.
-    let hayProximaSemana: Bool
     let onClose: () -> Void
 
     @Environment(AppDataStore.self) private var store
 
     @State private var cargando = true
     @State private var falloDeCarga = false
-    /// La semana que viene, pedida directamente: es una navegación hacia delante,
-    /// no una porción compartida entre pestañas.
-    @State private var proxima: AthleteWeekPayload? = nil
-    @State private var proximaEnCurso = false
-    @State private var proximaFallo = false
 
-    private var progreso: AthleteMacroProgressPayload? {
-        store.macroProgress.value?.macroProgress
+    /// El sujeto sale del CAMINO, no de props: pedirle a quien abre la pantalla
+    /// que le pase el nombre del bloque era tener dos fuentes para el mismo
+    /// hecho, y la de aquí es la que trae la estructura entera.
+    private var ciclo: CicloDelPlan? {
+        store.planCiclo.value.flatMap { CicloDelPlan($0) }
     }
-    private var semanas: [AthleteMacroProgressWeek] { progreso?.weeks ?? [] }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                contenido
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cerrar") { Haptics.light(); onClose() }
-                        .foregroundStyle(Theme.Color.accentText)
-                        .accessibilityLabel("Cerrar")
-                }
-            }
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            contenido
         }
         .task { await cargar() }
     }
@@ -66,13 +70,13 @@ struct PlanCicloView: View {
 
     @ViewBuilder
     private var contenido: some View {
-        if cargando, semanas.isEmpty {
+        if cargando, store.planCiclo.value == nil {
             esqueleto
-        } else if falloDeCarga, semanas.isEmpty {
-            CenteredScreen {
+        } else if falloDeCarga, store.planCiclo.value == nil {
+            estadoCentrado {
                 RedesignEmptyState(
                     symbol: "wifi.exclamationmark",
-                    title: "No pudimos cargar tu bloque",
+                    title: "No pudimos cargar tu ciclo",
                     message: "Revisa tu conexión e inténtalo de nuevo.",
                     exit: .action(title: "Reintentar") {
                         Haptics.light()
@@ -81,315 +85,242 @@ struct PlanCicloView: View {
                     }
                 )
             }
-        } else if semanas.isEmpty {
-            CenteredScreen {
+        } else if let ciclo {
+            pantalla(ciclo)
+        } else {
+            // Sin estructura publicada no hay camino que repartir: degrada a
+            // Vacío y se centra, con la salida declarada. Este atleta puede que
+            // nunca haya tenido plan, así que tampoco se finge un pasado.
+            estadoCentrado {
                 RedesignEmptyState(
+                    // El mismo símbolo con el que se entra al ciclo desde el
+                    // Plan: la puerta y lo que hay detrás se dicen igual.
                     symbol: "square.stack.3d.up",
-                    title: "Tu bloque empieza cuando empieza tu plan",
-                    message: "Aquí verás cada semana del bloque y qué cumpliste en ella.",
-                    exit: .explained(note: "En cuanto tu coach publique la primera semana aparece aquí.")
+                    title: "Aún no tienes plan",
+                    message: "Cuando tu coach publique tu primera etapa, aquí verás por dónde vas y cuánto queda.",
+                    exit: .explained(note: LoPublicaElCoach.frase)
                 )
             }
-        } else {
-            lista
         }
     }
 
-    private var lista: some View {
+    // MARK: - La pantalla con datos
+
+    private func pantalla(_ ciclo: CicloDelPlan) -> some View {
         FillingScreen {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                cabecera
-                seccionSemanas
-                if hayProximaSemana { seccionProxima }
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                cromo(nivel: ciclo.nivelDeLoPublicado)
+                CuerpoDelCiclo(ciclo: ciclo)
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.xl)
+            .padding(.bottom, Theme.Spacing.s)
+        }
+        .refreshable { await cargar(force: true) }
+        .anchoredAction {
+            // La acción NO pesa como el sujeto (§10.5): el sujeto es lo que
+            // miras, la acción es lo que tocas. Volver a la semana es volver a la
+            // pestaña Plan, que es exactamente lo que hay detrás de esta.
+            SecondaryButton(title: "VER LA SEMANA") { onClose() }
+        }
+    }
+
+    // MARK: - Cromo superior
+
+    /// La línea de arriba: dónde estás, el nivel que declara lo publicado y la
+    /// salida. El nivel sale UNA vez aquí en lugar de repetirse en cada parada.
+    private func cromo(nivel: String?) -> some View {
+        HStack(alignment: .center, spacing: Theme.Spacing.s) {
+            LabelText(text: "Tu plan", color: Theme.Color.muted, size: 12)
+                .lineLimit(1)
+            Spacer(minLength: Theme.Spacing.s)
+            if let nivel, !nivel.isEmpty {
+                Text(nivel)
+                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+                    .lineLimit(1)
+                    .accessibilityLabel("Nivel \(nivel)")
+            }
+            botonCerrar
+        }
+        .frame(minHeight: 36)
+    }
+
+    private var botonCerrar: some View {
+        Button {
+            Haptics.light()
+            onClose()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Color.foreground)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cerrar")
+    }
+
+    // MARK: - Los estados sin datos
+
+    /// Envuelve un estado sin datos con el cromo persistente: la salida no puede
+    /// desaparecer solo porque no haya camino que enseñar.
+    private func estadoCentrado<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
+        CenteredScreen {
+            cromo(nivel: nil)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
+        } content: {
+            content()
         }
         .refreshable { await cargar(force: true) }
     }
 
-    // MARK: - Dónde estás
-
-    private var cabecera: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "El bloque", color: Theme.Color.accentText, size: 11)
-            if let nombreBloque {
-                Text(nombreBloque)
-                    .scaledFont(26, weight: .heavy, relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let posicion {
-                Text(posicion.texto)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                barraDePosicion(posicion)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    /// Dónde vas dentro del bloque. Es POSICIÓN, no carga: mide semanas, que es
-    /// lo único que se sabe de un bloque sin haberlo entrenado.
-    private func barraDePosicion(_ posicion: PosicionEnBloque) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.Color.hairlineStrong)
-                Capsule()
-                    .fill(Theme.Color.accent)
-                    .frame(width: max(4, geo.size.width * posicion.fraccion))
-            }
-        }
-        .frame(height: 6)
-        .padding(.top, 2)
-        .accessibilityHidden(true)
-    }
-
-    // MARK: - Semana a semana
-
-    private var seccionSemanas: some View {
+    /// El esqueleto de la carga en frío: la MISMA silueta que la pantalla real
+    /// —cromo, banda del sujeto, paradas— para que al llegar el dato nada salte
+    /// de sitio. Nunca un vacío mientras todavía no se sabe si está vacío.
+    private var esqueleto: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "Semana a semana")
-            Text("Cada semana con entrenos asignados y qué parte cerraste.")
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(spacing: 0) {
-                ForEach(Array(semanas.enumerated()), id: \.element.id) { indice, semana in
-                    FilaSemanaDelCiclo(semana: semana, numero: indice + 1)
-                    if semana.id != semanas.last?.id { Hairline() }
-                }
+            cromo(nivel: nil)
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                SkeletonBar(width: 220, height: 30)
+                SkeletonBar(width: 160, height: 13)
             }
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-    }
-
-    // MARK: - Lo que viene
-
-    private var seccionProxima: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "La próxima semana")
-            if proximaEnCurso {
-                VStack(spacing: Theme.Spacing.s) {
-                    SkeletonBar(height: 18)
-                    SkeletonBar(height: 18)
-                }
-                .accessibilityLabel("Cargando la próxima semana")
-            } else if proximaFallo {
-                Text("No pudimos cargar la próxima semana. Desliza para reintentarlo.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if let dias = diasConSesionDeLaProxima, !dias.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(dias, id: \.isoDate) { dia in
-                        FilaDiaProximo(dia: dia)
+            .frame(minHeight: CuerpoDelCiclo.bandaSujeto, alignment: .center)
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                ForEach(0..<4, id: \.self) { _ in
+                    HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                        SkeletonBar(width: 9, height: 9, radius: Theme.Radius.pill)
+                            .padding(.top, 8)
+                        VStack(alignment: .leading, spacing: 5) {
+                            SkeletonBar(width: 44, height: 10)
+                            SkeletonBar(width: 150, height: 14)
+                        }
                     }
                 }
-            } else {
-                Text("Tu coach aún no la ha publicado.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-            }
-        }
-    }
-
-    private var diasConSesionDeLaProxima: [DiaDelPlan]? {
-        guard let proxima else { return nil }
-        // Se reutiliza la MISMA lectura de la semana que pinta el Plan, pasando la
-        // semana siguiente: así los dos sitios cuentan los días igual.
-        let dias = proxima.days.map { day -> DiaDelPlan in
-            let reales = day.sessions.filter { !$0.assignmentId.isEmpty }
-            return DiaDelPlan(
-                isoDate: day.isoDate,
-                diaSemana: day.dayOfWeek,
-                inicial: "",
-                nombre: SemanaDelPlan.nombreDeDia(day.dayOfWeek),
-                numero: SemanaDelPlan.diaDelMesDe(day.isoDate),
-                sesiones: reales,
-                estado: reales.isEmpty ? .descanso : .pendiente,
-                esHoy: false
-            )
-        }
-        return dias.filter { !$0.sesiones.isEmpty }
-    }
-
-    // MARK: - Cargando
-
-    private var esqueleto: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            SkeletonBar(width: 90, height: 12)
-            SkeletonBar(width: 200, height: 26)
-            SkeletonBar(height: 6)
-            ForEach(0..<4, id: \.self) { _ in
-                SkeletonBar(height: 44, radius: Theme.Radius.m)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.Spacing.l)
-        .padding(.top, Theme.Spacing.l)
+        .padding(.top, Theme.Spacing.s)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Cargando tu bloque")
+        .accessibilityLabel("Cargando tu ciclo")
     }
 
-    // MARK: - Carga
+    // MARK: - Carga (cache-first + SWR, como el resto de la app)
 
     private func cargar(force: Bool = false) async {
-        // El progreso vive en el store (cache-first): si el Plan ya lo calentó,
-        // esta pantalla abre pintada.
-        await store.refreshMacroProgress(force: force)
-        falloDeCarga = store.macroProgress.value == nil && !store.macroProgress.hasLoaded
-        cargando = false
-
-        guard hayProximaSemana, let bearer else { return }
-        proximaEnCurso = proxima == nil
-        do {
-            proxima = try await PlanService.fetchWeek(bearer: bearer, weekOffset: 1).week
-            proximaFallo = false
-        } catch {
-            proximaFallo = true
+        guard bearer != nil else {
+            cargando = false
+            falloDeCarga = true
+            return
         }
-        proximaEnCurso = false
+        // El ciclo vive en el store (cache-first): si el Plan ya lo calentó, esta
+        // pantalla abre pintada en vez de girar.
+        await store.refreshPlanCiclo(force: force)
+        falloDeCarga = store.planCiclo.loadFailed
+        cargando = false
     }
 }
 
-// MARK: - Una semana del ciclo
+// MARK: - El cuerpo: el sujeto y el camino
 
-/// Una fila del historial semana a semana: qué semana fue, sus fechas, en qué
-/// estado está y —cuando se sabe— qué parte se cerró.
+/// EL SUJETO Y LA ESPINA — lo que se dibuja dentro del scroll.
 ///
-/// El cumplimiento llega del servidor como FRACCIÓN 0…1 pese a llamarse «pct»
-/// (shared/domain/coach/macro-progress.ts); lo escribe `Formato.porcentaje`, que
-/// es donde vive esa conversión y su trampa. Nil cuando esa semana no tiene nada
-/// asignado: ahí no hay porcentaje que dar, y un 0 % sería una acusación inventada.
-struct FilaSemanaDelCiclo: View {
-    let semana: AthleteMacroProgressWeek
-    let numero: Int
+/// Vive aparte de la pantalla por la misma razón que `ListaComunicados`: es lo que
+/// de verdad se mira, y así se puede dibujar en una prueba (el `ImageRenderer` no
+/// pinta un `ScrollView`) sin montar una copia del montaje.
+struct CuerpoDelCiclo: View {
+    let ciclo: CicloDelPlan
 
-    private var esActual: Bool { semana.status == "current" }
-    private var esFutura: Bool { semana.status == "upcoming" }
-
-    private var cumplimiento: String? { Formato.porcentaje(fraccion: semana.compliancePct) }
+    /// La banda del sujeto (§10.3). Ciclo, semana y día se abren una desde otra,
+    /// así que su sujeto cae a la MISMA altura: si en una está arriba y en la
+    /// siguiente 60 pt más abajo, el atleta reencuadra cada vez que baja un nivel.
+    static let bandaSujeto: CGFloat = 104
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text("Semana \(numero)")
-                        .scaledFont(14, weight: esActual ? .heavy : .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(esActual ? Theme.Color.accentText : Theme.Color.foreground)
-                    if esActual {
-                        InfoPill(text: "En curso", acento: true)
-                    } else if esFutura {
-                        InfoPill(text: "Por venir")
-                    }
-                }
-                if let rango = RangoDeSemana.texto(desde: semana.weekStart) {
-                    MonoText(text: rango, size: 11, color: Theme.Color.faint, escala: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // El dato pesa más que su etiqueta (§4). Y una semana por venir no
-            // tiene cumplimiento: no se pinta un cero que aún no ha pasado.
-            if let cumplimiento, let fraccion = semana.compliancePct, !esFutura {
-                VStack(alignment: .trailing, spacing: 3) {
-                    MonoText(text: cumplimiento, size: 17, weight: .bold, escala: true)
-                    barra(fraccion)
-                }
-                .frame(width: 78)
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            sujeto
+            EspinaDelPlan(tramos: ciclo.tramosDeLaEspina, semanasTotales: ciclo.semanasTotales)
+                .frame(maxHeight: .infinity, alignment: .top)
+            // La secuencia SÍ declara qué pasa al acabar: entonces no hay
+            // agujero, hay una regla, y se dice en una línea bajo el camino.
+            if !ciclo.hayHueco, let politica = ciclo.politica {
+                Text(politica.frase)
+                    .scaledFont(12, weight: .medium, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    // Cae bajo el texto de las paradas, no bajo el raíl.
+                    .padding(.leading, GeometriaEspina.sangria)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, Theme.Spacing.m)
-        .frame(minHeight: 58)
+    }
+
+    // MARK: El sujeto
+
+    @ViewBuilder
+    private var sujeto: some View {
+        if let tramo = ciclo.tramoActual, let semana = ciclo.semanaEnTramo {
+            bandaDelSujeto(
+                titulo: tramo.title,
+                cifra: CifraDelPlan(cifra: "\(semana)", sufijo: "de \(tramo.weekCount)"),
+                // La escala del ciclo solo se dice cuando NO coincide con la de la
+                // etapa: con una única etapa publicada las dos cuentas son la
+                // misma y repetirla sería ruido.
+                pie: ciclo.tramos.count > 1 && ciclo.semanaDelCiclo != nil
+                    ? "Semana \(ciclo.semanaDelCiclo!) de \(ciclo.semanasTotales) del ciclo"
+                    : nil,
+                voz: vozDelSujeto(tramo: tramo, semana: semana)
+            )
+        } else {
+            // Hoy no cae en ninguna etapa. No hay cifra que inventar: el sujeto es
+            // el hecho, no un contador puesto a cero.
+            bandaDelSujeto(
+                titulo: "Sin etapa activa",
+                cifra: nil,
+                pie: "Hoy no cae dentro de ninguna de tus etapas.",
+                voz: "Sin etapa activa. Hoy no cae dentro de ninguna de tus etapas."
+            )
+        }
+    }
+
+    private func bandaDelSujeto(
+        titulo: String,
+        cifra: CifraDelPlan?,
+        pie: String?,
+        voz: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+                // Un título largo baja un escalón antes que partirse en tres
+                // líneas: el sujeto se lee de un vistazo o no es el sujeto.
+                Text(titulo)
+                    .scaledFont(titulo.count > 24 ? 28 : 38, weight: .heavy,
+                                relativeTo: .title, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                cifra
+            }
+            if let pie {
+                Text(pie)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(minHeight: Self.bandaSujeto, alignment: .center)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(vozAccesible)
+        .accessibilityLabel(voz)
     }
 
-    /// Barra NEUTRA a propósito: dónde está el listón de una semana buena lo
-    /// decide el coach, no el software (HARD RULE Nº0).
-    private func barra(_ fraccion: Double) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.Color.hairlineStrong)
-                Capsule()
-                    .fill(Theme.Color.accent)
-                    .frame(width: max(2, geo.size.width * min(1, max(0, fraccion))))
-            }
-        }
-        .frame(height: 4)
-    }
-
-    private var vozAccesible: String {
-        var partes = ["Semana \(numero)"]
-        if let rango = RangoDeSemana.texto(desde: semana.weekStart) { partes.append(rango) }
-        if esActual { partes.append("en curso") }
-        if esFutura { partes.append("por venir") }
-        if let f = semana.compliancePct, !esFutura {
-            partes.append("\(Int((f * 100).rounded())) por ciento cumplido")
+    private func vozDelSujeto(tramo: TramoDelPlan, semana: Int) -> String {
+        var partes = ["\(tramo.title), semana \(semana) de \(tramo.weekCount)"]
+        if ciclo.tramos.count > 1, let delCiclo = ciclo.semanaDelCiclo {
+            partes.append("semana \(delCiclo) de \(ciclo.semanasTotales) del ciclo")
         }
         return partes.joined(separator: ", ")
-    }
-}
-
-// MARK: - Un día de la semana que viene
-
-struct FilaDiaProximo: View {
-    let dia: DiaDelPlan
-
-    var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.m) {
-            Text("\(dia.nombre) \(dia.numero)")
-                .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(width: 96, alignment: .leading)
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(dia.sesiones) { session in
-                    HStack(spacing: 7) {
-                        ModalityDot(modality: session.modality, size: 6)
-                        Text(session.title)
-                            .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(dia.nombre) \(dia.numero), \(dia.sesiones.map(\.title).joined(separator: ", "))")
-    }
-}
-
-// MARK: - Las fechas de una semana
-
-/// «21–27 jul» · «28 jul – 3 ago» — el tramo de una semana desde su lunes. Vive
-/// aparte porque lo escriben el ciclo y cualquier otra superficie que liste
-/// semanas: una segunda grafía del mismo rango es como nacen los duplicados (§2).
-enum RangoDeSemana {
-    static func texto(desde weekStartIso: String) -> String? {
-        guard let inicio = FechaES.fecha(weekStartIso),
-              let fin = Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: inicio),
-              let inicioCorto = FechaES.corta(weekStartIso)
-        else { return nil }
-        let cal = Calendar(identifier: .gregorian)
-        let mesIgual = cal.component(.month, from: inicio) == cal.component(.month, from: fin)
-        let diaFin = cal.component(.day, from: fin)
-        if mesIgual {
-            // «21–27 jul»: el mes se escribe una vez.
-            let mes = inicioCorto.split(separator: " ").last.map(String.init) ?? ""
-            let diaInicio = cal.component(.day, from: inicio)
-            return "\(diaInicio)–\(diaFin) \(mes)"
-        }
-        let finCorto = FechaES.corta(FechaES.iso(fin)) ?? "\(diaFin)"
-        return "\(inicioCorto) – \(finCorto)"
     }
 }
