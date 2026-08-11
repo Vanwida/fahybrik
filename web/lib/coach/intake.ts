@@ -62,10 +62,13 @@ import {
   type IntakeCommit,
   type IntakeNotesSnapshot,
 } from './intake-schema';
-
-// Number of days per microcycle (week). Local mirror of the assign-draft route
-// constant so first-block weeks are stepped identically.
-const DAYS_PER_WEEK = 7;
+import { IntakeError } from './intake-error';
+import {
+  materializeFirstMicrocicloDraft,
+  materializePersonalChain,
+  type FirstBlockDraftResult,
+  type PersonalChainResult,
+} from './intake-plan';
 
 // Re-export pure helpers for callers / tests.
 export {
@@ -76,6 +79,9 @@ export {
   proposeBlockSpecs,
   recommendBaselineTests,
 };
+// El error del alta vive en su propio módulo (para que `intake-plan.ts` lo use
+// sin importarse en círculo con éste); se reexporta para no mover a nadie.
+export { IntakeError };
 
 // =============================================================================
 // Types surfaced to API + UI
@@ -265,13 +271,23 @@ export interface CommitResult {
     week_starts: string[];
     assignment_count: number;
   } | null;
-}
-
-export class IntakeError extends Error {
-  constructor(public code: string, message: string, public status = 400) {
-    super(message);
-    this.name = 'IntakeError';
-  }
+  /**
+   * Cadena de microciclos PERSONALES creada al asignar en modo «plan solo para
+   * él»: un contenedor propio del atleta por tramo, encadenados sin hueco desde
+   * el lunes de esta semana y todos en borrador privado. `null` en modo
+   * compartido (donde el plan sale de la biblioteca del coach).
+   */
+  personal_plan?: {
+    tramos: Array<{
+      month_template_id: string;
+      /** Nombre que le puso el coach en el alta. */
+      name: string;
+      week_count: number;
+      start_date: string;
+      end_date: string;
+    }>;
+    week_starts: string[];
+  } | null;
 }
 
 // =============================================================================
@@ -1048,8 +1064,11 @@ export async function commitIntake(params: {
   // training weeks are materialized as microciclos (athlete_month_assignments) either
   // from an explicitly-chosen month template (below) or as a first-microciclo draft
   // from the coach's first month template — the ORDER of microciclos IS the plan.
+  // En modo `personal` esa misma lista SÍ se ejecuta: cada tramo se crea como un
+  // microciclo propio del atleta (ver materializePersonalChain más abajo).
   const snapshot: IntakeNotesSnapshot = {
     level: commit.level,
+    plan_mode: commit.plan_mode,
     block_specs: commit.block_specs,
     baseline_tests: commit.baseline_tests,
     acknowledged_warnings: commit.acknowledged_warnings,
@@ -1094,8 +1113,22 @@ export async function commitIntake(params: {
   // Optional: assign first month from template when Pablo confirms in intake.
   let month_assignment_count = 0;
   let first_block_draft: FirstBlockDraftResult | null = null;
+  let personal_plan: PersonalChainResult | null = null;
   let first_assignment_id: string | null = null;
-  if (commit.month_template_id && commit.month_start_date) {
+  if (commit.plan_mode === 'personal') {
+    // «Plan solo para él»: la lista de tramos del alta NO es un apunte, es el
+    // plan. Cada uno nace como microciclo PERSONAL del atleta y se encadena al
+    // anterior — nunca sale nada de la biblioteca ni de la matriz nivel×días.
+    personal_plan = await materializePersonalChain({
+      coach_id: params.coach_id,
+      coach_user_id: params.coach_user_id,
+      athlete_id: params.athlete_id,
+      specs: commit.block_specs,
+      now,
+      client,
+    });
+    first_assignment_id = personal_plan.first_assignment_id;
+  } else if (commit.month_template_id && commit.month_start_date) {
     // Use the SHARED materializer (lib/dashboard/coach/instantiate-program). It
     // materializes a session's inline `blocks[]` into a real template + segments
     // (carrying prescription_json), not just `template_id` references — so an
@@ -1125,6 +1158,7 @@ export async function commitIntake(params: {
     first_block_draft = await materializeFirstMicrocicloDraft({
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
+      now,
       client,
     });
     first_assignment_id = first_block_draft?.assignment_id ?? null;
@@ -1146,103 +1180,12 @@ export async function commitIntake(params: {
           assignment_count: first_block_draft.assignment_count,
         }
       : null,
+    personal_plan: personal_plan
+      ? { tramos: personal_plan.tramos, week_starts: personal_plan.week_starts }
+      : null,
   };
 }
 
-// =============================================================================
-// First-microciclo draft (default intake path) — AGNOSTIC: materializes the
-// coach's FIRST month template (a microciclo) via the shared materializer, then
-// marks each week as a PRIVATE manual draft via markWeekDraft (same gate as the
-// /assign-draft route: delivery_mode='manual', so the publish cron NEVER
-// auto-releases it) so Pablo lands on a reviewable draft, not an empty calendar.
-// =============================================================================
-
-type FirstBlockDraftResult = {
-  /** Microciclo NAME (coach data). */
-  block_type: string;
-  /** athlete_month_assignments.id of the materialized first microciclo. */
-  assignment_id: string;
-  start_date: string;
-  week_count: number;
-  week_starts: string[];
-  assignment_count: number;
-};
-
-async function materializeFirstMicrocicloDraft(params: {
-  coach_id: bigint | number;
-  athlete_id: bigint | number;
-  client: Sql;
-}): Promise<FirstBlockDraftResult | null> {
-  const { instantiateMonthFromTemplate, InstantiateProgramError } = await import(
-    '@/lib/dashboard/coach/instantiate-program'
-  );
-  const { markWeekDraft, DELIVERY_MODE } = await import('./publish-week');
-  const { addDays, isoDateString, mondayOfWeek } = await import(
-    '@fahybrid/shared/domain/dates'
-  );
-
-  // The coach's first LIBRARY month template (a microciclo) — athlete_id is null
-  // (0164) is load-bearing here: without it, the lowest-id row could be another
-  // athlete's PERSONAL plan (e.g. the coach's own test plan), and this brand-new
-  // athlete would be bootstrapped straight onto a stranger's bespoke content. No
-  // library month templates yet → no draft (degrade gracefully; Pablo programs
-  // the first microciclo manually).
-  const tplRows = await params.client<Array<{ id: string; name: string }>>`
-    select id::text, name
-    from program_month_templates
-    where coach_id = ${Number(params.coach_id)}
-      and athlete_id is null
-    order by id asc
-    limit 1
-  `;
-  const tpl = tplRows[0];
-  if (!tpl) return null;
-
-  // Anchor to this week's Monday so the materializer's Monday-aligned microcycles
-  // line up with the draft week_start dates we mark below.
-  const startMonday = mondayOfWeek(new Date());
-  const startIso = isoDateString(startMonday);
-
-  let assign: Awaited<ReturnType<typeof instantiateMonthFromTemplate>>;
-  try {
-    assign = await instantiateMonthFromTemplate({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      month_template_id: Number(tpl.id),
-      start_date: startIso,
-      client: params.client,
-    });
-  } catch (err) {
-    // Empty / unusable month template → degrade gracefully, no draft.
-    if (err instanceof InstantiateProgramError) {
-      return null;
-    }
-    throw err;
-  }
-
-  const weekCount = assign.microcycle_ids.length;
-  const weekStarts: string[] = [];
-  for (let i = 0; i < weekCount; i += 1) {
-    const weekStart = isoDateString(addDays(startMonday, i * DAYS_PER_WEEK));
-    await markWeekDraft({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      week_start: weekStart,
-      delivery_mode: DELIVERY_MODE.manual,
-      client: params.client,
-    });
-    weekStarts.push(weekStart);
-  }
-
-  return {
-    block_type: tpl.name,
-    assignment_id: assign.month_assignment_id,
-    start_date: assign.start_date,
-    week_count: weekCount,
-    week_starts: weekStarts,
-    assignment_count: assign.assignment_count,
-  };
-}
 
 async function sendWelcomeMessage(params: {
   client: Sql;
@@ -1382,12 +1325,6 @@ function formatHms(totalSeconds: number): string {
 function parseIsoDate(iso: string): Date {
   const [y, m, d] = iso.split('-').map((s) => Number(s));
   return new Date(Date.UTC(y, m - 1, d));
-}
-
-function daysBetween(a: Date, b: Date): number {
-  const aDay = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
-  const bDay = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
-  return Math.round((bDay - aDay) / 86_400_000);
 }
 
 function computeAge(dobIso: string, now: Date): number {
