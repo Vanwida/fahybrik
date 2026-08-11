@@ -1,7 +1,38 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-10**
+Última actualización: **2026-08-11**
+
+---
+
+## Ahora · La ficha del atleta dice la verdad — cuatro arreglos, en producción (11-ago)
+
+Alex abrió «Ver detalle» de su sesión de hoy y salieron cuatro cosas, todas
+nuestras. **Las cuatro desplegadas y verificadas** (producción `5ho4o7m0q`).
+
+1. **La etiqueta se comía una cifra.** «Prescrito» vivía en una columna de 58 px
+   y en mayúsculas con el espaciado de `v2-micro` ocupa ~79: se desbordaba y
+   caía ENCIMA del dato, tapando el «1» de «13×». El panel decía 3×. Fuera el
+   ancho mágico: rejilla de dos columnas, el ancho lo fija la etiqueta más larga.
+2. **La nota que el coach escribe por línea** (`template_segments.notes`) llegaba
+   al móvil del atleta y se caía justo en el panel donde el coach revisa lo que
+   mandó. Ahora se ve. (Y el título del bloque ya no se repite cuando es el mismo
+   de la ficha.)
+3. **«Circuito» a un fartlek de carrera.** La modalidad se adivinaba de
+   `templates.format`; ahora se lee de los ejercicios. Ver DECISIONS 11-ago.
+4. **Un toque borraba un entreno escrito**, y no quedaba rastro de quién. Las dos
+   raíces y lo decidido, en DECISIONS 11-ago. El rastro se pone en
+   `updateAthleteInstanceDay`, por donde pasan el panel Y el conector, con actor
+   obligatorio.
+
+**Qué NO se ha hecho:** la guardia «la dosis del título no puede contradecir la
+prescripción tipada» quedó propuesta y **descartada por ahora** — nació de creer
+que el conector tipaba mal, y resultó que no: tipó bien y otra cosa lo pisó. Si
+se retoma, que sea por sus méritos.
+
+**Rojo preexistente, no mío:** `tests/mcp/tools-plan.db.test.ts` espera la dosis
+plana (`4×1000m @ … · r2'`) y desde `86f479d0` la narración es la fina
+(`4×(1000m @ … / r2')`). El test se quedó sin actualizar en ese commit.
 
 ---
 

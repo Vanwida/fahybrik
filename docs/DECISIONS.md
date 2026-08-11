@@ -10,6 +10,67 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 · Un toque nunca borra trabajo escrito, y toda reescritura de un día deja rastro
+
+**El fallo que lo obligó:** el fartlek de la asignación 411 —16 × (500 m Z4 / 1' trote Z2), escrito
+correctamente por el conector— apareció convertido en 13 × (2' RPE 8 / 1' trote RPE 3). Contestar
+«¿quién cambió esto?» costó una investigación entera entre dos sesiones, y la respuesta no estaba
+en el registro porque no había registro: la escritura no dejaba ninguno.
+
+**Las dos raíces, y las dos son de mecanismo:**
+
+1. **Los chips de «Plantilla del principal» del editor de carrera SUSTITUYEN la fase principal**, y
+   lo hacían de un toque, sin preguntar y sin vuelta atrás. El contenido guardado era literalmente
+   el prefill del arquetipo «Fartlek» (`archetype-prefills.ts`). La línea rápida de al lado ya
+   tenía el instinto correcto —solo pisa cuando el principal sigue en blanco—; los chips no lo
+   seguían.
+2. **Guardar un día del atleta borra los segmentos y los vuelve a insertar** —la escritura más
+   destructiva del sistema— y era la única sin auditar, mientras el conector sí auditaba lo que
+   tenía al lado. Esa asimetría es lo que alargó la investigación: había rastro de crear la sesión
+   y ninguno de reescribirla.
+
+**Decidido:**
+
+- **Nada que destruya trabajo del coach ocurre con un solo toque.** Con el principal todavía en
+  blanco la plantilla entra directa (no cuesta nada); si ya hay algo escrito, se pregunta antes.
+  Misma regla para la × que quita una fase. Un único sitio decide qué cuenta como «escrito»
+  (¿sigue siendo el cuerpo que sembramos nosotros?), así que las dos acciones no pueden divergir.
+- **El rastro se pone donde pasan TODAS las superficies**, no en cada ruta: `updateAthleteInstanceDay`
+  es por donde entran el editor del panel y `edit_day`/`create_session` del conector. El actor es
+  **obligatorio**: un parámetro opcional habría dejado volver a la asimetría que se estaba cerrando.
+  La entrada guarda atleta, fecha y cuántos segmentos quedaron.
+
+**NO hacer en consecuencia:** no añadir otra ruta que escriba `template_segments` por su cuenta —
+si aparece una superficie nueva, entra por el mismo escritor. Y no volver a poner un botón de un
+toque que sustituya contenido autorado sin confirmación, aquí ni en los otros constructores.
+
+**Nota de atribución:** la hipótesis inicial (que lo hubiera reescrito un servidor de desarrollo
+apuntando a producción por el symlink de `.env.local`) resultó falsa — fue Alex probando el editor.
+El footgun del symlink sigue siendo real y sigue en la lista; simplemente no fue esta vez.
+
+---
+
+## 2026-08-11 · La modalidad de una sesión se LEE de sus ejercicios; adivinarla del formato es mentir en texto
+
+**El fallo:** la ficha del atleta rotulaba «Circuito» a un fartlek de carrera. La modalidad se
+inferí­a de `templates.format` (`intervals` → circuito) y de expresiones regulares sobre el título,
+con un comentario que decía que era «solo para el color» — pero ese rótulo se pinta como TEXTO en
+la tarjeta de hoy. Contra el dato real de una semana: 3 de 7 sesiones mal rotuladas.
+
+**Decidido:** la modalidad es intrínseca al ejercicio (mig 0053), así que la sesión no se adivina,
+se lee — con la modalidad PRESCRITA ganando a la del catálogo, la misma precedencia que ya usaba el
+brief del atleta. El colapso al eje de color de cinco valores va por reglas sin un solo umbral,
+porque un umbral sería método del coach y esto es mecanismo: remo y ski son la misma cosa
+(«Ergómetro»); el trabajo accesorio (core/movilidad) no define la sesión, solo manda cuando es lo
+único que hay; y varias a la vez son **«Mixta»**, porque elegir una en una simulación HYROX sería
+mentir. La heurística sigue viva únicamente para sesiones sin ejercicios que leer.
+
+**NO hacer en consecuencia:** no volver a derivar modalidad de `templates.format` en una superficie
+nueva, y no tratar «sin color» como «día de descanso» (la tira de la semana lo hacía; ahora eso lo
+decide el estado del día).
+
+---
+
 ## 2026-08-10 · Quién CONDUCE un tramo se decide una vez, y las pantallas leen eso — no el esquema
 
 **El fallo que lo obligó:** el fartlek dictado por MCP (16 × 500 m Z4 + 1' suave en Z2,
