@@ -179,6 +179,14 @@ final class PhoneMirrorService {
         }
     }
 
+    /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
+    /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
+    /// so without this kick the wrist can sit on "Conectando…" until the 1 Hz timer.
+    func kickFrame() {
+        guard mirrored != nil, session != nil else { return }
+        tickFrame()
+    }
+
     /// Close the wrist recording: `save == true` finishes it (→ one HKWorkout),
     /// false discards it. We send the intent and keep the mirrored session until the
     /// wrist confirms with `ended` (carrying the workout UUID) or a grace timeout —
@@ -275,10 +283,15 @@ final class PhoneMirrorService {
 
     private func tickFrame() {
         guard let session, mirrored != nil else { return }
+        // Always send at least the first frame of a session (lastSentKey empty),
+        // and re-send when structure changes or the heartbeat elapses. Free
+        // strength used to sit black on the wrist until something structural
+        // changed because the first tick could race before adopt.
         let frame = buildFrame(from: session)
         let key = structuralKey(frame)
         let now = Date()
-        if key != lastSentKey || now.timeIntervalSince(lastSentAt) >= Self.heartbeatInterval {
+        let first = lastSentKey.isEmpty
+        if first || key != lastSentKey || now.timeIntervalSince(lastSentAt) >= Self.heartbeatInterval {
             send(MirrorWire.MessageType.frame, frame)
             lastSentKey = key
             lastSentAt = now

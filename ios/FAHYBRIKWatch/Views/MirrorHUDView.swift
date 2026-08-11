@@ -32,8 +32,17 @@ struct MirrorHUDView: View {
 
     private var livePage: some View {
         ZStack {
+            // Fondo siempre — si no hay frame el `activeContent` devolvía
+            // EmptyView y el TabView pintaba NEGRO puro (el caso del libre de
+            // fuerza: el reloj ya está en espejo y el iPhone aún no ha empujado
+            // la primera trama, o la perdió).
+            WatchTheme.bg.ignoresSafeArea()
+
             if controller.state == .ending || phase == MirrorWire.Phase.finished {
                 savingOverlay
+            } else if frame == nil {
+                // Espejo activo sin trama: nunca dejar la pantalla en negro.
+                waitingForPhoneOverlay
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
             } else if phase == MirrorWire.Phase.countIn {
@@ -151,6 +160,7 @@ struct MirrorHUDView: View {
     /// toque — no un booleano precocinado que en la ronda 1 de 5 decía «Terminar».
     @ViewBuilder
     private var activeContent: some View {
+        // `frame == nil` se filtra en `livePage` (waiting overlay). Aquí siempre hay trama.
         if let f = frame {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 WatchReloj(
@@ -168,6 +178,22 @@ struct MirrorHUDView: View {
                 )
             }
         }
+    }
+
+    /// Espejo grabando / unido, todavía sin trama del iPhone. Antes era EmptyView
+    /// → pantalla negra (muy visible en libre de fuerza: el reloj arranca al
+    /// Empezar y el teléfono tarda un momento en mandar el primer frame).
+    private var waitingForPhoneOverlay: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .tint(WatchTheme.orange)
+            WatchLabel(text: "Conectando…", accent: true)
+            Text("El entreno se controla\ndesde el iPhone")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WatchTheme.dim)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
