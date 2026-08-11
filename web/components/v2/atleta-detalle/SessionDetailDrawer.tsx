@@ -14,7 +14,7 @@
 // the aggregate shows a single note + the prescription. Read-only — editing lives
 // in the day editor.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill, type PillTone } from '@/components/v2/Pill';
 import { ADHERENCE_BAND_COLOR_VAR, adherenceBand } from '@/components/v2/constants';
@@ -422,40 +422,45 @@ export function SessionDetailDrawer({
               {detail.workout && detail.workout.blocks.length > 0 ? (
                 detail.workout.blocks.map((block) => (
                   <section key={block.uid} className="flex flex-col gap-2">
-                    <h3 className="v2-micro">{block.title}</h3>
+                    {/* Una sesión de un solo bloque hereda el nombre de la
+                        plantilla (assignment-detail.ts), que es justo el título
+                        de esta ficha: repetirlo no informa de nada. */}
+                    {block.title.trim() !== title.trim() ? (
+                      <h3 className="v2-micro">{block.title}</h3>
+                    ) : null}
                     <div className="flex flex-col gap-1.5">
                       {block.items.map((item) => {
                         const actuals = byItem.get(item.uid) ?? [];
                         return (
                           <div
                             key={item.uid}
-                            className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
+                            /* Rejilla de dos columnas: el ancho de la columna de
+                               etiquetas lo fija la más larga, así que «Prescrito»
+                               —mayúsculas y espaciado— NUNCA puede montarse encima
+                               del dato y comerse una cifra. */
+                            className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2.5 gap-y-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
                           >
-                            <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                            <span className="col-span-2 text-sm font-semibold text-[color:var(--v2-fg)]">
                               {item.exercise_name}
                             </span>
-                            <div className="flex items-baseline gap-2">
-                              <span className="v2-micro shrink-0 w-[58px]">Prescrito</span>
-                              <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-                                {prescritoLine(item)}
-                                {item.resolved_intensity ? (
-                                  <span className="text-[color:var(--v2-faint)]">
-                                    {' · '}
-                                    {item.resolved_intensity.range_label}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </div>
+                            <span className="v2-micro">Prescrito</span>
+                            <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+                              {prescritoLine(item)}
+                              {item.resolved_intensity ? (
+                                <span className="text-[color:var(--v2-faint)]">
+                                  {' · '}
+                                  {item.resolved_intensity.range_label}
+                                </span>
+                              ) : null}
+                            </span>
                             {actuals.length > 0 ? (
                               actuals.map((a) => {
                                 const tokens = actualTokens(a);
                                 const verdict = verdictByLap.get(`${item.uid}#${a.position}`);
                                 return (
-                                  <div key={a.position} className="flex flex-col gap-1.5">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="v2-micro shrink-0 w-[58px] text-[color:var(--v2-ok)]">
-                                        Hecho
-                                      </span>
+                                  <Fragment key={a.position}>
+                                    <span className="v2-micro text-[color:var(--v2-ok)]">Hecho</span>
+                                    <span className="flex flex-wrap items-center gap-2">
                                       {tokens.length > 0 ? (
                                         <HechoChips tokens={tokens} />
                                       ) : (
@@ -464,23 +469,36 @@ export function SessionDetailDrawer({
                                         </span>
                                       )}
                                       {verdict ? <VerdictPill verdict={verdict} /> : null}
-                                    </div>
+                                    </span>
                                     {a.erg_splits && a.erg_splits.length > 0 ? (
-                                      <SplitsTable
-                                        splits={a.erg_splits}
-                                        dragFactor={a.drag_factor}
-                                        calPerHour={a.avg_calories_per_hour}
-                                      />
+                                      <div className="col-span-2">
+                                        <SplitsTable
+                                          splits={a.erg_splits}
+                                          dragFactor={a.drag_factor}
+                                          calPerHour={a.avg_calories_per_hour}
+                                        />
+                                      </div>
                                     ) : null}
-                                  </div>
+                                  </Fragment>
                                 );
                               })
                             ) : (
-                              <div className="flex items-baseline gap-2">
-                                <span className="v2-micro shrink-0 w-[58px]">Hecho</span>
-                                <span className="text-xs text-[color:var(--v2-faint)]">sin registro</span>
-                              </div>
+                              <>
+                                <span className="v2-micro">Hecho</span>
+                                <span className="text-xs text-[color:var(--v2-faint)]">
+                                  sin registro
+                                </span>
+                              </>
                             )}
+                            {/* Lo que el coach escribió DE SU PUÑO para esta línea
+                                (template_segments.notes). Llegaba al móvil del
+                                atleta y se caía justo aquí, que es donde el coach
+                                revisa lo que mandó. */}
+                            {item.notes ? (
+                              <p className="col-span-2 border-t border-[color:var(--v2-border)] pt-1.5 text-xs leading-snug text-[color:var(--v2-muted)]">
+                                {item.notes}
+                              </p>
+                            ) : null}
                           </div>
                         );
                       })}
