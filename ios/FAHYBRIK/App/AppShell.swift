@@ -156,12 +156,26 @@ struct AppShell: View {
             // Deliver whatever the offline queue captured in earlier sessions,
             // with the live token (see RequestQueue.drain).
             if bearer != nil {
+                // La cola tiene que saber contar sus entregas ANTES de drenar: la traza
+                // de una carrera guardada sin cobertura cuelga del `execution_id` que
+                // sólo viene en la respuesta de la ejecución que está a punto de subir.
+                await RequestQueue.shared.onDelivery { requestId, response in
+                    await WorkoutTraceUploader.executionDelivered(
+                        requestId: requestId,
+                        responseBody: response,
+                        bearer: KeychainTokenStore.shared.read()
+                    )
+                }
+                await WorkoutTraceUploader.sweep(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
             }
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, let bearer else { return }
-            Task { await RequestQueue.shared.drain(bearer: bearer) }
+            Task {
+                await WorkoutTraceUploader.sweep(bearer: bearer)
+                await RequestQueue.shared.drain(bearer: bearer)
+            }
         }
         .onAppear {
             handlePushDestination(pushRouter.pendingDestination)

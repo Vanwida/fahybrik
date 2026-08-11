@@ -731,16 +731,41 @@ enum FreeWorkoutAPI {
     static let path = "/api/athlete/workouts/free"
 
     static func submit(_ payload: FreeWorkoutPayload, bearer: String?) async {
+        _ = await submitReturning(payload, bearer: bearer)
+    }
+
+    /// El mismo envío, contando qué pasó: la ejecución creada, o la entrada de cola
+    /// que traerá su id. La carrera LIBRE es justo donde más falta hace la traza —
+    /// sin prescripción, los esfuerzos que se marcó el atleta sólo se pueden sacar de
+    /// la señal.
+    ///
+    /// El endpoint libre no devuelve récords, así que aquí `prs` viene vacío siempre;
+    /// se reusa `WorkoutExecutionResponse` porque lo que se lee —`execution_id`— es
+    /// idéntico, y una segunda estructura para el mismo campo es una copia que se
+    /// desincroniza sola.
+    static func submitReturning(
+        _ payload: FreeWorkoutPayload,
+        bearer: String?
+    ) async -> ExecutionSubmission {
         do {
-            try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
+            let response: WorkoutExecutionResponse = try await APIClient.shared.post(
+                path: path, body: payload, bearer: bearer
+            )
+            return ExecutionSubmission(response: response, queuedRequestId: nil)
+        } catch APIError.decoding {
+            // 2xx con un cuerpo inesperado: el entreno SÍ se guardó, así que jamás se
+            // reintenta (crearía un segundo entreno libre — este endpoint no fusiona).
+            return .none
         } catch {
             // AUDIT — a deterministic 4xx is never queued (it would replay forever).
             let enc = JSONEncoder()
             enc.keyEncodingStrategy = .convertToSnakeCase
             enc.dateEncodingStrategy = .iso8601
             if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
-                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                let queued = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued)
             }
+            return .none
         }
     }
 }

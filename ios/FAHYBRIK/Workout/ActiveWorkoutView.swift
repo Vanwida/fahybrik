@@ -310,6 +310,8 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             session.stop()
             runGPS.stop()
+            RunAltimeter.shared.onAltitude = nil
+            RunAltimeter.shared.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
@@ -320,6 +322,7 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
+                RunAltimeter.shared.stop()
                 releaseDevicesOnFinish()
                 onFinish()
             }
@@ -564,6 +567,22 @@ struct ActiveWorkoutView: View {
         runGPS.onDistanceDelta = { meters in
             session.sampleRunGPS(deltaMeters: meters)
         }
+        // La VELOCIDAD medida, para el archivo de la sesión. La pantalla de calle tiene
+        // su propio proveedor y hace lo mismo; sólo uno de los dos está vivo cada vez
+        // (`updateRunGPS` se aparta cuando la calle manda), así que la serie no se
+        // duplica.
+        runGPS.onSpeed = { speed, accuracy in
+            session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: accuracy)
+        }
+        // El cero del barómetro, por el mismo reparto.
+        runGPS.onAltitude = { meters, accuracy in
+            RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
+        }
+        // Y la altitud ya anclada entra en la sesión con SU instante: las lecturas
+        // anteriores al ancla salen a posteriori y tienen que caer en su segundo.
+        RunAltimeter.shared.onAltitude = { meters, at in
+            session.sampleAltitude(metersAboveSeaLevel: meters, at: at)
+        }
         liveHR.onSample = { bpm in
             session.injectLiveHR(bpm, source: .healthkit)
         }
@@ -669,6 +688,15 @@ struct ActiveWorkoutView: View {
             runGPS.start()
         } else {
             runGPS.stop()
+        }
+        // El barómetro va con la CARRERA, no con la pantalla: se enciende en cuanto hay
+        // un tramo de correr que no sea en cinta —lo lleve esta vista o la de calle— y
+        // se apaga en el resto. En cinta no se enciende nunca: no hay desnivel que
+        // medir y el permiso de movimiento no se pide para nada.
+        if isRunSegment && session.runEnvironment != .treadmill {
+            RunAltimeter.shared.start()
+        } else {
+            RunAltimeter.shared.stop()
         }
     }
 

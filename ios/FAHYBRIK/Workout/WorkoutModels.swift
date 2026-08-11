@@ -1175,25 +1175,31 @@ enum WorkoutExecutionAPI {
     }
 
     /// Submit and decode the response (which carries any running `prs` set this
-    /// session, #65). Returns nil — WITHOUT celebrating — when the response can't
-    /// be read, and preserves the offline-first replay on a network/HTTP failure.
+    /// session, #65, and the `execution_id` the session's trace hangs off).
+    /// Preserves the offline-first replay on a network/HTTP failure — and now REPORTS
+    /// the queued entry, because whoever wants to hang something off this execution
+    /// needs to know which entry will eventually bring its id.
     static func submitReturning(
         _ payload: WorkoutExecutionPayload,
         bearer: String?
-    ) async -> WorkoutExecutionResponse? {
+    ) async -> ExecutionSubmission {
         do {
-            return try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
+            let response: WorkoutExecutionResponse = try await APIClient.shared.post(
+                path: path, body: payload, bearer: bearer
+            )
+            return ExecutionSubmission(response: response, queuedRequestId: nil)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
-            return nil
+            return .none
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                let queued = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued)
             }
-            return nil
+            return .none
         }
     }
 }
@@ -1230,18 +1236,22 @@ enum DoblesExecutionAPI {
         sessionId: String,
         _ payload: WorkoutExecutionPayload,
         bearer: String?
-    ) async -> WorkoutExecutionResponse? {
+    ) async -> ExecutionSubmission {
         let p = path(sessionId: sessionId)
         do {
-            return try await APIClient.shared.post(path: p, body: payload, bearer: bearer)
+            let response: WorkoutExecutionResponse = try await APIClient.shared.post(
+                path: p, body: payload, bearer: bearer
+            )
+            return ExecutionSubmission(response: response, queuedRequestId: nil)
         } catch APIError.decoding {
-            return nil
+            return .none
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
+                let queued = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued)
             }
-            return nil
+            return .none
         }
     }
 }

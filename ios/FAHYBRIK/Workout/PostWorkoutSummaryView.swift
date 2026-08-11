@@ -297,6 +297,17 @@ struct PostWorkoutSummaryView: View {
         // even when the network is offline (#59).
         ReviewPromptStore.shared.recordWorkoutSaved()
 
+        // EL ARCHIVO DE LA SESIÓN, antes de tocar la red.
+        //
+        // La traza cuelga de un `execution_id` que todavía no existe, así que se
+        // APARCA EN DISCO primero y se resuelve después con lo que conteste el envío
+        // — o con lo que conteste la cola, días más tarde, si aquí no había línea.
+        // Aparcar antes y no después es lo que hace que la única forma de perder la
+        // traza sea perder también la sesión entera: si la app muere durante el
+        // envío, la ejecución tampoco se guardó ni se encoló, así que no hay nada a
+        // lo que colgarla. Ver `WorkoutTraceUploader`.
+        let traces = session.trace.traces(startedAt: session.startedAt)
+
         // FREE MODE: route to the free-save contract. No coach-prescription feedback
         // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
@@ -320,13 +331,20 @@ struct PostWorkoutSummaryView: View {
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
             Task {
+                let parkId = await WorkoutTraceUploader.park(traces)
                 var ref = wristRef
                 if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
                     ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
                 }
                 var sent = payload
                 sent.source_workout_ref = ref
-                await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                let submission = await FreeWorkoutAPI.submitReturning(sent, bearer: bearer)
+                await WorkoutTraceUploader.resolve(
+                    parkId: parkId,
+                    executionId: submission.executionId,
+                    queuedRequestId: submission.queuedRequestId,
+                    bearer: bearer
+                )
             }
             // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
             // Only a FULL finish counts: an abandoned attempt saves the session (the
@@ -364,15 +382,34 @@ struct PostWorkoutSummaryView: View {
             // only bound how long we WAIT for its response before closing, so a slow
             // API never traps the athlete here.
             let responseTask = Task { () -> WorkoutExecutionResponse? in
+                // El resguardo de la traza se saca ANTES del envío, para que exista en
+                // disco pase lo que pase con la red.
+                let parkId = await WorkoutTraceUploader.park(traces)
+                let submission: ExecutionSubmission
                 switch target {
                 case .solo:
-                    return await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
+                    submission = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
                 case .doublesJoint:
                     // sessionId == this athlete's own assignment id == payload.assignment_id.
-                    return await DoblesExecutionAPI.submitReturning(
+                    submission = await DoblesExecutionAPI.submitReturning(
                         sessionId: submitted.assignment_id, submitted, bearer: bearer
                     )
                 }
+                // El archivo sube POR SU CUENTA. Esperarlo aquí metería la subida de la
+                // traza —que pesa mucho más que el resumen— dentro de los 6 s que espera
+                // la celebración de un récord, y en red lenta se comería la celebración.
+                // Soltarlo tampoco lo pone en riesgo: el resguardo ya está en disco y el
+                // id se sella antes de enviar, así que si la app muere aquí el barrido
+                // del siguiente arranque lo termina.
+                Task {
+                    await WorkoutTraceUploader.resolve(
+                        parkId: parkId,
+                        executionId: submission.executionId,
+                        queuedRequestId: submission.queuedRequestId,
+                        bearer: bearer
+                    )
+                }
+                return submission.response
             }
             let response = await Self.firstValue(
                 of: responseTask, timeout: Self.prCelebrationLookupTimeout

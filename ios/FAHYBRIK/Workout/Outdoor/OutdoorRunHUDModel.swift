@@ -63,6 +63,15 @@ final class OutdoorRunHUDModel {
         gps.onSpeed = { [weak self] speed, acc in
             guard let self else { return }
             self.smoother.ingest(speedMps: speed, speedAccuracyMps: acc, now: self.now)
+            // Al suavizador va lo que se PINTA (una media móvil de 10 s); a la traza,
+            // lo que se MIDIÓ. Guardar el ritmo suavizado sería archivar nuestra
+            // interpretación, y quien lea la serie ya no podría suavizar a su manera.
+            self.session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: acc)
+        }
+        // El barómetro necesita que alguien le diga dónde está el cero, y el único que
+        // lo sabe es el GPS. Mientras esta pantalla mande, lo dice ella.
+        gps.onAltitude = { meters, accuracy in
+            RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
         }
         gps.onCoordinate = { [weak self] coord in
             self?.coordinates.append(coord)

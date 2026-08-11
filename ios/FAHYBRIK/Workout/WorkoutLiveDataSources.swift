@@ -41,6 +41,12 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     /// route trace (#64) is well-spaced and free of standstill jitter.
     var onCoordinate: ((CLLocationCoordinate2D) -> Void)?
 
+    /// La altura sobre el nivel del mar del fix, con su precisión vertical (negativa
+    /// = no la sabe). No es para medir desnivel —la vertical del GPS es su peor
+    /// medida— sino para ponerle el cero al barómetro, que sí lo mide bien pero no
+    /// sabe desde dónde. Ver `RunAltimeter`. Fired per gated fix, como `onSpeed`.
+    var onAltitude: ((_ meters: Double, _ verticalAccuracy: Double) -> Void)?
+
     /// Latest fix's horizontal accuracy (m; negative = none yet) — the outdoor HUD
     /// classifies it into the honest "GPS fuerte / débil / buscando" badge.
     private(set) var latestHorizontalAccuracyM: Double = -1
@@ -127,6 +133,7 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
             // Speed fires for EVERY good fix (auto-pause needs the standstill reading
             // that the min-step distance gate below would swallow).
             onSpeed?(loc.speed, loc.speedAccuracy)
+            onAltitude?(loc.altitude, loc.verticalAccuracy)
             if let prev = lastLocation {
                 let d = loc.distance(from: prev)
                 if d >= Self.minStepMeters && d <= Self.maxStepMeters {

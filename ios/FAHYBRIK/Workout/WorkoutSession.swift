@@ -59,6 +59,14 @@ final class WorkoutSession {
     /// same trace. nil when the run was never outdoors (no fabricated route).
     var capturedRoutePolyline: String? = nil
 
+    /// EL NEGATIVO DE LA SESIÓN: la serie entera de lo que se midió, no la media.
+    /// Se llena desde los mismos puntos de entrada que ya alimentan los tramos
+    /// (`injectLiveHR`, `sampleRunGPS`, `sampleTreadmillDistance` y los de velocidad
+    /// y altitud), así que hereda sus mismas puertas de honestidad — nada entra
+    /// pausado, terminado ni fuera de un tramo. El resumen la entrega al terminar.
+    /// Ver `WorkoutSession+Trace.swift`.
+    let trace = WorkoutTraceRecorder()
+
     // MARK: - Honest rep / strength / WOD logging (FASE 2 · PASO 2)
     //
     // Per logged unit of work we record what was ACTUALLY done vs prescribed
@@ -3128,6 +3136,12 @@ final class WorkoutSession {
 
         liveHRBpm = bpm
         lapHRSamples.append(bpm)
+        // EL ARCHIVO. La media del tramo se queda con un número; la traza se queda con
+        // el latido. Va aquí y no antes de la puerta de precedencia a propósito: se
+        // archiva lo que la sesión ACEPTÓ, no lo que llegó — así la serie y la media
+        // cuentan lo mismo, y un relevo de banda a reloj se ve como dos series
+        // consecutivas en vez de como una mezcla de dos pulsos.
+        trace.record(.hr, source: source.traceSource, value: Double(bpm), atSecond: traceSecond(now))
         // The tramo's own peak, so the rest screen can show a REAL drop ("162 → 138")
         // instead of a bare current value that says nothing about recovering.
         noteTramoHR(bpm)
@@ -3149,6 +3163,11 @@ final class WorkoutSession {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
+        // La distancia va a la traza ACUMULADA sobre el eje de la sesión, no por
+        // tramo: con ella cualquier instante del gráfico se puede llevar a un punto
+        // del recorrido, que es lo que la polilínea sola no puede hacer porque no
+        // lleva tiempos.
+        trace.accumulate(.distance, source: .gps, delta: deltaMeters, atSecond: traceSecond())
     }
 
     /// Feeds one treadmill INCLINE reading (%) into the current run segment's average
@@ -3184,6 +3203,9 @@ final class WorkoutSession {
         // does — otherwise minute 4's metres land in minute 3's bout.
         syncTramoIfNeeded()
         lapBeltDistanceMeters += deltaMeters
+        // En cinta la distancia la da la MÁQUINA, y eso queda sellado en la fuente de
+        // la traza: quien la lea sabe que estos metros no son de un GPS.
+        trace.accumulate(.distance, source: .treadmill, delta: deltaMeters, atSecond: traceSecond())
     }
 
     /// Live AVERAGE pace (sec/km) covered on the belt this segment — the covered belt

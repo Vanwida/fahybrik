@@ -35,6 +35,13 @@ final class TreadmillSessionFeeder {
         // A flat belt (0 %) is a real reading and counts toward the average; nil means
         // the machine reported no inclination at all, which is not a zero (§7).
         if let incline = sample.inclinePct { session.sampleTreadmillIncline(incline) }
+        // La VELOCIDAD que declara la máquina, al archivo de la sesión — cruda, sin
+        // pasar por `TreadmillSpeedResolver`. Ese resolutor existe porque algunas
+        // cintas congelan su velocidad instantánea mientras el cuentakilómetros sigue
+        // subiendo, y arregla lo que se PINTA. Lo que se guarda es lo que la máquina
+        // dijo: la distancia va en la misma traza y sobre el mismo eje, así que quien
+        // lea puede derivar la velocidad real y comparar las dos.
+        if let mps = sample.speedMps { session.sampleTreadmillSpeed(metersPerSecond: mps) }
     }
 
     /// Forget the belt's history — a different machine, or a fresh session.

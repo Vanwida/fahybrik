@@ -133,12 +133,18 @@ actor APIClient {
     /// POST a pre-encoded JSON body EXACTLY as stored. The offline RequestQueue
     /// persists the original encoded bytes, so its replay must send them
     /// verbatim — never re-encode (the in-memory DTO that produced them is
-    /// long gone). Success is any 2xx; the body is ignored.
+    /// long gone). Success is any 2xx.
+    ///
+    /// Devuelve el cuerpo de la respuesta, sin decodificar: quien encoló puede
+    /// necesitar lo que el servidor contestó días después (el `execution_id` de una
+    /// ejecución que subió desde la cola, y del que cuelga la traza de la carrera).
+    /// Descartable, que es como lo usa casi todo el mundo.
+    @discardableResult
     func postJSONData(
         path: String,
         data: Data,
         bearer: String? = nil
-    ) async throws {
+    ) async throws -> Data {
         var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -149,6 +155,7 @@ actor APIClient {
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, respData)
         }
+        return respData
     }
 
     /// PATCH with a JSON body. Mirrors `post(...)` exactly, differing only in

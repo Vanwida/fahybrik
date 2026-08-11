@@ -98,6 +98,13 @@ private struct PRWire: Decodable {
 struct WorkoutExecutionResponse: Decodable {
     private let prs: [PRWire]?
 
+    /// La ejecución que el servidor acaba de crear. Viaja como TEXTO (el endpoint
+    /// hace `String(executionId)`) y es de lo que cuelga la traza de la sesión, que
+    /// se sube justo después en su propia petición. Opcional: una respuesta que no lo
+    /// traiga no puede tumbar el decode y llevarse por delante la celebración de un
+    /// récord — simplemente no habrá dónde colgar la traza.
+    let executionId: String?
+
     /// The records set this session, resolved to KNOWN distances (unknown `kind`
     /// values are skipped, never fatal). Empty when the athlete set none.
     var personalRecords: [PersonalRecord] {
@@ -106,6 +113,26 @@ struct WorkoutExecutionResponse: Decodable {
             return PersonalRecord(kind: kind, newValueS: wire.newValueS, prevValueS: wire.prevValueS)
         }
     }
+}
+
+/// Qué pasó con el envío de una ejecución, para quien tenga que colgar algo de ella.
+///
+/// Existe porque el resultado del envío ya no es «la respuesta o nada»: cuando no hay
+/// cobertura la petición se ENCOLA, y esa entrada es la que traerá el `execution_id`
+/// días después. La traza de la carrera necesita saber cuál de las dos cosas pasó.
+struct ExecutionSubmission {
+    /// La respuesta del servidor, si llegó a haberla.
+    let response: WorkoutExecutionResponse?
+    /// La entrada de la cola que reintentará el envío, si se encoló.
+    let queuedRequestId: UUID?
+
+    /// La ejecución creada, numérica, o nil si aún no se sabe cuál es.
+    var executionId: Int? {
+        guard let raw = response?.executionId, let value = Int(raw), value > 0 else { return nil }
+        return value
+    }
+
+    static let none = ExecutionSubmission(response: nil, queuedRequestId: nil)
 }
 
 // MARK: - #58 · Structured session feedback (to the coach)
