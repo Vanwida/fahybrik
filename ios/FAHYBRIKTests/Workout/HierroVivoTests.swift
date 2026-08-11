@@ -471,6 +471,16 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-2-descanso"))
     }
 
+    /// EL EJERCICIO HECHO — con todas cerradas el sujeto es el NOMBRE, no un «SERIE
+    /// 4 DE 4» que se lee como si quedara por hacer.
+    @MainActor
+    func testRenderEjercicioHecho() {
+        let s = squat4x10(cerradas: 4)
+        s.dismissRest()
+        XCTAssertNil(s.pendingSetIndex)
+        XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-4-hecho"))
+    }
+
     /// LA PIRÁMIDE — cinco series desiguales, carga en %RM y el riel como ventana.
     @MainActor
     func testRenderPiramideConVentana() {

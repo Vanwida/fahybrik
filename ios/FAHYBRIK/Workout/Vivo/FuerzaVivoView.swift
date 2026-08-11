@@ -353,6 +353,13 @@ struct FuerzaVivoView<Cromo: View>: View {
     private var sujeto: some View {
         if descansando {
             sujetoDescanso
+        } else if porSeries, seriePendiente == nil, !session.setRecords.isEmpty {
+            // TODAS CERRADAS. Sin esto el sujeto seguía siendo la última serie con su
+            // «SERIE 4 DE 4», que se lee como si quedara por hacer justo cuando ya no
+            // queda nada: el ejercicio pasa a ser el sujeto y el riel de abajo es el
+            // resumen de lo que hiciste.
+            EtiquetaSujeto(texto: "Ejercicio hecho")
+            nombreComoSujeto(movimiento(indiceSerieActual))
         } else if porSeries, let i = indiceSerieActual {
             sujetoDeSerie(i)
         } else if seg?.repsArePrimable == true {
