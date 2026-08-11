@@ -446,13 +446,30 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   verificar: `MarcoVivo` SÍ existe en Swift con 4 llamadas (el «cero» era un
   artefacto de grep con trailing closures); el hueco real es que su Layout no
   PUBLICA el presupuesto de apoyos — eso es lo que se generaliza. Ver
-  DECISIONS 2026-08-11 «El vivo tiene UN lenguaje» (con la corrección). En
-  marcha: piloto FUERZA como propuesta del doble (agente) → OK de Alex →
-  Swift; luego EMOM, AMRAP, estaciones, ergo y descanso, una por lote con su
-  espejo. También arreglado hoy: el editor del panel vendía ceguera con
-  bloques test autorados (batería del conector: solo config y notas, dosis
-  invisibles) — `c9e674db`, desplegado; TestForm solo para tests del catálogo,
-  el resto degrada al editor de items.
+  DECISIONS 2026-08-11 «El vivo tiene UN lenguaje» (con la corrección).
+  **FUERZA PORTADA (11-ago noche, `3b61e5bc..85aabbf2`, suite 1253 TEST
+  SUCCEEDED en worktree limpio):** el host ganó `PresupuestoApoyos` +
+  `CascadaApoyos` + `TiraFormatoVivo` (Theme/LenguajeVivoCascada.swift);
+  sujeto = dosis con las 4 escrituras de carga; riel ventana-de-3 desde la
+  5ª; velocidad 1ª de la fila con semáforo (sin sensor NO existe; poca
+  confianza sin cifra); frase de pérdida con serie cerrada; descanso en
+  tinta normal + acción de contorno; `dosisDeSeries` BORRADO (código muerto
+  que mentía «5×6» en pirámides; regresión en el renderer, secuencias con
+  BARRA «6/6/4/4/3» porque el guion significa banda). El doble queda
+  `construida` con 5 divergencias declaradas en su `enApp` (barra de discos
+  = átomo nuevo pendiente; «Pulso»→«FC»; m/s en vuelo; etc.).
+  **Pendiente de instalar en el iPhone de Alex** — bloqueado por
+  `Sensor/RepTracker.swift` sin commitear de la sesión de sensores (el
+  checkout no compila; avisada, instala ella al aterrizar).
+  **Backlog nuevo:** unificar la grafía de rangos (el renderer escribe
+  «75–85» con guion largo — viola la regla de cero guiones largos — y
+  Formato «75-85»; un lote propio) · capturas de render tests (la env var
+  no llega al sim: va en el esquema, compartido). **Siguientes lotes:**
+  RONDAS adopta el host, luego EMOM, AMRAP, estaciones, ergo, descanso.
+  También arreglado hoy: el editor del panel vendía ceguera con bloques test
+  autorados (batería del conector: solo config y notas, dosis invisibles) —
+  `c9e674db`, desplegado; TestForm solo para tests del catálogo, el resto
+  degrada al editor de items.
 - **Incidente de datos (11-ago, resuelto — y era Alex xD):** la sesión real
   del fartlek dictado (asignación 411) apareció con 4 ejes cambiados (el
   prefill del arquetipo fartlek, `archetype-prefills.ts:58`). Se culpó primero
