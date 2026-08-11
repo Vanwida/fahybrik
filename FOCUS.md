@@ -45,18 +45,26 @@ vistas. En cuanto el entrenador suba su propio fichero en vez de pegar un
 enlace, ese vídeo se quedaba invisible: ni botón, ni reproductor.
 
 **Hecho (iOS, construido y con tests):** el localizador tiene dos formas válidas
-y ninguna más — enlace de YouTube, o ruta nuestra `/api/exercises/video/<key>`
-servida tras autenticación. Las clasifica UNA pieza, `VideoDeTecnica`
+y ninguna más — enlace de YouTube, o el vídeo propio del entrenador. Las
+clasifica UNA pieza, `VideoDeTecnica`
 (`ios/FAHYBRIK/Media/YouTubeEmbedView.swift`), que además decide qué reproductor
 se monta: el embed de siempre o `AVPlayer` nativo. Las cinco vistas (ficha del
 ejercicio, índice de técnica de la sesión, previa del entreno, estación de
-carrera, entreno en vivo) ya no miran la URL a mano. El fichero propio se pide
-con el bearer de la sesión reutilizando el cargador autenticado del chat; sin
-localizador no se pinta nada, y si no carga se dice y se puede reintentar.
+carrera, entreno en vivo) ya no miran la URL a mano; sin localizador no se pinta
+nada, y si no carga se dice y se puede reintentar.
 
-**Falta:** el backend todavía no sirve `/api/exercises/video/<key>` ni hay
-subida de fichero en el dashboard — el lado iOS está listo esperándolo. Enlaza
-con la biblioteca de ejercicios de abajo, que midió **0 vídeos** en el catálogo.
+**CERRADO el mismo día — el vídeo propio vive en Cloudflare Stream.** El fichero
+alojado por nosotros (blob privado + proxy autenticado) duró unas horas y se
+retiró entero: Stream **transcodifica** lo que se le eche (el `.mov` HEVC de un
+iPhone deja de ser una lotería), sirve **calidad adaptativa por HLS** y los bytes
+**no pasan por nuestro cómputo**, que es el cuello para escalar a muchos
+entrenadores. La segunda forma pasa a ser el manifiesto
+`https://customer-<code>.cloudflarestream.com/<uid>/manifest/video.m3u8`: una
+columna, sin migración, sin tabla nueva. En iOS lo reproduce `AVPlayer` de forma
+nativa y **sin bearer**. Detalle y qué no volver a hacer, en `docs/DECISIONS.md`.
+
+**Falta:** nada bloquea al entrenador — puede grabar y subir. Enlaza con la
+biblioteca de ejercicios de abajo, que midió **0 vídeos** en el catálogo.
 
 ---
 

@@ -10,7 +10,97 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 (tarde) · El vídeo propio del entrenador vive en Cloudflare Stream, y el fichero nuestro se retira el mismo día
+
+**Decidido:** la segunda forma del localizador deja de ser una ruta nuestra y pasa a
+ser el **manifiesto HLS que devuelve Cloudflare Stream**:
+`https://customer-<code>.cloudflarestream.com/<uid>/manifest/video.m3u8`. Absoluto y
+autodescriptivo. **Una sola columna**, sin tabla nueva, sin migración y sin esquemas
+inventados tipo `stream:` — entra por la rama de URL absoluta que ya existía.
+
+**Por qué:**
+
+- Stream **transcodifica** lo que se le eche, así que un `.mov` en HEVC salido de un
+  iPhone deja de ser una lotería de compatibilidad en el móvil del atleta.
+- Sirve **calidad adaptativa por HLS**, que es lo que hace falta cuando el atleta mira
+  la técnica en medio del gimnasio con la cobertura que haya.
+- Los **bytes no pasan por nuestro cómputo** ni al subir ni al reproducir. Ese era el
+  cuello de botella real para escalar a muchos entrenadores: con el proxy autenticado,
+  cada reproducción de cada atleta se pagaba en función nuestra.
+
+**Cómo, en concreto:**
+
+- **Subida directa, igual que antes**: `POST /api/coach/exercises/video/subida` valida
+  la intención (coach, ejercicio suyo o forkeable, formato) y pide a Stream una URL de
+  subida de un solo uso; el navegador hace `POST` del fichero DIRECTO a Cloudflare.
+  `maxDurationSeconds` = 5 min (`EXERCISE_VIDEO_MAX_DURATION_SECONDS`), que es la
+  regla que manda sobre el tamaño porque va firmada en la reserva y la aplica
+  Cloudflare. El tope de bytes sigue siendo el del vídeo del chat y es sólo un corte
+  amable en el navegador: los bytes no pasan por nosotros, así que «validarlos» en
+  servidor sería teatro.
+- **Hay que ESPERAR**: `GET /api/coach/exercises/video/estado?uid=` sondea hasta
+  `readyToStream`. Un vídeo recién subido NO se reproduce, y dar por bueno el
+  localizador al terminar el `PUT` sería prometer un vídeo que el atleta vería en
+  negro. El panel lo cuenta con cuatro estados honestos: subiendo, procesando, listo,
+  error con motivo. **Sólo cuando está listo se escribe el localizador en el campo.**
+- **`requireSignedURLs: false`** por ahora, y dicho en el código: el uid son 32
+  hexadecimales que no se adivinan, o sea la MISMA exposición que un vídeo de YouTube
+  no listado, que es lo que los entrenadores usan hoy. La reproducción firmada es un
+  interruptor **por vídeo** que se voltea por API sin tocar el localizador ni migrar
+  nada: no es una puerta que estemos cerrando.
+- **Reproducción**: en web, el iframe de Stream (`.../<uid>/iframe`) con la misma forma
+  que el embed de YouTube; en iOS, `AVPlayer` sobre el HLS, que lo hace de forma
+  NATIVA y **sin bearer** (la URL es absoluta y pública).
+
+**Eliminado el mismo día en que nació** (medido antes de borrar: `propios = 0` en
+`exercises` y en `coach_exercise_overrides`; los 3 `video_url` que había son enlaces de
+YouTube):
+
+- `web/lib/exercises/video-upload.ts` (la prefirma contra Vercel Blob),
+- `POST /api/coach/exercises/video-url`,
+- `GET /api/exercises/video/[...key]` (el proxy autenticado de lectura),
+- y en iOS, `VideoDeTecnica.propio` + `VideoPropioPlayer`, que bajaban el fichero
+  entero con el bearer reutilizando el cargador del chat.
+
+Dejar los dos caminos vivos habría sido exactamente lo que no queremos: dos maneras de
+hacer lo mismo, divergiendo. Lo que había servido durante horas y no lo usaba nadie.
+
+**Los FORMATOS aceptados cambian de criterio, y no por capricho.** Eran los del vídeo
+del chat (mp4/mov/m4v) porque la regla era «lo que decodifica el móvil del atleta» —
+cierto cuando le servíamos el fichero tal cual. Con Stream transcodificando eso dejó de
+ser verdad, así que la lista pasa a ser **la que Stream ingiere** y vive en
+`video-source.ts`. Mantener la lista corta habría sido dejar puesta una validación cuya
+razón de ser ya no existe, rechazándole al entrenador ficheros que Stream acepta sin
+problema.
+
+**Qué NO hacer en consecuencia:**
+
+- **No volver a recibir los bytes de un vídeo en una ruta nuestra**, ni al subir ni al
+  leer. Sigue valiendo la decisión del 27-jul, y ahora también para la lectura.
+- **No atar la validación al customer code de NUESTRA cuenta.** `video-source.ts` es
+  isomórfico y corre en el navegador: meter ahí configuración de servidor la rompería
+  el día que cambie la cuenta. Lo que hay que cerrar —que no apunte a un dominio
+  ajeno— se cierra comparando el host ENTERO (prefijo + sufijo), nunca con `contains`.
+- **No guardar la orientación ni el tipo en una columna.** El tipo se deriva de la
+  forma del localizador, como siempre. La verticalidad no viaja en una URL de Stream
+  (a diferencia del `/shorts/` de YouTube): en web el marco es 16:9 y el reproductor de
+  Cloudflare centra, y en iOS se lee la relación REAL del `presentationSize` del propio
+  reproductor.
+
+**Hueco conocido, declarado:** si el entrenador sube un vídeo y cierra el panel sin
+guardar, el vídeo queda en Stream sin que ninguna fila lo referencie. No hay recolector
+de huérfanos y hoy no hace falta; el día que moleste, el `creator` (`coach:<id>`) que ya
+se anota en cada vídeo es por dónde se barre.
+
+---
+
 ## 2026-08-11 · El vídeo de un ejercicio: dos formas de localizador, una sola pieza que clasifica
+
+> **SUPERADA EN PARTE ESA MISMA TARDE** (ver la entrada de arriba): sigue siendo verdad
+> que hay **dos formas y una sola pieza que clasifica**, pero la segunda ya no es una
+> ruta nuestra servida tras autenticación, sino el vídeo alojado en Cloudflare Stream.
+> Todo lo que dice esta entrada sobre el fichero propio en Vercel Blob (la prefirma, el
+> proxy de lectura, la carpeta por coach) está **eliminado**.
 
 **Decidido:** `exercise_video_url` (y sus gemelos `technique_video_url` y
 `WorkoutSegment.videoUrl`) tiene **exactamente dos formas válidas**:
