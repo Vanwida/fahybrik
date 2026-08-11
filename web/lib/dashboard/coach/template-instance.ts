@@ -55,13 +55,13 @@ export async function cloneTemplateAsInstance(params: {
     insert into templates (
       coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
-      coach_notes, meta_json, demo_video_url, methodology_group_id,
+      coach_notes, meta_json, methodology_group_id,
       instance_athlete_id, instance_of_template_id
     )
     select
       coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
-      coach_notes, meta_json, demo_video_url, methodology_group_id,
+      coach_notes, meta_json, methodology_group_id,
       ${ath}, coalesce(instance_of_template_id, id)
     from templates
     where id = ${src}

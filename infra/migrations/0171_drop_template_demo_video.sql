@@ -1,0 +1,36 @@
+-- 0171_drop_template_demo_video.sql
+--
+-- FUERA EL VÍDEO POR PLANTILLA, QUE NUNCA TUVO ESCRITOR
+-- (cierra la 0013; ver docs/DECISIONS.md 2026-08-11.)
+--
+-- EL HUECO
+-- --------
+-- La 0013 creó `templates.demo_video_url` para un «vídeo de demostración de
+-- todo el entreno» que el coach adjuntaría desde el constructor de plantillas.
+-- Ese constructor nunca lo pidió: ninguna ruta del panel lo escribe ni lo lee
+-- —lo único que lo mencionaba era el estudio interno de `/design`— y en el
+-- cliente el campo espejo (`WorkoutPlan.demoVideoUrl`) se construía a `nil` en
+-- las ocho llamadas que existían, sin una sola lectura. Su hermano de la misma
+-- migración, la clave `video_url` dentro de `template_segments.params_json`,
+-- corrió igual suerte: declarada en el esquema, jamás escrita.
+--
+-- Peor que inerte: el fork por atleta (0083) COPIA la lista de columnas de la
+-- plantilla, así que cada instancia que se crea arrastra el campo muerto una
+-- vez más.
+--
+-- LA DECISIÓN
+-- -----------
+-- El vídeo de técnica cuelga del EJERCICIO, no del entreno — que es donde el
+-- atleta lo busca («cómo se hace este movimiento») y donde el coach ya puede
+-- ponerlo, con su fork de voz por coach (`coach_exercise_overrides`). Un vídeo
+-- por plantilla no tiene pregunta que responder.
+--
+-- Se suelta la columna. El código que la nombraba ya salió en el commit
+-- anterior, incluida la copia de columnas del fork.
+--
+-- SEGURIDAD
+-- ---------
+-- Cero filas con valor (comprobado antes de escribir esto): no se pierde nada.
+
+alter table templates
+  drop column if exists demo_video_url;
