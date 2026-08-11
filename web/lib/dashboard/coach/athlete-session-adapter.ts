@@ -29,6 +29,7 @@ import type {
 import type { PlanSessionStatus } from '@/lib/dashboard/coach/athlete-plan';
 import type { RunComplianceResult } from '@/lib/dashboard/coach/run-compliance';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import type { AssignmentDetailTrace } from '@/lib/execution/session-trace';
 
 /** Payload of the coach session-detail endpoint (drawer host fetches this). */
 export interface CoachSessionDetail {
@@ -75,6 +76,10 @@ export interface CoachSessionDetail {
     pain_area: string | null;
     /** Optional free-text detail on the discomfort, null when none. */
     pain_note: string | null;
+    /** El corte por kilómetro (fidelidad completa) + la curva de ritmo/pulso
+     *  reducida solo para dibujar — mismo contrato que sirve al atleta (ver
+     *  AssignmentDetailTrace). `available: false` = sesión sin traza guardada. */
+    trace: AssignmentDetailTrace;
   } | null;
   /** Per-exercise actuals the athlete logged (segment_executions), mapped to the
    *  prescribed item via `item_uid`. Empty when the session has no granular log

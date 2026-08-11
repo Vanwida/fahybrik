@@ -21,10 +21,15 @@ import 'server-only';
 // `workout_traces` (todo lo grabado antes de esta tanda, o sin el motor en vivo
 // emitiendo trazas todavía) simplemente no gana estos campos — nunca se
 // rellenan retroactivamente ni se inventan.
+//
+// La carga y el alineado de las señales (`hr`/`speed`/`altitude`, más
+// `distance` que este módulo no usa) viven en `execution-traces.ts` — el
+// mismo paso que necesita el camino de LECTURA (`session-trace.ts`), así que
+// ninguno de los dos tiene su propia copia.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { bestHrTrace, type TraceRow } from '@/lib/zones/segment-zone-seconds';
+import { loadExecutionTraces } from '@/lib/execution/execution-traces';
 import { computeDecoupling, type EffortLeg } from '@fahybrid/shared/domain/running/decoupling';
 import { computeElevation } from '@fahybrid/shared/domain/running/elevation';
 import { computeHrRecovery60 } from '@fahybrid/shared/domain/running/hr-recovery';
@@ -53,27 +58,6 @@ function notWritten(execution_id: number): MeasuredHeaderResult {
 const LEG_ROLE_SET = new Set<string>(SEGMENT_LEG_ROLES);
 const LEG_PHASE_SET = new Set<string>(SEGMENT_LEG_PHASES);
 
-/** Serie en segundos absolutos (epoch), antes de re-anclar a `started_at`. */
-function toEpochSeries(trace: TraceRow): { offsets_s: number[]; values: number[] } {
-  const base = trace.started_at.getTime() / 1000;
-  const n = Math.min(trace.offsets_s.length, trace.values.length);
-  const offsets_s: number[] = [];
-  const values: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const offset = trace.offsets_s[i];
-    const value = trace.values[i];
-    if (offset == null || value == null) continue;
-    offsets_s.push(base + offset);
-    values.push(value);
-  }
-  return { offsets_s, values };
-}
-
-/** Re-ancla una serie en epoch-seconds a segundos desde `anchorEpochS`. */
-function reanchor(series: { offsets_s: number[]; values: number[] }, anchorEpochS: number) {
-  return { offsets_s: series.offsets_s.map((t) => t - anchorEpochS), values: series.values };
-}
-
 /**
  * Recalcula y reescribe la cabecera medida (deriva aeróbica, desnivel,
  * recuperación de pulso) de una ejecución, a partir de sus trazas y de la
@@ -95,28 +79,9 @@ export async function computeMeasuredHeader(args: {
   if (!execution?.started_at) return notWritten(execution_id);
   const anchorEpochS = execution.started_at.getTime() / 1000;
 
-  const hrTrace = await bestHrTrace(client, execution_id);
-  const speedRows = await client<TraceRow[]>`
-    select source, started_at, offsets_s, values
-    from workout_traces
-    where execution_id = ${execution_id} and signal = 'speed'
-    order by id desc limit 1
-  `;
-  const altitudeRows = await client<TraceRow[]>`
-    select source, started_at, offsets_s, values
-    from workout_traces
-    where execution_id = ${execution_id} and signal = 'altitude'
-    order by id desc limit 1
-  `;
-  const speedTrace = speedRows[0] ?? null;
-  const altitudeTrace = altitudeRows[0] ?? null;
-  if (!hrTrace && !speedTrace && !altitudeTrace) return notWritten(execution_id);
-
-  const hr = hrTrace ? reanchor(toEpochSeries(hrTrace), anchorEpochS) : { offsets_s: [], values: [] };
-  const speed = speedTrace ? reanchor(toEpochSeries(speedTrace), anchorEpochS) : { offsets_s: [], values: [] };
-  const altitude = altitudeTrace
-    ? reanchor(toEpochSeries(altitudeTrace), anchorEpochS)
-    : { offsets_s: [], values: [] };
+  const traces = await loadExecutionTraces({ execution_id, started_at: execution.started_at, client });
+  if (!traces.hasAnyTrace) return notWritten(execution_id);
+  const { hr, speed, altitude } = traces;
 
   // Tramos con atribución completa (mig 0146) — el mismo predicado all-or-none
   // que ya garantiza la base. Vacío = sesión sin estructura de tramos.

@@ -24,6 +24,7 @@ import {
 } from '@/lib/dashboard/v2/zone-profile';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
 import {
   resolveDoblesStationSplit,
@@ -156,6 +157,13 @@ export interface AssignmentDetailExecution {
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
+  // El corte por kilómetro (fidelidad completa) + la curva de ritmo/pulso
+  // reducida solo para dibujar — derivados de `workout_traces` al leer, nunca
+  // persistidos (docs/DECISIONS.md, "La carrera guarda su NEGATIVO").
+  // `available: false` cuando la sesión no tiene traza guardada — honesto,
+  // nunca un error. Ver AssignmentDetailTrace para el porqué de la separación
+  // entre `splits` (la fuente) y `display_curve` (solo para pintar).
+  trace: AssignmentDetailTrace;
 }
 
 // #34 — one result a calibration-test session must capture. `measure`/`unit` are
@@ -322,6 +330,10 @@ interface ExecutionRow {
   // Extended actuals for the read-only executed-session view. Optional so the
   // pure builder's existing tests (which only supply ended_at + RPE) keep typing.
   execution_id?: string | null;
+  // El ancla del eje de la traza (session-trace.ts) — distinto de `ended_at`
+  // arriba, que ya existe para otra cosa. Optional por la misma razón que el
+  // resto de este bloque: los fixtures del builder puro no lo necesitan.
+  started_at?: string | null;
   total_duration_seconds?: number | null;
   score_time_s?: number | null;
   score_rounds?: number | null;
@@ -441,6 +453,7 @@ export async function loadAssignmentDetail(
   const executionRows = await sql<ExecutionRow[]>`
     select
       we.id::text                as execution_id,
+      we.started_at::text        as started_at,
       we.ended_at::text          as ended_at,
       we.perceived_exertion      as perceived_exertion,
       we.total_duration_seconds  as total_duration_seconds,
@@ -468,6 +481,18 @@ export async function loadAssignmentDetail(
     execution?.execution_id != null
       ? await loadSegmentActuals(sql, Number(execution.execution_id))
       : [];
+
+  // El corte por kilómetro + la curva reducida — la traza ENTERA se deriva
+  // antes de reducir nada (ver session-trace.ts). `EMPTY_TRACE` sin ejecución
+  // o sin `started_at`: no hay eje del que colgar ninguna señal.
+  const executionTrace =
+    execution?.execution_id != null
+      ? await loadSessionTrace({
+          execution_id: Number(execution.execution_id),
+          started_at: execution.started_at ? new Date(execution.started_at) : null,
+          client: sql,
+        })
+      : EMPTY_TRACE;
 
   // Template + segments. Archived templates still resolve — the athlete
   // already has the assignment, we don't strip it out.
@@ -583,6 +608,7 @@ export async function loadAssignmentDetail(
     zoneProfiles,
     oneRms,
     executionSegments,
+    executionTrace,
     stationSplit,
     storeResults,
     circuitBlocks,
@@ -627,6 +653,7 @@ function buildExecutionBlock(
   status: AssignmentRow['status'],
   execution: ExecutionRow | null,
   segments: SegmentActual[],
+  trace: AssignmentDetailTrace,
 ): AssignmentDetailExecution | null {
   const isDone = status === 'completed' || status === 'partial';
   if (!execution && !isDone) return null;
@@ -653,6 +680,7 @@ function buildExecutionBlock(
     completeness: status === 'partial' ? 'partial' : 'completed',
     route_polyline: execution?.route_polyline ?? null,
     segments,
+    trace,
   };
 }
 
@@ -674,6 +702,10 @@ export function buildAssignmentDetail(input: {
   // Per-exercise actuals for the executed view. Default [] keeps the pure builder
   // testable without a DB — a finished session then shows the aggregate alone.
   executionSegments?: SegmentActual[];
+  // Corte por kilómetro + curva reducida, pre-resuelto por loadAssignmentDetail
+  // (necesita DB — deriva de workout_traces). Default EMPTY_TRACE mantiene el
+  // builder puro testable sin traza.
+  executionTrace?: AssignmentDetailTrace;
   // Dobles HYROX reparto, pre-resolved by loadAssignmentDetail (needs a DB). The
   // pure builder just carries it onto the payload. Default null → individual /
   // non-simulation session with no per-station split.
@@ -709,7 +741,12 @@ export function buildAssignmentDetail(input: {
       store_results: input.storeResults ?? [],
     },
     workout: null,
-    execution: buildExecutionBlock(assignment.status, execution, input.executionSegments ?? []),
+    execution: buildExecutionBlock(
+      assignment.status,
+      execution,
+      input.executionSegments ?? [],
+      input.executionTrace ?? EMPTY_TRACE,
+    ),
   };
 
   // The executed block is independent of the template (a "marcar como hecha" log

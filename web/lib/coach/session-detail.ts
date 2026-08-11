@@ -154,6 +154,7 @@ export async function loadCoachSessionDetail(params: {
             perceived_difficulty: toPerceivedDifficulty(execution.perceived_difficulty),
             pain_area: execution.pain_area,
             pain_note: execution.pain_note,
+            trace: execution.trace,
           }
         : null,
       segment_actuals: segmentActuals,
