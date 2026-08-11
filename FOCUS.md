@@ -72,10 +72,20 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   OK de Alex a la propuesta). `RoundsLiveHUD`: lista de una línea con banda de
   trabajo FIJA mientras cabe (umbral del hueco real), contador con cursor
   abierto cuando no; botón del host cierra ronda a ronda (antes se saltaba el
-  WOD); parciales por deltas; muñeca con el mismo número. 1167/1167 tests.
-  El doble pasó a `espejo` con `fuentes`. Coordinado con otra sesión que
-  llevaba el mismo encargo: sus 5 hallazgos verificados e incorporados, sus
-  agentes parados; pendiente su re-verificación adversarial del checklist.
+  WOD); parciales por deltas; muñeca con el mismo número. El doble pasó a
+  `espejo` con `fuentes`. La re-verificación adversarial de la otra sesión
+  dio FALLA (el contador se derramaba sobre el toggle RX: 538 pt en ~393) y
+  quedó cerrada en `e945d095`: cascada por prioridad con piezas de alto fijo,
+  cap visible en el cromo, numeral desnudo, «Por rondas». Suite completa
+  TEST SUCCEEDED; pendiente su pasada corta de confirmación.
+- **Incidente de datos (11-ago, resuelto con recibos):** el editor del panel
+  (dev server contra PROD por el symlink `.env.local`) pisó la sesión real de
+  Alex (asignación 411) con el prefill del arquetipo fartlek — 4 ejes mal. Se
+  culpó al cliente MCP; los recibos exoneran (la fila era perfecta ayer, la
+  reescritura fue hoy 15:15 sin rastro de audit, y el contenido es
+  `archetype-prefills.ts:58`). Fila RESTAURADA. Derivadas: el editor del panel
+  no auditaba días (otra sesión ya lo está cerrando con actor obligatorio) y
+  el footgun del symlink sigue armado (memoria + DECISIONS).
 - Pendiente de Alex: probar en su iPhone el EMPEZAR arreglado y el contador
   nuevo (los fixes están commiteados; instalar necesita su móvil alcanzable
   por cable/wifi o Run desde Xcode).
