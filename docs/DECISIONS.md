@@ -10,6 +10,75 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 (noche) · La carrera guarda su NEGATIVO: se persiste lo medido, se deriva lo demás
+
+**Contexto:** análisis completo en `docs/correr-analitica.html`. Una carrera son
+señal + troceado + intención. Teníamos la intención al nivel más alto del mercado
+(veredicto por repetición contra la banda del coach) y la señal se descartaba al
+terminar. `workout_traces`, su Zod y `POST /api/sync/workout-traces` existían y
+funcionaban desde la 0156; **iOS nunca emitió una sola serie**. Decidido construir
+el circuito entero (T0 archivo → T4 métricas propias); esta entrada fija el
+contrato de T0. Los atletas corren **con nuestra app**, así que el emisor de iOS
+es la pieza crítica y no la ingesta de terceros.
+
+**Qué emite iOS**, tras recibir el `execution_id` del POST de ejecución:
+
+| señal | fuente | se muestrea | unidad |
+|---|---|---|---|
+| `hr` | la del origen de pulso que ganó la precedencia | cada muestra del origen | bpm |
+| `speed` | `gps` en calle, `treadmill` en cinta | cada fix válido / cada lectura FTMS | m/s |
+| `distance` | ídem | ídem, acumulada | m |
+| `altitude` | `gps` | ~1 Hz | m |
+
+**NO se emite `pace`.** Se guarda lo medido —la velocidad— y el ritmo se deriva al
+leer. El ritmo que se pinta en vivo es una media móvil de 10 s: guardarlo sería
+guardar una interpretación y perder el negativo. Quien lee suaviza como necesite.
+
+**NO se emite `cadence` ni `power` en carrera:** no hay fuente en el dispositivo
+(el campo de cadencia lleva `nil` desde siempre y está documentado). El día que la
+haya se añade una señal más y nada más cambia.
+
+**El eje va en segundos enteros desde el inicio**, con cadencia variable a
+propósito: un hueco es un hueco y tiene que verse. Jamás se rellena, porque
+rellenarlo es fabricar dato — la regla que la 0156 ya dejó escrita.
+
+**Tope de 20.000 puntos por señal.** Por encima se diezma uniformemente y se
+declara; nunca se recorta el final, que es como se pierden los últimos kilómetros
+de una tirada larga.
+
+**La traza sobrevive al modo avión.** El buffer se persiste en disco con el estado
+de la sesión. Si el POST de ejecución se encola por falta de red, la traza espera
+y sube cuando el encolado consigue su `execution_id`. Una carrera terminada sin
+cobertura no pierde su archivo.
+
+**Los kilómetros NO se guardan: se derivan.** Una fuente, N proyecciones. El corte
+por kilómetro, la curva, el reparto de zonas y los mejores esfuerzos salen todos
+del mismo hilo. Persistirlos sería denormalizar algo que la señal ya contiene, y
+obligaría a rehacer filas cada vez que mejore el algoritmo. Además, así una sesión
+antigua sin traza **no tiene** splits en vez de tener splits inventados.
+
+**Lo que sí se guarda ya calculado:** deriva aeróbica y desnivel acumulado, porque
+exigen recorrer la traza entera y la traza no cambia nunca. Es la misma regla que
+el esquema de la 0154 ya había escrito para `decoupling_pct`.
+
+**Qué NO hacer en consecuencia:**
+
+- No añadir una tabla de splits por kilómetro. Si aparece una, es que alguien no
+  leyó esto.
+- No emitir `pace` desde el cliente ni «por si acaso»: dos fuentes para el mismo
+  hecho es cómo coach y atleta acaban leyendo números distintos.
+- No rellenar huecos del eje para tener cadencia fija.
+- No inventar traza para sesiones anteriores a esta tanda. Degradan diciendo la
+  verdad, que es la cultura que este código ya tiene.
+
+**Y una asimetría que se cierra aquí:** `SegmentActualDTO` tenía `ergSplits` y nada
+equivalente para correr, así que un 6×800 se abría en seis filas al terminar y
+volvía a ser UNA en el historial, mientras el remo conservaba su tabla. Los datos
+ya estaban en `segment_executions` con su `leg_index`/`leg_role`/`leg_phase`; lo
+único que faltaba era el contrato.
+
+---
+
 ## 2026-08-11 (noche) · Una repetición es una excursión de ida y vuelta, no un pico periódico — y contar exige CONTEXTO, no solo señal
 
 **Decidido:** el conteo de repeticiones en vivo y la velocidad por repetición se
