@@ -24,20 +24,26 @@ export const meta: TwinMeta = {
   id: 'plan-ciclo',
   titulo: 'El plan — hacia dónde voy y cuánto queda',
   zona: 'Plan y hoy',
-  estado: 'propuesta',
-  actualizado: '2026-08-09',
+  estado: 'espejo',
+  actualizado: '2026-08-12',
   descripcion:
     'El ciclo entero como camino vertical: las etapas que tu coach ha publicado, en orden y con el nombre que él les puso, «estás aquí» sobre la que toca, lo que está marcado en el calendario, el agujero declarado donde se acaba lo publicado y la carrera cerrando por abajo. Cero carga prevista: eso no se sabe.',
-  fuentes: [],
-  // El 6-ago se shipeó una v1 REAL pero deliberadamente más simple que esta
-  // propuesta: `PlanCicloView.swift` — el bloque actual (nombre + «semana N de
-  // M»), semana a semana con su cumplimiento real, y la semana siguiente. Le
-  // falta la espina completa de esta pantalla (varias etapas encadenadas, sus
-  // hitos y la cuenta atrás de carrera): no había dato de servidor para eso el
-  // día del build (macro_summary.block llega null), así que se dejó fuera en
-  // vez de inventarlo. Sigue en `propuesta` — esto no es lo que hay en la app.
+  fuentes: [
+    'ios/FAHYBRIK/Plan/PlanCicloView.swift',
+    'ios/FAHYBRIK/Plan/PlanCicloAtoms.swift',
+    'ios/FAHYBRIK/Plan/CicloDelPlan.swift',
+    'ios/FAHYBRIK/Plan/Espina/EspinaDelPlan.swift',
+    'ios/FAHYBRIK/Plan/Espina/CaminoDelPlan.swift',
+  ],
+  // El 11-ago se portó esta propuesta 1:1 a `PlanCicloView.swift`, con cuatro
+  // divergencias reales sobre lo que había aquí (ahora ya resueltas en este
+  // mockup): el sobrante se reparte a partes IGUALES entre las paradas que
+  // crecen (antes 3:2:1:1); el texto de una parada pasada baja a `muted` y el
+  // nodo se queda con el 45 % del tono (antes los dos al 45 %); hay botón de
+  // cerrar (×) en el cromo, junto al nivel (`fullScreenCover` en iOS); y la
+  // acción es secundaria en mayúsculas, «VER LA SEMANA».
   enApp:
-    'PlanCicloView.swift existe y es real, pero es una v1 más simple: una sola etapa (el microciclo actual) + su historial de semanas, no el camino de etapas encadenadas de este mockup. La espina compartida tampoco está portada a Swift todavía.',
+    'PlanCicloView.swift + PlanCicloAtoms.swift implementan esta pantalla 1:1: el cromo con el nivel y el cierre, el sujeto, la espina compartida (`Espina/EspinaDelPlan.swift`) con sus paradas a peso igual, y la frase de política al pie.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

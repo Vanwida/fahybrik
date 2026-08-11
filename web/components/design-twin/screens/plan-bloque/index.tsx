@@ -11,8 +11,9 @@
 // La tercera distancia —hacia dónde va el bloque— se fue el 29-jul. Vivía en una
 // rampa de volumen previsto por semana cuyos números no existían en producción, y
 // afirmaba cuánto iba a entrenar el atleta dentro de tres semanas. Esa pregunta
-// la contesta `plan-ciclo` con estructura publicada, y desde aquí se entra por el
-// pie. Lo planificado se pinta con seguridad; lo medido del futuro no existe.
+// la contesta `plan-ciclo` con estructura publicada, y desde el 11-ago se entra
+// por el cromo de arriba (antes era un pie de dos líneas bajo el héroe). Lo
+// planificado se pinta con seguridad; lo medido del futuro no existe.
 //
 // Todo lo que pinta sale de las cuatro sesiones de producción de
 // `datos-reales.ts`; la estructura del plan y la voz del coach viven en
@@ -27,11 +28,13 @@ export const meta: TwinMeta = {
   zona: 'Plan y hoy',
   // `construida`, no `espejo`: el 6-ago se shipeó la fusión en Swift (docs/DECISIONS.md),
   // pero esta pantalla del doble no se ha re-verificado campo a campo contra ese Swift —
-  // es la antesala honesta, no la certificación (regla del 3-ago).
+  // es la antesala honesta, no la certificación (regla del 3-ago). El 11-ago cambió el
+  // cromo (botón del ciclo) y desapareció el pie (`EntradaAlCiclo`); esos dos puntos ya
+  // están al día en este mockup, el resto sigue pendiente de re-verificación.
   estado: 'construida',
-  actualizado: '2026-08-06',
+  actualizado: '2026-08-12',
   descripcion:
-    'Dónde estás hoy dentro del bloque y qué toca: el carril de siete días con sus sellos y la sesión de hoy en grande, con su duración solo cuando el plan la deja escrita. Por el pie se entra al ciclo. El día que no toca nada también tiene salida.',
+    'Dónde estás hoy dentro del bloque y qué toca: el carril de siete días con sus sellos y la sesión de hoy en grande, con su duración solo cuando el plan la deja escrita. Por el cromo se entra al ciclo, al historial y al chat. El día que no toca nada también tiene salida.',
   fuentes: [
     'ios/FAHYBRIK/Plan/PlanView.swift',
     'ios/FAHYBRIK/Plan/PlanHoyModel.swift',

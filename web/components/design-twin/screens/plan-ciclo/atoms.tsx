@@ -23,15 +23,20 @@ import { LO_PUBLICA_EL_COACH, nodosDelCiclo, type NodoCiclo } from './espina';
 
 /**
  * El reparto del sobrante vertical (§6.1). El sobrante entra EN LAS PARADAS y
- * nunca en una cola debajo del camino, y se reparte por peso entre las tres que
- * pueden pagarlo: el tramo de hoy cuando tiene algo dentro que crezca con él, el
- * hueco declarado —que ocupa tiempo de verdad entre lo último publicado y la
- * carrera— y la carrera, que es la que da sentido a todo lo de arriba.
+ * nunca en una cola debajo del camino, y se reparte a PARTES IGUALES entre las
+ * tres que de verdad tienen algo que estirar: el tramo de hoy cuando lleva
+ * algo en el calendario, el hueco declarado —que ocupa tiempo de verdad entre
+ * lo último publicado y la carrera— y la carrera, que es la que da sentido a
+ * todo lo de arriba. Ninguna pesa más que otra: `PlanCicloAtoms.swift` lo
+ * resuelve con un booleano (`crece`) y no con una jerarquía de pesos, y el
+ * doble espeja esa misma regla en vez de una escala 3:2:1:1 que nadie pidió.
  *
- * Un tramo abierto SIN nada en su calendario baja a una parte: estirarlo 300 pt
- * sería aire dentro de un camino, y el sobrante rinde más abajo.
+ * Un tramo abierto SIN nada en su calendario no entra en el reparto: estirarlo
+ * sería aire dentro de un camino, y el sobrante rinde más en las paradas que
+ * sí tienen contenido.
  */
-const PESO = { actualConHitos: 3, actual: 1, hueco: 2, carrera: 1, resto: 0 } as const;
+const PESO_CRECE = 1;
+const PESO_QUIETO = 0;
 
 /** El color neutro de una parada sin tono propio: el hueco es ausencia. */
 const COLOR_HUECO = 'var(--twin-muted)';
@@ -69,11 +74,11 @@ function colorDeNodo(nodo: NodoCiclo): string {
 }
 
 function pesoDeNodo(ciclo: Ciclo, nodo: NodoCiclo): number {
-  if (nodo.clase === 'hueco') return PESO.hueco;
-  if (nodo.clase === 'carrera') return PESO.carrera;
-  if (!nodo.actual) return PESO.resto;
+  if (nodo.clase === 'hueco') return PESO_CRECE;
+  if (nodo.clase === 'carrera') return PESO_CRECE;
+  if (!nodo.actual) return PESO_QUIETO;
   const tramo = nodo.indiceTramo !== null ? ciclo.tramos[nodo.indiceTramo] : undefined;
-  return tramo && tramo.hitos.length > 0 ? PESO.actualConHitos : PESO.actual;
+  return tramo && tramo.hitos.length > 0 ? PESO_CRECE : PESO_QUIETO;
 }
 
 function contenidoDeNodo(ciclo: Ciclo, nodo: NodoCiclo): ReactNode {
