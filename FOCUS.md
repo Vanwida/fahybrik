@@ -68,14 +68,17 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   `sesion-previa` con la dosis estructurada y el OFF activo; `run-live`
   re-verificada y degradada a `construida` porque ya mentía desde el 29-jul —
   lista de lo que falta en el propio fichero). 927 tests del doble.
-- El desborde de rondas del vivo tiene PROPUESTA en el doble:
-  `/es/design/vivo-rondas` — la lista con cursor abierto, umbral derivado del
-  marco (5 listadas, cursor desde la 6ª), anclada a bloques reales (el WOD de
-  4 rondas YA desborda hoy). Ver DECISIONS «Rondas ≠ estaciones». **Pendiente:
-  OK de Alex a la propuesta → portar a Swift (`StrikeList`)**. El bug sigue
-  vivo en la app hasta entonces.
-- Pendiente de Alex además: probar el EMPEZAR arreglado en su iPhone (el fix
-  está commiteado; instalar necesita su móvil alcanzable o Xcode).
+- El desborde de rondas del vivo: PORTADO A SWIFT (11-ago, `583ab005`, con el
+  OK de Alex a la propuesta). `RoundsLiveHUD`: lista de una línea con banda de
+  trabajo FIJA mientras cabe (umbral del hueco real), contador con cursor
+  abierto cuando no; botón del host cierra ronda a ronda (antes se saltaba el
+  WOD); parciales por deltas; muñeca con el mismo número. 1167/1167 tests.
+  El doble pasó a `espejo` con `fuentes`. Coordinado con otra sesión que
+  llevaba el mismo encargo: sus 5 hallazgos verificados e incorporados, sus
+  agentes parados; pendiente su re-verificación adversarial del checklist.
+- Pendiente de Alex: probar en su iPhone el EMPEZAR arreglado y el contador
+  nuevo (los fixes están commiteados; instalar necesita su móvil alcanzable
+  por cable/wifi o Run desde Xcode).
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 

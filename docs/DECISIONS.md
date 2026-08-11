@@ -84,10 +84,21 @@ listadas, cursor desde la 6ª) y vive calculado en `data.ts` de la pantalla.
 real: 4/6/8/10/12) y **el de 4 rondas ya desborda hoy** (fila actual de 54 pt × 2
 líneas). Los escenarios de la propuesta son verbatim de `blocks.description`.
 
-**Dónde vive:** pantalla `propuesta` del doble `web/components/design-twin/screens/
-vivo-rondas/` (+ átomos compartidos subidos a `kit-vivo`). Pendiente de validación de
-Alex; Swift (`StrikeList`) NO está tocado — el desborde sigue vivo en la app hasta que
-la propuesta se apruebe y se porte.
+**Dónde vive:** pantalla del doble `web/components/design-twin/screens/vivo-rondas/`
+(+ átomos en `kit-vivo`), **portada a Swift el 11-ago** (`583ab005`, Alex aprobó la
+propuesta): `ios/FAHYBRIK/Workout/RoundsLiveHUD.swift` + rewires en la raíz. Tres
+refinamientos que el porte fijó como doctrina: (a) **la banda del trabajo es FIJA**
+(como la banda del sujeto de `MarcoVivo`) — es lo que hace al umbral PURO en rondas:
+dos WODs de 8 rondas rinden la misma cara pese lo que pese su texto; el umbral se
+deriva del hueco REAL medido (`RoundsListBudget`), no de un frame supuesto. (b) **el
+botón del host cierra RONDA a ronda** (`conditioningPrimary`): una lista de rondas
+tiene algo más pequeño que ella misma que cerrar — antes el botón grande se saltaba el
+WOD entero. (c) **los parciales de una lista de rondas son DELTAS del reloj del
+bloque** (`markRoundDone`): su ventana de tramo no re-ancla (`cursor .segment`), así
+que leerla daba acumulados; las lecturas de máquina ahí van a nil, no un acumulado
+disfrazado de ronda. Y la muñeca (`liveProgressText`) dice el MISMO número que la
+pantalla («RONDA 4/8»). Los ROTATIVOS (tabata/interválico/death-by/steady) no entran:
+su cursor es `rotRoundIndex` y conservan su suelo honesto (`RotatingClockHUD`).
 
 **En consecuencia, no hacer:** no meter scroll vertical en la ranura del vivo; no
 inventar una metáfora nueva para rondas; no fijar el umbral como constante suelta (se
