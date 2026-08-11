@@ -283,8 +283,22 @@ struct FuerzaVivoView<Cromo: View>: View {
                 .padding(.vertical, 5)
                 .background(Theme.Color.accent.opacity(0.16), in: Capsule())
         }
-        // Velocidad de barra en vivo (reloj → MirrorWire → sensorConclusions).
-        VelocidadBarraChip(reading: VelocityLive.reading(from: session.sensorConclusions))
+        // Velocidad de barra + (si hay) cuántas lleva el sensor en esta serie.
+        VelocidadBarraChip(
+            reading: VelocityLive.reading(from: session.sensorConclusions),
+            sensorReps: sensorRepsLabel(for: i)
+        )
+    }
+
+    /// "sensor · 7" when the open set is being filled by the wrist, so the
+    /// athlete sees that the climbing number is counted, not a plan typo.
+    private func sensorRepsLabel(for setIndex: Int) -> String? {
+        guard session.setRecords.indices.contains(setIndex) else { return nil }
+        let rec = session.setRecords[setIndex]
+        guard !rec.confirmed,
+              rec.repsSource == RepsSource.sensor.rawValue || rec.repsSource == RepsSource.sensorCorrected.rawValue,
+              let n = rec.repsActual, n > 0 else { return nil }
+        return "sensor · \(n)"
     }
 
     /// Un tramo de UNA serie con dosis escrita: el sujeto es lo prescrito, y
@@ -310,7 +324,17 @@ struct FuerzaVivoView<Cromo: View>: View {
                                            sufijo: "vs lo prescrito",
                                            textoNulo: "como estaba escrito"))
             }
-            VelocidadBarraChip(reading: VelocityLive.reading(from: session.sensorConclusions))
+            VelocidadBarraChip(
+                reading: VelocityLive.reading(from: session.sensorConclusions),
+                sensorReps: {
+                    guard !session.repsConfirmed,
+                          let n = session.sensorConclusions?.reps, n > 0,
+                          (session.sensorConclusions?.repsLevel == "counted"
+                            || session.sensorConclusions?.repsLevel == "doubtful")
+                    else { return nil }
+                    return "sensor · \(n)"
+                }()
+            )
         }
     }
 
@@ -479,34 +503,49 @@ struct SerieEnEdicion: Identifiable, Equatable {
 /// Sin dato fiable no pinta nada (no un «—» que se confunda con fallo de UI).
 struct VelocidadBarraChip: View {
     let reading: VelocityLiveReading?
+    /// Optional live count label from the wrist ("sensor · 7").
+    var sensorReps: String? = nil
 
     var body: some View {
-        if let reading {
-            let tono = color(for: reading.band)
+        if reading != nil || sensorReps != nil {
             HStack(spacing: 8) {
-                Circle()
-                    .fill(tono)
-                    .frame(width: 10, height: 10)
-                    .shadow(color: tono.opacity(0.55), radius: 6, y: 0)
-                Text("\(reading.mpsText) m/s")
-                    .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                    .foregroundStyle(tono)
-                    .monospacedDigit()
-                if let loss = reading.lossText {
-                    Text(loss)
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                } else if !reading.band.label.isEmpty {
-                    Text(reading.band.label)
-                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                if let reading {
+                    let tono = color(for: reading.band)
+                    Circle()
+                        .fill(tono)
+                        .frame(width: 10, height: 10)
+                        .shadow(color: tono.opacity(0.55), radius: 6, y: 0)
+                    Text("\(reading.mpsText) m/s")
+                        .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
+                        .foregroundStyle(tono)
+                        .monospacedDigit()
+                    if let loss = reading.lossText {
+                        Text(loss)
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
+                    } else if !reading.band.label.isEmpty {
+                        Text(reading.band.label)
+                            .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                if let sensorReps {
+                    Text(sensorReps)
+                        .scaledFont(12, weight: .heavy, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.vertical, 6)
-            .background(tono.opacity(0.12), in: Capsule())
+            .background(
+                (reading.map { color(for: $0.band) } ?? Theme.Color.muted).opacity(0.12),
+                in: Capsule()
+            )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Velocidad \(reading.mpsText) metros por segundo, \(reading.band.label)")
+            .accessibilityLabel(
+                [reading.map { "Velocidad \($0.mpsText) metros por segundo" }, sensorReps]
+                    .compactMap { $0 }.joined(separator: ", ")
+            )
         }
     }
 
