@@ -441,59 +441,6 @@ struct CoachAvatar: View {
     }
 }
 
-// MARK: - Technique video placeholder
-
-/// Striped/hatched rounded rect with a play glyph for a technique video.
-/// Renders ONLY when a video is available; when none exists it renders NOTHING
-/// (no "coming soon" placeholder — App Store 2.1 forbids placeholder content).
-/// (No real player wired yet — BACKEND GAP: technique video URLs.)
-struct TechniqueVideoPlaceholder: View {
-    var title: String = "Técnica"
-    var available: Bool = false
-
-    var body: some View {
-        if available {
-            ZStack {
-                // Diagonal hatch over a sunken face.
-                DiagonalHatch()
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                    .background(Theme.Color.surfaceSunken)
-                VStack(spacing: 8) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 34, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    Text(title)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .frame(height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Vídeo de técnica: \(title)")
-        }
-    }
-}
-
-/// Repeating 45° hatch lines used by the technique-video placeholder.
-private struct DiagonalHatch: Shape {
-    var spacing: CGFloat = 12
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        var x = -rect.height
-        while x < rect.width {
-            path.move(to: CGPoint(x: x, y: rect.height))
-            path.addLine(to: CGPoint(x: x + rect.height, y: 0))
-            x += spacing
-        }
-        return path
-    }
-}
-
 // MARK: - Chat bubble
 
 // MARK: - Dismissable sheet chrome

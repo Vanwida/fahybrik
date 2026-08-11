@@ -25,6 +25,15 @@ struct StationDetailView: View {
         bearer
     }
 
+    /// El vídeo de técnica que el coach tiene puesto para esta estación, ya
+    /// parseado. Nil mientras carga, cuando el coach no ha puesto ninguno, o
+    /// cuando el enlace no es reproducible: en los tres casos la pantalla no
+    /// promete un vídeo que no existe.
+    private var tecnica: YouTubeLinkParser.Video? {
+        guard let url = detail?.technique_video_url else { return nil }
+        return YouTubeLinkParser.parse(from: url)
+    }
+
     var body: some View {
         ZStack {
             Theme.Color.background
@@ -34,10 +43,14 @@ struct StationDetailView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     headerRow
 
-                    TechniqueVideoPlaceholder(
-                        title: station,
-                        available: detail?.technique_video_url != nil
-                    )
+                    // El vídeo de técnica de la estación, reproducible aquí
+                    // mismo con el reproductor que ya usa la ficha del ejercicio
+                    // (nunca se sale a Safari). Sin vídeo no se pinta nada: un
+                    // reclamo que no lleva a ninguna parte es peor que el hueco.
+                    if let tecnica {
+                        YouTubePlayer(video: tecnica)
+                            .accessibilityLabel("Vídeo de técnica de \(station)")
+                    }
 
                     if loading {
                         ProgressView()
