@@ -9,23 +9,13 @@
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
-import type { BlockEmphasis } from '@/lib/coach/intake-suggestions';
 import type { IntakeProfile, IntakeWarning } from '@/lib/coach/intake';
-import type { IntakeBaselineTest, IntakeBlockSpec } from '@fahybrid/shared/schema/coach-intake';
+import type { IntakeBaselineTest } from '@fahybrid/shared/schema/coach-intake';
 import { cn } from '@/lib/utils';
 
 // Warnings whose resolution is the event anchor itself — never manually confirmed.
 const EVENT_WARNING_KINDS = new Set<IntakeWarning['kind']>(['a_event_invalid', 'a_event_close']);
 
-const EMPHASIS_LABEL: Record<BlockEmphasis['bias'], string> = {
-  running: 'Carrera',
-  strength: 'Fuerza',
-  hyrox_specific: 'HYROX específico',
-  balanced: 'Equilibrado',
-};
-
-const WEEKS_MIN = 1;
-const WEEKS_MAX = 20;
 const WELCOME_MAX = 2000;
 
 function fmtEventDate(iso: string): string {
@@ -112,94 +102,9 @@ export function EventAnchorStep({
   );
 }
 
-// ── Step 3 · Estructura del bloque (AGNOSTIC microciclos) ────────────────────────
-export function BlockStructureStep({
-  specs,
-  emphasis,
-  endDateIso,
-  onChangeWeeks,
-}: {
-  specs: IntakeBlockSpec[];
-  emphasis: BlockEmphasis;
-  endDateIso: string | null;
-  onChangeWeeks: (index: number, weeks: number) => void;
-}) {
-  const totalWeeks = specs.reduce((s, b) => s + b.weeks, 0);
-  return (
-    <Panel
-      title="Estructura del bloque"
-      action={
-        <Pill tone="neutral" variant="soft">
-          <span className="v2-num">{totalWeeks}</span>&nbsp;sem
-        </Pill>
-      }
-      bodyClassName="flex flex-col gap-2.5"
-    >
-      <p className="text-xs text-[color:var(--v2-muted)]">
-        Secuencia de microciclos hasta el evento{endDateIso ? ` · termina ${fmtEventDate(endDateIso)}` : ''}.
-      </p>
-      <ul className="flex flex-col gap-1.5">
-        {specs.map((spec, i) => (
-          <li
-            key={`${spec.type}-${i}`}
-            className="flex items-center justify-between gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2"
-          >
-            <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
-              {spec.type}
-            </span>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <StepperButton
-                icon="remove"
-                label={`Reducir semanas de ${spec.type}`}
-                disabled={spec.weeks <= WEEKS_MIN}
-                onClick={() => onChangeWeeks(i, spec.weeks - 1)}
-              />
-              <span className="v2-num w-10 text-center text-sm font-semibold text-[color:var(--v2-fg)]">
-                {spec.weeks} <span className="text-[color:var(--v2-faint)]">sem</span>
-              </span>
-              <StepperButton
-                icon="add"
-                label={`Añadir semanas a ${spec.type}`}
-                disabled={spec.weeks >= WEEKS_MAX}
-                onClick={() => onChangeWeeks(i, spec.weeks + 1)}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="flex items-start gap-1.5 text-label text-[color:var(--v2-faint)]">
-        <MIcon name="lightbulb" size={13} className="mt-px" />
-        <span>
-          Énfasis sugerido · {EMPHASIS_LABEL[emphasis.bias]} — {emphasis.note}
-        </span>
-      </p>
-    </Panel>
-  );
-}
-
-function StepperButton({
-  icon,
-  label,
-  disabled,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <MIcon name={icon} size={15} />
-    </button>
-  );
-}
+// Step 3 (Estructura del bloque + elección «periodización / plan solo para él»)
+// vive en `IntakeBlockStructure.tsx` — tiene estado propio y este archivo ya
+// andaba cerca del tope de 500 líneas.
 
 // ── Step 4 · Tests de la semana 1 ────────────────────────────────────────────────
 export function BaselineTestsStep({
@@ -510,12 +415,15 @@ export function AssignBar({
   canAssign,
   submitting,
   error,
+  readyHint,
   onAssign,
 }: {
   checks: GateCheck[];
   canAssign: boolean;
   submitting: boolean;
   error: string | null;
+  /** Qué va a crear exactamente el botón — cambia según el modo del paso 3. */
+  readyHint: string;
   onAssign: () => void;
 }) {
   const blockers = checks.filter((c) => c.state !== 'ok').length;
@@ -551,7 +459,7 @@ export function AssignBar({
       <div className="flex items-center justify-between gap-3">
         <span className="text-label text-[color:var(--v2-faint)]">
           {canAssign
-            ? 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
+            ? readyHint
             : `${blockers} ${blockers === 1 ? 'punto' : 'puntos'} por resolver.`}
         </span>
         <button

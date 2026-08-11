@@ -22,15 +22,21 @@ import { IntakeRaces } from '@/components/v2/intake/IntakeRaces';
 import {
   AssignBar,
   BaselineTestsStep,
-  BlockStructureStep,
   EventAnchorStep,
   StepShell,
   WarningsStep,
   WelcomeNotesStep,
   type GateCheck,
 } from '@/components/v2/intake/IntakeSteps';
+import { BlockStructureStep } from '@/components/v2/intake/IntakeBlockStructure';
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
-import type { IntakeBlockSpec } from '@fahybrid/shared/schema/coach-intake';
+import {
+  INTAKE_PLAN_MODE_DEFAULT,
+  INTAKE_WEEKS_MIN,
+  defaultTramoName,
+  type IntakeBlockSpec,
+  type IntakePlanMode,
+} from '@fahybrid/shared/schema/coach-intake';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
 
 const EVENT_WARNING_KINDS = new Set(['a_event_invalid', 'a_event_close']);
@@ -58,6 +64,9 @@ export function IntakeReview({
   const alreadyReviewed = athlete.intake_completed_at != null;
 
   // ── Form state (defaults seeded from the auto-suggestions) ────────────────────
+  // De qué nace el plan: la periodización que el coach ya tiene montada (defecto,
+  // el comportamiento de siempre) o una cadena de microciclos solo para él.
+  const [planMode, setPlanMode] = useState<IntakePlanMode>(INTAKE_PLAN_MODE_DEFAULT);
   const [blockSpecs, setBlockSpecs] = useState<IntakeBlockSpec[]>(() =>
     suggestions.block_specs.map((b) => ({ ...b })),
   );
@@ -81,12 +90,16 @@ export function IntakeReview({
     [warnings],
   );
   const avisosOk = manualWarnings.every((w) => acknowledged.has(w.kind));
-  const canAssign = eventOk && nivelOk && avisosOk;
+  // En modo personal los nombres son dato real (nacen como microciclos suyos),
+  // así que uno vacío bloquea; en modo compartido la lista es solo un apunte.
+  const estructuraOk =
+    planMode !== 'personal' || blockSpecs.every((b) => b.type.trim().length > 0);
+  const canAssign = eventOk && nivelOk && avisosOk && estructuraOk;
 
   const checks: GateCheck[] = [
     { key: 'evento', label: 'Evento', state: eventOk ? 'ok' : 'blocked' },
     { key: 'nivel', label: 'Nivel', state: nivelOk ? 'ok' : 'pending' },
-    { key: 'estructura', label: 'Estructura', state: 'ok' },
+    { key: 'estructura', label: 'Estructura', state: estructuraOk ? 'ok' : 'pending' },
     {
       key: 'avisos',
       label: `Avisos ${manualWarnings.filter((w) => acknowledged.has(w.kind)).length}/${manualWarnings.length}`,
@@ -97,6 +110,22 @@ export function IntakeReview({
 
   function changeWeeks(index: number, weeks: number) {
     setBlockSpecs((prev) => prev.map((b, i) => (i === index ? { ...b, weeks } : b)));
+  }
+  function renameTramo(index: number, name: string) {
+    setBlockSpecs((prev) => prev.map((b, i) => (i === index ? { ...b, type: name } : b)));
+  }
+  function addTramo() {
+    // Nombre por defecto neutro y no repetido: el ordinal que le toca según los
+    // que ya hay. El coach lo cambia si quiere; nunca proponemos un nombre de
+    // escuela de periodización.
+    setBlockSpecs((prev) => [
+      ...prev,
+      { type: defaultTramoName(prev.length + 1), weeks: INTAKE_WEEKS_MIN },
+    ]);
+  }
+  function removeTramo(index: number) {
+    // La estructura nunca se queda vacía: sin tramos no hay plan que crear.
+    setBlockSpecs((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   }
   function toggleTest(slug: string) {
     setIncludedTests((prev) => {
@@ -116,7 +145,8 @@ export function IntakeReview({
     setError(null);
     const body = {
       target_event_id: target_event.event_id,
-      block_specs: blockSpecs,
+      plan_mode: planMode,
+      block_specs: blockSpecs.map((b) => ({ ...b, type: b.type.trim() })),
       // Numeric snapshot level (1-4) — the algorithm's reading; the functional,
       // agnostic level is the catalog level set via ClasificacionCard above.
       level: suggestions.level,
@@ -247,10 +277,15 @@ export function IntakeReview({
 
           <StepShell n={3}>
             <BlockStructureStep
+              mode={planMode}
               specs={blockSpecs}
               emphasis={suggestions.block_emphasis}
               endDateIso={target_event?.iso_date ?? null}
+              onChangeMode={setPlanMode}
               onChangeWeeks={changeWeeks}
+              onRenameTramo={renameTramo}
+              onAddTramo={addTramo}
+              onRemoveTramo={removeTramo}
             />
           </StepShell>
 
@@ -298,6 +333,11 @@ export function IntakeReview({
         canAssign={canAssign}
         submitting={submitting}
         error={error}
+        readyHint={
+          planMode === 'personal'
+            ? `Se crearán sus ${blockSpecs.length} microciclos en borrador, vacíos y encadenados. Los rellenas tú desde su plan.`
+            : 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
+        }
         onAssign={assign}
       />
     </div>
