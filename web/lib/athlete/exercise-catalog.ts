@@ -3,6 +3,7 @@ import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import {
   coachExerciseColumns,
   exerciseCatalogOrder,
+  exerciseSearchFilter,
   joinCoachOverride,
   visibleToCoach,
   type CoachExerciseRow,
@@ -38,19 +39,14 @@ export async function loadAthleteExerciseCatalog(
   q: AthleteExerciseQuery,
 ): Promise<AthleteExercise[]> {
   const category = q.category ?? null;
-  const term = q.search ? `%${q.search.toLowerCase()}%` : null;
 
   const rows = await sql<CoachExerciseRow[]>`
-    select ${coachExerciseColumns(sql)}
+    select ${coachExerciseColumns(sql, q.coachId)}
     from exercises e
     ${joinCoachOverride(sql, q.coachId)}
     where ${visibleToCoach(sql, q.coachId)}
       and (${category}::exercise_category is null or e.category = ${category}::exercise_category)
-      and (${term}::text is null
-           -- Match the MERGED name — an athlete searching must find an exercise
-           -- their coach renamed, not just its base name.
-           or lower(coalesce(ceo.name, e.name)) like ${term}::text
-           or lower(e.slug) like ${term}::text)
+      and ${exerciseSearchFilter(sql, q.search ?? null, q.coachId)}
     order by ${exerciseCatalogOrder(sql)}
     limit ${q.limit}
   `;

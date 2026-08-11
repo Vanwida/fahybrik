@@ -101,6 +101,14 @@ export function EjerciciosPanel({ query }: { query?: string }) {
     );
   }, [rows, facet, gap, q]);
 
+  // Lo que hay con SÓLO el origen puesto: es lo que el coach cree que debería estar
+  // viendo, y sin ese número un vacío por combinación de filtros se lee como «el
+  // filtro de Personalizados está roto».
+  const soloOrigen = useMemo(
+    () => (rows ?? []).filter((ex) => facet === 'todos' || ex.origin === facet).length,
+    [rows, facet],
+  );
+
   // Sobre TODO el catálogo, no sobre lo filtrado: "62 sin vídeo" es cuánto trabajo
   // hay, y ese número no puede cambiar según qué pestaña de origen esté puesta.
   const gapCounts = useMemo(() => {
@@ -209,7 +217,14 @@ export function EjerciciosPanel({ query }: { query?: string }) {
         ) : null}
 
         {rows !== null && visible.length === 0 ? (
-          <NoResults facet={facet} filtrado={q !== '' || gap !== null} />
+          <NoResults
+            facet={facet}
+            filtrado={q !== '' || gap !== null}
+            query={q}
+            gap={gap}
+            soloOrigen={soloOrigen}
+            onQuitarGap={() => setGap(null)}
+          />
         ) : null}
 
         {visible.length > 0 ? (
@@ -270,7 +285,22 @@ export function EjerciciosPanel({ query }: { query?: string }) {
 }
 
 /** Nada que enseñar: o el filtro aprieta, o el coach aún no ha creado nada suyo. */
-function NoResults({ facet, filtrado }: { facet: OriginFacet; filtrado: boolean }) {
+function NoResults({
+  facet,
+  filtrado,
+  query,
+  gap,
+  soloOrigen,
+  onQuitarGap,
+}: {
+  facet: OriginFacet;
+  filtrado: boolean;
+  query: string;
+  gap: V2LibExerciseGap | null;
+  /** Cuántos hay con SÓLO el origen puesto: lo que el coach cree que debería ver. */
+  soloOrigen: number;
+  onQuitarGap: () => void;
+}) {
   // "Míos" vacío no es un filtro que no encuentra: es el estado normal de quien
   // aún no ha creado ninguno. Merece explicar para qué sirve, no un "sin
   // resultados". Con búsqueda o contenido puestos, no: ahí sí es el filtro, y
@@ -293,11 +323,38 @@ function NoResults({ facet, filtrado }: { facet: OriginFacet; filtrado: boolean 
       />
     );
   }
+  // Con varios filtros puestos, «ningún ejercicio» no dice cuál de ellos lo ha
+  // vaciado, y el coach concluye que el filtro está roto — sobre todo si SABE que
+  // tiene personalizados. Así que se dice qué hay con sólo el origen puesto y se
+  // ofrece quitar lo que sobra de uno en uno.
+  const etiquetaGap = gap ? LIB_EXERCISE_GAPS.find((g) => g.id === gap)?.label : null;
+  const etiquetaOrigen = ORIGIN_FACET_OPTIONS.find((f) => f.value === facet)?.label ?? 'este origen';
+  const sobra = [query ? `la búsqueda «${query}»` : null, etiquetaGap ? `«${etiquetaGap}»` : null]
+    .filter(Boolean)
+    .join(' y ');
+  const pista =
+    soloOrigen > 0
+      ? `En ${etiquetaOrigen} tienes ${soloOrigen}${sobra ? `, pero ${sobra} los deja fuera` : ''}.`
+      : 'Prueba con otra búsqueda o cambia el origen.';
   return (
     <EmptyState
       icon="filter_alt_off"
       title="Ningún ejercicio con estos filtros"
-      description="Prueba con otra búsqueda, cambia el origen o quita el filtro de contenido."
+      description={pista}
+      action={
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {etiquetaGap ? (
+            <button
+              type="button"
+              onClick={onQuitarGap}
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--v2-border)] px-3 py-1 text-label text-[color:var(--v2-ink)] hover:bg-[color:var(--v2-surface)]"
+            >
+              <MIcon name="close" className="text-[14px]" />
+              {`Quitar «${etiquetaGap}»`}
+            </button>
+          ) : null}
+        </div>
+      }
     />
   );
 }

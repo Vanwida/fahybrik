@@ -322,7 +322,43 @@ export function exerciseSubtitle(ex: CoachExerciseRow): string {
  * en memoria — pero la semántica tiene que ser la MISMA que la de la API, o buscar
  * daría un resultado distinto según por dónde entre la búsqueda.
  */
+/**
+ * Normaliza como lo hace Postgres en `fahybrid_normalize_term` (0172): minúsculas,
+ * sin tildes, espacios colapsados. Tiene que ser LA MISMA regla que la del índice —
+ * `search_terms` llega ya normalizado del servidor, y dos normalizadores distintos
+ * son dos resultados distintos para la misma letra.
+ */
+export function normalizeExerciseTerm(input: string): string {
+  return input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * ¿Esta fila responde a lo que el coach ha escrito? Busca en todo lo que un humano
+ * escribe para nombrar el movimiento: el nombre que él ve, los DOS idiomas (0172),
+ * el slug, y su vocabulario (alias base + los sinónimos que enseñó, que el servidor
+ * manda ya normalizados en `search_terms`).
+ *
+ * POR PALABRA CONTENIDA: «gluteo» encuentra «Puente de glúteo» y «row» devuelve el
+ * ergómetro y el remo con barra — un prefijo dejaba fuera los dos casos. Misma regla
+ * que el predicado del servidor (`exerciseSearchFilter`), para que buscar en la
+ * pantalla y buscar por la API no den cosas distintas.
+ */
 export function matchesExerciseQuery(ex: CoachExerciseRow, q: string): boolean {
-  if (!q) return true;
-  return ex.name.toLowerCase().includes(q) || ex.slug.toLowerCase().includes(q);
+  const needle = normalizeExerciseTerm(q);
+  if (!needle) return true;
+  const haystack = [
+    ex.name,
+    ex.name_es ?? '',
+    ex.name_en ?? '',
+    ex.slug,
+  ]
+    .map(normalizeExerciseTerm)
+    .concat(ex.search_terms ?? '')
+    .join(' ');
+  return haystack.includes(needle);
 }

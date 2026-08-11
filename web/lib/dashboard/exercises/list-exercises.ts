@@ -3,6 +3,7 @@ import {
   coachExerciseColumns,
   exerciseCatalogOrder,
   exerciseOriginFilter,
+  exerciseSearchFilter,
   joinCoachOverride,
   visibleToCoach,
   type CoachExerciseRow,
@@ -35,21 +36,18 @@ export async function loadCoachCatalog(
   q: CoachCatalogQuery = {},
 ): Promise<CoachExerciseRow[]> {
   const category = q.category ?? null;
-  const term = q.search ? `%${q.search.toLowerCase()}%` : null;
 
   // Search matches the MERGED name — a coach who renamed an exercise must find it
   // under the name THEY use, not the base one they never see. Slug stays
   // searchable as the machine handle.
   return client<CoachExerciseRow[]>`
-    select ${coachExerciseColumns(client)}
+    select ${coachExerciseColumns(client, coachId)}
     from exercises e
     ${joinCoachOverride(client, coachId)}
     where ${visibleToCoach(client, coachId)}
       and (${category}::exercise_category is null or e.category = ${category}::exercise_category)
       and ${exerciseOriginFilter(client, q.origin ?? null)}
-      and (${term}::text is null
-           or lower(coalesce(ceo.name, e.name)) like ${term}::text
-           or lower(e.slug) like ${term}::text)
+      and ${exerciseSearchFilter(client, q.search ?? null, coachId)}
     order by ${exerciseCatalogOrder(client)}
     limit ${q.limit ?? DEFAULT_LIMIT}
   `;
