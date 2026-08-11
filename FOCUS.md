@@ -285,9 +285,11 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   suelo (~145) para huecos de 200-270.
 - **DIRECTIVA de Alex (11-ago): UNIFICAR EL VIVO.** «Tener diseños perdidos
   por la app es horrible; traslada este vivo-rondas a otros.» El lenguaje de
-  `vivo-rondas` pasa a ser EL lenguaje del vivo entero, y el §10 gana su HOST
-  real (`MarcoVivo` en Swift — hoy tiene CERO llamadas, cada pantalla se lo
-  monta a mano). Ver DECISIONS 2026-08-11 «El vivo tiene UN lenguaje». En
+  `vivo-rondas` pasa a ser EL lenguaje del vivo entero. CORREGIDO tras
+  verificar: `MarcoVivo` SÍ existe en Swift con 4 llamadas (el «cero» era un
+  artefacto de grep con trailing closures); el hueco real es que su Layout no
+  PUBLICA el presupuesto de apoyos — eso es lo que se generaliza. Ver
+  DECISIONS 2026-08-11 «El vivo tiene UN lenguaje» (con la corrección). En
   marcha: piloto FUERZA como propuesta del doble (agente) → OK de Alex →
   Swift; luego EMOM, AMRAP, estaciones, ergo y descanso, una por lote con su
   espejo. También arreglado hoy: el editor del panel vendía ceguera con

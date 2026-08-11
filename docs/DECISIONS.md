@@ -460,16 +460,28 @@ traslada este vivo-rondas a otros»):** el lenguaje de `vivo-rondas` (cromo stri
 formato·posición·reloj → banda del SUJETO gobernando → APOYOS de alto fijo →
 franja de acción; cascada por prioridad; nada scrollea; el deshacer nunca se
 recorta) deja de ser una pantalla y pasa a ser **el lenguaje de TODAS las
-superficies del vivo**. La raíz del problema tiene nombre desde la verificación
-cruzada del 11-ago: el marco §10 del doble (`MarcoVivo`) tiene **cero llamadas
-reales en Swift** — doctrina sin host, cada pantalla se monta el layout a mano,
-y así nacen las «views perdidas de diseño».
+superficies del vivo**.
 
-**El arreglo, en orden:** (1) `MarcoVivo` REAL en Swift — un componente único con
-los cuatro huecos y el presupuesto medido + cascada, generalizando lo construido
-en `RoundsLiveHUD`; (2) piloto FUERZA (propuesta en el doble → OK de Alex →
-Swift); (3) el resto en tandas: EMOM, AMRAP, estaciones/For Time, ergo, descanso
-— cada superficie migrada con su espejo del doble en el mismo lote.
+**CORRECCIÓN (11-ago noche, verificada contra el repo):** la primera versión de
+esta entrada decía que `MarcoVivo` «tiene cero llamadas en Swift». **FALSO** —
+era un artefacto de grep (`MarcoVivo(` no caza trailing closures): el host
+existe (`ios/FAHYBRIK/Theme/LenguajeVivoUI.swift:194`, con su `MarcoVivoLayout`
+que mide el sujeto, ancla su centro e inyecta `\.lienzoVivo`) y lo montan
+FuerzaVivoView, EmomVivoView, OutdoorRunHUDView y ResumenCarreraView. **El hueco
+REAL es otro:** el Layout mide el hueco de apoyos pero NO LO PUBLICA, así que
+ninguna pantalla puede cascadear contra él — por eso `RoundsLiveHUD` (que además
+vive FUERA del marco) se montó su propio GeometryReader + presupuesto estimado a
+mano. Moraleja de método: una afirmación «cero llamadas» se verifica con el
+símbolo A SECAS antes de escribirla aquí.
+
+**El arreglo, en orden:** (1) el host EXISTENTE gana lo que le falta —
+`PresupuestoApoyos` (asignador puro por prioridad con suelo, espejo de la
+cascada del doble) + `CascadaApoyos` (mide su ranura y pasa el presupuesto) +
+`TiraFormatoVivo` (el strip formato·posición·reloj, hoy `private` en rondas) —
+en `Theme/`, junto al host, jamás en carpetas de pantalla; (2) piloto FUERZA
+(propuesta en el doble → OK de Alex → Swift); (3) el resto en tandas: EMOM,
+AMRAP, estaciones/For Time, ergo, descanso y RONDAS adoptando el host — cada
+superficie migrada con su espejo del doble en el mismo lote.
 
 **En consecuencia, no hacer:** ninguna superficie nueva del vivo fuera del marco;
 no migrar dos superficies «de paso» en un lote ajeno (una por lote, con su
