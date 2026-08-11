@@ -3,9 +3,9 @@ import SwiftUI
 // EL HIERRO EN VIVO — la serie que tienes delante, en el lenguaje del §10.
 //
 // La diferencia con correr o con un ergómetro no es estética: es DE MANDO. Allí
-// el aparato mide y la app cuenta; aquí la app no puede medir NADA — ni una
-// repetición, ni un kilo, ni el RIR. **Gobierna el atleta**, y el reloj solo
-// entra cuando sueltas la barra. De ahí salen las reglas de esta pantalla:
+// el aparato mide y la app cuenta; aquí la app no mide reps ni carga ni RIR —
+// **gobierna el atleta**. El reloj SÍ puede medir la velocidad de la barra
+// (fase 3 sensor): m/s en vivo con semáforo, sin inventar %1RM. De ahí las reglas:
 //
 //   1. El sujeto es LA SERIE (`5 × 100 kg`), no el ejercicio ni el cronómetro.
 //   2. La acción es `unicaSalida` (§10.5): el toque es lo ÚNICO que cierra la
@@ -283,6 +283,8 @@ struct FuerzaVivoView<Cromo: View>: View {
                 .padding(.vertical, 5)
                 .background(Theme.Color.accent.opacity(0.16), in: Capsule())
         }
+        // Velocidad de barra en vivo (reloj → MirrorWire → sensorConclusions).
+        VelocidadBarraChip(reading: VelocityLive.reading(from: session.sensorConclusions))
     }
 
     /// Un tramo de UNA serie con dosis escrita: el sujeto es lo prescrito, y
@@ -308,6 +310,7 @@ struct FuerzaVivoView<Cromo: View>: View {
                                            sufijo: "vs lo prescrito",
                                            textoNulo: "como estaba escrito"))
             }
+            VelocidadBarraChip(reading: VelocityLive.reading(from: session.sensorConclusions))
         }
     }
 
@@ -387,15 +390,26 @@ struct FuerzaVivoView<Cromo: View>: View {
                           unidad: Vocab.ppm,
                           tono: session.liveZone?.color ?? Theme.Color.foreground,
                           ausente: "sin reloj")
-                // LA PAUSA, NO LA «VUELTA». La vuelta contaba desde que se abrió el
-                // ejercicio, así que en un 4×10 sumaba las cuatro series y sus tres
-                // descansos sin reiniciar: un número que no contesta ninguna pregunta
-                // que se haga el que está levantando. Lo que sí se pregunta entre
-                // series es cuánto lleva parado — y el descanso prescrito se agota y
-                // desaparece justo cuando deja de saberlo.
-                ApoyoVivo(etiqueta: Vocab.pausa,
-                          valor: session.secondsSinceLastSet.map { Formato.clock($0, anchoFijo: true) },
-                          ausente: "aún no")
+                // m/s de la barra cuando el reloj los manda; si no, la pausa entre
+                // series (sigue siendo el dato útil entre sets).
+                if let v = VelocityLive.reading(from: session.sensorConclusions) {
+                    ApoyoVivo(etiqueta: "m/s",
+                              valor: v.mpsText,
+                              tono: {
+                                  switch v.band {
+                                  case .green: return Theme.Color.ok
+                                  case .yellow: return Theme.Color.warning
+                                  case .orange: return Theme.Color.accent
+                                  case .red: return Theme.Color.danger
+                                  case .none: return Theme.Color.muted
+                                  }
+                              }(),
+                              ausente: nil)
+                } else {
+                    ApoyoVivo(etiqueta: Vocab.pausa,
+                              valor: session.secondsSinceLastSet.map { Formato.clock($0, anchoFijo: true) },
+                              ausente: "aún no")
+                }
                 ApoyoVivo(etiqueta: Vocab.total,
                           valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
             }
@@ -457,6 +471,54 @@ struct FuerzaVivoView<Cromo: View>: View {
 struct SerieEnEdicion: Identifiable, Equatable {
     let indice: Int
     var id: Int { indice }
+}
+
+// MARK: - Velocidad de barra (vivo)
+
+/// Chip legible a un metro: m/s + color del semáforo + pérdida si la hay.
+/// Sin dato fiable no pinta nada (no un «—» que se confunda con fallo de UI).
+struct VelocidadBarraChip: View {
+    let reading: VelocityLiveReading?
+
+    var body: some View {
+        if let reading {
+            let tono = color(for: reading.band)
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(tono)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: tono.opacity(0.55), radius: 6, y: 0)
+                Text("\(reading.mpsText) m/s")
+                    .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
+                    .foregroundStyle(tono)
+                    .monospacedDigit()
+                if let loss = reading.lossText {
+                    Text(loss)
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
+                } else if !reading.band.label.isEmpty {
+                    Text(reading.band.label)
+                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 6)
+            .background(tono.opacity(0.12), in: Capsule())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Velocidad \(reading.mpsText) metros por segundo, \(reading.band.label)")
+        }
+    }
+
+    private func color(for band: VelocityBand) -> Color {
+        switch band {
+        case .green:  return Theme.Color.ok
+        case .yellow: return Theme.Color.warning
+        case .orange: return Theme.Color.accent
+        case .red:    return Theme.Color.danger
+        case .none:   return Theme.Color.muted
+        }
+    }
 }
 
 /// Las series a lo ancho, con la que tienes delante encendida.

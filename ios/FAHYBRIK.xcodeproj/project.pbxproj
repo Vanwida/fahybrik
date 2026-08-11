@@ -90,6 +90,7 @@
 		1F42D8D0FDBEA8D2795177B3 /* TestRecordCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5114B2D9BCA39CCB2821DA6C /* TestRecordCelebrationView.swift */; };
 		1FD06B8536543C32108D05F5 /* DoblesLiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */; };
 		1FD9960B51E97FC39281323D /* DoblesRaceGapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675CE3D3C7F77BFC9592B2EE /* DoblesRaceGapView.swift */; };
+		1FF7BDD3B89B4A447C337DCF /* VelocityBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29BA1E972BBACC0A86AD2A3 /* VelocityBand.swift */; };
 		2035E06E5991F723F9145691 /* HubChatAnaliticasRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D777083567C7356AF26E5C7E /* HubChatAnaliticasRenderTests.swift */; };
 		20803734DCE6D5DF4A678709 /* WatchWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DF50B3378F9840436FA233 /* WatchWireModels.swift */; };
 		20DE856517AAC601B8CC8D8E /* PM5WorkoutCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC19FB61E8B15898E0E67F1 /* PM5WorkoutCodec.swift */; };
@@ -453,6 +454,7 @@
 		CA26B585B516DEB3BD9A0CB6 /* ComunicadoAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F54BDC55140F8BC94ACABD8 /* ComunicadoAudio.swift */; };
 		CA4A79130CDB8743DDD55C13 /* PlanHeroeHoy.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB162384635C79BDC8AE7F8 /* PlanHeroeHoy.swift */; };
 		CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */; };
+		CAD00DA4973F5569B2737B45 /* VelocityBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29BA1E972BBACC0A86AD2A3 /* VelocityBand.swift */; };
 		CC182D52ABF0025FAF48C849 /* ContinuousLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C7A66E3732F43A168C63FE /* ContinuousLiveView.swift */; };
 		CC96994BB776CA915D0B4AD8 /* ReadinessDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA186FC74A18B3CDD7CDDB /* ReadinessDetailSheet.swift */; };
 		CCAD18FBE7AA2BDEDBE6D423 /* SensorPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5109DD512E19061364DAF673 /* SensorPipeline.swift */; };
@@ -966,6 +968,7 @@
 		A2751F1D06858BAF7F4930D5 /* CoachSpeechTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachSpeechTests.swift; sourceTree = "<group>"; };
 		A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeStep.swift; sourceTree = "<group>"; };
 		A299C853C165208E4093B866 /* FreeInicioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeInicioView.swift; sourceTree = "<group>"; };
+		A29BA1E972BBACC0A86AD2A3 /* VelocityBand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelocityBand.swift; sourceTree = "<group>"; };
 		A37A2F68108ABCB54CAD45E6 /* FreeStrengthBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeStrengthBuilder.swift; sourceTree = "<group>"; };
 		A3C7E1CB418D53ABD8B86F5C /* RunCueEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCueEngine.swift; sourceTree = "<group>"; };
 		A48A43ECA058D95A167103FC /* DoblesLivePresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLivePresence.swift; sourceTree = "<group>"; };
@@ -1245,6 +1248,7 @@
 				BDFEEEBBC5BA00233A8EA525 /* SensorFileCodec.swift */,
 				5109DD512E19061364DAF673 /* SensorPipeline.swift */,
 				43B71EA3BB6474C8D9FCAA3E /* SensorTypes.swift */,
+				A29BA1E972BBACC0A86AD2A3 /* VelocityBand.swift */,
 			);
 			path = Sensor;
 			sourceTree = "<group>";
@@ -2878,6 +2882,7 @@
 				E28A1BF06EEF14BEFF74F424 /* TreadmillSessionFeeder.swift in Sources */,
 				E3A309BFED5DB024FA9B4217 /* TreadmillSources.swift in Sources */,
 				712A964C322E29F0D169FD8B /* TreadmillSpeedResolver.swift in Sources */,
+				1FF7BDD3B89B4A447C337DCF /* VelocityBand.swift in Sources */,
 				4D263994FC75EDFC2B363BAF /* Vo2MaxService.swift in Sources */,
 				97421A971D3208D16DFA1F61 /* Vo2MaxView.swift in Sources */,
 				DC973828669A071B4478A0F1 /* VoiceRecorderView.swift in Sources */,
@@ -2976,6 +2981,7 @@
 				A8F597BB7C226C34529040B1 /* StructuredRunLiveView.swift in Sources */,
 				04BFC484BBC3EF34C69442FD /* SummaryView.swift in Sources */,
 				F367C8C4333A0650DD8D2364 /* TodayBriefView.swift in Sources */,
+				CAD00DA4973F5569B2737B45 /* VelocityBand.swift in Sources */,
 				B1AFAE9B34A42D38DEDFA2E6 /* WatchBisel.swift in Sources */,
 				97D1F25B482F592F3FC6A292 /* WatchConnectivityService.swift in Sources */,
 				CF14772794CCD124EF165157 /* WatchFormato.swift in Sources */,
@@ -3296,7 +3302,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3395,7 +3401,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_NS_ASSERTIONS = NO;
