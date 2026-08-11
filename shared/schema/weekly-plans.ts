@@ -25,7 +25,7 @@ export const weeklyPlanSchema = z.object({
   // Whether this plan is shared between the paired Dobles partners.
   shared: z.boolean(),
   notes: z.string().max(4000).nullable(),
-  // Foco de ESTA semana del atleta (migración 0180) — override del foco heredado
+  // Foco de ESTA semana del atleta (migración 0182) — override del foco heredado
   // de `program_week_templates.focus`. NULL = sin override (lib/athlete/week-plan.ts
   // cae al de la plantilla).
   focus: z.string().max(200).nullable(),

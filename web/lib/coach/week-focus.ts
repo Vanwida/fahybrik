@@ -1,6 +1,6 @@
 import 'server-only';
 
-// El foco de UNA semana del atleta (migración 0180) — el override que manda
+// El foco de UNA semana del atleta (migración 0182) — el override que manda
 // sobre el defecto heredado de `program_week_templates.focus` (ver
 // `lib/athlete/week-plan.ts`). Lo escriben dos superficies: el panel (la
 // cabecera de la semana en la ficha del atleta) y el conector MCP

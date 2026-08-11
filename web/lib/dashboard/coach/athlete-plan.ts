@@ -53,7 +53,7 @@ export interface PlanWeekRow {
   week_end: string;
   days: PlanDay[];
   /**
-   * El override de foco de ESTA semana (`weekly_plans.focus`, migración 0180),
+   * El override de foco de ESTA semana (`weekly_plans.focus`, migración 0182),
    * crudo — sin fundir con el defecto de la plantilla: es lo que edita el coach
    * en la cabecera de la ficha, y editar un valor fundido escribiría por accidente
    * el texto de la plantilla como si fuera propio de la semana. `null` = sin

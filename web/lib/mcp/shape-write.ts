@@ -42,7 +42,7 @@ export interface WeekState {
   /** Solo en 'draft': quién lo suelta (el sábado el cron, o el coach a mano). */
   delivery_mode: DeliveryMode | null;
   /**
-   * El foco CRUDO de esta semana (`weekly_plans.focus`, migración 0180): lo que
+   * El foco CRUDO de esta semana (`weekly_plans.focus`, migración 0182): lo que
    * hay en la fila, sin fundir con el de la plantilla y SIN aplicar el portón
    * de borrador — eso lo tiene que decidir cada llamante según a quién se lo
    * enseña. El coach ve su propio borrador (panel, MCP); el atleta no ve NADA

@@ -12,7 +12,6 @@ import { useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { SessionDetailDrawer } from './SessionDetailDrawer';
-import { MODALITY_META } from '@/components/v2/constants';
 import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
@@ -821,16 +820,3 @@ function PublishMicrocicloButton({
   );
 }
 
-// A plan action is always a real navigation (it links somewhere) — there are no
-// placeholder/no-op actions here.
-function PlanAction({ icon, label, href }: { icon: string; label: string; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-    >
-      <MIcon name={icon} size={15} />
-      {label}
-    </Link>
-  );
-}
