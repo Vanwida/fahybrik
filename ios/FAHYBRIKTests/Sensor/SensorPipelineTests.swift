@@ -92,6 +92,20 @@ final class SensorPipelineTests: XCTestCase {
         XCTAssertFalse(result.alternatingPattern)
     }
 
+    func testRepCounterIgnoresShortSitToStand() {
+        // ~1.2 s of a single vertical push — standing up from a chair, not a set.
+        let hz = 50.0
+        var samples: [SensorSample] = []
+        for i in 0..<60 {
+            let t = Double(i) / hz
+            let ax = 8 * exp(-t * 2) * sin(2 * .pi * t / 0.6)
+            samples.append(SensorSample(t: t, ax: ax, ay: 0.2, az: 0.1, gx: 0, gy: 0, gz: 0))
+        }
+        let result = RepCounter().count(samples: samples)
+        XCTAssertNotEqual(result.level, .counted, "levantarse de la silla no es un set")
+        XCTAssertLessThan(result.confidence, 0.50)
+    }
+
     func testRepCounterNeverHighConfidenceOnAlternating() {
         // Double-peak pattern: two peaks per intended cycle
         let cycle = 1.0

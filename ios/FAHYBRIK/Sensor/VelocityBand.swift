@@ -10,8 +10,9 @@ enum VelocityBand: String, Sendable, Equatable {
     static let greenMin = 0.55
     static let yellowMin = 0.40
     static let orangeMin = 0.25
-    /// Por debajo de esto no se pinta (no rojo con aplomo).
-    static let minConfidence = 0.50
+    /// Por debajo de esto no se pinta (no rojo con aplomo). Subido tras falsos
+    /// positivos de “m/s” al levantarse de una silla (11-ago).
+    static let minConfidence = 0.55
 
     static func from(velocityMs: Double?, confidence: Double?) -> VelocityBand {
         guard let v = velocityMs, v >= 0 else { return .none }

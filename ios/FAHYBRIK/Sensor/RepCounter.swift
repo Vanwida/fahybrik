@@ -7,16 +7,23 @@ import Foundation
 /// 3. Count peaks on that projection with a minimum spacing of ~0.6× period.
 /// 4. Detect alternating-arm double-peak signature → low confidence, never "counted".
 struct RepCounter: Sendable {
-    /// Minimum period considered a rep (seconds). Below this is noise / tremor.
-    var minPeriod: Double = 0.35
+    /// Squat / wall-ball cycle is slower than a tremor — 0.35 s was counting
+    /// chair stands and fidgets as reps (Alex, 11-ago: 5 fake reps standing up).
+    var minPeriod: Double = 0.55
     /// Maximum period (seconds). Above this is not cyclic work.
-    var maxPeriod: Double = 4.0
+    var maxPeriod: Double = 3.5
     /// Peak prominence as a fraction of the signal's robust amplitude.
-    var prominenceFraction: Double = 0.25
+    var prominenceFraction: Double = 0.35
+    /// Fewer peaks than this → never "counted" (a sit-to-stand is 1–2 peaks).
+    var minRepsForCounted: Int = 3
+    /// Need this much continuous work (s) before trusting a count.
+    var minWorkSeconds: Double = 4.0
 
     func count(samples: [SensorSample], workOnly: [(Double, Double)]? = nil) -> RepCountResult {
         let filtered = Self.filter(samples, to: workOnly)
-        guard filtered.count >= 12 else {
+        let workSpan = Self.spanSeconds(filtered)
+        // Hard gate: short gestures (get up from a chair) never become a set.
+        guard filtered.count >= 40, workSpan >= minWorkSeconds else {
             return RepCountResult(reps: 0, confidence: 0, level: .unknown, periodSeconds: nil, alternatingPattern: false)
         }
 
@@ -34,15 +41,17 @@ struct RepCounter: Sendable {
         let regularity = Self.periodRegularity(peaks: peaks, period: period, dt: dt)
         let peakClarity = Self.peakClarity(projected, peaks: peaks)
         var confidence = 0.45 * regularity + 0.55 * peakClarity
-        if alternating { confidence = min(confidence, 0.45) }
+        if alternating { confidence = min(confidence, 0.40) }
         if reps == 0 { confidence = 0 }
+        // Too few cycles: a stand-up can look like 2 "reps". Cap confidence.
+        if reps < minRepsForCounted { confidence = min(confidence, 0.35) }
 
         let level: RepConfidenceLevel
-        if alternating || confidence < 0.45 {
-            level = confidence < 0.25 ? .unknown : .doubtful
-        } else if confidence >= 0.80 {
+        if alternating || confidence < 0.50 || reps < minRepsForCounted {
+            level = confidence < 0.30 || reps == 0 ? .unknown : .doubtful
+        } else if confidence >= 0.88 && reps >= minRepsForCounted {
             level = .counted
-        } else if confidence >= 0.45 {
+        } else if confidence >= 0.50 {
             level = .doubtful
         } else {
             level = .unknown
@@ -58,6 +67,11 @@ struct RepCounter: Sendable {
             periodSeconds: period,
             alternatingPattern: alternating
         )
+    }
+
+    static func spanSeconds(_ samples: [SensorSample]) -> Double {
+        guard let first = samples.first, let last = samples.last else { return 0 }
+        return max(0, last.t - first.t)
     }
 
     // MARK: - axis / period / peaks

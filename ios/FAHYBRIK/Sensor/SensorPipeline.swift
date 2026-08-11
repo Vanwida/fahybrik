@@ -86,11 +86,26 @@ final class SensorPipeline {
     // MARK: - conclusions
 
     private func recomputeLive() {
-        guard samples.count >= 12 else { return }
+        // ~1 s at 50 Hz before any inference — ignore the first fidget.
+        guard samples.count >= 50 else { return }
         let timing = activity.analyze(samples)
         lastTiming = timing
-        lastRepResult = reps.count(samples: samples, workOnly: timing.workIntervals)
-        lastVelocity = velocity.estimate(samples: samples, workOnly: timing.workIntervals)
+
+        // Only count / estimate on real work windows that last long enough.
+        // A sit-to-stand is a short energy spike; without this gate it became "5 reps".
+        let solidWork = timing.workIntervals.filter { $0.1 - $0.0 >= 3.0 }
+        let workSeconds = solidWork.reduce(0.0) { $0 + max(0, $1.1 - $1.0) }
+        if workSeconds < 4.0 {
+            lastRepResult = RepCountResult(
+                reps: 0, confidence: 0, level: .unknown,
+                periodSeconds: nil, alternatingPattern: false
+            )
+            lastVelocity = nil
+            return
+        }
+
+        lastRepResult = reps.count(samples: samples, workOnly: solidWork)
+        lastVelocity = velocity.estimate(samples: samples, workOnly: solidWork)
     }
 
     /// Build the archive file bytes for transfer (fase 0). Nil if nothing useful.

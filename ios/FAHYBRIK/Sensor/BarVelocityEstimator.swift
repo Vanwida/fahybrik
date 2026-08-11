@@ -11,7 +11,8 @@ struct BarVelocityEstimator: Sendable {
 
     func estimate(samples: [SensorSample], workOnly: [(Double, Double)]? = nil) -> BarVelocityResult? {
         let filtered = RepCounter.filter(samples, to: workOnly)
-        guard filtered.count >= 20 else { return nil }
+        // Same chair-stand guard as RepCounter: need a real work bout, not a stand-up.
+        guard filtered.count >= 50, RepCounter.spanSeconds(filtered) >= 4.0 else { return nil }
 
         let axis = RepCounter.dominantAxis(filtered)
         let projected = filtered.map { $0.ax * axis.0 + $0.ay * axis.1 + $0.az * axis.2 }
