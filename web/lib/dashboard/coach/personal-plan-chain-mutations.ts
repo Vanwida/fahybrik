@@ -74,7 +74,8 @@ export type AddPersonalTramoResult = {
  * nombre + nº de semanas, y empieza justo el día después de que acabe lo
  * último que tenga asignado (personal o de biblioteca — la cadena se lee por
  * fecha, no por origen). Sin nada asignado todavía no hay "anterior" al que
- * encadenar: 409 explícito, no un hueco silencioso.
+ * encadenar: 409 explícito, no un hueco silencioso… salvo que el llamador diga
+ * dónde empieza el primero (`start_date_when_empty`, ver abajo).
  *
  * Detach de la secuencia nivel×días si seguía activa — igual que "Personalizar
  * plan" (0164): un microciclo personal nuevo es el coach llevando el plan a
@@ -89,6 +90,15 @@ export async function addPersonalTramoToChain(params: {
   actor: Actor;
   /** Superficie de origen de la escritura (0165). Omitido = panel del coach. */
   channel?: AuditChannel;
+  /**
+   * Dónde arranca el tramo cuando el atleta TODAVÍA no tiene nada asignado.
+   * Desde la ficha no existe (no hay fecha que elegir, y encadenar a la nada es
+   * un hueco silencioso → 409 `no_chain_yet`), pero en el ALTA sí: un atleta
+   * recién dado de alta empieza esta semana y el primer tramo de su cadena nace
+   * de ahí. Se normaliza al lunes de su semana, como el resto de la cadena.
+   * Omitido = comportamiento de siempre, 409 si no hay cadena.
+   */
+  start_date_when_empty?: string;
   client?: Sql;
 }): Promise<AddPersonalTramoResult> {
   const parsed = addPersonalTramoSchema.safeParse(params.payload);
@@ -118,7 +128,7 @@ export async function addPersonalTramoToChain(params: {
       where athlete_id = ${athlete_id}
     `;
     const lastEnd = lastRows[0]?.end_date ?? null;
-    if (!lastEnd) {
+    if (!lastEnd && !params.start_date_when_empty) {
       throw new PersonalChainError(
         'no_chain_yet',
         'Este atleta todavía no tiene ningún plan asignado — no hay nada a lo que encadenar. Usa «Personalizar plan» o asígnale una secuencia primero.',
@@ -128,7 +138,10 @@ export async function addPersonalTramoToChain(params: {
     // end_date de CUALQUIER asignación cae siempre en domingo (instantiateMonth
     // FromTemplate materializa semanas completas desde un lunes) — +1 día ya es
     // lunes; mondayOfWeek queda como guarda defensiva, no como corrección real.
-    const startIso = isoDateString(mondayOfWeek(addDays(parseIsoDate(lastEnd), 1)));
+    // Sin cadena previa manda la fecha de arranque que dio el llamador (alta).
+    const startIso = lastEnd
+      ? isoDateString(mondayOfWeek(addDays(parseIsoDate(lastEnd), 1)))
+      : isoDateString(mondayOfWeek(parseIsoDate(params.start_date_when_empty!)));
 
     const created = await insertEmptyPersonalMonthTemplate({
       tx: tx as unknown as TransactionClient,
