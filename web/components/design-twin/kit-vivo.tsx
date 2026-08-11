@@ -330,6 +330,15 @@ export function MarcoVivo({
         height: '100%',
         display: 'grid',
         gridTemplateRows: filas,
+        // UNA columna, y del ANCHO DEL TELÉFONO. La columna implícita que sale
+        // sola es `auto`, y `auto` crece hasta el max-content de lo que caiga
+        // dentro: basta una línea larga con `nowrap` (la clave de un ejercicio)
+        // para que la rejilla mida 901 pt sobre un lienzo de 402 y se salgan
+        // TODAS las filas a la vez, el sujeto y la acción incluidos. Es el mismo
+        // fallo que el numeral ya tenía resuelto con su presupuesto de ancho
+        // (§10.2), un piso más arriba. `minmax(0, 1fr)` deja que lo que no cabe
+        // se recorte dentro, que es lo que cada fila sabe hacer.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         gap: BANDA.hueco,
         padding: BANDA.hueco,
         boxSizing: 'border-box',
@@ -399,8 +408,13 @@ export function BandaSujeto({
       }
     : {};
 
+  // Misma regla que el marco: una columna del ancho del lienzo, no del ancho de
+  // lo más largo que caiga dentro. Sin esto, una línea de texto sin corte dentro
+  // del sujeto arrastra la banda entera fuera del teléfono.
+  const columna = 'minmax(0, 1fr)';
+
   const cuerpo = (
-    <div style={{ minHeight: 0, display: 'grid', placeItems: 'center', ...piel }}>
+    <div style={{ minHeight: 0, display: 'grid', gridTemplateColumns: columna, placeItems: 'center', ...piel }}>
       {dominante && (
         <div
           aria-hidden
@@ -420,6 +434,7 @@ export function BandaSujeto({
       style={{
         minHeight: 0,
         display: 'grid',
+        gridTemplateColumns: columna,
         placeItems: 'center',
         border: 0,
         padding: 0,
