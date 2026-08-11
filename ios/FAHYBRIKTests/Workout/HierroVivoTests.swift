@@ -423,6 +423,77 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertFalse(suelo.fila)
     }
 
+    // MARK: - Las tres caras, renderizadas
+    //
+    // En el simulador no hay reloj, ni sensor, ni un entreno de verdad al que
+    // entrar: estos renders son la única forma de VER las tres caras. Con
+    // `FAHYBRIK_CAPTURAS=<dir>` escriben el PNG (mismo mecanismo que los renders del
+    // histórico de salud); sin la variable solo comprueban que la cara se pinta.
+
+    @MainActor
+    private func lienzoCompleto(_ s: WorkoutSession) -> some View {
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            Ambiente(zona: s.liveZone)
+            FuerzaVivoView(session: s, accionTitulo: "HECHO", alTocarAccion: {}) {
+                HStack {
+                    Image(systemName: "xmark").foregroundStyle(Theme.Color.muted)
+                    Text("‖").foregroundStyle(Theme.Color.muted)
+                    Spacer()
+                    MonoText(text: "BACK SQUAT", size: 11, color: Theme.Color.muted)
+                }
+            }
+        }
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// LA CARA DE TRABAJO — la dosis manda, el reloj arriba, la velocidad abre la fila.
+    @MainActor
+    func testRenderCaraDeTrabajo() {
+        let s = squat4x10()
+        s.liveHRBpm = 142
+        s.setRecords[1].meanVelocityLastMs = 0.49
+        s.setRecords[1].velocityConfidence = 0.78
+        XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-1-serie"))
+    }
+
+    /// LA CARA DE DESCANSO — tinta normal, barra drenando arriba, frase de la pérdida.
+    @MainActor
+    func testRenderCaraDeDescanso() {
+        let s = squat4x10(cerradas: 0)
+        s.liveHRBpm = 128
+        s.setRecords[0].meanVelocityFirstMs = 0.55
+        s.setRecords[0].meanVelocityLastMs = 0.38
+        s.setRecords[0].velocityLossPct = 31
+        s.setRecords[0].velocityConfidence = 0.74
+        s.confirmSet(0)
+        XCTAssertGreaterThan(s.restRemainingSeconds, 0)
+        XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-2-descanso"))
+    }
+
+    /// LA PIRÁMIDE — cinco series desiguales, carga en %RM y el riel como ventana.
+    @MainActor
+    func testRenderPiramideConVentana() {
+        let s = squatPiramide()
+        s.liveHRBpm = 138
+        XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-3-piramide"))
+    }
+
+    @discardableResult @MainActor
+    private func render<V: View>(_ vista: V, nombre: String) -> UIImage? {
+        let host = UIHostingController(rootView: vista)
+        host.view.bounds = CGRect(origin: .zero, size: Self.lienzo)
+        host.view.layoutIfNeeded()
+        let imagen = UIGraphicsImageRenderer(size: host.view.bounds.size).image { _ in
+            host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
+        }
+        if let dir = ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"] {
+            try? imagen.pngData()?.write(to: URL(fileURLWithPath: dir)
+                .appendingPathComponent("\(nombre).png"))
+        }
+        return imagen
+    }
+
     // MARK: - El motor, intacto
 
     /// El toque cierra la SERIE (no el ejercicio) y abre el descanso con el descanso
