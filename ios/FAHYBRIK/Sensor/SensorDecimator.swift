@@ -7,6 +7,7 @@ struct SensorDecimator: Sendable {
     private var binStart: Double?
     private var sumAx = 0.0, sumAy = 0.0, sumAz = 0.0
     private var sumGx = 0.0, sumGy = 0.0, sumGz = 0.0
+    private var sumGrx = 0.0, sumGry = 0.0, sumGrz = 0.0
     private var count = 0
     private var lastEmittedT: Double = -.infinity
 
@@ -17,8 +18,11 @@ struct SensorDecimator: Sendable {
     private var binWidth: Double { 1.0 / targetHz }
 
     /// Feed one raw sample (any rate). Returns 0…N decimated samples ready to archive/process.
+    /// `gr*` is the gravity vector (device frame, g units) — averaging it over a
+    /// 20 ms bin is safe, it is a slow signal.
     mutating func push(t: Double, ax: Double, ay: Double, az: Double,
-                       gx: Double, gy: Double, gz: Double) -> [SensorSample] {
+                       gx: Double, gy: Double, gz: Double,
+                       grx: Double = 0, gry: Double = 0, grz: Double = 0) -> [SensorSample] {
         if binStart == nil { binStart = t }
         guard let start = binStart else { return [] }
 
@@ -47,6 +51,7 @@ struct SensorDecimator: Sendable {
 
         sumAx += ax; sumAy += ay; sumAz += az
         sumGx += gx; sumGy += gy; sumGz += gz
+        sumGrx += grx; sumGry += gry; sumGrz += grz
         count += 1
         return out
     }
@@ -64,7 +69,8 @@ struct SensorDecimator: Sendable {
         let s = SensorSample(
             t: t,
             ax: sumAx / n, ay: sumAy / n, az: sumAz / n,
-            gx: sumGx / n, gy: sumGy / n, gz: sumGz / n
+            gx: sumGx / n, gy: sumGy / n, gz: sumGz / n,
+            grx: sumGrx / n, gry: sumGry / n, grz: sumGrz / n
         )
         resetBin()
         return s
@@ -73,28 +79,34 @@ struct SensorDecimator: Sendable {
     private mutating func resetBin() {
         sumAx = 0; sumAy = 0; sumAz = 0
         sumGx = 0; sumGy = 0; sumGz = 0
+        sumGrx = 0; sumGry = 0; sumGrz = 0
         count = 0
     }
 
-    /// Quantise a sample to int16 sextuple for the archive format.
-    static func quantize(_ s: SensorSample) -> (Int16, Int16, Int16, Int16, Int16, Int16) {
+    /// Quantise a sample to the archive's int16 channels (v2: 9 of them).
+    static func quantize(_ s: SensorSample) -> [Int16] {
         func q(_ v: Double, scale: Double) -> Int16 {
             let scaled = (v * scale).rounded()
             let clamped = min(Double(Int16.max), max(Double(Int16.min), scaled))
             return Int16(clamped)
         }
-        return (
+        return [
             q(s.ax, scale: SensorFileFormat.accelScale),
             q(s.ay, scale: SensorFileFormat.accelScale),
             q(s.az, scale: SensorFileFormat.accelScale),
             q(s.gx, scale: SensorFileFormat.gyroScale),
             q(s.gy, scale: SensorFileFormat.gyroScale),
-            q(s.gz, scale: SensorFileFormat.gyroScale)
-        )
+            q(s.gz, scale: SensorFileFormat.gyroScale),
+            q(s.grx, scale: SensorFileFormat.gravityScale),
+            q(s.gry, scale: SensorFileFormat.gravityScale),
+            q(s.grz, scale: SensorFileFormat.gravityScale)
+        ]
     }
 
     static func dequantize(ax: Int16, ay: Int16, az: Int16,
-                           gx: Int16, gy: Int16, gz: Int16, t: Double) -> SensorSample {
+                           gx: Int16, gy: Int16, gz: Int16,
+                           grx: Int16 = 0, gry: Int16 = 0, grz: Int16 = 0,
+                           t: Double) -> SensorSample {
         SensorSample(
             t: t,
             ax: Double(ax) / SensorFileFormat.accelScale,
@@ -102,7 +114,10 @@ struct SensorDecimator: Sendable {
             az: Double(az) / SensorFileFormat.accelScale,
             gx: Double(gx) / SensorFileFormat.gyroScale,
             gy: Double(gy) / SensorFileFormat.gyroScale,
-            gz: Double(gz) / SensorFileFormat.gyroScale
+            gz: Double(gz) / SensorFileFormat.gyroScale,
+            grx: Double(grx) / SensorFileFormat.gravityScale,
+            gry: Double(gry) / SensorFileFormat.gravityScale,
+            grz: Double(grz) / SensorFileFormat.gravityScale
         )
     }
 }
