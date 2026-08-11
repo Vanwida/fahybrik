@@ -53,12 +53,20 @@ export function Cabecera({
   indice,
   total,
   onSalir,
+  accion,
 }: {
   bloque: string;
   ejercicio: string;
   indice: number;
   total: number;
   onSalir: () => void;
+  /**
+   * La ranura que el Swift tiene entre el título y el contador: ahí es donde
+   * `ActiveWorkoutView` pone el botón de vídeo cuando el tramo lo trae. Vacía
+   * por defecto, así que esta familia no cambia; la usa `vivo-clave`, que va
+   * justo de lo que se puede pedir desde el cromo sin parar el cronómetro.
+   */
+  accion?: ReactNode;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -86,6 +94,7 @@ export function Cabecera({
           {ejercicio.toUpperCase()}
         </Mono>
       </div>
+      {accion}
       <Mono size={11} color="var(--twin-muted)" style={{ marginLeft: 10 }}>
         {indice}/{total}
       </Mono>

@@ -76,6 +76,12 @@ import * as coachNota from './screens/coach-nota';
 // como decisión de UX. La respuesta no vale para las 16 estaciones de un HYROX
 // (ahí cada fila dice algo distinto): vale para las RONDAS, que se repiten.
 import * as vivoRondas from './screens/vivo-rondas';
+// La clave (11-ago): el tramo que corre el entreno lleva `videoUrl` y nada más
+// de contenido, así que en mitad de una serie la única salida es pedir un vídeo
+// y abrirlo pausa el cronómetro. Los consejos y la nota del coach ya viajan al
+// móvil, pero se quedan en la ficha del plan. Esta pantalla los baja al vivo
+// resueltos a UNA línea, con la nota de hoy ganando al catálogo.
+import * as vivoClave from './screens/vivo-clave';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -142,6 +148,7 @@ export const SCREENS: TwinScreenModule[] = [
   coachProtocolo,
   coachNota,
   vivoRondas,
+  vivoClave,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -158,7 +165,19 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
   { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
   {
     grupo: 'En vivo, por quién gobierna',
-    ids: ['vivo-correr', 'vivo-erg', 'vivo-fuerza', 'vivo-emom', 'vivo-fortime', 'vivo-amrap', 'vivo-dobles', 'vivo-rondas'],
+    ids: [
+      'vivo-correr',
+      'vivo-erg',
+      'vivo-fuerza',
+      'vivo-emom',
+      'vivo-fortime',
+      'vivo-amrap',
+      'vivo-dobles',
+      'vivo-rondas',
+      // No es un formato más: es lo que se puede LEER mientras corre cualquiera
+      // de los de arriba. Va con ellos porque es donde se juzga.
+      'vivo-clave',
+    ],
   },
   { grupo: 'Al terminar', ids: ['resumen-carrera'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
