@@ -272,6 +272,9 @@ export function registerWriteTools(server: McpServer): void {
               duration_min: null,
               format: null,
               rpe: null,
+              // Desambiguar el día solo necesita título y estado; la modalidad
+              // no se lee aquí, y null es «no se sabe», no una modalidad.
+              modality: null,
             })),
             what: 'te digo su contenido actual',
           });
@@ -638,6 +641,9 @@ async function findSessionById(params: {
     duration_min: null,
     format: row.format,
     rpe: null,
+    // Este lector va por assignment_id y no baja a los segmentos: null = «no se
+    // sabe» (quien la necesite pide el plan, que sí la resuelve).
+    modality: null,
   };
 }
 

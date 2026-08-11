@@ -10,6 +10,10 @@ import {
 } from '@/lib/coach/publish-microciclo';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
+import {
+  sessionModalityFromExercises,
+  type SessionModality,
+} from '@/lib/dashboard/v2/editor-axes';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { canRevertToSequence } from './revert-personal-plan';
 
@@ -28,6 +32,11 @@ export interface PlanSession {
   format: string | null;
   /** RPE reportado por el atleta (workout_executions) — null si no hay ejecución. */
   rpe: number | null;
+  /** Modalidad REAL de la sesión, leída de las modalidades de sus ejercicios
+   *  (intrínsecas al ejercicio, mig 0053): 'mixta' cuando combina varias, null
+   *  cuando no hay ejercicios que leer. Aquí no se adivina nada — la heurística
+   *  por título/formato vive en la vista y es el último recurso. */
+  modality: SessionModality | null;
 }
 
 export interface PlanDay {
@@ -251,6 +260,7 @@ export async function buildAthletePlan(params: {
       format: string | null;
       rpe: number | null;
       notes: string | null;
+      modalities: string[] | null;
     }>
   >`
     select
@@ -261,10 +271,22 @@ export async function buildAthletePlan(params: {
       we.total_duration_seconds as duration_seconds,
       t.format::text as format,
       we.perceived_exertion as rpe,
-      wa.notes as notes
+      wa.notes as notes,
+      segmods.modalities as modalities
     from workout_assignments wa
     left join templates t on t.id = wa.template_id
     left join workout_executions we on we.assignment_id = wa.id
+    -- La modalidad de la sesión sale de sus ejercicios, no del enum format de la
+    -- plantilla (un fartlek de carrera es intervals y salía «Circuito»). Gana la
+    -- modalidad PRESCRITA sobre la del catálogo, igual que en el brief del
+    -- atleta (assignment-detail.ts).
+    left join lateral (
+      select array_agg(distinct coalesce(ts.prescription_json->>'modality', e.modality))
+               as modalities
+      from template_segments ts
+      join exercises e on e.id = ts.exercise_id
+      where ts.template_id = wa.template_id
+    ) segmods on true
     where wa.athlete_id = ${params.athlete_id}
       and wa.scheduled_for >= ${startIso}::date
       and wa.scheduled_for <= ${endIso}::date
@@ -284,6 +306,7 @@ export async function buildAthletePlan(params: {
       duration_min: r.duration_seconds != null ? Math.round(r.duration_seconds / 60) : null,
       format: r.format,
       rpe: r.rpe,
+      modality: sessionModalityFromExercises(r.modalities ?? []),
     };
     const list = sessionsByDate.get(r.iso_date) ?? [];
     list.push(session);

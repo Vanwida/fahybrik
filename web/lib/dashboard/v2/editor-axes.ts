@@ -91,6 +91,33 @@ export function axisToDomainModality(
   return AXIS_TO_DOMAIN_DEFAULT[axis];
 }
 
+/**
+ * La modalidad de una SESIÓN entera, leída de las modalidades de sus ejercicios.
+ *
+ * La modalidad es intrínseca al ejercicio (mig 0053), así que una sesión no hay
+ * que adivinarla: se lee. Reglas, sin un solo umbral — un umbral sería método
+ * del coach y esto es mecanismo:
+ *   · las 9 del dominio colapsan al eje de color con `modalityColorSlug`, así
+ *     que remo + ski no son dos cosas: son «Ergómetro».
+ *   · el trabajo accesorio (core / movilidad) no define la sesión — un rodaje
+ *     con movilidad al final sigue siendo Carrera. Solo manda cuando es lo único.
+ *   · si queda una sola → esa. Si quedan varias → 'mixta': una simulación HYROX
+ *     es carrera Y estaciones, y elegir una de las dos sería mentir.
+ *   · sin ejercicios que leer → null, y quien llama decide qué hacer con eso.
+ */
+export type SessionModality = V2Modality | 'mixta';
+
+export function sessionModalityFromExercises(
+  modalities: readonly (Modality | string | null | undefined)[],
+): SessionModality | null {
+  const slugs = new Set<V2Modality>();
+  for (const m of modalities) if (m) slugs.add(modalityColorSlug(m as Modality));
+  if (slugs.size === 0) return null;
+  if (slugs.size > 1) slugs.delete('calentamiento');
+  const [only] = slugs;
+  return slugs.size === 1 && only ? only : 'mixta';
+}
+
 /** Map a domain modality to the v2 modality color axis (left-border / dot). */
 export function modalityColorSlug(m: Modality | undefined): V2Modality {
   switch (m) {

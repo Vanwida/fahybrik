@@ -23,7 +23,7 @@ import { VolverPeriodizacionModal } from './VolverPeriodizacionModal';
 import { CadenaPersonalPanel } from './CadenaPersonalPanel';
 import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
-import { sessionModality } from './modality';
+import { modalityColor, sessionModalityView } from './modality';
 import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,7 @@ function findTodaySession(plan: AthletePlanPayload): PlanSession | null {
 function mapWeekToStripDays(week: PlanWeekRow, athleteId: string): WeekStripDay[] {
   return week.days.map((d) => {
     const s = d.sessions[0] ?? null;
-    const modality = s ? sessionModality({ format: s.format, title: s.title }) : null;
+    const modality = s ? sessionModalityView(s).slug : null;
     let state: WeekStripDay['state'] = 'rest';
     if (!s) state = 'rest';
     else if (d.is_today) state = 'today';
@@ -114,7 +114,7 @@ function MiniWeekCard({
 }
 
 function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: string) => void }) {
-  const modality = sessionModality({ format: s.format, title: s.title });
+  const modality = sessionModalityView(s);
   const ok = s.status === 'completed';
   const partial = s.status === 'partial';
   return (
@@ -135,7 +135,7 @@ function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: strin
           <span
             aria-hidden
             className="h-3.5 w-0.5 shrink-0 rounded-full"
-            style={{ background: `var(${MODALITY_META[modality].colorVar})` }}
+            style={{ background: modalityColor(modality.slug) }}
           />
           <span className="truncate text-xs font-medium text-[color:var(--v2-fg)]">{s.title}</span>
         </span>
@@ -633,12 +633,11 @@ function TodaySessionCard({
   session: PlanSession;
   onOpen: (assignmentId: string) => void;
 }) {
-  const modality = sessionModality({ format: session.format, title: session.title });
-  const meta = MODALITY_META[modality];
+  const modality = sessionModalityView(session);
   return (
     <div
       className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
-      style={{ borderLeft: `3px solid var(${meta.colorVar})` }}
+      style={{ borderLeft: `3px solid ${modalityColor(modality.slug)}` }}
     >
       <div className="flex items-center justify-between gap-2">
         <Pill tone="accent" variant="solid">
@@ -657,7 +656,7 @@ function TodaySessionCard({
       <div className="flex flex-col gap-0.5">
         <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{session.title}</span>
         <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-          {meta.label}
+          {modality.label}
           {session.duration_min != null ? ` · ${session.duration_min} min` : ''}
         </span>
       </div>
