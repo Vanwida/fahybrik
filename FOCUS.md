@@ -78,14 +78,16 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   quedó cerrada en `e945d095`: cascada por prioridad con piezas de alto fijo,
   cap visible en el cromo, numeral desnudo, «Por rondas». Suite completa
   TEST SUCCEEDED; pendiente su pasada corta de confirmación.
-- **Incidente de datos (11-ago, resuelto con recibos):** el editor del panel
-  (dev server contra PROD por el symlink `.env.local`) pisó la sesión real de
-  Alex (asignación 411) con el prefill del arquetipo fartlek — 4 ejes mal. Se
-  culpó al cliente MCP; los recibos exoneran (la fila era perfecta ayer, la
-  reescritura fue hoy 15:15 sin rastro de audit, y el contenido es
-  `archetype-prefills.ts:58`). Fila RESTAURADA. Derivadas: el editor del panel
-  no auditaba días (otra sesión ya lo está cerrando con actor obligatorio) y
-  el footgun del symlink sigue armado (memoria + DECISIONS).
+- **Incidente de datos (11-ago, resuelto — y era Alex xD):** la sesión real
+  del fartlek dictado (asignación 411) apareció con 4 ejes cambiados (el
+  prefill del arquetipo fartlek, `archetype-prefills.ts:58`). Se culpó primero
+  al cliente MCP (falso: escribió perfecto, verificado fila a fila), luego a
+  un dev server contra prod (falso también): **era Alex trasteando en el
+  editor del panel**, y el editor aplicó el prefill SIN avisar sobre un
+  entreno escrito — ese bug sí era real y está arreglado (`931c853b`). Fila
+  restaurada. Moraleja doble: el actor obligatorio en las escrituras del panel
+  (en vuelo) habría resuelto esto en un minuto, y el footgun del symlink
+  `.env.local` sigue armado aunque esta vez no disparó (memoria + DECISIONS).
 - Pendiente de Alex: probar en su iPhone el EMPEZAR arreglado y el contador
   nuevo (los fixes están commiteados; instalar necesita su móvil alcanzable
   por cable/wifi o Run desde Xcode).
