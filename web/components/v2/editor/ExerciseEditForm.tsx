@@ -39,13 +39,12 @@
 import { useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
+import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import {
   CATEGORY_LABEL,
   ORIGIN_LABEL,
-  YouTubeField,
   extractApiErrorMessage,
   toCatalogRow,
-  videoFieldState,
   type ApiExercise,
   type CatalogRow,
 } from './exercise-catalog';
@@ -72,10 +71,10 @@ export function EditExerciseForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const videoState = videoFieldState(video);
+  const videoInvalid = videoUrlDraftInvalid(video);
   // Own rows have no base to fall back to if name is blanked — required, like
   // the create form. Base/customized rows may leave name untouched (see header).
-  const canSave = videoState !== 'invalid' && !saving && (!isOwn || name.trim().length > 0);
+  const canSave = !videoInvalid && !saving && (!isOwn || name.trim().length > 0);
 
   const submit = async () => {
     if (!canSave) return;
@@ -196,7 +195,16 @@ export function EditExerciseForm({
         rows={3}
       />
 
-      <YouTubeField value={video} onChange={setVideo} state={videoState} forEdit />
+      {/* El vídeo de la base ya no es invisible aquí: hereda igual que las claves y
+          la descripción (mismo `base_*`), así que el campo lo enseña y lo reproduce
+          mientras el coach no ponga el suyo. */}
+      <VideoUrlField
+        id="editar-ej-video"
+        label="Vídeo de YouTube"
+        value={video}
+        onChange={setVideo}
+        inheritedUrl={isOwn ? null : exercise.base_video_url}
+      />
 
       {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}
 

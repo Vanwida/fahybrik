@@ -1,8 +1,13 @@
 // Exercise-catalog row shape + shared editor atoms used by ExercisePicker.tsx
 // and its edit-form sibling (ExerciseEditForm.tsx). Split out so BOTH depend on
-// ONE row type / ONE YouTube-field component instead of each restating it (repo
-// DRY rule), and to keep ExercisePicker.tsx from growing past its already-over-
-// limit line count when the edit form gained a third editable field.
+// ONE row type instead of each restating it (repo DRY rule), and to keep
+// ExercisePicker.tsx from growing past its already-over-limit line count when
+// the edit form gained a third editable field.
+//
+// EL CAMPO DE VÍDEO YA NO VIVE AQUÍ. Aquí había un `YouTubeField` con su propia
+// validación, hermano del que tenía el editor de la Biblioteca: dos campos para
+// lo mismo, ninguno de los dos enseñaba el vídeo. Ahora los dos formularios
+// montan `components/media/VideoUrlField`, que es el único y sí lo reproduce.
 //
 // ROW SHAPE mirrors migration 0132's ownership + fork model — see
 // lib/exercises/coach-override.ts (`CoachExerciseRow`), the single SQL-side
@@ -15,11 +20,9 @@
 //     form's VALUE.
 //   • origin      = 'base' | 'customized' | 'own', for the catalog's label.
 
-import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
-import { isValidYouTubeUrl } from '@fahybrid/shared/youtube';
 import type { ExerciseOrigin } from '@/lib/exercises/coach-override';
 
 export interface CatalogRow {
@@ -136,16 +139,20 @@ export const ORIGIN_LABEL: Partial<Record<ExerciseOrigin, string>> = {
 };
 
 // The picker's pill — a filter in the search body, a single-choice option in the
-// create form. Same control, same size, same hit area: the two bodies are one sheet
-// and a chip that changed shape between them would read as a different widget.
+// create form, y el eje de contenido del panel de Ejercicios. Same control, same
+// size, same hit area: the two bodies are one sheet and a chip that changed shape
+// between them would read as a different widget.
 export function FilterChip({
   label,
   active,
   onClick,
+  count,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  /** Cuántos hay. Un 0 se pinta igual: saber que no queda ninguno es información. */
+  count?: number;
 }) {
   return (
     <button
@@ -153,73 +160,19 @@ export function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'v2-focus rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold transition-colors',
+        'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold transition-colors',
         active
           ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
           : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
       )}
     >
       {label}
-    </button>
-  );
-}
-
-// ── Shared YouTube input (create + edit — one source, one validator) ──────────
-export type VideoState = 'empty' | 'valid' | 'invalid';
-
-export function videoFieldState(value: string): VideoState {
-  const v = value.trim();
-  if (!v) return 'empty';
-  return isValidYouTubeUrl(v) ? 'valid' : 'invalid';
-}
-
-export function YouTubeField({
-  value,
-  onChange,
-  state,
-  forEdit,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  state: VideoState;
-  forEdit?: boolean;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <span className="v2-micro">
-        Vídeo de YouTube <span className="text-[color:var(--v2-faint)]">(opcional)</span>
-      </span>
-      <input
-        type="url"
-        inputMode="url"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Pega el link de YouTube…"
-        aria-label="Vídeo de YouTube"
-        className={cn(
-          'v2-focus w-full rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]',
-          state === 'invalid'
-            ? 'border-[color:var(--v2-danger)]'
-            : 'border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]',
-        )}
-      />
-      {state === 'valid' ? (
-        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-ok)]">
-          <MIcon name="play_circle" size={13} />
-          Link válido. El atleta verá el vídeo en el detalle del ejercicio en iOS.
-        </p>
-      ) : state === 'invalid' ? (
-        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-danger)]">
-          <MIcon name="error" size={13} />
-          No es una URL de YouTube válida.
-        </p>
-      ) : forEdit ? (
-        <p className="flex items-center gap-1.5 text-label text-[color:var(--v2-faint)]">
-          <MIcon name="info" size={13} />
-          Sin vídeo todavía. Pega un link y el atleta lo verá al abrir este ejercicio.
-        </p>
+      {count != null ? (
+        <span className={cn('v2-num', active ? 'opacity-70' : 'text-[color:var(--v2-faint)]')}>
+          {count}
+        </span>
       ) : null}
-    </div>
+    </button>
   );
 }
 
