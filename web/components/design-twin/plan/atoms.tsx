@@ -18,7 +18,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { COLOR_MODALIDAD, type Modalidad } from '../datos-reales';
-import { PuntoModalidad, RAD, SP, entradaStyle } from '../kit';
+import { IconClose, PuntoModalidad, RAD, SP, entradaStyle } from '../kit';
 import { S } from '../kit-composicion/tokens';
 import type { EstadoDia, RepartoModalidad, Trabajo } from './modelo';
 
@@ -41,10 +41,17 @@ export const BANDA_SUJETO = 104;
 export function Cromo({
   izquierda,
   derecha,
+  onCerrar,
   visible = true,
 }: {
   izquierda: string;
   derecha?: string;
+  /**
+   * Botón de cerrar (×), a la derecha de todo. Solo lo lleva la pantalla que
+   * se presenta como modal (el ciclo, en iOS un `fullScreenCover`); las que
+   * viven dentro de una pestaña no lo pasan y el cromo se queda igual.
+   */
+  onCerrar?: () => void;
   visible?: boolean;
 }) {
   return (
@@ -52,7 +59,7 @@ export function Cromo({
       style={{
         flex: '0 0 auto',
         display: 'flex',
-        alignItems: 'baseline',
+        alignItems: 'center',
         gap: SP.s,
         minHeight: 16,
         ...entradaStyle(visible, 0),
@@ -77,6 +84,30 @@ export function Cromo({
         <span style={{ font: '600 12px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)', flex: '0 0 auto' }}>
           {derecha}
         </span>
+      ) : null}
+      {onCerrar ? (
+        <button
+          type="button"
+          onClick={onCerrar}
+          aria-label="Cerrar"
+          style={{
+            appearance: 'none',
+            background: 'none',
+            border: 0,
+            padding: 0,
+            margin: 0,
+            width: 28,
+            height: 28,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--twin-fg)',
+            cursor: 'pointer',
+            flex: '0 0 auto',
+          }}
+        >
+          <IconClose size={13} />
+        </button>
       ) : null}
     </div>
   );

@@ -91,13 +91,19 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
     ...guion.map((linea, i) => ({ at: 700 + i * 540, run: () => onLog(linea) })),
   ]);
 
+  // La salida directa (§5): en iOS esta pantalla es un `fullScreenCover` sobre
+  // la pestaña Plan, y el cromo lleva su propio cierre en vez de depender del
+  // gesto de deslizar. Va tanto con datos como en el Vacío — el botón no puede
+  // desaparecer solo porque no haya camino que enseñar.
+  const cerrar = () => onLog('Cerrar → volvería a la pestaña Plan');
+
   // Sin estructura publicada no hay camino que repartir: el arquetipo degrada a
   // Vacío (§6.2) y se centra, con la salida declarada. Este atleta nunca ha
   // tenido plan, así que tampoco hay de dónde venir: no se finge un pasado.
   if (ciclo.tramos.length === 0) {
     return (
       <Lienzo>
-        <Cromo izquierda="Tu plan" visible={visible} />
+        <Cromo izquierda="Tu plan" onCerrar={cerrar} visible={visible} />
         <div
           style={{
             flex: '1 1 auto',
@@ -121,7 +127,7 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
     <Lienzo
       accion={
         <Accion
-          titulo="Ver la semana"
+          titulo="VER LA SEMANA"
           principal={false}
           visible={visible}
           onTap={() =>
@@ -134,7 +140,7 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
         />
       }
     >
-      <Cromo izquierda="Tu plan" derecha={nivel ?? undefined} visible={visible} />
+      <Cromo izquierda="Tu plan" derecha={nivel ?? undefined} onCerrar={cerrar} visible={visible} />
 
       {tramoActual && ciclo.semanaEnTramo !== null ? (
         <Sujeto
