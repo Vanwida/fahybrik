@@ -5,6 +5,30 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · El alta ya no obliga a pasar por la periodización (11-ago noche)
+
+Dar de alta a un atleta imponía la matriz nivel×días: el paso «Estructura del
+bloque» enseñaba una secuencia propuesta que no se podía renombrar, ni ampliar,
+ni recortar, y al asignar siempre se arrancaba desde la biblioteca del coach.
+Para llevar a alguien en plan propio había que darlo de alta primero y entrar
+después a su ficha a «Personalizar». **El servidor ya era agnóstico** (lo decía
+su propio comentario: el alta no planifica un macrociclo); quien imponía la
+matriz era la pantalla.
+
+Ahora el paso 3 ofrece dos caminos con el mismo peso: **«Seguir la
+periodización»** (el defecto, idéntico a antes) y **«Plan solo para él»**, donde
+la misma lista se escribe entera — nombre por tramo, semanas, añadir y quitar.
+Los nombres los pone el coach: cero escuelas de periodización cableadas.
+
+En modo personal se crean contenedores del atleta encadenados sin hueco, en
+borrador privado, y **no se asigna nada de la biblioteca**. Reutiliza la cadena
+personal de esta mañana (`addPersonalTramoToChain`, que ya audita dentro de la
+transacción); lo único que hizo falta fue dejarle empezar sin cadena previa. La
+clasificación nivel×días se sigue guardando en los dos modos: es dato del
+atleta, no insumo de la matriz. Test contra rama Neon real: 3/3.
+
+---
+
 ## Ahora · Las fotos de perfil se mudan a Cloudflare Images (11-ago noche)
 
 La foto deja Vercel Blob, y el motivo no es el disco: son las **variantes**. Con

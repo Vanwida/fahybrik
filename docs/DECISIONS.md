@@ -448,6 +448,37 @@ declarar el siguiente eje dentro de su componente — todos los de la Biblioteca
 
 ---
 
+## 2026-08-11 · El alta no impone la periodización: `plan_mode` es dato del coach
+
+**El hueco:** dar de alta a un atleta obligaba a pasar por la matriz nivel×días. El paso
+«Estructura del bloque» pintaba una secuencia propuesta sin poder renombrarla, ampliarla ni
+recortarla, y el commit del alta nunca mandaba plantilla concreta, así que siempre caía en
+«primer microciclo desde la biblioteca del coach». Para llevar a alguien en plan propio había que
+darlo de alta en la periodización y desengancharlo después desde su ficha.
+
+**Lo que ya estaba bien:** el servidor era agnóstico desde la 0064 — su propio comentario dice que
+el alta no auto-planifica un macrociclo y que la forma de periodización se guarda como DATO. Quien
+imponía la matriz era la pantalla, no el modelo.
+
+**Decidido:** el alta lleva un `plan_mode` (`shared` | `personal`) que es **dato del coach**, no
+una constante nuestra.
+- `shared`: idéntico a antes.
+- `personal`: se crean N contenedores del atleta, encadenados sin hueco desde el lunes de la
+  semana en curso, en borrador privado, y **no se asigna nada de la biblioteca**. Los nombres de
+  los tramos los escribe el coach; el sistema no propone ninguna escuela de periodización.
+- La clasificación nivel×días se guarda en los DOS modos: describe al atleta, no es un insumo de
+  la matriz.
+
+**Cómo, sin maquinaria nueva:** cada tramo entra por `addPersonalTramoToChain`, la misma función
+que usa la ficha (materializa con fecha, desengancha la secuencia y audita dentro de la
+transacción). Lo único añadido fue permitirle arrancar cuando todavía no hay cadena — un atleta
+recién dado de alta no tiene ninguna, y antes respondía 409.
+
+**NO hacer en consecuencia:** no volver a tratar «plan personal» como un fork posterior obligado;
+nace en el alta si el coach quiere. Y no cablear nombres de fases en ningún camino de creación.
+
+---
+
 ## 2026-08-11 · Un toque nunca borra trabajo escrito, y toda reescritura de un día deja rastro
 
 **El fallo que lo obligó:** el fartlek de la asignación 411 —16 × (500 m Z4 / 1' trote Z2), escrito
