@@ -20,7 +20,10 @@ settings:
     # sin decir nada. Eso es exactamente el susto de esta mañana (allí fue por el
     # camino de desarrollo), pero en producción y sin forma de que el atleta lo
     # sepa. Con la versión aquí arriba, divergir deja de ser posible.
-    CURRENT_PROJECT_VERSION: 11
+    # Bump on every device install that must refresh the companion watch app —
+    # same CFBundleVersion as the previous install often leaves the wrist on the
+    # old binary (Alex hit this testing sensor rep-count).
+    CURRENT_PROJECT_VERSION: 12
     MARKETING_VERSION: "1.0"
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
