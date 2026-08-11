@@ -414,6 +414,9 @@ struct CoachAvatar: View {
     let initials: String
     var size: CGFloat = 34
     var tint: Color = Theme.Color.accent
+    /// La foto de perfil, cuando la hay. Se pinta ENCIMA de las iniciales, así
+    /// que sin foto el avatar es exactamente el de siempre.
+    var photoURL: String? = nil
 
     /// The initials / person glyph are GLYPHS over the (white-in-light) elevated
     /// face, so a brand-orange tint must use the text-safe role split (orange
@@ -436,8 +439,42 @@ struct CoachAvatar: View {
             }
         }
         .frame(width: size, height: size)
+        .overlay(AvatarPhoto(url: photoURL))
         .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
         .accessibilityHidden(true)
+    }
+}
+
+/// La foto de perfil, recortada al círculo del avatar.
+///
+/// Va SIEMPRE encima de las iniciales, nunca en su lugar: mientras la imagen
+/// viaja — y si no llega — lo que se ve es el avatar de toda la vida, no un
+/// hueco. Sin URL no dibuja nada, así que ponerla de overlay es gratis en las
+/// pantallas donde el atleta todavía no tiene foto.
+struct AvatarPhoto: View {
+    let url: String?
+
+    /// La foto entra con un fundido corto en vez de dar un salto. Va en la
+    /// transacción de `AsyncImage` porque su transacción por defecto no lleva
+    /// animación: puesto como `.transition` suelto no haría nada.
+    private static let fundido: Animation = .easeOut(duration: 0.2)
+
+    var body: some View {
+        if let url, let resuelta = URL(string: url) {
+            AsyncImage(
+                url: resuelta,
+                transaction: Transaction(animation: Self.fundido)
+            ) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFill()
+                } else {
+                    // Cargando, o no llegó: se deja ver el avatar de debajo.
+                    Color.clear
+                }
+            }
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+        }
     }
 }
 

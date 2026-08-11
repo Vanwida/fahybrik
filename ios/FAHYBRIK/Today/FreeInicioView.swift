@@ -133,8 +133,13 @@ struct FreeInicioView: View {
                     Haptics.light()
                     onOpenTab?(.perfil)
                 } label: {
-                    CoachAvatar(initials: identity?.initials ?? "", size: 34, tint: Theme.Color.muted)
-                        .contentShape(Circle())
+                    CoachAvatar(
+                        initials: identity?.initials ?? "",
+                        size: 34,
+                        tint: Theme.Color.muted,
+                        photoURL: identity?.avatarURLResuelta
+                    )
+                    .contentShape(Circle())
                 }
                 .accessibilityLabel("Tu perfil")
             }

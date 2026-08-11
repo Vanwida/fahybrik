@@ -5,6 +5,48 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Las fotos de perfil se mudan a Cloudflare Images (11-ago noche)
+
+La foto deja Vercel Blob, y el motivo no es el disco: son las **variantes**. Con
+Blob se servía el original (hasta 4 MB) dentro de un círculo de 32 px; con cien
+atletas en un listado, cien originales por carga.
+
+**Qué se hizo** (detalle y qué NO volver a hacer: `docs/DECISIONS.md`, 11-ago noche):
+
+- **`athletes.avatar_url`** (migración **0179**, aplicada): el atleta no tenía
+  NINGUNA columna de foto, por eso salía siempre con iniciales.
+- **Tres rutas finas, dos principales:** `POST /api/perfil/foto/subida` →
+  `{ upload_url, image_id, expires_at }`, `POST …/confirmar` con `{ image_id }`, y
+  `DELETE /api/perfil/foto`. El entrenador entra con su sesión y el atleta con su
+  bearer; **un entrenador nunca sube la foto de un atleta**. Confirmar PREGUNTA a
+  Cloudflare si la imagen existe y si la subió quien la reclama: la URL no se
+  guarda antes de que el fichero exista.
+- **Se guarda la BASE, sin tamaño.** La variante la pide quien pinta:
+  `avatar160` (listados) y `avatar480` (retratos), declaradas en
+  `web/lib/profile/photo-source.ts` y creadas por
+  `infra/scripts/cloudflare-image-variants.ts` leyendo esas mismas constantes.
+- **Lo común a Cloudflare sube a `web/lib/cloudflare/api.ts`** y **Stream lo usa
+  también**: cuenta, credencial, sobre de la respuesta y forma de fallar. Fuera
+  `ExerciseVideoError` → `CloudflareMediaError`.
+- **Fuera el camino de Blob:** `POST /api/coach/profile/avatar`, `avatar_url` del
+  `coachProfileSchema` (la columna pasa a tener UN escritor) y el `remotePatterns`
+  de blob en `next.config.ts`. Medido antes: **0 de 6 entrenadores tenían foto**.
+- **Se pinta** en el roster del panel, y en iOS por `/api/auth/me`, que ahora
+  devuelve `avatar_url` con la variante ya pegada.
+
+**Verificado:** vuelta entera contra Cloudflare ejecutando el código de la app
+sobre un atleta REAL (reservar → subir → confirmar → columna escrita → las dos
+variantes responden 200 `image/jpeg` → borrar → columna a null y Cloudflare 404);
+`.pdf` y dueño ajeno rechazados; `tsc --noEmit` limpio, eslint limpio, 3790 tests
+en verde, `pnpm build` correcto. La cuenta queda con 0 imágenes.
+
+**Sin hacer, y hay que decirlo:** la **cabecera de la ficha del atleta**
+(`DetalleHeader.tsx`) sigue con iniciales — el fichero lo tiene otra sesión. Las
+demás superficies del panel (mensajes, tarjetas de hoy, parejas de dobles) también
+siguen con iniciales: sus cargadores no traen la columna todavía.
+
+---
+
 ## Ahora · El contador de repeticiones, rehecho: excursión + serie abierta (11-ago noche)
 
 Alex probando back squat en entreno libre: «nada más empezar suma reps sin más» y
@@ -37,6 +79,14 @@ pausa, banca tumbado, wall balls, curl, dominadas, flexiones, andar=0, carry=0,
 silla=0, remo sentado=0, velocidad 1×rep, conteo monotónico, ida y vuelta del
 archivo v2); `xcodebuild -scheme FAHYBRIKWatch` SUCCEEDED.
 
+**Hueco heredado que NO he tocado (fuera del alcance de lo reportado):**
+`sensor_work_s` / `sensor_rest_s` se calculan sobre una ventana rodante de 35 s, no
+sobre la serie. La fase 1 del plan los quiere **por tramo**, y ahora que la ventana
+existe es un cambio de tres líneas — pero cambia el significado de dos columnas que
+ya se escriben, así que va aparte. Sí arreglé su coste: filtraba el array entero de
+muestras cada 20 ms (135.000 al final de la sesión) y ahora avanza un índice y
+recalcula dos veces por segundo, que en el reloj es batería.
+
 **Sin hacer, y hay que decirlo:** todo está validado contra señal sintética con
 física, **no contra vídeo ni PM5**. La aceptación del plan (±1 rep en el 90 % de
 las series, correlación >0,90 en m/s hasta el 80 % del 1RM) sigue pidiendo medir en
@@ -49,11 +99,11 @@ tocó).
 
 ## Ahora · El atleta se pone su cara — foto de perfil en iOS (11-ago)
 
-Donde había iniciales ahora puede ir su foto. Construido en iOS contra el
-contrato que está levantando OTRA sesión en paralelo (`POST /api/perfil/foto/
-subida` → subida directa multipart campo `file` → `POST …/confirmar` →
-`DELETE /api/perfil/foto`); **el servidor todavía no existe**, así que el
-circuito está listo y sin probar de punta a punta.
+Donde había iniciales ahora puede ir su foto. **El servidor ya existe** (ver el
+bloque de abajo): `POST /api/perfil/foto/subida` → subida directa multipart campo
+`file` → `POST …/confirmar` → `DELETE /api/perfil/foto`, exactamente el contrato
+contra el que se construyó iOS. Falta probarlo desde el simulador de punta a
+punta.
 
 - **Dónde:** el avatar de Perfil es ahora un botón con chapita de cámara y abre
   `FotoPerfilSheet` (en `ProfileView.swift`): galería con `PhotosPicker`, cámara
@@ -74,12 +124,12 @@ circuito está listo y sin probar de punta a punta.
 - **Verificado:** BUILD SUCCEEDED (`xcodebuild -scheme FAHYBRIK`) y tests nuevos
   en `FAHYBRIKTests/Profile/AthletePhotoTests.swift`.
 
-**Asunción que hay que confirmar con la sesión del servidor:** el campo se lee
-como `avatar_url` en `/api/auth/me` (precedente del repo: `coaches.avatar_url`).
-Si el servidor lo llama de otra forma, es una línea en `AthleteIdentity`.
+**Asunción CONFIRMADA:** `/api/auth/me` devuelve `avatar_url` dentro de
+`athlete`, y llega **ya con su variante pegada** (`…/avatar480`), lista para meter
+en el círculo sin tocarla.
 
-**Sin hacer:** el panel del coach no pinta la foto del atleta, y el doble no
-tiene espejo de la tarjeta de identidad de Perfil (sólo `perfil-rendimiento`).
+**Sin hacer:** el doble no tiene espejo de la tarjeta de identidad de Perfil
+(sólo `perfil-rendimiento`).
 
 ---
 
