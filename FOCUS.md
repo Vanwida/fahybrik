@@ -87,14 +87,34 @@ las dos aplicadas a mano por el runner y registradas en el journal — ojo, hay
   «gluteo» sin tilde→puente, «row»/«remo»→el ergo y los dos remos con barra
   **con su modalidad** para desambiguar (el caso que estaba roto).
 
-**NO hecho todavía, y es lo que se ve:** el código no lee nada de esto aún —
-el buscador sigue por `name`, el selector del editor no ordena por relevancia,
-el importador sigue leyendo el mapa de TS, e iOS no resuelve el idioma del
-atleta. El match debe ser **por palabra** (`like %q%` / `<%`), no por prefijo:
-verificado que así funciona. Y ampliar el catálogo (126 → ~500 curados) sigue
-pendiente. El rediseño de la lista (facetas con conteos, agrupación por
-patrón, virtualización, teclado en el selector) pide mockup y firma antes de
-construir.
+**Cableado y EN PRODUCCIÓN** (deploy 11-ago 20:02, verificado de punta a punta
+por el conector MCP contra prod: «sentadilla» → 10 ejercicios): un solo
+predicado compartido `exerciseSearchFilter` para el catálogo del coach y el
+del atleta —antes cada lector repetía su propio LIKE— que busca en el nombre
+mergeado, los dos idiomas, el slug, los alias base y los sinónimos de ESE
+coach, normalizado con la misma función que indexa y **por palabra contenida**,
+no por prefijo. El filtro en cliente del panel usa la misma regla con
+`search_terms` ya normalizado del servidor, así que pantalla y API no pueden
+divergir. Medido en prod: sentadilla→10, gluteo→4, row→3 (el ergo y los dos
+remos con barra), trineo→3, bulgara→1.
+
+**El «filtro de Personalizados» que Alex reportó NO estaba roto:** sus 3
+personalizaciones (sled push, puente de glúteo, press banca — les puso vídeo)
+salen correctamente como `customized`; lo que las escondía era el chip «Sin
+nada» activo encima, que por definición excluye lo que tiene vídeo. El vacío
+decía sólo «ningún ejercicio con estos filtros», que se lee como filtro roto:
+ahora dice cuántos hay con ese origen y qué los deja fuera, con botón para
+quitar el filtro de contenido.
+
+**Pendiente:** el importador sigue leyendo su mapa cableado en TS en vez de
+`exercise_aliases` (el dato ya está, falta cambiar el lector); iOS no resuelve
+todavía con `preferred_language`; ampliar el catálogo (126 → ~500 curados); y
+el rediseño de la lista (facetas con conteos, agrupación por patrón,
+virtualización, teclado en el selector) pide mockup y firma antes de construir.
+
+**Gotcha de deploy (11-ago):** el CLI `vercel@58.9.2` sube el bundle y casca al
+finalizar con «fetch failed» (Node 25); `npx vercel@58.9.1` funciona. Dos
+intentos perdidos ahí.
 
 ---
 
