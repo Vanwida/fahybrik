@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · Las tres columnas huérfanas de la 0154 encuentran su motor — y un CHECK que llevaba desde entonces mintiendo sobre qué es una delta
+
+**Contexto:** `workout_executions.decoupling_pct` / `elevation_gain_m` / `elevation_loss_m` / `hr_recovery_60_bpm` existían desde la 0154 y nadie las llenaba. Las cuatro exigen recorrer la traza entera (la regla que la 0156 ya dejó escrita: se guarda lo que exige recorrer la traza, se calcula lo que depende del atleta), así que se enganchan en el mismo sitio que el reparto de zonas — `ingest-workout-traces.ts` — vía un módulo nuevo, `web/lib/execution/measured-header.ts`, que llama a tres funciones puras en `shared/domain/running/`.
+
+**Bug encontrado y arreglado en el camino (mig 0181):** `workout_executions_hr_chk` (0154) exigía `hr_recovery_60_bpm between 30 and 260` — el rango de un PULSO ABSOLUTO, copiado a la fila de una columna que en realidad es una DELTA (cuánto cayó el pulso, no cuánto marca). Verificado contra producción: una recuperación de 18 lpm —buena y corriente— no pasaba el CHECK. Nadie lo había notado porque la columna llevaba vacía desde que existe; esta tanda es la primera que la escribe de verdad. Corregido a `0-150` (0 de suelo porque el motor que la alimenta ya descarta una caída negativa antes de guardar; 150 de techo generoso, red de seguridad y no un límite fisiológico). El Zod de `shared/schema/workouts.ts` tenía el mismo bug copiado y se corrigió igual.
+
+**Decisiones de dominio, con su porqué:**
+
+- **Deriva aeróbica (Pa:HR/Friel):** EF = velocidad / pulso; deriva = caída de EF de la primera a la segunda mitad, en %. Elegible SOLO con exactamente UN tramo de fase `main` (mig 0146) — cero tramos main es "nada que medir"; DOS o más es una sesión de series (alternando trabajo/recuperación) O progresiva (tramos distintos a propósito), y en los dos casos el supuesto de esfuerzo constante del método ya no se sostiene. Sin tramos etiquetados (carrera sin estructura), se excluyen los primeros 10 min (`WARMUP_SKIP_S`, la convención estándar del método) antes de partir en mitades. Mínimo 20 min de esfuerzo sostenido (`MIN_SUSTAINED_DURATION_S`) y cobertura real (≥4 muestras, ningún hueco > 180 s) en cada mitad, para pulso Y velocidad. NO lee `decoupling_target_pct`/`decoupling_regress_threshold_pct` (methodology-system.ts): esos son el veredicto del coach; este módulo solo da el número (regla Nº0, mecanismo vs método).
+- **Desnivel:** histéresis contra una línea base con umbral de 3 m (`ELEVATION_NOISE_THRESHOLD_M`), no una media móvil ni sumar deltas a pelo — una traza llana con jitter de GPS da 0, no 200 (el test que acepta la pieza). Ganancia y pérdida se guardan por separado, nunca netas.
+- **Recuperación de pulso:** espeja `HRRecoveryCapture` (iOS) 1:1 — mismos umbrales (cola de 10 s, marca a 60 s, tolerancia ±5 s, cobertura exigida a los 58 s), mismo criterio (caída negativa → null, nunca un artefacto). El ancla del "fin del esfuerzo" es el final del ÚLTIMO tramo de TRABAJO (no el final de la grabación) — una vuelta a la calma grabada después no debe adelantar la ventana de recuperación.
+
+**Qué NO hacer en consecuencia:**
+
+- No calcular deriva sobre una sesión de series ni sobre un progresivo, aunque "total esfuerzo trabajado" tiente a dar un número. Es ruido con forma de dato.
+- No sumar deltas de altitud sin histéresis ni umbral: infla el desnivel de una tirada llana, y encima en la dirección que más halaga.
+- No inventar un segundo criterio de recuperación de pulso: si `HRRecoveryCapture` cambia sus umbrales, este módulo cambia con él.
+- No meter el veredicto de deriva (bueno/regresión) en el motor: eso vive en el dato editable del coach, no en código.
+- No rellenar retroactivamente sesiones sin traza: las cuatro columnas se quedan `null` si no hay traza que recorrer.
+
+---
+
 ## 2026-08-11 (noche) · La carrera guarda su NEGATIVO: se persiste lo medido, se deriva lo demás
 
 **Contexto:** análisis completo en `docs/correr-analitica.html`. Una carrera son

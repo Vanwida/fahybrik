@@ -43,5 +43,6 @@ export async function POST(request: Request) {
     execution_id: parsed.data.execution_id,
     traces_saved: result.traces_saved,
     zones_recomputed: result.zones_recomputed,
+    header_recomputed: result.header_recomputed,
   });
 }

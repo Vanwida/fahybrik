@@ -70,7 +70,7 @@ type SegmentRow = {
   raw_lap_data_json: unknown;
 };
 
-type TraceRow = {
+export type TraceRow = {
   source: BiometricSource;
   started_at: Date;
   offsets_s: number[];
@@ -288,8 +288,12 @@ export async function recomputeAthleteZoneSeconds(args: {
  * correa y la del reloj: se elige por fidelidad del sensor
  * (`hrTraceFidelity`) para no apilar el mismo minuto dos veces. Los empates los
  * rompe la fila más reciente, así que un re-sync gana a lo que había.
+ *
+ * Exportada: `measured-header.ts` (deriva aeróbica / recuperación de pulso)
+ * necesita EXACTAMENTE esta misma selección — reusarla evita una segunda copia
+ * que se prometa "igual" y acabe divergiendo (la lección de `segment-modality.ts`).
  */
-async function bestHrTrace(client: Sql, execution_id: number): Promise<TraceRow | null> {
+export async function bestHrTrace(client: Sql, execution_id: number): Promise<TraceRow | null> {
   const rows = await client<TraceRow[]>`
     select source, started_at, offsets_s, values
     from workout_traces

@@ -22,6 +22,7 @@ import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { computeExecutionZoneSeconds } from '@/lib/zones/segment-zone-seconds';
+import { computeMeasuredHeader } from '@/lib/execution/measured-header';
 import { workoutTraceInputSchema } from '@fahybrid/shared/schema/workouts';
 
 /**
@@ -57,7 +58,7 @@ export type WorkoutTracesPayload = z.infer<typeof workoutTracesPayloadSchema>;
 
 export type IngestTracesResult =
   | { ok: false; reason: 'not_found' }
-  | { ok: true; traces_saved: number; zones_recomputed: boolean };
+  | { ok: true; traces_saved: number; zones_recomputed: boolean; header_recomputed: boolean };
 
 /**
  * Guarda las series de una ejecución del atleta autenticado.
@@ -102,5 +103,26 @@ export async function ingestWorkoutTraces(args: {
   if (hasHr) {
     await computeExecutionZoneSeconds({ execution_id: args.payload.execution_id, client });
   }
-  return { ok: true, traces_saved: args.payload.traces.length, zones_recomputed: hasHr };
+
+  // Las tres columnas huérfanas de la 0154 (deriva aeróbica, desnivel,
+  // recuperación de pulso) exigen recorrer la traza entera — mismo gesto que el
+  // reparto de zonas, disparado por las TRES señales que alimentan alguna de
+  // ellas (hr+speed para la deriva, hr para la recuperación, altitude para el
+  // desnivel), no solo por hr. Siempre relee TODAS las trazas ya guardadas de
+  // la ejecución (no solo las de este payload), así que una subida en dos
+  // pasos (hr ahora, speed más tarde) completa la deriva en cuanto llega la
+  // segunda mitad sin perder la primera.
+  const hasHeaderSignal = args.payload.traces.some((t) =>
+    (['hr', 'speed', 'altitude'] as const).includes(t.signal as 'hr' | 'speed' | 'altitude'),
+  );
+  const header_recomputed = hasHeaderSignal
+    ? (await computeMeasuredHeader({ execution_id: args.payload.execution_id, client })).written
+    : false;
+
+  return {
+    ok: true,
+    traces_saved: args.payload.traces.length,
+    zones_recomputed: hasHr,
+    header_recomputed,
+  };
 }
