@@ -5,10 +5,46 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · La pestaña Plan estrena cabecera con dato y el ciclo es un camino (12-ago)
+
+Directiva de Alex (11-ago): la cabecera del Plan salía vacía, el ciclo debía
+entrar por el cromo con icono propio, y la vista del ciclo tenía que ser el
+camino a su objetivo, motivadora por diseño. Tres raíces, tres piezas:
+
+- **El foco de la semana vive en la semana del atleta** (migración **0182**,
+  aplicada a prod). Antes solo existía en `program_week_templates.focus`: una
+  semana sin cadena (creada directa o por MCP, el caso real de Alex) no podía
+  llevar foco. Ahora `weekly_plans.focus` manda y el de plantilla es el defecto
+  heredado. Lo escriben el panel (cabecera de la semana en la ficha del atleta)
+  y la tool MCP **`set_week_focus`** («el foco de esta semana es…» dictado por
+  voz), por UN solo escritor (`web/lib/coach/week-focus.ts`) con el guardia que
+  importa: fijar un foco JAMÁS publica ni esconde la semana. Un borrador no
+  adelanta su foco al atleta. 26 tests web nuevos contra rama Neon real.
+- **`GET /api/athlete/plan/ciclo`**: camino real (+`level` y `events` aditivos
+  por tramo), `al_acabar` verbatim de `program_sequences.end_policy` y la
+  carrera objetivo con su `goal_time_s`. La cabecera de iOS (bloque + «Semana
+  N de M» + foco) ya pintaba todo esto: era el DATO lo que faltaba.
+- **iOS**: la puerta al ciclo sube al cromo (`square.stack.3d.up`, antes de
+  calendario y chat), `EntradaAlCiclo` borrada (el héroe absorbe su alto), y
+  `PlanCicloView` reescrita espina-first portando la propuesta del doble:
+  tramos con «estás aquí, semana N», hitos del calendario colgando del tramo
+  actual, hueco «aquí acaba lo publicado» y la carrera cerrando con cuenta
+  atrás y objetivo. Suite fusionada: **1357 tests, 0 fallos**. Detalle y
+  descartes (cumplimiento semanal, «próxima semana»): `docs/DECISIONS.md`
+  12-ago «La vista del ciclo es un CAMINO».
+
+Pendiente de Alex: verlo en su iPhone (instala él). Ojo con su atleta (64):
+sin cadena de mes, el ciclo enseña su vacío honesto — para ver el camino
+entero hace falta una cadena asignada. El foco sí puede probarlo YA dictando
+al conector: «el foco de esta semana es…».
+
+---
+
 ## Ahora · El doble alcanza al ciclo espina-first (12-ago)
 
-Espejo del Swift ya shipeado en `worktree-agent-ac7c0af96772233a4` (merge
-inminente, todavía no en esta rama). Tres commits:
+Espejo del Swift del ciclo (fusionado en `5f1d1c8f`; `twin:desfase` re-corrido
+tras el merge: `plan-ciclo` EN FASE, solo siguen los tres podridos de antes).
+Tres commits:
 
 - **`plan-ciclo` pasa a `espejo`**: las cuatro divergencias declaradas de la
   propuesta ya resueltas — reparto IGUAL entre las paradas que crecen (no
@@ -24,12 +60,9 @@ inminente, todavía no en esta rama). Tres commits:
   (código muerto borrado), el héroe absorbe el alto solo.
 - Typecheck + lint limpios; 966 tests del doble en verde.
 
-**`twin:desfase` con una entrada nueva y esperada:** `plan-ciclo` sale
-desfasado porque `PlanCicloAtoms.swift` y `CicloDelPlan.swift` no existen
-todavía en esta rama (viven en el worktree sin mergear) — no es contenido
-mal espejado, es que el merge no ha llegado. Re-correr `twin:desfase` tras
-el merge del ciclo espina-first. `benchmark-erg`/`devices`/`watch-live`
-siguen podridos de antes, ninguno de este lote.
+**`twin:desfase` re-corrido tras el merge del ciclo:** `plan-ciclo` en fase.
+`benchmark-erg`/`devices`/`watch-live` siguen podridos de antes, ninguno de
+este lote.
 
 ---
 

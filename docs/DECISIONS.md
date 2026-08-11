@@ -10,6 +10,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · El foco de la semana vive en la SEMANA DEL ATLETA; la plantilla solo pone el defecto
+
+**Contexto:** «Foco de la semana» solo existía en `program_week_templates.focus`.
+Una semana sin cadena —creada directa por el coach en la ficha, o dictada por el
+conector MCP (`weekly_plans.microcycle_id` NULL, el caso real de Alex)— no venía de
+ninguna plantilla y NO PODÍA llevar foco. La cabecera del atleta salía vacía y no
+había dónde escribirla.
+
+**Decidido (migración 0182):** `weekly_plans.focus`, anulable, sin default. Al
+servir: `weekly_plans.focus ?? focoDePlantilla` — la semana real del atleta manda,
+la plantilla es el defecto heredado. Un coach que no toca nada se comporta igual
+que ayer.
+
+- **UN solo escritor** (`web/lib/coach/week-focus.ts`), usado por el PATCH del
+  panel y por la tool MCP **`set_week_focus`**. Ni un segundo camino de escritura.
+- **El gotcha que ese escritor evita y no hay que reintroducir:** `weekly_plans.status`
+  nace `'draft'` por DEFAULT (0021). Un upsert ingenuo de foco sobre una semana SIN
+  fila la habría convertido en OCULTA («sin fila SE VE», 10-ago). El INSERT fija
+  `status='published'` explícito (el equivalente exacto de «sin fila»); el UPDATE
+  toca `focus` en solitario. **Escribir el foco jamás publica ni esconde nada.**
+- **Un borrador no adelanta su foco:** el portón que esconde las sesiones de una
+  semana `draft` esconde también su foco propio, aplicado en el lector del atleta
+  (`resolveAthleteFacingFocus`). El coach sí ve su borrador en panel y conector.
+
+**Qué NO hacer:** no escribir `weekly_plans` desde otro sitio para el foco; no
+«arreglar» el INSERT quitándole el status explícito; no fundir foco de semana y de
+plantilla en la DB (el merge es de LECTURA — borrar el override debe devolver el
+defecto de plantilla, y eso solo funciona si son columnas distintas).
+
+---
+
 ## 2026-08-12 · Las tres columnas huérfanas de la 0154 encuentran su motor — y un CHECK que llevaba desde entonces mintiendo sobre qué es una delta
 
 **Contexto:** `workout_executions.decoupling_pct` / `elevation_gain_m` / `elevation_loss_m` / `hr_recovery_60_bpm` existían desde la 0154 y nadie las llenaba. Las cuatro exigen recorrer la traza entera (la regla que la 0156 ya dejó escrita: se guarda lo que exige recorrer la traza, se calcula lo que depende del atleta), así que se enganchan en el mismo sitio que el reparto de zonas — `ingest-workout-traces.ts` — vía un módulo nuevo, `web/lib/execution/measured-header.ts`, que llama a tres funciones puras en `shared/domain/running/`.
