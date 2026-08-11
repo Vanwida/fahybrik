@@ -74,6 +74,12 @@ export type AssignmentStatus = z.infer<typeof assignmentStatus>;
 // every later value's position, which is exactly the invariant the first
 // paragraph depends on. Verified against production: the enum is these thirteen,
 // in this order.
+//
+// 'strap' (mig 0180) is the generic BLE heart-rate strap (profile 0x180D) the
+// live engine's HR precedence already names (strap > healthkit > pm5, mig 0153's
+// `segment_executions.hr_source` — same term, same fact, aligned instead of
+// invented twice). Appended at the END, matching where the migration adds it to
+// the Postgres enum — the position invariant above depends on that.
 export const biometricSource = z.enum([
   'healthkit',
   'garmin',
@@ -88,6 +94,7 @@ export const biometricSource = z.enum([
   'amazfit',
   'treadmill',
   'gps',
+  'strap',
 ]);
 export type BiometricSource = z.infer<typeof biometricSource>;
 

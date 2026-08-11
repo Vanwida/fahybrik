@@ -90,17 +90,14 @@ export function fidelityRank(cls: MergeFieldClass, channel: MergeChannel): numbe
 // óptico lo infiere de la luz reflejada, y se despista con el movimiento — que
 // es justo lo que hay en un entreno. Mayor = mejor; los empates los rompe el
 // orden de llegada, así que la elección es determinista.
-//
-// HUECO CONOCIDO: una correa BLE genérica no tiene todavía un valor propio en
-// `biometric_source` (el enum nombra marcas y aparatos, no sensores), así que
-// hoy solo se distingue la que entra emparejada por el PM5. Cuando el motor en
-// vivo empiece a escribir trazas y ese valor exista, entra aquí como la fila más
-// alta y nada más cambia.
 export const HR_TRACE_FIDELITY: Readonly<Record<BiometricSource, number>> = {
-  // Correa de pecho: la que va emparejada al PM5 y la propia de Polar, cuya
-  // serie de sesión sale de su banda cuando hay banda.
+  // Correa de pecho: la que va emparejada al PM5, la propia de Polar (su serie
+  // de sesión sale de su banda cuando hay banda), y la BLE genérica (perfil
+  // 0x180D, mig 0180) que el motor en vivo empareja directamente — las tres
+  // leen el latido eléctrico del pecho, así que comparten el nivel más alto.
   concept2: 3,
   polar: 3,
+  strap: 3,
   // La serie propia del aparato del atleta. Muñeca, pero medida y transmitida
   // por quien fabricó el sensor, sin pasar por ningún espejo.
   garmin: 2,
@@ -143,10 +140,11 @@ export function hrTraceFidelity(source: BiometricSource): number {
 export function channelOfStoredSource(source: BiometricSource): MergeChannel {
   if (source === 'healthkit') return 'device_stream';
   if (source === 'manual') return 'manual';
-  // The two LOCAL apparatus (mig 0143) only ever reach us through our own live
-  // engine, which records structured segments — so they are app_structured, not
-  // a photo of somebody's screen. Without this they would fall into the OCR
-  // bucket below and a real PM5/treadmill session would rank BELOW a screenshot.
-  if (source === 'treadmill' || source === 'gps') return 'app_structured';
+  // The LOCAL apparatus (mig 0143 treadmill/gps; mig 0180 strap) only ever
+  // reach us through our own live engine, which records structured segments —
+  // so they are app_structured, not a photo of somebody's screen. Without this
+  // they would fall into the OCR bucket below and a real PM5/treadmill/strap
+  // session would rank BELOW a screenshot.
+  if (source === 'treadmill' || source === 'gps' || source === 'strap') return 'app_structured';
   return 'ocr_capture';
 }

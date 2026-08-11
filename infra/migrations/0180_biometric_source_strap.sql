@@ -1,0 +1,32 @@
+-- 0180: `strap` como origen de dato válido en `biometric_source`.
+--
+-- POR QUÉ
+-- -------
+-- iOS lee el pulso de hasta tres orígenes con precedencia (WorkoutSession, mig
+-- 0153): correa BLE genérica (perfil 0x180D) > reloj/HealthKit > correa emparejada
+-- al PM5. `healthkit` y `concept2` ya tienen hueco en `biometric_source`; la correa
+-- BLE genérica no — y no es una marca (no hay 'garmin'/'polar'/'wahoo' que la
+-- describa honestamente: es CUALQUIER correa que hable el perfil estándar de
+-- pulso, no un fabricante concreto).
+--
+-- La 0153 ya resolvió esta misma pregunta para `segment_executions.hr_source`
+-- (QUÉ APARATO midió el pulso de esa fila) con el vocabulario
+-- ('strap', 'healthkit', 'pm5'). Esto alinea `biometric_source` (QUIÉN es la
+-- fuente en TODO el esquema — workout_executions.source,
+-- workout_executions.contributing_sources, workout_traces.source) con ese mismo
+-- término en vez de inventar un segundo nombre para el mismo hecho.
+--
+-- QUÉ
+-- ---
+-- Añade un valor a un enum de Postgres. NO reescribe filas, NO toca columnas, NO
+-- invalida índices: solo amplía lo aceptado. `if not exists` lo hace idempotente.
+-- Mismo patrón que 0135 (suunto/amazfit) y 0143 (treadmill/gps): el runner aplica
+-- cada fichero en su propia transacción, y Neon corre PG 15+, donde `add value`
+-- sí se permite dentro de una transacción.
+--
+-- Espejo Zod: `biometricSource` en shared/schema/_primitives.ts se amplía en la
+-- MISMA posición relativa (al final), porque el comentario de ese fichero deja
+-- escrito que el orden importa para `contributing_sources` (Postgres ordena los
+-- arrays de enum por posición de declaración).
+
+alter type biometric_source add value if not exists 'strap';
