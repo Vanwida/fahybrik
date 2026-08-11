@@ -36,6 +36,32 @@ plana (`4×1000m @ … · r2'`) y desde `86f479d0` la narración es la fina
 
 ---
 
+## Ahora · El contenido del ejercicio deja de perderse por el camino (11-ago)
+
+Cuatro vías por las que el vídeo, los consejos y la nota del coach existían en
+el dato y no llegaban al atleta. Cerradas las cuatro (iOS, `58ea2347`→`6cf51a1a`,
+BUILD SUCCEEDED + 1183 tests):
+
+1. **Carreras tiraba el vídeo que sí recibía.** `StationDetailView` usaba
+   `technique_video_url` como booleano y pintaba un dibujo rayado con un play
+   que no era un botón. Ahora se reproduce ahí mismo (`YouTubePlayer`). Muere
+   `TechniqueVideoPlaceholder`, cuyo comentario mentía («BACKEND GAP»).
+2. **«Ver técnica» ignoraba `notes`** — la nota del coach PARA HOY. Un ejercicio
+   con solo nota se quedaba sin botón aunque la ficha sí la pinta.
+3. **Un entreno hecho no podía abrir la técnica de nada.** Ya cargaba el detalle
+   entero; ahora enchufa el índice que ya existe (`SessionExercisesSheet`).
+4. **Calentamiento y vuelta a la calma** no ofrecían técnica nunca; ahora la fila
+   entera abre la ficha cuando el ejercicio la trae.
+
+De propina, fuera `WorkoutPlan.demoVideoUrl`: nacía `nil` en las 8
+construcciones, nadie lo leía y la API del atleta no lo sirve.
+
+**Sin tocar:** el doble. `sesion-previa` es `construida`, no `espejo`, y su
+`FilaItem` ya propone justo el punto 4. `twin:desfase` sigue con sus 3 espejos
+podridos de siempre (`benchmark-erg`, `devices`, `watch-live`), ninguno mío.
+
+---
+
 ## Ahora · Conector MCP del coach (10-ago) — F1 construida, desplegando
 
 El coach mira y edita su club desde su asistente (Claude en el móvil hoy,
