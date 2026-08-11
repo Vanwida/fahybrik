@@ -733,6 +733,14 @@ struct ProfileView: View {
                 caption: "Tus entrenos llegan a tu entrenador, pero el plan no baja al reloj."
             ) {
                 appleHealthRow
+                // Traerse el pasado es un ajuste DE ESTA conexión, no un dispositivo
+                // más: por eso va dentro del bloque de Apple Salud y no como fila
+                // hermana. Sólo aparece con la conexión encendida — ofrecer importar
+                // un histórico que no se puede leer sería una promesa vacía.
+                if healthAvailable, healthConnected {
+                    Hairline()
+                    HealthHistoryImportPanel(athleteId: AuthState.persistedAthleteId())
+                }
                 Hairline()
                 polarRow
                 Hairline()

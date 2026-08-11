@@ -39,12 +39,31 @@ final class HealthKitSyncService {
     /// Recent-window floor (days) for the connect-time backfill of high-frequency
     /// daily metrics. Bounds the first pull so readiness repopulates fast instead
     /// of dragging years of raw samples; workouts are exempt (load wants history).
+    /// Going FURTHER back than this is the athlete's own call — see
+    /// `HealthKitHistoryImporter`, which sweeps date windows with explicit consent.
     private static let backfillWindowDays = 30
 
+    /// When the athlete last turned Apple Health OFF. `stop()` writes it; `connect()`
+    /// reads it to widen the first-pull floor over exactly the disconnected gap, then
+    /// clears it. Without this, a reconnect after three months away pulled 30 days and
+    /// the other two months were lost for good: `connect()` resets the anchors, so the
+    /// anchor-delta path that would have covered the gap no longer exists.
+    private static let disconnectedAtKey = "fahybrik.hk.disconnected_at"
+
+    /// Tope del relleno automático del hueco de una desconexión. Más allá de esto la
+    /// respuesta no es leer en silencio, es ofrecer el import con consentimiento.
+    private static let maxGapFillDays = 90
+
+    /// Page size for both the live drain and the history sweep. Bounds each payload.
+    private static let pageLimit = 500
+
     // Every quantity metric the sync observes + backfills. Single source of truth so
-    // start()'s observers and backfillAll()'s replay iterate the EXACT same set (no
-    // drift). `step_count` canonicalises to `steps` in the backend metric-map.
-    private static let quantityMetrics: [(id: HKQuantityTypeIdentifier, metric: String, unit: HKUnit)] = [
+    // start()'s observers, backfillAll()'s replay AND the history sweep
+    // (`HealthKitHistoryWindowReader`) iterate the EXACT same set — si el pasado
+    // trajera menos métricas que el presente, la gráfica del atleta cambiaría de
+    // forma justo en la fecha en que empezó a usar la app. `step_count` canonicalises
+    // to `steps` in the backend metric-map.
+    static let quantityMetrics: [(id: HKQuantityTypeIdentifier, metric: String, unit: HKUnit)] = [
         (.heartRate,                "heart_rate",         HKUnit(from: "count/min")),
         (.heartRateVariabilitySDNN, "hrv_sdnn",           .secondUnit(with: .milli)),
         (.restingHeartRate,         "resting_heart_rate", HKUnit(from: "count/min")),
@@ -89,7 +108,7 @@ final class HealthKitSyncService {
         self.athleteId = athleteId
     }
 
-    func start() {
+    func start(since: Date? = nil) {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         // Idempotent: repeated calls without an intervening stop() are a no-op, so
         // the app never stacks duplicate observers that would race on the shared
@@ -105,7 +124,10 @@ final class HealthKitSyncService {
         // existing history, and on a reconnect the saved anchors mean this pull
         // fetches exactly the samples added while disconnected (gap coverage). Without
         // it, only going-forward samples would ever upload and readiness stays empty.
-        backfillAll()
+        backfillAll(since: since ?? recentWindowFloor())
+        // Un import de histórico consentido que se cortó (la app murió, se fue la red)
+        // se retoma al arrancar. Sin consentimiento previo esto no hace nada.
+        Task { @MainActor in HealthKitHistoryImporter.resumeForCurrentAthlete() }
     }
 
     /// Explicit user connect — the Perfil Apple Health toggle turning ON. Unlike the
@@ -121,13 +143,21 @@ final class HealthKitSyncService {
     func connect() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         resetAnchors()
+        // El suelo del re-tirón cubre el HUECO de la desconexión, no unos 30 días
+        // fijos: si estuvo tres meses desconectado, se piden tres meses. Se consume
+        // aquí (una sola vez) para que el próximo reconectar no vuelva a arrastrarlo.
+        let since = gapAwareFirstPullFloor()
+        UserDefaults.standard.removeObject(forKey: Self.disconnectedAtKey)
         if isObserving {
             // Observers already registered this session (e.g. a launch-time start()):
             // just re-run the now-anchorless backfill to pull the full window fresh.
-            backfillAll()
+            backfillAll(since: since)
         } else {
-            start()   // registers observers + runs the (now anchorless) backfill
+            start(since: since)   // registers observers + runs the (now anchorless) backfill
         }
+        // Y si el atleta ya consintió traerse su histórico y se quedó a medias, esto
+        // lo retoma. No es preguntar de nuevo: es terminar lo que ya dijo que sí.
+        Task { @MainActor in HealthKitHistoryImporter.resumeForCurrentAthlete() }
     }
 
     func stop() {
@@ -140,6 +170,36 @@ final class HealthKitSyncService {
         // backfill then does an anchor-delta pull that covers only the disconnected
         // gap — cheaper and cleaner than re-dragging the whole recent window.
         isObserving = false
+        // Cuándo se apagó. Lo lee `connect()` para que el re-tirón cubra el hueco
+        // entero, porque ahí SÍ se reinician los anclas y el delta desaparece.
+        // Sólo se estampa la PRIMERA desconexión de una racha: dos toques seguidos
+        // al interruptor no pueden acortar un hueco que sigue abierto.
+        if UserDefaults.standard.object(forKey: Self.disconnectedAtKey) == nil {
+            UserDefaults.standard.set(Date(), forKey: Self.disconnectedAtKey)
+        }
+    }
+
+    /// Suelo de la primera tirada cuando no hay ancla: la ventana reciente de siempre.
+    private func recentWindowFloor() -> Date {
+        Calendar.current.date(byAdding: .day, value: -Self.backfillWindowDays, to: Date())
+            ?? Date(timeIntervalSinceNow: -Double(Self.backfillWindowDays) * 86_400)
+    }
+
+    /// El suelo de un RECONECTAR: la ventana reciente, o el momento de la
+    /// desconexión si fue hace más. Cubre el hueco exacto en vez de tragárselo.
+    ///
+    /// Y CON TOPE, que es lo que mantiene honesta la regla del consentimiento. Una
+    /// desconexión larga deja de ser una pausa: rellenar un hueco de dos años sin
+    /// preguntar sería traerse el histórico por la puerta de atrás, que es justo lo
+    /// que la tarjeta de «Importar tu histórico» existe para pedir — y está en esa
+    /// misma pantalla, un dedo más abajo.
+    private func gapAwareFirstPullFloor() -> Date {
+        let recent = recentWindowFloor()
+        guard let disconnectedAt = UserDefaults.standard.object(forKey: Self.disconnectedAtKey) as? Date
+        else { return recent }
+        let ceiling = Calendar.current.date(byAdding: .day, value: -Self.maxGapFillDays, to: Date())
+            ?? Date(timeIntervalSinceNow: -Double(Self.maxGapFillDays) * 86_400)
+        return min(recent, max(disconnectedAt, ceiling))
     }
 
     // MARK: - Backfill
@@ -149,26 +209,19 @@ final class HealthKitSyncService {
     /// the observers use (anchors advance, so future fires resume cleanly). Runs
     /// sequentially to keep payloads + backend load gentle, then signals completion
     /// so the connect flow can refresh readiness.
-    private func backfillAll() {
+    private func backfillAll(since: Date) {
         Task {
             await self.flushWorkouts()
             for m in Self.quantityMetrics {
                 guard let type = HKQuantityType.quantityType(forIdentifier: m.id) else { continue }
-                await self.flushQuantity(type: type, metric: m.metric, unit: m.unit)
+                await self.flushQuantity(type: type, metric: m.metric, unit: m.unit, firstPullSince: since)
             }
             if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
-                await self.flushSleep(type: sleepType)
+                await self.flushSleep(type: sleepType, firstPullSince: since)
             }
             let done = self.onBackfillCompleted
             await MainActor.run { done?() }
         }
-    }
-
-    /// Recent-window floor for the connect-time backfill of high-frequency daily
-    /// metrics (HRV / resting HR / sleep / steps …), so the first pull stays bounded.
-    private var backfillSince: Date {
-        Calendar.current.date(byAdding: .day, value: -Self.backfillWindowDays, to: Date())
-            ?? Date(timeIntervalSinceNow: -Double(Self.backfillWindowDays) * 86_400)
     }
 
     // MARK: - Workouts
@@ -200,65 +253,12 @@ final class HealthKitSyncService {
                 writeAnchor(result.newAnchor, for: "workouts")
                 return
             }
-            let dtos = workouts.map { transform(workout: $0) }
+            let dtos = workouts.map { HealthKitSampleMapper.workout($0) }
             await sendBatch(workouts: dtos, samples: [])
             writeAnchor(result.newAnchor, for: "workouts")
         } catch {
             // Failure path — leave anchor unchanged so next observer fire re-tries.
         }
-    }
-
-    private func transform(workout: HKWorkout) -> HKWorkoutDTO {
-        let iso = ISO8601DateFormatter()
-        let lapEvents = workout.workoutEvents?.filter {
-            $0.type == .lap || $0.type == .segment || $0.type == .marker
-        } ?? []
-        let laps = lapEvents.map { ev -> HKWorkoutLapDTO in
-            let kind: String
-            switch ev.type {
-            case .lap: kind = "lap"
-            case .segment: kind = "segment"
-            default: kind = "marker"
-            }
-            let start = ev.dateInterval.start
-            let end = ev.dateInterval.end
-            return HKWorkoutLapDTO(
-                started_at: iso.string(from: start),
-                ended_at: iso.string(from: end),
-                duration_seconds: end.timeIntervalSince(start),
-                event_kind: kind
-            )
-        }
-
-        // Apple ships these identifiers, so the lookups never fail in practice —
-        // but a force-unwrap is a latent crash. Resolve once; if an identifier is
-        // ever nil, the corresponding metric stays nil (DTO fields are optional)
-        // instead of trapping.
-        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
-        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)
-        let bpmUnit = HKUnit(from: "count/min")
-
-        let energy = energyType.flatMap { workout.statistics(for: $0) }?
-            .sumQuantity()?.doubleValue(for: .kilocalorie())
-        let distance = workout.totalDistance?.doubleValue(for: .meter())
-        let avgHR = heartRateType.flatMap { workout.statistics(for: $0) }?
-            .averageQuantity()?.doubleValue(for: bpmUnit)
-        let maxHR = heartRateType.flatMap { workout.statistics(for: $0) }?
-            .maximumQuantity()?.doubleValue(for: bpmUnit)
-
-        return HKWorkoutDTO(
-            source_workout_id: workout.uuid.uuidString,
-            workout_activity_type: Int(workout.workoutActivityType.rawValue),
-            started_at: iso.string(from: workout.startDate),
-            ended_at: iso.string(from: workout.endDate),
-            duration_seconds: workout.duration,
-            total_energy_burned_kcal: energy,
-            total_distance_meters: distance,
-            avg_heart_rate_bpm: avgHR,
-            max_heart_rate_bpm: maxHR,
-            lap_markers: laps,
-            source: "healthkit"
-        )
     }
 
     // MARK: - Quantity types
@@ -268,24 +268,35 @@ final class HealthKitSyncService {
         let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
             defer { completionHandler() }
             guard error == nil, let self else { return }
-            Task { await self.flushQuantity(type: type, metric: metric, unit: unit) }
+            Task {
+                await self.flushQuantity(
+                    type: type,
+                    metric: metric,
+                    unit: unit,
+                    firstPullSince: self.recentWindowFloor()
+                )
+            }
         }
         store.execute(query)
         observerQueries.append(query)
         store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
     }
 
-    private func flushQuantity(type: HKQuantityType, metric: String, unit: HKUnit) async {
+    private func flushQuantity(
+        type: HKQuantityType,
+        metric: String,
+        unit: HKUnit,
+        firstPullSince: Date
+    ) async {
         let key = metric
         var anchor = readAnchor(for: key)
         // No saved anchor ⇒ this is the connect-time backfill: bound the first pull
         // to a recent window so readiness-critical daily metrics land immediately.
         // With an anchor we stream only new samples since it (no date filter).
         let datePredicate: NSPredicate? = anchor == nil
-            ? HKQuery.predicateForSamples(withStart: backfillSince, end: nil, options: [])
+            ? HKQuery.predicateForSamples(withStart: firstPullSince, end: nil, options: [])
             : nil
-        let pageLimit = 500
-        let iso = ISO8601DateFormatter()
+        let pageLimit = Self.pageLimit
 
         // Page in fixed batches (bounded payloads) until the backlog drains, rather
         // than uploading only 500 and waiting for another observer fire to continue.
@@ -298,25 +309,11 @@ final class HealthKitSyncService {
             do {
                 let result = try await descriptor.result(for: store)
                 let samples = result.addedSamples
-                // Never re-ingest what WE wrote. `HealthKitWorkoutWriter` stamps the
-                // energy / distance / heart-rate samples it attaches to a
-                // phone-recorded workout; without this filter each of them would come
-                // straight back through this observer as if a device had measured it,
-                // and the athlete's active energy would be counted twice. Samples from
-                // the watch app (a different writer) carry no stamp and flow normally.
-                let measured = samples.filter {
-                    $0.metadata?[HealthKitWorkoutWriter.writtenHereKey] == nil
-                }
-                let dtos: [HKBiometricSampleDTO] = measured.map { s in
-                    HKBiometricSampleDTO(
-                        metric_type: metric,
-                        recorded_at: iso.string(from: s.startDate),
-                        value_numeric: s.quantity.doubleValue(for: unit),
-                        unit: unitString(for: metric),
-                        source: "healthkit",
-                        source_workout_id: nil
-                    )
-                }
+                let dtos = HealthKitSampleMapper.quantitySamples(
+                    HealthKitSampleMapper.measuredOnly(samples),
+                    metric: metric,
+                    unit: unit
+                )
                 if !dtos.isEmpty {
                     await sendBatch(workouts: [], samples: dtos)
                 }
@@ -327,18 +324,6 @@ final class HealthKitSyncService {
                 // Leave the last-written anchor so the next observer fire retries.
                 break
             }
-        }
-    }
-
-    private func unitString(for metric: String) -> String {
-        switch metric {
-        case "heart_rate", "resting_heart_rate": return "bpm"
-        case "hrv_sdnn": return "ms"
-        case "vo2_max": return "ml/kg/min"
-        case "active_energy_kcal": return "kcal"
-        case "body_mass_kg": return "kg"
-        case "step_count": return "count"
-        default: return ""
         }
     }
 
@@ -355,7 +340,7 @@ final class HealthKitSyncService {
         let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
             defer { completionHandler() }
             guard error == nil, let self else { return }
-            Task { await self.flushSleep(type: type) }
+            Task { await self.flushSleep(type: type, firstPullSince: self.recentWindowFloor()) }
         }
         store.execute(query)
         observerQueries.append(query)
@@ -364,13 +349,13 @@ final class HealthKitSyncService {
         store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
     }
 
-    private func flushSleep(type: HKCategoryType) async {
+    private func flushSleep(type: HKCategoryType, firstPullSince: Date) async {
         let key = "sleep_duration"
         let anchor = readAnchor(for: key)
         // First pull (no anchor) = backfill → bound to the recent window; afterwards
         // stream only new nights since the anchor.
         let datePredicate: NSPredicate? = anchor == nil
-            ? HKQuery.predicateForSamples(withStart: backfillSince, end: nil, options: [])
+            ? HKQuery.predicateForSamples(withStart: firstPullSince, end: nil, options: [])
             : nil
         let descriptor = HKAnchoredObjectQueryDescriptor(
             predicates: [.categorySample(type: type, predicate: datePredicate)],
@@ -379,7 +364,7 @@ final class HealthKitSyncService {
         )
         do {
             let result = try await descriptor.result(for: store)
-            let dtos = sleepDurationDTOs(from: result.addedSamples)
+            let dtos = HealthKitSampleMapper.sleepNights(from: result.addedSamples)
             if !dtos.isEmpty {
                 await sendBatch(workouts: [], samples: dtos)
             }
@@ -389,68 +374,30 @@ final class HealthKitSyncService {
         }
     }
 
-    /// Groups asleep segments by night (keyed on the local day the athlete woke —
-    /// the sample's end date), merges overlapping intervals per night so concurrent
-    /// samples from multiple sources are never double-counted, and emits one nightly
-    /// `sleep_duration` DTO. Value = asleep seconds (the unit the backend expects —
-    /// see ingest-garmin.ts + biometric-trend.ts, which divides by 3600 for hours).
-    private func sleepDurationDTOs(from samples: [HKCategorySample]) -> [HKBiometricSampleDTO] {
-        let asleep = Self.asleepCategoryValues
-        let calendar = Calendar.current
-        var nights: [Date: [(start: Date, end: Date)]] = [:]
-        for s in samples where asleep.contains(s.value) {
-            let nightDay = calendar.startOfDay(for: s.endDate)
-            nights[nightDay, default: []].append((s.startDate, s.endDate))
-        }
-
-        let iso = ISO8601DateFormatter()
-        return nights.compactMap { nightDay, intervals -> HKBiometricSampleDTO? in
-            let seconds = Self.mergedDurationSeconds(intervals)
-            guard seconds > 0 else { return nil }
-            return HKBiometricSampleDTO(
-                metric_type: "sleep_duration",
-                recorded_at: iso.string(from: nightDay),
-                value_numeric: seconds,
-                unit: "seconds",
-                source: "healthkit",
-                source_workout_id: nil
-            )
-        }
-    }
-
-    /// Total covered time (seconds) of a set of intervals with overlaps merged.
-    private static func mergedDurationSeconds(_ intervals: [(start: Date, end: Date)]) -> Double {
-        let sorted = intervals.sorted { $0.start < $1.start }
-        var total: Double = 0
-        var current: (start: Date, end: Date)? = nil
-        for iv in sorted where iv.end > iv.start {
-            if var cur = current, iv.start <= cur.end {
-                if iv.end > cur.end { cur.end = iv.end }
-                current = cur
-            } else {
-                if let cur = current { total += cur.end.timeIntervalSince(cur.start) }
-                current = iv
-            }
-        }
-        if let cur = current { total += cur.end.timeIntervalSince(cur.start) }
-        return total
-    }
-
-    /// Category values that count as "asleep" (excludes inBed and awake).
-    /// Deployment target is iOS 18, so the granular iOS 16 stages are always
-    /// available; `.asleepUnspecified` is the same raw value the pre-iOS-16
-    /// `.asleep` used, so legacy samples are covered too.
-    private static let asleepCategoryValues: Set<Int> = [
-        HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
-        HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-        HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-        HKCategoryValueSleepAnalysis.asleepREM.rawValue,
-    ]
-
     // MARK: - Send
 
-    private func sendBatch(workouts: [HKWorkoutDTO], samples: [HKBiometricSampleDTO]) async {
-        guard !workouts.isEmpty || !samples.isEmpty else { return }
+    /// Qué le pasó a un lote. El sync vivo lo ignora (encolar y seguir es su
+    /// contrato), pero el import del histórico NO puede: un barrido de dos años que
+    /// no se entera de que la sesión murió o de que no hay red se pasaría horas
+    /// llenando la cola de lotes que nadie va a entregar.
+    enum SendOutcome {
+        case sent
+        case queued
+        case unauthorized
+        case rejected
+    }
+
+    /// LA ÚNICA PUERTA de subida para quien no sea este servicio. El barrido del
+    /// histórico (`HealthKitHistoryWindowReader`) entra por aquí a propósito: comparte
+    /// el bearer, la cola de reintentos, el manejo del 401 y el endpoint, así que el
+    /// pasado y el presente del atleta viajan exactamente por el mismo camino.
+    func upload(workouts: [HKWorkoutDTO], samples: [HKBiometricSampleDTO]) async -> SendOutcome {
+        await sendBatch(workouts: workouts, samples: samples)
+    }
+
+    @discardableResult
+    private func sendBatch(workouts: [HKWorkoutDTO], samples: [HKBiometricSampleDTO]) async -> SendOutcome {
+        guard !workouts.isEmpty || !samples.isEmpty else { return .sent }
         let batch = HKSyncBatch(
             athlete_id: athleteId,
             sent_at: ISO8601DateFormatter().string(from: Date()),
@@ -466,13 +413,14 @@ final class HealthKitSyncService {
 
         do {
             try await APIClient.shared.postRaw(path: Self.endpointPath, body: wrapper, bearer: bearer)
+            return .sent
         } catch {
             // A dead bearer (401) will 401 on every retry — don't enqueue a doomed
             // request; trigger the app's session recovery (clear session → login).
             if case APIError.http(401, _) = error {
                 let handler = onUnauthorized
                 await MainActor.run { handler?() }
-                return
+                return .unauthorized
             }
             // AUDIT — generalizes the 401 guard above: no deterministic 4xx is queued.
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(wrapper) {
@@ -481,7 +429,9 @@ final class HealthKitSyncService {
                     body: body,
                     bearer: bearer
                 )
+                return .queued
             }
+            return .rejected
         }
     }
 

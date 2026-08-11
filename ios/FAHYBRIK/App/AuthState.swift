@@ -141,6 +141,11 @@ final class AuthState {
     }
 
     func signOut() {
+        // Se acabó la sesión, se acaba el barrido del histórico de Salud: sube lotes
+        // con el bearer que haya puesto en ese momento, así que un import largo que
+        // sobreviva al cierre acabaría subiendo el pasado de quien se va con la
+        // sesión de quien entre después. Reanudable: el cursor no se toca.
+        Task { @MainActor in HealthKitHistoryImporter.shared.stop() }
         bearer = nil
         athleteId = nil
         stage = .unauthenticated

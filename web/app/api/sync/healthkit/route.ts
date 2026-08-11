@@ -50,6 +50,14 @@ export async function POST(req: Request): Promise<NextResponse> {
 
     // Update the per-athlete last_sync_at marker so coach UI can show
     // "last synced 2m ago".
+    //
+    // `healthkit_sync_state.last_anchor_data` (mig 0001) se queda DELIBERADAMENTE sin
+    // escribir, y no es un olvido. Un `HKQueryAnchor` es un testigo opaco del almacén
+    // de HealthKit DE ESE TELÉFONO: fuera del dispositivo no significa nada y el
+    // servidor no podría usarlo para leer nada. Los anclas viven donde tienen que
+    // vivir, en `UserDefaults` (HealthKitSyncService), igual que el cursor del import
+    // de histórico. La columna es residuo del diseño inicial y se puede tirar el día
+    // que se toque esta tabla; nada la lee ni la escribe.
     await sql`
       insert into healthkit_sync_state (athlete_id, last_sync_at, updated_at)
       values (${auth.athlete_id as unknown as number}, now(), now())
