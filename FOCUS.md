@@ -121,11 +121,17 @@ archivo v2); `xcodebuild -scheme FAHYBRIKWatch` SUCCEEDED.
   encima del pico de un squat lento (0,4). Arreglado por la raíz: en una serie
   contable el trabajo lo dicen las repeticiones cerradas, no un umbral de energía,
   así que las dos cifras ya no pueden contradecirse.
-- **Comprobado en el teléfono de Alex (conectado)**: **no hay ni una captura
-  archivada** en el contenedor de la app. El receptor está bien enchufado, así que
-  el archivo nunca salió del reloj: en espejo solo se transfiere al **GUARDAR** el
-  entreno (descartarlo lo tira a propósito). Para diagnosticar hay que terminar y
-  guardar la sesión.
+- **Comprobado en el teléfono de Alex (conectado)**: en espejo el archivo solo se
+  transfiere al **GUARDAR** el entreno (descartarlo lo tira a propósito), y la
+  entrega por WatchConnectivity se queda **encolada** hasta que el móvil está
+  disponible. No hace falta esperarla: el archivo se saca del PROPIO RELOJ con
+  `xcrun devicectl device copy from … --domain-identifier com.fahybrid.app.watchkitapp
+  --source tmp/sensor-<id>.fhsc`. Circuito verificado de punta a punta.
+- **Y lo que dijo la primera captura real (11,7 s, prueba corta confirmada por
+  Alex): formato v1, seis canales, CERO gravedad.** O sea que su reloj estaba
+  corriendo el binario de antes del contador nuevo: todo lo que probó esta noche era
+  el contador viejo. De ahí la build 20 y el pie de versión en el reposo del reloj —
+  sin ese dato se depura código que no se está ejecutando.
 
 **Hueco heredado que NO he tocado (fuera del alcance de lo reportado):**
 `sensor_work_s` / `sensor_rest_s` se calculan sobre una ventana rodante de 35 s, no
