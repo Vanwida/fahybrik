@@ -101,6 +101,102 @@ de la fase 6.
 
 ---
 
+## 2026-08-11 (noche) · La foto de una persona vive en Cloudflare Images, y lo que se guarda es la BASE, no un tamaño
+
+**Decidido:** `coaches.avatar_url` y el nuevo `athletes.avatar_url` (migración 0179)
+guardan UN texto: la base de entrega de Cloudflare Images,
+`https://imagedelivery.net/<cuenta>/<imagen>`, **sin variante**. El tamaño lo pide quien
+pinta, por NOMBRE de variante.
+
+**Por qué mudarse de Vercel Blob, que no es el disco:** son las variantes. Con Blob se
+servía el ORIGINAL —hasta 4 MB— dentro de un círculo de 32 px; con cien atletas en un
+listado eso son cien originales por carga. Images entrega el tamaño pedido en el formato
+que soporte ese navegador, desde su red, y sin pasar por nuestro cómputo.
+
+**Por qué la base y no la URL final,** que es la decisión de verdad: la MISMA foto se
+pinta en un círculo de 28 px del roster y en el retrato de una ficha. Si la columna
+guardara ya el tamaño, cada vista tendría que reescribir la URL de otro, que es la clase
+de número suelto repartido por los componentes que hace imposible cambiar de idea
+después. Las variantes son **dos y tienen nombre** (`avatar160` para listados,
+`avatar480` para retratos), viven en `web/lib/profile/photo-source.ts` y las crea en
+Cloudflare `infra/scripts/cloudflare-image-variants.ts` **leyendo esas mismas
+constantes**: el nombre que usa el código y el que existe en la cuenta no pueden
+separarse porque salen del mismo sitio. Las dos recortan a cuadrado (`cover`) y tiran los
+metadatos (`metadata: none`) — una foto de gimnasio sale del móvil con GPS dentro.
+
+**Quién sube qué, y no es una regla de permisos:** el entrenador sube LA SUYA desde el
+panel con su sesión; el atleta sube LA SUYA desde iOS con su bearer. **Un entrenador
+nunca sube la foto de un atleta**, porque la foto la elige quien sale en ella. Por eso el
+principal no viaja en el cuerpo de ninguna petición: se resuelve de la credencial
+(`web/lib/profile/photo-principal.ts`), y el bearer manda sobre la cookie del panel
+cuando viene, para que una credencial explícita inválida sea un «no» y no una caída
+silenciosa a otra identidad.
+
+**Tres rutas finas sobre un módulo, misma forma que Stream:**
+
+- `POST /api/perfil/foto/subida` → `{ upload_url, image_id, expires_at }`. Valida el
+  formato ANTES de dar dirección (un PDF recibe la negativa en el acto) y anota el dueño
+  EN la imagen (`meta.owner = coach:<id> | athlete:<id>`), que es el censo sin tabla
+  nuestra. Los bytes van DIRECTOS a Cloudflare.
+- `POST /api/perfil/foto/confirmar` con `{ image_id }` → le PREGUNTA a Cloudflare si esa
+  imagen existe y si la subió quien la reclama, lee la base de entrega **de la respuesta
+  de Cloudflare** (nunca se construye aquí) y sólo entonces escribe la columna. Después
+  borra la foto anterior. **Jamás se guarda la URL antes de que el fichero exista**: entre
+  reservar y subir se puede cerrar la app, y una fila apuntando a una imagen que nadie
+  subió no se distingue luego de una foto rota.
+- `DELETE /api/perfil/foto` → primero deja de referenciarla, después la borra en
+  Cloudflare. En ese orden: si el borrado remoto falla, sobra una imagen suelta, no queda
+  una fila apuntando a algo que ya no está.
+
+**A diferencia del vídeo NO hay ruta de estado**: una imagen subida se entrega ya, no hay
+transcodificación que esperar. Por eso son dos pasos y no tres.
+
+**Lo común a Cloudflare sube a `web/lib/cloudflare/api.ts`** (cuenta, credencial, el sobre
+`{success,result,errors}`, el 503 honesto sin credenciales, el 502 cuando falla) y **Stream
+lo usa también**: `video-stream.ts` se queda sólo con el camino `/stream`, y
+`ExerciseVideoError` desaparece en favor de `CloudflareMediaError`. Su API responde
+SIEMPRE 200 con el fallo dentro del cuerpo, así que desenvolverlo en un sitio evita que la
+próxima integración se olvide de mirar `success`.
+
+**Eliminado** (medido antes: **0 de 6 entrenadores tenían foto**, así que no se pierde
+nada):
+
+- `POST /api/coach/profile/avatar` — la subida multipart contra nuestra API y a Vercel
+  Blob. Recibía los bytes en una función nuestra, justo lo que la decisión del 27-jul
+  dice que no se hace;
+- `avatar_url` del `coachProfileSchema` y su `update` en `updateCoachProfile`: la columna
+  pasa a tener **un solo escritor**. Aceptarla también por el PATCH del perfil daría dos,
+  y el de ese lado se creería cualquier URL que le mandaran;
+- el `remotePatterns` de `*.public.blob.vercel-storage.com` en `next.config.ts`, que ya no
+  tenía usuario. `@vercel/blob` SIGUE en uso para chat, comunicados, importaciones y
+  capturas de sensor: lo que se va es el camino de la foto, no la dependencia.
+
+**Qué NO hacer en consecuencia:**
+
+- **No pedir el original desde una vista.** Si un sitio necesita otro tamaño, se añade una
+  variante en `PROFILE_PHOTO_VARIANT_SPECS` y se corre el script — no se inventa una URL.
+- **No pasar estas fotos por el optimizador de la plataforma.** Cloudflare ya entrega el
+  tamaño y el formato buenos; `AthleteAvatar` las pinta `unoptimized` a propósito, y por
+  eso `next.config.ts` se quedó sin `remotePatterns`.
+- **No guardar el ancho, el alto ni el formato en una columna.** Eso lo resuelve la
+  variante al entregar; guardarlo sería un dato que envejece solo.
+- **No dejar que el cliente mande la URL.** Manda el `image_id`; el localizador se lee de
+  Cloudflare. Si viajara desde fuera, la columna guardaría lo que alguien quisiera.
+- **No comparar el dominio con «contiene».** `imagedelivery.net.ejemplo.com` no es
+  Cloudflare: el host se compara ENTERO, igual que con el localizador del vídeo.
+
+**En el DTO del atleta la foto sale YA LISTA PARA PINTAR** (`avatar_url` de
+`/api/auth/me` y del PATCH del perfil lleva la variante `avatar480` pegada). La app la
+mete en un círculo tal cual llega: darle la base sería darle una URL que no carga. Es la
+asunción que la sesión de iOS dejó abierta el mismo día, y queda cerrada aquí.
+
+**Hueco conocido, declarado:** si alguien reserva una subida y no confirma, la imagen
+queda en Cloudflare sin que ninguna fila la referencie. No hay recolector de huérfanos y
+hoy no hace falta; el `meta.owner` que se anota en cada imagen es por dónde se barre. Es
+el mismo hueco, y el mismo remedio, que el del vídeo.
+
+---
+
 ## 2026-08-11 (tarde) · El vídeo propio del entrenador vive en Cloudflare Stream, y el fichero nuestro se retira el mismo día
 
 **Decidido:** la segunda forma del localizador deja de ser una ruta nuestra y pasa a
