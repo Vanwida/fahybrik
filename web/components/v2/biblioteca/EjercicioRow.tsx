@@ -17,11 +17,22 @@
 // botón grande (un <button> dentro de otro no es HTML válido y el teclado no llega
 // al de dentro), de ahí que la fila sea un <div> con dos controles hermanos — el
 // mismo patrón que ya usa la fila del ExercisePicker con su ✎.
+//
+// LAS TRES MARCAS DE CONTENIDO (claves · descripción · vídeo) van SIEMPRE las tres,
+// las que faltan apagadas. Enseñar sólo las que hay ahorraría tinta pero movería la
+// columna de sitio en cada fila, y entonces "a este le falta el vídeo" habría que
+// leerlo fila a fila en vez de verlo de un vistazo. La de vídeo es `play_circle`,
+// la misma que ya usa la fila del ExercisePicker: una señal, no dos.
 
 import { MIcon } from '@/components/ui/MIcon';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { MODALITY_META } from '@/components/v2/constants';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
+import {
+  EXERCISE_CONTENT_SLOTS,
+  exerciseContentSlots,
+  exerciseContentSummary,
+} from '@/lib/dashboard/v2/biblioteca-axes';
 import {
   EXERCISE_ORIGIN_META,
   exerciseSubtitle,
@@ -77,6 +88,8 @@ export function EjercicioRow({
           </span>
         </span>
 
+        <ContentMarks ex={ex} />
+
         <span
           className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
           style={{
@@ -113,5 +126,34 @@ export function EjercicioRow({
         </button>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Qué contenido lleva este movimiento: las tres casillas siempre en el mismo sitio,
+ * las que faltan apagadas. Es la señal de "aquí queda trabajo" — la misma pregunta
+ * que contesta el filtro de contenido del panel, con el mismo vocabulario.
+ *
+ * Los iconos van `aria-hidden` y al lado va la frase entera: el color y la forma
+ * nunca son la única señal.
+ */
+function ContentMarks({ ex }: { ex: CoachExerciseRow }) {
+  const slots = exerciseContentSlots(ex);
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <span className="sr-only">{exerciseContentSummary(ex)}</span>
+      {EXERCISE_CONTENT_SLOTS.map((slot) => (
+        <MIcon
+          key={slot.id}
+          name={slot.icon}
+          size={14}
+          className={
+            slots[slot.id]
+              ? 'text-[color:var(--v2-muted)]'
+              : 'text-[color:var(--v2-faint)] opacity-30'
+          }
+        />
+      ))}
+    </span>
   );
 }

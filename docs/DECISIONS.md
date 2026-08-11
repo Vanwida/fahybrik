@@ -10,6 +10,76 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 · El vídeo de un movimiento tiene UN solo sitio (el ejercicio), y se ve dentro del panel
+
+**Lo que había:** el coach podía pegar la URL de un vídeo de técnica, pero no podía verlo en
+ninguna parte del panel — se abría en otra pestaña. Y el reproductor ya estaba construido
+(`components/media/YouTubeEmbed` + `VideoUrlField`, de mayo/junio): CERO importadores en todo el
+repo. Código escrito, correcto y nunca montado.
+
+Encima había DOS campos de vídeo distintos para lo mismo, cada uno con su validación y su copy:
+`YouTubeField` + `videoFieldState` en `components/v2/editor/exercise-catalog.tsx` (hojas del
+ExercisePicker) y un `input type=url` a mano en `biblioteca/EjercicioEditor.tsx`.
+
+**Decidido:**
+
+- **UN campo de vídeo en todo el panel**: `components/media/VideoUrlField`, montado en las tres
+  superficies (editor de la Biblioteca, crear desde el picker, editar desde el picker). Valida con
+  `shared/youtube.ts`, que es lo mismo que aplica el servidor al guardar (`youtubeUrlSchema` en
+  create/update-exercise), así que "puedo guardar" y "el campo está en rojo" no pueden discrepar.
+- **Heredar es parte del campo, no del que lo llama.** Un ejercicio de la base trae su vídeo; el
+  campo enseña y REPRODUCE el heredado mientras el coach no ponga el suyo, y pone el verbo solo
+  (Restaurar si hay base a la que volver, Quitar si no). Antes el vídeo de la base era un enlace a
+  otra pestaña en una superficie e invisible en la otra.
+- **La forma del vídeo la dice el enlace**: un Short se pinta 9:16 y un vídeo normal 16:9
+  (`parseYouTubeLink.isShort`), igual que ya hacía el reproductor de iOS.
+
+**Eliminado (lo que importa que quede escrito):**
+
+- **`templates.demo_video_url`** (columna de la mig 0013) sale de `templateSchema` y de
+  `templateUpsertSchema` (`shared/schema/templates.ts`) y de `TemplateBuilderInitialState`
+  (`web/components/templates/template-types.ts`). Ninguna ruta del panel la escribía ni la leía.
+- **`video_url` dentro de `template_segments.params_json`** sale de `segmentParamsSchema`. Se
+  declaró como "pisa al vídeo del catálogo" y nunca tuvo un solo escritor.
+- **`YouTubeField` / `videoFieldState` / `VideoState`** salen de `exercise-catalog.tsx`.
+
+**La columna SIGUE EN LA BASE.** No se ha escrito ninguna migración: soltarla es decisión de Alex.
+Lo único que la sigue nombrando es la copia de columnas del fork por atleta
+(`web/lib/dashboard/coach/template-instance.ts`, espejo de la mig 0083); si se decide soltarla, esa
+lista cambia en el mismo commit que la migración.
+
+**NO hacer en consecuencia:** no volver a declarar un vídeo por plantilla ni por segmento. Un
+movimiento tiene su vídeo en `exercises.video_url` más el override por coach de la 0132, y ya está:
+dos sitios para el mismo dato es la forma de que el atleta acabe viendo el que no toca.
+
+---
+
+## 2026-08-11 · Los ejercicios tienen su propio eje de CONTENIDO; el de estado sigue siendo solo de Bloques
+
+**El hueco:** en la Biblioteca no había forma de ver a qué ejercicios les falta contenido. La única
+señal de "tiene vídeo" vivía en el `ExercisePicker` (icono `play_circle`), o sea en el sitio donde
+el coach está montando una sesión y no en el sitio donde arregla su catálogo.
+
+**Decidido:** un eje NUEVO y SUYO, declarado como dato en `lib/dashboard/v2/biblioteca-axes.ts`
+junto al resto (`LIB_EXERCISE_GAPS`, `EXERCISE_CONTENT_SLOTS`, `exerciseHasGap`), no un
+ensanchamiento del eje de estado de Bloques (`sin_tipar` / `sin_dosis` / `listo`): un movimiento no
+se tipa ni lleva dosis, y un bloque no tiene vídeo.
+
+El contenido de un ejercicio son **tres casillas** (claves, descripción, vídeo: los campos
+forkeables de la 0132 menos el nombre, que nunca falta porque es NOT NULL), y de ahí salen los tres
+huecos por los que se filtra: **sin vídeo** (lo que mira), **sin explicación** (lo que lee, o sea
+ni claves ni descripción) y **sin nada**. Son PREDICADOS y no una partición — "sin nada" es el
+subconjunto de los otros dos — así que sus cuentas se solapan a propósito y no suman el total.
+
+Las cuentas van sobre el catálogo ENTERO y no sobre lo filtrado, misma regla que el eje de estado
+de Bloques: dicen cuánto trabajo queda, no cuánto queda en esta vista.
+
+**NO hacer en consecuencia:** no meter estados de ejercicio en `V2LibReadiness` ni al revés, y no
+declarar el siguiente eje dentro de su componente — todos los de la Biblioteca viven en
+`biblioteca-axes.ts` para que el siguiente los encuentre.
+
+---
+
 ## 2026-08-11 · Un toque nunca borra trabajo escrito, y toda reescritura de un día deja rastro
 
 **El fallo que lo obligó:** el fartlek de la asignación 411 —16 × (500 m Z4 / 1' trote Z2), escrito
