@@ -33,11 +33,71 @@ siguen podridos de antes, ninguno de este lote.
 
 ---
 
-## Ahora · Correr: el análisis dice que falta la capa 0 (11-ago noche)
+## Ahora · Correr T0 CERRADA: la carrera ya no se olvida (12-ago madrugada)
 
-Análisis de dominio de las analíticas de carrera, iOS y panel del coach:
-**`docs/correr-analitica.html`**. Cero código escrito, pendiente de firmar
-dirección.
+Análisis de dominio: **`docs/correr-analitica.html`**. Contrato: `DECISIONS.md`,
+«La carrera guarda su NEGATIVO». Alcance firmado por Alex: **el circuito entero
+(T0→T4)**, y sus atletas corren **con nuestra app**, así que el emisor de iOS era
+la pieza crítica y no la ingesta de terceros.
+
+**T0 cerrada en 12 commits.** iOS graba pulso, velocidad, distancia y altitud
+sobre un eje de segundos enteros y lo sube; el servidor deriva los kilómetros,
+calcula lo que exige recorrer la traza entera, y sirve las dos superficies por el
+cargador que ya compartían. Verificado por mí, no por los agentes: `xcodebuild`
+verde y **1318 tests iOS** (1357 tras fusionar los lotes de las otras sesiones);
+web **3867 tests, 0 fallos**; migraciones 0180 y 0181 aplicadas al Neon correcto
+(dry-run con 0 pendientes, que es la señal que distingue la base buena de la otra).
+
+**Lo que más cuenta del resultado:** no se añadió ni una medición nueva salvo la
+altitud. El GPS ya daba velocidad y distancia en cada fix y el pulso ya llegaba de
+tres orígenes con su precedencia — todo eso se pintaba y se tiraba.
+
+**Decisiones que no hay que volver a discutir** (detalle en DECISIONS.md):
+
+- Se guarda lo medido y se deriva lo demás. **No se emite `pace`**: el ritmo que
+  se pinta es una media móvil de 10 s, guardarlo sería guardar una interpretación.
+- **Los kilómetros no se guardan en ninguna tabla.** Si aparece una, alguien no
+  leyó el contrato.
+- La curva de dibujar se reduce por **mín/máx por cubos**, no por decimación ni
+  LTTB: en una serie el pico ES la repetición, y hay que garantizar que el extremo
+  literal sobrevive. Probado con una oscilación de periodo 2, el caso adversario.
+- Lo derivado se calcula SIEMPRE sobre la traza entera y solo después se reduce.
+  Al revés daría splits equivocados en silencio.
+
+**Dos bugs latentes destapados por el camino:**
+
+1. **`hr_recovery_60_bpm` tenía el CHECK equivocado desde la 0154.** La propia
+   migración lo documenta como «la caída de pulso tras el esfuerzo» y lo encierra
+   en `between 30 and 260`, que es el rango de un pulso absoluto: una recuperación
+   normal de 18 lpm reventaba la inserción. Invisible porque la columna llevaba
+   vacía desde julio. Arreglado en **0181** (0-150). Patrón a recordar: una columna
+   sin escritor no es código inerte, es un fallo esperando al primero que llegue.
+2. La correa BLE genérica no tenía valor de fuente. Añadido **`strap`** (0180),
+   alineado con el vocabulario que `segment_executions.hr_source` ya usaba.
+
+**HUECOS DECLARADOS de T0 (no están hechos):**
+
+- **Un entreno llevado desde el reloj NO manda traza.** El reloj corre el mismo
+  motor y llena su buffer, pero relega por `WatchWireModels`, que no lleva series.
+  «La carrera ya no se olvida» es cierto en el iPhone y todavía no en la muñeca.
+- **Un crash a mitad de carrera pierde el buffer** (vive en memoria hasta
+  terminar). Fuera a propósito: persistir 220 KB cada minuto contradice el no
+  gastar batería. `startedAt` sí sobrevive, así que el eje no se rompería.
+- **El altímetro no se ha probado en hardware**: `CMAltimeter` no existe en el
+  simulador. La matemática del ancla sí está cubierta (12 tests sobre un tipo puro).
+- Nadie pinta nada todavía: T1 y T2 son las siguientes.
+- `web/lib/athlete/assignment-detail.ts` tiene 1203 líneas, muy por encima del
+  límite de 500, y ya las tenía. Partirlo es un refactor cruzado con su mini-mapa.
+
+**Siguiente:** `lectura-carrera`, pantalla `propuesta` del doble con los siete
+escenarios del dominio — incluida una sesión antigua sin traza, que es el estado
+de todo lo grabado antes de esta semana. Lleva dentro la bifurcación de tono que
+decide Alex: si al terminar un 6×800 el número grande es «5 de 6 dentro» o es el
+ritmo medio con el veredicto debajo.
+
+---
+
+## Antes · El análisis de carrera (11-ago noche)
 
 **El diagnóstico:** una carrera son señal + troceado + intención. Tenemos la
 intención al nivel más alto del mercado (veredicto por repetición contra la
