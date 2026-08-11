@@ -166,4 +166,52 @@ final class RondasContadorTests: XCTestCase {
                      "sin re-anclaje de ventana, una lectura de máquina sería el acumulado disfrazado")
         s.stop()
     }
+
+    // MARK: - La cara que se PINTA cabe en su cota (N1 de la re-verificación)
+
+    /// El primer porte validaba la cara que se DESCARTA (¿cabe la lista?) y
+    /// jamás la que se pinta: el contador medía 538 pt en un hueco de ~393 y se
+    /// derramaba sobre el toggle RX y el chip del siguiente tramo. La cascada
+    /// recorta por prioridad; aquí se fija que el nivel MÍNIMO cabe en el hueco
+    /// más apretado medido, y que el completo cabe en el holgado.
+    @MainActor
+    func testLaCaraContadorCabeEnSuCota() {
+        let s = sesionDeRondas(12, capS: nil)
+        s.start()
+        s.beginBlock()
+        if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        let ancho: CGFloat = 370
+
+        let minimo = UIHostingController(rootView:
+            AnyView(RoundsLiveHUD(session: s).contadorNucleo(conHilo: false, conLectura: false, compacto: true))
+                .environment(\.colorScheme, .dark))
+        let altoMinimo = minimo.sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
+        XCTAssertLessThanOrEqual(altoMinimo, 375,
+            "el nivel mínimo pide \(Int(altoMinimo)) pt y el hueco real más apretado ronda 393")
+
+        let completo = UIHostingController(rootView:
+            AnyView(RoundsLiveHUD(session: s).contadorNucleo(conHilo: true, conLectura: true, compacto: false))
+                .environment(\.colorScheme, .dark))
+        let altoCompleto = completo.sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
+        XCTAssertLessThanOrEqual(altoCompleto, 500,
+            "el nivel completo pide \(Int(altoCompleto)) pt; por encima de 500 ni el hueco holgado lo salva")
+        s.stop()
+    }
+
+    // MARK: - La muñeca dice lo mismo que la pantalla
+
+    func testLaMunecaDiceLaMismaRondaQueLaPantalla() {
+        let s = sesionDeRondas(8)
+        s.start()
+        s.beginBlock()
+        if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        s.primaryAdvance()
+        s.primaryAdvance()
+        // Tres cerradas no: DOS cerradas → el atleta va por la TERCERA, y las
+        // dos superficies dicen «RONDA 3/8» — no «2/8» una y «3/8» la otra.
+        XCTAssertEqual(s.fixedRoundsDone, 2)
+        XCTAssertEqual(s.liveProgressText, "RONDA 3/8",
+                       "la muñeca dice lo mismo que la pantalla, o son dos apps")
+        s.stop()
+    }
 }

@@ -69,8 +69,9 @@ enum RoundsListBudget {
     /// El cromo del formato (strip) con su respiración.
     static let stripPt: CGFloat = 40
     /// La banda del trabajo de la cara-lista, FIJA: hasta cuatro líneas de
-    /// 25 pt escalan dentro, nunca la crecen.
-    static let bandaListaPt: CGFloat = 132
+    /// 25 pt (con su interlineado real, ~30 pt + huecos de 6) caben enteras;
+    /// más movimientos enseñan tres y un «+N más».
+    static let bandaListaPt: CGFloat = 144
     /// Cabecera de la lista («Recorre las rondas» + su relleno).
     static let cabeceraPt: CGFloat = 34
     /// Una fila de UNA línea: texto 17 + relleno 10+10 + hairline.
@@ -139,22 +140,39 @@ struct RoundsLiveHUD: View {
     }
 
     // ── La cara de muchas rondas: manda la CUENTA, el trabajo escrito una vez ──
+    //
+    // Se compone DENTRO de su cota, recortando por PRIORIDAD (la re-verificación
+    // adversarial midió 538 pt derramándose sobre el toggle RX y el chip del
+    // siguiente tramo): primero cae la línea de lectura (su dato vive también en
+    // «tu media»), luego el hilo (la cuenta ya la dice el numeral). Todas las
+    // piezas tienen alto FIJO, así que el recorte depende del hueco, jamás del
+    // contenido — la misma regla que hace al umbral puro en rondas.
+    // La franja de acción es el botón del host (`RONDA HECHA` / `ÚLTIMA HECHA`,
+    // ver `conditioningPrimaryTitle`): un botón aquí serían dos salidas.
     private var caraContador: some View {
+        ViewThatFits(in: .vertical) {
+            contadorNucleo(conHilo: true, conLectura: true, compacto: false)
+            contadorNucleo(conHilo: true, conLectura: false, compacto: false)
+            contadorNucleo(conHilo: false, conLectura: false, compacto: true)
+        }
+    }
+
+    // Interno (no privado) a propósito: la re-verificación exige medir la cara
+    // que se PINTA, no solo la que se descarta, y los tests miden cada nivel.
+    @ViewBuilder
+    func contadorNucleo(conHilo: Bool, conLectura: Bool, compacto: Bool) -> some View {
         VStack(spacing: 12) {
-            // Con el contador la cuenta ya gobierna la banda: repetirla en el
-            // cromo sería escribir el mismo número dos veces.
-            RoundsContextStrip(session: session, posicion: nil)
-            SujetoContadorRonda(session: session, seg: seg)
-            HiloDeRondas(session: session)
+            // Con el contador la cuenta ya gobierna la banda: ahí el cromo dice
+            // el BLOQUE, que no está en ningún otro sitio (contrato §cromo).
+            RoundsContextStrip(session: session, posicion: seg?.blockTitle)
+            SujetoContadorRonda(session: session, seg: seg, compacto: compacto)
+            if conHilo { HiloDeRondas(session: session) }
             MetricRow3(cells: [
                 .init(label: "Esta ronda", value: Formato.clock(parcialVivoS)),
                 mediaCell,
                 hrCell(session)
             ])
-            if let lectura { lectura }
-            // La franja de acción es el botón del host (`RONDA HECHA` /
-            // `ÚLTIMA HECHA`, ver `conditioningPrimaryTitle`): un segundo botón
-            // aquí sería dos salidas para el mismo gesto.
+            if conLectura, let lectura { lectura }
         }
     }
 
@@ -232,6 +250,14 @@ private struct RoundsContextStrip: View {
                 .font(.system(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundStyle(capRemaining != nil ? Theme.Color.danger : Theme.Color.foreground)
                 .monospacedDigit()
+            // El tope, SIEMPRE visible mientras corre: una lectura que dice «te
+            // comes el tope» sobre un tope invisible no se puede juzgar. En el
+            // último minuto el reloj ya ES la cuenta atrás roja y el cap sobra.
+            if let cap, capRemaining == nil {
+                Text("cap \(Formato.clock(Double(cap)))")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
+            }
         }
         .stripChrome()
         .accessibilityElement(children: .ignore)
@@ -296,6 +322,10 @@ private struct SujetoTrabajoRonda: View {
 private struct SujetoContadorRonda: View {
     let session: WorkoutSession
     let seg: WorkoutSegment?
+    /// El nivel mínimo de la cascada: cae la insinuación de la ronda siguiente
+    /// (puro dato informativo; el chip de la ANTERIOR se queda, que es el
+    /// deshacer y una función no se recorta).
+    var compacto: Bool = false
 
     private var activa: Int { min(session.fixedRoundsDone, session.fixedListTotal - 1) }
 
@@ -322,21 +352,29 @@ private struct SujetoContadorRonda: View {
                 Color.clear.frame(height: 16).accessibilityHidden(true)
             }
 
-            // El numeral de la casa (§10.2): la misma pieza que pinta los relojes
-            // héroe, no una tipografía a mano.
-            FormatClockHero(caption: "Ronda",
-                            value: "\(activa + 1)/\(session.fixedListTotal)")
+            // El numeral DESNUDO, sin tarjeta: el sujeto gobierna la pantalla
+            // (§10.2) y una CardSurface alrededor lo encogía a una celda más.
+            LabelText(text: "Ronda", size: 10)
+            Text("\(activa + 1)/\(session.fixedListTotal)")
+                .font(.system(size: 96, weight: .heavy, design: .default).italic())
+                .foregroundStyle(Theme.Color.foreground)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(height: 96)
 
             SujetoTrabajoRonda(seg: seg, grande: false)
 
-            if activa + 1 < session.fixedListTotal {
-                // La que viene: solo su número. Una ronda pendiente no tiene
-                // nada que decir.
-                Text("Ronda \(activa + 2)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-            } else {
-                Color.clear.frame(height: 16).accessibilityHidden(true)
+            if !compacto {
+                if activa + 1 < session.fixedListTotal {
+                    // La que viene: solo su número. Una ronda pendiente no
+                    // tiene nada que decir.
+                    Text("Ronda \(activa + 2)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                } else {
+                    Color.clear.frame(height: 16).accessibilityHidden(true)
+                }
             }
         }
         .frame(maxWidth: .infinity)

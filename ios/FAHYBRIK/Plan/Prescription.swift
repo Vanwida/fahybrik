@@ -225,7 +225,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .steady:   return "Steady"
         case .chipper:  return "Chipper"
         case .ladder:   return "Ladder"
-        case .rounds:   return "Rounds"
+        case .rounds:   return "Por rondas"
         case .hyroxSim: return "HYROX Sim"
         case .sets:     return "Strength"
         case .superset: return "Superserie"
