@@ -22,6 +22,17 @@ final class SensorPipeline {
     private(set) var lastRepResult: RepCountResult?
     private(set) var lastTiming: ActivityTimingResult?
     private(set) var lastVelocity: BarVelocityResult?
+    /// Sticky last good velocity so rest between sets doesn't blank the chip.
+    private var lastGoodVelocity: BarVelocityResult?
+
+    /// Live inference only looks at this much recent signal. Using the WHOLE
+    /// session concatenated set1+rest+set2 with time gaps, which broke period
+    /// detection after the first set (m/s worked once, then never again).
+    private static let liveHorizonSeconds: Double = 35
+    /// A work bout shorter than this is still "getting up from a chair".
+    private static let minBoutSeconds: Double = 2.5
+    /// Keep showing the last bout's m/s this long into rest.
+    private static let stickyVelocitySeconds: Double = 20
 
     var sampleCount: Int { samples.count }
 
@@ -33,6 +44,7 @@ final class SensorPipeline {
         lastRepResult = nil
         lastTiming = nil
         lastVelocity = nil
+        lastGoodVelocity = nil
         startedAt = nil
         captureMode = .classic
     }
@@ -86,26 +98,56 @@ final class SensorPipeline {
     // MARK: - conclusions
 
     private func recomputeLive() {
-        // ~1 s at 50 Hz before any inference — ignore the first fidget.
-        guard samples.count >= 50 else { return }
-        let timing = activity.analyze(samples)
+        // Need enough recent samples (~1 s at 50 Hz floor).
+        guard samples.count >= 50, let tEnd = samples.last?.t else { return }
+
+        // LIVE slice only — not the full session. Concatenating set1 + rest + set2
+        // left a hole in time; medianDt and period estimation died after set 1.
+        let sliceStart = tEnd - Self.liveHorizonSeconds
+        let recent = samples.filter { $0.t >= sliceStart }
+        guard recent.count >= 40 else { return }
+
+        let timing = activity.analyze(recent)
         lastTiming = timing
 
-        // Only count / estimate on real work windows that last long enough.
-        // A sit-to-stand is a short energy spike; without this gate it became "5 reps".
-        let solidWork = timing.workIntervals.filter { $0.1 - $0.0 >= 3.0 }
-        let workSeconds = solidWork.reduce(0.0) { $0 + max(0, $1.1 - $1.0) }
-        if workSeconds < 4.0 {
-            lastRepResult = RepCountResult(
-                reps: 0, confidence: 0, level: .unknown,
-                periodSeconds: nil, alternatingPattern: false
-            )
-            lastVelocity = nil
+        // One contiguous bout: the latest work interval long enough to be real.
+        let bouts = timing.workIntervals.filter { $0.1 - $0.0 >= Self.minBoutSeconds }
+        guard let bout = bouts.last else {
+            holdOrClear(now: tEnd, lastBoutEnd: nil)
             return
         }
 
-        lastRepResult = reps.count(samples: samples, workOnly: solidWork)
-        lastVelocity = velocity.estimate(samples: samples, workOnly: solidWork)
+        // Samples of THAT bout only (contiguous → clean period).
+        let boutSamples = recent.filter { $0.t >= bout.0 && $0.t <= bout.1 }
+        let boutSpan = bout.1 - bout.0
+        guard boutSamples.count >= 40, boutSpan >= Self.minBoutSeconds else {
+            holdOrClear(now: tEnd, lastBoutEnd: bout.1)
+            return
+        }
+
+        lastRepResult = reps.count(samples: boutSamples, workOnly: nil)
+        if let v = velocity.estimate(samples: boutSamples, workOnly: nil) {
+            lastVelocity = v
+            lastGoodVelocity = v
+        } else {
+            holdOrClear(now: tEnd, lastBoutEnd: bout.1)
+        }
+    }
+
+    /// During rest after a real set, keep the last m/s a few seconds so the chip
+    /// doesn't blink off the instant you rack the bar. Then clear.
+    private func holdOrClear(now: Double, lastBoutEnd: Double?) {
+        lastRepResult = RepCountResult(
+            reps: 0, confidence: 0, level: .unknown,
+            periodSeconds: nil, alternatingPattern: false
+        )
+        if let end = lastBoutEnd, let good = lastGoodVelocity,
+           now - end <= Self.stickyVelocitySeconds {
+            lastVelocity = good
+            return
+        }
+        lastVelocity = nil
+        lastGoodVelocity = nil
     }
 
     /// Build the archive file bytes for transfer (fase 0). Nil if nothing useful.

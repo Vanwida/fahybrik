@@ -17,7 +17,8 @@ struct RepCounter: Sendable {
     /// Fewer peaks than this → never "counted" (a sit-to-stand is 1–2 peaks).
     var minRepsForCounted: Int = 3
     /// Need this much continuous work (s) before trusting a count.
-    var minWorkSeconds: Double = 4.0
+    /// (Live pipeline already isolates one bout; this is a second belt.)
+    var minWorkSeconds: Double = 2.5
 
     func count(samples: [SensorSample], workOnly: [(Double, Double)]? = nil) -> RepCountResult {
         let filtered = Self.filter(samples, to: workOnly)

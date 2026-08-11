@@ -106,6 +106,23 @@ final class SensorPipelineTests: XCTestCase {
         XCTAssertLessThan(result.confidence, 0.50)
     }
 
+    func testVelocityStillWorksOnSecondBoutAfterGap() {
+        // Two work bouts with a rest gap — the bug that killed m/s after set 1.
+        // Pipeline must use the LATEST bout only (tested here at estimator level:
+        // a single contiguous bout after a gap still estimates).
+        let hz = 50.0
+        var bout2: [SensorSample] = []
+        // Second set only (as the pipeline would slice it)
+        for i in 0..<400 {
+            let t = 60.0 + Double(i) / hz   // after a long rest
+            let ax = 7 * sin(2 * .pi * (t - 60.0) / 0.9)
+            bout2.append(SensorSample(t: t, ax: ax, ay: 0.1, az: 0.1, gx: 0, gy: 0, gz: 0))
+        }
+        let v = BarVelocityEstimator().estimate(samples: bout2, workOnly: nil)
+        XCTAssertNotNil(v, "un bout limpio tras descanso debe dar m/s")
+        XCTAssertGreaterThan(v?.meanVelocityFirst ?? 0, 0)
+    }
+
     func testRepCounterNeverHighConfidenceOnAlternating() {
         // Double-peak pattern: two peaks per intended cycle
         let cycle = 1.0
