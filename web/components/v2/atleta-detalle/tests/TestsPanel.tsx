@@ -16,6 +16,7 @@
 // uses, so the two sides can never disagree about whether a test counted.
 
 import { useMemo, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Pill } from '@/components/v2/Pill';
@@ -35,7 +36,13 @@ function isFuture(iso: string): boolean {
   return iso > new Date().toISOString().slice(0, 10);
 }
 
-function TestRow({ test }: { test: CalibrationTestStatus }) {
+function TestRow({
+  test,
+  athleteId,
+}: {
+  test: CalibrationTestStatus;
+  athleteId: string;
+}) {
   const pending = test.result_pending;
   const done = test.result_captured;
 
@@ -54,7 +61,16 @@ function TestRow({ test }: { test: CalibrationTestStatus }) {
         {done ? (
           <Pill tone="ok" variant="soft">Hecho</Pill>
         ) : pending ? (
-          <Pill tone="warn" variant="soft">Falta el resultado</Pill>
+          <>
+            <Pill tone="warn" variant="soft">Falta el resultado</Pill>
+            {/* El form de escritura vive en Ritmos / Zonas — un solo camino circular. */}
+            <Link
+              href={`/atletas/${athleteId}?tab=ritmos`}
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-2.5 text-label font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            >
+              Registrar
+            </Link>
+          </>
         ) : isFuture(test.scheduled_for) ? (
           <Pill tone="info" variant="soft">Programado</Pill>
         ) : (
@@ -123,7 +139,7 @@ export function TestsPanel({
             className="border-none py-6"
           />
         ) : (
-          ordered.map((t) => <TestRow key={t.assignment_id} test={t} />)
+          ordered.map((t) => <TestRow key={t.assignment_id} test={t} athleteId={athleteId} />)
         )}
       </Panel>
 

@@ -14,6 +14,8 @@
 // contenido empieza donde antes empezaban las pestañas. La banda se pega a
 // `top-14` porque esa es la altura de la barra del shell (V2Shell).
 
+import { Link } from '@/i18n/navigation';
+import { MIcon } from '@/components/ui/MIcon';
 import { DetalleHeader } from './DetalleHeader';
 import { LifecycleBanner } from './lifecycle/LifecycleBanner';
 import { InjuryPanel } from './injuries/InjuryPanel';
@@ -46,6 +48,11 @@ export function AthleteDetalle({
 }) {
   const { header } = detalle;
   const comunicados = detalle.communications ?? [];
+  // Badges: solo lo que RECLAMA acción del coach. Intake pendiente (status alta)
+  // en Perfil; comunicados abiertos en Del coach. Cero badges decorativos.
+  const testsSinResultado = detalle.tests.filter((t) => t.result_pending).length;
+  const perfilBadge =
+    (header.status === 'alta' ? 1 : 0) + testsSinResultado;
 
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col">
@@ -63,7 +70,10 @@ export function AthleteDetalle({
           <DetalleTabBar
             athlete_id={header.athlete_id}
             active={tab}
-            badges={{ 'del-coach': cuantosReclaman(comunicados) }}
+            badges={{
+              perfil: perfilBadge,
+              'del-coach': cuantosReclaman(comunicados),
+            }}
           />
         </div>
       </div>
@@ -78,6 +88,35 @@ export function AthleteDetalle({
       <div className="v2-stagger">
         {tab === 'perfil' ? (
           <div className="flex flex-col gap-4">
+            {/* Intake pendiente: el header ya enlaza, pero en Perfil el coach
+                aterriza a trabajar — el CTA tiene que estar aquí, no solo en la
+                sublínea. Mismo destino que Hoy/Altas. */}
+            {header.status === 'alta' ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3.5 py-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <MIcon
+                    name="person_add"
+                    size={20}
+                    className="mt-0.5 shrink-0 text-[color:var(--v2-danger)]"
+                  />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                      Intake pendiente de revisión
+                    </span>
+                    <span className="text-xs text-[color:var(--v2-muted)]">
+                      Clasifica nivel y días y cierra el alta antes de asignar plan.
+                    </span>
+                  </div>
+                </div>
+                <Link
+                  href={`/atletas/${header.athlete_id}/intake`}
+                  className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+                >
+                  Revisar intake
+                  <MIcon name="arrow_forward" size={16} />
+                </Link>
+              </div>
+            ) : null}
             {/* Salud primero: la lesión es el contexto que condiciona todo el plan (#16). */}
             <InjuryPanel
               athleteId={header.athlete_id}
@@ -88,7 +127,10 @@ export function AthleteDetalle({
                 SIEMPRE (que es lo que pedía el #47); la tarjeta entera —con el
                 porqué cuando el atleta aún no los ha marcado— vive aquí, que es
                 donde el coach viene a leer su perfil. */}
-            <TrainingDaysCard data={detalle.training_days} />
+            <TrainingDaysCard
+              data={detalle.training_days}
+              coachDaysPerWeek={detalle.classification.training_days_per_week}
+            />
             <PerfilTab
               data={selectPerfilTab(detalle)}
               classification={detalle.classification}

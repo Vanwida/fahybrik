@@ -25,9 +25,9 @@ import type { AthleteReviewState } from '@/lib/citas/reviews';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
 import {
-  BENCH_BACK_SQUAT_1RM,
   BENCH_RUN_5K,
   BENCH_ROW_2K,
+  BENCH_SKI_1K,
   benchmarkLabel,
   benchmarkMetric,
   benchmarkIsDirectional,
@@ -463,11 +463,25 @@ function deriveObjectiveGroups(zone_profiles: AthleteZoneProfile[]): DerivedObje
   });
 }
 
-/** Maps the REAL reference-test results into the Perfil reference-test cards:
- *  pace tests (5k / 2k) from athlete_benchmarks (latest result, mm:ss) and the
- *  1RM from athlete_strength_maxes (kg). No result → null ("pendiente"). NEVER
- *  derived from in-WOD segment durations. Derived objectives come from the stored
- *  zone profiles (resolver output). Pure — safe in the client bundle. */
+/** Icon for a reference-test card — modality family, never invent a fake glyph. */
+function referenceTestIcon(slug: string): string {
+  if (slug.startsWith('run_') || slug === 'cooper_12min') return 'directions_run';
+  if (slug.startsWith('row_')) return 'rowing';
+  if (slug.startsWith('ski_')) return 'downhill_skiing';
+  if (slug.startsWith('bike_') || slug === 'ftp_watts') return 'pedal_bike';
+  if (slug.startsWith('hyrox')) return 'sports_score';
+  if (slug.includes('hr') || slug === 'lthr_bpm') return 'monitor_heart';
+  return 'timer';
+}
+
+/** Pace / endurance anchors always listed (pendiente if empty). Extra benchmarks
+ *  with a recorded result append after — so ski/bike/hyrox no longer disappear.
+ *  Strength 1RM lives ONLY in the Fuerza panel below (no double paint). NEVER
+ *  derived from in-WOD segment durations. Pure — safe in the client bundle. */
+/** Core HYROX / hybrid anchors always listed (even if pending). Other recorded
+ *  benchmarks append. */
+const REFERENCE_TEST_ANCHORS = [BENCH_RUN_5K, BENCH_ROW_2K, BENCH_SKI_1K] as const;
+
 export function buildPerfilTab(
   benchmarks: BenchmarkSeries[] = [],
   zone_profiles: AthleteZoneProfile[] = [],
@@ -476,31 +490,52 @@ export function buildPerfilTab(
 ): PerfilTabData {
   const benchBySlug = new Map(benchmarks.map((b) => [b.exercise_slug, b]));
 
-  // Latest result of a TIME-based benchmark, formatted mm:ss (5k / 2k row are
-  // always seconds). No recorded result → null ("pendiente de registro").
-  const latestTime = (slug: string): { value: string | null; date_iso: string | null } => {
-    const last = benchBySlug.get(slug)?.results.at(-1) ?? null;
-    if (!last) return { value: null, date_iso: null };
-    return { value: fmtTime(Math.round(last.value)), date_iso: last.recorded_at };
+  const latestOf = (
+    slug: string,
+  ): { value: string | null; date_iso: string | null; unit: string | null } => {
+    const series = benchBySlug.get(slug);
+    const last = series?.results.at(-1) ?? null;
+    if (!last || !series) return { value: null, date_iso: null, unit: null };
+    const metric = benchmarkMetric(series.unit);
+    // kg lives in strength_maxes — never double-count as a "test de referencia".
+    if (metric === 'load') return { value: null, date_iso: null, unit: null };
+    return {
+      value: fmtMetricValue(last.value, metric),
+      date_iso: last.recorded_at,
+      unit: series.unit,
+    };
   };
 
-  const run5k = latestTime(BENCH_RUN_5K);
-  const row2k = latestTime(BENCH_ROW_2K);
-  // The 1RM reference card reads the REAL back-squat max (kg) from the strength
-  // system — NOT a segment time misread as a load. No max → "Pendiente".
-  const squat = strength_maxes.find((m) => m.exercise_slug === BENCH_BACK_SQUAT_1RM) ?? null;
+  const reference_tests: ReferenceTest[] = [];
+  const seen = new Set<string>();
 
-  const reference_tests: ReferenceTest[] = [
-    { slug: BENCH_RUN_5K, icon: 'directions_run', label: benchmarkLabel(BENCH_RUN_5K), value: run5k.value, date_iso: run5k.date_iso },
-    { slug: BENCH_ROW_2K, icon: 'rowing', label: benchmarkLabel(BENCH_ROW_2K), value: row2k.value, date_iso: row2k.date_iso },
-    {
-      slug: '1rm',
-      icon: 'fitness_center',
-      label: 'Fuerza · 1RM',
-      value: squat ? `${Math.round(squat.one_rm_kg)} kg` : null,
-      date_iso: squat?.recorded_at ?? null,
-    },
-  ];
+  for (const slug of REFERENCE_TEST_ANCHORS) {
+    const latest = latestOf(slug);
+    reference_tests.push({
+      slug,
+      icon: referenceTestIcon(slug),
+      label: benchmarkLabel(slug),
+      value: latest.value,
+      date_iso: latest.date_iso,
+    });
+    seen.add(slug);
+  }
+
+  // Cualquier otro benchmark con resultado real (no kg) entra al final.
+  for (const b of benchmarks) {
+    if (seen.has(b.exercise_slug)) continue;
+    if (benchmarkMetric(b.unit) === 'load') continue;
+    const last = b.results.at(-1);
+    if (!last) continue;
+    reference_tests.push({
+      slug: b.exercise_slug,
+      icon: referenceTestIcon(b.exercise_slug),
+      label: b.label || benchmarkLabel(b.exercise_slug),
+      value: fmtMetricValue(last.value, benchmarkMetric(b.unit)),
+      date_iso: last.recorded_at,
+    });
+    seen.add(b.exercise_slug);
+  }
 
   // Real derived zone targets from the stored zone profiles (resolver output),
   // grouped by modality. When the athlete has no test yet this is [] → the Perfil

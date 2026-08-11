@@ -5,6 +5,24 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Ficha del atleta (dashboard coach) — pestaña a pestaña hasta el 100%
+
+**Regla:** no se pasa a la siguiente pestaña hasta que la actual esté perfecta
+(audit + fix bajo lente UX + circular). Doc vivo:
+`docs/audits/ficha-atleta-tabs-2026-08-11.md`.
+
+**Hecho (banda fija + Perfil):**
+- Header: intake clickable → `/atletas/{id}/intake`; Mensaje → hilo en ficha
+  (`?tab=mensajes`); badge Perfil si intake o tests sin resultado.
+- Perfil: fuera botones que mentían (ajustar / lápiz / versiones); zonas = RO +
+  link a Ritmos; «Falta resultado» → Registrar en Ritmos; banner Revisar intake;
+  aviso si días reales ≠ días Clasificación; tests ref ampliados (sin 1RM dupe).
+
+**Siguiente:** re-verify Perfil en browser → declarar 100% → **Plan actual**
+(PL1 missed en tira, multi-sesión, etc. ya auditados, sin fix aún).
+
+---
+
 ## Ahora · La ficha del atleta dice la verdad — cuatro arreglos, en producción (11-ago)
 
 Alex abrió «Ver detalle» de su sesión de hoy y salieron cuatro cosas, todas
@@ -130,11 +148,20 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   trabajo FIJA mientras cabe (umbral del hueco real), contador con cursor
   abierto cuando no; botón del host cierra ronda a ronda (antes se saltaba el
   WOD); parciales por deltas; muñeca con el mismo número. El doble pasó a
-  `espejo` con `fuentes`. La re-verificación adversarial de la otra sesión
-  dio FALLA (el contador se derramaba sobre el toggle RX: 538 pt en ~393) y
-  quedó cerrada en `e945d095`: cascada por prioridad con piezas de alto fijo,
-  cap visible en el cromo, numeral desnudo, «Por rondas». Suite completa
-  TEST SUCCEEDED; pendiente su pasada corta de confirmación.
+  `espejo` con `fuentes`. **Tres rondas de verificación adversarial cruzada**
+  (esta sesión midió, la otra arregló): R1 FALLA (el contador se derramaba,
+  538 pt en ~393) → `e945d095` cascada por prioridad; R2 FALLA (la clase
+  seguía viva: ergo sin emparejar y dobles desbordaban; el test medía un
+  estado que no era el pintado) → `4b2a21ba` SUELO en la cascada (cuenta al
+  cromo, ~124 pt), «Tu media» a una línea (la raíz del presupuesto), test del
+  estado pintado; R3 **INSTALAR** (cinco cromos limpios medidos por píxel,
+  1169/1169 — el «1280» del commit no era reproducible). **Instalado en el
+  iPhone de Alex (11-ago).** Flecos para R4, enrutados: el SE 3 pequeño aún
+  desborda en el peor cromo, falta nivel intermedio 368→124 (+contraste AA
+  de la cuenta en suelo: 3.08:1), y el suelo recorta el deshacer (función,
+  no información). Hallazgo de fondo para DECISIONS (lo escribe la otra
+  sesión): `MarcoVivo` tiene CERO llamadas en el repo — el régimen §10 no
+  tiene host real.
 - **Incidente de datos (11-ago, resuelto — y era Alex xD):** la sesión real
   del fartlek dictado (asignación 411) apareció con 4 ejes cambiados (el
   prefill del arquetipo fartlek, `archetype-prefills.ts:58`). Se culpó primero

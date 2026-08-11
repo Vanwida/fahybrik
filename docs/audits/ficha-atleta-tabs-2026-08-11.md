@@ -4,7 +4,17 @@
 **Atleta de muestra en captura:** Alex (id de ficha abierta)  
 **Captura:** header + pestaña Rendimiento activa; menú completo visible  
 **Método:** UI + código (`web/components/v2/atleta-detalle/*`, loaders en `web/lib/dashboard/v2/atleta-detalle*`)  
-**Estado:** en curso — una pestaña por pasada; este doc es el almacén entre compacts
+**Estado:** en curso — **una pestaña hasta el 100% (audit + fix), luego la siguiente**  
+**Almacén** entre compacts y entre sesiones.
+
+### Regla de avance (mandato Alex, 11-ago)
+
+1. Auditar la pestaña bajo la lente de producto.  
+2. Decidir y **cambiar** lo que toque (no solo listar).  
+3. **No se abre la siguiente pestaña** hasta que la actual esté perfecta bajo la lente (UX + circular + sin botones que mienten).  
+4. La banda fija (header) se trata como prerequisito de la ficha entera: se cierra con Perfil o antes.
+
+**Ahora:** banda fija + **Perfil & objetivos** — fixes en curso/hechos (ver log). Plan y el resto: **no se tocan** hasta Perfil 100%.
 
 ---
 
@@ -50,9 +60,9 @@ Fuente: `ATLETA_TABS` + `DetalleTabBar` (`atleta-detalle-types.ts`).
 
 | # | Label UI | `?tab=` | Componente principal | Estado auditoría |
 |---|----------|---------|----------------------|------------------|
-| 0 | *(banda fija: identidad + stats + días + acciones)* | — | `DetalleHeader` + `DetalleTabBar` | hecha (compartida) |
-| 1 | Perfil & objetivos | `perfil` | `InjuryPanel` + `TrainingDaysCard` + `PerfilTab` | **hecha** |
-| 2 | Plan actual | `plan` | `PlanTab` | **hecha** |
+| 0 | *(banda fija: identidad + stats + días + acciones)* | — | `DetalleHeader` + `DetalleTabBar` | **fixed** (H1–H3) |
+| 1 | Perfil & objetivos | `perfil` | `InjuryPanel` + `TrainingDaysCard` + `PerfilTab` | **fixed** (P1–P9; re-verify) |
+| 2 | Plan actual | `plan` | `PlanTab` | auditada — **bloqueada** hasta Perfil 100% |
 | 3 | Ritmos / Zonas | `ritmos` | `RitmosZonasTab` + `ZoneCalculator` | pendiente (notas cruzadas ya) |
 | 4 | Carreras | `carreras` | `CarrerasTab` | pendiente |
 | 5 | Histórico | `historico` | `HistoricoTab` | pendiente |
@@ -328,7 +338,25 @@ Al abrir **empty plan / asignación**:
 
 | Fecha | Pestaña | Resultado |
 |-------|---------|-----------|
-| 2026-08-11 | 0 Banda fija + 1 Perfil | H1–H7, P1–P12 documentados; sin fixes (solo auditoría) |
-| 2026-08-11 | 2 Plan actual | PL1–PL11; lente UX; prioridad PL1→PL2→PL3/4→PL5; sin fixes |
-| — | 3 Ritmos / Zonas | pendiente |
+| 2026-08-11 | 0+1 audit | H1–H7, P1–P12 documentados |
+| 2026-08-11 | 2 Plan audit (solo lectura) | PL1–PL11; **no fix hasta Perfil 100%** |
+| 2026-08-11 | **0+1 FIX** | Ver tabla de cierres abajo |
+
+### Cierres 0+1 (2026-08-11)
+
+| ID | Decisión | Qué se hizo |
+|----|----------|-------------|
+| H1 | Enchufar | `status === 'alta'` → link a `/atletas/{id}/intake` en sublínea |
+| H2 | Enchufar | «Mensaje» → `?tab=mensajes` de este atleta (no bandeja global) |
+| H3 | Parcial | Badge en **perfil** = intake + tests sin resultado; Del coach igual |
+| P1–P3 | Quitar mentira | Fuera «Ajustar a mano», lápices, «Ver versiones». Pill `vN` si hay versión. Link real a Ritmos |
+| P4 | Enchufar | Fila «Falta el resultado» → botón **Registrar** → `?tab=ritmos` |
+| P5 | Enchufar | Banner CTA «Revisar intake» al tope de Perfil si status alta |
+| P6 | Avisar | Si días reales ≠ días Clasificación → warning en TrainingDaysCard |
+| P7 | Clarificar | Zonas en Perfil = espejo RO + CTA a calculadora |
+| P8 | Ampliar | Anclas 5k / row 2k / ski 1k + resto de benchmarks con resultado |
+| P9 | Quitar dupe | 1RM solo en panel Fuerza (no en tests de referencia) |
+| P10–P12 | Diferido | Fetch carrera cliente / naming — no bloquean honestidad de controles |
+
+**Pendiente re-verify en browser** antes de declarar Perfil 100% y pasar a Plan.
 )

@@ -61,6 +61,10 @@ function HeaderAction({
   );
 }
 
+/** Pieces of the identity sub-line. `href` only when the status itself is the
+ *  action (intake pending → review screen). Never invent links for neutral copy. */
+type SubItem = { key: string; text: string; href?: string; emphasize?: boolean };
+
 export function DetalleHeader({
   header,
   stats,
@@ -70,12 +74,26 @@ export function DetalleHeader({
   stats: DetalleStat[];
   training_days: TrainingDaysData;
 }) {
-  const sub = [
-    header.level != null ? `Nivel ${header.level}` : null,
-    header.status_label,
-    header.tenure_label,
-    header.phase_label,
-  ].filter(Boolean) as string[];
+  // Intake pending (status 'alta') is a CALL TO ACTION, not decoration: the same
+  // deep link Hoy/Altas already use. Other status labels stay plain text.
+  const statusHref =
+    header.status === 'alta' ? `/atletas/${header.athlete_id}/intake` : undefined;
+
+  const sub: SubItem[] = [];
+  if (header.level != null) {
+    sub.push({ key: 'level', text: `Nivel ${header.level}`, emphasize: true });
+  }
+  if (header.status_label) {
+    sub.push({
+      key: 'status',
+      text: header.status_label,
+      href: statusHref,
+      // When level is missing, the status carries the weight of the line.
+      emphasize: header.level == null,
+    });
+  }
+  if (header.tenure_label) sub.push({ key: 'tenure', text: header.tenure_label });
+  if (header.phase_label) sub.push({ key: 'phase', text: header.phase_label });
 
   // §7 — sólo los indicadores MEDIDOS. Sin ninguno, no hay grupo.
   const medidos = stats.filter((s) => s.value !== EM_DASH);
@@ -99,11 +117,23 @@ export function DetalleHeader({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label text-[color:var(--v2-muted)]">
               <StatusDot status={header.status} />
               {sub.map((s, i) => (
-                <span key={s} className="flex items-center gap-2">
+                <span key={s.key} className="flex items-center gap-2">
                   {i > 0 ? <span className="text-[color:var(--v2-faint)]">·</span> : null}
-                  <span className={i === 0 ? 'font-semibold text-[color:var(--v2-fg)]' : undefined}>
-                    {s}
-                  </span>
+                  {s.href ? (
+                    <Link
+                      href={s.href}
+                      className={cn(
+                        'v2-focus rounded-[var(--v2-r-2xs)] font-semibold underline-offset-2 hover:underline',
+                        'text-[color:var(--v2-danger)]',
+                      )}
+                    >
+                      {s.text}
+                    </Link>
+                  ) : (
+                    <span className={s.emphasize ? 'font-semibold text-[color:var(--v2-fg)]' : undefined}>
+                      {s.text}
+                    </span>
+                  )}
                 </span>
               ))}
             </div>
@@ -122,10 +152,14 @@ export function DetalleHeader({
           </div>
         ) : null}
 
-        {/* Acciones — la principal y la de contacto juntas; el ciclo de vida al
-            lado, que es raro y no debe pesar como «Ver plan» (§6 regla 4). */}
+        {/* Acciones — Mensaje abre el hilo de ESTE atleta en la ficha (no la
+            bandeja global). Ver plan y ciclo de vida al lado. */}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />
+          <HeaderAction
+            href={`/atletas/${header.athlete_id}?tab=mensajes`}
+            icon="forum"
+            label="Mensaje"
+          />
           <HeaderAction
             href={`/atletas/${header.athlete_id}?tab=plan`}
             icon="calendar_month"
