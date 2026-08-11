@@ -171,16 +171,21 @@ targets:
         #   Bluetooth   → PM5Service CBCentralManager (Concept2 PM5)
         #   Location    → WorkoutLiveDataSources requestWhenInUseAuthorization
         #   Camera      → WorkoutCaptureView CameraPicker (foto del resumen de
-        #                 otra app) + chat photo/video capture (ChatCameraPicker),
-        #                 both guarded by isSourceTypeAvailable.
+        #                 otra app; reutilizado por la foto de perfil en
+        #                 FotoPerfilSheet) + chat photo/video capture
+        #                 (ChatCameraPicker), all guarded by isSourceTypeAvailable.
         #   Microphone  → chat voice notes (VoiceRecorderEngine / AVAudioRecorder,
         #                 requested via AVAudioApplication.requestRecordPermission).
         #   PhotoLibrary→ chat gallery attachments (ChatMediaLibraryPicker /
-        #                 PHPickerViewController).
+        #                 PHPickerViewController). NOTE: the athlete's profile
+        #                 photo uses SwiftUI's PhotosPicker, which runs
+        #                 out-of-process and needs NO photo-library permission —
+        #                 the string below stays about the chat on purpose.
         # The camera string no longer mentions the food-barcode scanner: that
-        # Nutrition path is unreachable (hidden), so the copy now names only the
-        # reachable camera uses (chat capture + workout-summary photo).
-        NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer fotos y vídeos que envías a tu coach en el chat, y para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado."
+        # Nutrition path is unreachable (hidden), so the copy names only the
+        # reachable camera uses (chat capture + workout-summary photo + the
+        # athlete's own profile photo).
+        NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, y para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado."
         NSMicrophoneUsageDescription: "FAHYBRID usa el micrófono para grabar las notas de voz que envías a tu coach en el chat."
         NSPhotoLibraryUsageDescription: "FAHYBRID accede a tus fotos y vídeos para que puedas adjuntarlos en el chat con tu coach."
         NSHealthShareUsageDescription: "FAHYBRID lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
