@@ -295,7 +295,9 @@ describeWithDb('MCP · get_plan y get_session (DB real)', () => {
       expect(tramos).toHaveLength(2);
       expect(tramos[0]!.verdict).toBe('dentro');
       expect(tramos[1]!.verdict).toBe('fuera_lento');
-      expect(tramos[0]!.prescribed).toBe("4×1000m @ 4:00-4:10/km · r2'");
+      // El prescrito del tramo es la dosis del ítem (misma fuente que arriba),
+      // así que narra fino desde 86f479d0 igual que item.dose.
+      expect(tramos[0]!.prescribed).toBe("4×(1000m @ 4:00-4:10/km / r2')");
       const executed = tramos[0]!.executed as Json;
       // Duración en la notación atlética del dominio (4'05''), ritmo en reloj
       // (4:05/km) — las dos mitades se leen como en el resto de la app.
