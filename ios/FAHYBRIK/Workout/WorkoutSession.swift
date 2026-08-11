@@ -109,32 +109,41 @@ final class WorkoutSession {
     /// Seq of the last applied packet — drops out-of-order mirror frames.
     private var lastSensorSeq: Int = -1
 
-    /// Apply live conclusions from the watch. Prefills reps only when the sensor
-    /// is high-confidence and the athlete has NOT already confirmed a value.
+    /// Apply live conclusions from the watch (velocity + optional rep prefill).
+    ///
+    /// **Reps:** only fill an OPEN counter (no prescription). A strength set
+    /// primed to `4×10` must keep the 10 until the athlete confirms or edits —
+    /// overwriting with a noisy sensor count (e.g. 5) was the bug of 11-ago:
+    /// the m/s chip worked while the hero jumped to a wrong rep total.
+    ///
+    /// **Velocity:** always lands on `sensorConclusions` for the vivo chip; also
+    /// stamped onto the open set when present (for the wire at close).
     func applySensorConclusions(_ c: MirrorSensorConclusions) {
         guard c.seq >= lastSensorSeq else { return }
         lastSensorSeq = c.seq
         sensorConclusions = c
 
-        // Fase 2 — prefill the open set/segment when the athlete has not touched it.
-        // Never overwrite a confirmed athlete value (that becomes sensor_corrected
-        // only when they edit AFTER a sensor prefill — stamped at close).
+        let openIdx = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
+            ?? setRecords.indices.last
+        if let openIdx {
+            stampVelocity(on: openIdx, from: c)
+        }
+
         let high = (c.repsLevel == "counted") && (c.repsConfidence ?? 0) >= 0.80
         guard high, let sensorReps = c.reps, sensorReps > 0 else { return }
 
         if !setRecords.isEmpty {
-            // Current open set = first unconfirmed non-skipped, else last.
-            let idx = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
-                ?? setRecords.indices.last
-            if let idx, !setRecords[idx].confirmed {
-                setRecords[idx].repsActual = sensorReps
-                setRecords[idx].repsSource = RepsSource.sensor.rawValue
-                setRecords[idx].repsConfidence = c.repsConfidence
-                stampVelocity(on: idx, from: c)
-            }
+            guard let idx = openIdx, !setRecords[idx].confirmed else { return }
+            // Prescribed table (4×10): keep the plan number. Sensor never owns it.
+            if setRecords[idx].repsPrescribed != nil { return }
+            setRecords[idx].repsActual = sensorReps
+            setRecords[idx].repsSource = RepsSource.sensor.rawValue
+            setRecords[idx].repsConfidence = c.repsConfidence
         } else if !repsConfirmed {
+            // Open-score / free count-up only — never clobber a primed prescription.
+            let prescribed = currentSegment?.prescribedRepsForLog
+            if prescribed != nil { return }
             repsCurrentSegment = sensorReps
-            // Not marking repsConfirmed — still "assumed" until athlete taps.
         }
     }
 
