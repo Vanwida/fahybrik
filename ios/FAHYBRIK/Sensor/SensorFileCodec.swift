@@ -25,6 +25,13 @@ struct SensorFileHeader: Codable, Equatable {
     var appVersion: String?
     var windows: [SensorWindowLabel]
     var sampleCount: Int
+    /// LA HISTORIA DE LA SESIÓN en texto: qué serie abrió, qué repetición cerró con
+    /// sus números, y por qué se descartó lo que se descartó. Va en la cabecera para
+    /// que el archivo se explique SOLO: la captura del 11-ago que contó cero no dejó
+    /// ninguna pista de por qué nunca se abrió una serie, y sin eso hay que estar
+    /// delante del atleta para diagnosticarlo. Opcional para que los archivos ya
+    /// escritos sigan decodificando.
+    var notes: [String]? = nil
 }
 
 enum SensorFileCodec {

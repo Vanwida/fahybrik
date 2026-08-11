@@ -156,6 +156,13 @@ gravedad  \(conGravedad) de \(samples.count) muestras \(conGravedad == 0 ? "← 
 ventanas  \(h.windows.count)
 """)
 
+if let notes = h.notes, !notes.isEmpty {
+    // La historia que el propio reloj dejó escrita: por qué abrió (o no abrió) una
+    // serie, y qué decidió en cada excursión.
+    print("\nLO QUE CONTÓ EL RELOJ (cabecera del archivo)")
+    for n in notes { print("   \(n)") }
+}
+
 if h.windows.isEmpty {
     print("""
     · No hay ventanas etiquetadas: o la build del reloj es anterior al sellado de
@@ -210,6 +217,34 @@ for (i, v) in ventanas.enumerated() {
                  tracker.count, tracker.confidence, tracker.level.rawValue,
                  vs.isEmpty ? "" : String(format: " · m/s %.2f→%.2f",
                                           vs.first ?? 0, vs.last ?? 0)))
+
+    // CÓMO SE MOVIÓ LA MUÑECA, sin integrar nada: el pico y el valor eficaz de la
+    // aceleración vertical, y cuánto basculó la gravedad respecto a su media. Los
+    // tres dicen a qué se parece el gesto antes de creerse ningún metro: una barra a
+    // la espalda deja el antebrazo casi fijo (pocos grados) y un squat controlado no
+    // pasa de 2-3 m/s²; decenas de grados o cinco g son otra cosa.
+    let verticales = dentro.compactMap(\.verticalAccel)
+    if !verticales.isEmpty {
+        let pico = verticales.map(abs).max() ?? 0
+        let rms = (verticales.reduce(0) { $0 + $1 * $1 } / Double(verticales.count)).squareRoot()
+        var mg = (0.0, 0.0, 0.0)
+        for s in dentro where s.hasGravity {
+            let m = s.gravityMagnitude
+            mg = (mg.0 + s.grx / m, mg.1 + s.gry / m, mg.2 + s.grz / m)
+        }
+        let n = Double(max(1, dentro.filter(\.hasGravity).count))
+        var media = (mg.0 / n, mg.1 / n, mg.2 / n)
+        let mm = (media.0 * media.0 + media.1 * media.1 + media.2 * media.2).squareRoot()
+        if mm > 0.1 { media = (media.0 / mm, media.1 / mm, media.2 / mm) }
+        let angulos = dentro.filter(\.hasGravity).map { s -> Double in
+            let m = s.gravityMagnitude
+            let d = max(-1, min(1, (s.grx / m) * media.0 + (s.gry / m) * media.1 + (s.grz / m) * media.2))
+            return acos(d) * 180 / .pi
+        }.sorted()
+        let p95 = angulos[Int(Double(angulos.count - 1) * 0.95)]
+        print(String(format: "   señal: pico %.1f m/s² · eficaz %.2f · la muñeca basculó hasta %.0f°",
+                     pico, rms, p95))
+    }
 
     // Trabajo y descanso. En una serie contable manda lo que dicen las
     // repeticiones (es lo que hace el vivo); el detector por energía se imprime al

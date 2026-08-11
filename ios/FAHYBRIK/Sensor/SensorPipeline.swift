@@ -55,12 +55,26 @@ final class SensorPipeline {
         var out = pendingTrace
         pendingTrace = []
         out.append(contentsOf: tracker.drainTrace())
+        for line in out where !line.isEmpty { keep(line) }
         return out
     }
 
     private func note(_ line: String) {
         pendingTrace.append(line)
         if pendingTrace.count > 40 { pendingTrace.removeFirst(pendingTrace.count - 40) }
+        keep(line)
+    }
+
+    /// La traza que se VACÍA al mandarla por el cable no sirve para el archivo: se
+    /// guarda aparte, acotada, y viaja en la cabecera del fichero.
+    private var archiveNotes: [String] = []
+    private static let maxArchiveNotes = 160
+
+    private func keep(_ line: String) {
+        archiveNotes.append(line)
+        if archiveNotes.count > Self.maxArchiveNotes {
+            archiveNotes.removeFirst(archiveNotes.count - Self.maxArchiveNotes)
+        }
     }
 
     /// La ventana de trabajo activa: clave, si cuenta repeticiones, y si está en
@@ -304,7 +318,8 @@ final class SensorPipeline {
             wrist: wrist?.rawValue,
             appVersion: appVersion,
             windows: allWindows,
-            sampleCount: samples.count
+            sampleCount: samples.count,
+            notes: archiveNotes.isEmpty ? nil : archiveNotes
         )
         return try SensorFileCodec.encode(header: header, samples: samples)
     }
