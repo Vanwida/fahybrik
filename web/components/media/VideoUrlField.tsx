@@ -11,8 +11,14 @@
 // DOS ORÍGENES, UN CAMPO. El vídeo de técnica es contenido del coach: o lo tiene en
 // YouTube o lo tiene en el móvil. Obligarle a abrirse un canal para poder enseñar
 // una sentadilla sería ponerle una barrera a lo que ya ha grabado. Se sube directo
-// al almacén (`lib/exercises/video-upload-client.ts`) y lo que se guarda en la
+// al alojamiento (`lib/exercises/video-upload-client.ts`) y lo que se guarda en la
 // columna es el localizador; la columna sigue siendo UNA y el tipo se deriva de ella.
+//
+// LOS ESTADOS SE CUENTAN COMO SON, sin adelantar acontecimientos: SUBIENDO (los bytes
+// van hacia el alojamiento), PROCESANDO (ya están allí, pero el vídeo todavía no se
+// reproduce), LISTO (y sólo entonces hay localizador en el campo) y ERROR CON MOTIVO.
+// Decir «ya está» al terminar de subir sería mentir: el atleta abriría el ejercicio y
+// vería un rectángulo negro.
 //
 // HEREDAR ES PARTE DEL CAMPO, no un caso especial de quien lo llama. Un ejercicio
 // de la base trae su vídeo; el coach puede poner el suyo encima o dejar el campo
@@ -32,6 +38,7 @@ import {
   EXERCISE_VIDEO_ACCEPT_ATTR,
   ExerciseVideoUploadError,
   uploadExerciseVideo,
+  type ExerciseVideoUploadPhase,
 } from '@/lib/exercises/video-upload-client';
 import { ExerciseVideoPreview } from './ExerciseVideoPreview';
 import { cn } from '@/lib/utils';
@@ -75,9 +82,10 @@ export function VideoUrlField({
   /** El vídeo que se usa si el campo queda vacío (el de la base). Se previsualiza. */
   inheritedUrl?: string | null;
   /** El ejercicio al que se le cuelga, si ya existe. En el alta todavía no hay id:
-   *  el servidor firma igual (la carpeta sale de su sesión, no del cliente). */
+   *  el servidor reserva igual (el vídeo se anota a SU sesión, no a nada que mande
+   *  el cliente). */
   exerciseId?: string | null;
-  /** Mientras sube, quien monta el campo apaga Guardar: guardar a media subida
+  /** Mientras sube o procesa, quien monta el campo apaga Guardar: guardar a medias
    *  perdería el vídeo sin decir nada. */
   onUploadingChange?: (uploading: boolean) => void;
   className?: string;
@@ -89,17 +97,17 @@ export function VideoUrlField({
   // Lo que se previsualiza es LO QUE VERÁ EL ATLETA: el vídeo del coach si lo ha
   // puesto, y si no el heredado, que es lo que se queda al dejar el campo vacío.
   const preview = own ?? (draft === '' ? inherited : null);
-  const ownIsFile = own !== null && parseExerciseVideo(own)?.kind === 'subido';
+  const ownIsUploaded = own !== null && parseExerciseVideo(own)?.kind === 'stream';
   // Un heredado de YouTube se enseña como marca de agua de la caja (es un enlace
-  // que se puede leer); uno subido es una ruta interna y no dice nada.
+  // que se puede leer); uno propio es code + uid y no le dice nada a nadie.
   const inheritedLink = inherited && parseExerciseVideo(inherited)?.kind === 'youtube';
   const hintId = `${id}-hint`;
 
   const fileRef = useRef<HTMLInputElement>(null);
-  // null = no hay subida en curso. 0..100 mientras sube.
-  const [progress, setProgress] = useState<number | null>(null);
+  // null = no hay subida en curso. Mientras la hay, en qué paso va y cuánto lleva.
+  const [fase, setFase] = useState<ExerciseVideoUploadPhase | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const uploading = progress !== null;
+  const uploading = fase !== null;
 
   // Se avisa SÓLO cuando cambia de verdad: quien monta el campo suele pasar una
   // función nueva en cada render, y avisar en cada uno sería un bucle de estado.
@@ -118,12 +126,11 @@ export function VideoUrlField({
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setUploadError(null);
-    setProgress(0);
+    setFase({ phase: 'subiendo', pct: 0 });
     try {
-      const locator = await uploadExerciseVideo(file, {
-        exerciseId,
-        onProgress: setProgress,
-      });
+      // Sólo vuelve cuando el vídeo SE PUEDE VER, no cuando terminan de subir los
+      // bytes: hasta entonces no hay nada que guardar en el ejercicio.
+      const locator = await uploadExerciseVideo(file, { exerciseId, onPhase: setFase });
       onChange(locator);
     } catch (err) {
       setUploadError(
@@ -132,7 +139,7 @@ export function VideoUrlField({
           : 'No se pudo subir el vídeo. Inténtalo otra vez.',
       );
     } finally {
-      setProgress(null);
+      setFase(null);
       // Sin esto, volver a elegir EL MISMO fichero no dispara el evento.
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -142,9 +149,9 @@ export function VideoUrlField({
     <div className={cn('space-y-1.5', className)}>
       <div className="flex items-center justify-between gap-2">
         {/* La etiqueta sólo apunta a la caja de texto cuando la caja existe: con un
-            fichero ya subido no hay enlace que pegar y el `htmlFor` quedaría
+            vídeo ya subido no hay enlace que pegar y el `htmlFor` quedaría
             colgando de un id inexistente. */}
-        {ownIsFile || uploading ? (
+        {ownIsUploaded || uploading ? (
           <span className="v2-micro">{label}</span>
         ) : (
           <label htmlFor={id} className="v2-micro">
@@ -170,9 +177,9 @@ export function VideoUrlField({
         onChange={(e) => void onFile(e.target.files?.[0])}
       />
 
-      {uploading ? (
-        <UploadProgress pct={progress} />
-      ) : ownIsFile ? (
+      {fase ? (
+        <UploadProgress fase={fase} />
+      ) : ownIsUploaded ? (
         <UploadedStrip onReplace={pickFile} />
       ) : (
         <div className="flex items-start gap-2">
@@ -212,7 +219,7 @@ export function VideoUrlField({
         invalid={invalid}
         hasOwn={own !== null}
         inherits={inherited !== null}
-        uploading={uploading}
+        fase={fase}
       />
 
       {preview && !uploading ? (
@@ -241,14 +248,14 @@ function ClearButton({ onClick, restores }: { onClick: () => void; restores: boo
   );
 }
 
-/** El vídeo ya está subido: aquí no hay enlace que pegar, hay un fichero que
- *  cambiar. La caja de texto sobraría y sólo enseñaría una ruta interna. */
+/** LISTO: el vídeo ya se puede ver. Aquí no hay enlace que pegar, hay un vídeo que
+ *  cambiar; la caja de texto sobraría y sólo enseñaría un identificador interno. */
 function UploadedStrip({ onReplace }: { onReplace: () => void }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2">
       <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--v2-fg)]">
         <MIcon name="movie" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
-        Vídeo subido
+        Vídeo listo
       </span>
       <button type="button" onClick={onReplace} className={BTN_CLS}>
         <MIcon name="upload" size={15} />
@@ -258,9 +265,19 @@ function UploadedStrip({ onReplace }: { onReplace: () => void }) {
   );
 }
 
-/** Subiendo: cuánto va, en números y en barra. Un vídeo de 120 MB sin barra parece
- *  la app colgada. */
-function UploadProgress({ pct }: { pct: number }) {
+/** Cómo se llama cada paso en la pantalla. SUBIENDO son los bytes saliendo de aquí;
+ *  PROCESANDO es el vídeo ya entregado, preparándose para poder verse. Son dos esperas
+ *  distintas y contarlas como una sola dejaría la barra clavada en el 100% sin
+ *  explicación. */
+const FASE_LABEL: Record<ExerciseVideoUploadPhase['phase'], string> = {
+  subiendo: 'Subiendo el vídeo',
+  procesando: 'Procesando el vídeo',
+};
+
+/** En marcha: qué paso y cuánto lleva, en números y en barra. Un vídeo de 120 MB sin
+ *  barra parece la app colgada. */
+function UploadProgress({ fase }: { fase: ExerciseVideoUploadPhase }) {
+  const pct = Math.round(fase.pct);
   return (
     <div
       className="space-y-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2"
@@ -272,14 +289,14 @@ function UploadProgress({ pct }: { pct: number }) {
           size={15}
           className="shrink-0 animate-spin text-[color:var(--v2-accent)]"
         />
-        Subiendo el vídeo… {pct}%
+        {FASE_LABEL[fase.phase]}… {pct}%
       </p>
       <div
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="Progreso de la subida"
+        aria-label={FASE_LABEL[fase.phase]}
         className="h-1 w-full overflow-hidden rounded-[var(--v2-r-pill)] bg-[color:var(--v2-border-strong)]"
       >
         <div
@@ -297,19 +314,21 @@ function Hint({
   invalid,
   hasOwn,
   inherits,
-  uploading,
+  fase,
 }: {
   id: string;
   invalid: boolean;
   hasOwn: boolean;
   inherits: boolean;
-  uploading: boolean;
+  fase: ExerciseVideoUploadPhase | null;
 }) {
-  if (uploading) {
+  if (fase) {
     return (
       <p id={id} className={cn(HINT_CLS, 'text-[color:var(--v2-faint)]')}>
         <MIcon name="info" size={13} className="mt-px shrink-0" />
-        No cierres esta ventana hasta que termine.
+        {fase.phase === 'subiendo'
+          ? 'No cierres esta ventana hasta que termine.'
+          : 'Ya lo tenemos. Lo estamos dejando listo para que tu atleta lo vea en cualquier móvil.'}
       </p>
     );
   }

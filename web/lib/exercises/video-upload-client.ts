@@ -1,23 +1,24 @@
 'use client';
 
-// La subida del vídeo de un ejercicio, desde el navegador del entrenador.
+// LA SUBIDA DEL VÍDEO DE UN EJERCICIO, desde el navegador del entrenador.
 //
-// Va en DOS pasos y los bytes nunca viajan dentro de una petición nuestra: primero
-// se pide una dirección de subida firmada (`POST /api/coach/exercises/video-url`) y
-// después los bytes van DIRECTOS contra ella. La plataforma corta el cuerpo de una
-// petición en ~4,5 MB y un vídeo de técnica pesa mucho más.
+// Va en TRES pasos, y los bytes nunca viajan dentro de una petición nuestra:
+//   1. se reserva sitio (`POST /api/coach/exercises/video/subida`);
+//   2. el fichero va DIRECTO a Cloudflare Stream, contra la dirección reservada;
+//   3. se ESPERA a que Stream lo transcodifique (`GET …/video/estado`), porque un
+//      vídeo recién subido todavía no se reproduce. Sólo cuando está listo hay
+//      localizador que guardar.
 //
-// Va con XMLHttpRequest y no con fetch por UNA razón: fetch no informa del progreso
-// de subida. Un vídeo de 120 MB sin barra parece la app colgada, y el coach vuelve a
-// darle al botón.
+// El paso 3 no es un detalle de implementación: es la diferencia entre decirle al
+// entrenador «ya está» y que su atleta abra el ejercicio y vea un rectángulo negro.
 //
-// (El mismo baile lo hace `components/v2/planes/import-photo-upload.ts` para las
-// capturas del importador. Son dos, con copy distinto y sin más piezas en común que
-// el `PUT`; si aparece un tercero, el `PUT` con progreso se extrae y lo comparten.)
+// El paso 2 va con XMLHttpRequest y no con fetch por UNA razón: fetch no informa del
+// progreso de subida. Un vídeo de 120 MB sin barra parece la app colgada, y el
+// entrenador vuelve a darle al botón.
 //
 // Lo que se acepta y lo que pesa NO se copia aquí: sale de `video-source.ts`, que es
-// el mismo módulo que aplica el servidor. Comprobarlo antes de subir no es
-// duplicarlo, es no hacerle esperar 200 MB para darle un 413.
+// el mismo módulo que aplica el servidor. Comprobarlo antes de subir no es duplicarlo,
+// es no hacerle esperar 200 MB para darle una negativa.
 
 import { fileExtension } from '@/lib/chat/schema';
 import {
@@ -25,28 +26,46 @@ import {
   EXERCISE_VIDEO_MAX_BYTES,
 } from '@/lib/exercises/video-source';
 
-/** Para el `accept` del selector de ficheros: las mismas extensiones que firma el
+/** Para el `accept` del selector de ficheros: las mismas extensiones que admite el
  *  servidor, ni una más. */
 export const EXERCISE_VIDEO_ACCEPT_ATTR = EXERCISE_VIDEO_EXTENSIONS.map((e) => `.${e}`).join(',');
 
-/** Cómo se le nombran al coach los formatos que valen. */
+/** Cómo se le nombran al entrenador los formatos que valen. */
 const ACCEPTED_LABEL = EXERCISE_VIDEO_EXTENSIONS.map((e) => e.toUpperCase()).join(', ');
 
-/** Un fallo de subida ya escrito para el coach. */
+/** El campo que Cloudflare espera en el formulario de la subida directa. */
+const UPLOAD_FILE_FIELD = 'file';
+
+/** Cada cuánto se le pregunta a Stream si ya terminó. Lo bastante seguido para que un
+ *  clip corto (lo normal: quince segundos) se sienta inmediato, y lo bastante espaciado
+ *  para no martillear la API mientras transcodifica uno largo. */
+const POLL_INTERVAL_MS = 2_000;
+
+/** Cuánto se espera como mucho a que Stream termine antes de dar el parte. Un vídeo de
+ *  cinco minutos —el tope— se procesa de sobra dentro de esta ventana; si se agota, es
+ *  que algo va mal y decirlo es mejor que dejar la rueda girando para siempre. */
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Un fallo de subida ya escrito para el entrenador. */
 export class ExerciseVideoUploadError extends Error {}
+
+/** En qué anda la subida, para que el panel lo cuente tal cual es. */
+export type ExerciseVideoUploadPhase =
+  | { phase: 'subiendo'; pct: number }
+  | { phase: 'procesando'; pct: number };
 
 function megabytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
 /**
- * ¿Se puede subir? Devuelve el motivo EN PALABRAS del coach, o null si vale. Se
+ * ¿Se puede subir? Devuelve el motivo EN PALABRAS del entrenador, o null si vale. Se
  * comprueba ANTES de subir nada: un fichero que el servidor va a rechazar no merece
- * que el coach espere a que suban 200 MB para enterarse.
+ * que el entrenador espere a que suban 200 MB para enterarse.
  */
 export function exerciseVideoRejection(file: File): string | null {
   if (!EXERCISE_VIDEO_EXTENSIONS.includes(fileExtension(file.name))) {
-    return `«${file.name}» no es un vídeo que tu atleta pueda reproducir. Sube ${ACCEPTED_LABEL}.`;
+    return `«${file.name}» no es un vídeo que se pueda subir. Sube ${ACCEPTED_LABEL}.`;
   }
   if (file.size === 0) {
     return `«${file.name}» está vacío.`;
@@ -59,11 +78,15 @@ export function exerciseVideoRejection(file: File): string | null {
   return null;
 }
 
-interface SignedUpload {
+interface UploadTarget {
   upload_url: string;
-  video_url: string;
-  content_type: string;
+  uid: string;
 }
+
+type EstadoVideo =
+  | { state: 'procesando'; pct: number }
+  | { state: 'listo'; video_url: string }
+  | { state: 'error'; message: string };
 
 async function messageFromResponse(res: Response, fallback: string): Promise<string> {
   try {
@@ -74,21 +97,19 @@ async function messageFromResponse(res: Response, fallback: string): Promise<str
   }
 }
 
-/** Pide el destino firmado. `exerciseId` viaja cuando el ejercicio ya existe: el
- *  servidor comprueba que es suyo o forkeable por él. */
-async function signUpload(
+/** Reserva el sitio. `exerciseId` viaja cuando el ejercicio ya existe: el servidor
+ *  comprueba que es suyo o forkeable por él. */
+async function reservar(
   file: File,
   exerciseId: string | null,
   signal?: AbortSignal,
-): Promise<SignedUpload> {
-  const res = await fetch('/api/coach/exercises/video-url', {
+): Promise<UploadTarget> {
+  const res = await fetch('/api/coach/exercises/video/subida', {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       filename: file.name,
-      mime_type: file.type || undefined,
-      size_bytes: file.size,
       ...(exerciseId ? { exercise_id: exerciseId } : {}),
     }),
     signal,
@@ -98,12 +119,12 @@ async function signUpload(
       await messageFromResponse(res, 'No se pudo preparar la subida del vídeo.'),
     );
   }
-  return (await res.json()) as SignedUpload;
+  return (await res.json()) as UploadTarget;
 }
 
-/** Los bytes, contra la dirección firmada, contando el progreso. */
-function putBytes(
-  signed: SignedUpload,
+/** El fichero, directo a Cloudflare, contando el progreso. */
+function subirBytes(
+  target: UploadTarget,
   file: File,
   onProgress: (pct: number) => void,
   signal?: AbortSignal,
@@ -112,9 +133,10 @@ function putBytes(
     const xhr = new XMLHttpRequest();
     const abort = () => xhr.abort();
     const done = () => signal?.removeEventListener('abort', abort);
-    xhr.open('PUT', signed.upload_url, true);
-    // El content-type EXACTO que quedó firmado: cualquier otro lo rechaza el almacén.
-    xhr.setRequestHeader('content-type', signed.content_type);
+    const form = new FormData();
+    form.append(UPLOAD_FILE_FIELD, file, file.name);
+    xhr.open('POST', target.upload_url, true);
+    // Sin `content-type` a mano: lo pone el navegador con el `boundary` del formulario.
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) {
         onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
@@ -144,25 +166,82 @@ function putBytes(
       }
       signal.addEventListener('abort', abort, { once: true });
     }
-    xhr.send(file);
+    xhr.send(form);
+  });
+}
+
+function esperar(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(id);
+      reject(new ExerciseVideoUploadError('Subida cancelada.'));
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 
 /**
+ * Espera a que Stream termine de procesar y devuelve el localizador. Aquí es donde el
+ * vídeo pasa de «subido» a «se puede ver», que no es lo mismo.
+ */
+async function esperarAQueEsteListo(
+  uid: string,
+  onProgress: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const limite = Date.now() + POLL_TIMEOUT_MS;
+  for (;;) {
+    const res = await fetch(`/api/coach/exercises/video/estado?uid=${encodeURIComponent(uid)}`, {
+      credentials: 'include',
+      signal,
+    });
+    if (!res.ok) {
+      throw new ExerciseVideoUploadError(
+        await messageFromResponse(res, 'No se pudo comprobar si el vídeo está listo.'),
+      );
+    }
+    const estado = (await res.json()) as EstadoVideo;
+    if (estado.state === 'listo') return estado.video_url;
+    if (estado.state === 'error') throw new ExerciseVideoUploadError(estado.message);
+
+    onProgress(estado.pct);
+    if (Date.now() >= limite) {
+      throw new ExerciseVideoUploadError(
+        'El vídeo está tardando demasiado en procesarse. Vuelve a intentarlo en un rato.',
+      );
+    }
+    await esperar(POLL_INTERVAL_MS, signal);
+  }
+}
+
+/**
  * Sube UN vídeo y devuelve su localizador — el texto que va a `video_url` y que el
- * formulario guarda con el resto del ejercicio. Nunca una dirección suelta del
- * cliente: la construye el servidor al firmar.
+ * formulario guarda con el resto del ejercicio. Sólo vuelve cuando el vídeo SE PUEDE
+ * VER: nunca una dirección que todavía no reproduce nada.
  */
 export async function uploadExerciseVideo(
   file: File,
-  opts: { exerciseId?: string | null; onProgress?: (pct: number) => void; signal?: AbortSignal } = {},
+  opts: {
+    exerciseId?: string | null;
+    onPhase?: (phase: ExerciseVideoUploadPhase) => void;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<string> {
   const rejection = exerciseVideoRejection(file);
   if (rejection) throw new ExerciseVideoUploadError(rejection);
 
-  const onProgress = opts.onProgress ?? (() => {});
-  onProgress(0);
-  const signed = await signUpload(file, opts.exerciseId ?? null, opts.signal);
-  await putBytes(signed, file, onProgress, opts.signal);
-  return signed.video_url;
+  const onPhase = opts.onPhase ?? (() => {});
+  onPhase({ phase: 'subiendo', pct: 0 });
+  const target = await reservar(file, opts.exerciseId ?? null, opts.signal);
+  await subirBytes(target, file, (pct) => onPhase({ phase: 'subiendo', pct }), opts.signal);
+  onPhase({ phase: 'procesando', pct: 0 });
+  return esperarAQueEsteListo(
+    target.uid,
+    (pct) => onPhase({ phase: 'procesando', pct }),
+    opts.signal,
+  );
 }
