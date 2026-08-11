@@ -178,17 +178,19 @@ final class FormatoTests: XCTestCase {
         XCTAssertEqual(Formato.serie(reps: 3, cargaKg: 82.5)?.cifra, "3 × 82,5")
     }
 
-    func testSeriesPorRepeticionesEsOtroConceptoYVaPEGADO() {
-        // «4×5» es la dosis de TODA la prescripción y se lee de un vistazo en una
-        // franja; «5 × 100 kg» es el sujeto de la pantalla y respira. Que se
-        // parezcan es justo por lo que tienen que estar los dos aquí.
-        XCTAssertEqual(Formato.dosisDeSeries(series: 4, reps: 5), "4×5")
-        XCTAssertNotEqual(Formato.dosisDeSeries(series: 4, reps: 5),
-                          Formato.serie(reps: 4, cargaKg: nil)?.cifra)
-        // Una sola serie no se anuncia como «1×5»: eso no es una dosis, es un 5.
-        XCTAssertEqual(Formato.dosisDeSeries(series: 1, reps: 5), "5")
-        // Sin repeticiones escritas no hay nada que multiplicar (§7).
-        XCTAssertNil(Formato.dosisDeSeries(series: 4, reps: nil))
+    /// LA DOSIS DE TODA LA PRESCRIPCIÓN NO SE ESCRIBE AQUÍ, y su formateador se
+    /// borró el 11-ago: multiplicaba las series por las repeticiones de la primera,
+    /// así que con series desiguales mentía («5×6» para un 6-6-4-4-3). La pregunta
+    /// la contesta `PrescriptionRenderer`, que recorre las series — ver
+    /// `AssignmentDetailTests.test_strengthPyramid_neverCollapsesIntoALie`.
+    ///
+    /// Lo que sí vive aquí es la dosis de UNA serie, y sus dos grafías no se pisan:
+    /// el guion abre BANDA y el `×` multiplica.
+    func testLaSerieYLaBandaNoUsanElMismoSigno() {
+        XCTAssertEqual(Formato.serie(reps: 12, repsMax: 15, cargaKg: nil)?.cifra, "12-15")
+        XCTAssertEqual(Formato.serie(reps: 5, cargaKg: 100)?.cifra, "5 × 100")
+        XCTAssertEqual(Formato.rango(75, 85), "75-85")
+        XCTAssertEqual(Formato.rango(80, nil), "80")
     }
 
     // MARK: - Vocabulario (contrato §3)

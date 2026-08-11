@@ -308,6 +308,63 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(rows.last?.rest, "3:00")
     }
 
+    /// UNA PIRÁMIDE NO SE COLAPSA A UNA MENTIRA — la regresión del formateador que
+    /// se borró el 11-ago.
+    ///
+    /// `Formato.dosisDeSeries` multiplicaba las series por las repeticiones de la
+    /// PRIMERA, así que el 6-6-4-4-3 real del bloque 392 salía «5×6». Vivía en la
+    /// línea del plan del hierro en vivo (ya quitada), pero la clase del bug es de
+    /// las TARJETAS: cualquier sitio que cuente series y multiplique por una medida
+    /// miente en el 49 % del corpus. Aquí se fija que las tres puertas del renderer
+    /// no lo hacen — y con el caso literal del coach, que además escribe la
+    /// secuencia igual en su `notes`: «5 rounds Back Squat 6/6/4/4/3 @75-85%».
+    func test_strengthPyramid_neverCollapsesIntoALie() throws {
+        func serie(_ reps: Int, _ restS: Int?) -> PrescriptionSet {
+            PrescriptionSet(measure: .reps(reps),
+                            target: .percentRM(value: nil, min: 75, max: 85),
+                            modality: .strength, restS: restS, tempo: nil, note: nil)
+        }
+        let p = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: [serie(6, 150), serie(6, 150), serie(4, 150), serie(4, 150), serie(3, nil)],
+            rounds: nil, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil)
+
+        // 1 · La tabla no se colapsa: las series no son uniformes.
+        XCTAssertFalse(PrescriptionRenderer.setsAreUniform(p))
+        // 2 · El multiplicador del titular no existe cuando las medidas difieren, así
+        //     que `summaryLine` no puede escribir «5 × 6».
+        XCTAssertNil(PrescriptionRenderer.repetitionCount(p))
+        XCTAssertNotEqual(PrescriptionRenderer.summaryLine(p).headline, "5 × 6")
+        // 3 · Y la dosis de una rotación escribe la SECUENCIA, con barra: el guion ya
+        //     significa banda («12-15») y darle dos sentidos al mismo signo es como
+        //     empiezan las tres grafías del ritmo.
+        let dose = PrescriptionRenderer.rotationDose(p)
+        XCTAssertEqual(dose.work, "6/6/4/4/3")
+        XCTAssertFalse(dose.work?.contains("5 × 6") ?? false)
+        XCTAssertFalse(dose.work?.contains("-") ?? false, "el guion es la banda, no la secuencia")
+        // La carga uniforme sí se dice una vez, y sigue siendo un porcentaje.
+        //
+        // OJO AL GUION, que es un hallazgo y no un detalle: aquí es un EN DASH
+        // (U+2013) porque `PrescriptionRenderer.range` escribe los rangos así,
+        // mientras `Formato` los escribe con guion normal («12-15» de `serie`,
+        // «75-85» de `rango`). Son DOS grafías del mismo rango y el atleta ve las
+        // dos —la tarjeta del plan y el numeral del vivo— así que hay que unificarlas
+        // en su propio lote: cambiarlas aquí movería el copy de todas las tarjetas
+        // del plan desde un porte del entreno en vivo.
+        XCTAssertEqual(dose.load, "75\u{2013}85% 1RM")
+
+        // Y el contraste: cuatro series IGUALES sí se colapsan, que es lo correcto.
+        let uniforme = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: (0..<4).map { _ in serie(10, 90) },
+            rounds: nil, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil)
+        XCTAssertTrue(PrescriptionRenderer.setsAreUniform(uniforme))
+        XCTAssertEqual(PrescriptionRenderer.repetitionCount(uniforme), 4)
+        XCTAssertEqual(PrescriptionRenderer.rotationDose(uniforme).work, "4 × 10")
+    }
+
     // Uniform sets collapse to a single "N× …" line.
     func test_strengthUniform_collapses() throws {
         let json = """
