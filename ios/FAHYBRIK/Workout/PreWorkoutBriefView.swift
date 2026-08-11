@@ -398,7 +398,31 @@ struct PreWorkoutBriefView: View {
         }
     }
 
+    /// Una fila del calentamiento / la vuelta a la calma. Movilizar la cadera o
+    /// soltar los isquios se hace TAN mal como una sentadilla si nadie enseña
+    /// cómo: cuando el ejercicio trae ficha (vídeo, consejos, descripción o nota
+    /// del coach) la fila entera abre la misma ficha que el resto del entreno.
+    /// Sin ficha se queda como estaba, en texto: nada que tocar, nada que
+    /// prometa algo que no hay.
+    @ViewBuilder
     private func checklistRow(_ item: WorkoutItem) -> some View {
+        if hasTechnique(item) {
+            Button {
+                Haptics.light()
+                techniqueItem = item
+            } label: {
+                checklistRowContent(item)
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(hasTechniqueVideo(item) ? "Abre el vídeo de técnica" : "Abre la técnica")
+        } else {
+            checklistRowContent(item)
+        }
+    }
+
+    private func checklistRowContent(_ item: WorkoutItem) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "circle")
                 .font(.system(size: 12, weight: .regular))
@@ -412,9 +436,16 @@ struct PreWorkoutBriefView: View {
             if let summary = compactSummary(item) {
                 MonoText(text: summary, size: 12, weight: .medium, color: Theme.Color.muted)
             }
+            if hasTechnique(item) {
+                Image(systemName: hasTechniqueVideo(item) ? "play.circle.fill" : "info.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 
     // A one-line target for a collapsed row: the dominant measure + pace/zone.
