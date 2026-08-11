@@ -149,10 +149,12 @@ export const workoutExecutionSchema = z.object({
   // transiciones miente: es exactamente lo que produce un "42:25 min/km" en un
   // brick — dividir el tiempo entero, paradas incluidas, por la distancia.
   moving_seconds: z.number().int().nonnegative().nullable().optional(),
-  // Caída de pulso 60 s tras el esfuerzo. `HRRecoveryCapture` ya sabe calcularla
-  // bien (media en ±5 s, exige cobertura real a 58 s o devuelve null); hoy solo
-  // se usa en los tests guiados.
-  hr_recovery_60_bpm: z.number().int().min(30).max(260).nullable().optional(),
+  // Caída de pulso (lpm) 60 s tras el esfuerzo — una DELTA, no un pulso
+  // absoluto (por eso su rango no es 30-260 como avg_hr: mig 0181 corrigió el
+  // mismo bug en el CHECK de la base, copiado de la fila de arriba). 0-150:
+  // `HRRecoveryCapture` ya descarta una caída negativa antes de guardar nada.
+  // `computeHrRecovery60` (shared/domain/running) espeja su mismo criterio.
+  hr_recovery_60_bpm: z.number().int().min(0).max(150).nullable().optional(),
   // Deriva cardíaca (Pa:HR), en %. Se GUARDA —y no se calcula al leer— porque
   // exige recorrer la traza entera y la traza no cambia nunca. El coach ya tiene
   // un `decoupling_target_pct` editable que hasta ahora no alimentaba nada.
