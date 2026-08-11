@@ -270,21 +270,14 @@ actor APIClient {
         req.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
-        var body = Data()
-        // Plain-text fields first (e.g. `app=concept2`), then the image part.
-        for (name, value) in fields {
-            let part = "--\(boundary)\r\n"
-                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
-                + "\(value)\r\n"
-            body.append(Data(part.utf8))
-        }
-        let prologue = "--\(boundary)\r\n"
-            + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
-            + "Content-Type: \(mimeType)\r\n\r\n"
-        body.append(Data(prologue.utf8))
-        body.append(imageData)
-        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-        req.httpBody = body
+        req.httpBody = Self.multipartBody(
+            boundary: boundary,
+            fields: fields,
+            fieldName: fieldName,
+            filename: filename,
+            mimeType: mimeType,
+            fileData: imageData
+        )
 
         let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
@@ -328,6 +321,38 @@ actor APIClient {
     }
 
     // MARK: - Helpers
+
+    /// Builds a `multipart/form-data` body: optional plain-text fields first,
+    /// then EXACTLY one file part.
+    ///
+    /// The ONE place that body gets assembled. `postImage` sends it to our own
+    /// API; the athlete's profile photo sends the same shape straight to the
+    /// image store, which can't go through this actor because it targets another
+    /// host with a pre-signed URL and no bearer of ours.
+    nonisolated static func multipartBody(
+        boundary: String,
+        fields: [String: String] = [:],
+        fieldName: String,
+        filename: String,
+        mimeType: String,
+        fileData: Data
+    ) -> Data {
+        var body = Data()
+        // Plain-text fields first (e.g. `app=concept2`), then the file part.
+        for (name, value) in fields {
+            let part = "--\(boundary)\r\n"
+                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
+                + "\(value)\r\n"
+            body.append(Data(part.utf8))
+        }
+        let prologue = "--\(boundary)\r\n"
+            + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
+            + "Content-Type: \(mimeType)\r\n\r\n"
+        body.append(Data(prologue.utf8))
+        body.append(fileData)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        return body
+    }
 
     /// Builds a request URL from a path that MAY include a query string
     /// ("a/b?x=1&y=2"). `appendingPathComponent` percent-encodes "?", which
