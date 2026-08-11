@@ -46,6 +46,7 @@ import {
   planPathTone,
   weeksLabel,
   type PlanPathDTO,
+  type PlanPathEventDTO,
   type PlanPathSegmentDTO,
 } from '@fahybrid/shared/domain/plan-path';
 
@@ -65,6 +66,7 @@ type AsignacionRow = {
   assignment_id: string;
   month_template_id: string;
   name: string;
+  level: string | null;
   start_date: string;
   end_date: string;
   week_count: number;
@@ -97,11 +99,13 @@ export async function resolvePlanPath(args: {
       ama.id::text                                          as assignment_id,
       ama.month_template_id::text                           as month_template_id,
       m.name                                                as name,
+      al.label                                              as level,
       to_char(ama.start_date, 'YYYY-MM-DD')                 as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')                 as end_date,
       coalesce(array_length(ama.microcycle_ids, 1), 0)::int as week_count
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
+    left join athlete_levels al on al.id = m.level_id
     where ama.athlete_id = ${args.athlete_id as number}
       -- A receipt trimmed to zero weeks (personalize-plan.ts closes an old
       -- receipt this way when a fork replaces it in full, 0164) has nothing to
@@ -123,6 +127,7 @@ export async function resolvePlanPath(args: {
       assignment_id: row.assignment_id,
       month_template_id: row.month_template_id,
       name: row.name,
+      level: row.level,
       inicio,
       semanas,
       fin: addDays(inicio, semanas * 7 - 1),
@@ -154,18 +159,49 @@ export async function resolvePlanPath(args: {
       weeks_label: weeksLabel(first_week, v.semanas),
       title: v.name,
       detail: lineaDeHitos(mios),
+      level: v.level,
       start_date: isoDateString(v.inicio),
       end_date: isoDateString(v.fin),
       current_week: dentro ? Math.floor(diffDays(mondayOfWeek(today), v.inicio) / 7) + 1 : null,
       milestone: mios.length > 0,
       tone: planPathTone(position),
+      events: eventosDeHitos(mios),
     };
   });
 
   return { total_weeks: semanaAcumulada - 1, current_position, segments };
 }
 
-type Hito = { dia: Date; que: string };
+/**
+ * Qué pasa cuando se acaba el camino — `program_sequences.end_policy`, VERBATIM
+ * (el CHECK real de la migración 0059 acepta `'repeat' | 'level_up' | 'stop'`;
+ * en producción hoy solo existe `'repeat'`, pero el contrato no lo asume: lee lo
+ * que haya).
+ *
+ * Solo se sabe cuando el atleta CAMINA una secuencia — una fila ACTIVA en
+ * `athlete_sequence_progress` (el mismo predicado `status = 'active'` que usa
+ * todo el motor de secuencias, p. ej. `assign-sequence.ts`). Un plan personal
+ * (tramos sueltos, sin secuencia detrás) o una secuencia solo `detached` no
+ * caminan nada activamente: `null`, y el cliente no afirma qué viene después
+ * en vez de inventarlo.
+ */
+export async function resolveEndPolicy(args: {
+  athlete_id: number | bigint;
+  sql?: Sql;
+}): Promise<string | null> {
+  const client = args.sql ?? defaultSql;
+  const rows = await client<Array<{ end_policy: string }>>`
+    select ps.end_policy
+    from athlete_sequence_progress asp
+    join program_sequences ps on ps.id = asp.sequence_id
+    where asp.athlete_id = ${args.athlete_id as number}
+      and asp.status = 'active'
+    limit 1
+  `;
+  return rows[0]?.end_policy ?? null;
+}
+
+type Hito = { dia: Date; que: string; clase: 'sim' | 'test' };
 
 /**
  * Los días del plan que rompen la rutina, con el nombre que el coach le puso a
@@ -194,7 +230,7 @@ async function cargarHitos(
     group by 1
     order by 1 asc
   `;
-  return rows.map((r) => ({ dia: parseIsoDate(r.day), que: comoSeLlama(r) }));
+  return rows.map((r) => ({ dia: parseIsoDate(r.day), que: comoSeLlama(r), clase: r.sim ? 'sim' : 'test' }));
 }
 
 /**
@@ -219,4 +255,14 @@ function lineaDeHitos(hitos: Hito[]): string | null {
   // Los que no caben se CUENTAN en vez de callarse: un tramo con cuatro citas del
   // que sólo se nombran dos parecería tener dos.
   return restantes > 0 ? `${nombrados} y ${restantes} más` : nombrados;
+}
+
+/**
+ * Los MISMOS hitos que `lineaDeHitos` colapsa en una frase, ahora tipados: para
+ * quien dibuja su propio nodo (la vista de ciclo del móvil) en vez de leer
+ * `detail`. Ninguno se pierde ni se resume — a diferencia de la frase, aquí no
+ * hay «y N más» porque el consumidor puede pintar la lista entera.
+ */
+function eventosDeHitos(hitos: Hito[]): PlanPathEventDTO[] {
+  return hitos.map((h) => ({ kind: h.clase, title: h.que, date: isoDateString(h.dia) }));
 }

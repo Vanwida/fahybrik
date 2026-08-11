@@ -59,11 +59,13 @@ function segment(over: Partial<PlanPathSegmentDTO> & Pick<PlanPathSegmentDTO, 's
     weeks_label: over.weeks_label ?? 'S1-S4',
     title: over.title ?? 'Base 1',
     detail: over.detail ?? null,
+    level: over.level ?? null,
     start_date: over.start_date,
     end_date: over.end_date,
     current_week: over.current_week ?? null,
     milestone: over.milestone ?? false,
     tone: over.tone ?? 0,
+    events: over.events ?? [],
   };
 }
 

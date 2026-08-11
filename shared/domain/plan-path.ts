@@ -47,6 +47,26 @@ export function planPathTone(position: number): number {
   return n < 0 ? n + PLAN_PATH_TONES : n;
 }
 
+/**
+ * Un hito DECIDIDO dentro de un tramo: existe porque el coach lo puso en el
+ * calendario, así que se pinta con seguridad. Los MISMOS que ya colapsa
+ * `detail` en una frase — aquí viajan tipados para quien dibuje su propio nodo
+ * en vez de leer una frase (la vista de ciclo del móvil, Periodización).
+ *
+ * Solo dos clases porque son las dos únicas PROBABLES (`web/lib/plan/camino.ts`):
+ * una simulación (`templates.format = 'hyrox_sim'`) o un test de calibración
+ * (`workout_assignments.calibration_test_id`). La CARRERA real no es un hito de
+ * tramo — cae fuera del camino, en `carrera` (GET /api/athlete/plan/ciclo).
+ */
+export interface PlanPathEventDTO {
+  kind: 'sim' | 'test';
+  /** El nombre del coach si cabe en la línea; si no, la categoría («Simulacro»,
+   *  «Tests») — la misma regla que ya aplica `detail`. */
+  title: string;
+  /** ISO (YYYY-MM-DD) del día en que cae. */
+  date: string;
+}
+
 /** Un tramo del camino: las semanas seguidas de UN microciclo del coach. */
 export interface PlanPathSegmentDTO {
   /** athlete_month_assignments.id — el recibo que materializó este tramo. Lo
@@ -66,6 +86,9 @@ export interface PlanPathSegmentDTO {
   title: string;
   /** Lo que pasa dentro y el nombre no dice: un simulacro, unos tests. */
   detail: string | null;
+  /** `athlete_levels.label` vía `program_month_templates.level_id`. `null` =
+   *  el tramo no declara nivel (no hay catálogo de niveles obligatorio). */
+  level: string | null;
   /** Lunes de su primera semana y domingo de la última (ISO). */
   start_date: string;
   end_date: string;
@@ -75,6 +98,8 @@ export interface PlanPathSegmentDTO {
   milestone: boolean;
   /** El tono, ya derivado (`planPathTone`), para que nadie lo re-derive distinto. */
   tone: number;
+  /** Los mismos hitos que colapsa `detail`, ahora estructurados. Vacío = ninguno. */
+  events: PlanPathEventDTO[];
 }
 
 export interface PlanPathDTO {
