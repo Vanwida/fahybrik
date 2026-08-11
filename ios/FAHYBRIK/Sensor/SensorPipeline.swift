@@ -22,8 +22,11 @@ final class SensorPipeline {
     private(set) var lastRepResult: RepCountResult?
     private(set) var lastTiming: ActivityTimingResult?
     private(set) var lastVelocity: BarVelocityResult?
-    /// Sticky last good velocity so rest between sets doesn't blank the chip.
+    /// Sticky last good velocity so rest between sets (and micro-pauses
+    /// between reps of the SAME set) doesn't blank the chip.
     private var lastGoodVelocity: BarVelocityResult?
+    /// Session time (sample t) when lastGoodVelocity was produced.
+    private var lastGoodVelocityAt: Double?
 
     /// Live inference only looks at this much recent signal. Using the WHOLE
     /// session concatenated set1+rest+set2 with time gaps, which broke period
@@ -31,8 +34,11 @@ final class SensorPipeline {
     private static let liveHorizonSeconds: Double = 35
     /// A work bout shorter than this is still "getting up from a chair".
     private static let minBoutSeconds: Double = 2.5
-    /// Keep showing the last bout's m/s this long into rest.
-    private static let stickyVelocitySeconds: Double = 20
+    /// Keep showing the last bout's m/s this long into rest / between-rep dips.
+    private static let stickyVelocitySeconds: Double = 25
+    /// Gaps shorter than this between work intervals are still ONE set
+    /// (rack breath, bottom pause) — not a real rest between series.
+    private static let mergeGapSeconds: Double = 1.8
 
     var sampleCount: Int { samples.count }
 
@@ -45,6 +51,7 @@ final class SensorPipeline {
         lastTiming = nil
         lastVelocity = nil
         lastGoodVelocity = nil
+        lastGoodVelocityAt = nil
         startedAt = nil
         captureMode = .classic
     }
@@ -110,18 +117,23 @@ final class SensorPipeline {
         let timing = activity.analyze(recent)
         lastTiming = timing
 
-        // One contiguous bout: the latest work interval long enough to be real.
-        let bouts = timing.workIntervals.filter { $0.1 - $0.0 >= Self.minBoutSeconds }
-        guard let bout = bouts.last else {
-            holdOrClear(now: tEnd, lastBoutEnd: nil)
+        // Merge micro-gaps (between-rep pauses look like "rest" to the energy
+        // detector — that was blanking m/s mid-set on the first series).
+        let merged = Self.mergeWorkIntervals(timing.workIntervals, maxGap: Self.mergeGapSeconds)
+        let bouts = merged.filter { $0.1 - $0.0 >= Self.minBoutSeconds }
+
+        // Prefer the bout that is still open (ends near now), else the latest solid one.
+        let active = bouts.last(where: { tEnd - $0.1 <= 0.75 }) ?? bouts.last
+        guard let bout = active else {
+            holdSticky(now: tEnd)
             return
         }
 
         // Samples of THAT bout only (contiguous → clean period).
-        let boutSamples = recent.filter { $0.t >= bout.0 && $0.t <= bout.1 }
-        let boutSpan = bout.1 - bout.0
+        let boutSamples = recent.filter { $0.t >= bout.0 && $0.t <= max(bout.1, tEnd) }
+        let boutSpan = max(bout.1, tEnd) - bout.0
         guard boutSamples.count >= 40, boutSpan >= Self.minBoutSeconds else {
-            holdOrClear(now: tEnd, lastBoutEnd: bout.1)
+            holdSticky(now: tEnd)
             return
         }
 
@@ -129,25 +141,47 @@ final class SensorPipeline {
         if let v = velocity.estimate(samples: boutSamples, workOnly: nil) {
             lastVelocity = v
             lastGoodVelocity = v
+            lastGoodVelocityAt = tEnd
         } else {
-            holdOrClear(now: tEnd, lastBoutEnd: bout.1)
+            // Mid-rep / half cycle — keep the previous good reading.
+            holdSticky(now: tEnd)
         }
     }
 
-    /// During rest after a real set, keep the last m/s a few seconds so the chip
-    /// doesn't blink off the instant you rack the bar. Then clear.
-    private func holdOrClear(now: Double, lastBoutEnd: Double?) {
+    /// Keep last good m/s through between-rep dips and short rests; then clear.
+    private func holdSticky(now: Double) {
         lastRepResult = RepCountResult(
             reps: 0, confidence: 0, level: .unknown,
             periodSeconds: nil, alternatingPattern: false
         )
-        if let end = lastBoutEnd, let good = lastGoodVelocity,
-           now - end <= Self.stickyVelocitySeconds {
+        if let good = lastGoodVelocity, let at = lastGoodVelocityAt,
+           now - at <= Self.stickyVelocitySeconds {
             lastVelocity = good
             return
         }
         lastVelocity = nil
         lastGoodVelocity = nil
+        lastGoodVelocityAt = nil
+    }
+
+    /// Collapse work intervals separated by less than `maxGap` into one bout.
+    static func mergeWorkIntervals(
+        _ intervals: [(Double, Double)],
+        maxGap: Double
+    ) -> [(Double, Double)] {
+        let sorted = intervals.sorted { $0.0 < $1.0 }
+        guard var current = sorted.first else { return [] }
+        var out: [(Double, Double)] = []
+        for next in sorted.dropFirst() {
+            if next.0 - current.1 <= maxGap {
+                current = (current.0, max(current.1, next.1))
+            } else {
+                out.append(current)
+                current = next
+            }
+        }
+        out.append(current)
+        return out
     }
 
     /// Build the archive file bytes for transfer (fase 0). Nil if nothing useful.

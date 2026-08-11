@@ -9,12 +9,15 @@ import Foundation
 struct ActivityDetector: Sendable {
     /// Smoothing half-window in samples (at 50 Hz, 5 ≈ 100 ms).
     var smoothRadius: Int = 5
-    /// Samples that must agree before a state change (plan: three windows).
+    /// Samples that must agree before ENTERING work.
     var agreementWindows: Int = 3
+    /// Extra agreement before LEAVING work — mid-rep pauses were flipping to
+    /// rest and blanking live m/s on the first set (Alex, 11-ago).
+    var restAgreementWindows: Int = 6
     /// Multiplier over baseline for rising edge.
     var riseFactor: Double = 2.4
     /// Multiplier over baseline for falling edge (lower → hysteresis).
-    var fallFactor: Double = 1.6
+    var fallFactor: Double = 1.4
     /// Seconds used to estimate resting baseline at the start of a tramo.
     var baselineSeconds: Double = 2.0
     /// Floor on baseline so a silent sensor doesn't zero the threshold.
@@ -40,12 +43,13 @@ struct ActivityDetector: Sendable {
 
         for i in smoothed.indices {
             let wantWork = working ? (smoothed[i] >= fall) : (smoothed[i] >= rise)
+            let need = working && !wantWork ? restAgreementWindows : agreementWindows
             if wantWork == working {
                 agree = 0
                 pending = nil
             } else if pending == wantWork {
                 agree += 1
-                if agree >= agreementWindows {
+                if agree >= need {
                     working = wantWork
                     agree = 0
                     pending = nil

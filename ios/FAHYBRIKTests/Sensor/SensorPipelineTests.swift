@@ -106,6 +106,15 @@ final class SensorPipelineTests: XCTestCase {
         XCTAssertLessThan(result.confidence, 0.50)
     }
 
+    func testMergeWorkIntervalsBridgesBetweenRepPauses() {
+        let raw: [(Double, Double)] = [(0, 2.0), (2.5, 4.5), (5.0, 8.0), (20, 25)]
+        let merged = SensorPipeline.mergeWorkIntervals(raw, maxGap: 1.8)
+        XCTAssertEqual(merged.count, 2)
+        XCTAssertEqual(merged[0].0, 0, accuracy: 0.01)
+        XCTAssertEqual(merged[0].1, 8.0, accuracy: 0.01)
+        XCTAssertEqual(merged[1].0, 20, accuracy: 0.01)
+    }
+
     func testVelocityStillWorksOnSecondBoutAfterGap() {
         // Two work bouts with a rest gap — the bug that killed m/s after set 1.
         // Pipeline must use the LATEST bout only (tested here at estimator level:
