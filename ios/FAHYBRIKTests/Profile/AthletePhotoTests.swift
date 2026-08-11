@@ -32,13 +32,18 @@ final class AthletePhotoTests: XCTestCase {
         return CGSize(width: img.size.width * img.scale, height: img.size.height * img.scale)
     }
 
+    /// El recorte cuadrado más grande que sirve el servidor (`avatar480`). Lo que
+    /// suba el móvil no puede traer el lado corto por debajo, o Cloudflare tendría
+    /// que agrandar y el retrato saldría blando.
+    private let ladoCortoMinimoDelServidor: CGFloat = 480
+
     func testUnaFotoDeMovilSeReduceAlLimite() throws {
         // 4032 × 3024 es lo que dispara la cámara de un iPhone.
         let data = try XCTUnwrap(AthletePhotoImage.jpegParaSubir(imagen(ancho: 4032, alto: 3024)))
         let px = try pixeles(data)
 
         XCTAssertEqual(px.width, AthletePhotoImage.maxDimensionPx, "el lado mayor manda")
-        XCTAssertEqual(px.height, 384, "y el menor conserva la proporción 4:3")
+        XCTAssertEqual(px.height, 768, "y el menor conserva la proporción 4:3")
     }
 
     func testLaVerticalTambienSeMidePorSuLadoMayor() throws {
@@ -46,7 +51,21 @@ final class AthletePhotoTests: XCTestCase {
         let px = try pixeles(data)
 
         XCTAssertEqual(px.height, AthletePhotoImage.maxDimensionPx)
-        XCTAssertEqual(px.width, 384)
+        XCTAssertEqual(px.width, 768)
+    }
+
+    /// La razón de ser del límite: da igual la proporción con la que dispare el
+    /// atleta, el lado corto tiene que llegar a 480 para que el recorte del
+    /// servidor no agrande. 4:3, 3:2 y 16:9 son las tres que dispara un móvil.
+    func testElLadoCortoLlegaAlRecorteDelServidorEnCualquierProporcion() throws {
+        for (ancho, alto) in [(4032, 3024), (4032, 2688), (3840, 2160)] {
+            let data = try XCTUnwrap(AthletePhotoImage.jpegParaSubir(imagen(ancho: ancho, alto: alto)))
+            let px = try pixeles(data)
+            XCTAssertGreaterThanOrEqual(
+                min(px.width, px.height), ladoCortoMinimoDelServidor,
+                "\(ancho)×\(alto) deja el lado corto por debajo del recorte de 480"
+            )
+        }
     }
 
     func testUnaFotoPequenaNoSeAgranda() throws {

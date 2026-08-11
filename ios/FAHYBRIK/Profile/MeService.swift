@@ -153,15 +153,23 @@ enum ProfileService {
 enum AthletePhotoImage {
     /// Lado mayor, en píxeles, al que se reduce la foto antes de subirla.
     ///
-    /// El avatar se pinta como mucho a 60 pt, que en una pantalla @3x son unos
-    /// 180 px; 512 cubre eso y cualquier superficie mayor (el panel del
-    /// entrenador, una ficha ampliada) con margen de sobra. Una foto de iPhone
-    /// son 3-5 MB y ~4000 px de lado: mandarla entera sería gastar los megas del
-    /// atleta para acabar pintando un círculo.
-    static let maxDimensionPx: CGFloat = 512
+    /// Una foto de iPhone son 3-5 MB y unos 4000 px de lado, y acaba pintada en
+    /// un círculo: mandarla entera es gastar los megas del atleta para nada.
+    ///
+    /// El número no es redondo por gusto, lo fija el servidor. La variante más
+    /// grande que sirve es un recorte CUADRADO de 480×480 (`avatar480`), así que
+    /// lo que subamos no puede traer el lado CORTO por debajo de 480: el recorte
+    /// tendría que agrandar y el retrato saldría blando. Con 1024 en el lado
+    /// largo, el corto se queda en 480 o más para cualquier proporción de cámara
+    /// de móvil (4:3 deja 768, 16:9 deja 576). Y sigue siendo unas veinte veces
+    /// menos de lo que pesaba el original.
+    ///
+    /// De propina, recomprimir borra el EXIF: las coordenadas de dónde se hizo
+    /// la foto no salen del teléfono.
+    static let maxDimensionPx: CGFloat = 1024
 
-    /// Calidad del JPEG recomprimido. A 512 px, 0,85 es donde el JPEG deja de
-    /// notarse comprimido y el fichero sigue pesando decenas de KB.
+    /// Calidad del JPEG recomprimido. 0,85 es donde el JPEG deja de notarse
+    /// comprimido; a este tamaño el fichero se queda en un par de cientos de KB.
     static let jpegQuality: CGFloat = 0.85
 
     /// Reduce y recomprime. Nil solo si el recomprimido falla.
@@ -227,6 +235,13 @@ private struct AthletePhotoUploadTarget: Decodable {
     let imageId: String
 }
 
+/// Cuerpo de la reserva. `subida` pide `{ filename }` y NADA más (su esquema es
+/// estricto), porque el nombre da el formato y el tamaño real no se puede
+/// comprobar desde el servidor: eso lo mira quien ve los bytes.
+private struct AthletePhotoReserveBody: Encodable {
+    let filename: String
+}
+
 /// Cuerpo del confirmar. El encoder de APIClient lo pasa a `image_id`.
 private struct AthletePhotoConfirmBody: Encodable {
     let imageId: String
@@ -237,8 +252,11 @@ enum AthletePhotoService {
     private static let confirmarPath = "api/perfil/foto/confirmar"
     private static let fotoPath = "api/perfil/foto"
 
-    /// Nombre del fichero que anunciamos al almacén. No lo elige el atleta ni
-    /// viaja el nombre original de su carrete: no aporta nada y es un dato suyo.
+    /// Nombre del fichero que anunciamos. Es lo ÚNICO que pide `subida`, y lo
+    /// pide porque da el formato: así una foto que no vale se rechaza en el acto
+    /// en vez de tras subirla entera. No viaja el nombre original del carrete del
+    /// atleta: no aporta nada y es un dato suyo. Lo que mandamos siempre es un
+    /// JPEG, porque es lo que produce `AthletePhotoImage`.
     private static let nombreDeFichero = "foto-perfil.jpg"
 
     /// Sube la foto y la deja guardada en el perfil.
@@ -256,7 +274,7 @@ enum AthletePhotoService {
     ) async throws -> AthleteIdentity {
         let destino: AthletePhotoUploadTarget = try await APIClient.shared.post(
             path: subidaPath,
-            body: Empty(),
+            body: AthletePhotoReserveBody(filename: nombreDeFichero),
             bearer: bearer
         )
         guard let url = URL(string: destino.uploadUrl) else {
