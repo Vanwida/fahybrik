@@ -70,11 +70,14 @@ export function EditExerciseForm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guardar a media subida guardaría el vídeo ANTERIOR y tiraría el que se está
+  // subiendo, sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const videoInvalid = videoUrlDraftInvalid(video);
   // Own rows have no base to fall back to if name is blanked — required, like
   // the create form. Base/customized rows may leave name untouched (see header).
-  const canSave = !videoInvalid && !saving && (!isOwn || name.trim().length > 0);
+  const canSave = !videoInvalid && !videoUploading && !saving && (!isOwn || name.trim().length > 0);
 
   const submit = async () => {
     if (!canSave) return;
@@ -200,10 +203,12 @@ export function EditExerciseForm({
           mientras el coach no ponga el suyo. */}
       <VideoUrlField
         id="editar-ej-video"
-        label="Vídeo de YouTube"
+        label="Vídeo"
         value={video}
         onChange={setVideo}
         inheritedUrl={isOwn ? null : exercise.base_video_url}
+        exerciseId={exercise.id}
+        onUploadingChange={setVideoUploading}
       />
 
       {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}

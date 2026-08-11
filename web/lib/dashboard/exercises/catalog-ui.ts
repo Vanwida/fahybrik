@@ -197,7 +197,7 @@ export const OVERRIDE_FIELD_LABEL: Record<CoachOverrideField, string> = {
   name: 'Nombre',
   cues: 'Claves',
   description: 'Descripción',
-  video_url: 'Vídeo (YouTube)',
+  video_url: 'Vídeo',
 };
 
 /** Los campos que este coach ha forkeado de verdad, en el orden del contrato. */

@@ -51,9 +51,12 @@ export function CreateExerciseForm({
   const [video, setVideo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Crear a media subida crearía el ejercicio sin el vídeo que se está subiendo, y
+  // sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const videoInvalid = videoUrlDraftInvalid(video);
-  const canSave = name.trim().length > 0 && !videoInvalid && !saving;
+  const canSave = name.trim().length > 0 && !videoInvalid && !videoUploading && !saving;
   // Siempre hay valor, así que el campo requerido nunca apaga el botón sin decir por
   // qué: el trabajo del coach es mirar la modalidad, no rellenarla.
   const { value: modalityValue, suggested: modalitySuggested } = resolveModality(
@@ -143,11 +146,14 @@ export function CreateExerciseForm({
         ))}
       </ChipField>
 
+      {/* Sin `exerciseId`: el ejercicio todavía no existe. La subida se firma igual
+          (la carpeta sale de la sesión del coach) y el localizador viaja con el POST. */}
       <VideoUrlField
         id="nuevo-ej-video"
-        label="Vídeo de YouTube (opcional)"
+        label="Vídeo (opcional)"
         value={video}
         onChange={setVideo}
+        onUploadingChange={setVideoUploading}
       />
 
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">

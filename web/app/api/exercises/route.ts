@@ -49,7 +49,9 @@ export async function GET(req: Request) {
 /**
  * POST /api/exercises — create an exercise the coach is missing (the picker's
  * "crear ejercicio nuevo" row, or the Biblioteca catalog). Body: name + category +
- * modality (+ optional YouTube). The coach DECLARES the modality — it is not derived
+ * modality (+ optional `video_url`: a YouTube link OR the locator of a file the coach
+ * uploaded via POST /api/coach/exercises/video-url — one column, two forms, see
+ * lib/exercises/video-source.ts). The coach DECLARES the modality — it is not derived
  * from the name any more (see create-exercise.ts: the old rule read English regexes
  * and silently filed a Spanish "Remo 500m" under `other`, breaking the analytics that
  * route on it). The row is the coach's OWN — no other coach sees it (mig 0132).

@@ -10,7 +10,7 @@
 //   • search  — keyboard-focused search + category chips + RECENTS (D2: recents
 //               yes, derived free; favoritos no). Picking selects the exercise.
 //   • create  — "crear ejercicio" (ExerciseCreateForm: name + category + modality
-//               + optional YouTube), POST /api/exercises, then selects the new
+//               + optional video), POST /api/exercises, then selects the new
 //               exercise (D3 scope = global single-coach). The coach DECLARES the
 //               modality — the server stopped deriving it from the name, which is
 //               what silently turned a Spanish "Remo 500m" into `other`.
@@ -21,7 +21,8 @@
 //
 // AGNOSTIC: modality is the exercise's intrinsic data; the coach picks a category
 // (the real enum), never a methodology/level/phase. Reuses GET /api/exercises and
-// the shared youtubeUrlSchema (no new schema).
+// `exerciseVideoSchema` (lib/exercises/video-source.ts) — THE one video validator,
+// shared with the server: a YouTube link or a file the coach uploaded. No new schema.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalPortal } from './ModalPortal';

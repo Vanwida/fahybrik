@@ -118,6 +118,9 @@ export function EjercicioEditor({
   // deshabilitado y NADA dice por qué. El error aparece en cuanto el campo se ha
   // tocado, no antes (regañar por un campo que aún no has visitado es peor).
   const [nameTouched, setNameTouched] = useState(false);
+  // Guardar a media subida guardaría el vídeo ANTERIOR y tiraría el que se está
+  // subiendo, sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const videoInvalid = videoUrlDraftInvalid(video);
   // El largo lo corta ya el `maxLength` del input (mismo tope que el servidor), así
@@ -126,7 +129,7 @@ export function EjercicioEditor({
   // uno PROPIO no hay base a la que volver y `exercises.name` es NOT NULL, así que
   // el servidor responde `invalid_name`. Se dice lo mismo aquí, y antes de mandar.
   const nameError = !shared && name.trim() === '' ? 'Tu ejercicio necesita un nombre.' : null;
-  const canSave = !nameError && !videoInvalid && !saving;
+  const canSave = !nameError && !videoInvalid && !videoUploading && !saving;
 
   // El valor que se va a mandar y si sigue siendo sugerencia. Siempre hay valor, así
   // que "modalidad requerida" nunca es un botón apagado sin explicación — el trabajo
@@ -348,6 +351,8 @@ export function EjercicioEditor({
               value={video}
               onChange={setVideo}
               inheritedUrl={shared ? ex.base_video_url : null}
+              exerciseId={ex?.id ?? null}
+              onUploadingChange={setVideoUploading}
             />
 
             {/* ── La identidad: compartida y bloqueada, o del coach ────────── */}
