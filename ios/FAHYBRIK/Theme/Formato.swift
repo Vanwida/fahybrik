@@ -250,9 +250,16 @@ enum Formato {
     /// llega con 30 kg y ninguna— la serie es la carga sola; sin ninguna de las dos
     /// no hay cifra que inventar y devuelve nil (§7).
     ///
-    /// Ojo a la diferencia con `dosisDeSeries`, que es OTRO concepto: aquella
-    /// escribe *series × repeticiones* de toda la prescripción («4×5»); esta
-    /// escribe *repeticiones × carga* de UNA serie («5 × 100 kg»).
+    /// Esto escribe *repeticiones × carga* de UNA serie («5 × 100 kg»). La dosis de
+    /// TODA la prescripción —«4 × 10», o la secuencia «6/6/4/4/3» cuando las series
+    /// no son iguales— es otro concepto y no vive aquí: la escribe
+    /// `PrescriptionRenderer`, que es quien tiene las series delante para no
+    /// multiplicar a ciegas (ver la nota del borrado más abajo).
+    ///
+    /// Solo sabe de KILOS. Para la carga en cualquiera de sus formas —incluido el
+    /// %RM, que no se convierte— está `dosisDeSerie`, que es esta con el eje de
+    /// carga completo.
+    ///
     /// `repsMax` es el TECHO de una banda de repeticiones («12-15 × 60 kg»): el
     /// coach prescribe un margen dentro del que el atleta autorregula, y enseñar
     /// solo el suelo le esconde media prescripción. Se ignora cuando no supera al
