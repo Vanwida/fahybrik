@@ -169,6 +169,23 @@ struct RoundsLiveHUD: View {
             RoundsContextStrip(
                 session: session,
                 posicion: "Ronda \(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)")
+            // El deshacer NO se recorta (verif3 cazó al suelo recortándolo):
+            // con una cerrada, su chip tachado viaja también aquí — 19 pt que
+            // el peor cromo real (~187) sigue absorbiendo.
+            if let anterior = session.fixedRoundSplits.last, session.fixedRoundsDone > 0 {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Ronda \(session.fixedRoundsDone)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .strikethrough(true, color: Theme.Color.muted)
+                    Text(Formato.clock(anterior.seconds))
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                }
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0.5) { session.unmarkLastRound() }
+                .accessibilityLabel("Ronda \(session.fixedRoundsDone), cerrada en \(Formato.clock(anterior.seconds)). Mantén pulsado para deshacerla.")
+            }
             MetricRow3(cells: [
                 .init(label: "Esta ronda", value: Formato.clock(parcialVivoS)),
                 mediaCell,
@@ -265,9 +282,12 @@ private struct RoundsContextStrip: View {
                 // NUNCA `.fixedSize()`: un título de bloque largo comprimía al
                 // vecino y el reloj del For Time — el score — acababa partido
                 // un dígito por línea (verif2). El título cede; el reloj no.
+                // `muted`, no `faint`: en el SUELO esta línea es la ÚNICA
+                // mención de la ronda, y faint da 3,08:1 sobre surface — bajo
+                // AA (verif3). La misma regla que el chip del deshacer.
                 Text(posicion)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.Color.faint)
+                    .foregroundStyle(Theme.Color.muted)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .layoutPriority(-1)
