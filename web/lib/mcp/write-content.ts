@@ -163,6 +163,7 @@ export function normalizeContentBlocks(blocks: ContentBlock[]): NormalizedConten
 export function contentGrammar(): string {
   return [
     'CADA línea lleva su dosis TIPADA en `prescription` — jamás texto libre.',
+    'El formato `test` de un bloque es SOLO para un test del catálogo del coach (un único ejercicio que define el test). Una batería de esfuerzos medidos («tests de peso de carrera») es un bloque normal (rounds/sets) con su título — nunca formato test.',
     ...prescriptionGrammarLines(),
   ].join('\n');
 }

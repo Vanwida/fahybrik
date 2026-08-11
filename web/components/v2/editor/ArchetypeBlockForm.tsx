@@ -19,6 +19,7 @@
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
+import { testTypeFromPrescription } from '@/lib/dashboard/v2/test-template';
 import { ExercisePickerField } from './ExercisePickerField';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { AdvancedHatch } from './AdvancedHatch';
@@ -39,20 +40,37 @@ export function ArchetypeBlockForm({
   onChange: (next: EditorBlock) => void;
 }) {
   const pattern = patternForBlock(block.archetype_id, block.format);
+  const firstItem: EditorItem | undefined = block.items[0];
+
+  // The Test pattern is single-item but SELF-CONTAINED: the test TYPE names the
+  // exercise + fully defines the prescription (round-trips from it), so it shows
+  // no free exercise-name input and no advanced-axes hatch (that would break the
+  // type round-trip). Its output is the zone calculator in the athlete profile.
+  //
+  // PERO solo cuando el bloque ES un test del catálogo: UN item cuya
+  // prescripción devuelve su tipo. Un bloque `test` AUTORADO con varios items
+  // (una batería — el conector MCP los crea, y el coach también puede) caía
+  // aquí igualmente y el formulario escondía TODO su contenido: el coach veía
+  // config y notas, jamás las dosis, con los datos perfectos debajo (11-ago).
+  // Un formulario que no puede representar el contenido real degrada al editor
+  // de items — nunca ceguera.
+  const isTest =
+    pattern === 'test' &&
+    block.items.length === 1 &&
+    firstItem != null &&
+    testTypeFromPrescription(firstItem.prescription) != null;
 
   // Multi-item patterns (components, hyrox_sim, superset) edit the block's ITEM
   // LIST; the single-item patterns (steady/intervals/sets_table) edit one item's
   // prescription. Una superserie es multi-item POR DEFINICIÓN: lo que la hace
   // superserie es que sus ejercicios se alternan, así que trae su propio selector
-  // de ejercicio por cada uno y no el único de arriba.
+  // de ejercicio por cada uno y no el único de arriba. Y el test que NO es de
+  // catálogo se edita como lo que es: una lista de items con su dosis.
   const isMultiItem =
-    pattern === 'components' || pattern === 'hyrox_sim' || pattern === 'superset';
-  // The Test pattern is single-item but SELF-CONTAINED: the test TYPE names the
-  // exercise + fully defines the prescription (round-trips from it), so it shows
-  // no free exercise-name input and no advanced-axes hatch (that would break the
-  // type round-trip). Its output is the zone calculator in the athlete profile.
-  const isTest = pattern === 'test';
-  const firstItem: EditorItem | undefined = block.items[0];
+    pattern === 'components' ||
+    pattern === 'hyrox_sim' ||
+    pattern === 'superset' ||
+    (pattern === 'test' && !isTest);
   // A RUNNING intervals block gets the full structured-run builder (#61); ergo
   // intervals keep the simple IntervalsForm. The structure builder is self-
   // contained — no scalar "advanced hatch" (it would clobber `structure`).
@@ -102,8 +120,11 @@ export function ArchetypeBlockForm({
         <ComponentsForm block={block} onChange={onChange} />
       ) : pattern === 'hyrox_sim' ? (
         <SimulacionHyroxForm block={block} onChange={onChange} />
-      ) : pattern === 'test' && firstItem ? (
+      ) : pattern === 'test' && isTest && firstItem ? (
         <TestForm value={firstItem.prescription} onChange={setFirstPrescription} />
+      ) : pattern === 'test' ? (
+        // La batería autorada: cada item con su dosis, editable.
+        <ComponentsForm block={block} onChange={onChange} />
       ) : null}
 
       {/* Advanced escape hatch — full axes for the rare override (single-item, not
