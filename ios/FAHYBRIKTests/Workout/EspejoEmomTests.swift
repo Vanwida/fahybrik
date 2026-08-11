@@ -36,7 +36,7 @@ final class EspejoEmomTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "EMOM ski/burpees", format: .emom, estimatedDurationSeconds: 1_200,
             blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         return s
     }

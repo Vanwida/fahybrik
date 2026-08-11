@@ -10,7 +10,7 @@ final class WorkoutRecoveryTests: XCTestCase {
         WorkoutPlan(id: id, name: "S", format: .forTime, estimatedDurationSeconds: 0,
                     blockContext: "", zoneTargets: [], equipment: [],
                     segments: [WorkoutSegment(order: 1, title: "x", kind: .reps)],
-                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                    coachNote: nil, warmupChecklist: [])
     }
     private func snapshot(assignment: String?, savedAt: Date = Date(), planId: UUID = UUID()) -> PersistedWorkoutState {
         PersistedWorkoutState(plan: plan(id: planId), startedAt: Date(), currentSegmentIndex: 0,

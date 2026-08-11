@@ -505,7 +505,6 @@ final class FreeWorkoutDraft {
             equipment: [],
             segments: [segment],
             coachNote: nil,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
 

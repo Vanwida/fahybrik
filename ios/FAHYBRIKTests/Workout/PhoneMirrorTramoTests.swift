@@ -36,7 +36,7 @@ final class PhoneMirrorTramoTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Correr · 5×500m", format: .intervals,
             estimatedDurationSeconds: 900, blockContext: "Libre", zoneTargets: [],
-            equipment: [], segments: [seg], coachNote: nil, demoVideoUrl: nil,
+            equipment: [], segments: [seg], coachNote: nil,
             warmupChecklist: []))
         s.start()
         s.beginBlock()
@@ -102,7 +102,7 @@ final class PhoneMirrorTramoTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Fuerza", format: .sets, estimatedDurationSeconds: 900,
             blockContext: "Fuerza", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start()
         s.beginBlock()
         s.stop()

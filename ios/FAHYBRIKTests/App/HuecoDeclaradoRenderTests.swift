@@ -148,7 +148,7 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Series 6×800", format: .intervals,
                                estimatedDurationSeconds: 0, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [series],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()                      // salta la cuenta atrás 3-2-1

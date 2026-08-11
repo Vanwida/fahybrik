@@ -33,7 +33,7 @@ final class EspejoRelojDeParedTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Death by burpees", format: .deathBy, estimatedDurationSeconds: 600,
             blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         return s
     }
@@ -96,7 +96,7 @@ final class EspejoRelojDeParedTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Tabata burpees", format: .tabata, estimatedDurationSeconds: 300,
             blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         return s
     }
@@ -131,7 +131,7 @@ final class EspejoRelojDeParedTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Trineo", format: .intervals, estimatedDurationSeconds: 1_200,
             blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()
 
@@ -171,7 +171,7 @@ final class EspejoRelojDeParedTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Trineo", format: .intervals, estimatedDurationSeconds: 1_200,
             blockContext: "Metcon", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()
 

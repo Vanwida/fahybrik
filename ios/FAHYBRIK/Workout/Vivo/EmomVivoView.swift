@@ -335,7 +335,7 @@ private func emomDePrueba(zonas: HRZoneProfile? = nil, bpm: Int? = nil) -> Worko
     let plan = WorkoutPlan(id: UUID(), name: "EMOM 12", format: .emom,
                            estimatedDurationSeconds: 720, blockContext: "Principal",
                            zoneTargets: [], equipment: [], segments: [tramo],
-                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                           coachNote: nil, warmupChecklist: [])
     let sesion = WorkoutSession(plan: plan, hrZones: zonas)
     sesion.emomPhaseRemaining = 41
     sesion.emomIntervalIndex = 3

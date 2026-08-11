@@ -32,7 +32,7 @@ final class WatchRunLegDriverTests: XCTestCase {
                                  blockTitle: "Series", blockPosition: 1, prescription: rx)
         let plan = WorkoutPlan(id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()   // into count-in, cursor preserved, timer off
         return s

@@ -787,7 +787,7 @@ private func fuerzaDePrueba(zonas: HRZoneProfile? = nil, bpm: Int? = nil) -> Wor
     let plan = WorkoutPlan(id: UUID(), name: "Fuerza", format: .sets,
                            estimatedDurationSeconds: 1200, blockContext: "Fuerza",
                            zoneTargets: [], equipment: [], segments: [tramo],
-                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                           coachNote: nil, warmupChecklist: [])
     let sesion = WorkoutSession(plan: plan, hrZones: zonas)
     sesion.liveHRBpm = bpm
     // La serie 1 ya está cerrada: el atleta está delante de la 2. Se cierra el

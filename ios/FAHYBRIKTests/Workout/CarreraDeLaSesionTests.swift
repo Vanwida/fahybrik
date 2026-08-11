@@ -35,7 +35,7 @@ final class CarreraDeLaSesionTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: tramo.title, format: .intervals,
                                estimatedDurationSeconds: 0, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()      // salta la cuenta atrás 3-2-1
@@ -83,7 +83,7 @@ final class CarreraDeLaSesionTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza", format: .sets,
                                estimatedDurationSeconds: 0, blockContext: "Fuerza",
                                zoneTargets: [], equipment: [], segments: [fuerza],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         XCTAssertNil(CarreraDeLaSesion.carrera(laps: s.laps, segmentos: s.plan.segments))
     }

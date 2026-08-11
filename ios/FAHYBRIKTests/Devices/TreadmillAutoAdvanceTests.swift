@@ -379,6 +379,6 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     private func plan(_ segments: [WorkoutSegment], format: PrescriptionScheme) -> WorkoutPlan {
         WorkoutPlan(id: UUID(), name: "Test", format: format, estimatedDurationSeconds: 900,
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
-                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                    coachNote: nil, warmupChecklist: [])
     }
 }

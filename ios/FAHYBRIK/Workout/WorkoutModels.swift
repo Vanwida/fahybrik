@@ -787,7 +787,6 @@ struct WorkoutPlan: Codable, Identifiable {
     let equipment: [String]
     let segments: [WorkoutSegment]
     let coachNote: String?
-    let demoVideoUrl: String?
     let warmupChecklist: [String]
 }
 
@@ -1238,7 +1237,6 @@ extension WorkoutPlan {
                 WorkoutSegment(order: 1, title: name, kind: .reps)
             ],
             coachNote: nil,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
     }
@@ -1345,7 +1343,6 @@ extension WorkoutPlan {
             // live engine (phone + watch, shared) runs each athlete's half.
             segments: applyDoblesSplit(resolvedSegments, assignment: detail.assignment),
             coachNote: workout.coachNote,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
     }

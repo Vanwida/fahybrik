@@ -166,7 +166,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "EMOM 12", format: .emom,
                                estimatedDurationSeconds: 720, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let sesion = WorkoutSession(plan: plan, hrZones: zonas)
         // Se avanza por el MOTOR, no colocando el índice a mano: `emomCompletedIntervals`
         // es `private(set)` y ponerlo a pelo daría una captura que dice «ronda 4» y
@@ -198,7 +198,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza", format: .sets,
                                estimatedDurationSeconds: 1200, blockContext: "Fuerza",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let sesion = WorkoutSession(plan: plan, hrZones: zonas)
         sesion.primeSetsIfNeeded()
         // La serie 1 cerrada; el descanso se salta para que el sujeto sea la SERIE
@@ -277,7 +277,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: nombre, format: formato,
                                estimatedDurationSeconds: duracion, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         return WorkoutSession(plan: plan, hrZones: nil)
     }
 

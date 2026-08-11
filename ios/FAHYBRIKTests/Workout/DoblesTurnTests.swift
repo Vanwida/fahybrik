@@ -131,7 +131,7 @@ final class DoblesTurnTests: XCTestCase {
         WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Sim", format: .hyroxSim, estimatedDurationSeconds: 0,
             blockContext: "", zoneTargets: [], equipment: [], segments: segments,
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+            coachNote: nil, warmupChecklist: []))
     }
 
     @MainActor

@@ -183,7 +183,7 @@ final class PM5MonitorResetReanchorTests: XCTestCase {
                                  targetDistanceMeters: 500, blockTitle: "Erg", blockPosition: 1)
         let plan = WorkoutPlan(id: UUID(), name: "Test", format: .steady, estimatedDurationSeconds: 600,
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()   // running, not paused, not awaiting
         return s

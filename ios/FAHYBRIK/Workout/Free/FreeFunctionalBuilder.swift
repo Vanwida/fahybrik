@@ -421,7 +421,6 @@ final class FreeFunctionalDraft {
             equipment: [],
             segments: [segment],
             coachNote: nil,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
         return FreeWorkoutContext(
