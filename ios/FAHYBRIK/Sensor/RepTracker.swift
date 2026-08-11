@@ -49,8 +49,12 @@ struct RepTracker: Sendable {
         /// Recorrido mínimo de una fase para que cuente como media repetición (m).
         /// Un press de banca son ~0,35 m; una wall ball ~0,60; un curl ~0,35.
         var minRomM: Double = 0.12
-        /// Por encima de esto no es una repetición, es un desplazamiento.
-        var maxRomM: Double = 1.80
+        /// Por encima de esto no es una repetición, es un desplazamiento. El techo
+        /// lo manda el SNATCH: del suelo al bloqueo arriba la muñeca recorre ~1,9 m,
+        /// así que 1,80 descartaba el levantamiento olímpico entero por «esto no es
+        /// una repetición». Lo que impide que un error de integración cuele no es
+        /// este tope, son la simetría de ida y vuelta y la fracción vertical.
+        var maxRomM: Double = 2.40
         /// Duración de una fase (bajada o subida), en segundos.
         var minPhaseS: Double = 0.12
         var maxPhaseS: Double = 6.0

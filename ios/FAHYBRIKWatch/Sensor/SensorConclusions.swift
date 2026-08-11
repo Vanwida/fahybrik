@@ -36,6 +36,7 @@ extension SensorPipeline {
                                 : RepConfidenceLevel.unknown.rawValue,
             lastRepVelocityMs: lastCompletedRepVelocityMs,
             lastRepIndex: lastCompletedRepIndex,
+            lastRepPeakMs: lastCompletedRepPeakMs,
             meanVelocityFirstMs: summary?.meanVelocityFirst,
             meanVelocityLastMs: summary?.meanVelocityLast,
             velocityLossPct: summary?.velocityLossPct,

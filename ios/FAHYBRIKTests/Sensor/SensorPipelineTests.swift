@@ -130,6 +130,32 @@ final class SensorPipelineTests: XCTestCase {
         XCTAssertGreaterThan(t.last?.concentricMs ?? 0, 0, "un curl sí tiene velocidad medible")
     }
 
+    func testSnatchNoSeDescartaPorRecorridoGrande() {
+        // Del suelo al bloqueo arriba la muñeca recorre ~1,9 m en menos de un
+        // segundo, y luego se suelta la barra. Con el techo en 1,80 m el
+        // levantamiento olímpico entero se descartaba por «esto no es una
+        // repetición»: tres singles daban cero.
+        let subida = 0.85, bajada = 0.55, entre = 3.0
+        let rom = 1.90
+        let path: (Double) -> (Double, Double, Double) = { t in
+            let periodo = subida + bajada + entre
+            let k = floor(max(0, t) / periodo)
+            guard k < 3, t >= 0 else { return (0, 0, 0) }
+            let u = t - k * periodo
+            if u <= subida { return (0, 0, rom * 0.5 * (1 - cos(.pi * u / subida))) }
+            if u <= subida + bajada {
+                let v = (u - subida) / bajada
+                return (0, 0, rom * 0.5 * (1 + cos(.pi * v)))
+            }
+            return (0, 0, 0)
+        }
+        let t = contar(capture(Movimiento(path: path), seconds: 15))
+        XCTAssertGreaterThanOrEqual(t.count, 2, "tres singles de snatch: contó \(t.count)")
+        XCTAssertLessThanOrEqual(t.count, 4, "y sin duplicar por la suelta: \(t.count)")
+        // El PICO es la cifra del olímpico: ~1,9 m en 0,85 s pasa de 2 m/s.
+        XCTAssertGreaterThan(t.last?.peakMs ?? 0, 1.5)
+    }
+
     // MARK: - Manos fijas: se mueve el cuerpo, no la muñeca
 
     func testDominadasSeCuentanPorOrientacion() {

@@ -355,6 +355,11 @@ struct MirrorSensorConclusions: Codable, Equatable {
     /// de recorrido. Nil hasta que se cierra la primera.
     var lastRepVelocityMs: Double? = nil
     var lastRepIndex: Int? = nil
+    /// Velocidad instantánea MÁXIMA de esa repetición (m/s). En fuerza clásica manda
+    /// la media concéntrica; en olímpico (clean, snatch) la cifra que usa cualquier
+    /// entrenador es el pico, porque el gesto es un tirón y su media no dice nada.
+    /// Se manda siempre: qué se pinta con ella es decisión de pantalla.
+    var lastRepPeakMs: Double? = nil
     var meanVelocityFirstMs: Double? = nil
     var meanVelocityLastMs: Double? = nil
     var velocityLossPct: Double? = nil

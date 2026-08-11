@@ -44,6 +44,11 @@ final class SensorPipeline {
     /// Índice de esa repetición, para que la pantalla sepa que el número cambió
     /// porque hay OTRA repetición, no porque el estimador se lo repensó.
     var lastCompletedRepIndex: Int? { tracker.last?.index }
+    /// Pico de velocidad de esa repetición (m/s) — la cifra del levantamiento olímpico.
+    var lastCompletedRepPeakMs: Double? {
+        guard let peak = tracker.last?.peakMs, peak > 0 else { return nil }
+        return peak
+    }
 
     /// Traza para diagnosticar en vivo: la del contador más lo que decide la
     /// ventana. La vacía quien la publica (el reloj la manda al teléfono, y allí va
