@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Correr — el archivo que no guardamos</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171; --info:#60a5fa;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5.4vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 10px}
+  .sub{color:var(--muted);font-size:17.5px;max-width:700px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:23px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px;scroll-margin-top:20px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800;flex:0 0 auto}
+  h3{font-size:15.5px;font-weight:800;margin:var(--sp-3) 0 var(--sp-1)}
+  h4{font-size:12px;font-weight:800;margin:var(--sp-2) 0 7px;color:var(--faint);text-transform:uppercase;letter-spacing:.09em}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:8px} li::marker{color:var(--accent)}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.3)}
+  a:hover{border-bottom-color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);overflow-wrap:anywhere}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tS table{margin:0}
+  .num{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .pill.info{color:var(--info);border-color:rgba(96,165,250,.35)}
+  .law{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .law h3{margin:0 0 6px;color:var(--accent)}
+  .law p{margin:0;font-size:15px;color:var(--fg)}
+  .law p + p{margin-top:8px;color:var(--muted);font-size:14px}
+  .warnbox{border-left:3px solid var(--bad);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-3)}
+  .warnbox h3{margin:0 0 4px;color:var(--fg)}
+  .warnbox p{margin:0 0 8px;font-size:14.5px;color:var(--muted)}
+  .warnbox p:last-child{margin-bottom:0}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);margin-bottom:var(--sp-2);overflow-x:auto;white-space:pre}
+  .formula .c{color:var(--faint)}
+  .formula .k{color:var(--accent)}
+  .capa{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);margin-bottom:var(--sp-2);overflow:hidden}
+  .capa > header{display:flex;gap:var(--sp-2);align-items:flex-start;padding:var(--sp-3);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .capa > header .n{flex:0 0 44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;font-size:17px}
+  .capa > header > div{min-width:0;flex:1}
+  .capa > header h3{margin:0 0 3px;font-size:17px;font-style:italic}
+  .capa > header p{margin:0;font-size:14px;color:var(--muted)}
+  .capa .body{padding:var(--sp-3)}
+  .capa .body p:last-child{margin-bottom:0}
+  .capa.roto > header .n{background:rgba(248,113,113,.12);color:var(--bad)}
+  .capa.roto{border-color:rgba(248,113,113,.3)}
+  .capa.bien > header .n{background:rgba(74,222,128,.12);color:var(--ok)}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-3)}
+  .cols > div{min-width:0}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);margin:0 5px 5px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tag.new{border-color:rgba(74,222,128,.35);color:var(--ok)}
+  .tag.edit{border-color:rgba(250,204,21,.35);color:var(--warn)}
+  .acc{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--ok);border-radius:var(--r-m);padding:var(--sp-2);margin-top:var(--sp-2)}
+  .acc h4{margin-top:0;color:var(--ok)}
+  .acc ul{margin-bottom:0}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-2) var(--sp-3);margin:var(--sp-4) 0 0}
+  .toc ol{margin:0 0 0 20px;columns:2;column-gap:var(--sp-3)}
+  .toc li{margin-bottom:5px;font-size:14px;break-inside:avoid}
+  .toc a{border:0;color:var(--muted)} .toc a:hover{color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-2)}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--sp-2)}
+  .stat .v{font-size:26px;font-weight:800;font-style:italic;color:var(--fg);line-height:1.1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--faint);margin-top:5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .stat .d{font-size:13.5px;color:var(--muted);margin-top:8px}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  .footer p{margin-bottom:8px}
+  @media (max-width:600px){ .wrap{padding:var(--sp-4) var(--sp-2)} .toc ol{columns:1} h2{gap:8px} .capa > header,.capa .body{padding:var(--sp-2)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Análisis de dominio</p>
+  <h1>Correr — el archivo que no guardamos</h1>
+  <p class="sub">La mitad del deporte pasa corriendo. Tenemos la mejor gramática de prescripción que he visto en un producto de coaching, y tiramos a la basura la señal que la haría valer. Este documento modela la carrera entera en cinco capas, dice en cuál estamos y en cuál no, y la rompe contra doce carreras salidas del propio modelo.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 11 ago 2026</span>
+    <span><b>Estado</b> · análisis · cero código escrito</span>
+    <span><b>Alcance</b> · iOS + reloj + panel del coach</span>
+    <span><b>Verificado contra</b> · el repo, no contra la base de datos</span>
+  </div>
+
+  <div class="toc">
+    <ol>
+      <li><a href="#s1">El diagnóstico en una frase</a></li>
+      <li><a href="#s2">El modelo · cinco capas</a></li>
+      <li><a href="#s3">Dónde estamos, capa por capa</a></li>
+      <li><a href="#s4">Las cinco pruebas de que la capa 0 falta</a></li>
+      <li><a href="#s5">La prueba de esfuerzo · doce carreras</a></li>
+      <li><a href="#s6">Estándares que se adoptan tal cual</a></li>
+      <li><a href="#s7">Lo que aportamos y no tiene nadie</a></li>
+      <li><a href="#s8">Regla Nº0 · nueve constantes que son método</a></li>
+      <li><a href="#s9">Dónde puede fallar</a></li>
+      <li><a href="#s10">El plan por tandas</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s1"><span class="n">01</span> El diagnóstico en una frase</h2>
+
+  <div class="law">
+    <h3>Construimos la capa difícil y nos saltamos la fácil</h3>
+    <p>El contraste entre lo que el coach pidió y lo que el atleta hizo — la capa que ningún reloj del mundo puede calcular porque ningún reloj sabe lo que le pidieron — está construida, tramo a tramo, con cuatro veredictos y su tolerancia. Debajo de ella no hay nada: la señal de la carrera se mide, se pinta en pantalla y se borra al terminar.</p>
+    <p>Todo lo que falta en carrera es consecuencia de eso. No es una lista de funciones pendientes: es una capa ausente.</p>
+  </div>
+
+  <p>Una carrera son tres cosas y solo tres: <b>una señal</b> (dónde estabas, a qué velocidad, con qué pulso, en cada instante), <b>un troceado</b> de esa señal (kilómetros, repeticiones, esfuerzos) y <b>una intención</b> (lo que se pidió). Cualquier número que enseñe Garmin, Strava, Runna o TrainingPeaks es una proyección de esas tres. Nosotros tenemos la tercera al nivel más alto del mercado y la primera no la guardamos.</p>
+
+  <div class="grid2">
+    <div class="stat">
+      <div class="v">0</div>
+      <div class="l">series temporales que emite iOS</div>
+      <div class="d">La tabla <code>workout_traces</code>, su Zod y su endpoint <code>POST /api/sync/workout-traces</code> existen y funcionan. El motor en vivo nunca llegó a emitir: su propio escritor lo dejó dicho por escrito, «el motor en vivo emitirá las trazas en su propia tanda».</div>
+    </div>
+    <div class="stat">
+      <div class="v">6×800 → 1</div>
+      <div class="l">lo que sobrevive al historial</div>
+      <div class="d">Al terminar, una serie de carrera se abre tramo a tramo. Al día siguiente vuelve a ser una fila. El remo conserva su tabla de intervalos; la carrera no. La asimetría cae del lado de la modalidad que es la mitad del deporte.</div>
+    </div>
+  </div>
+
+  <h2 id="s2"><span class="n">02</span> El modelo · cinco capas</h2>
+
+  <p>Esto no es una lista de pantallas. Es el orden en que una carrera se convierte en conocimiento. Cada capa <b>solo</b> puede construirse sobre la anterior, y por eso el orden importa más que el contenido.</p>
+
+  <div class="capa roto">
+    <header>
+      <div class="n">L0</div>
+      <div>
+        <h3>La señal · el archivo</h3>
+        <p>Qué pasó, muestra a muestra: posición, velocidad, pulso, cadencia, altitud, distancia, sobre un eje de tiempo.</p>
+      </div>
+    </header>
+    <div class="body">
+      <p class="mut">Es el negativo de la foto. Sin él nada se puede recalcular después, ningún error se puede corregir, ninguna métrica nueva se puede aplicar al pasado. Una app de running es, antes que nada, un archivo que dura toda la vida deportiva del atleta.</p>
+      <p><span class="pill bad">Ausente</span> <span class="mut">Se mide en vivo y se descarta al guardar.</span></p>
+    </div>
+  </div>
+
+  <div class="capa roto">
+    <header>
+      <div class="n">L1</div>
+      <div>
+        <h3>El troceado · tres cortes del mismo hilo</h3>
+        <p>Por kilómetro · por repetición prescrita · por esfuerzo detectado.</p>
+      </div>
+    </header>
+    <div class="body">
+      <p class="mut">No son alternativas. Un producto serio enseña los tres, porque responden a preguntas distintas: <i>¿cómo fueron mis kilómetros?</i>, <i>¿clavé las series?</i>, <i>¿cuál fue mi mejor tramo de 5 minutos?</i>. Nosotros tenemos el del medio, que es el difícil, y nos faltan los dos fáciles.</p>
+      <p><span class="pill warn">Un tercio</span> <span class="mut">Por repetición sí. Por kilómetro solo se canta por voz y no se guarda. Por esfuerzo, el detector existe y se alimenta con una lista vacía.</span></p>
+    </div>
+  </div>
+
+  <div class="capa bien">
+    <header>
+      <div class="n">L2</div>
+      <div>
+        <h3>El contraste · pedido contra hecho</h3>
+        <p>Cuatro veredictos por tramo: dentro, fuera rápido, fuera lento, sin dato.</p>
+      </div>
+    </header>
+    <div class="body">
+      <p class="mut">Aquí somos mejores que el mercado y conviene decirlo: Garmin no puede hacer esto porque no sabe qué te pidieron; TrainingPeaks lo hace grueso, comparando cargas totales, no repetición a repetición. Nuestro motor resuelve además la zona contra la <b>misma</b> intensidad resuelta que vio el atleta, para que coach y atleta nunca lean dos números distintos del mismo esfuerzo.</p>
+      <p><span class="pill ok">Construido</span> <span class="pill bad">Solo lo ve el coach</span> <span class="mut">Cero referencias al veredicto en todo el código de iOS. El atleta corre seis series y la app nunca le dice si las clavó.</span></p>
+    </div>
+  </div>
+
+  <div class="capa">
+    <header>
+      <div class="n">L3</div>
+      <div>
+        <h3>La acumulación · semanas y meses</h3>
+        <p>Volumen, reparto de intensidad, carga aguda y crónica, frescura.</p>
+      </div>
+    </header>
+    <div class="body">
+      <p class="mut">Existe casi todo, y bien: polarización por ventanas con desviación contra objetivo, carga por el modelo de Banister con su cobertura declarada, tendencias de ritmo y de economía. Dos huecos: la carga se calcula y <b>no se enseña</b> — vive escondida detrás de un índice de 0 a 100 — y el volumen semanal <b>en kilómetros</b>, que es el número de cualquier corredor del mundo, existe en la app del atleta y no en el panel del coach, que solo sabe de minutos por zona.</p>
+      <p><span class="pill warn">Calculado, no enseñado</span></p>
+    </div>
+  </div>
+
+  <div class="capa roto">
+    <header>
+      <div class="n">L4</div>
+      <div>
+        <h3>La fisiología derivada</h3>
+        <p>Umbral, VDOT, velocidad crítica, deriva aeróbica, eficiencia, resistencia a la fatiga.</p>
+      </div>
+    </header>
+    <div class="body">
+      <p class="mut">VDOT está implementado y bien (Daniels y Gilbert, con sus cotas y su distinción explícita frente al VO₂máx de Cooper). El resto está declarado y vacío: <code>decoupling_pct</code>, <code>hr_recovery_60_bpm</code> y <code>elevation_gain_m</code> existen en el esquema y en el Zod y <b>no los calcula nadie</b>. La capacidad anaeróbica y la predicción de carrera se sirven siempre nulas.</p>
+      <p class="mut">Lo más elocuente: el coach ya puede editar un <code>decoupling_target_pct</code> — un objetivo de deriva aeróbica — y el propio comentario del esquema reconoce que «hasta ahora no alimentaba nada». Le pedimos al entrenador que configure un umbral para una métrica que no medimos.</p>
+      <p><span class="pill bad">Esquema sin motor</span></p>
+    </div>
+  </div>
+
+  <h2 id="s3"><span class="n">03</span> Dónde estamos, capa por capa</h2>
+
+  <p>Lo bueno primero, porque es mucho y porque marca qué <b>no</b> hay que tocar.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Ya está y es bueno</th><th>Dónde</th><th>Por qué cuenta</th></tr></thead>
+    <tbody>
+      <tr><td>Gramática de prescripción</td><td><code>shared/domain/prescription/run-structure.ts</code></td><td>Fases, repeticiones anidadas, medida distancia o tiempo, objetivo ritmo, zona o RPE, modo de recuperación. Espejada en Swift a propósito. Expresa series, fartlek, pirámide, cuestas y progresivo sin una línea de texto libre.</td></tr>
+      <tr><td>Zonas como método del coach</td><td><code>coach_hr_method</code>, <code>methodology_zones</code></td><td>Ancladas en el umbral, nunca en la frecuencia máxima. Dónde cortan las bandas es dato editable. Esto ya cumple la regla Nº0 y es más correcto que la mayoría de apps de consumo.</td></tr>
+      <tr><td>Ejecución guiada por la estructura</td><td><code>RunLegProgress.swift</code></td><td>El tramo se cierra solo por distancia o por tiempo, con línea base propia para no arrastrar el exceso del anterior. Autopausa con histéresis, que no se aplica a un tramo de tiempo. Está bien pensado.</td></tr>
+      <tr><td>La recuperación se mide</td><td>decisión del 9 ago</td><td>Trotar o andar no es descanso: sigue midiendo metros, ritmo y zona. Solo «parado» congela el reloj. Es una decisión correcta y poco común.</td></tr>
+      <tr><td>Veredicto por tramo</td><td><code>shared/domain/adherence/run-compliance.ts</code></td><td>La capa L2. Emparejada por identificador de ítem, no por orden.</td></tr>
+      <tr><td>Fusión de vueltas de aparato</td><td><code>execution-merge/segment-fusion.ts</code></td><td>Si el reloj trajo vueltas y nosotros no medimos, mandan las suyas. Por solape de tiempo, no por orden. Es la pieza que hace que un Garmin no rompa el registro.</td></tr>
+      <tr><td>Lectura honesta al terminar</td><td><code>ResumenCarreraView.swift</code></td><td>Elige el sujeto según la forma de la carrera: si hubo contraste manda el ritmo de lo fuerte, si fue uniforme el medio, y si no se sabe lo dice. Con nota de certeza. Es lo mejor que hay en el producto.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s4"><span class="n">04</span> Las cinco pruebas de que la capa 0 falta</h2>
+
+  <p>No es una sospecha de diseño. Son cinco consecuencias verificadas, cada una comprobada en el repo.</p>
+
+  <div class="warnbox">
+    <h3>1 · La mejor pantalla del producto se alimenta de una lista vacía</h3>
+    <p>El detector que decide si una carrera libre tuvo contraste recorre una serie de muestras de ritmo. Hoy recibe un array vacío, así que siempre cae en «no se sabe» y el resumen honesto muestra kilómetros como sujeto en vez del ritmo. La pantalla está bien construida; le falta el tubo.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>2 · El historial pierde la serie de carrera, y solo la de carrera</h3>
+    <p>El objeto que viaja del servidor al historial tiene <code>ergSplits</code>, explícitamente limitado a remo, ski y bici, y ningún campo equivalente para correr. Un 6×800 que al terminar se abría en seis filas, al día siguiente vuelve a ser una. El remero conserva su tabla de intervalos y el corredor no.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>3 · La traza va sin tiempo</h3>
+    <p>La polilínea del recorrido guarda solo latitud y longitud. Sin eje temporal no se puede colorear el mapa por ritmo, ni saltar de un punto del gráfico a un punto del mapa, ni recuperar dónde estabas en el kilómetro cuatro. El propio código lo deja escrito dos veces: no se puede derivar sin inventarla.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>4 · Tres columnas declaradas que nadie calcula</h3>
+    <p>Deriva aeróbica, recuperación de pulso a los 60 segundos y desnivel acumulado existen en el esquema y en el Zod desde la migración 0154. Ninguna tiene motor. Las tres necesitan exactamente lo mismo: la serie.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>5 · Al reparto de zonas le damos la peor evidencia a propósito</h3>
+    <p>El servidor tiene un motor que prefiere la traza a las muestras sueltas y recalcula el reparto de zonas en cuanto llega una serie de pulso. Como iOS no manda ninguna, el reparto se hace siempre con la reconstrucción degradada, teniendo el buen camino construido y abierto.</p>
+  </div>
+
+  <h2 id="s5"><span class="n">05</span> La prueba de esfuerzo · doce carreras</h2>
+
+  <p>Las carreras no salen de un ejemplo: salen del <b>cruce de ejes de nuestra propia gramática</b> — medida (distancia o tiempo) × objetivo (ritmo punto, ritmo banda, zona de ritmo, zona de pulso, RPE, ninguno) × estructura (continuo, repetición, repetición anidada, progresivo) × recuperación (trote, andar, parado) × superficie (calle o cinta) × pendiente. Doce casos que cubren el espacio. La pregunta de cada fila es la misma: <b>¿cuál es el sujeto honesto de la lectura, y lo podemos dar hoy?</b></p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Carrera</th><th>El sujeto honesto de la lectura</th><th>Hoy</th></tr></thead>
+    <tbody>
+      <tr><td>Rodaje 60′ en Z2</td><td>Porcentaje del tiempo dentro de Z2 y deriva del ritmo a igual pulso</td><td><span class="pill warn">A medias</span> zonas sí, deriva no</td></tr>
+      <tr><td>Rodaje 12 km a ritmo banda</td><td>Ritmo medio y regularidad entre kilómetros</td><td><span class="pill bad">No</span> no hay kilómetros</td></tr>
+      <tr><td>6×800 a ritmo punto, recuperación parada</td><td>Repeticiones dentro de banda y caída de la primera a la última</td><td><span class="pill warn">Solo el coach</span></td></tr>
+      <tr><td>5×1000 en Z4, recuperación trotando</td><td>Lo anterior más si la recuperación se mantuvo suave</td><td><span class="pill warn">Solo el coach</span></td></tr>
+      <tr><td>Fartlek 8×(1′ fuerte / 2′ suave) por RPE</td><td>El contraste fuerte contra suave. No hay ritmo objetivo: el contraste es todo</td><td><span class="pill bad">Roto</span> cae en «no se sabe»</td></tr>
+      <tr><td>Pirámide 400-800-1200-800-400</td><td>Si sostuvo la zona al alargar, y el espejo del primer 400 contra el último</td><td><span class="pill bad">No</span></td></tr>
+      <tr><td>Progresivo en tres tramos subiendo de zona</td><td>Si cada tramo fue realmente más rápido que el anterior</td><td><span class="pill bad">No</span></td></tr>
+      <tr><td>8×200 en cuesta al 8%</td><td>Tiempo por repetición y caída. El ritmo bruto no significa nada en pendiente</td><td><span class="pill bad">No</span> sin desnivel ni ritmo ajustado</td></tr>
+      <tr><td>Cinta, 10 km a ritmo</td><td>Lo mismo que en calle, con la procedencia visible: la distancia la da la cinta</td><td><span class="pill ok">Sí</span> la procedencia se sella</td></tr>
+      <tr><td>Carrera libre sin prescripción</td><td>Los esfuerzos que el propio atleta se marcó, detectados de la señal</td><td><span class="pill bad">Roto</span> el detector no recibe nada</td></tr>
+      <tr><td>Tirada larga con desnivel real</td><td>Ritmo ajustado por pendiente y desnivel acumulado</td><td><span class="pill bad">No</span> no se captura altitud</td></tr>
+      <tr><td>Los 8 kilómetros de una carrera de HYROX</td><td>La caída a lo largo de los ocho y el coste de entrar a correr cansado</td><td><span class="pill warn">Importado, sin puente</span> los parciales llegan de la carrera y no se cruzan con el entreno</td></tr>
+    </tbody>
+  </table></div>
+
+  <p><b>Resultado:</b> de doce, cuatro se rompen del todo, cinco se sirven degradadas, dos son parciales y una está bien. Y las cuatro rotas comparten causa única. Un modelo que falla en cuatro casos por cuatro razones distintas está mal diseñado; uno que falla en cuatro por una sola razón está incompleto, que es más fácil de arreglar y más urgente de decidir.</p>
+
+  <h2 id="s6"><span class="n">06</span> Estándares que se adoptan tal cual</h2>
+
+  <p>Nada de esto se inventa ni se rebautiza. Si el corredor lo reconoce de su reloj, lo tiene que reconocer aquí, con el mismo nombre y la misma forma.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Estándar</th><th>De dónde</th><th>Qué necesita</th></tr></thead>
+    <tbody>
+      <tr><td>Tabla de kilómetros</td><td>Garmin, Strava, Runna</td><td>L0 + corte por distancia. Con pulso y cadencia por kilómetro.</td></tr>
+      <tr><td>Curva de ritmo y pulso</td><td>Universal</td><td>L0. Con los tramos sombreados encima, que es donde ganamos.</td></tr>
+      <tr><td>Mapa coloreado por ritmo</td><td>Strava</td><td>Señal de distancia sobre el mismo eje de tiempo, sin tocar el formato de la polilínea.</td></tr>
+      <tr><td>Curva de mejores esfuerzos</td><td>Strava, Golden Cheetah</td><td>L0. Sustituye a los tres récords sueltos de 1, 3 y 5 km por la curva entera, con el histórico de sombra.</td></tr>
+      <tr><td>Ritmo ajustado por pendiente</td><td>Strava</td><td>Altitud. Barómetro del teléfono, más fiable que el GPS para desnivel.</td></tr>
+      <tr><td>Carga: crónica, aguda y frescura</td><td>TrainingPeaks</td><td>Nada nuevo: ya se calcula. Solo hay que enseñarla.</td></tr>
+      <tr><td>Carga desde ritmo o pulso, no solo RPE</td><td>Coggan</td><td>L0. Hoy sin RPE declarado no hay carga, que es la mitad de las sesiones.</td></tr>
+      <tr><td>Deriva aeróbica</td><td>Friel</td><td>L0. La columna y el objetivo editable del coach ya existen.</td></tr>
+      <tr><td>Velocidad crítica y reserva anaeróbica</td><td>Monod, Skiba</td><td>Curva de mejores esfuerzos. Para un atleta híbrido dice más que el VDOT: la reserva es justo lo que se gasta en una estación.</td></tr>
+      <tr><td>Volumen semanal en kilómetros</td><td>Universal</td><td>Nada. Existe en la app y falta en el panel.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s7"><span class="n">07</span> Lo que aportamos y no tiene nadie</h2>
+
+  <p>Tres cosas, y las tres nacen de la misma ventaja estructural: <b>somos los únicos que tenemos a la vez la intención del entrenador, el veredicto por repetición y el contexto de fuerza alrededor de la carrera.</b> No son ideas bonitas: dos de ellas ya tienen la semilla escrita en el repo.</p>
+
+  <div class="card">
+    <h3>1 · La carrera comprometida</h3>
+    <p class="mut">En HYROX ningún kilómetro se corre fresco: los ocho van detrás de una estación. La cualidad que separa a un corredor híbrido de un corredor de asfalto no es su ritmo, es <b>cuánto ritmo pierde por unidad de trabajo previo</b>, y si esa pérdida se reduce con el entrenamiento.</p>
+    <div class="formula"><span class="c">// el coste de entrar a correr cansado, en segundos por kilómetro</span>
+coste = ritmo(mismo objetivo, dentro de bloque multiestación)
+      <span class="k">−</span> ritmo(mismo objetivo, en fresco)
+
+<span class="c">// y su evolución, que es la métrica que se entrena</span>
+tendencia(coste) a lo largo de las semanas</div>
+    <p class="mut">Se puede calcular hoy mismo con lo que hay: el esquema ya guarda en qué formato de bloque vivió cada tramo, así que «¿este kilómetro fue después de una estación?» es una pregunta contestable. Y tenemos verdad de campo para calibrarla: los ocho parciales de carrera y el tiempo de transición que importamos de cada HYROX real. Ya existe una tarjeta que apunta a esto y se queda en la superficie.</p>
+    <p class="mut"><b>Por qué nadie más puede:</b> Garmin no sabe que antes hubo un trineo. Runna no sabe que existe la fuerza. Es nuestra por construcción, no por ingenio.</p>
+  </div>
+
+  <div class="card">
+    <h3>2 · La banda del coach como analítica, no como sello</h3>
+    <p class="mut">Hoy el veredicto por repetición vive y muere dentro de una sesión. Agregado en el tiempo contesta la pregunta que ningún entrenador tiene contestada: <b>¿le estoy poniendo bien los ritmos a este atleta?</b></p>
+    <ul class="mut">
+      <li>Porcentaje de repeticiones en banda del último mes, por tipo de sesión.</li>
+      <li><b>El sesgo</b>, que es lo que de verdad informa: si casi todos los fallos son «fuera lento», la prescripción va larga; si son «fuera rápido», va corta. Un mismo 70% de acierto significa cosas opuestas según hacia dónde se falle.</li>
+      <li><b>Dónde se rompe dentro de la serie</b>: si los fallos se agolpan en la quinta y la sexta repetición, el ritmo es correcto y el volumen no.</li>
+    </ul>
+    <p class="mut">TrainingPeaks tiene la prescripción pero compara cargas totales, no repeticiones. Garmin tiene las repeticiones pero no la prescripción. Hace falta tener las dos, y las tenemos.</p>
+  </div>
+
+  <div class="card">
+    <h3>3 · La huella de la sesión, que ya calculamos y tiramos</h3>
+    <p class="mut">La pantalla de al terminar ya emite un veredicto de forma: aguantaste, de menos a más, se te fue. Está diseñado, aprobado y funcionando. Y muere a los treinta segundos: no llega al historial, no llega al coach y no se acumula.</p>
+    <p class="mut">Persistirlo cuesta una columna. Agregado da la lectura que un entrenador pagaría por tener: <i>este atleta sale siempre demasiado fuerte y se apaga en la segunda mitad de cada serie</i>. Eso es un rasgo del atleta, no de la sesión, y hoy lo estamos produciendo y borrando.</p>
+  </div>
+
+  <h2 id="s8"><span class="n">08</span> Regla Nº0 · nueve constantes que son método</h2>
+
+  <p>La pregunta de siempre: <i>¿otro entrenador competente lo haría distinto?</i> Si la respuesta es sí, no puede ser una constante. Estas nueve lo son hoy y deberían nacer como dato con su valor por defecto, de forma que un coach que no toque nada se comporte exactamente igual que ahora.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Constante</th><th>Valor hoy</th><th>Por qué es del coach</th></tr></thead>
+    <tbody>
+      <tr><td>Constantes de carga crónica y aguda</td><td>42 y 7 días</td><td>Hay escuelas con 45 y 10, y con 28 y 7. Es la más cara de todas: define la frescura que ve el coach.</td></tr>
+      <tr><td>Tolerancia de ritmo, revisión</td><td>±5 s/km</td><td>Un entrenador de 800 aprieta mucho más que uno de maratón.</td></tr>
+      <tr><td>Tolerancia de RPE</td><td>±1</td><td>Igual.</td></tr>
+      <tr><td>Tolerancia de ritmo, aviso en vivo</td><td>±8 s/km</td><td>Además debería derivar de la anterior, no vivir aparte: hoy el atleta ve «vas bien» con un criterio y el coach lo marca fuera con otro.</td></tr>
+      <tr><td>Tabla de RPE a intensidad</td><td>fija en código</td><td>Es una conversión, no una ley de la física.</td></tr>
+      <tr><td>Ventanas de riesgo de lesión</td><td>7 y 28 días</td><td>7 contra 21 también es de uso común.</td></tr>
+      <tr><td>Distancias de récord</td><td>1, 3 y 5 km</td><td>Qué distancias importan depende del deporte del coach.</td></tr>
+      <tr><td>Cobertura mínima para dar veredicto</td><td>90%</td><td>Es un umbral de confianza, y la confianza es de quien firma.</td></tr>
+      <tr><td>Zonas de potencia de bici</td><td>fracciones fijas</td><td>La única modalidad cuyas bandas no pasan por el método del coach. Incoherente con el resto.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s9"><span class="n">09</span> Dónde puede fallar</h2>
+
+  <div class="cols">
+    <div>
+      <h4>Tamaño y batería</h4>
+      <p class="mut">Una sesión de 90 minutos a un punto por segundo son unos 5.400 puntos por señal; con cinco señales, del orden de 200 KB. El escritor ya corta en 20.000 puntos y 14 señales por petición, así que el techo está puesto. El GPS ya va a máxima precisión con filtro de 2 metros: guardar lo que ya se mide no gasta batería adicional. El riesgo real es la <b>subida</b> con mala cobertura, y para eso ya existe la cola en disco con reintentos.</p>
+
+      <h4>Dos verdades para el mismo reparto de zonas</h4>
+      <p class="mut">El teléfono acumula segundos por zona en vivo y el servidor los recalcula desde la traza. Si no se declara cuál manda, dos pantallas darán números distintos del mismo entreno. La regla ya está escrita en el ingestor — la serie es mejor evidencia — pero hay que hacerla explícita y única.</p>
+    </div>
+    <div>
+      <h4>El pasado no se inventa</h4>
+      <p class="mut">Las sesiones ya guardadas no tienen traza y nunca la tendrán. Toda lectura nueva tiene que degradar diciendo la verdad, que es una cultura que este código ya tiene. Ni un solo dato retroactivo fabricado.</p>
+
+      <h4>Altitud</h4>
+      <p class="mut">La del GPS es mala para desnivel. La buena es la barométrica del teléfono, que es relativa: hay que combinarla con la absoluta del GPS. Si se hace mal, el desnivel de una tirada llana sale con 200 metros de ruido y el ritmo ajustado miente.</p>
+
+      <h4>Definir «comprometido» sin colar metodología</h4>
+      <p class="mut">Qué cuenta como trabajo previo tiene que ser dato del coach. Si lo cableamos, estamos metiendo nuestra escuela en el producto, que es justo lo que la regla Nº0 prohíbe.</p>
+    </div>
+  </div>
+
+  <h2 id="s10"><span class="n">10</span> El plan por tandas</h2>
+
+  <p>El orden no es negociable en su primer paso: la capa 0 desbloquea las otras cuatro y ninguna se puede hacer bien antes. Lo que sí es decisión es hasta dónde llega la tanda.</p>
+
+  <div class="capa">
+    <header><div class="n">T0</div><div><h3>El archivo</h3><p>Que la carrera deje de olvidarse.</p></div></header>
+    <div class="body">
+      <ul class="mut">
+        <li>El motor en vivo emite las señales al endpoint que ya existe y ya funciona.</li>
+        <li>Captura de altitud, barométrica más GPS.</li>
+        <li>Kilómetros como corte de primera clase, guardados y no solo cantados por voz.</li>
+        <li>El contrato del historial deja de perder la serie de carrera: paridad con lo que ya conserva el remo.</li>
+      </ul>
+      <p class="mut">Invisible en pantalla. Es la única tanda de la que Alex no verá nada y sin la cual las demás no existen.</p>
+    </div>
+  </div>
+
+  <div class="capa">
+    <header><div class="n">T1</div><div><h3>Lo que ve el atleta</h3><p>Que al terminar sepa si lo hizo, y que mañana siga estando.</p></div></header>
+    <div class="body">
+      <ul class="mut">
+        <li>Curva de ritmo y pulso con los tramos encima; tabla de kilómetros; mapa coloreado.</li>
+        <li><b>El veredicto por repetición, por fin en su móvil.</b> Hoy corre seis series y la app no le dice si las clavó.</li>
+        <li>La lectura honesta se persiste y el fartlek deja de caer en «no se sabe».</li>
+        <li>Curva de mejores esfuerzos en lugar de tres récords sueltos.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="capa">
+    <header><div class="n">T2</div><div><h3>Lo que ve el coach</h3><p>Paridad con el atleta, más lo que solo él necesita.</p></div></header>
+    <div class="body">
+      <ul class="mut">
+        <li>La misma curva, el mismo mapa y los mismos kilómetros dentro del panel de sesión.</li>
+        <li>Volumen semanal en kilómetros, que hoy no tiene.</li>
+        <li>La carga deja de estar escondida: crónica, aguda y frescura visibles, con el veredicto encima y los números debajo.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="capa">
+    <header><div class="n">T3</div><div><h3>Lo derivado</h3><p>Lo que solo se puede calcular con archivo.</p></div></header>
+    <div class="body">
+      <p class="mut">Ritmo ajustado por pendiente, deriva aeróbica, recuperación de pulso, carga desde ritmo y pulso, velocidad crítica y reserva anaeróbica. Las tres columnas huérfanas de la 0154 encuentran su motor.</p>
+    </div>
+  </div>
+
+  <div class="capa">
+    <header><div class="n">T4</div><div><h3>Lo nuestro</h3><p>Las tres del apartado 07.</p></div></header>
+    <div class="body">
+      <p class="mut">Carrera comprometida, calibración de la banda y huella del atleta. Es la tanda que nos separa de una app de running, y solo tiene sentido cuando las anteriores están.</p>
+    </div>
+  </div>
+
+  <div class="acc">
+    <h4>Transversal, en cada tanda</h4>
+    <ul>
+      <li>Las nueve constantes del apartado 08 pasan a dato del coach, cada una en la tanda donde se toca su cálculo. No en un lote aparte al final, que es como se quedan sin hacer.</li>
+      <li>Cada pantalla nueva de la app nace como propuesta del doble antes de existir en Swift.</li>
+      <li>Ninguna lectura se da por buena porque compile: cada una se acepta contra las doce carreras del apartado 05.</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <p><b>Método.</b> Seis exploradores en paralelo sobre captura en iOS, lectura del atleta, panel del coach, esquema, cálculo compartido e ingesta de dispositivos. Cinco afirmaciones críticas comprobadas a mano: quién escribe la tabla de trazas, si iOS emite alguna, si el veredicto llega a iOS, y si las tres columnas de la 0154 tienen motor.</p>
+    <p><b>Cero evidencia de base de datos.</b> Ni un solo recuento de filas se ha usado como argumento. Todo sale del código y del esquema.</p>
+    <p><b>Lo que este documento no hace.</b> No propone pantallas. La forma concreta de la curva, de la tabla de kilómetros y del panel del coach se dibuja como propuesta del doble cuando la dirección esté firmada.</p>
+  </div>
+
+</div>
+</body>
+</html>

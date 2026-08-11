@@ -5,7 +5,52 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · El alta ya no obliga a pasar por la periodización (11-ago noche)
+## Ahora · Correr: el análisis dice que falta la capa 0 (11-ago noche)
+
+Análisis de dominio de las analíticas de carrera, iOS y panel del coach:
+**`docs/correr-analitica.html`**. Cero código escrito, pendiente de firmar
+dirección.
+
+**El diagnóstico:** una carrera son señal + troceado + intención. Tenemos la
+intención al nivel más alto del mercado (veredicto por repetición contra la
+banda del coach, que ningún reloj puede calcular porque ningún reloj sabe qué te
+pidieron) y **la señal no se guarda**. Se mide en vivo, se pinta y se descarta.
+
+Cinco consecuencias verificadas a mano, no supuestas:
+
+1. `workout_traces`, su Zod y `POST /api/sync/workout-traces` existen y
+   funcionan; **iOS no emite ni una serie** — el propio escritor lo dejó
+   dicho («el motor en vivo emitirá las trazas en su propia tanda»).
+2. `FormaDeCarreraDeteccion` recibe un array vacío → la lectura honesta cae
+   siempre en «no se sabe» y un fartlek se resume por kilómetros.
+3. `SegmentActualDTO` tiene `ergSplits` y nada equivalente para correr: un
+   6×800 se abre en seis filas al terminar y vuelve a ser una en el historial.
+   El remo conserva su tabla; la carrera no.
+4. `decoupling_pct`, `hr_recovery_60_bpm` y `elevation_gain_m` (mig. 0154)
+   existen en esquema y Zod **sin un solo motor que los calcule** — y el coach
+   ya puede editar un `decoupling_target_pct` que no alimenta nada.
+5. El reparto de zonas del servidor prefiere la traza a las muestras sueltas y
+   se queda siempre con la evidencia degradada, con el buen camino abierto.
+
+Roto contra **doce carreras salidas del cruce de ejes de la propia gramática**
+(medida × objetivo × estructura × recuperación × superficie × pendiente): cuatro
+se rompen del todo, cinco se sirven degradadas, dos parciales, una bien. Las
+cuatro rotas comparten causa única.
+
+También sale de ahí un hallazgo de **regla Nº0: nueve constantes que son método
+del coach** y hoy están cableadas (τ 42/7 de la carga, ±5 s/km de cumplimiento,
+±8 s/km del aviso en vivo — que además contradice al anterior —, tabla RPE→IF,
+ventanas 7/28, distancias de récord, cobertura mínima 90%, zonas de potencia de
+bici).
+
+**Lo nuestro, para cuando esté la base:** carrera comprometida (cuánto ritmo
+pierde por trabajo previo — Garmin no puede, no sabe que antes hubo un trineo),
+la banda como analítica longitudinal (¿calibro bien los ritmos?, con el sesgo
+del fallo) y persistir la huella que ya calculamos y borramos a los 30 s.
+
+---
+
+## Antes · El alta ya no obliga a pasar por la periodización (11-ago noche)
 
 Dar de alta a un atleta imponía la matriz nivel×días: el paso «Estructura del
 bloque» enseñaba una secuencia propuesta que no se podía renombrar, ni ampliar,
