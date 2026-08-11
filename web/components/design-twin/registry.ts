@@ -82,6 +82,10 @@ import * as vivoRondas from './screens/vivo-rondas';
 // móvil, pero se quedan en la ficha del plan. Esta pantalla los baja al vivo
 // resueltos a UNA línea, con la nota de hoy ganando al catálogo.
 import * as vivoClave from './screens/vivo-clave';
+// Sensor fases 2–3 (11-ago): contador precargado + semáforo m/s. Propuesta —
+// Grok el cable; Claude el HUD final en vivo-fuerza.
+import * as contadorReps from './screens/contador-reps';
+import * as velocidadSerie from './screens/velocidad-serie';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -149,6 +153,8 @@ export const SCREENS: TwinScreenModule[] = [
   coachNota,
   vivoRondas,
   vivoClave,
+  contadorReps,
+  velocidadSerie,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {

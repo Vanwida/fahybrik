@@ -78,6 +78,16 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         transfer(data)
     }
 
+    // MARK: - Sensor archive (fase 0)
+
+    /// Hand a finished sensor capture file to the phone for archive (only when the
+    /// athlete consented). Uses transferFile — never the live channel.
+    func transferSensorCapture(fileURL: URL, metadata: [String: Any]) {
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        session.transferFile(fileURL, metadata: metadata)
+    }
+
     private func transfer(_ data: Data) {
         let session = WCSession.default
         guard session.activationState == .activated else { return }   // drained on activation

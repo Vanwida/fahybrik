@@ -918,6 +918,13 @@ struct LapRecord: Codable, Identifiable {
     /// at the instant this lap had any HR samples; nil otherwise. Defaulted so
     /// older persisted snapshots and the freeform fallback keep building.
     var hrSource: String? = nil
+
+    // Sensor (fases 1–2) — defaulted for snapshot decode.
+    var sensorWorkS: Double? = nil
+    var sensorRestS: Double? = nil
+    var sensorTimingConfidence: Double? = nil
+    var repsSource: String? = nil
+    var repsConfidence: Double? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -943,6 +950,14 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var confirmed: Bool
     var tempo: String?
     var restS: Int?
+    // Sensor (fases 2–3) — defaults so snapshots keep decoding.
+    var repsSource: String? = nil
+    var repsConfidence: Double? = nil
+    var meanVelocityFirstMs: Double? = nil
+    var meanVelocityLastMs: Double? = nil
+    var velocityLossPct: Double? = nil
+    var romM: Double? = nil
+    var velocityConfidence: Double? = nil
 }
 
 // Per-segment execution record on the wire. Property names are already
@@ -1034,6 +1049,14 @@ struct SegmentExecutionDTO: Codable {
     /// this segment has no HR at all. See `LapRecord.hrSource`. `var` with a
     /// default so older payloads (watch relay, cached snapshots) keep building.
     var hr_source: String? = nil
+
+    // Sensor timing + rep provenance (plan fases 1–2, mig 0174/0175).
+    var sensor_work_s: Double? = nil
+    var sensor_rest_s: Double? = nil
+    var sensor_timing_confidence: Double? = nil
+    /// "athlete_tap" | "sensor" | "sensor_corrected"
+    var reps_source: String? = nil
+    var reps_confidence: Double? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit
@@ -1070,6 +1093,14 @@ struct SetExecutionDTO: Codable {
     let confirmed: Bool?
     let tempo: String?
     let rest_s: Int?
+    // Fase 2–3 sensor fields (optional; older clients omit).
+    var reps_source: String? = nil
+    var reps_confidence: Double? = nil
+    var mean_velocity_first_m_s: Double? = nil
+    var mean_velocity_last_m_s: Double? = nil
+    var velocity_loss_pct: Double? = nil
+    var rom_m: Double? = nil
+    var velocity_confidence: Double? = nil
 }
 
 // POST /api/sync/workout-execution body. Explicit snake_case keys to match the

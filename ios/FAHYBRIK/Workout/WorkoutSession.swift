@@ -96,6 +96,56 @@ final class WorkoutSession {
     /// auto-infer a preceding warmup as done.
     private var firstWorkingSetConfirmed: Bool = false
 
+    // MARK: - Sensor conclusions (plan fases 1–3)
+    //
+    // Live values from the wrist pipeline (standalone local, or MirrorWire
+    // `sensor` packets in mirror mode). Never the raw stream — only conclusions.
+    // UI (semáforo m/s, contador precargado) reads these; Claude owns the surface.
+
+    /// Latest sensor conclusions for the open work window. Nil until the wrist
+    /// has enough signal. `objectWillChange` fires via the published engine tick /
+    /// explicit assign so the vivo HUD can bind.
+    private(set) var sensorConclusions: MirrorSensorConclusions?
+    /// Seq of the last applied packet — drops out-of-order mirror frames.
+    private var lastSensorSeq: Int = -1
+
+    /// Apply live conclusions from the watch. Prefills reps only when the sensor
+    /// is high-confidence and the athlete has NOT already confirmed a value.
+    func applySensorConclusions(_ c: MirrorSensorConclusions) {
+        guard c.seq >= lastSensorSeq else { return }
+        lastSensorSeq = c.seq
+        sensorConclusions = c
+
+        // Fase 2 — prefill the open set/segment when the athlete has not touched it.
+        // Never overwrite a confirmed athlete value (that becomes sensor_corrected
+        // only when they edit AFTER a sensor prefill — stamped at close).
+        let high = (c.repsLevel == "counted") && (c.repsConfidence ?? 0) >= 0.80
+        guard high, let sensorReps = c.reps, sensorReps > 0 else { return }
+
+        if !setRecords.isEmpty {
+            // Current open set = first unconfirmed non-skipped, else last.
+            let idx = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
+                ?? setRecords.indices.last
+            if let idx, !setRecords[idx].confirmed {
+                setRecords[idx].repsActual = sensorReps
+                setRecords[idx].repsSource = RepsSource.sensor.rawValue
+                setRecords[idx].repsConfidence = c.repsConfidence
+                stampVelocity(on: idx, from: c)
+            }
+        } else if !repsConfirmed {
+            repsCurrentSegment = sensorReps
+            // Not marking repsConfirmed — still "assumed" until athlete taps.
+        }
+    }
+
+    private func stampVelocity(on index: Int, from c: MirrorSensorConclusions) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].meanVelocityFirstMs = c.meanVelocityFirstMs
+        setRecords[index].meanVelocityLastMs = c.meanVelocityLastMs ?? c.lastRepVelocityMs
+        setRecords[index].velocityLossPct = c.velocityLossPct
+        setRecords[index].velocityConfidence = c.velocityConfidence
+    }
+
     /// Rest countdown fired when a strength set is confirmed (from the set's
     /// prescribed `rest_s`). 0 = no rest running. Decremented on the main tick.
     var restRemainingSeconds: Double = 0
@@ -2353,7 +2403,7 @@ final class WorkoutSession {
         // their own columns, so a nil actual reads "not declared", never "lifted".
         if seg.kind == .strength, !seg.usesMultiSetStrength, !repsSkipped, !seg.repsAreOpenScore {
             let planned = seg.prescription?.sets?.first
-            setRecordsOut = [SetRecord(
+            var single = SetRecord(
                 setIndex: 1,
                 repsPrescribed: repsPrescribedOut,
                 repsActual: repsActual,
@@ -2365,7 +2415,18 @@ final class WorkoutSession {
                 confirmed: repsConfirmedOut || loadConfirmed,
                 tempo: planned?.tempo,
                 restS: planned?.restS ?? seg.prescription?.restS
-            )]
+            )
+            if let c = sensorConclusions {
+                single.meanVelocityFirstMs = c.meanVelocityFirstMs
+                single.meanVelocityLastMs = c.meanVelocityLastMs ?? c.lastRepVelocityMs
+                single.velocityLossPct = c.velocityLossPct
+                single.velocityConfidence = c.velocityConfidence
+                single.repsSource = repsConfirmedOut
+                    ? (c.reps != nil ? RepsSource.sensorCorrected.rawValue : RepsSource.athleteTap.rawValue)
+                    : (c.repsLevel == "counted" ? RepsSource.sensor.rawValue : RepsSource.athleteTap.rawValue)
+                single.repsConfidence = c.repsConfidence
+            }
+            setRecordsOut = [single]
         }
 
         // Back-compat `repsCompleted` == actual (nil stays nil on a skip — never 0).
@@ -2456,7 +2517,23 @@ final class WorkoutSession {
             ergSplits: ergSplits ?? reopen?.ergSplits,
             hrSource: mergedHRSource
         )
-        laps.append(lap)
+        // Sensor fases 1–2: stamp work/rest + rep provenance onto the closed lap.
+        var stamped = lap
+        if let c = sensorConclusions {
+            stamped.sensorWorkS = c.sensorWorkS
+            stamped.sensorRestS = c.sensorRestS
+            stamped.sensorTimingConfidence = c.sensorTimingConfidence
+            if stamped.repsSource == nil {
+                if let src = setRecordsOut?.compactMap(\.repsSource).last {
+                    stamped.repsSource = src
+                    stamped.repsConfidence = setRecordsOut?.compactMap(\.repsConfidence).last
+                } else if c.repsLevel == "counted" {
+                    stamped.repsSource = RepsSource.sensor.rawValue
+                    stamped.repsConfidence = c.repsConfidence
+                }
+            }
+        }
+        laps.append(stamped)
         resetSegmentAccumulators()
     }
 
@@ -2474,6 +2551,8 @@ final class WorkoutSession {
         repsPrimedSegmentIndex = nil
         setRecords = []
         setsPrimedSegmentIndex = nil
+        sensorConclusions = nil
+        lastSensorSeq = -1
         // #break-1: the captured EMOM rounds have been written to the lap — clear them
         // so a following non-EMOM segment never inherits a stale count.
         capturedEmomCompleted = nil
@@ -2590,6 +2669,19 @@ final class WorkoutSession {
         setRecords[index].confirmed = true
         if setRecords[index].loadActualKg == nil {
             setRecords[index].loadActualKg = setRecords[index].loadPrescribedKg
+        }
+        // Stamp latest sensor velocity onto the set being closed (fase 3).
+        if let c = sensorConclusions {
+            stampVelocity(on: index, from: c)
+            // Provenance: sensor prefill then athlete confirm → sensor_corrected;
+            // pure athlete → athlete_tap; pure sensor (no touch of reps) stays sensor.
+            if setRecords[index].repsSource == RepsSource.sensor.rawValue {
+                setRecords[index].repsSource = RepsSource.sensorCorrected.rawValue
+            } else if setRecords[index].repsSource == nil {
+                setRecords[index].repsSource = RepsSource.athleteTap.rawValue
+            }
+        } else if setRecords[index].repsSource == nil {
+            setRecords[index].repsSource = RepsSource.athleteTap.rawValue
         }
         recomputeSetStatus(index)
         registerFirstWorkingSet()

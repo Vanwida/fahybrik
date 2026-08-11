@@ -419,6 +419,14 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
         Task { @MainActor in await self.handleIncomingExecution(data) }
     }
+
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        // Sensor archive from the wrist (fase 0). Only the metadata+path land here;
+        // upload runs when consent is present and an execution_id is known.
+        Task { @MainActor in
+            SensorFileReceiver.shared.didReceive(file: file)
+        }
+    }
 }
 
 // MARK: - Dead-letter store for undecodable executions

@@ -96,7 +96,7 @@ enum SegmentPayloadBuilder {
             }
 
             let setDTOs: [SetExecutionDTO]? = lap.sets?.map { s in
-                SetExecutionDTO(
+                var dto = SetExecutionDTO(
                     set_index: s.setIndex,
                     reps_prescribed: s.repsPrescribed,
                     reps_actual: s.repsActual,
@@ -109,6 +109,14 @@ enum SegmentPayloadBuilder {
                     tempo: s.tempo,
                     rest_s: s.restS
                 )
+                dto.reps_source = s.repsSource
+                dto.reps_confidence = s.repsConfidence
+                dto.mean_velocity_first_m_s = s.meanVelocityFirstMs
+                dto.mean_velocity_last_m_s = s.meanVelocityLastMs
+                dto.velocity_loss_pct = s.velocityLossPct
+                dto.rom_m = s.romM
+                dto.velocity_confidence = s.velocityConfidence
+                return dto
             }
 
             let ergSplitDTOs: [ErgSplitDTO]? = lap.ergSplits?.map { s in
@@ -175,7 +183,12 @@ enum SegmentPayloadBuilder {
                 leg_phase: lap.runLegPhase,
                 // Provenance of avg_hr/max_hr specifically — nil on every lap that
                 // never had a pulse (see LapRecord.hrSource).
-                hr_source: lap.hrSource
+                hr_source: lap.hrSource,
+                sensor_work_s: lap.sensorWorkS,
+                sensor_rest_s: lap.sensorRestS,
+                sensor_timing_confidence: lap.sensorTimingConfidence,
+                reps_source: lap.repsSource,
+                reps_confidence: lap.repsConfidence
             )
         }
     }

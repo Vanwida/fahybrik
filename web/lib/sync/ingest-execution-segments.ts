@@ -119,6 +119,14 @@ export const setInputSchema = z.object({
   confirmed: z.boolean().optional(),
   tempo: z.string().max(20).optional(),
   rest_s: z.number().int().min(0).optional(),
+  // Sensor fases 2–3 (mig 0175/0176). Optional: older clients omit.
+  reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
+  reps_confidence: z.number().min(0).max(1).nullish(),
+  mean_velocity_first_m_s: z.number().nonnegative().nullish(),
+  mean_velocity_last_m_s: z.number().nonnegative().nullish(),
+  velocity_loss_pct: z.number().nonnegative().nullish(),
+  rom_m: z.number().nonnegative().nullish(),
+  velocity_confidence: z.number().min(0).max(1).nullish(),
 });
 
 export type SetInput = z.infer<typeof setInputSchema>;
@@ -160,6 +168,12 @@ export const segmentInputSchema = z.object({
   reps_actual: z.number().int().min(0).nullable().optional(),
   reps_status: z.enum(REPS_STATUSES).optional(),
   reps_confirmed: z.boolean().optional(),
+  // Sensor fases 1–2 (mig 0174/0175).
+  sensor_work_s: z.number().nonnegative().nullish(),
+  sensor_rest_s: z.number().nonnegative().nullish(),
+  sensor_timing_confidence: z.number().min(0).max(1).nullish(),
+  reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
+  reps_confidence: z.number().min(0).max(1).nullish(),
   is_structural: z.boolean().optional(),
   // EMOM completion (mig 0134). How many of the EMOM's intervals the athlete
   // completed the prescribed work in, and how many were prescribed — the honest
@@ -407,6 +421,8 @@ export async function ingestExecutionSegments(args: {
         reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
         emom_rounds_completed, emom_rounds_prescribed,
         leg_index, leg_role, leg_phase,
+        sensor_work_s, sensor_rest_s, sensor_timing_confidence,
+        reps_source, reps_confidence,
         raw_lap_data_json, source,
         context_format, context_source, exercise_id, prescription_snapshot, prior_work_s
       ) values (
@@ -440,6 +456,11 @@ export async function ingestExecutionSegments(args: {
         ${leg.index},
         ${leg.role},
         ${leg.phase},
+        ${seg.sensor_work_s ?? null},
+        ${seg.sensor_rest_s ?? null},
+        ${seg.sensor_timing_confidence ?? null},
+        ${seg.reps_source ?? null},
+        ${seg.reps_confidence ?? null},
         ${rawLap},
         ${seg.source ?? null},
         ${contextFormat},
@@ -481,6 +502,11 @@ export async function ingestExecutionSegments(args: {
         reps_prescribed     = excluded.reps_prescribed,
         reps_status         = excluded.reps_status,
         reps_confirmed      = excluded.reps_confirmed,
+        sensor_work_s              = excluded.sensor_work_s,
+        sensor_rest_s              = excluded.sensor_rest_s,
+        sensor_timing_confidence   = excluded.sensor_timing_confidence,
+        reps_source                = excluded.reps_source,
+        reps_confidence            = excluded.reps_confidence,
         is_structural       = excluded.is_structural,
         rx_scaled           = excluded.rx_scaled,
         scaled_note         = excluded.scaled_note,
@@ -527,7 +553,10 @@ export async function ingestExecutionSegments(args: {
               segment_execution_id, set_index,
               reps_prescribed, reps_actual,
               load_prescribed_kg, load_actual_kg,
-              rpe, rir, status, confirmed, tempo, rest_s
+              rpe, rir, status, confirmed, tempo, rest_s,
+              reps_source, reps_confidence,
+              mean_velocity_first_m_s, mean_velocity_last_m_s,
+              velocity_loss_pct, rom_m, velocity_confidence
             ) values (
               ${segmentExecutionId}::bigint,
               ${s.set_index},
@@ -540,7 +569,14 @@ export async function ingestExecutionSegments(args: {
               ${setStatus},
               ${s.confirmed ?? false},
               ${s.tempo ?? null},
-              ${s.rest_s ?? null}
+              ${s.rest_s ?? null},
+              ${s.reps_source ?? null},
+              ${s.reps_confidence ?? null},
+              ${s.mean_velocity_first_m_s ?? null},
+              ${s.mean_velocity_last_m_s ?? null},
+              ${s.velocity_loss_pct ?? null},
+              ${s.rom_m ?? null},
+              ${s.velocity_confidence ?? null}
             )
           `;
         }

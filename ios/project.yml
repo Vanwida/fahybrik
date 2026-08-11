@@ -387,9 +387,13 @@ targets:
       - path: FAHYBRIK/Workout/CountdownFormat.swift
       - path: FAHYBRIK/Workout/WorkoutAudio.swift
       - path: FAHYBRIK/Workout/Persistence/WorkoutStateStore.swift
+      # Reconocer el movimiento (6-ago plan): algoritmos puros de señal + pipeline.
+      # CoreMotion solo vive en FAHYBRIKWatch/Sensor/SensorCapture.swift.
+      - path: FAHYBRIK/Sensor
     dependencies:
       - sdk: HealthKit.framework
       - sdk: WatchConnectivity.framework
+      - sdk: CoreMotion.framework
     # ----- Info.plist -----
     # Explicit info: block (like the iOS target) because WKBackgroundModes is an
     # array the INFOPLIST_KEY_* settings can't express. workout-processing keeps

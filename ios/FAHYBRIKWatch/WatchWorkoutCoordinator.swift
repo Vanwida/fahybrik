@@ -41,6 +41,10 @@ final class WatchWorkoutCoordinator {
     /// and driven purely as a metric source; the engine is the UI clock authority.
     let live = LiveWorkoutSession()
 
+    /// Fase 1–3: push wrist pipeline conclusions into the local engine (standalone).
+    private var sensorTick: Timer?
+    private var sensorSeq: Int = 0
+
     /// Guards the finalize path so a natural finish + a Terminar can't double-send.
     private var didFinalize = false
     /// The assignment the running session logs against (captured at start — the
@@ -179,10 +183,54 @@ final class WatchWorkoutCoordinator {
         driver.start()
         WatchHaptics.start()
 
+        // Fase 0 — inertial capture rides with the HK workout. Live processing
+        // (fases 1–3) always runs; archive transfer is consent-gated later.
+        SensorCapture.shared.start(executionLocalId: payload.assignmentId)
+        startSensorTick()
+
         Task {
             await live.requestAuthorization()
             live.start(activityType: payload.healthKitActivityType)
         }
+    }
+
+    private func startSensorTick() {
+        stopSensorTick()
+        sensorSeq = 0
+        let t = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickSensorIntoEngine() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        sensorTick = t
+    }
+
+    private func stopSensorTick() {
+        sensorTick?.invalidate()
+        sensorTick = nil
+    }
+
+    private func tickSensorIntoEngine() {
+        guard phase == .active, let engine = session, SensorCapture.shared.isRunning else { return }
+        let pipe = SensorCapture.shared.pipeline
+        guard pipe.sampleCount >= 12 else { return }
+        sensorSeq += 1
+        let reps = pipe.lastRepResult
+        let timing = pipe.lastTiming
+        let vel = pipe.lastVelocity
+        engine.applySensorConclusions(MirrorSensorConclusions(
+            sensorWorkS: timing?.workSeconds,
+            sensorRestS: timing?.restSeconds,
+            sensorTimingConfidence: timing?.confidence,
+            reps: (reps?.level == .unknown) ? nil : reps?.reps,
+            repsConfidence: reps?.confidence,
+            repsLevel: reps?.level.rawValue,
+            lastRepVelocityMs: vel?.repVelocities.last ?? vel?.meanVelocityLast,
+            meanVelocityFirstMs: vel?.meanVelocityFirst,
+            meanVelocityLastMs: vel?.meanVelocityLast,
+            velocityLossPct: vel?.velocityLossPct,
+            velocityConfidence: vel?.confidence,
+            seq: sensorSeq
+        ))
     }
 
     /// A resumable crash snapshot for today, or nil. Offered only when it is FRESH
@@ -246,6 +294,23 @@ final class WatchWorkoutCoordinator {
         let capturedAssignmentId = assignmentId
         Task { [weak self, engine] in
             let workoutRef = await self?.live.end()
+            // Fase 0 — stop the inertial stream and hand the archive to the phone
+            // (consent is enforced on the phone before upload; transfer itself is cheap).
+            SensorCapture.shared.stop()
+            if let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
+                let tmp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("sensor-\(capturedAssignmentId ?? "x").fhsc")
+                try? data.write(to: tmp, options: .atomic)
+                WatchConnectivityService.shared.transferSensorCapture(
+                    fileURL: tmp,
+                    metadata: [
+                        "execution_local_id": capturedAssignmentId as Any,
+                        "sample_hz": SensorFileFormat.targetHz,
+                        "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
+                        "byte_size": data.count,
+                    ]
+                )
+            }
             guard let self, let assignmentId = capturedAssignmentId, !assignmentId.isEmpty else { return }
             let payload = self.buildExecutionPayload(
                 assignmentId: assignmentId,
@@ -317,6 +382,8 @@ final class WatchWorkoutCoordinator {
         session?.stop()
         runLegDriver?.stop()
         runLegDriver = nil
+        stopSensorTick()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         live.onHeartRate = nil
         live.onDistanceDelta = nil
         session = nil

@@ -1341,6 +1341,31 @@ Lo revelador es que el mismo fichero YA razonaba bien en otro punto — *«WHICH
 
 ---
 
+## 2026-08-11 · Reconocer el movimiento: fases 0–3 en código; migraciones 0173–0177
+
+**Decidido:** se construye la cadena 0–3 del plan (grabar · trabajo/descanso ·
+contar reps · velocidad de barra). Las migraciones del plan HTML (0157–0162)
+ya estaban ocupadas por otras piezas; las reales son **0173–0177**. No se
+reescribe el HTML histórico del plan: el rastro de numeración vive aquí y en
+`FOCUS.md`.
+
+**Semáforo de velocidad:** color = velocidad de subida (m/s), no %1RM. El atleta
+interpreta el RM; la app no estima 1RM desde velocidad genérica. Cortes =
+método del coach (`coach_movement_policy` / overrides), con defectos en
+`shared/domain/strength/velocity-bands.ts`.
+
+**UI fina del vivo (m/s, chip de procedencia):** Claude. Grok: sensor, cable,
+API, ingest, algoritmos.
+
+**Consentimiento:** archivar exige `athletes.sensor_capture_consent_*`. El
+procesado en vivo (1–3) no espera archivo.
+
+**Documentos:** plan + `docs/reconocer-el-movimiento.html`; código bajo
+`ios/FAHYBRIK/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
+`web/lib/sync/ingest-sensor-capture.ts`.
+
+---
+
 ## 2026-08-05 · Una vista por lo que estás haciendo (iOS + watchOS)
 
 **Qué se decidió.** Cada tipo de entreno tiene SU pantalla, en los dos dispositivos.

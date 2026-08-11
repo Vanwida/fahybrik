@@ -274,6 +274,10 @@ final class PhoneMirrorService {
             case MirrorWire.MessageType.ended:
                 endedWorkoutUuid = env.body(as: MirrorEnded.self)?.workoutUuid
                 teardown()
+            case MirrorWire.MessageType.sensor:
+                if let c = env.body(as: MirrorSensorConclusions.self) {
+                    session?.applySensorConclusions(c)
+                }
             default:
                 break
             }

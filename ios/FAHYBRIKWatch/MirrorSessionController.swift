@@ -79,6 +79,10 @@ final class MirrorSessionController: NSObject {
     private var watchdog: Timer?
     /// Last haptic seq played — de-dupes dedicated packets vs frame-embedded cues.
     private var lastHapticSeq: Int = 0
+    /// Fase 1–3: relay sensor conclusions to the phone (not the raw stream).
+    private var sensorRelay: Timer?
+    private var sensorSeq: Int = 0
+    private static let sensorRelayInterval: TimeInterval = 0.5
 
     private override init() { super.init() }
 
@@ -95,6 +99,9 @@ final class MirrorSessionController: NSObject {
         isConnectionLost = false
         hkPaused = false
         isClosing = false
+
+        // Fase 0 — same capture component as standalone (one path, not two).
+        SensorCapture.shared.start()
 
         Task {
             await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
@@ -127,9 +134,50 @@ final class MirrorSessionController: NSObject {
         guard let session, state == .recording else { return }
         lastSignalAt = Date()
         startWatchdog()
+        startSensorRelay()
         requestSyncUntilFirstFrame()
         WatchHaptics.start()
         Task { try? await session.startMirroringToCompanionDevice() }
+    }
+
+    private func startSensorRelay() {
+        stopSensorRelay()
+        sensorSeq = 0
+        let t = Timer.scheduledTimer(withTimeInterval: Self.sensorRelayInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.relaySensorConclusions() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        sensorRelay = t
+    }
+
+    private func stopSensorRelay() {
+        sensorRelay?.invalidate()
+        sensorRelay = nil
+    }
+
+    private func relaySensorConclusions() {
+        guard state == .recording, SensorCapture.shared.isRunning else { return }
+        let pipe = SensorCapture.shared.pipeline
+        guard pipe.sampleCount >= 12 else { return }
+        sensorSeq += 1
+        let reps = pipe.lastRepResult
+        let timing = pipe.lastTiming
+        let vel = pipe.lastVelocity
+        let packet = MirrorSensorConclusions(
+            sensorWorkS: timing?.workSeconds,
+            sensorRestS: timing?.restSeconds,
+            sensorTimingConfidence: timing?.confidence,
+            reps: (reps?.level == .unknown) ? nil : reps?.reps,
+            repsConfidence: reps?.confidence,
+            repsLevel: reps?.level.rawValue,
+            lastRepVelocityMs: vel?.repVelocities.last ?? vel?.meanVelocityLast,
+            meanVelocityFirstMs: vel?.meanVelocityFirst,
+            meanVelocityLastMs: vel?.meanVelocityLast,
+            velocityLossPct: vel?.velocityLossPct,
+            velocityConfidence: vel?.confidence,
+            seq: sensorSeq
+        )
+        send(type: MirrorWire.MessageType.sensor, packet)
     }
 
     // MARK: - Incoming (phone → watch)
@@ -308,6 +356,7 @@ final class MirrorSessionController: NSObject {
     private func closeRecording(save: Bool) async {
         isClosing = true
         stopWatchdog()
+        stopSensorRelay()
 
         var workoutUuid: String?
         if save {
@@ -315,6 +364,26 @@ final class MirrorSessionController: NSObject {
         } else {
             builder?.discardWorkout()
         }
+
+        // Fase 0 — stop inertial capture; transfer archive only when saving.
+        SensorCapture.shared.stop()
+        if save, let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
+            let localId = workoutUuid ?? UUID().uuidString
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("sensor-\(localId).fhsc")
+            try? data.write(to: tmp, options: .atomic)
+            WatchConnectivityService.shared.transferSensorCapture(
+                fileURL: tmp,
+                metadata: [
+                    "execution_local_id": localId,
+                    "sample_hz": SensorFileFormat.targetHz,
+                    "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
+                    "byte_size": data.count,
+                    "source_workout_ref": workoutUuid as Any,
+                ]
+            )
+        }
+
         // Relay the finished id BEFORE ending the session (awaited, not fire-and-
         // forget, so it clears the channel first) — best-effort; the fallback is the
         // phone's HealthKit ingest of the same workout, deduped on source_workout_ref.
@@ -346,6 +415,7 @@ final class MirrorSessionController: NSObject {
 
     private func resetToIdle() {
         stopWatchdog()
+        stopSensorRelay()
         session = nil
         builder = nil
         frame = nil

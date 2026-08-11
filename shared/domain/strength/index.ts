@@ -13,3 +13,5 @@
 export * from './one-rm';
 export * from './exercises';
 export * from './resolve';
+export * from './velocity-loss';
+export * from './velocity-bands';

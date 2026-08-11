@@ -5,6 +5,38 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Reconocer el movimiento en el reloj — fases 0–3 en código (11-ago)
+
+Plan del 6-ago (`docs/plan-reconocer-movimiento.html` + `docs/reconocer-el-movimiento.html`).
+Alex retoma la cadena **0–3** (sin clasificador 4–6 aún).
+
+**Hecho en este lote (mecanismo, no UI fina):**
+- Migraciones **0173–0177**: archivo de captura, timing sensor, procedencia de
+  reps, velocidad por serie, `coach_movement_policy` + consentimiento atleta.
+  (Los números del plan HTML 0157–0162 ya estaban ocupados.)
+- Algoritmos puros: `ios/FAHYBRIK/Sensor/*` (decimador, trabajo/descanso,
+  contador de reps, velocidad de barra, codec FHSC, pipeline) + tests.
+- Captura CoreMotion en el reloj (`SensorCapture`) en standalone + espejo;
+  archivo → teléfono por `transferFile`; conclusiones en vivo por MirrorWire
+  `sensor` → `WorkoutSession.applySensorConclusions` (prefill reps + m/s).
+- Ingest: columnas nuevas en `ingest-execution-segments`; API
+  `/api/sync/sensor-capture` + `upload-url` (blob prefirmado, exige consentimiento).
+- Semáforo m/s: `shared/domain/strength/velocity-bands.ts` (verde→rojo por
+  velocidad de subida; **no** %1RM — el RM lo interpreta el atleta).
+- Doble: pantallas `propuesta` `contador-reps` y `velocidad-serie` (HUD fino =
+  Claude sobre `FuerzaVivoView`).
+
+**Pendiente / bloquea uso real en gym:**
+1. Consentimiento del atleta (perfil) + subida al blob con `execution_id`.
+2. HUD en vivo de m/s + chip de procedencia de reps → **Claude**.
+3. Validación on-device (PM5 fases 1–2; vídeo wall balls / barra).
+4. Medir batería captura ON vs OFF (criterio fase 0: ≤15 % extra o bajar Hz).
+
+**Verificado:** `xcodebuild build` FAHYBRIK SUCCEEDED; vitest `velocity-bands`
+5/5. SensorPipelineTests: compile OK; run en sim flaky (kill al bootstrap).
+
+---
+
 ## Ahora · El vídeo del ejercicio deja de depender de YouTube (11-ago)
 
 La app solo sabía reproducir técnica si el enlace era de YouTube: el portero

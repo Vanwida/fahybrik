@@ -42,6 +42,9 @@ enum MirrorWire {
         /// Watch → phone: recording closed; carries the HKWorkout UUID (nil on
         /// discard) so the phone stamps source_workout_ref on the execution.
         static let ended = "ended"
+        /// Watch → phone: live sensor conclusions (fase 1–3). Bytes only — never
+        /// the raw stream. Older phones ignore the type and keep running.
+        static let sensor = "sensor"
     }
 
     /// `MirrorHaptic.cue` values — keep the string small and stable.
@@ -311,6 +314,28 @@ struct MirrorCommand: Codable {
 /// same workout never double-counts.
 struct MirrorEnded: Codable {
     let workoutUuid: String?
+}
+
+/// Watch → phone: live conclusions from the wrist inertial pipeline (plan fases 1–3).
+/// The raw signal never crosses the wire — only these few bytes per update.
+struct MirrorSensorConclusions: Codable, Equatable {
+    /// Work/rest timing for the open window (seconds).
+    var sensorWorkS: Double? = nil
+    var sensorRestS: Double? = nil
+    var sensorTimingConfidence: Double? = nil
+    /// Rep count from the sensor (nil = unknown / not countable).
+    var reps: Int? = nil
+    var repsConfidence: Double? = nil
+    /// "counted" | "doubtful" | "unknown"
+    var repsLevel: String? = nil
+    /// Last concentric mean velocity (m/s), if estimated.
+    var lastRepVelocityMs: Double? = nil
+    var meanVelocityFirstMs: Double? = nil
+    var meanVelocityLastMs: Double? = nil
+    var velocityLossPct: Double? = nil
+    var velocityConfidence: Double? = nil
+    /// Monotonic so the phone can drop out-of-order packets.
+    var seq: Int = 0
 }
 
 // MARK: - Envelope helpers
