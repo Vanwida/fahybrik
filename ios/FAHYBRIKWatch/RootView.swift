@@ -57,6 +57,15 @@ struct RootView: View {
             MirrorHUDView(controller: mirror)
         } else {
             standaloneContent
+                // QUÉ BINARIO LLEVA LA MUÑECA, visible sin cables.
+                //
+                // La app del reloj viaja dentro de la del iPhone y watchOS decide
+                // cuándo la empuja: con el mismo número de build a menudo NO la
+                // actualiza y deja la muñeca en la versión anterior, sin avisar.
+                // Como aquí es donde se cuenta —el sensor corre en el reloj— «no va
+                // bien» y «no se instaló» se confunden. Solo en reposo: durante el
+                // entreno no roba ni un píxel.
+                .overlay(alignment: .bottom) { VersionFooter() }
         }
     }
 
@@ -286,6 +295,24 @@ private struct ResumeOfferView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
         }
+    }
+}
+
+/// La versión y la build de ESTE binario, discreta y en reposo.
+private struct VersionFooter: View {
+    private var texto: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "v\(version) (\(build))"
+    }
+
+    var body: some View {
+        Text(texto)
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(WatchTheme.dim)
+            .padding(.bottom, 2)
+            .accessibilityLabel("Versión de la app del reloj: \(texto)")
     }
 }
 

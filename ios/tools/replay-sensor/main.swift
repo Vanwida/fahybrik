@@ -107,6 +107,38 @@ guard let data = FileManager.default.contents(atPath: path) else {
     fail("no puedo leer \(path)")
 }
 let volcarMuestras = args.contains("--muestras")
+// Los archivos v1 no traen gravedad y sin eje vertical no se cuenta nada. Con esto
+// se APROXIMA el eje del gesto por su componente principal, para poder mirar la
+// geometría de una serie ya grabada. Es un apaño de diagnóstico, no el mecanismo:
+// el eje principal de una muñeca andando es el balanceo del brazo, y por eso en
+// producción la gravedad es obligatoria.
+let ejeEstimado = args.contains("--eje-estimado")
+
+/// Componente principal de la aceleración (power iteration arrancando por el eje de
+/// más varianza — arrancar por (1,0,0) no converge si X no varía).
+func ejePrincipal(_ ss: [SensorSample]) -> (Double, Double, Double) {
+    let n = Double(ss.count)
+    let mx = ss.reduce(0.0) { $0 + $1.ax } / n
+    let my = ss.reduce(0.0) { $0 + $1.ay } / n
+    let mz = ss.reduce(0.0) { $0 + $1.az } / n
+    var cxx = 0.0, cxy = 0.0, cxz = 0.0, cyy = 0.0, cyz = 0.0, czz = 0.0
+    for s in ss {
+        let x = s.ax - mx, y = s.ay - my, z = s.az - mz
+        cxx += x * x; cxy += x * y; cxz += x * z
+        cyy += y * y; cyz += y * z; czz += z * z
+    }
+    var v = cxx >= cyy && cxx >= czz ? (1.0, 0.0, 0.0)
+          : (cyy >= czz ? (0.0, 1.0, 0.0) : (0.0, 0.0, 1.0))
+    for _ in 0..<24 {
+        let nx = cxx * v.0 + cxy * v.1 + cxz * v.2
+        let ny = cxy * v.0 + cyy * v.1 + cyz * v.2
+        let nz = cxz * v.0 + cyz * v.1 + czz * v.2
+        let norm = (nx * nx + ny * ny + nz * nz).squareRoot()
+        if norm < 1e-9 { break }
+        v = (nx / norm, ny / norm, nz / norm)
+    }
+    return v
+}
 
 let decoded: SensorFileCodec.Decoded
 do { decoded = try SensorFileCodec.decode(data) } catch { fail("archivo ilegible: \(error)") }
@@ -158,8 +190,19 @@ for (i, v) in ventanas.enumerated() {
     """)
     guard cuenta, dentro.count >= 40 else { continue }
 
+    var muestras = dentro
+    if ejeEstimado, dentro.contains(where: { !$0.hasGravity }) {
+        let eje = ejePrincipal(dentro)
+        print(String(format: "   eje estimado (%.2f, %.2f, %.2f) — aproximación de diagnóstico",
+                     eje.0, eje.1, eje.2))
+        muestras = dentro.map {
+            SensorSample(t: $0.t, ax: $0.ax, ay: $0.ay, az: $0.az,
+                         gx: $0.gx, gy: $0.gy, gz: $0.gz,
+                         grx: -eje.0, gry: -eje.1, grz: -eje.2)
+        }
+    }
     var tracker = RepTracker()
-    for s in dentro { tracker.push(s) }
+    for s in muestras { tracker.push(s) }
 
     for line in tracker.trace { print("   \(line)") }
     let vs = tracker.reps.filter { $0.concentricMs > 0 }.map(\.concentricMs)
