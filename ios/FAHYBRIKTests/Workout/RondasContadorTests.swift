@@ -175,26 +175,37 @@ final class RondasContadorTests: XCTestCase {
     /// recorta por prioridad; aquí se fija que el nivel MÍNIMO cabe en el hueco
     /// más apretado medido, y que el completo cabe en el holgado.
     @MainActor
-    func testLaCaraContadorCabeEnSuCota() {
+    func testLaCaraContadorCabeEnSuCotaConRondasCerradas() {
+        // El estado PINTADO de verdad: con rondas cerradas — «tu media» existe,
+        // el chip de la anterior existe. La verif2 cazó que medir el estado
+        // virgen daba 368 donde el real pedía 403.
         let s = sesionDeRondas(12, capS: nil)
         s.start()
         s.beginBlock()
         if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        s.lapElapsedSeconds = 100
+        s.primaryAdvance()
+        s.lapElapsedSeconds = 230
+        s.primaryAdvance()
         let ancho: CGFloat = 370
 
-        let minimo = UIHostingController(rootView:
-            AnyView(RoundsLiveHUD(session: s).contadorNucleo(conHilo: false, conLectura: false, compacto: true))
-                .environment(\.colorScheme, .dark))
-        let altoMinimo = minimo.sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
-        XCTAssertLessThanOrEqual(altoMinimo, 375,
-            "el nivel mínimo pide \(Int(altoMinimo)) pt y el hueco real más apretado ronda 393")
+        func mide(_ v: AnyView) -> CGFloat {
+            UIHostingController(rootView: v.environment(\.colorScheme, .dark))
+                .sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
+        }
 
-        let completo = UIHostingController(rootView:
-            AnyView(RoundsLiveHUD(session: s).contadorNucleo(conHilo: true, conLectura: true, compacto: false))
-                .environment(\.colorScheme, .dark))
-        let altoCompleto = completo.sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
-        XCTAssertLessThanOrEqual(altoCompleto, 500,
-            "el nivel completo pide \(Int(altoCompleto)) pt; por encima de 500 ni el hueco holgado lo salva")
+        let hud = RoundsLiveHUD(session: s)
+        let nivel3 = mide(AnyView(hud.contadorNucleo(conHilo: false, conLectura: false, compacto: true)))
+        XCTAssertLessThanOrEqual(nivel3, 380,
+            "el nivel compacto pide \(Int(nivel3)) pt y el cromo de ergo sin emparejar deja ~380")
+
+        let suelo = mide(AnyView(hud.contadorSuelo))
+        XCTAssertLessThanOrEqual(suelo, 170,
+            "el SUELO pide \(Int(suelo)) pt; el cromo de dobles deja ~187 y ViewThatFits pinta el último candidato aunque no quepa")
+
+        let completo = mide(AnyView(hud.contadorNucleo(conHilo: true, conLectura: true, compacto: false)))
+        XCTAssertLessThanOrEqual(completo, 500,
+            "el nivel completo pide \(Int(completo)) pt; por encima de 500 ni el hueco holgado lo salva")
         s.stop()
     }
 

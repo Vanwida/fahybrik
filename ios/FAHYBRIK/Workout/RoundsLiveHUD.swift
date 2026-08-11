@@ -154,6 +154,26 @@ struct RoundsLiveHUD: View {
             contadorNucleo(conHilo: true, conLectura: true, compacto: false)
             contadorNucleo(conHilo: true, conLectura: false, compacto: false)
             contadorNucleo(conHilo: false, conLectura: false, compacto: true)
+            // El SUELO: en los cromos extremos (ergo sin emparejar, dobles) el
+            // hueco baja de 200 pt y ninguna banda cabe. La cuenta se degrada
+            // al cromo — que para eso es el sitio de la posición — y quedan
+            // los números del momento. ViewThatFits pinta el último candidato
+            // aunque no quepa, así que el último TIENE que caber siempre.
+            contadorSuelo
+        }
+    }
+
+    // Interno para que el test mida el suelo: el ultimo candidato TIENE que caber.
+    var contadorSuelo: some View {
+        VStack(spacing: 12) {
+            RoundsContextStrip(
+                session: session,
+                posicion: "Ronda \(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)")
+            MetricRow3(cells: [
+                .init(label: "Esta ronda", value: Formato.clock(parcialVivoS)),
+                mediaCell,
+                hrCell(session)
+            ])
         }
     }
 
@@ -186,10 +206,12 @@ struct RoundsLiveHUD: View {
     /// de la banda, y escribir el mismo número dos veces en la misma pantalla
     /// es como empiezan las tres grafías del ritmo.
     private var mediaCell: MetricRow3.Cell {
+        // Sin unidad: «1:52 / ronda» envolvía la celda a dos líneas y esos
+        // ~35 pt eran justo el margen del nivel 3 (verif2). La etiqueta ya
+        // dice de qué es la media.
         let media = RoundsReadings.mediaS(session.fixedRoundSplits.map(\.seconds))
         return .init(label: "Tu media",
                      value: media.map { Formato.clock($0.rounded()) },
-                     unit: "ronda",
                      ausente: "desde la 2ª")
     }
 
@@ -240,10 +262,15 @@ private struct RoundsContextStrip: View {
                 .foregroundStyle(Theme.Color.accentText)
                 .fixedSize()
             if let posicion {
+                // NUNCA `.fixedSize()`: un título de bloque largo comprimía al
+                // vecino y el reloj del For Time — el score — acababa partido
+                // un dígito por línea (verif2). El título cede; el reloj no.
                 Text(posicion)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Theme.Color.faint)
-                    .fixedSize()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
             }
             Spacer(minLength: 6)
             Text(Formato.clock(capRemaining ?? session.condElapsed, anchoFijo: true))
@@ -354,11 +381,14 @@ private struct SujetoContadorRonda: View {
 
             // El numeral DESNUDO, sin tarjeta: el sujeto gobierna la pantalla
             // (§10.2) y una CardSurface alrededor lo encogía a una celda más.
+            // La tipografía es la del readout de la casa (mono de cifra), al
+            // tamaño que el presupuesto del hueco permite — 96, no los 125 del
+            // doble, y queda declarado como adaptación.
             LabelText(text: "Ronda", size: 10)
             Text("\(activa + 1)/\(session.fixedListTotal)")
-                .font(.system(size: 96, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
+                .font(.system(size: 96, weight: .heavy, design: .monospaced))
                 .monospacedDigit()
+                .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .frame(height: 96)
