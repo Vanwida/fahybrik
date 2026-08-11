@@ -15,7 +15,6 @@ export const COACH_PROFILE_LIMITS = {
   tag: 48,
   /** Max number of tags in a list. */
   tags: 20,
-  avatarUrl: 2048,
 } as const;
 
 // '' / whitespace-only → null, so emptying a text field CLEARS the column rather
@@ -52,16 +51,17 @@ const fullName = z
   .transform((v) => v.trim())
   .pipe(z.string().min(1, 'El nombre es obligatorio').max(COACH_PROFILE_LIMITS.name));
 
-const avatarUrl = z
-  .union([z.string(), z.null()])
-  .transform((v) => (v == null || v.trim() === '' ? null : v.trim()))
-  .pipe(z.string().url().max(COACH_PROFILE_LIMITS.avatarUrl).nullable());
-
-/** Full editable profile (email is NOT here — it's Clerk-owned, read-only). */
+/**
+ * Full editable profile. Ni el email ni la FOTO están aquí:
+ *   · el email lo lleva Clerk y es de sólo lectura;
+ *   · la foto tiene su propio camino (`/api/perfil/foto/...`), que la guarda sólo
+ *     cuando el fichero existe de verdad en Cloudflare. Aceptarla también por aquí
+ *     daría DOS escritores para una columna, y el de este lado se creería cualquier
+ *     URL que le mandaran.
+ */
 export const coachProfileSchema = z.object({
   full_name: fullName,
   bio: nullableText(COACH_PROFILE_LIMITS.bio),
-  avatar_url: avatarUrl,
   specialties: tagList,
   certifications: tagList,
   studio_name: nullableText(COACH_PROFILE_LIMITS.studio),

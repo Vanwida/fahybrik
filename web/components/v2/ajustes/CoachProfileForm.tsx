@@ -1,11 +1,17 @@
 'use client';
 
-// CoachProfileForm — the editable coach profile. One "Guardar cambios" persists
-// every field (name, bio, photo, specialties, certifications, studio, location)
-// via PATCH /api/coach/profile. The photo uploads to Vercel Blob first (POST
-// /api/coach/profile/avatar) and its URL is saved with the rest, so a single
-// save is atomic. Email is read-only (Clerk-owned). After a save we router
-// .refresh() so the server shell (header name + avatar) reflects the change.
+// CoachProfileForm — el perfil editable del entrenador. «Guardar cambios» persiste
+// nombre, bio, especialidades, certificaciones, box y ubicación de una vez, vía
+// PATCH /api/coach/profile. El email es de sólo lectura (lo lleva Clerk).
+//
+// LA FOTO VA APARTE, y es a propósito: se sube DIRECTA a Cloudflare Images y se guarda
+// en cuanto existe (ver lib/profile/photo-upload-client.ts). No puede esperar al botón
+// porque para entonces el fichero ya está subido: dejar la columna sin escribir sería
+// tener una foto en Cloudflare que ninguna fila referencia. Por eso elegirla la guarda,
+// y quitarla la borra — sin cambios pendientes de por medio.
+//
+// Tras cualquiera de las dos cosas se hace router.refresh() para que la cabecera y el
+// menú de cuenta, que se pintan en el servidor, muestren ya la foto nueva.
 
 import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,6 +27,14 @@ import {
 } from './controls';
 import { COACH_PROFILE_LIMITS } from '@/lib/coach/profile-schema';
 import type { CoachProfile } from '@/lib/coach/profile';
+import {
+  deleteProfilePhoto,
+  PROFILE_PHOTO_ACCEPT_ATTR,
+  PROFILE_PHOTO_ACCEPTED_LABEL,
+  PROFILE_PHOTO_MAX_LABEL,
+  ProfilePhotoUploadError,
+  uploadProfilePhoto,
+} from '@/lib/profile/photo-upload-client';
 import { cn } from '@/lib/utils';
 
 // One-tap suggestions only — the coach can type anything; these never constrain
@@ -28,10 +42,12 @@ import { cn } from '@/lib/utils';
 const SPECIALTY_SUGGESTIONS = ['HYROX', 'Híbrido', 'Running', 'Fuerza', 'CrossFit', 'Resistencia', 'Trail'];
 const CERT_SUGGESTIONS = ['HYROX Trainer', 'CrossFit L1', 'CrossFit L2', 'NSCA-CSCS'];
 
+// La foto NO está aquí: se guarda sola, así que no forma parte de «cambios sin
+// guardar» ni viaja en el PATCH. Meterla haría que el botón se encendiera por algo que
+// ya está guardado.
 type FormState = {
   full_name: string;
   bio: string;
-  avatar_url: string | null;
   specialties: string[];
   certifications: string[];
   studio_name: string;
@@ -42,7 +58,6 @@ function toForm(p: CoachProfile): FormState {
   return {
     full_name: p.full_name,
     bio: p.bio ?? '',
-    avatar_url: p.avatar_url,
     specialties: p.specialties,
     certifications: p.certifications,
     studio_name: p.studio_name ?? '',
@@ -60,8 +75,9 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
 
   const [saved, setSaved] = useState<FormState>(() => toForm(initial));
   const [form, setForm] = useState<FormState>(() => toForm(initial));
+  const [photo, setPhoto] = useState<string | null>(initial.avatar_url);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
 
@@ -75,22 +91,35 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
 
   const onPickPhoto = async (file: File) => {
     setError(null);
-    setUploading(true);
+    setOk(false);
+    setPhotoBusy(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/coach/profile/avatar', { method: 'POST', body: fd });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(data?.error?.message ?? 'No se pudo subir la imagen.');
-        return;
-      }
-      set('avatar_url', data.url as string);
-    } catch {
-      setError('No se pudo subir la imagen · Reintenta.');
+      setPhoto(await uploadProfilePhoto(file));
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof ProfilePhotoUploadError ? err.message : 'No se pudo subir la foto. Reintenta.',
+      );
     } finally {
-      setUploading(false);
+      setPhotoBusy(false);
       if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const onRemovePhoto = async () => {
+    setError(null);
+    setOk(false);
+    setPhotoBusy(true);
+    try {
+      await deleteProfilePhoto();
+      setPhoto(null);
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof ProfilePhotoUploadError ? err.message : 'No se pudo quitar la foto. Reintenta.',
+      );
+    } finally {
+      setPhotoBusy(false);
     }
   };
 
@@ -109,7 +138,6 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
         body: JSON.stringify({
           full_name: form.full_name,
           bio: form.bio,
-          avatar_url: form.avatar_url,
           specialties: form.specialties,
           certifications: form.certifications,
           studio_name: form.studio_name,
@@ -137,16 +165,16 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
     <Card className="flex flex-col gap-5 p-4 sm:p-5">
       {/* Photo */}
       <div className="flex items-center gap-4">
-        <AthleteAvatar name={form.full_name || initial.full_name} imageUrl={form.avatar_url} size="xl" />
+        <AthleteAvatar name={form.full_name || initial.full_name} imageUrl={photo} size="xl" />
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              disabled={uploading}
+              disabled={photoBusy}
               className={BTN_SECONDARY}
             >
-              {uploading ? (
+              {photoBusy ? (
                 <>
                   <MIcon name="progress_activity" size={16} className="animate-spin" />
                   Subiendo…
@@ -154,22 +182,29 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
               ) : (
                 <>
                   <MIcon name="photo_camera" size={16} />
-                  {form.avatar_url ? 'Cambiar foto' : 'Subir foto'}
+                  {photo ? 'Cambiar foto' : 'Subir foto'}
                 </>
               )}
             </button>
-            {form.avatar_url ? (
-              <button type="button" onClick={() => set('avatar_url', null)} className={BTN_GHOST}>
+            {photo ? (
+              <button
+                type="button"
+                onClick={() => void onRemovePhoto()}
+                disabled={photoBusy}
+                className={BTN_GHOST}
+              >
                 Quitar
               </button>
             ) : null}
           </div>
-          <p className="text-label text-[color:var(--v2-muted)]">JPG, PNG o WEBP · máx. 4 MB</p>
+          <p className="text-label text-[color:var(--v2-muted)]">
+            Se guarda al elegirla. {PROFILE_PHOTO_ACCEPTED_LABEL} · máx. {PROFILE_PHOTO_MAX_LABEL}
+          </p>
         </div>
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={PROFILE_PHOTO_ACCEPT_ATTR}
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

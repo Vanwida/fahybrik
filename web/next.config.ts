@@ -23,12 +23,11 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@fahybrid/shared"],
-  // Coach avatars are stored on Vercel Blob; allow next/image to optimize them.
-  // Public blob URLs are https://<storeId>.public.blob.vercel-storage.com/...
+  // Sin `remotePatterns`: las únicas imágenes remotas son las fotos de perfil, que
+  // llegan de Cloudflare Images ya en su tamaño y formato y se pintan `unoptimized`
+  // (ver components/v2/AthleteAvatar.tsx). Optimizar de nuevo lo ya optimizado sería
+  // pagar dos veces el mismo trabajo. El resto de imágenes son locales de public/.
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
-    ],
     // Next 16 requires every next/image `quality` to be whitelisted (default [75]).
     // The landing hero ships at quality 80 for the LCP photo.
     qualities: [75, 80],

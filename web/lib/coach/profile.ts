@@ -10,6 +10,8 @@ export interface CoachProfile {
   /** Clerk-owned, read-only here — surfaced so the form can show it. */
   email: string;
   bio: string | null;
+  /** Foto de perfil. Se LEE aquí, pero la escribe sólo `/api/perfil/foto/confirmar`:
+   *  una columna con dos escritores acaba divergiendo. */
   avatar_url: string | null;
   specialties: string[];
   certifications: string[];
@@ -75,8 +77,6 @@ export async function updateCoachProfile(
       await tx`update coaches set full_name = ${patch.full_name} where id = ${id}`;
     if (patch.bio !== undefined)
       await tx`update coaches set bio = ${patch.bio} where id = ${id}`;
-    if (patch.avatar_url !== undefined)
-      await tx`update coaches set avatar_url = ${patch.avatar_url} where id = ${id}`;
     if (patch.studio_name !== undefined)
       await tx`update coaches set studio_name = ${patch.studio_name} where id = ${id}`;
     if (patch.location !== undefined)
