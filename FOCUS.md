@@ -1,7 +1,35 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-11**
+Última actualización: **2026-08-12**
+
+---
+
+## Ahora · El doble alcanza al ciclo espina-first (12-ago)
+
+Espejo del Swift ya shipeado en `worktree-agent-ac7c0af96772233a4` (merge
+inminente, todavía no en esta rama). Tres commits:
+
+- **`plan-ciclo` pasa a `espejo`**: las cuatro divergencias declaradas de la
+  propuesta ya resueltas — reparto IGUAL entre las paradas que crecen (no
+  3:2:1:1), botón de cerrar (×) en el cromo, acción secundaria «VER LA
+  SEMANA» en mayúsculas. La tinta del texto pasado (muted, no 45% del tono)
+  se arregló en `plan-espina/Espina.tsx`, compartido con la nota del coach
+  y periodización — les toca igual.
+- **`plan-bloque` cromo + pie**: el encargo original pedía `plan-semana`,
+  pero `EntradaAlCiclo` y la composición héroe+carril viven en `plan-bloque`
+  (confirmado con main antes de tocar); `plan-semana` es otra propuesta del
+  29-jul, arquetipo Lista, sin héroe ni pie. Botón del ciclo sube al cromo
+  (nuevos iconos `IconStack`/`IconCalendar`/`IconMessage`), el pie desaparece
+  (código muerto borrado), el héroe absorbe el alto solo.
+- Typecheck + lint limpios; 966 tests del doble en verde.
+
+**`twin:desfase` con una entrada nueva y esperada:** `plan-ciclo` sale
+desfasado porque `PlanCicloAtoms.swift` y `CicloDelPlan.swift` no existen
+todavía en esta rama (viven en el worktree sin mergear) — no es contenido
+mal espejado, es que el merge no ha llegado. Re-correr `twin:desfase` tras
+el merge del ciclo espina-first. `benchmark-erg`/`devices`/`watch-live`
+siguen podridos de antes, ninguno de este lote.
 
 ---
 
