@@ -23,20 +23,20 @@
 // mental al pasar de cinco rondas a doce.
 
 import type { Modalidad } from '../../datos-reales';
+import { APOYOS_PT } from '../../kit-vivo';
 
 // ---------------------------------------------------------------------------
 // El presupuesto de alto — de aquí sale el umbral, y no de una preferencia
 // ---------------------------------------------------------------------------
+//
+// Lo que `MarcoVivo` deja para los apoyos en vertical son 213 pt, y ese número
+// ya no se escribe aquí: lo DERIVA `kit-vivo` de la propia `BANDA` (el lienzo
+// útil menos cromo, contexto, sujeto, acción y sus huecos). Subió al kit el
+// 11-ago, cuando la segunda familia —la cascada de apoyos del hierro— necesitó
+// el mismo presupuesto: escrito dos veces se desincroniza en cuanto alguien
+// toque el reparto del marco.
 
-/**
- * Lo que `MarcoVivo` deja para los apoyos en vertical.
- *
- * El lienzo del iPhone 17 Pro son 874 pt y los safe areas se llevan 59 + 34,
- * así que quedan 781 útiles. El marco reparte cromo 34 + contexto 46 + sujeto
- * 340 + acción 76, más cuatro huecos de 12 y 24 de relleno = 568. La resta es
- * el hueco REAL en el que tiene que caber la lista de rondas:
- */
-export const APOYOS_PT = 213;
+export { APOYOS_PT };
 
 /** Cabecera de la lista: la etiqueta y su relleno de 10 arriba y abajo. */
 const CABECERA_PT = 34;
