@@ -23,7 +23,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { ExerciseVideoError, readExerciseVideoState } from '@/lib/exercises/video-stream';
+import { CloudflareMediaError } from '@/lib/cloudflare/api';
+import { readExerciseVideoState } from '@/lib/exercises/video-stream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     return jsonOk(await readExerciseVideoState(uid.data));
   } catch (err) {
-    if (err instanceof ExerciseVideoError) {
+    if (err instanceof CloudflareMediaError) {
       return jsonError(err.code, err.message, err.status);
     }
     throw err;

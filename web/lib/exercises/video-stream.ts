@@ -29,14 +29,12 @@ import 'server-only';
 // segundo censo que puede contradecir al primero.
 
 import { fileExtension } from '@/lib/chat/schema';
+import { CloudflareMediaError, cloudflareAccountFetchRequired } from '@/lib/cloudflare/api';
 import {
   EXERCISE_VIDEO_EXTENSIONS,
   EXERCISE_VIDEO_MAX_DURATION_SECONDS,
   exerciseStreamRefFrom,
 } from '@/lib/exercises/video-source';
-
-/** La API de Cloudflare. */
-const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
 
 /**
  * Cuánto vive la dirección de subida. Lo dimensiona el peor caso legítimo: un vídeo
@@ -61,17 +59,6 @@ const REQUIRE_SIGNED_URLS = false;
  *  entrenador vive donde viven los vídeos, sin tabla nuestra que mantener a la par. */
 const CREATOR_PREFIX = 'coach:';
 
-export class ExerciseVideoError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-    this.name = 'ExerciseVideoError';
-  }
-}
-
 /** El sitio reservado en Stream para UN vídeo. */
 export interface ExerciseVideoUploadTarget {
   /** Dirección de un solo uso contra la que el navegador hace `POST` con el fichero. */
@@ -92,60 +79,17 @@ export type ExerciseVideoState =
   | { state: 'listo'; video_url: string }
   | { state: 'error'; message: string };
 
-interface CloudflareEnvelope<T> {
-  success: boolean;
-  result: T | null;
-  errors: { code: number; message: string }[];
-}
-
 interface StreamVideo {
   readyToStream: boolean;
   status?: { state?: string; pctComplete?: string; errorReasonText?: string } | null;
   playback?: { hls?: string } | null;
 }
 
-/** Cuenta y credencial, o un 503 honesto. Nunca se cae en silencio a otro camino: el
- *  respaldo mudo es lo que enmascaró durante semanas que en producción no se guardaba
- *  nada. */
-function credenciales(): { accountId: string; token: string } {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!accountId || !token) {
-    throw new ExerciseVideoError('storage_unavailable', 'El alojamiento de vídeo no está configurado', 503);
-  }
-  return { accountId, token };
-}
-
-/** Una llamada a Stream, con su sobre desenvuelto. Sin red de seguridad a propósito:
- *  si Cloudflare no contesta lo que debe, que se vea. */
-async function llamar<T>(path: string, init: RequestInit): Promise<T> {
-  const { accountId, token } = credenciales();
-  let res: Response;
-  try {
-    res = await fetch(`${CLOUDFLARE_API_BASE}/accounts/${accountId}/stream${path}`, {
-      ...init,
-      headers: { authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
-      cache: 'no-store',
-    });
-  } catch (err) {
-    throw new ExerciseVideoError(
-      'storage_unavailable',
-      `No se pudo hablar con el alojamiento de vídeo: ${err instanceof Error ? err.message : 'error de red'}`,
-      502,
-    );
-  }
-
-  let body: CloudflareEnvelope<T> | null = null;
-  try {
-    body = (await res.json()) as CloudflareEnvelope<T>;
-  } catch {
-    body = null;
-  }
-  if (!res.ok || !body?.success || body.result == null) {
-    const motivo = body?.errors?.[0]?.message ?? `respuesta ${res.status}`;
-    throw new ExerciseVideoError('storage_unavailable', `El alojamiento de vídeo falló: ${motivo}`, 502);
-  }
-  return body.result;
+/** Una llamada a Stream. La cuenta, la credencial, el sobre de la respuesta y la forma
+ *  de fallar son las mismas para todo lo que alojamos en Cloudflare, así que viven en
+ *  `lib/cloudflare/api.ts` y aquí sólo queda el camino de Stream. */
+function llamar<T>(path: string, init: RequestInit): Promise<T> {
+  return cloudflareAccountFetchRequired<T>(`/stream${path}`, init);
 }
 
 /**
@@ -170,9 +114,10 @@ export async function createExerciseVideoUploadTarget(args: {
 }): Promise<ExerciseVideoUploadTarget> {
   const ext = fileExtension(args.filename);
   if (!EXERCISE_VIDEO_EXTENSIONS.includes(ext)) {
-    throw new ExerciseVideoError(
+    throw new CloudflareMediaError(
       'invalid_extension',
       `Ese formato no se puede subir. Admitidos: ${EXERCISE_VIDEO_EXTENSIONS.join(', ')}.`,
+      400,
     );
   }
 

@@ -29,10 +29,8 @@ import { sql } from '@/lib/db';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { loadExerciseScope } from '@/lib/exercises/coach-override';
-import {
-  createExerciseVideoUploadTarget,
-  ExerciseVideoError,
-} from '@/lib/exercises/video-stream';
+import { CloudflareMediaError } from '@/lib/cloudflare/api';
+import { createExerciseVideoUploadTarget } from '@/lib/exercises/video-stream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -79,7 +77,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return jsonOk(target, 201);
   } catch (err) {
-    if (err instanceof ExerciseVideoError) {
+    if (err instanceof CloudflareMediaError) {
       return jsonError(err.code, err.message, err.status);
     }
     throw err;
