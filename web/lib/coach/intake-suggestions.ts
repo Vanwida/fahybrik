@@ -20,6 +20,7 @@ import {
   BENCH_SKI_1K,
   BENCH_HYROX_PRO,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { defaultTramoName } from './intake-schema';
 import type {
   AthleteLevel,
   IntakeBaselineTest,
@@ -39,7 +40,9 @@ export interface SuggestionBenchmark {
 // ("Microciclo N") — the coach renames, resizes and reorders every one; the ORDER
 // of microciclos IS the periodization. Advisory only, never a constraint.
 function microciclo(n: number, weeks: number): IntakeBlockSpec {
-  return { type: `Microciclo ${n}`, weeks };
+  // El nombre neutro vive en el esquema compartido (`defaultTramoName`) porque
+  // la pantalla lo necesita también, al añadir un tramo a mano en modo personal.
+  return { type: defaultTramoName(n), weeks };
 }
 
 export function proposeBlockSpecs(total_days: number): IntakeBlockSpec[] {

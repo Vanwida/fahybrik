@@ -22,7 +22,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 import { commitIntake } from '@/lib/coach/intake';
-import type { IntakeCommit } from '@/lib/coach/intake-schema';
+import type { IntakeCommitInput } from '@/lib/coach/intake-schema';
 
 describeWithDb('commitIntake — intake_notes_json aterriza como objeto (DB real)', () => {
   const sql = getTestSql();
@@ -40,7 +40,7 @@ describeWithDb('commitIntake — intake_notes_json aterriza como objeto (DB real
   });
 
   it("guarda un objeto jsonb real y ->>'level' devuelve el nivel — el lector de la IA", async () => {
-    const payload: IntakeCommit = {
+    const payload: IntakeCommitInput = {
       target_event_id: 1,
       block_specs: [{ type: 'Microciclo 1', weeks: 4 }],
       level: 3,
