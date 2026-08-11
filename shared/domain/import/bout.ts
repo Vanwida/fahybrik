@@ -189,19 +189,31 @@ export function parseBout(seg: string): Parsed | null {
       }));
     } else if (distIntervalRange) {
       p.sets = Array.from({ length: rounds }, () => ({
-        measure: { kind: 'distance', meters: distIntervalRange.meters, max: distIntervalRange.metersMax },
+        measure: {
+          kind: 'distance',
+          meters: distIntervalRange.meters,
+          ...(distIntervalRange.metersMax !== undefined ? { max: distIntervalRange.metersMax } : {}),
+        },
       }));
     } else if (wordInterval) {
       if (wordInterval.work_s_max !== undefined) {
         p.sets = Array.from({ length: rounds }, () => ({
-          measure: { kind: 'duration', seconds: wordInterval.work_s, max: wordInterval.work_s_max },
+          measure: {
+            kind: 'duration',
+            seconds: wordInterval.work_s,
+            ...(wordInterval.work_s_max !== undefined ? { max: wordInterval.work_s_max } : {}),
+          },
         }));
       } else {
         p.work_s = wordInterval.work_s;
       }
     } else if (calInterval) {
       p.sets = Array.from({ length: rounds }, () => ({
-        measure: { kind: 'calories', value: calInterval.calories, max: calInterval.caloriesMax },
+        measure: {
+          kind: 'calories',
+          value: calInterval.calories,
+          ...(calInterval.caloriesMax !== undefined ? { max: calInterval.caloriesMax } : {}),
+        },
       }));
     }
     const target = paceTarget ?? rpe?.target ?? zone ?? hrBpm ?? watts ?? caloriesGoal;

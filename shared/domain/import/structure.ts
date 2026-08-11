@@ -156,19 +156,31 @@ function parseComponentDose(text: string): ComponentDose | null {
   if (m) {
     const rest = parseMovementAndLoad(m[2]!);
     if (!rest) return null;
-    return { measure: { kind: 'distance', meters: parseInt(m[1]!, 10) }, token: rest.token, target: rest.target };
+    return {
+      measure: { kind: 'distance', meters: parseInt(m[1]!, 10) },
+      token: rest.token,
+      ...(rest.target !== undefined ? { target: rest.target } : {}),
+    };
   }
   m = s.match(/^(\d+)\s*cal(?:or[ií]as?)?\b\s*(.+)$/i);
   if (m) {
     const rest = parseMovementAndLoad(m[2]!);
     if (!rest) return null;
-    return { measure: { kind: 'calories', value: parseInt(m[1]!, 10) }, token: rest.token, target: rest.target };
+    return {
+      measure: { kind: 'calories', value: parseInt(m[1]!, 10) },
+      token: rest.token,
+      ...(rest.target !== undefined ? { target: rest.target } : {}),
+    };
   }
   m = s.match(/^(\d+)\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ].*)$/);
   if (m) {
     const rest = parseMovementAndLoad(m[2]!);
     if (!rest) return null;
-    return { measure: { kind: 'reps', value: parseInt(m[1]!, 10) }, token: rest.token, target: rest.target };
+    return {
+      measure: { kind: 'reps', value: parseInt(m[1]!, 10) },
+      token: rest.token,
+      ...(rest.target !== undefined ? { target: rest.target } : {}),
+    };
   }
   return null;
 }
@@ -227,7 +239,7 @@ export function tryRoundsComponents(line: string): ParsedLine[] | null {
   const out: ParsedLine[] = [];
   for (const { rounds, dose, segText } of parsedComponents) {
     const sets: PrescriptionSet[] = Array.from({ length: rounds }, () => ({
-      measure: dose.measure,
+      ...(dose.measure !== undefined ? { measure: dose.measure } : {}),
       ...(dose.target ? { target: dose.target } : {}),
     }));
     const p: Prescription = { scheme: 'for_time', rounds, sets, modality: modalityFrom(dose.token) ?? 'functional' };

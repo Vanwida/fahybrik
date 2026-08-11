@@ -76,7 +76,11 @@ export function parseCaloriesInterval(raw: string): CalorieInterval | null {
     const lo = parseInt(range[2]!, 10);
     const hi = parseInt(range[3]!, 10);
     if (hi >= lo) {
-      return { rounds: parseInt(range[1]!, 10), calories: lo, caloriesMax: hi > lo ? hi : undefined };
+      return {
+        rounds: parseInt(range[1]!, 10),
+        calories: lo,
+        ...(hi > lo ? { caloriesMax: hi } : {}),
+      };
     }
   }
   const point = raw.match(/(\d+)\s*x\s*(\d{1,4})\s*cal(?:or[ií]as?)?\b/i);
