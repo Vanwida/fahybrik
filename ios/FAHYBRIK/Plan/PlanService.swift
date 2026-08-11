@@ -321,6 +321,16 @@ enum PlanService {
         try await APIClient.shared.get(path: "api/athlete/macro-progress", bearer: bearer)
     }
 
+    /// EL CICLO ENTERO — la estructura publicada, dónde cae hoy, qué pasa al
+    /// acabar y la carrera que cierra. Es lo que pinta `PlanCicloView`.
+    ///
+    /// Es una petición aparte de `/plan/week` a propósito: la semana se pide en
+    /// cada aparición de la pestaña y el ciclo cambia cuando el coach publica —
+    /// meterlo dentro encarecería la carga que sí es constante.
+    static func fetchCiclo(bearer: String) async throws -> CicloDelPlanResponse {
+        try await APIClient.shared.get(path: "api/athlete/plan/ciclo", bearer: bearer)
+    }
+
     /// Fetch the full detail of an assignment (workout blocks + items + params)
     /// for a given assignment id. The endpoint returns `workout: null` on rest
     /// days; callers must handle that branch.

@@ -80,6 +80,7 @@ final class AppDataStore {
     var identity = Slice<AthleteIdentity>()                 // /auth/me           — Inicio, Perfil
     var planWeek = Slice<AthletePlanWeekResponse>()         // /plan/week (offset 0) — Inicio, Plan, Perfil(coach)
     var macroProgress = Slice<AthleteMacroProgressResponse>() // /macro-progress  — Inicio week tile
+    var planCiclo = Slice<CicloDelPlanResponse>()            // /plan/ciclo        — Plan (la vista del ciclo)
     var readiness = Slice<DailyReadinessPayload>()          // /readiness/today   — Inicio
     var strengthMaxes = Slice<[StrengthMaxProfile]>()       // /benchmarks        — Inicio ("Tu progreso") + Perfil
     var runningAnalysis = Slice<RunningAnalysis>()          // /running-analysis  — Inicio ("Tu progreso · carrera") + Carreras
@@ -165,6 +166,7 @@ final class AppDataStore {
             identity = snapshot.identity
             planWeek = snapshot.planWeek
             macroProgress = snapshot.macroProgress
+            planCiclo = snapshot.planCiclo
             readiness = snapshot.readiness
             strengthMaxes = snapshot.strengthMaxes
             runningAnalysis = snapshot.runningAnalysis
@@ -188,6 +190,7 @@ final class AppDataStore {
         identity = .init()
         planWeek = .init()
         macroProgress = .init()
+        planCiclo = .init()
         readiness = .init()
         strengthMaxes = .init()
         runningAnalysis = .init()
@@ -257,20 +260,24 @@ final class AppDataStore {
         _ = await (i, p, r)
     }
 
-    /// Plan: the current week, the macro progress and the partner (for the
-    /// "Con [X]" badges).
+    /// Plan: the current week, the macro progress, the cycle and the partner (for
+    /// the "Con [X]" badges).
     ///
     /// The macro slice joined this group on 6-ago, when the Plan tab became the
     /// screen that answers "¿dónde estoy dentro del bloque?": its header reads
-    /// "Semana N de M" and its footer opens PlanCicloView, and BOTH live on
-    /// /macro-progress. Without it here the position appeared only after a detour
-    /// through Inicio (the other screen that warms the slice), and the cycle
-    /// screen opened on a spinner instead of on its data.
+    /// "Semana N de M" off /macro-progress. Without it here the position appeared
+    /// only after a detour through Inicio (the other screen that warms the slice).
+    ///
+    /// El ciclo (11-ago) entra por la MISMA razón: se abre desde el cromo de esta
+    /// pestaña, así que se calienta con ella y la pantalla abre pintada en vez de
+    /// girar. Ya no sale de /macro-progress — tiene su propio endpoint, que es el
+    /// que trae la estructura entera (tramos, hitos, política y carrera).
     func loadPlanScreen(force: Bool = false) async {
         async let p: Void = refreshPlanWeek(force: force)
         async let m: Void = refreshMacroProgress(force: force)
+        async let c: Void = refreshPlanCiclo(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (p, m, pa)
+        _ = await (p, m, c, pa)
     }
 
     /// Perfil: identity, partner, subscription, the week (for the coach name) and
@@ -369,6 +376,12 @@ final class AppDataStore {
     func refreshMacroProgress(force: Bool = false) async {
         await revalidate(get: { self.macroProgress }, set: { self.macroProgress = $0 }, force: force) {
             try await PlanService.fetchMacroProgress(bearer: $0)
+        }
+    }
+
+    func refreshPlanCiclo(force: Bool = false) async {
+        await revalidate(get: { self.planCiclo }, set: { self.planCiclo = $0 }, force: force) {
+            try await PlanService.fetchCiclo(bearer: $0)
         }
     }
 
@@ -611,6 +624,7 @@ final class AppDataStore {
             identity: identity,
             planWeek: planWeek,
             macroProgress: macroProgress,
+            planCiclo: planCiclo,
             readiness: readiness,
             strengthMaxes: strengthMaxes,
             runningAnalysis: runningAnalysis,
@@ -643,6 +657,7 @@ enum AppDataPersistence {
         var identity: Slice<AthleteIdentity>
         var planWeek: Slice<AthletePlanWeekResponse>
         var macroProgress: Slice<AthleteMacroProgressResponse>
+        var planCiclo: Slice<CicloDelPlanResponse>
         var readiness: Slice<DailyReadinessPayload>
         var strengthMaxes: Slice<[StrengthMaxProfile]>
         var runningAnalysis: Slice<RunningAnalysis>
@@ -667,7 +682,9 @@ enum AppDataPersistence {
     // refetch on launch) — no migration code, no stale-shape risk.
     // v7 adds the coach-communications inbox («Del coach»), cached so lo que el
     // atleta marcó sin cobertura siga ahí al reabrir la app.
-    private static let key = "fahybrik.appDataStore.v7"
+    // v8 añade la porción del CICLO (/plan/ciclo), para que la vista del camino
+    // abra pintada —incluso sin cobertura— igual que el resto de la app.
+    private static let key = "fahybrik.appDataStore.v8"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
