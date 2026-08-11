@@ -583,3 +583,40 @@ export function IconHeart({ size = 12 }: { size?: number }) {
     </svg>
   );
 }
+
+/** `square.stack.3d.up` — el ciclo entero: tres paradas apiladas, una encima
+ *  de otra, igual que las etapas de la espina. */
+export function IconStack({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <path
+        d="M8 2.2 13.6 4.6 8 7 2.4 4.6Z M8 6.9 13.6 9.3 8 11.7 2.4 9.3Z M8 10.9 13.6 13.3 8 15.7 2.4 13.3Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** `calendar` — el historial de entrenos. */
+export function IconCalendar({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <rect x="2" y="3.4" width="12" height="10.8" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 6.6h12" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5.4 1.7v2.6M10.6 1.7v2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** `message` — el chat con el coach. */
+export function IconMessage({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <rect x="1.8" y="2.6" width="12.4" height="8.6" rx="3.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5 11.2v2.6l3.2-2.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
