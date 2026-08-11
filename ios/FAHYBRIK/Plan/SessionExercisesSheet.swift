@@ -138,8 +138,7 @@ struct SessionExercisesSheet: View {
     }
 
     private func hasVideo(_ item: WorkoutItem) -> Bool {
-        guard let url = item.exerciseVideoUrl else { return false }
-        return YouTubeLinkParser.videoId(from: url) != nil
+        VideoDeTecnica.hay(en: item.exerciseVideoUrl)
     }
 
     // MARK: - Non-content states

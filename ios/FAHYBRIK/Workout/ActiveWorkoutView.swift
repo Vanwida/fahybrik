@@ -403,7 +403,7 @@ struct ActiveWorkoutView: View {
             resumeAfterVideo = false
         }) {
             if let url = session.currentSegment?.videoUrl {
-                YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
+                VideoDeTecnicaSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
             }
         }
     }
@@ -459,8 +459,7 @@ struct ActiveWorkoutView: View {
     }
 
     private var segmentHasVideo: Bool {
-        session.currentSegment?.videoUrl != nil
-            && YouTubeLinkParser.videoId(from: session.currentSegment!.videoUrl!) != nil
+        VideoDeTecnica.hay(en: session.currentSegment?.videoUrl)
     }
 
     // `attemptPM5IfNeeded()` USED TO LIVE HERE, called on appear and on EVERY segment

@@ -29,9 +29,8 @@ struct StationDetailView: View {
     /// parseado. Nil mientras carga, cuando el coach no ha puesto ninguno, o
     /// cuando el enlace no es reproducible: en los tres casos la pantalla no
     /// promete un vídeo que no existe.
-    private var tecnica: YouTubeLinkParser.Video? {
-        guard let url = detail?.technique_video_url else { return nil }
-        return YouTubeLinkParser.parse(from: url)
+    private var tecnica: VideoDeTecnica? {
+        VideoDeTecnica(detail?.technique_video_url)
     }
 
     var body: some View {
@@ -48,7 +47,7 @@ struct StationDetailView: View {
                     // (nunca se sale a Safari). Sin vídeo no se pinta nada: un
                     // reclamo que no lleva a ninguna parte es peor que el hueco.
                     if let tecnica {
-                        YouTubePlayer(video: tecnica)
+                        VideoDeTecnicaPlayer(video: tecnica)
                             .accessibilityLabel("Vídeo de técnica de \(station)")
                     }
 

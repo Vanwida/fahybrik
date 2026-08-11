@@ -1,13 +1,18 @@
 import UIKit
+import UniformTypeIdentifiers
 
-// Loads chat attachments through the AUTHENTICATED proxy
-// (`/api/chat/attachments/...`). That endpoint requires the athlete bearer and,
-// in production, 302-redirects to a short-lived signed blob URL (in dev it
-// streams the bytes directly). A plain `AsyncImage` / `AVPlayer(url:)` sends NO
-// Authorization header and would get 401 — so every REMOTE attachment is fetched
-// here with the bearer. URLSession follows the redirect automatically; the
-// signed target is pre-authenticated, so it resolves whether or not the header
-// survives the cross-host hop.
+// Loads media that lives behind our own AUTHENTICATED endpoints: los adjuntos del
+// chat (`/api/chat/attachments/...`) y el vídeo de técnica que sube el entrenador
+// (`/api/exercises/video/<key>`, ver `VideoPropioPlayer`). Los dos piden lo mismo
+// —bearer, seguir el redirect y acabar en un fichero local—, así que se resuelve
+// una sola vez y aquí.
+//
+// Esos endpoints requieren el bearer del atleta y, in production, 302-redirect to
+// a short-lived signed blob URL (in dev they stream the bytes directly). A plain
+// `AsyncImage` / `AVPlayer(url:)` sends NO Authorization header and would get 401
+// — so every REMOTE file is fetched here with the bearer. URLSession follows the
+// redirect automatically; the signed target is pre-authenticated, so it resolves
+// whether or not the header survives the cross-host hop.
 //
 // Caching: decoded images are held in an NSCache (cost = byte size, auto-evicted
 // under memory pressure); voice / video / file bytes are materialised to a temp
@@ -64,10 +69,10 @@ actor ChatMediaLoader {
         if let running = fileTasks[remoteURL] { return try await running.value }
 
         let task = Task<URL, Error> {
-            let (data, _) = try await Self.fetchBytes(remoteURL, bearer: bearer)
-            let ext = ChatAttachmentInfer.fileExtension(fromURLString: remoteURL) ?? "bin"
+            let (data, mime) = try await Self.fetchBytes(remoteURL, bearer: bearer)
+            let ext = Self.fileExtension(remoteURL: remoteURL, mime: mime)
             let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent("chat-\(UUID().uuidString).\(ext)")
+                .appendingPathComponent("media-\(UUID().uuidString).\(ext)")
             try data.write(to: dest, options: .atomic)
             return dest
         }
@@ -90,6 +95,20 @@ actor ChatMediaLoader {
     /// Same idea for images — seed the decoded image cache.
     func seedImage(remoteURL: String, image: UIImage) {
         imageCache.setObject(image, forKey: remoteURL as NSString, cost: image.byteCost)
+    }
+
+    /// La extensión del fichero temporal. AVFoundation y QuickLook deducen el tipo
+    /// POR LA EXTENSIÓN, así que este dato decide si el vídeo se reproduce o no.
+    ///
+    /// Un adjunto de chat la trae en la URL (`<uuid>.mp4`), pero una ruta de API
+    /// (`/api/exercises/video/<key>`) no lleva ninguna: ahí manda el `Content-Type`
+    /// de la respuesta. Sin ninguna de las dos, `bin` (y que lo intente el sistema).
+    private static func fileExtension(remoteURL: String, mime: String?) -> String {
+        if let ext = ChatAttachmentInfer.fileExtension(fromURLString: remoteURL) { return ext }
+        // El header puede venir con parámetros ("video/mp4; charset=..."): sólo el tipo.
+        guard let mime, let head = mime.split(separator: ";").first else { return "bin" }
+        let tipo = String(head).trimmingCharacters(in: .whitespaces)
+        return UTType(mimeType: tipo)?.preferredFilenameExtension ?? "bin"
     }
 
     // MARK: - Raw authenticated fetch

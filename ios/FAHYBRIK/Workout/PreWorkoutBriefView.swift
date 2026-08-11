@@ -908,9 +908,10 @@ struct PreWorkoutBriefView: View {
     }
 
     /// Sólo cuando hay vídeo REPRODUCIBLE — es lo que decide si el acceso se
-    /// anuncia con el play o con la «i» de información.
+    /// anuncia con el play o con la «i» de información. Da igual que el coach haya
+    /// pegado un enlace o subido el fichero: eso lo resuelve `VideoDeTecnica`.
     private func hasTechniqueVideo(_ item: WorkoutItem) -> Bool {
-        item.exerciseVideoUrl.flatMap { YouTubeLinkParser.videoId(from: $0) } != nil
+        VideoDeTecnica.hay(en: item.exerciseVideoUrl)
     }
 
     @ViewBuilder

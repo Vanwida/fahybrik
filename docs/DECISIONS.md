@@ -10,6 +10,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 · El vídeo de un ejercicio: dos formas de localizador, una sola pieza que clasifica
+
+**Decidido:** `exercise_video_url` (y sus gemelos `technique_video_url` y
+`WorkoutSegment.videoUrl`) tiene **exactamente dos formas válidas**:
+
+1. una **URL de YouTube** — se reproduce con el embed que ya existe;
+2. una **ruta relativa nuestra**, `/api/exercises/video/<key>` — el fichero que
+   sube el propio entrenador, servido tras autenticación, y que iOS reproduce
+   con `AVPlayer` nativo pidiéndolo con el bearer de la sesión.
+
+Cualquier otra cosa (un enlace a otro alojamiento, texto suelto, vacío) **no es
+vídeo**: no se pinta nada, ni botón ni reproductor.
+
+**Por qué:** el mecanismo es nuestro, el contenido es del coach (HARD RULE Nº0).
+Obligar a que la técnica viva en YouTube es imponerle a cada entrenador dónde
+alojar SU material — y muchos no quieren su biblioteca en abierto. Que pueda
+subir el fichero es producto, no capricho.
+
+**Qué NO hacer en consecuencia:**
+
+- **No volver a preguntar «¿esto tiene vídeo?» mirando la URL en una vista.** La
+  pregunta la responde `VideoDeTecnica` (`ios/FAHYBRIK/Media/YouTubeEmbedView.swift`)
+  y nadie más. Ese fue el fallo original: `YouTubeLinkParser.videoId(from:) != nil`
+  repetido en cinco vistas, así que añadir una segunda forma de vídeo las rompía
+  todas a la vez y en silencio.
+- **No cablear la ruta concreta** `/api/exercises/video/`. El criterio es «es una
+  ruta relativa», que solo puede apuntar a nuestro propio servidor; así el día que
+  el backend sirva el fichero por otro camino esto sigue siendo verdad.
+- **No usar `AVPlayer(url:)` a pelo** contra un endpoint nuestro: va sin cabecera
+  de autorización y vuelve 401. Se resuelve a fichero local con el bearer.
+
+**Eliminado:** `YouTubeLinkParser.videoId(from:)` y `Video.isShort`, que se
+quedaron sin llamantes. `YouTubeSheet` pasa a ser `VideoDeTecnicaSheet` y sirve
+las dos formas con la misma chapa (título, «Cerrar», y en el entreno en vivo la
+misma pausa del cronómetro).
+
+**Pendiente al cerrar esta decisión:** el backend aún no sirve
+`/api/exercises/video/<key>` ni existe la subida en el dashboard. iOS ya lo
+entiende, así que el día que llegue el dato no hay que tocar la app.
+
+---
+
 ## 2026-08-11 · Biometría de la ficha = Whoop/Oura para el coach (no dump de reloj)
 
 **Decidido:** la pestaña **Biometría** de la ficha del atleta se diseña y se mide

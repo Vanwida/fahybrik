@@ -944,3 +944,82 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(exec.notes, "entreno libre de prueba")
     }
 }
+
+// MARK: - El localizador del vídeo de técnica
+
+/// `exercise_video_url` (y su gemelo de estación `technique_video_url`) tiene DOS
+/// formas válidas y ninguna más: un enlace de YouTube o una ruta nuestra
+/// («/api/exercises/video/<key>», el fichero que sube el entrenador). Aquí se pinta
+/// esa frontera, porque de ella depende que un vídeo perfectamente válido se vea o
+/// se quede invisible.
+final class VideoDeTecnicaTests: XCTestCase {
+    // MARK: Nada
+
+    func test_sinLocalizador_noHayVideo() {
+        XCTAssertNil(VideoDeTecnica(nil))
+        XCTAssertNil(VideoDeTecnica(""))
+        XCTAssertNil(VideoDeTecnica("   \n "))
+        XCTAssertFalse(VideoDeTecnica.hay(en: nil))
+    }
+
+    func test_localizadorQueNoEsNingunaDeLasDosFormas_noHayVideo() {
+        // Ni un enlace a otro sitio, ni texto suelto, ni un fichero absoluto ajeno.
+        XCTAssertNil(VideoDeTecnica("https://vimeo.com/123456789"))
+        XCTAssertNil(VideoDeTecnica("https://cdn.ajeno.com/tecnica.mp4"))
+        XCTAssertNil(VideoDeTecnica("sentadilla frontal"))
+        XCTAssertNil(VideoDeTecnica("https://www.youtube.com/watch?v=corto"))
+    }
+
+    // MARK: YouTube
+
+    func test_youtube_todasLasGrafias() {
+        // Las dos que vienen de prod (fixtures de arriba) + las formas restantes.
+        let casos: [(String, String)] = [
+            ("https://www.youtube.com/watch?v=brFHyOtTwH4", "brFHyOtTwH4"),
+            ("https://www.youtube.com/watch?v=QPvYrfyGHi8", "QPvYrfyGHi8"),
+            ("https://youtu.be/brFHyOtTwH4", "brFHyOtTwH4"),
+            ("https://www.youtube.com/embed/brFHyOtTwH4", "brFHyOtTwH4"),
+            ("youtube.com/watch?v=brFHyOtTwH4", "brFHyOtTwH4"),
+        ]
+        for (url, id) in casos {
+            guard case .youtube(let video)? = VideoDeTecnica(url) else {
+                return XCTFail("\(url) tenía que clasificarse como YouTube")
+            }
+            XCTAssertEqual(video.id, id)
+            XCTAssertEqual(video.orientation, .landscape, "\(url) es apaisado")
+        }
+    }
+
+    func test_youtubeShort_seSabeQueEsVertical() {
+        guard case .youtube(let video)? = VideoDeTecnica("https://www.youtube.com/shorts/brFHyOtTwH4") else {
+            return XCTFail("Un Short es un vídeo de YouTube")
+        }
+        XCTAssertEqual(video.orientation, .portrait)
+        XCTAssertEqual(video.orientation.ratio, 9.0 / 16.0)
+    }
+
+    // MARK: Fichero propio
+
+    func test_rutaNuestra_esFicheroPropio_resueltoContraLaBaseDeLaAPI() {
+        guard case .propio(let url)? = VideoDeTecnica("/api/exercises/video/abc123") else {
+            return XCTFail("Una ruta relativa es un fichero nuestro")
+        }
+        XCTAssertEqual(url.path, "/api/exercises/video/abc123")
+        XCTAssertEqual(url.host, APIBase.url.host, "Se resuelve contra la base de la API, no contra otro sitio")
+        XCTAssertTrue(VideoDeTecnica.hay(en: "/api/exercises/video/abc123"))
+    }
+
+    /// El criterio es «ruta relativa», no la ruta concreta cableada: el día que el
+    /// backend sirva el fichero por otro camino esto tiene que seguir funcionando.
+    func test_cualquierRutaRelativa_esFicheroPropio() {
+        guard case .propio(let url)? = VideoDeTecnica("/api/exercises/video/v2/xyz.mp4") else {
+            return XCTFail("Toda ruta relativa apunta a nuestro propio servidor")
+        }
+        XCTAssertEqual(url.path, "/api/exercises/video/v2/xyz.mp4")
+    }
+
+    func test_espaciosAlrededor_noRompenLaClasificacion() {
+        XCTAssertTrue(VideoDeTecnica.hay(en: "  /api/exercises/video/abc123  "))
+        XCTAssertTrue(VideoDeTecnica.hay(en: " https://youtu.be/brFHyOtTwH4\n"))
+    }
+}

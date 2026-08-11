@@ -5,6 +5,29 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · El vídeo del ejercicio deja de depender de YouTube (11-ago)
+
+La app solo sabía reproducir técnica si el enlace era de YouTube: el portero
+literal era `YouTubeLinkParser.videoId(from:) != nil`, repetido a mano en CINCO
+vistas. En cuanto el entrenador suba su propio fichero en vez de pegar un
+enlace, ese vídeo se quedaba invisible: ni botón, ni reproductor.
+
+**Hecho (iOS, construido y con tests):** el localizador tiene dos formas válidas
+y ninguna más — enlace de YouTube, o ruta nuestra `/api/exercises/video/<key>`
+servida tras autenticación. Las clasifica UNA pieza, `VideoDeTecnica`
+(`ios/FAHYBRIK/Media/YouTubeEmbedView.swift`), que además decide qué reproductor
+se monta: el embed de siempre o `AVPlayer` nativo. Las cinco vistas (ficha del
+ejercicio, índice de técnica de la sesión, previa del entreno, estación de
+carrera, entreno en vivo) ya no miran la URL a mano. El fichero propio se pide
+con el bearer de la sesión reutilizando el cargador autenticado del chat; sin
+localizador no se pinta nada, y si no carga se dice y se puede reintentar.
+
+**Falta:** el backend todavía no sirve `/api/exercises/video/<key>` ni hay
+subida de fichero en el dashboard — el lado iOS está listo esperándolo. Enlaza
+con la biblioteca de ejercicios de abajo, que midió **0 vídeos** en el catálogo.
+
+---
+
 ## Ahora · La biblioteca de ejercicios: cimiento puesto, cableado pendiente (11-ago)
 
 Idea de Alex: el catálogo es corto, está desordenado y no habla castellano
