@@ -156,12 +156,14 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   cromo, ~124 pt), «Tu media» a una línea (la raíz del presupuesto), test del
   estado pintado; R3 **INSTALAR** (cinco cromos limpios medidos por píxel,
   1169/1169 — el «1280» del commit no era reproducible). **Instalado en el
-  iPhone de Alex (11-ago).** Flecos para R4, enrutados: el SE 3 pequeño aún
-  desborda en el peor cromo, falta nivel intermedio 368→124 (+contraste AA
-  de la cuenta en suelo: 3.08:1), y el suelo recorta el deshacer (función,
-  no información). Hallazgo de fondo para DECISIONS (lo escribe la otra
-  sesión): `MarcoVivo` tiene CERO llamadas en el repo — el régimen §10 no
-  tiene host real.
+  iPhone de Alex (11-ago).** De los flecos R4, dos cayeron ya en `1bab1f7b`
+  (el suelo lleva el chip del deshacer — una función no se recorta — y la
+  cuenta pasa AA con `muted`); quedan, sin prisa: **iPhone SE 3** (con
+  ergo+dobles el hueco baja a 32 pt — ahí debe colapsar el CROMO, no el
+  contador: diseño propio) y un **nivel intermedio** entre compacto (368) y
+  suelo (~145) para huecos de 200-270. Hallazgo de fondo para DECISIONS (lo
+  escribe la otra sesión): `MarcoVivo` tiene CERO llamadas en el repo — el
+  régimen §10 no tiene host real.
 - **Incidente de datos (11-ago, resuelto — y era Alex xD):** la sesión real
   del fartlek dictado (asignación 411) apareció con 4 ejes cambiados (el
   prefill del arquetipo fartlek, `archetype-prefills.ts:58`). Se culpó primero
@@ -172,9 +174,10 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   restaurada. Moraleja doble: el actor obligatorio en las escrituras del panel
   (en vuelo) habría resuelto esto en un minuto, y el footgun del symlink
   `.env.local` sigue armado aunque esta vez no disparó (memoria + DECISIONS).
-- Pendiente de Alex: probar en su iPhone el EMPEZAR arreglado y el contador
-  nuevo (los fixes están commiteados; instalar necesita su móvil alcanzable
-  por cable/wifi o Run desde Xcode).
+- Pendiente de Alex: PROBAR en su iPhone (ya instalado) el EMPEZAR arreglado
+  y el contador — receta: dictar «WOD de 8 rondas: 10 cal Assault Bike,
+  7 burpee box jump, 10 chest to bar, tope 17'» y darle a EMPEZAR. Los dos
+  retoques de `1bab1f7b` llegarán en la siguiente instalación.
 
 ## PENDIENTES — importar un plan y planificar (lo abierto, en orden)
 
