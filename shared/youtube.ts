@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 const YT_ID_RE = /^[\w-]{11}$/;
 
 /**
@@ -91,14 +89,10 @@ export function youtubeCanonicalUrl(link: YouTubeLink): string {
   return link.isShort ? youtubeShortsUrl(link.id) : youtubeWatchUrl(link.id);
 }
 
-export const youtubeUrlSchema = z
-  .string()
-  .max(500)
-  .refine((v) => v === '' || isValidYouTubeUrl(v), {
-    message: 'Must be a valid YouTube URL',
-  })
-  .transform((v) => {
-    if (!v || v.trim() === '') return null;
-    const link = parseYouTubeLink(v);
-    return link ? youtubeCanonicalUrl(link) : null;
-  });
+// AQUÍ NO HAY SCHEMA DE `video_url`, y es a propósito. El vídeo de un ejercicio ya
+// no es «un enlace de YouTube»: es un localizador que puede ser un enlace de YouTube
+// O un fichero que subió el entrenador. Su validación —una sola, la que aplican el
+// alta, la edición y el campo del panel— vive en `web/lib/exercises/video-source.ts`
+// y usa este módulo para la mitad de YouTube. El `youtubeUrlSchema` que había aquí
+// rechazaba todo lo que no fuera YouTube; dejarlo vivo sería dejar puesta la
+// validación equivocada esperando a que alguien la vuelva a enchufar.

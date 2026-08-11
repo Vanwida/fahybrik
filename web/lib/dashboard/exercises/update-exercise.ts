@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema } from '@fahybrid/shared/domain/prescription';
-import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
+import { exerciseVideoSchema } from '@/lib/exercises/video-source';
 import { sql, type Sql } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 
@@ -30,8 +30,10 @@ const trimmedText = (max: number) =>
 /**
  * Partial update body. Every field is optional; only the keys present in the
  * request are written. `description` / `cues` accept multi-line text and
- * normalize empty → null. `video_url` is validated and canonicalized to a watch
- * URL (or null) by the shared YouTube schema.
+ * normalize empty → null. `video_url` goes through `exerciseVideoSchema` — THE one
+ * validator for the field, shared with the create path and with the panel: a
+ * YouTube link (canonicalized, Shorts kept vertical) or the locator of a file the
+ * coach uploaded, and nothing else (lib/exercises/video-source.ts).
  *
  * `name` normalizes empty → null like the other three FORKABLE fields, and that
  * symmetry is the point: on a BASE exercise, clearing a field clears the coach's
@@ -53,7 +55,7 @@ export const updateExerciseSchema = z
     name: trimmedText(120),
     description: trimmedText(2000).nullable(),
     cues: trimmedText(2000).nullable(),
-    video_url: youtubeUrlSchema,
+    video_url: exerciseVideoSchema,
     category: exerciseCategory,
     // Declared, never derived — see `createExercise`. On a BASE exercise this is
     // shared identity and the route refuses it (409); on the coach's OWN exercise

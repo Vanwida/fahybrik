@@ -3,8 +3,8 @@ import {
   isValidYouTubeUrl,
   parseYouTubeLink,
   parseYouTubeVideoId,
+  youtubeCanonicalUrl,
   youtubeEmbedUrl,
-  youtubeUrlSchema,
   youtubeWatchUrl,
 } from '@fahybrid/shared/youtube';
 
@@ -67,23 +67,22 @@ describe('Shorts — la forma se conserva', () => {
     });
   });
 
-  it('GUARDA un Short como /shorts/, no como watch', () => {
-    expect(youtubeUrlSchema.parse('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe(
-      'https://www.youtube.com/shorts/dQw4w9WgXcQ',
-    );
+  it('canoniza un Short como /shorts/, no como watch', () => {
+    expect(
+      youtubeCanonicalUrl(parseYouTubeLink('https://www.youtube.com/shorts/dQw4w9WgXcQ')!),
+    ).toBe('https://www.youtube.com/shorts/dQw4w9WgXcQ');
   });
 
-  it('un vídeo normal se sigue guardando como watch', () => {
-    expect(youtubeUrlSchema.parse('https://youtu.be/dQw4w9WgXcQ')).toBe(
+  it('un vídeo normal se sigue canonizando como watch', () => {
+    expect(youtubeCanonicalUrl(parseYouTubeLink('https://youtu.be/dQw4w9WgXcQ')!)).toBe(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
-    expect(youtubeUrlSchema.parse('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(
-      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    );
-  });
-
-  it('el vacío sigue siendo null y lo inválido sigue fallando', () => {
-    expect(youtubeUrlSchema.parse('')).toBeNull();
-    expect(() => youtubeUrlSchema.parse('https://vimeo.com/123')).toThrow();
+    expect(
+      youtubeCanonicalUrl(parseYouTubeLink('https://www.youtube.com/embed/dQw4w9WgXcQ')!),
+    ).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
   });
 });
+
+// El schema del campo `video_url` ya NO vive aquí: un vídeo de ejercicio puede ser
+// un enlace de YouTube o un fichero del entrenador, así que su validación (una sola)
+// está en lib/exercises/video-source.ts y se prueba en tests/exercises/video-source.test.ts.

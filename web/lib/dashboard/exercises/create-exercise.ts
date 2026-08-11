@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema } from '@fahybrid/shared/domain/prescription';
-import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
+import { exerciseVideoSchema } from '@/lib/exercises/video-source';
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exercise';
@@ -29,14 +29,15 @@ import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exerci
 
 // Category drives the catalog ordering; modality is the intrinsic discipline the
 // analytics group by. Both are required — a movement whose kind we don't know is a
-// movement we can't reason about. `video_url` reuses the shared YouTube schema
-// (validate + canonicalize to a watch URL, or null).
+// movement we can't reason about. `video_url` reuses `exerciseVideoSchema`, THE one
+// validator for the field: a YouTube link (canonicalized) or the locator of a file
+// the coach uploaded, and nothing else (lib/exercises/video-source.ts).
 export const createExerciseSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     category: exerciseCategory,
     modality: modalitySchema,
-    video_url: youtubeUrlSchema.optional(),
+    video_url: exerciseVideoSchema.optional(),
   })
   .strict();
 
