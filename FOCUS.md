@@ -5,21 +5,21 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Ficha del atleta (dashboard coach) — pestaña a pestaña hasta el 100%
+## Ahora · Ficha del atleta — Biometría Whoop/Oura (coach)
 
-**Regla:** no se pasa a la siguiente pestaña hasta que la actual esté perfecta
-(audit + fix bajo lente UX + circular). Doc vivo:
-`docs/audits/ficha-atleta-tabs-2026-08-11.md`.
+**Decisión (DECISIONS 11-ago):** Biometría se mide como Whoop Recovery / Oura
+Readiness en vista coach — veredicto primero, vs baseline del atleta, agudo →
+crónico → fitness lento, check-in junto a la bio, CTA al Plan si hay que bajar.
 
-**Hecho (banda fija + Perfil):**
-- Header: intake clickable → `/atletas/{id}/intake`; Mensaje → hilo en ficha
-  (`?tab=mensajes`); badge Perfil si intake o tests sin resultado.
-- Perfil: fuera botones que mentían (ajustar / lápiz / versiones); zonas = RO +
-  link a Ritmos; «Falta resultado» → Registrar en Ritmos; banner Revisar intake;
-  aviso si días reales ≠ días Clasificación; tests ref ampliados (sin 1RM dupe).
+**Hecho:** `BiometriaTab` rediseñada + `biometria-recovery.ts` (veredicto green/
+yellow/red/unknown) + tests; VO₂ y peso; sueño con arquitectura si hay; circular
+con Plan. Doc auditoría actualizado.
 
-**Siguiente:** re-verify Perfil en browser → declarar 100% → **Plan actual**
-(PL1 missed en tira, multi-sesión, etc. ya auditados, sin fix aún).
+**Siguiente:** re-verify Biometría en prod/local → 100% → retomar cola
+(Perfil re-verify si falta, Plan PL1…).
+
+**Antes (Perfil, en prod `c9vgnzsyt`):** header intake + mensaje al hilo; CTAs
+muertos fuera.
 
 ---
 

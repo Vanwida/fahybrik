@@ -10,6 +10,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 · Biometría de la ficha = Whoop/Oura para el coach (no dump de reloj)
+
+**Decidido:** la pestaña **Biometría** de la ficha del atleta se diseña y se mide
+contra el estándar de experiencia de **Whoop Recovery / Oura Readiness**,
+adaptado a **vista coach** (no a app del atleta):
+
+1. **Veredicto primero** (puede cargar / mantener / descargar / sin señales) —
+   no una parrilla de tiles sueltos.
+2. **Cada métrica se lee contra la baseline del propio atleta** (VFC 28d, RHR
+   30d), nunca como número absoluto huérfano.
+3. **Agudo (anoche / hoy) → crónico (28d) → fitness lento (VO₂, peso)** —
+   jerarquía de atención.
+4. **Objetivo + subjetivo juntos** (señales de reloj + check-in «cómo se
+   encuentra»): si divergen, el coach lo ve en el mismo sitio.
+5. **Circular:** un estado malo ofrece camino al Plan / ajustar carga; no un
+   muro de «considera…».
+
+**Qué NO es:** copiar la UI de Whoop píxel a píxel, ni inventar scores de
+marca (stress SpO₂ temperature) multi-reloj. El *comportamiento* de producto
+(estado → tendencia → acción) es el listón; los datos salen de `BodyPayload` +
+check-in ya existentes.
+
+**En consecuencia:** no añadir tiles de vanity (RMSSD/SDNN sueltos) sin
+contexto de baseline; no pintar carga A:C aquí hasta que el load del plan sea
+el mismo motor que Rendimiento.
+
+---
+
 ## 2026-08-11 · El vídeo de un movimiento tiene UN solo sitio (el ejercicio), y se ve dentro del panel
 
 **Lo que había:** el coach podía pegar la URL de un vídeo de técnica, pero no podía verlo en
@@ -194,6 +222,79 @@ resumir lo que no es uniforme (objetivos o recuperaciones distintas entre tramos
 colapsan a la primera — §7); no colapsar una pirámide a su primer tramo, y escribir su
 secuencia en METROS con la unidad una vez («1200/1000/800 m»), porque
 `Formato.distancia` pasa a km a partir de 1.000 y «1,2 km/1 km/800 m» no se compara.
+
+---
+
+## 2026-08-11 · La biblioteca de ejercicios: dos idiomas por PERSONA, el vocabulario como DATO, y los ejes que faltaban
+
+**El estado medido antes de tocar nada:** 126 ejercicios (121 base + 5 propios), **121
+con el nombre solo en inglés** y 5 en castellano, **0 vídeos**, 16 con cues, 68 con
+descripción, **56 que nadie ha usado nunca**, 0 sinónimos aprendidos, y **2 de las 8
+estaciones HYROX sin existir como estación** (Ski y Row están como cardio, sin
+`hyrox_station_position`, así que cualquier lógica que recorra las 8 tiene un agujero).
+
+**Decidido (mig 0172 aplicada):**
+
+- **El idioma se resuelve por PERSONA, no por catálogo.** `exercises.name_es` +
+  `name_en` (dos columnas explícitas, no un blob i18n), y quien mira decide: el coach
+  con `users.idioma`, el atleta con `athletes.preferred_language` — las dos columnas
+  ya existían. `name` NO se toca: sigue siendo el nombre de siempre y el último
+  recurso del resolutor, así que ninguna lectura de hoy se rompe. El fork de voz del
+  coach (`coach_exercise_overrides`, 0132) también gana los dos idiomas: puede
+  rellenar uno o ambos, y lo que no diga cae al base.
+- **El vocabulario base es DATO, no código:** tabla `exercise_aliases` (término +
+  normalizado + idioma). Hoy ese conocimiento vive cableado en TypeScript
+  (`GLOBAL_ALIASES`, 101 entradas en `web/lib/import/exercise-resolve.ts`, espejo de
+  `infra/scripts/parse_blocks_lib.ts`): **lo usa el importador y no lo usa el
+  buscador**, el mismo saber sirviendo a una superficie y no a la otra. Con la tabla,
+  una sola fuente alimenta las dos.
+- **Dos capas de alias con precedencia clara:** `coach_exercise_synonyms` (0109, por
+  coach, aprendida de sus correcciones) **manda** sobre `exercise_aliases` (nuestra,
+  base). Al revés le quitaríamos al coach lo que ya le enseñamos a la app.
+- **Un término AMBIGUO es dato, no error.** «row» es el ergómetro y el remo con barra;
+  la unicidad del alias es por `(ejercicio, término)` y NO global — al contrario que el
+  mapa de TS, que siendo `Record<term, slug>` hacía imposible expresar la ambigüedad y
+  se comía una de las dos. Cuando un término resuelve a varios: desempata la modalidad
+  del bloque, y si no cierra es un fallo honesto que va al coach, cuya elección se
+  aprende como sinónimo suyo y no vuelve a preguntar.
+- **`movement_pattern` es MECANISMO, no método** (CHECK cerrado, como `modality` en
+  0053): que una búlgara sea una zancada unilateral es biomecánica, no criterio de
+  escuela — la pregunta de la HARD RULE Nº0 («¿otro entrenador competente lo haría
+  distinto?») responde no. Es además el eje por el que un entrenador pide de verdad un
+  ejercicio («una bisagra de cadera»), y el que hace navegable una lista de 500.
+- **`is_unilateral` e `implement_count` cambian la DOSIS**, no son adorno de ficha: un
+  unilateral se prescribe por lado y un farmers son 2×32 kg, no 32. El `Target` ya
+  sabía contar implementos; el ejercicio no declaraba venir en par.
+- **`archived_at`:** retirar sin borrar. Hoy solo se puede borrar, y solo lo nunca
+  usado (con razón: `segment_executions` es ON DELETE SET NULL y un borrado silencioso
+  desnuda trabajo ya hecho). Un catálogo que crece necesita la tercera vía.
+- **Búsqueda:** `pg_trgm` + `fahybrid_normalize_term()` (minúsculas, sin acentos,
+  espacios colapsados) con función Y diccionario **cualificados a `public`** — sin eso
+  la resolución depende del `search_path` de quien ejecute, y un índice no puede
+  depender de eso (los dos primeros intentos de la migración murieron ahí).
+
+**En consecuencia, no hacer:** no meter contenido masivo antes del cimiento (500
+ejercicios sobre dos ejes empeoran la lista, no la mejoran); no convertir
+`movement_pattern` en dato editable del coach; no dar por hecho el trigram sin
+comprobar la extensión; no dejar que el alias base pise el sinónimo del coach; y no
+volver a duplicar vocabulario en código cuando ya vive en la tabla.
+
+---
+
+## 2026-08-11 · `MarcoVivo` no tiene NI UNA llamada: el régimen §10 del vivo no tiene host
+
+**Constatado** verificando el porte del contador de rondas: `MarcoVivo(` no aparece
+invocado en ningún sitio del repo. Es el componente que inyecta `\.lienzoVivo`, del que
+depende `Numeral` para escalar al tamaño del §10.2 — así que **toda pantalla del vivo
+está fuera del régimen que la doctrina describe**: los numerales caen a su tamaño por
+defecto (~54 pt en vez de ~125) y cualquier presupuesto de alto derivado del marco es
+teórico, no el que se pinta. Por eso el contador acabó con un `.system(size:96)` a mano
+y por eso su cascada no tenía cota real hasta que se le dio una con `GeometryReader`.
+
+**En consecuencia, no hacer:** no citar §10 como si estuviera vigente en pantallas que
+no montan `MarcoVivo`; no cambiar un tamaño «al del §10» sin comprobar quién inyecta el
+lienzo; y al tocar el vivo, decidir explícitamente si esa pantalla adopta el marco o
+declara su propio presupuesto — pero no las dos a medias.
 
 ---
 

@@ -67,7 +67,7 @@ Fuente: `ATLETA_TABS` + `DetalleTabBar` (`atleta-detalle-types.ts`).
 | 4 | Carreras | `carreras` | `CarrerasTab` | pendiente |
 | 5 | Histórico | `historico` | `HistoricoTab` | pendiente |
 | 6 | 1:1 | `sesiones` | `ReviewPanel` + `SessionReportsBlock` | pendiente |
-| 7 | Biometría | `biometria` | `BiometriaTab` | pendiente |
+| 7 | Biometría | `biometria` | `BiometriaTab` | **en curso** — objetivo Whoop/Oura coach |
 | 8 | Rendimiento | `rendimiento` | `RendimientoTab` | pendiente (era la abierta en la captura) |
 | 9 | Pagos | `pagos` | `PagosTab` | pendiente |
 | 10 | Mensajes | `mensajes` | `MensajesTab` | pendiente |

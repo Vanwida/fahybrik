@@ -173,7 +173,12 @@ export function AthleteDetalle({
             />
           </div>
         ) : tab === 'biometria' ? (
-          <BiometriaTab body={detalle.body} />
+          <BiometriaTab
+            body={detalle.body}
+            athleteId={header.athlete_id}
+            checkin={detalle.resumen?.checkin ?? null}
+            checkinWeek={detalle.resumen?.checkin_week ?? []}
+          />
         ) : tab === 'rendimiento' ? (
           <RendimientoTab
             athleteId={header.athlete_id}
