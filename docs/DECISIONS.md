@@ -229,9 +229,11 @@ secuencia en METROS con la unidad una vez («1200/1000/800 m»), porque
 
 **El estado medido antes de tocar nada:** 126 ejercicios (121 base + 5 propios), **121
 con el nombre solo en inglés** y 5 en castellano, **0 vídeos**, 16 con cues, 68 con
-descripción, **56 que nadie ha usado nunca**, 0 sinónimos aprendidos, y **2 de las 8
-estaciones HYROX sin existir como estación** (Ski y Row están como cardio, sin
-`hyrox_station_position`, así que cualquier lógica que recorra las 8 tiene un agujero).
+descripción, **56 que nadie ha usado nunca** y 0 sinónimos aprendidos. (Corrección a
+una lectura previa: las 8 posiciones de HYROX **sí** están completas — ski y remo
+llevan la suya desde `cardio`, que es correcto porque son ergómetros. Lo que estaba
+mal era otra cosa: un ejercicio metido en `category='hyrox_station'` **sin** posición,
+y una bici con `modality='run'`. Los dos arreglados en 0178.)
 
 **Decidido (mig 0172 aplicada):**
 
