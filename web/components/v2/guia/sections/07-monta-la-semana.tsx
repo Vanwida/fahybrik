@@ -245,8 +245,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             cualquier sesión.
           </li>
           <li>
-            Puedes pegar un <span className="k">vídeo de YouTube</span> en tu versión del ejercicio.
-            El panel te confirma: <code>El atleta verá el vídeo en el detalle del ejercicio en iOS.</code>
+            En tu versión del ejercicio puedes <span className="k">subir un vídeo</span> tuyo o pegar
+            un <span className="k">enlace de YouTube</span>. Se reproduce ahí mismo, en el campo.
           </li>
         </ul>
       </DocNote>

@@ -46,9 +46,30 @@ quedaron sin llamantes. `YouTubeSheet` pasa a ser `VideoDeTecnicaSheet` y sirve
 las dos formas con la misma chapa (título, «Cerrar», y en el entreno en vivo la
 misma pausa del cronómetro).
 
-**Pendiente al cerrar esta decisión:** el backend aún no sirve
-`/api/exercises/video/<key>` ni existe la subida en el dashboard. iOS ya lo
-entiende, así que el día que llegue el dato no hay que tocar la app.
+**El lado servidor, cerrado el mismo día** (ya no queda pendiente):
+
+- **UNA validación para las dos formas:** `exerciseVideoSchema`
+  (`web/lib/exercises/video-source.ts`). La aplican `POST /api/exercises`,
+  `PATCH /api/exercises/[id]` y el campo del panel, así que «lo puedo guardar» y «el
+  campo está en rojo» no pueden decir cosas distintas. **Eliminado:**
+  `youtubeUrlSchema` de `shared/youtube.ts` — rechazaba todo lo que no fuera YouTube
+  y dejarlo vivo sería dejar puesta la validación equivocada esperando a que alguien
+  la volviera a enchufar. `shared/youtube.ts` sigue siendo sobre YouTube y es la
+  mitad de la nueva.
+- **Los bytes no pasan por una ruta nuestra** (decisión del 27-jul): se valida la
+  intención en `POST /api/coach/exercises/video-url` (coach, ejercicio suyo o
+  forkeable por él, formato y tamaño) y el cliente hace `PUT` contra la URL
+  prefirmada. Formatos y tope NO son números nuevos: son los del vídeo del chat
+  (`CHAT_ATTACHMENT_EXTENSIONS.video` = mp4/mov/m4v, `CHAT_ATTACHMENT_MAX_BYTES.video`
+  = 200 MB), porque la regla es la misma —lo que reproduce el móvil del atleta— y dos
+  listas acabarían divergiendo.
+- **El dueño del fichero es el COACH** (`ejercicios/<coach_id>/<yyyy>/<mm>/<uuid>.<ext>`),
+  como el audio de un comunicado y no como un adjunto del chat: un vídeo de técnica es
+  catálogo, se lo ven todos sus atletas y existe antes de tener destinatario.
+- **La lectura autoriza por CARPETA, no por «hay un ejercicio que apunte aquí»:**
+  `GET /api/exercises/video/[...key]` sirve al coach dueño y a los atletas de ese
+  coach. Preguntar a la base rompería justo el caso del alta, donde el vídeo se sube
+  ANTES de que el ejercicio exista y el coach tiene que ver lo que acaba de subir.
 
 ---
 
