@@ -5,6 +5,44 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · La biblioteca de ejercicios: cimiento puesto, cableado pendiente (11-ago)
+
+Idea de Alex: el catálogo es corto, está desordenado y no habla castellano
+(«back squat == sentadilla»), y con muchos ejercicios la lista se hace
+inmanejable. Medido antes de tocar: **126 ejercicios**, 121 con nombre solo en
+inglés, 0 alias en base de datos, 0 vídeos, 56 sin usar nunca.
+
+**Hecho y aplicado en producción** (mig **0172** cimiento + **0178** contenido,
+las dos aplicadas a mano por el runner y registradas en el journal — ojo, hay
+0173-0177 pendientes de OTRA sesión y no se han tocado):
+- `name_es`/`name_en` y el idioma resuelto **por persona** (decisión de Alex):
+  el coach con `users.idioma`, el atleta con `athletes.preferred_language`.
+  `name` intacto como último recurso, así que nada de hoy se rompe.
+- `exercise_aliases`: **197 alias** en dos idiomas. El vocabulario estaba
+  cableado en TS (101 entradas, solo inglés, solo para el importador); ahora es
+  dato y sirve también al buscador. `coach_exercise_synonyms` (por coach) manda
+  sobre el alias base.
+- `movement_pattern` en 120 (con `anti_extension`/`flexion` para el core),
+  **37 unilaterales**, **15 que declaran venir en par** — los dos últimos
+  cambian la dosis, no son adorno.
+- Basura fuera: 7 filas que no son movimientos, **archivadas** (no borradas).
+  Errores de dato arreglados: bici con `modality='run'`, y un ejercicio en
+  `hyrox_station` sin posición. Las 8 estaciones sí estaban completas.
+- Verificado contra la DB real: «sentadilla»→6, «sentadila» (typo)→4,
+  «gluteo» sin tilde→puente, «row»/«remo»→el ergo y los dos remos con barra
+  **con su modalidad** para desambiguar (el caso que estaba roto).
+
+**NO hecho todavía, y es lo que se ve:** el código no lee nada de esto aún —
+el buscador sigue por `name`, el selector del editor no ordena por relevancia,
+el importador sigue leyendo el mapa de TS, e iOS no resuelve el idioma del
+atleta. El match debe ser **por palabra** (`like %q%` / `<%`), no por prefijo:
+verificado que así funciona. Y ampliar el catálogo (126 → ~500 curados) sigue
+pendiente. El rediseño de la lista (facetas con conteos, agrupación por
+patrón, virtualización, teclado en el selector) pide mockup y firma antes de
+construir.
+
+---
+
 ## Ahora · Ficha del atleta — Biometría Whoop/Oura (coach)
 
 **Decisión (DECISIONS 11-ago):** Biometría se mide como Whoop Recovery / Oura
