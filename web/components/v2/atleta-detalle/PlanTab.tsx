@@ -16,6 +16,7 @@ import { MODALITY_META } from '@/components/v2/constants';
 import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
 import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
 import { PersonalizarPlanModal } from './PersonalizarPlanModal';
@@ -506,11 +507,22 @@ export function PlanTab({
               ) : null
             }
           >
-            {activeWeekDays.length > 0 ? (
-              <WeekStrip days={activeWeekDays} />
-            ) : (
-              <p className="text-center text-xs text-[color:var(--v2-muted)]">Semana sin datos</p>
-            )}
+            <div className="flex flex-col gap-3">
+              {activeWeek ? (
+                <AthleteWeekFocusRow
+                  key={activeWeek.week_start}
+                  athleteId={athlete_id}
+                  weekStart={activeWeek.week_start}
+                  weekLabel={weekLabel}
+                  initial={activeWeek.focus}
+                />
+              ) : null}
+              {activeWeekDays.length > 0 ? (
+                <WeekStrip days={activeWeekDays} />
+              ) : (
+                <p className="text-center text-xs text-[color:var(--v2-muted)]">Semana sin datos</p>
+              )}
+            </div>
           </Panel>
 
           {/* Planes personales — borradores SIN fecha todavía. Estaban al fondo
@@ -623,6 +635,66 @@ export function PlanTab({
       />
     ) : null}
     </>
+  );
+}
+
+// Foco editable de LA SEMANA DEL ATLETA (no de la plantilla — ese vive en
+// WeekFocusRow, MicrocicloV2.tsx). Guarda en blur/Enter contra
+// PATCH /api/coach/athletes/[id]/weekly-plan, que solo toca `weekly_plans.focus`
+// de esa semana (nunca publica ni esconde nada). Mismo patrón de useInlineSave
+// que el foco de plantilla, para que las dos cabeceras se comporten igual.
+// Keyed por week_start en el call site, así que cambiar de semana reinicia el
+// borrador en vez de arrastrar el texto de la anterior.
+function AthleteWeekFocusRow({
+  athleteId,
+  weekStart,
+  weekLabel,
+  initial,
+}: {
+  athleteId: string;
+  weekStart: string;
+  weekLabel: string;
+  initial: string | null;
+}) {
+  const [value, setValue] = useState(initial ?? '');
+  const baseline = (initial ?? '').trim();
+  const { status, setStatus, save } = useInlineSave(async (next) => {
+    const res = await fetch(`/api/coach/athletes/${athleteId}/weekly-plan`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ week_start: weekStart, focus: next.length > 0 ? next : null }),
+    });
+    return res.ok;
+  });
+
+  return (
+    <div className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 py-2.5">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+        <MIcon name="flag" size={14} />
+        Foco {weekLabel}
+      </span>
+      <label className="sr-only" htmlFor={`athlete-week-focus-${weekStart}`}>
+        Foco de la semana del {weekStart}
+      </label>
+      <input
+        id={`athlete-week-focus-${weekStart}`}
+        type="text"
+        value={value}
+        maxLength={200}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (status !== 'idle') setStatus('idle');
+        }}
+        onBlur={() => save(value.trim(), baseline)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        placeholder="Sin foco para esta semana"
+        className="v2-focus min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold text-[color:var(--v2-fg)] outline-none placeholder:font-normal placeholder:text-[color:var(--v2-faint)]"
+      />
+      <InlineSaveBadge status={status} />
+    </div>
   );
 }
 

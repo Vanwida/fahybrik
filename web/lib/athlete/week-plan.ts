@@ -33,6 +33,7 @@ import {
   type SessionDurationItem,
 } from '@fahybrid/shared/domain/prescription';
 import { sql } from '@/lib/db';
+import { weekStates, type WeekPublishState } from '@/lib/mcp/shape-write';
 
 export interface AthleteWeekDaySession {
   assignment_id: string;
@@ -212,22 +213,34 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, weekMeta, has_next_week, pausedState, plan_starts_on] = await Promise.all([
-    resolveMicrocicloName(microcycleId),
-    // Coach-authored week meta from the source week template, resolved through the
-    // assignment in ONE query: the athlete-facing "Foco de la semana"
-    // (program_week_templates.focus) AND the per-rest-day recovery suggestions (#47).
-    resolveWeekTemplateMeta(microcycleId),
-    // Whether the athlete can peek a NEXT week with real, published content
-    // (drives the "Próxima semana" affordance). Relative to the returned week.
-    hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
-    // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
-    loadPausedState(athlete_id),
-    // Cuándo empieza lo ya programado, si cae después de esta ventana — para que
-    // un estado vacío pueda decir «empieza el lunes 10» en vez de mentir.
-    firstScheduledAfter(athlete_id, weekEndIso),
-  ]);
-  const focus = weekMeta.focus;
+  const [microciclo_name, weekMeta, weekState, has_next_week, pausedState, plan_starts_on] =
+    await Promise.all([
+      resolveMicrocicloName(microcycleId),
+      // Coach-authored week meta from the source week template, resolved through the
+      // assignment in ONE query: the athlete-facing "Foco de la semana"
+      // (program_week_templates.focus) AND the per-rest-day recovery suggestions (#47).
+      resolveWeekTemplateMeta(microcycleId),
+      // El estado REAL de esta semana en `weekly_plans` — reutiliza el mismo lector
+      // que ya usa el portón de visibilidad del conector (`shape-write.ts`), así que
+      // esto no es una consulta nueva y aislada: es la misma fila que ya se mira
+      // para saber si la semana está en borrador, ahora también por su `focus`.
+      weekStates({ athlete_id, week_starts: [weekStartIso] }),
+      // Whether the athlete can peek a NEXT week with real, published content
+      // (drives the "Próxima semana" affordance). Relative to the returned week.
+      hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
+      // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
+      loadPausedState(athlete_id),
+      // Cuándo empieza lo ya programado, si cae después de esta ventana — para que
+      // un estado vacío pueda decir «empieza el lunes 10» en vez de mentir.
+      firstScheduledAfter(athlete_id, weekEndIso),
+    ]);
+  // El foco de LA SEMANA DEL ATLETA manda; el de la plantilla es el defecto
+  // heredado (docs/DECISIONS.md — el foco vive en la semana, no solo en la
+  // plantilla). Una semana en 'draft' no adelanta su foco por esta puerta: el
+  // mismo portón que esconde sus sesiones (la NOT EXISTS de arriba) esconde su
+  // foco propio, aunque `weekStates` lo lea crudo para quien SÍ puede verlo
+  // (el coach en su panel, el conector).
+  const focus = resolveAthleteFacingFocus(weekState.get(weekStartIso)!, weekMeta.focus);
 
   // C35 — partner_visibility is exposed as-is. The DB filter by athlete_id
   // already isolates each user's sessions, so the only rows here belong to
@@ -311,6 +324,28 @@ export async function buildAthleteWeekPlan(
     // preparando» en vez de afirmar que el coach no ha publicado.
     plan_starts_on,
   };
+}
+
+/**
+ * El foco que ve el atleta para SU semana: el override de `weekly_plans.focus`
+ * manda; el de la plantilla (`program_week_templates.focus`, vía
+ * `resolveWeekTemplateMeta`) es el defecto heredado; sin ninguno de los dos,
+ * `null` (nunca se inventa una línea). Pura y exportada para poder probar las
+ * cuatro combinaciones (semana / plantilla / ninguno / borrador) sin tocar la
+ * base de datos.
+ *
+ * Un 'draft' NO adelanta su foco: es el mismo portón que ya esconde las
+ * sesiones de esa semana (la NOT EXISTS de la consulta principal). `weekStates`
+ * lee el foco CRUDO porque otros llamantes (el panel del coach, el conector) SÍ
+ * pueden ver un borrador propio — aquí, en el lector del atleta, es donde se
+ * aplica el portón.
+ */
+export function resolveAthleteFacingFocus(
+  weekState: { state: WeekPublishState; focus: string | null },
+  templateFocus: string | null,
+): string | null {
+  const weeklyFocus = weekState.state === 'draft' ? null : weekState.focus;
+  return weeklyFocus ?? templateFocus;
 }
 
 /**

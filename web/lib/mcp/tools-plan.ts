@@ -22,12 +22,15 @@ import { sql } from '@/lib/db';
 import { buildAthletePlan, type PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import { loadCoachSessionDetail } from '@/lib/coach/session-detail';
 import { loadSessionContentSummaries } from '@/lib/coach/session-content';
+import { coachActor, recordAudit } from '@/lib/audit/record-edit';
+import { setWeekFocus } from '@/lib/coach/week-focus';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
   athleteIdArg,
   fail,
   isoDateArg,
   ok,
+  resolveOwnedAthlete,
   withCoach,
 } from './runtime';
 import {
@@ -40,6 +43,7 @@ import {
   toSessionChoice,
   toSessionDetail,
 } from './shape-plan';
+import { focusResumen, weekStartOf, weekVisibility } from './shape-write';
 
 const PLAN_VIEWS = ['macro', 'month', 'week'] as const;
 
@@ -171,6 +175,75 @@ export function registerPlanTools(server: McpServer): void {
             sessions: sessions.map((s) => toSessionChoice(s, contents.get(s.assignment_id))),
           },
           sessionChoiceResumen(plan.athlete_name, args.date!, sessions.length),
+        );
+      }),
+  );
+
+  // ── set_week_focus ─────────────────────────────────────────────────────────
+  server.registerTool(
+    'set_week_focus',
+    {
+      title: 'Fijar el foco de la semana de un atleta',
+      description:
+        'Fija o cambia el foco de la semana de un atleta: la línea corta que lee él arriba de su semana («Series de umbral», «Semana de descarga»). Dale cualquier fecha DENTRO de la semana (se ajusta sola al lunes). Manda sobre el foco heredado de la plantilla, sin tocarla. Foco vacío o sin escribir nada borra el override y la semana vuelve a mostrar el de su plantilla, si tiene una.',
+      inputSchema: {
+        athlete_id: athleteIdArg,
+        date: isoDateArg.describe(
+          'Cualquier día dentro de la semana que quieres tocar (AAAA-MM-DD). Se ajusta al lunes de esa semana.',
+        ),
+        focus: z
+          .string()
+          .max(200)
+          .nullable()
+          .describe(
+            'El foco, en pocas palabras, como lo diría el coach. Vacío o null: borra el foco de esta semana.',
+          ),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id, _coach_name, session) => {
+        const athlete = await resolveOwnedAthlete({ coach_id, athlete_id: args.athlete_id });
+        if (!athlete) return fail(NO_SUCH_ATHLETE_MESSAGE);
+
+        const weekStart = weekStartOf(args.date);
+        const focus = args.focus?.trim() || null;
+
+        const written = await setWeekFocus({
+          coach_id,
+          athlete_id: args.athlete_id,
+          week_start: weekStart,
+          focus,
+        });
+
+        await recordAudit(sql, {
+          entity_type: 'weekly_plans',
+          entity_id: BigInt(written.weekly_plan_id),
+          action: 'update',
+          actor: coachActor(session),
+          channel: 'mcp',
+          diff: {
+            athlete_id: String(args.athlete_id),
+            week_start: weekStart,
+            focus,
+          },
+        });
+
+        const visibility = await weekVisibility({ athlete_id: args.athlete_id, iso_date: weekStart });
+        return ok(
+          {
+            athlete_id: String(args.athlete_id),
+            athlete_name: athlete.full_name,
+            week_start: weekStart,
+            focus,
+            visibility,
+          },
+          focusResumen({
+            athlete_name: athlete.full_name,
+            week_start: weekStart,
+            focus,
+            visibility,
+          }),
         );
       }),
   );

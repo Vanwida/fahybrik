@@ -97,7 +97,8 @@ export function publishedWeeks(params: {
   sessions: Map<string, number>;
 }): PublishedWeek[] {
   return params.week_starts.map((week) => {
-    const before = params.before.get(week) ?? { state: 'sin_marcar' as const, delivery_mode: null };
+    const before =
+      params.before.get(week) ?? { state: 'sin_marcar' as const, delivery_mode: null, focus: null };
     return {
       week_start: week,
       was: before.state,

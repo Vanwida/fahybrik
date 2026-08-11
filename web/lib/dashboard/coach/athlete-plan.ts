@@ -16,6 +16,7 @@ import {
 } from '@/lib/dashboard/v2/editor-axes';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { canRevertToSequence } from './revert-personal-plan';
+import { weekStates } from '@/lib/mcp/shape-write';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
@@ -51,6 +52,14 @@ export interface PlanWeekRow {
   week_start: string;
   week_end: string;
   days: PlanDay[];
+  /**
+   * El override de foco de ESTA semana (`weekly_plans.focus`, migración 0180),
+   * crudo — sin fundir con el defecto de la plantilla: es lo que edita el coach
+   * en la cabecera de la ficha, y editar un valor fundido escribiría por accidente
+   * el texto de la plantilla como si fuera propio de la semana. `null` = sin
+   * override (el atleta ve el foco heredado, si su plantilla declara uno).
+   */
+  focus: string | null;
 }
 
 export interface AthletePlanPayload {
@@ -313,17 +322,35 @@ export async function buildAthletePlan(params: {
     sessionsByDate.set(r.iso_date, list);
   }
 
-  const weeks: PlanWeekRow[] = [];
+  const weekStarts: string[] = [];
   let cursor = mondayOfWeek(range.start);
   const endMonday = mondayOfWeek(range.end);
   while (cursor <= endMonday) {
-    weeks.push({
-      week_start: isoDateString(cursor),
-      week_end: isoDateString(addDays(cursor, 6)),
-      days: buildDaysForWeek(cursor, sessionsByDate, todayIso),
-    });
+    weekStarts.push(isoDateString(cursor));
     cursor = addDays(cursor, 7);
   }
+
+  // El foco CRUDO de cada semana (`weekly_plans.focus`), de una sola consulta
+  // por lotes — el mismo lector que ya usa el portón de visibilidad del
+  // conector (`weekStates`, shape-write.ts). El panel es el propio coach: aquí
+  // NO se aplica el portón de borrador (a diferencia del lector del atleta,
+  // `lib/athlete/week-plan.ts`) porque el coach tiene que poder ver y editar el
+  // foco que dejó escrito mientras la semana seguía en borrador.
+  const focusByWeek = await weekStates({
+    athlete_id: params.athlete_id,
+    week_starts: weekStarts,
+    client,
+  });
+
+  const weeks: PlanWeekRow[] = weekStarts.map((weekStartIso) => {
+    const weekStartDate = parseIsoDate(weekStartIso);
+    return {
+      week_start: weekStartIso,
+      week_end: isoDateString(addDays(weekStartDate, 6)),
+      days: buildDaysForWeek(weekStartDate, sessionsByDate, todayIso),
+      focus: focusByWeek.get(weekStartIso)?.focus ?? null,
+    };
+  });
 
   const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
