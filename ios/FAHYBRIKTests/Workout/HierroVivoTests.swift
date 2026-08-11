@@ -137,6 +137,53 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertNil(set(.hrBpm(value: 150, min: nil, max: nil)).prescribedCarga)
     }
 
+    // MARK: - CERO GUIONES LARGOS, verificado por punto de código
+
+    /// LA REGLA DURA: en el texto que ve el usuario no hay guiones largos (U+2014).
+    /// Delatan que lo escribió una IA, y se comprueba por CODE POINT y no a ojo —
+    /// un em dash y un guion normal se distinguen en la fuente del editor y no en
+    /// una revisión rápida.
+    ///
+    /// Se comprueba sobre TODO lo que esta pantalla emite: las cuatro escrituras de
+    /// carga, el vocabulario que usa y la frase de la velocidad. El guion que sí
+    /// aparece es el normal (U+002D), el de la banda de reps y de la banda de %RM.
+    func testNingunaCadenaDelHierroLlevaGuionLargo() {
+        let emDash: Character = "\u{2014}"
+        let enDash: Character = "\u{2013}"
+
+        var emitidas: [String] = [
+            Vocab.velocidad, Vocab.pesoCorporal, Vocab.porcentajeDeTuMaximo,
+            Vocab.serie, Vocab.descanso, Vocab.pausa, Vocab.fc, Vocab.ppm, Vocab.reps,
+            Vocab.rirTraducido(0), Vocab.rirTraducido(2),
+        ]
+        let cargas: [Formato.CargaDeSerie?] = [
+            .kg(82.5), .kg(32, implementos: 2), .porcentaje(min: 75, max: 85),
+            .porcentaje(min: 80, max: nil), .corporal, nil,
+        ]
+        for carga in cargas {
+            for (reps, techo) in [(10, nil), (12, 15), (nil, nil)] as [(Int?, Int?)] {
+                guard let d = Formato.dosisDeSerie(reps: reps, repsMax: techo, carga: carga) else { continue }
+                emitidas += [d.sujeto?.linea, d.segundo?.linea, d.pieDeCarga].compactMap { $0 }
+            }
+        }
+        emitidas.append(Formato.rango(75, 85))
+        // La frase de la lectura de velocidad, con su banda real.
+        let r = lectura(0.38, confianza: 0.74, perdida: 31)
+        emitidas.append("Tu última repetición fue \(r.band.label.lowercased()): "
+                        + "\(r.mpsText) m/s, un 31 % menos que la primera de la serie.")
+
+        for texto in emitidas {
+            XCTAssertFalse(texto.contains(emDash),
+                           "guion largo (U+2014) en «\(texto)»: lo ve el atleta y delata IA")
+            XCTAssertFalse(texto.contains(enDash),
+                           "guion medio (U+2013) en «\(texto)»: el rango de esta pantalla usa el normal")
+        }
+        // Y el positivo, para que el test no pase por no comprobar nada: la banda de
+        // %RM y la de reps SÍ llevan guion, y es el normal.
+        XCTAssertTrue(Formato.rango(75, 85).contains("\u{002D}"))
+        XCTAssertEqual(Formato.dosisDeSerie(reps: 12, repsMax: 15, carga: nil)?.sujeto?.cifra, "12-15")
+    }
+
     // MARK: - La ventana del riel — aritmética, no una constante de gusto
 
     /// El umbral no se elige: es el primero que no cabe a lo ancho del marco REAL.
