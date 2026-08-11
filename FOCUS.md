@@ -125,18 +125,23 @@ tocó).
 
 Donde había iniciales ahora puede ir su foto. **El servidor ya existe** (ver el
 bloque de abajo): `POST /api/perfil/foto/subida` → subida directa multipart campo
-`file` → `POST …/confirmar` → `DELETE /api/perfil/foto`, exactamente el contrato
-contra el que se construyó iOS. Falta probarlo desde el simulador de punta a
-punta.
+`file` → `POST …/confirmar` → `DELETE /api/perfil/foto`. iOS se verificó contra
+SU CÓDIGO, no contra el encargo, y ahí salieron **dos cosas que no encajaban**,
+ya arregladas (`b5492b8c`): la reserva pide `{ filename }` estricto y mandábamos
+`{}` (400 seguro), y el límite de reducción se quedaba corto para el recorte del
+servidor. Falta probarlo desde el simulador de punta a punta.
 
 - **Dónde:** el avatar de Perfil es ahora un botón con chapita de cámara y abre
   `FotoPerfilSheet` (en `ProfileView.swift`): galería con `PhotosPicker`, cámara
   reutilizando el `CameraPicker` que ya existía, previsualización antes de
   confirmar y quitar con confirmación.
-- **Se reduce en el móvil:** lado mayor a **512 px** y JPEG **0,85**
+- **Se reduce en el móvil:** lado mayor a **1024 px** y JPEG **0,85**
   (`AthletePhotoImage`, en `MeService.swift`). Una foto de iPhone son 3-5 MB y
-  ~4000 px para acabar en un círculo de 60 pt. Lo que se previsualiza es
-  exactamente la imagen reducida que se sube.
+  ~4000 px para acabar en un círculo. El 1024 lo fija el servidor, no el gusto:
+  su variante mayor es un recorte cuadrado de 480, así que el lado CORTO tiene
+  que llegar a 480 o el retrato sale blando (4:3 deja 768, 16:9 deja 576). Lo
+  que se previsualiza es exactamente la imagen reducida que se sube, y
+  recomprimir borra el EXIF: el GPS de la foto no sale del teléfono.
 - **Estados honestos:** preparando · subiendo con % real (delegado de
   `URLSession`, no una barra decorativa) · guardando · hecho · error con motivo y
   reintento. Subir bytes y que el servidor los dé por buenos se cuentan por
@@ -145,8 +150,8 @@ punta.
   `AvatarPhoto` la recorta al círculo ENCIMA de las iniciales — sin foto, o
   mientras carga, se ve el avatar de siempre. Enchufado en Perfil, Inicio e
   Inicio libre.
-- **Verificado:** BUILD SUCCEEDED (`xcodebuild -scheme FAHYBRIK`) y tests nuevos
-  en `FAHYBRIKTests/Profile/AthletePhotoTests.swift`.
+- **Verificado:** BUILD SUCCEEDED y **1250/1250 tests iOS**, con 11 nuevos en
+  `FAHYBRIKTests/Profile/AthletePhotoTests.swift`.
 
 **Asunción CONFIRMADA:** `/api/auth/me` devuelve `avatar_url` dentro de
 `athlete`, y llega **ya con su variante pegada** (`…/avatar480`), lista para meter
