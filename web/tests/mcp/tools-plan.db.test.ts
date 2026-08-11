@@ -282,7 +282,9 @@ describeWithDb('MCP · get_plan y get_session (DB real)', () => {
       const prescribed = session.prescribed as { blocks: Array<{ items: Json[] }> };
       const item = prescribed.blocks[0]!.items[0]!;
       expect(item.exercise).toBe('Carrera');
-      expect(item.dose).toBe("4×1000m @ 4:00-4:10/km · r2'");
+      // La dosis NARRA la estructura desde 86f479d0 (trabajo y recuperación con
+      // su medida): la grafía fina es la correcta, la plana era la degradación.
+      expect(item.dose).toBe("4×(1000m @ 4:00-4:10/km / r2')");
       expect(JSON.stringify(session)).not.toContain('prescription_json');
 
       // Ejecutado: lo que hizo de verdad.
