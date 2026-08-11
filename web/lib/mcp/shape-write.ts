@@ -41,6 +41,16 @@ export interface WeekState {
   state: WeekPublishState;
   /** Solo en 'draft': quién lo suelta (el sábado el cron, o el coach a mano). */
   delivery_mode: DeliveryMode | null;
+  /**
+   * El foco CRUDO de esta semana (`weekly_plans.focus`, migración 0180): lo que
+   * hay en la fila, sin fundir con el de la plantilla y SIN aplicar el portón
+   * de borrador — eso lo tiene que decidir cada llamante según a quién se lo
+   * enseña. El coach ve su propio borrador (panel, MCP); el atleta no ve NADA
+   * de una semana en `draft`, foco incluido, y ese portón lo aplica el lector
+   * del atleta (`lib/athlete/week-plan.ts`), no este. `null` cuando no hay fila
+   * o la fila no tiene override.
+   */
+  focus: string | null;
 }
 
 /** El lunes de la semana en que cae `iso_date` — la clave de `weekly_plans`. */
@@ -67,10 +77,13 @@ export async function weekStates(params: {
   const rows =
     weeks.length === 0
       ? []
-      : await client<Array<{ week_start: string; status: string; delivery_mode: string }>>`
+      : await client<
+          Array<{ week_start: string; status: string; delivery_mode: string; focus: string | null }>
+        >`
           select to_char(week_start, 'YYYY-MM-DD') as week_start,
                  status::text as status,
-                 delivery_mode
+                 delivery_mode,
+                 focus
           from weekly_plans
           where athlete_id = ${Number(params.athlete_id)}
             and week_start = any(${weeks}::date[])
@@ -80,7 +93,7 @@ export async function weekStates(params: {
   return new Map(
     weeks.map((week): [string, WeekState] => {
       const row = byWeek.get(week);
-      if (!row) return [week, { state: 'sin_marcar', delivery_mode: null }];
+      if (!row) return [week, { state: 'sin_marcar', delivery_mode: null, focus: null }];
       const state = row.status as Exclude<WeekPublishState, 'sin_marcar'>;
       return [
         week,
@@ -92,6 +105,7 @@ export async function weekStates(params: {
               : row.delivery_mode === DELIVERY_MODE.manual
                 ? DELIVERY_MODE.manual
                 : DELIVERY_MODE.scheduled,
+          focus: row.focus,
         },
       ];
     }),
@@ -187,5 +201,20 @@ export function moveResumen(params: {
   return (
     `${params.athlete_name}: «${params.title}» pasa del ${longDateEs(params.from_iso)} ` +
     `al ${longDateEs(params.to_iso)} — ${params.visibility.text}.`
+  );
+}
+
+/** «Marc · semana del 18 de agosto: foco «Series de umbral» — publicado: lo ve ya…»
+ *  o, al borrarlo: «Marc · semana del 18 de agosto: foco borrado — publicado…» */
+export function focusResumen(params: {
+  athlete_name: string;
+  week_start: string;
+  focus: string | null;
+  visibility: WeekVisibility;
+}): string {
+  const que = params.focus ? `foco «${params.focus}»` : 'foco borrado';
+  return (
+    `${params.athlete_name} · semana del ${longDateEs(params.week_start)}: ${que} — ` +
+    `${params.visibility.text}.`
   );
 }

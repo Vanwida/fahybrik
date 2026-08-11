@@ -25,6 +25,10 @@ export const weeklyPlanSchema = z.object({
   // Whether this plan is shared between the paired Dobles partners.
   shared: z.boolean(),
   notes: z.string().max(4000).nullable(),
+  // Foco de ESTA semana del atleta (migración 0180) — override del foco heredado
+  // de `program_week_templates.focus`. NULL = sin override (lib/athlete/week-plan.ts
+  // cae al de la plantilla).
+  focus: z.string().max(200).nullable(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
@@ -39,6 +43,7 @@ export const weeklyPlanInsertSchema = weeklyPlanSchema
     approved_by: true,
     shared: true,
     notes: true,
+    focus: true,
   });
 export type WeeklyPlanInsert = z.infer<typeof weeklyPlanInsertSchema>;
 
@@ -50,9 +55,26 @@ export const weeklyPlanUpdateSchema = weeklyPlanSchema
     approved_by: true,
     shared: true,
     notes: true,
+    focus: true,
   })
   .partial();
 export type WeeklyPlanUpdate = z.infer<typeof weeklyPlanUpdateSchema>;
+
+// Escritura del foco de UNA semana del atleta (dashboard PATCH + tool MCP
+// set_week_focus). Mismo patrón que `programWeekMetaSchema` (program-templates.ts):
+// vacío/blancos → null (borra el override), nunca una cadena vacía guardada.
+export const weeklyPlanFocusInputSchema = z.object({
+  week_start: isoDate,
+  focus: z
+    .string()
+    .max(200)
+    .nullable()
+    .transform((v) => {
+      const t = v?.trim();
+      return t ? t : null;
+    }),
+});
+export type WeeklyPlanFocusInput = z.infer<typeof weeklyPlanFocusInputSchema>;
 
 // Coach publish-gate input. Publishing flips weekly_plans.status to 'published',
 // which makes a week visible to the athlete plan endpoint.
