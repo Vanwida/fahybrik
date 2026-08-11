@@ -136,7 +136,14 @@ function Tramo({
   const destacado = tramo.destacado === true;
   const actual = tramo.actual === true;
   const pasado = tramo.pasado === true;
+  /** La tinta del NODO. Baja al 45% cuando ya pasó: es dibujo (`aria-hidden`),
+   *  así que puede perder contraste sin perder lectura. */
   const tinta = pasado ? `color-mix(in srgb, ${tramo.color} ${TINTA_PASADO}%, transparent)` : tramo.color;
+  /** La tinta del TEXTO (el rótulo de semanas). NO es su tono al 45%: sobre
+   *  lienzo claro eso cae muy por debajo de 4,5:1 y el rótulo deja de leerse.
+   *  Baja a `tokens.muted` — la misma tinta a la que baja el título — que es
+   *  un escalón de jerarquía, no un texto medio borrado. */
+  const tintaTexto = pasado ? tokens.muted : tramo.color;
 
   const contenido = (
     <>
@@ -176,7 +183,7 @@ function Tramo({
             style={{
               font: `700 11px/1.1 ${tokens.fontMono}`,
               fontVariantNumeric: 'tabular-nums',
-              color: tinta,
+              color: tintaTexto,
               letterSpacing: '0.06em',
             }}
           >
