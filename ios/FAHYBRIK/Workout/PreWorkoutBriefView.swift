@@ -866,17 +866,31 @@ struct PreWorkoutBriefView: View {
         )
     }
 
+    /// ¿Hay ficha que enseñar de este ejercicio? La ficha pinta CUATRO cosas —
+    /// vídeo, consejos, descripción del catálogo y la nota que el coach escribió
+    /// para hoy — así que cualquiera de las cuatro basta para ofrecer el acceso.
+    /// La nota faltaba en esta cuenta: un ejercicio con solo nota del coach se
+    /// quedaba sin botón aunque la ficha sí la pintaba.
+    private func hasTechnique(_ item: WorkoutItem) -> Bool {
+        hasTechniqueVideo(item)
+            || [item.exerciseDescription, item.cues, item.notes].contains { $0?.isEmpty == false }
+    }
+
+    /// Sólo cuando hay vídeo REPRODUCIBLE — es lo que decide si el acceso se
+    /// anuncia con el play o con la «i» de información.
+    private func hasTechniqueVideo(_ item: WorkoutItem) -> Bool {
+        item.exerciseVideoUrl.flatMap { YouTubeLinkParser.videoId(from: $0) } != nil
+    }
+
     @ViewBuilder
     private func techniqueButton(_ item: WorkoutItem) -> some View {
-        let hasVideo = item.exerciseVideoUrl.flatMap { YouTubeLinkParser.videoId(from: $0) } != nil
-        let hasNotes = [item.exerciseDescription, item.cues].contains { ($0?.isEmpty == false) }
-        if hasVideo || hasNotes {
+        if hasTechnique(item) {
             Button {
                 Haptics.light()
                 techniqueItem = item
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: hasVideo ? "play.circle.fill" : "info.circle.fill")
+                    Image(systemName: hasTechniqueVideo(item) ? "play.circle.fill" : "info.circle.fill")
                         .font(.system(size: 14, weight: .semibold))
                     Text("Ver técnica")
                         .scaledFont(12, weight: .semibold, relativeTo: .caption)
@@ -884,8 +898,17 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.accentText)
             }
             .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Ver vídeo de técnica de \(item.exerciseName)")
+            .accessibilityLabel(techniqueA11y(item))
         }
+    }
+
+    /// Lo que anuncia el acceso a la ficha. Sin vídeo NO se dice «vídeo»: el
+    /// botón lleva a los consejos y la nota, y prometer un vídeo que no está es
+    /// la misma mentira leída en voz alta.
+    private func techniqueA11y(_ item: WorkoutItem) -> String {
+        hasTechniqueVideo(item)
+            ? "Ver vídeo de técnica de \(item.exerciseName)"
+            : "Ver la técnica de \(item.exerciseName)"
     }
 
     // MARK: Modality / WOD classification
