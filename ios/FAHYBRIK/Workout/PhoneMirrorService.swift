@@ -80,6 +80,10 @@ final class PhoneMirrorService {
     /// Last cue waiting to ride on the next forced frame (cleared after one send).
     @ObservationIgnored private var pendingHapticCue: String?
     @ObservationIgnored private var pendingHapticSeq: Int?
+    /// End intent stored when the phone finishes BEFORE the wrist joins (common on
+    /// free workouts: short sessions + cold watch launch). The next `adopt` sends
+    /// this immediately so the wrist never records forever with no owner.
+    @ObservationIgnored private var pendingEndSave: Bool? = nil
 
     private init() {}
 
@@ -138,6 +142,7 @@ final class PhoneMirrorService {
         self.session = session
         endedWorkoutUuid = nil
         wristRecordedWorkout = false   // one flag per session; the previous one is over
+        pendingEndSave = nil           // a new session cancels any orphaned end intent
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()   // safety: never begin without the receive handler live
         let config = HKWorkoutConfiguration()
@@ -178,10 +183,22 @@ final class PhoneMirrorService {
     /// false discards it. We send the intent and keep the mirrored session until the
     /// wrist confirms with `ended` (carrying the workout UUID) or a grace timeout —
     /// the save is asynchronous on the wrist. Called with save=true when the session
-    /// enters the summary, save=false on discard/exit. A no-op when no wrist joined.
+    /// enters the summary, save=false on discard/exit.
+    ///
+    /// If the wrist has not joined yet, the end intent is STAGED (`pendingEndSave`)
+    /// so a late `adopt` (cold watch after a short free session) still stops the
+    /// wrist instead of leaving it recording until reboot.
     func end(save: Bool) {
         watchLaunchGeneration += 1   // cancel any in-flight launch retries
-        guard mirrored != nil else { return }
+        guard mirrored != nil else {
+            pendingEndSave = save
+            return
+        }
+        pendingEndSave = nil
+        deliverEnd(save: save)
+    }
+
+    private func deliverEnd(save: Bool) {
         // A wrist WAS recording and we just told it to keep the recording: from here
         // on, this session's HKWorkout is the wrist's to write. Latched before the
         // reply so the phone never races it (see `wristRecordedWorkout`).
@@ -211,6 +228,21 @@ final class PhoneMirrorService {
         self.mirrored = mirrored
         mirrored.delegate = delegateShim
         wristJoined = true
+
+        // Late join after the phone already finished (or orphaned session with no
+        // live engine): stop the wrist immediately. Free workouts are the usual
+        // hit — begin() races the watch launch against a short session.
+        if let pending = pendingEndSave {
+            pendingEndSave = nil
+            deliverEnd(save: pending)
+            return
+        }
+        if session == nil || session?.isFinished == true {
+            // No active engine to mirror — discard the wrist recording.
+            deliverEnd(save: false)
+            return
+        }
+
         startFrameLoop()
         tickFrame()   // push initial state at once, don't wait a whole interval
     }

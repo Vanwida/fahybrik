@@ -62,6 +62,11 @@ final class MirrorSessionController: NSObject {
     private static let hrRelayMinInterval: TimeInterval = 1
     /// Confirmation beat on the "Guardando…" screen before returning to idle.
     private static let savedBeat: Duration = .milliseconds(900)
+    /// Hard ceiling for `finishWorkout` / `endCollection`. A hung HealthKit save
+    /// used to pin the wrist forever (state `.ending`, HKWorkoutSession still
+    /// live) until the athlete rebooted the watch — free workouts hit this more
+    /// often because the phone can finish while the wrist is still booting.
+    private static let saveTimeout: Duration = .seconds(8)
 
     // MARK: - HealthKit
 
@@ -91,6 +96,11 @@ final class MirrorSessionController: NSObject {
     /// Phone launched us with a workout config. Stand up the recording UNLESS a
     /// standalone (phone-less) session is already running — that one wins.
     func start(config: HKWorkoutConfiguration) {
+        // Recover from a stuck previous mirror close (`.ending` with a live
+        // HKWorkoutSession). Silent decline left the wrist unusable until reboot.
+        if state == .ending || isClosing {
+            forceReleaseStuckSession()
+        }
         guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
         state = .recording
         frame = nil
@@ -107,6 +117,24 @@ final class MirrorSessionController: NSObject {
             await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
             beginRecording(config: config)
         }
+    }
+
+    /// Last-resort unstick: end any residual HK session and drop local state so a
+    /// new mirror (or standalone) start can proceed without rebooting the watch.
+    private func forceReleaseStuckSession() {
+        stopWatchdog()
+        stopSensorRelay()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
+        session?.end()
+        builder = nil
+        session = nil
+        isClosing = false
+        state = .idle
+        frame = nil
+        frameReceivedAt = nil
+        liveHR = nil
+        isConnectionLost = false
+        hkPaused = false
     }
 
     private func beginRecording(config: HKWorkoutConfiguration) {
@@ -333,7 +361,9 @@ final class MirrorSessionController: NSObject {
     /// Phone-driven end: save (finish the HKWorkout) or discard (the athlete exited
     /// without recording — no workout lands).
     private func finish(save: Bool) {
-        guard state == .recording else { return }
+        // Accept `.ending` re-entry only if a previous close hung — otherwise ignore.
+        guard state == .recording || state == .ending else { return }
+        if state == .ending, isClosing { return }
         state = .ending
         Task { await closeRecording(save: save) }
     }
@@ -342,13 +372,15 @@ final class MirrorSessionController: NSObject {
     /// Health; the phone/backend HealthKit sync ingests it later) or drop it. Relay
     /// MirrorEnded too in case the channel revives before teardown.
     func finishLocally() {
-        guard state == .recording else { return }
+        guard state == .recording || state == .ending else { return }
+        if state == .ending, isClosing { return }
         state = .ending
         Task { await closeRecording(save: true) }
     }
 
     func discardLocally() {
-        guard state == .recording else { return }
+        guard state == .recording || state == .ending else { return }
+        if state == .ending, isClosing { return }
         state = .ending
         Task { await closeRecording(save: false) }
     }
@@ -357,46 +389,66 @@ final class MirrorSessionController: NSObject {
         isClosing = true
         stopWatchdog()
         stopSensorRelay()
+        // Stop sensor first so a hung archive never sits under an open HK session.
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
 
         var workoutUuid: String?
         if save {
-            workoutUuid = await endAndSave()
+            // Bound the HK save: finishWorkout has been observed to hang, which left
+            // the wrist on "Guardando…" with the system HKWorkoutSession still live
+            // — the only escape was powering off the watch.
+            workoutUuid = await endAndSaveWithTimeout()
         } else {
             builder?.discardWorkout()
         }
 
-        // Fase 0 — stop inertial capture; transfer archive only when saving.
-        SensorCapture.shared.stop()
-        if save, let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
-            let localId = workoutUuid ?? UUID().uuidString
-            let tmp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("sensor-\(localId).fhsc")
-            try? data.write(to: tmp, options: .atomic)
-            WatchConnectivityService.shared.transferSensorCapture(
-                fileURL: tmp,
-                metadata: [
-                    "execution_local_id": localId,
-                    "sample_hz": SensorFileFormat.targetHz,
-                    "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
-                    "byte_size": data.count,
-                    "source_workout_ref": workoutUuid as Any,
-                ]
-            )
+        // Fase 0 — transfer archive only when saving (best-effort; never blocks idle).
+        if save {
+            transferSensorArchive(workoutUuid: workoutUuid)
         }
 
-        // Relay the finished id BEFORE ending the session (awaited, not fire-and-
-        // forget, so it clears the channel first) — best-effort; the fallback is the
-        // phone's HealthKit ingest of the same workout, deduped on source_workout_ref.
+        // Relay the finished id BEFORE ending the session (channel dies with it).
         if let session, let data = MirrorEnvelope.encoding(
             type: MirrorWire.MessageType.ended, MirrorEnded(workoutUuid: workoutUuid)
         ) {
             try? await session.sendToRemoteWorkoutSession(data: data)
         }
+
+        // ALWAYS end the session — this is what releases HealthKit system-wide so
+        // the next free/prescribed workout can start without a reboot.
         session?.end()
+        session = nil
+        builder = nil
 
         WatchHaptics.success()
         try? await Task.sleep(for: Self.savedBeat)
         resetToIdle()
+    }
+
+    /// End collection + finishWorkout, but never wait longer than `saveTimeout`.
+    /// On timeout we end the HK session so HealthKit unblocks even if the save
+    /// await is stuck (cancellation alone does not abort a hung HealthKit call).
+    private func endAndSaveWithTimeout() async -> String? {
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            var resumed = false
+            func resumeOnce(_ value: String?) {
+                guard !resumed else { return }
+                resumed = true
+                cont.resume(returning: value)
+            }
+            Task { @MainActor in
+                let id = await self.endAndSave()
+                resumeOnce(id)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: Self.saveTimeout)
+                // Unstick: ending the session typically causes a hung finishWorkout
+                // to fail/return so the other task can complete; we still resume
+                // here so closeRecording always continues.
+                self.session?.end()
+                resumeOnce(nil)
+            }
+        }
     }
 
     /// End collection and save the HKWorkout, returning its UUID string (nil on a
@@ -413,9 +465,32 @@ final class MirrorSessionController: NSObject {
         }
     }
 
+    private func transferSensorArchive(workoutUuid: String?) {
+        guard let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty else { return }
+        let localId = workoutUuid ?? UUID().uuidString
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sensor-\(localId).fhsc")
+        try? data.write(to: tmp, options: .atomic)
+        WatchConnectivityService.shared.transferSensorCapture(
+            fileURL: tmp,
+            metadata: [
+                "execution_local_id": localId,
+                "sample_hz": SensorFileFormat.targetHz,
+                "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
+                "byte_size": data.count,
+                "source_workout_ref": workoutUuid as Any,
+            ]
+        )
+    }
+
     private func resetToIdle() {
         stopWatchdog()
         stopSensorRelay()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
+        // Ensure HK is released even if closeRecording was interrupted mid-await.
+        if session != nil {
+            session?.end()
+        }
         session = nil
         builder = nil
         frame = nil
