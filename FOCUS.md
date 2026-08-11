@@ -254,9 +254,18 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   cuenta pasa AA con `muted`); quedan, sin prisa: **iPhone SE 3** (con
   ergo+dobles el hueco baja a 32 pt — ahí debe colapsar el CROMO, no el
   contador: diseño propio) y un **nivel intermedio** entre compacto (368) y
-  suelo (~145) para huecos de 200-270. Hallazgo de fondo para DECISIONS (lo
-  escribe la otra sesión): `MarcoVivo` tiene CERO llamadas en el repo — el
-  régimen §10 no tiene host real.
+  suelo (~145) para huecos de 200-270.
+- **DIRECTIVA de Alex (11-ago): UNIFICAR EL VIVO.** «Tener diseños perdidos
+  por la app es horrible; traslada este vivo-rondas a otros.» El lenguaje de
+  `vivo-rondas` pasa a ser EL lenguaje del vivo entero, y el §10 gana su HOST
+  real (`MarcoVivo` en Swift — hoy tiene CERO llamadas, cada pantalla se lo
+  monta a mano). Ver DECISIONS 2026-08-11 «El vivo tiene UN lenguaje». En
+  marcha: piloto FUERZA como propuesta del doble (agente) → OK de Alex →
+  Swift; luego EMOM, AMRAP, estaciones, ergo y descanso, una por lote con su
+  espejo. También arreglado hoy: el editor del panel vendía ceguera con
+  bloques test autorados (batería del conector: solo config y notas, dosis
+  invisibles) — `c9e674db`, desplegado; TestForm solo para tests del catálogo,
+  el resto degrada al editor de items.
 - **Incidente de datos (11-ago, resuelto — y era Alex xD):** la sesión real
   del fartlek dictado (asignación 411) apareció con 4 ejes cambiados (el
   prefill del arquetipo fartlek, `archetype-prefills.ts:58`). Se culpó primero

@@ -363,6 +363,31 @@ declara su propio presupuesto — pero no las dos a medias.
 
 ---
 
+## 2026-08-11 · El vivo tiene UN lenguaje — el de `vivo-rondas` — y le falta su HOST real
+
+**Decidido (directiva de Alex, 11-ago: «tener diseños perdidos por la app es horrible;
+traslada este vivo-rondas a otros»):** el lenguaje de `vivo-rondas` (cromo strip
+formato·posición·reloj → banda del SUJETO gobernando → APOYOS de alto fijo →
+franja de acción; cascada por prioridad; nada scrollea; el deshacer nunca se
+recorta) deja de ser una pantalla y pasa a ser **el lenguaje de TODAS las
+superficies del vivo**. La raíz del problema tiene nombre desde la verificación
+cruzada del 11-ago: el marco §10 del doble (`MarcoVivo`) tiene **cero llamadas
+reales en Swift** — doctrina sin host, cada pantalla se monta el layout a mano,
+y así nacen las «views perdidas de diseño».
+
+**El arreglo, en orden:** (1) `MarcoVivo` REAL en Swift — un componente único con
+los cuatro huecos y el presupuesto medido + cascada, generalizando lo construido
+en `RoundsLiveHUD`; (2) piloto FUERZA (propuesta en el doble → OK de Alex →
+Swift); (3) el resto en tandas: EMOM, AMRAP, estaciones/For Time, ergo, descanso
+— cada superficie migrada con su espejo del doble en el mismo lote.
+
+**En consecuencia, no hacer:** ninguna superficie nueva del vivo fuera del marco;
+no migrar dos superficies «de paso» en un lote ajeno (una por lote, con su
+espejo); no re-decidir la jerarquía del sujeto por pantalla sin declararla (el
+criterio es SIEMPRE «¿qué se le cae de la cabeza al atleta sudando?»).
+
+---
+
 ## 2026-08-10 · Rondas ≠ estaciones: la lista del vivo con muchas rondas se colapsa a CURSOR, no a otra pantalla
 
 **Decidido (cierra la pregunta que dejó abierta la entrada del blanco de EMPEZAR):** una
