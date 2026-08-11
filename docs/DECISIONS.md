@@ -10,6 +10,97 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-11 (noche) · Una repetición es una excursión de ida y vuelta, no un pico periódico — y contar exige CONTEXTO, no solo señal
+
+**Decidido:** el conteo de repeticiones en vivo y la velocidad por repetición se
+rehacen sobre `ios/FAHYBRIK/Sensor/RepTracker.swift`. Se **borran**
+`RepCounter.swift` (conteo por autocorrelación + picos) y
+`BarVelocityEstimator.swift` (velocidad por semiciclos de una ventana móvil). El
+archivo de captura sube a **formato v2** para llevar la **gravedad** en cada
+muestra (9 canales: aceleración, giro, gravedad).
+
+**Por qué — medido, no opinado.** Con señal sintética de tres ejes (trayectoria de
+la muñeca + orientación del reloj → aceleración y gravedad en el marco del
+dispositivo, que es lo que da CoreMotion), el mecanismo anterior daba:
+
+| caso | verdad | mecanismo anterior |
+|---|---|---|
+| andar 20 s hacia la barra | 0 reps | **8 reps, confianza 0,90, nivel «contado»** |
+| back squat 6× a 4,5 s | 6 reps | **3** (el tope de periodo era 3,5 s) |
+| velocidad de ese squat | 0,22 m/s · 0,50 m | 0,14 m/s · 0,35 m y **13 velocidades para 6 reps** |
+| wall balls 10× a 1,2 s | 10 reps | 10 ✓ |
+
+Estaba afinado para wall balls y solo para eso. Y el fallo de fondo no era el
+umbral: era el **método**. Cualquier movimiento rítmico de muñeca es periódico, así
+que un detector por periodicidad no puede distinguir una serie de andar. Lo que
+distingue una repetición es la **geometría** (sale y vuelve, con amplitud, y en
+vertical) y el **contexto** (hay una serie abierta).
+
+**El modelo, una vez y para todas las familias:**
+
+- **Excursión de ida y vuelta**, con dos observables de la misma forma:
+  **traslación** (metros sobre el eje vertical del mundo) para todo lo que viaja
+  con la carga — squat, banca, peso muerto, press, jalón, curl, swing, wall ball,
+  thruster, zancada — y **orientación** (grados que gira el antebrazo) para lo que
+  NO viaja porque las manos están fijas y lo que se mueve es el cuerpo: dominadas,
+  fondos, flexiones. Puerta que las separa: si la muñeca viajó durante el giro,
+  manda la traslación (un curl gira 70° *y* viaja 35 cm, y solo la traslación trae
+  velocidad).
+- **La gravedad es obligatoria.** Sin ella no hay eje vertical y el «eje dominante»
+  de una muñeca andando es el balanceo del brazo. Una muestra sin gravedad
+  (archivos v1) **no cuenta**: se declara «no lo sé».
+- **Las amplitudes salen de la curva de posición del ciclo entero**, no del punto
+  exacto donde cruzó el cero. Los cruces *proponen* el ciclo; la curva decide dónde
+  están el fondo y el bloqueo (mayor bajada y mayor subida). La velocidad se fuerza
+  a cero en los dos extremos de cada tramo (tendencia quitada) — los dos anclajes
+  por repetición que pedía el plan.
+- **Cada repetición se emite UNA vez, al cerrarse, y no se revisa.** De ahí sale
+  «una velocidad por repetición»: si el número cambia es porque hay otra
+  repetición, no porque el estimador se lo repensó a mitad de recorrido.
+
+**Lo que NO se entrega:** excursiones **horizontales** (remo sentado, aperturas,
+empuje horizontal). A esa altura la señal de un remo sentado y la de un brazo
+balanceándose son la misma, y entregar un número con aplomo ahí es el único error
+que el plan declara inaceptable. Eso lo resolverá el clasificador (fase 4, necesita
+corpus). Isométricos y carries dan cero, que es la respuesta correcta.
+
+**El contexto, que era el agujero grande:** `openWindow`/`closeWindow` existían y
+**no tenían ni un llamante** — el contador corría durante todo el entreno, también
+mientras el atleta andaba, se colocaba o descansaba. Ahora la serie abierta la
+define UNA función del motor (`WorkoutSession.sensorWindow`), que el reloj lee
+directamente en solitario y recibe en el frame (`MirrorSensorWindow`) en espejo. Al
+cambiar de serie el contador vuelve a cero. Efecto colateral bueno: el archivo de
+la fase 0 por fin se sella con sus ventanas etiquetadas.
+
+**Qué NO hacer en consecuencia:**
+
+- **No** volver a defenderse de un contador malo en el teléfono. Se retiran el
+  «+1 por paquete» (dejaba la cuenta por detrás para siempre si se perdía un
+  paquete) y el **techo del plan** (congelaba la serie entera en cuanto un número
+  inflado lo pasaba: eso era el «no me cuenta las reps»). El número de la muñeca es
+  absoluto para la serie abierta; lo único que se respeta es que si el atleta ha
+  tocado la cuenta, el sensor no la pisa.
+- **No** sembrar el sesgo del acelerómetro con la primera muestra: si cae en un pico
+  mete varios m/s de velocidad falsa que no se van, el signo se queda fijo y no hay
+  ni un cruce por cero (síntoma: cero repeticiones). El sesgo se aprende **despacio
+  y solo con la muñeca quieta**, y la velocidad integrada se centra con un filtro.
+- **No** aprender el sesgo rápido: el punto de giro de una repetición lenta también
+  parece reposo, y se come el gesto.
+- **No** contar repeticiones de muñeca en correr ni en ergo (`run/row/ski/bike`): en
+  ergo la verdad la da el PM5. Modalidad desconocida SÍ cuenta — la ventana ya
+  restringe a una serie abierta, y callarse ahí dejaría el entreno libre sin contador.
+- Los umbrales del contador son **método con defecto** (`RepTracker.Tuning`), no
+  constantes: `coach_movement_policy` (mig. 0177) los pisa por movimiento.
+
+**Pendiente y declarado:** todo esto está validado contra señal sintética con
+física, no contra vídeo. La aceptación del plan (±1 rep en el 90 % de las series;
+correlación >0,90 en velocidad hasta el 80 % del 1RM) sigue exigiendo medir en el
+gimnasio. Y una muñeca dando vueltas DENTRO de una serie abierta sigue pudiendo
+sumar: la defensa es que el atleta corrige, y esa corrección es la etiqueta de oro
+de la fase 6.
+
+---
+
 ## 2026-08-11 (tarde) · El vídeo propio del entrenador vive en Cloudflare Stream, y el fichero nuestro se retira el mismo día
 
 **Decidido:** la segunda forma del localizador deja de ser una ruta nuestra y pasa a

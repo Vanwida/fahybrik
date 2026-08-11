@@ -5,6 +5,84 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · El contador de repeticiones, rehecho: excursión + serie abierta (11-ago noche)
+
+Alex probando back squat en entreno libre: «nada más empezar suma reps sin más» y
+«no me cuenta las reps». Medido con señal sintética de tres ejes, el mecanismo
+anterior (autocorrelación + picos) daba **8 repeticiones con confianza 0,90
+andando 20 s** y **3 de 6 en un back squat a 4,5 s** (su tope de periodo era
+3,5 s). Además producía **13 velocidades para 6 repeticiones** — eso era el
+«streaming» que molestaba en pantalla.
+
+**Qué se hizo** (detalle y qué NO volver a hacer: `docs/DECISIONS.md`, 11-ago noche):
+
+- **`RepTracker`** sustituye a `RepCounter` + `BarVelocityEstimator` (borrados).
+  Una repetición = **excursión de ida y vuelta**, con dos observables: traslación
+  vertical (squat, banca, peso muerto, press, jalón, curl, swing, wall ball) y
+  orientación del antebrazo (dominadas, fondos, flexiones). Horizontal puro (remo
+  sentado) NO entrega número; carries e isométricos dan cero.
+- **La gravedad viaja en cada muestra** → archivo **v2** (9 canales, 2,4 MB/45 min,
+  dentro de presupuesto; los v1 siguen leyéndose). Sin gravedad no hay eje vertical
+  y el «eje dominante» de una muñeca andando es el balanceo del brazo.
+- **Contar exige serie abierta.** `openWindow` no tenía NI UN llamante: el contador
+  corría todo el entreno. Ahora la ventana la define `WorkoutSession.sensorWindow`
+  y viaja en el frame (`MirrorSensorWindow`); al cambiar de serie vuelve a cero. De
+  paso, el archivo de la fase 0 por fin se sella con sus ventanas etiquetadas.
+- **Una velocidad por repetición**: se sella al cerrarse la repetición y no se toca
+  hasta la siguiente. El teléfono deja de defenderse del contador (fuera el «+1 por
+  paquete» y el techo del plan, que **congelaba la serie entera**).
+
+**Verificado:** 21/21 en `FAHYBRIKTests/Sensor` (squat lento, squat con 2 s de
+pausa, banca tumbado, wall balls, curl, dominadas, flexiones, andar=0, carry=0,
+silla=0, remo sentado=0, velocidad 1×rep, conteo monotónico, ida y vuelta del
+archivo v2); `xcodebuild -scheme FAHYBRIKWatch` SUCCEEDED.
+
+**Sin hacer, y hay que decirlo:** todo está validado contra señal sintética con
+física, **no contra vídeo ni PM5**. La aceptación del plan (±1 rep en el 90 % de
+las series, correlación >0,90 en m/s hasta el 80 % del 1RM) sigue pidiendo medir en
+el gimnasio. Y dentro de una serie abierta, una muñeca dando vueltas puede seguir
+sumando: la defensa es que el atleta corrige. El doble no cambia (las pantallas
+`contador-reps` y `velocidad-serie` ya describían estas semánticas y la UI no se
+tocó).
+
+---
+
+## Ahora · El atleta se pone su cara — foto de perfil en iOS (11-ago)
+
+Donde había iniciales ahora puede ir su foto. Construido en iOS contra el
+contrato que está levantando OTRA sesión en paralelo (`POST /api/perfil/foto/
+subida` → subida directa multipart campo `file` → `POST …/confirmar` →
+`DELETE /api/perfil/foto`); **el servidor todavía no existe**, así que el
+circuito está listo y sin probar de punta a punta.
+
+- **Dónde:** el avatar de Perfil es ahora un botón con chapita de cámara y abre
+  `FotoPerfilSheet` (en `ProfileView.swift`): galería con `PhotosPicker`, cámara
+  reutilizando el `CameraPicker` que ya existía, previsualización antes de
+  confirmar y quitar con confirmación.
+- **Se reduce en el móvil:** lado mayor a **512 px** y JPEG **0,85**
+  (`AthletePhotoImage`, en `MeService.swift`). Una foto de iPhone son 3-5 MB y
+  ~4000 px para acabar en un círculo de 60 pt. Lo que se previsualiza es
+  exactamente la imagen reducida que se sube.
+- **Estados honestos:** preparando · subiendo con % real (delegado de
+  `URLSession`, no una barra decorativa) · guardando · hecho · error con motivo y
+  reintento. Subir bytes y que el servidor los dé por buenos se cuentan por
+  separado; nada se canta como guardado hasta que vuelve el perfil con la foto.
+- **Dónde se pinta:** `CoachAvatar` acepta `photoURL` y la nueva pieza
+  `AvatarPhoto` la recorta al círculo ENCIMA de las iniciales — sin foto, o
+  mientras carga, se ve el avatar de siempre. Enchufado en Perfil, Inicio e
+  Inicio libre.
+- **Verificado:** BUILD SUCCEEDED (`xcodebuild -scheme FAHYBRIK`) y tests nuevos
+  en `FAHYBRIKTests/Profile/AthletePhotoTests.swift`.
+
+**Asunción que hay que confirmar con la sesión del servidor:** el campo se lee
+como `avatar_url` en `/api/auth/me` (precedente del repo: `coaches.avatar_url`).
+Si el servidor lo llama de otra forma, es una línea en `AthleteIdentity`.
+
+**Sin hacer:** el panel del coach no pinta la foto del atleta, y el doble no
+tiene espejo de la tarjeta de identidad de Perfil (sólo `perfil-rendimiento`).
+
+---
+
 ## Ahora · Reconocer el movimiento en el reloj — fases 0–3 en código (11-ago)
 
 Plan del 6-ago (`docs/plan-reconocer-movimiento.html` + `docs/reconocer-el-movimiento.html`).
