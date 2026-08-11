@@ -2,10 +2,12 @@ import UIKit
 import UniformTypeIdentifiers
 
 // Loads media that lives behind our own AUTHENTICATED endpoints: los adjuntos del
-// chat (`/api/chat/attachments/...`) y el vídeo de técnica que sube el entrenador
-// (`/api/exercises/video/<key>`, ver `VideoPropioPlayer`). Los dos piden lo mismo
-// —bearer, seguir el redirect y acabar en un fichero local—, así que se resuelve
-// una sola vez y aquí.
+// chat (`/api/chat/attachments/...`). Pide con bearer, sigue el redirect y acaba en
+// un fichero local.
+//
+// El vídeo de técnica que sube el entrenador YA NO pasa por aquí: vive en Cloudflare
+// Stream, se reproduce como HLS sin credencial y sin descargarlo entero
+// (`VideoStreamPlayer`). Cuando el fichero era nuestro sí compartían este camino.
 //
 // Esos endpoints requieren el bearer del atleta y, in production, 302-redirect to
 // a short-lived signed blob URL (in dev they stream the bytes directly). A plain
@@ -100,9 +102,9 @@ actor ChatMediaLoader {
     /// La extensión del fichero temporal. AVFoundation y QuickLook deducen el tipo
     /// POR LA EXTENSIÓN, así que este dato decide si el vídeo se reproduce o no.
     ///
-    /// Un adjunto de chat la trae en la URL (`<uuid>.mp4`), pero una ruta de API
-    /// (`/api/exercises/video/<key>`) no lleva ninguna: ahí manda el `Content-Type`
-    /// de la respuesta. Sin ninguna de las dos, `bin` (y que lo intente el sistema).
+    /// Un adjunto de chat la trae en la URL (`<uuid>.mp4`), pero una ruta de API no
+    /// lleva ninguna: ahí manda el `Content-Type` de la respuesta. Sin ninguna de las
+    /// dos, `bin` (y que lo intente el sistema).
     private static func fileExtension(remoteURL: String, mime: String?) -> String {
         if let ext = ChatAttachmentInfer.fileExtension(fromURLString: remoteURL) { return ext }
         // El header puede venir con parámetros ("video/mp4; charset=..."): sólo el tipo.

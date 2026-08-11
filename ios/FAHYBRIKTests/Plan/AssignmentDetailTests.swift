@@ -948,11 +948,19 @@ final class AssignmentDetailTests: XCTestCase {
 // MARK: - El localizador del vídeo de técnica
 
 /// `exercise_video_url` (y su gemelo de estación `technique_video_url`) tiene DOS
-/// formas válidas y ninguna más: un enlace de YouTube o una ruta nuestra
-/// («/api/exercises/video/<key>», el fichero que sube el entrenador). Aquí se pinta
-/// esa frontera, porque de ella depende que un vídeo perfectamente válido se vea o
-/// se quede invisible.
+/// formas válidas y ninguna más: un enlace de YouTube o el vídeo propio del
+/// entrenador, alojado en Cloudflare Stream y servido como HLS. Aquí se pinta esa
+/// frontera, porque de ella depende que un vídeo perfectamente válido se vea o se
+/// quede invisible.
 final class VideoDeTecnicaTests: XCTestCase {
+    /// Un par (code, uid) con la forma EXACTA que emite Cloudflare, copiado de una
+    /// subida real: el code es el subdominio de la cuenta y el uid, 32 hexadecimales.
+    private static let code = "y1njxqklp26mzz8v"
+    private static let uid = "64d93f4fa041b608bff0de740f7ad28d"
+    private static var hls: String {
+        "https://customer-\(code).cloudflarestream.com/\(uid)/manifest/video.m3u8"
+    }
+
     // MARK: Nada
 
     func test_sinLocalizador_noHayVideo() {
@@ -998,28 +1006,58 @@ final class VideoDeTecnicaTests: XCTestCase {
         XCTAssertEqual(video.orientation.ratio, 9.0 / 16.0)
     }
 
-    // MARK: Fichero propio
+    // MARK: Vídeo propio del entrenador
 
-    func test_rutaNuestra_esFicheroPropio_resueltoContraLaBaseDeLaAPI() {
-        guard case .propio(let url)? = VideoDeTecnica("/api/exercises/video/abc123") else {
-            return XCTFail("Una ruta relativa es un fichero nuestro")
+    func test_manifiestoDeStream_esElVideoPropio() {
+        guard case .stream(let url)? = VideoDeTecnica(Self.hls) else {
+            return XCTFail("El manifiesto HLS es el vídeo que sube el entrenador")
         }
-        XCTAssertEqual(url.path, "/api/exercises/video/abc123")
-        XCTAssertEqual(url.host, APIBase.url.host, "Se resuelve contra la base de la API, no contra otro sitio")
-        XCTAssertTrue(VideoDeTecnica.hay(en: "/api/exercises/video/abc123"))
+        XCTAssertEqual(url.absoluteString, Self.hls)
+        XCTAssertTrue(VideoDeTecnica.hay(en: Self.hls))
     }
 
-    /// El criterio es «ruta relativa», no la ruta concreta cableada: el día que el
-    /// backend sirva el fichero por otro camino esto tiene que seguir funcionando.
-    func test_cualquierRutaRelativa_esFicheroPropio() {
-        guard case .propio(let url)? = VideoDeTecnica("/api/exercises/video/v2/xyz.mp4") else {
-            return XCTFail("Toda ruta relativa apunta a nuestro propio servidor")
+    /// Cloudflare reparte varias direcciones del MISMO vídeo y del panel se copia la
+    /// del reproductor o la de «watch». Todas tienen que acabar en el manifiesto, que
+    /// es lo único que AVPlayer sabe reproducir sin ayuda.
+    func test_lasOtrasDireccionesDelMismoVideo_acabanEnElManifiesto() {
+        let base = "https://customer-\(Self.code).cloudflarestream.com/\(Self.uid)"
+        for variante in ["\(base)/iframe", "\(base)/watch", "\(base)/manifest/video.mpd"] {
+            guard case .stream(let url)? = VideoDeTecnica(variante) else {
+                return XCTFail("\(variante) es el mismo vídeo")
+            }
+            XCTAssertEqual(url.absoluteString, Self.hls)
         }
-        XCTAssertEqual(url.path, "/api/exercises/video/v2/xyz.mp4")
+    }
+
+    /// La frontera que impide que la app del atleta le pida bytes a un dominio ajeno
+    /// porque alguien escribió lo que quiso en la columna.
+    func test_loQueSoloSePareceAStream_noEsVideo() {
+        let casos = [
+            // El host tiene que TERMINAR en el dominio de Cloudflare, no contenerlo.
+            "https://customer-\(Self.code).cloudflarestream.com.ajeno.tld/\(Self.uid)/manifest/video.m3u8",
+            // Sin cifrar.
+            "http://customer-\(Self.code).cloudflarestream.com/\(Self.uid)/manifest/video.m3u8",
+            // Un id que no son 32 hexadecimales.
+            "https://customer-\(Self.code).cloudflarestream.com/abc123/manifest/video.m3u8",
+            // Un camino que no es el vídeo.
+            "https://customer-\(Self.code).cloudflarestream.com/\(Self.uid)/thumbnails/thumbnail.jpg",
+        ]
+        for caso in casos {
+            XCTAssertNil(VideoDeTecnica(caso), "\(caso) no puede pasar por vídeo")
+        }
+    }
+
+    /// El fichero alojado por nosotros y servido tras autenticación fue la segunda
+    /// forma durante unas horas del 11-ago y se retiró el mismo día: Stream lo
+    /// sustituye entero. Que siga sin colar es lo que impide que reaparezca un segundo
+    /// camino para lo mismo.
+    func test_rutaRelativaNuestra_yaNoEsVideo() {
+        XCTAssertNil(VideoDeTecnica("/api/exercises/video/abc123"))
+        XCTAssertFalse(VideoDeTecnica.hay(en: "/api/exercises/video/ejercicios/60/2026/08/x.mp4"))
     }
 
     func test_espaciosAlrededor_noRompenLaClasificacion() {
-        XCTAssertTrue(VideoDeTecnica.hay(en: "  /api/exercises/video/abc123  "))
+        XCTAssertTrue(VideoDeTecnica.hay(en: "  \(Self.hls)  "))
         XCTAssertTrue(VideoDeTecnica.hay(en: " https://youtu.be/brFHyOtTwH4\n"))
     }
 }
