@@ -52,9 +52,15 @@ final class SensorPipeline {
     private(set) var isRestingWindow = false
     /// Índice de la primera muestra aún sin pasar por el contador.
     private var trackerCursor = 0
+    /// Índice de la primera muestra dentro del horizonte de trabajo/descanso, y
+    /// cuándo se recalculó por última vez.
+    private var timingCursor = 0
+    private var lastTimingAt: Double = -.infinity
 
     private static let liveHorizonSeconds: Double = 35
     private static let mergeGapSeconds: Double = 1.8
+    /// Cada cuánto se recalcula trabajo/descanso (s).
+    private static let timingEverySeconds: Double = 0.5
 
     var sampleCount: Int { samples.count }
 
@@ -80,6 +86,8 @@ final class SensorPipeline {
         lastVelocity = nil
         tracker.reset()
         trackerCursor = 0
+        timingCursor = 0
+        lastTimingAt = -.infinity
         activeWindowKey = nil
         isCountableWindow = false
         isRestingWindow = false
@@ -165,9 +173,21 @@ final class SensorPipeline {
     private func recomputeLive() {
         // 1. Trabajo / descanso sobre la ventana reciente — alimenta las columnas
         //    sensor_work_s / sensor_rest_s del tramo. Independiente del conteo.
-        if samples.count >= 50, let tEnd = samples.last?.t {
-            let recent = samples.filter { $0.t >= tEnd - Self.liveHorizonSeconds }
+        //
+        //    Dos cuidados de BATERÍA, que en el reloj es un criterio de aceptación
+        //    del plan: la ventana se acota moviendo un índice (filtrar el array
+        //    entero cada 20 ms son 135.000 muestras por sesión, seis millones de
+        //    comparaciones por segundo al final), y el detector corre dos veces por
+        //    segundo, no cincuenta — el trabajo acumulado no cambia en 20 ms.
+        if samples.count >= 50, let tEnd = samples.last?.t,
+           tEnd - lastTimingAt >= Self.timingEverySeconds {
+            let cutoff = tEnd - Self.liveHorizonSeconds
+            while timingCursor < samples.count, samples[timingCursor].t < cutoff {
+                timingCursor += 1
+            }
+            let recent = Array(samples[min(timingCursor, samples.count)...])
             if recent.count >= 40, let t0 = recent.first?.t {
+                lastTimingAt = tEnd
                 let raw = activity.analyze(recent)
                 // La pausa de un segundo arriba de la barra sigue siendo trabajo:
                 // los huecos cortos se cosen antes de sumar.
