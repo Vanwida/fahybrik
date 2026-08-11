@@ -26,9 +26,21 @@ No es un checklist técnico: es el criterio con el que se juzga cada pestaña.
    - **Lo que reclama atención se ve donde el coach ya está**, no escondido en un tab sin badge.
    - Si hay dos sitios para lo mismo, uno es espejo de solo lectura o se unifica; nunca dos escrituras ni una escritura falsa.
 
-**Test de cada hallazgo:** *«¿un coach competente, frío, sin formación en FAHYBRID, resuelve esto en 10 segundos o se pierde?»* Si se pierde, es bug de producto aunque el backend esté perfecto.
+4. **Todo circular. Una feature suelta no vale nada.**  
+   Cada dato o control tiene que **entrar y salir** del sistema: se produce en un sitio, se consume en otro, y el coach ve la cadena sin romper el hilo.  
+   - Test → zonas → prescripción del plan → ejecución → feedback → re-test / ajuste.  
+   - Intake → clasificación → asignación → plan vivo → publicación → app del atleta.  
+   - Check-in / readiness → «a vigilar» → **acción en el plan** (no un muro de texto).  
+   - Lesión → adaptar sesiones / pausa → el plan lo refleja.  
+   Si algo se pinta y **no alimenta ni se alimenta de** nada (botón decorativo, panel huérfano, métrica que nadie usa para decidir), **no es feature: es ruido.** Se conecta al circuito o se quita.
 
-**Consecuencia en Perfil (ya auditado):** P1–P4 no son «features incompletas» — son anti-UX: enseñan acciones que no existen y esconden la escritura real en otra pestaña. Bajo esta lente, quitar el control muerto o enchufarlo de verdad gana a dejar el chrome.
+**Tests de cada hallazgo:**
+- *«¿un coach competente, frío, sin formación en FAHYBRID, resuelve esto en 10 segundos o se pierde?»* → si se pierde, bug de producto.
+- *«¿esto cierra un círculo o cuelga suelto?»* → si cuelga, no se prioriza como “opción más”; se enchufa o se elimina.
+
+**Consecuencia en Perfil (ya auditado):** P1–P4 no son «features incompletas» — son anti-UX y **anti-círculo**: enseñan acciones que no existen y esconden la escritura real en otra pestaña. Quitar el control muerto o enchufarlo de verdad gana a dejar el chrome.
+
+**Consecuencia en Plan (ya auditado):** PL5 («A vigilar» sin CTA) es el arquetipo de lo suelto: la señal existe, el plan existe, **el arco no se cierra**. PL1 (missed = pendiente) rompe el círculo ejecución→scan del coach.
 
 ---
 
