@@ -217,18 +217,20 @@ final class WatchWorkoutCoordinator {
         let reps = pipe.lastRepResult
         let timing = pipe.lastTiming
         let vel = pipe.lastVelocity
+        let liveReps = pipe.liveCompletedReps
+        let completedMps = pipe.lastCompletedRepVelocityMs
         engine.applySensorConclusions(MirrorSensorConclusions(
             sensorWorkS: timing?.workSeconds,
             sensorRestS: timing?.restSeconds,
             sensorTimingConfidence: timing?.confidence,
-            reps: (reps?.level == .unknown) ? nil : reps?.reps,
+            reps: liveReps > 0 ? liveReps : nil,
             repsConfidence: reps?.confidence,
-            repsLevel: reps?.level.rawValue,
-            lastRepVelocityMs: vel?.repVelocities.last ?? vel?.meanVelocityLast,
+            repsLevel: liveReps > 0 ? (reps?.level.rawValue ?? "counted") : "unknown",
+            lastRepVelocityMs: completedMps,
             meanVelocityFirstMs: vel?.meanVelocityFirst,
-            meanVelocityLastMs: vel?.meanVelocityLast,
+            meanVelocityLastMs: completedMps ?? vel?.meanVelocityLast,
             velocityLossPct: vel?.velocityLossPct,
-            velocityConfidence: vel?.confidence,
+            velocityConfidence: pipe.lastCompletedRepVelocityConfidence ?? vel?.confidence,
             seq: sensorSeq
         ))
     }

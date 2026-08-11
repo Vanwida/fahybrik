@@ -188,21 +188,25 @@ final class MirrorSessionController: NSObject {
         let pipe = SensorCapture.shared.pipeline
         guard pipe.sampleCount >= 12 else { return }
         sensorSeq += 1
-        let reps = pipe.lastRepResult
+        let raw = pipe.lastRepResult
         let timing = pipe.lastTiming
         let vel = pipe.lastVelocity
+        // Progressive count (1,2,3…) — never the raw peak dump that jumped to 5.
+        let liveReps = pipe.liveCompletedReps
+        // m/s of the last FINISHED rep only (blank until first rep completes).
+        let completedMps = pipe.lastCompletedRepVelocityMs
         let packet = MirrorSensorConclusions(
             sensorWorkS: timing?.workSeconds,
             sensorRestS: timing?.restSeconds,
             sensorTimingConfidence: timing?.confidence,
-            reps: (reps?.level == .unknown) ? nil : reps?.reps,
-            repsConfidence: reps?.confidence,
-            repsLevel: reps?.level.rawValue,
-            lastRepVelocityMs: vel?.repVelocities.last ?? vel?.meanVelocityLast,
+            reps: liveReps > 0 ? liveReps : nil,
+            repsConfidence: raw?.confidence,
+            repsLevel: liveReps > 0 ? (raw?.level.rawValue ?? "counted") : "unknown",
+            lastRepVelocityMs: completedMps,
             meanVelocityFirstMs: vel?.meanVelocityFirst,
-            meanVelocityLastMs: vel?.meanVelocityLast,
+            meanVelocityLastMs: completedMps ?? vel?.meanVelocityLast,
             velocityLossPct: vel?.velocityLossPct,
-            velocityConfidence: vel?.confidence,
+            velocityConfidence: pipe.lastCompletedRepVelocityConfidence ?? vel?.confidence,
             seq: sensorSeq
         )
         send(type: MirrorWire.MessageType.sensor, packet)

@@ -18,27 +18,28 @@ final class SensorPipeline {
     var wrist: SensorWrist?
     var executionLocalId: String?
 
-    /// Latest live conclusions for the current open work window.
+    // MARK: Live conclusions (what the phone paints)
+
     private(set) var lastRepResult: RepCountResult?
     private(set) var lastTiming: ActivityTimingResult?
     private(set) var lastVelocity: BarVelocityResult?
-    /// Sticky last good velocity so rest between sets (and micro-pauses
-    /// between reps of the SAME set) doesn't blank the chip.
-    private var lastGoodVelocity: BarVelocityResult?
-    /// Session time (sample t) when lastGoodVelocity was produced.
-    private var lastGoodVelocityAt: Double?
 
-    /// Live inference only looks at this much recent signal. Using the WHOLE
-    /// session concatenated set1+rest+set2 with time gaps, which broke period
-    /// detection after the first set (m/s worked once, then never again).
+    /// Reps completed one-by-one this bout (never jumps 0→5 in one frame).
+    private(set) var liveCompletedReps: Int = 0
+    /// m/s of the LAST finished rep only — blank until the first rep completes.
+    private(set) var lastCompletedRepVelocityMs: Double?
+    private(set) var lastCompletedRepVelocityConfidence: Double?
+
+    // Bout / peak tracking
+    private var peakHighWater: Int = 0
+    private var lastRepEmitAt: Double = -1
+    private var currentBoutStart: Double?
+
     private static let liveHorizonSeconds: Double = 35
-    /// A work bout shorter than this is still "getting up from a chair".
     private static let minBoutSeconds: Double = 2.5
-    /// Keep showing the last bout's m/s this long into rest / between-rep dips.
-    private static let stickyVelocitySeconds: Double = 25
-    /// Gaps shorter than this between work intervals are still ONE set
-    /// (rack breath, bottom pause) — not a real rest between series.
     private static let mergeGapSeconds: Double = 1.8
+    /// Min time between accepted live rep ticks (matches squat cycle floor).
+    private static let minSecondsBetweenReps: Double = 0.55
 
     var sampleCount: Int { samples.count }
 
@@ -50,8 +51,12 @@ final class SensorPipeline {
         lastRepResult = nil
         lastTiming = nil
         lastVelocity = nil
-        lastGoodVelocity = nil
-        lastGoodVelocityAt = nil
+        liveCompletedReps = 0
+        lastCompletedRepVelocityMs = nil
+        lastCompletedRepVelocityConfidence = nil
+        peakHighWater = 0
+        lastRepEmitAt = -1
+        currentBoutStart = nil
         startedAt = nil
         captureMode = .classic
     }
@@ -105,11 +110,8 @@ final class SensorPipeline {
     // MARK: - conclusions
 
     private func recomputeLive() {
-        // Need enough recent samples (~1 s at 50 Hz floor).
         guard samples.count >= 50, let tEnd = samples.last?.t else { return }
 
-        // LIVE slice only — not the full session. Concatenating set1 + rest + set2
-        // left a hole in time; medianDt and period estimation died after set 1.
         let sliceStart = tEnd - Self.liveHorizonSeconds
         let recent = samples.filter { $0.t >= sliceStart }
         guard recent.count >= 40 else { return }
@@ -117,51 +119,48 @@ final class SensorPipeline {
         let timing = activity.analyze(recent)
         lastTiming = timing
 
-        // Merge micro-gaps (between-rep pauses look like "rest" to the energy
-        // detector — that was blanking m/s mid-set on the first series).
         let merged = Self.mergeWorkIntervals(timing.workIntervals, maxGap: Self.mergeGapSeconds)
         let bouts = merged.filter { $0.1 - $0.0 >= Self.minBoutSeconds }
-
-        // Prefer the bout that is still open (ends near now), else the latest solid one.
         let active = bouts.last(where: { tEnd - $0.1 <= 0.75 }) ?? bouts.last
-        guard let bout = active else {
-            holdSticky(now: tEnd)
-            return
+        guard let bout = active else { return }
+
+        // New bout → reset progressive counters (keep last completed m/s sticky
+        // on the phone until a new rep lands).
+        if currentBoutStart == nil || abs(bout.0 - (currentBoutStart ?? bout.0)) > 0.5 {
+            currentBoutStart = bout.0
+            peakHighWater = 0
+            liveCompletedReps = 0
+            lastRepEmitAt = -1
         }
 
-        // Samples of THAT bout only (contiguous → clean period).
         let boutSamples = recent.filter { $0.t >= bout.0 && $0.t <= max(bout.1, tEnd) }
-        let boutSpan = max(bout.1, tEnd) - bout.0
-        guard boutSamples.count >= 40, boutSpan >= Self.minBoutSeconds else {
-            holdSticky(now: tEnd)
-            return
-        }
+        guard boutSamples.count >= 40 else { return }
 
-        lastRepResult = reps.count(samples: boutSamples, workOnly: nil)
-        if let v = velocity.estimate(samples: boutSamples, workOnly: nil) {
-            lastVelocity = v
-            lastGoodVelocity = v
-            lastGoodVelocityAt = tEnd
-        } else {
-            // Mid-rep / half cycle — keep the previous good reading.
-            holdSticky(now: tEnd)
-        }
-    }
+        let result = reps.count(samples: boutSamples, workOnly: nil)
+        let vel = velocity.estimate(samples: boutSamples, workOnly: nil)
+        lastRepResult = result
+        lastVelocity = vel
 
-    /// Keep last good m/s through between-rep dips and short rests; then clear.
-    private func holdSticky(now: Double) {
-        lastRepResult = RepCountResult(
-            reps: 0, confidence: 0, level: .unknown,
-            periodSeconds: nil, alternatingPattern: false
-        )
-        if let good = lastGoodVelocity, let at = lastGoodVelocityAt,
-           now - at <= Self.stickyVelocitySeconds {
-            lastVelocity = good
-            return
+        // ── Rep completed → +1 and lock that rep's m/s ─────────────────────
+        // Absolute peak count can jump (noise → "5"). Live display only ticks
+        // +1 when the high-water mark rises AND enough time passed since last tick.
+        if result.reps > peakHighWater {
+            peakHighWater = result.reps
+            let elapsedOk = lastRepEmitAt < 0 || (tEnd - lastRepEmitAt) >= Self.minSecondsBetweenReps
+            let qualityOk = result.level != .unknown && result.confidence >= 0.45
+            if elapsedOk, qualityOk {
+                liveCompletedReps += 1
+                lastRepEmitAt = tEnd
+                // Velocity of the rep that just finished (Alex: show m/s after the rep).
+                if let vels = vel?.repVelocities, !vels.isEmpty {
+                    lastCompletedRepVelocityMs = vels.last
+                    lastCompletedRepVelocityConfidence = vel?.confidence
+                } else if let m = vel?.meanVelocityLast {
+                    lastCompletedRepVelocityMs = m
+                    lastCompletedRepVelocityConfidence = vel?.confidence
+                }
+            }
         }
-        lastVelocity = nil
-        lastGoodVelocity = nil
-        lastGoodVelocityAt = nil
     }
 
     /// Collapse work intervals separated by less than `maxGap` into one bout.

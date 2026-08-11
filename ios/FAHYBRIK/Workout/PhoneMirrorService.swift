@@ -233,8 +233,10 @@ final class PhoneMirrorService {
     // MARK: - Mirrored session adoption
 
     private func adopt(_ mirrored: HKWorkoutSession) {
-        self.mirrored = mirrored
+        // Delegate FIRST — logs showed "Received data from remote session but the
+        // session delegate is not setup" when packets arrived before this assignment.
         mirrored.delegate = delegateShim
+        self.mirrored = mirrored
         wristJoined = true
 
         // Late join after the phone already finished (or orphaned session with no

@@ -128,40 +128,30 @@ final class WorkoutSession {
         applySensorReps(c, openIdx: openIdx)
     }
 
-    /// Live rep count into the open set / open-score segment when the wrist
-    /// is confident enough. Athlete confirm still wins; edits after prefill
-    /// become `sensor_corrected` at close.
+    /// Live rep count: the wrist already emits progressive 1,2,3… (never a dump).
+    /// Phone only accepts +1 per packet and never jumps past the plan ceiling.
     private func applySensorReps(_ c: MirrorSensorConclusions, openIdx: Int?) {
         guard let sensorReps = c.reps, sensorReps > 0 else { return }
         let level = c.repsLevel ?? ""
+        guard level == "counted" || level == "doubtful" else { return }
         let conf = c.repsConfidence ?? 0
-        // "counted" is ideal; "doubtful" with solid conf still updates live so
-        // the hero can climb 3→4→5 mid-set without waiting for perfect signal.
-        let usable = (level == "counted" && conf >= 0.75)
-            || (level == "doubtful" && conf >= 0.55 && sensorReps >= 3)
-        guard usable else { return }
 
         if !setRecords.isEmpty {
             guard let idx = openIdx, !setRecords[idx].confirmed else { return }
             let rec = setRecords[idx]
-            // Athlete already edited by hand — don't fight them.
             if rec.repsSource == RepsSource.athleteTap.rawValue { return }
             if let prescribed = rec.repsPrescribed {
-                // Never invent a set bigger than the plan by a wide margin
-                // (false peaks). Allow a little overrun for imperfect counting.
                 let ceiling = max(prescribed + 2, Int((Double(prescribed) * 1.25).rounded()))
                 guard sensorReps <= ceiling else { return }
             }
-            // If still plan-assumed (primed 10/10), live count REPLACES the hero
-            // so it climbs 3→4→5. Once sensor owns the number, only go up (glitch guard).
-            let next: Int
-            if rec.repsSource == RepsSource.sensor.rawValue
-                || rec.repsSource == RepsSource.sensorCorrected.rawValue {
-                next = max(rec.repsActual ?? 0, sensorReps)
-            } else {
-                next = sensorReps
-            }
-            setRecords[idx].repsActual = next
+            let ownedBySensor = rec.repsSource == RepsSource.sensor.rawValue
+                || rec.repsSource == RepsSource.sensorCorrected.rawValue
+            let previous = ownedBySensor ? (rec.repsActual ?? 0) : 0
+            // At most +1 from what we already show (wrist may repeat the same N).
+            let next = min(sensorReps, previous + 1)
+            guard next > previous || !ownedBySensor else { return }
+            let applied = ownedBySensor ? next : min(sensorReps, 1)
+            setRecords[idx].repsActual = max(applied, 1)
             setRecords[idx].repsSource = RepsSource.sensor.rawValue
             setRecords[idx].repsConfidence = conf
             return
@@ -171,15 +161,13 @@ final class WorkoutSession {
         if let prescribed = currentSegment?.prescribedRepsForLog {
             let ceiling = max(prescribed + 2, Int((Double(prescribed) * 1.25).rounded()))
             guard sensorReps <= ceiling else { return }
-            // Primed open segment: replace, then climb.
+            // Still on primed plan number → first completed rep starts at 1.
             if repsCurrentSegment == prescribed {
-                repsCurrentSegment = sensorReps
-            } else {
-                repsCurrentSegment = max(repsCurrentSegment, sensorReps)
+                repsCurrentSegment = 1
+                return
             }
-        } else {
-            repsCurrentSegment = max(repsCurrentSegment, sensorReps)
         }
+        repsCurrentSegment = min(sensorReps, repsCurrentSegment + 1)
     }
 
     private func stampVelocity(on index: Int, from c: MirrorSensorConclusions) {

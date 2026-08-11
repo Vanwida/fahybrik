@@ -53,13 +53,15 @@ struct VelocityLiveReading: Equatable, Sendable {
 }
 
 enum VelocityLive {
-    /// Última rep (o media de la serie) si la confianza alcanza para enseñar.
+    /// m/s de la última rep YA cerrada. Sin rep completada → nil (no hay chip).
+    /// Alex: “repe ok → velocidad mostrada”, no estimar a mitad de ciclo.
     static func reading(from c: MirrorSensorConclusions?) -> VelocityLiveReading? {
         guard let c else { return nil }
-        let v = c.lastRepVelocityMs ?? c.meanVelocityLastMs
+        // Only the completed-rep field — not a mid-rep mean.
+        guard let v = c.lastRepVelocityMs else { return nil }
         let conf = c.velocityConfidence ?? 0
         let band = VelocityBand.from(velocityMs: v, confidence: conf)
-        guard band != .none, let v else { return nil }
+        guard band != .none else { return nil }
         return VelocityLiveReading(
             metersPerSecond: v,
             band: band,
