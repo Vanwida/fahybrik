@@ -212,27 +212,19 @@ final class WatchWorkoutCoordinator {
     private func tickSensorIntoEngine() {
         guard phase == .active, let engine = session, SensorCapture.shared.isRunning else { return }
         let pipe = SensorCapture.shared.pipeline
+        // EL CONTEXTO primero: qué serie está abierta. Sin ventana el contador no
+        // cuenta, y así colocarse o descansar no entra como repeticiones.
+        let window = engine.sensorWindow
+        SensorCapture.shared.setActiveWindow(
+            key: window.key,
+            exerciseId: window.exerciseId,
+            modality: window.modality,
+            name: window.name,
+            resting: window.resting
+        )
         guard pipe.sampleCount >= 12 else { return }
         sensorSeq += 1
-        let reps = pipe.lastRepResult
-        let timing = pipe.lastTiming
-        let vel = pipe.lastVelocity
-        let liveReps = pipe.liveCompletedReps
-        let completedMps = pipe.lastCompletedRepVelocityMs
-        engine.applySensorConclusions(MirrorSensorConclusions(
-            sensorWorkS: timing?.workSeconds,
-            sensorRestS: timing?.restSeconds,
-            sensorTimingConfidence: timing?.confidence,
-            reps: liveReps > 0 ? liveReps : nil,
-            repsConfidence: reps?.confidence,
-            repsLevel: liveReps > 0 ? (reps?.level.rawValue ?? "counted") : "unknown",
-            lastRepVelocityMs: completedMps,
-            meanVelocityFirstMs: vel?.meanVelocityFirst,
-            meanVelocityLastMs: completedMps ?? vel?.meanVelocityLast,
-            velocityLossPct: vel?.velocityLossPct,
-            velocityConfidence: pipe.lastCompletedRepVelocityConfidence ?? vel?.confidence,
-            seq: sensorSeq
-        ))
+        engine.applySensorConclusions(pipe.conclusions(seq: sensorSeq))
     }
 
     /// A resumable crash snapshot for today, or nil. Offered only when it is FRESH

@@ -176,6 +176,16 @@ struct MirrorStateFrame: Codable, Equatable {
     /// no dos. OPTIONAL + ADDITIVE como el resto: un reloj viejo lo ignora y
     /// sigue con las frases; un móvil viejo lo omite → nil y el reloj degrada.
     var tramo: MirrorTramo? = nil
+    /// LA SERIE ABIERTA, para el contador de repeticiones de la muñeca.
+    ///
+    /// El reloj tiene la señal pero no el contexto: sin saber qué serie está
+    /// abierta cuenta también mientras el atleta anda hacia la barra (y ocho pasos
+    /// son ocho repeticiones para cualquier detector honesto). El motor ya lo sabe
+    /// —`WorkoutSession.sensorWindow`— y en solitario el reloj lee ese mismo
+    /// accesor, así que las dos vías usan UNA definición de «serie abierta».
+    /// OPTIONAL + ADDITIVE: un reloj viejo lo ignora; un móvil viejo lo omite y la
+    /// muñeca cae a deducirlo del tramo.
+    var sensorWindow: MirrorSensorWindow? = nil
 }
 
 /// Phone → watch: LA VENTANA DE TRABAJO ACTIVA, en dato.
@@ -316,6 +326,17 @@ struct MirrorEnded: Codable {
     let workoutUuid: String?
 }
 
+/// Phone → watch: qué serie está abierta ahora mismo. `key` identifica LA SERIE
+/// (tramo + vuelta + movimiento): mientras no cambia, el contador sigue sumando en
+/// la misma; en cuanto cambia, la anterior se cierra y el conteo vuelve a cero.
+/// `key` nil = no hay trabajo abierto y no se cuenta nada.
+struct MirrorSensorWindow: Codable, Equatable {
+    let key: String?
+    let modality: String?
+    let name: String?
+    let resting: Bool
+}
+
 /// Watch → phone: live conclusions from the wrist inertial pipeline (plan fases 1–3).
 /// The raw signal never crosses the wire — only these few bytes per update.
 struct MirrorSensorConclusions: Codable, Equatable {
@@ -328,8 +349,12 @@ struct MirrorSensorConclusions: Codable, Equatable {
     var repsConfidence: Double? = nil
     /// "counted" | "doubtful" | "unknown"
     var repsLevel: String? = nil
-    /// Last concentric mean velocity (m/s), if estimated.
+    /// Velocidad concéntrica media de la ÚLTIMA repetición YA CERRADA (m/s), con su
+    /// índice dentro de la serie. Una velocidad por repetición: si el número cambia
+    /// es porque hay otra repetición, no porque el estimador se lo repensó a mitad
+    /// de recorrido. Nil hasta que se cierra la primera.
     var lastRepVelocityMs: Double? = nil
+    var lastRepIndex: Int? = nil
     var meanVelocityFirstMs: Double? = nil
     var meanVelocityLastMs: Double? = nil
     var velocityLossPct: Double? = nil

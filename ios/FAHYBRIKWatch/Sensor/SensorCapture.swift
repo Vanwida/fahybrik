@@ -49,6 +49,16 @@ final class SensorCapture {
         pipeline.finishSampling()
     }
 
+    /// Declara qué serie está abierta AHORA. Idempotente: se llama en cada frame
+    /// (espejo) o en cada tic (solitario) con la misma clave y no hace nada; en
+    /// cuanto la clave cambia, la serie anterior se cierra y el contador vuelve a
+    /// cero. `nil` = no hay trabajo abierto y no se cuenta nada.
+    func setActiveWindow(key: String?, exerciseId: Int? = nil, modality: String? = nil,
+                         name: String? = nil, resting: Bool = false) {
+        pipeline.setActiveWindow(key: key, exerciseId: exerciseId, modality: modality,
+                                 name: name, resting: resting, at: elapsed())
+    }
+
     /// Open a labelled window for the active tramo/set.
     func openWindow(tramoId: String?, exerciseId: Int?, modality: String?, name: String?) {
         let t = elapsed()
@@ -76,12 +86,17 @@ final class SensorCapture {
             // userAcceleration is gravity-free (m/s²); rotationRate in rad/s.
             let ua = motion.userAcceleration
             let rr = motion.rotationRate
+            // La GRAVEDAD viaja con cada muestra. Es la única referencia del eje
+            // vertical del mundo, y sin ella no hay repetición ni m/s: el gesto
+            // se mide contra "el eje que más varía", que andando es el brazo.
+            let gr = motion.gravity
             // CoreMotion reports userAcceleration in g — convert to m/s².
             let g = 9.80665
             self.pipeline.pushRaw(
                 t: t,
                 ax: ua.x * g, ay: ua.y * g, az: ua.z * g,
-                gx: rr.x, gy: rr.y, gz: rr.z
+                gx: rr.x, gy: rr.y, gz: rr.z,
+                grx: gr.x, gry: gr.y, grz: gr.z
             )
         }
     }

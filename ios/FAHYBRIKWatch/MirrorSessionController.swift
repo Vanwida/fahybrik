@@ -188,28 +188,7 @@ final class MirrorSessionController: NSObject {
         let pipe = SensorCapture.shared.pipeline
         guard pipe.sampleCount >= 12 else { return }
         sensorSeq += 1
-        let raw = pipe.lastRepResult
-        let timing = pipe.lastTiming
-        let vel = pipe.lastVelocity
-        // Progressive count (1,2,3…) — never the raw peak dump that jumped to 5.
-        let liveReps = pipe.liveCompletedReps
-        // m/s of the last FINISHED rep only (blank until first rep completes).
-        let completedMps = pipe.lastCompletedRepVelocityMs
-        let packet = MirrorSensorConclusions(
-            sensorWorkS: timing?.workSeconds,
-            sensorRestS: timing?.restSeconds,
-            sensorTimingConfidence: timing?.confidence,
-            reps: liveReps > 0 ? liveReps : nil,
-            repsConfidence: raw?.confidence,
-            repsLevel: liveReps > 0 ? (raw?.level.rawValue ?? "counted") : "unknown",
-            lastRepVelocityMs: completedMps,
-            meanVelocityFirstMs: vel?.meanVelocityFirst,
-            meanVelocityLastMs: completedMps ?? vel?.meanVelocityLast,
-            velocityLossPct: vel?.velocityLossPct,
-            velocityConfidence: pipe.lastCompletedRepVelocityConfidence ?? vel?.confidence,
-            seq: sensorSeq
-        )
-        send(type: MirrorWire.MessageType.sensor, packet)
+        send(type: MirrorWire.MessageType.sensor, pipe.conclusions(seq: sensorSeq))
     }
 
     // MARK: - Incoming (phone → watch)
@@ -262,6 +241,31 @@ final class MirrorSessionController: NSObject {
         lastSignalAt = frameReceivedAt ?? Date()
         isConnectionLost = false
         applyPhase(f.phase)
+        syncSensorWindow(with: f)
+    }
+
+    /// EL CONTEXTO del contador de repeticiones: qué serie está abierta.
+    ///
+    /// Sin esto el contador corre siempre — también mientras el atleta anda hacia
+    /// la barra, se coloca o descansa — y cualquier movimiento rítmico de muñeca
+    /// entra como repetición. Con esto cada serie cuenta las suyas desde cero.
+    /// El teléfono ya manda el tramo en el frame; aquí solo se traduce a ventana.
+    private func syncSensorWindow(with f: MirrorStateFrame) {
+        guard SensorCapture.shared.isRunning else { return }
+        let working = f.phase == MirrorWire.Phase.active
+        let resting = f.restRemaining != nil || (f.tramo?.enDescanso ?? false)
+        // Lo normal: el móvil manda la ventana ya resuelta por el motor.
+        // Un móvil viejo no la manda, y entonces se deduce del tramo — peor (dos
+        // series del mismo movimiento comparten clave) pero mejor que no contar.
+        let key: String? = !working ? nil : (f.sensorWindow?.key
+            ?? [f.tramo?.etiqueta ?? f.lineTitle ?? "tramo",
+                f.tramo?.rondaN.map(String.init) ?? f.progressText ?? ""].joined(separator: "|"))
+        SensorCapture.shared.setActiveWindow(
+            key: key,
+            modality: f.sensorWindow?.modality ?? f.tramo?.modalidad,
+            name: f.sensorWindow?.name ?? f.tramo?.etiqueta ?? f.lineTitle,
+            resting: resting || (f.sensorWindow?.resting ?? false)
+        )
     }
 
     /// Local edge-detect as a third path: even if dedicated + embedded packets

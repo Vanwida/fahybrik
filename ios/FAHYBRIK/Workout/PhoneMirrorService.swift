@@ -493,7 +493,14 @@ final class PhoneMirrorService {
             beltPaceSecPerKm: beltPaceSecPerKm,
             hapticCue: pendingHapticCue,
             hapticSeq: pendingHapticSeq,
-            tramo: buildTramo(session)
+            tramo: buildTramo(session),
+            // La serie abierta, del MISMO accesor del motor que lee el reloj en
+            // solitario: contar no puede depender de por qué vía llegó el entreno.
+            sensorWindow: {
+                let w = session.sensorWindow
+                return MirrorSensorWindow(key: w.key, modality: w.modality,
+                                          name: w.name, resting: w.resting)
+            }()
         )
     }
 

@@ -109,6 +109,41 @@ final class WorkoutSession {
     /// Seq of the last applied packet — drops out-of-order mirror frames.
     private var lastSensorSeq: Int = -1
 
+    /// LA VENTANA DE TRABAJO que el contador de repeticiones necesita: qué serie
+    /// está abierta, de qué movimiento, y si ahora mismo se está descansando.
+    ///
+    /// Existe porque contar depende de dos cosas y solo una es señal: la geometría
+    /// del gesto la resuelve el reloj, pero «esto es una serie de sentadillas y ha
+    /// empezado» solo lo sabe el motor. Sin esto el contador corría también mientras
+    /// el atleta andaba hacia la barra — y ocho pasos son ocho repeticiones para
+    /// cualquier detector honesto.
+    struct SensorWindow {
+        let key: String?
+        let exerciseId: Int?
+        let modality: String?
+        let name: String?
+        let resting: Bool
+    }
+
+    var sensorWindow: SensorWindow {
+        let resting = isPaused || isAwaitingBlockStart || isAwaitingFinishDecision
+            || restRemainingSeconds > 0
+        guard !isFinished, let segment = currentSegment else {
+            return SensorWindow(key: nil, exerciseId: nil, modality: nil, name: nil, resting: resting)
+        }
+        // La serie ABIERTA dentro del tramo: en un 4×8 cada serie es su propia
+        // ventana y su propio conteo, no las cuatro juntas.
+        let openSet = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
+        let key = "\(currentSegmentIndex)|\(openSet.map(String.init) ?? "unica")|\(segment.title)"
+        return SensorWindow(
+            key: key,
+            exerciseId: nil,
+            modality: segment.prescription?.modality?.rawValue ?? segment.kind.modality,
+            name: segment.title,
+            resting: resting
+        )
+    }
+
     /// Apply live conclusions from the watch: velocity + live rep count.
     ///
     /// The pipeline already gates chair-stands and multi-bout gaps. Here we
@@ -128,46 +163,38 @@ final class WorkoutSession {
         applySensorReps(c, openIdx: openIdx)
     }
 
-    /// Live rep count: the wrist already emits progressive 1,2,3… (never a dump).
-    /// Phone only accepts +1 per packet and never jumps past the plan ceiling.
+    /// Conteo en vivo. El número que manda la muñeca es el de LA SERIE ABIERTA y
+    /// es absoluto: el contador del reloj emite cada repetición una vez, al
+    /// cerrarse, y su ventana se reinicia con cada serie (`sensorWindow`).
+    ///
+    /// Por eso aquí no hay ni «+1 por paquete» ni techo del plan. Los dos existían
+    /// para defenderse de un contador que daba saltos, y los dos hacían daño: el
+    /// +1 dejaba la cuenta por detrás para siempre en cuanto se perdía un paquete,
+    /// y el techo CONGELABA la serie entera —ni una repetición más— en cuanto un
+    /// número inflado lo pasaba. Lo único que se respeta es quién manda: si el
+    /// atleta ha tocado la cuenta, el sensor no la pisa.
     private func applySensorReps(_ c: MirrorSensorConclusions, openIdx: Int?) {
         guard let sensorReps = c.reps, sensorReps > 0 else { return }
         let level = c.repsLevel ?? ""
-        guard level == "counted" || level == "doubtful" else { return }
+        guard level == RepConfidenceLevel.counted.rawValue
+                || level == RepConfidenceLevel.doubtful.rawValue else { return }
         let conf = c.repsConfidence ?? 0
 
         if !setRecords.isEmpty {
             guard let idx = openIdx, !setRecords[idx].confirmed else { return }
-            let rec = setRecords[idx]
-            if rec.repsSource == RepsSource.athleteTap.rawValue { return }
-            if let prescribed = rec.repsPrescribed {
-                let ceiling = max(prescribed + 2, Int((Double(prescribed) * 1.25).rounded()))
-                guard sensorReps <= ceiling else { return }
-            }
-            let ownedBySensor = rec.repsSource == RepsSource.sensor.rawValue
-                || rec.repsSource == RepsSource.sensorCorrected.rawValue
-            let previous = ownedBySensor ? (rec.repsActual ?? 0) : 0
-            // At most +1 from what we already show (wrist may repeat the same N).
-            let next = min(sensorReps, previous + 1)
-            guard next > previous || !ownedBySensor else { return }
-            let applied = ownedBySensor ? next : min(sensorReps, 1)
-            setRecords[idx].repsActual = max(applied, 1)
+            if setRecords[idx].repsSource == RepsSource.athleteTap.rawValue { return }
+            let shown = setRecords[idx].repsSource == RepsSource.sensor.rawValue
+                ? (setRecords[idx].repsActual ?? 0) : 0
+            setRecords[idx].repsActual = max(shown, sensorReps)
             setRecords[idx].repsSource = RepsSource.sensor.rawValue
             setRecords[idx].repsConfidence = conf
             return
         }
 
+        // Tramo de una sola serie: el número del plan viene precargado, y en cuanto
+        // el sensor cierra la primera repetición manda lo contado.
         guard !repsConfirmed else { return }
-        if let prescribed = currentSegment?.prescribedRepsForLog {
-            let ceiling = max(prescribed + 2, Int((Double(prescribed) * 1.25).rounded()))
-            guard sensorReps <= ceiling else { return }
-            // Still on primed plan number → first completed rep starts at 1.
-            if repsCurrentSegment == prescribed {
-                repsCurrentSegment = 1
-                return
-            }
-        }
-        repsCurrentSegment = min(sensorReps, repsCurrentSegment + 1)
+        repsCurrentSegment = sensorReps
     }
 
     private func stampVelocity(on index: Int, from c: MirrorSensorConclusions) {
