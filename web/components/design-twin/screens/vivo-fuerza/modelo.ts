@@ -26,6 +26,12 @@
 // el atleta y la app no mide ni una repetición, así que nada pasa de prescrito a
 // hecho sin que él lo diga (§7). Va en `SerieHecha`, aparte.
 
+import {
+  DEFAULT_VELOCITY_BAND_CUTS,
+  velocityBand,
+  velocityLossPct,
+  type VelocityBand,
+} from '@fahybrid/shared/domain/strength';
 import { ANCHO_UTIL_PT, APOYOS_PT } from '../../kit-vivo';
 // La grafía de un número y la de un peso ya existen en esta carpeta y no se
 // reescriben aquí: `numeroTexto` (entero tal cual, decimal con coma) y `kg`
@@ -83,6 +89,34 @@ export interface SeriePrescrita {
 }
 
 /**
+ * LO ÚNICO QUE LA APP MIDE DEL LEVANTAMIENTO — la velocidad de la barra.
+ *
+ * Todo lo demás de esta pantalla es prescripción (lo que pidió el coach) o
+ * declaración (lo que dijo el atleta). Esto no: lo mide el reloj en la muñeca
+ * (`ios/FAHYBRIK/Sensor/BarVelocityEstimator.swift` → `MirrorWire` →
+ * `set_executions.mean_velocity_*`, migración 0176).
+ *
+ * Se guardan la PRIMERA y la ÚLTIMA repetición porque son dos preguntas
+ * distintas: la última dice a qué velocidad va la barra AHORA, y las dos juntas
+ * dicen cuánto has perdido dentro de la serie. La pérdida no se guarda hecha —
+ * la calcula `velocityLossPct` del dominio compartido, para que el doble no
+ * pueda dar un número distinto del que dará la app.
+ *
+ * `confianza` es del estimador [0,1]. Por debajo del corte NO se enseña una
+ * cifra: un «rojo con aplomo» sobre una medida que no se sostiene es peor que no
+ * medir (§7). El corte y las bandas son MÉTODO del coach — viven en
+ * `shared/domain/strength/velocity-bands.ts` con sus defectos editables, y aquí
+ * no se reescribe ni uno.
+ */
+export interface Velocidad {
+  /** m/s de la concéntrica de la ÚLTIMA repetición de la serie. */
+  msUltima: number;
+  /** m/s de la PRIMERA. Nula = no se pudo medir, y entonces no hay pérdida. */
+  msPrimera: number | null;
+  confianza: number;
+}
+
+/**
  * Lo que el atleta declaró de una serie. `estado` es el del motor
  * (`SetRecord.status`): una serie cerrada tal cual está `hecha`; con la dosis
  * cambiada, `ajustada`; y `saltada` es un cierre legítimo que no es un cero.
@@ -93,6 +127,8 @@ export interface SerieHecha {
   /** Lo que SINTIÓ. Nulo = no lo dijo, y no se rellena con el del coach. */
   rirSentido: number | null;
   estado: 'hecha' | 'ajustada' | 'saltada';
+  /** Lo que MIDIÓ el sensor. Ausente = no había sensor, o no fue fiable. */
+  velocidad?: Velocidad | null;
 }
 
 /** El ejercicio que tienes delante, con su sitio en la sesión. */
@@ -209,6 +245,70 @@ export function hechaEnLinea(h: SerieHecha): string | null {
   return peso != null ? kg(peso) : null;
 }
 
+// ---------------------------------------------------------------------------
+// La velocidad, dicha — el semáforo es del dominio, no de la pantalla
+// ---------------------------------------------------------------------------
+
+/**
+ * La banda de la última repetición. La resuelve `velocityBand` del dominio
+ * compartido con sus cortes por defecto (0,55 · 0,40 · 0,25 m/s) y su mínimo de
+ * confianza: **aquí no se escribe ni un umbral**. Son método del coach y el día
+ * que los edite, el doble y la app se mueven juntos.
+ */
+export function bandaDe(v: Velocidad | null | undefined): VelocityBand {
+  if (!v) return 'none';
+  return velocityBand(v.msUltima, v.confianza, DEFAULT_VELOCITY_BAND_CUTS);
+}
+
+/** «0,42» — dos decimales con coma, igual que `VelocityLiveReading.mpsText`. */
+export function msTexto(ms: number): string {
+  return ms.toFixed(2).replace('.', ',');
+}
+
+/**
+ * Lo que has perdido dentro de la serie, en %. Nula cuando no hay primera
+ * repetición medida o cuando la pérdida es despreciable — medio punto de
+ * porcentaje no es fatiga, es el ruido del estimador (mismo corte que
+ * `VelocityLiveReading.lossText`).
+ */
+export function perdidaPct(v: Velocidad | null | undefined): number | null {
+  if (!v || v.msPrimera == null) return null;
+  const pct = velocityLossPct(v.msPrimera, v.msUltima);
+  return pct > 0.5 ? pct : null;
+}
+
+/**
+ * El tono del semáforo. Espeja el mapa del Swift shipeado
+ * (`VelocidadBarraChip`): verde `ok`, amarillo `warning`, naranja el acento de
+ * marca y rojo `danger`.
+ *
+ * El naranja de acento en una banda es una excepción al §9.1 —que lo reserva
+ * para el instante en que algo se logra— y se hereda a propósito: la app ya la
+ * pinta así y dos semáforos distintos para el mismo dato es peor que una
+ * excepción declarada.
+ */
+export const TONO_BANDA: Record<VelocityBand, string> = {
+  green: 'var(--twin-ok)',
+  yellow: 'var(--twin-warning)',
+  orange: 'var(--twin-accent)',
+  red: 'var(--twin-danger)',
+  none: 'var(--twin-muted)',
+};
+
+/**
+ * Cómo se llama cada banda, de cara al atleta. El vocabulario es el del Swift
+ * (`VelocityBand.label`) y dice lo que la app puede afirmar: si la barra va
+ * rápida o lenta. **No dice un %1RM** — eso lo interpreta el atleta con su coach,
+ * y es la línea de la casa entre mecanismo y método.
+ */
+export const ETIQUETA_BANDA: Record<VelocityBand, string> = {
+  green: 'rápida',
+  yellow: 'media',
+  orange: 'lenta',
+  red: 'muy lenta',
+  none: '',
+};
+
 /** «RIR 2 · deja 2 dentro» — el número solo no dice qué hacer. */
 export function pastillaIntensidad(x: Intensidad | null): string | null {
   if (!x) return null;
@@ -290,6 +390,8 @@ const ALTO_CABECERA_PT = 20;
 const ALTO_FILA_PT = 60;
 /** La barra cargada: los discos (54) más su línea de «por lado · barra de 20». */
 const ALTO_BARRA_PT = 78;
+/** La lectura de la velocidad: una frase de dos líneas a 12 px. */
+const ALTO_LECTURA_PT = 34;
 /** El chip de lo que viene después de este ejercicio. */
 const ALTO_SIGUIENTE_PT = 40;
 /** Hueco entre apoyos (`MarcoVivo` los apila con 8). */
@@ -298,6 +400,8 @@ const HUECO_APOYO_PT = 8;
 export interface Cascada {
   riel: boolean;
   fila: boolean;
+  /** La frase de la velocidad perdida. Solo existe con la serie ya cerrada. */
+  lectura: boolean;
   barra: boolean;
   siguiente: boolean;
 }
@@ -306,17 +410,28 @@ export interface Cascada {
  * Qué entra en los apoyos, por prioridad y con el presupuesto real.
  *
  * El orden no es estético: el RIEL dice dónde vas y cómo fueron las anteriores
- * (sin él la pantalla no sitúa), la FILA lleva el pulso y la pausa (los dos
- * únicos datos medidos de esta familia), la BARRA convierte «82,5 kg» en los
- * discos que hay que coger, y LO SIGUIENTE es contexto que se puede mirar al
- * acabar. Por eso, cuando hay discos que poner, lo que se cae es lo siguiente.
+ * (sin él la pantalla no sitúa), la FILA lleva el pulso, la pausa y la velocidad
+ * (lo medido), la LECTURA interpreta lo que acabas de hacer, la BARRA convierte
+ * «82,5 kg» en los discos que hay que coger, y LO SIGUIENTE es contexto que se
+ * puede mirar al acabar. Por eso, cuando hay discos que poner, lo que se cae es
+ * lo siguiente.
+ *
+ * La barra y la lectura no compiten nunca, y no por suerte: los discos se miran
+ * mientras cargas —cara de trabajo— y la pérdida de velocidad se lee con la
+ * serie ya cerrada —cara de descanso—. Es la misma ranura contestando a «¿qué
+ * haces AHORA?», y los dos anclajes de arriba no se mueven.
  *
  * Se calcula en vez de maquetarse a ojo porque es lo que el 10-ago dejó EMPEZAR
  * fuera de pantalla: la ranura del vivo no scrollea, así que lo que no cabe no
  * se recorta — EMPUJA.
  */
-export function cascada(quiere: { ventana: boolean; barra: boolean; siguiente: boolean }): Cascada {
-  const salida: Cascada = { riel: false, fila: false, barra: false, siguiente: false };
+export function cascada(quiere: {
+  ventana: boolean;
+  lectura: boolean;
+  barra: boolean;
+  siguiente: boolean;
+}): Cascada {
+  const salida: Cascada = { riel: false, fila: false, lectura: false, barra: false, siguiente: false };
   let gastado = 0;
   const cabe = (alto: number) => {
     const con = gastado === 0 ? alto : gastado + HUECO_APOYO_PT + alto;
@@ -326,6 +441,7 @@ export function cascada(quiere: { ventana: boolean; barra: boolean; siguiente: b
   };
   salida.riel = cabe(ALTO_RIEL_PT + (quiere.ventana ? ALTO_CABECERA_PT : 0));
   salida.fila = cabe(ALTO_FILA_PT);
+  if (quiere.lectura) salida.lectura = cabe(ALTO_LECTURA_PT);
   if (quiere.barra) salida.barra = cabe(ALTO_BARRA_PT);
   if (quiere.siguiente) salida.siguiente = cabe(ALTO_SIGUIENTE_PT);
   return salida;
@@ -407,6 +523,35 @@ export const DIP_12: Ejercicio = {
 };
 
 /**
+ * LA VELOCIDAD DEL SQUAT, SERIE A SERIE — **FABRICADA, y declarada**.
+ *
+ * No hay de dónde sacarla: las columnas nacieron hoy (migración 0176) y las 88
+ * ejecuciones de la base tienen las cinco a nulo. Inventar una lectura sería
+ * exactamente lo que el §7 prohíbe si la pantalla la presentara como medida — así
+ * que se fabrica AQUÍ, una vez, con su nota, igual que `vivo-rondas` hizo con los
+ * parciales de sus rondas. La PRESCRIPCIÓN de arriba sigue siendo real.
+ *
+ * Y no son tres números al azar: cuentan la historia que hace útil el dato. La
+ * serie 1 sale «media», la 2 se cae a «lenta» perdiendo un 31 % dentro de la
+ * serie, **por eso** el atleta baja a 77,5 kg en la 3 — y la 3 vuelve a «media».
+ * Si la pantalla enseña bien la velocidad, esa decisión se lee sin explicarla.
+ */
+export const VELOCIDAD_SQUAT: readonly Velocidad[] = [
+  { msPrimera: 0.62, msUltima: 0.49, confianza: 0.78 },
+  { msPrimera: 0.55, msUltima: 0.38, confianza: 0.74 },
+  { msPrimera: 0.6, msUltima: 0.47, confianza: 0.8 },
+  { msPrimera: 0.58, msUltima: 0.44, confianza: 0.76 },
+];
+
+/**
+ * Y la del fondo lastrado: medida con **poca confianza**. También fabricada, y
+ * también con motivo — un dip tiene un recorrido y un patrón que el estimador
+ * lee peor que una sentadilla, así que es el caso donde el sensor está puesto y
+ * la app tiene que decir que no se fía en vez de pintar un número.
+ */
+export const VELOCIDAD_DUDOSA: Velocidad = { msPrimera: 0.51, msUltima: 0.34, confianza: 0.31 };
+
+/**
  * Las `n` primeras series cerradas, tal y como las cierra un atleta que no toca
  * nada: con lo que estaba escrito. Es el estado NORMAL —cerrar cuesta un toque y
  * ajustar es la excepción— y el RIR sentido llega vacío porque no se le ha
@@ -419,7 +564,9 @@ export const DIP_12: Ejercicio = {
 export function cerradasHasta(
   ej: Ejercicio,
   n: number,
-  ajustes: Record<number, Partial<SerieHecha>> = {}
+  ajustes: Record<number, Partial<SerieHecha>> = {},
+  /** Lo que midió el sensor en cada una. Ausente = no había sensor. */
+  velocidades?: readonly Velocidad[]
 ): Record<number, SerieHecha> {
   const salida: Record<number, SerieHecha> = {};
   for (let i = 0; i < Math.min(n, ej.series.length); i++) {
@@ -429,6 +576,7 @@ export function cerradasHasta(
       carga: s.carga,
       rirSentido: null,
       estado: 'hecha',
+      velocidad: velocidades?.[i] ?? null,
       ...ajustes[i],
     };
   }

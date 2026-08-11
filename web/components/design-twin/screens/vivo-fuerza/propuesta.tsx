@@ -64,13 +64,18 @@ import { Barra } from './barra';
 import { Riel } from './riel';
 import {
   CON_RELOJ,
+  ETIQUETA_BANDA,
   SIM_X,
+  TONO_BANDA,
   UMBRAL_VENTANA,
+  bandaDe,
   cargaTexto,
   cascada,
   cifraDeSerie,
   intensidadDe,
+  msTexto,
   pastillaIntensidad,
+  perdidaPct,
   pulsoEnDescanso,
   pulsoLevantando,
   serieEnLinea,
@@ -93,6 +98,37 @@ export interface Entrada {
   haceS: number;
   /** El crono del bloque al abrir la escena. */
   aperturaS: number;
+  /**
+   * ¿Está el reloj capturando movimiento?
+   *
+   * Es de la SESIÓN, no del ejercicio, y separa dos ausencias que no son la
+   * misma: sin sensor no hay nada que prometer y la celda de velocidad no
+   * existe; CON sensor y sin lectura fiable, la celda existe y dice que no se
+   * fía. Prometer una medida que no va a llegar es la otra forma de mentir.
+   */
+  sensor: boolean;
+}
+
+/**
+ * Una línea de lectura bajo los apoyos: una FRASE, no una cifra, así que no va
+ * monoespaciada — monoespaciar lo que no se mide lo disfraza de medida (§4). Es
+ * la misma pieza que `vivo-rondas` usa para decir «la última te costó 8 s más
+ * que tu media», y por la misma razón: un número que hay que interpretar de
+ * cabeza a 170 ppm no se interpreta.
+ */
+function Lectura({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        flex: '0 0 auto',
+        textAlign: 'center',
+        font: '500 12px/1.35 var(--twin-font-sans)',
+        color: 'var(--twin-muted)',
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function Propuesta({
@@ -176,8 +212,23 @@ export function Propuesta({
   const serie = activa != null ? ejercicio.series[activa] : undefined;
   const cargaKg = serie?.carga?.tipo === 'kg' ? serie.carga.kg : null;
   const quiereBarra = cargaKg != null && ejercicio.implemento === 'barra';
+
+  // LA VELOCIDAD DE LA BARRA — la de tu última repetición medida, que es la de la
+  // última serie cerrada. Una serie en vuelo no tiene lectura: el móvil está en
+  // el suelo mientras levantas, y el reloj manda sus conclusiones al acabar.
+  const cerrada = Object.keys(hechas)
+    .map(Number)
+    .sort((a, b) => b - a)
+    .map((i) => hechas[i])
+    .find((h) => h.velocidad != null);
+  const velocidad = cerrada?.velocidad ?? null;
+  const banda = bandaDe(velocidad);
+  const perdida = banda === 'none' ? null : perdidaPct(velocidad);
+
   const plan = cascada({
     ventana: total >= UMBRAL_VENTANA,
+    // La pérdida se lee con la serie ya cerrada, y eso es la cara del descanso.
+    lectura: descansando && perdida != null,
     barra: quiereBarra,
     siguiente: ejercicio.siguiente != null,
   });
@@ -198,6 +249,23 @@ export function Propuesta({
       )}
       {plan.fila && (
         <FilaApoyos>
+          {/* LA VELOCIDAD PRIMERO, y es lo único de la fila que la app MIDE del
+              levantamiento: el resto es tiempo y pulso. Va aquí y no en la banda
+              porque no es lo que se te cae de la cabeza —nunca lo has sabido— es
+              lo que la app te AÑADE, y se lee entre series, cuando decides con
+              cuánto va la siguiente. La banda es del sujeto, que es la
+              prescripción; esto es la ejecución.
+              El tono es el semáforo, y la palabra va en el pie: un dato que solo
+              se dice con color no lo lee quien no distingue el verde del ámbar. */}
+          {entrada.sensor && (
+            <Apoyo
+              etiqueta="Velocidad"
+              valor={banda === 'none' ? null : msTexto(velocidad!.msUltima)}
+              ausente={velocidad == null ? 'aún no' : 'poca confianza'}
+              tono={TONO_BANDA[banda]}
+              pie={banda === 'none' ? undefined : `m/s · ${ETIQUETA_BANDA[banda]}`}
+            />
+          )}
           <Apoyo
             etiqueta="Pulso"
             valor={ppm != null ? String(ppm) : null}
@@ -214,10 +282,19 @@ export function Propuesta({
             ausente="aún no"
             pie="desde la última"
           />
-          {descansoPrescrito != null && (
+          {/* El descanso del plan cae cuando el sensor ocupa una celda: cuatro
+              caben, cinco no, y entre «lo que pide el plan» y lo que la barra ha
+              hecho de verdad gana lo medido. Sigue estando en la cara del
+              descanso, que es donde se cobra: drenando en la franja de arriba. */}
+          {descansoPrescrito != null && !entrada.sensor && (
             <Apoyo etiqueta="Descanso" valor={reloj(descansoPrescrito)} pie="lo que pide el plan" />
           )}
         </FilaApoyos>
+      )}
+      {plan.lectura && perdida != null && (
+        <Lectura>
+          {`Tu última repetición fue ${ETIQUETA_BANDA[banda]}: ${msTexto(velocidad!.msUltima)} m/s, un ${Math.round(perdida)} % menos que la primera de la serie.`}
+        </Lectura>
       )}
       {plan.barra && cargaKg != null && <Barra totalKg={cargaKg} />}
       {plan.siguiente && ejercicio.siguiente && (

@@ -4,15 +4,22 @@ import {
   CABEN_CON_DOSIS,
   CASOS,
   DIP_12,
+  ETIQUETA_BANDA,
   SQUAT_4X10,
   SQUAT_PIRAMIDE,
+  TONO_BANDA,
   UMBRAL_VENTANA,
+  VELOCIDAD_DUDOSA,
+  VELOCIDAD_SQUAT,
+  bandaDe,
   cargaTexto,
   cascada,
   cerradasHasta,
   cifraDeSerie,
   hechaEnLinea,
+  msTexto,
   peldanosVisibles,
+  perdidaPct,
   serieEnLinea,
 } from '@/components/design-twin/screens/vivo-fuerza/modelo';
 
@@ -114,27 +121,43 @@ describe('la cascada de apoyos cabe en los 213 pt del marco', () => {
   });
 
   it('con discos que poner, lo que se cae es «lo siguiente»', () => {
-    expect(cascada({ ventana: false, barra: true, siguiente: true })).toEqual({
+    expect(cascada({ ventana: false, lectura: false, barra: true, siguiente: true })).toEqual({
       riel: true,
       fila: true,
+      lectura: false,
       barra: true,
       siguiente: false,
     });
   });
 
   it('sin barra, lo siguiente entra', () => {
-    expect(cascada({ ventana: false, barra: false, siguiente: true })).toEqual({
+    expect(cascada({ ventana: false, lectura: false, barra: false, siguiente: true })).toEqual({
       riel: true,
       fila: true,
+      lectura: false,
       barra: false,
       siguiente: true,
     });
   });
 
   it('el riel y la fila entran SIEMPRE, incluso con la cabecera de la ventana', () => {
-    const c = cascada({ ventana: true, barra: true, siguiente: true });
+    const c = cascada({ ventana: true, lectura: true, barra: true, siguiente: true });
     expect(c.riel).toBe(true);
     expect(c.fila).toBe(true);
+  });
+
+  it('la lectura de la velocidad entra antes que «lo siguiente»', () => {
+    // Con la ventana (que paga su cabecera) y la frase de la pérdida ya van 178 de
+    // los 213 pt, así que el chip de lo que viene se cae. Y así tiene que ser: la
+    // pérdida habla de la serie que acabas de hacer y el ejercicio siguiente puede
+    // esperar a que sueltes la barra.
+    expect(cascada({ ventana: true, lectura: true, barra: false, siguiente: true })).toEqual({
+      riel: true,
+      fila: true,
+      lectura: true,
+      barra: false,
+      siguiente: false,
+    });
   });
 });
 
@@ -147,6 +170,9 @@ describe('lo hecho es lo que el atleta declaró, no lo que se pidió', () => {
       carga: { tipo: 'kg', kg: 82.5 },
       rirSentido: null,
       estado: 'hecha',
+      // Sin sensor no hay lectura, y eso es NULO explícito: la serie se cerró y
+      // de la velocidad no se sabe nada.
+      velocidad: null,
     });
   });
 
@@ -160,6 +186,64 @@ describe('lo hecho es lo que el atleta declaró, no lo que se pidió', () => {
 
   it('una serie saltada se dice, no se cuenta como un cero', () => {
     expect(hechaEnLinea({ reps: null, carga: null, rirSentido: null, estado: 'saltada' })).toBe('saltada');
+  });
+});
+
+describe('la velocidad de la barra: lo único que la app mide del levantamiento', () => {
+  it('la banda la resuelve el dominio compartido, no la pantalla', () => {
+    // Si alguien cambia los cortes del coach en `shared/domain/strength`, el doble
+    // se mueve con la app. Estos tres caen en las tres bandas de los defectos
+    // (0,55 · 0,40 · 0,25 m/s) sin que aquí haya escrito ningún umbral.
+    expect(bandaDe({ msPrimera: 0.7, msUltima: 0.61, confianza: 0.8 })).toBe('green');
+    expect(bandaDe({ msPrimera: 0.62, msUltima: 0.49, confianza: 0.78 })).toBe('yellow');
+    expect(bandaDe({ msPrimera: 0.55, msUltima: 0.38, confianza: 0.74 })).toBe('orange');
+    expect(bandaDe({ msPrimera: 0.4, msUltima: 0.18, confianza: 0.7 })).toBe('red');
+  });
+
+  it('sin confianza no se pinta un rojo con aplomo', () => {
+    // La medida del fondo lastrado del corpus: 0,34 m/s caería en «lenta», pero la
+    // confianza es 0,31 y por debajo del corte la app no afirma nada.
+    expect(bandaDe(VELOCIDAD_DUDOSA)).toBe('none');
+    expect(bandaDe(null)).toBe('none');
+    expect(bandaDe(undefined)).toBe('none');
+  });
+
+  it('la pérdida se calcula, no se guarda hecha', () => {
+    // Serie 2 del squat: 0,55 → 0,38 son 31 puntos de caída dentro de la serie, y
+    // es lo que explica que la 3 la bajara a 77,5 kg.
+    expect(Math.round(perdidaPct(VELOCIDAD_SQUAT[1])!)).toBe(31);
+  });
+
+  it('medio punto de porcentaje no es fatiga, es ruido', () => {
+    expect(perdidaPct({ msPrimera: 0.5, msUltima: 0.499, confianza: 0.9 })).toBeNull();
+    // Y sin primera repetición medida no hay pérdida que decir.
+    expect(perdidaPct({ msPrimera: null, msUltima: 0.42, confianza: 0.9 })).toBeNull();
+  });
+
+  it('la cifra va con dos decimales y coma, como en la app', () => {
+    expect(msTexto(0.4)).toBe('0,40');
+    // 0,615 sale «0,61» y no «0,62» porque en binario es 0,6149…, así que redondea
+    // hacia abajo. Se fija a propósito: el `String(format: "%.2f")` de Swift hace
+    // exactamente lo mismo con el mismo double, y el día que una de las dos caras
+    // «arregle» el redondeo, el doble y la app dirán números distintos.
+    expect(msTexto(0.615)).toBe('0,61');
+  });
+
+  it('cada banda tiene su palabra: un dato que solo se dice con color no se lee', () => {
+    for (const banda of ['green', 'yellow', 'orange', 'red'] as const) {
+      expect(ETIQUETA_BANDA[banda]).not.toBe('');
+      expect(TONO_BANDA[banda]).toMatch(/^var\(--twin-/);
+    }
+    // Y `none` no tiene palabra porque no hay nada que decir.
+    expect(ETIQUETA_BANDA.none).toBe('');
+  });
+
+  it('la velocidad viaja con la serie CERRADA, no con la prescripción', () => {
+    const hechas = cerradasHasta(SQUAT_4X10, 2, {}, VELOCIDAD_SQUAT);
+    expect(hechas[0].velocidad).toEqual(VELOCIDAD_SQUAT[0]);
+    expect(hechas[1].velocidad).toEqual(VELOCIDAD_SQUAT[1]);
+    // Sin sensor, las series cerradas no se inventan una lectura.
+    expect(cerradasHasta(SQUAT_4X10, 2)[0].velocidad).toBeNull();
   });
 });
 
