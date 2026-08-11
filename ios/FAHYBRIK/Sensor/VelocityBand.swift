@@ -34,6 +34,33 @@ enum VelocityBand: String, Sendable, Equatable {
     }
 }
 
+#if !os(watchOS)
+import SwiftUI
+
+extension VelocityBand {
+    /// EL TONO DEL SEMÁFORO — una vez, y aquí.
+    ///
+    /// Mismo reparto que `HRZone`: la IDENTIDAD de la banda es Foundation puro y
+    /// viaja a cualquier sitio; el COLOR resuelve por la paleta del `Theme`, que el
+    /// reloj no compila. Vivía escrito dos veces en la misma pantalla del hierro
+    /// —el chip bajo el numeral y la celda de la fila— y dos semáforos para el
+    /// mismo dato es como empezaron los cinco numerales.
+    ///
+    /// El naranja de acento en una banda es una excepción al §9.1 (que lo reserva
+    /// para el instante en que algo se logra) y se hereda a propósito: la app ya lo
+    /// pintaba así, y una excepción declarada es mejor que dos semáforos.
+    var tono: Color {
+        switch self {
+        case .green:  return Theme.Color.ok
+        case .yellow: return Theme.Color.warning
+        case .orange: return Theme.Color.accent
+        case .red:    return Theme.Color.danger
+        case .none:   return Theme.Color.muted
+        }
+    }
+}
+#endif
+
 /// Lectura lista para pintar en el vivo de fuerza.
 struct VelocityLiveReading: Equatable, Sendable {
     let metersPerSecond: Double

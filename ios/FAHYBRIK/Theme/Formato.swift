@@ -270,15 +270,128 @@ enum Formato {
         return nil
     }
 
-    /// «4×5» — series por repeticiones de TODA la prescripción, pegado.
+    // BORRADO EL 11-AGO: `dosisDeSeries(series:reps:)`, que multiplicaba el número
+    // de series por las repeticiones de la PRIMERA. Con series desiguales eso no es
+    // un redondeo, es una mentira: el 6-6-4-4-3 real del bloque 392 salía «5×6», y
+    // el 49 % de la fuerza del corpus tiene cinco series o más. Su único caller era
+    // la línea del plan del hierro en vivo, que este porte quitó (la dosis de ESTA
+    // serie es ahora el sujeto, y las series están en el riel).
+    //
+    // NO se ha sustituido por una versión honesta porque ya existía una: las
+    // tarjetas del plan van por `PrescriptionRenderer`, que recorre las series de
+    // verdad — colapsa a «4 × 8» solo si `setsAreUniform`, y si no escribe la
+    // secuencia («10/10/8/8/6»). Dos formateadores para la misma pregunta es como
+    // empezaron las tres grafías del ritmo (§2), así que queda uno.
+    //
+    // Y la secuencia va con BARRA y no con guion: el guion ya significa BANDA en
+    // esta app («12-15» de `serie`), y «6-6-4-4-3» le daría dos sentidos al mismo
+    // signo. El coach también la escribe con barra en el `notes` del bloque.
+
+    /// CONTRA QUÉ SE HACE UNA SERIE. Las formas están en la base, tal cual:
     ///
-    /// Pegado y no separado a propósito, y es la única diferencia visible con
-    /// `serie`: «4×5» es una dosis que se lee de un vistazo en una franja de
-    /// contexto, mientras que «5 × 100 kg» es el sujeto de la pantalla y respira.
-    /// Nil cuando no hay repeticiones que multiplicar.
-    static func dosisDeSeries(series: Int, reps: Int?) -> String? {
-        guard let reps, series > 0 else { return nil }
-        return series > 1 ? "\(series)\(signoPor)\(reps)" : "\(reps)"
+    ///     kg           `{"kind":"kg","value":82.5}`
+    ///     kg × 2       `{"kind":"kg","value":32,"implement_count":2}`
+    ///     porcentaje   `{"kind":"percent_rm","min":75,"max":85}`
+    ///     corporal     `{"kind":"bodyweight"}`
+    ///
+    /// El inventario sale del MODELO (`Target`), no del ejemplo que se tenía
+    /// delante: son cuatro escrituras y no tres, porque un implemento por mano es
+    /// una cuarta —«2×32 kg»— y sin el ×2 el atleta coge una sola pesa.
+    ///
+    /// Existe como TIPO y no como parámetros sueltos porque son excluyentes: con
+    /// `cargaKg` y `porcentajeMin` a la vez en la firma, el sitio donde se decide
+    /// cuál gana acaba siendo cada pantalla que llama.
+    enum CargaDeSerie: Equatable {
+        /// `implementos` > 1 = uno por mano, y entonces la carga NO cabe dentro de
+        /// la cifra: dos signos de multiplicar en «10 × 2×32» no se leen.
+        case kg(Double, implementos: Int? = nil)
+        /// `max` nulo, o que no supera al suelo, no abre banda (§7).
+        case porcentaje(min: Double, max: Double?)
+        case corporal
+    }
+
+    /// LA SERIE QUE TIENES DELANTE, repartida en los peldaños del numeral.
+    struct DosisDeSerie: Equatable {
+        /// El peldaño que gobierna la pantalla. Nil = no hay cifra que inventar y
+        /// entonces el sujeto es el NOMBRE del ejercicio (§7).
+        let sujeto: Cifra?
+        /// El segundo peldaño, cuando la carga no puede vivir en la cifra.
+        let segundo: Cifra?
+        /// La carga que NO es un número y por eso no ocupa peldaño: «peso
+        /// corporal». Nil cuando la carga ya está en un peldaño o no hay carga.
+        let pieDeCarga: String?
+    }
+
+    /// LA DOSIS DE UNA SERIE, con la carga en cualquiera de sus tres formas.
+    ///
+    /// Es `serie` con el eje de carga COMPLETO. `serie` solo sabe de kilos, y con
+    /// eso media prescripción del corpus no se puede escribir sin mentir: la carga
+    /// llega tres veces de tres maneras y un porcentaje NO es un peso.
+    ///
+    /// **UN PORCENTAJE JAMÁS BAJA A KILOS.** La app no tiene el 1RM medido de este
+    /// atleta para este ejercicio, así que resolver «75 % de tu máximo» sería
+    /// inventar el máximo y mandarlo a levantar un peso que nadie ha pesado (§7).
+    /// Y tampoco entra en la cifra: «6 × 75-85» se lee como kilos y no lo son. Ahí
+    /// la cifra son las repeticiones y el porcentaje baja al segundo peldaño con su
+    /// unidad ENTERA, que es la única forma de que no mienta.
+    ///
+    /// Con KILOS sí es una sola cosa —«10 × 82,5» + «kg»— porque así se piensa una
+    /// serie: repeticiones y luego carga. No se parte; de que quepa se encarga el
+    /// presupuesto de ancho de `EscalaNumeral` (§10.2).
+    static func dosisDeSerie(reps: Int?,
+                             repsMax: Int? = nil,
+                             carga: CargaDeSerie?) -> DosisDeSerie? {
+        let cifraReps: String? = reps.map { suelo in
+            guard let techo = repsMax, techo > suelo else { return "\(suelo)" }
+            return "\(suelo)-\(techo)"
+        }
+        let peldanoReps = cifraReps.map { Cifra(cifra: $0, unidad: Vocab.reps) }
+
+        switch carga {
+        case let .kg(valor, implementos):
+            // UNO POR MANO baja al segundo peldaño: «10 × 2×32» tiene dos signos de
+            // multiplicar con dos significados distintos en la misma cifra y no se
+            // lee. Es el mismo motivo por el que baja un porcentaje.
+            if let n = implementos, n > 1 {
+                let porMano = Cifra(cifra: "\(n)\(signoPor)\(esDecimal(valor))", unidad: "kg")
+                guard let peldanoReps else {
+                    return DosisDeSerie(sujeto: porMano, segundo: nil, pieDeCarga: nil)
+                }
+                return DosisDeSerie(sujeto: peldanoReps, segundo: porMano, pieDeCarga: nil)
+            }
+            // Con repeticiones, las dos son la cifra; sin ellas —el `Reverse Lunge`
+            // real llega con 30 kg y ninguna— la carga sola es la cifra.
+            guard let cifraReps else {
+                return DosisDeSerie(sujeto: Formato.carga(valor), segundo: nil, pieDeCarga: nil)
+            }
+            return DosisDeSerie(
+                sujeto: Cifra(cifra: "\(cifraReps) \(signoPor) \(esDecimal(valor))", unidad: "kg"),
+                segundo: nil, pieDeCarga: nil)
+
+        case let .porcentaje(minimo, maximo):
+            let banda = Cifra(cifra: rango(minimo, maximo), unidad: Vocab.porcentajeDeTuMaximo)
+            // Sin repeticiones el porcentaje SUBE a la cifra: es lo único escrito,
+            // y un segundo peldaño sin primero no es una jerarquía.
+            guard let peldanoReps else {
+                return DosisDeSerie(sujeto: banda, segundo: nil, pieDeCarga: nil)
+            }
+            return DosisDeSerie(sujeto: peldanoReps, segundo: banda, pieDeCarga: nil)
+
+        case .corporal:
+            // El peso corporal no es un número: no ocupa peldaño y se dice abajo.
+            return DosisDeSerie(sujeto: peldanoReps, segundo: nil, pieDeCarga: Vocab.pesoCorporal)
+
+        case nil:
+            guard let peldanoReps else { return nil }
+            return DosisDeSerie(sujeto: peldanoReps, segundo: nil, pieDeCarga: nil)
+        }
+    }
+
+    /// «75-85» · «70» — una banda SIN unidad. Un techo que no supera al suelo no
+    /// abre banda y no se escribe como si lo hiciera (§7).
+    static func rango(_ minimo: Double, _ maximo: Double?) -> String {
+        guard let maximo, maximo > minimo else { return esDecimal(minimo) }
+        return "\(esDecimal(minimo))-\(esDecimal(maximo))"
     }
 
     /// El signo de multiplicar es el MULTIPLICATION SIGN (U+00D7), no una equis.
@@ -376,6 +489,19 @@ enum Vocab {
     static let superserie = "Superserie"
     /// El peso que mueves.
     static let carga = "Carga"
+    /// La unidad de una carga escrita en PORCENTAJE, entera. «%» a secas no dice
+    /// de qué, y en una pantalla donde todo lo demás son kilos se lee como si el
+    /// número fueran kilos: es la diferencia entre «75-85» y «75-85 % de tu
+    /// máximo». Se escribe así de largo a propósito — cabe, porque vive en el
+    /// segundo peldaño del numeral y no dentro de la cifra.
+    static let porcentajeDeTuMaximo = "% de tu máximo"
+    /// La carga que no es un número: tu propio peso. No es lo mismo que «el plan
+    /// no dice con cuánto» — una es una prescripción y la otra un hueco (§7).
+    static let pesoCorporal = "peso corporal"
+    /// LO ÚNICO QUE LA APP MIDE DEL LEVANTAMIENTO: a qué velocidad sube la barra.
+    /// Se dice así y no «m/s» —eso es la unidad, y va en el pie— ni «VBT», que es
+    /// jerga de laboratorio y en el box no la dice nadie.
+    static let velocidad = "Velocidad"
     /// El descanso PRESCRITO — es dosis, no una pausa (§10 del contrato de UI).
     static let descanso = "Descanso"
     /// Repeticiones en recámara. Nunca `RIR` en prosa sin explicar; la pastilla lo

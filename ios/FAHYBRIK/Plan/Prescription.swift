@@ -566,6 +566,39 @@ extension PrescriptionSet {
         return nil
     }
 
+    /// CONTRA QUÉ SE HACE ESTA SERIE, en la forma en que el coach lo escribió.
+    ///
+    /// `prescribedLoadKg` contesta «¿cuántos kilos?» y por eso devuelve nil en un
+    /// 75-85 % — correcto para el registro (no hay kilos que apuntar) y falso para
+    /// la PANTALLA, que se quedaba sin la mitad de la prescripción: el 49 % de la
+    /// fuerza del corpus lleva la carga en porcentaje o en peso corporal, y el
+    /// hierro en vivo enseñaba una serie sin carga como si el coach no hubiera
+    /// escrito nada.
+    ///
+    /// El porcentaje NO se resuelve a kilos aquí ni en ningún sitio: la app no
+    /// tiene el 1RM medido de este atleta para este ejercicio (§7). Se pasa tal
+    /// cual y la pantalla lo dice tal cual.
+    ///
+    /// Los objetivos que NO son carga (RPE, RIR, ppm, vatios, ritmo, calorías,
+    /// tope) devuelven nil: son intensidad o medida, y viven en su propio eje.
+    var prescribedCarga: Formato.CargaDeSerie? {
+        switch target {
+        case let .kg(value, min, _, implementos):
+            guard let v = value ?? min else { return nil }
+            // El valor es la carga POR IMPLEMENTO, no la suma: se pasa tal cual y el
+            // recuento viaja con ella para que la grafía pueda decir «2×32 kg».
+            // Multiplicarlo aquí mandaría al atleta a poner el doble de peso.
+            return .kg(v, implementos: implementos)
+        case let .percentRM(value, min, max):
+            guard let suelo = value ?? min else { return nil }
+            return .porcentaje(min: suelo, max: (value == nil) ? max : nil)
+        case .bodyweight:
+            return .corporal
+        case .rpe, .rir, .hrBpm, .hrZone, .pace, .calories, .watts, .timeCap, .unknown, nil:
+            return nil
+        }
+    }
+
     /// Prescribed RPE objective, when the target is `.rpe` (value, else low end).
     var prescribedRpe: Double? {
         if case let .rpe(value, min, _) = target { return value ?? min }
