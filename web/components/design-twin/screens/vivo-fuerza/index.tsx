@@ -16,13 +16,16 @@
 //
 // QUÉ HAY AQUÍ, Y POR QUÉ SON DOS ÉPOCAS. Los cuatro primeros escenarios son la
 // máquina del 29-jul —serie, registro, descanso y el hueco honesto del circuito
-// sin repeticiones—, que es la que se portó a Swift. Los cinco de abajo son la
-// PROPUESTA del 11-ago: el hierro re-expresado en el lenguaje de `vivo-rondas`,
-// que ese día dejó de ser una pantalla para ser el idioma de todo el vivo
-// (directiva de Alex: «tener diseños perdidos por la app es horrible»). Se
-// enseñan con su «cómo está hoy» al lado, porque las dos cosas que cambian —qué
-// ocupa la franja que no desaparece nunca, y qué hace el riel cuando hay doce
-// series— solo se juzgan comparando.
+// sin repeticiones—, que es la que estuvo en la app hasta el 11-ago. Los cinco de
+// abajo son el hierro re-expresado en el lenguaje de `vivo-rondas`, que ese día
+// dejó de ser una pantalla para ser el idioma de todo el vivo (directiva de Alex:
+// «tener diseños perdidos por la app es horrible») — y esa misma tarde se portó a
+// Swift, así que ya NO son una propuesta: son lo que hace la app.
+//
+// Los cuatro de antes se quedan, y no por nostalgia: las dos cosas que cambiaron
+// —qué ocupa la franja que no desaparece nunca, y qué hace el riel cuando hay doce
+// series— solo se juzgan comparando, y el «antes» es lo primero que desaparece del
+// registro cuando alguien limpia. La vista «hoy» del doble es ese antes.
 
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { Hoy } from './diagnostico';
@@ -41,13 +44,24 @@ export const meta: TwinMeta = {
   id: 'vivo-fuerza',
   titulo: 'El hierro en vivo — la serie que tienes delante',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  // CONSTRUIDA y no ESPEJO, y la diferencia no es prudencia: el porte a Swift dejó
+  // cinco divergencias declaradas (ver `enApp`), así que esta pantalla afirma «se
+  // construyó», no «soy fiel». Sellarla de espejo con la barra de discos dibujada
+  // aquí y ausente en la app sería exactamente el espejo podrido que
+  // `pnpm run twin:desfase` vino a cazar.
+  estado: 'construida',
   actualizado: '2026-08-11',
   descripcion:
-    'En fuerza gobierna el atleta: de lo que levanta, la app solo puede medir la VELOCIDAD de la barra. La propuesta del 11-ago pasa el hierro al lenguaje del vivo — el crono sube a la franja que no desaparece nunca y suelta la línea del plan, que era estática y encima miente cuando las series no son iguales; el riel, que hoy pinta un peldaño por serie, se convierte en ventana desde la quinta (la mitad del corpus real); y los m/s entran como lo medido, con su semáforo y su pérdida dentro de la serie.',
-  fuentes: ['ios/FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift'],
+    'En fuerza gobierna el atleta: de lo que levanta, la app solo puede medir la VELOCIDAD de la barra. El 11-ago el hierro pasó al lenguaje del vivo y se portó a Swift — el crono subió a la franja que no desaparece nunca y se fue la línea del plan, que era estática y encima mentía cuando las series no son iguales; el riel se convierte en ventana desde la quinta serie (la mitad del corpus real); y los m/s entran en la fila como lo medido, con su semáforo y su pérdida leída en una frase.',
+  fuentes: [
+    'ios/FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift',
+    'ios/FAHYBRIK/Workout/Vivo/EditorDeSerie.swift',
+    'ios/FAHYBRIK/Theme/LenguajeVivoCascada.swift',
+    'ios/FAHYBRIK/Theme/Formato.swift',
+  ],
   enApp:
-    'Shipeado: el marco del §10, el sujeto en la serie, el riel con su editor en hoja y el descanso como otra cara de la misma pantalla (478f8e3f); y la velocidad de barra, que llega del reloj y hoy se pinta como chip bajo el numeral y como celda que sustituye a la pausa (5bb48b85 · f044f853). Sigue siendo futuro: el crono en la franja de contexto, la ventana del riel por encima de cuatro series, el %RM sin convertir a kilos, el descanso en tinta normal en vez de azul, y los m/s como celda propia con la pérdida leída en una frase al descansar.',
+    'PORTADO el 11-ago sobre el host real (`MarcoVivo`, que ya existía en Theme/LenguajeVivoUI.swift y no «sin llamadas» como se creyó — todas usaban trailing closure): el strip de formato con el reloj y el descanso drenando, el sujeto en la dosis de la serie con las cuatro escrituras de carga (kilos, banda de %RM sin convertir, peso corporal y uno por mano), el riel como ventana de tres desde la quinta serie con su umbral derivado del ancho medido, la velocidad en la primera celda de la fila con el tono del semáforo y la palabra en el pie, la frase de la pérdida al descansar, y el descanso en tinta normal con la acción en contorno. '
+    + 'LO QUE SEPARA ESTA PANTALLA DE UN ESPEJO, y hay que reconciliarlo antes de sellarla: (1) la barra con los discos que se dibuja aquí NO existe en Swift — es un átomo por construir, no un porte pendiente; (2) aquí la celda del pulso se llama «Pulso» y la app dice «FC» (`Vocab.fc`) en las diez vistas, así que la que hay que cambiar es esta; (3) la app enseña además los m/s de la repetición que se acaba de cerrar DENTRO de la serie en vuelo, que el doble no simula porque no tiene sensor; (4) y la procedencia «sensor · 7» bajo el numeral, por lo mismo; (5) la dosis de un peldaño del riel se escribe en la voz de instrumento de la casa encogiéndose hasta 11 pt, no fija a 11 px — el umbral coincide, la letra no.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {
@@ -55,7 +69,7 @@ export const meta: TwinMeta = {
     estrategia: 'gobierna',
     sujeto:
       'La DOSIS de esta serie («10 × 82,5 kg»), siempre. La cuenta vive en la etiqueta de encima y en el riel: en fuerza las series no son iguales —la forma dominante del corpus es la pirámide— así que lo que se te cae de la cabeza sudando es la dosis, no el número de serie. Y el trabajo de una serie ES un numeral, al contrario que los cuatro movimientos de un metcon.',
-    diagnostico: `La franja que no desaparece jamás la ocupa hoy la línea del plan, que no cambia en todo el ejercicio y que en una pirámide miente: el 6-6-4-4-3 real del bloque 392 se escribe «5×6». Mientras, el crono del bloque vive en la tercera celda de la fila de apoyos. Y el riel pinta un peldaño por serie: con ${CABEN_CON_DOSIS} caben, con 12 cada peldaño se queda en 26 pt y la dosis deja de leerse — y 37 de las 75 prescripciones de fuerza de la base tienen ${UMBRAL_VENTANA} series o más.`,
+    diagnostico: `Hasta el 11-ago la franja que no desaparece jamás la ocupaba la línea del plan, que no cambiaba en todo el ejercicio y que en una pirámide mentía: el 6-6-4-4-3 real del bloque 392 se escribía «5×6» (el formateador que lo hacía se borró el 11-ago; las tarjetas del plan nunca mintieron, van por otro camino). Mientras, el crono del bloque vivía en la tercera celda de la fila de apoyos. Y el riel pintaba un peldaño por serie: con ${CABEN_CON_DOSIS} caben, con 12 cada peldaño se queda en 26 pt y la dosis deja de leerse — y 37 de las 75 prescripciones de fuerza de la base tienen ${UMBRAL_VENTANA} series o más.`,
     resuelve: `El crono sube a la franja de contexto y el descanso drena ahí mismo, en el sitio donde drena el tope de un metcon. La línea del plan desaparece: la dosis de ESTA serie ya es el sujeto, las series están en el riel y el descanso prescrito es una celda. El riel pasa a ventana de tres desde la ${UMBRAL_VENTANA}ª —la cerrada de antes, la de ahora, la que viene—, que es la respuesta que el 10-ago dejó decidida para las listas heterogéneas. Y la velocidad de la barra entra en la fila de apoyos con el tono de su semáforo: no en la banda, porque no es lo que se te cae de la cabeza —nunca lo has sabido— sino lo que la app te añade para decidir con cuánto va la siguiente; su pérdida dentro de la serie se lee en una frase, y solo con la serie cerrada.`,
   },
 };
@@ -63,55 +77,55 @@ export const meta: TwinMeta = {
 export const escenarios: TwinEscenario[] = [
   {
     id: 'serie',
-    titulo: 'Hoy · Back Squat, serie 2 de 4',
+    titulo: 'Antes del 11-ago · Back Squat, serie 2 de 4',
     descripcion:
       'La máquina del 29-jul (4×5 @ 100 kg): el sujeto es la serie, con los discos que hay que poner y lo que hiciste la semana pasada.',
   },
   {
     id: 'registro',
-    titulo: 'Hoy · acabas la serie',
+    titulo: 'Antes del 11-ago · acabas la serie',
     descripcion:
       'Lo prescrito se confirma de un toque; ajustar reps o kilos es la excepción. El RIR que sentiste se pregunta y se puede no contestar.',
   },
   {
     id: 'descanso',
-    titulo: 'Hoy · descanso de 1:30',
+    titulo: 'Antes del 11-ago · descanso de 1:30',
     descripcion:
       'La única parte que gobierna la app. Cuenta atrás, el pulso bajando con su zona, y el naranja aparece solo cuando te toca.',
   },
   {
     id: 'hueco-honesto',
-    titulo: 'Hoy · circuito de pierna sin repeticiones',
+    titulo: 'Antes del 11-ago · circuito de pierna sin repeticiones',
     descripcion:
       'El caso real del plan del coach: cuatro series a 30 kg y ninguna repetición escrita. La pantalla no se la inventa y el registro pregunta.',
   },
   {
     id: 'squat-4x10',
-    titulo: 'Propuesta · 4×10 a 82,5 kg, serie 2',
+    titulo: 'En la app · 4×10 a 82,5 kg, serie 2',
     descripcion:
       'El caso de la captura, verbatim de la plantilla 503: cuatro series de 10 a 82,5 kg con 1:30 de descanso. El crono está arriba en la franja, la dosis manda en la banda, los discos siguen abajo y la velocidad de tu última repetición abre la fila. Cambia a «hoy» y mira qué ocupa la franja.',
   },
   {
     id: 'squat-descanso',
-    titulo: 'Propuesta · descansando entre la 2 y la 3',
+    titulo: 'En la app · descansando entre la 2 y la 3',
     descripcion:
       'La misma pantalla con el sujeto cambiado, que es lo que hace el motor. El descanso drena en la franja del contexto, los apoyos NO se reordenan y saltar va de contorno: el reloj también cierra el descanso. Y aquí la velocidad dice lo suyo: la serie 2 salió LENTA y perdió un 31 % — mira la serie 3 del escenario siguiente para ver qué hizo el atleta con esa información.',
   },
   {
     id: 'squat-ultima',
-    titulo: 'Propuesta · la última serie, con una ajustada',
+    titulo: 'En la app · la última serie, con una ajustada',
     descripcion:
       'Serie 4 de 4, y en la 3 el atleta bajó a 77,5 kg porque la 2 le salió lenta. El riel enseña lo que se REGISTRÓ y no lo que se pidió, con su marca ámbar — es justo lo que quieres ver antes de decidir la última.',
   },
   {
     id: 'squat-piramide',
-    titulo: 'Propuesta · pirámide 6-6-4-4-3 al 75-85 %',
+    titulo: 'En la app · pirámide 6-6-4-4-3 al 75-85 %',
     descripcion:
       'El bloque 392 real: cinco series que no son iguales y una carga que no está en kilos. Aquí se ve por qué el sujeto es la dosis (la siguiente serie cambia) y por qué el porcentaje no se convierte a kilos que nadie ha pesado. SIN sensor, que es el estado normal hoy: no hay celda de velocidad, y la fila no promete lo que no va a llegar.',
   },
   {
     id: 'doce-series',
-    titulo: 'Propuesta · doce series (10-10-8-8-6-4-12…)',
+    titulo: 'En la app · doce series (10-10-8-8-6-4-12…)',
     descripcion:
       'El ejercicio más largo de la base, el fondo lastrado del bloque 501. Doce peldaños no caben: el riel es ventana de tres y dice cuántas llevas. En «hoy» la dosis de cada peldaño ya no se lee. Y el sensor está puesto pero no se fía de su medida: la celda lo dice en vez de pintar un número.',
   },
