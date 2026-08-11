@@ -36,11 +36,14 @@ extension WorkoutSession {
                 let total = fixedListTotal
                 // A ROUTE reads as the POSITION he is standing on, the same number
                 // the phone's strip shows ("ESTACIÓN 2/5"). A repeated-round list
-                // keeps reading as rounds BEHIND him, which is what a round count is.
+                // reads the SAME way since the round counter (11-ago): the phone
+                // leads with the round he is IN («RONDA 4/8»), so the wrist says
+                // the same number — la muñeca dice lo mismo que la pantalla, o son
+                // dos apps.
                 if currentSegment?.fixedListIsStations == true, total > 1 {
                     return "ESTACIÓN \(min(fixedRoundsDone + 1, total))/\(total)"
                 }
-                if total > 1 { return "\(fixedRoundsDone)/\(total)" }
+                if total > 1 { return "RONDA \(min(fixedRoundsDone + 1, total))/\(total)" }
             default:
                 break
             }

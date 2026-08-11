@@ -38,13 +38,17 @@ export const meta: TwinMeta = {
   id: 'vivo-rondas',
   titulo: 'Muchas rondas — el contador que no crece',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-08-10',
+  estado: 'espejo',
+  actualizado: '2026-08-11',
   descripcion:
     'La lista de rondas del vivo pinta una fila por ronda y no scrollea, así que a partir de cuatro empuja lo que tiene debajo: es lo que el 10-ago dejó EMPEZAR fuera de pantalla. El trabajo sale de las filas y se escribe una vez, y cuando ni así cabe la lista se colapsa en un contador con la ronda actual grande, la anterior y la siguiente insinuadas. Con cuatro rondas o con treinta, la pantalla mide lo mismo.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/RoundsLiveHUD.swift',
+    'ios/FAHYBRIK/Workout/WorkoutFormatHUDs.swift',
+    'ios/FAHYBRIK/Workout/WorkoutSessionLiveDescriptor.swift',
+  ],
   enApp:
-    'La lista de rondas existe en Swift (`StrikeList` en WorkoutFormatHUDs.swift) y es la que hoy se sale: pinta una fila de dos líneas por ronda, sin recorte ni scroll. El contador, el hilo de parciales y la lectura de si te estás cayendo son nuevos.',
+    'Portada el 11-ago: `RoundsLiveHUD` — la lista de una línea mientras cabe (banda del trabajo fija, umbral derivado del hueco real en `RoundsListBudget`) y el contador con la ronda actual grande cuando no. El botón del host cierra ronda a ronda («RONDA HECHA») y la muñeca dice el mismo número que la pantalla.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {

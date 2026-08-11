@@ -31,7 +31,7 @@ import SwiftUI
 /// The hero clock card — a big mono readout in an elevated well with the accent
 /// rail, a tracked micro-label above and an optional sub-line. Mirrors the EMOM
 /// clock face so every format reads with the same instrument voice.
-private struct FormatClockHero: View {
+struct FormatClockHero: View {
     let caption: String
     var captionColor: Color = Theme.Color.muted
     let value: String
@@ -73,7 +73,7 @@ private struct FormatClockHero: View {
 // `RestSurface` y su objetivo lo pinta la superficie que mide.
 
 /// A 3-cell metric row matching the EMOM HUD's grid (total / progress / HR).
-private struct MetricRow3: View {
+struct MetricRow3: View {
     /// Una celda de la fila. Era una tupla de cuatro `String` no opcionales, y por
     /// eso cada llamante colaba un `?? "—"` para poder rellenarla: el hueco no
     /// cabía en el tipo. `value` nil = no hay medida, y `ausente` dice por qué (§7).
@@ -98,7 +98,7 @@ private struct MetricRow3: View {
 
 /// El pulso en vivo. Sin reloj emparejado no llega ninguna muestra, así que la
 /// celda dice eso — que es accionable — en vez de una raya que no dice nada.
-private func hrCell(_ session: WorkoutSession) -> MetricRow3.Cell {
+func hrCell(_ session: WorkoutSession) -> MetricRow3.Cell {
     MetricRow3.Cell(label: Vocab.fc,
                     value: session.liveHRBpm.map { "\($0)" },
                     unit: Vocab.ppm,
@@ -300,14 +300,7 @@ struct ForTimeLiveHUD: View {
     let session: WorkoutSession
 
     private var seg: WorkoutSegment? { session.currentSegment }
-    private var cap: Int? { seg?.formatTotalSeconds }
     private var isCountIn: Bool { session.isCondCountIn }
-    // A capped For Time flips to count-DOWN in the FINAL minute of the cap.
-    private var capFlip: Bool {
-        guard let cap, !isCountIn else { return false }
-        let remaining = Double(cap) - session.condElapsed
-        return remaining <= 60 && remaining > 0
-    }
 
     /// A ROUTE (the list is the stations, not repeated rounds) and the athlete is on
     /// a station nothing else measures. Then the subject is the work in front of him
@@ -328,45 +321,20 @@ struct ForTimeLiveHUD: View {
                     hrCell(session)
                 ])
             } else {
-                clock
-                StrikeList(session: session)
-                MetricRow3(cells: [
-                    .init(label: "Split", value: lastSplit, ausente: "aún sin vueltas"),
-                    .init(label: listUnitLabel, value: "\(session.fixedRoundsDone)/\(session.fixedListTotal)"),
-                    hrCell(session)
-                ])
+                // Lo POR RONDAS ya no pinta reloj grande + lista de dos líneas:
+                // esa pareja es la que el 10-ago dejó un EMPEZAR fuera de
+                // pantalla. La cara por rondas vive en `RoundsLiveHUD` — la
+                // lista mientras quepa, el contador cuando no (DECISIONS
+                // 2026-08-10/11 «Rondas ≠ estaciones»).
+                RoundsLiveHUD(session: session)
             }
         }
     }
 
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else if capFlip, let cap {
-            FormatClockHero(caption: "Cierre del cap",
-                            value: Formato.clock(max(0, Double(cap) - session.condElapsed), anchoFijo: true),
-                            sub: "cap \(Formato.clock(Double(cap)))",
-                            color: Theme.Color.danger, urgent: true)
-        } else {
-            FormatClockHero(caption: "Tiempo",
-                            value: Formato.clock(session.condElapsed, anchoFijo: true),
-                            sub: cap.map { "cap \(Formato.clock(Double($0)))" },
-                            color: Theme.Color.foreground)
-        }
-    }
-
-    private var listUnitLabel: String { seg?.formatScheme == .chipper ? "Estación" : "Ronda" }
-    /// The block clock at the last strike — the classic For Time split. Nil until
-    /// the FIRST strike: antes de la primera vuelta no hay parcial, y una raya ahí
-    /// se lee como un parcial de cero (§7).
-    private var lastSplit: String? {
-        session.fixedRoundSplits.last.map { Formato.clock($0.elapsed) }
-    }
     /// How long the LAST STATION took. On a route that is the useful number: the
-    /// cumulative stamp is already the clock in the context strip. Nil como arriba.
+    /// cumulative stamp is already the clock in the context strip. Nil until the
+    /// first strike: antes de la primera vuelta no hay parcial, y una raya ahí se
+    /// lee como un parcial de cero (§7).
     private var lastSplitSeconds: String? {
         session.fixedRoundSplits.last.map { Formato.clock($0.seconds) }
     }
@@ -448,58 +416,36 @@ private struct StationSubject: View {
     }
 }
 
-/// The recorrer-once / per-round STRIKE list of the count-up formats: a Chipper
-/// strikes each station; For Time / Ladder strike each round. The active line is
-/// highlighted; tapping it records the split and advances. Reuses the round-strike
-/// session actions so a mis-tap is reversible (long-press the active line to undo).
+/// The recorrer-once STRIKE list of a ROUTE: a Chipper / HYROX sim strikes each
+/// station. The active line is highlighted; tapping it records the split and
+/// advances. Reuses the round-strike session actions so a mis-tap is reversible
+/// (long-press the active line to undo).
+///
+/// Per-ROUND lists no longer live here: a homogeneous round list collapses onto
+/// its cursor past the frame budget, and that face is `RoundsLiveHUD`.
 private struct StrikeList: View {
     let session: WorkoutSession
 
     private var seg: WorkoutSegment? { session.currentSegment }
-    /// The list walks the MOVEMENTS once (a chipper, a route) rather than repeating
-    /// rounds. One predicate, on the segment, shared with the engine — the rows and
-    /// the tramo cursor can never disagree about what a line is.
-    private var isStations: Bool { seg?.fixedListIsStations == true }
 
-    // List rows: the movements of a one-pass route, else "Ronda k" with the round's
-    // work as detail (the same movement list each round).
+    // List rows: the movements of a one-pass route.
     private struct Row: Identifiable { let id: Int; let label: String; let detail: String? }
     private var rows: [Row] {
         guard let seg else { return [] }
-        if isStations {
-            return seg.declaredComponents.map { c in
-                Row(id: c.id,
-                    label: c.work.map { "\($0)  \(c.name)" } ?? c.name,
-                    detail: c.detail)
-            }
+        return seg.declaredComponents.map { c in
+            Row(id: c.id,
+                label: c.work.map { "\($0)  \(c.name)" } ?? c.name,
+                detail: c.detail)
         }
-        // Per-round rows. A SINGLE-movement For Time shows its work each round
-        // ("10 Burpees"); a multi-movement one shows only the movement NAMES — the
-        // per-round rep scheme (21-15-9) isn't carried per round, so we never print
-        // a rep count that would be wrong for rounds 2+.
-        // A bare box clock has no movements to caption the rounds with — the rounds
-        // themselves are still the point, so they stay strike-able, just unlabelled.
-        let total = session.fixedListTotal
-        let declared = seg.declaredComponents
-        let detail: String? = {
-            if declared.count == 1, let c = declared.first {
-                return c.work.map { "\($0) \(c.name)" } ?? c.name
-            }
-            let names = declared.map(\.name).joined(separator: " · ")
-            return names.isEmpty ? nil : names
-        }()
-        return (0..<total).map { Row(id: $0, label: "Ronda \($0 + 1)", detail: detail) }
     }
 
     var body: some View {
         CardSurface(padding: 0, topAccent: true) {
             VStack(spacing: 0) {
                 HStack {
-                    LabelText(text: isStations ? "El entreno" : "Recorre las rondas", size: 10)
+                    LabelText(text: "El entreno", size: 10)
                     Spacer()
-                    Text((isStations
-                          ? "\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)"
-                          : "marca cada ronda").uppercased())
+                    Text("\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)")
                         .font(.system(size: 9, weight: .heavy)).tracking(0.6)
                         .foregroundStyle(Theme.Color.muted)
                 }

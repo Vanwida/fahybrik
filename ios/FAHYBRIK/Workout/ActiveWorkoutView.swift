@@ -961,7 +961,11 @@ struct ActiveWorkoutView: View {
         // existe —el reloj del bloque con el movimiento y su dosis— en vez de
         // inventar una: dice menos, pero no dice nada falso.
         case .tabata, .intervals, .deathBy, .steady:
-            ForTimeLiveHUD(session: session)
+            // Los rotativos y el continuo NO van a la cara por rondas: su cursor es
+            // `rotRoundIndex` (lo mueve el reloj del motor), no `fixedRoundsDone`,
+            // y un contador colgado del cursor equivocado se queda congelado en
+            // «Ronda 1». Conservan su suelo honesto: el reloj del bloque.
+            RotatingClockHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
         case .emom, .sets, .superset, .warmup, .cooldown, .none:
@@ -1285,6 +1289,16 @@ struct ActiveWorkoutView: View {
                 let last = session.fixedRoundsDone >= session.fixedListTotal - 1
                 if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
                 return "ESTACIÓN HECHA"
+            }
+            // Una lista de RONDAS cierra ronda a ronda, igual que la ruta cierra
+            // estaciones — el botón dice lo que hace y la última cierra el bloque.
+            // `.steady` queda fuera aunque declare rondas: su motor cierra el bloque
+            // entero (`conditioningPrimary`), y una etiqueta «RONDA HECHA» sobre un
+            // botón que cierra el bloque es la mentira exacta que no se escribe.
+            if session.currentSegment?.formatScheme != .steady, session.fixedListTotal > 1 {
+                let last = session.fixedRoundsDone >= session.fixedListTotal - 1
+                if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
+                return "RONDA HECHA"
             }
             return session.isLastSegment ? "TERMINAR" : "HECHO"
         default:         return "SIGUIENTE"

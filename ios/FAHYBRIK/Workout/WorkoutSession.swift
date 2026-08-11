@@ -1590,8 +1590,12 @@ final class WorkoutSession {
         // do the same thing, and the last station closes the block on its own. Only
         // a format with nothing smaller than itself to close ends the block outright
         // — otherwise the biggest button on the screen skipped the rest of the WOD.
+        // Una lista de RONDAS tiene algo más pequeño que ella misma: la ronda. El
+        // mismo principio — el botón cierra RONDA a ronda y la última cierra el
+        // bloque sola (11-ago, el contador de rondas).
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            if seg.fixedListIsStations { markRoundDone() } else { closeConditioningAndAdvance() }
+            if seg.fixedListIsStations || fixedListTotal > 1 { markRoundDone() }
+            else { closeConditioningAndAdvance() }
         case .steady:                                         closeConditioningAndAdvance()
         default:                                              lap()
         }
@@ -1632,11 +1636,20 @@ final class WorkoutSession {
         // `tramoRecordedSeconds`, never the displayed one: a station closed while the
         // clock is still armed did happen, it just wasn't measured by a monitor, and
         // saving its 0:00 turns "unmeasured" into "instant".
+        //
+        // Una lista de RONDAS (no estaciones) no re-ancla su ventana de tramo: el
+        // cursor es `.segment` y `tramo.key` no cambia al marcar, así que
+        // `tramoRecordedSeconds` acumula desde el arranque del bloque. El parcial
+        // honesto de la ronda son los DELTAS del reloj del bloque — y las lecturas
+        // de máquina, que tampoco re-anclan, ahí no afirman nada (nil, no un
+        // acumulado disfrazado de ronda).
+        let esEstacion = currentTramo.isFixedStation
         fixedRoundSplits.append(FixedStationSplit(
             elapsed: condElapsed,
-            seconds: tramoRecordedSeconds,
-            meters: tramoErgDistanceMeters,
-            calories: tramoErgCalories
+            seconds: esEstacion ? tramoRecordedSeconds
+                                : condElapsed - (fixedRoundSplits.last?.elapsed ?? 0),
+            meters: esEstacion ? tramoErgDistanceMeters : nil,
+            calories: esEstacion ? tramoErgCalories : nil
         ))
         fixedRoundsDone += 1
         if auto { Haptics.cueGo() } else { Haptics.medium() }
