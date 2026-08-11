@@ -40,7 +40,7 @@ Fuente: `ATLETA_TABS` + `DetalleTabBar` (`atleta-detalle-types.ts`).
 |---|----------|---------|----------------------|------------------|
 | 0 | *(banda fija: identidad + stats + días + acciones)* | — | `DetalleHeader` + `DetalleTabBar` | hecha (compartida) |
 | 1 | Perfil & objetivos | `perfil` | `InjuryPanel` + `TrainingDaysCard` + `PerfilTab` | **hecha** |
-| 2 | Plan actual | `plan` | `PlanTab` | pendiente |
+| 2 | Plan actual | `plan` | `PlanTab` | **hecha** |
 | 3 | Ritmos / Zonas | `ritmos` | `RitmosZonasTab` + `ZoneCalculator` | pendiente (notas cruzadas ya) |
 | 4 | Carreras | `carreras` | `CarrerasTab` | pendiente |
 | 5 | Histórico | `historico` | `HistoricoTab` | pendiente |
@@ -173,6 +173,108 @@ HistoricoTab.tsx            (cruzado) «Versiones de perfil» TODO falso
 
 ---
 
+## 2 · Plan actual (`?tab=plan`)
+
+### Qué es (first principles)
+
+La pregunta del coach al abrir la ficha, en este orden (lo dice el propio código):
+
+1. **QUÉ** está siguiendo (microciclo / cadena / personal vs periodización)  
+2. **QUÉ** hace hoy  
+3. **CÓMO** va (adherencia, ejecución, readiness, check-in)
+
+Es la superficie operativa del día a día. Si falla aquí, el coach no programa en la app: vuelve a WhatsApp + Excel.
+
+Archivos: `PlanTab.tsx` (764L), `CadenaPersonalPanel`, `PlanesPersonalesPanel`, `SessionDetailDrawer`, `ComoSeEncuentraPanel`, modales personalizar/revertir/cadena, loader `athlete-plan.ts`.
+
+---
+
+### Lo que está bien (SOTA / no reinventar)
+
+| Área | Por qué suma |
+|------|----------------|
+| Header del microciclo | Nombre real (casado por fecha, no por id roto), pills publicado/borrador/personal/programado — honestos |
+| Publicar microciclo | CTA real → API → refresh; solo si hay borrador |
+| Personalizar / Volver a periodización | Mutuamente excluyentes; no se enseña botón que luego falla |
+| Cadena de microciclos | Misma `Espina` que ve el atleta; controles solo en nodos personales; botones imposibles no se muestran |
+| Planes personales sin fecha | Separados de la cadena con fecha (un sitio de verdad por estado) |
+| Sesión de hoy + drawer prescrito→hecho | Cierra el loop; drawer lee actuals reales, no inventa |
+| Semana navegable + «Hoy» | Patrón calendario familiar |
+| Cómo se encuentra | Check-in espejo iOS, stale dimmed, sin fake |
+| Empty sin plan | CTA a Hoy (asignación) + panel planes personales (camino a medida) |
+| Comentario anti-ruido | Quitaron «Mensaje» duplicado de la columna (cabecera ya lo tiene) |
+
+Contraste con Perfil: **aquí casi no hay botones que mienten.** El propio `PlanAction` documenta: «always a real navigation».
+
+---
+
+### Bugs / mentiras visuales
+
+| ID | Sev | Hallazgo | Detalle |
+|----|-----|----------|---------|
+| **PL1** | **Alta** | **Sesión perdida se ve como pendiente en la tira semanal.** | `mapWeekToStripDays`: solo `completed\|partial` → done; el resto (incl. `missed`, `skipped`) → `scheduled`. `WeekStripDay.state` no tiene `missed`. El coach no puede escanear la semana en busca de agujeros: un no-show parece «aún por hacer». |
+| **PL2** | **Alta** | **Días multi-sesión: solo existe la primera.** | `findTodaySession` y strip usan `sessions[0]`. Segunda sesión del día (AM+PM, fuerza+carrera) invisible en «Sesión de hoy» y en la celda. En hybrid/HYROX es caso real. |
+| **PL3** | **Media** | **Card «Sesión de hoy» colapsa estados.** | Todo lo que no es `completed` → pill «pendiente». `partial`, `missed`, `skipped` mienten. El drawer sí distingue; la card no. |
+| **PL4** | **Media** | **«Ejecución reciente» omite parciales.** | Filtro: solo `completed \| missed`. Un partial (lo más interesante de coachear) no entra en la lista aunque `RecentRow` ya sabe pintarlo. |
+| **PL5** | **Media** | **«A vigilar» es muro sin camino.** | Si readiness &lt; 55: texto «considera descargar carga» sin CTA (abrir semana, personalizar, ir al editor). Bajo la lente: el coach ve el problema y no el siguiente clic. |
+| **PL6** | **Baja** | **Readiness con y sin `%`.** | Snapshot: número crudo; banner: `Readiness {n}%`. Misma métrica, dos lecturas. |
+
+---
+
+### Gaps de UX / carga cognitiva
+
+| ID | Sev | Hallazgo | Por qué importa |
+|----|-----|----------|-----------------|
+| **PL7** | Media | **Dos «formas del plan» cuando no es personal y la cadena tiene nodos.** | Cadena (biblioteca, solo lectura) + tira «Progreso del microciclo» S1–Sn. Misma historia en dos idiomas. Para periodización pura, ¿basta una? |
+| **PL8** | Media | **Barras del microciclo = compliance, no carga.** | Comentario en código: compliance como proxy de load. Label «Progreso» + % verde/rojo: el coach de periodización puede leer «carga prescrita» y es adherencia. First principles: o se llama cumplimiento o se pinta carga de verdad. |
+| **PL9** | Media | **Empty «Sin plan» → solo Hoy.** | Correcto si la secuencia se asigna ahí. Si el bloqueo es clasificación/intake (H1/P5), el coach aterriza en Hoy, da vueltas, y la ficha no le dijo «revisa intake primero». Encadenar empty states con el status real. |
+| **PL10** | Baja | **Tres fetches client en la pestaña** (cadena, planes personales, drawer on open). | Flash «Cargando…» en cadena. No es mentira; es fricción vs payload unificado de ficha. |
+| **PL11** | Baja | **Header de ficha «Ver plan»** y estar ya en Plan. | Ruido menor si `?tab=plan` activo; el primary de cabecera no se adapta a la pestaña. |
+
+---
+
+### Inventario de CTAs (Plan)
+
+| Control | ¿Conectado? |
+|---------|-------------|
+| Publicar microciclo | sí |
+| Abrir en editor de día | sí → `/atletas/{id}/dia/{date}` |
+| Personalizar plan | sí (modal → fork) |
+| Volver a la periodización | sí (si aplica) |
+| Cadena: añadir / editar / mover / borrar | sí (solo nodos personales) |
+| Planes personales · Nuevo | sí → crea + editor microciclo |
+| Celda semana → editor día | sí |
+| Ver detalle (hoy / reciente) | sí → SessionDetailDrawer |
+| Asignar secuencia en Hoy (empty) | sí → `/hoy` |
+| A vigilar | **no** (solo texto) |
+
+---
+
+### Mini-mapa de archivos (Plan)
+
+```
+PlanTab.tsx                 orquestación + strip + hoy + snapshot
+CadenaPersonalPanel.tsx     espina + mutaciones cadena (client fetch)
+PlanesPersonalesPanel.tsx   borradores sin fecha (client fetch)
+SessionDetailDrawer.tsx     prescrito→hecho (loop cerrado)
+ComoSeEncuentraPanel.tsx    check-in subjetivo
+PersonalizarPlanModal / VolverPeriodizacionModal
+Anadir|Editar|Borrar*Cadena*
+lib/dashboard/coach/athlete-plan.ts   payload weeks/sessions/macro
+parts.tsx WeekStrip         estados: done|today|scheduled|rest  ← sin missed
+```
+
+---
+
+### Veredicto bajo la lente (Plan)
+
+Mejor pestaña que Perfil en honestidad de controles. El loop prescrito→hecho y la cadena son SOTA de producto de coaching.  
+Los agujeros que **vacían coaches** no son falta de features: son **la semana que miente sobre lo perdido (PL1)** y **el día multi-sesión invisible (PL2)** — el coach deja de confiar en el scan visual y vuelve al chat.
+
+Prioridad de arreglo si se toca esta pestaña: **PL1 → PL2 → PL3/PL4 → PL5**.
+
+---
+
 ## Notas cruzadas ya capturadas (no redescubrir)
 
 Al abrir **Ritmos / Zonas (#3)**:
@@ -192,6 +294,13 @@ Al abrir **Mensajes (#10)**:
 Al abrir **1:1 (#6)**:
 - Tab key es `sesiones` pero label es «1:1» — naming interno vs producto.
 
+Al abrir **Rendimiento (#8)** / **Histórico (#5)**:
+- Cumplimiento / missed / partial: la tira de Plan (PL1) debe alinear semántica con lo que pinten esas pestañas (no tres definiciones de «perdida»).
+- Readiness y check-in también viven en Plan (ComoSeEncuentra + A vigilar) — no duplicar paneles sin espejo.
+
+Al abrir **empty plan / asignación**:
+- PL9 + H1: el camino «sin plan» debe respetar el bloqueo real (intake vs sin secuencia vs sin nivel).
+
 ---
 
 ## Convención de severidad
@@ -208,5 +317,6 @@ Al abrir **1:1 (#6)**:
 | Fecha | Pestaña | Resultado |
 |-------|---------|-----------|
 | 2026-08-11 | 0 Banda fija + 1 Perfil | H1–H7, P1–P12 documentados; sin fixes (solo auditoría) |
-| — | 2 Plan actual | pendiente |
+| 2026-08-11 | 2 Plan actual | PL1–PL11; lente UX; prioridad PL1→PL2→PL3/4→PL5; sin fixes |
+| — | 3 Ritmos / Zonas | pendiente |
 )
