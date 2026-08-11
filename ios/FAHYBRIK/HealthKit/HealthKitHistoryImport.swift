@@ -12,14 +12,15 @@ import Observation
 //
 // LAS TRES REGLAS QUE LO GOBIERNAN:
 //
-//   1. CONSENTIMIENTO EXPLÍCITO, UN TOQUE, JAMÁS AUTOMÁTICO. Nadie se trae dos años
-//      de la vida de nadie porque sí. `consentAndStart()` es el ÚNICO sitio del
-//      código que escribe el consentimiento, y sólo lo llama un dedo.
+//   1. UN TOQUE = LA CONEXIÓN DE APPLE SALUD. El mercado (Whoop, Strava) no pone
+//      un segundo botón de «importar histórico». `consentAndStart()` lo llama el
+//      toggle de conectar en Perfil; el consentimiento ES conectar. No hay un
+//      segundo CTA naranja.
 //   2. NI SE RE-PREGUNTA NI SE OLVIDA. El consentimiento y el cursor sobreviven a
 //      desconectar, reconectar y cerrar la app. Reanudar lo ya consentido no es
 //      auto-conectar: es terminar lo que el atleta ya dijo que sí.
-//   3. TECHO DECLARADO. Dos años, dicho en la propia tarjeta. Un import "hasta el
-//      principio de los tiempos" no se puede prometer ni medir.
+//   3. TECHO DECLARADO. Dos años. Un import "hasta el principio de los tiempos"
+//      no se puede prometer ni medir.
 //
 // LOS CORTES CAEN A MEDIODÍA, A PROPÓSITO. Una noche de sueño nunca cruza el
 // mediodía, así que ninguna ventana parte un sueño en dos mitades que subirían como
@@ -223,11 +224,12 @@ final class HealthKitHistoryImporter {
 
     // MARK: Arranque
 
-    /// EL TOQUE. Único sitio del código que concede el consentimiento, y sólo lo
-    /// llama el botón de la tarjeta. Congela la cabeza y el suelo del barrido y
-    /// arranca.
+    /// Arranca (o reanuda) el barrido del pasado. Lo llama el toggle de conectar
+    /// Apple Salud — ese es el único control. Si el import ya terminó, no-op.
+    /// Si ya va en marcha, no apila otro barrido.
     func consentAndStart(now: Date = Date()) {
         guard !running else { return }
+        if state.isComplete { return }
         var next = state
         if next.consentedAt == nil { next.consentedAt = now }
         if next.head == nil { next.head = Self.noonBoundary(onOrBefore: now) }

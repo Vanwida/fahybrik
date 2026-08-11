@@ -733,13 +733,21 @@ struct ProfileView: View {
                 caption: "Tus entrenos llegan a tu entrenador, pero el plan no baja al reloj."
             ) {
                 appleHealthRow
-                // Traerse el pasado es un ajuste DE ESTA conexión, no un dispositivo
-                // más: por eso va dentro del bloque de Apple Salud y no como fila
-                // hermana. Sólo aparece con la conexión encendida — ofrecer importar
-                // un histórico que no se puede leer sería una promesa vacía.
+                // Estado del histórico (barra / listo / reanudar si se cortó). NO es un
+                // segundo botón de sync: el toggle de arriba arranca la conexión y el
+                // barrido del pasado. Estándar de mercado = un solo control.
                 if healthAvailable, healthConnected {
-                    Hairline()
                     HealthHistoryImportPanel(athleteId: AuthState.persistedAthleteId())
+                        .onAppear {
+                            // Ya estaba conectado de antes (sin el segundo botón): el
+                            // toggle de Salud es el consentimiento. Arranca una vez.
+                            let id = AuthState.persistedAthleteId()
+                            let importer = HealthKitHistoryImporter.shared
+                            importer.rebind(athleteId: id)
+                            if !importer.state.isComplete {
+                                importer.consentAndStart()
+                            }
+                        }
                 }
                 Hairline()
                 polarRow
@@ -997,7 +1005,9 @@ struct ProfileView: View {
         if healthShowRevokeHint {
             return "Desconectado. Para revocar el acceso por completo, ábrelo en la app Salud."
         }
-        return "Conecta para sincronizar HR, HRV, sueño y peso"
+        // Un solo toque: conexión en vivo + histórico (hasta 2 años). No hay un
+        // segundo botón de «importar» — eso no es el estándar de Whoop/Strava.
+        return "HR, sueño, peso y tu histórico (hasta 2 años)"
     }
 
     /// Whether to surface the "Abrir Salud" link under the row. Shown when connected
@@ -1054,6 +1064,12 @@ struct ProfileView: View {
         // (e.g. steps-only at first, everything later) recovers their sleep / HRV / RHR
         // history instead of it being skipped forever. Re-uploads de-dupe server-side.
         HealthKitSyncService.shared.connect()
+        // EL MISMO TOQUE. Conectar = consentir el barrido del pasado. Un segundo
+        // botón «Importar histórico» no es estándar y confunde (parece dos syncs).
+        // consentAndStart es idempotente: si ya terminó o ya va, no reabre trabajo.
+        let athleteId = AuthState.persistedAthleteId()
+        HealthKitHistoryImporter.shared.rebind(athleteId: athleteId)
+        HealthKitHistoryImporter.shared.consentAndStart()
         UserDefaults.standard.set(true, forKey: HealthKitConnection.connectedKey)
         healthConnected = true
         healthDenied = false

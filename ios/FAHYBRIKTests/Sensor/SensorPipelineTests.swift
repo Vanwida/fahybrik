@@ -106,6 +106,7 @@ final class SensorPipelineTests: XCTestCase {
         XCTAssertLessThan(result.confidence, 0.50)
     }
 
+    @MainActor
     func testMergeWorkIntervalsBridgesBetweenRepPauses() {
         let raw: [(Double, Double)] = [(0, 2.0), (2.5, 4.5), (5.0, 8.0), (20, 25)]
         let merged = SensorPipeline.mergeWorkIntervals(raw, maxGap: 1.8)

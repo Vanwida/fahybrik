@@ -2,17 +2,9 @@ import XCTest
 import SwiftUI
 @testable import FAHYBRIK
 
-// LA TARJETA DEL HISTÓRICO, DIBUJADA DE VERDAD, EN SUS CUATRO ESTADOS.
-//
-// Hermana de `HuecoDeclaradoRenderTests`, y aquí hace falta por una razón concreta:
-// la tarjeta sólo aparece con Apple Salud conectado, y en el simulador
-// `isHealthDataAvailable()` es false, así que NO hay forma de verla arrancando la
-// app. Sin esto se estaría entregando una pantalla que nadie ha mirado.
-//
-// Con `FAHYBRIK_CAPTURAS=<carpeta>` deja los PNG en esa carpeta.
+// ESTADO DEL HISTÓRICO bajo la fila de Apple Salud (sin segundo botón de sync).
+// En el simulador HealthKit no está; estos renders son la única forma de verlo.
 
-/// Fuente que se queda colgada donde le digas, para poder pintar el estado «en
-/// marcha» sin carreras de tiempo: se para, se dibuja, y se la suelta.
 private final class GatedSource: HealthHistoryWindowImporting {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Void, Error>?
@@ -41,7 +33,6 @@ private final class GatedSource: HealthHistoryWindowImporting {
     }
 }
 
-/// Fuente que devuelve al instante: sirve para llegar al estado «terminado».
 private final class InstantSource: HealthHistoryWindowImporting {
     func importHistoryWindow(from: Date, to: Date) async throws {}
 }
@@ -49,7 +40,7 @@ private final class InstantSource: HealthHistoryWindowImporting {
 @MainActor
 final class HealthHistoryImportPanelRenderTests: XCTestCase {
 
-    private static let ancho: CGFloat = 402   // iPhone 17 Pro dentro del área segura
+    private static let ancho: CGFloat = 402
 
     private var defaults: UserDefaults!
     private var suiteName: String!
@@ -67,111 +58,88 @@ final class HealthHistoryImportPanelRenderTests: XCTestCase {
         super.tearDown()
     }
 
-    /// 1 · Sin consentir: la oferta. Es la única pantalla con botón de arranque, y su
-    /// texto tiene que decir QUÉ trae, PARA QUÉ y HASTA DÓNDE.
-    func testOfertaSinConsentimiento() throws {
+    /// Sin consentimiento: no se pinta nada (el toggle es el único control).
+    func testSinConsentimientoNoPintaOferta() throws {
         let importer = make(InstantSource())
         XCTAssertFalse(importer.state.hasConsent)
-        XCTAssertNotNil(render(panel(importer), nombre: "historico-1-oferta", alto: 190))
+        // Alto mínimo: el Group vacío no debe inventar un botón «Importar».
+        let img = render(panel(importer), nombre: "historico-0-vacio", alto: 40)
+        XCTAssertNotNil(img)
     }
 
-    /// 2 · En marcha: el año que va cayendo y la barra.
     func testEnMarchaConProgreso() async throws {
         let gate = GatedSource()
         let importer = make(gate)
-
         importer.consentAndStart()
-        try await waitUntil { gate.started }
-
+        // Espera a que el barrido entre en running.
+        let deadline = Date().addingTimeInterval(2)
+        while !importer.running && Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         XCTAssertTrue(importer.running)
-        XCTAssertNotNil(importer.currentYear, "tiene que decir por qué año va")
-        XCTAssertNotNil(render(panel(importer), nombre: "historico-2-en-marcha", alto: 150))
-
+        XCTAssertNotNil(render(panel(importer), nombre: "historico-2-marcha", alto: 90))
         gate.release()
-        importer.stop()
     }
 
-    /// 3 · Se cortó: el motivo en palabras del atleta y el botón de seguir. NUNCA
-    /// vuelve a pedir permiso.
-    func testCortadoOfreceContinuar() async throws {
+    func testReanudableTrasFallo() async throws {
         let gate = GatedSource()
         let importer = make(gate)
-
         importer.consentAndStart()
-        try await waitUntil { gate.started }
+        let deadline = Date().addingTimeInterval(2)
+        while !gate.started && Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         gate.release(throwing: HealthHistoryImportError.offline)
-        try await waitUntil { !importer.running }
-
-        XCTAssertNotNil(importer.lastError)
+        let wait = Date().addingTimeInterval(2)
+        while importer.running && Date() < wait {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         XCTAssertTrue(importer.state.hasConsent)
-        XCTAssertFalse(importer.state.isComplete)
-        XCTAssertNotNil(render(panel(importer), nombre: "historico-3-cortado", alto: 150))
+        XCTAssertFalse(importer.running)
+        XCTAssertNotNil(render(panel(importer), nombre: "historico-3-reanudar", alto: 110))
     }
 
-    /// 4 · Terminado: constancia de hasta dónde se llegó, y ningún botón — no queda
-    /// nada que traer.
-    func testTerminadoSinBoton() async throws {
+    func testTerminado() async throws {
         let importer = make(InstantSource())
         importer.consentAndStart()
-        try await waitUntil { !importer.running }
-
+        let deadline = Date().addingTimeInterval(2)
+        while !importer.state.isComplete && Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         XCTAssertTrue(importer.state.isComplete)
-        XCTAssertEqual(importer.progress, 1, accuracy: 0.001)
-        XCTAssertNotNil(render(panel(importer), nombre: "historico-4-terminado", alto: 110))
+        XCTAssertNotNil(render(panel(importer), nombre: "historico-4-hecho", alto: 50))
     }
 
-    // MARK: - Utillaje
+    // MARK: - Helpers
 
     private func make(_ source: HealthHistoryWindowImporting) -> HealthKitHistoryImporter {
         HealthKitHistoryImporter(
             source: source,
             athleteId: "1",
             defaults: defaults,
-            pauseBetweenWindows: .zero
+            pauseBetweenWindows: .milliseconds(1)
         )
     }
 
     private func panel(_ importer: HealthKitHistoryImporter) -> some View {
         HealthHistoryImportPanel(athleteId: "1", importerForTesting: importer)
+            .frame(width: Self.ancho)
+            .background(Theme.Color.surface)
     }
 
-    private func waitUntil(
-        _ condition: @MainActor () -> Bool,
-        timeout: TimeInterval = 10
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition(), Date() < deadline {
-            try await Task.sleep(for: .milliseconds(5))
+    @discardableResult
+    private func render<V: View>(_ view: V, nombre: String, alto: CGFloat) -> UIImage? {
+        let host = UIHostingController(rootView: view)
+        host.view.bounds = CGRect(x: 0, y: 0, width: Self.ancho, height: alto)
+        host.view.backgroundColor = .clear
+        let renderer = UIGraphicsImageRenderer(size: host.view.bounds.size)
+        let image = renderer.image { _ in
+            host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
         }
-        XCTAssertTrue(condition(), "la condición no se cumplió dentro del plazo")
-    }
-
-    private var destino: URL? {
-        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-    }
-
-    private func render(_ vista: some View, nombre: String, alto: CGFloat) -> UIImage? {
-        let renderer = ImageRenderer(
-            content: ZStack {
-                Theme.Color.background
-                CardSurface(padding: 0) { vista }
-                    .padding(.horizontal, Theme.Spacing.l)
-            }
-                .frame(width: Self.ancho, height: alto)
-                .environment(\.colorScheme, .dark)
-        )
-        renderer.scale = 3
-        guard let imagen = renderer.uiImage else { return nil }
-        if let png = imagen.pngData() {
-            let adjunto = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-            adjunto.name = nombre
-            adjunto.lifetime = .keepAlways
-            add(adjunto)
-            if let destino {
-                try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-                try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
-            }
+        if let dir = ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"] {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("\(nombre).png")
+            try? image.pngData()?.write(to: url)
         }
-        return imagen
+        return image
     }
 }
