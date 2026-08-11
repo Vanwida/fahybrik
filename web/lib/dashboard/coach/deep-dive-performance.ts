@@ -44,6 +44,10 @@ import {
   type RaceReadinessSample,
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { AthleteAnalyticsError } from './deep-dive-body';
+import {
+  loadDataCoverage,
+  type DataCoverage,
+} from '@/lib/coach/data-coverage';
 
 export const POLARIZATION_WINDOWS = ['7d', '14d', '28d', '90d'] as const;
 export type PolarizationWindow = (typeof POLARIZATION_WINDOWS)[number];
@@ -150,6 +154,11 @@ export interface PerformancePayload {
   race_readiness_history: RaceReadinessPoint[];
   /** Why the NEWEST point has no reading, with a way out. Null when it has one. */
   race_readiness_gap: RaceReadinessGap | null;
+  /**
+   * Qué fuentes tienen dato y desde cuándo — el «antes» de la comparativa.
+   * Null solo si el loader falló; vacío de verdad es `sources: []`.
+   */
+  data_coverage: DataCoverage | null;
 }
 
 /** How far back each named window reaches. */
@@ -242,12 +251,17 @@ export async function buildAthletePerformance(params: {
     [] as RaceReadinessPoint[],
   );
   const latestReadiness = race_readiness_history[race_readiness_history.length - 1];
+  const data_coverage = await safeCall(
+    () => loadDataCoverage({ athlete_id: params.athlete_id, client }),
+    null as DataCoverage | null,
+  );
 
   const has_any_data =
     exercises.length > 0 ||
     polarization_by_window.some((p) => p.pct != null) ||
     anaerobic_capacity.length > 0 ||
-    race_readiness_history.some((r) => r.reading != null);
+    race_readiness_history.some((r) => r.reading != null) ||
+    (data_coverage != null && data_coverage.sources.length > 0);
 
   return {
     generated_at_iso: now.toISOString(),
@@ -263,6 +277,7 @@ export async function buildAthletePerformance(params: {
     hyrox_prediction,
     race_readiness_history,
     race_readiness_gap: latestReadiness?.gap ?? null,
+    data_coverage,
   };
 }
 

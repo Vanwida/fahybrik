@@ -377,8 +377,15 @@ workout_traces, bandas y objetivo de polarización a dato del coach).
 - ✅ **Mina #9 desactivada** (`9b24dc08`): el webhook de Garmin FUSIONA por
   precedencia de campo (segment-fusion) y ya no borra los tramos del vivo ni
   sus zone_seconds. 17+7 tests.
-- ⏳ Siguiente: T4 histórico HealthKit → iOS render de la comparativa →
-  #11 detección de umbral → #13 instalar iPhone cuando esté a mano.
+- ✅ **T4 histórico HealthKit** (`ca032b0e`): import con consentimiento hasta
+  2 años (Perfil › Apple Salud), ingest en bloque + rellena zonas con pulso
+  viejo, Polar al conectar tira 90 d (techo API). 10 tests iOS + unit web.
+- ✅ **Cobertura en Rendimiento + backfill Garmin al conectar**: el coach ve
+  por fuente desde cuándo hay dato y si el «antes del plan» es creíble;
+  OAuth Garmin dispara backfill 90 d (push al webhook). Programa partner
+  Garmin puede estar en pausa para altas nuevas — ver `docs/garmin_setup.md`.
+- ⏳ Siguiente: iOS render de la comparativa → #11 detección de umbral →
+  #13 instalar iPhone cuando esté a mano.
 
 ## Antes · DEL COACH — comunicación estructurada fuera del chat (9-ago)
 

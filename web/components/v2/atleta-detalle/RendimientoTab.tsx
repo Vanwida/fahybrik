@@ -24,6 +24,7 @@ import {
   RunningEconomyPanel,
   ThresholdWorkPanel,
 } from './rendimiento/PhysiologyPanels';
+import { CoberturaDatos } from './rendimiento/CoberturaDatos';
 import { ZonasPanel } from './rendimiento/ZonasPanel';
 import { PerfTile, readinessTone } from './rendimiento/ui';
 import { EM_DASH, fmtInt, fmtPace, lastNonNull } from './rendimiento/format';
@@ -136,6 +137,9 @@ export function RendimientoTab({
 
       {/* Autoregulation — evaluate / review the week (self-contained fetch) */}
       <EvaluarSemanaPanel athleteId={athleteId} />
+
+      {/* Qué datos hay de verdad y si el «antes del plan» es creíble */}
+      <CoberturaDatos coverage={performance.data_coverage} />
 
       {/* Headline stat cluster */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

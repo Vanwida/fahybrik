@@ -28,6 +28,13 @@ Companion docs:
 
 ## 1. Apply to the Garmin Health API
 
+> **Estado del programa (ago-2026):** varios integradores reportan el **Garmin
+> Connect Developer Program en pausa** para altas nuevas (cuentas existentes
+> siguen). Si vanwida aún no tiene portal, el trámite puede quedar bloqueado
+> del lado de Garmin — no es un fallo nuestro. Revisar
+> [formulario de acceso](https://www.garmin.com/en-US/forms/GarminConnectDeveloperAccess/)
+> y el portal antes de asumir que se puede solicitar.
+
 1. Go to **developer.garmin.com → Health API** (NOT the Connect IQ / fitness
    SDKs — we need the **Health API** program for server-to-server wellness +
    activity push).
@@ -83,6 +90,13 @@ before `/connect` and `/callback` will proceed.
    encrypts both, and stores them in `garmin_oauth_tokens` (one row per athlete,
    keyed + indexed by `access_token_sha256` for O(1) webhook resolution).
 7. From then on, Garmin pushes the athlete's data to the webhook automatically.
+8. **Backfill al conectar** (`lib/garmin/backfill.ts`): el callback dispara en
+   background un GET OAuth1 por tipo (`dailies`, `sleeps`, `hrv`, `activities`,
+   `activityDetails`, `stressDetails`, `bodyComps`, `userMetrics`) sobre los
+   últimos **90 días**. Garmin responde 202 y empuja el pasado por el mismo
+   webhook. Fallar el backfill **no** desconecta; el push en vivo sigue. Un 409
+   (ya pedido) se trata como OK. Límite práctico de Garmin: ~1 mes real y
+   **una vez** por tipo/usuario — no reintentar en bucle.
 
 Tokens are long-lived (Garmin OAuth1 access tokens don't expire; revoked by the
 user or Garmin). No refresh loop is required.
