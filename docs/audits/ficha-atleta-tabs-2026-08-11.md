@@ -8,6 +8,30 @@
 
 ---
 
+## Lente de producto (mandato, 11-ago)
+
+No es un checklist técnico: es el criterio con el que se juzga cada pestaña.
+
+1. **Mejor que cualquiera — first principles + state of the art.**  
+   No copiar mediocridad. Preguntar qué *debería* ser esta superficie para un coach de élite, no qué es habitual en apps de gym.
+
+2. **No reinventar la rueda.**  
+   Patrones que el coach ya domina (Whoop, TrainingPeaks, calendar, chat, CRM) se reutilizan. La profundidad va en el dominio (prescripción, zonas, carrera, lifecycle), no en inventar navegación rara.
+
+3. **UX manda. Sin coaches que sepan usarlo, el resto vale cero.**  
+   Un dashboard lleno de opciones que el coach no entiende = roster vacío. Prioridad absoluta:
+   - **Claridad** sobre exhaustividad (menos controles, todos reales).
+   - **Un camino obvio** para la acción del día (no «descubre la pestaña correcta»).
+   - **Cero botones que mienten** (parece hacer X y no hace nada) — es peor que no tener el botón.
+   - **Lo que reclama atención se ve donde el coach ya está**, no escondido en un tab sin badge.
+   - Si hay dos sitios para lo mismo, uno es espejo de solo lectura o se unifica; nunca dos escrituras ni una escritura falsa.
+
+**Test de cada hallazgo:** *«¿un coach competente, frío, sin formación en FAHYBRID, resuelve esto en 10 segundos o se pierde?»* Si se pierde, es bug de producto aunque el backend esté perfecto.
+
+**Consecuencia en Perfil (ya auditado):** P1–P4 no son «features incompletas» — son anti-UX: enseñan acciones que no existen y esconden la escritura real en otra pestaña. Bajo esta lente, quitar el control muerto o enchufarlo de verdad gana a dejar el chrome.
+
+---
+
 ## Mapa del menú (orden real en código)
 
 Fuente: `ATLETA_TABS` + `DetalleTabBar` (`atleta-detalle-types.ts`).
