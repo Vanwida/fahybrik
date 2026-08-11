@@ -361,6 +361,12 @@ struct MirrorSensorConclusions: Codable, Equatable {
     var velocityConfidence: Double? = nil
     /// Monotonic so the phone can drop out-of-order packets.
     var seq: Int = 0
+    /// TRAZA de diagnóstico del reloj (qué serie abrió, qué repetición cerró con qué
+    /// números, y por qué descartó una excursión). Unas pocas líneas por paquete: el
+    /// teléfono las escribe en la consola de Xcode, que es donde Alex depura en el
+    /// gimnasio con el MacBook enchufado — mismo reparto que el diagnóstico de la
+    /// cinta. Sin esto, «no me cuenta» no se puede diagnosticar sin estar delante.
+    var debug: [String]? = nil
 }
 
 // MARK: - Envelope helpers

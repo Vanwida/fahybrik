@@ -45,6 +45,24 @@ final class SensorPipeline {
     /// porque hay OTRA repetición, no porque el estimador se lo repensó.
     var lastCompletedRepIndex: Int? { tracker.last?.index }
 
+    /// Traza para diagnosticar en vivo: la del contador más lo que decide la
+    /// ventana. La vacía quien la publica (el reloj la manda al teléfono, y allí va
+    /// a la consola de Xcode — mismo reparto que el diagnóstico de la cinta).
+    private var pendingTrace: [String] = []
+
+    /// Devuelve y limpia la traza acumulada.
+    func drainTrace() -> [String] {
+        var out = pendingTrace
+        pendingTrace = []
+        out.append(contentsOf: tracker.drainTrace())
+        return out
+    }
+
+    private func note(_ line: String) {
+        pendingTrace.append(line)
+        if pendingTrace.count > 40 { pendingTrace.removeFirst(pendingTrace.count - 40) }
+    }
+
     /// La ventana de trabajo activa: clave, si cuenta repeticiones, y si está en
     /// descanso. Nil = no hay serie abierta → no se cuenta nada.
     private(set) var activeWindowKey: String?
@@ -78,6 +96,7 @@ final class SensorPipeline {
 
     func reset() {
         samples = []
+        pendingTrace = []
         decimator = SensorDecimator()
         openWindows = []
         closedWindows = []
@@ -141,9 +160,12 @@ final class SensorPipeline {
         lastVelocity = nil
         guard let key else {
             isCountableWindow = false
+            note("serie cierra · no hay trabajo abierto → no se cuenta")
             return
         }
         isCountableWindow = Self.countsReps(modality: modality)
+        note("serie abre · \(name ?? key) · \(modality ?? "modalidad ?") · "
+             + (isCountableWindow ? "se cuenta" : "NO se cuenta esta modalidad"))
         openWindow(tramoId: key, exerciseId: exerciseId, modality: modality, name: name, at: t)
     }
 
@@ -214,6 +236,25 @@ final class SensorPipeline {
         guard isCountableWindow, !isRestingWindow, activeWindowKey != nil else { return }
         for sample in pending {
             tracker.push(sample)
+        }
+
+        // 3. Trabajo y descanso de una serie CONTABLE los dicen las repeticiones, no
+        //    un umbral de energía. El detector por energía está calibrado para
+        //    burpees y wall balls: un back squat de 45 cm en 3,5 s pica a 0,4 m/s²,
+        //    por debajo de su umbral (0,96), así que declaraba «trabajo 0,0 s» en una
+        //    serie de seis repeticiones reales — lo cazó el reproductor de archivos.
+        //    Derivarlo de las repeticiones además impide que las dos cifras se
+        //    contradigan: son el mismo mecanismo.
+        if let first = tracker.reps.first, let lastRep = tracker.reps.last,
+           let tEnd = samples.last?.t, let openedAt = openWindows.last?.t0 {
+            let work = tracker.reps.reduce(0.0) { $0 + max(0, $1.cycleSeconds) }
+            let span = max(work, tEnd - openedAt)
+            lastTiming = ActivityTimingResult(
+                workSeconds: min(work, span),
+                restSeconds: max(0, span - work),
+                confidence: tracker.confidence,
+                workIntervals: [(max(openedAt, first.closedAt - first.cycleSeconds), lastRep.closedAt)]
+            )
         }
 
         lastVelocity = tracker.setSummary

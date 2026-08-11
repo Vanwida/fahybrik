@@ -200,6 +200,7 @@ struct RepTracker: Sendable {
         pending = nil
         lastCloseAt = -.infinity
         lastRejection = nil
+        trace = []
         anchorGravity = nil
         angleOut = false
         anglePeakDeg = 0
@@ -218,6 +219,9 @@ struct RepTracker: Sendable {
             bias = 0
             firstT = s.t
             anchorGravity = gravityUnit(s)
+            note(s.hasGravity
+                 ? String(format: "gravedad OK (|g| %.2f)", s.gravityMagnitude)
+                 : "SIN GRAVEDAD: build del reloj vieja o muestra v1 → no se cuenta nada")
             return nil
         }
         let dt = s.t - prev
@@ -355,6 +359,8 @@ struct RepTracker: Sendable {
             level: level
         )
         reps.append(event)
+        note(String(format: "rep %d · %.0f cm · %.2f m/s · conf %.2f · ciclo %.1fs · %@",
+                    index, shape.ascentM * 100, concentricMs, confidence, cycle, level.rawValue))
         lastCloseAt = phase.t1
         pending = nil
         anchorGravity = nil
@@ -459,6 +465,7 @@ struct RepTracker: Sendable {
         angleOut = false
         let angleStart = angleOutStart
         let cycle = s.t - angleStart
+        let anglePeak = anglePeakDeg
         anglePeakDeg = 0
         guard cycle >= tuning.minCycleS, cycle <= tuning.maxCycleS,
               s.t - lastCloseAt >= tuning.refractoryS else { return nil }
@@ -484,6 +491,8 @@ struct RepTracker: Sendable {
             level: .doubtful
         )
         reps.append(event)
+        note(String(format: "rep %d por giro · %.0f° · ciclo %.1fs · sin m/s",
+                    index, anglePeak, cycle))
         lastCloseAt = s.t
         pending = nil
         return event
@@ -515,12 +524,31 @@ struct RepTracker: Sendable {
         return sqrt(dx * dx + dy * dy + dz * dz)
     }
 
-    /// Por qué NO se contó la última excursión candidata. Se guarda, no se imprime:
-    /// sirve para los tests y para diagnosticar una serie que el atleta dice que
-    /// hizo y el reloj no vio, sin dejar rastro en consola.
+    /// Por qué NO se contó la última excursión candidata, y una traza acotada de lo
+    /// que fue pasando. Se guarda, no se imprime: la publica quien la quiera —el
+    /// reloj la manda al teléfono y allí sí va a la consola— y los tests la leen.
+    /// Sin esto, una serie que el atleta hizo y el reloj no vio es indiagnosticable.
     private(set) var lastRejection: String?
+    private(set) var trace: [String] = []
+    /// Tope de la traza: interesa lo ÚLTIMO, que es donde está el fallo que se acaba
+    /// de ver.
+    static let maxTrace = 60
+
+    /// Vacía la traza acumulada (la lee quien la va a publicar).
+    mutating func drainTrace() -> [String] {
+        let out = trace
+        trace = []
+        return out
+    }
+
     private mutating func trace(_ message: String) {
         lastRejection = message
+        note(message)
+    }
+
+    private mutating func note(_ line: String) {
+        trace.append(line)
+        if trace.count > Self.maxTrace { trace.removeFirst(trace.count - Self.maxTrace) }
     }
 
     private func gravityUnit(_ s: SensorSample) -> (Double, Double, Double) {

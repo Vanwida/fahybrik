@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Did the athlete reach the END of the prescribed protocol, or stop short?
 /// `.full` → the assignment is marked 'completed'; `.partial` → 'partial' (the
@@ -154,14 +155,41 @@ final class WorkoutSession {
         lastSensorSeq = c.seq
         sensorConclusions = c
 
+        // La traza del reloj sale por la consola del dispositivo, etiquetada, con
+        // interpolación PÚBLICA (la de serie la censura). Mismo canal por el que se
+        // diagnostica la cinta: MacBook enchufado en el gimnasio, filtro "[REPS]".
+        for line in c.debug ?? [] {
+            Self.repsLog.log("[REPS] \(line, privacy: .public)")
+        }
+
         let openIdx = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
             ?? setRecords.indices.last
         if let openIdx {
             stampVelocity(on: openIdx, from: c)
         }
 
+        let before = setRecords.isEmpty ? repsCurrentSegment : (setRecords[openIdx ?? 0].repsActual ?? 0)
         applySensorReps(c, openIdx: openIdx)
+        let after = setRecords.isEmpty ? repsCurrentSegment : (setRecords[openIdx ?? 0].repsActual ?? 0)
+        // Solo cuando cambia algo: a dos paquetes por segundo, registrar cada uno
+        // sería ruido que tapa justo la línea que importa.
+        if before != after || c.reps != lastLoggedSensorReps {
+            lastLoggedSensorReps = c.reps
+            let w = sensorWindow
+            Self.repsLog.log("""
+                [REPS] móvil · reloj dice \(c.reps.map(String.init) ?? "—", privacy: .public) \
+                (\(c.repsLevel ?? "—", privacy: .public)) · m/s \
+                \(c.lastRepVelocityMs.map { String(format: "%.2f", $0) } ?? "—", privacy: .public) \
+                rep \(c.lastRepIndex.map(String.init) ?? "—", privacy: .public) · \
+                pantalla \(before, privacy: .public)→\(after, privacy: .public) · \
+                serie \(w.key ?? "ninguna", privacy: .public)\(w.resting ? " (descanso)" : "", privacy: .public)
+                """)
+        }
     }
+
+    /// Consola del dispositivo — el canal por el que se depura en el gimnasio.
+    private static let repsLog = Logger(subsystem: "com.fahybrik.sensor", category: "reps")
+    private var lastLoggedSensorReps: Int?
 
     /// Conteo en vivo. El número que manda la muñeca es el de LA SERIE ABIERTA y
     /// es absoluto: el contador del reloj emite cada repetición una vez, al

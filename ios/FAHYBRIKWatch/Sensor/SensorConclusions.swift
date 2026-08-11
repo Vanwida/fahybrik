@@ -13,6 +13,17 @@ extension SensorPipeline {
     func conclusions(seq: Int) -> MirrorSensorConclusions {
         let reps = liveCompletedReps
         let summary = lastVelocity
+        // La traza va con el paquete: se vacía al mandarla, así que cada línea
+        // viaja una vez. En el primer paquete se declara QUÉ BUILD del reloj está
+        // contando — la muñeca se queda con el binario viejo más veces de las que
+        // parece, y eso explica solo la mitad de los «no va bien».
+        var trace = drainTrace()
+        if seq == 1 {
+            let v = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+            let m = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+            trace.insert("reloj v\(m) (\(v)) · \(captureMode.rawValue) · \(sampleCount) muestras", at: 0)
+        }
+        if trace.count > 8 { trace = Array(trace.suffix(8)) }
         return MirrorSensorConclusions(
             sensorWorkS: lastTiming?.workSeconds,
             sensorRestS: lastTiming?.restSeconds,
@@ -29,7 +40,8 @@ extension SensorPipeline {
             meanVelocityLastMs: summary?.meanVelocityLast,
             velocityLossPct: summary?.velocityLossPct,
             velocityConfidence: lastCompletedRepVelocityConfidence ?? summary?.confidence,
-            seq: seq
+            seq: seq,
+            debug: trace.isEmpty ? nil : trace
         )
     }
 }
