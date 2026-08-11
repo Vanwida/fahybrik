@@ -101,7 +101,7 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
     >
       {/* ── Atleta ─────────────────────────────────────────────────────────── */}
       <div className="flex min-w-0 items-center gap-2.5 pl-1">
-        <AthleteAvatar name={row.full_name} size="sm" />
+        <AthleteAvatar name={row.full_name} imageUrl={row.avatar_url} size="sm" />
         <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
           {row.full_name}
         </span>

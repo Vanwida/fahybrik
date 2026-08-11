@@ -13,6 +13,8 @@ import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/inj
 export interface RosterRow {
   athlete_id: string;
   full_name: string;
+  /** Foto del atleta (base de entrega), null = iniciales. */
+  avatar_url: string | null;
   /** Real level name from athlete_levels.name (e.g. 'N1', 'N4'). Null = not assigned. */
   level: string | null;
   status: RosterStatus;
@@ -53,6 +55,7 @@ export function toRosterRow(a: AthleteRow): RosterRow {
   return {
     athlete_id: a.athlete_id,
     full_name: a.full_name,
+    avatar_url: a.avatar_url,
     level,
     status: rosterStatus(a),
     phase_label: phaseLabel(a),

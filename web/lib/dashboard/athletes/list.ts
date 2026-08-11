@@ -43,6 +43,9 @@ export interface AthleteTargetRaceSummary {
 export interface AthleteRow {
   athlete_id: string;
   full_name: string;
+  /** Foto de perfil (base de entrega de Cloudflare Images), null = iniciales. La sube
+   *  el propio atleta desde su móvil; ver lib/profile/photo-source.ts. */
+  avatar_url: string | null;
   primary_discipline: string | null;
   /** Athlete's assigned level name (e.g. 'N1'–'N5') from athlete_levels, null if not set. */
   level_name: string | null;
@@ -118,6 +121,7 @@ export async function fetchAthletesForCoach(params: {
     Array<{
       athlete_id: string;
       full_name: string;
+      avatar_url: string | null;
       primary_discipline: string | null;
       level_name: string | null;
       level_sort: number;
@@ -147,6 +151,7 @@ export async function fetchAthletesForCoach(params: {
     select
       a.id::text as athlete_id,
       a.full_name,
+      a.avatar_url,
       a.primary_discipline::text as primary_discipline,
       al.name as level_name,
       coalesce(al.sort_order, 0)::int as level_sort,
@@ -342,6 +347,7 @@ export async function fetchAthletesForCoach(params: {
     return {
       athlete_id: r.athlete_id,
       full_name: r.full_name,
+      avatar_url: r.avatar_url,
       primary_discipline: r.primary_discipline,
       level_name: r.level_name,
       level_sort: r.level_sort,
