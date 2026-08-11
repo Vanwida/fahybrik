@@ -26,6 +26,9 @@ struct ExecutedWorkoutView: View {
     var onStale: (() -> Void)? = nil
 
     @State private var detail: AssignmentDetail?
+    /// Índice de técnica de la sesión (el mismo que abre el plan): vídeo,
+    /// consejos, descripción y nota del coach, ejercicio a ejercicio.
+    @State private var showTechnique = false
     @State private var loadFailed = false
     /// The CONCRETE cause behind `loadFailed` (HTTP status / decode error / network),
     /// shown under the headline and logged — so a real failure is never anonymous.
@@ -56,6 +59,13 @@ struct ExecutedWorkoutView: View {
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .task { await load() }
+        .sheet(isPresented: $showTechnique) {
+            SessionExercisesSheet(
+                assignmentId: assignmentId,
+                sessionTitle: detail?.workout?.name ?? fallbackTitle ?? "Entreno",
+                bearer: bearer
+            )
+        }
         .fullScreenCover(isPresented: $showCapture) {
             WorkoutCaptureView(
                 assignmentId: assignmentId,
@@ -144,6 +154,10 @@ struct ExecutedWorkoutView: View {
                     notesCard(notes)
                 }
                 provenanceCard
+                // Un entreno hecho es justo cuando el atleta se pregunta si lo
+                // hizo bien: la técnica de cada ejercicio se abre desde aquí, con
+                // la misma ficha del plan, en vez de obligarle a volver al día.
+                if hasExercises { techniqueEntry }
                 // Only offered when there's something it could actually add. On a
                 // session a PM5 already fed, inviting a screenshot of another app
                 // is noise next to better data we already hold.
@@ -454,6 +468,49 @@ struct ExecutedWorkoutView: View {
                     .foregroundStyle(Theme.Color.foreground)
             }
         }
+    }
+
+    // MARK: - Technique index entry point
+    //
+    // El detalle ya trae los ejercicios de la sesión (bloques → ítems con vídeo,
+    // consejos, descripción y nota del coach) pero no había NINGUNA manera de
+    // llegar a ellos desde un entreno hecho: el atleta que quería repasar cómo se
+    // hacía un movimiento tenía que volver al plan. Abre el mismo índice de
+    // técnica que el plan (`SessionExercisesSheet`), no una pantalla nueva.
+
+    /// ¿Tiene esta sesión ejercicios que enseñar? Sin ellos (día de descanso,
+    /// sesión sin detalle) no se ofrece la entrada: llevaría a una ficha vacía.
+    private var hasExercises: Bool {
+        (detail?.workout?.blocks ?? []).contains { !$0.items.isEmpty }
+    }
+
+    private var techniqueEntry: some View {
+        Button {
+            Haptics.light()
+            showTechnique = true
+        } label: {
+            CardSurface(padding: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.rectangle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ver la técnica de los ejercicios")
+                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Vídeo, consejos y la nota de tu coach.")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityHint("Abre los ejercicios de la sesión para repasar cómo se hacen")
     }
 
     // MARK: - Screenshot entry point (LIVE — Idea 1)
