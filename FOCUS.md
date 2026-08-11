@@ -103,6 +103,30 @@ pausa, banca tumbado, wall balls, curl, dominadas, flexiones, andar=0, carry=0,
 silla=0, remo sentado=0, velocidad 1×rep, conteo monotónico, ida y vuelta del
 archivo v2); `xcodebuild -scheme FAHYBRIKWatch` SUCCEEDED.
 
+**Para VER qué pasa en el gimnasio, no en el laboratorio (11-ago noche):**
+
+- **Traza en vivo**: el reloj manda con cada paquete unas líneas de diagnóstico
+  (qué serie abrió, qué repetición cerró con cuántos cm / m/s / confianza, y por
+  qué descartó una excursión) y el teléfono las escribe en la consola del
+  dispositivo con etiqueta `[REPS]` — mismo canal por el que se depura la cinta.
+  La primera línea declara **qué build del reloj está contando**, que explica sola
+  la mitad de los «no va bien».
+- **Reproductor de capturas**: `ios/tools/replay-sensor/main.swift` lee un archivo
+  FHSC del reloj y pasa cada serie por el MISMO contador, imprimiendo repetición a
+  repetición. Con la captura del gimnasio se itera el algoritmo sin pedirle al
+  atleta que repita nada. Se saca del iPhone con `xcrun devicectl device copy from`
+  (instrucciones en la cabecera del fichero).
+- **Lo primero que encontró**: el detector de trabajo/descanso decía **«trabajo
+  0,0 s» en una serie de seis sentadillas reales** — su umbral (0,96 m/s²) está por
+  encima del pico de un squat lento (0,4). Arreglado por la raíz: en una serie
+  contable el trabajo lo dicen las repeticiones cerradas, no un umbral de energía,
+  así que las dos cifras ya no pueden contradecirse.
+- **Comprobado en el teléfono de Alex (conectado)**: **no hay ni una captura
+  archivada** en el contenedor de la app. El receptor está bien enchufado, así que
+  el archivo nunca salió del reloj: en espejo solo se transfiere al **GUARDAR** el
+  entreno (descartarlo lo tira a propósito). Para diagnosticar hay que terminar y
+  guardar la sesión.
+
 **Hueco heredado que NO he tocado (fuera del alcance de lo reportado):**
 `sensor_work_s` / `sensor_rest_s` se calculan sobre una ventana rodante de 35 s, no
 sobre la serie. La fase 1 del plan los quiere **por tramo**, y ahora que la ventana
@@ -447,7 +471,7 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   artefacto de grep con trailing closures); el hueco real es que su Layout no
   PUBLICA el presupuesto de apoyos — eso es lo que se generaliza. Ver
   DECISIONS 2026-08-11 «El vivo tiene UN lenguaje» (con la corrección).
-  **FUERZA PORTADA (11-ago noche, `3b61e5bc..85aabbf2`, suite 1253 TEST
+  **FUERZA PORTADA (11-ago noche, `3b61e5bc..85aabbf2`, suite 1255 TEST
   SUCCEEDED en worktree limpio):** el host ganó `PresupuestoApoyos` +
   `CascadaApoyos` + `TiraFormatoVivo` (Theme/LenguajeVivoCascada.swift);
   sujeto = dosis con las 4 escrituras de carga; riel ventana-de-3 desde la
@@ -461,10 +485,15 @@ un minuto al trote ya no se llama «descanso». 1109/1109 tests iOS. Ver DECISIO
   **Pendiente de instalar en el iPhone de Alex** — bloqueado por
   `Sensor/RepTracker.swift` sin commitear de la sesión de sensores (el
   checkout no compila; avisada, instala ella al aterrizar).
-  **Backlog nuevo:** unificar la grafía de rangos (el renderer escribe
-  «75–85» con guion largo — viola la regla de cero guiones largos — y
-  Formato «75-85»; un lote propio) · capturas de render tests (la env var
-  no llega al sim: va en el esquema, compartido). **Siguientes lotes:**
+  **Backlog nuevo:** (a) GUIONES — dos cosas distintas y las dos su lote:
+  ~80-113 literales de USUARIO con em dash real (U+2014) por 59 ficheros
+  (prosa: ImportRaceSheet, RaceDetailView, CarrerasView, FijarObjetivoView,
+  Treadmill×25… — regla dura violada a escala; arreglo = reescribir copy,
+  no cambiar un carácter), y la grafía de RANGOS (el renderer usa en dash
+  U+2013 «75–85», que es tipografía estándar de rango y consistente con
+  fechas/ritmos; Formato usa «75-85»; unificar = decisión de copy de toda
+  la app, de Alex); (b) capturas de render tests (la env var no llega al
+  sim: va en el esquema, compartido). **Siguientes lotes:**
   RONDAS adopta el host, luego EMOM, AMRAP, estaciones, ergo, descanso.
   También arreglado hoy: el editor del panel vendía ceguera con bloques test
   autorados (batería del conector: solo config y notas, dosis invisibles) —
