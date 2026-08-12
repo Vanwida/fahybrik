@@ -122,7 +122,84 @@ tres orígenes con su precedencia — todo eso se pintaba y se tiraba.
 - `web/lib/athlete/assignment-detail.ts` tiene 1203 líneas, muy por encima del
   límite de 500, y ya las tenía. Partirlo es un refactor cruzado con su mini-mapa.
 
-## Ahora · Las dos lecturas diseñadas y firmadas (12-ago madrugada)
+## Ahora · Correr: los metros se perdían de verdad, y Alex tenía razón (12-ago mañana)
+
+**LO QUE ESPERA A ALEX: una vuelta de distancia conocida.** Es lo único que no
+puede hacer nadie más y lo único que cierra el trabajo de los metros. La receta
+está dada: rodaje sencillo (el caso continuo es el que está entero), móvil
+bloqueado en el bolsillo 2-3 min a mitad, una parada de 30 s, y a poder ser un
+tramo de mala señal. Al terminar, se guardan **las dos cifras** —la nuestra y la
+de Apple Salud— así que el desvío se calcula después.
+
+### El fallo que él reportó y se le dijo que no existía
+
+Alex hizo un entreno, dijo que el GPS no contaba bien los metros, y se le
+contestó que estaba todo bien **sin verificarlo**. Tenía razón. Eran TRES fugas
+y las tres restan:
+
+1. **El tope de 60 m tiraba el bache entero.** El criterio estaba mal elegido: 60
+   metros no son implausibles, lo son solo si ocurren rápido. A 5:00/km se
+   recorren en 18 s, a 3:30 en 12 — así que **cualquier hueco de señal más largo
+   perdía el 100 % de su distancia**, y cuanto más rápido corrías antes cruzabas
+   el umbral. Peor: la puerta de precisión congelaba la referencia (bien) y el
+   tope mataba justo el fix que iba a rescatar el bache. Ahora la puerta juzga
+   VELOCIDAD (12,5 m/s, por encima del pico de Bolt) y **lo descartado ya no mueve
+   el ancla**, que es lo que lo hacía irreversible.
+2. **El permiso de GPS en segundo plano solo se pedía desde UNA pantalla.** Un
+   tramo de correr dentro de otro formato corría sin él: móvil al bolsillo y se
+   perdían TODOS los metros de esa ventana. Ahora va con la carrera.
+3. **La autopausa tiraba los metros** en vez de congelar el crono. La distancia es
+   un hecho físico y el tiempo parado es una política: Garmin y Strava paran el
+   reloj y siguen sumando. Solo la pausa a mano deja hueco.
+
+**Y por qué nunca saltó:** la insignia decía «GPS débil», o sea usable, hasta 40 m
+de error mientras la distancia cortaba en 25. Entre esos dos números el atleta
+leía «va flojo pero va» con el contador en **cero absoluto**. Ahora es el mismo
+número.
+
+**Lo que cierra el círculo:** al terminar se le pregunta a Apple Salud cuánto
+registró ella en la misma ventana y su serie se guarda AL LADO de la nuestra. La
+divergencia queda escrita en el archivo. La próxima vez lo dice la app.
+
+### El barrido encontró el MISMO patrón en dos sitios más
+
+La forma del fallo era «rechazo esta lectura pero avanzo el estado igual».
+
+- **`HealthKitSyncService` perdía biometría PARA SIEMPRE**: los tres vaciados
+  descartaban el resultado del envío y avanzaban el ancla igual. Un 401 o un 4xx
+  no se encolan, y la consulta anclada de Apple no redelivera lo que quedó detrás.
+- **El cuentakilómetros de la cinta cobraba dos veces** el tramo congelado.
+
+### Lo demás que cerró en esta tanda
+
+- **Panel del coach**: página nueva `/atletas/{id}/sesion/{assignment}` con la
+  lectura entera. **El caso continuo está completo** (curva, banda dibujada,
+  kilómetros, tabla); el de series espera datos reales.
+- **Las cuatro lecturas del entrenador**: calibración con su sesgo, huella,
+  volumen semanal en km y carga con veredicto delante. Migración **0183**.
+- **La carrera comprometida** (mig. **0184**), reutilizando `classifyEffort` que
+  ya estaba en producción. Se descartó una primera vez midiendo el seed en vez de
+  la métrica; la entrada de DECISIONS se sustituyó entera con el porqué.
+- **El atleta ya lee su veredicto** (`run_compliance` en su detalle): se calcula
+  UNA vez y el coach lee ese mismo resultado. Test de paridad bit a bit.
+- **Dominio de la lectura en Swift**, con el veredicto como campo de ENTRADA y
+  cero líneas que juzguen. 26 tests que defienden las reglas reintroducibles.
+- **Orden aleatorio permanente** en los tests de iOS.
+
+### EN VUELO / PENDIENTE
+
+- **`slope_pct` por tramo**: hoy solo existe la inclinación de la CINTA, así que
+  en calle el corrector de pendiente **no dispara nunca** y una sesión de cuestas
+  al aire libre recibe veredicto de ritmo — lo que el contrato prohíbe.
+- **El decodificador `AssignmentDetail → Carrera` y la capa de VISTA en Swift**:
+  para sesión fresca. El mapa queda escrito en el fichero del dominio.
+- El mapa del panel: falta decodificador de polilínea y el perfil de zonas del
+  atleta, sin el cual el color sería adorno donde el atleta tiene dato.
+- Nada de la curva se ha visto contra datos reales: `workout_traces` está vacía.
+
+---
+
+## Antes · Las dos lecturas diseñadas y firmadas (12-ago madrugada)
 
 **T1 y T2 diseñadas a la vez, que era la condición.** Si nacen separadas acaban
 con dos idiomas del mismo entreno — exactamente lo que arrastrábamos: el coach
