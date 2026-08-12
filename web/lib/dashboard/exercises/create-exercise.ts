@@ -107,10 +107,19 @@ export async function createExercise(
   // can't read the just-set category in the same INSERT). Now that the coach
   // declares the modality there is nothing to derive, so the placeholder — and
   // the window where the row existed with a wrong modality — is simply gone.
+  // `name_es` NO es decoración: desde la migración 0172 la tabla exige
+  // `name_es is not null or name_en is not null`, y este insert no escribía
+  // ninguno de los dos — crear un ejercicio desde el panel reventaba con un 500.
+  // El nombre que teclea el coach va a `name_es` porque su panel es español; y
+  // `name_en` se queda NULL a propósito, que es la verdad («no hay nombre inglés
+  // curado todavía») en vez de duplicar el mismo texto en las dos columnas y
+  // afirmar una traducción que nadie ha hecho. `name` sigue siendo el nombre
+  // base, el que resuelve cualquier lectura que aún no distingue idioma.
   const rows = await client<CatalogExercise[]>`
-    insert into exercises (slug, name, category, modality, video_url, source, coach_id)
+    insert into exercises (slug, name, name_es, category, modality, video_url, source, coach_id)
     values (
       ${slug},
+      ${input.name},
       ${input.name},
       ${input.category}::exercise_category,
       ${input.modality},
