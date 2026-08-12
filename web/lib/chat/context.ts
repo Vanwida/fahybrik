@@ -44,8 +44,10 @@ function sessionDayLabel(scheduledFor: string): string {
 }
 
 /** "4 oct" — día del mes + mes. Formato de una CARRERA (fecha lejana; el día
- *  de la semana no es lo que importa a esa distancia). */
-function raceDayLabel(raceDate: string): string {
+ *  de la semana no es lo que importa a esa distancia). Exportada: la
+ *  previsualización VIVA de `context-preview.ts` la reutiliza para su propia
+ *  línea de fecha — una sola grafía de fecha de carrera en todo el módulo. */
+export function raceDayLabel(raceDate: string): string {
   const dt = parseDateOnly(raceDate);
   return `${dt.getUTCDate()} ${MONTH_ES_ABBR[dt.getUTCMonth()]}`;
 }

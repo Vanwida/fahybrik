@@ -32,7 +32,7 @@ import {
   type PrescriptionRole,
   type SessionDurationItem,
 } from '@fahybrid/shared/domain/prescription';
-import { sql } from '@/lib/db';
+import { sql, type Sql } from '@/lib/db';
 import { weekStates, type WeekPublishState } from '@/lib/mcp/shape-write';
 
 export interface AthleteWeekDaySession {
@@ -510,7 +510,13 @@ async function hasPublishedWeek(
   return rows[0]?.has_next ?? false;
 }
 
-type TemplateSummary = {
+// Exported: `web/lib/chat/context-preview.ts` reuses this EXACT computation
+// (block grouping, title classification, `sessionDuration`) for a chat
+// message's session-context preview line — the "prescripción corta y su
+// reloj" is precisely what this function already derives for the week card.
+// Two independent readers of the same rows would drift on the block-role
+// heuristic (`classifyBlock`); reusing keeps it a single mechanism.
+export type TemplateSummary = {
   est_duration_minutes: number | null;
   duration_unknown_reason: DurationUnknownReason | null;
   blocks_count: number | null;
@@ -550,13 +556,20 @@ type SegmentRow = {
 // absent from the map (its sessions get null fields). NOTE: `block_position`
 // groups segments into blocks (warmup / metcon / cooldown …); `block_title`
 // names them.
-async function loadTemplateSummaries(
+// `client` defaults to the module's own `sql` — every OTHER call in this file
+// still does the same (this file has no DI anywhere else). It exists as a
+// parameter ONLY so an exported reuse site (`web/lib/chat/context-preview.ts`)
+// can point it at a caller-scoped client (a test branch, a transaction)
+// instead of silently escaping to the default pool — the same
+// `args.sql ?? defaultSql` shape `lib/chat/service.ts` already uses.
+export async function loadTemplateSummaries(
   templateIds: string[],
+  client: Sql = sql,
 ): Promise<Map<string, TemplateSummary>> {
   const out = new Map<string, TemplateSummary>();
   if (templateIds.length === 0) return out;
 
-  const segs = await sql<SegmentRow[]>`
+  const segs = await client<SegmentRow[]>`
     select
       ts.template_id::text as template_id,
       ts.block_position as block_position,
@@ -621,7 +634,7 @@ async function loadTemplateSummaries(
   // never be described twice.
   const uncovered = templateIds.filter((id) => !out.has(id));
   if (uncovered.length > 0) {
-    const clocks = await sql<ClockRow[]>`
+    const clocks = await client<ClockRow[]>`
       select t.id::text as template_id, t.meta_json->'prescription' as prescription
       from templates t
       where t.id = any(${uncovered}::bigint[])
