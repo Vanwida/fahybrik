@@ -58,8 +58,24 @@ struct AnalyticsCardView: View {
                 if !filledRows.isEmpty { rowsBlock }
                 if !card.zones.isEmpty { zonesBlock }
                 if let meaning = card.meaning_es, !meaning.isEmpty { MeaningNote(text: meaning) }
-                if let note = card.availability_note, !note.isEmpty,
-                   card.meaning_es == nil || declaresGap {
+                // LA NOTA SE PINTA SIEMPRE QUE EXISTA, y antes no.
+                //
+                // La condición que había —«solo si no hay significado, o si el
+                // primario es nulo»— daba por hecho que significado y nota dicen lo
+                // mismo, y **no lo dicen**: el significado explica QUÉ es la cifra;
+                // la nota explica POR QUÉ está a medias y qué la llenaría. Con las
+                // dos presentes se tiraba la segunda, así que el atleta veía guiones
+                // sin motivo **teniendo el servidor el motivo escrito**.
+                //
+                // Pasaba en cuatro tarjetas reales: los splits de ergo con datos
+                // parciales, la tendencia y la potencia de ergo con una sola sesión,
+                // y la adherencia de carga sin pares. Es lo contrario de la
+                // disciplina de esta app: sin cobertura se dice por qué.
+                //
+                // El PESO sí sigue dependiendo del papel: cuando la nota declara el
+                // hueco es LA frase de la tarjeta y va en cuerpo; como pie de
+                // procedencia se queda al fondo, pequeña.
+                if let note = card.availability_note, !note.isEmpty {
                     // Cuando la nota explica el hueco habla con la misma voz que el
                     // estado vacío; como pie de procedencia, se queda al fondo.
                     Text(note)
