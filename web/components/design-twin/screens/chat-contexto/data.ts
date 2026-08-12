@@ -49,7 +49,12 @@ export const ELEGIBLES: { seccion: string; entrenos: EntrenoElegible[] }[] = [
 ];
 
 /** El entreno elegido en el guion, ya rotulado por el servidor. */
-export const CONTEXTO_SESION: RefContexto = { kind: 'session', ref: '9412', label: 'Fuerza A · hoy' };
+export const CONTEXTO_SESION: RefContexto = {
+  kind: 'session',
+  ref: '9412',
+  label: 'Fuerza A · hoy',
+  preview: 'Empuje · 4 bloques · 55 min',
+};
 
 /** El caso fino: un ejercicio DENTRO de ese entreno. */
 export const CONTEXTO_EJERCICIO: RefContexto = {
@@ -57,6 +62,9 @@ export const CONTEXTO_EJERCICIO: RefContexto = {
   ref: '9412',
   sub: 'back-squat',
   label: 'Back squat · Fuerza A, hoy',
+  // La respuesta a la pregunta, sin abrir nada: es justo el descanso que se
+  // discute en el mensaje de al lado.
+  preview: '4×5 · 80% · descanso 90 s',
 };
 
 /** Borrador escrito con el contexto ya puesto. */

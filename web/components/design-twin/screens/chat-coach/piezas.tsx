@@ -18,12 +18,22 @@ import { COACH, type Mensaje, type RefContexto } from './data';
  * Vive en las piezas comunes porque la burbuja es compartida: la propuesta que
  * la estrena es `chat-contexto`.
  *
- * SIN chevron: la primera versión lo dibujaba, pero abrir el entreno desde aquí
- * exige decidir en qué modo se abre (hecho o por hacer) y levantar esa pantalla
- * sobre el propio chat. Hasta que el toque exista de verdad, un galón que no
- * responde miente más de lo que informa — retirado en Swift y aquí a la vez.
+ * Lleva la línea de DATO de la cosa cuando el servidor la sabe: la mitad del
+ * valor está en contestar sin abrir nada. El galón aparece SOLO cuando hay a
+ * dónde ir (lo hecho se mira, lo pendiente se estudia); sin destino honesto la
+ * tarjeta no lo insinúa, porque un galón que no responde miente más de lo que
+ * informa. Estuvo dibujado sin toque durante unas horas y se retiró; vuelve
+ * ahora que el toque existe.
  */
-export function TarjetaContexto({ contexto, mio }: { contexto: RefContexto; mio: boolean }) {
+export function TarjetaContexto({
+  contexto,
+  mio,
+  abrible = false,
+}: {
+  contexto: RefContexto;
+  mio: boolean;
+  abrible?: boolean;
+}) {
   return (
     <span
       style={{
@@ -57,7 +67,17 @@ export function TarjetaContexto({ contexto, mio }: { contexto: RefContexto; mio:
         >
           {contexto.label}
         </span>
+        {contexto.preview ? (
+          <span style={{ font: '400 11px/1.3 var(--twin-font-sans)', opacity: 0.75, paddingTop: 1 }}>
+            {contexto.preview}
+          </span>
+        ) : null}
       </span>
+      {abrible ? (
+        <span aria-hidden style={{ font: '600 13px/1 var(--twin-font-sans)', opacity: 0.5 }}>
+          ›
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -273,7 +293,9 @@ export function Burbuja({ m, onReintentar }: { m: Mensaje; onReintentar?: () => 
           opacity: fallido ? 0.55 : 1,
         }}
       >
-        {m.contexto ? <TarjetaContexto contexto={m.contexto} mio={mio} /> : null}
+        {m.contexto ? (
+          <TarjetaContexto contexto={m.contexto} mio={mio} abrible={m.contexto.kind === 'session'} />
+        ) : null}
         {m.texto}
       </div>
       {fallido ? (

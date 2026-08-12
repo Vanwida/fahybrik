@@ -22,6 +22,13 @@ export interface RefContexto {
   sub?: string;
   /** Sello legible. Lo escribe el SERVIDOR, no el cliente. */
   label: string;
+  /**
+   * La línea de DATO de la cosa, AHORA. La escribe el servidor al LEER el
+   * mensaje (no al guardarlo): la etiqueta es identidad y va congelada, pero
+   * quien lee está a punto de contestar o de corregir, así que el estado que
+   * importa es el de hoy. Ausente cuando no se sabe o la cosa ya no está.
+   */
+  preview?: string;
 }
 
 export interface Mensaje {
