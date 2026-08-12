@@ -6,6 +6,9 @@
 // saber; la curva va antes que la tabla porque es lo único que no se puede
 // sustituir por texto (se ve entrar y salir de la banda, y se ve dónde); y la
 // tabla cierra, para quien quiera la cifra exacta de un tramo.
+//
+// LO DERIVADO NO ESTÁ AQUÍ: vive en el carril (`SesionScreen`), como en el
+// mockup. Esta columna es la narración de la carrera y el carril es el contexto.
 
 import type { ReactNode } from 'react';
 import type { AssignmentDetailTrace } from '@/lib/execution/session-trace';
@@ -29,13 +32,13 @@ function Seccion({ titulo, nota, children }: { titulo: string; nota?: ReactNode;
 
 /**
  * El hueco declarado. No es la versión rota de la pantalla: es la misma pantalla
- * diciendo la verdad. Seis secciones que no existen se explican con UNA frase,
- * en vez de con seis cajas vacías.
+ * diciendo la verdad. Las secciones que no existen se explican con UNA frase, en
+ * vez de con varias cajas vacías.
  */
 function SinArchivo() {
   return (
     <div className="flex flex-col items-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] px-4 py-6 text-center">
-      <span className="v2-display text-[15px]">Sin curva, sin kilómetros y sin tramos</span>
+      <span className="v2-display text-[15px]">Sin curva y sin kilómetros</span>
       <span className="max-w-[52ch] text-xs leading-relaxed text-[color:var(--v2-muted)]">
         De esta carrera solo se guardaron los totales, no el minuto a minuto. Las carreras se archivan muestra a
         muestra desde que el reloj empezó a emitirlas.

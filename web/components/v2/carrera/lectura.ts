@@ -19,6 +19,7 @@ import {
   type Prescription,
   type Segment,
 } from '@fahybrid/shared/domain/prescription';
+import type { ComplianceBand } from '@fahybrid/shared/domain/adherence';
 import type {
   RecoveryComplianceVerdict,
   RecoveryDurationVerdict,
@@ -27,7 +28,6 @@ import type {
 } from '@fahybrid/shared/domain/adherence';
 import type { KmSplit } from '@fahybrid/shared/domain/running/km-splits';
 import type { AssignmentDetailItem } from '@/lib/athlete/assignment-detail';
-import { bandaDeRitmo } from './banda';
 import { decidirLectura, type Papel, type Sujeto, type TramoLeido } from './modelo';
 
 export type { Papel, Sesgo, Sujeto, TramoLeido } from './modelo';
@@ -52,6 +52,9 @@ export interface Lectura {
    *  el resto de la sesión las excluye: repetirlas abajo como chips sería contar
    *  la misma serie dos veces. */
   itemUids: string[];
+  /** Lo derivado que SOLO se puede calcular con el archivo delante. Vacío
+   *  cuando no hay ninguno: ni una fila en gris «pendiente». */
+  apoyos: Apoyo[];
   /** Hay archivo: la curva se puede dibujar. */
   hayCurva: boolean;
   /** Los tramos se pueden situar sobre la curva. Falso mientras el cable no
@@ -155,14 +158,18 @@ export function leerCarrera(detail: CoachSessionDetail): Lectura | null {
   // la sesión», y contar aquí volvería a numerar mal en cuanto una sesión tenga
   // dos líneas de carrera.
   const ordinales = new Map<string, number>();
-  const ejes = new Map<string, 'pace' | 'hr' | 'rpe'>();
+  // La banda llega YA CALCULADA por el servidor, que es quien resuelve la
+  // precedencia zona-resuelta contra objetivo-explícito. Aquí solo se lee: si
+  // se volviera a derivar en cliente, esa precedencia viviría en dos sitios y
+  // la franja podría dibujar una banda distinta de la que juzgó el veredicto.
+  const bandas = new Map<string, ComplianceBand>();
   for (const t of detail.run_compliance.tramos) {
     if (t.position == null) continue;
     const clave = `${t.item_uid}#${t.position}`;
     veredictos.set(clave, t.verdict);
     if (t.duration_verdict) duraciones.set(clave, t.duration_verdict);
     if (t.rep_ordinal != null) ordinales.set(clave, t.rep_ordinal);
-    if (t.band_axis != null) ejes.set(clave, t.band_axis);
+    if (t.band) bandas.set(clave, t.band);
   }
   for (const t of detail.run_compliance.recovery_tramos) {
     if (t.position == null) continue;
@@ -198,10 +205,10 @@ export function leerCarrera(detail: CoachSessionDetail): Lectura | null {
             : null,
         veredicto: papel === 'recuperacion' ? (veredictosRec.get(clave) ?? null) : (veredictos.get(clave) ?? null),
         veredictoDuracion: duraciones.get(clave) ?? null,
-        // La franja solo se dibuja si el servidor juzgó ESTE tramo por RITMO.
-        // Sin esa guarda, una zona de pulso resolvería una banda de ritmo aquí y
-        // se pintaría una franja contra la que nadie midió nada.
-        banda: ejes.get(clave) === 'pace' ? bandaDeRitmo(seg, item) : null,
+        // Solo la banda de RITMO se puede dibujar sobre el eje del ritmo. Una
+        // de pulso o de RPE se juzgó contra otra cosa, y pintarla aquí sería
+        // enseñar una comparación que nadie hizo.
+        banda: bandaDeRitmo(bandas.get(clave)),
       });
     }
   }
@@ -221,6 +228,7 @@ export function leerCarrera(detail: CoachSessionDetail): Lectura | null {
     ...decision,
     tramos,
     kilometros,
+    apoyos: apoyosDe(detail.execution),
     prescrito: prescritoDe(cabecera),
     titulo: cabecera.exercise_name ?? null,
     itemUids: lineas.map((l) => l.uid),
@@ -279,4 +287,57 @@ function prescritoDe(item: AssignmentDetailItem): string | null {
   if (!item.prescription_json) return null;
   const t = prescriptionToText(item.prescription_json);
   return t && t.trim() ? t : null;
+}
+
+/** La banda del cable, quedándose solo con la que se puede dibujar sobre el eje
+ *  del ritmo. Una banda de pulso o de RPE se juzgó contra otra cosa. */
+function bandaDeRitmo(band: ComplianceBand | undefined): TramoLeido['banda'] {
+  if (!band || band.axis !== 'pace' || band.fast_s == null || band.slow_s == null) return null;
+  return { rapidoSkm: band.fast_s, lentoSkm: band.slow_s };
+}
+
+// ---------------------------------------------------------------------------
+// LO DERIVADO — discreto, y SOLO si hay número
+// ---------------------------------------------------------------------------
+
+export interface Apoyo {
+  etiqueta: string;
+  valor: string;
+  pie: string;
+}
+
+/**
+ * Los cuatro que solo se pueden calcular con el archivo delante. Ninguno se
+ * pinta en gris «pendiente»: o hay número, o la fila no existe. Y ninguno lleva
+ * su nombre de laboratorio: «deriva aeróbica» y «Pa:HR» no los dice nadie en un
+ * gimnasio, «al mismo pulso, más lento al final» lo entiende cualquiera.
+ *
+ * LA DERIVA VA EN PORCENTAJE, que es lo que el motor produce. El mockup escribía
+ * «+7 s/km» y ese número no lo respalda ningún cálculo: convertirlo sería
+ * inventarlo (Alex, 12-ago).
+ */
+function apoyosDe(execution: CoachSessionDetail['execution']): Apoyo[] {
+  if (!execution) return [];
+  const filas: Apoyo[] = [];
+  const { decoupling_pct, hr_recovery_60_bpm, elevation_gain_m, elevation_loss_m } = execution;
+
+  if (decoupling_pct != null) {
+    // Positivo = la eficiencia cayó = al mismo pulso fue más lento al final.
+    const cae = decoupling_pct >= 0;
+    filas.push({
+      etiqueta: 'Al mismo pulso',
+      valor: `${cae ? '+' : '−'}${Math.abs(decoupling_pct).toFixed(1).replace('.', ',')} %`,
+      pie: cae ? 'más lento al final' : 'más rápido al final',
+    });
+  }
+  if (hr_recovery_60_bpm != null) {
+    filas.push({ etiqueta: 'Al parar', valor: `−${hr_recovery_60_bpm}`, pie: 'ppm en 1 min' });
+  }
+  if (elevation_gain_m != null && elevation_gain_m > 0) {
+    filas.push({ etiqueta: 'Subida', valor: `+${Math.round(elevation_gain_m)}`, pie: 'm acumulados' });
+  }
+  if (elevation_loss_m != null && elevation_loss_m > 0) {
+    filas.push({ etiqueta: 'Bajada', valor: `−${Math.round(elevation_loss_m)}`, pie: 'm acumulados' });
+  }
+  return filas;
 }

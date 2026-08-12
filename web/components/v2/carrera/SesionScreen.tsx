@@ -91,7 +91,9 @@ export function SesionScreen({
     detail.execution?.rpe != null ? `Esfuerzo ${detail.execution.rpe}` : null,
     detail.execution?.perceived_difficulty ? DIFICULTAD[detail.execution.perceived_difficulty] : null,
   ].filter((p): p is string => p != null);
-  const hayCarril = dicho.length > 0 || !!detail.execution?.athlete_notes || !!detail.coach_notes;
+  const apoyos = lectura?.apoyos ?? [];
+  const hayCarril =
+    apoyos.length > 0 || dicho.length > 0 || !!detail.execution?.athlete_notes || !!detail.coach_notes;
 
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
@@ -171,6 +173,28 @@ export function SesionScreen({
 
         {hayCarril ? (
           <div className="flex flex-col gap-3">
+            {/* Lo derivado, que solo existe con el archivo delante. Si no hay
+                ninguno, la tarjeta no existe: nunca una fila en gris
+                «pendiente». */}
+            {apoyos.length > 0 ? (
+              <Tarjeta titulo="Además">
+                <div className="flex flex-wrap gap-2">
+                  {apoyos.map((a) => (
+                    <div
+                      key={a.etiqueta}
+                      className="min-w-[7rem] flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
+                    >
+                      <span className="v2-micro block text-[9.5px]">{a.etiqueta}</span>
+                      <span className="v2-num mt-1.5 block text-xl font-semibold text-[color:var(--v2-fg)]">
+                        {a.valor}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-[color:var(--v2-muted)]">{a.pie}</span>
+                    </div>
+                  ))}
+                </div>
+              </Tarjeta>
+            ) : null}
+
             {dicho.length > 0 || detail.execution?.athlete_notes ? (
               <Tarjeta titulo="Lo que dijo el atleta">
                 {dicho.length > 0 ? (

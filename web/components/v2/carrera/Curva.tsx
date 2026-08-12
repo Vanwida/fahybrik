@@ -12,11 +12,19 @@
 // 1 · ARRIBA ES MÁS RÁPIDO. El ritmo es un inverso, así que dibujarlo tal cual
 //     pondría la serie lenta en lo alto. «Más rápido, más alto» es la única
 //     lectura que no hay que explicar.
-// 2 · LA FRANJA SE DIBUJA SOLO SOBRE LOS TRAMOS QUE LA PIDIERON. Extenderla a
-//     toda la sesión diría que el calentamiento también se juzgó contra ella.
+// 2 · LA FRANJA SE DIBUJA SOLO DONDE SE PIDIÓ. Sobre cada tramo que la pidió,
+//     porque extenderla a toda la sesión diría que el calentamiento también se
+//     juzgó contra ella. La excepción no es una excepción: cuando la carrera fue
+//     UNA sola cosa (un rodaje con banda), ese único tramo ES toda la sesión y
+//     la franja va de lado a lado.
 // 3 · UN HUECO ES UN HUECO. La línea se PARTE donde la señal faltó, y los dos
 //     minutos parado de una serie son un hueco legítimo: no hay ritmo cuando no
 //     te mueves. Rellenar para tener una línea bonita es fabricar dato.
+//
+// LA BANDA NO SE DERIVA AQUÍ: llega calculada del servidor, que es quien
+// resuelve la precedencia zona-resuelta contra objetivo-explícito. Derivarla en
+// cliente pondría esa precedencia en dos sitios, y la franja podría acabar
+// dibujando una banda distinta de la que juzgó el veredicto que hay al lado.
 //
 // SE MIDE EL ANCHO REAL Y SE REDIBUJA. Un `viewBox` escalado deformaría el grosor
 // del trazo y el tamaño del texto en cada rompimiento; midiendo, el gráfico es
@@ -142,7 +150,16 @@ export function Curva({
   // La franja se dibuja tramo a tramo, cada uno con SU banda: una pirámide pide
   // ritmos distintos por escalón y una franja única mentiría sobre casi todos.
   const conBanda = trabajos.filter((t) => t.banda != null);
-  const bandaParaElEje = conBanda[0]?.banda ?? null;
+
+  // SALVO CUANDO LA CARRERA FUE UNA SOLA COSA. Un rodaje con banda es un único
+  // tramo que dura toda la sesión: ahí la franja SÍ va de lado a lado, y no
+  // hace falta saber dónde empieza cada tramo para dibujarla bien. Es la mitad
+  // del caso continuo desbloqueada aunque el ancla por tramo aún no llegue.
+  const continua = troceado !== 'tramos';
+  const bandaContinua = continua
+    ? (tramos.find((t) => t.papel === 'trabajo' && t.banda != null)?.banda ?? null)
+    : null;
+  const bandaParaElEje = conBanda[0]?.banda ?? bandaContinua;
 
   const alto = Math.round(Math.min(ALTO_MAX, Math.max(ALTO_MIN, ancho * 0.28)));
   const caja = {
@@ -186,7 +203,7 @@ export function Curva({
   const leyenda = [
     'Ritmo por kilómetro, arriba más rápido',
     trozosPulso.length > 0 ? 'el pulso es la línea fina' : null,
-    conBanda.length > 0 ? 'la franja es lo que le pediste' : null,
+    conBanda.length > 0 || bandaContinua ? 'la franja es lo que le pediste' : null,
     !situables && tramos.length > 0
       ? 'los tramos no se pueden situar sobre la curva todavía, así que no van sombreados'
       : null,
@@ -197,7 +214,7 @@ export function Curva({
       {listo ? (
         <svg
           role="img"
-          aria-label={`Ritmo y pulso a lo largo de la carrera${conBanda.length > 0 ? ', con la banda pedida y los tramos de trabajo sombreados' : ''}`}
+          aria-label={`Ritmo y pulso a lo largo de la carrera${conBanda.length > 0 ? ', con la banda pedida y los tramos de trabajo sombreados' : bandaContinua ? ', con la banda pedida dibujada encima' : ''}`}
           width={ancho}
           height={alto}
           viewBox={`0 0 ${ancho} ${alto}`}
@@ -215,14 +232,21 @@ export function Curva({
             />
           ))}
 
-          {/* La franja de lo pedido, sobre el tramo que la pidió y solo ahí. */}
-          {conBanda.map((t) => {
-            const x1 = x(t.inicioS!);
-            const x2 = x(t.inicioS! + t.duracionS!);
-            const arriba = yRitmo(t.banda!.rapidoSkm);
-            const abajo = yRitmo(t.banda!.lentoSkm);
+          {/* La franja de lo pedido: sobre cada tramo que la pidió, o de lado a
+              lado cuando la carrera fue una sola cosa. */}
+          {(bandaContinua
+            ? [{ key: 'continua', x1: caja.x, x2: caja.x + caja.w, banda: bandaContinua }]
+            : conBanda.map((t) => ({
+                key: `b${t.position}`,
+                x1: x(t.inicioS!),
+                x2: x(t.inicioS! + t.duracionS!),
+                banda: t.banda!,
+              }))
+          ).map(({ key, x1, x2, banda }) => {
+            const arriba = yRitmo(banda.rapidoSkm);
+            const abajo = yRitmo(banda.lentoSkm);
             return (
-              <g key={`b${t.position}`}>
+              <g key={key}>
                 <rect
                   x={x1}
                   y={r2(Math.min(arriba, abajo))}

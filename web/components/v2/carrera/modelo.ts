@@ -24,7 +24,6 @@ import type {
   RunComplianceVerdict,
   WorkDurationVerdict,
 } from '@fahybrid/shared/domain/adherence';
-import { bandaComun, peorDesvio } from './banda';
 
 // ---------------------------------------------------------------------------
 // MÉTODO, no mecanismo (HARD RULE Nº0) — nacen como DEFECTO EDITABLE del coach
@@ -167,6 +166,35 @@ function distanciaTotal(tramos: TramoLeido[]): number | null {
   const con = tramos.filter((t) => t.distanciaM != null);
   if (con.length === 0) return null;
   return con.reduce((a, t) => a + t.distanciaM!, 0);
+}
+
+
+/** Cuánto se fue el peor tramo, contra el borde de banda que rompió. */
+function peorDesvio(tramos: TramoLeido[]): number | null {
+  let peor: number | null = null;
+  for (const t of tramos) {
+    if (t.banda == null || t.ritmoSkm == null) continue;
+    const fuera =
+      t.ritmoSkm > t.banda.lentoSkm
+        ? t.ritmoSkm - t.banda.lentoSkm
+        : t.ritmoSkm < t.banda.rapidoSkm
+          ? t.banda.rapidoSkm - t.ritmoSkm
+          : 0;
+    if (fuera > (peor ?? 0)) peor = fuera;
+  }
+  return peor;
+}
+
+/** La banda si TODOS los tramos con banda pidieron la misma. Una pirámide con
+ *  ritmos distintos por escalón no tiene una banda que escribir en la cabecera,
+ *  y escribir la del primero sería mentir sobre los demás. */
+function bandaComun(tramos: TramoLeido[]): TramoLeido['banda'] {
+  const bandas = tramos.map((t) => t.banda).filter((b): b is NonNullable<TramoLeido['banda']> => b != null);
+  if (bandas.length === 0) return null;
+  const primera = bandas[0]!;
+  return bandas.every((b) => b.rapidoSkm === primera.rapidoSkm && b.lentoSkm === primera.lentoSkm)
+    ? primera
+    : null;
 }
 
 

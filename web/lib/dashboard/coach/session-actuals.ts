@@ -37,6 +37,12 @@ export interface SegmentActual {
   /** uid of the prescribed item this maps to (`segment-{id}`); null when unmatched. */
   item_uid: string | null;
   modality: SegmentModality;
+  /** Cuándo empezó ESTE tramo. Es lo que permite situarlo en el eje de la curva:
+   *  `execution.started_at` da el cero de la señal, pero sin este no se sabe dónde
+   *  cae cada serie dentro de ella — y sin eso no hay sombra de tramo, ni banda
+   *  dibujada encima, ni número de repetición. El SQL siempre lo trajo; se
+   *  consumía para derivar la duración y se tiraba antes de salir. */
+  started_at: string | null;
   /** Derived from ended_at − started_at; null when either timestamp is missing. */
   duration_seconds: number | null;
   reps_completed: number | null;
@@ -178,6 +184,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     position: r.position,
     item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
     modality: toModality(r.modality),
+    started_at: r.started_at,
     duration_seconds: durationSeconds(r.started_at, r.ended_at),
     reps_completed: r.reps_completed ?? null,
     weight_used_kg: num(r.weight_used_kg),

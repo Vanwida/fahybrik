@@ -131,6 +131,12 @@ function detalle(over: {
       perceived_difficulty: null,
       pain_area: null,
       pain_note: null,
+      decoupling_pct: null,
+      hr_recovery_60_bpm: null,
+      elevation_gain_m: null,
+      elevation_loss_m: null,
+      route_polyline: null,
+      started_at: null,
       trace: {
         available: over.conTraza !== false,
         splits: Array.from({ length: over.kilometros ?? 0 }, (_, i) => ({
@@ -293,7 +299,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             duration_verdict: null,
             rep_ordinal: 1,
             band_axis: 'pace',
-            band: { axis: 'pace', fast_s: 280, slow_s: 292 },
+            band: { axis: 'pace', fast_s: 280, slow_s: 290 },
           },
         ]),
       }),
@@ -369,5 +375,98 @@ describe('dominioDelRitmo · el eje lo fija lo que se corrió', () => {
   it('la banda entra en el eje aunque la señal no llegue hasta ella', () => {
     const d = dominioDelRitmo([{ t: 0, v: 300 }, { t: 10, v: 302 }], [], { rapidoSkm: 205, lentoSkm: 215 })!;
     expect(d.min).toBeLessThan(205);
+  });
+});
+
+describe('la banda y lo derivado se LEEN del servidor, no se recalculan', () => {
+  it('una banda de PULSO no se dibuja sobre el eje del ritmo', () => {
+    // El tramo se juzgó contra pulsaciones. Pintar esa banda sobre el eje del
+    // ritmo sería enseñar una comparación que nadie hizo.
+    const actuals = [0, 2].map((i) =>
+      lap({ position: i, leg_index: i, leg_role: 'work', duration_seconds: 300, avg_pace_s_per_km: 300, avg_hr: 150 }),
+    );
+    const l = leerCarrera(
+      detalle({
+        items: [item('seg-1', SEIS_POR_OCHOCIENTOS)],
+        actuals,
+        compliance: cumplimiento(
+          actuals.map((a, i) => ({
+            item_uid: 'seg-1',
+            position: a.position,
+            verdict: 'dentro' as const,
+            duration_verdict: null,
+            rep_ordinal: i + 1,
+            band_axis: 'hr' as const,
+            band: { axis: 'hr' as const, min_bpm: 140, max_bpm: 160 },
+          })),
+        ),
+      }),
+    )!;
+    expect(l.tramos.every((t) => t.banda == null)).toBe(true);
+  });
+
+  it('la banda de ritmo del cable llega tal cual a la fila, sin volver a resolverla', () => {
+    // leg_index 0 y 2: en un 6×800 los IMPARES son las recuperaciones.
+    const actuals = [0, 2].map((i) =>
+      lap({ position: i, leg_index: i, leg_role: 'work', distance_meters: 800, duration_seconds: 168, avg_pace_s_per_km: 210 }),
+    );
+    const l = leerCarrera(
+      detalle({
+        items: [item('seg-1', SEIS_POR_OCHOCIENTOS)],
+        actuals,
+        compliance: cumplimiento(
+          actuals.map((a, i) => ({
+            item_uid: 'seg-1',
+            position: a.position,
+            verdict: 'dentro' as const,
+            duration_verdict: null,
+            rep_ordinal: i + 1,
+            band_axis: 'pace' as const,
+            band: { axis: 'pace' as const, fast_s: 201, slow_s: 219 },
+          })),
+        ),
+      }),
+    )!;
+    expect(l.tramos[0]!.banda).toEqual({ rapidoSkm: 201, lentoSkm: 219 });
+    if (l.sujeto.clase !== 'veredicto') throw new Error('sujeto');
+    expect(l.sujeto.banda).toEqual({ rapidoSkm: 201, lentoSkm: 219 });
+  });
+
+  it('lo derivado solo se pinta si hay número, y la deriva va en PORCENTAJE', () => {
+    const base = detalle({ items: [item('seg-1', null)], actuals: [], compliance: cumplimiento([]) });
+    const con = leerCarrera({
+      ...base,
+      execution: {
+        ...base.execution!,
+        decoupling_pct: 3.4,
+        hr_recovery_60_bpm: 34,
+        elevation_gain_m: 24,
+        elevation_loss_m: 0,
+      },
+      segment_actuals: [lap({ position: 0, distance_meters: 10000, duration_seconds: 3000 })],
+    } as CoachSessionDetail)!;
+    expect(con.apoyos.map((a) => `${a.etiqueta} ${a.valor} ${a.pie}`)).toEqual([
+      'Al mismo pulso +3,4 % más lento al final',
+      'Al parar −34 ppm en 1 min',
+      'Subida +24 m acumulados',
+    ]);
+    // Bajada 0 no es una bajada: la fila no existe.
+    expect(con.apoyos.some((a) => a.etiqueta === 'Bajada')).toBe(false);
+
+    const sin = leerCarrera({
+      ...base,
+      segment_actuals: [lap({ position: 0, distance_meters: 10000, duration_seconds: 3000 })],
+    } as CoachSessionDetail)!;
+    expect(sin.apoyos).toEqual([]);
+  });
+
+  it('una deriva negativa se cuenta como lo que es: fue más rápido al final', () => {
+    const base = detalle({ items: [item('seg-1', null)], actuals: [], compliance: cumplimiento([]) });
+    const l = leerCarrera({
+      ...base,
+      execution: { ...base.execution!, decoupling_pct: -1.8 },
+      segment_actuals: [lap({ position: 0, distance_meters: 10000, duration_seconds: 3000 })],
+    } as CoachSessionDetail)!;
+    expect(l.apoyos[0]).toEqual({ etiqueta: 'Al mismo pulso', valor: '−1,8 %', pie: 'más rápido al final' });
   });
 });
