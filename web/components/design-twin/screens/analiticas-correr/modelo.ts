@@ -1,41 +1,35 @@
 // LAS ANALÍTICAS DE CARRERA DEL ATLETA — ¿estoy mejorando?
 //
-// `lectura-carrera` (12-ago) contesta qué pasó EN una carrera. Esta contesta la
-// otra pregunta, la que trae el atleta cuando abre la pestaña sin venir de
-// entrenar: **si todo esto está sirviendo para algo**. No es la misma pregunta
-// con más semanas: es otra pregunta, y por eso no se contesta con las mismas
-// piezas más grandes.
+// LA REGLA QUE GOBIERNA ESTA PANTALLA: **el dato es el dibujo.** El texto es
+// pie, de una línea, y casi siempre sobra. La primera versión (12-ago) razonaba
+// bien y se leía como un informe: Alex la rechazó por eso mismo, y con razón.
+// Una pantalla de analíticas que hay que LEER ha fallado antes de empezar.
 //
-// LO QUE HAY HOY Y POR QUÉ NO VALE. Catorce tarjetas, una por métrica, cada una
-// con su número. Ninguna dice si el número es bueno. El atleta cierra la
-// pestaña sabiendo su cadencia media y sin saber si está mejorando — que es lo
-// único que había venido a mirar. Un panel de instrumentos no es una respuesta.
+// Consecuencia para el modelo, que es lo que importa aquí: **el modelo no
+// produce frases, produce magnitudes dibujables.** Donde antes había una cadena
+// («hace 4 semanas perdías 15,5») ahora hay un número y una referencia, y quien
+// decide cómo se enseña es el gráfico: un fantasma, una sombra, una banda.
 //
-// EL MODELO ENTERO. Una lectura longitudinal no es «una métrica en el tiempo».
-// Son cuatro cosas a la vez, y si falta una la lectura miente:
+// EL MODELO ENTERO. Una lectura longitudinal son cuatro cosas a la vez:
 //
 //   MAGNITUD    qué se mide
 //   BASE        contra qué (sin base, un número no dice nada)
-//   COBERTURA   si hay con qué afirmarlo, y si no, POR QUÉ no
-//   SENTIDO     hacia dónde es mejor — y esto NO es obvio: que el ritmo baje es
-//               mejorar, que el volumen suba no lo es necesariamente, y que la
-//               cadencia suba no es nada.
+//   COBERTURA   si hay con qué afirmarlo
+//   SENTIDO     hacia dónde es mejor — y NO es obvio: que el ritmo baje es
+//               mejorar, que el volumen suba no lo es necesariamente.
 //
-// EL ORDEN ES CAUSAL, NO UNA REJILLA. Lo que sale (el efecto) primero, porque
-// es la respuesta; lo que metes (el trabajo) después, porque es la explicación.
-// Separarlos es lo que convierte cuatro tarjetas en un argumento: *esto es lo
-// que has hecho, y esto es lo que ha producido*.
+// El SENTIDO es lo que permite dibujar sin explicar: si el modelo sabe hacia
+// dónde es mejor, el gráfico puede poner lo bueno arriba y la flecha verde, y
+// entonces la frase que lo contaba sobra.
 //
-// EL VEREDICTO SE DERIVA, NO SE GUARDA. Es una lectura de la evidencia, no un
-// índice propietario del 0 al 100 sacado de una fórmula que nadie puede
-// auditar. Y tiene que poder decir **«todavía no lo sé»**: una pantalla que
-// siempre tiene veredicto está inventando cuatro de cada cinco.
+// EL VEREDICTO SE DERIVA Y CABE EN TRES PALABRAS. No es un índice del 0 al 100
+// sacado de una fórmula que nadie puede auditar: sale de una ESCALERA DE
+// EVIDENCIA, y el número que lo sostiene se dibuja debajo en vez de contarse.
+// Y tiene que poder decir «aún no».
 //
-// REGLA Nº0. El mecanismo (la escalera de evidencia, cómo se detecta el exceso
-// de carga, qué silencia una pieza) es del producto y vive en código. Los
-// umbrales (cuántas semanas hacen falta para atreverse, cuántos segundos son
-// una mejora, qué reparto se considera bueno) son MÉTODO: nacen aquí como
-// defectos editables, no como constantes.
+// REGLA Nº0. El mecanismo (la escalera, la detección de exceso de carga, qué
+// silencia una lectura) es del producto. Los umbrales son MÉTODO del coach:
+// nacen aquí como defectos editables, no como constantes.
 
 import type { Zona } from '../../kit-vivo';
 
@@ -48,96 +42,75 @@ export interface Metodo {
   semanasParaAfirmar: number;
   /** Segundos por km a partir de los cuales un cambio deja de ser ruido. */
   mejoraMinimaSkm: number;
-  /** Subida de volumen (proporción) que, con el ritmo empeorando, enciende el aviso. */
+  /** Subida de volumen (proporción) que, con el ritmo empeorando, avisa. */
   subidaQueAvisa: number;
-  /** Las distancias de la curva de mejores esfuerzos, en metros. */
-  distanciasCurva: readonly number[];
   /** Parejas fresco/cansado al mismo objetivo antes de poder dar el coste. */
   parejasMinimasCansado: number;
-  /** El reparto que este coach considera bueno. Suave y fuerte; el resto es medio. */
+  /** El reparto que este coach considera bueno. Se dibuja como marca sobre la barra. */
   reparto: { suave: number; fuerte: number };
-  /** Cuántos puntos de desvío sobre ese reparto dejan de ser ruido. */
-  desvioDeRepartoQueImporta: number;
   /** A partir de qué porcentaje en banda se considera que clava lo que le piden. */
   enBandaBienPct: number;
+  /** Cuántas repeticiones evaluadas hacen falta antes de JUZGAR ese porcentaje. */
+  repeticionesParaJuzgar: number;
 }
 
-/**
- * Lo que hace hoy el sistema. Un coach que no toque nada se comporta igual que
- * ahora; el que quiera otra cosa cambia el dato, no el código.
- */
 export const METODO: Metodo = {
   semanasParaAfirmar: 6,
   mejoraMinimaSkm: 3,
   subidaQueAvisa: 0.2,
-  distanciasCurva: [400, 800, 1000, 1600, 3000, 5000, 10000],
   parejasMinimasCansado: 4,
   reparto: { suave: 80, fuerte: 20 },
-  desvioDeRepartoQueImporta: 10,
   enBandaBienPct: 80,
+  repeticionesParaJuzgar: 15,
 };
 
 // ---------------------------------------------------------------------------
-// POR QUÉ UNA LECTURA PUEDE NO PODER DARSE — y qué se hace en cada caso
+// POR QUÉ UNA LECTURA PUEDE NO PODER DARSE
 // ---------------------------------------------------------------------------
 
 /**
- * Cinco razones, y solo cinco. Las inventaría cualquiera de una en una según
- * fuera apareciendo el caso; enumeradas de golpe se ve que **se agrupan en dos
- * tratamientos distintos**, y esa es toda la diferencia entre una pantalla
- * honesta y una que da pena.
+ * Cinco razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
+ * diferencia entre una pantalla honesta y una que da pena.
  */
 export type Falta =
-  /** Lleva poco tiempo. Se sabe cuánto falta, así que se dice. */
-  | { por: 'historia'; semanasQueFaltan: number }
-  /** Sin test de umbral no hay zonas, y sin zonas no hay nada que clasificar. */
+  | { por: 'historia'; llevas: number; hacen: number }
   | { por: 'ancla' }
-  /** Sus carreras vienen sin pulso. */
   | { por: 'sensor' }
-  /** Nunca le ha pasado (nunca corrió dentro de un bloque multiestación). */
   | { por: 'ocasion' }
-  /** Nunca le pidieron ritmos, así que no hay intención contra la que medir. */
   | { por: 'intencion' };
 
 /**
- * LA LÍNEA QUE DECIDE SI LA PANTALLA DA PENA.
+ * «Aún no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
+ * falta TIEMPO y se le dibuja el plazo. Al que no ha corrido nunca detrás de un
+ * trineo no le falta nada: esa lectura no existe en su vida, y enseñarle un
+ * hueco prometiéndosela es ruido con forma de dato.
  *
- * «Todavía no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
- * falta TIEMPO, y decírselo es un contrato: en tres semanas esto se llena. Al
- * que no ha corrido nunca detrás de un trineo no le falta nada — esa lectura no
- * existe en su vida, y enseñarle una tarjeta gris prometiéndosela es ruido con
- * forma de dato.
- *
- * Regla dura (DECISIONS.md, 12-ago): sin cobertura se dice por qué; **si en su
- * caso no existe, la app se calla**. Aquí es donde se aplica.
+ * Regla dura (DECISIONS.md, 12-ago): sin cobertura se dice por qué; si en su
+ * caso no existe, la app se calla.
  */
 export function seCalla(f: Falta): boolean {
   return f.por === 'ocasion' || f.por === 'intencion';
 }
 
-/** Lo que se lee cuando la falta SÍ se cuenta. Nunca un guion, nunca un cero. */
-export function porQueFalta(f: Falta): string {
+/**
+ * La SALIDA de una falta — el botón, que es todo el texto que se le dedica.
+ * Antes esto era un párrafo explicando qué faltaba y por qué; el párrafo se
+ * borró y quedó lo único accionable.
+ */
+export function salidaDe(f: Falta): string | null {
   switch (f.por) {
-    case 'historia':
-      return f.semanasQueFaltan === 1
-        ? 'Con una semana más ya se puede leer.'
-        : `Con ${f.semanasQueFaltan} semanas más ya se puede leer.`;
     case 'ancla':
-      return 'Hace falta saber dónde están tus zonas.';
+      return 'Hacer el test de zonas';
     case 'sensor':
-      return 'Hace falta que tus carreras lleven pulso.';
+      return 'Conectar banda de pulso';
     default:
-      return '';
+      return null;
   }
 }
 
 /**
- * Cuando varias piezas esperan LO MISMO, la petición sale UNA vez y arriba.
- *
- * Sin esto, al atleta sin test de umbral le piden el test tres tarjetas
- * seguidas. Tres veces la misma frase no es tres veces más claro: es una
- * pantalla que da la brasa. Cada pieza dice qué espera; quién lo pide es la
- * pantalla, y una sola vez.
+ * Cuando varias lecturas esperan LO MISMO, la salida sale UNA vez. Sin esto, al
+ * atleta sin test le pediría el test tres veces seguidas.
  */
 export function faltaComun(faltas: Falta[]): Falta | null {
   const contables = faltas.filter((f) => !seCalla(f));
@@ -150,11 +123,9 @@ export function faltaComun(faltas: Falta[]): Falta | null {
 // LO QUE SE SABE DEL ATLETA
 // ---------------------------------------------------------------------------
 
-/** Un punto de la serie «a este pulso, este ritmo». La señal más limpia que hay. */
-export interface PuntoAlPulso {
-  /** Etiqueta corta de la semana, tal y como se pinta en el eje. */
+export interface PuntoSemana {
   semana: string;
-  skm: number;
+  valor: number;
 }
 
 export interface Esfuerzo {
@@ -162,22 +133,18 @@ export interface Esfuerzo {
   segundos: number;
 }
 
-export interface SemanaKm {
-  semana: string;
-  km: number;
-}
-
-/** Lo que le pidieron y lo que hizo. El sesgo importa más que el porcentaje. */
+/**
+ * LO QUE LE PIDIERON. `porRepeticion` no está para escribir «se te rompe en la
+ * cuarta»: está para DIBUJARLO. El sesgo tampoco se redacta — se ve en que la
+ * barra divergente es más larga por un lado.
+ */
 export interface Pedido {
   evaluadas: number;
   dentro: number;
   fueraLento: number;
   fueraRapido: number;
-  /** Dónde se rompe dentro de la serie, si hay con qué verlo. */
-  seRompeEnLaRepeticion: number | null;
 }
 
-/** El coste de entrar a correr cansado, semana a semana. Bajando = mejorando. */
 export interface PuntoCansado {
   semana: string;
   costeSkm: number;
@@ -187,43 +154,54 @@ export interface PuntoCansado {
 export interface CarreraObjetivo {
   nombre: string;
   dias: number;
-  /** Solo si hay de dónde proyectarlo. Sin base previa no se inventa un tiempo. */
-  predicho: { segundos: number; base: string } | null;
+  /** Sin base previa no se inventa un tiempo. Nulo = no se pinta cifra. */
+  predichoS: number | null;
+}
+
+/**
+ * EL VO₂MÁX ENTRA AQUÍ, Y NO EN PERFIL.
+ *
+ * Hoy vive escondido en `RendimientoSection` (Perfil), entre las zonas y las
+ * marcas. Está mal colocado: en Perfil van las cosas que te DESCRIBEN, y el
+ * VO₂máx contesta «¿estoy mejorando?», que es esta pantalla.
+ *
+ * Va de TITULAR de la prueba de forma, con el ritmo al mismo pulso de gráfico
+ * debajo: el número que el atleta ya reconoce de su reloj, sostenido por la
+ * señal que nosotros sí medimos en vez de estimar.
+ *
+ * Y NO entran ni el pulso en reposo ni la variabilidad: son señales de
+ * RECUPERACIÓN, no de forma corriendo. Mezclarlas aquí juntaría dos preguntas
+ * distintas y esta pantalla contesta una.
+ */
+export interface Vo2 {
+  valor: number;
+  /** Contra el mismo dato hace `ventanaSemanas`. Positivo = ha subido. */
+  delta: number;
+  ventanaSemanas: number;
+  /** La serie, para la sombra de fondo. */
+  serie: number[];
 }
 
 export interface Historia {
-  /** Semanas con al menos una carrera registrada. */
   semanas: number;
-  /** ¿Hizo el test que fija sus zonas? */
   zonasMedidas: boolean;
-  /** ¿Sus carreras traen pulso? */
   conPulso: boolean;
-  /** Pulso de referencia de la lectura al mismo pulso (el techo de su aeróbico). */
   ppmReferencia: number;
-  /**
-   * En qué zona cae ese pulso. Va DECLARADO y no deducido porque de él sale el
-   * color de la serie, y el color es dato (§9.1): pintar de Z2 una lectura que
-   * en realidad cae en Z3 sería mentir con una variable de CSS.
-   */
+  /** Declarada, no deducida: de ella sale el color de la serie, y el color es dato. */
   zonaReferencia: Zona | null;
-  alPulso: PuntoAlPulso[];
+  vo2: Vo2 | null;
+  /** Ritmo (s/km) al pulso de referencia, semana a semana. */
+  alPulso: PuntoSemana[];
   esfuerzos: Esfuerzo[];
   /** La sombra: los mismos esfuerzos hace un mes. Vacío = aún no hay contra qué. */
   esfuerzosAntes: Esfuerzo[];
-  semanasKm: SemanaKm[];
-  /** Segundos por zona de las últimas cuatro semanas. */
+  /** Kilómetros por semana. */
+  semanasKm: PuntoSemana[];
   zonasS: Partial<Record<'z1' | 'z2' | 'z3' | 'z4' | 'z5', number>>;
-  /** Base del reparto: todo el tiempo corriendo, medido o no. */
   segundosCorriendo: number;
   pedido: Pedido | null;
   cansado: PuntoCansado[];
   carrera: CarreraObjetivo | null;
-  /**
-   * El tercer peldaño de la escalera. Va en el modelo aunque casi nunca sea el
-   * que gana, porque un peldaño declarado y nunca alimentado es exactamente la
-   * columna vacía que el diagnóstico de `docs/correr-analitica.html` (§04) le
-   * reprocha a la carrera de hoy.
-   */
   mismoTipo: { tipo: string; ganaSkm: number } | null;
 }
 
@@ -232,221 +210,126 @@ export interface Historia {
 // ---------------------------------------------------------------------------
 
 /**
- * El veredicto NO depende de una sola señal, porque entonces el atleta sin
- * pulsómetro no tendría veredicto nunca. Depende de la MEJOR señal que tenga
- * hoy, y la escalera dice cuál es mejor y por qué:
+ * El veredicto usa la MEJOR señal que el atleta tenga hoy, no una sola:
  *
- *  1. Ritmo al mismo pulso — la única que aísla la forma del esfuerzo. Si vas
- *     más rápido con el corazón igual de tranquilo, estás mejor. Punto.
- *  2. Mejores esfuerzos contra la sombra — menos limpia (un día bueno la
- *     mueve), pero es un hecho duro y se entiende a la primera.
- *  3. Ritmo medio del mismo tipo de sesión — degradada, porque compara días
- *     distintos con clima, terreno y frescura distintos. Se dice que es esa.
+ *  1. Ritmo al mismo pulso — la única que aísla la forma del esfuerzo.
+ *  2. Mejores esfuerzos contra la sombra — menos limpia, hecho duro.
+ *  3. Ritmo medio del mismo tipo de sesión — degradada, pero honesta.
  *
- * Baja un peldaño solo cuando el de arriba no tiene cobertura. Y si no queda
- * ninguno, no se improvisa un cuarto: se dice que todavía no.
+ * Sin ninguna no se improvisa un cuarto: se dice que aún no.
  */
 export type Peldano =
-  | { en: 'al-pulso'; ganaSkm: number; ppm: number; semanas: number }
-  | { en: 'esfuerzos'; metros: number; ganaS: number }
-  | { en: 'mismo-tipo'; tipo: string; ganaSkm: number; semanas: number };
+  | { en: 'al-pulso'; ganaSkm: number; semanas: number }
+  | { en: 'esfuerzos'; ganaS: number; metros: number }
+  | { en: 'mismo-tipo'; ganaSkm: number; semanas: number };
 
-export type ClaseVeredicto = 'mejor' | 'igual' | 'cargando' | 'peor' | 'todavia-no';
+export type ClaseVeredicto = 'mejor' | 'igual' | 'cargando' | 'peor' | 'aun-no';
 
 export interface Veredicto {
   clase: ClaseVeredicto;
-  /** La frase. Una, corta, y en la voz de alguien del box. */
+  /** Dos o tres palabras. Lo que antes lo explicaba debajo se dibuja o no está. */
   frase: string;
-  /** El porqué: de dónde sale, con el número delante. Una línea. */
-  porque: string;
-  /** El peldaño del que salió, para poder marcarlo en la evidencia. */
   peldano: Peldano | null;
-  /** Solo en «todavía no»: qué SÍ se puede decir hoy, para no dejarlo a cero. */
-  loQueSiHay: string | null;
+  /** Solo en «aún no»: el plazo, para dibujarlo como barra que se llena. */
+  plazo: { llevas: number; hacen: number } | null;
 }
 
 const TONO: Record<ClaseVeredicto, string> = {
   mejor: 'var(--twin-ok)',
   igual: 'var(--twin-fg)',
-  // Aviso, no alarma. El rojo se reserva para lo que hay que atender HOY; una
-  // tendencia de cuatro semanas nunca lo es, y gastarlo aquí lo devalúa donde sí.
+  // Aviso, no alarma: el rojo se reserva para lo que hay que atender hoy.
   cargando: 'var(--twin-warning)',
   peor: 'var(--twin-warning)',
-  'todavia-no': 'var(--twin-muted)',
+  'aun-no': 'var(--twin-muted)',
 };
 
 export function tonoDe(c: ClaseVeredicto): string {
   return TONO[c];
 }
 
-// ---------------------------------------------------------------------------
-// De la historia al veredicto
-// ---------------------------------------------------------------------------
-
-/** Segundos por km ganados entre el primer y el último punto. Positivo = más rápido. */
-function ganancia(serie: PuntoAlPulso[]): number {
+function ganancia(serie: PuntoSemana[]): number {
   if (serie.length < 2) return 0;
-  return serie[0]!.skm - serie[serie.length - 1]!.skm;
+  return serie[0]!.valor - serie[serie.length - 1]!.valor;
 }
 
-/** Proporción de subida del volumen: última semana contra la media de las cuatro primeras. */
-function subidaDeVolumen(semanas: SemanaKm[]): number {
+/** Subida del volumen: últimas dos semanas contra la media de las cuatro primeras. */
+export function subidaDeVolumen(semanas: PuntoSemana[]): number {
   if (semanas.length < 4) return 0;
-  const base = semanas.slice(0, 4).reduce((a, s) => a + s.km, 0) / 4;
+  const base = semanas.slice(0, 4).reduce((a, s) => a + s.valor, 0) / 4;
   if (base <= 0) return 0;
-  const ultimas = semanas.slice(-2).reduce((a, s) => a + s.km, 0) / Math.min(2, semanas.length);
+  const ultimas = semanas.slice(-2).reduce((a, s) => a + s.valor, 0) / Math.min(2, semanas.length);
   return ultimas / base - 1;
 }
 
-/** El peldaño más alto con cobertura. Null = no hay evidencia de nada. */
-export function peldanoDisponible(h: Historia, m: Metodo = METODO): Peldano | null {
+export function peldanoDisponible(h: Historia): Peldano | null {
   if (h.conPulso && h.zonasMedidas && h.alPulso.length >= 3) {
-    return { en: 'al-pulso', ganaSkm: ganancia(h.alPulso), ppm: h.ppmReferencia, semanas: h.alPulso.length };
+    // N puntos semanales abarcan N-1 semanas: el primero es el origen, no un salto.
+    return { en: 'al-pulso', ganaSkm: ganancia(h.alPulso), semanas: h.alPulso.length - 1 };
   }
-  if (h.esfuerzos.length > 0 && h.esfuerzosAntes.length > 0) {
-    // El esfuerzo más largo que exista en las dos listas: el más corto lo mueve
-    // un día suelto, el más largo describe el motor.
-    const comunes = h.esfuerzos
-      .filter((e) => h.esfuerzosAntes.some((a) => a.metros === e.metros))
-      .sort((a, b) => b.metros - a.metros);
-    const hoy = comunes[0];
-    if (hoy) {
-      const antes = h.esfuerzosAntes.find((a) => a.metros === hoy.metros)!;
-      return { en: 'esfuerzos', metros: hoy.metros, ganaS: antes.segundos - hoy.segundos };
-    }
+  const comunes = h.esfuerzos
+    .filter((e) => h.esfuerzosAntes.some((a) => a.metros === e.metros))
+    .sort((a, b) => b.metros - a.metros);
+  const hoy = comunes[0];
+  if (hoy) {
+    const antes = h.esfuerzosAntes.find((a) => a.metros === hoy.metros)!;
+    return { en: 'esfuerzos', ganaS: antes.segundos - hoy.segundos, metros: hoy.metros };
   }
   if (h.mismoTipo) {
-    return { en: 'mismo-tipo', tipo: h.mismoTipo.tipo, ganaSkm: h.mismoTipo.ganaSkm, semanas: h.semanasKm.length };
+    return { en: 'mismo-tipo', ganaSkm: h.mismoTipo.ganaSkm, semanas: Math.max(1, h.semanasKm.length - 1) };
   }
   return null;
 }
 
-/**
- * El veredicto entero. Es una función de la evidencia y nada más: no hay estado
- * guardado, no hay índice, y cada frase se puede rastrear hasta el número del
- * que salió.
- */
 export function veredictoDe(h: Historia, m: Metodo = METODO): Veredicto {
-  const peldano = peldanoDisponible(h, m);
+  const peldano = peldanoDisponible(h);
 
-  // ─ No hay con qué. Y esto es un resultado, no un fallo ────────────────────
   if (!peldano || h.semanas < m.semanasParaAfirmar) {
-    const faltan = Math.max(1, m.semanasParaAfirmar - h.semanas);
-    const km = Math.round(h.semanasKm.reduce((a, s) => a + s.km, 0));
     return {
-      clase: 'todavia-no',
-      frase: 'Todavía no te lo puedo decir',
-      porque:
-        h.semanas === 1
-          ? `Llevas una semana. Con ${m.semanasParaAfirmar} se ve una tendencia de verdad.`
-          : `Llevas ${h.semanas} semanas. Con ${m.semanasParaAfirmar} se ve una tendencia de verdad.`,
+      clase: 'aun-no',
+      frase: 'Aún no',
       peldano,
-      loQueSiHay:
-        km > 0
-          ? `De momento llevas ${km} km y ${faltan === 1 ? 'queda una semana' : `quedan ${faltan} semanas`} para la primera lectura.`
-          : null,
+      plazo: { llevas: h.semanas, hacen: m.semanasParaAfirmar },
     };
   }
 
-  // ─ Cuánto se ha ganado, en el idioma del peldaño ──────────────────────────
-  const gana = peldano.en === 'al-pulso' ? peldano.ganaSkm : peldano.en === 'esfuerzos' ? peldano.ganaS : peldano.ganaSkm;
+  const gana = peldano.en === 'esfuerzos' ? peldano.ganaS : peldano.ganaSkm;
   const subida = subidaDeVolumen(h.semanasKm);
-  const mejora = gana >= m.mejoraMinimaSkm;
-  const empeora = gana <= -m.mejoraMinimaSkm;
 
-  if (mejora) {
-    return {
-      clase: 'mejor',
-      frase: 'Vas mejor',
-      porque: `${fraseDelPeldano(peldano)}.`,
-      peldano,
-      loQueSiHay: null,
-    };
+  if (gana >= m.mejoraMinimaSkm) return { clase: 'mejor', frase: 'Vas mejor', peldano, plazo: null };
+
+  // EL INCÓMODO. Volumen subiendo y motor respondiendo peor es la firma clásica
+  // de estar metiendo más de lo que se asimila. La DETECCIÓN es mecanismo; los
+  // dos umbrales que la disparan son método.
+  if (gana <= -m.mejoraMinimaSkm && subida >= m.subidaQueAvisa) {
+    return { clase: 'cargando', frase: 'Cargando de más', peldano, plazo: null };
   }
+  if (gana <= -m.mejoraMinimaSkm) return { clase: 'peor', frase: 'Vas más lento', peldano, plazo: null };
 
-  // ─ EL INCÓMODO. Volumen subiendo y el motor respondiendo peor es la firma
-  //   clásica de estar metiendo más de lo que se asimila. La DETECCIÓN es
-  //   mecanismo; los dos umbrales que la disparan son método. ────────────────
-  if (empeora && subida >= m.subidaQueAvisa) {
-    return {
-      clase: 'cargando',
-      frase: 'Estás metiendo más de lo que asimilas',
-      porque: `${fraseDelPeldano(peldano)}, y estás corriendo un ${Math.round(subida * 100)}% más que en las primeras semanas.`,
-      peldano,
-      loQueSiHay: null,
-    };
-  }
-
-  if (empeora) {
-    return {
-      clase: 'peor',
-      frase: 'Vas más lento que hace unas semanas',
-      porque: `${fraseDelPeldano(peldano)}.`,
-      peldano,
-      loQueSiHay: null,
-    };
-  }
-
-  return {
-    clase: 'igual',
-    frase: 'Te estás manteniendo',
-    porque: `${fraseDelPeldano(peldano)}, que es no moverte de donde estabas.`,
-    peldano,
-    loQueSiHay: null,
-  };
-}
-
-/**
- * El porqué, en la voz del atleta. Ni «eficiencia aeróbica» ni «Pa:HR»: nadie
- * en un box dice eso, y el que lo dice no necesita que se lo expliquen.
- */
-export function fraseDelPeldano(p: Peldano): string {
-  const seg = (v: number) => `${Math.abs(Math.round(v))} s`;
-  // La ventana va SIEMPRE dicha. «Que al empezar» es la trampa fácil: suena a
-  // desde que entrenas y en realidad son las ocho semanas que se han mirado.
-  // Una comparación sin su ventana es media comparación.
-  switch (p.en) {
-    case 'al-pulso':
-      return p.ganaSkm === 0
-        ? `Con el pulso a ${p.ppm} corres al mismo ritmo que hace ${p.semanas} semanas`
-        : `Con el pulso a ${p.ppm} corres ${seg(p.ganaSkm)}/km ${p.ganaSkm > 0 ? 'más rápido' : 'más lento'} que hace ${p.semanas} semanas`;
-    case 'esfuerzos': {
-      const d = p.metros >= 1000 ? `${p.metros / 1000} km` : `${p.metros} m`;
-      return p.ganaS === 0
-        ? `Tu mejor ${d} sigue igual que hace un mes`
-        : `Tu mejor ${d} va ${seg(p.ganaS)} ${p.ganaS > 0 ? 'por debajo' : 'por encima'} del de hace un mes`;
-    }
-    case 'mismo-tipo':
-      return `En ${p.tipo} vas ${seg(p.ganaSkm)}/km ${p.ganaSkm > 0 ? 'más rápido' : 'más lento'} que hace ${p.semanas} semanas`;
-  }
+  return { clase: 'igual', frase: 'Te mantienes', peldano, plazo: null };
 }
 
 // ---------------------------------------------------------------------------
-// La cobertura de cada pieza — una sola función, y la pantalla la obedece
+// La cobertura de cada lectura
 // ---------------------------------------------------------------------------
 
 export interface Cobertura {
-  alPulso: Falta | null;
+  forma: Falta | null;
   esfuerzos: Falta | null;
-  kilometros: Falta | null;
+  volumen: Falta | null;
   reparto: Falta | null;
   pedido: Falta | null;
   cansado: Falta | null;
 }
 
 export function coberturaDe(h: Historia, m: Metodo = METODO): Cobertura {
-  const faltanSemanas = Math.max(0, m.semanasParaAfirmar - h.semanas);
-  const historia: Falta = { por: 'historia', semanasQueFaltan: faltanSemanas };
+  const historia: Falta = { por: 'historia', llevas: h.semanas, hacen: m.semanasParaAfirmar };
 
   return {
-    // El pulso primero: sin señal no hay nada que anclar, y decirle que haga un
-    // test cuando lo que le falta es la cinta del pecho sería mandarle al sitio
-    // equivocado.
-    alPulso: !h.conPulso ? { por: 'sensor' } : !h.zonasMedidas ? { por: 'ancla' } : h.alPulso.length < 3 ? historia : null,
-    // La curva se pinta con un solo día de datos: es una foto, no una tendencia.
-    // Lo que falta cuando falta es la SOMBRA, y eso es historia.
+    // El sensor primero: pedirle el test cuando lo que le falta es la cinta del
+    // pecho sería mandarle al sitio equivocado.
+    forma: !h.conPulso ? { por: 'sensor' } : !h.zonasMedidas ? { por: 'ancla' } : h.alPulso.length < 3 ? historia : null,
     esfuerzos: h.esfuerzos.length === 0 ? historia : null,
-    kilometros: h.semanasKm.length === 0 ? historia : null,
+    volumen: h.semanasKm.length === 0 ? historia : null,
     reparto: !h.zonasMedidas ? { por: 'ancla' } : h.segundosCorriendo <= 0 ? historia : null,
     pedido: h.pedido == null ? { por: 'intencion' } : null,
     cansado:
@@ -456,4 +339,15 @@ export function coberturaDe(h: Historia, m: Metodo = METODO): Cobertura {
           ? historia
           : null,
   };
+}
+
+/** Con pocas repeticiones el porcentaje existe pero no se puede juzgar. */
+export function sePuedeJuzgarElPedido(p: Pedido, m: Metodo = METODO): boolean {
+  return p.evaluadas >= m.repeticionesParaJuzgar;
+}
+
+/** El colapso a tres cubos. Sale de la barra, para que texto y dibujo no discrepen. */
+export function colapso(segmentos: { zona: number | null; pct: number }[]) {
+  const suma = (zonas: number[]) => segmentos.filter((s) => s.zona != null && zonas.includes(s.zona)).reduce((a, s) => a + s.pct, 0);
+  return { suave: suma([1, 2]), medio: suma([3]), fuerte: suma([4, 5]) };
 }
