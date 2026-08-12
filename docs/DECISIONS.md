@@ -10,6 +10,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 (noche) · La duración es la SEGUNDA pregunta de un tramo — el agujero que el colapso de recuperación dejaba abierto
+
+**El agujero.** El motor de cumplimiento juzga tres ejes — ritmo, pulso, RPE — y ninguno es duración. Combinado con el colapso de recuperación de esta misma tarde (donde ir lento nunca es un fallo), un "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de descanso leía "6 de 6 dentro · recuperación controlada": el sistema no tenía forma de decir que esa NO fue la sesión prescrita. No es un caso de laboratorio — en series a umbral la recuperación INCOMPLETA es el estímulo; doblar el descanso cambia la sesión entera.
+
+**No es un cuarto axis.** `ComplianceBand`/`evaluateRunSegment` comparan INTENSIDAD; esto compara CUÁNTO DURÓ un tramo contra `Segment.measure`, cuando esa medida es tiempo. Son dos preguntas independientes sobre el MISMO tramo — un `rec(dur(90),'trote',paceZone(1))` tiene target de ritmo Y duración prescrita a la vez — así que cada tramo lleva `verdict` (intensidad) y `duration_verdict` (duración) en la misma fila, nunca colapsados en un número. Solo se juzga cuando `measure.type === 'duration'`: medido por distancia, no hay nada contra qué comparar.
+
+**La dirección se invierte otra vez, y al revés que en recuperación-intensidad:**
+- Recuperación: el fallo es PASARSE de tiempo (más descanso cambia el estímulo). Quedarse corto es, si acaso, un mérito.
+- Trabajo: el fallo es QUEDARSE CORTO (menos dosis de la pedida). Pasarse de tiempo no reduce el estímulo — es la imagen especular exacta.
+
+Por eso hay dos vocabularios (`WorkDurationVerdict`/`RecoveryDurationVerdict`), no un veredicto con un parámetro de rol: que cada uno sea autoexplicativo evita leer "corta"/"larga" sueltos sin saber a qué tramo tocaban.
+
+**La tolerancia no se inventó — se reusó.** `shared/domain/adherence/bands.ts` ya declaraba `duration` en `MEASURE_BAND_OVERRIDES` desde antes (comentario propio: "declared empty so future edits land here"), con el 10% relativo de `DEFAULT_BAND_RULE`. Este lote es su primer consumidor real. Sigue siendo MÉTODO del coach — cuánto margen se da a un descanso no es un hecho físico — así que vive en ese default centralizado, no en una constante muda aquí, y hoy no hay UI que la edite: deuda declarada, igual que el default de recuperación de los arquetipos (entrada de esta tarde).
+
+**El trabajo también estaba sin juzgar en tiempo, en las dos rutas.** Comprobado al hacer el encargo: ni el camino nativo (leg_index) ni el heredado (zip posicional) comparaban duración de trabajo contra lo prescrito. Las dos rutas lo hacen ahora.
+
+**Qué NO hacer en consecuencia:** no colapsar `duration_verdict` dentro de `verdict` — son preguntas distintas y conviven; no tratar "se pasó de tiempo" como un fallo en el trabajo, ni "se quedó corto" como un fallo en la recuperación — es la imagen especular exacta, invertirla revienta la lectura; no inventar una duración prescrita para un tramo medido por distancia.
+
+---
+
 ## 2026-08-12 · El veredicto de carrera empieza a juzgar la recuperación — y con dirección invertida
 
 **El bug.** El motor de cumplimiento (`web/lib/dashboard/coach/run-compliance.ts`) saltaba TODO tramo de recuperación (`leg_role==='recovery' || seg.kind==='recovery'`), pero la gramática ya permite prescribirle un objetivo (`rec(dur(60),'trote',rpe(3))`, arquetipo fartlek) y `segment_executions` ya lo mide desde la 0146. Un coach podía escribir "recupera a RPE 3" o "en Z1" y el sistema nunca lo comprobaba — la decisión del 9-ago ("una recuperación de correr no es un descanso… se MIDE") estaba bien tomada; lo que se construyó encima no la siguió.

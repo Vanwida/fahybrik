@@ -99,11 +99,26 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
 // opcional para simular lo que `assignment-detail.ts` ya adjunta por tramo.
 const dist = (m: number): SegmentMeasure => ({ type: 'distance', m });
 const dur = (s: number): SegmentMeasure => ({ type: 'duration', s });
-function workSeg(target: SegmentTarget | null, resolved?: ResolvedIntensity): Segment {
-  return { kind: 'work', measure: dist(800), target, ...(resolved ? { resolved } : {}) };
+// `measure` es opcional a propósito: por defecto NINGUNO de los dos helpers
+// prescribe duración (distancia para el trabajo, "sin medida de tiempo" no
+// existe en la gramática — toda recuperación se mide por algo, así que el
+// helper por defecto usa distancia para poder representar "sin prescripción
+// de duración"). Pasa `dur(s)` explícitamente para los tests de duración.
+function workSeg(target: SegmentTarget | null, resolved?: ResolvedIntensity, measure: SegmentMeasure = dist(800)): Segment {
+  return { kind: 'work', measure, target, ...(resolved ? { resolved } : {}) };
 }
-function recoverySeg(target: SegmentTarget | null, resolved?: ResolvedIntensity): Segment {
-  return { kind: 'recovery', measure: dur(90), target, recovery_mode: 'trote', ...(resolved ? { resolved } : {}) };
+function recoverySeg(
+  target: SegmentTarget | null,
+  resolved?: ResolvedIntensity,
+  measure: SegmentMeasure = dist(200),
+): Segment {
+  return {
+    kind: 'recovery',
+    measure,
+    target,
+    recovery_mode: measure.type === 'duration' ? 'trote' : 'caminar',
+    ...(resolved ? { resolved } : {}),
+  };
 }
 
 /** Un item con `structure` nativa (una sola fase 'main') + sus laps con
@@ -126,7 +141,7 @@ describe('buildRunCompliance — zone tramo (resolved band)', () => {
   test('executed pace inside the resolved band → dentro, 100%', () => {
     const item = runItem(presc, zoneBand(245, 255), 'segment-100');
     const res = buildRunCompliance(workout([item]), [lap('segment-100', 1, { avg_pace_s_per_km: 250 })]);
-    expect(res.tramos).toEqual([{ item_uid: 'segment-100', position: 1, verdict: 'dentro' }]);
+    expect(res.tramos).toEqual([{ item_uid: 'segment-100', position: 1, verdict: 'dentro', duration_verdict: null }]);
     expect(res.summary.pct_dentro).toBe(100);
     expect(res.summary.evaluable).toBe(1);
   });
@@ -183,7 +198,7 @@ describe('buildRunCompliance — non-run + no-execution', () => {
     const presc: Prescription = { scheme: 'steady', modality: 'run', target: { kind: 'hr_zone', value: 2 } };
     const item = runItem(presc, zoneBand(300, null), 'segment-121');
     const res = buildRunCompliance(workout([item]), []);
-    expect(res.tramos).toEqual([{ item_uid: 'segment-121', position: null, verdict: 'sin_dato' }]);
+    expect(res.tramos).toEqual([{ item_uid: 'segment-121', position: null, verdict: 'sin_dato', duration_verdict: null }]);
     expect(res.summary.total).toBe(1);
     expect(res.summary.evaluable).toBe(0);
   });
@@ -282,7 +297,9 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-220', 0, 'work', { avg_pace_s_per_km: 245 }),
       legLap('segment-220', 1, 'recovery', { avg_pace_s_per_km: 300 }), // más rápido que 330 → demasiado_rapida
     ]);
-    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-220', position: 1, verdict: 'demasiado_rapida' }]);
+    expect(res.recovery_tramos).toEqual([
+      { item_uid: 'segment-220', position: 1, verdict: 'demasiado_rapida', duration_verdict: null },
+    ]);
     expect(res.recovery_summary).toMatchObject({ evaluable: 1, demasiado_rapida: 1, controlada: 0, pct_controlada: 0 });
   });
 
@@ -295,7 +312,9 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-221', 0, 'work', { avg_pace_s_per_km: 245 }),
       legLap('segment-221', 1, 'recovery', { avg_pace_s_per_km: 450 }), // mucho más lento que 360 → controlada, no un fallo
     ]);
-    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-221', position: 1, verdict: 'controlada' }]);
+    expect(res.recovery_tramos).toEqual([
+      { item_uid: 'segment-221', position: 1, verdict: 'controlada', duration_verdict: null },
+    ]);
     expect(res.recovery_summary.pct_controlada).toBe(100);
   });
 
@@ -308,7 +327,7 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-222', 0, 'work', { avg_pace_s_per_km: 245 }),
       legLap('segment-222', 1, 'recovery'), // sin RPE por-tramo capturado hoy → sin_dato honesto
     ]);
-    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-222', position: 1, verdict: 'sin_dato' }]);
+    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-222', position: 1, verdict: 'sin_dato', duration_verdict: null }]);
   });
 });
 
@@ -354,5 +373,75 @@ describe('buildRunCompliance — sesión mixta: dos preguntas, dos números, nun
     // Las dos cifras existen a la vez y ninguna se cuela en la otra.
     expect(res.tramos).toHaveLength(3);
     expect(res.recovery_tramos).toHaveLength(3);
+  });
+});
+
+// ── Duración (#66): el agujero que el propio colapso de recuperación abría ────
+describe('buildRunCompliance — EL CASO DEL ENCARGO: "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de descanso', () => {
+  test('el veredicto de intensidad sigue siendo "controlada" — pero el de duración dice la verdad: se pasó de tiempo', () => {
+    const item = nativeItem(
+      [
+        workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+        recoverySeg({ type: 'pace_zone', zone: 1 }, zoneBand(330, 360), dur(60)), // 60 s prescritos
+      ],
+      'segment-250',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-250', 0, 'work', { avg_pace_s_per_km: 245 }),
+      // Ritmo de recuperación DENTRO de banda (345 ∈ [330,360]) pero 180 s
+      // reales frente a 60 s prescritos — el trote de vuelta se hizo bien,
+      // pero duró tres veces lo pedido.
+      legLap('segment-250', 1, 'recovery', { avg_pace_s_per_km: 345, duration_seconds: 180 }),
+    ]);
+
+    const recovery = res.recovery_tramos[0]!;
+    // Antes de este lote esta fila leía "controlada" a secas — y eso era el bug.
+    expect(recovery.verdict).toBe('controlada'); // el ritmo estuvo bien...
+    expect(recovery.duration_verdict).toBe('duracion_excedida'); // ...pero la duración NO. Las dos conviven, ninguna tapa a la otra.
+    expect(res.recovery_summary.pct_controlada).toBe(100); // intensidad: perfecta
+    expect(res.recovery_duration_summary.pct_controlada).toBe(0); // duración: la sesión que se hizo NO fue la prescrita
+  });
+});
+
+describe('buildRunCompliance — duración del TRABAJO (el propio encargo pidió comprobarlo)', () => {
+  test('un tramo de trabajo medido por TIEMPO que se queda corto → duracion_incompleta, aunque el ritmo esté en banda', () => {
+    const item = nativeItem([workSeg({ type: 'rpe', value: 8 }, undefined, dur(120))], 'segment-260'); // 120 s pedidos
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-260', 0, 'work', { avg_hr: null, duration_seconds: 70 }), // se cortó a los 70 s
+    ]);
+    expect(res.tramos[0]!.duration_verdict).toBe('duracion_incompleta');
+  });
+
+  test('un tramo de trabajo que se PASA de tiempo → duracion_completa, nunca un fallo (hizo al menos lo pedido)', () => {
+    const item = nativeItem([workSeg({ type: 'rpe', value: 8 }, undefined, dur(120))], 'segment-261');
+    const res = buildRunCompliance(workout([item]), [legLap('segment-261', 0, 'work', { duration_seconds: 200 })]);
+    expect(res.tramos[0]!.duration_verdict).toBe('duracion_completa');
+    expect(res.work_duration_summary.pct_completa).toBe(100);
+  });
+
+  test('un tramo de trabajo medido por DISTANCIA no tiene duración que comparar → duration_verdict null, aunque duró "otra cosa"', () => {
+    const item = nativeItem([workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250))], 'segment-262'); // dist(800) por defecto
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-262', 0, 'work', { avg_pace_s_per_km: 245, duration_seconds: 999 }),
+    ]);
+    expect(res.tramos[0]!.duration_verdict).toBeNull();
+    expect(res.work_duration_summary.total).toBe(0);
+  });
+
+  test('el camino HEREDADO (sin leg_index) también juzga la duración del trabajo', () => {
+    const presc: Prescription = {
+      scheme: 'intervals',
+      modality: 'run',
+      rounds: 2,
+      work_s: 180,
+      rest_s: 60,
+      target: { kind: 'pace', unit: 'per_km', min_s: 245, max_s: 255 },
+    };
+    const item = runItem(presc, undefined, 'segment-263');
+    const res = buildRunCompliance(workout([item]), [
+      lap('segment-263', 1, { avg_pace_s_per_km: 250, duration_seconds: 100 }), // 180 s pedidos, se quedó corto
+      lap('segment-263', 2, { avg_pace_s_per_km: 250, duration_seconds: 180 }),
+    ]);
+    expect(res.tramos.map((t) => t.duration_verdict)).toEqual(['duracion_incompleta', 'duracion_completa']);
   });
 });

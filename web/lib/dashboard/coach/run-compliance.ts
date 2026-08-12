@@ -26,20 +26,28 @@
 // Client-safe: pure functions + type-only imports. No I/O.
 
 import {
+  evaluateRecoveryDuration,
   evaluateRecoverySegment,
   evaluateRunSegment,
+  evaluateWorkDuration,
   hrBandFromTarget,
   paceBandFromResolvedZone,
   paceBandFromTarget,
   rpeBandFromTarget,
   summarizeRecoveryCompliance,
+  summarizeRecoveryDuration,
   summarizeRunCompliance,
+  summarizeWorkDuration,
   type ComplianceBand,
   type ComplianceSample,
   type RecoveryComplianceSummary,
   type RecoveryComplianceVerdict,
+  type RecoveryDurationSummary,
+  type RecoveryDurationVerdict,
   type RunComplianceSummary,
   type RunComplianceVerdict,
+  type WorkDurationSummary,
+  type WorkDurationVerdict,
 } from '@fahybrid/shared/domain/adherence';
 import {
   flattenSegments,
@@ -65,6 +73,12 @@ export interface RunComplianceTramo {
    *  tramo with no execution (counts as 'sin_dato'). */
   position: number | null;
   verdict: RunComplianceVerdict;
+  /** ¿Cuánto DURÓ el tramo frente a lo prescrito? Pregunta independiente de
+   *  `verdict` (que juzga la intensidad) — las dos conviven en la misma fila,
+   *  nunca se mezclan en un número (Alex, 12-ago). Null cuando el tramo no se
+   *  prescribió por duración (se midió por distancia) o no hay un `Segment`
+   *  concreto contra el que comparar (alineación heredada sin estructura). */
+  duration_verdict: WorkDurationVerdict | null;
 }
 
 /** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
@@ -73,6 +87,9 @@ export interface RecoveryComplianceTramo {
   item_uid: string;
   position: number | null;
   verdict: RecoveryComplianceVerdict;
+  /** Ver el campo homónimo de `RunComplianceTramo` — misma idea, vocabulario
+   *  de recuperación (`evaluateRecoveryDuration`: el fallo es PASARSE). */
+  duration_verdict: RecoveryDurationVerdict | null;
 }
 
 export interface RunComplianceResult {
@@ -82,9 +99,16 @@ export interface RunComplianceResult {
    *  Alex 12-ago) — nunca mezcladas en `tramos`/`summary`, para que un "6 de 6
    *  en el trabajo, 2 de 6 en la recuperación" no se resuma en un porcentaje
    *  único que no distingue las dos preguntas. Una recuperación SIN objetivo
-   *  no aparece aquí: no se juzga, se omite (no hay nada contra qué medirla). */
+   *  NI duración prescrita no aparece aquí: no se juzga, se omite. */
   recovery_summary: RecoveryComplianceSummary;
   recovery_tramos: RecoveryComplianceTramo[];
+  /** Agregado de `tramos[].duration_verdict` — cuántos tramos de trabajo
+   *  cumplieron su dosis de TIEMPO, de los que la tenían prescrita. Un
+   *  resumen DISTINTO de `summary` (que es de intensidad): un tramo puede
+   *  estar en banda de ritmo y aun así haberse quedado corto de tiempo. */
+  work_duration_summary: WorkDurationSummary;
+  /** Agregado de `recovery_tramos[].duration_verdict`. */
+  recovery_duration_summary: RecoveryDurationSummary;
 }
 
 // The representative intensity target for a line: block-level, else the first
@@ -175,6 +199,14 @@ function segmentBand(seg: Segment, item: AssignmentDetailItem): ComplianceBand |
   return bandFromResolvedIntensity(item.resolved_intensity);
 }
 
+// La duración PRESCRITA de un tramo, solo cuando su medida ES tiempo — un
+// tramo medido por distancia ("1000 m") no tiene duración que comparar, tiene
+// una distancia. `Segment.measure` ya distingue las dos (shared/domain/
+// prescription/run-structure.ts); esto solo lee la que aplica.
+function prescribedDurationS(seg: Segment | undefined): number | null {
+  return seg?.measure.type === 'duration' ? seg.measure.s : null;
+}
+
 // Prescribed WORK segments of an item, structure-first (native `structure`, else
 // `legacyToStructure`). Empty when the item isn't a run steady/intervals form.
 function workSegmentsOf(p: Prescription | null): Segment[] {
@@ -207,7 +239,9 @@ function isRunItem(item: AssignmentDetailItem, actuals: SegmentActual[]): boolea
  * band. Non-run tramos are ignored; a prescribed run tramo with no execution is a
  * 'sin_dato' (counted, never in-band). Recoveries with a prescribed objetivo are
  * judged too, but into `recovery_tramos`/`recovery_summary` — never mixed into
- * the work verdict (see the type doc on `RunComplianceResult`).
+ * the work verdict (see the type doc on `RunComplianceResult`). Every tramo ALSO
+ * gets an independent `duration_verdict` when its measure was time — a second,
+ * separate question from intensity (Alex, 12-ago).
  */
 export function buildRunCompliance(
   workout: AssignmentDetailWorkout | null,
@@ -224,16 +258,30 @@ export function buildRunCompliance(
 
   const tramos: RunComplianceTramo[] = [];
   const verdicts: RunComplianceVerdict[] = [];
-  const push = (item_uid: string, position: number | null, verdict: RunComplianceVerdict) => {
-    tramos.push({ item_uid, position, verdict });
+  const workDurationVerdicts: WorkDurationVerdict[] = [];
+  const push = (
+    item_uid: string,
+    position: number | null,
+    verdict: RunComplianceVerdict,
+    duration_verdict: WorkDurationVerdict | null = null,
+  ) => {
+    tramos.push({ item_uid, position, verdict, duration_verdict });
     verdicts.push(verdict);
+    if (duration_verdict != null) workDurationVerdicts.push(duration_verdict);
   };
 
   const recoveryTramos: RecoveryComplianceTramo[] = [];
   const recoveryVerdicts: RecoveryComplianceVerdict[] = [];
-  const pushRecovery = (item_uid: string, position: number | null, verdict: RecoveryComplianceVerdict) => {
-    recoveryTramos.push({ item_uid, position, verdict });
+  const recoveryDurationVerdicts: RecoveryDurationVerdict[] = [];
+  const pushRecovery = (
+    item_uid: string,
+    position: number | null,
+    verdict: RecoveryComplianceVerdict,
+    duration_verdict: RecoveryDurationVerdict | null,
+  ) => {
+    recoveryTramos.push({ item_uid, position, verdict, duration_verdict });
     recoveryVerdicts.push(verdict);
+    if (duration_verdict != null) recoveryDurationVerdicts.push(duration_verdict);
   };
 
   for (const block of workout?.blocks ?? []) {
@@ -261,14 +309,22 @@ export function buildRunCompliance(
       // Las RECUPERACIONES SE JUZGAN cuando traen objetivo (Alex, 12-ago): la
       // gramática ya permite prescribir una —`rec(dur(60), 'trote', rpe(3))`,
       // el arquetipo fartlek— y `segment_executions` ya la MIDE (mig 0146); lo
-      // único que faltaba era leerlo. Una recuperación SIN objetivo se sigue
-      // omitiendo — no hay nada contra qué medirla, y no se le inventa uno. Las
-      // que SÍ tienen objetivo van a `recoveryTramos`, nunca a `tramos`: el
-      // cumplimiento del trabajo responde «¿pegaste las series?» y tiene que
-      // seguir respondiendo exactamente eso, sin que una recuperación diluya
-      // el número. Que el atleta respete la recuperación es OTRA pregunta, con
-      // su propio veredicto (`evaluateRecoverySegment` invierte qué dirección
-      // es el fallo — ver el porqué en shared/domain/adherence/run-compliance).
+      // único que faltaba era leerlo. Una recuperación SIN objetivo NI duración
+      // prescrita se sigue omitiendo — no hay nada contra qué medirla, y no se
+      // le inventa uno. Las que SÍ tienen algo van a `recoveryTramos`, nunca a
+      // `tramos`: el cumplimiento del trabajo responde «¿pegaste las series?»
+      // y tiene que seguir respondiendo exactamente eso, sin que una
+      // recuperación diluya el número. Que el atleta respete la recuperación
+      // es OTRA pregunta, con su propio veredicto de intensidad
+      // (`evaluateRecoverySegment`) Y uno de duración independiente
+      // (`evaluateRecoveryDuration`) — ver el porqué de las dos direcciones
+      // invertidas en shared/domain/adherence/run-compliance.
+      //
+      // LA DURACIÓN se juzga en las DOS ramas (trabajo y recuperación) cuando
+      // el tramo se prescribió por tiempo (`measure.type === 'duration'`) — un
+      // "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de
+      // trote ya no puede leerse "recuperación controlada": el veredicto de
+      // duración es una fila más, no un reemplazo del de intensidad.
       //
       // Se exige que los laps traigan TODOS su `leg_index`, no que lo traiga
       // alguno: un bloque estructurado los graba todos o ninguno, así que una
@@ -281,18 +337,23 @@ export function buildRunCompliance(
         for (const a of legActuals) {
           const seg = all[a.leg_index!];
           const isRecovery = a.leg_role === 'recovery' || seg?.kind === 'recovery';
+          const prescribedS = prescribedDurationS(seg);
           if (isRecovery) {
             const band = seg ? segmentBand(seg, item) : null;
-            if (!band) continue; // sin objetivo: no se juzga, se omite — nunca un 'sin_dato' inventado
-            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)));
+            if (!band && prescribedS == null) continue; // nada que juzgar en ningún eje: se omite
+            const durationVerdict = prescribedS != null ? evaluateRecoveryDuration(prescribedS, a.duration_seconds) : null;
+            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)), durationVerdict);
             continue;
           }
           // Sin tramo prescrito en ese índice no hay banda: 'sin_dato' honesto,
-          // nunca la banda del bloque aplicada a ciegas.
+          // nunca la banda del bloque aplicada a ciegas. El trabajo SIEMPRE se
+          // empuja (a diferencia de la recuperación) — eso no cambia aquí.
+          const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
           push(
             item.uid,
             a.position,
             evaluateRunSegment(seg ? segmentBand(seg, item) : null, sampleFromActual(a)),
+            durationVerdict,
           );
         }
         continue;
@@ -308,16 +369,22 @@ export function buildRunCompliance(
       // camino no tiene forma de saber si un lap es trabajo o recuperación.
       // Es la misma limitación que ya tenía para el trabajo (zipar por orden,
       // "frágil por construcción" dice el comentario de arriba); no se agrava
-      // ni se arregla aquí.
+      // ni se arregla aquí. La DURACIÓN del trabajo sí se juzga (`seg` es un
+      // tramo real, con su propio `measure`) — el mismo trato que el nativo.
       const work = itemActuals.length > 1 ? workSegmentsOf(item.prescription_json) : [];
       if (work.length > 1 && work.length === itemActuals.length) {
         work.forEach((seg, i) => {
           const a = itemActuals[i]!;
-          push(item.uid, a.position, evaluateRunSegment(segmentBand(seg, item), sampleFromActual(a)));
+          const prescribedS = prescribedDurationS(seg);
+          const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
+          push(item.uid, a.position, evaluateRunSegment(segmentBand(seg, item), sampleFromActual(a)), durationVerdict);
         });
       } else {
         // One lap, or a lap count that doesn't align to the structure → judge each
         // lap against the item's representative band (uniform set / honest fallback).
+        // Sin un `Segment` concreto no hay `measure` del que leer una duración
+        // prescrita — `duration_verdict` se queda null (default de `push`),
+        // nunca la duración del bloque aplicada a ciegas.
         const band = itemBand(item);
         for (const a of itemActuals) {
           push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)));
@@ -331,5 +398,7 @@ export function buildRunCompliance(
     tramos,
     recovery_summary: summarizeRecoveryCompliance(recoveryVerdicts),
     recovery_tramos: recoveryTramos,
+    work_duration_summary: summarizeWorkDuration(workDurationVerdicts),
+    recovery_duration_summary: summarizeRecoveryDuration(recoveryDurationVerdicts),
   };
 }
