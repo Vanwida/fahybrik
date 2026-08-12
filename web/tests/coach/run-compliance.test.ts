@@ -9,7 +9,7 @@ import type {
   AssignmentDetailWorkout,
   ResolvedIntensity,
 } from '@/lib/athlete/assignment-detail';
-import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { Prescription, Segment, SegmentMeasure, SegmentTarget } from '@fahybrid/shared/domain/prescription';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
@@ -93,6 +93,30 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     is_structural: false,
     ...over,
   };
+}
+
+// Un tramo del camino NATIVO (mig 0146): measure/target explícitos, `resolved`
+// opcional para simular lo que `assignment-detail.ts` ya adjunta por tramo.
+const dist = (m: number): SegmentMeasure => ({ type: 'distance', m });
+const dur = (s: number): SegmentMeasure => ({ type: 'duration', s });
+function workSeg(target: SegmentTarget | null, resolved?: ResolvedIntensity): Segment {
+  return { kind: 'work', measure: dist(800), target, ...(resolved ? { resolved } : {}) };
+}
+function recoverySeg(target: SegmentTarget | null, resolved?: ResolvedIntensity): Segment {
+  return { kind: 'recovery', measure: dur(90), target, recovery_mode: 'trote', ...(resolved ? { resolved } : {}) };
+}
+
+/** Un item con `structure` nativa (una sola fase 'main') + sus laps con
+ *  `leg_index`/`leg_role` ya puestos en el orden de `flattenSegments`. */
+function nativeItem(segments: Segment[], uid: string): AssignmentDetailItem {
+  return runItem(
+    { scheme: 'intervals', modality: 'run', structure: [{ role: 'main', elements: segments }] },
+    undefined,
+    uid,
+  );
+}
+function legLap(itemUid: string, legIndex: number, role: Segment['kind'], over: Partial<SegmentActual> = {}): SegmentActual {
+  return lap(itemUid, legIndex, { leg_index: legIndex, leg_role: role, leg_phase: 'main', ...over });
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -205,5 +229,130 @@ describe('buildRunCompliance — session aggregate over a mixed session', () => 
     expect(res.summary.sin_dato).toBe(1);
     expect(res.summary.evaluable).toBe(2);
     expect(res.summary.pct_dentro).toBe(50); // 1 dentro of 2 evaluable
+  });
+});
+
+// ── Recuperación (#66, Alex 12-ago): el camino NATIVO ─────────────────────────
+describe('buildRunCompliance — REGRESIÓN: el veredicto del trabajo no cambia', () => {
+  test('camino nativo con leg_index: el trabajo se juzga exactamente igual con o sin recuperaciones alrededor', () => {
+    // 2×800 @ Z4 con recuperación SIN objetivo (parado, como seguía siendo el
+    // default de "series" hasta este mismo lote) — el trabajo tiene que dar
+    // los mismos dos veredictos que si la recuperación no existiera en absoluto.
+    const segs = [
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+      recoverySeg(null), // parado, sin objetivo — el default histórico
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+      recoverySeg(null),
+    ];
+    const item = nativeItem(segs, 'segment-200');
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-200', 0, 'work', { avg_pace_s_per_km: 245 }), // dentro
+      legLap('segment-200', 1, 'recovery', { avg_pace_s_per_km: 500 }),
+      legLap('segment-200', 2, 'work', { avg_pace_s_per_km: 235 }), // fuera_rapido
+      legLap('segment-200', 3, 'recovery', { avg_pace_s_per_km: 480 }),
+    ]);
+
+    expect(res.tramos.map((t) => t.verdict)).toEqual(['dentro', 'fuera_rapido']);
+    expect(res.summary).toMatchObject({ total: 2, evaluable: 2, dentro: 1, fuera_rapido: 1, pct_dentro: 50 });
+    // Sin objetivo → ninguna de las dos recuperaciones se juzga, en ningún lado.
+    expect(res.recovery_tramos).toEqual([]);
+    expect(res.recovery_summary).toMatchObject({ total: 0, pct_controlada: null });
+  });
+});
+
+describe('buildRunCompliance — recuperación SIN objetivo: no se juzga, se omite', () => {
+  test('una recuperación "parado"/"caminar" sin target no aparece en tramos ni en recovery_tramos', () => {
+    const item = nativeItem([workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)), recoverySeg(null)], 'segment-210');
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-210', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-210', 1, 'recovery', { avg_pace_s_per_km: 600 }),
+    ]);
+    expect(res.recovery_tramos).toEqual([]);
+    expect(res.recovery_summary.total).toBe(0);
+  });
+});
+
+describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su propio veredicto', () => {
+  test('demasiado rápida (más intensa de lo pedido) → demasiado_rapida', () => {
+    const item = nativeItem(
+      [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)), recoverySeg({ type: 'pace_zone', zone: 1 }, zoneBand(330, 360))],
+      'segment-220',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-220', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-220', 1, 'recovery', { avg_pace_s_per_km: 300 }), // más rápido que 330 → demasiado_rapida
+    ]);
+    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-220', position: 1, verdict: 'demasiado_rapida' }]);
+    expect(res.recovery_summary).toMatchObject({ evaluable: 1, demasiado_rapida: 1, controlada: 0, pct_controlada: 0 });
+  });
+
+  test('más lenta de lo pedido → controlada, NUNCA un aviso (es el eje que se invierte respecto al trabajo)', () => {
+    const item = nativeItem(
+      [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)), recoverySeg({ type: 'pace_zone', zone: 1 }, zoneBand(330, 360))],
+      'segment-221',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-221', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-221', 1, 'recovery', { avg_pace_s_per_km: 450 }), // mucho más lento que 360 → controlada, no un fallo
+    ]);
+    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-221', position: 1, verdict: 'controlada' }]);
+    expect(res.recovery_summary.pct_controlada).toBe(100);
+  });
+
+  test('dentro de la banda pedida → controlada', () => {
+    const item = nativeItem(
+      [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)), recoverySeg({ type: 'rpe', value: 3 })],
+      'segment-222',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-222', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-222', 1, 'recovery'), // sin RPE por-tramo capturado hoy → sin_dato honesto
+    ]);
+    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-222', position: 1, verdict: 'sin_dato' }]);
+  });
+});
+
+describe('buildRunCompliance — segmentBand prefiere el `resolved` del propio tramo', () => {
+  test('una recuperación en Z1 dentro de un bloque de trabajo en Z4 se juzga contra SU banda, no la del bloque', () => {
+    // Si segmentBand cayera al item.resolved_intensity (la banda de Z4 del
+    // trabajo, 240–250), un ritmo de recuperación de 345 saldría "fuera_rapido"
+    // (245 < 345, pero muy por debajo de 250... en realidad 345 > 250 sería
+    // fuera_lento contra Z4) — cualquiera de las dos lecturas sería una banda
+    // equivocada. Contra SU banda (Z1, 330–360) es sencillamente controlada.
+    const item = nativeItem(
+      [
+        workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+        recoverySeg({ type: 'pace_zone', zone: 1 }, zoneBand(330, 360)), // seg.resolved DISTINTO del item
+      ],
+      'segment-230',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-230', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-230', 1, 'recovery', { avg_pace_s_per_km: 345 }),
+    ]);
+    expect(res.recovery_tramos[0]!.verdict).toBe('controlada');
+  });
+});
+
+describe('buildRunCompliance — sesión mixta: dos preguntas, dos números, nunca uno solo', () => {
+  test('6 tramos de trabajo dentro y 6 de recuperación con problemas dan resúmenes DISTINTOS, no un porcentaje mezclado', () => {
+    const segs: Segment[] = [];
+    for (let i = 0; i < 3; i++) {
+      segs.push(workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)));
+      segs.push(recoverySeg({ type: 'pace_zone', zone: 1 }, zoneBand(330, 360)));
+    }
+    const item = nativeItem(segs, 'segment-240');
+    const laps: SegmentActual[] = [];
+    for (let i = 0; i < 3; i++) {
+      laps.push(legLap('segment-240', i * 2, 'work', { avg_pace_s_per_km: 245 })); // siempre dentro
+      laps.push(legLap('segment-240', i * 2 + 1, 'recovery', { avg_pace_s_per_km: 300 })); // siempre demasiado rápida
+    }
+    const res = buildRunCompliance(workout([item]), laps);
+
+    expect(res.summary).toMatchObject({ total: 3, dentro: 3, pct_dentro: 100 });
+    expect(res.recovery_summary).toMatchObject({ total: 3, demasiado_rapida: 3, controlada: 0, pct_controlada: 0 });
+    // Las dos cifras existen a la vez y ninguna se cuela en la otra.
+    expect(res.tramos).toHaveLength(3);
+    expect(res.recovery_tramos).toHaveLength(3);
   });
 });

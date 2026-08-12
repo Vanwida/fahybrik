@@ -5,15 +5,20 @@
 import { describe, expect, test } from 'vitest';
 import {
   PACE_POINT_TOLERANCE_S,
+  RECOVERY_COMPLIANCE_LABEL,
+  RECOVERY_COMPLIANCE_TIER,
   RPE_POINT_TOLERANCE,
   RUN_COMPLIANCE_LABEL,
   RUN_COMPLIANCE_TIER,
+  evaluateRecoverySegment,
   evaluateRunSegment,
   hrBandFromTarget,
   paceBandFromResolvedZone,
   paceBandFromTarget,
   rpeBandFromTarget,
+  summarizeRecoveryCompliance,
   summarizeRunCompliance,
+  type RecoveryComplianceVerdict,
   type RunComplianceVerdict,
 } from '@fahybrid/shared/domain/adherence';
 
@@ -168,6 +173,97 @@ describe('verdict presentation maps', () => {
   test('every verdict has a label', () => {
     for (const v of ['dentro', 'fuera_rapido', 'fuera_lento', 'sin_dato'] as const) {
       expect(RUN_COMPLIANCE_LABEL[v]).toBeTruthy();
+    }
+  });
+});
+
+// ── Recuperación (#66, Alex 12-ago): la dirección que importa se invierte ─────
+describe('evaluateRecoverySegment — solo "demasiado rápida" es un fallo', () => {
+  const band = paceBandFromResolvedZone(330, 360); // Z1: 5:30–6:00/km
+
+  test('dentro de la banda → controlada', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: 345 })).toBe('controlada');
+  });
+
+  test('más rápido que la banda (más intenso) → demasiado_rapida — el único fallo real', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: 300 })).toBe('demasiado_rapida');
+  });
+
+  test('MÁS LENTO que la banda (recuperación de sobra, o directamente parado) → controlada, NUNCA un fallo', () => {
+    // Un ritmo mucho más lento del pedido — o un "parado" que registre un
+    // ritmo carísimo/nulo — sigue siendo controlada: nadie falla por
+    // descansar de más. Esta es la prueba que distingue este módulo del
+    // trabajo, donde el mismo desvío sería 'fuera_lento' (un aviso).
+    expect(evaluateRecoverySegment(band, { pace_s: 600 })).toBe('controlada');
+  });
+
+  test('sin muestra ejecutada → sin_dato', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: null })).toBe('sin_dato');
+  });
+
+  test('sin banda (no debería llamarse así desde el wire, pero es honesto igual) → sin_dato', () => {
+    expect(evaluateRecoverySegment(null, { pace_s: 345 })).toBe('sin_dato');
+  });
+
+  test('funciona igual en el eje de FC y de RPE — la dirección "más intenso" es la misma señal en cualquier eje', () => {
+    const hrBand = hrBandFromTarget({ min: 120, max: 140 });
+    expect(evaluateRecoverySegment(hrBand, { hr_bpm: 160 })).toBe('demasiado_rapida'); // pulso alto = recuperación que no lo fue
+    expect(evaluateRecoverySegment(hrBand, { hr_bpm: 100 })).toBe('controlada'); // pulso bajo = de sobra, no es un fallo
+
+    const rpeBand = rpeBandFromTarget({ value: 3 });
+    expect(evaluateRecoverySegment(rpeBand, { rpe: 8 })).toBe('demasiado_rapida');
+    expect(evaluateRecoverySegment(rpeBand, { rpe: 1 })).toBe('controlada');
+  });
+});
+
+describe('summarizeRecoveryCompliance', () => {
+  test('pct_controlada cuenta demasiado_rapida como el único fallo — el resto son controladas', () => {
+    const verdicts: RecoveryComplianceVerdict[] = [
+      'controlada',
+      'controlada',
+      'controlada',
+      'demasiado_rapida',
+      'sin_dato',
+    ];
+    const s = summarizeRecoveryCompliance(verdicts);
+    expect(s).toEqual({
+      total: 5,
+      evaluable: 4,
+      controlada: 3,
+      demasiado_rapida: 1,
+      sin_dato: 1,
+      pct_controlada: 75, // 3 / 4
+    });
+  });
+
+  test('todo sin_dato → pct null, nunca 0 ni NaN', () => {
+    const s = summarizeRecoveryCompliance(['sin_dato', 'sin_dato']);
+    expect(s.evaluable).toBe(0);
+    expect(s.pct_controlada).toBeNull();
+  });
+
+  test('sesión vacía (ninguna recuperación con objetivo) → total 0, pct null', () => {
+    expect(summarizeRecoveryCompliance([])).toEqual({
+      total: 0,
+      evaluable: 0,
+      controlada: 0,
+      demasiado_rapida: 0,
+      sin_dato: 0,
+      pct_controlada: null,
+    });
+  });
+});
+
+describe('verdict presentation maps — recuperación', () => {
+  test('tier: controlada=success, demasiado_rapida=warning, sin_dato=neutral', () => {
+    expect(RECOVERY_COMPLIANCE_TIER.controlada).toBe('success');
+    expect(RECOVERY_COMPLIANCE_TIER.demasiado_rapida).toBe('warning');
+    expect(RECOVERY_COMPLIANCE_TIER.sin_dato).toBe('neutral');
+  });
+
+  test('every verdict has a label', () => {
+    for (const v of ['controlada', 'demasiado_rapida', 'sin_dato'] as const) {
+      expect(RECOVERY_COMPLIANCE_LABEL[v]).toBeTruthy();
     }
   });
 });

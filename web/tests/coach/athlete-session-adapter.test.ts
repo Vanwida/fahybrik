@@ -99,6 +99,8 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
     run_compliance: {
       summary: { total: 0, evaluable: 0, dentro: 0, fuera_rapido: 0, fuera_lento: 0, sin_dato: 0, pct_dentro: null },
       tramos: [],
+      recovery_summary: { total: 0, evaluable: 0, controlada: 0, demasiado_rapida: 0, sin_dato: 0, pct_controlada: null },
+      recovery_tramos: [],
     },
     ...overrides,
   };

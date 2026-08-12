@@ -26,14 +26,18 @@
 // Client-safe: pure functions + type-only imports. No I/O.
 
 import {
+  evaluateRecoverySegment,
   evaluateRunSegment,
   hrBandFromTarget,
   paceBandFromResolvedZone,
   paceBandFromTarget,
   rpeBandFromTarget,
+  summarizeRecoveryCompliance,
   summarizeRunCompliance,
   type ComplianceBand,
   type ComplianceSample,
+  type RecoveryComplianceSummary,
+  type RecoveryComplianceVerdict,
   type RunComplianceSummary,
   type RunComplianceVerdict,
 } from '@fahybrid/shared/domain/adherence';
@@ -63,9 +67,24 @@ export interface RunComplianceTramo {
   verdict: RunComplianceVerdict;
 }
 
+/** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
+ *  different verdict vocabulary (see `evaluateRecoverySegment`). */
+export interface RecoveryComplianceTramo {
+  item_uid: string;
+  position: number | null;
+  verdict: RecoveryComplianceVerdict;
+}
+
 export interface RunComplianceResult {
   summary: RunComplianceSummary;
   tramos: RunComplianceTramo[];
+  /** Recuperaciones CON objetivo prescrito, juzgadas por separado (#66,
+   *  Alex 12-ago) — nunca mezcladas en `tramos`/`summary`, para que un "6 de 6
+   *  en el trabajo, 2 de 6 en la recuperación" no se resuma en un porcentaje
+   *  único que no distingue las dos preguntas. Una recuperación SIN objetivo
+   *  no aparece aquí: no se juzga, se omite (no hay nada contra qué medirla). */
+  recovery_summary: RecoveryComplianceSummary;
+  recovery_tramos: RecoveryComplianceTramo[];
 }
 
 // The representative intensity target for a line: block-level, else the first
@@ -133,16 +152,27 @@ function itemBand(item: AssignmentDetailItem): ComplianceBand | null {
   );
 }
 
-// The band for one flattened structure WORK segment (native multi-rep block): an
-// explicit pace/RPE target resolves standalone; a zone segment falls back to the
-// item's resolved snapshot band, pending native per-segment resolution once
-// structured execution lands.
+// The band for one flattened structure segment (work OR recovery): an explicit
+// pace/RPE target resolves standalone; a zone target prefers the band the wire
+// already resolved for THIS segment (`seg.resolved` — assignment-detail's
+// runWireStructure enriches every pace_zone segment individually, work and
+// recovery alike), falling back to the item's representative snapshot band
+// only when the segment itself has none.
+//
+// Using the item's band UNCONDITIONALLY was harmless while every segment in a
+// block shared the same zone (a 6×800 @ Z4 has `seg.resolved` ≡
+// `item.resolved_intensity` for every work rep) and recoveries were never
+// judged at all. It stops being harmless the moment a recovery targets a
+// DIFFERENT zone than the work (Z1 recovery inside a Z4 block) — judging it
+// against the item's Z4 band would fail every honest easy recovery.
 function segmentBand(seg: Segment, item: AssignmentDetailItem): ComplianceBand | null {
   const t = seg.target;
   if (!t) return null;
   if (t.type === 'pace') return paceBandFromTarget(t);
   if (t.type === 'rpe') return rpeBandFromTarget(t);
-  return bandFromResolvedIntensity(item.resolved_intensity); // pace_zone / hr_zone
+  // pace_zone / hr_zone.
+  if (seg.resolved) return bandFromResolvedIntensity(seg.resolved);
+  return bandFromResolvedIntensity(item.resolved_intensity);
 }
 
 // Prescribed WORK segments of an item, structure-first (native `structure`, else
@@ -175,7 +205,9 @@ function isRunItem(item: AssignmentDetailItem, actuals: SegmentActual[]): boolea
  * session detail. Pure: give it the assembled workout blocks + the logged actuals
  * and it returns verdicts keyed by (item, lap) plus the % of evaluable tramos in
  * band. Non-run tramos are ignored; a prescribed run tramo with no execution is a
- * 'sin_dato' (counted, never in-band).
+ * 'sin_dato' (counted, never in-band). Recoveries with a prescribed objetivo are
+ * judged too, but into `recovery_tramos`/`recovery_summary` — never mixed into
+ * the work verdict (see the type doc on `RunComplianceResult`).
  */
 export function buildRunCompliance(
   workout: AssignmentDetailWorkout | null,
@@ -195,6 +227,13 @@ export function buildRunCompliance(
   const push = (item_uid: string, position: number | null, verdict: RunComplianceVerdict) => {
     tramos.push({ item_uid, position, verdict });
     verdicts.push(verdict);
+  };
+
+  const recoveryTramos: RecoveryComplianceTramo[] = [];
+  const recoveryVerdicts: RecoveryComplianceVerdict[] = [];
+  const pushRecovery = (item_uid: string, position: number | null, verdict: RecoveryComplianceVerdict) => {
+    recoveryTramos.push({ item_uid, position, verdict });
+    recoveryVerdicts.push(verdict);
   };
 
   for (const block of workout?.blocks ?? []) {
@@ -219,10 +258,17 @@ export function buildRunCompliance(
       // incluidos, contra la banda de las series. Media sesión salía «muy lento»
       // y el % de cumplimiento se hundía sin que nadie hubiera fallado nada.
       //
-      // Las RECUPERACIONES no se juzgan. El cumplimiento responde «¿pegaste las
-      // series?»; un trote de vuelta no tiene banda de trabajo contra la que
-      // medirse, y meterlo en el resumen solo diluiría la respuesta. Que el
-      // atleta respete o no la recuperación es otra pregunta, y hoy no se hace.
+      // Las RECUPERACIONES SE JUZGAN cuando traen objetivo (Alex, 12-ago): la
+      // gramática ya permite prescribir una —`rec(dur(60), 'trote', rpe(3))`,
+      // el arquetipo fartlek— y `segment_executions` ya la MIDE (mig 0146); lo
+      // único que faltaba era leerlo. Una recuperación SIN objetivo se sigue
+      // omitiendo — no hay nada contra qué medirla, y no se le inventa uno. Las
+      // que SÍ tienen objetivo van a `recoveryTramos`, nunca a `tramos`: el
+      // cumplimiento del trabajo responde «¿pegaste las series?» y tiene que
+      // seguir respondiendo exactamente eso, sin que una recuperación diluya
+      // el número. Que el atleta respete la recuperación es OTRA pregunta, con
+      // su propio veredicto (`evaluateRecoverySegment` invierte qué dirección
+      // es el fallo — ver el porqué en shared/domain/adherence/run-compliance).
       //
       // Se exige que los laps traigan TODOS su `leg_index`, no que lo traiga
       // alguno: un bloque estructurado los graba todos o ninguno, así que una
@@ -234,9 +280,13 @@ export function buildRunCompliance(
         const all = allSegmentsOf(item.prescription_json);
         for (const a of legActuals) {
           const seg = all[a.leg_index!];
-          // Un tramo marcado como recuperación —por la fila o por la prescripción
-          // que hay en ese índice— queda fuera del veredicto.
-          if (a.leg_role === 'recovery' || seg?.kind === 'recovery') continue;
+          const isRecovery = a.leg_role === 'recovery' || seg?.kind === 'recovery';
+          if (isRecovery) {
+            const band = seg ? segmentBand(seg, item) : null;
+            if (!band) continue; // sin objetivo: no se juzga, se omite — nunca un 'sin_dato' inventado
+            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)));
+            continue;
+          }
           // Sin tramo prescrito en ese índice no hay banda: 'sin_dato' honesto,
           // nunca la banda del bloque aplicada a ciegas.
           push(
@@ -251,6 +301,14 @@ export function buildRunCompliance(
       // ── Camino HEREDADO: laps sin `leg_index` ───────────────────────────────
       // Native multi-rep block executed as several laps → align work segments to
       // laps in order. Reduces to the single-tramo path when there is one lap.
+      //
+      // La recuperación NO se juzga aquí, y no es una laguna nueva: el CHECK
+      // de la 0146 exige `leg_index`/`leg_role`/`leg_phase` los tres juntos o
+      // ninguno, así que un lap sin `leg_index` tampoco trae `leg_role` — este
+      // camino no tiene forma de saber si un lap es trabajo o recuperación.
+      // Es la misma limitación que ya tenía para el trabajo (zipar por orden,
+      // "frágil por construcción" dice el comentario de arriba); no se agrava
+      // ni se arregla aquí.
       const work = itemActuals.length > 1 ? workSegmentsOf(item.prescription_json) : [];
       if (work.length > 1 && work.length === itemActuals.length) {
         work.forEach((seg, i) => {
@@ -268,5 +326,10 @@ export function buildRunCompliance(
     }
   }
 
-  return { summary: summarizeRunCompliance(verdicts), tramos };
+  return {
+    summary: summarizeRunCompliance(verdicts),
+    tramos,
+    recovery_summary: summarizeRecoveryCompliance(recoveryVerdicts),
+    recovery_tramos: recoveryTramos,
+  };
 }

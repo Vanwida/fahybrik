@@ -190,3 +190,96 @@ export function summarizeRunCompliance(verdicts: readonly RunComplianceVerdict[]
     pct_dentro: evaluable > 0 ? Math.round((dentro / evaluable) * 100) : null,
   };
 }
+
+// ── Recuperación: la MISMA banda, un veredicto DISTINTO (Alex, 12-ago) ────────
+//
+// En carrera el "parado" rara vez se hace: lo habitual es un cambio de ritmo o
+// de zona, no una parada — la gramática ya lo permite (`rec(dur(60), 'trote',
+// rpe(3))`, el arquetipo fartlek) y `segment_executions` ya lo MIDE (mig 0146,
+// docs/DECISIONS.md 9-ago: "una recuperación de correr no es un descanso...
+// se MIDE, no se asume parado"). Lo que faltaba era juzgarlo.
+//
+// LA DIRECCIÓN QUE IMPORTA SE INVIERTE. Para el trabajo, salirse por CUALQUIER
+// lado es una señal digna de mirar. Para la recuperación, NO: irse rápido —
+// recuperar a más intensidad de la pedida— es el fallo real, porque es la
+// fatiga acumulada la que explica que la repetición 5 se caiga. Irse lento
+// —recuperar más suave de lo pedido, o pararse del todo cuando se pidió
+// trotar— es casi siempre irrelevante: nadie ha fallado por descansar de más.
+// Por eso este módulo NO reutiliza `RunComplianceVerdict` para recuperación:
+// mezclar "demasiado rápido" y "demasiado lento" bajo el mismo `fuera_*` haría
+// que el color/tier de la UI (RUN_COMPLIANCE_TIER) marcara como aviso algo
+// que no lo es. `evaluateRecoverySegment` SÍ reutiliza la comparación de banda
+// de `evaluateRunSegment` — la aritmética de "¿está dentro/rápido/lento?" es
+// la misma para las dos, cambia lo que se hace con la respuesta.
+
+export const RECOVERY_COMPLIANCE_VERDICTS = ['controlada', 'demasiado_rapida', 'sin_dato'] as const;
+export type RecoveryComplianceVerdict = (typeof RECOVERY_COMPLIANCE_VERDICTS)[number];
+
+export const RECOVERY_COMPLIANCE_TIER: Record<RecoveryComplianceVerdict, 'success' | 'warning' | 'neutral'> = {
+  controlada: 'success',
+  demasiado_rapida: 'warning',
+  sin_dato: 'neutral',
+};
+
+export const RECOVERY_COMPLIANCE_LABEL: Record<RecoveryComplianceVerdict, string> = {
+  controlada: 'Recuperación controlada',
+  demasiado_rapida: 'Recuperación demasiado rápida',
+  sin_dato: 'Sin dato',
+};
+
+/**
+ * Juzga una recuperación CON objetivo (nunca se llama con `band: null` desde
+ * el wire — una recuperación sin objetivo no se juzga, se omite antes de
+ * llegar aquí). `fuera_rapido` de `evaluateRunSegment` — más intenso de lo
+ * pedido, en cualquier eje (ritmo, FC o RPE) — es el único caso que cuenta
+ * como fallo; `dentro` y `fuera_lento` son igual de "controlada": las dos
+ * dicen que el atleta se guardó lo que tenía que guardarse.
+ */
+export function evaluateRecoverySegment(
+  band: ComplianceBand | null,
+  sample: ComplianceSample,
+): RecoveryComplianceVerdict {
+  const verdict = evaluateRunSegment(band, sample);
+  if (verdict === 'fuera_rapido') return 'demasiado_rapida';
+  if (verdict === 'sin_dato') return 'sin_dato';
+  return 'controlada'; // 'dentro' o 'fuera_lento'
+}
+
+export interface RecoveryComplianceSummary {
+  /** Toda recuperación CON objetivo considerada (evaluable + sin_dato). Una
+   *  recuperación sin objetivo no cuenta aquí — no hay nada que agregar de
+   *  algo que nunca se juzgó. */
+  total: number;
+  /** Recuperaciones con muestra real (controlada + demasiado_rapida). */
+  evaluable: number;
+  controlada: number;
+  demasiado_rapida: number;
+  sin_dato: number;
+  /** % de recuperaciones evaluables que se mantuvieron controladas — la cifra
+   *  que le importa al coach. Null cuando nada era evaluable, nunca 0%. */
+  pct_controlada: number | null;
+}
+
+/** Aggregate una sesión de veredictos de recuperación. Espejo de
+ *  `summarizeRunCompliance`, con el eje bueno/malo invertido a propósito. */
+export function summarizeRecoveryCompliance(
+  verdicts: readonly RecoveryComplianceVerdict[],
+): RecoveryComplianceSummary {
+  let controlada = 0;
+  let demasiado_rapida = 0;
+  let sin_dato = 0;
+  for (const v of verdicts) {
+    if (v === 'controlada') controlada++;
+    else if (v === 'demasiado_rapida') demasiado_rapida++;
+    else sin_dato++;
+  }
+  const evaluable = controlada + demasiado_rapida;
+  return {
+    total: verdicts.length,
+    evaluable,
+    controlada,
+    demasiado_rapida,
+    sin_dato,
+    pct_controlada: evaluable > 0 ? Math.round((controlada / evaluable) * 100) : null,
+  };
+}
