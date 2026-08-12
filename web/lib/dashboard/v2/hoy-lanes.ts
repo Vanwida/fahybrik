@@ -330,9 +330,11 @@ type FirstItemPreviewRow = {
 };
 
 /**
- * Compute auto-assignment proposals for every classified athlete who has no
- * active sequence enrollment yet. Resolution uses `resolveSequenceForAthlete`
- * (the assign endpoint's contract) so the card and the action can never diverge.
+ * Compute auto-assignment proposals for every classified athlete who follows
+ * the shared periodization and has no active sequence enrollment yet.
+ * `plan_mode = personal` is out: that athlete is not waiting on the matrix.
+ * Resolution uses `resolveSequenceForAthlete` (the assign endpoint's contract)
+ * so the card and the action can never diverge.
  *
  * Degrades safely: any unexpected error on a single athlete drops that athlete
  * from the strip rather than failing the page (the page also catch-wraps us).
@@ -347,6 +349,7 @@ export async function fetchAsignacionSugeridaCards(
     FROM athletes a
     WHERE a.coach_id = ${coachId as number}
       AND a.level_id IS NOT NULL
+      AND a.plan_mode <> 'personal'
       AND NOT EXISTS (
         SELECT 1 FROM athlete_sequence_progress asp
         WHERE asp.athlete_id = a.id AND asp.status = 'active'

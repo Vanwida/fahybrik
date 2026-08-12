@@ -18,15 +18,6 @@ export const INTAKE_TRAMOS_MAX = 8;
 /** Largo máximo del nombre que el coach le pone a un tramo. */
 export const INTAKE_TRAMO_NAME_MAX = 60;
 
-/**
- * Nombre por defecto del tramo en la posición `position` (1-based). AGNOSTIC:
- * un ordinal neutro y nada más. El nombre real lo pone el coach, y el ORDEN de
- * los microciclos ES la periodización — aquí no se cablea ninguna escuela.
- */
-export function defaultTramoName(position: number): string {
-  return `Microciclo ${position}`;
-}
-
 export const intakeBlockSpecSchema = z.object({
   // Microciclo NAME (coach data / agnostic) — e.g. "Microciclo 1". Not a catalogued phase.
   type: z.string().min(1).max(INTAKE_TRAMO_NAME_MAX),
@@ -40,13 +31,15 @@ export type IntakeBlockSpec = z.infer<typeof intakeBlockSpecSchema>;
  *  · `shared`   — sigue la periodización que el coach ya tiene montada: el alta
  *                 materializa un microciclo de su BIBLIOTECA. Es el defecto, y
  *                 es lo que hacía el alta antes de que existiera esta elección.
- *  · `personal` — un plan solo para este atleta: la cadena de tramos que el
- *                 coach escribe en el alta se crea como microciclos PERSONALES
- *                 suyos (`program_month_templates.athlete_id` puesto), sin pasar
- *                 por la biblioteca ni por la matriz nivel×días.
+ *  · `personal` — un plan solo para este atleta. El alta NO inventa microciclos:
+ *                 el esqueleto nace cuando el coach planifica en la ficha. Aquí
+ *                 solo se marca que no sigue la periodización compartida.
  *
  * La clasificación nivel×días se guarda igual en los dos: es dato del atleta,
  * no solo insumo de la matriz.
+ *
+ * Si el cliente manda `block_specs` en modo personal, cada tramo SÍ se crea
+ * (el coach escribió un esqueleto de verdad). Vacío o ausente = aún no hay.
  */
 export const INTAKE_PLAN_MODES = ['shared', 'personal'] as const;
 export const intakePlanModeSchema = z.enum(INTAKE_PLAN_MODES);
@@ -84,7 +77,10 @@ export type IntakeWelcome = z.infer<typeof intakeWelcomeSchema>;
 export const intakeCommitSchema = z
   .object({
     target_event_id: idSchema,
-    block_specs: z.array(intakeBlockSpecSchema).min(1).max(INTAKE_TRAMOS_MAX),
+    // El esqueleto no se exige: inventarlo en el alta es mentir. En modo
+    // personal, si el coach ya lo tiene, puede mandarlo; si no, la lista
+    // vacía deja al atleta en personal sin contenedores.
+    block_specs: z.array(intakeBlockSpecSchema).max(INTAKE_TRAMOS_MAX).default([]),
     level: athleteLevelSchema,
     baseline_tests: z.array(intakeBaselineTestSchema).max(20),
     welcome: intakeWelcomeSchema,

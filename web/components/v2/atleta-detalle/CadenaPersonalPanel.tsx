@@ -51,9 +51,13 @@ interface ChainNode {
 export function CadenaPersonalPanel({
   athleteId,
   athleteName,
+  allowEmpty = false,
 }: {
   athleteId: string;
   athleteName?: string;
+  /** Si no hay cadena todavía, enseña el vacío + «Añadir microciclo» en vez
+   *  de desaparecer. Es el estado honesto de un alta en modo personal. */
+  allowEmpty?: boolean;
 }) {
   const router = useRouter();
   const [chain, setChain] = useState<ChainNode[] | null>(null);
@@ -118,9 +122,9 @@ export function CadenaPersonalPanel({
     );
   }
   // Sin nada asignado no hay cadena que dibujar ni "anterior" al que
-  // encadenar — el punto de partida sigue siendo "Personalizar plan" (header
-  // de PlanTab) o "Nuevo" (PlanesPersonalesPanel).
-  if (chain.length === 0) return null;
+  // encadenar — salvo en un alta personal, donde el vacío ES el estado
+  // (el esqueleto nace al planificar, no antes).
+  if (chain.length === 0 && !allowEmpty) return null;
 
   const editingIdx = editing ? chain.findIndex((n) => n.month_template_id === editing.month_template_id) : -1;
 
@@ -151,7 +155,13 @@ export function CadenaPersonalPanel({
 
   return (
     <Panel title="Cadena de microciclos" bodyClassName="flex flex-col gap-2.5">
-      <Espina tokens={TOKENS_V2} tramos={tramos} />
+      {tramos.length > 0 ? (
+        <Espina tokens={TOKENS_V2} tramos={tramos} />
+      ) : (
+        <p className="text-xs text-[color:var(--v2-muted)]">
+          Todavía no hay microciclos. El primero aparece cuando lo planificas.
+        </p>
+      )}
       {moveError ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{moveError}</p> : null}
       <button
         type="button"

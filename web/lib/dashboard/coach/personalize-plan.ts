@@ -302,6 +302,12 @@ export async function personalizePlanForAthlete(params: {
       returning id::text
     `;
 
+    await tx`
+      update athletes
+      set plan_mode = 'personal', updated_at = now()
+      where id = ${athlete_id}
+    `;
+
     // Auditoría (0114/0165) DENTRO de esta misma transacción: si el fork se
     // deshace, su rastro se deshace con él — nunca un registro que sobreviva a
     // un rollback. entity_id es el mes NUEVO (lo que se está creando); el diff

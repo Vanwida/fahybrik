@@ -1,21 +1,10 @@
-// ALTA EN MODO «PLAN SOLO PARA ÉL» — el alta deja al atleta en un plan PERSONAL
-// suyo, no en la periodización compartida.
-//
-// EL HUECO QUE ESTO CIERRA
-// ------------------------
-// Hasta ahora el paso «Estructura del bloque» del alta enseñaba una secuencia
-// propuesta y nada más: ni renombrar, ni añadir, ni quitar. Y la pantalla nunca
-// mandaba `month_template_id`, así que el commit caía SIEMPRE en
-// `materializeFirstMicrocicloDraft`, que arranca desde la BIBLIOTECA del coach.
-// Resultado: toda alta nacía en la periodización compartida, y llevar a alguien
-// en plan personalizado obligaba a entrar después a su ficha y darle a
-// «Personalizar». El servidor ya era agnóstico; quien imponía la matriz era la
-// pantalla.
+// ALTA EN MODO «PLAN SOLO PARA ÉL» — el alta deja al atleta FUERA de la
+// periodización compartida. El esqueleto no se inventa aquí: nace cuando el
+// coach planifica en la ficha. Si el cliente manda tramos de verdad, se
+// materializan; si no, el atleta queda marcado personal y sin contenedores.
 //
 // Este test corre `commitIntake` DE VERDAD contra una rama Neon real (nada de
-// clientes falsos: lo que hay que probar es qué filas quedan en la base) y fija
-// las dos mitades del contrato: en modo `personal` NADA de la biblioteca acaba
-// asignado, y en modo `shared` sigue pasando exactamente lo de siempre.
+// clientes falsos: lo que hay que probar es qué filas quedan en la base).
 
 import { afterAll, expect, test } from 'vitest';
 import { addDays, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
@@ -25,11 +14,11 @@ import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMonthTemplate, makeTemplate, type Fixture } from '../utils/db-fixtures';
 
 /** Alta mínima: sin bienvenida (no abre chat ni notificaciones, fuera de alcance)
- *  y sin tests programados. Lo que cambia entre casos es `plan_mode` y la lista
- *  de tramos, que es justo lo que este test mide. */
+ *  y sin tests programados. Lo que cambia entre casos es `plan_mode` y, si el
+ *  coach ya escribió tramos, esa lista. */
 function intakePayload(
   plan_mode: IntakeCommitInput['plan_mode'],
-  block_specs: IntakeCommitInput['block_specs'],
+  block_specs: IntakeCommitInput['block_specs'] = [],
 ): IntakeCommitInput {
   return {
     target_event_id: 1,
@@ -87,7 +76,50 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     return { fx, libraryMonthId: monthId };
   }
 
-  test('modo personal: la cadena es SUYA y la biblioteca no se toca', async () => {
+  test('modo personal sin esqueleto: queda marcado y la biblioteca no se toca', async () => {
+    const { fx, libraryMonthId } = await coachWithLibrary();
+
+    const result = await commitIntake({
+      athlete_id: fx.athleteId,
+      coach_id: fx.coachId,
+      coach_user_id: fx.coachUserId,
+      payload: intakePayload('personal'),
+      client: sql,
+    });
+
+    expect(result.personal_plan).toBeNull();
+    expect(result.first_block_draft).toBeNull();
+
+    const assigned = await sql<Array<{ n: string }>>`
+      select count(*)::text as n from athlete_month_assignments
+      where athlete_id = ${fx.athleteId}
+    `;
+    expect(Number(assigned[0]!.n)).toBe(0);
+
+    const personal = await sql<Array<{ n: string }>>`
+      select count(*)::text as n from program_month_templates
+      where coach_id = ${fx.coachId} and athlete_id = ${fx.athleteId}
+    `;
+    expect(Number(personal[0]!.n)).toBe(0);
+
+    const library = await sql<Array<{ id: string }>>`
+      select id::text from program_month_templates
+      where coach_id = ${fx.coachId} and athlete_id is null
+    `;
+    expect(library.map((r) => Number(r.id))).toEqual([libraryMonthId]);
+
+    const row = await sql<Array<{ plan_mode: string; notes_mode: string | null; completed: string | null }>>`
+      select plan_mode,
+             intake_notes_json ->> 'plan_mode' as notes_mode,
+             intake_completed_at::text as completed
+      from athletes where id = ${fx.athleteId}
+    `;
+    expect(row[0]!.plan_mode).toBe('personal');
+    expect(row[0]!.notes_mode).toBe('personal');
+    expect(row[0]!.completed).not.toBeNull();
+  }, 120000);
+
+  test('modo personal con tramos escritos: la cadena es SUYA y la biblioteca no se toca', async () => {
     const { fx, libraryMonthId } = await coachWithLibrary();
 
     const result = await commitIntake({
@@ -106,11 +138,9 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     const tramos = result.personal_plan!.tramos;
     for (const t of tramos) await trackForCleanup(fx, Number(t.month_template_id));
 
-    // 1) Los tres tramos, con SUS nombres y SUS semanas, en el orden escrito.
     expect(tramos.map((t) => t.name)).toEqual(['Arranque', 'Descarga', 'Subida']);
     expect(tramos.map((t) => t.week_count)).toEqual([2, 1, 3]);
 
-    // 2) Encadenados sin hueco desde el lunes de esta semana.
     const thisMonday = mondayOfWeek(new Date());
     expect(tramos[0]!.start_date).toBe(isoDateString(thisMonday));
     const firstEnd = addDays(thisMonday, 2 * 7 - 1);
@@ -119,8 +149,6 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     const secondEnd = addDays(addDays(firstEnd, 1), 1 * 7 - 1);
     expect(tramos[2]!.start_date).toBe(isoDateString(addDays(secondEnd, 1)));
 
-    // 3) LO QUE IMPORTA: todo lo que el atleta tiene asignado apunta a un
-    //    contenedor PROPIO suyo. Ni un recibo hacia la biblioteca.
     const assigned = await sql<Array<{ month_template_id: string; template_athlete_id: string | null }>>`
       select ama.month_template_id::text, m.athlete_id::text as template_athlete_id
       from athlete_month_assignments ama
@@ -134,16 +162,12 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
       expect(Number(row.month_template_id)).not.toBe(libraryMonthId);
     }
 
-    // 4) Nada de esto entra en la biblioteca: `athlete_id is null` la define, y
-    //    la única fila así del coach sigue siendo la que ya tenía.
     const library = await sql<Array<{ id: string }>>`
       select id::text from program_month_templates
       where coach_id = ${fx.coachId} and athlete_id is null
     `;
     expect(library.map((r) => Number(r.id))).toEqual([libraryMonthId]);
 
-    // 5) Las seis semanas quedan en BORRADOR PRIVADO: el contenedor nace vacío y
-    //    el cron de publicación no puede soltárselo solo al atleta.
     const weeks = await sql<Array<{ week_start: string; status: string; delivery_mode: string }>>`
       select to_char(week_start, 'YYYY-MM-DD') as week_start, status, delivery_mode
       from weekly_plans where athlete_id = ${fx.athleteId} order by week_start asc
@@ -152,7 +176,6 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     expect(weeks.every((w) => w.status === 'draft' && w.delivery_mode === 'manual')).toBe(true);
     expect(weeks[0]!.week_start).toBe(isoDateString(thisMonday));
 
-    // 6) Rastro de auditoría real: un 'create' por tramo, firmado por el coach.
     const audit = await sql<Array<{ n: string }>>`
       select count(*)::text as n from audit_log
       where entity_type = 'program_month_templates'
@@ -163,14 +186,12 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     `;
     expect(Number(audit[0]!.n)).toBe(3);
 
-    // 7) El alta queda firmada y el modo elegido guardado con ella.
-    const snapshot = await sql<Array<{ plan_mode: string | null; completed: string | null }>>`
-      select intake_notes_json ->> 'plan_mode' as plan_mode,
-             intake_completed_at::text as completed
+    const row = await sql<Array<{ plan_mode: string; notes_mode: string | null }>>`
+      select plan_mode, intake_notes_json ->> 'plan_mode' as notes_mode
       from athletes where id = ${fx.athleteId}
     `;
-    expect(snapshot[0]!.plan_mode).toBe('personal');
-    expect(snapshot[0]!.completed).not.toBeNull();
+    expect(row[0]!.plan_mode).toBe('personal');
+    expect(row[0]!.notes_mode).toBe('personal');
   }, 120000);
 
   test('modo compartido (defecto): sigue naciendo de la biblioteca, sin plan personal', async () => {
@@ -182,7 +203,7 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
       coach_user_id: fx.coachUserId,
       // Sin `plan_mode`: es exactamente lo que mandaba la pantalla antes de que
       // existiera la elección, y tiene que comportarse igual que entonces.
-      payload: intakePayload(undefined, [{ type: 'Microciclo 1', weeks: 4 }]),
+      payload: intakePayload(undefined),
       client: sql,
     });
 
@@ -206,10 +227,12 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     `;
     expect(Number(personal[0]!.n)).toBe(0);
 
-    const snapshot = await sql<Array<{ plan_mode: string | null }>>`
-      select intake_notes_json ->> 'plan_mode' as plan_mode from athletes where id = ${fx.athleteId}
+    const snapshot = await sql<Array<{ plan_mode: string; notes_mode: string | null }>>`
+      select plan_mode, intake_notes_json ->> 'plan_mode' as notes_mode
+      from athletes where id = ${fx.athleteId}
     `;
     expect(snapshot[0]!.plan_mode).toBe('shared');
+    expect(snapshot[0]!.notes_mode).toBe('shared');
   }, 120000);
 
   test('un plan personal no se puede pedir desde una plantilla de la biblioteca', async () => {

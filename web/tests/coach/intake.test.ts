@@ -1,43 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   inferLevel,
-  proposeBlockSpecs,
   recommendBaselineTests,
 } from '@/lib/coach/intake-suggestions';
-
-describe('proposeBlockSpecs', () => {
-  // NOTE: proposeBlockSpecs is AGNOSTIC by design — it returns neutral
-  // "Microciclo N" placeholders, NEVER a hardcoded phase catalogue. The
-  // periodization IS the ORDER + sizing of the microciclos, which the coach owns.
-  // These tests pin that sizing logic, not any hardcoded phase label.
-  test('long horizon produces 3 microciclos, front-loaded', () => {
-    const specs = proposeBlockSpecs(13 * 7);
-    expect(specs).toHaveLength(3);
-    const total = specs.reduce((s, b) => s + b.weeks, 0);
-    expect(total).toBeGreaterThanOrEqual(12);
-    expect(total).toBeLessThanOrEqual(14);
-    // First microciclo carries at least as much as the last (base-heavy start).
-    expect(specs[0].weeks).toBeGreaterThanOrEqual(specs[2].weeks);
-  });
-
-  test('compressive horizon (6 weeks) keeps a tiny first microciclo', () => {
-    const specs = proposeBlockSpecs(6 * 7);
-    expect(specs).toHaveLength(3);
-    expect(specs[0].weeks).toBe(1);
-  });
-
-  test('very short horizon compresses to 2 microciclos', () => {
-    const specs = proposeBlockSpecs(2 * 7);
-    // 2 weeks collapses the 3-microciclo shape to 2 (lead-in + event block).
-    expect(specs).toHaveLength(2);
-    expect(specs.every((b) => b.weeks >= 1)).toBe(true);
-  });
-
-  test('zero or negative days falls back to defaults', () => {
-    const specs = proposeBlockSpecs(0);
-    expect(specs.length).toBeGreaterThan(0);
-  });
-});
 
 describe('inferLevel', () => {
   test('élite when 3+ years and 2+ benchmarks at élite threshold', () => {

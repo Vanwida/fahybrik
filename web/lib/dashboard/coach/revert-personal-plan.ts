@@ -173,6 +173,12 @@ export async function revertPersonalPlanForAthlete(params: {
       where id = ${Number(progress.id)}
     `;
 
+    await tx`
+      update athletes
+      set plan_mode = 'shared', updated_at = now()
+      where id = ${athlete_id}
+    `;
+
     // Auditoría DENTRO de esta misma transacción. entity_type distinto de
     // retirePersonalPlan/deletePersonalPlanForAthlete a propósito: la fila que
     // ESTA función mueve de verdad es athlete_sequence_progress (detached →

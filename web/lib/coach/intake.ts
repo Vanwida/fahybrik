@@ -20,7 +20,6 @@ import {
   detectBenchmarkOutliers,
   explainLevel,
   inferLevel,
-  proposeBlockSpecs,
   recommendBaselineTests,
 } from './intake-suggestions';
 import { proposeBlockEmphasis, type BlockEmphasis } from './intake-suggestions';
@@ -76,7 +75,6 @@ export {
   detectBenchmarkOutliers,
   explainLevel,
   inferLevel,
-  proposeBlockSpecs,
   recommendBaselineTests,
 };
 // El error del alta vive en su propio módulo (para que `intake-plan.ts` lo use
@@ -837,8 +835,9 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
   const total_days = params.target_event && !params.target_event.is_in_past
     ? params.target_event.days_to_event
     : 12 * 7; // fallback: 12 weeks if no valid event
-  const block_specs = proposeBlockSpecs(total_days);
-  const totalProposedDays = block_specs.reduce((s, b) => s + b.weeks * 7, 0);
+  // El esqueleto no se propone aquí: inventar «Microciclo 1/2/3» es mentir.
+  // Nace cuando el coach planifica. El horizonte hasta el evento sí se usa
+  // para comprimir tests y el tono de la bienvenida.
   const is_compressive = total_days > 0 && total_days < 8 * 7; // <8 weeks compresses
 
   const suggestionBench = params.benchmarks.map((b) => ({
@@ -878,7 +877,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
   });
 
   return {
-    block_specs,
+    block_specs: [],
     level,
     level_rationale:
       levelFromOnboarding != null
@@ -890,7 +889,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
           }),
     baseline_tests,
     welcome_draft,
-    total_days: totalProposedDays,
+    total_days,
     is_compressive,
     block_emphasis: params.block_emphasis,
   };
@@ -1059,13 +1058,11 @@ export async function commitIntake(params: {
     throw new IntakeError('already_committed', 'intake already completed', 409);
   }
 
-  // AGNOSTIC: intake no longer auto-plans a macrocycle. The coach's intended
-  // periodization shape (block_specs) is recorded as snapshot DATA only; the actual
-  // training weeks are materialized as microciclos (athlete_month_assignments) either
-  // from an explicitly-chosen month template (below) or as a first-microciclo draft
-  // from the coach's first month template — the ORDER of microciclos IS the plan.
-  // En modo `personal` esa misma lista SÍ se ejecuta: cada tramo se crea como un
-  // microciclo propio del atleta (ver materializePersonalChain más abajo).
+  // AGNOSTIC: el alta no inventa un esqueleto. `block_specs` es snapshot de lo
+  // que el coach escribió (a menudo vacío). Las semanas reales salen de la
+  // biblioteca (modo shared) o de lo que planifique después en la ficha
+  // (modo personal). Si en personal manda tramos, SÍ se materializan — los
+  // escribió él, no los inventamos nosotros.
   const snapshot: IntakeNotesSnapshot = {
     level: commit.level,
     plan_mode: commit.plan_mode,
@@ -1083,6 +1080,7 @@ export async function commitIntake(params: {
     set intake_completed_at = ${now.toISOString()}::timestamptz,
         intake_by_coach_id = ${params.coach_id as number},
         intake_notes_json = ${client.json(toJsonValue(snapshot))},
+        plan_mode = ${commit.plan_mode},
         updated_at = now()
     where id = ${params.athlete_id as number}
   `;
@@ -1116,18 +1114,20 @@ export async function commitIntake(params: {
   let personal_plan: PersonalChainResult | null = null;
   let first_assignment_id: string | null = null;
   if (commit.plan_mode === 'personal') {
-    // «Plan solo para él»: la lista de tramos del alta NO es un apunte, es el
-    // plan. Cada uno nace como microciclo PERSONAL del atleta y se encadena al
-    // anterior — nunca sale nada de la biblioteca ni de la matriz nivel×días.
-    personal_plan = await materializePersonalChain({
-      coach_id: params.coach_id,
-      coach_user_id: params.coach_user_id,
-      athlete_id: params.athlete_id,
-      specs: commit.block_specs,
-      now,
-      client,
-    });
-    first_assignment_id = personal_plan.first_assignment_id;
+    // «Plan solo para él»: no se toca la biblioteca. Si el coach escribió
+    // tramos, se crean. Si no, el atleta queda marcado personal y el
+    // esqueleto nace cuando planifique en su ficha.
+    if (commit.block_specs.length > 0) {
+      personal_plan = await materializePersonalChain({
+        coach_id: params.coach_id,
+        coach_user_id: params.coach_user_id,
+        athlete_id: params.athlete_id,
+        specs: commit.block_specs,
+        now,
+        client,
+      });
+      first_assignment_id = personal_plan.first_assignment_id;
+    }
   } else if (commit.month_template_id && commit.month_start_date) {
     // Use the SHARED materializer (lib/dashboard/coach/instantiate-program). It
     // materializes a session's inline `blocks[]` into a real template + segments

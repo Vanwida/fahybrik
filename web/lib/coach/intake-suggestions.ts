@@ -20,11 +20,9 @@ import {
   BENCH_SKI_1K,
   BENCH_HYROX_PRO,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
-import { defaultTramoName } from './intake-schema';
 import type {
   AthleteLevel,
   IntakeBaselineTest,
-  IntakeBlockSpec,
 } from './intake-schema';
 
 export interface SuggestionBenchmark {
@@ -32,36 +30,6 @@ export interface SuggestionBenchmark {
   label: string;
   value: number;
   unit: string;
-}
-
-// AGNOSTIC starting shape: propose a sequence of named microciclos sized by the
-// weeks available before the A-event (roughly 42 / 36 / 22 of the weeks across 3
-// microciclos; compressed for short windows). The names are neutral placeholders
-// ("Microciclo N") — the coach renames, resizes and reorders every one; the ORDER
-// of microciclos IS the periodization. Advisory only, never a constraint.
-function microciclo(n: number, weeks: number): IntakeBlockSpec {
-  // El nombre neutro vive en el esquema compartido (`defaultTramoName`) porque
-  // la pantalla lo necesita también, al añadir un tramo a mano en modo personal.
-  return { type: defaultTramoName(n), weeks };
-}
-
-export function proposeBlockSpecs(total_days: number): IntakeBlockSpec[] {
-  const totalWeeks = total_days <= 0 ? 12 : Math.max(2, Math.round(total_days / 7));
-
-  if (totalWeeks <= 3) {
-    return [microciclo(1, Math.max(1, totalWeeks - 1)), microciclo(2, 1)];
-  }
-  if (totalWeeks <= 6) {
-    const first = 1;
-    const last = totalWeeks <= 4 ? 1 : 2;
-    const mid = Math.max(1, totalWeeks - first - last);
-    return [microciclo(1, first), microciclo(2, mid), microciclo(3, last)];
-  }
-
-  const last = Math.max(2, Math.round(totalWeeks * 0.22));
-  const first = Math.max(2, Math.round(totalWeeks * 0.42));
-  const mid = Math.max(2, totalWeeks - first - last);
-  return [microciclo(1, first), microciclo(2, mid), microciclo(3, last)];
 }
 
 // =============================================================================
@@ -76,11 +44,8 @@ export interface BlockEmphasis {
 }
 
 /**
- * Translate the Step-2 goal + self-declared run/strength relationship into a
- * macro EMPHASIS. This does NOT change microciclo names/weeks (the shape is
- * owned by `proposeBlockSpecs` + days-to-event); it tells the coach/IA which
- * axis to weight inside those microciclos. Pablo can ignore it — it's a starting
- * bias, not a constraint.
+ * Translate the goal + self-declared run/strength relationship into a macro
+ * EMPHASIS. Advisory only: which axis to weight. The coach can ignore it.
  */
 export function proposeBlockEmphasis(goal: IntakeGoalContext): BlockEmphasis {
   const reasons: string[] = [];

@@ -317,6 +317,14 @@ export async function assignSequenceToAthlete(
   `;
   const progressId = Number(upserted[0]!.id);
 
+  // Enrollar en la matriz ES dejar el plan personal. La columna es la que
+  // Hoy usa para no volver a proponerle secuencia a quien eligió personal.
+  await client`
+    update athletes
+    set plan_mode = 'shared', updated_at = now()
+    where id = ${athleteId}
+  `;
+
   return {
     sequence_id: Number(sequence.id),
     position: 1,

@@ -16,6 +16,7 @@ import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 // lives in is server-only but no value ever crosses into the client bundle.
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
+import type { IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
@@ -253,6 +254,8 @@ export interface V2AthleteDetalle {
   training_days: TrainingDaysData;
   resumen: AthleteResumen | null;
   plan: AthletePlanPayload | null;
+  /** De qué nace el plan. Independiente de `plan` (puede no haber microciclos). */
+  plan_mode: IntakePlanMode;
   body: BodyPayload | null;
   subscription: AthleteSubscriptionStatus | null;
   /** Pagos tab (#15): the athlete's current billing (agreed price, status, next

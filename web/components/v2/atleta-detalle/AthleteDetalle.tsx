@@ -148,6 +148,7 @@ export function AthleteDetalle({
         ) : tab === 'plan' ? (
           <PlanTab
             plan={detalle.plan}
+            planMode={detalle.plan_mode}
             resumen={detalle.resumen}
             athlete_id={header.athlete_id}
             initialSessionId={initialSessionId}

@@ -436,6 +436,7 @@ export async function loadAthleteDetalle(params: {
     training_days: trainingDays,
     resumen,
     plan,
+    plan_mode: shell.plan_mode,
     body,
     subscription,
     billing,

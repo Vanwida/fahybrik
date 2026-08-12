@@ -179,11 +179,13 @@ function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: strin
 
 export function PlanTab({
   plan,
+  planMode,
   resumen,
   athlete_id,
   initialSessionId,
 }: {
   plan: AthletePlanPayload | null;
+  planMode: 'shared' | 'personal';
   resumen: AthleteResumen | null;
   athlete_id: string;
   /** `?sesion=` de la URL al cargar — abre esa sesión en el cajón. Un id ajeno,
@@ -224,6 +226,14 @@ export function PlanTab({
   const [revertOpen, setRevertOpen] = useState(false);
 
   if (!plan || plan.total_sessions === 0) {
+    if (planMode === 'personal') {
+      return (
+        <div className="flex flex-col gap-5">
+          <CadenaPersonalPanel athleteId={athlete_id} allowEmpty />
+          <PlanesPersonalesPanel athleteId={athlete_id} />
+        </div>
+      );
+    }
     return (
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4">
         <EmptyState
