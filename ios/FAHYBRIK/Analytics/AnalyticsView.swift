@@ -73,6 +73,18 @@ struct AnalyticsView: View {
         CenteredScreen(head: { chrome }) {
             main
         }
+        // EL TINTE DEL VEREDICTO VA DETRÁS DE TODO, incluido el cromo, y NO
+        // scrollea: es el lienzo de la pantalla, no un fondo de una tarjeta. Es la
+        // misma pieza `Ambiente` que tiñe la lectura de una carrera con la zona de
+        // pulso — aquí el sujeto es el veredicto, así que tiñe él.
+        .background(alignment: .top) {
+            if section == .running, let p = progreso {
+                Ambiente(
+                    zona: nil,
+                    tono: AnaliticasCorrerView.tono(ProgresoDeCarrera.veredictoEfectivo(p).clase)
+                )
+            }
+        }
         .refreshable {
             // Pull-to-refresh: re-pull the active section×period fresh (force
             // bypasses the SWR staleness window).

@@ -69,34 +69,46 @@ struct AnaliticasCorrerView: View {
     // MARK: - El sujeto: el veredicto, y el plazo cuando aún no se puede dar
 
     private var sujeto: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(veredicto.frase)
-                    .scaledFont(44, weight: .heavy, relativeTo: .largeTitle, italic: true)
-                    .foregroundStyle(Self.tono(veredicto.clase))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                if let plazo = veredicto.plazo {
-                    PlazoDeSemanas(llevas: plazo.llevas, hacen: plazo.hacen)
-                        .frame(maxWidth: 180)
-                }
+        // CENTRADO, como en la referencia: el veredicto es el sujeto de la
+        // pantalla y cae en su eje, no alineado con los bloques que lo sostienen.
+        VStack(spacing: Theme.Spacing.m) {
+            Text(veredicto.frase)
+                .scaledFont(46, weight: .heavy, relativeTo: .largeTitle, italic: true)
+                // -0.035em a 46 pt. En display grande el tracking negativo es lo
+                // que separa un titular compuesto de uno por defecto.
+                .tracking(-1.61)
+                .foregroundStyle(Self.tono(veredicto.clase))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .multilineTextAlignment(.center)
+            if let plazo = veredicto.plazo {
+                PlazoDeSemanas(llevas: plazo.llevas, hacen: plazo.hacen)
+                    .frame(maxWidth: 180)
             }
             if let salida = ProgresoDeCarrera.salidaDeLaPantalla(cobertura) {
                 Button {
                     Haptics.light()
                     onSalida?()
                 } label: {
+                    // EL ÚNICO NARANJA DE LA PANTALLA. En cursiva y versales como
+                    // el resto de acciones de la app, y con esquina de radio medio
+                    // —no una cápsula—: la cápsula es de las pastillas de dato.
                     Text(salida)
-                        .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
+                        .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
+                        .tracking(0.6)
+                        .textCase(.uppercase)
                         .foregroundStyle(Theme.Color.accentOn)
                         .padding(.horizontal, Theme.Spacing.l)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 11)
                         .background(Theme.Color.accent)
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                 }
                 .buttonStyle(PressScaleStyle())
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.s)
     }
 
     /// EL TINTE ES EL VEREDICTO, como en la referencia lo es la zona de pulso.
@@ -323,8 +335,11 @@ struct BloqueDeLectura<Contenido: View>: View {
                     .lineLimit(1)
                 if sello {
                     // Sin acento: lo único naranja de la pantalla es la acción.
+                    // Dos palabras, y ni siquiera llevan color.
                     Text("Solo aquí")
-                        .scaledFont(9.5, weight: .semibold, relativeTo: .caption2)
+                        .scaledFont(9, weight: .bold, relativeTo: .caption2)
+                        .tracking(1.44)
+                        .textCase(.uppercase)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -344,17 +359,22 @@ struct CifraDeBloque<Delta: View>: View {
     @ViewBuilder var delta: Delta
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(valor)
-                    .font(.system(size: tam, weight: .heavy, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(tono)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Text(unidad)
-                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-            }
+        // La cifra, su unidad y la variación comparten LÍNEA DE BASE: el delta va
+        // pegado al número, no debajo. Envuelve cuando no cabe.
+        HStack(alignment: .lastTextBaseline, spacing: 10) {
+            Text(valor)
+                .font(.system(size: tam, weight: .heavy, design: .monospaced).monospacedDigit())
+                // -0.045em: a estos tamaños la mono abre tanto que «19:12» se lee
+                // «19 : 12» si no se cierra el tracking.
+                .tracking(-tam * 0.045)
+                .foregroundStyle(tono)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(unidad)
+                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                .tracking(1.1)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Color.muted)
             delta
         }
     }
@@ -374,20 +394,24 @@ struct DeltaDeBloque: View {
     let ventana: String
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .lastTextBaseline, spacing: 4) {
             if let mejor {
-                Image(systemName: mejor ? "arrow.up" : "arrow.down")
-                    .font(.system(size: 9, weight: .bold))
+                // Triángulo de texto, no un símbolo del sistema: se apoya en la
+                // misma línea de base que la cifra, que es lo que hace que el
+                // conjunto se lea como UN dato y no como un icono más una cifra.
+                Text(mejor ? "▲" : "▼")
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(mejor ? Theme.Color.ok : Theme.Color.warning)
             }
             Text(valor)
-                .font(.system(size: 12, weight: .bold, design: .monospaced).monospacedDigit())
+                .font(.system(size: 14, weight: .bold, design: .monospaced).monospacedDigit())
                 .foregroundStyle(mejor == nil ? Theme.Color.muted
                                  : (mejor! ? Theme.Color.ok : Theme.Color.warning))
             // La ventana SIEMPRE apagada, aunque la cifra vaya teñida: es el
             // contexto del dato, no el dato.
             Text(ventana)
-                .scaledFont(10.5, weight: .medium, relativeTo: .caption2)
+                .scaledFont(10, weight: .semibold, relativeTo: .caption2)
+                .tracking(0.8)
                 .foregroundStyle(Theme.Color.faint)
         }
     }

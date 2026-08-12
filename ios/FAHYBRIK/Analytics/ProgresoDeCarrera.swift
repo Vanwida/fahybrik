@@ -159,6 +159,20 @@ enum ProgresoDeCarrera {
         return nil
     }
 
+    /// EL VEREDICTO QUE SE PINTA — el servido, o «aún no» cuando no queda ningún
+    /// gráfico que lo sostenga.
+    ///
+    /// Vive aquí y no dentro de la vista porque **el lienzo entero se tiñe con su
+    /// clase**, y quien pinta el fondo está por encima de la pantalla: si cada uno
+    /// resolviera la degradación por su cuenta, el tinte y el titular podrían
+    /// discrepar en el mismo pintado.
+    static func veredictoEfectivo(_ p: RunningProgressPayload) -> Veredicto {
+        let v = p.verdict
+        guard degradaPorFaltaDeGrafico(v, cobertura: p.coverage, history: p.history)
+        else { return v }
+        return Veredicto(clase: .aunNo, frase: "Aún no", peldano: nil, plazo: v.plazo)
+    }
+
     /// Lo que dice la marca. Nombra la evidencia sin explicarla: es un pie de
     /// pocas palabras, no una frase.
     static func textoDeMarca(_ peldano: Peldano) -> String {
