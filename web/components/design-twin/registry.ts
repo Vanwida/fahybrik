@@ -20,6 +20,9 @@ import * as perfilRendimiento from './screens/perfil-rendimiento';
 import * as testsCalibracion from './screens/tests-calibracion';
 import * as testComparativa from './screens/test-comparativa';
 import * as chatCoach from './screens/chat-coach';
+// Preguntar SOBRE algo (12-ago): el chat de arriba, pero sabiendo de qué va el
+// mensaje. Vive aparte porque `chat-coach` ya se shipeó y esto todavía no.
+import * as chatContexto from './screens/chat-contexto';
 import * as analiticasVeredicto from './screens/analiticas-veredicto';
 import * as gateBloque from './screens/gate-bloque';
 import * as entrenoVivo from './screens/entreno-vivo';
@@ -113,6 +116,7 @@ export const SCREENS: TwinScreenModule[] = [
   // esta dice qué cambió y qué se movió en tu plan por haberlo hecho.
   testComparativa,
   chatCoach,
+  chatContexto,
   analiticasVeredicto,
   analiticasCorrer,
   gateBloque,

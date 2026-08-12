@@ -6,6 +6,24 @@
 // El hilo vacío también es real: el hilo 265 (Pablo ↔ atleta 65) lleva desde el
 // 9 de julio con `last_message_at` a null. Cero mensajes. Ese es el mínimo.
 
+/** Los tres tipos de cosa que un mensaje puede señalar. Espejo del contrato. */
+export type KindContexto = 'session' | 'exercise' | 'race';
+
+/**
+ * La referencia de contexto de un mensaje: «esto que te pregunto es SOBRE tal
+ * entreno». Vive aquí, con el mensaje, porque quien la pinta es la burbuja —
+ * compartida por el chat de hoy y por la propuesta de `chat-contexto`.
+ */
+export interface RefContexto {
+  kind: KindContexto;
+  /** El ancla navegable: assignment_id, exercise_id o race_id. */
+  ref: string;
+  /** Solo con kind 'session': el ejercicio DENTRO de ese entreno. */
+  sub?: string;
+  /** Sello legible. Lo escribe el SERVIDOR, no el cliente. */
+  label: string;
+}
+
 export interface Mensaje {
   id: number;
   de: 'atleta' | 'coach';
@@ -17,6 +35,8 @@ export interface Mensaje {
   /** Estado de envío del propio mensaje del atleta. */
   envio?: 'enviando' | 'fallido';
   adjunto?: 'imagen';
+  /** Sobre qué es el mensaje. Ausente = conversación a secas, como hoy. */
+  contexto?: RefContexto;
 }
 
 export const COACH = { nombre: 'Pablo Amigo', nombreCorto: 'Pablo', inicial: 'P' } as const;
