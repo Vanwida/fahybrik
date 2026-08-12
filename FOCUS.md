@@ -40,10 +40,29 @@ menús de pulsación larga (atajo). La única superficie nueva es la hoja de
   *pregunta* se queda fuera a propósito: ya se responde en su sitio
   (`ComunicadoPreguntaView`), y dos vías para la misma respuesta es peor.
 
-**Siguiente:** el dato (migración 0186 + rotulador + validación de propiedad en
-`web/lib/chat/`) se está construyendo. Hasta que aterrice y se despliegue, un
-mensaje con contexto viaja con un campo que el servidor todavía ignora. **La
-build la instala Alex.**
+- **Dato en producción** (migración **0186** aplicada): `context_kind` (session |
+  exercise | race) + `ref` + `sub` + `label`, con tres checks. El rotulador único
+  vive en `web/lib/chat/context.ts` y valida la PROPIEDAD dentro del WHERE, así
+  que lo ajeno y lo inexistente devuelven la misma respuesta. `sub` es el
+  `template_segments.id` de la línea, no el ejercicio del catálogo: un entreno
+  puede repetir el mismo ejercicio con dosis distintas. El push antepone la
+  etiqueta cuando encaja («Fuerza A · mar 12: ¿cuántas series?»).
+- **El coach lo VE**: la tarjeta se pinta en `ChatBubble`, el componente que ya
+  comparten las dos caras del chat.
+
+**Lo que NO está hecho, explícito:**
+- **Tocar la tarjeta no abre nada** (y por eso no lleva galón): exige decidir en
+  qué modo se abre el entreno —hecho o por hacer— y levantar esa pantalla sobre
+  el propio chat. En el panel, además, la ficha del coach no sabe abrirse por
+  sesión (`openSession` es estado local de `PlanTab`).
+- **La tarjeta del coach no está vista en pantalla todavía**: no existe ni un
+  mensaje con contexto en la base (0 filas), así que lo primero al probar es
+  mandar uno desde el móvil y mirar el panel.
+- Desde el **resumen post-entreno**, el **detalle de carrera**, el **detalle de
+  ejercicio** y un **comunicado** siguen siendo tres toques: no tienen ni menú ni
+  puerta al chat.
+
+**La build de iOS la instala Alex.**
 
 **Ojo, deuda de vecindad:** el `project.pbxproj` commiteado en `9ebfe445`
 referencia cinco ficheros de otra sesión que siguen sin commitear

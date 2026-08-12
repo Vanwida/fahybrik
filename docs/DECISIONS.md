@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · El nombre que teclea el coach vive en `name_es`, y `name_en` se queda vacío
+
+**El hecho que lo forzó.** La migración 0172 puso `check (name_es is not null or name_en is not null)` en `exercises`, y `createExercise` (`web/lib/dashboard/exercises/create-exercise.ts`) no escribía ninguna de las dos: **crear un ejercicio desde el panel del coach llevaba roto en producción desde entonces**, con un 500 contra la constraint. Salió al descubierto de rebote, porque tres tests de `web/tests/exercises/ownership.db.test.ts` fallaban contra una rama recién migrada — nadie lo había reportado, y el camino no tenía cobertura contra el esquema real.
+
+**Decidido:** lo que el coach teclea va a `name_es` (su panel es español) y `name_en` se queda **NULL**. Es la verdad —«no hay nombre inglés curado todavía»— en vez de escribir el mismo texto en las dos columnas y afirmar una traducción que nadie ha hecho. `name` sigue siendo el nombre base, el que resuelve cualquier lectura que aún no distingue idioma, que hoy son todas (`name_es` de `exercises` no lo lee nadie en `web/lib`).
+
+**Qué NO hacer en consecuencia:** no rellenar `name_en` copiando `name_es` para «tener las dos». No dar por hecho que un `name_es` no nulo significa que alguien escribió español a conciencia: hoy significa «lo que el coach escribió, en el idioma en que lo escribiera». Cuando el panel deje de ser solo español —FLEXR, otros entrenadores— la lengua del texto pasa a ser DATO del coach (una preferencia suya), no una suposición del insert; ese es el momento de tocar esto, y no antes.
+
+**Sigue pendiente y es lo que hace que esto importe:** iOS todavía no resuelve nombres por `athletes.preferred_language`, así que el atleta ve `name` pase lo que pase.
+
+---
+
 ## 2026-08-12 · El chat aprende SOBRE QUÉ va el mensaje — y no gasta un icono en cada cosa
 
 **El encargo, con su restricción dentro.** Que el atleta pueda escribir sobre algo (el entreno de hoy, tal ejercicio) con un clic. Y textual de Alex: *«la parte difícil que te pongo no es el código en sí, sino que no haya un iconito extra que moleste en cada cosa que se pueda contextualizar. Si es así, prefiero no ensuciar la UI y no hacerlo.»* Eso convierte el coste en pantalla en el criterio de aceptación, no en un detalle de acabado.
