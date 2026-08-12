@@ -85,10 +85,23 @@ también previsualizar».
 - **Sin destino honesto no hay galón**: sin `exists` confirmado, sin `state`, o en
   una carrera y un ejercicio de catálogo (que enseñan su dato y no navegan).
 
+**Probado por Alex y dado por válido (12-ago), con UN pero que es la siguiente
+pieza:** el **cajón de sesión del panel** (`web/components/v2/atleta-detalle/SessionDetailDrawer.tsx`)
+es donde aterriza el click del coach, y su UX es floja — literal suyo: *«la ui del
+coach cuando hace click ahí es terrible y en móvil ni te cuento»*. No es un caso
+raro: el panel se usa como PWA instalada en el móvil, así que el ancho estrecho es
+uso normal, no una excepción. Pendiente de rediseño (propuesta primero, como todo
+lo de UX).
+
+Y el **historial** ya tiene su menú: pulsación larga en la fila → «Ver el
+entreno» · «Preguntar al coach». Era el sitio que faltaba, porque es donde el
+atleta mira lo que pasó. De paso, la etiqueta de un entreno viejo ya lleva mes
+(«9 may»): dentro de la semana basta el día, más allá «sáb 9» no sitúa nada.
+
 **Lo que NO está hecho, explícito:**
-- **La tarjeta del coach no está vista en pantalla todavía**: no existe ni un
-  mensaje con contexto en la base (0 filas), así que lo primero al probar es
-  mandar uno desde el móvil y mirar el panel.
+- **La tarjeta del coach no está vista en pantalla por mí**: cuando escribí esto
+  no existía ningún mensaje con contexto en la base. Alex ya la ha probado y
+  funciona; lo que falta es el rediseño del cajón, arriba.
 - Una **carrera** y un **ejercicio de catálogo** no navegan en ninguna de las dos
   caras.
 - Desde el **resumen post-entreno**, el **detalle de carrera**, el **detalle de
