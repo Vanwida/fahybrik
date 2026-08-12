@@ -96,7 +96,10 @@ export interface TestProgressionRow {
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
 // `del-coach` cierra la pareja con `mensajes` y por eso va justo detrás: el chat
 // conversa, el comunicado se publica y se rastrea (docs/DECISIONS.md 2026-08-09).
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'pagos', 'mensajes', 'del-coach'] as const;
+// `correr` va detrás de `rendimiento` y no al final: las dos son el bloque
+// analítico de la ficha, y las cinco pestañas de la izquierda son las de uso
+// diario, que no se tocan para no mover la memoria muscular del coach.
+export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'correr', 'pagos', 'mensajes', 'del-coach'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 

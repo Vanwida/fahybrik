@@ -28,6 +28,7 @@ import { CarrerasTab } from './CarrerasTab';
 import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
 import { RendimientoTab } from './RendimientoTab';
+import { CorrerTab } from './CorrerTab';
 import { PagosTab } from './PagosTab';
 import { MensajesTab } from './MensajesTab';
 import { DelCoachTab } from './del-coach/DelCoachTab';
@@ -185,6 +186,8 @@ export function AthleteDetalle({
             athleteName={header.full_name}
             coachName={coachName}
           />
+        ) : tab === 'correr' ? (
+          <CorrerTab athleteId={header.athlete_id} />
         ) : tab === 'pagos' ? (
           <PagosTab
             billing={detalle.billing}

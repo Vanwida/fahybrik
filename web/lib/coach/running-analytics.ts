@@ -66,6 +66,46 @@ import {
 } from '@fahybrid/shared/domain/running/compromised-pace';
 import { buildRunningLoadReading, type RunningLoadReading } from '@fahybrid/shared/domain/training-load/load-verdict';
 import type { CoachRunningThresholds } from '@fahybrid/shared/domain/coach/running-thresholds';
+import { AthleteAnalyticsError } from '@/lib/dashboard/coach/deep-dive-body';
+import { mapWithConcurrency } from '@/lib/dashboard/coach/ai/compose-week';
+
+/**
+ * Cuántos detalles de sesión se cargan a la vez. Cada sesión son DOS viajes a
+ * Neon (`loadAssignmentDetail` + `loadSegmentActuals`), y este módulo recorre
+ * dos ventanas de sesiones: en serie, un atleta con historial se iba a 14
+ * segundos, que es tiempo de sobra para que un entrenador dé la pestaña por
+ * rota y no vuelva. En paralelo acotado baja a la escala del segundo sin pedirle
+ * nada nuevo a la base. 6 y no más porque al otro lado hay un pool, no una
+ * máquina infinita.
+ */
+const DETALLES_A_LA_VEZ = 6;
+
+/** Carga el detalle + los tramos de una lista de sesiones, en paralelo acotado.
+ *  Un fallo REAL de base sube: una calibración calculada sobre un subconjunto
+ *  desconocido es justo el número que este panel se niega a enseñar. Lo único
+ *  que se salta en silencio es una asignación borrada entre la consulta y la
+ *  carga, que ya se saltaba antes. */
+async function analizarSesiones(
+  client: Sql,
+  athlete_id: number,
+  sesiones: ReadonlyArray<{ assignment_id: string; execution_id: string }>,
+) {
+  const resultados = await mapWithConcurrency(sesiones, DETALLES_A_LA_VEZ, async (s) => {
+    const detail = await loadAssignmentDetail({
+      sql: client,
+      athlete_id: BigInt(athlete_id),
+      assignment_id: BigInt(s.assignment_id),
+    });
+    if (!detail) return null;
+    const actuals = await loadSegmentActuals(client, Number(s.execution_id));
+    const { tramos } = buildRunCompliance(detail.workout, actuals);
+    return { sesion: s, actuals, tramos };
+  });
+
+  const fallo = resultados.find((r) => r.status === 'rejected');
+  if (fallo && fallo.status === 'rejected') throw fallo.reason;
+  return resultados.flatMap((r) => (r.status === 'fulfilled' && r.value != null ? [r.value] : []));
+}
 
 /** Semanas hacia atrás para calibración + huella — «últimas 4 semanas»,
  *  literal del mockup (§05, ui-cap). No es método del coach: es cuánta
@@ -111,6 +151,20 @@ export async function buildRunningAnalytics(args: {
   const window_weeks = Math.max(1, Math.trunc(args.window_weeks ?? RUNNING_ANALYTICS_DEFAULT_WINDOW_WEEKS));
   const since = new Date(now.getTime() - window_weeks * 7 * 24 * 60 * 60 * 1000);
 
+  // LA PROPIEDAD SE COMPRUEBA AQUÍ, no en la ruta. `coach_id` entraba sólo para
+  // resolver los umbrales del coach, así que ninguno de los seis cargadores de
+  // abajo miraba de quién era el atleta: bastaba un id en la URL para leer las
+  // analíticas de un atleta de otro entrenador. Ponerlo en el cargador y no en
+  // el handler es lo que hace que un llamador futuro no pueda olvidarlo — misma
+  // guarda y misma consulta que `loadCoachSessionDetail` y `deep-dive-body`.
+  const ownership = await client<Array<{ id: string }>>`
+    select id::text from athletes
+    where id = ${args.athlete_id} and coach_id = ${args.coach_id as number} limit 1
+  `;
+  if (!ownership[0]) {
+    throw new AthleteAnalyticsError('athlete_not_found', 'Atleta no encontrado', 404);
+  }
+
   const [thresholds, sessions, loadSummary, firstDayIso, volume, compromisedObservations] = await Promise.all([
     resolveEffectiveRunningThresholds(args.coach_id, client),
     loadQualifyingRunSessions(client, args.athlete_id, since, now),
@@ -123,16 +177,7 @@ export async function buildRunningAnalytics(args: {
   const calibrationObservations: CalibrationObservation[] = [];
   const pacingVerdicts: PacingShapeVerdict[] = [];
 
-  for (const s of sessions) {
-    const detail = await loadAssignmentDetail({
-      sql: client,
-      athlete_id: BigInt(args.athlete_id),
-      assignment_id: BigInt(s.assignment_id),
-    });
-    if (!detail) continue; // asignación borrada entre la consulta y la carga: se salta, no se rompe
-    const actuals = await loadSegmentActuals(client, Number(s.execution_id));
-    const { tramos } = buildRunCompliance(detail.workout, actuals);
-
+  for (const { actuals, tramos } of await analizarSesiones(client, args.athlete_id, sessions)) {
     const actualsByPosition = new Map(actuals.map((a) => [a.position, a]));
     const legs: PacingShapeLeg[] = [];
     for (const t of tramos) {
@@ -285,15 +330,7 @@ async function loadCompromisedPaceObservations(
   const contextByKey = new Map(contextRows.map((r) => [`${r.execution_id}:${r.position}`, r]));
 
   const observations: CompromisedRunObservation[] = [];
-  for (const s of sessions) {
-    const detail = await loadAssignmentDetail({
-      sql: client,
-      athlete_id: BigInt(athlete_id),
-      assignment_id: BigInt(s.assignment_id),
-    });
-    if (!detail) continue;
-    const actuals = await loadSegmentActuals(client, Number(s.execution_id));
-    const { tramos } = buildRunCompliance(detail.workout, actuals);
+  for (const { sesion: s, actuals, tramos } of await analizarSesiones(client, athlete_id, sessions)) {
     const actualsByPosition = new Map(actuals.map((a) => [a.position, a]));
 
     for (const t of tramos) {

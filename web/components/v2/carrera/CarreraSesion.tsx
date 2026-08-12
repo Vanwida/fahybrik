@@ -15,6 +15,7 @@ import type { AssignmentDetailTrace } from '@/lib/execution/session-trace';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { Lectura } from './lectura';
 import { Curva } from './Curva';
+import { Mapa } from './Mapa';
 import { Sujeto } from './Sujeto';
 import { TablaKilometros, TablaTramos } from './Tramos';
 
@@ -125,6 +126,16 @@ export function CarreraSesion({
       {troceado === 'kilometros' && kilometros.length > 0 ? (
         <Seccion titulo="Kilómetro a kilómetro">
           <TablaKilometros kilometros={kilometros} />
+        </Seccion>
+      ) : null}
+
+      {/* Sin recorrido, ni la sección existe: no hay nada que el coach pueda
+          hacer para tenerlo (cinta, o sesión de antes de #64) — declararlo de
+          todos modos sería un hueco que invita a preguntar por algo que
+          nunca va a llegar. Ver la cabecera de Mapa.tsx. */}
+      {trace?.route.available ? (
+        <Seccion titulo="El recorrido">
+          <Mapa route={trace.route} />
         </Seccion>
       ) : null}
     </div>

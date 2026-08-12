@@ -26,6 +26,7 @@ const TAB_LABEL: Record<AtletaTab, string> = {
   sesiones: '1:1',
   biometria: 'Biometría',
   rendimiento: 'Rendimiento',
+  correr: 'Cómo corre',
   pagos: 'Pagos',
   mensajes: 'Mensajes',
   'del-coach': 'Del coach',

@@ -92,6 +92,11 @@ import * as velocidadSerie from './screens/velocidad-serie';
 // otra mitad, la INTENCIÓN del coach, y con ella la curva lleva la banda
 // dibujada y el troceado es por serie o por kilómetro, nunca los dos.
 import * as lecturaCarrera from './screens/lectura-carrera';
+// La otra pregunta del atleta (12-ago). `lectura-carrera` contesta qué pasó EN
+// una carrera; esta contesta si todo esto sirve para algo. Sustituye la rejilla
+// de tarjetas por un veredicto defendible y la evidencia ordenada por causa —
+// lo que sale antes que lo que metes —, y sabe decir «todavía no lo sé».
+import * as analiticasCorrer from './screens/analiticas-correr';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -109,6 +114,7 @@ export const SCREENS: TwinScreenModule[] = [
   testComparativa,
   chatCoach,
   analiticasVeredicto,
+  analiticasCorrer,
   gateBloque,
   entrenoVivo,
   postEntreno,
