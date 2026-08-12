@@ -37,7 +37,12 @@ final class RunPedometer {
     /// Metros nuevos desde la última vez. La sesión los acumula como siempre.
     var onDistanceDelta: ((Double) -> Void)?
 
-    private let pedometer = CMPedometer()
+    /// **OPCIONAL, y sólo se construye si el aparato SABE contar.** Un simulador —o un
+    /// iPhone viejo sin podómetro— es el caso fácil del mismo problema: si el sensor no
+    /// existe, aquí no se toca CoreMotion ni para instanciarlo. Degradar en silencio es
+    /// lo que tiene que hacer de todos modos, así que esto no es una concesión a los
+    /// tests: es el comportamiento correcto en un aparato sin sensor.
+    private let pedometer: CMPedometer? = CMPedometer.isDistanceAvailable() ? CMPedometer() : nil
     private var isRunning = false
     private var startedAt: Date?
     /// Lo último que se reportó, para emitir sólo el incremento.
@@ -48,7 +53,7 @@ final class RunPedometer {
     static var isAvailable: Bool { CMPedometer.isDistanceAvailable() }
 
     func start(from instant: Date = Date()) {
-        guard !isRunning, Self.isAvailable else { return }
+        guard !isRunning, let pedometer else { return }
         isRunning = true
         startedAt = instant
         reportedMeters = 0
@@ -66,7 +71,7 @@ final class RunPedometer {
     }
 
     func stop() {
-        guard isRunning else { return }
+        guard isRunning, let pedometer else { return }
         isRunning = false
         pedometer.stopUpdates()
     }
@@ -78,7 +83,7 @@ final class RunPedometer {
     /// Nil = no lo sabe (sin permiso, sin sensor, o una ventana que no cubre). Nil no
     /// es cero: sin respuesta se conserva lo que se fue viendo en vivo.
     func total(from: Date, to: Date) async -> Double? {
-        guard Self.isAvailable, to > from else { return nil }
+        guard let pedometer, to > from else { return nil }
         return await withCheckedContinuation { continuation in
             pedometer.queryPedometerData(from: from, to: to) { data, error in
                 guard let data, error == nil, let metros = data.distance?.doubleValue,
