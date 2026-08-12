@@ -89,12 +89,19 @@ struct ChatContextTests {
         #expect(campos["label"] == nil)
     }
 
-    @Test("Señalar un ejercicio del entreno viaja como sesión + sub")
+    @Test("Señalar un ejercicio del entreno viaja como sesión + el segmento prescrito")
     func ejercicioDentroDelEntreno() {
         let target = ChatContextTarget.entreno("9412", ejercicio: "42")
         #expect(target.kind == .session)
         #expect(target.ref == "9412")
         #expect(target.sub == "42")
+    }
+
+    @Test("Un ejercicio sin segmento prescrito señala el entreno, no una línea inventada")
+    func ejercicioSinSegmento() {
+        let sinSegmento = EjercicioSeñalado(segmentoId: nil, nombre: "Back squat")
+        let target = ChatContextTarget.entreno("9412", ejercicio: sinSegmento.segmentoId)
+        #expect(target.sub == nil)
     }
 
     @Test("Una carrera y un ejercicio de catálogo nunca llevan sub")

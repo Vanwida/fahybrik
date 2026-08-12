@@ -146,9 +146,15 @@ extension PlanView {
     /// «Back squat · Fuerza A, hoy» y no el entreno entero.
     func preguntarPorEjercicio(_ ejercicio: EjercicioSeñalado, de session: AthleteWeekDaySession) {
         Haptics.light()
+        // Sin segmento prescrito la referencia fina no existe, así que se señala
+        // el entreno y la etiqueta lo dice tal cual: nunca una etiqueta que
+        // prometa un ejercicio y una referencia que apunte a la sesión entera.
+        let etiqueta = ejercicio.segmentoId == nil
+            ? "\(session.title) · \(cuandoFue(session))"
+            : "\(ejercicio.nombre) · \(session.title), \(cuandoFue(session))"
         contextoDelChat = ChatContextChoice(
-            target: .entreno(session.assignmentId, ejercicio: ejercicio.id),
-            etiqueta: "\(ejercicio.nombre) · \(session.title), \(cuandoFue(session))"
+            target: .entreno(session.assignmentId, ejercicio: ejercicio.segmentoId),
+            etiqueta: etiqueta
         )
         showChat = true
     }

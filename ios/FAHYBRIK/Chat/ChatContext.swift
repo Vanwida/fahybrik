@@ -87,11 +87,17 @@ struct ChatContextChoice: Equatable, Sendable, Identifiable {
 
 /// Un ejercicio DENTRO de un entreno, señalable desde su fila.
 ///
-/// El `id` es el del ejercicio en el catálogo y no el `uid` de la fila: el coach
-/// tiene que poder abrir «el back squat de este entreno», y un uid de plantilla
-/// no sobrevive a que se reordene la sesión.
+/// El id que viaja es el `template_segments.id` de ESA línea de la sesión, no el
+/// del ejercicio en el catálogo: el coach tiene que poder llegar a la línea
+/// concreta, y un entreno puede repetir el mismo ejercicio dos veces con dosis
+/// distintas. Es también lo que el servidor valida (`web/lib/chat/context.ts`) y
+/// lo mismo que la ejecución ya devuelve para atribuir prescrito-vs-hecho.
+///
+/// Nil cuando esa línea no mapea a ningún segmento prescrito (un entreno libre):
+/// entonces se señala el entreno entero, que es verdad, en vez de inventar una
+/// referencia fina que el servidor rechazaría.
 struct EjercicioSeñalado: Equatable, Sendable {
-    let id: String
+    let segmentoId: String?
     let nombre: String
 }
 

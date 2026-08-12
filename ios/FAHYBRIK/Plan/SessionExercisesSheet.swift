@@ -145,7 +145,13 @@ struct SessionExercisesSheet: View {
                 }
                 if let onPreguntar {
                     Button {
-                        onPreguntar(EjercicioSeñalado(id: item.exerciseId, nombre: item.exerciseName))
+                        onPreguntar(EjercicioSeñalado(
+                            // El segmento prescrito de ESTA línea. Sin él (entreno
+                            // libre) se señala el entreno entero, no una línea
+                            // inventada.
+                            segmentoId: item.templateSegmentId.map(String.init),
+                            nombre: item.exerciseName
+                        ))
                     } label: {
                         Label("Preguntar al coach", systemImage: "message")
                     }
