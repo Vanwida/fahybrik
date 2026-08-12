@@ -54,6 +54,10 @@ struct AnalyticsView: View {
     /// El progreso de carrera, con su propia carga (ver `progresoDeCarrera`).
     @State private var progreso: RunningProgressPayload?
     @State private var progresoFallo = false
+    /// Las series de la batería, para la sección de Fuerza. Se piden UNA vez por
+    /// apertura de la pestaña: una curva de marcas no cambia mientras se mira.
+    @State private var seriesDeBateria: [BenchmarkSeries] = []
+    @State private var seriesDeBateriaListas = false
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -135,6 +139,13 @@ struct AnalyticsView: View {
             store.activate(bearer: effectiveBearer)
             if section == .running {
                 await cargarProgreso()
+            } else if section == .strength {
+                // A LA VEZ, NO EN FILA: son dos fuentes independientes, y
+                // encadenarlas le costaría al atleta un viaje de ida y vuelta
+                // entero antes de ver la sección.
+                async let evidencia: Void = cargarFuerza()
+                async let seccion: Void = store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+                _ = await (evidencia, seccion)
             } else {
                 await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
             }
@@ -178,6 +189,52 @@ struct AnalyticsView: View {
             // bueno, que es más útil que un error sobre una pantalla en blanco.
             if progreso == nil { progresoFallo = true }
         }
+    }
+
+    // MARK: - Fuerza · ¿estoy más fuerte?
+
+    /// LA EVIDENCIA DE CAMBIO EN FUERZA, que hasta hoy vivía escondida en Perfil:
+    /// la evolución de cada 1RM y las curvas de los tests que miden fuerza. En
+    /// Perfil se queda el número de hoy —quién eres—; cómo has cambiado se lee
+    /// aquí, que es donde se pregunta.
+    private var fuerza: BloquesDeFuerza {
+        let levantamientos = FuerzaProgreso.levantamientos(store.strengthMaxes.value ?? [])
+        return BloquesDeFuerza(
+            levantamientos: levantamientos,
+            tests: FuerzaProgreso.tests(
+                seriesDeBateria,
+                yaEnLevantamientos: Set(levantamientos.map(\.id))
+            )
+        )
+    }
+
+    private var hayFuerza: Bool { section == .strength && fuerza.hayAlgo }
+
+    /// Los 1RM ya viven en el store (los usa Inicio desde hace meses), así que
+    /// sólo se revalidan — el motor SWR decide si toca red. Las series de la
+    /// batería sí se piden, UNA vez, y sólo al abrir esta sección: un fallo se
+    /// traga en silencio porque los levantamientos se sostienen sin ellas.
+    private func cargarFuerza() async {
+        await store.refreshStrengthMaxes()
+        guard let bearer = effectiveBearer, !seriesDeBateriaListas else { return }
+        if let series = try? await TestBatteryService.fetchBenchmarkHistory(bearer: bearer) {
+            seriesDeBateria = series
+            seriesDeBateriaListas = true
+        }
+    }
+
+    /// La fuerza que el móvil YA tiene, por delante de lo que traiga el servidor.
+    /// Se pinta también mientras la sección carga o cuando falla: es dato propio,
+    /// y esconderlo detrás de un esqueleto sería negar algo que ya sabemos.
+    @ViewBuilder
+    private func conFuerza<Contenido: View>(@ViewBuilder _ resto: () -> Contenido) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxl) {
+            if hayFuerza {
+                fuerza.padding(.horizontal, Theme.Spacing.xl)
+            }
+            resto()
+        }
+        .padding(.bottom, Theme.Spacing.xl)
     }
 
     /// Composite identity that drives the revalidation task (erg only for Ergo).
@@ -365,30 +422,42 @@ struct AnalyticsView: View {
             // servidor emite siempre su juego de cards, y con un atleta recién
             // dado de alta todas vienen sin cifra. Eso no es una lista corta, es
             // un Vacío — y se pinta como Vacío.
+            //
+            // SALVO que la sección tenga evidencia PROPIA: la fuerza la trae el
+            // móvil, no esta llamada. Pintar «todavía no hay nada que analizar»
+            // encima de dos bloques llenos de curvas sería la app contradiciéndose.
             if AnalyticsVerdict.isBlank(loaded) {
-                emptyState(loaded)
+                if hayFuerza {
+                    conFuerza { EmptyView() }
+                } else {
+                    emptyState(loaded)
+                }
             } else {
                 loadedBody(loaded)
             }
         } else if slice.isRevalidating || !slice.hasLoaded {
             // Cold load (no cache yet) — quiet skeletons, not an empty state.
-            VStack(spacing: Theme.Spacing.m) {
-                ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+            conFuerza {
+                VStack(spacing: Theme.Spacing.m) {
+                    ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
         } else {
             // Ni caché ni respuesta: es un error, y un error lleva reintento.
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tus analíticas",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar") {
-                    Task {
-                        await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
-                    }
-                },
-                eyebrow: section.navLabel
-            )
+            conFuerza {
+                RedesignEmptyState(
+                    symbol: "arrow.clockwise",
+                    title: "No pudimos cargar tus analíticas",
+                    message: "Revisa tu conexión e inténtalo de nuevo.",
+                    exit: .action(title: "Reintentar") {
+                        Task {
+                            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
+                        }
+                    },
+                    eyebrow: section.navLabel
+                )
+            }
         }
     }
 
@@ -397,6 +466,16 @@ struct AnalyticsView: View {
             // El sujeto, primero y más grande.
             if let verdict = AnalyticsVerdict.of(loaded) {
                 verdictBlock(verdict, in: loaded)
+            }
+
+            // LA EVIDENCIA DE CAMBIO VA ANTES DEL DETALLE, Y FUERA DEL PERIODO.
+            // Un 1RM no pertenece a una ventana de siete días: es la historia
+            // entera de ese levantamiento, y colgarlo por debajo del selector
+            // diría que la obedece — que es justo lo que no hace.
+            if hayFuerza {
+                fuerza
+                    .padding(.top, Theme.Spacing.s)
+                    .padding(.bottom, Theme.Spacing.m)
             }
 
             // El periodo, a su tamaño real, justo encima de lo que califica.

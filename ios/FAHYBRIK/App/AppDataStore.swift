@@ -66,8 +66,8 @@ struct Slice<Value: Codable>: Codable {
 // weekly plan, macro progress, today's readiness, the coach thread (unread
 // count), the Dobles partner envelope, and the subscription snapshot. The
 // CARRERAS tab is now folded in too — the unified races hub (upcoming objectives
-// + past results), the race-context overview, and the live training analytics —
-// so it opens instantly from the same store/SWR/disk machinery (and its imported
+// + past results) and the race-context overview — so it opens instantly from the
+// same store/SWR/disk machinery (and its imported
 // history lives here, not in a separate cache). The CHAT tab is folded in as well
 // — its message history is cached here (the thread envelope already was), so the
 // conversation renders instantly on open and the SSE stream layers live updates
@@ -93,10 +93,9 @@ final class AppDataStore {
     // Carreras-tab slices. The races hub is the single source of truth for both
     // the PRÓXIMAS (upcoming objectives) and PASADAS (imported history) lists —
     // and the single on-disk cache for that history. The overview powers the
-    // PASADAS race-derived analytics; analytics powers the RENDIMIENTO section.
+    // PASADAS race-derived analytics.
     var racesHub = Slice<RacesHubResponse>()                // /athlete/races        — Carreras (upcoming + past)
     var raceOverview = Slice<CarrerasOverview>()            // /athlete/race-context — Carreras (PASADAS analytics)
-    var analytics = Slice<AthleteAnalytics>()               // /athlete/analytics    — Carreras (RENDIMIENTO)
 
     // ANALÍTICAS-tab cache. One slice per (section × period) — keyed by
     // "section:periodKey:from-to" — so switching to a section/period you've
@@ -177,7 +176,6 @@ final class AppDataStore {
             subscription = snapshot.subscription
             racesHub = snapshot.racesHub
             raceOverview = snapshot.raceOverview
-            analytics = snapshot.analytics
             analyticsSections = snapshot.analyticsSections
         } else {
             // Different (or no) prior session on disk — start clean.
@@ -201,7 +199,6 @@ final class AppDataStore {
         subscription = .init()
         racesHub = .init()
         raceOverview = .init()
-        analytics = .init()
         analyticsSections = [:]
     }
 
@@ -293,13 +290,17 @@ final class AppDataStore {
         _ = await (i, p, pa, s, sm)
     }
 
-    /// Carreras: the unified races hub (upcoming + past), the race-context
-    /// overview (PASADAS analytics) and the live training analytics (RENDIMIENTO).
+    /// Carreras: the unified races hub (upcoming + past) y el race-context
+    /// overview (las analíticas de PASADAS).
+    ///
+    /// Aquí colgaba una tercera llamada, `refreshAnalytics` (GET
+    /// /athlete/analytics): una analítica completa disparada en cada apertura de
+    /// Carreras cuya porción NO leía ni una pantalla del repo. Era red y batería
+    /// del atleta a cambio de nada, y se ha ido con su modelo y su servicio.
     func loadCarreras(force: Bool = false) async {
         async let r: Void = refreshRacesHub(force: force)
         async let o: Void = refreshRaceOverview(force: force)
-        async let a: Void = refreshAnalytics(force: force)
-        _ = await (r, o, a)
+        _ = await (r, o)
     }
 
     /// Chat: the message history (cache-first render) + the thread envelope (coach
@@ -509,15 +510,6 @@ final class AppDataStore {
         }
     }
 
-    func refreshAnalytics(force: Bool = false) async {
-        // StatsService.fetchAnalytics already throws on failure (and returns an
-        // honest-empty AthleteAnalytics when there's simply no data), so it slots
-        // straight into the SWR engine.
-        await revalidate(get: { self.analytics }, set: { self.analytics = $0 }, force: force) {
-            try await StatsService.fetchAnalytics(bearer: $0)
-        }
-    }
-
     // MARK: ANALÍTICAS section cache (one slice per section × period)
 
     /// Stable cache key for a (section, period[, erg]) tuple. The ergo section is
@@ -635,7 +627,6 @@ final class AppDataStore {
             subscription: subscription,
             racesHub: racesHub,
             raceOverview: raceOverview,
-            analytics: analytics,
             analyticsSections: analyticsSections
         )
         AppDataPersistence.save(snapshot)
@@ -668,7 +659,6 @@ enum AppDataPersistence {
         var subscription: Slice<SubscriptionInfo>
         var racesHub: Slice<RacesHubResponse>
         var raceOverview: Slice<CarrerasOverview>
-        var analytics: Slice<AthleteAnalytics>
         var analyticsSections: [String: Slice<AnalyticsSection>]
     }
 

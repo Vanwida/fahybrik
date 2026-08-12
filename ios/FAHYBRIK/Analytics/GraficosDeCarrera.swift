@@ -32,6 +32,10 @@ import Foundation
 struct LineaDeProgreso: View {
     let puntos: [PuntoSemana]
     var alto: CGFloat = 150
+    /// LO BUENO VA ARRIBA, se mida lo que se mida. En un ritmo o un coste lo
+    /// bueno es el número pequeño, así que el eje se invierte; en una carga o
+    /// unas repeticiones lo bueno es el grande y va del modo normal.
+    var mejorEsMenor: Bool = true
     /// Cómo se lee el valor (ritmo, VO₂máx...). La pantalla decide la unidad;
     /// este gráfico solo sabe dibujar una serie y rotularla con lo que le den.
     let formato: (Double) -> String
@@ -58,53 +62,139 @@ struct LineaDeProgreso: View {
             width: max(0, size.width - m.izquierda - m.derecha),
             height: max(0, size.height - m.arriba - m.abajo)
         )
-        guard caja.width > 0, caja.height > 0 else { return }
-
-        let valores = puntos.map(\.valor)
-        guard let minV = valores.min(), let maxV = valores.max() else { return }
-        // El margen nunca es cero aunque toda la serie sea el mismo número: sin
-        // él la línea sería un segmento pegado al borde superior o inferior.
-        let margenV = max(1, (maxV - minV) * 0.35)
-        let lo = minV - margenV
-        let hi = maxV + margenV
-
-        let x = { (i: Int) in caja.minX + (Double(i) / Double(puntos.count - 1)) * caja.width }
-        // INVERTIDO a propósito: el valor pequeño (mejor, si es ritmo) da una y
-        // pequeña, y en pantalla y pequeña es ARRIBA — no hace falta "restar de
-        // la altura", la inversión ya está en no restarla.
-        let y = { (v: Double) in caja.minY + ((v - lo) / (hi - lo)) * caja.height }
-
-        let serie = puntos.enumerated().map { i, p in CGPoint(x: x(i), y: y(p.valor)) }
-        let primero = serie[0]
-        let ultimo = serie[serie.count - 1]
-
-        // El fantasma: la altura de donde salió, cruzando toda la caja. La
-        // distancia entre esta línea y el trazo ES la mejora — cero palabras.
-        var fantasma = Path()
-        fantasma.move(to: CGPoint(x: caja.minX, y: primero.y))
-        fantasma.addLine(to: CGPoint(x: caja.maxX, y: primero.y))
-        ctx.stroke(fantasma, with: .color(Theme.Color.faint), style: StrokeStyle(lineWidth: 1, dash: [2, 5]))
-
-        ctx.stroke(trazo(serie), with: .color(Theme.Color.foreground),
-                   style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
-        // Anillo en el punto de partida: marca DÓNDE nace el fantasma, para
-        // que la línea horizontal no parezca flotar sin origen.
-        ctx.stroke(Path(ellipseIn: CGRect(x: primero.x - 3, y: primero.y - 3, width: 6, height: 6)),
-                   with: .color(Theme.Color.faint), lineWidth: 1.4)
-
-        // El punto de hoy: sólido, con un halo pintado DESPUÉS para que quede
-        // por delante del trazo y del anillo.
-        ctx.fill(Path(ellipseIn: CGRect(x: ultimo.x - 4, y: ultimo.y - 4, width: 8, height: 8)),
-                 with: .color(Theme.Color.foreground))
-        ctx.fill(Path(ellipseIn: CGRect(x: ultimo.x - 8.5, y: ultimo.y - 8.5, width: 17, height: 17)),
-                 with: .color(Theme.Color.foreground.opacity(0.16)))
+        guard let p = dibujaSerie(ctx, caja: caja, valores: puntos.map(\.valor),
+                                  mejorEsMenor: mejorEsMenor, grosor: 2, radioUltimo: 4)
+        else { return }
 
         // Los ejes: dos cifras nada más, a la altura exacta del mejor y del
         // peor valor, pegadas al borde izquierdo del lienzo (no de la caja).
-        etiqueta(ctx, formato(minV), at: CGPoint(x: 0, y: y(minV)), anchor: .leading)
-        etiqueta(ctx, formato(maxV), at: CGPoint(x: 0, y: y(maxV)), anchor: .leading)
+        etiqueta(ctx, formato(p.minV), at: CGPoint(x: 0, y: p.y(p.minV)), anchor: .leading)
+        etiqueta(ctx, formato(p.maxV), at: CGPoint(x: 0, y: p.y(p.maxV)), anchor: .leading)
     }
+}
+
+// MARK: - CurvaCompacta — la misma línea, del tamaño de una fila
+
+/// CUANDO LA PREGUNTA SE REPITE POR N SUJETOS —seis levantamientos, cuatro
+/// tests—, la respuesta no son seis gráficos a pantalla completa apilados: es la
+/// misma tinta a escala de fila, que es como se leen varias series de una ojeada
+/// sin perder ninguna.
+///
+/// Comparte el trazo, el fantasma y el punto de hoy con `LineaDeProgreso` — no
+/// los reimplementa: si divergieran, dos gráficos de la misma app estarían
+/// contando lo mismo con dos tintas distintas.
+///
+/// Lo único que pierde son los ejes, y a propósito: a esta altura dos cifras no
+/// caben sin taparle el paso al trazo, y la fila que la aloja ya lleva el número
+/// encima. Lo que NO pierde es el fantasma — ahí está la mejora.
+struct CurvaCompacta: View {
+    let valores: [Double]
+    /// Un ritmo mejora bajando y una carga subiendo; lo bueno va arriba en las dos.
+    var mejorEsMenor: Bool = false
+    /// Suficiente para que la distancia entre el fantasma y el trazo SE VEA. Por
+    /// debajo de esto los dos se pegan y la mejora deja de leerse, que es lo
+    /// único que este gráfico existe para enseñar.
+    var alto: CGFloat = 58
+
+    /// Aire para que el halo del punto de hoy no se recorte contra el borde.
+    private static let margen = 9.0
+
+    var body: some View {
+        if valores.count < 2 {
+            EmptyView()
+        } else {
+            Canvas(rendersAsynchronously: false) { ctx, size in
+                let caja = CGRect(
+                    x: Self.margen, y: Self.margen,
+                    width: max(0, size.width - Self.margen * 2),
+                    height: max(0, size.height - Self.margen * 2)
+                )
+                _ = dibujaSerie(ctx, caja: caja, valores: valores,
+                                mejorEsMenor: mejorEsMenor, grosor: 1.6, radioUltimo: 2.8)
+            }
+            .frame(height: alto)
+            // La fila que la aloja lleva la lectura entera; una curva sin ejes no
+            // tiene nada propio que decirle a VoiceOver.
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// La proyección de una serie ya dibujada, para que quien tenga ejes los rotule.
+private struct SerieProyectada {
+    let y: (Double) -> Double
+    let minV: Double
+    let maxV: Double
+}
+
+/// EL TRAZO DE UNA SERIE, ESCRITO UNA SOLA VEZ: fantasma en la altura de
+/// partida, línea, anillo de origen y punto de hoy con halo. Devuelve `nil` en
+/// los casos degenerados (caja sin área, menos de dos puntos) en vez de romper
+/// el eje o dibujar un NaN.
+private func dibujaSerie(
+    _ ctx: GraphicsContext,
+    caja: CGRect,
+    valores: [Double],
+    mejorEsMenor: Bool,
+    grosor: CGFloat,
+    radioUltimo: CGFloat
+) -> SerieProyectada? {
+    guard caja.width > 0, caja.height > 0, valores.count >= 2,
+          let minV = valores.min(), let maxV = valores.max() else { return nil }
+
+    // El margen nunca es cero aunque toda la serie sea el mismo número: sin él
+    // la línea sería un segmento pegado al borde superior o inferior.
+    let margenV = max(1, (maxV - minV) * 0.35)
+    let lo = minV - margenV
+    let hi = maxV + margenV
+
+    let x = { (i: Int) in caja.minX + (Double(i) / Double(valores.count - 1)) * caja.width }
+    // Con `mejorEsMenor` el eje va INVERTIDO: el valor pequeño (mejor, si es
+    // ritmo) da una y pequeña, y en pantalla una y pequeña es ARRIBA — la
+    // inversión está en NO restar de la altura. Con una carga se resta, y lo
+    // bueno vuelve a quedar arriba.
+    let y = { (v: Double) -> Double in
+        let t = (v - lo) / (hi - lo)
+        return caja.minY + (mejorEsMenor ? t : 1 - t) * caja.height
+    }
+
+    let serie = valores.enumerated().map { i, v in CGPoint(x: x(i), y: y(v)) }
+    let primero = serie[0]
+    let ultimo = serie[serie.count - 1]
+
+    // El fantasma: la altura de donde salió, cruzando toda la caja. La distancia
+    // entre esta línea y el trazo ES la mejora — cero palabras.
+    var fantasma = Path()
+    fantasma.move(to: CGPoint(x: caja.minX, y: primero.y))
+    fantasma.addLine(to: CGPoint(x: caja.maxX, y: primero.y))
+    ctx.stroke(fantasma, with: .color(Theme.Color.faint), style: StrokeStyle(lineWidth: 1, dash: [2, 5]))
+
+    ctx.stroke(trazo(serie), with: .color(Theme.Color.foreground),
+               style: StrokeStyle(lineWidth: grosor, lineCap: .round, lineJoin: .round))
+
+    // Anillo en el punto de partida: marca DÓNDE nace el fantasma, para que la
+    // línea horizontal no parezca flotar sin origen.
+    let radioOrigen = radioUltimo * 0.75
+    ctx.stroke(
+        Path(ellipseIn: CGRect(x: primero.x - radioOrigen, y: primero.y - radioOrigen,
+                               width: radioOrigen * 2, height: radioOrigen * 2)),
+        with: .color(Theme.Color.faint), lineWidth: grosor * 0.7
+    )
+
+    // El punto de hoy: sólido, con un halo pintado DESPUÉS para que quede por
+    // delante del trazo y del anillo.
+    ctx.fill(
+        Path(ellipseIn: CGRect(x: ultimo.x - radioUltimo, y: ultimo.y - radioUltimo,
+                               width: radioUltimo * 2, height: radioUltimo * 2)),
+        with: .color(Theme.Color.foreground)
+    )
+    let halo = radioUltimo * 2.125
+    ctx.fill(
+        Path(ellipseIn: CGRect(x: ultimo.x - halo, y: ultimo.y - halo, width: halo * 2, height: halo * 2)),
+        with: .color(Theme.Color.foreground.opacity(0.16))
+    )
+
+    return SerieProyectada(y: y, minV: minV, maxV: maxV)
 }
 
 // MARK: - BarrasSemanales — kilómetros por semana, sin juicio

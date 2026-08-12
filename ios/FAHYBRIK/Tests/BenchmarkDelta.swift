@@ -22,14 +22,24 @@ enum BenchmarkDelta {
 
     /// "22:14" · "1:02:40" · "142.5 kg" · "32 bpm" · "850 m" · "24 reps" · "18 cal"
     static func valueLabel(unit: String, value: Double) -> String {
+        let p = split(unit: unit, value: value)
+        return p.unidad.isEmpty ? p.cifra : "\(p.cifra) \(p.unidad)"
+    }
+
+    /// La misma lectura, PARTIDA — la cifra por un lado y su unidad por otro.
+    /// La necesita cualquier titular que componga las dos con tipografías
+    /// distintas (mono grande + versalita pequeña, como en las analíticas), y
+    /// vive aquí para que no haya un segundo sitio decidiendo qué unidad lleva
+    /// un kg. Un tiempo no tiene unidad suelta: «22:14» ya la dice.
+    static func split(unit: String, value: Double) -> (cifra: String, unidad: String) {
         switch unit {
-        case "seconds":  return timeLabel(Int(value.rounded()))
-        case "kg":       return "\(trimmed(value)) kg"
-        case "bpm":      return "\(Int(value.rounded())) \(Vocab.ppm)"
-        case "meters":   return "\(Int(value.rounded())) m"
-        case "reps":     return "\(Int(value.rounded())) reps"
-        case "calories": return "\(Int(value.rounded())) cal"
-        default:         return trimmed(value)
+        case "seconds":  return (timeLabel(Int(value.rounded())), "")
+        case "kg":       return (trimmed(value), "kg")
+        case "bpm":      return ("\(Int(value.rounded()))", Vocab.ppm)
+        case "meters":   return ("\(Int(value.rounded()))", "m")
+        case "reps":     return ("\(Int(value.rounded()))", "reps")
+        case "calories": return ("\(Int(value.rounded()))", "cal")
+        default:         return (trimmed(value), "")
         }
     }
 

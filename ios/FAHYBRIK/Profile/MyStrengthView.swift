@@ -9,6 +9,13 @@ import SwiftUI
 // state with a retry when the fetch fails. The 1RM shown is always the SERVER's
 // stored value — the register sheet shows an instant Epley preview, but the
 // authoritative number comes back from the backend.
+//
+// AQUÍ SE QUEDA QUIÉN ERES, NO CÓMO HAS CAMBIADO. La evolución de cada 1RM
+// (curva + delta) vivía en esta pantalla, tres toques por debajo de Perfil, que
+// es donde nadie va a preguntarse si está progresando. Se ha ido a Analíticas ›
+// Fuerza, que es la pestaña que existe para esa pregunta — la misma regla que
+// puso el VO₂máx en Analíticas dejando su número en Perfil. Lo que queda aquí es
+// el peso de hoy, que es el que gobierna los porcentajes del próximo entreno.
 struct MyStrengthView: View {
     let bearer: String?
     /// FREE tier switch (athlete without coach) — the register-test note must
@@ -71,47 +78,45 @@ struct MyStrengthView: View {
     // MARK: - Intro
 
     private var intro: some View {
-        Text("Tu fuerza máxima por levantamiento. Cuando un entreno te pide un % de tu 1RM, este es el peso real que te toca.")
-            .scaledFont(13, relativeTo: .footnote)
-            .foregroundStyle(Theme.Color.muted)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Tu fuerza máxima por levantamiento. Cuando un entreno te pide un % de tu 1RM, este es el peso real que te toca.")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            // Lo que se llevó Analíticas se dice, y se dice dónde: una pantalla
+            // que pierde una lectura sin decir a dónde fue la deja huérfana.
+            Text("Cómo ha ido subiendo cada uno, en Analíticas · Fuerza.")
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.faint)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: - Lift card
 
     private func liftCard(_ m: StrengthMaxProfile) -> some View {
         CardSurface(padding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header: lift + current 1RM, with the source test/date below.
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(m.exerciseLabel)
-                            .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        if let sub = sourceSubtitle(m) {
-                            Text(sub)
-                                .scaledFont(11, relativeTo: .caption2)
-                                .foregroundStyle(Theme.Color.faint)
-                        }
+            // El levantamiento y su peso de hoy, con el origen del número debajo.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(m.exerciseLabel)
+                        .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+                        .foregroundStyle(Theme.Color.foreground)
+                    if let sub = sourceSubtitle(m) {
+                        Text(sub)
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.faint)
                     }
-                    Spacer(minLength: 8)
-                    Text(m.oneRmLabel)
-                        .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.accentText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 13)
-                .padding(.bottom, 11)
-
-                // Evolution: sparkline + prev→current + delta, only when there
-                // are at least two versions to compare.
-                if let evo = evolution(m) {
-                    Hairline()
-                    evolutionRow(evo)
-                }
+                Spacer(minLength: 8)
+                Text(m.oneRmLabel)
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
         }
     }
 
@@ -131,59 +136,6 @@ struct MyStrengthView: View {
             parts.append(origin)
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    // MARK: - Evolution
-
-    /// Chronological 1RM series (oldest→newest) + prev/current for the delta.
-    /// Merges `history` with the current top-level max, keyed by version so a
-    /// history that does — or doesn't — include the current version both work.
-    private struct Evolution {
-        let values: [Double]
-        let previous: Double
-        let current: Double
-        var delta: Double { current - previous }
-    }
-
-    private func evolution(_ m: StrengthMaxProfile) -> Evolution? {
-        var byVersion: [Int: Double] = [:]
-        for p in m.history { byVersion[p.version] = p.oneRmKg }
-        if let v = m.version { byVersion[v] = m.oneRmKg }
-        let series = byVersion.sorted { $0.key < $1.key }.map { $0.value }
-        guard series.count >= 2 else { return nil }
-        return Evolution(values: series, previous: series[series.count - 2], current: series[series.count - 1])
-    }
-
-    private func evolutionRow(_ evo: Evolution) -> some View {
-        HStack(spacing: 12) {
-            StrengthSparkline(values: evo.values)
-                .frame(width: 64, height: 28)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Evolución")
-                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-                Text("\(Int(evo.previous.rounded())) → \(Int(evo.current.rounded())) kg")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            Spacer(minLength: 8)
-            deltaBadge(evo.delta)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Evolución, de \(Int(evo.previous.rounded())) a \(Int(evo.current.rounded())) kilos")
-    }
-
-    /// "+5 kg" green / "-3 kg" red / "0 kg" muted — direction at a glance.
-    private func deltaBadge(_ delta: Double) -> some View {
-        let rounded = Int(delta.rounded())
-        let color: Color = rounded > 0 ? Theme.Color.ok : (rounded < 0 ? Theme.Color.danger : Theme.Color.muted)
-        let sign = rounded > 0 ? "+" : ""
-        return Text("\(sign)\(rounded) kg")
-            .font(.system(size: 12, weight: .bold, design: .monospaced).monospacedDigit())
-            .foregroundStyle(color)
     }
 
     // MARK: - Empty / error states
@@ -222,52 +174,6 @@ struct MyStrengthView: View {
             failed = true
         }
         loading = false
-    }
-}
-
-// A minimal line sparkline over a lift's 1RM history (oldest→newest). Drawn in
-// the brand accent with a trailing dot on the latest value; decorative, so the
-// row carries the accessible label. A tiny vertical inset keeps the stroke and
-// dot from clipping at the frame edges.
-private struct StrengthSparkline: View {
-    let values: [Double]
-
-    var body: some View {
-        GeometryReader { geo in
-            let pts = points(in: geo.size)
-            ZStack {
-                Path { path in
-                    guard let first = pts.first else { return }
-                    path.move(to: first)
-                    for pt in pts.dropFirst() { path.addLine(to: pt) }
-                }
-                .stroke(
-                    Theme.Color.accentText,
-                    style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
-                )
-                if let last = pts.last {
-                    Circle()
-                        .fill(Theme.Color.accentText)
-                        .frame(width: 4, height: 4)
-                        .position(last)
-                }
-            }
-        }
-    }
-
-    private func points(in size: CGSize) -> [CGPoint] {
-        guard values.count > 1 else { return [] }
-        let inset: CGFloat = 3
-        let minV = values.min() ?? 0
-        let maxV = values.max() ?? 1
-        let range = max(maxV - minV, 0.0001)
-        let usableH = max(size.height - inset * 2, 1)
-        let stepX = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { index, value in
-            let x = CGFloat(index) * stepX
-            let y = inset + (usableH - CGFloat((value - minV) / range) * usableH)
-            return CGPoint(x: x, y: y)
-        }
     }
 }
 
