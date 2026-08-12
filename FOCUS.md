@@ -5,6 +5,37 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · El chat contextual — propuesta en el doble, esperando visto bueno (12-ago)
+
+Encargo de Alex: que el atleta pueda escribir sobre algo (el entreno de hoy, tal
+ejercicio) con un clic, **y la parte difícil declarada por él: que no haya un
+iconito extra molestando en cada cosa contextualizable. Si no se puede sin
+ensuciar, no se hace.**
+
+Elegido por él en el selector: **cero pixeles nuevos**. Así que el contexto entra
+por sitios que YA existen — el «+» del compositor (puerta descubrible) y los
+menús de pulsación larga (atajo). La única superficie nueva es la hoja de
+«¿sobre qué entreno?», y solo aparece si la pides.
+
+- **Propuesta viva:** `/es/design/chat-contexto` (7 guiones: el atajo, la
+  puerta, elegir, puesto, enviado, y el caso fino del ejercicio dentro del
+  entreno). Commit `60dda67e`.
+- **Dato:** referencia TIPADA en `chat_messages` (`context_kind` session |
+  exercise | race + `ref` + `sub` + `label`), con la etiqueta escrita por el
+  SERVIDOR — un solo rotulador para iOS, el dashboard y el push. Detalle y
+  descartes en `docs/DECISIONS.md` 12-ago «El chat aprende SOBRE QUÉ va».
+- **Declarado, no escondido:** desde el resumen post-entreno, el detalle de
+  carrera, el detalle de ejercicio y un comunicado siguen siendo TRES toques
+  (salir → «+» → elegir), porque esas pantallas no tienen ni menú ni puerta al
+  chat y con cero controles nuevos no se puede arreglar. El comunicado tipo
+  *pregunta* se queda fuera a propósito: ya se responde en su sitio
+  (`ComunicadoPreguntaView`), y dos vías para la misma respuesta es peor.
+
+**Siguiente:** su visto bueno sobre la propuesta antes de tocar Swift. iOS aún
+NO lleva nada de esto.
+
+---
+
 ## Ahora · La pestaña Plan estrena cabecera con dato y el ciclo es un camino (12-ago)
 
 Directiva de Alex (11-ago): la cabecera del Plan salía vacía, el ciclo debía

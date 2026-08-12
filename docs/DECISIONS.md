@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · El chat aprende SOBRE QUÉ va el mensaje — y no gasta un icono en cada cosa
+
+**El encargo, con su restricción dentro.** Que el atleta pueda escribir sobre algo (el entreno de hoy, tal ejercicio) con un clic. Y textual de Alex: *«la parte difícil que te pongo no es el código en sí, sino que no haya un iconito extra que moleste en cada cosa que se pueda contextualizar. Si es así, prefiero no ensuciar la UI y no hacerlo.»* Eso convierte el coste en pantalla en el criterio de aceptación, no en un detalle de acabado.
+
+**El estado de partida (leído, no supuesto).** El chat es UN hilo por atleta, con adjunto tipado de pleno derecho (`attachment_url`/`kind`/`meta`) y CERO noción de sujeto: ni `about`, ni `reply_to`, ni `subject` en `ChatMessageDTO` (`ios/FAHYBRIK/Chat/ChatService.swift:33`) ni en `sendMessageSchema` (`web/lib/chat/schema.ts`). Y no hay ninguna puerta al chat desde dentro del detalle de un entreno, de un ejercicio, de un test ni de una carrera: el chat vive en cuatro cromos de raíz y en dos estados vacíos. El coste real de eso es un turno entero de conversación gastado en «¿de qué bloque me hablas?».
+
+**Decidido — el contexto es un ADJUNTO, no un control nuevo.** Alex eligió (selector) la variante de **cero pixeles nuevos**, así que:
+- **Puerta descubrible: el «+» del compositor**, que ya era la única entrada a «qué le añado a este mensaje» (voz, foto, vídeo, archivo). Gana una fila, **al final** para no mover la memoria muscular, y el título del diálogo pasa de «Adjuntar» a «Añadir al mensaje», que es lo que ahora cubre.
+- **Atajo: los menús de pulsación larga que YA existen** — la sesión del día (`PlanView.swift:315`), el carril de días (`PlanHoyAtoms.swift:98`) y la tarjeta de carrera (`CarrerasView.swift:475`). Una fila más, «Preguntar al coach», cero alto.
+- **Las filas de ejercicio de la ficha previa** estrenan `contextMenu` (hoy no tienen ninguno): un menú de pulsación larga no ocupa pantalla. Es ATAJO, nunca la vía principal, porque una pulsación larga a secas no se descubre — el propio código de carreras ya documenta por qué hace falta doble discoverability.
+- **La única superficie nueva** es la hoja «¿sobre qué entreno?», y solo se ve si el atleta la pide.
+
+**Decidido — la referencia es TIPADA y la etiqueta la escribe el servidor.** En `chat_messages`, columnas planas y nullables (migración **0186**): `context_kind` ∈ ('session','exercise','race') + `context_ref` (el ancla navegable) + `context_sub` (solo con kind='session': el ejercicio DENTRO de ese entreno) + `context_label` (sello legible congelado). Semántica sin ambigüedad: `session` = assignment (con `sub`, «el back squat DE ese entreno»; sin `sub`, el entreno entero), `exercise` = el ejercicio del catálogo en abstracto, `race` = la carrera. Reglas que son mecanismo, no gusto: **la etiqueta la deriva el servidor** (que ya carga la entidad para validar la propiedad) con UN solo rotulador para la burbuja de iOS, la del dashboard y el push; **la propiedad se valida siempre** y lo inexistente y lo ajeno devuelven la MISMA respuesta; y **una referencia sin pregunta es ruido** — un mensaje con contexto exige body o adjunto. La tarjeta viaja DENTRO de la burbuja, no como mensaje aparte: suelta, el hilo se llena de tarjetas huérfanas que el coach tiene que emparejar a ojo con la pregunta de al lado.
+
+**Por qué no texto libre en el `body`.** Falla los tres filtros de un campo bien puesto: el coach no puede abrir la cosa desde la burbuja, la IA no sabe de qué se habla, y las analíticas no pueden contar qué entrenos generan preguntas. Y por qué el servidor y no el cliente: si la etiqueta la manda el móvil, hay dos redactores del mismo texto y divergen el día que uno se toca.
+
+**En consecuencia, no hacer:** no añadir un icono de «preguntar» por elemento contextualizable — es exactamente lo que se descartó, y a plena vista. No crear un segundo hilo, ni sub-hilos, ni un filtro «solo lo de este entreno»: sigue habiendo UN chat (2026-07-26, «El chat es UNO»). No dejar que el cliente escriba `context_label`. No permitir `context_sub` con kind ≠ 'session'. No abrir una segunda vía de respuesta para un comunicado tipo *pregunta*: ese ya se responde en su sitio (`ComunicadoPreguntaView`), y dos caminos para la misma respuesta es peor que uno.
+
+**Lo que se acepta como coste, declarado:** el resumen post-entreno, el detalle de carrera, el detalle de ejercicio y un comunicado no tienen menú ni puerta al chat, así que desde ahí son TRES toques (salir → «+» → elegir) en vez de uno. Con cero controles nuevos no hay arreglo posible. Si algún día se ve que ahí duele, el arreglo correcto es llevar la puerta del chat al cromo de esas pantallas (una vez por pantalla, el mismo icono que ya vive en cuatro cromos) y NO un icono por cosa.
+
+**Dónde vive:** propuesta en el doble `web/components/design-twin/screens/chat-contexto/` (7 guiones), con el chip y la tarjeta en las piezas COMUNES del chat (`screens/chat-coach/piezas.tsx`) porque la burbuja es compartida. Dato y validación: `infra/migrations/0186_*`, `web/lib/chat/`. iOS: pendiente del visto bueno de Alex, todavía sin escribir.
+
+---
+
 ## 2026-08-12 (madrugada) · El mapa de la ruta SÍ sale limpio — el puente tiempo↔posición es la distancia, no un reloj
 
 **Declarado fuera de alcance dos veces antes de esta.** Primero por un campo que faltaba (`route_polyline` no llegaba a `CoachSessionDetail`, ya resuelto esta misma noche). Después por dos huecos reales que parecían más serios: (a) no existía decodificador de polilínea en el repo, solo un contador de puntos (`polylinePointCount`); (b) el mapa del mockup (`carrera-en-el-panel.html` §09) colorea por la zona de ritmo del atleta, y esas bandas no viajaban en ningún payload. La instrucción explícita, la tercera vez: si al mirarlo de verdad no salía limpio, decirlo y cerrarlo con Alex — nunca construir un mapa que enseñe menos que el que el atleta ya tiene en el móvil.
