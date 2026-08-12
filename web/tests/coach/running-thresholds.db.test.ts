@@ -30,17 +30,26 @@ describeWithDb('resolveEffectiveRunningThresholds vs coach_running_thresholds re
 
   test('con fila del coach: sus números mandan, no una mezcla parcial', async () => {
     await sql`
-      insert into coach_running_thresholds (coach_id, min_reps_per_position, min_series_for_calibration, freshness_alert_tsb)
-      values (${coachId}, 5, 30, -12)
+      insert into coach_running_thresholds (
+        coach_id, min_reps_per_position, min_series_for_calibration, freshness_alert_tsb, min_pairs_for_compromised_trend
+      )
+      values (${coachId}, 5, 30, -12, 6)
     `;
     const res = await resolveEffectiveRunningThresholds(coachId, sql);
-    expect(res).toEqual({ min_reps_per_position: 5, min_series_for_calibration: 30, freshness_alert_tsb: -12 });
+    expect(res).toEqual({
+      min_reps_per_position: 5,
+      min_series_for_calibration: 30,
+      freshness_alert_tsb: -12,
+      min_pairs_for_compromised_trend: 6,
+    });
   });
 
   test('un valor fuera de rango lo rechaza la propia tabla (CHECK), no el resolutor', async () => {
     await expect(
-      sql`insert into coach_running_thresholds (coach_id, min_reps_per_position, min_series_for_calibration, freshness_alert_tsb)
-          values (${coachId}, 1, 30, -12)`, // 1 < mínimo permitido (2)
+      sql`insert into coach_running_thresholds (
+            coach_id, min_reps_per_position, min_series_for_calibration, freshness_alert_tsb, min_pairs_for_compromised_trend
+          )
+          values (${coachId}, 1, 30, -12, 4)`, // 1 < mínimo permitido (2)
     ).rejects.toThrow();
   });
 });

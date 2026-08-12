@@ -33,6 +33,10 @@ export interface CoachRunningThresholds {
   /** TSB igual o por debajo del cual el panel de carga dice "está
    *  apretando". Negativo por naturaleza. */
   freshness_alert_tsb: number;
+  /** Comparaciones (semana × banda, con fresco Y fatigado) mínimas para que
+   *  la curva de "carrera comprometida" se dé por buena — ver
+   *  `shared/domain/running/compromised-pace.ts`. */
+  min_pairs_for_compromised_trend: number;
 }
 
 // ── Límites (con nombre, no mágicos — se repiten como CHECKs en la tabla) ─────
@@ -43,6 +47,8 @@ export const RUNNING_THRESHOLD_MIN_SERIES_MIN = 5;
 export const RUNNING_THRESHOLD_MIN_SERIES_MAX = 200;
 export const RUNNING_THRESHOLD_FRESHNESS_ALERT_MIN = -50;
 export const RUNNING_THRESHOLD_FRESHNESS_ALERT_MAX = 0;
+export const RUNNING_THRESHOLD_MIN_PAIRS_MIN = 2;
+export const RUNNING_THRESHOLD_MIN_PAIRS_MAX = 50;
 
 /**
  * Los defectos del sistema, servidos mientras el coach no haya escrito su
@@ -55,11 +61,14 @@ export const RUNNING_THRESHOLD_FRESHNESS_ALERT_MAX = 0;
  *   - −8 de frescura para el aviso: más exigente que el "cargado" general
  *     (−10, `athlete-deep-dive.ts`) porque ésta es una alerta específica de
  *     carrera, pensada para avisar antes de que el "cargado" general salte.
+ *   - 4 comparaciones mínimas para la curva de correr cansado: con menos,
+ *     una mejora real y el ruido de dos sesiones sueltas se leen igual.
  */
 export const DEFAULT_COACH_RUNNING_THRESHOLDS: CoachRunningThresholds = {
   min_reps_per_position: 3,
   min_series_for_calibration: 20,
   freshness_alert_tsb: -8,
+  min_pairs_for_compromised_trend: 4,
 };
 
 /** Los defectos, en copia fresca (quien llama puede esparcir y mutar). */

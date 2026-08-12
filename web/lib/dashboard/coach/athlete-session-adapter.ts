@@ -66,6 +66,12 @@ export interface CoachSessionDetail {
     rpe: number | null;
     athlete_notes: string | null;
     ended_at: string | null;
+    /** El ancla temporal del eje — SEGUNDOS DESDE AQUÍ es lo que mide
+     *  `trace.display_curve.offsets_s`. Sin esto no hay dónde colgar la
+     *  sombra de un tramo ni la franja de lo pedido sobre la curva. NO es
+     *  sustituible por `prior_work_s` (suma de duraciones previas, un proxy
+     *  de fatiga que se equivoca en cuanto hay un hueco entre bloques). */
+    started_at: string | null;
     /** Metcon/HYROX headline result, pre-formatted ("42:15", "5 rondas + 8 reps").
      *  Null for non-scored formats or when the athlete didn't record a score. */
     score_label: string | null;
@@ -76,6 +82,22 @@ export interface CoachSessionDetail {
     pain_area: string | null;
     /** Optional free-text detail on the discomfort, null when none. */
     pain_note: string | null;
+    /** #64 — la traza GPS de la carrera al aire libre, codificada; null cuando la
+     *  sesión no fue outdoor. Ya vivía en el cargador del atleta y se excluía
+     *  aquí al copiar campo a campo — se incluye aunque el mapa no se pinte
+     *  todavía, para que la siguiente tanda no se bloquee por esto. */
+    route_polyline: string | null;
+    /** Las tres columnas de la 0154 (measured-header.ts, calculadas al llegar
+     *  la traza). Null cuando la sesión no tiene traza o no cumple el mínimo
+     *  de cada cálculo. `elevation_loss_m` viaja junto a `elevation_gain_m`
+     *  porque las calcula la misma función, sobre la misma traza. */
+    elevation_gain_m: number | null;
+    elevation_loss_m: number | null;
+    hr_recovery_60_bpm: number | null;
+    /** Deriva cardiaca (Pa:HR), en PORCENTAJE — el motor no produce s/km de
+     *  deriva; el copy de "+N s/km" del mockup no tiene número real detrás,
+     *  y no se inventa uno aquí (Alex, 12-ago). */
+    decoupling_pct: number | null;
     /** El corte por kilómetro (fidelidad completa) + la curva de ritmo/pulso
      *  reducida solo para dibujar — mismo contrato que sirve al atleta (ver
      *  AssignmentDetailTrace). `available: false` = sesión sin traza guardada. */

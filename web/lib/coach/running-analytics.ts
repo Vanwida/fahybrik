@@ -13,17 +13,28 @@ import 'server-only';
 //   · VOLUMEN — kilómetros por semana (`./running-volume.ts`, ya construido).
 //   · CARGA — fondo/reciente/frescura con el veredicto delante (shared/
 //     domain/training-load/load-verdict.ts).
+//   · CARRERA COMPROMETIDA — «lo que le cuesta correr cansado» (shared/
+//     domain/running/compromised-pace.ts). Reusa `classifyEffort`
+//     (shared/domain/race-transfer) — el mismo mecanismo fresco/fatigado que
+//     ya usa el cruce carrera×entreno — para no tener dos criterios que
+//     puedan divergir.
 //
 // CALIBRACIÓN Y HUELLA comparten la MISMA ventana y la MISMA fuente: el
 // mockup las presenta bajo un único encabezado, «Cómo corre · últimas 4
 // semanas» (§05), así que se recorren las sesiones UNA vez y se reparte lo
 // que sale de cada una — no dos consultas preguntando lo mismo.
 //
-// "CARRERA COMPROMETIDA" (mockup §05, tercera tarjeta) NO se construye en
-// este lote: verificado contra producción (10-ago-2026) que sólo existe UNA
-// ejecución con trabajo previo a una serie de carrera, y esa fila ni
-// siquiera tiene ritmo medio — muy por debajo del propio mínimo del mockup
-// (4 parejas). Ver docs/DECISIONS.md.
+// CARRERA COMPROMETIDA recorre una ventana APARTE y más larga
+// (`COMPROMISED_WINDOW_WEEKS`): busca parejas (misma banda, fresco Y
+// fatigado) que son raras por construcción, así que necesita más historial
+// para que se acumulen. Corrección de diseño (Alex/team-lead, 12-ago): la
+// primera versión de este módulo declaraba esta tarjeta "no construida" por
+// falta de parejas en la base — pero esa base es de demostración, y que un
+// seed pobre no traiga parejas no dice nada sobre si el MECANISMO vale. La
+// pregunta correcta era si el esquema permite responder la pregunta, y sí:
+// `segment_executions.context_format`/`prior_work_s` (migración 0120) ya lo
+// permiten, y `classifyEffort` ya lo resuelve para el cruce carrera×entreno.
+// SIN VALIDAR TODAVÍA CONTRA CARRERAS REALES — ver docs/DECISIONS.md.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -31,6 +42,8 @@ import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { loadSegmentActuals } from '@/lib/dashboard/coach/session-actuals';
 import { buildRunCompliance } from '@/lib/dashboard/coach/run-compliance';
 import { getLoadSummary } from '@/lib/training-load';
+import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { CTL_DECAY_DAYS } from '@fahybrid/shared/domain/training-load/banister';
 import { resolveEffectiveRunningThresholds } from './running-thresholds';
 import { loadWeeklyRunVolume, type WeeklyRunVolumePayload } from './running-volume';
@@ -46,6 +59,11 @@ import {
   type PacingShapeSummary,
   type PacingShapeVerdict,
 } from '@fahybrid/shared/domain/running/pacing-shape';
+import {
+  buildCompromisedPaceTrend,
+  type CompromisedPaceTrend,
+  type CompromisedRunObservation,
+} from '@fahybrid/shared/domain/running/compromised-pace';
 import { buildRunningLoadReading, type RunningLoadReading } from '@fahybrid/shared/domain/training-load/load-verdict';
 import type { CoachRunningThresholds } from '@fahybrid/shared/domain/coach/running-thresholds';
 
@@ -53,6 +71,13 @@ import type { CoachRunningThresholds } from '@fahybrid/shared/domain/coach/runni
  *  literal del mockup (§05, ui-cap). No es método del coach: es cuánta
  *  sesión reciente entra en "cómo corre AHORA", no un umbral de juicio. */
 export const RUNNING_ANALYTICS_DEFAULT_WINDOW_WEEKS = 4;
+
+/** Semanas hacia atrás para "carrera comprometida" — busca parejas RARAS
+ *  (misma banda, fresco y fatigado) y necesita más margen que calibración/
+ *  huella para que se acumulen sin forzar nada. Tampoco es método del coach:
+ *  es cuánto histórico se recorre para BUSCAR, no un umbral de juicio (ese
+ *  es `min_pairs_for_compromised_trend`). */
+export const COMPROMISED_WINDOW_WEEKS = 12;
 
 export interface RunningAnalyticsPayload {
   athlete_id: string;
@@ -63,6 +88,10 @@ export interface RunningAnalyticsPayload {
   pacing_shape: PacingShapeSummary;
   volume: WeeklyRunVolumePayload;
   load: RunningLoadReading;
+  /** «Lo que le cuesta correr cansado» — sin validar todavía contra
+   *  carreras reales (docs/DECISIONS.md, 12-ago). Recorre
+   *  `COMPROMISED_WINDOW_WEEKS`, no `window_weeks`. */
+  compromised: CompromisedPaceTrend;
   /** Los umbrales del coach REALMENTE usados para calcular `calibration` y
    *  `load.is_alert` — para que la pantalla pueda decir "método: 20 series"
    *  sin volver a resolverlos. */
@@ -82,12 +111,13 @@ export async function buildRunningAnalytics(args: {
   const window_weeks = Math.max(1, Math.trunc(args.window_weeks ?? RUNNING_ANALYTICS_DEFAULT_WINDOW_WEEKS));
   const since = new Date(now.getTime() - window_weeks * 7 * 24 * 60 * 60 * 1000);
 
-  const [thresholds, sessions, loadSummary, firstDayIso, volume] = await Promise.all([
+  const [thresholds, sessions, loadSummary, firstDayIso, volume, compromisedObservations] = await Promise.all([
     resolveEffectiveRunningThresholds(args.coach_id, client),
     loadQualifyingRunSessions(client, args.athlete_id, since, now),
     getLoadSummary({ athlete_id: args.athlete_id, on_date: now, client }),
     loadFirstActivityDate(client, args.athlete_id),
     loadWeeklyRunVolume({ athlete_id: args.athlete_id, weeks: args.volume_weeks, now, client }),
+    loadCompromisedPaceObservations(client, args.athlete_id, now),
   ]);
 
   const calibrationObservations: CalibrationObservation[] = [];
@@ -140,6 +170,10 @@ export async function buildRunningAnalytics(args: {
     freshness_alert_tsb: thresholds.freshness_alert_tsb,
   });
 
+  const compromised = buildCompromisedPaceTrend(compromisedObservations, {
+    min_pairs_for_trend: thresholds.min_pairs_for_compromised_trend,
+  });
+
   return {
     athlete_id: String(args.athlete_id),
     generated_at_iso: now.toISOString(),
@@ -148,6 +182,7 @@ export async function buildRunningAnalytics(args: {
     pacing_shape,
     volume,
     load,
+    compromised,
     thresholds,
   };
 }
@@ -188,4 +223,100 @@ async function loadFirstActivityDate(client: Sql, athlete_id: number): Promise<s
     where we.athlete_id = ${athlete_id}
   `;
   return rows[0]?.first_day ?? null;
+}
+
+/**
+ * Observaciones para "carrera comprometida": tramos de trabajo con banda de
+ * RITMO real, con su semana, `context_format` y `prior_work_s` — lo mínimo
+ * para que `classifyEffort` (race-transfer) los clasifique fresco/fatigado y
+ * `buildCompromisedPaceTrend` los empareje por banda.
+ *
+ * Recorre `loadQualifyingRunSessions` con la ventana LARGA
+ * (`COMPROMISED_WINDOW_WEEKS`), no la de calibración/huella — puede repetir
+ * sesiones que YA pasaron por el bucle principal si caen dentro de las dos
+ * ventanas; es aceptable (buildRunCompliance es puro y barato) a cambio de
+ * no entrelazar esta lectura, todavía sin validar contra datos reales, con
+ * la que ya está verificada.
+ */
+async function loadCompromisedPaceObservations(
+  client: Sql,
+  athlete_id: number,
+  now: Date,
+): Promise<CompromisedRunObservation[]> {
+  const since = new Date(now.getTime() - COMPROMISED_WINDOW_WEEKS * 7 * 24 * 60 * 60 * 1000);
+  const sessions = await loadQualifyingRunSessions(client, athlete_id, since, now);
+  if (sessions.length === 0) return [];
+
+  // context_format/prior_work_s no viajan en SegmentActual (no todo
+  // consumidor los necesita) — un único viaje aparte para toda la ventana,
+  // como hace race-transfer.ts. SEG_IS_WORK_EFFORT importa aquí exactamente
+  // por lo que documenta ese fichero: una recuperación llega, por
+  // construcción, DESPUÉS de todo lo anterior — sin el filtro, el lado
+  // "fatigado" se calcularía sobre trotes de vuelta y no sobre series.
+  const executionIds = sessions.map((s) => Number(s.execution_id));
+  const contextRows = await client<
+    Array<{
+      execution_id: string;
+      position: number;
+      context_format: string | null;
+      prior_work_s: number | null;
+      week_start: string;
+    }>
+  >`
+    select
+      se.execution_id::text as execution_id,
+      se.position            as position,
+      se.context_format      as context_format,
+      se.prior_work_s        as prior_work_s,
+      to_char(
+        date_trunc(
+          'week',
+          coalesce(we.ended_at, we.started_at) at time zone
+            coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE})
+        )::date,
+        'YYYY-MM-DD'
+      ) as week_start
+    from segment_executions se
+    join workout_executions we on we.id = se.execution_id
+    where se.execution_id = any(${executionIds}::bigint[])
+      and se.modality = 'run'
+      and ${SEG_IS_WORK_EFFORT(client)}
+  `;
+  const contextByKey = new Map(contextRows.map((r) => [`${r.execution_id}:${r.position}`, r]));
+
+  const observations: CompromisedRunObservation[] = [];
+  for (const s of sessions) {
+    const detail = await loadAssignmentDetail({
+      sql: client,
+      athlete_id: BigInt(athlete_id),
+      assignment_id: BigInt(s.assignment_id),
+    });
+    if (!detail) continue;
+    const actuals = await loadSegmentActuals(client, Number(s.execution_id));
+    const { tramos } = buildRunCompliance(detail.workout, actuals);
+    const actualsByPosition = new Map(actuals.map((a) => [a.position, a]));
+
+    for (const t of tramos) {
+      // `fast_s` puede ser null en una banda abierta por el lado rápido (sin
+      // techo de velocidad) — sin ese borde no hay "mismo objetivo" que
+      // identificar, así que ese tramo no entra en la comparación (no es que
+      // no tenga banda: es que la banda no fija bien qué se está comparando).
+      if (t.band == null || t.band.axis !== 'pace' || t.band.fast_s == null || t.position == null) continue;
+      const a = actualsByPosition.get(t.position);
+      const pace = a?.avg_pace_s_per_km;
+      if (pace == null || !Number.isFinite(pace)) continue;
+      const ctx = contextByKey.get(`${s.execution_id}:${t.position}`);
+      if (!ctx) continue; // sin context_format/prior_work_s no se puede clasificar honestamente
+      observations.push({
+        week_start: ctx.week_start,
+        band_fast_s: t.band.fast_s,
+        band_slow_s: t.band.slow_s,
+        pace_s_per_km: pace,
+        context_format: ctx.context_format,
+        prior_work_s: ctx.prior_work_s,
+        position: t.position,
+      });
+    }
+  }
+  return observations;
 }

@@ -1,14 +1,14 @@
 import 'server-only';
 
 // Umbrales de los agregados de carrera del coach — la capa de lectura sobre
-// `coach_running_thresholds` (mig 0183). Espejo de web/lib/coach/signal-
-// thresholds.ts.
+// `coach_running_thresholds` (mig 0183 + 0184). Espejo de web/lib/coach/
+// signal-thresholds.ts.
 //
 // A diferencia de los umbrales de señal (que se mezclan sobre un objeto de
-// constantes DEL MOTOR más grande, `SIGNAL_THRESHOLDS`), aquí las tres
-// columnas SON el conjunto entero de lo editable — no hay nada más grande en
-// lo que se inserten. `resolveEffectiveRunningThresholds` es por tanto el
-// único resolutor: la fila del coach si existe, si no, los defectos.
+// constantes DEL MOTOR más grande, `SIGNAL_THRESHOLDS`), aquí las columnas
+// SON el conjunto entero de lo editable — no hay nada más grande en lo que
+// se inserten. `resolveEffectiveRunningThresholds` es por tanto el único
+// resolutor: la fila del coach si existe, si no, los defectos.
 //
 // Sólo lectura por ahora: nada en este encargo pide un editor de coach para
 // estos tres números (el consumidor es `running-analytics.ts`, no una
@@ -30,7 +30,11 @@ const TABLE = 'coach_running_thresholds';
 async function loadRow(coach_id: bigint | number, client: Sql): Promise<CoachRunningThresholds | null> {
   try {
     const rows = await client<CoachRunningThresholds[]>`
-      select min_reps_per_position, min_series_for_calibration, freshness_alert_tsb
+      select
+        min_reps_per_position,
+        min_series_for_calibration,
+        freshness_alert_tsb,
+        min_pairs_for_compromised_trend
       from coach_running_thresholds
       where coach_id = ${coach_id}
       limit 1

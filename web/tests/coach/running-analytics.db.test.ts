@@ -91,8 +91,27 @@ describeWithDb('buildRunningAnalytics vs ejecuciones reales (#71)', () => {
       min_reps_per_position: 3,
       min_series_for_calibration: 20,
       freshness_alert_tsb: -8,
+      min_pairs_for_compromised_trend: 4,
     });
     expect(res.calibration.min_series_required).toBe(res.thresholds.min_series_for_calibration);
     expect(res.load.freshness_alert_tsb).toBe(res.thresholds.freshness_alert_tsb);
+    expect(res.compromised.min_pairs_required).toBe(res.thresholds.min_pairs_for_compromised_trend);
+  });
+
+  test('carrera comprometida: nunca rompe con datos escasos — declara el hueco honesto (sin validar aún contra carreras reales)', async () => {
+    const res = await buildRunningAnalytics({
+      coach_id: 60,
+      athlete_id: 64,
+      now: new Date('2026-08-11T12:00:00Z'),
+      client: sql,
+    });
+    expect(Number.isFinite(res.compromised.valid_pairs)).toBe(true);
+    expect(res.compromised.points.length).toBeLessThanOrEqual(res.compromised.valid_pairs);
+    // Con los datos reales de hoy (escasos, ver el test de arriba) es
+    // esperable que no llegue al mínimo — lo que importa es que lo DECLARE,
+    // no que lo alcance.
+    if (!res.compromised.has_enough_data) {
+      expect(res.compromised.valid_pairs).toBeLessThan(res.compromised.min_pairs_required);
+    }
   });
 });
