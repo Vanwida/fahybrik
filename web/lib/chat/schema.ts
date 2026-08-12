@@ -116,6 +116,43 @@ export type ChatSenderRole = z.infer<typeof chatSenderRoleSchema>;
  *  del contador de la caja de texto. */
 export const CHAT_BODY_MAX = 8000;
 
+// -----------------------------------------------------------------------------
+// Contexto de mensaje (migración 0186) — ver docs/DECISIONS.md 2026-08-12
+// "El chat aprende SOBRE QUÉ va el mensaje".
+// -----------------------------------------------------------------------------
+//
+// session = el entreno (workout_assignments.id), con `sub` opcional = el
+// ejercicio DENTRO de ese entreno (template_segments.id). exercise = el
+// ejercicio del catálogo en abstracto (exercises.id), `sub` siempre ausente.
+// race = la carrera (races.id).
+
+export const chatContextKindSchema = z.enum(['session', 'exercise', 'race']);
+export type ChatContextKind = z.infer<typeof chatContextKindSchema>;
+
+/** Lo que el CLIENTE manda: kind + ref (+ sub solo con session). Nunca lleva
+ *  `label` — lo deriva el servidor (`web/lib/chat/context.ts`), que ya carga
+ *  la entidad para validar la propiedad; si el cliente lo escribiera habría
+ *  dos redactores del mismo texto. */
+export const chatContextInputSchema = z
+  .object({
+    kind: chatContextKindSchema,
+    ref: z.string().min(1).max(200),
+    sub: z.string().min(1).max(200).optional(),
+  })
+  .refine((c) => !c.sub || c.kind === 'session', {
+    message: 'context.sub is only allowed when kind is "session"',
+  });
+export type ChatContextInput = z.infer<typeof chatContextInputSchema>;
+
+/** Lo que viaja en la burbuja: la misma terna más la etiqueta congelada. */
+export const chatContextSchema = z.object({
+  kind: chatContextKindSchema,
+  ref: z.string(),
+  sub: z.string().nullable(),
+  label: z.string(),
+});
+export type ChatContext = z.infer<typeof chatContextSchema>;
+
 export const sendMessageSchema = z
   .object({
     body: z.string().max(CHAT_BODY_MAX).optional(),
@@ -130,8 +167,12 @@ export const sendMessageSchema = z
         height: z.number().int().nonnegative().optional(),
       })
       .optional(),
+    context: chatContextInputSchema.optional(),
   })
   .refine(
+    // Una referencia sin pregunta es ruido: esto YA exigía body/adjunto para
+    // TODO mensaje, así que un mensaje con `context` lo hereda gratis — no
+    // hace falta una segunda regla.
     (m) => (m.body && m.body.trim().length > 0) || !!m.attachment_url,
     'Message must have body text or an attachment',
   )
@@ -154,6 +195,10 @@ export const messageDtoSchema = z.object({
   attachment_url: z.string().nullable(),
   attachment_kind: chatAttachmentKindSchema.nullable(),
   attachment_meta: z.unknown().nullable(),
+  // Presente y null cuando el mensaje no lleva contexto — nunca ausente, para
+  // que un cliente que compara "tiene contexto?" no tenga que distinguir
+  // undefined de null.
+  context: chatContextSchema.nullable(),
   created_at: isoDateTime,
   read_at: isoDateTime.nullable(),
   edited_at: isoDateTime.nullable(),
