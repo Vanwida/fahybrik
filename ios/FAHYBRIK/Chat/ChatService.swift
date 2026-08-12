@@ -44,6 +44,12 @@ struct ChatMessageDTO: Codable, Identifiable, Equatable {
     let createdAt: Date
     let readAt: Date?
     let editedAt: Date?
+    /// Sobre qué es el mensaje, cuando el que lo escribió lo señaló. Ausente en
+    /// una conversación a secas, que es la mayoría — y era el caso único hasta
+    /// hoy, así que los mensajes viejos decodifican igual. Sus claves son de una
+    /// sola palabra (kind/ref/sub/label), así que atraviesan sin cambios tanto el
+    /// coder snake_case del cable como el camelCase plano del caché en disco.
+    let context: ChatContextRef?
 }
 
 struct ChatThreadDTO: Codable, Equatable {
@@ -99,6 +105,9 @@ private struct SendBody: Encodable {
     let attachmentUrl: String?
     let attachmentKind: String?
     let attachmentMeta: ChatAttachmentMeta?
+    /// Sobre qué va. Nunca lleva etiqueta: la escribe el servidor, que es quien
+    /// ya carga la entidad para comprobar que es de este atleta.
+    let context: ChatContextTarget?
 }
 
 /// What `uploadAttachment` hands back to the send path: the authenticated proxy
@@ -182,7 +191,8 @@ enum ChatService {
         body: String? = nil,
         attachmentUrl: String? = nil,
         attachmentKind: ChatAttachmentKind? = nil,
-        attachmentMeta: ChatAttachmentMeta? = nil
+        attachmentMeta: ChatAttachmentMeta? = nil,
+        context: ChatContextTarget? = nil
     ) async throws -> ChatMessageDTO {
         let resp: SendResponse = try await APIClient.shared.post(
             path: messagesPath,
@@ -190,7 +200,8 @@ enum ChatService {
                 body: body,
                 attachmentUrl: attachmentUrl,
                 attachmentKind: attachmentKind?.rawValue,
-                attachmentMeta: attachmentMeta
+                attachmentMeta: attachmentMeta,
+                context: context
             ),
             bearer: bearer
         )
@@ -246,8 +257,19 @@ enum ChatService {
     /// Serialize a TEXT send for the offline replay queue (attachment sends aren't
     /// queued — their bytes can't be re-uploaded blind). `{"body": "..."}` matches
     /// sendMessageSchema directly; body needs no snake_case conversion.
-    static func encodeSendBody(_ body: String) -> Data? {
-        try? JSONEncoder().encode(["body": body])
+    static func encodeSendBody(_ body: String, context: ChatContextTarget? = nil) -> Data? {
+        // Sin contexto se mantiene EXACTAMENTE el cuerpo de siempre. Con contexto
+        // viaja también, porque un reintento que perdiera el sujeto entregaría al
+        // coach una pregunta suelta — justo lo que esto venía a arreglar. Las
+        // claves ya son las del cable (una palabra cada una), así que este
+        // codificador no necesita la conversión a snake_case del APIClient.
+        guard let context else { return try? JSONEncoder().encode(["body": body]) }
+        return try? JSONEncoder().encode(EncoladoConContexto(body: body, context: context))
+    }
+
+    private struct EncoladoConContexto: Encodable {
+        let body: String
+        let context: ChatContextTarget
     }
 
     /// Mark all coach messages up to `messageId` read. Best-effort.

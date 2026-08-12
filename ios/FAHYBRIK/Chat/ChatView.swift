@@ -22,6 +22,14 @@ import UIKit
 struct ChatView: View {
     let bearer: String?
 
+    /// Se abre con un sujeto ya puesto cuando viene del menú de una cosa
+    /// concreta; sin él desde una cabecera. A partir de ahí el dueño es esta
+    /// pantalla: el atleta lo quita con la ✕ o lo cambia desde el «+».
+    init(bearer: String?, contextoInicial: ChatContextChoice? = nil) {
+        self.bearer = bearer
+        _contexto = State(initialValue: contextoInicial)
+    }
+
     // The shared cache-first data layer. The conversation history lives in its
     // `chatMessages` slice and the coach identity in `chatThread`, so the screen
     // opens from memory/disk and revalidates silently — same engine as the other
@@ -33,6 +41,20 @@ struct ChatView: View {
 
     @State private var messages: [ChatMessage] = []
     @State private var draft: String = ""
+
+    // MARK: Sobre qué va el mensaje
+    //
+    // El contexto es un ADJUNTO más, y por eso entra por el «+» y no por un
+    // control nuevo: el coste en pantalla era la restricción del encargo. Espera
+    // visible en el compositor hasta que se envía, con el mismo contrato de
+    // revisar-antes-de-enviar que ya tienen la foto y la nota de voz.
+    @State private var contexto: ChatContextChoice?
+    @State private var mostrarSelector = false
+    /// La semana anterior, solo si el atleta abre el selector. La de ahora ya
+    /// vive en el store; esta se pide una vez y se recuerda mientras el chat esté
+    /// abierto — no hay endpoint nuevo para ninguna de las dos.
+    @State private var semanaAnterior: AthleteWeekPayload?
+    @State private var cargandoSemanaAnterior = false
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @FocusState private var inputFocused: Bool
@@ -103,7 +125,10 @@ struct ChatView: View {
             await loadInitial()
             await liveLoop()
         }
-        .confirmationDialog("Adjuntar", isPresented: $showAttachMenu, titleVisibility: .visible) {
+        // El título ya no es «Adjuntar»: este menú también sirve para decir SOBRE
+        // QUÉ va el mensaje, y la fila nueva va la ÚLTIMA a propósito — mover las
+        // cinco de siempre rompería la memoria muscular de quien ya las usa.
+        .confirmationDialog("Añadir al mensaje", isPresented: $showAttachMenu, titleVisibility: .visible) {
             Button("Grabar nota de voz") { activeSheet = .voice }
             if cameraAvailable {
                 Button("Hacer una foto") { activeSheet = .cameraPhoto }
@@ -111,9 +136,25 @@ struct ChatView: View {
             }
             Button("Foto o vídeo de la galería") { activeSheet = .library }
             Button("Archivo") { activeSheet = .document }
+            Button("Sobre un entreno") { abrirSelectorDeEntreno() }
             Button("Cancelar", role: .cancel) {}
         }
         .sheet(item: $activeSheet) { sheet in attachmentSheet(sheet) }
+        .sheet(isPresented: $mostrarSelector) {
+            SelectorDeEntreno(
+                secciones: EntrenosSeñalables.secciones(
+                    semana: store.planWeek.value?.week,
+                    anterior: semanaAnterior
+                ),
+                cargando: cargandoSemanaAnterior,
+                elegido: contexto?.target.ref,
+                onElegir: { elegible in
+                    contexto = elegible.eleccion
+                    mostrarSelector = false
+                    Haptics.light()
+                }
+            )
+        }
         .alert("No se pudo adjuntar", isPresented: Binding(
             get: { attachmentError != nil },
             set: { if !$0 { attachmentError = nil } }
@@ -400,7 +441,11 @@ struct ChatView: View {
     private func send() {
         let trimmed = draft.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        // El sujeto se suelta del compositor al enviar (viaja con ESTE mensaje,
+        // no con el siguiente) pero se retiene para el reintento.
+        let sobre = contexto
         draft = ""
+        contexto = nil
         Haptics.light()
 
         let localId = "local-\(UUID().uuidString)"
@@ -409,23 +454,24 @@ struct ChatView: View {
             sender: .me,
             kind: .text(trimmed),
             timestamp: ChatMessage.todayLabel,
-            status: .pending
+            status: .pending,
+            contexto: sobre?.provisional
         )
         messages.append(optimistic)
 
-        Task { await deliver(body: trimmed, localId: localId) }
+        Task { await deliver(body: trimmed, localId: localId, context: sobre?.target) }
     }
 
     @MainActor
-    private func deliver(body: String, localId: String) async {
+    private func deliver(body: String, localId: String, context: ChatContextTarget? = nil) async {
         guard let bearer else {
             // No session — leave the message marked as sending; it'll surface
             // on next launch once auth is present (queue still records it).
-            await enqueueOffline(body: body, localId: localId)
+            await enqueueOffline(body: body, localId: localId, context: context)
             return
         }
         do {
-            let saved = try await ChatService.sendMessage(bearer: bearer, body: body)
+            let saved = try await ChatService.sendMessage(bearer: bearer, body: body, context: context)
             // Learn + persist my own user id from the confirmed message.
             if myUserId == nil {
                 myUserId = saved.senderUserId
@@ -441,15 +487,15 @@ struct ChatView: View {
             // (tap to reintentar) instead of queueing it to "enviando…" forever. A
             // transient failure (offline / 5xx / red) still queues for replay.
             switch ChatSendOutcome.forError(error) {
-            case .queueForReplay: await enqueueOffline(body: body, localId: localId)
+            case .queueForReplay: await enqueueOffline(body: body, localId: localId, context: context)
             case .markFailed:     markFailed(localId: localId)
             }
         }
     }
 
     @MainActor
-    private func enqueueOffline(body: String, localId: String) async {
-        if let data = ChatService.encodeSendBody(body) {
+    private func enqueueOffline(body: String, localId: String, context: ChatContextTarget? = nil) async {
+        if let data = ChatService.encodeSendBody(body, context: context) {
             await RequestQueue.shared.enqueue(path: ChatService.sendPath, body: data, bearer: bearer)
         }
         // Keep the message visible with a "sending…" affordance.
@@ -475,7 +521,10 @@ struct ChatView: View {
         guard let idx = messages.firstIndex(where: { $0.id == localId }) else { return }
         if case let .text(body) = messages[idx].kind {
             messages[idx].status = .sending
-            Task { await deliver(body: body, localId: localId) }
+            // El reintento se lleva el sujeto: una pregunta que llegara suelta al
+            // coach es justo lo que esto venía a evitar.
+            let sobre = messages[idx].contexto?.target
+            Task { await deliver(body: body, localId: localId, context: sobre) }
         } else {
             messages[idx].status = .sending
             Task { await deliverAttachment(localId: localId) }
@@ -529,12 +578,17 @@ struct ChatView: View {
         Haptics.light()
         let localId = "local-\(UUID().uuidString)"
         pendingAttachments[localId] = picked
+        // El sujeto acompaña también a una foto o a una nota de voz, y se suelta
+        // del compositor igual que con el texto: viaja con ESTE mensaje.
+        let sobre = contexto
+        contexto = nil
         let optimistic = ChatMessage(
             id: localId,
             sender: .me,
             kind: attachmentKind(for: picked, source: ChatAttachmentSource(localURL: picked.localURL)),
             timestamp: ChatMessage.todayLabel,
-            status: .pending
+            status: .pending,
+            contexto: sobre?.provisional
         )
         messages.append(optimistic)
         Task { await deliverAttachment(localId: localId) }
@@ -566,9 +620,12 @@ struct ChatView: View {
                 await seedLoader(url: url, picked: picked)
             }
             // 2. Send the message referencing the uploaded blob.
+            // El sujeto lo lleva la fila optimista desde que se eligió, así que un
+            // reintento lo recupera de ahí en vez de haberlo perdido.
             let saved = try await ChatService.sendMessage(
                 bearer: bearer, body: nil, attachmentUrl: url,
-                attachmentKind: picked.kind, attachmentMeta: picked.meta
+                attachmentKind: picked.kind, attachmentMeta: picked.meta,
+                context: messages.first(where: { $0.id == localId })?.contexto?.target
             )
             if myUserId == nil {
                 myUserId = saved.senderUserId
@@ -641,7 +698,8 @@ struct ChatView: View {
             sender: sender,
             kind: ChatView.kind(from: dto),
             timestamp: ChatView.relativeLabel(for: dto.createdAt),
-            status: .sent
+            status: .sent,
+            contexto: dto.context
         )
     }
 
@@ -839,16 +897,43 @@ struct ChatView: View {
     // Send glyph fills accent (enabled) / sunken (disabled). Wiring unchanged.
     @ViewBuilder
     private var inputRow: some View {
-        Group {
-            if let picked = composerAttachment {
-                pendingAttachmentComposer(picked)
-            } else {
-                textComposer
+        VStack(spacing: Theme.Spacing.s) {
+            // El sujeto va ENCIMA de la fila de escritura y dentro de su misma
+            // banda: chip y compositor se leen como una pieza, no como dos
+            // bandas. Vale igual para una foto — una imagen también puede ser
+            // «sobre este entreno».
+            if let contexto {
+                ChipDeContexto(etiqueta: contexto.etiqueta) {
+                    self.contexto = nil
+                    Haptics.light()
+                }
+            }
+            Group {
+                if let picked = composerAttachment {
+                    pendingAttachmentComposer(picked)
+                } else {
+                    textComposer
+                }
             }
         }
         .padding(.horizontal, Theme.Spacing.l)
         .padding(.vertical, Theme.Spacing.m)
         .background(Theme.Color.background)
+    }
+
+    /// Abre el selector y, la primera vez, trae la semana anterior. La de ahora
+    /// ya está en el store, así que la lista se pinta al instante y lo de «Antes»
+    /// aparece en cuanto llega.
+    private func abrirSelectorDeEntreno() {
+        mostrarSelector = true
+        guard semanaAnterior == nil, !cargandoSemanaAnterior, let bearer else { return }
+        cargandoSemanaAnterior = true
+        Task {
+            defer { cargandoSemanaAnterior = false }
+            // Sin semana anterior el selector sigue siendo útil (hoy y esta
+            // semana ya están): un fallo aquí no es un error que enseñar.
+            semanaAnterior = try? await PlanService.fetchWeek(bearer: bearer, weekOffset: -1).week
+        }
     }
 
     /// Normal composer: ＋ attach · text field · orange send ↑.
@@ -1086,6 +1171,9 @@ private struct ChatMessage: Identifiable {
     var kind: Kind
     let timestamp: String
     var status: Status
+    /// Sobre qué es. Con etiqueta local mientras el mensaje es optimista, con la
+    /// del servidor en cuanto se confirma. Nil en una conversación a secas.
+    var contexto: ChatContextRef? = nil
 
     static let todayLabel = "hoy"
     static let yesterdayLabel = "ayer"
@@ -1132,6 +1220,14 @@ private struct MessageRow: View {
             if isMe { Spacer(minLength: Theme.Spacing.xxl) }
 
             VStack(alignment: isMe ? .trailing : .leading, spacing: Theme.Spacing.xs) {
+                // Una foto o una nota de voz también pueden ser «sobre este
+                // entreno». Esas burbujas pintan su propia superficie (media a
+                // sangre), así que la tarjeta se apoya ENCIMA en vez de dentro;
+                // en el texto, que es el caso normal, va dentro.
+                if let ref = message.contexto, !message.isText {
+                    TarjetaDeContexto(ref: ref, mio: isMe)
+                        .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
+                }
                 bubble
                 Text(metaLabel)
                     .font(.system(size: 9, design: .monospaced))
@@ -1189,14 +1285,21 @@ private struct MessageRow: View {
     private var bubble: some View {
         switch message.kind {
         case .text(let body):
-            Text(body)
-                .scaledFont(14, relativeTo: .footnote)
-                .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.foreground)
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, Theme.Spacing.s)
-                .chatBubbleSurface(isMe: isMe)
-                .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
-                .opacity(message.status == .sent ? 1 : 0.6)
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                // El sujeto va DENTRO de la burbuja: pregunta y cosa preguntada
+                // son UNA sola, no dos elementos que emparejar a ojo.
+                if let ref = message.contexto {
+                    TarjetaDeContexto(ref: ref, mio: isMe)
+                }
+                Text(body)
+                    .scaledFont(14, relativeTo: .footnote)
+                    .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.foreground)
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.s)
+            .chatBubbleSurface(isMe: isMe)
+            .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
+            .opacity(message.status == .sent ? 1 : 0.6)
         case .voice(let source, let duration):
             ChatVoiceBubble(isMe: isMe, source: source, metaDuration: duration, bearer: bearer)
                 .opacity(message.status == .sent ? 1 : 0.85)

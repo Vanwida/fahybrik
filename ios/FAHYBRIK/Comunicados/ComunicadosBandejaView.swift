@@ -140,7 +140,7 @@ struct ComunicadosBandejaView: View {
             // no pueden levantarse a la vez, así que el chat lo abre AppShell
             // cuando esta bandeja ya se ha ido.
             exit: .action(title: "Abrir el chat", perform: {
-                openChat()
+                openChat(nil)
                 dismiss()
             }),
             note: "Lo que se publica aquí lleva estado: \(nombreCoach) ve si lo has hecho, no solo si lo has abierto."

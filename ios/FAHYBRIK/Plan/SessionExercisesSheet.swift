@@ -19,6 +19,11 @@ struct SessionExercisesSheet: View {
     let assignmentId: String
     let sessionTitle: String
     let bearer: String?
+    /// Preguntarle al coach por UN ejercicio de la sesión. Lo resuelve quien
+    /// presenta esta hoja (PlanView): cierra el índice y abre el chat con el
+    /// ejercicio ya señalado, porque dos hojas no se levantan a la vez. Nil
+    /// cuando el atleta no tiene coach — entonces la fila del menú no existe.
+    var onPreguntar: ((EjercicioSeñalado) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var state: LoadState = .loading
@@ -128,6 +133,24 @@ struct SessionExercisesSheet: View {
                     .stroke(Theme.Color.hairline, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            // Pulsación larga: la fila no tenía menú, y uno no ocupa alto. Es un
+            // ATAJO, nunca la vía principal — la puerta que se descubre es el «+»
+            // del chat. Ver docs/DECISIONS.md, 12-ago.
+            .contextMenu {
+                Button {
+                    Haptics.light()
+                    selected = item
+                } label: {
+                    Label("Ver la técnica", systemImage: "play.rectangle")
+                }
+                if let onPreguntar {
+                    Button {
+                        onPreguntar(EjercicioSeñalado(id: item.exerciseId, nombre: item.exerciseName))
+                    } label: {
+                        Label("Preguntar al coach", systemImage: "message")
+                    }
+                }
+            }
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityElement(children: .ignore)

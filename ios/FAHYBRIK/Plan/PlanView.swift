@@ -72,6 +72,9 @@ struct PlanView: View {
     @State private var executedLaunch: WorkoutLaunch? = nil
     @State var techniqueTarget: AthleteWeekDaySession? = nil
     @State var showChat = false
+    /// Sobre qué se abre el chat cuando se abre desde el menú de una sesión o de
+    /// un ejercicio. Nil desde el cromo: entonces es la conversación a secas.
+    @State var contextoDelChat: ChatContextChoice? = nil
     @State private var showPartnerPlan = false
     @State private var showHistory = false
     @State private var showCiclo = false
@@ -152,16 +155,25 @@ struct PlanView: View {
             PlanCicloView(bearer: effectiveBearer, onClose: { showCiclo = false })
                 .environment(store)
         }
-        .sheet(isPresented: $showChat) {
+        .sheet(isPresented: $showChat, onDismiss: { contextoDelChat = nil }) {
             // A custom @Observable environment value does NOT cross a presentation
             // boundary — ChatView reads its cache-first history from the store.
-            ChatView(bearer: effectiveBearer).environment(store)
+            ChatView(bearer: effectiveBearer, contextoInicial: contextoDelChat)
+                .environment(store)
         }
         .sheet(item: $techniqueTarget) { session in
             SessionExercisesSheet(
                 assignmentId: session.assignmentId,
                 sessionTitle: session.title,
-                bearer: effectiveBearer
+                bearer: effectiveBearer,
+                // Preguntar por UN ejercicio: se cierra el índice y el chat se
+                // abre con ese ejercicio ya señalado. Las dos hojas son de esta
+                // pantalla, así que el relevo se resuelve aquí y no hace falta
+                // una segunda puerta al chat.
+                onPreguntar: hasCoach ? { ejercicio in
+                    techniqueTarget = nil
+                    preguntarPorEjercicio(ejercicio, de: session)
+                } : nil
             )
         }
     }

@@ -34,6 +34,17 @@ extension PlanView {
         } label: {
             Label("Ver ejercicios y técnica", systemImage: "list.bullet.rectangle")
         }
+        // Preguntar SOBRE este entreno. Una fila más en un menú que ya existía:
+        // cero alto nuevo en la pantalla, que era la condición del encargo (ver
+        // docs/DECISIONS.md, 12-ago «El chat aprende SOBRE QUÉ va el mensaje»).
+        // Sin coach no hay a quién preguntar, así que la fila tampoco existe.
+        if hasCoach {
+            Button {
+                preguntarPor(session)
+            } label: {
+                Label("Preguntar al coach", systemImage: "message")
+            }
+        }
         if puedeMoverse(session) {
             Menu("Mover a otro día") {
                 ForEach(diasDestino(de: session)) { dia in
@@ -117,6 +128,41 @@ extension PlanView {
         let n = dia.sesiones.count
         let carga = n == 0 ? "libre" : (n == 1 ? "1 sesión" : "\(n) sesiones")
         return "\(nombre) · \(carga)"
+    }
+
+    // MARK: - Preguntar al coach sobre algo
+
+    /// Abre el chat con ESTE entreno ya señalado.
+    func preguntarPor(_ session: AthleteWeekDaySession) {
+        Haptics.light()
+        contextoDelChat = ChatContextChoice(
+            target: .entreno(session.assignmentId),
+            etiqueta: "\(session.title) · \(cuandoFue(session))"
+        )
+        showChat = true
+    }
+
+    /// Lo mismo, pero señalando UN ejercicio dentro del entreno: el coach recibe
+    /// «Back squat · Fuerza A, hoy» y no el entreno entero.
+    func preguntarPorEjercicio(_ ejercicio: EjercicioSeñalado, de session: AthleteWeekDaySession) {
+        Haptics.light()
+        contextoDelChat = ChatContextChoice(
+            target: .entreno(session.assignmentId, ejercicio: ejercicio.id),
+            etiqueta: "\(ejercicio.nombre) · \(session.title), \(cuandoFue(session))"
+        )
+        showChat = true
+    }
+
+    /// «hoy» · «ayer» · «mar 12» para la etiqueta del chip. Es de pantalla: la
+    /// etiqueta que se guarda con el mensaje la escribe el servidor.
+    private func cuandoFue(_ session: AthleteWeekDaySession) -> String {
+        let dia = semana?.dias.first { dia in
+            dia.sesiones.contains { $0.assignmentId == session.assignmentId }
+        }
+        guard let dia else { return EntrenosSeñalables.etiquetaHoy }
+        if dia.esHoy { return EntrenosSeñalables.etiquetaHoy }
+        let hoyIso = store.planWeek.value?.week.todayIso ?? dia.isoDate
+        return EntrenosSeñalables.cuando(iso: dia.isoDate, hoyIso: hoyIso)
     }
 
     // MARK: - Las mutaciones (mismo contrato de servidor de siempre)

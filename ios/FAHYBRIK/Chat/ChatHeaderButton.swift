@@ -10,13 +10,19 @@ import SwiftUI
 // MARK: - openChat environment value
 
 private struct OpenChatKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+    static let defaultValue: (ChatContextChoice?) -> Void = { _ in }
 }
 
 extension EnvironmentValues {
     /// Raise the coach chat. Injected by AppShell; a no-op elsewhere (so a header
     /// using the button in isolation, e.g. a preview, never crashes).
-    var openChat: () -> Void {
+    ///
+    /// Lleva carga OPCIONAL: sobre qué se quiere hablar. Nil desde una cabecera
+    /// («quiero escribirle»), con contexto desde el menú de una cosa concreta
+    /// («quiero preguntar por ESTE entreno»). Es UNA sola puerta a propósito: dos
+    /// aberturas —una con contexto y otra sin— serían dos sitios que abren el
+    /// mismo chat y divergirían en cuanto una se tocara.
+    var openChat: (ChatContextChoice?) -> Void {
         get { self[OpenChatKey.self] }
         set { self[OpenChatKey.self] = newValue }
     }
@@ -36,7 +42,8 @@ struct ChatHeaderButton: View {
     var body: some View {
         Button {
             Haptics.light()
-            openChat()
+            // Desde una cabecera no hay sujeto: se abre la conversación a secas.
+            openChat(nil)
         } label: {
             ZStack(alignment: .topTrailing) {
                 ZStack {

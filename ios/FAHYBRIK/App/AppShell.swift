@@ -26,6 +26,9 @@ struct AppShell: View {
     @State private var selection: AppTab = .inicio
     // Chat presentation — raised from any main-screen header via `\.openChat`.
     @State private var showChat = false
+    /// Sobre qué se abre el chat, cuando se abre desde el menú de una cosa
+    /// concreta. Nil desde una cabecera: entonces es la conversación a secas.
+    @State private var contextoDelChat: ChatContextChoice?
     // «Del coach» — la bandeja de comunicados, levantada desde la cabecera de
     // Inicio (`\.openCoachInbox`) o por un push. Con id abre ESE comunicado.
     @State private var showCoachInbox = false
@@ -115,9 +118,17 @@ struct AppShell: View {
         // @Observable environment value does NOT cross the presentation boundary).
         // FREE: there is no coach thread — the opener is a no-op and the cover
         // can never raise (no header shows the button either).
-        .environment(\.openChat) { if hasCoach { showChat = true } }
-        .fullScreenCover(isPresented: $showChat) {
-            ChatView(bearer: bearer)
+        .environment(\.openChat) { sobre in
+            guard hasCoach else { return }
+            contextoDelChat = sobre
+            showChat = true
+        }
+        .fullScreenCover(isPresented: $showChat, onDismiss: { contextoDelChat = nil }) {
+            // El contexto viaja como valor inicial, no como estado vivo: el chat
+            // es dueño de lo que espera en su compositor (el atleta puede quitarlo
+            // con la ✕ o cambiarlo desde el «+»), y quien abrió la puerta no manda
+            // sobre eso después.
+            ChatView(bearer: bearer, contextoInicial: contextoDelChat)
                 .environment(store)
         }
         // La bandeja «Del coach», por el mismo camino que el chat: un cover que
@@ -139,7 +150,7 @@ struct AppShell: View {
         }) {
             ComunicadosBandejaView(bearer: bearer, abrirId: coachInboxId)
                 .environment(store)
-                .environment(\.openChat) { chatTrasBandeja = true }
+                .environment(\.openChat) { _ in chatTrasBandeja = true }
         }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,

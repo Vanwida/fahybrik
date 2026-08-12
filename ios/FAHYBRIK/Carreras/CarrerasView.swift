@@ -343,6 +343,7 @@ struct CarrerasView: View {
                     ForEach(upcoming) { race in
                         UpcomingRaceCard(
                             race: race,
+                            hasCoach: hasCoach,
                             isTargetRace: race.raceId == targetRaceId,
                             bearer: effectiveBearer,
                             onMakePrimary: { Task { await makePrimary(race) } },
@@ -423,6 +424,10 @@ struct CarrerasView: View {
 
 private struct UpcomingRaceCard: View {
     let race: UpcomingRace
+    /// Sin coach no hay a quién preguntar: la fila del menú no existe.
+    var hasCoach: Bool = true
+    /// La puerta única al chat, con el sujeto que se quiera señalar.
+    @Environment(\.openChat) private var openChat
     /// True when this is the soonest target — the card that opens the full detail
     /// (predicho hoy + camino). Computed once by CarrerasView (single source).
     let isTargetRace: Bool
@@ -509,6 +514,20 @@ private struct UpcomingRaceCard: View {
     /// existing confirm. Both reuse onMakePrimary / onRemove — no new behavior.
     @ViewBuilder
     private var actionsMenu: some View {
+        // Preguntar SOBRE esta carrera. Una fila más en un menú que ya existía,
+        // en los dos sitios donde ese menú se ofrece (⋯ y pulsación larga): cero
+        // alto nuevo. Ver docs/DECISIONS.md, 12-ago.
+        if hasCoach {
+            Button {
+                Haptics.light()
+                openChat(ChatContextChoice(
+                    target: .carrera(String(race.raceId)),
+                    etiqueta: etiquetaDeContexto
+                ))
+            } label: {
+                Label("Preguntar al coach", systemImage: "message")
+            }
+        }
         if !isPrimary {
             Button {
                 Haptics.light()
@@ -523,6 +542,13 @@ private struct UpcomingRaceCard: View {
         } label: {
             Label("Eliminar carrera", systemImage: "trash")
         }
+    }
+
+    /// «HYROX Barcelona · 4 oct» para el chip del compositor. De pantalla: la que
+    /// se guarda con el mensaje la escribe el servidor.
+    private var etiquetaDeContexto: String {
+        guard let iso = race.raceDate, let fecha = StatsDateParser.parse(iso) else { return race.name }
+        return "\(race.name) · \(StatsDateParser.dayMonth(fecha))"
     }
 
     /// Accurate per state: the primary card has nothing to promote.
