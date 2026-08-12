@@ -27,9 +27,21 @@ struct TreadmillDistanceTracker {
     /// continuous running would invent metres nobody covered.
     static let maxIntegrationStepSeconds: TimeInterval = 5
 
-    /// The last odometer reading seen, whether or not it was trusted — so a belt whose
-    /// odometer revives after a stall resumes from where it actually is instead of
-    /// dumping the whole frozen interval in at once.
+    /// Hasta qué lectura del cuentakilómetros están YA PAGADOS los metros — no la
+    /// última lectura vista.
+    ///
+    /// La diferencia es el fallo que esto arregla. Antes guardaba «la última lectura,
+    /// fuera de fiar o no», con la intención de que un cuentakilómetros que revive
+    /// tras congelarse no soltara de golpe el tramo entero. Hacía justo lo contrario:
+    /// durante la congelación se pagaban metros integrando la velocidad, pero el ancla
+    /// se quedaba clavada en la lectura congelada, así que al revivir el salto valía
+    /// TODO el tramo — incluidos los metros ya pagados. Resultado: la cinta contaba de
+    /// menos dos muestras y luego de más el tramo entero.
+    ///
+    /// Guardando aquí lo ya pagado, y sumándole lo que se paga por integración, el
+    /// salto de la revivida sólo abona lo que nadie había abonado. Y de paso se
+    /// recupera solo lo que las muestras de gracia no llegaron a contar, porque el
+    /// cuentakilómetros sí las contó.
     private var lastOdometerM: Double?
     private var odometerStalledSamples = 0
     private var lastSampleAt: Date?
@@ -53,15 +65,24 @@ struct TreadmillDistanceTracker {
         defer { lastSampleAt = sample.lastUpdate }
 
         if let total = sample.totalDistanceM {
-            let trusted = noteOdometer(total, speedKmh: sample.speedKmh)
-            let previous = lastOdometerM
-            lastOdometerM = total
-            // The first reading is this belt's zero, not a distance.
-            if trusted, let previous { return Swift.max(0, total - previous) }
-            if trusted { return 0 }
+            if noteOdometer(total, speedKmh: sample.speedKmh) {
+                let previous = lastOdometerM
+                lastOdometerM = total
+                // The first reading is this belt's zero, not a distance.
+                return previous.map { Swift.max(0, total - $0) } ?? 0
+            }
+            // Congelado con la banda en marcha: se integra la velocidad Y se apunta lo
+            // pagado contra el ancla, para que la revivida no vuelva a cobrarlo.
+            let metres = integrated(speedKmh: sample.speedKmh, dt: dt)
+            lastOdometerM = (lastOdometerM ?? total) + metres
+            return metres
         }
-        // No odometer, or one we've proven is frozen while the band runs → integrate.
-        guard let kmh = sample.speedKmh else { return 0 }
+        // Sin cuentakilómetros → sólo queda integrar.
+        return integrated(speedKmh: sample.speedKmh, dt: dt)
+    }
+
+    private func integrated(speedKmh: Double?, dt: TimeInterval) -> Double {
+        guard let kmh = speedKmh else { return 0 }
         return TreadmillMath.advanceDistance(
             0, speedKmh: kmh, dt: Swift.min(dt, Self.maxIntegrationStepSeconds)
         )

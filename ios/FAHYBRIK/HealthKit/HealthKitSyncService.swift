@@ -95,6 +95,18 @@ final class HealthKitSyncService {
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             types.insert(sleep)
         }
+        // LEÍDO PERO NO SINCRONIZADO, y a propósito. La distancia se lee sólo para
+        // CONTRASTAR la que midió nuestro GPS al terminar una carrera
+        // (`HealthKitDistanceProbe`): es una segunda opinión que se guarda en la traza
+        // de la sesión, no una métrica diaria del atleta. Por eso no entra en
+        // `quantityMetrics`, que es la lista de lo que se sube como biometría.
+        //
+        // El aviso de la cabecera va sobre el sentido contrario —observado sin
+        // permiso, que devuelve vacío en silencio—; esto es el lado seguro:
+        // autorizado y usado por un camino que no es el del sync.
+        if let distance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) {
+            types.insert(distance)
+        }
         return types
     }
 
@@ -254,7 +266,9 @@ final class HealthKitSyncService {
                 return
             }
             let dtos = workouts.map { HealthKitSampleMapper.workout($0) }
-            await sendBatch(workouts: dtos, samples: [])
+            // El ancla sólo avanza si el lote llegó o quedó encolado: si no, estos
+            // entrenos no volverían a entregarse nunca.
+            guard await sendBatch(workouts: dtos, samples: []).mayAdvanceAnchor else { return }
             writeAnchor(result.newAnchor, for: "workouts")
         } catch {
             // Failure path — leave anchor unchanged so next observer fire re-tries.
@@ -315,7 +329,9 @@ final class HealthKitSyncService {
                     unit: unit
                 )
                 if !dtos.isEmpty {
-                    await sendBatch(workouts: [], samples: dtos)
+                    // Mismo criterio que el resto: sin entrega ni cola, el ancla se
+                    // queda donde está y el siguiente barrido reintenta estas muestras.
+                    guard await sendBatch(workouts: [], samples: dtos).mayAdvanceAnchor else { return }
                 }
                 anchor = result.newAnchor
                 writeAnchor(anchor, for: key)
@@ -366,7 +382,7 @@ final class HealthKitSyncService {
             let result = try await descriptor.result(for: store)
             let dtos = HealthKitSampleMapper.sleepNights(from: result.addedSamples)
             if !dtos.isEmpty {
-                await sendBatch(workouts: [], samples: dtos)
+                guard await sendBatch(workouts: [], samples: dtos).mayAdvanceAnchor else { return }
             }
             writeAnchor(result.newAnchor, for: key)
         } catch {
@@ -376,15 +392,34 @@ final class HealthKitSyncService {
 
     // MARK: - Send
 
-    /// Qué le pasó a un lote. El sync vivo lo ignora (encolar y seguir es su
-    /// contrato), pero el import del histórico NO puede: un barrido de dos años que
-    /// no se entera de que la sesión murió o de que no hay red se pasaría horas
-    /// llenando la cola de lotes que nadie va a entregar.
+    /// Qué le pasó a un lote. El import del histórico lo necesita para no pasarse
+    /// horas llenando la cola de lotes que nadie va a entregar — y el sync vivo lo
+    /// necesita para saber si puede mover el ancla (ver `mayAdvanceAnchor`).
+    ///
+    /// El sync vivo lo IGNORABA, y ahí había una fuga silenciosa: un 401 (sesión
+    /// muerta a mitad de barrido) o un 4xx determinista no se encolan, pero el ancla
+    /// avanzaba igual, así que esas muestras del atleta no se volvían a entregar
+    /// jamás. Mismo patrón que se cargaba los metros de una carrera.
     enum SendOutcome {
         case sent
         case queued
         case unauthorized
         case rejected
+
+        /// Si el ancla puede avanzar después de esto.
+        ///
+        /// `sent` y `queued` sí: entregado, o guardado en la cola de reintentos, que
+        /// ya no depende de HealthKit. `unauthorized` y `rejected` NO se encolan (ver
+        /// `sendBatch`), así que avanzar el ancla con uno de esos tira las muestras
+        /// PARA SIEMPRE — `HKAnchoredObjectQuery` no vuelve a entregar lo que quedó
+        /// detrás del ancla. Es el mismo patrón que costó los metros de la carrera:
+        /// descartar el dato y mover igualmente el cursor.
+        var mayAdvanceAnchor: Bool {
+            switch self {
+            case .sent, .queued:            return true
+            case .unauthorized, .rejected:  return false
+            }
+        }
     }
 
     /// LA ÚNICA PUERTA de subida para quien no sea este servicio. El barrido del
