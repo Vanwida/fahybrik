@@ -194,7 +194,7 @@ targets:
         NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, y para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado."
         NSMicrophoneUsageDescription: "FAHYBRID usa el micrófono para grabar las notas de voz que envías a tu coach en el chat."
         NSPhotoLibraryUsageDescription: "FAHYBRID accede a tus fotos y vídeos para que puedas adjuntarlos en el chat con tu coach."
-        NSHealthShareUsageDescription: "FAHYBRID lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
+        NSHealthShareUsageDescription: "FAHYBRID lee workouts, pulso, VFC, sueño, peso y la distancia que recorres de Apple Salud, para tu plan de entrenamiento y para comprobar que la distancia que medimos en tus carreras cuadra con la tuya."
         NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
         NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu cinta y con tu Concept2 para leer ritmo, velocidad e inclinación en vivo, y con tu reloj o banda para tu pulso durante el entreno."
         NSLocationWhenInUseUsageDescription: "FAHYBRID usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
@@ -317,6 +317,12 @@ targets:
       - path: FAHYBRIK/Theme/LenguajeVivo.swift
       - path: FAHYBRIK/Watch/WatchWireModels.swift
       - path: FAHYBRIK/Watch/MirrorWireModels.swift
+      # El buzón en disco de la traza medida en la muñeca. Vive del lado compartido —
+      # y no dentro de FAHYBRIKWatch — por la misma razón que los guiones: aquí está
+      # la garantía de que una carrera terminada sin el teléfono cerca no se pierde, y
+      # esa garantía se comprueba con pruebas (FAHYBRIKTests es iOS) en vez de a ojo en
+      # una muñeca. El trato con el cable se queda en el reloj (WatchTraceOutbox).
+      - path: FAHYBRIK/Watch/WatchTraceSpool.swift
       # ----- EL LIENZO Y LOS GUIONES DE LA MUÑECA -----
       # Qué lee el atleta en el reloj lo deciden los GUIONES: funciones puras
       # estado → páginas, sin una sola vista dentro. Vivían sólo en el target

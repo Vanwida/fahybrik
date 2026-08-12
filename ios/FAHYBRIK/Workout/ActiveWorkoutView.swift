@@ -685,9 +685,17 @@ struct ActiveWorkoutView: View {
         // On a TREADMILL run the GPS stays off entirely — indoor GPS noise reads as
         // phantom pace ("números aleatorios"); the belt is the distance source.
         if isRunSegment && superficieViva != .correrFuera && session.runEnvironment != .treadmill {
+            // EL PERMISO DE FONDO VA CON LA CARRERA, NO CON LA PANTALLA. Sólo lo pedía
+            // la superficie de calle, así que un tramo de correr dentro de un EMOM (que
+            // nunca la abre) corría sin él: al bloquear la pantalla o atender una
+            // llamada, iOS dejaba de entregar fixes — sin aviso — y esos metros eran el
+            // 100 % de los de esa ventana. Se activa ANTES de arrancar y se retira al
+            // cerrar, que es lo que cuida la batería.
+            runGPS.setBackgroundUpdates(true)
             runGPS.start()
         } else {
             runGPS.stop()
+            runGPS.setBackgroundUpdates(false)
         }
         // El barómetro va con la CARRERA, no con la pantalla: se enciende en cuanto hay
         // un tramo de correr que no sea en cinta —lo lleve esta vista o la de calle— y

@@ -244,11 +244,28 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // had a toggle, so `false` just confirms the solo path; the server stays the
         // final net (409 session_private on a joint log of a private session).
         let shareWithPartner = envelope.shareWithPartner ?? true
+        let submission: ExecutionSubmission
         if resolveIsDoubles(assignmentId: envelope.assignmentId) && shareWithPartner {
             // sessionId == this athlete's own assignment id == payload.assignment_id.
-            await DoblesExecutionAPI.submit(sessionId: payload.assignment_id, payload, bearer: bearer)
+            submission = await DoblesExecutionAPI.submitReturning(
+                sessionId: payload.assignment_id, payload, bearer: bearer
+            )
         } else {
-            await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+            submission = await WorkoutExecutionAPI.submitReturning(payload, bearer: bearer)
+        }
+
+        // EL ARCHIVO DE LA MUÑECA encuentra aquí su ejecución. La respuesta se
+        // descartaba, y con ella el `execution_id` del que cuelga la traza que el reloj
+        // manda por su propia cola. Se llama SIEMPRE que el sobre trae cupón, traiga id
+        // o se haya encolado: así el resguardo existe antes que el fichero y ninguna de
+        // las dos mitades llega a un sitio vacío.
+        if let localId = envelope.traceLocalId {
+            await WorkoutTraceUploader.watchExecutionResolved(
+                localId: localId,
+                executionId: submission.executionId,
+                queuedRequestId: submission.queuedRequestId,
+                bearer: bearer
+            )
         }
 
         // Optimistic local completion so Today/Plan paint it immediately (mirrors
@@ -420,12 +437,26 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         Task { @MainActor in await self.handleIncomingExecution(data) }
     }
 
+    /// Un fichero de la muñeca. HOY cruzan dos, y se distinguen por la metadata, no por
+    /// la extensión: la TRAZA de la sesión y el archivo inercial de sensores.
+    ///
+    /// SE LEE AQUÍ, SÍNCRONO, ANTES DE VOLVER. WatchConnectivity deja el fichero en un
+    /// buzón temporal y lo BORRA en cuanto este método retorna, así que leerlo desde un
+    /// `Task` es leerlo cuando ya no está — el fallo que tenía el camino de sensores.
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        if let localId = file.metadata?[WatchWireKeys.traceLocalId] as? String {
+            guard let traces = WorkoutTraceUploader.readWatchTraceFile(at: file.fileURL, localId: localId)
+            else { return }
+            Task {
+                await WorkoutTraceUploader.watchTracesArrived(
+                    localId: localId, traces: traces, bearer: KeychainTokenStore.shared.read()
+                )
+            }
+            return
+        }
         // Sensor archive from the wrist (fase 0). Only the metadata+path land here;
         // upload runs when consent is present and an execution_id is known.
-        Task { @MainActor in
-            SensorFileReceiver.shared.didReceive(file: file)
-        }
+        SensorFileReceiver.shared.didReceive(file: file)
     }
 }
 

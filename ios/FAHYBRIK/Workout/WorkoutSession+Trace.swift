@@ -32,8 +32,12 @@ extension WorkoutSession {
     /// y un «no lo sé» no es una medida: se descarta en vez de archivarse como cero.
     /// Nada de aplicar aquí el umbral de precisión del suavizador — ese es un criterio
     /// de PANTALLA, y quien lea la traza decide el suyo.
+    /// Puerta de pausa MANUAL, no de autopausa: ver `sampleRunGPS`. Con la autopausa
+    /// enganchada el atleta está parado de verdad, y una velocidad de 0 medida es un
+    /// dato —dice que estuvo parado ahí—, no un hueco. El hueco lo deja la pausa a
+    /// mano, que es cuando dejamos de mirar.
     func sampleRunSpeed(metersPerSecond: Double, accuracyMps: Double) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
         guard metersPerSecond >= 0, accuracyMps >= 0 else { return }
         trace.record(.speed, source: .gps, value: metersPerSecond, atSecond: traceSecond())
     }
@@ -62,7 +66,7 @@ extension WorkoutSession {
     /// cuanto se conoce el cero, y cada una tiene que caer en el segundo en que se
     /// midió, no en el segundo en que se supo interpretarla.
     func sampleAltitude(metersAboveSeaLevel: Double, at instant: Date) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
         trace.record(.altitude, source: .gps, value: metersAboveSeaLevel, atSecond: traceSecond(instant))
     }
 }

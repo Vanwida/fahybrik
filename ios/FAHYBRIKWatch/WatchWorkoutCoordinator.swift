@@ -85,6 +85,11 @@ final class WatchWorkoutCoordinator {
     /// The current staged outbox bytes for this finish. Swapped by the toggle,
     /// transferred by "Listo".
     private var stagedEnvelopeData: Data?
+    /// El cupón de la traza guardada para este final. Viaja DENTRO del sobre (y en la
+    /// metadata del fichero) para que el teléfono pueda volver a juntarlos, y
+    /// sobrevive a un re-staging del toggle de dobles: si cambiara con cada flip, el
+    /// sobre acabaría reclamando una traza que no existe.
+    private var stagedTraceLocalId: String?
 
     // MARK: - Plan preview (pre-start)
 
@@ -171,7 +176,13 @@ final class WatchWorkoutCoordinator {
         // the recorded avg/max; covered distance feeds run pace. The engine is the
         // single owner of capture state.
         live.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
-        live.onDistanceDelta = { [weak engine] meters in engine?.sampleRunGPS(deltaMeters: meters) }
+        // La fuente va explícita: estos metros los pone `distanceWalkingRunning` de
+        // HealthKit (fusión de Apple), NO un fix de GPS — la muñeca no toca
+        // CoreLocation. Sellarlos como «gps» sería etiquetar el archivo con un aparato
+        // que no los midió.
+        live.onDistanceDelta = { [weak engine] meters in
+            engine?.sampleRunGPS(deltaMeters: meters, source: .healthkit)
+        }
 
         engine.start()
         // #68 — the per-leg distance driver runs for the WHOLE session: it reads the
@@ -190,7 +201,10 @@ final class WatchWorkoutCoordinator {
 
         Task {
             await live.requestAuthorization()
-            live.start(activityType: payload.healthKitActivityType)
+            live.start(
+                activityType: payload.healthKitActivityType,
+                locationType: payload.healthKitLocationType
+            )
         }
     }
 
@@ -280,6 +294,7 @@ final class WatchWorkoutCoordinator {
         shareWithPartner = ctx?.isShareable ?? false
         pendingResult = nil
         stagedEnvelopeData = nil
+        stagedTraceLocalId = nil
 
         // End the HK session, get the saved HKWorkout's id, then assemble the execution
         // TAGGED with it (backend dedupes the HealthKit-synced copy). Then STAGE it to
@@ -306,6 +321,14 @@ final class WatchWorkoutCoordinator {
                 )
             }
             guard let self, let assignmentId = capturedAssignmentId, !assignmentId.isEmpty else { return }
+            // EL ARCHIVO DE LA MUÑECA. La serie medida se deja en disco AHORA, con su
+            // cupón, y no sale hasta «Listo» — igual que el sobre de la ejecución, para
+            // que fichero y ejecución no puedan separarse. En la muñeca la serie es
+            // pulso y distancia y nada más: aquí no hay CoreLocation, así que no hay
+            // velocidad ni altitud que archivar.
+            self.stagedTraceLocalId = WatchTraceOutbox.shared.stage(
+                traces: engine.trace.traces(startedAt: engine.startedAt)
+            )
             let payload = self.buildExecutionPayload(
                 assignmentId: assignmentId,
                 session: engine,
@@ -330,7 +353,8 @@ final class WatchWorkoutCoordinator {
         return WatchExecutionEnvelope(
             assignmentId: assignmentId,
             payloadJson: data,
-            shareWithPartner: isDoublesResult ? shareWithPartner : nil
+            shareWithPartner: isDoublesResult ? shareWithPartner : nil,
+            traceLocalId: stagedTraceLocalId
         )
     }
 
@@ -358,6 +382,12 @@ final class WatchWorkoutCoordinator {
         restageIfPossible()
         if let data = stagedEnvelopeData {
             WatchConnectivityService.shared.transferStagedResult(data)
+        }
+        // La traza sale CON el sobre, no antes: así no puede quedarse un archivo
+        // colgando de una sesión que el atleta nunca confirmó. Si el teléfono no está
+        // a tiro, el fichero se queda en su buzón y sale al reencontrarse.
+        if let localId = stagedTraceLocalId {
+            WatchTraceOutbox.shared.transfer(localId: localId)
         }
         reset()
     }

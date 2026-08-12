@@ -40,8 +40,20 @@ struct ParkedTrace: Codable, Identifiable {
     /// La entrada de la cola cuya respuesta traerá el id. `nil` mientras el envío de
     /// la ejecución sigue en vuelo.
     var awaitingRequestId: UUID?
-    let traces: [WorkoutTraceDTO]
+    /// EL CUPÓN DEL RELOJ. La traza medida en la muñeca y el sobre de su ejecución
+    /// viajan por DOS colas de WatchConnectivity que no se ordenan entre sí, así que
+    /// llegan en cualquier orden. Este id, que la muñeca estampa en los dos, es lo que
+    /// los vuelve a juntar aquí. `nil` en el camino del propio teléfono, donde no hace
+    /// falta cupón porque quien aparca es quien envía.
+    var watchLocalId: String?
+    /// Vacío = todavía no ha llegado el fichero: es un RESGUARDO, no una traza. Pasa
+    /// cuando el sobre gana la carrera y la ejecución ya tiene id antes de que el
+    /// fichero cruce. Se rellena al llegar.
+    var traces: [WorkoutTraceDTO]
     let createdAt: Date
+
+    /// Listo para subir: sabe de qué ejecución cuelga Y tiene serie que subir.
+    var isComplete: Bool { executionId != nil && !traces.isEmpty }
 }
 
 /// El aparcamiento en disco. Mismo patrón que `RequestQueue` / `WorkoutStateStore`:
@@ -72,15 +84,54 @@ actor ParkedTraceStore {
         self.fileURL = dir.appendingPathComponent(filename)
     }
 
-    func park(_ traces: [WorkoutTraceDTO], at instant: Date = Date()) -> UUID {
+    func park(
+        _ traces: [WorkoutTraceDTO],
+        watchLocalId: String? = nil,
+        at instant: Date = Date()
+    ) -> UUID {
         load()
         let entry = ParkedTrace(
             id: UUID(), executionId: nil, awaitingRequestId: nil,
-            traces: traces, createdAt: instant
+            watchLocalId: watchLocalId, traces: traces, createdAt: instant
         )
         parked.append(entry)
         persist()
         return entry.id
+    }
+
+    /// EL ENCUENTRO DE LAS DOS COLAS. Devuelve el resguardo de este cupón, creándolo
+    /// si es el primero de los dos en llegar.
+    ///
+    /// Sin esto habría una carrera perdida: si el sobre de la ejecución gana, el id
+    /// llegaría a un aparcamiento vacío y se tiraría, y el fichero aparecería después
+    /// sin nada a lo que colgarse. Con el resguardo, el orden deja de importar — el
+    /// segundo en llegar completa el par.
+    func claim(watchLocalId: String, at instant: Date = Date()) -> ParkedTrace {
+        load()
+        if let existing = parked.first(where: { $0.watchLocalId == watchLocalId }) { return existing }
+        let entry = ParkedTrace(
+            id: UUID(), executionId: nil, awaitingRequestId: nil,
+            watchLocalId: watchLocalId, traces: [], createdAt: instant
+        )
+        parked.append(entry)
+        persist()
+        return entry
+    }
+
+    /// Llegó el fichero del reloj: se rellena la serie del resguardo. Devuelve el
+    /// resguardo ya completo (y por tanto listo para subir) o nil si aún le falta el id.
+    func deliver(watchLocalId: String, traces: [WorkoutTraceDTO], at instant: Date = Date()) -> ParkedTrace? {
+        load()
+        let entry = claim(watchLocalId: watchLocalId, at: instant)
+        guard let index = parked.firstIndex(where: { $0.id == entry.id }) else { return nil }
+        parked[index].traces = traces
+        persist()
+        return parked[index].isComplete ? parked[index] : nil
+    }
+
+    func find(watchLocalId: String) -> ParkedTrace? {
+        load()
+        return parked.first { $0.watchLocalId == watchLocalId }
     }
 
     func link(parkId: UUID, to requestId: UUID) {
@@ -105,11 +156,14 @@ actor ParkedTraceStore {
         return parked.first { $0.awaitingRequestId == requestId }
     }
 
-    /// Lo que ya sabe de qué ejecución cuelga y sigue aquí: o el envío falló por red,
-    /// o la app murió entre sellarlo y enviarlo. En ambos casos se reintenta.
+    /// Lo que ya sabe de qué ejecución cuelga Y tiene serie que subir: o el envío falló
+    /// por red, o la app murió entre sellarlo y enviarlo. En ambos casos se reintenta.
+    ///
+    /// Un resguardo del reloj al que aún le falta el fichero NO sale por aquí: no está
+    /// a medias por un fallo, está esperando su otra mitad.
     func resolvable() -> [ParkedTrace] {
         load()
-        return parked.filter { $0.executionId != nil }
+        return parked.filter(\.isComplete)
     }
 
     func remove(id: UUID) {
@@ -178,6 +232,10 @@ enum WorkoutTraceUploader {
         if let executionId {
             guard let entry = await ParkedTraceStore.shared.stamp(parkId: parkId, executionId: executionId)
             else { return }
+            // Un resguardo del reloj al que todavía no ha llegado su fichero se queda
+            // esperando: ya sabe de qué ejecución cuelga, y lo enviará quien complete
+            // el par. Enviarlo ahora sería mandar una traza vacía.
+            guard entry.isComplete else { return }
             await send(entry, bearer: bearer)
             return
         }
@@ -186,6 +244,73 @@ enum WorkoutTraceUploader {
             return
         }
         await ParkedTraceStore.shared.remove(id: parkId)
+    }
+
+    // MARK: - El camino de la muñeca
+    //
+    // Dos colas de WatchConnectivity que no se ordenan entre sí: el SOBRE de la
+    // ejecución por `transferUserInfo` y el FICHERO de la traza por `transferFile`.
+    // El cupón que la muñeca estampa en los dos es lo que los vuelve a juntar, y por
+    // eso las dos funciones de abajo son simétricas: cada una deja su mitad y sube
+    // sólo si con eso el par queda completo.
+
+    /// Lee el fichero que acaba de llegar de la muñeca, o nil si no se puede creer.
+    ///
+    /// SE LLAMA SÍNCRONO desde el delegado de WatchConnectivity a propósito: el sistema
+    /// borra el fichero del buzón temporal en cuanto ese método retorna, así que leerlo
+    /// desde un `Task` es leerlo cuando ya no está.
+    ///
+    /// Y SE VALIDA AQUÍ. Una traza truncada es peor que ninguna, porque nadie se entera
+    /// de que falta un trozo: un fichero que no decodifica, que trae otro cupón, o cuyos
+    /// dos arrays no describen los mismos puntos —el CHECK que la tabla ya exige— se
+    /// cae entero en vez de aparcarse a medias.
+    static func readWatchTraceFile(at url: URL, localId: String) -> [WorkoutTraceDTO]? {
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? WatchWire.decoder.decode(WatchTraceFile.self, from: data),
+              decoded.localId == localId
+        else { return nil }
+        let traces = decoded.traces.filter { $0.offsets_s.count == $0.values.count }
+        return traces.isEmpty ? nil : traces
+    }
+
+    /// Llegó el FICHERO de la muñeca. Si el sobre ya había traído el id, sube ya; si
+    /// no, la serie espera en disco a que llegue.
+    static func watchTracesArrived(
+        localId: String,
+        traces: [WorkoutTraceDTO],
+        bearer: String?
+    ) async {
+        guard !traces.isEmpty else { return }
+        guard let ready = await ParkedTraceStore.shared.deliver(watchLocalId: localId, traces: traces)
+        else { return }
+        await send(ready, bearer: bearer)
+    }
+
+    /// Llegó el SOBRE de la muñeca y su ejecución ya se resolvió. Si el fichero ya
+    /// estaba aquí, sube ya; si no, el resguardo guarda el id y espera.
+    ///
+    /// Se llama SIEMPRE que el sobre trae cupón, incluso si la ejecución se encoló:
+    /// así el resguardo existe antes que el fichero y ninguna de las dos mitades
+    /// puede llegar a un sitio vacío.
+    static func watchExecutionResolved(
+        localId: String,
+        executionId: Int?,
+        queuedRequestId: UUID?,
+        bearer: String?
+    ) async {
+        let entry = await ParkedTraceStore.shared.claim(watchLocalId: localId)
+        if let executionId {
+            guard let stamped = await ParkedTraceStore.shared.stamp(
+                parkId: entry.id, executionId: executionId
+            ), stamped.isComplete else { return }
+            await send(stamped, bearer: bearer)
+            return
+        }
+        if let queuedRequestId {
+            await ParkedTraceStore.shared.link(parkId: entry.id, to: queuedRequestId)
+        }
+        // Ni id ni cola: la ejecución se perdió del todo, así que no hay nada de lo
+        // que colgar la traza. El resguardo caduca solo a las 72 h.
     }
 
     /// La cola entregó una ejecución que llevaba días esperando: aquí está lo que
@@ -203,7 +328,11 @@ enum WorkoutTraceUploader {
             await ParkedTraceStore.shared.remove(id: entry.id)
             return
         }
-        _ = await ParkedTraceStore.shared.stamp(parkId: entry.id, executionId: executionId)
+        let stamped = await ParkedTraceStore.shared.stamp(parkId: entry.id, executionId: executionId)
+        // Un resguardo del reloj cuyo fichero aún no ha cruzado se queda con el id
+        // guardado y espera. Tirarlo aquí sería perder la única copia del id que iba a
+        // recibir esa traza.
+        guard stamped?.isComplete == true else { return }
         // Encolar, no enviar: esto corre DENTRO del drenado de la cola, y una petición
         // anidada ahí sería una llamada de red dentro de otra. Encolada sube en la
         // misma pasada, porque el drenado da una segunda ronda justo para esto.
@@ -240,6 +369,9 @@ enum WorkoutTraceUploader {
     /// o era un 4xx que va a dar el mismo error para siempre. Lo único que lo deja
     /// aparcado es que la app muera aquí en medio — y para eso está el barrido.
     private static func send(_ entry: ParkedTrace, bearer: String?) async {
+        // Un resguardo a medias (del reloj, esperando su fichero) NO se toca: no es un
+        // fallo, es una espera. Sale por su propio camino cuando el par se completa.
+        guard entry.isComplete else { return }
         guard let executionId = entry.executionId,
               let body = encoded(executionId: executionId, traces: entry.traces) else {
             await ParkedTraceStore.shared.remove(id: entry.id)

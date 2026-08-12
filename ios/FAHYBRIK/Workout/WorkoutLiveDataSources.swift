@@ -55,13 +55,11 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     private var lastLocation: CLLocation?
     private var isRunning = false
 
-    /// Horizontal-accuracy gate (meters). Fixes worse than this are dropped so a
-    /// poor GPS lock can't inject phantom distance. 25 m ≈ a usable urban fix.
-    private static let accuracyGateMeters: CLLocationAccuracy = 25
-    /// Minimum plausible step between fixes (meters). Below this is GPS jitter at
-    /// standstill; above ~40 m/s (≈144 km/h) is a spurious jump — both ignored.
-    private static let minStepMeters: CLLocationDistance = 2
-    private static let maxStepMeters: CLLocationDistance = 60
+    /// Todo lo que decide si un tramo cuenta vive en `RunDistanceGate`, aparte y
+    /// puro, para que se pueda probar con números. Aquí sólo queda el trato con
+    /// CoreLocation. El filtro del sistema se pone en el mismo umbral que la puerta
+    /// para no tener dos números que puedan divergir.
+    private static var minStepMeters: CLLocationDistance { RunDistanceGate.minStepMeters }
 
     override init() {
         super.init()
@@ -127,23 +125,35 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
         guard isRunning else { return }
         for loc in locations {
             latestHorizontalAccuracyM = loc.horizontalAccuracy
-            guard loc.horizontalAccuracy >= 0,
-                  loc.horizontalAccuracy <= Self.accuracyGateMeters else { continue }
+            // Un fix flojo no entra — y NO mueve el ancla, así que el hueco que abre
+            // lo rescata entero el primer fix bueno que llegue.
+            guard RunDistanceGate.isFixUsable(horizontalAccuracyM: loc.horizontalAccuracy) else { continue }
             status = .active
             // Speed fires for EVERY good fix (auto-pause needs the standstill reading
             // that the min-step distance gate below would swallow).
             onSpeed?(loc.speed, loc.speedAccuracy)
             onAltitude?(loc.altitude, loc.verticalAccuracy)
-            if let prev = lastLocation {
-                let d = loc.distance(from: prev)
-                if d >= Self.minStepMeters && d <= Self.maxStepMeters {
-                    onDistanceDelta?(d)
-                    onCoordinate?(loc.coordinate)   // trace point on real movement
-                }
-            } else {
+
+            guard let prev = lastLocation else {
                 onCoordinate?(loc.coordinate)       // seed the trace at the first fix
+                lastLocation = loc
+                continue
             }
-            lastLocation = loc
+            // EL ANCLA SÓLO AVANZA CON UN TRAMO ACEPTADO. Moverla en los demás casos
+            // es lo que hacía irreversible el descarte: los metros del tramo tirado
+            // no volvían nunca. Dejándola quieta, el siguiente fix mide desde el
+            // último punto bueno y no se pierde nada.
+            switch RunDistanceGate.judge(
+                meters: loc.distance(from: prev),
+                seconds: loc.timestamp.timeIntervalSince(prev.timestamp)
+            ) {
+            case .accept(let meters):
+                onDistanceDelta?(meters)
+                onCoordinate?(loc.coordinate)       // trace point on real movement
+                lastLocation = loc
+            case .tooSmallYet, .implausible, .unmeasurable:
+                continue
+            }
         }
     }
 

@@ -306,7 +306,11 @@ struct PostWorkoutSummaryView: View {
         // traza sea perder también la sesión entera: si la app muere durante el
         // envío, la ejecución tampoco se guardó ni se encoló, así que no hay nada a
         // lo que colgarla. Ver `WorkoutTraceUploader`.
-        let traces = session.trace.traces(startedAt: session.startedAt)
+        // La traza se cierra dentro de cada camino de guardado, porque antes de
+        // sellarla hay que pedirle a Apple Salud su SEGUNDA OPINIÓN sobre los metros
+        // y eso es asíncrono. Ver `closedTraces`.
+        let recorder = session.trace
+        let sessionStartedAt = session.startedAt
 
         // FREE MODE: route to the free-save contract. No coach-prescription feedback
         // and no PR celebration — the free endpoint carries neither.
@@ -331,7 +335,9 @@ struct PostWorkoutSummaryView: View {
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
             Task {
-                let parkId = await WorkoutTraceUploader.park(traces)
+                let parkId = await WorkoutTraceUploader.park(
+                    await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
+                )
                 var ref = wristRef
                 if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
                     ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
@@ -384,7 +390,9 @@ struct PostWorkoutSummaryView: View {
             let responseTask = Task { () -> WorkoutExecutionResponse? in
                 // El resguardo de la traza se saca ANTES del envío, para que exista en
                 // disco pase lo que pase con la red.
-                let parkId = await WorkoutTraceUploader.park(traces)
+                let parkId = await WorkoutTraceUploader.park(
+                    await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
+                )
                 let submission: ExecutionSubmission
                 switch target {
                 case .solo:
@@ -494,6 +502,29 @@ struct PostWorkoutSummaryView: View {
     // Await whichever finishes first — the response or a timeout — WITHOUT blocking
     // on the (possibly slow) submit: a timeout resumes with nil while the submit
     // keeps running to completion in the background. Resume is guarded exactly once.
+    /// La traza de la sesión, cerrada — con la SEGUNDA OPINIÓN de Apple Salud sobre
+    /// los metros dentro cuando la hay.
+    ///
+    /// El contraste se pide sólo cuando de verdad medimos distancia con el GPS: en
+    /// cinta los metros los da la máquina y compararlos con lo que anduvo el atleta
+    /// no significa nada, y en una sesión de fuerza no hay nada que contrastar.
+    ///
+    /// La segunda serie se guarda AL LADO de la nuestra (misma señal, otra fuente),
+    /// jamás encima. Es lo que hace que un fallo de la puerta de distancia se vea solo
+    /// la próxima vez en lugar de vivir escondido hasta que alguien lo note corriendo.
+    private static func closedTraces(
+        recorder: WorkoutTraceRecorder,
+        startedAt: Date
+    ) async -> [WorkoutTraceDTO] {
+        if !recorder.points(of: .distance, source: .gps).isEmpty {
+            let reference = await HealthKitDistanceProbe.cumulativeSeries(
+                startedAt: startedAt, endedAt: Date()
+            )
+            recorder.adopt(reference, as: .distance, source: .healthkit)
+        }
+        return recorder.traces(startedAt: startedAt)
+    }
+
     private static func firstValue<T>(
         of task: Task<T?, Never>,
         timeout: TimeInterval

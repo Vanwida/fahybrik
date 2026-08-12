@@ -49,9 +49,17 @@ final class RunPaceSmootherTests: XCTestCase {
         XCTAssertNil(s.speedMps(now: 0))
     }
 
+    // La frontera de «débil» BAJÓ de 40 m a 25 (12-ago), y es un cambio deliberado: la
+    // distancia deja de contarse por encima de 25 m de error, así que entre 25 y 40 la
+    // insignia ponía «GPS débil» —va flojo pero va— con el contador de metros a CERO
+    // absoluto. Eso no perdía distancia por sí solo: era la razón de que perderla no
+    // se notara. Ahora comparte número con la puerta (`RunDistanceGate`), así que si no
+    // se está contando, la insignia lo dice.
     func testSignalQualityClassifier() {
         XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: 8), .strong)
-        XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: 30), .weak)
+        XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: 20), .weak)
+        XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: 30), .searching,
+                       "30 m no cuenta metros: no puede anunciarse como usable")
         XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: 80), .searching)
         XCTAssertEqual(GPSSignalQuality.from(horizontalAccuracyM: -1), .searching)
     }

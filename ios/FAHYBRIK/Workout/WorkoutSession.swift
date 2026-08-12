@@ -45,6 +45,11 @@ final class WorkoutSession {
     /// only an auto-pause is auto-resumed on movement, and any MANUAL action clears
     /// it (the athlete's own pause/resume always wins). Invariant: true ⇒ isPaused.
     var autoPaused: Bool = false
+    /// El atleta ha parado la sesión A MANO. Distinto de estar pausado: la autopausa
+    /// la ponemos nosotros al ver que dejó de moverse, y eso congela el CRONO pero no
+    /// puede borrar los metros que siga cubriendo. Lo que se mide se guarda; lo que se
+    /// cuenta como tiempo es otra pregunta.
+    var isManuallyPaused: Bool { isPaused && !autoPaused }
     var isFinished: Bool = false
     /// Set by `finish(completeness:)` — whether the session ran to the natural end
     /// (`.full` → 'completed') or was terminated early via "Terminar y guardar" /
@@ -3159,15 +3164,28 @@ final class WorkoutSession {
     /// in-window total. TRAMO-gated like the belt and the monitor, so an outdoor run
     /// leg inside ANY format (a HYROX sim, a circuit, a For Time) records its metres
     /// instead of only a segment the coach happened to author as a pure run.
-    func sampleRunGPS(deltaMeters: Double) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
+    /// `source` es QUIÉN midió estos metros, y por eso viaja: en el teléfono los pone
+    /// un fix de CoreLocation (`gps`, el defecto), pero en la muñeca los pone la
+    /// distancia acumulada de HealthKit (`distanceWalkingRunning`), que es fusión de
+    /// Apple y no un fix. Sellar los dos como «gps» sería etiquetar el archivo con un
+    /// aparato que no lo midió. El defecto mantiene intactos los dos sitios del
+    /// teléfono que ya llamaban aquí.
+    /// LA DISTANCIA ES UN HECHO FÍSICO; EL TIEMPO PARADO ES UNA POLÍTICA. Por eso la
+    /// puerta mira la pausa MANUAL y no la autopausa: con la autopausa enganchada el
+    /// crono se congela —eso es lo que el atleta espera— pero los metros se siguen
+    /// contando, que es lo que hacen Garmin y Strava. Antes se tiraban, así que una
+    /// autopausa disparada por señal floja mientras el atleta seguía corriendo
+    /// borraba esos metros para siempre. Sólo la pausa a mano, que es cuando el
+    /// atleta ha dicho explícitamente que pare TODO, deja de contar.
+    func sampleRunGPS(deltaMeters: Double, source: TraceSource = .gps) {
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
         // La distancia va a la traza ACUMULADA sobre el eje de la sesión, no por
         // tramo: con ella cualquier instante del gráfico se puede llevar a un punto
         // del recorrido, que es lo que la polilínea sola no puede hacer porque no
         // lleva tiempos.
-        trace.accumulate(.distance, source: .gps, delta: deltaMeters, atSecond: traceSecond())
+        trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
     }
 
     /// Feeds one treadmill INCLINE reading (%) into the current run segment's average

@@ -123,6 +123,21 @@ final class WorkoutTraceRecorder {
     /// Cuántos puntos lleva la sesión en total. Para el informe y las pruebas.
     var pointCount: Int { series.values.reduce(0) { $0 + $1.count } }
 
+    /// Los puntos de una serie concreta, sin diezmar ni redondear. Lo usa quien
+    /// construye una serie aparte y la trae ya hecha — el contraste de distancia
+    /// contra Apple Salud — para no tener una segunda implementación del acumulado.
+    func points(of signal: TraceSignal, source: TraceSource) -> [Point] {
+        series[Key(signal: signal, source: source)] ?? []
+    }
+
+    /// Adopta una serie ya construida fuera. Se usa para injertar la segunda opinión
+    /// de una señal (misma señal, otra fuente) en la traza de la sesión antes de
+    /// subirla; nunca para sobrescribir lo medido aquí.
+    func adopt(_ points: [Point], as signal: TraceSignal, source: TraceSource) {
+        guard !points.isEmpty else { return }
+        series[Key(signal: signal, source: source)] = points
+    }
+
     // MARK: - Alimentar
 
     /// Anota un valor ABSOLUTO (pulso, velocidad, altitud).

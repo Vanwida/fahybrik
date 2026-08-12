@@ -147,7 +147,14 @@ final class PhoneMirrorService {
         prepare()   // safety: never begin without the receive handler live
         let config = HKWorkoutConfiguration()
         config.activityType = Self.activityType(for: activityKind)
-        config.locationType = (activityKind == "running") ? .outdoor : .indoor
+        // Calle o cinta SALE DE LA SESIÓN, que ya lo sabe: `WorkoutContainer` estampa
+        // `runEnvironment` con la respuesta del atleta ANTES de llamar aquí. Antes esto
+        // daba por hecho que toda carrera es en calle, así que una sesión de cinta
+        // arrancaba el reloj declarando exterior — GPS encendido para nada y una
+        // procedencia que no era la que fue.
+        config.locationType = WorkoutLocationType.resolve(
+            activityKind: activityKind, environment: session.runEnvironment
+        )
         // Sharing the workout type is what startWatchApp needs; best-effort, no
         // reprompt once the athlete has decided. Then launch the watch app.
         watchLaunchGeneration += 1

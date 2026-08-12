@@ -66,11 +66,16 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
     // MARK: - Start / pause / resume / end
 
-    func start(activityType: HKWorkoutActivityType) {
+    /// `locationType` VIENE DECLARADO, no se supone. Es la pista con la que watchOS
+    /// decide si la distancia la MIDE con el GPS del reloj o la ESTIMA con el
+    /// acelerómetro, así que dejarlo en `.unknown` —como estaba— era entregar a una
+    /// heurística la diferencia entre un ritmo medido y uno inventado. Lo resuelve
+    /// `WorkoutLocationType`, la misma regla que usa el espejo desde el teléfono.
+    func start(activityType: HKWorkoutActivityType, locationType: HKWorkoutSessionLocationType) {
         guard !isActive else { return }
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
-        config.locationType = .unknown
+        config.locationType = locationType
 
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: config)

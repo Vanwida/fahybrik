@@ -76,6 +76,64 @@ struct WatchExecutionEnvelope: Codable {
     // athlete's summary toggle mutates it. Optional so an older watch binary (no
     // field) decodes and the phone falls back to its prior always-joint behavior.
     let shareWithPartner: Bool?
+    /// EL CUPÓN DE LA TRAZA. La serie medida en la muñeca no cabe en este sobre —
+    /// pesa cientos de KB y viaja como FICHERO por su propia cola. Las dos colas no
+    /// se ordenan entre sí, así que este id local es lo que las vuelve a juntar en el
+    /// teléfono: llegue antes el sobre o antes el fichero, el segundo cierra el par.
+    /// Opcional para que un binario de reloj anterior siga decodificando (misma razón
+    /// que `shareWithPartner`); nil = ese reloj no manda traza.
+    var traceLocalId: String? = nil
+}
+
+/// Reloj → iPhone: la SERIE medida en la muñeca, como fichero.
+///
+/// Va por `transferFile` y no dentro del sobre por tamaño: una sesión de 90 min son
+/// ~110 KB y Apple no publica ningún tope para `transferUserInfo`, así que meterla
+/// ahí sería apostar contra un límite que no está escrito. `transferFile` es el que
+/// Apple describe para «más que un diccionario de valores», encola en segundo plano
+/// y no exige que el teléfono esté a tiro al enviar — que es justo el caso: salir a
+/// correr con el reloj y dejar el teléfono en casa.
+struct WatchTraceFile: Codable {
+    /// El mismo id que viaja en `WatchExecutionEnvelope.traceLocalId`.
+    let localId: String
+    let traces: [WorkoutTraceDTO]
+}
+
+// MARK: - Calle o cinta, dicho y no adivinado
+
+/// CALLE O CINTA, PARA HEALTHKIT. Una sola regla, porque hay dos sitios que arman una
+/// sesión de reloj —el espejo desde el teléfono y la del reloj a solas— y si cada uno
+/// decidiera por su cuenta acabarían midiendo la misma carrera de dos maneras.
+///
+/// POR QUÉ IMPORTA, Y NO ES COSMÉTICO. `locationType` es la pista con la que watchOS
+/// decide si la distancia la MIDE con el GPS del reloj o la ESTIMA con el
+/// acelerómetro. Dejarlo en `.unknown` —como estaba— entrega a una heurística una
+/// decisión que casi siempre podemos responder con certeza, y una carrera por la calle
+/// puede acabar con distancia de podómetro: peor ritmo, peores parciales, y un archivo
+/// que miente sin avisar.
+enum WorkoutLocationType {
+
+    /// `environment` es la respuesta del atleta (calle/cinta) cuando la hay.
+    ///
+    /// CUANDO NO LA HAY, el defecto para correr es CALLE, y es deliberado: `.outdoor`
+    /// enciende el GPS y, si no hay cobertura —bajo techo—, watchOS cae solo a la
+    /// estimación del acelerómetro. `.indoor` en cambio PROHÍBE el GPS, así que
+    /// equivocarse hacia ahí sí destruye la medida. Se paga algo de batería en una
+    /// cinta y no se pierde ninguna carrera de calle.
+    ///
+    /// Lo que NO es este defecto: una respuesta. La buena es que la muñeca pregunte
+    /// calle o cinta como ya hace el teléfono — eso es pantalla nueva y lo decide Alex.
+    static func resolve(
+        activityKind: String?,
+        environment: RunEnvironment?
+    ) -> HKWorkoutSessionLocationType {
+        guard activityKind == "running" else { return .indoor }
+        switch environment {
+        case .treadmill: return .indoor
+        case .outdoor:   return .outdoor
+        case nil:        return .outdoor
+        }
+    }
 }
 
 // MARK: - Transport keys + limits
@@ -85,6 +143,11 @@ struct WatchExecutionEnvelope: Codable {
 enum WatchWireKeys {
     static let today = "today_v2"
     static let executionResult = "execution_result_v1"
+    /// Clave de la metadata de `transferFile` que marca un fichero como TRAZA (el
+    /// otro fichero que cruza este cable es el archivo inercial de sensores, que va
+    /// con `execution_local_id`). Con esto el teléfono sabe a quién dárselo sin
+    /// abrirlo ni adivinar por la extensión.
+    static let traceLocalId = "trace_local_id_v1"
 }
 
 // MARK: - Coders (the single encode/decode contract, shared by both ends)
@@ -174,6 +237,13 @@ extension WatchTodayPayload {
         case "mixed"?:    return .mixedCardio
         default:          return .other
         }
+    }
+
+    /// Calle o cinta para la sesión del reloj cuando la lleva ÉL solo. Ver
+    /// `WorkoutLocationType.resolve`: en la muñeca no hay quien conteste esa pregunta,
+    /// así que sale del valor por defecto declarado.
+    var healthKitLocationType: HKWorkoutSessionLocationType {
+        WorkoutLocationType.resolve(activityKind: activityKind, environment: nil)
     }
 
     /// A copy flagged as completed — the watch shows the finished state and the

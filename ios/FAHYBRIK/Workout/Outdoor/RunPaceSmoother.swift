@@ -74,7 +74,13 @@ enum GPSSignalQuality: Equatable {
     /// At/under this horizontal accuracy (m) the lock is strong.
     static let strongThresholdM: Double = 15
     /// At/under this (m) it is weak; above it (or invalid) we're still searching.
-    static let weakThresholdM: Double = 40
+    ///
+    /// ES EL MISMO NÚMERO QUE LA PUERTA DE LA DISTANCIA, Y TIENE QUE SERLO. Decía 40
+    /// mientras la distancia cortaba en 25, así que entre esos dos números la insignia
+    /// ponía «GPS débil» —o sea, va flojo pero va— con el contador de metros a CERO
+    /// absoluto. Eso no perdía distancia por sí solo: era la razón de que perderla no
+    /// se notara. Si no se está contando, la insignia no puede decir que va débil.
+    static var weakThresholdM: Double { RunDistanceGate.accuracyGateMeters }
 
     /// Classify from CoreLocation's horizontal accuracy (m; negative = invalid).
     static func from(horizontalAccuracyM: Double) -> GPSSignalQuality {

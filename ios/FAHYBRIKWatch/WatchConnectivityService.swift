@@ -154,6 +154,9 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
             Task { @MainActor in WatchPlanModel.shared.update(from: context) }
         }
         drainOutbox()
+        // La traza medida en la muñeca lleva su propio buzón de ficheros, y este es
+        // el momento en que el teléfono puede haber vuelto a estar a tiro.
+        WatchTraceOutbox.shared.drain()
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
@@ -181,5 +184,14 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         if error == nil {
             removeFromOutbox(data)
         }
+    }
+
+    /// Fin de una transferencia de FICHERO — hoy, la traza de la muñeca. Entregada se
+    /// borra del buzón; fallida se queda y sale en el siguiente drenado. Se vuelve a
+    /// drenar aquí porque una entrega buena significa que el teléfono está a tiro, y
+    /// puede haber más ficheros esperando detrás.
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        WatchTraceOutbox.shared.didFinish(fileTransfer, error: error)
+        if error == nil { WatchTraceOutbox.shared.drain() }
     }
 }
