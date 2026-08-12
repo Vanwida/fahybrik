@@ -30,7 +30,9 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Lo que se acepta como coste, declarado:** el resumen post-entreno, el detalle de carrera, el detalle de ejercicio y un comunicado no tienen menú ni puerta al chat, así que desde ahí son TRES toques (salir → «+» → elegir) en vez de uno. Con cero controles nuevos no hay arreglo posible. Si algún día se ve que ahí duele, el arreglo correcto es llevar la puerta del chat al cromo de esas pantallas (una vez por pantalla, el mismo icono que ya vive en cuatro cromos) y NO un icono por cosa.
 
-**Dónde vive:** propuesta en el doble `web/components/design-twin/screens/chat-contexto/` (7 guiones), con el chip y la tarjeta en las piezas COMUNES del chat (`screens/chat-coach/piezas.tsx`) porque la burbuja es compartida. Dato y validación: `infra/migrations/0186_*`, `web/lib/chat/`. iOS: pendiente del visto bueno de Alex, todavía sin escribir.
+**Dónde vive:** propuesta en el doble `web/components/design-twin/screens/chat-contexto/` (7 guiones), con el chip y la tarjeta en las piezas COMUNES del chat (`screens/chat-coach/piezas.tsx`) porque la burbuja es compartida. Dato y validación: `infra/migrations/0186_*`, `web/lib/chat/`. iOS (aprobado y construido el mismo día): `ios/FAHYBRIK/Chat/{ChatContext,ChatContextViews}.swift` (modelo, chip, tarjeta y selector), con las puertas en `Chat/ChatHeaderButton.swift` (`\.openChat` con carga), `Plan/PlanAcciones.swift`, `Plan/SessionExercisesSheet.swift` y `Carreras/CarrerasView.swift`.
+
+**Un detalle de iOS que no es de acabado:** `ChatContextRef.kind` se decodifica como String y no como enum. Los mensajes llegan dentro de un `@LossyArray`, así que un `kind` nuevo servido a un binario viejo no daría un icono raro — haría DESAPARECER ese mensaje del historial del atleta. Se pinta con su etiqueta, que es lo único que la pantalla necesita, y no se reenvía a ciegas si hay que reintentar.
 
 ---
 

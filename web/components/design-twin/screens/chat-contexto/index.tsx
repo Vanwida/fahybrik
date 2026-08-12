@@ -54,13 +54,22 @@ export const meta: TwinMeta = {
   id: 'chat-contexto',
   titulo: 'Chat contextual — sin un icono nuevo',
   zona: 'Perfil y ajustes',
-  estado: 'propuesta',
+  // La propuesta se aprobó y se shipeó en Swift el mismo día. `construida` y no
+  // `espejo` porque esta pantalla todavía no se ha re-verificado píxel a píxel
+  // contra ese Swift — afirma «se construyó», no «soy fiel».
+  estado: 'construida',
   actualizado: '2026-08-12',
   descripcion:
     'Preguntar sobre un entreno, un ejercicio o una carrera en un toque, sin añadir ni un control a la app: la fila entra en menús que ya existen y en el «+» del compositor.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Chat/ChatContext.swift',
+    'ios/FAHYBRIK/Chat/ChatContextViews.swift',
+    'ios/FAHYBRIK/Chat/ChatView.swift',
+    'ios/FAHYBRIK/Plan/PlanAcciones.swift',
+    'ios/FAHYBRIK/Carreras/CarrerasView.swift',
+  ],
   enApp:
-    'El chat, el «+» y sus adjuntos ya existen en Swift (ChatView.swift). Lo nuevo es que un mensaje sepa SOBRE QUÉ es: hoy ni el mensaje ni la base de datos tienen ese campo, y ninguna pantalla de detalle sabe abrir el chat.',
+    'Shipeado en Swift: el «+» con «Sobre un entreno», la fila «Preguntar al coach» en los menús de la sesión, de la carrera y del índice de técnica, el chip en el compositor y la tarjeta en la burbuja. Lo que aún no está desplegado es el dato: hasta que la migración 0186 y el rotulador del servidor entren en producción, el campo viaja y el servidor lo ignora.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
