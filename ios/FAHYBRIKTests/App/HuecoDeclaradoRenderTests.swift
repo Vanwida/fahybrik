@@ -171,7 +171,7 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
         for i in 0..<11 {
             let esFuerte = i % 2 == 0
             let segundos: Double = esFuerte ? 190 + Double(i) : 120
-            s.sampleRunGPS(deltaMeters: esFuerte ? 805 : 380)
+            s.sampleRunDistance(deltaMeters: esFuerte ? 805 : 380, source: .healthkit)
             s.lapElapsedSeconds += segundos
             s.elapsedSeconds += segundos
             s.primaryAdvance()

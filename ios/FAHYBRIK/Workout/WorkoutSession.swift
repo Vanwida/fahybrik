@@ -66,7 +66,7 @@ final class WorkoutSession {
 
     /// EL NEGATIVO DE LA SESIÓN: la serie entera de lo que se midió, no la media.
     /// Se llena desde los mismos puntos de entrada que ya alimentan los tramos
-    /// (`injectLiveHR`, `sampleRunGPS`, `sampleTreadmillDistance` y los de velocidad
+    /// (`injectLiveHR`, `sampleRunDistance`, `sampleTreadmillDistance` y los de velocidad
     /// y altitud), así que hereda sus mismas puertas de honestidad — nada entra
     /// pausado, terminado ni fuera de un tramo. El resumen la entrega al terminar.
     /// Ver `WorkoutSession+Trace.swift`.
@@ -2410,7 +2410,7 @@ final class WorkoutSession {
         // a HYROX sim, a circuit, an AMRAP, an EMOM. The block folds to a functional
         // segment, so the run work was measured, accumulated, and then dropped on close.
         // The feeds themselves are already tramo-gated (`sampleTreadmillDistance` /
-        // `sampleRunGPS`), so anything that reached these accumulators IS run work and
+        // `sampleRunDistance`), so anything that reached these accumulators IS run work and
         // there is nothing left to re-check here.
         let usedGPS = lapHadGPS
         let beltDistance: Double? = lapBeltDistanceMeters > 0 ? lapBeltDistanceMeters : nil
@@ -3177,7 +3177,11 @@ final class WorkoutSession {
     /// autopausa disparada por señal floja mientras el atleta seguía corriendo
     /// borraba esos metros para siempre. Sólo la pausa a mano, que es cuando el
     /// atleta ha dicho explícitamente que pare TODO, deja de contar.
-    func sampleRunGPS(deltaMeters: Double, source: TraceSource = .gps) {
+    /// Ya no se llama «GPS» y no tiene defecto A PROPÓSITO: desde el 12-ago los metros
+    /// no los cuenta CoreLocation sino Apple (podómetro en el teléfono, HealthKit en la
+    /// muñeca), así que quien los mete tiene que DECIR de dónde salen. Un defecto `.gps`
+    /// regalaba una etiqueta falsa al siguiente que llamara.
+    func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
         guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
@@ -3190,7 +3194,7 @@ final class WorkoutSession {
 
     /// Feeds one treadmill INCLINE reading (%) into the current run segment's average
     /// (#62). Called from the treadmill HUD's telemetry so the session stays the
-    /// single owner of per-segment capture (mirrors `sampleErg` / `sampleRunGPS`). A
+    /// single owner of per-segment capture (mirrors `sampleErg` / `sampleRunDistance`). A
     /// flat belt (0%) is a real reading and counts; ignored off a run segment or
     /// while paused. Averaged into the ONE segment lap on close; nil when never fed.
     func sampleTreadmillIncline(_ inclinePct: Double) {
@@ -3205,7 +3209,7 @@ final class WorkoutSession {
     }
 
     /// Feeds the covered-meters INCREMENT the treadmill belt measured since the last
-    /// sample into the current run segment's total (mirrors `sampleRunGPS`). The HUD
+    /// sample into the current run segment's total (mirrors `sampleRunDistance`). The HUD
     /// computes the increment from the belt odometer / speed and the SESSION owns the
     /// running total, so it survives the live HUD cover being dismissed and re-opened
     /// (the per-tramo truth lives here, not in the ephemeral view model). Pause-aware

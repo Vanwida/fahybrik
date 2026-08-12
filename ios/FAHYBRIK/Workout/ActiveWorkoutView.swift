@@ -82,6 +82,8 @@ struct ActiveWorkoutView: View {
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
+    /// El contador de Apple. Sustituye al nuestro (ver `RunPedometer`).
+    @State private var pedometro = RunPedometer()
     @State private var liveHR = LiveHeartRateProvider()
     /// THE owner of the belt → session recording, alive for the whole workout (see the
     /// type). Wired to the shared device layer in `wireLiveSources`, like the strap.
@@ -310,6 +312,7 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             session.stop()
             runGPS.stop()
+            pedometro.stop()
             RunAltimeter.shared.onAltitude = nil
             RunAltimeter.shared.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
@@ -322,6 +325,7 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
+                pedometro.stop()
                 RunAltimeter.shared.stop()
                 releaseDevicesOnFinish()
                 onFinish()
@@ -564,8 +568,13 @@ struct ActiveWorkoutView: View {
     // Hook the optional providers' callbacks into the session. Done once on
     // appear; the closures capture `session`, which is stable for the screen.
     private func wireLiveSources() {
-        runGPS.onDistanceDelta = { meters in
-            session.sampleRunGPS(deltaMeters: meters)
+        // LA DISTANCIA LA CUENTA APPLE. El podómetro funde zancada y GPS, así que
+        // sigue contando en un túnel y con el móvil en el bolsillo — y no depende de
+        // que nadie nos conceda ejecución de fondo. Se sella como `healthkit` porque
+        // es el mismo motor que alimenta la distancia de Salud; `gps` sería mentir,
+        // que es justo lo que se quita.
+        pedometro.onDistanceDelta = { meters in
+            session.sampleRunDistance(deltaMeters: meters, source: .healthkit)
         }
         // La VELOCIDAD medida, para el archivo de la sesión. La pantalla de calle tiene
         // su propio proveedor y hace lo mismo; sólo uno de los dos está vivo cada vez
@@ -693,9 +702,12 @@ struct ActiveWorkoutView: View {
             // cerrar, que es lo que cuida la batería.
             runGPS.setBackgroundUpdates(true)
             runGPS.start()
+            // En cinta NO: ahí la distancia la mide la máquina, que es medida directa.
+            if session.runEnvironment != .treadmill { pedometro.start(from: session.startedAt) }
         } else {
             runGPS.stop()
             runGPS.setBackgroundUpdates(false)
+            pedometro.stop()
         }
         // El barómetro va con la CARRERA, no con la pantalla: se enciende en cuanto hay
         // un tramo de correr que no sea en cinta —lo lleve esta vista o la de calle— y

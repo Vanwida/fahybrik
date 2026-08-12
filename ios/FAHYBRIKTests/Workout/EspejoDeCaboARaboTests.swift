@@ -69,7 +69,7 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         let s = seriesLibres()
         let alSalir = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
 
-        s.sampleRunGPS(deltaMeters: 180)
+        s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
         let aMitad = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
 
         XCTAssertNotEqual(aMitad, alSalir, "el numeral se quedaba congelado toda la serie")

@@ -239,7 +239,7 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     func testBeltDistanceBeatsGpsOnClose() {
         let s = continuousSession([800])
         let (m, src) = makeModel(s)
-        s.sampleRunGPS(deltaMeters: 300)                 // a stray phone-GPS reading
+        s.sampleRunDistance(deltaMeters: 300, source: .healthkit)                 // a stray phone-GPS reading
         src.emit(100); src.emit(950)                     // belt covered 850 ≥ 800 → close
         let lap = s.laps.first
         XCTAssertEqual(lap?.distanceCoveredMeters ?? 0, 850, accuracy: 0.5)   // belt, not the 300 GPS

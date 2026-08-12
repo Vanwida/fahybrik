@@ -25,9 +25,12 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     enum Status { case unknown, denied, authorized, active }
     var status: Status = .unknown
 
-    /// Called on the main actor with the incremental meters covered since the
-    /// previous fix. The session sums these into the current run segment.
-    var onDistanceDelta: ((Double) -> Void)?
+    // LA DISTANCIA YA NO SALE DE AQUÍ. La cuenta Apple (`RunPedometer`), que funde
+    // podómetro y GPS y sigue contando en un túnel. Aquí vivía nuestro acumulador con
+    // sus tres puertas, y ahí vivía el bug de los metros: el tope de 60 m tiraba
+    // cualquier hueco de señal de más de quince segundos. CoreLocation se queda sólo
+    // con lo que Apple no da: las COORDENADAS del recorrido y la VELOCIDAD instantánea
+    // que se pinta en pantalla.
 
     /// Called on every ACCURACY-GATED fix with CoreLocation's instantaneous speed
     /// (m/s) and its speed-accuracy (m/s; negative = invalid) — the source the
@@ -55,11 +58,10 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     private var lastLocation: CLLocation?
     private var isRunning = false
 
-    /// Todo lo que decide si un tramo cuenta vive en `RunDistanceGate`, aparte y
-    /// puro, para que se pueda probar con números. Aquí sólo queda el trato con
-    /// CoreLocation. El filtro del sistema se pone en el mismo umbral que la puerta
-    /// para no tener dos números que puedan divergir.
-    private static var minStepMeters: CLLocationDistance { RunDistanceGate.minStepMeters }
+    /// Paso mínimo entre dos puntos del DIBUJO del recorrido (m). No cuenta metros —
+    /// eso es de Apple— sólo evita que la polilínea acumule el temblor de estar
+    /// parado. Es el mismo número que usa el filtro del sistema.
+    private static let minStepMeters: CLLocationDistance = 2
 
     override init() {
         super.init()
@@ -125,34 +127,24 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
         guard isRunning else { return }
         for loc in locations {
             latestHorizontalAccuracyM = loc.horizontalAccuracy
-            // Un fix flojo no entra — y NO mueve el ancla, así que el hueco que abre
-            // lo rescata entero el primer fix bueno que llegue.
-            guard RunDistanceGate.isFixUsable(horizontalAccuracyM: loc.horizontalAccuracy) else { continue }
+            // Un fix flojo no se mira: ni pinta recorrido ni da velocidad de fiar.
+            guard GPSSignalQuality.isFixUsable(horizontalAccuracyM: loc.horizontalAccuracy) else { continue }
             status = .active
             // Speed fires for EVERY good fix (auto-pause needs the standstill reading
             // that the min-step distance gate below would swallow).
             onSpeed?(loc.speed, loc.speedAccuracy)
             onAltitude?(loc.altitude, loc.verticalAccuracy)
 
+            // El RECORRIDO, que es lo único que se sigue derivando de los fixes: un
+            // punto por cada avance real, para que la polilínea no acumule jitter.
             guard let prev = lastLocation else {
                 onCoordinate?(loc.coordinate)       // seed the trace at the first fix
                 lastLocation = loc
                 continue
             }
-            // EL ANCLA SÓLO AVANZA CON UN TRAMO ACEPTADO. Moverla en los demás casos
-            // es lo que hacía irreversible el descarte: los metros del tramo tirado
-            // no volvían nunca. Dejándola quieta, el siguiente fix mide desde el
-            // último punto bueno y no se pierde nada.
-            switch RunDistanceGate.judge(
-                meters: loc.distance(from: prev),
-                seconds: loc.timestamp.timeIntervalSince(prev.timestamp)
-            ) {
-            case .accept(let meters):
-                onDistanceDelta?(meters)
-                onCoordinate?(loc.coordinate)       // trace point on real movement
+            if loc.distance(from: prev) >= Self.minStepMeters {
+                onCoordinate?(loc.coordinate)
                 lastLocation = loc
-            case .tooSmallYet, .implausible, .unmeasurable:
-                continue
             }
         }
     }

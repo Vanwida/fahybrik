@@ -11,9 +11,13 @@ final class LecturaDeCarreraTests: XCTestCase {
 
     // MARK: - Escenarios
 
+    /// `pendiente` por defecto **0 = llano MEDIDO**, no nil. Es deliberado: desde el
+    /// 12-ago un nil («no se sabe») retira el veredicto de ritmo igual que una cuesta,
+    /// así que un escenario que quiera ser llano tiene que DECIRLO. Los tests del nil
+    /// lo pasan explícito.
     private func trabajo(
         _ n: Int, skm: Double?, dur: Double = 180, veredicto: RunComplianceVerdict? = nil,
-        pendiente: Double? = nil, fc: Double? = nil
+        pendiente: Double? = 0, fc: Double? = nil
     ) -> Repeticion {
         Repeticion(n: n, papel: .trabajo, modo: nil, inicioS: Double(n - 1) * 300,
                    duracionS: dur, distanciaM: nil, ritmoSkm: skm, fcMediaPpm: fc,
@@ -22,12 +26,15 @@ final class LecturaDeCarreraTests: XCTestCase {
 
     private func recuperacion(
         _ n: Int, skm: Double?, modo: ModoRecuperacion, dur: Double = 120,
-        inicio: Double? = nil, veredicto: RunComplianceVerdict? = nil
+        inicio: Double? = nil, veredicto: RecoveryComplianceVerdict? = nil,
+        duracion: RecoveryDurationVerdict? = nil
     ) -> Repeticion {
         Repeticion(n: n, papel: .recuperacion, modo: modo,
                    inicioS: inicio ?? (Double(n - 1) * 300 + 180), duracionS: dur,
                    distanciaM: nil, ritmoSkm: skm, fcMediaPpm: nil,
-                   pendientePct: nil, veredicto: veredicto)
+                   pendientePct: nil,
+                   veredictoRecuperacion: veredicto,
+                   veredictoDuracionRecuperacion: duracion)
     }
 
     private func carrera(
@@ -214,6 +221,99 @@ final class LecturaDeCarreraTests: XCTestCase {
         XCTAssertTrue(l.veredictosRecuperacion.isEmpty)
     }
 
+    // RAMA 1 · LA PRESCRIPCIÓN DECLARA CUESTA → se retira, sin haber medido nada. La
+    // intención también es dato, y es el que llega antes: una sesión de cuestas se sabe
+    // que lo es en cuanto el coach la escribe.
+    func testLaCuestaDECLARADARetiraElVeredictoSinMedirNada() {
+        var t1 = trabajo(1, skm: 300, dur: 48, veredicto: .fueraLento, pendiente: nil)
+        t1.pendientePrescritaPct = 8
+        var t2 = trabajo(2, skm: 310, dur: 50, veredicto: .fueraLento, pendiente: nil)
+        t2.pendientePrescritaPct = 8
+
+        let l = Lectura.deCorrer(carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215), repeticiones: [t1, t2]
+        ))
+
+        guard case .tiempoPorRepeticion(_, _, _, _, let pct) = l.sujeto else {
+            return XCTFail("lo declaró el coach: no hace falta medirlo, fue \(l.sujeto)")
+        }
+        XCTAssertEqual(pct, 8, accuracy: 0.01, "enseña la declarada, no un cero de relleno")
+        XCTAssertEqual(l.eje, .tiempo)
+        XCTAssertNil(l.banda)
+        XCTAssertTrue(l.veredictos.isEmpty, "ni un falso «fuera lento» sobre terreno")
+    }
+
+    // RAMA 3 · NO SE SABE Y NADIE DECLARÓ CUESTA → **el veredicto SE MANTIENE.**
+    //
+    // Es lo contraintuitivo, y por eso tiene test: suena más prudente tratar el nulo
+    // como cuesta, pero la pendiente se escribe al llegar la traza y las trazas
+    // empezaron el 11-ago, así que retirar por nulo le quitaría el veredicto a TODO el
+    // histórico para proteger las de cuestas — que ya están cubiertas por la rama 1,
+    // la cual no necesita medir. El nulo no se lee como «llano medido»: se lee como
+    // «nadie ha dicho que esto sea una cuesta».
+    func testSinMedirYSinDeclararElVeredictoSeMANTIENE() {
+        let c = carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215),
+            repeticiones: [
+                trabajo(1, skm: 205, veredicto: .dentro, pendiente: nil),
+                trabajo(2, skm: 208, veredicto: .dentro, pendiente: nil),
+            ]
+        )
+        guard case .veredicto = Lectura.deCorrer(c).sujeto else {
+            return XCTFail("el histórico entero no puede perder su veredicto por si acaso")
+        }
+    }
+
+    // RAMA 2 · Medida, conocida y por encima del umbral → se retira igual. Cubre la
+    // ruta con cuestas que nadie declaró.
+    func testLaCuestaMEDIDARetiraAunqueNadieLaDeclarara() {
+        let c = carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215),
+            repeticiones: [
+                trabajo(1, skm: 300, dur: 48, veredicto: .fueraLento, pendiente: 6),
+                trabajo(2, skm: 310, dur: 50, veredicto: .fueraLento, pendiente: 6),
+            ]
+        )
+        guard case .tiempoPorRepeticion(_, _, _, _, let pct) = Lectura.deCorrer(c).sujeto else {
+            return XCTFail("una cuesta medida es una cuesta")
+        }
+        XCTAssertEqual(pct, 6, accuracy: 0.01, "la medida manda: es lo que pasó")
+    }
+
+    // El cero medido es «llano MEDIDO» y deja juzgar el ritmo, igual que el nulo — pero
+    // por motivos distintos, y el servidor los distingue a propósito.
+    func testElLlanoMedidoSiDejaJuzgarElRitmo() {
+        let c = carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215),
+            repeticiones: [
+                trabajo(1, skm: 205, veredicto: .dentro, pendiente: 0),
+                trabajo(2, skm: 208, veredicto: .dentro, pendiente: 0),
+            ]
+        )
+        guard case .veredicto = Lectura.deCorrer(c).sujeto else {
+            return XCTFail("cero es llano MEDIDO, no «no se sabe»")
+        }
+    }
+
+    // La media se hace sobre lo MEDIDO, no contando el hueco como cero: con cinco
+    // llanos medidos y un hueco, la pendiente de la sesión es la de los cinco.
+    func testUnSoloTramoSinPendienteNoTumbaLaSesion() {
+        let c = carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215),
+            repeticiones: [
+                trabajo(1, skm: 205, veredicto: .dentro, pendiente: 0),
+                trabajo(2, skm: 206, veredicto: .dentro, pendiente: 0),
+                trabajo(3, skm: 207, veredicto: .dentro, pendiente: 0),
+                trabajo(4, skm: 208, veredicto: .dentro, pendiente: 0),
+                trabajo(5, skm: 209, veredicto: .dentro, pendiente: 0),
+                trabajo(6, skm: 210, veredicto: .dentro, pendiente: nil),
+            ]
+        )
+        guard case .veredicto = Lectura.deCorrer(c).sujeto else {
+            return XCTFail("cinco llanos medidos contra un hueco: la media sigue siendo llana")
+        }
+    }
+
     // Justo por debajo del umbral el ritmo SÍ se compara: el corrector no se dispara
     // con cualquier repecho.
     func testPorDebajoDelUmbralElRitmoSigueMandando() {
@@ -262,17 +362,58 @@ final class LecturaDeCarreraTests: XCTestCase {
             objetivoRecuperacion: .ritmo(rapidoSkm: 320, lentoSkm: 360),
             repeticiones: [
                 trabajo(1, skm: 205, veredicto: .dentro),
-                recuperacion(1, skm: 300, modo: .trote, veredicto: .fueraRapido),
+                recuperacion(1, skm: 300, modo: .trote, veredicto: .demasiadoRapida),
                 trabajo(2, skm: 212, veredicto: .dentro),
-                recuperacion(2, skm: 340, modo: .trote, veredicto: .dentro),
+                recuperacion(2, skm: 340, modo: .trote, veredicto: .controlada),
             ]
         )
         let l = Lectura.deCorrer(c)
 
         XCTAssertEqual(l.veredictos, [.dentro, .dentro], "solo el TRABAJO")
-        XCTAssertEqual(l.veredictosRecuperacion, [.fueraRapido, .dentro])
+        XCTAssertEqual(l.veredictosRecuperacion, [.demasiadoRapida, .controlada])
         XCTAssertEqual(l.bandaRecuperacion?.rapidoSkm, 320)
         XCTAssertEqual(l.bandaRecuperacion?.lentoSkm, 360)
+    }
+
+    // LA ASIMETRÍA, HECHA TIPO. La recuperación tiene su PROPIO vocabulario: el
+    // servidor colapsa «dentro» y «fuera_lento» en `controlada`, porque recuperando
+    // irse lento no es un fallo. Traducirlo al vocabulario del trabajo borraría
+    // justo eso — y ahora el compilador no deja hacerlo.
+    func testLaRecuperacionTieneSuPropioVocabulario() {
+        XCTAssertEqual(RecoveryComplianceVerdict.controlada.rawValue, "controlada")
+        XCTAssertEqual(RecoveryComplianceVerdict.demasiadoRapida.rawValue, "demasiado_rapida")
+        // No existe un «fuera_lento» de recuperación: irse lento recuperando es correcto.
+        XCTAssertNil(RecoveryComplianceVerdict(rawValue: "fuera_lento"))
+        XCTAssertNil(RecoveryComplianceVerdict(rawValue: "dentro"))
+    }
+
+    // Y LA DE DURACIÓN VA INVERTIDA entre las dos: trabajando el fallo es quedarse
+    // corto; recuperando, pasarse.
+    func testLasDosAsimetriasDeDuracionVanAlReves() {
+        XCTAssertEqual(WorkDurationVerdict.incompleta.rawValue, "duracion_incompleta")
+        XCTAssertEqual(RecoveryDurationVerdict.excedida.rawValue, "duracion_excedida")
+        XCTAssertNil(WorkDurationVerdict(rawValue: "duracion_excedida"),
+                     "el trabajo no falla por pasarse de tiempo")
+        XCTAssertNil(RecoveryDurationVerdict(rawValue: "duracion_incompleta"),
+                     "la recuperación no falla por quedarse corta")
+    }
+
+    // LA DURACIÓN ES UNA FILA MÁS, NO UN REEMPLAZO: un tramo puede estar en banda de
+    // ritmo y aun así haberse quedado corto de tiempo, y se enseñan las dos cosas.
+    func testLaDuracionConviveConLaIntensidad() {
+        var t1 = trabajo(1, skm: 205, veredicto: .dentro)
+        t1.veredictoDuracion = .incompleta
+        var t2 = trabajo(2, skm: 208, veredicto: .dentro)
+        t2.veredictoDuracion = .completa
+
+        let l = Lectura.deCorrer(carrera(
+            objetivo: .ritmo(rapidoSkm: 200, lentoSkm: 215),
+            repeticiones: [t1, t2]
+        ))
+
+        XCTAssertEqual(l.veredictos, [.dentro, .dentro], "la intensidad estuvo bien…")
+        XCTAssertEqual(l.veredictosDuracion, [.incompleta, .completa],
+                       "…y aun así la primera se quedó corta. Las dos filas conviven.")
     }
 
     // Sin objetivo de recuperación no se inventa ninguno.

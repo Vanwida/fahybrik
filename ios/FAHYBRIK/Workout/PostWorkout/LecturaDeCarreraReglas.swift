@@ -39,10 +39,11 @@ extension Lectura {
             }
             return nil
         }()
-        let veredictosRec: [RunComplianceVerdict] =
-            (c.objetivoRecuperacion != nil && c.traza != nil)
-            ? recuperaciones.map { $0.veredicto ?? .sinDato }
-            : []
+        let juzgaRecuperacion = c.objetivoRecuperacion != nil && c.traza != nil
+        let veredictosRec: [RecoveryComplianceVerdict] =
+            juzgaRecuperacion ? recuperaciones.map { $0.veredictoRecuperacion ?? .sinDato } : []
+        let duracionesRec: [RecoveryDurationVerdict] =
+            juzgaRecuperacion ? recuperaciones.map { $0.veredictoDuracionRecuperacion ?? .sinDato } : []
 
         // ── Sin archivo: no hay curva, no hay tramos, no hay kilómetros ──────────
         guard c.traza != nil else {
@@ -55,20 +56,64 @@ extension Lectura {
                 eje: .ritmo,
                 banda: nil,
                 veredictos: [],
+                veredictosDuracion: [],
                 veredictosRecuperacion: [],
+                veredictosDuracionRecuperacion: [],
                 bandaRecuperacion: nil
             )
         }
 
         // ── Con repeticiones ─────────────────────────────────────────────────────
         if trabajo.count >= ReglasDeLectura.minRepeticionesParaVeredicto {
-            let pendiente = trabajo.reduce(0.0) { $0 + ($1.pendientePct ?? 0) } / Double(trabajo.count)
-
             // EL CORRECTOR, y no es un caso especial: en cuesta el ritmo no es
             // comparable, así que el eje del troceado pasa a ser el TIEMPO y el
             // veredicto de ritmo SE RETIRA en vez de emitirse mal. Se retira también
             // el del paseo de bajada, por lo mismo.
-            if pendiente >= ReglasDeLectura.pendienteQueRetiraElRitmoPct {
+            //
+            // TRES RAMAS, Y EN ESTE ORDEN (firmado 12-ago, corrigiendo una versión
+            // anterior — ver abajo, porque la anterior suena mejor de lo que era):
+            //
+            //  1. **La PRESCRIPCIÓN declara cuesta** → se retira. Es lo que pidió el
+            //     coach, y no depende de que hayamos medido nada: una sesión de
+            //     cuestas se sabe que lo es en cuanto se escribe. La intención TAMBIÉN
+            //     es dato, y es el que llega antes.
+            //  2. **La pendiente MEDIDA se sabe y pasa el umbral** → se retira igual.
+            //     Cubre la ruta con cuestas que nadie declaró.
+            //  3. **No se sabe y nadie declaró cuesta** → **el veredicto SE MANTIENE.**
+            //
+            // POR QUÉ LA 3 NO RETIRA, que es lo contraintuitivo y por eso va escrito:
+            // suena más prudente tratar «no se sabe» como cuesta —el resto del sistema
+            // hace justo eso: sin banda no hay veredicto, sin cobertura no hay juicio—
+            // y aun así aquí es peor. La pendiente se escribe al llegar la traza, y las
+            // trazas empezaron el 11-ago: **ninguna sesión anterior la tiene.** Si el
+            // nulo retirara, le quitaríamos el veredicto a TODO el histórico para
+            // proteger las de cuestas, que son una minoría — y las de cuestas ya están
+            // cubiertas por la rama 1, que no necesita medir. El coste del falso
+            // positivo se lo comerían todas las demás sesiones.
+            //
+            // Si alguien lee esto dentro de seis meses y piensa «nulo no es cero, esto
+            // está mal»: tiene razón en la premisa y no en la conclusión. El nulo NO se
+            // está leyendo como llano medido — se está leyendo como «nadie ha dicho que
+            // esto sea una cuesta», que es una afirmación distinta y que la rama 1 ya
+            // comprueba de verdad.
+            let declaradaCuesta = trabajo.contains {
+                ($0.pendientePrescritaPct ?? 0) >= ReglasDeLectura.pendienteQueRetiraElRitmoPct
+            }
+            // Media sobre lo que SE MIDIÓ, no sobre todos contando el nulo como cero:
+            // con cinco llanos medidos y un hueco, la media de la sesión es la de los
+            // cinco. Nula del todo = no se midió nada, y entonces sólo manda la rama 1.
+            let medidas = trabajo.compactMap(\.pendientePct)
+            let pendienteMedida = medidas.isEmpty
+                ? nil : medidas.reduce(0, +) / Double(medidas.count)
+
+            if declaradaCuesta
+                || (pendienteMedida ?? 0) >= ReglasDeLectura.pendienteQueRetiraElRitmoPct {
+                // Qué pendiente se enseña: la MEDIDA manda porque es lo que pasó; si no
+                // se midió, la declarada, que es lo que se pidió. Nunca un cero de
+                // relleno bajo un titular que dice «en cuesta».
+                let prescritas = trabajo.compactMap(\.pendientePrescritaPct)
+                let pendiente = pendienteMedida
+                    ?? (prescritas.isEmpty ? 0 : prescritas.reduce(0, +) / Double(prescritas.count))
                 let tiempos = trabajo.map(\.duracionS)
                 return Lectura(
                     sujeto: .tiempoPorRepeticion(
@@ -82,7 +127,9 @@ extension Lectura {
                     eje: .tiempo,
                     banda: nil,
                     veredictos: [],
+                    veredictosDuracion: [],
                     veredictosRecuperacion: [],
+                    veredictosDuracionRecuperacion: [],
                     bandaRecuperacion: nil
                 )
             }
@@ -104,7 +151,9 @@ extension Lectura {
                         eje: .ritmo,
                         banda: banda,
                         veredictos: veredictos,
+                        veredictosDuracion: trabajo.map { $0.veredictoDuracion ?? .sinDato },
                         veredictosRecuperacion: veredictosRec,
+                        veredictosDuracionRecuperacion: duracionesRec,
                         bandaRecuperacion: bandaRec
                     )
                 }
@@ -126,7 +175,9 @@ extension Lectura {
                     eje: .ritmo,
                     banda: nil,
                     veredictos: [],
+                    veredictosDuracion: [],
                     veredictosRecuperacion: veredictosRec,
+                    veredictosDuracionRecuperacion: duracionesRec,
                     bandaRecuperacion: bandaRec
                 )
             }
@@ -148,7 +199,9 @@ extension Lectura {
                     eje: .ritmo,
                     banda: banda,
                     veredictos: [],
+                    veredictosDuracion: [],
                     veredictosRecuperacion: veredictosRec,
+                    veredictosDuracionRecuperacion: duracionesRec,
                     bandaRecuperacion: bandaRec
                 )
             }
@@ -172,7 +225,9 @@ extension Lectura {
             eje: .ritmo,
             banda: banda,
             veredictos: [],
+            veredictosDuracion: [],
             veredictosRecuperacion: veredictosRec,
+            veredictosDuracionRecuperacion: duracionesRec,
             bandaRecuperacion: bandaRec
         )
     }

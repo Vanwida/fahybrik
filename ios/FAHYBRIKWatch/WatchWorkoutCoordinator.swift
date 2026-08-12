@@ -181,7 +181,7 @@ final class WatchWorkoutCoordinator {
         // CoreLocation. Sellarlos como «gps» sería etiquetar el archivo con un aparato
         // que no los midió.
         live.onDistanceDelta = { [weak engine] meters in
-            engine?.sampleRunGPS(deltaMeters: meters, source: .healthkit)
+            engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
         }
 
         engine.start()

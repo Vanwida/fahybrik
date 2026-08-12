@@ -140,7 +140,7 @@ final class ResumenCarreraRenderTests: XCTestCase {
             let esFuerte = i % 2 == 0
             let segundos: Double = esFuerte ? 190 + Double(i) : 120
             s.injectLiveHR(esFuerte ? 172 : 148, source: .strap)
-            s.sampleRunGPS(deltaMeters: esFuerte ? 805 : 380)
+            s.sampleRunDistance(deltaMeters: esFuerte ? 805 : 380, source: .healthkit)
             s.lapElapsedSeconds += segundos
             s.elapsedSeconds += segundos
             s.primaryAdvance()
@@ -187,7 +187,7 @@ final class ResumenCarreraRenderTests: XCTestCase {
         for i in 0..<8 {
             let segundos: Double = [227, 234, 247, 245, 258, 249, 250, 248][i]
             s.injectLiveHR(174, source: .strap)
-            s.sampleRunGPS(deltaMeters: 1000)
+            s.sampleRunDistance(deltaMeters: 1000, source: .healthkit)
             s.lapElapsedSeconds += segundos
             s.elapsedSeconds += segundos
             s.primaryAdvance()

@@ -2,7 +2,7 @@ import Foundation
 
 // EL EJE, Y LAS DOS SEÑALES QUE LA SESIÓN NO RECIBÍA.
 //
-// El pulso y la distancia ya entraban por `injectLiveHR` / `sampleRunGPS` /
+// El pulso y la distancia ya entraban por `injectLiveHR` / `sampleRunDistance` /
 // `sampleTreadmillDistance`, así que la traza se engancha ahí y hereda sus puertas.
 // La VELOCIDAD y la ALTITUD no llegaban a la sesión en absoluto: la velocidad moría
 // en el suavizador de la pantalla de calle (que es donde nace el ritmo que se pinta,
@@ -32,7 +32,7 @@ extension WorkoutSession {
     /// y un «no lo sé» no es una medida: se descarta en vez de archivarse como cero.
     /// Nada de aplicar aquí el umbral de precisión del suavizador — ese es un criterio
     /// de PANTALLA, y quien lea la traza decide el suyo.
-    /// Puerta de pausa MANUAL, no de autopausa: ver `sampleRunGPS`. Con la autopausa
+    /// Puerta de pausa MANUAL, no de autopausa: ver `sampleRunDistance`. Con la autopausa
     /// enganchada el atleta está parado de verdad, y una velocidad de 0 medida es un
     /// dato —dice que estuvo parado ahí—, no un hueco. El hueco lo deja la pausa a
     /// mano, que es cuando dejamos de mirar.

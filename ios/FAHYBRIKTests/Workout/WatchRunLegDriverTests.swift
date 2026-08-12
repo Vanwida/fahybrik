@@ -8,7 +8,7 @@ import XCTest
 //   (2) the per-leg baseline lives with the DRIVER (workout lifetime on the
 //       coordinator), so it survives the structured view being recreated by paging;
 //       a driver rebuilt mid-leg (the rejected per-view design) would lose it.
-// The driver reads the SAME covered distance the HK stream feeds via sampleRunGPS and
+// The driver reads the SAME covered distance the HK stream feeds via sampleRunDistance and
 // closes via the SAME primaryAdvance() the treadmill uses (recording stays aggregate).
 final class WatchRunLegDriverTests: XCTestCase {
 
@@ -48,22 +48,22 @@ final class WatchRunLegDriverTests: XCTestCase {
         let driver = WatchRunLegDriver(session: s)
 
         driver.tick()                         // baseline at 0
-        s.sampleRunGPS(deltaMeters: 500); driver.tick()
+        s.sampleRunDistance(deltaMeters: 500, source: .healthkit); driver.tick()
         XCTAssertEqual(s.runLegIndex, 0)
         XCTAssertEqual(driver.legCoveredMeters, 500, accuracy: 0.001)
 
-        s.sampleRunGPS(deltaMeters: 350); driver.tick()   // covered 850 ≥ 800 → close
+        s.sampleRunDistance(deltaMeters: 350, source: .healthkit); driver.tick()   // covered 850 ≥ 800 → close
         XCTAssertEqual(s.runLegIndex, 1)      // → the recovery (TIME)
         XCTAssertFalse(s.isRunLegWork)
 
         // Recovery is a TIME leg → covered distance must NOT close it (session clock).
-        s.sampleRunGPS(deltaMeters: 1000); driver.tick(); driver.tick()
+        s.sampleRunDistance(deltaMeters: 1000, source: .healthkit); driver.tick(); driver.tick()
         XCTAssertEqual(s.runLegIndex, 1)
 
         s.primaryAdvance()                    // manual "saltar descanso" → leg 2 (600 m)
         XCTAssertEqual(s.currentRunLeg?.distanceMeters, 600)
         driver.tick()                         // re-baseline, discarding the recovery overshoot
-        s.sampleRunGPS(deltaMeters: 600); driver.tick()   // covered 600 in-leg → close last
+        s.sampleRunDistance(deltaMeters: 600, source: .healthkit); driver.tick()   // covered 600 in-leg → close last
         // The wrist closed the last leg, so the prescribed work is done — and the athlete
         // is asked once rather than the watch ending his session for him.
         XCTAssertTrue(s.isAwaitingFinishDecision)
@@ -79,11 +79,11 @@ final class WatchRunLegDriverTests: XCTestCase {
         s.primaryAdvance()                    // skip count-in → leg 0
         let driver = WatchRunLegDriver(session: s)
         driver.tick()                         // baseline 0
-        s.sampleRunGPS(deltaMeters: 400); driver.tick()
+        s.sampleRunDistance(deltaMeters: 400, source: .healthkit); driver.tick()
         XCTAssertEqual(driver.legCoveredMeters, 400, accuracy: 0.001)
 
         // A paging-recreated VIEW just re-reads THIS driver → covered is intact.
-        s.sampleRunGPS(deltaMeters: 50); driver.tick()
+        s.sampleRunDistance(deltaMeters: 50, source: .healthkit); driver.tick()
         XCTAssertEqual(driver.legCoveredMeters, 450, accuracy: 0.001,
                        "coordinator-owned driver → covered keeps counting from leg start")
         XCTAssertEqual(s.runLegIndex, 0)      // 450 < 800 → still mid-leg, not miscounted

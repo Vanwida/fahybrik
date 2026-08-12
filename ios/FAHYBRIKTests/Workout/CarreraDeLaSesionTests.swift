@@ -44,7 +44,7 @@ final class CarreraDeLaSesionTests: XCTestCase {
 
     /// Cierra el tramo en curso con lo que se ha corrido en él.
     private func corre(_ s: WorkoutSession, segundos: Double, metros: Double) {
-        s.sampleRunGPS(deltaMeters: metros)
+        s.sampleRunDistance(deltaMeters: metros, source: .healthkit)
         s.lapElapsedSeconds += segundos
         s.elapsedSeconds += segundos
         s.primaryAdvance()

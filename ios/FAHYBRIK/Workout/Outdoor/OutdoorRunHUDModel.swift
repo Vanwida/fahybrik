@@ -59,7 +59,9 @@ final class OutdoorRunHUDModel {
             routePoints = PolylineCodec.decode(existing)
             coordinates = routePoints.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         }
-        gps.onDistanceDelta = { [weak self] meters in self?.session.sampleRunGPS(deltaMeters: meters) }
+        // Sin `onDistanceDelta`: los metros los cuenta Apple (`RunPedometer`, montado
+        // en la vista activa y vivo toda la sesión). Esta pantalla usa el GPS para el
+        // RECORRIDO y para la velocidad que suaviza el ritmo en vivo, nada más.
         gps.onSpeed = { [weak self] speed, acc in
             guard let self else { return }
             self.smoother.ingest(speedMps: speed, speedAccuracyMps: acc, now: self.now)
