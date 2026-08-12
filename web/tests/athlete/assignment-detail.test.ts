@@ -602,6 +602,80 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(item.resolved_intensity!.pace_unit).toBe('per_km');
   });
 
+  // #71 — el veredicto de cumplimiento (band vs ejecutado) lo lee el ATLETA
+  // primero: es el sujeto que Alex eligió para la pantalla de después de
+  // correr. Se computa DENTRO de buildAssignmentDetail (un solo motor,
+  // shared/domain/adherence vía web/lib/dashboard/coach/run-compliance) —
+  // este test fija que el atleta lo recibe, no sólo el coach.
+  it('surfaces run_compliance (#71) — el atleta ve si clavó el objetivo, no sólo el coach', () => {
+    const actual = {
+      position: 0,
+      item_uid: 'segment-60',
+      modality: 'run' as const,
+      started_at: '2026-05-27T18:00:00Z',
+      duration_seconds: 245,
+      reps_completed: null,
+      weight_used_kg: null,
+      distance_meters: 1000,
+      avg_pace_s_per_500m: null,
+      avg_pace_s_per_km: 245, // dentro de la banda 240-254 resuelta abajo
+      avg_power_w: null,
+      stroke_rate_spm: null,
+      avg_hr: null,
+      max_hr: null,
+      calories: null,
+      emom_rounds_completed: null,
+      emom_rounds_prescribed: null,
+      incline_pct: null,
+      run_cadence_spm: null,
+      drag_factor: null,
+      avg_calories_per_hour: null,
+      peak_drive_force_lbs: null,
+      avg_drive_force_lbs: null,
+      erg_splits: null,
+      run_splits: null,
+      source: null,
+      zone_seconds: null,
+      leg_index: null,
+      leg_role: null,
+      leg_phase: null,
+      is_structural: false,
+    };
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00Z', perceived_exertion: 6 },
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', value: 4 })],
+      zoneProfiles: [runProfile(240)],
+      executionSegments: [actual],
+    });
+    expect(result.run_compliance.summary).toMatchObject({ total: 1, evaluable: 1, dentro: 1, pct_dentro: 100 });
+    expect(result.run_compliance.tramos[0]).toMatchObject({
+      item_uid: 'segment-60',
+      verdict: 'dentro',
+      band_axis: 'pace',
+      band: { axis: 'pace', fast_s: 240, slow_s: 254 },
+    });
+  });
+
+  it('sesión sin nada que juzgar: run_compliance vacío y declarado, nunca un veredicto inventado', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [], // sin plantilla con contenido → workout: null
+    });
+    expect(result.workout).toBeNull();
+    expect(result.run_compliance).toEqual({
+      summary: { total: 0, evaluable: 0, dentro: 0, fuera_rapido: 0, fuera_lento: 0, sin_dato: 0, pct_dentro: null },
+      tramos: [],
+      recovery_summary: { total: 0, evaluable: 0, controlada: 0, demasiado_rapida: 0, sin_dato: 0, pct_controlada: null },
+      recovery_tramos: [],
+      work_duration_summary: { total: 0, evaluable: 0, completa: 0, incompleta: 0, sin_dato: 0, pct_completa: null },
+      recovery_duration_summary: { total: 0, evaluable: 0, controlada: 0, excedida: 0, sin_dato: 0, pct_controlada: null },
+    });
+  });
+
   it('resolves a @Z1 open band to "> fast/km"', () => {
     const result = buildAssignmentDetail({
       assignment: baseAssignment,

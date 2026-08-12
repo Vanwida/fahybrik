@@ -11,15 +11,16 @@ import 'server-only';
 // ---------------------------------------------------------------
 // `loadAssignmentDetail` (el mismo cargador que sirve el brief del iOS) ya da lo
 // gordo: los bloques prescritos con sus zonas y sus %RM resueltos contra los
-// perfiles del atleta, y la ejecución con sus tramos medidos. Lo que le falta
-// para la vista del coach son tres cosas que solo tienen sentido de este lado:
+// perfiles del atleta, la ejecución con sus tramos medidos, Y el veredicto de
+// cumplimiento por tramo (`run_compliance`, #71 — se computa UNA vez ahí, el
+// atleta y el coach LEEN el mismo objeto, ninguno de los dos lo recalcula: ver
+// el porqué en la cabecera de `assignment-detail.ts`). Lo que le falta para la
+// vista del coach son dos cosas que solo tienen sentido de este lado:
 //
 //   1. los overrides por-asignación (`wa.notes` codificado: título + nota libre),
 //   2. por qué NO hay contenido cuando no lo hay — plantilla ausente, plantilla
 //      vacía o reloj de box (`content_state`), que es lo que evita que el panel
-//      llame error a una sesión honesta,
-//   3. el veredicto de cumplimiento por tramo (`buildRunCompliance`), que cruza
-//      la banda prescrita con el lap medido.
+//      llame error a una sesión honesta.
 //
 // TENANCY. El atleta se resuelve contra el coach ANTES de leer nada de la sesión,
 // y la asignación se carga scoped al atleta. Un id ajeno se responde igual que un
@@ -30,7 +31,6 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
-import { buildRunCompliance } from '@/lib/dashboard/coach/run-compliance';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 
 /** El vocabulario de `workout_executions.perceived_difficulty` (CHECK en 0125). */
@@ -164,10 +164,15 @@ export async function loadCoachSessionDetail(params: {
           }
         : null,
       segment_actuals: segmentActuals,
-      // Cumplimiento por tramo (banda prescrita vs lap ejecutado) sobre los MISMOS
-      // bloques y los MISMOS tramos que van en el payload, así que un veredicto no
-      // puede discrepar de la línea que lo justifica.
-      run_compliance: buildRunCompliance(detail.workout, segmentActuals),
+      // El MISMO objeto que ya computó `loadAssignmentDetail` — nunca una
+      // segunda llamada a `buildRunCompliance` (#71): dos invocaciones sobre
+      // los mismos bloques y los mismos tramos siempre darían el mismo
+      // resultado hoy, pero "siempre coinciden porque son la misma cuenta
+      // hecha dos veces" es exactamente la clase de garantía que se rompe en
+      // silencio el día que una de las dos rutas cambia y la otra no. Un solo
+      // sitio donde se calcula es la única garantía que no depende de que
+      // nadie se acuerde de mantener las dos en sincronía.
+      run_compliance: detail.run_compliance,
     },
   };
 }

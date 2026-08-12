@@ -26,6 +26,13 @@ import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
+// El motor de cumplimiento (#66/#71) vive junto al resto de la lectura del
+// coach por dónde nació, pero la pregunta que responde («¿clavó la serie?»)
+// es del ATLETA primero — es el sujeto que Alex eligió para la pantalla de
+// después de correr. Se importa aquí en vez de portarlo o duplicar su
+// resolución de banda/precedencia (mismo patrón que `bestHrTrace`,
+// `execution-traces.ts`): un solo motor, quien lo necesite lo importa.
+import { buildRunCompliance, type RunComplianceResult } from '@/lib/dashboard/coach/run-compliance';
 import {
   resolveDoblesStationSplit,
   type DoblesStationSplit,
@@ -114,6 +121,15 @@ export interface AssignmentDetailResponse {
   // session (closing the loop: they see what they logged — tiempo / score / RPE /
   // per-segment splits). Null while the session is still pending (no execution).
   execution: AssignmentDetailExecution | null;
+  // Veredicto de cumplimiento por tramo (banda prescrita vs ejecutado, #66) +
+  // recuperación (intensidad Y duración, #71) + `band` para dibujar la franja
+  // sobre la curva sin recalcularla. EL MISMO objeto que lee el coach
+  // (`CoachSessionDetail.session.run_compliance`) — se computa UNA vez aquí y
+  // las dos superficies lo leen, nunca lo recalculan cada una por su cuenta.
+  // Siempre presente, nunca null: una sesión sin nada que juzgar (sin tramos
+  // de carrera, o sin ejecutar) sale con sus resúmenes a cero y sus arrays
+  // vacíos — vacío y declarado, jamás un veredicto inventado.
+  run_compliance: RunComplianceResult;
 }
 
 // What the athlete ACTUALLY did — the executed reality for a finished session.
@@ -764,6 +780,13 @@ export function buildAssignmentDetail(input: {
 
   const slot = slotFromNotes(assignment.notes);
 
+  const executionBlock = buildExecutionBlock(
+    assignment.status,
+    execution,
+    input.executionSegments ?? [],
+    input.executionTrace ?? EMPTY_TRACE,
+  );
+
   const base: AssignmentDetailResponse = {
     assignment: {
       id: assignment.id,
@@ -781,12 +804,12 @@ export function buildAssignmentDetail(input: {
       store_results: input.storeResults ?? [],
     },
     workout: null,
-    execution: buildExecutionBlock(
-      assignment.status,
-      execution,
-      input.executionSegments ?? [],
-      input.executionTrace ?? EMPTY_TRACE,
-    ),
+    execution: executionBlock,
+    // Sin plantilla (rest day) o sin bloques (más abajo): se juzga contra
+    // `workout: null`, que `buildRunCompliance` resuelve honestamente a
+    // resúmenes vacíos — nunca un veredicto inventado sobre una sesión sin
+    // prescripción que enseñar.
+    run_compliance: buildRunCompliance(null, executionBlock?.segments ?? []),
   };
 
   // The executed block is independent of the template (a "marcar como hecha" log
@@ -813,6 +836,10 @@ export function buildAssignmentDetail(input: {
     estimated_duration_minutes: null,
     blocks,
   };
+  // Recalculado contra el `workout` real (arriba se juzgó contra null): un
+  // 6×800 real puede tener tramos de carrera que juzgar donde antes no
+  // había ninguno.
+  base.run_compliance = buildRunCompliance(base.workout, executionBlock?.segments ?? []);
 
   return base;
 }
