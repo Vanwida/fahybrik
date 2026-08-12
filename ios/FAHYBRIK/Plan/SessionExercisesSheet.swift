@@ -133,32 +133,36 @@ struct SessionExercisesSheet: View {
                     .stroke(Theme.Color.hairline, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            // Pulsación larga: la fila no tenía menú, y uno no ocupa alto. Es un
-            // ATAJO, nunca la vía principal — la puerta que se descubre es el «+»
-            // del chat. Ver docs/DECISIONS.md, 12-ago.
-            .contextMenu {
+        }
+        .buttonStyle(PressScaleStyle())
+        // Pulsación larga: la fila no tenía menú, y uno no ocupa alto. Es un
+        // ATAJO, nunca la vía principal — la puerta que se descubre es el «+» del
+        // chat. Ver docs/DECISIONS.md, 12-ago.
+        //
+        // VA SOBRE EL BOTÓN, no dentro de su `label:`. Ahí dentro no se abre
+        // nunca: el botón se queda la pulsación larga para su propio resaltado y
+        // el menú no llega a existir. Así estaba y así se quedó sin funcionar.
+        .contextMenu {
+            Button {
+                Haptics.light()
+                selected = item
+            } label: {
+                Label("Ver la técnica", systemImage: "play.rectangle")
+            }
+            if let onPreguntar {
                 Button {
-                    Haptics.light()
-                    selected = item
+                    onPreguntar(EjercicioSeñalado(
+                        // El segmento prescrito de ESTA línea. Sin él (entreno
+                        // libre) se señala el entreno entero, no una línea
+                        // inventada.
+                        segmentoId: item.templateSegmentId.map(String.init),
+                        nombre: item.exerciseName
+                    ))
                 } label: {
-                    Label("Ver la técnica", systemImage: "play.rectangle")
-                }
-                if let onPreguntar {
-                    Button {
-                        onPreguntar(EjercicioSeñalado(
-                            // El segmento prescrito de ESTA línea. Sin él (entreno
-                            // libre) se señala el entreno entero, no una línea
-                            // inventada.
-                            segmentoId: item.templateSegmentId.map(String.init),
-                            nombre: item.exerciseName
-                        ))
-                    } label: {
-                        Label("Preguntar al coach", systemImage: "message")
-                    }
+                    Label("Preguntar al coach", systemImage: "message")
                 }
             }
         }
-        .buttonStyle(PressScaleStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "\(item.exerciseName)\(hasVideo(item) ? ", con vídeo de técnica" : "")"
