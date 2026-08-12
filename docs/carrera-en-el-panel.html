@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La carrera en el panel del coach</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS. Los del panel, copiados de web/app/[locale]/(v2)/v2-theme.css (tema
+   oscuro) y de web/app/globals.css. Ni un hex inventado: si el panel cambia un
+   token, este documento se queda desalineado a propósito y se ve.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0a0a0a; --surface:#141414; --surface-2:#1a1a1a; --elevated:#1f1f1f;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+  --accent:#f06a2a; --accent-soft:rgba(240,106,42,.14); --accent-on:#0a0a0a;
+  --ok:#3fc773; --ok-soft:rgba(63,199,115,.14);
+  --warn:#f2a52e; --warn-soft:rgba(242,165,46,.14);
+  --danger:#f2504f; --danger-soft:rgba(242,80,79,.14);
+  --info:#4d9eeb; --info-soft:rgba(77,158,235,.14);
+
+  /* Zonas: solo en gráficos de entreno, sin naranja. Estas son las CANÓNICAS,
+     las que ve el atleta (globals.css, twin.css y ZoneColors.swift dicen las
+     mismas). El tema del panel v2 lleva hoy otras cinco: ver el apartado 01. */
+  --z1:#c7c7c7; --z2:#4d9eeb; --z3:#4dc773; --z4:#f2b833; --z5:#eb4d4d;
+  --z1-soft:rgba(199,199,199,.15); --z2-soft:rgba(77,158,235,.15);
+  --z3-soft:rgba(77,199,115,.15); --z4-soft:rgba(242,184,51,.15);
+  --z5-soft:rgba(235,77,77,.15);
+
+  --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+  --s-xs:4px; --s-s:8px; --s-m:12px; --s-l:16px; --s-xl:24px; --s-xxl:32px; --s-xxxl:48px;
+
+  --font-display:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
+  --font-sans:"Geist","SF Pro Text",system-ui,-apple-system,sans-serif;
+  --font-mono:"Geist Mono","SF Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --doc-max:1180px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font:400 16px/1.6 var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;                 /* el cuerpo JAMAS scrollea de lado */
+}
+
+/* ── Documento ─────────────────────────────────────────────────────────── */
+.doc{max-width:var(--doc-max);margin:0 auto;padding:var(--s-xxxl) var(--s-xl) 96px}
+.kicker{font:700 11px/1 var(--font-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--font-display);font-style:italic;font-weight:900;
+   font-size:clamp(30px,5.6vw,48px);line-height:1.04;letter-spacing:-.02em;margin:14px 0 14px}
+.sub{color:var(--muted);font-size:17px;line-height:1.55;max-width:64ch}
+.meta{display:flex;flex-wrap:wrap;gap:var(--s-m) var(--s-xl);margin-top:var(--s-xl);
+      font:500 12.5px/1.5 var(--font-sans);color:var(--faint)}
+.meta b{color:var(--muted);font-weight:700}
+
+h2{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(21px,3.2vw,27px);
+   line-height:1.15;letter-spacing:-.01em;margin:72px 0 var(--s-l);
+   display:flex;align-items:baseline;gap:14px;scroll-margin-top:16px}
+h2 .n{flex:0 0 auto;font-family:var(--font-mono);font-style:normal;font-weight:600;
+      font-size:13px;color:var(--accent);letter-spacing:0}
+h3{font-size:16px;font-weight:700;margin:var(--s-xl) 0 var(--s-s);letter-spacing:-.005em}
+h4{font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase;
+   color:var(--faint);margin:var(--s-l) 0 var(--s-s)}
+p{margin:0 0 var(--s-m);max-width:74ch}
+.mut{color:var(--muted)}
+.lede{font-size:17px;color:var(--muted);max-width:70ch}
+ul,ol{margin:0 0 var(--s-m) 20px;color:var(--muted);max-width:74ch}
+li{margin-bottom:7px}
+li::marker{color:var(--accent)}
+b,strong{color:var(--fg);font-weight:650}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.35)}
+a:hover{border-bottom-color:var(--accent)}
+code{font:500 12.5px/1.5 var(--font-mono);background:var(--surface-2);
+     border:1px solid var(--border);border-radius:var(--r-xs);padding:1px 6px;color:var(--muted);
+     overflow-wrap:anywhere}
+
+.toc{border:1px solid var(--border);border-radius:var(--r-l);background:var(--surface);
+     padding:var(--s-l) var(--s-xl);margin-top:var(--s-xxl)}
+.toc ol{margin:0 0 0 18px;columns:2;column-gap:var(--s-xl)}
+.toc li{font-size:14px;margin-bottom:6px;break-inside:avoid}
+.toc a{border:0;color:var(--muted)}
+.toc a:hover{color:var(--accent)}
+
+.ley{background:linear-gradient(140deg,var(--surface),#1a1210);
+     border:1px solid rgba(240,106,42,.32);border-radius:var(--r-l);
+     padding:var(--s-xl);margin:var(--s-l) 0}
+.ley h3{margin:0 0 var(--s-s);color:var(--accent);font-size:17px}
+.ley p{margin:0;color:var(--fg);font-size:15.5px;max-width:none}
+.ley p+p{margin-top:var(--s-s);color:var(--muted);font-size:14.5px}
+
+.aviso{border-left:3px solid var(--warn);padding:2px 0 2px var(--s-l);margin:var(--s-l) 0}
+.aviso h4{margin:0 0 5px;color:var(--warn)}
+.aviso p{margin:0;font-size:14.5px;color:var(--muted)}
+
+/* Tablas del documento. Siempre dentro de su propio scroll horizontal. */
+.tS{border:1px solid var(--border);border-radius:var(--r-m);overflow-x:auto;
+    -webkit-overflow-scrolling:touch;margin:var(--s-m) 0 var(--s-l);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+th{font:700 10px/1.3 var(--font-sans);letter-spacing:.11em;text-transform:uppercase;color:var(--faint);
+   text-align:left;padding:11px 14px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted);line-height:1.5}
+td:first-child{color:var(--fg);font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:var(--s-xl)}
+.cols2>div{min-width:0}
+.cols2 p{max-width:none}
+
+/* ═══ El marco de maqueta. Todo lo que va dentro ES la interfaz. ═══════════ */
+.ui{border:1px solid var(--border-strong);border-radius:var(--r-l);overflow:hidden;
+    background:var(--bg);margin:var(--s-l) 0 var(--s-xl);box-shadow:0 24px 60px -30px #000}
+.ui-cap{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-s) var(--s-m);
+        padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);
+        font:700 10px/1.3 var(--font-sans);letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.ui-cap .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+.ui-cap em{font-style:normal;color:var(--muted);letter-spacing:.06em;text-transform:none;font-weight:500;font-size:11px}
+.ui-body{padding:var(--s-xl)}
+
+/* ── Primitivas del panel ──────────────────────────────────────────────── */
+.v2-micro{font:700 11px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.v2-num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.v2-display{font-family:var(--font-display);font-style:italic;font-weight:900;line-height:1;letter-spacing:-.01em}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--s-l)}
+.card+.card{margin-top:var(--s-m)}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-m);margin-bottom:var(--s-m);flex-wrap:wrap}
+
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);
+      padding:3px 9px;font:650 10.5px/1.35 var(--font-sans);white-space:nowrap;
+      border:1px solid transparent}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.pill.neutral{background:rgba(161,161,161,.12);color:var(--muted)}
+.pill.accent{background:var(--accent-soft);color:var(--accent)}
+.pill.line{background:transparent;border-color:var(--border-strong);color:var(--muted)}
+
+.migas{display:flex;align-items:center;gap:7px;font:500 12px/1 var(--font-sans);color:var(--faint);margin-bottom:var(--s-m)}
+.migas b{color:var(--muted);font-weight:600}
+.migas .sep{color:var(--faint);opacity:.6}
+
+.ses-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+          gap:var(--s-m);padding-bottom:var(--s-l);border-bottom:1px solid var(--border);margin-bottom:var(--s-xl)}
+.ses-head h3{margin:0;font-family:var(--font-display);font-style:italic;font-weight:900;
+             font-size:clamp(20px,2.6vw,26px);line-height:1.05}
+.ses-chips{display:flex;flex-wrap:wrap;gap:var(--s-s);align-items:center}
+.ses-chips .v2-num{font-size:12px;color:var(--muted)}
+
+/* Rejilla de la pagina de sesion: cuerpo + carril */
+.pag{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--s-xl);align-items:start}
+.pag>*{min-width:0}
+.carril{display:flex;flex-direction:column;gap:var(--s-m)}
+
+/* ── El sujeto ─────────────────────────────────────────────────────────── */
+.sujeto{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s-xl);
+        background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--s-xl)}
+.sujeto .num{flex:0 0 auto}
+.sujeto .num .et{font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase;
+                 color:var(--muted);display:block;margin-bottom:10px}
+.sujeto .num .v{font-family:var(--font-display);font-style:italic;font-weight:900;
+                font-size:clamp(38px,6vw,56px);line-height:.92;letter-spacing:-.025em;
+                font-variant-numeric:tabular-nums;display:block}
+.sujeto .num .v .u{font-size:.42em;letter-spacing:0;color:var(--muted);margin-left:4px;font-style:normal}
+.sujeto .dice{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:7px;padding-top:2px}
+.sujeto .dice .fr{font:650 15px/1.35 var(--font-sans);color:var(--fg)}
+.sujeto .dice .ap{font:500 13px/1.45 var(--font-sans);color:var(--muted)}
+.sujeto .dice .pr{font:500 12.5px/1.45 var(--font-mono);color:var(--faint)}
+
+/* ── Curva ─────────────────────────────────────────────────────────────── */
+.curva-caja{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
+            padding:var(--s-l) var(--s-l) var(--s-m)}
+.curva-host{width:100%}
+.curva-host svg{display:block;width:100%}
+.leyenda{margin-top:9px;text-align:center;font:500 11px/1.45 var(--font-sans);color:var(--faint)}
+
+/* ── Filas de tramo ────────────────────────────────────────────────────── */
+.tramos{display:flex;flex-direction:column;gap:3px}
+.fila{display:flex;align-items:center;gap:var(--s-m);padding:10px 12px;border-radius:var(--r-s);
+      background:var(--surface);border:1px solid var(--border)}
+.fila .n{width:18px;flex:0 0 auto;font:700 13px/1 var(--font-mono);color:var(--faint)}
+.fila .q{flex:1 1 auto;min-width:0;font:500 12.5px/1.3 var(--font-sans);color:var(--muted);white-space:nowrap}
+.fila .barra{flex:1 1 60px;min-width:40px;height:6px;border-radius:3px;background:rgba(245,245,245,.08);overflow:hidden}
+.fila .barra i{display:block;height:100%;border-radius:3px;background:rgba(245,245,245,.34)}
+.fila .cifra{flex:0 0 auto;font:600 17px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.fila .ppm{flex:0 0 46px;text-align:right;font:600 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--faint)}
+.fila .ppm .uu{font-size:9px;color:var(--faint);margin-left:2px}
+.fila .vd{flex:0 0 auto}
+.fila.hueco{background:transparent;border-style:dashed;border-color:var(--border-strong)}
+.fila.hueco .porque{flex:1 1 auto;font:500 12px/1.35 var(--font-sans);color:var(--faint)}
+.rec{padding:3px 12px 3px 42px;font:500 11.5px/1.35 var(--font-sans);color:var(--faint)}
+.certeza{margin-top:6px;font:500 11px/1.4 var(--font-sans);color:var(--faint)}
+
+/* ── Apoyos (lo derivado) ──────────────────────────────────────────────── */
+.apoyos{display:flex;flex-wrap:wrap;gap:var(--s-s)}
+.apoyo{flex:1 1 120px;min-width:110px;background:var(--surface-2);border:1px solid var(--border);
+       border-radius:var(--r-s);padding:10px 12px}
+.apoyo .e{display:block;font:700 9.5px/1.2 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.apoyo .v{font:600 20px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.apoyo .p{display:block;margin-top:4px;font:500 11px/1.3 var(--font-sans);color:var(--muted)}
+
+/* ── Prescrito / hecho (lo que ya existe en el cajon) ──────────────────── */
+.item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;align-items:baseline;
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:11px 13px}
+.item+.item{margin-top:6px}
+.item .nom{grid-column:1/-1;font:650 14px/1.3 var(--font-sans);color:var(--fg)}
+.item .et{font:700 10px/1.2 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.item .et.hecho{color:var(--ok)}
+.item .val{font:500 12.5px/1.45 var(--font-mono);color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--ok);background:var(--ok-soft);color:var(--ok);border-radius:var(--r-pill);
+      padding:2px 8px;font:600 11px/1.4 var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ── Nota / hueco declarado ────────────────────────────────────────────── */
+.declarado{border:1px dashed var(--border-strong);border-radius:var(--r-m);padding:var(--s-l);text-align:center}
+.declarado .t{display:block;font-family:var(--font-display);font-style:italic;font-weight:900;font-size:16px;color:var(--fg);margin-bottom:6px}
+.declarado .d{font:500 12.5px/1.5 var(--font-sans);color:var(--muted)}
+.nota{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--border);
+      border-radius:var(--r-s);padding:11px 13px}
+.nota .ic{flex:0 0 auto;width:16px;height:16px;border-radius:4px;background:var(--accent-soft);
+          display:flex;align-items:center;justify-content:center;color:var(--accent);font:800 10px/1 var(--font-sans);margin-top:1px}
+.nota p{margin:0;font:500 12.5px/1.5 var(--font-sans);color:var(--fg)}
+.nota .v2-micro{display:block;margin-bottom:4px}
+
+/* ── Barra del sesgo ───────────────────────────────────────────────────── */
+.sesgo{display:flex;width:100%;height:34px;border-radius:var(--r-s);overflow:hidden;
+       border:1px solid var(--border);background:var(--surface-2)}
+.sesgo>span{display:flex;align-items:center;justify-content:center;font:700 11px/1 var(--font-mono);
+            font-variant-numeric:tabular-nums;min-width:0;overflow:hidden}
+.sesgo .dentro{background:var(--ok-soft);color:var(--ok);box-shadow:inset 0 0 0 1px rgba(63,199,115,.3)}
+.sesgo .rapido{background:repeating-linear-gradient(135deg,rgba(242,165,46,.26) 0 4px,rgba(242,165,46,.09) 4px 8px);color:var(--warn)}
+.sesgo .lento{background:var(--warn-soft);color:var(--warn);box-shadow:inset 0 0 0 1px rgba(242,165,46,.3)}
+/* Los tres pies se anclan a los tres bordes de la barra: el hombro de la
+   izquierda es demasiado estrecho para llevar su etiqueta encima. */
+.sesgo-pies{display:flex;justify-content:space-between;gap:var(--s-s);margin-top:7px;
+            font:500 11px/1.35 var(--font-sans);color:var(--muted)}
+.sesgo-pies span{min-width:0}
+.sesgo-pies .cen{color:var(--faint);text-align:center}
+.sesgo-pies .der{text-align:right}
+
+/* ── Columnas por posicion ─────────────────────────────────────────────── */
+.posiciones{display:flex;align-items:flex-end;gap:8px;height:132px;padding-top:4px}
+.pos{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%}
+.pos .col{width:100%;max-width:56px;border-radius:5px 5px 0 0;background:var(--ok-soft);
+          box-shadow:inset 0 0 0 1px rgba(63,199,115,.34);position:relative;min-height:3px}
+.pos.baja .col{background:var(--warn-soft);box-shadow:inset 0 0 0 1px rgba(242,165,46,.34)}
+.pos.corta .col{background:repeating-linear-gradient(135deg,rgba(161,161,161,.16) 0 4px,rgba(161,161,161,.05) 4px 8px);
+                box-shadow:inset 0 0 0 1px rgba(161,161,161,.24)}
+.pos .pct{font:700 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ok)}
+.pos.baja .pct{color:var(--warn)}
+.pos.corta .pct{font-size:10.5px;color:var(--faint);font-weight:600}
+.pos .et{font:500 10.5px/1.2 var(--font-sans);color:var(--faint);white-space:nowrap}
+.pos .nn{font:500 9.5px/1 var(--font-mono);color:var(--faint);opacity:.75}
+
+/* ── Barras de volumen ─────────────────────────────────────────────────── */
+.semanas{display:flex;align-items:flex-end;gap:6px;height:150px}
+.sem{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%}
+.sem .col{width:100%;max-width:46px;border-radius:5px 5px 0 0;background:rgba(245,245,245,.16);
+          box-shadow:inset 0 0 0 1px rgba(245,245,245,.1);min-height:3px}
+.sem.curso .col{background:repeating-linear-gradient(135deg,rgba(240,106,42,.24) 0 4px,rgba(240,106,42,.07) 4px 8px);
+                box-shadow:inset 0 0 0 1px rgba(240,106,42,.34)}
+.sem .km{font:700 11.5px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.sem.curso .km{color:var(--accent)}
+.sem .et{font:500 10px/1.2 var(--font-sans);color:var(--faint);white-space:nowrap}
+
+/* ── Carga ─────────────────────────────────────────────────────────────── */
+.carga-num{display:flex;flex-wrap:wrap;gap:var(--s-s)}
+.carga-num>div{flex:1 1 100px;min-width:96px;background:var(--surface-2);border:1px solid var(--border);
+               border-radius:var(--r-s);padding:11px 12px}
+.carga-num .e{display:block;font:700 9.5px/1.25 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+.carga-num .v{font:600 24px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.carga-num .p{display:block;margin-top:5px;font:500 10.5px/1.3 var(--font-sans);color:var(--muted)}
+
+/* ── Comparacion de anchos: cajon contra pagina ────────────────────────── */
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--r-l)}
+.medida{display:flex;gap:var(--s-l);padding-bottom:6px;width:max-content}
+.medida .lado{flex:0 0 auto}
+.medida .lado>.tit{display:block;margin-bottom:9px;font:700 10px/1.3 var(--font-sans);
+                   letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.medida .lado>.tit b{color:var(--fg)}
+.marco{border:1px solid var(--border-strong);border-radius:var(--r-m);background:var(--surface);padding:var(--s-m)}
+.regla{margin-top:8px;display:flex;align-items:center;gap:7px;font:500 11px/1.3 var(--font-mono);color:var(--faint)}
+.regla i{flex:0 0 auto;display:block;height:8px;border-top:1px solid var(--warn);border-left:1px solid var(--warn);
+         border-right:1px solid var(--warn)}
+
+/* ── Mapa ──────────────────────────────────────────────────────────────── */
+.mapa{border-radius:var(--r-m);overflow:hidden;background:var(--surface-2);border:1px solid var(--border)}
+.mapa svg{display:block;width:100%}
+.mapa-pie{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.zpill{border-radius:var(--r-pill);padding:2px 8px;font:700 10px/1.4 var(--font-mono)}
+.mapa-pie .txt{font:500 11px/1.5 var(--font-sans);color:var(--faint)}
+
+.sep{height:1px;background:var(--border);margin:var(--s-xl) 0}
+.pie{margin-top:88px;padding-top:var(--s-xl);border-top:1px solid var(--border);
+     font:500 13px/1.65 var(--font-sans);color:var(--faint)}
+.pie p{max-width:78ch}
+
+/* ── Rompimientos ──────────────────────────────────────────────────────── */
+@media (max-width:1080px){
+  .pag{grid-template-columns:minmax(0,1fr)}
+  .carril{flex-direction:row;flex-wrap:wrap}
+  .carril>*{flex:1 1 300px;min-width:0}
+}
+@media (max-width:720px){
+  .doc{padding:var(--s-xl) var(--s-l) 72px}
+  .toc ol{columns:1}
+  .ui-body{padding:var(--s-m)}
+  .sujeto{padding:var(--s-l);gap:var(--s-m)}
+  .sujeto .num .v{font-size:40px}
+  .carril{flex-direction:column}
+  .carril>*{flex:1 1 auto}
+  .posiciones{height:118px;gap:5px}
+  .semanas{height:126px;gap:4px}
+  .fila{gap:var(--s-s);padding:9px 10px}
+  .fila .barra{display:none}      /* el ancho se lo queda la cifra, que es el dato */
+  .fila .cifra{font-size:15px}
+  .sem .et,.pos .et{font-size:9px}
+  h2{margin-top:56px}
+}
+@media (max-width:420px){
+  .fila .q{font-size:11.5px}
+  .fila .ppm{flex-basis:38px}
+  .sesgo-pies{font-size:10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <p class="kicker">FAHYBRID · Propuesta de panel</p>
+  <h1>La carrera en el panel</h1>
+  <p class="sub">Con la carrera archivada, el coach puede leer por fin lo mismo que el atleta. Este documento propone dos superficies: la <b>sesión en profundidad</b>, que es paridad con lo que ya se aprobó para el móvil, y <b>lo que solo un entrenador necesita</b>, que es donde dejamos de ser una app de running.</p>
+
+  <div class="meta">
+    <span><b>Fecha</b> · 12 ago 2026</span>
+    <span><b>Estado</b> · propuesta, cero código escrito</span>
+    <span><b>Hermana</b> · la lectura del atleta, aprobada el 12 de agosto</span>
+    <span><b>Base</b> · T0, la carrera se guarda muestra a muestra</span>
+  </div>
+
+  <div class="toc">
+    <ol>
+      <li><a href="#s1">La regla: manda el lenguaje del atleta</a></li>
+      <li><a href="#s2">Cajón o página, medido</a></li>
+      <li><a href="#s3">La sesión, en profundidad</a></li>
+      <li><a href="#s4">Las otras dos formas de leer</a></li>
+      <li><a href="#s5">Lo que solo el coach necesita</a></li>
+      <li><a href="#s6">Los dos huecos del panel</a></li>
+      <li><a href="#s7">Lo que se calla, y por qué</a></li>
+      <li><a href="#s8">Lo que es método del coach</a></li>
+      <li><a href="#s9">Lo que dejo fuera a propósito</a></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s1"><span class="n">01</span> La regla: manda el lenguaje del atleta</h2>
+
+  <div class="ley">
+    <h3>Un solo entreno, un solo idioma</h3>
+    <p>El problema que arrastrábamos no era que faltara información: era que cada superficie tenía la mitad. El coach tenía veredicto por repetición y el atleta no; el atleta tenía una lectura honesta al terminar y el coach no. Si las dos se construyen por separado, acaban contando la misma serie con dos vocabularios y dos números.</p>
+    <p>Por eso aquí no se inventa nada que ya exista en el móvil. El sujeto de la lectura, los tramos, las derivadas, la forma de callar cuando falta un dato y el motor del veredicto son <b>los mismos</b>. Encima de eso, y solo encima, se añade lo que un entrenador necesita y un atleta no.</p>
+  </div>
+
+  <p>Una carrera se lee con tres ejes y nada más: <b>intención</b> (qué se pidió), <b>archivo</b> (si hay señal) y <b>forma</b> (continua o con repeticiones), más un corrector de pendiente. De ahí sale un sujeto y un troceado, y esa decisión ya está tomada y aprobada. El coach ve <b>el mismo sujeto que el atleta</b>, porque el sujeto es una propiedad de la carrera, no del que la mira: si el atleta corrió un 6×800 con banda, la lectura es si las clavó, mire quien mire.</p>
+
+  <h4>Lo que se reutiliza tal cual</h4>
+  <div class="tS"><table>
+    <thead><tr><th>Pieza</th><th>Se escribe así en las dos superficies</th><th>Y nunca así</th></tr></thead>
+    <tbody>
+      <tr><td>Recuperación del pulso</td><td>Al parar, −34 ppm en 1 min</td><td>HR recovery 60s</td></tr>
+      <tr><td>Deriva aeróbica</td><td>Al mismo pulso, +7 s/km al final</td><td>Decoupling 3,4 % · Pa:HR</td></tr>
+      <tr><td>Desnivel</td><td>Subida, +24 m acumulados</td><td>Elevation gain</td></tr>
+      <tr><td>Kilómetro sin señal</td><td>El reloj perdió la señal en este kilómetro</td><td>Una casilla vacía o un guion</td></tr>
+      <tr><td>Tramos que no marcó nadie</td><td>Estos apretones los separa el ritmo. Dato inferido.</td><td>Auto-lap detection</td></tr>
+      <tr><td>Sesión sin archivo</td><td>Sin curva, sin kilómetros y sin mapa</td><td>Gráfico vacío o ceros</td></tr>
+      <tr><td>Color de zona</td><td>Los cinco tonos del perfil del atleta, iguales en las dos</td><td>Una rampa de color inventada por vista</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="aviso">
+    <h4>La única divergencia de voz, y está decidida desde antes</h4>
+    <p>El veredicto por tramo lo emite el mismo motor y se clasifica igual, pero se dice con dos bocas: el atleta lee <b>Dentro · Más rápida · Más lenta</b>, hablando de sus repeticiones; el coach lee <b>En banda · Más rápido · Más lento</b>, que es lo que su panel ya dice hoy. No es hablar dos idiomas: es la misma clasificación conjugada para quien la lee. Los dos lados de fuera de banda van del mismo ámbar a propósito, porque salirse es una señal para el entrenador, no un suspenso.</p>
+  </div>
+
+  <div class="aviso" style="border-left-color:var(--danger)">
+    <h4>Y una divergencia que sí hay que cerrar antes de construir esto</h4>
+    <p>El color de zona <b>es dato</b>, no adorno: un tramo ámbar tiene que querer decir lo mismo en las dos superficies. Hoy no lo dice. La paleta canónica de la marca, la que ve el atleta en el móvil y en el doble, es <span style="color:var(--z1)">gris</span>, <span style="color:var(--z2)">azul</span>, <span style="color:var(--z3)">verde</span>, <span style="color:var(--z4)">ámbar</span> y <span style="color:var(--z5)">rojo</span> para Z1 a Z5. El tema del panel del coach lleva otras cinco, con Z1 en verde y Z3 en ámbar, así que <b>la misma zona sale de dos colores según quién mire</b>. Estas maquetas usan la canónica. Cerrar esto es un cambio de un token, y hay que hacerlo antes de pintar la primera curva en el panel, no después.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s2"><span class="n">02</span> Cajón o página, medido</h2>
+
+  <p>Hoy la sesión vive en un cajón lateral de 512 px que enseña, por ejercicio, lo prescrito al lado de lo hecho, y una tabla de intervalos <b>solo para remo</b>. Para una sesión de fuerza eso está bien y no hay que tocarlo. La pregunta es si la carrera cabe ahí.</p>
+
+  <p><b>El primer argumento es el inventario, no el ancho.</b> Una carrera archivada trae siete piezas: el sujeto, la curva con la franja encima, un troceado de seis a quince filas, el mapa, lo derivado, el resto de la sesión y lo que dijo el atleta. Puestas en fila en una columna de 512 px eso es un túnel de scroll muy largo, y encima con la ficha del atleta tapada por detrás, que es justo lo que un cajón hace: bloquear el fondo. En una página, cuatro de esas siete piezas se van al carril y el ojo las ve a la vez.</p>
+
+  <p><b>El ancho es el segundo, y se puede medir.</b> Una curva es un eje de tiempo, y un eje de tiempo pide ancho. Un fartlek de ocho tramos fuertes repartidos en 41 minutos pone cada uno en el 2,4 % del gráfico: <b>11 px en el cajón, 22 en la página</b>. Abajo están los dos, con la misma señal. A 11 px se ve que hubo ocho apretones y no se ve nada de lo que pasó dentro de ninguno, los números casi se tocan y el mapa se queda en un sello. A 22 se puede señalar el tramo donde se rompió, que es para lo que un entrenador abre esto.</p>
+
+  <p class="mut" style="font-size:13px;margin-bottom:6px">Las dos maquetas van a su ancho real, así que esta comparación se desplaza de lado dentro de su caja.</p>
+  <div class="scroll-x">
+    <div class="medida">
+      <div class="lado">
+        <span class="tit">Hoy · cajón lateral <b>512 px</b></span>
+        <div class="marco" style="width:472px">
+          <div class="curva-host" data-curva="fartlek" data-ancho="440" data-alto="150" data-numeros="1"></div>
+          <p class="leyenda">Ritmo por kilómetro, arriba más rápido · el pulso es la línea fina</p>
+        </div>
+        <div class="regla"><i style="width:11px"></i> 11 px por tramo fuerte</div>
+      </div>
+      <div class="lado">
+        <span class="tit">Propuesta · página <b>1440 px</b></span>
+        <div class="marco" style="width:932px">
+          <div class="curva-host" data-curva="fartlek" data-ancho="900" data-alto="150" data-numeros="1"></div>
+          <p class="leyenda">Ritmo por kilómetro, arriba más rápido · el pulso es la línea fina</p>
+        </div>
+        <div class="regla"><i style="width:22px"></i> 22 px por tramo fuerte</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ley">
+    <h3>La carrera se lleva página; el cajón se queda con lo que hace bien</h3>
+    <p>La regla que lo decide: <b>lo que tiene eje temporal pide página; lo que no lo tiene se queda en el cajón</b>. Un 4×5 de sentadilla es una lista de números y se lee perfecto en 512 px. Una carrera archivada trae curva, mapa, troceado largo y comparación con las anteriores, y las cuatro cosas piden ancho.</p>
+    <p>La página <b>no es una pantalla suelta</b>: vive dentro de la ficha del atleta, se abre desde la fila del día y se vuelve con un clic, porque el lunes el coach repasa veinte sesiones seguidas y sacarle del atleta veinte veces sería peor que el cajón. Y el cajón no desaparece: cuando la sesión tiene archivo de carrera, gana una entrada que lleva aquí.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s3"><span class="n">03</span> La sesión, en profundidad</h2>
+
+  <p class="lede">La sesión de ayer de un atleta: sentadilla, seis series de 800 y core. Los números de la carrera son los mismos que alimentan la pantalla del móvil, para que ninguna de las dos pueda contradecir a la otra.</p>
+
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Panel del coach · página de sesión <em>se abre desde la fila del día en la ficha del atleta</em></div>
+    <div class="ui-body">
+
+      <div class="migas"><span>Atletas</span><span class="sep">/</span><b>[el atleta]</b><span class="sep">/</span><span>Martes 11 de agosto</span></div>
+
+      <div class="ses-head">
+        <h3>Fuerza y series</h3>
+        <div class="ses-chips">
+          <span class="pill ok">Completada</span>
+          <span class="v2-num">1 h 22 min</span>
+          <span class="v2-num">Esfuerzo 8</span>
+        </div>
+      </div>
+
+      <div class="pag">
+        <!-- ── Cuerpo ─────────────────────────────────────────────── -->
+        <div>
+
+          <div class="sujeto">
+            <div class="num">
+              <span class="et">Series dentro</span>
+              <span class="v">5 <span class="u">de 6</span></span>
+            </div>
+            <div class="dice">
+              <span class="fr">La que se salió fue más lenta</span>
+              <span class="ap">Le pediste 3:25 a 3:35/km. La peor se fue 9 s.</span>
+              <span class="pr">6 × 800 m a 3:30 · 2′ parado entre series</span>
+            </div>
+          </div>
+
+          <div style="height:16px"></div>
+
+          <div class="curva-caja">
+            <div class="curva-host" data-curva="series" data-alto="196" data-numeros="1"></div>
+            <p class="leyenda">Ritmo por kilómetro, arriba más rápido · el pulso es la línea fina · la franja es lo que le pediste</p>
+          </div>
+
+          <h4 style="margin-top:24px">Tramo a tramo</h4>
+          <div class="tramos">
+            <div class="fila"><span class="n">1</span><span class="q">800 m</span><span class="barra"><i style="width:97%"></i></span><span class="cifra">3:28</span><span class="ppm">172<span class="uu">ppm</span></span><span class="vd"><span class="pill ok">En banda</span></span></div>
+            <div class="rec">2:00 · parado</div>
+            <div class="fila"><span class="n">2</span><span class="q">800 m</span><span class="barra"><i style="width:94%"></i></span><span class="cifra">3:30</span><span class="ppm">173<span class="uu">ppm</span></span><span class="vd"><span class="pill ok">En banda</span></span></div>
+            <div class="rec">2:00 · parado</div>
+            <div class="fila"><span class="n">3</span><span class="q">800 m</span><span class="barra"><i style="width:96%"></i></span><span class="cifra">3:29</span><span class="ppm">174<span class="uu">ppm</span></span><span class="vd"><span class="pill ok">En banda</span></span></div>
+            <div class="rec">2:00 · parado</div>
+            <div class="fila"><span class="n">4</span><span class="q">800 m</span><span class="barra"><i style="width:91%"></i></span><span class="cifra">3:32</span><span class="ppm">175<span class="uu">ppm</span></span><span class="vd"><span class="pill ok">En banda</span></span></div>
+            <div class="rec">2:00 · parado</div>
+            <div class="fila"><span class="n">5</span><span class="q">800 m</span><span class="barra"><i style="width:72%"></i></span><span class="cifra">3:44</span><span class="ppm">176<span class="uu">ppm</span></span><span class="vd"><span class="pill warn">Más lento</span></span></div>
+            <div class="rec">2:00 · parado</div>
+            <div class="fila"><span class="n">6</span><span class="q">800 m</span><span class="barra"><i style="width:89%"></i></span><span class="cifra">3:33</span><span class="ppm">177<span class="uu">ppm</span></span><span class="vd"><span class="pill ok">En banda</span></span></div>
+            <p class="certeza">Los tramos los cerró el entreno: no se han inferido.</p>
+          </div>
+
+          <h4 style="margin-top:24px">El resto de la sesión</h4>
+          <div class="item">
+            <span class="nom">Sentadilla trasera</span>
+            <span class="et">Prescrito</span>
+            <span class="val">4 × 5 @ 100 kg · RIR 2 · 2:30 de descanso</span>
+            <span class="et hecho">Hecho</span>
+            <span class="chips"><span class="chip">5 @ 100 kg</span><span class="chip">5 @ 100 kg</span><span class="chip">5 @ 100 kg</span><span class="chip">5 @ 102,5 kg</span></span>
+          </div>
+          <div class="item">
+            <span class="nom">Plancha</span>
+            <span class="et">Prescrito</span>
+            <span class="val">3 × 45″ · 30″ de descanso</span>
+            <span class="et hecho">Hecho</span>
+            <span class="chips"><span class="chip">45″</span><span class="chip">45″</span><span class="chip">45″</span></span>
+          </div>
+
+        </div>
+
+        <!-- ── Carril ─────────────────────────────────────────────── -->
+        <div class="carril">
+
+          <div class="card" style="border-color:rgba(240,106,42,.3)">
+            <div class="card-h">
+              <span class="v2-micro" style="color:var(--accent)">No la corrió fresca</span>
+              <span class="pill accent">Solo aquí</span>
+            </div>
+            <p style="font:650 14px/1.4 var(--font-sans);color:var(--fg);margin:0 0 8px">Le costó 4 s/km entrar a correr después de la sentadilla.</p>
+            <p style="font:500 12.5px/1.5 var(--font-sans);color:var(--muted);margin:0">Sus 800 a este mismo ritmo objetivo, en fresco, le salen a 3:29. Hoy, a 3:33.</p>
+            <p style="font:500 11.5px/1.5 var(--font-sans);color:var(--faint);margin:8px 0 0">Sobre 5 comparaciones del mismo objetivo en 6 semanas. Qué cuenta como trabajo previo lo decides tú.</p>
+          </div>
+
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:12px">Además</span>
+            <div class="apoyos">
+              <div class="apoyo"><span class="e">Al parar</span><span class="v">−34</span><span class="p">ppm en 1 min</span></div>
+              <div class="apoyo"><span class="e">Subida</span><span class="v">+24</span><span class="p">m acumulados</span></div>
+            </div>
+            <p style="font:500 11.5px/1.5 var(--font-sans);color:var(--faint);margin:10px 0 0">Aquí no hay deriva aeróbica: se mide en esfuerzo sostenido, y una sesión con recuperaciones no lo es.</p>
+          </div>
+
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:12px">El recorrido</span>
+            <div class="mapa"><div class="mapa-host" data-mapa="series" data-alto="190"></div></div>
+            <div class="mapa-pie" data-leyenda-de="series">
+              <span class="txt">por su zona de ritmo</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:10px">Lo que dijo el atleta</span>
+            <p style="font:650 14px/1.3 var(--font-sans);color:var(--fg);margin:0 0 10px">Esfuerzo 8 · Más duro de lo normal</p>
+            <div class="nota"><span class="ic">”</span><p>La quinta se me atragantó, venía cargado de las sentadillas. La última la saqué bien.</p></div>
+          </div>
+
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:10px">Tu nota de este día</span>
+            <div class="nota"><span class="ic">✎</span><p>Series a ritmo de 10 km. Si la quinta se va, corta en cinco.</p></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Qué se decidió en esta pantalla</h3>
+  <ul>
+    <li><b>El sujeto abre, y es el mismo del móvil.</b> «5 de 6» con la frase de hacia dónde falló, la banda que se pidió y cuánto se fue la peor. El coach no tiene que reconstruir el veredicto leyendo seis filas.</li>
+    <li><b>La curva va antes que la tabla</b>, porque es lo único que no se puede sustituir por texto: se ve entrar y salir de la franja, y se ve dónde. Las recuperaciones fueron paradas, así que la línea del ritmo <b>se parte cinco veces</b>. El pulso no se parte, porque parado también se mide.</li>
+    <li><b>Un solo troceado.</b> Esta sesión es por repetición, así que no hay tabla de kilómetros: partir un 800 por la mitad no le dice nada a nadie. En un rodaje pasa justo al revés.</li>
+    <li><b>Las recuperaciones no son filas juzgadas.</b> Van entre medias, en gris, con su modo, porque el coach quiere saber si respetó el descanso, no ponerle nota al trote.</li>
+    <li><b>El carril lleva el contexto</b>, y lo abre lo único que ninguna otra herramienta puede darle: cuánto le costó correr cansado, medido contra sí mismo.</li>
+    <li><b>La fuerza sigue siendo la del cajón</b>, prescrito al lado de hecho, sin rediseñar nada que ya funciona.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s4"><span class="n">04</span> Las otras dos formas de leer</h2>
+
+  <p>La misma página, con la misma rejilla, sirviendo dos carreras que no se parecen en nada a la anterior. Es la prueba de que la vista no está hecha para el ejemplo bonito.</p>
+
+  <h3>Un rodaje: el troceado es por kilómetro</h3>
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Página de sesión <em>rodaje continuo con banda de ritmo</em></div>
+    <div class="ui-body">
+      <div class="migas"><span>Atletas</span><span class="sep">/</span><b>[el atleta]</b><span class="sep">/</span><span>Domingo 9 de agosto</span></div>
+      <div class="ses-head">
+        <h3>Rodaje 12 km</h3>
+        <div class="ses-chips"><span class="pill ok">Completada</span><span class="v2-num">57:00</span><span class="v2-num">11,97 km</span><span class="v2-num">Esfuerzo 5</span></div>
+      </div>
+
+      <div class="sujeto">
+        <div class="num">
+          <span class="et">Ritmo medio</span>
+          <span class="v">4:46 <span class="u">/km</span></span>
+        </div>
+        <div class="dice">
+          <span class="fr"><span class="pill ok">En banda</span></span>
+          <span class="ap">Le pediste 4:40 a 4:50/km, y corrió una sola cosa: esta media describe cada kilómetro.</span>
+          <span class="pr">12 km entre 4:40 y 4:50</span>
+        </div>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <div class="curva-caja">
+        <div class="curva-host" data-curva="rodaje" data-alto="184"></div>
+        <p class="leyenda">Ritmo por kilómetro, arriba más rápido · el pulso es la línea fina · la franja es lo que le pediste</p>
+      </div>
+
+      <div class="pag" style="margin-top:24px">
+        <div>
+          <h4 style="margin-top:0">Kilómetro a kilómetro</h4>
+          <div class="tramos">
+            <div class="fila"><span class="n"></span><span class="q">km 1</span><span class="barra"><i style="width:38%"></i></span><span class="cifra">4:50</span><span class="ppm">141<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 2</span><span class="barra"><i style="width:45%"></i></span><span class="cifra">4:49</span><span class="ppm">145<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 3</span><span class="barra"><i style="width:45%"></i></span><span class="cifra">4:49</span><span class="ppm">148<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 4</span><span class="barra"><i style="width:59%"></i></span><span class="cifra">4:47</span><span class="ppm">150<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 5</span><span class="barra"><i style="width:81%"></i></span><span class="cifra">4:44</span><span class="ppm">151<span class="uu">ppm</span></span></div>
+            <div class="fila hueco"><span class="n"></span><span class="q">km 6</span><span class="porque">El reloj perdió la señal en este kilómetro</span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 7</span><span class="barra"><i style="width:66%"></i></span><span class="cifra">4:46</span><span class="ppm">152<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 8</span><span class="barra"><i style="width:74%"></i></span><span class="cifra">4:45</span><span class="ppm">153<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 9</span><span class="barra"><i style="width:81%"></i></span><span class="cifra">4:44</span><span class="ppm">154<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 10</span><span class="barra"><i style="width:74%"></i></span><span class="cifra">4:45</span><span class="ppm">155<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">km 11</span><span class="barra"><i style="width:89%"></i></span><span class="cifra">4:43</span><span class="ppm">156<span class="uu">ppm</span></span></div>
+            <div class="fila"><span class="n"></span><span class="q">0,97 km</span><span class="barra"><i style="width:100%"></i></span><span class="cifra">4:41</span><span class="ppm">157<span class="uu">ppm</span></span></div>
+          </div>
+        </div>
+        <div class="carril">
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:12px">Además</span>
+            <div class="apoyos">
+              <div class="apoyo"><span class="e">Al mismo pulso</span><span class="v">+4</span><span class="p">s/km al final</span></div>
+              <div class="apoyo"><span class="e">Al parar</span><span class="v">−27</span><span class="p">ppm en 1 min</span></div>
+              <div class="apoyo"><span class="e">Subida</span><span class="v">+88</span><span class="p">m acumulados</span></div>
+            </div>
+            <p style="font:500 11.5px/1.5 var(--font-sans);color:var(--faint);margin:10px 0 0">Aquí sí hay deriva: fue una hora de esfuerzo sostenido, que es lo que el cálculo exige.</p>
+          </div>
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:12px">El recorrido</span>
+            <div class="mapa"><div class="mapa-host" data-mapa="rodaje" data-alto="176"></div></div>
+            <div class="mapa-pie" data-leyenda-de="rodaje">
+              <span class="txt">por su zona de ritmo · el tramo sin señal no se dibuja</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="mut">Dos cosas que cambian solas y sin condicionales escritos a mano: el sujeto pasa a ser la media, porque «1 de 1 dentro» no es una lectura, y el troceado pasa a kilómetros. El kilómetro que atraviesa el corte de señal <b>no se interpola</b>: se dice qué pasó, y la curva se parte en el mismo sitio.</p>
+
+  <h3>Una sesión anterior al archivo</h3>
+  <p>El estado de todo lo que hay en la base hoy. No es la versión rota de la pantalla: es la misma pantalla diciendo la verdad.</p>
+
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Página de sesión <em>sin archivo</em></div>
+    <div class="ui-body">
+      <div class="migas"><span>Atletas</span><span class="sep">/</span><b>[el atleta]</b><span class="sep">/</span><span>Martes 22 de julio</span></div>
+      <div class="ses-head">
+        <h3>Rodaje largo</h3>
+        <div class="ses-chips"><span class="pill ok">Completada</span><span class="v2-num">1 h 17 min</span><span class="v2-num">Esfuerzo 6</span></div>
+      </div>
+      <div class="pag">
+        <div>
+          <div class="sujeto">
+            <div class="num">
+              <span class="et">Recorrió</span>
+              <span class="v">15,38 <span class="u">km</span></span>
+            </div>
+            <div class="dice">
+              <span class="ap">Esta carrera es anterior al archivo: se guardó el total, no el minuto a minuto.</span>
+              <span class="pr">75′ suave en Z2</span>
+            </div>
+          </div>
+          <div style="height:16px"></div>
+          <div class="declarado">
+            <span class="t">Sin curva, sin kilómetros y sin mapa</span>
+            <span class="d">Las carreras se archivan desde el 11 de agosto. De las anteriores solo quedan sus totales, que son los de arriba.</span>
+          </div>
+        </div>
+        <div class="carril">
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:12px">Además</span>
+            <div class="apoyos">
+              <div class="apoyo"><span class="e">FC media</span><span class="v">143</span><span class="p">ppm</span></div>
+              <div class="apoyo"><span class="e">FC máx</span><span class="v">161</span><span class="p">ppm</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <span class="v2-micro" style="display:block;margin-bottom:10px">Lo que dijo el atleta</span>
+            <p style="font:650 14px/1.3 var(--font-sans);color:var(--fg);margin:0">Esfuerzo 6 · Como esperaba</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="mut">Seis secciones que no existen se explican con <b>una</b> frase, y el pulso medio y máximo siguen ahí porque son dato medido y siempre se guardaron. Callar de más también es quedarse corto.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s5"><span class="n">05</span> Lo que solo el coach necesita</h2>
+
+  <p class="lede">Hasta aquí, paridad. A partir de aquí, la herramienta de entrenador. Las tres piezas viven en una sección de la ficha del atleta, no dentro de una sesión, porque las tres son <b>rasgos del atleta</b> y hoy nacen y mueren en un entreno suelto.</p>
+
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Ficha del atleta · sección <em>Cómo corre · últimas 4 semanas</em></div>
+    <div class="ui-body">
+
+      <!-- ── Calibración ─────────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-h">
+          <span class="v2-micro">¿Le estoy poniendo bien los ritmos?</span>
+          <span class="pill line">34 series con ritmo objetivo</span>
+        </div>
+
+        <p style="font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(19px,2.6vw,24px);line-height:1.15;color:var(--fg);margin:0 0 6px;max-width:34ch">El ritmo está bien puesto. El volumen no.</p>
+        <p style="font:500 14px/1.5 var(--font-sans);color:var(--muted);margin:0 0 20px;max-width:60ch">De la primera a la tercera clava 20 de 21. De la cuarta en adelante, 5 de 13. Y 8 de las 9 que se salieron fueron más lentas.</p>
+
+        <h4 style="margin-top:0">Hacia dónde falla</h4>
+        <div class="sesgo">
+          <span class="rapido" style="width:2.94%"></span>
+          <span class="dentro" style="width:73.53%">25 en banda</span>
+          <span class="lento" style="width:23.53%">8</span>
+        </div>
+        <div class="sesgo-pies">
+          <span class="izq">1 más rápida</span>
+          <span class="cen">74 % de acierto</span>
+          <span class="der">8 más lentas</span>
+        </div>
+        <p style="font:500 12.5px/1.5 var(--font-sans);color:var(--muted);margin:10px 0 0;max-width:62ch">El peso está a la derecha: <b>va largo, no corto</b>. El mismo 74 % con los fallos del otro lado querría decir lo contrario, y es la razón por la que el porcentaje solo no sirve.</p>
+
+        <h4 style="margin-top:24px">Dónde se rompe dentro de la serie</h4>
+        <div class="posiciones">
+          <div class="pos"><span class="pct">100 %</span><span class="col" style="height:100%"></span><span class="et">1ª</span><span class="nn">7</span></div>
+          <div class="pos"><span class="pct">100 %</span><span class="col" style="height:100%"></span><span class="et">2ª</span><span class="nn">7</span></div>
+          <div class="pos"><span class="pct">86 %</span><span class="col" style="height:86%"></span><span class="et">3ª</span><span class="nn">7</span></div>
+          <div class="pos baja"><span class="pct">43 %</span><span class="col" style="height:43%"></span><span class="et">4ª</span><span class="nn">7</span></div>
+          <div class="pos baja"><span class="pct">25 %</span><span class="col" style="height:25%"></span><span class="et">5ª</span><span class="nn">4</span></div>
+          <div class="pos corta"><span class="pct">2 aún</span><span class="col" style="height:16%"></span><span class="et">6ª</span><span class="nn">2</span></div>
+        </div>
+        <p style="font:500 12px/1.5 var(--font-sans);color:var(--faint);margin:12px 0 0;max-width:66ch">Debajo de cada columna, cuántas repeticiones la sostienen. La sexta lleva dos y <b>no se le pone porcentaje</b>: cuenta en el total, pero un 0 % con dos observaciones sería una conclusión inventada. A partir de cuántas se puede afirmar algo lo decides tú.</p>
+        <p style="font:500 12.5px/1.5 var(--font-sans);color:var(--muted);margin:10px 0 0;max-width:66ch">Sale de sesiones de <b>series con ritmo objetivo</b>. Los rodajes y las sesiones por sensaciones no entran: mezclarlos taparía justo lo que se está mirando.</p>
+      </div>
+
+      <!-- ── Comprometida ────────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-h">
+          <span class="v2-micro">Lo que le cuesta correr cansado</span>
+          <span class="pill accent">Solo aquí</span>
+        </div>
+        <p style="font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(19px,2.6vw,24px);line-height:1.15;color:var(--fg);margin:0 0 6px;max-width:38ch">Cada vez le cuesta menos.</p>
+        <p style="font:500 14px/1.5 var(--font-sans);color:var(--muted);margin:0 0 18px;max-width:60ch">De 9 s/km a 4 s/km en seis semanas. Es la cualidad que separa a un corredor híbrido de uno de asfalto, y es la que se entrena.</p>
+        <div class="curva-host" data-curva="coste" data-alto="150"></div>
+        <p class="leyenda" style="text-align:left;margin-left:2px">Segundos por kilómetro de más al correr después de trabajo, contra su propio ritmo en fresco al mismo objetivo</p>
+        <p style="font:500 12px/1.5 var(--font-sans);color:var(--faint);margin:14px 0 0;max-width:68ch">Sobre 5 comparaciones válidas. Solo se compara <b>el mismo objetivo contra el mismo objetivo</b>: un kilómetro a ritmo de 10 después de un trineo contra ese mismo kilómetro en fresco. Si no hay pareja, no hay número, porque medir un rodaje suave contra unas series no diría nada.</p>
+      </div>
+
+      <!-- ── Huella ──────────────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-h">
+          <span class="v2-micro">Cómo reparte el esfuerzo</span>
+          <span class="pill line">9 sesiones con forma legible</span>
+        </div>
+        <p style="font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(19px,2.6vw,24px);line-height:1.15;color:var(--fg);margin:0 0 6px;max-width:34ch">Sale fuerte y se apaga.</p>
+        <p style="font:500 14px/1.5 var(--font-sans);color:var(--muted);margin:0 0 16px;max-width:60ch">6 de 9 sesiones se le fueron por el final. Es un rasgo suyo, no de un entreno.</p>
+        <div class="apoyos">
+          <div class="apoyo"><span class="e">Se le va</span><span class="v">6</span><span class="p">de 9 sesiones</span></div>
+          <div class="apoyo"><span class="e">Aguanta</span><span class="v">2</span><span class="p">de 9 sesiones</span></div>
+          <div class="apoyo"><span class="e">De menos a más</span><span class="v">1</span><span class="p">de 9 sesiones</span></div>
+        </div>
+        <p style="font:500 12px/1.5 var(--font-sans);color:var(--faint);margin:14px 0 0;max-width:68ch">Son las mismas tres palabras que la app le enseña a él al terminar, y hoy se borran a los treinta segundos. Un rodaje uniforme no tiene forma que leer y no entra en la cuenta. Si no hubiera patrón, esta tarjeta diría que no lo hay en vez de inventarle un rasgo.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s6"><span class="n">06</span> Los dos huecos del panel</h2>
+
+  <p class="lede">Dos cosas que el panel no enseña y que cualquier entrenador da por hechas. Una no existe; la otra existe, se calcula bien y está escondida.</p>
+
+  <h3>El volumen de la semana, en kilómetros</h3>
+  <p>Hoy el coach solo ve minutos por zona. Los kilómetros por semana son el número con el que habla cualquier corredor del mundo, y además funcionan hacia atrás: la distancia total siempre se guardó, así que esto se puede enseñar desde el primer día sin esperar al archivo.</p>
+
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Ficha del atleta · sección <em>Cómo corre</em></div>
+    <div class="ui-body">
+      <div class="card">
+        <div class="card-h">
+          <span class="v2-micro">Kilómetros por semana</span>
+          <span class="pill line">+6 % la semana pasada contra las 4 anteriores</span>
+        </div>
+        <div class="semanas">
+          <div class="sem"><span class="km">34,2</span><span class="col" style="height:74%"></span><span class="et">22 jun</span></div>
+          <div class="sem"><span class="km">38,6</span><span class="col" style="height:84%"></span><span class="et">29 jun</span></div>
+          <div class="sem"><span class="km">41,0</span><span class="col" style="height:89%"></span><span class="et">6 jul</span></div>
+          <div class="sem"><span class="km">29,8</span><span class="col" style="height:65%"></span><span class="et">13 jul</span></div>
+          <div class="sem"><span class="km">43,5</span><span class="col" style="height:94%"></span><span class="et">20 jul</span></div>
+          <div class="sem"><span class="km">46,1</span><span class="col" style="height:100%"></span><span class="et">27 jul</span></div>
+          <div class="sem"><span class="km">42,7</span><span class="col" style="height:93%"></span><span class="et">3 ago</span></div>
+          <div class="sem curso"><span class="km">18,9</span><span class="col" style="height:41%"></span><span class="et">10 ago</span></div>
+        </div>
+        <p style="font:500 12px/1.5 var(--font-sans);color:var(--faint);margin:14px 0 0;max-width:70ch">La barra rayada es la semana en curso: lleva 3 días de 7 y <b>no se compara con las cerradas</b>. Aquí no hay listón ni color de aviso: dónde está el techo de una semana buena, y cuánto se puede subir de una a otra, es tuyo, no nuestro.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>La carga, con el veredicto delante</h3>
+  <p>Se calcula, y bien, y vive escondida detrás de un índice de 0 a 100 que no dice de dónde sale. Un entrenador no necesita el índice: necesita saber si el atleta está apretando, y luego los tres números por si quiere mirarlos.</p>
+
+  <div class="ui">
+    <div class="ui-cap"><span class="dot"></span> Ficha del atleta · resumen <em>la carga es de todo el entreno, no solo de correr</em></div>
+    <div class="ui-body">
+      <div class="card">
+        <div class="card-h">
+          <span class="v2-micro">Carga</span>
+          <span class="pill line">Fondo sobre 42 días · reciente sobre 7</span>
+        </div>
+        <p style="font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(20px,2.8vw,26px);line-height:1.15;color:var(--warn);margin:0 0 6px;max-width:30ch">Está apretando.</p>
+        <p style="font:500 14px/1.5 var(--font-sans);color:var(--muted);margin:0 0 18px;max-width:58ch">Lleva tres semanas subiendo y la carga reciente va 9 por encima de su fondo.</p>
+        <div class="carga-num">
+          <div><span class="e">Fondo</span><span class="v">62</span><span class="p">lo que aguanta de normal</span></div>
+          <div><span class="e">Reciente</span><span class="v">71</span><span class="p">lo que ha metido esta semana</span></div>
+          <div><span class="e">Frescura</span><span class="v" style="color:var(--warn)">−9</span><span class="p">fondo menos reciente</span></div>
+        </div>
+        <p style="font:500 12px/1.5 var(--font-sans);color:var(--faint);margin:14px 0 0;max-width:70ch">Su fondo se calcula sobre 42 días y tiene 118 registrados, así que el número está sostenido. Con un atleta nuevo diría cuántos días le faltan en vez de dar una cifra que no significa nada. <b>Cuántos días son el fondo, cuántos lo reciente y a partir de qué frescura esto es un aviso lo pones tú:</b> hay escuelas con 45 y 10, y con 28 y 7.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s7"><span class="n">07</span> Lo que se calla, y por qué</h2>
+
+  <p>Ninguna casilla vacía, ningún guion de relleno, ningún cero que finja ser una medida. Cuando falta algo, o la fila no existe, o se dice qué pasó. Esta tabla es el contrato: cada línea es un caso que ya está en los datos de prueba.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Cuando pasa esto</th><th>El panel hace esto</th><th>Y jamás esto</th></tr></thead>
+    <tbody>
+      <tr><td>Sesión de series</td><td>No enseña deriva aeróbica: el cálculo exige esfuerzo sostenido y el motor se niega a darla</td><td>Pintarla en gris, con un cero o con un «pendiente»</td></tr>
+      <tr><td>Sesión de series</td><td>Troceado por repetición, sin tabla de kilómetros</td><td>Los dos troceados a la vez</td></tr>
+      <tr><td>Rodaje continuo</td><td>Troceado por kilómetro, sin tabla de repeticiones</td><td>Inventar repeticiones donde no las hubo</td></tr>
+      <tr><td>Recuperación parado</td><td>La línea del ritmo se parte; el pulso sigue</td><td>Unir los dos extremos para tener una línea bonita</td></tr>
+      <tr><td>Kilómetro sin cobertura</td><td>La fila existe y escribe qué pasó</td><td>Interpolar el ritmo desde los vecinos</td></tr>
+      <tr><td>Cuesta por encima del umbral</td><td>El troceado cambia a tiempo y el veredicto de ritmo se retira</td><td>Emitir un veredicto de ritmo que no significa nada en rampa</td></tr>
+      <tr><td>Cinta, sin recorrido</td><td>La tarjeta del mapa no existe</td><td>Una caja vacía que dice «sin mapa»</td></tr>
+      <tr><td>El sujeto no es la zona</td><td>No se pinta el reparto de zonas</td><td>Una barra más que nadie vino a buscar</td></tr>
+      <tr><td>Sesión anterior al archivo</td><td>Una frase explica las seis ausencias, y los totales siguen</td><td>Seis secciones vacías, o fabricar la señal hacia atrás</td></tr>
+      <tr><td>Posición con muy pocas repeticiones</td><td>La columna se dibuja rayada, con su cuenta, sin porcentaje</td><td>Un 0 % sostenido por dos observaciones</td></tr>
+      <tr><td>Sin pareja comparable</td><td>El coste de correr cansado no aparece</td><td>Comparar un rodaje suave contra unas series</td></tr>
+      <tr><td>Sin patrón de forma</td><td>Dice que no tiene una forma fija</td><td>Elegir la más frecuente y llamarla rasgo</td></tr>
+      <tr><td>Fondo de carga sin días suficientes</td><td>Dice cuántos días le faltan</td><td>Una cifra de crónica que no se sostiene</td></tr>
+      <tr><td>Semana en curso</td><td>Se marca en curso y no se compara</td><td>Enseñarla como si fuera una semana cerrada</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s8"><span class="n">08</span> Lo que es método del coach</h2>
+
+  <p>La pregunta de siempre: <i>¿otro entrenador competente lo haría distinto?</i> Si la respuesta es sí, no puede ser una constante en el código. Todo esto nace como <b>dato editable con su valor por defecto</b>, de forma que un entrenador que no toque nada se comporta exactamente como en las maquetas de arriba.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Ajuste</th><th>Defecto</th><th>Dónde se nota en estas pantallas</th></tr></thead>
+    <tbody>
+      <tr><td>Tolerancia de ritmo</td><td>±5 s/km</td><td>Convierte «a 3:30» en la franja 3:25 a 3:35 y decide qué series entran</td></tr>
+      <tr><td>Repeticiones mínimas por posición</td><td>3</td><td>Por qué la sexta columna se dibuja rayada y sin porcentaje</td></tr>
+      <tr><td>Series mínimas para juzgar la calibración</td><td>20</td><td>Con menos, la tarjeta dice cuántas lleva en vez de dar un porcentaje</td></tr>
+      <tr><td>Qué cuenta como trabajo previo</td><td>Cualquier bloque de fuerza o estación en la misma sesión, antes de correr</td><td>Que este 6×800 salga marcado como no fresco</td></tr>
+      <tr><td>Parejas mínimas para dar tendencia</td><td>4</td><td>Que el coste de correr cansado se atreva a dibujar una línea</td></tr>
+      <tr><td>Días de fondo y de reciente</td><td>42 y 7</td><td>Los dos números de la carga y la frescura que sale de restarlos</td></tr>
+      <tr><td>Frescura que dispara el aviso</td><td>−8</td><td>Que la carga diga «está apretando» en ámbar y no en gris</td></tr>
+      <tr><td>Pendiente que retira el ritmo</td><td>3 %</td><td>Cuándo una sesión de cuestas se lee en tiempo y no en ritmo</td></tr>
+      <tr><td>Cobertura mínima para dar veredicto</td><td>90 %</td><td>Cuándo un tramo pasa a «sin dato» en vez de juzgarse</td></tr>
+      <tr><td>Dónde cortan las bandas de zona</td><td>Las del perfil del atleta, ancladas en umbral</td><td>El color del mapa y la franja de un objetivo de zona</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <h2 id="s9"><span class="n">09</span> Lo que dejo fuera a propósito</h2>
+
+  <div class="cols2">
+    <div>
+      <h4>Fuera de este encargo</h4>
+      <p class="mut"><b>La vista de todo el equipo.</b> «¿A quién de mis atletas le estoy calibrando mal los ritmos?» es la altitud de encima y merece su propio diseño. Aquí se resuelve un atleta.</p>
+      <p class="mut"><b>Editar desde aquí.</b> La página es de lectura. Cambiar la prescripción sigue viviendo en el editor del día, donde ya está.</p>
+      <p class="mut"><b>Comparar dos atletas</b> o dos sesiones lado a lado.</p>
+    </div>
+    <div>
+      <h4>Fuera porque el dato aún no existe</h4>
+      <p class="mut"><b>Ritmo ajustado por pendiente, velocidad crítica y curva de mejores esfuerzos.</b> Salen todos del archivo, pero de una tanda posterior. Enseñarlos hoy sería pintar un hueco.</p>
+      <p class="mut"><b>Los parciales de una carrera de HYROX real cruzados con el entreno.</b> Son la verdad de campo con la que calibrar el coste de correr cansado, y llegan importados, sin traza ni prescripción: no son una sesión que se abra en esta página. Es la única de las doce carreras de referencia que no entra aquí, y entra en otro sitio.</p>
+    </div>
+  </div>
+
+  <div class="ley" style="margin-top:32px">
+    <h3>Riesgos que veo</h3>
+    <p><b>Mezclar formas de sesión en la calibración la vacía de sentido.</b> Por eso solo entran las series con ritmo objetivo. Si mañana entran rodajes, el número sube y deja de decir nada.</p>
+    <p><b>El sesgo con pocas repeticiones es una opinión disfrazada de dato.</b> Está resuelto con el mínimo por posición y con el mínimo para juzgar, y los dos son ajustes del entrenador, no umbrales nuestros.</p>
+    <p><b>«Correr cansado» es la puerta por la que se cuela una metodología.</b> Si decidimos nosotros qué cuenta como trabajo previo, estamos metiendo nuestra escuela en el producto. Nace como ajuste con defecto, y el defecto es deliberadamente amplio.</p>
+  </div>
+
+  <div class="pie">
+    <p><b>De dónde salen los números.</b> La carrera de la sesión principal usa los mismos ritmos por serie que alimentan la pantalla del atleta, así que las dos superficies no pueden contradecirse. El rodaje de 12 km está cuadrado a mano: los doce parciales suman 57:00 y 11,97 km, y la media sale 4:46/km. La calibración cuadra columna a columna: 7 + 7 + 7 + 7 + 4 + 2 son las 34 repeticiones, y 7 + 7 + 6 + 3 + 1 + 1 son las 25 que entraron en banda. La sesión de ayer está dentro de esa cuenta, y su quinta serie es una de las que rompen.</p>
+    <p><b>Lo que este documento no hace.</b> No propone endpoints ni tablas. Las curvas y el mapa se dibujan aquí a partir de un guion, para que la maqueta responda al ancho real como respondería la de verdad, y no para simular datos de producción.</p>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   Las curvas y el mapa se dibujan desde UN guion por carrera. Los mismos
+   tramos que escriben las tablas de arriba dibujan la línea: así una tabla y
+   su curva no pueden decir cosas distintas.
+
+   Tres leyes que no son de estilo, copiadas de la pantalla del atleta:
+   1 · arriba es más rápido (el ritmo es un inverso);
+   2 · la franja se dibuja sobre el eje donde vive su objetivo;
+   3 · un hueco es un hueco: la línea se parte, jamás se rellena.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var PASO_S = 5;                 // una muestra cada 5 s, como emite el reloj
+  var HUECO_S = 30;               // por encima de esto la línea se parte
+  var VENTANA = 5;                // media móvil corta, SOLO para dibujar
+
+  // ── Guiones ─────────────────────────────────────────────────────────────
+  // t: 'trabajo' | 'rec' | 'suelto'.  skm nulo = no hay ritmo que dibujar.
+  function serie(n, skm, ppm0, ppm1) {
+    return { t: 'trabajo', n: n, dur: Math.round(0.8 * skm), skm: skm, skmFin: skm + 3, ppm0: ppm0, ppm1: ppm1, sube: 1 };
+  }
+  var GUIONES = {
+    // 6 × 800 a 3:30 (banda 3:25 a 3:35) con 2' parado. La quinta se va a 3:44.
+    series: {
+      banda: { eje: 'ritmo', rapido: 205, lento: 215 },
+      pasos: [
+        { t: 'suelto', dur: 720, skm: 336, skmFin: 324, ppm0: 112, ppm1: 150, sube: 1 },
+        serie(1, 208, 150, 181), { t: 'rec', dur: 120, skm: null, ppm0: 181, ppm1: 136 },
+        serie(2, 210, 136, 182), { t: 'rec', dur: 120, skm: null, ppm0: 182, ppm1: 137 },
+        serie(3, 209, 137, 183), { t: 'rec', dur: 120, skm: null, ppm0: 183, ppm1: 138 },
+        serie(4, 212, 138, 184), { t: 'rec', dur: 120, skm: null, ppm0: 184, ppm1: 139 },
+        serie(5, 224, 139, 185), { t: 'rec', dur: 120, skm: null, ppm0: 185, ppm1: 140 },
+        serie(6, 213, 140, 186),
+        { t: 'suelto', dur: 480, skm: 340, skmFin: 352, ppm0: 186, ppm1: 118 }
+      ]
+    },
+    // Fartlek 8 × (1' fuerte / 2' suave) por sensaciones: sin objetivo, sin franja.
+    fartlek: {
+      banda: null,
+      pasos: (function () {
+        var p = [{ t: 'suelto', dur: 600, skm: 322, skmFin: 316, ppm0: 108, ppm1: 146, sube: 1 }];
+        var skm = [232, 234, 236, 238, 239, 241, 243, 246];
+        for (var i = 0; i < skm.length; i++) {
+          p.push({ t: 'trabajo', n: i + 1, dur: 60, skm: skm[i], skmFin: skm[i] + 4, ppm0: 148 + i, ppm1: 176 + i, sube: 1 });
+          p.push({ t: 'rec', dur: 120, skm: 318, skmFin: 316, ppm0: 176 + i, ppm1: 144 + i });
+        }
+        p.push({ t: 'suelto', dur: 420, skm: 330, skmFin: 342, ppm0: 152, ppm1: 116 });
+        return p;
+      })()
+    },
+    // Rodaje 12 km entre 4:40 y 4:50, con 3' sin señal a mitad.
+    rodaje: {
+      banda: { eje: 'ritmo', rapido: 280, lento: 290 },
+      pasos: [
+        { t: 'suelto', dur: 900, skm: 292, skmFin: 286, ppm0: 128, ppm1: 145, sube: 1 },
+        { t: 'suelto', dur: 540, skm: 283, skmFin: 287, ppm0: 145, ppm1: 151 },
+        { t: 'suelto', dur: 180, skm: null, ppm0: 151, ppm1: 152 },   // sin señal
+        { t: 'suelto', dur: 1080, skm: 284, skmFin: 288, ppm0: 152, ppm1: 155 },
+        { t: 'suelto', dur: 720, skm: 285, skmFin: 279, ppm0: 155, ppm1: 158 }
+      ]
+    }
+  };
+
+  // Coste de correr cansado, semana a semana. Serie corta: se dibuja aparte.
+  var COSTE = [
+    { et: '30 jun', v: 9 }, { et: '14 jul', v: 8 }, { et: '21 jul', v: 6 },
+    { et: '4 ago', v: 5 }, { et: '11 ago', v: 4 }
+  ];
+
+  // ── Guion → señal ───────────────────────────────────────────────────────
+  function muestrear(pasos) {
+    var ritmo = [], pulso = [], tramos = [], t = 0;
+    for (var i = 0; i < pasos.length; i++) {
+      var p = pasos[i], dur = p.dur;
+      if (p.t === 'trabajo') tramos.push({ n: p.n, ini: t, fin: t + dur });
+      for (var u = 0; u <= dur; u += PASO_S) {
+        var f = dur === 0 ? 0 : u / dur;
+        if (p.skm != null) {
+          var base = p.skm + (( p.skmFin != null ? p.skmFin : p.skm) - p.skm) * f;
+          // Temblor determinista del GPS: sin aleatoriedad, para que dos
+          // renders del mismo guion den exactamente la misma línea.
+          ritmo.push({ t: t + u, v: base + 2.4 * Math.sin((t + u) / 11) + 1.1 * Math.sin((t + u) / 4.3) });
+        }
+        // El pulso sube rápido y baja despacio: acercamiento exponencial, no rampa.
+        var k = p.sube ? 3.1 : 2.3;
+        var ppm = p.ppm1 - (p.ppm1 - p.ppm0) * Math.exp(-k * f);
+        pulso.push({ t: t + u, v: ppm + 1.2 * Math.sin((t + u) / 9) });
+      }
+      t += dur;
+    }
+    return { ritmo: ritmo, pulso: pulso, tramos: tramos, dur: t };
+  }
+
+  function trozos(ms) {
+    var out = [], act = [];
+    for (var i = 0; i < ms.length; i++) {
+      var prev = act[act.length - 1];
+      if (prev && ms[i].t - prev.t > HUECO_S) { out.push(act); act = []; }
+      act.push(ms[i]);
+    }
+    if (act.length) out.push(act);
+    return out.filter(function (x) { return x.length > 1; });
+  }
+
+  function suavizar(tr) {
+    return tr.map(function (m, i) {
+      var d = Math.max(0, i - Math.floor(VENTANA / 2));
+      var h = Math.min(tr.length, d + VENTANA), s = 0;
+      for (var j = d; j < h; j++) s += tr[j].v;
+      return { t: m.t, v: s / (h - d) };
+    });
+  }
+
+  function extremos(vals, extra) {
+    var todos = vals.concat(extra || []);
+    var min = Math.min.apply(null, todos), max = Math.max.apply(null, todos);
+    var m = (max - min) * 0.14 || 1;
+    return { min: min - m, max: max + m };
+  }
+
+  var r2 = function (v) { return Math.round(v * 100) / 100; };
+  function reloj(s) {
+    var m = Math.floor(s / 60), q = Math.round(s % 60);
+    if (q === 60) { m += 1; q = 0; }
+    return m + ':' + (q < 10 ? '0' + q : q);
+  }
+  function el(n, a, hijos) {
+    var e = document.createElementNS('http://www.w3.org/2000/svg', n);
+    for (var k in a) if (a[k] != null) e.setAttribute(k, a[k]);
+    (hijos || []).forEach(function (h) { e.appendChild(h); });
+    return e;
+  }
+  var MICRO = 'font:600 9.5px var(--font-mono);fill:var(--faint)';
+
+  // ── La curva ────────────────────────────────────────────────────────────
+  function dibujarCurva(host) {
+    var g = GUIONES[host.dataset.curva];
+    if (!g) return;
+    var W = host.dataset.ancho ? +host.dataset.ancho : Math.round(host.getBoundingClientRect().width);
+    if (!W) return;
+    var H = +host.dataset.alto || 190;
+    var M = { arr: 10, ab: 20, izq: 38, der: 6 };
+    var C = { x: M.izq, y: M.arr, w: W - M.izq - M.der, h: H - M.arr - M.ab };
+    if (C.w < 60) return;
+
+    var s = muestrear(g.pasos);
+    var tr = trozos(s.ritmo).map(suavizar);
+    var tp = trozos(s.pulso).map(suavizar);
+    if (!tr.length) return;
+
+    var planoR = [], planoP = [];
+    tr.forEach(function (t) { t.forEach(function (m) { planoR.push(m.v); }); });
+    tp.forEach(function (t) { t.forEach(function (m) { planoP.push(m.v); }); });
+    var eR = extremos(planoR, g.banda && g.banda.eje === 'ritmo' ? [g.banda.rapido, g.banda.lento] : []);
+    var eP = extremos(planoP, []);
+
+    var x = function (t) { return r2(C.x + (t / s.dur) * C.w); };
+    // Menos segundos por kilómetro = más rápido = más arriba.
+    var yR = function (v) { return r2(C.y + ((v - eR.min) / (eR.max - eR.min)) * C.h); };
+    var yP = function (v) { return r2(C.y + C.h - ((v - eP.min) / (eP.max - eP.min)) * C.h); };
+    var camino = function (t, y) {
+      return t.map(function (m, i) { return (i ? 'L' : 'M') + x(m.t) + ',' + y(m.v); }).join(' ');
+    };
+
+    var svg = el('svg', {
+      role: 'img', viewBox: '0 0 ' + W + ' ' + H, width: W, height: H,
+      'aria-label': 'Ritmo y pulso a lo largo de la sesión, con los tramos de trabajo sombreados',
+      style: 'overflow:visible'
+    });
+    if (!host.dataset.ancho) svg.setAttribute('width', '100%');
+
+    // Sombra de los tramos de trabajo, debajo de todo.
+    s.tramos.forEach(function (t) {
+      svg.appendChild(el('rect', {
+        x: x(t.ini), y: C.y, width: r2(Math.max(1.5, x(t.fin) - x(t.ini))), height: C.h,
+        fill: 'rgba(245,245,245,.06)'
+      }));
+    });
+
+    // La franja de lo pedido, solo sobre los tramos donde se pidió.
+    if (g.banda && g.banda.eje === 'ritmo') {
+      var arr = yR(g.banda.rapido), ab = yR(g.banda.lento);
+      var zonas = s.tramos.length ? s.tramos.map(function (t) { return [x(t.ini), x(t.fin)]; })
+                                  : [[C.x, C.x + C.w]];
+      zonas.forEach(function (z) {
+        svg.appendChild(el('rect', {
+          x: z[0], y: r2(Math.min(arr, ab)), width: r2(Math.max(1.5, z[1] - z[0])),
+          height: r2(Math.abs(ab - arr)), fill: 'rgba(63,199,115,.13)'
+        }));
+        [arr, ab].forEach(function (yy) {
+          svg.appendChild(el('line', {
+            x1: z[0], y1: r2(yy), x2: z[1], y2: r2(yy),
+            stroke: 'var(--ok)', 'stroke-width': 1, 'stroke-opacity': .7, 'stroke-dasharray': '3 3'
+          }));
+        });
+      });
+    }
+
+    // El pulso: segunda serie, fina y tenue. Nunca compite con el ritmo.
+    tp.forEach(function (t) {
+      svg.appendChild(el('path', {
+        d: camino(t, yP), fill: 'none', stroke: 'var(--muted)',
+        'stroke-width': 1.1, 'stroke-opacity': .5, 'stroke-linejoin': 'round'
+      }));
+    });
+    // El ritmo: el sujeto del dibujo.
+    tr.forEach(function (t) {
+      svg.appendChild(el('path', {
+        d: camino(t, yR), fill: 'none', stroke: 'var(--fg)', 'stroke-width': 1.9,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+      }));
+    });
+
+    // Tres marcas en el eje del ritmo. La unidad se dice una vez, en la leyenda.
+    [eR.min, (eR.min + eR.max) / 2, eR.max].forEach(function (v) {
+      var t = el('text', { x: M.izq - 7, y: r2(yR(v) + 3.5), 'text-anchor': 'end', style: MICRO });
+      t.textContent = reloj(v);
+      svg.appendChild(t);
+    });
+
+    // Los números de repetición, mientras quepan.
+    if (host.dataset.numeros && s.tramos.length && s.tramos.length <= 10) {
+      s.tramos.forEach(function (t) {
+        var n = el('text', {
+          x: r2((x(t.ini) + x(t.fin)) / 2), y: H - 6, 'text-anchor': 'middle', style: MICRO
+        });
+        n.textContent = t.n;
+        svg.appendChild(n);
+      });
+    }
+
+    host.textContent = '';
+    host.appendChild(svg);
+  }
+
+  // ── El coste de correr cansado: cinco puntos, no una señal ──────────────
+  function dibujarCoste(host) {
+    var W = Math.round(host.getBoundingClientRect().width);
+    if (!W) return;
+    var H = +host.dataset.alto || 150;
+    var M = { arr: 14, ab: 24, izq: 30, der: 10 };
+    var C = { x: M.izq, y: M.arr, w: W - M.izq - M.der, h: H - M.arr - M.ab };
+    if (C.w < 60) return;
+
+    var max = 10, min = 0;
+    var x = function (i) { return r2(C.x + (i / (COSTE.length - 1)) * C.w); };
+    var y = function (v) { return r2(C.y + C.h - ((v - min) / (max - min)) * C.h); };
+
+    var svg = el('svg', {
+      role: 'img', viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: H,
+      'aria-label': 'Segundos por kilómetro de más al correr cansado, de 9 hace seis semanas a 4 esta semana',
+      style: 'overflow:visible'
+    });
+
+    [0, 5, 10].forEach(function (v) {
+      svg.appendChild(el('line', {
+        x1: C.x, y1: y(v), x2: C.x + C.w, y2: y(v), stroke: 'var(--border)', 'stroke-width': 1
+      }));
+      var t = el('text', { x: M.izq - 7, y: r2(y(v) + 3.5), 'text-anchor': 'end', style: MICRO });
+      t.textContent = v;
+      svg.appendChild(t);
+    });
+
+    svg.appendChild(el('path', {
+      d: COSTE.map(function (p, i) { return (i ? 'L' : 'M') + x(i) + ',' + y(p.v); }).join(' '),
+      fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }));
+
+    COSTE.forEach(function (p, i) {
+      svg.appendChild(el('circle', { cx: x(i), cy: y(p.v), r: 3.4, fill: 'var(--accent)' }));
+      var v = el('text', { x: x(i), y: r2(y(p.v) - 9), 'text-anchor': 'middle',
+        style: 'font:700 10.5px var(--font-mono);fill:var(--fg)' });
+      v.textContent = '+' + p.v;
+      svg.appendChild(v);
+      var e = el('text', { x: x(i), y: H - 6, 'text-anchor': 'middle', style: MICRO });
+      e.textContent = p.et;
+      svg.appendChild(e);
+    });
+
+    host.textContent = '';
+    host.appendChild(svg);
+  }
+
+  // ── El mapa: coloreado por la zona de ritmo del atleta, no por una rampa ─
+  // Las cinco bandas ya tienen color en toda la app, así que un tramo ámbar
+  // significa lo mismo aquí que en el resto de la pantalla.
+  function zonaDeRitmo(skm) {
+    if (skm == null) return null;
+    if (skm > 330) return 1;
+    if (skm > 300) return 2;
+    if (skm > 265) return 3;
+    if (skm > 225) return 4;
+    return 5;
+  }
+  function dibujarMapa(host) {
+    var g = GUIONES[host.dataset.mapa];
+    if (!g) return;
+    var W = Math.round(host.getBoundingClientRect().width);
+    if (!W) return;
+    var H = +host.dataset.alto || 180;
+    var s = muestrear(g.pasos);
+    if (!s.ritmo.length) return;
+
+    // Recorrido inventado pero estable: una vuelta cerrada con la forma de un
+    // parque. La posición es ilustrativa; lo que es dato es el COLOR.
+    var N = 240, pts = [], i;
+    for (i = 0; i < N; i++) {
+      var a = (i / N) * Math.PI * 2;
+      var r = 1 + 0.24 * Math.sin(3 * a + 0.6) + 0.11 * Math.cos(5 * a) + 0.06 * Math.sin(8 * a);
+      pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.66 });
+    }
+    var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var pad = 12;
+    var esc = Math.min((W - pad * 2) / (x1 - x0), (H - pad * 2) / (y1 - y0));
+    var ox = (W - (x1 - x0) * esc) / 2, oy = (H - (y1 - y0) * esc) / 2;
+    var px = function (p) { return r2(ox + (p.x - x0) * esc); };
+    var py = function (p) { return r2(oy + (p.y - y0) * esc); };
+
+    // El color de cada trozo sale de la señal de ritmo en ese punto del tiempo.
+    var svg = el('svg', {
+      role: 'img', viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: H,
+      'aria-label': 'Recorrido de la carrera, coloreado por su zona de ritmo'
+    });
+    var usadas = {};
+    for (i = 1; i < N; i++) {
+      var frac = i / (N - 1);
+      var t = frac * s.dur;
+      // La muestra de ritmo más cercana en el tiempo; si no hay ninguna cerca,
+      // ese trozo no se pinta (es el hueco sin señal, y se ve).
+      var m = null, mejor = HUECO_S;
+      for (var k = 0; k < s.ritmo.length; k++) {
+        var d = Math.abs(s.ritmo[k].t - t);
+        if (d < mejor) { mejor = d; m = s.ritmo[k]; }
+      }
+      if (!m) continue;
+      var z = zonaDeRitmo(m.v);
+      if (z) usadas[z] = true;
+      svg.appendChild(el('line', {
+        x1: px(pts[i - 1]), y1: py(pts[i - 1]), x2: px(pts[i]), y2: py(pts[i]),
+        stroke: z ? 'var(--z' + z + ')' : 'var(--muted)', 'stroke-width': 2.6, 'stroke-linecap': 'round'
+      }));
+    }
+    host.textContent = '';
+    host.appendChild(svg);
+
+    // La leyenda la escriben las zonas que de verdad se han pintado. Escribirla
+    // a mano es cómo un pie de gráfico acaba nombrando un color que no está.
+    var pie = document.querySelector('[data-leyenda-de="' + host.dataset.mapa + '"]');
+    if (!pie) return;
+    pie.querySelectorAll('.zpill').forEach(function (n) { n.remove(); });
+    Object.keys(usadas).sort().reverse().forEach(function (z) {
+      var s = document.createElement('span');
+      s.className = 'zpill';
+      s.style.background = 'var(--z' + z + '-soft)';
+      s.style.color = 'var(--z' + z + ')';
+      s.textContent = 'Z' + z;
+      pie.insertBefore(s, pie.firstChild);
+    });
+  }
+
+  // ── Pintar, y repintar cuando cambie el ancho ───────────────────────────
+  function pintar() {
+    document.querySelectorAll('[data-curva]').forEach(function (h) {
+      if (h.dataset.curva === 'coste') dibujarCoste(h); else dibujarCurva(h);
+    });
+    document.querySelectorAll('[data-mapa]').forEach(dibujarMapa);
+  }
+  pintar();
+  var espera;
+  window.addEventListener('resize', function () {
+    clearTimeout(espera);
+    espera = setTimeout(pintar, 120);
+  });
+})();
+</script>
+</body>
+</html>
