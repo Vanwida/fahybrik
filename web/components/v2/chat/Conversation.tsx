@@ -101,7 +101,7 @@ export function Conversation({
         aria-label="Conversación"
         aria-live="polite"
       >
-        <MessageList chat={chat} />
+        <MessageList chat={chat} athleteId={athleteId} />
       </div>
 
       {shownNotice ? <Notice message={shownNotice} onDismiss={dismiss} /> : null}
@@ -116,7 +116,14 @@ export function Conversation({
   );
 }
 
-function MessageList({ chat }: { chat: ReturnType<typeof useConversation> }) {
+function MessageList({
+  chat,
+  athleteId,
+}: {
+  chat: ReturnType<typeof useConversation>;
+  /** De quién es el hilo: la tarjeta de contexto lleva a SU sesión. */
+  athleteId: string;
+}) {
   if (chat.loadFailed) {
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -182,7 +189,12 @@ function MessageList({ chat }: { chat: ReturnType<typeof useConversation> }) {
                 </span>
               </div>
             ) : null}
-            <ChatBubble message={message} onRetry={chat.retry} onDelete={chat.remove} />
+            <ChatBubble
+              message={message}
+              athleteId={athleteId}
+              onRetry={chat.retry}
+              onDelete={chat.remove}
+            />
           </div>
         );
       })}

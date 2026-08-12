@@ -18,6 +18,7 @@
 // convertiría en punto de entrada del bundle de cliente y Next exigiría que sus
 // props fueran serializables — cosa que un `onRetry` no es.
 import { useState } from 'react';
+import Link from 'next/link';
 import { MIcon } from '@/components/ui/MIcon';
 import { ChatAttachment } from './ChatAttachment';
 import type { UIMessage } from './useConversation';
@@ -31,10 +32,13 @@ const TIME_FMT = new Intl.DateTimeFormat('es-ES', {
 
 export function ChatBubble({
   message,
+  athleteId,
   onRetry,
   onDelete,
 }: {
   message: UIMessage;
+  /** De quién es el hilo — hace falta para llevar a SU sesión. */
+  athleteId?: string;
   /** Reintentar un envío fallido. */
   onRetry?: (id: string) => void;
   /** Borrar un mensaje PROPIO. Sin esto no se ofrece la acción. */
@@ -88,7 +92,20 @@ export function ChatBubble({
           message.pending && 'opacity-70',
         )}
       >
-        {message.context ? <SobreQue label={message.context.label} /> : null}
+        {message.context ? (
+          <SobreQue
+            label={message.context.label}
+            preview={message.context.preview}
+            // Solo lleva a algún sitio una SESIÓN que siga existiendo. Una
+            // carrera y un ejercicio de catálogo enseñan su dato y no navegan:
+            // el panel no tiene todavía a dónde llevarlos.
+            href={
+              message.context.kind === 'session' && message.context.exists && athleteId
+                ? `/atletas/${athleteId}?tab=plan&sesion=${message.context.ref}`
+                : null
+            }
+          />
+        ) : null}
 
         {hasAttachment ? <ChatAttachment message={message} /> : null}
 
@@ -119,18 +136,51 @@ export function ChatBubble({
  * el servidor (`web/lib/chat/context.ts`) — aquí no se compone texto, solo se
  * pinta, para que diga exactamente lo mismo en el móvil, en el panel y en el push.
  *
- * Todavía NO es un enlace: llevar al coach a la sesión concreta necesita que su
- * ficha sepa abrirse por sesión (hoy `openSession` es estado local de `PlanTab`),
- * y un cursor de mano que no navega a ninguna parte es peor que ninguno.
+ * `preview` es la línea de DATO de la cosa AHORA (la etiqueta es identidad y va
+ * congelada; el estado es el de hoy, porque quien lee está a punto de contestar o
+ * de corregir). Con ella, el caso común se resuelve sin abrir nada.
+ *
+ * `href` solo llega cuando hay a dónde ir de verdad — una sesión que sigue
+ * existiendo — y entonces la tarjeta es un enlace a esa sesión en la ficha del
+ * atleta. Sin destino no se dibuja ni el galón ni el cursor de mano: prometer un
+ * click que no lleva a ninguna parte es peor que no ofrecerlo.
  */
-function SobreQue({ label }: { label: string }) {
-  return (
-    <span className="flex max-w-full flex-col gap-0.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5">
-      <span className="text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
-        Sobre
+function SobreQue({
+  label,
+  preview,
+  href,
+}: {
+  label: string;
+  preview?: string | null;
+  href?: string | null;
+}) {
+  const cuerpo = (
+    <>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+          Sobre
+        </span>
+        <span className="break-words text-label font-semibold text-[color:var(--v2-fg)]">{label}</span>
+        {preview ? (
+          <span className="break-words text-label text-[color:var(--v2-muted)]">{preview}</span>
+        ) : null}
       </span>
-      <span className="break-words text-label font-semibold text-[color:var(--v2-fg)]">{label}</span>
-    </span>
+      {href ? <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" /> : null}
+    </>
+  );
+
+  const marco =
+    'flex max-w-full items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5';
+
+  if (!href) return <span className={marco}>{cuerpo}</span>;
+
+  return (
+    <Link
+      href={href}
+      className={cn(marco, 'v2-focus transition-colors hover:border-[color:var(--v2-border-strong)]')}
+    >
+      {cuerpo}
+    </Link>
   );
 }
 
