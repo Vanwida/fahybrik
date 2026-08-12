@@ -102,7 +102,8 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
       recovery_summary: { total: 0, evaluable: 0, controlada: 0, demasiado_rapida: 0, sin_dato: 0, pct_controlada: null },
       recovery_tramos: [],
       work_duration_summary: { total: 0, evaluable: 0, completa: 0, incompleta: 0, sin_dato: 0, pct_completa: null },
-      recovery_duration_summary: { total: 0, evaluable: 0, controlada: 0, excedida: 0, sin_dato: 0, pct_controlada: null },
+      gradient_retires_pace_pct: null,
+    recovery_duration_summary: { total: 0, evaluable: 0, controlada: 0, excedida: 0, sin_dato: 0, pct_controlada: null },
     },
     ...overrides,
   };

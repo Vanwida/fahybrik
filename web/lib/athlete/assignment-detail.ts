@@ -81,6 +81,18 @@ export interface AssignmentDetailParams {
   // reparto is resolved (station_assignment stays null), which is correct: the
   // reparto is the READING athlete's half, and a coach view has no "self" side.
   self_user_id?: bigint;
+  /**
+   * El umbral de pendiente del COACH (%), ya resuelto por el llamador, para
+   * que viaje al cliente dentro de `run_compliance`.
+   *
+   * OPCIONAL Y RESUELTO FUERA a propósito: este cargador se llama una vez por
+   * sesión, y los agregados del coach lo recorren docenas de veces seguidas
+   * (`running-analytics.ts`). Resolverlo aquí dentro cobraría una consulta por
+   * sesión a cambio de un campo que esos llamadores ni miran. Quien lo
+   * necesita lo resuelve UNA vez (`resolveAthleteRunningThresholds`) y lo pasa;
+   * quien no, lo omite y sale `null`, que ya significa «usa tu suelo».
+   */
+  gradient_retires_pace_pct?: number | null;
 }
 
 export interface AssignmentDetailResponse {
@@ -656,6 +668,7 @@ export async function loadAssignmentDetail(
     execution,
     template,
     segments,
+    gradientRetiresPacePct: params.gradient_retires_pace_pct ?? null,
     zoneProfiles,
     oneRms,
     executionSegments,
@@ -780,8 +793,13 @@ export function buildAssignmentDetail(input: {
   // Circuito (template_blocks), pre-resolved by loadAssignmentDetail. Default []
   // → no block in this session has a circuit config (legacy behavior for all).
   circuitBlocks?: AssignmentDetailCircuitBlock[];
+  // El umbral de pendiente del coach (%), pre-resuelto por loadAssignmentDetail
+  // (necesita DB). El constructor puro solo lo transporta hasta
+  // `run_compliance`. Default null → «usa tu suelo», el comportamiento de hoy.
+  gradientRetiresPacePct?: number | null;
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
+  const gradientOpts = { gradient_retires_pace_pct: input.gradientRetiresPacePct ?? null };
   const stationSplit = input.stationSplit ?? null;
   const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
   const oneRms = input.oneRms ?? new Map();
@@ -817,7 +835,7 @@ export function buildAssignmentDetail(input: {
     // `workout: null`, que `buildRunCompliance` resuelve honestamente a
     // resúmenes vacíos — nunca un veredicto inventado sobre una sesión sin
     // prescripción que enseñar.
-    run_compliance: buildRunCompliance(null, executionBlock?.segments ?? []),
+    run_compliance: buildRunCompliance(null, executionBlock?.segments ?? [], gradientOpts),
   };
 
   // The executed block is independent of the template (a "marcar como hecha" log
@@ -847,7 +865,7 @@ export function buildAssignmentDetail(input: {
   // Recalculado contra el `workout` real (arriba se juzgó contra null): un
   // 6×800 real puede tener tramos de carrera que juzgar donde antes no
   // había ninguno.
-  base.run_compliance = buildRunCompliance(base.workout, executionBlock?.segments ?? []);
+  base.run_compliance = buildRunCompliance(base.workout, executionBlock?.segments ?? [], gradientOpts);
 
   return base;
 }

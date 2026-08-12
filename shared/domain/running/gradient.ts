@@ -41,6 +41,57 @@
 import { toSortedPoints, valueAtTime } from './timed-series';
 
 /**
+ * LA PENDIENTE QUE RETIRA EL VEREDICTO DE RITMO — el DEFECTO, en por ciento.
+ *
+ * Esta cabecera lleva desde el principio enunciando la regla («≥3% retira el
+ * veredicto de ritmo») sin aplicarla en ninguna parte: el número vivía SOLO en
+ * Swift (`ReglasDeLectura.pendienteQueRetiraElRitmoPct`) y el servidor no lo
+ * tenía. Dos constantes en dos superficies que hoy coinciden por casualidad y
+ * mañana no.
+ *
+ * LA SOLUCIÓN NO ES CLAVARLO EN LOS DOS SITIOS, ES QUE HAYA UNO SOLO. Es
+ * MÉTODO del coach —«¿otro entrenador competente lo haría distinto?» da que sí:
+ * quien entrena trail no retira el ritmo al 3 %— así que nace como dato
+ * (`coach_running_thresholds.gradient_retires_pace_pct`) con este valor por
+ * defecto, y el servidor se lo MANDA al cliente en `run_compliance`. El cliente
+ * deja de tener número propio: compara contra el que le llega.
+ *
+ * EL REPARTO, y es deliberado (team-lead, 12-ago):
+ *   · este fichero es dueño del NÚMERO y de comparar UN valor contra él;
+ *   · la PRECEDENCIA de tres ramas (lo prescrito / lo que declaró la cinta / lo
+ *     medido) NO vive aquí. Vive una sola vez, en el cliente, porque además de
+ *     retirar el veredicto cambia el eje del troceado a tiempo y cambia el
+ *     sujeto de la lectura, y eso es presentación. Duplicarla aquí es
+ *     exactamente lo que este movimiento existe para evitar.
+ *
+ * EN VALOR ABSOLUTO: una bajada del 6 % infla el ritmo tanto como una subida lo
+ * hunde. Las dos lo dejan de significar.
+ */
+export const GRADIENT_RETIRES_PACE_PCT = 3;
+
+/**
+ * ¿Se SABE que este tramo iba en cuesta? Para promediar muchos tramos.
+ *
+ * `null` (no se sabe) responde FALSE a propósito, y la asimetría es la lectura
+ * entera: la inmensa mayoría de las carreras en calle no tienen traza de
+ * altitud, así que exigir pendiente conocida dejaría cualquier media vacía para
+ * casi todo el mundo — peor que el sesgo que intenta evitar. Un terreno
+ * desconocido es RUIDO, y el ruido se promedia; una cuesta del 8 % conocida es
+ * un SESGO, y el sesgo se quita.
+ *
+ * OJO: esto NO sirve para juzgar UNA repetición. Ahí «no se sabe» tiene que
+ * retirar el veredicto, no dejarlo pasar — y esa decisión, con sus tres ramas,
+ * es del cliente (ver el reparto arriba). No añadas aquí el predicado contrario
+ * «por simetría»: lo hubo, no lo usaba nadie, y era una invitación a que la
+ * precedencia acabara viviendo en dos sitios.
+ */
+export function gradientKnownSteep(gradient_pct: number | null, threshold_pct: number): boolean {
+  if (gradient_pct == null || !Number.isFinite(gradient_pct)) return false;
+  if (!Number.isFinite(threshold_pct) || threshold_pct <= 0) return false;
+  return Math.abs(gradient_pct) >= threshold_pct;
+}
+
+/**
  * El cambio NETO de altitud (metros, con signo — positivo = subió) entre el
  * inicio y el final de la ventana del tramo. Null cuando cualquiera de los
  * dos extremos no tiene cobertura fiable — nunca acumula subidas/bajadas

@@ -674,6 +674,10 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       recovery_tramos: [],
       work_duration_summary: { total: 0, evaluable: 0, completa: 0, incompleta: 0, sin_dato: 0, pct_completa: null },
       recovery_duration_summary: { total: 0, evaluable: 0, controlada: 0, excedida: 0, sin_dato: 0, pct_controlada: null },
+      // Sin umbral resuelto por el llamador: NULL, «usa tu suelo». Nunca un 3
+      // inventado aquí — un coach de trail vería el suyo en una pantalla y el
+      // nuestro en otra.
+      gradient_retires_pace_pct: null,
     });
   });
 

@@ -149,6 +149,28 @@ export interface RunComplianceResult {
   work_duration_summary: WorkDurationSummary;
   /** Agregado de `recovery_tramos[].duration_verdict`. */
   recovery_duration_summary: RecoveryDurationSummary;
+  /**
+   * LA PENDIENTE A PARTIR DE LA CUAL EL RITMO DEJA DE COMPARARSE, en % y en
+   * valor absoluto. Método del COACH — quien entrena trail no lo retira al 3 %.
+   *
+   * VIAJA AQUÍ Y NO POR OTRA RUTA a propósito (team-lead, 12-ago): este objeto
+   * ya es donde el servidor dice CÓMO se juzga una carrera —la banda llega
+   * resuelta, con su precedencia aplicada—, y un umbral de método es la misma
+   * clase de dato. Por el mismo camino no puede llegar desincronizado del
+   * veredicto que gobierna.
+   *
+   * NULO significa «usa tu suelo»: el cliente aplica su propio defecto, que es
+   * lo que hace hoy. Sale nulo cuando el llamador no resolvió el umbral del
+   * coach — nunca se rellena con un 3 inventado aquí, porque entonces un coach
+   * de trail vería su umbral en una pantalla y el nuestro en otra.
+   *
+   * EL SERVIDOR NO DECIDE CON ESTO. Sólo lo transporta: comparar contra él es
+   * del cliente, porque además de retirar el veredicto cambia el eje del
+   * troceado a tiempo y cambia el sujeto de la lectura, y eso es presentación.
+   * La precedencia de tres ramas (prescrito / declarado por la cinta / medido)
+   * vive UNA vez, allí. Ver `shared/domain/running/gradient.ts`.
+   */
+  gradient_retires_pace_pct: number | null;
 }
 
 // The representative intensity target for a line: block-level, else the first
@@ -305,6 +327,13 @@ function isRunItem(item: AssignmentDetailItem, actuals: SegmentActual[]): boolea
 export function buildRunCompliance(
   workout: AssignmentDetailWorkout | null,
   actuals: readonly SegmentActual[],
+  /**
+   * El umbral de pendiente del coach, si el llamador lo resolvió. Opcional a
+   * propósito: los llamadores que sólo quieren los veredictos (la calibración
+   * del coach recorre docenas de sesiones) no pagan una consulta por algo que
+   * no van a mirar, y omitirlo deja `null`, que ya significa «usa tu suelo».
+   */
+  opts?: { gradient_retires_pace_pct?: number | null },
 ): RunComplianceResult {
   const byItem = new Map<string, SegmentActual[]>();
   for (const a of actuals) {
@@ -491,5 +520,6 @@ export function buildRunCompliance(
     recovery_tramos: recoveryTramos,
     work_duration_summary: summarizeWorkDuration(workDurationVerdicts),
     recovery_duration_summary: summarizeRecoveryDuration(recoveryDurationVerdicts),
+    gradient_retires_pace_pct: opts?.gradient_retires_pace_pct ?? null,
   };
 }

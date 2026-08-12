@@ -84,8 +84,15 @@ const DETALLES_A_LA_VEZ = 6;
  *  Un fallo REAL de base sube: una calibración calculada sobre un subconjunto
  *  desconocido es justo el número que este panel se niega a enseñar. Lo único
  *  que se salta en silencio es una asignación borrada entre la consulta y la
- *  carga, que ya se saltaba antes. */
-async function analizarSesiones(
+ *  carga, que ya se saltaba antes.
+ *
+ *  EXPORTADA para el «¿estoy mejorando?» del atleta
+ *  (`athlete/analytics/running-progress.ts`), que necesita EXACTAMENTE los
+ *  mismos veredictos por tramo para acumular la adherencia. Reescribir allí el
+ *  recorrido habría dejado dos formas de decidir qué sesión cuenta y qué tramo
+ *  se juzga — el atleta podría ver un 78 % donde el coach ve un 81 % sobre las
+ *  mismas carreras. Un solo recorrido, un solo veredicto, dos lectores. */
+export async function analizarSesiones(
   client: Sql,
   athlete_id: number,
   sesiones: ReadonlyArray<{ assignment_id: string; execution_id: string }>,
@@ -238,7 +245,7 @@ export async function buildRunningAnalytics(args: {
  * ejecutar) no aporta ni a la calibración ni a la huella, y no merece cargar
  * su detalle completo.
  */
-async function loadQualifyingRunSessions(
+export async function loadQualifyingRunSessions(
   client: Sql,
   athlete_id: number,
   since: Date,
@@ -283,7 +290,7 @@ async function loadFirstActivityDate(client: Sql, athlete_id: number): Promise<s
  * no entrelazar esta lectura, todavía sin validar contra datos reales, con
  * la que ya está verificada.
  */
-async function loadCompromisedPaceObservations(
+export async function loadCompromisedPaceObservations(
   client: Sql,
   athlete_id: number,
   now: Date,
