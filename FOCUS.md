@@ -146,11 +146,19 @@ y las tres restan:
 1. **El tope de 60 m tiraba el bache entero.** El criterio estaba mal elegido: 60
    metros no son implausibles, lo son solo si ocurren rápido. A 5:00/km se
    recorren en 18 s, a 3:30 en 12 — así que **cualquier hueco de señal más largo
-   perdía el 100 % de su distancia**, y cuanto más rápido corrías antes cruzabas
-   el umbral. Peor: la puerta de precisión congelaba la referencia (bien) y el
-   tope mataba justo el fix que iba a rescatar el bache. Ahora la puerta juzga
-   VELOCIDAD (12,5 m/s, por encima del pico de Bolt) y **lo descartado ya no mueve
-   el ancla**, que es lo que lo hacía irreversible.
+   perdía el 100 % de su distancia**.
+
+   **DESENLACE: ese contador ya no existe.** Alex, harto y con razón, señaló que
+   llevábamos horas AFINANDO un contador de distancia escrito a mano cuando Apple
+   ya tiene uno. La prueba estaba en el propio repo: **el reloj nunca tuvo el bug
+   porque el reloj usa el de Apple.** Ahora la distancia la da **`CMPedometer`**
+   (mismo motor que alimenta Salud, disponible desde iOS 8, permiso ya pedido), y
+   `RunDistanceGate` con sus tres puertas está **borrado**. CoreLocation se queda
+   solo para coordenadas y ritmo en pantalla.
+
+   **La lección, ya en memoria:** encontrar un bug en código propio de bajo nivel
+   no es permiso para arreglarlo, es la señal de preguntarse si debería existir.
+   Arreglar la rueda sale más caro que haberla inventado.
 2. **El permiso de GPS en segundo plano solo se pedía desde UNA pantalla.** Un
    tramo de correr dentro de otro formato corría sin él: móvil al bolsillo y se
    perdían TODOS los metros de esa ventana. Ahora va con la carrera.
