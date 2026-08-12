@@ -105,6 +105,7 @@ describe('buildSegmentActuals — run_splits no filtra ni oculta filas', () => {
     emom_rounds_completed: null,
     emom_rounds_prescribed: null,
     incline_pct: null,
+    avg_gradient_pct: null,
     run_cadence_spm: null,
     source: null,
     leg_index: null,

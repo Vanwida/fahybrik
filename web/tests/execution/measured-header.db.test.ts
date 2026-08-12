@@ -149,6 +149,68 @@ describeWithDb('computeMeasuredHeader (real DB)', () => {
     expect(Number(row.elevation_gain_m)).toBe(0);
     expect(Number(row.elevation_loss_m)).toBe(0);
     expect(row.hr_recovery_60_bpm).toBe(23);
+
+    // El tramo de este test no lleva `distance_meters` — sin distancia no hay
+    // forma de expresar la pendiente en %, así que sale null, nunca 0 (#71).
+    const gradRows = await sql<Array<{ avg_gradient_pct: string | null }>>`
+      select avg_gradient_pct from segment_executions where execution_id = ${executionId}
+    `;
+    expect(gradRows[0]!.avg_gradient_pct).toBeNull();
+  });
+
+  it('#71 — «8×200 en cuesta al 8%» al aire libre: la pendiente se deriva de la altitud, nunca de la cinta (que no existe en calle)', async () => {
+    const startedAtIso = '2026-08-01T10:00:00Z';
+    const executionId = await makeExecution(startedAtIso);
+
+    // Un tramo de 200 m en 40 s, sin incline_pct (calle, no cinta).
+    await sql`
+      insert into segment_executions (
+        execution_id, position, started_at, ended_at, modality,
+        leg_index, leg_role, leg_phase, distance_meters
+      ) values (
+        ${executionId}, 0,
+        ${startedAtIso}::timestamptz,
+        ${startedAtIso}::timestamptz + interval '40 seconds',
+        'run', 0, 'work', 'main', 200
+      )
+    `;
+    // Sube 16 m en los 40 s del tramo (8 %).
+    const altOffsets = [0, 10, 20, 30, 40];
+    const altValues = [100, 104, 108, 112, 116];
+    await insertTrace(executionId, SIGNAL_ALTITUDE, startedAtIso, altOffsets, altValues);
+
+    await computeMeasuredHeader({ execution_id: executionId, client: sql });
+
+    const rows = await sql<Array<{ avg_gradient_pct: string | null }>>`
+      select avg_gradient_pct from segment_executions where execution_id = ${executionId}
+    `;
+    expect(Number(rows[0]!.avg_gradient_pct)).toBeCloseTo(8, 1);
+  });
+
+  it('#71 — la cinta manda: incline_pct declarado gana aunque la traza de altitud diga otra cosa', async () => {
+    const startedAtIso = '2026-08-01T11:00:00Z';
+    const executionId = await makeExecution(startedAtIso);
+
+    await sql`
+      insert into segment_executions (
+        execution_id, position, started_at, ended_at, modality,
+        leg_index, leg_role, leg_phase, distance_meters, incline_pct
+      ) values (
+        ${executionId}, 0,
+        ${startedAtIso}::timestamptz,
+        ${startedAtIso}::timestamptz + interval '40 seconds',
+        'run', 0, 'work', 'main', 200, 5.0
+      )
+    `;
+    // La altitud (si mandara) daría un 8 % — pero la cinta declaró 5 %.
+    await insertTrace(executionId, SIGNAL_ALTITUDE, startedAtIso, [0, 10, 20, 30, 40], [100, 104, 108, 112, 116]);
+
+    await computeMeasuredHeader({ execution_id: executionId, client: sql });
+
+    const rows = await sql<Array<{ avg_gradient_pct: string | null }>>`
+      select avg_gradient_pct from segment_executions where execution_id = ${executionId}
+    `;
+    expect(Number(rows[0]!.avg_gradient_pct)).toBe(5);
   });
 
   it('una sesión de series (2+ tramos main) escribe decoupling_pct null, sin tocar elevación ni recuperación', async () => {

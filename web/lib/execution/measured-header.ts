@@ -1,6 +1,8 @@
 import 'server-only';
 
-// Las tres columnas huérfanas de la 0154 encuentran su motor.
+// Las tres columnas huérfanas de la 0154 encuentran su motor — y desde el
+// #71, también la pendiente media POR TRAMO (`segment_executions.avg_
+// gradient_pct`, mig 0185).
 //
 // `workout_executions.decoupling_pct` / `elevation_gain_m` / `elevation_loss_m`
 // / `hr_recovery_60_bpm` existen desde esa migración y hasta ahora no las
@@ -9,6 +11,15 @@ import 'server-only';
 // las que exigen recorrer la traza entera, porque la traza no cambia nunca"),
 // así que este módulo vive al lado de `segment-zone-seconds.ts` — el mismo
 // gesto (recalcular al llegar una traza), la misma forma.
+//
+// LA PENDIENTE ES DISTINTA: no es de la sesión, es de CADA TRAMO — la
+// pregunta que contesta es «¿tiene sentido juzgar el ritmo AQUÍ?» (mockup
+// carrera-en-el-panel.html §07/§08: ≥3% retira el veredicto de ritmo). Antes
+// sólo se sabía por la cinta (`incline_pct`), que en calle es siempre null —
+// un «8×200 en cuesta al 8%» corrido al aire libre no disparaba la regla
+// nunca. Se resuelve aquí, no en el cliente (team-lead/Alex, 12-ago: sería un
+// segundo motor sobre la misma señal de altitud), con la MISMA traza que ya
+// se carga para desnivel/deriva/recuperación — un viaje, dos usos.
 //
 // EL EJE COMÚN. `hr`/`speed` llegan cada una con su propio `started_at` (pueden
 // diferir en milisegundos entre señales); los tramos de `segment_executions`
@@ -33,6 +44,7 @@ import { loadExecutionTraces } from '@/lib/execution/execution-traces';
 import { computeDecoupling, type EffortLeg } from '@fahybrid/shared/domain/running/decoupling';
 import { computeElevation } from '@fahybrid/shared/domain/running/elevation';
 import { computeHrRecovery60 } from '@fahybrid/shared/domain/running/hr-recovery';
+import { netAltitudeChangeM, resolveSegmentGradientPct } from '@fahybrid/shared/domain/running/gradient';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
 
 export interface MeasuredHeaderResult {
@@ -140,6 +152,8 @@ export async function computeMeasuredHeader(args: {
     where id = ${execution_id}
   `;
 
+  await writeSegmentGradients({ execution_id, anchorEpochS, altitude, client });
+
   return {
     execution_id,
     written: true,
@@ -148,4 +162,64 @@ export async function computeMeasuredHeader(args: {
     elevation_loss_m: elevation.elevation_loss_m,
     hr_recovery_60_bpm,
   };
+}
+
+/**
+ * Pendiente media POR TRAMO (#71) — a diferencia de las cuatro de arriba,
+ * ésta no es de la sesión, es de cada fila de `segment_executions`. Todos
+ * los tramos de carrera con ventana real (`started_at`/`ended_at`), tenga o
+ * no `leg_index` — un rodaje continuo (una sola fila, sin estructura) es
+ * tan susceptible de subir una cuesta como una repetición.
+ *
+ * La precedencia (cinta > altitud derivada) y el "sin cobertura, null" viven
+ * en `resolveSegmentGradientPct`/`netAltitudeChangeM` — este bucle sólo
+ * reúne la ventana de cada tramo y escribe. Fila a fila (no una sola UPDATE
+ * masiva): son pocos tramos por ejecución, y así cada fila se escribe con su
+ * propio valor sin tener que montar un `unnest` para ganar nada medible.
+ */
+async function writeSegmentGradients(args: {
+  execution_id: number;
+  anchorEpochS: number;
+  altitude: { offsets_s: readonly number[]; values: readonly number[] };
+  client: Sql;
+}): Promise<void> {
+  const { execution_id, anchorEpochS, altitude, client } = args;
+
+  const segments = await client<
+    Array<{
+      id: number;
+      started_at: Date | null;
+      ended_at: Date | null;
+      distance_meters: string | number | null;
+      incline_pct: string | number | null;
+    }>
+  >`
+    select id, started_at, ended_at, distance_meters, incline_pct
+    from segment_executions
+    where execution_id = ${execution_id}
+      and modality = 'run'
+      and started_at is not null and ended_at is not null
+  `;
+  if (segments.length === 0) return;
+
+  await client.begin(async (tx) => {
+    for (const seg of segments) {
+      if (!seg.started_at || !seg.ended_at) continue; // ya filtrado arriba; guarda de tipo
+      const start_s = seg.started_at.getTime() / 1000 - anchorEpochS;
+      const end_s = seg.ended_at.getTime() / 1000 - anchorEpochS;
+      const distance_m = seg.distance_meters != null ? Number(seg.distance_meters) : null;
+      const treadmill_incline_pct = seg.incline_pct != null ? Number(seg.incline_pct) : null;
+      const altitude_delta_m = netAltitudeChangeM(altitude, start_s, end_s);
+      const avg_gradient_pct = resolveSegmentGradientPct({
+        treadmill_incline_pct,
+        altitude_delta_m,
+        distance_m,
+      });
+      await tx`
+        update segment_executions
+        set avg_gradient_pct = ${avg_gradient_pct}
+        where id = ${seg.id}
+      `;
+    }
+  });
 }

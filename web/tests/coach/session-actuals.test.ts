@@ -22,6 +22,7 @@ const baseRow = (over: Partial<SegmentActualRow> = {}): SegmentActualRow => ({
   emom_rounds_completed: null,
   emom_rounds_prescribed: null,
   incline_pct: null,
+  avg_gradient_pct: null,
   run_cadence_spm: null,
   source: null,
   leg_index: null,
@@ -52,6 +53,27 @@ describe('session-actuals · buildSegmentActuals · incline / cadence (#62)', ()
     const [a] = buildSegmentActuals([baseRow()]);
     expect(a!.incline_pct).toBeNull();
     expect(a!.run_cadence_spm).toBeNull();
+  });
+});
+
+// #71 — la pendiente media POR TRAMO (mig 0185), distinta de `incline_pct`
+// (lo que declaró la cinta): ésta puede venir de la cinta O derivada de la
+// traza de altitud, y funciona también al aire libre. Mismo pin de tipo +
+// coerción numeric(5,2)→string que el bloque de arriba.
+describe('session-actuals · buildSegmentActuals · avg_gradient_pct (#71)', () => {
+  it('coerces avg_gradient_pct (numeric string from pg)', () => {
+    const [a] = buildSegmentActuals([baseRow({ avg_gradient_pct: '8.00' })]);
+    expect(a!.avg_gradient_pct).toBe(8);
+  });
+
+  it('una pendiente negativa (bajada) pasa tal cual, sin forzarla a positivo', () => {
+    const [a] = buildSegmentActuals([baseRow({ avg_gradient_pct: '-5.50' })]);
+    expect(a!.avg_gradient_pct).toBe(-5.5);
+  });
+
+  it('sin pendiente resuelta: null, nunca un 0 fabricado — 0 es "llano medido"', () => {
+    const [a] = buildSegmentActuals([baseRow()]);
+    expect(a!.avg_gradient_pct).toBeNull();
   });
 });
 

@@ -627,6 +627,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       emom_rounds_completed: null,
       emom_rounds_prescribed: null,
       incline_pct: null,
+      avg_gradient_pct: null,
       run_cadence_spm: null,
       drag_factor: null,
       avg_calories_per_hour: null,

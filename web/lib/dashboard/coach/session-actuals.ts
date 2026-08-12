@@ -62,6 +62,16 @@ export interface SegmentActual {
   /** AVERAGE running metrics over the segment (#62, mig 0124). Null when the
    * source (treadmill / wearable) reported none — never fabricated. */
   incline_pct: number | null;
+  /** Pendiente media del tramo (#71, mig 0185) — CAMBIO NETO de altitud sobre
+   *  la distancia, nunca desnivel acumulado. La cinta (`incline_pct`) manda
+   *  cuando la hay; si no, se deriva de la traza de altitud. Es la que decide
+   *  si el veredicto de ritmo significa algo (≥3% lo retira, mockup
+   *  carrera-en-el-panel.html §07/§08) — `incline_pct` sigue existiendo aparte
+   *  porque "lo que declaró la cinta" es una pregunta más estrecha y sigue
+   *  siendo información real por sí misma. Null = no se sabe, nunca cero
+   *  (cero es "llano medido"). Se escribe una vez al llegar la traza
+   *  (`measured-header.ts`), nunca al vuelo. */
+  avg_gradient_pct: number | null;
   run_cadence_spm: number | null;
   /** Concept2 PM5 erg detail (#33), folded out of `raw_lap_data_json` — the
    * monitor's segment-level aggregates + per-interval splits. Null for non-erg /
@@ -134,6 +144,7 @@ export interface SegmentActualRow {
   emom_rounds_completed: number | null;   // integer
   emom_rounds_prescribed: number | null;  // integer
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
+  avg_gradient_pct: string | number | null; // numeric(5,2) → string from pg
   run_cadence_spm: number | null;         // integer
   source: string | null;                  // free-text apparatus token
   leg_index: number | null;               // integer
@@ -199,6 +210,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     emom_rounds_completed: r.emom_rounds_completed ?? null,
     emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
     incline_pct: num(r.incline_pct),
+    avg_gradient_pct: num(r.avg_gradient_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
     source: r.source ?? null,
     zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
@@ -259,6 +271,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       emom_rounds_completed     as emom_rounds_completed,
       emom_rounds_prescribed    as emom_rounds_prescribed,
       incline_pct               as incline_pct,
+      avg_gradient_pct          as avg_gradient_pct,
       run_cadence_spm           as run_cadence_spm,
       source                    as source,
       leg_index                 as leg_index,
