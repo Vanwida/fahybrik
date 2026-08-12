@@ -5,6 +5,18 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Cerrado · El alta no inventa el esqueleto del plan (12-ago)
+
+El intake preguntaba periodización vs plan personal y **después** obligaba a
+marcar microciclos en los dos caminos. En periodización no mandaban nada. En
+personal se inventaban «Microciclo 1/2/3» antes de planificar.
+
+Ahora el alta solo elige el modo. El esqueleto nace en la ficha, cuando el
+coach escribe. `athletes.plan_mode` (0188) es la bandera viva para que Hoy no
+le proponga secuencia a quien eligió personal.
+
+---
+
 ## Ahora · El chat contextual — propuesta en el doble, esperando visto bueno (12-ago)
 
 Encargo de Alex: que el atleta pueda escribir sobre algo (el entreno de hoy, tal
@@ -50,17 +62,42 @@ menús de pulsación larga (atajo). La única superficie nueva es la hoja de
 - **El coach lo VE**: la tarjeta se pinta en `ChatBubble`, el componente que ya
   comparten las dos caras del chat.
 
+**Y la tarjeta trae el dato y se abre (segunda tanda del mismo día).** Directiva
+de Alex: «el coach recibe ese chat, pero al hacer click debe viajar a eso y
+también previsualizar».
+
+- **La previsualización va VIVA, la etiqueta sigue congelada.** La etiqueta es
+  identidad; el dato es el de hoy, porque quien lee está a punto de contestar o
+  de corregir — congelada le haría hablar de un fantasma.
+  `web/lib/chat/context-preview.ts` la resuelve al LEER, **en lote: 5 consultas
+  por página sea cual sea el número de mensajes** (probado contando viajes reales
+  con el hook `debug` de postgres). Reutiliza los formateadores que ya existían
+  (`loadTemplateSummaries`, `prescriptionToText`, `raceDayLabel`, los rótulos de
+  categoría) — cero gramáticas nuevas de dosis.
+- **El click lleva a la sesión**: `?tab=plan&sesion=<assignment_id>` abre la ficha
+  del atleta con ese cajón. Usa `history.replaceState` y no `router.replace`
+  porque la ruta es dinámica y un replace recargaba la ficha entera solo por
+  abrir un cajón. Un id ajeno o inexistente cierra el cajón y limpia la URL en
+  silencio.
+- **iOS**: lo HECHO se mira (la lectura de lo que pasó), lo PENDIENTE se estudia
+  (el índice de técnica). Abrir el contenedor de entreno desde una conversación
+  te dejaría empezando a entrenar por accidente.
+- **Sin destino honesto no hay galón**: sin `exists` confirmado, sin `state`, o en
+  una carrera y un ejercicio de catálogo (que enseñan su dato y no navegan).
+
 **Lo que NO está hecho, explícito:**
-- **Tocar la tarjeta no abre nada** (y por eso no lleva galón): exige decidir en
-  qué modo se abre el entreno —hecho o por hacer— y levantar esa pantalla sobre
-  el propio chat. En el panel, además, la ficha del coach no sabe abrirse por
-  sesión (`openSession` es estado local de `PlanTab`).
 - **La tarjeta del coach no está vista en pantalla todavía**: no existe ni un
   mensaje con contexto en la base (0 filas), así que lo primero al probar es
   mandar uno desde el móvil y mirar el panel.
+- Una **carrera** y un **ejercicio de catálogo** no navegan en ninguna de las dos
+  caras.
 - Desde el **resumen post-entreno**, el **detalle de carrera**, el **detalle de
   ejercicio** y un **comunicado** siguen siendo tres toques: no tienen ni menú ni
   puerta al chat.
+- **Bug de otra sesión arreglado de paso**: crear un ejercicio desde el panel del
+  coach estaba roto en producción desde la migración 0172 (`createExercise` no
+  escribía `name_es` ni `name_en` y la constraint exige uno). Ver
+  `docs/DECISIONS.md` 12-ago.
 
 **La build de iOS la instala Alex.**
 

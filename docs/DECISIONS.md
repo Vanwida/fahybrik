@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · El esqueleto del plan nace al planificar, no se inventa en el alta
+
+**El hueco:** el paso «Estructura del bloque» del alta pedía marcar microciclos en los
+dos modos. En periodización los tramos no mandaban nada (el alta materializa el primer
+microciclo de la biblioteca) y ajustar semanas era mentir. En personalizado se exigía
+un esqueleto —«Microciclo 1 / 2 / 3» con semanas inventadas— aunque el coach aún no
+hubiera planificado.
+
+**Decidido:** el alta solo pregunta de qué nace el plan (`shared` | `personal`). El
+esqueleto es consecuencia de planificar, no un input del alta.
+- `shared`: igual que siempre — primer microciclo de la biblioteca, en borrador.
+- `personal`: no se crea ningún contenedor. El atleta queda marcado y el coach
+  escribe los microciclos desde su ficha. Si el cliente manda tramos de verdad
+  (los escribió él), se materializan; vacío no se rellena con placeholders.
+- `athletes.plan_mode` es columna viva (migración **0188**), no solo snapshot JSON:
+  existe ANTES de que haya microciclos. Hoy no le propone asignar secuencia a
+  quien eligió personal. Personalizar / volver a la periodización / asignar
+  secuencia actualizan la columna.
+
+**Qué se elimina:** la lista de microciclos del alta y la obligación de `block_specs`.
+Eso no era un esqueleto: era una mentira previa a planificar.
+
+**NO hacer en consecuencia:** no volver a proponer «Microciclo N» en el alta. No
+tratar el JSON del intake como bandera viva del modo.
+
+---
+
 ## 2026-08-12 · El nombre que teclea el coach vive en `name_es`, y `name_en` se queda vacío
 
 **El hecho que lo forzó.** La migración 0172 puso `check (name_es is not null or name_en is not null)` en `exercises`, y `createExercise` (`web/lib/dashboard/exercises/create-exercise.ts`) no escribía ninguna de las dos: **crear un ejercicio desde el panel del coach llevaba roto en producción desde entonces**, con un 500 contra la constraint. Salió al descubierto de rebote, porque tres tests de `web/tests/exercises/ownership.db.test.ts` fallaban contra una rama recién migrada — nadie lo había reportado, y el camino no tenía cobertura contra el esquema real.
@@ -39,6 +66,17 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **Por qué no texto libre en el `body`.** Falla los tres filtros de un campo bien puesto: el coach no puede abrir la cosa desde la burbuja, la IA no sabe de qué se habla, y las analíticas no pueden contar qué entrenos generan preguntas. Y por qué el servidor y no el cliente: si la etiqueta la manda el móvil, hay dos redactores del mismo texto y divergen el día que uno se toca.
 
 **En consecuencia, no hacer:** no añadir un icono de «preguntar» por elemento contextualizable — es exactamente lo que se descartó, y a plena vista. No crear un segundo hilo, ni sub-hilos, ni un filtro «solo lo de este entreno»: sigue habiendo UN chat (2026-07-26, «El chat es UNO»). No dejar que el cliente escriba `context_label`. No permitir `context_sub` con kind ≠ 'session'. No abrir una segunda vía de respuesta para un comunicado tipo *pregunta*: ese ya se responde en su sitio (`ComunicadoPreguntaView`), y dos caminos para la misma respuesta es peor que uno.
+
+**AMPLIACIÓN (mismo día, tras verlo funcionando): la tarjeta trae el dato y se abre.** Directiva de Alex: *«el coach recibe ese chat, pero al hacer click desde el chat debe viajar a eso y también previsualizar»*.
+
+- **La etiqueta sigue CONGELADA (columna); la previsualización va VIVA (se resuelve al LEER, nunca se guarda).** Es la decisión que sostiene el resto: la etiqueta es IDENTIDAD («Fuerza A · mar 12» no cambia de significado nunca) y la previsualización es el ESTADO de la cosa ahora. Quien lee está a punto de contestar o de corregirla; una previsualización congelada haría que un coach que ya cambió el descanso contestara sobre un fantasma. Por eso no hay columna nueva ni migración.
+- **La línea es la RESPUESTA, no un resumen.** Con `sub`, la prescripción de esa línea (`4×5 · 80% · descanso 90 s`) — literalmente lo que se discute. Sin `sub`, la prescripción corta de la sesión y su reloj. Una carrera, su fecha, la cuenta atrás y el objetivo.
+- **En LOTE, cinco consultas por página de mensajes** sea cual sea N (`web/lib/chat/context-preview.ts`). Un N+1 aquí es inaceptable: el hilo pagina de 30 en 30. Probado contando viajes reales con el hook `debug` de postgres, no llamadas de la etiqueta —que sobrecontarían fragmentos anidados.
+- **Cero formateadores nuevos.** Reutiliza `loadTemplateSummaries` (`web/lib/athlete/week-plan.ts`, el mismo cálculo que sirve `/api/athlete/plan/week`), `prescriptionToText` (`shared/domain/prescription/to-text.ts`), `raceDayLabel` y los rótulos de categoría del catálogo. Duplicar la clasificación de bloques habría creado la segunda gramática de dosis del repo.
+- **El destino, y por qué cada uno:** en el panel, `?tab=plan&sesion=<assignment_id>` (nuevo, y de paso hace la sesión enlazable para cualquiera). En iOS, lo **hecho se mira** (la lectura de lo que pasó) y lo **pendiente se estudia** (el índice de técnica): abrir el contenedor de entreno desde una conversación invitaría a empezar a entrenar por accidente, que no es lo que pide quien está preguntando algo.
+- **`exists` y `state` existen para no mentir.** Sin `exists` confirmado por el servidor (fila optimista, mensaje anterior a esto) y sin `state` (no sabríamos en qué modo abrirlo) no se ofrece toque, ni galón, ni cursor de mano. Una carrera y un ejercicio de catálogo enseñan su dato y no navegan. La etiqueta congelada sobrevive siempre, aunque la cosa se borre.
+- **Hallazgo del camino, que vale más que la feature:** `loadTemplateSummaries` se escapaba al pool de producción ignorando el cliente que se le pasara. Se detectó porque un test contra una rama de Neon intentó conectar a producción y falló. Ahora acepta el cliente por parámetro (con defecto, cero cambio para su llamador de siempre). **Cualquier función que consulte y no acepte su cliente es un test que miente o una escritura en la base equivocada.**
+- **En el panel, la URL no se toca con `router.replace`** sino con `history.replaceState`: la ruta es dinámica y lee `searchParams` en servidor, así que un replace disparaba un fetch RSC y recargaba la ficha entera solo por abrir un cajón.
 
 **Lo que se acepta como coste, declarado:** el resumen post-entreno, el detalle de carrera, el detalle de ejercicio y un comunicado no tienen menú ni puerta al chat, así que desde ahí son TRES toques (salir → «+» → elegir) en vez de uno. Con cero controles nuevos no hay arreglo posible. Si algún día se ve que ahí duele, el arreglo correcto es llevar la puerta del chat al cromo de esas pantallas (una vez por pantalla, el mismo icono que ya vive en cuatro cromos) y NO un icono por cosa.
 
