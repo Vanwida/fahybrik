@@ -122,11 +122,75 @@ tres orígenes con su precedencia — todo eso se pintaba y se tiraba.
 - `web/lib/athlete/assignment-detail.ts` tiene 1203 líneas, muy por encima del
   límite de 500, y ya las tenía. Partirlo es un refactor cruzado con su mini-mapa.
 
-**Siguiente:** `lectura-carrera`, pantalla `propuesta` del doble con los siete
-escenarios del dominio — incluida una sesión antigua sin traza, que es el estado
-de todo lo grabado antes de esta semana. Lleva dentro la bifurcación de tono que
-decide Alex: si al terminar un 6×800 el número grande es «5 de 6 dentro» o es el
-ritmo medio con el veredicto debajo.
+## Ahora · Las dos lecturas diseñadas y firmadas (12-ago madrugada)
+
+**T1 y T2 diseñadas a la vez, que era la condición.** Si nacen separadas acaban
+con dos idiomas del mismo entreno — exactamente lo que arrastrábamos: el coach
+tenía veredicto por repetición y el atleta no; el atleta tenía lectura honesta y
+el coach no.
+
+- **Atleta:** `lectura-carrera`, pantalla `propuesta` del doble, diez escenarios.
+- **Coach:** `docs/carrera-en-el-panel.html`, verificado a 390/768/1440.
+
+**FIRMADO POR ALEX:** al terminar manda **el veredicto**, no el ritmo medio. La
+alternativa se conserva montada como escenario ① B, marcada DESCARTADA. Razón:
+el ritmo medio lo da cualquier reloj de 200 €; el veredicto contra la banda del
+coach no lo puede dar nadie más. Detalle y jerarquía completa del sujeto en
+`DECISIONS.md`.
+
+### La corrección de dominio de Alex, y lo que destapó
+
+«En carrera el parado rara vez se hace; lo habitual es un cambio de ritmo o de
+zona.» Tenía razón, y no era un problema de vista sino de tres capas:
+
+1. **El motor de cumplimiento saltaba las recuperaciones enteras** (`filter(kind
+   === 'work')`) mientras la gramática SÍ permite ponerles objetivo — el fartlek
+   ya lo hacía. Se podía prescribir «trote a RPE 3» y no se comprobaba nunca.
+   Arreglado con veredicto de 3 vías propio: irse RÁPIDO es el único fallo real;
+   dentro y lento colapsan en «controlada». En arrays separados, nunca mezclados
+   en un porcentaje único.
+2. **Bug lateral que solo salió al mover la piedra:** `segmentBand()` usaba
+   siempre el `resolved` del BLOQUE, ignorando el del tramo. Invisible mientras
+   las recuperaciones no se juzgaban; en cuanto una recuperación en Z1 convive
+   con trabajo en Z4, cualquier recuperación honesta salía fallada.
+3. **Los arquetipos ofrecían la excepción como norma:** `series` y `pirámide`
+   nacían con «90 s parado». Pasan a trote en Z1 con objetivo. `cuestas` se queda
+   en caminar, que ahí es lo honesto.
+
+**Y destapó el producto.** Con trote, la tabla del 6×800 cuenta sola por qué se
+cae la quinta serie: dos trotes que se fueron rápido, seguidos de la que falla.
+Con parado eso era literalmente invisible. Hay un test que defiende esa historia:
+si el trote deja de irse rápido, salta.
+
+### Reglas nuevas que salieron de construirlo (todas en DECISIONS.md)
+
+- **El eje de la curva lo fija LO QUE SE CORRIÓ.** Afinada TRES veces; las dos
+  primeras quedan anotadas como erróneas porque suenan razonables. Medido: con la
+  segunda, el escenario estrella se salvaba por DOS SEGUNDOS y el de cinta ya
+  salía roto.
+- **La escala es propiedad del DATO; el suavizado, solo del DIBUJO.** El eje se
+  calcula sobre la señal cruda: la media móvil cruza la frontera del tramo y cuela
+  el ritmo del paseo dentro de la última muestra de la subida.
+- **La otra mitad de la regla del hueco:** se declara lo que falta cuando el
+  atleta podría hacer algo; cuando en esa superficie no existe, la app se calla.
+  Una cinta no anuncia que le falta el mapa.
+- **El porcentaje solo no sirve:** el mismo 74 % de acierto significa lo contrario
+  según hacia dónde se falle. Lo que informa es el sesgo.
+- **Sin muestras suficientes no se pone porcentaje.** La sexta repetición con dos
+  observaciones cuenta en el total pero no lleva número: un 0 % con n=2 sería una
+  conclusión inventada. A partir de cuántas se afirma algo lo decide el coach.
+
+### EN VUELO ahora mismo
+
+- **La duración del descanso no se juzga.** Los ejes son ritmo, pulso y RPE. Un
+  atleta que trota a la intensidad pedida pero se toma tres minutos donde había
+  sesenta segundos lee «recuperación controlada». En series a umbral la
+  recuperación incompleta ES el estímulo.
+- **El reloj sigue sin mandar archivo** (hueco de T0). 218 KB por sesión mandan el
+  diseño del cable.
+
+### PENDIENTE DE ALEX
+Visto bueno al mockup del panel. Sin eso no se toca el panel en código.
 
 ---
 
