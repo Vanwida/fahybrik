@@ -50,6 +50,7 @@ struct AnalyticsView: View {
     /// Y el hub degrada honestamente si el atleta tampoco tiene batería, así que
     /// la cadena se cierra en vez de acabar en otro callejón.
     @State private var showTestsHub = false
+    @State private var showCheckin = false
     /// El progreso de carrera, con su propia carga (ver `progresoDeCarrera`).
     @State private var progreso: RunningProgressPayload?
     @State private var progresoFallo = false
@@ -71,7 +72,21 @@ struct AnalyticsView: View {
         // El cuerpo `llena` cuando hay tarjetas y reparte el aire cuando no —
         // resuelto por contenido, no por una decisión a priori (§6.1).
         CenteredScreen(head: { chrome }) {
-            main
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxl) {
+                elCuerpo
+                main
+            }
+        }
+        .sheet(isPresented: $showCheckin) {
+            CheckinView(
+                bearer: effectiveBearer,
+                onSubmitted: { _, _ in
+                    showCheckin = false
+                    Task { await store.refreshReadiness(force: true) }
+                },
+                onSkipped: { showCheckin = false },
+                onServerSynced: {}
+            )
         }
         // EL TINTE DEL VEREDICTO VA DETRÁS DE TODO, incluido el cromo, y NO
         // scrollea: es el lienzo de la pantalla, no un fondo de una tarjeta. Es la
@@ -318,6 +333,24 @@ struct AnalyticsView: View {
     }
 
     // MARK: - Body
+
+    /// LOS DOS BLOQUES DEL CUERPO, ANTES DEL RAIL.
+    ///
+    /// No duermes distinto para correr que para levantar: la disposición y la carga
+    /// no tienen modalidad, así que viven ARRIBA y sin rail. Meterlas dentro de cada
+    /// sección las repetiría cinco veces (firmado 12-ago).
+    ///
+    /// Hoy solo está el primero. El segundo —«¿voy a más o me estoy pasando?»— es
+    /// el eje de este rediseño y **espera al motor de carga**: hasta que sirva la
+    /// carga con su ritmo de subida y su balance con la recuperación, no hay nada
+    /// que dibujar, y un contenedor vacío no es media pantalla, es una promesa.
+    @ViewBuilder
+    private var elCuerpo: some View {
+        if let r = store.readiness.value {
+            ComoLlegoHoyBloque(readiness: r, onCheckin: { showCheckin = true })
+                .padding(.horizontal, Theme.Spacing.l)
+        }
+    }
 
     @ViewBuilder
     private var main: some View {
