@@ -10,6 +10,41 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 (madrugada) · "Carrera comprometida" NO se construye — verificado que el dato no la sostiene
+
+**El encargo** (mockup `carrera-en-el-panel.html` §05, tarjeta "Lo que le cuesta correr cansado") pedía comparar el ritmo de un objetivo corrido EN FRESCO contra el mismo objetivo corrido después de trabajo previo en la misma sesión, con un mínimo de 4 parejas válidas para atreverse a dibujar una tendencia.
+
+**Verificado contra producción antes de escribir una sola línea** (regla del proyecto: mirar si el dato lo sostiene antes de construir, no forzarlo): de todas las ejecuciones con tramos de carrera estructurados (`leg_index` no nulo), sólo **una** tiene algún bloque no-carrera ANTES de una serie de carrera en la misma sesión. Esa única fila, además, tiene `avg_pace_s_per_km` nulo — ni siquiera aporta una pareja. Cero comparaciones válidas, muy por debajo del mínimo de 4 que el propio mockup exige.
+
+**Decidido:** no se construye esta tarjeta en este lote. Ni la lectura (`shared/domain/running/...`) ni su columna de método (`min_pairs_for_compromised_trend`, `qué_cuenta_como_trabajo_previo`) entran en la migración `0183_coach_running_thresholds` — una columna de método sin la lectura que la usa sería dato muerto.
+
+**Qué NO hacer en consecuencia:** no fabricar un número de "coste de correr cansado" a partir de rodajes sueltos ni de sesiones sin trabajo previo real. No añadir las columnas de método de esta tarjeta hasta que exista la lectura que las consuma — se decide junto con la primera vez que el dato la sostenga, no antes. Cuando la traza y el trabajo previo real empiecen a acumularse (el propio archivo de sesión, tareas ya cerradas de este mismo bloque de trabajo), re-verificar contra producción antes de retomarla — no asumir que "ya habrá para entonces".
+
+**Dónde vive:** el hallazgo y su consulta de verificación, en el informe de la tarea #71 (agente `traza-servidor`, 12-ago-2026).
+
+---
+
+## 2026-08-12 (madrugada) · Los agregados del entrenador: calibración, huella, volumen y carga — el veredicto delante, los umbrales del coach detrás
+
+**Decidido:** cuatro lecturas nuevas para el panel de carrera del coach (mockup `carrera-en-el-panel.html` §05/§06), todas server-side, todas honestas sobre su propio hueco:
+
+- **Calibración** (`shared/domain/running/calibration.ts`) — hacia dónde falla (`rapido`/`dentro`/`lento`) + dónde se rompe DENTRO de la serie (desglose por posición 1ª, 2ª, 3ª…). Entra por **tramos de RITMO únicamente** (`RunComplianceTramo.band_axis === 'pace'`, campo nuevo) de sesiones de series con objetivo explícito — nunca rodajes ni RPE, porque mezclarlos taparía justo lo que se está midiendo. Los veredictos de recuperación y de duración (los dos encargos anteriores de este mismo bloque) **no entran aquí a propósito**: son preguntas distintas («¿aguantó el descanso?», «¿corrió el tiempo entero?») y meterlas en el mismo porcentaje repetiría el error que ese bloque acababa de arreglar.
+- **Huella** (`shared/domain/running/pacing-shape.ts`) — «cómo reparte el esfuerzo», agregado de sesiones. Es un **port fiel** de `aguanteDe`/`ritmoDe` (`web/components/design-twin/tramos.ts`, la misma aritmética que ya corre en `FormaDeCarrera.swift` en el reloj del atleta). Sus dos constantes (mínimo 4 tramos, margen 2%) **NO se hacen editables por el coach** — deliberado, no un olvido: tienen que leer exactamente igual que lo que el atleta ya ve al terminar ("son las mismas tres palabras que la app le enseña a él"), y divergir aquí abriría la misma clase de bug de "dos números que no cuadran" que este proyecto ya ha pagado más de una vez.
+- **Volumen semanal en km** (`web/lib/coach/running-volume.ts`) — funciona hacia atrás (la distancia siempre se guardó), zero-fill por semana (una semana sin carrera es un cero real, no un hueco — a diferencia del tiempo en zonas), semana en curso marcada y excluida de la tendencia. Usa `SEG_COUNTS_AS_VOLUME` (recuperación incluida), el MISMO predicado que ya usa `athlete-deep-dive.ts#loadModality` — dos lectores preguntando lo mismo con el mismo predicado, a propósito.
+- **Carga con el veredicto delante** (`shared/domain/training-load/load-verdict.ts`) — fondo/reciente/frescura de `banister.ts`, con un veredicto ("está apretando") gateado por DOS puertas independientes: cobertura (`readLoadCoverage`, ya existente) y un arranque en frío nuevo (`checkColdStart` — días de historial reales contra la ventana crónica). Los números NUNCA se esconden, sólo el veredicto — misma ley que ya regía `readLoadCoverage`.
+
+**Método del coach, nueva tabla** (`coach_running_thresholds`, migración 0183, mismo patrón que `coach_signal_thresholds`/0161 — una fila por coach, reemplazo entero, defectos en `shared/domain/`, nunca `default` de columna): `min_reps_per_position` (3), `min_series_for_calibration` (20), `freshness_alert_tsb` (−8).
+
+**Deuda declarada, no colada — dos piezas que el mockup pide método pero NO se tocan este lote:**
+- Los días de fondo/reciente de la carga (42/7, los τ de la EWMA de `banister.ts`) — hacerlos editables movería el NÚMERO (no sólo su etiqueta) en cada pantalla que ya lee CTL/ATL/TSB (forma del atleta, ficha general del coach, race-readiness). Cambiarlo sólo para este panel divergiría del resto; cambiarlo en todas partes es un refactor de mucho más alcance que este encargo.
+- La cobertura mínima para dar veredicto (90%, `LOAD_COVERAGE_MIN` en `coverage.ts`) — mismo argumento: la usan "progress readiness, roster, deep-dive" por su propio comentario.
+
+**Qué NO hacer en consecuencia:** no tocar `MIN_LEGS_FOR_PACING_SHAPE`/`PACING_SHAPE_MARGIN` sin tocar `FormaDeCarrera.swift` a la vez. No mezclar los veredictos de recuperación/duración en el porcentaje de calibración. No hacer editables `ctl_window_days`/`atl_window_days`/`LOAD_COVERAGE_MIN` sin antes localizar y actualizar TODOS sus consumidores existentes — hacerlo sólo para este panel crearía el número divergiendo entre pantallas para el mismo atleta, que es peor que no ofrecer la edición.
+
+**Dónde vive:** `shared/domain/running/{calibration,pacing-shape,weekly-volume}.ts`, `shared/domain/training-load/load-verdict.ts`, `shared/domain/coach/running-thresholds.ts`, `web/lib/coach/{running-analytics,running-volume,running-thresholds}.ts`, `infra/migrations/0183_coach_running_thresholds.sql`. `RunComplianceTramo` gana `rep_ordinal`/`band_axis` (`web/lib/dashboard/coach/run-compliance.ts`).
+
+---
+
 ## 2026-08-12 (noche) · La duración es la SEGUNDA pregunta de un tramo — el agujero que el colapso de recuperación dejaba abierto
 
 **El agujero.** El motor de cumplimiento juzga tres ejes — ritmo, pulso, RPE — y ninguno es duración. Combinado con el colapso de recuperación de esta misma tarde (donde ir lento nunca es un fallo), un "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de descanso leía "6 de 6 dentro · recuperación controlada": el sistema no tenía forma de decir que esa NO fue la sesión prescrita. No es un caso de laboratorio — en series a umbral la recuperación INCOMPLETA es el estímulo; doblar el descanso cambia la sesión entera.
@@ -164,6 +199,16 @@ respetar al portarlo a Swift:
   por la puerta de atrás y el eje sigue estirado. Medido: 4:02-8:32 en vez de
   4:16-5:54.
 - **El color es dato.** Una sesión sin zonas no se pinta de ningún color.
+- **LA TRAZA NO MANDA SOBRE LOS TRAMOS.** El archivo sirve la curva y los
+  kilómetros; los tramos y sus veredictos salen de `segment_executions` y existen
+  desde MUCHO ANTES de que existiera el archivo. Atar el troceado a
+  `trace.available` hace que toda sesión ya guardada esconda la mitad de su
+  lectura y enseñe «sin archivo» teniendo seis series medidas y juzgadas.
+  El error nació de portar la regla desde la app del atleta, donde SÍ es cierta
+  (si el móvil no archivó, el atleta no tiene nada). **La suposición que sostiene
+  una regla no viaja con la regla cuando se porta a otra superficie**, y el sitio
+  donde eso se ve es la forma de los datos reales, no la del mockup: unos tests
+  escritos con la misma suposición que el código no lo cazan nunca.
 
 **Y las dos superficies nacen a la vez.** El panel del coach se diseña antes de
 portar nada a Swift, para que atleta y entrenador no acaben con dos idiomas del
