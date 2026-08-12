@@ -31,6 +31,14 @@ struct AssignmentDetail: Codable, Equatable {
     // splits). Nil while the session is still pending. Optional → older cached
     // payloads (no `execution` key) decode fine.
     let execution: ExecutionSummary?
+
+    /// EL VEREDICTO DE CARRERA, SERVIDO. Hermano de `execution`, nunca dentro de
+    /// él: lo juzga el servidor con el MISMO motor que juzga la sesión en el panel
+    /// del coach, para que atleta y entrenador no lean veredictos distintos de la
+    /// misma serie. Nil en respuestas anteriores a esta tanda (y en las cacheadas
+    /// entonces), que es la única razón por la que es opcional — el servidor lo
+    /// manda siempre, aunque venga vacío.
+    let runCompliance: RunCompliance?
 }
 
 // What the athlete ACTUALLY did, for the read-only executed view. Mirrors the
@@ -81,6 +89,26 @@ struct ExecutionSummary: Codable, Equatable {
     /// session was not outdoors — drives the executed-detail mini-map.
     let routePolyline: String?
 
+    /// Cuándo arrancó la ejecución (ISO). Es el ANCLA de la traza: los `offsets_s`
+    /// de la curva se cuentan desde aquí.
+    let startedAt: String?
+
+    /// Subida y bajada acumuladas, SEPARADAS y nunca netas — subir 300 y bajar 300
+    /// no es un llano, y el neto lo borraría. Nulas cuando no hubo altímetro (una
+    /// cinta sin inclinación no tiene desnivel que falte: no lo tiene, y punto).
+    let elevationGainM: Double?
+    let elevationLossM: Double?
+
+    /// Cuánto bajó el pulso en el minuto siguiente a parar, en ppm.
+    let hrRecovery60Bpm: Double?
+    /// Cuánto se separaron ritmo y pulso entre las dos mitades, en %. Medida del
+    /// servidor: aquí no se recalcula ni se convierte a otra unidad.
+    let decouplingPct: Double?
+
+    /// EL ARCHIVO: la curva, los kilómetros y el recorrido. `available: false` es
+    /// la respuesta honesta de una sesión anterior al archivo, no un fallo.
+    let trace: ExecutionTrace?
+
     var isPartial: Bool { completeness == "partial" }
 
     enum CodingKeys: String, CodingKey {
@@ -88,6 +116,8 @@ struct ExecutionSummary: Codable, Equatable {
         case notes, endedAt, source, completeness, segments, routePolyline
         case recordedVia, contributingSources
         case perceivedDifficulty, painArea, painNote
+        case startedAt, elevationGainM, elevationLossM
+        case hrRecovery60Bpm, decouplingPct, trace
     }
 
     // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
@@ -120,6 +150,14 @@ struct ExecutionSummary: Codable, Equatable {
         perceivedDifficulty = try c.decodeIfPresent(String.self, forKey: .perceivedDifficulty)
         painArea = try c.decodeIfPresent(String.self, forKey: .painArea)
         painNote = try c.decodeIfPresent(String.self, forKey: .painNote)
+        // El archivo y lo que se deriva de él. Todo key-optional por lo mismo: un
+        // detalle cacheado antes de esta tanda tiene que seguir abriendo la sesión.
+        startedAt = try c.decodeIfPresent(String.self, forKey: .startedAt)
+        elevationGainM = try c.decodeIfPresent(Double.self, forKey: .elevationGainM)
+        elevationLossM = try c.decodeIfPresent(Double.self, forKey: .elevationLossM)
+        hrRecovery60Bpm = try c.decodeIfPresent(Double.self, forKey: .hrRecovery60Bpm)
+        decouplingPct = try c.decodeIfPresent(Double.self, forKey: .decouplingPct)
+        trace = try c.decodeIfPresent(ExecutionTrace.self, forKey: .trace)
     }
 }
 
@@ -148,6 +186,29 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     /// reported none (the detail then shows no incline/cadence chip — never a 0).
     let inclinePct: Double?
     let runCadenceSpm: Int?
+
+    /// TRES PENDIENTES QUE SE PARECEN Y NO SON LO MISMO — elegir mal es fácil y no
+    /// da error. `inclinePct` (arriba) es **lo que DECLARÓ la cinta**; esta es **lo
+    /// MEDIDO**: el cambio NETO de altitud sobre la distancia del tramo, jamás
+    /// desnivel acumulado (que sumaría subidas y bajadas y daría pendiente en un
+    /// llano), con la cinta mandando cuando la hay porque es medida directa. La
+    /// tercera —**lo que PIDIÓ el coach**— vive en
+    /// `RunComplianceTramo.prescribedInclinePct`, que es la que decide antes.
+    /// Nula = no se sabe, que **no es cero**: cero es «llano medido».
+    let avgGradientPct: Double?
+
+    /// Cuándo empezó ESTE tramo (ISO). Es lo que lo sitúa sobre la curva —
+    /// repartirlos por igual del ancho los pondría donde no fueron.
+    let startedAt: String?
+    /// A qué tramo PRESCRITO corresponde, como índice (base 0) de la lista plana
+    /// de piernas del ítem (`Prescription.runStructureLegs`). Es lo que permite
+    /// saber cómo se pidió recuperar este tramo concreto sin adivinarlo.
+    let legIndex: Int?
+    /// "work" | "recovery" — qué papel jugó el tramo dentro de la serie. Nulo en
+    /// ejecuciones anteriores a la mig 0146, que no lo grababan.
+    let legRole: String?
+    /// "warmup" | "main" | "cooldown".
+    let legPhase: String?
 
     /// WHICH device produced THIS leg's numbers ("pm5" | "treadmill" | "gps" |
     /// "healthkit" | "manual" | a vendor). The live engine picks one per lap
@@ -186,7 +247,8 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case weightUsedKg, distanceMeters
         case avgPaceSPer500m = "avgPaceSPer500M"
         case avgPaceSPerKm, avgPowerW, strokeRateSpm, avgHr, maxHr, calories
-        case inclinePct, runCadenceSpm
+        case inclinePct, runCadenceSpm, avgGradientPct
+        case startedAt, legIndex, legRole, legPhase
         case source, emomRoundsCompleted, emomRoundsPrescribed, zoneSeconds
         case dragFactor, avgCaloriesPerHour, peakDriveForceLbs, avgDriveForceLbs, ergSplits
     }

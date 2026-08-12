@@ -421,6 +421,46 @@ enum ISO8601DateFormatters {
     }()
 
     static func parse(_ raw: String) -> Date? {
-        withFraction.date(from: raw) ?? plain.date(from: raw)
+        if let d = withFraction.date(from: raw) ?? plain.date(from: raw) { return d }
+        guard let normal = normalizado(raw) else { return nil }
+        return withFraction.date(from: normal) ?? plain.date(from: normal)
+    }
+
+    /// EL OTRO FORMATO QUE MANDA EL SERVIDOR, y no es ISO 8601.
+    ///
+    /// Varias consultas sirven la marca de tiempo como `columna::text`, y eso en
+    /// Postgres se escribe «2026-08-12 06:30:00.123456+00»: espacio en vez de `T`,
+    /// desfase de dos dígitos y hasta seis decimales. `ISO8601DateFormatter` la
+    /// rechaza ENTERA, así que sin esto un instante real llega y se lee como
+    /// ausente — que es la peor de las dos, porque no da error.
+    ///
+    /// Se normaliza y se vuelve a intentar; lo que ya venía en ISO ni pasa por
+    /// aquí. Sin desfase se asume UTC, que es como lo guarda la base.
+    private static func normalizado(_ raw: String) -> String? {
+        var cuerpo = raw.replacingOccurrences(of: " ", with: "T")
+        guard cuerpo.contains("T") else { return nil }
+
+        var desfase = ""
+        if cuerpo.hasSuffix("Z") {
+            desfase = "Z"
+            cuerpo.removeLast()
+        } else if let i = cuerpo.lastIndex(where: { $0 == "+" || $0 == "-" }),
+                  cuerpo.distance(from: i, to: cuerpo.endIndex) <= 6,
+                  cuerpo[cuerpo.index(after: i)...].allSatisfy({ $0.isNumber || $0 == ":" }) {
+            desfase = String(cuerpo[i...])
+            cuerpo = String(cuerpo[..<i])
+            if desfase.count == 3 { desfase += ":00" }        // «+00»
+            if desfase.count == 5 {                            // «+0000»
+                desfase.insert(":", at: desfase.index(desfase.startIndex, offsetBy: 3))
+            }
+        }
+
+        // Los decimales se recortan a tres: es lo que sabe leer el formateador, y
+        // un microsegundo no cambia dónde cae una muestra en una curva.
+        if let punto = cuerpo.firstIndex(of: ".") {
+            cuerpo = String(cuerpo[..<punto]) + "."
+                + cuerpo[cuerpo.index(after: punto)...].prefix(3)
+        }
+        return cuerpo + (desfase.isEmpty ? "Z" : desfase)
     }
 }

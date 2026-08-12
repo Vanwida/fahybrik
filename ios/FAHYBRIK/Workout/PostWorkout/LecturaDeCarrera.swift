@@ -118,6 +118,35 @@ enum RecoveryDurationVerdict: String, Codable, Equatable {
 /// La zona del atleta, 1..5.
 typealias Zona = Int
 
+// MARK: - El MÉTODO con el que se lee esta carrera (Regla Nº0)
+
+/// Los números que **decide el entrenador**, no nosotros, y que por tanto llegan
+/// con la sesión en vez de vivir en una constante de este binario.
+///
+/// POR QUÉ VIAJA CON LA CARRERA Y NO ES UN AJUSTE SUELTO: el servidor ya resuelve
+/// el método una vez por sesión —la banda del veredicto llega resuelta, la
+/// precedencia ya está aplicada—, y este umbral es la misma clase de dato. Que
+/// llegue por el mismo camino es lo que impide que el móvil y el panel del coach
+/// lean la misma cuesta con dos números distintos.
+///
+/// Nada que no sea método entra aquí: el corrector en sí —comparar contra el
+/// umbral, cambiar el eje del troceado a tiempo, elegir el sujeto— es MECANISMO y
+/// se queda en `Lectura.deCorrer`. El coach pone el número; qué se dibuja con él
+/// es nuestro.
+struct MetodoDeLectura: Equatable {
+    /// A partir de qué pendiente media el ritmo bruto deja de ser comparable.
+    /// Se compara contra las DOS pendientes —la prescrita y la medida—, que es lo
+    /// que hace que una sesión de cuestas se sepa que lo es sin haber medido nada.
+    var pendienteQueRetiraElRitmoPct: Double
+
+    /// Lo que se usa cuando el servidor no mandó el número. No es «el valor
+    /// correcto»: es el que había antes de que existiera un sitio donde el coach
+    /// pudiera cambiarlo, y sirve para que una respuesta vieja siga leyéndose.
+    static let porDefecto = MetodoDeLectura(
+        pendienteQueRetiraElRitmoPct: ReglasDeLectura.pendienteQueRetiraElRitmoPct
+    )
+}
+
 // MARK: - Lo que se sabe de la carrera
 
 /// Lo que pidió el coach. Cuatro clases, y ninguna más hace falta.
@@ -194,7 +223,12 @@ struct Kilometro: Equatable {
     var distanciaM: Double
     /// Instante del cruce, en s desde el inicio. Es lo que sitúa la marca sobre la
     /// curva — repartirla por igual del ancho la pondría donde no fue.
-    var cruceS: Double
+    ///
+    /// Nulo = **no se puede situar**. El cruce se acumula kilómetro a kilómetro, así
+    /// que en cuanto uno se queda sin duración —hubo un hueco de señal ahí— los que
+    /// vienen detrás dejan de tener sitio conocido en el eje del tiempo. Su marca no
+    /// se dibuja; la fila de la tabla sí, diciendo qué le faltó.
+    var cruceS: Double?
     var ritmoSkm: Double?
     var fcMediaPpm: Double?
     /// Por qué este kilómetro no tiene ritmo. Se escribe en lugar de la cifra; jamás
@@ -268,10 +302,20 @@ struct Carrera: Equatable {
     var ruta: [PuntoRuta]
     /// Lo que el atleta ya contestó, cuando la sesión se abre del historial.
     var dicho: Dicho?
+    /// Los umbrales del ENTRENADOR con los que se lee esta carrera. Por defecto los
+    /// de siempre, para que una respuesta que todavía no los manda se lea igual que
+    /// hoy — y para que el día que los mande, mande ella.
+    var metodo: MetodoDeLectura = .porDefecto
 
     struct Derivado: Equatable {
-        /// Cuánto más lento fue el ritmo en la segunda mitad al MISMO pulso.
-        var derivaSkm: Double?
+        /// Cuánto se separaron ritmo y pulso entre las dos mitades, en %.
+        ///
+        /// EN PORCENTAJE Y NO EN s/km, y no es un detalle: el servidor mide y sirve
+        /// **`decoupling_pct`**, que es un porcentaje. Guardarlo aquí como s/km
+        /// obligaría a multiplicarlo por la media de la sesión para inventar una
+        /// cifra que nadie ha medido — el modelo pedía una unidad que no existe en
+        /// ninguna fuente, así que el arreglo va en el modelo y no en el caso.
+        var derivaPct: Double?
         /// Cuánto bajó el pulso en el minuto siguiente a parar.
         var bajadaPulsoPpm: Double?
     }
@@ -288,7 +332,14 @@ enum ReglasDeLectura {
     /// A partir de qué pendiente media el ritmo bruto deja de ser comparable y el
     /// troceado pasa a medirse en TIEMPO. Otro entrenador competente lo pondría en
     /// otro sitio (hay quien corrige el ritmo por pendiente en vez de retirarlo), así
-    /// que esto es MÉTODO: valor por defecto, nunca una constante enterrada.
+    /// que esto es MÉTODO del coach.
+    ///
+    /// **ESTO ES EL SUELO, NO LA FUENTE.** El número que manda llega con la sesión,
+    /// en `Carrera.metodo` — este valor solo se usa cuando el servidor no lo mandó
+    /// (respuestas anteriores a que lo sirviera, o detalles cacheados entonces). Se
+    /// lee por `MetodoDeLectura`, nunca directamente desde la regla: dos sitios
+    /// donde vive el mismo umbral acaban separándose, y hasta que se separan
+    /// coinciden por casualidad.
     static let pendienteQueRetiraElRitmoPct: Double = 3
 
     /// Cuántas repeticiones de trabajo hacen falta para que el veredicto sea el

@@ -589,6 +589,7 @@
 		EB57FC1EC1850662BF359C0A /* PM5DataParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4970FF0A510C402823DD3A58 /* PM5DataParserTests.swift */; };
 		EC11C17FD3DE9C14C8F20C14 /* CoachSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7A0077626A26D5A3D32D9C /* CoachSpeech.swift */; };
 		EC1D5F9BBCE5280B45E225AE /* ZoneCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AD3C6A28FF61ABCFDB1B26C /* ZoneCoverageTests.swift */; };
+		ED04845CF48BFB816015403D /* LecturaDeCarreraDesdeDetalleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B38F2DEC1F9F5D9732EBBE /* LecturaDeCarreraDesdeDetalleTests.swift */; };
 		EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
 		EE2BF03020A90C6AE41537C2 /* RunEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3807715E5A421C492855AAAE /* RunEnvironment.swift */; };
 		EE30CB0FC03A9AA28BC5BF60 /* 2026-08-11-2304-brazo-6reps.fhsc in Resources */ = {isa = PBXBuildFile; fileRef = F865E12A222D0C0B74B7A2AC /* 2026-08-11-2304-brazo-6reps.fhsc */; };
@@ -1222,6 +1223,7 @@
 		E68470102AA1C8DDB91E7453 /* ResumenSesionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumenSesionCard.swift; sourceTree = "<group>"; };
 		E72E7448666C10232EE2F84A /* GoalGapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalGapService.swift; sourceTree = "<group>"; };
 		E80E2A5DF5FC55B0532A4009 /* RendimientoSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendimientoSection.swift; sourceTree = "<group>"; };
+		E8B38F2DEC1F9F5D9732EBBE /* LecturaDeCarreraDesdeDetalleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeCarreraDesdeDetalleTests.swift; sourceTree = "<group>"; };
 		E8D1A0AA011BD2C262D94E4C /* HistoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryModels.swift; sourceTree = "<group>"; };
 		E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 		EA39FD9391B44A7E577DC77A /* LiveWorkoutSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutSession.swift; sourceTree = "<group>"; };
@@ -1979,6 +1981,7 @@
 				DADF4B169A666E2E848C3A8D /* HierroVivoTests.swift */,
 				5AB3E2FBF445091413BB293B /* HRProvenanceTests.swift */,
 				01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */,
+				E8B38F2DEC1F9F5D9732EBBE /* LecturaDeCarreraDesdeDetalleTests.swift */,
 				B5628C9EE279D315FE92E894 /* LecturaDeCarreraTests.swift */,
 				3AC88949D9D6EEF0EC372A99 /* MirrorWireModelsTests.swift */,
 				019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */,
@@ -3286,6 +3289,7 @@
 				31A34C41F79B8DCF5F6606BE /* HuecoDeclaradoRenderTests.swift in Sources */,
 				F0BD26DAFD50CDA3681C31F3 /* InjuryServiceTests.swift in Sources */,
 				F3EEAA6DE2296AE646640CF1 /* KeychainTokenStoreTests.swift in Sources */,
+				ED04845CF48BFB816015403D /* LecturaDeCarreraDesdeDetalleTests.swift in Sources */,
 				B7F651431E583C8369B5AB26 /* LecturaDeCarreraTests.swift in Sources */,
 				759868AA595B3738C90678E3 /* LenguajeVivoTests.swift in Sources */,
 				F95A0651AA28B3E9ED1B78D6 /* MirrorWireModelsTests.swift in Sources */,

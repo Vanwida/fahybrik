@@ -17,6 +17,11 @@ struct ExecutedWorkoutView: View {
     let assignmentId: String
     let fallbackTitle: String?
     let bearer: String?
+    /// Las zonas de pulso del atleta. Solo las usa la lectura de una carrera, para
+    /// teñir el lienzo con el pulso medio y para nombrar una banda de pulso. Nil =
+    /// el atleta no tiene zonas medidas, y entonces no se pinta color ninguno: el
+    /// color es dato y no se inventa.
+    var hrZones: HRZoneProfile? = nil
     let onClose: () -> Void
     /// Fired when the detail fetch reports the assignment no longer resolves
     /// (HTTP 404): the id the app held is STALE — the plan changed server-side —
@@ -46,18 +51,38 @@ struct ExecutedWorkoutView: View {
     private static let maxFetchAttempts = 3
     private static let retryBackoff: [Duration] = [.milliseconds(400), .milliseconds(900)]
 
+    /// LA CARRERA QUE HAY EN ESTE DETALLE, si la hay.
+    ///
+    /// Una carrera terminada no se lee como se lee una sesión de hierro, y por eso
+    /// tiene pantalla propia (`LecturaDeCarreraView`): la pregunta que trae el
+    /// atleta no es «¿qué números salieron?» sino «¿hice lo que me pidieron?», y
+    /// esa la contesta el veredicto que el servidor ya juzgó. Nil = esto no es una
+    /// carrera, y entonces manda la lectura genérica de siempre.
+    ///
+    /// Se guarda en estado y no se recalcula en cada `body`: decodificarla recorre
+    /// los tramos, los kilómetros y hasta 600 puntos de cada señal, y SwiftUI
+    /// reevalúa el cuerpo muchas más veces de las que cambia el detalle.
+    @State private var lecturaDeCarrera: Carrera?
+
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-            if let detail {
-                content(detail)
-            } else if loadFailed {
-                failed
+        Group {
+            if let carrera = lecturaDeCarrera {
+                // La lectura trae su propio cromo (título y día) y su propia
+                // salida anclada, así que ocupa la pantalla entera: dos barras
+                // superiores y dos formas de cerrar competirían entre ellas.
+                LecturaDeCarreraView(carrera: carrera, zonas: hrZones, onCerrar: onClose)
             } else {
-                loading
+                generico
             }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        .onChange(of: detail, initial: true) { _, nuevo in
+            lecturaDeCarrera = nuevo.flatMap {
+                LecturaDeCarreraDesdeDetalle.carrera(
+                    de: $0, zonas: hrZones, tituloAlternativo: fallbackTitle
+                )
+            }
+        }
         .task { await load() }
         .sheet(isPresented: $showTechnique) {
             SessionExercisesSheet(
@@ -79,6 +104,21 @@ struct ExecutedWorkoutView: View {
                     Task { await reload() }
                 }
             )
+        }
+    }
+
+    /// La lectura de siempre, para todo lo que no es correr: barra superior con el
+    /// título y la salida, y debajo el detalle por modalidad. No se ha tocado.
+    private var generico: some View {
+        VStack(spacing: 0) {
+            topBar
+            if let detail {
+                content(detail)
+            } else if loadFailed {
+                failed
+            } else {
+                loading
+            }
         }
     }
 

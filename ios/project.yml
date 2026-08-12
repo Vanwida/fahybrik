@@ -373,6 +373,16 @@ targets:
       # so its tick() is unit-tested from FAHYBRIKTests.
       - path: FAHYBRIK/Watch/WatchRunLegDriver.swift
       - path: FAHYBRIK/Plan/AssignmentDetail.swift
+      # El detalle nombra dos payloads más —el veredicto de carrera servido y el
+      # archivo de la traza—, así que sus tipos entran con él o el reloj no
+      # compila. Son Foundation puro y la muñeca no los mira: viajan porque el
+      # modelo de cable es UNO, no dos que se parecen.
+      - path: FAHYBRIK/Plan/RunCompliance.swift
+      - path: FAHYBRIK/Plan/ExecutionTrace.swift
+      # El vocabulario del veredicto (`RunComplianceVerdict` y los otros tres) y
+      # los tipos que decodifican con él viven en el modelo de la lectura, que es
+      # aritmética pura sin una vista dentro.
+      - path: FAHYBRIK/Workout/PostWorkout/LecturaDeCarrera.swift
       - path: FAHYBRIK/Plan/PrescriptionRenderer.swift
       - path: FAHYBRIK/Theme/ZoneColors.swift
       # #33 — PM5Split / PM5LiveSample live here (pure Foundation, no CoreBluetooth).

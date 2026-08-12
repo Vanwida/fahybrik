@@ -47,13 +47,13 @@ export const meta: TwinMeta = {
   id: 'lectura-carrera',
   titulo: 'Al terminar de correr — ¿las hiciste?',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'espejo',
   actualizado: '2026-08-12',
   descripcion:
     'Con la carrera archivada aparece un sujeto que no podía existir: si clavó lo que le pidieron. La curva enseña la banda del coach y los tramos encima, y el troceado es por serie o por kilómetro, nunca los dos.',
   fuentes: [],
   enApp:
-    'El Swift de hoy (PostWorkoutSummaryView) ya tiene el mapa del recorrido, el reparto de zonas, el RPE y «Cómo ha ido». Lo nuevo es todo lo que nace del archivo: el sujeto por veredicto, la curva con la banda, el troceado y lo derivado.',
+    'SHIPEADA. Vive en `LecturaDeCarreraView` y la abre `ExecutedWorkoutView` en cuanto el detalle trae una carrera: el atleta llega tocando una sesión hecha desde el plan, el historial, Inicio o la analítica. El decodificador `AssignmentDetail → Carrera` hace el join por `position` entre `run_compliance` y `execution.segments`. Lo que NO se portó: la voz B del sujeto (descartada por Alex), y en carrera la ficha de técnica y el aporte por captura, que siguen en la lectura genérica de las demás modalidades. La recuperación andando se lee como trote hasta que el servidor sepa distinguirla.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

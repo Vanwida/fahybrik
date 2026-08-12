@@ -611,6 +611,23 @@ enum FechaES {
         return f
     }()
 
+    /// «Hoy» · «Ayer» · «Martes 22 de julio» — cómo se nombra el día de una sesión
+    /// en el cromo de una pantalla, donde la fecha SITÚA y no es el sujeto.
+    ///
+    /// Empieza en mayúscula porque va suelta y no dentro de una frase, que es la
+    /// diferencia con `hace(_:)`. Nil cuando el ISO no se lee: antes un cromo sin
+    /// fecha que uno con media.
+    static func cuando(_ iso: String, ahora: Date = Date()) -> String? {
+        guard let dias = diasHasta(iso, desde: ahora) else { return nil }
+        switch dias {
+        case 0: return "Hoy"
+        case -1: return "Ayer"
+        default:
+            guard let texto = conDia(iso) ?? larga(iso) else { return nil }
+            return texto.prefix(1).uppercased() + texto.dropFirst()
+        }
+    }
+
     /// «domingo» — el día de la semana, suelto. Dentro de los próximos siete
     /// días sitúa mejor que una fecha: nadie sabe de memoria qué día cae el 17.
     static func diaSemana(_ date: Date) -> String {

@@ -29,9 +29,9 @@ extension Lectura {
         let trabajo = c.repeticiones.filter { $0.papel == .trabajo }
         let banda = bandaDe(c.objetivo)
 
-        // La recuperación se juzga con el MISMO motor que el trabajo — el del servidor.
-        // Sin traza no hay nada que juzgar, y una recuperación PARADA no tiene ritmo
-        // que comparar.
+        // La recuperación se juzga con el MISMO motor que el trabajo — el del
+        // servidor. Una recuperación PARADA no tiene ritmo que comparar, y el
+        // servidor ya lo dice mandando `sin_dato`.
         let recuperaciones = c.repeticiones.filter { $0.papel == .recuperacion }
         let bandaRec: (rapidoSkm: Double, lentoSkm: Double)? = {
             if case .ritmo(let rapido, let lento) = c.objetivoRecuperacion {
@@ -39,14 +39,36 @@ extension Lectura {
             }
             return nil
         }()
-        let juzgaRecuperacion = c.objetivoRecuperacion != nil && c.traza != nil
+        let juzgaRecuperacion = c.objetivoRecuperacion != nil
         let veredictosRec: [RecoveryComplianceVerdict] =
             juzgaRecuperacion ? recuperaciones.map { $0.veredictoRecuperacion ?? .sinDato } : []
         let duracionesRec: [RecoveryDurationVerdict] =
             juzgaRecuperacion ? recuperaciones.map { $0.veredictoDuracionRecuperacion ?? .sinDato } : []
+        // EL TROCEADO DICE CUÁL CORRESPONDE, no si hay datos para pintarlo. Se
+        // intentó colapsarlo a `.ninguno` cuando la lista de kilómetros venía vacía
+        // y está MAL: un rodaje sin archivo se trocea por kilómetro igual —lo que
+        // pasa es que no hay cortes que enseñar todavía—, y confundir las dos
+        // preguntas deja al campo respondiendo dos cosas a la vez. Quien pinta ya
+        // comprueba que la lista tenga algo.
 
-        // ── Sin archivo: no hay curva, no hay tramos, no hay kilómetros ──────────
-        guard c.traza != nil else {
+        // ── Ni archivo ni tramos: solo quedan los totales, y se dice por qué ─────
+        //
+        // **LA TRAZA NO MANDA SOBRE LOS TRAMOS** (DECISIONS, 12-ago). El archivo
+        // sirve la curva y los kilómetros; los tramos y sus veredictos salen de
+        // `segment_executions` y existen desde MUCHO ANTES de que existiera el
+        // archivo. Colgar la lectura entera de `traza != nil` hacía que toda sesión
+        // ya guardada escondiera su mitad buena y enseñara «sin archivo» teniendo
+        // seis series medidas y juzgadas — que es exactamente el error que la
+        // entrada de DECISIONS deja anotado, cometido aquí una segunda vez al
+        // portarlo desde la app en vivo (donde sí era cierto: si el móvil no
+        // archivó, en el móvil no hay nada). **La suposición que sostiene una regla
+        // no viaja con la regla cuando se porta a otra superficie**, y esta lectura
+        // ya no se alimenta del móvil sino del servidor.
+        //
+        // Así que la degradación es solo cuando de verdad no queda nada que leer.
+        // La CONSECUENCIA de no tener archivo —ni curva, ni kilómetros, ni mapa— la
+        // sigue diciendo la pantalla en su sitio, con o sin tramos.
+        guard c.traza != nil || !c.repeticiones.isEmpty else {
             let porque = c.momento == .revision
                 ? "Esta carrera es anterior al archivo: se guardó el total, no el minuto a minuto."
                 : "No se archivó la señal de esta carrera: se guardó el total, no el minuto a minuto."
@@ -96,8 +118,13 @@ extension Lectura {
             // está leyendo como llano medido — se está leyendo como «nadie ha dicho que
             // esto sea una cuesta», que es una afirmación distinta y que la rama 1 ya
             // comprueba de verdad.
+            // EL UMBRAL ES DEL COACH Y LLEGA CON LA SESIÓN (Regla Nº0). Lo que sigue
+            // siendo nuestro es todo lo demás: comparar, retirar el veredicto de
+            // ritmo, cambiar el eje a tiempo y elegir el sujeto. El coach pone el
+            // número; qué se dibuja con él es mecanismo.
+            let umbral = c.metodo.pendienteQueRetiraElRitmoPct
             let declaradaCuesta = trabajo.contains {
-                ($0.pendientePrescritaPct ?? 0) >= ReglasDeLectura.pendienteQueRetiraElRitmoPct
+                ($0.pendientePrescritaPct ?? 0) >= umbral
             }
             // Media sobre lo que SE MIDIÓ, no sobre todos contando el nulo como cero:
             // con cinco llanos medidos y un hueco, la media de la sesión es la de los
@@ -106,8 +133,7 @@ extension Lectura {
             let pendienteMedida = medidas.isEmpty
                 ? nil : medidas.reduce(0, +) / Double(medidas.count)
 
-            if declaradaCuesta
-                || (pendienteMedida ?? 0) >= ReglasDeLectura.pendienteQueRetiraElRitmoPct {
+            if declaradaCuesta || (pendienteMedida ?? 0) >= umbral {
                 // Qué pendiente se enseña: la MEDIDA manda porque es lo que pasó; si no
                 // se midió, la declarada, que es lo que se pidió. Nunca un cero de
                 // relleno bajo un titular que dice «en cuesta».
@@ -322,7 +348,14 @@ enum EjeDelRitmo {
         // Sin esto el eje se queda sin nada que lo fije y la curva sale degenerada.
         let mandan = corrido.count > 1 ? corrido : ritmo
         var extra: [Double] = []
-        if case .ritmo(let rapido, let lento) = banda { extra = [rapido, lento] }
+        // Un borde de banda ausente llega escrito como el infinito que significa
+        // («no más lento de 3:20» no tiene suelo). Ese borde no puede entrar en el
+        // eje: estiraría la escala hasta el infinito literal y la curva se
+        // aplastaría contra el suelo. El que SÍ existe sigue entrando, que es lo
+        // que garantiza que la franja quepa en el dibujo.
+        if case .ritmo(let rapido, let lento) = banda {
+            extra = [rapido, lento].filter(\.isFinite)
+        }
         return extremos(mandan.map(\.v), extra)
     }
 

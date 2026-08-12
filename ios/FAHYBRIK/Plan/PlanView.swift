@@ -139,6 +139,7 @@ struct PlanView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
+                hrZones: store.identity.value?.hrZones,
                 onClose: { executedLaunch = nil },
                 onStale: { Task { await store.planMutated(); await cargar(force: true) } }
             )
