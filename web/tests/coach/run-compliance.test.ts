@@ -141,7 +141,18 @@ describe('buildRunCompliance — zone tramo (resolved band)', () => {
   test('executed pace inside the resolved band → dentro, 100%', () => {
     const item = runItem(presc, zoneBand(245, 255), 'segment-100');
     const res = buildRunCompliance(workout([item]), [lap('segment-100', 1, { avg_pace_s_per_km: 250 })]);
-    expect(res.tramos).toEqual([{ item_uid: 'segment-100', position: 1, verdict: 'dentro', duration_verdict: null }]);
+    expect(res.tramos).toEqual([
+      {
+        item_uid: 'segment-100',
+        position: 1,
+        verdict: 'dentro',
+        duration_verdict: null,
+        // Camino sin leg_index (fallback): banda del item, sin ordinal — no hay
+        // estructura alineada de la que numerar la posición dentro de la serie.
+        rep_ordinal: null,
+        band_axis: 'pace',
+      },
+    ]);
     expect(res.summary.pct_dentro).toBe(100);
     expect(res.summary.evaluable).toBe(1);
   });
@@ -198,7 +209,16 @@ describe('buildRunCompliance — non-run + no-execution', () => {
     const presc: Prescription = { scheme: 'steady', modality: 'run', target: { kind: 'hr_zone', value: 2 } };
     const item = runItem(presc, zoneBand(300, null), 'segment-121');
     const res = buildRunCompliance(workout([item]), []);
-    expect(res.tramos).toEqual([{ item_uid: 'segment-121', position: null, verdict: 'sin_dato', duration_verdict: null }]);
+    expect(res.tramos).toEqual([
+      {
+        item_uid: 'segment-121',
+        position: null,
+        verdict: 'sin_dato',
+        duration_verdict: null,
+        rep_ordinal: null,
+        band_axis: null,
+      },
+    ]);
     expect(res.summary.total).toBe(1);
     expect(res.summary.evaluable).toBe(0);
   });
@@ -272,6 +292,66 @@ describe('buildRunCompliance — REGRESIÓN: el veredicto del trabajo no cambia'
     // Sin objetivo → ninguna de las dos recuperaciones se juzga, en ningún lado.
     expect(res.recovery_tramos).toEqual([]);
     expect(res.recovery_summary).toMatchObject({ total: 0, pct_controlada: null });
+  });
+});
+
+// ── Calibración (#71): posición dentro de la serie + eje juzgado ──────────────
+describe('buildRunCompliance — rep_ordinal: la posición DENTRO DE LA SERIE, no en la ejecución', () => {
+  test('camino nativo: el ordinal cuenta solo los tramos de trabajo, saltándose las recuperaciones intercaladas', () => {
+    // 3×800 @ Z4 con trote entre medias: 6 legs en total (work,rec,work,rec,work),
+    // pero el ordinal de calibración tiene que leer 1,2,3 — nunca 1,3,5.
+    const segs = [
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+      recoverySeg({ type: 'rpe', value: 3 }, undefined, dur(60)),
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+      recoverySeg({ type: 'rpe', value: 3 }, undefined, dur(60)),
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)),
+    ];
+    const item = nativeItem(segs, 'segment-220');
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-220', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-220', 1, 'recovery', { avg_pace_s_per_km: 500, duration_seconds: 60 }),
+      legLap('segment-220', 2, 'work', { avg_pace_s_per_km: 242 }),
+      legLap('segment-220', 3, 'recovery', { avg_pace_s_per_km: 480, duration_seconds: 60 }),
+      legLap('segment-220', 4, 'work', { avg_pace_s_per_km: 238 }),
+    ]);
+    expect(res.tramos.map((t) => t.rep_ordinal)).toEqual([1, 2, 3]);
+    expect(res.tramos.map((t) => t.band_axis)).toEqual(['pace', 'pace', 'pace']);
+  });
+
+  test('camino heredado (sin leg_index): el índice del zip ya es el ordinal, +1', () => {
+    const presc: Prescription = {
+      scheme: 'intervals',
+      modality: 'run',
+      rounds: 3,
+      work_s: 180,
+      rest_s: 60,
+      target: { kind: 'pace', unit: 'per_km', min_s: 245, max_s: 255 },
+    };
+    const item = runItem(presc, undefined, 'segment-221');
+    const res = buildRunCompliance(workout([item]), [
+      lap('segment-221', 1, { avg_pace_s_per_km: 250 }),
+      lap('segment-221', 2, { avg_pace_s_per_km: 250 }),
+      lap('segment-221', 3, { avg_pace_s_per_km: 250 }),
+    ]);
+    expect(res.tramos.map((t) => t.rep_ordinal)).toEqual([1, 2, 3]);
+  });
+
+  test('un tramo con objetivo RPE (no ritmo) lleva band_axis "rpe" — la calibración de ritmo lo excluirá por el eje, no por el ordinal', () => {
+    const segs = [workSeg({ type: 'rpe', value: 8 })];
+    const item = nativeItem(segs, 'segment-222');
+    const res = buildRunCompliance(workout([item]), [legLap('segment-222', 0, 'work', { avg_pace_s_per_km: 245 })]);
+    expect(res.tramos[0]!.rep_ordinal).toBe(1);
+    expect(res.tramos[0]!.band_axis).toBe('rpe');
+  });
+
+  test('sin objetivo alguno: band_axis null, y el tramo sigue contando como sin_dato', () => {
+    const segs = [workSeg(null)];
+    const item = nativeItem(segs, 'segment-223');
+    const res = buildRunCompliance(workout([item]), [legLap('segment-223', 0, 'work', { avg_pace_s_per_km: 245 })]);
+    expect(res.tramos[0]!.verdict).toBe('sin_dato');
+    expect(res.tramos[0]!.band_axis).toBeNull();
+    expect(res.tramos[0]!.rep_ordinal).toBe(1); // la posición se sabe aunque el eje no
   });
 });
 

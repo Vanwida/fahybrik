@@ -79,6 +79,23 @@ export interface RunComplianceTramo {
    *  prescribió por duración (se midió por distancia) o no hay un `Segment`
    *  concreto contra el que comparar (alineación heredada sin estructura). */
   duration_verdict: WorkDurationVerdict | null;
+  /**
+   * Ordinal 1-based de este tramo entre los de TRABAJO de su MISMO item: «la
+   * 3.ª repetición de este 6×800». Distinto de `position` (el turno del lap
+   * dentro de TODA la ejecución, recuperaciones incluidas) — la calibración
+   * del coach (#71, `shared/domain/running/calibration.ts`) pregunta «¿dónde
+   * se rompe DENTRO DE LA SERIE?», y para eso hace falta el segundo, no el
+   * primero. Null cuando no hay estructura prescrita que numerar (alineación
+   * heredada sin match, o tramo sin ejecutar).
+   */
+  rep_ordinal: number | null;
+  /**
+   * El eje que juzgó este tramo — el mismo `ComplianceBand['axis']` que
+   * resolvió `verdict`. Null cuando no hubo banda (sin objetivo, o zona sin
+   * snapshot). La calibración solo entra por tramos de RITMO: mezclar HR o
+   * RPE en «¿le estoy poniendo bien los ritmos?» respondería otra pregunta.
+   */
+  band_axis: ComplianceBand['axis'] | null;
 }
 
 /** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
@@ -207,6 +224,18 @@ function prescribedDurationS(seg: Segment | undefined): number | null {
   return seg?.measure.type === 'duration' ? seg.measure.s : null;
 }
 
+// Cuántos segmentos 'work' hay en `all[0..=idx]` — el ordinal 1-based de ESTE
+// tramo entre los de trabajo de su mismo item. Puramente posicional: la
+// prescripción ya fija el orden, así que no hace falta arrastrar un contador
+// por el bucle que la recorre.
+function workOrdinal(all: readonly Segment[], idx: number): number {
+  let n = 0;
+  for (let i = 0; i <= idx; i += 1) {
+    if (all[i]?.kind === 'work') n += 1;
+  }
+  return n;
+}
+
 // Prescribed WORK segments of an item, structure-first (native `structure`, else
 // `legacyToStructure`). Empty when the item isn't a run steady/intervals form.
 function workSegmentsOf(p: Prescription | null): Segment[] {
@@ -264,8 +293,10 @@ export function buildRunCompliance(
     position: number | null,
     verdict: RunComplianceVerdict,
     duration_verdict: WorkDurationVerdict | null = null,
+    rep_ordinal: number | null = null,
+    band_axis: ComplianceBand['axis'] | null = null,
   ) => {
-    tramos.push({ item_uid, position, verdict, duration_verdict });
+    tramos.push({ item_uid, position, verdict, duration_verdict, rep_ordinal, band_axis });
     verdicts.push(verdict);
     if (duration_verdict != null) workDurationVerdicts.push(duration_verdict);
   };
@@ -349,11 +380,14 @@ export function buildRunCompliance(
           // nunca la banda del bloque aplicada a ciegas. El trabajo SIEMPRE se
           // empuja (a diferencia de la recuperación) — eso no cambia aquí.
           const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
+          const band = seg ? segmentBand(seg, item) : null;
           push(
             item.uid,
             a.position,
-            evaluateRunSegment(seg ? segmentBand(seg, item) : null, sampleFromActual(a)),
+            evaluateRunSegment(band, sampleFromActual(a)),
             durationVerdict,
+            seg && seg.kind === 'work' ? workOrdinal(all, a.leg_index!) : null,
+            band?.axis ?? null,
           );
         }
         continue;
@@ -377,17 +411,31 @@ export function buildRunCompliance(
           const a = itemActuals[i]!;
           const prescribedS = prescribedDurationS(seg);
           const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
-          push(item.uid, a.position, evaluateRunSegment(segmentBand(seg, item), sampleFromActual(a)), durationVerdict);
+          const band = segmentBand(seg, item);
+          // `i` YA es el ordinal 0-based dentro de `work` (todos los tramos de
+          // trabajo del item, en orden): +1 es su posición dentro de la serie,
+          // sin nada que detectar — mismo dato que `workOrdinal` da en el
+          // camino nativo, por otro camino.
+          push(
+            item.uid,
+            a.position,
+            evaluateRunSegment(band, sampleFromActual(a)),
+            durationVerdict,
+            i + 1,
+            band?.axis ?? null,
+          );
         });
       } else {
         // One lap, or a lap count that doesn't align to the structure → judge each
         // lap against the item's representative band (uniform set / honest fallback).
         // Sin un `Segment` concreto no hay `measure` del que leer una duración
         // prescrita — `duration_verdict` se queda null (default de `push`),
-        // nunca la duración del bloque aplicada a ciegas.
+        // nunca la duración del bloque aplicada a ciegas. Tampoco hay
+        // `rep_ordinal`: sin estructura alineada no se sabe qué posición
+        // ocupaba este lap dentro de la serie.
         const band = itemBand(item);
         for (const a of itemActuals) {
-          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)));
+          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)), null, null, band?.axis ?? null);
         }
       }
     }
