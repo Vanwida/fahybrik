@@ -13,7 +13,14 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { attachmentPreview } from './schema';
-import type { ChatAttachmentKind, ChatSenderRole, MessageDTO, SendMessageInput } from './schema';
+import type {
+  ChatAttachmentKind,
+  ChatContext,
+  ChatContextKind,
+  ChatSenderRole,
+  MessageDTO,
+  SendMessageInput,
+} from './schema';
 import { notifyOpposite } from './notify';
 import { publishMessage, type ChatScope } from './pubsub';
 
@@ -53,6 +60,13 @@ type MessageRow = {
   attachment_url: string | null;
   attachment_kind: string | null;
   attachment_meta: unknown;
+  // Contexto (migración 0186) — las 4 columnas planas, o las 4 null cuando el
+  // mensaje no lleva contexto (el check `context_all_or_none` de la DB lo
+  // garantiza: nunca llegan 2 de 4).
+  context_kind: string | null;
+  context_ref: string | null;
+  context_sub: string | null;
+  context_label: string | null;
   created_at: string;
   read_at: string | null;
   edited_at: string | null;
@@ -69,8 +83,19 @@ type MessageRow = {
 const messageColumns = (client: Sql) => client`
   m.id::text, m.thread_id::text, m.sender_user_id::text, m.sender_role, m.body,
   m.attachment_url, m.attachment_kind, m.attachment_meta::jsonb as attachment_meta,
+  m.context_kind, m.context_ref, m.context_sub, m.context_label,
   m.created_at::text, m.read_at::text, m.edited_at::text
 `;
+
+function rowToContext(r: MessageRow): ChatContext | null {
+  if (!r.context_kind || !r.context_ref || !r.context_label) return null;
+  return {
+    kind: r.context_kind as ChatContextKind,
+    ref: r.context_ref,
+    sub: r.context_sub,
+    label: r.context_label,
+  };
+}
 
 function rowToMessageDto(r: MessageRow): MessageDTO {
   return {
@@ -82,6 +107,7 @@ function rowToMessageDto(r: MessageRow): MessageDTO {
     attachment_url: r.attachment_url,
     attachment_kind: (r.attachment_kind as ChatAttachmentKind | null) ?? null,
     attachment_meta: (r.attachment_meta as Record<string, unknown> | null) ?? null,
+    context: rowToContext(r),
     created_at: toWireIso(r.created_at)!,
     read_at: toWireIso(r.read_at),
     edited_at: toWireIso(r.edited_at),
@@ -385,12 +411,20 @@ export async function sendMessage(args: {
   sender_user_id: bigint;
   sender_role: ChatSenderRole;
   input: SendMessageInput;
+  // Ya RESUELTO (propiedad validada + etiqueta derivada) por
+  // `resolveMessageContext` — este módulo nunca deriva una etiqueta, solo la
+  // persiste. Opcional (no `| null` obligatorio) para que un caller que no
+  // conoce el concepto de contexto (todo el código anterior a la 0186) siga
+  // compilando sin cambios: se comporta como "sin contexto", igual que hoy.
+  context?: ChatContext | null;
 }): Promise<MessageDTO> {
   const client = args.sql ?? defaultSql;
   const { thread_id, sender_user_id, sender_role, input } = args;
+  const context = args.context ?? null;
   const inserted = await client<MessageRow[]>`
     insert into chat_messages as m (
-      thread_id, sender_user_id, sender_role, body, attachment_url, attachment_kind, attachment_meta
+      thread_id, sender_user_id, sender_role, body, attachment_url, attachment_kind, attachment_meta,
+      context_kind, context_ref, context_sub, context_label
     ) values (
       ${thread_id as unknown as string}::bigint,
       ${sender_user_id as unknown as number},
@@ -398,7 +432,11 @@ export async function sendMessage(args: {
       ${input.body ?? null},
       ${input.attachment_url ?? null},
       ${input.attachment_kind ?? null},
-      ${input.attachment_meta ? client.json(input.attachment_meta) : null}
+      ${input.attachment_meta ? client.json(input.attachment_meta) : null},
+      ${context?.kind ?? null},
+      ${context?.ref ?? null},
+      ${context?.sub ?? null},
+      ${context?.label ?? null}
     )
     returning ${messageColumns(client)}
   `;
@@ -425,15 +463,20 @@ export async function sendMessage(args: {
   `;
 
   // Reparto: aviso en la app + push al destinatario. Best-effort.
+  //
+  // La etiqueta se antepone cuando hay contexto — "Fuerza A · mar 12: ¿cuántas
+  // series?" lee natural en los dos idiomas de adjunto (texto o vista previa
+  // de adjunto). notify.ts no conoce el contexto; recibe el preview ya hecho.
+  const basePreview =
+    input.body && input.body.trim().length > 0
+      ? input.body
+      : attachmentPreview(input.attachment_kind ?? null);
   notifyOpposite({
     sql: client,
     thread_id: BigInt(row.thread_id),
     sender_user_id,
     sender_role,
-    preview:
-      input.body && input.body.trim().length > 0
-        ? input.body
-        : attachmentPreview(input.attachment_kind ?? null),
+    preview: context ? `${context.label}: ${basePreview}` : basePreview,
   }).catch(() => undefined);
 
   // Publica a los streams SSE de todas las instancias (Postgres NOTIFY). El aviso

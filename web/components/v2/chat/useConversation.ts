@@ -245,6 +245,10 @@ export function useConversation(options: UseConversationOptions): Conversation {
         attachment_url: input.attachment ? input.attachment.preview_url : null,
         attachment_kind: input.attachment?.kind ?? null,
         attachment_meta: input.attachment?.meta ?? null,
+        // Sin selector de contexto en el compositor del coach todavía — la
+        // burbuja optimista nunca lleva uno; el real (si lo hubiera) llega en
+        // el eco del servidor.
+        context: null,
         created_at: new Date().toISOString(),
         read_at: null,
         edited_at: null,
