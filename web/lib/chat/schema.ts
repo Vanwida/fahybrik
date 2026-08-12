@@ -153,6 +153,43 @@ export const chatContextSchema = z.object({
 });
 export type ChatContext = z.infer<typeof chatContextSchema>;
 
+// -----------------------------------------------------------------------------
+// Previsualización del contexto — VIVA, resuelta al LEER (nunca guardada). Ver
+// `web/lib/chat/context-preview.ts` y docs/DECISIONS.md 12-ago "El chat
+// aprende SOBRE QUÉ va el mensaje" (ampliación de previsualización).
+// -----------------------------------------------------------------------------
+
+/** Qué vista abre el móvil para un `kind:'session'`: la ficha de lo hecho o la
+ *  ficha previa. Null en `exercise`/`race` (no aplica) y cuando `exists` es
+ *  `false` (nada que abrir). Mismo binario que ya decide
+ *  `web/lib/athlete/assignment-detail.ts` para su bloque de ejecución
+ *  (`status === 'completed' || status === 'partial'` → hecho). */
+export const chatContextStateSchema = z.enum(['done', 'pending']);
+export type ChatContextState = z.infer<typeof chatContextStateSchema>;
+
+/**
+ * Lo que viaja en la burbuja: la terna CONGELADA (`chatContextSchema`) más la
+ * previsualización VIVA. `preview`/`exists`/`state` van SIEMPRE presentes
+ * (null cuando no aplican) — igual que `context` en el DTO ya era siempre
+ * presente y null en vez de ausente.
+ *
+ * Deliberadamente un schema DISTINTO de `chatContextSchema`: ese sigue siendo
+ * el tipo interno que persiste `sendMessage` y resuelve `resolveMessageContext`
+ * (solo la terna congelada, sin datos vivos) — mezclar los dos habría obligado
+ * al camino de ESCRITURA a fingir una previsualización que todavía no existe.
+ */
+export const messageContextDtoSchema = chatContextSchema.extend({
+  /** La respuesta a la pregunta, AHORA — no la de cuando se envió el mensaje.
+   *  Null cuando no se sabe (sin dosis, plantilla sin resumen) o la entidad
+   *  referenciada ya no existe. */
+  preview: z.string().nullable(),
+  /** Si `kind`+`ref`(+`sub`) sigue resolviendo a algo real. `false` = la
+   *  tarjeta no promete abrir nada; la etiqueta congelada sobrevive igual. */
+  exists: z.boolean(),
+  state: chatContextStateSchema.nullable(),
+});
+export type MessageContextDTO = z.infer<typeof messageContextDtoSchema>;
+
 export const sendMessageSchema = z
   .object({
     body: z.string().max(CHAT_BODY_MAX).optional(),
@@ -197,8 +234,8 @@ export const messageDtoSchema = z.object({
   attachment_meta: z.unknown().nullable(),
   // Presente y null cuando el mensaje no lleva contexto — nunca ausente, para
   // que un cliente que compara "tiene contexto?" no tenga que distinguir
-  // undefined de null.
-  context: chatContextSchema.nullable(),
+  // undefined de null. Incluye la previsualización viva (preview/exists/state).
+  context: messageContextDtoSchema.nullable(),
   created_at: isoDateTime,
   read_at: isoDateTime.nullable(),
   edited_at: isoDateTime.nullable(),

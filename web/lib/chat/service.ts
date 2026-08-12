@@ -23,6 +23,7 @@ import type {
 } from './schema';
 import { notifyOpposite } from './notify';
 import { publishMessage, type ChatScope } from './pubsub';
+import { resolveContextPreviews, previewKey } from './context-preview';
 
 // Postgres `timestamptz::text` renders `2026-05-29 11:06:13.234292+00` — a space
 // instead of `T` and a `+00` offset. That is NOT valid ISO 8601, so the iOS
@@ -97,7 +98,13 @@ function rowToContext(r: MessageRow): ChatContext | null {
   };
 }
 
-function rowToMessageDto(r: MessageRow): MessageDTO {
+// La terna CONGELADA, sin la previsualización viva todavía — `withPreviews`
+// (más abajo) es quien la completa hasta `MessageDTO`. Existe como paso
+// intermedio porque resolver la previsualización es async y por LOTE: no se
+// puede hacer fila a fila dentro de este mapeo síncrono sin caer en un N+1.
+type MessageDtoFrozen = Omit<MessageDTO, 'context'> & { context: ChatContext | null };
+
+function rowToMessageDto(r: MessageRow): MessageDtoFrozen {
   return {
     id: r.id,
     thread_id: r.thread_id,
@@ -112,6 +119,24 @@ function rowToMessageDto(r: MessageRow): MessageDTO {
     read_at: toWireIso(r.read_at),
     edited_at: toWireIso(r.edited_at),
   };
+}
+
+/**
+ * Completa una página de mensajes con la previsualización VIVA de su
+ * contexto. UNA llamada a `resolveContextPreviews` por página (agrupada por
+ * `kind` dentro), nunca una por mensaje — es el paso que hace que
+ * `listMessages`/`listNewMessagesForScope`/`sendMessage`/`getMessageById`
+ * cumplan la regla de lote sin repetirla cada uno por su cuenta.
+ */
+async function withPreviews(client: Sql, rows: MessageDtoFrozen[]): Promise<MessageDTO[]> {
+  const contexts = rows.map((r) => r.context).filter((c): c is ChatContext => c !== null);
+  const previews = await resolveContextPreviews(client, contexts);
+  return rows.map((r) => ({
+    ...r,
+    context: r.context
+      ? { ...r.context, ...(previews.get(previewKey(r.context)) ?? { preview: null, exists: false, state: null }) }
+      : null,
+  }));
 }
 
 // -----------------------------------------------------------------------------
@@ -314,7 +339,8 @@ export async function listMessages(args: {
   const hasMore = rows.length > limit;
   const sliced = hasMore ? rows.slice(0, limit) : rows;
   const next_cursor = hasMore ? sliced[sliced.length - 1]!.id : null;
-  return { messages: sliced.map(rowToMessageDto), next_cursor };
+  const messages = await withPreviews(client, sliced.map(rowToMessageDto));
+  return { messages, next_cursor };
 }
 
 // Un mensaje por id — lo usa el stream SSE para recomponer el DTO completo tras
@@ -330,7 +356,9 @@ export async function getMessageById(
       and m.deleted_at is null
     limit 1
   `;
-  return rows[0] ? rowToMessageDto(rows[0]) : null;
+  if (!rows[0]) return null;
+  const [message] = await withPreviews(client, [rowToMessageDto(rows[0])]);
+  return message!;
 }
 
 // Author-scoped soft delete. Sets `deleted_at` ONLY when the message belongs to
@@ -402,7 +430,8 @@ export async function listNewMessagesForScope(args: {
     limit ${limit}
   `;
   const cursor = rows.length > 0 ? rows[rows.length - 1]!.id : null;
-  return { messages: rows.map(rowToMessageDto), cursor };
+  const messages = await withPreviews(client, rows.map(rowToMessageDto));
+  return { messages, cursor };
 }
 
 export async function sendMessage(args: {
@@ -492,7 +521,8 @@ export async function sendMessage(args: {
     }).catch(() => undefined);
   }
 
-  return rowToMessageDto(row);
+  const [message] = await withPreviews(client, [rowToMessageDto(row)]);
+  return message!;
 }
 
 /**
