@@ -530,7 +530,14 @@ schemes:
     test:
       config: Debug
       targets:
-        - FAHYBRIKTests
+        # ORDEN ALEATORIO. Por defecto XCTest ejecuta en orden alfabético, siempre el
+        # mismo, así que una prueba que dependa del estado que dejó otra pasa mil veces
+        # seguidas y falla el día que alguien añade un fichero que cambia el orden — o
+        # falla en la máquina de al lado y no en la tuya. Aleatorizando, esa clase de
+        # fallo sale a la primera y no se puede esconder. (12-ago: se activó buscando
+        # justo eso, un recuento que no cuadraba entre dos máquinas.)
+        - name: FAHYBRIKTests
+          randomExecutionOrder: true
       gatherCoverageData: false
     profile:
       config: Release
