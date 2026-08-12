@@ -86,6 +86,12 @@ import * as vivoClave from './screens/vivo-clave';
 // Grok el cable; Claude el HUD final en vivo-fuerza.
 import * as contadorReps from './screens/contador-reps';
 import * as velocidadSerie from './screens/velocidad-serie';
+// La lectura de la carrera (12-ago): con el archivo guardado (tanda T0) aparece
+// un sujeto que antes no podía existir — si el atleta CLAVÓ lo que le pidieron.
+// `resumen-carrera` elegía el sujeto por la FORMA de lo corrido; esta le suma la
+// otra mitad, la INTENCIÓN del coach, y con ella la curva lleva la banda
+// dibujada y el troceado es por serie o por kilómetro, nunca los dos.
+import * as lecturaCarrera from './screens/lectura-carrera';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -125,6 +131,7 @@ export const SCREENS: TwinScreenModule[] = [
   // El sujeto lo decide la FORMA de lo que corriste (`tramos.ts`), no el
   // formato de la pantalla. Móvil y muñeca leen el MISMO dato.
   resumenCarrera,
+  lecturaCarrera,
   watchResumen,
   // El plan a tres distancias (29-jul): tres preguntas sobre el MISMO objeto —
   // hacia dónde voy (ciclo), qué me toca y qué llevo (semana), qué hay hoy y
@@ -185,7 +192,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
       'vivo-clave',
     ],
   },
-  { grupo: 'Al terminar', ids: ['resumen-carrera'] },
+  { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
   {
     grupo: 'La muñeca, formato a formato',

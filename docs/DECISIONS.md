@@ -41,6 +41,57 @@ defecto de plantilla, y eso solo funciona si son columnas distintas).
 
 ---
 
+## 2026-08-12 · Al terminar de correr manda el VEREDICTO, no el ritmo medio
+
+**Decidido (Alex, viendo las dos montadas):** cuando una carrera tenía objetivo
+medible, el sujeto de la lectura al terminar es **si el atleta clavó lo que le
+pidieron** («5 de 6 dentro»), con el matiz de hacia dónde falló lo que se salió.
+El ritmo medio baja a apoyo.
+
+**La alternativa descartada** (se conserva montada en el doble, escenario ① B,
+para que la decisión no haya que volver a tomarla a ciegas): el número grande era
+el ritmo medio de las series y el veredicto iba debajo — enseñar sin juzgar.
+
+**Por qué:** el ritmo medio de unas series lo da cualquier reloj de 200 euros. El
+veredicto contra la banda del entrenador **no lo puede dar nadie más**, porque
+ningún reloj sabe qué te pidieron. Poner de sujeto lo que cualquiera tiene y
+esconder lo único propio era regalar la ventaja. Y es además la pregunta que el
+atleta trae en la cabeza cuando para el reloj: no «a cuánto he ido», sino «¿las
+he hecho?».
+
+**La jerarquía completa del sujeto**, por precedencia, que es lo que hay que
+respetar al portarlo a Swift:
+
+1. Hubo objetivo medible → el veredicto.
+2. Hubo contraste sin objetivo (fartlek por sensaciones) → el contraste, fuerte
+   contra suave.
+3. Uniforme con objetivo de zona → el tiempo dentro de esa zona.
+4. Uniforme sin objetivo → el ritmo medio.
+5. Sin cobertura → los totales, **declarando por qué** no hay más.
+
+**Consecuencias que no son negociables al construir:**
+
+- **El troceado depende de la forma: por repetición O por kilómetro, nunca los
+  dos.** Los kilómetros de un 6×800 no dicen nada y las repeticiones de un rodaje
+  no existen.
+- **En pendiente el veredicto de ritmo se retira** y el troceado se lee en tiempo:
+  un ritmo bruto al 8% no significa nada.
+- **Con un solo tramo no hay veredicto que dar.** «1 de 1 dentro» no es una
+  lectura: ahí manda la media.
+- **La banda del coach se DIBUJA sobre la curva**, para que se vea entrar y salir
+  de ella en vez de tener que creerse un número.
+- **Ninguna casilla vacía y ningún guion de relleno.** Si falta cobertura se dice
+  por qué. Una sesión anterior al archivo enseña sus totales y una frase que lo
+  explica, no una pantalla con huecos.
+- **El color es dato.** Una sesión sin zonas no se pinta de ningún color.
+
+**Y las dos superficies nacen a la vez.** El panel del coach se diseña antes de
+portar nada a Swift, para que atleta y entrenador no acaben con dos idiomas del
+mismo entreno — que es exactamente lo que arrastrábamos: el coach tenía veredicto
+por repetición y el atleta no; el atleta tenía lectura honesta y el coach no.
+
+---
+
 ## 2026-08-12 · Las tres columnas huérfanas de la 0154 encuentran su motor — y un CHECK que llevaba desde entonces mintiendo sobre qué es una delta
 
 **Contexto:** `workout_executions.decoupling_pct` / `elevation_gain_m` / `elevation_loss_m` / `hr_recovery_60_bpm` existían desde la 0154 y nadie las llenaba. Las cuatro exigen recorrer la traza entera (la regla que la 0156 ya dejó escrita: se guarda lo que exige recorrer la traza, se calcula lo que depende del atleta), así que se enganchan en el mismo sitio que el reparto de zonas — `ingest-workout-traces.ts` — vía un módulo nuevo, `web/lib/execution/measured-header.ts`, que llama a tres funciones puras en `shared/domain/running/`.
