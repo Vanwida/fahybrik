@@ -204,4 +204,47 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     expect(s.current_week_end).toBe('2026-03-15');
     expect(s.week_label).toBe('Microciclo Base · semana 2 de 3');
   });
+
+  // ── El fallback del plan directo (Alex, 12-ago) ────────────────────────────
+  // Sin cadena, «en qué semana vas» sigue siendo un hecho del calendario:
+  // semanas SEGUIDAS con trabajo programado hasta la semana mirada. Sin «de M».
+
+  test('sin cadena, la posición sale del calendario real: «semana N» a secas', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'dictada' });
+    // Dos semanas seguidas con trabajo (la del ancla y la anterior), SIN
+    // microciclo ni recibo — el caso real de una semana dictada por el conector.
+    for (const d of [...WK1, ...WK2]) {
+      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'scheduled' });
+    }
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBe('semana 2');
+  });
+
+  test('un agujero corta la cuenta: la semana vacía separa dos planes', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'suelta' });
+    // Trabajo hace tres semanas y trabajo en la semana del ancla; la de en
+    // medio, vacía. El plan de hoy empieza donde empieza, no en enero.
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: '2026-02-23', status: 'completed' });
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: WK2[0]!, status: 'scheduled' });
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBe('semana 1');
+  });
+
+  test('la semana mirada sin nada programado no inventa posición', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'pasada' });
+    // Trabajo solo la semana pasada: la mirada está vacía → null (ese estado ya
+    // lo cuenta la pantalla del plan con sus palabras, no con un número).
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: WK1[0]!, status: 'completed' });
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBeNull();
+  });
 });

@@ -20,6 +20,12 @@ camino a su objetivo, motivadora por diseño. Tres raíces, tres piezas:
   voz), por UN solo escritor (`web/lib/coach/week-focus.ts`) con el guardia que
   importa: fijar un foco JAMÁS publica ni esconde la semana. Un borrador no
   adelanta su foco al atleta. 26 tests web nuevos contra rama Neon real.
+- **«Semana N» también sin cadena** (12-ago, segunda pasada): un plan directo
+  no tiene microciclo pero sí posición — el servidor la deriva del calendario
+  real (semanas SEGUIDAS con trabajo hasta la mirada; un agujero corta) y la
+  sirve como `«semana N»` a secas, SIN «de M»: el total de un plan directo no
+  es un hecho, crece al publicar. iOS parsea las dos formas; una etiqueta
+  contradictoria («semana 7 de 4») no se rescata. La cadena sigue mandando.
 - **`GET /api/athlete/plan/ciclo`**: camino real (+`level` y `events` aditivos
   por tramo), `al_acabar` verbatim de `program_sequences.end_policy` y la
   carrera objetivo con su `goal_time_s`. La cabecera de iOS (bloque + «Semana
