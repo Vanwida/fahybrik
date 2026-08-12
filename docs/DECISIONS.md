@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 · El veredicto de carrera empieza a juzgar la recuperación — y con dirección invertida
+
+**El bug.** El motor de cumplimiento (`web/lib/dashboard/coach/run-compliance.ts`) saltaba TODO tramo de recuperación (`leg_role==='recovery' || seg.kind==='recovery'`), pero la gramática ya permite prescribirle un objetivo (`rec(dur(60),'trote',rpe(3))`, arquetipo fartlek) y `segment_executions` ya lo mide desde la 0146. Un coach podía escribir "recupera a RPE 3" o "en Z1" y el sistema nunca lo comprobaba — la decisión del 9-ago ("una recuperación de correr no es un descanso… se MIDE") estaba bien tomada; lo que se construyó encima no la siguió.
+
+**La regla:** una recuperación SIN objetivo no se juzga (se omite, igual que antes — no se le inventa uno). Una recuperación CON objetivo se juzga, pero con veredicto propio: `evaluateRecoverySegment` (shared/domain/adherence) colapsa el eje de 4 vías del trabajo (`dentro`/`fuera_rapido`/`fuera_lento`/`sin_dato`) a 3 (`controlada`/`demasiado_rapida`/`sin_dato`) porque **solo irse RÁPIDO en recuperación es un fallo real** — es la fatiga acumulada la que explica que la serie 5 se caiga. Irse lento, o pararse cuando se pidió trotar, es `controlada`: nadie falla por descansar de más.
+
+**Separación estructural, no un campo `kind`.** `RunComplianceResult` gana `recovery_summary`/`recovery_tramos`, arrays y tipos DISTINTOS de `summary`/`tramos` — nunca un discriminador dentro del mismo array. Un "6 de 6 en el trabajo, 2 de 6 en la recuperación" tiene que dar DOS números, no un porcentaje mezclado que no dice nada.
+
+**Bug lateral encontrado al arreglar esto: `segmentBand()` ignoraba `seg.resolved`.** Cada tramo con objetivo de zona ya lleva su propia banda resuelta por atleta (`assignment-detail.ts`, `runWireStructure`/`enrichSeg`), pero `segmentBand()` usaba SIEMPRE `item.resolved_intensity` (la banda del bloque). Era inofensivo mientras todo el trabajo de un bloque compartía zona y la recuperación nunca se juzgaba; en cuanto una recuperación en Z1 conviva con trabajo en Z4, juzgarla contra la banda del bloque falla cualquier recuperación honesta. Arreglado: `segmentBand()` prefiere `seg.resolved` y solo cae al del ítem cuando el tramo no trae el suyo — cero cambio observable para el trabajo (mismo test de regresión lo prueba).
+
+**Los arquetipos traían el caso raro por defecto.** `series` y `pirámide` sembraban `rec(dur(90),'parado')` sin objetivo; solo fartlek traía trote. Cambiado a trote en Z1 (coherente con que su trabajo ya hable en zonas) para `series`/`pirámide`. `cuestas` se queda en `caminar` sin objetivo — reps cortas y casi máximas (200-400 m) es donde parar/andar sigue siendo honesto, y así lo dijo Alex explícitamente.
+
+**Deuda declarada, no colada (regla Nº0):** qué recuperación trae un arquetipo por defecto es MÉTODO del coach, no mecanismo nuestro — candidato a dato editable. No se implementó así en esta tanda: exigiría esquema nuevo + UI de ajustes, un refactor real y no una extracción limpia de cinco minutos. El default vive en código (`archetype-prefills.ts`) a propósito, con el caso habitual como valor por defecto, hasta que alguien decida construir esa pieza.
+
+**Qué NO hacer en consecuencia:** no juzgar una recuperación sin objetivo con la banda del bloque "por si acaso"; no mezclar `recovery_tramos` en `tramos` ni sus dos summaries en uno; no tratar `fuera_lento`/parar-cuando-tocaba-trotar como un aviso en recuperación — es la lectura correcta para el trabajo, no para esto.
+
+---
+
 ## 2026-08-12 · El foco de la semana vive en la SEMANA DEL ATLETA; la plantilla solo pone el defecto
 
 **Contexto:** «Foco de la semana» solo existía en `program_week_templates.focus`.
@@ -79,10 +97,42 @@ respetar al portarlo a Swift:
 - **Con un solo tramo no hay veredicto que dar.** «1 de 1 dentro» no es una
   lectura: ahí manda la media.
 - **La banda del coach se DIBUJA sobre la curva**, para que se vea entrar y salir
-  de ella en vez de tener que creerse un número.
+  de ella en vez de tener que creerse un número. Y con una regla que hay que
+  respetar al portarlo: **la franja va sobre el eje donde vive su objetivo, y solo
+  donde ese objetivo aplicaba.** Un objetivo de ritmo se dibuja sobre el ritmo y
+  **solo dentro de los tramos de trabajo** — una franja continua por encima de los
+  trotes diría que el coach pidió ese ritmo también en la recuperación, y no lo
+  pidió. Un objetivo de zona se dibuja sobre el **pulso**, que es la señal que lo
+  mide; dibujarle una banda de ritmo sería enseñar una comparación que nadie hizo.
+  En un esfuerzo continuo sí abarca todo el ancho, porque todo el rato aplicaba.
+- **El eje de la curva lo fijan el TRABAJO y lo CONTINUO** (calentamiento, vuelta
+  a la calma, el cuerpo de un rodaje). **Una recuperación solo ensancha el eje si
+  cabe dentro**; lo que no cabe se dibuja igual, a puntos y pegado al suelo, con
+  la leyenda diciendo que ahí se sale de escala. Sin eso, bajar andando de una
+  cuesta estira el eje de 3:36 a 12:34 y aplasta las ocho repeticiones contra el
+  borde, dejando ilegible justo lo que hay que leer.
+  La primera redacción de esta regla decía «el eje se escala al rango del
+  trabajo», a secas, y **estaba mal**: en una serie el calentamiento va mucho más
+  lento que las repeticiones, así que ceñir el eje al trabajo habría convertido
+  «seis picos que nacen de un rodaje» en «seis mesetas flotando sobre una línea de
+  puntos». Rompía las gráficas buenas para arreglar la mala. Se anota el error
+  porque la versión corta suena razonable y alguien la reintroducirá.
 - **Ninguna casilla vacía y ningún guion de relleno.** Si falta cobertura se dice
   por qué. Una sesión anterior al archivo enseña sus totales y una frase que lo
   explica, no una pantalla con huecos.
+- **La otra mitad de esa regla: un hueco se declara cuando el atleta podría hacer
+  algo al respecto; cuando en esa superficie sencillamente no existe, la app se
+  calla.** Una sesión sin traza declara que no la tiene, porque las nuevas sí la
+  tendrán. Una sesión en cinta NO declara que le falta el mapa: no hay nada que
+  hacer para tenerlo, y anunciarlo convierte una propiedad de la superficie en una
+  carencia. Igual con el desnivel de una cinta sin inclinación: no es un dato que
+  falte, es uno que no existe.
+- **La escala es propiedad del DATO; el suavizado, solo del DIBUJO.** El eje se
+  calcula sobre la señal cruda, nunca sobre la suavizada. La media móvil cruza la
+  frontera del tramo, así que la última muestra de una subida ya lleva dentro el
+  ritmo del paseo siguiente: filtrando sobre la suavizada, la recuperación se cuela
+  por la puerta de atrás y el eje sigue estirado. Medido: 4:02-8:32 en vez de
+  4:16-5:54.
 - **El color es dato.** Una sesión sin zonas no se pinta de ningún color.
 
 **Y las dos superficies nacen a la vez.** El panel del coach se diseña antes de
