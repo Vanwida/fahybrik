@@ -88,6 +88,8 @@ export function ChatBubble({
           message.pending && 'opacity-70',
         )}
       >
+        {message.context ? <SobreQue label={message.context.label} /> : null}
+
         {hasAttachment ? <ChatAttachment message={message} /> : null}
 
         {hasText ? (
@@ -106,6 +108,29 @@ export function ChatBubble({
         <Footer message={message} isCoach={isCoach} onRetry={onRetry} />
       </div>
     </div>
+  );
+}
+
+/**
+ * SOBRE QUÉ va el mensaje.
+ *
+ * Es la mitad del valor de la pieza: sin esto el coach lee «no me llega con 90 s»
+ * y tiene que gastar un turno preguntando de qué bloque. La etiqueta la redacta
+ * el servidor (`web/lib/chat/context.ts`) — aquí no se compone texto, solo se
+ * pinta, para que diga exactamente lo mismo en el móvil, en el panel y en el push.
+ *
+ * Todavía NO es un enlace: llevar al coach a la sesión concreta necesita que su
+ * ficha sepa abrirse por sesión (hoy `openSession` es estado local de `PlanTab`),
+ * y un cursor de mano que no navega a ninguna parte es peor que ninguno.
+ */
+function SobreQue({ label }: { label: string }) {
+  return (
+    <span className="flex max-w-full flex-col gap-0.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5">
+      <span className="text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+        Sobre
+      </span>
+      <span className="break-words text-label font-semibold text-[color:var(--v2-fg)]">{label}</span>
+    </span>
   );
 }
 
