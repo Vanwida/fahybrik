@@ -119,6 +119,20 @@ export interface Pedido {
   dentro: number;
   fuera_lento: number;
   fuera_rapido: number;
+  /**
+   * El porcentaje en banda, TAL COMO LO SACA `summarizeRunCompliance`. Se
+   * servía sin él y el cliente tenía que dividir: la misma división en dos
+   * sitios, y el redondeo del cliente decidiendo si la cifra se pinta verde.
+   * Null cuando no hay nada evaluable — nunca un 0 %.
+   */
+  pct_en_banda: number | null;
+  /**
+   * ¿Se puede JUZGAR ese porcentaje, o solo enseñarlo? Con pocas repeticiones
+   * la cifra existe pero no concluye, y entonces sale en tinta normal en vez de
+   * con color. El juicio es el color, así que quien decide el color no puede
+   * ser el cliente con un umbral copiado.
+   */
+  juzgable: boolean;
 }
 
 export interface PuntoCansado {
@@ -399,6 +413,93 @@ export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Vered
   }
 
   return { clase: 'igual', frase: 'Te mantienes', peldano, plazo: null };
+}
+
+// ---------------------------------------------------------------------------
+// LAS CIFRAS DE DEBAJO — las que la pantalla dibuja bajo cada titular
+// ---------------------------------------------------------------------------
+//
+// POR QUÉ ESTÁN AQUÍ Y NO EN EL CLIENTE. Son restas y divisiones triviales, y
+// justo por eso es tentador hacerlas al dibujar. Pero DOS de ellas deciden algo
+// —la subida de volumen es el segundo ingrediente de «cargando de más», y el
+// porcentaje en banda decide si la cifra sale verde o ámbar—, así que
+// recalcularlas del otro lado es tener dos motores para el número que sostiene
+// un veredicto. El día que uno cambie, el atleta leería una cifra y el servidor
+// habría juzgado con otra, contradiciéndose EN LA MISMA PANTALLA.
+//
+// Las otras se traen por la misma puerta aunque hoy no decidan nada: si media
+// pantalla llega calculada y la otra media se calcula al dibujar, la siguiente
+// cifra se añade donde toque por accidente, no por criterio.
+
+/** Cuántos puntos semanales hacen falta para que la subida de volumen se
+ *  dibuje. Por debajo, «la media de las cuatro primeras» describe casi las
+ *  mismas semanas que «las dos últimas» y el porcentaje se compara consigo
+ *  mismo. Mecanismo: es cuándo una resta significa algo, no una opinión. */
+export const MIN_SEMANAS_PARA_SUBIDA = 6;
+
+/** La distancia a la que se lee el avance de la curva de esfuerzos: la misma
+ *  que titula el bloque, para que cifra y delta hablen del mismo esfuerzo. */
+export const METROS_DE_REFERENCIA = 5000;
+
+export interface Deltas {
+  /**
+   * Bajo los kilómetros. RATIO, no porcentaje (0,24 = +24 %) — mismas unidades
+   * que `volume_surge_ratio`, con el que se compara; servir aquí un 24 y allí
+   * un 0,2 es cómo se cuelan los errores de factor 100. El cliente multiplica
+   * para escribirlo.
+   *
+   * NO JUZGA: subir kilómetros no es bueno ni malo por sí mismo, así que se
+   * dibuja en neutro. De cruzarlo con el ritmo ya se encarga el veredicto.
+   */
+  volumen: { subida_ratio: number; semanas: number } | null;
+  /** Bajo el titular de forma, SÓLO cuando no hay VO₂máx que lo titule (si lo
+   *  hay, el delta es el suyo). Positivo = ha mejorado. */
+  forma: { gana_s_km: number; semanas: number } | null;
+  /** La curva contra su sombra, a `METROS_DE_REFERENCIA`. Positivo = mejor. */
+  esfuerzos: { gana_s: number; metros: number } | null;
+  /** Cuánto ha bajado el coste de correr cansado. Positivo = mejorando. */
+  cansado: { mejora_s_km: number; semanas: number } | null;
+}
+
+/**
+ * Todas las cifras de debajo, de una vez. Puro: las mismas entradas dan las
+ * mismas cifras en el servidor, en el doble de diseño y en el test.
+ *
+ * No recibe el método porque ninguna de las cuatro tiene umbral que consultar:
+ * el único juicio de este bloque (si el % en banda se puede colorear) viaja
+ * dentro de `Pedido.juzgable`, resuelto donde se resuelve el resto del pedido.
+ */
+export function deltasDe(h: RunningHistory): Deltas {
+  const alPulso = h.al_pulso;
+  const cansado = h.cansado;
+
+  const hoy5k = h.esfuerzos.find((e) => e.metros === METROS_DE_REFERENCIA);
+  const antes5k = h.esfuerzos_antes.find((e) => e.metros === METROS_DE_REFERENCIA);
+
+  return {
+    volumen:
+      h.semanas_km.length >= MIN_SEMANAS_PARA_SUBIDA
+        ? { subida_ratio: subidaDeVolumen(h.semanas_km), semanas: h.semanas_km.length - 1 }
+        : null,
+    // Con VO₂máx el titular es él y lleva su propio delta: éste sobra y sale
+    // nulo, en vez de mandar dos deltas para el mismo titular.
+    forma:
+      h.vo2 == null && alPulso.length >= 2
+        ? { gana_s_km: ganancia(alPulso), semanas: alPulso.length - 1 }
+        : null,
+    esfuerzos:
+      hoy5k && antes5k
+        ? { gana_s: antes5k.segundos - hoy5k.segundos, metros: METROS_DE_REFERENCIA }
+        : null,
+    cansado:
+      cansado.length >= 2
+        ? {
+            mejora_s_km:
+              Math.round((cansado[0]!.coste_s_km - cansado[cansado.length - 1]!.coste_s_km) * 10) / 10,
+            semanas: cansado.length - 1,
+          }
+        : null,
+  };
 }
 
 // ---------------------------------------------------------------------------

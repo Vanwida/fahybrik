@@ -80,9 +80,12 @@ import {
 import type { CoachRunningThresholds } from '@fahybrid/shared/domain/coach/running-thresholds';
 import {
   coberturaDe,
+  deltasDe,
   mismoTipoDe,
+  sePuedeJuzgarElPedido,
   veredictoDe,
   type Cobertura,
+  type Deltas,
   type PuntoSemana,
   type RunningHistory,
   type TipoObservacion,
@@ -111,6 +114,16 @@ export interface RunningProgressPayload {
   history: RunningHistory;
   verdict: Veredicto;
   coverage: Cobertura;
+  /**
+   * Las cifras que la pantalla dibuja bajo cada titular, YA CALCULADAS.
+   *
+   * Dos de ellas deciden: la subida de volumen es el segundo ingrediente de
+   * «cargando de más», y el % en banda (dentro de `history.pedido`) decide el
+   * color de su cifra. Recalcularlas al dibujar sería tener dos motores para el
+   * número que sostiene un veredicto, y el día que uno cambie el veredicto y su
+   * evidencia se contradirían en la misma pantalla.
+   */
+  deltas: Deltas;
   /**
    * EL REPARTO, YA PLEGADO Y CON EL OBJETIVO DEL COACH.
    *
@@ -203,6 +216,20 @@ export async function buildRunningProgress(args: {
           dentro: resumen.dentro,
           fuera_lento: resumen.fuera_lento,
           fuera_rapido: resumen.fuera_rapido,
+          // `pct_dentro` ya lo calcula el sumador compartido: se servía y se
+          // tiraba, y el cliente repetía la división para pintar la cifra.
+          pct_en_banda: resumen.pct_dentro,
+          juzgable: sePuedeJuzgarElPedido(
+            {
+              evaluadas: resumen.evaluable,
+              dentro: resumen.dentro,
+              fuera_lento: resumen.fuera_lento,
+              fuera_rapido: resumen.fuera_rapido,
+              pct_en_banda: resumen.pct_dentro,
+              juzgable: false,
+            },
+            thresholds,
+          ),
         }
       : null;
 
@@ -289,6 +316,7 @@ export async function buildRunningProgress(args: {
     history,
     verdict: veredictoDe(history, thresholds),
     coverage: coberturaDe(history, thresholds),
+    deltas: deltasDe(history),
     polarization: {
       // `polarizationPct` devuelve null con total 0, que es justo lo que hace
       // falta: el atleta sin ancla llega aquí con las cinco zonas vacías.
