@@ -528,11 +528,19 @@ export async function loadAssignmentDetail(
   // El corte por kilómetro + la curva reducida — la traza ENTERA se deriva
   // antes de reducir nada (ver session-trace.ts). `EMPTY_TRACE` sin ejecución
   // o sin `started_at`: no hay eje del que colgar ninguna señal.
+  //
+  // El mapa (#71) cuelga de la MISMA llamada: la polilínea ya viene en
+  // `execution.route_polyline` (join con workout_routes, arriba) y las
+  // bandas de ritmo del atleta para correr salen de `zoneProfiles` — ya
+  // cargado (G1) — pasando por el MISMO `buildZoneLookup` que usa
+  // `buildAssignmentDetail` más abajo, nunca una segunda forma de resolverlas.
   const executionTrace =
     execution?.execution_id != null
       ? await loadSessionTrace({
           execution_id: Number(execution.execution_id),
           started_at: execution.started_at ? new Date(execution.started_at) : null,
+          route_polyline: execution.route_polyline,
+          pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
           client: sql,
         })
       : EMPTY_TRACE;

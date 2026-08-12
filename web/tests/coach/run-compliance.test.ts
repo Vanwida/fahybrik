@@ -106,8 +106,13 @@ const dur = (s: number): SegmentMeasure => ({ type: 'duration', s });
 // existe en la gramática — toda recuperación se mide por algo, así que el
 // helper por defecto usa distancia para poder representar "sin prescripción
 // de duración"). Pasa `dur(s)` explícitamente para los tests de duración.
-function workSeg(target: SegmentTarget | null, resolved?: ResolvedIntensity, measure: SegmentMeasure = dist(800)): Segment {
-  return { kind: 'work', measure, target, ...(resolved ? { resolved } : {}) };
+function workSeg(
+  target: SegmentTarget | null,
+  resolved?: ResolvedIntensity,
+  measure: SegmentMeasure = dist(800),
+  incline_pct?: number,
+): Segment {
+  return { kind: 'work', measure, target, ...(resolved ? { resolved } : {}), ...(incline_pct != null ? { incline_pct } : {}) };
 }
 function recoverySeg(
   target: SegmentTarget | null,
@@ -154,6 +159,7 @@ describe('buildRunCompliance — zone tramo (resolved band)', () => {
         rep_ordinal: null,
         band_axis: 'pace',
         band: { axis: 'pace', fast_s: 245, slow_s: 255 },
+        prescribed_incline_pct: null,
       },
     ]);
     expect(res.summary.pct_dentro).toBe(100);
@@ -221,6 +227,7 @@ describe('buildRunCompliance — non-run + no-execution', () => {
         rep_ordinal: null,
         band_axis: null,
         band: null,
+        prescribed_incline_pct: null,
       },
     ]);
     expect(res.summary.total).toBe(1);
@@ -356,6 +363,70 @@ describe('buildRunCompliance — rep_ordinal: la posición DENTRO DE LA SERIE, n
     expect(res.tramos[0]!.verdict).toBe('sin_dato');
     expect(res.tramos[0]!.band_axis).toBeNull();
     expect(res.tramos[0]!.rep_ordinal).toBe(1); // la posición se sabe aunque el eje no
+  });
+});
+
+describe('buildRunCompliance — prescribed_incline_pct: lo que el coach PIDIÓ, no lo medido (#71)', () => {
+  // El corrector de iOS retira el veredicto de ritmo cuando el coach declaró
+  // cuesta, SIN necesidad de haber medido nada — para eso necesita este campo
+  // tal cual viaja aquí, nunca `SegmentActual.incline_pct` (la cinta) ni
+  // `avg_gradient_pct` (lo medido, shared/domain/running/gradient.ts).
+  test('camino nativo: la pendiente del Segment alineado llega tal cual al tramo', () => {
+    const segs = [
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250), dist(200), 8),
+      recoverySeg({ type: 'rpe', value: 3 }, undefined, dur(60)),
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250)), // sin cuesta
+    ];
+    const item = nativeItem(segs, 'segment-230');
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-230', 0, 'work', { avg_pace_s_per_km: 245 }),
+      legLap('segment-230', 1, 'recovery', { avg_pace_s_per_km: 500, duration_seconds: 60 }),
+      legLap('segment-230', 2, 'work', { avg_pace_s_per_km: 245 }),
+    ]);
+    expect(res.tramos.map((t) => t.prescribed_incline_pct)).toEqual([8, null]);
+  });
+
+  test('camino heredado (sin leg_index): la pendiente sale del segmento alineado por posición', () => {
+    const segs = [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250), dist(200), 5)];
+    const item = nativeItem(segs, 'segment-231');
+    const res = buildRunCompliance(workout([item]), [
+      lap('segment-231', 0, { avg_pace_s_per_km: 245 }),
+      lap('segment-231', 1, { avg_pace_s_per_km: 245 }), // 2º lap sin segmento — cae al fallback sin alineación
+    ]);
+    // Un solo segmento de trabajo contra dos laps no alinea (work.length !==
+    // itemActuals.length) → cae al camino sin estructura: ambos sin pendiente,
+    // aunque el primer segmento SÍ la llevara — nunca se filtra sin alinear.
+    expect(res.tramos.map((t) => t.prescribed_incline_pct)).toEqual([null, null]);
+  });
+
+  test('camino heredado zipeado 1:1 (varios laps, sin leg_index): la pendiente sale del segmento que le tocó a cada lap', () => {
+    // Dos segmentos de trabajo, dos laps sin leg_index — SÍ alinean 1:1 por
+    // posición (a diferencia del test anterior, donde un solo segmento contra
+    // dos laps no cuadraba). Solo el primero lleva cuesta.
+    const segs = [
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250), dist(200), 6),
+      workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250), dist(200)),
+    ];
+    const item = nativeItem(segs, 'segment-232');
+    const res = buildRunCompliance(workout([item]), [
+      lap('segment-232', 0, { avg_pace_s_per_km: 245 }),
+      lap('segment-232', 1, { avg_pace_s_per_km: 245 }),
+    ]);
+    expect(res.tramos.map((t) => t.prescribed_incline_pct)).toEqual([6, null]);
+  });
+
+  test('sin cuesta prescrita: null, nunca 0 — 0 sería "llano pedido", que es otra afirmación', () => {
+    const segs = [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250))];
+    const item = nativeItem(segs, 'segment-233');
+    const res = buildRunCompliance(workout([item]), [legLap('segment-233', 0, 'work', { avg_pace_s_per_km: 245 })]);
+    expect(res.tramos[0]!.prescribed_incline_pct).toBeNull();
+  });
+
+  test('sesión sin ejecutar: sin_dato lleva prescribed_incline_pct null — no hay lap que alinear', () => {
+    const segs = [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(240, 250), dist(200), 10)];
+    const item = nativeItem(segs, 'segment-234');
+    const res = buildRunCompliance(workout([item]), []);
+    expect(res.tramos[0]).toMatchObject({ verdict: 'sin_dato', prescribed_incline_pct: null });
   });
 });
 

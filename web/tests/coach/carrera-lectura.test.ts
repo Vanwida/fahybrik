@@ -196,6 +196,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
         rep_ordinal: i + 1,
         band_axis: 'pace',
         band: { axis: 'pace', fast_s: 205, slow_s: 215 },
+        prescribed_incline_pct: null,
       });
     });
 
@@ -255,6 +256,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             rep_ordinal: i + 1,
             band_axis: 'pace' as const,
             band: { axis: 'pace' as const, fast_s: 205, slow_s: 215 },
+            prescribed_incline_pct: null,
           })),
         ),
         conTraza: false,
@@ -275,7 +277,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
       actuals.push(
         lap({ position: i, leg_index: i, leg_role: 'work', distance_meters: 200, duration_seconds: dur, avg_pace_s_per_km: (dur / 200) * 1000, incline_pct: 8 }),
       );
-      tramos.push({ item_uid: 'seg-1', position: i, verdict: 'sin_dato', duration_verdict: null, rep_ordinal: i + 1, band_axis: null, band: null });
+      tramos.push({ item_uid: 'seg-1', position: i, verdict: 'sin_dato', duration_verdict: null, rep_ordinal: i + 1, band_axis: null, band: null, prescribed_incline_pct: null });
     });
     const l = leerCarrera(detalle({ items: [item('seg-1', null)], actuals, compliance: cumplimiento(tramos) }))!;
     expect(l.sujeto.clase).toBe('tiempo-por-tramo');
@@ -300,6 +302,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             rep_ordinal: 1,
             band_axis: 'pace',
             band: { axis: 'pace', fast_s: 280, slow_s: 290 },
+            prescribed_incline_pct: null,
           },
         ]),
       }),
@@ -327,6 +330,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             rep_ordinal: i + 1,
             band_axis: null,
             band: null,
+            prescribed_incline_pct: null,
           })),
         ),
       }),
@@ -398,6 +402,7 @@ describe('la banda y lo derivado se LEEN del servidor, no se recalculan', () => 
             rep_ordinal: i + 1,
             band_axis: 'hr' as const,
             band: { axis: 'hr' as const, min_bpm: 140, max_bpm: 160 },
+            prescribed_incline_pct: null,
           })),
         ),
       }),
@@ -423,6 +428,7 @@ describe('la banda y lo derivado se LEEN del servidor, no se recalculan', () => 
             rep_ordinal: i + 1,
             band_axis: 'pace' as const,
             band: { axis: 'pace' as const, fast_s: 201, slow_s: 219 },
+            prescribed_incline_pct: null,
           })),
         ),
       }),

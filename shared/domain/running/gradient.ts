@@ -31,54 +31,14 @@
 // trata como si la pendiente SÍ importara — el mismo criterio que "sin
 // banda → sin_dato" en todo este bloque de trabajo, nunca "sin dato, así
 // que asumo llano").
+//
+// La interpolación (serie ordenada + valor-en-instante, con el mismo criterio
+// de hueco máximo) vive ahora en `timed-series.ts` — compartida con
+// `route-zones.ts`, que necesita la misma pregunta para la velocidad. Ver la
+// cabecera de ese fichero para el porqué de la extracción y lo que se dejó
+// sin tocar a propósito.
 
-/** Mismo umbral que `km-splits.ts` (`MAX_INTERPOLATION_GAP_S`): un hueco de
- *  señal más ancho que esto no se interpola — sería inventar la pendiente
- *  del tramo sobre un silencio de GPS, no medirla. */
-const MAX_INTERPOLATION_GAP_S = 120;
-
-interface TimedPoint {
-  readonly t: number;
-  readonly v: number;
-}
-
-function toSortedPoints(offsets_s: readonly number[], values: readonly number[]): TimedPoint[] {
-  const n = Math.min(offsets_s.length, values.length);
-  const points: TimedPoint[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = offsets_s[i];
-    const v = values[i];
-    if (t == null || v == null || !Number.isFinite(t) || !Number.isFinite(v)) continue;
-    points.push({ t, v });
-  }
-  points.sort((a, b) => a.t - b.t);
-  return points;
-}
-
-/**
- * Altitud interpolada LINEALMENTE en el instante `t`. Null cuando `t` cae
- * fuera de lo cubierto por las muestras (antes de la primera o después de
- * la última — extrapolar sería inventar), o cuando el hueco que lo rodea
- * supera `MAX_INTERPOLATION_GAP_S`.
- */
-function altitudeAt(points: readonly TimedPoint[], t: number): number | null {
-  if (points.length === 0) return null;
-  const first = points[0]!;
-  const last = points[points.length - 1]!;
-  if (t < first.t || t > last.t) return null;
-  if (t === first.t) return first.v;
-  if (t === last.t) return last.v;
-  for (let i = 1; i < points.length; i++) {
-    const cur = points[i]!;
-    if (cur.t < t) continue;
-    const prev = points[i - 1]!;
-    if (cur.t - prev.t > MAX_INTERPOLATION_GAP_S) return null;
-    if (cur.t === prev.t) return prev.v;
-    const frac = (t - prev.t) / (cur.t - prev.t);
-    return prev.v + frac * (cur.v - prev.v);
-  }
-  return null; // inalcanzable con first/last ya comprobados, pero explícito
-}
+import { toSortedPoints, valueAtTime } from './timed-series';
 
 /**
  * El cambio NETO de altitud (metros, con signo — positivo = subió) entre el
@@ -92,8 +52,8 @@ export function netAltitudeChangeM(
   window_end_s: number,
 ): number | null {
   const points = toSortedPoints(altitude.offsets_s, altitude.values);
-  const start = altitudeAt(points, window_start_s);
-  const end = altitudeAt(points, window_end_s);
+  const start = valueAtTime(points, window_start_s);
+  const end = valueAtTime(points, window_end_s);
   if (start == null || end == null) return null;
   return end - start;
 }

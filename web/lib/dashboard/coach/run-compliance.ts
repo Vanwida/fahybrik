@@ -105,6 +105,18 @@ export interface RunComplianceTramo {
    * obligaba a repetirla del otro lado para tener los números.
    */
   band: ComplianceBand | null;
+  /**
+   * La pendiente que el COACH PIDIÓ para este tramo (`Segment.incline_pct`,
+   * 0-15, la gramática de #61) — no confundir con las otras dos pendientes
+   * del dominio: `SegmentActual.incline_pct` es lo que la CINTA declaró al
+   * ejecutar, y `avg_gradient_pct` es lo MEDIDO (cinta o altitud derivada,
+   * `shared/domain/running/gradient.ts`). Esta es la ÚNICA de las tres que
+   * no depende de haber medido nada — por eso el corrector puede retirar el
+   * veredicto de ritmo de una cuesta prescrita aunque la sesión no tenga
+   * traza. Null cuando el tramo no prescribió inclinación, o cuando no hay
+   * un `Segment` alineado del que leerla (mismos casos que `rep_ordinal`).
+   */
+  prescribed_incline_pct: number | null;
 }
 
 /** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
@@ -235,6 +247,13 @@ function prescribedDurationS(seg: Segment | undefined): number | null {
   return seg?.measure.type === 'duration' ? seg.measure.s : null;
 }
 
+// La pendiente PRESCRITA de un tramo (`Segment.incline_pct`, opcional en la
+// gramática) — `undefined` cuando el coach no la fijó se normaliza a `null`
+// para el wire, mismo trato que el resto de campos opcionales de este fichero.
+function prescribedInclinePct(seg: Segment | undefined): number | null {
+  return seg?.incline_pct ?? null;
+}
+
 // Cuántos segmentos 'work' hay en `all[0..=idx]` — el ordinal 1-based de ESTE
 // tramo entre los de trabajo de su mismo item. Puramente posicional: la
 // prescripción ya fija el orden, así que no hace falta arrastrar un contador
@@ -306,8 +325,18 @@ export function buildRunCompliance(
     duration_verdict: WorkDurationVerdict | null = null,
     rep_ordinal: number | null = null,
     band: ComplianceBand | null = null,
+    prescribed_incline_pct: number | null = null,
   ) => {
-    tramos.push({ item_uid, position, verdict, duration_verdict, rep_ordinal, band_axis: band?.axis ?? null, band });
+    tramos.push({
+      item_uid,
+      position,
+      verdict,
+      duration_verdict,
+      rep_ordinal,
+      band_axis: band?.axis ?? null,
+      band,
+      prescribed_incline_pct,
+    });
     verdicts.push(verdict);
     if (duration_verdict != null) workDurationVerdicts.push(duration_verdict);
   };
@@ -400,6 +429,7 @@ export function buildRunCompliance(
             durationVerdict,
             seg && seg.kind === 'work' ? workOrdinal(all, a.leg_index!) : null,
             band,
+            prescribedInclinePct(seg),
           );
         }
         continue;
@@ -435,6 +465,7 @@ export function buildRunCompliance(
             durationVerdict,
             i + 1,
             band,
+            prescribedInclinePct(seg),
           );
         });
       } else {
