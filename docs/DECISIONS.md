@@ -105,18 +105,28 @@ respetar al portarlo a Swift:
   pidió. Un objetivo de zona se dibuja sobre el **pulso**, que es la señal que lo
   mide; dibujarle una banda de ritmo sería enseñar una comparación que nadie hizo.
   En un esfuerzo continuo sí abarca todo el ancho, porque todo el rato aplicaba.
-- **El eje de la curva lo fijan el TRABAJO y lo CONTINUO** (calentamiento, vuelta
-  a la calma, el cuerpo de un rodaje). **Una recuperación solo ensancha el eje si
-  cabe dentro**; lo que no cabe se dibuja igual, a puntos y pegado al suelo, con
-  la leyenda diciendo que ahí se sale de escala. Sin eso, bajar andando de una
-  cuesta estira el eje de 3:36 a 12:34 y aplasta las ocho repeticiones contra el
-  borde, dejando ilegible justo lo que hay que leer.
-  La primera redacción de esta regla decía «el eje se escala al rango del
-  trabajo», a secas, y **estaba mal**: en una serie el calentamiento va mucho más
-  lento que las repeticiones, así que ceñir el eje al trabajo habría convertido
-  «seis picos que nacen de un rodaje» en «seis mesetas flotando sobre una línea de
-  puntos». Rompía las gráficas buenas para arreglar la mala. Se anota el error
-  porque la versión corta suena razonable y alguien la reintroducirá.
+- **El eje de la curva lo fija LO QUE SE CORRIÓ. Andar y parar no es correr.**
+  Parado no tiene ritmo y ya era un hueco. Andar es otra forma de moverse: 11:40
+  al lado de subidas a 4:30 no es un ritmo lento, es otra actividad — se dibuja
+  igual, a puntos y pegada al suelo, con la leyenda diciendo que se sale de
+  escala, pero no ensancha el eje. Trotar **sí** es correr: un trote a 6:10 entre
+  series a 3:30 entra en el eje, con su franja y su veredicto, porque además suele
+  ser LA explicación de que la quinta repetición se caiga. Suelo: si no se corrió
+  nada, el eje lo fija lo que haya.
+  Sale de `modo`, que ya está en el modelo, así que **no hay ningún umbral que
+  ajustar nunca**.
+
+  **Esta regla se afinó tres veces y las dos primeras versiones suenan
+  razonables, así que alguien las reintroducirá. Quedan anotadas como erróneas:**
+  1. «El eje se escala al rango del trabajo» — mal: en una serie el calentamiento
+     va mucho más lento que las repeticiones, así que ceñirlo al trabajo convierte
+     «seis picos que nacen de un rodaje» en «seis mesetas flotando». Rompía las
+     gráficas buenas para arreglar la mala.
+  2. «El trabajo y lo continuo; la recuperación entra solo si cabe» — mejor, pero
+     apuntaba al PAPEL del tramo, que era una correlación, no la causa. Medido: el
+     escenario estrella se salvaba **por dos segundos** y el de cinta ya salía
+     roto, con el trote punteado en el suelo. Cualquier atleta que trote un poco
+     más suave lo tiraba fuera.
 - **Ninguna casilla vacía y ningún guion de relleno.** Si falta cobertura se dice
   por qué. Una sesión anterior al archivo enseña sus totales y una frase que lo
   explica, no una pantalla con huecos.

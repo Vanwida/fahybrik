@@ -9,7 +9,8 @@ import type { ReactNode } from 'react';
 import type { Zona } from '../../kit-vivo';
 import { distancia, esDecimal, reloj, ritmoKm } from '../../kit-composicion/formato';
 import { R, S } from '../../kit-composicion/tokens';
-import { TONO_VEREDICTO, VOZ_ATLETA, type Carrera, type Kilometro, type Lectura, type Repeticion } from './modelo';
+import type { Carrera, Kilometro, Lectura, Repeticion } from './modelo';
+import { TONO_VEREDICTO, VOZ_ATLETA } from './voz';
 import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 
 // ---------------------------------------------------------------------------
@@ -37,36 +38,44 @@ export function Seccion({ titulo, nota, children }: { titulo: string; nota?: str
 // ---------------------------------------------------------------------------
 
 /**
- * Las recuperaciones NO son filas: son la costura entre dos series.
+ * LA RECUPERACIÓN TIENE DATOS, y hay que poder leerlos.
  *
- * El motor de veredicto ya las excluye a propósito (un trote de vuelta no tiene
- * banda de trabajo contra la que medirse), así que darles el mismo peso visual
- * que a una serie las convertiría en algo que se juzga. Van entre medias, en
- * gris y en una línea — presentes, porque el atleta quiere saber si respetó el
- * descanso, y nunca juzgadas.
+ * La primera versión la dejaba en una línea gris sin cifras, y para un «2′
+ * parado» era correcto: de pie no hay ritmo que enseñar. Pero en carrera **el
+ * parado rara vez se hace**: lo normal es un trote a otra intensidad, y ese
+ * trote tiene ritmo, pulso y a menudo su propio objetivo. Irse rápido en él es
+ * exactamente lo que explica que la quinta serie se caiga (Alex, 12-ago).
+ *
+ * Sigue sin pesar como el trabajo —el sujeto de la sesión es el trabajo, y eso
+ * no cambia—: la fila del trote va sin superficie, con la cifra un escalón por
+ * debajo y sangrada bajo la serie que cierra. Se lee; no compite.
  */
 export function TablaRepeticiones({
   repeticiones,
   veredictos,
+  veredictosRecuperacion,
   eje,
   certeza,
 }: {
   repeticiones: Repeticion[];
   veredictos: RunComplianceVerdict[];
+  veredictosRecuperacion: RunComplianceVerdict[];
   eje: Lectura['eje'];
   certeza: Carrera['certezaTramos'];
 }) {
-  // El veredicto llega en una lista SOLO de tramos de trabajo (el motor excluye
-  // las recuperaciones), así que hay que saber por qué trabajo va cada fila
-  // antes de pintar — contarlo mientras se renderiza sería llevar estado.
-  const trabajos = repeticiones.filter((r) => r.papel === 'trabajo');
-  const posicion = new Map(trabajos.map((r, i) => [r, i]));
+  // Los veredictos llegan en dos listas paralelas —trabajo y recuperación—, así
+  // que hay que saber qué posición ocupa cada fila dentro de la suya antes de
+  // pintar: contarlo mientras se renderiza sería llevar estado.
+  const posicion = new Map<Repeticion, number>();
+  let t = 0;
+  let rec = 0;
+  for (const r of repeticiones) posicion.set(r, r.papel === 'trabajo' ? t++ : rec++);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {repeticiones.map((r, k) =>
         r.papel === 'recuperacion' ? (
-          <Recuperacion key={k} r={r} />
+          <Recuperacion key={k} r={r} veredicto={veredictosRecuperacion[posicion.get(r) ?? -1] ?? null} />
         ) : (
           <FilaRepeticion key={k} r={r} veredicto={veredictos[posicion.get(r) ?? -1] ?? null} eje={eje} />
         ),
@@ -116,19 +125,45 @@ const MODO_RECUPERACION: Record<NonNullable<Repeticion['modo']>, string> = {
   parado: 'parado',
 };
 
-function Recuperacion({ r }: { r: Repeticion }) {
+/**
+ * LA ASIMETRÍA, y es de dominio: **irse RÁPIDO en una recuperación es el fallo
+ * que importa; irse lento es casi siempre irrelevante.** Un trote más suave de
+ * lo pedido no rompe nada; uno más fuerte se come la serie siguiente. Así que
+ * solo se marca el que va rápido — pintar los dos igual sería decirle al atleta
+ * que trotar despacio es un error, que es mentira.
+ */
+function Recuperacion({ r, veredicto }: { r: Repeticion; veredicto: RunComplianceVerdict | null }) {
   // Parado no tiene ritmo, y no se le inventa uno. Trotando sí, y es dato: es la
   // diferencia entre respetar la recuperación y correrla.
-  const detalle = [
-    reloj(r.duracionS),
-    r.modo ? MODO_RECUPERACION[r.modo] : null,
-    r.ritmoSkm != null ? `a ${ritmoKm(r.ritmoSkm)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const seFue = veredicto === 'fuera_rapido';
+  const detalle = [reloj(r.duracionS), r.modo ? MODO_RECUPERACION[r.modo] : null].filter(Boolean).join(' ');
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: S.s, padding: '3px 10px 3px 34px' }}>
-      <span style={{ font: '500 11px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{detalle}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: S.s, padding: '4px 10px 4px 34px' }}>
+      <span style={{ flex: 1, minWidth: 0, font: '500 11px/1.2 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
+        {detalle}
+      </span>
+      {r.ritmoSkm != null && (
+        <span
+          style={{
+            font: '600 13px/1 var(--twin-font-mono)',
+            fontVariantNumeric: 'tabular-nums',
+            color: seFue ? 'var(--twin-warning)' : 'var(--twin-muted)',
+          }}
+        >
+          {ritmoKm(r.ritmoSkm)}
+        </span>
+      )}
+      {r.fcMediaPpm != null && (
+        <span style={{ width: 42, textAlign: 'right', font: '500 11px/1 var(--twin-font-mono)', color: 'var(--twin-faint)' }}>
+          {r.fcMediaPpm}
+        </span>
+      )}
+      {/* Solo el que se fue rápido lleva marca. El lento no es un hallazgo. */}
+      {seFue && (
+        <span style={{ font: '600 10px/1 var(--twin-font-sans)', color: 'var(--twin-warning)', whiteSpace: 'nowrap' }}>
+          Te fuiste
+        </span>
+      )}
     </div>
   );
 }

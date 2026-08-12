@@ -120,7 +120,22 @@ function duracionDe(p: Paso): number {
   return 0;
 }
 
-export function generar(guion: Paso[], conRuta: boolean): Generada {
+/**
+ * Dónde se corrió. No es decorado: cambia DOS cosas de la señal.
+ *
+ *  · `calle` — la distancia la da el GPS, con su temblor de posición, y hay ruta.
+ *  · `cinta` — la distancia la da la CINTA, que es más estable que el GPS, y no
+ *    hay ruta ninguna. Por eso el ruido baja a una fracción y la curva sale con
+ *    mesetas limpias: una cinta sostiene el ritmo que le pones.
+ */
+export type Superficie = 'calle' | 'cinta';
+
+/** Cuánto del temblor del GPS conserva una cinta. Casi nada, y por eso se nota. */
+const RUIDO_EN_CINTA = 0.15;
+
+export function generar(guion: Paso[], superficie: Superficie): Generada {
+  const conRuta = superficie === 'calle';
+  const escalaRuido = superficie === 'cinta' ? RUIDO_EN_CINTA : 1;
   const ritmo: Muestra[] = [];
   const pulso: Muestra[] = [];
   const repeticiones: Repeticion[] = [];
@@ -163,7 +178,9 @@ export function generar(guion: Paso[], conRuta: boolean): Generada {
       const skm =
         base == null
           ? null
-          : base + onda(RUIDO_RAPIDO_PERIODO_S) * RUIDO_RAPIDO_SKM + onda(RUIDO_LENTO_PERIODO_S) * RUIDO_LENTO_SKM;
+          : base +
+            (onda(RUIDO_RAPIDO_PERIODO_S) * RUIDO_RAPIDO_SKM + onda(RUIDO_LENTO_PERIODO_S) * RUIDO_LENTO_SKM) *
+              escalaRuido;
       // La onda del pulso se suma FUERA del filtro: metida dentro, la inercia la
       // realimenta y el ±1,5 ppm que sale se dibuja como una lima sobre un eje
       // de 25 ppm. Un pulso ondula despacio, no vibra.

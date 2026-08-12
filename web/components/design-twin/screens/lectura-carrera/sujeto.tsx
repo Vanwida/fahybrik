@@ -12,7 +12,8 @@
 import type { ReactNode } from 'react';
 import { EtiquetaSujeto, Numeral, colorZona } from '../../kit-vivo';
 import { esDecimal, reloj, ritmoKm } from '../../kit-composicion/formato';
-import { fraseSesgo, type Carrera, type Lectura } from './modelo';
+import type { Carrera, Lectura } from './modelo';
+import { fraseSesgo } from './voz';
 import { Pastilla } from './piezas';
 
 /** Las dos voces del mismo veredicto. Es tono, no dato. */

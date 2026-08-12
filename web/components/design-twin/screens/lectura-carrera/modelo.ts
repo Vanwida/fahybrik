@@ -109,6 +109,13 @@ export interface Carrera {
   /** La línea del coach, tal y como la escribió. Nula = entreno libre. */
   prescrito: string | null;
   objetivo: Objetivo;
+  /**
+   * Lo que el coach pidió PARA LA RECUPERACIÓN. En carrera el «parado» rara vez
+   * se hace: lo habitual es un trote a otra intensidad, y ese trote se prescribe
+   * igual que el trabajo. Ausente = la recuperación no llevaba objetivo (o fue
+   * parada, que no tiene ritmo que juzgar).
+   */
+  objetivoRecuperacion?: Objetivo;
   superficie: 'calle' | 'cinta';
   distanciaM: number;
   duracionS: number;
@@ -226,6 +233,24 @@ export interface Lectura {
     | null;
   /** Veredicto por repetición de TRABAJO, en orden. Vacío si no hay banda. */
   veredictos: RunComplianceVerdict[];
+  /**
+   * Lo mismo para las RECUPERACIONES, cuando el coach les puso objetivo.
+   *
+   * Hoy el motor de cumplimiento del panel las salta —`buildRunCompliance` las
+   * excluye a propósito—, así que un trote prescrito no se comprueba nunca. Eso
+   * es un bug del CABLE, no del motor: `evaluateRunSegment` juzga cualquier par
+   * de banda y muestra, y aquí se le llama igual que para el trabajo. Cuando el
+   * cable se arregle, esta pantalla no cambia.
+   *
+   * LA ASIMETRÍA, que es de dominio y no de dibujo: en una recuperación **irse
+   * RÁPIDO es el fallo que importa** —es lo que explica que la quinta serie se
+   * caiga— e irse lento es casi siempre irrelevante. Quien pinte esto no puede
+   * tratarlos igual.
+   */
+  veredictosRecuperacion: RunComplianceVerdict[];
+  /** La franja del trote, dibujada en sus propias ventanas. Nunca solapa con la
+   *  del trabajo: son tramos distintos del mismo eje de tiempo. */
+  bandaRecuperacion: { rapidoSkm: number; lentoSkm: number } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,6 +316,20 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
   const trabajo = trabajos(c);
   const banda = bandaDe(c.objetivo);
 
+  // La recuperación se juzga con el MISMO motor que el trabajo: `evaluateRunSegment`
+  // no distingue, es el cable del panel el que hoy la salta. Sin traza no hay nada
+  // que juzgar, y una recuperación PARADA no tiene ritmo que comparar.
+  const objRec = c.objetivoRecuperacion;
+  const recuperaciones = c.repeticiones.filter((r) => r.papel === 'recuperacion');
+  const conTrote = { 
+    bandaRecuperacion:
+      objRec?.clase === 'ritmo' ? { rapidoSkm: objRec.rapidoSkm, lentoSkm: objRec.lentoSkm } : null,
+    veredictosRecuperacion:
+      objRec && c.traza ? recuperaciones.map((r) => veredictoDe(r, objRec)) : [],
+  };
+  /** En cuesta el ritmo no se compara: se retira también el del paseo de bajada. */
+  const sinTrote = { bandaRecuperacion: null, veredictosRecuperacion: [] };
+
   // ── Sin archivo: no hay curva, no hay tramos, no hay kilómetros ────────────
   if (!c.traza) {
     return {
@@ -306,6 +345,7 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
       eje: 'ritmo',
       banda: null,
       veredictos: [],
+      ...sinTrote,
     };
   }
 
@@ -331,6 +371,7 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
         eje: 'tiempo',
         banda: null,
         veredictos: [],
+        ...sinTrote,
       };
     }
 
@@ -352,6 +393,7 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
           eje: 'ritmo',
           banda,
           veredictos,
+          ...conTrote,
         };
       }
     }
@@ -374,6 +416,7 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
         eje: 'ritmo',
         banda: null,
         veredictos: [],
+        ...conTrote,
       };
     }
   }
@@ -395,6 +438,7 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
         eje: 'ritmo',
         banda,
         veredictos: [],
+        ...conTrote,
       };
     }
   }
@@ -419,41 +463,11 @@ export function lecturaDeCorrer(c: Carrera): Lectura {
     eje: 'ritmo',
     banda,
     veredictos: [],
+    ...conTrote,
   };
 }
 
 /** La media geométrica de la sesión entera: distancia contra tiempo. */
 function mediaDeLaSesion(c: Carrera): number {
   return c.duracionS / (c.distanciaM / 1000);
-}
-
-// ---------------------------------------------------------------------------
-// Vocabulario del veredicto — el MECANISMO es compartido, la VOZ es de aquí
-// ---------------------------------------------------------------------------
-
-/**
- * `RUN_COMPLIANCE_LABEL` es del panel del coach («En banda», «Más rápido»). El
- * atleta habla de SUS repeticiones, que son femeninas y no llevan la palabra
- * «banda» en la cabeza. Mismo veredicto, misma clasificación, otra boca.
- */
-export const VOZ_ATLETA: Record<RunComplianceVerdict, string> = {
-  dentro: 'Dentro',
-  fuera_rapido: 'Más rápida',
-  fuera_lento: 'Más lenta',
-  sin_dato: 'Sin medir',
-};
-
-export const TONO_VEREDICTO: Record<RunComplianceVerdict, string> = {
-  dentro: 'var(--twin-ok)',
-  fuera_rapido: 'var(--twin-warning)',
-  fuera_lento: 'var(--twin-warning)',
-  sin_dato: 'var(--twin-muted)',
-};
-
-/** Cómo se cuenta lo que se salió, en una línea de gimnasio. */
-export function fraseSesgo(sesgo: Sesgo | null, fuera: number): string | null {
-  if (sesgo == null || fuera === 0) return null;
-  const cuantas = fuera === 1 ? 'La que se salió' : `Las ${fuera} que se salieron`;
-  if (sesgo === 'mixto') return `${cuantas} se fueron por los dos lados`;
-  return `${cuantas} ${fuera === 1 ? 'fue' : 'fueron'} ${sesgo === 'lento' ? 'más lenta' : 'más rápida'}${fuera === 1 ? '' : 's'}`;
 }

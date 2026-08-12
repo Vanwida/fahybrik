@@ -63,7 +63,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'series-veredicto',
     titulo: '① 6×800 · A · manda el veredicto',
     descripcion:
-      'El número grande es «5 de 6 dentro» y debajo va hacia dónde falló la que se salió. La app te pone nota al terminar. Compáralo con B: el dato es idéntico.',
+      'El número grande es «5 de 6 dentro» y debajo va hacia dónde falló la que se salió. Recuperación TROTANDO con su propio objetivo, que es lo que se hace de verdad: mira el tercer y el cuarto trote, que se fueron a 5:48 pidiéndole 6:00-6:20, y mira lo que le pasa a la quinta serie.',
   },
   {
     id: 'series-hecho',
@@ -106,6 +106,18 @@ export const escenarios: TwinEscenario[] = [
     titulo: '⑦ Sesión antigua, sin archivo',
     descripcion:
       'El estado de TODAS las sesiones anteriores a esta semana. Sin curva, sin kilómetros, sin mapa y sin nada derivado: una frase que lo explica y los totales que sí existen.',
+  },
+  {
+    id: 'series-cinta',
+    titulo: '⑧ El mismo 6×800, en cinta',
+    descripcion:
+      'Mismo guion que el ①: lo único que cambia es dónde corrió. La distancia la sella la correa, el mapa no existe y no se declara (en cinta no hay nada que hacer para tenerlo), y la curva sale con mesetas limpias porque una cinta sostiene el ritmo.',
+  },
+  {
+    id: 'series-parado',
+    titulo: '⑨ La misma serie, parado',
+    descripcion:
+      'El caso raro, que existe y hay que poder leer: repeticiones cortas y máximas donde sí se para. Sin ritmo en la recuperación no hay nada que juzgar ni franja que dibujar, y la curva se parte en seis islas. Va de menor porque no es lo que se hace el 90% de las veces.',
   },
 ];
 
@@ -172,6 +184,7 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
               <TablaRepeticiones
                 repeticiones={carrera.repeticiones}
                 veredictos={lectura.veredictos}
+                veredictosRecuperacion={lectura.veredictosRecuperacion}
                 eje={lectura.eje}
                 certeza={carrera.certezaTramos}
               />
@@ -316,7 +329,37 @@ function Contexto({ carrera, lectura }: { carrera: Carrera; lectura: Lectura }) 
           </span>
         </span>
       ))}
+      {carrera.superficie === 'cinta' && <SelloCinta />}
     </div>
+  );
+}
+
+/**
+ * DE DÓNDE SALE LA DISTANCIA, y no es un detalle: un 5K en cinta no bate al de
+ * calle. La correa mide su propio recorrido, así que la cifra de arriba no la ha
+ * puesto el GPS y eso tiene que verse pegado a ella.
+ *
+ * En sans y no en la mono del readout, a propósito: «en cinta» no es una cifra, y
+ * monoespacearlo lo disfrazaría de medida (§4 del CONTRATO-UI). En calle NO hay
+ * sello: lo de siempre no se anuncia.
+ */
+function SelloCinta() {
+  return (
+    <span
+      style={{
+        alignSelf: 'center',
+        padding: '3px 8px',
+        borderRadius: 999,
+        border: '1px solid var(--twin-hairline-strong)',
+        font: '600 10px/1 var(--twin-font-sans)',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        color: 'var(--twin-muted)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      En cinta
+    </span>
   );
 }
 

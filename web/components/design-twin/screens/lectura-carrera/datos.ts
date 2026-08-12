@@ -11,21 +11,50 @@
 // base tiene aún traza de correr; el escenario `sin-archivo` es el único que
 // reproduce lo que la base puede servir HOY, y por eso es obligatorio.
 
-import type { Carrera } from './modelo';
+import type { Carrera, Objetivo } from './modelo';
 import { bandaDeZona, generar, suelto, type Paso } from './senal';
 
 // ---------------------------------------------------------------------------
 // Los guiones
 // ---------------------------------------------------------------------------
 
-/** 6 × 800 a 3:30 con 2′ parado. La quinta se va: sale a 3:44. */
+/**
+ * 6 × 800 a 3:30 con 2′ de TROTE entre series. La quinta se va: sale a 3:44.
+ *
+ * El trote y no el parado, porque en carrera **el parado rara vez se hace**:
+ * existe y es legítimo en repeticiones cortas y máximas, pero lo habitual es
+ * recuperar cambiando de ritmo. Montar el caso raro como ejemplo canónico era
+ * enseñar mal cómo se construye esto en Swift (Alex, 12-ago).
+ *
+ * Y el trote SE VA: 5:48 en el tercero y el cuarto contra los 6:10 que pidió el
+ * coach. Ahí está la explicación de que la quinta se caiga, y es justo lo que
+ * ninguna app puede contar porque ninguna sabe qué trote se pidió.
+ */
 const OCHOCIENTOS_SKM = [208, 210, 209, 212, 224, 213];
+const TROTE_SKM = [372, 368, 348, 344, 366];
 function guionSeries(): Paso[] {
   const g: Paso[] = [suelto(720, 336, 128, 324)];
   OCHOCIENTOS_SKM.forEach((skm, i) => {
     g.push({ papel: 'trabajo', distanciaM: 800, skm, ppm: 172 + i });
     // Tras la última no hay recuperación: hay vuelta a la calma. Meter un
-    // «2:00 parado» detrás de la sexta sería inventar un tramo que nadie corrió.
+    // «2:00 de trote» detrás de la sexta sería inventar un tramo que nadie corrió.
+    if (i < OCHOCIENTOS_SKM.length - 1) {
+      g.push({ papel: 'recuperacion', modo: 'trote', dur: 120, skm: TROTE_SKM[i]!, ppm: 148 + i * 2 });
+    }
+  });
+  g.push(suelto(480, 340, 124, 352));
+  return g;
+}
+
+/**
+ * El MISMO 6×800 con recuperación PARADA — el caso raro, que existe y hay que
+ * poder leer: sin ritmo que enseñar ni que juzgar, y con el hueco de la curva
+ * cayendo a cero porque de pie no se avanza.
+ */
+function guionSeriesParado(): Paso[] {
+  const g: Paso[] = [suelto(720, 336, 128, 324)];
+  OCHOCIENTOS_SKM.forEach((skm, i) => {
+    g.push({ papel: 'trabajo', distanciaM: 800, skm, ppm: 172 + i });
     if (i < OCHOCIENTOS_SKM.length - 1) {
       g.push({ papel: 'recuperacion', modo: 'parado', dur: 120, skm: null, ppm: 138 });
     }
@@ -107,22 +136,32 @@ function guionLibre(): Paso[] {
 // Las siete carreras
 // ---------------------------------------------------------------------------
 
-const series = generar(guionSeries(), true);
-const fartlek = generar(guionFartlek(), true);
-const rodajeZona = generar(guionRodajeZona(), true);
-const rodajeBanda = generar(guionRodajeBanda(), true);
-const cuesta = generar(guionCuesta(), true);
-const libre = generar(guionLibre(), true);
+const series = generar(guionSeries(), 'calle');
+const fartlek = generar(guionFartlek(), 'calle');
+const rodajeZona = generar(guionRodajeZona(), 'calle');
+const rodajeBanda = generar(guionRodajeBanda(), 'calle');
+const cuesta = generar(guionCuesta(), 'calle');
+const libre = generar(guionLibre(), 'calle');
+// EL MISMO 6×800, en cinta. Mismo guion a propósito: si algo cambia en pantalla
+// solo puede ser por la superficie, y así se ve que el veredicto no depende de
+// dónde corras. Lo que sí cambia es la SEÑAL — una cinta sostiene el ritmo.
+const seriesCinta = generar(guionSeries(), 'cinta');
+const seriesParado = generar(guionSeriesParado(), 'calle');
+
+/** «2′ de trote a 6:00-6:20» — la banda de la recuperación, prescrita igual que
+ *  la del trabajo. El coach la escribe, así que se puede comprobar. */
+const TROTE_PEDIDO: Objetivo = { clase: 'ritmo', rapidoSkm: 360, lentoSkm: 380 };
 
 /** El 6×800, que se sirve con DOS sujetos para que Alex elija viendo. */
 const SEIS_POR_OCHOCIENTOS: Carrera = {
   titulo: '6 × 800',
   cuando: 'Hoy',
   momento: 'al-terminar',
-  prescrito: '6 × 800 m a 3:30 · 2′ parado entre series',
+  prescrito: '6 × 800 m a 3:30 · 2′ de trote a 6:00-6:20',
   // «a 3:30» es un punto: la banda sale de ensancharlo ±5 s/km, la tolerancia
   // que `paceBandFromTarget` aplica en producción. 3:25 a 3:35.
   objetivo: { clase: 'ritmo', rapidoSkm: 205, lentoSkm: 215 },
+  objetivoRecuperacion: TROTE_PEDIDO,
   superficie: 'calle',
   fcMediaPpm: series.fcMediaPpm,
   fcMaxPpm: series.fcMaxPpm,
@@ -265,6 +304,69 @@ export const ESCENAS: Record<string, Carrera> = {
     distanciaM: libre.distanciaM,
     duracionS: libre.duracionS,
     procedencia: 'Señal ilustrativa. Los dos apretones no los prescribió nadie: se detectan del ritmo, y la pantalla lo dice.',
+  },
+
+  // ⑧ LA MISMA SERIE, EN CINTA. El mismo guion que ① a propósito: lo único que
+  // cambia es dónde se corrió, así que todo lo que se vea distinto en pantalla
+  // es atribuible a la superficie y a nada más. Enseña tres cosas que ninguno de
+  // los otros siete puede enseñar:
+  //   · la DISTANCIA la da la cinta, no el GPS, y eso se sella — un 5K en cinta
+  //     no bate al de calle;
+  //   · el mapa NO existe, y no se declara: en cinta no hay ningún acto que
+  //     llene ese hueco, así que la regla del §6.2 bis manda callarse;
+  //   · la señal es otra — una cinta sostiene el ritmo que le pones, y la curva
+  //     sale con mesetas limpias en vez del temblor del GPS.
+  'series-cinta': {
+    titulo: '6 × 800 en cinta',
+    cuando: 'Hoy',
+    momento: 'al-terminar',
+    prescrito: '6 × 800 m a 3:30 · 2′ de trote a 6:00-6:20',
+    objetivo: { clase: 'ritmo', rapidoSkm: 205, lentoSkm: 215 },
+    objetivoRecuperacion: TROTE_PEDIDO,
+    superficie: 'cinta',
+    fcMediaPpm: seriesCinta.fcMediaPpm,
+    fcMaxPpm: seriesCinta.fcMaxPpm,
+    // Cinta sin inclinación: no hay desnivel que acumular. No es un dato que
+    // falte, es un dato que no existe — y por eso no se pinta ni se declara.
+    desnivelM: null,
+    traza: seriesCinta.traza,
+    repeticiones: seriesCinta.repeticiones,
+    certezaTramos: 'marcados',
+    kilometros: seriesCinta.kilometros,
+    zonasS: seriesCinta.zonasS,
+    derivado: { bajadaPulsoPpm: 31 },
+    ruta: [],
+    distanciaM: seriesCinta.distanciaM,
+    duracionS: seriesCinta.duracionS,
+    procedencia:
+      'Mismo guion que el ①, con la señal de una cinta: la distancia la mide la correa (source=treadmill), no el GPS, y no hay ruta que dibujar.',
+  },
+
+  // ⑨ EL CASO RARO, y por eso va de menor: la misma serie recuperando PARADA.
+  // Existe y es legítimo en repeticiones cortas y máximas, así que hay que poder
+  // leerlo — pero no es el ejemplo canónico. Sin ritmo en el trote no hay nada
+  // que juzgar ahí, y la curva se parte en seis islas.
+  'series-parado': {
+    titulo: '6 × 800',
+    cuando: 'Hoy',
+    momento: 'al-terminar',
+    prescrito: '6 × 800 m a 3:30 · 2′ parado entre series',
+    objetivo: { clase: 'ritmo', rapidoSkm: 205, lentoSkm: 215 },
+    superficie: 'calle',
+    fcMediaPpm: seriesParado.fcMediaPpm,
+    fcMaxPpm: seriesParado.fcMaxPpm,
+    desnivelM: 24,
+    traza: seriesParado.traza,
+    repeticiones: seriesParado.repeticiones,
+    certezaTramos: 'marcados',
+    kilometros: seriesParado.kilometros,
+    zonasS: seriesParado.zonasS,
+    derivado: { bajadaPulsoPpm: 34 },
+    ruta: seriesParado.ruta,
+    distanciaM: seriesParado.distanciaM,
+    duracionS: seriesParado.duracionS,
+    procedencia:
+      'El mismo 6×800 del ① recuperando de pie. Sin objetivo de recuperación: parado no hay ritmo que comparar, y no se inventa uno.',
   },
 
   // ⑦ OBLIGATORIO: el estado de TODAS las sesiones anteriores a esta semana.
