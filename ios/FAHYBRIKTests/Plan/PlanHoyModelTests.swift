@@ -128,6 +128,23 @@ final class PlanHoyModelTests: XCTestCase {
         XCTAssertNil(PosicionEnBloque.desde(etiqueta: "semana 7 de 4"), "Una semana fuera del bloque no es una posición")
     }
 
+    func testLaFormaCortaDelPlanDirectoTraePosicionSinTotal() {
+        // «semana 3» a secas: el plan directo (sin cadena) sí sabe en qué semana
+        // va, pero su total no es un hecho y no se inventa (Alex, 12-ago).
+        let p = PosicionEnBloque.desde(etiqueta: "semana 3")
+        XCTAssertEqual(p?.semana, 3)
+        XCTAssertNil(p?.total)
+        XCTAssertEqual(p?.texto, "Semana 3")
+    }
+
+    func testLaFormaCompletaGanaALaCortaYUnaContradictoriaNoDegrada() {
+        // Sobre la forma completa, la corta también casaría: el orden importa.
+        XCTAssertEqual(PosicionEnBloque.desde(etiqueta: "Base 1 · semana 2 de 4")?.total, 4)
+        // Y una etiqueta contradictoria no se «rescata» quedándose solo con el N.
+        XCTAssertNil(PosicionEnBloque.desde(etiqueta: "semana 7 de 4"))
+        XCTAssertNil(PosicionEnBloque.desde(etiqueta: "semana 0"))
+    }
+
     // MARK: - Estructural
 
     func testEstructuralSaleDelFormatoDelBloqueYCasiNuncaEsCierto() {

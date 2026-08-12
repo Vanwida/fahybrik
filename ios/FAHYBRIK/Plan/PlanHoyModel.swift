@@ -251,14 +251,18 @@ struct SemanaDelPlan: Equatable {
 
 // MARK: - Dónde estás dentro del bloque
 
-/// «Semana 3 de 6» — la posición de esta semana dentro del microciclo del coach.
+/// «Semana 3 de 6» — o «Semana 3» cuando el plan no declara total.
 ///
 /// SALE DEL SERVIDOR, NO SE CALCULA AQUÍ, y conviene saber por qué: la posición
 /// depende de la ventana de fechas del microciclo asignado
 /// (`athlete_month_assignments`), que el móvil no recibe. Lo que sí recibe es la
-/// etiqueta ya compuesta, `macro.week_label` = «<nombre> · semana N de M»
-/// (`currentMicrocicloLabel`, shared/domain/coach/macro-progress.ts). Aquí solo
-/// se EXTRAEN las dos cifras de esa frase.
+/// etiqueta ya compuesta, `macro.week_label` (shared/domain/coach/
+/// macro-progress.ts), que tiene DOS formas y las dos se extraen aquí:
+///
+///   · «<nombre> · semana N de M» — el atleta camina un microciclo con total.
+///   · «semana N» — plan directo (semanas dictadas o montadas a mano): N son las
+///     semanas seguidas con trabajo, y NO HAY «de M» porque el total de un plan
+///     directo no es un hecho — crece a medida que el coach publica (§7).
 ///
 /// Y por eso NO se usa `macro_progress.total_assigned_weeks` como «M»: ese número
 /// cuenta TODAS las semanas con asignaciones del atleta desde siempre, no las del
@@ -266,35 +270,46 @@ struct SemanaDelPlan: Equatable {
 /// del bloque — un número que se lee como un dato y no lo es (§7).
 struct PosicionEnBloque: Equatable {
     let semana: Int
-    let total: Int
+    /// Nil = el plan no declara total (plan directo). No se inventa uno.
+    let total: Int?
 
-    /// «Semana 3 de 6».
-    var texto: String { "Semana \(semana) de \(total)" }
-
-    /// Cuánto llevas del bloque, 0…1 — para una barra de posición.
-    var fraccion: Double {
-        guard total > 0 else { return 0 }
-        return min(1, max(0, Double(semana) / Double(total)))
+    /// «Semana 3 de 6» · «Semana 3».
+    var texto: String {
+        guard let total else { return "Semana \(semana)" }
+        return "Semana \(semana) de \(total)"
     }
 
     /// Extrae la posición de la etiqueta del servidor. Nil cuando la etiqueta no
-    /// llega o no lleva la coletilla — ahí no hay posición que enseñar, y una
-    /// inventada sería peor que ninguna.
+    /// llega o no lleva ninguna de las dos formas — ahí no hay posición que
+    /// enseñar, y una inventada sería peor que ninguna.
     static func desde(etiqueta: String?) -> PosicionEnBloque? {
         guard let etiqueta else { return nil }
-        // «… · semana 3 de 6» — dos enteros tras las palabras clave. Tolerante a
-        // mayúsculas y a que el nombre del coach lleve dígitos («Bloque 2 · …»).
-        let patron = #"semana\s+(\d+)\s+de\s+(\d+)"#
+        // Primero la forma completa: «… · semana 3 de 6». Tolerante a mayúsculas
+        // y a que el nombre del coach lleve dígitos («Bloque 2 · …»).
+        if let m = primerMatch(#"semana\s+(\d+)\s+de\s+(\d+)"#, en: etiqueta),
+           m.count == 2, let n = m[0], let total = m[1],
+           n > 0, total > 0, n <= total {
+            return PosicionEnBloque(semana: n, total: total)
+        }
+        // Después la corta: «semana 3» a secas (el plan directo). El lookahead
+        // negativo evita dos trampas: casar a medias sobre la forma completa
+        // (perdería el total) y «rescatar» el N de una etiqueta contradictoria
+        // tipo «semana 7 de 4», que no es una posición y no debe volverse una.
+        if let m = primerMatch(#"semana\s+(\d+)(?!\s+de\s+\d)"#, en: etiqueta),
+           m.count == 1, let n = m[0], n > 0 {
+            return PosicionEnBloque(semana: n, total: nil)
+        }
+        return nil
+    }
+
+    /// Los grupos numéricos del primer match del patrón, o nil si no casa.
+    private static func primerMatch(_ patron: String, en texto: String) -> [Int?]? {
         guard let regex = try? NSRegularExpression(pattern: patron, options: [.caseInsensitive]) else { return nil }
-        let rango = NSRange(etiqueta.startIndex..<etiqueta.endIndex, in: etiqueta)
-        guard let m = regex.firstMatch(in: etiqueta, options: [], range: rango),
-              m.numberOfRanges == 3,
-              let r1 = Range(m.range(at: 1), in: etiqueta),
-              let r2 = Range(m.range(at: 2), in: etiqueta),
-              let n = Int(etiqueta[r1]), let total = Int(etiqueta[r2]),
-              n > 0, total > 0, n <= total
-        else { return nil }
-        return PosicionEnBloque(semana: n, total: total)
+        let rango = NSRange(texto.startIndex..<texto.endIndex, in: texto)
+        guard let m = regex.firstMatch(in: texto, options: [], range: rango) else { return nil }
+        return (1..<m.numberOfRanges).map { i in
+            Range(m.range(at: i), in: texto).flatMap { Int(texto[$0]) }
+        }
     }
 }
 
