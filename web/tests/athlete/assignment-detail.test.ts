@@ -450,6 +450,69 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(e.pain_note).toBe('molestia al bajar');
   });
 
+  // started_at + las tres columnas de la 0154 (measured-header.ts) tenían el
+  // MISMO problema que la provenance de arriba: la fila las lleva, la
+  // consulta las selecciona (started_at, para anclar la traza) o no las
+  // selecciona en absoluto (las tres de la 0154), y ninguna llegaba al
+  // execution block. `started_at` es el ancla temporal que necesita
+  // `display_curve.offsets_s` para situar un tramo en el eje — sin ella no
+  // hay sombra de serie ni franja de lo pedido que pintar.
+  it('surfaces started_at (el ancla de la curva) y las tres columnas de la 0154, presentes o ausentes', () => {
+    const withAll = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-05-27T18:30:00+00:00',
+        started_at: '2026-05-27T18:00:00+00:00',
+        perceived_exertion: 7,
+        elevation_gain_m: 42.5,
+        elevation_loss_m: 38.1,
+        hr_recovery_60_bpm: 23,
+        decoupling_pct: 4.7,
+      },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = withAll.execution!;
+    expect(e.started_at).toBe('2026-05-27T18:00:00+00:00');
+    expect(e.elevation_gain_m).toBe(42.5);
+    expect(e.elevation_loss_m).toBe(38.1);
+    expect(e.hr_recovery_60_bpm).toBe(23);
+    expect(e.decoupling_pct).toBe(4.7);
+
+    const withNone = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00+00:00', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [],
+    });
+    const n = withNone.execution!;
+    expect(n.started_at).toBeNull();
+    expect(n.elevation_gain_m).toBeNull();
+    expect(n.elevation_loss_m).toBeNull();
+    expect(n.hr_recovery_60_bpm).toBeNull();
+    expect(n.decoupling_pct).toBeNull();
+  });
+
+  // numeric(x,y) llega de Postgres como STRING (pg preserva la precisión
+  // decimal) — la coerción tiene que sobrevivir eso o rompe en producción
+  // aunque el fixture con números JS ya diera verde.
+  it('coacciona numeric(x,y) desde string — como llega realmente de Postgres', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-05-27T18:30:00+00:00',
+        perceived_exertion: 7,
+        elevation_gain_m: '42.50' as unknown as number,
+        decoupling_pct: '4.70' as unknown as number,
+      },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = result.execution!;
+    expect(e.elevation_gain_m).toBe(42.5);
+    expect(e.decoupling_pct).toBe(4.7);
+  });
+
   it('leaves provenance unknown for pre-0144 rows, and never returns a null roster', () => {
     const result = buildAssignmentDetail({
       assignment: { ...baseAssignment, status: 'completed' as const },

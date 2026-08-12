@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-12 (madrugada) · Deuda declarada: la precedencia de la banda vive en dos sitios, y debería vivir en uno
+
+**El hecho.** `segmentBand()` (`web/lib/dashboard/coach/run-compliance.ts`) resuelve, para un tramo, CONTRA QUÉ banda se juzga: un objetivo explícito (ritmo/RPE) gana en solitario; si no, la zona ya resuelta PARA ESE TRAMO (`seg.resolved`); si no, la zona resuelta del bloque (`item.resolved_intensity`). Es la misma precedencia que ya cazó un bug real esta noche (`segmentBand()` ignoraba `seg.resolved` — entrada de arriba, "El veredicto de carrera empieza a juzgar la recuperación"). "El doble" (la lectura de carrera del atleta, `web/components/design-twin/`) necesita la MISMA respuesta para pintar su franja, y hoy la resuelve por su cuenta, del lado del cliente.
+
+**Por qué es un problema, no una curiosidad.** Es la MISMA clase de divergencia que ya ha costado dos modelos de zonas y un fork de `SEG_MODALITY_SQL` (ver cabecera de `segment-work.ts`): dos sitios que prometen calcular lo mismo acaban divergiendo el día que uno se toca y el otro no. Ahora que `RunComplianceTramo.band` expone el resultado YA resuelto por el servidor (esta misma tarde, a petición del panel), la pregunta correcta ya no es "¿cómo resuelvo la banda aquí también?" sino "¿por qué la resuelvo dos veces?".
+
+**Decidido:** NO se colapsa esta tarde. Con tres agentes en vuelo sobre el mismo dominio (servidor, panel, doble), mover la lógica de `segmentBand()` a un módulo neutro de `shared/domain/running/` — con un tipo de entrada que no dependa de `AssignmentDetailItem`/`Segment` tal cual los conoce el servidor — es un refactor real, no una extracción de cinco minutos, y ensancha el frente en el peor momento.
+
+**Qué NO hacer en consecuencia:** no añadir una TERCERA copia de esta precedencia en ningún sitio nuevo — cualquier superficie que necesite "¿contra qué banda se juzga esto?" debe leer `RunComplianceTramo.band`/`RecoveryComplianceTramo.band` (ya expuestos) en vez de re-derivarla. Cuando se aborde el colapso: el módulo neutro vive en `shared/domain/running/`, lo importan `run-compliance.ts` (servidor) y "el doble" (cliente) por igual, y el primer indicio de que hace falta es el día que alguien tenga que arreglar la precedencia en un sitio y se le olvide el otro.
+
+---
+
 ## 2026-08-12 (madrugada) · "Carrera comprometida" NO se construye — verificado que el dato no la sostiene
 
 **El encargo** (mockup `carrera-en-el-panel.html` §05, tarjeta "Lo que le cuesta correr cansado") pedía comparar el ritmo de un objetivo corrido EN FRESCO contra el mismo objetivo corrido después de trabajo previo en la misma sesión, con un mínimo de 4 parejas válidas para atreverse a dibujar una tendencia.

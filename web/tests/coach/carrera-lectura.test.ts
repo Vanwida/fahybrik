@@ -189,6 +189,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
         duration_verdict: null,
         rep_ordinal: i + 1,
         band_axis: 'pace',
+        band: { axis: 'pace', fast_s: 205, slow_s: 215 },
       });
     });
 
@@ -247,6 +248,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             duration_verdict: null,
             rep_ordinal: i + 1,
             band_axis: 'pace' as const,
+            band: { axis: 'pace' as const, fast_s: 205, slow_s: 215 },
           })),
         ),
         conTraza: false,
@@ -267,7 +269,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
       actuals.push(
         lap({ position: i, leg_index: i, leg_role: 'work', distance_meters: 200, duration_seconds: dur, avg_pace_s_per_km: (dur / 200) * 1000, incline_pct: 8 }),
       );
-      tramos.push({ item_uid: 'seg-1', position: i, verdict: 'sin_dato', duration_verdict: null, rep_ordinal: i + 1, band_axis: null });
+      tramos.push({ item_uid: 'seg-1', position: i, verdict: 'sin_dato', duration_verdict: null, rep_ordinal: i + 1, band_axis: null, band: null });
     });
     const l = leerCarrera(detalle({ items: [item('seg-1', null)], actuals, compliance: cumplimiento(tramos) }))!;
     expect(l.sujeto.clase).toBe('tiempo-por-tramo');
@@ -284,7 +286,15 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
         kilometros: 11,
         actuals: [lap({ position: 0, distance_meters: 11967, duration_seconds: 3420, avg_pace_s_per_km: 286 })],
         compliance: cumplimiento([
-          { item_uid: 'seg-1', position: 0, verdict: 'dentro', duration_verdict: null, rep_ordinal: 1, band_axis: 'pace' },
+          {
+            item_uid: 'seg-1',
+            position: 0,
+            verdict: 'dentro',
+            duration_verdict: null,
+            rep_ordinal: 1,
+            band_axis: 'pace',
+            band: { axis: 'pace', fast_s: 280, slow_s: 292 },
+          },
         ]),
       }),
     )!;
@@ -310,6 +320,7 @@ describe('leerCarrera · el sujeto sale de la forma de la carrera', () => {
             duration_verdict: null,
             rep_ordinal: i + 1,
             band_axis: null,
+            band: null,
           })),
         ),
       }),

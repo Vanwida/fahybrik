@@ -151,6 +151,7 @@ describe('buildRunCompliance — zone tramo (resolved band)', () => {
         // estructura alineada de la que numerar la posición dentro de la serie.
         rep_ordinal: null,
         band_axis: 'pace',
+        band: { axis: 'pace', fast_s: 245, slow_s: 255 },
       },
     ]);
     expect(res.summary.pct_dentro).toBe(100);
@@ -217,6 +218,7 @@ describe('buildRunCompliance — non-run + no-execution', () => {
         duration_verdict: null,
         rep_ordinal: null,
         band_axis: null,
+        band: null,
       },
     ]);
     expect(res.summary.total).toBe(1);
@@ -378,7 +380,13 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-220', 1, 'recovery', { avg_pace_s_per_km: 300 }), // más rápido que 330 → demasiado_rapida
     ]);
     expect(res.recovery_tramos).toEqual([
-      { item_uid: 'segment-220', position: 1, verdict: 'demasiado_rapida', duration_verdict: null },
+      {
+        item_uid: 'segment-220',
+        position: 1,
+        verdict: 'demasiado_rapida',
+        duration_verdict: null,
+        band: { axis: 'pace', fast_s: 330, slow_s: 360 },
+      },
     ]);
     expect(res.recovery_summary).toMatchObject({ evaluable: 1, demasiado_rapida: 1, controlada: 0, pct_controlada: 0 });
   });
@@ -393,7 +401,13 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-221', 1, 'recovery', { avg_pace_s_per_km: 450 }), // mucho más lento que 360 → controlada, no un fallo
     ]);
     expect(res.recovery_tramos).toEqual([
-      { item_uid: 'segment-221', position: 1, verdict: 'controlada', duration_verdict: null },
+      {
+        item_uid: 'segment-221',
+        position: 1,
+        verdict: 'controlada',
+        duration_verdict: null,
+        band: { axis: 'pace', fast_s: 330, slow_s: 360 },
+      },
     ]);
     expect(res.recovery_summary.pct_controlada).toBe(100);
   });
@@ -407,7 +421,18 @@ describe('buildRunCompliance — recuperación CON objetivo: se juzga, con su pr
       legLap('segment-222', 0, 'work', { avg_pace_s_per_km: 245 }),
       legLap('segment-222', 1, 'recovery'), // sin RPE por-tramo capturado hoy → sin_dato honesto
     ]);
-    expect(res.recovery_tramos).toEqual([{ item_uid: 'segment-222', position: 1, verdict: 'sin_dato', duration_verdict: null }]);
+    expect(res.recovery_tramos).toEqual([
+      {
+        item_uid: 'segment-222',
+        position: 1,
+        verdict: 'sin_dato',
+        duration_verdict: null,
+        // Target RPE 3 ± RPE_POINT_TOLERANCE(1): la banda se resuelve del
+        // objetivo igual que siempre — lo que falta es la MUESTRA (sin RPE
+        // por tramo hoy), no la banda contra la que se juzgaría.
+        band: { axis: 'rpe', min: 2, max: 4 },
+      },
+    ]);
   });
 });
 

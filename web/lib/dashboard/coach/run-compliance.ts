@@ -96,6 +96,15 @@ export interface RunComplianceTramo {
    * RPE en «¿le estoy poniendo bien los ritmos?» respondería otra pregunta.
    */
   band_axis: ComplianceBand['axis'] | null;
+  /**
+   * La banda ENTERA contra la que se juzgó — lo que `segmentBand()` ya
+   * calcula y hasta ahora se descartaba. La UI la necesita para pintar la
+   * franja de lo pedido sobre la curva y para decir «se fue N s/km» sin
+   * volver a resolver la precedencia zona-resuelta-vs-objetivo-explícito en
+   * el cliente: esa precedencia vive AQUÍ, una vez, y exponer solo `axis`
+   * obligaba a repetirla del otro lado para tener los números.
+   */
+  band: ComplianceBand | null;
 }
 
 /** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
@@ -107,6 +116,8 @@ export interface RecoveryComplianceTramo {
   /** Ver el campo homónimo de `RunComplianceTramo` — misma idea, vocabulario
    *  de recuperación (`evaluateRecoveryDuration`: el fallo es PASARSE). */
   duration_verdict: RecoveryDurationVerdict | null;
+  /** Ver `RunComplianceTramo.band` — misma banda, mismo motivo. */
+  band: ComplianceBand | null;
 }
 
 export interface RunComplianceResult {
@@ -294,9 +305,9 @@ export function buildRunCompliance(
     verdict: RunComplianceVerdict,
     duration_verdict: WorkDurationVerdict | null = null,
     rep_ordinal: number | null = null,
-    band_axis: ComplianceBand['axis'] | null = null,
+    band: ComplianceBand | null = null,
   ) => {
-    tramos.push({ item_uid, position, verdict, duration_verdict, rep_ordinal, band_axis });
+    tramos.push({ item_uid, position, verdict, duration_verdict, rep_ordinal, band_axis: band?.axis ?? null, band });
     verdicts.push(verdict);
     if (duration_verdict != null) workDurationVerdicts.push(duration_verdict);
   };
@@ -309,8 +320,9 @@ export function buildRunCompliance(
     position: number | null,
     verdict: RecoveryComplianceVerdict,
     duration_verdict: RecoveryDurationVerdict | null,
+    band: ComplianceBand | null,
   ) => {
-    recoveryTramos.push({ item_uid, position, verdict, duration_verdict });
+    recoveryTramos.push({ item_uid, position, verdict, duration_verdict, band });
     recoveryVerdicts.push(verdict);
     if (duration_verdict != null) recoveryDurationVerdicts.push(duration_verdict);
   };
@@ -373,7 +385,7 @@ export function buildRunCompliance(
             const band = seg ? segmentBand(seg, item) : null;
             if (!band && prescribedS == null) continue; // nada que juzgar en ningún eje: se omite
             const durationVerdict = prescribedS != null ? evaluateRecoveryDuration(prescribedS, a.duration_seconds) : null;
-            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)), durationVerdict);
+            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)), durationVerdict, band);
             continue;
           }
           // Sin tramo prescrito en ese índice no hay banda: 'sin_dato' honesto,
@@ -387,7 +399,7 @@ export function buildRunCompliance(
             evaluateRunSegment(band, sampleFromActual(a)),
             durationVerdict,
             seg && seg.kind === 'work' ? workOrdinal(all, a.leg_index!) : null,
-            band?.axis ?? null,
+            band,
           );
         }
         continue;
@@ -422,7 +434,7 @@ export function buildRunCompliance(
             evaluateRunSegment(band, sampleFromActual(a)),
             durationVerdict,
             i + 1,
-            band?.axis ?? null,
+            band,
           );
         });
       } else {
@@ -435,7 +447,7 @@ export function buildRunCompliance(
         // ocupaba este lap dentro de la serie.
         const band = itemBand(item);
         for (const a of itemActuals) {
-          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)), null, null, band?.axis ?? null);
+          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)), null, null, band);
         }
       }
     }

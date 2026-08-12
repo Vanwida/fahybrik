@@ -129,6 +129,14 @@ export interface AssignmentDetailExecution {
   score_label: string | null;
   notes: string | null;
   ended_at: string | null;
+  // El ancla temporal del eje — distinta de `ended_at`. `display_curve.
+  // offsets_s` (dentro de `trace`, más abajo) va en segundos DESDE ESTE
+  // instante; sin él no hay dónde colgar una sombra de tramo ni una franja
+  // de lo pedido sobre la curva. NO usar `total_duration_seconds` restado de
+  // `ended_at` como sustituto: un `prior_work_s`-style proxy suma duraciones
+  // y se equivoca en cuanto hay un hueco (pausa, cambio de bloque) entre
+  // `started_at` real y la suma de tramos.
+  started_at: string | null;
   // WHICH APPARATUS the numbers came from — 'concept2' | 'treadmill' | 'gps' |
   // 'healthkit' | … (the biometric_source enum). NOT how the session was logged:
   // read `recorded_via` for that. Saying "registrado a mano" off this field is
@@ -154,6 +162,13 @@ export interface AssignmentDetailExecution {
   // The outdoor run's GPS trace (#64) as an encoded polyline, or null when the
   // session was not outdoors — drives the athlete's executed-detail mini-map.
   route_polyline: string | null;
+  // Las tres columnas de la 0154 (measured-header.ts, calculadas al llegar la
+  // traza — nunca retroactivas). Null cuando la sesión no tiene traza o no
+  // cumple el mínimo de cada cálculo (ver shared/domain/running/*).
+  elevation_gain_m: number | null;
+  elevation_loss_m: number | null;
+  hr_recovery_60_bpm: number | null;
+  decoupling_pct: number | null;
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
@@ -349,6 +364,14 @@ interface ExecutionRow {
   pain_note?: string | null;
   // #64 — the outdoor GPS trace (encoded polyline), joined from workout_routes.
   route_polyline?: string | null;
+  // Las tres columnas de la 0154 (measured-header.ts las escribe al llegar la
+  // traza) — numeric(8,2)/numeric(5,2) llegan como string desde pg, hr_recovery
+  // es int y llega ya numérico. Optional por la misma razón que el resto del
+  // bloque: los fixtures del builder puro no las necesitan.
+  elevation_gain_m?: string | number | null;
+  elevation_loss_m?: string | number | null;
+  hr_recovery_60_bpm?: number | null;
+  decoupling_pct?: string | number | null;
 }
 
 interface TemplateRow {
@@ -467,7 +490,11 @@ export async function loadAssignmentDetail(
       we.perceived_difficulty::text   as perceived_difficulty,
       we.pain_area::text              as pain_area,
       we.pain_note                    as pain_note,
-      wr.polyline                as route_polyline
+      wr.polyline                as route_polyline,
+      we.elevation_gain_m        as elevation_gain_m,
+      we.elevation_loss_m        as elevation_loss_m,
+      we.hr_recovery_60_bpm      as hr_recovery_60_bpm,
+      we.decoupling_pct          as decoupling_pct
     from workout_executions we
     left join workout_routes wr on wr.execution_id = we.id
     where we.assignment_id = ${assignment_id as unknown as number}
@@ -671,6 +698,7 @@ function buildExecutionBlock(
       : null,
     notes: execution?.notes ?? null,
     ended_at: execution?.ended_at ?? null,
+    started_at: execution?.started_at ?? null,
     source: execution?.source ?? null,
     recorded_via: execution?.recorded_via ?? null,
     contributing_sources: execution?.contributing_sources ?? [],
@@ -679,9 +707,21 @@ function buildExecutionBlock(
     pain_note: execution?.pain_note ?? null,
     completeness: status === 'partial' ? 'partial' : 'completed',
     route_polyline: execution?.route_polyline ?? null,
+    elevation_gain_m: num(execution?.elevation_gain_m),
+    elevation_loss_m: num(execution?.elevation_loss_m),
+    hr_recovery_60_bpm: execution?.hr_recovery_60_bpm ?? null,
+    decoupling_pct: num(execution?.decoupling_pct),
     segments,
     trace,
   };
+}
+
+// numeric(x,y) llega de pg como string; los enteros (hr_recovery_60_bpm) ya
+// llegan numéricos y no pasan por aquí. Mismo patrón que session-actuals.ts.
+function num(v: string | number | null | undefined): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 // =============================================================================
