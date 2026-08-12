@@ -58,10 +58,30 @@ struct Ambiente: View {
     let zona: HRZone?
     /// Tiñe de naranja: SOLO el instante en que algo se logra.
     var acento: Bool = false
+    /// UN TONO QUE NO ES UNA ZONA, para las pantallas cuyo sujeto no es el pulso.
+    ///
+    /// En las analíticas el lienzo lo tiñe el VEREDICTO, no una zona: no hay una
+    /// intensidad que valga para doce semanas. Es el mismo ambiente y la misma
+    /// mezcla — se añade aquí en vez de escribir un segundo degradado, porque dos
+    /// definiciones del fondo de la app acaban separándose y entonces dos
+    /// pantallas hermanas dejan de parecer la misma. Nil = manda `zona`.
+    var tono: Color? = nil
 
     @Environment(\.colorScheme) private var esquema
 
     var body: some View {
+        if let tono {
+            capa(tono)
+                .animation(.easeInOut(duration: MezclaAmbiente.transicion), value: tono)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        } else {
+            porZona
+        }
+    }
+
+    private var porZona: some View {
         ZStack {
             // Una capa por zona, y solo la viva a opacidad 1: así el cambio de
             // zona se TRANSICIONA. Un degradado no interpola de un color a otro;

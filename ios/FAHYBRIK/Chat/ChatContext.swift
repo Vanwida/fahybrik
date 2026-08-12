@@ -187,6 +187,11 @@ enum EntrenosSeñalables {
     static let etiquetaHoy = "hoy"
     static let etiquetaAyer = "ayer"
 
+    /// Dentro de cuántos días de distancia el día de la semana basta para situar
+    /// una fecha. Más allá hace falta el mes: «sáb 9» a tres meses vista no dice
+    /// nada, y el atleta lee el historial hacia atrás.
+    private static let diasEnQueElDiaBasta = 7
+
     /// Cómo se lee una fecha desde hoy. Display-only (ver `ChatContextChoice`).
     static func cuando(iso: String, hoyIso: String) -> String {
         if iso == hoyIso { return etiquetaHoy }
@@ -195,7 +200,8 @@ enum EntrenosSeñalables {
         }
         let dias = Calendar(identifier: .gregorian).dateComponents([.day], from: dia, to: hoy).day
         if dias == 1 { return etiquetaAyer }
-        return StatsDateParser.dayShort(dia)
+        if let dias, abs(dias) <= diasEnQueElDiaBasta { return StatsDateParser.dayShort(dia) }
+        return StatsDateParser.dayMonth(dia)
     }
 
     /// «Empuje · 4 bloques» — lo que ya escribe el plan, sin recalcular nada.

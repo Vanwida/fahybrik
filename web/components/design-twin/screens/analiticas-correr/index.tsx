@@ -43,31 +43,36 @@ import { ESCENAS } from './datos';
 import {
   METODO,
   coberturaDe,
+  deltasDe,
   colapso,
   faltaComun,
   salidaDe,
-  sePuedeJuzgarElPedido,
   seCalla,
-  subidaDeVolumen,
   tonoDe,
   veredictoDe,
+  ORDEN_COBERTURA,
   type Cobertura,
+  type Deltas,
   type Falta,
-  type Historia,
+  type RunningHistory,
 } from './modelo';
+// Los puntos de pliegue de polarización no son del motor de veredicto: son del
+// método de FC del coach (`polarization_low_max_zone` / `polarization_mid_max_zone`),
+// y `colapso()` los pide por parámetro. El servidor los lee de aquí mismo.
+import { DEFAULT_COACH_HR_METHOD } from '@fahybrid/shared/domain/coach/hr-method';
 import { Bloque, Boton, Cifra, Delta, Veredicto } from './piezas';
 
 export const meta: TwinMeta = {
   id: 'analiticas-correr',
   titulo: 'Analíticas de correr — ¿estoy mejorando?',
   zona: 'Marcas y tests',
-  estado: 'propuesta',
+  estado: 'espejo',
   actualizado: '2026-08-12',
   descripcion:
     'El dato es el dibujo: veredicto de dos palabras sobre un lienzo teñido por ese veredicto, y debajo un gráfico grande por pregunta con la comparación dentro. Acabado medido contra lectura-carrera. El VO₂máx sale de Perfil y pasa a titular de la prueba de forma.',
   fuentes: [],
   enApp:
-    'La pestaña existe (AnalyticsView + lib/athlete/analytics/running.ts) y ya sirve volumen, zonas, tendencia de ritmo y mejores marcas, en tarjetas. Lo nuevo: el veredicto, la curva de esfuerzos con sombra, el ritmo al mismo pulso y la adherencia agregada (los dos últimos ya se calculan por sesión y se tiran sin acumular), y el VO₂máx traído desde RendimientoSection en Perfil.',
+    'La pestaña existe (AnalyticsView + lib/athlete/analytics/running.ts) y ya sirve volumen, zonas, tendencia de ritmo y mejores marcas, en tarjetas. Lo nuevo: el veredicto, la curva de esfuerzos con sombra, el ritmo al mismo pulso y la adherencia agregada (los dos últimos ya se calculan por sesión y se tiran sin acumular), y el VO₂máx traído desde RendimientoSection en Perfil. El motor (veredicto, cobertura, escalera de evidencia) vive en shared/domain/running/progress.ts y lo sirve /api/athlete/analytics/running/progress: este doble ejecuta la misma función que la API, no una copia aparte.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
@@ -99,16 +104,19 @@ export const escenarios: TwinEscenario[] = [
   },
 ];
 
-const ORDEN: (keyof Cobertura)[] = ['forma', 'esfuerzos', 'volumen', 'reparto', 'pedido', 'cansado'];
+/** El orden lo manda el dominio, no la pantalla: si aquí dijera otra cosa, el
+ *  servidor y la app discreparían sobre cuál es «la primera falta». */
+const ORDEN = ORDEN_COBERTURA;
 
 /** Dentro de un grupo. Entre grupos, el doble: se agrupa sin dibujar una raya. */
 const DENTRO = S.xl;
 const ENTRE = S.xxxl;
 
 export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
-  const h: Historia = ESCENAS[escenario] ?? ESCENAS.veterano!;
-  const v = veredictoDe(h);
-  const cob = coberturaDe(h);
+  const h: RunningHistory = ESCENAS[escenario] ?? ESCENAS.veterano!;
+  const v = veredictoDe(h, METODO);
+  const cob = coberturaDe(h, METODO);
+  const deltas = deltasDe(h);
 
   const contables = ORDEN.map((k) => ({ k, f: cob[k] })).filter(
     (x): x is { k: keyof Cobertura; f: Falta } => x.f != null && !seCalla(x.f),
@@ -129,8 +137,8 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
     );
   }, [escenario]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const zonas = distribucionZonas({ duracionS: h.segundosCorriendo, zonasS: h.zonasS });
-  const reparto = colapso(zonas);
+  const zonas = distribucionZonas({ duracionS: h.segundos_corriendo, zonasS: h.zonas_s });
+  const reparto = colapso(zonas, DEFAULT_COACH_HR_METHOD.polarization_low_max_zone, DEFAULT_COACH_HR_METHOD.polarization_mid_max_zone);
 
   return (
     <div className="twin-screen-safe">
@@ -161,13 +169,13 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
               {modo('forma') === 'da' ? (
                 <>
                   <Cifra
-                    valor={h.vo2 ? String(h.vo2.valor) : ritmoKm(Math.round(h.alPulso[h.alPulso.length - 1]!.valor))}
+                    valor={h.vo2 ? String(h.vo2.valor) : ritmoKm(Math.round(h.al_pulso[h.al_pulso.length - 1]!.valor))}
                     unidad={h.vo2 ? 'VO₂máx' : 'mismo pulso'}
                   >
-                    <DeltaForma h={h} />
+                    <DeltaForma h={h} d={deltas} />
                   </Cifra>
-                  <Linea puntos={h.alPulso} formato={(s) => reloj(Math.round(s))} />
-                  <Marca>{`Ritmo a ${h.ppmReferencia} ppm`}</Marca>
+                  <Linea puntos={h.al_pulso} formato={(s) => reloj(Math.round(s))} />
+                  <Marca>{`Ritmo a ${h.ppm_referencia} ppm`}</Marca>
                 </>
               ) : (
                 <Apagado alto={124} />
@@ -180,20 +188,20 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
                   el sujeto del bloque es la CURVA — la cifra la acompaña. */}
               {mejor5k(h) && (
                 <Cifra valor={mejor5k(h)!} unidad="5 km" tam={36}>
-                  <DeltaEsfuerzos h={h} />
+                  <DeltaEsfuerzos d={deltas} />
                 </Cifra>
               )}
-              <CurvaEsfuerzos hoy={h.esfuerzos} antes={h.esfuerzosAntes} />
+              <CurvaEsfuerzos hoy={h.esfuerzos} antes={h.esfuerzos_antes} />
             </Bloque>
           </div>
 
           {/* ── LO QUE METES · el trabajo ───────────────────────────────── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: DENTRO }}>
             <Bloque etiqueta="Cuánto corres">
-              <Cifra valor={esDecimal(h.semanasKm[h.semanasKm.length - 1]!.valor, 0)} unidad="km" tam={44}>
-                <DeltaVolumen h={h} />
+              <Cifra valor={esDecimal(h.semanas_km[h.semanas_km.length - 1]!.valor, 0)} unidad="km" tam={44}>
+                <DeltaVolumen d={deltas} />
               </Cifra>
-              <Barras puntos={h.semanasKm} />
+              <Barras puntos={h.semanas_km} />
             </Bloque>
 
             <Bloque etiqueta="Suave y fuerte">
@@ -250,35 +258,39 @@ function Rail() {
 // Las variaciones. Cada una es un número y su ventana: nunca una oración.
 // ---------------------------------------------------------------------------
 
-function DeltaForma({ h }: { h: Historia }) {
+function DeltaForma({ h, d }: { h: RunningHistory; d: Deltas }) {
   if (h.vo2) {
-    if (h.vo2.delta === 0) return <Delta mejor={null} valor="0" ventana={`${h.vo2.ventanaSemanas} sem`} />;
-    return <Delta mejor={h.vo2.delta > 0} valor={String(Math.abs(h.vo2.delta))} ventana={`${h.vo2.ventanaSemanas} sem`} />;
+    // NULO, no cero: la serie aún no da para una base. Un 0 diría «lo medimos
+    // y no se movió», y lo que pasa es que no hay contra qué compararlo.
+    if (h.vo2.delta === null) return null;
+    if (h.vo2.delta === 0) return <Delta mejor={null} valor="0" ventana={`${h.vo2.ventana_semanas} sem`} />;
+    return <Delta mejor={h.vo2.delta > 0} valor={String(Math.abs(h.vo2.delta))} ventana={`${h.vo2.ventana_semanas} sem`} />;
   }
-  const gana = h.alPulso[0]!.valor - h.alPulso[h.alPulso.length - 1]!.valor;
-  return <Delta mejor={gana > 0} valor={`${Math.abs(Math.round(gana))} s`} ventana={`${h.alPulso.length - 1} sem`} />;
+  if (!d.forma) return null;
+  const { gana_s_km, semanas } = d.forma;
+  return <Delta mejor={gana_s_km > 0} valor={`${Math.abs(Math.round(gana_s_km))} s`} ventana={`${semanas} sem`} />;
 }
 
-function DeltaEsfuerzos({ h }: { h: Historia }) {
-  const hoy = h.esfuerzos.find((e) => e.metros === 5000);
-  const antes = h.esfuerzosAntes.find((e) => e.metros === 5000);
-  if (!hoy || !antes) return null;
-  const dif = antes.segundos - hoy.segundos;
-  return <Delta mejor={dif > 0} valor={`${Math.abs(dif)} s`} ventana="1 mes" />;
+function DeltaEsfuerzos({ d }: { d: Deltas }) {
+  if (!d.esfuerzos) return null;
+  const { gana_s } = d.esfuerzos;
+  return <Delta mejor={gana_s > 0} valor={`${Math.abs(gana_s)} s`} ventana="1 mes" />;
 }
 
-function DeltaVolumen({ h }: { h: Historia }) {
-  if (h.semanasKm.length < 6) return null;
-  const subida = subidaDeVolumen(h.semanasKm);
+function DeltaVolumen({ d }: { d: Deltas }) {
+  if (!d.volumen) return null;
+  const { subida_ratio, semanas } = d.volumen;
   // El volumen NO juzga: subir no es bueno ni malo por sí mismo, así que la
   // flecha va neutra. De la combinación ya se ocupa el veredicto de arriba.
+  // El ratio llega servido — es el MISMO número con el que el servidor decidió
+  // «cargando de más», así que la cifra y el veredicto no pueden discrepar.
   return (
-    <Delta mejor={null} valor={`${subida > 0 ? '+' : ''}${Math.round(subida * 100)}%`} ventana={`${h.semanasKm.length - 1} sem`} />
+    <Delta mejor={null} valor={`${subida_ratio > 0 ? '+' : ''}${Math.round(subida_ratio * 100)}%`} ventana={`${semanas} sem`} />
   );
 }
 
 /** Nulo si no lo tiene: un guion es una casilla vacía disfrazada de dato (§7). */
-function mejor5k(h: Historia): string | null {
+function mejor5k(h: RunningHistory): string | null {
   const cinco = h.esfuerzos.find((e) => e.metros === 5000);
   return cinco ? reloj(cinco.segundos) : null;
 }
@@ -287,18 +299,23 @@ function mejor5k(h: Historia): string | null {
 // LO QUE TE PIDEN — un punto por repetición
 // ---------------------------------------------------------------------------
 
-function BloquePedido({ h }: { h: Historia }) {
+function BloquePedido({ h }: { h: RunningHistory }) {
   const p = h.pedido!;
-  const pct = Math.round((p.dentro / p.evaluadas) * 100);
-  // Con pocas repeticiones el porcentaje existe pero no se puede juzgar: la
-  // cifra sale en tinta normal en vez de verde. El juicio es el color.
-  const juzgable = sePuedeJuzgarElPedido(p);
-  const tono = !juzgable ? 'var(--twin-fg)' : pct >= METODO.enBandaBienPct ? 'var(--twin-ok)' : 'var(--twin-warning)';
+  // El porcentaje y el «se puede juzgar» llegan SERVIDOS: los saca el mismo
+  // sumador que ya juzga cada tramo. Dividir aquí era repetir esa división, y
+  // el redondeo de este lado decidía si la cifra se pintaba verde.
+  const pct = p.pct_en_banda;
+  const tono = !p.juzgable
+    ? 'var(--twin-fg)'
+    : pct != null && pct >= METODO.good_in_band_pct
+      ? 'var(--twin-ok)'
+      : 'var(--twin-warning)';
+  if (pct == null) return null;
 
   return (
     <Bloque etiqueta="Lo que te piden" sello>
       <Cifra valor={String(pct)} unidad="% en banda" tam={44} tono={tono} />
-      <Puntos dentro={p.dentro} lento={p.fueraLento} rapido={p.fueraRapido} />
+      <Puntos dentro={p.dentro} lento={p.fuera_lento} rapido={p.fuera_rapido} />
     </Bloque>
   );
 }
@@ -313,7 +330,7 @@ function TramoCarrera({
   modoCansado,
   clase,
 }: {
-  h: Historia;
+  h: RunningHistory;
   modoCansado: 'da' | 'apagada' | 'nada';
   clase: ReturnType<typeof veredictoDe>['clase'];
 }) {
@@ -325,8 +342,8 @@ function TramoCarrera({
         <Bloque etiqueta={h.carrera.nombre}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: S.xl, flexWrap: 'wrap' }}>
             <Cifra valor={String(h.carrera.dias)} unidad="días" tam={44} />
-            {h.carrera.predichoS != null && (
-              <Cifra valor={reloj(h.carrera.predichoS)} unidad="previsto" tam={30} tono={tonoDe(clase)} />
+            {h.carrera.predicho_s != null && (
+              <Cifra valor={reloj(h.carrera.predicho_s)} unidad="previsto" tam={30} tono={tonoDe(clase)} />
             )}
           </div>
         </Bloque>
@@ -342,22 +359,22 @@ function TramoCarrera({
   );
 }
 
-function BloqueCansado({ h }: { h: Historia }) {
+function BloqueCansado({ h }: { h: RunningHistory }) {
   const primero = h.cansado[0]!;
   const ultimo = h.cansado[h.cansado.length - 1]!;
-  const mejora = primero.costeSkm - ultimo.costeSkm;
+  const mejora = primero.coste_s_km - ultimo.coste_s_km;
 
   return (
     <Bloque etiqueta="Correr cansado" sello>
       <Cifra
-        valor={esDecimal(ultimo.costeSkm)}
+        valor={esDecimal(ultimo.coste_s_km)}
         unidad="s/km de más"
         tam={44}
         tono={mejora > 0 ? 'var(--twin-ok)' : 'var(--twin-warning)'}
       >
         <Delta mejor={mejora > 0} valor={esDecimal(Math.abs(mejora))} ventana={`${h.cansado.length - 1} sem`} />
       </Cifra>
-      <Linea puntos={h.cansado.map((c) => ({ semana: c.semana, valor: c.costeSkm }))} formato={(x) => esDecimal(x)} alto={128} />
+      <Linea puntos={h.cansado.map((c) => ({ semana: c.semana, valor: c.coste_s_km }))} formato={(x) => esDecimal(x)} alto={128} />
     </Bloque>
   );
 }

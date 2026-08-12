@@ -159,6 +159,18 @@ extension PlanView {
         showChat = true
     }
 
+    /// Un entreno del HISTORIAL: ahí no hay `AthleteWeekDaySession`, solo la fila
+    /// de lo hecho con su fecha, y basta — la referencia es el assignment.
+    func preguntarPorEntrenoPasado(_ sesion: AthleteHistorySession, iso: String) {
+        Haptics.light()
+        let hoyIso = store.planWeek.value?.week.todayIso ?? iso
+        contextoDelChat = ChatContextChoice(
+            target: .entreno(sesion.assignmentId),
+            etiqueta: "\(sesion.title) · \(EntrenosSeñalables.cuando(iso: iso, hoyIso: hoyIso))"
+        )
+        showChat = true
+    }
+
     /// «hoy» · «ayer» · «mar 12» para la etiqueta del chip. Es de pantalla: la
     /// etiqueta que se guarda con el mensaje la escribe el servidor.
     private func cuandoFue(_ session: AthleteWeekDaySession) -> String {

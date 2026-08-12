@@ -29,6 +29,15 @@ struct ChatContextTests {
         #expect(manana == "jue 13")
     }
 
+    @Test("Un entreno viejo lleva el mes: «sáb 9» a tres meses vista no sitúa nada")
+    func fechaLejanaLlevaMes() {
+        // Dentro de la semana basta el día; más allá hace falta el mes, y el
+        // historial se lee justo hacia atrás.
+        #expect(EntrenosSeñalables.cuando(iso: "2026-08-08", hoyIso: "2026-08-12") == "sáb 8")
+        #expect(EntrenosSeñalables.cuando(iso: "2026-05-09", hoyIso: "2026-08-12") == "9 may")
+        #expect(EntrenosSeñalables.cuando(iso: "2026-08-01", hoyIso: "2026-08-12") == "1 ago")
+    }
+
     @Test("Una fecha que no se puede leer se devuelve tal cual, sin inventar")
     func cuandoNoSeSabe() {
         #expect(EntrenosSeñalables.cuando(iso: "no-es-una-fecha", hoyIso: "2026-08-12") == "no-es-una-fecha")

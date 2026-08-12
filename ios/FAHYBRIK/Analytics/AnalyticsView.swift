@@ -50,6 +50,9 @@ struct AnalyticsView: View {
     /// Y el hub degrada honestamente si el atleta tampoco tiene batería, así que
     /// la cadena se cierra en vez de acabar en otro callejón.
     @State private var showTestsHub = false
+    /// El progreso de carrera, con su propia carga (ver `progresoDeCarrera`).
+    @State private var progreso: RunningProgressPayload?
+    @State private var progresoFallo = false
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -103,7 +106,50 @@ struct AnalyticsView: View {
         // a warm slice renders instantly; this just refreshes it (throttled + SWR).
         .task(id: refreshKey) {
             store.activate(bearer: effectiveBearer)
-            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+            if section == .running {
+                await cargarProgreso()
+            } else {
+                await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+            }
+        }
+    }
+
+    // MARK: - Carrera · ¿estoy mejorando?
+
+    /// La pantalla de progreso de carrera, con su propia carga. No pasa por el
+    /// motor SWR de secciones a propósito: no devuelve `AnalyticsSection` y
+    /// doblar aquel contrato hasta que le cupiera dejaría de describir lo que
+    /// sirve, además de romper a quien ya dibuja tarjetas con él.
+    @ViewBuilder
+    private var progresoDeCarrera: some View {
+        if let p = progreso {
+            AnaliticasCorrerView(progreso: p, onSalida: { showTestsHub = true })
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.xxl)
+        } else if progresoFallo {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tu progreso",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await cargarProgreso() } }
+            )
+        } else {
+            VStack(spacing: Theme.Spacing.m) {
+                ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+            }
+            .padding(.horizontal, Theme.Spacing.xl)
+        }
+    }
+
+    private func cargarProgreso() async {
+        guard let bearer = effectiveBearer else { return }
+        progresoFallo = false
+        do {
+            progreso = try await AnalyticsService.fetchRunningProgress(bearer: bearer)
+        } catch {
+            // Sin caché previa el fallo se dice; con ella se conserva lo último
+            // bueno, que es más útil que un error sobre una pantalla en blanco.
+            if progreso == nil { progresoFallo = true }
         }
     }
 
@@ -263,7 +309,13 @@ struct AnalyticsView: View {
 
     @ViewBuilder
     private var main: some View {
-        if let loaded = currentSection {
+        // CARRERA NO ES UNA SECCIÓN DE TARJETAS. Una rejilla enumera métricas;
+        // esta pregunta se contesta con UN veredicto y la evidencia que lo
+        // sostiene, así que la sección de correr tiene su propia pantalla y su
+        // propia llamada. Las otras cuatro siguen exactamente igual.
+        if section == .running {
+            progresoDeCarrera
+        } else if let loaded = currentSection {
             // Una sección puede llegar LLENA DE TARJETAS y vacía de fondo: el
             // servidor emite siempre su juego de cards, y con un atleta recién
             // dado de alta todas vienen sin cifra. Eso no es una lista corta, es

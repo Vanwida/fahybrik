@@ -148,7 +148,17 @@ struct PlanView: View {
             DoblesPlanView(bearer: effectiveBearer)
         }
         .fullScreenCover(isPresented: $showHistory) {
-            HistoryView(bearer: effectiveBearer, onClose: { showHistory = false })
+            HistoryView(
+                bearer: effectiveBearer,
+                onClose: { showHistory = false },
+                // Preguntar por un entreno YA hecho: se cierra el historial y el
+                // chat se abre con ese entreno señalado. El relevo se resuelve
+                // aquí porque las dos presentaciones son de esta pantalla.
+                onPreguntar: hasCoach ? { sesion, iso in
+                    showHistory = false
+                    preguntarPorEntrenoPasado(sesion, iso: iso)
+                } : nil
+            )
         }
         .fullScreenCover(isPresented: $showCiclo) {
             // El sujeto del ciclo sale de su propio camino, no de esta pantalla:
