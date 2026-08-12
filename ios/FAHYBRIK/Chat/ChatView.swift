@@ -55,6 +55,44 @@ struct ChatView: View {
     /// abierto — no hay endpoint nuevo para ninguna de las dos.
     @State private var semanaAnterior: AthleteWeekPayload?
     @State private var cargandoSemanaAnterior = false
+    /// Qué se abrió al tocar la tarjeta de un mensaje.
+    @State private var destinoContexto: DestinoDeContexto?
+
+    /// A dónde lleva una tarjeta de contexto.
+    ///
+    /// Lo HECHO se mira (la lectura de lo que pasó) y lo PENDIENTE se estudia (el
+    /// índice de técnica de la sesión): abrir el contenedor de entreno desde una
+    /// conversación invitaría a empezar a entrenar por accidente, que no es lo que
+    /// pide quien está preguntando algo.
+    private enum DestinoDeContexto: Identifiable {
+        case entrenoHecho(assignmentId: String, titulo: String)
+        case entrenoPorHacer(assignmentId: String, titulo: String)
+
+        var id: String {
+            switch self {
+            case .entrenoHecho(let id, _): return "hecho-\(id)"
+            case .entrenoPorHacer(let id, _): return "porhacer-\(id)"
+            }
+        }
+    }
+
+    /// Resuelve el destino, o nil si no hay ninguno honesto.
+    ///
+    /// Sin `exists` confirmado por el servidor no se ofrece toque (una fila
+    /// optimista, o un mensaje de antes de que el servidor lo dijera). Sin
+    /// `state` tampoco: no sabríamos en qué modo abrirlo, y elegir por sorteo es
+    /// peor que no ofrecerlo. Una carrera y un ejercicio de catálogo enseñan su
+    /// dato pero no navegan todavía — el detalle de carrera necesita el objeto
+    /// entero de la carrera, no su id.
+    private func destino(para ref: ChatContextRef) -> DestinoDeContexto? {
+        guard ref.sigueExistiendo, ref.conocido == .session else { return nil }
+        let titulo = ref.label.components(separatedBy: " · ").first ?? ref.label
+        switch ref.state {
+        case "done": return .entrenoHecho(assignmentId: ref.ref, titulo: titulo)
+        case "pending": return .entrenoPorHacer(assignmentId: ref.ref, titulo: titulo)
+        default: return nil
+        }
+    }
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @FocusState private var inputFocused: Bool
@@ -140,6 +178,24 @@ struct ChatView: View {
             Button("Cancelar", role: .cancel) {}
         }
         .sheet(item: $activeSheet) { sheet in attachmentSheet(sheet) }
+        .sheet(item: $destinoContexto) { destino in
+            switch destino {
+            case .entrenoHecho(let assignmentId, let titulo):
+                ExecutedWorkoutView(
+                    assignmentId: assignmentId,
+                    fallbackTitle: titulo,
+                    bearer: bearer,
+                    hrZones: store.identity.value?.hrZones,
+                    onClose: { destinoContexto = nil }
+                )
+            case .entrenoPorHacer(let assignmentId, let titulo):
+                SessionExercisesSheet(
+                    assignmentId: assignmentId,
+                    sessionTitle: titulo,
+                    bearer: bearer
+                )
+            }
+        }
         .sheet(isPresented: $mostrarSelector) {
             SelectorDeEntreno(
                 secciones: EntrenosSeñalables.secciones(
@@ -835,7 +891,12 @@ struct ChatView: View {
                                        bearer: bearer,
                                        onRetry: { retry(msg.id) },
                                        onDiscard: { discard(msg.id) },
-                                       onDelete: { deleteSentMessage(msg.id) })
+                                       onDelete: { deleteSentMessage(msg.id) },
+                                       // Nil cuando no hay a dónde ir: la tarjeta
+                                       // entonces no se toca ni lo insinúa.
+                                       onAbrirContexto: msg.contexto
+                                           .flatMap(destino(para:))
+                                           .map { d in { destinoContexto = d } })
                                 .id(msg.id)
                         }
                     }
@@ -1209,6 +1270,9 @@ private struct MessageRow: View {
     var onDiscard: (() -> Void)? = nil
     /// Long-press action on the athlete's OWN sent message: delete it.
     var onDelete: (() -> Void)? = nil
+    /// Abrir la cosa de la que va el mensaje. Nil = no hay a dónde ir, y entonces
+    /// la tarjeta no se toca ni insinúa que se pueda.
+    var onAbrirContexto: (() -> Void)? = nil
 
     private var isFailed: Bool { message.status == .failed }
     private var isMe: Bool { message.sender == .me }
@@ -1225,7 +1289,7 @@ private struct MessageRow: View {
                 // sangre), así que la tarjeta se apoya ENCIMA en vez de dentro;
                 // en el texto, que es el caso normal, va dentro.
                 if let ref = message.contexto, !message.isText {
-                    TarjetaDeContexto(ref: ref, mio: isMe)
+                    TarjetaDeContexto(ref: ref, mio: isMe, onAbrir: onAbrirContexto)
                         .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
                 }
                 bubble
@@ -1289,7 +1353,7 @@ private struct MessageRow: View {
                 // El sujeto va DENTRO de la burbuja: pregunta y cosa preguntada
                 // son UNA sola, no dos elementos que emparejar a ojo.
                 if let ref = message.contexto {
-                    TarjetaDeContexto(ref: ref, mio: isMe)
+                    TarjetaDeContexto(ref: ref, mio: isMe, onAbrir: onAbrirContexto)
                 }
                 Text(body)
                     .scaledFont(14, relativeTo: .footnote)

@@ -52,8 +52,23 @@ struct ChatContextRef: Codable, Equatable, Sendable {
     let sub: String?
     /// Sello legible congelado al enviar, escrito por el servidor.
     let label: String
+    /// La línea de DATO de la cosa, AHORA. La escribe el servidor al leer el
+    /// mensaje, no al guardarlo: el coach y el atleta están a punto de hablar de
+    /// ella, así que lo que importa es su estado de hoy, no el de aquel día.
+    /// Nil cuando no se sabe o cuando la cosa ya no está.
+    let preview: String?
+    /// Si la cosa sigue existiendo. Nil = este mensaje viene de antes de que el
+    /// servidor lo dijera (o es una fila optimista): se trata como NO navegable,
+    /// que es lo honesto — mejor no ofrecer el toque que ofrecerlo y fallar.
+    let exists: Bool?
+    /// Solo con kind='session': `done` | `pending`. Decide en qué modo se abre —
+    /// lo hecho se mira, lo pendiente se estudia. El cliente no lo adivina.
+    let state: String?
 
     var conocido: ChatContextKind? { ChatContextKind(rawValue: kind) }
+
+    /// La cosa existe y el servidor lo ha dicho.
+    var sigueExistiendo: Bool { exists == true }
 
     /// Lo que hay que volver a mandar si el envío falló y se reintenta. Nil si el
     /// tipo no lo conoce este binario: reenviar a ciegas algo que no entiende
@@ -81,7 +96,12 @@ struct ChatContextChoice: Equatable, Sendable, Identifiable {
     /// confirma, la fila optimista se sustituye por la del servidor y con ella la
     /// etiqueta definitiva.
     var provisional: ChatContextRef {
-        .init(kind: target.kind.rawValue, ref: target.ref, sub: target.sub, label: etiqueta)
+        // Sin previsualización ni navegación: las escribe el servidor al leer el
+        // mensaje, y esta fila todavía no ha llegado a existir para él.
+        .init(
+            kind: target.kind.rawValue, ref: target.ref, sub: target.sub,
+            label: etiqueta, preview: nil, exists: nil, state: nil
+        )
     }
 }
 

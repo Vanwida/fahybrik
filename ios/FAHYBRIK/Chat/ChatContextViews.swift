@@ -68,16 +68,27 @@ struct ChipDeContexto: View {
 /// coach a emparejarla a ojo con la pregunta de al lado. Sobre la burbuja propia
 /// se oscurece; sobre la del coach usa el fondo hundido del tema.
 ///
-/// NO lleva chevron y NO se toca, a propósito: abrir el entreno desde aquí exige
-/// decidir en qué modo se abre (hecho o por hacer) y levantar esa pantalla sobre
-/// el propio chat, y hasta que eso esté resuelto un galón que no responde miente
-/// más de lo que informa. La propuesta del doble lo dibujaba; se retira en los
-/// dos sitios hasta que el toque exista.
+/// Lleva la línea de dato VIVA de la cosa cuando el servidor la sabe: la mitad
+/// del valor está en no tener que abrir nada para contestar. El galón y el toque
+/// solo aparecen cuando la cosa sigue existiendo Y esta app sabe a dónde llevar —
+/// un galón que no responde miente más de lo que informa.
 struct TarjetaDeContexto: View {
     let ref: ChatContextRef
     let mio: Bool
+    /// Nil cuando no hay a dónde ir: entonces la tarjeta no se toca ni lo insinúa.
+    var onAbrir: (() -> Void)? = nil
 
     var body: some View {
+        if let onAbrir {
+            Button(action: onAbrir) { cuerpo }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityHint("Toca dos veces para abrirlo")
+        } else {
+            cuerpo
+        }
+    }
+
+    private var cuerpo: some View {
         HStack(spacing: Theme.Spacing.s) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("SOBRE")
@@ -90,6 +101,21 @@ struct TarjetaDeContexto: View {
                     .foregroundStyle(tinta)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                // El dato de ahora. Es lo que se está discutiendo («4×5 · 80% ·
+                // descanso 90 s»), así que va en la tarjeta y no detrás de un toque.
+                if let preview = ref.preview, !preview.isEmpty {
+                    Text(preview)
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(tinta.opacity(0.75))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .padding(.top, 1)
+                }
+            }
+            if onAbrir != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(tinta.opacity(0.5))
             }
         }
         .padding(.vertical, 6)
@@ -101,7 +127,9 @@ struct TarjetaDeContexto: View {
                 .stroke(mio ? Color.black.opacity(0.10) : Theme.Color.hairline, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Sobre \(ref.label)")
+        .accessibilityLabel(
+            ref.preview.map { "Sobre \(ref.label). \($0)" } ?? "Sobre \(ref.label)"
+        )
     }
 
     private var tinta: Color { mio ? Theme.Color.accentOn : Theme.Color.foreground }
