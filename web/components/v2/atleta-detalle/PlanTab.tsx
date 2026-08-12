@@ -8,7 +8,7 @@
 // (weeks/sessions) + AthleteResumen (compliance, readiness). Empty plan → a calm
 // EmptyState with a link to assign.
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { SessionDetailDrawer } from './SessionDetailDrawer';
@@ -60,6 +60,9 @@ function mapWeekToStripDays(week: PlanWeekRow, athleteId: string): WeekStripDay[
 }
 
 const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+// El nombre del parámetro que hace enlazable una sesión: `?tab=plan&sesion=<id>`.
+const SESSION_QUERY_PARAM = 'sesion';
 
 /** "23–29 jun" (or "29 jun – 5 jul" across a month boundary) from ISO bounds. */
 function formatWeekRange(week: PlanWeekRow): string {
@@ -178,13 +181,34 @@ export function PlanTab({
   plan,
   resumen,
   athlete_id,
+  initialSessionId,
 }: {
   plan: AthletePlanPayload | null;
   resumen: AthleteResumen | null;
   athlete_id: string;
+  /** `?sesion=` de la URL al cargar — abre esa sesión en el cajón. Un id ajeno,
+   *  mal formado o inexistente no se valida aquí: se deja abrir y es el propio
+   *  cajón (`onInvalid`) quien lo cierra en silencio si la API dice que no. */
+  initialSessionId?: string | null;
 }) {
   // The session whose prescrito→hecho detail is open in the drawer (assignment id).
-  const [openSession, setOpenSession] = useState<string | null>(null);
+  const [openSession, setOpenSession] = useState<string | null>(initialSessionId ?? null);
+
+  // Abrir/cerrar el cajón refleja `?sesion=` en la URL para que se pueda copiar y
+  // compartir — pero SIN pasar por `router.replace`: esta ruta es `force-dynamic`
+  // y lee `searchParams` en el servidor, así que cualquier cambio de query vía el
+  // router de next-intl dispara un fetch RSC real (`?_rsc=…`, verificado contra
+  // /biblioteca en dev) que re-ejecuta `loadAthleteDetalle` entero solo para
+  // abrir un cajón. `history.replaceState` cambia la barra de direcciones sin
+  // tocar el router de Next: cero fetch, cero parpadeo, mismo estado local.
+  const openSessionSynced = useCallback((id: string | null) => {
+    setOpenSession(id);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set(SESSION_QUERY_PARAM, id);
+    else url.searchParams.delete(SESSION_QUERY_PARAM);
+    window.history.replaceState(window.history.state, '', url);
+  }, []);
   // Week navigation: index into plan.weeks for the "esta semana" strip. Defaults
   // to the week containing today; prev/next move within the materialized weeks.
   const initialWeekIdx = plan
@@ -455,7 +479,7 @@ export function PlanTab({
         <div className="flex flex-col gap-5">
           <Panel title="Sesión de hoy" bodyClassName="flex flex-col gap-3">
             {todaySession ? (
-              <TodaySessionCard session={todaySession} onOpen={setOpenSession} />
+              <TodaySessionCard session={todaySession} onOpen={openSessionSynced} />
             ) : planNotStarted ? (
               // Hoy NO es un día de descanso: el plan todavía no ha empezado.
               // Llamarlo descanso hacía pensar que estaba programado así.
@@ -576,7 +600,7 @@ export function PlanTab({
                 </thead>
                 <tbody className="[&>tr>td:first-child]:pl-3.5 [&>tr>td:last-child]:pr-3.5">
                   {recent.map((s) => (
-                    <RecentRow key={s.assignment_id} s={s} onOpen={setOpenSession} />
+                    <RecentRow key={s.assignment_id} s={s} onOpen={openSessionSynced} />
                   ))}
                 </tbody>
               </table>
@@ -613,7 +637,11 @@ export function PlanTab({
         key={openSession}
         athleteId={athlete_id}
         assignmentId={openSession}
-        onClose={() => setOpenSession(null)}
+        onClose={() => openSessionSynced(null)}
+        // Un id ajeno/roto llegado por `?sesion=`: la API responde 400/404 y el
+        // cajón, en vez de quedarse en un error permanente tapando la ficha,
+        // cierra en silencio — la ficha queda normal, tal y como se pide.
+        onInvalid={() => openSessionSynced(null)}
       />
     ) : null}
     {personalizeOpen ? (

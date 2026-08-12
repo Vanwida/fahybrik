@@ -13,6 +13,10 @@
 // "sin registro" (never a fabricated number); a session whose athlete logged only
 // the aggregate shows a single note + the prescription. Read-only — editing lives
 // in the day editor.
+//
+// `assignmentId` puede llegar de un `?sesion=` en la URL (PlanTab), no solo de un
+// clic sobre un dato ya cargado — así que puede ser ajeno o no existir. Un 400/404
+// dispara `onInvalid` (si el caller la da) en vez del aviso de error de siempre.
 
 import { useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
@@ -92,10 +96,17 @@ export function SessionDetailDrawer({
   athleteId,
   assignmentId,
   onClose,
+  onInvalid,
 }: {
   athleteId: string;
   assignmentId: string;
   onClose: () => void;
+  /** El `assignment_id` no existe, no es de este atleta, o llegó mal formado
+   *  (la API responde 400/404). Distinto de un fallo real (500 / red caído):
+   *  ese sigue mostrando el aviso de error de abajo, porque ahí el id SÍ era
+   *  válido y el coach espera poder reintentar. Opcional — sin ella, ambos
+   *  casos caen al mismo aviso de error de siempre. */
+  onInvalid?: () => void;
 }) {
   const [detail, setDetail] = useState<CoachSessionDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -106,6 +117,12 @@ export function SessionDetailDrawer({
       credentials: 'include',
     })
       .then(async (res) => {
+        if (!alive) return;
+        if (res.status === 400 || res.status === 404) {
+          if (onInvalid) onInvalid();
+          else setState('error');
+          return;
+        }
         if (!res.ok) throw new Error(String(res.status));
         const body = (await res.json()) as { session: CoachSessionDetail };
         if (!alive) return;
@@ -118,7 +135,7 @@ export function SessionDetailDrawer({
     return () => {
       alive = false;
     };
-  }, [athleteId, assignmentId]);
+  }, [athleteId, assignmentId, onInvalid]);
 
   // Index actuals by the prescribed item they map to.
   const byItem = new Map<string, SegmentActual[]>();

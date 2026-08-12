@@ -3,6 +3,11 @@
 // out with per-section degradation), and renders the client orchestrator with the
 // URL-driven active sub-tab (?tab=perfil|plan|historico|biometria|mensajes). A
 // non-existent / not-owned athlete → notFound().
+//
+// ?sesion=<assignment_id> (solo con tab=plan) hace ENLAZABLE una sesión concreta
+// del plan: PlanTab la abre en el cajón al cargar. Es solo de ENTRADA — un id
+// roto, ajeno o inexistente no tira la ficha (PlanTab/SessionDetailDrawer lo
+// resuelven cerrando el cajón en silencio, ver PlanTab.tsx).
 
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
@@ -17,7 +22,7 @@ export default async function V2AthleteDetailPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; sesion?: string }>;
 }) {
   const { locale, id } = await params;
   setRequestLocale(locale);
@@ -34,13 +39,14 @@ export default async function V2AthleteDetailPage({
   });
   if (!detalle) notFound();
 
-  const { tab } = await searchParams;
+  const { tab, sesion } = await searchParams;
   // El club es con quien el atleta cree que habla: es el nombre que la app le
   // pone a un comunicado (`coaches.full_name`), no el del miembro que lo escribe.
   return (
     <AthleteDetalle
       detalle={detalle}
       tab={normalizeAtletaTab(tab)}
+      initialSessionId={sesion && sesion.trim().length > 0 ? sesion.trim() : null}
       coachName={session.club_name}
     />
   );

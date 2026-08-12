@@ -40,10 +40,14 @@ import { selectPerfilTab, type V2AthleteDetalle, type AtletaTab } from '@/lib/da
 export function AthleteDetalle({
   detalle,
   tab,
+  initialSessionId,
   coachName,
 }: {
   detalle: V2AthleteDetalle;
   tab: AtletaTab;
+  /** `?sesion=` de la URL — la sesión del plan a abrir al cargar (solo aplica en
+   *  la pestaña `plan`; cualquier otro valor lo resuelve PlanTab). */
+  initialSessionId: string | null;
   /** El nombre del club: es con el que el atleta ve firmado un comunicado. */
   coachName: string;
 }) {
@@ -142,7 +146,12 @@ export function AthleteDetalle({
             />
           </div>
         ) : tab === 'plan' ? (
-          <PlanTab plan={detalle.plan} resumen={detalle.resumen} athlete_id={header.athlete_id} />
+          <PlanTab
+            plan={detalle.plan}
+            resumen={detalle.resumen}
+            athlete_id={header.athlete_id}
+            initialSessionId={initialSessionId}
+          />
         ) : tab === 'ritmos' ? (
           <RitmosZonasTab
             athleteId={header.athlete_id}
