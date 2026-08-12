@@ -19,7 +19,16 @@ menús de pulsación larga (atajo). La única superficie nueva es la hoja de
 
 - **Propuesta viva:** `/es/design/chat-contexto` (7 guiones: el atajo, la
   puerta, elegir, puesto, enviado, y el caso fino del ejercicio dentro del
-  entreno). Commit `60dda67e`.
+  entreno). Commit `60dda67e`. **Aprobada por Alex** («adelante, constrúyelo»).
+- **iOS construido** (`9ebfe445`, compila iOS + reloj): el «+» gana «Sobre un
+  entreno» (título del diálogo → «Añadir al mensaje»), la fila «Preguntar al
+  coach» entra en `accionesDeSesion` (y con ella salen las TRES puertas del
+  Plan: héroe, carril de días y «···» de la segunda sesión), en los dos menús
+  de la tarjeta de carrera, y en las filas del índice de técnica, que estrenan
+  `contextMenu`. Chip descartable en el compositor, tarjeta dentro de la
+  burbuja, y la hoja «¿sobre qué entreno?» pintada con la semana que YA está en
+  el store (la anterior se pide solo al abrir el selector: cero endpoints
+  nuevos). `\.openChat` pasa a llevar carga en vez de nacer una segunda puerta.
 - **Dato:** referencia TIPADA en `chat_messages` (`context_kind` session |
   exercise | race + `ref` + `sub` + `label`), con la etiqueta escrita por el
   SERVIDOR — un solo rotulador para iOS, el dashboard y el push. Detalle y
@@ -31,8 +40,17 @@ menús de pulsación larga (atajo). La única superficie nueva es la hoja de
   *pregunta* se queda fuera a propósito: ya se responde en su sitio
   (`ComunicadoPreguntaView`), y dos vías para la misma respuesta es peor.
 
-**Siguiente:** su visto bueno sobre la propuesta antes de tocar Swift. iOS aún
-NO lleva nada de esto.
+**Siguiente:** el dato (migración 0186 + rotulador + validación de propiedad en
+`web/lib/chat/`) se está construyendo. Hasta que aterrice y se despliegue, un
+mensaje con contexto viaja con un campo que el servidor todavía ignora. **La
+build la instala Alex.**
+
+**Ojo, deuda de vecindad:** el `project.pbxproj` commiteado en `9ebfe445`
+referencia cinco ficheros de otra sesión que siguen sin commitear
+(`Plan/ExecutionTrace.swift`, `Plan/RunCompliance.swift`,
+`Workout/PostWorkout/{CurvaDeCarrera,LecturaDeCarreraDesdeDetalle,LecturaDeCarreraPiezas}.swift`).
+Un checkout limpio no compila hasta que esa sesión commitee lo suyo; ya está
+avisada.
 
 ---
 

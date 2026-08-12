@@ -106,7 +106,10 @@ final class ChatAttachmentTests: XCTestCase {
             attachmentKind: "image",
             attachmentMeta: meta,
             createdAt: Date(timeIntervalSince1970: 1_770_000_000),
-            readAt: nil, editedAt: nil
+            readAt: nil, editedAt: nil,
+            // Un adjunto sin sujeto: el caso normal, y el único que existía antes
+            // de que el mensaje supiera sobre qué va.
+            context: nil
         )
         let data = try JSONEncoder().encode(original)               // plain (store) coder
         let decoded = try JSONDecoder().decode(ChatMessageDTO.self, from: data)
