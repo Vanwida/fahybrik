@@ -424,6 +424,44 @@ pausa, banca tumbado, wall balls, curl, dominadas, flexiones, andar=0, carry=0,
 silla=0, remo sentado=0, velocidad 1×rep, conteo monotónico, ida y vuelta del
 archivo v2); `xcodebuild -scheme FAHYBRIKWatch` SUCCEEDED.
 
+## APAGADO por defecto, y las capturas pendientes de bajar (12-ago)
+
+**Decisión de Alex:** contar repeticiones queda como **alpha detrás de un
+interruptor** en Perfil → «Pruebas» (`SensorRepCounting`, defecto OFF). Con el
+interruptor apagado el reloj SIGUE capturando —es el material de calibración— pero
+ningún número llega a la pantalla ni al entreno guardado. Calibrar contra barra,
+olímpico y manos fijas lleva varias sesiones, y hasta entonces un conteo que se
+equivoca cuesta más que no dar conteo.
+
+**PENDIENTE DE BAJAR — pruebas del gym del 12-ago.** Alex hizo pruebas hoy y pidió
+NO bajarlas todavía. Están en el iPhone; se sacan sin tocar el teléfono con:
+
+```
+xcrun devicectl list devices                       # UDID del iPhone
+xcrun devicectl device info files  --device <UDID> --domain-type appDataContainer \
+    --domain-identifier com.fahybrid.app --username mobile | grep fhsc
+xcrun devicectl device copy from   --device <UDID> --domain-type appDataContainer \
+    --domain-identifier com.fahybrid.app --user mobile \
+    --source "Library/Application Support/sensor-captures/<id>.fhsc" --destination .
+```
+
+Y se leen con `ios/tools/replay-sensor/main.swift` (instrucciones en su cabecera).
+Ojo: la copia del reloj usa `--domain-identifier com.fahybrid.app.watchkitapp` y
+`--source tmp/sensor-<id>.fhsc`, que sirve cuando la entrega al móvil sigue encolada.
+
+**Ya bajadas y guardadas** en `ios/FAHYBRIKTests/Fixtures/sensor/` (son la verdad de
+referencia del 11-ago, con lo que Alex declaró que hizo):
+
+| fichero | qué es |
+|---|---|
+| `2026-08-11-2302-brazo-8reps.fhsc` | v2 · ventana «Back Squat» · contó **8**, hizo **8** |
+| `2026-08-11-2304-brazo-6reps.fhsc` | v2 · ventana «Back Squat» · contó **7**, hizo **6** (quizá 7) |
+| `2026-08-11-2303-sin-ventana.fhsc` | v2 · **sin ninguna ventana** → contó 0. El misterio a resolver |
+| `2026-08-11-2234-v1-sin-gravedad.fhsc` | v1 del binario viejo · sirve para probar la lectura de v1 |
+
+En las tres de v2 el gesto era **mover el brazo**, no sentadillas con barra: la
+muñeca basculó 108-118°. Valen para el conteo, NO para juzgar los m/s.
+
 **Para VER qué pasa en el gimnasio, no en el laboratorio (11-ago noche):**
 
 - **Traza en vivo**: el reloj manda con cada paquete unas líneas de diagnóstico

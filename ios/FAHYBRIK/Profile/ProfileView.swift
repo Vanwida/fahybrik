@@ -25,6 +25,9 @@ struct ProfileView: View {
     /// "Avisos de voz" (#63) — the live running voice coach. ON by default; the same
     /// key backs the quick speaker toggle on the run HUD.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
+    /// Contar repeticiones con el reloj (alpha). El interruptor escribe por
+    /// `SensorRepCounting` —que es quien lee el motor— y esto solo refresca la vista.
+    @State private var contarRepesEnabled = SensorRepCounting.isEnabled
 
     @State private var sheet: SheetKind? = nil
     @State private var showPartnerInvite: Bool = false
@@ -158,6 +161,9 @@ struct ProfileView: View {
 
                         SectionHeader(title: "Dispositivos")
                         devicesCard
+
+                        SectionHeader(title: "Pruebas")
+                        contarRepesCard
 
                         SectionHeader(title: "Apariencia")
                         appearanceCard
@@ -1372,6 +1378,66 @@ struct ProfileView: View {
 
     /// Theme override control. Defaults to "Auto" (follow the system); "Claro" /
     /// "Oscuro" force the scheme. Writes the shared @AppStorage value AppRoot reads.
+    // MARK: - Contar repeticiones con el reloj (alpha)
+    //
+    // Apagado por defecto y dicho sin adornos: está a medio calibrar. Un contador que
+    // se equivoca no cuesta solo esa cifra — le quita credibilidad a todo lo que
+    // enseña la app. Con el interruptor apagado el reloj sigue grabando la sesión
+    // (es el material con el que se calibra), pero ningún número llega a la pantalla
+    // ni al entreno guardado.
+
+    private var contarRepesCard: some View {
+        CardSurface(padding: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.strengthtraining.traditional")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                        .frame(width: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text("Contar repeticiones")
+                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                                .foregroundStyle(Theme.Color.foreground)
+                            Text("ALPHA")
+                                .scaledFont(9, weight: .heavy, relativeTo: .caption2)
+                                .foregroundStyle(Theme.Color.accentText)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Theme.Color.accent.opacity(0.16), in: Capsule())
+                        }
+                        Text(contarRepesEnabled
+                             ? "El reloj precarga las repeticiones y la velocidad. Puede equivocarse: corrige el número siempre que no cuadre."
+                             : "Apagado. Las repeticiones las pones tú.")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                            .lineLimit(4)
+                    }
+                    Spacer()
+                    Toggle("", isOn: contarRepesToggle)
+                        .labelsHidden()
+                        .tint(Theme.Color.accent)
+                        .accessibilityLabel("Contar repeticiones con el reloj, en pruebas")
+                        .accessibilityValue(contarRepesEnabled ? "activado" : "desactivado")
+                }
+                Text("En pruebas: se está calibrando con movimientos reales. Necesita el Apple Watch puesto durante el entreno.")
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+    }
+
+    private var contarRepesToggle: Binding<Bool> {
+        Binding(
+            get: { contarRepesEnabled },
+            set: { on in
+                Haptics.light()
+                SensorRepCounting.set(on)
+                contarRepesEnabled = on
+            }
+        )
+    }
+
     private var appearanceCard: some View {
         CardSurface(padding: Theme.Spacing.m) {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {

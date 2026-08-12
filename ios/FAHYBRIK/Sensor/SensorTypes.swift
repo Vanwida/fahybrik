@@ -140,6 +140,27 @@ struct BarVelocityResult: Equatable, Sendable {
     let repVelocities: [Double]
 }
 
+/// El contador de repeticiones por muñeca es **alpha** y está apagado salvo que el
+/// atleta lo encienda en su perfil.
+///
+/// Por qué apagado: calibrarlo contra movimientos reales (barra, olímpico, manos
+/// fijas) lleva varias sesiones de gimnasio, y hasta entonces un número que se
+/// equivoca es peor que no dar número — el atleta acaba desconfiando de todo lo que
+/// enseña la app, no solo de esta cifra. Mientras está apagado la captura del sensor
+/// SÍ sigue corriendo (es la que produce el material para calibrar); lo único que no
+/// pasa es que un conteo llegue a la pantalla o al entreno guardado.
+enum SensorRepCounting {
+    private static let key = "fahybrik.sensor.repCounting.alpha.v1"
+
+    static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: key)
+    }
+
+    static func set(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: key)
+    }
+}
+
 /// Binary file format constants for archived captures (fase 0).
 enum SensorFileFormat {
     static let magic = Data([0x46, 0x48, 0x53, 0x43]) // "FHSC"

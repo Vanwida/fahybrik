@@ -166,14 +166,15 @@ final class WorkoutSession {
     func applySensorConclusions(_ c: MirrorSensorConclusions) {
         guard c.seq >= lastSensorSeq else { return }
         lastSensorSeq = c.seq
-        sensorConclusions = c
-
-        // La traza del reloj sale por la consola del dispositivo, etiquetada, con
-        // interpolación PÚBLICA (la de serie la censura). Mismo canal por el que se
-        // diagnostica la cinta: MacBook enchufado en el gimnasio, filtro "[REPS]".
+        // ALPHA, y apagado por defecto: sin el interruptor del perfil el sensor
+        // sigue capturando (es el material para calibrar) pero ni un número llega a
+        // la pantalla ni al entreno guardado. Un conteo que se equivoca cuesta más
+        // que no dar conteo. La traza sí se registra: es lo que permite calibrar.
         for line in c.debug ?? [] {
             Self.repsLog.log("[REPS] \(line, privacy: .public)")
         }
+        guard SensorRepCounting.isEnabled else { return }
+        sensorConclusions = c
 
         let openIdx = setRecords.firstIndex(where: { !$0.confirmed && $0.status != "skipped" })
             ?? setRecords.indices.last
