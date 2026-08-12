@@ -164,12 +164,28 @@ describe('messageDtoSchema — el contexto viaja SIEMPRE (null u objeto), nunca 
     expect(messageDtoSchema.safeParse({ ...base, context: null }).success).toBe(true);
   });
 
-  it('valida un mensaje con contexto resuelto (con label)', () => {
+  it('valida un mensaje con contexto resuelto (con label) y su previsualización viva', () => {
+    const r = messageDtoSchema.safeParse({
+      ...base,
+      context: {
+        kind: 'session',
+        ref: '1234',
+        sub: null,
+        label: 'Fuerza A · mar 18',
+        preview: '4×5 · 80% RM',
+        exists: true,
+        state: 'pending',
+      },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rechaza un contexto sin preview/exists/state — deben ir siempre, aunque sean null', () => {
     const r = messageDtoSchema.safeParse({
       ...base,
       context: { kind: 'session', ref: '1234', sub: null, label: 'Fuerza A · mar 18' },
     });
-    expect(r.success).toBe(true);
+    expect(r.success).toBe(false);
   });
 
   it('rechaza un mensaje sin el campo `context` (debe ir explícito, `base` no lo lleva)', () => {

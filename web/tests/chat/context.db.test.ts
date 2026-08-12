@@ -339,11 +339,17 @@ describeWithDb('resolveMessageContext (DB real)', () => {
         input: { body: '¿cuántas series hago?' },
         context: ctx,
       });
-      expect(saved.context).toEqual(ctx);
+      // La terna congelada es la MISMA de `resolveMessageContext`; la
+      // previsualización (0186 ampliación, ver context-preview.db.test.ts) se
+      // añade encima — el único segmento del fixture ('Fuerza A', sin
+      // block_title ni prescription_json) es "1 bloque · Sin detallar", y el
+      // assignment nace 'scheduled' → pendiente.
+      const expected = { ...ctx, preview: '1 bloque · Sin detallar', exists: true, state: 'pending' };
+      expect(saved.context).toEqual(expected);
 
       const { messages } = await listMessages({ sql, thread_id, cursor: null, limit: 5 });
       const reread = messages.find((m) => m.id === saved.id);
-      expect(reread?.context).toEqual(ctx);
+      expect(reread?.context).toEqual(expected);
     });
 
     it('sin contexto: el DTO trae `context: null` explícito (no ausente)', async () => {
