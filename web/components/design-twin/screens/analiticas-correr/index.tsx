@@ -4,51 +4,46 @@
 //
 // LA REGLA: **el dato es el dibujo.** El texto es pie, y casi siempre sobra.
 //
-// La primera versión (12-ago) razonaba bien y se leía como un informe: un
-// veredicto y debajo párrafos explicando cada gráfica. Alex la rechazó por eso,
-// y tenía razón — Garmin y Whoop no explican con frases, enseñan un anillo, una
-// curva grande, una banda de color. Se leen de un vistazo, sin leer.
+// EL ACABADO SE MIDE CONTRA `lectura-carrera`, que Alex aprobó. Se estudió esa
+// pantalla —mirándola, no de memoria— y de ahí salen las decisiones de este
+// pase (12-ago), después de que la versión anterior se rechazara por fea:
 //
-// LO QUE CAMBIÓ, y ninguno es cosmético:
+//   · FONDO TINTADO. Allí el lienzo lo tiñe la zona de pulso de la sesión, y es
+//     lo que más hace que una pantalla parezca esta app. Aquí no hay una zona
+//     que valga para toda la pantalla, así que tiñe EL VEREDICTO, que es su
+//     sujeto. Sin veredicto el tono es el apagado y el lienzo queda neutro.
+//   · SUJETO CENTRADO Y CON AIRE. El veredicto ocupa arriba lo que allí ocupa
+//     «5 de 6»: etiqueta versalita diminuta, display en cursiva, y espacio.
+//   · CERO CAJAS Y CERO LÍNEAS DIVISORIAS. La referencia separa con la etiqueta
+//     y el aire. Se han quitado todas las rayas; los bloques se agrupan por
+//     distancia (24 dentro de un grupo, 48 entre grupos).
+//   · TRAZOS FINOS SOBRE EL TINTE, sin rellenos de color, y los ejes en dos
+//     cifras mono diminutas pegadas al borde izquierdo.
+//   · EL NARANJA, UNA VEZ: la acción. Como allí.
 //
-// 1 · CADA BLOQUE NACE DE UN GRÁFICO. Primero qué forma cuenta el hecho —curva,
-//     barras, anillo, banda, plazo—, y solo después, si hace falta, una cifra.
-//     Lo que no se podía dibujar se borró: no se reescribió más corto.
+// COLOR SOLO DONDE ES DATO. El VO₂máx iba en azul y ya no: un VO₂máx no es una
+// zona. La línea del ritmo tampoco lleva color de zona — lo que se dibuja es el
+// ritmo, y la zona es la condición, no la magnitud. El color de zona se queda
+// donde se mide una zona (el reparto) y el verde donde hay veredicto.
 //
-// 2 · LA COMPARACIÓN SE DIBUJA. «Hace 4 semanas perdías 15,5» era una frase;
-//     ahora es un punto hueco y una línea de puntos, y la distancia entre esa
-//     línea y el trazo ES la mejora. La curva de esfuerzos rellena el hueco
-//     contra la de hace un mes: esa mancha verde es el progreso.
-//
-// 3 · LO QUE FALTA SE ENSEÑA APAGADO, NO EXPLICADO. Una lectura sin cobertura
-//     se pinta en gris con un candado; el único texto es un botón. Y el «aún
-//     no» del recién llegado es una barra de semanas que se llena.
-//
-// 4 · EL VO₂MÁX SALE DE PERFIL Y VIENE AQUÍ, de titular de la prueba de forma
-//     (ver `modelo.ts`). Es de lo que más se mira y estaba archivado entre los
-//     ajustes; su sitio es donde el atleta pregunta si está mejorando.
-//
-// LO QUE NO SE TOCÓ: la honestidad. El recién llegado sigue sin veredicto, la
-// petición del test sigue saliendo una sola vez y una lectura que no aplica
-// sigue sin existir. Solo que ahora eso también se dibuja.
-//
-// COMPOSICIÓN. Arquetipo Detalle, estrategia **llena**: el veredicto manda el
-// primer tercio y por debajo scrollea un bloque por pregunta, separados por
-// raya y aire, sin una sola tarjeta. Es pantalla raíz del TabView, así que la
-// barra de pestañas se pinta y el alto disponible se mide de verdad.
+// EL ANILLO SE FUE. Era el elemento más genérico de la pantalla: un donut vale
+// para cualquier producto porque no significa nada en particular. Lo sustituye
+// un punto por repetición, que además hace el trabajo de la barra divergente:
+// el sesgo se ve solo, porque los fallos rápidos y los lentos tienen color
+// distinto y se agrupan a la vista.
 
 import { useEffect } from 'react';
 import { Pantalla, TabBar } from '../../kit-composicion/chrome';
 import { R, S } from '../../kit-composicion/tokens';
 import { esDecimal, reloj, ritmoKm } from '../../kit-composicion/formato';
-import { colorZona } from '../../kit-vivo';
 import { distribucionZonas } from '../../zonas';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
+import { Apagado, Barras, BarraReparto, CurvaEsfuerzos, Fondo, Linea, Marca, Plazo, Puntos } from './graficos';
 import { ESCENAS } from './datos';
-import { Anillo, Barras, BarraReparto, Bloqueado, CurvaEsfuerzos, Divergente, Linea, Marca, Plazo } from './graficos';
 import {
   METODO,
   coberturaDe,
+  colapso,
   faltaComun,
   salidaDe,
   sePuedeJuzgarElPedido,
@@ -60,7 +55,7 @@ import {
   type Falta,
   type Historia,
 } from './modelo';
-import { Bloque, Boton, Cifra, Delta, Raya, Veredicto } from './piezas';
+import { Bloque, Boton, Cifra, Delta, Veredicto } from './piezas';
 
 export const meta: TwinMeta = {
   id: 'analiticas-correr',
@@ -69,10 +64,10 @@ export const meta: TwinMeta = {
   estado: 'propuesta',
   actualizado: '2026-08-12',
   descripcion:
-    'El dato es el dibujo: un veredicto de tres palabras y, debajo, un gráfico grande por pregunta con la comparación dentro. El VO₂máx sale de Perfil y pasa a ser el titular de la prueba de forma. Lo que no se puede afirmar se enseña apagado con un candado, no explicado.',
+    'El dato es el dibujo: veredicto de dos palabras sobre un lienzo teñido por ese veredicto, y debajo un gráfico grande por pregunta con la comparación dentro. Acabado medido contra lectura-carrera. El VO₂máx sale de Perfil y pasa a titular de la prueba de forma.',
   fuentes: [],
   enApp:
-    'La pestaña existe (AnalyticsView + lib/athlete/analytics/running.ts) y ya sirve volumen, zonas, tendencia de ritmo y mejores marcas, en tarjetas. Lo nuevo: el veredicto, la curva de esfuerzos con sombra, el ritmo al mismo pulso y la adherencia agregada (los dos últimos ya se calculan por sesión y se tiran), y el VO₂máx traído desde RendimientoSection en Perfil.',
+    'La pestaña existe (AnalyticsView + lib/athlete/analytics/running.ts) y ya sirve volumen, zonas, tendencia de ritmo y mejores marcas, en tarjetas. Lo nuevo: el veredicto, la curva de esfuerzos con sombra, el ritmo al mismo pulso y la adherencia agregada (los dos últimos ya se calculan por sesión y se tiran sin acumular), y el VO₂máx traído desde RendimientoSection en Perfil.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
@@ -82,32 +77,35 @@ export const escenarios: TwinEscenario[] = [
     id: 'veterano',
     titulo: '① Siete meses dentro, y mejorando',
     descripcion:
-      'El caso lleno. VO₂máx de titular, y debajo la curva del ritmo al mismo pulso con la línea de puntos de dónde salió. En mejores esfuerzos, la mancha verde entre las dos curvas es la mejora del mes.',
+      'El caso lleno, con el lienzo teñido de verde por el veredicto. La línea de puntos bajo la curva del ritmo es de dónde salió; la mancha entre las dos curvas de esfuerzos es la mejora del mes. Cuarenta y seis puntos, uno por serie corrida.',
   },
   {
     id: 'nuevo',
     titulo: '② Tres semanas · sin veredicto',
     descripcion:
-      'El que separa un diseño honesto de uno que rellena. El veredicto es «Aún no» y el plazo es una barra de seis semanas con tres llenas. Sin sombra en la curva, sin carrera y sin correr cansado: la pantalla sale corta y esa es la respuesta correcta.',
+      'El que separa un diseño honesto de uno que rellena. «Aún no», lienzo sin teñir porque no hay veredicto que lo tiña, y el plazo es una barra de seis semanas con tres llenas. Sin carrera y sin correr cansado: no le aplican y no existen.',
   },
   {
     id: 'cargando',
     titulo: '③ Cargando de más · el veredicto incómodo',
     descripcion:
-      'Volumen subiendo y motor respondiendo peor, sin una frase que lo explique: la línea del ritmo cae, las barras rebasan la media de partida y el reparto enseña un tercio en verde de Z3 con la marca del coach muy a la derecha.',
+      'Lienzo ámbar. La línea del ritmo cae por debajo de su propio fantasma, la mancha entre curvas sale ámbar en vez de verde, las barras rebasan la media de partida y trece puntos rojos delatan que sale pasado de rosca.',
   },
   {
     id: 'sin-zonas',
     titulo: '④ Sin test de umbral · dos lecturas apagadas',
     descripcion:
-      'Sin zonas no hay forma ni reparto. Las dos se pintan en gris con candado y aparece UN botón; no hay dos textos pidiendo el mismo test. El veredicto baja al segundo peldaño y sigue siendo defendible.',
+      'Sin zonas no hay forma ni reparto: las dos se pintan tenues con un candado y aparece UN botón, no dos textos pidiendo el mismo test. El veredicto baja al segundo peldaño (mejores esfuerzos) y sigue siendo defendible.',
   },
 ];
 
-/** El botón sale una vez, y lo que abre se ve apagado. Cero prosa. */
 const ORDEN: (keyof Cobertura)[] = ['forma', 'esfuerzos', 'volumen', 'reparto', 'pedido', 'cansado'];
 
-export function Screen({ escenario, onLog }: TwinScreenProps) {
+/** Dentro de un grupo. Entre grupos, el doble: se agrupa sin dibujar una raya. */
+const DENTRO = S.xl;
+const ENTRE = S.xxxl;
+
+export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
   const h: Historia = ESCENAS[escenario] ?? ESCENAS.veterano!;
   const v = veredictoDe(h);
   const cob = coberturaDe(h);
@@ -126,85 +124,92 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
   useEffect(() => {
     onLog(`Veredicto: ${v.clase}${v.peldano ? ` · peldaño ${v.peldano.en}` : ' · sin evidencia'}`);
-    const apagadas = ORDEN.filter((k) => modo(k) === 'apagada');
-    const calladas = ORDEN.filter((k) => modo(k) === 'nada');
-    onLog(`Apagadas: ${apagadas.length} · calladas: ${calladas.length}`);
+    onLog(
+      `Apagadas: ${ORDEN.filter((k) => modo(k) === 'apagada').length} · calladas: ${ORDEN.filter((k) => modo(k) === 'nada').length}`,
+    );
   }, [escenario]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zonas = distribucionZonas({ duracionS: h.segundosCorriendo, zonasS: h.zonasS });
-  const tonoZona = colorZona(h.zonaReferencia);
+  const reparto = colapso(zonas);
 
   return (
     <div className="twin-screen-safe">
+      {/* El tinte ES el veredicto, como en la referencia lo es la zona. */}
+      <Fondo tono={tonoDe(v.clase)} appearance={appearance} />
       <Pantalla estrategia="llena" tabBar={<TabBar activa="Analíticas" />}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: S.xl, padding: `${S.m}px ${S.m}px ${S.xxl}px` }}>
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: ENTRE,
+            padding: `${S.m}px ${S.l}px ${S.xxl}px`,
+          }}
+        >
           <Rail />
 
-          <Veredicto clase={v.clase} frase={v.frase}>
-            {v.plazo ? <Plazo llevas={v.plazo.llevas} hacen={v.plazo.hacen} /> : null}
-          </Veredicto>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: S.l }}>
+            <Veredicto clase={v.clase} frase={v.frase}>
+              {v.plazo ? <Plazo llevas={v.plazo.llevas} hacen={v.plazo.hacen} /> : null}
+            </Veredicto>
+            {salida && <Boton onClick={() => onLog(`Salida → ${salida}`)}>{salida}</Boton>}
+          </div>
 
-          {salida && <Boton onClick={() => onLog(`Salida → ${salida}`)}>{salida}</Boton>}
+          {/* ── LO QUE SALE · el efecto ─────────────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: DENTRO }}>
+            <Bloque etiqueta="Forma">
+              {modo('forma') === 'da' ? (
+                <>
+                  <Cifra
+                    valor={h.vo2 ? String(h.vo2.valor) : ritmoKm(Math.round(h.alPulso[h.alPulso.length - 1]!.valor))}
+                    unidad={h.vo2 ? 'VO₂máx' : 'mismo pulso'}
+                  >
+                    <DeltaForma h={h} />
+                  </Cifra>
+                  <Linea puntos={h.alPulso} formato={(s) => reloj(Math.round(s))} />
+                  <Marca>{`Ritmo a ${h.ppmReferencia} ppm`}</Marca>
+                </>
+              ) : (
+                <Apagado alto={124} />
+              )}
+            </Bloque>
 
-          <Raya />
-
-          {/* ── FORMA · el VO₂máx de titular, el ritmo al mismo pulso de prueba ── */}
-          <Bloque etiqueta="Forma">
-            {modo('forma') === 'da' ? (
-              <>
-                <Cifra valor={h.vo2 ? String(h.vo2.valor) : ritmoKm(Math.round(h.alPulso[h.alPulso.length - 1]!.valor))} unidad={h.vo2 ? 'VO₂máx' : 'al mismo pulso'} tono={tonoZona}>
-                  <DeltaForma h={h} />
+            <Bloque etiqueta="Mejores esfuerzos">
+              {/* Menor que los demás titulares por dos razones: a 44 px el mono
+                  abre tanto los dos puntos que «19:12» se lee «19 : 12», y aquí
+                  el sujeto del bloque es la CURVA — la cifra la acompaña. */}
+              {mejor5k(h) && (
+                <Cifra valor={mejor5k(h)!} unidad="5 km" tam={36}>
+                  <DeltaEsfuerzos h={h} />
                 </Cifra>
-                <Linea
-                  puntos={h.alPulso}
-                  color={tonoZona}
-                  formato={(s) => reloj(Math.round(s))}
-                />
-                <Marca>{`Ritmo a ${h.ppmReferencia} ppm`}</Marca>
-              </>
-            ) : (
-              <Bloqueado alto={132} />
-            )}
-          </Bloque>
+              )}
+              <CurvaEsfuerzos hoy={h.esfuerzos} antes={h.esfuerzosAntes} />
+            </Bloque>
+          </div>
 
-          <Raya />
-
-          {/* ── MEJORES ESFUERZOS · la curva entera con la sombra del mes ────── */}
-          <Bloque etiqueta="Mejores esfuerzos">
-            {/* Un poco menor que el resto de titulares: a 56 px la cifra mono
-                abre tanto los dos puntos que «19:12» se lee «19 : 12». */}
-            {mejor5k(h) && (
-              <Cifra valor={mejor5k(h)!} unidad="5 km" tam={46}>
-                <DeltaEsfuerzos h={h} />
+          {/* ── LO QUE METES · el trabajo ───────────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: DENTRO }}>
+            <Bloque etiqueta="Cuánto corres">
+              <Cifra valor={esDecimal(h.semanasKm[h.semanasKm.length - 1]!.valor, 0)} unidad="km" tam={44}>
+                <DeltaVolumen h={h} />
               </Cifra>
-            )}
-            <CurvaEsfuerzos hoy={h.esfuerzos} antes={h.esfuerzosAntes} />
-          </Bloque>
+              <Barras puntos={h.semanasKm} />
+            </Bloque>
 
-          <Raya />
+            <Bloque etiqueta="Suave y fuerte">
+              {modo('reparto') === 'da' && zonas.length > 0 ? (
+                <>
+                  <Cifra valor={String(reparto.suave)} unidad="% suave" tam={44} />
+                  <BarraReparto segmentos={zonas} objetivoSuave={METODO.reparto.suave} />
+                </>
+              ) : (
+                <Apagado alto={72} />
+              )}
+            </Bloque>
+          </div>
 
-          {/* ── CARGA · cuánto, y cómo lo reparte ───────────────────────────── */}
-          <Bloque etiqueta="Cuánto corres">
-            <Cifra valor={esDecimal(h.semanasKm[h.semanasKm.length - 1]!.valor, 0)} unidad="km esta semana">
-              <DeltaVolumen h={h} />
-            </Cifra>
-            <Barras puntos={h.semanasKm} />
-          </Bloque>
-
-          <Bloque etiqueta="Suave y fuerte">
-            {modo('reparto') === 'da' && zonas.length > 0 ? (
-              <BarraReparto segmentos={zonas} objetivoSuave={METODO.reparto.suave} />
-            ) : (
-              <Bloqueado alto={72} />
-            )}
-          </Bloque>
-
-          <Raya />
-
-          {/* ── LO QUE TE PIDEN · anillo y sesgo, sin una frase ─────────────── */}
           {modo('pedido') === 'da' && h.pedido && <BloquePedido h={h} />}
 
-          {/* ── TU CARRERA · el día, el tiempo, y correr cansado ────────────── */}
           <TramoCarrera h={h} modoCansado={modo('cansado')} clase={v.clase} />
         </div>
       </Pantalla>
@@ -228,7 +233,7 @@ function Rail() {
             flex: '0 0 auto',
             padding: '5px 12px',
             borderRadius: R.pill,
-            font: '600 12px/1.2 var(--twin-font-sans)',
+            font: '700 12px/1.2 var(--twin-font-sans)',
             background: i === 0 ? 'var(--twin-fg)' : 'transparent',
             color: i === 0 ? 'var(--twin-bg)' : 'var(--twin-muted)',
             border: i === 0 ? '1px solid transparent' : '1px solid var(--twin-hairline-strong)',
@@ -251,7 +256,7 @@ function DeltaForma({ h }: { h: Historia }) {
     return <Delta mejor={h.vo2.delta > 0} valor={String(Math.abs(h.vo2.delta))} ventana={`${h.vo2.ventanaSemanas} sem`} />;
   }
   const gana = h.alPulso[0]!.valor - h.alPulso[h.alPulso.length - 1]!.valor;
-  return <Delta mejor={gana > 0} valor={`${Math.abs(Math.round(gana))} s/km`} ventana={`${h.alPulso.length - 1} sem`} />;
+  return <Delta mejor={gana > 0} valor={`${Math.abs(Math.round(gana))} s`} ventana={`${h.alPulso.length - 1} sem`} />;
 }
 
 function DeltaEsfuerzos({ h }: { h: Historia }) {
@@ -266,9 +271,10 @@ function DeltaVolumen({ h }: { h: Historia }) {
   if (h.semanasKm.length < 6) return null;
   const subida = subidaDeVolumen(h.semanasKm);
   // El volumen NO juzga: subir no es bueno ni malo por sí mismo, así que la
-  // flecha va neutra. Lo que sí avisa es la combinación, y de eso ya se ocupa
-  // el veredicto de arriba.
-  return <Delta mejor={null} valor={`${subida > 0 ? '+' : ''}${Math.round(subida * 100)}%`} ventana={`${h.semanasKm.length - 1} sem`} />;
+  // flecha va neutra. De la combinación ya se ocupa el veredicto de arriba.
+  return (
+    <Delta mejor={null} valor={`${subida > 0 ? '+' : ''}${Math.round(subida * 100)}%`} ventana={`${h.semanasKm.length - 1} sem`} />
+  );
 }
 
 /** Nulo si no lo tiene: un guion es una casilla vacía disfrazada de dato (§7). */
@@ -278,30 +284,22 @@ function mejor5k(h: Historia): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// LO QUE TE PIDEN — anillo a la izquierda, sesgo a la derecha
+// LO QUE TE PIDEN — un punto por repetición
 // ---------------------------------------------------------------------------
 
 function BloquePedido({ h }: { h: Historia }) {
   const p = h.pedido!;
   const pct = Math.round((p.dentro / p.evaluadas) * 100);
+  // Con pocas repeticiones el porcentaje existe pero no se puede juzgar: la
+  // cifra sale en tinta normal en vez de verde. El juicio es el color.
   const juzgable = sePuedeJuzgarElPedido(p);
-  // Con pocas repeticiones el porcentaje existe pero no se puede juzgar: el
-  // anillo sale en tinta normal en vez de verde. El juicio es el color.
   const tono = !juzgable ? 'var(--twin-fg)' : pct >= METODO.enBandaBienPct ? 'var(--twin-ok)' : 'var(--twin-warning)';
 
   return (
-    <>
-      <Raya />
-      <Bloque etiqueta="Lo que te piden" sello>
-        <div style={{ display: 'flex', alignItems: 'center', gap: S.l }}>
-          <Anillo pct={pct} tono={tono} alto={124} />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: S.s }}>
-            <Divergente lento={p.fueraLento} dentro={p.dentro} rapido={p.fueraRapido} />
-            <Marca>{`${p.dentro} de ${p.evaluadas} en banda`}</Marca>
-          </div>
-        </div>
-      </Bloque>
-    </>
+    <Bloque etiqueta="Lo que te piden" sello>
+      <Cifra valor={String(pct)} unidad="% en banda" tam={44} tono={tono} />
+      <Puntos dentro={p.dentro} lento={p.fueraLento} rapido={p.fueraRapido} />
+    </Bloque>
   );
 }
 
@@ -310,31 +308,37 @@ function BloquePedido({ h }: { h: Historia }) {
 // cansado. Si no hay ninguna de las dos, no hay bloque: la app se calla.
 // ---------------------------------------------------------------------------
 
-function TramoCarrera({ h, modoCansado, clase }: { h: Historia; modoCansado: 'da' | 'apagada' | 'nada'; clase: ReturnType<typeof veredictoDe>['clase'] }) {
+function TramoCarrera({
+  h,
+  modoCansado,
+  clase,
+}: {
+  h: Historia;
+  modoCansado: 'da' | 'apagada' | 'nada';
+  clase: ReturnType<typeof veredictoDe>['clase'];
+}) {
   if (!h.carrera && modoCansado === 'nada') return null;
 
   return (
-    <>
-      <Raya />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: DENTRO }}>
       {h.carrera && (
-        <Bloque etiqueta="Tu carrera">
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: S.l, flexWrap: 'wrap' }}>
+        <Bloque etiqueta={h.carrera.nombre}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: S.xl, flexWrap: 'wrap' }}>
             <Cifra valor={String(h.carrera.dias)} unidad="días" tam={44} />
             {h.carrera.predichoS != null && (
               <Cifra valor={reloj(h.carrera.predichoS)} unidad="previsto" tam={30} tono={tonoDe(clase)} />
             )}
           </div>
-          <Marca>{h.carrera.nombre}</Marca>
         </Bloque>
       )}
 
       {modoCansado === 'da' && <BloqueCansado h={h} />}
       {modoCansado === 'apagada' && (
         <Bloque etiqueta="Correr cansado" sello>
-          <Bloqueado alto={96} />
+          <Apagado alto={88} />
         </Bloque>
       )}
-    </>
+    </div>
   );
 }
 
@@ -345,14 +349,15 @@ function BloqueCansado({ h }: { h: Historia }) {
 
   return (
     <Bloque etiqueta="Correr cansado" sello>
-      <Cifra valor={esDecimal(ultimo.costeSkm)} unidad="s/km de más" tam={44} tono={mejora > 0 ? 'var(--twin-ok)' : 'var(--twin-warning)'}>
+      <Cifra
+        valor={esDecimal(ultimo.costeSkm)}
+        unidad="s/km de más"
+        tam={44}
+        tono={mejora > 0 ? 'var(--twin-ok)' : 'var(--twin-warning)'}
+      >
         <Delta mejor={mejora > 0} valor={esDecimal(Math.abs(mejora))} ventana={`${h.cansado.length - 1} sem`} />
       </Cifra>
-      <Linea
-        puntos={h.cansado.map((c) => ({ semana: c.semana, valor: c.costeSkm }))}
-        formato={(v) => `${esDecimal(v)} s`}
-        alto={140}
-      />
+      <Linea puntos={h.cansado.map((c) => ({ semana: c.semana, valor: c.costeSkm }))} formato={(x) => esDecimal(x)} alto={128} />
     </Bloque>
   );
 }
