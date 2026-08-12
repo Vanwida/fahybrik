@@ -67,6 +67,12 @@ struct ChipDeContexto: View {
 /// Va DENTRO de la burbuja (no como mensaje aparte) porque suelta obligaría al
 /// coach a emparejarla a ojo con la pregunta de al lado. Sobre la burbuja propia
 /// se oscurece; sobre la del coach usa el fondo hundido del tema.
+///
+/// NO lleva chevron y NO se toca, a propósito: abrir el entreno desde aquí exige
+/// decidir en qué modo se abre (hecho o por hacer) y levantar esa pantalla sobre
+/// el propio chat, y hasta que eso esté resuelto un galón que no responde miente
+/// más de lo que informa. La propuesta del doble lo dibujaba; se retira en los
+/// dos sitios hasta que el toque exista.
 struct TarjetaDeContexto: View {
     let ref: ChatContextRef
     let mio: Bool
@@ -85,9 +91,6 @@ struct TarjetaDeContexto: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tinta.opacity(0.5))
         }
         .padding(.vertical, 6)
         .padding(.horizontal, Theme.Spacing.s)

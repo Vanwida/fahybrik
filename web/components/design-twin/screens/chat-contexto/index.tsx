@@ -103,7 +103,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'enviado',
     titulo: 'Enviado · la tarjeta en la burbuja',
     descripcion:
-      'La referencia viaja DENTRO de la burbuja, no como mensaje aparte: así la pregunta y su sujeto no se emparejan a ojo. Se toca y abre el entreno. Y la respuesta del coach ya no gasta un turno en preguntar de qué va.',
+      'La referencia viaja DENTRO de la burbuja, no como mensaje aparte: así la pregunta y su sujeto no se emparejan a ojo. Y la respuesta del coach ya no gasta un turno en preguntar de qué va. Sin galón de «abrir»: el toque aún no existe, y dibujarlo sería prometer algo que no responde.',
   },
   {
     id: 'menu-ejercicio',

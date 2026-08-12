@@ -17,6 +17,11 @@ import { COACH, type Mensaje, type RefContexto } from './data';
  *
  * Vive en las piezas comunes porque la burbuja es compartida: la propuesta que
  * la estrena es `chat-contexto`.
+ *
+ * SIN chevron: la primera versión lo dibujaba, pero abrir el entreno desde aquí
+ * exige decidir en qué modo se abre (hecho o por hacer) y levantar esa pantalla
+ * sobre el propio chat. Hasta que el toque exista de verdad, un galón que no
+ * responde miente más de lo que informa — retirado en Swift y aquí a la vez.
  */
 export function TarjetaContexto({ contexto, mio }: { contexto: RefContexto; mio: boolean }) {
   return (
@@ -52,9 +57,6 @@ export function TarjetaContexto({ contexto, mio }: { contexto: RefContexto; mio:
         >
           {contexto.label}
         </span>
-      </span>
-      <span aria-hidden style={{ font: '600 13px/1 var(--twin-font-sans)', opacity: 0.5 }}>
-        ›
       </span>
     </span>
   );
