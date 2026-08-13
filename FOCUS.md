@@ -92,6 +92,7 @@ Firmado: un test no es un número. Es ocurrencia → informe (misma pantalla atl
 - Decisión: `docs/DECISIONS.md` 13-ago «Un test es un loop»
 - CMJ es el primer informe completo (tenemos la fuente). El resto entra en la misma cáscara.
 - Raíz a construir primero: `athlete_benchmarks.assignment_id` — hoy dos CMJ hechos enseñan el mismo perfil.
+- **0195 aplicada:** el número de batería se ancla a ESA assignment. El lector ya no usa el último slug.
 
 Plan de captura (CMJ) sigue vigente: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
 

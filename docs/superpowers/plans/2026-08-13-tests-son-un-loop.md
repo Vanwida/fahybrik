@@ -33,11 +33,11 @@
 - Consume: `recordTestBenchmark(sql, event)`
 - Produce: `recordTestBenchmark(sql, event, { assignment_id?: number })`; `CalibrationTestStatus` sigue igual de cara, pero `result_captured` / `jump_profile` / `result_label` salen de ESA assignment.
 
-- [ ] Migración 0195: columna `assignment_id` nullable + índice + backfill conservador (un assignment por slug, o mismo día).
-- [ ] Writer: el puente de batería escribe el id. Ritmos / Marcas / onboarding no.
-- [ ] Reader: `loadBatteryStatus` agrupa por `assignment_id`. Fallback CMJ: `jump_attempts` de esa assignment.
-- [ ] Test: dos CMJ del mismo atleta → dos perfiles distintos. El segundo no pisa el primero.
-- [ ] Commit.
+- [x] Migración 0195: columna `assignment_id` nullable + índice + backfill conservador (un assignment por slug, o mismo día).
+- [x] Writer: el puente de batería escribe el id. Ritmos / Marcas / onboarding no.
+- [x] Reader: `loadBatteryStatus` agrupa por `assignment_id`. Fallback CMJ: `jump_attempts` de esa assignment.
+- [x] Test: dos CMJ del mismo atleta → dos perfiles distintos. El segundo no pisa el primero.
+- [x] Commit.
 
 ### Task 2: DTO de informe + renderer CMJ
 

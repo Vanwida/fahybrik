@@ -152,22 +152,30 @@ export async function recordBatteryResults(params: {
   for (const e of entries) {
     const spec = specBySlug.get(e.slug)!;
     if (spec.measure === 'load') {
-      await recordTestBenchmark(sql, {
-        kind: 'strength',
-        athlete_id,
-        exercise_slug: spec.slug,
-        one_rm_kg: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'strength',
+          athlete_id,
+          exercise_slug: spec.slug,
+          one_rm_kg: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else if (spec.measure === 'hrr') {
       // heart-rate recovery (hrr60) — a baseline benchmark in bpm; derives nothing.
-      await recordTestBenchmark(sql, {
-        kind: 'hrr',
-        athlete_id,
-        exercise_slug: spec.slug,
-        bpm: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'hrr',
+          athlete_id,
+          exercise_slug: spec.slug,
+          bpm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else if (spec.measure === 'hr') {
       // An absolute heart rate (lthr_bpm). This branch is load-bearing: without it
       // the `else` below would file a threshold of 156 ppm as 156 SECONDS.
@@ -179,32 +187,44 @@ export async function recordBatteryResults(params: {
       // athlete's phone, the coach's read-back and the watch alert all switch from
       // an estimated anchor to a measured one. Do not "finish" this by adding a
       // snapshot table: there is nothing missing.
-      await recordTestBenchmark(sql, {
-        kind: 'hr',
-        athlete_id,
-        exercise_slug: spec.slug,
-        bpm: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'hr',
+          athlete_id,
+          exercise_slug: spec.slug,
+          bpm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else if (spec.measure === 'height') {
       // Jump height in cm. MUST sit before the timetrial else: that branch
       // stores unit 'seconds', and 47 cm would render as 0:47 with lower-is-better.
-      await recordTestBenchmark(sql, {
-        kind: 'jump',
-        athlete_id,
-        exercise_slug: spec.slug,
-        height_cm: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'jump',
+          athlete_id,
+          exercise_slug: spec.slug,
+          height_cm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else {
       // time-trial (run_5k / row_2k / hyrox_half_sim)
-      await recordTestBenchmark(sql, {
-        kind: 'timetrial',
-        athlete_id,
-        exercise_slug: spec.slug,
-        seconds: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'timetrial',
+          athlete_id,
+          exercise_slug: spec.slug,
+          seconds: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     }
     out.benchmarks_written += 1;
     if (

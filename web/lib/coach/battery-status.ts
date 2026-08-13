@@ -17,6 +17,7 @@ import {
   type JumpProfileView,
 } from '@fahybrid/shared/domain/jump/method';
 import { BENCH_CMJ, BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { heightsFromAttempts, valuesForOccurrence } from '@/lib/coach/occurrence-values';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -86,16 +87,30 @@ export async function loadBatteryStatus(
   `;
   if (rows.length === 0) return { total: 0, completed: 0, tests: [], athlete_weight_kg: null };
 
-  // The athlete's REAL-test benchmarks (coach_test / athlete_test only — the
-  // self-declared/onboarding ones don't count as a captured calibration), latest
-  // value per slug so the card shows the most recent number.
-  const benchRows = await client<{ exercise_slug: string; value: number }[]>`
-    select distinct on (exercise_slug) exercise_slug, value::float8 as value
+  // REAL-test benches of THIS athlete, with the assignment that produced them.
+  // A slug without assignment_id (onboarding / Marcas / Ritmos) is not an
+  // occurrence — it must not fill every row of that slug.
+  const benchRows = await client<
+    { assignment_id: string | null; exercise_slug: string; value: number; recorded_at: string }[]
+  >`
+    select assignment_id::text as assignment_id,
+           exercise_slug,
+           value::float8 as value,
+           recorded_at::text as recorded_at
     from athlete_benchmarks
     where athlete_id = ${athlete_id} and source in ('coach_test', 'athlete_test')
-    order by exercise_slug, recorded_at desc
+    order by recorded_at desc, id desc
   `;
-  const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));
+  const attemptRows = await client<
+    { assignment_id: string; kind: string; height_cm: number; kept: boolean }[]
+  >`
+    select assignment_id::text as assignment_id,
+           kind,
+           height_cm::float8 as height_cm,
+           kept
+    from jump_attempts
+    where athlete_id = ${athlete_id} and assignment_id is not null
+  `;
 
   const [athleteRow] = await client<{ weight_kg: number | null }[]>`
     select weight_kg::float8 as weight_kg from athletes where id = ${athlete_id} limit 1
@@ -105,6 +120,9 @@ export async function loadBatteryStatus(
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
     const specs = r.expected_specs ?? [];
+    const fromBenches = valuesForOccurrence(r.assignment_id, benchRows);
+    const valueBySlug =
+      fromBenches.size > 0 ? fromBenches : heightsFromAttempts(r.assignment_id, attemptRows);
     // Completion is gated ONLY by the REQUIRED results — an optional result (e.g. HRR
     // the app auto-measures) never blocks "completado".
     const required = specs.filter((s) => !s.optional);

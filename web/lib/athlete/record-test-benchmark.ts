@@ -18,12 +18,16 @@ import {
 export async function recordTestBenchmark(
   client: Sql | TransactionClient,
   event: TestEvent,
+  opts?: { assignment_id?: number | null },
 ): Promise<void> {
   const b = benchmarkForTestEvent(event);
+  const assignmentId = opts?.assignment_id ?? null;
   // `source` is the typed provenance column (0139); `notes` keeps carrying the same
   // tag as a human-readable trace, exactly as before.
+  // `assignment_id` ancla la fila a UNA ocurrencia de batería. Null = onboarding /
+  // Marcas / Ritmos: no son el informe de un assignment.
   await client`
-    insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes, source)
-    values (${event.athlete_id}, ${b.exercise_slug}, ${b.value}, ${b.unit}, ${event.source}, ${event.source})
+    insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, notes, source, assignment_id)
+    values (${event.athlete_id}, ${b.exercise_slug}, ${b.value}, ${b.unit}, ${event.source}, ${event.source}, ${assignmentId})
   `;
 }
