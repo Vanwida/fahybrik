@@ -3,237 +3,162 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tablero — FAHYBRID</title>
+<title>FAHYBRID</title>
 <style>
 :root{
-  --bg:#0a0a0a; --surface:#141414; --surface-2:#1a1a1a;
-  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
-  --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
-  --accent:#f06a2a; --accent-soft:rgba(240,106,42,.14);
-  --ok:#3fc773; --ok-soft:rgba(63,199,115,.14);
-  --warn:#f2a52e; --warn-soft:rgba(242,165,46,.14);
-  --danger:#f2504f; --danger-soft:rgba(242,80,79,.14);
-  --info:#4d9eeb; --info-soft:rgba(77,158,235,.14);
-  --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
-  --s-s:8px; --s-m:12px; --s-l:16px; --s-xl:24px; --s-xxl:32px; --s-xxxl:48px;
-  --font-display:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
-  --font-sans:"Geist","SF Pro Text",system-ui,-apple-system,sans-serif;
-  --font-mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
-  --doc-max:1120px;
+  --bg:#070707; --col:#111; --card:#181818; --card2:#1e1e1e;
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --fg:#f3f3f3; --mu:#8d8d8d; --dim:#5c5c5c;
+  --or:#f06a2a; --or-s:rgba(240,106,42,.16);
+  --gn:#3fc773; --gn-s:rgba(63,199,115,.14);
+  --am:#f2a52e; --am-s:rgba(242,165,46,.14);
+  --rd:#f2504f; --rd-s:rgba(242,80,79,.14);
+  --bl:#4d9eeb; --bl-s:rgba(77,158,235,.14);
+  --sans:"Geist","SF Pro Text",system-ui,sans-serif;
+  --disp:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
+  --mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased}
-.doc{max-width:var(--doc-max);margin:0 auto;padding:var(--s-xxxl) var(--s-xl) 120px}
-.kicker{font:700 11px/1 var(--font-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
-h1{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(30px,5.6vw,46px);line-height:1.04;letter-spacing:-.02em;margin:14px 0 14px}
-.sub{color:var(--muted);font-size:17px;line-height:1.55;max-width:66ch}
-.meta{display:flex;flex-wrap:wrap;gap:var(--s-m) var(--s-xl);margin-top:var(--s-xl);font:500 12.5px/1.5 var(--font-sans);color:var(--faint)}
-.meta b{color:var(--muted);font-weight:700}
-.path{margin-top:var(--s-l);padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);font:500 12px/1.45 var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
-h2{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(21px,3.2vw,27px);line-height:1.15;letter-spacing:-.01em;margin:72px 0 var(--s-l);scroll-margin-top:16px}
-h3{font-size:16px;font-weight:700;margin:var(--s-xl) 0 var(--s-s);letter-spacing:-.005em}
-p{margin:0 0 var(--s-m);max-width:74ch}
-.mut{color:var(--muted)}
-ul,ol{margin:0 0 var(--s-m) 20px;color:var(--muted);max-width:74ch}
-li{margin-bottom:7px}
-li::marker{color:var(--accent)}
-b,strong{color:var(--fg);font-weight:650}
-a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.35)}
-code{font:500 12.5px/1.5 var(--font-mono);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-xs);padding:1px 6px;color:var(--muted)}
-.ley{background:linear-gradient(140deg,var(--surface),#1a1210);border:1px solid rgba(240,106,42,.32);border-radius:var(--r-l);padding:var(--s-xl);margin:var(--s-l) 0}
-.ley h3{margin:0 0 var(--s-s);color:var(--accent);font-size:17px}
-.ley p{margin:0;color:var(--fg);font-size:15.5px;max-width:none}
-.ley p+p{margin-top:var(--s-s);color:var(--muted);font-size:14.5px}
-.aviso{border-left:3px solid var(--warn);padding:2px 0 2px var(--s-l);margin:var(--s-l) 0}
-.aviso h4{margin:0 0 5px;color:var(--warn);font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase}
-.aviso p{margin:0;font-size:14.5px;color:var(--muted);max-width:none}
-.tS{border:1px solid var(--border);border-radius:var(--r-m);overflow-x:auto;margin:var(--s-m) 0 var(--s-l);background:var(--surface)}
-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
-th{font:700 10px/1.3 var(--font-sans);letter-spacing:.11em;text-transform:uppercase;color:var(--faint);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
-td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted);line-height:1.5}
-td:first-child{color:var(--fg);font-weight:600}
-tbody tr:last-child td{border-bottom:0}
-.pill{display:inline-flex;align-items:center;border-radius:var(--r-pill);padding:3px 9px;font:650 10.5px/1.35 var(--font-sans);white-space:nowrap}
-.pill.ok{background:var(--ok-soft);color:var(--ok)}
-.pill.warn{background:var(--warn-soft);color:var(--warn)}
-.pill.info{background:var(--info-soft);color:var(--info)}
-.pill.accent{background:var(--accent-soft);color:var(--accent)}
-.pill.neutral{background:rgba(161,161,161,.12);color:var(--muted)}
-.pill.danger{background:var(--danger-soft);color:var(--danger)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s-m);margin:var(--s-l) 0}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--s-l)}
-.card h3{margin:0 0 6px;font-size:15px}
-.card p{margin:0;font-size:13.5px;color:var(--muted);max-width:none}
-.toc{border:1px solid var(--border);border-radius:var(--r-l);background:var(--surface);padding:var(--s-l) var(--s-xl);margin-top:var(--s-xxl)}
-.toc ol{margin:0 0 0 18px;columns:2;column-gap:var(--s-xl)}
-.toc li{font-size:14px;margin-bottom:6px;break-inside:avoid}
-.toc a{border:0;color:var(--muted)}
-.step{display:grid;grid-template-columns:48px 1fr;gap:var(--s-m);margin:0 0 var(--s-l)}
-.n{font-family:var(--font-mono);font-weight:600;font-size:13px;color:var(--accent);padding-top:3px}
-pre{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--s-l);overflow-x:auto;font:500 12.5px/1.5 var(--font-mono);color:var(--muted);margin:0 0 var(--s-l);white-space:pre-wrap}
-footer{margin-top:80px;color:var(--faint);font-size:12.5px}
+html,body{background:var(--bg);color:var(--fg);font:400 14px/1.4 var(--sans);-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+.top{position:sticky;top:0;z-index:5;background:rgba(7,7,7,.92);backdrop-filter:blur(12px);
+     border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:flex-end;
+     justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{font:900 italic 22px/1 var(--disp);letter-spacing:-.03em}
+.brand i{font-style:italic;color:var(--or)}
+.now{display:flex;align-items:center;gap:10px;font:650 13px/1.3 var(--sans)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--am);box-shadow:0 0 0 4px var(--am-s)}
+.now b{font-weight:700}
+.now span{color:var(--mu);font-weight:500}
+.hint{font:500 11px/1.3 var(--sans);color:var(--dim);letter-spacing:.04em;text-transform:uppercase}
+.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:10px;padding:14px 12px 80px}
+@media(max-width:1100px){.board{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.board{grid-template-columns:1fr}}
+.col{background:var(--col);border:1px solid var(--line);border-radius:14px;min-height:0;display:flex;flex-direction:column}
+.col-h{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px;
+       font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.col-h em{font:650 11px/1 var(--mono);font-style:normal;color:var(--mu);letter-spacing:0;text-transform:none}
+.col.ahora .col-h{color:var(--or)}
+.col.espera .col-h{color:var(--am)}
+.col.cola .col-h{color:var(--bl)}
+.col.ideas .col-h{color:var(--gn)}
+.stack{padding:0 8px 10px;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px 10px}
+.card:hover{border-color:var(--line2)}
+.t{font:650 13.5px/1.25 var(--sans);letter-spacing:-.01em;margin:0 0 4px}
+.s{font:500 12px/1.35 var(--sans);color:var(--mu)}
+.meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.p{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;
+   font:650 10px/1.3 var(--sans);letter-spacing:.02em}
+.p.or{background:var(--or-s);color:var(--or)}
+.p.am{background:var(--am-s);color:var(--am)}
+.p.bl{background:var(--bl-s);color:var(--bl)}
+.p.gn{background:var(--gn-s);color:var(--gn)}
+.p.rd{background:var(--rd-s);color:var(--rd)}
+.p.dim{background:rgba(255,255,255,.06);color:var(--dim)}
+.empty{border:1px dashed var(--line2);background:transparent;color:var(--dim);
+       font:500 12.5px/1.35 var(--sans);padding:14px 12px;border-radius:10px}
+.park{margin:0 12px 24px;border:1px solid var(--line);border-radius:14px;background:var(--col)}
+.park summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;
+              font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.park summary::-webkit-details-marker{display:none}
+.park .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:0 10px 12px}
+.rule{position:fixed;bottom:0;left:0;right:0;padding:8px 16px;background:rgba(7,7,7,.94);
+      border-top:1px solid var(--line);font:500 11.5px/1.3 var(--sans);color:var(--dim);
+      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.rule b{color:var(--mu);font-weight:650}
 </style>
 </head>
 <body>
-<div class="doc">
-  <div class="kicker">FAHYBRID · tablero vivo</div>
-  <h1>Aquí está todo.</h1>
-  <p class="sub">Tú abres este fichero. Yo lo mantengo. MentalOS no forma parte del sistema: fue un intento y no funcionó. FOCUS ya no es un diario que tengas que leer.</p>
-  <div class="meta">
-    <span><b>Vivo desde</b> 13 ago 2026 noche</span>
-    <span><b>Rama</b> feat/pm5-counter-sync</span>
-    <span><b>FOCUS agentes</b> ~35 líneas</span>
-    <span><b>Diario archivado</b> docs/archivo/FOCUS-2026-08-13.md</span>
+<header class="top">
+  <div>
+    <div class="brand">FAH<i>YBRID</i></div>
+    <div class="hint" style="margin-top:6px">tablero · 13 ago · file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/tablero.html</div>
   </div>
-  <p class="path">file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/tablero.html</p>
-
-  <nav class="toc">
-    <ol>
-      <li><a href="#hoy">Qué toca</a></li>
-      <li><a href="#gasto">Reglas de gasto</a></li>
-      <li><a href="#ciclo">Cómo trabajamos</a></li>
-      <li><a href="#prompt">El brief</a></li>
-      <li><a href="#mapa">Lo abierto</a></li>
-      <li><a href="#riesgos">Dónde falla</a></li>
-    </ol>
-  </nav>
-
-  <h2 id="hoy">01 · Qué toca ahora</h2>
-  <div class="ley">
-    <h3>No se lanza ningún agente hasta que elijas hilo.</h3>
-    <p>Construir sin hilo es exactamente el gasto que quieres cortar: Grok y Claude releen media app y rehacen algo ya firmado.</p>
-    <p>Default mientras no eliges: tú miras las 6 pantallas de Carrera en <code>/es/design</code>. Eso no gasta tokens de agente. Si firmas, el primer átomo es NavigationStack + hub + historial. Si la rama PM5 es el hilo, dímelo y aparco Carrera.</p>
+  <div class="now">
+    <div class="dot"></div>
+    <div><b>AHORA · parado</b><br><span>elige hilo o mira Carrera en /es/design</span></div>
   </div>
+</header>
 
-  <h2 id="gasto">02 · Reglas de gasto (esto es el producto)</h2>
+<main class="board">
+  <section class="col ahora">
+    <div class="col-h">Ahora <em>0</em></div>
+    <div class="stack">
+      <div class="empty">Nada en vuelo. Un átomo cada vez.</div>
+    </div>
+  </section>
+
+  <section class="col espera">
+    <div class="col-h">Espera tú <em>3</em></div>
+    <div class="stack">
+      <article class="card">
+        <p class="t">Carrera · hogar</p>
+        <p class="s">6 propuestas en /es/design</p>
+        <div class="meta"><span class="p am">visto bueno</span><span class="p dim">luego Swift hub+historial</span></div>
+      </article>
+      <article class="card">
+        <p class="t">Chat contextual</p>
+        <p class="s">/es/design/chat-contexto</p>
+        <div class="meta"><span class="p am">visto bueno</span><span class="p dim">cero iconos nuevos</span></div>
+      </article>
+      <article class="card">
+        <p class="t">FIT Garmin</p>
+        <p class="s">materializador hecho</p>
+        <div class="meta"><span class="p bl">falta ZIP</span><span class="p dim">job 0194</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="col cola">
+    <div class="col-h">Cola <em>4</em></div>
+    <div class="stack">
+      <article class="card">
+        <p class="t">Tests = loop</p>
+        <p class="s">cáscara más allá de CMJ</p>
+        <div class="meta"><span class="p or">siguiente átomo</span><span class="p dim">Grok</span></div>
+      </article>
+      <article class="card">
+        <p class="t">Plan personal iOS</p>
+        <p class="s">etiqueta · volver · archivar</p>
+        <div class="meta"><span class="p dim">web hecha</span></div>
+      </article>
+      <article class="card">
+        <p class="t">Importar documento</p>
+        <p class="s">trocear por semana antes de IA</p>
+        <div class="meta"><span class="p dim">Grok</span></div>
+      </article>
+      <article class="card">
+        <p class="t">PM5 / rama</p>
+        <p class="s">feat/pm5-counter-sync</p>
+        <div class="meta"><span class="p rd">¿sigue?</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="col ideas">
+    <div class="col-h">Ideas <em>0</em></div>
+    <div class="stack">
+      <div class="empty">Tú: una línea en el chat.<br>Yo: card aquí. Sin ensayo.</div>
+    </div>
+  </section>
+</main>
+
+<details class="park">
+  <summary>Parqueado · 5 · no es esta semana</summary>
   <div class="grid">
-    <div class="card">
-      <h3>1 átomo / sesión</h3>
-      <p>Un objetivo, un done, un worker. «Sigue con la app» está prohibido. Si el corte no cabe en 8 turns de Grok, está mal cortado.</p>
-    </div>
-    <div class="card">
-      <h3>Quién paga</h3>
-      <p>Hermes (yo): 1–3 líneas. Grok Build: default. Claude Code Max: solo UI/UX gorda. Cero API de Anthropic. Cero Cursor en paralelo.</p>
-    </div>
-    <div class="card">
-      <h3>No se pega el repo</h3>
-      <p>El worker recibe la entrada de DECISIONS de ESA pieza + la spec + 4 pistas. Nunca FOCUS entero, nunca DECISIONS entero.</p>
-    </div>
-    <div class="card">
-      <h3>Espera = no construir</h3>
-      <p>Si falta tu visto bueno o un ZIP, la fila se queda en naranja. Inventar para no parar es tirar dinero.</p>
-    </div>
+    <article class="card"><p class="t">Onboarding 15 agujeros</p><p class="s">spec propia</p></article>
+    <article class="card"><p class="t">29 rutas coach mudas</p><p class="s">piden diseño</p></article>
+    <article class="card"><p class="t">coach_methodology vacía</p><p class="s">no cablear escuela</p></article>
+    <article class="card"><p class="t">Vivo ergo / AMRAP / FT</p><p class="s">tras Carrera</p></article>
+    <article class="card"><p class="t">22 bloques · 20 secuencias</p><p class="s">contenido, no código</p></article>
   </div>
-  <div class="aviso">
-    <h4>El patrón caro que ya no se repite</h4>
-    <p>Sesión larga + varios dominios + FOCUS de 4.000 líneas en el contexto + reabrir una decisión firmada (CTA de tests en Carrera, sexta pestaña, ATR). El brief lleva el NO HACER arriba. Si una sesión falla, la lección se escribe en la fila. No se relanza el mismo prompt.</p>
-  </div>
+</details>
 
-  <h2 id="ciclo">03 · Cómo trabajamos</h2>
-  <div class="step"><div class="n">01</div><div><h3>Yo leo este HTML, no tu cabeza</h3><p class="mut">Y el FOCUS corto. Si una fila está sucia, la limpio antes de lanzar.</p></div></div>
-  <div class="step"><div class="n">02</div><div><h3>Te digo «hoy es X, no Y»</h3><p class="mut">Tú confirmas solo lo subjetivo. Lo objetivo lo decido yo.</p></div></div>
-  <div class="step"><div class="n">03</div><div><h3>Yo escribo el brief y lanzo</h3><p class="mut">Tú no escribes prompts. Si quieres cambiar el corte, lo dices en una frase.</p></div></div>
-  <div class="step"><div class="n">04</div><div><h3>Verifico y actualizo este fichero</h3><p class="mut">Diff, tests. Commit pequeño. Si no se actualiza el tablero, el commit está incompleto.</p></div></div>
-
-  <h2 id="prompt">04 · El brief — tú no lo escribes</h2>
-  <p>Plantilla fija. Corta a propósito. El gasto se va en contexto inútil, no en el modelo.</p>
-<pre>Objetivo: (una frase)
-Criterios de done: 3–6 observables
-Contexto: 4–8 líneas. Por qué existe.
-Ley ya firmada (NO reabrir): citas de DECISIONS / mapa de ESA pieza
-Pistas (hipótesis): archivos. Si el código dice otra cosa, manda el código.
-Fuera de alcance: lista
-Tope: grok -p --max-turns 8 --always-approve
-         o claude -p --max-turns 8 (solo UI)
-Verificar: comandos concretos
-Al terminar: actualizar docs/tablero.html + FOCUS corto.
-No git add -A. No stash. No hinchar FOCUS.</pre>
-
-  <h2 id="mapa">05 · Lo abierto (fotografía 13-ago)</h2>
-  <h3>Espera tu ojo o un dato</h3>
-  <div class="tS">
-    <table>
-      <thead><tr><th>Pieza</th><th>Estado</th><th>De ti</th><th>Luego (un átomo)</th></tr></thead>
-      <tbody>
-        <tr>
-          <td>Carrera = hogar del running</td>
-          <td><span class="pill warn">espera Alex</span></td>
-          <td>Visto bueno de 6 <code>propuesta</code> en /es/design</td>
-          <td>Swift: NavigationStack + hub + historial. Mapa v2.</td>
-        </tr>
-        <tr>
-          <td>Chat contextual</td>
-          <td><span class="pill warn">espera Alex</span></td>
-          <td>Visto bueno /es/design/chat-contexto</td>
-          <td>Menú largo + «+». Cero iconos nuevos.</td>
-        </tr>
-        <tr>
-          <td>Importador FIT</td>
-          <td><span class="pill info">falta ZIP</span></td>
-          <td>Export GDPR Garmin</td>
-          <td>Job 0194. Materializador hecho.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <h3>Código, un átomo cada vez</h3>
-  <div class="tS">
-    <table>
-      <thead><tr><th>Pieza</th><th>Estado</th><th>Siguiente átomo</th><th>Worker</th></tr></thead>
-      <tbody>
-        <tr>
-          <td>Tests = loop</td>
-          <td><span class="pill accent">activo 13-ago</span></td>
-          <td>Cáscara de informe más allá de CMJ</td>
-          <td>Grok</td>
-        </tr>
-        <tr>
-          <td>Plan personal</td>
-          <td><span class="pill ok">web hecha</span></td>
-          <td>iOS: etiqueta, volver, archivar</td>
-          <td>Grok / Claude UI</td>
-        </tr>
-        <tr>
-          <td>Importar documento</td>
-          <td><span class="pill info">lector hecho</span></td>
-          <td>Trocear por semana antes de la IA</td>
-          <td>Grok</td>
-        </tr>
-        <tr>
-          <td>PM5 / contador</td>
-          <td><span class="pill danger">rama huérfana</span></td>
-          <td>¿Sigue, se mergea o se aparca? Sin esto, no se toca.</td>
-          <td>Tú</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <h3>No es esta semana</h3>
-  <div class="tS">
-    <table>
-      <thead><tr><th>Pieza</th><th>Por qué no</th></tr></thead>
-      <tbody>
-        <tr><td>Onboarding · 15 agujeros</td><td>Producto, no un parche. Spec el día que toque.</td></tr>
-        <tr><td>29 rutas coach mudas</td><td>Piden diseño. No un botón suelto.</td></tr>
-        <tr><td><code>coach_methodology</code> vacía</td><td>No cablear una escuela. HARD RULE Nº0.</td></tr>
-        <tr><td>Vivo ergo / AMRAP / FT / reloj</td><td>Parqueado mientras Carrera o tests estén abiertos.</td></tr>
-        <tr><td>22 bloques · 20 secuencias</td><td>Contenido del coach. Un agente no lo inventa.</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h2 id="riesgos">06 · Dónde puede fallar</h2>
-  <ul>
-    <li><b>Tú abres otra sesión de Claude/Grok a la vez que yo.</b> Eso duplica el gasto y pisa el tablero. Si trabajas fuera, dímelo.</li>
-    <li><b>FOCUS vuelve a crecer.</b> Cualquier agente que añada una sección «Ahora» de más de 12 líneas está rompiendo el contrato. El brief lo dice.</li>
-    <li><b>Dos hilos en esta rama.</b> PM5 y Carrera no se mueven en el mismo checkout.</li>
-    <li><b>Brief cerrado de más.</b> Las rutas de archivo son hipótesis. El código manda.</li>
-  </ul>
-
-  <footer>
-    Este fichero se actualiza en el mismo commit que el trabajo. Si el chat dice una cosa y el tablero otra, manda el tablero.
-  </footer>
+<div class="rule">
+  <span><b>Tú</b> hilo · visto bueno · ideas en una línea</span>
+  <span><b>Yo</b> corto · brief · lanzo · actualizo esto</span>
+  <span><b>Chat</b> sin explicación. Si duda, card naranja.</span>
 </div>
 </body>
 </html>
