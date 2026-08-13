@@ -46,12 +46,13 @@ describe('ficha IA · pestañas', () => {
     expect(resolveAtletaUrl('correr', undefined).rendimientoVista).toBe('carrera');
     expect(resolveAtletaUrl('correr', undefined).carreraCapa).toBe('aterrizaje');
     expect(resolveAtletaUrl('ritmos', undefined).rendimientoVista).toBe('carrera');
-    expect(resolveAtletaUrl('ritmos', undefined).carreraCapa).toBe('zonas');
+    expect(resolveAtletaUrl('ritmos', undefined).carreraCapa).toBe('ritmos');
+    expect(resolveAtletaUrl('rendimiento', 'zonas').carreraCapa).toBe('en-zonas');
     expect(resolveAtletaUrl('pagos', undefined).atletaSeccion).toBe('pagos');
     expect(resolveAtletaUrl('sesiones', undefined).atletaSeccion).toBe('sesiones');
     expect(resolveAtletaUrl('rendimiento', 'cuerpo').rendimientoVista).toBe('cuerpo');
     expect(resolveAtletaUrl('rendimiento', 'zonas').rendimientoVista).toBe('carrera');
-    expect(resolveAtletaUrl('rendimiento', 'zonas').carreraCapa).toBe('zonas');
+    expect(resolveAtletaUrl('rendimiento', 'zonas').carreraCapa).toBe('en-zonas');
   });
 });
 

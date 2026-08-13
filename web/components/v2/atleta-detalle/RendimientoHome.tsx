@@ -1,15 +1,18 @@
 'use client';
 
 // Rendimiento — «¿el entrenamiento está aterrizando?»
-// Tres anclas. Carrera tiene capas (aterrizaje · zonas · carreras) porque
-// son la misma pregunta, no tres pestañas más.
+// Tres anclas. Carrera tiene capas. Nada de lo que ya funcionaba se esconde:
+// tiempo en zonas + Dar feedback, diagnóstico, histórico.
 
 import { Link } from '@/i18n/navigation';
 import { CorrerTab } from './CorrerTab';
 import { RitmosZonasTab } from './RitmosZonasTab';
 import { CarrerasTab } from './CarrerasTab';
 import { BiometriaTab } from './BiometriaTab';
+import { HistoricoTab } from './HistoricoTab';
+import { RendimientoTab } from './RendimientoTab';
 import { EvaluarSemanaPanel } from './rendimiento/EvaluarSemanaPanel';
+import { ZonasPanel } from './rendimiento/ZonasPanel';
 import { FuerzaVista } from './rendimiento/FuerzaVista';
 import type {
   CarreraCapa,
@@ -26,7 +29,8 @@ const ANCLAS: { id: RendimientoVista; label: string }[] = [
 
 const CAPAS: { id: CarreraCapa; label: string }[] = [
   { id: 'aterrizaje', label: 'Cómo aterriza' },
-  { id: 'zonas', label: 'Zonas' },
+  { id: 'en-zonas', label: 'Tiempo en zonas' },
+  { id: 'ritmos', label: 'Ritmos' },
   { id: 'carreras', label: 'Carreras' },
 ];
 
@@ -34,6 +38,7 @@ export function RendimientoHome({
   detalle,
   vista,
   carreraCapa,
+  coachName,
 }: {
   detalle: V2AthleteDetalle;
   vista: RendimientoVista;
@@ -41,6 +46,7 @@ export function RendimientoHome({
   coachName: string;
 }) {
   const id = detalle.header.athlete_id;
+  const name = detalle.header.full_name;
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,12 +85,10 @@ export function RendimientoHome({
               </Link>
             ))}
           </nav>
-          {carreraCapa === 'zonas' ? (
-            <RitmosZonasTab
-              athleteId={id}
-              athleteName={detalle.header.full_name}
-              profiles={detalle.zone_profiles}
-            />
+          {carreraCapa === 'en-zonas' ? (
+            <ZonasPanel athleteId={id} athleteName={name} coachName={coachName} />
+          ) : carreraCapa === 'ritmos' ? (
+            <RitmosZonasTab athleteId={id} athleteName={name} profiles={detalle.zone_profiles} />
           ) : carreraCapa === 'carreras' ? (
             <CarrerasTab athleteId={id} />
           ) : (
@@ -92,7 +96,16 @@ export function RendimientoHome({
           )}
         </div>
       ) : vista === 'fuerza' ? (
-        <FuerzaVista detalle={detalle} />
+        <div className="flex flex-col gap-4">
+          <FuerzaVista detalle={detalle} />
+          <HistoricoTab
+            plan={detalle.plan}
+            strengthMaxes={detalle.strength_maxes}
+            benchmarks={detalle.benchmarks}
+            jointSessions={detalle.joint_sessions}
+            athleteName={name}
+          />
+        </div>
       ) : (
         <div className="flex flex-col gap-4">
           <EvaluarSemanaPanel athleteId={id} />
@@ -101,6 +114,13 @@ export function RendimientoHome({
             athleteId={id}
             checkin={detalle.resumen?.checkin ?? null}
             checkinWeek={detalle.resumen?.checkin_week ?? []}
+          />
+          <RendimientoTab
+            athleteId={id}
+            athleteName={name}
+            coachName={coachName}
+            omitEvaluar
+            omitZonas
           />
         </div>
       )}

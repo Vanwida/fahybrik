@@ -285,7 +285,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
           </div>
           <div className="mt-2.5 flex flex-col gap-1.5">
             {sinZonas ? (
-              <FilaVacia texto="Zonas · sin calcular" cta="Registrar" href={`/atletas/${id}?tab=rendimiento&vista=zonas`} />
+              <FilaVacia texto="Zonas · sin calcular" cta="Registrar" href={`/atletas/${id}?tab=rendimiento&vista=ritmos`} />
             ) : null}
             {testsPendientes > 0 ? (
               <FilaVacia

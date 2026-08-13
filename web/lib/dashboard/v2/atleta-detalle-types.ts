@@ -106,7 +106,7 @@ export const DEFAULT_ATLETA_TAB: AtletaTab = 'resumen';
 export const RENDIMIENTO_VISTAS = ['carrera', 'fuerza', 'cuerpo'] as const;
 export type RendimientoVista = (typeof RENDIMIENTO_VISTAS)[number];
 
-export const CARRERA_CAPAS = ['aterrizaje', 'zonas', 'carreras'] as const;
+export const CARRERA_CAPAS = ['aterrizaje', 'en-zonas', 'ritmos', 'carreras'] as const;
 export type CarreraCapa = (typeof CARRERA_CAPAS)[number];
 
 export const ATLETA_SECCIONES = ['perfil', 'sesiones', 'pagos'] as const;
@@ -127,6 +127,7 @@ const TAB_ALIASES: Record<string, AtletaVista> = {
 const RENDIMIENTO_ALIASES: Record<string, RendimientoVista> = {
   ritmos: 'carrera',
   zonas: 'carrera',
+  'en-zonas': 'carrera',
   carreras: 'carrera',
   correr: 'carrera',
   diagnostico: 'cuerpo',
@@ -135,10 +136,12 @@ const RENDIMIENTO_ALIASES: Record<string, RendimientoVista> = {
 };
 
 const CARRERA_CAPA_ALIASES: Record<string, CarreraCapa> = {
-  ritmos: 'zonas',
-  zonas: 'zonas',
+  ritmos: 'ritmos',
+  zonas: 'en-zonas',
+  'en-zonas': 'en-zonas',
   carreras: 'carreras',
   correr: 'aterrizaje',
+  diagnostico: 'en-zonas',
 };
 
 const ATLETA_ALIASES: Record<string, AtletaSeccion> = {

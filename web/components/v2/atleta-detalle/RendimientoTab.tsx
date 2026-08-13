@@ -42,6 +42,8 @@ export function RendimientoTab({
   athleteId,
   athleteName,
   coachName,
+  omitEvaluar,
+  omitZonas,
 }: {
   athleteId: string;
   athleteName: string;
@@ -49,6 +51,8 @@ export function RendimientoTab({
    *  Baja hasta aquí porque «Dar feedback» abre el compositor desde la gráfica
    *  de zonas, sin pasar por la pestaña «Del coach». */
   coachName: string;
+  omitEvaluar?: boolean;
+  omitZonas?: boolean;
 }) {
   const [performance, setPerformance] = useState<PerformancePayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,8 +139,7 @@ export function RendimientoTab({
         </span>
       </div>
 
-      {/* Autoregulation — evaluate / review the week (self-contained fetch) */}
-      <EvaluarSemanaPanel athleteId={athleteId} />
+      {omitEvaluar ? null : <EvaluarSemanaPanel athleteId={athleteId} />}
 
       {/* Qué datos hay de verdad y si el «antes del plan» es creíble */}
       <CoberturaDatos coverage={performance.data_coverage} />
@@ -165,7 +168,9 @@ export function RendimientoTab({
       {/* 2 · Tiempo en zonas — la evidencia semanal de la que sale la
              polarización de abajo. Va antes a propósito: el reparto medido
              primero, el veredicto sobre él después. */}
-      <ZonasPanel athleteId={athleteId} athleteName={athleteName} coachName={coachName} />
+      {omitZonas ? null : (
+        <ZonasPanel athleteId={athleteId} athleteName={athleteName} coachName={coachName} />
+      )}
 
       {/* 3 · Polarization 80/0/20 */}
       <PolarizationPanel

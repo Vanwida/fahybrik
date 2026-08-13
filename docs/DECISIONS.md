@@ -60,6 +60,8 @@ La quinta (Del coach) se queda porque el 9-ago ya se firmó que el comunicado vi
 
 **Rendimiento (mismo día, lote 3):** tres anclas — Carrera · Fuerza · Cuerpo. Carrera tiene capas (cómo aterriza · zonas · carreras), no pestañas hermanas. Diagnóstico viejo se parte: fisiología/cuerpo a Cuerpo, running a Carrera, 1RM/tests a Fuerza. Default = Carrera.
 
+**Corrección (mismo día, noche):** al partir Rendimiento se escondió lo más nuevo — la gráfica de tiempo en zonas y «Dar feedback» que publica a Del coach (`ZonasPanel`). No era Ritmos/Zonas (calculadora). Vuelve como capa **Tiempo en zonas**. El diagnóstico (polarización, economía, umbral, predicción) vuelve en Cuerpo. El histórico (micros cerrados, dobles) vuelve en Fuerza. `?vista=zonas` abre el feedback; `?vista=ritmos` abre la calculadora.
+
 **Del coach y Atleta (mismo día, lote 4):** Del coach no cambia de oficio (publicar ≠ chat). Atleta es Datos · 1:1 · Pagos. 1RM, tests y zonas salen de Atleta: viven en Rendimiento. La carrera objetivo se edita aquí; el countdown se lee en Resumen.
 
 **NO hacer:** no añadir una sexta pestaña. No devolver Mensajes al rail. No pintar un dato en dos sitios. No inventar proyección HYROX (el loader sigue devolviendo null). No restylear Hoy ni el roster en este lote.
