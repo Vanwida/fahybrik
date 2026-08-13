@@ -81,7 +81,14 @@ struct AnalyticsView: View {
         // resuelto por contenido, no por una decisión a priori (§6.1).
         CenteredScreen(head: { chrome }) {
             VStack(alignment: .leading, spacing: Theme.Spacing.xxl) {
-                elCuerpo
+                // LAS PASTILLAS MANDAN (Alex, 13-ago). Todo lo que se pinta bajo
+                // el rail se LEE como contenido de la pestaña elegida, así que el
+                // cuerpo —disposición, carga, sueño, variabilidad— solo aparece en
+                // Recup., que es su pestaña. El sueño no pinta nada en Carrera:
+                // la sección de una modalidad lleva SOLO su modalidad.
+                if section == .recovery {
+                    elCuerpo
+                }
                 main
             }
         }
@@ -171,9 +178,28 @@ struct AnalyticsView: View {
     @ViewBuilder
     private var progresoDeCarrera: some View {
         if let p = progreso {
-            AnaliticasCorrerView(progreso: p, onSalida: { showTestsHub = true })
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxxl) {
+                AnaliticasCorrerView(progreso: p, onSalida: { showTestsHub = true })
+                // LOS GRUPOS DE CORRER, detrás del veredicto y su evidencia:
+                // velocidad crítica y depósito (capacidad), deriva y bajada de
+                // pulso (ejecución), kilómetros con desnivel (volumen) y
+                // subida/llano/bajada (terreno). Es running puro y por eso vive
+                // AQUÍ y no en el cuerpo — el atleta lo busca en su pestaña.
+                if let a = analiticas {
+                    ForEach(Self.gruposDeCorrer, id: \.self) { grupo in
+                        if let etiqueta = grupo.etiqueta {
+                            GrupoDeLecturas(
+                                etiqueta: etiqueta,
+                                lecturas: a.lecturas.deGrupo(grupo),
+                                ventana: a.ventanaEs,
+                                onSalida: { showTestsHub = true }
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.bottom, Theme.Spacing.xxl)
         } else if progresoFallo {
             RedesignEmptyState(
                 symbol: "arrow.clockwise",
@@ -454,15 +480,22 @@ struct AnalyticsView: View {
         .padding(.horizontal, Theme.Spacing.l)
     }
 
-    /// LOS GRUPOS DEL CUERPO, en el orden en que se recorren. `carga` va aparte
-    /// (lleva la afirmación de sujeto) y `desconocido` no entra nunca: sin
-    /// etiqueta no hay bloque.
+    /// LOS GRUPOS DEL CUERPO — solo lo que de verdad no tiene modalidad. `carga`
+    /// va aparte (lleva la afirmación de sujeto) y `desconocido` no entra nunca.
     ///
-    /// La recuperación va la ÚLTIMA por ser la más larga —siete lecturas—, no por
-    /// ser la menos importante: el detalle de cada señal es justo la densidad que
-    /// esta pantalla quiere abajo.
+    /// Capacidad, ejecución, volumen y terreno NO están aquí y estuvieron: son
+    /// running puro —velocidad crítica, deriva, kilómetros, cuestas— y colgarlos
+    /// del cuerpo los sacaba de la pestaña de Carrera, que es donde el atleta los
+    /// busca. Viven en `gruposDeCorrer` (Alex, 13-ago).
     private static let gruposDelCuerpo: [GrupoLectura] = [
-        .capacidad, .ejecucion, .volumen, .terreno, .recuperacion,
+        .recuperacion,
+    ]
+
+    /// LOS GRUPOS DE CORRER, detrás de la pantalla del veredicto y en este orden:
+    /// primero de qué es capaz (capacidad), luego cómo ejecuta (ejecución), cuánto
+    /// acumula (volumen) y dónde (terreno). La densidad sigue creciendo hacia abajo.
+    private static let gruposDeCorrer: [GrupoLectura] = [
+        .capacidad, .ejecucion, .volumen, .terreno,
     ]
 
     @ViewBuilder
