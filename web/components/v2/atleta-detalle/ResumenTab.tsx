@@ -291,11 +291,15 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
               <FilaVacia
                 texto={`${testsPendientes} ${testsPendientes === 1 ? 'test' : 'tests'} sin resultado`}
                 cta="Ver"
-                href={`/atletas/${id}?tab=rendimiento`}
+                href={`/atletas/${id}?tab=rendimiento&vista=fuerza`}
               />
             ) : null}
             {!cincoK || cincoK.results.length === 0 ? (
-              <FilaVacia texto="5 km · sin registro" cta="Programar" href={`/atletas/${id}?tab=rendimiento`} />
+              <FilaVacia
+                texto="5 km · sin registro"
+                cta="Programar"
+                href={`/atletas/${id}?tab=rendimiento&vista=fuerza`}
+              />
             ) : null}
           </div>
         </FichaCard>

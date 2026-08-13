@@ -29,8 +29,8 @@ import type { WeeklyZonesPayload } from '@/lib/zones/weekly';
 
 /**
  * El vacío con salida: qué falta, qué se está usando en su lugar y qué puede
- * hacer el coach ahora mismo. La ruta del test es la pestaña Perfil de esta misma
- * ficha, donde vive el panel de tests y su «Programar test».
+ * hacer el coach ahora mismo. La ruta del test es Rendimiento → Fuerza, donde
+ * vive el panel de tests y su «Programar test».
  */
 export function AvisoUmbral({
   athleteId,
@@ -66,7 +66,7 @@ export function AvisoUmbral({
             : `Sus zonas salen de un umbral estimado de ${anchor.lthr_bpm} ppm, no de uno medido. Vale para entrenar, pero un test lo clava.`}
         </span>
         <Link
-          href={`/atletas/${athleteId}?tab=perfil`}
+          href={`/atletas/${athleteId}?tab=rendimiento&vista=fuerza`}
           className="v2-focus inline-flex w-fit items-center gap-1 text-xs font-semibold text-[color:var(--v2-fg)] underline underline-offset-2"
         >
           <MIcon name="event_available" size={14} />

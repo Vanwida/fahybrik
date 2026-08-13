@@ -44,6 +44,9 @@ Mensajes es verbo de cabecera. Default = Resumen.
 - Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`.
 - Ficha coach: 5 pestañas hechas (Resumen · Plan · Rendimiento · Del coach · Atleta).
 - Las `?tab=` viejas redirigen; no se pierde superficie.
+- **Tests y 1RM viven en Rendimiento → Fuerza.** Programar, el número y el
+  informe del salto se abren ahí. Resumen («tests sin resultado», «5 km») y
+  el aviso de umbral aterrizan en esa vista, no en Perfil ni en Carrera.
 
 ---
 
@@ -86,6 +89,7 @@ FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
 El atleta **no** se lo auto-asigna. El coach lo programa. En la app del atleta: tarjeta con lo que hay que preparar (trípode, carga) y briefing entero antes de grabar.
 
 Hecho: física, LRI/método, contrato `height`/`cm`, puente `jump`, protocolo `cmj_profile`, mig **0193 en Neon**, firma de frames, briefing + grabador 240 fps + revisión, LRI en ficha. Programado hoy para atleta 64.
+El coach lo ve en **Rendimiento → Fuerza** (programar + informe al tocar el número).
 Falta: instalar la build iOS en el teléfono (no sale por Vercel).
 
 Plan: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
