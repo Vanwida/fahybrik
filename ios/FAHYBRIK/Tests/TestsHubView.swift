@@ -64,6 +64,7 @@ struct TestsHubView: View {
     /// donde «Probarme» lanza un intento medido por el mismo motor en vivo.
     @State private var showMarksLibrary = false
     @State private var jumpBriefTest: CalibrationTestStatus? = nil
+    @State private var jumpLaunch: JumpLaunch? = nil
 
     private struct CaptureTarget: Identifiable {
         let id: String            // assignmentId
@@ -111,6 +112,18 @@ struct TestsHubView: View {
         }
         // La biblioteca empuja sus propios destinos, así que viaja con su pila:
         // el hub se abre como cover desde Inicio y ahí no hay ninguna heredada.
+        .fullScreenCover(item: $jumpLaunch) { launch in
+            JumpCaptureView(
+                launch: launch,
+                bearer: bearer,
+                onClose: { jumpLaunch = nil },
+                onSaved: {
+                    jumpLaunch = nil
+                    reloadNonce += 1
+                    onSessionCompleted()
+                }
+            )
+        }
         .fullScreenCover(item: $jumpBriefTest) { test in
             if let brief = test.brief {
                 JumpBriefView(
@@ -525,8 +538,17 @@ struct TestsHubView: View {
         startingSlug = test.calibrationSlug
         startFailedSlug = nil
         do {
-            _ = try await TestBatteryService.startTest(slug: test.calibrationSlug, bearer: bearer)
+            let start = try await TestBatteryService.startTest(slug: test.calibrationSlug, bearer: bearer)
             Haptics.medium()
+            let includeLoaded = test.brief?.needs.contains(where: { $0.id == "load" }) ?? false
+            jumpLaunch = JumpLaunch(
+                id: start.assignmentId,
+                assignmentId: start.assignmentId,
+                includeLoaded: includeLoaded,
+                loadKg: 15,
+                bodyMassKg: status?.athleteWeightKg,
+                attemptsWanted: 3
+            )
         } catch {
             startFailedSlug = test.calibrationSlug
             Haptics.error()

@@ -11,8 +11,14 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/domain/jump/protocol';
 import { buildJumpBrief, type JumpBrief } from '@fahybrid/shared/domain/jump/brief';
-import { DEFAULT_JUMP_METHOD } from '@fahybrid/shared/domain/jump/method';
-import { BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import {
+  DEFAULT_JUMP_METHOD,
+  formatLri,
+  heightLevel,
+  loadResponse,
+  lriLevel,
+} from '@fahybrid/shared/domain/jump/method';
+import { BENCH_CMJ, BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -31,12 +37,25 @@ export interface CalibrationTestStatus {
   capture: JumpCaptureMode;
   /** Qué preparar y en qué orden. Solo en jump_video — el atleta lo lee ANTES. */
   brief: JumpBrief | null;
+  /** Derivado al leer: solo si hay CMJ (y carga si se midió). */
+  jump_profile: JumpProfileView | null;
+}
+
+export interface JumpProfileView {
+  unloaded_cm: number;
+  loaded_cm: number | null;
+  lri: number | null;
+  lri_label: string | null;
+  height_level: 1 | 2 | 3 | 4 | 5;
+  lri_level: 1 | 2 | 3 | 4 | 5 | null;
 }
 
 export interface BatteryStatus {
   total: number;
   completed: number;
   tests: CalibrationTestStatus[];
+  /** Peso de la ficha, para LRI y para no pedirlo si ya está. */
+  athlete_weight_kg: number | null;
 }
 
 export async function loadBatteryStatus(
@@ -126,6 +145,7 @@ export async function loadBatteryStatus(
               bodyMassKg,
             })
           : null,
+      jump_profile: jumpProfileFrom(specs, valueBySlug, bodyMassKg),
     };
   });
 
@@ -133,8 +153,8 @@ export async function loadBatteryStatus(
     total: tests.length,
     completed: tests.filter((t) => t.result_captured).length,
     tests,
+    athlete_weight_kg: bodyMassKg,
   };
-}
 
 // Format a captured benchmark value for the card, by how it's measured. Time is a
 // clock (m:ss, or h:mm:ss past an hour); the rest are the number + a short unit.
@@ -167,4 +187,30 @@ function formatCapturedValue(measure: string, value: number): string {
     default: // reps
       return n;
   }
+}
+
+function jumpProfileFrom(
+  specs: Array<{ slug: string }>,
+  valueBySlug: Map<string, number>,
+  bodyMassKg: number | null,
+): JumpProfileView | null {
+  if (!specs.some((s) => s.slug === BENCH_CMJ)) return null;
+  const unloaded = valueBySlug.get(BENCH_CMJ);
+  if (unloaded == null) return null;
+  const loaded = valueBySlug.get(BENCH_CMJ_LOADED) ?? null;
+  const method = DEFAULT_JUMP_METHOD;
+  const loadKg = method.default_load.kind === 'kg' ? method.default_load.kg : null;
+  const resp =
+    loaded != null && loadKg != null && bodyMassKg != null
+      ? loadResponse(unloaded, loaded, loadKg, bodyMassKg)
+      : null;
+  const band = resp ? method.lri_bands.find((b) => b.level === lriLevel(resp.lri, method)) : null;
+  return {
+    unloaded_cm: unloaded,
+    loaded_cm: loaded,
+    lri: resp?.lri ?? null,
+    lri_label: resp ? (band?.label ?? formatLri(resp.lri)) : null,
+    height_level: heightLevel(unloaded, method),
+    lri_level: resp ? lriLevel(resp.lri, method) : null,
+  };
 }

@@ -430,6 +430,14 @@
 		A8F597BB7C226C34529040B1 /* StructuredRunLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E64E0DF983C7270FAF2C83E /* StructuredRunLiveView.swift */; };
 		A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7376A4E5F5E7FB5C0C299CFF /* TestBatteryService.swift */; };
 		FB11A002C0FFEE0000000001 /* JumpBrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A001C0FFEE0000000001 /* JumpBrief.swift */; };
+		FB11A012C0FFEE0000000001 /* JumpPhysics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A011C0FFEE0000000001 /* JumpPhysics.swift */; };
+		FB11A014C0FFEE0000000001 /* JumpModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A013C0FFEE0000000001 /* JumpModels.swift */; };
+		FB11A016C0FFEE0000000001 /* JumpRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A015C0FFEE0000000001 /* JumpRecorder.swift */; };
+		FB11A018C0FFEE0000000001 /* JumpFrameMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A017C0FFEE0000000001 /* JumpFrameMarker.swift */; };
+		FB11A01AC0FFEE0000000001 /* JumpPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A019C0FFEE0000000001 /* JumpPreview.swift */; };
+		FB11A01CC0FFEE0000000001 /* JumpReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A01BC0FFEE0000000001 /* JumpReviewView.swift */; };
+		FB11A01EC0FFEE0000000001 /* JumpCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */; };
+		FB11A022C0FFEE0000000001 /* JumpPhysicsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A021C0FFEE0000000001 /* JumpPhysicsTests.swift */; };
 		A9EED9074C8AA1615F86F7CD /* Volcado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEBA66FADB0218883930835 /* Volcado.swift */; };
 		AA0050C8D2EA7A9106294060 /* DoblesShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E8D2BEFA54D20B8D0BF7DB /* DoblesShared.swift */; };
 		AA0A3A4FD162D97F6FE0EE32 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */; };
@@ -974,6 +982,14 @@
 		72932B73DCD33CA18AAC5872 /* TodayBriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayBriefView.swift; sourceTree = "<group>"; };
 		7376A4E5F5E7FB5C0C299CFF /* TestBatteryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestBatteryService.swift; sourceTree = "<group>"; };
 		FB11A001C0FFEE0000000001 /* JumpBrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpBrief.swift; sourceTree = "<group>"; };
+		FB11A011C0FFEE0000000001 /* JumpPhysics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpPhysics.swift; sourceTree = "<group>"; };
+		FB11A013C0FFEE0000000001 /* JumpModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpModels.swift; sourceTree = "<group>"; };
+		FB11A015C0FFEE0000000001 /* JumpRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpRecorder.swift; sourceTree = "<group>"; };
+		FB11A017C0FFEE0000000001 /* JumpFrameMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpFrameMarker.swift; sourceTree = "<group>"; };
+		FB11A019C0FFEE0000000001 /* JumpPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpPreview.swift; sourceTree = "<group>"; };
+		FB11A01BC0FFEE0000000001 /* JumpReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpReviewView.swift; sourceTree = "<group>"; };
+		FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpCaptureView.swift; sourceTree = "<group>"; };
+		FB11A021C0FFEE0000000001 /* JumpPhysicsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpPhysicsTests.swift; sourceTree = "<group>"; };
 		73A68404255EFFB752343750 /* PM5WorkoutProgrammer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutProgrammer.swift; sourceTree = "<group>"; };
 		73C71AFC5FA674300627A2E0 /* DeleteAccountConfirmTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountConfirmTests.swift; sourceTree = "<group>"; };
 		74231A9C739686C2071C2069 /* ZoneCoverage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneCoverage.swift; sourceTree = "<group>"; };
@@ -2149,6 +2165,21 @@
 			isa = PBXGroup;
 			children = (
 				FB11A001C0FFEE0000000001 /* JumpBrief.swift */,
+				FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */,
+				FB11A017C0FFEE0000000001 /* JumpFrameMarker.swift */,
+				FB11A013C0FFEE0000000001 /* JumpModels.swift */,
+				FB11A011C0FFEE0000000001 /* JumpPhysics.swift */,
+				FB11A019C0FFEE0000000001 /* JumpPreview.swift */,
+				FB11A015C0FFEE0000000001 /* JumpRecorder.swift */,
+				FB11A01BC0FFEE0000000001 /* JumpReviewView.swift */,
+			);
+			path = Jump;
+			sourceTree = "<group>";
+		};
+		FB11A023C0FFEE0000000001 /* Jump */ = {
+			isa = PBXGroup;
+			children = (
+				FB11A021C0FFEE0000000001 /* JumpPhysicsTests.swift */,
 			);
 			path = Jump;
 			sourceTree = "<group>";
@@ -3196,6 +3227,13 @@
 				4B02E985167FE08605FA5F61 /* TestBatteryCard.swift in Sources */,
 				A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */,
 				FB11A002C0FFEE0000000001 /* JumpBrief.swift in Sources */,
+				FB11A01EC0FFEE0000000001 /* JumpCaptureView.swift in Sources */,
+				FB11A018C0FFEE0000000001 /* JumpFrameMarker.swift in Sources */,
+				FB11A014C0FFEE0000000001 /* JumpModels.swift in Sources */,
+				FB11A012C0FFEE0000000001 /* JumpPhysics.swift in Sources */,
+				FB11A01AC0FFEE0000000001 /* JumpPreview.swift in Sources */,
+				FB11A016C0FFEE0000000001 /* JumpRecorder.swift in Sources */,
+				FB11A01CC0FFEE0000000001 /* JumpReviewView.swift in Sources */,
 				1F42D8D0FDBEA8D2795177B3 /* TestRecordCelebrationView.swift in Sources */,
 				73A16008EB56CD410128016C /* TestResultCaptureSheet.swift in Sources */,
 				D23CB0F3457C878E6A1F412D /* TestResultDoneView.swift in Sources */,
@@ -3375,6 +3413,7 @@
 				ABA7C20218275BB791CCE3BA /* AutoPausaNoSobreviveTests.swift in Sources */,
 				38F9EDD5FBF767C5EFBFE803 /* AvailabilityServiceTests.swift in Sources */,
 				C1240E4E483AAD11A809ACAF /* BenchmarkDeltaTests.swift in Sources */,
+				FB11A022C0FFEE0000000001 /* JumpPhysicsTests.swift in Sources */,
 				E9E4D0CD51A32061D5FD04CF /* CarreraDeLaSesionTests.swift in Sources */,
 				31D9AE6558B17029AE63751E /* CarreraEstructuradaFartlekTests.swift in Sources */,
 				22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */,

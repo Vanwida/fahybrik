@@ -19,6 +19,7 @@ struct BatteryStatus: Codable, Equatable {
     /// entered reads as `resultPending`, never as done.
     let completed: Int
     let tests: [CalibrationTestStatus]
+    let athleteWeightKg: Double?
 
     /// A coach HAS programmed tests for this athlete. When false the card shows
     /// the honest "Pablo prepara tu semana" state — never a broken "0/0".
@@ -35,7 +36,7 @@ struct BatteryStatus: Codable, Equatable {
 
     /// An empty/not-scheduled battery — the safe default when the endpoint is
     /// unavailable or the athlete has no tests, so callers never show 0/0.
-    static let empty = BatteryStatus(total: 0, completed: 0, tests: [])
+    static let empty = BatteryStatus(total: 0, completed: 0, tests: [], athleteWeightKg: nil)
 }
 
 struct CalibrationTestStatus: Codable, Equatable, Identifiable {
@@ -243,6 +244,19 @@ enum TestBatteryService {
         return try await APIClient.shared.post(
             path: "api/athlete/assignments/\(assignmentId)/test-results",
             body: Body(results: entries),
+            bearer: bearer
+        )
+    }
+
+    @discardableResult
+    static func recordJumpResults(
+        assignmentId: String,
+        body: JumpResultsBody,
+        bearer: String
+    ) async throws -> RecordBatteryResult {
+        try await APIClient.shared.post(
+            path: "api/athlete/assignments/\(assignmentId)/test-results",
+            body: body,
             bearer: bearer
         )
     }

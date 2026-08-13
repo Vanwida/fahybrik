@@ -51,6 +51,12 @@ function TestRow({
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{test.label}</span>
         <span className="text-xs text-[color:var(--v2-faint)]">{formatDay(test.scheduled_for)}</span>
+        {test.jump_profile?.lri != null ? (
+          <span className="text-xs text-[color:var(--v2-faint)]">
+            LRI {test.jump_profile.lri.toFixed(2).replace('.', ',')}
+            {test.jump_profile.lri_label ? ` · ${test.jump_profile.lri_label}` : ''}
+          </span>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
         {done ? (
