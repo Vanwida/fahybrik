@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero — FAHYBRID</title>
+<style>
+:root{
+  --bg:#0a0a0a; --surface:#141414; --surface-2:#1a1a1a; --elevated:#1f1f1f;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+  --accent:#f06a2a; --accent-soft:rgba(240,106,42,.14);
+  --ok:#3fc773; --ok-soft:rgba(63,199,115,.14);
+  --warn:#f2a52e; --warn-soft:rgba(242,165,46,.14);
+  --danger:#f2504f; --danger-soft:rgba(242,80,79,.14);
+  --info:#4d9eeb; --info-soft:rgba(77,158,235,.14);
+  --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+  --s-s:8px; --s-m:12px; --s-l:16px; --s-xl:24px; --s-xxl:32px; --s-xxxl:48px;
+  --font-display:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
+  --font-sans:"Geist","SF Pro Text",system-ui,-apple-system,sans-serif;
+  --font-mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
+  --doc-max:1120px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--font-sans);-webkit-font-smoothing:antialiased}
+.doc{max-width:var(--doc-max);margin:0 auto;padding:var(--s-xxxl) var(--s-xl) 120px}
+.kicker{font:700 11px/1 var(--font-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(30px,5.6vw,46px);line-height:1.04;letter-spacing:-.02em;margin:14px 0 14px}
+.sub{color:var(--muted);font-size:17px;line-height:1.55;max-width:66ch}
+.meta{display:flex;flex-wrap:wrap;gap:var(--s-m) var(--s-xl);margin-top:var(--s-xl);font:500 12.5px/1.5 var(--font-sans);color:var(--faint)}
+.meta b{color:var(--muted);font-weight:700}
+.path{margin-top:var(--s-l);padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);font:500 12px/1.45 var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
+h2{font-family:var(--font-display);font-style:italic;font-weight:900;font-size:clamp(21px,3.2vw,27px);line-height:1.15;letter-spacing:-.01em;margin:72px 0 var(--s-l);scroll-margin-top:16px}
+h3{font-size:16px;font-weight:700;margin:var(--s-xl) 0 var(--s-s);letter-spacing:-.005em}
+p{margin:0 0 var(--s-m);max-width:74ch}
+.mut{color:var(--muted)}
+ul,ol{margin:0 0 var(--s-m) 20px;color:var(--muted);max-width:74ch}
+li{margin-bottom:7px}
+li::marker{color:var(--accent)}
+b,strong{color:var(--fg);font-weight:650}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.35)}
+a:hover{border-bottom-color:var(--accent)}
+code{font:500 12.5px/1.5 var(--font-mono);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-xs);padding:1px 6px;color:var(--muted)}
+.ley{background:linear-gradient(140deg,var(--surface),#1a1210);border:1px solid rgba(240,106,42,.32);border-radius:var(--r-l);padding:var(--s-xl);margin:var(--s-l) 0}
+.ley h3{margin:0 0 var(--s-s);color:var(--accent);font-size:17px}
+.ley p{margin:0;color:var(--fg);font-size:15.5px;max-width:none}
+.ley p+p{margin-top:var(--s-s);color:var(--muted);font-size:14.5px}
+.aviso{border-left:3px solid var(--warn);padding:2px 0 2px var(--s-l);margin:var(--s-l) 0}
+.aviso h4{margin:0 0 5px;color:var(--warn);font:700 10.5px/1 var(--font-sans);letter-spacing:.13em;text-transform:uppercase}
+.aviso p{margin:0;font-size:14.5px;color:var(--muted);max-width:none}
+.tS{border:1px solid var(--border);border-radius:var(--r-m);overflow-x:auto;margin:var(--s-m) 0 var(--s-l);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th{font:700 10px/1.3 var(--font-sans);letter-spacing:.11em;text-transform:uppercase;color:var(--faint);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted);line-height:1.5}
+td:first-child{color:var(--fg);font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:3px 9px;font:650 10.5px/1.35 var(--font-sans);white-space:nowrap;border:1px solid transparent}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.pill.danger{background:var(--danger-soft);color:var(--danger)}
+.pill.accent{background:var(--accent-soft);color:var(--accent)}
+.pill.neutral{background:rgba(161,161,161,.12);color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s-m);margin:var(--s-l) 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--s-l)}
+.card h3{margin:0 0 6px;font-size:15px}
+.card p{margin:0;font-size:13.5px;color:var(--muted);max-width:none}
+.toc{border:1px solid var(--border);border-radius:var(--r-l);background:var(--surface);padding:var(--s-l) var(--s-xl);margin-top:var(--s-xxl)}
+.toc ol{margin:0 0 0 18px;columns:2;column-gap:var(--s-xl)}
+.toc li{font-size:14px;margin-bottom:6px;break-inside:avoid}
+.toc a{border:0;color:var(--muted)}
+.toc a:hover{color:var(--accent)}
+.step{display:grid;grid-template-columns:48px 1fr;gap:var(--s-m);margin:0 0 var(--s-l);align-items:start}
+.n{font-family:var(--font-mono);font-weight:600;font-size:13px;color:var(--accent);padding-top:3px}
+pre{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--s-l);overflow-x:auto;font:500 12.5px/1.5 var(--font-mono);color:var(--muted);margin:0 0 var(--s-l);white-space:pre-wrap}
+.check{display:flex;gap:10px;align-items:flex-start;margin:0 0 8px;color:var(--muted);font-size:14.5px}
+.check input{margin-top:5px;accent-color:var(--accent)}
+footer{margin-top:80px;color:var(--faint);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="kicker">FAHYBRID · orquestación</div>
+  <h1>Un sitio que diga<br>aquí está todo.</h1>
+  <p class="sub">Propuesta de cómo nos organizamos. No es un sistema nuevo: es recortar lo que ya existe para que deje de vivir solo en tu cabeza.</p>
+  <div class="meta">
+    <span><b>Fecha</b> 13 ago 2026</span>
+    <span><b>Rama git</b> feat/pm5-counter-sync</span>
+    <span><b>FOCUS</b> 3.924 líneas · 21 «Ahora»</span>
+    <span><b>DECISIONS</b> 3.322 líneas</span>
+  </div>
+  <p class="path">file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/tablero.html</p>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#veredicto">El veredicto</a></li>
+      <li><a href="#capas">Tres capas, no cinco</a></li>
+      <li><a href="#ciclo">El ciclo de una sesión</a></li>
+      <li><a href="#prompt">Cómo se fabrica un brief</a></li>
+      <li><a href="#mapa">Mapa vivo (lo abierto hoy)</a></li>
+      <li><a href="#corte">El primer corte</a></li>
+      <li><a href="#riesgos">Dónde puede fallar</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="veredicto">01 · El veredicto</h2>
+  <div class="ley">
+    <h3>No te falta un sitio. Te sobran «ahoras».</h3>
+    <p>FOCUS.md debería ser un estado de una pantalla. Es un diario de 3.924 líneas con 21 secciones «Ahora», muchas ya cerradas. Por eso el proyecto sigue en tu cabeza: el fichero que mentalOS lee ya no se puede escanear.</p>
+    <p>DECISIONS.md sí es la herramienta correcta —ley, no tablero—. El error es usarlo para saber qué toca hoy. Las specs en <code>docs/superpowers/</code> y los HTML de diseño están bien donde están. Claude Tasks y Hermes Kanban no son la fuente de verdad: se pudren en cuanto dejas de mirarlos.</p>
+  </div>
+  <div class="aviso">
+    <h4>Lo que no vamos a hacer</h4>
+    <p>No montar Linear, no un quinto markdown, no un kanban paralelo. Tres ficheros con oficio distinto. Yo los mantengo. Tú decides lo subjetivo (qué hilo, visto bueno de UI). Yo corto, brief, lanzo, verifico, actualizo.</p>
+  </div>
+
+  <h2 id="capas">02 · Tres capas, no cinco</h2>
+  <div class="tS">
+    <table>
+      <thead>
+        <tr><th>Capa</th><th>Fichero</th><th>Oficio</th><th>Tamaño</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mapa</td>
+          <td><code>docs/tablero.html</code> · este fichero</td>
+          <td>Aquí está todo lo abierto. Tú lo abres en el navegador. Yo lo actualizo en el mismo commit que el trabajo.</td>
+          <td>Vivo. Una pantalla + tablas.</td>
+        </tr>
+        <tr>
+          <td>Ahora</td>
+          <td><code>FOCUS.md</code></td>
+          <td>Lo que lee mentalOS y yo al arrancar. Un solo hilo activo, lo que espera tu visto bueno, el siguiente corte, bloqueado.</td>
+          <td>Tope: ~80 líneas. El diario sobrante se archiva.</td>
+        </tr>
+        <tr>
+          <td>Ley</td>
+          <td><code>docs/DECISIONS.md</code></td>
+          <td>Qué se decidió, por qué, y sobre todo qué se descarta. Se lee ANTES de rediseñar un dominio. No se hojea entero cada mañana.</td>
+          <td>Append-only. No se recorta.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="mut">Las specs (<code>docs/superpowers/specs/</code>, mapas, HTML de diseño) siguen siendo el detalle de una pieza. El tablero solo apunta. Un brief de lanzamiento no se archiva salvo que la sesión sea gorda: vive en el prompt y, si hace falta, en una nota de 40 líneas junto a la spec.</p>
+
+  <h2 id="ciclo">03 · El ciclo de una sesión conmigo</h2>
+  <div class="step"><div class="n">01</div><div><h3>Yo llego y leo dos cosas</h3><p class="mut">Este tablero + FOCUS corto. No las 7.000 líneas. Si FOCUS sigue gordo, lo primero que hago es extraer el estado, no releer el diario.</p></div></div>
+  <div class="step"><div class="n">02</div><div><h3>Te propongo UN corte</h3><p class="mut">«Hoy es X, no Y.» Si hay dos hilos que no se pisan (backend FIT + visto bueno de UI), como mucho dos. Nunca un backlog entero en una sesión de Grok o Claude.</p></div></div>
+  <div class="step"><div class="n">03</div><div><h3>Tú decides solo lo subjetivo</h3><p class="mut">Qué hilo, si se shipea Swift, copy, layout. Lo objetivo (el modelo está incompleto, falta un campo, el test no cubre el caso) lo cierro yo sin preguntarte.</p></div></div>
+  <div class="step"><div class="n">04</div><div><h3>Yo fabrico el brief y lanzo</h3><p class="mut">Grok Build por defecto (backend, dominio, tests, importadores). Claude Code solo UI/UX gorda. Bugs de 1–3 líneas: yo, sin agente. El brief siempre lleva el «NO hacer» de DECISIONS de esa pieza.</p></div></div>
+  <div class="step"><div class="n">05</div><div><h3>Verifico, actualizo, commiteo</h3><p class="mut">Diff + tests/typecheck. Actualizo tablero + FOCUS. Si hubo decisión o descarte, una entrada en DECISIONS. Commit pequeño, rutas explícitas. Nada de <code>git add -A</code> ni stash.</p></div></div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Grok Build</h3>
+      <p>Default. <code>grok -p</code> con <code>--always-approve</code> y tope de turns. Rápido. Backend, motores, migraciones, FIT, tests.</p>
+    </div>
+    <div class="card">
+      <h3>Claude Code</h3>
+      <p>Solo cuando la pieza es UI/UX y Grok no da el nivel. Max OAuth, sin API key, sesiones cortas.</p>
+    </div>
+    <div class="card">
+      <h3>Hermes directo</h3>
+      <p>Constantes, un if, un redirect, un texto. Más barato que abrir un agente que se lee media app.</p>
+    </div>
+    <div class="card">
+      <h3>Nadie</h3>
+      <p>Si falta tu ZIP, tu visto bueno o una decisión de producto: se queda en «espera Alex». No se inventa para no parar.</p>
+    </div>
+  </div>
+
+  <h2 id="prompt">04 · Cómo se fabrica un brief (para no iterar lo mismo)</h2>
+  <p>El fallo caro no es el modelo. Es relanzar «sigue con Carrera» sobre un contexto sucio, sin el NO HACER, y que el agente reconstruya el CTA de tests que ya tiramos.</p>
+  <p>Plantilla fija. Yo la relleno. Tú no escribes prompts.</p>
+<pre>Objetivo: …
+Criterios de done: (3–6, observables)
+Contexto de producto: 4–8 líneas. Por qué existe esta pieza.
+Ley ya firmada (NO reabrir):
+  - citas literales de DECISIONS / mapa
+Pistas (hipótesis, no órdenes):
+  - archivos / commits. Si el código dice otra cosa, manda el código.
+Fuera de alcance: …
+Verificar: comandos concretos (test / typecheck / twin:desfase)
+Al terminar: actualizar tablero + FOCUS; DECISIONS solo si hay decisión nueva.
+No commitear secretos. No git add -A. No stash.</pre>
+  <p class="mut">Anti-iteración: si una sesión falla, la lección se escribe en la fila del tablero («ya se intentó X, no repetir»). El siguiente brief la lleva arriba. No se relanza el mismo prompt.</p>
+
+  <h2 id="mapa">05 · Mapa vivo — lo abierto, extraído de FOCUS el 13-ago</h2>
+  <p class="mut">Esto es una fotografía honesta, no una auditoría nueva. Varias filas «Ahora» de FOCUS están hechas y nadie las bajó. El estado «espera Alex» es el que más tokens te ahorra: no se construye encima.</p>
+
+  <h3>Espera tu visto bueno o un dato tuyo</h3>
+  <div class="tS">
+    <table>
+      <thead><tr><th>Pieza</th><th>Estado</th><th>Qué falta de ti</th><th>Luego</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Pastilla Carrera = hogar del running</td>
+          <td><span class="pill warn">espera Alex</span></td>
+          <td>Visto bueno de las 6 pantallas <code>propuesta</code> en <code>/es/design</code>.</td>
+          <td>Swift en el orden del mapa v2: navegación + hub + historial. No tocar Swift antes.</td>
+        </tr>
+        <tr>
+          <td>Chat contextual · cero píxeles nuevos</td>
+          <td><span class="pill warn">espera Alex</span></td>
+          <td>Visto bueno de <code>/es/design/chat-contexto</code>.</td>
+          <td>iOS: menú largo + «+» del compositor. Sin icono extra.</td>
+        </tr>
+        <tr>
+          <td>Importador FIT · año Garmin</td>
+          <td><span class="pill info">código listo · falta dato</span></td>
+          <td>Tu ZIP GDPR de Garmin para validar un año real.</td>
+          <td>Job por lotes (mig 0194). Materializador ya hecho.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>En curso / siguiente corte de código</h3>
+  <div class="tS">
+    <table>
+      <thead><tr><th>Pieza</th><th>Estado</th><th>Siguiente átomo</th><th>Quién</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Tests son un loop</td>
+          <td><span class="pill accent">activo 13-ago</span></td>
+          <td>Cáscara de informe más allá de CMJ. 0195 ya ancla la ocurrencia.</td>
+          <td>Grok · dominio. Claude si la ficha iOS se pone fea.</td>
+        </tr>
+        <tr>
+          <td>Plan personal vs secuencia</td>
+          <td><span class="pill ok">salidas web hechas</span></td>
+          <td>iOS: etiqueta «plan personal», volver a periodización, archivar.</td>
+          <td>Grok iOS o Claude UI.</td>
+        </tr>
+        <tr>
+          <td>Importar plan / documento</td>
+          <td><span class="pill info">lector hecho</span></td>
+          <td>Trocear por semana antes de la IA. Subir fichero entero. Resolver «Calentamiento C».</td>
+          <td>Grok.</td>
+        </tr>
+        <tr>
+          <td>PM5 / contador</td>
+          <td><span class="pill accent">rama actual</span></td>
+          <td>La rama es <code>feat/pm5-counter-sync</code>. FOCUS ya no lo tiene arriba: hay que decidir si sigue vivo o se aparca.</td>
+          <td>Tú decides si es el hilo o ruido.</td>
+        </tr>
+        <tr>
+          <td>Vivo Swift que falta</td>
+          <td><span class="pill neutral">parqueado</span></td>
+          <td>Ergo, For Time, AMRAP, dobles + reloj. FOCUS viejo lo ponía «en curso».</td>
+          <td>No se toca mientras Carrera / tests estén abiertos.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Deuda / no es hoy</h3>
+  <div class="tS">
+    <table>
+      <thead><tr><th>Pieza</th><th>Por qué no es hoy</th></tr></thead>
+      <tbody>
+        <tr><td>Onboarding · 15 agujeros</td><td>0 de 8 atletas lo recorrieron. Es producto, no un parche. Spec propia el día que toque.</td></tr>
+        <tr><td>29 rutas coach sin pantalla</td><td>Construido y no se ve. No se «arregla» metiendo un botón. Pide diseño.</td></tr>
+        <tr><td><code>coach_methodology</code> 37 col / 0 filas</td><td>Tecnología sin método. HARD RULE Nº0: no cablear una escuela.</td></tr>
+        <tr><td>22 bloques incompletos · 20 secuencias</td><td>Contenido, no código. Lo escribe el coach / lo importamos, no lo inventa un agente.</td></tr>
+        <tr><td>Biblioteca ejercicios · Cloudflare foto/vídeo</td><td>Cimientos puestos (11-ago). Cableado pendiente. No mezclar con Carrera.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="corte">06 · El primer corte, si aceptas el modelo</h2>
+  <p>Antes de lanzar Grok o Claude hay que hacer una limpieza de 30 minutos. Si no, el siguiente agente vuelve a leer 21 «Ahora» y se pone a reconstruir algo firmado.</p>
+  <div class="check"><input type="checkbox" id="c1"><label for="c1">Aceptas las tres capas (tablero / FOCUS corto / DECISIONS ley).</label></div>
+  <div class="check"><input type="checkbox" id="c2"><label for="c2">Yo archivo el diario de FOCUS a <code>docs/FOCUS.archivo.md</code> y dejo FOCUS en una pantalla (mismo commit).</label></div>
+  <div class="check"><input type="checkbox" id="c3"><label for="c3">Tú eliges el hilo activo de esta semana. Propuesta mía abajo.</label></div>
+  <div class="check"><input type="checkbox" id="c4"><label for="c4">Dices qué hacer con la rama PM5: seguir, mergear, o aparcar.</label></div>
+
+  <div class="ley">
+    <h3>Hilo que yo pondría esta semana</h3>
+    <p>Cerrar lo que ya espera tu ojo, no abrir otro dominio. 1) Visto bueno Carrera en el doble. 2) Si firmas, un solo átomo Swift: NavigationStack + hub + historial (mapa v2). 3) En paralelo solo si no se pisan: tú sueltas el ZIP Garmin y Grok enchufa el job 0194.</p>
+    <p>No: chat contextual + vivo ergo + onboarding + metodología en la misma semana. Eso es el patrón que te está quemando tokens.</p>
+  </div>
+
+  <h2 id="riesgos">07 · Dónde puede fallar</h2>
+  <ul>
+    <li><b>FOCUS vuelve a crecer.</b> Regla: si una sección «Ahora» tiene más de 12 líneas, sobra. El detalle va al tablero o a la spec.</li>
+    <li><b>Otra sesión de Claude Code reescribe FOCUS como diario.</b> Lo evito yo: el brief dirá «FOCUS solo se toca en el bloque Ahora, máximo 80 líneas».</li>
+    <li><b>El tablero se queda en 13-ago.</b> Si un commit de trabajo no actualiza este HTML, el commit está incompleto. Igual que FOCUS.</li>
+    <li><b>Dos hilos en la misma rama.</b> Worktrees o una rama por hilo. Hoy PM5 y Carrera no deberían compartir checkout si los dos se mueven.</li>
+    <li><b>Brief demasiado cerrado.</b> Pistas de archivos son hipótesis. Ya nos ha pasado: Hermes ordena una línea y el agente obedece un diagnóstico falso.</li>
+  </ul>
+
+  <h3>Lo que rompí contra la realidad (antes de proponerte esto)</h3>
+  <ul>
+    <li>FOCUS 3.924 líneas vs la regla escrita en CLAUDE.md: «Corto — es un estado, no un diario».</li>
+    <li>21 «Ahora» simultáneos + la rama git es PM5, que FOCUS ya no tiene arriba. El mapa mental y git no coinciden.</li>
+    <li>DECISIONS sí se escribe (hoy +51 líneas sin commitear de otra sesión). El problema no es que falte ley, es que no hay índice.</li>
+    <li>mentalOS solo ve disco + git. Si no está commiteado y en FOCUS corto, para ti no existe.</li>
+  </ul>
+
+  <footer>
+    Las casillas viven en este navegador. Cuando cambie una decisión, se actualiza este fichero, no se deja solo en el chat.
+    Siguiente edición: el día que aceptes el modelo y elijamos el hilo.
+  </footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('input[type=checkbox]').forEach(function(el,i){
+    var k='fahybrid-tablero-'+i;
+    el.checked=localStorage.getItem(k)==='1';
+    el.addEventListener('change',function(){localStorage.setItem(k,el.checked?'1':'0')});
+  });
+})();
+</script>
+</body>
+</html>

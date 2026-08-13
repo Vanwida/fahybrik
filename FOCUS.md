@@ -3,6 +3,10 @@
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 Última actualización: **2026-08-13**
 
+**Mapa de lo abierto (abre esto, no este diario):**
+`docs/tablero.html` → file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/tablero.html
+FOCUS sigue gordo a propósito hasta que Alex acepte recortarlo. El tablero es el índice.
+
 ---
 
 ## Ahora · La pastilla Carrera se rehace: EL HOGAR del running, navegable (13-ago tarde)
