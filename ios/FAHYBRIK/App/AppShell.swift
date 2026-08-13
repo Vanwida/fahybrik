@@ -99,7 +99,7 @@ struct AppShell: View {
             .tag(AppTab.plan)
             .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
 
-            AnalyticsView(bearer: bearer, hasCoach: hasCoach)
+            AnalyticsView(bearer: bearer, hasCoach: hasCoach, onOpenTab: { selection = $0 })
                 .tag(AppTab.analiticas)
                 .tabItem { Label(AppTab.analiticas.title, systemImage: AppTab.analiticas.symbol) }
 

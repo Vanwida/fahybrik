@@ -35,6 +35,9 @@ struct AnalyticsView: View {
     var bearer: String? = nil
     /// FREE tier switch (athlete without coach) — hides the chat affordance.
     var hasCoach: Bool = true
+    /// La puerta «Mi carrera» del hub de Carrera cambia de pestaña (Carreras):
+    /// enlazar, no duplicar — la regla del mapa v2.
+    var onOpenTab: ((AppTab) -> Void)? = nil
 
     @Environment(AppDataStore.self) private var store
 
@@ -75,6 +78,21 @@ struct AnalyticsView: View {
     private var currentSection: AnalyticsSection? { slice.value }
 
     var body: some View {
+        // LA PESTAÑA GANA NAVEGACIÓN (mapa v2, 13-ago): el hub de Carrera es un
+        // resumen corto de puertas y cada puerta EMPUJA su vista — historial,
+        // tendencias, capacidad, por tipo… El stack vive aquí (patrón de la tab
+        // Carreras) para que un push cubra el cromo entero; la raíz esconde la
+        // barra porque su identidad la pinta `chrome`.
+        NavigationStack {
+            raiz
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: CorrerDestino.self) { destino in
+                    destinoDeCorrer(destino)
+                }
+        }
+    }
+
+    private var raiz: some View {
         // `head` queda fijo: el título, las secciones y (en Ergo) la máquina son
         // la IDENTIDAD de lo que estás mirando, y no deben irse al scrollear.
         // El cuerpo `llena` cuando hay tarjetas y reparte el aire cuando no —
@@ -178,35 +196,17 @@ struct AnalyticsView: View {
     @ViewBuilder
     private var progresoDeCarrera: some View {
         if let p = progreso {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxxl) {
-                AnaliticasCorrerView(
+            // EL HUB (mapa v2): veredicto etiquetado + puertas, y cada puerta
+            // empuja su vista. La tira anterior y sus grupos viven ahora
+            // repartidos por las vistas de nivel 1 (Forma lleva ejecución;
+            // Tendencias, volumen y terreno; Capacidad, lo suyo). Aquí ya no
+            // hay ningún botón de tests: la salida por ancla vive en Capacidad
+            // y aterriza en SU test.
+            CorrerHubView(
                 progreso: p,
-                onSalida: { showTestsHub = true },
-                // LA PUERTA A LOS DÍAS: reutiliza la hoja de drill de las demás
-                // secciones, con la MISMA ventana que la lectura — custom con el
-                // rango real del payload, no el period del selector viejo.
-                onDrill: { ref in
-                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
-                }
+                bearer: effectiveBearer,
+                onAbrirCarreras: { onOpenTab?(.carreras) }
             )
-                // LOS GRUPOS DE CORRER, detrás del veredicto y su evidencia:
-                // velocidad crítica y depósito (capacidad), deriva y bajada de
-                // pulso (ejecución), kilómetros con desnivel (volumen) y
-                // subida/llano/bajada (terreno). Es running puro y por eso vive
-                // AQUÍ y no en el cuerpo — el atleta lo busca en su pestaña.
-                if let a = analiticas {
-                    ForEach(Self.gruposDeCorrer, id: \.self) { grupo in
-                        if let etiqueta = grupo.etiqueta {
-                            GrupoDeLecturas(
-                                etiqueta: etiqueta,
-                                lecturas: a.lecturas.deGrupo(grupo),
-                                ventana: a.ventanaEs,
-                                onSalida: { showTestsHub = true }
-                            )
-                        }
-                    }
-                }
-            }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.bottom, Theme.Spacing.xxl)
         } else if progresoFallo {
@@ -233,6 +233,50 @@ struct AnalyticsView: View {
             // Sin caché previa el fallo se dice; con ella se conserva lo último
             // bueno, que es más útil que un error sobre una pantalla en blanco.
             if progreso == nil { progresoFallo = true }
+        }
+    }
+
+    /// LAS VISTAS DEL HOGAR DEL RUNNING, una por puerta. Las que leen del
+    /// payload de progreso lo exigen: solo se llega a ellas desde un hub que ya
+    /// lo tenía, así que el fallback es un esqueleto de un instante, no un
+    /// estado que el atleta vaya a habitar.
+    @ViewBuilder
+    private func destinoDeCorrer(_ destino: CorrerDestino) -> some View {
+        switch destino {
+        case .historial:
+            CorrerHistorialView(bearer: effectiveBearer)
+        case .tendencias:
+            CorrerTendenciasView(bearer: effectiveBearer, analiticas: analiticas)
+        case .porTipo:
+            CorrerPorTipoView(bearer: effectiveBearer)
+        case .capacidad:
+            if let p = progreso {
+                CorrerCapacidadView(progreso: p, analiticas: analiticas, bearer: effectiveBearer)
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .forma:
+            if let p = progreso {
+                CorrerFormaView(progreso: p, analiticas: analiticas, onDrill: { ref in
+                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
+                })
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .adherencia:
+            if let p = progreso {
+                CorrerAdherenciaView(progreso: p, onDrill: { ref in
+                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
+                })
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .cansado:
+            if let p = progreso {
+                CorrerCansadoView(progreso: p)
+            } else {
+                AnalyticsSkeletonCard()
+            }
         }
     }
 
@@ -494,17 +538,12 @@ struct AnalyticsView: View {
     ///
     /// Capacidad, ejecución, volumen y terreno NO están aquí y estuvieron: son
     /// running puro —velocidad crítica, deriva, kilómetros, cuestas— y colgarlos
-    /// del cuerpo los sacaba de la pestaña de Carrera, que es donde el atleta los
-    /// busca. Viven en `gruposDeCorrer` (Alex, 13-ago).
+    /// del cuerpo los sacaba de la pestaña de Carrera. Desde el hub v2 (13-ago)
+    /// viven repartidos por sus vistas: capacidad en `CorrerCapacidadView`,
+    /// ejecución en `CorrerFormaView`, volumen y terreno en
+    /// `CorrerTendenciasView`.
     private static let gruposDelCuerpo: [GrupoLectura] = [
         .recuperacion,
-    ]
-
-    /// LOS GRUPOS DE CORRER, detrás de la pantalla del veredicto y en este orden:
-    /// primero de qué es capaz (capacidad), luego cómo ejecuta (ejecución), cuánto
-    /// acumula (volumen) y dónde (terreno). La densidad sigue creciendo hacia abajo.
-    private static let gruposDeCorrer: [GrupoLectura] = [
-        .capacidad, .ejecucion, .volumen, .terreno,
     ]
 
     @ViewBuilder
@@ -762,7 +801,9 @@ struct AnalyticsVerdict {
 
 // MARK: - Skeleton card (cold-load placeholder)
 
-private struct AnalyticsSkeletonCard: View {
+// Internal, no `private`: las vistas del hogar del running (Correr/) lo usan
+// como marcador de carga — es la pieza compartida de esta pestaña (§0).
+struct AnalyticsSkeletonCard: View {
     @State private var pulse = false
     var body: some View {
         CardSurface(padding: 15) {
