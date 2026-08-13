@@ -32,7 +32,7 @@ export function DetalleTabBar({
 
   return (
     <nav aria-label="Secciones del atleta" className="border-b border-[color:var(--v2-border)]">
-      <div className="flex gap-1 overflow-x-auto">
+      <div className="flex flex-wrap gap-1">
         {ATLETA_TABS.map((tab) => {
           const isActive = tab === active || (active === 'mensajes' && tab === 'resumen');
           const badge = badges?.[tab] ?? 0;

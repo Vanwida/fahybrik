@@ -44,7 +44,7 @@ export function SemanaCanvas({
   focus: React.ReactNode;
 }) {
   return (
-    <FichaCard className="overflow-hidden p-0">
+    <FichaCard className="p-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
         <div className="flex flex-wrap items-baseline gap-2">
           <FichaLabel className="m-0">{label}</FichaLabel>
@@ -82,6 +82,8 @@ export function SemanaCanvas({
             todayIso={todayIso}
             athleteId={athleteId}
             onOpen={onOpen}
+            first={i === 0}
+            last={i === week.days.length - 1}
           />
         ))}
       </div>
@@ -95,12 +97,16 @@ function DiaCol({
   todayIso,
   athleteId,
   onOpen,
+  first,
+  last,
 }: {
   day: PlanDay;
   short: string;
   todayIso: string;
   athleteId: string;
   onOpen: (assignmentId: string) => void;
+  first: boolean;
+  last: boolean;
 }) {
   const sesiones = sesionesDelDia(day, todayIso);
   const vacio = sesiones.length === 0;
@@ -112,6 +118,8 @@ function DiaCol({
         'flex min-h-[120px] flex-col gap-1.5 px-2 py-2.5',
         vacio ? 'bg-[#FBF9F6] dark:bg-[color:var(--v2-bg)]' : 'bg-[color:var(--v2-surface)]',
         day.is_today && 'bg-[#FDF6F1] shadow-[inset_0_2px_0_#E85D1F] dark:bg-[color:var(--v2-accent-soft)]',
+        first && 'rounded-bl-[14px]',
+        last && 'rounded-br-[14px]',
       )}
     >
       <span className="v2-num text-[10px] uppercase tracking-[0.06em] text-[color:var(--v2-muted)]">

@@ -82,7 +82,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
   return (
     <div className="mx-auto grid w-full max-w-[1300px] grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_328px]">
       <div className="flex min-w-0 flex-col gap-4">
-        <FichaCard className="overflow-hidden p-0">
+        <FichaCard className="p-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
             <div className="flex flex-wrap items-baseline gap-2">
               <FichaLabel className="m-0">Esta semana</FichaLabel>
@@ -122,6 +122,8 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                         ? 'bg-[#FBF9F6] dark:bg-[color:var(--v2-bg)]'
                         : 'bg-[color:var(--v2-surface)]',
                       d.is_today && 'bg-[#FDF6F1] shadow-[inset_0_2px_0_#E85D1F] dark:bg-[color:var(--v2-accent-soft)]',
+                      i === 0 && 'rounded-bl-[14px]',
+                      i === 6 && 'rounded-br-[14px]',
                     )}
                   >
                     <span className="v2-num text-[10px] uppercase tracking-[0.06em] text-[color:var(--v2-muted)]">
