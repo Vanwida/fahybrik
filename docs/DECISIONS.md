@@ -10,6 +10,19 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · El primer tramo personal desde la ficha arranca el lunes de esta semana
+
+**El hueco:** un atleta en `plan_mode=personal` sin filas en `athlete_month_assignments` (sesiones sueltas, nombre «—») no podía crear plan. «Personalizar» llamaba al fork y devolvía 409 (no hay microciclo). «Añadir microciclo» devolvía 409 `no_chain_yet` y mandaba a Personalizar. Las dos puertas se apuntaban.
+
+**Decidido:**
+- **Personalizar = solo fork de secuencia.** Se ofrece si hay recibo (`current_month_template_id`) y no es ya personal. Sin recibo, no hay fork.
+- **Sin recibo, la puerta es «Añadir microciclo».** La cadena vacía se enseña aunque la semana tenga sesiones sueltas (`allowEmpty`).
+- El primer tramo nace el **lunes de esta semana** (`start_date_when_empty`, normalizado con `mondayOfWeek`). Es el mismo ancla que el alta personal.
+
+**NO hacer:** no reabrir el cruce de puertas. No tratar `plan_mode` como si fuera el recibo. No re-forkear un personal.
+
+---
+
 ## 2026-08-13 · Secuencia y plan personal son dos recibos, no dos editores
 
 **El hueco (Alex, ficha en la mano):** un atleta en plan personal no podía «personalizar» (el botón desaparecía), no podía borrar el entreno de un día (se quitaba de la plantilla y el atleta lo seguía viendo) y «Ver plan» caía en un vacío si no había secuencia. El modelo no estaba roto: faltaban las salidas.
@@ -59,6 +72,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **NO hacer:** sexta pestaña. Sexto tipo de comunicado. Clonar el póster WCSE ni su marca. Informe distinto para cada cara. Comparar protocolos distintos. Chat como canal. Hardcodear bandas en Swift. Enseñar 47,33 como platillo.
 
 Spec: `docs/superpowers/specs/2026-08-13-tests-son-un-loop.md`.
+
+---
+
+## 2026-08-13 (noche) · El hub de Carrera SHIPEADO en Swift — y las decisiones que salieron de construirlo
+
+**La obra:** la pastilla Carrera de iOS es ya el hub navegable del mapa v2 (NavigationStack propio, patrón de la tab Carreras): Estado + puertas → Historial (semanas con subtotal, filtros plegados, filas a la ficha real vía `ExecutedWorkoutView`), Tendencias (por métrica y ventana, con los grupos de volumen y terreno), Capacidad (umbral+zonas shipeados de `DetalleDeCarrera`, VC del grupo de lecturas, récords calle/cinta, predictor VDOT, y el test de zonas SOLO sin ancla lanzando SU test por el `/start` de la batería), Por tipo (chips reales), Forma / Lo que te piden / Correr cansado (los bloques de la tira, mudados). Plan: `docs/superpowers/plans/2026-08-13-carrera-hub-ios.md`.
+
+**Decisiones tomadas construyendo:**
+- **El Estado va ETIQUETADO, no en frase gigante.** Alex, con la app en la mano: «¿qué es "Vas mejor"? ¿eso es un estándar?». El concepto es nuestro Training Status; la presentación pasa a etiqueta «Estado» + frase compacta + LA EVIDENCIA en una línea debajo (el peldaño). Mismo motor servido, cero cálculo nuevo.
+- **Nace `shared/domain/running/session-type.ts`:** el clasificador de tipo de sesión (series/fartlek/cuestas/progresivo/continuo) derivado de la ESTRUCTURA prescrita — el eje que ninguna tabla tenía. Reglas por forma+objetivo+medida; roto contra 12 casos reales de `to-text-structure.test.ts`. Sin estructura → null (libres e importadas no llevan chip inventado).
+- **Un récord viaja como `valor`+`unidad`, no como `segundos`:** el Cooper de 12 min vive en METROS (la única marca run de «más alto mejor»). Servir metros bajo una clave `segundos` era un dato falso agazapado.
+- **La VC tiene UN pintor:** el grupo `capacidad` de `/analytics/lecturas` (cobertura+procedencia). El endpoint de capacidad NO la sirve — dos números para el mismo hecho es como coach y atleta acaban leyendo cifras distintas.
+- **`historial.veredicto` va null-honesto en toda fila:** recomputar compliance sesión a sesión son 2 viajes a Neon por fila — inasumible en `window=all`. El punto de veredicto del historial espera a un almacén barato por sesión (anotado como remate).
+- **`prev` de tendencias sale null entero si la ventana anterior no tiene NI UNA sesión:** un «+400 %» contra un cero que en realidad es «no corría» es una comparación fabricada.
+
+**Qué NO está (declarado):** comparativa «vs tu último 6×800» + historial del mismo entreno en la ficha (T2); vista Por zona (T3); una importada sin assignment lista sus km pero no navega aún; los volcados de composición siguen fotografiando la tira vieja (`AnaliticasCorrerView` vive SOLO para ellos — migrarlos al hub y borrarla es remate).
+
+**NO hacer en consecuencia:** no devolver el CTA de tests a ningún arranque; no añadir un segundo pintor de VC; no «arreglar» el veredicto de fila recomputando compliance al vuelo; no darle chip de tipo a una sesión sin estructura.
 
 ---
 

@@ -2,17 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-13** (orquestación)
+Última actualización: **2026-08-13** (Carrera hogar shipeado en Swift)
 
 ## Ahora
 
-Hermes orquesta. No se lanza Grok ni Claude hasta que Alex elija el hilo
-de la semana (Carrera / tests / PM5). Default si no dice: **no construir** —
-espera visto bueno de Carrera en `/es/design`.
+**Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
+«haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
+navegable en la pastilla (Estado etiquetado, sin CTA de tests) + Historial /
+Tendencias / Capacidad / Por tipo / Forma / Pedido / Cansado + endpoints
+`/api/athlete/running/*` + `shared/domain/running/session-type.ts`. Build OK,
+suite iOS 1503/0. Ley: DECISIONS 13-ago (noche). Tandas: comparativa de
+sesión (T2) · por zona (T3) · veredicto por fila · volcados tira→hub.
+Plan personal sin periodización (atleta 64): cerrado. Siguiente: Tests = loop.
 
 ## Espera Alex
 
-- Carrera hogar: 6 `propuesta` en el doble. Sin Swift hasta firmar.
+- Instalar la build de iOS y probar el hub de Carrera (la instala él).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
 
