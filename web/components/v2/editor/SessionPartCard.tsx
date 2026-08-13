@@ -63,6 +63,7 @@ export function SessionPartCard({
   onRemoveBlock,
   onMoveItem,
   onToggleOptional,
+  onRemoveSession,
 }: {
   session: EditorSession;
   onChangeFocus: (focus: string) => void;
@@ -88,6 +89,8 @@ export function SessionPartCard({
   onMoveItem: (blockUid: string, itemUid: string, dir: -1 | 1) => void;
   /** Alterna «el bloque es un extra que el atleta puede saltarse» (fase 2). */
   onToggleOptional: (blockUid: string) => void;
+  /** Quita ESTA sesión del día. El guardado + resync la quitan del atleta. */
+  onRemoveSession: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const totalMin = session.blocks.reduce((acc, b) => acc + (blockMinutes(b) ?? 0), 0);
@@ -156,6 +159,16 @@ export function SessionPartCard({
             >
               <MIcon name="draw" size={15} />
               <span className="hidden sm:inline">Redactar</span>
+            </button>
+            <button
+              type="button"
+              onClick={onRemoveSession}
+              aria-label="Borrar este entreno del día"
+              title="Borrar este entreno del día"
+              className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+            >
+              <MIcon name="delete" size={15} />
+              <span className="hidden sm:inline">Borrar</span>
             </button>
             <span className="v2-num text-label text-[color:var(--v2-faint)]">
               {session.blocks.length} {session.blocks.length === 1 ? 'bloque' : 'bloques'}

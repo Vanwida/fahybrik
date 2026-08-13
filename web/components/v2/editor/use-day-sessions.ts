@@ -38,6 +38,9 @@ export function useDaySessions(initial: EditorSession[]) {
     ]);
   };
 
+  const removeSession = (uid: string) =>
+    setSessions((prev) => prev.filter((s) => s.uid !== uid));
+
   // «＋ Bloque» (picker inline) — el coach elige un TIPO; se crea un bloque listo
   // SIN sección (agnóstico) y se añade al final. El coach lo nombra en línea.
   const addBlockOfType = (sessionUid: string, archetype: ArchetypeId) => {
@@ -190,6 +193,7 @@ export function useDaySessions(initial: EditorSession[]) {
     setSessionFocus,
     setSessionNote,
     addSession,
+    removeSession,
     addBlockOfType,
     addBlocksToSession,
     addQuickBlock,

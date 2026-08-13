@@ -364,6 +364,7 @@ export function DayEditor({
                     day.moveItem(session.uid, blockUid, itemUid, dir)
                   }
                   onToggleOptional={(blockUid) => day.toggleOptional(session.uid, blockUid)}
+                  onRemoveSession={() => day.removeSession(session.uid)}
                 />
               </div>
             ))}

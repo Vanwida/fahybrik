@@ -301,9 +301,11 @@ export async function instantiateWeekIntoMicrocycle(params: {
   }).days;
 
   let assignmentCount = 0;
+  const wantedByDate = new Map<string, string[]>();
   for (const day of placedDays) {
     const dayDate = addDays(weekStart, day.day_of_week - 1);
     const dayIso = isoDateString(dayDate);
+    const wanted: string[] = [];
     for (let i = 0; i < day.sessions.length; i++) {
       const session = day.sessions[i]!;
       const slotLabel = slotLabelForSessionIndex(i);
@@ -318,7 +320,25 @@ export async function instantiateWeekIntoMicrocycle(params: {
         template_name_base: weekTpl.name,
         progression: params.progression,
       });
+      if (session.kind === 'workout') wanted.push(`slot:${slotLabel}`);
     }
+    wantedByDate.set(dayIso, wanted);
+  }
+
+  // Quitar un entreno de la plantilla tiene que quitarlo del atleta. Insertar
+  // y reemplazar no basta: el hueco que ya no existe dejaba la asignación
+  // scheduled colgada (el coach borraba, el atleta seguía viéndolo). Solo
+  // `scheduled` + `slot:…` de ESTE microciclo: lo hecho, lo libre y un test
+  // no se tocan.
+  for (let i = 0; i < 7; i++) {
+    const dayIso = isoDateString(addDays(weekStart, i));
+    await pruneRemovedSlotAssignments({
+      client: params.client,
+      athlete_id: params.athlete_id,
+      microcycle_id: microId,
+      scheduled_for: dayIso,
+      keep_notes: wantedByDate.get(dayIso) ?? [],
+    });
   }
 
   return { microcycle_id: microId, assignment_count: assignmentCount };
@@ -341,8 +361,8 @@ export type ResyncWeekTemplateResult = {
  * vuelve a recorrer días/sesiones con el contenido fresco, y `insertSlotAssignment`
  * decide por slot: 'scheduled' → reemplaza el contenido materializado; cualquier
  * otro estado ('completed'/'partial'/'skipped'/'missed') → se deja intacto, el
- * atleta ya actuó sobre esa fila. Nunca inventa asignaciones nuevas fuera de las
- * que ya existían — resincroniza, no vuelve a repartir.
+ * atleta ya actuó sobre esa fila. Un hueco que el coach quitó de la plantilla
+ * (sesión borrada o día pasado a descanso) sí se borra si sigue `scheduled`.
  *
  * Best-effort por microciclo, en su propia transacción: un atleta con un fallo
  * no debe bloquear a los demás ni el guardado del día que disparó esto.
@@ -586,6 +606,25 @@ async function insertSlotAssignment(params: {
     )
   `;
   return 1;
+}
+
+async function pruneRemovedSlotAssignments(params: {
+  client: Sql;
+  athlete_id: number | bigint;
+  microcycle_id: string;
+  scheduled_for: string;
+  keep_notes: string[];
+}): Promise<void> {
+  await params.client`
+    delete from workout_assignments
+    where athlete_id = ${params.athlete_id as number}
+      and microcycle_id = ${Number(params.microcycle_id)}
+      and scheduled_for = ${params.scheduled_for}::date
+      and status = 'scheduled'
+      and notes like 'slot:%'
+      and coalesce(origin, 'coach') <> 'self'
+      and not (notes = any(${params.keep_notes}::text[]))
+  `;
 }
 
 /**

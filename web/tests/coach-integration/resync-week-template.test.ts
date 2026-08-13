@@ -195,4 +195,90 @@ describeWithDb('resyncWeekTemplateAssignments (real DB)', () => {
     expect(after[0]!.template_id).toBe(before[0]!.template_id); // untouched
     expect(after[0]!.status).toBe('completed');
   });
+
+  test('quitar la sesión de la plantilla borra la asignación scheduled, no la hecha', async () => {
+    const fx = await baseFixture();
+    const run = await makeExercise({ fx, name: 'Run' });
+    const squat = await makeExercise({ fx, name: 'Back Squat' });
+
+    const month = await makeInlineMonthTemplate({
+      fx,
+      weekCount: 1,
+      dayPlans: [
+        {
+          day_of_week: 2,
+          blocks: [
+            {
+              title: 'Correr',
+              format: 'intervals',
+              items: [{ exercise_id: run, exercise_name: 'Run', params_json: { distance_meters: 8000 } }],
+            },
+          ],
+        },
+        {
+          day_of_week: 4,
+          blocks: [
+            {
+              title: 'Fuerza',
+              format: 'strength_block',
+              items: [{ exercise_id: squat, exercise_name: 'Back Squat', params_json: { sets: 3, reps: 5 } }],
+            },
+          ],
+        },
+      ],
+    });
+    const weekId = month.weekIds[0]!;
+
+    await instantiateMonthFromTemplate({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      month_template_id: month.monthId,
+      start_date: '2026-03-02',
+      client: sql,
+    });
+
+    const tue = await sql<Array<{ id: string }>>`
+      select id::text from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-03-03'::date
+    `;
+    const thu = await sql<Array<{ id: string }>>`
+      select id::text from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-03-05'::date
+    `;
+    expect(tue).toHaveLength(1);
+    expect(thu).toHaveLength(1);
+
+    await sql`
+      update workout_assignments set status = 'completed'::assignment_status
+      where id = ${Number(thu[0]!.id)}
+    `;
+
+    const [week] = await sql<Array<{ slots_json: any }>>`
+      select slots_json from program_week_templates where id = ${weekId}
+    `;
+    const editedSlots = structuredClone(week!.slots_json);
+    editedSlots.days = editedSlots.days.filter((d: { day_of_week: number }) => d.day_of_week !== 2);
+    await sql`
+      update program_week_templates set slots_json = ${sql.json(editedSlots)} where id = ${weekId}
+    `;
+
+    await resyncWeekTemplateAssignments({
+      coach_id: fx.coachId,
+      week_template_id: weekId,
+      client: sql,
+    });
+
+    const tueAfter = await sql<Array<{ id: string }>>`
+      select id::text from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-03-03'::date
+    `;
+    const thuAfter = await sql<Array<{ id: string; status: string }>>`
+      select id::text, status::text from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-03-05'::date
+    `;
+    expect(tueAfter).toHaveLength(0);
+    expect(thuAfter).toHaveLength(1);
+    expect(thuAfter[0]!.id).toBe(thu[0]!.id);
+    expect(thuAfter[0]!.status).toBe('completed');
+  });
 });
