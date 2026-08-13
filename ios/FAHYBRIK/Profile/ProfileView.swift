@@ -209,6 +209,12 @@ struct ProfileView: View {
             await store.loadProfile()
             await loadRaces()
             await loadPolar()
+            // El histórico corre en silencio. Cero pixeles extra bajo el toggle.
+            if healthConnected {
+                let importer = HealthKitHistoryImporter.shared
+                importer.rebind(athleteId: AuthState.persistedAthleteId())
+                importer.consentAndStart()
+            }
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
@@ -783,22 +789,6 @@ struct ProfileView: View {
                 caption: "Tus entrenos llegan a tu entrenador, pero el plan no baja al reloj."
             ) {
                 appleHealthRow
-                // Estado del histórico (barra / listo / reanudar si se cortó). NO es un
-                // segundo botón de sync: el toggle de arriba arranca la conexión y el
-                // barrido del pasado. Estándar de mercado = un solo control.
-                if healthAvailable, healthConnected {
-                    HealthHistoryImportPanel(athleteId: AuthState.persistedAthleteId())
-                        .onAppear {
-                            // Ya estaba conectado de antes (sin el segundo botón): el
-                            // toggle de Salud es el consentimiento. Arranca una vez.
-                            let id = AuthState.persistedAthleteId()
-                            let importer = HealthKitHistoryImporter.shared
-                            importer.rebind(athleteId: id)
-                            // Siempre: si el techo creció (2 años → 10) reabre
-                            // el barrido. Si ya llegó al suelo actual, no-op.
-                            importer.consentAndStart()
-                        }
-                }
                 Hairline()
                 polarRow
                 Hairline()

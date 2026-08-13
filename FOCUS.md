@@ -7,7 +7,8 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## Cerrado · Apple Salud: un permiso, y el histórico sí entra en las comparativas (13-ago)
 
-En Perfil había dos CTAs de Salud (toggle + «Abrir Salud»). Queda el toggle.
+En Perfil había dos CTAs de Salud. Queda el toggle, nada debajo. El histórico
+corre en silencio.
 Los entrenos que ya estaban en `biometric_streams` desde 2019 no eran sesiones:
 sin assignment el ingest los tiraba. Ahora nacen como ejecuciones importadas
 (`assignment_id` NULL, mig 0191) y el coach puede comparar antes/después.

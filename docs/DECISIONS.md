@@ -16,7 +16,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Decidido:** una sesión importada no necesita assignment. `assignment_id` pasa a nullable (migración **0191**); el 1:1 del plan se conserva con un índice parcial. El ingest de HealthKit, si no hay assignment del día ni solape con una sesión ya registrada, nace la ejecución (`recorded_via='imported'`) y un tramo resumen. El plan no se toca. El histórico que ya estaba en `training_load` se materializa con la misma función. No hay unique en `source_workout_ref`: en producción ya hay UUIDs de Salud repetidos en varias ejecuciones live (el mismo HKWorkout aterrizó en dos assignments).
 
-**Qué se elimina:** el segundo botón de permisos en Perfil («Abrir Salud» + «Activar todo» siempre visible al conectar). El mercado (Whoop, Strava) tiene UN control. El toggle pide el sheet de iOS y arranca el histórico. Tras desconectar, una línea de texto — no otro CTA. El techo del barrido pasa de 2 a 10 años; un import ya cerrado con el techo viejo se reabre solo.
+**Qué se elimina:** cualquier segundo control de Apple Salud en Perfil. El toggle es el único. Ni «Abrir Salud», ni «Importar histórico», ni «Continuar importación», ni «Detener». El barrido del pasado corre en silencio al conectar. El techo es 10 años; un import ya cerrado con el techo viejo se reabre solo, sin pintar un CTA.
 
 **NO hacer en consecuencia:** no inventar assignments para el pasado. No volver a poner un segundo botón de Salud. No tratar `biometric_streams.training_load` como si las comparativas lo leyeran.
 
