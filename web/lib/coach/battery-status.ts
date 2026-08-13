@@ -16,8 +16,14 @@ import {
   buildJumpProfile,
   type JumpProfileView,
 } from '@fahybrid/shared/domain/jump/method';
+import { buildCmjReport, type CmjAttemptView, type CmjReport } from '@fahybrid/shared/domain/test-report/cmj';
 import { BENCH_CMJ, BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
-import { heightsFromAttempts, valuesForOccurrence } from '@/lib/coach/occurrence-values';
+import {
+  heightsFromAttempts,
+  snapshotFromAttempts,
+  valuesForOccurrence,
+  type OccurrenceAttempt,
+} from '@/lib/coach/occurrence-values';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -38,9 +44,11 @@ export interface CalibrationTestStatus {
   brief: JumpBrief | null;
   /** Derivado al leer: solo si hay CMJ (y carga si se midió). */
   jump_profile: JumpProfileView | null;
+  /** Informe de ESA ocurrencia. Null si no es un salto con altura. */
+  jump_report: CmjReport | null;
 }
 
-export type { JumpProfileView };
+export type { JumpProfileView, CmjReport };
 
 export interface BatteryStatus {
   total: number;
@@ -101,13 +109,14 @@ export async function loadBatteryStatus(
     where athlete_id = ${athlete_id} and source in ('coach_test', 'athlete_test')
     order by recorded_at desc, id desc
   `;
-  const attemptRows = await client<
-    { assignment_id: string; kind: string; height_cm: number; kept: boolean }[]
-  >`
+  const attemptRows = await client<OccurrenceAttempt[]>`
     select assignment_id::text as assignment_id,
            kind,
            height_cm::float8 as height_cm,
-           kept
+           kept,
+           quality,
+           load_kg::float8 as load_kg,
+           body_mass_kg::float8 as body_mass_kg
     from jump_attempts
     where athlete_id = ${athlete_id} and assignment_id is not null
   `;
@@ -123,6 +132,7 @@ export async function loadBatteryStatus(
     const fromBenches = valuesForOccurrence(r.assignment_id, benchRows);
     const valueBySlug =
       fromBenches.size > 0 ? fromBenches : heightsFromAttempts(r.assignment_id, attemptRows);
+    const snap = snapshotFromAttempts(r.assignment_id, attemptRows);
     // Completion is gated ONLY by the REQUIRED results — an optional result (e.g. HRR
     // the app auto-measures) never blocks "completado".
     const required = specs.filter((s) => !s.optional);
@@ -154,7 +164,8 @@ export async function loadBatteryStatus(
               bodyMassKg,
             })
           : null,
-      jump_profile: jumpProfileFrom(specs, valueBySlug, bodyMassKg),
+      jump_profile: jumpProfileFrom(specs, valueBySlug, snap.body_mass_kg ?? bodyMassKg),
+      jump_report: jumpReportFrom(r.label, r.scheduled_for, specs, valueBySlug, snap, attemptRows, r.assignment_id),
     };
   });
 
@@ -209,4 +220,39 @@ function jumpProfileFrom(
   if (unloaded == null) return null;
   const loadKg = DEFAULT_JUMP_METHOD.default_load.kind === 'kg' ? DEFAULT_JUMP_METHOD.default_load.kg : null;
   return buildJumpProfile(unloaded, valueBySlug.get(BENCH_CMJ_LOADED) ?? null, loadKg, bodyMassKg);
+}
+
+function jumpReportFrom(
+  title: string,
+  scheduledFor: string,
+  specs: Array<{ slug: string }>,
+  valueBySlug: Map<string, number>,
+  snap: { load_kg: number | null; body_mass_kg: number | null },
+  attempts: OccurrenceAttempt[],
+  assignmentId: string,
+): CmjReport | null {
+  if (!specs.some((s) => s.slug === BENCH_CMJ)) return null;
+  const unloaded = valueBySlug.get(BENCH_CMJ);
+  if (unloaded == null) return null;
+  const loadKg =
+    snap.load_kg ??
+    (DEFAULT_JUMP_METHOD.default_load.kind === 'kg' ? DEFAULT_JUMP_METHOD.default_load.kg : null);
+  const mine = attempts.filter((a) => a.assignment_id === assignmentId);
+  const attemptViews: CmjAttemptView[] = mine
+    .filter((a) => a.kind === 'cmj' || a.kind === 'loaded_cmj')
+    .map((a) => ({
+      kind: a.kind as 'cmj' | 'loaded_cmj',
+      height_cm: a.height_cm,
+      kept: a.kept,
+      quality: a.quality ?? 'ok',
+    }));
+  return buildCmjReport({
+    title,
+    date_label: scheduledFor,
+    unloaded_cm: unloaded,
+    loaded_cm: valueBySlug.get(BENCH_CMJ_LOADED) ?? null,
+    load_kg: loadKg,
+    body_mass_kg: snap.body_mass_kg,
+    attempts: attemptViews,
+  });
 }

@@ -35,6 +35,22 @@ tests (batería entera, 1RM de squat incluido) nada más entrar: fuera.
 
 ---
 
+## Ahora · Plan personal vs secuencia: salidas que faltaban (13-ago noche)
+
+Tres fallos de la ficha con atleta personalizado, misma raíz (el recibo personal
+no tenía las mismas salidas que la secuencia):
+
+- **Editar plan** / **Abrir** en la cadena → `/microciclos/:id` (antes «Personalizar»
+  desaparecía y «Editar» solo cambiaba el nombre).
+- **Borrar el entreno de un día** llega al atleta: el resync poda `scheduled` +
+  `slot:…`; el editor de día tiene Borrar sesión.
+- **Ver plan** sigue yendo a la pestaña; el vacío personal ya no parece roto.
+
+Foco de la semana en iOS: 13 → 17 pt (`CabeceraDelBloque` + espejo `plan-bloque`).
+Decisión: `docs/DECISIONS.md` 13-ago «Secuencia y plan personal son dos recibos».
+
+---
+
 ## Ahora · Ficha del atleta: de 12 pestañas a 5 (13-ago)
 
 Spec 1a + mock firmados. IA: Resumen · Plan · Rendimiento · Del coach · Atleta.
@@ -93,6 +109,7 @@ Firmado: un test no es un número. Es ocurrencia → informe (misma pantalla atl
 - CMJ es el primer informe completo (tenemos la fuente). El resto entra en la misma cáscara.
 - Raíz a construir primero: `athlete_benchmarks.assignment_id` — hoy dos CMJ hechos enseñan el mismo perfil.
 - **0195 aplicada:** el número de batería se ancla a ESA assignment. El lector ya no usa el último slug.
+- **Informe CMJ montado:** misma ficha atleta/coach (`CmjInforme` + `JumpReportView`). Motor `buildCmjReport`. Doble `test-informe`.
 
 Plan de captura (CMJ) sigue vigente: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
 

@@ -52,10 +52,12 @@ struct JumpCaptureView: View {
             }
             if let report = savedReport {
                 JumpReportView(
-                    title: "Perfil de salto",
-                    dateLabel: "Hoy",
-                    profile: report,
-                    bodyMassKg: launch.bodyMassKg,
+                    report: CmjReportDTO.thin(
+                        title: "Perfil de salto",
+                        dateLabel: "Hoy",
+                        profile: report,
+                        bodyMassKg: launch.bodyMassKg
+                    ),
                     onClose: onSaved
                 )
             }

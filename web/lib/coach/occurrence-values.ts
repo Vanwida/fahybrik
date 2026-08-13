@@ -14,6 +14,22 @@ export interface OccurrenceAttempt {
   kind: string;
   height_cm: number;
   kept: boolean;
+  quality?: string;
+  load_kg?: number | null;
+  body_mass_kg?: number | null;
+}
+
+export function snapshotFromAttempts(
+  assignmentId: string,
+  attempts: OccurrenceAttempt[],
+): { load_kg: number | null; body_mass_kg: number | null } {
+  const mine = attempts.filter((a) => a.assignment_id === assignmentId);
+  const loaded = mine.find((a) => a.kind === 'loaded_cmj' && a.load_kg != null);
+  const withMass = mine.find((a) => a.body_mass_kg != null);
+  return {
+    load_kg: loaded?.load_kg ?? null,
+    body_mass_kg: withMass?.body_mass_kg ?? null,
+  };
 }
 
 /** Último valor por slug de ESA assignment. Vacío si no hay filas ancladas. */

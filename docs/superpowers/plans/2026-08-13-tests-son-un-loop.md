@@ -41,17 +41,11 @@
 
 ### Task 2: DTO de informe + renderer CMJ
 
-**Files:**
-- Create: `shared/domain/test-report/{occurrence,cmj,compare}.ts`
-- Modify: `shared/domain/jump/method.ts` (`label` en height bands; `buildJumpProfile` gana drop/load_rel/load_kg/body_mass)
-- Modify: `web/lib/coach/battery-status.ts` (servir el informe, no solo 6 campos)
-- Test: `web/tests/jump/report.test.ts` — caso 47,33 / 39,38 / 15 / 76 / LRI 0,85
-
-**Produce:** `CmjReport` con todos los bloques de la spec. Lectura COMPUESTA. `formatJumpHeightCm` en el héroe.
+- [x] `shared/domain/test-report/cmj.ts` + test del caso 47,33 / 39,38 / 15 / 76 / LRI 0,85.
 
 ### Task 3: Pantalla de informe (web + iOS + doble)
 
-Misma pantalla. Web sustituye el diálogo de `TestsPanel`. iOS reescribe `JumpReportView` (lee el DTO, cero cortes en Swift). Doble `test-informe` en el mismo lote.
+- [x] Web `CmjInforme` sustituye el diálogo. iOS `JumpReportView` pinta el DTO. Doble `test-informe`.
 
 ### Task 4: Archivo por familia
 

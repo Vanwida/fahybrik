@@ -11,6 +11,8 @@ export interface HeightBand {
   /** Exclusive upper bound. null = abierto por arriba. */
   max: number | null;
   level: 1 | 2 | 3 | 4 | 5;
+  /** Cara-atleta del nivel. Método del coach. */
+  label: string;
 }
 
 export interface LriBand {
@@ -36,11 +38,11 @@ export const DEFAULT_JUMP_METHOD: JumpMethod = {
   rest_s: 45,
   arms: 'hips',
   height_bands_cm: [
-    { max: 30, level: 1 },
-    { max: 35, level: 2 },
-    { max: 40, level: 3 },
-    { max: 45, level: 4 },
-    { max: null, level: 5 },
+    { max: 30, level: 1, label: 'Muy baja' },
+    { max: 35, level: 2, label: 'Baja' },
+    { max: 40, level: 3, label: 'Media' },
+    { max: 45, level: 4, label: 'Alta' },
+    { max: null, level: 5, label: 'Muy alta' },
   ],
   lri_bands: [
     { max: 0.45, level: 5, label: 'Excelente' },

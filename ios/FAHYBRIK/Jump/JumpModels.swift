@@ -45,8 +45,5 @@ enum JumpSeries: String {
 
 struct JumpReportLaunch: Identifiable {
     let id: String
-    let title: String
-    let dateLabel: String?
-    let profile: JumpProfileDTO
-    let bodyMassKg: Double?
+    let report: CmjReportDTO
 }

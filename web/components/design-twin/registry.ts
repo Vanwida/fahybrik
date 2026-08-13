@@ -19,6 +19,7 @@ import * as rankingBox from './screens/ranking-box';
 import * as perfilRendimiento from './screens/perfil-rendimiento';
 import * as testsCalibracion from './screens/tests-calibracion';
 import * as testComparativa from './screens/test-comparativa';
+import * as testInforme from './screens/test-informe';
 import * as chatCoach from './screens/chat-coach';
 // Preguntar SOBRE algo (12-ago): el chat de arriba, pero sabiendo de qué va el
 // mensaje. Vive aparte porque `chat-coach` ya se shipeó y esto todavía no.
@@ -129,6 +130,7 @@ export const SCREENS: TwinScreenModule[] = [
   // El resultado de un test contra otro (2-ago): el hub dice CUÁNTOS has hecho;
   // esta dice qué cambió y qué se movió en tu plan por haberlo hecho.
   testComparativa,
+  testInforme,
   chatCoach,
   chatContexto,
   analiticasVeredicto,

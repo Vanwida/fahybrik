@@ -10,6 +10,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { FichaCard, FichaLabel } from '../resumen/piezas';
 import { ProgramarTestSheet } from './ProgramarTestSheet';
+import { CmjInforme } from './CmjInforme';
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
@@ -34,7 +35,7 @@ function TestRow({
   const pending = test.result_pending;
   const done = test.result_captured;
   const [open, setOpen] = useState(false);
-  const report = test.jump_profile;
+  const report = test.jump_report;
 
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
@@ -72,7 +73,7 @@ function TestRow({
               Falta el resultado
             </Pill>
             <Link
-              href={`/atletas/${athleteId}?tab=rendimiento&vista=ritmos`}
+              href={`/atletas/${athleteId}?tab=rendimiento&vista=zonas`}
               className="v2-focus inline-flex h-7 items-center gap-1 rounded-[8px] bg-[color:var(--v2-accent)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
             >
               Registrar
@@ -88,62 +89,7 @@ function TestRow({
           </Pill>
         )}
       </div>
-      {open && report ? (
-        <div
-          role="dialog"
-          aria-label="Informe del test"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-[14px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[13px] font-semibold">{test.label}</p>
-                <p className="v2-num text-[12px] text-[color:var(--v2-muted)]">
-                  {formatDay(test.scheduled_for)}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="text-[12px] text-[color:var(--v2-muted)]"
-                onClick={() => setOpen(false)}
-              >
-                Cerrar
-              </button>
-            </div>
-            <p className="font-[family-name:var(--v2-font-display)] text-[36px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-accent)]">
-              {Math.round(report.unloaded_cm)}
-              <span className="ml-1 text-[14px] font-medium not-italic text-[color:var(--v2-muted)]">
-                cm
-              </span>
-            </p>
-            <p className="mt-1 text-[12px] text-[color:var(--v2-muted)]">
-              sin carga · nivel {report.height_level}/5
-            </p>
-            {report.loaded_cm != null ? (
-              <div className="mt-4 grid grid-cols-3 gap-2 text-[12px]">
-                <div>
-                  <p className="text-[color:var(--v2-muted)]">Con carga</p>
-                  <p className="v2-num font-semibold">{Math.round(report.loaded_cm)} cm</p>
-                </div>
-                <div>
-                  <p className="text-[color:var(--v2-muted)]">LRI</p>
-                  <p className="v2-num font-semibold">
-                    {report.lri != null ? report.lri.toFixed(2).replace('.', ',') : '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[color:var(--v2-muted)]">Lectura</p>
-                  <p className="font-semibold">{report.lri_label ?? '—'}</p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {open && report ? <CmjInforme report={report} onClose={() => setOpen(false)} /> : null}
     </li>
   );
 }

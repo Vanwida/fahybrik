@@ -114,13 +114,7 @@ struct TestsHubView: View {
         // La biblioteca empuja sus propios destinos, así que viaja con su pila:
         // el hub se abre como cover desde Inicio y ahí no hay ninguna heredada.
         .fullScreenCover(item: $jumpReport) { launch in
-            JumpReportView(
-                title: launch.title,
-                dateLabel: launch.dateLabel,
-                profile: launch.profile,
-                bodyMassKg: launch.bodyMassKg,
-                onClose: { jumpReport = nil }
-            )
+            JumpReportView(report: launch.report, onClose: { jumpReport = nil })
         }
         .fullScreenCover(item: $jumpLaunch) { launch in
             JumpCaptureView(
@@ -462,14 +456,18 @@ struct TestsHubView: View {
     private func cta(_ test: CalibrationTestStatus) -> some View {
         switch test.displayState {
         case .done where test.isJumpVideo:
-            ExpertPrimaryButton(title: "VER RESULTADO", height: 46, enabled: test.jumpProfile != nil) {
-                if let profile = test.jumpProfile {
+            ExpertPrimaryButton(title: "VER RESULTADO", height: 46, enabled: test.jumpReport != nil || test.jumpProfile != nil) {
+                if let report = test.jumpReport {
+                    jumpReport = JumpReportLaunch(id: test.assignmentId, report: report)
+                } else if let profile = test.jumpProfile {
                     jumpReport = JumpReportLaunch(
                         id: test.assignmentId,
-                        title: test.label,
-                        dateLabel: dateLabel(test.scheduledFor),
-                        profile: profile,
-                        bodyMassKg: status?.athleteWeightKg
+                        report: CmjReportDTO.thin(
+                            title: test.label,
+                            dateLabel: dateLabel(test.scheduledFor),
+                            profile: profile,
+                            bodyMassKg: status?.athleteWeightKg
+                        )
                     )
                 }
             }

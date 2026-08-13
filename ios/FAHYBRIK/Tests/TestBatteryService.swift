@@ -65,6 +65,9 @@ struct CalibrationTestStatus: Codable, Equatable, Identifiable {
     /// Qué preparar y en qué orden. Solo llega en un salto programado.
     let brief: JumpBriefDTO?
     let jumpProfile: JumpProfileDTO?
+    /// Informe de ESA ocurrencia. Ausente en un test que no es salto, o en un
+    /// backend que aún no lo sirve — entonces se usa `jumpProfile`.
+    let jumpReport: CmjReportDTO?
 
     var isJumpVideo: Bool { capture == "jump_video" }
 
