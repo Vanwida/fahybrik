@@ -158,7 +158,7 @@ final class HealthHistoryImportTests: XCTestCase {
         XCTAssertEqual(importer.state.cursor, importer.state.floor)
         XCTAssertEqual(importer.progress, 1, accuracy: 0.001)
 
-        // Techo declarado: dos años, ni uno más.
+        // Techo declarado: el floorDays del importador, ni un día más.
         let head = try XCTUnwrap(importer.state.head)
         let floor = try XCTUnwrap(importer.state.floor)
         XCTAssertEqual(
@@ -174,6 +174,35 @@ final class HealthHistoryImportTests: XCTestCase {
         for (previous, next) in zip(spy.windows, spy.windows.dropFirst()) {
             XCTAssertEqual(next.to, previous.from)
         }
+    }
+
+    func testAShorterCompletedFloorReopensToTheDeclaredCeiling() async throws {
+        let now = Date()
+        let head = HealthKitHistoryImporter.noonBoundary(onOrBefore: now)
+        var stale = HealthHistoryImportState.empty
+        stale.consentedAt = now
+        stale.head = head
+        stale.floor = head.addingTimeInterval(-180 * 86_400)
+        stale.cursor = stale.floor
+        stale.completedAt = now
+        HealthHistoryImportStore.save(stale, athleteId: "1", defaults: defaults)
+
+        let spy = SpySource()
+        let importer = makeImporter(spy)
+        XCTAssertTrue(importer.state.isComplete)
+
+        importer.consentAndStart(now: now)
+        try await settle(importer)
+
+        let floor = try XCTUnwrap(importer.state.floor)
+        XCTAssertEqual(
+            head.timeIntervalSince(floor),
+            Double(HealthKitHistoryImporter.floorDays) * 86_400,
+            accuracy: 1
+        )
+        XCTAssertTrue(importer.state.isComplete)
+        XCTAssertFalse(spy.windows.isEmpty, "al alargar el suelo tiene que barrer el tramo nuevo")
+        XCTAssertEqual(spy.windows.last?.from, floor)
     }
 
     func testAFailedWindowLeavesTheCursorWhereItWasAndResumesThere() async throws {

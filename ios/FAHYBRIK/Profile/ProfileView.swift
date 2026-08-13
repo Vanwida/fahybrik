@@ -88,10 +88,8 @@ struct ProfileView: View {
     private let healthAvailable: Bool = HKHealthStore.isHealthDataAvailable()
 
     // Disconnect flow: a single Apple Health toggle drives connect/disconnect.
-    // Toggling OFF confirms first, then tears the sync down; because iOS never lets
-    // an app revoke its own Health READ (nor re-show the permission sheet once
-    // answered), we surface a one-line footnote + an "Abrir Salud" deep link — the
-    // real place to review category permissions is the Salud app, not iOS Ajustes.
+    // Toggling OFF confirms first, then tears the sync down. iOS never lets an
+    // app revoke its own Health READ; the subtitle says so. No second button.
     @State private var showHealthDisconnectConfirm: Bool = false
     @State private var healthShowRevokeHint: Bool = false
 
@@ -796,9 +794,9 @@ struct ProfileView: View {
                             let id = AuthState.persistedAthleteId()
                             let importer = HealthKitHistoryImporter.shared
                             importer.rebind(athleteId: id)
-                            if !importer.state.isComplete {
-                                importer.consentAndStart()
-                            }
+                            // Siempre: si el techo creció (2 años → 10) reabre
+                            // el barrido. Si ya llegó al suelo actual, no-op.
+                            importer.consentAndStart()
                         }
                 }
                 Hairline()
@@ -958,8 +956,8 @@ struct ProfileView: View {
     ///   • unavailable (simulator)  → disabled toggle, "No disponible…"
     ///   • toggling ON              → request auth + start sync + backfill
     ///   • toggling OFF             → confirm, then stop sync + reset anchors
-    /// After a disconnect the subtitle carries a one-line revoke footnote — no modal,
-    /// no extra row.
+    /// After a disconnect the subtitle carries a one-line revoke footnote — no
+    /// modal, no second button.
     private var appleHealthRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "heart.text.square")
@@ -974,44 +972,13 @@ struct ProfileView: View {
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(healthSubtitleColor)
                     .lineLimit(2)
-                if showHealthAppLink {
-                    Button {
-                        Haptics.light()
-                        openHealthApp()
-                    } label: {
-                        HStack(spacing: 3) {
-                            Text("Abrir Salud")
-                                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 9, weight: .semibold))
-                        }
-                        .foregroundStyle(Theme.Color.accentText)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 2)
-                    .accessibilityLabel("Abrir la app Salud")
-                    .accessibilityHint("Revisa qué categorías tiene permitido leer FAHYBRID")
-                    // iOS only surfaces per-category Health permissions inside the
-                    // Salud app, with no deep link to the app's page — so spell out
-                    // the taps (same guidance Whoop/Strava give in their docs).
-                    Text("En Salud: tu foto → Apps → FAHYBRID → Activar todo")
-                        .scaledFont(10, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(2)
-                }
+
             }
             Spacer()
             appleHealthTrailing
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-    }
-
-    /// Opens Apple's Salud app so the athlete can review FAHYBRID's per-category
-    /// read permissions — the only place iOS surfaces them (Ajustes never does).
-    private func openHealthApp() {
-        guard let url = URL(string: "x-apple-health://") else { return }
-        UIApplication.shared.open(url)
     }
 
     @ViewBuilder
@@ -1057,17 +1024,9 @@ struct ProfileView: View {
         if healthShowRevokeHint {
             return "Desconectado. Para revocar el acceso por completo, ábrelo en la app Salud."
         }
-        // Un solo toque: conexión en vivo + histórico (hasta 2 años). No hay un
-        // segundo botón de «importar» — eso no es el estándar de Whoop/Strava.
-        return "HR, sueño, peso y tu histórico (hasta 2 años)"
-    }
-
-    /// Whether to surface the "Abrir Salud" link under the row. Shown when connected
-    /// (so an athlete who reconnected but only sees steps can enable the rest of the
-    /// categories) and right after a disconnect (to fully revoke). The Salud app —
-    /// not iOS Ajustes — is where Health category permissions actually live.
-    private var showHealthAppLink: Bool {
-        healthAvailable && (healthConnected || healthShowRevokeHint)
+        // Un solo toque: conexión en vivo + histórico. Whoop/Strava no ponen
+        // un segundo botón de permisos ni de «importar».
+        return "HR, sueño, peso y tu histórico de entrenos"
     }
 
     private var healthSubtitleColor: Color {
@@ -1133,7 +1092,7 @@ struct ProfileView: View {
     /// reading. Anchors are kept, so a later reconnect re-runs start() and its
     /// anchor-delta backfill covers exactly the disconnected gap. HealthKit never
     /// lets an app revoke its own READ permission, so we surface a one-line footnote
-    /// (healthShowRevokeHint) + an "Abrir Salud" link — no modal, no extra row.
+    /// (healthShowRevokeHint). Sin segundo botón.
     @MainActor
     private func disconnectAppleHealth() {
         HealthKitSyncService.shared.stop()

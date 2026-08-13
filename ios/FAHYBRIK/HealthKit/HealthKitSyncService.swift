@@ -201,10 +201,9 @@ final class HealthKitSyncService {
     /// desconexión si fue hace más. Cubre el hueco exacto en vez de tragárselo.
     ///
     /// Y CON TOPE, que es lo que mantiene honesta la regla del consentimiento. Una
-    /// desconexión larga deja de ser una pausa: rellenar un hueco de dos años sin
-    /// preguntar sería traerse el histórico por la puerta de atrás, que es justo lo
-    /// que la tarjeta de «Importar tu histórico» existe para pedir — y está en esa
-    /// misma pantalla, un dedo más abajo.
+    /// desconexión larga deja de ser una pausa: rellenar un hueco de dos años en
+    /// silencio sería traerse el histórico por la puerta de atrás. Eso lo hace el
+    /// toggle de conectar, que es el único control.
     private func gapAwareFirstPullFloor() -> Date {
         let recent = recentWindowFloor()
         guard let disconnectedAt = UserDefaults.standard.object(forKey: Self.disconnectedAtKey) as? Date
@@ -251,27 +250,29 @@ final class HealthKitSyncService {
     }
 
     private func flushWorkouts() async {
-        let anchor = readAnchor(for: "workouts")
-        let descriptor = HKAnchoredObjectQueryDescriptor(
-            predicates: [.workout()],
-            anchor: anchor,
-            limit: HKObjectQueryNoLimit
-        )
-
-        do {
-            let result = try await descriptor.result(for: store)
-            let workouts = result.addedSamples
-            guard !workouts.isEmpty else {
-                writeAnchor(result.newAnchor, for: "workouts")
+        var anchor = readAnchor(for: "workouts")
+        while true {
+            let descriptor = HKAnchoredObjectQueryDescriptor(
+                predicates: [.workout()],
+                anchor: anchor,
+                limit: Self.pageLimit
+            )
+            do {
+                let result = try await descriptor.result(for: store)
+                let workouts = result.addedSamples
+                if !workouts.isEmpty {
+                    let dtos = workouts.map { HealthKitSampleMapper.workout($0) }
+                    // El ancla sólo avanza si el lote llegó o quedó encolado: si no,
+                    // estos entrenos no volverían a entregarse nunca.
+                    guard await sendBatch(workouts: dtos, samples: []).mayAdvanceAnchor else { return }
+                }
+                anchor = result.newAnchor
+                writeAnchor(anchor, for: "workouts")
+                if workouts.count < Self.pageLimit { return }
+            } catch {
+                // Failure path — leave last-written anchor so the next fire retries.
                 return
             }
-            let dtos = workouts.map { HealthKitSampleMapper.workout($0) }
-            // El ancla sólo avanza si el lote llegó o quedó encolado: si no, estos
-            // entrenos no volverían a entregarse nunca.
-            guard await sendBatch(workouts: dtos, samples: []).mayAdvanceAnchor else { return }
-            writeAnchor(result.newAnchor, for: "workouts")
-        } catch {
-            // Failure path — leave anchor unchanged so next observer fire re-tries.
         }
     }
 

@@ -164,7 +164,15 @@ struct AnaliticasCorrerView: View {
                 }
             }
 
-            BloqueDeLectura(etiqueta: "Mejores esfuerzos") {
+            // UN TÍTULO SIN NADA DEBAJO NO ES UN HUECO DECLARADO, ES UN HUECO MUDO.
+            // Con poca historia no hay marca de 5 km NI curva que dibujar, y el
+            // bloque salía como una etiqueta sola: ni dato, ni candado, ni motivo.
+            // La regla de la pantalla es que lo que falta se declara y lo que no
+            // aplica no existe — una etiqueta huérfana no es ninguna de las dos.
+            // Se pinta solo si hay algo que enseñar; si no, el veredicto de arriba
+            // ya dice cuánto falta para poder decir algo.
+            if !h.esfuerzos.isEmpty {
+              BloqueDeLectura(etiqueta: "Mejores esfuerzos") {
                 if let cinco = h.esfuerzos.first(where: { $0.metros == 5000 }) {
                     // Menor que los demás titulares: a 44 pt la mono abre tanto los
                     // dos puntos que «19:12» se lee «19 : 12», y aquí el sujeto del
@@ -179,6 +187,7 @@ struct AnaliticasCorrerView: View {
                 }
                 CurvaDeEsfuerzos(hoy: h.esfuerzos, antes: h.esfuerzosAntes)
                 marca(.esfuerzos, pie: nil)
+              }
             }
         }
     }
@@ -395,10 +404,15 @@ struct CifraDeBloque<Delta: View>: View {
         // pegado al número, no debajo. Envuelve cuando no cabe.
         HStack(alignment: .lastTextBaseline, spacing: 10) {
             Text(valor)
-                .font(.system(size: tam, weight: .heavy, design: .monospaced).monospacedDigit())
-                // -0.045em: a estos tamaños la mono abre tanto que «19:12» se lee
-                // «19 : 12» si no se cierra el tracking.
-                .tracking(-tam * 0.045)
+                // CIFRAS TABULARES, NO FUENTE MONOESPACIADA. Son cosas distintas y
+                // confundirlas se veía: en una mono, la COMA y los DOS PUNTOS
+                // ocupan una celda entera como si fueran un dígito, así que «1,42»
+                // se leía «1, 42» y «19:12» se leía «19 : 12». El tracking
+                // negativo que había aquí compensaba ese síntoma y no llegaba a la
+                // coma. `monospacedDigit()` sobre la fuente del sistema da lo único
+                // que hacía falta —que los dígitos no bailen al cambiar el número—
+                // y deja la puntuación con su anchura real.
+                .font(.system(size: tam, weight: .heavy).monospacedDigit())
                 .foregroundStyle(tono)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

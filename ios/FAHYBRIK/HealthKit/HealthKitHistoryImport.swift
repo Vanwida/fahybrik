@@ -19,8 +19,8 @@ import Observation
 //   2. NI SE RE-PREGUNTA NI SE OLVIDA. El consentimiento y el cursor sobreviven a
 //      desconectar, reconectar y cerrar la app. Reanudar lo ya consentido no es
 //      auto-conectar: es terminar lo que el atleta ya dijo que sí.
-//   3. TECHO DECLARADO. Dos años. Un import "hasta el principio de los tiempos"
-//      no se puede prometer ni medir.
+//   3. TECHO DECLARADO. Diez años. Cubre una carrera atlética entera. Un
+//      import "hasta el principio de los tiempos" no se puede medir; éste sí.
 //
 // LOS CORTES CAEN A MEDIODÍA, A PROPÓSITO. Una noche de sueño nunca cruza el
 // mediodía, así que ninguna ventana parte un sueño en dos mitades que subirían como
@@ -149,10 +149,10 @@ enum HealthHistoryImportError: Error, Equatable {
 final class HealthKitHistoryImporter {
     static let shared = HealthKitHistoryImporter()
 
-    /// TECHO DECLARADO: dos años. Cubre dos temporadas completas —el «antes» que
-    /// hace falta para comparar— sin prometer un pasado que ni el reloj ni el
-    /// teléfono suelen tener. Se dice en la tarjeta, no se esconde en el código.
-    static let floorDays = 730
+    /// TECHO DECLARADO: diez años. El «antes» de una comparativa de planificación
+    /// necesita toda la carrera que el teléfono tenga, no dos temporadas. Si un
+    /// techo anterior era más corto, consentAndStart alarga el suelo y reanuda.
+    static let floorDays = 3650
 
     /// Tamaño de lote del barrido. Noventa días es el equilibrio: pocas ventanas que
     /// persistir (ocho por año) y una cantidad de muestras por ventana que cabe en
@@ -229,14 +229,8 @@ final class HealthKitHistoryImporter {
     /// Si ya va en marcha, no apila otro barrido.
     func consentAndStart(now: Date = Date()) {
         guard !running else { return }
+        prepareBounds(now: now)
         if state.isComplete { return }
-        var next = state
-        if next.consentedAt == nil { next.consentedAt = now }
-        if next.head == nil { next.head = Self.noonBoundary(onOrBefore: now) }
-        if next.floor == nil {
-            next.floor = (next.head ?? now).addingTimeInterval(-Double(Self.floorDays) * 86_400)
-        }
-        persist(next)
         run()
     }
 
@@ -244,8 +238,25 @@ final class HealthKitHistoryImporter {
     /// Salud, al abrir la app o al volver a la tarjeta. NO concede consentimiento y
     /// NO pregunta nada: si nadie dijo que sí, no hace absolutamente nada.
     func resumeIfConsented() {
-        guard state.isPending, !running else { return }
+        guard state.hasConsent, !running else { return }
+        prepareBounds(now: Date())
+        guard state.isPending else { return }
         run()
+    }
+
+    /// Congela cabeza y suelo la primera vez. Si el techo del código es más
+    /// hondo que el que se congeló (pasamos de 2 años a 10), alarga el suelo y
+    /// reabre: el cursor se queda donde estaba y el barrido sigue hacia atrás.
+    private func prepareBounds(now: Date) {
+        var next = state
+        if next.consentedAt == nil { next.consentedAt = now }
+        if next.head == nil { next.head = Self.noonBoundary(onOrBefore: now) }
+        let targetFloor = (next.head ?? now).addingTimeInterval(-Double(Self.floorDays) * 86_400)
+        if next.floor == nil || next.floor! > targetFloor.addingTimeInterval(86_400) {
+            next.floor = targetFloor
+            next.completedAt = nil
+        }
+        persist(next)
     }
 
     /// El punto de entrada de los caminos AUTOMÁTICOS (arranque de la app y
