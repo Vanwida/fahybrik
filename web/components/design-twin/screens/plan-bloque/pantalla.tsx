@@ -274,7 +274,7 @@ function Cabecera({
         <span aria-hidden style={{ width: 2, borderRadius: 1, background: 'var(--twin-accent)', flex: '0 0 auto' }} />
         <span
           style={{
-            font: '500 13px/1.35 var(--twin-font-sans)',
+            font: '500 17px/1.35 var(--twin-font-sans)',
             color: 'var(--twin-fg)',
             // Tres líneas de tope: si el coach se extiende, esta pantalla sigue
             // siendo la del día. El texto entero vive en la del plan.

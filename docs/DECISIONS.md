@@ -10,6 +10,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · Secuencia y plan personal son dos recibos, no dos editores
+
+**El hueco (Alex, ficha en la mano):** un atleta en plan personal no podía «personalizar» (el botón desaparecía), no podía borrar el entreno de un día (se quitaba de la plantilla y el atleta lo seguía viendo) y «Ver plan» caía en un vacío si no había secuencia. El modelo no estaba roto: faltaban las salidas.
+
+**Los dos mundos (mecanismo, no método):**
+
+| | Secuencia (periodización) | Plan personal |
+|---|---|---|
+| Quién es dueño de la plantilla | el club (`program_month_templates.athlete_id` null) | este atleta |
+| Cómo entra | `assignSequenceToAthlete` / intake `shared` | fork (`personalizePlanForAthlete`) o intake `personal` + cadena |
+| Cursor | `athlete_sequence_progress` active | se detach-ea; se conserva para revertir |
+| Recibo | `athlete_month_assignments` sobre la plantilla de biblioteca | recibo propio sobre la copia |
+| Editar entrenos | editor del microciclo de biblioteca (pega a todos los de esa celda, salvo instancias ya hechas) | `/microciclos/:id` de SU copia |
+
+**Transiciones que existen:**
+- Secuencia → personal: fork desde la semana en curso o la siguiente. El pasado no se reescribe. La plantilla de biblioteca no se toca.
+- Personal → secuencia: «Volver a periodización» solo si hay cursor detached. Un alta que nació personal no tiene a dónde volver.
+- Encadenar personales: `plan-chain` añade al día siguiente del último recibo, sin hueco ni solape (0166).
+
+**Lo que fallaba (y se cierra aquí):**
+1. Tras personalizar, «Personalizar» se escondía y «Editar» de la cadena solo cambiaba nombre/semanas. El editor de entrenos quedaba inalcanzable. Ahora: **Editar plan** / **Abrir** → `/microciclos/:id`.
+2. Quitar una sesión de la plantilla (o pasar el día a descanso) no borraba la `workout_assignment` scheduled. El resync insertaba/reemplazaba, nunca podaba. Ahora `instantiateWeekIntoMicrocycle` borra el hueco `scheduled` + `slot:…` de ese microciclo. Lo hecho, lo libre (`origin=self`) y un test no se tocan.
+3. «Ver plan» sí navegaba a `?tab=plan`. Si no había sesiones (alta personal sin cadena, o mes vacío) la pestaña parecía rota. Ahora el vacío dice qué falta y lleva al editor o a «Añadir microciclo».
+
+**Huecos que quedan (no son bugs de este lote, se declaran):**
+- `athletes.plan_mode` y `is_personal` (template con `athlete_id`) pueden divergir: un `plan_mode=personal` que luego recibe un mes de biblioteca se lee como secuencia en la ficha. La fuente de verdad de «¿esto es personal AHORA?» es el recibo corriente, no el flag.
+- Empezar en secuencia, personalizar a mitad, y más tarde asignar otro mes de biblioteca detrás: 0166 impide solape de fechas; el segundo mes tiene que empezar el día después. No hay UI que encadene un mes de biblioteca detrás de un personal.
+- Editar la plantilla de biblioteca DESPUÉS de que un atleta ya personalizó no le llega: él tiene copia. Es correcto. El resto de la celda sí recibe el resync.
+- Un atleta personal sin `current_month_template_id` (cero recibos) no tiene «Editar plan»: el camino es añadir el primer microciclo a la cadena.
+
+**NO hacer:** no re-forkear un personal encima de otro (already_personal). No borrar asignaciones completed/partial/missed/self al podar. No devolver Mensajes al rail. No tratar `plan_mode` como si fuera el recibo.
+
+---
+
 ## 2026-08-13 · Un test es un loop, no un número en una lista
 
 **El hueco.** El coach programa, el atleta hace, y al otro lado hay una cifra (o un diálogo de tres números). No hay informe de ESA vez, no hay archivo («todos los CMJ», «todos los umbral»), no hay comparativa de homólogos, y Del coach no puede publicar la evolución — así que el loop se cae a chat. Eso es TrainingPeaks. Si no es loop, es mediocre.

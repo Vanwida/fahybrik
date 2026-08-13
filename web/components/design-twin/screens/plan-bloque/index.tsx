@@ -32,7 +32,7 @@ export const meta: TwinMeta = {
   // cromo (botón del ciclo) y desapareció el pie (`EntradaAlCiclo`); esos dos puntos ya
   // están al día en este mockup, el resto sigue pendiente de re-verificación.
   estado: 'construida',
-  actualizado: '2026-08-12',
+  actualizado: '2026-08-13',
   descripcion:
     'Dónde estás hoy dentro del bloque y qué toca: el carril de siete días con sus sellos y la sesión de hoy en grande, con su duración solo cuando el plan la deja escrita. Por el cromo se entra al ciclo, al historial y al chat. El día que no toca nada también tiene salida.',
   fuentes: [

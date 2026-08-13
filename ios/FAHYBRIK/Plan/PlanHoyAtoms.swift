@@ -300,7 +300,7 @@ struct CabeceraDelBloque: View {
                         .fill(Theme.Color.accent)
                         .frame(width: 2)
                     Text(intencion)
-                        .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                        .scaledFont(17, weight: .medium, relativeTo: .body)
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
