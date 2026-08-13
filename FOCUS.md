@@ -42,8 +42,7 @@ Mensajes es verbo de cabecera. Default = Resumen.
 
 - Decisión: `docs/DECISIONS.md` (13-ago «La ficha del atleta son 5 pestañas»).
 - Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`.
-- Resumen y Plan HECHOS. Rendimiento: 3 anclas (Carrera · Fuerza · Cuerpo).
-- Del coach / Atleta: después.
+- Ficha coach: 5 pestañas hechas (Resumen · Plan · Rendimiento · Del coach · Atleta).
 - Las `?tab=` viejas redirigen; no se pierde superficie.
 
 ---

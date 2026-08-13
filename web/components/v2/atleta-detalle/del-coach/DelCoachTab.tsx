@@ -17,8 +17,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { EmptyState } from '@/components/v2/EmptyState';
-import { SectionHeading } from '../parts';
+import { FichaCard, FichaLabel } from '../resumen/piezas';
 import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
 import { carriles } from '@/lib/dashboard/v2/del-coach';
 import { Compositor } from './Compositor';
@@ -55,22 +54,23 @@ export function DelCoachTab({
     <button
       type="button"
       onClick={() => setComponiendo(true)}
-      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90"
+      className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
     >
-      <MIcon name="add" size={16} />
-      Nuevo comunicado
+      Nuevo
     </button>
   );
 
   const vacio = communications.length === 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[1300px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-[58ch] text-body leading-relaxed text-[color:var(--v2-muted)]">
-          Lo que le mandas y no es conversación: protocolos, preguntas, tareas, notas y focos. Aquí
-          ves si lo ha abierto, si lo ha hecho y qué te ha contestado.
-        </p>
+        <div>
+          <FichaLabel>Del coach</FichaLabel>
+          <p className="mt-1 max-w-[58ch] text-[13.5px] leading-relaxed text-[color:var(--v2-muted)]">
+            Se publica y se rastrea. El día a día sigue en Mensaje.
+          </p>
+        </div>
         {vacio ? null : botonNuevo}
       </div>
 
@@ -93,12 +93,16 @@ export function DelCoachTab({
       ) : null}
 
       {vacio ? (
-        <EmptyState
-          icon="campaign"
-          title={`Todavía no le has publicado nada a ${athleteName}`}
-          description="Esto no es el chat: aquí va lo que se publica y se rastrea. Un protocolo que marca paso a paso, una pregunta que bloquea su plan, una tarea con fecha, el porqué de un cambio o un foco que no caduca. El día a día sigue en Mensajes."
-          action={botonNuevo}
-        />
+        <button
+          type="button"
+          onClick={() => setComponiendo(true)}
+          className="v2-focus flex w-full items-center justify-between gap-3 rounded-[14px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-3 text-left"
+        >
+          <span className="text-[13px] text-[color:var(--v2-muted)]">
+            Todavía no le has publicado nada a {athleteName}
+          </span>
+          <span className="shrink-0 text-[12.5px] font-semibold text-[#C24A0F]">Nuevo →</span>
+        </button>
       ) : null}
 
       {reclama.length > 0 ? (
@@ -173,14 +177,14 @@ function Carril({
   onAbrir: (id: string) => void;
 }) {
   return (
-    <section className="flex flex-col gap-2.5">
-      <SectionHeading>{titulo}</SectionHeading>
-      {pie ? <p className="-mt-1 text-label text-[color:var(--v2-muted)]">{pie}</p> : null}
-      <ul className="flex flex-col gap-2">
+    <FichaCard>
+      <FichaLabel>{titulo}</FichaLabel>
+      {pie ? <p className="mt-1 text-[12.5px] text-[color:var(--v2-muted)]">{pie}</p> : null}
+      <ul className="mt-3 flex flex-col gap-2">
         {lista.map((c) => (
           <FilaComunicado key={c.id} c={c} onAbrir={() => onAbrir(c.id)} />
         ))}
       </ul>
-    </section>
+    </FichaCard>
   );
 }
