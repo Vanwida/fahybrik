@@ -568,6 +568,10 @@ schemes:
         # justo eso, un recuento que no cuadraba entre dos máquinas.)
         - name: FAHYBRIKTests
           randomExecutionOrder: true
+        # En el esquema para poder invocarlo, pero su test se AUTO-SALTA sin
+        # UITEST_BEARER, así que un `test` completo no falla por él. Corre a mano:
+        #   UITEST_BEARER=… xcodebuild test -only-testing:FAHYBRIKUITests
+        - name: FAHYBRIKUITests
 
       gatherCoverageData: false
     profile:

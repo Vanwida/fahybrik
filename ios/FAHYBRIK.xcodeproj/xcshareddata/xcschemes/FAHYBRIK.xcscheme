@@ -79,6 +79,17 @@
                ReferencedContainer = "container:FAHYBRIK.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D3A6C918B3FECD30E5432594"
+               BuildableName = "FAHYBRIKUITests.xctest"
+               BlueprintName = "FAHYBRIKUITests"
+               ReferencedContainer = "container:FAHYBRIK.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

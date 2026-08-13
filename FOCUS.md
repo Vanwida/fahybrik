@@ -26,10 +26,23 @@ pestaña, más lo que Garmin no puede tener (adherencia a las bandas del coach,
 comprometido, medias por tipo). **Criterio de empresa, firmado: si el atleta abre
 Garmin para ver UN dato, hemos fallado.**
 
-Verificado: build verde, 1498 tests, la pantalla de Carrera volcada a imagen es
-running puro por construcción. **Pendiente: que Alex instale y lo vea en su
-iPhone** — el volcado renderiza la pantalla de Carrera aislada, no el contenedor
-con las pastillas.
+**VERIFICADO EN LA APP DE VERDAD (13-ago), ya no de palabra.** Un XCUITest
+(`FAHYBRIKUITests/CarreraSoloRunningUITests`) navega la app con un atleta REAL
+(67) y AFIRMA: bajo Carrera no aparece ni una lectura del cuerpo (sueño,
+variabilidad, estrés, batería); bajo Recup. el cuerpo SÍ está. Fotos reales del
+framebuffer en `/tmp/fahybrid-uishots/`.
+
+**Cómo se siembra la sesión sin depender del asiento demo** (apagado en prod,
+404): un bloque DEBUG-only en `AppRoot.onAppear` lee `UITEST_BEARER`/
+`UITEST_ATHLETE` del entorno de lanzamiento y llama al mismo `acceptDemoSession`
++ `finishOnboarding`. Se corre a mano:
+`TEST_RUNNER_UITEST_BEARER=<bearer> xcodebuild test -only-testing:FAHYBRIKUITests`.
+El bearer se acuña por el login de email real (pedir código → leer su hash en
+`email_login_codes` → revertir los 6 dígitos → verify). No toca producción ni
+enciende ningún flag; fuera de DEBUG el bloque no existe.
+
+Suite normal intacta: FAHYBRIKTests 1499/0. El UI target está en el esquema
+pero su test se auto-salta sin bearer, así que un `test` completo no falla.
 
 Y una lección de infraestructura apuntada: en este Mac hay un proceso llamado
 `simulator` (minúscula) que es el simulador de GARMIN, no el de Apple. Automatizar

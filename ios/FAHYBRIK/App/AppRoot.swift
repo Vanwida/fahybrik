@@ -125,6 +125,24 @@ struct AppRoot: View {
         }
         .onAppear {
             auth.bootstrap()
+            #if DEBUG
+            // SIEMBRA DE VERIFICACIÓN — solo DEBUG, y solo si el lanzamiento trae
+            // el bearer por entorno. Va DESPUÉS de bootstrap (que restaura la
+            // sesión de disco) para que la siembra gane. Reutiliza el MISMO
+            // `acceptDemoSession` del atleta demo, así que la app se comporta
+            // igual que con un login real; no toca producción ni enciende ningún
+            // flag. Es lo que deja fotografiar la pestaña sin depender del asiento
+            // demo (apagado en prod). Fuera de DEBUG este bloque no existe.
+            if let b = ProcessInfo.processInfo.environment["UITEST_BEARER"],
+               let a = ProcessInfo.processInfo.environment["UITEST_ATHLETE"],
+               !b.isEmpty {
+                auth.acceptDemoSession(bearer: b, athleteId: a)
+                // Saltar el day-1 (varias páginas de bienvenida) para aterrizar
+                // directo en las pestañas: la verificación es de Analíticas, no
+                // del onboarding.
+                auth.finishOnboarding()
+            }
+            #endif
             // Register the mirrored-session handler early (idempotent) so a wrist
             // recording started during a workout is never missed. Cheap, no prompt.
             PhoneMirrorService.shared.prepare()

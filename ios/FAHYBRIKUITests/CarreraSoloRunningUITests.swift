@@ -40,17 +40,31 @@ final class CarreraSoloRunningUITests: XCTestCase {
     @MainActor
     func testBajoCarreraNoHayCuerpoYBajoRecupSi() throws {
         let app = XCUIApplication()
+        // SIEMBRA POR ENTORNO — el bearer de un atleta real (67) llega por
+        // `UITEST_BEARER`, así que la app abre autenticada sin depender del
+        // asiento demo (apagado en prod). El arnés lo pasa quien lo lanza:
+        //   UITEST_BEARER=… xcodebuild test -only-testing:FAHYBRIKUITests
+        // Sin bearer, el test se salta con su motivo — no finge en verde.
+        guard let bearer = ProcessInfo.processInfo.environment["UITEST_BEARER"],
+              !bearer.isEmpty else {
+            throw XCTSkip("Sin UITEST_BEARER: se corre a mano con un bearer sembrado")
+        }
+        app.launchEnvironment["UITEST_BEARER"] = bearer
+        app.launchEnvironment["UITEST_ATHLETE"] =
+            ProcessInfo.processInfo.environment["UITEST_ATHLETE"] ?? "67"
         app.launch()
 
-        // ── Entrar como atleta demo ─────────────────────────────────────────
-        // Si ya hay sesión guardada de un run anterior, el botón no existe y la
-        // app abre en Inicio: ambos caminos valen.
-        let demo = app.buttons["Entrar como atleta demo"]
-            .firstMatch.exists ? app.buttons["Entrar como atleta demo"].firstMatch
-                               : app.staticTexts["Entrar como atleta demo"].firstMatch
-        if demo.waitForExistence(timeout: 8) {
-            demo.tap()
+        // Descartar el permiso de notificaciones si aparece (onboarding day-1).
+        addUIInterruptionMonitor(withDescription: "permiso") { alerta in
+            let no = alerta.buttons["Don't Allow"]
+            if no.exists { no.tap(); return true }
+            return false
         }
+        app.tap()
+
+        // Saltar el onboarding day-1 si sale su botón.
+        let empezar = app.buttons["EMPEZAR"].firstMatch
+        if empezar.waitForExistence(timeout: 4) { empezar.tap() }
 
         // La barra de pestañas es la señal de que hay sesión y la app cargó.
         let tabAnaliticas = app.tabBars.buttons["Analíticas"]
@@ -58,8 +72,12 @@ final class CarreraSoloRunningUITests: XCTestCase {
                       "No llegó la barra de pestañas: el asiento demo no respondió")
         tabAnaliticas.tap()
 
+        foto(app, "analiticas-al-entrar")
         // ── CARRERA: ni una lectura del cuerpo ──────────────────────────────
-        let pastillaCarrera = app.buttons["Carrera"].firstMatch
+        // El rail puede ser botones o segmentos; probamos ambos.
+        let pastillaCarrera = app.buttons["Carrera"].firstMatch.waitForExistence(timeout: 10)
+            ? app.buttons["Carrera"].firstMatch
+            : app.staticTexts["Carrera"].firstMatch
         XCTAssertTrue(pastillaCarrera.waitForExistence(timeout: 10), "No está el rail de secciones")
         pastillaCarrera.tap()
         // Dar tiempo a que la sección cargue lo suyo antes de afirmar ausencias.
@@ -87,11 +105,18 @@ final class CarreraSoloRunningUITests: XCTestCase {
                       "Bajo Recup. no aparece el cuerpo: o el gate se pasó de frenada o el demo no trae biometría")
     }
 
-    /// Una captura con nombre, adjunta al xcresult y conservada siempre.
+    /// Una captura con nombre: al xcresult Y a un fichero en /tmp del host, que
+    /// es de donde se extrae sin pelear con el formato del bundle.
     private func foto(_ app: XCUIApplication, _ nombre: String) {
-        let adjunto = XCTAttachment(screenshot: app.screenshot())
+        let img = app.screenshot()
+        let adjunto = XCTAttachment(screenshot: img)
         adjunto.name = nombre
         adjunto.lifetime = .keepAlways
         add(adjunto)
+        // El proceso de UI test corre en el HOST del simulador, así que puede
+        // escribir en el /tmp compartido — no está en el sandbox de la app.
+        let dir = "/tmp/fahybrid-uishots"
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? img.pngRepresentation.write(to: URL(fileURLWithPath: "\(dir)/\(nombre).png"))
     }
 }
