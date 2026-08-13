@@ -90,6 +90,20 @@ final class CarreraSoloRunningUITests: XCTestCase {
                            "«\(delCuerpo)» aparece bajo la pastilla Carrera — la regla de las pastillas está rota")
         }
 
+        // ── LA PUERTA A LOS DÍAS: la cifra abre sus sesiones ────────────────
+        // «Ver los entrenos» baja del agregado a la lista real. Sin esto la
+        // pestaña era un mirador y ver un día era volver a Garmin.
+        let puerta = app.buttons["Ver los entrenos"].firstMatch
+        if puerta.exists {
+            puerta.tap()
+            // La hoja de sesiones: basta con que aparezca contenido nuevo.
+            _ = app.otherElements.firstMatch.waitForExistence(timeout: 6)
+            sleep(2)
+            foto(app, "drill-sesiones")
+            app.swipeDown(velocity: .fast)   // cerrar la hoja
+            sleep(1)
+        }
+
         // ── RECUP.: el cuerpo SÍ está ───────────────────────────────────────
         // La misma consulta que arriba dio ausencia aquí tiene que dar presencia:
         // sin esta mitad, lo de arriba podría pasar simplemente porque el atleta

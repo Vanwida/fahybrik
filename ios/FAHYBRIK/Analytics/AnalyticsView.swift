@@ -179,7 +179,16 @@ struct AnalyticsView: View {
     private var progresoDeCarrera: some View {
         if let p = progreso {
             VStack(alignment: .leading, spacing: Theme.Spacing.xxxl) {
-                AnaliticasCorrerView(progreso: p, onSalida: { showTestsHub = true })
+                AnaliticasCorrerView(
+                progreso: p,
+                onSalida: { showTestsHub = true },
+                // LA PUERTA A LOS DÍAS: reutiliza la hoja de drill de las demás
+                // secciones, con la MISMA ventana que la lectura — custom con el
+                // rango real del payload, no el period del selector viejo.
+                onDrill: { ref in
+                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
+                }
+            )
                 // LOS GRUPOS DE CORRER, detrás del veredicto y su evidencia:
                 // velocidad crítica y depósito (capacidad), deriva y bajada de
                 // pulso (ejecución), kilómetros con desnivel (volumen) y

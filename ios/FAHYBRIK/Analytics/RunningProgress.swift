@@ -458,3 +458,21 @@ struct Vo2Lectura: Codable, Equatable {
     // así que no se decodifica: un campo presente sin usarse acaba usándose mañana
     // por alguien que cree que estaba pensado para esto.
 }
+
+
+extension RunningProgressPayload {
+    /// LA MISMA VENTANA QUE LA LECTURA, para la hoja de sesiones. El drill hereda
+    /// el rango real del payload (custom from-to), no el periodo del selector
+    /// viejo: si la cifra dice «12 semanas», la lista enseña esas 12 — dos
+    /// ventanas distintas para el mismo número es la clase de divergencia que
+    /// esta pantalla existe para matar.
+    var periodoDeDrill: AnalyticsPeriod {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = TimeZone(identifier: "Europe/Madrid")
+        let hasta = String(generatedAtIso.prefix(10))
+        let hastaDate = df.date(from: hasta) ?? Date()
+        let desdeDate = Calendar.current.date(byAdding: .day, value: -windowWeeks * 7, to: hastaDate) ?? hastaDate
+        return AnalyticsPeriod(key: .custom, from: df.string(from: desdeDate), to: hasta)
+    }
+}

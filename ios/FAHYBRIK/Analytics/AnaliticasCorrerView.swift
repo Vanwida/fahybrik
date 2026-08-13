@@ -29,6 +29,11 @@ import SwiftUI
 struct AnaliticasCorrerView: View {
     let progreso: RunningProgressPayload
     var onSalida: (() -> Void)?
+    /// ABRE LAS SESIONES DE VERDAD detrás de una cifra. Sin esto la pestaña era
+    /// un mirador: tendencias sin puerta a los días — y «ver cómo fue ese día»
+    /// era volver a Garmin, que es exactamente lo que no puede pasar. El
+    /// contenedor lo conecta a la hoja de drill que ya usan las otras secciones.
+    var onDrill: ((DrillRef) -> Void)?
 
     /// Dentro de un grupo. Entre grupos, el doble: se agrupa sin dibujar una raya.
     private static let dentro: CGFloat = 24
@@ -187,6 +192,14 @@ struct AnaliticasCorrerView: View {
                 }
                 CurvaDeEsfuerzos(hoy: h.esfuerzos, antes: h.esfuerzosAntes)
                 marca(.esfuerzos, pie: nil)
+                if onDrill != nil {
+                    PuertaASesiones(etiqueta: "Ver esas carreras") {
+                        onDrill?(DrillRef(kind: "running.best_effort",
+                                          params: ["distance": "5000"],
+                                          count: h.esfuerzos.count,
+                                          label_es: "Tus mejores 5 km"))
+                    }
+                }
               }
             }
         }
@@ -213,6 +226,13 @@ struct AnaliticasCorrerView: View {
                 }
                 BarrasSemanales(puntos: h.semanasKm)
                 marca(.volumen, pie: nil)
+                if onDrill != nil {
+                    PuertaASesiones(etiqueta: "Ver los entrenos") {
+                        onDrill?(DrillRef(kind: "running.volume", params: [:],
+                                          count: h.porTipo.reduce(0) { $0 + $1.sesiones },
+                                          label_es: "Tus carreras"))
+                    }
+                }
             }
 
             BloqueDeLectura(etiqueta: "Suave y fuerte") {
@@ -462,5 +482,32 @@ struct DeltaDeBloque: View {
                 .tracking(0.8)
                 .foregroundStyle(Theme.Color.faint)
         }
+    }
+}
+
+
+/// LA PUERTA A LOS DÍAS. Una cifra sin puerta convierte la pestaña en un
+/// mirador: para ver «cómo fue ese día» el atleta volvería a Garmin, que es lo
+/// que esta app existe para evitar. Discreta a propósito — la lectura manda y la
+/// puerta acompaña — y SIEMPRE abre sesiones reales por el drill que ya usan las
+/// demás secciones: aquí no se listan días calculados en el cliente.
+struct PuertaASesiones: View {
+    let etiqueta: String
+    let accion: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.light()
+            accion()
+        } label: {
+            HStack(spacing: 5) {
+                Text(etiqueta)
+                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(Theme.Color.muted)
+        }
+        .buttonStyle(PressScaleStyle())
     }
 }
