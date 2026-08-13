@@ -191,7 +191,7 @@ targets:
         # Nutrition path is unreachable (hidden), so the copy names only the
         # reachable camera uses (chat capture + workout-summary photo + the
         # athlete's own profile photo).
-        NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, y para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado."
+        NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado, y para medir la altura de tus saltos."
         NSMicrophoneUsageDescription: "FAHYBRID usa el micrófono para grabar las notas de voz que envías a tu coach en el chat."
         NSPhotoLibraryUsageDescription: "FAHYBRID accede a tus fotos y vídeos para que puedas adjuntarlos en el chat con tu coach."
         NSHealthShareUsageDescription: "FAHYBRID lee workouts, pulso, VFC, sueño, peso y la distancia que recorres de Apple Salud, para tu plan de entrenamiento y para comprobar que la distancia que medimos en tus carreras cuadra con la tuya."
