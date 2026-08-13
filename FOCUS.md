@@ -5,6 +5,29 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Importador FIT: el año de Garmin entra COMPLETO (13-ago)
+
+**Decisión de Alex:** primero el importador, luego la vista Por tipo. El porqué y
+las reglas en `docs/DECISIONS.md` (2026-08-13 «El histórico rico entra por
+FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
+13-ago); el archivo que Garmin da al atleta por GDPR lleva todo.
+
+- Contrato del seam: `web/lib/import/fit/canonical.ts` (parser→actividad
+  canónica→materializador; TCX/GPX serán parsers futuros, no otro pipeline).
+- Parser: `@garmin/fitsdk` oficial (añadido a web). Materializa en las tablas
+  de SIEMPRE: ejecución + tramos por lap (splits reales) + `workout_routes` +
+  muestras a `biometric_streams`. Supersede el blob plano de Apple Salud;
+  la sesión viva siempre gana.
+- **Bug reparado de camino (mig 0192, aplicada):** walking/hiking entraban como
+  `run` — 431 de 667 «carreras» del histórico real eran caminatas (1.091 km
+  falsos). Ahora → `other`, y el importador aplica el mismo criterio.
+- Pendiente de Alex: su export real de Garmin (ZIP) para validar contra un año
+  de verdad. La migración del job será **0194** (la 0193 es del CMJ, otra sesión).
+- El mapa firmado de la tab de analíticas sigue vigente:
+  `docs/analiticas-running-mapa.md` — tras el importador viene Por tipo (P1).
+
+---
+
 ## Ahora · Perfil de salto (CMJ) — test a request del coach (13-ago)
 
 El atleta **no** se lo auto-asigna. El coach lo programa. En la app del atleta: tarjeta con lo que hay que preparar (trípode, carga) y briefing entero antes de grabar.
