@@ -72,7 +72,7 @@ import {
 } from '@fahybrid/shared/domain/running/same-hr-pace';
 import { HR_ANCHOR_CONFIDENCE } from '@fahybrid/shared/domain/methodology';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
-import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
+import { selectRunMark, type MarkRow } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
 import {
   collapseToPolarization,
@@ -763,6 +763,32 @@ async function loadTypeAndCadence(
 }
 
 /**
+ * Las marcas de correr/carrera del atleta (catálogo `RUN_MARK_SLUGS`), en la
+ * forma que pide `selectRunMark`. UN solo lector: `loadPaceThreshold` (el
+ * VDOT del umbral) y `capacidad.ts` (el predictor, obra carrera-hub-ios,
+ * 13-ago-2026) corren la MISMA consulta — dos VDOT de dos consultas
+ * parecidas es exactamente el bug que `mark-projection.ts` (cabecera) existe
+ * para prevenir.
+ */
+export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<MarkRow[]> {
+  const marcas = await client<
+    Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>
+  >`
+    select exercise_slug, value::text as value,
+           (current_date - recorded_at::date)::int as age_days,
+           source, run_context
+    from athlete_benchmarks
+    where athlete_id = ${athlete_id} and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
+    order by recorded_at desc
+  `;
+  return marcas.flatMap((r) => {
+    const value = Number(r.value);
+    if (!Number.isFinite(value)) return [];
+    return [{ slug: r.exercise_slug, value, age_days: r.age_days, source: r.source, run_context: r.run_context }];
+  });
+}
+
+/**
  * EL UMBRAL DE RITMO y sus bandas — el número del que sale todo lo demás.
  *
  * Es OTRA ancla, no la de pulso: vive en `athlete_zone_profiles` (modalidad
@@ -773,36 +799,39 @@ async function loadTypeAndCadence(
  * El VDOT sale de `selectRunMark` — el MISMO selector del que prescribe el
  * plan, no del último 5 km que haya en la tabla. Si esta pantalla sacara su
  * propio VDOT, el atleta vería un nivel aquí y su plan usaría otro.
+ *
+ * EXPORTADA para `/api/athlete/running/capacidad` (obra carrera-hub-ios,
+ * 13-ago-2026): es el mismo perfil, no una segunda lectura. `hace_dias` es
+ * ADITIVO — el hueco que `web/components/design-twin/screens/correr-capacidad/
+ * datos.ts` ya había declarado (`procedenciaHaceDias`, "esta pantalla asume
+ * que se añade a esa query"): `athlete_zone_profiles.recorded_at` ya existía,
+ * solo faltaba pedirlo.
  */
-async function loadPaceThreshold(
+export async function loadPaceThreshold(
   client: Sql,
   athlete_id: number,
-): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[] }> {
+): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[]; hace_dias: number | null }> {
   const [perfil, marcas] = await Promise.all([
-    client<Array<{ threshold_s: string | null; zones_json: unknown; source: string | null; needs_review: boolean | null }>>`
-      select threshold_s::text as threshold_s, zones_json, source, needs_review
+    client<
+      Array<{
+        threshold_s: string | null;
+        zones_json: unknown;
+        source: string | null;
+        needs_review: boolean | null;
+        hace_dias: number | null;
+      }>
+    >`
+      select threshold_s::text as threshold_s, zones_json, source, needs_review,
+             (current_date - recorded_at::date)::int as hace_dias
       from athlete_zone_profiles
       where athlete_id = ${athlete_id} and modality = 'run'
       order by version desc
       limit 1
     `,
-    client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
-      select exercise_slug, value::text as value,
-             (current_date - recorded_at::date)::int as age_days,
-             source, run_context
-      from athlete_benchmarks
-      where athlete_id = ${athlete_id} and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
-      order by recorded_at desc
-    `,
+    loadRunMarkRows(client, athlete_id),
   ]);
 
-  const runMark = selectRunMark(
-    marcas.flatMap((r) => {
-      const value = Number(r.value);
-      if (!Number.isFinite(value)) return [];
-      return [{ slug: r.exercise_slug, value, age_days: r.age_days, source: r.source, run_context: r.run_context }];
-    }),
-  );
+  const runMark = selectRunMark(marcas);
 
   const fila = perfil[0];
   const zonas: ZonaRitmo[] = Array.isArray(fila?.zones_json) ? (fila!.zones_json as ZonaRitmo[]) : [];
@@ -810,7 +839,7 @@ async function loadPaceThreshold(
 
   // Ni perfil ni marca: no hay umbral que enseñar. Null, no un objeto de nulos
   // — la pantalla tiene que poder distinguir «no tiene» de «tiene y está vacío».
-  if (fila == null && runMark == null) return { umbral: null, zonas: [] };
+  if (fila == null && runMark == null) return { umbral: null, zonas: [], hace_dias: null };
 
   return {
     umbral: {
@@ -821,6 +850,7 @@ async function loadPaceThreshold(
       sin_revisar: fila?.needs_review === true,
     },
     zonas,
+    hace_dias: fila?.hace_dias ?? null,
   };
 }
 
