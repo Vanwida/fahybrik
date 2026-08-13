@@ -10,6 +10,25 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · El materializador FIT usa `source='garmin'`, no `'fit_import'` — y `leg_role` sigue sin sitio
+
+**El hueco.** Al construir `web/lib/import/fit/materialize.ts` (el materializador que cierra la entrada «El histórico rico entra por FICHERO FIT», más arriba en este mismo fichero) aparecieron dos choques reales entre el diseño hablado y el esquema:
+
+1. `workout_executions.source` y `biometric_streams.source` son el enum CERRADO `biometric_source` (0001 + 0135/0143/0180) — no admite un valor libre como `'fit_import'`. La migración 0144 ya había fijado el significado de esa columna: QUÉ APARATO midió, no CÓMO llegó el registro (eso es `recorded_via`). `'garmin'` ya existe con ese significado exacto y es el mismo valor que escribe hoy `ingest-garmin.ts` para un reloj Garmin por la API — un FIT de Garmin y una actividad de la API de Garmin son el MISMO aparato por dos tuberías distintas.
+2. `segment_executions.leg_role` (0146, work/recovery — la distinción que separa una serie de su trote de vuelta) solo se puede escribir junto con `leg_index` y `leg_phase`: el CHECK exige el trío o ninguno. `leg_phase` (warmup/main/cooldown) es información que el contrato canónico del FIT (`canonical.ts`) YA NO LLEVA — el parser colapsa el vocabulario FIT a un `role` binario work/recovery, y el materializador tiene prohibido reinterpretar. No hay forma honesta de rellenar `leg_phase` desde un FIT importado.
+
+**Decidido:**
+- Las tres columnas de procedencia de un import FIT (`workout_executions.source`, `segment_executions.source`, `biometric_streams.source`) usan `'garmin'`. Lo que distingue un FIT importado de una actividad llegada por la API es `source_workout_ref` (prefijo `fit:`), no `source`.
+- `segment_executions.hr_source` (CHECK cerrado a `strap`/`healthkit`/`pm5`, mig 0153) se deja NULL en los tramos de un FIT: ninguno de los tres describe honestamente "el sensor propio de un reloj Garmin, no se sabe si óptico o correa emparejada".
+- `leg_index`/`leg_role`/`leg_phase` se dejan NULL en los tramos de un FIT importado. Un lap de recuperación cuenta, hoy, como trabajo — igual que CUALQUIER tramo anterior a la 0146 (no es una regresión), pero es la capacidad que se pierde al importar en vez de vivir la sesión en la app. Se descartó marcar esos laps `is_structural=true` como sustituto: esa columna TAMBIÉN los saca del volumen (0146: la recuperación sí cuenta ahí), así que habría borrado kilómetros reales del total semanal — peor que no distinguir el rol.
+- `CanonicalLap.elevation_gain_m` no se persiste: `segment_executions` no tiene una columna de desnivel POR TRAMO (`elevation_gain_m` solo existe a nivel de ejecución, mig 0154), y forzarlo a `avg_gradient_pct` (0185, cambio NETO de altitud) sería escribir una magnitud en la columna de otra.
+
+**NO hacer en consecuencia:** no reutilizar `is_structural` como sustituto de `leg_role='recovery'` (le borra el volumen). No inventar un quinto valor de `hr_source` sin pasar por una migración razonada. No escribir `elevation_gain_m` de un lap en `avg_gradient_pct`.
+
+**Seguimiento propuesto, no ejecutado aquí:** separar `leg_role` del trío de la 0146 en su propia migración (o darle al parser una señal de fase que hoy no tiene) para que un FIT importado con series pueda distinguir trabajo de recuperación como lo hace una sesión vivida en la app.
+
+---
+
 ## 2026-08-13 · El perfil de salto es un TEST que solo existe si el coach lo programa
 
 **El hueco:** un coach (informe CMJ + CMJ con carga + LRI) mide el salto con My Jump Lab. Eso no es un entreno ni un dispositivo. El atleta tiene que saber ANTES qué va a pasar (trípode, carga, secuencia), no encontrarse una cámara.

@@ -21,7 +21,7 @@
 // slices the package's output to that count — the corrupt point never ships, and iOS's
 // own tolerance ("drop it, don't invent it") is preserved without re-deriving the codec.
 
-import { decode as decodePolylineRaw } from '@mapbox/polyline';
+import { decode as decodePolylineRaw, encode as encodePolylineRaw } from '@mapbox/polyline';
 import type { LatLon } from '@fahybrid/shared/domain/running/route-zones';
 
 /**
@@ -51,4 +51,17 @@ export function decodePolyline(encoded: string): LatLon[] {
   const decoded = decodePolylineRaw(encoded); // [lat, lng][], precision 5 default
   const completePoints = polylinePointCount(encoded);
   return decoded.slice(0, completePoints).map(([lat, lon]) => ({ lat, lon }));
+}
+
+/**
+ * Encode ordered lat/lon points to a Google Encoded Polyline (precision 5) —
+ * the counterpart to `decodePolyline`. iOS never needs this (its own
+ * `PolylineCodec` encodes on-device before the route reaches the API), but the
+ * FIT importer (#import-fit) parses a route from FILE BYTES on the SERVER, so
+ * the server has to be the one turning coordinates into the stored string.
+ * Same package, same precision-5 default as the decode above — no reason to
+ * hand-roll a second implementation of the same public format.
+ */
+export function encodePolyline(points: readonly LatLon[]): string {
+  return encodePolylineRaw(points.map((p) => [p.lat, p.lon]));
 }

@@ -14,10 +14,20 @@ FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
 
 - Contrato del seam: `web/lib/import/fit/canonical.ts` (parser→actividad
   canónica→materializador; TCX/GPX serán parsers futuros, no otro pipeline).
-- Parser: `@garmin/fitsdk` oficial (añadido a web). Materializa en las tablas
-  de SIEMPRE: ejecución + tramos por lap (splits reales) + `workout_routes` +
-  muestras a `biometric_streams`. Supersede el blob plano de Apple Salud;
-  la sesión viva siempre gana.
+- Parser: `@garmin/fitsdk` oficial (añadido a web).
+- **Materializador HECHO:** `web/lib/import/fit/materialize.ts`
+  (`materializeFitActivity`). Ejecución + tramos por lap (splits reales) +
+  `workout_routes` + muestras a `biometric_streams` (sin duplicar las de Apple
+  Salud). Supersede el blob plano de Apple Salud; la sesión viva/asignada
+  siempre gana. Tests reales en `web/tests/import/fit-materialize.db.test.ts`
+  (7 casos; no ejecutados aquí — sandbox sin salida de red, correr contra
+  TEST_DATABASE_URL). Dos fricciones de esquema documentadas en
+  `docs/DECISIONS.md` (13-ago, «El materializador FIT usa `source='garmin'`,
+  no `'fit_import'`…»): la procedencia usa `'garmin'` (el enum no admite
+  `fit_import`), y un lap de recuperación de un FIT no puede llevar
+  `leg_role` todavía (el CHECK de la 0146 exige fase, que el contrato no
+  lleva) — cuenta como trabajo, igual que cualquier tramo anterior a esa
+  migración. Falta enchufar esto al job por lotes que sube el ZIP.
 - **Bug reparado de camino (mig 0192, aplicada):** walking/hiking entraban como
   `run` — 431 de 667 «carreras» del histórico real eran caminatas (1.091 km
   falsos). Ahora → `other`, y el importador aplica el mismo criterio.
