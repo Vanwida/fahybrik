@@ -32,8 +32,8 @@ FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
 
 El atleta **no** se lo auto-asigna. El coach lo programa. En la app del atleta: tarjeta con lo que hay que preparar (trípode, carga) y briefing entero antes de grabar.
 
-Hecho: física, LRI/método, contrato `height`/`cm`, puente `jump` (no segundos), protocolo `cmj_profile`, mig **0193**, firma de frames, briefing iOS.
-Falta: grabador 240 fps + Vision, ficha LRI del coach, aplicar 0193 en Neon.
+Hecho: física, LRI/método, contrato `height`/`cm`, puente `jump`, protocolo `cmj_profile`, mig **0193 en Neon**, firma de frames, briefing + grabador 240 fps + revisión, LRI en ficha. Programado hoy para atleta 64.
+Falta: instalar la build iOS en el teléfono (no sale por Vercel).
 
 Plan: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
 

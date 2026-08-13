@@ -93,7 +93,7 @@ export async function loadBatteryStatus(
     group by wa.id, wa.scheduled_for, wa.status, cct.slug, cct.name
     order by wa.scheduled_for asc
   `;
-  if (rows.length === 0) return { total: 0, completed: 0, tests: [] };
+  if (rows.length === 0) return { total: 0, completed: 0, tests: [], athlete_weight_kg: null };
 
   // The athlete's REAL-test benchmarks (coach_test / athlete_test only — the
   // self-declared/onboarding ones don't count as a captured calibration), latest
@@ -155,6 +155,7 @@ export async function loadBatteryStatus(
     tests,
     athlete_weight_kg: bodyMassKg,
   };
+}
 
 // Format a captured benchmark value for the card, by how it's measured. Time is a
 // clock (m:ss, or h:mm:ss past an hour); the rest are the number + a short unit.
