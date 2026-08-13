@@ -7,7 +7,12 @@
 import type { SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 
 /** Raw values we actually map. Everything else → other. */
-const HK_RUN = new Set([37, 52, 24, 71]); // running, walking, hiking, wheelchairRun
+// Walking (52) y hiking (24) NO son `run`: un paseo a 17 min/km dentro del cubo
+// de correr envenena todo lo que se calcula sobre él (volumen «cuánto corres»,
+// eficiencia al mismo pulso, medias por tipo). Se quedan en `other`, donde su
+// carga y sus zonas siguen contando sin disfrazarse de kilómetros corridos.
+// La migración 0192 reparó lo ya importado con este mismo criterio.
+const HK_RUN = new Set([37, 71]); // running, wheelchairRunPace
 const HK_ROW = new Set([35]); // rowing
 const HK_SKI = new Set([60]); // crossCountrySkiing
 const HK_BIKE = new Set([13, 74]); // cycling, handCycling
