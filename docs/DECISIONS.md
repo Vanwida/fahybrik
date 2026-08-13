@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · Un entreno de Apple Salud es una sesión aunque nadie lo prescribiera
+
+**El hueco:** conectar Apple Salud subía el pasado a `biometric_streams` (1.996 entrenos de Alex desde 2019, 94k pulsos desde 2022) y las comparativas no lo veían. `workout_executions.assignment_id` era NOT NULL + UNIQUE: el ingest solo rellenaba actuals si había un hueco del plan ese día. Sin plan, el histórico era un marcador muerto. La carga, las zonas y el antes/después leen ejecuciones.
+
+**Decidido:** una sesión importada no necesita assignment. `assignment_id` pasa a nullable (migración **0191**); el 1:1 del plan se conserva con un índice parcial. El ingest de HealthKit, si no hay assignment del día ni solape con una sesión ya registrada, nace la ejecución (`recorded_via='imported'`) y un tramo resumen. El plan no se toca. El histórico que ya estaba en `training_load` se materializa con la misma función. No hay unique en `source_workout_ref`: en producción ya hay UUIDs de Salud repetidos en varias ejecuciones live (el mismo HKWorkout aterrizó en dos assignments).
+
+**Qué se elimina:** el segundo botón de permisos en Perfil («Abrir Salud» + «Activar todo» siempre visible al conectar). El mercado (Whoop, Strava) tiene UN control. El toggle pide el sheet de iOS y arranca el histórico. Tras desconectar, una línea de texto — no otro CTA. El techo del barrido pasa de 2 a 10 años; un import ya cerrado con el techo viejo se reabre solo.
+
+**NO hacer en consecuencia:** no inventar assignments para el pasado. No volver a poner un segundo botón de Salud. No tratar `biometric_streams.training_load` como si las comparativas lo leyeran.
+
+---
+
+## 2026-08-13 · Cuatro tarjetas de analíticas que no podían enseñar dato nunca: tres se conectan, una se retira
+
+**El hueco:** en `web/lib/athlete/analytics/` había cuatro tarjetas con `availability` fija y sin ninguna consulta detrás — placeholders que el atleta leía como «esto no lo tenéis» aunque el dato ya existiera. Dos comentarios eran directamente falsos: `sleep` decía que iOS no observaba `sleepAnalysis` (sí lo hace desde `HealthKitSyncService.swift`, y ese dato ya alimentaba la disposición diaria y `biometric-trend.ts`) y `hr_zones` decía que hacía falta una API de socio (el reparto ya se computa en `segment_zone_seconds`, el mismo motor que pinta la ficha del coach).
+
+**Decidido — se conectan tres:**
+- `sleep` (recovery.ts): entra en el mismo motor de tendencia que HRV/FC reposo/VO₂máx (`buildMetricTrendCard`), leyendo `metric_type='sleep_duration'` de `biometric_streams` (segundos → horas). Verificado: 202 muestras / 3 atletas en producción; 2 atletas superan el mínimo de 4 días.
+- `hr_zones` (recovery.ts): reutiliza `loadZoneWindow` (`lib/zones/weekly.ts`) sin filtro de modalidad, sumando z1..z5 (nunca `no_hr_s`, que no es una zona). Un ancla ESTIMADA (FCmáx/edad) se muestra igualmente, etiquetada con su `source_label` — a diferencia de `running-progress.ts`, que exige ancla medida/declarada porque cruza FC con ritmo (un umbral adivinado desalinearía el ritmo-al-mismo-pulso). Aquí solo se describe el reparto, no se compara contra nada, así que la misma honestidad de "Mis zonas" en iOS (`HRZoneProfile.sourceLabel`) es suficiente.
+- `finish_projection` (hyrox.ts): reutiliza `buildGoalGap` (`web/lib/athlete/goal-gap.ts`), el motor que ya sirve `/api/athlete/goal-gap` («Camino al objetivo») y que `running-progress.ts` ya reutilizaba (`loadPredictedSeconds`). El comentario anterior («el modelo no existe aún») era falso.
+
+**Qué se elimina:** `weak_link` («Tu eslabón débil», hyrox.ts). Su modelo documentado —percentil por estación + decay de fatiga + fuerza— necesita el dataset HYROX licenciado (mikatiming) que no tenemos, igual que `field_percentile`; no existe ningún motor de "decay" de percentil en el repo (grep en `shared/domain` y `web/lib` solo encuentra el decay de evidencia por antigüedad de `shared/domain/evidence.ts`, un concepto distinto). Su titular real — la estación donde el atleta pierde más tiempo vs lo entrenado — ya lo enseña la tarjeta `race_transfer` («Entreno → carrera») como `primary`: mantener las dos habría sido un duplicado sin dato nuevo.
+
+**NO hacer en consecuencia:** no reintroducir «Tu eslabón débil» hasta tener el dataset del campo licenciado. No copiar el filtro estricto de ancla medida/declarada de `running-progress.ts` a `hr_zones` sin la misma razón — esa tarjeta cruza FC con ritmo, esta solo reparte tiempo entrenado.
+
+---
+
 ## 2026-08-12 · El esqueleto del plan nace al planificar, no se inventa en el alta
 
 **El hueco:** el paso «Estructura del bloque» del alta pedía marcar microciclos en los

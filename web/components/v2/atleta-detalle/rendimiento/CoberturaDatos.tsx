@@ -51,7 +51,7 @@ function prePlanCopy(c: DataCoverage): { title: string; body: string; tone: 'ok'
   if (c.pre_plan_days == null) {
     return {
       title: 'Sin datos anteriores al plan',
-      body: `El plan arrancó el ${fmtDay(c.plan_start)}. Todo lo que hay es de después — la comparativa «antes / con el plan» no tiene «antes». Pide al atleta importar el histórico de Apple Salud (hasta 2 años) o conectar el reloj.`,
+      body: `El plan arrancó el ${fmtDay(c.plan_start)}. Todo lo que hay es de después — la comparativa «antes / con el plan» no tiene «antes». Pide al atleta conectar Apple Salud (el histórico entra al conectar).`,
       tone: 'warn',
     };
   }

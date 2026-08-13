@@ -26,7 +26,7 @@ export const meta: TwinMeta = {
   titulo: 'Dispositivos y relojes',
   zona: 'Conexiones y relojes',
   estado: 'espejo',
-  actualizado: '2026-08-03',
+  actualizado: '2026-08-13',
   descripcion: 'El equipo del atleta agrupado por lo que hace: quién recibe el entreno, quién solo lee y qué se conecta en el gimnasio.',
   fuentes: [
     'ios/FAHYBRIK/Profile/ProfileView.swift',
@@ -324,7 +324,6 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
                   setConfirmarHealth(true);
                 }
               }}
-              onOpenHealthApp={() => onLog('Abriendo la app Salud')}
               onGarmin={() => {
                 setRuta('garmin');
                 onLog('Garmin · cómo poner el entreno en el reloj');

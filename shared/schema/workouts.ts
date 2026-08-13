@@ -84,7 +84,9 @@ export type WorkoutAssignment = z.infer<typeof workoutAssignmentSchema>;
 
 export const workoutExecutionSchema = z.object({
   id: idSchema,
-  assignment_id: idSchema,
+  // Null = sesión importada (HealthKit/Garmin/…) que nadie prescribió.
+  // El plan no la toca. Única por assignment cuando existe (índice parcial 0191).
+  assignment_id: idSchema.nullable(),
   athlete_id: idSchema,
   started_at: isoDateTime.nullable(),
   ended_at: isoDateTime.nullable(),

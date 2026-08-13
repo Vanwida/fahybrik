@@ -34,6 +34,7 @@ import { toJsonValue } from '@/lib/json-column';
 import { markAssignmentDoneFromDevice } from './assignment-status';
 import { existsOverlappingExecution } from './execution-time-dedupe';
 import { canonicalizeHealthkitMetric } from './metric-map';
+import { materializeHealthkitWorkout } from './materialize-healthkit-workout';
 import { recomputeZonesForSampleWindow } from './recompute-zones-window';
 import type { HKBiometricSampleDTO, HKSyncBatch, HKWorkoutDTO } from './schema';
 
@@ -122,7 +123,11 @@ async function ingestWorkout(args: {
     limit 1
   `;
   if (existing.length > 0) {
-    return { duplicate: true, linked_execution: false };
+    // El marcador ya está. La sesión importada puede no: los lotes viejos
+    // dejaban el pasado solo en biometric_streams. Reintentar aquí es lo que
+    // convierte un re-sync en comparativa, no en un no-op.
+    const linked = await linkExecution({ sql, athlete_id, workout });
+    return { duplicate: true, linked_execution: linked };
   }
 
   // Persist a "training_load" marker row carrying the full payload as raw
@@ -182,9 +187,8 @@ async function ingestWorkout(args: {
     `;
   }
 
-  // Try to link to a workout_executions row by nearest scheduled assignment
-  // within ±12h on the workout day. We never create the execution from
-  // scratch here — only fill in actuals if an assignment exists.
+  // Casa con el assignment del día si lo hay. Si no, nace una sesión
+  // importada (assignment_id NULL): el pasado existe aunque nadie lo prescribió.
   const linked = await linkExecution({ sql, athlete_id, workout });
 
   return { duplicate: false, linked_execution: linked };
@@ -238,7 +242,10 @@ async function linkExecution(args: {
     limit 1
   `;
   const assign = rows[0];
-  if (!assign) return false;
+  if (!assign) {
+    const standalone = await materializeHealthkitWorkout({ sql, athlete_id, workout });
+    return standalone.outcome === 'inserted' || standalone.outcome === 'exists';
+  }
 
   // Skip if a Garmin-sourced execution already exists — Garmin wins (better
   // lap precision per spec).

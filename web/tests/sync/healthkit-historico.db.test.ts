@@ -369,4 +369,71 @@ describeWithDb('histórico de Apple Salud — ingesta de lotes viejos (base real
     },
     DB_TEST_TIMEOUT_MS,
   );
+
+  test(
+    'un workout de Salud sin assignment nace como sesión importada',
+    async () => {
+      const fx = await athlete();
+      const start = new Date('2024-03-12T07:00:00.000Z');
+      const end = new Date('2024-03-12T08:00:00.000Z');
+      const parsed = healthkitSyncRequestSchema.safeParse({
+        batch: {
+          athlete_id: String(fx.athleteId),
+          sent_at: end.toISOString(),
+          workouts: [
+            {
+              source_workout_id: 'HK-HIST-1',
+              workout_activity_type: 37,
+              started_at: start.toISOString(),
+              ended_at: end.toISOString(),
+              duration_seconds: 3600,
+              total_energy_burned_kcal: 620,
+              total_distance_meters: 10000,
+              avg_heart_rate_bpm: 148,
+              max_heart_rate_bpm: 172,
+              lap_markers: [],
+              source: 'healthkit',
+            },
+          ],
+          samples: [],
+        },
+      });
+      if (!parsed.success) throw new Error('lote histórico inválido');
+
+      const first = await ingestHealthkitBatch({
+        sql,
+        athlete_id: BigInt(fx.athleteId),
+        batch: parsed.data.batch,
+      });
+      expect(first.workouts_inserted).toBe(1);
+      expect(first.executions_linked).toBe(1);
+
+      const execs = await sql<
+        Array<{ assignment_id: string | null; recorded_via: string | null; modality: string | null }>
+      >`
+        select we.assignment_id::text, we.recorded_via::text, se.modality
+        from workout_executions we
+        join segment_executions se on se.execution_id = we.id
+        where we.athlete_id = ${fx.athleteId}
+          and we.source_workout_ref = 'HK-HIST-1'
+      `;
+      expect(execs).toHaveLength(1);
+      expect(execs[0]!.assignment_id).toBeNull();
+      expect(execs[0]!.recorded_via).toBe('imported');
+      expect(execs[0]!.modality).toBe('run');
+
+      const second = await ingestHealthkitBatch({
+        sql,
+        athlete_id: BigInt(fx.athleteId),
+        batch: parsed.data.batch,
+      });
+      expect(second.workouts_skipped_duplicate).toBe(1);
+      const again = await sql<Array<{ n: string }>>`
+        select count(*)::text as n from workout_executions
+        where athlete_id = ${fx.athleteId} and source_workout_ref = 'HK-HIST-1'
+      `;
+      expect(Number(again[0]!.n)).toBe(1);
+    },
+    DB_TEST_TIMEOUT_MS,
+  );
 });

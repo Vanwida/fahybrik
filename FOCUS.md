@@ -1,7 +1,17 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-12**
+Última actualización: **2026-08-13**
+
+---
+
+## Cerrado · Apple Salud: un permiso, y el histórico sí entra en las comparativas (13-ago)
+
+En Perfil había dos CTAs de Salud (toggle + «Abrir Salud»). Queda el toggle.
+Los entrenos que ya estaban en `biometric_streams` desde 2019 no eran sesiones:
+sin assignment el ingest los tiraba. Ahora nacen como ejecuciones importadas
+(`assignment_id` NULL, mig 0191) y el coach puede comparar antes/después.
+El barrido del teléfono pasa de 2 a 10 años.
 
 ---
 
