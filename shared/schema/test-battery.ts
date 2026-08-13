@@ -93,7 +93,20 @@ export const testResultEntrySchema = z.object({
 });
 export type TestResultEntry = z.infer<typeof testResultEntrySchema>;
 
+export const jumpAttemptInputSchema = z.object({
+  kind: z.enum(['cmj', 'cmj_free_arms', 'sj', 'dj', 'loaded_cmj']),
+  takeoff_frame: z.number().int().nonnegative(),
+  landing_frame: z.number().int().nonnegative(),
+  fps: z.number().positive().max(480),
+  quality: z.enum(['ok', 'staggered', 'low_fps', 'discarded']),
+  kept: z.boolean(),
+});
+export type JumpAttemptInput = z.infer<typeof jumpAttemptInputSchema>;
+
 export const recordTestResultsBodySchema = z.object({
   results: z.array(testResultEntrySchema).min(1).max(10),
+  body_mass_kg: z.number().positive().max(250).optional(),
+  load_kg: z.number().positive().max(400).nullable().optional(),
+  attempts: z.array(jumpAttemptInputSchema).max(20).optional(),
 });
 export type RecordTestResultsBody = z.infer<typeof recordTestResultsBodySchema>;

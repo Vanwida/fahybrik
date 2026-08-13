@@ -61,6 +61,10 @@ struct CalibrationTestStatus: Codable, Equatable, Identifiable {
     let resultLabel: String?
     /// "jump_video" → cámara. Ausente o "session" → el vivo de siempre.
     let capture: String?
+    /// Qué preparar y en qué orden. Solo llega en un salto programado.
+    let brief: JumpBriefDTO?
+
+    var isJumpVideo: Bool { capture == "jump_video" }
 
     /// The single visible state of a test row.
     enum DisplayState { case pending, resultPending, done }

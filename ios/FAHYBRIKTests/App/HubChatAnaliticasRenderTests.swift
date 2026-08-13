@@ -226,7 +226,9 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
             sessionStatus: captured ? "completed" : "scheduled",
             resultCaptured: captured,
             resultPending: pending,
-            resultLabel: captured ? "22:14" : nil
+            resultLabel: captured ? "22:14" : nil,
+            capture: nil,
+            brief: nil
         )
     }
 

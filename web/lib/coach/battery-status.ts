@@ -10,6 +10,9 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/domain/jump/protocol';
+import { buildJumpBrief, type JumpBrief } from '@fahybrid/shared/domain/jump/brief';
+import { DEFAULT_JUMP_METHOD } from '@fahybrid/shared/domain/jump/method';
+import { BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -26,6 +29,8 @@ export interface CalibrationTestStatus {
   result_label: string | null;
   /** How the athlete measures this test. jump_video → cámara, never WorkoutContainer. */
   capture: JumpCaptureMode;
+  /** Qué preparar y en qué orden. Solo en jump_video — el atleta lo lee ANTES. */
+  brief: JumpBrief | null;
 }
 
 export interface BatteryStatus {
@@ -82,6 +87,11 @@ export async function loadBatteryStatus(
   `;
   const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));
 
+  const [athleteRow] = await client<{ weight_kg: number | null }[]>`
+    select weight_kg::float8 as weight_kg from athletes where id = ${athlete_id} limit 1
+  `;
+  const bodyMassKg = athleteRow?.weight_kg ?? null;
+
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
     const specs = r.expected_specs ?? [];
@@ -107,6 +117,15 @@ export async function loadBatteryStatus(
             .join(' · ')
         : null,
       capture: captureModeForSpecs(specs),
+      brief:
+        captureModeForSpecs(specs) === 'jump_video'
+          ? buildJumpBrief({
+              method: DEFAULT_JUMP_METHOD,
+              load: DEFAULT_JUMP_METHOD.default_load,
+              includeLoaded: specs.some((s) => s.slug === BENCH_CMJ_LOADED),
+              bodyMassKg,
+            })
+          : null,
     };
   });
 
