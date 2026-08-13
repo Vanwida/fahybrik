@@ -30,21 +30,19 @@ final class JumpRecorder: NSObject, ObservableObject {
     }
 
     func configure() async {
-        await Task.detached(priority: .userInitiated) { [session, movie] in
-            session.beginConfiguration()
-            session.sessionPreset = .high
-            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-                  let input = try? AVCaptureDeviceInput(device: device)
-            else {
-                session.commitConfiguration()
-                return
-            }
-            if session.canAddInput(input) { session.addInput(input) }
-            if session.canAddOutput(movie) { session.addOutput(movie) }
-            Self.lockSlowMo(device)
+        session.beginConfiguration()
+        session.sessionPreset = .high
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+              let input = try? AVCaptureDeviceInput(device: device)
+        else {
             session.commitConfiguration()
-            if !session.isRunning { session.startRunning() }
-        }.value
+            return
+        }
+        if session.canAddInput(input) { session.addInput(input) }
+        if session.canAddOutput(movie) { session.addOutput(movie) }
+        Self.lockSlowMo(device)
+        session.commitConfiguration()
+        if !session.isRunning { session.startRunning() }
         configuredFps = Self.activeFps()
     }
 

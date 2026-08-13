@@ -108,7 +108,7 @@ struct JumpCaptureView: View {
 
     private var reviewPhase: some View {
         Group {
-            if reviewing != nil, let url = reviewing?.clipURL {
+            if let draft = reviewing, let url = draft.clipURL {
                 JumpReviewView(
                     url: url,
                     fps: draft.fps,
