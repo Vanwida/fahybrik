@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 (tarde) · La pastilla Carrera es EL HOGAR del running del atleta, no «una analítica»
+
+**El hueco (Alex, con la app en la mano y después de dos días de sesión fallida):** la pastilla Carrera de Analíticas se construyó como UNA pantalla con scroll — sin NavigationStack, sin push, sin histórico — y con un CTA nada más entrar que abría `TestsHubView`, la batería ENTERA del coach (1RM de squat incluido) en la pestaña de running. El mapa firmado por la mañana (`docs/analiticas-running-mapa.md` v1) ya decía «cada bloque es una PUERTA a su propia vista» y la ejecución lo ignoró. Y la v1 mandaba el histórico navegable a Plan/Historial, que Alex revoca: *«si el usuario ha corrido 160 km ese mes, que pueda ver su histórico, su análisis, ir en profundidad. No es solo una analítica: es su tab de running, todo el running tiene que ir ahí dentro».* El listón dicho por su nombre: **que ningún atleta abra Garmin** — todo lo que un corredor (pro o no) mira en Garmin Connect, aquí dentro; TrainingPeaks es el competidor.
+
+**Decidido (mapa v2, mismo fichero):**
+- **La tab gana NavigationStack** y el hub es corto: veredicto + puertas que se ENTRAN (Este mes→Tendencias, Tus carreras→Historial, Forma, Capacidad, Por tipo, Lo que te piden, Correr cansado, Mi carrera→enlace a la tab Carreras).
+- **El historial de running vive DENTRO de la pastilla** (agregados del periodo + filas por semana + filtros), y cada fila abre la ficha de la sesión (nivel 2) por push. Plan/Historial conserva el calendario general multimodalidad.
+- **Tendencias** (informes por métrica y periodo, el Reports de Garmin) es vista propia nueva.
+- **El CTA de tests desaparece del arranque.** Vive en Capacidad, solo en el estado sin ancla, y aterriza en el camino de zonas de correr — jamás en la batería entera (regla de memoria: cada CTA aterriza en SU arreglo).
+- Récords (catálogo cerrado, calle/cinta separados) y predictor 5k/10k/21k/42k pasan de «remates» a estructura de Capacidad.
+- Benchmarks: inventario Garmin Connect + TrainingPeaks atleta levantados el 13-ago (sesión fresh). Lo que NO entra queda declarado en el mapa: dinámica de carrera sin sensor, Training Status/carga general (→ Recup, las pastillas mandan), potencia/stamina sin fuente, clima/gear (otra tanda), social.
+
+**Qué se elimina:** el CTA de tests del arranque de la pastilla (`AnaliticasCorrerView.salidaDeLaPantalla` → `TestsHubView`); la exclusión v1 del historial navegable.
+
+**NO hacer en consecuencia:** no volver a colgar `TestsHubView` de ninguna pantalla de Analíticas. No meter sueño/HRV/carga general en Carrera (Recup existe para eso). No duplicar «Mi carrera» dentro de la pastilla — se enlaza a la tab Carreras. No pintar métricas sin fuente conectada (dinámica, potencia) porque Garmin las tenga: honestidad del dato (§7 del contrato).
+
+---
+
 ## 2026-08-13 · La ficha del atleta son 5 pestañas, no 12
 
 **El hueco.** La ficha del dashboard del coach tenía 12 pestañas (`perfil · plan · ritmos · carreras · historico · sesiones · biometria · rendimiento · correr · pagos · mensajes · del-coach`). El coach se perdía. Una auditoría (11-ago) y la spec 1a lo confirman: el menú era un almacén, no una herramienta.

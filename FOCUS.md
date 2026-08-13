@@ -5,6 +5,28 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · La pastilla Carrera se rehace: EL HOGAR del running, navegable (13-ago tarde)
+
+**Reset de Alex tras dos días de sesión fallida:** la pastilla Carrera no es «una
+analítica», es la tab de running del atleta — todo lo que miraría en Garmin
+Connect, aquí dentro y navegable (push adelante/atrás). El competidor es
+TrainingPeaks. Lo construido era una tira única sin navegación y con un CTA de
+tests (batería entera, 1RM de squat incluido) nada más entrar: fuera.
+
+- **Mapa v2 firmable:** `docs/analiticas-running-mapa.md` — hub corto (veredicto
+  + puertas), HISTORIAL de running DENTRO de la tab (revocada la exclusión v1),
+  vista TENDENCIAS nueva, ficha de sesión alcanzable por push, CTA de tests solo
+  en Capacidad sin ancla y aterrizando en el camino de zonas de correr.
+- Decisión y descartes: `docs/DECISIONS.md` 13-ago (tarde) «La pastilla Carrera
+  es EL HOGAR del running».
+- Benchmarks levantados en esta sesión: inventario completo Garmin Connect
+  running + TrainingPeaks lado atleta (agentes, 13-ago).
+- **En curso:** pantallas `propuesta` en el doble (hub, historial, ficha de
+  sesión, tendencias, capacidad, por tipo) para el visto bueno de Alex ANTES de
+  tocar Swift.
+
+---
+
 ## Ahora · Ficha del atleta: de 12 pestañas a 5 (13-ago)
 
 Spec 1a + mock firmados. IA: Resumen · Plan · Rendimiento · Del coach · Atleta.
@@ -46,8 +68,9 @@ FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
   falsos). Ahora → `other`, y el importador aplica el mismo criterio.
 - Pendiente de Alex: su export real de Garmin (ZIP) para validar contra un año
   de verdad. La migración del job será **0194** (la 0193 es del CMJ, otra sesión).
-- El mapa firmado de la tab de analíticas sigue vigente:
-  `docs/analiticas-running-mapa.md` — tras el importador viene Por tipo (P1).
+- El mapa de la tab de analíticas es ahora el **v2** (13-ago tarde):
+  `docs/analiticas-running-mapa.md` — el orden de construcción lo manda el v2
+  (1º navegación + hub + historial), no el «Por tipo primero» de la v1.
 
 ---
 
