@@ -1000,6 +1000,34 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertTrue(exec.segments.isEmpty, "Aggregate-only completion → no per-segment log, still loads.")
         XCTAssertEqual(exec.notes, "entreno libre de prueba")
     }
+
+    func test_jumpTest_withoutBlocks_isJumpVideo_notARunnablePlan() throws {
+        let json = """
+        {
+          "assignment": {
+            "id": "477",
+            "athlete_id": "64",
+            "scheduled_for": "2026-08-13",
+            "status": "scheduled",
+            "slot": null,
+            "template_id": "1",
+            "template_version": 1,
+            "completed_at": null,
+            "perceived_exertion": null,
+            "station_assignment": null,
+            "my_role": null,
+            "store_results": [
+              {"slug":"cmj","label":"CMJ","measure":"height","unit":"cm","derives":"none","modality":null,"optional":false},
+              {"slug":"cmj_loaded","label":"CMJ con carga","measure":"height","unit":"cm","derives":"none","modality":null,"optional":true}
+            ]
+          },
+          "workout": {"name":"Perfil de salto (CMJ)","focus":null,"coach_note":null,"estimated_duration_minutes":null,"blocks":[]}
+        }
+        """
+        let detail = try decode(json)
+        XCTAssertTrue(detail.isJumpVideo)
+        XCTAssertNil(WorkoutPlan.from(detail: detail), "Un salto no es un entreno con bloques.")
+    }
 }
 
 // MARK: - El localizador del vídeo de técnica

@@ -25,6 +25,11 @@ struct AssignmentDetail: Codable, Equatable {
         if let w = workout?.storeResults, !w.isEmpty { return w }
         return []
     }
+
+    /// Un test de salto no es un entreno: no hay bloques que correr.
+    var isJumpVideo: Bool {
+        storeResults.contains { $0.measure == "height" }
+    }
     // The athlete's REAL executed result — present once the session is done
     // (completed / partial). Powers the read-only post-workout detail the athlete
     // reaches by tapping a finished session (tiempo / score / RPE / per-segment

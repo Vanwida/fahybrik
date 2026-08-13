@@ -84,6 +84,8 @@ struct WorkoutContainer: View {
         // brief renders from when available. The detail is nil for ad-hoc /
         // title-only sessions, where the brief falls back to the flat plan.
         case ready(WorkoutPlan, AssignmentDetail?)
+        /// Un test de salto: no hay plan que correr, se graba.
+        case jump(AssignmentDetail)
         // A REAL assignment whose prescription couldn't be loaded (offline / auth /
         // server error / no workout body). We surface this honestly with a retry
         // instead of fabricating a fake title-only "Sesión" the athlete could
@@ -95,6 +97,7 @@ struct WorkoutContainer: View {
             switch (lhs, rhs) {
             case (.loading, .loading): return true
             case (.failed, .failed): return true
+            case (.jump, .jump): return true
             case let (.ready(a, _), .ready(b, _)): return a.id == b.id
             default: return false
             }
@@ -127,6 +130,24 @@ struct WorkoutContainer: View {
                 loadingView
             case let .ready(plan, detail):
                 content(plan: plan, detail: detail)
+            case let .jump(detail):
+                JumpCaptureView(
+                    launch: JumpLaunch(
+                        id: assignmentId ?? detail.assignment.id,
+                        assignmentId: assignmentId ?? detail.assignment.id,
+                        includeLoaded: detail.storeResults.contains { $0.slug == "cmj_loaded" && !$0.isOptional }
+                            || detail.storeResults.contains { $0.slug == "cmj_loaded" },
+                        loadKg: 15,
+                        bodyMassKg: nil,
+                        attemptsWanted: 3
+                    ),
+                    bearer: bearer,
+                    onClose: onClose,
+                    onSaved: {
+                        onCompleted(assignmentId)
+                        onClose()
+                    }
+                )
             case .failed:
                 failedView
             }
@@ -493,9 +514,12 @@ struct WorkoutContainer: View {
             return
         }
 
-        if let cached = AssignmentDetailCache.load(assignmentId),
-           let plan = WorkoutPlan.from(detail: cached) {
-            loadState = .ready(plan, cached)
+        if let cached = AssignmentDetailCache.load(assignmentId) {
+            if cached.isJumpVideo {
+                loadState = .jump(cached)
+            } else if let plan = WorkoutPlan.from(detail: cached) {
+                loadState = .ready(plan, cached)
+            }
         }
 
         guard let bearer else {
@@ -508,7 +532,9 @@ struct WorkoutContainer: View {
         do {
             let detail = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
             AssignmentDetailCache.save(detail)
-            if let plan = WorkoutPlan.from(detail: detail) {
+            if detail.isJumpVideo {
+                loadState = .jump(detail)
+            } else if let plan = WorkoutPlan.from(detail: detail) {
                 loadState = .ready(plan, detail)
             } else if case .loading = loadState {
                 // Fetched, but there is no runnable workout body (rest day / empty).
