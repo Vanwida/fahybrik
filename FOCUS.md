@@ -84,15 +84,16 @@ FICHERO FIT»). La API de Garmin sigue pausada para altas nuevas (verificado
 
 ---
 
-## Ahora · Perfil de salto (CMJ) — test a request del coach (13-ago)
+## Ahora · Tests son un loop (13-ago noche)
 
-El atleta **no** se lo auto-asigna. El coach lo programa. En la app del atleta: tarjeta con lo que hay que preparar (trípode, carga) y briefing entero antes de grabar.
+Firmado: un test no es un número. Es ocurrencia → informe (misma pantalla atleta y coach) → archivo por familia → comparativa de homólogos → Del coach publica la evolución. Si un lado no puede abrir lo que el otro tiene, es mediocre.
 
-Hecho: física, LRI/método, contrato `height`/`cm`, puente `jump`, protocolo `cmj_profile`, mig **0193 en Neon**, firma de frames, briefing + grabador 240 fps + revisión, LRI en ficha. Programado hoy para atleta 64.
-El coach lo ve en **Rendimiento → Fuerza** (programar + informe al tocar el número).
-Falta: instalar la build iOS en el teléfono (no sale por Vercel).
+- Spec: `docs/superpowers/specs/2026-08-13-tests-son-un-loop.md`
+- Decisión: `docs/DECISIONS.md` 13-ago «Un test es un loop»
+- CMJ es el primer informe completo (tenemos la fuente). El resto entra en la misma cáscara.
+- Raíz a construir primero: `athlete_benchmarks.assignment_id` — hoy dos CMJ hechos enseñan el mismo perfil.
 
-Plan: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
+Plan de captura (CMJ) sigue vigente: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
 
 ---
 

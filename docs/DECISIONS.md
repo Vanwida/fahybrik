@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · Un test es un loop, no un número en una lista
+
+**El hueco.** El coach programa, el atleta hace, y al otro lado hay una cifra (o un diálogo de tres números). No hay informe de ESA vez, no hay archivo («todos los CMJ», «todos los umbral»), no hay comparativa de homólogos, y Del coach no puede publicar la evolución — así que el loop se cae a chat. Eso es TrainingPeaks. Si no es loop, es mediocre.
+
+**Decidido:**
+
+- La unidad es la **ocurrencia** (assignment de un protocolo en un día). `athlete_benchmarks.assignment_id` la ancla. El último slug del atleta no es el informe de una fila.
+- Informe = una pantalla, la misma para atleta y coach. Contrato: identidad · héroe · contexto · método · lectura compuesta · snapshot. El CMJ es el primer renderer completo (fuente: informe de salto ago-2026). El resto entra en la misma cáscara sin inventar pósters.
+- Archivo por familia del catálogo. Comparativa = dos homólogos del mismo `calibration_slug`. Se guarda la config, se resuelve al leer.
+- Publicar la evolución es una **nota** con forma nueva `test_compare`. No hay sexto `kind`. No se reutiliza `comparativa` (eso son minutos por zona en meses). iOS pinta la forma: si el atleta no la ve, el loop está roto.
+- Prioridades distintas, el mismo dato. Coach: pedir / leer / comparar / decir. Atleta: preparar / hacer / recordar / recibir.
+
+**NO hacer:** sexta pestaña. Sexto tipo de comunicado. Clonar el póster WCSE ni su marca. Informe distinto para cada cara. Comparar protocolos distintos. Chat como canal. Hardcodear bandas en Swift. Enseñar 47,33 como platillo.
+
+Spec: `docs/superpowers/specs/2026-08-13-tests-son-un-loop.md`.
+
+---
+
 ## 2026-08-13 (tarde) · La pastilla Carrera es EL HOGAR del running del atleta, no «una analítica»
 
 **El hueco (Alex, con la app en la mano y después de dos días de sesión fallida):** la pastilla Carrera de Analíticas se construyó como UNA pantalla con scroll — sin NavigationStack, sin push, sin histórico — y con un CTA nada más entrar que abría `TestsHubView`, la batería ENTERA del coach (1RM de squat incluido) en la pestaña de running. El mapa firmado por la mañana (`docs/analiticas-running-mapa.md` v1) ya decía «cada bloque es una PUERTA a su propia vista» y la ejecución lo ignoró. Y la v1 mandaba el histórico navegable a Plan/Historial, que Alex revoca: *«si el usuario ha corrido 160 km ese mes, que pueda ver su histórico, su análisis, ir en profundidad. No es solo una analítica: es su tab de running, todo el running tiene que ir ahí dentro».* El listón dicho por su nombre: **que ningún atleta abra Garmin** — todo lo que un corredor (pro o no) mira en Garmin Connect, aquí dentro; TrainingPeaks es el competidor.
