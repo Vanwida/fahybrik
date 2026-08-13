@@ -13,7 +13,9 @@ Tendencias / Capacidad / Por tipo / Forma / Pedido / Cansado + endpoints
 `/api/athlete/running/*` + `shared/domain/running/session-type.ts`. Build OK,
 suite iOS 1503/0. Ley: DECISIONS 13-ago (noche). Tandas: comparativa de
 sesión (T2) · por zona (T3) · veredicto por fila · volcados tira→hub.
-Plan personal sin periodización (atleta 64): cerrado. Siguiente: Tests = loop.
+Plan personal sin periodización (atleta 64): cerrado. Tests = loop: informe
+CMJ montado + Dar feedback (Del coach, forma `test_result`, mig 0196).
+Falta archivo por familia y comparativa de homólogos.
 
 ## Espera Alex
 

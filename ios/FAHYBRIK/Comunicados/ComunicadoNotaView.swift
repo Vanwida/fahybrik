@@ -95,7 +95,7 @@ private struct VozDeLaSeccion: ViewModifier {
         switch forma {
         case .texto, .cifra:
             content.accessibilityElement(children: .combine)
-        case .reparto, .camino, .grafica:
+        case .reparto, .camino, .grafica, .test_result:
             content.accessibilityElement(children: .contain)
         }
     }

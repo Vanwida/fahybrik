@@ -15,6 +15,7 @@ import {
   CAMINO_ANCHORS,
   COMPARATIVA_ANCHORS,
   GRAFICA_ANCHORS,
+  TEST_RESULT_ANCHORS,
   createCommunicationSchema,
   type CoachCommunicationDTO,
   type CommunicationAnchor,
@@ -81,6 +82,8 @@ export interface FilaBorrador {
   /** Sólo en una sección con forma de comparativa: qué dos periodos enfrenta y
    *  de cuánto es cada lado (uno solo para los dos, a propósito). */
   comparativa: ParDePeriodos;
+  /** Sólo en una sección test_result: qué ocurrencia se embebe. */
+  test_assignment_id: string;
 }
 
 /** Una opción de pregunta con su consecuencia. */
@@ -152,6 +155,7 @@ export function filaVacia(): FilaBorrador {
     segments: [segmentoVacio(), segmentoVacio()],
     grafica: ventanaPorDefecto(),
     comparativa: parPorDefecto(),
+    test_assignment_id: '',
   };
 }
 
@@ -246,6 +250,7 @@ export function desdeComunicado(dto: CoachCommunicationDTO): Borrador {
     // aunque los totales no se hayan podido sumar (la biblioteca no tiene atleta
     // al que sumárselos).
     comparativa: comparativaDeDto(i.comparativa),
+    test_assignment_id: i.test_result?.assignment_id ?? '',
   }));
   return {
     ...base,
@@ -385,6 +390,13 @@ function seccionAInput(s: FilaBorrador) {
       weeks: s.comparativa.weeks,
     };
   }
+  if (s.display === 'test_result') {
+    return {
+      display: 'test_result' as const,
+      label: s.label.trim(),
+      assignment_id: s.test_assignment_id,
+    };
+  }
   if (s.display === 'cifra') {
     return { display: 'cifra' as const, label: oNulo(s.label), content: s.content.trim() };
   }
@@ -424,6 +436,14 @@ export function anclaSirveParaComparativa(b: Borrador): boolean {
  *  donde el formulario puede avisar antes de que el servidor diga que no. */
 export function anclaSirveParaCamino(b: Borrador): boolean {
   return CAMINO_ANCHORS.includes(b.anchor_kind);
+}
+
+export function pintaTestResult(b: Borrador): boolean {
+  return b.kind === 'note' && b.sections.some((s) => s.display === 'test_result');
+}
+
+export function anclaSirveParaTestResult(b: Borrador): boolean {
+  return TEST_RESULT_ANCHORS.includes(b.anchor_kind);
 }
 
 export function aInput(b: Borrador, is_template = false): CreateCommunicationInput {

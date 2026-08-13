@@ -40,9 +40,12 @@ function Scale({ bands, kind }: { bands: ScaleBand[]; kind: 'height' | 'lri' }) 
 export function CmjInforme({
   report,
   onClose,
+  onFeedback,
 }: {
   report: CmjReport;
   onClose?: () => void;
+  /** Abre Del coach con este informe ya montado. Como «Dar feedback» de zonas. */
+  onFeedback?: () => void;
 }) {
   const fecha = fechaCorta(report.date_label);
 
@@ -67,15 +70,26 @@ export function CmjInforme({
             </h2>
             {fecha ? <p className="v2-num mt-1.5 text-[12px] text-[color:var(--v2-muted)]">{fecha}</p> : null}
           </div>
-          {onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="v2-focus text-[12.5px] font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-            >
-              Cerrar
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-3">
+            {onFeedback ? (
+              <button
+                type="button"
+                onClick={onFeedback}
+                className="v2-focus inline-flex h-8 items-center rounded-[8px] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)]"
+              >
+                Dar feedback
+              </button>
+            ) : null}
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="v2-focus text-[12.5px] font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+              >
+                Cerrar
+              </button>
+            ) : null}
+          </div>
         </header>
 
         <section className="mt-6">

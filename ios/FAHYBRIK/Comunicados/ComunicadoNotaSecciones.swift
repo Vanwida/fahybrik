@@ -44,6 +44,10 @@ struct SeccionDeNota: View {
             if let grafica = seccion.grafica {
                 GraficaDeNota(grafica: grafica)
             }
+        case .test_result:
+            if let report = seccion.testResult?.report {
+                InformeDeTestEnNota(report: report)
+            }
         case .texto, .cifra:
             Text(seccion.content)
                 .scaledFont(14, relativeTo: .callout)
@@ -245,5 +249,32 @@ struct EnlaceCruzadoComunicado: View {
         .buttonStyle(PressScaleStyle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+struct InformeDeTestEnNota: View {
+    let report: CmjReportDTO
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(alignment: .lastTextBaseline) {
+                Text("\(Int(report.unloadedCm.rounded()))")
+                    .font(.system(size: 36, weight: .heavy, design: .serif))
+                    .italic()
+                    .foregroundStyle(Theme.Color.accent)
+                Text("cm · \(report.heightLabel)")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            if let lri = report.lri, let label = report.lriLabel {
+                Text("LRI \(String(format: "%.2f", lri).replacingOccurrences(of: ".", with: ",")) · \(label)")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            Text(report.lectura)
+                .font(Theme.Typography.body)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

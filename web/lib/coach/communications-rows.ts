@@ -55,6 +55,7 @@ type FilaAEscribir = {
   /** Sólo una comparativa la lleva: los dos periodos que enfrenta y su largo,
    *  que es UNO para los dos lados. */
   comparativa: { a_start: string; b_start: string; weeks: number } | null;
+  test_assignment_id: number | null;
   /** Los trozos de un reparto o los rangos de una gráfica. Se escriben en su
    *  tabla hija, no en la fila. */
   marcas: MarcaAEscribir[];
@@ -74,6 +75,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       display: 'texto',
       grafica: null,
       comparativa: null,
+      test_assignment_id: null,
       marcas: SIN_MARCAS,
     }));
   }
@@ -87,6 +89,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       display: 'texto',
       grafica: null,
       comparativa: null,
+      test_assignment_id: null,
       marcas: SIN_MARCAS,
     }));
   }
@@ -109,6 +112,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
         content: '',
         grafica: null,
         comparativa: null,
+        test_assignment_id: null,
         marcas: seccion.segments.map((s, i) => ({
           position: i + 1,
           label: s.label,
@@ -130,6 +134,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
           modality: seccion.modality,
         },
         comparativa: null,
+        test_assignment_id: null,
         marcas: seccion.ranges.map((r, i) => ({
           position: i + 1,
           label: r.label,
@@ -151,6 +156,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
           b_start: seccion.b_start,
           weeks: seccion.weeks,
         },
+        test_assignment_id: null,
         marcas: SIN_MARCAS,
       };
     }
@@ -161,6 +167,18 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
         content: '',
         grafica: null,
         comparativa: null,
+        test_assignment_id: null,
+        marcas: SIN_MARCAS,
+      };
+    }
+    if (seccion.display === 'test_result') {
+      return {
+        ...comun,
+        label: seccion.label,
+        content: '',
+        grafica: null,
+        comparativa: null,
+        test_assignment_id: Number(seccion.assignment_id),
         marcas: SIN_MARCAS,
       };
     }
@@ -170,6 +188,7 @@ export function itemRowsFor(input: CreateCommunicationInput): FilaAEscribir[] {
       ...comun,
       label: seccion.label ?? null,
       content: seccion.content,
+      test_assignment_id: null,
       grafica: null,
       comparativa: null,
       marcas: SIN_MARCAS,
@@ -202,6 +221,7 @@ export async function insertItems(
         compare_a_start: r.comparativa?.a_start ?? null,
         compare_b_start: r.comparativa?.b_start ?? null,
         compare_weeks: r.comparativa?.weeks ?? null,
+        test_assignment_id: r.test_assignment_id ?? null,
       })),
       'communication_id',
       'position',
@@ -216,6 +236,7 @@ export async function insertItems(
       'compare_a_start',
       'compare_b_start',
       'compare_weeks',
+      'test_assignment_id',
     )}
   `;
 

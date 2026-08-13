@@ -121,7 +121,8 @@ export function PreviaNota({
 /** Una sección cuenta en cuanto tiene algo escrito. El camino cuenta siempre:
  *  no se teclea, así que esperar a que tenga texto sería no enseñarlo nunca. */
 function escrita(s: FilaBorrador): boolean {
-  if (s.display === 'camino' || s.display === 'grafica' || s.display === 'comparativa') return true;
+  if (s.display === 'camino' || s.display === 'grafica' || s.display === 'comparativa' || s.display === 'test_result')
+    return true;
   if (s.display === 'reparto') {
     return Boolean(s.label.trim()) || s.segments.some((seg) => seg.value.trim() || seg.label.trim());
   }
@@ -155,6 +156,10 @@ function Seccion({
         <Grafica seccion={seccion} chart={zonas.get(seccion.key) ?? null} />
       ) : seccion.display === 'comparativa' ? (
         <Comparativa comparativa={comparativas.get(seccion.key) ?? null} />
+      ) : seccion.display === 'test_result' ? (
+        <span style={{ font: '400 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+          El informe de esa ocurrencia se dibuja solo. Debajo escribes lo que ves.
+        </span>
       ) : (
         <span style={{ font: '400 14px/1.5 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
           {seccion.content.trim()}

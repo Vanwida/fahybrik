@@ -91,6 +91,14 @@ export interface CommunicationItemDTO {
    * distintas y el cliente las dice distinto — «no entrenó» y «no lo sabemos».
    */
   comparativa: ZoneComparisonDTO | null;
+  /**
+   * Config + informe resuelto. `assignment_id` viaja siempre (es lo que el
+   * coach eligió). `report` es null sin atleta o sin resultado todavía.
+   */
+  test_result: {
+    assignment_id: string;
+    report: import('./test-report/cmj').CmjReport | null;
+  } | null;
 }
 
 /**

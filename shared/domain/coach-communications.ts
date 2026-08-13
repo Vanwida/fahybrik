@@ -110,6 +110,7 @@ export const COMMUNICATION_DISPLAYS = [
   'camino',
   'grafica',
   'comparativa',
+  'test_result',
 ] as const;
 export type CommunicationDisplay = (typeof COMMUNICATION_DISPLAYS)[number];
 
@@ -132,6 +133,10 @@ export const GRAFICA_ANCHORS: readonly CommunicationAnchor[] = ['plan', 'week', 
  *  meses de entreno, así que colgada de una sesión, un test, una carrera o un
  *  check-in estaría hablando de un día. */
 export const COMPARATIVA_ANCHORS: readonly CommunicationAnchor[] = GRAFICA_ANCHORS;
+
+/** Un informe de test habla de ESA ocurrencia: cuelga de Tus tests, del plan,
+ *  de la semana o de nada. No de una sesión, una carrera o un check-in. */
+export const TEST_RESULT_ANCHORS: readonly CommunicationAnchor[] = ['test', 'plan', 'week', 'general'];
 
 
 // ---------------------------------------------------------------------------
@@ -353,6 +358,13 @@ const noteSectionShape = z.discriminatedUnion('display', [
     b_start: isoMonday,
     weeks: z.number().int().min(COMPARE_MIN_WEEKS).max(COMPARE_MAX_WEEKS),
   }),
+  // El informe de UNA ocurrencia. Se guarda el assignment; el servidor lo
+  // resuelve al servir. Si se guardaran los cm, la nota contaría un fantasma.
+  z.object({
+    display: z.literal('test_result'),
+    label: z.string().trim().min(1).max(MAX_ITEM_LABEL_CHARS),
+    assignment_id: z.string().trim().regex(/^\d+$/),
+  }),
 ]);
 
 /**
@@ -473,6 +485,16 @@ export const createCommunicationSchema = communicationShape.superRefine((value, 
             code: z.ZodIssueCode.custom,
             path: ['items', i, 'b_start'],
             message: 'Los dos periodos se pisan. El segundo empieza cuando termina el primero.',
+          });
+        }
+        return;
+      }
+      if (seccion.display === 'test_result') {
+        if (!TEST_RESULT_ANCHORS.includes(value.anchor_kind)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['items', i, 'display'],
+            message: 'El informe del test cuelga de Tus tests, del plan, de la semana o de nada.',
           });
         }
         return;

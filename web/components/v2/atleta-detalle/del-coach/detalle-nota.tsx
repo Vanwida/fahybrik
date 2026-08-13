@@ -64,6 +64,8 @@ function Seccion({ item }: { item: CommunicationItemDTO }) {
         <Grafica item={item} />
       ) : item.display === 'comparativa' ? (
         <Comparativa item={item} />
+      ) : item.display === 'test_result' ? (
+        <TestEmbebido item={item} />
       ) : (
         <span className="whitespace-pre-line text-body leading-relaxed text-[color:var(--v2-fg)]">
           {item.content}
@@ -195,6 +197,26 @@ function Comparativa({ item }: { item: CommunicationItemDTO }) {
  * lo resolvió. Es lo que convierte «le mandé la nota» en «le mandé la nota y
  * sigue sin contestarme la pregunta de la que depende».
  */
+function TestEmbebido({ item }: { item: CommunicationItemDTO }) {
+  const report = item.test_result?.report;
+  if (!report) {
+    return <span className="text-label text-[color:var(--v2-muted)]">El informe de esa ocurrencia.</span>;
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none text-[color:var(--v2-accent)]">
+        {Math.round(report.unloaded_cm)}
+        <span className="ml-1 text-[12px] font-medium not-italic text-[color:var(--v2-muted)]">cm</span>
+      </p>
+      <p className="text-[12px] text-[color:var(--v2-muted)]">
+        {report.height_label}
+        {report.lri_label ? ` · LRI ${report.lri_label.toLowerCase()}` : ''}
+      </p>
+      <p className="text-[13px] leading-snug">{report.lectura}</p>
+    </div>
+  );
+}
+
 export function EnlaceDelDetalle({ linked }: { linked: LinkedCommunicationDTO | null }) {
   if (!linked) return null;
   const cerrado = linked.state === 'answered' || linked.state === 'done';

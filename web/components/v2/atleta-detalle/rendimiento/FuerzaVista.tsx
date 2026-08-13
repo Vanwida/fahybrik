@@ -8,7 +8,13 @@ import { TestsPanel } from '../tests/TestsPanel';
 import type { V2AthleteDetalle } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
-export function FuerzaVista({ detalle }: { detalle: V2AthleteDetalle }) {
+export function FuerzaVista({
+  detalle,
+  coachName,
+}: {
+  detalle: V2AthleteDetalle;
+  coachName: string;
+}) {
   const maxes = detalle.strength_maxes;
 
   return (
@@ -61,6 +67,7 @@ export function FuerzaVista({ detalle }: { detalle: V2AthleteDetalle }) {
       <TestsPanel
         athleteId={detalle.header.athlete_id}
         athleteName={detalle.header.full_name}
+        coachName={coachName}
         tests={detalle.tests}
         library={detalle.test_library}
       />

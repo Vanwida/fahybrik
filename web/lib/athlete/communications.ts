@@ -27,6 +27,7 @@ import {
   attachCamino,
   attachComparativas,
   attachGraficas,
+  attachTestResults,
   communicationColumns,
   iso,
   loadItemsByCommunication,
@@ -35,12 +36,14 @@ import {
   needsCamino,
   needsComparativa,
   needsGrafica,
+  needsTestResult,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
 import { resolveGraficas } from '@/lib/communications/grafica';
 import { resolveComparativas } from '@/lib/communications/comparativa';
+import { resolveTestResults } from '@/lib/communications/test-result';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import { resolvePlanPath } from '@/lib/plan/camino';
@@ -117,6 +120,11 @@ export async function listAthleteCommunications(args: {
     ? await resolveComparativas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
     : new Map<string, ZoneComparisonDTO>();
 
+  const todas = [...items.values()].flat();
+  const testResults = needsTestResult(todas)
+    ? await resolveTestResults({ items: todas, athlete_id: Number(args.athlete_id), sql: client })
+    : new Map();
+
   const inbox = rows.map((row): AthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
     const done_at = iso(row.done_at);
@@ -138,9 +146,12 @@ export async function listAthleteCommunications(args: {
       // Publicado por definición (lo filtra la consulta): nunca es null aquí.
       published_at: iso(row.published_at)!,
       coach_name: row.coach_name,
-      items: attachComparativas(
-        attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
-        comparativas,
+      items: attachTestResults(
+        attachComparativas(
+          attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
+          comparativas,
+        ),
+        testResults,
       ),
       state,
       seen_at,

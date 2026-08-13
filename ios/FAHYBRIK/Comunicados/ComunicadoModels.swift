@@ -165,6 +165,13 @@ struct ComunicadoItem: Codable, Identifiable, Equatable {
     /// Nil cuando la sección no es una gráfica, o cuando de ese atleta todavía
     /// no hay una sola semana medida.
     var grafica: GraficaDeZonas? = nil
+    /// Config + informe de ESA ocurrencia. El informe se resuelve al servir.
+    var testResult: TestResultEmbed? = nil
+}
+
+struct TestResultEmbed: Codable, Equatable {
+    let assignmentId: String
+    let report: CmjReportDTO?
 }
 
 /// El comunicado más MI estado con él.

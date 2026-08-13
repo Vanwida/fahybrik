@@ -39,6 +39,7 @@ enum ComunicadoForma: String, CaseIterable {
     case reparto
     case camino
     case grafica
+    case test_result
 
     /// Lo que llega por el cable, con dos tolerancias que no son lo mismo:
     ///
@@ -58,7 +59,7 @@ enum ComunicadoForma: String, CaseIterable {
     var seTeclea: Bool {
         switch self {
         case .texto, .cifra: return true
-        case .reparto, .camino, .grafica: return false
+        case .reparto, .camino, .grafica, .test_result: return false
         }
     }
 }
@@ -174,6 +175,8 @@ extension ComunicadoItem {
             // servidor manda la config SIEMPRE que lo es (ventana, filtro y sus
             // rangos), y lo que se queda vacío es la lista de semanas.
             return grafica != nil
+        case .test_result:
+            return testResult?.report != nil
         }
     }
 

@@ -97,6 +97,7 @@ export type ItemRow = {
   compare_a_start: string | null;
   compare_b_start: string | null;
   compare_weeks: number | null;
+  test_assignment_id: string | null;
 };
 
 /**
@@ -186,6 +187,10 @@ export function rowToItemDto(
     camino: null,
     grafica: grafica ? { ...grafica, ranges } : null,
     comparativa: comparativaDeFila(r),
+    test_result:
+      r.display === 'test_result' && r.test_assignment_id != null
+        ? { assignment_id: r.test_assignment_id, report: null }
+        : null,
   };
 }
 
@@ -208,7 +213,8 @@ export async function loadItemsByCommunication(
            grafica_weeks, grafica_modality,
            to_char(compare_a_start, 'YYYY-MM-DD') as compare_a_start,
            to_char(compare_b_start, 'YYYY-MM-DD') as compare_b_start,
-           compare_weeks
+           compare_weeks,
+           test_assignment_id::text as test_assignment_id
     from coach_communication_items
     where communication_id = any(${communicationIds}::bigint[])
     order by communication_id, position
@@ -331,6 +337,22 @@ export function attachGraficas(
 /** ¿Hay alguna sección que necesite los segundos por zona del atleta? */
 export function needsGrafica(items: CommunicationItemDTO[]): boolean {
   return items.some((i) => i.display === 'grafica' && i.grafica != null);
+}
+
+export function attachTestResults(
+  items: CommunicationItemDTO[],
+  resueltos: Map<string, import('@fahybrid/shared/domain/test-report/cmj').CmjReport>,
+): CommunicationItemDTO[] {
+  if (resueltos.size === 0) return items;
+  return items.map((i) => {
+    if (i.display !== 'test_result' || i.test_result == null) return i;
+    const report = resueltos.get(i.test_result.assignment_id) ?? null;
+    return { ...i, test_result: { ...i.test_result, report } };
+  });
+}
+
+export function needsTestResult(items: CommunicationItemDTO[]): boolean {
+  return items.some((i) => i.display === 'test_result' && i.test_result != null);
 }
 
 /**

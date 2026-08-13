@@ -49,6 +49,7 @@ function item(over: Partial<CommunicationItemDTO> & { id: string }): Communicati
     camino: null,
     grafica: null,
     comparativa: null,
+    test_result: null,
     ...over,
   };
 }

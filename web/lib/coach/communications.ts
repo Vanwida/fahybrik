@@ -28,6 +28,7 @@ import {
   attachCamino,
   attachComparativas,
   attachGraficas,
+  attachTestResults,
   communicationColumns,
   iso,
   loadItemsByCommunication,
@@ -36,12 +37,14 @@ import {
   needsCamino,
   needsComparativa,
   needsGrafica,
+  needsTestResult,
   notFound,
   type CommunicationRow,
   type DbClient,
 } from '@/lib/communications/store';
 import { resolveGraficas } from '@/lib/communications/grafica';
 import { resolveComparativas } from '@/lib/communications/comparativa';
+import { resolveTestResults } from '@/lib/communications/test-result';
 import type { ZoneChartDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { ZoneComparisonDTO } from '@fahybrid/shared/domain/zone-compare';
 import { resolvePlanPath } from '@/lib/plan/camino';
@@ -233,6 +236,11 @@ export async function listCommunicationsForAthlete(args: {
     ? await resolveComparativas({ grupos: items.values(), athlete_id: args.athlete_id, sql: client })
     : new Map<string, ZoneComparisonDTO>();
 
+  const todas = [...items.values()].flat();
+  const testResults = needsTestResult(todas)
+    ? await resolveTestResults({ items: todas, athlete_id: Number(args.athlete_id), sql: client })
+    : new Map();
+
   return rows.map((row): CoachAthleteCommunicationDTO => {
     const seen_at = iso(row.seen_at);
     const done_at = iso(row.done_at);
@@ -241,9 +249,12 @@ export async function listCommunicationsForAthlete(args: {
     return {
       ...rowToDto(
         row,
-        attachComparativas(
-          attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
-          comparativas,
+        attachTestResults(
+          attachComparativas(
+            attachGraficas(attachCamino(items.get(row.id) ?? [], camino), graficas),
+            comparativas,
+          ),
+          testResults,
         ),
         enlaceDe(row, linked),
       ),

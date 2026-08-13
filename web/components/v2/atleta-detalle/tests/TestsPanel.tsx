@@ -11,6 +11,9 @@ import { Pill } from '@/components/v2/Pill';
 import { FichaCard, FichaLabel } from '../resumen/piezas';
 import { ProgramarTestSheet } from './ProgramarTestSheet';
 import { CmjInforme } from './CmjInforme';
+import { Compositor } from '../del-coach/Compositor';
+import { notaDeTest } from '@/lib/dashboard/v2/zonas-feedback';
+import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
@@ -28,9 +31,11 @@ function isFuture(iso: string): boolean {
 function TestRow({
   test,
   athleteId,
+  onFeedback,
 }: {
   test: CalibrationTestStatus;
   athleteId: string;
+  onFeedback?: (test: CalibrationTestStatus) => void;
 }) {
   const pending = test.result_pending;
   const done = test.result_captured;
@@ -89,7 +94,20 @@ function TestRow({
           </Pill>
         )}
       </div>
-      {open && report ? <CmjInforme report={report} onClose={() => setOpen(false)} /> : null}
+      {open && report ? (
+        <CmjInforme
+          report={report}
+          onClose={() => setOpen(false)}
+          onFeedback={
+            onFeedback
+              ? () => {
+                  setOpen(false);
+                  onFeedback(test);
+                }
+              : undefined
+          }
+        />
+      ) : null}
     </li>
   );
 }
@@ -97,16 +115,19 @@ function TestRow({
 export function TestsPanel({
   athleteId,
   athleteName,
+  coachName,
   tests,
   library,
 }: {
   athleteId: string;
   athleteName: string;
+  coachName?: string;
   tests: CalibrationTestStatus[];
   /** La batería del coach, para el sheet de «Programar test». */
   library: { id: string; name: string; last_done: string | null }[];
 }) {
   const [open, setOpen] = useState(false);
+  const [componiendo, setComponiendo] = useState<Borrador | null>(null);
 
   const ordered = useMemo(
     () => [...tests].sort((a, b) => b.scheduled_for.localeCompare(a.scheduled_for)),
@@ -157,7 +178,19 @@ export function TestsPanel({
         ) : (
           <ul className="mt-3 divide-y divide-[color:var(--v2-border)]">
             {ordered.map((t) => (
-              <TestRow key={t.assignment_id} test={t} athleteId={athleteId} />
+              <TestRow
+                key={t.assignment_id}
+                test={t}
+                athleteId={athleteId}
+                onFeedback={
+                  coachName
+                    ? (test) =>
+                        setComponiendo(
+                          notaDeTest({ assignment_id: test.assignment_id, title: test.label }),
+                        )
+                    : undefined
+                }
+              />
             ))}
           </ul>
         )}
@@ -169,6 +202,17 @@ export function TestsPanel({
           athleteName={athleteName}
           library={library}
           onClose={() => setOpen(false)}
+        />
+      ) : null}
+
+      {componiendo && coachName ? (
+        <Compositor
+          modo="publicar"
+          destinatarios={[{ athlete_id: athleteId, full_name: athleteName }]}
+          coachName={coachName}
+          partida={{ b: componiendo, id: null }}
+          onCerrar={() => setComponiendo(null)}
+          onHecho={() => setComponiendo(null)}
         />
       ) : null}
     </>

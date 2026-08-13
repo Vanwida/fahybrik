@@ -135,6 +135,28 @@ export function cabeceraDeComparativa(weeks: number): string {
  * comparativa dice QUÉ cambió y el capítulo de texto dice qué significa. Sin el
  * segundo, el atleta recibiría dos barras y ninguna frase.
  */
+export function notaDeTest(args: { assignment_id: string; title: string }): Borrador {
+  const base = borradorVacio('note');
+  const informe: FilaBorrador = {
+    ...filaVacia(),
+    display: 'test_result',
+    label: args.title,
+    test_assignment_id: args.assignment_id,
+  };
+  const explicacion: FilaBorrador = {
+    ...filaVacia(),
+    display: 'texto',
+    label: 'Lo que veo',
+    content: '',
+  };
+  return {
+    ...base,
+    title: args.title,
+    anchor_kind: 'test',
+    sections: [informe, explicacion],
+  };
+}
+
 export function notaDeComparativa(periodos: ParDePeriodos): Borrador {
   const base = borradorVacio('note');
   const comparativa: FilaBorrador = {

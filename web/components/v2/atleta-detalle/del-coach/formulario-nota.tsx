@@ -61,6 +61,7 @@ const FORMAS: ReadonlyArray<{ value: CommunicationDisplay; label: string }> = [
   { value: 'camino', label: 'El camino' },
   { value: 'grafica', label: 'Sus zonas' },
   { value: 'comparativa', label: 'Antes y ahora' },
+  { value: 'test_result', label: 'Este test' },
 ];
 
 /** Qué es esta sección, en una línea, debajo del selector. */
@@ -71,6 +72,7 @@ const QUE_ES: Record<CommunicationDisplay, string> = {
   camino: 'Sus semanas como camino, con dónde está hoy y lo que rompe la rutina.',
   grafica: 'Su tiempo en zonas de un periodo, con los rangos que tú marques.',
   comparativa: 'Dos periodos enfrentados: las horas de cada uno y qué ha cambiado.',
+  test_result: 'El informe de ESA ocurrencia. Se dibuja solo con el resultado; tú escribes lo que ves.',
 };
 
 function sinLa<T>(xs: T[], index: number): T[] {
@@ -187,6 +189,23 @@ function Seccion({
   onCambiar: (patch: Partial<FilaBorrador>) => void;
 }) {
   const err = (campo: string) => errores[`items.${indice}.${campo}`];
+
+  if (seccion.display === 'test_result') {
+    return (
+      <div className="flex flex-col gap-2">
+        <Cabecera
+          valor={seccion.label}
+          indice={indice}
+          error={err('label')}
+          ejemplo="Perfil de salto"
+          onChange={(v) => onCambiar({ label: v })}
+        />
+        <LineaDeEmbed>
+          Se dibuja solo con el informe de esa ocurrencia. Tú escribes lo que ves, debajo.
+        </LineaDeEmbed>
+      </div>
+    );
+  }
 
   if (seccion.display === 'comparativa') {
     return (

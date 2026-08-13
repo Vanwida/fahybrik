@@ -97,7 +97,7 @@ export function RendimientoHome({
         </div>
       ) : vista === 'fuerza' ? (
         <div className="flex flex-col gap-4">
-          <FuerzaVista detalle={detalle} />
+          <FuerzaVista detalle={detalle} coachName={coachName} />
           <HistoricoTab
             plan={detalle.plan}
             strengthMaxes={detalle.strength_maxes}
