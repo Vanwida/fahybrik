@@ -10,6 +10,38 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · El perfil de salto es un TEST que solo existe si el coach lo programa
+
+**El hueco:** un coach (informe CMJ + CMJ con carga + LRI) mide el salto con My Jump Lab. Eso no es un entreno ni un dispositivo. El atleta tiene que saber ANTES qué va a pasar (trípode, carga, secuencia), no encontrarse una cámara.
+
+**Decidido:**
+- Es un test del hub (`cmj_profile`). Lo programa el coach desde el plan / panel de tests. No aparece en Marcas. No entra en el 0/4 de semana 1 (`week_offset` null).
+- La medida nueva es `height` / `cm`. No calibra zonas ni 1RM. El puente tiene un event `jump`; si cayera al else de hoy, 47 cm se guardaría como 47 segundos.
+- La altura se calcula por tiempo de vuelo (`h = g t² / 8`). El servidor recalcula y firma los cm contra los fotogramas.
+- LRI y los baremos son método del coach (`coach_jump_method`), defecto = los cortes del informe que originó la feature. El par crudo (h0, hL, load, bw) se guarda siempre.
+- El atleta ve en la tarjeta del día qué preparar, y al tocar Probarme un briefing entero (necesitas / cómo va a ir / cómo se salta / el teléfono). No entra en `WorkoutContainer`.
+- App aparte (Flexr Jump) descartada: el valor es el loop coach→ficha, no el centímetro suelto.
+
+**NO hacer:** no meterlo en Dispositivos. No segundo CTA de Salud. No auto-test desde Marcas. No enseñar 47,33 como si hubiera platillo. No reutilizar `time`/`seconds` para el vuelo. No clonar el póster WCSE. No hardcodear los cortes.
+
+**Migración:** 0193 (`height`/`cm` en CHECKs, `jump_attempts`, `coach_jump_method`).
+
+---
+
+## 2026-08-13 · El histórico rico entra por FICHERO FIT, no por la API de Garmin — y andar no es correr
+
+**El hueco:** el criterio de empresa es que ningún atleta abra Garmin. Un atleta que llega con un año de reloj Garmin hoy importa su pasado vía Apple Salud como sesiones PLANAS (1 tramo, totales, sin laps/ruta/cadencia/desnivel — verificado en producción: 667 «carreras» importadas, 1,0 tramos/sesión, 0 con ruta). Entrar en una sesión vieja no enseña nada, y las vistas por tipo no pueden detectar series en el histórico. La Health API de Garmin, que sí daría todo, está **pausada para altas nuevas sin fecha** (email de Garmin a Alex jul-2026; verificado vigente ago-2026).
+
+**Decidido:** importador de archivos FIT. El atleta pide su export a Garmin (GDPR, gratis, oficial) o descarga actividades sueltas y las sube a la app; el ZIP/FIT se sube PREFIRMADO a Vercel Blob (patrón de chat/import-fotos, la API nunca toca los bytes) y un job por lotes lo materializa en las MISMAS tablas que una sesión viva: ejecución + tramos por lap (splits reales por km), `workout_routes` (polyline existente), muestras de pulso a `biometric_streams`, zonas con el motor de siempre. Parser: `@garmin/fitsdk` oficial (npm) — no se escribe un parser propio. FIT vale también para Suunto/COROS/Wahoo; el pipeline es parser→actividad canónica→materializador, así que TCX/GPX (Polar) son parsers futuros, no otro sistema.
+
+**Reglas de fidelidad (supersede):** clave de dedupe `source_workout_ref` propia del FIT. Si la ventana solapa con una ejecución importada de Apple Salud (el blob plano) → la rica REEMPLAZA a la plana. Si solapa con una sesión viva/asignada → la viva gana y el FIT se salta. Las muestras de pulso no se duplican: si la ventana ya tiene muestras, no se insertan otras.
+
+**Además, bug reparado en el mismo barrido (mig 0192):** el mapeo de HealthKit metía walking (52) y hiking (24) en `modality='run'` — 431 de las 667 «carreras» del histórico real eran caminatas a ~17 min/km (1.091 km falsos). Ahora walking/hiking → `other`, y el FIT importer aplica el MISMO criterio con los sports FIT.
+
+**NO hacer en consecuencia:** no scrapear la API privada de Garmin (ToS, ya descartado jul-2026). No recibir ficheros por el body de la API (límite ~4,5 MB verificado — siempre prefirmado). No crear tablas paralelas «de importado»: una sesión importada ES una sesión, en las tablas de siempre — la lección de la 0191. No auto-conectar nada: la subida la inicia el atleta.
+
+---
+
 ## 2026-08-13 · Un entreno de Apple Salud es una sesión aunque nadie lo prescribiera
 
 **El hueco:** conectar Apple Salud subía el pasado a `biometric_streams` (1.996 entrenos de Alex desde 2019, 94k pulsos desde 2022) y las comparativas no lo veían. `workout_executions.assignment_id` era NOT NULL + UNIQUE: el ingest solo rellenaba actuals si había un hueco del plan ese día. Sin plan, el histórico era un marcador muerto. La carga, las zonas y el antes/después leen ejecuciones.

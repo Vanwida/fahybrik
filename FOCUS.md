@@ -5,7 +5,18 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Analíticas: las pastillas mandan — Carrera es SOLO running (13-ago)
+## Ahora · Perfil de salto (CMJ) — test a request del coach (13-ago)
+
+El atleta **no** se lo auto-asigna. El coach lo programa. En la app del atleta: tarjeta con lo que hay que preparar (trípode, carga) y briefing entero antes de grabar.
+
+Hecho: física, LRI/método, contrato `height`/`cm`, puente `jump` (no segundos), protocolo `cmj_profile`, mig **0193**, firma de frames, briefing iOS.
+Falta: grabador 240 fps + Vision, ficha LRI del coach, aplicar 0193 en Neon.
+
+Plan: `docs/superpowers/plans/2026-08-13-test-cmj-salto.md`
+
+---
+
+## También · Analíticas: las pastillas mandan — Carrera es SOLO running (13-ago)
 
 **La regla, de Alex y con la app en la mano:** el rail de pastillas está arriba,
 así que todo lo que se pinta debajo se lee como contenido de la pestaña elegida.
