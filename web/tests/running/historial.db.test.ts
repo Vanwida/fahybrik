@@ -125,6 +125,7 @@ describeWithDb('buildRunningHistorial (real DB)', () => {
       window: '30d',
       tipo: 'all',
       now: new Date('2026-04-13T12:00:00.000Z'),
+      client: sql,
     });
 
     expect(result.aggregates.salidas).toBe(2);
@@ -150,6 +151,7 @@ describeWithDb('buildRunningHistorial (real DB)', () => {
       window: '30d',
       tipo: 'fartlek',
       now: new Date('2026-04-13T12:00:00.000Z'),
+      client: sql,
     });
     expect(filtered.aggregates.salidas).toBe(1);
     expect(filtered.tipos).toEqual([{ slug: 'fartlek', label_es: 'Fartlek', count: 1 }]);

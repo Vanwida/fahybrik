@@ -61,7 +61,7 @@ describeWithDb('buildRunningTendencias (real DB)', () => {
     `;
 
     const now = new Date('2026-05-18T12:00:00.000Z'); // 2 semanas después de la sesión
-    const result = await buildRunningTendencias({ athlete_id: fx.athleteId, window: '4w', now });
+    const result = await buildRunningTendencias({ athlete_id: fx.athleteId, window: '4w', now, client: sql });
 
     expect(result.buckets.length).toBeGreaterThanOrEqual(4);
     const withKm = result.buckets.filter((b) => (b.km ?? 0) > 0);

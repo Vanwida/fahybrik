@@ -52,7 +52,7 @@ describeWithDb('buildRunningCapacidad (real DB)', () => {
 
   test('atleta sin nada configurado: todo honesto-vacío', async () => {
     const fx = await athlete();
-    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId });
+    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId, client: sql });
     expect(result.umbral).toBeNull();
     expect(result.zonas).toEqual([]);
     expect(result.records).toEqual([]);
@@ -97,7 +97,7 @@ describeWithDb('buildRunningCapacidad (real DB)', () => {
         (${fx.athleteId}, 'cooper_12min', 2750, 'meters', 'athlete_test', 'outdoor', ${iso(daysAgo(10))}::timestamptz)
     `;
 
-    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId, now });
+    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId, now, client: sql });
 
     expect(result.umbral).toEqual({
       ritmo_s_km: 240,
