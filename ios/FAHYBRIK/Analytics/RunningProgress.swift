@@ -174,8 +174,13 @@ struct Veredicto: Codable, Equatable {
 
 // MARK: - La cobertura: por qué una lectura no se puede dar
 
-/// Cinco razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
+/// Seis razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
 /// diferencia entre una pantalla honesta y una que da pena.
+///
+/// ES EL VOCABULARIO DE TODA LA APP, no el de esta pantalla: el contrato de
+/// analíticas (`shared/domain/analytics/lectura.ts`) reutiliza estas mismas seis
+/// razones a propósito, para que a un atleta sin test no se le pida el test tres
+/// veces en la misma pantalla. Por eso vive aquí una sola vez.
 enum Falta: Equatable {
     /// Le falta TIEMPO. Se le dibuja el plazo.
     case historia(llevas: Int, hacen: Int)
@@ -183,10 +188,20 @@ enum Falta: Equatable {
     case ancla
     /// No hay pulso medido, así que no hay nada que anclar.
     case sensor
+    /// NO HAY RELOJ QUE LO MIDA, y es distinto de `sensor`: una banda de pulso no
+    /// le da el sueño ni la variabilidad nocturna, así que pedirle la banda para
+    /// desbloquear el sueño sería mandarle a comprar lo que no le sirve.
+    case dispositivo
     /// La ocasión no se ha dado todavía (nunca corrió cansado).
     case ocasion
     /// Nadie le ha pedido nunca un ritmo: no hay contra qué cumplir.
     case intencion
+    /// UNA RAZÓN QUE ESTE BINARIO NO CONOCE. No se puede decir por qué falta ni
+    /// ofrecer salida, así que se trata como silencio: enseñar un candado sin
+    /// motivo es exactamente el hueco mudo que este vocabulario existe para
+    /// evitar. Y decodificar en vez de lanzar es lo que impide que una razón
+    /// nueva en el servidor deje al atleta la pantalla entera en blanco.
+    case desconocida
 }
 
 extension Falta: Codable {
@@ -201,11 +216,10 @@ extension Falta: Codable {
                              hacen: try c.decode(Int.self, forKey: .hacen))
         case "ancla": self = .ancla
         case "sensor": self = .sensor
+        case "dispositivo": self = .dispositivo
         case "ocasion": self = .ocasion
         case "intencion": self = .intencion
-        default:
-            throw DecodingError.dataCorruptedError(
-                forKey: .por, in: c, debugDescription: "falta desconocida: \(por)")
+        default: self = .desconocida
         }
     }
 
@@ -218,8 +232,10 @@ extension Falta: Codable {
             try c.encode(hacen, forKey: .hacen)
         case .ancla: try c.encode("ancla", forKey: .por)
         case .sensor: try c.encode("sensor", forKey: .por)
+        case .dispositivo: try c.encode("dispositivo", forKey: .por)
         case .ocasion: try c.encode("ocasion", forKey: .por)
         case .intencion: try c.encode("intencion", forKey: .por)
+        case .desconocida: try c.encode("desconocida", forKey: .por)
         }
     }
 }
@@ -269,10 +285,86 @@ struct RunningHistory: Codable, Equatable {
     /// El tercer peldaño: el mismo tipo de sesión, comparado consigo mismo.
     let mismoTipo: MismoTipo?
 
+    // ── EL VEREDICTO ES LA PUERTA A LOS DATOS, NO SU SUSTITUTO ────────────────
+    //
+    // Estas cuatro no alimentan el veredicto: son la DENSIDAD que crece según se
+    // baja por la pantalla, y vienen de la pestaña anterior — la que servía
+    // quince lecturas donde ésta enseñaba siete.
+    //
+    // El servidor las calculaba, las serializaba y las enviaba desde el primer
+    // día, y este fichero decidía no decodificarlas. No fue un olvido: con un
+    // contrato de raíz fijada, dibujar una lectura más costaba tocar el tipo, el
+    // ensamblador y el modelo Codable a la vez, así que el coste se pagaba entero
+    // aunque nadie la pintara. Es exactamente el problema que el contrato de
+    // LECTURAS (`Lecturas.swift`) resuelve para todo lo que venga después.
+
+    /// El umbral de RITMO y su VDOT, con de dónde salieron. Nulo = no tiene perfil
+    /// de zonas de carrera, que es distinto de tenerlo a cero.
+    ///
+    /// OJO, SON DOS ANCLAS DISTINTAS: ésta es la de RITMO (de ella cuelgan las
+    /// zonas de ritmo y el plan); `zonasMedidas` es la de PULSO. Un atleta puede
+    /// tener una y no la otra, y confundirlas sería apagarle una lectura por un
+    /// test que no era el que le faltaba.
+    let umbral: UmbralRitmo?
+    /// Sus bandas de ritmo. Cuelgan del umbral: vacías si no hay perfil.
+    let zonasRitmo: [ZonaRitmo]
+    /// Cadencia media (pasos/min) por semana — la única lectura de técnica que
+    /// tenemos. Una semana sin ningún tramo con cadencia NO tiene punto.
+    let cadencia: [PuntoSemana]
+    /// Medias reales por tipo de sesión, de más a menos kilómetros. Es la EVIDENCIA
+    /// del tercer peldaño: sin ella, ese peldaño se apoyaba en un número que la
+    /// pantalla no podía dibujar.
+    let porTipo: [TipoMedia]
+
     struct MismoTipo: Codable, Equatable {
         let tipo: String
         let ganaSKm: Double
     }
+}
+
+/// EL ANCLA DE RITMO, con su procedencia. El número sin de dónde sale no se puede
+/// discutir, y un umbral derivado en el alta es real pero no está revisado — son
+/// dos afirmaciones distintas y la pantalla las dice distinto.
+struct UmbralRitmo: Codable, Equatable {
+    /// Segundos por kilómetro. Nulo cuando hay VDOT pero no ritmo.
+    let ritmoSKm: Double?
+    /// El VDOT de Daniels, del selector único de marcas — no del último 5k suelto.
+    let vdot: Double?
+    /// De qué marca salió el VDOT, ya rotulado por el servidor. Nulo si no hay marca.
+    let vdotDesde: String?
+    /// `coach_test` | `athlete_test` | `onboarding_auto`.
+    let origen: String?
+    /// Derivado en el alta y sin confirmar: real, pero sin revisar.
+    let sinRevisar: Bool
+}
+
+/// Una banda de ritmo del atleta. Bordes ABSOLUTOS: `fastS` menor = más rápido, y
+/// `slowS` nulo = banda abierta por el lado lento (la Z1 no tiene techo).
+struct ZonaRitmo: Codable, Equatable, Identifiable {
+    let code: String
+    let label: String
+    /// El color que el perfil guardado declara, en hexadecimal. Aquí el color ES
+    /// dato —lo que se mide es la zona—, así que se respeta el del servidor.
+    let color: String
+    /// El papel fisiológico de la banda (`recovery`, `aerobic_base`, `threshold`…).
+    let role: String?
+    let fastS: Double?
+    let slowS: Double?
+    let sortOrder: Int
+
+    var id: String { code }
+}
+
+/// La media real de un tipo de sesión, sobre la ventana.
+struct TipoMedia: Codable, Equatable, Identifiable {
+    /// El FORMATO de la sesión en vocabulario del cable (`steady`, `intervals`…).
+    /// Su nombre en castellano lo pone el cliente: una clave no se le enseña a nadie.
+    let tipo: String
+    let ritmoSKm: Double
+    let metros: Int
+    let sesiones: Int
+
+    var id: String { tipo }
 }
 
 /// Un punto semanal. `semana` es el lunes en ISO — el servidor no manda etiquetas,

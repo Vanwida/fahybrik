@@ -149,6 +149,35 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         self = PrescriptionScheme(canonicalizing: raw) ?? .sets
     }
 
+    /// EL NOMBRE DEL FORMATO EN CASTELLANO, para cuando el atleta ve el formato
+    /// como DATO y no como una tarjeta que ya se explica sola — «Rodaje 4:52/km»
+    /// en las medias por tipo de sesión.
+    ///
+    /// Vive aquí y no en la pantalla que lo necesitó primero por el motivo de
+    /// siempre: si cada una lo escribe, `intervals` acaba siendo «Series» en un
+    /// sitio e «Intervalos» en el de al lado. AMRAP, EMOM y Tabata se quedan como
+    /// están porque en el box se dicen así — traducirlos sería inventar una palabra
+    /// que nadie usa.
+    var nombreEs: String {
+        switch self {
+        case .forTime:   return "Por tiempo"
+        case .amrap:     return "AMRAP"
+        case .emom:      return "EMOM"
+        case .tabata:    return "Tabata"
+        case .deathBy:   return "Death by"
+        case .intervals: return "Series"
+        case .steady:    return "Rodaje"
+        case .chipper:   return "Chipper"
+        case .ladder:    return "Escalera"
+        case .rounds:    return "Rondas"
+        case .hyroxSim:  return "Simulacro HYROX"
+        case .sets:      return "Series de fuerza"
+        case .superset:  return Vocab.superserie
+        case .warmup:    return "Calentamiento"
+        case .cooldown:  return "Vuelta a la calma"
+        }
+    }
+
     /// True for the conditioning schemes rendered as a "WOD" block (format +
     /// cap/rounds + component list) rather than a per-set table. Kept EXACTLY as
     /// before the catalog expansion — only amrap/emom/forTime — so existing

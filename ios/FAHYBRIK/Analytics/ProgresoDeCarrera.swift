@@ -49,21 +49,44 @@ enum ProgresoDeCarrera {
     /// falta TIEMPO y se le dibuja el plazo. Al que no ha corrido nunca cansado no
     /// le falta nada: esa lectura no existe en su vida, y enseñarle un hueco
     /// prometiéndosela es ruido con forma de dato.
+    ///
+    /// Una razón DESCONOCIDA también calla, y por el mismo motivo con otra causa:
+    /// no se puede decir por qué falta ni ofrecer salida, y un candado sin motivo
+    /// es el hueco mudo que este vocabulario existe para no enseñar.
     static func seCalla(_ f: Falta) -> Bool {
         switch f {
-        case .ocasion, .intencion: return true
-        case .historia, .ancla, .sensor: return false
+        case .ocasion, .intencion, .desconocida: return true
+        case .historia, .ancla, .sensor, .dispositivo: return false
         }
     }
 
     /// LA SALIDA DE UNA FALTA — el botón, que es todo el texto que se le dedica.
     /// Nula cuando no hay nada que el atleta pueda hacer hoy: esperar no es una
     /// acción, y un botón que no lleva a ningún sitio es peor que ninguno.
+    ///
+    /// `dispositivo` no lleva botón A PROPÓSITO: conectar un reloj vive en Perfil,
+    /// a dos pestañas de aquí, y esta pantalla no puede llevarle allí. Se explica
+    /// en una línea (`notaDe`) — que es lo mismo que ya hace la sección vacía
+    /// cuando lo que falta es un aparato.
     static func salidaDe(_ f: Falta) -> String? {
         switch f {
         case .ancla: return "Hacer el test de zonas"
         case .sensor: return "Conectar banda de pulso"
-        case .historia, .ocasion, .intencion: return nil
+        case .historia, .dispositivo, .ocasion, .intencion, .desconocida: return nil
+        }
+    }
+
+    /// LO QUE FALTA, DICHO. Cuando no hay botón que ofrecer, el hueco se declara
+    /// igual: una línea corta, nunca un guion sin motivo ni una casilla en blanco.
+    /// Nula cuando la falta ya se dibuja (el plazo) o cuando la app se calla.
+    static func notaDe(_ f: Falta) -> String? {
+        switch f {
+        case .dispositivo: return "Se llena solo con tu reloj conectado."
+        // El plazo NO se escribe: se dibuja como una barra que se llena, que es
+        // la mitad del punto de distinguir «aún no» de «no aplica».
+        case .historia: return nil
+        case .ancla, .sensor: return nil
+        case .ocasion, .intencion, .desconocida: return nil
         }
     }
 
@@ -77,10 +100,11 @@ enum ProgresoDeCarrera {
 
     /// Misma RAZÓN, no mismo valor: dos faltas de historia con distinto plazo
     /// siguen esperando lo mismo.
-    private static func mismaRazon(_ a: Falta, _ b: Falta) -> Bool {
+    static func mismaRazon(_ a: Falta, _ b: Falta) -> Bool {
         switch (a, b) {
         case (.historia, .historia), (.ancla, .ancla), (.sensor, .sensor),
-             (.ocasion, .ocasion), (.intencion, .intencion):
+             (.dispositivo, .dispositivo), (.ocasion, .ocasion), (.intencion, .intencion),
+             (.desconocida, .desconocida):
             return true
         default:
             return false

@@ -155,7 +155,11 @@ final class ProgresoDeCarreraTests: XCTestCase {
             semanas: 28, zonasMedidas: true, conPulso: true, ppmReferencia: 148,
             zonaReferencia: 2, vo2: nil, alPulso: [], esfuerzos: esfuerzos,
             esfuerzosAntes: [], semanasKm: semanasKm, zonasS: [:], segundosCorriendo: 0,
-            pedido: nil, cansado: [], carrera: nil, mismoTipo: nil
+            pedido: nil, cansado: [], carrera: nil, mismoTipo: nil,
+            // Las cuatro lecturas de DENSIDAD (umbral, zonas de ritmo, cadencia y
+            // medias por tipo) no alimentan el veredicto, así que aquí van vacías:
+            // lo que estas pruebas fijan es la escalera de evidencia.
+            umbral: nil, zonasRitmo: [], cadencia: [], porTipo: []
         )
     }
 }

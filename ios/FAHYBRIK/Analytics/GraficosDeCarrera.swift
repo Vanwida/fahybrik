@@ -62,7 +62,7 @@ struct LineaDeProgreso: View {
             width: max(0, size.width - m.izquierda - m.derecha),
             height: max(0, size.height - m.arriba - m.abajo)
         )
-        guard let p = dibujaSerie(ctx, caja: caja, valores: puntos.map(\.valor),
+        guard let p = dibujaSerie(ctx, caja: caja, valores: puntos.map { Optional($0.valor) },
                                   mejorEsMenor: mejorEsMenor, grosor: 2, radioUltimo: 4)
         else { return }
 
@@ -109,7 +109,7 @@ struct CurvaCompacta: View {
                     width: max(0, size.width - Self.margen * 2),
                     height: max(0, size.height - Self.margen * 2)
                 )
-                _ = dibujaSerie(ctx, caja: caja, valores: valores,
+                _ = dibujaSerie(ctx, caja: caja, valores: valores.map { Optional($0) },
                                 mejorEsMenor: mejorEsMenor, grosor: 1.6, radioUltimo: 2.8)
             }
             .frame(height: alto)
@@ -121,32 +121,56 @@ struct CurvaCompacta: View {
 }
 
 /// La proyección de una serie ya dibujada, para que quien tenga ejes los rotule.
-private struct SerieProyectada {
+///
+/// Interno, no privado, junto con `dibujaSerie` y `etiqueta`: **es EL trazo de la
+/// familia de gráficos de analíticas**, y las lecturas del cuerpo
+/// (`BloquesDeLectura.swift`) dibujan con él. Copiarlo allí habría puesto dos
+/// tintas distintas a contar lo mismo en la misma pantalla.
+struct SerieProyectada {
     let y: (Double) -> Double
     let minV: Double
     let maxV: Double
 }
 
-/// EL TRAZO DE UNA SERIE, ESCRITO UNA SOLA VEZ: fantasma en la altura de
-/// partida, línea, anillo de origen y punto de hoy con halo. Devuelve `nil` en
-/// los casos degenerados (caja sin área, menos de dos puntos) en vez de romper
-/// el eje o dibujar un NaN.
-private func dibujaSerie(
+/// EL TRAZO DE UNA SERIE, ESCRITO UNA SOLA VEZ: fantasma, línea, anillo de origen
+/// y punto de hoy con halo. Devuelve `nil` en los casos degenerados (caja sin
+/// área, menos de dos puntos con valor) en vez de romper el eje o dibujar un NaN.
+///
+/// LOS HUECOS SON HUECOS. Un valor nulo es un día que NADIE midió, y el trazo se
+/// parte ahí: unir los extremos sería interpolar un dato que no existe, que es la
+/// misma mentira que rellenarlo con un cero. Por eso la serie entra como
+/// `[Double?]` y no como `[Double]` con los nulos ya tirados — tirarlos movería
+/// los puntos de sitio en el eje y cerraría el hueco en silencio.
+///
+/// EL FANTASMA ES LA REFERENCIA CUANDO LA HAY. Sin referencia marca la altura de
+/// donde salió la serie, y la distancia al trazo es la mejora. Con ella —el basal
+/// de la variabilidad, el objetivo de sueño, el aviso del coach— marca ESA altura,
+/// y la distancia pasa a ser el delta que el servidor ya sirve. En los dos casos
+/// la comparación se DIBUJA, y en ninguno se afirma si estar arriba es bueno: eso
+/// no viaja en el contrato y no se inventa aquí.
+func dibujaSerie(
     _ ctx: GraphicsContext,
     caja: CGRect,
-    valores: [Double],
+    valores: [Double?],
+    referencia: Double? = nil,
     mejorEsMenor: Bool,
     grosor: CGFloat,
     radioUltimo: CGFloat
 ) -> SerieProyectada? {
-    guard caja.width > 0, caja.height > 0, valores.count >= 2,
-          let minV = valores.min(), let maxV = valores.max() else { return nil }
+    let conValor = valores.compactMap { $0 }
+    guard caja.width > 0, caja.height > 0, valores.count >= 2, conValor.count >= 2,
+          let minV = conValor.min(), let maxV = conValor.max() else { return nil }
 
+    // La referencia entra en la ESCALA aunque caiga fuera de la serie: un basal
+    // por encima de todas las noches medidas dibujaría su fantasma fuera de la
+    // caja, y un fantasma que no se ve no compara nada.
+    let loDato = min(minV, referencia ?? minV)
+    let hiDato = max(maxV, referencia ?? maxV)
     // El margen nunca es cero aunque toda la serie sea el mismo número: sin él
     // la línea sería un segmento pegado al borde superior o inferior.
-    let margenV = max(1, (maxV - minV) * 0.35)
-    let lo = minV - margenV
-    let hi = maxV + margenV
+    let margenV = max(1, (hiDato - loDato) * 0.35)
+    let lo = loDato - margenV
+    let hi = hiDato + margenV
 
     let x = { (i: Int) in caja.minX + (Double(i) / Double(valores.count - 1)) * caja.width }
     // Con `mejorEsMenor` el eje va INVERTIDO: el valor pequeño (mejor, si es
@@ -158,22 +182,54 @@ private func dibujaSerie(
         return caja.minY + (mejorEsMenor ? t : 1 - t) * caja.height
     }
 
-    let serie = valores.enumerated().map { i, v in CGPoint(x: x(i), y: y(v)) }
-    let primero = serie[0]
-    let ultimo = serie[serie.count - 1]
+    // Los puntos que EXISTEN, cada uno en su sitio del eje. El índice se conserva
+    // para que un hueco deje su espacio en blanco en vez de encoger la serie.
+    let serie: [CGPoint?] = valores.enumerated().map { i, v in
+        v.map { CGPoint(x: x(i), y: y($0)) }
+    }
+    guard let primero = serie.compactMap({ $0 }).first,
+          let ultimo = serie.compactMap({ $0 }).last else { return nil }
 
-    // El fantasma: la altura de donde salió, cruzando toda la caja. La distancia
-    // entre esta línea y el trazo ES la mejora — cero palabras.
+    // El fantasma: la altura de la referencia, o la de donde salió. Cruza toda la
+    // caja, y la distancia entre esta línea y el trazo ES la comparación.
+    let alturaFantasma = referencia.map(y) ?? primero.y
     var fantasma = Path()
-    fantasma.move(to: CGPoint(x: caja.minX, y: primero.y))
-    fantasma.addLine(to: CGPoint(x: caja.maxX, y: primero.y))
+    fantasma.move(to: CGPoint(x: caja.minX, y: alturaFantasma))
+    fantasma.addLine(to: CGPoint(x: caja.maxX, y: alturaFantasma))
     ctx.stroke(fantasma, with: .color(Theme.Color.faint), style: StrokeStyle(lineWidth: 1, dash: [2, 5]))
 
-    ctx.stroke(trazo(serie), with: .color(Theme.Color.foreground),
+    ctx.stroke(trazoConHuecos(serie), with: .color(Theme.Color.foreground),
                style: StrokeStyle(lineWidth: grosor, lineCap: .round, lineJoin: .round))
 
-    // Anillo en el punto de partida: marca DÓNDE nace el fantasma, para que la
-    // línea horizontal no parezca flotar sin origen.
+    // UNA MEDIDA SUELTA SE DIBUJA COMO MEDIDA, NO COMO NADA.
+    //
+    // Partir el trazo en los huecos es lo correcto para una señal DIARIA con
+    // alguna noche sin dato. Pero hay lecturas que son escasas por naturaleza —el
+    // peso se registra cada varios días—, y ahí ningún par de puntos es
+    // consecutivo: el trazo salía vacío y el atleta veía una gráfica en blanco
+    // teniendo catorce pesadas.
+    //
+    // La regla no lleva umbral y sale del propio dato: un punto SIN VECINO MEDIDO
+    // se pinta él mismo. En una serie densa no hay ninguno y la línea queda limpia;
+    // en una escasa se pintan todos y se lee como lo que es, una serie de medidas.
+    // Los extremos ya llevan su marca (anillo de origen y punto de hoy), así que se
+    // saltan para no doblar la tinta.
+    let medidos = serie.indices.filter { serie[$0] != nil }
+    for i in medidos where i != medidos.first && i != medidos.last {
+        let anterior = i > serie.startIndex ? serie[i - 1] : nil
+        let siguiente = i < serie.count - 1 ? serie[i + 1] : nil
+        guard anterior == nil, siguiente == nil, let punto = serie[i] else { continue }
+        let r = radioUltimo * 0.55
+        ctx.fill(
+            Path(ellipseIn: CGRect(x: punto.x - r, y: punto.y - r, width: r * 2, height: r * 2)),
+            with: .color(Theme.Color.foreground)
+        )
+    }
+
+    // Anillo en el punto de partida: marca de dónde salió la serie. Sin
+    // referencia es además el origen del fantasma, y entonces la horizontal no
+    // parece flotar; con referencia el fantasma nace de ella y el anillo sigue
+    // diciendo lo suyo — dónde empezó esto.
     let radioOrigen = radioUltimo * 0.75
     ctx.stroke(
         Path(ellipseIn: CGRect(x: primero.x - radioOrigen, y: primero.y - radioOrigen,
@@ -260,11 +316,13 @@ struct BarrasSemanales: View {
 /// marca sobre la barra, no una frase — la distancia entre la marca y donde
 /// corta el segmento es el desvío, y se ve sin leer nada.
 ///
-/// DIFERENCIA A PROPÓSITO CON `graficos.tsx`: esta versión usa una píldora
-/// fina (10pt + esquinas redondeadas) sin el triángulo indicador que trae hoy
-/// esa pantalla. Es una simplificación deliberada de este encargo, no un
-/// olvido — si `graficos.tsx` cambia de forma, conviene revisar que las dos
-/// sigan diciendo lo mismo.
+/// COTEJADO CONTRA `graficos.tsx::BarraReparto`, medida a medida (13-ago): barra
+/// de 30 pt recta, 9 pt de aire arriba para el banderín, marca de 1,5 pt desde
+/// y=3 hasta el suelo, y triángulo de 4+4 de ancho por 5 de alto. Coinciden.
+///
+/// (El comentario anterior decía que esta versión era «una píldora fina de 10 pt
+/// sin triángulo». No lo era: describía un diseño que este código nunca tuvo, y
+/// habría mandado a revisar una divergencia inexistente.)
 struct BarraDeReparto: View {
     let segmentos: [(zona: Int?, pct: Double)]
     let objetivoSuave: Double
@@ -521,10 +579,27 @@ private func trazo(_ puntos: [CGPoint]) -> Path {
     return p
 }
 
+/// EL MISMO TRAZO, PARTIDO EN LOS HUECOS. Un nulo no une: levanta el lápiz y el
+/// siguiente punto con valor empieza un tramo nuevo. Así un tramo sin medir se ve
+/// como lo que es —un espacio en blanco— en vez de como una línea recta que
+/// nadie midió.
+private func trazoConHuecos(_ puntos: [CGPoint?]) -> Path {
+    var p = Path()
+    var abierto = false
+    for punto in puntos {
+        guard let punto else {
+            abierto = false
+            continue
+        }
+        if abierto { p.addLine(to: punto) } else { p.move(to: punto); abierto = true }
+    }
+    return p
+}
+
 /// El mismo rótulo minúsculo que `CurvaDeCarrera`: mono, apagado, nunca
-/// compite con el trazo. No hay un helper compartido entre ficheros para
-/// esto —cada Canvas dibuja el suyo—, así que este es el de esta familia.
-private func etiqueta(_ ctx: GraphicsContext, _ texto: String, at punto: CGPoint, anchor: UnitPoint) {
+/// compite con el trazo. Interno junto con `dibujaSerie`: es el rótulo de la
+/// familia de gráficos de analíticas, y las lecturas del cuerpo lo comparten.
+func etiqueta(_ ctx: GraphicsContext, _ texto: String, at punto: CGPoint, anchor: UnitPoint) {
     ctx.draw(
         Text(texto)
             .font(.system(size: 9, weight: .semibold, design: .monospaced).monospacedDigit())

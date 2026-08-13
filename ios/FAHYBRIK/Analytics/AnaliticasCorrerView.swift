@@ -50,6 +50,10 @@ struct AnaliticasCorrerView: View {
         ProgresoDeCarrera.soporte(veredicto, cobertura: cobertura, history: h)
     }
 
+    /// Las cuatro lecturas que el servidor mandaba y nadie dibujaba: umbral, zonas
+    /// de ritmo, cadencia y medias por tipo.
+    private var detalle: DetalleDeCarrera { DetalleDeCarrera(history: h) }
+
     var body: some View {
         // EL TINTE ES EL VEREDICTO. En la pantalla hermana el lienzo lo tiñe la
         // zona de pulso de la sesión, y es lo que más hace que una pantalla
@@ -62,6 +66,11 @@ struct AnaliticasCorrerView: View {
             loQueMetes
             pedido
             carreraYCansado
+            // LA DENSIDAD CRECE HACIA ABAJO. Lo último es el material de
+            // referencia —tu umbral, tus bandas, tu técnica, tus medias reales—:
+            // no sostiene el veredicto, pero es lo que hace legible todo lo de
+            // arriba. Ver `DetalleDeCarrera`.
+            if detalle.hayAlgo { detalle }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -323,14 +332,26 @@ struct AnaliticasCorrerView: View {
 struct BloqueDeLectura<Contenido: View>: View {
     let etiqueta: String
     var sello: Bool = false
+    /// SOBRE QUÉ VENTANA HABLA EL BLOQUE — «12 semanas», «desde que empezaste».
+    /// Dos palabras a la derecha de la etiqueta, apagadas. Una curva sin su
+    /// ventana miente por omisión: doce semanas y dos años se dibujan igual de
+    /// largas. Nulo donde el bloque no tiene ventana que declarar.
+    var apunte: String? = nil
     @ViewBuilder var contenido: Contenido
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+        // 12 pt entre la etiqueta y lo que cuelga de ella — el `gap: S.m` del
+        // `Bloque` de la maqueta, cotejado contra `piezas.tsx` (13-ago). Estaba
+        // en 8 y el título quedaba pegado a la cifra.
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
                 Text(etiqueta)
                     .font(Theme.Typography.readoutLabel)
                     .uppercaseTracked(1.98)
+                    // La maqueta pinta esta etiqueta en `faint`. Aquí va en `muted`
+                    // A PROPÓSITO: `faint` está medido a 3,99:1, que vale para un
+                    // trazo pero NO llega al 4,5:1 que pide un texto. Es la única
+                    // separación deliberada del acabado, y es la accesible.
                     .foregroundStyle(Theme.Color.muted)
                     .lineLimit(1)
                 if sello {
@@ -341,6 +362,13 @@ struct BloqueDeLectura<Contenido: View>: View {
                         .tracking(1.44)
                         .textCase(.uppercase)
                         .foregroundStyle(Theme.Color.muted)
+                }
+                if let apunte {
+                    Spacer(minLength: Theme.Spacing.s)
+                    Text(apunte)
+                        .scaledFont(10, weight: .medium, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.faint)
+                        .lineLimit(1)
                 }
             }
             contenido
@@ -353,7 +381,11 @@ struct BloqueDeLectura<Contenido: View>: View {
 /// colgando debajo. La cifra es mono y tabular; la unidad, sans.
 struct CifraDeBloque<Delta: View>: View {
     let valor: String
-    let unidad: String
+    /// Nula cuando la cifra ya la lleva PEGADA: un ritmo es «4:15/km» y partirlo
+    /// en «4:15» + «/KM» sería la tercera grafía del ritmo que `Formato` retiró.
+    /// Sin esto, quien no tiene unidad pasaba una cadena vacía y se quedaba con el
+    /// hueco de 10 pt de la pila entre el número y lo que viniera detrás.
+    let unidad: String?
     var tam: CGFloat = 44
     var tono: Color = Theme.Color.foreground
     @ViewBuilder var delta: Delta
@@ -370,18 +402,20 @@ struct CifraDeBloque<Delta: View>: View {
                 .foregroundStyle(tono)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(unidad)
-                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                .tracking(1.1)
-                .textCase(.uppercase)
-                .foregroundStyle(Theme.Color.muted)
+            if let unidad {
+                Text(unidad)
+                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                    .tracking(1.1)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.Color.muted)
+            }
             delta
         }
     }
 }
 
 extension CifraDeBloque where Delta == EmptyView {
-    init(valor: String, unidad: String, tam: CGFloat = 44, tono: Color = Theme.Color.foreground) {
+    init(valor: String, unidad: String?, tam: CGFloat = 44, tono: Color = Theme.Color.foreground) {
         self.init(valor: valor, unidad: unidad, tam: tam, tono: tono) { EmptyView() }
     }
 }

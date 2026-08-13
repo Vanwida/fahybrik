@@ -54,6 +54,10 @@ struct AnalyticsView: View {
     /// El progreso de carrera, con su propia carga (ver `progresoDeCarrera`).
     @State private var progreso: RunningProgressPayload?
     @State private var progresoFallo = false
+    /// LAS ANALÍTICAS DEL CUERPO — carga, capacidad y recuperación, en una LISTA de
+    /// lecturas. Se piden SIEMPRE, sea cual sea la sección del rail: el cuerpo es
+    /// uno y sus bloques viven por encima del rail (ver `elCuerpo`).
+    @State private var analiticas: AnaliticasAtleta?
     /// Las series de la batería, para la sección de Fuerza. Se piden UNA vez por
     /// apertura de la pestaña: una curva de marcas no cambia mientras se mira.
     @State private var seriesDeBateria: [BenchmarkSeries] = []
@@ -135,6 +139,12 @@ struct AnalyticsView: View {
         }
         // Revalidate whenever the bearer, section or period changes. Cache-first:
         // a warm slice renders instantly; this just refreshes it (throttled + SWR).
+        // EL CUERPO NO DEPENDE DE LA SECCIÓN, así que su carga tampoco: se pide una
+        // vez por apertura de la pestaña y no vuelve a pedirse al cambiar de rail.
+        // Colgarla de `refreshKey` habría hecho cinco viajes para traer lo mismo.
+        .task(id: effectiveBearer ?? "") {
+            await cargarAnaliticas()
+        }
         .task(id: refreshKey) {
             store.activate(bearer: effectiveBearer)
             if section == .running {
@@ -189,6 +199,15 @@ struct AnalyticsView: View {
             // bueno, que es más útil que un error sobre una pantalla en blanco.
             if progreso == nil { progresoFallo = true }
         }
+    }
+
+    /// Las lecturas del cuerpo. Un fallo se traga EN SILENCIO a propósito: los
+    /// bloques del cuerpo son lo primero de la pantalla, y un error rojo ahí
+    /// arriba taparía una sección de carrera que sí ha cargado. Si no llegan, no
+    /// se pintan — que es exactamente lo que hace la app con lo que no sabe.
+    private func cargarAnaliticas() async {
+        guard let bearer = effectiveBearer else { return }
+        analiticas = try? await AnalyticsService.fetchLecturas(bearer: bearer)
     }
 
     // MARK: - Fuerza · ¿estoy más fuerte?
@@ -391,23 +410,60 @@ struct AnalyticsView: View {
 
     // MARK: - Body
 
-    /// LOS DOS BLOQUES DEL CUERPO, ANTES DEL RAIL.
+    /// EL CUERPO, ANTES DEL RAIL.
     ///
-    /// No duermes distinto para correr que para levantar: la disposición y la carga
-    /// no tienen modalidad, así que viven ARRIBA y sin rail. Meterlas dentro de cada
-    /// sección las repetiría cinco veces (firmado 12-ago).
+    /// No duermes distinto para correr que para levantar: la disposición, la carga,
+    /// lo que sostienes y cómo lo asimilas no tienen modalidad, así que viven
+    /// ARRIBA y sin rail. Meterlas dentro de cada sección las repetiría cinco veces
+    /// (firmado 12-ago).
     ///
-    /// Hoy solo está el primero. El segundo —«¿voy a más o me estoy pasando?»— es
-    /// el eje de este rediseño y **espera al motor de carga**: hasta que sirva la
-    /// carga con su ritmo de subida y su balance con la recuperación, no hay nada
-    /// que dibujar, y un contenedor vacío no es media pantalla, es una promesa.
+    /// **EL ORDEN NO ES UNA LISTA DE BLOQUES, ES UN RECORRIDO DE GRUPOS.** Cómo
+    /// llegas hoy (lo que ya funcionaba), la carga con su afirmación, y después
+    /// cada grupo que el motor sirva, en su sitio y con su etiqueta. Un grupo nuevo
+    /// del servidor —ejecución, terreno— aparece dibujado sin tocar esta vista, que
+    /// es toda la promesa del contrato de lecturas.
+    ///
+    /// La densidad crece hacia abajo: primero cómo llegas hoy, luego a qué ritmo
+    /// estás cargando, y al final el detalle de cada señal con su historia.
     @ViewBuilder
     private var elCuerpo: some View {
-        if let r = store.readiness.value {
-            ComoLlegoHoyBloque(readiness: r, onCheckin: { showCheckin = true })
-                .padding(.horizontal, Theme.Spacing.l)
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxxl) {
+            if let r = store.readiness.value {
+                ComoLlegoHoyBloque(readiness: r, onCheckin: { showCheckin = true })
+            }
+            if let a = analiticas {
+                BloqueDeCarga(
+                    lecturas: a.lecturas.deGrupo(.carga),
+                    hechos: a.hechos,
+                    metodo: a.metodo,
+                    ventana: a.ventanaEs,
+                    onSalida: { showTestsHub = true }
+                )
+                ForEach(Self.gruposDelCuerpo, id: \.self) { grupo in
+                    if let etiqueta = grupo.etiqueta {
+                        GrupoDeLecturas(
+                            etiqueta: etiqueta,
+                            lecturas: a.lecturas.deGrupo(grupo),
+                            ventana: a.ventanaEs,
+                            onSalida: { showTestsHub = true }
+                        )
+                    }
+                }
+            }
         }
+        .padding(.horizontal, Theme.Spacing.l)
     }
+
+    /// LOS GRUPOS DEL CUERPO, en el orden en que se recorren. `carga` va aparte
+    /// (lleva la afirmación de sujeto) y `desconocido` no entra nunca: sin
+    /// etiqueta no hay bloque.
+    ///
+    /// La recuperación va la ÚLTIMA por ser la más larga —siete lecturas—, no por
+    /// ser la menos importante: el detalle de cada señal es justo la densidad que
+    /// esta pantalla quiere abajo.
+    private static let gruposDelCuerpo: [GrupoLectura] = [
+        .capacidad, .ejecucion, .volumen, .terreno, .recuperacion,
+    ]
 
     @ViewBuilder
     private var main: some View {

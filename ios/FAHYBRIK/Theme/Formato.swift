@@ -427,8 +427,23 @@ enum Formato {
     /// diferencia es DESPRECIABLE no mira el texto — pregunta a `Delta.juicio`,
     /// que es donde vive ese criterio.
     static func delta(_ valor: Double, _ unidad: String) -> String {
+        "\(conSigno(valor)) \(unidad)"
+    }
+
+    /// «+7» · «−3» — un número cuyo SIGNO es parte del dato, sin unidad pegada.
+    ///
+    /// Es la mitad de `delta` que se puede usar sola, y existe porque hay cifras
+    /// signadas que NO son una diferencia contra un objetivo: el ritmo de subida
+    /// de la carga es una magnitud con signo propio (bajar el fondo es tan
+    /// legítimo como subirlo) y su unidad va en la etiqueta de al lado, no pegada.
+    ///
+    /// El menos es el MENOS tipográfico (U+2212), no el guion del teclado: en la
+    /// monoespaciada grande el guion se lee como separador y «-3» parece un rango
+    /// partido. Escribirlo aquí una vez es lo que impide que la segunda cifra
+    /// signada de la app nazca con la otra grafía.
+    static func conSigno(_ valor: Double) -> String {
         let signo = valor > 0 ? "+" : "\u{2212}"
-        return "\(signo)\(Int(abs(valor).rounded())) \(unidad)"
+        return "\(signo)\(Int(abs(valor).rounded()))"
     }
 }
 
