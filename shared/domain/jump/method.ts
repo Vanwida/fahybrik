@@ -103,3 +103,34 @@ export function formatLri(lri: number): string {
   if (!Number.isFinite(lri)) return '—';
   return lri.toFixed(2).replace('.', ',');
 }
+
+export interface JumpProfileView {
+  unloaded_cm: number;
+  loaded_cm: number | null;
+  lri: number | null;
+  lri_label: string | null;
+  height_level: 1 | 2 | 3 | 4 | 5;
+  lri_level: 1 | 2 | 3 | 4 | 5 | null;
+}
+
+export function buildJumpProfile(
+  unloadedCm: number,
+  loadedCm: number | null,
+  loadKg: number | null,
+  bodyMassKg: number | null,
+  method: JumpMethod = DEFAULT_JUMP_METHOD,
+): JumpProfileView {
+  const resp =
+    loadedCm != null && loadKg != null && bodyMassKg != null
+      ? loadResponse(unloadedCm, loadedCm, loadKg, bodyMassKg)
+      : null;
+  const band = resp ? method.lri_bands.find((b) => b.level === lriLevel(resp.lri, method)) : null;
+  return {
+    unloaded_cm: unloadedCm,
+    loaded_cm: loadedCm,
+    lri: resp?.lri ?? null,
+    lri_label: resp ? (band?.label ?? formatLri(resp.lri)) : null,
+    height_level: heightLevel(unloadedCm, method),
+    lri_level: resp ? lriLevel(resp.lri, method) : null,
+  };
+}

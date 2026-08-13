@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   DEFAULT_JUMP_METHOD,
+  buildJumpProfile,
   formatJumpHeightCm,
   formatLri,
   heightLevel,
@@ -32,6 +33,14 @@ describe('respuesta a la carga', () => {
     expect(heightLevel(30, DEFAULT_JUMP_METHOD)).toBe(2);
     expect(heightLevel(45, DEFAULT_JUMP_METHOD)).toBe(4);
     expect(heightLevel(45.1, DEFAULT_JUMP_METHOD)).toBe(5);
+  });
+
+  test('buildJumpProfile arma la ficha del informe', () => {
+    const p = buildJumpProfile(47.33, 39.38, 15, 76);
+    expect(p.height_level).toBe(5);
+    expect(p.lri).toBeCloseTo(0.85, 2);
+    expect(p.lri_level).toBe(3);
+    expect(p.lri_label).toBe('Correcta');
   });
 
   test('la UI no enseña dos decimales como verdad', () => {

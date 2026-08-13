@@ -229,7 +229,8 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
             resultPending: pending,
             resultLabel: captured ? "22:14" : nil,
             capture: nil,
-            brief: nil
+            brief: nil,
+            jumpProfile: nil
         )
     }
 

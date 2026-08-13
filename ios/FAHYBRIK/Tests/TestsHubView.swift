@@ -65,6 +65,7 @@ struct TestsHubView: View {
     @State private var showMarksLibrary = false
     @State private var jumpBriefTest: CalibrationTestStatus? = nil
     @State private var jumpLaunch: JumpLaunch? = nil
+    @State private var jumpReport: JumpReportLaunch? = nil
 
     private struct CaptureTarget: Identifiable {
         let id: String            // assignmentId
@@ -112,6 +113,15 @@ struct TestsHubView: View {
         }
         // La biblioteca empuja sus propios destinos, así que viaja con su pila:
         // el hub se abre como cover desde Inicio y ahí no hay ninguna heredada.
+        .fullScreenCover(item: $jumpReport) { launch in
+            JumpReportView(
+                title: launch.title,
+                dateLabel: launch.dateLabel,
+                profile: launch.profile,
+                bodyMassKg: launch.bodyMassKg,
+                onClose: { jumpReport = nil }
+            )
+        }
         .fullScreenCover(item: $jumpLaunch) { launch in
             JumpCaptureView(
                 launch: launch,
@@ -451,6 +461,18 @@ struct TestsHubView: View {
     @ViewBuilder
     private func cta(_ test: CalibrationTestStatus) -> some View {
         switch test.displayState {
+        case .done where test.isJumpVideo:
+            ExpertPrimaryButton(title: "VER RESULTADO", height: 46, enabled: test.jumpProfile != nil) {
+                if let profile = test.jumpProfile {
+                    jumpReport = JumpReportLaunch(
+                        id: test.assignmentId,
+                        title: test.label,
+                        dateLabel: dateLabel(test.scheduledFor),
+                        profile: profile,
+                        bodyMassKg: status?.athleteWeightKg
+                    )
+                }
+            }
         case .resultPending:
             ExpertPrimaryButton(title: "AÑADIR RESULTADO", height: 46) {
                 Task { await openCapture(test) }

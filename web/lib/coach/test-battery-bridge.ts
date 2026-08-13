@@ -24,6 +24,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
 import { insertStrengthMaxVersion } from '@/lib/strength/strength-max';
 import { loadCoachZonesForUnit, insertZoneProfileVersion } from '@/lib/dashboard/v2/zone-derivation';
@@ -273,6 +274,10 @@ export async function recordBatteryResults(params: {
           : e.value > prev;
     return { slug: e.slug, value: e.value, prev_value: prev, improved };
   });
+
+  // El resultado ES el cierre del día. Sin esto el atleta guarda y Hoy sigue
+  // diciendo Empezar — el puente escribía marcas y no tocaba el assignment.
+  await setAssignmentStatus(sql, assignment_id, athlete_id, 'completed');
 
   out.ok = true;
   return out;

@@ -13,10 +13,8 @@ import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/doma
 import { buildJumpBrief, type JumpBrief } from '@fahybrid/shared/domain/jump/brief';
 import {
   DEFAULT_JUMP_METHOD,
-  formatLri,
-  heightLevel,
-  loadResponse,
-  lriLevel,
+  buildJumpProfile,
+  type JumpProfileView,
 } from '@fahybrid/shared/domain/jump/method';
 import { BENCH_CMJ, BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 
@@ -41,14 +39,7 @@ export interface CalibrationTestStatus {
   jump_profile: JumpProfileView | null;
 }
 
-export interface JumpProfileView {
-  unloaded_cm: number;
-  loaded_cm: number | null;
-  lri: number | null;
-  lri_label: string | null;
-  height_level: 1 | 2 | 3 | 4 | 5;
-  lri_level: 1 | 2 | 3 | 4 | 5 | null;
-}
+export type { JumpProfileView };
 
 export interface BatteryStatus {
   total: number;
@@ -198,20 +189,6 @@ function jumpProfileFrom(
   if (!specs.some((s) => s.slug === BENCH_CMJ)) return null;
   const unloaded = valueBySlug.get(BENCH_CMJ);
   if (unloaded == null) return null;
-  const loaded = valueBySlug.get(BENCH_CMJ_LOADED) ?? null;
-  const method = DEFAULT_JUMP_METHOD;
-  const loadKg = method.default_load.kind === 'kg' ? method.default_load.kg : null;
-  const resp =
-    loaded != null && loadKg != null && bodyMassKg != null
-      ? loadResponse(unloaded, loaded, loadKg, bodyMassKg)
-      : null;
-  const band = resp ? method.lri_bands.find((b) => b.level === lriLevel(resp.lri, method)) : null;
-  return {
-    unloaded_cm: unloaded,
-    loaded_cm: loaded,
-    lri: resp?.lri ?? null,
-    lri_label: resp ? (band?.label ?? formatLri(resp.lri)) : null,
-    height_level: heightLevel(unloaded, method),
-    lri_level: resp ? lriLevel(resp.lri, method) : null,
-  };
+  const loadKg = DEFAULT_JUMP_METHOD.default_load.kind === 'kg' ? DEFAULT_JUMP_METHOD.default_load.kg : null;
+  return buildJumpProfile(unloaded, valueBySlug.get(BENCH_CMJ_LOADED) ?? null, loadKg, bodyMassKg);
 }

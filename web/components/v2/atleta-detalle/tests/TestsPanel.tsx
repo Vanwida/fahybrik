@@ -45,6 +45,8 @@ function TestRow({
 }) {
   const pending = test.result_pending;
   const done = test.result_captured;
+  const [open, setOpen] = useState(false);
+  const report = test.jump_profile;
 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[color:var(--v2-border)] py-2.5 last:border-b-0">
@@ -60,9 +62,19 @@ function TestRow({
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
         {done ? (
-          <span className="font-mono text-sm font-semibold text-[color:var(--v2-fg)]">
-            {test.result_label}
-          </span>
+          report ? (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="v2-focus font-mono text-sm font-semibold text-[color:var(--v2-fg)] underline-offset-2 hover:underline"
+            >
+              {test.result_label}
+            </button>
+          ) : (
+            <span className="font-mono text-sm font-semibold text-[color:var(--v2-fg)]">
+              {test.result_label}
+            </span>
+          )
         ) : null}
         {done ? (
           <Pill tone="ok" variant="soft">Hecho</Pill>
@@ -83,6 +95,51 @@ function TestRow({
           <Pill tone="neutral" variant="soft">Sin hacer</Pill>
         )}
       </div>
+      {open && report ? (
+        <div
+          role="dialog"
+          aria-label="Informe del test"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[color:var(--v2-fg)]">{test.label}</p>
+                <p className="text-xs text-[color:var(--v2-faint)]">{formatDay(test.scheduled_for)}</p>
+              </div>
+              <button type="button" className="text-xs text-[color:var(--v2-muted)]" onClick={() => setOpen(false)}>
+                Cerrar
+              </button>
+            </div>
+            <p className="font-mono text-3xl font-bold text-[color:var(--v2-accent)]">
+              {Math.round(report.unloaded_cm)} cm
+            </p>
+            <p className="mt-1 text-xs text-[color:var(--v2-faint)]">sin carga · nivel {report.height_level}/5</p>
+            {report.loaded_cm != null ? (
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-[color:var(--v2-faint)]">Con carga</p>
+                  <p className="font-mono font-semibold">{Math.round(report.loaded_cm)} cm</p>
+                </div>
+                <div>
+                  <p className="text-[color:var(--v2-faint)]">LRI</p>
+                  <p className="font-mono font-semibold">
+                    {report.lri != null ? report.lri.toFixed(2).replace('.', ',') : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[color:var(--v2-faint)]">Lectura</p>
+                  <p className="font-semibold">{report.lri_label ?? '—'}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

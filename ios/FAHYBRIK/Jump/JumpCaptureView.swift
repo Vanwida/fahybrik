@@ -28,6 +28,7 @@ struct JumpCaptureView: View {
     @State private var saving = false
     @State private var saveFailed = false
     @State private var skipLoaded = false
+    @State private var savedReport: JumpProfileDTO?
 
     private enum Phase { case record, review, summary }
 
@@ -48,6 +49,15 @@ struct JumpCaptureView: View {
                     reviewPhase
                 }
             case .summary: summaryPhase
+            }
+            if let report = savedReport {
+                JumpReportView(
+                    title: "Perfil de salto",
+                    dateLabel: "Hoy",
+                    profile: report,
+                    bodyMassKg: launch.bodyMassKg,
+                    onClose: onSaved
+                )
             }
         }
         .task { await recorder.requestAccessAndConfigure() }
@@ -248,6 +258,7 @@ struct JumpCaptureView: View {
             )
         }
         do {
+            CompletedAssignmentsStore.markCompleted(launch.assignmentId)
             _ = try await TestBatteryService.recordJumpResults(
                 assignmentId: launch.assignmentId,
                 body: JumpResultsBody(
@@ -258,7 +269,12 @@ struct JumpCaptureView: View {
                 ),
                 bearer: bearer
             )
-            onSaved()
+            savedReport = JumpProfileDTO.from(
+                unloaded: free,
+                loaded: best(of: "loaded_cmj"),
+                loadKg: launch.includeLoaded ? launch.loadKg : nil,
+                bodyMassKg: launch.bodyMassKg
+            )
         } catch {
             saveFailed = true
         }

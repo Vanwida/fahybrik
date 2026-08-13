@@ -437,6 +437,7 @@
 		FB11A01AC0FFEE0000000001 /* JumpPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A019C0FFEE0000000001 /* JumpPreview.swift */; };
 		FB11A01CC0FFEE0000000001 /* JumpReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A01BC0FFEE0000000001 /* JumpReviewView.swift */; };
 		FB11A01EC0FFEE0000000001 /* JumpCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */; };
+		FB11A032C0FFEE0000000001 /* JumpReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A031C0FFEE0000000001 /* JumpReportView.swift */; };
 		FB11A022C0FFEE0000000001 /* JumpPhysicsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB11A021C0FFEE0000000001 /* JumpPhysicsTests.swift */; };
 		A9EED9074C8AA1615F86F7CD /* Volcado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEBA66FADB0218883930835 /* Volcado.swift */; };
 		AA0050C8D2EA7A9106294060 /* DoblesShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E8D2BEFA54D20B8D0BF7DB /* DoblesShared.swift */; };
@@ -989,6 +990,7 @@
 		FB11A019C0FFEE0000000001 /* JumpPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpPreview.swift; sourceTree = "<group>"; };
 		FB11A01BC0FFEE0000000001 /* JumpReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpReviewView.swift; sourceTree = "<group>"; };
 		FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpCaptureView.swift; sourceTree = "<group>"; };
+		FB11A031C0FFEE0000000001 /* JumpReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpReportView.swift; sourceTree = "<group>"; };
 		FB11A021C0FFEE0000000001 /* JumpPhysicsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpPhysicsTests.swift; sourceTree = "<group>"; };
 		73A68404255EFFB752343750 /* PM5WorkoutProgrammer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutProgrammer.swift; sourceTree = "<group>"; };
 		73C71AFC5FA674300627A2E0 /* DeleteAccountConfirmTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountConfirmTests.swift; sourceTree = "<group>"; };
@@ -2167,6 +2169,7 @@
 			children = (
 				FB11A001C0FFEE0000000001 /* JumpBrief.swift */,
 				FB11A01DC0FFEE0000000001 /* JumpCaptureView.swift */,
+				FB11A031C0FFEE0000000001 /* JumpReportView.swift */,
 				FB11A017C0FFEE0000000001 /* JumpFrameMarker.swift */,
 				FB11A013C0FFEE0000000001 /* JumpModels.swift */,
 				FB11A011C0FFEE0000000001 /* JumpPhysics.swift */,
@@ -3229,6 +3232,7 @@
 				A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */,
 				FB11A002C0FFEE0000000001 /* JumpBrief.swift in Sources */,
 				FB11A01EC0FFEE0000000001 /* JumpCaptureView.swift in Sources */,
+				FB11A032C0FFEE0000000001 /* JumpReportView.swift in Sources */,
 				FB11A018C0FFEE0000000001 /* JumpFrameMarker.swift in Sources */,
 				FB11A014C0FFEE0000000001 /* JumpModels.swift in Sources */,
 				FB11A012C0FFEE0000000001 /* JumpPhysics.swift in Sources */,

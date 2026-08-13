@@ -144,6 +144,9 @@ struct WorkoutContainer: View {
                     bearer: bearer,
                     onClose: onClose,
                     onSaved: {
+                        if let assignmentId {
+                            CompletedAssignmentsStore.markCompleted(assignmentId)
+                        }
                         onCompleted(assignmentId)
                         onClose()
                     }
