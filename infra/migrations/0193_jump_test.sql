@@ -1,4 +1,4 @@
--- 0192 — Test de salto: el contrato gana height/cm, y el intento crudo
+-- 0193 — Test de salto: el contrato gana height/cm, y el intento crudo
 -- (frames, fps, carga, peso) vive aparte del benchmark agregado.
 --
 -- Puramente ADITIVO. Los CHECK nuevos son superconjuntos. El default del
