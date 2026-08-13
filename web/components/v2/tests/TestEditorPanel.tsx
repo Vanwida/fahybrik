@@ -106,6 +106,21 @@ export function TestEditorPanel({
   const pickPreset = (p: TestPreset) => {
     const seq = draft.content.length + 1;
     const nombre = draft.name.trim() || p.id;
+    if (p.results && p.results.length > 0) {
+      onChange({
+        ...draft,
+        name: nombre,
+        ...(p.note && !draft.protocol.trim() ? { protocol: p.note } : {}),
+        results: p.results.map((r) => ({
+          kind: 'baseline' as const,
+          measure: r.measure,
+          unit: 'cm' as const,
+          label: r.label,
+          optional: r.optional === true,
+        })),
+      });
+      return;
+    }
     if (p.hyrox) {
       onChange({ ...draft, name: nombre, content: [...draft.content, createHyroxSimBlock()] });
       return;

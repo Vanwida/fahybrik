@@ -46,10 +46,10 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     fixtures.push(fx);
 
     const res = await restoreDefaultTests(fx.coachId, sql);
-    // DEFAULT_CALIBRATION_BATTERY has 5 protocols: the 4 week-1 tests + Umbral de
-    // pulso (unscheduled — lives in the catalog, doesn't land in week 1 uninvited).
-    expect(res.created + res.restored).toBe(5);
-    expect(res.tests).toHaveLength(5);
+    // DEFAULT_CALIBRATION_BATTERY: 4 week-1 + umbral de pulso + perfil de salto
+    // (los dos últimos, unscheduled — el coach los programa, no aterrizan solos).
+    expect(res.created + res.restored).toBe(6);
+    expect(res.tests).toHaveLength(6);
 
     const tests = await listCoachTests(fx.coachId, {}, sql);
     const bySlug = new Map(tests.map((t) => [t.slug, t]));

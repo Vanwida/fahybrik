@@ -9,6 +9,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/domain/jump/protocol';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -23,6 +24,8 @@ export interface CalibrationTestStatus {
   /** The captured value(s) pre-formatted for the card ("22:14", "140 kg",
    *  "140 kg · 180 kg · 100 kg" for a multi-result battery). Null until captured. */
   result_label: string | null;
+  /** How the athlete measures this test. jump_video → cámara, never WorkoutContainer. */
+  capture: JumpCaptureMode;
 }
 
 export interface BatteryStatus {
@@ -103,6 +106,7 @@ export async function loadBatteryStatus(
             .map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!))
             .join(' · ')
         : null,
+      capture: captureModeForSpecs(specs),
     };
   });
 

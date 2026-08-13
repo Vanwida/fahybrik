@@ -59,6 +59,8 @@ struct CalibrationTestStatus: Codable, Equatable, Identifiable {
     /// it. Optional — absent → the card shows the ✓ state with no number (honest,
     /// the results live in Rendimiento). Never fabricated on the client.
     let resultLabel: String?
+    /// "jump_video" → cámara. Ausente o "session" → el vivo de siempre.
+    let capture: String?
 
     /// The single visible state of a test row.
     enum DisplayState { case pending, resultPending, done }

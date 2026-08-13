@@ -38,9 +38,10 @@
 
 import type { Prescription } from '../prescription/types';
 import { resolveHyroxStationBySlug, type HyroxStationSlug } from '../hyrox/stations';
+import { CMJ_PROFILE_PROTOCOL } from '../jump/protocol';
 
 /** Familia, tal y como el coach agrupa mentalmente. */
-export type TestFamily = 'fuerza' | 'ergo' | 'correr' | 'estaciones' | 'simulacion';
+export type TestFamily = 'fuerza' | 'ergo' | 'correr' | 'estaciones' | 'simulacion' | 'saltos';
 
 export const TEST_FAMILY_LABEL: Record<TestFamily, string> = {
   fuerza: 'Fuerza · 1RM',
@@ -48,13 +49,14 @@ export const TEST_FAMILY_LABEL: Record<TestFamily, string> = {
   correr: 'Correr',
   estaciones: 'Estaciones HYROX',
   simulacion: 'Simulación',
+  saltos: 'Saltos',
 };
 
 // Orden HYROX-first: somos específicos de HYROX/híbrido, así que lo primero que
 // ve el coach es la carrera y sus estaciones, no el 1RM. Correr va justo detrás
 // porque es la MITAD de la carrera (8 × 1 km), no un complemento.
 export const TEST_FAMILY_ORDER: readonly TestFamily[] = [
-  'simulacion', 'estaciones', 'correr', 'ergo', 'fuerza',
+  'simulacion', 'estaciones', 'correr', 'ergo', 'fuerza', 'saltos',
 ];
 
 export interface TestPreset {
@@ -80,6 +82,9 @@ export interface TestPreset {
   stations?: readonly TestStation[];
   /** Nota que se copia al test (el protocolo, para que el atleta lo lea antes). */
   note?: string;
+  /** Resultados explícitos. Si está, el editor NO deduce la medida del contenido
+   *  (un salto no es un 1000 m). El atleta no ejecuta bloques de vivo. */
+  results?: readonly { measure: 'height'; label: string; optional?: boolean }[];
 }
 
 /** Una estación dentro de un protocolo de varias. */
@@ -247,6 +252,22 @@ export const TEST_PRESETS: readonly TestPreset[] = [
   },
   { id: 'HYROX completo', family: 'simulacion', label: 'HYROX completo', hint: '8 carreras + 8 estaciones · se mide el tiempo',
     exercise: ['run'], exerciseLabel: 'Correr', prescription: distancia('run', 1000), hyrox: 'full' },
+
+  // ── SALTOS — no es un entreno. El atleta graba; no corre un bloque. ────
+  {
+    id: 'Perfil de salto (CMJ)',
+    family: 'saltos',
+    label: 'Perfil de salto (CMJ)',
+    hint: 'Lo programas tú · el atleta ve el briefing (trípode, carga, secuencia)',
+    exercise: ['box-jump'],
+    exerciseLabel: 'CMJ',
+    prescription: unRM(),
+    note: CMJ_PROFILE_PROTOCOL,
+    results: [
+      { measure: 'height', label: 'CMJ' },
+      { measure: 'height', label: 'CMJ con carga', optional: true },
+    ],
+  },
   // HYROX half NO está a propósito: `createHyroxSimBlock` solo monta la carrera
   // completa (8+8) y no acepta variante, así que ofrecer «half» pintaría una
   // etiqueta que el contenido no cumple. Se añade cuando la plantilla lo sepa.
@@ -258,4 +279,5 @@ export const TEST_PRESETS_BY_FAMILY: Record<TestFamily, readonly TestPreset[]> =
   correr: TEST_PRESETS.filter((p) => p.family === 'correr'),
   estaciones: TEST_PRESETS.filter((p) => p.family === 'estaciones'),
   simulacion: TEST_PRESETS.filter((p) => p.family === 'simulacion'),
+  saltos: TEST_PRESETS.filter((p) => p.family === 'saltos'),
 };
