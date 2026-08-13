@@ -71,6 +71,9 @@ import {
   type SameHrPaceSeries,
 } from '@fahybrid/shared/domain/running/same-hr-pace';
 import { HR_ANCHOR_CONFIDENCE } from '@fahybrid/shared/domain/methodology';
+import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
+import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
 import {
   collapseToPolarization,
   polarizationPct,
@@ -79,8 +82,15 @@ import {
 } from '@fahybrid/shared/domain/coach/hr-method';
 import type { CoachRunningThresholds } from '@fahybrid/shared/domain/coach/running-thresholds';
 import {
+  historiaDe,
+  MAX_VENTANA_SEMANAS,
+  VENTANA_POR_DEFECTO_SEMANAS,
+  type Historia,
+} from '@fahybrid/shared/domain/analytics';
+import {
   coberturaDe,
   deltasDe,
+  mediasPorTipo,
   mismoTipoDe,
   sePuedeJuzgarElPedido,
   veredictoDe,
@@ -89,6 +99,8 @@ import {
   type PuntoSemana,
   type RunningHistory,
   type TipoObservacion,
+  type UmbralRitmo,
+  type ZonaRitmo,
   type Veredicto,
   type Vo2Lectura,
 } from '@fahybrid/shared/domain/running/progress';
@@ -98,9 +110,16 @@ import {
  * para acumular parejas (`COMPROMISED_WINDOW_WEEKS`) y da ocho barras largas de
  * volumen sin que la gráfica deje de leerse. No es método del coach: es cuánto
  * se mira hacia atrás, no un umbral de juicio.
+ *
+ * EL TOPE LLEGA A UNA CARRERA ENTERA. Con 26 semanas, a un atleta con siete
+ * meses se le contestaba «los últimos seis meses» cuando preguntaba «¿cuánto he
+ * mejorado desde que empecé?». El coste de abrirlo está medido y es plano
+ * (~230 ms a cualquier ancho): las consultas son barridos por rango acotados por
+ * las sesiones que el atleta tiene, no por lo ancha que sea la ventana. Ver
+ * `shared/domain/analytics/ventana.ts`.
  */
-export const PROGRESS_DEFAULT_WEEKS = 12;
-export const PROGRESS_MAX_WEEKS = 26;
+export const PROGRESS_DEFAULT_WEEKS = VENTANA_POR_DEFECTO_SEMANAS;
+export const PROGRESS_MAX_WEEKS = MAX_VENTANA_SEMANAS;
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -147,6 +166,14 @@ export interface RunningProgressPayload {
     low_max_zone: number;
     mid_max_zone: number;
   };
+  /**
+   * Cuánta historia tiene el atleta DE VERDAD, y si `window_weeks` la abarca
+   * entera. `history.semanas` sólo cuenta lo que cabe en la ventana; esto cuenta
+   * su vida en la app. Sin la distinción, pedir 520 semanas a quien lleva diez
+   * enseñaría sus diez bajo el rótulo «dos años», y «desde que empecé» sería
+   * una etiqueta y no una afirmación.
+   */
+  historia: Historia;
   /** Por qué una lectura salió vacía. No se dibuja: se mira cuando algo falta. */
   diagnostics: {
     same_hr: SameHrPaceSeries['rejected'] & { accepted: number; reference_bpm: number };
@@ -234,11 +261,13 @@ export async function buildRunningProgress(args: {
       : null;
 
   // ── LO QUE PIDE UNA CONSULTA PROPIA ────────────────────────────────────────
-  const [sameHrRows, curveRows, zoneWindow, compromisedObs] = await Promise.all([
+  const [sameHrRows, curveRows, zoneWindow, compromisedObs, tipoRows, perfilRitmo] = await Promise.all([
     loadSameHrObservations(client, args.athlete_id, since, now),
     loadCurveCandidates(client, args.athlete_id, shadowSince, now),
     loadZonesForWindow(client, args.athlete_id, since, window_weeks),
     loadCompromisedPaceObservations(client, args.athlete_id, now),
+    loadTypeAndCadence(client, args.athlete_id, since, now),
+    loadPaceThreshold(client, args.athlete_id),
   ]);
 
   // ── FORMA: el ritmo al mismo pulso ─────────────────────────────────────────
@@ -277,8 +306,15 @@ export async function buildRunningProgress(args: {
     parejas: p.bands,
   }));
 
-  // ── EL TERCER PELDAÑO ──────────────────────────────────────────────────────
-  const mismo_tipo = mismoTipoDe(sameHrRows.map(toTipoObservacion));
+  // ── EL TERCER PELDAÑO, Y SU GRÁFICO ────────────────────────────────────────
+  // Las dos salen de `tipoRows`, no de `sameHrRows`. Es una corrección de fondo:
+  // este peldaño existe para el atleta SIN pulso fiable, y alimentarlo de la
+  // consulta que exige `avg_hr is not null` se lo negaba justo a su único
+  // destinatario. Y saliendo las dos de la misma lista, el veredicto no puede
+  // nombrar un tipo que la lista de abajo no enseñe.
+  const tipoObs = tipoRows.map(toTipoObservacion);
+  const mismo_tipo = mismoTipoDe(tipoObs);
+  const por_tipo = mediasPorTipo(tipoObs);
 
   // ── LA CARRERA ─────────────────────────────────────────────────────────────
   const carrera = targetRace
@@ -306,13 +342,24 @@ export async function buildRunningProgress(args: {
     cansado,
     carrera,
     mismo_tipo,
+    umbral: perfilRitmo.umbral,
+    zonas_ritmo: perfilRitmo.zonas,
+    cadencia: cadenciaPorSemana(tipoRows),
+    por_tipo,
   };
+
+  const primera = await loadPrimeraSesion(client, args.athlete_id);
 
   return {
     athlete_id: String(args.athlete_id),
     generated_at_iso: now.toISOString(),
     window_weeks,
     method: thresholds,
+    historia: historiaDe({
+      dias_de_historia: primera.dias,
+      primera_sesion_iso: primera.iso,
+      ventana_dias: window_weeks * 7,
+    }),
     history,
     verdict: veredictoDe(history, thresholds),
     coverage: coberturaDe(history, thresholds),
@@ -366,23 +413,34 @@ function toVo2(v: Awaited<ReturnType<typeof buildAthleteVo2Max>>): Vo2Lectura | 
   };
 }
 
-interface CurveRow {
+export interface CurveRow {
   day: string;
   distance_m: number;
   duration_s: number;
   scope: 'segment' | 'execution';
 }
 
-function toCandidate(r: CurveRow): EffortCandidate {
+export function toCandidate(r: CurveRow): EffortCandidate {
   return { distance_m: r.distance_m, duration_s: r.duration_s, scope: r.scope };
 }
 
 interface SameHrRow extends SameHrObservation {
-  tipo: string | null;
   duration_s: number;
 }
 
-function toTipoObservacion(r: SameHrRow): TipoObservacion {
+/** Un tramo de trabajo con su tipo prescrito y su cadencia. Sin exigir pulso:
+ *  de aquí salen el tercer peldaño, las medias por tipo y la cadencia, y las
+ *  tres tienen que existir para el atleta que corre sin banda. */
+interface TipoRow {
+  week_start: string;
+  execution_id: string;
+  tipo: string | null;
+  pace_s_per_km: number;
+  distance_m: number;
+  cadence_spm: number | null;
+}
+
+function toTipoObservacion(r: TipoRow): TipoObservacion {
   return {
     tipo: r.tipo ?? '',
     semana: r.week_start,
@@ -391,11 +449,58 @@ function toTipoObservacion(r: SameHrRow): TipoObservacion {
     // para su único destinatario.
     pace_s_per_km: r.pace_s_per_km,
     distance_m: r.distance_m,
+    sesion_id: r.execution_id,
   };
+}
+
+/**
+ * Cadencia media por semana, ponderada por distancia — la misma ponderación que
+ * usaba la tarjeta anterior, por la misma razón: contar igual un tramo de 400 m
+ * y un rodaje de 8 km deja que la sesión troceada mande sobre la semana.
+ *
+ * Una semana sin ningún tramo con cadencia NO tiene punto. La cadencia la
+ * reporta el reloj y falta a menudo; un cero diría «corrió sin dar pasos».
+ */
+function cadenciaPorSemana(rows: readonly TipoRow[]): PuntoSemana[] {
+  const por = new Map<string, { metros: number; ponderado: number }>();
+  for (const r of rows) {
+    if (r.cadence_spm == null || !Number.isFinite(r.cadence_spm) || r.cadence_spm <= 0) continue;
+    if (r.distance_m <= 0) continue;
+    const e = por.get(r.week_start) ?? { metros: 0, ponderado: 0 };
+    e.metros += r.distance_m;
+    e.ponderado += r.cadence_spm * r.distance_m;
+    por.set(r.week_start, e);
+  }
+  return [...por.entries()]
+    .filter(([, e]) => e.metros > 0)
+    .map(([semana, e]) => ({ semana, valor: Math.round(e.ponderado / e.metros) }))
+    .sort((a, b) => a.semana.localeCompare(b.semana));
 }
 
 /** Semanas enteras desde la primera sesión ejecutada. 0 cuando no ha corrido
  *  nunca — y 0 semanas de historia es una respuesta, no un hueco. */
+/**
+ * La PRIMERA sesión del atleta, sin ventana que la acote — la que decide si lo
+ * que se enseña es «desde que empezaste» o sólo «las últimas N semanas».
+ */
+async function loadPrimeraSesion(
+  client: Sql,
+  athlete_id: number,
+): Promise<{ dias: number | null; iso: string | null }> {
+  const rows = await client<Array<{ first_at: Date | null }>>`
+    select min(coalesce(we.ended_at, we.started_at, we.created_at)) as first_at
+    from workout_executions we
+    where we.athlete_id = ${athlete_id}
+  `;
+  const first = rows[0]?.first_at ?? null;
+  if (first == null) return { dias: null, iso: null };
+  const d = new Date(first);
+  return {
+    dias: Math.max(0, Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000))),
+    iso: d.toISOString().slice(0, 10),
+  };
+}
+
 function weeksSince(firstDayIso: string | null, now: Date): number {
   if (!firstDayIso) return 0;
   const t = Date.parse(firstDayIso);
@@ -519,7 +624,7 @@ async function loadSameHrObservations(
  * El total de la sesión suma TODO lo corrido, recuperaciones incluidas — que es
  * lo que significa «mi mejor 10 km»: los kilómetros que hicieron las piernas.
  */
-async function loadCurveCandidates(
+export async function loadCurveCandidates(
   client: Sql,
   athlete_id: number,
   since: Date,
@@ -577,6 +682,146 @@ async function loadCurveCandidates(
       scope: 'execution',
     })),
   ];
+}
+
+/**
+ * Los tramos de trabajo de la ventana con su TIPO prescrito y su cadencia.
+ *
+ * SIN `avg_hr is not null`, a diferencia de `loadSameHrObservations`, y esa es
+ * toda la diferencia: de aquí salen el tercer peldaño de la escalera, las medias
+ * por tipo y la cadencia, y las tres tienen que funcionar para el atleta que
+ * corre sin banda de pulso — que es exactamente para quien existe ese peldaño.
+ *
+ * El TIPO es el `scheme` que prescribió el coach, normalizado por
+ * `normalizeFormat`: el mismo criterio y el mismo vocabulario que ya usaba la
+ * tarjeta «Carrera por tipo», para que las medias no cambien de significado al
+ * cambiar de pantalla.
+ */
+async function loadTypeAndCadence(
+  client: Sql,
+  athlete_id: number,
+  since: Date,
+  until: Date,
+): Promise<TipoRow[]> {
+  const rows = await client<
+    Array<{
+      week_start: string;
+      execution_id: string;
+      scheme: string | null;
+      pace_s_per_km: number | null;
+      distance_m: number | null;
+      cadence_spm: number | null;
+    }>
+  >`
+    select
+      to_char(
+        date_trunc(
+          'week',
+          coalesce(we.ended_at, we.started_at) at time zone
+            coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE})
+        )::date,
+        'YYYY-MM-DD'
+      )                                                     as week_start,
+      se.execution_id::text                                 as execution_id,
+      ts.prescription_json->>'scheme'                       as scheme,
+      coalesce(
+        se.avg_pace_s_per_km,
+        case
+          when se.distance_meters > 0
+            and extract(epoch from (se.ended_at - se.started_at)) > 0
+          then extract(epoch from (se.ended_at - se.started_at)) / (se.distance_meters / 1000.0)
+        end
+      )                                                     as pace_s_per_km,
+      se.distance_meters                                    as distance_m,
+      se.run_cadence_spm                                    as cadence_spm
+    from segment_executions se
+    join workout_executions we on we.id = se.execution_id
+    left join template_segments ts on ts.id = se.template_segment_id
+    where we.athlete_id = ${athlete_id}
+      and se.modality = 'run'
+      and se.distance_meters > 0
+      and coalesce(we.ended_at, we.started_at) >= ${since.toISOString()}::timestamptz
+      and coalesce(we.ended_at, we.started_at) <= ${until.toISOString()}::timestamptz
+      and ${SEG_IS_WORK_EFFORT(client)}
+  `;
+
+  return rows.flatMap((r) => {
+    const pace = r.pace_s_per_km != null ? Number(r.pace_s_per_km) : null;
+    const dist = r.distance_m != null ? Number(r.distance_m) : null;
+    if (pace == null || dist == null || !Number.isFinite(pace) || pace <= 0 || dist <= 0) return [];
+    return [
+      {
+        week_start: r.week_start,
+        execution_id: r.execution_id,
+        tipo: normalizeFormat(r.scheme ?? undefined) ?? null,
+        pace_s_per_km: pace,
+        distance_m: dist,
+        cadence_spm: r.cadence_spm != null ? Number(r.cadence_spm) : null,
+      },
+    ];
+  });
+}
+
+/**
+ * EL UMBRAL DE RITMO y sus bandas — el número del que sale todo lo demás.
+ *
+ * Es OTRA ancla, no la de pulso: vive en `athlete_zone_profiles` (modalidad
+ * run), en segundos por kilómetro, y un atleta puede tener ésta y no la de
+ * pulso o al revés. Se sirve con `origen` y `sin_revisar` para que la pantalla
+ * pueda decir que unas zonas derivadas en el alta son reales pero sin confirmar.
+ *
+ * El VDOT sale de `selectRunMark` — el MISMO selector del que prescribe el
+ * plan, no del último 5 km que haya en la tabla. Si esta pantalla sacara su
+ * propio VDOT, el atleta vería un nivel aquí y su plan usaría otro.
+ */
+async function loadPaceThreshold(
+  client: Sql,
+  athlete_id: number,
+): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[] }> {
+  const [perfil, marcas] = await Promise.all([
+    client<Array<{ threshold_s: string | null; zones_json: unknown; source: string | null; needs_review: boolean | null }>>`
+      select threshold_s::text as threshold_s, zones_json, source, needs_review
+      from athlete_zone_profiles
+      where athlete_id = ${athlete_id} and modality = 'run'
+      order by version desc
+      limit 1
+    `,
+    client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
+      select exercise_slug, value::text as value,
+             (current_date - recorded_at::date)::int as age_days,
+             source, run_context
+      from athlete_benchmarks
+      where athlete_id = ${athlete_id} and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
+      order by recorded_at desc
+    `,
+  ]);
+
+  const runMark = selectRunMark(
+    marcas.flatMap((r) => {
+      const value = Number(r.value);
+      if (!Number.isFinite(value)) return [];
+      return [{ slug: r.exercise_slug, value, age_days: r.age_days, source: r.source, run_context: r.run_context }];
+    }),
+  );
+
+  const fila = perfil[0];
+  const zonas: ZonaRitmo[] = Array.isArray(fila?.zones_json) ? (fila!.zones_json as ZonaRitmo[]) : [];
+  const ritmo_s_km = fila?.threshold_s != null ? Number(fila.threshold_s) : null;
+
+  // Ni perfil ni marca: no hay umbral que enseñar. Null, no un objeto de nulos
+  // — la pantalla tiene que poder distinguir «no tiene» de «tiene y está vacío».
+  if (fila == null && runMark == null) return { umbral: null, zonas: [] };
+
+  return {
+    umbral: {
+      ritmo_s_km: ritmo_s_km != null && Number.isFinite(ritmo_s_km) ? ritmo_s_km : null,
+      vdot: runMark ? runMark.vdot : null,
+      vdot_desde: runMark ? runMark.spec.label : null,
+      origen: fila?.source ?? null,
+      sin_revisar: fila?.needs_review === true,
+    },
+    zonas,
+  };
 }
 
 /**

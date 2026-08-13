@@ -32,14 +32,20 @@ export async function recoveryDrill(
   `;
   const sessions: SourceSession[] = rows
     .filter((r) => r.v != null)
-    .map((r) => ({
-      id: r.d,
-      date: r.d,
-      title_es: dayMonthEs(r.d) ?? r.d,
-      detail_es: null,
-      value: `${Math.round((r.v as number) * 10) / 10}`,
-      value_label: null,
-    }));
+    .map((r) => {
+      // sleep_duration se guarda en SEGUNDOS (igual que biometric-trend.ts y el
+      // SLEEP_CFG de analytics/recovery.ts); el resto de métricas de recuperación
+      // ya están en su unidad de pantalla y no necesitan esta conversión.
+      const displayValue = metric === 'sleep_duration' ? (r.v as number) / 3600 : (r.v as number);
+      return {
+        id: r.d,
+        date: r.d,
+        title_es: dayMonthEs(r.d) ?? r.d,
+        detail_es: null,
+        value: `${Math.round(displayValue * 10) / 10}`,
+        value_label: null,
+      };
+    });
   return {
     kind: 'recovery.metric',
     title_es: `Recuperación · ${metric}`,

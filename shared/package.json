@@ -38,6 +38,10 @@
       "types": "./domain/adherence/index.ts",
       "default": "./domain/adherence/index.ts"
     },
+    "./domain/analytics": {
+      "types": "./domain/analytics/index.ts",
+      "default": "./domain/analytics/index.ts"
+    },
     "./domain/execution-merge": {
       "types": "./domain/execution-merge/index.ts",
       "default": "./domain/execution-merge/index.ts"

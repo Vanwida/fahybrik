@@ -40,16 +40,21 @@ import type { CoachRunningThresholds } from '../coach/running-thresholds';
  * Cinco razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
  * diferencia entre una pantalla honesta y una que da pena.
  *
- *   historia   le falta TIEMPO. Se le dibuja el plazo.
- *   ancla      no hay test de zonas: no se sabe qué es «suave» para él.
- *   sensor     no hay pulso medido, así que no hay nada que anclar.
- *   ocasion    la ocasión no se ha dado todavía (nunca corrió cansado).
- *   intencion  nadie le ha pedido nunca un ritmo: no hay contra qué cumplir.
+ *   historia    le falta TIEMPO. Se le dibuja el plazo.
+ *   ancla       no hay test de zonas: no se sabe qué es «suave» para él.
+ *   sensor      no hay pulso medido, así que no hay nada que anclar.
+ *   dispositivo no hay reloj que lo mida. Distinto de `sensor`: una banda de
+ *               pulso no le da el sueño ni la variabilidad nocturna, y pedirle
+ *               la banda para desbloquear el sueño sería mandarle a comprar lo
+ *               que no le sirve.
+ *   ocasion     la ocasión no se ha dado todavía (nunca corrió cansado).
+ *   intencion   nadie le ha pedido nunca un ritmo: no hay contra qué cumplir.
  */
 export type Falta =
   | { por: 'historia'; llevas: number; hacen: number }
   | { por: 'ancla' }
   | { por: 'sensor' }
+  | { por: 'dispositivo' }
   | { por: 'ocasion' }
   | { por: 'intencion' };
 
@@ -77,6 +82,8 @@ export function salidaDe(f: Falta): string | null {
       return 'Hacer el test de zonas';
     case 'sensor':
       return 'Conectar banda de pulso';
+    case 'dispositivo':
+      return 'Conectar tu reloj';
     default:
       return null;
   }
@@ -175,6 +182,54 @@ export interface Vo2Lectura {
   serie: number[];
 }
 
+/**
+ * EL UMBRAL DE RITMO Y SU VDOT — el número del que salen las zonas.
+ *
+ * OJO, SON DOS ANCLAS DISTINTAS Y NO SE MEZCLAN. Ésta es la de RITMO
+ * (`athlete_zone_profiles`, modalidad run): segundos por kilómetro, la que
+ * ordena las zonas de ritmo y de la que cuelga el plan. `zonas_medidas`, más
+ * abajo, es la de PULSO (`resolveThresholdHr`) y gobierna otras lecturas. Un
+ * atleta puede tener una y no la otra, y confundirlas sería apagarle una
+ * lectura por un test que no era el que le faltaba.
+ */
+export interface UmbralRitmo {
+  /** Segundos por kilómetro. */
+  ritmo_s_km: number | null;
+  /** El VDOT de Daniels, del selector único de marcas — no del último 5k suelto. */
+  vdot: number | null;
+  /** De qué marca salió el VDOT, ya rotulado. Null si no hay marca. */
+  vdot_desde: string | null;
+  /** `coach_test` | `athlete_test` | `onboarding_auto`. */
+  origen: string | null;
+  /** Derivado en el alta y sin confirmar: real, pero sin revisar. */
+  sin_revisar: boolean;
+}
+
+/** Una banda de ritmo del atleta. Bordes absolutos: `fast_s` menor = más rápido. */
+export interface ZonaRitmo {
+  code: string;
+  label: string;
+  color: string;
+  /** El papel fisiológico de la banda (`recovery`, `aerobic_base`, `threshold`…).
+   *  Viaja en el perfil guardado, así que se declara en vez de dejarlo colarse
+   *  por un cast: un campo que existe y el tipo niega es un campo que alguien
+   *  borra por «no se usa». */
+  role?: string;
+  fast_s: number | null;
+  /** Nulo = banda abierta por el lado lento (la Z1 no tiene techo). */
+  slow_s: number | null;
+  sort_order: number;
+}
+
+/** La media real de un tipo de sesión. Es la EVIDENCIA del tercer peldaño: sin
+ *  ella, ese peldaño se apoyaba en un número que la pantalla no podía dibujar. */
+export interface TipoMedia {
+  tipo: string;
+  ritmo_s_km: number;
+  metros: number;
+  sesiones: number;
+}
+
 export interface RunningHistory {
   /** Semanas de historial del atleta con nosotros. */
   semanas: number;
@@ -204,6 +259,20 @@ export interface RunningHistory {
   carrera: CarreraObjetivo | null;
   /** El tercer peldaño: el mismo tipo de sesión, comparado consigo mismo. */
   mismo_tipo: { tipo: string; gana_s_km: number } | null;
+
+  // ── El veredicto es la PUERTA a los datos, no su sustituto ─────────────────
+  // Estas cuatro no alimentan el veredicto: son la densidad que crece según se
+  // baja por la pantalla. Vienen de la pestaña anterior, que servía quince
+  // lecturas donde ésta enseñaba siete.
+
+  /** El umbral de RITMO y su VDOT. Null = no tiene perfil de zonas de carrera. */
+  umbral: UmbralRitmo | null;
+  /** Sus bandas de ritmo. Cuelgan del umbral: vacías si no hay perfil. */
+  zonas_ritmo: ZonaRitmo[];
+  /** Cadencia media (pasos/min) por semana — la única lectura de técnica. */
+  cadencia: PuntoSemana[];
+  /** Medias reales por tipo de sesión, de más a menos kilómetros. */
+  por_tipo: TipoMedia[];
 }
 
 // ---------------------------------------------------------------------------
@@ -302,6 +371,8 @@ export interface TipoObservacion {
   semana: string;
   pace_s_per_km: number;
   distance_m: number;
+  /** La ejecución de la que salió, para contar sesiones sin repetirlas. */
+  sesion_id?: string;
 }
 
 /**
@@ -367,6 +438,40 @@ export function mismoTipoDe(
   }
 
   return mejor ? { tipo: mejor.tipo, gana_s_km: mejor.gana_s_km } : null;
+}
+
+/**
+ * La media de cada tipo de sesión, ponderada por distancia y ordenada de más a
+ * menos kilómetros.
+ *
+ * COME EXACTAMENTE LAS MISMAS OBSERVACIONES QUE `mismoTipoDe`, y eso es lo que
+ * la hace la evidencia del tercer peldaño en vez de una tarjeta que va por su
+ * cuenta: si el veredicto dice «tus continuos van 4 s/km mejor», la fila de
+ * continuos de aquí es de dónde salió ese número. Alimentarlas por separado —
+ * una del `scheme` prescrito y otra del contexto ejecutado— habría dejado un
+ * peldaño apoyado en un tipo que la lista de abajo ni menciona.
+ */
+export function mediasPorTipo(observaciones: readonly TipoObservacion[]): TipoMedia[] {
+  const por = new Map<string, { metros: number; ponderado: number; sesiones: Set<string> }>();
+  for (const o of observaciones) {
+    if (!o.tipo) continue;
+    if (!Number.isFinite(o.pace_s_per_km) || o.pace_s_per_km <= 0) continue;
+    if (!Number.isFinite(o.distance_m) || o.distance_m <= 0) continue;
+    const e = por.get(o.tipo) ?? { metros: 0, ponderado: 0, sesiones: new Set<string>() };
+    e.metros += o.distance_m;
+    e.ponderado += o.pace_s_per_km * o.distance_m;
+    if (o.sesion_id) e.sesiones.add(o.sesion_id);
+    por.set(o.tipo, e);
+  }
+  return [...por.entries()]
+    .filter(([, e]) => e.metros > 0)
+    .map(([tipo, e]) => ({
+      tipo,
+      ritmo_s_km: Math.round(e.ponderado / e.metros),
+      metros: Math.round(e.metros),
+      sesiones: e.sesiones.size,
+    }))
+    .sort((a, b) => b.metros - a.metros || a.tipo.localeCompare(b.tipo));
 }
 
 export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Veredicto {

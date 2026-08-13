@@ -34,6 +34,20 @@ export type DailyTss = {
    * so both are carried.
    */
   unknown_sessions?: number;
+  /**
+   * Of `known_seconds`, how many were priced by an INSTRUMENT (pace or heart
+   * rate) rather than by the athlete's rating.
+   *
+   * Coverage used to be a single question — "is this hour in the numbers?" — and
+   * that was enough while RPE was the only rung. Now that a session can be
+   * priced by measured pace, by measured HR, or by a self-report, the honest
+   * reading has two axes: how much of the training the numbers saw, and how much
+   * of what they saw was measured rather than felt. A base built on ratings and
+   * a base built on splits are not the same claim.
+   */
+  measured_seconds?: number;
+  /** Of `known_seconds`, how many were priced by the athlete's RPE. */
+  declared_seconds?: number;
 };
 
 export type LoadPoint = {
@@ -133,6 +147,69 @@ export function computeAcr(daily: ReadonlyArray<DailyTss>): {
   const chronic_weekly = mean28 * 7;
   const acr = chronic_weekly > 0 ? sum7 / chronic_weekly : null;
   return { acr, last_7d_tss: sum7, last_28d_tss: sum28 };
+}
+
+// ---------------------------------------------------------------------------
+// RAMP RATE — how fast the base is rising
+// ---------------------------------------------------------------------------
+//
+// CTL says how much an athlete carries. It does not say how fast he got there,
+// and that is the number that predicts trouble: a base of 60 reached over four
+// months is a fit athlete, the same 60 reached in three weeks is an injury
+// waiting. Until now the engine computed the first and had no word for the
+// second, so "está subiendo demasiado rápido" was a thing a coach could only
+// say by eyeballing a chart.
+//
+// Ramp = how much CTL grew over the last WEEK. A week is not a tunable: the
+// number is quoted per week by every coach and every tool, and changing the
+// span would silently change what a "+5" means. What IS coach method is the
+// value at which it starts to worry — that lives in `CoachAnalyticsMethod`.
+
+/** The span the ramp is quoted over. Mechanism: "per week" is what the unit means. */
+export const RAMP_WINDOW_DAYS = 7;
+
+export type RampPoint = {
+  date: string;
+  /**
+   * CTL growth over the preceding week, in load units per week. NULL for the
+   * first week of the series: there is no earlier CTL to compare against, and a
+   * ramp of 0 would read as "flat" when the truth is "not known yet".
+   */
+  ramp: number | null;
+};
+
+/**
+ * The ramp at every point of a load series.
+ *
+ * Reads CTL out of a series that was ALREADY computed rather than recomputing
+ * the EWMA — the same mistake the coach's deep-dive made once, where a
+ * hand-rolled 30-day recomputation printed a CTL a third of the card's.
+ */
+export function computeRampSeries(
+  series: ReadonlyArray<LoadPoint>,
+  window_days: number = RAMP_WINDOW_DAYS,
+): RampPoint[] {
+  // Se redondea ANTES de comprobar. Al revés, una ventana de 0,5 días pasaba el
+  // `> 0` y se truncaba a cero después, y entonces cada punto se comparaba
+  // consigo mismo: rampa 0 — «no ha subido» — donde la verdad era «no se sabe».
+  const floored = Number.isFinite(window_days) ? Math.floor(window_days) : 0;
+  const span = floored > 0 ? floored : RAMP_WINDOW_DAYS;
+  return series.map((point, i) => {
+    const prior = series[i - span];
+    return { date: point.date, ramp: prior == null ? null : point.ctl - prior.ctl };
+  });
+}
+
+/**
+ * The ramp right now. Null when the series is shorter than the window — the
+ * honest answer for an athlete whose history does not reach back a week.
+ */
+export function currentRamp(
+  series: ReadonlyArray<LoadPoint>,
+  window_days: number = RAMP_WINDOW_DAYS,
+): number | null {
+  const ramps = computeRampSeries(series, window_days);
+  return ramps[ramps.length - 1]?.ramp ?? null;
 }
 
 export function summarizeLoad(daily: ReadonlyArray<DailyTss>): LoadSummary {

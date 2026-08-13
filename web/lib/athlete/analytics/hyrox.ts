@@ -1,9 +1,22 @@
 // ANALYTICS · Section 4 — HYROX (the differentiator: cross-modality, "lo que
 // nadie tiene"). Cards, in the doc's order:
-//   A · Proyección de finish   — GATE (no model yet → invitation to a simulation, never a fake number)
+//   A · Proyección de finish   — REAL cuando el atleta tiene objetivo + datos para
+//                                 cerrar los 10 tramos; GATE honesto si no. Reutiliza
+//                                 buildGoalGap (web/lib/athlete/goal-gap.ts), el motor
+//                                 que YA sirve /api/athlete/goal-gap («Camino al
+//                                 objetivo») y que running-progress.ts ya reutiliza
+//                                 (loadPredictedSeconds) — no existe un segundo
+//                                 predictor. El comentario anterior («el modelo no
+//                                 existe aún») era falso; ver docs/DECISIONS.md.
 //   B · Última carrera · desglose — REAL: 8 runs + 8 estaciones + RoxZone (mig 0054) (drill → 16 segmentos)
 //   C · Percentil vs el campo  — FIELD (needs the licensed HYROX dataset); rank-based only when field_size present
-//   D · Eslabón débil          — DERIVED/FIELD (percentile + decay + strength); honest placeholder until the dataset
+//   D · Entreno → carrera (el CRUCE) — REAL: transferencia por estación; su
+//                                 `primary` YA es la estación donde más se pierde
+//                                 vs lo entrenado — el "eslabón débil". La tarjeta
+//                                 separada de ese nombre (percentil + decay del
+//                                 campo) se retiró 13-ago-2026: ese dataset no
+//                                 existe (igual que en C) y esta ya cubría la
+//                                 pregunta. Ver docs/DECISIONS.md.
 //   E · Historial de carreras  — REAL: unified catalog (mig 0077), finish + delta (drill each → desglose)
 //
 // athlete 70's HYROX are DOUBLES → the splits are TEAM-level; surfaced REAL but
@@ -16,6 +29,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import { buildGoalGap } from '@/lib/athlete/goal-gap';
 import {
   buildRaceTransfer,
   transferDeltaPctStr,
@@ -83,15 +97,8 @@ export async function buildHyroxSection(
   const withSplits = races.filter((r) => r.has_splits);
   const last = withSplits[0] ?? null;
 
-  // ── A · Proyección de finish — GATE (mirror deep-dive loadHyroxPrediction null) ─
-  cards.push(
-    card({
-      id: 'finish_projection',
-      title_es: '¿Llegas a tu objetivo?',
-      availability: 'gate',
-      availability_note: 'El modelo de proyección no existe aún. Haz una simulación HYROX y lo desbloqueas con tus splits.',
-    }),
-  );
+  // ── A · Proyección de finish — REUTILIZA buildGoalGap (ver buildFinishProjectionCard) ─
+  cards.push(await buildFinishProjectionCard(client, athleteId));
 
   // ── B · Última carrera · desglose (REAL) ───────────────────────────────────
   if (last) {
@@ -145,17 +152,12 @@ export async function buildHyroxSection(
     }),
   );
 
-  // ── D · Eslabón débil — DERIVED/FIELD ──────────────────────────────────────
-  cards.push(
-    card({
-      id: 'weak_link',
-      title_es: 'Tu eslabón débil',
-      availability: 'field',
-      availability_note: 'Se deriva de percentil + decay + fuerza. Llega con el dataset del campo.',
-    }),
-  );
-
-  // ── D2 · Entreno → carrera (el CRUCE, cross-modality) ──────────────────────
+  // ── D · Entreno → carrera (el CRUCE, cross-modality) ────────────────────────
+  // "Tu eslabón débil" vivía aquí como tarjeta propia (percentil + decay del
+  // campo) y se retiró: no existe ningún motor de decay de percentil en el repo,
+  // y esa lectura necesita el mismo dataset licenciado que falta en C. Su titular
+  // real — la estación donde el atleta pierde más tiempo vs lo entrenado — ya lo
+  // enseña ESTA tarjeta como `primary`. Ver docs/DECISIONS.md (13-ago-2026).
   cards.push(await buildRaceTransferCard(client, athleteId));
 
   // ── E · Historial de carreras (REAL) ───────────────────────────────────────
@@ -198,6 +200,58 @@ export async function buildHyroxSection(
     period,
     cards,
   };
+}
+
+// ── Proyección de finish — REUTILIZA buildGoalGap, el motor de «Camino al
+// objetivo» (web/lib/athlete/goal-gap.ts · shared/domain/goal-gap). No se escribe
+// un segundo predictor: running-progress.ts ya lo reutiliza para su propia
+// previsión (loadPredictedSeconds); esta tarjeta lee el mismo dato desde HYROX.
+async function buildFinishProjectionCard(client: Sql, athleteId: number): Promise<AnalyticsCard> {
+  const gap = await buildGoalGap({ athlete_id: athleteId }, client);
+  const base = { id: 'finish_projection', title_es: '¿Llegas a tu objetivo?' };
+
+  if (gap.availability === 'no_target_race') {
+    return card({
+      ...base,
+      availability: 'gate',
+      availability_note: 'Marca tu próxima carrera como objetivo para ver tu previsión de finish.',
+    });
+  }
+  if (gap.availability === 'no_goal') {
+    return card({
+      ...base,
+      availability: 'gate',
+      availability_note: 'Añade un tiempo meta a tu carrera objetivo para ver tu previsión de finish.',
+    });
+  }
+  if (gap.predicted_total_s == null) {
+    // 'no_data' o 'ok' con cobertura parcial: ni carrera propia completa ni cruce
+    // de entreno para cerrar los 10 tramos. Nunca se enseña un total que no suma
+    // los diez — coverage nombra el hueco exacto (shared/domain/goal-gap/compute.ts).
+    return card({
+      ...base,
+      availability: 'gate',
+      availability_note:
+        gap.coverage.known > 0
+          ? `Previsión parcial: faltan ${gap.coverage.total - gap.coverage.known} de ${gap.coverage.total} tramos por medir.`
+          : 'Añade una carrera o entrena tus estaciones para proyectar tu finish.',
+    });
+  }
+
+  const gapSeconds = gap.gap_s ?? 0;
+  return card({
+    ...base,
+    availability: 'real',
+    primary: {
+      value: clockStr(gap.predicted_total_s),
+      unit: null,
+      side: { value: deltaStr(gapSeconds), label: gap.goal ? `vs ${gap.goal.label}` : 'vs objetivo' },
+    },
+    meaning_es:
+      gapSeconds <= 0
+        ? 'Tu previsión ya cumple el objetivo.'
+        : 'Lo que tu previsión te pide recortar para llegar al objetivo.',
+  });
 }
 
 // ── Scored training sessions (sim / metcon) ──────────────────────────────────
