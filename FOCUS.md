@@ -34,8 +34,9 @@ Mensajes es verbo de cabecera. Default = Resumen.
 
 - Decisión: `docs/DECISIONS.md` (13-ago «La ficha del atleta son 5 pestañas»).
 - Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`.
-- Este lote: cromo + Resumen a calidad del mock. Plan/Del coach se reestilan
-  después. Rendimiento tiene raíl temporal (no volcado) hasta su pase.
+- Resumen HECHO (dato real). Plan en el mismo sistema visual: semana-lienzo,
+  todas las sesiones del día, «sin hacer» se ve, lo de Resumen no se duplica.
+- Rendimiento / Del coach / Atleta: después. Rendimiento = 3 anclas, no volcado.
 - Las `?tab=` viejas redirigen; no se pierde superficie.
 
 ---

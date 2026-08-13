@@ -56,6 +56,8 @@ La quinta (Del coach) se queda porque el 9-ago ya se firmó que el comunicado vi
 
 **Cabecera:** dos filas, nunca tres. Lo pendiente es una línea de enlaces, no un banner. VO₂ / FC reposo / VFC salen de la cabecera (viven en Rendimiento). El rojo se reserva para lo que bloquea.
 
+**Plan (mismo día, lote 2):** la pestaña responde «¿qué le mando y cómo lo cambio?». La semana es el lienzo (todas las sesiones del día, «sin hacer» se ve, tope de 3 + «+N más» al editor del día). Adherencia, check-in y readiness NO se repiten: ya están en Resumen. «A vigilar» sin CTA se elimina (el check-in de Resumen es el sitio).
+
 **NO hacer:** no añadir una sexta pestaña. No devolver Mensajes al rail. No pintar un dato en dos sitios. No inventar proyección HYROX (el loader sigue devolviendo null). No restylear Hoy ni el roster en este lote.
 
 Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`. Visual: spec 1a.

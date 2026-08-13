@@ -11,6 +11,7 @@ import {
   formatRaceTime,
   formatSleepHours,
   interpretarAdherencia,
+  sesionesDelDia,
   tendenciaAdherencia,
   semanasHasta,
 } from '@/lib/dashboard/v2/ficha-resumen';
@@ -68,6 +69,23 @@ describe('ficha Resumen · estados de día', () => {
       'prevista',
     );
     expect(estadoSesion(undefined, false, '2026-08-16', '2026-08-12')).toBe('descanso');
+  });
+
+  it('pinta las dos sesiones de un día y no esconde la perdida', () => {
+    const day = {
+      iso_date: '2026-08-10',
+      day_of_week: 1,
+      label: 'Lun',
+      is_today: false,
+      sessions: [
+        sesion({ assignment_id: 'a', status: 'completed', title: 'Fuerza' }),
+        sesion({ assignment_id: 'b', status: 'missed', title: 'Fartlek' }),
+      ],
+    };
+    const vista = sesionesDelDia(day, '2026-08-12');
+    expect(vista).toHaveLength(2);
+    expect(vista[0]).toMatchObject({ title: 'Fuerza', estado: 'hecha' });
+    expect(vista[1]).toMatchObject({ title: 'Fartlek', estado: 'sin_hacer' });
   });
 });
 

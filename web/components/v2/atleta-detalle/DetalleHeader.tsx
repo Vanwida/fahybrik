@@ -40,11 +40,13 @@ export function DetalleHeader({
   header,
   meta,
   pendientes,
+  ocultarVerPlan,
 }: {
   header: HeaderData;
   /** «Individual · 5 días/sem · alta hace 5 sem» — una sola línea. */
   meta: string;
   pendientes: Pendiente[];
+  ocultarVerPlan?: boolean;
 }) {
   const [menu, setMenu] = useState(false);
   const bloquea = pendientes.some((p) => p.bloquea);
@@ -67,7 +69,9 @@ export function DetalleHeader({
 
         <div className="flex shrink-0 items-center gap-2">
           <HeaderAction href={`/atletas/${header.athlete_id}?tab=mensajes`} label="Mensaje" />
-          <HeaderAction href={`/atletas/${header.athlete_id}?tab=plan`} label="Ver plan" primary />
+          {ocultarVerPlan ? null : (
+            <HeaderAction href={`/atletas/${header.athlete_id}?tab=plan`} label="Ver plan" primary />
+          )}
           <div className="relative">
             <button
               type="button"

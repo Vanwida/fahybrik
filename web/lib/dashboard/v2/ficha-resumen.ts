@@ -41,6 +41,20 @@ export function tituloDia(sessions: PlanSession[]): string | null {
   return `${first.title} +${sessions.length - 1}`;
 }
 
+export type SesionVista = {
+  assignment_id: string;
+  title: string;
+  estado: DiaEstado;
+};
+
+export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
+  return day.sessions.map((s) => ({
+    assignment_id: s.assignment_id,
+    title: s.title,
+    estado: estadoSesion(s, day.is_today, day.iso_date, todayIso),
+  }));
+}
+
 export function buildPendientes(detalle: V2AthleteDetalle): Pendiente[] {
   const id = detalle.header.athlete_id;
   const out: Pendiente[] = [];

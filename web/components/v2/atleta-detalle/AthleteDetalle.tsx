@@ -53,7 +53,12 @@ export function AthleteDetalle({
   return (
     <div className="mx-auto flex w-full max-w-[1300px] flex-col">
       <div className="sticky top-14 z-[9] -mx-4 -mt-4 mb-4 border-b border-[color:var(--v2-border)] bg-[color:color-mix(in_srgb,var(--v2-bg)_92%,transparent)] px-4 pt-4 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
-        <DetalleHeader header={header} meta={meta} pendientes={pendientes} />
+        <DetalleHeader
+          header={header}
+          meta={meta}
+          pendientes={pendientes}
+          ocultarVerPlan={tab === 'plan'}
+        />
         <div className="mt-3 -mb-px">
           <DetalleTabBar
             athlete_id={header.athlete_id}
@@ -82,6 +87,7 @@ export function AthleteDetalle({
             resumen={detalle.resumen}
             athlete_id={header.athlete_id}
             initialSessionId={initialSessionId}
+            intakePending={header.status === 'alta'}
           />
         ) : tab === 'rendimiento' ? (
           <RendimientoHome detalle={detalle} vista={rendimientoVista} coachName={coachName} />
