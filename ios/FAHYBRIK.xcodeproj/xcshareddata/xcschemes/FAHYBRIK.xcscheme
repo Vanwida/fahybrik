@@ -35,6 +35,20 @@
                ReferencedContainer = "container:FAHYBRIK.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D3A6C918B3FECD30E5432594"
+               BuildableName = "FAHYBRIKUITests.xctest"
+               BlueprintName = "FAHYBRIKUITests"
+               ReferencedContainer = "container:FAHYBRIK.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

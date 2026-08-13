@@ -1,0 +1,97 @@
+import XCTest
+
+// LA PRUEBA QUE NINGÚN RENDER PUEDE DAR: la app DE VERDAD, navegada como la
+// navega el atleta, con el contenedor y sus pastillas vivos.
+//
+// POR QUÉ EXISTE. El 13-ago Alex cazó, con la app en la mano, el sueño pintado
+// bajo la pastilla Carrera. El volcado por ImageRenderer no podía verlo: rendea
+// pantallas AISLADAS, y el fallo vivía en el contenedor. Se intentó renderizar el
+// contenedor sembrado y salió en blanco — necesita ciclo de vida. Esto es esa
+// verificación, hecha por el único camino que la puede dar.
+//
+// QUÉ AFIRMA (la regla firmada ese día): las pastillas mandan. Todo lo que se
+// pinta bajo el rail se lee como contenido de la pestaña elegida, así que:
+//   · bajo CARRERA no aparece NI UNA lectura del cuerpo (sueño, variabilidad,
+//     estrés, batería corporal);
+//   · bajo RECUP. el cuerpo SÍ está — la misma consulta que prueba la ausencia
+//     prueba que no es porque el dato no exista.
+//
+// ENTRA POR EL ATLETA DEMO, que es el asiento pensado exactamente para esto
+// (gated por DEMO_ACCESS en el servidor). Necesita red; si el asiento no
+// responde, el test FALLA con su motivo — no finge en verde.
+//
+// ⚠ APARCADO (13-ago): el asiento demo está APAGADO en producción — comprobado,
+// `POST /api/demo/athlete-bearer` devuelve 404 — así que este test hoy NO puede
+// pasar. Por eso el target está FUERA del test action del esquema: se corre solo
+// a mano con `-only-testing:FAHYBRIKUITests`. Para activarlo hace falta una de
+// dos: encender DEMO_ACCESS en prod, o darle a `APIClient` un override de base
+// por variable de entorno de lanzamiento (solo DEBUG) y apuntarlo a un servidor
+// local con el demo encendido. La segunda es la buena: no toca producción.
+//
+// Y DEJA FOTOS: cada paso adjunta una captura al xcresult, extraíble con
+// `xcrun xcresulttool`. La próxima vez que alguien pregunte «¿cómo se ve la
+// pestaña?», la respuesta está en el último run, no en la fe de nadie.
+final class CarreraSoloRunningUITests: XCTestCase {
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testBajoCarreraNoHayCuerpoYBajoRecupSi() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        // ── Entrar como atleta demo ─────────────────────────────────────────
+        // Si ya hay sesión guardada de un run anterior, el botón no existe y la
+        // app abre en Inicio: ambos caminos valen.
+        let demo = app.buttons["Entrar como atleta demo"]
+            .firstMatch.exists ? app.buttons["Entrar como atleta demo"].firstMatch
+                               : app.staticTexts["Entrar como atleta demo"].firstMatch
+        if demo.waitForExistence(timeout: 8) {
+            demo.tap()
+        }
+
+        // La barra de pestañas es la señal de que hay sesión y la app cargó.
+        let tabAnaliticas = app.tabBars.buttons["Analíticas"]
+        XCTAssertTrue(tabAnaliticas.waitForExistence(timeout: 20),
+                      "No llegó la barra de pestañas: el asiento demo no respondió")
+        tabAnaliticas.tap()
+
+        // ── CARRERA: ni una lectura del cuerpo ──────────────────────────────
+        let pastillaCarrera = app.buttons["Carrera"].firstMatch
+        XCTAssertTrue(pastillaCarrera.waitForExistence(timeout: 10), "No está el rail de secciones")
+        pastillaCarrera.tap()
+        // Dar tiempo a que la sección cargue lo suyo antes de afirmar ausencias.
+        _ = app.staticTexts["CÓMO LLEGAS HOY"].waitForExistence(timeout: 4)
+
+        foto(app, "pestana-carrera")
+
+        for delCuerpo in ["Sueño", "Variabilidad", "Estrés", "Batería corporal", "CÓMO LLEGAS HOY"] {
+            XCTAssertFalse(app.staticTexts[delCuerpo].firstMatch.exists,
+                           "«\(delCuerpo)» aparece bajo la pastilla Carrera — la regla de las pastillas está rota")
+        }
+
+        // ── RECUP.: el cuerpo SÍ está ───────────────────────────────────────
+        // La misma consulta que arriba dio ausencia aquí tiene que dar presencia:
+        // sin esta mitad, lo de arriba podría pasar simplemente porque el atleta
+        // demo no tuviera dato del cuerpo.
+        let pastillaRecup = app.buttons["Recup."].firstMatch
+        XCTAssertTrue(pastillaRecup.exists, "No está la pastilla Recup.")
+        pastillaRecup.tap()
+
+        let cuerpoVisible = app.staticTexts["CÓMO LLEGAS HOY"].waitForExistence(timeout: 10)
+            || app.staticTexts["Variabilidad"].firstMatch.waitForExistence(timeout: 4)
+        foto(app, "pestana-recup")
+        XCTAssertTrue(cuerpoVisible,
+                      "Bajo Recup. no aparece el cuerpo: o el gate se pasó de frenada o el demo no trae biometría")
+    }
+
+    /// Una captura con nombre, adjunta al xcresult y conservada siempre.
+    private func foto(_ app: XCUIApplication, _ nombre: String) {
+        let adjunto = XCTAttachment(screenshot: app.screenshot())
+        adjunto.name = nombre
+        adjunto.lifetime = .keepAlways
+        add(adjunto)
+    }
+}

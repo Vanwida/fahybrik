@@ -255,6 +255,25 @@ targets:
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
 
+  FAHYBRIKUITests:
+    # LA VERIFICACIÓN QUE FALTABA: navegar la app DE VERDAD y fotografiarla.
+    # El volcado por ImageRenderer prueba pantallas aisladas; el contenedor con
+    # sus pastillas necesita el ciclo de vida vivo, y eso solo lo da XCUITest
+    # corriendo dentro del simulador — sin automatizar el escritorio de nadie.
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: FAHYBRIKUITests
+    dependencies:
+      - target: FAHYBRIK
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.uitests
+        TEST_TARGET_NAME: FAHYBRIK
+        CODE_SIGNING_ALLOWED: NO
+
   FAHYBRIKTests:
     type: bundle.unit-test
     platform: iOS
@@ -535,6 +554,7 @@ schemes:
       targets:
         FAHYBRIK: all
         FAHYBRIKTests: [test]
+        FAHYBRIKUITests: [test]
     run:
       config: Debug
     test:
@@ -548,6 +568,7 @@ schemes:
         # justo eso, un recuento que no cuadraba entre dos máquinas.)
         - name: FAHYBRIKTests
           randomExecutionOrder: true
+
       gatherCoverageData: false
     profile:
       config: Release

@@ -642,6 +642,7 @@
 		F92BB596B70707F0059E4008 /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B817315039E4B2007432F1E /* ChatAttachments.swift */; };
 		F95A0651AA28B3E9ED1B78D6 /* MirrorWireModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC88949D9D6EEF0EC372A99 /* MirrorWireModelsTests.swift */; };
 		F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */; };
+		F97A9940F683E102675BEE75 /* CarreraSoloRunningUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528C6B46C80E2C1E82CCAFB6 /* CarreraSoloRunningUITests.swift */; };
 		F9A6CB791E3E0A6F3D5BE9FF /* FTMSControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A3F24E25DD92D4F93C6D24 /* FTMSControl.swift */; };
 		F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93222A913BECABC311537B62 /* ExerciseDetailView.swift */; };
 		FAE8BC5F38361D806994F205 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
@@ -675,6 +676,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 948314EE51092546302FF306;
 			remoteInfo = FAHYBRIKWidgets;
+		};
+		99B97B019307A807E4E9BE27 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EC041E6F1BC9F640FFFF5D61 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BF96FA3CBD1E39E579E26595;
+			remoteInfo = FAHYBRIK;
 		};
 		B839CEEC77F6726F5A3DCB43 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -895,6 +903,7 @@
 		51B485ADE5371EF62A00EE77 /* ChatSendOutcomeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSendOutcomeTests.swift; sourceTree = "<group>"; };
 		51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorService.swift; sourceTree = "<group>"; };
 		524FC97C42145BEC71B664B3 /* DoblesSharedAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesSharedAnalyticsView.swift; sourceTree = "<group>"; };
+		528C6B46C80E2C1E82CCAFB6 /* CarreraSoloRunningUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarreraSoloRunningUITests.swift; sourceTree = "<group>"; };
 		532F4FB75A99BB3DF111563F /* ActivityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityDetector.swift; sourceTree = "<group>"; };
 		540953E181A1B013FB43B851 /* LaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSplashView.swift; sourceTree = "<group>"; };
 		5464FD53B26A7327CCA9E5A7 /* ErgHUDContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgHUDContent.swift; sourceTree = "<group>"; };
@@ -1137,6 +1146,7 @@
 		B796CAF804634A3E6D8CD4A2 /* StationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationDetailView.swift; sourceTree = "<group>"; };
 		B7C2DDE426F8ADE0D3B87E8F /* SensorCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorCapture.swift; sourceTree = "<group>"; };
 		B7FC72EE3461CB2C3AABBE81 /* FAHYBRIK-Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "FAHYBRIK-Debug.entitlements"; sourceTree = "<group>"; };
+		B81DCB771478E7EAFB64156A /* FAHYBRIKUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FAHYBRIKUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B828778102E81E5EDE7DA9AD /* WorkoutTraceRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTraceRecorder.swift; sourceTree = "<group>"; };
 		B8BD9596CEA068A30D69E482 /* GuionRodaje.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionRodaje.swift; sourceTree = "<group>"; };
 		B923DDAC30864527B24FD75E /* WorkoutKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WorkoutKit.framework; path = System/Library/Frameworks/WorkoutKit.framework; sourceTree = SDKROOT; };
@@ -2170,6 +2180,14 @@
 			path = Vivo;
 			sourceTree = "<group>";
 		};
+		B41E6FF447CEE2B3204CF6DF /* FAHYBRIKUITests */ = {
+			isa = PBXGroup;
+			children = (
+				528C6B46C80E2C1E82CCAFB6 /* CarreraSoloRunningUITests.swift */,
+			);
+			path = FAHYBRIKUITests;
+			sourceTree = "<group>";
+		};
 		B507A5872DD4C2C5063D5E8D /* Auth */ = {
 			isa = PBXGroup;
 			children = (
@@ -2331,6 +2349,7 @@
 			children = (
 				ED22C9DFBBEA66E1B4BADAD6 /* FAHYBRIK */,
 				1CF179E1DF6C4B3F46522852 /* FAHYBRIKTests */,
+				B41E6FF447CEE2B3204CF6DF /* FAHYBRIKUITests */,
 				2642CE88FE5308204ABCFC91 /* FAHYBRIKWatch */,
 				0E85FBFB053DBD50207A59E7 /* FAHYBRIKWidgets */,
 				68A1083C61DA22D4F982314A /* Frameworks */,
@@ -2541,6 +2560,7 @@
 			children = (
 				D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */,
 				C0E9632AE1E68E23886B591F /* FAHYBRIKTests.xctest */,
+				B81DCB771478E7EAFB64156A /* FAHYBRIKUITests.xctest */,
 				358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */,
 				84EDB9C60887329EB4F3CFC1 /* FAHYBRIKWidgets.appex */,
 			);
@@ -2695,6 +2715,24 @@
 			productReference = D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D3A6C918B3FECD30E5432594 /* FAHYBRIKUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0F08A8FC4960CFA00DB9176 /* Build configuration list for PBXNativeTarget "FAHYBRIKUITests" */;
+			buildPhases = (
+				9151AAAE1D25FAE49DA4687D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5B5D455DEAE1172FD2389036 /* PBXTargetDependency */,
+			);
+			name = FAHYBRIKUITests;
+			packageProductDependencies = (
+			);
+			productName = FAHYBRIKUITests;
+			productReference = B81DCB771478E7EAFB64156A /* FAHYBRIKUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		F598A89B889C6BDDD7380AC8 /* FAHYBRIKWatch */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 33B0FBA5CDB005BA461C07E0 /* Build configuration list for PBXNativeTarget "FAHYBRIKWatch" */;
@@ -2731,6 +2769,9 @@
 						DevelopmentTeam = S6W4459DDG;
 						ProvisioningStyle = Automatic;
 					};
+					D3A6C918B3FECD30E5432594 = {
+						TestTargetID = BF96FA3CBD1E39E579E26595;
+					};
 					F598A89B889C6BDDD7380AC8 = {
 						DevelopmentTeam = S6W4459DDG;
 						ProvisioningStyle = Automatic;
@@ -2753,6 +2794,7 @@
 			targets = (
 				BF96FA3CBD1E39E579E26595 /* FAHYBRIK */,
 				966A3685D7CBCD58C63D69D5 /* FAHYBRIKTests */,
+				D3A6C918B3FECD30E5432594 /* FAHYBRIKUITests */,
 				F598A89B889C6BDDD7380AC8 /* FAHYBRIKWatch */,
 				948314EE51092546302FF306 /* FAHYBRIKWidgets */,
 			);
@@ -3303,6 +3345,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9151AAAE1D25FAE49DA4687D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F97A9940F683E102675BEE75 /* CarreraSoloRunningUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E10F698DC00893F2A2A5DEE7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3464,6 +3514,11 @@
 			target = 948314EE51092546302FF306 /* FAHYBRIKWidgets */;
 			targetProxy = 91DD1AC32E56AF8037ED86AF /* PBXContainerItemProxy */;
 		};
+		5B5D455DEAE1172FD2389036 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BF96FA3CBD1E39E579E26595 /* FAHYBRIK */;
+			targetProxy = 99B97B019307A807E4E9BE27 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -3560,6 +3615,25 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		4583FC4401103F2EC5B4C94A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FAHYBRIK;
 			};
 			name = Debug;
 		};
@@ -3765,6 +3839,25 @@
 			};
 			name = Debug;
 		};
+		DB4ED23A3C4AA194B5397DB6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FAHYBRIK;
+			};
+			name = Release;
+		};
 		EEB4B4FD946B65DAB3051F1A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3823,6 +3916,15 @@
 			buildConfigurations = (
 				D703996A526A3D23F072BA8A /* Debug */,
 				9E9DF9527CB353BCDF2DCAE7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B0F08A8FC4960CFA00DB9176 /* Build configuration list for PBXNativeTarget "FAHYBRIKUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4583FC4401103F2EC5B4C94A /* Debug */,
+				DB4ED23A3C4AA194B5397DB6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
