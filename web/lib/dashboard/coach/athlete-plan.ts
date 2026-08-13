@@ -93,6 +93,11 @@ export interface AthletePlanPayload {
    *  showing above (which may itself be `current_block`, still live, or nothing
    *  at all). null when nothing is scheduled ahead. */
   upcoming_plan: { name: string; start_date: string } | null;
+  /** program_month_templates.id of the current (or covering) microciclo — the
+   *  editor `/microciclos/:id`. null when the athlete has no covering receipt. */
+  current_month_template_id: string | null;
+  /** Monday (or start_date) of that receipt — to open `?dia=` on the editor. */
+  current_assignment_start: string | null;
 }
 
 export class AthletePlanError extends Error {
@@ -387,5 +392,7 @@ export async function buildAthletePlan(params: {
     total_sessions: rows.length,
     microciclo,
     upcoming_plan,
+    current_month_template_id: micro?.month_template_id != null ? String(micro.month_template_id) : null,
+    current_assignment_start: micro?.assignment_start ?? null,
   };
 }

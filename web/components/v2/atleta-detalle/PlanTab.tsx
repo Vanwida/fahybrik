@@ -16,7 +16,8 @@ import { FichaCard, FichaLabel, FilaVacia } from './resumen/piezas';
 import { SemanaCanvas } from './plan/semana';
 import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { dayCanvasHref } from '@/lib/dashboard/v2/planes-model';
+import { diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
 
 const SESSION_QUERY_PARAM = 'sesion';
@@ -73,7 +74,19 @@ export function PlanTab({
             cta="Revisar intake"
             href={`/atletas/${athlete_id}/intake`}
           />
-        ) : planMode === 'personal' ? null : (
+        ) : planMode === 'personal' ? (
+          plan?.current_month_template_id ? (
+            <FilaVacia
+              texto="Este plan personal aún no tiene entrenos en la semana"
+              cta="Abrir el editor"
+              href={`/microciclos/${plan.current_month_template_id}`}
+            />
+          ) : (
+            <p className="text-[13px] text-[color:var(--v2-muted)]">
+              Plan personal: todavía no hay un microciclo en marcha. Añádelo abajo.
+            </p>
+          )
+        ) : (
           <FilaVacia texto="Sin plan asignado todavía" cta="Asignar en Hoy" href="/hoy" />
         )}
         {planMode === 'personal' ? (
@@ -178,13 +191,33 @@ export function PlanTab({
                 ) : null}
                 {editorTargetDate ? (
                   <Link
-                    href={`/atletas/${athlete_id}/dia/${editorTargetDate}`}
+                    href={
+                      plan.is_personal && plan.current_month_template_id && plan.current_assignment_start
+                        ? dayCanvasHref(
+                            plan.current_month_template_id,
+                            Math.max(
+                              0,
+                              diffDays(
+                                parseIsoDate(editorTargetDate),
+                                mondayOfWeek(parseIsoDate(plan.current_assignment_start)),
+                              ),
+                            ),
+                          )
+                        : `/atletas/${athlete_id}/dia/${editorTargetDate}`
+                    }
                     className="v2-focus inline-flex h-[34px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
                     Editar día
                   </Link>
                 ) : null}
-                {!plan.is_personal ? (
+                {plan.is_personal && plan.current_month_template_id ? (
+                  <Link
+                    href={`/microciclos/${plan.current_month_template_id}`}
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
+                  >
+                    Editar plan
+                  </Link>
+                ) : !plan.is_personal ? (
                   <button
                     type="button"
                     onClick={() => setPersonalizeOpen(true)}
@@ -192,7 +225,8 @@ export function PlanTab({
                   >
                     Personalizar
                   </button>
-                ) : plan.can_revert_to_sequence ? (
+                ) : null}
+                {plan.is_personal && plan.can_revert_to_sequence ? (
                   <button
                     type="button"
                     onClick={() => setRevertOpen(true)}
@@ -218,6 +252,21 @@ export function PlanTab({
               onHoy={() => setWeekIdx(initialWeekIdx)}
               onOpen={openSessionSynced}
               athleteId={athlete_id}
+              dayHref={
+                plan.is_personal && plan.current_month_template_id && plan.current_assignment_start
+                  ? (iso) =>
+                      dayCanvasHref(
+                        plan.current_month_template_id!,
+                        Math.max(
+                          0,
+                          diffDays(
+                            parseIsoDate(iso),
+                            mondayOfWeek(parseIsoDate(plan.current_assignment_start!)),
+                          ),
+                        ),
+                      )
+                  : undefined
+              }
               focus={
                 <AthleteWeekFocusRow
                   key={activeWeek.week_start}

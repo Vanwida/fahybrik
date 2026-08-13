@@ -29,6 +29,7 @@ export function SemanaCanvas({
   onOpen,
   athleteId,
   focus,
+  dayHref,
 }: {
   week: PlanWeekRow;
   todayIso: string;
@@ -42,6 +43,7 @@ export function SemanaCanvas({
   onOpen: (assignmentId: string) => void;
   athleteId: string;
   focus: React.ReactNode;
+  dayHref?: (iso: string) => string;
 }) {
   return (
     <FichaCard className="p-0">
@@ -82,6 +84,7 @@ export function SemanaCanvas({
             todayIso={todayIso}
             athleteId={athleteId}
             onOpen={onOpen}
+            dayHref={dayHref}
             first={i === 0}
             last={i === week.days.length - 1}
           />
@@ -97,6 +100,7 @@ function DiaCol({
   todayIso,
   athleteId,
   onOpen,
+  dayHref,
   first,
   last,
 }: {
@@ -105,6 +109,7 @@ function DiaCol({
   todayIso: string;
   athleteId: string;
   onOpen: (assignmentId: string) => void;
+  dayHref?: (iso: string) => string;
   first: boolean;
   last: boolean;
 }) {
@@ -145,7 +150,7 @@ function DiaCol({
           ))}
           {extra > 0 ? (
             <Link
-              href={`/atletas/${athleteId}/dia/${day.iso_date}`}
+              href={dayHref ? dayHref(day.iso_date) : `/atletas/${athleteId}/dia/${day.iso_date}`}
               className="v2-focus text-[11.5px] font-semibold text-[#C24A0F]"
             >
               +{extra} más
