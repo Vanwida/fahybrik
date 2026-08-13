@@ -261,6 +261,10 @@ export function Barras({ puntos, alto = 104 }: { puntos: { semana: string; valor
             style={{
               flex: 1,
               minWidth: 0,
+              // El tope existe por las series CORTAS (13-ago): con 4 puntos el
+              // flex convertía cada semana en una losa a todo lo ancho. Con las
+              // 8 del espejo no llega a actuar.
+              maxWidth: 56,
               height: `${Math.max(3, (p.valor / max) * 100)}%`,
               // Sin esquinas redondeadas: la referencia usa columnas rectas.
               background: i === puntos.length - 1 ? 'var(--twin-fg)' : 'color-mix(in srgb, var(--twin-fg) 22%, transparent)',

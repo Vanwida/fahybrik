@@ -100,6 +100,20 @@ import * as lecturaCarrera from './screens/lectura-carrera';
 // de tarjetas por un veredicto defendible y la evidencia ordenada por causa —
 // lo que sale antes que lo que metes —, y sabe decir «todavía no lo sé».
 import * as analiticasCorrer from './screens/analiticas-correr';
+// El hogar del running (13-ago tarde, mapa v2): la pastilla Carrera deja de ser
+// una tira y pasa a hub con puertas navegables. Seis propuestas de una tanda:
+// el nivel 0 (hub), las dos vistas que el mapa v1 excluía y Alex revocó
+// (historial DENTRO de la tab, tendencias por métrica y periodo), la ficha de
+// sesión alcanzable por push días después (con la comparativa «vs tu último
+// 6×800»), capacidad (umbral+zonas+VC+récords+predictor, y el CTA del test de
+// zonas recolocado: solo sin ancla, y aterriza en SU test — jamás la batería),
+// y por tipo («¿voy más rápido en series?»).
+import * as correrHub from './screens/correr-hub';
+import * as correrHistorial from './screens/correr-historial';
+import * as correrFicha from './screens/correr-ficha';
+import * as correrTendencias from './screens/correr-tendencias';
+import * as correrCapacidad from './screens/correr-capacidad';
+import * as correrPorTipo from './screens/correr-por-tipo';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -119,6 +133,14 @@ export const SCREENS: TwinScreenModule[] = [
   chatContexto,
   analiticasVeredicto,
   analiticasCorrer,
+  // El hogar del running (13-ago tarde): el hub primero — es el nivel 0 — y
+  // detrás sus vistas en el orden en que se navegan desde él.
+  correrHub,
+  correrHistorial,
+  correrFicha,
+  correrTendencias,
+  correrCapacidad,
+  correrPorTipo,
   gateBloque,
   entrenoVivo,
   postEntreno,

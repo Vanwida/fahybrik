@@ -21,9 +21,17 @@ tests (batería entera, 1RM de squat incluido) nada más entrar: fuera.
   es EL HOGAR del running».
 - Benchmarks levantados en esta sesión: inventario completo Garmin Connect
   running + TrainingPeaks lado atleta (agentes, 13-ago).
-- **En curso:** pantallas `propuesta` en el doble (hub, historial, ficha de
-  sesión, tendencias, capacidad, por tipo) para el visto bueno de Alex ANTES de
-  tocar Swift.
+- **HECHO y desplegado:** seis pantallas `propuesta` en el doble —
+  `correr-hub`, `correr-historial`, `correr-ficha`, `correr-tendencias`,
+  `correr-capacidad`, `correr-por-tipo` (22 escenarios, typecheck+eslint+989
+  tests del doble en verde; capacidad y ficha ejecutan los motores REALES de
+  shared/domain: zonas, VC+D', predictor VDOT, evaluateRunSegment). De camino:
+  el espejo `analiticas-correr` quedó alineado con el motor de
+  `shared/domain/running/progress` (modelo/datos re-exportan, cero copia), y
+  `diaCorto`/`fechaCorta`/`mesCorto`/`horasYMin`/`conMillar` promovidos a
+  `kit-composicion/formato.ts` (§2.1: tres copias locales el mismo día).
+- **Esperando visto bueno de Alex** sobre las seis en `/es/design` ANTES de
+  tocar Swift. El orden de obra al aprobar: mapa v2 §«Orden acordado».
 
 ---
 
