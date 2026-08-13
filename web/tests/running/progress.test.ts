@@ -9,7 +9,10 @@ import { describe, expect, test } from 'vitest';
 import {
   coberturaDe,
   colapso,
+  deltasDe,
   faltaComun,
+  METROS_DE_REFERENCIA,
+  MIN_SEMANAS_PARA_SUBIDA,
   mismoTipoDe,
   peldanoDisponible,
   seCalla,
@@ -46,6 +49,10 @@ function historia(overrides: Partial<RunningHistory> = {}): RunningHistory {
     cansado: [],
     carrera: null,
     mismo_tipo: null,
+    umbral: null,
+    zonas_ritmo: [],
+    cadencia: [],
+    por_tipo: [],
     ...overrides,
   };
 }
@@ -268,6 +275,217 @@ describe('subidaDeVolumen — nunca NaN ni Infinity', () => {
   });
 });
 
+// deltasDe (volumen/forma/esfuerzos/cansado) + Pedido.pct_en_banda/juzgable —
+// estas cifras se recalculaban en el cliente. DOS de ellas deciden algo: la
+// subida de volumen es el segundo ingrediente del veredicto «cargando de
+// más» (`veredictoDe`), y el porcentaje en banda decide si esa cifra sale
+// coloreada o en tinta normal (`sePuedeJuzgarElPedido`). Si el cliente
+// recalculara por su cuenta y divergiera del servidor, el atleta vería un
+// veredicto que se contradice con su propia evidencia EN LA MISMA PANTALLA.
+// Por eso los tests de más peso de aquí abajo comparan contra la función
+// pura (`subidaDeVolumen`), nunca contra un literal reescrito a mano.
+
+describe('deltasDe — volumen', () => {
+  test('por debajo de MIN_SEMANAS_PARA_SUBIDA puntos semanales: null, NUNCA {subida_ratio: 0}', () => {
+    // Un 0 se leería como "el volumen está plano"; la verdad es "no hay
+    // semanas para decirlo". Confundir las dos cosas es el mismo error que un
+    // porcentaje sin muestras (ver `Pedido.pct_en_banda`).
+    const h = historia({
+      semanas_km: [
+        { semana: '2026-05-04', valor: 20 },
+        { semana: '2026-05-11', valor: 20 },
+        { semana: '2026-05-18', valor: 20 },
+        { semana: '2026-05-25', valor: 20 },
+        { semana: '2026-06-01', valor: 30 }, // 5 puntos: uno menos que MIN_SEMANAS_PARA_SUBIDA (6)
+      ],
+    });
+    expect(h.semanas_km).toHaveLength(MIN_SEMANAS_PARA_SUBIDA - 1);
+    expect(deltasDe(h).volumen).toBeNull();
+  });
+
+  test('en el mínimo exacto de MIN_SEMANAS_PARA_SUBIDA: presente', () => {
+    const h = historia({
+      semanas_km: [
+        { semana: '2026-05-04', valor: 20 },
+        { semana: '2026-05-11', valor: 20 },
+        { semana: '2026-05-18', valor: 20 },
+        { semana: '2026-05-25', valor: 20 },
+        { semana: '2026-06-01', valor: 25 },
+        { semana: '2026-06-08', valor: 25 }, // 6 puntos: justo MIN_SEMANAS_PARA_SUBIDA
+      ],
+    });
+    expect(h.semanas_km).toHaveLength(MIN_SEMANAS_PARA_SUBIDA);
+    const volumen = deltasDe(h).volumen;
+    expect(volumen).not.toBeNull();
+    expect(volumen!.semanas).toBe(MIN_SEMANAS_PARA_SUBIDA - 1);
+  });
+
+  test('subida_ratio servido es EXACTAMENTE subidaDeVolumen(h.semanas_km) — el test anti-divergencia', () => {
+    // No se compara contra un literal reescrito a mano: si mañana
+    // `subidaDeVolumen` cambia de fórmula y `deltasDe` no se actualiza a la
+    // vez, este test lo pilla sin que nadie tenga que recalcular a mano el
+    // número esperado.
+    const semanas_km: PuntoSemana[] = [
+      { semana: '2026-05-04', valor: 18 },
+      { semana: '2026-05-11', valor: 22 },
+      { semana: '2026-05-18', valor: 19 },
+      { semana: '2026-05-25', valor: 21 },
+      { semana: '2026-06-01', valor: 27 },
+      { semana: '2026-06-08', valor: 24 },
+      { semana: '2026-06-15', valor: 30 },
+    ];
+    const h = historia({ semanas_km });
+    expect(deltasDe(h).volumen!.subida_ratio).toBe(subidaDeVolumen(semanas_km));
+  });
+
+  test('es un RATIO, no un porcentaje: una subida de ~24% se sirve como ~0.24, no como ~24', () => {
+    // Guarda el bug de factor 100: si `deltasDe` alguna vez multiplicara por
+    // 100 "para que se lea mejor", esta cifra dejaría de tener las mismas
+    // unidades que `volume_surge_ratio`, con el que el veredicto la compara.
+    const h = historia({
+      semanas_km: [
+        { semana: '2026-05-04', valor: 25 },
+        { semana: '2026-05-11', valor: 25 },
+        { semana: '2026-05-18', valor: 25 },
+        { semana: '2026-05-25', valor: 25 }, // base = media de las 4 primeras = 25
+        { semana: '2026-06-01', valor: 31 },
+        { semana: '2026-06-08', valor: 31 }, // últimas 2 = 31 → 31/25 - 1 = 0.24
+      ],
+    });
+    const ratio = deltasDe(h).volumen!.subida_ratio;
+    expect(ratio).toBeCloseTo(0.24, 5);
+    expect(Math.abs(ratio)).toBeLessThan(1); // si fuera 24 (bug de ×100), esto fallaría
+  });
+});
+
+describe('deltasDe — forma', () => {
+  test('con VO2max presente: forma es null — el titular de VO2max ya lleva su propio delta', () => {
+    const h = historia({
+      vo2: { valor: 52, delta: 1.4, ventana_semanas: 8, serie: [50, 51, 52] },
+      al_pulso: [
+        { semana: '2026-06-01', valor: 300 },
+        { semana: '2026-06-08', valor: 280 },
+      ],
+    });
+    expect(deltasDe(h).forma).toBeNull();
+  });
+
+  test('sin VO2max y con >=2 puntos en al_pulso: gana_s_km = primero - último, positivo si el ritmo bajó (mejoró)', () => {
+    const h = historia({
+      vo2: null,
+      al_pulso: [
+        { semana: '2026-06-01', valor: 300 },
+        { semana: '2026-06-08', valor: 280 }, // ritmo BAJÓ 20 s/km: es mejora
+      ],
+    });
+    expect(deltasDe(h).forma).toEqual({ gana_s_km: 20, semanas: 1 });
+  });
+
+  test('con menos de 2 puntos en al_pulso: null, tanto vacío como con uno solo', () => {
+    expect(deltasDe(historia({ vo2: null, al_pulso: [] })).forma).toBeNull();
+    expect(
+      deltasDe(historia({ vo2: null, al_pulso: [{ semana: '2026-06-01', valor: 300 }] })).forma,
+    ).toBeNull();
+  });
+});
+
+describe('deltasDe — esfuerzos', () => {
+  test('presente solo cuando METROS_DE_REFERENCIA está en esfuerzos Y en esfuerzos_antes', () => {
+    const soloEnHoy = historia({
+      esfuerzos: [{ metros: METROS_DE_REFERENCIA, segundos: 1200 }],
+      esfuerzos_antes: [],
+    });
+    expect(deltasDe(soloEnHoy).esfuerzos).toBeNull();
+
+    const soloEnAntes = historia({
+      esfuerzos: [],
+      esfuerzos_antes: [{ metros: METROS_DE_REFERENCIA, segundos: 1200 }],
+    });
+    expect(deltasDe(soloEnAntes).esfuerzos).toBeNull();
+
+    const enLosDos = historia({
+      esfuerzos: [{ metros: METROS_DE_REFERENCIA, segundos: 1180 }],
+      esfuerzos_antes: [{ metros: METROS_DE_REFERENCIA, segundos: 1200 }],
+    });
+    expect(deltasDe(enLosDos).esfuerzos).not.toBeNull();
+  });
+
+  test('gana_s = antes - hoy, positivo si ahora se corre más rápido (menos segundos)', () => {
+    const h = historia({
+      esfuerzos: [{ metros: METROS_DE_REFERENCIA, segundos: 1180 }],
+      esfuerzos_antes: [{ metros: METROS_DE_REFERENCIA, segundos: 1200 }], // 20 s más lento antes
+    });
+    expect(deltasDe(h).esfuerzos).toEqual({ gana_s: 20, metros: METROS_DE_REFERENCIA });
+  });
+
+  test('NO cae a otra distancia cuando falta 5000: null aunque 3000 y 10000 estén en los dos', () => {
+    const h = historia({
+      esfuerzos: [
+        { metros: 3000, segundos: 700 },
+        { metros: 10000, segundos: 2500 },
+      ],
+      esfuerzos_antes: [
+        { metros: 3000, segundos: 720 },
+        { metros: 10000, segundos: 2550 },
+      ],
+    });
+    expect(deltasDe(h).esfuerzos).toBeNull();
+  });
+});
+
+describe('deltasDe — cansado', () => {
+  test('con menos de 2 puntos: null, tanto vacío como con uno solo', () => {
+    expect(deltasDe(historia({ cansado: [] })).cansado).toBeNull();
+    expect(
+      deltasDe(historia({ cansado: [{ semana: '2026-06-01', coste_s_km: 320, parejas: 5 }] })).cansado,
+    ).toBeNull();
+  });
+
+  test('mejora_s_km = primero - último, positivo cuando el coste de correr cansado bajó', () => {
+    const h = historia({
+      cansado: [
+        { semana: '2026-06-01', coste_s_km: 320, parejas: 5 },
+        { semana: '2026-06-08', coste_s_km: 310, parejas: 5 }, // coste BAJÓ 10 s/km: mejora
+      ],
+    });
+    expect(deltasDe(h).cansado).toEqual({ mejora_s_km: 10, semanas: 1 });
+  });
+
+  test('redondeado a 1 decimal, no truncado ni a precisión cruda', () => {
+    const h = historia({
+      cansado: [
+        { semana: '2026-06-01', coste_s_km: 300.3, parejas: 5 },
+        { semana: '2026-06-08', coste_s_km: 292.14, parejas: 5 }, // diferencia cruda: 8.16
+      ],
+    });
+    // 8.16 redondeado a 1 decimal es 8.2 — ni 8.1 (eso sería truncar) ni 8.16
+    // (eso sería no redondear).
+    expect(deltasDe(h).cansado).toEqual({ mejora_s_km: 8.2, semanas: 1 });
+  });
+});
+
+describe('Pedido (como se sirve) — pct_en_banda y juzgable no cambian el contrato existente', () => {
+  test('sePuedeJuzgarElPedido ignora sus propios pct_en_banda/juzgable: decide SOLO por evaluadas vs el umbral', () => {
+    // Si la función alguna vez leyera `p.juzgable` en vez de recalcularlo,
+    // este caso lo pillaría: aquí juzgable dice "sí" pero evaluadas está por
+    // debajo del umbral, así que la respuesta correcta sigue siendo false.
+    const contradictorio: Pedido = {
+      evaluadas: M.min_reps_to_judge_band - 1,
+      dentro: 10,
+      fuera_lento: 0,
+      fuera_rapido: 0,
+      pct_en_banda: 82,
+      juzgable: true,
+    };
+    expect(sePuedeJuzgarElPedido(contradictorio, M)).toBe(false);
+  });
+
+  test('coberturaDe con pedido: null sigue dando «intencion» — los campos nuevos viven DENTRO de Pedido y no existen cuando Pedido no existe', () => {
+    const h = historia({ pedido: null });
+    expect(coberturaDe(h, M).pedido).toEqual({ por: 'intencion' });
+  });
+});
+
 describe('coberturaDe — el sensor va antes que el ancla', () => {
   test('sin pulso: la falta de forma es sensor, no ancla', () => {
     const h = historia({ con_pulso: false, zonas_medidas: false, al_pulso: [] });
@@ -331,12 +549,12 @@ describe('faltaComun — la salida se dice UNA vez, y sólo cuenta lo que no se 
 
 describe('sePuedeJuzgarElPedido', () => {
   test('por debajo de min_reps_to_judge_band: false', () => {
-    const p: Pedido = { evaluadas: M.min_reps_to_judge_band - 1, dentro: 10, fuera_lento: 0, fuera_rapido: 0 };
+    const p: Pedido = { evaluadas: M.min_reps_to_judge_band - 1, dentro: 10, fuera_lento: 0, fuera_rapido: 0, pct_en_banda: null, juzgable: false };
     expect(sePuedeJuzgarElPedido(p, M)).toBe(false);
   });
 
   test('en el mínimo exacto: true — la comparación es >=', () => {
-    const p: Pedido = { evaluadas: M.min_reps_to_judge_band, dentro: 10, fuera_lento: 0, fuera_rapido: 0 };
+    const p: Pedido = { evaluadas: M.min_reps_to_judge_band, dentro: 10, fuera_lento: 0, fuera_rapido: 0, pct_en_banda: null, juzgable: false };
     expect(sePuedeJuzgarElPedido(p, M)).toBe(true);
   });
 });
