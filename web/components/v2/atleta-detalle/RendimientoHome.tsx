@@ -1,83 +1,108 @@
 'use client';
 
-// Raíl temporal. El destino son 3 anclas (Carrera · Fuerza · Cuerpo).
-// Hasta ese pase, las superficies viejas siguen alcanzables.
+// Rendimiento — «¿el entrenamiento está aterrizando?»
+// Tres anclas. Carrera tiene capas (aterrizaje · zonas · carreras) porque
+// son la misma pregunta, no tres pestañas más.
 
 import { Link } from '@/i18n/navigation';
+import { CorrerTab } from './CorrerTab';
 import { RitmosZonasTab } from './RitmosZonasTab';
 import { CarrerasTab } from './CarrerasTab';
-import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
-import { RendimientoTab } from './RendimientoTab';
-import { CorrerTab } from './CorrerTab';
-import type { RendimientoVista, V2AthleteDetalle } from '@/lib/dashboard/v2/atleta-detalle-types';
+import { EvaluarSemanaPanel } from './rendimiento/EvaluarSemanaPanel';
+import { FuerzaVista } from './rendimiento/FuerzaVista';
+import type {
+  CarreraCapa,
+  RendimientoVista,
+  V2AthleteDetalle,
+} from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
-const VISTAS: { id: RendimientoVista; label: string }[] = [
-  { id: 'diagnostico', label: 'Diagnóstico' },
-  { id: 'correr', label: 'Cómo corre' },
+const ANCLAS: { id: RendimientoVista; label: string }[] = [
+  { id: 'carrera', label: 'Carrera' },
+  { id: 'fuerza', label: 'Fuerza' },
+  { id: 'cuerpo', label: 'Cuerpo' },
+];
+
+const CAPAS: { id: CarreraCapa; label: string }[] = [
+  { id: 'aterrizaje', label: 'Cómo aterriza' },
   { id: 'zonas', label: 'Zonas' },
   { id: 'carreras', label: 'Carreras' },
-  { id: 'historico', label: 'Histórico' },
-  { id: 'cuerpo', label: 'Cuerpo' },
 ];
 
 export function RendimientoHome({
   detalle,
   vista,
-  coachName,
+  carreraCapa,
 }: {
   detalle: V2AthleteDetalle;
   vista: RendimientoVista;
+  carreraCapa: CarreraCapa;
   coachName: string;
 }) {
   const id = detalle.header.athlete_id;
+
   return (
     <div className="flex flex-col gap-4">
       <nav aria-label="Dentro de Rendimiento" className="flex flex-wrap gap-1">
-        {VISTAS.map((v) => (
+        {ANCLAS.map((a) => (
           <Link
-            key={v.id}
-            href={`/atletas/${id}?tab=rendimiento&vista=${v.id}`}
+            key={a.id}
+            href={`/atletas/${id}?tab=rendimiento&vista=${a.id}`}
             className={cn(
               'v2-focus rounded-full px-3 py-1 text-[12.5px] font-semibold',
-              vista === v.id
+              vista === a.id
                 ? 'bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
                 : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
             )}
           >
-            {v.label}
+            {a.label}
           </Link>
         ))}
       </nav>
 
-      {vista === 'diagnostico' ? (
-        <RendimientoTab athleteId={id} athleteName={detalle.header.full_name} coachName={coachName} />
-      ) : vista === 'correr' ? (
-        <CorrerTab athleteId={id} />
-      ) : vista === 'zonas' ? (
-        <RitmosZonasTab
-          athleteId={id}
-          athleteName={detalle.header.full_name}
-          profiles={detalle.zone_profiles}
-        />
-      ) : vista === 'carreras' ? (
-        <CarrerasTab athleteId={id} />
-      ) : vista === 'historico' ? (
-        <HistoricoTab
-          plan={detalle.plan}
-          strengthMaxes={detalle.strength_maxes}
-          benchmarks={detalle.benchmarks}
-          jointSessions={detalle.joint_sessions}
-          athleteName={detalle.header.full_name}
-        />
+      {vista === 'carrera' ? (
+        <div className="flex flex-col gap-4">
+          <nav aria-label="Dentro de Carrera" className="flex flex-wrap gap-x-3 gap-y-1 px-0.5">
+            {CAPAS.map((c) => (
+              <Link
+                key={c.id}
+                href={`/atletas/${id}?tab=rendimiento&vista=${c.id === 'aterrizaje' ? 'carrera' : c.id}`}
+                className={cn(
+                  'v2-focus text-[12.5px] font-semibold',
+                  carreraCapa === c.id
+                    ? 'text-[color:var(--v2-fg)] underline decoration-[color:var(--v2-accent)] underline-offset-4'
+                    : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+                )}
+              >
+                {c.label}
+              </Link>
+            ))}
+          </nav>
+          {carreraCapa === 'zonas' ? (
+            <RitmosZonasTab
+              athleteId={id}
+              athleteName={detalle.header.full_name}
+              profiles={detalle.zone_profiles}
+            />
+          ) : carreraCapa === 'carreras' ? (
+            <CarrerasTab athleteId={id} />
+          ) : (
+            <CorrerTab athleteId={id} />
+          )}
+        </div>
+      ) : vista === 'fuerza' ? (
+        <FuerzaVista detalle={detalle} />
       ) : (
-        <BiometriaTab
-          body={detalle.body}
-          athleteId={id}
-          checkin={detalle.resumen?.checkin ?? null}
-          checkinWeek={detalle.resumen?.checkin_week ?? []}
-        />
+        <div className="flex flex-col gap-4">
+          <EvaluarSemanaPanel athleteId={id} />
+          <BiometriaTab
+            body={detalle.body}
+            athleteId={id}
+            checkin={detalle.resumen?.checkin ?? null}
+            checkinWeek={detalle.resumen?.checkin_week ?? []}
+          />
+        </div>
       )}
     </div>
   );

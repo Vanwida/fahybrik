@@ -43,6 +43,7 @@ export default async function V2AthleteDetailPage({
       detalle={detalle}
       tab={resolved.tab}
       rendimientoVista={resolved.rendimientoVista}
+      carreraCapa={resolved.carreraCapa}
       atletaSeccion={resolved.atletaSeccion}
       initialSessionId={sesion && sesion.trim().length > 0 ? sesion.trim() : null}
       coachName={session.club_name}

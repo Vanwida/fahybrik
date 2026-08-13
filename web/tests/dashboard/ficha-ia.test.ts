@@ -43,11 +43,15 @@ describe('ficha IA · pestañas', () => {
     expect(normalizeAtletaTab('mensajes')).toBe('mensajes');
     expect(normalizeAtletaTab('del-coach')).toBe('del-coach');
     expect(resolveAtletaUrl('correr', undefined).tab).toBe('rendimiento');
-    expect(resolveAtletaUrl('correr', undefined).rendimientoVista).toBe('correr');
-    expect(resolveAtletaUrl('ritmos', undefined).rendimientoVista).toBe('zonas');
+    expect(resolveAtletaUrl('correr', undefined).rendimientoVista).toBe('carrera');
+    expect(resolveAtletaUrl('correr', undefined).carreraCapa).toBe('aterrizaje');
+    expect(resolveAtletaUrl('ritmos', undefined).rendimientoVista).toBe('carrera');
+    expect(resolveAtletaUrl('ritmos', undefined).carreraCapa).toBe('zonas');
     expect(resolveAtletaUrl('pagos', undefined).atletaSeccion).toBe('pagos');
     expect(resolveAtletaUrl('sesiones', undefined).atletaSeccion).toBe('sesiones');
     expect(resolveAtletaUrl('rendimiento', 'cuerpo').rendimientoVista).toBe('cuerpo');
+    expect(resolveAtletaUrl('rendimiento', 'zonas').rendimientoVista).toBe('carrera');
+    expect(resolveAtletaUrl('rendimiento', 'zonas').carreraCapa).toBe('zonas');
   });
 });
 

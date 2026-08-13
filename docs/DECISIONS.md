@@ -58,6 +58,8 @@ La quinta (Del coach) se queda porque el 9-ago ya se firmó que el comunicado vi
 
 **Plan (mismo día, lote 2):** la pestaña responde «¿qué le mando y cómo lo cambio?». La semana es el lienzo (todas las sesiones del día, «sin hacer» se ve, tope de 3 + «+N más» al editor del día). Adherencia, check-in y readiness NO se repiten: ya están en Resumen. «A vigilar» sin CTA se elimina (el check-in de Resumen es el sitio).
 
+**Rendimiento (mismo día, lote 3):** tres anclas — Carrera · Fuerza · Cuerpo. Carrera tiene capas (cómo aterriza · zonas · carreras), no pestañas hermanas. Diagnóstico viejo se parte: fisiología/cuerpo a Cuerpo, running a Carrera, 1RM/tests a Fuerza. Default = Carrera.
+
 **NO hacer:** no añadir una sexta pestaña. No devolver Mensajes al rail. No pintar un dato en dos sitios. No inventar proyección HYROX (el loader sigue devolviendo null). No restylear Hoy ni el roster en este lote.
 
 Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`. Visual: spec 1a.

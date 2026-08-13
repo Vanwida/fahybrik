@@ -103,15 +103,11 @@ export type AtletaTab = (typeof ATLETA_TABS)[number];
 export type AtletaVista = AtletaTab | 'mensajes';
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'resumen';
 
-export const RENDIMIENTO_VISTAS = [
-  'diagnostico',
-  'correr',
-  'zonas',
-  'carreras',
-  'historico',
-  'cuerpo',
-] as const;
+export const RENDIMIENTO_VISTAS = ['carrera', 'fuerza', 'cuerpo'] as const;
 export type RendimientoVista = (typeof RENDIMIENTO_VISTAS)[number];
+
+export const CARRERA_CAPAS = ['aterrizaje', 'zonas', 'carreras'] as const;
+export type CarreraCapa = (typeof CARRERA_CAPAS)[number];
 
 export const ATLETA_SECCIONES = ['perfil', 'sesiones', 'pagos'] as const;
 export type AtletaSeccion = (typeof ATLETA_SECCIONES)[number];
@@ -129,11 +125,20 @@ const TAB_ALIASES: Record<string, AtletaVista> = {
 };
 
 const RENDIMIENTO_ALIASES: Record<string, RendimientoVista> = {
-  ritmos: 'zonas',
-  carreras: 'carreras',
-  historico: 'historico',
+  ritmos: 'carrera',
+  zonas: 'carrera',
+  carreras: 'carrera',
+  correr: 'carrera',
+  diagnostico: 'cuerpo',
+  historico: 'fuerza',
   biometria: 'cuerpo',
-  correr: 'correr',
+};
+
+const CARRERA_CAPA_ALIASES: Record<string, CarreraCapa> = {
+  ritmos: 'zonas',
+  zonas: 'zonas',
+  carreras: 'carreras',
+  correr: 'aterrizaje',
 };
 
 const ATLETA_ALIASES: Record<string, AtletaSeccion> = {
@@ -154,18 +159,23 @@ export function resolveAtletaUrl(
 ): {
   tab: AtletaVista;
   rendimientoVista: RendimientoVista;
+  carreraCapa: CarreraCapa;
   atletaSeccion: AtletaSeccion;
 } {
   const tab = normalizeAtletaTab(rawTab);
   const rendimientoVista: RendimientoVista =
     rawVista && (RENDIMIENTO_VISTAS as readonly string[]).includes(rawVista)
       ? (rawVista as RendimientoVista)
-      : (RENDIMIENTO_ALIASES[rawTab ?? ''] ?? 'diagnostico');
+      : (RENDIMIENTO_ALIASES[rawVista ?? ''] ?? RENDIMIENTO_ALIASES[rawTab ?? ''] ?? 'carrera');
+  const carreraCapa: CarreraCapa =
+    rawVista && (CARRERA_CAPAS as readonly string[]).includes(rawVista)
+      ? (rawVista as CarreraCapa)
+      : (CARRERA_CAPA_ALIASES[rawVista ?? ''] ?? CARRERA_CAPA_ALIASES[rawTab ?? ''] ?? 'aterrizaje');
   const atletaSeccion: AtletaSeccion =
     rawVista && (ATLETA_SECCIONES as readonly string[]).includes(rawVista)
       ? (rawVista as AtletaSeccion)
       : (ATLETA_ALIASES[rawTab ?? ''] ?? 'perfil');
-  return { tab, rendimientoVista, atletaSeccion };
+  return { tab, rendimientoVista, carreraCapa, atletaSeccion };
 }
 
 // ── Lifecycle (#13) — the ficha's pause/baja/re-alta context ─────────────────────

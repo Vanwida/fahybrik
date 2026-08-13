@@ -16,6 +16,7 @@ import { buildPendientes } from '@/lib/dashboard/v2/ficha-resumen';
 import type {
   AtletaSeccion,
   AtletaVista,
+  CarreraCapa,
   RendimientoVista,
   V2AthleteDetalle,
 } from '@/lib/dashboard/v2/atleta-detalle-types';
@@ -24,6 +25,7 @@ export function AthleteDetalle({
   detalle,
   tab,
   rendimientoVista,
+  carreraCapa,
   atletaSeccion,
   initialSessionId,
   coachName,
@@ -31,6 +33,7 @@ export function AthleteDetalle({
   detalle: V2AthleteDetalle;
   tab: AtletaVista;
   rendimientoVista: RendimientoVista;
+  carreraCapa: CarreraCapa;
   atletaSeccion: AtletaSeccion;
   initialSessionId: string | null;
   coachName: string;
@@ -90,7 +93,12 @@ export function AthleteDetalle({
             intakePending={header.status === 'alta'}
           />
         ) : tab === 'rendimiento' ? (
-          <RendimientoHome detalle={detalle} vista={rendimientoVista} coachName={coachName} />
+          <RendimientoHome
+            detalle={detalle}
+            vista={rendimientoVista}
+            carreraCapa={carreraCapa}
+            coachName={coachName}
+          />
         ) : tab === 'del-coach' ? (
           <DelCoachTab
             athleteId={header.athlete_id}
