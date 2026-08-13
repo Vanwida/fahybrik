@@ -10,6 +10,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-13 · La ficha del atleta son 5 pestañas, no 12
+
+**El hueco.** La ficha del dashboard del coach tenía 12 pestañas (`perfil · plan · ritmos · carreras · historico · sesiones · biometria · rendimiento · correr · pagos · mensajes · del-coach`). El coach se perdía. Una auditoría (11-ago) y la spec 1a lo confirman: el menú era un almacén, no una herramienta.
+
+**Decidido (Alex, 13-ago, sobre spec 1a + mock):**
+
+Cinco pestañas, cada una una pregunta:
+
+| Pestaña | Pregunta |
+|---|---|
+| Resumen | ¿Cómo va y qué toca esta semana? |
+| Plan | ¿Qué le mando y cómo lo cambio? |
+| Rendimiento | ¿El entrenamiento está aterrizando? |
+| Del coach | ¿Qué le he publicado y qué hizo con ello? |
+| Atleta | ¿Quién es y qué le debo? |
+
+La quinta (Del coach) se queda porque el 9-ago ya se firmó que el comunicado vive en la ficha del atleta (publicar ≠ chat; el coach piensa en EL atleta, no en la feature). No se entierra en Atleta.
+
+**Mensajes deja de ser pestaña.** Es el botón de cabecera y abre el hilo de *este* atleta.
+
+**Default:** Resumen, no Perfil.
+
+**Las `?tab=` viejas redirigen** (aliases en `normalizeAtletaTab` / `resolveAtletaUrl`). No se borra superficie: se reubica.
+
+**Rendimiento no se vuelca.** Hasta su propio pase de diseño, un raíl temporal reusa las pestañas viejas (diagnóstico / correr / zonas / carreras / histórico / cuerpo). El destino son tres anclas: Carrera · Fuerza · Cuerpo.
+
+**Cabecera:** dos filas, nunca tres. Lo pendiente es una línea de enlaces, no un banner. VO₂ / FC reposo / VFC salen de la cabecera (viven en Rendimiento). El rojo se reserva para lo que bloquea.
+
+**NO hacer:** no añadir una sexta pestaña. No devolver Mensajes al rail. No pintar un dato en dos sitios. No inventar proyección HYROX (el loader sigue devolviendo null). No restylear Hoy ni el roster en este lote.
+
+Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`. Visual: spec 1a.
+
+---
+
 ## 2026-08-13 · El materializador FIT usa `source='garmin'`, no `'fit_import'` — y `leg_role` sigue sin sitio
 
 **El hueco.** Al construir `web/lib/import/fit/materialize.ts` (el materializador que cierra la entrada «El histórico rico entra por FICHERO FIT», más arriba en este mismo fichero) aparecieron dos choques reales entre el diseño hablado y el esquema:

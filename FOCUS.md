@@ -5,7 +5,20 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
-## Ahora · Importador FIT: el año de Garmin entra COMPLETO (13-ago)
+## Ahora · Ficha del atleta: de 12 pestañas a 5 (13-ago)
+
+Spec 1a + mock firmados. IA: Resumen · Plan · Rendimiento · Del coach · Atleta.
+Mensajes es verbo de cabecera. Default = Resumen.
+
+- Decisión: `docs/DECISIONS.md` (13-ago «La ficha del atleta son 5 pestañas»).
+- Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`.
+- Este lote: cromo + Resumen a calidad del mock. Plan/Del coach se reestilan
+  después. Rendimiento tiene raíl temporal (no volcado) hasta su pase.
+- Las `?tab=` viejas redirigen; no se pierde superficie.
+
+---
+
+## También · Importador FIT: el año de Garmin entra COMPLETO (13-ago)
 
 **Decisión de Alex:** primero el importador, luego la vista Por tipo. El porqué y
 las reglas en `docs/DECISIONS.md` (2026-08-13 «El histórico rico entra por

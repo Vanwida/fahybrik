@@ -1,18 +1,15 @@
 // v2 · ATLETA · DETALLE — server component. Validates the athlete id, gates on the
-// coach session, loads the unified detail payload (all per-athlete loaders fanned
-// out with per-section degradation), and renders the client orchestrator with the
-// URL-driven active sub-tab (?tab=perfil|plan|historico|biometria|mensajes). A
-// non-existent / not-owned athlete → notFound().
+// coach session, loads the unified detail payload, and renders the client
+// orchestrator with the URL-driven tab (?tab=resumen|plan|rendimiento|del-coach|atleta).
+// Las ?tab= viejas redirigen (resolveAtletaUrl). Un atleta ajeno → notFound().
 //
 // ?sesion=<assignment_id> (solo con tab=plan) hace ENLAZABLE una sesión concreta
-// del plan: PlanTab la abre en el cajón al cargar. Es solo de ENTRADA — un id
-// roto, ajeno o inexistente no tira la ficha (PlanTab/SessionDetailDrawer lo
-// resuelven cerrando el cajón en silencio, ver PlanTab.tsx).
+// del plan: PlanTab la abre en el cajón al cargar.
 
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { loadAthleteDetalle, normalizeAtletaTab } from '@/lib/dashboard/v2/atleta-detalle';
+import { loadAthleteDetalle, resolveAtletaUrl } from '@/lib/dashboard/v2/atleta-detalle';
 import { AthleteDetalle } from '@/components/v2/atleta-detalle/AthleteDetalle';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +19,7 @@ export default async function V2AthleteDetailPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ tab?: string; sesion?: string }>;
+  searchParams: Promise<{ tab?: string; sesion?: string; vista?: string }>;
 }) {
   const { locale, id } = await params;
   setRequestLocale(locale);
@@ -39,13 +36,14 @@ export default async function V2AthleteDetailPage({
   });
   if (!detalle) notFound();
 
-  const { tab, sesion } = await searchParams;
-  // El club es con quien el atleta cree que habla: es el nombre que la app le
-  // pone a un comunicado (`coaches.full_name`), no el del miembro que lo escribe.
+  const { tab, sesion, vista } = await searchParams;
+  const resolved = resolveAtletaUrl(tab, vista);
   return (
     <AthleteDetalle
       detalle={detalle}
-      tab={normalizeAtletaTab(tab)}
+      tab={resolved.tab}
+      rendimientoVista={resolved.rendimientoVista}
+      atletaSeccion={resolved.atletaSeccion}
       initialSessionId={sesion && sesion.trim().length > 0 ? sesion.trim() : null}
       coachName={session.club_name}
     />

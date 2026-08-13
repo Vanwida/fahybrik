@@ -95,19 +95,77 @@ export interface TestProgressionRow {
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-// `del-coach` cierra la pareja con `mensajes` y por eso va justo detrás: el chat
-// conversa, el comunicado se publica y se rastrea (docs/DECISIONS.md 2026-08-09).
-// `correr` va detrás de `rendimiento` y no al final: las dos son el bloque
-// analítico de la ficha, y las cinco pestañas de la izquierda son las de uso
-// diario, que no se tocan para no mover la memoria muscular del coach.
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'correr', 'pagos', 'mensajes', 'del-coach'] as const;
+// Cinco pestañas (docs/DECISIONS.md 2026-08-13). Mensajes no es pestaña: es el
+// botón de cabecera y abre una vista oculta. Las ?tab= viejas redirigen.
+export const ATLETA_TABS = ['resumen', 'plan', 'rendimiento', 'del-coach', 'atleta'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
-export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
+/** Vista que la URL puede pedir además de las 5 pestañas (hilo de chat). */
+export type AtletaVista = AtletaTab | 'mensajes';
+export const DEFAULT_ATLETA_TAB: AtletaTab = 'resumen';
 
-export function normalizeAtletaTab(raw: string | undefined): AtletaTab {
-  return (ATLETA_TABS as readonly string[]).includes(raw ?? '')
-    ? (raw as AtletaTab)
-    : DEFAULT_ATLETA_TAB;
+export const RENDIMIENTO_VISTAS = [
+  'diagnostico',
+  'correr',
+  'zonas',
+  'carreras',
+  'historico',
+  'cuerpo',
+] as const;
+export type RendimientoVista = (typeof RENDIMIENTO_VISTAS)[number];
+
+export const ATLETA_SECCIONES = ['perfil', 'sesiones', 'pagos'] as const;
+export type AtletaSeccion = (typeof ATLETA_SECCIONES)[number];
+
+const TAB_ALIASES: Record<string, AtletaVista> = {
+  perfil: 'atleta',
+  ritmos: 'rendimiento',
+  carreras: 'rendimiento',
+  historico: 'rendimiento',
+  sesiones: 'atleta',
+  biometria: 'rendimiento',
+  correr: 'rendimiento',
+  pagos: 'atleta',
+  mensajes: 'mensajes',
+};
+
+const RENDIMIENTO_ALIASES: Record<string, RendimientoVista> = {
+  ritmos: 'zonas',
+  carreras: 'carreras',
+  historico: 'historico',
+  biometria: 'cuerpo',
+  correr: 'correr',
+};
+
+const ATLETA_ALIASES: Record<string, AtletaSeccion> = {
+  perfil: 'perfil',
+  sesiones: 'sesiones',
+  pagos: 'pagos',
+};
+
+export function normalizeAtletaTab(raw: string | undefined): AtletaVista {
+  if (raw && (ATLETA_TABS as readonly string[]).includes(raw)) return raw as AtletaTab;
+  if (raw && raw in TAB_ALIASES) return TAB_ALIASES[raw]!;
+  return DEFAULT_ATLETA_TAB;
+}
+
+export function resolveAtletaUrl(
+  rawTab: string | undefined,
+  rawVista: string | undefined,
+): {
+  tab: AtletaVista;
+  rendimientoVista: RendimientoVista;
+  atletaSeccion: AtletaSeccion;
+} {
+  const tab = normalizeAtletaTab(rawTab);
+  const rendimientoVista: RendimientoVista =
+    rawVista && (RENDIMIENTO_VISTAS as readonly string[]).includes(rawVista)
+      ? (rawVista as RendimientoVista)
+      : (RENDIMIENTO_ALIASES[rawTab ?? ''] ?? 'diagnostico');
+  const atletaSeccion: AtletaSeccion =
+    rawVista && (ATLETA_SECCIONES as readonly string[]).includes(rawVista)
+      ? (rawVista as AtletaSeccion)
+      : (ATLETA_ALIASES[rawTab ?? ''] ?? 'perfil');
+  return { tab, rendimientoVista, atletaSeccion };
 }
 
 // ── Lifecycle (#13) — the ficha's pause/baja/re-alta context ─────────────────────
@@ -241,6 +299,36 @@ export interface TrainingDaysData {
   has_availability: boolean;
 }
 
+// ── Resumen extras (client-safe) ──────────────────────────────────────────────
+export interface FichaAdherenceWeek {
+  week_start: string;
+  scheduled: number;
+  completed: number;
+  /** Null when nothing was due that week — never a punitive 0. */
+  pct: number | null;
+}
+
+export interface FichaWeekAdjustment {
+  proposal_id: number;
+  summary: string;
+}
+
+export interface FichaPrivateNote {
+  body: string;
+}
+
+export interface FichaResumenExtras {
+  adherence_weeks: FichaAdherenceWeek[];
+  week_adjustment: FichaWeekAdjustment | null;
+  private_note: FichaPrivateNote | null;
+  sleep_hours: number | null;
+  readiness_delta: number | null;
+  race_goal_time_seconds: number | null;
+  race_date: string | null;
+  race_format: string | null;
+  race_division: string | null;
+}
+
 // ── The unified payload the page passes to the client ──────────────────────────
 export interface V2AthleteDetalle {
   header: DetalleHeader;
@@ -300,6 +388,9 @@ export interface V2AthleteDetalle {
    *  no bandeja. Vacío = todavía no se le ha publicado nada. Se lee con la ficha
    *  porque la insignia de la pestaña la necesita desde cualquier otra pestaña. */
   communications: CoachAthleteCommunicationDTO[];
+  /** Extras de la pestaña Resumen (adherencia 4 sem, ajuste, nota). Degrada a
+   *  vacío si el load falló — Resumen se pinta igual con lo que ya trae `resumen`. */
+  ficha: FichaResumenExtras;
 }
 
 // Re-export so the client tab components import the type from this client-safe

@@ -1,7 +1,7 @@
 import 'server-only';
 
 // v2 · ATLETA · DETALLE — server data orchestrator for the athlete detail screen
-// (5 sub-tabs: perfil · plan · histórico · biometría · mensajes). One safe load
+// (5 pestañas: resumen · plan · rendimiento · del-coach · atleta). One safe load
 // fans out all existing per-athlete loaders in parallel; any single failure
 // degrades that section (null) without 500-ing the page, mirroring the Hoy
 // screen's resilience contract. The client component renders from this payload.
@@ -41,6 +41,7 @@ import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/streng
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { listCommunicationsForAthlete } from '@/lib/coach/communications';
+import { EMPTY_FICHA, loadFichaResumenExtras } from '@/lib/dashboard/v2/ficha-resumen-load';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
@@ -103,6 +104,7 @@ export {
   ATLETA_TABS,
   DEFAULT_ATLETA_TAB,
   normalizeAtletaTab,
+  resolveAtletaUrl,
   buildPerfilTab,
   selectPerfilTab,
   buildTestProgression,
@@ -331,6 +333,7 @@ export async function loadAthleteDetalle(params: {
     battery,
     testLibrary,
     communications,
+    ficha,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -362,6 +365,7 @@ export async function loadAthleteDetalle(params: {
     // (y no al abrir la pestaña) porque la insignia de «te reclama algo» tiene
     // que verse estando en cualquier otra pestaña. Degrada a vacío como el resto.
     listCommunicationsForAthlete({ coach_id, athlete_id, sql: client }).catch(() => []),
+    loadFichaResumenExtras({ coach_id, athlete_id, client }).catch(() => EMPTY_FICHA),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -449,6 +453,7 @@ export async function loadAthleteDetalle(params: {
     sessions,
     review,
     communications,
+    ficha: ficha ?? EMPTY_FICHA,
   };
 }
 
