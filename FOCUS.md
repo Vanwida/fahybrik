@@ -5,6 +5,40 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ---
 
+## Ahora · Analíticas: las pastillas mandan — Carrera es SOLO running (13-ago)
+
+**La regla, de Alex y con la app en la mano:** el rail de pastillas está arriba,
+así que todo lo que se pinta debajo se lee como contenido de la pestaña elegida.
+«¿Qué hace el sueño en la pestaña de running?» — nada. Fuera.
+
+- **Carrera** lleva solo running: veredicto con su evidencia, mejores esfuerzos,
+  kilómetros, suave y fuerte, lo que te piden, correr cansado, tu carrera, umbral
+  con zonas, cadencia, por tipo — y detrás capacidad (velocidad crítica + D'),
+  ejecución (deriva, bajada de pulso), volumen con desnivel y terreno.
+- **Recup.** lleva el cuerpo entero: disposición, carga («vas a más o te pasas»),
+  sueño, variabilidad, pulso en reposo, estrés, batería corporal, peso.
+- El segundo error era peor que el del sueño: capacidad/ejecución/volumen/terreno
+  (running puro) colgaban del bloque transversal, o sea FUERA de Carrera.
+
+**Cotejado contra la lista real de Garmin para running** (estado de entrenamiento,
+VO2máx, umbral, predictor, récords, cadencia): todo tiene equivalente en la
+pestaña, más lo que Garmin no puede tener (adherencia a las bandas del coach,
+comprometido, medias por tipo). **Criterio de empresa, firmado: si el atleta abre
+Garmin para ver UN dato, hemos fallado.**
+
+Verificado: build verde, 1498 tests, la pantalla de Carrera volcada a imagen es
+running puro por construcción. **Pendiente: que Alex instale y lo vea en su
+iPhone** — el volcado renderiza la pantalla de Carrera aislada, no el contenedor
+con las pastillas.
+
+Y una lección de infraestructura apuntada: en este Mac hay un proceso llamado
+`simulator` (minúscula) que es el simulador de GARMIN, no el de Apple. Automatizar
+el escritorio contra él por nombre acaba clicando la app equivocada. No se
+automatiza el escritorio; el framebuffer del dispositivo (`simctl io screenshot`)
+no lo toca y es la vía buena.
+
+---
+
 ## Cerrado · Apple Salud: un permiso, y el histórico sí entra en las comparativas (13-ago)
 
 En Perfil había dos CTAs de Salud. Queda el toggle, nada debajo. El histórico
