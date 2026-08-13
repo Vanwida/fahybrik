@@ -74,6 +74,10 @@
       "types": "./domain/athlete/*.ts",
       "default": "./domain/athlete/*.ts"
     },
+    "./domain/jump/*": {
+      "types": "./domain/jump/*.ts",
+      "default": "./domain/jump/*.ts"
+    },
     "./domain/*": {
       "types": "./domain/*.ts",
       "default": "./domain/*.ts"
