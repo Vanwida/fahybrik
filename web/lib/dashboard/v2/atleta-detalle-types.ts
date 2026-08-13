@@ -368,6 +368,7 @@ function fmtMetricValue(value: number, metric: BenchmarkMetric): string {
   if (metric === 'distance') return `${Math.round(value)} m`; // Cooper
   if (metric === 'rate') return `${Math.round(value)} ppm`; // heart rate
   if (metric === 'power') return `${Math.round(value)} W`; // FTP
+  if (metric === 'height') return `${Math.round(value)} cm`;
   return `${Math.round(value)}`; // reps
 }
 
@@ -380,6 +381,7 @@ function fmtDeltaLabel(delta: number, metric: BenchmarkMetric): string {
   if (metric === 'distance') return `${sign}${Math.round(abs)} m`;
   if (metric === 'rate') return `${sign}${Math.round(abs)} ppm`;
   if (metric === 'power') return `${sign}${Math.round(abs)} W`;
+  if (metric === 'height') return `${sign}${Math.round(abs)} cm`;
   return `${sign}${Math.round(abs)}`;
 }
 

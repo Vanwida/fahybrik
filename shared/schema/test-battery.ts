@@ -22,14 +22,15 @@ import { z } from 'zod';
  *  absolute rate (the threshold heart rate a 30-min test measures), `hrr` is a
  *  DROP between two rates. They share the `bpm` unit and nothing else — one
  *  anchors the zone model, the other is a fitness marker. */
-export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr', 'hr'] as const;
+export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr', 'hr', 'height'] as const;
 export type StoreResultMeasure = (typeof STORE_RESULT_MEASURES)[number];
 
 /** The unit the entered value is in. Pairs with `measure`
  *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg,
  *  hrr→bpm — bpm the HR dropped in the fixed recovery window,
- *  hr→bpm — an absolute heart rate). */
-export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm'] as const;
+ *  hr→bpm — an absolute heart rate,
+ *  height→cm — jump height from flight time; NEVER calibrates). */
+export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm', 'cm'] as const;
 export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
 
 /** The ACTIVE calibration each result drives (level is always re-derived after,

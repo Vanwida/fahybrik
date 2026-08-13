@@ -58,6 +58,7 @@ const MEASURE_LABEL: Record<StoreResultMeasure, string> = {
   calories: 'las calorías',
   hrr: 'la recuperación de pulso',
   hr: 'el pulso',
+  height: 'la altura',
 };
 
 const ERG_OR_RUN = new Set(['run', 'row', 'ski', 'bike']);

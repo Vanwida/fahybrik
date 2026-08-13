@@ -367,6 +367,7 @@ export const BASELINE_MEASURE_UNITS: ReadonlyArray<{
   { measure: 'distance', unit: 'meters', label: 'Distancia' },
   { measure: 'reps', unit: 'reps', label: 'Repeticiones' },
   { measure: 'calories', unit: 'calories', label: 'Calorías' },
+  { measure: 'height', unit: 'cm', label: 'Altura de salto' },
 ];
 
 /**

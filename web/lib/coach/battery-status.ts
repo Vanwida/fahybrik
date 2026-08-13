@@ -139,6 +139,8 @@ function formatCapturedValue(measure: string, value: number): string {
     case 'hrr':
     case 'hr':
       return `${n} ppm`;
+    case 'height':
+      return `${Math.round(value)} cm`;
     default: // reps
       return n;
   }

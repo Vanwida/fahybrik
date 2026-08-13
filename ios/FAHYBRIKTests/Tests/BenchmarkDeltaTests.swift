@@ -21,7 +21,7 @@ final class BenchmarkDeltaTests: XCTestCase {
     }
 
     func testCountAndLoadUnitsHigherIsBetter() {
-        for unit in ["kg", "bpm", "meters", "reps", "calories"] {
+        for unit in ["kg", "bpm", "meters", "reps", "calories", "cm"] {
             XCTAssertTrue(BenchmarkDelta.improved(unit: unit, delta: 2), unit)
             XCTAssertFalse(BenchmarkDelta.improved(unit: unit, delta: -2), unit)
             XCTAssertFalse(BenchmarkDelta.improved(unit: unit, delta: 0), unit)
@@ -40,6 +40,7 @@ final class BenchmarkDeltaTests: XCTestCase {
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "meters", value: 850), "850 m")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "reps", value: 24), "24 reps")
         XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "calories", value: 18), "18 cal")
+        XCTAssertEqual(BenchmarkDelta.valueLabel(unit: "cm", value: 47.33), "47 cm")
     }
 
     func testDeltaLabelsKeepTheRawDirection() {

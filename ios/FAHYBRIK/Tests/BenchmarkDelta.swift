@@ -39,6 +39,7 @@ enum BenchmarkDelta {
         case "meters":   return ("\(Int(value.rounded()))", "m")
         case "reps":     return ("\(Int(value.rounded()))", "reps")
         case "calories": return ("\(Int(value.rounded()))", "cal")
+        case "cm":       return ("\(Int(value.rounded()))", "cm")
         default:         return (trimmed(value), "")
         }
     }
@@ -58,6 +59,7 @@ enum BenchmarkDelta {
         case "meters":   return "\(sign)\(Int(mag.rounded())) m"
         case "reps":     return "\(sign)\(Int(mag.rounded())) reps"
         case "calories": return "\(sign)\(Int(mag.rounded())) cal"
+        case "cm":       return "\(sign)\(Int(mag.rounded())) cm"
         default:         return "\(sign)\(trimmed(mag))"
         }
     }

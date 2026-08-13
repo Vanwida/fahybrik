@@ -77,6 +77,7 @@ export function unitForMeasure(measure: StoreResultMeasure): StoreResultUnit {
     case 'reps': return 'reps';
     case 'calories': return 'calories';
     case 'load': return 'kg';
+    case 'height': return 'cm';
     default: return 'reps';
   }
 }
