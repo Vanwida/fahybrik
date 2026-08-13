@@ -185,6 +185,16 @@ export async function recordBatteryResults(params: {
         bpm: e.value,
         source,
       });
+    } else if (spec.measure === 'height') {
+      // Jump height in cm. MUST sit before the timetrial else: that branch
+      // stores unit 'seconds', and 47 cm would render as 0:47 with lower-is-better.
+      await recordTestBenchmark(sql, {
+        kind: 'jump',
+        athlete_id,
+        exercise_slug: spec.slug,
+        height_cm: e.value,
+        source,
+      });
     } else {
       // time-trial (run_5k / row_2k / hyrox_half_sim)
       await recordTestBenchmark(sql, {

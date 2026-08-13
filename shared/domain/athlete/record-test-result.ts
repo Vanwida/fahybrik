@@ -30,6 +30,7 @@ import {
   BENCHMARK_UNIT_KG,
   BENCHMARK_UNIT_SECONDS,
   BENCHMARK_UNIT_BPM,
+  BENCHMARK_UNIT_CM,
   thresholdBenchmarkSlug,
   type TestModality,
 } from '../coach/benchmark-slugs';
@@ -100,12 +101,21 @@ export interface HrTestEvent {
   source: TestSource;
 }
 
+export interface JumpTestEvent {
+  kind: 'jump';
+  athlete_id: number;
+  exercise_slug: string;
+  height_cm: number;
+  source: TestSource;
+}
+
 export type TestEvent =
   | ThresholdTestEvent
   | StrengthTestEvent
   | TimeTrialTestEvent
   | HrrTestEvent
-  | HrTestEvent;
+  | HrTestEvent
+  | JumpTestEvent;
 
 export interface BenchmarkAppendRow {
   exercise_slug: string;
@@ -128,6 +138,9 @@ export function benchmarkForTestEvent(event: TestEvent): BenchmarkAppendRow {
   }
   if (event.kind === 'hrr' || event.kind === 'hr') {
     return { exercise_slug: event.exercise_slug, value: event.bpm, unit: BENCHMARK_UNIT_BPM };
+  }
+  if (event.kind === 'jump') {
+    return { exercise_slug: event.exercise_slug, value: event.height_cm, unit: BENCHMARK_UNIT_CM };
   }
   return {
     exercise_slug: thresholdBenchmarkSlug(event.modality),
