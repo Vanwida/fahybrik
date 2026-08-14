@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
@@ -157,15 +158,15 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">
             {created ? 'Atleta creado' : 'Agregar atleta'}
           </h2>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="Cerrar"
             onClick={close}
             disabled={isPending}
-            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
-          </button>
+          </Button>
         </div>
 
         {!created ? (
@@ -230,30 +231,19 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
             ) : null}
 
             <div className="mt-1 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={close}
-                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-              >
+              <Button variant="ghost" onClick={close}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-              >
+              </Button>
+              <Button type="submit" disabled={!canSubmit} loading={submitting}>
                 {submitting ? (
-                  <>
-                    <MIcon name="progress_activity" size={16} className="animate-spin" />
-                    Creando…
-                  </>
+                  'Creando…'
                 ) : (
                   <>
                     <MIcon name="person_add" size={16} />
                     Crear e invitar
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -274,14 +264,10 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
                     className={cn(inputCls, 'v2-num text-xs')}
                     aria-label="Enlace de invitación"
                   />
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-                  >
+                  <Button variant="outline" size="lg" onClick={copyLink}>
                     <MIcon name={copied ? 'check' : 'content_copy'} size={16} />
                     {copied ? 'Copiado' : 'Copiar'}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-label text-[color:var(--v2-faint)]">
                   Enlace de un solo uso. Caduca; puedes regenerarlo desde el perfil del atleta.
@@ -294,14 +280,10 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
             )}
 
             <div className="mt-1 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={close}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-              >
+              <Button onClick={close}>
                 <MIcon name="check" size={16} />
                 Hecho
-              </button>
+              </Button>
             </div>
           </div>
         )}
