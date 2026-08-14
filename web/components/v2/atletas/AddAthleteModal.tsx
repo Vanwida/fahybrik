@@ -11,6 +11,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
@@ -131,12 +132,6 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const inputCls = cn(
-    'v2-focus h-10 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 text-sm',
-    'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
-    'focus:border-[color:var(--v2-border-strong)]',
-  );
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -173,25 +168,27 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             <label className="flex flex-col gap-1.5">
               <span className="v2-micro">Nombre completo</span>
-              <input
+              <Input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="p. ej. Marta Ruiz"
                 autoFocus
                 maxLength={120}
-                className={inputCls}
+                size="lg"
+                className="w-full"
               />
             </label>
 
             <label className="flex flex-col gap-1.5">
               <span className="v2-micro">Email</span>
-              <input
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="atleta@email.com"
-                className={inputCls}
+                size="lg"
+                className="w-full"
                 aria-invalid={trimmedEmail.length > 0 && !emailValid}
               />
               {trimmedEmail.length > 0 && !emailValid ? (
@@ -256,12 +253,14 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
             {inviteUrl ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-stretch gap-2">
-                  <input
+                  <Input
                     type="text"
                     readOnly
+                    numeral
                     value={inviteUrl}
                     onFocus={(e) => e.currentTarget.select()}
-                    className={cn(inputCls, 'v2-num text-xs')}
+                    size="lg"
+                    className="w-full text-xs"
                     aria-label="Enlace de invitación"
                   />
                   <Button variant="outline" size="lg" onClick={copyLink}>
