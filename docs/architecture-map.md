@@ -265,7 +265,7 @@ No hay scripts npm. XcodeGen regenera desde `ios/project.yml`; después `xcodebu
 
 **Datos / migraciones**
 - **Numeración con colisiones y hueco.** Nunca asumas que el prefijo numérico identifica una migración: el journal usa el **stem completo**. Al añadir una nueva, coge el número más alto + 1 (`0197_*`) y aplícala vía `migrate.ts` — nunca a mano.
-- **`web/.env.local` es un symlink a `../.env.local`** (la raíz). Ese `DATABASE_URL` apunta a **main de producción**, y Vitest carga ese fichero. Un test `.db` mal escrito puede escribir en prod: **`TEST_DATABASE_URL` es obligatoria y no salva sola** — las libs importadas leen `DATABASE_URL`.
+- **`web/.env.local` es un symlink a `../.env.local`** (la raíz). Ese `DATABASE_URL` apunta a **main de producción**. Vitest **no** carga ese fichero. El riesgo real es otro: (1) `tests/setup/env.ts` cedía ante un `DATABASE_URL` ya exportado en la shell — ahora lo pisa **siempre** con un dummy `127.0.0.1`; (2) `TEST_DATABASE_URL` sin validar podía ser la de main. El setup compara el host de `TEST_DATABASE_URL` con el de la shell y el de `.env.local` y **falla en alto** si coinciden (sin imprimir la URL). Las libs importadas leen `DATABASE_URL` (dummy en Vitest).
 - **`DATABASE_URL` del `~/.openclaw/.../vanwida-tokens.env` apunta a OTRO Neon.** Pinear siempre la variable correcta del proyecto. Un dry-run con decenas de pendientes = base equivocada.
 - **postgres.js + jsonb**: nunca `JSON.stringify` en una columna `jsonb` — usar `client.json()`. Ya rompió los adjuntos del chat.
 - Migraciones y seeds tocan la misma base que la app: los seeds son **defectos editables**, no datos falsos en cuentas reales.

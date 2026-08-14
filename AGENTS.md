@@ -133,7 +133,7 @@ TEST_DATABASE_URL='<connection_uri de la rama>' pnpm --filter @fahybrid/web test
 neonctl branches delete <nombre> --project-id <NEON_PROJECT_ID>
 ```
 
-Hoy no hay cortafuegos de host. Si `TEST_DATABASE_URL` es la de producción, las 101 suites escriben en main y el reporte sale verde. Propuesta (no aplicada): `docs/test-db-prod-guard-proposal.md`.
+Cortafuegos (PASO 3): `web/tests/setup/env.ts` pisa siempre `DATABASE_URL` con el dummy y aborta si `TEST_DATABASE_URL` resuelve al mismo host que la shell o el `DATABASE_URL` de `.env.local`. Detalle: `docs/test-db-prod-guard-proposal.md`.
 
 `infra/scripts/_db.ts` carga producción por defecto. No es el camino de Vitest. No lanzar migrate/seed/backfill salvo con `DATABASE_URL` explícita a una rama desechable.
 
@@ -184,7 +184,7 @@ Hoy no hay cortafuegos de host. Si `TEST_DATABASE_URL` es la de producción, las
 | Quién | Qué lee | Riesgo |
 |---|---|---|
 | `next dev` / `next build` | `.env.local` | Esperado |
-| Vitest | **No** carga `.env.local` | Dummy `127.0.0.1` en `web/tests/setup/env.ts` **solo si** `DATABASE_URL` no viene ya en la shell |
+| Vitest | **No** carga `.env.local` | Dummy `127.0.0.1` en `web/tests/setup/env.ts` **siempre**. Si `TEST_DATABASE_URL` coincide con el host de la shell o de `.env.local`, Vitest aborta |
 | `infra/scripts/_db.ts` | `.env.local` siempre | migrate/seed → main si no se overridea |
 
 Antes de cualquier `pnpm test` o script de infra:
