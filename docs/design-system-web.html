@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El sistema del dashboard</title>
+<style>
+:root{
+  --bg:#070707; --col:#111; --card:#181818; --card2:#1e1e1e;
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --fg:#f3f3f3; --mu:#8d8d8d; --dim:#5c5c5c;
+  --or:#f06a2a; --or-s:rgba(240,106,42,.16);
+  --gn:#3fc773; --gn-s:rgba(63,199,115,.14);
+  --am:#f2a52e; --am-s:rgba(242,165,46,.14);
+  --rd:#f2504f; --rd-s:rgba(242,80,79,.14);
+  --bl:#4d9eeb; --bl-s:rgba(77,158,235,.14);
+  --sans:"Geist","SF Pro Text",system-ui,sans-serif;
+  --disp:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
+  --mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--fg);font:400 14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.top{position:sticky;top:0;z-index:5;background:rgba(7,7,7,.92);backdrop-filter:blur(12px);
+     border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:flex-end;
+     justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{font:900 italic 22px/1 var(--disp);letter-spacing:-.03em}
+.brand i{font-style:italic;color:var(--or)}
+.hint{font:500 11px/1.3 var(--sans);color:var(--dim);letter-spacing:.04em;text-transform:uppercase;margin-top:6px}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 90px}
+section{margin-bottom:34px}
+h2{font:800 italic 17px/1.2 var(--disp);letter-spacing:-.02em;margin-bottom:4px}
+h2 em{font-style:italic;color:var(--or)}
+.sub{color:var(--mu);font:500 13px/1.45 var(--sans);margin-bottom:14px;max-width:74ch}
+h3{font:700 11px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:22px 0 10px}
+p{max-width:80ch;color:var(--fg);margin-bottom:9px}
+p.m{color:var(--mu)}
+b{font-weight:700}
+code{font:600 12.5px/1.3 var(--mono);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:5px;color:#dcdcdc}
+.tesis{border:1px solid var(--or);background:linear-gradient(180deg,var(--or-s),rgba(240,106,42,.04));
+       border-radius:14px;padding:18px 20px}
+.tesis p{margin:0;font:600 15px/1.5 var(--sans);max-width:84ch}
+.tesis p+p{margin-top:9px;font-weight:500;color:#e2e2e2}
+table{width:100%;border-collapse:collapse;font:500 13px/1.4 var(--sans)}
+thead th{font:700 10px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+         text-align:left;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+tbody td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+td.n{font:650 13px/1.3 var(--mono);white-space:nowrap}
+.wrap{border:1px solid var(--line);border-radius:14px;background:var(--col);padding:12px 4px 2px;overflow-x:auto}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;
+     font:650 10px/1.45 var(--sans);letter-spacing:.02em;white-space:nowrap}
+.t-rd{background:var(--rd-s);color:var(--rd)}
+.t-gn{background:var(--gn-s);color:var(--gn)}
+.t-am{background:var(--am-s);color:var(--am)}
+.t-bl{background:var(--bl-s);color:var(--bl)}
+.t-or{background:var(--or-s);color:var(--or)}
+.t-dim{background:rgba(255,255,255,.06);color:var(--dim)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:12px;background:var(--col);padding:14px 15px}
+.box h4{font:700 13px/1.3 var(--sans);margin-bottom:6px}
+.box h4 span{font:650 10px/1 var(--mono);color:var(--dim);margin-right:7px}
+.box p{font:500 12.5px/1.45 var(--sans);color:var(--mu);margin:0}
+.box p+p{margin-top:7px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:860px){.kpi{grid-template-columns:1fr 1fr}}
+.kpi div{border:1px solid var(--line);border-radius:12px;background:var(--col);padding:12px 13px}
+.kpi b{display:block;font:700 26px/1 var(--mono);letter-spacing:-.02em;margin-bottom:5px}
+.kpi span{font:500 11.5px/1.35 var(--sans);color:var(--mu);display:block}
+.kpi .rd b{color:var(--rd)} .kpi .gn b{color:var(--gn)} .kpi .am b{color:var(--am)}
+ul{margin:0 0 10px 0;padding-left:0;list-style:none;max-width:80ch}
+li{position:relative;padding-left:16px;margin-bottom:6px;color:#e6e6e6;font:500 13px/1.5 var(--sans)}
+li:before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--dim)}
+li b{color:var(--fg)}
+ol{margin:0 0 10px 0;padding-left:20px;max-width:80ch}
+ol li{padding-left:2px;list-style:decimal}
+ol li:before{display:none}
+.ola{border:1px solid var(--line);border-radius:14px;background:var(--col);margin-bottom:10px;overflow:hidden}
+.ola-h{display:flex;align-items:center;gap:11px;padding:12px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ola-h b{font:700 14px/1.2 var(--sans)}
+.ola-h .num{font:800 italic 15px/1 var(--disp);color:var(--or);min-width:26px}
+.ola-h .why{color:var(--mu);font:500 12.5px/1.35 var(--sans);flex:1;min-width:200px}
+.ola-b{padding:12px 15px}
+.ola-b li{font-size:12.5px}
+.rule{margin-top:26px;border-top:1px solid var(--line);padding-top:12px;
+      font:500 11.5px/1.5 var(--sans);color:var(--dim)}
+.crit{border-left:2px solid var(--am);padding-left:12px;margin:12px 0}
+.crit p{color:#e0e0e0;font-size:13px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="brand">FAH<i>YBRID</i></div>
+    <div class="hint">El sistema del dashboard · 14 ago · docs/design-system-web.html</div>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <div class="tesis">
+    <p>El diagnóstico es correcto, pero el design system del dashboard <b>ya está escrito</b>: es la §9 de <code>docs/CONTRATO-UI.md</code>, del 29 de julio. Prohíbe exactamente lo que hoy sigue pasando.</p>
+    <p>Así que un documento nuevo no arregla nada. Lo que falta no es la ley: es que la ley <b>no se puede incumplir en silencio</b>. Este documento mide el incumplimiento, explica por qué ocurre y propone el sistema — ley + linter + kit — que lo cierra.</p>
+  </div>
+</section>
+
+<section>
+  <h2>1 · Lo que hay <em>medido hoy</em></h2>
+  <p class="sub">Todo lo de abajo sale de <code>grep</code> sobre <code>web/</code> a fecha 14-ago. Ningún número es estimado.</p>
+
+  <div class="kpi">
+    <div><b>586</b><span>componentes <code>.tsx</code>, 132.606 líneas</span></div>
+    <div class="rd"><b>0</b><span>ficheros importan <code>ui/button</code></span></div>
+    <div class="rd"><b>537</b><span><code>&lt;button&gt;</code> escritos a mano, en 180 ficheros</span></div>
+    <div class="am"><b>101</b><span>tokens <code>--v2-*</code> declarados y bien hechos</span></div>
+  </div>
+
+  <h3>Los primitivos existen. Nadie los usa.</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Primitivo</th><th>Lo importan</th><th>Lo reinventan a mano</th><th>Adopción</th></tr></thead>
+      <tbody>
+        <tr><td><code>ui/button.tsx</code></td><td class="n">0 ficheros</td><td class="n">537 <code>&lt;button&gt;</code> en 180 ficheros</td><td><span class="tag t-rd">0 %</span></td></tr>
+        <tr><td><code>v2/Card.tsx</code></td><td class="n">13 ficheros</td><td class="n">220 ficheros pintan borde+radio+superficie</td><td><span class="tag t-rd">5 %</span></td></tr>
+        <tr><td><code>v2/ModalPortal.tsx</code></td><td class="n">0 ficheros</td><td class="n">48 ficheros con <code>fixed inset-0</code></td><td><span class="tag t-rd">0 %</span></td></tr>
+        <tr><td><code>v2/ScreenState.tsx</code></td><td class="n">5 ficheros</td><td class="n">45 páginas, 1 <code>loading.tsx</code></td><td><span class="tag t-rd">11 %</span></td></tr>
+        <tr><td><code>v2/StatTile.tsx</code> · <code>StatusDot.tsx</code></td><td class="n">1 fichero cada uno</td><td class="n">—</td><td><span class="tag t-rd">1 %</span></td></tr>
+        <tr><td><code>v2/EmptyState.tsx</code></td><td class="n">33 ficheros</td><td class="n">27 ficheros escriben su vacío a mano</td><td><span class="tag t-am">55 %</span></td></tr>
+        <tr><td><code>v2/Pill.tsx</code></td><td class="n">46 ficheros</td><td class="n">poco</td><td><span class="tag t-gn">bien</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="crit">
+    <p><b>El dato que lo resume:</b> 220 ficheros dibujan a mano la misma superficie (borde + radio + fondo, todo con tokens correctos). Once de esos 220 importan <code>Card</code> — o sea que en el mismo fichero conviven la card buena y tres cards copiadas al lado.</p>
+  </div>
+
+  <h3>Las reglas ya escritas en el CONTRATO §9 — cuáles se cumplen</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Regla escrita el 29-jul</th><th>Estado hoy</th><th>Medida</th><th>¿Por qué?</th></tr></thead>
+      <tbody>
+        <tr><td>«Color: token siempre, y <b>sin fallback</b>»</td><td><span class="tag t-gn">se cumple</span></td><td class="n">0</td><td>Se arregló de una pasada y nadie escribe fallbacks nuevos.</td></tr>
+        <tr><td>«El scrim es <code>--v2-scrim</code>, no <code>bg-black/60</code>»</td><td><span class="tag t-gn">se cumple</span></td><td class="n">1</td><td>Igual: patrón que ya no sale solo.</td></tr>
+        <tr><td>«Un solo ancho de contenedor»</td><td><span class="tag t-rd">roto</span></td><td class="n">19 anchos</td><td>Existe <code>--v2-container</code> y aun así se escriben <code>max-w-[880px]</code>.</td></tr>
+        <tr><td>«<b>Ni un</b> <code>text-[Npx]</code> nuevo»</td><td><span class="tag t-rd">roto</span></td><td class="n">191</td><td>Sale natural al maquetar. Hay que acordarse en cada línea.</td></tr>
+        <tr><td>«Los medios píxeles no son jerarquía, son ruido»</td><td><span class="tag t-rd">roto</span></td><td class="n">≥59</td><td><code>12.5px</code>×26, <code>10.5px</code>×16, <code>11.5px</code>×8, <code>9.5px</code>×5…</td></tr>
+        <tr><td>«Toda ruta resuelve sus estados»</td><td><span class="tag t-rd">roto</span></td><td class="n">1 / 45</td><td>Un <code>loading.tsx</code>, un <code>error.tsx</code>, un <code>not-found.tsx</code>.</td></tr>
+        <tr><td>«Ficheros bajo 500 líneas»</td><td><span class="tag t-rd">roto</span></td><td class="n">20</td><td>Máximo actual: 935 líneas.</td></tr>
+        <tr><td>«Un formateador por concepto» (§2)</td><td><span class="tag t-rd">roto</span></td><td class="n">6</td><td>Tres <code>format.ts</code> en v2 + tres en <code>lib/dashboard</code>.</td></tr>
+        <tr><td>Anchos <code>max-w</code> que colisionan</td><td><span class="tag t-gn">se cumple</span></td><td class="n">0</td><td><b>Es la única regla de UI que está en eslint.</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>2 · Por qué falla, <em>de verdad</em></h2>
+  <p class="sub">No es desidia ni olvido. Son tres causas mecánicas, y cada una tiene su antídoto.</p>
+
+  <div class="grid3">
+    <div class="box">
+      <h4><span>A</span>La ley de web es un diagnóstico, no un índice</h4>
+      <p>La §1 del contrato (iOS) es una <b>tabla</b>: «necesitas X → usa <code>Y</code> → vive en <code>Z</code>». La §9 (web) es prosa que describe lo que está mal.</p>
+      <p>Resultado medido: en iOS, 71 ficheros usan <code>CardSurface</code>, 45 <code>ExpertPrimaryButton</code>, 128 el formateador único. En web, 0 usan el botón. <b>La web nunca tuvo la tabla que dice qué usar.</b></p>
+    </div>
+    <div class="box">
+      <h4><span>B</span>Reinventar sale más barato que buscar</h4>
+      <p>Escribir <code>&lt;button className="…"&gt;</code> son 4 segundos. Averiguar si existe un primitivo, si su API cubre el caso y si aceptará una variante nueva son 4 minutos.</p>
+      <p>Mientras el atajo sea más barato, se coge el atajo — sesión tras sesión, agente tras agente. <b>Ningún documento cambia esa economía. Un linter sí.</b></p>
+    </div>
+    <div class="box">
+      <h4><span>C</span>Los primitivos son demasiado finos</h4>
+      <p><code>Card</code> es un <code>div</code> con borde. No trae cabecera, ni acción, ni densidad, ni estado vacío. Así que en cuanto la pantalla pide una card con título y botón, el primitivo no llega y se abandona.</p>
+      <p>Un kit que solo cubre el 20 % del caso se usa el 5 % de las veces. <b>Es exactamente lo medido.</b></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · La propuesta — <em>tres capas</em>, no un documento</h2>
+  <p class="sub">La ley dice qué; el linter impide lo contrario; el kit hace que cumplirla sea el camino corto. Falta cualquiera de las tres y volvemos aquí en un mes.</p>
+
+  <div class="grid3">
+    <div class="box">
+      <h4><span>1</span>LEY</h4>
+      <p><code>docs/CONTRATO-UI.md</code> §9 reescrita como <b>tabla de decisión</b>, igual que la §1 de iOS. Nada de fichero nuevo: dos leyes son cero leyes.</p>
+      <p>Regla de admisión: <b>si una regla no se puede comprobar sola, no entra como regla</b> — entra como criterio de revisión, y se dice que lo es.</p>
+    </div>
+    <div class="box">
+      <h4><span>2</span>LINTER</h4>
+      <p>Cada regla mecanizable pasa a <code>eslint.config.mjs</code> con <code>no-restricted-syntax</code>, junto a la de <code>max-w</code> que ya funciona.</p>
+      <p>Mensaje de error que <b>nombra el reemplazo</b>: no «prohibido <code>text-[12px]</code>» sino «usa <code>text-xs</code>». Y para el código viejo, <code>eslint-disable</code> con motivo — así el pendiente es contable.</p>
+    </div>
+    <div class="box">
+      <h4><span>3</span>KIT</h4>
+      <p><code>components/v2/kit/</code>: los primitivos, con la API ancha de verdad (variantes, densidad, cabecera, acción, estado).</p>
+      <p>Y una ruta viva <code>/design/kit</code> que los pinta todos. Si un primitivo no está en esa página, no existe. Se apoya en el doble, que ya está montado.</p>
+    </div>
+  </div>
+
+  <h3>Lo que entra en el linter — propuesta concreta</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Regla</th><th>Detecta</th><th>Reemplazo que sugiere</th><th>Deuda actual</th></tr></thead>
+      <tbody>
+        <tr><td>Sin tamaños crudos</td><td><code>text-[Npx]</code></td><td><code>text-nano|eyebrow|label|xs|body|reading|data</code></td><td class="n">191</td></tr>
+        <tr><td>Sin medios píxeles</td><td><code>text-[N.5px]</code></td><td>el peldaño de la escala más cercano</td><td class="n">≥59</td></tr>
+        <tr><td>Un solo ancho</td><td><code>max-w-[Npx]</code> en página</td><td><code>max-w-[var(--v2-container)]</code></td><td class="n">19</td></tr>
+        <tr><td>Botón del kit</td><td><code>&lt;button&gt;</code> con <code>bg-</code> o <code>border</code></td><td><code>&lt;Button variant tone size&gt;</code></td><td class="n">537</td></tr>
+        <tr><td>Superficie del kit</td><td>borde+radio+fondo con tokens en un <code>div</code></td><td><code>&lt;Card&gt;</code> / <code>&lt;Panel&gt;</code></td><td class="n">220</td></tr>
+        <tr><td>Overlay del kit</td><td><code>fixed inset-0</code> a mano</td><td><code>&lt;Modal&gt;</code> / <code>&lt;Drawer&gt;</code></td><td class="n">48</td></tr>
+        <tr><td>Vacío del kit</td><td>frase suelta donde debería ir un estado</td><td><code>&lt;EmptyState&gt;</code></td><td class="n">27</td></tr>
+        <tr><td>Sin hex crudo</td><td><code>#rrggbb</code> en <code>.tsx</code></td><td>token <code>--v2-*</code></td><td class="n">61</td></tr>
+        <tr><td>Fichero bajo 500 líneas</td><td><code>max-lines</code> de eslint</td><td>partir por sección</td><td class="n">20</td></tr>
+        <tr><td>Un formateador por concepto</td><td>import de un <code>format.ts</code> de otra carpeta</td><td><code>lib/formato.ts</code> único</td><td class="n">6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="m" style="margin-top:10px">Las reglas nacen en <code>warn</code> con la deuda existente marcada, y suben a <code>error</code> carpeta por carpeta según se migra. Así el build nunca se queda rojo y el número solo puede bajar.</p>
+
+  <h3>El kit — la tabla que hoy no existe</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Necesitas</th><th>Usa</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Acción (primaria, secundaria, sutil, destructiva, icono)</td><td><code>Button</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Superficie con cabecera, acción y densidad</td><td><code>Panel</code> (envuelve <code>Card</code>)</td><td><span class="tag t-am">ampliar</span></td></tr>
+        <tr><td>Sección de página con título y utilidades</td><td><code>Section</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Diálogo / hoja lateral / hoja inferior</td><td><code>Modal</code> · <code>Drawer</code> · <code>Sheet</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Tabla densa con cabecera fija y responsive</td><td><code>DataTable</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Campo de formulario con etiqueta, ayuda y error</td><td><code>Field</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Pestañas de una vista</td><td><code>TabBar</code></td><td><span class="tag t-am">1 atado a la ficha · solo 2 con <code>role=tab</code></span></td></tr>
+        <tr><td>Cifra grande de un panel</td><td><code>StatTile</code></td><td><span class="tag t-am">existe, 1 uso</span></td></tr>
+        <tr><td>Etiqueta / chip / contador</td><td><code>Pill</code></td><td><span class="tag t-gn">bien</span></td></tr>
+        <tr><td>Lista vacía dentro de una pantalla cargada</td><td><code>EmptyState</code></td><td><span class="tag t-gn">bien</span></td></tr>
+        <tr><td>Pantalla entera cargando / error / no encontrada</td><td><code>ScreenState</code></td><td><span class="tag t-am">existe, 5 usos</span></td></tr>
+        <tr><td>Carga en frío de un bloque</td><td><code>Skeleton</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Confirmación de una acción hecha</td><td><code>Toast</code></td><td><span class="tag t-rd">por construir</span></td></tr>
+        <tr><td>Duración · ritmo · carga · fecha · porcentaje</td><td><code>lib/formato.ts</code></td><td><span class="tag t-rd">hoy son 6 ficheros</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>4 · El refactor — <em>alcance real</em></h2>
+  <p class="sub">«Refactorizar casi toda la UI» son 586 ficheros y 132.000 líneas. Ese refactor no se debe hacer, y aquí está por qué y qué se hace en su lugar.</p>
+
+  <div class="grid2">
+    <div class="box">
+      <h4>Sí se toca <span class="tag t-or" style="float:right">333 ficheros</span></h4>
+      <p><code>components/v2/</code> — el dashboard del coach de verdad. Es donde está el 100 % de la deuda medida.</p>
+      <p>Y <code>app/[locale]/(v2)/</code>, 45 páginas, para los estados de ruta.</p>
+    </div>
+    <div class="box">
+      <h4>No se toca <span class="tag t-dim" style="float:right">253 ficheros</span></h4>
+      <p><code>design-twin/</code> (206) es el espejo de la app de iOS: su lenguaje es <code>twin.css</code>, no el del dashboard. Mezclarlos rompe el doble.</p>
+      <p><code>landing/</code> (22) es marketing, otro lenguaje a propósito. <code>admin/</code>, <code>onboarding/</code>, <code>citas/</code> (25) entran al final, si sobra.</p>
+    </div>
+  </div>
+
+  <div class="crit">
+    <p><b>Riesgo que veo, y es el grande:</b> no hay ni una prueba visual. Cambiar 220 ficheros de card y 180 de botón sin captura de referencia es cambiar el dashboard a ciegas. Por eso la ola 1 empieza por dejar una foto de las 45 páginas antes de tocar nada — si no, no sabremos qué rompimos hasta que lo vea Pablo.</p>
+  </div>
+
+  <h3>Las olas</h3>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">0</span><b>La ley y la red</b><span class="why">Sin tocar una sola pantalla. Termina con el linter en verde y la deuda contada.</span></div>
+    <div class="ola-b"><ul>
+      <li>§9 del CONTRATO reescrita como tabla de decisión + la sección «prohibido».</li>
+      <li>Las 10 reglas del linter en <code>warn</code>, con mensaje que nombra el reemplazo.</li>
+      <li><code>pnpm run ui:deuda</code> — un contador por regla y por carpeta. Es la métrica de todo lo demás.</li>
+      <li>Captura de las 45 páginas en 390 · 768 · 1440 como referencia visual (Playwright ya está).</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">1</span><b>El kit</b><span class="why">Construir los primitivos que faltan y ensanchar los que se quedan cortos. Nada de migrar todavía.</span></div>
+    <div class="ola-b"><ul>
+      <li><code>Button</code>, <code>Modal</code>/<code>Drawer</code>/<code>Sheet</code>, <code>Field</code>, <code>Section</code>, <code>Panel</code>, <code>DataTable</code>, <code>Skeleton</code>, <code>Toast</code>.</li>
+      <li>API ancha desde el principio: si un primitivo no cubre el caso real que hay hoy en el código, no está terminado (causa C).</li>
+      <li><code>lib/formato.ts</code> único, absorbiendo los 6 ficheros actuales.</li>
+      <li><code>/design/kit</code> — cada primitivo con todas sus variantes, en vivo. Es lo que se mira antes de escribir.</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">2</span><b>La migración mecánica</b><span class="why">Lo que el linter marca y tiene reemplazo exacto. Por carpeta, con la captura antes/después.</span></div>
+    <div class="ola-b"><ul>
+      <li>Tamaños, medios píxeles, anchos, hex: <b>codemod</b>, no a mano. Son ~270 cambios deterministas.</li>
+      <li>Botones y cards: por carpeta (<code>hoy/</code>, <code>atletas/</code>, <code>biblioteca/</code>…), cerrando cada una y subiendo su regla a <code>error</code>.</li>
+      <li>Al cerrar cada carpeta, el contador baja y esa carpeta ya no puede volver atrás.</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">3</span><b>Las pantallas</b><span class="why">Lo que no es mecánico: composición, densidad y jerarquía. Aquí es donde el coach nota la diferencia.</span></div>
+    <div class="ola-b"><ul>
+      <li>Estados de ruta en las 45 páginas (hoy hay 1).</li>
+      <li>Los 20 ficheros de más de 500 líneas, partidos por sección.</li>
+      <li>El vacío que denuncia la §9.2: 508 px muertos en <code>/altas</code>, 401 en <code>/pagos</code>, 389 en <code>/tests</code>.</li>
+      <li>Responsive real a 390: hoy el móvil esconde datos de triaje en vez de recolocarlos.</li>
+      <li>Escala de 100 atletas: <code>/biblioteca</code> mide 15.980 px de alto con 99 bloques, sin paginar.</li>
+    </ul></div>
+  </div>
+
+  <p class="m" style="margin-top:12px">Las olas 0 y 1 son la mitad del valor y no tocan ninguna pantalla, así que no pueden romper nada. La 2 es masiva pero determinista. La 3 es la única que necesita criterio y sign-off pantalla por pantalla.</p>
+</section>
+
+<section>
+  <h2>5 · Lo que esto <em>no</em> arregla</h2>
+  <p class="sub">Dicho explícito, para que no se dé por hecho.</p>
+  <ul>
+    <li><b>No arregla la arquitectura de información.</b> Las 13 pestañas no eran un problema de componentes; eran de qué pertenece a qué pantalla. Eso se decide vista por vista, y es la ola 3.</li>
+    <li><b>No arregla lo que no se pinta.</b> Siguen 29 rutas de API del coach sin superficie. Un kit mejor no las enseña.</li>
+    <li><b>No sustituye tu ojo.</b> El linter garantiza que todo hable el mismo idioma; no que lo que diga valga la pena.</li>
+    <li><b>No es gratis en el arranque.</b> La ola 0 y la 1 son trabajo que no se ve en pantalla. El retorno llega en la 2.</li>
+  </ul>
+</section>
+
+<div class="rule">
+  Medido el 14-ago sobre <code>web/</code> · La ley vive en <code>docs/CONTRATO-UI.md</code> §9 · El kit viviría en <code>web/components/v2/kit/</code> y se vería en <code>/design/kit</code>
+</div>
+
+</main>
+</body>
+</html>
