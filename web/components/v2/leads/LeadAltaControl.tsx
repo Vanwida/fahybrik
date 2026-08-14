@@ -13,6 +13,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { AltaPrefill } from '@/lib/leads/alta-mapping';
 import type { CoachLevelOption } from '@/lib/dashboard/coach/leads';
 import type { LeadStatus } from '@/lib/dashboard/coach/leads-status';
@@ -329,21 +330,13 @@ function AltaModal({
             <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="v2-micro">Cobro</span>
-                <label
-                  className={
-                    'inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--v2-muted)]' +
-                    (stripeConfigured ? '' : ' cursor-not-allowed opacity-60')
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={cortesia}
-                    disabled={!stripeConfigured}
-                    onChange={(e) => setCortesia(e.target.checked)}
-                    className="h-4 w-4 accent-[color:var(--v2-accent)]"
-                  />
-                  Cortesía (sin cobro)
-                </label>
+                <Checkbox
+                  size="dense"
+                  checked={cortesia}
+                  disabled={!stripeConfigured}
+                  onCheckedChange={setCortesia}
+                  label="Cortesía (sin cobro)"
+                />
               </div>
               {stripeConfigured ? (
                 <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
@@ -364,19 +357,19 @@ function AltaModal({
                 </p>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  <label className="inline-flex items-start gap-2 text-xs font-semibold text-[color:var(--v2-fg)]">
-                    <input
-                      type="checkbox"
-                      checked={founder}
-                      onChange={(e) => setFounder(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-[color:var(--v2-accent)]"
-                    />
-                    <span>
-                      Fundador — suscripción real por Stripe a{' '}
-                      <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
-                      tarjeta).
-                    </span>
-                  </label>
+                  <Checkbox
+                    size="dense"
+                    align="start"
+                    checked={founder}
+                    onCheckedChange={setFounder}
+                    label={
+                      <>
+                        Fundador — suscripción real por Stripe a{' '}
+                        <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
+                        tarjeta).
+                      </>
+                    }
+                  />
                   <label className="flex flex-col gap-1.5">
                     <span className="v2-micro">
                       {founder ? 'Precio de lista (opcional)' : 'Precio acordado €/mes'}
