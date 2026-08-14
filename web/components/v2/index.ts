@@ -6,7 +6,6 @@ export { LevelBadge, type AthleteLevel } from './LevelBadge';
 export { StatusDot, type V2Status } from './StatusDot';
 export { AdherenceBar } from './AdherenceBar';
 export { Pill, type PillTone, type PillVariant } from './Pill';
-export { Card } from './Card';
 export { StatTile, type StatTone } from './StatTile';
 export { ModalityCard } from './ModalityCard';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';

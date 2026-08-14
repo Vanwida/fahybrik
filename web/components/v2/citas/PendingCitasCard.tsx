@@ -9,7 +9,7 @@
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/v2/Pill';
 import { formatCitaDateTime } from '@/components/v2/citas/format';
 import type { UpcomingCall } from '@/lib/citas/store';

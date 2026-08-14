@@ -9,7 +9,7 @@ import NextLink from 'next/link';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getCoachProfile } from '@/lib/coach/profile';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { screenNoticeActionClass } from '@/components/v2/ScreenState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';

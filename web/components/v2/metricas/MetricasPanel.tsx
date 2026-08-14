@@ -6,7 +6,8 @@
 
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
-import { Card, StatTile, Pill } from '@/components/v2';
+import { Card } from '@/components/ui/card';
+import { StatTile, Pill } from '@/components/v2';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import {
   SESSION_OUTCOMES,

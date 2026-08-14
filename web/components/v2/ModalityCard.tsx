@@ -3,7 +3,7 @@
 // modality axis (components/v2/constants); the card always carries a text label
 // elsewhere so color is never the sole signal. Reused by session/plan surfaces.
 
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 

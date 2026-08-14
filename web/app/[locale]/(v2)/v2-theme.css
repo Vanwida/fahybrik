@@ -210,7 +210,8 @@
 
    No crea ningún token --v2-* nuevo, y en oscuro los valores coinciden con los
    de globals.css (#0a0a0a, #141414, #f5f5f5, #f06a2a) → cero cambio visual.
-   Es la ola 1 de docs/design-system-web.html, acotada a lo que usa Button. */
+   Es la ola 1 de docs/design-system-web.html, acotada a lo que usan Button
+   y Card. */
 .v2-root {
   --background: var(--v2-bg);
   --foreground: var(--v2-fg);
@@ -234,6 +235,14 @@
   --input: var(--v2-border);
   --ring: var(--v2-accent);
   --radius: var(--v2-r-s);
+  /* La forma de la tarjeta, en la escala del dashboard: el panel a 16, el
+     bloque anidado a 12 (un anidado nunca redondea mas que su contenedor).
+     Son EXACTAMENTE los valores que hoy escriben a mano las tarjetas del
+     dashboard (--v2-r-l / --v2-r-m / --v2-shadow-card), asi que migrar una a
+     <Card> no mueve un pixel. */
+  --card-radius: var(--v2-r-l);
+  --card-radius-inset: var(--v2-r-m);
+  --card-elevation: var(--v2-shadow-card);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

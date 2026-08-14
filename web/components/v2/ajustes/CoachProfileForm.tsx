@@ -11,7 +11,7 @@ import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { TagInput } from './TagInput';
 import { COACH_PROFILE_LIMITS } from '@/lib/coach/profile-schema';
 import type { CoachProfile } from '@/lib/coach/profile';

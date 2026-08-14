@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { leadShortLabel } from '@fahybrid/shared/domain/leads/questions';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/v2/Pill';
 import { CitaActionButton } from '@/components/v2/citas/CitaActionButton';
 import { formatRelative } from '@/lib/dashboard/relative-time';
