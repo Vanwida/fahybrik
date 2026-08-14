@@ -10,6 +10,7 @@
 // de un preview de texto mostramos de qué está hecha.
 
 import { Link } from '@/i18n/navigation';
+import { Badge } from '@/components/ui/badge';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -38,26 +39,17 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
           {sesion.title}
         </h3>
         {sesion.is_draft ? (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-            style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
-            title="Borrador — aún no la has dado por buena"
-          >
+          <Badge tone="warn" title="Borrador — aún no la has dado por buena">
             <MIcon name="edit_note" size={13} aria-hidden />
             borrador
-          </span>
+          </Badge>
         ) : null}
       </div>
 
       {/* Grupo (opcional: templates.methodology_group_id es nullable) + forma */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {sesion.group_label ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-            style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-          >
-            {sesion.group_label}
-          </span>
+          <Badge tint={{ fg: meta.colorVar, bg: meta.softVar }}>{sesion.group_label}</Badge>
         ) : null}
         {sesion.format_label ? (
           <span className="text-label text-[color:var(--v2-faint)]">{sesion.format_label}</span>

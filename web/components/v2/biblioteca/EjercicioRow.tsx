@@ -18,6 +18,7 @@
 // al de dentro), de ahí que la fila sea un <div> con dos controles hermanos — el
 // mismo patrón que ya usa la fila del ExercisePicker con su ✎.
 
+import { Badge } from '@/components/ui/badge';
 import { MIcon } from '@/components/ui/MIcon';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { MODALITY_META } from '@/components/v2/constants';
@@ -77,15 +78,12 @@ export function EjercicioRow({
           </span>
         </span>
 
-        <span
-          className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
-          style={{
-            background: `var(${origin.bgVar})`,
-            color: `var(${origin.fgVar})`,
-          }}
-        >
+        {/* La procedencia es una CATEGORÍA, no un estado: peldaño `eyebrow`. Y su
+            color lo manda el dato (`EXERCISE_ORIGIN_META`), no el semáforo — de
+            ahí `tint` y no `tone`. */}
+        <Badge size="eyebrow" tint={{ fg: origin.fgVar, bg: origin.bgVar }}>
           {origin.label}
-        </span>
+        </Badge>
 
         {/* El chevron se oculta en móvil para devolverle ese ancho al subtítulo.
             Las clases de display van en un SPAN y no en el <MIcon>: la clase
