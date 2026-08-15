@@ -3,7 +3,7 @@
 Mapa de orientación para orquestar trabajo sin re-investigar. **No es un inventario de ficheros**: es dónde vive cada cosa, qué manda sobre qué, y dónde están las trampas.
 
 - Raíz: `/Users/alexsolecarretero/Public/projects/FAHYBRIK`
-- Rama del checkout principal al mapear: `feat/pm5-counter-sync` (`main` está parada hace meses)
+- Rama del checkout principal al mapear: `integration/trunk` (`main` está parada hace meses)
 - Levantado el **2026-08-14** leyendo el código. Los números son de ese día.
 - Marca = **FAHYBRID**. `FAHYBRIK` es solo el nombre heredado del repo / Vercel / Neon.
 
