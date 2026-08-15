@@ -16,6 +16,7 @@
 // La card entera enlaza al editor de bloque (/biblioteca/bloque/[id]).
 
 import { Link } from '@/i18n/navigation';
+import { Badge } from '@/components/ui/badge';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -93,12 +94,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
 
       {/* Grupo + procedencia del Excel (desambigua títulos repetidos) */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span
-          className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-          style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-        >
-          {bloque.group_label}
-        </span>
+        <Badge tint={{ fg: meta.colorVar, bg: meta.softVar }}>{bloque.group_label}</Badge>
         {bloque.source_ref ? (
           <span className="text-label text-[color:var(--v2-faint)]">{bloque.source_ref}</span>
         ) : null}
@@ -139,16 +135,14 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
   );
 }
 
-/** Marca de estado. Un bloque tiene UNO: sin tipar o sin dosis (o ninguno). */
+/** Marca de estado. Un bloque tiene UNO: sin tipar o sin dosis (o ninguno).
+ *  Las dos son el MISMO aviso —falta trabajo para poder ejecutarlo— así que las
+ *  dos van en `warn`; lo que cambia es el icono y el porqué del `title`. */
 function StateBadge({ icon, label, title }: { icon: string; label: string; title: string }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-      style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
-      title={title}
-    >
+    <Badge tone="warn" title={title}>
       <MIcon name={icon} size={13} aria-hidden />
       {label}
-    </span>
+    </Badge>
   );
 }
