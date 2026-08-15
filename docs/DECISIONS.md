@@ -10,6 +10,19 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-15 · El selector de tipo de test no finge: null degrada, y la carrera por distancia existe
+
+**El hueco (QA visual del Preview):** editar el «5K control» de la batería (carrera, 5000 m en estructura por fases) pintaba «Tipo de test: Remo 2 km · Remo · /500m»; el HYROX half-sim, igual. `TEST_TYPES` no tenía carrera por distancia y `testTypeFromPrescription` era total: toda prescripción que no casaba caía en cascada al default `row_2k`. La guarda del 11-ago en `ArchetypeBlockForm` («un formulario que no puede representar el contenido degrada al editor de items, nunca ceguera») esperaba un null que nunca llegaba. El dato guardado no estaba corrupto — pero si el coach tocaba el selector falso y guardaba, la prescripción real se machacaba con un Remo 2K.
+
+**Decidido:**
+- **`run_5k` entra en el vocabulario cerrado** («Carrera 5 km», run × distance × 5000 m, /km) — el mismo slug que el benchmark que ancla la derivación de zonas de carrera (`BENCH_RUN_5K`, test-battery.ts). Un solo nombre para el mismo esfuerzo, nunca dos.
+- **`testTypeFromPrescription` pasa a ser PARCIAL:** devuelve null cuando la prescripción no es un spec de test de catálogo — sin prescripción (`prescription_json` NULL del half-sim genérico), modalidad que ningún test mide, `structure` por fases (contenido de sesión), scheme no steady, o no fija ni distancia ni tiempo. El null activa la degradación del 11-ago: el coach ve el contenido real, jamás un selector inventado.
+- El «más cercano» dentro de la misma modalidad+medida se conserva (un remo afinado a 2500 m sigue resolviendo a Remo 2 km).
+
+**NO hacer:** no devolver jamás un default cross-modalidad desde el matcher; no montar TestForm sobre contenido con `structure` (tocar el selector + Guardar machacaría las fases); no meter el half-sim en `TEST_TYPES` (deriva nada — no es un resolver de zonas; su forma es el arquetipo `hyrox_sim`).
+
+---
+
 ## 2026-08-13 · El primer tramo personal desde la ficha arranca el lunes de esta semana
 
 **El hueco:** un atleta en `plan_mode=personal` sin filas en `athlete_month_assignments` (sesiones sueltas, nombre «—») no podía crear plan. «Personalizar» llamaba al fork y devolvía 409 (no hay microciclo). «Añadir microciclo» devolvía 409 `no_chain_yet` y mandaba a Personalizar. Las dos puertas se apuntaban.
