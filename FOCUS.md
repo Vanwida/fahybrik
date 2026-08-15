@@ -22,6 +22,8 @@ Falta archivo por familia y comparativa de homólogos.
 - Instalar la build de iOS y probar el hub de Carrera (la instala él).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
+- Mergear PR #16: el editor de tests ya no disfraza el 5K control / half-sim
+  de Remo 2K (entra «Carrera 5 km»; ley DECISIONS 15-ago).
 
 ## Parqueado (no tocar)
 
