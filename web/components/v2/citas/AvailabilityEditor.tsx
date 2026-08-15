@@ -20,7 +20,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { CitaActionButton } from '@/components/v2/citas/CitaActionButton';

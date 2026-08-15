@@ -17,7 +17,7 @@ import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { TagInput } from './TagInput';
 import {
   ajustesButtonGhost as BTN_GHOST,

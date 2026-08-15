@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { AuthorStamp } from '@/components/v2/AuthorStamp';

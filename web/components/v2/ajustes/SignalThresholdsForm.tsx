@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { Stepper } from '@/components/v2/controls/Stepper';
 import { ajustesButtonPrimary, ajustesButtonSecondary } from './controls';
 import {
