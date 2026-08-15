@@ -85,7 +85,7 @@ function Controles({
   onRemove: () => void;
 }) {
   // Arrastrar y soltar sobre otro eslabón: se intercambia paso a paso con el
-  // vecino hasta llegar, que es la misma mecánica de `ReorderRow` y la que ya
+  // vecino hasta llegar, que es la misma mecánica de `ui/list-row` y la que ya
   // entiende el guardado (el servidor deriva las posiciones del orden del array).
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', String(index));

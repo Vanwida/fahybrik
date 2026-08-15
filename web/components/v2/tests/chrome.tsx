@@ -2,8 +2,8 @@
 
 // Local chrome for the Tests section — mirrors the Niveles/Periodización pattern
 // (PanelButton, DialogScrim, ErrorBanner) plus a themed <select>. Kept local (each
-// v2 section owns its dialog/button chrome; ReorderRow + SidePanel are the shared
-// primitives) so a change here never ripples into Periodización.
+// v2 section owns its dialog/button chrome; `ui/list-row` + SidePanel are the
+// shared primitives) so a change here never ripples into Periodización.
 
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
