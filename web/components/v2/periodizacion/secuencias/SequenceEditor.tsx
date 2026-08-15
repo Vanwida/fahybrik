@@ -19,6 +19,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
 import type {
@@ -210,9 +211,7 @@ export function SequenceEditor({
               {days} días
             </span>
             {isShared ? (
-              <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)]">
-                microciclos compartidos
-              </span>
+              <Badge tone="neutral">microciclos compartidos</Badge>
             ) : null}
           </div>
           <h2 className="v2-display text-2xl text-[color:var(--v2-fg)]">{level.label}</h2>
