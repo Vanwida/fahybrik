@@ -3,7 +3,7 @@
 // SequenceEditor — the heart of Secuencias. Opens on a matrix cell (level × days)
 // and builds the ORDERED chain of microciclos the athlete walks through. Each node
 // = one microciclo (referenced via month_template_id, never copied) with its order,
-// name and weeks. Nodes reorder by drag (HTML5, adjacent-swap like ReorderRow) with
+// name and weeks. Nodes reorder by drag (HTML5, adjacent-swap like `ui/list-row`) with
 // a keyboard ↑/↓ fallback; the order IS the periodization. Below: the running total
 // ribbon + the end/progression panel.
 //

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
-import { ReorderRow, RowIconButton } from '@/components/v2/periodizacion/ReorderRow';
+import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
 import { blockAthleteLine } from '@/components/v2/editor/AthletePreviewLine';
 import { PanelButton, DialogScrim, ErrorBanner } from './chrome';
 import { TestEditorPanel } from './TestEditorPanel';
@@ -286,91 +286,93 @@ export function TestsView({
         <div className="grid grid-cols-1 items-start gap-4">
           {/* list */}
           <div className={cn('flex flex-col gap-2', draft ? 'hidden' : undefined)}>
-            {tests.map((t, i) => (
-              <ReorderRow
-                key={t.id}
-                index={i}
-                total={tests.length}
-                onMove={move}
-                selected={draft?.id === t.id}
-                actions={
-                  <>
-                    <RowIconButton
-                      icon="edit"
-                      label="Editar test"
-                      onClick={() => openEdit(t)}
-                    />
-                    <RowIconButton
-                      icon="delete"
-                      label="Quitar test"
-                      danger
-                      onClick={() => setConfirmDelete(t)}
-                    />
-                  </>
-                }
-              >
-                <div
-                  className="flex cursor-pointer items-center gap-2.5"
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={abierto === t.id}
-                  onClick={() => verTest(t)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      verTest(t);
-                    }
-                  }}
+            <ListRowGroup>
+              {tests.map((t, i) => (
+                <ListRow
+                  key={t.id}
+                  index={i}
+                  total={tests.length}
+                  onMove={move}
+                  selected={draft?.id === t.id}
+                  actions={
+                    <>
+                      <ListRowAction
+                        icon="edit"
+                        label="Editar test"
+                        onClick={() => openEdit(t)}
+                      />
+                      <ListRowAction
+                        icon="delete"
+                        label="Quitar test"
+                        danger
+                        onClick={() => setConfirmDelete(t)}
+                      />
+                    </>
+                  }
                 >
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
-                    style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-                    aria-hidden
-                  >
-                    <MIcon name={MODALITY_ICON[t.primary_modality ?? ''] ?? 'timer'} size={16} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)]">
-                        {t.name}
-                      </span>
-                      {!t.enabled ? (
-                        <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
-                          en pausa
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[color:var(--v2-muted)]">
-                      <span className="truncate">
-                        {t.results.map((r) => r.label).join(' · ') || 'Sin resultados'}
-                      </span>
-                      <span className="text-[color:var(--v2-faint)]">·</span>
-                      <span className="v2-num inline-flex items-center gap-1 whitespace-nowrap text-[color:var(--v2-faint)]">
-                        <MIcon name="event" size={12} /> {agendaSummary(t)}
-                      </span>
-                      <span className="text-[color:var(--v2-faint)]">·</span>
-                      <ReachChip reach={reach[String(t.id)]} />
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setApplying(t);
+                  <div
+                    className="flex cursor-pointer items-center gap-2.5"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={abierto === t.id}
+                    onClick={() => verTest(t)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        verTest(t);
+                      }
                     }}
-                    className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
                   >
-                    Aplicar
-                  </button>
-                  <MIcon
-                    name={abierto === t.id ? 'expand_less' : 'expand_more'}
-                    size={18}
-                    className="shrink-0 text-[color:var(--v2-faint)]"
-                  />
-                </div>
-                {abierto === t.id ? <PreviaTest bloques={previa[t.id]} nota={t.protocol} /> : null}
-              </ReorderRow>
-            ))}
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
+                      style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+                      aria-hidden
+                    >
+                      <MIcon name={MODALITY_ICON[t.primary_modality ?? ''] ?? 'timer'} size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-reading font-bold text-[color:var(--v2-fg)]">
+                          {t.name}
+                        </span>
+                        {!t.enabled ? (
+                          <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+                            en pausa
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[color:var(--v2-muted)]">
+                        <span className="truncate">
+                          {t.results.map((r) => r.label).join(' · ') || 'Sin resultados'}
+                        </span>
+                        <span className="text-[color:var(--v2-faint)]">·</span>
+                        <span className="v2-num inline-flex items-center gap-1 whitespace-nowrap text-[color:var(--v2-faint)]">
+                          <MIcon name="event" size={12} /> {agendaSummary(t)}
+                        </span>
+                        <span className="text-[color:var(--v2-faint)]">·</span>
+                        <ReachChip reach={reach[String(t.id)]} />
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setApplying(t);
+                      }}
+                      className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
+                    >
+                      Aplicar
+                    </button>
+                    <MIcon
+                      name={abierto === t.id ? 'expand_less' : 'expand_more'}
+                      size={18}
+                      className="shrink-0 text-[color:var(--v2-faint)]"
+                    />
+                  </div>
+                  {abierto === t.id ? <PreviaTest bloques={previa[t.id]} nota={t.protocol} /> : null}
+                </ListRow>
+              ))}
+            </ListRowGroup>
 
             <PurposeStrip onRestore={restore} restoring={restoring} />
           </div>

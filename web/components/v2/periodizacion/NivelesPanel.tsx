@@ -18,7 +18,7 @@ import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
-import { ReorderRow, RowIconButton } from './ReorderRow';
+import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
 import { SidePanel, Field, TextInput, TextArea } from './SidePanel';
 import { showLevelsEmptyState } from './niveles-empty-state';
 import { cn } from '@/lib/utils';
@@ -265,59 +265,61 @@ export function NivelesPanel({
         >
           {/* list */}
           <div className={cn('flex flex-col gap-2', draft ? 'hidden lg:flex' : undefined)}>
-            {levels.map((lvl, i) => (
-              <ReorderRow
-                key={lvl.id}
-                index={i}
-                total={levels.length}
-                onMove={move}
-                selected={draft?.id === lvl.id}
-                actions={
-                  <>
-                    <span className="mr-1 hidden items-center gap-1 text-label text-[color:var(--v2-faint)] sm:inline-flex">
-                      <MIcon name="person" size={14} />
-                      <b className="v2-num">{lvl.athlete_count}</b> atletas
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onEnter(lvl)}
-                      className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
-                    >
-                      Periodización <MIcon name="arrow_forward" size={13} />
-                    </button>
-                    <RowIconButton
-                      icon="edit"
-                      label="Editar nivel"
-                      onClick={() => {
-                        setDraft({ id: lvl.id, name: lvl.name, label: lvl.label, description: lvl.description ?? '' });
-                        setError(null);
-                        setConflict(false);
-                      }}
-                    />
-                    <RowIconButton icon="delete" label="Eliminar nivel" danger onClick={() => requestDelete(lvl)} />
-                  </>
-                }
-              >
-                <button
-                  type="button"
-                  onClick={() => onEnter(lvl)}
-                  className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
-                  title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+            <ListRowGroup>
+              {levels.map((lvl, i) => (
+                <ListRow
+                  key={lvl.id}
+                  index={i}
+                  total={levels.length}
+                  onMove={move}
+                  selected={draft?.id === lvl.id}
+                  actions={
+                    <>
+                      <span className="mr-1 hidden items-center gap-1 text-label text-[color:var(--v2-faint)] sm:inline-flex">
+                        <MIcon name="person" size={14} />
+                        <b className="v2-num">{lvl.athlete_count}</b> atletas
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onEnter(lvl)}
+                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
+                      >
+                        Periodización <MIcon name="arrow_forward" size={13} />
+                      </button>
+                      <ListRowAction
+                        icon="edit"
+                        label="Editar nivel"
+                        onClick={() => {
+                          setDraft({ id: lvl.id, name: lvl.name, label: lvl.label, description: lvl.description ?? '' });
+                          setError(null);
+                          setConflict(false);
+                        }}
+                      />
+                      <ListRowAction icon="delete" label="Eliminar nivel" danger onClick={() => requestDelete(lvl)} />
+                    </>
+                  }
                 >
-                  <span className="flex items-center gap-2.5">
-                    <LevelBadge level={lvl.name} />
-                    <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
-                      {lvl.label}
+                  <button
+                    type="button"
+                    onClick={() => onEnter(lvl)}
+                    className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
+                    title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <LevelBadge level={lvl.name} />
+                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
+                        {lvl.label}
+                      </span>
                     </span>
-                  </span>
-                  {lvl.description ? (
-                    <span className="mt-0.5 block truncate text-xs text-[color:var(--v2-muted)]">
-                      {lvl.description}
-                    </span>
-                  ) : null}
-                </button>
-              </ReorderRow>
-            ))}
+                    {lvl.description ? (
+                      <span className="mt-0.5 block truncate text-xs text-[color:var(--v2-muted)]">
+                        {lvl.description}
+                      </span>
+                    ) : null}
+                  </button>
+                </ListRow>
+              ))}
+            </ListRowGroup>
 
             {levels.length > 0 ? (
               <PurposeStrip>
