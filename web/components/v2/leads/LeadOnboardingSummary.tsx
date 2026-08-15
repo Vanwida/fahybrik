@@ -3,7 +3,7 @@
 // question (muted) → answer (fg, mono for pure numbers). This is the sheet Pablo
 // reads to prep the call. Codes are already mapped to Spanish labels upstream.
 
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import type { LeadSummaryGroup } from '@fahybrid/shared/domain/leads/summary';
 import { cn } from '@/lib/utils';
 
