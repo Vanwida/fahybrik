@@ -10,7 +10,8 @@
 // Layout + primitives mirror the Métricas surface (the approved v2 system).
 
 import { Link } from '@/i18n/navigation';
-import { Card, StatTile, Pill } from '@/components/v2';
+import { Card } from '@/components/ui/card';
+import { StatTile, Pill } from '@/components/v2';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import { paymentState } from '@/lib/coach/billing-state';
 import { formatCents, formatCount, formatDayShort } from '@/components/v2/metricas/format';

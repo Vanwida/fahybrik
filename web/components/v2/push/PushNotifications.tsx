@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import {
   disablePush,
   enablePush,

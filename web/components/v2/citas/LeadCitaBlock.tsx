@@ -12,7 +12,7 @@
 
 import { useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/v2/Card';
+import { Card } from '@/components/ui/card';
 import { Pill, type PillTone } from '@/components/v2/Pill';
 import { CitaActionButton, type CitaActionTone } from '@/components/v2/citas/CitaActionButton';
 import { useCitaMutation } from '@/components/v2/citas/useCitaMutation';
