@@ -19,6 +19,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
+import { useListReorderMove } from '@/lib/ui/use-list-reorder-move';
 import { SidePanel, Field, TextInput, TextArea } from './SidePanel';
 import { showLevelsEmptyState } from './niveles-empty-state';
 import { cn } from '@/lib/utils';
@@ -78,31 +79,29 @@ export function NivelesPanel({
     [levels],
   );
 
-  // ── Reorder (adjacent swap, persisted) ──────────────────────────────────
-  const move = useCallback(
-    (index: number, delta: -1 | 1) => {
-      const target = index + delta;
-      if (target < 0 || target >= levels.length) return;
-      const next = levels.slice();
-      const tmp = next[index]!;
-      next[index] = next[target]!;
-      next[target] = tmp;
-      // Re-derive sort_order from position so it stays contiguous.
-      const renumbered = next.map((l, i) => ({ ...l, sort_order: i }));
-      setLevels(renumbered);
-      // Persist the two rows that changed position.
-      void Promise.all(
-        [renumbered[index]!, renumbered[target]!].map((l) =>
-          fetch(`/api/coach/levels/${l.id}`, {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ sort_order: l.sort_order }),
-          }),
-        ),
-      ).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
-    },
-    [levels],
+  // ── Reorder (ListRow adjacent steps → live list + one coalesced write) ──
+  // ListRow may emit N synchronous onMove calls on a multi-step drag. Each
+  // step must see the previous result; persistence waits for the final order
+  // and PATCHes every row whose sort_order actually changed.
+  const renumberLevels = useCallback(
+    (list: V2LevelItem[]) => list.map((l, i) => ({ ...l, sort_order: i })),
+    [],
   );
+  const commitLevelOrder = useCallback((next: readonly V2LevelItem[], previous: readonly V2LevelItem[]) => {
+    const prevOrder = new Map(previous.map((l) => [l.id, l.sort_order]));
+    const changed = next.filter((l) => prevOrder.get(l.id) !== l.sort_order);
+    if (changed.length === 0) return;
+    void Promise.all(
+      changed.map((l) =>
+        fetch(`/api/coach/levels/${l.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sort_order: l.sort_order }),
+        }),
+      ),
+    ).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
+  }, []);
+  const move = useListReorderMove(levels, setLevels, commitLevelOrder, renumberLevels);
 
   // ── Save (create or edit) ────────────────────────────────────────────────
   const save = useCallback(async () => {
