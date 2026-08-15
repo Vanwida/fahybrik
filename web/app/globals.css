@@ -87,6 +87,14 @@
   --radius-xl: 20px;
   --radius-pill: 9999px;
 
+  /* Forma de la tarjeta -> utilidades `rounded-card`, `rounded-card-inset` y
+     `shadow-card`, de donde saca su superficie `components/ui/card.tsx`. Sin
+     esto la tarjeta tendria que escribir valores arbitrarios, que es justo lo
+     que hacen hoy las 220 pintadas a mano. */
+  --radius-card: var(--card-radius);
+  --radius-card-inset: var(--card-radius-inset);
+  --shadow-card: var(--card-elevation);
+
   /* shadcn/ui radius bridge — preserve token semantics for components */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -191,8 +199,18 @@
   --r-xl:   20px;
   --r-pill: 9999px;
 
+  /* La FORMA de una tarjeta — lo unico que `components/ui/card.tsx` necesita
+     saber del tema. Aqui valen lo que dice la escala de marca; dentro del
+     dashboard `.v2-root` las reapunta a la escala v2 (16 / 12 / su sombra), asi
+     que la misma tarjeta se ve nativa en las dos superficies sin escribir un
+     solo valor arbitrario. Ver `(v2)/v2-theme.css`. */
+  --card-radius:       var(--r-l);
+  --card-radius-inset: var(--r-m);
+
   /* ----- shadows (rarely used in dark UI) ----- */
-  --shadow-card:  0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
+  /* Se llamaba --shadow-card y no la usaba nadie: ese nombre es ahora el de la
+     utilidad de Tailwind (`shadow-card`), que lo lee desde @theme. */
+  --card-elevation: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.6);
 
   /* ----- font families ----- */
