@@ -17,6 +17,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
+import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { ContextHint } from '@/components/v2/orientacion';
 import type { V2SecuenciasData, V2Sequence } from '@/lib/dashboard/v2/secuencias';
@@ -177,18 +178,12 @@ export function LevelDetailPanel({
             </p>
           ) : null}
         </div>
-        <span
-          className="inline-flex shrink-0 items-center gap-1 self-start rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-semibold"
-          style={{
-            background: filledVariants === totalVariants ? 'var(--v2-ok-soft)' : 'var(--v2-surface-2)',
-            color: filledVariants === totalVariants ? 'var(--v2-ok)' : 'var(--v2-muted)',
-          }}
-        >
+        <Badge tone={filledVariants === totalVariants ? 'ok' : 'neutral'} className="self-start px-2.5 py-1">
           <b className="v2-num">
             {filledVariants}/{totalVariants}
           </b>{' '}
           variantes con plan
-        </span>
+        </Badge>
       </div>
 
       {reloadError ? (
