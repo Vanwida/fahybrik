@@ -304,8 +304,12 @@ export function TestsView({
                     </>
                   }
                 >
+                  {/* En móvil (<sm) el cuerpo va a DOS líneas: icono + título arriba,
+                      «Aplicar» + chevron abajo a la derecha. En una sola línea el
+                      título quedaba con ~43 px (el resto son anchos fijos) y se
+                      truncaba a 3 caracteres. */}
                   <div
-                    className="flex cursor-pointer items-center gap-2.5"
+                    className="flex cursor-pointer flex-wrap items-center gap-2.5 sm:flex-nowrap"
                     role="button"
                     tabIndex={0}
                     aria-expanded={abierto === t.id}
@@ -330,7 +334,7 @@ export function TestsView({
                           {t.name}
                         </span>
                         {!t.enabled ? (
-                          <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+                          <span className="shrink-0 whitespace-nowrap rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
                             en pausa
                           </span>
                         ) : null}
@@ -347,21 +351,25 @@ export function TestsView({
                         <ReachChip reach={reach[String(t.id)]} />
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setApplying(t);
-                      }}
-                      className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
-                    >
-                      Aplicar
-                    </button>
-                    <MIcon
-                      name={abierto === t.id ? 'expand_less' : 'expand_more'}
-                      size={18}
-                      className="shrink-0 text-[color:var(--v2-faint)]"
-                    />
+                    {/* `w-full` fuerza el salto de línea en móvil; en ≥sm vuelve
+                        al ancho propio y queda en la misma línea que el título. */}
+                    <span className="flex w-full shrink-0 items-center justify-end gap-2.5 sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setApplying(t);
+                        }}
+                        className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
+                      >
+                        Aplicar
+                      </button>
+                      <MIcon
+                        name={abierto === t.id ? 'expand_less' : 'expand_more'}
+                        size={18}
+                        className="shrink-0 text-[color:var(--v2-faint)]"
+                      />
+                    </span>
                   </div>
                   {abierto === t.id ? <PreviaTest bloques={previa[t.id]} nota={t.protocol} /> : null}
                 </ListRow>
@@ -436,16 +444,18 @@ export function TestsView({
  *  had reached nobody look exactly like one that was working — "Nadie todavía" is
  *  the state this chip exists to make impossible to miss. */
 function ReachChip({ reach }: { reach?: { athletes: number; done: number; pending: number } }) {
+  // Sin `whitespace-nowrap`: en la columna estrecha del móvil el detalle salta
+  // de línea dentro del chip en vez de desbordar la fila.
   if (!reach || reach.athletes === 0) {
     return (
-      <span className="inline-flex items-center gap-1 whitespace-nowrap font-semibold text-[color:var(--v2-warn)]">
+      <span className="inline-flex flex-wrap items-center gap-1 font-semibold text-[color:var(--v2-warn)]">
         <MIcon name="person_off" size={12} /> Nadie todavía
       </span>
     );
   }
   const detail = reach.pending > 0 ? `${reach.done} hechos · ${reach.pending} pendientes` : `${reach.done} hechos`;
   return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[color:var(--v2-muted)]">
+    <span className="inline-flex flex-wrap items-center gap-1 text-[color:var(--v2-muted)]">
       <MIcon name="group" size={12} /> {reach.athletes} {reach.athletes === 1 ? 'atleta' : 'atletas'}
       <span className="text-[color:var(--v2-faint)]">· {detail}</span>
     </span>
