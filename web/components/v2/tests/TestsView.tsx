@@ -19,6 +19,7 @@ import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
+import { useListReorderMove } from '@/lib/ui/use-list-reorder-move';
 import { blockAthleteLine } from '@/components/v2/editor/AthletePreviewLine';
 import { PanelButton, DialogScrim, ErrorBanner } from './chrome';
 import { TestEditorPanel } from './TestEditorPanel';
@@ -123,24 +124,17 @@ export function TestsView({
     })();
   }, []);
 
-  // ── Reorder (adjacent swap, persisted as the full order) ──────────────────
-  const move = useCallback(
-    (index: number, delta: -1 | 1) => {
-      const target = index + delta;
-      if (target < 0 || target >= tests.length) return;
-      const next = tests.slice();
-      const tmp = next[index]!;
-      next[index] = next[target]!;
-      next[target] = tmp;
-      setTests(next);
-      void fetch('/api/coach/tests/reorder', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ordered_ids: next.map((t) => t.id) }),
-      }).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
-    },
-    [tests],
-  );
+  // ── Reorder (ListRow adjacent steps → live list + one coalesced write) ──
+  // Multi-step drag used to fire N POSTs from a stale closure (only the last
+  // swap survived). Live snapshot + single commit of ordered_ids.
+  const commitTestOrder = useCallback((next: readonly CoachCalibrationTest[]) => {
+    void fetch('/api/coach/tests/reorder', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ordered_ids: next.map((t) => t.id) }),
+    }).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
+  }, []);
+  const move = useListReorderMove(tests, setTests, commitTestOrder);
 
   // ── Save (create or edit) ─────────────────────────────────────────────────
   const save = useCallback(async () => {
