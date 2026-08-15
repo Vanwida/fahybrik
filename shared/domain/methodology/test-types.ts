@@ -17,8 +17,8 @@
 //   amount    — the canonical measure amount (meters for distance, seconds for
 //               duration) so the form pre-fills the protocol.
 //
-// AGNOSTIC: the test TYPE (Remo 2 km, Ski 2 km, Carrera 3'/9'/30') is universal
-// sport vocabulary, identical for every coach — exactly like the editor's
+// AGNOSTIC: the test TYPE (Remo 2 km, Ski 2 km, Carrera 3'/9'/30', Carrera 5 km)
+// is universal sport vocabulary, identical for every coach — exactly like the editor's
 // archetypes. The zone MATH (offsets, labels, colors) is the coach's methodology
 // DATA (methodology_zones); this file invents none of it. The two halves are
 // joined at resolve time by `resolveZonesForAthlete(testResult, coachZones)`.
@@ -103,6 +103,18 @@ export const TEST_TYPES: TestType[] = [
     measure: 'duration',
     amount: 1800,
   },
+  // The run-by-DISTANCE TT. Same slug as the benchmark the calibration battery
+  // anchors run-zone derivation on (BENCH_RUN_5K, test-battery.ts) — one 5K
+  // vocabulary across both worlds, never two names for the same effort.
+  {
+    slug: 'run_5k',
+    label: 'Carrera 5 km',
+    protocol: '5000 m a tope · ritmo /km → zonas',
+    modality: 'run',
+    pace_unit: 'per_km',
+    measure: 'distance',
+    amount: 5000,
+  },
 ];
 
 export const TEST_TYPES_BY_SLUG: Record<string, TestType> = Object.fromEntries(
@@ -119,13 +131,13 @@ export function getTestType(slug: string | null | undefined): TestType | null {
 
 /**
  * Reverse-lookup a test type from its objective spec (modality × measure ×
- * amount). The five types are UNIQUELY keyed by this triple — row_2k
+ * amount). The types are UNIQUELY keyed by this triple — row_2k
  * (row,distance,2000), ski_2k (ski,distance,2000), run_3min (run,duration,180),
- * run_9min (run,duration,540), run_30min (run,duration,1800) — so a persisted
- * Test block's prescription round-trips back to its type with NO extra metadata
- * (the prescription IS the test spec). Returns null if no exact match (e.g. a
- * coach tuned the amount), in which case the editor falls back to the closest
- * type by modality+measure.
+ * run_9min (run,duration,540), run_30min (run,duration,1800), run_5k
+ * (run,distance,5000) — so a persisted Test block's prescription round-trips
+ * back to its type with NO extra metadata (the prescription IS the test spec).
+ * Returns null if no exact match (e.g. a coach tuned the amount), in which case
+ * the editor falls back to the closest type by modality+measure.
  */
 export function testTypeForSpec(
   modality: TestModality,

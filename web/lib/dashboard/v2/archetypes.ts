@@ -205,7 +205,7 @@ export const ARCHETYPES: Archetype[] = [
     id: 'test',
     name: 'Test',
     shortName: 'Test',
-    purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′) @ RPE 10. Almacena ritmo → alimenta el plan.',
+    purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′/5 km) @ RPE 10. Almacena ritmo → alimenta el plan.',
     icon: 'speed',
     modalitySlug: 'ergo',
     pattern: 'test',
