@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-13** (Carrera hogar shipeado en Swift)
+Última actualización: **2026-08-15** (layout de vídeos de técnica en espera)
 
 ## Ahora
 
@@ -20,6 +20,8 @@ Falta archivo por familia y comparativa de homólogos.
 ## Espera Alex
 
 - Instalar la build de iOS y probar el hub de Carrera (la instala él).
+- Elegir capas del layout de vídeos de técnica: `docs/video-tecnica-layouts.html`
+  (6 opciones sobre un frame real de bear crawl; se pueden combinar).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
 
