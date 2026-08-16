@@ -35,9 +35,9 @@ function PlanSafe({ onOpen }) {
           <div style={{ flex: 1, background: T.accent + '4D' }}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-          <Small style={{ fontSize: 10 }}><Mono>ACC</Mono></Small>
-          <Small style={{ fontSize: 10 }}><Mono>TRANS</Mono></Small>
-          <Small style={{ fontSize: 10 }} color={T.accent}><Mono>REAL ◆</Mono></Small>
+          <Small style={{ fontSize: 10 }}><Mono>MC1</Mono></Small>
+          <Small style={{ fontSize: 10 }}><Mono>MC2</Mono></Small>
+          <Small style={{ fontSize: 10 }} color={T.accent}><Mono>MC3 ◆</Mono></Small>
           <Small style={{ fontSize: 10 }}><Mono>PEAK</Mono></Small>
         </div>
       </Card>
@@ -163,9 +163,9 @@ function PlanExpert({ onOpen }) {
           <div style={{ flex: 1, background: T.accent + '4D' }}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-          <Small style={{ fontSize: 9 }}><Mono>ACC 4w</Mono></Small>
-          <Small style={{ fontSize: 9 }}><Mono>TRANS 4w</Mono></Small>
-          <Small style={{ fontSize: 9 }} color={T.accent}><Mono>REAL 3w◆</Mono></Small>
+          <Small style={{ fontSize: 9 }}><Mono>MC1 4w</Mono></Small>
+          <Small style={{ fontSize: 9 }}><Mono>MC2 4w</Mono></Small>
+          <Small style={{ fontSize: 9 }} color={T.accent}><Mono>MC3 3w◆</Mono></Small>
           <Small style={{ fontSize: 9 }}><Mono>PEAK 1w</Mono></Small>
         </div>
       </Card>

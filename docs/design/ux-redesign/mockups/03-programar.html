@@ -78,12 +78,12 @@
   --grp-tapering-activacion-tint:       rgba(194, 161, 140, 0.14);
 
   /* Phase chips — the label is the coach's own microcycle name (no fixed catalogue) */
-  --atr-acc:        var(--z2);
-  --atr-acc-tint:   rgba(77, 158, 235, 0.15);
-  --atr-trans:      var(--z4);
-  --atr-trans-tint: rgba(242, 184, 51, 0.15);
-  --atr-real:       var(--z3);
-  --atr-real-tint:  rgba(77, 199, 115, 0.15);
+  --mc1:        var(--z2);
+  --mc1-tint:   rgba(77, 158, 235, 0.15);
+  --mc2:      var(--z4);
+  --mc2-tint: rgba(242, 184, 51, 0.15);
+  --mc3:       var(--z3);
+  --mc3-tint:  rgba(77, 199, 115, 0.15);
 
   /* spacing */
   --s-xs: 4px; --s-s: 8px; --s-m: 12px; --s-l: 16px;
@@ -436,9 +436,9 @@ input:focus-visible { border-radius: var(--r-m); }
   padding: 3px 8px; border-radius: var(--r-pill);
   white-space: nowrap;
 }
-.tag--atr-acc   { color: var(--atr-acc);   background: var(--atr-acc-tint);   border-color: transparent; }
-.tag--atr-trans { color: var(--atr-trans); background: var(--atr-trans-tint); border-color: transparent; }
-.tag--atr-real  { color: var(--atr-real);  background: var(--atr-real-tint);  border-color: transparent; }
+.tag--mc1   { color: var(--mc1);   background: var(--mc1-tint);   border-color: transparent; }
+.tag--mc2 { color: var(--mc2); background: var(--mc2-tint); border-color: transparent; }
+.tag--mc3  { color: var(--mc3);  background: var(--mc3-tint);  border-color: transparent; }
 
 .session-card__foot {
   display: flex; align-items: center; justify-content: space-between;
@@ -459,15 +459,15 @@ input:focus-visible { border-radius: var(--r-m); }
 
 .micro-card { display: flex; flex-direction: column; gap: var(--s-m); padding: var(--s-l); text-align: left; width: 100%; }
 .micro-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-s); }
-.atr-badge {
+.mc-badge {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
   padding: 4px 10px; border-radius: var(--r-pill);
 }
-.atr-badge--acc   { color: var(--atr-acc);   background: var(--atr-acc-tint); }
-.atr-badge--trans { color: var(--atr-trans); background: var(--atr-trans-tint); }
-.atr-badge--real  { color: var(--atr-real);  background: var(--atr-real-tint); }
+.mc-badge--1   { color: var(--mc1);   background: var(--mc1-tint); }
+.mc-badge--2 { color: var(--mc2); background: var(--mc2-tint); }
+.mc-badge--3  { color: var(--mc3);  background: var(--mc3-tint); }
 
 .micro-card__title {
   font-family: var(--font-display);
@@ -856,9 +856,9 @@ input:focus-visible { border-radius: var(--r-m); }
         </span>
         <span class="chip-rail__facet" role="group" aria-label="Fase">
           <span class="micro-label">Fase</span>
-          <button class="filter-chip filter-chip--active" aria-pressed="true">ACC</button>
-          <button class="filter-chip" aria-pressed="false">TRANS</button>
-          <button class="filter-chip" aria-pressed="false">REAL</button>
+          <button class="filter-chip filter-chip--active" aria-pressed="true">MC1</button>
+          <button class="filter-chip" aria-pressed="false">MC2</button>
+          <button class="filter-chip" aria-pressed="false">MC3</button>
         </span>
         <span class="chip-rail__facet" role="group" aria-label="Nivel">
           <span class="micro-label">Nivel</span>
@@ -880,7 +880,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">Tren inferior A — Sentadilla + bisagra</h3>
         <p class="session-card__summary">Back Squat 5×5 @ 75% RM · Peso muerto rumano 4×8 · Accesorios zancada y core</p>
         <div class="session-card__tags">
-          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+          <span class="tag">Series</span><span class="tag tag--mc1">MC1</span><span class="tag">Pro</span>
         </div>
         <div class="session-card__foot">
           <span>3 bloques · <span class="metric-num">65'</span></span>
@@ -896,7 +896,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">6×800 m @ umbral — r2'</h3>
         <p class="session-card__summary">Calentamiento 15' Z2 · 6×800 m @ ritmo umbral, recuperación 2' · Vuelta a la calma 10'</p>
         <div class="session-card__tags">
-          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+          <span class="tag">Series</span><span class="tag tag--mc1">MC1</span><span class="tag">Intermedio</span>
         </div>
         <div class="session-card__foot">
           <span>3 bloques · <span class="metric-num">55'</span></span>
@@ -912,7 +912,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">SkiErg + Row — 4×500 m alternos</h3>
         <p class="session-card__summary">4×500 m SkiErg @ RPE 8 r90" · 4×500 m Row @ 1:55/500 m · técnica de transición</p>
         <div class="session-card__tags">
-          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+          <span class="tag">Series</span><span class="tag tag--mc1">MC1</span><span class="tag">Pro</span>
         </div>
         <div class="session-card__foot">
           <span>2 bloques · <span class="metric-num">45'</span></span>
@@ -928,7 +928,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">Carrera continua 50' Z2</h3>
         <p class="session-card__summary">50' rodaje en Zona 2 (135–148 ppm) · cadencia 175+ · terreno llano</p>
         <div class="session-card__tags">
-          <span class="tag">Continuo</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Todos</span>
+          <span class="tag">Continuo</span><span class="tag tag--mc1">MC1</span><span class="tag">Todos</span>
         </div>
         <div class="session-card__foot">
           <span>1 bloque · <span class="metric-num">50'</span></span>
@@ -944,7 +944,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">«Compromiso» — 21-15-9</h3>
         <p class="session-card__summary">21-15-9 de Wall Balls (9 kg) + Burpee Broad Jump · cap 14' · escala a 6 kg</p>
         <div class="session-card__tags">
-          <span class="tag">For time</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+          <span class="tag">For time</span><span class="tag tag--mc1">MC1</span><span class="tag">Intermedio</span>
         </div>
         <div class="session-card__foot">
           <span>2 bloques · <span class="metric-num">35'</span></span>
@@ -960,7 +960,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">Media HYROX — 4 estaciones</h3>
         <p class="session-card__summary">4×(1 km run + estación): SkiErg 1000 m · Sled Push 50 m · Burpee BJ 80 m · Row 1000 m</p>
         <div class="session-card__tags">
-          <span class="tag">Simulación</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+          <span class="tag">Simulación</span><span class="tag tag--mc1">MC1</span><span class="tag">Pro</span>
         </div>
         <div class="session-card__foot">
           <span>8 bloques · <span class="metric-num">70'</span></span>
@@ -976,7 +976,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">Circuito Sled + Farmers Carry</h3>
         <p class="session-card__summary">5 rondas: Sled Push 25 m (102 kg) · Farmers 60 m (2×24 kg) · 12 KB Swing · r90"</p>
         <div class="session-card__tags">
-          <span class="tag">Circuito</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+          <span class="tag">Circuito</span><span class="tag tag--mc1">MC1</span><span class="tag">Intermedio</span>
         </div>
         <div class="session-card__foot">
           <span>2 bloques · <span class="metric-num">40'</span></span>
@@ -992,7 +992,7 @@ input:focus-visible { border-radius: var(--r-m); }
         <h3 class="session-card__title">Prevención cadera + core anti-rotación</h3>
         <p class="session-card__summary">Cópenhague plank 3×20" · Pallof press 3×12 · 90/90 + CARs de cadera · 25'</p>
         <div class="session-card__tags">
-          <span class="tag">Accesorio</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Todos</span>
+          <span class="tag">Accesorio</span><span class="tag tag--mc1">MC1</span><span class="tag">Todos</span>
         </div>
         <div class="session-card__foot">
           <span>2 bloques · <span class="metric-num">25'</span></span>
@@ -1019,7 +1019,7 @@ input:focus-visible { border-radius: var(--r-m); }
 
       <button class="micro-card card-elevated" aria-label="Abrir microciclo Acumulación Pro — Base aeróbica">
         <div class="micro-card__top">
-          <span class="atr-badge atr-badge--acc">ACC</span>
+          <span class="mc-badge mc-badge--1">MC1</span>
           <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
         </div>
         <h3 class="micro-card__title">Acumulación Pro — Base aeróbica</h3>
@@ -1036,7 +1036,7 @@ input:focus-visible { border-radius: var(--r-m); }
 
       <button class="micro-card card-elevated" aria-label="Abrir microciclo Transformación Intermedio — Umbral y fuerza">
         <div class="micro-card__top">
-          <span class="atr-badge atr-badge--trans">TRANS</span>
+          <span class="mc-badge mc-badge--2">MC2</span>
           <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
         </div>
         <h3 class="micro-card__title">Transformación Inter — Umbral + fuerza</h3>
@@ -1053,7 +1053,7 @@ input:focus-visible { border-radius: var(--r-m); }
 
       <button class="micro-card card-elevated" aria-label="Abrir microciclo Realización Pro — Tapering A-event">
         <div class="micro-card__top">
-          <span class="atr-badge atr-badge--real">REAL</span>
+          <span class="mc-badge mc-badge--3">MC3</span>
           <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
         </div>
         <h3 class="micro-card__title">Realización Pro — Tapering A-event</h3>
@@ -1313,8 +1313,8 @@ input:focus-visible { border-radius: var(--r-m); }
               Biblioteca
             </h3>
             <div class="rail__filter">
-              <span class="filter-chip filter-chip--active" aria-label="Filtro activo: fase Acumulación">
-                Fase: ACC
+              <span class="filter-chip filter-chip--active" aria-label="Filtro activo: microciclo 1">
+                Fase: MC1
                 <span class="material-symbols-outlined icon-16" aria-hidden="true">close</span>
               </span>
               <button class="filter-chip" aria-label="Añadir filtro">
@@ -1325,7 +1325,7 @@ input:focus-visible { border-radius: var(--r-m); }
           <p class="rail__hint">Arrastra una sesión a un día de la semana. Sugeridas según la fase del microciclo.</p>
 
           <div class="rail__section" style="padding-top: var(--s-m);">
-            <span class="micro-label">Sugeridas · ACC</span>
+            <span class="micro-label">Sugeridas · MC1</span>
           </div>
 
           <div class="rail__list">
