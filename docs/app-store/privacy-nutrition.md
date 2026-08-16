@@ -144,7 +144,7 @@ If a new SDK is added, this table and Section 2 of the App Privacy questionnaire
 
 ## Section 6 — Data retention & deletion (for the privacy policy URL itself)
 
-- Retention: as long as the athlete account is active. Workouts and biometric streams retained for the life of the account so longitudinal analysis works (multi-year ATR cycles).
+- Retention: as long as the athlete account is active. Workouts and biometric streams retained for the life of the account so longitudinal analysis works (multi-year training cycles).
 - Deletion: athletes can request account deletion via the in-app Settings → Delete Account (must ship before App Store submission — Apple Guideline 5.1.1(v)). Deletion removes PII, workouts, chat. Anonymous aggregates may persist for product analytics.
 - This is documented in detail at https://fahybrik.com/privacy (owned by #37 privacy-tos).
 

@@ -22,7 +22,7 @@ Order matters: this is the order they will appear in the App Store listing.
 
 | Order | Screen | Source view | Why it leads | Required app state |
 |---|---|---|---|---|
-| 1 | **Today** | `TodayView` | First impression. ATR block, daily session, briefing. The entire product thesis on one screen. | Logged-in athlete. Mid-Transformation block. Briefing populated. Workout slot showing. |
+| 1 | **Today** | `TodayView` | First impression. Current block, daily session, briefing. The entire product thesis on one screen. | Logged-in athlete. Mid-block. Briefing populated. Workout slot showing. |
 | 2 | **Active workout** | `WorkoutActiveView` | Proves execution-quality. Set-by-set guidance, target RPE, rest, tempo. | Mid-set state, set 3 of 5, timer ticking, RPE prompt visible. |
 | 3 | **Pre-workout brief** | `WorkoutBriefView` (race-plan agent's screen) | Explains *why* this workout, not just what. Pablo's IP layer. | About-to-start state, block context + KPIs visible. |
 | 4 | **Onboarding — 1RMs** | `OnboardingView` step 5 | Communicates "élite athletes" without text. Real numbers (squat 180 kg, bench 130 kg). | Onboarding mid-flow, step 5/N, three lifts entered. |
