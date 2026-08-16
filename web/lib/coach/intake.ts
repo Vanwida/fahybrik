@@ -8,7 +8,7 @@
 //       persists macrocycle (via computeMacrocycle), records intake snapshot,
 //       schedules baseline tests, sends welcome message.
 //
-// Strict separation from cohort.ts / atr/service.ts: this module *uses* their
+// Strict separation from cohort.ts: this module *uses* its
 // public functions but does not duplicate their logic.
 
 import type { Sql } from '@/lib/db';

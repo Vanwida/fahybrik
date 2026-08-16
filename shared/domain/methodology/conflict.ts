@@ -4,7 +4,7 @@
 // ---------------
 // At any decision point (pre-session gate, intra-session signal, nightly batch,
 // selection) MULTIPLE rules can fire at once — e.g. "HRV<-15% → skip PM" and
-// "ACC week++ → +3% load". The system must deterministically pick which
+// "this microciclo week++ → +3% load". The system must deterministically pick which
 // action(s) actually apply. This module implements the spec's 8-step resolution
 // so the web dashboard (conflict hints), the plan adapter (what to apply), and
 // tests all agree on ONE answer.

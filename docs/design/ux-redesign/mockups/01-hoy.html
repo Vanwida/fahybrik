@@ -374,29 +374,29 @@ a:focus-visible, button:focus-visible {
 .diff-more .material-symbols-outlined { font-size: 14px; }
 
 /* Ribbon mini de la secuencia (transición de microciclo) */
-.atr-mini {
+.seq-mini {
   display: flex; gap: 4px; margin-top: var(--s-m);
   max-width: 420px;
 }
-.atr-mini__seg {
+.seq-mini__seg {
   position: relative;
   height: 26px; border-radius: var(--r-s);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.08em;
 }
-.atr-mini__seg--done {
+.seq-mini__seg--done {
   flex: 5;
   background: color-mix(in srgb, var(--ok) 14%, var(--surface-container));
   color: var(--ok);
 }
-.atr-mini__seg--next {
+.seq-mini__seg--next {
   flex: 4;
   background: color-mix(in srgb, var(--accent) 16%, var(--surface-container));
   color: var(--accent);
   border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
 }
-.atr-mini__seg--future {
+.seq-mini__seg--future {
   flex: 3;
   background: var(--surface-container);
   color: var(--text-muted);
@@ -847,10 +847,10 @@ a:focus-visible, button:focus-visible {
                     Cierra el bloque con 91% de cumplimiento y mejoras en umbral (−6 s/km).
                     Microciclo propuesto: <strong style="color: var(--fg); font-weight:600;">Transformación B — Intermedio</strong>, inicio lunes 15 jun.
                   </p>
-                  <div class="atr-mini" role="img" aria-label="Progreso de la secuencia: Acumulación completada, 5 semanas. Siguiente: Transformación, 4 semanas. Después: Realización, 3 semanas.">
-                    <span class="atr-mini__seg atr-mini__seg--done">ACC · 5 ✓</span>
-                    <span class="atr-mini__seg atr-mini__seg--next">TRANS · 4</span>
-                    <span class="atr-mini__seg atr-mini__seg--future">REAL · 3</span>
+                  <div class="seq-mini" role="img" aria-label="Progreso de la secuencia: microciclo 1 completado, 5 semanas. Siguiente: microciclo 2, 4 semanas. Después: microciclo 3, 3 semanas.">
+                    <span class="seq-mini__seg seq-mini__seg--done">MC1 · 5 ✓</span>
+                    <span class="seq-mini__seg seq-mini__seg--next">MC2 · 4</span>
+                    <span class="seq-mini__seg seq-mini__seg--future">MC3 · 3</span>
                   </div>
                 </div>
               </div>

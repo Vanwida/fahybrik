@@ -8,14 +8,15 @@
 There are **two demo template sets** seeded by separate scripts:
 
 - **Set A — `seed_example_templates.ts` (5 templates, IDs 1-5)**: original
-  élite-detail demonstration from task #19. Templates cover ACC × 1,
-  TRANS × 1, REAL × 3 and exist to anchor the schema-fidelity discussion
-  with Pablo (every Zod field, every per-segment lever).
+  élite-detail demonstration from task #19. Templates cover a volume
+  session, a threshold session and three race-prep sessions, and exist to
+  anchor the schema-fidelity discussion with Pablo (every Zod field,
+  every per-segment lever).
 
 - **Set B — `seed_day_paired_templates.ts` (6 templates, IDs 6-11)**:
   day-paired demonstration from task #21. Templates form three day-pair
-  buckets across ACC / TRANS / REAL phases and exercise the 2x/day élite
-  programming pattern, including AM↔PM template pairing via the new
+  buckets (volume, threshold, race-prep sessions) and exercise the 2x/day
+  élite programming pattern, including AM↔PM template pairing via the new
   `templates.paired_with_template_id` column (migration 0003).
 
 Both sets coexist in the DB by design — they're complementary, not
@@ -85,32 +86,31 @@ for HYROX 1K split work, not `hyrox-ski-erg`).
 
 ---
 
-## ATR phase mapping
+## Session intents
 
-The five templates cover the three ATR (Acumulación / Transformación /
-Realización) phases with proportions that mirror a typical HYROX prep
-cycle for an élite athlete: most variability lives in REAL because that's
-where the structure has the most levers (race-sim, peaking, strength
-maintenance, sharpeners).
+The five templates cover the kinds of session a typical HYROX prep
+cycle uses for an élite athlete: volume, threshold work, and race-prep.
+Most variability lives in race-prep because that's where the structure
+has the most levers (race-sim, peaking, strength maintenance, sharpeners).
 
-| # | Block | Format          | Level | Duration | Why this exists                                                                                  |
-|---|-------|-----------------|-------|----------|--------------------------------------------------------------------------------------------------|
-| 1 | ACC   | circuit         | 2     | 75 min   | Show: long Z2 + submaximal strength circuit. No glycolytic. Volume engine for the cycle.         |
-| 2 | TRANS | intervals       | 2     | 70 min   | Show: threshold work (Z3-Z4 fartlek) + station compound runs to introduce race-pace transitions. |
-| 3 | REAL  | hyrox_sim       | 3     | 50 min   | Show: half-distance race simulation (4 stations + 4 runs) at race pace. Benchmark session.       |
-| 4 | REAL  | intervals       | 3     | 55 min   | Show: peaking sharpener — Z5 sprints + station tune-up. Low volume, max intensity.               |
-| 5 | REAL  | strength_block  | 3     | 65 min   | Show: standalone strength maintenance during REAL — heavy main lift + accessories.               |
+| # | Intent    | Format          | Level | Duration | Why this exists                                                                                  |
+|---|-----------|-----------------|-------|----------|--------------------------------------------------------------------------------------------------|
+| 1 | volume    | circuit         | 2     | 75 min   | Show: long Z2 + submaximal strength circuit. No glycolytic. Volume engine for the cycle.         |
+| 2 | threshold | intervals       | 2     | 70 min   | Show: threshold work (Z3-Z4 fartlek) + station compound runs to introduce race-pace transitions. |
+| 3 | race-prep | hyrox_sim       | 3     | 50 min   | Show: half-distance race simulation (4 stations + 4 runs) at race pace. Benchmark session.       |
+| 4 | race-prep | intervals       | 3     | 55 min   | Show: peaking sharpener — Z5 sprints + station tune-up. Low volume, max intensity.               |
+| 5 | race-prep | strength_block  | 3     | 65 min   | Show: standalone strength maintenance near race — heavy main lift + accessories.                 |
 
 ---
 
 ## Per-template rationale
 
-### 1. ACC — Volumen aeróbico Z2 + circuito de fuerza-resistencia
+### 1. Volumen aeróbico Z2 + circuito de fuerza-resistencia
 
-**Why this anchors the phase.** ACC is about *volume accumulation*. Pablo's
-methodology should make it impossible for the athlete to mistake an ACC
-session for a TRANS or REAL session — the heart-rate ceiling alone (Z2,
-~140-148 bpm) signals the difference. The template demonstrates:
+**Why this session exists.** This is *volume*. Pablo's methodology should
+make it impossible for the athlete to mistake a volume session for
+threshold or race-prep — the heart-rate ceiling alone (Z2, ~140-148 bpm)
+signals the difference. The template demonstrates:
 
 - A 50-min `run-z2-long` anchor with **pace ceiling** (5:40 /km cap) and
   **cadence target** (178 spm) — both are levers Pablo can tune per athlete
@@ -125,14 +125,14 @@ session for a TRANS or REAL session — the heart-rate ceiling alone (Z2,
   surfaces a coaching protocol the iOS app will eventually enforce live.
 
 **What Pablo replaces.** Real progression tables, real HR formulae for LT1,
-real weight progression across the 3-4 weeks of the ACC block.
+real weight progression across the 3-4 weeks of the volume block.
 
 ---
 
-### 2. TRANS — Fartlek Z3-Z4 + estaciones HYROX específicas
+### 2. Fartlek Z3-Z4 + estaciones HYROX específicas
 
-**Why this anchors the phase.** TRANS is the bridge: athlete starts feeling
-race intensity but volume drops. The template demonstrates:
+**Why this session exists.** Threshold work is the bridge: athlete starts
+feeling race intensity but volume drops. The template demonstrates:
 
 - **`run-fartlek` with explicit recovery target** — "trote ACTIVO, no
   caminar" is the kind of cue that distinguishes coach-grade prescriptions
@@ -158,9 +158,9 @@ identified weakness.
 
 ---
 
-### 3. REAL — Simulación HYROX media distancia (race pace)
+### 3. Simulación HYROX media distancia (race pace)
 
-**Why this anchors the phase.** This is the **benchmark session**. Pablo
+**Why this session exists.** This is the **benchmark session**. Pablo
 runs this 6-8 weeks out from the A-event, then again at 3-4 weeks, and
 compares splits + transitions + HR-recovery to track readiness.
 
@@ -193,9 +193,9 @@ allowed deviations before flagging readiness as "not on track".
 
 ---
 
-### 4. REAL — Sprint intervals Z5 + station tune-up (peaking sharpener)
+### 4. Sprint intervals Z5 + station tune-up (peaking sharpener)
 
-**Why this anchors the phase.** Peaking is where consumer apps fail
+**Why this session exists.** Peaking is where consumer apps fail
 hardest — they keep pushing volume because their algorithm doesn't model
 freshness. The template demonstrates:
 
@@ -206,7 +206,7 @@ freshness. The template demonstrates:
 
 - **Conditional execution gates** — "Si HRV bajo, sueño <7h, RPE de
   calentamiento >5 → reducir a 4 sprints o posponer". This is the kind
-  of logic the ATR engine must support: a template can declare its own
+  of logic the adaptation layer must support: a template can declare its own
   preconditions and the system can recommend skip/modify based on the
   athlete's morning biometrics.
 - **Hard exclusion rules** — "no hacer en los 7 días previos al evento A".
@@ -223,9 +223,9 @@ sequencing within the 14-day pre-race window.
 
 ---
 
-### 5. Strength session — Lower body block (REAL phase)
+### 5. Strength session — Lower body block (race-prep)
 
-**Why this anchors the phase.** Strength maintenance during REAL is a
+**Why this session exists.** Strength maintenance near race day is a
 common failure point in HYROX training — coaches drop strength too early
 and athletes lose force production right when stations need it. The
 template demonstrates:
@@ -245,7 +245,7 @@ template demonstrates:
   fuerte el mismo día (mín 6h separación)". Template-level pairing
   constraints inform the iOS Today screen ordering.
 
-**What Pablo replaces.** Real % 1RM progression across the REAL block,
+**What Pablo replaces.** Real % 1RM progression across the race-prep block,
 real accessory selection per athlete weakness profile, real session
 spacing rules.
 
@@ -257,7 +257,8 @@ Concrete demonstrations of schema fields the example set hits:
 
 - `templates.format` — all 5 formats present except `amrap`/`for_time`/
   `emom`/`tempo` (those will appear in Pablo's expanded set).
-- `templates.target_block` — ACC, TRANS, REAL all present.
+- `templates.target_block` — dropped; session intent lives in the coach's
+  microciclo name, not a catalog column.
 - `templates.target_level` — int 1-3 (internal scale; 1=novice élite,
   2=club competitor, 3=podium contender).
 - `template_segments.params_json` — every key from the Zod
@@ -304,14 +305,14 @@ is shown, its complementary partner is visible above the fold (see
 
 ## Template list
 
-| ID | Day position    | Format          | Block | Level | Duration | Pair      |
-|----|-----------------|-----------------|-------|-------|----------|-----------|
-| 6  | ACC w3 d2 AM    | strength_block  | ACC   | 2     | 60 min   | ↔ #7      |
-| 7  | ACC w3 d2 PM    | tempo           | ACC   | 2     | 90 min   | ↔ #6      |
-| 8  | TRANS w2 d1 AM  | intervals       | TRANS | 2     | 50 min   | singleton |
-| 9  | TRANS w2 d3 AM  | hyrox_sim       | TRANS | 2     | 60 min   | singleton |
-| 10 | REAL w1 d2 AM   | intervals       | REAL  | 3     | 55 min   | ↔ #11     |
-| 11 | REAL w1 d2 PM   | circuit         | REAL  | 1     | 35 min   | ↔ #10     |
+| ID | Day position | Format          | Level | Duration | Pair      |
+|----|--------------|-----------------|-------|----------|-----------|
+| 6  | w3 d2 AM     | strength_block  | 2     | 60 min   | ↔ #7      |
+| 7  | w3 d2 PM     | tempo           | 2     | 90 min   | ↔ #6      |
+| 8  | w2 d1 AM     | intervals       | 2     | 50 min   | singleton |
+| 9  | w2 d3 AM     | hyrox_sim       | 2     | 60 min   | singleton |
+| 10 | w1 d2 AM     | intervals       | 3     | 55 min   | ↔ #11     |
+| 11 | w1 d2 PM     | circuit         | 1     | 35 min   | ↔ #10     |
 
 Pairing is stored bidirectionally in `templates.paired_with_template_id`
 (self-FK with `ON DELETE SET NULL`). Day position is stored in
@@ -332,10 +333,10 @@ the Today screen and Plan view filter by these fields.
 
 ## Per-template rationale
 
-### 6 — ACC w3 d2 AM: Lower body strength + accessory
+### 6 — w3 d2 AM: Lower body strength + accessory
 
 **Why this anchors the pair.** The AM session is the **structural lever**
-of the day. ACC week 3 is mid-block — athlete has accumulated 2 weeks of
+of the day. Week 3 is mid-block — athlete has accumulated 2 weeks of
 volume and is ready for slightly higher absolute loads (78% 1RM × 5 reps
 × 4 sets vs week 1's 75%). The session demonstrates:
 
@@ -353,13 +354,13 @@ volume and is ready for slightly higher absolute loads (78% 1RM × 5 reps
   the system should warn if HRV crashes overnight.
 
 **What Pablo replaces.** Real % 1RM progression curve across the 4-week
-ACC block, real accessory rotation (he may swap glute-ham raise for
+volume block, real accessory rotation (he may swap glute-ham raise for
 nordic curl on different weeks).
 
-### 7 — ACC w3 d2 PM: Z2 long run
+### 7 — w3 d2 PM: Z2 long run
 
 **Why this is the day's keystone.** Despite being PM, this is **THE
-session of the week** in ACC philosophy — it's where aerobic base is
+session of the week** in a volume block — it's where aerobic base is
 built. The template demonstrates:
 
 - **Single-segment design** — sometimes the right template is one
@@ -379,9 +380,9 @@ built. The template demonstrates:
 **What Pablo replaces.** Per-athlete LT1 HR formula (currently 142 bpm
 default), per-athlete pace ceiling (currently `5:20-5:50 /km`).
 
-### 8 — TRANS w2 d1 AM: Threshold intervals running (singleton)
+### 8 — w2 d1 AM: Threshold intervals running (singleton)
 
-**Why this is a singleton.** TRANS w2 d1 is the week's hardest running
+**Why this is a singleton.** This day is the week's hardest running
 session — paired with active recovery the next day, not a same-day PM.
 Singleton design tells the system: *"don't suggest a complementary PM
 session today."* Demonstrates:
@@ -403,7 +404,7 @@ session today."* Demonstrates:
 prefer 60s for more lactate-clearance focus, or 2:00 for more pace
 preservation).
 
-### 9 — TRANS w2 d3 AM: HYROX simulation half (singleton)
+### 9 — w2 d3 AM: HYROX simulation half (singleton)
 
 **Why this is the most complex template in the set.** 8 segments,
 race-pace, mixed modality. Demonstrates:
@@ -427,10 +428,10 @@ race-pace, mixed modality. Demonstrates:
 6 stations not 4, or different station selection per individual
 weakness profile).
 
-### 10 — REAL w1 d2 AM: Race-pace intervals + station tune-up
+### 10 — w1 d2 AM: Race-pace intervals + station tune-up
 
-**Why this is the AM of the REAL pair.** REAL w1 means 6-8 weeks pre-A
-event. Volume drops, specificity rises. Demonstrates:
+**Why this is the AM of the race-prep pair.** Week 1 here means 6-8 weeks
+pre-A event. Volume drops, specificity rises. Demonstrates:
 
 - **3-block design**: race-pace runs (6 × 400 m) → BBJ tune-up →
   wall ball tune-up. Each block has a different intent: 400 m runs
@@ -446,9 +447,9 @@ event. Volume drops, specificity rises. Demonstrates:
 **What Pablo replaces.** Per-athlete race-pace target (currently
 "~4:30 /km M / ~5:00 /km W" — derived from each athlete's benchmark).
 
-### 11 — REAL w1 d2 PM: Recovery + skill
+### 11 — w1 d2 PM: Recovery + skill
 
-**Why this is the PM partner.** PM in REAL is **protected**. The session
+**Why this is the PM partner.** PM in race-prep is **protected**. The session
 has 3 explicit purposes: blood flow (row recovery), skill maintenance
 (strict pull-ups, low volume), prehab (banded shoulder for high-volume
 SkiErg + pull-up). Demonstrates:

@@ -812,7 +812,7 @@ const TESTS_AND_PROTOCOLS: ExerciseRow[] = [
       'race-pace targets. Run on track or flat course, GPS confirmed.',
     cues:
       'Distance: 5000 m. Effort: maximal — pace as evenly as possible. ' +
-      'Re-test every 6-8 weeks during ACC/TRANS, every 4-6 weeks in REAL. ' +
+      'Re-test every 6-8 weeks, every 4-6 weeks as the race approaches. ' +
       'Output: 5K time → derive Z3/Z4/Z5 paces + LT estimate. ' +
       'Cadencia ≥184 spm last km.',
     video_url: null,
@@ -1051,7 +1051,7 @@ const STRENGTH_ACCESSORIES: ExerciseRow[] = [
     hyrox_station_position: null,
     description:
       'Backwards sled drag with horizontal pull (TRX, harness, or rope). ' +
-      'Knee-friendly quad development. Common ACC-block accessory for sled-' +
+      'Knee-friendly quad development. Common volume-block accessory for sled-' +
       'push prep and quad mass.',
     cues:
       'Distance: 4-6 × 20-40 m. Loads: 50-70% sled push race weight. ' +
@@ -1094,7 +1094,7 @@ const STRENGTH_ACCESSORIES: ExerciseRow[] = [
       'Reps: 5-8 per set. Loads: 20-40 kg M / 15-25 kg W. ' +
       'Hip-hinge to grip bag, lift with legs, transition through hip pop, catch on shoulder. ' +
       'Alternate shoulders set-by-set. ' +
-      'Common ACC accessory before introducing race-distance sandbag lunges.',
+      'Common volume accessory before introducing race-distance sandbag lunges.',
     video_url: null,
     source: 'fahybrik_canonical',
   },

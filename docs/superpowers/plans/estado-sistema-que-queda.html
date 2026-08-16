@@ -34,7 +34,7 @@ tr:last-child td{border-bottom:0}
 <tr><td>/hoy (triage + tarjeta IA)</td><td class="s ok">✅</td><td>4 carriles + tiras de decisión (nivel, asignación, microciclo, ajuste IA). Datos reales.</td><td></td></tr>
 <tr><td>Roster /atletas</td><td class="s ok">✅</td><td>Nivel·Estado·Fase·Adherencia·Últ.registro reales.</td><td></td></tr>
 <tr><td>Biblioteca + editor de bloque</td><td class="s ok">✅</td><td>Por-coach, tipada, crear/editar bloque funciona.</td><td></td></tr>
-<tr><td>Periodización (niveles→microciclos)</td><td class="s ok">✅</td><td>Agnóstica, sin ATR.</td><td></td></tr>
+<tr><td>Periodización (niveles→microciclos)</td><td class="s ok">✅</td><td>Agnóstica: el orden de microciclos lo nombra el coach.</td><td></td></tr>
 <tr><td>Chat coach↔atleta</td><td class="s ok">✅</td><td>3 columnas, hilos reales.</td><td></td></tr>
 <tr><td><b>Publicar microciclo (borrador→publicado)</b></td><td class="s warn">🟡</td><td><b>Falta el endpoint.</b> El coach edita pero NO puede soltar el plan al atleta. Crítico.</td><td><span class="who yo">YO</span></td></tr>
 <tr><td>Crear microciclo / sesión nuevos</td><td class="s no">❌</td><td>Rutas no mapeadas (el botón existe, la página no).</td><td><span class="who yo">YO</span></td></tr>
@@ -78,7 +78,7 @@ tr:last-child td{border-bottom:0}
 <tr><td>Auth coach (magic link) + atleta (Apple)</td><td class="s ok">✅</td><td>Reales, rate-limited.</td><td></td></tr>
 <tr><td>Crons (5)</td><td class="s ok">✅</td><td>Eval semanal, publicación, atención, etc.</td><td></td></tr>
 <tr><td><b>El dashboard nuevo NO está en producción</b></td><td class="s warn">🟡</td><td>Vive en <code>feat/landing</code> (solo demo); <code>main</code> = 3 semanas atrás. Falta merge + deploy.</td><td><span class="who tu">TÚ</span> decides cuándo</td></tr>
-<tr><td>Migraciones en la BD de prod</td><td class="s warn">🟡</td><td>0063–0072 sin aplicar a prod (incluye drops ATR; idempotentes).</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Migraciones en la BD de prod</td><td class="s warn">🟡</td><td>0063–0072 sin aplicar a prod (incluye drops del motor de macrociclo; idempotentes).</td><td><span class="who yo">YO</span></td></tr>
 <tr><td>Stripe en prod</td><td class="s warn">🟡</td><td>Live local; faltan las env en Vercel prod + email/activación post-compra.</td><td><span class="who yo">YO</span>+<span class="who tu">TÚ</span></td></tr>
 <tr><td>demo-login fuera de prod</td><td class="s warn">🟡</td><td>Gateado; redeploy prod sin la env para asegurar.</td><td><span class="who yo">YO</span></td></tr>
 <tr><td>BD prod aislada de dev</td><td class="s warn">🟡</td><td>Cortar rama prod propia en Neon.</td><td><span class="who yo">YO</span></td></tr>

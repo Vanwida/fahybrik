@@ -2,9 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (redact club-1 IDs before FLEXR tag)
+Última actualización: **2026-08-16** (copy de periodización: el coach nombra el orden)
 
 ## Ahora
+
+**Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
+Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.
 
 **FLEXR copy IDs:** rama `chore/redact-flexr-copy-ids` contra `integration/trunk`.
 Emails/team/Neon/Vercel docs del tip pasan a placeholder o env. No merge.
