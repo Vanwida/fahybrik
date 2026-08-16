@@ -1,24 +1,33 @@
-name: coach tests
+# Typecheck + unit de @fahybrid/web y @fahybrid/shared.
+# No corre lint, infra, iOS, Playwright ni suites de DB.
+# *.db.test.ts se saltan: este job no inyecta DATABASE_URL ni TEST_DATABASE_URL.
+name: web + shared
 
 on:
   pull_request:
+    branches: [integration/trunk, main]
     paths:
-      - 'coach/**'
+      - 'web/**'
       - 'shared/**'
       - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
       - '.github/workflows/test.yml'
   push:
-    branches: [main]
+    branches: [integration/trunk, main]
     paths:
-      - 'coach/**'
+      - 'web/**'
       - 'shared/**'
       - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/test.yml'
 
 jobs:
   test:
     name: typecheck + unit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -36,8 +45,16 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck (coach)
-        run: pnpm --filter @fahybrid/coach exec tsc --noEmit
+      - name: Typecheck (shared)
+        run: pnpm --filter @fahybrid/shared typecheck
 
-      - name: Unit tests (coach)
-        run: pnpm --filter @fahybrid/coach test
+      - name: Typecheck (web)
+        run: pnpm --filter @fahybrid/web typecheck
+
+      - name: Unit tests (shared)
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @fahybrid/shared test
+
+      - name: Unit tests (web)
+        if: ${{ !cancelled() }}
+        run: env -u DATABASE_URL -u TEST_DATABASE_URL pnpm --filter @fahybrid/web test
