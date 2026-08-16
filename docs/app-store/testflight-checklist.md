@@ -11,7 +11,7 @@ This is the end-to-end runbook from "no Apple Developer account" to "first build
 
 ## 0. Prerequisites — 🔒 Alex only
 
-- [ ] Apple ID registered at https://appleid.apple.com (use `vanwida@aistudios.pro`, NOT `alexsole@gmail.com`).
+- [ ] Apple ID registered at https://appleid.apple.com (operator account; never a personal Gmail).
 - [ ] Two-factor authentication enabled on the Apple ID. Required for App Store Connect since 2019.
 - [ ] Enrolled in the Apple Developer Program ($99/year). Use **Vanwida** as the legal entity if it's an LLC; otherwise individual.
    - URL: https://developer.apple.com/programs/enroll/
@@ -77,8 +77,8 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
 
 - [ ] In App Store Connect → TestFlight → Internal Testing, create a group `Fabrik internals`.
 - [ ] Add internal testers (max 100). At minimum:
-   - vanwida@aistudios.pro (Alex)
-   - pablo@fabrik.training (Pablo — once confirmed)
+   - coach@example.com (operator)
+   - coach2@example.com (coach — replace with the live address locally)
 - [ ] Attach the new build to the group. Internal testers receive a TestFlight invite within minutes — no Apple review required for internal.
 
 ## 6. External testing — 🔒 Alex (review submission)
@@ -88,7 +88,7 @@ For testing with Pablo's actual athletes (not internal team):
 - [ ] In TestFlight → External Testing, create a group `Fabrik élite cohort`.
 - [ ] Provide:
    - **Beta App Description** (≤ 4000 chars): copy from metadata-es.md description.
-   - **Feedback Email**: `pablo@fabrik.training` or `vanwida@aistudios.pro`.
+   - **Feedback Email**: `coach@example.com`.
    - **Test Information**: link to `https://fahybrik.com/testflight-info` or paste the reviewer notes from metadata-es.md.
    - **Demo Account** (REQUIRED for external testing review): `appstore-demo@fahybrik.com` + magic link. Whitelist this email in Resend so the reviewer can receive it.
 - [ ] Submit the build for **Beta App Review** (Apple does an abbreviated review for external TestFlight, faster than full App Store review — typically 24 h).
@@ -114,7 +114,7 @@ Out of scope for v1. When ready:
 ## 9. Open follow-ups for Alex
 
 - [ ] Pick the legal entity for App Store Connect (Vanwida LLC vs individual).
-- [ ] Confirm Pablo's real email (`pablo@fabrik.training` placeholder).
+- [ ] Confirm the live coach contact email (never commit it).
 - [ ] Decide IAP route (Stripe-only marketing site vs StoreKit in-app).
 - [ ] Verify `fahybrik.com` Resend domain (privacy/support/marketing URLs all live there).
 - [ ] Schedule the first internal TestFlight build and the first external review submission against Pablo's first cohort start date.

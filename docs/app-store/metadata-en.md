@@ -91,12 +91,12 @@ Report any issue to your coach via in-app chat.
 ## App Review Information (English mirror — same demo account)
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
-- Contact email: vanwida@aistudios.pro (or pablo@fabrik.training when confirmed)
+- Contact email: coach@example.com
 - Demo account: appstore-demo@fahybrik.com (magic link)
 - Reviewer notes: same as Spanish locale.
 
 ## Copyright
 
 ```
-© 2026 Vanwida (vanwida@aistudios.pro). All rights reserved.
+© 2026 Vanwida (coach@example.com). All rights reserved.
 ```

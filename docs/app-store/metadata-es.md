@@ -93,7 +93,7 @@ Reporta cualquier issue al coach por el chat in-app.
 ## App Review Information (no público — sólo para Apple)
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
-- Contact email: pablo@fabrik.training (TBC con Pablo) o vanwida@aistudios.pro
+- Contact email: coach@example.com
 - Demo account: TBD — crear test account en `appstore-demo@fahybrik.com` con magic link pre-configurado para el reviewer
 - Notes for reviewer:
   ```
@@ -109,5 +109,5 @@ Reporta cualquier issue al coach por el chat in-app.
 ## Copyright
 
 ```
-© 2026 Vanwida (vanwida@aistudios.pro). All rights reserved.
+© 2026 Vanwida (coach@example.com). All rights reserved.
 ```
