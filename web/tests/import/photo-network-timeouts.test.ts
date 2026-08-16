@@ -86,10 +86,11 @@ describe('resolvePhotoImages — saltos de red acotados', () => {
   });
 
   test('varias imágenes se resuelven EN PARALELO: el tiempo total es el de la más lenta, no la suma', async () => {
-    // Tres head() con retrasos distintos (15/20/25ms) resueltos vía
-    // setTimeout real (no colgados) — si el bucle fuera secuencial el total
-    // rondaría 60ms; en paralelo debe rondar los 25ms del más lento.
-    const delays = [15, 20, 25];
+    // Tres head() con retrasos distintos, vía setTimeout real (no colgados).
+    // En serie suman ~250ms; en paralelo el total es el del más lento (~120ms)
+    // más jitter del runner. 15/20/25 + umbral 50 flaqueaba en CI (57ms):
+    // el hueco serie/paralelo no absorbía la carga del runner.
+    const delays = [50, 80, 120];
     let call = 0;
     headMock.mockImplementation(
       () =>
@@ -111,8 +112,9 @@ describe('resolvePhotoImages — saltos de red acotados', () => {
     const elapsedMs = Date.now() - startedAt;
 
     expect(out).toHaveLength(3);
-    // Generoso pero decisivo: en serie serían ~60ms; en paralelo, ~25-40ms.
-    expect(elapsedMs).toBeLessThan(50);
+    // Generoso para un runner cargado (~120ms + jitter), decisivo contra
+    // serie (~250ms). Un 57ms vs 50 no puede volver a pintar esto de rojo.
+    expect(elapsedMs).toBeLessThan(200);
   });
 
   test('el tope AGREGADO de bytes rechaza ANTES de descargar ni un byte', async () => {
