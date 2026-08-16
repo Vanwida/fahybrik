@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-16 · Los 5 mandos de metodología viven en su tabla, no en las 37 columnas muertas
+
+**Decidido:** persistir los 5 mandos de `docs/metodologia-coach.html` (zonas, tests por defecto, fin de bloque, cuándo bajar el día, tono) en `coach_methodology_knobs`, una fila por `coach_id`. Sin fila = defectos de mecanismo en `shared/domain/coach/methodology-knobs.ts`. GET+PUT `/api/coach/methodology/knobs`, scoped a la sesión. Este PR es solo el almacén: no cablea plan, chat ni MCP.
+
+**Por qué no `coach_methodology` (0048):** aquella tabla horneó 37 defaults en el DDL, tiene cero escritores y se lee una sola columna (`one_rm_estimation`). Insertar una fila para guardar 5 mandos rellenaría los otros 32 con números que parecerían «los del coach». Las migraciones 0149/0161/0187 ya prohibieron copiar ese patrón.
+
+**Vocabulario reutilizado, no inventado:** `hr_anchor` / `run_pace_anchor` (0048), `block_end_policy` = `program_sequences.end_policy` (`repeat` | `level_up` | `stop`), `address_form` (0048). Tests por defecto = lista vacía, no la batería de calibración de semana 1.
+
+**En consecuencia, no hacer:** no rellenar las 37 columnas; no copiar tests ni tono de otro coach; no inventar un catálogo de fases; no tratar la batería HYROX de `test-battery.ts` como el default de un club vacío.
+
+---
+
 ## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
 
 **El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.
