@@ -101,7 +101,7 @@
     <tr><td><code>(app)/hoy</code></td><td><code>(v2)/v2/hoy</code></td><td><span class="tag t-move">mover V2→primaria</span></td><td><code>/es/hoy</code></td></tr>
     <tr><td><code>(app)/atletas</code><br><span class="small">+ [id], /cuerpo, /rendimiento, /intake, /plan, /dobles-simulacion</span></td><td><code>(v2)/v2/atletas</code> + [id]</td><td><span class="tag t-move">mover V2→primaria</span> <span class="tag t-care">comprobar sub-rutas</span></td><td><code>/es/atletas</code></td></tr>
     <tr><td><code>(app)/programar</code><br><span class="small">/microciclos, /microciclos/[id], /weeks, /weeks/[id]</span></td><td>Reparto V2: <code>/v2/biblioteca</code>, <code>/v2/planes</code>, <code>/v2/microciclos</code>, <code>/v2/microciclos/[id]/dia/[idx]</code></td><td><span class="tag t-care">remapear (no 1:1)</span></td><td>ver §abajo</td></tr>
-    <tr><td><code>(app)/metodologia</code><br><span class="small">/autorregulacion, /periodizacion-atr</span></td><td><code>(v2)/v2/periodizacion</code></td><td><span class="tag t-care">remapear parcial</span></td><td><code>/es/periodizacion</code> (+ ¿autorregulación?)</td></tr>
+    <tr><td><code>(app)/metodologia</code><br><span class="small">/autorregulacion, /periodizacion</span></td><td><code>(v2)/v2/periodizacion</code></td><td><span class="tag t-care">remapear parcial</span></td><td><code>/es/periodizacion</code> (+ ¿autorregulación?)</td></tr>
     <tr><td><code>(app)/ajustes</code></td><td><code>(v2)/v2/ajustes</code></td><td><span class="tag t-move">mover V2→primaria</span></td><td><code>/es/ajustes</code></td></tr>
     <tr><td><code>(app)/review</code></td><td><span class="small">— ninguna (V1 ya redirige a <code>/</code>)</span></td><td><span class="tag t-del">borrar</span></td><td>—</td></tr>
     <tr><td><span class="small">(sin gemela V1)</span></td><td><code>(v2)/v2/mensajes</code></td><td><span class="tag t-keep">nuevo en V2 — conservar</span></td><td><code>/es/mensajes</code></td></tr>
@@ -232,7 +232,7 @@
     <p class="small pathlist">
       assign-block · assign-sequence · athlete-plan ·<br>
       athlete-profile-shell · athlete-session-adapter ·<br>
-      atr-transition-dispatch · blocks · comp-athletes ·<br>
+      transition-dispatch · blocks · comp-athletes ·<br>
       day-sessions · deep-dive-body · deep-dive-performance ·<br>
       deep-dive-types · inbox · macro-progress ·<br>
       methodology-groups · methodology/defaults ·<br>
@@ -249,7 +249,7 @@
     <p class="small">Aparecen usados solo por <code>(app)</code> / <code>components/dashboard</code>:</p>
     <p class="small pathlist">
       activity-today · athlete-status · athlete-daily-readiness ·<br>
-      athlete-training-level · atr-transition-detector ·<br>
+      athlete-training-level · transition-detector ·<br>
       block-exercise-format · hoy-data · instantiate-program ·<br>
       intake-month-proposal · modality-types ·<br>
       pablo-ia-context · program-week-slots ·<br>

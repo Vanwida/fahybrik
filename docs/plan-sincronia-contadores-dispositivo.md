@@ -325,7 +325,7 @@ No un PR gigante: cada uno deja main compilable y tests verdes.
 - No cambia el editor del coach (salvo QA de measures nulas).  
 - No inventa conteo de reps en el PM5.  
 - No redefine AMRAP como “reset por ronda”.  
-- No mete ATR ni método de un coach en el código.  
+- No mete método de un coach en el código.  
 - No sustituye el doble UX: el doble ya dice “tramo decide la cara”; esto implementa la **verdad del contador**.
 
 ---

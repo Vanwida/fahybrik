@@ -43,10 +43,10 @@
   - Fix: APNS setup + registration + handler + deep link tap.
   - Bloqueante · Sprint W6.5 o Fase 1c (ya planificado 1c)
 
-- [x] **K7 · Atleta iOS NO ve nomenclatura pedagógica (D2)**
-  0 ocurrencias de "Acumulación/Intensificación/Tapering/atrPhaseLabel/MacroPhaseRibbon" en `ios/FAHYBRIK`. Sigue mostrando ACC/TRANS/REAL crudo. Contradice decisión D2.
+- [x] **K7 · Atleta iOS NO ve el nombre del microciclo del coach (D2)**
+  0 ocurrencias del nombre de fase del coach en `ios/FAHYBRIK`. Sigue mostrando códigos de catálogo crudos. Contradice decisión D2.
   - Archivos: `ios/Profile/ProfileView.swift:395,670,677-689`, `ios/Onboarding/Steps/HyroxStationsStep.swift:14`, `ios/Today/TodayDemoData.swift:12`, `ios/Plan/PlanView.swift:322`
-  - Fix: helper `atrPhaseLabel(phase, locale)` + aplicar en todas las pantallas atleta.
+  - Fix: pintar el nombre que el coach dio al microciclo.
   - Sprint W6.5
 
 - [x] **K8 · Repo entero FAHYBRIK, producto FAHYBRID**
@@ -106,7 +106,7 @@
 - [ ] **A12 · iOS Stats sigue mock** (C3 ✗). `StatsView.mock`, no hay endpoint `/api/stats/*`.
   - Fix: endpoints stats + fetch real (ya planificado Fase 2).
 
-- [x] **A13 · ATR labels EN/ES split en coach** — `MicrocycleDetailDrawer` muestra "Accumulation/Transmutation/Realization" (EN) vs resto coach "Acumulación" (ES). 2 mapas duplicados divergentes.
+- [x] **A13 · Phase labels EN/ES split en coach** — `MicrocycleDetailDrawer` muestra labels EN vs resto coach ES. 2 mapas duplicados divergentes.
   - Archivos: `MicrocycleDetailDrawer.tsx:19` vs `MicrocycleEditor.tsx:72`
   - Fix: consolidar PHASE_LABELS en `shared/`.
 
@@ -191,7 +191,7 @@ K1, K2, K3, K4 (security críticos) · K9 (a11y iOS botones, trivial) · K5 (cab
 K8. Cross-cutting: bundle id + paquetes npm + folders + env + dominios. Cuidado. Bloquea App Store listing.
 
 ### Fase 1c (ya planificada) — absorbe:
-K6 (APNS), A1 (rate limit), A2 (race), A3 (blob private), A6 (migrations journal), A7 (LLM cost), A8 (methodology_groups), A9 (iOS a11y), A13 (ATR labels), A15 (CSRF), A17 (Stripe tiers)
+K6 (APNS), A1 (rate limit), A2 (race), A3 (blob private), A6 (migrations journal), A7 (LLM cost), A8 (methodology_groups), A9 (iOS a11y), A13 (phase labels), A15 (CSRF), A17 (Stripe tiers)
 
 ### Fase 2 — absorbe:
 A10/A11 (drift web↔coach → shared/), A12 (Stats real), todos los M1-M26.
