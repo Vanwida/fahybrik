@@ -5,11 +5,12 @@
  * demo branch. To keep that safe they all share TWO invariants, defined here once:
  *
  *   1. HOST GUARD (assertDemoWriteHost)
- *      - the DEMO branch (ep-flat-wind) is always writable, and
- *      - MAIN (ep-aged-base) is writable ONLY when the operator opts in with
- *        SEED_DEMO_ALLOW_MAIN=1 — a deliberate, per-run acknowledgement that this
- *        seed is about to touch production data.
+ *      - the DEMO branch prefix (DEMO_NEON_HOST_PREFIX) is always writable, and
+ *      - MAIN (MAIN_NEON_HOST_PREFIX) is writable ONLY when the operator opts in
+ *        with SEED_DEMO_ALLOW_MAIN=1 — a deliberate, per-run acknowledgement that
+ *        this seed is about to touch production data.
  *      - anything else (unknown host) is refused.
+ *      Prefixes are env, never committed hostnames.
  *
  *   2. TARGET RESOLUTION (resolveDemoTarget)
  *      keyed on the demo MARKER EMAILS, never on fixed ids (ids differ across
@@ -40,8 +41,9 @@ const DEMO_ATHLETE_DOMAIN = /@demo\.fahybrid\.local$/i;
 /** Coach demo emails end in @fahybrid.local (no `demo.` subdomain). */
 const DEMO_COACH_DOMAIN = /@(demo\.)?fahybrid\.local$/i;
 
-const DEMO_HOST = 'ep-flat-wind'; //  demo-mockdata branch
-const MAIN_HOST = 'ep-aged-base'; //  main (production) branch
+/** Neon host prefixes — set in the operator env. No branch hostname in git. */
+const DEMO_HOST = trimmed('DEMO_NEON_HOST_PREFIX');
+const MAIN_HOST = trimmed('MAIN_NEON_HOST_PREFIX');
 
 export function currentHost(): string {
   return (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
@@ -53,6 +55,12 @@ export function currentHost(): string {
  * Anything else is refused.
  */
 export function assertDemoWriteHost(scriptName: string): string {
+  if (!DEMO_HOST || !MAIN_HOST) {
+    throw new Error(
+      `${scriptName}: set DEMO_NEON_HOST_PREFIX and MAIN_NEON_HOST_PREFIX ` +
+        `(Neon host prefixes). Do not commit the values.`,
+    );
+  }
   const host = currentHost();
   if (host.includes(DEMO_HOST)) return host;
   if (host.includes(MAIN_HOST)) {

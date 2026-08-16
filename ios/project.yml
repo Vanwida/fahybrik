@@ -248,9 +248,9 @@ targets:
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG is set per-config (Debug only).
         # Disable auto-generated plist — we provide our own via info: block.
         GENERATE_INFOPLIST_FILE: NO
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
+        # ----- Code signing — set DEVELOPMENT_TEAM to the operator Apple team -----
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        DEVELOPMENT_TEAM: TBD
         PROVISIONING_PROFILE_SPECIFIER: ""
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
@@ -495,9 +495,9 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_PREVIEWS: YES
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG is set per-config (Debug only).
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
+        # ----- Code signing — set DEVELOPMENT_TEAM to the operator Apple team -----
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        DEVELOPMENT_TEAM: TBD
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
 
@@ -537,9 +537,9 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: NO
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
+        # ----- Code signing — set DEVELOPMENT_TEAM to the operator Apple team -----
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        DEVELOPMENT_TEAM: TBD
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
 

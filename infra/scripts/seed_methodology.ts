@@ -30,9 +30,9 @@ import { getSql } from './_db.ts';
 import { PABLO_DEFAULT_RULES } from './seed_methodology_rules.ts';
 
 const PABLO_COACH = {
-  email: 'pablo@fabrik.training',
-  full_name: 'Pablo (DEMO)',
-  bio: 'Fabrik Training Club Barcelona — HYROX methodology (DEMO seed).',
+  email: process.env.SEED_METHODOLOGY_COACH_EMAIL?.trim().toLowerCase() || 'coach@example.com',
+  full_name: 'Coach (DEMO)',
+  bio: 'Demo club — HYROX methodology (DEMO seed).',
 };
 
 type Sql = ReturnType<typeof getSql>;

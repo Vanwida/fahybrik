@@ -64,7 +64,12 @@ const MONTH_NAME = 'Adaptación';
 const WEEK_FOCUS = 'Semana de adaptación: volumen suave y técnica';
 
 /** Real coach/athlete emails this script must NEVER be pointed at (sanity guard). */
-const PROTECTED_EMAILS = new Set(['alexsole@gmail.com', 'pablo@fabrik.training']);
+const PROTECTED_EMAILS = new Set(
+  (process.env.PROTECTED_COACH_EMAILS ?? 'coach@example.com,coach2@example.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 /** Canonical N1–N5 (mirrors migration 0057 / seed_demo_coaches). */
 const CANONICAL_LEVELS: Array<{ name: string; label: string; description: string; sort_order: number }> = [

@@ -42,8 +42,9 @@ export interface CoachSession {
 // Clerk, resolvemos un coach fijo para usar el dashboard sin login. NODE_ENV es
 // 'production' en todo build/deploy de Vercel (incl. previews) → nunca activo en
 // prod. Pareja del bypass en proxy.ts. QUITAR cuando el login de Clerk funcione
-// en local. El coach es el dueño del atleta sembrado (alexsole@gmail.com).
-const DEV_BYPASS_COACH_EMAIL = 'alexsole@gmail.com';
+// en local. Override with DEV_BYPASS_COACH_EMAIL; default is a placeholder.
+const DEV_BYPASS_COACH_EMAIL =
+  process.env.DEV_BYPASS_COACH_EMAIL?.trim().toLowerCase() || 'coach@example.com';
 
 // A coach's data is scoped by coach_id (the club). Which humans may act as that
 // club is now decided by `coach_members` (migration 0113), NOT the 1:1
