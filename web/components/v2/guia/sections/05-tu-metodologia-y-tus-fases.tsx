@@ -108,9 +108,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="Agnóstico de verdad">
         <p>
-          “Acumulación / Transformación / Realización” es solo un ejemplo. El panel no impone ningún
-          modelo: tus niveles, tus microciclos y tus nombres son datos tuyos. Cambia las palabras y
-          cambian en todo — empezando por la pantalla de tu atleta.
+          El panel no impone ningún modelo: tus niveles, tus microciclos y tus nombres son datos
+          tuyos. Cambia las palabras y cambian en todo — empezando por la pantalla de tu atleta.
         </p>
       </DocNote>
 

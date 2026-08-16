@@ -50,7 +50,7 @@ Cliente DB vivo: `web/lib/db/index.ts` lee `DATABASE_URL`. Scripts de infra: `in
 4. `FOCUS.md` — estado vivo (mentalOS). Se actualiza en el mismo commit que el trabajo
 5. Skill `build-right` (`.claude/skills/build-right/`) — obligatoria antes de construir / especificar / lanzar un agente sobre dominio no trivial
 
-Mecanismo = código. Método del coach = dato editable. Cero nombres propios en código (ni Pablo, ni Fabrik, ni ATR). Pregunta: *¿otro entrenador competente lo haría distinto?* Si sí → no es `const`.
+Mecanismo = código. Método del coach = dato editable. Cero nombres propios en código (ni Pablo, ni Fabrik). Pregunta: *¿otro entrenador competente lo haría distinto?* Si sí → no es `const`.
 
 ---
 

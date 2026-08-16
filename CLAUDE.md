@@ -33,7 +33,7 @@ Este código se venderá como **FLEXR** a otros entrenadores — con suerte, mil
 
 **La pregunta que decide cada caso:** *«¿otro entrenador competente lo haría distinto?»* Si la respuesta es sí, **es método: nace como dato con un valor por defecto, nunca como `const`.**
 
-**En consecuencia:** cero nombres propios en el código (ni «Pablo», ni «Fabrik», ni «ATR» — la landing y lo legal son otra cosa); nuestros valores actuales son **defectos editables**, así que un coach que no toca nada se comporta igual que hoy; y **antes de escribir una constante que huela a metodología, hazte la pregunta**.
+**En consecuencia:** cero nombres propios en el código (ni «Pablo», ni «Fabrik» — la landing y lo legal son otra cosa); nuestros valores actuales son **defectos editables**, así que un coach que no toca nada se comporta igual que hoy; y **antes de escribir una constante que huela a metodología, hazte la pregunta**.
 
 ## HARD RULE — TODO SE COMMITEA. NADA SE PIERDE.
 

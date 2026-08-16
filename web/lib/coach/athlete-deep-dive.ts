@@ -307,7 +307,7 @@ async function loadAEvent(client: Sql, athlete_id: number, now: Date): Promise<A
 // Microciclo ribbon — one segment per assigned microciclo (agnostic).
 // Each `athlete_month_assignments` row IS a microciclo: label = the coach's
 // template name, span = its week count. The ORDER of the microciclos is the
-// periodization (no ACC/TRANS/REAL, no fixed phases).
+// periodization; the coach names each one.
 // ---------------------------------------------------------------------------
 
 interface MicrocicloRow {
