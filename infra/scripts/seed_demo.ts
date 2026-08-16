@@ -21,7 +21,8 @@ import { getSql } from './_db.ts';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** Email the dev-login bypass resolves to (coach-session.ts: DEV_BYPASS_COACH_EMAIL). */
-const COACH_EMAIL = 'alexsole@gmail.com';
+const COACH_EMAIL =
+  process.env.DEV_BYPASS_COACH_EMAIL?.trim().toLowerCase() || 'coach@example.com';
 /** The real coach's name (ground truth) — never invent a surname for the demo. */
 const COACH_DISPLAY_NAME = 'Pablo Amigo';
 /** Stable marker domain — every demo athlete user lives here, so re-runs are safe. */
@@ -233,7 +234,8 @@ async function main() {
   // SEED_DEMO_ALLOW_MAIN=1 overrides it — explicit opt-in for the (temporary)
   // single-universe era where Alex wants the demo roster visible in production.
   const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (host.includes('ep-aged-base-alij2f0j') && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
+  const mainHost = process.env.MAIN_NEON_HOST_PREFIX?.trim();
+  if (mainHost && host.includes(mainHost) && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
     throw new Error(
       `Refusing to seed: DATABASE_URL points at the MAIN branch host (${host}). ` +
         `Point DATABASE_URL at a disposable Neon branch, or set SEED_DEMO_ALLOW_MAIN=1 on purpose.`,
