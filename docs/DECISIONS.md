@@ -2734,19 +2734,19 @@ La lección general, que es la que hay que recordar: **una regla de dominio meti
 
 ---
 
-## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
+## 2026-07-29 · El catálogo de fases no es del producto — y se barre por semántica, no por prefijo
 
-**Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
+**Decidido (Alex, orden directa):** el producto no trae un catálogo de fases. Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor de notificación de transición sugerida, y los enums huérfanos `block_status` / `macrocycle_status` que el motor de macrociclo dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
 
-**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron `atr_blocks`, `atr_macrocycles` y el enum `atr_block_type`, y dejaron aquí escrito el porqué. Pero **la columna viva no se llamaba `atr_` sino `target_block`**, así que aquella limpieza —que buscó por la cadena «atr»— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (acumulación, transformación, realización, ACC/TRANS/REAL, «fase», «bloque», periodización), nunca por el nombre de la escuela.** Un catálogo de fases puede llamarse cualquier cosa.
+**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron las tablas y el enum del motor de periodización, y dejaron aquí escrito el porqué. Pero **la columna viva no llevaba ese prefijo sino `target_block`**, así que aquella limpieza —que buscó por el prefijo— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (fase, bloque, periodización), nunca por el nombre de un identificador.** Un catálogo de fases puede llamarse cualquier cosa.
 
-**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con valor ATR (ACC 64 · TRANS 4 · REAL 1) eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase ATR.
+**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con un valor de fase concreto eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase de catálogo.
 
 **Qué pasa con el prompt de composición semanal:** `compose-week.ts` metía `bloque=${target_block}` en la lista de plantillas que ve el modelo. Para el 100 % de las plantillas de coaches reales eso era literalmente `bloque=any` — ruido, no señal. Y el canal agnóstico que lo sustituye **ya existía y ya llegaba al modelo**: `focus`, texto libre del coach (2-400 caracteres), que viaja literal como «Foco de la semana (literal del coach): …». El coach dice con sus palabras qué toca esa semana; no se le ofrece el desplegable de la doctrina de otro.
 
 **En consecuencia, no hacer:** no reintroducir un catálogo de fases bajo ningún nombre (`target_block`, `phase`, `block_type` como enum cerrado…) — el ORDEN de los microciclos ES la periodización y su NOMBRE lo pone el coach; no volver a barrer una metodología buscando su sigla; y no meter en un prompt un campo cuyo valor real es `any` en casi todas las filas, porque enseña al modelo una estructura que el coach nunca pidió.
 
-**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. Se le quitó el ATR; la decisión de borrarlo entero o revivirlo agnóstico no está tomada.
+**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. El catálogo de fases ya no está; la decisión de borrar el motor entero o revivirlo agnóstico no está tomada.
 
 ---
 
@@ -2824,7 +2824,7 @@ La lección general, que es la que hay que recordar: **una regla de dominio meti
 2. **Hay CUATRO respuestas a «¿cuántas zonas hay?»** — 5 en `prescription/types.ts`, 6 en `methodology-system.ts`, 7 en `workouts.ts` y `templates.ts`, y 3..7 en `coach_methodology.hr_zone_count`. Ningún coach puede cambiar su modelo de zonas sin tocar cinco ficheros.
 3. **Las zonas de FC están clavadas mientras las de RITMO ya son dato por coach** (`methodology_zones`, 36 filas, cableada de punta a punta). Mismo concepto, dos tratamientos opuestos en el mismo repo — y `hr-zones.ts` se autodenomina «la única fuente» mientras `coach_methodology.hr_anchor` existe y se ignora.
 
-**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y **ATR vivo en el schema** (`['ACC','TRANS','REAL']`, enum `atr_block_type`) contradiciendo a las migraciones 0064/0068 que borraron las fases.
+**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y un catálogo de fases aún citado en copy y comentarios pese a las migraciones 0064/0068 que lo retiraron del schema.
 
 **Orden decidido, y el orden importa:** no se puede hacer editable algo que vive en cinco sitios.
 1. **Capa 0 — desduplicar**: un registro en código (`shared/domain/methodology/profile.ts`) con todos los ajustes y **su valor de hoy como default**. Es refactor puro, cero cambio de comportamiento.
@@ -3361,11 +3361,11 @@ Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún s
 
 **En consecuencia, no hacer:** no reintroducir una tabla de fases. Una fase es el nombre y la duración de una plantilla mensual más su posición en la secuencia.
 
-### Migración 0068 · ATR nunca es del sistema
+### Migración 0068 · El motor de macrociclo no es del sistema
 
-**Decidido:** se retira el motor de macrociclo ATR. La periodización por bloques es contenido del coach, no una estructura del producto.
+**Decidido:** se retira el motor de macrociclo. La periodización por bloques es contenido del coach, no una estructura del producto.
 
-**En consecuencia, no hacer:** no hardcodear ATR ni ninguna otra escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
+**En consecuencia, no hacer:** no hardcodear ninguna escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
 
 ### Migración 0053 · La modalidad es propiedad del ejercicio
 
