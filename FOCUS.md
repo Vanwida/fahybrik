@@ -2,14 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (CI typecheck+unit de trunk, honesto)
+Última actualización: **2026-08-16** (redact club-1 IDs before FLEXR tag)
 
 ## Ahora
 
-**CI web unit:** rama `fix/ci-web-unit-baseline` contra `integration/trunk`.
-Alineé 2 aserciones HealthKit con el código (walking≠run; sesión importada
-sin assignment), openpyxl en el runner + skip si falta, umbral de
-paralelismo de fotos. No toca lint/infra/iOS/DB.
+**FLEXR copy IDs:** rama `chore/redact-flexr-copy-ids` contra `integration/trunk`.
+Emails/team/Neon/Vercel docs del tip pasan a placeholder o env. No merge.
 
 **Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
 «haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub

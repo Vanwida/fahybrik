@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
+
+**El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.
+
+**Decidido:**
+- Docs/scripts de Vercel prod se plantillan: IDs salen del env del operador, no del repo.
+- Prefijos Neon de demo/main son `DEMO_NEON_HOST_PREFIX` / `MAIN_NEON_HOST_PREFIX`.
+- Emails de allowlist (mig 0040), bypass de coach, default Resend, seeds y docs App Store usan `coach@example.com` (u override por env). La mig 0040 ya aplicada no se reescribe: el INSERT queda funcional con emails ficticios (`ON CONFLICT DO NOTHING`).
+- `DEVELOPMENT_TEAM` vuelve a `TBD`. Fastlane no trae Apple ID por defecto.
+
+**NO hacer:** no reescribir history (`git filter-repo`). No tocar `DEMO_ACCESS`, Clerk keys, ni marca/bundle salvo que el hit sea un email o un team id. No mergear este lote a `main`.
+
+---
+
 ## 2026-08-15 · El selector de tipo de test no finge: null degrada, y la carrera por distancia existe
 
 **El hueco (QA visual del Preview):** editar el «5K control» de la batería (carrera, 5000 m en estructura por fases) pintaba «Tipo de test: Remo 2 km · Remo · /500m»; el HYROX half-sim, igual. `TEST_TYPES` no tenía carrera por distancia y `testTypeFromPrescription` era total: toda prescripción que no casaba caía en cascada al default `row_2k`. La guarda del 11-ago en `ArchetypeBlockForm` («un formulario que no puede representar el contenido degrada al editor de items, nunca ceguera») esperaba un null que nunca llegaba. El dato guardado no estaba corrupto — pero si el coach tocaba el selector falso y guardaba, la prescripción real se machacaba con un Remo 2K.
