@@ -45,6 +45,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # xlsx-reader shells out to python3/openpyxl. Without this the four
+      # real-workbook tests crash instead of reading Excel. The tests also
+      # skip if the module is missing, so a runner without it stays honest.
+      - name: Install openpyxl (plan workbook reader)
+        run: sudo apt-get update && sudo apt-get install -y python3-openpyxl
+
       - name: Typecheck (shared)
         run: pnpm --filter @fahybrid/shared typecheck
 

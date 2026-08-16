@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -97,10 +98,21 @@ describe('parsePastedText', () => {
   });
 });
 
-// File-reading suite: runs against the REAL workbook. Skips gracefully if the
-// xlsx is absent (it lives at docs/ in the canonical checkout).
+// File-reading suite: runs against the REAL workbook. Skips if the xlsx is
+// absent OR if python3/openpyxl is missing — the reader shells out to that
+// bridge; failing here would pretend Excel works when the env cannot read it.
+function hasOpenpyxl(): boolean {
+  try {
+    execFileSync('python3', ['-c', 'import openpyxl'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 const hasFile = existsSync(PLAN_XLSX);
-const fileTest = hasFile ? test : test.skip;
+const fileTest = hasFile && hasOpenpyxl() ? test : test.skip;
 
 describe('readPlanWorkbook (real workbook)', () => {
   fileTest('estandar Semana 1 → 7 days, Lunes has TEST, Martes has Back Squat', async () => {
