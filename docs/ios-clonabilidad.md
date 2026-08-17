@@ -47,10 +47,17 @@ Ordenado por lo que bloquea antes.
    Apple, HealthKit, Push, Associated Domains) y crear la app en App Store
    Connect. Checklist: `docs/app-store/testflight-checklist.md`.
 2. **Team ID y certificados de firma.** `DEVELOPMENT_TEAM: TBD` es deliberado y
-   tiene que seguir compilando en simulador. El team id es dato del operador y no
-   viaja en el repo (`docs/DECISIONS.md`, 2026-08-16). Se pone en la línea de
+   tiene que seguir compilando en simulador. Se pone en la línea de
    `settings.base` o por línea de comandos:
    `xcodebuild … DEVELOPMENT_TEAM=AB12CD34EF`.
+
+   ⚠️ **Pero el team id SÍ viaja en el repo, al contrario de lo que dice
+   `docs/DECISIONS.md` (2026-08-16).** Está en claro en
+   `web/public/.well-known/apple-app-site-association`, como
+   `"appID": "<TEAM_ID>.com.fahybrid.app"`. Es el único sitio, y sobrevivió a la
+   limpieza del 16-ago porque `.well-known` empieza por punto y `rg` no entra en
+   directorios ocultos sin `--hidden`. **No se ha tocado en esta rama** y la razón
+   está en la sección 6.
 3. **Clave APNs.** El tópico del push es el bundle id, así que un clon necesita su
    propia clave / certificado en su cuenta y darla de alta en el backend.
 4. **App ID de Garmin Connect IQ.** `garmin-ciq/manifest.xml` lleva un UUID
@@ -88,6 +95,15 @@ edita a mano; están aquí para que se encuentren todos:
 | `zepp/app.json` | `appName` (×3, con las dos localizaciones) |
 | `zepp/setting/index.js`, `zepp/app-side/index.js`, `garmin-ciq/source/Config.mc` | `API_BASE` = `https://fahybrid.com` |
 | `zepp/page/index.js` | copy que nombra la marca en el reloj |
+| `ios/FAHYBRIKWidgets/RunLiveActivityWidget.swift` | `acentoMarca` — el hex `#F06A2A` del acento, **la única copia fuera de `Theme.swift` / `tokens.json`** |
+
+**Sobre el acento duplicado del widget:** la extensión no enlaza nada de la app a
+propósito (traer `Theme` le metería UIKit dentro), así que el hex está repetido y
+no hay forma de parametrizarlo sin ese coste. La consecuencia al clonar es
+silenciosa y muy visible: una marca que cambie el acento y no toque esa línea se
+queda con el naranja anterior **en la Isla Dinámica y en la pantalla bloqueada**.
+La variable se llamaba `fabrikOrange` —nombre de tenant en el código, contra la
+regla dura— y ahora se llama `acentoMarca`.
 
 **Acoplamiento que no se ve:** la pantalla de emparejar Garmin
 (`ios/FAHYBRIK/Wearables/GarminSetupView.swift`) le dice al atleta que busque la
@@ -224,3 +240,61 @@ plutil -p <derivedData>/Build/Intermediates.noindex/FAHYBRIK.build/Debug-iphones
 
 El `.xcent` **sin** `-Simulated` sale vacío en simulador (no hay perfil de
 aprovisionamiento): los `applinks:` expandidos se leen en el `-Simulated`.
+
+---
+
+## 6. Huecos detectados y NO tocados en esta rama
+
+Auditoría del 2026-08-18. Cada uno lleva por qué se deja, que es la parte que
+importa: ninguno es "se me pasó".
+
+### 6.1 El team id en el `apple-app-site-association` (decisión de Alex)
+
+`web/public/.well-known/apple-app-site-association` publica
+`"appID": "<TEAM_ID>.com.fahybrid.app"`. Es el team id real, en claro, en un repo
+que se clona para vender.
+
+**Por qué no se quita aquí:** ese fichero es lo que hace que funcionen los enlaces
+universales de `/invite/*` y `/partner/redeem*` **en producción**. Vaciarlo o
+cambiarlo rompe el emparejamiento de Dobles y las invitaciones de golpe, y el
+encargo excluía tocar producción. Además el valor **tiene que** estar ahí: Apple lo
+exige en el fichero servido; no es un secreto que se pueda borrar, es un
+identificador público por diseño.
+
+**Lo que hay que decidir (no lo decido yo):** si se deja en claro asumiendo que es
+público, o si se genera en despliegue desde una variable de entorno —una ruta
+`app/.well-known/apple-app-site-association/route.ts` que lo emita— para que el
+repo no lleve el identificador de ningún operador. La segunda es la coherente con
+la decisión del 16-ago; la primera es defendible porque el dato es público en
+cuanto la app se publica. Lo que **no** es defendible es el estado actual, donde
+`docs/DECISIONS.md` afirma que no viaja en el repo y sí viaja.
+
+### 6.2 Lo que ya estaba inventariado y sigue igual a propósito
+
+- **App IDs de reloj de terceros** (`garmin-ciq/manifest.xml`, `zepp/app.json`):
+  los asignan las consolas de Garmin y Zepp. No se inventan (sección 2.1).
+- **Segundo bundle / firma de App Store Connect:** requiere cuenta, certificados y
+  ficha creadas a mano (sección 2.1).
+- **`DEVELOPMENT_TEAM: TBD`:** se queda en TBD, que es lo que mantiene la build de
+  simulador verde sin cuenta.
+- **Claves de almacenamiento `fahybrik.*`, `FAHYBRIDWrittenByApp`, firma de
+  WorkoutKit:** congeladas (sección 3).
+- **Sin infraestructura de localización:** es el hueco grande y sigue abierto
+  (sección 2.4). Es trabajo de verdad, no un ajuste.
+
+### 6.3 Fuera del alcance de esta rama (iOS), pero encontrado
+
+- **`web/lib/nutrition/openfoodfacts.ts`** manda a OpenFoodFacts el User-Agent
+  `FAHYBRIK/1.0 (https://fahybrik.com; nutrition@fahybrik.com)`. Ese dominio **no
+  resuelve** (NXDOMAIN, comprobado 2026-08-18) y OpenFoodFacts pide un contacto
+  válido en el User-Agent y limita a los clientes que no lo dan. Es `web/`, no
+  iOS, y puede tener dueño en otra sesión.
+- **`docs/garmin_setup.md` y `docs/garmin_oauth.md`** documentan el callback de
+  OAuth en `app.fahybrik.com/api/garmin/callback` —con K—. Esa URL tiene que
+  coincidir **exactamente** con la registrada en el portal de Garmin, y no sé cuál
+  está registrada de verdad: si el portal tiene la de la K, "corregirlo" rompe las
+  instrucciones. Hay que mirarlo en el portal antes de tocar.
+- **XcodeGen no está pinchado a versión** y no hay job de CI que corra
+  `xcodegen generate` + build de simulador. Hoy la reproducibilidad del `.pbxproj`
+  depende de la versión que cada uno tenga instalada (sección 4). Montar CI de iOS
+  es una decisión de infraestructura, no un arreglo.

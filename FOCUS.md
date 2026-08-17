@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-17** (clonabilidad iOS: marca en un solo ajuste)
+Última actualización: **2026-08-18** (clonabilidad iOS: 2º barrido — team id en el AASA, firma sin gitignore)
 
 ## Ahora
 
@@ -37,6 +37,20 @@ expanden. Corregido `FAHYBRIK · Reloj` visible en ajustes de Zepp. Valores
 resueltos idénticos (verificado en el bundle construido). Huecos que NO se tocan
 —UUID de Connect IQ, appId de Zepp, firma ASC, y la firma de WorkoutKit que dos
 marcas compartirían— en `docs/ios-clonabilidad.md`. Sin FLEXR repo.
+
+Segundo barrido (18-ago) sobre lo que los greps del 16-ago no vieron: **el team id
+real está en claro en `web/public/.well-known/apple-app-site-association`** —
+`.well-known` es oculto y `rg` no entra sin `--hidden`, y la decisión del 16-ago
+afirmaba lo contrario. No se quita (sostiene los enlaces universales de invitación
+y Dobles en producción); **decisión pendiente**: dejarlo por público o emitirlo en
+despliegue desde env. Sí arreglado: material de firma de Apple ausente del
+`.gitignore` mientras el checklist prometía que estaba; subsistemas de `os.Logger`
+en `com.fahybrik.*` con el bundle en `com.fahybrid.app` (ningún filtro los
+encontraba); `fabrikOrange` → `acentoMarca` en el widget (nombre de tenant, y es la
+única copia del acento fuera de Theme → un clon se quedaba el naranja viejo en la
+Isla Dinámica); y las URLs de la ficha de App Store en `fahybrik.com`, dominio que
+**no resuelve**. Queda visto y **bloquea revisión**: la página de soporte no existe
+en ningún idioma (404). Build de simulador verde con los tres targets.
 
 **Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
 «haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
