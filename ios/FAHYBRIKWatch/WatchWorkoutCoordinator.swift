@@ -85,6 +85,12 @@ final class WatchWorkoutCoordinator {
     /// The current staged outbox bytes for this finish. Swapped by the toggle,
     /// transferred by "Listo".
     private var stagedEnvelopeData: Data?
+    /// «Listo» llegó ANTES de que el staging async terminara (un cierre de resumen
+    /// rápido mientras el save de HealthKit aún tardaba): el Task de finalize()
+    /// transfiere en cuanto el sobre exista. Sin esto, el resultado quedaba
+    /// persistido pero sin transferir hasta la PRÓXIMA activación de WCSession —
+    /// horas o días si el atleta no relanza la app del reloj.
+    private var transferWhenStaged = false
     /// El cupón de la traza guardada para este final. Viaja DENTRO del sobre (y en la
     /// metadata del fichero) para que el teléfono pueda volver a juntarlos, y
     /// sobrevive a un re-staging del toggle de dobles: si cambiara con cada flip, el
@@ -295,6 +301,7 @@ final class WatchWorkoutCoordinator {
         pendingResult = nil
         stagedEnvelopeData = nil
         stagedTraceLocalId = nil
+        transferWhenStaged = false
 
         // End the HK session, get the saved HKWorkout's id, then assemble the execution
         // TAGGED with it (backend dedupes the HealthKit-synced copy). Then STAGE it to
@@ -340,6 +347,17 @@ final class WatchWorkoutCoordinator {
             if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
                 self.stagedEnvelopeData = WatchConnectivityService.shared.stageExecutionResult(envelope)
             }
+            // «Listo» ya pasó por aquí sin sobre que mandar: se transfiere ahora,
+            // con el fichero de la traza detrás — sobre y traza viajan juntos.
+            if self.transferWhenStaged {
+                self.transferWhenStaged = false
+                if let data = self.stagedEnvelopeData {
+                    WatchConnectivityService.shared.transferStagedResult(data)
+                }
+                if let localId = self.stagedTraceLocalId {
+                    WatchTraceOutbox.shared.transfer(localId: localId)
+                }
+            }
         }
     }
 
@@ -382,12 +400,17 @@ final class WatchWorkoutCoordinator {
         restageIfPossible()
         if let data = stagedEnvelopeData {
             WatchConnectivityService.shared.transferStagedResult(data)
-        }
-        // La traza sale CON el sobre, no antes: así no puede quedarse un archivo
-        // colgando de una sesión que el atleta nunca confirmó. Si el teléfono no está
-        // a tiro, el fichero se queda en su buzón y sale al reencontrarse.
-        if let localId = stagedTraceLocalId {
-            WatchTraceOutbox.shared.transfer(localId: localId)
+            // La traza sale CON el sobre, no antes: así no puede quedarse un archivo
+            // colgando de una sesión que el atleta nunca confirmó. Si el teléfono no está
+            // a tiro, el fichero se queda en su buzón y sale al reencontrarse.
+            if let localId = stagedTraceLocalId {
+                WatchTraceOutbox.shared.transfer(localId: localId)
+            }
+        } else {
+            // El staging async de finalize() aún no terminó (save de HK lento +
+            // «Listo» rápido). Dejar dicho que transfiera al acabar: sin esto el
+            // resultado dormía en el buzón hasta la próxima activación.
+            transferWhenStaged = true
         }
         reset()
     }
