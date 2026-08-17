@@ -202,7 +202,7 @@ final class WorkoutSession {
     }
 
     /// Consola del dispositivo — el canal por el que se depura en el gimnasio.
-    private static let repsLog = Logger(subsystem: "com.fahybrik.sensor", category: "reps")
+    private static let repsLog = Logger(subsystem: Marca.subsistemaLog("sensor"), category: "reps")
     private var lastLoggedSensorReps: Int?
 
     /// Conteo en vivo. El número que manda la muñeca es el de LA SERIE ABIERTA y

@@ -17,7 +17,7 @@ struct DeviceDiagnostics {
     let role: String
     /// One shared logger; the tag is per-role so a console filter of "[CINTA]" pulls the
     /// treadmill's whole trace.
-    private static let logger = Logger(subsystem: "com.fahybrik.devices", category: "ble")
+    private static let logger = Logger(subsystem: Marca.subsistemaLog("devices"), category: "ble")
     private var consoleTag: String { "[\(role.uppercased())]" }
     private var name: String?
     private var identifier: String?

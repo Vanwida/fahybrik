@@ -79,6 +79,21 @@ enum Marca {
     /// es el de la propia marca.
     static var origenIncrustado: String { "https://www.\(dominioWeb)" }
 
+    /// Prefijo de subsistema para `Logger`, derivado del bundle real.
+    ///
+    /// Convención de Apple: el subsistema es el identificador del bundle, porque es
+    /// lo que permite filtrar en Consola con `subsystem:` y lo que agrupa los logs
+    /// de la app frente a los del sistema. Estaba escrito a mano como
+    /// `com.fahybrik.*` —con K, el nombre viejo del repo— mientras el bundle es
+    /// `com.fahybrid.app`: ningún filtro por bundle encontraba estas trazas.
+    ///
+    /// Al derivarlo, un clon con otro bundle agrupa sus logs bajo el suyo sin tocar
+    /// código. No hay dato persistido detrás, así que cambiarlo no rompe nada.
+    static func subsistemaLog(_ area: String) -> String {
+        let base = Bundle.main.bundleIdentifier ?? "com.fahybrid.app"
+        return "\(base).\(area)"
+    }
+
     /// Base del backend cuando el Info.plist no trae `FahybrikApiBase`.
     ///
     /// No es la fuente normal —eso es `APIBase.url`, que se resuelve por
