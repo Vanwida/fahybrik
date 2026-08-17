@@ -13,7 +13,7 @@ import { listDocuments } from '@/lib/rag/repository';
 import {
   ingestTextRequestSchema,
   isSupportedMime,
-  methodologySourceTypeSchema,
+  methodologyCorpusSourceTypeSchema,
   SUPPORTED_MIME_LIST,
 } from '@/lib/rag/schema';
 
@@ -128,7 +128,7 @@ async function handleMultipartIngest(req: Request, coach_id: bigint) {
 
   let source_type = inferSourceType(mime);
   if (typeof source_type_raw === 'string' && source_type_raw.length > 0) {
-    const parsed = methodologySourceTypeSchema.safeParse(source_type_raw);
+    const parsed = methodologyCorpusSourceTypeSchema.safeParse(source_type_raw);
     if (!parsed.success) {
       return jsonError('invalid_source_type', 'Invalid source_type', 400);
     }

@@ -110,6 +110,8 @@ async function retrieveMethodologySnippets(params: {
     ]
       .filter(Boolean)
       .join(' ');
+    // Sin source_types: solo corpus de método. Los papers del estudio no
+    // entran — la IA no arma la semana con literatura.
     const chunks = await retrieveRelevant({
       coach_id: BigInt(params.coach_id as number),
       query: query || 'ajuste semanal HYROX metodología del coach',

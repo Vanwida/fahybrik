@@ -142,8 +142,20 @@ export const methodologySourceType = z.enum([
   'interview_transcript',
   'document_upload',
   'voice_note',
+  'paper',
 ]);
 export type MethodologySourceType = z.infer<typeof methodologySourceType>;
+
+/** Literatura del estudio. No entra en el corpus que imita el método. */
+export const PAPER_SOURCE_TYPE = 'paper' as const;
+
+/** Prosa de método: lo que retrieveRelevant usa si nadie pide un tipo. */
+export const METHODOLOGY_CORPUS_SOURCE_TYPES = [
+  'text',
+  'interview_transcript',
+  'document_upload',
+  'voice_note',
+] as const satisfies readonly Exclude<MethodologySourceType, 'paper'>[];
 
 export const notificationType = z.enum([
   'workout_assigned',

@@ -3,7 +3,7 @@
 // in error.
 
 import { sql as defaultSql } from '@/lib/db';
-import type { MethodologySourceType } from './schema';
+import { resolveCorpusSourceTypes, type MethodologySourceType } from './schema';
 
 type SqlClient = typeof defaultSql;
 
@@ -30,10 +30,15 @@ export interface DocumentDetail extends DocumentSummary {
 }
 
 export async function listDocuments(
-  args: { coach_id: bigint; include_archived?: boolean },
+  args: {
+    coach_id: bigint;
+    include_archived?: boolean;
+    source_types?: MethodologySourceType[];
+  },
   sqlClient: SqlClient = defaultSql,
 ): Promise<DocumentSummary[]> {
   const include_archived = args.include_archived ?? false;
+  const filter_types = resolveCorpusSourceTypes(args.source_types);
   const rows = await sqlClient<Array<DocumentSummary>>`
     select
       id::text          as id,
@@ -48,6 +53,7 @@ export async function listDocuments(
     from methodology_documents
     where coach_id = ${args.coach_id as unknown as number}
       and (${include_archived}::boolean is true or archived_at is null)
+      and source_type::text = any(${filter_types}::text[])
     order by ingested_at desc
   `;
   return rows;
