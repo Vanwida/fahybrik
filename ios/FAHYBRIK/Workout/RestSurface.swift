@@ -16,6 +16,12 @@ import SwiftUI
 // rest. The structured-run engine keeps its own recovery leg surface.
 struct RestSurface: View {
     let session: WorkoutSession
+    /// The workout's action, LANDSCAPE ONLY (portrait keeps its own bottom button
+    /// outside this view). At rest the action IS the subject — SALTAR DESCANSO is
+    /// the normal path, not an emergency — so it goes big INSIDE the field, at the
+    /// bottom right with the cards, instead of in a side column that squeezed the
+    /// countdown off-centre.
+    var accion: AnyView? = nil
     @Environment(\.verticalSizeClass) private var vSizeClass
     private var isLandscape: Bool { vSizeClass == .compact }
 
@@ -25,10 +31,11 @@ struct RestSurface: View {
             countdown
             if let next = session.nextTramoLine { nextUp(next) }
             Spacer(minLength: 0)
-            if hrRecovery != nil || lastEffort != nil {
-                HStack(alignment: .top, spacing: 10) {
+            if hrRecovery != nil || lastEffort != nil || accion != nil {
+                HStack(alignment: .center, spacing: 10) {
                     if let hr = hrRecovery { recoveryCard(hr) }
                     if let effort = lastEffort { effortCard(effort) }
+                    if let accion { accion.frame(width: 216) }
                 }
             }
         }
