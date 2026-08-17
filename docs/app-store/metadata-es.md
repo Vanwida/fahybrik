@@ -58,19 +58,27 @@ HYROX,hybrid,coach,atletas,fuerza,resistencia,RPE,carrera,Concept2,wall ball,sle
 ## Support URL
 
 ```
-https://fahybrik.com/soporte
+https://fahybrid.com/soporte
 ```
+
+> 🚨 **BLOQUEA REVISIÓN — la página no existe.** Comprobado el 2026-08-18:
+> `fahybrid.com/soporte` → 307 a `/es/soporte` → **404**, y `/es/support` y `/en/support`
+> también 404. Apple abre la Support URL durante la revisión y rechaza si no carga
+> (guía 1.5). Hasta el 2026-08-18 este campo apuntaba además a `fahybrik.com` —con K—,
+> un dominio que **no resuelve** (NXDOMAIN), así que el error venía de antes y no se
+> arreglaba solo con corregir la letra. Falta publicar la página; nadie ha decidido aún
+> si es una página propia o un `mailto:`.
 
 ## Marketing URL (opcional)
 
 ```
-https://fahybrik.com
+https://fahybrid.com
 ```
 
 ## Privacy Policy URL (obligatorio)
 
 ```
-https://fahybrik.com/privacy
+https://fahybrid.com/privacy
 ```
 
 ## What's New in This Version (release notes — ≤ 4000 caracteres)
@@ -94,11 +102,11 @@ Reporta cualquier issue al coach por el chat in-app.
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
 - Contact email: coach@example.com
-- Demo account: TBD — crear test account en `appstore-demo@fahybrik.com` con magic link pre-configurado para el reviewer
+- Demo account: TBD — crear test account en `appstore-demo@fahybrid.com` con magic link pre-configurado para el reviewer
 - Notes for reviewer:
   ```
   FAHYBRID requires Sign in with Apple to enter. We've prepared a demo account that bypasses Apple ID for the review:
-  - Email: appstore-demo@fahybrik.com
+  - Email: appstore-demo@fahybrid.com
   - The user will receive a magic link via Resend (whitelist this address)
   - Onboarding can be skipped for the reviewer with the launch arg --reviewer-demo
   - HealthKit prompts: deny is fine — app falls back to manual entry
