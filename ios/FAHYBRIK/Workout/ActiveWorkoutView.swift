@@ -209,26 +209,23 @@ struct ActiveWorkoutView: View {
             } else if isErgLandscapeFocus {
                 // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
                 // big numbers, so the device surface owns the screen. The chrome kept
-                // is `topStrip` (salir / pausa / atrás) so he is never trapped, and —
-                // new — the primary action, anchored bottom-right at a thumb's reach.
-                // Landscape used to have no action at all, so ending a serie meant
-                // rotating the phone back mid-piece: the action lives at the bottom in
-                // BOTH orientations or the rule isn't a rule.
-                HStack(alignment: .top, spacing: 10) {
-                    VStack(spacing: 6) {
-                        topStrip
-                        if session.isTramoResting {
-                            RestSurface(session: session)
-                        } else {
-                            ErgHUDContent(session: session, pm5: activePM5)
-                        }
+                // is `topStrip` (salir / pausa / atrás) so he is never trapped. The
+                // action lives at the bottom in BOTH orientations or the rule isn't a
+                // rule — but it lives INSIDE the surface, not in a 132 pt column of
+                // its own: that column squeezed the HUD sideways (the hero split sat
+                // off-centre) while truncating its own label. Working, the manual
+                // close is the emergency exit (the machine crossing the goal is the
+                // normal one) and ends the rail; resting, the action is the subject
+                // and goes big inside the field. Ver el doble (vivo-erg/regata.tsx).
+                VStack(spacing: 6) {
+                    topStrip
+                    if session.isTramoResting {
+                        RestSurface(session: session,
+                                    accion: AnyView(landscapeRestAction))
+                    } else {
+                        ErgHUDContent(session: session, pm5: activePM5,
+                                      salida: AnyView(landscapeSalida))
                     }
-                    .frame(maxWidth: .infinity)
-                    VStack(spacing: 8) {
-                        Spacer(minLength: 0)
-                        landscapeAction
-                    }
-                    .frame(width: 132)
                 }
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.top, 4)
@@ -1027,11 +1024,25 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    /// The primary action, sized for landscape's narrow column. Same action and
-    /// same label as portrait — one behaviour, two arrangements.
-    private var landscapeAction: some View {
-        ExpertActionButton(title: primaryTitle, action: { primaryAction() })
-            .frame(height: 96)
+    /// The manual close while WORKING sideways, ending the erg HUD's rail column.
+    /// Same action and same label as portrait — one behaviour, two arrangements.
+    /// Secondary while a monitor is measuring (the machine crossing the goal is
+    /// the normal close; an emergency exit doesn't shout); with no monitor the
+    /// tap is the ONLY close there is, so it keeps the primary voice.
+    private var landscapeSalida: some View {
+        ExpertActionButton(title: primaryTitle, compact: true,
+                           secondary: activePM5.isConnected,
+                           action: { primaryAction() })
+            .frame(height: 44)
+    }
+
+    /// The action while RESTING sideways, inside the rest field's bottom row. At
+    /// rest the action is the subject (skipping IS the normal path), so it keeps
+    /// the primary voice at a height that matches the cards beside it.
+    private var landscapeRestAction: some View {
+        ExpertActionButton(title: primaryTitle, compact: true,
+                           action: { primaryAction() })
+            .frame(height: 56)
     }
 
     /// Landscape. Named for what it MEANS (there is almost no height) rather than
@@ -1793,9 +1804,16 @@ private struct PendingNav {
 // The big bottom primary action (88pt, radius 14). Generalised from the old
 // LAP-only button: the title is contextual ("SIGUIENTE" / "HECHO" / "TERMINAR" /
 // "EMPEZAR"). The session methods own the haptic; this only flashes on tap. A
-// 0.5s debounce guards against a double-fire under sweaty fingers.
+// 0.5s debounce guards against a double-fire under sweaty fingers — that
+// behaviour is the button, so landscape's smaller arrangements are variants of
+// THIS view, not siblings: `compact` drops the display type to a label that fits
+// a 128 pt rail, and `secondary` swaps the accent fill for an outline when the
+// tap is the emergency exit rather than the normal path. The flash stays green
+// in every variant: confirmation reads the same everywhere.
 private struct ExpertActionButton: View {
     let title: String
+    var compact: Bool = false
+    var secondary: Bool = false
     let action: () -> Void
     @State private var flashing: Bool = false
     @State private var lastTap: Date = .distantPast
@@ -1813,14 +1831,20 @@ private struct ExpertActionButton: View {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .fill(flashing ? Theme.Color.ok : Theme.Color.accent)
+                    .fill(flashing ? Theme.Color.ok
+                                   : secondary ? Color.clear : Theme.Color.accent)
+                if secondary, !flashing {
+                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                }
                 Text(title)
-                    .font(.system(size: 40, weight: .heavy, design: .default).italic())
-                    .tracking(3)
-                    .foregroundStyle(Theme.Color.accentOn)
+                    .font(.system(size: compact ? 15 : 40, weight: .heavy, design: .default).italic())
+                    .tracking(compact ? 1 : 3)
+                    .foregroundStyle(secondary && !flashing ? Theme.Color.foreground
+                                                            : Theme.Color.accentOn)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.horizontal, compact ? Theme.Spacing.s : Theme.Spacing.l)
             }
         }
         .buttonStyle(PressScaleStyle())
