@@ -55,9 +55,16 @@ final class CarreraSoloRunningUITests: XCTestCase {
         app.launch()
 
         // Descartar el permiso de notificaciones si aparece (onboarding day-1).
+        // La app fuerza español (CFBundleLocalizations = [es] en project.yml), así
+        // que el botón del sistema es «No permitir» — buscar solo "Don't Allow"
+        // hacía que el monitor nunca casara y el alert se comiera el resto del
+        // test. Se aceptan además las dos variantes inglesas (apóstrofe recto y
+        // tipográfico) por si el runner corre con otra región.
         addUIInterruptionMonitor(withDescription: "permiso") { alerta in
-            let no = alerta.buttons["Don't Allow"]
-            if no.exists { no.tap(); return true }
+            for etiqueta in ["No permitir", "Don\u{2019}t Allow", "Don't Allow"] {
+                let no = alerta.buttons[etiqueta]
+                if no.exists { no.tap(); return true }
+            }
             return false
         }
         app.tap()
