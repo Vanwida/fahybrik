@@ -64,6 +64,14 @@ export const V2_NAV_GUIDE: V2NavItem = {
   group: 'entrenar',
 };
 
+/** Pinned with Guía + Ajustes — the club lockup (name, logo, accent). */
+export const V2_NAV_CLUB: V2NavItem = {
+  href: '/club',
+  label: 'Club',
+  icon: 'storefront',
+  group: 'entrenar',
+};
+
 /** Pinned to the bottom of the sidebar. */
 export const V2_NAV_SETTINGS: V2NavItem = {
   href: '/ajustes',

@@ -39,6 +39,8 @@ const isProtectedRoute = createRouteMatcher([
   '/:locale/programar/:path*',
   '/:locale/review/:path*',
   '/:locale/ajustes/:path*',
+  '/:locale/club',
+  '/:locale/club/:path*',
   '/:locale/metodologia/:path*',
   '/:locale/admin/:path*',
   // El doble (grupo (design)): herramienta interna de UX. El middleware exige

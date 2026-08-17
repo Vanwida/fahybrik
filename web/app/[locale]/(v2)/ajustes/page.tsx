@@ -69,6 +69,33 @@ export default async function V2AjustesPage({
           <CoachProfileForm initial={profile} />
         </section>
 
+        {/* ── Club (lockup; no es la foto de la persona) ─────────────────── */}
+        <section>
+          <h2 className="v2-micro mb-2">Club</h2>
+          <Card interactive className="overflow-hidden">
+            <Link href="/club" className="v2-focus group flex items-center gap-4 p-4 sm:p-5">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+              >
+                <MIcon name="storefront" size={20} />
+              </span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-semibold text-[color:var(--v2-fg)]">Tu club</span>
+                <span className="text-xs text-[color:var(--v2-muted)]">
+                  Nombre, logo y color. Vacío = la marca de la app.
+                </span>
+              </div>
+              <MIcon
+                name="chevron_right"
+                size={20}
+                className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                aria-hidden
+              />
+            </Link>
+          </Card>
+        </section>
+
         {/* ── Metodología ────────────────────────────────────────────────── */}
         <section>
           <h2 className="v2-micro mb-2">Metodología</h2>

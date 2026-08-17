@@ -2,9 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (copy de periodización: el coach nombra el orden)
+Última actualización: **2026-08-17** (ficha Club: piel por coach_id)
 
 ## Ahora
+
+**Ficha Club:** rama `feat/coach-club-skin` contra `integration/trunk`.
+Nombre, logo y acento por `coach_id`. Vacío = marca de este binario. No merge.
 
 **Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
 Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.

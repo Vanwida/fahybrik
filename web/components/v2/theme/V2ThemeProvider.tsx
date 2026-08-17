@@ -16,6 +16,7 @@ import {
   useCallback,
   useContext,
   useSyncExternalStore,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
@@ -60,7 +61,14 @@ function getServerTheme(): V2Theme {
   return V2_THEME_DEFAULT;
 }
 
-export function V2ThemeProvider({ children }: { children: ReactNode }) {
+export function V2ThemeProvider({
+  children,
+  accentStyle,
+}: {
+  children: ReactNode;
+  /** Override de --v2-accent* en .v2-root. Vacío = tokens de marca. */
+  accentStyle?: CSSProperties;
+}) {
   // The store is read-only here; writes (setTheme/toggle) persist to localStorage
   // and dispatch a storage-like update so useSyncExternalStore re-reads.
   const theme = useSyncExternalStore(subscribe, getClientTheme, getServerTheme);
@@ -82,7 +90,7 @@ export function V2ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <V2ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {/* The single scoped root — data-theme drives every v2 token. */}
-      <div className="v2-root" data-theme={theme}>
+      <div className="v2-root" data-theme={theme} style={accentStyle}>
         {children}
       </div>
     </V2ThemeContext.Provider>
