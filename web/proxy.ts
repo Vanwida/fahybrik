@@ -40,6 +40,8 @@ const isProtectedRoute = createRouteMatcher([
   '/:locale/review/:path*',
   '/:locale/ajustes/:path*',
   '/:locale/metodologia/:path*',
+  '/:locale/estudio',
+  '/:locale/estudio/:path*',
   '/:locale/admin/:path*',
   // El doble (grupo (design)): herramienta interna de UX. El middleware exige
   // login Clerk; su layout estrecha después a ADMIN-ONLY (getAdminSession) —

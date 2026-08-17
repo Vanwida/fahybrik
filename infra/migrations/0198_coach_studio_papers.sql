@@ -1,0 +1,22 @@
+-- 0198: `paper` en methodology_source_type.
+--
+-- POR QUÉ
+-- -------
+-- methodology_documents + methodology_chunks ya son el cajón RAG (pgvector).
+-- Hasta ahora el enum solo nombraba prosa de método (texto, entrevista, upload
+-- de método, nota de voz). Un paper científico es OTRA cosa: el coach lo sube
+-- para buscarlo, no para que la IA arme un plan.
+--
+-- El valor nuevo permite filtrar. retrieveRelevant, sin filtro explícito, deja
+-- de ver `paper`. El estudio (/es/estudio) y /api/coach/papers piden solo este
+-- valor. No hay tabla nueva.
+--
+-- QUÉ
+-- ---
+-- Amplía el enum. No reescribe filas, no toca columnas, no invalida el HNSW.
+-- `if not exists` es idempotente. Mismo patrón que 0180 / 0135: Neon es PG 15+
+-- y el runner aplica cada fichero en su transacción.
+--
+-- Espejo Zod: shared/schema/_primitives.ts y web/lib/rag/schema.ts.
+
+alter type methodology_source_type add value if not exists 'paper';

@@ -17,8 +17,38 @@ export const methodologySourceTypeSchema = z.enum([
   'interview_transcript',
   'document_upload',
   'voice_note',
+  'paper',
 ]);
 export type MethodologySourceType = z.infer<typeof methodologySourceTypeSchema>;
+
+/** Literatura del estudio. No entra en el corpus que imita el método. */
+export const PAPER_SOURCE_TYPE = 'paper' as const;
+
+/** Prosa de método: retrieve/list sin filtro de tipo se quedan aquí. */
+export const methodologyCorpusSourceTypeSchema = z.enum([
+  'text',
+  'interview_transcript',
+  'document_upload',
+  'voice_note',
+]);
+export type MethodologyCorpusSourceType = z.infer<
+  typeof methodologyCorpusSourceTypeSchema
+>;
+
+export const METHODOLOGY_CORPUS_SOURCE_TYPES =
+  methodologyCorpusSourceTypeSchema.options;
+
+/**
+ * Filtro de retrieve/list. Sin pedido → método, nunca papers.
+ * Un array vacío es lo mismo que no pedir: un filtro vacío devolvería cero
+ * filas y se leería como «no hay corpus».
+ */
+export function resolveCorpusSourceTypes(
+  requested?: readonly MethodologySourceType[],
+): MethodologySourceType[] {
+  if (requested && requested.length > 0) return [...requested];
+  return [...METHODOLOGY_CORPUS_SOURCE_TYPES];
+}
 
 const SUPPORTED_MIME = new Set<string>([
   'text/plain',
@@ -37,15 +67,25 @@ export const SUPPORTED_MIME_LIST = Array.from(SUPPORTED_MIME);
 // expose a Zod schema for the JSON-only paste-text path.
 export const ingestTextRequestSchema = z.object({
   title: z.string().min(1).max(400),
-  source_type: methodologySourceTypeSchema,
+  source_type: methodologyCorpusSourceTypeSchema,
   raw_content: z.string().min(1).max(2_000_000),
 });
 export type IngestTextRequest = z.infer<typeof ingestTextRequestSchema>;
+
+/** Paste-text del estudio. El source_type lo pone el servidor (paper). */
+export const ingestPaperTextRequestSchema = ingestTextRequestSchema.omit({
+  source_type: true,
+});
+export type IngestPaperTextRequest = z.infer<typeof ingestPaperTextRequestSchema>;
 
 export const retrievalRequestSchema = z.object({
   query: z.string().min(1).max(4_000),
   top_k: z.number().int().positive().max(50).optional(),
   source_types: z.array(methodologySourceTypeSchema).optional(),
+});
+
+export const paperSearchRequestSchema = retrievalRequestSchema.omit({
+  source_types: true,
 });
 export type RetrievalRequest = z.infer<typeof retrievalRequestSchema>;
 

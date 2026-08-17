@@ -1,14 +1,14 @@
 // Retrieval helper. Embeds the query, vector-searches via pgvector cosine
 // distance (`<=>`). Returns the top-k chunks with document context.
 //
-// Used by IA template selection: e.g., recommendTemplate(athlete_state)
-// queries the methodology corpus for "what would Pablo do for an athlete
-// in REAL w2 with HRV crash".
+// Used by IA template selection and MCP search_methodology. Without an
+// explicit source_types filter this searches the METHOD corpus only —
+// never papers. The studio asks for source_types: ['paper'] on purpose.
 
 import { sql as defaultSql } from '@/lib/db';
 import { generateEmbeddings, LlmConfigError } from './llm';
 import { vectorLiteral, IngestError } from './ingest';
-import type { MethodologySourceType } from './schema';
+import { resolveCorpusSourceTypes, type MethodologySourceType } from './schema';
 
 export class RetrieveError extends Error {
   constructor(
@@ -73,7 +73,7 @@ export async function retrieveRelevant(
     );
   }
 
-  const filter_types = input.source_types ?? null;
+  const filter_types = resolveCorpusSourceTypes(input.source_types);
 
   const rows = await sqlClient<
     Array<{
@@ -99,7 +99,7 @@ export async function retrieveRelevant(
     where md.coach_id = ${input.coach_id as unknown as number}
       and md.archived_at is null
       and mc.embedding is not null
-      and (${filter_types}::text[] is null or md.source_type::text = any(${filter_types}::text[]))
+      and md.source_type::text = any(${filter_types}::text[])
     order by mc.embedding <=> ${vec}::vector asc
     limit ${top_k}
   `;
