@@ -21,7 +21,7 @@
 //     range_label ya formateado; HR_ZONE_LABEL Recuperación…VO₂ máx)
 //   web/app/api/athlete/zones/route.ts (`hr: null` honesto cuando no hay ancla)
 //   web/app/api/athlete/profile/route.ts (max_hr_bpm int 100–230 nullable; dob ISO)
-//   ios/FAHYBRIK/Theme/ZoneColors.swift (HRZone = identidad y color, nada más;
+//   ios/FAHYBRIKCore/Theme/ZoneColors.swift (HRZone = identidad y color, nada más;
 //     HRZoneProfile / HRZoneBand llegan del servidor; AthleteMaxHR 100–230 es solo el
 //     rango del campo del perfil)
 //   ios/FAHYBRIK/Profile/MyZonesView.swift (pulseSection: bandas + línea de ancla

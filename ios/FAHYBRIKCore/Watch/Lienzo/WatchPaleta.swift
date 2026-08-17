@@ -8,7 +8,7 @@ import SwiftUI
 //
 // Source of truth for the brand + zone hexes:
 //   ios/FAHYBRIK/Theme/Theme.swift        (accent #F06A2A, pressed #D85A20)
-//   ios/FAHYBRIK/Theme/ZoneColors.swift   (HRZone z1–z5 + %HRmax classifier)
+//   ios/FAHYBRIKCore/Theme/ZoneColors.swift   (HRZone z1–z5 + %HRmax classifier)
 //   docs/superpowers/plans/watchos-diseno.html (the mockups' semantic palette)
 //
 // COMPILA EN LOS DOS TARGETS (vive en FAHYBRIK/, se lista una a una en el target

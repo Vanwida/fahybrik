@@ -1,6 +1,6 @@
 import WatchKit
 
-// La PALETA (`WatchTheme`) se fue a `FAHYBRIK/Watch/Lienzo/WatchPaleta.swift`, que
+// La PALETA (`WatchTheme`) se fue a `FAHYBRIKCore/Watch/Lienzo/WatchPaleta.swift`, que
 // compila en los dos targets. Aquí se queda el vocabulario háptico, que necesita
 // WKInterfaceDevice y por tanto sólo existe en la muñeca.
 

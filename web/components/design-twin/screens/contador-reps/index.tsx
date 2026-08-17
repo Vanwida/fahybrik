@@ -15,7 +15,7 @@ export const meta: TwinMeta = {
     'Tres estados: contado (confianza alta), dudoso, no lo sé. Siempre se ve quién contó.',
   fuentes: [
     'docs/plan-reconocer-movimiento.html',
-    'ios/FAHYBRIK/Sensor/RepCounter.swift',
+    'ios/FAHYBRIKCore/Sensor/RepCounter.swift',
     'ios/FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift',
   ],
   dispositivo: 'iphone',

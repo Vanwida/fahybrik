@@ -93,7 +93,7 @@ export interface SeriePrescrita {
  *
  * Todo lo demás de esta pantalla es prescripción (lo que pidió el coach) o
  * declaración (lo que dijo el atleta). Esto no: lo mide el reloj en la muñeca
- * (`ios/FAHYBRIK/Sensor/BarVelocityEstimator.swift` → `MirrorWire` →
+ * (`ios/FAHYBRIKCore/Sensor/BarVelocityEstimator.swift` → `MirrorWire` →
  * `set_executions.mean_velocity_*`, migración 0176).
  *
  * Se guardan la PRIMERA y la ÚLTIMA repetición porque son dos preguntas

@@ -28,7 +28,7 @@ pnpm workspace (`pnpm-workspace.yaml`): `web`, `shared`, `infra`. El resto no so
 | `web/` | `@fahybrid/web` | Next.js 16. Dashboard del coach + **toda** la API. Único servidor. Puerto **3456** |
 | `shared/` | `@fahybrid/shared` | Zod + dominio puro, sin I/O. Exports = subpaths en `shared/package.json` |
 | `infra/` | `@fahybrid/infra` | Migraciones Neon + seeds + backfills. Scripts, no servicio |
-| `ios/` | — | App Swift del atleta. Proyecto generado por XcodeGen desde `ios/project.yml` |
+| `ios/` | — | App Swift del atleta. Proyecto generado por XcodeGen desde `ios/project.yml`. `ios/FAHYBRIKCore/` = dominio compartido iPhone + reloj (lo incluyen los dos targets); `ios/FAHYBRIK/` = solo teléfono; `ios/FAHYBRIKWatch/` = solo muñeca |
 | `docs/` | — | Ley: `DECISIONS.md`, `CONTRATO-UI.md`. Estado: `FOCUS.md` |
 | `garmin-ciq/`, `zepp/` | — | Fuera del workspace |
 
@@ -145,7 +145,7 @@ Cortafuegos (PASO 3): `web/tests/setup/env.ts` pisa siempre `DATABASE_URL` con e
 - No mover carpetas ni reconfigurar linters sin decisión explícita
 - No tocar FLEXR (`docs/specs/flexr-race-mode-spec.md` y lo que cuelgue)
 - No editar `ios/FAHYBRIK.xcodeproj` a mano — se regenera desde `ios/project.yml`
-- Fichero Swift nuevo compartido con el reloj → lista explícita en `project.yml`
+- Fichero Swift nuevo compartido con el reloj → **va en `ios/FAHYBRIKCore/`**, que los dos targets incluyen entera. No se añade a ninguna lista de `project.yml`. Lo que entre ahí tiene que compilar en watchOS: nada de UIKit, de tipos de la app ni de ActivityKit (la app embute el reloj, así que un `xcodebuild -scheme FAHYBRIK` lo caza). Ver `docs/DECISIONS.md` (2026-08-17 «lo dice la carpeta»)
 - Carpeta nueva en `shared/domain/` → subpath en `shared/package.json` `exports`
 - Ruta nueva del dashboard → añadirla a `isProtectedRoute` en `web/proxy.ts` o nace pública
 - Mover un endpoint fuera de `api/coach/` le quita Clerk

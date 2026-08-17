@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-17 · Lo que comparten teléfono y muñeca lo dice la carpeta, no una lista
+
+**El hueco:** el dominio que corre igual en el iPhone y en el reloj (el motor de la sesión, los modelos de cable, la grafía de los números, los guiones de la muñeca, la señal del sensor) se compartía por una **lista escrita a mano** dentro del target watchOS de `ios/project.yml` — unos 50 `- path:`. La asimetría era el fallo: el teléfono los recibía gratis por incluir su árbol entero (`- path: FAHYBRIK`) y **sólo la muñeca los nombraba uno a uno**. Consecuencias medidas, no hipotéticas: «esto es compartido» no se veía en el fichero sino en un YAML lejano; cada fichero nuevo del dominio dependía de que alguien recordara su línea; y olvidarla no siempre rompía la build — a veces la muñeca se quedaba con **su propia copia**, que es de donde salieron los `position` de una carrera estructurada colapsando en UNA fila al llegar al servidor, las rondas de EMOM, la pendiente y el detalle del erg.
+
+**Decidido:** existe `ios/FAHYBRIKCore/` — la raíz del dominio compartido. Los dos targets la incluyen **entera** (`FAHYBRIK` → `[FAHYBRIK, FAHYBRIKCore]`, `FAHYBRIKWatch` → `[FAHYBRIKWatch, FAHYBRIKCore]`). La pertenencia pasa a ser **dónde vive el fichero**: uno nuevo del dominio entra en ambos sin tocar `project.yml`. Se movieron 52 ficheros conservando su subruta (`FAHYBRIK/Workout/WorkoutSession.swift` → `FAHYBRIKCore/Workout/WorkoutSession.swift`), así que quien conocía una ruta la sigue encontrando.
+
+**NO es un módulo Swift aparte, y se descartó con motivo — no por comodidad:** `Workout/WorkoutModels.swift` lleva `WorkoutExecutionAPI` / `DoblesExecutionAPI` bajo `#if !os(watchOS)`, y esos alcanzan `APIClient` / `RequestQueue`, que viven en la app. **Un framework no puede depender de su host**, así que un módulo real exige partir ese fichero — y partir el motor de ejecución no entra. Además el módulo obligaría a `public` en todas las declaraciones que cruzan y a un `import` en cada pantalla, y `FAHYBRIKTests` (iOS) dejaría de llegar al dominio como llega hoy. Mismo módulo = cero de eso.
+
+**Lo que lo mantiene honesto es la build de todos los días:** la app **embute** la app del reloj, así que cualquier cosa que entre en `FAHYBRIKCore` y no sea portable a watchOS (UIKit, un tipo de la app, ActivityKit) revienta el `xcodebuild -scheme FAHYBRIK` normal. No hay que acordarse de nada ni correr una build especial.
+
+**Fuera a propósito** (siguen en la app o en la muñeca): el PINTADO (`Theme/Theme.swift`, `Theme/LenguajeVivoUI.swift`, `Theme/Haptics.swift` → en la muñeca `FAHYBRIKWatch/WatchHaptics.swift` + su `WatchTheme`), el cable (`Watch/WatchConnectivityiOSService.swift`), el BLE (`Devices/PM5/PM5Service.swift`), la captura CoreMotion (`FAHYBRIKWatch/Sensor/SensorCapture.swift`), la SUBIDA (`Workout/Trace/WorkoutTraceUploader.swift`) y `GuionEscaparate`, el único guion que instancia vistas del reloj.
+
+**NO hacer:** no volver a añadir un `- path: FAHYBRIK/<algo>.swift` al target del reloj — si es compartido, se **mueve** a `FAHYBRIKCore/`; no meter en `FAHYBRIKCore` nada que no compile en watchOS; no confundirlo con el eje **app↔widget** (`Workout/Outdoor/RunActivityAttributes.swift` sigue siendo una línea a mano en `FAHYBRIKWidgets` porque es ActivityKit, no reloj); no dar por buena una ruta `ios/FAHYBRIK/...` de una entrada anterior a esta fecha si el fichero es de los 52 — se resuelve cambiando `FAHYBRIK/` por `FAHYBRIKCore/`. `docs/archivo/**`, `docs/plan-reconocer-movimiento.html` y la migración `0155` conservan las rutas viejas a propósito: son artefactos fechados y una migración aplicada es inmutable.
+
+---
+
 ## 2026-08-17 · La piel del club es dato del coach, no marca del binario
 
 **El hueco:** FLEXR es una app y muchos coaches. El dashboard pintaba FAHYBRID y el naranja del token aunque el club tuviera nombre, logo y color propios. `coaches.full_name` es el nombre del workspace (sesión `club_name`); `avatar_url` es la cara de la persona. Ninguno es el lockup.
@@ -761,7 +777,7 @@ ya estaban en `segment_executions` con su `leg_index`/`leg_role`/`leg_phase`; lo
 ## 2026-08-11 (noche) · Una repetición es una excursión de ida y vuelta, no un pico periódico — y contar exige CONTEXTO, no solo señal
 
 **Decidido:** el conteo de repeticiones en vivo y la velocidad por repetición se
-rehacen sobre `ios/FAHYBRIK/Sensor/RepTracker.swift`. Se **borran**
+rehacen sobre `ios/FAHYBRIKCore/Sensor/RepTracker.swift`. Se **borran**
 `RepCounter.swift` (conteo por autocorrelación + picos) y
 `BarVelocityEstimator.swift` (velocidad por semiciclos de una ventana móvil). El
 archivo de captura sube a **formato v2** para llevar la **gravedad** en cada
@@ -2303,11 +2319,11 @@ reescribir las tres piezas de HUD — y por la regla de prioridad UX del
 proyecto, necesita su propio pase de diseño antes de tocar código (cómo se ve
 "ronda 2 de 4, estación 3 de 3", el HUD de descanso entre rondas).
 
-**Dónde vive:** `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`),
-`ios/FAHYBRIK/Plan/Prescription.swift` (`restBetweenRoundsS`),
+**Dónde vive:** `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`),
+`ios/FAHYBRIKCore/Plan/Prescription.swift` (`restBetweenRoundsS`),
 `ios/FAHYBRIK/Devices/Treadmill/RunTargetResolver.swift` (el consumidor real
 del target huérfano), `ios/FAHYBRIKTests/Workout/ConditioningFoldTests.swift`.
-Lo pendiente vive en `ios/FAHYBRIK/Workout/LiveTramo.swift` y
+Lo pendiente vive en `ios/FAHYBRIKCore/Workout/LiveTramo.swift` y
 `WorkoutFormatHUDs.swift` — sin tocar.
 
 ---
@@ -2344,7 +2360,7 @@ En el motor en vivo y en el reloj, el cursor por estación que YA EXISTE (`LiveT
 
 **Fuera de este corte, a propósito:** la ruta de sesiones-biblioteca (`template_segments`, la de "Screen 5" / instancias por-atleta, distinta del editor de día que usa `slots_json`) no tiene ningún sitio a nivel de bloque donde guardar esto — no hay `config_json` ahí, el agrupador de bloque son solo columnas de texto repetidas por fila. Se audita y decide aparte antes de tocar su esquema — no se improvisa una columna nueva sin ver antes cuánto contenido circuito real vive ahí.
 
-**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIK/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
+**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIKCore/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
 
 ---
 
@@ -2475,7 +2491,7 @@ API, ingest, algoritmos.
 procesado en vivo (1–3) no espera archivo.
 
 **Documentos:** plan + `docs/reconocer-el-movimiento.html`; código bajo
-`ios/FAHYBRIK/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
+`ios/FAHYBRIKCore/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
 `web/lib/sync/ingest-sensor-capture.ts`.
 
 ---
@@ -2555,7 +2571,7 @@ Sin dato, cambia el sujeto — no se disfraza.
 **Lo que se verificó antes de decidirlo** (contra el código, no de memoria):
 
 - **`block_position` NO servía.** Es el índice del bloque dentro de la sesión (`editor-serialize.ts:324`, `instantiate-program.ts:621`), no un mecanismo de sub-agrupación. Entre bloque e item no hay nada.
-- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIK/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
+- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIKCore/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
 - **Y aunque se reutilizara, no valdría:** el fold coge únicamente el PRIMER set de cada item (`:1689`). Una superserie de fuerza necesita N series por ejercicio alternando, cada una con su descanso. Por eso `superset` es un camino propio en el motor y no un alias de `rounds`.
 
 **En consecuencia, no hacer:** no añadir un campo de grupo a `WeekDayPartItem` ni a `PrescriptionSet` — la letra del coach es notación de entrada, se consume al importar y muere ahí; no reutilizar `rounds`/`circuit` para una superserie de fuerza (arrancaría un reloj de acondicionamiento y perdería las series); y no dar por hecho que dos items en el mismo bloque rotan — hasta hoy nunca lo han hecho, así que todo bloque `sets` existente sigue siendo series rectas.
@@ -2987,7 +3003,7 @@ Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (par
 
 ## 2026-07-28 · El TRAMO es la unidad del entreno en vivo — y la salida sigue la MEDIDA, no el movimiento
 
-**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIK/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
+**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIKCore/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
 
 **Cuándo una lista de movimientos ES una ruta de tramos:** cuando la biblioteca manda N segmentos hermanos sin `rounds` escritas y con más de un movimiento (`fixedStation`), como en la simulación de HYROX (plantillas 446 y 489). Entonces **la estación es el tramo**. Un EMOM, un AMRAP, un For Time con rondas, «100 burpees for time» y un 5×500 **no** son rutas y no auto-avanzan: verificado con banco standalone de 52 asserts sobre prescripciones de producción.
 
