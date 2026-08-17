@@ -5,12 +5,18 @@ import SwiftUI
 // The outdoor run's Live Activity (#64): lock screen banner + Dynamic Island. Renders
 // PURELY from RunActivityAttributes.ContentState (pre-formatted strings pushed by the
 // app), so it never re-derives anything and can't drift from the on-screen HUD. Self-
-// contained styling (the Fabrik orange is defined locally, not pulled from the app's
+// contained styling (the brand accent is defined locally, not pulled from the app's
 // Theme) so the widget target links nothing from the app.
 
-/// Fabrik orange (#F06A2A) — the one brand accent the widget needs. Kept local so the
-/// extension doesn't drag the app's UIKit-backed Theme into its target.
-private let fabrikOrange = Color(red: 0xF0 / 255, green: 0x6A / 255, blue: 0x2A / 255)
+/// The one brand accent the widget needs (#F06A2A). Kept local ON PURPOSE: pulling it
+/// from the app's Theme would drag UIKit into an extension that must stay tiny.
+///
+/// PRECIO DE ESA DECISIÓN, y hay que saberlo al clonar: este hex es la ÚNICA copia del
+/// acento fuera de Theme.swift / tokens.json. Una marca nueva que cambie el acento y no
+/// toque esta línea se queda con el naranja anterior en la Isla Dinámica y en la pantalla
+/// bloqueada — justo donde más se ve y donde nadie mira al hacer la revisión. Está en la
+/// lista de puntos de clonado de docs/ios-clonabilidad.md.
+private let acentoMarca = Color(red: 0xF0 / 255, green: 0x6A / 255, blue: 0x2A / 255)
 
 struct RunLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
@@ -26,7 +32,7 @@ struct RunLiveActivityWidget: Widget {
                 // reducida, donde además el sistema fuerza modo oscuro.
                 // https://developer.apple.com/design/human-interface-guidelines/live-activities
                 .activityBackgroundTint(.black)
-                .activitySystemActionForegroundColor(fabrikOrange)
+                .activitySystemActionForegroundColor(acentoMarca)
         } dynamicIsland: { context in
             let s = context.state
             return DynamicIsland {
@@ -47,7 +53,7 @@ struct RunLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     Text(s.paused ? "PAUSA" : (s.legLabel.isEmpty ? "Carrera" : s.legLabel))
                         .font(.system(size: 13, weight: .heavy).italic())
-                        .foregroundStyle(s.paused ? fabrikOrange : .secondary)
+                        .foregroundStyle(s.paused ? acentoMarca : .secondary)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -63,16 +69,16 @@ struct RunLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 Image(systemName: s.paused ? "pause.fill" : "figure.run")
-                    .foregroundStyle(fabrikOrange)
+                    .foregroundStyle(acentoMarca)
             } compactTrailing: {
                 Text(s.paceLabel)
                     .font(.system(size: 13, weight: .heavy, design: .monospaced))
                     .foregroundStyle(s.paused ? .secondary : .primary)
             } minimal: {
                 Image(systemName: s.paused ? "pause.fill" : "figure.run")
-                    .foregroundStyle(fabrikOrange)
+                    .foregroundStyle(acentoMarca)
             }
-            .keylineTint(fabrikOrange)
+            .keylineTint(acentoMarca)
         }
     }
 
@@ -80,7 +86,7 @@ struct RunLiveActivityWidget: Widget {
         VStack(alignment: .leading, spacing: 1) {
             Text(value)
                 .font(.system(size: 20, weight: .heavy, design: .monospaced))
-                .foregroundStyle(accent ? fabrikOrange : .primary)
+                .foregroundStyle(accent ? acentoMarca : .primary)
                 .lineLimit(1).minimumScaleFactor(0.6)
             Text(unit).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
         }
@@ -103,7 +109,7 @@ struct RunLiveActivityLockScreen: View {
                 Text(state.paused ? "PAUSA" : (hayRitmo ? "RITMO" : "TIEMPO"))
                     .font(.system(size: 10, weight: .heavy).italic())
                     .tracking(0.6)
-                    .foregroundStyle(state.paused ? fabrikOrange : .secondary)
+                    .foregroundStyle(state.paused ? acentoMarca : .secondary)
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text(hayRitmo ? state.paceLabel : state.timeLabel)
                         .font(.system(size: 34, weight: .heavy, design: .monospaced))
