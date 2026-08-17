@@ -7,7 +7,9 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **Cómo entrenas:** rama `feat/coach-method-interview` contra `integration/trunk`.
-Siete capítulos + espejo determinista + GET/PUT + `/es/como-entrenas`. No merge. No #23 (recuadro). No #25 (estudio).
+Siete capítulos + espejo + GET/PUT + `/es/como-entrenas`. Guardar a mitad ya
+estaba (autosave 700ms). Puerta: PUT incompleto; composers notas/plan ven el
+espejo; vacío no inventa método. No merge. No #23. No #25.
 
 **Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
 Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.

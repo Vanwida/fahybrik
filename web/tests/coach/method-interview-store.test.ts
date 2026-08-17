@@ -52,6 +52,24 @@ describe('loadCoachMethodMirror', () => {
   test('vacío si no hay fila', async () => {
     expect(await loadCoachMethodMirror(BigInt(1), createFakeSql(() => []))).toBe('');
   });
+
+  test('con fila: el párrafo que leen los composers', async () => {
+    const answers = normalizeAnswers(specExampleAnswers());
+    const fake = createFakeSql((text) => {
+      if (text.includes('from coach_method_interview')) {
+        return [
+          {
+            ...answers,
+            generated_mirror: SPEC_EXAMPLE_MIRROR,
+            mirror_text: SPEC_EXAMPLE_MIRROR,
+            updated_at: '2026-08-17T10:00:00.000Z',
+          },
+        ];
+      }
+      return [];
+    });
+    expect(await loadCoachMethodMirror(BigInt(3), fake)).toBe(SPEC_EXAMPLE_MIRROR);
+  });
 });
 
 describe('upsertCoachMethodInterview', () => {
