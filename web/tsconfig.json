@@ -19,7 +19,16 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@fahybrid/shared/domain/coach/method-interview": [
+        "../shared/domain/coach/method-interview.ts"
+      ],
+      "@fahybrid/shared/domain/coach/method-interview-mirror": [
+        "../shared/domain/coach/method-interview-mirror.ts"
+      ],
+      "@fahybrid/shared/schema/coach-method-interview": [
+        "../shared/schema/coach-method-interview.ts"
+      ]
     }
   },
   "include": [

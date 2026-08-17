@@ -206,10 +206,17 @@ async function llmSuggestNote(args: {
   input: Extract<TextSuggestInput, { surface: 'coach_note' | 'item_note' }>;
   coach_id: number | bigint;
 }): Promise<string[]> {
-  const { system, user } =
+  const { loadCoachMethodMirror, methodMirrorPromptBlock } = await import(
+    '@/lib/coach/method-interview'
+  );
+  const mirror = await loadCoachMethodMirror(args.coach_id).catch(() => '');
+  const voice = methodMirrorPromptBlock(mirror);
+  const base =
     args.input.surface === 'coach_note'
       ? sessionNotePrompt(args.input.context)
       : itemNotePrompt(args.input.context);
+  const system = voice ? `${base.system}\n${voice}` : base.system;
+  const { user } = base;
 
   const raw = await callCoachIaLlmJson({
     system,

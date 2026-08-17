@@ -14,6 +14,7 @@ import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
+import { loadCoachMethodMirror } from '@/lib/coach/method-interview';
 
 export type WeekAdjustmentProposalRecord = {
   id: string;
@@ -172,6 +173,7 @@ type LlmCallArgs = {
   /** Cost-telemetry context (A7). */
   coach_id: number | bigint;
   athlete_id: number | bigint;
+  method_mirror?: string;
 };
 
 function buildSystemPrompt(): string {
@@ -193,9 +195,10 @@ function buildSystemPrompt(): string {
   ].join('\n');
 }
 
-function buildUserPrompt(args: LlmCallArgs): string {
+function buildUserPrompt(args: LlmCallArgs & { method_mirror?: string }): string {
   return JSON.stringify(
     {
+      how_coach_trains: args.method_mirror || null,
       context_pack: args.context_pack,
       methodology_snippets: args.rag_snippets,
       planned_week: args.base_week,
@@ -288,7 +291,7 @@ export async function proposeWeekAdjustment(params: {
   } else if (isCoachIaLlmConfigured()) {
     // Va mal + LLM disponible → intento LLM, fallback heurístico si falla.
     try {
-      const [ragSnippets, baseWeek, alternatives] = await Promise.all([
+      const [ragSnippets, baseWeek, alternatives, methodMirror] = await Promise.all([
         retrieveMethodologySnippets({
           coach_id: params.coach_id,
           context_pack: evaluation.context_pack,
@@ -300,6 +303,7 @@ export async function proposeWeekAdjustment(params: {
           client,
         }),
         loadAlternativeTemplates({ coach_id: params.coach_id, client, limit: 10 }),
+        loadCoachMethodMirror(params.coach_id, client).catch(() => ''),
       ]);
       proposal = await callCoachIaLlm({
         context_pack: evaluation.context_pack,
@@ -308,6 +312,7 @@ export async function proposeWeekAdjustment(params: {
         alternatives,
         coach_id: params.coach_id,
         athlete_id: params.athlete_id,
+        method_mirror: methodMirror,
       });
     } catch (err) {
       console.warn(
