@@ -27,6 +27,7 @@ import { blockReadiness, listBlocksWithStructure } from '@/lib/dashboard/coach/b
 import { listTemplatesForCoach } from '@/lib/dashboard/coach/templates';
 import { listDocuments } from '@/lib/rag/repository';
 import { RetrieveError, retrieveRelevant } from '@/lib/rag/retrieve';
+import { loadCoachMethodMirror } from '@/lib/coach/method-interview';
 import { fail, ok, withCoach } from './runtime';
 import {
   NO_METHODOLOGY_MESSAGE,
@@ -148,7 +149,19 @@ export function registerLibraryTools(server: McpServer): void {
       withCoach(extra.authInfo, async (coach_id) => {
         const documents = await listDocuments({ coach_id }, sql);
         const indexed = documents.filter((d) => d.chunk_count > 0);
-        if (indexed.length === 0) return fail(NO_METHODOLOGY_MESSAGE);
+        const mirror = await loadCoachMethodMirror(coach_id, sql).catch(() => '');
+        if (indexed.length === 0 && !mirror) return fail(NO_METHODOLOGY_MESSAGE);
+        if (indexed.length === 0) {
+          return ok(
+            {
+              query: args.query,
+              how_coach_trains: mirror,
+              corpus: { document_count: 0, documents: [] },
+              passages: [],
+            },
+            `Cómo entrena (entrevista): ${mirror}`,
+          );
+        }
 
         let chunks;
         try {
@@ -170,6 +183,7 @@ export function registerLibraryTools(server: McpServer): void {
         return ok(
           {
             query: args.query,
+            how_coach_trains: mirror || null,
             corpus: {
               document_count: indexed.length,
               documents: indexed.map((d) => ({
@@ -181,7 +195,12 @@ export function registerLibraryTools(server: McpServer): void {
             },
             passages: chunks.map(toPassage),
           },
-          methodologyResumen({ query: args.query, chunks, documents: indexed }),
+          [
+            mirror ? `Cómo entrena (entrevista): ${mirror}` : null,
+            methodologyResumen({ query: args.query, chunks, documents: indexed }),
+          ]
+            .filter(Boolean)
+            .join('\n'),
         );
       }),
   );
