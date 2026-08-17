@@ -14,8 +14,8 @@
 	<array/>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:fahybrid.com</string>
-		<string>applinks:www.fahybrid.com</string>
+		<string>applinks:$(BRAND_WEB_DOMAIN)</string>
+		<string>applinks:www.$(BRAND_WEB_DOMAIN)</string>
 	</array>
 </dict>
 </plist>
