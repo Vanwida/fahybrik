@@ -13,7 +13,7 @@ This design system is the source of truth for any new visual artifact made for F
 
 - `FAHYBRIK/` mounted codebase (read-only via local FS)
   - `ios/FAHYBRIK/Theme/Theme.swift` — color, spacing, radius, typography tokens
-  - `ios/FAHYBRIK/Theme/ZoneColors.swift` — HR zone palette (Z1–Z5)
+  - `ios/FAHYBRIKCore/Theme/ZoneColors.swift` — HR zone palette (Z1–Z5)
   - `ios/FAHYBRIK/Assets.xcassets/Brand*.colorset` — brand color hex values
   - `ios/FAHYBRIK/Onboarding/Components/*.swift` — buttons, chips, input rows, progress dots
   - `ios/FAHYBRIK/Workout/{ActiveWorkoutView, PreWorkoutBriefView, PostWorkoutSummaryView, DataGrid, LapButton, HRZoneBadge}.swift`

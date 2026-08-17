@@ -2,12 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-17** (merge #28 ficha Club)
+Última actualización: **2026-08-17** (módulo compartido iOS/watchOS)
 
 ## Ahora
 
 **Trunk 17-ago:** #27 HUD apaisado · #26 Cómo entrenas · #28 ficha Club.
 En `integration/trunk`. No main.
+
+**Dominio compartido iOS/watchOS (`feat/ios-shared-core`, PR abierto):** los ~50
+`- path:` a mano del target del reloj mueren. Nace `ios/FAHYBRIKCore/` (52
+ficheros, subruta intacta) y la incluyen entera los dos targets, así que lo
+compartido lo dice la carpeta. No es módulo Swift aparte a propósito:
+`WorkoutModels` alcanza `APIClient` bajo `#if !os(watchOS)` y un framework no
+puede depender de su host. Guardián = la build normal (la app embute el reloj).
+Ley: DECISIONS 17-ago «lo dice la carpeta». Sin cambios de pantallas ni de firma.
 
 **Ficha Club:** nombre, logo y acento por `coach_id`. Vacío = marca de este
 binario. Ruta `/club`, API `/api/coach/club`. No iOS.

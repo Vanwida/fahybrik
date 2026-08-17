@@ -51,8 +51,8 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Devices/Treadmill/TreadmillHUDView.swift',
     // La línea de dosis de la puerta la escribe el formateador, no la vista: sin
     // estos dos, el espejo afirmaba una línea cuya fuente no declaraba.
-    'ios/FAHYBRIK/Plan/PrescriptionRenderer.swift',
-    'ios/FAHYBRIK/Workout/WorkoutModels.swift',
+    'ios/FAHYBRIKCore/Plan/PrescriptionRenderer.swift',
+    'ios/FAHYBRIKCore/Workout/WorkoutModels.swift',
   ],
   dispositivo: 'iphone',
   soportaHorizontal: true,

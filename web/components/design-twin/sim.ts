@@ -100,7 +100,7 @@ export function useCronoComprimido(simX: number): CronoComprimido {
 }
 
 // ---------------------------------------------------------------------------
-// Formateadores compartidos — espejo de ios/FAHYBRIK/Workout/CountdownFormat.swift
+// Formateadores compartidos — espejo de ios/FAHYBRIKCore/Workout/CountdownFormat.swift
 // y de cómo los HUDs pintan ritmo/tiempo. Una sola fuente para todas las pantallas.
 // ---------------------------------------------------------------------------
 

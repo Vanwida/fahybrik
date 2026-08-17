@@ -15,7 +15,7 @@ import Foundation
 //
 // Cómo se compila y se usa (desde la raíz del repo):
 //
-//   S=ios/FAHYBRIK/Sensor
+//   S=ios/FAHYBRIKCore/Sensor
 //   swiftc -O -o /tmp/replay $S/SensorTypes.swift $S/SensorDecimator.swift \
 //       $S/ActivityDetector.swift $S/RepTracker.swift ios/tools/replay-sensor/main.swift
 //   /tmp/replay <captura.fhsc>            # una serie por ventana

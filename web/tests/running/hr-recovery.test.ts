@@ -3,7 +3,7 @@ import { computeHrRecovery60, type RunningTraceSeries } from '@fahybrid/shared/d
 
 const series = (offsets_s: number[], values: number[]): RunningTraceSeries => ({ offsets_s, values });
 
-// Espeja HRRecoveryCapture (ios/FAHYBRIK/Workout/HRRecovery.swift): mismos
+// Espeja HRRecoveryCapture (ios/FAHYBRIKCore/Workout/HRRecovery.swift): mismos
 // umbrales (cola de 10 s, marca a 60 s, tolerancia ±5 s, cobertura a 58 s),
 // mismo criterio de honestidad (sin cobertura o caída negativa → null).
 

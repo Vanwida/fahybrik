@@ -60,7 +60,7 @@ enum TreadmillConstants {
     static let minMovingSpeedKmh: Double = 0.5
 
     // The single-pace judging tolerance moved to `PaceTarget.singleToleranceSecPerKm`
-    // (FAHYBRIK/Plan/RunPaceModel.swift) when the pace domain was shared with the
+    // (FAHYBRIKCore/Plan/RunPaceModel.swift) when the pace domain was shared with the
     // watch (#68) — the judging that reads it now lives in both targets.
 
     // There is no max-HR estimation on this side. HR zones are resolved by the

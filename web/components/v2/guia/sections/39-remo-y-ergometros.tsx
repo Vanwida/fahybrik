@@ -13,12 +13,12 @@
 //   ios/FAHYBRIK/Devices/DeviceConnectCard.swift (chip .pm5 en la card "Dispositivos")
 //     → ios/FAHYBRIK/Devices/PM5/PM5LiveStreamView.swift (LISTA store.discovered por
 //     nombre + RSSI; "Desconectar" + "Olvidar dispositivo")
-//   ios/FAHYBRIK/Devices/PM5/PM5DataParser.swift (struct PM5Split: timeSeconds,
+//   ios/FAHYBRIKCore/Devices/PM5/PM5DataParser.swift (struct PM5Split: timeSeconds,
 //     distanceMeters, restTimeSeconds/restDistanceMeters, avgPaceSecPer500m,
 //     strokeRateSpm, avgPowerWatts, totalCalories, avgCaloriesPerHour, avgDragFactor,
 //     avgHeartRateBpm; PM5LiveSample lleva el ritmo medio /500m del monitor)
 //   ios/FAHYBRIK/Workout/ExecutedWorkoutView.swift (ergIntervalsCard #33 "ErgData-style":
-//     # | Tiempo | Dist | /500m | s/m | Cal) + ios/FAHYBRIK/Plan/AssignmentDetail.swift
+//     # | Tiempo | Dist | /500m | s/m | Cal) + ios/FAHYBRIKCore/Plan/AssignmentDetail.swift
 //     (ErgSplitActual)
 //   web/components/v2/atleta-detalle/SessionDetailDrawer.tsx (SplitsTable coach:
 //     # | Tiempo | m | /500m | spm | W | Desc. + dragFactor + calPerHour) ←

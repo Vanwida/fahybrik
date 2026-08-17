@@ -57,7 +57,7 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift',
     'ios/FAHYBRIK/Workout/Vivo/EditorDeSerie.swift',
     'ios/FAHYBRIK/Theme/LenguajeVivoCascada.swift',
-    'ios/FAHYBRIK/Theme/Formato.swift',
+    'ios/FAHYBRIKCore/Theme/Formato.swift',
   ],
   enApp:
     'PORTADO el 11-ago sobre el host real (`MarcoVivo`, que ya existía en Theme/LenguajeVivoUI.swift y no «sin llamadas» como se creyó — todas usaban trailing closure): el strip de formato con el reloj y el descanso drenando, el sujeto en la dosis de la serie con las cuatro escrituras de carga (kilos, banda de %RM sin convertir, peso corporal y uno por mano), el riel como ventana de tres desde la quinta serie con su umbral derivado del ancho medido, la velocidad en la primera celda de la fila con el tono del semáforo y la palabra en el pie, la frase de la pérdida al descansar, y el descanso en tinta normal con la acción en contorno. '
