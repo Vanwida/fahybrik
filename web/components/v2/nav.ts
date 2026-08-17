@@ -47,6 +47,7 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   // Método — the framework first, then the reusable library, then the tests.
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
+  { href: '/estudio', label: 'Estudio', icon: 'article', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
 ] as const;
 
