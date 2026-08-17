@@ -213,6 +213,11 @@ struct WatchReloj: View {
                     Text(franja.uppercased())
                         .font(.system(size: 11, weight: .heavy))
                         .tracking(0.8)
+                        // Como el contexto y la nota: una franja larga («TOCA ·
+                        // SOLO PARA TI») encoge antes que envolverse a dos líneas
+                        // dentro de un alto fijo y salirse por el borde curvo.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         // En atenuado baja aún más, pero NO se quita: el HIG pide
                         // llevar un control a un aspecto «no disponible», no
                         // reorganizar la pantalla al bajar el brazo.
