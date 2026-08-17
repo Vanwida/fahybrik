@@ -2,9 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (copy de periodización: el coach nombra el orden)
+Última actualización: **2026-08-17** (entrevista Cómo entrenas)
 
 ## Ahora
+
+**Cómo entrenas:** rama `feat/coach-method-interview` contra `integration/trunk`.
+Siete capítulos + espejo determinista + GET/PUT + `/es/como-entrenas`. No merge. No #23 (recuadro). No #25 (estudio).
 
 **Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
 Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.

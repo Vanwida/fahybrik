@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-17 · Cómo entrenas es la entrevista, no el recuadro
+
+**El hueco:** un recuadro vacío («escribe tu método») no sirve. Cinco urgencias tampoco: eso es el borde, no el oficio. La IA no puede escribir sesiones si solo sabe qué hace un martes malo.
+
+**Decidido:**
+- El instrumento son **siete capítulos** (spec `docs/metodologia-coach.html`). Las preguntas y las casillas son mecanismo (código). Las respuestas son método (dato por `coach_id`).
+- Al tocar, el producto **devuelve un párrafo determinista** (`generateMirror`). El coach lo tacha. Plan, chat y MCP leen `mirror_text` (o el generado si no lo ha tocado). Vacío = no imitan.
+- Persistencia: tabla `coach_method_interview` (0197). Columnas explícitas, sin JSON. No se reutiliza `coach_methodology` (0048, muerta) ni el recuadro de #23 (`coach_how_i_work`). #25 (estudio / papers) se queda aparte.
+- Pantalla `/es/como-entrenas`. API `GET/PUT /api/coach/method-interview`.
+
+**NO hacer:** no volver al ensayo vacío. No guardar las casillas en un blob. No mezclar papers en este espejo. No cablear una escuela en las cláusulas del párrafo.
+
+---
+
 ## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
 
 **El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.
