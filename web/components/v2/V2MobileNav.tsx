@@ -16,6 +16,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
 import {
+  V2_NAV_CLUB,
   V2_NAV_GROUP_LABELS,
   V2_NAV_GUIDE,
   V2_NAV_ITEMS,
@@ -44,7 +45,7 @@ const sheetGroups: { label: string | null; items: V2NavItem[] }[] = [
     label: V2_NAV_GROUP_LABELS.metodo,
     items: V2_NAV_ITEMS.filter((item) => item.group === 'metodo'),
   },
-  { label: null, items: [V2_NAV_GUIDE, V2_NAV_SETTINGS] },
+  { label: null, items: [V2_NAV_GUIDE, V2_NAV_CLUB, V2_NAV_SETTINGS] },
 ];
 
 const sheetHrefs = sheetGroups.flatMap((g) => g.items.map((i) => i.href));

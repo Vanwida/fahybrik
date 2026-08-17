@@ -5,9 +5,12 @@
 // scoped to v2 tokens. Active state fills with the accent. Mensajes carries the
 // unread badge. Ajustes pins to the bottom.
 
+import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { Link, usePathname } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
 import {
+  V2_NAV_CLUB,
   V2_NAV_GROUP_LABELS,
   V2_NAV_GROUP_ORDER,
   V2_NAV_GUIDE,
@@ -22,7 +25,7 @@ import { cn } from '@/lib/utils';
  * FAHYBRID brand mark — the real FHP icon tile (orange on dark), self-contained so
  * it reads correctly on both the light and dark v2 surfaces. Sourced from the
  * standardized brand set in /public/brand. Not a generic icon, the actual logo.
- * Exported: the mobile top bar (V2Shell) shows the same mark when the sidebar is hidden.
+ * Exported: leftover default mark. The chrome pinta ClubLockup (vacío = este src).
  */
 export function HexMark({ className }: { className?: string }) {
   return (
@@ -85,9 +88,11 @@ function NavLink({
 }
 
 export function V2Sidebar({
+  club,
   unread_messages = 0,
   leads_nuevo = 0,
 }: {
+  club: ClubSkin;
   unread_messages?: number;
   leads_nuevo?: number;
 }) {
@@ -109,18 +114,19 @@ export function V2Sidebar({
         'transition-[width] duration-300 ease-out',
       )}
     >
-      {/* Logo / brand — hexagon mark + italic-bold FAHYBRID wordmark */}
+      {/* Logo / brand — club lockup. Vacío = marca de este binario. */}
       <Link
         href="/hoy"
-        aria-label="FAHYBRID"
-        title="FAHYBRID"
+        aria-label={clubBrandLabel(club.name)}
+        title={clubBrandLabel(club.name)}
         className="flex h-16 shrink-0 items-center gap-3 border-b border-[color:var(--v2-border)] px-5 v2-focus"
       >
-        <HexMark className="h-9 w-9 shrink-0" />
-        <span className="v2-display whitespace-nowrap text-[1.6rem] tracking-[-0.02em] opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100">
-          <span className="text-[color:var(--v2-fg)]">FA</span>
-          <span className="text-[color:var(--v2-accent)]">HYBRID</span>
-        </span>
+        <ClubLockup
+          name={club.name}
+          logo_url={club.logo_url}
+          markClassName="h-9 w-9 shrink-0"
+          wordmarkClassName="whitespace-nowrap text-[1.6rem] opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100"
+        />
       </Link>
 
       {/* Primary nav — two groups: Operar / Construir el método. Each carries a
@@ -156,11 +162,16 @@ export function V2Sidebar({
         })}
       </nav>
 
-      {/* Guía + Ajustes — pinned bottom */}
+      {/* Guía + Club + Ajustes — pinned bottom */}
       <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] px-3 py-3">
         <NavLink
           item={V2_NAV_GUIDE}
           active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
+          badgeCount={0}
+        />
+        <NavLink
+          item={V2_NAV_CLUB}
+          active={isV2NavActive(pathname, V2_NAV_CLUB.href)}
           badgeCount={0}
         />
         <NavLink

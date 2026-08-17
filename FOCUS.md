@@ -2,20 +2,25 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-17** (entrevista Cómo entrenas)
+Última actualización: **2026-08-17** (merge #28 ficha Club)
 
 ## Ahora
 
-**Cómo entrenas:** rama `feat/coach-method-interview` contra `integration/trunk`.
-Siete capítulos + espejo + GET/PUT + `/es/como-entrenas`. Guardar a mitad ya
-estaba (autosave 700ms). Puerta: PUT incompleto; composers notas/plan ven el
-espejo; vacío no inventa método. No merge. No #23. No #25.
+**Trunk 17-ago:** #27 HUD apaisado · #26 Cómo entrenas · #28 ficha Club.
+En `integration/trunk`. No main.
 
-**Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
-Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.
+**Ficha Club:** nombre, logo y acento por `coach_id`. Vacío = marca de este
+binario. Ruta `/club`, API `/api/coach/club`. No iOS.
 
-**FLEXR copy IDs:** rama `chore/redact-flexr-copy-ids` contra `integration/trunk`.
-Emails/team/Neon/Vercel docs del tip pasan a placeholder o env. No merge.
+**Cómo entrenas:** siete capítulos + espejo + GET/PUT + `/es/como-entrenas`.
+Guardar a mitad (autosave 700ms). PUT incompleto; composers notas/plan ven el
+espejo; vacío no inventa método. No #23. No #25.
+
+**Copy de periodización:** ya en trunk (#21). Docs vivos, app-store, guía y
+comentarios de producto alineados al orden de microciclos que nombra el coach.
+
+**FLEXR copy IDs:** ya en trunk (#20). Emails/team/Neon/Vercel docs del tip
+pasan a placeholder o env.
 
 **Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
 «haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
@@ -33,8 +38,6 @@ Falta archivo por familia y comparativa de homólogos.
 - Instalar la build de iOS y probar el hub de Carrera (la instala él).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
-- Mergear PR #16: el editor de tests ya no disfraza el 5K control / half-sim
-  de Remo 2K (entra «Carrera 5 km»; ley DECISIONS 15-ago).
 
 ## Parqueado (no tocar)
 

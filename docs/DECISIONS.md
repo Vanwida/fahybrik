@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-17 · La piel del club es dato del coach, no marca del binario
+
+**El hueco:** FLEXR es una app y muchos coaches. El dashboard pintaba FAHYBRID y el naranja del token aunque el club tuviera nombre, logo y color propios. `coaches.full_name` es el nombre del workspace (sesión `club_name`); `avatar_url` es la cara de la persona. Ninguno es el lockup.
+
+**Decidido:**
+- Tres columnas en `coaches` (0199): `club_skin_name`, `club_logo_url`, `club_accent_hex`. NULL = marca de ESTE binario (`FAHYBRID`, `/brand/fh-icon-300.png`, `--v2-accent`).
+- Nombre y color los escribe `PATCH /api/coach/club`. El logo solo lo escriben `POST /api/coach/club/logo/confirmar` y `DELETE /api/coach/club/logo`. Aceptar `logo_url` en el PATCH daría dos escritores y una URL inventada.
+- El acento se clava en `.v2-root` (`--v2-accent*`). El dashboard ya lee esas variables; no se pinta club a club en cada botón.
+- Esta tanda solo pinta el dashboard del coach. El atleta (iOS / FLEXR) lee la misma fila cuando exista esa superficie.
+
+**NO hacer:** no reutilizar `coaches.full_name` ni `avatar_url` como wordmark/logo; no hardcodear un naranja de un club; no aceptar `#rgb` ni `rgb()`; no crear tabla nueva para tres nullables.
+
+---
+
 ## 2026-08-17 · Cómo entrenas es la entrevista, no el recuadro
 
 **El hueco:** un recuadro vacío («escribe tu método») no sirve. Cinco urgencias tampoco: eso es el borde, no el oficio. La IA no puede escribir sesiones si solo sabe qué hace un martes malo.
