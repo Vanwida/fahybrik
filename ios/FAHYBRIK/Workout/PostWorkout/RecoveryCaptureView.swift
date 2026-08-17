@@ -58,7 +58,11 @@ struct RecoveryCaptureView: View {
             }
         }
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
+            // La pantalla despierta la lleva WorkoutContainer por fase. Gestionarla
+            // aquí con onAppear/onDisappear propios era una carrera: en el relevo
+            // .active → .recovery el onAppear de esta vista podía ejecutarse ANTES
+            // del onDisappear de ActiveWorkoutView, y su false final dejaba la
+            // pantalla durmiéndose a mitad de la medición.
             if !PhoneMirrorService.shared.wristJoined {
                 liveHR.onSample = { [weak session] bpm in
                     session?.injectLiveHR(bpm, source: .healthkit)
@@ -68,7 +72,6 @@ struct RecoveryCaptureView: View {
         }
         .onDisappear {
             liveHR.stop()
-            UIApplication.shared.isIdleTimerDisabled = false
         }
         .task {
             // Auto-close when the 90 s window ends (the engine stops accepting

@@ -302,9 +302,10 @@ struct ActiveWorkoutView: View {
             if !PhoneMirrorService.shared.wristJoined {
                 liveHR.start(from: session.startedAt)
             }
-            // Keep the screen awake during the lock-in workout (no auto-lock
-            // mid-EMOM); locked-screen beeps are still covered by background audio.
-            UIApplication.shared.isIdleTimerDisabled = true
+            // La pantalla despierta (isIdleTimerDisabled) la lleva WorkoutContainer
+            // por fase, no esta vista: en el relevo .active → .recovery los
+            // onAppear/onDisappear de dos vistas no tienen orden garantizado y el
+            // flag podía quedar apagado a mitad de la medición de recuperación.
         }
         .onDisappear {
             session.stop()
@@ -316,7 +317,6 @@ struct ActiveWorkoutView: View {
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
             releaseDevicesOnFinish()
-            UIApplication.shared.isIdleTimerDisabled = false
         }
         .task { await pollPartnerLive() }
         .onChange(of: session.isFinished) { _, finished in
