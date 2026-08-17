@@ -252,6 +252,14 @@ struct WatchReloj: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accesibilidad(p))
             .accessibilityAddTraits(p.onToca != nil ? .isButton : [])
+            // VoiceOver NO atraviesa un DragGesture: el doble toque de activación
+            // y los deslizamientos del rotor jamás llegan a `gestoPrincipal`, así
+            // que «la pantalla es el botón» no existía con VoiceOver encendido.
+            // Se declaran los dos gestos como acciones de accesibilidad: activar
+            // dispara la acción de la página, ajustar (deslizar arriba/abajo)
+            // pasa de página, y el valor anuncia en cuál estás.
+            .accionAccesible(p.onToca)
+            .paginadoAccesible(total: paginas.count, indice: indice, ir: ir)
 
             // Los puntos de página no existen con la muñeca baja: no se puede
             // deslizar, así que anunciar que hay más páginas sería ofrecer algo
@@ -266,6 +274,10 @@ struct WatchReloj: View {
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 2)
+                // La posición ya la anuncia el valor de accesibilidad del área de
+                // contenido; unos círculos sin nombre solo añadirían paradas mudas
+                // al rotor.
+                .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, 10)
@@ -313,6 +325,49 @@ struct WatchReloj: View {
         if let s = p.segundoValor { parts.append(s) }
         if let a = p.accion { parts.append(a) }
         return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - Gestos del lienzo, en la voz de VoiceOver
+//
+// El área de contenido recoge toque y deslizamiento con UN DragGesture, y los
+// gestos de SwiftUI no reciben los eventos sintetizados de VoiceOver. Estas dos
+// ayudas son la traducción: la acción de la página como acción por defecto
+// (doble toque) y el paso de página como acción ajustable (deslizar arriba /
+// abajo), que es como pagina cualquier pager del sistema con VoiceOver.
+private extension View {
+    /// Acción por defecto de VoiceOver = el `onToca` de la página. Solo cuando la
+    /// página LO TIENE: declararla siempre ofrecería un doble toque que no hace
+    /// nada, y el trait de botón ya se pone aparte solo cuando corresponde.
+    @ViewBuilder
+    func accionAccesible(_ onToca: (() -> Void)?) -> some View {
+        if let onToca {
+            accessibilityAction {
+                WatchHaptics.tap()
+                onToca()
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Paginado accesible: con más de una página, el elemento se vuelve ajustable
+    /// y anuncia su posición. `ir` ya envuelve el índice (módulo), igual que el
+    /// deslizamiento físico.
+    @ViewBuilder
+    func paginadoAccesible(total: Int, indice: Int, ir: @escaping (Int) -> Void) -> some View {
+        if total > 1 {
+            accessibilityValue("página \(indice + 1) de \(total)")
+                .accessibilityAdjustableAction { direccion in
+                    switch direccion {
+                    case .increment: ir(indice + 1)
+                    case .decrement: ir(indice - 1)
+                    @unknown default: break
+                    }
+                }
+        } else {
+            self
+        }
     }
 }
 
