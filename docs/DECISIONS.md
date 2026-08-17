@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-17 · Cómo trabajo es texto + PDF del coach, no los 5 mandos
+
+**El hueco:** `docs/metodologia-coach.html` pide que el coach rellene cómo trabaja para que la IA pueda imitarlo. PR #22 persistía 5 mandos (zonas, tests, fin de bloque, bajar el día, tono). Eso no es el relleno. Se cerró sin mergear.
+
+**Decidido:**
+- Tabla nueva `coach_how_i_work` (0197): `body_text` + PDF en bytea. Una fila por `coach_id`. Sin fila = vacío = no imitar.
+- No se rellena `coach_methodology` (0048). No se reabren los 5 mandos.
+- No se usa `methodology_documents` (eso es el cajón de papers / RAG). El PDF de método no se trocea ni se embebe.
+- Pantalla `/es/metodologia` (Clerk ya la protegía). Ajustes enlaza ahí.
+- Chat/plan/MCP no se cablean en este lote.
+
+**NO hacer:** no reabrir #22. No buscar papers. No inventar un método por defecto. No mergear a `main`.
+
+---
+
 ## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
 
 **El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.

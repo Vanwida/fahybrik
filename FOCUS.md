@@ -2,9 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (copy de periodización: el coach nombra el orden)
+Última actualización: **2026-08-17** (pantalla Cómo trabajo: texto + PDF por coach)
 
 ## Ahora
+
+**Cómo trabajo:** rama `feat/coach-how-i-work` contra `integration/trunk`.
+Texto + PDF de método por `coach_id` (`coach_how_i_work`, 0197). Vacío = no imitar.
+Pantalla `/es/metodologia`. No papers, no LLM, no #22. No merge.
 
 **Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
 Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.

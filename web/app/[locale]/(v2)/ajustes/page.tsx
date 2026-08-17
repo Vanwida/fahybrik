@@ -1,7 +1,6 @@
 // v2 · AJUSTES — coach settings. Server component: loads the coach session (auth)
-// + the editable profile, then renders the editable profile form and a link out
-// to Metodología/Periodización (the doc corpus that feeds the IA). v2 brand
-// tokens, light + dark.
+// + the editable profile, then renders the editable profile form and a link
+// to Cómo trabajo (texto + PDF de método). v2 brand tokens, light + dark.
 
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
@@ -19,8 +18,7 @@ import { PushCard } from '@/components/v2/push/PushNotifications';
 
 export const dynamic = 'force-dynamic';
 
-// Canonical v2 route for the periodization editor (Niveles + Fases).
-const METODOLOGIA_HREF = '/periodizacion';
+const METODOLOGIA_HREF = '/metodologia';
 
 export default async function V2AjustesPage({
   params,
@@ -85,10 +83,10 @@ export default async function V2AjustesPage({
               </span>
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                  Periodización y fases
+                  Cómo trabajo
                 </span>
                 <span className="text-xs text-[color:var(--v2-muted)]">
-                  Define las fases y principios que alimentan a Coach IA.
+                  Texto y PDF de método. Vacío = la IA no te imita.
                 </span>
               </div>
               <MIcon

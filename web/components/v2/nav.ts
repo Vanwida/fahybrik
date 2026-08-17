@@ -5,7 +5,7 @@
 // The primary nav is split into three GROUPS that mirror the three hats of the coach:
 //   · "entrenar" — the daily loop with his athletes: triage, roster, messages.
 //   · "negocio"  — running the business: capture leads, get paid, watch the funnel.
-//   · "metodo"   — build the method: periodization framework + reusable library.
+//   · "metodo"   — cómo trabaja, el marco, la biblioteca reutilizable.
 // Ajustes stays pinned to the bottom (see V2_NAV_SETTINGS).
 
 /** The three sidebar groups; `null` = no group header (e.g. pinned Ajustes). */
@@ -44,7 +44,8 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
   { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
   { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
-  // Método — the framework first, then the reusable library, then the tests.
+  // Método — cómo trabaja el coach, luego el marco, la biblioteca y los tests.
+  { href: '/metodologia', label: 'Cómo trabajo', icon: 'psychology', group: 'metodo' },
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },

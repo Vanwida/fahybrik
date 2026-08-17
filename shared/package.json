@@ -70,6 +70,10 @@
       "types": "./domain/dobles-gap/index.ts",
       "default": "./domain/dobles-gap/index.ts"
     },
+    "./domain/coach/*": {
+      "types": "./domain/coach/*.ts",
+      "default": "./domain/coach/*.ts"
+    },
     "./domain/athlete/*": {
       "types": "./domain/athlete/*.ts",
       "default": "./domain/athlete/*.ts"
