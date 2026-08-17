@@ -72,33 +72,62 @@ export default async function V2AjustesPage({
         {/* ── Metodología ────────────────────────────────────────────────── */}
         <section>
           <h2 className="v2-micro mb-2">Metodología</h2>
-          <Card interactive className="overflow-hidden">
-            <Link
-              href={METODOLOGIA_HREF}
-              className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
-            >
-              <span
-                aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+          <div className="flex flex-col gap-2">
+            <Card interactive className="overflow-hidden">
+              <Link
+                href="/como-entrenas"
+                className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
               >
-                <MIcon name="psychology" size={20} />
-              </span>
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                  Periodización y fases
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                >
+                  <MIcon name="tune" size={20} />
                 </span>
-                <span className="text-xs text-[color:var(--v2-muted)]">
-                  Define las fases y principios que alimentan a Coach IA.
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                    Cómo entrenas
+                  </span>
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Siete capítulos. El producto te devuelve tu sistema en un párrafo.
+                  </span>
+                </div>
+                <MIcon
+                  name="chevron_right"
+                  size={20}
+                  className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                  aria-hidden
+                />
+              </Link>
+            </Card>
+            <Card interactive className="overflow-hidden">
+              <Link
+                href={METODOLOGIA_HREF}
+                className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                >
+                  <MIcon name="psychology" size={20} />
                 </span>
-              </div>
-              <MIcon
-                name="chevron_right"
-                size={20}
-                className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
-                aria-hidden
-              />
-            </Link>
-          </Card>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                    Periodización y fases
+                  </span>
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Define las fases y principios que alimentan a Coach IA.
+                  </span>
+                </div>
+                <MIcon
+                  name="chevron_right"
+                  size={20}
+                  className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                  aria-hidden
+                />
+              </Link>
+            </Card>
+          </div>
         </section>
 
         {/* ── Avisos de lo que publica (días de espera de las señales) ────── */}
