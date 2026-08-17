@@ -161,14 +161,14 @@ struct AppRoot: View {
             Button("Emparejar") { Task { await acceptPendingPartnerAuthenticated() } }
             Button("Ahora no", role: .cancel) { pendingPartnerToken = nil }
         } message: {
-            Text("Tu compañero/a te ha invitado a entrenar Dobles. ¿Emparejar tu cuenta actual de FAHYBRID?")
+            Text("Tu compañero/a te ha invitado a entrenar Dobles. ¿Emparejar tu cuenta actual de \(Marca.nombre)?")
         }
         // Authenticated user tapping a coach→athlete account-claim link (that flow
         // creates a NEW account) — explain clearly instead of a silent no-op.
-        .alert("Ya tienes cuenta en FAHYBRID", isPresented: authedInviteTokenBinding) {
+        .alert("Ya tienes cuenta en \(Marca.nombre)", isPresented: authedInviteTokenBinding) {
             Button("Entendido", role: .cancel) { pendingInviteToken = nil }
         } message: {
-            Text("Este enlace de invitación crea una cuenta nueva y tú ya tienes cuenta en FAHYBRID.")
+            Text("Este enlace de invitación crea una cuenta nueva y tú ya tienes cuenta en \(Marca.nombre).")
         }
         // Outcome of the partner-accept attempt.
         .alert("Dobles", isPresented: partnerAcceptResultBinding) {

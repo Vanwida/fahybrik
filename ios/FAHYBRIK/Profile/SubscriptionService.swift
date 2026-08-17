@@ -26,13 +26,17 @@ import Foundation
 enum SubscriptionService {
     /// Public-facing web host where the athlete manages billing / account when
     /// they have no Stripe customer yet (never went through checkout) or their
-    /// subscription is inactive. Single source of truth for the domain string.
-    static let accountWebHost = "fahybrid.com"
+    /// subscription is inactive.
+    ///
+    /// Decía ser la fuente única del dominio y no lo era: las dos pantallas
+    /// legales y el origen del reproductor incrustado llevaban su propio
+    /// literal. La fuente está en `Marca`, que lo lee del bundle.
+    static var accountWebHost: String { Marca.dominioWeb }
 
     /// Full URL the gated / inactive states open in an SFSafariViewController.
     /// We point at the account page, NOT a checkout — the app must never open
     /// an in-app purchase flow (Apple Guideline 3.1.3(b)).
-    static let accountWebURL = URL(string: "https://\(accountWebHost)/account")!
+    static var accountWebURL: URL { Marca.cuentaWeb }
 
     /// `GET /api/athlete/subscription`. Returns the athlete's current
     /// subscription snapshot + product tier. Never throws on "no subscription"

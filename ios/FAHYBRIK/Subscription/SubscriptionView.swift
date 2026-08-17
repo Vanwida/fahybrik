@@ -283,7 +283,7 @@ struct SubscriptionView: View {
                 Text("Tu suscripción no está activa")
                     .font(Theme.Typography.bodyEmph)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Tu plan se gestiona desde la web de FAHYBRID. Cuando esté activo, aquí verás tu acceso completo.")
+                Text("Tu plan se gestiona desde la web de \(Marca.nombre). Cuando esté activo, aquí verás tu acceso completo.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)

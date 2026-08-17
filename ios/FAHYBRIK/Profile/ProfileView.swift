@@ -289,7 +289,7 @@ struct ProfileView: View {
             Button("Quitar", role: .destructive) { disconnectWatchWorkouts() }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Las quitaremos de la app Entrenamiento del reloj. Seguirás teniéndolas aquí, en FAHYBRID.")
+            Text("Las quitaremos de la app Entrenamiento del reloj. Seguirás teniéndolas aquí, en \(Marca.nombre).")
         }
         .task {
             // The athlete can revoke the permission from iOS Ajustes while the app is
@@ -1164,7 +1164,7 @@ struct ProfileView: View {
     private var watchWorkoutsSubtitle: String {
         if !watchScheduler.isSupported { return "No disponible en este dispositivo" }
         if watchWorkoutsDenied {
-            return "No diste permiso. Actívalo en Ajustes → FAHYBRID para ver tus carreras en el reloj."
+            return "No diste permiso. Actívalo en Ajustes → \(Marca.nombre) para ver tus carreras en el reloj."
         }
         if watchScheduler.isEnabled {
             if let count = watchScheduler.scheduledCount {
@@ -1443,14 +1443,14 @@ struct ProfileView: View {
                 profileRow(
                     icon: "lock.shield",
                     title: "Privacidad",
-                    subtitle: "fahybrid.com/privacy",
+                    subtitle: Marca.privacidadTexto,
                     action: { sheet = .privacy }
                 )
                 Hairline()
                 profileRow(
                     icon: "doc.text",
                     title: "Términos",
-                    subtitle: "fahybrid.com/terms",
+                    subtitle: Marca.terminosTexto,
                     action: { sheet = .terms }
                 )
             }
@@ -1899,15 +1899,17 @@ private struct LegalSheet: View {
 }
 
 private enum LegalCopy {
-    static let privacy = "FAHYBRID procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
+    static var privacy: String {
+        "\(Marca.nombre) procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en \(Marca.privacidadTexto). Si tienes dudas, escribe a \(Marca.soporteEmail)."
+    }
 
     /// FREE has no coach, no methodology ownership and nothing that renews —
     /// its terms speak to the athlete alone. Coached keeps today's copy.
     static func terms(hasCoach: Bool) -> String {
         if hasCoach {
-            return "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+            return "El uso de \(Marca.nombre) implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en \(Marca.terminosTexto)."
         }
-        return "El uso de FAHYBRID implica aceptar nuestros términos de servicio. Tu cuenta es gratuita y tus datos son tuyos: puedes exportarlos o eliminar tu cuenta cuando quieras desde Perfil.\n\nLa versión completa está disponible en fahybrid.com/terms."
+        return "El uso de \(Marca.nombre) implica aceptar nuestros términos de servicio. Tu cuenta es gratuita y tus datos son tuyos: puedes exportarlos o eliminar tu cuenta cuando quieras desde Perfil.\n\nLa versión completa está disponible en \(Marca.terminosTexto)."
     }
 }
 

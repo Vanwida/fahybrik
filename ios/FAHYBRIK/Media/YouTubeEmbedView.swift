@@ -39,7 +39,7 @@ import Combine
 
 /// The embedding origin handed to the YouTube player. Must be a real https
 /// origin the player can validate against; we use the app's own domain.
-private let kEmbedOrigin = "https://www.fahybrid.com"
+private var kEmbedOrigin: String { Marca.origenIncrustado }
 /// Name of the JS→Swift bridge used to surface in-player errors.
 private let kErrorHandlerName = "ytError"
 /// Caps the inline width of a portrait (Short) player so a 9:16 video does not
@@ -197,7 +197,12 @@ struct YouTubeEmbedView: UIViewRepresentable {
                 || host.contains("google")
                 || host.contains("ggpht")
                 || host.contains("gstatic")
-                || host.contains("fahybrid")
+                // Nuestro propio dominio: es el ORIGEN que se le entrega al
+                // reproductor (kEmbedOrigin), así que si no está en la lista el
+                // player se queda sin poder validarse. Sale de `Marca` y no de un
+                // literal justo por eso: con el literal, una marca con otro
+                // dominio se bloquearía a sí misma sin ningún error visible.
+                || host.contains(Marca.dominioWeb)
             decisionHandler(allowed ? .allow : .cancel)
         }
     }

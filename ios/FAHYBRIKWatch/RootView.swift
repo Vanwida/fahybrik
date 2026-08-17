@@ -324,7 +324,7 @@ private struct EmptyStateView: View {
                 Image(systemName: "iphone.gen3")
                     .font(.system(size: 28))
                     .foregroundStyle(WatchTheme.dim)
-                Text("Abre FAHYBRID en el iPhone")
+                Text("Abre \(Marca.nombre) en el iPhone")
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundStyle(WatchTheme.ink)
                     .multilineTextAlignment(.center)
