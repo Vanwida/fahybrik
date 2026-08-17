@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-17** (módulo compartido iOS/watchOS)
+Última actualización: **2026-08-17** (clonabilidad iOS: marca en un solo ajuste)
 
 ## Ahora
 
@@ -29,6 +29,14 @@ comentarios de producto alineados al orden de microciclos que nombra el coach.
 
 **FLEXR copy IDs:** ya en trunk (#20). Emails/team/Neon/Vercel docs del tip
 pasan a placeholder o env.
+
+**Clonabilidad iOS (`feat/ios-flexr-clone-gaps`, PR abierto):** marca, bundle id,
+dominio, esquema y equipo de firma pasan a 5 ajustes de `settings.base`; los tres
+Info.plist, los entitlements y `Marca.swift` (en Core → también reloj) los
+expanden. Corregido `FAHYBRIK · Reloj` visible en ajustes de Zepp. Valores
+resueltos idénticos (verificado en el bundle construido). Huecos que NO se tocan
+—UUID de Connect IQ, appId de Zepp, firma ASC, y la firma de WorkoutKit que dos
+marcas compartirían— en `docs/ios-clonabilidad.md`. Sin FLEXR repo.
 
 **Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
 «haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
