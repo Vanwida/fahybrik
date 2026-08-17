@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-17 · Estudio de papers es RAG por coach, no método ni plan
+
+**El hueco:** el coach no tenía superficie para subir y buscar papers. `methodology_documents` + `methodology_chunks` ya son el cajón RAG (pgvector). #23 dejó escrito que ese cajón no es el PDF de «Cómo trabajo». El ajuste semanal y MCP `search_methodology` leían TODO el corpus.
+
+**Decidido:**
+- Un paper = fila en `methodology_documents` + chunks, `source_type = paper` (0198), scoped por `coach_id`. No hay tabla nueva.
+- Estudio `/es/estudio` + API `/api/coach/papers`: upload, lista, archivo, búsqueda semántica. UI mínima. Clerk en `proxy.ts`.
+- `retrieveRelevant` y `listDocuments` sin filtro de tipo excluyen `paper`. El ajuste de semana y `search_methodology` no ven literatura. La IA no crea planes con papers.
+- `POST /api/coach/methodology/documents` no acepta `source_type=paper`. El servidor de `/api/coach/papers` sella `paper`; el cliente no elige tipo.
+- No toca `coach_how_i_work` ni `/es/metodologia` (#23). No mergear #23 aquí.
+
+**NO hacer:** no cablear papers al compositor de semana. No mezclar el PDF de método con este cajón. No mergear a `main`.
+
+---
+
 ## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
 
 **El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.

@@ -2,15 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-16** (copy de periodización: el coach nombra el orden)
+Última actualización: **2026-08-17** (estudio de papers)
 
 ## Ahora
 
-**Copy de periodización:** rama `chore/purge-legacy-periodization-copy` contra `integration/trunk`.
-Docs vivos, app-store, guía y comentarios de producto alineados al orden de microciclos que nombra el coach. No merge.
-
-**FLEXR copy IDs:** rama `chore/redact-flexr-copy-ids` contra `integration/trunk`.
-Emails/team/Neon/Vercel docs del tip pasan a placeholder o env. No merge.
+**Estudio papers:** rama `feat/coach-studio-papers` contra `integration/trunk` (base #24 `6918f497`).
+Upload + lista + búsqueda por `coach_id` (`source_type=paper`, 0198). `/es/estudio`.
+La IA no crea planes con papers. No es #23. No main. No merge.
 
 **Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
 «haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
@@ -28,8 +26,6 @@ Falta archivo por familia y comparativa de homólogos.
 - Instalar la build de iOS y probar el hub de Carrera (la instala él).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
-- Mergear PR #16: el editor de tests ya no disfraza el 5K control / half-sim
-  de Remo 2K (entra «Carrera 5 km»; ley DECISIONS 15-ago).
 
 ## Parqueado (no tocar)
 
