@@ -550,6 +550,20 @@ targets:
 # ============================================================================
 schemes:
   FAHYBRIK:
+    # BUILD DE SIMULADOR — comando oficial:
+    #
+    #   xcodebuild -project ios/FAHYBRIK.xcodeproj -scheme FAHYBRIK \
+    #     -destination 'generic/platform=iOS Simulator' build
+    #
+    # SIEMPRE con -destination, NUNCA con `-sdk iphonesimulator`: -sdk fuerza el
+    # SDK del iPhone a TODOS los targets del grafo, incluido el reloj (watchOS).
+    # actool compila entonces el catálogo del reloj con --platform iphonesimulator
+    # — su AppIcon (solo watchos) queda sin contenido aplicable y el build muere
+    # con exit 65; los __preview.dylib del reloj y de los widgets fallan al
+    # enlazar por el mismo SDK equivocado. Con -destination, xcodebuild lleva
+    # cada dependencia a su plataforma (reloj → watchsimulator) y el esquema
+    # entero compila. Para correr en un simulador concreto, cambia el destination
+    # a 'platform=iOS Simulator,name=iPhone 17 Pro'.
     build:
       targets:
         FAHYBRIK: all
