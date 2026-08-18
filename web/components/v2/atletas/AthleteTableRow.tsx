@@ -26,6 +26,7 @@ import type { RosterRow } from '@/lib/dashboard/v2/atletas-row';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import { cn } from '@/lib/utils';
 import { GRID_COLS } from '@/components/v2/atletas/grid';
+import { WeekStateChip } from '@/components/v2/WeekStateChip';
 
 /** Las marcas que cuelgan del estado (lesión, pausa pedida, check-in en riesgo).
  *  Se pintan igual en las dos formas de la fila, así que viven en un sitio. */
@@ -125,6 +126,11 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
         <MarcasDeEstado row={row} />
       </div>
 
+      {/* ── Semana calendario — la ve / no la ve / vacía / acabó / sin plan ─ */}
+      <div className="hidden min-w-0 lg:block">
+        <WeekStateChip chip={row.week_chip} />
+      </div>
+
       {/* ── Fase actual — bloque para que `truncate` recorte de verdad ─────── */}
       <div className="hidden min-w-0 lg:block" title={row.phase_label}>
         <span
@@ -155,6 +161,7 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
       {/* ── Segunda línea (< lg) — los datos de triaje, que antes desaparecían.
              Misma información que las columnas de arriba, recompuesta. ─────── */}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[calc(1.75rem+0.625rem+0.25rem)] lg:hidden">
+        <WeekStateChip chip={row.week_chip} />
         <span className="min-w-0 max-w-full truncate text-xs text-[color:var(--v2-faint)]" title={row.phase_label}>
           {row.phase_label}
         </span>

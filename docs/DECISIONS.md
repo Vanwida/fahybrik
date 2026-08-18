@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-18 · Chip de estado del atleta: una frase en lista, ficha y semana
+
+**El hueco:** `programming_status` cuenta `workout_assignments` de la semana calendario sin filtrar `weekly_plans.status='draft'`. Un borrador lleno salía «Plan OK» / `week_ok`. El roster metía `no_month`, `empty_week` y el bloque vencido en el mismo «Sin plan». El panel enseñaba la semana sin decir si el atleta la ve. El MCP ya lo dice (`athlete_sees_it`).
+
+**Decidido:** una capa de presentación, no un tercer status de publicación. Función pura `athleteWeekChip` (existencia × visibilidad). Visibilidad = la misma puerta que el móvil y el MCP: solo `draft` esconde; sin fila se ve (10-ago). Cinco frases: Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan. El mismo chip en roster, cabecera de ficha, Resumen y SemanaCanvas. `week_ok` = Visible y sin alerta — un draft lleno no es entregado.
+
+**NO hacer:** no auto-publicar tras MCP ni al pintar el chip. No exigir fila `published` para que se vea (rompe `sin_marcar`). No mezclar este chip con el badge de microciclo (`partial` = semanas en borrador) ni con `assignment_status='partial'` (sesión cortada).
+
+---
+
 ## 2026-08-17 · La marca de la app iOS se cambia en un ajuste, no en treinta literales
 
 **El hueco:** este código se vende como FLEXR, así que antes o después hay una segunda app iOS con otro nombre y otro dominio. Hasta hoy eso eran ~30 literales repartidos por sitios que no se buscan juntos: el nombre visible en tres `Info.plist` **y dentro de las diez descripciones de permisos**, el bundle id en cinco targets más `WKCompanionAppBundleIdentifier`, el esquema de URL en dos, el dominio en los dos entitlements y en cuatro ficheros Swift (dos pantallas legales que llevaban cada una su literal, la web de cuenta que se anunciaba como «fuente única» sin serlo, y el origen que valida el reproductor incrustado), y `DEVELOPMENT_TEAM` escrito cuatro veces. **Olvidar uno no rompe la build:** sale a la cara del atleta —una hoja de permisos nombrando otra marca— o, en el caso de `WKCompanionAppBundleIdentifier`, watchOS deja de reconocer la pareja teléfono↔reloj y el teléfono tira cada push a la muñeca sin avisar.

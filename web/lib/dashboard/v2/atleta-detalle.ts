@@ -42,6 +42,8 @@ import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { listCommunicationsForAthlete } from '@/lib/coach/communications';
 import { EMPTY_FICHA, loadFichaResumenExtras } from '@/lib/dashboard/v2/ficha-resumen-load';
+import { loadAthleteWeekChipMap } from '@/lib/dashboard/coach/load-athlete-week-chip';
+import { SIN_PLAN_CHIP } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
@@ -334,6 +336,7 @@ export async function loadAthleteDetalle(params: {
     testLibrary,
     communications,
     ficha,
+    weekChipMap,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -366,6 +369,9 @@ export async function loadAthleteDetalle(params: {
     // que verse estando en cualquier otra pestaña. Degrada a vacío como el resto.
     listCommunicationsForAthlete({ coach_id, athlete_id, sql: client }).catch(() => []),
     loadFichaResumenExtras({ coach_id, athlete_id, client }).catch(() => EMPTY_FICHA),
+    loadAthleteWeekChipMap({ athlete_ids: [athlete_id], client }).catch(
+      () => new Map(),
+    ),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -402,6 +408,7 @@ export async function loadAthleteDetalle(params: {
       edited_by_name: shell.edited_by_name,
       edited_at: shell.edited_at,
     },
+    week_chip: weekChipMap.get(String(athlete_id)) ?? SIN_PLAN_CHIP,
   };
 
   // Degrade safely: a failed classification load renders the picker in its empty

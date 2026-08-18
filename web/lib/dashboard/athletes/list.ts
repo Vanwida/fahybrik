@@ -22,6 +22,12 @@ import type {
   PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
+import {
+  weekIsDelivered,
+  SIN_PLAN_CHIP,
+  type AthleteWeekChip,
+} from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { loadAthleteWeekChipMap } from '@/lib/dashboard/coach/load-athlete-week-chip';
 
 export type { ProgrammingStatus };
 
@@ -64,6 +70,8 @@ export interface AthleteRow {
   alert_label: string | null;
   alert_severity: 'critical' | 'warning' | null;
   week_ok: boolean;
+  /** Entrega de la semana calendario: misma frase en lista, ficha y lienzo. */
+  week_chip: AthleteWeekChip;
   modality: AthleteModality | null;
   /** True when the athlete's active subscription is coach-granted (free). */
   is_comp: boolean;
@@ -301,10 +309,11 @@ export async function fetchAthletesForCoach(params: {
   // status, the soft order-altered info signal, and readiness — the last via the
   // shared motor (compute-on-miss + recorded_for <= today guard) so the roster
   // shows the SAME live score the athlete's own surface computes, never a raw '—'.
-  const [statusMap, orderAlteredMap, readinessMap] = await Promise.all([
+  const [statusMap, orderAlteredMap, readinessMap, weekChipMap] = await Promise.all([
     loadProgrammingStatusMap({ athlete_ids: ids, client }),
     getOrderAlteredByAthlete(ids, client),
     getLatestReadinessBatch({ athlete_ids: ids, client }),
+    loadAthleteWeekChipMap({ athlete_ids: ids, client }),
   ]);
 
   return rows.map((r) => {
@@ -342,7 +351,9 @@ export async function fetchAthletesForCoach(params: {
       alert_severity = 'warning';
     }
 
-    const week_ok = programming_status === 'ok' && !alert_label;
+    const week_chip = weekChipMap.get(r.athlete_id) ?? SIN_PLAN_CHIP;
+    // Entregado = el atleta VE sesiones esta semana. Un draft lleno no es Plan OK.
+    const week_ok = weekIsDelivered(week_chip.kind) && !alert_label;
 
     return {
       athlete_id: r.athlete_id,
@@ -361,6 +372,7 @@ export async function fetchAthletesForCoach(params: {
       alert_label,
       alert_severity,
       week_ok,
+      week_chip,
       modality: (r.modality as AthleteModality | null) ?? null,
       is_comp: r.sub_source === 'comp',
       intake_pending: isIntakePending({

@@ -16,6 +16,7 @@ import { FichaCard, FichaLabel, FilaVacia } from './resumen/piezas';
 import { SemanaCanvas } from './plan/semana';
 import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { dayCanvasHref } from '@/lib/dashboard/v2/planes-model';
 import { diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function PlanTab({
   athlete_id,
   initialSessionId,
   intakePending,
+  weekChip,
 }: {
   plan: AthletePlanPayload | null;
   planMode: 'shared' | 'personal';
@@ -47,6 +49,7 @@ export function PlanTab({
   athlete_id: string;
   initialSessionId?: string | null;
   intakePending?: boolean;
+  weekChip: AthleteWeekChip;
 }) {
   const [openSession, setOpenSession] = useState<string | null>(initialSessionId ?? null);
   const openSessionSynced = useCallback((id: string | null) => {
@@ -244,6 +247,7 @@ export function PlanTab({
               week={activeWeek}
               todayIso={isoDateString(startOfDayInBox(new Date()))}
               label={weekLabel}
+              chip={weekChip}
               canPrev={clampedWeekIdx > 0}
               canNext={clampedWeekIdx < plan.weeks.length - 1}
               showHoy={!isTodayWeek && todayWeek !== null}
