@@ -7,9 +7,21 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **Trunk 17-ago:** #27 HUD apaisado · #26 Cómo entrenas · #28 ficha Club.
+**Trunk 18-ago:** #29 esquema de simulador · #30 Core compartido · #31 reparto de
+`WorkoutSession` · #32 reloj listo para producción · #33 clonabilidad de marca.
 En `integration/trunk`. No main.
 
-**Dominio compartido iOS/watchOS (`feat/ios-shared-core`, PR abierto):** los ~50
+**Reparto de `WorkoutSession` (#31, en trunk):** 3.531
+líneas → 13 ficheros por responsabilidad (estado · máquina · reloj · EMOM ·
+formatos · carrera · bouts · registro · estructurales · hierro · señal · contador
+· recuperación), más los `+Tramo` / `+Trace` que ya estaban. Cero lógica tocada:
+las 3.294 líneas no vacías salen las 3.294, cada una una vez. El estado se queda
+entero en `WorkoutSession.swift` porque Swift no deja propiedades almacenadas en
+extensiones — de ahí 67 propiedades y 27 métodos a interno; 30 métodos siguen
+privados en su motor. Build + build-for-testing OK, suite iOS 1503/0.
+Ley: DECISIONS 17-ago «el motor de la sesión se reparte por responsabilidad».
+
+**Dominio compartido iOS/watchOS (#30, en trunk):** los ~50
 `- path:` a mano del target del reloj mueren. Nace `ios/FAHYBRIKCore/` (52
 ficheros, subruta intacta) y la incluyen entera los dos targets, así que lo
 compartido lo dice la carpeta. No es módulo Swift aparte a propósito:
@@ -30,7 +42,7 @@ comentarios de producto alineados al orden de microciclos que nombra el coach.
 **FLEXR copy IDs:** ya en trunk (#20). Emails/team/Neon/Vercel docs del tip
 pasan a placeholder o env.
 
-**Clonabilidad iOS (`feat/ios-flexr-clone-gaps`, PR abierto):** marca, bundle id,
+**Clonabilidad iOS (#33, en trunk):** marca, bundle id,
 dominio, esquema y equipo de firma pasan a 5 ajustes de `settings.base`; los tres
 Info.plist, los entitlements y `Marca.swift` (en Core → también reloj) los
 expanden. Corregido `FAHYBRIK · Reloj` visible en ajustes de Zepp. Valores

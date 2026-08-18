@@ -38,7 +38,15 @@ struct MirrorHUDView: View {
             // la primera trama, o la perdió).
             WatchTheme.bg.ignoresSafeArea()
 
-            if controller.state == .ending || phase == MirrorWire.Phase.finished {
+            // SOLO el estado del controller enseña «Guardando…»: `.ending` es el
+            // único momento en que de verdad se está guardando (y su timeout de 8s
+            // garantiza salida). La fase `finished` del frame venía del MÓVIL y
+            // podía quedarse sin su `end` detrás (p.ej. la ventana de recuperación
+            // de un test retrasa el cierre 90 s): el reloj mostraba un spinner
+            // infinito que mentía, sin guardar nada y sin escape — los frames
+            // seguían llegando y el watchdog nunca ofrecía la salida local. Con la
+            // fase final y sin cierre, se sigue enseñando el último estado real.
+            if controller.state == .ending {
                 savingOverlay
             } else if frame == nil {
                 // Espejo activo sin trama: nunca dejar la pantalla en negro.

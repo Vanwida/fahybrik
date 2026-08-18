@@ -32,8 +32,16 @@ struct DevicePickerSheet: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 header
                 Divider().background(Theme.Color.hairline)
-                content
-                Spacer(minLength: 0)
+                // Esta hoja se abre también EN PLENO apaisado (el chip de la cinta
+                // del HUD en carrera) y en el detent medio de retrato: con dos o
+                // tres dispositivos + banner + ayuda persistente, la lista
+                // desbordaba sin scroll y se llevaba por delante los botones y la
+                // ayuda. El contenido se desplaza; la cabecera con la X, no.
+                ScrollView(showsIndicators: false) {
+                    content
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxHeight: .infinity)
             }
             .padding(Theme.Spacing.l)
         }

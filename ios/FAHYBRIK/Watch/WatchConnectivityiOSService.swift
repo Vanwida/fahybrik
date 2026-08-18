@@ -186,6 +186,11 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
 
     @MainActor
     func clearToday() {
+        // Igual que pushToday: si esta es la PRIMERA llamada a WCSession del
+        // proceso (atleta sin plan al primer render), sin activate() la sesión no
+        // tenía delegate ni activación — el `.clear` pendiente no se vaciaba nunca
+        // y todo lo que llegara de la muñeca se perdía en silencio.
+        activate()
         let session = WCSession.default
         guard session.activationState == .activated else {
             pendingContext = .clear

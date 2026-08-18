@@ -41,8 +41,14 @@ enum OrientationGate {
         // immediately. Skipped when a newer push/pop changed the lock meanwhile.
         DispatchQueue.main.asyncAfter(deadline: .now() + forceFallbackDelay) {
             guard PushAppDelegate.orientationLock == mask,
-                  let scene = activeScene,
-                  !mask.contains(scene.interfaceOrientation.asMask) else { return }
+                  let scene = activeScene else { return }
+            // `.unknown` (una transición de escena aún en vuelo) mapeaba a
+            // `.portrait`, y como los dos masks de la app contienen portrait, el
+            // guard saltaba y este forzado quedaba desarmado justo en el único
+            // estado en el que existe para actuar. Desconocida cuenta como fuera
+            // del mask: forzar es inocuo si el sistema ya iba a quedar bien.
+            let actual = scene.interfaceOrientation
+            guard actual == .unknown || !mask.contains(actual.asMask) else { return }
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
         }
     }
