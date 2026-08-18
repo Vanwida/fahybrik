@@ -31,9 +31,14 @@ export const STRENGTH_LIFT_SLUGS = [
 export const strengthLiftSlug = z.enum(STRENGTH_LIFT_SLUGS);
 export type StrengthLiftSlug = z.infer<typeof strengthLiftSlug>;
 
-// Provenance of a stored max: onboarding (self-reported at signup) | athlete_test
+// WHO produced a stored max: onboarding (self-reported at signup) | athlete_test
 // (self-entered from the app) | coach_test (coach-recorded, validated). Mirrors
 // athlete_zone_profiles.source.
+//
+// Ojo: esto NO dice si hubo protocolo. Un `coach_test` puede ser el coach
+// escribiendo 110 a mano en la ficha. Lo que dice que el número salió de una
+// batería programada es `assignment_id` (0200). Origen = las dos juntas; el
+// lector que las combina es shared/domain/strength/origen.
 export const STRENGTH_MAX_SOURCES = ['onboarding', 'athlete_test', 'coach_test'] as const;
 export const strengthMaxSource = z.enum(STRENGTH_MAX_SOURCES);
 export type StrengthMaxSource = z.infer<typeof strengthMaxSource>;
@@ -55,6 +60,10 @@ export const athleteStrengthMaxSchema = z.object({
   needs_review: z.boolean().default(false),
   version: z.number().int().min(1),
   notes: z.string().nullable(),
+  // La ocurrencia de batería que produjo este 1RM (0200). Null = no hubo
+  // protocolo: alta, coach a mano, o el atleta apuntándoselo.
+  // Texto: el SELECT lo castea (`assignment_id::text`) y la ficha lo enlaza.
+  assignment_id: z.string().nullable().default(null),
   recorded_at: isoDateTime,
   created_at: isoDateTime,
 });

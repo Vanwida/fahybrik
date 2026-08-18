@@ -152,12 +152,16 @@ describeWithDb('#34 calibration bridge — the full loop (real DB)', () => {
     expect(res.benchmarks_written).toBe(3);
     expect(res.zones_derived).toHaveLength(0);
 
-    const maxes = await sql<{ exercise_slug: string; one_rm_kg: number }[]>`
-      select exercise_slug, one_rm_kg::float8 as one_rm_kg from athlete_strength_maxes
+    const maxes = await sql<{ exercise_slug: string; one_rm_kg: number; assignment_id: string | null }[]>`
+      select exercise_slug, one_rm_kg::float8 as one_rm_kg, assignment_id::text
+      from athlete_strength_maxes
       where athlete_id = ${fx.athleteId} and source = 'coach_test'
     `;
     expect(maxes).toHaveLength(3);
     expect(maxes.find((m) => m.exercise_slug === BENCH_BACK_SQUAT_1RM)?.one_rm_kg).toBe(140);
+    // 0200: cada kilo de la batería ancla la ocurrencia. Sin esto Resumen no
+    // puede distinguirlos de un 80 escrito a mano y acaba diciendo «medidas».
+    expect(maxes.every((m) => m.assignment_id === String(aid))).toBe(true);
   });
 
   test('HYROX half-sim → baseline benchmark only, no zones/maxes', async () => {
