@@ -3466,6 +3466,57 @@ Lo del cursor es más sutil y salió probando contra una rama de Neon: **postgre
 
 ---
 
+## 2026-08-18 · Lo que le falta al atleta y lo que le falta a la receta son dos ejes
+
+**Decidido:** la tira de asignación de Hoy separa **dos ejes independientes** que
+antes viajaban fundidos en un solo texto y un solo botón:
+
+- **Eje A · programa del atleta** — `nunca_asignado` / `bloque_terminado` /
+  `bloque_en_curso`. Es un hecho **sobre él**, computable siempre a partir de su
+  último recibo de microciclo, y no depende de lo que el coach tenga montado. Es
+  el **titular** de la tarjeta.
+- **Eje B · receta del nivel** — lo que falta en su celda (nivel × días). Espeja
+  `ResolveFailureReason` del resolver. Solo explica **por qué no cabe la
+  propuesta de un clic**, y su arreglo sirve a **toda la celda**, no a este
+  atleta. Se etiqueta «Tu método» para que no se lea como un hecho del atleta.
+
+De ahí **dos puertas separadas**: reponer SU bloque (camino del atleta) y montar
+la receta (camino del método). Nunca una sola haciéndose pasar por la otra. Un
+atleta con bloque vigente deja de aparecer en la tira.
+
+**Por qué:** en el recorrido del 18-ago (`docs/coach-ux-recorrido.html`, hallazgo
+«Método vs atleta»), Marc — que había recorrido un microciclo de biblioteca
+terminado el 26 de julio — y Guillem — que nunca tuvo ninguno — salían con el
+**mismo texto** («No hay secuencia para N3·5d») y el **mismo botón**, a
+periodización. El estado de la receta del coach estaba hablando por el atleta, y
+el único arreglo ofrecido no era el suyo: un bloque de biblioteca se puede
+asignar **sin secuencia ninguna** (Marc es la prueba). El Plan del atleta mandaba
+de vuelta a Hoy y Hoy mandaba a periodización: el círculo se cerraba sin puerta.
+
+**Decidido también:** «el sistema sigue tu método solo» es una **afirmación** y
+exige la entrevista completa (`puedeAfirmarMetodo`: 34/34). Con 2 de 34, Hoy
+describe lo que hace sin atribuirlo a un método que no está escrito. **No
+bloquea nada** — solo deja de afirmarlo.
+
+**En consecuencia, no hacer:** no auto-asignar el siguiente bloque (reponer usa
+`assign-draft`, que deja las semanas en borrador privado con
+`delivery_mode='manual'` — el cron nunca las publica; publicar sigue siendo otro
+acto del coach). No decidir **qué** bloque toca ni **cada cuánto**: eso es método
+del coach, aquí solo se nombra el hueco y se abren las puertas. No bloquear la
+ficha hasta terminar las 34 preguntas. No devolver un tercer estado de
+publicación.
+
+**Dónde vive:** `shared/domain/coach/hoy-asignacion.ts` (los dos ejes, las
+puertas y el copy), `shared/domain/coach/club-hoy.ts` (`hoyIntroCopy`),
+`shared/domain/coach/method-interview.ts` (`puedeAfirmarMetodo`),
+`web/lib/dashboard/v2/hoy-lanes.ts` (recibo → eje A, filtro de hueco),
+`web/components/v2/hoy/AsignacionSugeridaCard.tsx` y
+`web/components/v2/hoy/ReponerBloqueModal.tsx`. Tests:
+`web/tests/coach/hoy-asignacion.test.ts` (barre la matriz 3 programas × 5
+recetas, no solo los dos atletas del recorrido).
+
+---
+
 ## Anteriores (reconstruidas del historial de migraciones)
 
 Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún sitio legible. Se documentan ahora para que nadie las rehaga.

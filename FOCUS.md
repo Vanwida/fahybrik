@@ -2,9 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-18** (carril Visible/Borrador · N de M)
+Última actualización: **2026-08-18** (Hoy: receta vs bloque · Production intacta)
 
 ## Ahora
+
+**Receta vs bloque en Hoy (`feat/coach-hoy-receta-vs-bloque`):** la tira
+de asignación separa el programa del atleta (titular: nunca tuvo /
+terminó el X) de la receta de su celda (motivo: «Tu método»). Dos
+puertas: Reponer bloque (modal de biblioteca → `assign-draft`, queda en
+borrador) y Crear receta. «El sistema sigue tu método» exige 34/34.
+Ley: DECISIONS 18-ago «Lo que le falta al atleta y lo que le falta a la
+receta son dos ejes». No se asigna solo. No main, no Production.
 
 **Carril del microciclo (`feat/coach-parcial-rail`):** badge «N de M
 publicadas», cada semana del carril Visible / Borrador, ejecución

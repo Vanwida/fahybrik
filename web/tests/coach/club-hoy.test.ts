@@ -14,6 +14,7 @@ import {
   hoyEmptyLane,
   hoyEmptyLaneById,
   hoyHeadlineKind,
+  hoyIntroCopy,
 } from '@fahybrid/shared/domain/coach/club-hoy';
 
 const MARC_GUILLEM = clubWeekCensus(['bloque_terminado', 'sin_plan']);
@@ -112,11 +113,30 @@ describe('hoyEmptyBoard / clubWeekPill — no «siguen su plan» si nadie ve la 
     expect(`${empty.what_to_do} ${empty.why}`.toLowerCase()).not.toMatch(/buena señal/);
   });
 
-  test('con semana viva el vacío del tablero sigue siendo calma', () => {
-    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']));
+  test('con semana viva y método escrito el vacío del tablero es calma', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']), {
+      answered: 34,
+      total: 34,
+    });
     expect(empty.title).toBe('Nada requiere tu atención');
     expect(empty.what_to_do).toMatch(/siguen su plan/);
+    expect(empty.what_to_do).toMatch(/sigue tu método/);
     expect(empty.why).toMatch(/buena señal/);
+  });
+
+  test('recorrido: 2 de 34 no autoriza «sigue tu método», ni con semana viva', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible']), {
+      answered: 2,
+      total: 34,
+    });
+    expect(empty.what_to_do.toLowerCase()).not.toMatch(/sigue tu método/);
+    expect(empty.why.toLowerCase()).not.toMatch(/buena señal/);
+    expect(empty.what_to_do).toMatch(/no es que el sistema siga un método/);
+  });
+
+  test('sin cobertura no se afirma el método — el default no inventa 34/34', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']));
+    expect(empty.what_to_do.toLowerCase()).not.toMatch(/sigue tu método/);
   });
 
   test('pill del club: 0 de 2, tono warn — no ok', () => {
@@ -132,4 +152,64 @@ describe('hoyEmptyBoard / clubWeekPill — no «siguen su plan» si nadie ve la 
       tone: 'ok',
     });
   });
+});
+
+describe('hoyIntroCopy — no afirmar método con 2 de 34', () => {
+  const DEMO = { answered: 2, total: 34 };
+
+  test('recorrido Coach Demo 1: 2/34 no dice que el sistema sigue el método', () => {
+    const copy = hoyIntroCopy({ live: true, method: DEMO });
+    expect(copy.afirma_metodo).toBe(false);
+    expect(copy.propone_body).toMatch(/siguiente bloque/);
+    expect(copy.propone_body).toMatch(/receta de nivel/);
+    expect(`${copy.propone_body} ${copy.vacia_body}`.toLowerCase()).not.toMatch(
+      /sigue tu método|según tu método/,
+    );
+  });
+
+  test('34/34 y semana viva sí puede afirmarlo', () => {
+    const copy = hoyIntroCopy({ live: true, method: { answered: 34, total: 34 } });
+    expect(copy.afirma_metodo).toBe(true);
+    expect(copy.vacia_body).toMatch(/según tu método/);
+  });
+
+  test('sin semana viva no afirma, aunque la entrevista esté llena', () => {
+    const copy = hoyIntroCopy({ live: false, method: { answered: 34, total: 34 } });
+    expect(copy.afirma_metodo).toBe(false);
+    expect(copy.vacia_body).toMatch(/nadie ve la semana/);
+  });
+
+  // El eje entero, no el caso de delante: live × cobertura. El fallo que esto
+  // caza es el que tuvo el WIP — sin semana viva el título decía «Cada hueco,
+  // por su nombre» y debajo seguía «Cada atleta cae en su secuencia y recibe el
+  // plan automáticamente». Título que no afirma sobre cuerpo que sí.
+  const COBERTURAS = [
+    { label: 'sin entrevista cargada', method: undefined },
+    { label: '0 de 34', method: { answered: 0, total: 34 } },
+    { label: '2 de 34', method: { answered: 2, total: 34 } },
+    { label: '33 de 34', method: { answered: 33, total: 34 } },
+    { label: '34 de 34', method: { answered: 34, total: 34 } },
+    { label: 'catálogo vacío (0 de 0)', method: { answered: 0, total: 0 } },
+  ] as const;
+
+  for (const live of [true, false] as const) {
+    for (const { label, method } of COBERTURAS) {
+      test(`titular y cuerpo van juntos · live=${live} · ${label}`, () => {
+        const copy = hoyIntroCopy({ live, method });
+        const esperaAfirmar = live && method != null && method.total > 0 && method.answered >= method.total;
+
+        expect(copy.live).toBe(live);
+        expect(copy.afirma_metodo).toBe(esperaAfirmar);
+        // El título afirma exactamente cuando el cuerpo afirma.
+        expect(copy.propone_title === 'El sistema propone').toBe(esperaAfirmar);
+        expect(/autom[áa]ticamente/.test(copy.propone_body)).toBe(esperaAfirmar);
+        // Y nunca se atribuye a un método que no está escrito.
+        if (!esperaAfirmar) {
+          expect(
+            `${copy.propone_title} ${copy.propone_body} ${copy.vacia_body}`.toLowerCase(),
+          ).not.toMatch(/sigue tu método|según tu método/);
+        }
+      });
+    }
+  }
 });

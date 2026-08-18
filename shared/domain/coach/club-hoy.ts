@@ -7,6 +7,7 @@
 // No publica. No asigna el mes.
 
 import { weekIsDelivered, type AthleteWeekChipKind } from './athlete-week-chip';
+import { puedeAfirmarMetodo } from './method-interview';
 
 export type ClubWeekCensus = {
   total: number;
@@ -83,18 +84,79 @@ export function hoyEmptyLane(id: HoyLaneId, census: ClubWeekCensus): HoyEmptyLan
   };
 }
 
-export function hoyEmptyBoard(census: ClubWeekCensus): HoyEmptyBoard {
+export type MethodCoverage = {
+  answered: number;
+  total: number;
+};
+
+export function hoyEmptyBoard(
+  census: ClubWeekCensus,
+  method?: MethodCoverage,
+): HoyEmptyBoard {
   if (clubHasLiveWeek(census)) {
+    const afirma =
+      method != null ? puedeAfirmarMetodo(method.answered, method.total) : false;
     return {
       title: 'Nada requiere tu atención',
-      what_to_do: `Tus ${census.total} atletas siguen su plan. El sistema sigue tu método solo.`,
-      why: 'Esto es buena señal: Hoy se llena cuando alguien se sale del molde.',
+      what_to_do: afirma
+        ? `Tus ${census.total} atletas siguen su plan. El sistema sigue tu método solo.`
+        : `Tus ${census.total} atletas tienen semana. Eso no es que el sistema siga un método.`,
+      why: afirma
+        ? 'Esto es buena señal: Hoy se llena cuando alguien se sale del molde.'
+        : 'Cómo entrenas no está escrito. El vacío no afirma un método.',
     };
   }
   return {
     title: 'Nadie ve esta semana',
     what_to_do: 'Ningún atleta ve sesiones de esta semana.',
     why: 'El vacío no es que el club esté bien.',
+  };
+}
+
+/**
+ * Copy del intro de Hoy. Dos ejes independientes:
+ *
+ *   · `live`  — ¿hay alguien que vea su semana? Es contexto del club.
+ *   · `afirma_metodo` — ¿podemos decir «el sistema sigue tu método solo»? Solo
+ *     con la entrevista completa Y semana viva: 2 de 34 no autoriza esa frase,
+ *     y sin nadie viendo su semana el sistema no está siguiendo nada.
+ *
+ * El primer micro-paso (título + cuerpo) se decide ENTERO aquí. Antes el título
+ * vivía en HoyBoard y el cuerpo aquí, y sin semana viva salía «Cada hueco, por
+ * su nombre» encima de «Cada atleta cae en su secuencia y recibe el plan
+ * automáticamente» — un título que no afirma sobre un cuerpo que sí.
+ */
+export type HoyIntroCopy = {
+  /** ¿Hay al menos un atleta que ve su semana? Contexto, no método. */
+  live: boolean;
+  /** ¿Se puede decir «el sistema sigue tu método»? */
+  afirma_metodo: boolean;
+  /** Título del primer micro-paso. Va con `propone_body`: se deciden juntos. */
+  propone_title: string;
+  propone_body: string;
+  vacia_body: string;
+};
+
+export function hoyIntroCopy(params: {
+  live: boolean;
+  method?: MethodCoverage;
+}): HoyIntroCopy {
+  const afirma =
+    params.live &&
+    params.method != null &&
+    puedeAfirmarMetodo(params.method.answered, params.method.total);
+  return {
+    live: params.live,
+    afirma_metodo: afirma,
+    propone_title: afirma ? 'El sistema propone' : 'Cada hueco, por su nombre',
+    propone_body: afirma
+      ? 'Cada atleta cae en su secuencia y recibe el plan automáticamente.'
+      : 'Si a un atleta le falta el siguiente bloque, eso. Si tu receta de nivel está vacía, eso, aparte.',
+    vacia_body: !params.live
+      ? 'Una bandeja vacía no significa que el club esté bien si nadie ve la semana.'
+      : afirma
+        ? 'Una bandeja vacía significa que todo va según tu método.'
+        : 'Una bandeja vacía no significa que el método esté escrito.',
   };
 }
 

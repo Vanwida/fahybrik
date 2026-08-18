@@ -160,6 +160,15 @@ export function answeredQuestionCount(answers: CoachMethodAnswers): number {
   return n;
 }
 
+/**
+ * ¿Se puede afirmar «el sistema sigue tu método»?
+ * Solo con la entrevista completa. 2 de 34 no es un método (recorrido 18-ago).
+ * No bloquea la ficha: solo decide si Hoy puede decir esa frase.
+ */
+export function puedeAfirmarMetodo(answered: number, total: number): boolean {
+  return total > 0 && answered >= total;
+}
+
 export function hasMethodInterview(input: {
   generated_mirror?: string | null;
   mirror_text?: string | null;
