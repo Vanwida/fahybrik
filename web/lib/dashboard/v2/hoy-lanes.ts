@@ -32,8 +32,20 @@ import { sql } from '@/lib/db';
 import {
   resolveSequenceForAthlete,
   type ResolveFailureReason,
+  type ResolveSequenceResult,
 } from '@/lib/dashboard/coach/assign-sequence';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import {
+  SEQUENCE_DAYS_MAX,
+  SEQUENCE_DAYS_MIN,
+} from '@fahybrid/shared/schema/program-sequences';
+import {
+  estadoProgramaAtleta,
+  recetaDesdeFallo,
+  tieneHueco,
+  type EstadoProgramaAtleta,
+  type EstadoRecetaNivel,
+} from '@fahybrid/shared/domain/coach/hoy-asignacion';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */
@@ -284,10 +296,23 @@ export async function fetchNivelSugeridoCards(
 // NivelSugeridoCard's job (confirm level first), so we don't double-surface them.
 
 /**
- * A one-click auto-assignment proposal for a classified, not-yet-enrolled athlete.
- * Two shapes, discriminated by `kind`:
- *   · 'ok'     → ready to assign; carries the first microciclo preview.
- *   · 'blocked'→ resolver returned a "why not"; carries an actionable fix.
+ * Lo que le falta a un atleta clasificado sin inscripción de secuencia. La tarjeta
+ * lleva LOS DOS EJES separados (shared/domain/coach/hoy-asignacion):
+ *
+ *   · `programa` — el hecho del atleta: nunca tuvo bloque, o el suyo terminó. Es
+ *     el TITULAR. No depende de lo que el coach tenga montado.
+ *   · `receta`   — lo que falta en su celda (nivel × días). Solo explica por qué
+ *     no cabe la propuesta de un clic, y su arreglo es del MÉTODO.
+ *
+ * Antes solo existía el segundo, y hablaba por el primero: Marc (bloque de
+ * biblioteca terminado el 26 de julio) y Guillem (que nunca tuvo ninguno) salían
+ * los dos con «No hay secuencia para N3·5d» y un único botón que llevaba a
+ * periodización. Ver docs/coach-ux-recorrido.html.
+ *
+ * Dos formas, discriminadas por `kind`:
+ *   · 'ok'     → la receta resuelve; se puede proponer el primer microciclo.
+ *   · 'blocked'→ no resuelve; el titular sigue siendo del atleta y las dos
+ *                salidas (atleta / método) van separadas.
  */
 export type V2AsignacionSugeridaCard =
   | {
@@ -300,6 +325,8 @@ export type V2AsignacionSugeridaCard =
       level_name: string;
       /** Training days per week resolved for the athlete. */
       days_per_week: number;
+      /** Eje A — qué le pasó a SU programa (titular de la tarjeta). */
+      programa: EstadoProgramaAtleta;
       /** Name of the FIRST microciclo to materialize on accept. */
       first_microciclo_name: string;
       /** Weeks defined in that first microciclo (via program_month_weeks). */
@@ -312,6 +339,10 @@ export type V2AsignacionSugeridaCard =
       athlete_name: string;
       /** Real level code (always present — these athletes are classified). */
       level_name: string;
+      /** Eje A — qué le pasó a SU programa (titular de la tarjeta). */
+      programa: EstadoProgramaAtleta;
+      /** Eje B — qué falta en su celda, tipado (nunca hablando por el atleta). */
+      receta: EstadoRecetaNivel;
       /** The structured "why not" code from the resolver. */
       reason: ResolveFailureReason;
       /** Human one-liner from the resolver (e.g. "No hay secuencia para N4·5d."). */
@@ -322,6 +353,28 @@ type EligibleAthleteRow = {
   athlete_id: string;
   athlete_name: string;
 };
+
+/** El recibo de microciclo más reciente por atleta (eje A). */
+type UltimoReciboRow = {
+  athlete_id: string;
+  end_date: string;
+  month_name: string | null;
+};
+
+function recetaDesdeResolver(
+  res: Extract<ResolveSequenceResult, { ok: false }>,
+): EstadoRecetaNivel {
+  const nivel = res.athlete?.level_name ?? 'su nivel';
+  const dias = res.athlete?.training_days_per_week;
+  const celda = dias != null ? `${nivel} · ${dias} días` : nivel;
+  return recetaDesdeFallo({
+    reason: res.reason,
+    celda,
+    dias: dias ?? null,
+    min: SEQUENCE_DAYS_MIN,
+    max: SEQUENCE_DAYS_MAX,
+  });
+}
 
 type FirstItemPreviewRow = {
   athlete_id: string;
@@ -412,11 +465,34 @@ export async function fetchAsignacionSugeridaCards(
     }
   }
 
+  const athleteIds = eligible.map((e) => Number(e.athlete_id));
+  const recibos = await sql<UltimoReciboRow[]>`
+    SELECT DISTINCT ON (ama.athlete_id)
+      ama.athlete_id::text AS athlete_id,
+      to_char(ama.end_date, 'YYYY-MM-DD') AS end_date,
+      pmt.name AS month_name
+    FROM athlete_month_assignments ama
+    LEFT JOIN program_month_templates pmt ON pmt.id = ama.month_template_id
+    WHERE ama.athlete_id = ANY(${athleteIds}::bigint[])
+    ORDER BY ama.athlete_id, ama.start_date DESC
+  `;
+  const reciboByAthlete = new Map<string, UltimoReciboRow>();
+  for (const rec of recibos) reciboByAthlete.set(rec.athlete_id, rec);
+  const hoyIso = isoDateString(startOfDayInBox(new Date()));
+
   const cards: V2AsignacionSugeridaCard[] = [];
   for (const r of resolutions) {
     if (!r) continue;
     const { row, res } = r;
     const athleteId = Number(row.athlete_id);
+    const recibo = reciboByAthlete.get(row.athlete_id);
+    const programa = estadoProgramaAtleta(
+      recibo ? { end_date: recibo.end_date, month_name: recibo.month_name } : null,
+      hoyIso,
+    );
+    // Un bloque vigente no es caso de esta tira: el hueco es del atleta, no
+    // de que falte inscripción en secuencia.
+    if (!tieneHueco(programa)) continue;
 
     if (res.ok) {
       const preview = previewByAthlete.get(row.athlete_id);
@@ -429,6 +505,14 @@ export async function fetchAsignacionSugeridaCards(
           athlete_id: athleteId,
           athlete_name: row.athlete_name,
           level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
+          programa,
+          receta: recetaDesdeFallo({
+            reason: 'empty_sequence',
+            celda: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
+            dias: res.athlete.training_days_per_week,
+            min: SEQUENCE_DAYS_MIN,
+            max: SEQUENCE_DAYS_MAX,
+          }),
           reason: 'empty_sequence',
           message: 'El primer microciclo de la secuencia ya no existe.',
         });
@@ -441,6 +525,7 @@ export async function fetchAsignacionSugeridaCards(
         athlete_name: row.athlete_name,
         level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
         days_per_week: res.athlete.training_days_per_week!,
+        programa,
         first_microciclo_name: preview.name,
         first_microciclo_weeks: preview.week_count,
       });
@@ -456,6 +541,8 @@ export async function fetchAsignacionSugeridaCards(
       athlete_id: athleteId,
       athlete_name: row.athlete_name,
       level_name: res.athlete?.level_name ?? 'Sin nivel',
+      programa,
+      receta: recetaDesdeResolver(res),
       reason: res.reason,
       message: res.message,
     });

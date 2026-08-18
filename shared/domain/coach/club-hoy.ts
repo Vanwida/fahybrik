@@ -7,6 +7,7 @@
 // No publica. No asigna el mes.
 
 import { weekIsDelivered, type AthleteWeekChipKind } from './athlete-week-chip';
+import { puedeAfirmarMetodo } from './method-interview';
 
 export type ClubWeekCensus = {
   total: number;
@@ -83,18 +84,70 @@ export function hoyEmptyLane(id: HoyLaneId, census: ClubWeekCensus): HoyEmptyLan
   };
 }
 
-export function hoyEmptyBoard(census: ClubWeekCensus): HoyEmptyBoard {
+export type MethodCoverage = {
+  answered: number;
+  total: number;
+};
+
+export function hoyEmptyBoard(
+  census: ClubWeekCensus,
+  method?: MethodCoverage,
+): HoyEmptyBoard {
   if (clubHasLiveWeek(census)) {
+    const afirma =
+      method != null ? puedeAfirmarMetodo(method.answered, method.total) : false;
     return {
       title: 'Nada requiere tu atención',
-      what_to_do: `Tus ${census.total} atletas siguen su plan. El sistema sigue tu método solo.`,
-      why: 'Esto es buena señal: Hoy se llena cuando alguien se sale del molde.',
+      what_to_do: afirma
+        ? `Tus ${census.total} atletas siguen su plan. El sistema sigue tu método solo.`
+        : `Tus ${census.total} atletas tienen semana. Eso no es que el sistema siga un método.`,
+      why: afirma
+        ? 'Esto es buena señal: Hoy se llena cuando alguien se sale del molde.'
+        : 'Cómo entrenas no está escrito. El vacío no afirma un método.',
     };
   }
   return {
     title: 'Nadie ve esta semana',
     what_to_do: 'Ningún atleta ve sesiones de esta semana.',
     why: 'El vacío no es que el club esté bien.',
+  };
+}
+
+/**
+ * Copy del intro de Hoy. La frase «el sistema sigue tu método» solo sale
+ * con entrevista completa. 2 de 34 no autoriza esa afirmación.
+ */
+export function hoyIntroCopy(params: {
+  live: boolean;
+  method?: MethodCoverage;
+}): {
+  afirma_metodo: boolean;
+  propone_body: string;
+  vacia_body: string;
+} {
+  const afirma =
+    params.live &&
+    params.method != null &&
+    puedeAfirmarMetodo(params.method.answered, params.method.total);
+  if (!params.live) {
+    return {
+      afirma_metodo: false,
+      propone_body: 'Cada atleta cae en su secuencia y recibe el plan automáticamente.',
+      vacia_body: 'Una bandeja vacía no significa que el club esté bien si nadie ve la semana.',
+    };
+  }
+  if (afirma) {
+    return {
+      afirma_metodo: true,
+      propone_body: 'Cada atleta cae en su secuencia y recibe el plan automáticamente.',
+      vacia_body: 'Una bandeja vacía significa que todo va según tu método.',
+    };
+  }
+  return {
+    afirma_metodo: false,
+    propone_body:
+      'Si a un atleta le falta el siguiente bloque, eso. Si tu receta de nivel está vacía, eso, aparte.',
+    vacia_body: 'Una bandeja vacía no significa que el método esté escrito.',
   };
 }
 

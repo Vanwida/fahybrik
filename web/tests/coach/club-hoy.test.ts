@@ -14,6 +14,7 @@ import {
   hoyEmptyLane,
   hoyEmptyLaneById,
   hoyHeadlineKind,
+  hoyIntroCopy,
 } from '@fahybrid/shared/domain/coach/club-hoy';
 
 const MARC_GUILLEM = clubWeekCensus(['bloque_terminado', 'sin_plan']);
@@ -112,11 +113,30 @@ describe('hoyEmptyBoard / clubWeekPill — no «siguen su plan» si nadie ve la 
     expect(`${empty.what_to_do} ${empty.why}`.toLowerCase()).not.toMatch(/buena señal/);
   });
 
-  test('con semana viva el vacío del tablero sigue siendo calma', () => {
-    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']));
+  test('con semana viva y método escrito el vacío del tablero es calma', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']), {
+      answered: 34,
+      total: 34,
+    });
     expect(empty.title).toBe('Nada requiere tu atención');
     expect(empty.what_to_do).toMatch(/siguen su plan/);
+    expect(empty.what_to_do).toMatch(/sigue tu método/);
     expect(empty.why).toMatch(/buena señal/);
+  });
+
+  test('recorrido: 2 de 34 no autoriza «sigue tu método», ni con semana viva', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible']), {
+      answered: 2,
+      total: 34,
+    });
+    expect(empty.what_to_do.toLowerCase()).not.toMatch(/sigue tu método/);
+    expect(empty.why.toLowerCase()).not.toMatch(/buena señal/);
+    expect(empty.what_to_do).toMatch(/no es que el sistema siga un método/);
+  });
+
+  test('sin cobertura no se afirma el método — el default no inventa 34/34', () => {
+    const empty = hoyEmptyBoard(clubWeekCensus(['visible', 'visible']));
+    expect(empty.what_to_do.toLowerCase()).not.toMatch(/sigue tu método/);
   });
 
   test('pill del club: 0 de 2, tono warn — no ok', () => {
@@ -131,5 +151,31 @@ describe('hoyEmptyBoard / clubWeekPill — no «siguen su plan» si nadie ve la 
       label: '1 de 2 ven esta semana',
       tone: 'ok',
     });
+  });
+});
+
+describe('hoyIntroCopy — no afirmar método con 2 de 34', () => {
+  const DEMO = { answered: 2, total: 34 };
+
+  test('recorrido Coach Demo 1: 2/34 no dice que el sistema sigue el método', () => {
+    const copy = hoyIntroCopy({ live: true, method: DEMO });
+    expect(copy.afirma_metodo).toBe(false);
+    expect(copy.propone_body).toMatch(/siguiente bloque/);
+    expect(copy.propone_body).toMatch(/receta de nivel/);
+    expect(`${copy.propone_body} ${copy.vacia_body}`.toLowerCase()).not.toMatch(
+      /sigue tu método|según tu método/,
+    );
+  });
+
+  test('34/34 y semana viva sí puede afirmarlo', () => {
+    const copy = hoyIntroCopy({ live: true, method: { answered: 34, total: 34 } });
+    expect(copy.afirma_metodo).toBe(true);
+    expect(copy.vacia_body).toMatch(/según tu método/);
+  });
+
+  test('sin semana viva no afirma, aunque la entrevista esté llena', () => {
+    const copy = hoyIntroCopy({ live: false, method: { answered: 34, total: 34 } });
+    expect(copy.afirma_metodo).toBe(false);
+    expect(copy.vacia_body).toMatch(/nadie ve la semana/);
   });
 });
