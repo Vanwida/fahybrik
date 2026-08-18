@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-18 · Parcial son tres nombres; el carril dice Visible / Borrador
+
+**El hueco:** `docs/coach-ux-grok.html`. «Parcial» era una palabra para tres cosas: el microciclo a medias de publicar (badge `parcial · N sem en borrador`), la sesión que el atleta guardó a medias (`assignment_status='partial'`), y el MCP `get_plan` («publicado a medias»). En el lienzo, al cambiar de semana, no se veía cuál ve el atleta. Marc (Preview): 17–23 ago en `draft`, 24–30 `published`.
+
+**Decidido:** tres frases de coach, una puerta. Badge = `N de M publicadas` (`publishBadgeLabel`). Carril del microciclo = cada semana `Visible` / `Borrador` (misma puerta que `athleteSeesItFromWeeklyStatus`: solo `draft` esconde). Ejecución cortada = `a medias` (el token DB no cambia). `get_plan` usa el mismo recuento, no «publicado a medias». El enum interno `publish_state: 'partial'` se queda — es mecanismo. Publicar sigue siendo el botón / MCP; cargar el estado no escribe.
+
+**NO hacer:** no auto-publicar. no llamar «parcial» al badge, al carril ni a la ejecución. no mezclar este carril con el chip de la semana calendario (Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan). no exigir fila `published` para pintar Visible.
+
+---
+
 ## 2026-08-18 · Hoy del club no pinta salud si nadie ve la semana; el alta no dice «antes de arrancar» con rastro
 
 **El hueco:** recorrido 18-ago, Coach Demo 1 (`docs/coach-ux-recorrido.html`). `/es/hoy`: «3 decisiones» y cuatro checks verdes. Marc (bloque 13–26 jul) + Guillem (sin plan) = 0 semanas vivas. Los verdes decían que el club está sano. Altas: «Esperan tu revisión antes de arrancar» sobre Marc a 32 días, que ya entrenó, chateó y tiene el bloque vencido. El alta no es un portón de existencia del plan: puede quedar abierta encima de alguien que ya vive en el club.

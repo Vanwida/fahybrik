@@ -32,6 +32,7 @@ import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-a
 import type { AssignmentDetailBlock } from '@/lib/athlete/assignment-detail';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { doseText, type SessionContentSummary } from '@/lib/coach/session-content';
+import { mcpMicrocicloPhrase } from '@fahybrid/shared/domain/coach/microciclo-rail';
 
 // ---------------------------------------------------------------------------
 // get_plan
@@ -460,13 +461,8 @@ export function planResumen(plan: AthletePlanPayload): string {
   const counts = [`${sessions.length} ${plural(sessions.length, 'sesión', 'sesiones')}`];
   if (done > 0) counts.push(`${done} ${plural(done, 'hecha', 'hechas')}`);
   if (missed > 0) counts.push(`${missed} sin hacer`);
-  if (plan.microciclo && plan.microciclo.publish_state !== 'published') {
-    counts.push(
-      plan.microciclo.publish_state === 'draft'
-        ? 'todavía en borrador (él no lo ve)'
-        : 'publicado a medias',
-    );
-  }
+  const microPhrase = plan.microciclo ? mcpMicrocicloPhrase(plan.microciclo) : null;
+  if (microPhrase) counts.push(microPhrase);
   return `${plan.athlete_name}, ${span}: ${joinEs(counts)}.`;
 }
 
