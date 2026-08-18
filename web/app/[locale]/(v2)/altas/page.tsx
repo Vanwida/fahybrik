@@ -6,6 +6,8 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { listPendingIntake } from '@/lib/coach/intake';
+import { withAltaLife } from '@/lib/coach/load-alta-life';
+import { ALTA_LIFE_UNVERIFIED } from '@fahybrid/shared/domain/coach/alta-stance';
 import { AltasQueue } from '@/components/v2/intake/AltasQueue';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +19,10 @@ export default async function AltasPage({ params }: { params: Promise<{ locale: 
   const session = await getCoachSession();
   if (!session) return null;
 
-  const pending = await listPendingIntake({ coach_id: session.coach_id }).catch(() => []);
+  const raw = await listPendingIntake({ coach_id: session.coach_id }).catch(() => []);
+  const pending = await withAltaLife(raw).catch(() =>
+    raw.map((p) => ({ ...p, life: ALTA_LIFE_UNVERIFIED })),
+  );
 
   return <AltasQueue pending={pending} />;
 }

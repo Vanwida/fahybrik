@@ -23,6 +23,9 @@ import {
   fetchTransitionReadyAthleteIds,
 } from '@/lib/dashboard/v2/hoy-lanes';
 import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
+import { withAltaLife } from '@/lib/coach/load-alta-life';
+import { ALTA_LIFE_UNVERIFIED } from '@fahybrid/shared/domain/coach/alta-stance';
+import { clubWeekCensus } from '@fahybrid/shared/domain/coach/club-hoy';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,14 +84,19 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     transition_ready_ids,
   });
 
+  const altas = await withAltaLife(pending_intakes).catch(() =>
+    pending_intakes.map((p) => ({ ...p, life: ALTA_LIFE_UNVERIFIED })),
+  );
+
   return (
     <HoyBoard
       data={data}
       today={todayLabel()}
       coach_name={session.full_name}
       coachKey={String(session.coach_id)}
-      pending_intakes={pending_intakes}
+      pending_intakes={altas}
       activity={activity}
+      week_census={clubWeekCensus(athletes.map((a) => a.week_chip.kind))}
     />
   );
 }
