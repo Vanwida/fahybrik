@@ -6,7 +6,8 @@
 import { Link } from '@/i18n/navigation';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { MIcon } from '@/components/ui/MIcon';
-import type { PendingIntakeAthlete } from '@/lib/coach/intake';
+import type { PendingAlta } from '@/lib/coach/pending-alta';
+import { altaRowHint } from '@fahybrid/shared/domain/coach/alta-stance';
 import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 function waitingLabel(hours: number): string {
@@ -16,7 +17,7 @@ function waitingLabel(hours: number): string {
   return `${days} ${days === 1 ? 'día' : 'días'}`;
 }
 
-export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlete[] }) {
+export function AltasPendientesStrip({ pending }: { pending: PendingAlta[] }) {
   if (pending.length === 0) return null;
 
   return (
@@ -48,7 +49,11 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
                 </span>
                 <span className="inline-flex items-center gap-1 text-label text-[color:var(--v2-faint)]">
                   <MIcon name="hourglass_top" size={12} />
-                  esperando {waitingLabel(a.hours_since_onboarded)}
+                  {(() => {
+                    const hint = altaRowHint(a.life);
+                    const wait = waitingLabel(a.hours_since_onboarded);
+                    return hint ? `${hint} · ${wait}` : `esperando ${wait}`;
+                  })()}
                 </span>
               </div>
             </div>

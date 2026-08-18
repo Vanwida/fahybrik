@@ -2,24 +2,26 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-18** (semana que no miente)
+Última actualización: **2026-08-18** (Hoy + altas honestos)
 
 ## Ahora
 
-**Semana honesta (feat/coach-honest-week, siguiente al #34):** Resumen y
-Plan titulan la semana calendario del chip. Un bloque de julio no se llama
-«Esta semana». Una semana vacía no se pinta como 7×Descanso ni se lee como
-frescura. Ley: DECISIONS 18-ago «Resumen y Plan titulan la semana
-calendario». No se publica solo. No main, no Production, no FLEXR.
+**Hoy + altas honestos (`feat/coach-hoy-altas-honestas`):** `/es/hoy`
+no pinta salud si nadie ve la semana. El alta no dice «antes de
+arrancar» si el atleta ya entrenó, chateó o tiene bloque vencido.
+Ley: DECISIONS 18-ago «Hoy del club no pinta salud». No se publica
+solo. No se asigna el mes. No main, no Production, no FLEXR.
+
+**Semana honesta (#35, en trunk):** Resumen y Plan titulan la semana
+calendario del chip. Un bloque de julio no se llama «Esta semana».
 
 **Chip de entrega (#34, en trunk):** Visible · No lo ve · Semana vacía ·
 Bloque terminado · Sin plan. Misma puerta que MCP `athlete_sees_it`.
 
-**Trunk 18-ago:** #29–#34 en `integration/trunk`. No main.
+**Trunk 18-ago:** #29–#35 en `integration/trunk`. No main.
 
 **Clonabilidad iOS (#33):** marca/bundle/dominio/esquema/equipo en
-`settings.base`. Team id en AASA (público, decisión pendiente). Página de
-soporte 404 bloquea revisión Apple.
+`settings.base`. Team id en AASA (público, decisión pendiente).
 
 **Carrera hogar:** shipeada en Swift (13-ago). Plan personal atleta 64
 cerrado. Tests = loop (CMJ + feedback `test_result`, mig 0196).

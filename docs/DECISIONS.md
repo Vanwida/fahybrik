@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-18 · Hoy del club no pinta salud si nadie ve la semana; el alta no dice «antes de arrancar» con rastro
+
+**El hueco:** recorrido 18-ago, Coach Demo 1 (`docs/coach-ux-recorrido.html`). `/es/hoy`: «3 decisiones» y cuatro checks verdes. Marc (bloque 13–26 jul) + Guillem (sin plan) = 0 semanas vivas. Los verdes decían que el club está sano. Altas: «Esperan tu revisión antes de arrancar» sobre Marc a 32 días, que ya entrenó, chateó y tiene el bloque vencido. El alta no es un portón de existencia del plan: puede quedar abierta encima de alguien que ya vive en el club.
+
+**Decidido:** semana viva = chip `Visible` (el atleta ve sesiones de esta semana calendario). Draft (`No lo ve`) no cuenta: él no la ve. Funciones puras `clubWeekCensus` / `hoyEmptyLane` / `hoyHeadlineKind` / `clubWeekPill`: sin semana viva el vacío de lane es neutro (no check verde, no «Fisiología en verde» ni «Nadie ha fallado»), el tablero vacío no dice que siguen su plan, el pill avisa «Nadie ve esta semana». El alta (`altaStartStance`): la frase «antes de arrancar» solo si NADIE de la cola entrenó, escribió, ni tiene semana Visible / No lo ve / Bloque terminado. Si falta la evidencia, no se afirma. La fila nombra el rastro (`Ya entrenó` / `Ya escribió` / `Bloque terminado`). El alta sigue abierta.
+
+**NO hacer:** no auto-publicar. no auto-asignar el mes siguiente. no mezclar cerrar el alta con asignar el siguiente mes. no pintar check de salud sobre un vacío de entrega.
+
+---
+
 ## 2026-08-18 · Resumen y Plan titulan la semana calendario, no un bloque viejo
 
 **El hueco:** el chip del 18-ago dice la verdad (Marc: Bloque terminado; Guillem: Semana vacía / Sin plan) y Resumen/Plan seguían mintiendo al lado. Resumen titulaba «Esta semana» y pintaba `weeks[0]` si el lunes de caja no estaba en el plan anclado — Marc veía 13–19 jul en agosto. Un día sin sesión se pintaba «Descanso», así que una semana vacía eran 7 descansos y la frescura se leía sobre 0 km.
