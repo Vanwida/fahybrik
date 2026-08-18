@@ -80,10 +80,8 @@ struct TreadmillHUDView: View {
         .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
         .onAppear {
             model.start()
-            // The workout screen underneath already holds the display awake for the
-            // whole session; ensure it here and let ActiveWorkoutView restore it when
-            // the workout ends (turning it off now would wake-lock off mid-run).
-            UIApplication.shared.isIdleTimerDisabled = true
+            // La pantalla despierta la lleva WorkoutContainer por fase (dueño
+            // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
         }
         .onDisappear { model.teardown() }
         // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
