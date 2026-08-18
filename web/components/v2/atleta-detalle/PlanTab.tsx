@@ -14,9 +14,14 @@ import { CadenaPersonalPanel } from './CadenaPersonalPanel';
 import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { FichaCard, FichaLabel, FilaVacia } from './resumen/piezas';
 import { SemanaCanvas } from './plan/semana';
+import { MicrocicloRail } from './plan/carril';
 import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import {
+  executionStatusLabel,
+  publishBadgeLabel,
+} from '@fahybrid/shared/domain/coach/microciclo-rail';
 import {
   honestWeekHeading,
   initialPlanWeekIndex,
@@ -164,14 +169,13 @@ export function PlanTab({
       : blockName;
 
   const publish = plan.microciclo;
-  const publishLabel =
-    !publish || publish.session_count === 0
-      ? 'sin publicar'
-      : publish.publish_state === 'published'
-        ? 'publicado'
-        : publish.publish_state === 'partial'
-          ? `parcial · ${publish.draft_week_count} sem en borrador`
-          : 'borrador';
+  const publishLabel = publish
+    ? publishBadgeLabel(publish)
+    : null;
+  const railWeeks = publish?.weeks ?? [];
+  const viewedRail = activeWeek
+    ? (railWeeks.find((w) => w.week_start === activeWeek.week_start) ?? null)
+    : null;
 
   return (
     <>
@@ -252,12 +256,29 @@ export function PlanTab({
             </div>
           </FichaCard>
 
+          {railWeeks.length > 0 ? (
+            <FichaCard>
+              <FichaLabel>Semanas</FichaLabel>
+              <div className="mt-3">
+                <MicrocicloRail
+                  weeks={railWeeks}
+                  activeWeekStart={activeWeek?.week_start ?? null}
+                  onSelect={(weekStart) => {
+                    const idx = plan.weeks.findIndex((w) => w.week_start === weekStart);
+                    if (idx >= 0) setWeekIdx(idx);
+                  }}
+                />
+              </div>
+            </FichaCard>
+          ) : null}
+
           {activeWeek ? (
             <SemanaCanvas
               week={activeWeek}
               todayIso={today}
               label={weekLabel}
               chip={weekChip}
+              viewedRailVisible={viewedRail ? viewedRail.visible : null}
               paintDays={!isCalendarWeek || heading.paint_days}
               emptyCopy={heading.empty_copy}
               canPrev={clampedWeekIdx > 0}
@@ -314,13 +335,7 @@ export function PlanTab({
                         {s.title}
                       </span>
                       <span className="v2-num shrink-0 text-[12px] text-[color:var(--v2-muted)]">
-                        {s.status === 'completed'
-                          ? 'hecha'
-                          : s.status === 'partial'
-                            ? 'parcial'
-                            : s.status === 'missed'
-                              ? 'sin hacer'
-                              : s.status}
+                        {executionStatusLabel(s.status)}
                         {s.rpe != null ? ` · RPE ${s.rpe}` : ''}
                       </span>
                     </button>

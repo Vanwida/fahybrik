@@ -2,17 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-18** (seed demo draft week · Preview)
+Última actualización: **2026-08-18** (carril Visible/Borrador · N de M)
 
 ## Ahora
 
+**Carril del microciclo (`feat/coach-parcial-rail`):** badge «N de M
+publicadas», cada semana del carril Visible / Borrador, ejecución
+cortada = «a medias». No se dice «parcial». No se publica solo.
+Caso: Marc 17–23 draft, 24–30 published. Ley: DECISIONS 18-ago
+«Parcial son tres nombres».
+
 **Borrador vivo en Preview (`feat/demo-draft-week`):** Marc Vidal
-(`athlete.demo1@demo.fahybrid.local`, Coach Demo 1) tiene la semana
-calendario actual en `weekly_plans.status=draft` (`delivery_mode=manual`,
-el cron no la suelta) y la otra semana del bloque Acumulación
-`published`. Guillem no se toca. Production no. Recorrido: Preview
-`/es/acceso-demo` → Coach Demo 1 → Marc → Plan. Seed:
-`infra/scripts/seed_demo_draft_week.ts` (DATABASE_URL Preview inline).
+tiene 17–23 ago en `draft` (`delivery_mode=manual`) y 24–30
+`published`. Recorrido: Preview `/es/acceso-demo` → Coach Demo 1 →
+Marc → Plan.
 
 **Hoy + altas honestos (`feat/coach-hoy-altas-honestas`):** `/es/hoy`
 no pinta salud si nadie ve la semana. El alta no dice «antes de

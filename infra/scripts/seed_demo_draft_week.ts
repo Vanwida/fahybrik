@@ -21,8 +21,8 @@
  *
  * Recorrido:
  *   Preview → /es/acceso-demo → Coach Demo 1 → Marc Vidal → Plan.
- *   Semana actual: badge parcial + botón Publicar; él no la ve.
- *   La otra semana del bloque: Visible.
+ *   Semana actual: carril Borrador + badge «1 de 2 publicadas» + Publicar.
+ *   La otra semana del bloque: carril Visible.
  *
  * IDEMPOTENTE: si ya hay asignación que cubre este lunes, no rematerializa
  * (0166 rechazaría el solape); solo re-estampa los dos `weekly_plans`.

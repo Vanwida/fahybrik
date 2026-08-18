@@ -5,8 +5,10 @@ import { FichaCard, FichaLabel, PillEstado } from '../resumen/piezas';
 import type { PlanDay, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import { formatRangoSemana, sesionesDelDia } from '@/lib/dashboard/v2/ficha-resumen';
 import { cn } from '@/lib/utils';
+import { Pill } from '@/components/v2/Pill';
 import { WeekStateChip } from '@/components/v2/WeekStateChip';
 import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { railWeekLabel } from '@fahybrid/shared/domain/coach/microciclo-rail';
 
 /** A day with 8 lifts is a day, not a feed. The grid shows a few and the rest
  *  lives in the day editor. */
@@ -23,6 +25,7 @@ export function SemanaCanvas({
   todayIso,
   label,
   chip,
+  viewedRailVisible = null,
   paintDays = true,
   emptyCopy = null,
   canPrev,
@@ -40,6 +43,8 @@ export function SemanaCanvas({
   todayIso: string;
   label: string;
   chip: AthleteWeekChip;
+  /** Visibilidad de la semana que se está mirando (carril). null = no está en el microciclo. */
+  viewedRailVisible?: boolean | null;
   paintDays?: boolean;
   emptyCopy?: string | null;
   canPrev: boolean;
@@ -58,7 +63,21 @@ export function SemanaCanvas({
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
         <div className="flex flex-wrap items-baseline gap-2">
           <FichaLabel className="m-0">{label}</FichaLabel>
-          <WeekStateChip chip={chip} />
+          {viewedRailVisible == null ? (
+            <WeekStateChip chip={chip} />
+          ) : (
+            <Pill
+              tone={viewedRailVisible ? 'ok' : 'warn'}
+              variant="soft"
+              title={
+                viewedRailVisible
+                  ? 'El atleta ve esta semana'
+                  : 'Borrador · el atleta no la ve'
+              }
+            >
+              {railWeekLabel(viewedRailVisible)}
+            </Pill>
+          )}
           <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">
             {formatRangoSemana(week.week_start, week.week_end)}
           </span>
