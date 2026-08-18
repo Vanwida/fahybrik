@@ -7,6 +7,7 @@
 
 import { describe, expect, test } from 'vitest';
 import {
+  ejeDelArreglo,
   estadoProgramaAtleta,
   puertasAsignacion,
   recetaDesdeFallo,
@@ -155,5 +156,109 @@ describe('puedeAfirmarMetodo — 2 de 34 no es un método', () => {
 
   test('total 0 no afirma (defensivo)', () => {
     expect(puedeAfirmarMetodo(0, 0)).toBe(false);
+  });
+});
+
+// ── El eje entero, no los dos atletas del recorrido ──────────────────────────
+//
+// Marc y Guillem son el caso que lo destapó, no la especificación. Lo que la
+// pieza promete es una propiedad de TODA la matriz: 3 estados de programa × 5
+// estados de receta. Estas tablas la barren entera.
+
+const PROGRAMAS: Array<{ label: string; programa: EstadoProgramaAtleta }> = [
+  { label: 'nunca_asignado', programa: GUILLEM },
+  { label: 'bloque_terminado', programa: MARC },
+  {
+    label: 'bloque_en_curso',
+    programa: estadoProgramaAtleta({ end_date: '2026-09-01', month_name: 'Vivo' }, HOY),
+  },
+];
+
+const RECETAS: Array<{ label: string; receta: EstadoRecetaNivel; eje: 'metodo' | 'atleta' | null }> = [
+  { label: 'lista', receta: { kind: 'lista' }, eje: null },
+  { label: 'sin_receta', receta: SIN_RECETA_N3, eje: 'metodo' },
+  { label: 'receta_vacia', receta: { kind: 'receta_vacia', celda: N3_5D }, eje: 'metodo' },
+  { label: 'faltan_dias', receta: { kind: 'faltan_dias' }, eje: 'atleta' },
+  {
+    label: 'dias_fuera_de_banda',
+    receta: { kind: 'dias_fuera_de_banda', dias: 2, min: 3, max: 6 },
+    eje: 'atleta',
+  },
+];
+
+describe('la matriz completa · 3 programas × 5 recetas', () => {
+  for (const { label: pLabel, programa } of PROGRAMAS) {
+    for (const { label: rLabel, receta, eje } of RECETAS) {
+      test(`${pLabel} × ${rLabel}`, () => {
+        const t = textoAsignacion({ programa, receta });
+        const puertas = puertasAsignacion({ programa, receta });
+
+        // El titular es SIEMPRE del atleta: jamás nombra la celda ni la receta.
+        expect(t.titular).not.toMatch(/secuencia|receta|N3|días a la semana/);
+        // El motivo es SIEMPRE del método/dato de celda: jamás cuenta su historia.
+        if (t.motivo) {
+          expect(t.motivo).not.toMatch(/Terminó|Todavía no tiene|sin bloque/);
+        }
+        // Motivo existe exactamente cuando la receta no resuelve.
+        expect(t.motivo != null).toBe(receta.kind !== 'lista');
+        expect(ejeDelArreglo(receta)).toBe(eje);
+
+        if (!tieneHueco(programa)) {
+          expect(puertas).toEqual([]);
+          return;
+        }
+        // Con hueco, reponer SU bloque está siempre disponible: no depende de
+        // que el coach haya montado nada.
+        expect(puertas.some((p) => p.accion === 'reponer_bloque')).toBe(true);
+        // La puerta del método sale solo cuando el arreglo es del método, y
+        // nunca sola: la del atleta va delante.
+        expect(puertas.some((p) => p.accion === 'crear_receta')).toBe(eje === 'metodo');
+        expect(puertas.some((p) => p.accion === 'editar_dias')).toBe(eje === 'atleta');
+        expect(puertas.filter((p) => p.eje === 'atleta').length).toBeGreaterThan(0);
+      });
+    }
+  }
+});
+
+describe('el tamaño del hueco se dice como lo diría una persona', () => {
+  const casos: Array<[string, string | null]> = [
+    ['2026-08-17', 'Lleva 1 día sin bloque.'],
+    ['2026-08-16', 'Lleva 2 días sin bloque.'],
+    ['2026-08-12', 'Lleva 6 días sin bloque.'],
+    ['2026-08-11', 'Lleva 1 semana sin bloque.'],
+    ['2026-08-04', 'Lleva 2 semanas sin bloque.'],
+  ];
+  for (const [fin, esperado] of casos) {
+    test(`terminó el ${fin}`, () => {
+      const t = textoAsignacion({
+        programa: estadoProgramaAtleta({ end_date: fin, month_name: 'X' }, HOY),
+        receta: { kind: 'lista' },
+      });
+      expect(t.hueco).toBe(esperado);
+    });
+  }
+
+  test('nunca tuvo bloque: no hay hueco que medir', () => {
+    expect(textoAsignacion({ programa: GUILLEM, receta: { kind: 'lista' } }).hueco).toBeNull();
+  });
+});
+
+describe('recetaDesdeFallo — lo que no reconoce cae del lado del método', () => {
+  test('not_classified y un código desconocido no inventan un fallo del atleta', () => {
+    for (const reason of ['not_classified', 'algo_que_no_existe']) {
+      expect(recetaDesdeFallo({ reason, celda: N3_5D, dias: 5, min: 3, max: 6 })).toEqual({
+        kind: 'sin_receta',
+        celda: N3_5D,
+      });
+    }
+  });
+
+  test('days_out_of_band sin días conocidos no rompe', () => {
+    expect(recetaDesdeFallo({ reason: 'days_out_of_band', celda: 'N3', dias: null, min: 3, max: 6 })).toEqual({
+      kind: 'dias_fuera_de_banda',
+      dias: 0,
+      min: 3,
+      max: 6,
+    });
   });
 });

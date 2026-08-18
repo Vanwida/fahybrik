@@ -31,7 +31,6 @@ import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { sql } from '@/lib/db';
 import {
   resolveSequenceForAthlete,
-  type ResolveFailureReason,
   type ResolveSequenceResult,
 } from '@/lib/dashboard/coach/assign-sequence';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
@@ -341,12 +340,12 @@ export type V2AsignacionSugeridaCard =
       level_name: string;
       /** Eje A — qué le pasó a SU programa (titular de la tarjeta). */
       programa: EstadoProgramaAtleta;
-      /** Eje B — qué falta en su celda, tipado (nunca hablando por el atleta). */
+      /**
+       * Eje B — qué falta en su celda, tipado. Única fuente del "why not" que se
+       * pinta: el `reason`/`message` crudos del resolver ya no viajan, porque
+       * eran una segunda copia del mismo hecho y la que hablaba por el atleta.
+       */
       receta: EstadoRecetaNivel;
-      /** The structured "why not" code from the resolver. */
-      reason: ResolveFailureReason;
-      /** Human one-liner from the resolver (e.g. "No hay secuencia para N4·5d."). */
-      message: string;
     };
 
 type EligibleAthleteRow = {
@@ -513,8 +512,6 @@ export async function fetchAsignacionSugeridaCards(
             min: SEQUENCE_DAYS_MIN,
             max: SEQUENCE_DAYS_MAX,
           }),
-          reason: 'empty_sequence',
-          message: 'El primer microciclo de la secuencia ya no existe.',
         });
         continue;
       }
@@ -543,8 +540,6 @@ export async function fetchAsignacionSugeridaCards(
       level_name: res.athlete?.level_name ?? 'Sin nivel',
       programa,
       receta: recetaDesdeResolver(res),
-      reason: res.reason,
-      message: res.message,
     });
   }
 
