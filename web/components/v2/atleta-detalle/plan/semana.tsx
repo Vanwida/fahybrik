@@ -23,6 +23,8 @@ export function SemanaCanvas({
   todayIso,
   label,
   chip,
+  paintDays = true,
+  emptyCopy = null,
   canPrev,
   canNext,
   showHoy,
@@ -38,6 +40,8 @@ export function SemanaCanvas({
   todayIso: string;
   label: string;
   chip: AthleteWeekChip;
+  paintDays?: boolean;
+  emptyCopy?: string | null;
   canPrev: boolean;
   canNext: boolean;
   showHoy: boolean;
@@ -80,21 +84,27 @@ export function SemanaCanvas({
 
       {focus ? <div className="px-4 pt-3">{focus}</div> : null}
 
-      <div className="mt-3 grid grid-cols-7 gap-px bg-[#EDE7DE] dark:bg-[color:var(--v2-border)]">
-        {week.days.map((d, i) => (
-          <DiaCol
-            key={d.iso_date}
-            day={d}
-            short={DAY_SHORT[i] ?? d.label}
-            todayIso={todayIso}
-            athleteId={athleteId}
-            onOpen={onOpen}
-            dayHref={dayHref}
-            first={i === 0}
-            last={i === week.days.length - 1}
-          />
-        ))}
-      </div>
+      {paintDays ? (
+        <div className="mt-3 grid grid-cols-7 gap-px bg-[#EDE7DE] dark:bg-[color:var(--v2-border)]">
+          {week.days.map((d, i) => (
+            <DiaCol
+              key={d.iso_date}
+              day={d}
+              short={DAY_SHORT[i] ?? d.label}
+              todayIso={todayIso}
+              athleteId={athleteId}
+              onOpen={onOpen}
+              dayHref={dayHref}
+              first={i === 0}
+              last={i === week.days.length - 1}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 pb-4 pt-3">
+          <p className="text-[13px] text-[color:var(--v2-muted)]">{emptyCopy}</p>
+        </div>
+      )}
     </FichaCard>
   );
 }
