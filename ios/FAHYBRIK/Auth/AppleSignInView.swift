@@ -232,8 +232,8 @@ enum DemoEntry {
 #endif
 
 private struct LegalAcknowledgementText: View {
-    private static let privacyURL = URL(string: "https://fahybrid.com/privacy")!
-    private static let termsURL = URL(string: "https://fahybrid.com/terms")!
+    private static let privacyURL = Marca.privacidad
+    private static let termsURL = Marca.terminos
 
     var body: some View {
         let attributed: AttributedString = {

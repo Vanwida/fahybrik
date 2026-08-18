@@ -75,7 +75,7 @@ extension WorkoutSession {
     }
 
     /// Consola del dispositivo — el canal por el que se depura en el gimnasio.
-    private static let repsLog = Logger(subsystem: "com.fahybrik.sensor", category: "reps")
+    private static let repsLog = Logger(subsystem: Marca.subsistemaLog("sensor"), category: "reps")
 
     /// Conteo en vivo. El número que manda la muñeca es el de LA SERIE ABIERTA y
     /// es absoluto: el contador del reloj emite cada repetición una vez, al

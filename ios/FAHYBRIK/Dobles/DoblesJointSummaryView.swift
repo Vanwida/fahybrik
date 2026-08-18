@@ -199,7 +199,7 @@ struct DoblesJointShareCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.Color.muted)
                 Spacer()
-                Text("fahybrid.com")
+                Text(Marca.dominioWeb)
                     .font(.system(size: 12, weight: .semibold)).tracking(1.2)
                     .foregroundStyle(Theme.Color.faint)
             }

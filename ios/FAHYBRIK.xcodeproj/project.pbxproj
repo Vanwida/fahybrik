@@ -181,6 +181,7 @@
 		3C5DA580832E71E2C03E78E4 /* KeychainTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAB7D87F7B2112418BD4516 /* KeychainTokenStore.swift */; };
 		3C8DDBA07356D0EDC06ECD01 /* FTMSTreadmillParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150C8A6EAB2B6FC85A7D0ED7 /* FTMSTreadmillParser.swift */; };
 		3C9C1BE3BB2C4BCAFB44CF4A /* SegmentPayloadBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */; };
+		3D6EEA07484CC11CE91F6123 /* Marca.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896EC1A4C3D3358026159348 /* Marca.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
 		3E55F85773197FF1BD26983A /* EspejoRelojDeParedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */; };
 		3EFA167417339F48C82665BE /* LiveTramo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875822AD5A6180C450B3EE21 /* LiveTramo.swift */; };
@@ -388,6 +389,7 @@
 		8C7A16DA6778BB2B0D9BA5E5 /* LecturaDeCarreraDesdeDetalle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9D9A511F800CC9F0A54FFF0 /* LecturaDeCarreraDesdeDetalle.swift */; };
 		8D166C23847531560CAF20D4 /* ComunicadosRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C4E3CC564310D52A1DE108 /* ComunicadosRenderTests.swift */; };
 		8D47A791EFC15AAB5892C044 /* VelocityBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527B6B20D42AB64D4F086227 /* VelocityBand.swift */; };
+		8D4F2F670EE3C60304B31C52 /* Marca.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896EC1A4C3D3358026159348 /* Marca.swift */; };
 		8D8868BDE5DADDAC6A37AFEA /* LifecycleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9BCAC54B1135B6D52A350D /* LifecycleService.swift */; };
 		8DEE0437EA5937750E042D9C /* ZoneColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D0CFAFFC697A7A0094E1F1 /* ZoneColors.swift */; };
 		8E21D993997C9EFB2B962BA1 /* PRCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41BF2CACC5E2925AC09BFD /* PRCelebrationView.swift */; };
@@ -1096,6 +1098,7 @@
 		88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLiveDataSources.swift; sourceTree = "<group>"; };
 		8915E616B82CB5366D36A6F3 /* FTMSControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSControlTests.swift; sourceTree = "<group>"; };
 		8925609DB271071B935E9CF7 /* HRRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRRecovery.swift; sourceTree = "<group>"; };
+		896EC1A4C3D3358026159348 /* Marca.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Marca.swift; sourceTree = "<group>"; };
 		8981AEE1687A28AE700CC44D /* GuionEmomTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionEmomTests.swift; sourceTree = "<group>"; };
 		8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdStep.swift; sourceTree = "<group>"; };
 		8C040930274FF65628C57B9E /* LenguajeVivoCascada.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LenguajeVivoCascada.swift; sourceTree = "<group>"; };
@@ -2292,6 +2295,7 @@
 				021EE92493AA33528CE56ADE /* Theme */,
 				B2B38ABACFBA2E036E95CD76 /* Watch */,
 				41837D4D40F920DB8CE8C951 /* Workout */,
+				896EC1A4C3D3358026159348 /* Marca.swift */,
 			);
 			path = FAHYBRIKCore;
 			sourceTree = "<group>";
@@ -2967,11 +2971,17 @@
 						DevelopmentTeam = TBD;
 						ProvisioningStyle = Automatic;
 					};
+					966A3685D7CBCD58C63D69D5 = {
+						DevelopmentTeam = TBD;
+						ProvisioningStyle = Automatic;
+					};
 					BF96FA3CBD1E39E579E26595 = {
 						DevelopmentTeam = TBD;
 						ProvisioningStyle = Automatic;
 					};
 					D3A6C918B3FECD30E5432594 = {
+						DevelopmentTeam = TBD;
+						ProvisioningStyle = Automatic;
 						TestTargetID = BF96FA3CBD1E39E579E26595;
 					};
 					F598A89B889C6BDDD7380AC8 = {
@@ -3281,6 +3291,7 @@
 				8D8868BDE5DADDAC6A37AFEA /* LifecycleService.swift in Sources */,
 				E217263D19C7CB664EC8652E /* LifecycleSheets.swift in Sources */,
 				FAA922BE9971BD41CE70D0CA /* LiveTramo.swift in Sources */,
+				8D4F2F670EE3C60304B31C52 /* Marca.swift in Sources */,
 				41BE0F9D69F594A52799B6C9 /* MarkDetailView.swift in Sources */,
 				7D7144BECF667E742DF4A951 /* MarksLibraryView.swift in Sources */,
 				2536C41E6F8614CD2BADBEC3 /* MarksService.swift in Sources */,
@@ -3509,6 +3520,7 @@
 				EEBC99BA15D17BB81E7AC277 /* LiveHUDShared.swift in Sources */,
 				3EFA167417339F48C82665BE /* LiveTramo.swift in Sources */,
 				6C294DDB41A3122F1D2F50CA /* LiveWorkoutSession.swift in Sources */,
+				3D6EEA07484CC11CE91F6123 /* Marca.swift in Sources */,
 				C7AE5A6084D1678C991120A8 /* MirrorHUDView.swift in Sources */,
 				47791F6DD5FC985FF62276C9 /* MirrorSessionController.swift in Sources */,
 				BC0375C7CF4DE6A2B0F3187A /* MirrorWireModels.swift in Sources */,
@@ -3773,8 +3785,6 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = TBD;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -3783,7 +3793,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).widgets";
 				PRODUCT_NAME = FAHYBRIKWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;
@@ -3800,11 +3810,9 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
-				DEVELOPMENT_TEAM = TBD;
 				ENABLE_PREVIEWS = YES;
-				FAHYBRIK_API_BASE = "https://app.fahybrid.com";
+				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
 				FAHYBRIK_DEMO_ENTRY = 0;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIK/Generated-Info.plist";
@@ -3813,7 +3821,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID)";
 				PRODUCT_NAME = FAHYBRIK;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -3828,12 +3836,10 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = TBD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWatch/Generated-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).watchkitapp";
 				PRODUCT_NAME = FAHYBRIKWatch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -3849,12 +3855,10 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = TBD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWatch/Generated-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).watchkitapp";
 				PRODUCT_NAME = FAHYBRIKWatch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -3876,7 +3880,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).uitests";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FAHYBRIK;
@@ -3896,7 +3900,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).tests";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -3908,6 +3912,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BRAND_BUNDLE_ID = com.fahybrid.app;
+				BRAND_DISPLAY_NAME = FAHYBRID;
+				BRAND_URL_SCHEME = fahybrid;
+				BRAND_WEB_DOMAIN = fahybrid.com;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -3937,9 +3945,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 20;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -3981,11 +3991,9 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
-				DEVELOPMENT_TEAM = TBD;
 				ENABLE_PREVIEWS = YES;
-				FAHYBRIK_API_BASE = "https://app.fahybrid.com";
+				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
 				FAHYBRIK_DEMO_ENTRY = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIK/Generated-Info.plist";
@@ -3994,7 +4002,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID)";
 				PRODUCT_NAME = FAHYBRIK;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -4007,6 +4015,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BRAND_BUNDLE_ID = com.fahybrid.app;
+				BRAND_DISPLAY_NAME = FAHYBRID;
+				BRAND_URL_SCHEME = fahybrid;
+				BRAND_WEB_DOMAIN = fahybrid.com;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -4036,9 +4048,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 20;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -4077,7 +4091,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).tests";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -4097,7 +4111,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).uitests";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = FAHYBRIK;
@@ -4109,8 +4123,6 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = TBD;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -4119,7 +4131,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BRAND_BUNDLE_ID).widgets";
 				PRODUCT_NAME = FAHYBRIKWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;

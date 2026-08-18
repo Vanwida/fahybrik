@@ -146,12 +146,12 @@ If a new SDK is added, this table and Section 2 of the App Privacy questionnaire
 
 - Retention: as long as the athlete account is active. Workouts and biometric streams retained for the life of the account so longitudinal analysis works (multi-year training cycles).
 - Deletion: athletes can request account deletion via the in-app Settings → Delete Account (must ship before App Store submission — Apple Guideline 5.1.1(v)). Deletion removes PII, workouts, chat. Anonymous aggregates may persist for product analytics.
-- This is documented in detail at https://fahybrik.com/privacy (owned by #37 privacy-tos).
+- This is documented in detail at https://fahybrid.com/privacy (owned by #37 privacy-tos).
 
 ## Verification checklist before App Store submission
 
 - [ ] Account deletion flow exists in the iOS app (Apple Guideline 5.1.1(v))
-- [ ] Privacy policy URL is live at https://fahybrik.com/privacy
+- [ ] Privacy policy URL is live at https://fahybrid.com/privacy
 - [ ] Each SDK in section 5 is still in the app (no stale entries, no missing entries)
 - [ ] Info.plist usage strings match what's declared here (HealthKit, Bluetooth, Camera, Microphone, Photo Library)
 - [ ] App Tracking Transparency: confirm `ATTrackingManager` is NOT linked / NOT called (run `nm` on the .ipa — should not see `ASIdentifierManager`)

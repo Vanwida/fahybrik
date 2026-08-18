@@ -17,7 +17,7 @@ struct DeviceDiagnostics {
     let role: String
     /// One shared logger; the tag is per-role so a console filter of "[CINTA]" pulls the
     /// treadmill's whole trace.
-    private static let logger = Logger(subsystem: "com.fahybrik.devices", category: "ble")
+    private static let logger = Logger(subsystem: Marca.subsistemaLog("devices"), category: "ble")
     private var consoleTag: String { "[\(role.uppercased())]" }
     private var name: String?
     private var identifier: String?
@@ -93,7 +93,7 @@ struct DeviceDiagnostics {
     func text() -> String? {
         guard name != nil || !services.isEmpty || !events.isEmpty || !facts.isEmpty else { return nil }
         var lines: [String] = []
-        lines.append("FAHYBRID · diagnóstico de conexión (\(role))")
+        lines.append("\(Marca.nombre) · diagnóstico de conexión (\(role))")
         lines.append("Dispositivo: \(name ?? "sin nombre")")
         if let identifier { lines.append("ID: \(identifier)") }
         if !facts.isEmpty {

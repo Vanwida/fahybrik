@@ -217,7 +217,7 @@ struct DeviceBluetoothGuidance: View {
     private var detail: String {
         switch availability {
         case .poweredOff:   return "Actívalo desde el Centro de Control y vuelve aquí."
-        case .unauthorized: return "Permite Bluetooth para FAHYBRID en Ajustes para conectar tu \(deviceWord)."
+        case .unauthorized: return "Permite Bluetooth para \(Marca.nombre) en Ajustes para conectar tu \(deviceWord)."
         default:            return "Este iPhone no soporta Bluetooth Low Energy."
         }
     }

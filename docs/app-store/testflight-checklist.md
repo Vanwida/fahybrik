@@ -9,6 +9,8 @@ owner: Alex
 
 This is the end-to-end runbook from "no Apple Developer account" to "first build live in TestFlight". Each block calls out who's blocked: 🔒 Alex (needs Apple Developer credentials, can't be agent-completed) vs 🤖 agent-doable.
 
+Para publicar una **segunda marca** desde este mismo código, este runbook se recorre igual pero con los identificadores de esa marca: qué se cambia y dónde está en `docs/ios-clonabilidad.md`.
+
 ## 0. Prerequisites — 🔒 Alex only
 
 - [ ] Apple ID registered at https://appleid.apple.com (operator account; never a personal Gmail).
@@ -40,7 +42,7 @@ Two paths:
 
 **Path A — Automatic signing (recommended for solo dev):**
 - [ ] In Xcode → Project → Signing & Capabilities, set Team to the Vanwida team. Xcode generates Distribution + Development certs and provisioning profiles automatically.
-- [ ] Update `ios/project.yml` `DEVELOPMENT_TEAM: TBD` → real 10-char ID, regenerate xcodeproj (`xcodegen generate`), commit.
+- [ ] Update `ios/project.yml` `DEVELOPMENT_TEAM: TBD` → real 10-char ID, regenerate xcodeproj (`xcodegen generate`), commit. **Una sola línea**, en `settings.base`: los tres targets firmables lo heredan (antes estaba escrito en cada uno). Sin tocar el repo también vale: `xcodebuild … DEVELOPMENT_TEAM=AB12CD34EF`.
 
 **Path B — Manual signing with Fastlane Match (only if a CI pipeline lands later):**
 - [ ] Create a private Vanwida org repo `vanwida/fahybrik-certificates` (gitignored from this repo).
@@ -89,8 +91,8 @@ For testing with Pablo's actual athletes (not internal team):
 - [ ] Provide:
    - **Beta App Description** (≤ 4000 chars): copy from metadata-es.md description.
    - **Feedback Email**: `coach@example.com`.
-   - **Test Information**: link to `https://fahybrik.com/testflight-info` or paste the reviewer notes from metadata-es.md.
-   - **Demo Account** (REQUIRED for external testing review): `appstore-demo@fahybrik.com` + magic link. Whitelist this email in Resend so the reviewer can receive it.
+   - **Test Information**: link to `https://fahybrid.com/testflight-info` or paste the reviewer notes from metadata-es.md.
+   - **Demo Account** (REQUIRED for external testing review): `appstore-demo@fahybrid.com` + magic link. Whitelist this email in Resend so the reviewer can receive it.
 - [ ] Submit the build for **Beta App Review** (Apple does an abbreviated review for external TestFlight, faster than full App Store review — typically 24 h).
 - [ ] On approval, send public TestFlight link to the cohort.
 
@@ -105,7 +107,7 @@ Out of scope for v1. When ready:
 
 ## 8. Hard rules & risk flags
 
-- 🚨 **Never commit Apple cert content to this repo.** `.p12`, `.cer`, `.mobileprovision`, App Store Connect API keys are all in `.gitignore` — verify before any push. The Fastfile/Appfile here only references env vars; the actual credentials live at `~/.openclaw/credentials/vanwida-tokens.env`.
+- 🚨 **Never commit Apple cert content to this repo.** `.p12`, `.cer`, `.mobileprovision`, `AuthKey_*.p8` are in `.gitignore` — **añadidos el 2026-08-18**. Hasta esa fecha esta línea ya lo prometía y era falso: no había ni un patrón, así que un `git add` de una carpeta de certificados metía la clave privada de distribución en un repo que se clona para vender. Verificado con `git check-ignore -v`. The Fastfile/Appfile here only references env vars; the actual credentials live at `~/.openclaw/credentials/vanwida-tokens.env`.
 - 🚨 **Never test-upload to Apple from CI without an explicit dry-run flag.** A bad metadata push counts as a submission attempt.
 - 🚨 **Account-deletion screen is mandatory** before App Review (Guideline 5.1.1(v)). Currently NOT shipped — needs a follow-up task before submission. (Not a TestFlight blocker, but a full submission blocker.)
 - 🚨 **Bluetooth + Camera + Photos + Microphone usage strings** must match the actual functionality the user can trigger. Apple rejects apps where the string promises a feature the build doesn't include. Current strings reference chat attachments + Concept2 — verify those features exist in the submitted build (chat #32 is shipped; PM5 BLE #36 is in_progress).
@@ -116,5 +118,5 @@ Out of scope for v1. When ready:
 - [ ] Pick the legal entity for App Store Connect (Vanwida LLC vs individual).
 - [ ] Confirm the live coach contact email (never commit it).
 - [ ] Decide IAP route (Stripe-only marketing site vs StoreKit in-app).
-- [ ] Verify `fahybrik.com` Resend domain (privacy/support/marketing URLs all live there).
+- [ ] Verify `fahybrid.com` Resend domain (privacy/support/marketing URLs all live there).
 - [ ] Schedule the first internal TestFlight build and the first external review submission against Pablo's first cohort start date.

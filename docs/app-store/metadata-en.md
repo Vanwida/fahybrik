@@ -56,19 +56,25 @@ HYROX,hybrid,coach,athlete,strength,endurance,RPE,race,Concept2,wall ball,sled,f
 ## Support URL
 
 ```
-https://fahybrik.com/support
+https://fahybrid.com/support
 ```
+
+> 🚨 **BLOCKS REVIEW — the page does not exist.** Checked 2026-08-18: `/support`,
+> `/es/support` and `/en/support` all return 404. Apple opens the Support URL during
+> review and rejects when it fails to load (guideline 1.5). Until 2026-08-18 this field
+> also pointed at `fahybrik.com` — with a K — a domain that does **not** resolve, so the
+> failure predates the typo fix. See `metadata-es.md` for the same note.
 
 ## Marketing URL (optional)
 
 ```
-https://fahybrik.com
+https://fahybrid.com
 ```
 
 ## Privacy Policy URL (required)
 
 ```
-https://fahybrik.com/privacy
+https://fahybrid.com/privacy
 ```
 
 ## What's New in This Version
@@ -92,7 +98,7 @@ Report any issue to your coach via in-app chat.
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
 - Contact email: coach@example.com
-- Demo account: appstore-demo@fahybrik.com (magic link)
+- Demo account: appstore-demo@fahybrid.com (magic link)
 - Reviewer notes: same as Spanish locale.
 
 ## Copyright
