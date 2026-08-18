@@ -23,6 +23,7 @@ import { mondayOfWeek, isoDateString, startOfDayInBox, addDays } from '@fahybrid
 import { FichaCard, FichaLabel, FilaVacia, PillEstado } from './resumen/piezas';
 import { LesionCard } from './resumen/LesionCard';
 import { cn } from '@/lib/utils';
+import { WeekStateChip } from '@/components/v2/WeekStateChip';
 
 const DAY_SHORT = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'] as const;
 
@@ -86,6 +87,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
             <div className="flex flex-wrap items-baseline gap-2">
               <FichaLabel className="m-0">Esta semana</FichaLabel>
+              <WeekStateChip chip={detalle.header.week_chip} />
               <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">
                 {formatRangoSemana(week?.week_start ?? monday, week?.week_end ?? sunday)}
                 {fase ? ` · ${fase}` : ''}

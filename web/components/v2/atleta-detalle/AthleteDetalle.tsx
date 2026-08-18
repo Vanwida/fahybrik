@@ -91,6 +91,7 @@ export function AthleteDetalle({
             athlete_id={header.athlete_id}
             initialSessionId={initialSessionId}
             intakePending={header.status === 'alta'}
+            weekChip={header.week_chip}
           />
         ) : tab === 'rendimiento' ? (
           <RendimientoHome

@@ -25,6 +25,7 @@ import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { AthleteReviewState } from '@/lib/citas/reviews';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -245,6 +246,8 @@ export interface DetalleHeader {
     edited_by_name: string | null;
     edited_at: string | null;
   };
+  /** Entrega de la semana calendario — misma fuente que el roster y el lienzo. */
+  week_chip: AthleteWeekChip;
 }
 
 // ── Stat cluster (the 4 header StatTiles) ──────────────────────────────────────

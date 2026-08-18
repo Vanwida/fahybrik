@@ -91,6 +91,7 @@ export function RosterTable({
           <HeaderCell className="pl-1">Atleta</HeaderCell>
           <HeaderCell>Nivel</HeaderCell>
           <HeaderCell>Estado</HeaderCell>
+          <HeaderCell>Semana</HeaderCell>
           <HeaderCell>Fase actual</HeaderCell>
           <HeaderCell>Adherencia</HeaderCell>
           <HeaderCell>Últ. registro</HeaderCell>
