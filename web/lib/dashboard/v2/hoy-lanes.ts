@@ -198,6 +198,7 @@ function hasPlanGap(a: AthleteRow): boolean {
   return (
     a.programming_status === 'no_month' ||
     a.programming_status === 'month_2_pending' ||
+    a.programming_status === 'block_ended' ||
     a.programming_status === 'empty_week'
   );
 }
@@ -216,7 +217,8 @@ function lowAdherence(a: AthleteRow): boolean {
 
 function fallaReason(a: AthleteRow, inactivityDays: number | null): string {
   if (a.programming_status === 'no_month') return 'Sin plan activo esta semana.';
-  if (a.programming_status === 'month_2_pending') return 'Falta el siguiente bloque del plan.';
+  if (a.programming_status === 'month_2_pending') return 'Hay una propuesta de mes por validar.';
+  if (a.programming_status === 'block_ended') return 'El bloque se acabó. Sin siguiente bloque.';
   if (a.programming_status === 'empty_week') return 'Semana sin sesiones programadas.';
   if (inactivityDays != null) return `${inactivityDays} días sin completar ni registrar nada.`;
   if (a.compliance_pct != null) return `Solo ${a.compliance_pct}% de la semana completado.`;

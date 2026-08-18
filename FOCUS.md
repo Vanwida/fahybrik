@@ -2,9 +2,15 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-18** (Hoy: receta vs bloque · Production intacta)
+Última actualización: **2026-08-19** (bloque terminado ≠ propuesta de mes)
 
 ## Ahora
+
+**Bloque vs propuesta (`feat/coach-bloque-vs-propuesta`):**
+`month_2_pending` ya no mezcla «el bloque se acabó» y «hay una
+propuesta de mes por validar». `block_ended` = sin siguiente bloque
+(crítico). `month_2_pending` = validar propuesta. No auto-asigna.
+No main, no Production.
 
 **Receta vs bloque en Hoy (`feat/coach-hoy-receta-vs-bloque`):** la tira
 de asignación separa el programa del atleta (titular: nunca tuvo /

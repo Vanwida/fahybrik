@@ -39,6 +39,7 @@ export function resolveStatusPill(params: {
   if (
     programming_status === 'pending_proposal' ||
     programming_status === 'month_2_pending' ||
+    programming_status === 'block_ended' ||
     programming_status === 'no_month'
   ) {
     return { kind: 'revision', ...PILL.revision };
