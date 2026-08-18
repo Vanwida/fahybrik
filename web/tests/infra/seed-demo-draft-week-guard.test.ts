@@ -5,7 +5,7 @@ import {
   PROD_HOST,
   assertExplicitPreviewDatabaseUrl,
   hostOfDatabaseUrl,
-} from '../../../infra/scripts/seed_demo_draft_week_guard.ts';
+} from '../../../infra/scripts/seed_demo_draft_week_guard';
 
 const PREVIEW =
   'postgres://preview-user:preview-pass@ep-tiny-firefly-pooler.example.invalid/neondb?sslmode=require';
