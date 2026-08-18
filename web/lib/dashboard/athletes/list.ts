@@ -7,7 +7,8 @@ import {
   startOfDayInBox,
   startOfDayUtc,
 } from '@fahybrid/shared/domain/dates';
-import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
+import { ADHERENCE_WINDOW_DAYS } from '@fahybrid/shared/domain/adherence';
+import { weekCompliancePct } from '@fahybrid/shared/domain/coach/honest-compliance';
 import {
   loadProgrammingStatusMap,
   type ProgrammingStatus,
@@ -320,11 +321,6 @@ export async function fetchAthletesForCoach(params: {
     const prog = statusMap.get(r.athlete_id);
     const programming_status = prog?.status ?? 'ok';
     const programming_label = prog?.label ?? null;
-    // Adherence is undefined without an ACTIVE microciclo: r.block_type is the
-    // current-microciclo name (null when no dated plan window contains today), so
-    // a planless athlete reads "—", never a stale/seed %.
-    const compliance_pct =
-      r.block_type != null ? adherencePct(r.scheduled, r.completed) : null;
     const readiness_score = readinessMap.get(r.athlete_id)?.score ?? null;
 
     let alert_label: string | null = null;
@@ -354,6 +350,11 @@ export async function fetchAthletesForCoach(params: {
     const week_chip = weekChipMap.get(r.athlete_id) ?? SIN_PLAN_CHIP;
     // Entregado = el atleta VE sesiones esta semana. Un draft lleno no es Plan OK.
     const week_ok = weekIsDelivered(week_chip.kind) && !alert_label;
+    // % solo si el chip es Visible. Draft / bloque acabado / vacía no son 0 %.
+    const compliance_pct =
+      r.block_type != null
+        ? weekCompliancePct(week_chip.kind, r.scheduled, r.completed)
+        : null;
 
     return {
       athlete_id: r.athlete_id,
