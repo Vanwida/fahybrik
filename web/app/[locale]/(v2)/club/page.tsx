@@ -24,7 +24,14 @@ export default async function ClubPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const initial = (await getClubSkin(session.coach_id)) ?? emptyClubSkin();
+  // Igual que el layout: Preview sin 0199 (u otro fallo de lectura) no puede
+  // tumbar la ficha. Vacío = marca de este binario.
+  let initial = emptyClubSkin();
+  try {
+    initial = (await getClubSkin(session.coach_id)) ?? emptyClubSkin();
+  } catch {
+    initial = emptyClubSkin();
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col">
