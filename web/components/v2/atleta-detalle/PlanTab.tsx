@@ -184,7 +184,7 @@ export function PlanTab({
           <FichaCard>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <FichaLabel>Plan</FichaLabel>
+                <FichaLabel>Plan del atleta</FichaLabel>
                 <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
                   {microName ?? blockName}
                 </p>

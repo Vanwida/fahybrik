@@ -175,7 +175,7 @@ export function HoyBoard({
             ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-body text-[color:var(--v2-muted)]">Hoy · {today}</span>
+            <span className="text-body text-[color:var(--v2-muted)]">Hoy del club · {today}</span>
             <Pill tone="neutral" variant="soft">
               <span className="v2-num">{data.total_athletes}</span>&nbsp;atletas
             </Pill>
