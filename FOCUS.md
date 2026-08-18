@@ -2,12 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-17** (módulo compartido iOS/watchOS)
+Última actualización: **2026-08-17** (reparto de WorkoutSession)
 
 ## Ahora
 
 **Trunk 17-ago:** #27 HUD apaisado · #26 Cómo entrenas · #28 ficha Club.
 En `integration/trunk`. No main.
+
+**Reparto de `WorkoutSession` (`feat/split-workout-session`, PR abierto):** 3.531
+líneas → 13 ficheros por responsabilidad (estado · máquina · reloj · EMOM ·
+formatos · carrera · bouts · registro · estructurales · hierro · señal · contador
+· recuperación), más los `+Tramo` / `+Trace` que ya estaban. Cero lógica tocada:
+las 3.294 líneas no vacías salen las 3.294, cada una una vez. El estado se queda
+entero en `WorkoutSession.swift` porque Swift no deja propiedades almacenadas en
+extensiones — de ahí 67 propiedades y 27 métodos a interno; 30 métodos siguen
+privados en su motor. Build + build-for-testing OK, suite iOS 1503/0.
+Ley: DECISIONS 17-ago «el motor de la sesión se reparte por responsabilidad».
 
 **Dominio compartido iOS/watchOS (`feat/ios-shared-core`, PR abierto):** los ~50
 `- path:` a mano del target del reloj mueren. Nace `ios/FAHYBRIKCore/` (52
